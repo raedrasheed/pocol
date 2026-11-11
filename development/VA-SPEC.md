@@ -124,7 +124,9 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    fewer than N peers, or is stalled; a listening node releases it 2 min after 2 useful peers hold. A released seed
    has been compatible 30 s, its GetAddr answered or expired, and is not the sync peer. A wanted seed not compatible
    within 30 s is held 1 min, doubling to 6 h (1 min, uncounted, while this host has no compatible peer and no
-   route to it), and the next is wanted; a first compatible peer after none, or a route's return, clears the holds.
+   route to it), and the next is wanted. A failure counts (and doubles) only if a handshake this node dialed verified
+   an address since the seed's last counted failure, so an upstream outage behind a working route leaves each seed
+   held at its current backoff; a first compatible peer after none, or a route's return, clears the holds.
    While stalled, a seed held for W without
    session progress is replaced by the next. A node that finds a seed is itself (§2, its exact `--listen`, or a local
    listener on the seed's port) keeps all other seeds.

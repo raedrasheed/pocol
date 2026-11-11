@@ -29,9 +29,10 @@ impl Slot{
 }
 /// A seed (VA-SPEC §1a.8): its address (canonical) as its dialer knows it (`dial`, the outbound set's text) and its
 /// key, its live connection, when it was last wanted (None: suppressed, not dialed), when its connection became
-/// compatible, whether it is this node itself, and its holds (`fails`, `hold_until_ms`).
+/// compatible, whether it is this node itself, and its holds (`fails`, `hold_until_ms`; `last_count_ms`: its last
+/// counted failure, `Node::seed_policy`).
 pub(super) struct Seed{pub(super) addr:SocketAddr,pub(super) dial:SocketAddr,pub(super) key:Key,pub(super) peer:Option<PeerId>,pub(super) wanted_ms:Option<u64>,
-    pub(super) compatible_ms:Option<u64>,pub(super) is_self:bool,pub(super) fails:u32,pub(super) hold_until_ms:u64}
+    pub(super) compatible_ms:Option<u64>,pub(super) is_self:bool,pub(super) fails:u32,pub(super) hold_until_ms:u64,pub(super) last_count_ms:u64}
 /// The feeler's connection, kept here and never in `Node::peers`; `hello`: its Hello was read.
 pub(super) struct Feeler{id:PeerId,peer:net::Peer,hello:bool}
 /// Shown in `pocol_status.discovery.counters` (plan §6).
@@ -62,7 +63,7 @@ pub(super) struct Out{pub(super) k:usize,pub(super) slots:Vec<Slot>,pub(super) t
 pub const OUT_STATE_BYTES:usize=4096;
 // The struct, the slots and channels (exactly OUTBOUND_MAX + 1 reserved), the seeds, bootstrap addresses, the suppressed set
 // (a HashSet of SEEDS_MAX reserves about twice as many buckets, each with a control byte) and the four anchor lists of
-// at most ANCHORS_MAX fit OUT_STATE_BYTES (760 + 9·80 + 7·226 + 512 + 320 = 3,894 B on x86_64).
+// at most ANCHORS_MAX fit OUT_STATE_BYTES (760 + 9·80 + 7·234 + 512 + 320 = 3,950 B on x86_64).
 const _:()={use std::mem::size_of;let s=super::OUTBOUND_MAX as usize+1;
     assert!(size_of::<Out>()+s*(size_of::<Slot>()+size_of::<SyncSender<SocketAddr>>())+super::SEEDS_MAX*(size_of::<Seed>()+2*(size_of::<SocketAddr>()+1))
         +super::BOOTSTRAP_MAX*size_of::<SocketAddr>()+4*addrbook::ANCHORS_MAX*size_of::<(SocketAddr,u64)>()<=OUT_STATE_BYTES)};
@@ -70,7 +71,7 @@ impl Out{
     /// At `Node::open`, from the resolved settings: K, the seeds (keyed as the book keys them), whether this host is a
     /// seed, the bootstrap addresses. Nothing runs until `Node::disc_start_outbound` installs the slots.
     pub(super) fn new(s:&Discovery)->Self{
-        let mut seeds=Vec::with_capacity(super::SEEDS_MAX);seeds.extend(s.seeds.iter().map(|a|Seed{addr:canon(*a),dial:*a,key:key_of(*a),peer:None,wanted_ms:None,compatible_ms:None,is_self:false,fails:0,hold_until_ms:0}));
+        let mut seeds=Vec::with_capacity(super::SEEDS_MAX);seeds.extend(s.seeds.iter().map(|a|Seed{addr:canon(*a),dial:*a,key:key_of(*a),peer:None,wanted_ms:None,compatible_ms:None,is_self:false,fails:0,hold_until_ms:0,last_count_ms:0}));
         let mut bootstrap=Vec::with_capacity(super::BOOTSTRAP_MAX);bootstrap.extend(s.bootstrap.iter().map(|a|canon(*a)));
         Self{k:s.automatic(),slots:Vec::new(),tx:Vec::new(),feeler:None,next_feeler_ms:0,seeds,suppressed:HashSet::with_capacity(super::SEEDS_MAX),seed_node:s.is_seed,cursor:0,bootstrap,cursor_b:0,
             anchors_left:VecDeque::with_capacity(addrbook::ANCHORS_MAX),loaded_anchors:Vec::with_capacity(addrbook::ANCHORS_MAX),anchors_bad:Vec::with_capacity(addrbook::ANCHORS_MAX),saved_anchors:Vec::with_capacity(addrbook::ANCHORS_MAX),
@@ -151,7 +152,8 @@ impl Node{
     }
     /// D18' for the seeds: a wanted seed that did not become compatible failed locally when this node has no
     /// compatible peer and the seed's family is down or has no route; such a failure is held only seed_hold_base_ms
-    /// and does not count.
+    /// and does not count. A route without upstream (a router whose WAN is down) is no local failure here, but counts
+    /// at most once per seed all the same (`seed_policy`).
     fn local_failure(&self,a:SocketAddr)->bool{self.peer_status.is_empty()&&(self.disc.out.family_down[family(a)].is_some()||!self.route(a))}
     /// A seed's address (VA-SPEC §1a.8).
     fn is_seed_addr(&self,a:SocketAddr)->bool{let a=canon(a);self.disc.out.seeds.iter().any(|s|s.addr==a)}
@@ -505,7 +507,12 @@ impl Node{
     /// without one (one without a listener, D7'a, so that it does not release and want again at the window's end), else
     /// up to SEED_LINKS_MAX. Then one while stalled, healthy < 2 (or for less than
     /// seed_release_ms), starved or not listening (D7'a), else none. A wanted seed not compatible seed_connect_ms after
-    /// it was wanted is held (1 min doubling to 6 h) and the next is wanted. One beyond the target is released: one not
+    /// it was wanted is held (1 min doubling to 6 h) and the next is wanted. Its failure counts (and doubles the hold)
+    /// only if a handshake this node dialed verified an address since its last counted one (`Book::last_good_ms`, the
+    /// rule `Book::failed` applies to entries): behind a route without upstream nothing verifies, so each seed counts
+    /// one failure and its holds stay at its current backoff, and a node that needs its seeds (no listener, a book
+    /// without other listeners) finds one within minutes of the upstream's return, which no peer would announce to it.
+    /// One beyond the target is released: one not
     /// connected first, else one compatible seed_hold_ms whose GetAddr is answered or expired and that is not the sync
     /// peer, the most recently wanted first. While stalled, a wanted seed compatible for W without session progress is
     /// replaced by the next, at most once per W, never while the session progresses.
@@ -516,8 +523,9 @@ impl Node{
         for i in 0..self.disc.out.seeds.len(){
             let s=&self.disc.out.seeds[i];
             if s.compatible_ms.is_none()&&s.wanted_ms.is_some_and(|w|now.saturating_sub(w)>=t.seed_connect_ms){
-                let local=self.local_failure(s.addr);let s=&mut self.disc.out.seeds[i];
-                let hold=if local{t.seed_hold_base_ms}else{s.fails=s.fails.saturating_add(1);t.seed_hold_base_ms.saturating_mul(1u64.checked_shl(s.fails-1).unwrap_or(u64::MAX))};
+                let local=self.local_failure(s.addr);let good=self.disc.book.last_good_ms();let s=&mut self.disc.out.seeds[i];
+                if !local&&good>s.last_count_ms{s.fails=s.fails.saturating_add(1);s.last_count_ms=now;}
+                let hold=if local{t.seed_hold_base_ms}else{t.seed_hold_base_ms.saturating_mul(1u64.checked_shl(s.fails.saturating_sub(1)).unwrap_or(u64::MAX))};
                 s.hold_until_ms=now.saturating_add(hold.min(t.seed_hold_max_ms));self.disc.out.counters.seed_holds+=1;self.suppress(i);
             }
         }
@@ -945,14 +953,17 @@ mod tests{
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// D7'' (A5, B1): a node without a listener wants one seed (D7'a); a wanted seed not compatible 30 s after it was
-    /// wanted is held, 1 min doubling to 6 h, and the next is wanted, so 3 dead seeds see few want cycles in 2 h; with
-    /// all held none is wanted and every one stays in the outbound set. A seed that connects clears its failures.
+    /// wanted is held, 1 min doubling to 6 h while the network is otherwise alive (a handshake elsewhere verifies an
+    /// address between its failures), and the next is wanted, so 3 dead seeds see few want cycles in 2 h; with all
+    /// held none is wanted and every one stays in the outbound set. A seed that connects clears its failures.
     #[test] fn dead_seeds_are_held_with_backoff(){
         let seeds=seeds3();
         let (mut n,_rx,dir)=node("o-dead",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;n.disc.out.route_ok=Some(true);
+        // A verified handshake elsewhere, each second (port 80 is never stored, so the book stays empty).
+        let alive=|n:&mut Node,now:u64|verified(n,sa("81.60.0.1:80"),now);
         let mut now=G;let end=G+2*3_600_000;let mut all_held=false;
         let boot=G+n.disc.times.seed_boot_ms;let mut holds:Vec<Vec<u64>>=vec![vec![];3];
-        while now<end{let before:Vec<u64>=n.disc.out.seeds.iter().map(|s|s.hold_until_ms).collect();tick(&mut n,now);assert!(wanted(&n).len()<=if now<boot{2}else{1});
+        while now<end{let before:Vec<u64>=n.disc.out.seeds.iter().map(|s|s.hold_until_ms).collect();alive(&mut n,now);tick(&mut n,now);assert!(wanted(&n).len()<=if now<boot{2}else{1});
             for (i,s) in n.disc.out.seeds.iter().enumerate(){if s.hold_until_ms!=before[i]{holds[i].push((s.hold_until_ms-now)/60_000)}}
             if n.disc.out.seeds.iter().all(|s|s.hold_until_ms>now){all_held=true;assert!(wanted(&n).is_empty()&&seeds.iter().all(|s|in_set(&n,*s)),"all held: none wanted, every dialer waits");}
             now+=S;}
@@ -961,14 +972,20 @@ mod tests{
         let fails:Vec<u32>=n.disc.out.seeds.iter().map(|s|s.fails).collect();assert!(fails.iter().all(|f|*f>=4),"{fails:?}");
         for h in &holds{assert!(h.len()>=3&&h.iter().enumerate().all(|(k,m)|*m==1<<k),"the holds double from 1 min: {h:?}");}
         while wanted(&n).is_empty(){now+=S;tick(&mut n,now);}
+        let i=wanted(&n)[0];n.disc.out.seeds[i].fails=9;
+        while n.disc.out.seeds[i].hold_until_ms<=now{now+=S;alive(&mut n,now);tick(&mut n,now);}
+        assert_eq!((n.disc.out.seeds[i].fails,n.disc.out.seeds[i].hold_until_ms-now),(10,n.disc.times.seed_hold_max_ms),"the holds stop at 6 h");
+        while wanted(&n).is_empty(){now+=S;tick(&mut n,now);}
         let i=wanted(&n)[0];let s=seeds[i];let _c=connect(&mut n,1,Origin::Configured(s),Some(s));greet(&mut n,1,30300,0);
         assert_eq!(n.disc.out.seeds[i].fails,0,"a seed that connects clears its failures");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// D18', D7'' (VA-SPEC §1a.8): a seed that fails while this host has no route (and no compatible peer) is held
     /// only the base and counts no failure, so 2 h offline leave no long hold and a seed is wanted within a minute of
-    /// the route's return. Holds that dead seeds built up behind a router without upstream are cleared by the first
-    /// compatible peer after none, and by a family that comes back.
+    /// the route's return. Behind a route without upstream (a router whose WAN is down) nothing verifies, so each seed
+    /// counts one failure and stays held 1 min: a node without a listener, whose book has no other listener, wants a
+    /// seed again within 2 min of the upstream's return with no peer arriving to announce it. Holds are cleared by the
+    /// first compatible peer after none, and by a family that comes back.
     #[test] fn an_outage_builds_no_long_seed_holds(){
         let seeds=seeds3();let end=G+2*3_600_000;
         let run=|n:&mut Node,from:u64,to:u64|{let mut now=from;while now<to{tick(n,now);now+=S;}};
@@ -980,7 +997,9 @@ mod tests{
         drop(n);let _=std::fs::remove_dir_all(&dir);
         let (mut n,_rx,dir)=node("o-outage2",2,false,seeds.clone(),seeds.clone(),G);n.disc.times.stall_min_ms=u64::MAX/4;n.disc.out.route_ok=Some(true);
         run(&mut n,G,end);
-        assert!(n.disc.out.seeds.iter().all(|s|s.fails>=4),"a route but no peer: the dead seeds' holds grow");
+        assert!(n.disc.out.seeds.iter().all(|s|s.fails==1&&s.hold_until_ms<=end+n.disc.times.seed_hold_base_ms),"a route without upstream: one failure each, 1 min holds");
+        let wants=n.disc.out.counters.seed_wants;run(&mut n,end,end+120*S);
+        assert!(n.disc.out.counters.seed_wants>wants,"a seed is wanted again within 2 min, no peer needed");
         let _i=connect(&mut n,9,Origin::Inbound,Some(sa("81.50.0.1:51000")));greet(&mut n,9,0,0);
         assert!(n.disc.out.seeds.iter().all(|s|s.fails==0&&s.hold_until_ms==0),"the first compatible peer after none clears them");
         tick(&mut n,end);assert_eq!(wanted(&n).len(),1,"and a seed is wanted at once");
