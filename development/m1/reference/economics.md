@@ -101,3 +101,19 @@ dApp-interface publishers, researchers and educators needing an interface bound 
 - Inconclusive: 2–4 publishers.
 
 No demand, revenue or performance is claimed.
+
+---
+
+## v3 amendment — issuance, tips, carry and fees (D-V3-15, 19–21)
+
+Only when `v3_active(h)` is true, replace the finite-fixture issuance description with the approved M3 target below. Existing spec-1 issuance and rewards remain unchanged. This records rules to implement and validate, not deployed behavior. See [the decision record](../../decisions/V3-DECISIONS.md).
+
+Let k=floor(h/H_half). Issuance is 0 at h=0 and otherwise `max(k>=256 ? 0 : S0>>k, S_tail)`. The approved initial rate is 2 PCOL per 60 seconds scaled by T_blk, with a four-year halving interval and tail S0/32. At the candidate 30-second block time, S0=1 PCOL, H_half=4,207,680 blocks and S_tail=0.03125 PCOL. Validate `2*S0*H_half + S_tail*2^64 < 2^127`. These are gross issuance amounts; classified burns still reduce circulating supply.
+
+For a signed block j, pay gamma_tip=50% of tips directly to its proposer reward address; the remaining tips enter the shared pot. For fallback, all tips enter the pot. Phase-2 closeBlock(j) sets `pending[j].amount=issuance(j)+(1-gamma_tip)*tips+carry` for signed blocks, and `issuance(j)+tips+carry` for fallback, then zeroes carry. Phase-0 settlement precedes closeBlock. Uncovered base-burn share remainder goes to carry, while roundBurn and other classified burns remain burns. On a finite final block, burn residual carry.
+
+Thus each pot amount is fixed by its own template and body before mining. Later share carriers do not retroactively change an already fixed pot. The Escrow accounting invariant is `balance=SUM(pending)+held+burned+carry`, under the existing accounting conventions; account for external base-fee and creation-fee burns separately. Require T17, conservation at every step and old-chain differential tests.
+
+The v3 base-fee floor is 10^7 wei (0.01 gwei). Creation fees are sender-paid classified burns, determined sequentially from running in-block usage as `F0*CAP/(CAP-used)` for a new account, nonzero slot or code byte. Apply the cap failure/unpaid-charge rule consistently in execution, builder and estimation. Candidate caps are 200,000 accounts, 500,000 slots and 32 MiB code, subject to A13. F0_acct is provisionally 10^15 wei; F0_slot and F0_code remain to be calibrated by the profile/resource PR. No flat fill-cost claim or new shared per-block growth ceiling replaces that proof.
+
+The four public genesis allocations and owner-operated time-lock/reporting plan are disclosed in the decision record. This amendment does not move funds or change allocation, and it does not assert current balances.

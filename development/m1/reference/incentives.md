@@ -164,3 +164,21 @@ RPC service has no reward; its cost is borne by the operator.
 - No direct reward for F's winner.
 - Selfish withholding is unresolved (T10).
 - reward_mode=equal is for comparison only [PDF:103 (5.9)].
+
+---
+
+## v3 amendment — auditable credit and membership (D-V3-02, 08–18, 20)
+
+Apply these program and host changes only on the v3 program set with `v3_active(h)`. The historical spec-1 programs and their reward results remain unchanged. These are approved target rules, not a completion claim; see [the decision record](../../decisions/V3-DECISIONS.md).
+
+**Late shares.** Header counts include the implicit winning share. Kind-3 evidence in signed bodies credits valid omitted ancestor shares before settlement, with branch-derived owners/deduplication and `C_header+C_late<=kappa*m`. It excludes the winning nonce and existing header/carrier credits. The denominator stays `max(C_header,kappa*m)`, so header shares are never diluted. Apply late credit after recordResult and before settle(h-D); lastShare becomes max(lastShare,j). Reorgs restore both state and branch deduplication. A node-local share cache is not consensus evidence by itself.
+
+**Earn-in and open entry.** B_reg=20 PCOL. A probationer accrues the bond from credited work and becomes proposer-eligible at B_reg/4. Read P_MAX and T_PROB from CP, not host mirrors: the approved choice is M_max/4 slots and 30 days. Maintenance has a REG_MAINT_MAX=8 block budget and at most one operation per identity per block; other registry operations retain REG_OPS minus maintenance used. Reactivation has its own R_react budget and C_react>=U clock, remains after W_act cooldown and strictly before the refund sweep, and requires U>=W_act+2. These changes precede expanding the probation pool.
+
+**Contestable seats.** Only when the set is full may registerContest displace a live active member past grace whose previous full-day epoch work is below `E-k_sigma*sqrt(E)`, where `E=theta*Tprev/active`, theta=1/8 and k_sigma=3. Require whole-previous-epoch tenure (registration/reactivation no later than that epoch first block), deterministic integer rounding, and V3-02 late credit first. Displacement moves the victim to exiting with the normal U-delayed refund, not a stake burn. The same statistic in the probation pool is restricted to ACCRUING victims; refund accrued bond, erase the record and conserve ACC_COUNT. Require honest-member eviction simulations before finalizing profile values.
+
+**Evidence and penalties.** Type-2 evidence normally punishes first and settles the pot normally: the tombed offender winner, proposer and share components burn through payTo, while honest contributors are paid. Retain whole-pot burn if the accused was ACCRUING below B_reg at block j; commit that historical fact when recording the result, rather than consulting later bond state. A carrying signed proposer reward address receives 25% of punished bond, and 75% burns; fallback has no reporter and burns the whole bond. Self-reporting still loses 75%. Preserve exact value conservation and evidence-window boundaries.
+
+**Precommitted reward.** Use M3 issuance, the signed-proposer 50% tip split and phase-2 carry described in [economics](economics.md). Carry is added and zeroed only at closeBlock after phase-0 settlement, never inserted later into an already fixed pot. RoundBurn remains burned; finite finalization burns carry. Invariant: SUM(pending)+held+burned+carry. Evidence, rewards, registry counters and carry all follow inverse diffs on reorganization.
+
+Theta_inact and E_win are approved as one hour; U includes E_win+D+margin and the reactivation constraint. Time-derived block counts, resource bounds and contract write ceilings must be measured and validated in the profile/resource PR. On-chain costs and credited shares do not establish Sybil resistance or exhaustive search.
