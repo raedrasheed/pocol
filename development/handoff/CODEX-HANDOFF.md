@@ -131,8 +131,15 @@ Owner decisions already taken:
 
 ### 3.3 Intermittent Windows cutover failure on main (branch `claude/cutover-windows-flake`, if it exists)
 - **The failure:** `tests/cutover.rs:188` gets `ParamGate rejected [R14, R19]` on Windows only, intermittently.
-- **State:** an investigation was running when the session ended. It may have pushed a fix to
-  `claude/cutover-windows-flake`; check that branch.
+- **State (updated):** the root cause is found and the fix is open as **PR #11** (branch
+  `claude/cutover-windows-flake`, commit `d57599f`). It changes test files only.
+  - Cause: R14 and R19 are boot timing rules. Every calibration block, including its fsync to a scratch `state.redb`,
+    must finish within 1 s. The cutover test binary ran four disk-heavy tests at once, so the failing test's
+    calibration write waited behind the others' and went over 1 s.
+  - Fix: the six node-booting tests run one at a time, and the error now reports the measured times.
+  - Merge #11 when green, then merge `main` into PR #10 and merge #10 when green. Steps 1–5 below are already done.
+  - Left for the owner: the patch to print R14/R19 timings needs a change in `pocold/src/lib.rs` (marked `+`), and
+    whether one slow disk write should be able to refuse a boot at all is a rule question.
 - **What to do:**
   1. Find which ParamGate checks R14 and R19 are: `grep -rn "R14\|R19\|ParamGate\|-32018" prototypes/`.
   2. Explain why they can reject on Windows: clock resolution (about 15.6 ms), equal timestamps, slow runners,
