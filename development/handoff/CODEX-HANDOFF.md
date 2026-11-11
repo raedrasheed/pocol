@@ -76,8 +76,13 @@ Owner decisions already taken:
 - **What it is:** the node dials peers by itself (outbound manager, feelers, anchors, seed policy, bootstrap list,
   `seedsRetired`). It is what lets the 3 seeds be retired. Decisions are in
   `development/decisions/P2P-OUTBOUND-DECISIONS.md`.
-- **State:** CI was fully green at head `4d41a0a`, before #8 merged. A merge of `main` (with #8) into this branch was
-  in progress when the session ended. Both #8 and #9 change the A13 memory-model pins, so the merge must re-derive them.
+- **State (updated):** `main` (with #8) is already merged into this branch. The new head is `02386f5`, a merge commit
+  with parents 4d41a0a and 40b0428.
+  - All A13 pins were re-derived by running the tests. Each moved by exactly #9's +27,556,914 B; for example the
+    `a13_bound_breakdown` total went from 3,357,540,586 to 3,385,097,500. The commit body has the full arithmetic.
+  - The local full suite passed: 561 passed, 0 failed.
+  - CI was running on `02386f5` when the session ended. **Skip steps 1–4 below unless `main` moved again; go to step 5
+    (watch CI, then merge).**
 - **What to do:**
   1. `git fetch origin && git checkout claude/p2p-outbound && git log --oneline -5`. If the last commit is a "Merge
      main (memory bounds) into automatic outbound; re-derive A13 pins" commit, the merge was pushed: go to step 4.
