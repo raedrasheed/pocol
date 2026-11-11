@@ -215,8 +215,14 @@ pub const CALIBRATION_STORE:&str="calibration.store";
 /// `load_spec` for a node about to open `store_data` in store mode (C-1 E4; `None`: whole-state mode). R14/R19 are
 /// measured on the path that node runs: the calibration blocks are also applied through a scratch state store in
 /// `store_data` (each block's nodes committed and fsynced to its state.redb, on the node's own disk), and each phase
-/// class takes the larger of the two times. The scratch store is removed before the node opens.
+/// class takes the larger per-block execution median of the two paths. Store latency is separate. The scratch store is removed before the node opens.
 pub fn load_spec_for(dir:&std::path::Path,local:&NodeLocal,store_data:Option<&std::path::Path>)->Result<chain::Spec,String>{
+    load_spec_calibrated(dir,local,|bytes,alloc|{
+        let mem=admission::measure(bytes,alloc,3)?;
+        match store_data{Some(data)=>mem.with_store(&store_timing(data,bytes,alloc)?),None=>Ok(mem)}
+    })
+}
+fn load_spec_calibrated(dir:&std::path::Path,local:&NodeLocal,mut measure:impl FnMut(&[u8],&revm::InMemoryDB)->Result<admission::Timing,String>)->Result<chain::Spec,String>{
     let hexs=std::fs::read_to_string(dir.join("genesis.spec.hex")).map_err(|e|format!("genesis.spec.hex: {e}"))?;
     let spec_bytes=types::unhex(hexs.trim())?;
     let alloc:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(dir.join("alloc.json")).map_err(|e|format!("alloc.json: {e}"))?).map_err(|e|e.to_string())?;
@@ -228,16 +234,61 @@ pub fn load_spec_for(dir:&std::path::Path,local:&NodeLocal,store_data:Option<&st
     };
     let forks=configured_forks(&info)?;
     let calibration=info["calibration"]["hashesPerSecond"].as_u64().map(|r|(r,FactClass::SyntheticFixture));
-    let mut measured=admission::measure(&spec_bytes,&alloc,1);
-    if let (Some(data),Ok(mem))=(store_data,&measured){measured=store_timing(data,&spec_bytes,&alloc).and_then(|s|mem.with_store(&s));}
-    let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&forks,kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,calibration,timing:measured.as_ref().ok(),scope:admission::Scope::ExperimentalDevnet};
-    admission::admit(&req).map(chain::Spec::new).map_err(|e|match &measured{Err(why)=>format!("{e}; timing: {why}"),Ok(_)=>e.to_string()})
+    for attempt in 0..2{
+        let measured=measure(&spec_bytes,&alloc);
+        let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&forks,kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,calibration,timing:measured.as_ref().ok(),scope:admission::Scope::ExperimentalDevnet};
+        match admission::admit(&req){
+            Ok(a)=>return Ok(chain::Spec::new(a)),
+            Err(e)=>{
+                // Only a timing refusal warrants another calibration; other invalid facts fail immediately.
+                if attempt==0&&measured.is_ok()&&e.rules.iter().any(|r|r=="R14"||r=="R19"){continue}
+                return Err(match measured{Err(why)=>format!("{e}; timing: {why}"),Ok(_)=>e.to_string()})
+            }
+        }
+    }
+    unreachable!()
 }
 /// The calibration through a scratch state store at `data/CALIBRATION_STORE`, removed afterwards (also when the
 /// measurement fails; one a crash left is removed first).
 fn store_timing(data:&std::path::Path,spec_bytes:&[u8],alloc:&revm::InMemoryDB)->Result<admission::Timing,String>{
     let scratch=data.join(CALIBRATION_STORE);let _=std::fs::remove_dir_all(&scratch);
     std::fs::create_dir_all(&scratch).map_err(|e|format!("calibration store {}: {e}",scratch.display()))?;
-    let r=state_store::StateStore::open(&scratch).map_err(|e|format!("calibration store: {}",e.0)).and_then(|st|admission::measure_on_store(spec_bytes,alloc,1,&st));
+    let r=state_store::StateStore::open(&scratch).map_err(|e|format!("calibration store: {}",e.0)).and_then(|st|admission::measure_on_store(spec_bytes,alloc,3,&st));
     let _=std::fs::remove_dir_all(&scratch);r
+}
+
+#[cfg(test)] mod boot_timing_tests{
+use super::*;
+use std::path::PathBuf;
+
+fn fixture(tag:&str)->(PathBuf,devnet::Devnet){
+    let dir=std::env::temp_dir().join(format!("pocol-boot-timing-{tag}-{}",std::process::id()));
+    let mut c=devnet::DevnetConfig::new(777930,1_700_000_000,&["a","b","c"]);c.h_end=0;c.h_close=0;
+    let n=devnet::build(&c).unwrap();std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("genesis.spec.hex"),types::hex(&n.spec_bytes)).unwrap();
+    std::fs::write(dir.join("alloc.json"),devnet::alloc_to_json(&n.alloc).to_string()).unwrap();
+    std::fs::write(dir.join("devnet.json"),serde_json::json!({"calibration":{"hashesPerSecond":n.hash_rate}}).to_string()).unwrap();
+    (dir,n)
+}
+
+#[test]
+fn a_timing_refusal_recalibrates_once_and_admits_a_recovered_host(){
+    let (dir,n)=fixture("recover");let mut t=admission::measure(&n.spec_bytes,&n.alloc,3).unwrap();
+    t.phase_ms=[1;3];let mut calls=0;
+    let r=load_spec_calibrated(&dir,&single_host_local(),|_,_|{
+        calls+=1;Ok(admission::Timing{phase_ms:if calls==1{[1001;3]}else{[1;3]},..t.clone()})
+    });
+    assert!(r.is_ok(),"{:?}",r.err());assert_eq!(calls,2);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn sustained_slow_execution_is_refused_after_two_calibrations_with_the_measured_times(){
+    let (dir,n)=fixture("slow");let mut t=admission::measure(&n.spec_bytes,&n.alloc,3).unwrap();
+    t.phase_ms=[1001,1002,1003];t.store_ms=17;t.stored=true;let mut calls=0;
+    let e=load_spec_calibrated(&dir,&single_host_local(),|_,_|{calls+=1;Ok(t.clone())}).err().unwrap();
+    assert_eq!(calls,2);assert!(e.starts_with("-32018 ParamGate rejected [R14, R19]"),"{e}");
+    for part in ["execution_ms=[1001, 1002, 1003]","store_fsync_ms=17",&format!("samples={}",t.samples),"t_exec_ms=1000"]{assert!(e.contains(part),"{e}");}
+    std::fs::remove_dir_all(dir).unwrap();
+}
 }

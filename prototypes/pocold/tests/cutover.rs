@@ -65,8 +65,8 @@ fn temp(name: &str) -> PathBuf {
     let _ = std::fs::remove_dir_all(&d); d
 }
 /// Every boot and every cutover here is admitted by ParamGate on a timing it measures now, on this host (R14/R19:
-/// each calibration block within t_exec, 1 s; in store mode each block's commit, fsynced to a scratch state.redb,
-/// is inside its timed span). Run beside one another these tests' imports, rebuilds and fsyncs are the load those
+/// each calibration block execution median within t_exec, 1 s; in store mode durable commit latency is
+/// measured separately from execution). Run beside one another these tests' imports, rebuilds and fsyncs are the load those
 /// measurements are taken under: on Windows (runs 42863094336 and 42969344541) a store-mode cutover was refused on
 /// [R14, R19] while three of them ran beside it on the same disk. So the tests that boot run one at a time.
 static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
