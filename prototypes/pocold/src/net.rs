@@ -757,11 +757,13 @@ pub fn route_ok(a:SocketAddr)->bool{
 /// A connect error to `a` as a `DialError`. A network-unreachable, address-not-available or address-family error is
 /// local only if the route probe fails too: Linux also reports an ICMP net-unreachable received in SYN_SENT as
 /// ENETUNREACH, and a remote that can forge one must not turn this node's address family off (D18').
+/// The OS error code of an address-family error (`EAFNOSUPPORT`; WSAEAFNOSUPPORT on Windows), which std maps to no
+/// `ErrorKind` of its own.
+#[cfg(unix)] const AFNOSUPPORT:Option<i32>=Some(libc::EAFNOSUPPORT);
+#[cfg(windows)] const AFNOSUPPORT:Option<i32>=Some(10047);
+#[cfg(not(any(unix,windows)))] const AFNOSUPPORT:Option<i32>=None;
 pub fn classify(e:&std::io::Error,a:SocketAddr)->DialError{
     use std::io::ErrorKind as K;
-    #[cfg(unix)] const AFNOSUPPORT:Option<i32>=Some(libc::EAFNOSUPPORT);
-    #[cfg(windows)] const AFNOSUPPORT:Option<i32>=Some(10047);
-    #[cfg(not(any(unix,windows)))] const AFNOSUPPORT:Option<i32>=None;
     let local=matches!(e.kind(),K::NetworkUnreachable|K::AddrNotAvailable)||(AFNOSUPPORT.is_some()&&e.raw_os_error()==AFNOSUPPORT);
     match e.kind(){
         K::TimedOut|K::WouldBlock=>DialError::Timeout,
@@ -1364,7 +1366,8 @@ mod tests{
     /// address-family error for IPv6 is NoRoute on a host without IPv6 (checked only there).
     #[test] fn connect_errors_are_classified(){
         use std::io::{Error,ErrorKind as K};
-        let (lo,bc,v6)=("127.0.0.1:1".parse().unwrap(),"255.255.255.255:1".parse().unwrap(),"[::1]:1".parse().unwrap());
+        // Typed here: on a target without AFNOSUPPORT nothing below would pin `v6`'s type (Windows CI, PR #9).
+        let (lo,bc,v6):(SocketAddr,SocketAddr,SocketAddr)=("127.0.0.1:1".parse().unwrap(),"255.255.255.255:1".parse().unwrap(),"[::1]:1".parse().unwrap());
         for (k,want) in [(K::TimedOut,DialError::Timeout),(K::WouldBlock,DialError::Timeout),(K::ConnectionRefused,DialError::Refused),
             (K::ConnectionReset,DialError::Refused),(K::HostUnreachable,DialError::Unreachable),(K::NetworkUnreachable,DialError::Unreachable),(K::AddrNotAvailable,DialError::Unreachable)]{
             assert_eq!(classify(&Error::from(k),lo),want,"{k:?} to a routable address");
@@ -1372,7 +1375,7 @@ mod tests{
         assert!(route_ok(lo)&&!route_ok(bc),"the probe");
         assert_eq!((classify(&Error::from(K::NetworkUnreachable),bc),classify(&Error::from(K::AddrNotAvailable),bc)),(DialError::NoRoute,DialError::NoRoute),"no local route");
         assert_eq!(classify(&Error::from(K::HostUnreachable),bc),DialError::Unreachable,"a host unreachable is never probed");
-        #[cfg(unix)]{let af=Error::from_raw_os_error(libc::EAFNOSUPPORT);
+        if let Some(code)=AFNOSUPPORT{let af=Error::from_raw_os_error(code);
             assert_eq!(classify(&af,lo),DialError::Unreachable,"an address-family error with a route is the network's");
             if !route_ok(v6){assert_eq!(classify(&af,v6),DialError::NoRoute,"this host has no IPv6")}else{eprintln!("IPV6-ROUTE: the NoRoute case for IPv6 is not checked");}}
     }

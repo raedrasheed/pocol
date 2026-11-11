@@ -1,7 +1,9 @@
 //! PR2b (plan §5.3, B8): automatic outbound's threads stay within the A13 thread inventory (THREAD-INVENTORY: `out-{t}`
 //! per slot, one `out-fwd`, and a slot connection's reader and writer, the reader joined before the slot's next dial)
 //! while its slots churn through addresses that accept and close at once. One node in its own test binary, so that the
-//! process-wide thread counts are this node's alone.
+//! process-wide thread counts are this node's alone. Linux only: the counts are read from /proc/self/task (on other
+//! systems the binary is empty, as the audit's THREADS-NOT-MEASURED notes for Windows).
+#![cfg(target_os="linux")]
 use std::io::{Read,Write};
 use std::net::{TcpListener,TcpStream};
 use std::sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}};
@@ -30,7 +32,6 @@ fn count(names:&[String],f:impl Fn(&str)->bool)->usize{names.iter().filter(|n|f(
 /// slots dial three learned listeners that accept and close at once, the peer threads never exceed a reader and a
 /// writer per configured peer and slot (plus one exiting), and each unverified address is dialed at most once per
 /// retry spacing (2 s here, so at most 6 times in 10 s).
-#[cfg(target_os="linux")]
 #[test] fn slot_threads_stay_within_the_inventory_under_churn(){
     let base=threads();assert_eq!(count(&base,|n|n.starts_with("out-")),0,"no slot thread before the node: {base:?}");
     let stop=Arc::new(AtomicBool::new(false));
