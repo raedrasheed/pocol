@@ -67,89 +67,26 @@ Owner decisions already taken:
 | #6 | Consensus identity, consensus boundary and append-only lock (`consensus-boundary.txt`, `consensus-sources.lock`), launcher upgrade path |
 | #7 | Pool and block builder count gas *used*, not declared |
 | #8 | Bounded memory for the continuous chain (`canon.redb`, Canon window, checkpoint format 2) |
+| #9 | Automatic outbound connections (outbound manager, feelers, anchors, bootstrap list, `seedsRetired`) |
+| #11 | Cutover tests boot nodes one at a time (fixes the intermittent Windows `ParamGate rejected [R14, R19]`) |
 
 ---
 
 ## 3. Open work. Do these first, in this order.
 
-### 3.1 PR #9: automatic outbound connections (branch `claude/p2p-outbound`)
-- **What it is:** the node dials peers by itself (outbound manager, feelers, anchors, seed policy, bootstrap list,
-  `seedsRetired`). It is what lets the 3 seeds be retired. Decisions are in
-  `development/decisions/P2P-OUTBOUND-DECISIONS.md`.
-- **State (updated):** `main` (with #8) is already merged into this branch. The new head is `02386f5`, a merge commit
-  with parents 4d41a0a and 40b0428.
-  - All A13 pins were re-derived by running the tests. Each moved by exactly #9's +27,556,914 B; for example the
-    `a13_bound_breakdown` total went from 3,357,540,586 to 3,385,097,500. The commit body has the full arithmetic.
-  - The local full suite passed: 561 passed, 0 failed.
-  - CI was running on `02386f5` when the session ended. **Skip steps 1–4 below unless `main` moved again; go to step 5
-    (watch CI, then merge).**
-- **What to do:**
-  1. `git fetch origin && git checkout claude/p2p-outbound && git log --oneline -5`. If the last commit is a "Merge
-     main (memory bounds) into automatic outbound; re-derive A13 pins" commit, the merge was pushed: go to step 4.
-  2. Otherwise run `git merge origin/main`. Resolve conflicts keeping **both** sides:
-     - `prototypes/pocold/src/resources.rs`: A13 terms. #8 added the canon / Canon-window terms; #9 added the outbound
-       and address-book terms.
-     - `prototypes/pocold/tests/consensus.rs`: `a13_bound_breakdown` pinned totals and the comment clauses.
-     - `prototypes/pocold/tests/network_budget.rs`: its pins.
-     - `development/A13-DERIVATION.md` (or the derivation doc the tests cite).
-     - `prototypes/pocold/consensus-sources.lock`: **append-only**. Keep every line of both sides; main's history must
-       be a prefix.
-     - CI workflow files: keep both sides' added test targets.
-  3. Re-derive every A13 pin by **running** the tests, never by hand:
-     `cargo test --release --locked --test consensus a13 -- --test-threads=1` and `--test network_budget`. Update the
-     pins and comment clauses to the printed values. Check that each pin moved by the sum of what #8 and #9 each added,
-     and write that arithmetic in the merge commit body.
-  4. Validate (section 6 lists all commands). Push with `git push origin claude/p2p-outbound`.
-  5. Wait for CI. Known Windows-only causes we already fixed (do not regress them):
-     - A test that types socket addresses only under `#[cfg(unix)]`.
-     - The route-probe test assumed Windows refuses UDP connect to `255.255.255.255`. It does not; the test now picks a
-       refused address per platform.
-     - `deploy/mainnet/collect_seeds.py` `PREFLIGHT_SHA256` must equal the hash of `deploy/mainnet/preflight.py`. If
-       you edit `preflight.py`, re-pin that hash after reviewing the change; the hash is computed on LF bytes.
-  6. Merge when green and clean (merge commit, not squash).
-
-### 3.2 PR #10: encrypted key backup, new Android application id, SECURITY.md (branch `claude/client-key-backup`)
-- **What it is:**
-  - `pocol export-key`, `inspect-key-backup` and `import-key`: a passphrase-encrypted backup with PBKDF2 at 600k
-    iterations and AES-256-GCM.
-  - Android backup and restore UI; `-PpocolApplicationId=org.pocol.wallet`.
-  - Windows wallet backup and restore.
-  - `SECURITY.md`.
-  - All of it is node-local (`=` in `consensus-boundary.txt`).
-- **State:** head `a24f61d`. All checks were green except `native (windows-2022)`. That job failed in
-  `tests/cutover.rs::a_store_mode_cutover_70_blocks_below_the_head_rebuilds_the_state_and_matches_one_at_the_head`
-  with `-32018 ParamGate rejected [R14, R19]`.
-  - This failure is **not caused by #10**: main's own Windows run 42863094336 failed the same way. It is intermittent
-    and Windows-only.
-  - The failed job was re-run once. A comment on the PR explains this.
-  - The one Codex finding ("Recover the activity-file move along with the restored key") was fixed in `a24f61d` and
-    answered on the thread. The thread may still show "unresolved": resolve it in the GitHub UI.
-- **What to do:**
-  - If the re-run is green, merge.
-  - If not, finish 3.3 first. Then port its fix into this branch (merge `main` after the fix lands, or cherry-pick
-    it), push, and merge when green.
-
-### 3.3 Intermittent Windows cutover failure on main (branch `claude/cutover-windows-flake`, if it exists)
-- **The failure:** `tests/cutover.rs:188` gets `ParamGate rejected [R14, R19]` on Windows only, intermittently.
-- **State (updated):** the root cause is found and the fix is open as **PR #11** (branch
-  `claude/cutover-windows-flake`, commit `d57599f`). It changes test files only.
-  - Cause: R14 and R19 are boot timing rules. Every calibration block, including its fsync to a scratch `state.redb`,
-    must finish within 1 s. The cutover test binary ran four disk-heavy tests at once, so the failing test's
-    calibration write waited behind the others' and went over 1 s.
-  - Fix: the six node-booting tests run one at a time, and the error now reports the measured times.
-  - Merge #11 when green, then merge `main` into PR #10 and merge #10 when green. Steps 1–5 below are already done.
-  - Left for the owner: the patch to print R14/R19 timings needs a change in `pocold/src/lib.rs` (marked `+`), and
-    whether one slow disk write should be able to refuse a boot at all is a rule question.
-- **What to do:**
-  1. Find which ParamGate checks R14 and R19 are: `grep -rn "R14\|R19\|ParamGate\|-32018" prototypes/`.
-  2. Explain why they can reject on Windows: clock resolution (about 15.6 ms), equal timestamps, slow runners,
-     deadlines in the test, or a race during the state rebuild.
-  3. If the root cause is in the test or in node-local code, fix it with a test that fails without the fix. Open a PR
-     to `main` and merge it when green.
-  4. **If the root cause is in consensus code** (any file marked `+` in `prototypes/pocold/consensus-boundary.txt`, or
-     ParamGate rules that are consensus), do **not** change it. Write up the root cause and a proposed patch for the
-     owner.
-  5. Do not "fix" it with retries or longer sleeps that have no root cause.
+**Update (2026-11-11 08:50 UTC):**
+- PR #9 (automatic outbound) and PR #11 (Windows cutover test fix) are **merged**. `main` is now at `2a4ba1c` or later.
+- PR #10 (encrypted key backup, branch `claude/client-key-backup`) has the new `main` merged in at `e78aed0`. Its one
+  conflict was the CLI flag table and usage line in `src/bin/pocol.rs`, kept from both sides. lib, cli,
+  consensus_guard and the Python suites pass locally.
+- **To do:** wait for PR #10's CI on `e78aed0`. If it is green and clean, merge it (merge commit).
+  - Its only review thread, the Codex "activity-file move" finding, was fixed in `a24f61d` and answered. Resolve the
+    thread in the GitHub UI if it still shows unresolved.
+  - If CI fails, root-cause the failure and fix it on the branch.
+- **Owner's open questions from PR #11** (do not change these without the owner):
+  1. Should the ParamGate R14/R19 error print the measured times? That needs a change in `pocold/src/lib.rs`, which is
+     marked `+` and needs a lock line.
+  2. Should one slow disk write be able to refuse a boot at all?
 
 ### 3.4 Smaller follow-ups
 - On main, PR #8 made the Windows `pocold` CI job take about 69 minutes against a 90-minute step timeout. If it nears
