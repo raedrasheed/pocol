@@ -17,11 +17,13 @@ import org.json.*;
 
 /** Native wallet. Only public data crosses the service bridge; signing remains in Rust. */
 public final class MainActivity extends Activity {
-    private static final int IMPORT_NETWORK=1, UPGRADE_NETWORK=3;
+    private static final int IMPORT_NETWORK=1, UPGRADE_NETWORK=3, SAVE_KEY_BACKUP=4, OPEN_KEY_BACKUP=5;
     private static final int BLUE=Color.rgb(26,169,228), INK=Color.rgb(244,248,251), MUTED=Color.rgb(161,177,195), BG=Color.rgb(6,14,24), PANEL=Color.rgb(11,22,35), SOFT=Color.rgb(12,34,51), LINE=Color.rgb(33,49,64);
     private final Handler main=new Handler(Looper.getMainLooper());
     private Messenger service;
-    private boolean bound, updating, requestPending, networkActionPending;
+    private boolean bound, updating, requestPending, networkActionPending, keyActionPending;
+    /** The encrypted backup (ciphertext only) waiting for the user to pick where it is saved. */
+    private byte[] pendingBackup;
     private String home,address="",tab="Wallet";
     private long responseId;
     private JSONObject snapshot=new JSONObject();
@@ -110,7 +112,9 @@ public final class MainActivity extends Activity {
         button(c,"Import network file",true,()->pickNetwork(IMPORT_NETWORK));
         button(c,"Upgrade existing network",false,()->pickNetwork(UPGRADE_NETWORK));
         button(c,"Connect wallet",false,this::startNode);button(c,"Disconnect wallet",false,()->{if(service!=null)try{service.send(Message.obtain(null,2));headerStatus.setText("Disconnecting…");}catch(RemoteException ignored){}});
-        LinearLayout identity=card(content);eyebrow(identity,"PUBLIC ADDRESS");identity.addView(text("Your account",20,INK,true));TextView a=text(address,12,INK,false);a.setTypeface(Typeface.MONOSPACE);a.setTextIsSelectable(true);identity.addView(a);button(identity,"Copy public address",false,this::copy);divider(identity);identity.addView(text("Stored on this device",15,INK,true));identity.addView(text("This wallet stores its key on this phone. Uninstalling erases the account and local state. Portable recovery export is not available in this build.",13,MUTED,false));
+        LinearLayout identity=card(content);eyebrow(identity,"PUBLIC ADDRESS");identity.addView(text("Your account",20,INK,true));TextView a=text(address,12,INK,false);a.setTypeface(Typeface.MONOSPACE);a.setTextIsSelectable(true);identity.addView(a);button(identity,"Copy public address",false,this::copy);divider(identity);identity.addView(text("Stored on this device",15,INK,true));identity.addView(text("This wallet stores its key on this phone. Uninstalling erases the account and local state unless you keep an encrypted backup.",13,MUTED,false));
+        LinearLayout keys=card(content);eyebrow(keys,"KEY BACKUP");keys.addView(text("Encrypted backup",20,INK,true));keys.addView(text(WalletText.BACKUP_INFO,13,MUTED,false));gap(keys,6);keys.addView(text(WalletText.BACKUP_STORE,13,MUTED,false));
+        button(keys,"Back up key to encrypted file",true,this::backupKey);button(keys,"Restore key from backup",false,this::pickKeyBackup);
         TextView version=text("PoCol Wallet · "+appVersion(),12,MUTED,false);version.setGravity(Gravity.CENTER);content.addView(version);
     }
     private void send(){
@@ -178,8 +182,141 @@ public final class MainActivity extends Activity {
             }).create();
         dialog.show();styleDialog(dialog);
     }
+    // ---- Encrypted key backup (pocold keyfile::backup, CRY-02). The key never reaches Java: Rust returns the
+    // ciphertext for export and takes the file bytes for restore. Passphrases stay in char/byte arrays that are wiped;
+    // every dialog that shows a passphrase field is FLAG_SECURE (no screenshots, recordings or recents thumbnail).
+    private EditText secretInput(LinearLayout form,String label){
+        EditText field=input(form,label,"",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
+        // No autofill, no keyboard learning, no long-press menu; a password field already refuses copy and cut.
+        field.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);field.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);field.setLongClickable(false);
+        return field;
+    }
+    /** The field's characters in a new array; the field is cleared, so its buffer no longer holds them. */
+    private static char[] take(EditText field){android.text.Editable e=field.getText();char[] chars=new char[e.length()];e.getChars(0,chars.length,chars,0);e.clear();return chars;}
+    private AlertDialog secureDialog(AlertDialog.Builder builder){AlertDialog d=builder.create();if(d.getWindow()!=null)d.getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE,WindowManager.LayoutParams.FLAG_SECURE);return d;}
+    private boolean keyActionAllowed(){
+        if(service!=null){notice(WalletText.KEY_DISCONNECT);return false;}
+        if(keyActionPending||networkActionPending){notice("Finish the current action first.");return false;}
+        return true;
+    }
+    private void backupKey(){
+        if(!keyActionAllowed())return;
+        LinearLayout form=dialogBody();form.addView(text(WalletText.BACKUP_INFO,13,MUTED,false));form.addView(text(WalletText.BACKUP_PASSPHRASE,13,MUTED,false));form.addView(text(WalletText.BACKUP_STORE,13,MUTED,false));gap(form,8);
+        EditText first=secretInput(form,"Backup passphrase"),second=secretInput(form,"Repeat the passphrase");
+        AlertDialog dialog=secureDialog(new AlertDialog.Builder(this).setTitle("Back up your key").setView(scrollBody(form)).setNegativeButton("Cancel",null).setPositiveButton("Encrypt backup",null));
+        dialog.setOnDismissListener(d->{first.getText().clear();second.getText().clear();});
+        dialog.setOnShowListener(v->{styleDialog(dialog);dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(b->{
+            char[] a=take(first),c=take(second);
+            try{
+                if(!KeyBackup.same(a,c)){notice(WalletText.PASSPHRASE_MISMATCH);return;}
+                if(KeyBackup.characters(a)<KeyBackup.MIN_PASSPHRASE_CHARS){notice("Use a passphrase of at least 12 characters");return;}
+                byte[] pass=KeyBackup.utf8(a);
+                if(pass==null){notice("This passphrase cannot be used; choose another one.");return;}
+                dialog.dismiss();keyActionPending=true;notice("Encrypting your key backup…");
+                new Thread(()->{
+                    String raw;
+                    try{raw=Native.exportKey(home,pass);}catch(RuntimeException e){raw=null;}finally{KeyBackup.wipe(pass);}
+                    final String reply=raw;
+                    main.post(()->exported(reply));
+                },"key-backup").start();
+            }finally{KeyBackup.wipe(a);KeyBackup.wipe(c);}
+        });});
+        dialog.show();
+    }
+    private void exported(String raw){
+        try{
+            JSONObject r=new JSONObject(raw==null?"{\"error\":\"Key backup failed\"}":raw);
+            if(r.has("error")){keyActionPending=false;notice(r.optString("error"));return;}
+            pendingBackup=KeyBackup.fromHex(r.optString("backup"));
+            if(pendingBackup==null){keyActionPending=false;notice("Key backup failed");return;}
+            startActivityForResult(new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType(KeyBackup.MIME).putExtra(Intent.EXTRA_TITLE,r.optString("fileName","pocol-key.pocol-backup")),SAVE_KEY_BACKUP);
+        }catch(JSONException|RuntimeException e){pendingBackup=null;keyActionPending=false;notice("Key backup failed: "+e.getMessage());}
+    }
+    private void pickKeyBackup(){
+        if(!keyActionAllowed())return;
+        try{keyActionPending=true;startActivityForResult(new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"),OPEN_KEY_BACKUP);}
+        catch(RuntimeException e){keyActionPending=false;notice("Cannot open file picker: "+e.getMessage());}
+    }
+    private void keyFileResult(int request,int result,Intent data){
+        android.net.Uri uri=result==RESULT_OK&&data!=null?data.getData():null;
+        if(request==SAVE_KEY_BACKUP){
+            final byte[] backup=pendingBackup;pendingBackup=null;
+            if(uri==null||backup==null){keyActionPending=false;notice("Backup not saved.");return;}
+            new Thread(()->{
+                String message=WalletText.BACKUP_SAVED;
+                try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("Cannot write file");out.write(backup);out.flush();}
+                catch(Exception e){message="Backup not saved: "+e.getMessage();}
+                final String m=message;main.post(()->{keyActionPending=false;notice(m);});
+            },"key-backup-save").start();
+            return;
+        }
+        if(uri==null){keyActionPending=false;return;}
+        new Thread(()->{
+            try(InputStream in=getContentResolver().openInputStream(uri)){
+                if(in==null)throw new IOException("Cannot read file");
+                byte[] file=readLimited(in);
+                if(file.length>KeyBackup.MAX_FILE_BYTES)throw new IOException("This is not a PoCol key backup");
+                main.post(()->askRestorePassphrase(file));
+            }catch(Exception e){main.post(()->{keyActionPending=false;notice("Backup file failed: "+e.getMessage());});}
+        },"key-backup-open").start();
+    }
+    private void askRestorePassphrase(byte[] file){
+        if(isFinishing()||isDestroyed()){keyActionPending=false;return;}
+        LinearLayout form=dialogBody();form.addView(text("Enter the passphrase chosen when this backup was made.",13,MUTED,false));gap(form,8);
+        EditText field=secretInput(form,"Backup passphrase");
+        final boolean[] opened={false};
+        AlertDialog dialog=secureDialog(new AlertDialog.Builder(this).setTitle("Restore key from backup").setView(scrollBody(form)).setNegativeButton("Cancel",null).setPositiveButton("Open backup",null));
+        dialog.setOnDismissListener(d->{field.getText().clear();if(!opened[0])keyActionPending=false;});
+        dialog.setOnShowListener(v->{styleDialog(dialog);dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(b->{
+            char[] chars=take(field);byte[] pass=KeyBackup.utf8(chars);KeyBackup.wipe(chars);
+            if(pass==null||pass.length==0){notice("Enter the backup passphrase");return;}
+            opened[0]=true;dialog.dismiss();notice("Opening backup…");
+            new Thread(()->{
+                String raw;try{raw=Native.inspectKeyBackup(home,file,pass);}catch(RuntimeException e){raw=null;}
+                final String reply=raw;
+                main.post(()->{
+                    try{
+                        JSONObject preview=new JSONObject(reply==null?"{\"error\":\"Key backup failed\"}":reply);
+                        if(preview.has("error")){KeyBackup.wipe(pass);keyActionPending=false;notice(preview.optString("error"));return;}
+                        if(preview.optBoolean("replaces"))confirmRestore(file,pass,preview);else restoreKey(file,pass,"");
+                    }catch(JSONException e){KeyBackup.wipe(pass);keyActionPending=false;notice("Key backup failed");}
+                });
+            },"key-backup-inspect").start();
+        });});
+        dialog.show();
+    }
+    private void confirmRestore(byte[] file,byte[] pass,JSONObject preview){
+        if(isFinishing()||isDestroyed()){KeyBackup.wipe(pass);keyActionPending=false;return;}
+        String current=preview.optString("current");
+        LinearLayout body=dialogBody();body.addView(chip("REVIEW BEFORE REPLACING",BLUE),new LinearLayout.LayoutParams(-2,-2));gap(body,12);
+        reviewRow(body,"Current account",current,true);reviewRow(body,"Restored account",preview.optString("address"),true);
+        body.addView(text(WalletText.RESTORE_REPLACE,13,MUTED,false));body.addView(text(WalletText.RESTORE_MINING,13,MUTED,false));
+        final boolean[] confirmed={false};
+        AlertDialog dialog=secureDialog(new AlertDialog.Builder(this).setTitle("Replace this wallet's account?").setView(scrollBody(body))
+            .setNegativeButton("Cancel",null).setPositiveButton("Replace account",(d,w)->{confirmed[0]=true;restoreKey(file,pass,current);}));
+        dialog.setOnDismissListener(d->{if(!confirmed[0]){KeyBackup.wipe(pass);keyActionPending=false;}});
+        dialog.show();styleDialog(dialog);
+    }
+    private void restoreKey(byte[] file,byte[] pass,String replace){
+        if(service!=null){KeyBackup.wipe(pass);keyActionPending=false;notice(WalletText.KEY_DISCONNECT);return;}
+        new Thread(()->{
+            String raw;try{raw=Native.importKey(home,file,pass,replace);}catch(RuntimeException e){raw=null;}finally{KeyBackup.wipe(pass);}
+            final String reply=raw;
+            main.post(()->{
+                keyActionPending=false;
+                try{
+                    JSONObject r=new JSONObject(reply==null?"{\"error\":\"Key restore failed\"}":reply);
+                    if(r.has("error")){notice(r.optString("error"));return;}
+                    address=r.optString("address");getPreferences(MODE_PRIVATE).edit().putString("address",address).apply();
+                    snapshot=new JSONObject();tab="Settings";render();
+                    notice(WalletText.restored(r.optBoolean("changed"),address));
+                }catch(JSONException e){notice("Key restore failed");}
+            });
+        },"key-backup-restore").start();
+    }
     @Override protected void onActivityResult(int request,int result,Intent data){
         super.onActivityResult(request,result,data);
+        if(request==SAVE_KEY_BACKUP||request==OPEN_KEY_BACKUP){keyFileResult(request,result,data);return;}
         if(request!=IMPORT_NETWORK&&request!=UPGRADE_NETWORK)return;
         if(result!=RESULT_OK||data==null||data.getData()==null){networkActionPending=false;return;}
         new Thread(()->{

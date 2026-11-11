@@ -10,5 +10,10 @@ final class Native {
     static native String status();
     static native String command(String json);
     static native void stop();
+    /** Key backup (pocold keyfile::backup): passphrases and files cross as byte arrays the caller wipes. Only the
+     *  backup's ciphertext comes back (`backup`, hex); the key itself never reaches Java. */
+    static native String exportKey(String home, byte[] passphrase);
+    static native String inspectKeyBackup(String home, byte[] backup, byte[] passphrase);
+    static native String importKey(String home, byte[] backup, byte[] passphrase, String replace);
     private Native() {}
 }

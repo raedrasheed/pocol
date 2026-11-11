@@ -184,14 +184,41 @@ reparse points, hard links and altered ciphertext. Linux/Android retain strict
 HTTP RPC or P2P. A home lock prevents concurrent engines. Missing, corrupt or
 substituted keys fail instead of silently rotating identity.
 
-This build has **no portable encrypted recovery export**. Keep suitable
-private device/profile backups. Android backup is disabled; uninstalling erases
-identity and state. CI builds only an unsigned release APK. Do not uninstall an
-existing key-bearing app to install a different certificate. Updating the existing
-app requires its matching retained signer; a new release key alone cannot update
-an old debug-signed installation. See the release guide for the known 0.3.1 signer
-and current signing blocker. No keystore/private key belongs in the release bundle
-or repository.
+### Encrypted key backup
+
+Both wallets and the `pocol` command can export the key to a **passphrase-encrypted
+backup file**, and restore it on another device or platform. The format is one
+98-byte file: magic `POCOL-KEY-BACKUP`, version 1, PBKDF2-HMAC-SHA256 with 600,000
+iterations, and AES-256-GCM. It is defined once in
+`prototypes/pocold/src/keyfile/backup.rs`.
+
+- Android and Windows: **Settings → Key backup → Back up key to encrypted file** /
+  **Restore key from backup**, while the wallet is disconnected.
+- Command line (the passphrase is read from stdin, with terminal echo off; export
+  reads it twice):
+
+  ```sh
+  pocol export-key --home HOME --out wallet.pocol-backup        # never overwrites a file
+  pocol inspect-key-backup --home HOME --backup wallet.pocol-backup   # read-only
+  pocol import-key --home HOME --backup wallet.pocol-backup [--replace CURRENT_ADDRESS]
+  ```
+
+A restore that would replace the home's current account needs that account's address
+(`--replace`, or the confirmation dialog in the wallets). The old key file is kept as
+`identity.pocol-key.replaced-<address>`, and its `wallet-activity.json` moves aside.
+A lost or unreadable key (for example after a Windows profile reset) is restored from
+its own backup without `--replace`. The plaintext key is never written outside the
+home's key file. Keep the backup file and its passphrase apart. Stop mining on any
+other device that uses the same key: two devices mining with one key can lose the bond.
+
+Android system backup stays disabled, and uninstalling erases identity and state, so
+make an encrypted backup first. CI builds only unsigned release APKs. Do not
+uninstall an existing key-bearing app to install a different certificate. Updating
+the existing app requires its matching retained signer; a new release key alone
+cannot update an old debug-signed installation. A build for a new key is a separate
+app, `org.pocol.wallet`, that installs beside `org.pocol.node`. See
+`prototypes/pocol-android/README.md` and the release guide for the migration and the
+known 0.3.1 signer. No keystore/private key belongs in the release bundle or repository.
 
 ## Validation and remaining qualification
 

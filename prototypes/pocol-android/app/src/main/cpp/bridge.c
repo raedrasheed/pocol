@@ -13,6 +13,9 @@ extern char *pocol_mobile_status(void);
 extern char *pocol_mobile_command(const char *);
 extern void pocol_mobile_stop(void);
 extern void pocol_mobile_free(char *);
+extern char *pocol_mobile_export_key(const char *, const uint8_t *, size_t);
+extern char *pocol_mobile_inspect_key_backup(const char *, const uint8_t *, size_t, const uint8_t *, size_t);
+extern char *pocol_mobile_import_key(const char *, const uint8_t *, size_t, const uint8_t *, size_t, const char *);
 
 #define MAX_ARGUMENT_BYTES (1024u * 1024u)
 
@@ -78,6 +81,45 @@ invalid:
     (*env)->ReleaseStringChars(env, value, units);
     argument_error(env);
     return NULL;
+}
+
+/* Key backup arguments (a passphrase or a backup file) cross as byte arrays: copied into a buffer that is wiped
+ * before it is freed, so no passphrase becomes a Java String or a NUL-terminated C string. */
+#define MAX_BYTES_ARGUMENT 4096u
+
+static void bytes_error(JNIEnv *env) {
+    jclass type = (*env)->FindClass(env, "java/lang/IllegalArgumentException");
+    if (type) {
+        (*env)->ThrowNew(env, type, "Native byte argument must be non-null and at most 4096 bytes");
+        (*env)->DeleteLocalRef(env, type);
+    }
+}
+
+static uint8_t *byte_argument(JNIEnv *env, jbyteArray value, size_t *length) {
+    if (!value) { bytes_error(env); return NULL; }
+    jsize count = (*env)->GetArrayLength(env, value);
+    if (count < 0 || (size_t)count > MAX_BYTES_ARGUMENT) { bytes_error(env); return NULL; }
+    /* One spare byte, so an empty array still gives Rust a non-null pointer. */
+    uint8_t *out = malloc((size_t)count + 1);
+    if (!out) {
+        jclass type = (*env)->FindClass(env, "java/lang/OutOfMemoryError");
+        if (type) {
+            (*env)->ThrowNew(env, type, "Cannot allocate native argument");
+            (*env)->DeleteLocalRef(env, type);
+        }
+        return NULL;
+    }
+    (*env)->GetByteArrayRegion(env, value, 0, count, (jbyte *)out);
+    if ((*env)->ExceptionCheck(env)) { free(out); return NULL; }
+    *length = (size_t)count;
+    return out;
+}
+
+static void wipe_free(uint8_t *value, size_t length) {
+    if (!value) return;
+    volatile uint8_t *p = value;
+    for (size_t i = 0; i < length; i++) p[i] = 0;
+    free(value);
 }
 
 static jstring result(JNIEnv *env, char *value) {
@@ -170,4 +212,50 @@ JNIEXPORT void JNICALL Java_org_pocol_node_Native_stop(JNIEnv *env, jclass cls) 
 JNIEXPORT jstring JNICALL Java_org_pocol_node_Native_command(JNIEnv *env, jclass cls, jstring command) {
     (void)cls; char *s=argument(env,command); if(!s)return NULL;
     char *out=pocol_mobile_command(s);free(s);return result(env,out);
+}
+JNIEXPORT jstring JNICALL Java_org_pocol_node_Native_exportKey(JNIEnv *env, jclass cls, jstring home, jbyteArray passphrase) {
+    (void)cls;
+    char *h = argument(env, home);
+    if (!h) return NULL;
+    size_t pass_length = 0;
+    uint8_t *pass = byte_argument(env, passphrase, &pass_length);
+    if (!pass) { free(h); return NULL; }
+    char *out = pocol_mobile_export_key(h, pass, pass_length);
+    wipe_free(pass, pass_length);
+    free(h);
+    return result(env, out);
+}
+JNIEXPORT jstring JNICALL Java_org_pocol_node_Native_inspectKeyBackup(JNIEnv *env, jclass cls, jstring home, jbyteArray backup, jbyteArray passphrase) {
+    (void)cls;
+    char *h = argument(env, home);
+    if (!h) return NULL;
+    size_t file_length = 0, pass_length = 0;
+    uint8_t *file = byte_argument(env, backup, &file_length);
+    if (!file) { free(h); return NULL; }
+    uint8_t *pass = byte_argument(env, passphrase, &pass_length);
+    if (!pass) { wipe_free(file, file_length); free(h); return NULL; }
+    char *out = pocol_mobile_inspect_key_backup(h, file, file_length, pass, pass_length);
+    wipe_free(pass, pass_length);
+    wipe_free(file, file_length);
+    free(h);
+    return result(env, out);
+}
+/* `replace` is "" or the current address the user confirmed replacing. */
+JNIEXPORT jstring JNICALL Java_org_pocol_node_Native_importKey(JNIEnv *env, jclass cls, jstring home, jbyteArray backup, jbyteArray passphrase, jstring replace) {
+    (void)cls;
+    char *h = argument(env, home);
+    if (!h) return NULL;
+    char *r = argument(env, replace);
+    if (!r) { free(h); return NULL; }
+    size_t file_length = 0, pass_length = 0;
+    uint8_t *file = byte_argument(env, backup, &file_length);
+    if (!file) { free(r); free(h); return NULL; }
+    uint8_t *pass = byte_argument(env, passphrase, &pass_length);
+    if (!pass) { wipe_free(file, file_length); free(r); free(h); return NULL; }
+    char *out = pocol_mobile_import_key(h, file, file_length, pass, pass_length, r);
+    wipe_free(pass, pass_length);
+    wipe_free(file, file_length);
+    free(r);
+    free(h);
+    return result(env, out);
 }
