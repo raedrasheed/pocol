@@ -526,16 +526,21 @@ impl Chain{
         let st=self.view_or(p)?;let st=st.v();
         let act:Vec<ParentMember>=apply::active_list(st).into_iter().map(|id|{let r=apply::miner_record(st,id);
             ParentMember{id:raw_addr(id),tomb:r.map(|r|r.tomb).unwrap_or(false),last_share:r.map(|r|r.last_share).unwrap_or(0),grace_start:r.map(|r|r.grace_start).unwrap_or(0)}}).collect();
-        // Earn-in D1: ACCRUING records (bondState 4) are not proposer candidates. None exist on v1 networks.
-        let accruing:Vec<_>=apply::active_list(st).into_iter().filter(|id|apply::miner_record(st,*id).is_some_and(|r|r.bond_state==4)).map(raw_addr).collect();
-        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
+        let v3=self.spec.v3_active(h);let quarter=from_fixed_lp4(&cp.B_reg)/U256::from(4);
+        // Legacy D1 excludes every ACCRUING record. V3-13 allows those at B_reg/4;
+        // DrawWeights retains the owner's all-probationer exception if all are excluded.
+        let accruing:Vec<_>=apply::active_list(st).into_iter().filter(|id|apply::miner_record(st,*id).is_some_and(|r|r.bond_state==4&&(!v3||r.bond<quarter))).map(raw_addr).collect();
+        let all_live=v3&&self.spec.effective_nonce_mode(h)==NonceMode::Unbounded;
+        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,all_live).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
     }
-    pub fn draw(&self,p:&Entry,members:&Membership,h:u64)->Result<Address,Reject>{
+    pub fn draw_weights(&self,p:&Entry,members:&Membership,h:u64)->Result<DrawWeights,Reject>{
         let cp=self.spec.cp();let lo=h.saturating_sub(1).saturating_sub(u64::from(cp.W_w)).max(1);let mut hist=Vec::new();
         let st=self.view_or(p)?;let st=st.v();
-        if h>=2{for j in lo..=h-2{for id in members.ids(){let c=apply::share_count(st,j,addr(id));if c>0{hist.push(ShareCount{height:j,id:*id,count:c});}}}}
-        let w=DrawWeights::new(members,cp.W_w,&hist).map_err(|e|Reject::Block(format!("draw {e:?}")))?;
-        w.draw().map(|(a,_)|addr(&a)).map_err(|e|Reject::Block(format!("draw {e:?}")))
+        if h>=2{for j in lo..=h-2{for id in apply::share_owners(st,j){let id=raw_addr(id);if members.ids().binary_search(&id).is_ok(){let c=apply::share_count(st,j,addr(&id));if c>0{hist.push(ShareCount{height:j,id,count:c});}}}}}
+        DrawWeights::new(members,cp.W_w,&hist).map_err(|e|Reject::Block(format!("draw {e:?}")))
+    }
+    pub fn draw(&self,p:&Entry,members:&Membership,h:u64)->Result<Address,Reject>{
+        self.draw_weights(p,members,h)?.draw().map(|(a,_)|addr(&a)).map_err(|e|Reject::Block(format!("draw {e:?}")))
     }
     pub fn ancestors(&self,p:&Entry)->Vec<(u64,B256)>{
         let mut out=Vec::new();let mut cur=Some(p);

@@ -11,7 +11,7 @@ fn member(n: u8, last: u64, grace: u64, tomb: bool) -> ParentMember {
     ParentMember { id: id(n), last_share: last, grace_start: grace, tomb }
 }
 fn members(height: u64, act: &[ParentMember], window: u32) -> Membership {
-    Membership::from_parent(&ParentView { height: height - 1, seal: &[7; 32], act }, height, window, 65535).unwrap()
+    Membership::from_parent(&ParentView { height: height - 1, seal: &[7; 32], act }, height, window, 65535, false).unwrap()
 }
 
 #[test]
@@ -27,11 +27,11 @@ fn membership_cutoff_grace_tombs_and_fallback() {
 fn inconsistent_parent_views_are_errors_not_certificates() {
     let act = [member(1, 0, 0, false)];
     let parent = ParentView { height: 0, seal: &[0; 32], act: &act };
-    assert_eq!(Membership::from_parent(&parent, 0, 1, 1).unwrap_err(), AssignmentError::ParentHeight);
-    assert_eq!(Membership::from_parent(&parent, 2, 1, 1).unwrap_err(), AssignmentError::ParentHeight);
-    assert_eq!(Membership::from_parent(&parent, 1, 1, 0).unwrap_err(), AssignmentError::MemberBound);
+    assert_eq!(Membership::from_parent(&parent, 0, 1, 1, false).unwrap_err(), AssignmentError::ParentHeight);
+    assert_eq!(Membership::from_parent(&parent, 2, 1, 1, false).unwrap_err(), AssignmentError::ParentHeight);
+    assert_eq!(Membership::from_parent(&parent, 1, 1, 0, false).unwrap_err(), AssignmentError::MemberBound);
     assert!(members(10, &[], 0).ids().is_empty());
-    let check = |act: &[ParentMember]| Membership::from_parent(&ParentView { height: 9, seal: &[0; 32], act }, 10, 3, 10);
+    let check = |act: &[ParentMember]| Membership::from_parent(&ParentView { height: 9, seal: &[0; 32], act }, 10, 3, 10, false);
     assert_eq!(check(&[member(1, 1, 1, false), member(1, 1, 1, false)]).unwrap_err(), AssignmentError::DuplicateMember);
     // Apply the specified cutoff to supplied facts; validating registry transitions is not this API's job.
     assert_eq!(check(&[member(1, 10, 0, false)]).unwrap().ids(), &[id(1)]);
@@ -196,4 +196,31 @@ fn accruing_members_are_not_proposer_candidates_unless_all_are() {
     let w = DrawWeights::new(&mixed, 3, &[row(1, 3), row(2, 9), row(3, 1)]).unwrap();
     assert_eq!(w.total(), 4);
     for i in 0..w.total() { assert_ne!(w.choose(i).unwrap(), id(2), "an ACCRUING member is never drawn"); }
+}
+
+#[test]
+fn every_live_member_keeps_a_range_when_only_one_has_recent_shares() {
+    let act = [member(3, 0, 0, false), member(1, 99, 0, false), member(2, 0, 0, false), member(4, 99, 99, true)];
+    let parent = ParentView { height: 99, seal: &[9; 32], act: &act };
+    let legacy = Membership::from_parent(&parent, 100, 32, 4, false).unwrap();
+    let live = Membership::from_parent(&parent, 100, 32, 4, true).unwrap();
+    assert_eq!(legacy.ids(), &[id(1)]);
+    assert_eq!(live.ids(), &[id(1), id(2), id(3)]);
+    let old_ranges = Assignment::new(&legacy, 0, &U256::MAX, NonceMode::Unbounded, 2).unwrap();
+    let new_ranges = Assignment::new(&live, 0, &U256::MAX, NonceMode::Unbounded, 2).unwrap();
+    for range in new_ranges.ranges() {
+        assert!(range.inclusive_end().is_some());
+        assert_eq!(new_ranges.owner(range.start() as u64), Some(range.id()));
+        assert_eq!(old_ranges.owner(range.start() as u64), Some(id(1)));
+    }
+    // The old empty-active fallback and tomb exclusion remain available in both modes.
+    for all_live in [false, true] {
+        assert_eq!(Membership::from_parent(&parent, 100, 0, 4, all_live).unwrap().ids(), live.ids());
+        assert_eq!(Membership::from_parent(&parent, 101, 32, 4, all_live).unwrap_err(), AssignmentError::ParentHeight);
+        assert_eq!(Membership::from_parent(&parent, 100, 32, 3, all_live).unwrap_err(), AssignmentError::MemberBound);
+        let duplicate = [member(1, 0, 0, false), member(1, 99, 0, false)];
+        assert_eq!(Membership::from_parent(&ParentView { act: &duplicate, ..parent }, 100, 32, 4, all_live).unwrap_err(), AssignmentError::DuplicateMember);
+        let reserved = [member(0, 99, 0, false)];
+        assert_eq!(Membership::from_parent(&ParentView { act: &reserved, ..parent }, 100, 32, 4, all_live).unwrap_err(), AssignmentError::ReservedMember);
+    }
 }

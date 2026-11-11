@@ -50,13 +50,14 @@ pub struct Membership {
     height: u64,
     seal: H256,
     ids: Vec<Address>,
-    /// Members whose bond is still ACCRUING (earn-in, EARN-IN-SPEC.md D1). Sorted, a subset of `ids`.
+    /// Probationers excluded by the host's bond rule. Sorted, a subset of `ids`.
     accruing: Vec<Address>,
 }
 impl Membership {
-    /// Computes A_h*, excluding tombs even on the inactive-set fallback.
+    /// Computes A_h*, excluding tombs. `all_live` is selected by the host only for v3
+    /// unbounded ranges; false preserves activity gating and the empty-active fallback.
     /// Input-shape checks reject inconsistent views, not new consensus validity rules.
-    pub fn from_parent(parent: &ParentView<'_>, height: u64, w_act: u32, m_max: u16) -> Result<Self, AssignmentError> {
+    pub fn from_parent(parent: &ParentView<'_>, height: u64, w_act: u32, m_max: u16, all_live: bool) -> Result<Self, AssignmentError> {
         if height.checked_sub(1) != Some(parent.height) {
             return Err(AssignmentError::ParentHeight);
         }
@@ -81,15 +82,16 @@ impl Membership {
                 }
             }
         }
-        let mut ids = if active.is_empty() { live } else { active };
+        let mut ids = if all_live || active.is_empty() { live } else { active };
         ids.sort();
         Ok(Self { height, seal: *parent.seal, ids, accruing: Vec::new() })
     }
     pub fn ids(&self) -> &[Address] {
         &self.ids
     }
-    /// Marks the members whose parent record is ACCRUING. They keep their nonce range but are not
-    /// proposer candidates (D1). Ids outside the membership are ignored.
+    /// Marks probationers excluded by the host's bond rule. They keep their nonce range;
+    /// when every member is marked, the historical all-probationer draw exception applies.
+    /// Ids outside the membership are ignored.
     pub fn with_accruing(mut self, ids: impl IntoIterator<Item = Address>) -> Self {
         let mut accruing: Vec<Address> = ids.into_iter().filter(|id| self.ids.binary_search(id).is_ok()).collect();
         accruing.sort();
@@ -272,8 +274,9 @@ impl DrawWeights {
             return Err(AssignmentError::EmptyMembership);
         }
         let mut weights: Vec<_> = members.ids.iter().map(|id| (*id, 0u128)).collect();
-        // D1: candidates are the non-ACCRUING members, or every member when all are ACCRUING. With no
-        // ACCRUING member (every v1 network) every member is a candidate, exactly as before.
+        // D1 / V3-13: the host marks excluded probationers (all ACCRUING on legacy chains,
+        // only those below B_reg/4 on v3). Retain the owner-approved exception when all
+        // members are marked; with none marked, every member is a candidate as before.
         let all_accruing = members.accruing.len() == members.ids.len();
         let candidate = |id: &Address| all_accruing || members.accruing.binary_search(id).is_err();
         let mut seen = BTreeSet::new();

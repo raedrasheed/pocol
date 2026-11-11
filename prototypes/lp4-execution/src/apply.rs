@@ -195,6 +195,17 @@ pub fn share_count(db:&dyn crate::view::View,j:u64,owner:Address)->u64{
     let n=ledger_slot_count_base(j);let slot=U256::from_be_bytes(keccak256([owner.into_word().as_slice(),n.to_be_bytes::<32>().as_slice()].concat()).0);
     low_u64(word(db,ledger(),slot))
 }
+/// Distinct owners at height j, streamed from ShareLedger's slot-2 array. The caller
+/// supplies a validated parent: the host checks owner membership before Registry calls
+/// record(), which bounds the list by S_max+1 and appends each owner once. Genesis
+/// forbids nonzero ledger storage.
+/// Streaming avoids a second allocation alongside the draw's history rows.
+pub fn share_owners(db:&dyn crate::view::View,j:u64)->impl Iterator<Item=Address>+'_ {
+    let slot=U256::from_be_bytes(keccak256([U256::from(j).to_be_bytes::<32>(),U256::from(2).to_be_bytes::<32>()].concat()).0);
+    let n=low_u64(word(db,ledger(),slot));
+    let base=U256::from_be_bytes(keccak256(slot.to_be_bytes::<32>()).0);
+    (0..n).map(move|i|Address::from_word(B256::from(word(db,ledger(),base+U256::from(i)))))
+}
 pub fn share_total(db:&dyn crate::view::View,j:u64)->u64{low_u64(word(db,ledger(),ledger_slot_total(j)))}
 pub fn pending(db:&dyn crate::view::View,j:u64)->(U256,U256,Address){
     let b=U256::from_be_bytes(keccak256([U256::from(j).to_be_bytes::<32>(),U256::from(3).to_be_bytes::<32>()].concat()).0);

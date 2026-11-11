@@ -309,7 +309,7 @@ fn difficulty_one_changes_from_two_nonce_slots_to_ranges_for_all_seven_members()
         id[19] = n;
         ParentMember { id, tomb: false, last_share: 0, grace_start: 0 }
     }).collect();
-    let membership = Membership::from_parent(&ParentView { height: 0, seal: &[0; 32], act: &act }, 1, 32, 64).unwrap();
+    let membership = Membership::from_parent(&ParentView { height: 0, seal: &[0; 32], act: &act }, 1, 32, 64, false).unwrap();
     assert_eq!(pocold::fixed::work(&Fixed::MAX), Fixed::ONE);
     let old = Assignment::new(&membership, 0, &Fixed::MAX, NonceMode::Bounded, 2).unwrap();
     assert_eq!(old.nonce_max(), 2);
