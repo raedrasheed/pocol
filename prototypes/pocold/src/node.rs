@@ -454,6 +454,21 @@ fn retention_rkeep(dir:&std::path::Path,configured:u64)->std::io::Result<u64>{
     Ok(rk)
 }
 
+/// C-1 S5 (PR7 §7, review 2026-11): the record count the journal's commit file gives (its valid slot with the larger
+/// seq, as `store::open` reads it), read before the journal pass so that the replay tables are checked before the pass
+/// builds them. None when it cannot be read (no journal or commit file, a format-1 journal, no valid slot): the pass
+/// then decides, and the exact check after it runs either way. The slot layout (store.rs's module docs) is read here,
+/// not exposed by store.rs, which is a consensus-boundary file.
+fn committed_records(dir:&std::path::Path,binding:&[u8;32])->Option<u64>{
+    use std::io::Read;use sha2::{Digest,Sha256};
+    let mut magic=[0u8;8];std::fs::File::open(dir.join("blocks.journal")).ok()?.read_exact(&mut magic).ok()?;if &magic!=b"POCOLJ2\n"{return None}
+    let c=std::fs::read(dir.join("blocks.commit")).ok()?;let second=match c.len(){4160=>4096,128=>64,_=>return None};
+    let slot=|s:&[u8]|{let u=|i:usize|u64::from_be_bytes(s[i..i+8].try_into().unwrap());let (seq,count,end)=(u(0),u(8),u(16));
+        let mut h=Sha256::new();h.update(b"POCOL-COMMIT");h.update(binding);h.update(seq.to_be_bytes());h.update(count.to_be_bytes());h.update(end.to_be_bytes());
+        (s[24..56]==h.finalize()[..]&&s[56..64].iter().all(|b|*b==0)).then_some((seq,count))};
+    [slot(&c[..64]),slot(&c[second..second+64])].into_iter().flatten().max().map(|(_,n)|n)
+}
+
 /// F7: load the attempt-0 signing record from `<dir>/signed-a0` (one line per pair:
 /// `hex(parent) height hex(tid)`). Malformed or missing lines are skipped — an empty map just means
 /// nothing has been signed yet. Only template ids persist (not bodies), so the file stays tiny.
@@ -494,6 +509,13 @@ impl Node{
         cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
+        // PR7 §7 (G5, review 2026-11): the replay tables are checked before the pass builds them, at the committed count.
+        // A journal they do not fit stops here with the LOCAL CAPACITY message, not out of memory during the pass (the
+        // check after the pass came after its tables). The pass adds at most one uncommitted record, which the exact
+        // check after it counts; at the committed count this refuses only a journal that check refuses (both grow with
+        // the count, and the pass changes none of the observed files).
+        if let Some(n)=committed_records(&cfg.dir,&binding){let mut l=cfg.limits.clone();if spec.cp().H_END==0{l.continuous_history=Some(n);}
+            crate::resources::check_open(spec.cp(),spec.local().k_hist,spec.local().side_max,&l,cfg.peers.len(),n)?;}
         // One pass over the journal (2026-10-28: its payloads are not held, condition `open-replay-transient`):
         // each verified record's replay events (its block and its parent) and the rolling hash of the journal prefix
         // (C-1 E4.4 binding), sampled every ROLL_SAMPLE records (C-1 S5, PR7 §7: the frame offsets are the journal's

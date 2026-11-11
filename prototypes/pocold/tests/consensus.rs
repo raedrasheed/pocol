@@ -4682,6 +4682,25 @@ fn pr7_result_bytes(r:&Option<apply::ParentResult>)->Vec<u8>{
     for h in [base,base+1,base+254]{let r=n.chain.child_ctx(&at(h),0);assert!(matches!(&r,Err(Reject::Local(s)) if s.contains("BLOCKHASH window")),"a child of height {}: {:?}",h+1,r.err());}
     drop(n);let _=std::fs::remove_dir_all(&a);
 }
+/// PR7 (§7, G5, review 2026-11): an open whose replay tables do not fit the budget beside the bound refuses before it
+/// reads the journal, at the count the commit file gives: an interrupted append at the journal's end is left as it was
+/// (the store's recovery did not run), and the same node with the budget the tables fit in opens and recovers it.
+/// FAIL-ON-ORIGINAL: the check came after the journal pass, which first built the tables (and here recovered the tail).
+#[test] fn an_open_whose_replay_tables_do_not_fit_refuses_before_it_reads_the_journal(){
+    let blocks=pr7_chain(60);let a=e44_dir("pr7-g5");let l=pr7_limits(8,true,25,None);
+    {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}}
+    let (bound,t)={let n=reopen(&pr7_conf(&a,l.clone()));let (c,lo)=(n.chain.spec.cp().clone(),n.chain.spec.local().clone());
+        (pocold::resources::derive(&c,lo.k_hist,lo.side_max,&n.cfg.limits,0).unwrap().total,pocold::resources::open_transient(&c,&n.cfg.limits,60).unwrap())};
+    let mut tight=l.clone();tight.mem_budget=pocold::resources::budget_required(bound+t/2).unwrap() as u64;
+    let path=a.join("blocks.journal");{use std::io::Write;std::fs::OpenOptions::new().append(true).open(&path).unwrap().write_all(&[0u8;100]).unwrap();}
+    let len=std::fs::metadata(&path).unwrap().len();
+    let e=match pocold::node::Node::open(pr7_conf(&a,tight)(),admitted(&cfg(&["a","b","c"]))){Ok(_)=>panic!("the open fits ({t} B of tables)"),Err(e)=>e};
+    assert!(e.starts_with("LOCAL CAPACITY at open: the journal's 60 records"),"the open-transient refusal: {e}");
+    assert_eq!((std::fs::metadata(&path).unwrap().len(),a.join("blocks.journal.torn-0").exists()),(len,false),"FAIL-ON-ORIGINAL: the journal pass ran before the refusal: {e}");
+    let n=reopen(&pr7_conf(&a,l));assert_eq!(n.journal_records(),60);
+    assert_eq!((std::fs::metadata(&path).unwrap().len(),a.join("blocks.journal.torn-0").exists()),(len-100,true),"positive control: an open that fits recovers the tail");
+    drop(n);let _=std::fs::remove_dir_all(&a);
+}
 
 /// The child of `crash_at_canon_points`: imports the blocks of `POCOLD_PR7_BLOCKS` into the PR7 store-mode node at
 /// `POCOLD_PR7_CHILD` (R_keep 8, a checkpoint every 25 records), until it is aborted. Not a test on its own.
