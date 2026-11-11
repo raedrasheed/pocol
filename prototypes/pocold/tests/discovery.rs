@@ -12,7 +12,12 @@ use pocol_lp4_execution::devnet::{self,DevnetConfig};
 fn spec()->Spec{
     static GENESIS:std::sync::OnceLock<u64>=std::sync::OnceLock::new();
     static TIMING:std::sync::OnceLock<pocol_lp4_execution::admission::Timing>=std::sync::OnceLock::new();
-    let n=devnet::build(&DevnetConfig::new(777941,*GENESIS.get_or_init(pocold::node::now_s),&["a","b","c"])).unwrap();
+    let mut cfg=DevnetConfig::new(777941,*GENESIS.get_or_init(pocold::node::now_s),&["a","b","c"]);
+    // Discovery's chain-progress assertions need miners to keep searching after S stops.
+    // Bounded ranges can all exhaust without a solution and wait entire 25 s attempts,
+    // so a healthy connected network can miss the test's deadline. Use spec-1 full nonce.
+    cfg.nonce_mode=1;
+    let n=devnet::build(&cfg).unwrap();
     let t=TIMING.get_or_init(||pocol_lp4_execution::admission::measure(&n.spec_bytes,&n.alloc,1).unwrap());
     Spec::new(pocol_lp4_execution::admission::admit(&n.request(&pocold::single_host_local(),Some(t))).unwrap_or_else(|e|panic!("{e}")))
 }
