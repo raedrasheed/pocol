@@ -9,6 +9,33 @@ use std::path::{Path,PathBuf};
 fn tmp(name:&str)->PathBuf{let d=std::env::temp_dir().join(format!("pocold-store-{name}-{}",std::process::id()));let _=fs::remove_dir_all(&d);d}
 const B:[u8;32]=[9;32];
 const OV:usize=4+4+32+1; // v2 record overhead: len, lenCheck, digest, marker
+
+#[test] fn local_timing_extension_preserves_legacy_bytes_and_migrates_mixed_records(){
+    use pocold::store::FirstImport;
+    use sha2::{Digest,Sha256};
+    let legacy=vec![0xc6,0x81,0x80,0x81,0x81,0x81,0x82];
+    assert_eq!(store::encode_record(&[0x80],&[0x81],&[0x82]),legacy);
+    assert_eq!(store::encode_record_with_import(&[0x80],&[0x81],&[0x82],None),legacy);
+    assert_eq!(store::decode_record_ref(&legacy).unwrap().first_import,None);
+    let first=FirstImport{received_ms:u128::MAX,parent_received_ms:1_700_000_000_123,timely:false};
+    let timed=store::encode_record_with_import(&[0x80],&[0x81],&[0x82],Some(first));
+    let r=store::decode_record_ref(&timed).unwrap();assert_eq!(r.first_import,Some(first));
+    assert_eq!((r.header,r.body,r.result),(&[0x80][..],&[0x81][..],&[0x82][..]));
+    assert_eq!(store::decode_record(&timed).unwrap(),store::decode_record(&legacy).unwrap());
+    for bad in [0,2,255]{let mut b=timed.clone();let version=b.len()-store::IMPORT_BYTES-1;b[version]=bad;assert!(store::decode_record_ref(&b).is_err());}
+    let mut b=timed.clone();*b.last_mut().unwrap()=2;assert!(store::decode_record_ref(&b).is_err());
+    for cut in 0..timed.len(){assert!(store::decode_record_ref(&timed[..cut]).is_err());}
+    let mut b=timed.clone();b.push(0);assert!(store::decode_record_ref(&b).is_err());
+    // Outer v1 framing migrates with its original payload bytes, including old
+    // three-field records. A later append can use the local extension.
+    let d=tmp("timing-migration");fs::create_dir_all(&d).unwrap();
+    let mut v1=b"POCOLJ1\n".to_vec();v1.extend(B);
+    v1.extend((legacy.len() as u32).to_be_bytes());v1.extend(Sha256::digest(&legacy));v1.extend(&legacy);v1.push(1);
+    fs::write(d.join("blocks.journal"),&v1).unwrap();
+    {let mut r=store::open(&d,&B).unwrap();assert!(r.migrated_v1);assert_eq!(r.payloads(),vec![legacy.clone()]);r.journal.append(&timed).unwrap();}
+    assert_eq!(fs::read(d.join("blocks.journal.v1-0")).unwrap(),v1);
+    let r=store::open(&d,&B).unwrap();assert_eq!(r.payloads(),vec![legacy,timed]);drop(r);fs::remove_dir_all(d).unwrap();
+}
 /// Copies a store's journal and commit file into a fresh directory with the journal replaced by `journal`.
 fn store_with(src:&Path,name:&str,journal:&[u8])->PathBuf{
     let d=tmp(name);fs::create_dir_all(&d).unwrap();fs::write(d.join("blocks.journal"),journal).unwrap();

@@ -1362,6 +1362,36 @@ on one host under one synthetic workload, not a bound.
     GiB)**, 5.941 GiB required. The allocator term is 0.3908 GiB, and the largest file 3.08 TiB.
   - The rows' bound is loose: every node counted at ROW + BRANCH_ENC bytes, where most are larger.
 
+### V3-PR-C2: frozen local first-import timing
+
+`Entry` and checkpoint `Rec` carry an optional inline first-import timestamp, parent receipt context and
+the original timely flag. Their heap terms use the actual `size_of` types; checkpoint encoded bounds add
+33 bytes to `REC_MAX` while `REC_MIN` stays 126. No lifetime timing map is held in RAM. `canon.redb`
+derives hash → first journal offset for all timed blocks, including evicted side branches; lookups verify
+the original authenticated journal record. A lost index streams the journal before checkpoint restore.
+The prefix marker binds its covered record count, end offset and rolling hash, so an unchanged prefix
+need not be rescanned for this index. Genesis receipt context is retained because genesis has no record.
+
+For profiles that can activate v3, `Limits::first_imports` is set from the admitted schedule at open.
+The model requires observed journal records and file sizes, and counts a separate `CANON_CACHE` plus
+`redb_alloc_max(observed canon bytes + 8 × 40 × (records + DISK_HEADROOM))`. This is deliberately
+conservative with canonical eviction, which also counts that file. Record count covers arbitrary side
+blocks even on bounded chains and a rebuild from an empty index. Open checks precede allocation;
+the existing 256-record recheck now covers these bounded profiles too. The condition
+`first-import-inventory` also charges two `MAX_RECORD` payloads (the streamed payload and an original
+offset lookup), eight maximum headers and 4 KiB scratch. Fields are borrowed, without body copies.
+The index's non-durable transactions share the existing cache and durable-commit interval.
+
+Review of the enlarged checkpoint record found that the eviction batch used encoded `REC_MIN` for
+an inline record. It now counts normalized `Entry` boxes, vector capacity for boxes and actual
+`(height, Rec)` slots, plus bounded serialized/sealed/replaced row buffers. No term was lowered.
+On Linux x86-64, the pinned dormant devnet model changes from 3,385,097,500 to **3,398,806,648 B**;
+with eviction off it changes from 3,387,450,989 to **3,388,705,997 B** (inline metadata only).
+These are model totals, not measured RSS or timing guarantees. The default budget and 1/8 reserve
+remain unchanged. `memory_bounds::first_import_index_requires_observations_and_counts_side_record_growth`
+checks the observation requirement and growth with side-record count; `v3_fork_choice` checks actual
+slimming, offloading, canonical eviction, checkpoint recovery, index loss and side-block re-fetch.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:
@@ -1394,6 +1424,7 @@ admission is refused while any remains (D-A02-SCOPE).
 | 16 | the answer being built: one member's JSON tree and string ≤ 4 × RESP_MAX | INSPECTION | The parse tree of the request is ENFORCED (JSON_VALUES_MAX before parsing, `parse_bytes_max`). The member's result tree is bounded by RESP_MAX of output (`capped`), but its tree-to-text ratio is counted at 4 by inspection |
 | 18 | adoption of a heavier competing branch at any depth ≤ R_keep (network.md:144) | **IMPLEMENTED (D-REORG-REDB, owner-approved 2026-10-23); verification on the final commit: REPAIR-REPORT.md §D-REORG-REDB.** Mechanism and proof: proposals/D-REORG-REDB-DESIGN-FREEZE.md Revision 2: metadata fork choice; offloaded side blocks; protected locator sync sessions that re-fetch evicted branches; restore of adopted blocks; replay equal to live. Tests: `adoption_at_the_spec_depth_2048_and_not_at_2049` (release), `r_keep_boundary_adopts_at_depth_r_keep_and_keeps_the_valid_chain_beyond`, `d133_tie_break_at_depth_400_holds_through_eviction_and_refetch` (release), `a_session_branch_is_adopted_through_a_flood_of_competing_side_branches`, `a_sync_session_refetches_an_evicted_branch_and_serves_it`. The round-2 text below is kept for history: | OPEN (architectural); depth raised 256 → 320 | Fork choice (`better`, `rebuild_canonical`) walks a branch's ancestors through resident `self.blocks`, and `retain` drops only leaves (no holes), so a competing branch must be FULLY resident to be adopted: the one-shot adoption depth IS SIDE_BLOCKS_MAX. Round 2 raised it 256 → 320 (the largest value fitting the budget with margin, D-A13-BUDGET addendum) via the tested validate()+insert() path. A branch deeper than 320 is PRESERVED in the journal (lossless) and NOT refused forever; it is simply not adopted in one shot — the node stays on the valid lighter chain (consensus.md D118: fetched by sync; governance.md:200: manual checkpoint beyond R_keep). Reaching R_keep = 2048 within budget needs the block bodies off the heap (~0.85 GB otherwise), i.e. a redb block store + streaming reorg — a consensus-critical mechanism PROPOSED for explicit owner approval (proposals/D-REORG-REDB.md), not implemented. No consensus rule is weakened: the node never adopts an invalid chain. Tests: `adopt_a_heavier_branch_at_the_cap_and_survive_restart` (a 270-deep heavier branch is adopted and survives restart; mutation cap=256 fails it), `a_branch_deeper_than_the_cap_is_preserved_not_adopted` (a 382-deep branch is kept in the journal, not adopted, reopens without panic), and `a_competing_branch_within_side_blocks_max_is_adopted` (150-deep) |
 | 17 | the budget's reserve | ENFORCED (gate) | `check` requires the model total ≤ 7/8 of the budget (`RESERVE_KEEP_EIGHTHS`). The boot test asserts that the default boots, that one byte below its requirement is refused, and that exactly the requirement boots |
+| 18 | V3-04 first-import and eviction-batch inventory | INSPECTION, conservative model | Inline type sizes and encoded record bounds are counted; timing rows stay on disk, with observed file/record projections and a bounded payload lookup. The cache/allocator projection may count bytes twice with eviction on. `first-import-inventory`; lifecycle and observation/growth tests above. Allocator overhead and the existing file-factor assumptions remain open |
 
 Consequence:
 - The devnet admission is an **experimental-devnet admission** (D-A02-SCOPE), reported as such at boot

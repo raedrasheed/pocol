@@ -43,6 +43,22 @@ const SLOT_STRIDE:usize=4096;
 pub enum StoreError{Io(String),Locked,Binding,Corrupt(u64),TooLarge,MissingJournal,MissingCommit,CommitCorrupt,LegacyNeedsReview}
 impl From<std::io::Error> for StoreError{fn from(e:std::io::Error)->Self{Self::Io(e.to_string())}}
 
+/// Local V3-04 input and its frozen classification. The parent receipt also restores
+/// the genesis deadline baseline (genesis itself has no journal record).
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct FirstImport{pub received_ms:u128,pub parent_received_ms:u128,pub timely:bool}
+pub const IMPORT_BYTES:usize=33;
+impl FirstImport{
+    pub fn bytes(self)->[u8;IMPORT_BYTES]{
+        let mut b=[0u8;IMPORT_BYTES];b[..16].copy_from_slice(&self.received_ms.to_be_bytes());
+        b[16..32].copy_from_slice(&self.parent_received_ms.to_be_bytes());b[32]=u8::from(self.timely);b
+    }
+    pub fn from_bytes(b:&[u8])->Result<Self,String>{
+        if b.len()!=IMPORT_BYTES||b[32]>1{return Err("first-import metadata".into())}
+        Ok(Self{received_ms:u128::from_be_bytes(b[..16].try_into().unwrap()),parent_received_ms:u128::from_be_bytes(b[16..32].try_into().unwrap()),timely:b[32]==1})
+    }
+}
+
 pub struct Journal{file:File,commit:File,path:PathBuf,_lock:File,binding:[u8;32],seq:u64,end:u64,pub records:u64}
 /// The journal opened: its records' frame offsets (each record verified when it was read), not their
 /// payloads (2026-10-28): open held every payload while it replayed, so its transient grew with the journal
@@ -238,10 +254,24 @@ impl Journal{
 /// payload = RLP([headerBytes, bodyBytes, parentResultBytes]); parentResult is
 /// re-derived on replay and must match (parentResultMismatch halts import).
 pub fn encode_record(header:&[u8],body:&[u8],result:&[u8])->Vec<u8>{
+    encode_record_with_import(header,body,result,None)
+}
+/// The optional fourth field is a versioned local extension. Legacy chains still
+/// write the original three fields byte for byte; block/header wire bytes never change.
+pub fn encode_record_with_import(header:&[u8],body:&[u8],result:&[u8],first:Option<FirstImport>)->Vec<u8>{
     let mut p=Vec::new();for x in [header,body,result]{crate::rlp::encode_bytes(x,&mut p)}
+    if let Some(first)=first{let mut b=[0u8;IMPORT_BYTES+1];b[0]=1;b[1..].copy_from_slice(&first.bytes());crate::rlp::encode_bytes(&b,&mut p);}
     let mut o=Vec::new();crate::rlp::encode_list_payload(&p,&mut o);o
 }
+/// Borrowed parts avoid copying a body when rebuilding the first-import index.
+pub struct Record<'a>{pub header:&'a [u8],pub body:&'a [u8],pub result:&'a [u8],pub first_import:Option<FirstImport>}
+pub fn decode_record_ref(b:&[u8])->Result<Record<'_>,String>{
+    let it=crate::rlp::decode(b).map_err(|e|e.code().to_string())?;let l=it.list().ok_or("record")?;
+    if l.len()!=3&&l.len()!=4{return Err("record fields".into())}
+    let f=|i:usize|l[i].bytes().ok_or_else(||"record field".to_string());
+    let first_import=if l.len()==4{let x=f(3)?;if x.len()!=IMPORT_BYTES+1||x[0]!=1{return Err("first-import metadata version".into())}Some(FirstImport::from_bytes(&x[1..])?)}else{None};
+    Ok(Record{header:f(0)?,body:f(1)?,result:f(2)?,first_import})
+}
 pub fn decode_record(b:&[u8])->Result<(Vec<u8>,Vec<u8>,Vec<u8>),String>{
-    let it=crate::rlp::decode(b).map_err(|e|e.code().to_string())?;let l=it.list().ok_or("record")?;if l.len()!=3{return Err("record fields".into())}
-    let f=|i:usize|l[i].bytes().map(|x|x.to_vec()).ok_or_else(||"record field".to_string());Ok((f(0)?,f(1)?,f(2)?))
+    let r=decode_record_ref(b)?;Ok((r.header.to_vec(),r.body.to_vec(),r.result.to_vec()))
 }

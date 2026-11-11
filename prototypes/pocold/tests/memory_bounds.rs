@@ -7,6 +7,19 @@ use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::Key};
 use revm::primitives::{Address,B256};
 use std::collections::HashMap;
 
+#[test]fn first_import_index_requires_observations_and_counts_side_record_growth(){
+    use pocold::{resources::derive,node::Limits};
+    let s=admitted();let local=s.local();let cp=s.cp();
+    let mut l=Limits{first_imports:true,evict_depth:Some(0),..Default::default()};
+    assert!(derive(cp,local.k_hist,local.side_max,&l,0).is_none(),"unknown journal/file sizes cannot mean zero");
+    l.disk=Some(Default::default());assert!(derive(cp,local.k_hist,local.side_max,&l,0).is_none());
+    l.continuous_history=Some(0);let a=derive(cp,local.k_hist,local.side_max,&l,0).unwrap();
+    l.continuous_history=Some(100_000_000);let b=derive(cp,local.k_hist,local.side_max,&l,0).unwrap();
+    assert!(b.total>a.total,"even a bounded chain can journal many distinct side blocks");
+    let scratch=a.items.iter().find(|x|x.0=="history/first-import journal lookup scratch").unwrap().1;
+    assert!(scratch>=2*pocold::store::MAX_RECORD as u128,"current replay payload and first-offset lookup coexist");
+}
+
 // ---------------- chain helpers (as tests/consensus.rs) ----------------
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
@@ -72,10 +85,12 @@ fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c
     use pocold::checkpoint::{flags,rec_bytes,rec_from,Rec,REC_MAX,REC_MIN};
     use revm::primitives::{alloy_primitives::U512,Address,U256};
     let min=Rec{hash:[3;32],body_off:Some(77),import_seq:5,total_work:U256::from(9u64),flags:flags::PRUNED|flags::SLIM|flags::OFFLOADED|flags::OFF,cum_txs:1,cum_tx_bytes:2,
-        cum_log_bytes:3,drawn:Address::repeat_byte(4),summary:None,root:None};
+        cum_log_bytes:3,drawn:Address::repeat_byte(4),summary:None,root:None,first_import:None};
     let b=rec_bytes(&min);assert_eq!(b.len(),REC_MIN);assert_eq!(rec_from(&b).unwrap(),min);
     let sum=pocol_lp4_execution::state_summary::Summary{runtime:1,code_total:2,code_missing:3,code_mismatch:4,over_runtime:5,user_accounts:6,user_slots:7,sys_slots:8,balance:U512::from(9u64),contracts_clean:true};
     let full=Rec{flags:flags::STORED|flags::WORLD|flags::SUMMARY|flags::OFF,summary:Some(sum),root:Some([8;32]),..min.clone()};
+    let legacy=rec_bytes(&full);assert_eq!(legacy.len(),REC_MAX-pocold::store::IMPORT_BYTES);assert_eq!(rec_from(&legacy).unwrap(),full);
+    let full=Rec{flags:full.flags|flags::IMPORT,first_import:Some(pocold::store::FirstImport{received_ms:12345,parent_received_ms:11111,timely:false}),..full};
     let b=rec_bytes(&full);assert_eq!(b.len(),REC_MAX);assert_eq!(rec_from(&b).unwrap(),full);
     assert!(rec_from(&b[..b.len()-1]).is_err(),"a cut record");let mut x=b.clone();x.push(0);assert!(rec_from(&x).is_err(),"a record with a byte more");
     assert!(rec_from(&rec_bytes(&Rec{flags:flags::WORLD,..full.clone()})).is_err(),"a root without a stored version");
@@ -90,7 +105,7 @@ fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c
     use revm::primitives::{Address,U256};
     let dir=std::env::temp_dir().join(format!("pocold-pr7-canon-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);std::fs::create_dir_all(&dir).unwrap();
     let rec=|h:u64,tag:u8|Rec{hash:{let mut x=hash(h);x[30]=tag;x},body_off:Some(40+h),import_seq:h,total_work:U256::from(h),flags:flags::PRUNED|flags::SLIM|flags::OFFLOADED|flags::OFF,
-        cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None};
+        cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None,first_import:None};
     let g=[9u8;32];
     {let ix=Index::open(&dir,&g).unwrap();assert!(!ix.rebuilt,"a new file is not a rebuilt one");
         ix.put(&(1..=5).map(|h|(h,rec(h,0))).collect::<Vec<_>>()).unwrap();
