@@ -176,7 +176,8 @@ if (@('all', 'lp4') -contains $Group) {
 [void](Test-Cargo 'lp4-execution' 'lp4-execution' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 90)
 }
 if (@('all', 'pocold') -contains $Group) {
-[void](Test-Cargo 'pocold' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 90)
+# Leave room for the full durable-store suite inside the workflow's 150-minute job.
+[void](Test-Cargo 'pocold' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 120)
 }
 # Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store and consensus.
 if (@('all', 'pocold-io-fault') -contains $Group) {
