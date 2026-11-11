@@ -156,10 +156,11 @@ pub fn coins(wei:U256)->String{
     if frac.is_empty(){s[..at].to_owned()}else{format!("{}.{}",&s[..at],frac)}
 }
 impl<'a> Wallet<'a>{
+    /// The key comes first: `Home::key` finishes an interrupted restore, which moves another account's activity aside.
     pub fn new(home:&'a Home)->Result<Self,String>{
-        let path=home.path.join("wallet-activity.json");
+        let key=home.key()?;let path=home.path.join(crate::launcher::ACTIVITY_FILE);
         let activity=if path.exists(){let bytes=crate::launcher::read_bounded(&path)?;let a:VecDeque<Value>=serde_json::from_slice(&bytes).map_err(|_|"Wallet activity is damaged; preserve it before recovery")?;if a.len()>100{return Err("Wallet activity exceeds limit".into())}a}else{VecDeque::new()};
-        Ok(Self{home,key:home.key()?,quote:None,rejoin:None,activity,stopped:false})
+        Ok(Self{home,key,quote:None,rejoin:None,activity,stopped:false})
     }
     /// The head's registry record, whether the account is in A_{head+1} (None if unknown) and the step.
     fn rejoin_view(&self,n:&Node)->(Option<apply::MinerRecord>,Option<bool>,RejoinStep){
@@ -439,6 +440,14 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
 }
 #[cfg(test)] mod tests{
     use super::*;
+    #[test] fn a_finished_restore_never_shows_the_replaced_accounts_activity(){
+        use crate::launcher::key_backup_tests::{crash_restore,OLD_ACTIVITY};
+        for step in 1..=4u8{
+            let (_,_,home,_t)=crash_restore(step,false);let w=Wallet::new(&home).unwrap();
+            let old:VecDeque<Value>=serde_json::from_slice(OLD_ACTIVITY).unwrap();
+            assert_eq!(w.activity,if step==1{old}else{VecDeque::new()},"crash before restore step {step}");
+        }
+    }
     #[test] fn decimal_amounts_never_use_floats(){
         for s in ["1","0.000000000000000001","123456789.012345678901234567"]{assert_eq!(coins(amount(s).unwrap()),s)}
         for s in ["", "0", "-1", "NaN", "1e18", "1.0000000000000000001", ".1", "1..2", " 1"]{assert!(amount(s).is_err(),"{s}")}

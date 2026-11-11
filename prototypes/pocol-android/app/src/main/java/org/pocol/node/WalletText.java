@@ -1,5 +1,5 @@
 package org.pocol.node;
-/** User-facing texts for peer diagnostics and network upgrades (plan §5). No Android types, so the host JVM test
+/** User-facing texts for peer diagnostics, network upgrades (plan §5) and key backup. No Android types, so the host JVM test
  *  (deploy/standalone/test_android_jni.py) covers them; the Windows wallet shows the same texts. */
 final class WalletText {
     static final String CONSENSUS_REFUSED="Peers use a different network configuration: apply the published network upgrade file (Settings → Upgrade) or update PoCol.";
@@ -22,6 +22,19 @@ final class WalletText {
             case "rebind":return "Release update: consensus rules and schedule unchanged — saved; you can connect now";
             default:return "Network upgrade saved. Connect your wallet when the coordinated release is ready.";
         }
+    }
+    /** Key backup (CRY-02): the same texts in both wallets. The format is pocold's keyfile::backup. */
+    static final String BACKUP_INFO="Back up your key to an encrypted file. Anyone with the file and its passphrase controls your PCOL. Without a backup, a lost device, a reset or an uninstall loses the account for good.";
+    static final String BACKUP_PASSPHRASE="Choose a passphrase of at least 12 characters that is not a repeated pattern, a sequence or a common password. It is never stored: if you forget it, the backup cannot be opened.";
+    static final String BACKUP_STORE="Keep the file and the passphrase in different places. Never share either one, and never send them to anyone who asks.";
+    static final String BACKUP_SAVED="Encrypted key backup saved. Keep it and its passphrase apart.";
+    static final String RESTORE_REPLACE="Restoring replaces the account this wallet uses now. Its key file is kept in the wallet folder, but move its funds first if you have no backup of it.";
+    static final String RESTORE_MINING="Stop mining on any other device that uses the restored key: two devices mining with one key can lose the bond.";
+    static final String KEY_DISCONNECT="Disconnect the wallet before backing up or restoring its key.";
+    static final String PASSPHRASE_MISMATCH="The passphrases differ. Nothing was saved.";
+    /** The notice after a restore (`import-key`): the account is unchanged, or the wallet now uses `address`. */
+    static String restored(boolean changed,String address){
+        return changed?"Key restored. This wallet now uses account "+address+".":"This backup holds the account this wallet already uses.";
     }
     private WalletText(){}
 }

@@ -497,6 +497,7 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
   - `pocol-browser-verify.yml`: Chrome on Linux, in both state modes;
   - `lp3-*.yml` and `lp4-execution-controls.yml`.
 - **Security.**
+  - Report vulnerabilities privately through GitHub's private vulnerability reporting; see [SECURITY.md](SECURITY.md).
   - Tests are limited to local nodes, local RPC and test browser profiles.
   - Never use real funds or real keys.
   - Do not publish exploit programs.

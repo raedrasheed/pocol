@@ -46,17 +46,25 @@ pub fn load(_: &Path) -> Result<Key, String> {
     Err("key-file support requires Unix ownership/permission checks in this release".into())
 }
 
-#[cfg(unix)]
+/// A fresh random valid secret, written by [`store`].
+#[cfg(any(unix, windows))]
 pub fn generate(path: &Path) -> Result<Key, String> {
+    let mut secret = Zeroizing::new([0u8; 32]);
+    loop {
+        getrandom::getrandom(secret.as_mut()).map_err(|_| "OS randomness unavailable")?;
+        if Key::from_secret(&secret).is_ok() {
+            break;
+        }
+    }
+    store(path, &secret)
+}
+
+/// Writes `secret` to a new key file (a restored backup, or [`generate`]'s fresh key).
+#[cfg(unix)]
+pub fn store(path: &Path, secret: &[u8; 32]) -> Result<Key, String> {
     use std::io::Write;
     use std::os::unix::fs::OpenOptionsExt;
-    let mut secret = Zeroizing::new([0u8; 32]);
-    let key = loop {
-        getrandom::getrandom(secret.as_mut()).map_err(|_| "OS randomness unavailable")?;
-        if let Ok(key) = Key::from_secret(&secret) {
-            break key;
-        }
-    };
+    let key = Key::from_secret(secret).map_err(|_| "invalid secp256k1 secret scalar")?;
     // O_EXCL: existing files and symlinks are never overwritten. No secret in stdout/errors.
     let mut file = std::fs::OpenOptions::new()
         .write(true)
@@ -64,7 +72,7 @@ pub fn generate(path: &Path) -> Result<Key, String> {
         .mode(0o600)
         .open(path)
         .map_err(|_| "cannot create new key file (existing path or invalid parent)")?;
-    file.write_all(secret.as_ref())
+    file.write_all(secret)
         .and_then(|_| file.sync_all())
         .map_err(|_| "key write failed; inspect/remove incomplete file before retrying")?;
     let parent = path
@@ -80,6 +88,10 @@ pub fn generate(path: &Path) -> Result<Key, String> {
 #[cfg(not(any(unix, windows)))]
 pub fn generate(_: &Path) -> Result<Key, String> {
     Err("key generation requires Unix ownership/permission checks in this release".into())
+}
+#[cfg(not(any(unix, windows)))]
+pub fn store(_: &Path, _: &[u8; 32]) -> Result<Key, String> {
+    Err("key storage requires Unix ownership/permission checks in this release".into())
 }
 
 /// Exactly one source; keep label-derived accounts for existing devnet tests only.
@@ -117,7 +129,8 @@ pub fn account(args: &[String]) -> Result<Key, String> {
     }
 }
 
+pub mod backup;
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
-pub use windows::{load, generate};
+pub use windows::{load, store};

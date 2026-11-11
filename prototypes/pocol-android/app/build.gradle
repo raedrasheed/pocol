@@ -1,8 +1,22 @@
 plugins { id 'com.android.application' }
+// The installed 0.4.0 app is org.pocol.node. Android updates an installed app only with the same signer (or a
+// signing lineage from it), so a build signed with a new key must be a different app that installs beside it:
+// `gradle assembleRelease -PpocolApplicationId=org.pocol.wallet` (README.md, "Moving to a new signing key").
+// The default stays org.pocol.node so the existing CI and release paths are unchanged.
+def pocolApplicationId = (project.findProperty('pocolApplicationId') ?: 'org.pocol.node').toString()
+if (!(pocolApplicationId ==~ /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/)) {
+    throw new GradleException("pocolApplicationId must be a lowercase Java package name, not '${pocolApplicationId}'")
+}
+// Launcher label: both apps can be installed during the move, so the new one is told apart by default.
+def pocolAppLabel = (project.findProperty('pocolAppLabel') ?: (pocolApplicationId == 'org.pocol.node' ? 'PoCol Wallet' : 'PoCol Wallet (new)')).toString()
 android {
     namespace 'org.pocol.node'
     compileSdk 35
-    defaultConfig { applicationId 'org.pocol.node'; minSdk 26; targetSdk 35; versionCode 5; versionName '0.4.0'; ndk { abiFilters 'arm64-v8a' } }
+    defaultConfig {
+        applicationId pocolApplicationId
+        minSdk 26; targetSdk 35; versionCode 5; versionName '0.4.0'; ndk { abiFilters 'arm64-v8a' }
+        manifestPlaceholders = [pocolAppLabel: pocolAppLabel]
+    }
     buildTypes { release { minifyEnabled false } }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
 }

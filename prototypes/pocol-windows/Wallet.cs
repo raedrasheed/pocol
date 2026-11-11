@@ -35,7 +35,7 @@ internal sealed class Wallet {
   Get<TextBlock>("Connection").ToolTip="Direct connections from this device, not the total number of nodes or miners.";
   foreach(string page in new[]{"Wallet","Activity","Mining","Settings"}){string p=page;Hook("Nav"+p,()=>Page(p));}
   Hook("ManageMining",()=>Page("Mining"));Hook("Connect",Start);Hook("Send",Send);Hook("Receive",Receive);Hook("CopyAddress",Copy);Hook("Import",Import);Hook("Disconnect",()=>Stop());Hook("Register",()=>Command(Cmd("method","quote_register")));Hook("Rejoin",()=>Command(Cmd("method","quote_rejoin")));Hook("TopUp",()=>Command(Cmd("method","quote_top_up")));
-  Hook("Upgrade",Upgrade);
+  Hook("Upgrade",Upgrade);Hook("BackupKey",BackupKey);Hook("RestoreKey",RestoreKey);Get<TextBlock>("BackupInfo").Text=BackupInfo+"\n"+BackupStore;
   Get<CheckBox>("MiningToggle").Click+=(s,e)=>{if(updating)return;bool on=Get<CheckBox>("MiningToggle").IsChecked==true;updating=true;Get<CheckBox>("MiningToggle").IsChecked=Flag(state,"miningEnabled");updating=false;Command(Cmd("method","mining","enabled",on));};
   window.Closing+=async(s,e)=>{if(networkActionPending){e.Cancel=true;Message("Finish the network upgrade before closing the wallet.");return;}if(closing||engine==null||engine.HasExited)return;e.Cancel=true;closing=true;await Stop();window.Close();};
   Page("Wallet");
@@ -142,6 +142,111 @@ internal sealed class Wallet {
    Message(UpgradeOutcome(change));
   }catch(Exception e){Message(e.Message);}
   finally{if(incoming!=null)try{File.Delete(incoming);}catch(IOException){}catch(UnauthorizedAccessException){}networkActionPending=false;Get<Button>("Connect").IsEnabled=true;}
+ }
+ // Key backup (CRY-02): pocol export-key / inspect-key-backup / import-key, the format of the Android wallet
+ // (pocold keyfile::backup). The passphrase goes to pocol.exe as UTF-8 on stdin, never on the command line. It never
+ // becomes a .NET string: PasswordBox.SecurePassword is copied out of unmanaged memory into a char[] and encoded into a
+ // byte[], and every copy is zeroed after use. Best effort: the PasswordBox and the input method keep their own copies.
+ const string BackupInfo="Back up your key to an encrypted file. Anyone with the file and its passphrase controls your PCOL. Without a backup, a lost device, a reset or an uninstall loses the account for good.";
+ const string BackupPassphrase="Choose a passphrase of at least 12 characters that is not a repeated pattern, a sequence or a common password. It is never stored: if you forget it, the backup cannot be opened.";
+ const string BackupStore="Keep the file and the passphrase in different places. Never share either one, and never send them to anyone who asks.";
+ const string BackupSaved="Encrypted key backup saved. Keep it and its passphrase apart.";
+ const string RestoreReplace="Restoring replaces the account this wallet uses now. Its key file is kept in the wallet folder, but move its funds first if you have no backup of it.";
+ const string RestoreMining="Stop mining on any other device that uses the restored key: two devices mining with one key can lose the bond.";
+ const string KeyDisconnect="Disconnect the wallet before backing up or restoring its key.";
+ const string PassphraseMismatch="The passphrases differ. Nothing was saved.";
+ static string Restored(bool changed,string account){return changed?"Key restored. This wallet now uses account "+account+".":"This backup holds the account this wallet already uses.";}
+ bool keyActionPending;
+ static byte[] Utf8(System.Security.SecureString secret){
+  IntPtr raw=IntPtr.Zero;char[] chars=new char[secret.Length];
+  try{
+   raw=System.Runtime.InteropServices.Marshal.SecureStringToGlobalAllocUnicode(secret);
+   for(int i=0;i<chars.Length;i++)chars[i]=(char)System.Runtime.InteropServices.Marshal.ReadInt16(raw,2*i);
+   return new UTF8Encoding(false,true).GetBytes(chars);
+  }finally{Array.Clear(chars,0,chars.Length);if(raw!=IntPtr.Zero)System.Runtime.InteropServices.Marshal.ZeroFreeGlobalAllocUnicode(raw);}
+ }
+ // The box's passphrase as UTF-8; an unpaired surrogate throws ArgumentException (EncoderFallbackException).
+ static byte[] Passphrase(PasswordBox box){using(System.Security.SecureString s=box.SecurePassword)return Utf8(s);}
+ static bool Same(byte[] a,byte[] b){if(a.Length!=b.Length)return false;int d=0;for(int i=0;i<a.Length;i++)d|=a[i]^b[i];return d==0;}
+ static void Wipe(byte[] b){if(b!=null)Array.Clear(b,0,b.Length);}
+ // `times` stdin lines of the passphrase, each ended by a line feed.
+ static byte[] Lines(byte[] pass,int times){var lines=new byte[(pass.Length+1)*times];for(int t=0;t<times;t++){Buffer.BlockCopy(pass,0,lines,t*(pass.Length+1),pass.Length);lines[t*(pass.Length+1)+pass.Length]=(byte)'\n';}return lines;}
+ [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetWindowDisplayAffinity(IntPtr window,uint affinity);
+ // The counterpart of Android's FLAG_SECURE: Windows 10 2004 and later leave the window out of screenshots and screen
+ // recordings (WDA_EXCLUDEFROMCAPTURE); older versions show it black instead (WDA_MONITOR).
+ static void Protect(Window dialog){dialog.SourceInitialized+=(s,e)=>{try{IntPtr h=new System.Windows.Interop.WindowInteropHelper(dialog).Handle;if(!SetWindowDisplayAffinity(h,0x11))SetWindowDisplayAffinity(h,0x01);}catch(Exception){}};}
+ async Task<string> RunWithInput(string args,byte[] input){
+  var p=new Process { StartInfo=Info(args) };
+  try{
+   p.Start();Task<string> stdout=p.StandardOutput.ReadToEndAsync(),stderr=p.StandardError.ReadToEndAsync();
+   // pocol.exe can exit before it reads stdin (an existing --out file, a locked home). The pipe is closed then, and
+   // pocol's own message on stderr is the error to show, not "The pipe has been ended".
+   try{p.StandardInput.BaseStream.Write(input,0,input.Length);p.StandardInput.BaseStream.Flush();}catch(IOException){}
+   try{p.StandardInput.Close();}catch(IOException){}
+   await Task.Run(()=>p.WaitForExit());string output=await stdout,error=(await stderr).Trim();
+   if(p.ExitCode!=0)throw new Exception(error.Length>0?error:"pocol.exe exited with code "+p.ExitCode);
+   return output;
+  }finally{p.Dispose();}
+ }
+ bool KeyActionAllowed(){if(engine!=null&&!engine.HasExited){Message(KeyDisconnect);return false;}if(keyActionPending||networkActionPending){Message("Finish the current action first.");return false;}return true;}
+ async void BackupKey(){
+  if(!KeyActionAllowed())return;
+  var body=new StackPanel();body.Children.Add(Label("Back up your key",26));body.Children.Add(Label(BackupInfo,14));body.Children.Add(Label(BackupPassphrase,13));body.Children.Add(Label(BackupStore,13));
+  body.Children.Add(Label("Backup passphrase",13));var first=new PasswordBox();body.Children.Add(first);body.Children.Add(Label("Repeat the passphrase",13));var second=new PasswordBox();body.Children.Add(second);
+  var ok=Btn("Encrypt backup");body.Children.Add(ok);var dialog=Dialog("Back up your key",body);Protect(dialog);byte[] passphrase=null;
+  ok.Click+=(s,e)=>{
+   byte[] a=null,b=null;
+   try{a=Passphrase(first);b=Passphrase(second);}catch(ArgumentException){Wipe(a);Wipe(b);Message("This passphrase cannot be used; choose another one.");return;}
+   if(!Same(a,b)){Wipe(a);Wipe(b);Message(PassphraseMismatch);return;}
+   Wipe(b);Wipe(passphrase);passphrase=a;dialog.Close();
+  };
+  dialog.ShowDialog();first.Clear();second.Clear();if(passphrase==null)return;
+  byte[] input=null;
+  try{
+   var save=new SaveFileDialog{Title="Save the encrypted key backup",Filter="PoCol key backup (*.pocol-backup)|*.pocol-backup",FileName="pocol-key-"+(address.Length>=10?address.Substring(0,10):"wallet")+".pocol-backup",OverwritePrompt=false};
+   if(save.ShowDialog(window)!=true)return;
+   keyActionPending=true;Get<Button>("Connect").IsEnabled=false;Message("Encrypting your key backup…");
+   input=Lines(passphrase,2);
+   await RunWithInput("export-key"+HomeArgs()+" --out \""+save.FileName+"\"",input);Message(BackupSaved);
+  }
+  catch(Exception e){Message(e.Message);}
+  finally{Wipe(passphrase);Wipe(input);keyActionPending=false;Get<Button>("Connect").IsEnabled=true;}
+ }
+ async void RestoreKey(){
+  if(!KeyActionAllowed())return;
+  var pick=new OpenFileDialog{Title="Select an encrypted key backup",Filter="PoCol key backup (*.pocol-backup)|*.pocol-backup|All files (*.*)|*.*",CheckFileExists=true};if(pick.ShowDialog(window)!=true)return;
+  var body=new StackPanel();body.Children.Add(Label("Restore key from backup",26));body.Children.Add(Label("Enter the passphrase chosen when this backup was made.",14));
+  body.Children.Add(Label("Backup passphrase",13));var box=new PasswordBox();body.Children.Add(box);var open=Btn("Open backup");body.Children.Add(open);var dialog=Dialog("Restore key from backup",body);Protect(dialog);byte[] passphrase=null;
+  open.Click+=(s,e)=>{
+   byte[] p=null;
+   try{p=Passphrase(box);}catch(ArgumentException){Message("This passphrase cannot be used.");return;}
+   if(p.Length==0){Wipe(p);return;}
+   Wipe(passphrase);passphrase=p;dialog.Close();
+  };
+  dialog.ShowDialog();box.Clear();if(passphrase==null)return;
+  string backup=" --backup \""+pick.FileName+"\"";
+  byte[] input=Lines(passphrase,1);
+  keyActionPending=true;Get<Button>("Connect").IsEnabled=false;Message("Opening backup…");
+  try{
+   var preview=json.Deserialize<Dictionary<string,object>>(await RunWithInput("inspect-key-backup"+HomeArgs()+backup,input));
+   string current=Text(preview,"current"),replace="";
+   if(Flag(preview,"replaces")){
+    var review=new StackPanel();review.Children.Add(Label("Replace this wallet's account?",26));
+    review.Children.Add(Label("Current account",13));review.Children.Add(new TextBox{Text=current,IsReadOnly=true,FontSize=13,FontFamily=new FontFamily("Consolas")});
+    review.Children.Add(Label("Restored account",13));review.Children.Add(new TextBox{Text=Text(preview,"address"),IsReadOnly=true,FontSize=13,FontFamily=new FontFamily("Consolas")});
+    review.Children.Add(Label(RestoreReplace,13));review.Children.Add(Label(RestoreMining,13));
+    bool confirmed=false;var confirm=Btn("Replace account");review.Children.Add(confirm);var cancel=Btn("Cancel");review.Children.Add(cancel);var reviewDialog=Dialog("Replace this wallet's account?",review);Protect(reviewDialog);
+    confirm.Click+=(s,e)=>{confirmed=true;reviewDialog.Close();};cancel.Click+=(s,e)=>reviewDialog.Close();reviewDialog.ShowDialog();
+    if(!confirmed){Message("Restore cancelled. Nothing changed.");return;}
+    // The address the user confirmed (0x and 40 hex digits from pocol itself) is the only value put on the command line.
+    if(current.Length!=42||!current.StartsWith("0x")){Message("Unexpected current account.");return;}
+    replace=" --replace "+current;
+   }
+   var result=json.Deserialize<Dictionary<string,object>>(await RunWithInput("import-key"+HomeArgs()+backup+replace,input));
+   address=Text(result,"address");Get<TextBox>("Address").Text=address;Get<TextBlock>("ShortAddress").Text=address.Length==42?address.Substring(0,8)+"…"+address.Substring(36):address;
+   Message(Restored(Flag(result,"changed"),address));
+  }catch(Exception e){Message(e.Message);}
+  finally{Wipe(passphrase);Wipe(input);keyActionPending=false;Get<Button>("Connect").IsEnabled=true;}
  }
  [STAThread] static void Main(string[] args){var app=new Application();var wallet=new Wallet();if(args.Length==2&&args[0]=="--preview"){wallet.window.Show();wallet.window.UpdateLayout();wallet.Get<TextBlock>("Message").Text="Design preview · no account balance or live connection";wallet.window.UpdateLayout();var bitmap=new RenderTargetBitmap((int)wallet.window.ActualWidth,(int)wallet.window.ActualHeight,96,96,PixelFormats.Pbgra32);bitmap.Render(wallet.window);var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var file=File.Create(args[1]))encoder.Save(file);wallet.window.Close();return;}wallet.window.Loaded+=(s,e)=>wallet.Initialize();app.Run(wallet.window);}
 }

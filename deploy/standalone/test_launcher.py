@@ -161,6 +161,46 @@ class Launcher(unittest.TestCase):
     def test_cli_rejects_ambiguous_options(self):
         for args in [('identity', '--home'), ('identity', '--unknown', 'x'), ('identity', '--home', 'a', '--home', 'b')]:
             self.assertNotEqual(call('pocol', *args, ok=False).returncode, 0)
+    def test_key_backup_restores_the_account_into_another_home(self):
+        # CRY-02: the same encrypted format on Linux (0600 raw key) and Windows (DPAPI key); passphrases on stdin.
+        def run(*args, stdin, ok=True):
+            p = subprocess.run([str(BIN / ('pocol' + EXE)), *map(str, args)], input=stdin, capture_output=True,
+                               text=True, encoding='utf-8', timeout=90)
+            if ok and p.returncode: raise AssertionError(p.stderr)
+            return p
+        old, new, backup = self.root / 'old', self.root / 'new', self.root / 'wallet.pocol-backup'
+        phrase = 'a long backup passphrase ✓'
+        self.assertIn('existing PoCol home', run('export-key', '--home', old, '--out', backup, stdin=f'{phrase}\n{phrase}\n', ok=False).stderr)
+        self.assertFalse(old.exists(), 'export never creates a wallet')
+        address = identity(old)
+        self.assertIn('differ', run('export-key', '--home', old, '--out', backup, stdin=f'{phrase}\nother passphrase!\n', ok=False).stderr)
+        self.assertIn('at least 12', run('export-key', '--home', old, '--out', backup, stdin='short\nshort\n', ok=False).stderr)
+        self.assertIn('too easy to guess', run('export-key', '--home', old, '--out', backup, stdin='Password2024!\nPassword2024!\n', ok=False).stderr)
+        self.assertFalse(backup.exists())
+        out = json.loads(run('export-key', '--home', old, '--out', backup, stdin=f'{phrase}\n{phrase}\n').stdout)
+        self.assertEqual(out['address'], address)
+        data = backup.read_bytes()
+        self.assertEqual((len(data), data[:17]), (98, b'POCOL-KEY-BACKUP\x01'))
+        if os.name != 'nt':
+            self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+            self.assertNotIn((old / 'identity.pocol-key').read_bytes(), data)
+        self.assertIn('never replaced', run('export-key', '--home', old, '--out', backup, stdin=f'{phrase}\n{phrase}\n', ok=False).stderr)
+        self.assertEqual(backup.read_bytes(), data)
+        absent = self.root / 'absent'
+        self.assertIn('existing PoCol home', run('inspect-key-backup', '--home', absent, '--backup', backup, stdin=phrase + '\n', ok=False).stderr)
+        self.assertFalse(absent.exists(), 'inspecting never creates a home')
+        current = identity(new)
+        preview = json.loads(run('inspect-key-backup', '--home', new, '--backup', backup, stdin=phrase + '\n').stdout)
+        self.assertEqual((preview['address'], preview['current'], preview['replaces']), (address, current, True))
+        self.assertIn('Wrong passphrase', run('import-key', '--home', new, '--backup', backup, '--replace', current, stdin='a wrong passphrase\n', ok=False).stderr)
+        self.assertIn('Confirm replacing', run('import-key', '--home', new, '--backup', backup, stdin=phrase + '\n', ok=False).stderr)
+        self.assertEqual(identity(new), current)
+        # Text-mode stdin writes os.linesep on Windows; a CRLF line ending is accepted on every platform.
+        ending = '\n' if os.name == 'nt' else '\r\n'
+        done = json.loads(run('import-key', '--home', new, '--backup', backup, '--replace', current, stdin=phrase + ending).stdout)
+        self.assertEqual((done['changed'], done['previous']), (True, current))
+        self.assertEqual(identity(new), address)
+        self.assertTrue((new / done['previousKeyFile']).is_file(), 'the replaced key is kept')
 
 def port():
     with socket.socket() as s: s.bind(('127.0.0.1', 0)); return s.getsockname()[1]

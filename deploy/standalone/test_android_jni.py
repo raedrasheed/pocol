@@ -14,6 +14,7 @@ import unittest
 ROOT = Path(__file__).resolve().parents[2]
 
 STUB = r'''
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 static char *copy(const char *s) { size_t n=strlen(s)+1; char *p=malloc(n); if(p)memcpy(p,s,n); return p; }
@@ -31,12 +32,31 @@ char *pocol_mobile_status(void) { return copy("{\"name\":\"PoCol \xf0\x9f\x9a\x8
 char *pocol_mobile_command(const char *s) { return copy(s); }
 void pocol_mobile_stop(void) {}
 void pocol_mobile_free(char *s) { free(s); }
+/* Key backup: echo the received bytes as hex, so the harness checks the exact bytes and lengths. */
+static void hex(char *out, const unsigned char *p, size_t n) { static const char d[]="0123456789abcdef"; for(size_t i=0;i<n;i++){out[2*i]=d[p[i]>>4];out[2*i+1]=d[p[i]&15];} out[2*n]=0; }
+static char *echo(const char *h, const unsigned char *f, size_t fn, const unsigned char *p, size_t pn, const char *r) {
+    if (!f || !p) return copy("{\"error\":\"null pointer\"}");
+    size_t size = strlen(h) + strlen(r) + 2*fn + 2*pn + 64; char *out = malloc(size), *a = malloc(2*fn+1), *b = malloc(2*pn+1);
+    if (!out || !a || !b) { free(out); free(a); free(b); return NULL; }
+    hex(a, f, fn); hex(b, p, pn); snprintf(out, size, "{\"home\":\"%s\",\"file\":\"%s\",\"pass\":\"%s\",\"replace\":\"%s\"}", h, a, b, r);
+    free(a); free(b); return out;
+}
+static const unsigned char none[1] = {0};
+char *pocol_mobile_export_key(const char *h, const unsigned char *p, size_t n) { return echo(h, none, 0, p, n, ""); }
+char *pocol_mobile_inspect_key_backup(const char *h, const unsigned char *f, size_t fn, const unsigned char *p, size_t pn) { return echo(h, f, fn, p, pn, ""); }
+char *pocol_mobile_import_key(const char *h, const unsigned char *f, size_t fn, const unsigned char *p, size_t pn, const char *r) { return echo(h, f, fn, p, pn, r); }
 '''
 
 HARNESS = r'''
 package org.pocol.node;
 public final class JniBoundaryTest {
     static void equal(String a,String b) { if(!a.equals(b))throw new AssertionError("JNI changed the string: "+a+" != "+b); }
+    static String hexOf(byte[] b) { StringBuilder s=new StringBuilder(); for(byte x:b)s.append(String.format("%02x",x&0xff)); return s.toString(); }
+    static void bytesRejected(Runnable call) {
+        try { call.run(); }
+        catch(IllegalArgumentException expected) { if(!expected.getMessage().contains("4096 bytes"))throw new AssertionError(expected.getMessage()); return; }
+        throw new AssertionError("JNI accepted a null or oversized byte argument");
+    }
     static void rejected(String input) {
         try { Native.identity(input); }
         catch(IllegalArgumentException expected) { return; }
@@ -69,7 +89,35 @@ public final class JniBoundaryTest {
                 equal(WalletText.activation("2","15000"),"Full mining range at block 15000");equal(WalletText.activation("3","20000"),"Consensus version 3 at block 20000");
                 equal(WalletText.outcome("none"),"Already applied");
                 equal(WalletText.outcome("rebind"),"Release update: consensus rules and schedule unchanged \u2014 saved; you can connect now");
-                if(!WalletText.outcome("activation").contains("coordinated release"))throw new AssertionError("activation text");break;
+                if(!WalletText.outcome("activation").contains("coordinated release"))throw new AssertionError("activation text");
+                equal(WalletText.restored(true,"0x01"),"Key restored. This wallet now uses account 0x01.");
+                equal(WalletText.restored(false,"0x01"),"This backup holds the account this wallet already uses.");break;
+            case "key-backup":
+                // Passphrases cross as standard UTF-8 bytes built from char[] (never a String), files as raw bytes.
+                char[] typed="p\u00e4ss \uD83D\uDE80 phrase".toCharArray();
+                byte[] pass=KeyBackup.utf8(typed);
+                if(!java.util.Arrays.equals(pass,"p\u00e4ss \uD83D\uDE80 phrase".getBytes(java.nio.charset.StandardCharsets.UTF_8)))throw new AssertionError("UTF-8 passphrase");
+                String passHex=hexOf(pass);
+                equal(Native.exportKey("home",pass),"{\"home\":\"home\",\"file\":\"\",\"pass\":\""+passHex+"\",\"replace\":\"\"}");
+                byte[] file=new byte[98];for(int i=0;i<file.length;i++)file[i]=(byte)(i*7);
+                equal(Native.inspectKeyBackup("home",file,pass),"{\"home\":\"home\",\"file\":\""+hexOf(file)+"\",\"pass\":\""+passHex+"\",\"replace\":\"\"}");
+                equal(Native.importKey("home",file,pass,"0xabc"),"{\"home\":\"home\",\"file\":\""+hexOf(file)+"\",\"pass\":\""+passHex+"\",\"replace\":\"0xabc\"}");
+                equal(Native.exportKey("home",new byte[0]),"{\"home\":\"home\",\"file\":\"\",\"pass\":\"\",\"replace\":\"\"}");
+                byte[] maxFile=new byte[4096];
+                if(!Native.inspectKeyBackup("home",maxFile,pass).contains(hexOf(maxFile)))throw new AssertionError("4096-byte file");
+                bytesRejected(()->Native.exportKey("home",null));
+                bytesRejected(()->Native.inspectKeyBackup("home",new byte[4097],pass));
+                bytesRejected(()->Native.importKey("home",file,null,""));
+                // The Java helpers: surrogates, bounds, characters, hex, wiping.
+                if(KeyBackup.utf8(new char[]{'a','\uD800'})!=null||KeyBackup.utf8(new char[]{'\uDC00'})!=null)throw new AssertionError("unpaired surrogate");
+                char[] longest=new char[1024];java.util.Arrays.fill(longest,'a');if(KeyBackup.utf8(longest).length!=1024)throw new AssertionError("1024 bytes");
+                char[] tooLong=new char[1025];java.util.Arrays.fill(tooLong,'a');if(KeyBackup.utf8(tooLong)!=null)throw new AssertionError("over 1024 bytes");
+                char[] wide=new char[342];java.util.Arrays.fill(wide,'\u0800');if(KeyBackup.utf8(wide)!=null)throw new AssertionError("over 1024 UTF-8 bytes");
+                if(KeyBackup.characters("\uD83D\uDE80abc".toCharArray())!=4)throw new AssertionError("code points");
+                if(!java.util.Arrays.equals(KeyBackup.fromHex("0x00ff10"),new byte[]{0,(byte)0xff,0x10})||KeyBackup.fromHex("0x0")!=null||KeyBackup.fromHex("zz")!=null)throw new AssertionError("hex");
+                KeyBackup.wipe(typed);KeyBackup.wipe(pass);for(char c:typed)if(c!=0)throw new AssertionError("wipe chars");for(byte b:pass)if(b!=0)throw new AssertionError("wipe bytes");
+                if(!KeyBackup.same("abc".toCharArray(),"abc".toCharArray())||KeyBackup.same("abc".toCharArray(),"abd".toCharArray()))throw new AssertionError("same");
+                break;
             case "nul":rejected("home\0other");break;
             case "surrogate":rejected("home\uD800");break;
             case "null":rejected(null);break;
@@ -107,6 +155,7 @@ class AndroidJniStrings(unittest.TestCase):
             str(source/'cpp/bridge.c'), str(cls.work/'stub.c'), '-o', str(cls.work/'libpocol_bridge.so')], check=True)
         subprocess.run([str(javac), '-encoding', 'UTF-8', '-d', str(cls.work),
             str(source/'java/org/pocol/node/Native.java'), str(source/'java/org/pocol/node/WalletText.java'),
+            str(source/'java/org/pocol/node/KeyBackup.java'),
             str(cls.work/'JniBoundaryTest.java')], check=True)
 
     def check(self, name):
@@ -127,6 +176,29 @@ class AndroidJniStrings(unittest.TestCase):
     def test_null_argument_raises_java_exception(self): self.check('null')
     def test_native_arguments_are_bounded_by_utf8_bytes(self): self.check('size-bound')
     def test_peer_diagnostics_and_upgrade_texts_follow_the_status_and_the_dry_run(self): self.check('wallet-text')
+    def test_key_backup_bytes_cross_exactly_and_are_bounded(self): self.check('key-backup')
+
+
+class AndroidBackupRules(unittest.TestCase):
+    def test_no_app_data_leaves_through_cloud_backup_or_device_transfer(self):
+        # allowBackup="false" stops cloud backup only. On Android 12+ device-to-device transfer reads
+        # dataExtractionRules and would otherwise copy the raw key file to a new phone: one key on two devices.
+        import xml.etree.ElementTree as ET
+        android = '{http://schemas.android.com/apk/res/android}'
+        main = ROOT / 'prototypes/pocol-android/app/src/main'
+        app = ET.parse(main / 'AndroidManifest.xml').getroot().find('application')
+        self.assertEqual(app.get(android + 'allowBackup'), 'false')
+        self.assertEqual(app.get(android + 'fullBackupContent'), 'false', 'Android 8 to 11')
+        self.assertEqual(app.get(android + 'dataExtractionRules'), '@xml/data_extraction_rules')
+        rules = ET.parse(main / 'res/xml/data_extraction_rules.xml').getroot()
+        domains = {'root', 'file', 'database', 'sharedpref', 'external',
+                   'device_root', 'device_file', 'device_database', 'device_sharedpref'}
+        for section in ('cloud-backup', 'device-transfer'):
+            part = rules.find(section)
+            self.assertIsNotNone(part, section)
+            self.assertEqual(part.findall('include'), [], section)
+            excluded = {e.get('domain') for e in part.findall('exclude') if e.get('path') == '.'}
+            self.assertEqual(excluded, domains, section)
 
 
 class WalletTexts(unittest.TestCase):

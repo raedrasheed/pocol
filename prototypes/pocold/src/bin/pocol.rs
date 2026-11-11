@@ -50,9 +50,12 @@ fn command() -> Result<(), String> {
     let allowed: &[&str] = match command {
         "identity" => &["--home"], "start" => &["--home", "--network", "--listen", "--rpc", "--peer"],
         "wallet" | "import" | "upgrade" | "inspect-upgrade" => &["--home", "--network"],
+        // Passphrase-encrypted key backup (CRY-02): the passphrase is read from stdin, never from an argument.
+        "export-key" => &["--home", "--out"], "inspect-key-backup" => &["--home", "--backup"],
+        "import-key" => &["--home", "--backup", "--replace"],
         "network" => &["--from", "--seed", "--bootstrap", "--seeds-retired", "--out"], "inspect" => &["--network"],
         "build-info" => { println!("{}", pocold::identity::BUILD_INFO); return Ok(()); }
-        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE".into()),
+        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE | export-key [--home DIR] --out FILE | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice)".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();
     if rest.len() % 2 != 0 {
@@ -96,13 +99,34 @@ fn command() -> Result<(), String> {
         .unwrap_or_else(launcher::default_home)?;
     if command == "upgrade" || command == "inspect-upgrade" {
         let network = Path::new(need("--network")?);
-        if !home_path.is_dir() {
-            return Err(format!("{command} requires an existing PoCol home; it never creates a wallet"));
-        }
-        let home = Home::open(&home_path)?;
+        let home = Home::open_existing(&home_path, command)?;
         let bytes = launcher::read_bounded(network)?;
         // inspect-upgrade is the read-only dry run (change none, rebind or activation); it writes nothing.
         let out = if command == "upgrade" { home.upgrade(&bytes)?.describe() } else { home.inspect_upgrade(&bytes)? };
+        println!("{out}");
+        return Ok(());
+    }
+    if command == "export-key" {
+        let out = Path::new(need("--out")?);
+        if std::fs::symlink_metadata(out).is_ok() {
+            return Err(format!("{} exists; an existing file is never replaced", out.display()));
+        }
+        let home = Home::open_existing(&home_path, command)?;
+        let pass = passphrase("Backup passphrase (at least 12 characters)")?;
+        if *passphrase("Repeat the backup passphrase")? != *pass {
+            return Err("the passphrases differ; nothing was exported".into());
+        }
+        let (file, address) = home.export_key_backup(&pass)?;
+        write_new_private(out, &file)?;
+        println!("{}", serde_json::json!({"address": address, "backup": out}));
+        return Ok(());
+    }
+    if command == "inspect-key-backup" || command == "import-key" {
+        let file = launcher::read_bounded(Path::new(need("--backup")?))?;
+        // inspect-key-backup is read-only: it never creates a home. import-key may restore into a new one.
+        let home = if command == "import-key" { Home::open(&home_path)? } else { Home::open_existing(&home_path, command)? };
+        let pass = passphrase("Backup passphrase")?;
+        let out = if command == "import-key" { home.import_key_backup(&file, &pass, get("--replace"))? } else { home.inspect_key_backup(&file, &pass)? };
         println!("{out}");
         return Ok(());
     }
@@ -151,4 +175,109 @@ fn command() -> Result<(), String> {
         }
         STOP.load(Ordering::Relaxed)
     })
+}
+
+/// A backup file that never replaces an existing path (mode 0600 on Unix): only ciphertext is written.
+fn write_new_private(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path).map_err(|e| format!("create {}: {e} (an existing file is never replaced)", path.display()))?;
+    file.write_all(bytes).and_then(|_| file.sync_all()).map_err(|e| e.to_string())
+}
+
+/// One passphrase line from stdin without its line ending (`keyfile::backup::read_passphrase`). When stdin is a
+/// terminal the prompt goes to stderr and echo is off while the line is typed; a terminal whose echo cannot be
+/// switched off is refused. Ctrl-C cancels the prompt. The Windows wallet writes the line through a pipe instead.
+fn passphrase(prompt: &str) -> Result<zeroize::Zeroizing<Vec<u8>>, String> {
+    use pocold::keyfile::backup::{read_passphrase, PassphraseInput};
+    let echo = Echo::off();
+    let from = match (echo.terminal, echo.saved.is_some()) {
+        (false, _) => PassphraseInput::Pipe,
+        (true, true) => PassphraseInput::Hidden,
+        (true, false) => PassphraseInput::Visible,
+    };
+    let cancelled = || STOP.load(Ordering::Relaxed);
+    if from == PassphraseInput::Hidden {
+        eprint!("{prompt}: ");
+        // The SIGINT handler can run on any thread, so the blocked read would not see Ctrl-C: wait for the typed
+        // line with poll, checking the stop flag. A terminal in canonical mode is readable once Enter is pressed.
+        #[cfg(unix)]
+        while !cancelled() {
+            let mut fd = libc::pollfd { fd: 0, events: libc::POLLIN, revents: 0 };
+            if unsafe { libc::poll(&mut fd, 1, 200) } != 0 {
+                break;
+            }
+        }
+    }
+    let read = read_passphrase(&mut std::io::stdin().lock(), from, &cancelled);
+    if from == PassphraseInput::Hidden {
+        eprintln!();
+    }
+    drop(echo);
+    read
+}
+
+/// Terminal echo switched off until drop (restored even on an error path). On Unix, Ctrl-C cancels the prompt at
+/// once; on Windows the console read restarts after Ctrl-C, and the line typed after it is discarded as a cancel.
+struct Echo {
+    terminal: bool,
+    #[cfg(unix)]
+    saved: Option<libc::termios>,
+    #[cfg(windows)]
+    saved: Option<(windows_sys::Win32::Foundation::HANDLE, windows_sys::Win32::System::Console::CONSOLE_MODE)>,
+    #[cfg(not(any(unix, windows)))]
+    saved: Option<()>,
+}
+impl Echo {
+    #[cfg(unix)]
+    fn off() -> Self {
+        unsafe {
+            if libc::isatty(0) != 1 {
+                return Self { terminal: false, saved: None };
+            }
+            let mut mode: libc::termios = std::mem::zeroed();
+            if libc::tcgetattr(0, &mut mode) != 0 {
+                return Self { terminal: true, saved: None };
+            }
+            let mut quiet = mode;
+            quiet.c_lflag &= !libc::ECHO;
+            let saved = (libc::tcsetattr(0, libc::TCSANOW, &quiet) == 0).then_some(mode);
+            Self { terminal: true, saved }
+        }
+    }
+    #[cfg(windows)]
+    fn off() -> Self {
+        use windows_sys::Win32::System::Console::{GetConsoleMode, GetStdHandle, SetConsoleMode, CONSOLE_MODE, ENABLE_ECHO_INPUT, STD_INPUT_HANDLE};
+        unsafe {
+            let handle = GetStdHandle(STD_INPUT_HANDLE);
+            let mut mode: CONSOLE_MODE = 0;
+            if GetConsoleMode(handle, &mut mode) == 0 {
+                return Self { terminal: false, saved: None };
+            }
+            let saved = (SetConsoleMode(handle, mode & !ENABLE_ECHO_INPUT) != 0).then_some((handle, mode));
+            Self { terminal: true, saved }
+        }
+    }
+    #[cfg(not(any(unix, windows)))]
+    fn off() -> Self {
+        Self { terminal: false, saved: None }
+    }
+}
+impl Drop for Echo {
+    fn drop(&mut self) {
+        #[cfg(unix)]
+        if let Some(mode) = self.saved.take() {
+            unsafe { libc::tcsetattr(0, libc::TCSANOW, &mode) };
+        }
+        #[cfg(windows)]
+        if let Some((handle, mode)) = self.saved.take() {
+            unsafe { windows_sys::Win32::System::Console::SetConsoleMode(handle, mode) };
+        }
+    }
 }

@@ -124,6 +124,34 @@ APK can update them in place (A3). The new bridge (`inspectUpgrade`) applies to 
 signed installs only. Do not uninstall a funded wallet: Android backup is disabled and
 uninstalling deletes its key.
 
+## Android: moving to a new signing key (V3-33)
+
+This release adds an encrypted key backup to the Android and Windows wallets
+(**Settings → Key backup**; format in `prototypes/pocold/src/keyfile/backup.rs`). An
+installed app that has no backup action can only gain one through an update from
+its own signer, so the move happens in this order:
+
+1. **If the installed app's signer can be recovered** (for a debug-signed build, the
+   debug keystore of the machine that built it), sign the release with it, or with an
+   APK signature scheme v3 lineage from it to the new key. Users update in place, keep
+   their account, and then make an encrypted backup.
+2. **Otherwise**, build the release for the new key as a separate app,
+   `gradle -p prototypes/pocol-android assembleRelease -PpocolApplicationId=org.pocol.wallet`
+   (launcher label *PoCol Wallet (new)*), and package it with
+   `package.py --platform Android --android-application-id org.pocol.wallet`. It
+   installs beside `org.pocol.node`. Before the re-genesis block S, users:
+   1. install the new app and keep the old one;
+   2. import the network in the new app and **back up its key** right away;
+   3. deregister member identities first, following the cutover announcement (Send
+      does not move a locked bond, and the Android app has no deregister action);
+   4. send the balance from the old app with **Send PCOL** to the new app's address,
+      leaving the network fee, and check the address on the review screen;
+   5. wait until the transfer is included with confirmations before uninstalling the
+      old app.
+
+   Announce this long enough before S: transfers after S are voided by the
+   re-genesis. The steps are in `prototypes/pocol-android/README.md`.
+
 ## Release checklist
 
 - The consensus guard is green and the build is pinned: `build-info.json` reports
@@ -247,9 +275,11 @@ repository, CI artifacts and public download folder. Recompute the signed APK's
 checksums and release metadata before publishing it as installable.
 
 Do **not** uninstall a wallet to work around a signature mismatch. Android backup
-is disabled and uninstalling deletes its private account and local state. This
-build has no portable recovery export. Until the matching signer is available,
-the Android update is blocked; preserve the currently installed app.
+is disabled and uninstalling deletes its private account and local state. The
+installed 0.4.0 app has no portable recovery export (this release's encrypted
+backup reaches it only through an update from its own signer). Until the matching
+signer is available, the in-place update is blocked; preserve the currently installed
+app and use the separate new-key app path above.
 
 After a successfully signed in-place application update, disconnect the wallet,
 open **Settings → Upgrade existing network**, select the matching public network

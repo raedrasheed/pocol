@@ -81,6 +81,46 @@ pub unsafe extern "C" fn pocol_mobile_inspect_upgrade(home: *const c_char, path:
         Home::open(home)?.inspect_upgrade(&bytes)
     }).unwrap_or_else(|_| Err("network upgrade inspection failed".into())))
 }
+/// Borrowed bytes from the bridge (a passphrase or a backup file), bounded so a bad length cannot read far.
+unsafe fn bytes<'a>(p: *const u8, len: usize, max: usize) -> Result<&'a [u8], String> {
+    if p.is_null() || len > max {
+        return Err("missing or oversized native argument".into());
+    }
+    Ok(unsafe { std::slice::from_raw_parts(p, len) })
+}
+const MAX_BACKUP_FILE: usize = 4096;
+/// A passphrase-encrypted key backup (`keyfile::backup`, CRY-02). Only ciphertext crosses to Java (hex in
+/// `backup`), which writes it where the user chose; the plaintext key never leaves Rust or touches a disk.
+#[no_mangle]
+pub unsafe extern "C" fn pocol_mobile_export_key(home: *const c_char, pass: *const u8, pass_len: usize) -> *mut c_char {
+    reply(std::panic::catch_unwind(|| {
+        let home = Path::new(unsafe { text(home)? });
+        if !home.is_dir() { return Err("key backup requires an existing PoCol wallet".into()); }
+        let pass = unsafe { bytes(pass, pass_len, crate::keyfile::backup::MAX_PASSPHRASE_BYTES)? };
+        let (file, address) = Home::open(home)?.export_key_backup(pass)?;
+        let name = format!("pocol-key-{}.{}", &address[..10], crate::keyfile::backup::EXTENSION);
+        Ok(serde_json::json!({"address": address, "backup": crate::types::hex(&file), "fileName": name}))
+    }).unwrap_or_else(|_| Err("key backup failed".into())))
+}
+/// Read-only: the backup's address and whether restoring it replaces this wallet's account (`Home::inspect_key_backup`).
+#[no_mangle]
+pub unsafe extern "C" fn pocol_mobile_inspect_key_backup(home: *const c_char, file: *const u8, file_len: usize, pass: *const u8, pass_len: usize) -> *mut c_char {
+    reply(std::panic::catch_unwind(|| {
+        let home = Path::new(unsafe { text(home)? });
+        let (file, pass) = unsafe { (bytes(file, file_len, MAX_BACKUP_FILE)?, bytes(pass, pass_len, crate::keyfile::backup::MAX_PASSPHRASE_BYTES)?) };
+        Home::open_existing(home, "key backup inspection")?.inspect_key_backup(file, pass)
+    }).unwrap_or_else(|_| Err("key backup inspection failed".into())))
+}
+/// Restores a backup. `replace` is "" or the current address the user confirmed replacing (`Home::import_key_backup`).
+#[no_mangle]
+pub unsafe extern "C" fn pocol_mobile_import_key(home: *const c_char, file: *const u8, file_len: usize, pass: *const u8, pass_len: usize, replace: *const c_char) -> *mut c_char {
+    reply(std::panic::catch_unwind(|| {
+        let home = Path::new(unsafe { text(home)? });
+        let (file, pass) = unsafe { (bytes(file, file_len, MAX_BACKUP_FILE)?, bytes(pass, pass_len, crate::keyfile::backup::MAX_PASSPHRASE_BYTES)?) };
+        let replace = unsafe { text(replace)? };
+        Home::open(home)?.import_key_backup(file, pass, (!replace.is_empty()).then_some(replace))
+    }).unwrap_or_else(|_| Err("key restore failed".into())))
+}
 #[no_mangle]
 pub unsafe extern "C" fn pocol_mobile_run(home: *const c_char) -> *mut c_char {
     let result = std::panic::catch_unwind(|| {
@@ -226,6 +266,52 @@ mod tests {
         assert!(ask(pocol_mobile_upgrade, &home, &activation).get("error").is_none());
         assert!(!home.join("network-upgrade.pending.json").exists());
         assert_eq!(ask(pocol_mobile_inspect_upgrade, &home, &activation)["change"], "none");
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+    fn json(result: *mut c_char) -> serde_json::Value {
+        let value = serde_json::from_str(unsafe { CStr::from_ptr(result) }.to_str().unwrap()).unwrap();
+        unsafe { pocol_mobile_free(result) };
+        value
+    }
+    #[test]
+    fn key_backup_round_trips_through_the_bridge_and_only_ciphertext_crosses_it() {
+        let dir = std::env::temp_dir().join(format!("pocol-mobile-backup-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let (old, new) = (CString::new(dir.join("old").to_str().unwrap()).unwrap(), CString::new(dir.join("new").to_str().unwrap()).unwrap());
+        let pass = "a long backup passphrase".as_bytes();
+        unsafe {
+            // Export never creates a wallet.
+            let missing = json(pocol_mobile_export_key(old.as_ptr(), pass.as_ptr(), pass.len()));
+            assert!(missing["error"].as_str().unwrap().contains("existing PoCol wallet"));
+            assert!(!dir.join("old").exists());
+            let address = json(pocol_mobile_identity(old.as_ptr()))["address"].as_str().unwrap().to_owned();
+            let secret = std::fs::read(dir.join("old/identity.pocol-key")).unwrap();
+            let short = json(pocol_mobile_export_key(old.as_ptr(), pass.as_ptr(), 5));
+            assert!(short["error"].as_str().unwrap().contains("at least 12"));
+            let out = json(pocol_mobile_export_key(old.as_ptr(), pass.as_ptr(), pass.len()));
+            assert_eq!(out["address"], address.as_str());
+            assert_eq!(out["fileName"], format!("pocol-key-{}.pocol-backup", &address[..10]));
+            let hex = out["backup"].as_str().unwrap();
+            let file = crate::types::unhex(hex).unwrap();
+            assert_eq!(file.len(), crate::keyfile::backup::LEN);
+            assert!(!hex.contains(&crate::types::hex(&secret)[2..]), "the plaintext key never crosses the bridge");
+            let new_identity = json(pocol_mobile_identity(new.as_ptr()))["address"].as_str().unwrap().to_owned();
+            let preview = json(pocol_mobile_inspect_key_backup(new.as_ptr(), file.as_ptr(), file.len(), pass.as_ptr(), pass.len()));
+            assert_eq!((&preview["address"], &preview["current"], &preview["replaces"]), (&serde_json::json!(address), &serde_json::json!(new_identity), &serde_json::json!(true)));
+            let none = CString::new("").unwrap();
+            let refused = json(pocol_mobile_import_key(new.as_ptr(), file.as_ptr(), file.len(), pass.as_ptr(), pass.len(), none.as_ptr()));
+            assert!(refused["error"].as_str().unwrap().contains("Confirm replacing it"));
+            let wrong = json(pocol_mobile_import_key(new.as_ptr(), file.as_ptr(), file.len(), pass.as_ptr(), pass.len() - 1, none.as_ptr()));
+            assert!(wrong["error"].as_str().unwrap().contains("Wrong passphrase"));
+            let confirm = CString::new(new_identity.as_str()).unwrap();
+            let done = json(pocol_mobile_import_key(new.as_ptr(), file.as_ptr(), file.len(), pass.as_ptr(), pass.len(), confirm.as_ptr()));
+            assert_eq!(done["changed"], true, "{done}");
+            assert_eq!(json(pocol_mobile_identity(new.as_ptr()))["address"], address.as_str());
+            let oversized = json(pocol_mobile_inspect_key_backup(new.as_ptr(), file.as_ptr(), 4097, pass.as_ptr(), pass.len()));
+            assert!(oversized["error"].as_str().unwrap().contains("oversized"));
+            let null = json(pocol_mobile_inspect_key_backup(new.as_ptr(), std::ptr::null(), 0, pass.as_ptr(), pass.len()));
+            assert!(null["error"].is_string());
+        }
         std::fs::remove_dir_all(&dir).unwrap();
     }
     #[test]
