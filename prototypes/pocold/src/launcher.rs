@@ -428,6 +428,8 @@ pub struct Home {
 }
 const KEY_FILE: &str = "identity.pocol-key";
 const ADDRESS_FILE: &str = "identity.address";
+/// The wallet's own transfer history; it belongs to the account in [`ADDRESS_FILE`].
+pub(crate) const ACTIVITY_FILE: &str = "wallet-activity.json";
 /// The restored key, written before the swap (`import_key_backup`).
 const STAGED_KEY: &str = "identity.pocol-key.restoring";
 /// The restored account's address while a restore swaps files; renamed onto [`ADDRESS_FILE`] as the last step, so
@@ -458,6 +460,15 @@ fn free_name(dir: &Path, stem: &str, suffix: &str) -> Result<String, String> {
         .map(|n| if n == 0 { format!("{stem}{suffix}") } else { format!("{stem}.{n}{suffix}") })
         .find(|name| fs::symlink_metadata(dir.join(name)).is_err())
         .ok_or_else(|| format!("too many files named {stem}*{suffix}; move old ones aside"))
+}
+/// The address in the identity marker at `marker`, which must be a real file holding `0x` and 40 hex digits.
+fn read_marker(marker: &Path) -> Result<String, String> {
+    real_file(marker)?;
+    let text = String::from_utf8(read_bounded(marker)?).map_err(|_| "invalid identity address marker")?;
+    if text.len() != 42 || !text.starts_with("0x") || !text[2..].bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("invalid identity address marker".into());
+    }
+    Ok(text)
 }
 /// Rewrites the public identity address marker atomically (temporary file, then rename).
 fn set_marker(dir: &Path, address: &str) -> Result<(), String> {
@@ -609,6 +620,10 @@ impl Home {
         // after, the restore completes. A staged key or record left by an interrupted restore that never reached
         // the swap holds a key from a backup file, so it is replaced.
         let (staged, record) = (self.path.join(STAGED_KEY), self.path.join(RESTORE_RECORD));
+        if let Some(c) = &current {
+            // The marker names the account being replaced, so a finished restore knows whose activity moves aside.
+            set_marker(&self.path, &c.address)?;
+        }
         for leftover in [&staged, &record] {
             if fs::symlink_metadata(leftover).is_ok() {
                 real_file(leftover)?;
@@ -628,14 +643,7 @@ impl Home {
                 retired = name.into();
             }
             crash_point(2)?;
-            // Another account's transfers are not this one's history (a lost or unreadable key of the same
-            // account keeps it).
-            let activity = self.path.join("wallet-activity.json");
-            if !same && fs::symlink_metadata(&activity).is_ok() {
-                let name = free_name(&self.path, &format!("wallet-activity.replaced-{}", c.address), ".json")?;
-                fs::rename(&activity, self.path.join(name)).map_err(|e| e.to_string())?;
-                sync_directory(&self.path)?;
-            }
+            self.retire_activity(&address)?;
         }
         crash_point(3)?;
         fs::rename(&staged, &key_path).map_err(|e| e.to_string())?;
@@ -648,8 +656,8 @@ impl Home {
     }
     /// Finishes a restore that a crash interrupted after the current key was moved aside: the staged key takes
     /// the key file's place if that is still empty, and the record becomes the address marker once the key file
-    /// holds the recorded account. A record whose restore never reached the swap is left for the next restore
-    /// to replace; nothing is ever deleted here.
+    /// holds the recorded account, the replaced account's activity moving aside first. A record whose restore
+    /// never reached the swap is left for the next restore to replace; nothing is ever deleted here.
     fn finish_restore(&self) -> Result<(), String> {
         let record = self.path.join(RESTORE_RECORD);
         if fs::symlink_metadata(&record).is_err() {
@@ -667,10 +675,28 @@ impl Home {
             }
         }
         if address_of(&key_path).is_some_and(|a| a.as_bytes() == recorded) {
+            self.retire_activity(&String::from_utf8_lossy(&recorded))?;
             fs::rename(&record, self.path.join(ADDRESS_FILE)).map_err(|e| e.to_string())?;
             sync_directory(&self.path)?;
         }
         Ok(())
+    }
+    /// Another account's transfers are not `restored`'s history: while the marker still names the replaced
+    /// account, its `wallet-activity.json` moves aside as `wallet-activity.replaced-<address>.json` (a lost or
+    /// unreadable key of the same account keeps it). Idempotent, and run before the record becomes the marker
+    /// by both the restore and [`Home::finish_restore`], so no crash point leaves the old history in place.
+    fn retire_activity(&self, restored: &str) -> Result<(), String> {
+        let (marker, activity) = (self.path.join(ADDRESS_FILE), self.path.join(ACTIVITY_FILE));
+        if fs::symlink_metadata(&marker).is_err() || fs::symlink_metadata(&activity).is_err() {
+            return Ok(());
+        }
+        let old = read_marker(&marker)?;
+        if old.eq_ignore_ascii_case(restored) {
+            return Ok(());
+        }
+        let name = free_name(&self.path, &format!("wallet-activity.replaced-{old}"), ".json")?;
+        fs::rename(&activity, self.path.join(name)).map_err(|e| e.to_string())?;
+        sync_directory(&self.path)
     }
     /// The account this home is bound to: its key file's address, or, when the key file is missing or cannot
     /// be read (another Windows profile, a damaged file), the address marker's. `None` for a new home.
@@ -685,14 +711,7 @@ impl Home {
             return Ok(Some(Current { address, readable: true }));
         }
         match fs::symlink_metadata(&marker) {
-            Ok(_) => {
-                real_file(&marker)?;
-                let text = String::from_utf8(read_bounded(&marker)?).map_err(|_| "invalid identity address marker")?;
-                if text.len() != 42 || !text.starts_with("0x") || !text[2..].bytes().all(|b| b.is_ascii_hexdigit()) {
-                    return Err("invalid identity address marker".into());
-                }
-                Ok(Some(Current { address: text, readable: false }))
-            }
+            Ok(_) => Ok(Some(Current { address: read_marker(&marker)?, readable: false })),
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 if fs::symlink_metadata(&key_path).is_ok() {
                     return Err("the identity key cannot be read and no address marker names it; nothing changed".into());
@@ -1260,13 +1279,13 @@ mod upgrade_tests {
 }
 
 #[cfg(test)]
-mod key_backup_tests {
+pub(crate) mod key_backup_tests {
     use super::*;
     use std::sync::atomic::{AtomicU64, Ordering};
     static NEXT: AtomicU64 = AtomicU64::new(0);
     const PASS: &[u8] = b"a long backup passphrase";
     /// A new home in its own scratch directory; the directory goes when the guard drops.
-    struct Scratch(PathBuf);
+    pub(crate) struct Scratch(PathBuf);
     impl Scratch {
         fn new() -> Self {
             let p = std::env::temp_dir().join(format!("pocol-key-backup-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
@@ -1382,16 +1401,21 @@ mod key_backup_tests {
         drop(home);
         assert!(Home::open_existing(&t.0.join("home"), "inspect-key-backup").is_ok());
     }
-    /// A restore that stops (a crash) right before `step`, then the wallet opened again.
-    fn crash_restore(step: u8, replace_other: bool) -> (String, String, Home, Scratch) {
+    /// The old account's wallet activity in [`crash_restore`].
+    pub(crate) const OLD_ACTIVITY: &[u8] = br#"[{"hash":"0x01","kind":"transfer"}]"#;
+    /// A restore of another account that stops (a crash) right before `step`, then the home opened again. With
+    /// `lose_key` the current key file is gone first (only its marker names the account).
+    pub(crate) fn crash_restore(step: u8, lose_key: bool) -> (String, String, Home, Scratch) {
         let t = Scratch::new();
         let (file, restored) = t.home("source").export_key_backup(PASS).unwrap();
         let target = t.home("target");
         let current = target.address().unwrap();
-        fs::write(target.path.join("wallet-activity.json"), b"[]").unwrap();
-        let replace = replace_other.then_some(current.as_str());
+        fs::write(target.path.join(ACTIVITY_FILE), OLD_ACTIVITY).unwrap();
+        if lose_key {
+            fs::remove_file(target.path.join(KEY_FILE)).unwrap();
+        }
         CRASH_BEFORE.with(|c| c.set(step));
-        let e = target.import_key_backup(&file, PASS, replace).unwrap_err();
+        let e = target.import_key_backup(&file, PASS, Some(&current)).unwrap_err();
         CRASH_BEFORE.with(|c| c.set(0));
         assert!(e.contains("simulated crash"), "{e}");
         let path = target.path.clone();
@@ -1400,22 +1424,29 @@ mod key_backup_tests {
     }
     #[test]
     fn a_restore_interrupted_after_the_swap_is_finished_on_the_next_open() {
-        // Before the key moves aside nothing changed; from then on the next key() completes the restore. Before
-        // this was recorded, a crash between the key swap and the marker left the wallet unable to start.
-        for step in 1..=4u8 {
-            let (current, restored, home, _t) = crash_restore(step, true);
-            let expected = if step == 1 { &current } else { &restored };
-            assert_eq!(&home.address().unwrap(), expected, "crash before step {step}");
-            assert_eq!(fs::read(home.path.join(ADDRESS_FILE)).unwrap(), expected.as_bytes(), "crash before step {step}");
-            if step > 1 {
-                assert!(!home.path.join(RESTORE_RECORD).exists() && !home.path.join(STAGED_KEY).exists(), "crash before step {step}");
-                assert!(home.path.join(format!("{KEY_FILE}.replaced-{current}")).is_file(), "the old key is kept");
+        // Before the key moves aside nothing changed (a lost key has nothing to move); from then on the next
+        // key() completes the restore. Before this was recorded, a crash between the key swap and the marker left the
+        // wallet unable to start. The old account's activity moves aside too, whichever step the crash interrupted.
+        for (step, lose_key) in (1..=4u8).flat_map(|s| [(s, false), (s, true)]) {
+            let (current, restored, home, _t) = crash_restore(step, lose_key);
+            let finished = step > 1 || lose_key;
+            let expected = if finished { &restored } else { &current };
+            let case = format!("crash before step {step}, lost key {lose_key}");
+            assert_eq!(&home.address().unwrap(), expected, "{case}");
+            assert_eq!(fs::read(home.path.join(ADDRESS_FILE)).unwrap(), expected.as_bytes(), "{case}");
+            let moved = home.path.join(format!("wallet-activity.replaced-{current}.json"));
+            let (kept, aside) = if finished { (&moved, home.path.join(ACTIVITY_FILE)) } else { (&home.path.join(ACTIVITY_FILE), moved.clone()) };
+            assert_eq!(fs::read(kept).unwrap(), OLD_ACTIVITY, "{case}");
+            assert!(!aside.exists(), "{case}");
+            if finished {
+                assert!(!home.path.join(RESTORE_RECORD).exists() && !home.path.join(STAGED_KEY).exists(), "{case}");
+                assert_eq!(home.path.join(format!("{KEY_FILE}.replaced-{current}")).is_file(), !lose_key, "the old key is kept");
             }
         }
     }
     #[test]
     fn a_restore_interrupted_before_the_swap_is_repeated_cleanly() {
-        let (current, restored, home, t) = crash_restore(1, true);
+        let (current, restored, home, t) = crash_restore(1, false);
         assert_eq!(home.address().unwrap(), current);
         // The staged key and the record of the interrupted attempt are replaced by the next restore.
         let (file, _) = {
