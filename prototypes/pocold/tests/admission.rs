@@ -131,7 +131,7 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
     /// A state store whose `hold`-th commit (0: none) takes `ms` longer, as a flush queued behind other writers.
     struct Held<'a>{st:&'a pocold::state_store::StateStore,hold:u32,ms:u64,commits:AtomicU32,slow_execution:u8,code_reads:AtomicU32}
     impl NodeStore for Held<'_>{fn node(&self,id:&Id)->Option<Arc<Node>>{self.st.node(id)} fn code(&self,h:&revm::primitives::B256)->Option<revm::primitives::Bytecode>{
-        if *h==revm::primitives::keccak256([0x5b,0x60,0x00,0x56])&&(self.slow_execution==2||(self.slow_execution==1&&self.code_reads.fetch_add(1,Ordering::SeqCst)==0)){
+        if self.commits.load(Ordering::SeqCst)>0&&*h==revm::primitives::keccak256([0x5b,0x60,0x00,0x56])&&(self.slow_execution==2||(self.slow_execution==1&&self.code_reads.fetch_add(1,Ordering::SeqCst)==0)){
             std::thread::sleep(std::time::Duration::from_millis(self.ms));
         }
         self.st.code(h)}}
