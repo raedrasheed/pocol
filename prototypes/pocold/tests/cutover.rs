@@ -59,10 +59,33 @@ fn tx(chain: &Chain, key: &Key, to: Option<Address>, value: u128, data: Vec<u8>,
     let p = U256::from(1_000_000_000u64);
     Tx { chain_id: chain.spec.chain_id(), nonce, max_priority: p, max_fee: base * U256::from(2) + p, gas, to, value: U256::from(value), data: Bytes::from(data) }.sign_1559(key)
 }
-fn spec(dir: &Path) -> Spec { pocold::load_spec_for(dir, &local(), None).unwrap() }
+fn spec(dir: &Path) -> Spec { admitted(pocold::load_spec_for(dir, &local(), None), dir) }
 fn temp(name: &str) -> PathBuf {
     let d = std::env::temp_dir().join(format!("pocol-cutover-{name}-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&d); d
+}
+/// Every boot and every cutover here is admitted by ParamGate on a timing it measures now, on this host (R14/R19:
+/// each calibration block within t_exec, 1 s; in store mode each block's commit, fsynced to a scratch state.redb,
+/// is inside its timed span). Run beside one another these tests' imports, rebuilds and fsyncs are the load those
+/// measurements are taken under: on Windows (runs 42863094336 and 42969344541) a store-mode cutover was refused on
+/// [R14, R19] while three of them ran beside it on the same disk. So the tests that boot run one at a time.
+static SERIAL: std::sync::Mutex<()> = std::sync::Mutex::new(());
+fn serial() -> std::sync::MutexGuard<'static, ()> { SERIAL.lock().unwrap_or_else(|e| e.into_inner()) }
+/// Unwraps a boot or a cutover. A ParamGate refusal panics with the timing of a calibration of `net` run right after
+/// it, in memory and through a scratch state store, so a refusal on R14/R19 shows what this host measured.
+fn admitted<T>(r: Result<T, String>, net: &Path) -> T {
+    r.unwrap_or_else(|e| {
+        if !e.starts_with("-32018") { panic!("{e}") }
+        let spec_bytes = unhex(std::fs::read_to_string(net.join("genesis.spec.hex")).unwrap().trim()).unwrap();
+        let alloc = devnet::alloc_from_json(&serde_json::from_str(&std::fs::read_to_string(net.join("alloc.json")).unwrap()).unwrap()).unwrap();
+        let memory = pocol_lp4_execution::admission::measure(&spec_bytes, &alloc, 1).map(|t| t.phase_ms);
+        let dir = PathBuf::from(format!("{}-calibration", net.display()));
+        let _ = std::fs::remove_dir_all(&dir); std::fs::create_dir_all(&dir).unwrap();
+        let store = pocold::state_store::StateStore::open(&dir).map_err(|e| e.0)
+            .and_then(|st| pocol_lp4_execution::admission::measure_on_store(&spec_bytes, &alloc, 1, &st).map(|t| t.phase_ms));
+        let _ = std::fs::remove_dir_all(&dir);
+        panic!("{e}; a calibration run right after it, phase ms in memory {memory:?}, through a state store {store:?}")
+    })
 }
 
 #[test]
@@ -72,12 +95,13 @@ fn a_stopped_old_chain_becomes_an_earn_in_genesis_that_keeps_every_account() { s
 fn a_store_mode_old_chain_gives_the_same_cutover() { scenario(true) }
 
 fn scenario(store: bool) {
+    let _serial = serial();
     let tag = if store { "store" } else { "whole" };
     let limits = || Limits { state_store: store, ..Default::default() };
     let (old_dir, data) = (temp(&format!("old-{tag}")), temp(&format!("data-{tag}")));
     let (_cfg, keys, miners) = old_network(&old_dir);
     let mut chain = Chain::new(spec(&old_dir));
-    let node_spec = pocold::load_spec_for(&old_dir, &local(), store.then_some(data.as_path())).unwrap();
+    let node_spec = admitted(pocold::load_spec_for(&old_dir, &local(), store.then_some(data.as_path())), &old_dir);
     let mut node = Node::open(Config { dir: data.clone(), name: "old".into(), miner: None, listen: None, peers: vec![], rpc: None,
         stop_at: None, log: false, limits: limits() }, node_spec).unwrap();
     let (alice, bob) = (devnet::account_key("alice"), devnet::account_key("bob"));
@@ -107,7 +131,7 @@ fn scenario(store: bool) {
     // A height above the old head is refused, and nothing is written.
     assert!(pocold::cutover::run(&old_dir, &data, s + 1, config.as_bytes(), &out, limits(), &local()).unwrap_err().contains("above the old head"));
     assert!(!out.exists());
-    pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &out, limits(), &local()).unwrap();
+    admitted(pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &out, limits(), &local()), &old_dir);
 
     let alloc = devnet::alloc_from_json(&serde_json::from_str(&std::fs::read_to_string(out.join("alloc.json")).unwrap()).unwrap()).unwrap();
     let report: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out.join("cutover-report.json")).unwrap()).unwrap();
@@ -142,7 +166,7 @@ fn scenario(store: bool) {
     assert!(apply::miner_record(&genesis.head().state, bob.address()).is_none());
     // Deterministic: the same inputs give the same genesis and allocation bytes.
     let again = temp(&format!("again-{tag}"));
-    pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &again, limits(), &local()).unwrap();
+    admitted(pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &again, limits(), &local()), &old_dir);
     for f in ["genesis.spec.hex", "alloc.json"] { assert_eq!(std::fs::read(out.join(f)).unwrap(), std::fs::read(again.join(f)).unwrap(), "{f}"); }
     for d in [old_dir, data, out, again] { let _ = std::fs::remove_dir_all(d); }
 }
@@ -163,11 +187,12 @@ fn a_store_mode_cutover_through_slimmed_entries_and_checkpoints_matches_one_at_t
 }
 
 fn deep(tag: &str, limits: impl Fn() -> Limits) {
+    let _serial = serial();
     let (store, slim) = (limits().state_store, limits().slim_depth.is_some());
     let (old_dir, data) = (temp(&format!("old-{tag}")), temp(&format!("data-{tag}")));
     let (_cfg, keys, miners) = old_network(&old_dir);
     let open = || Node::open(Config { dir: data.clone(), name: "old".into(), miner: None, listen: None, peers: vec![], rpc: None,
-        stop_at: None, log: false, limits: limits() }, pocold::load_spec_for(&old_dir, &local(), store.then_some(data.as_path())).unwrap()).unwrap();
+        stop_at: None, log: false, limits: limits() }, admitted(pocold::load_spec_for(&old_dir, &local(), store.then_some(data.as_path())), &old_dir)).unwrap();
     let mut chain = Chain::new(spec(&old_dir));
     let grow = |node: &mut Node, chain: &mut Chain, txs: Vec<Vec<u8>>| {
         let b = mine(chain, &keys, txs); let (e, _) = chain.validate(&b, None, 0).unwrap(); chain.insert(e);
@@ -185,7 +210,7 @@ fn deep(tag: &str, limits: impl Fn() -> Limits) {
     let config = serde_json::json!({"continuous":true,"earnin":true,"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
         "miners":miners.iter().map(|(id,reward)|serde_json::json!({"id":id,"reward":reward})).collect::<Vec<_>>(),"accounts":[]}).to_string();
     let at_head = temp(&format!("at-head-{tag}"));
-    pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &at_head, limits(), &local()).unwrap();
+    admitted(pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &at_head, limits(), &local()), &old_dir);
     // Positive control: the files compared below carry the transfer and the contract.
     let alloc = devnet::alloc_from_json(&serde_json::from_str(&std::fs::read_to_string(at_head.join("alloc.json")).unwrap()).unwrap()).unwrap();
     assert_eq!(alloc.accounts[&Address::with_last_byte(0xca)].info.balance, U256::from(3 * PCOL), "the transfer at S");
@@ -215,7 +240,7 @@ fn deep(tag: &str, limits: impl Fn() -> Limits) {
     }
     drop(node);
     let below = temp(&format!("below-{tag}"));
-    pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &below, limits(), &local()).unwrap();
+    admitted(pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &below, limits(), &local()), &old_dir);
 
     for f in ["genesis.spec.hex", "alloc.json"] { assert_eq!(std::fs::read(at_head.join(f)).unwrap(), std::fs::read(below.join(f)).unwrap(), "{f}"); }
     let json = |dir: &Path, f: &str| -> serde_json::Value { serde_json::from_str(&std::fs::read_to_string(dir.join(f)).unwrap()).unwrap() };
@@ -229,7 +254,7 @@ fn deep(tag: &str, limits: impl Fn() -> Limits) {
     // Again on the same data directory (step 2 can be run again): the same bytes. With checkpoints (deep-slim)
     // this run opens the store the first deep cutover wrote; without them each open starts the store anew.
     let again = temp(&format!("again-{tag}"));
-    pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &again, limits(), &local()).unwrap();
+    admitted(pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &again, limits(), &local()), &old_dir);
     for f in ["genesis.spec.hex", "alloc.json", "cutover-report.json"] { assert_eq!(std::fs::read(below.join(f)).unwrap(), std::fs::read(again.join(f)).unwrap(), "{f}, run twice"); }
     // The old data directory still opens at the same head (the rollback keeps it), from its checkpoint where it
     // has one, and its store is consistent.
@@ -246,11 +271,12 @@ fn deep(tag: &str, limits: impl Fn() -> Limits) {
 /// same files as a cutover from a node that never slims.
 #[test]
 fn a_deep_cutover_restores_the_slimmed_ancestor_an_evidence_walk_reads() {
+    let _serial = serial();
     let (old_dir, d_slim, d_full) = (temp("old-ev"), temp("data-ev-slim"), temp("data-ev-full"));
     let (_cfg, keys, miners) = old_network(&old_dir);
     let limits = |depth: u64| Limits { state_store: true, slim_depth: Some(depth), ..Default::default() };
     let open = |dir: &Path, depth: u64| Node::open(Config { dir: dir.to_path_buf(), name: "old".into(), miner: None, listen: None, peers: vec![],
-        rpc: None, stop_at: None, log: false, limits: limits(depth) }, pocold::load_spec_for(&old_dir, &local(), Some(dir)).unwrap()).unwrap();
+        rpc: None, stop_at: None, log: false, limits: limits(depth) }, admitted(pocold::load_spec_for(&old_dir, &local(), Some(dir)), &old_dir)).unwrap();
     let mut chain = Chain::new(spec(&old_dir));
     let mut blocks: Vec<Block> = Vec::new();
     let grow = |chain: &mut Chain, blocks: &mut Vec<Block>, b: Block| { let (e, _) = chain.validate(&b, None, 0).unwrap(); chain.insert(e); blocks.push(b); };
@@ -289,8 +315,8 @@ fn a_deep_cutover_restores_the_slimmed_ancestor_an_evidence_walk_reads() {
     let config = serde_json::json!({"continuous":true,"earnin":true,"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
         "miners":miners.iter().map(|(id,reward)|serde_json::json!({"id":id,"reward":reward})).collect::<Vec<_>>(),"accounts":[]}).to_string();
     let (o_slim, o_full) = (temp("out-ev-slim"), temp("out-ev-full"));
-    pocold::cutover::run(&old_dir, &d_slim, s, config.as_bytes(), &o_slim, limits(3), &local()).unwrap();
-    pocold::cutover::run(&old_dir, &d_full, s, config.as_bytes(), &o_full, limits(u64::MAX), &local()).unwrap();
+    admitted(pocold::cutover::run(&old_dir, &d_slim, s, config.as_bytes(), &o_slim, limits(3), &local()), &old_dir);
+    admitted(pocold::cutover::run(&old_dir, &d_full, s, config.as_bytes(), &o_full, limits(u64::MAX), &local()), &old_dir);
     for f in ["genesis.spec.hex", "alloc.json", "cutover-report.json"] { assert_eq!(std::fs::read(o_slim.join(f)).unwrap(), std::fs::read(o_full.join(f)).unwrap(), "{f}"); }
     // One round, as for the node that never slims: the rebuild reads restored copies of the slimmed entries the
     // evidence block's walk reads (heights j - 2 down to the template's block b4; PR7, A1-7). Before PR7 the
