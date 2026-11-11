@@ -100,16 +100,21 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 /// Review 2026-10-27: the stored versions' handles and their bytes are counted from one inventory, and it holds
 /// every version open keeps at once: genesis, the window of K_hist with the block being imported, the abandoned
 /// window, the side states, and a rolling re-execution with the version it commits next (2·K_hist + side_max + 4).
+/// C-1 S5 (PR7 §6.1): and the store-mode rebuild anchors, one version each (4 at the defaults, R_keep 2048 and
+/// K_hist 32; none with eviction off or in whole-state mode).
 #[test] fn a13_counts_a_handle_for_every_held_version(){
-    use pocold::resources as r;
-    for (k,side) in [(32u32,2u32),(32,8),(1,0),(4096,64)]{
-        let want=2*u128::from(k)+u128::from(side)+4;
-        assert_eq!(r::held_runs(k,side).iter().sum::<u128>(),want,"the runs at K_hist {k}, side_max {side}");
-        assert_eq!(r::stored_versions(k,side),want,"a handle per held version at K_hist {k}, side_max {side}");
+    use pocold::{node::Limits,resources as r};
+    for (k,side,a) in [(32u32,2u32,0u128),(32,8,4),(1,0,0),(4096,64,3)]{
+        let want=2*u128::from(k)+u128::from(side)+4+a;
+        assert_eq!(r::held_runs(k,side,a).iter().sum::<u128>(),want,"the runs at K_hist {k}, side_max {side}, {a} anchors");
+        assert_eq!(r::stored_versions(k,side,a),want,"a handle per held version at K_hist {k}, side_max {side}, {a} anchors");
     }
     let net=devnet::build(&network()).unwrap().profile.cp().clone();let one=r::chain_versions_bytes(&net,1).unwrap();
-    assert_eq!(r::held_versions_bytes(&net,32,2).unwrap(),one+r::chain_versions_bytes(&net,33).unwrap()+r::chain_versions_bytes(&net,32).unwrap()+2*one+r::chain_versions_bytes(&net,2).unwrap(),
+    assert_eq!(r::held_versions_bytes(&net,32,2,4).unwrap(),one+r::chain_versions_bytes(&net,33).unwrap()+r::chain_versions_bytes(&net,32).unwrap()+2*one+r::chain_versions_bytes(&net,2).unwrap()+4*one,
         "the versions' bytes are the same runs");
+    let store=Limits{state_store:true,..Default::default()};
+    assert_eq!(r::anchors_held(&net,32,&store),4,"⌈(2·2048 + 2 − 32) / 2048⌉ + 2 at the defaults");
+    assert_eq!((r::anchors_held(&net,32,&Limits{evict_depth:Some(0),..store.clone()}),r::anchors_held(&net,32,&Limits::default())),(0,0),"none with eviction off or whole states");
 }
 
 /// C-1 E4.5 (2026-10-27): state.redb's versions and a block's batch, re-derived from node_trie's bounds. The file
@@ -127,8 +132,9 @@ fn print(tag:&str,b:&pocold::resources::Bound){
         let run=|n:u128|(n*whole).min(whole+(n-1)*add);
         for n in [1u128,2,5,33]{assert_eq!(r::chain_versions_bytes(cp,n),Some(run(n)),"a run of {n}");}
         let k=32u128;let sm=u128::from(l.side_max);
-        let held=whole+run(k+1)+run(k)+sm*whole+run(2);assert_eq!(r::held_versions_bytes(cp,32,l.side_max),Some(held));
-        let lim=pocold::node::Limits{state_store:true,..Default::default()};let p=r::state_file_parts(cp,32,l.side_max,&lim).unwrap();
+        let lim=pocold::node::Limits{state_store:true,..Default::default()};let anchors=r::anchors_held(cp,32,&lim);assert_eq!(anchors,4);
+        let held=whole+run(k+1)+run(k)+sm*whole+run(2)+anchors*whole;assert_eq!(r::held_versions_bytes(cp,32,l.side_max,anchors),Some(held));
+        let p=r::state_file_parts(cp,32,l.side_max,&lim).unwrap();
         // D-6 (2026-10-27): and one dropped checkpoint whose nodes are owed, with a release row for at most each of its
         // nodes (each counted at ROW + BRANCH_ENC bytes or more).
         let owed_rows=ROW*(held/(ROW+BRANCH_ENC)+1);
@@ -278,7 +284,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
     let spec=pocold::load_spec_for(&dir,&local,None).expect("the live bundle loads");let _=std::fs::remove_dir_all(&dir);
     let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the live chain is continuous");
-    let passes=|peers_max:usize,dials:usize,r:u64|pocold::resources::check(cp,k,side,&Limits{state_store:true,checkpoint_every:128,continuous_history:Some(r),
+    // C-1 S5 (PR7 §6.5): with eviction off (`evict_depth` Some(0)), the model before PR7.
+    let passes=|peers_max:usize,dials:usize,r:u64|pocold::resources::check(cp,k,side,&Limits{state_store:true,checkpoint_every:128,continuous_history:Some(r),evict_depth:Some(0),
         net:net::Limits{peers_max,..Default::default()},..Default::default()},dials).is_ok();
     let halt=|peers_max:usize,dials:usize|->u64{
         assert!(passes(peers_max,dials,0),"an empty journal boots at peers_max {peers_max}, dials {dials}");
@@ -319,6 +326,46 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     }
 }
 
+/// C-1 S5 (PR7 §6.5): the same live chain and seed settings with eviction on (the default depth): no term grows with
+/// the journal's records, so the stop is where the observed files' allocator terms (1 B per 4 KiB of history.redb past
+/// one region's allocator) use the budget up. The largest admitted history.redb size, found by binary search for each
+/// (peers_max, dials), with state.redb and canon.redb empty, is at least 1 TiB, and its bound is the same at 0 and
+/// 10^9 records. Pinned for the target the evidence is produced on.
+#[test] fn a13_live_chain_halt_disk_bytes(){
+    use pocold::{net,node::Limits,resources::DiskBytes};
+    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
+    let dir=std::env::temp_dir().join(format!("pocold-live-halt-disk-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);std::fs::create_dir_all(&dir).unwrap();
+    for (name,text) in bundle["files"].as_object().unwrap(){std::fs::write(dir.join(name),text.as_str().unwrap()).unwrap();}
+    let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
+    let spec=pocold::load_spec_for(&dir,&local,None).expect("the live bundle loads");let _=std::fs::remove_dir_all(&dir);
+    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the live chain is continuous");
+    let lim=|peers_max:usize,records:u64,history:u64|Limits{state_store:true,checkpoint_every:128,continuous_history:Some(records),disk:Some(DiskBytes{history,..Default::default()}),
+        net:net::Limits{peers_max,..Default::default()},..Default::default()};
+    let passes=|peers_max:usize,dials:usize,x:u64|pocold::resources::check(cp,k,side,&lim(peers_max,0,x),dials).is_ok();
+    let halt=|peers_max:usize,dials:usize|->u64{
+        assert!(passes(peers_max,dials,0),"empty files boot at peers_max {peers_max}, dials {dials}");
+        let mut hi=1u64<<30;while passes(peers_max,dials,hi){hi*=2;assert!(hi<1<<60,"no stop below 2^60 bytes");}
+        let mut lo=hi/2;while hi-lo>1{let mid=lo+(hi-lo)/2;if passes(peers_max,dials,mid){lo=mid}else{hi=mid}}lo
+    };
+    let total=|p:usize,d:usize,r:u64,x:u64|pocold::resources::derive(cp,k,side,&lim(p,r,x),d).unwrap().total;
+    let mut got=Vec::new();
+    for (p,d) in [(8usize,2usize),(8,7),(32,2),(32,7),(64,2),(64,7)]{let x=halt(p,d);got.push(x);
+        assert_eq!(total(p,d,0,x),total(p,d,1_000_000_000,x),"the bound does not grow with records at ({p}, {d})");
+        assert!(x>=1<<40,"the stop is at least 1 TiB of history at ({p}, {d}): {x}");
+        println!("A13-LIVE-HALT-DISK {}",serde_json::json!({"peersMax":p,"dials":d,"historyBytes":x,"historyTiB":x as f64/(1u64<<40) as f64,"boundAtEmptyFiles":total(p,d,0,0).to_string()}));}
+    // PR7: 12,113,967,612,031 B (11.02 TiB) at (8, 2) down to 11,067,424,194,687 B (10.07 TiB) at (64, 7); the default
+    // seed, (32, 2), stops at 11,777,328,119,935 B (10.71 TiB) of history.redb, where it stopped at 1,127,165 records
+    // (130.5 days) before. Merged with main's PR6 (the pool's meta, the parked entries and the template selection):
+    // 12,091,563,507,839 B (11.00 TiB) at (8, 2) down to 11,045,020,090,495 B (10.05 TiB) at (64, 7); (32, 2) stops at
+    // 11,754,924,015,743 B (10.69 TiB), where it stops at 1,125,065 records (130.2 days) with eviction off. Merged with
+    // PR2b (the link's automatic-outbound fields, 146 B a connection at the old high, and automatic outbound on by
+    // default, +27,517,640 B; each stop moves by 4,096 B of history.redb per model byte): 11,978,704,740,479 B
+    // (10.89 TiB) at (8, 2) down to 10,932,026,171,519 B (9.94 TiB) at (64, 7); (32, 2) stops at 11,642,050,895,999 B
+    // (10.59 TiB), 4,096 × 27,556,914 B before main's, where it stops at 1,114,248 records with eviction off.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){
+        assert_eq!(got,[11_978_704_740_479,11_717_551_808_639,11_642_050_895_999,11_380_897_964_159,11_193_179_103_359,10_932_026_171_519],"the live chain's stop moved (record it in the PR)");
+    }
+}
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and
 /// those waiting for a Hello; an evicted peer keeps its place until its reader releases it), in each per-place term: the
 /// send queues and frames, the group entries, the connection high-water (`high`, with the node's maps at 2,718 B an

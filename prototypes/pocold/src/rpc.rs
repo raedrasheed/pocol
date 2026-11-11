@@ -907,21 +907,25 @@ type R=Result<Value,Fail>;
 fn fail_json(id:&Value,f:Fail)->Value{match f.2{None=>err(id,f.0,&f.1),Some(d)=>json!({"jsonrpc":"2.0","id":id,"error":{"code":f.0,"message":f.1,"data":d}})}}
 fn bad(m:&str)->(i64,String){(-32602,m.to_string())}
 
-/// The canonical entry a tag names, metadata and state only (C-1 S1: its body and receipts may be off
-/// the heap; `whole` gives them).
-fn meta_by_tag<'a>(n:&'a Node,tag:&Value)->Option<&'a Entry>{
-    match tag.as_str(){
-        None|Some("latest")|Some("pending")|Some("safe")|Some("finalized")=>{
-            let h=n.chain.head();let k=match tag.as_str(){Some("safe")=>6,Some("finalized")=>60,_=>0};n.chain.canonical_at(h.height.saturating_sub(k))
-        }
-        Some("earliest")=>n.chain.canonical_at(0),
-        Some(_)=>parse_u64(tag).and_then(|x|n.chain.canonical_at(x)),
-    }
+/// The canonical entry a tag names: in memory, metadata and state only (C-1 S1: its body and receipts may be off
+/// the heap; `whole` gives them); C-1 S5: below the window, its view without receipts (`Node::canonical_view`,
+/// pruned: a state query answers -32017 as for any pruned height).
+fn meta_by_tag<'a>(n:&'a Node,tag:&Value)->Result<Option<std::borrow::Cow<'a,Entry>>,Fail>{
+    let h=match tag.as_str(){
+        None|Some("latest")|Some("pending")|Some("safe")|Some("finalized")=>{let k=match tag.as_str(){Some("safe")=>6,Some("finalized")=>60,_=>0};n.chain.head().height.saturating_sub(k)}
+        Some("earliest")=>0,
+        Some(_)=>match parse_u64(tag){Some(x)=>x,None=>return Ok(None)},
+    };
+    if let Some(e)=n.chain.canonical_at(h){return Ok(Some(std::borrow::Cow::Borrowed(e)))}
+    n.canonical_view(h,crate::node::Want{receipts:false}).map_err(unavailable)
 }
+/// A history read that failed (logged; the store is marked damaged and rebuilt at the next open): never an
+/// answer without its receipts or a shortened list.
+fn unavailable(_:String)->Fail{Fail(-32603,crate::node::HISTORY_UNAVAILABLE.into(),None)}
 /// A stored entry with its body, encoded header and receipts (`Node::view`). C-1 S1: when its history
 /// cannot be read the answer is an error, never a block without its receipts or a shortened list.
 fn whole<'a>(n:&'a Node,e:&'a Entry)->Result<std::borrow::Cow<'a,Entry>,Fail>{
-    n.view(e).ok_or_else(||Fail(-32603,"block history unavailable (logged; the store is rebuilt at the next open)".into(),None))
+    n.view(e).ok_or_else(||unavailable(String::new()))
 }
 /// The state a tag names. C-1 S3a: a retained state that is not the head's is materialized from the head
 /// through the diffs (the same answer as when every retained state was held full).
@@ -930,7 +934,7 @@ enum TagState<'a>{Full(crate::chain::StateView<'a>),Pending(pocol_lp4_execution:
 impl TagState<'_>{fn v(&self)->&dyn pocol_lp4_execution::view::View{match self{TagState::Full(c)=>c.v(),TagState::Pending(l)=>l}}}
 fn state_for<'a>(n:&'a Node,tag:&Value)->Result<TagState<'a>,(i64,String)>{
     if tag.as_str()==Some("pending"){return Ok(TagState::Pending(n.pool_view()))}
-    let e=meta_by_tag(n,tag).ok_or((-32001,"unknown block".to_string()))?;
+    let e=meta_by_tag(n,tag).map_err(|f|(f.0,f.1))?.ok_or((-32001,"unknown block".to_string()))?;
     let pruned=||(-32017,"state outside the retained trie window (K_hist)".to_string());
     if e.pruned{return Err(pruned())}
     n.chain.view_of(&e.hash).map(TagState::Full).ok_or_else(pruned)
@@ -982,10 +986,12 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 if e==crate::node::SUBMIT_BUSY{COUNTERS.busy.fetch_add(1,Ordering::SeqCst);return Fail(-32021,"busy".into(),Some(json!({"reason":"busy","retryAfterMs":250})))}
                 let code=e.split(' ').next().and_then(|c|c.parse().ok()).unwrap_or(-32000);Fail(code,e,None)})}
         "eth_getBlockByNumber"=>{let full=p.get(1).and_then(|x|x.as_bool()).unwrap_or(false);
-            match meta_by_tag(n,p.first().unwrap_or(&Value::Null)){None=>Ok(Value::Null),Some(e)=>Ok(block_json(n,&*whole(n,e)?,full))}}
+            match meta_by_tag(n,p.first().unwrap_or(&Value::Null))?{None=>Ok(Value::Null),Some(e)=>Ok(block_json(n,&*whole(n,&e)?,full))}}
         "eth_getBlockByHash"=>{let h=p.first().and_then(|x|x.as_str()).and_then(|s|unhex(s).ok()).ok_or(bad("hash"))?;
             let full=p.get(1).and_then(|x|x.as_bool()).unwrap_or(false);
-            match h.try_into().ok().and_then(|h:[u8;32]|n.chain.get(&h)){None=>Ok(Value::Null),Some(e)=>Ok(block_json(n,&*whole(n,e)?,full))}}
+            // C-1 S5: a block held in memory (canonical or not), else a canonical one below the window.
+            let Ok(h)=<[u8;32]>::try_from(h) else{return Ok(Value::Null)};
+            match n.view_by_hash(&h,crate::node::Want{receipts:false}).map_err(unavailable)?{None=>Ok(Value::Null),Some(e)=>Ok(block_json(n,&e,full))}}
         "eth_getTransactionByHash"=>{let h=p.first().and_then(|x|x.as_str()).and_then(|s|s.parse::<B256>().ok()).ok_or(bad("hash"))?;
             Ok(find_tx(n,&h)?.map(|(e,i)|tx_json(n,&e,i)).unwrap_or(Value::Null))}
         "eth_getTransactionReceipt"=>{let h=p.first().and_then(|x|x.as_str()).and_then(|s|s.parse::<B256>().ok()).ok_or(bad("hash"))?;
@@ -995,7 +1001,7 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         "pocol_getLogs"=>{let f=p.first().unwrap_or(&Value::Null);
             if let Some(h)=f.get("blockHash"){let h=h.as_str().and_then(|s|unhex(s).ok()).ok_or(bad("blockHash"))?;
                 let h:[u8;32]=h.try_into().map_err(|_|bad("blockHash"))?;
-                let e=n.chain.get(&h).filter(|e|n.chain.canonical_at(e.height).map(|c|c.hash==e.hash).unwrap_or(false)).ok_or((-32001,"unknown or non-canonical block".to_string()))?;let mut g=f.clone();g["fromBlock"]=json!(qty(e.height));g["toBlock"]=json!(qty(e.height));
+                let height=n.canon_height(&h).map_err(unavailable)?.ok_or((-32001,"unknown or non-canonical block".to_string()))?;let mut g=f.clone();g["fromBlock"]=json!(qty(height));g["toBlock"]=json!(qty(height));
                 if let Some(o)=g.as_object_mut(){o.remove("blockHash");}
                 return logs(n,&g,b)}
             if f["fromBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true)||f["toBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true){return Err(bad("numeric fromBlock/toBlock").into())}
@@ -1021,8 +1027,12 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         "pocol_getRejects"=>Ok(json!(n.rejects.iter().map(|(h,w)|json!({"hash":h,"reason":w})).collect::<Vec<_>>())),
         "pocol_getHeaders"=>{let from=p.first().and_then(|x|x.as_u64().or_else(||parse_u64(x))).ok_or(bad("from"))?;let count=p.get(1).and_then(|x|x.as_u64().or_else(||parse_u64(x))).ok_or(bad("count"))?;
             if count==0||count>512{return Err(bad("count 1..512").into())}
-            let mut out=vec![];for h in from..from+count{let Some(e)=n.chain.canonical_at(h) else{break};if h>0{out.push(hex(&whole(n,e)?.header.encoded));}}Ok(json!(out))}
-        "pocol_getBlockRlp"=>{let e=meta_by_tag(n,p.first().unwrap_or(&Value::Null)).ok_or((-32001,"unknown block".to_string()))?;let e=whole(n,e)?;
+            // C-1 S5: below the window each header is one index and one journal read; the compute deadline is
+            // checked every 16 blocks (resume from the first height not returned).
+            let mut out=vec![];for h in from..from+count{
+                if (h-from)%16==0&&b.expired(){b.late();return Err(Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline","nextFromBlock":qty(h)}))))}
+                let Some(e)=n.canonical_view(h,crate::node::Want{receipts:false}).map_err(unavailable)? else{break};if h>0{out.push(hex(&e.header.encoded));}}Ok(json!(out))}
+        "pocol_getBlockRlp"=>{let e=meta_by_tag(n,p.first().unwrap_or(&Value::Null))?.ok_or((-32001,"unknown block".to_string()))?;let e=whole(n,&e)?;
             Ok(json!({"header":hex(&e.header.encoded),"body":hex(&e.body.encode())}))}
         "pocol_getMiners"=>{let head=n.chain.head;let s=n.chain.view_of(&head).ok_or((-32001,"head state".to_string()))?;let s=s.v();Ok(json!(apply::record_list(s).iter().map(|id|{let r=apply::miner_record(s,*id).unwrap();
             json!({"id":format!("{id:#x}"),"status":r.status,"tomb":r.tomb,"bondState":r.bond_state,"lastShare":r.last_share,"bond":qty256(r.bond),"registeredAt":r.registered_at,"reward":format!("{:#x}",r.reward),"rewardBalance":qty256(s.account(&r.reward).map(|a|a.info.balance).unwrap_or_default())})}).collect::<Vec<_>>()))}
@@ -1078,7 +1088,7 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Execu
     // COMPUTE_DEADLINE before each simulation (eth_estimateGas runs several): none starts past it.
     let deadline=||{b.late();Err(Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline"}))))};
     if b.expired(){return deadline()}
-    let cp=n.chain.spec.cp();let e=meta_by_tag(n,tag).ok_or(Fail::from((-32001,"unknown block".to_string())))?;
+    let cp=n.chain.spec.cp();let e=meta_by_tag(n,tag)?.ok_or(Fail::from((-32001,"unknown block".to_string())))?;
     // As state_for: a pruned state (outside the trie window, or a block adopted after its state was
     // pruned as a side block) is -32017 (consensus.md §10), never a simulation on an empty state.
     if e.pruned{return Err(Fail::from((-32017,"state outside the retained trie window (K_hist)".into())))}
@@ -1110,8 +1120,10 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Execu
 fn find_tx<'a>(n:&'a Node,h:&B256)->Result<Option<(std::borrow::Cow<'a,Entry>,usize)>,Fail>{
     let unavailable=||Fail(-32603,"transaction index unavailable (logged; the store is rebuilt at the next open)".into(),None);
     let at=n.history.tx_locations(h).map_err(|e|{n.log(&format!("history: {}",e.0));unavailable()})?;
-    let Some((b,i))=at.into_iter().find(|(b,_)|n.chain.is_canonical(b)) else{return Ok(None)};
-    let e=whole(n,n.chain.get(&b).ok_or_else(unavailable)?)?;
+    // C-1 S5: the canonical one, in memory or below the window.
+    let mut canonical=None;for (b,i) in at{if n.canon_height(&b).map_err(|_|unavailable())?.is_some(){canonical=Some((b,i));break}}
+    let Some((b,i))=canonical else{return Ok(None)};
+    let e=n.view_by_hash(&b,crate::node::Want{receipts:true}).map_err(|_|unavailable())?.ok_or_else(unavailable)?;
     // The index is derived data: an entry that does not name this transaction marks the store damaged.
     if e.tx_hashes.get(i)!=Some(h){n.log(&n.history.mark_damaged("transaction index entry does not match its block").0);return Err(unavailable())}
     Ok(Some((e,i)))
@@ -1174,7 +1186,7 @@ fn logs(n:&Node,f:&Value,b:&mut Budget)->R{
     let stop=|reason:&str,x:u64|{if !matches!(reason,"deadline"|"scratch"){COUNTERS.limit_hits.fetch_add(1,Ordering::SeqCst);}
         Fail(-32020,format!("log query limit ({reason})"),Some(json!({"reason":reason,"fromBlock":qty(from),"lastCompleteBlock":if x>from{Value::from(qty(x-1))}else{Value::Null},"nextFromBlock":qty(x)})))};
     let mut out=vec![];let mut scanned=0usize;let mut bytes=2usize;
-    for h in from..=to{let Some(e)=n.chain.canonical_at(h) else{break};let e=whole(n,e)?;let e=&*e;
+    for h in from..=to{let Some(e)=n.canonical_view(h,crate::node::Want{receipts:true}).map_err(unavailable)? else{break};let e=&*e;
         // Cancellation checks (network.md:286): the COMPUTE_DEADLINE at the first block and every 16
         // blocks scanned (the handler's entry check, with resume data: network.md:300); the scratch
         // budget is charged at every matched log.
@@ -1194,7 +1206,7 @@ fn logs(n:&Node,f:&Value,b:&mut Budget)->R{
 }
 /// The fromBlock a log handler resolves from its filter (as `logs`, and pocol_getLogs's blockHash form).
 fn logs_from(n:&Node,m:&str,f:&Value)->Option<u64>{
-    if m=="pocol_getLogs"{if let Some(h)=f.get("blockHash"){let h:[u8;32]=h.as_str().and_then(|s|unhex(s).ok())?.try_into().ok()?;return n.chain.get(&h).map(|e|e.height)}}
+    if m=="pocol_getLogs"{if let Some(h)=f.get("blockHash"){let h:[u8;32]=h.as_str().and_then(|s|unhex(s).ok())?.try_into().ok()?;return n.canon_height(&h).ok().flatten()}}
     match f["fromBlock"].as_str(){None|Some("latest")=>Some(n.chain.head().height),Some("earliest")=>Some(0),Some(_)=>parse_u64(&f["fromBlock"])}
 }
 

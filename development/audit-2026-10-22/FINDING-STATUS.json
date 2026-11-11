@@ -1269,6 +1269,177 @@
     ],
     "decision": []
    }
+  },
+  {
+   "id": "NODE-03/SCALE-02",
+   "origin": "mainnet-readiness review (2026-11); repaired by PR7 (claude/memory-bounds, from main 19ac678). Not an audit finding, so there is no reproduction on 090eae4",
+   "severity": "critical (review)",
+   "title": "The continuous chain stopped itself once its journal held more records than the A13 budget admits (about 1.13M records, 130.5 days at the default; the seeds together)",
+   "normative": false,
+   "conformance": "Local retention and resource policy only (consensus.md:29, governance.md:15): verdicts, state roots and fork choice are unchanged, and no block is newly refused; the consensus lock carries a `neutral` history line for chain.rs and checkpoint.rs (VA-SPEC §2.3)",
+   "repairCommits": [
+    "00f804d",
+    "257502a",
+    "728ef36",
+    "6d5ba1c",
+    "3d022bc",
+    "22a53a7",
+    "6f62cdb",
+    "00536b2",
+    "de84f16"
+   ],
+   "implemented": "YES",
+   "accepted": "NOT ACCEPTED (owner acceptance pending; the `neutral` classification needs owner or reviewer sign-off)",
+   "independentReview": "none yet",
+   "blocked": {
+    "environment": [],
+    "decision": [
+     "Owner or reviewer sign-off on the `neutral` lock line"
+    ]
+   },
+   "verified": {
+    "status": "VERIFIED (Linux, release; Windows CI not run on this branch)",
+    "tests": [
+     "network_budget::a13_live_chain_halt_disk_bytes (with eviction on, a seed stops at 11,493,872,746,623 B of history.redb (merged with main's PR6); the bound is equal at 0 and 10^9 records)",
+     "network_budget::a13_live_chain_halt_records (eviction off: the pins before PR7, unchanged)",
+     "consensus::continuous_chain_does_not_halt_with_height (T15: a budget 64 KiB above the bound, 600 blocks, two rechecks; fails with the windowed path removed)",
+     "memory_bounds::a13_windowed_bound_is_flat (T16)",
+     "consensus::fresh_continuous_node_opens_with_default_limits (T20)",
+     "cli::memory_budget_and_evict_depth_come_from_the_flags_or_the_environment (T17)"
+    ]
+   },
+   "openRelated": [
+    "A stop remains at about 10.5 TiB of history.redb (1 B per 4 KiB of observed file), nearly simultaneous across nodes on one chain; warned at 15/16 of the budget, overridable with --memory-budget-bytes / POCOL_MEMORY_BUDGET_BYTES",
+    "--evict-depth 0 restores the record-count stop",
+    "Open I/O stays O(height): the journal pass and history.redb's integrity check"
+   ],
+   "disposition": "VERIFIED (Linux, release; Windows CI not run on this branch) — owner acceptance pending"
+  },
+  {
+   "id": "MISSED-ENTRIES",
+   "origin": "mainnet-readiness review (2026-11); repaired by PR7 (claude/memory-bounds, from main 19ac678). Not an audit finding, so there is no reproduction on 090eae4",
+   "severity": "high (review)",
+   "title": "Every canonical block kept an Entry in memory for good (about 1,330 B a block of model past the slim depth)",
+   "normative": false,
+   "conformance": "Local retention and resource policy only (consensus.md:29, governance.md:15): verdicts, state roots and fork choice are unchanged, and no block is newly refused; the consensus lock carries a `neutral` history line for chain.rs and checkpoint.rs (VA-SPEC §2.3)",
+   "repairCommits": [
+    "00f804d",
+    "257502a",
+    "728ef36",
+    "6d5ba1c",
+    "3d022bc",
+    "22a53a7",
+    "6f62cdb",
+    "00536b2",
+    "de84f16"
+   ],
+   "implemented": "YES",
+   "accepted": "NOT ACCEPTED (owner acceptance pending; the `neutral` classification needs owner or reviewer sign-off)",
+   "independentReview": "none yet",
+   "blocked": {
+    "environment": [],
+    "decision": [
+     "Owner or reviewer sign-off on the `neutral` lock line"
+    ]
+   },
+   "verified": {
+    "status": "VERIFIED (Linux, release; Windows CI not run on this branch)",
+    "tests": [
+     "consensus::canonical_entries_are_evicted_below_the_window_and_a_checkpoint_stays_the_same_size (T1)",
+     "memory_window::long_chain_heap_is_flat (T2)",
+     "consensus::head_fall_back_reloads_exactly (T6)",
+     "consensus::old_history_answers_are_unchanged (T3)",
+     "consensus::a_damaged_or_foreign_canonical_index_is_set_aside_and_rebuilt (T13)",
+     "consensus::crash_at_canon_points (T12, crash-test feature)",
+     "consensus::head_drop_across_history_window_does_not_stall (T19)",
+     "consensus::a_format_1_checkpoint_migrates_to_the_window_at_open (T11)"
+    ]
+   },
+   "openRelated": [
+    "Whole-state mode (the pocold run default): a deep rebuild without an anchor walks from genesis, O(height) CPU with O(window) memory, rate-limited as before",
+    "GetRange/GetFrom below the window read disk on the consensus thread, bounded per request but not per peer over time (CONDITIONS serving-io)",
+    "A store-mode anchor can come from a live-only rebuild of a canonical block above the cut without a version (a cache-only difference from replay, bounded by the anchor count, untested)"
+   ],
+   "disposition": "VERIFIED (Linux, release; Windows CI not run on this branch) — owner acceptance pending"
+  },
+  {
+   "id": "MISSED-CHECKPOINT",
+   "origin": "mainnet-readiness review (2026-11); repaired by PR7 (claude/memory-bounds, from main 19ac678). Not an audit finding, so there is no reproduction on 090eae4",
+   "severity": "medium (review)",
+   "title": "Each checkpoint serialized and sorted the whole chain (about 670 B a block)",
+   "normative": false,
+   "conformance": "Local retention and resource policy only (consensus.md:29, governance.md:15): verdicts, state roots and fork choice are unchanged, and no block is newly refused; the consensus lock carries a `neutral` history line for chain.rs and checkpoint.rs (VA-SPEC §2.3)",
+   "repairCommits": [
+    "00f804d",
+    "257502a",
+    "728ef36",
+    "6d5ba1c",
+    "3d022bc",
+    "22a53a7",
+    "6f62cdb",
+    "00536b2",
+    "de84f16"
+   ],
+   "implemented": "YES",
+   "accepted": "NOT ACCEPTED (owner acceptance pending; the `neutral` classification needs owner or reviewer sign-off)",
+   "independentReview": "none yet",
+   "blocked": {
+    "environment": [],
+    "decision": [
+     "Owner or reviewer sign-off on the `neutral` lock line"
+    ]
+   },
+   "verified": {
+    "status": "VERIFIED (Linux, release; Windows CI not run on this branch)",
+    "tests": [
+     "consensus::canonical_entries_are_evicted_below_the_window_and_a_checkpoint_stays_the_same_size (T4: 42,046 B at 1,000 and 2,000 blocks)",
+     "memory_bounds::a_snapshot_restores_at_its_window_base_from_the_block_the_index_holds_below_it",
+     "consensus::a_format_1_checkpoint_migrates_to_the_window_at_open (T11)"
+    ]
+   },
+   "openRelated": [
+    "A format-1 checkpoint is restored whole once, after a headroom check; otherwise open replays from genesis",
+    "A format-1 snapshot holds no rebuild anchor; the migrated node takes its first anchors as the cut moves"
+   ],
+   "disposition": "VERIFIED (Linux, release; Windows CI not run on this branch) — owner acceptance pending"
+  },
+  {
+   "id": "MISSED-BUDGET",
+   "origin": "mainnet-readiness review (2026-11); repaired by PR7 (claude/memory-bounds, from main 19ac678). Not an audit finding, so there is no reproduction on 090eae4",
+   "severity": "medium (review)",
+   "title": "All seeds stopped at the same height, and pocold run could not raise the memory budget",
+   "normative": false,
+   "conformance": "Local retention and resource policy only (consensus.md:29, governance.md:15): verdicts, state roots and fork choice are unchanged, and no block is newly refused; the consensus lock carries a `neutral` history line for chain.rs and checkpoint.rs (VA-SPEC §2.3)",
+   "repairCommits": [
+    "00f804d",
+    "257502a",
+    "728ef36",
+    "6d5ba1c",
+    "3d022bc",
+    "22a53a7",
+    "6f62cdb",
+    "00536b2",
+    "de84f16"
+   ],
+   "implemented": "YES",
+   "accepted": "NOT ACCEPTED (owner acceptance pending; the `neutral` classification needs owner or reviewer sign-off)",
+   "independentReview": "none yet",
+   "blocked": {
+    "environment": [],
+    "decision": [
+     "Owner or reviewer sign-off on the `neutral` lock line"
+    ]
+   },
+   "verified": {
+    "status": "VERIFIED (Linux, release; Windows CI not run on this branch)",
+    "tests": [
+     "cli::memory_budget_and_evict_depth_come_from_the_flags_or_the_environment (T17)"
+    ]
+   },
+   "openRelated": [
+    "The claim that seeds no longer stop together is withdrawn: nodes on one chain hold almost the same files, so the byte stop is nearly simultaneous too (A13-DERIVATION §2g)"
+   ],
+   "disposition": "VERIFIED (Linux, release; Windows CI not run on this branch) — owner acceptance pending"
   }
  ],
  "summary": {
@@ -1294,7 +1465,11 @@
   ],
   "ACCEPTED": [],
   "additionalFindings": {
-   "CAPS-01": "BLOCKED BY DECISION"
+   "CAPS-01": "BLOCKED BY DECISION",
+   "NODE-03/SCALE-02": "VERIFIED (Linux) — owner acceptance pending",
+   "MISSED-ENTRIES": "VERIFIED (Linux) — owner acceptance pending",
+   "MISSED-CHECKPOINT": "VERIFIED (Linux) — owner acceptance pending",
+   "MISSED-BUDGET": "VERIFIED (Linux) — owner acceptance pending"
   }
  },
  "round4": {

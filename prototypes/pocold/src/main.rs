@@ -37,7 +37,7 @@ fn main(){
         Ok(Ok(code))=>code,Ok(Err(_))=>101,Err(e)=>{eprintln!("error: spawn consensus thread: {e}");1}};
     std::process::exit(code);
 }
-const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--seed ADDR]... [--bootstrap ADDR]... [--outbound N|auto] [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] (--state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; automatic outbound: --outbound N (0..8) or auto (default: 4 with --listen, else 2; POCOL_OUTBOUND), plus 1 spare slot; --seed (<= 7) peers used only to bootstrap and refill; --bootstrap (<= 16) unverified addresses to try; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
+const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--seed ADDR]... [--bootstrap ADDR]... [--outbound N|auto] [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] [--memory-budget-bytes N] [--evict-depth N] (--memory-budget-bytes: the A13 memory budget, default 6 GiB; run also reads POCOL_MEMORY_BUDGET_BYTES; --evict-depth: canonical blocks kept in memory below the head, 0 off; --state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; automatic outbound: --outbound N (0..8) or auto (default: 4 with --listen, else 2; POCOL_OUTBOUND), plus 1 spare slot; --seed (<= 7) peers used only to bootstrap and refill; --bootstrap (<= 16) unverified addresses to try; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
 /// Runs one command and returns the process exit status. `help` (also `--help`, `-h`) prints the
 /// usage on stdout and exits 0. No command, or a command this build does not have, prints the
 /// usage on stderr and exits 2, so a script never takes a command that did not run for success.
@@ -74,9 +74,16 @@ fn command(args:&[String])->i32{
 ///   private addresses learned from peers that have them). `run` also reads POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL
 ///   when the flag is absent (`Discovery::env`);
 /// - `--outbound N|auto` (VA-SPEC §1a.7): the automatic outbound slots, resolved at `Node::open`. `run` also reads
-///   POCOL_OUTBOUND when the flag is absent (`Discovery::outbound_env`).
+///   POCOL_OUTBOUND when the flag is absent (`Discovery::outbound_env`);
+/// - `--memory-budget-bytes N` (A13, local): the node memory budget the bound must fit with its 1/8 reserve (default
+///   6 GiB, `node::MEM_BUDGET`). `run` also reads POCOL_MEMORY_BUDGET_BYTES when the flag is absent (`budget_env`);
+/// - `--evict-depth N` (C-1 S5, local retention, never validity): canonical entries more than N blocks below the head
+///   leave memory for the canonical index (canon.redb); 0 turns eviction off (the behaviour before PR7, with its
+///   record-count stop); the default is `resources::evict_depth_of`'s, and a depth below the safe minimum is refused.
 fn limits(args:&[String])->Result<node::Limits,String>{
     let mut l=node::Limits::default();
+    if let Some(v)=arg(args,"--memory-budget-bytes"){l.mem_budget=v.parse().map_err(|e|format!("--memory-budget-bytes {v}: {e}"))?;}
+    if let Some(v)=arg(args,"--evict-depth"){l.evict_depth=Some(v.parse().map_err(|e|format!("--evict-depth {v}: {e}"))?);}
     if let Some(g)=arg(args,"--pool-gas-max"){l.pool_gas_max=Some(g.parse().map_err(|e|format!("--pool-gas-max {g}: {e}"))?);}
     if let Some(v)=arg(args,"--peers-max"){l.net.peers_max=pocold::net::parse_peers_max(&v).map_err(|e|format!("--peers-max {v}: {e}"))?;}
     if let Some(v)=arg(args,"--per-group-max"){l.net.per_group_max=v.parse().map_err(|e|format!("--per-group-max {v}: {e}"))?;}
@@ -143,6 +150,15 @@ fn p2p_env(args:&[String],l:&mut node::Limits)->Result<(),String>{
     l.discovery.env(flag(args,"--no-discovery"),flag(args,"--discover-local"))?;
     l.discovery.outbound_env(arg(args,"--outbound").is_some())
 }
+/// The memory budget a service may give in its environment (C-1 S5, PR7 §4.5): POCOL_MEMORY_BUDGET_BYTES when
+/// `--memory-budget-bytes` is absent, read as `pocol start` reads it (launcher.rs): a value that is not a number,
+/// an empty one included, is refused.
+fn budget_env(args:&[String],l:&mut node::Limits)->Result<(),String>{
+    if arg(args,"--memory-budget-bytes").is_none(){
+        if let Ok(v)=std::env::var("POCOL_MEMORY_BUDGET_BYTES"){l.mem_budget=v.parse().map_err(|e|format!("POCOL_MEMORY_BUDGET_BYTES {v:?}: {e}"))?;}
+    }
+    Ok(())
+}
 /// `pocold run`. The P2P settings are checked before the network is read, so a bad value fails at once: the seeds
 /// (`--seed`, VA-SPEC §1a.8) are configured peers too, except this host's own (`is_own_seed`, which makes it a seed
 /// node that keeps the others) and those already given as `--peer` (static); bootstrap addresses (`--bootstrap`,
@@ -150,7 +166,7 @@ fn p2p_env(args:&[String],l:&mut node::Limits)->Result<(),String>{
 /// outbound places with the configured peers (`Discovery::resolve`, which `Node::open` repeats).
 fn run(args:&[String])->Result<(),String>{
     let miner=pocold::keyfile::miner(args)?;
-    let mut limits=limits(args)?;p2p_env(args,&mut limits)?;
+    let mut limits=limits(args)?;p2p_env(args,&mut limits)?;budget_env(args,&mut limits)?;
     let parse=|s:&str|s.parse::<std::net::SocketAddr>().map_err(|e|format!("{s}: {e}"));
     let listen=arg(args,"--listen").map(|s|parse(&s)).transpose()?;
     let mut peers:Vec<std::net::SocketAddr>=args_all(args,"--peer").iter().map(|s|parse(s)).collect::<Result<_,_>>()?;

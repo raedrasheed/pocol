@@ -129,14 +129,15 @@ fn tx_state(n:&Node,hash:&B256)->(&'static str,Option<u64>){
     let state=if n.pool.txs.iter().any(|(h,_)|h==hash){"Pending"}else{"Unconfirmed"};
     if let Ok(locations)=n.history.tx_locations(hash){
         for (block,index) in locations{
-            if let Some(e)=n.chain.get(&block){if n.chain.canonical_at(e.height).is_some_and(|c|c.hash==block){
-                if let Some(full)=n.view(e){if let Some(raw)=full.receipts.get(index){
+            // C-1 S5: the canonical block, held in memory or below the window (canonical index).
+            if let Ok(Some(height))=n.canon_height(&block){
+                if let Ok(Some(full))=n.view_by_hash(&block,crate::node::Want{receipts:true}){if let Some(raw)=full.receipts.get(index){
                     // EIP-2718 receipts: the first RLP field is the execution status.
                     let bytes=if raw.first().is_some_and(|b|*b<0x80){&raw[1..]}else{raw.as_slice()};
                     let success=crate::rlp::decode(bytes).ok().is_some_and(|r|r.list().and_then(|l|l.first()).and_then(|v|v.bytes())==Some(&[1]));
-                    return (if success{"Included"}else{"Reverted"},Some(e.height));
+                    return (if success{"Included"}else{"Reverted"},Some(height));
                 }}break;
-            }}
+            }
         }
     }
     (state,None)

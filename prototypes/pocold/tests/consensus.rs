@@ -1981,13 +1981,21 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // overlay's BLOCKHASH window, +4,692,588 B, -> 3,359,116,911 B (this pin was not moved with them); PR6 review: the
     // selection's tail after a gas failure joins the candidates (GAS_LIMIT/TX_GAS_MIN more entries, BODY_MAX more raw
     // bytes), +383,948 B, -> 3,359,500,859 B; PR6 review: parked runs (PARKED_ENTRY_BYTES 160) and the parked senders
-    // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B; PR2b automatic outbound state per connection (the
-    // link's mismatch, self-connection, usefulness and closed-by-us fields): LINK_BYTES 128 -> 144 at the old high 269,
-    // +39,274 B, -> 3,359,933,349 B; PR2b automatic outbound on by default (auto: S = 5 slot places, the spare's
-    // included, at 3,690,508 B, one forwarder at 9,065,100 B with the 4,096-B outbound state), +27,517,640 B,
-    // -> 3,387,450,989 B). Some terms are type sizes (Entry, Block), so the exact value is pinned for
-    // the target the evidence is produced on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_387_450_989,"the A13 model total changed");
+    // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B; PR7 (C-1 S5): canonical entries below head − E (E = 6,417) leave memory, so
+    // 6,419 entries are resident of the devnet's 20,001 (slimmed entries -18,308,536 B), and the window's own terms
+    // are counted: the Canon deque 410,880, the eviction batch 1,413,580, a head drop's reload 2,760,704, the rebuild
+    // shadow 5,783,785, two views below the window 859,954, canon.redb's cache 4,194,304 and allocator 531,840 B;
+    // -2,353,489 B, -> 3,357,540,586 B; with eviction off, `evict_depth` Some(0), the total is the one before); PR2b
+    // automatic outbound state per connection (the link's mismatch, self-connection, usefulness and closed-by-us
+    // fields): LINK_BYTES 128 -> 144 at the old high 269, +39,274 B, -> 3,357,579,860 B; PR2b automatic outbound on by
+    // default (auto: S = 5 slot places, the spare's included, at 3,690,508 B, one forwarder at 9,065,100 B with the
+    // 4,096-B outbound state), +27,517,640 B, -> 3,385,097,500 B (merged with PR7: PR2b's terms are the same with
+    // eviction on or off, so eviction off is 3,359,894,075 + 27,556,914 = 3,387,450,989 B, PR2b's own total before
+    // the merge). Some terms are type sizes (Entry, Block), so the exact value is pinned for the target the evidence
+    // is produced on; every target checks that it boots within the budget with its reserve.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_385_097_500,"the A13 model total changed");
+        let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
+        assert_eq!(off.total,3_387_450_989,"eviction off is the model before PR7, with PR2b's terms");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -1996,7 +2004,8 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
     // C-1 S1: a window of the whole chain is the model before S1, plus history.redb's cache and allocator.
-    let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),..Default::default()},2).unwrap();
+    // (PR7: with eviction off, so that every height is resident.)
+    let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),evict_depth:Some(0),..Default::default()},2).unwrap();
     // (C-1 E5: and the one empty state entries share, which each entry counted before.)
     let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")).map(|x|x.1).sum();
     // The one term that differs: the logs, now also bounded per block (LOG_BLOCK_MAX, enforced by the USER
@@ -2976,6 +2985,62 @@ fn s4_evidence_chain()->(Vec<Block>,Address,Block){
     drop(a);drop(c);for d in [da,dc]{let _=std::fs::remove_dir_all(&d);}
 }
 
+/// PR7 (A1-7): a TrieRebuild whose path crosses a block carrying type-2 evidence in the slim band. Re-executing
+/// that block walks its slimmed ancestors back to the evidence's TemplateID; the rebuild reads restored copies
+/// of them, and the fork child that needed it is accepted with the head a node that never slims reaches.
+/// Before, the walk met a slimmed ancestor and the rebuild failed with NeedsRebuild, every time: the child was
+/// dropped as a non-verdict.
+#[test] fn a_rebuild_through_a_slimmed_type_2_evidence_block_succeeds(){
+    let (mut seq,_,b4)=s4_evidence_chain();let ev=seq.last().unwrap().hash();
+    let mut h=net();for x in &seq{import(&mut h,x);}let ev_h=h.chain.get(&ev).unwrap().height;
+    // The evidence block goes below the K_hist cut and deep into the slim band, within R_keep.
+    for _ in 0..48{let p=h.chain.head;let x=fallback(&h,p,0);import(&mut h,&x);seq.push(x);}
+    let (mut a,da)=s4_node("pr7-a17",3);let (mut b,db)=s4_node("pr7-a17-ref",u64::MAX);
+    for x in &seq{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    let fork=a.chain.canonical_at(ev_h+1).unwrap().hash;
+    assert!(a.chain.get(&fork).unwrap().pruned&&a.chain.get(&ev).unwrap().slim&&a.chain.get(&b4.hash()).unwrap().slim,"positive control: a pruned fork point above a slimmed evidence block");
+    let child=fallback(&h,fork,1);let rb=a.chain.rebuilds;
+    a.import(child.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: the rebuild through the evidence block failed: {e:?}"));b.import(child.clone(),None).unwrap();
+    assert!(a.chain.rebuilds>rb,"positive control: a TrieRebuild through the evidence block");
+    assert!(a.chain.get(&child.hash()).is_some()&&b.chain.get(&child.hash()).is_some(),"the child is held by both");
+    assert_eq!(a.chain.head,b.chain.head);assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
+    for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
+}
+/// PR7 (A1-1): a heavier, shorter branch is adopted, so the head falls back across the resident history window.
+/// The adopted blocks `restore_canonical` made whole below the old history cursor are offloaded again once they
+/// are below the window, live and after replay alike. Before, the cursor only rose: those blocks stayed
+/// resident for good (and a canonical block that is not offloaded below the window would stall eviction).
+/// PR7 (C-1 S5): the chain then grows E + 10 blocks past the fall, so the eviction window passes over those blocks:
+/// it reaches its floor and nothing stalls it.
+#[test] fn head_drop_across_history_window_does_not_stall(){
+    use pocold::node::{Config,Limits,Node};
+    let (rk,w)=(24u64,4u64);
+    let mut a=net();let g=a.chain.head;let ours=grow(&mut a,g,rk as usize,&|n,p|fallback(n,p,1));
+    let mut b=net();let mut theirs=heavier(&mut b,g,a.chain.head().total_work,0);let m=theirs.len();
+    assert!((m as u64)+w<rk,"positive control: theirs ({m} blocks) is shorter than ours ({rk}) by more than the window");
+    let more=grow(&mut b,theirs[m-1].hash(),2*w as usize,&|n,p|fallback(n,p,0));theirs.extend(more);
+    let dir=std::env::temp_dir().join(format!("pocold-pr7-drop-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);let d=dir.clone();
+    let conf=move||Config{dir:d.clone(),name:"drop".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,
+        limits:Limits{r_keep:rk,side_cap:rk as usize,history_window:Some(w),..Default::default()}};
+    let mut n=Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap();
+    for x in &ours{n.import(x.clone(),None).unwrap();}let cursor=n.chain.history_cursor;
+    for x in &theirs[..m]{n.import(x.clone(),None).unwrap();}assert_eq!(n.chain.head,theirs[m-1].hash(),"the heavier branch is adopted");
+    let whole=|n:&Node|->Vec<u64>{let below=n.chain.head().height.saturating_sub(w)+1;(n.chain.canonical.base().max(1)..below).filter(|h|!n.chain.canonical_at(*h).unwrap().offloaded).collect()};
+    assert!((1..cursor).any(|h|!n.chain.canonical_at(h).unwrap().offloaded),"positive control: an adopted block below the old cursor ({cursor}) was made whole");
+    for x in &theirs[m..]{n.import(x.clone(),None).unwrap();}
+    assert_eq!(whole(&n),Vec::<u64>::new(),"FAIL-ON-ORIGINAL: canonical blocks below the window are still resident");assert!(n.chain.canonical_resident());
+    let e=n.cfg.limits.evict_depth.unwrap();assert!(e>0&&n.chain.canonical.base()==0,"positive control: eviction is on, and nothing is evicted yet");
+    let tip=theirs.last().unwrap().hash();for x in grow(&mut b,tip,e as usize+10,&|n,p|fallback(n,p,0)){n.import(x,None).unwrap();}
+    assert!(n.chain.canonical.base()>cursor,"positive control: the window passed over the adopted blocks");
+    assert!(n.chain.window_done()&&n.chain.evict_stalls==0,"the window reaches its floor ({:?}, base {}) and nothing stalls it",n.chain.evict_floor(),n.chain.canonical.base());
+    assert_eq!(whole(&n),Vec::<u64>::new());
+    let offloaded=|n:&Node|n.chain.canonical.iter().map(|h|n.chain.blocks[h].offloaded).collect::<Vec<_>>();
+    let (live,cur)=(offloaded(&n),n.chain.history_cursor);drop(n);
+    let r=Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap();
+    assert_eq!((offloaded(&r),r.chain.history_cursor),(live,cur),"replay offloads exactly what live import did");
+    drop(r);let _=std::fs::remove_dir_all(&dir);
+}
+
 /// The S1 scenario chain: A1 (with a transaction) abandoned for the heavier B1, B2 from genesis, then 96
 /// blocks with a payment and a LOG0-emitting create every 4th block. Returns the builder, every block in
 /// import order and the tip.
@@ -3346,7 +3411,11 @@ fn e44_conf_with(dir:&std::path::Path,every:u64,f:fn(&mut pocold::node::Limits))
 fn e44_dir(tag:&str)->std::path::PathBuf{let d=std::env::temp_dir().join(format!("pocold-e44-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
 fn copy_dir(from:&std::path::Path,to:&std::path::Path){let _=std::fs::remove_dir_all(to);std::fs::create_dir_all(to).unwrap();
     // LOCK is only the journal's lock target (an open node holds a lock on it; Windows refuses to read it).
-    for e in std::fs::read_dir(from).unwrap(){let e=e.unwrap();if e.file_type().unwrap().is_file()&&e.file_name()!="LOCK"{std::fs::copy(e.path(),to.join(e.file_name())).unwrap();}}}
+    // A file an open node holds locked (its redb databases) is refused: Windows refuses to read it (os error 33), so a copy
+    // must be made with no node open on `from`. The lock is tried on every platform, so Linux finds such a copy too.
+    for e in std::fs::read_dir(from).unwrap(){let e=e.unwrap();if e.file_type().unwrap().is_file()&&e.file_name()!="LOCK"{
+        if let Err(std::fs::TryLockError::WouldBlock)=std::fs::File::open(e.path()).unwrap().try_lock_shared(){panic!("copy_dir: {:?} is held by an open node",e.path())}
+        std::fs::copy(e.path(),to.join(e.file_name())).unwrap();}}}
 /// Two nodes are the same node: the same head and canonical chain, every entry equal field by field (its
 /// header, body, receipts, ranges, ParentResult, flags, summary and stored root: the snapshot and the
 /// entry's Debug form), the same answers for every canonical block, receipt and state query at every
@@ -3912,8 +3981,8 @@ fn e4_checkpoint_kill_child(){
 #[test] fn a_snapshot_of_minimal_entries_reads_back(){
     use pocold::checkpoint::*;
     let rec=|i:u64|Rec{hash:{let mut h=[0u8;32];h[..8].copy_from_slice(&(i+1).to_be_bytes());h},body_off:None,import_seq:i,total_work:U256::from(i),flags:0,cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None};
-    let snap=|n:u64|Snapshot{genesis:[7;32],params:Params{r_keep:2048,side_cap:256,k_hist:32,side_max:2,history_window:Some(32),slim_depth:Some(100),keep_full:false},
-        binding:Binding{records:n,end:1,hash:[2;32]},head:rec(n.max(1)-1).hash,next_seq:n,slim_cursor:1,history_cursor:1,evicted_total:0,unslimmed:vec![],evicted_order:vec![],protect:None,entries:(0..n).map(rec).collect()};
+    let snap=|n:u64|Snapshot{genesis:[7;32],params:Params{r_keep:2048,side_cap:256,k_hist:32,side_max:2,history_window:Some(32),slim_depth:Some(100),keep_full:false,evict_depth:None,anchor_step:None},
+        binding:Binding{records:n,end:1,hash:[2;32]},head:rec(n.max(1)-1).hash,next_seq:n,slim_cursor:1,history_cursor:1,evicted_total:0,canon_base:0,base_parent:[0;32],base_parent_work:U256::ZERO,anchor_cursor:0,v1:false,unslimmed:vec![],evicted_order:vec![],protect:None,entries:(0..n).map(rec).collect()};
     let s=snap(1000);let b=encode_snapshot(&s);
     assert_eq!((b.len()-encode_snapshot(&snap(0)).len())/1000,126,"the smallest record is 126 bytes");
     assert_eq!(decode(&b).unwrap(),s,"a snapshot of minimal entries reads back");
@@ -4068,10 +4137,683 @@ fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
         let b=signed(&n,n.chain.head,Body{txs:vec![raw],evidence:vec![]},0);import(&mut n,&b);
     }
     assert_eq!(n.chain.head().state.accounts[&to].info.balance,U256::from(10u128.pow(24))+U256::from(4));
-    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits::default();limits.state_store=true;
+    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits{evict_depth:Some(0),..Default::default()};limits.state_store=true;
     assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unknown continuous history must not be treated as zero");
     limits.continuous_history=Some(0);let small=pocold::resources::derive(cp,32,2,&limits,3).unwrap();
     limits.continuous_history=Some(50_000);let larger=pocold::resources::derive(cp,32,2,&limits,3).unwrap();assert!(larger.total>small.total);
+    // PR7 (C-1 S5, §6.5): with eviction on, unknown file sizes are not zero either, and the bound does not grow with
+    // the records: equal at 0 and 10^9.
+    limits.evict_depth=None;assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unobserved files must not be treated as empty");
+    assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),"A13: disk sizes not observed");
+    limits.disk=Some(Default::default());let at=|r:u64|pocold::resources::derive(cp,32,2,&pocold::node::Limits{continuous_history:Some(r),..limits.clone()},3).unwrap().total;
+    assert_eq!(at(0),at(1_000_000_000));
+}
+
+// ---------------- PR7 (C-1 S5): canonical entries below the in-memory window ----------------
+/// Attempt-0 fallback blocks from genesis, built once per process; the PR7 tests take a prefix.
+fn pr7_chain(n:usize)->Vec<Block>{
+    static B:std::sync::OnceLock<Vec<Block>>=std::sync::OnceLock::new();
+    let all=B.get_or_init(||{let mut h=net();let g=h.chain.head;grow(&mut h,g,2000,&|n,p|fallback(n,p,0))});all[..n].to_vec()
+}
+/// A builder holding `blocks`, to make forks on them.
+fn pr7_builder(blocks:&[Block])->Net{let mut h=net();for b in blocks{import(&mut h,b);h.chain.retain();}h}
+/// The PR7 node limits: R_keep and side cap `rk`, slim depth 20, the store or whole states, a checkpoint every
+/// `every` records (store mode), and `evict` (None: the default depth).
+fn pr7_limits(rk:u64,store:bool,every:u64,evict:Option<u64>)->pocold::node::Limits{
+    pocold::node::Limits{r_keep:rk,side_cap:rk as usize,slim_depth:Some(20),state_store:store,checkpoint_every:every,evict_depth:evict,..Default::default()}
+}
+fn pr7_conf(dir:&std::path::Path,l:pocold::node::Limits)->impl Fn()->pocold::node::Config{
+    let d=dir.to_path_buf();move||pocold::node::Config{dir:d.clone(),name:"pr7".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:l.clone()}
+}
+/// The eviction depth a node with these limits uses (`resources::evict_depth_of`, as Node::open computes it).
+fn pr7_depth(l:&pocold::node::Limits)->u64{let s=admitted(&cfg(&["a","b","c"]));pocold::resources::evict_depth_of(s.cp(),s.local().k_hist,l,l.r_keep).unwrap().unwrap()}
+/// Two whole-state chains are the same where both hold entries: each entry the evicting one holds is the
+/// reference's, field by field as a record (`rec_of_meta`), with the same flags.
+fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
+    for e in a.blocks.values(){let x=r.blocks.get(&e.hash).unwrap_or_else(||panic!("{what}: entry at {} not in the reference",e.height));
+        assert_eq!((pocold::checkpoint::rec_of_meta(e),e.slim,e.offloaded,e.pruned),(pocold::checkpoint::rec_of_meta(x),x.slim,x.offloaded,x.pruned),"{what}: entry at height {}",e.height);}
+}
+
+/// PR7 (T1, T4): canonical entries below `head - E` leave memory, in store and whole-state mode. Every 100 blocks of
+/// 2,000: the chain holds at most E + 2 entries besides its side blocks, the window at most E + 1 heights, it has
+/// reached its floor and nothing stalled it; and (store mode) a checkpoint at 2,000 blocks is the size of one at
+/// 1,000. E is the default depth for R_keep 8 and slim depth 20 (E_min, 2·R_keep + E_win + 258 or the anchor
+/// term, max(2·R_keep + 2, K_hist) + R_keep + 257). Before PR7 every canonical entry stayed, and a checkpoint held
+/// them all.
+#[test] fn canonical_entries_are_evicted_below_the_window_and_a_checkpoint_stays_the_same_size(){
+    let blocks=pr7_chain(2000);let e_win=u64::from(net().chain.spec.cp().E_win);
+    for store in [false,true]{
+        let dir=e44_dir(&format!("pr7-t1-{store}"));let l=pr7_limits(8,store,0,None);let mut n=reopen(&pr7_conf(&dir,l));
+        let (e,k_hist)=(n.cfg.limits.evict_depth.unwrap(),n.chain.k_hist);assert_eq!(e,(2*8+e_win+258).max(if store{(2*8+2u64).max(k_hist)+8+257u64.max(e_win+1)}else{0}),"the default depth is E_min");
+        let mut sizes=vec![];
+        for (i,b) in blocks.iter().enumerate(){n.import(b.clone(),None).unwrap();
+            if (i+1)%100==0{let c=&n.chain;let side=c.side_counts().0 as u64;
+                assert!(c.blocks.len() as u64<=e+2+side,"FAIL-ON-ORIGINAL ({store}): {} entries at height {}",c.blocks.len(),c.head().height);
+                assert!(c.canonical.len() as u64-c.canonical.base()<=e+1&&c.window_done()&&c.evict_stalls==0,"({store}) the window at height {}: base {}",c.head().height,c.canonical.base());}
+            if store&&(i+1==1000||i+1==2000){sizes.push(pocold::checkpoint::encode(&n.chain,&pocold::checkpoint::Binding{records:0,end:0,hash:[0;32]}).unwrap().0.len());}
+        }
+        assert_eq!(n.chain.canonical.base(),2000-e,"the window starts at head - E");
+        {let c=n.canon();c.sync().unwrap();println!("PR7-CANON-BYTES {}",serde_json::json!({"store":store,"rows":2000-e-1,"fileBytes":c.file_bytes(),"bytesPerRow":c.file_bytes()/(2000-e-1)}));}
+        if store{println!("PR7-CHECKPOINT-BYTES {sizes:?}");assert!(sizes[0].abs_diff(sizes[1])<=2*pocold::checkpoint::REC_MAX,"FAIL-ON-ORIGINAL: checkpoint bytes {sizes:?}");}
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// PR7 (T6): a heavier, shorter branch from the tip makes the head fall back below the window, so the heights from
+/// the old base down to the new floor come back from the canonical index, each checked against the window. Every
+/// entry the evicting node then holds is the one a node that never evicts holds (its snapshot record), the window
+/// reaches its new floor, and the canonical chains agree; both stay equal as the branch grows.
+#[test] fn head_fall_back_reloads_exactly(){
+    let rk=24u64;let l=pr7_limits(rk,true,0,None);let e=pr7_depth(&l);
+    let prefix=pr7_chain(e as usize+40);let mut h=pr7_builder(&prefix);let f=h.chain.head;
+    let ours=grow(&mut h,f,rk as usize,&|n,p|fallback(n,p,1));
+    let w=h.chain.head().total_work;let theirs=heavier(&mut h,f,w,0);let m=theirs.len();
+    assert!((m as u64)<rk,"positive control: theirs ({m}) is shorter than ours ({rk})");
+    let (da,dr)=(e44_dir("pr7-t6"),e44_dir("pr7-t6-ref"));
+    let mut a=reopen(&pr7_conf(&da,l.clone()));let mut r=reopen(&pr7_conf(&dr,pr7_limits(rk,true,0,Some(u64::MAX))));
+    for x in prefix.iter().chain(&ours){a.import(x.clone(),None).unwrap();r.import(x.clone(),None).unwrap();}
+    let before=a.chain.canonical.base();
+    for x in &theirs{a.import(x.clone(),None).unwrap();r.import(x.clone(),None).unwrap();}
+    assert_eq!(a.chain.head,theirs[m-1].hash(),"the heavier branch is adopted");
+    let after=a.chain.canonical.base();assert!(after<before&&before>1,"positive control: the head fell back below the window (base {before} -> {after})");
+    let same=|a:&pocold::node::Node,r:&pocold::node::Node,what:&str|{
+        assert!(a.chain.window_done()&&a.chain.evict_stalls==0,"{what}: the window at its floor");
+        let (fa,fr)=(pocold::checkpoint::fingerprint(&a.chain).unwrap(),pocold::checkpoint::fingerprint(&r.chain).unwrap());
+        let held:Vec<&pocold::checkpoint::Rec>=fr.entries.iter().filter(|x|a.chain.blocks.contains_key(&x.hash)).collect();
+        assert_eq!(fa.entries.iter().collect::<Vec<_>>(),held,"{what}: the entries held are the reference's");
+        let b=a.chain.canonical.base() as usize;assert!((b..a.chain.canonical.len()).all(|x|a.chain.canonical[x]==r.chain.canonical[x]),"{what}: the canonical chain");
+        assert_eq!((fa.head,fa.next_seq,fa.evicted_total),(fr.head,fr.next_seq,fr.evicted_total),"{what}: head and counters");};
+    same(&a,&r,"after the fall");
+    for x in grow(&mut h,theirs[m-1].hash(),30,&|n,p|fallback(n,p,0)){a.import(x.clone(),None).unwrap();r.import(x,None).unwrap();}
+    same(&a,&r,"after 30 more blocks");
+    drop(a);drop(r);for d in [da,dr]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// PR7 (T7): live import with reorgs and checkpoints, then two opens, (a) from a checkpoint and (b) replaying from
+/// genesis: the two are the same node, field by field (`e44_same`: entries, canonical chain, every RPC answer over
+/// every height, pins), and each holds the live node's window, entries and canonical index rows below the window.
+/// The live checkpoints are of a window based above height 1.
+#[test] fn replay_equals_live_with_eviction(){
+    let rk=24u64;let l=pr7_limits(rk,true,7,None);let e=pr7_depth(&l);
+    let prefix=pr7_chain(e as usize+60);let mut h=pr7_builder(&prefix);let tip=h.chain.head;
+    // A side block two below the tip that its own heavier branch then adopts, and the tip's branch heavier again.
+    let fork=h.chain.get(&h.chain.get(&tip).unwrap().parent.unwrap()).unwrap().parent.unwrap();
+    let mut h2=pr7_builder(&prefix);let w=h.chain.get(&tip).unwrap().total_work;
+    let mut side=vec![fallback(&h2,fork,1)];import(&mut h2,&side[0]);side.extend(heavier(&mut h2,side[0].hash(),w,2));
+    let w=h2.chain.head().total_work;let back=heavier(&mut h,tip,w,1);
+    let blocks:Vec<Block>=prefix.iter().cloned().chain(side).chain(back).collect();
+    let a=e44_dir("pr7-t7");
+    let live={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}
+        assert!(n.chain.canonical.base()>1&&n.stats.checkpoints_written>0,"positive control: checkpoints of a window based above 1");
+        let rows:Vec<_>=(1..n.chain.canonical.base()).map(|h|n.canon().at(h).unwrap().unwrap()).collect();
+        let mut held:Vec<[u8;32]>=n.chain.blocks.keys().copied().collect();held.sort();(n.chain.canonical.clone(),held,rows)};
+    // The reference is a copy of what the live node left, made before (a) opens it: an open node holds its redb files
+    // locked, and Windows refuses to read a locked file (os error 33, CI run 42954534510).
+    let g=e44_dir("pr7-t7-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
+    let mut x=reopen(&pr7_conf(&a,l.clone()));assert!(x.stats.resumed_from.is_some(),"(a) resumes from a checkpoint");
+    let mut y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));assert_eq!(y.stats.resumed_from,None,"(b) replays from genesis");
+    e44_same(&mut x,&mut y,"from a checkpoint and from genesis");
+    // Live and either open hold the same window, entries and index rows. (Not every flag: a head that fell back can leave
+    // canonical blocks offloaded inside the resident window live, which the final restore of an open makes whole; that
+    // predates PR7 and moves no entry in or out of the window.)
+    for n in [&x,&y]{let rows:Vec<_>=(1..n.chain.canonical.base()).map(|h|n.canon().at(h).unwrap().unwrap()).collect();
+        let mut held:Vec<[u8;32]>=n.chain.blocks.keys().copied().collect();held.sort();
+        assert!((n.chain.canonical.clone(),held,rows)==live,"an open holds the live node's window, entries and index rows");}
+    drop(x);drop(y);for d in [a,g]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// PR7 (T8, T10): a fork child on a block 40 below the head (below K_hist, within R_keep 64) needs its parent's
+/// state, and no state is held in the window below it: the rebuild walks the canonical heights below the window
+/// from genesis out of the canonical index and journal (`disk_walk`), through a block carrying type-2 evidence (its
+/// evidence walk and BLOCKHASH window read the walk's whole copies), then up the window. The child is accepted with
+/// the state a node that never evicts reaches, every height up to the fork is re-executed once, and the rebuild's
+/// copies are gone afterwards. Whole-state mode (in store mode the rebuild starts at an anchor:
+/// `a_deep_fork_rebuild_starts_at_an_anchor`; it walks the disk only when none is held).
+#[test] fn deep_rebuild_through_evicted_heights_reaches_the_reference_state(){
+    let (seq,_,_)=s4_evidence_chain();let ev_h=seq.len() as u64;
+    {let store=false;
+        let l=pr7_limits(64,store,0,None);let e=pr7_depth(&l);
+        let mut h=net();for x in &seq{import(&mut h,x);h.chain.retain();}
+        let mut blocks=seq.clone();let tip=h.chain.head;blocks.extend(grow(&mut h,tip,e as usize+60,&|n,p|fallback(n,p,0)));
+        let fork_h=h.chain.head().height-40;let fork=h.chain.canonical_at(fork_h).unwrap().hash;h.chain.ensure_state(&fork).unwrap();let child=fallback(&h,fork,1);
+        let (da,dr)=(e44_dir(&format!("pr7-t8-{store}")),e44_dir(&format!("pr7-t8-ref-{store}")));
+        let mut a=reopen(&pr7_conf(&da,l.clone()));let mut r=reopen(&pr7_conf(&dr,pr7_limits(64,store,0,Some(u64::MAX))));
+        for x in &blocks{a.import(x.clone(),None).unwrap();r.import(x.clone(),None).unwrap();}
+        let base=a.chain.canonical.base();
+        assert!(base>ev_h+u64::from(a.chain.spec.cp().E_win)&&a.chain.canonical_at(fork_h).unwrap().pruned,"positive control: the evidence block is below the window ({base}) and the fork point is pruned");
+        let (ra,rr)=(a.chain.rebuilds,r.chain.rebuilds);
+        a.import(child.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL ({store}): the child of a fork point above evicted heights: {e:?}"));r.import(child.clone(),None).unwrap();
+        assert_eq!((a.chain.rebuilds-ra,r.chain.rebuilds-rr),(fork_h,fork_h),"({store}) every height up to the fork re-executed once");
+        assert_eq!(a.chain.rebuild_copies(),0,"the rebuild's copies are dropped");
+        assert!(a.chain.get(&child.hash()).is_some()&&r.chain.get(&child.hash()).is_some());assert_eq!(a.chain.head,r.chain.head);
+        if !store{assert_eq!(apply::state_root(&a.chain.get(&child.hash()).unwrap().state).unwrap(),apply::state_root(&r.chain.get(&child.hash()).unwrap().state).unwrap());}
+        pr7_same_entries(&a.chain,&r.chain,&format!("({store}) after the rebuild"));
+        drop(a);drop(r);for d in [da,dr]{let _=std::fs::remove_dir_all(&d);}
+    }
+}
+
+/// PR7 (T9, §2.4): in store mode a fork child on a block 40 below the head (below K_hist, within R_keep 64) has its
+/// parent rebuilt from the newest anchor below it, at most lag + R_keep re-executions (lag = 2·R_keep + 2), where a
+/// node without anchors walks every canonical height up to the fork from genesis. The anchors are the canonical
+/// entries at multiples of R_keep at or below the K_hist cut that keep their stored version (pruned otherwise), at
+/// most `anchors_max` of them and the ones a node that never evicts holds; the rebuilt parent's version is the
+/// reference's; and the node that reopens from a checkpoint after the child holds the live node's chain fields and
+/// anchors.
+#[test] fn a_deep_fork_rebuild_starts_at_an_anchor(){
+    let rk=64u64;let l=pr7_limits(rk,true,7,None);let e=pr7_depth(&l);
+    let blocks=pr7_chain(e as usize+60);let mut h=pr7_builder(&blocks);
+    let fork_h=h.chain.head().height-40;let fork=h.chain.canonical_at(fork_h).unwrap().hash;h.chain.ensure_state(&fork).unwrap();let child=fallback(&h,fork,1);
+    let (da,dr)=(e44_dir("pr7-t9"),e44_dir("pr7-t9-ref"));
+    let mut a=reopen(&pr7_conf(&da,l.clone()));let mut r=reopen(&pr7_conf(&dr,pr7_limits(rk,true,0,Some(u64::MAX))));
+    for x in &blocks{a.import(x.clone(),None).unwrap();r.import(x.clone(),None).unwrap();}
+    assert!(a.chain.canonical.base()>1&&a.chain.canonical_at(fork_h).unwrap().pruned,"positive control: a window above height 1, the fork point pruned");
+    let ra=a.chain.rebuilds;a.import(child.clone(),None).unwrap();r.import(child.clone(),None).unwrap();
+    let (n,lag)=(a.chain.rebuilds-ra,2*rk+2);
+    assert!(n>0&&n<=lag+rk,"FAIL-ON-ORIGINAL: {n} re-executions for the fork at {fork_h} (lag + R_keep = {})",lag+rk);
+    let c=&a.chain;let cut=c.head().height-c.k_hist;let anchors=c.anchors().to_vec();
+    assert!(!anchors.is_empty()&&anchors.len() as u64<=c.anchors_max(),"anchors {anchors:?} (at most {})",c.anchors_max());
+    for (x,hh) in &anchors{let e=c.get(hh).unwrap();assert!(x%rk==0&&*x<=cut&&c.canonical.get(*x as usize)==Some(hh)&&e.stored.is_some()&&e.pruned&&!e.full,"the anchor at {x}");}
+    let root=anchors.iter().map(|a|a.0).filter(|x|*x<fork_h).max().unwrap();assert_eq!(n,fork_h-root,"the rebuild starts at the newest anchor below the fork");
+    assert_eq!(anchors,r.chain.anchors(),"the anchors of a node that never evicts");
+    assert!(c.prune_holds()&&c.get(&fork).unwrap().stored.is_none(),"the rebuilt fork point is pruned again by the import's retain");
+    let world=|n:&pocold::node::Node|n.chain.get(&child.hash()).unwrap().stored.as_ref().map(|p|p.trie.world);
+    assert!(world(&a).is_some()&&world(&a)==world(&r),"the child's state is the reference's");assert_eq!(a.chain.head,r.chain.head);
+    pr7_same_entries(&a.chain,&r.chain,"after the rebuild");
+    let live=pocold::checkpoint::fingerprint(&a.chain).unwrap();drop(a);
+    let x=reopen(&pr7_conf(&da,l));assert!(x.stats.resumed_from.is_some(),"positive control: resumed from a checkpoint");
+    assert_eq!(x.chain.anchors(),&anchors[..],"a restore holds the anchors");assert_eq!(pocold::checkpoint::fingerprint(&x.chain).unwrap(),live,"the reopened node's chain fields");
+    drop(x);drop(r);for d in [da,dr]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// PR7 (T7 variant, A1-3): a block refused after the TrieRebuild of its parent, a rebuild only the live node makes (the
+/// block is never journaled), when that parent is an anchor (a multiple of R_keep below the K_hist cut). The rebuild
+/// returns at once (the anchor's version is the root), and the refusal leaves the anchor as it was: pruned, holding
+/// its version, listed once. After 20 more blocks the live node, a reopen from its checkpoint and a replay from genesis
+/// hold the same chain fields and anchors, at most `anchors_max`.
+#[test] fn a_refused_rebuild_at_an_anchor_leaves_the_anchors_replay_takes(){
+    let rk=64u64;let l=pr7_limits(rk,true,7,None);let e=pr7_depth(&l);
+    let blocks=pr7_chain(e as usize+60);let top=blocks.len() as u64;let ph=(top-33)/rk*rk;assert!(ph+rk>top,"positive control: the parent at {ph} is within R_keep of {top}");
+    let p=blocks[ph as usize-1].hash();let m=pr7_builder(&blocks[..ph as usize]);
+    let drawn=m.chain.child_ctx(&m.chain.full_entry(&p).unwrap(),0).unwrap().proposer;let other=*m.keys.keys().find(|k|**k!=drawn).unwrap();
+    let mut hd=signed(&m,p,Body::default(),0).header;hd.proposer=other.to_vec();reseal(&mut hd);let bad=remine_signed(&m,hd,other);
+    let a=e44_dir("pr7-t7-anchor");let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}
+    assert!(n.chain.anchors().contains(&(ph,p))&&n.chain.get(&p).unwrap().pruned,"positive control: the parent at {ph} is an anchor, pruned");
+    let (before,rb)=(n.chain.anchors().to_vec(),n.chain.rebuilds);
+    assert!(matches!(n.import(bad.clone(),None),Err(Reject::Block(s)) if s.contains("12 proposer")),"a block verdict after the rebuild");
+    assert!(n.chain.invalid.contains_key(&bad.hash())&&n.chain.rebuilds==rb,"the anchor's version is the rebuild's root: nothing re-executed");
+    let x=n.chain.get(&p).unwrap();assert!(x.pruned&&!x.full&&x.stored.is_some()&&n.chain.prune_holds(),"the anchor is as it was");
+    assert_eq!(n.chain.anchors(),&before[..],"the refusal leaves the anchors as they were");
+    let mut h=pr7_builder(&blocks);let tip=h.chain.head;for b in grow(&mut h,tip,20,&|n,p|fallback(n,p,0)){n.import(b,None).unwrap();}
+    let (live,anchors)=(pocold::checkpoint::fingerprint(&n.chain).unwrap(),n.chain.anchors().to_vec());drop(n);
+    let mut seen=anchors.clone();seen.dedup();assert!(seen==anchors&&anchors.contains(&(ph,p)),"each anchor once: {anchors:?}");
+    let g=e44_dir("pr7-t7-anchor-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
+    let x=reopen(&pr7_conf(&a,l.clone()));let y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));
+    assert!(x.stats.resumed_from.is_some()&&y.stats.resumed_from.is_none(),"positive control: (a) a checkpoint, (b) genesis");
+    for (z,what) in [(&x,"from a checkpoint"),(&y,"from genesis")]{
+        assert_eq!(z.chain.anchors(),&anchors[..],"{what}: the anchors");assert!(anchors.len() as u64<=z.chain.anchors_max());
+        assert_eq!(pocold::checkpoint::fingerprint(&z.chain).unwrap(),live,"{what}: the live node's chain fields");}
+    drop(x);drop(y);for d in [a,g]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// PR7 (T3): every RPC answer about a block below the window is the one a node that never evicts gives: blocks by
+/// number and hash (with and without full transactions), transactions and receipts, logs over the evicted range
+/// and by block hash, headers and RLP. A block by number below the window is one index read.
+#[test] fn old_history_answers_are_unchanged(){
+    let (mut h,mut blocks,tip)=s1_chain();blocks.extend(grow(&mut h,tip,320,&|n,p|fallback(n,p,0)));
+    let (da,dr)=(e44_dir("pr7-t3"),e44_dir("pr7-t3-ref"));
+    let mut a=reopen(&pr7_conf(&da,pr7_limits(8,false,0,None)));let mut r=reopen(&pr7_conf(&dr,pr7_limits(8,false,0,Some(u64::MAX))));
+    for x in &blocks{let _=a.import(x.clone(),None);let _=r.import(x.clone(),None);}
+    assert_eq!(a.chain.head,r.chain.head);assert!(a.chain.canonical.base()>100,"positive control: the S1 blocks are below the window ({})",a.chain.canonical.base());
+    assert_eq!(chain_view(&mut a),chain_view(&mut r),"blocks with full transactions and every receipt, by number");
+    let hx=|n:&pocold::node::Node,x:u64|format!("0x{}",hex(&n.chain.canonical.get(x as usize).copied().unwrap_or_else(||n.canon().at(x).unwrap().unwrap().hash)));
+    let mut log_block=None;
+    for x in 1..=100u64{let hash=hx(&r,x);
+        for full in [false,true]{assert_eq!(rpc_local(&mut a,"eth_getBlockByHash",json!([hash,full])),rpc_local(&mut r,"eth_getBlockByHash",json!([hash,full])),"by hash at {x}");}
+        assert_eq!(rpc_local(&mut a,"pocol_getBlockRlp",json!([format!("{x:#x}")])),rpc_local(&mut r,"pocol_getBlockRlp",json!([format!("{x:#x}")])),"RLP at {x}");
+        if log_block.is_none()&&rpc_local(&mut r,"eth_getLogs",json!([{"fromBlock":format!("{x:#x}"),"toBlock":format!("{x:#x}")}])).as_array().is_some_and(|l|!l.is_empty()){log_block=Some(hash);}}
+    let logs=json!([{"fromBlock":"0x1","toBlock":"0x64"}]);let ra=rpc_local(&mut a,"eth_getLogs",logs.clone());
+    assert!(ra.as_array().is_some_and(|l|l.len()>10),"positive control: logs below the window: {ra}");assert_eq!(ra,rpc_local(&mut r,"eth_getLogs",logs));
+    let by=json!([{"blockHash":log_block.unwrap()}]);assert_eq!(rpc_local(&mut a,"pocol_getLogs",by.clone()),rpc_local(&mut r,"pocol_getLogs",by));
+    assert_eq!(rpc_local(&mut a,"pocol_getHeaders",json!([1,100])),rpc_local(&mut r,"pocol_getHeaders",json!([1,100])));
+    let reads=a.canon().reads();rpc_local(&mut a,"eth_getBlockByNumber",json!(["0x5",false]));assert_eq!(a.canon().reads()-reads,1,"one index read for a block below the window");
+    drop(a);drop(r);for d in [da,dr]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// A peer connected to `n` (which listens on `port`) over TCP, its Hello sent and the node's first frames read.
+fn pr7_peer(n:&mut pocold::node::Node,port:u16)->(std::net::TcpStream,Vec<u8>){
+    use std::io::Write;let spec=&n.chain.spec;
+    let mut s=std::net::TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(std::time::Duration::from_millis(50))).unwrap();
+    let hello=pocold::net::Msg::Hello{chain_id:spec.chain_id(),genesis:spec.genesis_hash(),head:spec.genesis_hash(),height:0,work:[0;32],node:"peer".into(),protocol:pocold::identity::PROTOCOL_VERSION,
+        compatibility:support::hello_identity(spec),listen_port:0,nonce:0}.encode();
+    let mut f=(hello.len() as u32).to_be_bytes().to_vec();f.extend(hello);s.write_all(&f).unwrap();let mut buf=Vec::new();frames_from(n,&mut s,&mut buf,800);(s,buf)
+}
+/// `m` sent by the peer on `s`; the blocks the node answers within `ms`.
+fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>,m:pocold::net::Msg,ms:u64)->Vec<Block>{
+    use std::io::Write;let b=m.encode();let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);s.write_all(&f).unwrap();
+    frames_from(n,s,buf,ms).into_iter().filter_map(|m|match m{pocold::net::Msg::Block{header,body}=>Some(Block{header:decode_header(&header).unwrap(),body:Body::decode(&body,1<<24).unwrap()}),_=>None}).collect()
+}
+
+/// PR7 (T5, T22): a node that evicted its old history still serves it. Its locator is the one it gives with eviction
+/// off; GetRange from height 1 answers the blocks as imported, byte for byte, from the index; a joiner whose locator
+/// is genesis alone syncs to the same head by GetFrom; and a locator of a peer that is behind, below the window, is
+/// answered from that peer's height. Serving reads are bounded: GetBlock of an unknown hash reads no index row, a
+/// GetFrom of 32 unknown hashes one each (the wire's LOCATOR_MAX), and a GetRange below the window one range read.
+#[test] fn a_joiner_syncs_from_genesis_from_a_node_that_evicted_its_old_history(){
+    let blocks=pr7_chain(420);let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let (da,dr,dj)=(e44_dir("pr7-t5"),e44_dir("pr7-t5-ref"),e44_dir("pr7-t5-joiner"));
+    let mut conf=pr7_conf(&da,pr7_limits(8,false,0,None))();conf.listen=Some(format!("127.0.0.1:{port}").parse().unwrap());
+    let mut a=pocold::node::Node::open(conf,admitted(&cfg(&["a","b","c"]))).unwrap();a.start_network().unwrap();
+    let mut r=reopen(&pr7_conf(&dr,pr7_limits(8,false,0,Some(0))));
+    for x in &blocks{a.import(x.clone(),None).unwrap();r.import(x.clone(),None).unwrap();}
+    let base=a.chain.canonical.base();assert!(base>100,"positive control: base {base}");
+    assert_eq!(a.locator(None),r.locator(None),"the locator with eviction on and off");
+    let (mut s,mut buf)=pr7_peer(&mut a,port);
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:1,count:100},1200);
+    assert_eq!(got.len(),100);for (x,b) in got.iter().zip(&blocks){assert_eq!((&x.header.encoded,x.body.encode()),(&b.header.encoded,b.body.encode()),"GetRange byte for byte");}
+    let rd=a.canon().reads();
+    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetBlock{hash:[0x5a;32]},300).is_empty());assert_eq!(a.canon().reads(),rd,"GetBlock reads no index row");
+    let junk:Vec<[u8;32]>=(0..32u8).map(|i|[i;32]).collect();
+    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:junk,count:512},300).is_empty());
+    assert_eq!(a.canon().reads()-rd,pocold::net::LOCATOR_MAX as u64,"GetFrom of unknown hashes reads one row each, at most LOCATOR_MAX");
+    let rd=a.canon().reads();assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},600).len(),20);assert_eq!(a.canon().reads()-rd,1,"one range read below the window");
+    let g=a.chain.spec.genesis_hash();let lag:Vec<[u8;32]>=(50..=60usize).rev().map(|x|blocks[x-1].hash()).chain([g]).collect();
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:lag,count:5},600);
+    assert_eq!(got.iter().map(|b|b.header.h).collect::<Vec<_>>(),(61..=65).collect::<Vec<_>>(),"a peer behind, below the window, is answered from its height");
+    let mut j=reopen(&pr7_conf(&dj,pr7_limits(8,false,0,None)));
+    for _ in 0..10{let loc=j.locator(None);let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);if got.is_empty(){break}
+        for b in got{match j.import(b,None){Ok(_)|Err(Reject::Duplicate)=>{},Err(e)=>panic!("the joiner: {e:?}")}}}
+    assert_eq!(j.chain.head,a.chain.head,"the joiner syncs to the head from genesis");
+    drop(s);drop(a);drop(r);drop(j);for d in [da,dr,dj]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// Review 2026-11 (finding 1): a peer that mined 20 blocks of its own on a fork point below this node's window (and
+/// above GetFrom's 512, so an answer from genesis holds nothing it lacks) syncs. Its locator leads with 12 hashes of
+/// its fork (the 10 dense ones and two doubling steps); GetFrom looks up every hash it does not hold in memory, so
+/// it answers from the first shared one, below the fork point, not from genesis. FAIL-ON-ORIGINAL: 12 index lookups
+/// spent on the fork's hashes answered from height 1.
+#[test] fn a_peer_forked_below_the_window_syncs_from_its_fork_point(){
+    let blocks=pr7_chain(1000);let fp=600usize;let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+    let (da,dj)=(e44_dir("pr7-fork-serve"),e44_dir("pr7-fork-peer"));
+    let mut conf=pr7_conf(&da,pr7_limits(8,false,0,None))();conf.listen=Some(format!("127.0.0.1:{port}").parse().unwrap());
+    let mut a=pocold::node::Node::open(conf,admitted(&cfg(&["a","b","c"]))).unwrap();a.start_network().unwrap();
+    for x in &blocks{a.import(x.clone(),None).unwrap();}
+    assert!(a.chain.canonical.base()>fp as u64+1,"positive control: the fork point {fp} is below the window (base {})",a.chain.canonical.base());
+    // The peer: the shared blocks to the fork point, then 20 of its own (a signed first block, unlike the server's).
+    let mut h=pr7_builder(&blocks[..fp]);let fork=grow(&mut h,blocks[fp-1].hash(),20,&|n,p|signed(n,p,Body::default(),0));
+    let mut j=reopen(&pr7_conf(&dj,pr7_limits(64,false,0,None)));for b in blocks[..fp].iter().chain(&fork){j.import(b.clone(),None).unwrap();}
+    let loc=j.locator(None);
+    assert!(loc.iter().take(12).all(|x|a.canon_height(x).unwrap().is_none()),"positive control: the locator's first 12 hashes are the peer's own fork");
+    let (mut s,mut buf)=pr7_peer(&mut a,port);
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);
+    let first=got.first().map(|b|b.header.h).unwrap_or(0);
+    assert!(first>1&&first<=fp as u64+1,"GetFrom answers from the first shared locator hash, at or below the fork point {fp}: from {first}");
+    for _ in 0..10{let loc=j.locator(None);let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);if got.is_empty(){break}
+        for b in got{match j.import(b,None){Ok(_)|Err(Reject::Duplicate)=>{},Err(e)=>panic!("the peer: {e:?}")}}}
+    assert_eq!(j.chain.head,a.chain.head,"the forked peer syncs to the server's head");
+    drop(s);drop(a);drop(j);for d in [da,dj]{let _=std::fs::remove_dir_all(&d);}
+}
+
+/// Review 2026-11 (findings 2 and 5): a journal read that fails while a GetRange below the window is served is the
+/// journal's failure, not the index's: nothing is served, the index is not marked damaged (no canon.redb.damaged),
+/// the next eviction's put succeeds, and once the journal reads again the same request is answered. FAIL-ON-ORIGINAL:
+/// the failed read marked the index damaged, and the next import's eviction stopped the node.
+#[cfg(feature="io-fault")]
+#[test] fn a_journal_read_failure_while_serving_does_not_mark_the_index_damaged(){
+    use pocold::io_fault::{self,Op};
+    let blocks=pr7_chain(460);let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();let da=e44_dir("pr7-serve-io");
+    let mut conf=pr7_conf(&da,pr7_limits(8,false,0,None))();conf.listen=Some(format!("127.0.0.1:{port}").parse().unwrap());
+    let mut a=pocold::node::Node::open(conf,admitted(&cfg(&["a","b","c"]))).unwrap();a.start_network().unwrap();
+    for x in &blocks[..420]{a.import(x.clone(),None).unwrap();}let base=a.chain.canonical.base();assert!(base>30,"positive control: base {base}");
+    let (mut s,mut buf)=pr7_peer(&mut a,port);let journal=da.join("blocks.journal");
+    io_fault::arm_now(&journal,Op::Read);
+    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:20},600).is_empty(),"nothing is served past a failed journal read");
+    assert_eq!(io_fault::fired(&journal).len(),1,"positive control: the journal read failed");
+    assert!(!a.canon().is_damaged()&&!da.join(pocold::node::canon::DAMAGED).exists(),"the index is not marked damaged");
+    for x in &blocks[420..]{a.import(x.clone(),None).expect("the next evictions put their rows");}
+    assert!(a.chain.canonical.base()>base,"positive control: the window moved");
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:20},600);
+    // (The imports' new heads are relayed to the peer too.)
+    assert_eq!(got.iter().map(|b|b.header.h).filter(|h|*h<=420).collect::<Vec<_>>(),(2..22).collect::<Vec<_>>(),"served once the journal reads again");
+    drop(s);drop(a);let _=std::fs::remove_dir_all(&da);
+}
+
+/// Review 2026-11 (finding 7): GetRange below the window reads, checks and decodes a row only once the block before
+/// it was delivered, in one index read: a request that stops at its first block (here a journal read that fails, as
+/// a peer's half-full queue stops it at its first offer) reads one row, not the 512 it asked for; one that is served
+/// whole reads one row a block. FAIL-ON-ORIGINAL: every row of the range was read and decoded before the first offer.
+#[cfg(feature="io-fault")]
+#[test] fn serving_below_the_window_reads_a_row_only_after_the_block_before_it_was_offered(){
+    use pocold::io_fault::{self,Op};
+    let blocks=pr7_chain(1000);let port=std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();let da=e44_dir("pr7-serve-rows");
+    let mut conf=pr7_conf(&da,pr7_limits(8,false,0,None))();conf.listen=Some(format!("127.0.0.1:{port}").parse().unwrap());
+    let mut a=pocold::node::Node::open(conf,admitted(&cfg(&["a","b","c"]))).unwrap();a.start_network().unwrap();
+    for x in &blocks{a.import(x.clone(),None).unwrap();}assert!(a.chain.canonical.base()>514,"positive control: base {}",a.chain.canonical.base());
+    let (mut s,mut buf)=pr7_peer(&mut a,port);let journal=da.join("blocks.journal");
+    let (rd,rows)=(a.canon().reads(),a.canon().rows_read());
+    assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},600).len(),20);
+    assert_eq!((a.canon().reads()-rd,a.canon().rows_read()-rows),(1,20),"a range served whole: one index read, one row a block");
+    io_fault::arm_now(&journal,Op::Read);let rows=a.canon().rows_read();
+    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:512},600).is_empty());
+    assert_eq!(io_fault::fired(&journal).len(),1,"positive control: the first block's journal read failed");
+    assert_eq!(a.canon().rows_read()-rows,1,"a request stopped at its first block reads one row");
+    drop(s);drop(a);let _=std::fs::remove_dir_all(&da);
+}
+
+/// Review 2026-11 (finding 3): a restore reads a stored version through its diff only from its parent's version (one
+/// block's write set, which A13 counts); every other version, the anchors R_keep apart and the lowest entry above the
+/// K_hist cut among them, is read whole. FAIL-ON-ORIGINAL: the nearest read ancestor was the diff's base, so only
+/// genesis and the lowest anchor were read whole and each other anchor held a diff of R_keep blocks' writes.
+#[test] fn a_restore_diffs_a_stored_version_only_against_its_parent(){
+    let l=pr7_limits(64,true,7,None);let blocks=pr7_chain(pr7_depth(&l) as usize+60);let a=e44_dir("pr7-diff-parent");
+    let (want,stored,anchors)={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}n.checkpoint_now().unwrap();
+        let c=&n.chain;let held:Vec<&pocold::chain::Entry>=c.blocks.values().filter(|e|e.stored.is_some()).map(|e|&**e).collect();
+        let whole=held.iter().filter(|e|e.parent.and_then(|p|c.blocks.get(&p)).map_or(true,|p|p.stored.is_none())).count() as u64;
+        (whole,held.len() as u64,c.anchors().len())};
+    println!("PR7-DIFF-PARENT {anchors} anchors, {stored} versions, {want} without a parent version");
+    assert!(anchors>=1&&want>anchors as u64+1,"positive control: an anchor, and a version above it whose parent holds none ({anchors} anchors, {want})");
+    let x=reopen(&pr7_conf(&a,l.clone()));let v=x.stats.versions_read;
+    assert!(x.stats.resumed_from.is_some(),"positive control: resumed from the checkpoint");
+    assert_eq!((v.whole,v.by_diff),(want,stored-want),"every version whose parent holds none is read whole ({anchors} anchors, {stored} versions)");
+    assert!(v.whole>anchors as u64+1,"each anchor is read whole, genesis, and a version above the anchors");
+    drop(x);let _=std::fs::remove_dir_all(&a);
+}
+
+/// Review 2026-11 (finding 6): the headroom check of a format-1 migration counts the checkpoints open holds while it
+/// restores: the KEPT checkpoints' bytes and the one it decodes (one at a time), each of every entry of the chain. A
+/// budget that fits only the slimmed entries beside the model and the replay tables is refused; one that fits the
+/// checkpoints too is accepted, to the byte. FAIL-ON-ORIGINAL: the check left the decoded snapshots out, and accepted
+/// the first budget.
+#[test] fn the_migration_check_counts_the_checkpoints_open_holds(){
+    use pocold::resources as r;
+    let spec=admitted(&cfg(&["a","b","c"]));let (cp,lo)=(spec.cp(),spec.local());let mut l=pr7_limits(8,true,50,None);l.evict_depth=Some(pr7_depth(&l));
+    let n=1_000_000u64;let e=u128::from(n);
+    let base=r::derive(cp,lo.k_hist,lo.side_max,&l,0).unwrap().total+r::open_transient(cp,&l,n).unwrap()+e*(r::slim_entry_bytes().unwrap()+80);
+    let snaps=pocold::checkpoint::KEPT as u128*r::snapshot_raw_bytes(e).unwrap()+r::snapshot_decoded_bytes(e).unwrap();
+    assert!(snaps>e*pocold::checkpoint::REC_MAX as u128*2,"positive control: KEPT checkpoints of every entry, {snaps} B");
+    let fits=|b:u128|{let mut x=l.clone();x.mem_budget=b as u64;r::migration_fits(cp,lo.k_hist,lo.side_max,&x,0,n,n)};
+    assert!(fits(r::budget_required(base).unwrap()).is_err(),"the slimmed entries, the model and the replay tables alone do not fit the checkpoints");
+    let need=r::budget_required(base+snaps).unwrap();
+    assert!(fits(need).is_ok()&&fits(need-1).is_err(),"the checkpoints are counted to the byte ({need} B)");
+    assert_eq!(r::snapshot_bytes(e),Some(r::snapshot_raw_bytes(e).unwrap()+r::snapshot_decoded_bytes(e).unwrap()),"a decoded checkpoint is its bytes and its snapshot");
+}
+
+/// A test-only format-1 encoder: the checkpoint layout before C-1 S5 (no eviction or anchor parameters, no window
+/// fields), sealed as before.
+fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
+    let mut w=Vec::new();let u=|w:&mut Vec<u8>,x:u64|w.extend_from_slice(&x.to_be_bytes());let o=|w:&mut Vec<u8>,x:Option<u64>|match x{Some(v)=>{w.push(1);w.extend_from_slice(&v.to_be_bytes())}None=>w.push(0)};
+    let hs=|w:&mut Vec<u8>,v:&[[u8;32]]|{w.extend_from_slice(&(v.len() as u64).to_be_bytes());for h in v{w.extend_from_slice(h)}};
+    w.extend_from_slice(b"POCKPT01");w.extend_from_slice(&s.genesis);let p=&s.params;
+    for x in [p.r_keep,p.side_cap,p.k_hist,p.side_max]{u(&mut w,x)}o(&mut w,p.history_window);o(&mut w,p.slim_depth);w.push(u8::from(p.keep_full));
+    u(&mut w,s.binding.records);u(&mut w,s.binding.end);w.extend_from_slice(&s.binding.hash);
+    w.extend_from_slice(&s.head);for x in [s.next_seq,s.slim_cursor,s.history_cursor,s.evicted_total]{u(&mut w,x)}
+    hs(&mut w,&s.unslimmed);hs(&mut w,&s.evicted_order);match &s.protect{Some(v)=>{w.push(1);hs(&mut w,v)}None=>w.push(0)}u(&mut w,s.entries.len() as u64);
+    for r in &s.entries{w.extend_from_slice(&pocold::checkpoint::rec_bytes(r))}
+    let seal=revm::primitives::keccak256(&w);w.extend_from_slice(&seal.0);w
+}
+/// PR7 (T11): a data directory of a node before PR7 (no eviction; its newest checkpoint in format 1, every entry of
+/// the chain) opens under the default eviction: it resumes from that checkpoint, the open's window reaches its
+/// floor (batch after batch) with nothing stalled, and once the cut has passed the next anchor height the node is
+/// the one replay from genesis gives (a format-1 snapshot holds no anchor, and an anchor is only taken on the forward
+/// pass, so until then the migrated node lacks the anchors replay kept below the cut: a rebuild cache, never a
+/// verdict). Without canon.redb the format-1 checkpoint is still used (it needs no index); one whose entries do not
+/// fit the memory budget beside the model is refused, and the node replays from genesis.
+#[test] fn a_format_1_checkpoint_migrates_to_the_window_at_open(){
+    use pocold::checkpoint::*;
+    let rk=8u64;let more=pr7_chain(450);let blocks=&more[..420];let a=e44_dir("pr7-t11");
+    {let mut n=reopen(&pr7_conf(&a,pr7_limits(rk,true,50,Some(0))));for b in blocks{n.import(b.clone(),None).unwrap();}assert_eq!(n.chain.canonical.base(),0);n.checkpoint_now().unwrap();}
+    {let st=pocold::state_store::StateStore::open(&a).unwrap();let cps=st.checkpoints().unwrap();let (_,b,roots)=cps.iter().max_by_key(|c|c.0).unwrap().clone();
+        let s=decode(&b).unwrap();assert_eq!((s.canon_base,s.params.evict_depth,s.entries.len()),(0,None,421),"positive control: a snapshot of every entry");
+        st.write_checkpoint(&pr7_encode_v1(&s),&roots,KEPT).unwrap();st.close();}
+    let l=pr7_limits(rk,true,50,None);
+    let g=e44_dir("pr7-t11-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
+    let mut y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));assert_eq!(y.stats.resumed_from,None);
+    let b=e44_dir("pr7-t11-mig");copy_dir(&a,&b);let mut m=reopen(&pr7_conf(&b,l.clone()));
+    assert_eq!(m.stats.resumed_from,Some(420),"the format-1 checkpoint is used");
+    assert!(m.chain.window_done()&&m.chain.evict_stalls==0&&m.chain.canonical.base()==420-m.cfg.limits.evict_depth.unwrap(),"the open's window reaches its floor");
+    assert!(m.chain.anchors().is_empty()&&!y.chain.anchors().is_empty(),"positive control: replay kept anchors below the cut that the format-1 snapshot does not hold");
+    // The bound and the open's replay tables fit; the format-1 entries beside them do not.
+    let budget={let c=m.chain.spec.cp().clone();let t=pocold::resources::derive(&c,m.chain.spec.local().k_hist,m.chain.spec.local().side_max,&m.cfg.limits,0).unwrap().total;
+        let t=t+pocold::resources::open_transient(&c,&m.cfg.limits,420).unwrap();pocold::resources::budget_required(t).unwrap() as u64};
+    let c=e44_dir("pr7-t11-noindex");copy_dir(&a,&c);std::fs::remove_file(c.join(pocold::node::canon::FILE)).unwrap();
+    let x=reopen(&pr7_conf(&c,l.clone()));assert_eq!(x.stats.resumed_from,Some(420),"without canon.redb the format-1 checkpoint is still used");drop(x);
+    let d=e44_dir("pr7-t11-budget");copy_dir(&a,&d);let mut tight=l.clone();tight.mem_budget=budget;
+    let mut x=reopen(&pr7_conf(&d,tight));
+    assert_eq!((x.stats.resumed_from,x.stats.checkpoints_refused>0),(None,true),"a format-1 checkpoint that does not fit beside the model is refused; the node replays from genesis");
+    e44_same(&mut x,&mut y,"replayed after the migration was refused");drop(x);
+    for b in &more[420..]{m.import(b.clone(),None).unwrap();y.import(b.clone(),None).unwrap();}
+    assert!(!m.chain.anchors().is_empty(),"the migrated node takes anchors as the cut moves");
+    e44_same(&mut m,&mut y,"migrated from format 1, and replayed from genesis, 30 blocks on");
+    drop(m);drop(y);for p in [a,b,g,c,d]{let _=std::fs::remove_dir_all(&p);}
+}
+
+/// PR7 (T13): a canonical index of another genesis, a missing one and one marked damaged are each set aside at open
+/// (or created anew); every checkpoint of a window based above height 1 is then refused, and the node replays from
+/// genesis, refilling the index, to the node a clean replay gives.
+#[test] fn a_damaged_or_foreign_canonical_index_is_set_aside_and_rebuilt(){
+    let rk=8u64;let blocks=pr7_chain(420);let a=e44_dir("pr7-t13");let l=pr7_limits(rk,true,50,None);
+    {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}assert!(n.chain.canonical.base()>1&&n.stats.checkpoints_written>0);}
+    let g=e44_dir("pr7-t13-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();let mut y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));
+    let foreign=e44_dir("pr7-t13-foreign-src");std::fs::create_dir_all(&foreign).unwrap();drop(pocold::node::canon::Index::open(&foreign,&[7u8;32]).unwrap());
+    for case in ["foreign","missing","marked"]{
+        let d=e44_dir(&format!("pr7-t13-{case}"));copy_dir(&a,&d);let f=d.join(pocold::node::canon::FILE);
+        match case{"foreign"=>{std::fs::copy(foreign.join(pocold::node::canon::FILE),&f).unwrap();}"missing"=>std::fs::remove_file(&f).unwrap(),_=>std::fs::write(d.join(pocold::node::canon::DAMAGED),b"a test").unwrap()}
+        let mut x=reopen(&pr7_conf(&d,l.clone()));
+        assert!((x.canon().rebuilt||case=="missing")&&x.stats.resumed_from.is_none()&&x.stats.checkpoints_refused>0,"{case}: set aside, the snapshots refused, replayed ({:?})",x.stats.resumed_from);
+        e44_same(&mut x,&mut y,case);drop(x);let _=std::fs::remove_dir_all(&d);
+    }
+    drop(y);for p in [a,g,foreign]{let _=std::fs::remove_dir_all(&p);}
+}
+/// PR7 (T13, A1-8): a row of the canonical index that does not name its block, met while the node runs: the RPC
+/// answer for that height is -32603 (never a wrong block), the index is marked damaged, so the next import, whose
+/// window writes to it, stops the node (exit 70); the next open sets the index aside and rebuilds it, and answers
+/// as a node that was never damaged.
+#[test] fn a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt(){
+    let blocks=pr7_chain(421);let a=e44_dir("pr7-t13-run");let l=pr7_limits(8,false,0,None);
+    {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks[..420]{n.import(b.clone(),None).unwrap();}}
+    let file=a.with_extension("block");std::fs::write(&file,[(blocks[420].header.encoded.len() as u32).to_be_bytes().to_vec(),blocks[420].header.encoded.clone(),blocks[420].body.encode()].concat()).unwrap();
+    let exe=std::env::current_exe().unwrap();
+    let out=std::process::Command::new(&exe).args(["pr7_damage_child","--exact","--ignored","--nocapture","--test-threads=1"]).env("POCOLD_PR7_DAMAGE",&a).env("POCOLD_PR7_BLOCK",&file).output().unwrap();
+    let text=format!("{}{}",String::from_utf8_lossy(&out.stdout),String::from_utf8_lossy(&out.stderr));
+    assert!(text.contains("PR7-CHILD -32603"),"the RPC answer for the damaged height is -32603: {text}");
+    assert_eq!(out.status.code(),Some(70),"the next import stops the node: {text}");assert!(text.contains("FATAL local storage")&&text.contains("canonical index"),"{text}");
+    let mut x=reopen(&pr7_conf(&a,l.clone()));assert!(x.canon().rebuilt,"the next open sets the index aside");assert_eq!(x.chain.head,blocks[420].hash(),"the journaled block is replayed");
+    let r=e44_dir("pr7-t13-run-ref");let mut y=reopen(&pr7_conf(&r,l));for b in &blocks{y.import(b.clone(),None).unwrap();}
+    assert_eq!(chain_view(&mut x),chain_view(&mut y),"the answers of a node that was never damaged");
+    drop(x);drop(y);let _=std::fs::remove_file(&file);for p in [a,r]{let _=std::fs::remove_dir_all(&p);}
+}
+#[test] #[ignore="the child process of a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt"]
+fn pr7_damage_child(){
+    use std::io::Write;
+    let (Ok(dir),Ok(file))=(std::env::var("POCOLD_PR7_DAMAGE"),std::env::var("POCOLD_PR7_BLOCK")) else{return};
+    let mut n=reopen(&pr7_conf(std::path::Path::new(&dir),pr7_limits(8,false,0,None)));let bytes=std::fs::read(file).unwrap();
+    let k=u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize;let header=decode_header(&bytes[4..4+k]).unwrap();let body=Body::decode(&bytes[4+k..],1<<24).unwrap();
+    // The row at height 5 is replaced by height 6's: it names another block.
+    let six=n.canon().at(6).unwrap().unwrap();n.canon().put(&[(5,six)]).unwrap();
+    let v=rpc_local_raw(&mut n,"eth_getBlockByNumber",json!(["0x5",false]));
+    println!("\nPR7-CHILD {}",v["error"]["code"]);std::io::stdout().flush().unwrap();
+    let r=n.import(Block{header,body},None);println!("\nPR7-CHILD imported {r:?}");std::io::stdout().flush().unwrap();
+}
+/// The whole JSON-RPC answer (result or error).
+fn rpc_local_raw(n:&mut pocold::node::Node,method:&str,params:serde_json::Value)->serde_json::Value{
+    let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();let (t,_r)=std::sync::mpsc::channel();
+    let a=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
+    serde_json::from_str::<serde_json::Value>(&a.body).unwrap()
+}
+
+/// A block's ParentResult as its journal record keeps it (node::result_bytes).
+fn pr7_result_bytes(r:&Option<apply::ParentResult>)->Vec<u8>{
+    let mut p=Vec::new();
+    if let Some(r)=r{rlp::encode_bytes(r.winner.as_slice(),&mut p);let mut l=Vec::new();for (n,o) in &r.shares{let mut q=Vec::new();rlp::encode_bytes(&n.to_be_bytes(),&mut q);rlp::encode_bytes(o.as_slice(),&mut q);rlp::encode_list_payload(&q,&mut l);}
+        rlp::encode_list_payload(&l,&mut p);}
+    let mut o=Vec::new();rlp::encode_list_payload(&p,&mut o);o
+}
+/// PR7 (T14, A1-2): a journal written before live import refused blocks at or below head - R_keep holds, after the
+/// chain, (i) a second record of a canonical block now far below the window and (ii) a record of a side block on a
+/// canonical parent there. Replay with eviction meets neither entry in memory; it gives the record what replay
+/// without eviction gives it (the duplicate a new import sequence and offset, in its index row; the side block an
+/// import sequence and a removal by the same retain), so the two nodes are the same: entries, head, counters.
+#[test] fn old_journal_records_below_the_window_replay_as_without_eviction(){
+    let blocks=pr7_chain(420);let mut h=pr7_builder(&blocks);let gh=h.chain.spec.genesis_hash();
+    let x=&blocks[20];let xr=pr7_result_bytes(&h.chain.get(&x.hash()).unwrap().result);
+    let p=blocks[30].hash();h.chain.ensure_state(&p).unwrap();let y=fallback(&h,p,1);let (ye,_)=h.chain.validate(&y,None,0).unwrap();
+    let a=e44_dir("pr7-t14");let l=pr7_limits(8,true,0,None);
+    {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}}
+    {let mut rec=pocold::store::open(&a,&gh).unwrap();
+        for (b,r) in [(x,xr),(&y,pr7_result_bytes(&ye.result))]{rec.journal.append(&pocold::store::encode_record(&b.header.encoded,&b.body.encode(),&r)).unwrap();}}
+    let g=e44_dir("pr7-t14-ref");copy_dir(&a,&g);
+    let n=reopen(&pr7_conf(&a,l));let r=reopen(&pr7_conf(&g,pr7_limits(8,true,0,Some(u64::MAX))));
+    assert!(n.chain.canonical.base()>40,"positive control: both records are below the window");
+    let (c,d)=(&n.chain,&r.chain);
+    assert_eq!((c.head,c.evicted_total,n.stats.replay_skipped),(d.head,d.evicted_total,r.stats.replay_skipped),"head, removals and skipped records");
+    assert_eq!(d.evicted_total,1,"positive control: replay without eviction removed the side block");
+    let (fc,fd)=(pocold::checkpoint::fingerprint(c).unwrap(),pocold::checkpoint::fingerprint(d).unwrap());
+    assert_eq!((fc.next_seq,&fc.evicted_order),(fd.next_seq,&fd.evicted_order),"import sequences and the eviction FIFO");
+    let held:Vec<&pocold::checkpoint::Rec>=fd.entries.iter().filter(|x|c.blocks.contains_key(&x.hash)).collect();
+    assert_eq!(fc.entries.iter().collect::<Vec<_>>(),held,"every entry held is the reference's");
+    let row=n.canon().at(21).unwrap().unwrap();let e=d.get(&x.hash()).unwrap();
+    assert_eq!((row.hash,row.import_seq,row.body_off),(x.hash(),e.import_seq,e.body_off),"the duplicate's index row has the re-import's sequence and record");
+    assert!(row.import_seq>420,"positive control: re-imported after the chain");
+    drop(n);drop(r);for p in [a,g]{let _=std::fs::remove_dir_all(&p);}
+}
+/// PR7 (T14, review 2026-11): the same, for an old record of a side block on a canonical parent the window still holds,
+/// one height above its base, whose transaction stores BLOCKHASH(base - 1). Replay with eviction does not validate it
+/// (its BLOCKHASH window reaches below what the window holds): it gives it the import sequence and the removal replay
+/// without eviction gives it, and the two nodes are the same. FAIL-ON-ORIGINAL: the record was executed on a short
+/// window, its state root differed from its header's, and the node could not open.
+#[test] fn an_old_side_block_reading_blockhash_below_the_window_replays_as_without_eviction(){
+    let blocks=pr7_chain(420);let gh=net().chain.spec.genesis_hash();
+    let a=e44_dir("pr7-t14-base");let l=pr7_limits(8,true,0,None);
+    let base={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}n.chain.canonical.base() as usize};
+    assert!(base>2&&base+2+8<=420,"positive control: a window based at {base}, the side block deep below the head");
+    let mut h=pr7_builder(&blocks);let p=blocks[base].hash();h.chain.ensure_state(&p).unwrap();
+    let alice=devnet::account_key("alice");let at=(base-1) as u16;
+    let init=vec![0x61,(at>>8) as u8,at as u8,0x40,0x5f,0x55,0x00];// SSTORE(0, BLOCKHASH(base - 1))
+    let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
+    let y=signed(&h,p,Body{txs:vec![tx],evidence:vec![]},0);let (ye,_)=h.chain.validate(&y,None,0).unwrap();
+    assert_eq!((ye.height as usize,ye.state.accounts[&alice.address().create(0)].storage[&U256::ZERO]),(base+2,U256::from_be_bytes(blocks[base-2].hash())),
+        "positive control: the side block is at base + 2 and stores the hash of height base - 1");
+    {let mut rec=pocold::store::open(&a,&gh).unwrap();rec.journal.append(&pocold::store::encode_record(&y.header.encoded,&y.body.encode(),&pr7_result_bytes(&ye.result))).unwrap();}
+    let g=e44_dir("pr7-t14-base-ref");copy_dir(&a,&g);
+    let n=pocold::node::Node::open(pr7_conf(&a,l)(),admitted(&cfg(&["a","b","c"]))).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: the evicting node does not open: {e}"));
+    let r=reopen(&pr7_conf(&g,pr7_limits(8,true,0,Some(u64::MAX))));
+    let (c,d)=(&n.chain,&r.chain);assert_eq!(c.canonical.base() as usize,base,"positive control: the window replay moved to is the live one");
+    assert_eq!((c.head,c.evicted_total,n.stats.replay_skipped),(d.head,d.evicted_total,r.stats.replay_skipped),"head, removals and skipped records");
+    assert!(d.evicted_total==1&&d.was_evicted(&y.hash()),"positive control: replay without eviction validated the side block and removed it");
+    let (fc,fd)=(pocold::checkpoint::fingerprint(c).unwrap(),pocold::checkpoint::fingerprint(d).unwrap());
+    assert_eq!((fc.next_seq,&fc.evicted_order),(fd.next_seq,&fd.evicted_order),"import sequences and the eviction FIFO");
+    let held:Vec<&pocold::checkpoint::Rec>=fd.entries.iter().filter(|x|c.blocks.contains_key(&x.hash)).collect();
+    assert_eq!(fc.entries.iter().collect::<Vec<_>>(),held,"every entry held is the reference's");
+    drop(n);drop(r);for p in [a,g]{let _=std::fs::remove_dir_all(&p);}
+}
+/// PR7 (review 2026-11): a child of an entry whose BLOCKHASH window reaches below the evicting window has no context
+/// (a local failure, never a verdict); one whose 256 ancestors are all held has one. FAIL-ON-ORIGINAL: the context
+/// was built on the ancestors the walk found, and execution read substitute hashes for the rest.
+#[test] fn a_child_context_whose_blockhash_window_reaches_below_the_window_is_a_local_failure(){
+    let blocks=pr7_chain(420);let a=e44_dir("pr7-short-window");
+    let mut n=reopen(&pr7_conf(&a,pr7_limits(8,false,0,None)));for b in &blocks{n.import(b.clone(),None).unwrap();}
+    let base=n.chain.canonical.base();assert!(base>2&&base+255<420,"positive control: a window based at {base}");
+    let at=|h:u64|n.chain.canonical_at(h).unwrap().meta_clone();
+    assert_eq!(n.chain.ancestors(&at(base+255)).len(),256,"positive control: the 256 ancestors from base + 255 are held");
+    assert!(!matches!(n.chain.child_ctx(&at(base+255),0),Err(Reject::Local(_))),"a whole window is not refused");
+    for h in [base,base+1,base+254]{let r=n.chain.child_ctx(&at(h),0);assert!(matches!(&r,Err(Reject::Local(s)) if s.contains("BLOCKHASH window")),"a child of height {}: {:?}",h+1,r.err());}
+    drop(n);let _=std::fs::remove_dir_all(&a);
+}
+/// PR7 (§7, G5, review 2026-11): an open whose replay tables do not fit the budget beside the bound refuses before it
+/// reads the journal, at the count the commit file gives: an interrupted append at the journal's end is left as it was
+/// (the store's recovery did not run), and the same node with the budget the tables fit in opens and recovers it.
+/// FAIL-ON-ORIGINAL: the check came after the journal pass, which first built the tables (and here recovered the tail).
+#[test] fn an_open_whose_replay_tables_do_not_fit_refuses_before_it_reads_the_journal(){
+    let blocks=pr7_chain(60);let a=e44_dir("pr7-g5");let l=pr7_limits(8,true,25,None);
+    {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}}
+    let (bound,t)={let n=reopen(&pr7_conf(&a,l.clone()));let (c,lo)=(n.chain.spec.cp().clone(),n.chain.spec.local().clone());
+        (pocold::resources::derive(&c,lo.k_hist,lo.side_max,&n.cfg.limits,0).unwrap().total,pocold::resources::open_transient(&c,&n.cfg.limits,60).unwrap())};
+    let mut tight=l.clone();tight.mem_budget=pocold::resources::budget_required(bound+t/2).unwrap() as u64;
+    let path=a.join("blocks.journal");{use std::io::Write;std::fs::OpenOptions::new().append(true).open(&path).unwrap().write_all(&[0u8;100]).unwrap();}
+    let len=std::fs::metadata(&path).unwrap().len();
+    let e=match pocold::node::Node::open(pr7_conf(&a,tight)(),admitted(&cfg(&["a","b","c"]))){Ok(_)=>panic!("the open fits ({t} B of tables)"),Err(e)=>e};
+    assert!(e.starts_with("LOCAL CAPACITY at open: the journal's 60 records"),"the open-transient refusal: {e}");
+    assert_eq!((std::fs::metadata(&path).unwrap().len(),a.join("blocks.journal.torn-0").exists()),(len,false),"FAIL-ON-ORIGINAL: the journal pass ran before the refusal: {e}");
+    let n=reopen(&pr7_conf(&a,l));assert_eq!(n.journal_records(),60);
+    assert_eq!((std::fs::metadata(&path).unwrap().len(),a.join("blocks.journal.torn-0").exists()),(len-100,true),"positive control: an open that fits recovers the tail");
+    drop(n);let _=std::fs::remove_dir_all(&a);
+}
+
+/// The child of `crash_at_canon_points`: imports the blocks of `POCOLD_PR7_BLOCKS` into the PR7 store-mode node at
+/// `POCOLD_PR7_CHILD` (R_keep 8, a checkpoint every 25 records), until it is aborted. Not a test on its own.
+#[test] #[ignore="the child process of crash_at_canon_points"]
+fn pr7_kill_child(){
+    use std::io::Write;
+    let (Ok(dir),Ok(file))=(std::env::var("POCOLD_PR7_CHILD"),std::env::var("POCOLD_PR7_BLOCKS")) else{return};
+    let bytes=std::fs::read(file).unwrap();let (mut i,mut blocks)=(0usize,vec![]);
+    while i<bytes.len(){let mut part=vec![];for _ in 0..2{let n=u32::from_be_bytes(bytes[i..i+4].try_into().unwrap()) as usize;part.push(bytes[i+4..i+4+n].to_vec());i+=4+n;}
+        blocks.push(Block{header:decode_header(&part[0]).unwrap(),body:Body::decode(&part[1],1<<24).unwrap()});}
+    let mut n=reopen(&pr7_conf(std::path::Path::new(&dir),pr7_limits(8,true,25,None)));
+    for b in blocks{let _=n.import(b,None);n.release_step();}
+    println!("\nPR7DONE");std::io::stdout().flush().unwrap();
+}
+/// PR7 (T12, `--features crash-test`): the node aborts the n-th time it reaches a canonical-index step: the
+/// non-durable write of an eviction's rows (`canon`) or the durable commit before a checkpoint (`canon-sync`).
+/// After each abort the node opens and is the node replay from genesis gives from the same journal, and a run
+/// without the crash then imports every block to the same node.
+#[cfg(feature="crash-test")]
+#[test] fn crash_at_canon_points(){
+    use std::io::BufRead;
+    let blocks=pr7_chain(420);let exe=std::env::current_exe().unwrap();let l=pr7_limits(8,true,25,None);
+    let run=|dir:&std::path::Path,file:&std::path::Path,crash:Option<String>|->bool{
+        let mut c=std::process::Command::new(&exe);c.args(["pr7_kill_child","--exact","--ignored","--nocapture","--test-threads=1"])
+            .env("POCOLD_PR7_CHILD",dir).env("POCOLD_PR7_BLOCKS",file).stdout(std::process::Stdio::piped()).stderr(std::process::Stdio::null());
+        if let Some(x)=&crash{c.env("POCOLD_CRASH_AT",x);}
+        let mut c=c.spawn().unwrap();let lines=std::io::BufReader::new(c.stdout.take().unwrap()).lines();
+        let done=lines.map_while(|l|l.ok()).any(|l|l=="PR7DONE");c.wait().unwrap();done};
+    let reference=|d:&std::path::Path,tag:&str|{let r=e44_dir(tag);copy_dir(d,&r);let _=std::fs::remove_file(r.join(pocold::state_store::FILE));
+        let n=reopen(&pr7_conf(&r,pr7_limits(8,true,0,None)));assert_eq!(n.stats.resumed_from,None);(n,r)};
+    let mut log=vec![];
+    // canon-sync 13 and 16 are checkpoints of a window based above 1 (the first eviction is at block 292).
+    for (step,ns) in [("canon",[1u64,40,120]),("canon-sync",[1,13,16])]{for k in ns{
+        let d=e44_dir(&format!("pr7-crash-{step}-{k}"));let file=d.with_extension("blocks");
+        {let mut out=vec![];for b in &blocks{for p in [b.header.encoded.clone(),b.body.encode()]{out.extend((p.len() as u32).to_be_bytes());out.extend(p);}}std::fs::write(&file,out).unwrap();}
+        assert!(!run(&d,&file,Some(format!("{step}:{k}"))),"{step}:{k}: the child stopped at the crash point");
+        let (mut g,gd)=reference(&d,&format!("pr7-crash-ref-{step}-{k}"));let mut x=reopen(&pr7_conf(&d,l.clone()));
+        log.push((step,k,x.chain.head().height,x.stats.resumed_from,x.chain.canonical.base()));
+        e44_same(&mut x,&mut g,&format!("after a crash at {step}:{k}"));drop(x);drop(g);let _=std::fs::remove_dir_all(&gd);
+        assert!(run(&d,&file,None),"{step}:{k}: the next run imports every block");
+        let (mut g,gd)=reference(&d,&format!("pr7-crash-ref2-{step}-{k}"));let mut x=reopen(&pr7_conf(&d,l.clone()));
+        assert_eq!(x.chain.head,blocks.last().unwrap().hash(),"{step}:{k}: every block imported");
+        e44_same(&mut x,&mut g,&format!("after the run that followed a crash at {step}:{k}"));
+        drop(x);drop(g);for p in [d,gd]{let _=std::fs::remove_dir_all(&p);}let _=std::fs::remove_file(&file);
+    }}
+    println!("PR7-CRASH {log:?}");
+}
+
+/// PR7 (T20, A1-6): a fresh continuous node opens with the default limits (eviction on, its files observed before the
+/// first A13 check) and reports its bound and the window in its status.
+#[test] fn fresh_continuous_node_opens_with_default_limits(){
+    let mut c=cfg(&["a","b","c"]);c.h_end=0;c.h_close=0;let dir=e44_dir("pr7-t20");
+    let n=pocold::node::Node::open(pocold::node::Config{dir:dir.clone(),name:"t20".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).expect("a fresh continuous node opens");
+    let s=n.status_json();assert!(!s["a13"].is_null(),"the bound is reported: {}",s["a13"]);
+    assert!(s["evictDepth"].as_u64().is_some_and(|e|e>0)&&s["canonicalBase"]==0&&s["blocksIndexed"]==0&&s["evictStalls"]==0&&s["anchors"]==0,"{s}");
+    assert!(s["diskObserved"]["historyBytes"].is_u64()&&s["resourceDiskBytes"].is_u64()&&s.get("resourceProjectionRecords").is_none(),"{s}");
+    drop(n);let _=std::fs::remove_dir_all(&dir);
+}
+/// PR7 (T15): a continuous chain no longer stops itself as its journal grows. Reopened with a budget only 64 KiB
+/// above what its bound at an empty journal requires, a node imports 600 blocks (two 256-record rechecks) and keeps
+/// running: with eviction on no term grows with records, and the files it observes move their allocator terms by
+/// bytes. Before PR7 the bound projected from the record count, about 2.5 KB more a record, so the recheck at 256
+/// records stopped the node (LOCAL CAPACITY).
+#[test] fn continuous_chain_does_not_halt_with_height(){
+    use pocold::node::{Config,Limits,Node};
+    let mut c=cfg(&["a","b","c"]);c.h_end=0;c.h_close=0;
+    let blocks={let mut h=net_with(&c);let g=h.chain.head;grow(&mut h,g,600,&|n,p|fallback(n,p,0))};
+    let dir=e44_dir("pr7-t15");
+    let conf=|mem_budget:u64|Config{dir:dir.clone(),name:"t15".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{mem_budget,..Default::default()}};
+    let bound=|n:&Node|n.status_json()["a13"]["boundBytes"].as_str().expect("the bound").parse::<u128>().unwrap();
+    let t=bound(&Node::open(conf(pocold::node::MEM_BUDGET),admitted(&c)).unwrap());
+    let budget=pocold::resources::budget_required(t).unwrap()+(64<<10);
+    let mut n=Node::open(conf(budget as u64),admitted(&c)).expect("a budget just above the bound boots");
+    for b in &blocks{n.import(b.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: block {}: {e:?}",b.header.h));}
+    assert!(!n.stopped&&n.chain.head().height==600&&n.journal_records()==600,"the node runs on");
+    let t2=bound(&n);assert!(pocold::resources::budget_required(t2).unwrap()<=budget&&t2.abs_diff(t)<(16<<10),"the bound moved by {} B",t2 as i128-t as i128);
+    drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 
 // ---------------- PR6: the pool and the honest builder count gas used, not declared gas ----------------
