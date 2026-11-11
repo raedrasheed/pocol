@@ -1367,14 +1367,21 @@ mod tests{
     #[test] fn connect_errors_are_classified(){
         use std::io::{Error,ErrorKind as K};
         // Typed here: on a target without AFNOSUPPORT nothing below would pin `v6`'s type (Windows CI, PR #9).
-        let (lo,bc,v6):(SocketAddr,SocketAddr,SocketAddr)=("127.0.0.1:1".parse().unwrap(),"255.255.255.255:1".parse().unwrap(),"[::1]:1".parse().unwrap());
+        let (lo,v6):(SocketAddr,SocketAddr)=("127.0.0.1:1".parse().unwrap(),"[::1]:1".parse().unwrap());
         for (k,want) in [(K::TimedOut,DialError::Timeout),(K::WouldBlock,DialError::Timeout),(K::ConnectionRefused,DialError::Refused),
             (K::ConnectionReset,DialError::Refused),(K::HostUnreachable,DialError::Unreachable),(K::NetworkUnreachable,DialError::Unreachable),(K::AddrNotAvailable,DialError::Unreachable)]{
             assert_eq!(classify(&Error::from(k),lo),want,"{k:?} to a routable address");
         }
-        assert!(route_ok(lo)&&!route_ok(bc),"the probe");
-        assert_eq!((classify(&Error::from(K::NetworkUnreachable),bc),classify(&Error::from(K::AddrNotAvailable),bc)),(DialError::NoRoute,DialError::NoRoute),"no local route");
-        assert_eq!(classify(&Error::from(K::HostUnreachable),bc),DialError::Unreachable,"a host unreachable is never probed");
+        assert!(route_ok(lo),"the probe finds the loopback route");
+        // An address this host's own probe refuses: Linux refuses the limited broadcast (EACCES), Windows accepts it
+        // and refuses the unspecified address instead (WSAEADDRNOTAVAIL, PR #9 CI). Unix must have one; elsewhere the
+        // no-route branch is skipped, never guessed.
+        let bc=["255.255.255.255:1","0.0.0.0:1"].iter().map(|a|a.parse::<SocketAddr>().unwrap()).find(|a|!route_ok(*a));
+        assert!(bc.is_some()||cfg!(not(unix)),"the probe refuses the limited broadcast on unix");
+        if let Some(bc)=bc{
+            assert_eq!((classify(&Error::from(K::NetworkUnreachable),bc),classify(&Error::from(K::AddrNotAvailable),bc)),(DialError::NoRoute,DialError::NoRoute),"no local route");
+            assert_eq!(classify(&Error::from(K::HostUnreachable),bc),DialError::Unreachable,"a host unreachable is never probed");
+        }else{eprintln!("NO-ROUTE-PROBE: no candidate address is refused by this host's probe; the NoRoute case is not checked");}
         if let Some(code)=AFNOSUPPORT{let af=Error::from_raw_os_error(code);
             assert_eq!(classify(&af,lo),DialError::Unreachable,"an address-family error with a route is the network's");
             if !route_ok(v6){assert_eq!(classify(&af,v6),DialError::NoRoute,"this host has no IPv6")}else{eprintln!("IPV6-ROUTE: the NoRoute case for IPv6 is not checked");}}
