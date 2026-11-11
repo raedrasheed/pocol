@@ -20,12 +20,19 @@ fn net(v3:bool,full:bool,earnin:bool,n:usize)->Net {
     Net{chain:Chain::new(Spec::new(admitted)),keys,miners}
 }
 fn solve(n:&Net,miner:Address,txs:Vec<Vec<u8>>)->Block {
+    solve_template(n,miner,txs,false)
+}
+fn solve_template(n:&Net,miner:Address,txs:Vec<Vec<u8>>,fallback:bool)->Block {
     let parent=n.chain.full_entry(&n.chain.head).unwrap();
     let ctx=n.chain.child_ctx(&parent,0).unwrap();
     let range=ctx.assignment.ranges().iter().find(|r|r.id()==raw_addr(miner)).expect("miner owns a range");
     let body=Body{txs,evidence:vec![]};
-    for ts in parent.ts+u64::from(n.chain.spec.cp().T_blk)..=ctx.window.upper() {
-        let (mut header,_,_)=n.chain.build_signed(&parent,&n.keys[&ctx.proposer],ts,body.clone(),vec![]).unwrap();
+    let first=if fallback {assert!(body.txs.is_empty());ctx.window.fallback_timestamp(n.chain.spec.cp().dFbWait).unwrap()}
+        else{parent.ts+u64::from(n.chain.spec.cp().T_blk)};
+    let last=if fallback {first}else{ctx.window.upper()};
+    for ts in first..=last {
+        let (mut header,_,_)=if fallback {n.chain.build_fallback(&parent,0).unwrap()}
+            else{n.chain.build_signed(&parent,&n.keys[&ctx.proposer],ts,body.clone(),vec![]).unwrap()};
         let tid=template_id(&header.ut_raw);let mut shares=Vec::new();
         let end=range.end_exclusive().min(range.start()+1_000_000);
         for nonce in range.start()..end {
@@ -103,7 +110,12 @@ mod preview {
         for _ in 0..6 {next(&mut n,x,vec![]);assert_draw_parity(&n);}
         let p=n.chain.full_entry(&n.chain.head).unwrap();
         assert_eq!(n.chain.membership(&p,p.height+1).unwrap().ids().len(),3);
-        next(&mut n,y,vec![]);assert_draw_parity(&n);
+        // X cannot supply a signed template after it stops. Y needs only its own
+        // winner signature on the fallback, whose proposer and signature are empty.
+        n.keys.remove(&x).unwrap();
+        let b=solve_template(&n,y,vec![],true);
+        assert!(b.header.proposer.is_empty()&&b.header.sig.is_empty());
+        accept(&mut n,b);assert_draw_parity(&n);
         assert_eq!(n.chain.head().height,7);
     }
     #[test]
