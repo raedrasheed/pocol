@@ -4,6 +4,45 @@ Written 2026-11-11 by the previous agent (Claude Code), whose session is ending.
 repository is **raedrasheed/pocol** (the older name `raedrasheed/pocol-import` redirects to it). The default branch is
 `main`; at this writing it was at `40b0428` ("Merge pull request #8").
 
+## 0. START HERE: when the previous agent stopped, find the current state with this checklist
+
+The previous agent may have stopped in the middle of a step. Before doing anything, establish the real state from
+GitHub; trust the repository over this file.
+
+1. `git fetch origin --prune` and `git log --oneline -15 origin/main`. Note which PRs are merged.
+2. List the open PRs on GitHub. Expected work, in this order:
+   - **PR #10** (`claude/client-key-backup`, encrypted key backup):
+     - Head `e78aed0` has `main` merged in. Its CI was running.
+     - If it is still open: when CI is green, merge it (merge commit).
+     - If CI is red: root-cause the failure and fix it on that branch.
+     - If `main` moved and the PR has a conflict: `git merge origin/main` into the branch, keep both sides, re-run the
+       tests in section 6, push.
+   - **V3-PR-A** (branch `claude/v3-pr-a-decisions`, docs only):
+     - Contents: `development/decisions/V3-DECISIONS.md` (the owner rule, the O-answers, decisions D-V3-01..34, the lock
+       strategy), `decisions.json` entries D-V3-01..34, and the v3-scoped amendments to `development/m1/reference/`
+       `consensus.md`, `threat.md`, `economics.md`, `incentives.md` and `governance.md`.
+     - It was being written and reviewed when the agent stopped.
+     - Run `git log --oneline origin/main..origin/claude/v3-pr-a-decisions`. If the branch does not exist or is
+       incomplete, write it yourself from section "V3-PR-A" of `development/handoff/V3-ROADMAP.md`.
+     - Check it against the owner rule (section 1). Validate `decisions.json` with
+       `python3 -c "import json;json.load(open('development/m1/reference/decisions.json'))"`.
+     - Open a PR to `main` titled "v3 decision record and normative amendments (docs)". Merge it when CI is green.
+       It must merge **before** any v3 code.
+3. Then continue with V3-PR-B and the rest of section 4, one PR at a time. Each starts from the newest `main`.
+4. Rules for every step:
+   - Never deploy to the live network.
+   - Never `bump` `CONSENSUS_RULES_VERSION`.
+   - Never skip or ignore tests.
+   - Never force-push a shared branch.
+   - Stop and ask the owner if a change would alter collaborative consensus, the template block or a PoCol principle.
+
+### Questions waiting for the owner (do not decide them yourself)
+- PR #11 left two questions:
+  - Should the ParamGate R14/R19 refusal print the measured times? That change is in `pocold/src/lib.rs`, which is
+    marked `+`, so it needs a neutral lock line.
+  - Should a single slow disk write be able to refuse a node boot at all?
+- Anything the V3-PR-A reviewers flagged as needing the owner. Read the PR description and its review threads.
+
 Read this whole file first. After it, read in order:
 
 1. `development/handoff/V3-ROADMAP.md`: the v3 implementation plan (PR sequence, consensus-lock strategy, ground truth).
