@@ -1279,8 +1279,8 @@ change what the journal stores, or which blocks are valid. The derivation is A13
   Per record it keeps the journal's frame offset and two sorted replay events (36 B each), and a rolling hash every
   256 records. In store mode it also keeps the snapshots it decodes, each of the window. `resources::open_transient`
   counts this at 160 B a record (each table at twice its length); measured about 89 B a record with eviction off and
-  107 B by default (tests/open_transient.rs). `check_open` refuses at open, before replay, a journal whose tables do
-  not fit beside the bound: "LOCAL CAPACITY at open: the journal's N records need … B of replay tables …; raise
+  107 B by default (tests/open_transient.rs). `check_open` refuses at open, before the journal pass builds the tables
+  (at the commit file's count; again exactly after the pass), a journal whose tables do not fit beside the bound: "LOCAL CAPACITY at open: the journal's N records need … B of replay tables …; raise
   --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES". At the 6 GiB budget, a seed's bound of about 2.8 GB leaves
   room for about 17M records (about 5.5 years at 8,640 a day) before open refuses. A record changed between the two
   passes is detected within 256 records, and open fails before the node starts.

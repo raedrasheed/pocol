@@ -930,7 +930,9 @@ off). Store mode adds the anchors' handles and allocator, and the checkpoint ter
 its frame offset and two replay events (`node::Ev`, 36 B), each a Vec counted at twice its length; a rolling hash
 every ROLL_SAMPLE (256) records; and in store mode the KEPT snapshots it decodes, each of the window's entries.
 The model is 160 B a record; tests/open_transient.rs measured about 89 B a record with eviction off and 107 B by
-default. On failure: `LOCAL CAPACITY at open: the journal's N records need … B of replay tables …`. A format-1
+default. It is checked before the journal pass builds the tables, at the count the commit file gives, and again
+exactly after the pass (which may add one uncommitted record). On failure: `LOCAL CAPACITY at open: the journal's N
+records need … B of replay tables …`. A format-1
 checkpoint is restored whole once (`migration_fits`: entries × (slim_entry + 80), the KEPT checkpoints' bytes at
 REC_MAX an entry and the one snapshot open decodes at a time, beside the model and the transient). If it does not fit, open replays from genesis, which now holds only the window.
 
