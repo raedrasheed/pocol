@@ -15,7 +15,11 @@
 //!   keep the Inbound quota or a whole key from newcomers of other groups, and only displaces itself. Terrible entries
 //!   are dropped at each save (`purge`), as at load.
 //! - Answers carry verified and self-advertised entries only, never hearsay, so an address nobody verified travels
-//!   one hop at most; no timestamp leaves the node.
+//!   one hop at most; no timestamp leaves the node. Verified entries not learned from a self-advertisement come
+//!   first, so Sybil listeners a feeler verified never outrank what this node's own dials and slot peers found.
+//! - Selection (VA-SPEC §1a.7, `select`): the address an automatic outbound slot or a feeler dials, among the dialable
+//!   entries (`dialable`: retry spacing per class), source first in both the verified and the unverified class (all
+//!   self-advertisements are the one source Inbound), then a key, then the fewest failures.
 use std::net::{IpAddr,SocketAddr};
 use crate::net::{self,Group};
 
@@ -68,11 +72,23 @@ pub enum Why{Filter,Group,Ports,Source,Full}
 pub struct Entry{pub addr:SocketAddr,pub key:Key,pub source:Source,pub heard_ms:u64,pub direct_ms:u64,pub verified_ms:u64,
     pub last_try_ms:u64,pub last_count_ms:u64,pub hold_until_ms:u64,pub attempts:u8,pub holds:u8}
 /// The book's timings (VA-SPEC §1a.4, §1a.5). The node takes them from its `DiscoveryTimes`, which only tests change.
+/// `retry_ms` / `retry_verified_ms`: the spacing before an unverified / a verified entry is dialed again after a
+/// failed or short attempt (`dialable`).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct Times{pub relay_window_ms:u64,pub horizon_ms:u64,pub fail_recent_ms:u64,pub hold_base_ms:u64,pub hold_max_ms:u64,pub cache_ms:u64}
+pub struct Times{pub relay_window_ms:u64,pub horizon_ms:u64,pub fail_recent_ms:u64,pub hold_base_ms:u64,pub hold_max_ms:u64,pub cache_ms:u64,
+    pub retry_ms:u64,pub retry_verified_ms:u64}
 impl Default for Times{
-    fn default()->Self{Self{relay_window_ms:7*DAY_MS,horizon_ms:30*DAY_MS,fail_recent_ms:7*DAY_MS,hold_base_ms:600_000,hold_max_ms:6*3_600_000,cache_ms:60_000}}
+    fn default()->Self{Self{relay_window_ms:7*DAY_MS,horizon_ms:30*DAY_MS,fail_recent_ms:7*DAY_MS,hold_base_ms:600_000,hold_max_ms:6*3_600_000,cache_ms:60_000,
+        retry_ms:600_000,retry_verified_ms:60_000}}
 }
+/// The classes `Book::select` draws from (VA-SPEC §1a.7): either (an automatic slot) or the unverified one only (a
+/// feeler).
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum Class{Any,NewOnly}
+/// Verified self-advertised entries past which no feeler, automatic slot or extra dials an unverified one (VA-SPEC
+/// §1a.7, `Node::selfads_capped`), so none is verified past it but for the dials already under way: Sybil listeners
+/// verified this way stay one source in the verified class, and their number stays bounded.
+pub const VERIFIED_INBOUND_MAX:usize=128;
 /// xorshift64* (Vigna, "An experimental exploration of Marsaglia's xorshift generators, scrambled", 2016): the book's
 /// shuffles. The node seeds it once per process from the OS; tests fix the seed. xorshift never leaves 0, so seed 0
 /// maps to 0x9E3779B97F4A7C15.
@@ -153,14 +169,26 @@ impl Book{
     }
     /// A handshake this node dialed, with consent (VA-SPEC §1a.2b: listenPort != 0). The address is verified, its
     /// failures and hold are cleared, and `last_good_ms` moves (also when the address may not be stored: the handshake
-    /// still shows this node is online), so that failures count again. An entry already in the book keeps its source;
-    /// a new one is its own source (`Source::Peer` of its key). Verified entries count toward no source quota.
-    pub fn good(&mut self,a:SocketAddr,configured:bool,from_local:bool,now:u64)->Outcome{
+    /// still shows this node is online), so that failures count again. An entry already in the book keeps its source,
+    /// except that a configured peer's address, verified by its own dial, becomes its own source (`Source::Peer` of
+    /// its key): the operator named it, so it leaves the Inbound source even if it was first self-advertised. A new
+    /// one is its own source too. Verified entries count toward no source quota.
+    pub fn good(&mut self,a:SocketAddr,configured:bool,from_local:bool,now:u64)->Outcome{self.good_from(a,configured,None,from_local,now)}
+    /// `good` for an automatic slot's or a feeler's dial: an address no longer in the book (withdrawn, rotated or
+    /// purged while it was dialed) is placed only with `new` (a bootstrap address its `Cfg`, an anchor its own key),
+    /// else not at all (`Dropped(Source)`, `last_good_ms` still moves). Its own source would launder a Sybil's
+    /// self-advertisement, withdrawn mid-dial, into a verified source of its own in `select`'s tried class, outside
+    /// the dialers' VERIFIED_INBOUND_MAX cap and first in the answers.
+    pub fn good_dialed(&mut self,a:SocketAddr,new:Option<Source>,from_local:bool,now:u64)->Outcome{self.good_from(a,false,Some(new),from_local,now)}
+    /// `good` (`new` None: a newcomer is its own source) and `good_dialed` (`new` Some).
+    fn good_from(&mut self,a:SocketAddr,configured:bool,new:Option<Option<Source>>,from_local:bool,now:u64)->Outcome{
         if !self.on{return Outcome::Dropped(Why::Full)}
         self.last_good_ms=now;self.dirty=true;
         let Some((a,key))=self.learnable(a,from_local,configured) else{return Outcome::Dropped(Why::Filter)};
-        if let Some(e)=self.entries.iter_mut().find(|e|e.addr==a){e.verified_ms=now;e.last_try_ms=e.last_try_ms.min(now);e.attempts=0;e.hold_until_ms=0;return Outcome::Refreshed}
-        self.place(Entry{addr:a,key,source:Source::Peer(key),heard_ms:0,direct_ms:0,verified_ms:now,last_try_ms:0,last_count_ms:0,hold_until_ms:0,attempts:0,holds:0},now)
+        if let Some(e)=self.entries.iter_mut().find(|e|e.addr==a){e.verified_ms=now;e.last_try_ms=e.last_try_ms.min(now);e.attempts=0;e.hold_until_ms=0;
+            if configured{e.source=Source::Peer(key);}return Outcome::Refreshed}
+        let Some(source)=new.unwrap_or(Some(Source::Peer(key))) else{return Outcome::Dropped(Why::Source)};
+        self.place(Entry{addr:a,key,source:canonical_source(source),heard_ms:0,direct_ms:0,verified_ms:now,last_try_ms:0,last_count_ms:0,hold_until_ms:0,attempts:0,holds:0},now)
     }
     /// Places a newcomer that is not in the book (VA-SPEC §1a.4). The quotas it may fill: its key (GROUP_MAX), its IP's
     /// ports (IP_PORTS_MAX, address-group keys only), its source (unverified newcomers only: SOURCE_MAX, or SELFADS_MAX
@@ -200,8 +228,11 @@ impl Book{
     /// /32 (nor one IPv4 address its /16) to the others. The group list is scratch of at most SELFADS_MAX entries.
     fn crowded(&self,n:&Entry,in_key:bool)->Option<usize>{
         // A13 (`queues/discovery: selection, answer and self scratch`): the group list fits the scratch counted for
-        // the book's index and key lists, and is never held with them.
-        const _:()=assert!(SELFADS_MAX*std::mem::size_of::<(Key,IpAddr)>()<=2*BOOK_MAX*(std::mem::size_of::<Source>()+std::mem::size_of::<Key>()+8));
+        // the book's index and key lists, and is never held with them; so does `select`'s entry list with its one
+        // source or key list.
+        use std::mem::size_of;
+        const _:()=assert!(SELFADS_MAX*size_of::<(Key,IpAddr)>()<=2*BOOK_MAX*(size_of::<Source>()+size_of::<Key>()+8));
+        const _:()=assert!(BOOK_MAX*(size_of::<&Entry>()+if size_of::<Source>()>size_of::<Key>(){size_of::<Source>()}else{size_of::<Key>()})<=2*BOOK_MAX*(size_of::<Source>()+size_of::<Key>()+8));
         let subnet=|ip:IpAddr|match ip{IpAddr::V6(a)=>IpAddr::V6((u128::from(a)&!(u128::from(u64::MAX))).into()),v4=>v4};
         let group=|e:&Entry|(e.key,if in_key{subnet(e.addr.ip())}else{IpAddr::from([0u8;4])});
         let ours=|e:&Entry|e.verified_ms==0&&e.source==Source::Inbound&&(!in_key||e.key==n.key);
@@ -265,6 +296,45 @@ impl Book{
     /// VA-SPEC §1a.5: neither terrible nor held, and verified or self-advertised within `relay_window_ms`.
     pub fn relayable(&self,e:&Entry,now:u64)->bool{!self.terrible(e,now)&&e.hold_until_ms<=now&&(self.recent(e.verified_ms,now)||self.recent(e.direct_ms,now))}
     fn recent(&self,ms:u64,now:u64)->bool{ms!=0&&now.saturating_sub(ms)<=self.times.relay_window_ms}
+    /// VA-SPEC §1a.4, §1a.7: may be dialed now: not terrible, not held, and its last dial verified it since (D16), or
+    /// the spacing passed since a failed or short one (`retry_verified_ms` verified, `retry_ms` otherwise), or `relax`
+    /// (the node has no compatible peer: an outage must not leave the verified entries waiting) and it is verified.
+    pub fn dialable(&self,e:&Entry,now:u64,relax:bool)->bool{
+        let spacing=if e.verified_ms>0{self.times.retry_verified_ms}else{self.times.retry_ms};
+        self.on&&!self.terrible(e,now)&&e.hold_until_ms<=now&&(e.last_try_ms<=e.verified_ms||now.saturating_sub(e.last_try_ms)>=spacing||(relax&&e.verified_ms>0))
+    }
+    /// Distinct keys among the dialable verified entries that pass `ok` (the boot seed rule, VA-SPEC §1a.8). Scratch:
+    /// one key list of at most BOOK_MAX.
+    pub fn verified_keys(&self,ok:impl Fn(&Entry)->bool,now:u64,relax:bool)->usize{
+        let mut k:Vec<Key>=self.entries.iter().filter(|e|e.verified_ms>0&&self.dialable(e,now,relax)&&ok(e)).map(|e|e.key).collect();k.sort_unstable();k.dedup();k.len()
+    }
+    /// Verified entries learned from self-advertisements (the dialers' cap, VERIFIED_INBOUND_MAX).
+    pub fn verified_inbound(&self)->usize{self.entries.iter().filter(|e|e.verified_ms>0&&e.source==Source::Inbound).count()}
+    /// VA-SPEC §1a.7: the address an automatic outbound slot (`Class::Any`) or a feeler (`NewOnly`) dials, among the
+    /// dialable entries that pass `ok` (the caller's exclusions). Verified ("tried") and unverified ("new") entries: Any
+    /// takes either with a fair coin when both have dialable entries. In both, a source uniformly (every
+    /// self-advertisement is the one source Inbound, each configured or bootstrap address its own, each answering slot
+    /// peer its key), then a key within it, then the fewest failures, ties by `rng` over sorted addresses: no number of
+    /// Sybil entries from one source, verified or not, outweighs another source. Scratch: one entry list and one source
+    /// or key list, each at most BOOK_MAX (A13 `selection, answer and self scratch`), never held with the answer list's
+    /// rebuild.
+    pub fn select(&self,class:Class,ok:impl Fn(&Entry)->bool,rng:&mut Rng,now:u64,relax:bool)->Option<SocketAddr>{
+        let can=|e:&Entry|self.dialable(e,now,relax)&&ok(e);
+        let (tried,new)=self.entries.iter().filter(|e|can(e)).fold((false,false),|(t,n),e|(t||e.verified_ms>0,n||e.verified_ms==0));
+        let want_tried=match class{Class::NewOnly=>{if !new{return None}false}
+            Class::Any=>match (tried,new){(false,false)=>return None,(true,false)=>true,(false,true)=>false,(true,true)=>rng.below(2)==0}};
+        let mut pool:Vec<&Entry>=self.entries.iter().filter(|e|can(e)&&(e.verified_ms>0)==want_tried).collect();
+        let src={let mut s:Vec<Source>=pool.iter().map(|e|e.source).collect();s.sort_unstable();s.dedup();s[rng.below(s.len() as u64) as usize]};
+        pool.retain(|e|e.source==src);
+        let key={let mut k:Vec<Key>=pool.iter().map(|e|e.key).collect();k.sort_unstable();k.dedup();k[rng.below(k.len() as u64) as usize]};
+        pool.retain(|e|e.key==key);
+        let least=pool.iter().map(|e|e.attempts).min()?;pool.retain(|e|e.attempts==least);
+        pool.sort_unstable_by_key(|e|e.addr);Some(pool[rng.below(pool.len() as u64) as usize].addr)
+    }
+    /// A bootstrap address (VA-SPEC §1a.9) already in the book and still unverified becomes its own source again
+    /// (`insert_unverified` keeps an existing entry's source, so one a slot peer named first would otherwise share
+    /// that peer's weight in `select`). `Cfg(a)` holds this one entry, so the re-source fills no source quota.
+    pub fn adopt_cfg(&mut self,a:SocketAddr){let a=canonical(a);self.update(a,|e|if e.verified_ms==0{e.source=Source::Cfg(a)});}
     /// The answer to an inbound GetAddr (VA-SPEC §1a.5): at most `net::ADDR_MAX` addresses of the answer list, without
     /// the requester's own advertised address (`requester`, compared by endpoint: on loopback every node is 127.0.0.1)
     /// and, unless the requester is itself local, without local entries. The list is rebuilt once it is `cache_ms` old
@@ -276,11 +346,12 @@ impl Book{
         let requester=requester.map(canonical);
         self.cache.iter().copied().filter(|a|Some(*a)!=requester&&(requester_local||net::group_of(a.ip()).is_some())).take(net::ADDR_MAX).collect()
     }
-    /// The answer list: the relayable entries, those verified within the relay window first and then the others (whose
-    /// self-advertisement is recent), each part shuffled, at most ANSWER_PER_KEY per key and CACHE_MAX in all.
+    /// The answer list: the relayable entries, those verified within the relay window and not learned from a
+    /// self-advertisement first, then the others (verified self-advertisements, and those whose self-advertisement is
+    /// recent), each part shuffled, at most ANSWER_PER_KEY per key and CACHE_MAX in all.
     fn rebuild(&mut self,rng:&mut Rng,now:u64){
         let (mut first,mut then)=(Vec::new(),Vec::new());
-        for (i,e) in self.entries.iter().enumerate(){if self.relayable(e,now){if self.recent(e.verified_ms,now){first.push(i)}else{then.push(i)}}}
+        for (i,e) in self.entries.iter().enumerate(){if self.relayable(e,now){if self.recent(e.verified_ms,now)&&e.source!=Source::Inbound{first.push(i)}else{then.push(i)}}}
         rng.shuffle(&mut first);rng.shuffle(&mut then);
         self.cache.clear();let mut keys:Vec<Key>=Vec::with_capacity(CACHE_MAX);
         for i in first.into_iter().chain(then){
@@ -760,5 +831,92 @@ mod tests{
         assert_eq!(kept(&format!("e 81.2.69.1:1023 c:81.2.69.1:1023 0 0 {T0} 0 0 0 0 0")),0,"a port below 1024");
         assert_eq!(kept(&format!("e 127.0.0.1:40001 p4:9.1 {T0} 0 0 0 0 0 0 0")),0,"a local entry heard from a public source");
         assert_eq!(kept(&format!("e 81.2.69.1:30300 i 0 {T0} 0 0 0 0 0 0\ne 81.2.69.1:30300 i 0 {} 0 0 0 0 0 0",T0+1)),1,"a second line for an address");
+    }
+
+    /// D24 (VA-SPEC §1a.7): `select` draws a source uniformly in both classes, then a key, then the fewest failures. New:
+    /// source S1 with 64 entries in 32 keys and S2..S5 with one each are picked 20 % each, not by their entries.
+    /// Tried: 100 verified self-advertisements (feelers could verify Sybil listeners so) in 100 keys and 10 verified
+    /// entries of 3 other sources: the self-advertisements are one source of 4 (25 %), never the 91 % a key-uniform
+    /// draw gives. Any: a fair coin between the classes. Excluded, held and terrible entries are never picked, and
+    /// within a key the fewest failures win. The counts are pinned for `Rng::new(7)`.
+    #[test] fn selection_is_source_first_in_both_classes(){
+        const N:usize=10_000;
+        let draw=|b:&Book,class:Class,ok:&dyn Fn(&Entry)->bool,now:u64|{let mut rng=Rng::new(7);(0..N).map(|_|b.select(class,ok,&mut rng,now,false).unwrap()).collect::<Vec<_>>()};
+        let share=|picks:&[SocketAddr],b:&Book,f:&dyn Fn(&Entry)->bool|picks.iter().filter(|a|f(b.get(**a).unwrap())).count();
+        let mut b=Book::new(false);
+        for k in 0..32{for h in 1..=2{assert_eq!(b.insert_unverified(v4(k,h),peer(1),Kind::Heard,false,T0),Outcome::Added);}}
+        for i in 2..=5{b.insert_unverified(v4(100+i,1),peer(i),Kind::Heard,false,T0);}
+        let picks=draw(&b,Class::NewOnly,&|_|true,T0);
+        let per:Vec<usize>=(1..=5).map(|i|share(&picks,&b,&|e|e.source==peer(i))).collect();
+        assert!(per.iter().all(|n|n.abs_diff(N/5)<=N/50),"each source 20 % +- 2 %: {per:?}");
+        assert_eq!(per,[2004,2047,1986,1903,2060],"pinned for seed 7");
+        // Tried: verified self-advertisements stay one source.
+        let mut t=Book::new(false);
+        for k in 0..100{let a=v4(200+k,1);t.insert_unverified(a,Source::Inbound,Kind::Direct,false,T0);assert_eq!(t.good(a,false,false,T0),Outcome::Refreshed);}
+        for i in 0..10{let a=v4(400+i,1);t.insert_unverified(a,peer(6+i%3),Kind::Heard,false,T0);t.good(a,false,false,T0);}
+        assert!(t.entries().iter().all(|e|e.verified_ms>0)&&t.verified_inbound()==100);
+        let picks=draw(&t,Class::Any,&|_|true,T0+1);let inbound=share(&picks,&t,&|e|e.source==Source::Inbound);
+        assert!(inbound.abs_diff(N/4)<=N/50,"the self-advertisements are one source of 4: {inbound}");
+        assert_eq!(inbound,2531,"pinned for seed 7");
+        // Any: a fair coin when both classes can be dialed; the unverified ones of `b` join the verified ones of `t`.
+        for e in b.entries().to_vec(){t.insert_unverified(e.addr,e.source,Kind::Heard,false,T0);}
+        let picks=draw(&t,Class::Any,&|_|true,T0+1);let tried=share(&picks,&t,&|e|e.verified_ms>0);
+        assert!(tried.abs_diff(N/2)<=N/50,"50/50 +- 2 %: {tried}");assert_eq!(tried,4978,"pinned for seed 7");
+        assert!(draw(&t,Class::NewOnly,&|_|true,T0+1).iter().all(|a|t.get(*a).unwrap().verified_ms==0),"NewOnly never picks a verified entry");
+        // Excluded keys are never picked; nothing passes: None.
+        let banned=|e:&Entry|e.key==Key::Net(Group::V4([11,0]))||e.source==Source::Inbound;
+        assert!(draw(&t,Class::Any,&|e|!banned(e),T0+1).iter().all(|a|!banned(t.get(*a).unwrap())),"excluded entries are never picked");
+        assert_eq!(t.select(Class::Any,|_|false,&mut Rng::new(7),T0+1,false),None);
+        // One source, one key: the fewest failures win; held and terrible entries are skipped.
+        let mut f=Book::new(false);let (x,y,z,w)=(sa("81.2.0.1:30300"),sa("81.2.0.2:30300"),sa("81.2.0.3:30300"),sa("81.2.0.4:30300"));
+        for a in [x,y,z,w]{f.insert_unverified(a,peer(1),Kind::Heard,false,T0);}
+        f.failed(x,T0);f.held(y,T0+600_000);for i in 0..3{f.good(sa("81.9.0.1:30300"),false,false,T0+2*i+1);f.failed(z,T0+2*i+2);}
+        let later=T0+600_000+10;assert!(f.terrible(f.get(z).unwrap(),later)&&f.get(x).unwrap().attempts==1);
+        assert!(draw(&f,Class::NewOnly,&|e|e.source==peer(1),later).iter().all(|a|*a==w),"w: no failure, not held, not terrible");
+        f.remove(w);assert!(draw(&f,Class::NewOnly,&|e|e.source==peer(1),later).iter().all(|a|*a==x),"then x, with its one failure");
+    }
+    /// VA-SPEC §1a.4: an entry is dialed again 10 min after a failed or short attempt if it was never verified, 1 min if
+    /// it was, at once after the dial that verified it (D16), and a verified one at once while `relax` (no compatible
+    /// peer) holds; `relax` never shortens an unverified entry's spacing.
+    #[test] fn retry_spacing_and_relax(){
+        let mut b=Book::new(false);let (u,v)=(sa("81.2.0.1:30300"),sa("81.3.0.1:30300"));
+        b.insert_unverified(u,peer(1),Kind::Heard,false,T0);b.good(v,false,false,T0);
+        let ok=|b:&Book,a:SocketAddr,now:u64,relax:bool|b.dialable(b.get(a).unwrap(),now,relax);
+        assert!(ok(&b,u,T0,false)&&ok(&b,v,T0,false),"never tried, and verified");
+        b.tried(v,T0+1);b.good(v,false,false,T0+2);assert!(ok(&b,v,T0+3,false),"right after the dial that verified it");
+        let f=T0+10;b.failed(u,f);b.failed(v,f);
+        assert!(!ok(&b,u,f+599_999,false)&&ok(&b,u,f+600_000,false),"unverified: 10 min");
+        assert!(!ok(&b,v,f+59_999,false)&&ok(&b,v,f+60_000,false),"verified: 1 min");
+        assert!(ok(&b,v,f+1_000,true)&&!ok(&b,u,f+1_000,true),"relax: a verified entry at once, an unverified one not");
+        b.busy(v,f+100_000);assert!(!ok(&b,v,f+159_999,false)&&ok(&b,v,f+160_000,false),"a short connection spaces it too");
+        let mut off=Book::disabled();off.on=true;off.insert_unverified(u,peer(1),Kind::Heard,false,T0);off.on=false;assert!(!ok(&off,u,T0,false),"discovery off: nothing");
+    }
+    /// D24 (VA-SPEC §1a.5): the answer list puts the verified entries not learned from a self-advertisement first; a
+    /// verified self-advertisement (a feeler's verification of a Sybil listener, say) comes after all of them.
+    #[test] fn answers_put_verified_self_advertisements_second(){
+        let mut b=Book::new(false);
+        for k in 0..40{let a=v4(k,1);if k%2==0{b.insert_unverified(a,Source::Inbound,Kind::Direct,false,T0);}b.good(a,false,false,T0);}
+        let src=|b:&Book,a:&SocketAddr|b.get(*a).unwrap().source;
+        b.answer(false,None,&mut Rng::new(3),T0);let list=b.cache.clone();assert_eq!(list.len(),40);
+        let last_peer=list.iter().rposition(|a|src(&b,a)!=Source::Inbound).unwrap();let first_inbound=list.iter().position(|a|src(&b,a)==Source::Inbound).unwrap();
+        assert!(last_peer<first_inbound&&first_inbound==20,"every own verified entry before every verified self-advertisement: {list:?}");
+    }
+    /// D24: a configured peer's address, verified by its own dial, becomes its own source (`Source::Peer` of its key),
+    /// even if it was first self-advertised; a slot's verification keeps the learning source.
+    #[test] fn a_configured_dial_resources_its_entry(){
+        let mut b=Book::new(false);let (c,s)=(sa("81.2.69.1:30300"),sa("81.3.0.1:30300"));
+        for a in [c,s]{b.insert_unverified(a,Source::Inbound,Kind::Direct,false,T0);}
+        b.good(c,true,false,T0);b.good(s,false,false,T0);
+        assert_eq!((b.get(c).unwrap().source,b.get(s).unwrap().source),(Source::Peer(Key::Net(Group::V4([81,2]))),Source::Inbound));
+    }
+    /// VA-SPEC §1a.9: a bootstrap address another peer named first (`insert_unverified` keeps that source) is its own
+    /// source again (`adopt_cfg`); a verified entry keeps its source.
+    #[test] fn adopt_cfg_restores_a_bootstrap_source(){
+        let mut b=Book::new(false);let (x,v)=(sa("81.2.69.1:30300"),sa("81.3.0.1:30300"));
+        b.insert_unverified(x,peer(1),Kind::Heard,false,T0);assert_eq!(b.insert_unverified(x,Source::Cfg(x),Kind::Heard,false,T0),Outcome::Refreshed);
+        assert_eq!(b.get(x).unwrap().source,peer(1),"the insert keeps the first source");
+        b.insert_unverified(v,peer(1),Kind::Heard,false,T0);b.good(v,false,false,T0);
+        b.adopt_cfg(sa("[::ffff:81.2.69.1]:30300"));b.adopt_cfg(v);
+        assert_eq!((b.get(x).unwrap().source,b.get(v).unwrap().source),(Source::Cfg(x),peer(1)));
     }
 }

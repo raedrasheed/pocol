@@ -341,7 +341,8 @@ def standalone_report(bundle, home):
         require(v1(saved), 'unsupported standalone invitation or source')
     else:
         rules = installed.get('consensusRulesVersion')
-        require(set(installed) == {'schema', 'consensusRulesVersion', 'seeds', 'files'}
+        # PR2b (D17, D23): a v2 invitation may also carry the advisory `bootstrap` list and `seedsRetired`.
+        require(set(installed) - {'bootstrap', 'seedsRetired'} == {'schema', 'consensusRulesVersion', 'seeds', 'files'}
                 and installed['schema'] == 'pocol-network-v2' and type(rules) is int and 1 <= rules < 2**32,
                 'unsupported standalone invitation or source')
         # Equal v2 bindings, or a saved 0.4.0 binding and its installed v2 twin (same seeds and files, plan §6).

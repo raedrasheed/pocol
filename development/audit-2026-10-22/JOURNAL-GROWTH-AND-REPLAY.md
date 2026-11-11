@@ -1234,3 +1234,58 @@ Code under test `1d094de` (base `11f8e89`); evidence `evidence/journal-r3c/` (`I
 | JV3B-4 (minor) | `evidence/journal-r3b/INDEX.md` cites "§10 J-REV3-1/2/3"; the round-3b table is §11, and §3.2c is omitted | **Fixed by a new file.** `evidence/journal-r3b/INDEX.md` is an existing evidence file and is not edited; `evidence/journal-r3c/INDEX.md` carries the correction (round-3b report sections: §3.2a, §3.2b, §3.2c and §11). |
 | survivor: mutant B (skip `validate_snapshot` in `execute_for_profile`) | no committed child did many txs on a grown state, so the per-tx `validate_snapshot` term was never isolated | **Killed by the new measurement.** In `jm_tx_state_term` mutant B changes the code-state transfer block from 5.18 s to 0.19 s and the accounts-state one from 1.80 to 1.07 s (`mutants/mut-B.log` against `mutants/mut-none.log`, §3.2d). |
 | survivor: mutant A (`current_total` → 0) | it left the many-small and transfer blocks largely in place, contradicting "the same regime" | **Fixed in report.** §3.2c withdraws "the same regime"; mutant A takes the 149-create block from 967 to 776 ms (accounts) and from 2.90 to 2.07 s (code), mutant B to 766 ms and 1.17 s; the transfer block is unchanged under A (§3.2d). |
+
+---
+
+## 13. PR7: windowed history (C-1 S5, 2026-11)
+
+PR7 (`claude/memory-bounds`) changes what open, replay, checkpoints and deep rebuilds hold in memory. It does not
+change what the journal stores, or which blocks are valid. The derivation is A13-DERIVATION §2g.
+
+- **Replay evicts and reloads, as live import does.** Canonical entries below `floor = max(1, head − E)` (E 6,417
+  at the defaults) leave memory for the node-local index `canon.redb`. One row per height holds the entry's
+  checkpoint record (`checkpoint::Rec`), sealed by keccak(height ‖ record), with a hash → height key. The entry
+  is reloaded exactly if the head falls back. Replay runs `Chain::window` after every retain, as live import does,
+  and the open runs it in batches until the window reaches its floor. So a replay from genesis holds the window,
+  not the chain. Old journals with records below the window (from binaries before the `h + r_keep ≤ head` refusal)
+  replay as they did without eviction: a duplicate's new `import_seq` and `body_off` go into its row, and a record
+  on a deep parent is counted as removed.
+- **canon.redb's disk cost.** The logical row is 206 B (`resources::CANON_ROW`: the 126-B record, its seal and two
+  keys). Measured on the file (non-durable puts of one row each, durable every 256): 34,222,080 B up to about 10,000
+  rows (redb's initial regions), then growth by doubling, **about 680 B a row at 100,000 and 200,000 rows**
+  (135,278,592 B for 200,000). That is under HISTORY_FILE_FACTOR (8) times the logical row, which A13 counts. For
+  the live chain (8,640 blocks a day) it is about 2.1 GB a year beside the journal.
+- **Checkpoints are O(window).** Format 2 (`POCKPT02`) holds the window, the side blocks and genesis, with the
+  window's base and the parent hash and work below it (checked against the index at restore). At R_keep 8 a
+  checkpoint was 42,046 B at both 1,000 and 2,000 blocks (`PR7-CHECKPOINT-BYTES`, T1); before PR7 it grew with every
+  block. Format 1 is still read once, after a headroom check (`resources::migration_fits`). A format-1 snapshot holds
+  no rebuild anchor, so the migrated node takes its first anchors as the cut moves.
+- **A deep rebuild starts from an anchor or walks the disk.** In store mode with eviction on, a stored version
+  every R_keep heights at or below the K_hist cut is kept as a rebuild anchor (at most 4 at the defaults). A rebuild
+  re-executes at most `2·R_keep + 2 + R_keep` blocks plus the branch. With no anchor (whole-state mode, a format-1
+  migration, a head drop beyond the anchors) the rebuild walks from genesis, one journal read and one
+  history.redb read per height. Each block is checked against its parent link, height and work, and only the last
+  `max(257, E_win + 1)` restored entries are held (`Chain::shadow`). That is O(height) CPU as before (§5.1), with
+  O(window) memory. A restore reads each anchor's version, and the lowest one above the cut when its parent holds
+  none, whole and streamed (about 17 s each at the network's state caps, so up to about 85 s at the defaults' 4
+  anchors); only a version whose parent's was read is read through the diff, one block's writes. A diff from the
+  anchor below would hold up to R_keep blocks' writes at once (from genesis in a format-1 migration, every write of
+  the chain up to the state caps), which no open-time term counts (review 2026-11, finding 3).
+- **When open still replays from genesis:** a lost or damaged canon.redb, history.redb or state.redb (every
+  checkpoint based above height 1 needs the index); whole-state mode (no checkpoints, as before); a journal migrated
+  from format 1 (every checkpoint fails its binding); a format-1 checkpoint that does not fit the headroom check.
+  Replay refills the index (derived data, I1).
+- **The open transient** (§3.4's obligation). Open no longer holds a second offset table or a per-record hash map.
+  Per record it keeps the journal's frame offset and two sorted replay events (36 B each), and a rolling hash every
+  256 records. In store mode it also keeps the snapshots it decodes, each of the window. `resources::open_transient`
+  counts this at 160 B a record (each table at twice its length); measured about 89 B a record with eviction off and
+  107 B by default (tests/open_transient.rs). `check_open` refuses at open, before the journal pass builds the tables
+  (at the commit file's count; again exactly after the pass), a journal whose tables do not fit beside the bound: "LOCAL CAPACITY at open: the journal's N records need … B of replay tables …; raise
+  --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES". At the 6 GiB budget, a seed's bound of about 2.8 GB leaves
+  room for about 17M records (about 5.5 years at 8,640 a day) before open refuses. A record changed between the two
+  passes is detected within 256 records, and open fails before the node starts.
+
+What stays open from §8: the journal still has no compaction (its disk growth is unchanged), and open still reads
+every record once (the journal pass and history.redb's integrity check are O(height) I/O). Whole-state mode still
+replays from genesis on every open (O(height) CPU). The open-time memory obligation is now bounded and checked at
+open, not unbounded.

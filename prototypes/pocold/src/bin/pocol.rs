@@ -48,14 +48,14 @@ fn command() -> Result<(), String> {
     let command = args.first().map(String::as_str).unwrap_or("start");
     let rest = args.get(1..).unwrap_or_default();
     let allowed: &[&str] = match command {
-        "identity" => &["--home"], "start" => &["--home", "--network", "--listen", "--rpc"],
+        "identity" => &["--home"], "start" => &["--home", "--network", "--listen", "--rpc", "--peer"],
         "wallet" | "import" | "upgrade" | "inspect-upgrade" => &["--home", "--network"],
         // Passphrase-encrypted key backup (CRY-02): the passphrase is read from stdin, never from an argument.
         "export-key" => &["--home", "--out"], "inspect-key-backup" => &["--home", "--backup"],
         "import-key" => &["--home", "--backup", "--replace"],
-        "network" => &["--from", "--seed", "--out"], "inspect" => &["--network"],
+        "network" => &["--from", "--seed", "--bootstrap", "--seeds-retired", "--out"], "inspect" => &["--network"],
         "build-info" => { println!("{}", pocold::identity::BUILD_INFO); return Ok(()); }
-        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] | network --from GENESIS_DIR --seed IP:PORT... --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE | export-key [--home DIR] --out FILE | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice)".into()),
+        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE | export-key [--home DIR] --out FILE | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice)".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();
     if rest.len() % 2 != 0 {
@@ -66,7 +66,7 @@ fn command() -> Result<(), String> {
             return Err(format!("unknown option {}", pair[0]));
         }
         let v = values.entry(pair[0].clone()).or_default();
-        if !v.is_empty() && pair[0] != "--seed" {
+        if !v.is_empty() && !matches!(pair[0].as_str(), "--seed" | "--peer" | "--bootstrap") {
             return Err(format!("duplicate option {}", pair[0]));
         }
         v.push(pair[1].clone());
@@ -80,7 +80,11 @@ fn command() -> Result<(), String> {
             .iter()
             .map(|s| s.parse().map_err(|_| "invalid seed".to_string()))
             .collect::<Result<_, _>>()?;
-        return launcher::pack(Path::new(need("--from")?), seeds, Path::new(need("--out")?));
+        // D17, D23: the optional bootstrap list and the seeds' retirement (both outside the network's identity).
+        let bootstrap = values.get("--bootstrap").map(Vec::as_slice).unwrap_or(&[]).iter()
+            .map(|s| s.parse().map_err(|_| format!("invalid bootstrap address {s}"))).collect::<Result<_, _>>()?;
+        let retired = match get("--seeds-retired") { None | Some("false") => false, Some("true") => true, Some(v) => return Err(format!("--seeds-retired {v}: expected true or false")) };
+        return launcher::pack(Path::new(need("--from")?), seeds, bootstrap, retired, Path::new(need("--out")?));
     }
     if command == "inspect" {
         println!(
@@ -161,8 +165,10 @@ fn command() -> Result<(), String> {
             .map(|s| s.parse().map_err(|_| format!("invalid {key}")))
             .transpose()
     };
+    // Static peers besides the invitation's seeds (at most 7, each its own configured peer).
+    let peers = pocold::node::endpoints(values.get("--peer").map(Vec::as_slice).unwrap_or(&[]), "--peer", 7, 1)?;
     let mut next = Instant::now();
-    home.run(parse("--listen")?, parse("--rpc")?, |node| {
+    home.run(parse("--listen")?, parse("--rpc")?, &peers, |node| {
         if Instant::now() >= next {
             println!("{}", node.status_json());
             next = Instant::now() + Duration::from_secs(10);

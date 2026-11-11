@@ -9,8 +9,8 @@ production P2P design of network.md (libp2p, Noise, gossipsub).
 ## 1. Transport and framing
 - TCP on the operator-selected listener: a loopback bind stays local; a private or public bind accepts remote
   peers, each of which must pass the Hello identity check (§2). Outbound connections go to the configured peers
-  (one dialer each; seeds among them follow §1a.8) and, with automatic outbound on (§1a.7; default off), to
-  learned addresses.
+  (one dialer each, backing off to 30 s after failures; seeds among them follow §1a.8) and, with automatic
+  outbound (§1a.7; on by default), to addresses from the book.
 - Inbound limits (local policy, `net::Limits`): at most `peers_max` established connections (their
   first eligible Hello accepted, §1b; default 32, `--peers-max N` or `POCOL_PEERS_MAX`, 1..128; seeds
   run at the default) and, counted apart, at most `handshaking_max` (8) still waiting for their Hello,
@@ -28,10 +28,10 @@ production P2P design of network.md (libp2p, Noise, gossipsub).
   in each. Addresses that are not globally reachable (`net::group_of`: loopback, private, link-local,
   shared 100.64/10, benchmarking, documentation, reserved, unique-local fc00::/7 including cjdns,
   ...) are not grouped, and neither are the node's configured peers, by their exact address.
-- A configured peer is redialed after a connection that lasted less than 60 s with a doubling delay,
-  0.6 s, 1.2 s, ... at most 30 s (`net::redial_delay`); a connection that lasted 60 s or more resets
-  it to 300 ms, and a failed connect keeps it. A node that evicts or refuses this one therefore sees
-  its redials settle down.
+- A configured peer is redialed after a failed connect, or a connection that lasted less than 60 s, with a
+  doubling delay, 0.6 s, 1.2 s, ... at most 30 s (`net::redial_delay`); a connection that lasted 60 s or more
+  resets it to 300 ms. A node that evicts or refuses this one, and a peer that is down, therefore see its
+  redials settle down.
 - Frame = `u32 BE length || RLP([type, ...fields])`, `1 <= length <= MAX_FRAME` (256 KiB).
 - Decoding is strict: canonical RLP, exact arity, minimal integers, fixed
   32-byte hashes, 8-byte nonces; re-encoding must equal the received bytes.
@@ -64,7 +64,8 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    nonzero nonce (a listening node that no longer advertises), the unverified self-advertisements at that
    public source IP are forgotten, except those another live connection advertises. (b) The first compatible
    Hello of a connection this node dialed: the dialed address is verified when listenPort != 0 and forgotten
-   when it is 0. (c) The one Addr that answers this node's GetAddr on a connection it dialed, within 120 s:
+   when it is 0; an entry keeps its source, and an address an automatic slot or feeler took from the book that
+   left it while dialed is not stored again (an anchor or bootstrap address is, as its own source). (c) The one Addr that answers this node's GetAddr on a connection it dialed, within 120 s:
    at most 64 addresses, heard from that peer. Nothing else is learned.
 3. Never stored: ports below 1024 (configured addresses exempt); IPv6 outside 2000::/3; unspecified,
    multicast, broadcast, link-local and reserved addresses; addresses without an address group (§1) unless
@@ -80,11 +81,15 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    if it holds at least 2 more than the newcomer's. Terrible: never verified and 3 counted failures; 10
    failures and no verification for 7 days; or nothing heard, advertised or verified for 30 days; terrible
    entries are dropped at load and at each save. A failure counts only if some dialed connection was verified
-   since the entry's last counted failure. Closed before any Hello (a full listener, say) is no failure.
+   since the entry's last counted failure. Closed before any Hello (a full listener, say) is no failure for a
+   verified entry and a failure for an unverified one, as is a remote unreachable error; a connect that this host
+   could not hand over (a local failure) is neither. An entry is dialed again 10 min after a failed or short
+   attempt if never verified, 1 min if verified (at once after a connection that verified it), and a verified
+   entry at once while the node has no compatible peer.
    Another release holds an entry back min(10 min · 2^(n-1), 6 h); another chain or genesis removes it.
 5. Answers: GetAddr is answered once per inbound connection and never on a connection this node dialed, with
    an Addr of at most 64 entries (possibly none): entries verified or self-advertised within 7 days, verified
-   first, at most 2 per address group, never the requester's own advertised address, local entries only to a
+   entries not learned from a self-advertisement first, at most 2 per address group, never the requester's own advertised address, local entries only to a
    local requester, from a list rebuilt at most once a minute (an entry that leaves the book leaves the list
    at once); it is queued only while the requester's queue
    is below half (§4). A node sends GetAddr once per connection it dialed (not feelers).
@@ -93,27 +98,42 @@ connection (§1); any other discovery fault drops an entry or a message and is c
    entry read passes 3 and 4 again; a damaged, foreign or oversized file is ignored (empty book). These
    periods, the refresh of live entries and the 120 s of 2(c) run on the wall clock: when it steps back, no
    deadline stays more than its period ahead, and a GetAddr sent "in the future" expires.
-7. Automatic outbound, default off (`--outbound N`, 0..8; inbound eviction exists (§1b); the automatic-outbound
-   release sets its default): N slots, one
-   connection each, at most one per address group, never to a configured peer, a seed, this node or an
-   address already connected. Choice: verified or unverified entries 50/50 when both exist; verified by
-   group, unverified by answering peer (all self-advertisements one source), then group; fewest failures
-   first. An address is retried 10 min after a failed or short (< 60 s) attempt; a slot waits
-   min(1 s · 2^k, 60 s) after k failures; an unreachable address family is skipped for 1 h. With all N slots
-   up, one feeler every 2 min (10 min if not listening) connects to an unverified entry, sends a Hello
-   announcing genesis, verifies the address and closes; it carries no gossip, sync or GetAddr. Up to 2
-   anchors (automatic peers connected 10 min that delivered a block, distinct groups) are dialed first after
-   a restart. Inbound + configured + automatic + feeler <= 50 (network.md:156), checked at boot (with the
-   32 + 8 inbound places of §1 by default, that release must lower one side or count against the amended
-   network.md:156, which lets an operator raise inbound within A13).
-8. Seeds (automatic outbound, default off: `--seed`, the invitation's seeds, with N > 0): all are dialed for
-   the first minute. Then a node keeps one seed connection while it does not listen, has fewer than 2 useful
-   automatic peers, or is stalled; a listening node closes it after 2 useful peers have held 2 min. Useful:
-   an automatic peer outside every seed's address group that delivered a valid block at height >= head-2 or a
-   template that locked within W = max(120 s, 12·T_blk); stalled: no new head from a peer within W. A seed
-   not connected within 30 s, or held while stalled for W, is replaced by the next. A node that finds a seed
-   is itself (§2, or its exact `--listen` address) keeps all other seeds. With N = 0 seeds are configured
-   peers.
+7. Automatic outbound (`--outbound N`, 0..8, or `auto`, the default: 4 with a listener, 2 without; POCOL_OUTBOUND;
+   0 with discovery off): N slots, one connection each, at most one per address group (local mode: per endpoint),
+   never to a configured peer, a seed, this node, an inbound peer's advertised address or an address already
+   connected; plus one spare slot. Choice: verified or unverified entries 50/50 when both can be dialed; in each, by
+   source (all self-advertisements one source), then group, then fewest failures; once 128 self-advertised entries
+   are verified, no slot (the feeler and the extra included) dials an unverified one. A slot waits min(1 s · 2^k, 60 s)
+   after k failures. An address family is skipped only while this host has no route for it (a local probe).
+   Spare slot: with every slot up or without candidates, one feeler every 2 min (10 min without a listener, plus up
+   to 30 s) connects to an unverified entry, sends nothing, reads the peer's Hello, verifies the address
+   (listenPort != 0) or forgets it, and closes; it is never a peer, and the peer, which never receives its Hello,
+   evicts nobody for it (§1b). While stalled (the head's timestamp older than W = max(120 s, 12·T_blk)) or quiet (no
+   block from a peer moved the head within 4W), the spare is an extra full slot to a new source (bootstrap
+   addresses first while no seed can be wanted); if it moves the head it replaces the slot that was useful longest
+   ago (never the sync peer), else it closes after W. Useful: a new block within 2 of the head delivered first, or
+   a template that locked; a copy of a stored block never, even one the peer's own sync session asked for. Anchors: up to 2 automatic peers connected 10 min,
+   useful within W, in distinct groups, saved with the book (not while stalled) and dialed first after a restart
+   (once, within 24 h of their save). Configured peers + slots <= 18 (network.md:157), checked at boot; `auto` is
+   lowered to fit.
+8. Seeds (`--seed`, the invitation's seeds unless it retires them; with N > 0; with N = 0 they are configured
+   peers): they bootstrap and refill, and at most 2 are wanted at once; a seed not wanted is not dialed. For the
+   first minute seeds are wanted only while the book cannot fill the N slots (slots dialing or up, groups of
+   dialable verified entries, anchors), and one by a node that does not listen. Then a node wants one seed while it does not listen, has fewer than 2 useful
+   peers (either direction, at least one outbound, outside the seeds' groups), has a slot without candidates and
+   fewer than N peers, or is stalled; a listening node releases it 2 min after 2 useful peers hold. A released seed
+   has been compatible 30 s, its GetAddr answered or expired, and is not the sync peer. A wanted seed not compatible
+   within 30 s is held 1 min, doubling to 6 h (1 min, uncounted, while this host has no compatible peer and no
+   route to it), and the next is wanted. A failure counts (and doubles) only if a handshake this node dialed verified
+   an address since the seed's last counted failure, so an upstream outage behind a working route leaves each seed
+   held at its current backoff; a first compatible peer after none, or a route's return, clears the holds.
+   While stalled, a seed held for W without
+   session progress is replaced by the next. A node that finds a seed is itself (§2, its exact `--listen`, or a local
+   listener on the seed's port) keeps all other seeds.
+9. Bootstrap addresses (`--bootstrap`, at most 16, ports >= 1024; the invitation's optional `bootstrap`, not part
+   of the network's identity): at each network start each is an unverified entry of its own source, dialed by 7
+   and never answered (5) before verified. A node whose seeds are gone reaches the network through its anchors, its
+   book, its bootstrap addresses or its configured peers.
 
 ## 1b. Inbound eviction (local policy)
 Local node policy (`net::Net::establish`, `net::Limits::evict`), after Bitcoin Core's SelectNodeToEvict without
@@ -339,10 +359,9 @@ an address the receiver dialed for it is not dialed again by that process.
 ## 4. Synchronization
 (D-REORG-REDB revision; network.md D38: Status, locator <= 32, count <= 512, <= 4096 per branch.)
 - On connect, and on every new head, a node sends Hello (its Status, with the head's cumulative
-  work). A feeler (§1a.7, automatic outbound, default off) sends one Hello announcing genesis
-  (height 0, work 0) and no refresh.
-- A peer announcing work >= ours with a head we do not store starts a sync session at its first Hello
-  (one session at a time; later Hellos only update its Status, and claimants are asked in turn). `GetFrom(locator, 512)`: the locator is our head and the 9
+  work). A feeler (§1a.7) sends no Hello.
+- A peer announcing work >= ours with a head we do not store starts a sync session at its first Hello,
+  unless one started within SESSION_GAP (1 s): then it is asked in its turn (one session at a time; later Hellos only update its Status, and claimants are asked in turn). `GetFrom(locator, 512)`: the locator is our head and the 9
   blocks below it, doubling steps, our canonical block at depth R_keep, and genesis. The responder
   answers its canonical blocks after the highest locator hash on its canonical chain, in height order,
   stopping when the requester's queue is half full. The next round puts the last delivered block first
@@ -355,7 +374,11 @@ an address the receiver dialed for it is not dialed again by that process.
   unsolicited copy of such a block is refused before validation), and while non-canonical they are
   protected from the side cap (at most 2·R_keep).
 - `GetRange` (start height, count) is still answered (canonical blocks in height order). `GetBlock`
-  answers any stored block except genesis, an offloaded one from its journal record (byte-equal).
+  answers any block held in memory (the eviction window and side blocks) except genesis, an offloaded one from
+  its journal record (byte-equal); older canonical history is served by `GetRange`/`GetFrom`. Below the eviction
+  window (C-1 S5, local retention) those read the node-local canonical index and the journal; the answers and
+  the locator are unchanged. Each `GetFrom` locator hash that is not in memory costs one index read, at most 32 per locator
+  (the wire's cap), so a peer whose locator leads with its own fork's blocks is answered from the first shared hash.
 - Forks: blocks whose parents are unknown also recurse through `GetBlock(parent)` (short gaps); deep
   forks are fetched by the locator session; the heavier branch then wins by D133.
 
@@ -405,10 +428,12 @@ wall-clock step back delaying a refill by at most one second / session cap 4, fo
 charges rebuilds of a missing parent state only, not slim restores of an entry's header and ranges); pool 32 MiB raw and <= 4096 transactions; RPC body 1 MiB, batch <= 20. Retention (D-REORG-REDB):
 canonical blocks are kept whole; non-canonical blocks are metadata only (bytes in the journal),
 at most R_keep unprotected plus 2·R_keep session-protected, none R_keep or more below the head;
-states for K_hist canonical blocks and side_max side blocks. Peer discovery (§1a): book 1024 (8 per group,
+states for K_hist canonical blocks and side_max side blocks; canonical entries more than E below the head in the
+node-local canonical index, not in memory (default E 6,417, `--evict-depth`, 0 off; at least E_min, the largest of the
+slim depth, 2·R_keep + E_win + 258 and in store mode the anchor reach); store-mode rebuild anchors <= 4 at the defaults. Peer discovery (§1a): book 1024 (8 per group,
 2 ports per IP, 64 per answering peer, 256 self-advertised); Addr <= 64 records, one answer per inbound
-connection, one Addr accepted per GetAddr within 120 s; automatic outbound (default off) <= 8 plus 1 feeler;
-all connections <= 50.
+connection, one Addr accepted per GetAddr within 120 s; automatic outbound <= 8 (auto 4 or 2) plus 1 spare;
+configured + automatic <= 18; at most 2 seeds wanted; bootstrap addresses <= 16.
 
 ## 7. Verified scenarios
 `prototypes/pocold/tests/e2e_devnet.py`: 3 processes, >= 100 H-full blocks,
@@ -417,5 +442,5 @@ frames, wrong-network Hello, invalid block over P2P, RPC transactions,
 identical hash/stateRoot/receiptsRoot at every height, deterministic replay.
 
 `prototypes/pocold/tests/discovery.rs`, `prototypes/pocold/tests/e2e_discovery.py`: learning, answers,
-self-connections, the book across restarts, and (automatic outbound, default off) outbound slots, seed
-release and loss.
+self-connections, the book across restarts, outbound slots, seed release and loss, anchors across restarts,
+the feeler without eviction, stall recovery, bootstrap with the seeds down.

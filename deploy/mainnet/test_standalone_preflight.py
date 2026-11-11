@@ -194,6 +194,20 @@ class StandaloneTests(unittest.TestCase):
                 self.assertEqual(result['bundle']['consensusIdentity'], self.params['consensusIdentity'])
                 self.write_invitations()
 
+    def test_the_r1_profile_accepts_the_advisory_v2_fields_and_nothing_else(self):
+        """PR2b (D17, D23): a v2 invitation may carry `bootstrap` and `seedsRetired`, outside the network's identity;
+        any other extra field is still refused."""
+        patches = self.r1_release()
+        for guard in patches: guard.start(); self.addCleanup(guard.stop)
+        twin = json.loads((self.bundle / 'network.pocol.json').read_text())
+        for extra, ok in (({'bootstrap': ['192.0.2.7:30300']}, True), ({'seedsRetired': False}, True),
+                          ({'bootstrap': [], 'seedsRetired': True}, True), ({'relay': True}, False)):
+            with self.subTest(extra=extra):
+                (self.bundle / 'network.pocol.json').write_text(json.dumps({**twin, **extra}))
+                result = self.collect()
+                self.assertEqual(result['checks']['bundle'], ok, result['issues'])
+        (self.bundle / 'network.pocol.json').write_text(json.dumps(twin))
+
     def test_the_r1_profile_refuses_a_twin_with_other_content_or_another_saved_file(self):
         patches = self.r1_release()
         for guard in patches: guard.start(); self.addCleanup(guard.stop)

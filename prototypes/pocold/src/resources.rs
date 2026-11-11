@@ -105,14 +105,17 @@ const _:()=assert!(size_of::<(net::PeerId,net::Peer)>()<=node::PEER_ENTRY_BYTES&
 /// an evicted peer keeps its place until then); per configured peer a dialer, an event forwarder,
 /// a reader and a writer; conn_max RPC connection threads; the miner (joined before it is
 /// replaced), the miner and listener forwarders, the timer, the P2P listener and the RPC
-/// acceptor (6). Plus the consensus and main threads. Exiting threads are counted: the RPC
-/// acceptor, the P2P listener and each dialer join a finished thread before its place is used
-/// again (threads::reap), and a reader joins its writer.
-pub fn io_threads(inbound:usize,dials:usize,conn_max:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,conn_max as u128,6])}
+/// acceptor (6); per automatic outbound slot (`slots`, S = K + 1 with the spare, VA-SPEC §1a.7) its thread `out-{t}`,
+/// its connection's reader and writer (3·S), and with any slot the one forwarder `out-fwd`. Plus the consensus and
+/// main threads. Exiting threads are counted: the RPC acceptor, the P2P listener, each dialer and each slot join a
+/// finished thread before its place is used again (threads::reap; a slot joins its last reader before it dials), and
+/// a reader joins its writer.
+pub fn io_threads(inbound:usize,dials:usize,slots:usize,conn_max:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,mul(3,slots as u128)?,u128::from(slots>0),conn_max as u128,6])}
 /// The tasks the A13 thread inventory needs at its peak: the I/O threads (`io_threads` at every physical inbound place,
-/// `net::Limits::inbound_max`) and the consensus and main threads. 128 at the defaults (32 + 8 inbound, 2 configured
-/// peers, 32 RPC connections), 340 at PEERS_MAX_LIMIT with 7 configured peers.
-pub fn tasks_needed(l:&net::Limits,dials:usize,conn_max:usize)->Option<u128>{io_threads(l.inbound_max(),dials,conn_max)?.checked_add(2)}
+/// `net::Limits::inbound_max`) and the consensus and main threads. 144 at the defaults (32 + 8 inbound, 2 configured
+/// peers, S = 5 automatic slots with the spare, 32 RPC connections), 368 at PEERS_MAX_LIMIT with 7 configured peers and
+/// S = 9; 128 at the defaults without automatic outbound.
+pub fn tasks_needed(l:&net::Limits,dials:usize,slots:usize,conn_max:usize)->Option<u128>{io_threads(l.inbound_max(),dials,slots,conn_max)?.checked_add(2)}
 /// Boot check against the service's task limit (systemd TasksMax, the cgroup's pids.max, read by `Node::start_network`):
 /// a node whose thread inventory does not fit would fail a thread spawn while it runs, so it refuses to start. "max",
 /// or a value that does not parse, counts as no limit.
@@ -208,15 +211,16 @@ pub fn state_keys(cp:&ConsensusParams)->Option<(u128,u128)>{Some((u128::from(cp.
 /// The pool's base and production share an entry's handle. (Review 2026-10-27: this count once listed the runs
 /// apart from `held_versions_bytes` and left out the block being imported and the rolling re-execution's next
 /// version; both now read `held_runs`.)
-pub fn stored_versions(k_hist:u32,side_max:u32)->u128{held_runs(k_hist,side_max).iter().sum()}
+pub fn stored_versions(k_hist:u32,side_max:u32,anchors:u128)->u128{held_runs(k_hist,side_max,anchors).iter().sum()}
 /// One stored version's handle (`chain::Pinned` behind its `Arc`) and its BLOCKHASH window (257 entries).
 pub fn pinned_bytes()->u128{size_of::<chain::Pinned>() as u128+16+257*memory::entry_bytes(64)+memory::table_bytes(64)}
 /// C-1 E4.4: a checkpoint being written: its bytes (every entry at most `checkpoint::REC_MAX`, the
 /// unslimmed list and the eviction FIFO), the index of entries it sorts, and redb's copy of the value in
-/// its dirty pages.
-pub fn checkpoint_bytes(cp:&ConsensusParams,limits:&Limits)->Option<u128>{
-    let entries=add(&[u128::from(cp.H_END)+1,limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?])?;
-    let bytes=add(&[256,mul(entries,crate::checkpoint::REC_MAX as u128)?,mul(u128::from(cp.H_END)+1+chain::EVICTED_MAX as u128,32)?])?;
+/// its dirty pages. C-1 S5 (PR7 §4.2): a format-2 checkpoint holds the window's `resident` canonical entries
+/// (`resident_of`; every height with eviction off), the side blocks and genesis.
+pub fn checkpoint_bytes(limits:&Limits,resident:u128)->Option<u128>{
+    let entries=add(&[resident,limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?])?;
+    let bytes=add(&[256,mul(entries,crate::checkpoint::REC_MAX as u128)?,mul(resident.checked_add(chain::EVICTED_MAX as u128)?,32)?])?;
     add(&[mul(2,bytes)?,mul(entries,size_of::<usize>() as u128)?])
 }
 /// C-1 E4.5: redb 2.6.4's usable bytes per region (page_manager.rs MAX_USABLE_REGION_SPACE) and its pages
@@ -247,6 +251,7 @@ pub fn redb_allocator_bytes(bytes:u128)->Option<u128>{mul(bytes.div_ceil(REDB_RE
 /// released with it; no preimage is kept for good.) The checkpoints' snapshots. All at STATE_FILE_FACTOR
 /// times their bytes.
 pub fn state_file_max(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits)->Option<u128>{let p=state_file_parts(cp,k_hist,side_max,limits)?;add(&p)}
+fn state_file_max_at(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,resident:u128)->Option<u128>{let p=state_file_parts_at(cp,k_hist,side_max,limits,resident)?;add(&p)}
 /// `state_file_parts`' versions: the bytes state.redb keeps for `n` versions at consecutive heights of one
 /// chain. A node is stored once however many versions name it (`state_store::commit` counts one more
 /// reference to a stored node), so they keep the oldest version's nodes and what each later block's version
@@ -260,14 +265,24 @@ pub fn chain_versions_bytes(cp:&ConsensusParams,n:u128)->Option<u128>{
 /// The versions held at once (C-1 E4, the `stored_versions` inventory), as runs of consecutive versions:
 /// genesis; the K_hist canonical window with the block being imported (K_hist + 1); during an adopting import,
 /// until `settle`, the abandoned window (K_hist, on the old branch); side_max side states (one each); a rolling
-/// re-execution's version with the next one it commits (2).
-pub fn held_runs(k_hist:u32,side_max:u32)->Vec<u128>{
-    let k=u128::from(k_hist);let mut v=vec![1,k+1,k];v.extend(std::iter::repeat_n(1,side_max as usize));v.push(2);v
+/// re-execution's version with the next one it commits (2); C-1 S5 (PR7 §2.4): the store-mode rebuild anchors
+/// (`anchors_held`, one each, R_keep apart).
+pub fn held_runs(k_hist:u32,side_max:u32,anchors:u128)->Vec<u128>{
+    let k=u128::from(k_hist);let mut v=vec![1,k+1,k];v.extend(std::iter::repeat_n(1,side_max as usize));v.push(2);
+    v.extend(std::iter::repeat_n(1,anchors.min(u128::from(u32::MAX)) as usize));v
 }
 /// The bytes of the versions `held_runs` lists, each run `chain_versions_bytes`. A kept checkpoint pins
 /// versions its entries held, at most as many again.
-pub fn held_versions_bytes(cp:&ConsensusParams,k_hist:u32,side_max:u32)->Option<u128>{
-    held_runs(k_hist,side_max).into_iter().try_fold(0u128,|t,n|add(&[t,chain_versions_bytes(cp,n)?]))
+pub fn held_versions_bytes(cp:&ConsensusParams,k_hist:u32,side_max:u32,anchors:u128)->Option<u128>{
+    held_runs(k_hist,side_max,anchors).into_iter().try_fold(0u128,|t,n|add(&[t,chain_versions_bytes(cp,n)?]))
+}
+/// C-1 S5 (PR7 §2.4): the rebuild anchors a store-mode node with eviction on holds at most (`Chain::anchors_max`:
+/// one every R_keep from the newest one at least lag = 2·R_keep + 2 below the head up to the K_hist cut,
+/// ⌈(lag − K_hist) / R_keep⌉ + 2); none in whole-state mode or with eviction off (Node::open sets no anchor step).
+/// Counted at the configured R_keep (`Limits::r_keep`).
+pub fn anchors_held(cp:&ConsensusParams,k_hist:u32,limits:&Limits)->u128{
+    if !limits.state_store||evict_resolved(cp,k_hist,limits).is_none(){return 0}
+    let s=limits.r_keep.max(1);u128::from(s.saturating_mul(2).saturating_add(2).saturating_sub(u64::from(k_hist)).div_ceil(s)+2)
 }
 /// `state_file_max`'s parts: (versions' nodes, key preimages, code, checkpoint snapshots), each at
 /// STATE_FILE_FACTOR times its bytes. The entries' versions and the KEPT checkpoints' are counted apart,
@@ -276,15 +291,17 @@ pub fn held_versions_bytes(cp:&ConsensusParams,k_hist:u32,side_max:u32)->Option<
 /// with a `release` row (ROW bytes) for at most each of its nodes. Each node counted here is at least ROW +
 /// BRANCH_ENC bytes (a branch without its children, the smallest node), so a held set has at most
 /// bytes / (ROW + BRANCH_ENC) nodes.
-pub fn state_file_parts(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits)->Option<[u128;4]>{
+pub fn state_file_parts(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits)->Option<[u128;4]>{state_file_parts_at(cp,k_hist,side_max,limits,resident_of(cp,k_hist,limits)?)}
+/// `state_file_parts` with checkpoints of `resident` canonical entries (`derive` passes the continuous chain's window).
+fn state_file_parts_at(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,resident:u128)->Option<[u128;4]>{
     use pocol_lp4_execution::node_trie::{BRANCH_ENC,ROW};
-    let kept=crate::checkpoint::KEPT as u128;let held=held_versions_bytes(cp,k_hist,side_max)?;
+    let kept=crate::checkpoint::KEPT as u128;let held=held_versions_bytes(cp,k_hist,side_max,anchors_held(cp,k_hist,limits))?;
     let owed_rows=mul(ROW,(held/(ROW+BRANCH_ENC)).checked_add(1)?)?;
     let nodes=add(&[mul(kept+2,held)?,owed_rows])?;
     let blocks=u128::from(cp.H_END)+1;
     let preimages=0;
     let code=mul(blocks,memory::execution_gas(cp.GAS_LIMIT)/CODE_DEPOSIT)?;
-    let ckpts=mul(kept,checkpoint_bytes(cp,limits)?/2)?;
+    let ckpts=mul(kept,checkpoint_bytes(limits,resident)?/2)?;
     Some([mul(STATE_FILE_FACTOR,nodes)?,mul(STATE_FILE_FACTOR,preimages)?,mul(STATE_FILE_FACTOR,code)?,mul(STATE_FILE_FACTOR,ckpts)?])
 }
 /// C-1 E5: state.redb's file size over the bytes it stores (every key and value), for its allocator term.
@@ -315,13 +332,15 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("transient-snapshot-inventory","TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter"),
     ("main-thread","the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins"),
     ("revm-representation","the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks"),
-    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded. PR6: a signed template costs one selection (at most GAS_LIMIT of committed gas and node::selection_exec_budget(GAS_LIMIT) = 9/4 GAS_LIMIT of executed gas, committed or left out by the block-cap checks, at most BUILD_VISIT_MAX decodes) and at most node::TEMPLATE_BUILDS_MAX block executions (normally one; two or three when simulated and real gas differ), and a new head also re-validates up to node::POOL_PARKED_MAX parked transactions (each executed only when re-admitted within the pool's gas bound); the parked ones are also template candidates, executed only within the same selection bounds. A peer-driven deep-fork rebuild is PoW-gated and rate-bounded (PR4 I-5: node::REBUILD_BURST, SESSION_REBUILD_MAX), but each one is still O(chain height), with no reverse diffs (F-1)"),
+    ("cpu-and-timing","CPU costs (world-root rebuild, chain scans, pool re-execution, deep-fork rebuild) are not memory terms; worst-case timing is not bounded. PR6: a signed template costs one selection (at most GAS_LIMIT of committed gas and node::selection_exec_budget(GAS_LIMIT) = 9/4 GAS_LIMIT of executed gas, committed or left out by the block-cap checks, at most BUILD_VISIT_MAX decodes) and at most node::TEMPLATE_BUILDS_MAX block executions (normally one; two or three when simulated and real gas differ), and a new head also re-validates up to node::POOL_PARKED_MAX parked transactions (each executed only when re-admitted within the pool's gas bound); the parked ones are also template candidates, executed only within the same selection bounds. A peer-driven deep-fork rebuild is PoW-gated and rate-bounded (PR4 I-5: node::REBUILD_BURST, SESSION_REBUILD_MAX). C-1 S5 (PR7): in store mode with eviction on it starts at a rebuild anchor, at most 2·R_keep + 2 + R_keep blocks below the head plus the branch; it is still O(chain height), with no reverse diffs (F-1), in whole-state mode, with eviction off, after a lost canonical index or format-1 migration, and after a head drop beyond the anchors (the disk walk from genesis, O(window) memory)"),
     ("s3a-removal","a diff keeps no storage for a removed account: under Cancun (revm 19.7, EIP-6780) only an account created in the same transaction is destroyed, and an account without code, nonce and balance holds no storage; by inspection, not enforced by a counter"),
+    ("canon-redb-representation","C-1 S5 (PR7): canon.redb's terms rely on the same redb 2.6.4 behaviour as history.redb's (its page cache CANON_CACHE also holds the write buffer of the SYNC_EVERY non-durable puts between two durable commits) and on HISTORY_FILE_FACTOR for its file, not measured on canon.redb itself; with eviction on, the history.redb, canon.redb and state.redb allocator terms are counted over the observed file sizes (Limits::disk, observed at open and every 256 records) plus DISK_HEADROOM records, at least one whole region's allocator each"),
+    ("serving-io","C-1 S5 (PR7): GetRange and GetFrom below the in-memory window read canon.redb and the journal on the consensus thread, bounded per request by the peer's send queue (`offer`) and one index read per locator hash not held in memory (at most net::LOCATOR_MAX, 32, the wire's cap), with no per-peer request rate limit (as GetRange over offloaded history before PR7); I/O, not memory"),
     ("redb-representation","the history.redb terms rely on redb 2.6.4 behaviour checked by source inspection (cache split and write-buffer flush, allocator bitmaps) and on a measured file-size factor (HISTORY_FILE_FACTOR)"),
-    ("open-replay-transient","Node::open holds the whole journal's payloads (store::open, pre-existing) and a replay index of two entries per record while replaying; this open-time transient grows with the journal and is not part of the steady-state bound. C-1 E4.4 adds to it, at open only: every record's offset and rolling hash, a decoded checkpoint snapshot and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, which holds the accounts and slots that differ, one block's writes at most, as an import's write set, the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
+    ("open-replay-transient","Node::open holds, while it replays, tables that grow with the journal, outside the steady-state bound and counted at open only (`open_transient`, checked by `check_open`; PR7 §7): every record's frame offset (store::open) and two replay events, each a Vec grown by doubling, a rolling hash every ROLL_SAMPLE records, and the checkpoint snapshots it reads (KEPT, each of the window's entries; decoded one at a time, and a format-1 one, every entry of the chain, with the KEPT checkpoints' bytes, by `migration_fits`). Not counted: a format-1 checkpoint decoded once to check it, and again before `migration_fits` refuses one that does not fit, and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, read before it, which holds the accounts and slots that differ, one block's write set (an anchor and the lowest entry above the K_hist cut are read whole), the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
     ("store-inventory","store mode (C-1 E4): BATCHES (1) and stored_versions are inventories by code inspection, not enforced by a counter; the node cache is bounded by its resident-byte count (state_store::CACHE_ENTRY, Node::resident_bytes), checked by a test"),
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
-    ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; by inspection"),
+    ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; selection holds one entry list and one source or key list over the book; the exclusions are closures and allocate nothing; each slot channel holds one address; a route probe is a UDP socket without buffers; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
@@ -351,21 +370,66 @@ pub fn eviction_bookkeeping_bytes(side_cap:u128,r_keep:u128)->Option<u128>{
     add(&[hash32_churn_bytes(high)?,mul(high,128)?,512])
 }
 
-/// The bound, or None on arithmetic overflow.
-pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize)->Option<Bound>{
-    // A continuous chain has no finite lifetime bound. Project from observed journal records
-    // plus 2048 records of headroom, and recheck locally as the journal grows. Never substitute
-    // zero as the history size or claim that this projection bounds an infinite history.
-    let mut projected=cp.clone();
-    let continuous=cp.H_END==0;
-    if continuous{
-        let records=limits.continuous_history?.checked_add(2048)?;
-        projected.H_END=records;
-        projected.TX_CAP=cp.TX_CAP.min(cp.GAS_LIMIT/21_000).checked_mul(records.checked_add(1)?)?;
-        projected.TXBYTES_CAP=cp.TXBYTES_CAP.min(u64::from(cp.BODY_MAX)).checked_mul(records.checked_add(1)?)?;
+/// C-1 S5 (PR7 §6.2): the observed sizes of the files whose redb allocator A13 counts (`fs::metadata`; a missing
+/// file is 0). Node::open observes them before each of its checks, and import_with every 256 records.
+#[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
+pub struct DiskBytes{pub history:u64,pub state:u64,pub canon:u64}
+impl DiskBytes{
+    pub fn observe(dir:&std::path::Path)->Self{
+        let f=|n:&str|std::fs::metadata(dir.join(n)).map_or(0,|m|m.len());
+        Self{history:f(crate::history::FILE),state:f(crate::state_store::FILE),canon:f(node::canon::FILE)}
     }
+}
+/// C-1 S5 (PR7 §6.2): the records of headroom the windowed bound adds past the observed files: the 256 records
+/// between two of import_with's rechecks, and the 2048 the record projection keeps.
+pub const DISK_HEADROOM:u64=256+2048;
+/// One canon.redb row with its keys (PR7 §4.3): BY_HEIGHT's height, seal and record, BY_HASH's hash and height.
+pub const CANON_ROW:u128=crate::checkpoint::REC_MIN as u128+32+8+8+32;
+/// The eviction depth E the node uses (`Limits::evict_depth` as Node::open sets it; for a caller that leaves it None,
+/// the default at the configured R_keep), or None with eviction off (Some(0)). Some(u64::MAX) never evicts.
+pub fn evict_resolved(cp:&ConsensusParams,k_hist:u32,limits:&Limits)->Option<u64>{
+    match limits.evict_depth{Some(0)=>None,Some(e)=>Some(e),None=>evict_depth_of(cp,k_hist,limits,limits.r_keep).ok().flatten()}
+}
+/// C-1 S5 (PR7 §6.1): the canonical entries held in memory at once: the window's E + 2 heights (the floor, the head
+/// and the block being imported) with eviction on, never more than the chain's H_END + 1; every height with
+/// eviction off or never evicting (a continuous chain then counts its projection, `derive`).
+pub fn resident_of(cp:&ConsensusParams,k_hist:u32,limits:&Limits)->Option<u128>{
+    let blocks=u128::from(cp.H_END)+1;
+    match evict_resolved(cp,k_hist,limits).filter(|e|*e<u64::MAX){None=>Some(blocks),Some(e)=>{let w=u128::from(e)+2;Some(if cp.H_END==0{w}else{w.min(blocks)})}}
+}
+/// redb's allocator over a file of `bytes` with eviction on (PR7 §6.2, A2-8): at least one region's whole allocator
+/// (`redb_allocator_bytes`; a small file holds it too), and at least one byte per 4 KiB page.
+pub fn redb_alloc_max(bytes:u128)->Option<u128>{Some(redb_allocator_bytes(bytes)?.max(bytes/4096))}
+/// Why `derive` gave None: a continuous chain with eviction on whose files were not observed (`Limits::disk`), or an
+/// arithmetic overflow.
+fn derive_none(cp:&ConsensusParams,k_hist:u32,limits:&Limits)->String{
+    if cp.H_END==0&&limits.disk.is_none()&&evict_resolved(cp,k_hist,limits).is_some_and(|e|e<u64::MAX){"A13: disk sizes not observed".into()}
+    else if cp.H_END==0&&limits.continuous_history.is_none()&&evict_resolved(cp,k_hist,limits).is_none_or(|e|e==u64::MAX){"A13: continuous history not observed".into()}
+    else{"A13 memory bound: arithmetic overflow".into()}
+}
+
+/// The bound, or None on arithmetic overflow (or, for a continuous chain, without the observation it projects from).
+pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize)->Option<Bound>{
+    // A continuous chain has no finite lifetime bound. With eviction off (or never evicting) project from observed
+    // journal records plus 2048 records of headroom, and recheck locally as the journal grows. Never substitute
+    // zero as the history size or claim that this projection bounds an infinite history.
+    // C-1 S5 (PR7 §6): with eviction on, memory holds the window only (`resident_of`, E + 2 canonical entries)
+    // whatever the height: no memory term grows with records. What still grows is the files whose allocator redb
+    // keeps in memory; they are counted from their observed size (`Limits::disk`) plus DISK_HEADROOM records, and
+    // rechecked as they grow. Unknown is not zero: without `disk` the bound is None.
+    let orig=cp;let continuous=cp.H_END==0;
+    let windowed=evict_resolved(cp,k_hist,limits).filter(|e|*e<u64::MAX);
+    let over=|n:u64|->Option<ConsensusParams>{let mut p=orig.clone();p.H_END=n;
+        p.TX_CAP=orig.TX_CAP.min(orig.GAS_LIMIT/21_000).checked_mul(n.checked_add(1)?)?;p.TXBYTES_CAP=orig.TXBYTES_CAP.min(u64::from(orig.BODY_MAX)).checked_mul(n.checked_add(1)?)?;Some(p)};
+    let (projected,disk)=match (continuous,windowed){(false,_)=>(cp.clone(),None),(true,None)=>(over(limits.continuous_history?.checked_add(2048)?)?,None),(true,Some(_))=>(over(DISK_HEADROOM)?,Some(limits.disk?))};
     let cp=&projected;
     let log_cap=if continuous{u128::from(caps::LOG_BLOCK_MAX).checked_mul(u128::from(cp.H_END)+1)?}else{u128::from(caps::LOG_CAP)};
+    // The canonical entries in memory, and the caps the window's content is bounded by: on the continuous windowed
+    // chain the per-block caps over the resident entries (the projection above is the files' headroom only).
+    let resident=match (continuous,windowed){(true,Some(e))=>u128::from(e)+2,_=>resident_of(cp,k_hist,limits)?};
+    let (tx_mem,txbytes_mem,log_mem)=if continuous&&windowed.is_some(){
+        (u128::from(orig.TX_CAP.min(orig.GAS_LIMIT/21_000)).checked_mul(resident)?,u128::from(orig.TXBYTES_CAP.min(u64::from(orig.BODY_MAX))).checked_mul(resident)?,u128::from(caps::LOG_BLOCK_MAX).checked_mul(resident)?)
+    }else{(u128::from(cp.TX_CAP),u128::from(cp.TXBYTES_CAP),log_cap)};
     let s=u128::from(cp.S_max);let m=u128::from(cp.M_max);let hdr=header_max(cp.S_max);
     // Snapshot: accounts <= ACCT_CAP user accounts (genesis check_caps, USER halts AcctCap)
     // + 5 programs; slots <= SLOT_CAP (USER halts SlotCap) + SYS_SLOT_MAX (post-block check);
@@ -395,10 +459,11 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         ("store/decoded-node cache (NODE_CACHE, resident bytes)",crate::state_store::NODE_CACHE as u128),
         ("store/state.redb page cache (STATE_PAGE_CACHE)",crate::state_store::STATE_PAGE_CACHE as u128),
         // redb 2.6.4 keeps every region's allocator in memory, sized for the region's whole capacity
-        // (redb_allocator_bytes), over the largest file (state_file_max).
-        ("store/state.redb allocator state (per-region bitmaps over the largest file)",redb_allocator_bytes(state_file_max(cp,k_hist,side_max,limits)?)?),
-        ("store/stored versions' handles and BLOCKHASH windows",mul(stored_versions(k_hist,side_max),pinned_bytes())?),
-        ("store/a checkpoint being written (its bytes and its entry index)",checkpoint_bytes(cp,limits)?),
+        // (redb_allocator_bytes), over the largest file (state_file_max). C-1 S5: on the continuous windowed chain,
+        // over the observed file and what DISK_HEADROOM more records can add to it.
+        ("store/state.redb allocator state (per-region bitmaps over the largest file)",redb_allocator_bytes(add(&[disk.map_or(0,|d|u128::from(d.state)),state_file_max_at(cp,k_hist,side_max,limits,resident)?])?)?),
+        ("store/stored versions' handles and BLOCKHASH windows",mul(stored_versions(k_hist,side_max,anchors_held(cp,k_hist,limits)),pinned_bytes())?),
+        ("store/a checkpoint being written (its bytes and its entry index)",checkpoint_bytes(limits,resident)?),
         // Each account an execution loads brings its code from the store (TrieState::info), whether or not
         // the execution runs or reads that code: a copy per loaded account, held until the transaction
         // ends and, for a touched account, in the overlay of the block or template being built. revm 19.7
@@ -452,7 +517,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // Entry and its allocation header (counted at 32), the canonical index, header heap (encoded, ut_raw,
     // bloom, proposer, sig, share nonces), ParentResult shares, nonce ranges (members <= M_max) and evidence
     // (E_max items <= EVID_BYTES_MAX); an empty state is shared (C-1 E5).
-    let entry=add(&[mul(size_of::<([u8;32],Box<Entry>)>() as u128+1,4)?,size_of::<Entry>() as u128,32])?;
+    let entry=entry_bytes()?;
     // C-1 E2: and its state summary (boxed; a slimmed entry drops it).
     let per_block=add(&[entry,64,size_of::<pocol_lp4_execution::state_summary::Summary>() as u128,mul(hdr,2)?,256+20+65+64,mul(8,s)?,mul(32,s+1)?,mul(64,m)?,
         mul(u128::from(cp.E_max),24)?])?;
@@ -466,16 +531,19 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // The window's content is bounded per block (BODY_MAX, E_max evidence items, side_txs receipts,
     // LOG_BLOCK_MAX log bytes encoded at most 33/32) and in total by the chain caps (TXBYTES_CAP, the
     // evidence identities, TX_CAP, LOG_CAP), so a window of the whole chain is the model before S1.
-    let blocks=u128::from(cp.H_END)+1;let window=u128::from(limits.history_window.unwrap_or(u64::from(k_hist))).min(blocks);
+    // C-1 S5: at most `resident` of them (the window below the eviction floor is in canon.redb, PR7 §2).
+    let blocks=u128::from(cp.H_END)+1;let window=u128::from(limits.history_window.unwrap_or(u64::from(k_hist))).min(resident);
     let offloaded_entry=per_block.checked_sub(hdr)?.checked_sub(mul(u128::from(cp.E_max),24)?)?;
     // Evidence: valid evidence tombstones its identity, and evidence against a tombstone is a host error
     // (block invalid), so the chain holds at most one item per identity ever: M_max initial records plus
     // R_max registrations per block (D86 registry rotation).
-    let identities=u128::from(cp.M_max).checked_add(mul(u128::from(cp.R_max),u128::from(cp.H_END))?)?;
-    let w_bodies=mul(window,u128::from(cp.BODY_MAX))?.min(u128::from(cp.TXBYTES_CAP));
-    let w_evidence=mul(window,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?)?.min(mul(identities,u128::from(cp.EVID_BYTES_MAX)+24)?);
-    let w_receipts=mul(mul(window,side_txs)?.min(u128::from(cp.TX_CAP)),per_tx)?;
-    let w_logs=mul(window,u128::from(caps::LOG_BLOCK_MAX))?.min(log_cap)/32*33;
+    // C-1 S5: the continuous windowed chain has no such total (its height is unbounded): the window's own bound.
+    let w_evidence=mul(window,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?)?;
+    let w_evidence=if continuous&&windowed.is_some(){w_evidence}else{
+        let identities=u128::from(cp.M_max).checked_add(mul(u128::from(cp.R_max),u128::from(cp.H_END))?)?;w_evidence.min(mul(identities,u128::from(cp.EVID_BYTES_MAX)+24)?)};
+    let w_bodies=mul(window,u128::from(cp.BODY_MAX))?.min(txbytes_mem);
+    let w_receipts=mul(mul(window,side_txs)?.min(tx_mem),per_tx)?;
+    let w_logs=mul(window,u128::from(caps::LOG_BLOCK_MAX))?.min(log_mem)/32*33;
     // history.redb (crate::history): its page cache is HISTORY_CACHE (redb splits it 9:1 between reads
     // and the write buffer, and flushes the write buffer to the file past its share). Its allocator keeps
     // per page two buddy bitmaps over the page orders (about 4 bits a page, redb 2.6.4 buddy_allocator.rs),
@@ -487,17 +555,43 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // C-1 S4: canonical journaled entries deeper than slim_depth (default 2·R_keep + E_win + 257) keep only
     // the entry, its map slot and canonical index, and an empty state; the header's heap fields, the
     // ParentResult and the nonce ranges are restored from the journal and history.redb on demand.
-    let depth=u128::from(limits.slim_depth.unwrap_or(2*limits.r_keep+u64::from(cp.E_win)+257)).min(blocks);
+    let depth=u128::from(limits.slim_depth.unwrap_or(2*limits.r_keep+u64::from(cp.E_win)+257)).min(resident);
     // C-1 E5: an entry without a state shares one empty state (chain::empty_state), counted once below.
-    let slim_entry=add(&[entry,64])?;
-    let (full_old,slim_old)=(depth.saturating_sub(window),blocks-depth.max(window));
-    let redb_alloc=mul(payload,HISTORY_FILE_FACTOR)?/4096;
-    let hist=[("history/offloaded canonical block metadata (slim_depth − window entries)",mul(full_old,offloaded_entry)?),
-        ("history/slimmed canonical block metadata (H_END+1 − slim_depth entries, C-1 S4)",mul(slim_old,slim_entry)?),
+    let slim_entry=slim_entry_bytes()?;
+    let (full_old,slim_old)=(depth.saturating_sub(window),resident-depth.max(window));
+    // C-1 S5 (PR7 §6.2): with eviction on, the allocator over the observed file (the continuous chain's; a bounded
+    // chain's projected one) and DISK_HEADROOM more records, at least a whole region's (A2-8).
+    let redb_alloc=match (windowed,disk){(None,_)=>mul(payload,HISTORY_FILE_FACTOR)?/4096,
+        (Some(_),d)=>redb_alloc_max(add(&[d.map_or(0,|d|u128::from(d.history)),mul(payload,HISTORY_FILE_FACTOR)?])?)?};
+    let mut hist=vec![("history/offloaded canonical block metadata (slim_depth − window entries)",mul(full_old,offloaded_entry)?),
+        ("history/slimmed canonical block metadata (resident − slim_depth entries, C-1 S4)",mul(slim_old,slim_entry)?),
         ("history/the one empty state entries share (C-1 E5)",memory::empty_snapshot()?),("history/resident window: block entries",mul(window,per_block)?),("history/resident window: transaction bytes",w_bodies),("history/resident window: evidence",w_evidence),
         ("history/resident window: transaction hashes and receipts",w_receipts),("history/resident window: logs",w_logs),
         ("history/history.redb page cache (HISTORY_CACHE)",crate::history::HISTORY_CACHE as u128),("history/history.redb allocator state",redb_alloc)];
-    let history=add(&hist.map(|x|x.1))?;items.extend(hist);
+    if windowed.is_some(){
+        // C-1 S5 (PR7 §6.1): what the window itself adds, none of it a function of the height:
+        // - the Canon deque of the window's canonical hashes (32 B each, a VecDeque grown by doubling);
+        // - the evicted entries' rows on their way to canon.redb (`Chain::evicted_out`, at most `evict_batch` =
+        //   side_cap + 2·R_keep + 2 a call: a record, its keys and the Vec slot);
+        // - a head drop's reload (at most R_keep slimmed entries back from canon.redb, `Chain::window`);
+        // - a rebuild's shadow (`Chain::shadow`, the last max(257, E_win + 1) restored entries of a deep rebuild path);
+        // - the views of blocks below the window, one RPC answer and one GetRange/GetFrom block at a time on the
+        //   consensus thread (`Node::canonical_view`, `block_msg`): an offloaded entry with its header, body,
+        //   evidence, receipts and logs;
+        // - canon.redb's page cache (CANON_CACHE, which also holds redb's write buffer for the SYNC_EVERY
+        //   non-durable puts between two durable ones) and its allocator over the observed file (CANON_ROW a row).
+        let batch=add(&[limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?,2])?;
+        let keep=u128::from(cp.E_win).checked_add(1)?.max(257);
+        let view=add(&[offloaded_entry,hdr,u128::from(cp.BODY_MAX),mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?,mul(side_txs,per_tx)?,u128::from(caps::LOG_BLOCK_MAX)/32*33])?;
+        let canon_alloc=redb_alloc_max(add(&[disk.map_or(0,|d|u128::from(d.canon)),mul(mul(blocks,CANON_ROW)?,HISTORY_FILE_FACTOR)?])?)?;
+        hist.extend([("history/canonical window (the Canon deque, C-1 S5)",mul(64,resident.checked_add(1)?)?),
+            ("history/eviction batch (rows on their way to canon.redb)",mul(batch,crate::checkpoint::REC_MIN as u128+32+8+64)?),
+            ("history/reload after a head drop (R_keep slimmed entries)",mul(u128::from(limits.r_keep),slim_entry)?),
+            ("history/rebuild shadow (max(257, E_win + 1) entries)",mul(keep,per_block)?),
+            ("history/RPC and sync views below the window (two blocks)",mul(2,view)?),
+            ("history/canon.redb page cache (CANON_CACHE)",node::canon::CANON_CACHE as u128),("history/canon.redb allocator state",canon_alloc)]);
+    }
+    let history=add(&hist.iter().map(|x|x.1).collect::<Vec<_>>())?;items.extend(hist);
     // Side blocks (D-REORG-REDB): every journaled non-canonical block is offloaded to metadata at the
     // retain() that follows its import (Chain::retain): its encoded header and body (evidence included),
     // receipts and tx hashes are dropped, so an entry is the per-block term less one header and the
@@ -535,10 +629,13 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let seen=add(&[mul(node::SEEN_MAX as u128+1,3*hdr+128)?,mul(node::SEEN_MAX as u128+1,192)?])?;
     let caches=add(&[mul(chain::INVALID_MAX as u128,32+REASON_MAX+64)?,mul(node::RECEIVED_MAX as u128+1,64)?,mul(node::REJECTS_MAX as u128+1,64+REASON_MAX+64)?,
         mul(node::EVIDENCE_POOL_MAX as u128,u128::from(cp.EVID_BYTES_MAX)+24)?,mul(node::FUTURE_MAX as u128,32)?])?;
-    // Inbound peers <= inbound_max; outbound <= one per dialer (net::dial).
-    let peers=mul(inbound+dials as u128,add(&[l.queue_bytes_max as u128,2*frame,4096])?)?;
+    // Automatic outbound (VA-SPEC §1a.7, node::discovery::outbound): S slots (K and the spare, each one connection at a
+    // time) and, with any slot, F = 1 forwarder `out-fwd` they share.
+    let (s,f)=(limits.discovery.slots() as u128,u128::from(limits.discovery.slots()>0));
+    // Inbound peers <= inbound_max; outbound <= one per dialer (net::dial) and one per slot (net::slot).
+    let peers=mul(inbound+dials as u128+s,add(&[l.queue_bytes_max as u128,2*frame,4096])?)?;
     // Each forwarder also holds the one event it is blocked sending (+1).
-    let (main_events,net_events)=(mul(node::EVENT_QUEUE as u128,frame+256)?,mul((1+dials) as u128,mul(net::NET_EVENT_QUEUE as u128+1,frame+256)?)?);
+    let (main_events,net_events)=(mul(node::EVENT_QUEUE as u128,frame+256)?,mul((1+dials) as u128+f,mul(net::NET_EVENT_QUEUE as u128+1,frame+256)?)?);
     // Gossip and inbound grouping:
     // - the relayed TemplateIDs (node::RELAYED_MAX, cleared when full): a HashSet<[u8;32]> with churn;
     // - one place count per public address group (net::Counters::groups, a HashMap<Group,usize> of 17-B
@@ -550,7 +647,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let gossip=add(&[hash32_churn_bytes(node::RELAYED_MAX as u128+1)?,mul(inbound+1,160)?,mul(dials as u128+1,96)?,1024])?;
     // The connections the node can know at once (its Connected not yet followed by its Closed): the live peers,
     // plus one per Closed still queued (in the main queue or a forwarder's, with the one it is blocked sending).
-    let high=add(&[inbound,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
+    let high=add(&[inbound,dials as u128,s,node::EVENT_QUEUE as u128,mul((1+dials) as u128+f,net::NET_EVENT_QUEUE as u128+1)?])?;
     // R10: the node's per-connection maps (node.rs `peers` and `peer_status`, from Connected to Closed), each a
     // HashMap at the churn rule of hash32_churn_bytes (< 32/7 buckets per high-water entry, a control byte each, two
     // allocations: c(x) = ⌈(x+1)·32/7⌉), and each peer's address text (`Peer::addr`), + 1,024.
@@ -594,7 +691,11 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
             ("queues/discovery: per-connection links (churn)",add(&[mul(mul(high,2)?,link)?,512])?),
             ("queues/discovery: selection, answer and self scratch",add(&[mul(2*BOOK_MAX as u128,(size_of::<ab::Source>()+size_of::<ab::Key>()+8) as u128)?,
                 mul(2*CACHE_MAX as u128,size_of::<std::net::SocketAddr>() as u128)?,mul((SELF_MAX+ANCHORS_MAX+7) as u128,64)?,1024])?),
-            ("queues/discovery: address-book file buffers",add(&[crate::launcher::MAX_INVITATION as u128+1,mul(FILE_LINE_MAX as u128,(BOOK_MAX+ANCHORS_MAX+3) as u128)?])?)];
+            ("queues/discovery: address-book file buffers",add(&[crate::launcher::MAX_INVITATION as u128+1,mul(FILE_LINE_MAX as u128,(BOOK_MAX+ANCHORS_MAX+3) as u128)?])?),
+            // Automatic outbound's state (`Out`: the slots, their channels, the seeds, bootstrap addresses, the suppressed
+            // set and the anchors, reserved at open, the slots and channels at the network's start; a const assert keeps
+            // it within OUT_STATE_BYTES), with any slot.
+            ("queues/discovery: outbound state",mul(f,node::OUT_STATE_BYTES as u128)?)];
         queues=add(&[queues,add(&d.map(|x|x.1))?])?;items.extend(d);
     }
     // RPC (rpc::conn): per connection its header buffer (HEAD_MAX+READ_CHUNK, and its lossy UTF-8
@@ -623,14 +724,14 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let rpc=add(&rq.map(|x|x.1))?;items.extend(rq);
     // Threads: reserved stacks (an upper bound on their resident stack) and per-thread heap.
     use crate::threads::{IO_STACK,CONSENSUS_STACK};
-    let io=io_threads(l.inbound_max(),dials,r.conn_max)?;
+    let io=io_threads(l.inbound_max(),dials,s as usize,r.conn_max)?;
     // Exiting-not-yet-joined threads (point 3): a reader/outbound-reader/RPC-conn thread can finish
-    // between its reaper's visits. Bound E = inbound_max + dials + conn_max (writers are joined by
+    // between its reaper's visits. Bound E = inbound_max + dials + S + conn_max (writers are joined by
     // their reader synchronously; singletons never respawn). Measured ~25.8 KiB resident each (the
     // bulk of the stack returns to the exited-stack cache counted below); counted CONSERVATIVELY at a
     // full IO_STACK each, so the term is an upper bound, not the measured figure (evidence/thread-
     // inventory + threadmem). 
-    let exiting=(l.inbound_max()+dials+r.conn_max) as u128;
+    let exiting=(l.inbound_max()+dials+s as usize+r.conn_max) as u128;
     let th=[("threads/I/O thread stacks and heap",mul(io,IO_STACK as u128+THREAD_HEAP)?),("threads/consensus stack",CONSENSUS_STACK as u128),
         ("threads/main stack and heap",MAIN_STACK_RESIDENT+2*THREAD_HEAP),("threads/exited-stack cache",STACK_CACHE),
         ("threads/exiting not-yet-joined (conservative)",mul(exiting,IO_STACK as u128)?)];
@@ -647,6 +748,85 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let _=size_of::<Header>()+size_of::<Body>();
     Some(Bound{snapshots,snapshot_bytes,snapshot_total,diffs,trie,code,store,history,side_blocks,queues,rpc,threads,execution,total,items})
 }
+/// One block entry in memory: its map slot (key and box, a control byte, counted at 4 for growth), the Entry and its
+/// allocation header (`derive`'s per-block term starts from it).
+pub fn entry_bytes()->Option<u128>{add(&[mul(size_of::<([u8;32],Box<Entry>)>() as u128+1,4)?,size_of::<Entry>() as u128,32])}
+/// A slimmed entry (C-1 S4): the entry and its canonical-index slot, with the shared empty state.
+pub fn slim_entry_bytes()->Option<u128>{add(&[entry_bytes()?,64])}
+/// C-1 S5 (PR7 §2.1): the eviction depth E of a node whose replay uses R_keep `rk_replay`: Ok(None) when it is off
+/// (`Limits::evict_depth` Some(0)). E must keep every entry a verdict, a rebuild's evidence walk or an anchor's
+/// BLOCKHASH window reads above the floor (A13-DERIVATION §2g): it is at least E_min, the largest of the slim depth,
+/// 2·R_keep + E_win + 258 and, in store mode (rebuild anchors every R_keep heights at or below the K_hist cut, the
+/// newest one at least lag = 2·R_keep + 2 below the head kept: `Chain::retain_anchors`), max(lag, K_hist) + R_keep +
+/// max(257, E_win + 1), so that newest anchor's BLOCKHASH and evidence windows stay above the floor. The default is
+/// max(slim depth + R_keep, E_min); a configured depth below E_min is refused, naming the term it fails.
+pub fn evict_depth_of(cp:&ConsensusParams,k_hist:u32,limits:&Limits,rk_replay:u64)->Result<Option<u64>,String>{
+    let rk=rk_replay.max(limits.r_keep);let e_win=u64::from(cp.E_win);
+    let depth=limits.slim_depth.unwrap_or(rk.saturating_mul(2).saturating_add(e_win).saturating_add(257));
+    let keep=257u64.max(e_win+1);let lag=rk.saturating_mul(2).saturating_add(2);
+    let mut terms=vec![("the slim depth",depth),("2·R_keep + E_win + 258",rk.saturating_mul(2).saturating_add(e_win).saturating_add(258))];
+    if limits.state_store{terms.push(("the store-mode anchor reach max(2·R_keep + 2, K_hist) + R_keep + max(257, E_win + 1)",lag.max(u64::from(k_hist)).saturating_add(rk).saturating_add(keep)));}
+    let (name,e_min)=terms.iter().copied().max_by_key(|t|t.1).unwrap();
+    match limits.evict_depth{
+        Some(0)=>Ok(None),
+        None=>Ok(Some(depth.saturating_add(rk).max(e_min))),
+        Some(n) if n<e_min=>Err(format!("evict depth {n} is below {name} ({e_min}); it must be at least {e_min}, or 0 to turn eviction off")),
+        Some(n)=>Ok(Some(n)),
+    }
+}
+/// C-1 S5: whether a format-1 checkpoint (every entry of the chain, restored at once before the open's window
+/// evicts it, PR7 §4.4) fits the budget beside the model and the open's replay tables for the journal's `records`:
+/// each entry counted as a slimmed one and 80 bytes of the restore's own tables, and the checkpoints open holds while
+/// it restores (review 2026-11, finding 6): the KEPT checkpoints' bytes, each counted at this one's `entries` (an
+/// older one holds fewer records), and this one decoded (open decodes one at a time). Err names the bytes; open then
+/// replays from genesis, which holds only the window.
+pub fn migration_fits(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize,entries:u64,records:u64)->Result<(),String>{
+    let over=||"A13 migration headroom: arithmetic overflow".to_string();
+    let b=derive(cp,k_hist,side_max,limits,dials).ok_or_else(over)?;let t=open_transient(cp,limits,records).ok_or_else(over)?;
+    let e=u128::from(entries);
+    let snaps=snapshot_raw_bytes(e).and_then(|r|mul(crate::checkpoint::KEPT as u128,r)).and_then(|r|add(&[r,snapshot_decoded_bytes(e)?])).ok_or_else(over)?;
+    let total=mul(e,slim_entry_bytes().ok_or_else(over)?.checked_add(80).ok_or_else(over)?).and_then(|x|add(&[x,b.total,t,snaps])).ok_or_else(over)?;
+    let need=budget_required(total).ok_or_else(over)?;
+    if need>u128::from(limits.mem_budget){return Err(format!("a format-1 checkpoint of {entries} entries needs {need} B with the model, which exceeds the node memory budget {} B; replaying from genesis",limits.mem_budget))}
+    Ok(())
+}
+/// C-1 S5 (PR7 §7): the tables `Node::open` holds while it replays a journal of `records` records, beyond the
+/// steady-state bound (CONDITIONS `open-replay-transient`): per record its frame offset (8 B, `store::Recovered`) and
+/// two replay events (`node::Ev`, 36 B), each table a Vec grown by doubling (counted at twice its length); a rolling
+/// hash every `node::ROLL_SAMPLE` records; and in store mode with checkpoints the KEPT snapshots it decodes, each of
+/// the window's entries (`snapshot_bytes`). About 160 B a record; none for an empty journal (nothing to replay,
+/// and no checkpoint: the one sample, the empty prefix's, is counted with the open's fixed scratch).
+pub fn open_transient(cp:&ConsensusParams,limits:&Limits,records:u64)->Option<u128>{
+    if records==0{return Some(0)}
+    let n=u128::from(records);let per=mul(2,add(&[mul(2,size_of::<node::Ev>() as u128)?,size_of::<u64>() as u128])?)?;
+    let samples=mul(2,mul(n/node::ROLL_SAMPLE as u128+1,32)?)?;
+    let snaps=if limits.state_store&&limits.checkpoint_every>0{
+        // The window a snapshot describes: the evicting chain's E + 2 heights, or every height (eviction off), with the
+        // side blocks and a sync session's protected ones.
+        let held=match (limits.evict_depth.filter(|d|*d>0),cp.H_END){(Some(e),_)=>(n+1).min(u128::from(e)+2),(None,0)=>n+1,(None,h)=>(n+1).min(u128::from(h)+1)};
+        mul(crate::checkpoint::KEPT as u128,snapshot_bytes(add(&[held,limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?])?)?)?
+    }else{0};
+    add(&[mul(n,per)?,samples,snaps])
+}
+/// A checkpoint snapshot open holds while it decodes it (C-1 S5): its bytes (every entry at most `REC_MAX`, the
+/// eviction FIFO, the unslimmed list and the protect set) and the decoded `Snapshot` (a `Rec` and a root per entry,
+/// the same hash lists).
+pub fn snapshot_bytes(entries:u128)->Option<u128>{add(&[snapshot_raw_bytes(entries)?,snapshot_decoded_bytes(entries)?])}
+/// A checkpoint's bytes, as `StateStore::checkpoints` reads them: every entry at most `REC_MAX` and the hash lists.
+pub fn snapshot_raw_bytes(entries:u128)->Option<u128>{add(&[128,mul(entries,crate::checkpoint::REC_MAX as u128)?,snapshot_lists(entries)?])}
+/// A decoded `Snapshot`: a `Rec` and a root per entry, and the same hash lists.
+pub fn snapshot_decoded_bytes(entries:u128)->Option<u128>{add(&[128,mul(entries,add(&[size_of::<crate::checkpoint::Rec>() as u128,32])?)?,snapshot_lists(entries)?])}
+/// The eviction FIFO, the unslimmed list and the protect set: at most EVICTED_MAX + 2·entries hashes.
+fn snapshot_lists(entries:u128)->Option<u128>{mul(add(&[chain::EVICTED_MAX as u128,mul(2,entries)?])?,32)}
+/// C-1 S5 (PR7 §7): the boot check of an open about to replay a journal of `records` records: the bound and the
+/// replay's tables (`open_transient`), with the reserve, must fit the budget. The steady-state checks leave the tables
+/// out (they are gone once the node runs).
+pub fn check_open(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize,records:u64)->Result<(),String>{
+    let b=check(cp,k_hist,side_max,limits,dials)?;let over=||"A13 open transient: arithmetic overflow".to_string();
+    let t=open_transient(cp,limits,records).ok_or_else(over)?;let need=b.total.checked_add(t).and_then(budget_required).ok_or_else(over)?;
+    if need>u128::from(limits.mem_budget){return Err(format!("LOCAL CAPACITY at open: the journal's {records} records need {t} B of replay tables beside the A13 bound {} B, {need} B with its 1/8 reserve, which exceeds the node memory budget {} B; raise --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES",b.total,limits.mem_budget))}
+    Ok(())
+}
 /// The share of the budget kept outside the model (D-A13-BUDGET): allocator headers, size-class
 /// rounding and fragmentation are not modelled (CONDITIONS), so the model total must fit in
 /// RESERVE_KEEP_EIGHTHS/8 of the budget. 7/8 keeps 12.5% (768 MiB of 6 GiB) in reserve.
@@ -656,7 +836,7 @@ pub fn budget_required(total:u128)->Option<u128>{total.checked_mul(8).map(|x|x.d
 /// Boot check: the bound, with the reserve, must fit the node's memory budget.
 pub fn check(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:usize)->Result<Bound,String>{
     node::pool_gas_bound(cp,limits)?;node::pool_sender_gas_bound(cp,limits)?;
-    let b=derive(cp,k_hist,side_max,limits,dials).ok_or_else(||"A13 memory bound: arithmetic overflow".to_string())?;
+    let b=derive(cp,k_hist,side_max,limits,dials).ok_or_else(||derive_none(cp,k_hist,limits))?;
     let need=budget_required(b.total).ok_or_else(||"A13 memory bound: arithmetic overflow".to_string())?;
     if need>u128::from(limits.mem_budget){return Err(format!("A13 memory bound {} B with its 1/8 reserve needs {need} B, which exceeds the node memory budget {} B ({b:?})",b.total,limits.mem_budget))}
     Ok(b)
@@ -672,7 +852,8 @@ mod tests{
         assert_eq!(tasks_fit(128,"128\n"),Ok(()));
         let e=tasks_fit(128,"127").unwrap_err();
         assert_eq!(e,"the A13 thread inventory needs 128 tasks; this service allows 127 (raise TasksMax or lower --peers-max)");
-        assert_eq!(tasks_needed(&net::Limits::default(),2,32),Some(128),"the defaults at 2 configured peers");
-        assert_eq!(tasks_needed(&net::Limits{peers_max:net::PEERS_MAX_LIMIT,..Default::default()},7,32),Some(340),"the largest setting at 7");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,5,32),Some(144),"the defaults at 2 configured peers and S = 5");
+        assert_eq!(tasks_needed(&net::Limits{peers_max:net::PEERS_MAX_LIMIT,..Default::default()},7,9,32),Some(368),"the largest setting at 7 and S = 9");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,0,32),Some(128),"no automatic outbound");
     }
 }

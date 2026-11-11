@@ -177,6 +177,9 @@ def launch(bundle, data, key):
                 '--state-store', '--checkpoint-every', '128', '--log'] + LOCAL_ARGS
         if key is not None: args += ['--miner-key-file', str(key)]
         for peer in config['peers']: args += ['--peer', peer]
+        # PR2b (VA-SPEC §1a.8-§1a.9): seeds and bootstrap addresses of a joining node; older node.json files have none.
+        for seed in config.get('seeds', []): args += ['--seed', seed]
+        for addr in config.get('bootstrap', []): args += ['--bootstrap', addr]
         os.set_inheritable(handles[0], True)
         os.execv(args[0], args)
 

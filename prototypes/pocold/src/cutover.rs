@@ -70,7 +70,8 @@ pub fn transform(old:&InMemoryDB,height:u64,d:u64,miners:&[Address],bond:U256)->
 /// for the last K_hist blocks (32), and the runbook cuts S at least 60 below the head. The rebuild re-executes
 /// through the node's own path (TrieRebuild) from genesis, the nearest state kept below S, and checks every
 /// rebuilt stateRoot against its header. The evidence walk of a re-executed block reads the chain's own entries,
-/// up to E_win heights back; one that is slimmed (C-1 S4) ends the round with NeedsRebuild. That entry and the
+/// up to E_win heights back, through restored copies of the slimmed ones (PR7, `Chain::ensure_state_with`), so
+/// one round suffices. A walk that still meets a slimmed entry (C-1 S4) ends the round with NeedsRebuild. That entry and the
 /// slimmed canonical entries in the E_win heights below it are restored and the rebuild runs again, as import
 /// does, so each such evidence block costs at most one more round. Every round but the last restores a slimmed
 /// entry and nothing slims one again here, so there are at most that many rounds plus one; the bound only turns
@@ -108,6 +109,10 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     let mut node=crate::node::Node::open(cfg,spec)?;
     let head=node.chain.head().height;
     if height>head{return Err(format!("height {height} is above the old head {head}"))}
+    // C-1 S5: a state is rebuilt from the chain the node holds in memory (`rebuild_at`); below the window the
+    // canonical entries are in the node's index only. The runbook cuts at about head - 60.
+    let base=node.chain.canonical.base();
+    if height>0&&height<base{return Err(format!("height {height} is below the in-memory window (E = {}, it starts at height {base}); cut within E blocks of the head",node.chain.evict_depth.unwrap_or(0)))}
     let hash=node.chain.canonical_at(height).ok_or("no canonical block at that height")?.hash;
     let block=crate::types::hex(&hash);
     rebuild_at(&mut node,&hash,height)?;
