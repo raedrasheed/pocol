@@ -25,7 +25,7 @@ final class WalletText {
     }
     /** Key backup (CRY-02): the same texts in both wallets. The format is pocold's keyfile::backup. */
     static final String BACKUP_INFO="Back up your key to an encrypted file. Anyone with the file and its passphrase controls your PCOL. Without a backup, a lost device, a reset or an uninstall loses the account for good.";
-    static final String BACKUP_PASSPHRASE="Choose a passphrase of at least 12 characters. It is never stored: if you forget it, the backup cannot be opened.";
+    static final String BACKUP_PASSPHRASE="Choose a passphrase of at least 12 characters that is not a repeated pattern, a sequence or a common password. It is never stored: if you forget it, the backup cannot be opened.";
     static final String BACKUP_STORE="Keep the file and the passphrase in different places. Never share either one, and never send them to anyone who asks.";
     static final String BACKUP_SAVED="Encrypted key backup saved. Keep it and its passphrase apart.";
     static final String RESTORE_REPLACE="Restoring replaces the account this wallet uses now. Its key file is kept in the wallet folder, but move its funds first if you have no backup of it.";

@@ -12,18 +12,32 @@ The release APK is unsigned; see `deploy/standalone/RELEASE-UPGRADE.md` for sign
 
 **Settings → Key backup** has two actions:
 
-- **Back up key to encrypted file.** Choose a passphrase of at least 12 characters and type it twice. The node
-  encrypts the key, opens the result again to check it, and hands the encrypted bytes to Android's file picker.
-  You choose where to save it (for example a USB drive or a cloud folder). The plaintext key is never written to
-  disk, shown on screen or put on the clipboard.
+- **Back up key to encrypted file.** Choose a passphrase of at least 12 characters and type it twice. Passphrases
+  that guessing tools try first are refused: fewer than 5 different characters, a repeated part
+  (`abcabcabcabc`), a sequence (`abcdefghijkl`, `345678901234`) and passwords built on a common word or keyboard
+  run (`Password2024!`, `P@ssw0rd1234`, `qwertyuiop123`). The node encrypts the key and opens the result again to
+  check it. Android's file picker then creates the file you choose (for example on a USB drive or in a cloud
+  folder); the wallet writes the encrypted bytes, reads the file back and compares every byte before it reports
+  the backup as saved. If anything fails, or the app was restarted while the picker was open, the wallet deletes
+  the file the picker created (or asks you to, when the storage does not allow it), so an empty or partial file
+  never looks like a backup. The plaintext key is never written to disk, shown on screen or put on the clipboard.
 - **Restore key from backup.** Pick a backup file and enter its passphrase. If restoring would replace the
   account this wallet uses now, the wallet shows both addresses and asks you to confirm. The replaced key is not
   deleted: it stays in the app's private folder as `identity.pocol-key.replaced-<address>`.
 
 Both actions need the wallet disconnected. The passphrase dialogs set `FLAG_SECURE`, so Android blocks
 screenshots, screen recording and the recents thumbnail while they are open. Passphrase fields turn off
-autofill and suggestions. The passphrase is kept in `char[]`/`byte[]` buffers that are wiped after use, never in
-a `String`.
+autofill, suggestions and keyboard learning. The wallet copies the passphrase out of the field into `char[]`/`byte[]`
+buffers that are wiped after use (never a `String`), and overwrites the field's text before clearing it. This is
+best effort: the keyboard app and the text field's earlier buffers can keep copies the wallet cannot reach, so
+choose a passphrase you use nowhere else. A dialog still open when Android destroys the screen (for example on
+rotation) is closed and its fields are wiped.
+
+Android backup and device-to-device transfer copy nothing of this app: `allowBackup="false"` and
+`fullBackupContent="false"` (Android 8 to 11), and `dataExtractionRules` (`res/xml/data_extraction_rules.xml`)
+excludes every domain from both cloud backup and device transfer on Android 12 and later. Device transfer would
+otherwise copy the raw key file, and the same key on two phones can lose a mining bond. Use the encrypted backup to
+move a wallet.
 
 Keep the backup file and its passphrase in different places. Anyone who has both controls the account. Nobody can
 open the file without the passphrase, and there is no reset.

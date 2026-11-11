@@ -22,8 +22,15 @@ public final class MainActivity extends Activity {
     private final Handler main=new Handler(Looper.getMainLooper());
     private Messenger service;
     private boolean bound, updating, requestPending, networkActionPending, keyActionPending;
-    /** The encrypted backup (ciphertext only) waiting for the user to pick where it is saved. */
+    /** The encrypted backup (ciphertext only) waiting for the user to pick where it is saved. It is kept in the saved
+     *  instance state, so a rotation or process death while the file picker is open does not lose it. */
     private byte[] pendingBackup;
+    private static final String PENDING_BACKUP="pendingBackup";
+    /** The open dialog of a key action, dismissed (which wipes its fields) when the activity is destroyed. */
+    private AlertDialog keyDialog;
+    /** The activity on screen. A key action's background result goes to it when the activity that started the action
+     *  was destroyed meanwhile (a rotation recreates the activity). Main thread only. */
+    private static MainActivity live;
     private String home,address="",tab="Wallet";
     private long responseId;
     private JSONObject snapshot=new JSONObject();
@@ -67,7 +74,8 @@ public final class MainActivity extends Activity {
     private EditText input(LinearLayout form,String label,String hint,int inputType){
         TextView caption=text(label,13,MUTED,true);form.addView(caption);EditText field=new EditText(this);field.setId(View.generateViewId());caption.setLabelFor(field.getId());field.setHint(hint);field.setTextColor(INK);field.setHintTextColor(MUTED);field.setTextSize(16);field.setSingleLine(true);field.setInputType(inputType);field.setMinHeight(dp(54));field.setPadding(dp(14),dp(12),dp(14),dp(12));field.setBackground(surface(BG,12));form.addView(field,new LinearLayout.LayoutParams(-1,-2));gap(form,12);return field;
     }
-    @Override public void onCreate(Bundle state){super.onCreate(state);home=new File(getFilesDir(),"pocol").getAbsolutePath();getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);getWindow().getDecorView().setSystemUiVisibility(0);
+    @Override public void onCreate(Bundle state){super.onCreate(state);live=this;home=new File(getFilesDir(),"pocol").getAbsolutePath();
+        if(state!=null){pendingBackup=state.getByteArray(PENDING_BACKUP);if(pendingBackup!=null)keyActionPending=true;}getWindow().setStatusBarColor(BG);getWindow().setNavigationBarColor(BG);getWindow().getDecorView().setSystemUiVisibility(0);
         address=getPreferences(MODE_PRIVATE).getString("address","");
         if(address.isEmpty())try{JSONObject r=new JSONObject(Native.identity(home));address=r.optString("address");if(!address.isEmpty())getPreferences(MODE_PRIVATE).edit().putString("address",address).apply();else notice(r.optString("error","Cannot create identity"));}catch(JSONException e){notice("Cannot create identity");}
         render();
@@ -145,6 +153,13 @@ public final class MainActivity extends Activity {
     private void attach(){if(!bound)bound=bindService(new Intent(this,NodeService.class),connection,0);}
     @Override protected void onStart(){super.onStart();attach();main.post(refresh);}
     @Override protected void onStop(){main.removeCallbacks(refresh);if(bound){unbindService(connection);bound=false;service=null;}super.onStop();}
+    @Override protected void onSaveInstanceState(Bundle out){super.onSaveInstanceState(out);if(pendingBackup!=null)out.putByteArray(PENDING_BACKUP,pendingBackup);}
+    @Override protected void onDestroy(){
+        // A dialog left open would leak its window and never run its dismiss listener, which wipes the passphrase.
+        if(keyDialog!=null){AlertDialog d=keyDialog;keyDialog=null;d.dismiss();}
+        if(live==this)live=null;
+        super.onDestroy();
+    }
     private static byte[] readLimited(InputStream in)throws IOException{ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[8192];int n;while((n=in.read(b))!=-1){if(out.size()+n>1048576)throw new IOException("File exceeds 1 MiB");out.write(b,0,n);}return out.toByteArray();}
     private void pickNetwork(int request){
         if(networkActionPending){notice("Finish the current network action first.");return;}
@@ -183,17 +198,32 @@ public final class MainActivity extends Activity {
         dialog.show();styleDialog(dialog);
     }
     // ---- Encrypted key backup (pocold keyfile::backup, CRY-02). The key never reaches Java: Rust returns the
-    // ciphertext for export and takes the file bytes for restore. Passphrases stay in char/byte arrays that are wiped;
-    // every dialog that shows a passphrase field is FLAG_SECURE (no screenshots, recordings or recents thumbnail).
+    // ciphertext for export and takes the file bytes for restore. Passphrases are copied out of the fields into
+    // char/byte arrays that are wiped after use, and the fields are overwritten before they are cleared. That is best
+    // effort: the keyboard and the field's earlier buffers can keep copies Java cannot reach. Every dialog that shows
+    // a passphrase field is FLAG_SECURE (no screenshots, recordings or recents thumbnail).
     private EditText secretInput(LinearLayout form,String label){
         EditText field=input(form,label,"",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_VARIATION_PASSWORD|InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         // No autofill, no keyboard learning, no long-press menu; a password field already refuses copy and cut.
         field.setImportantForAutofill(View.IMPORTANT_FOR_AUTOFILL_NO);field.setImeOptions(android.view.inputmethod.EditorInfo.IME_FLAG_NO_PERSONALIZED_LEARNING);field.setLongClickable(false);
         return field;
     }
-    /** The field's characters in a new array; the field is cleared, so its buffer no longer holds them. */
-    private static char[] take(EditText field){android.text.Editable e=field.getText();char[] chars=new char[e.length()];e.getChars(0,chars.length,chars,0);e.clear();return chars;}
-    private AlertDialog secureDialog(AlertDialog.Builder builder){AlertDialog d=builder.create();if(d.getWindow()!=null)d.getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE,WindowManager.LayoutParams.FLAG_SECURE);return d;}
+    /** The field's characters in a new array; the field is then wiped ({@link #wipe(EditText)}). */
+    private static char[] take(EditText field){android.text.Editable e=field.getText();char[] chars=new char[e.length()];e.getChars(0,chars.length,chars,0);wipe(field);return chars;}
+    /** Overwrites the field's text in place with filler of the same length, then clears it: clear() alone only resets
+     *  the length and leaves the characters in the editor's buffer. Best effort, as above. */
+    private static void wipe(EditText field){android.text.Editable e=field.getText();int n=e.length();if(n>0){char[] fill=new char[n];java.util.Arrays.fill(fill,' ');e.replace(0,n,java.nio.CharBuffer.wrap(fill));}e.clear();}
+    /** A FLAG_SECURE dialog, tracked as the open key dialog until it is dismissed. */
+    private AlertDialog secureDialog(AlertDialog.Builder builder){AlertDialog d=builder.create();if(d.getWindow()!=null)d.getWindow().setFlags(WindowManager.LayoutParams.FLAG_SECURE,WindowManager.LayoutParams.FLAG_SECURE);keyDialog=d;return d;}
+    private void keyDialogClosed(DialogInterface d){if(keyDialog==d)keyDialog=null;}
+    /** The activity to show a key action's background result: this one, the one that replaced it, or null. */
+    private MainActivity shown(){
+        if(!isFinishing()&&!isDestroyed())return this;
+        MainActivity a=live;
+        return a!=null&&a!=this&&!a.isFinishing()&&!a.isDestroyed()?a:null;
+    }
+    /** Deletes a document the file picker created, when no complete backup could be written to it. */
+    private boolean deleteDocument(android.net.Uri uri){try{return android.provider.DocumentsContract.deleteDocument(getContentResolver(),uri);}catch(Exception e){return false;}}
     private boolean keyActionAllowed(){
         if(service!=null){notice(WalletText.KEY_DISCONNECT);return false;}
         if(keyActionPending||networkActionPending){notice("Finish the current action first.");return false;}
@@ -204,7 +234,7 @@ public final class MainActivity extends Activity {
         LinearLayout form=dialogBody();form.addView(text(WalletText.BACKUP_INFO,13,MUTED,false));form.addView(text(WalletText.BACKUP_PASSPHRASE,13,MUTED,false));form.addView(text(WalletText.BACKUP_STORE,13,MUTED,false));gap(form,8);
         EditText first=secretInput(form,"Backup passphrase"),second=secretInput(form,"Repeat the passphrase");
         AlertDialog dialog=secureDialog(new AlertDialog.Builder(this).setTitle("Back up your key").setView(scrollBody(form)).setNegativeButton("Cancel",null).setPositiveButton("Encrypt backup",null));
-        dialog.setOnDismissListener(d->{first.getText().clear();second.getText().clear();});
+        dialog.setOnDismissListener(d->{wipe(first);wipe(second);keyDialogClosed(d);});
         dialog.setOnShowListener(v->{styleDialog(dialog);dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(b->{
             char[] a=take(first),c=take(second);
             try{
@@ -224,6 +254,8 @@ public final class MainActivity extends Activity {
         dialog.show();
     }
     private void exported(String raw){
+        MainActivity a=shown();
+        if(a!=this){keyActionPending=false;if(a!=null&&!a.keyActionPending){a.keyActionPending=true;a.exported(raw);}return;}
         try{
             JSONObject r=new JSONObject(raw==null?"{\"error\":\"Key backup failed\"}":raw);
             if(r.has("error")){keyActionPending=false;notice(r.optString("error"));return;}
@@ -241,22 +273,30 @@ public final class MainActivity extends Activity {
         android.net.Uri uri=result==RESULT_OK&&data!=null?data.getData():null;
         if(request==SAVE_KEY_BACKUP){
             final byte[] backup=pendingBackup;pendingBackup=null;
-            if(uri==null||backup==null){keyActionPending=false;notice("Backup not saved.");return;}
+            if(uri==null){keyActionPending=false;notice("Backup not saved.");return;}
+            // The picker has already created the file. Unless it ends up holding the complete backup, read back and
+            // compared byte for byte, it is deleted: an empty or partial file must never look like a backup.
             new Thread(()->{
                 String message=WalletText.BACKUP_SAVED;
-                try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("Cannot write file");out.write(backup);out.flush();}
-                catch(Exception e){message="Backup not saved: "+e.getMessage();}
-                final String m=message;main.post(()->{keyActionPending=false;notice(m);});
+                try{
+                    if(backup==null)throw new IOException("the app was restarted while the file picker was open. Make the backup again");
+                    try(OutputStream out=getContentResolver().openOutputStream(uri,"wt")){if(out==null)throw new IOException("Cannot write file");out.write(backup);out.flush();}
+                    byte[] saved;
+                    try(InputStream in=getContentResolver().openInputStream(uri)){if(in==null)throw new IOException("Cannot read the saved file back");saved=readLimited(in);}
+                    if(!java.util.Arrays.equals(saved,backup))throw new IOException("the saved file does not match the backup");
+                }catch(Exception e){message="Backup not saved: "+e.getMessage()+(deleteDocument(uri)?"":". Delete the incomplete file you chose.");}
+                final String m=message;main.post(()->{keyActionPending=false;MainActivity a=shown();if(a!=null)a.notice(m);});
             },"key-backup-save").start();
             return;
         }
         if(uri==null){keyActionPending=false;return;}
+        keyActionPending=true;
         new Thread(()->{
             try(InputStream in=getContentResolver().openInputStream(uri)){
                 if(in==null)throw new IOException("Cannot read file");
                 byte[] file=readLimited(in);
                 if(file.length>KeyBackup.MAX_FILE_BYTES)throw new IOException("This is not a PoCol key backup");
-                main.post(()->askRestorePassphrase(file));
+                main.post(()->{MainActivity a=shown();if(a==this)askRestorePassphrase(file);else{keyActionPending=false;if(a!=null&&!a.keyActionPending){a.keyActionPending=true;a.askRestorePassphrase(file);}}});
             }catch(Exception e){main.post(()->{keyActionPending=false;notice("Backup file failed: "+e.getMessage());});}
         },"key-backup-open").start();
     }
@@ -266,7 +306,7 @@ public final class MainActivity extends Activity {
         EditText field=secretInput(form,"Backup passphrase");
         final boolean[] opened={false};
         AlertDialog dialog=secureDialog(new AlertDialog.Builder(this).setTitle("Restore key from backup").setView(scrollBody(form)).setNegativeButton("Cancel",null).setPositiveButton("Open backup",null));
-        dialog.setOnDismissListener(d->{field.getText().clear();if(!opened[0])keyActionPending=false;});
+        dialog.setOnDismissListener(d->{wipe(field);keyDialogClosed(d);if(!opened[0])keyActionPending=false;});
         dialog.setOnShowListener(v->{styleDialog(dialog);dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(b->{
             char[] chars=take(field);byte[] pass=KeyBackup.utf8(chars);KeyBackup.wipe(chars);
             if(pass==null||pass.length==0){notice("Enter the backup passphrase");return;}
@@ -274,16 +314,19 @@ public final class MainActivity extends Activity {
             new Thread(()->{
                 String raw;try{raw=Native.inspectKeyBackup(home,file,pass);}catch(RuntimeException e){raw=null;}
                 final String reply=raw;
-                main.post(()->{
-                    try{
-                        JSONObject preview=new JSONObject(reply==null?"{\"error\":\"Key backup failed\"}":reply);
-                        if(preview.has("error")){KeyBackup.wipe(pass);keyActionPending=false;notice(preview.optString("error"));return;}
-                        if(preview.optBoolean("replaces"))confirmRestore(file,pass,preview);else restoreKey(file,pass,"");
-                    }catch(JSONException e){KeyBackup.wipe(pass);keyActionPending=false;notice("Key backup failed");}
-                });
+                main.post(()->inspected(file,pass,reply));
             },"key-backup-inspect").start();
         });});
         dialog.show();
+    }
+    private void inspected(byte[] file,byte[] pass,String reply){
+        MainActivity a=shown();
+        if(a!=this){keyActionPending=false;if(a!=null&&!a.keyActionPending){a.keyActionPending=true;a.inspected(file,pass,reply);}else KeyBackup.wipe(pass);return;}
+        try{
+            JSONObject preview=new JSONObject(reply==null?"{\"error\":\"Key backup failed\"}":reply);
+            if(preview.has("error")){KeyBackup.wipe(pass);keyActionPending=false;notice(preview.optString("error"));return;}
+            if(preview.optBoolean("replaces"))confirmRestore(file,pass,preview);else restoreKey(file,pass,"");
+        }catch(JSONException e){KeyBackup.wipe(pass);keyActionPending=false;notice("Key backup failed");}
     }
     private void confirmRestore(byte[] file,byte[] pass,JSONObject preview){
         if(isFinishing()||isDestroyed()){KeyBackup.wipe(pass);keyActionPending=false;return;}
@@ -294,7 +337,7 @@ public final class MainActivity extends Activity {
         final boolean[] confirmed={false};
         AlertDialog dialog=secureDialog(new AlertDialog.Builder(this).setTitle("Replace this wallet's account?").setView(scrollBody(body))
             .setNegativeButton("Cancel",null).setPositiveButton("Replace account",(d,w)->{confirmed[0]=true;restoreKey(file,pass,current);}));
-        dialog.setOnDismissListener(d->{if(!confirmed[0]){KeyBackup.wipe(pass);keyActionPending=false;}});
+        dialog.setOnDismissListener(d->{keyDialogClosed(d);if(!confirmed[0]){KeyBackup.wipe(pass);keyActionPending=false;}});
         dialog.show();styleDialog(dialog);
     }
     private void restoreKey(byte[] file,byte[] pass,String replace){
@@ -304,13 +347,18 @@ public final class MainActivity extends Activity {
             final String reply=raw;
             main.post(()->{
                 keyActionPending=false;
+                // The restore has happened whether or not this activity is still on screen: record the address,
+                // then show it on the activity that is (after a rotation, the new one).
+                MainActivity a=shown();
                 try{
                     JSONObject r=new JSONObject(reply==null?"{\"error\":\"Key restore failed\"}":reply);
-                    if(r.has("error")){notice(r.optString("error"));return;}
-                    address=r.optString("address");getPreferences(MODE_PRIVATE).edit().putString("address",address).apply();
-                    snapshot=new JSONObject();tab="Settings";render();
-                    notice(WalletText.restored(r.optBoolean("changed"),address));
-                }catch(JSONException e){notice("Key restore failed");}
+                    if(r.has("error")){if(a!=null)a.notice(r.optString("error"));return;}
+                    String restored=r.optString("address");getPreferences(MODE_PRIVATE).edit().putString("address",restored).apply();
+                    address=restored;
+                    if(a==null)return;
+                    a.address=restored;a.snapshot=new JSONObject();a.tab="Settings";a.render();
+                    a.notice(WalletText.restored(r.optBoolean("changed"),restored));
+                }catch(JSONException e){if(a!=null)a.notice("Key restore failed");}
             });
         },"key-backup-restore").start();
     }

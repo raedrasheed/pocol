@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12 and later: nothing of this app leaves the device through cloud backup or device-to-device transfer.
+     allowBackup="false" stops cloud backup only; device transfer would otherwise copy the raw key
+     (files/pocol/identity.pocol-key and every identity.pocol-key.replaced-*) to the new phone, putting one key on two
+     devices. Moving a wallet is the encrypted key backup's job. Android 8 to 11 read fullBackupContent="false". -->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="root" path="."/>
+        <exclude domain="file" path="."/>
+        <exclude domain="database" path="."/>
+        <exclude domain="sharedpref" path="."/>
+        <exclude domain="external" path="."/>
+        <exclude domain="device_root" path="."/>
+        <exclude domain="device_file" path="."/>
+        <exclude domain="device_database" path="."/>
+        <exclude domain="device_sharedpref" path="."/>
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="root" path="."/>
+        <exclude domain="file" path="."/>
+        <exclude domain="database" path="."/>
+        <exclude domain="sharedpref" path="."/>
+        <exclude domain="external" path="."/>
+        <exclude domain="device_root" path="."/>
+        <exclude domain="device_file" path="."/>
+        <exclude domain="device_database" path="."/>
+        <exclude domain="device_sharedpref" path="."/>
+    </device-transfer>
+</data-extraction-rules>

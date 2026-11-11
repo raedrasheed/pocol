@@ -179,6 +179,28 @@ class AndroidJniStrings(unittest.TestCase):
     def test_key_backup_bytes_cross_exactly_and_are_bounded(self): self.check('key-backup')
 
 
+class AndroidBackupRules(unittest.TestCase):
+    def test_no_app_data_leaves_through_cloud_backup_or_device_transfer(self):
+        # allowBackup="false" stops cloud backup only. On Android 12+ device-to-device transfer reads
+        # dataExtractionRules and would otherwise copy the raw key file to a new phone: one key on two devices.
+        import xml.etree.ElementTree as ET
+        android = '{http://schemas.android.com/apk/res/android}'
+        main = ROOT / 'prototypes/pocol-android/app/src/main'
+        app = ET.parse(main / 'AndroidManifest.xml').getroot().find('application')
+        self.assertEqual(app.get(android + 'allowBackup'), 'false')
+        self.assertEqual(app.get(android + 'fullBackupContent'), 'false', 'Android 8 to 11')
+        self.assertEqual(app.get(android + 'dataExtractionRules'), '@xml/data_extraction_rules')
+        rules = ET.parse(main / 'res/xml/data_extraction_rules.xml').getroot()
+        domains = {'root', 'file', 'database', 'sharedpref', 'external',
+                   'device_root', 'device_file', 'device_database', 'device_sharedpref'}
+        for section in ('cloud-backup', 'device-transfer'):
+            part = rules.find(section)
+            self.assertIsNotNone(part, section)
+            self.assertEqual(part.findall('include'), [], section)
+            excluded = {e.get('domain') for e in part.findall('exclude') if e.get('path') == '.'}
+            self.assertEqual(excluded, domains, section)
+
+
 class WalletTexts(unittest.TestCase):
     def test_the_windows_wallet_shows_the_android_texts(self):
         # Plan §5: both wallets tell a lagging node the same thing.

@@ -1,8 +1,10 @@
 package org.pocol.node;
 
 /** Byte handling for the encrypted key backup (pocold keyfile::backup, CRY-02). No Android types, so the host JVM
- *  test (deploy/standalone/test_android_jni.py) covers it. Passphrases stay in char/byte arrays that are wiped after
- *  use, never in a String, and only the backup's ciphertext reaches Java. */
+ *  test (deploy/standalone/test_android_jni.py) covers it. Passphrases are handled as char/byte arrays that are
+ *  wiped after use, never as a String, and only the backup's ciphertext reaches Java. The wiping is best effort: the
+ *  keyboard and the text field's own buffers can keep copies that Java cannot reach (MainActivity overwrites the
+ *  field before clearing it). The passphrase policy beyond the length is Rust's (keyfile::backup). */
 final class KeyBackup {
     static final int MIN_PASSPHRASE_CHARS=12, MAX_PASSPHRASE_BYTES=1024, MAX_FILE_BYTES=4096;
     static final String MIME="application/octet-stream";
