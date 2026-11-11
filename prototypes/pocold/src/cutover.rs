@@ -99,9 +99,7 @@ pub fn rebuild_at(node:&mut crate::node::Node,hash:&[u8;32],height:u64)->Result<
 /// `pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]`
 pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],out:&std::path::Path,limits:crate::node::Limits,local:&pocol_lp4_execution::admission::NodeLocal)->Result<(),String>{
     if out.exists(){return Err("output must be a new directory; genesis is never overwritten".into())}
-    let parsed:Value=serde_json::from_slice(config).map_err(|_|"invalid new genesis config")?;
-    if parsed["earnin"]!=json!(true)||parsed["continuous"]!=json!(true){return Err("the new network config must set \"earnin\": true and \"continuous\": true".into())}
-    let miners:Vec<Address>=parsed["miners"].as_array().ok_or("miners")?.iter().map(|m|m["reward"].as_str().unwrap_or("").parse().map_err(|_|"miner reward address".to_string())).collect::<Result<_,_>>()?;
+    let (miners,new_bond)=crate::testnet::cutover_params(config)?;
     let spec=crate::load_spec_for(net,local,limits.state_store.then_some(data))?;
     let (chain_id,genesis)=(spec.chain_id(),crate::types::hex(&spec.genesis_hash()));
     let d=u64::from(spec.cp().D);
@@ -122,7 +120,6 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     let hashes:Vec<_>=old.accounts.values().filter_map(|a|a.info()).filter(|i|i.code.is_none()&&i.code_hash!=revm::primitives::KECCAK_EMPTY).map(|i|i.code_hash).collect();
     for h in hashes{if let Some(c)=state.v().contract(&h){old.contracts.insert(h,c);}}
     drop(state);
-    let new_bond:U256="20000000000000000000".parse().unwrap();
     let (alloc,mut report)=transform(&old,height,d,&miners,new_bond)?;
     report["old"]=json!({"chainId":chain_id,"genesisHash":genesis,"height":height,"blockHash":block,"head":head});
     drop(node);

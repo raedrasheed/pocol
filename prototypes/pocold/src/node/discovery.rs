@@ -695,11 +695,11 @@ mod tests{
     /// (this node is behind: the generic text with the instruction), a caps-test peer and an unpinned peer with its
     /// aggregate. Another chain id forgets the address. The reason reaches node and wallet status, bounded.
     #[test] fn consensus_mismatch_refused(){
-        use crate::identity::{Consensus,FLAG_CAPS_TEST,FLAG_UNPINNED};
+        use crate::identity::{Consensus,FLAG_CAPS_TEST,FLAG_UNPINNED,FLAG_V3_PREVIEW};
         let (mut n,dir)=open("consensus-mismatch");
         // This node's schedule is the devnet's [(1,0)]: rebuild its identity on a v2 schedule so prefixes can be told,
-        // as a pinned build (an unpinned one explains every refusal by its own unpinned tree; identity::tests cover that).
-        let h=1_000;let ours=Consensus::new(n.consensus.chain_id,n.consensus.genesis,&[(1,0),(2,h)],n.consensus.rules,n.consensus.flags&!FLAG_UNPINNED,None);
+        // as an ordinary pinned build (identity::tests separately cover unpinned and preview source isolation).
+        let h=1_000;let ours=Consensus::new(n.consensus.chain_id,n.consensus.genesis,&[(1,0),(2,h)],n.consensus.rules,n.consensus.flags&!(FLAG_UNPINNED|FLAG_V3_PREVIEW),None);
         n.consensus=ours.clone();
         let other=|forks:&[(u16,u64)],rules,flags,sources|Consensus::new(ours.chain_id,ours.genesis,forks,rules,flags,sources).id;
         let cases:[([u8;32],&str);6]=[

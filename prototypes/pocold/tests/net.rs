@@ -1113,9 +1113,13 @@ fn pacer_batch()->String{
 /// a complete answer and counts batchWallHits, whether it is reached while members run (A) or while
 /// the answer is sent to a client that does not read (B; the pacer is set not to fire first).
 #[test] fn batch_wall_closes_the_batch(){let _g=serial();
-    let c=&pocold::rpc::COUNTERS;let d=heavy_duration();
-    let mut l=small();l.rpc.batch_wall=(d/2).max(Duration::from_millis(2));l.rpc.work_deadline=Duration::from_secs(60);let r=start("wall",l);
-    let w0=counter(&c.batch_wall_hits);let (code,b)=rpc(r.rpc,&format!("[{HEAVY},{HEAVY},{LIGHT}]"),false);
+    let c=&pocold::rpc::COUNTERS;let heavy=blake_max();let d=duration_of("wall-duration",&heavy);
+    // The native precompile is uninterruptible. Cap the calibrated deadline so a loaded
+    // calibration cannot let later, faster calls finish the entire batch within the wall.
+    let wall=(d/8).min(Duration::from_millis(10));
+    let mut l=small();l.rpc.batch_wall=wall;l.rpc.work_deadline=Duration::from_secs(60);let r=start("wall",l);
+    let (w0,d0)=(counter(&c.batch_wall_hits),counter(&c.deadline_hits));
+    let (code,b)=rpc(r.rpc,&format!("[{heavy},{heavy},{LIGHT}]"),false);
     assert!(code==0&&b.is_empty(),"closed without an answer: {code} {b}");assert_eq!(counter(&c.batch_wall_hits)-w0,1);
     let mut l=small();l.rpc.batch_wall=Duration::from_secs(2);l.rpc.min_send_rate=1;l.rpc.grace=Duration::from_secs(600);l.rpc.work_deadline=Duration::from_secs(60);let r=start("wall2",l);
     let member=r#"{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"data":"0x621000006000fd","gas":"0x1c9c380"},"latest"]}"#;let body=format!("[{}]",vec![member;10].join(","));
@@ -1130,7 +1134,7 @@ fn pacer_batch()->String{
     let hd=out.windows(4).position(|w|w==b"\r\n\r\n").map_or(out.len(),|i|i+4);
     let len:usize=String::from_utf8_lossy(&out[..hd]).lines().find_map(|h|h.strip_prefix("Content-Length: ").map(|x|x.trim().parse().unwrap())).unwrap_or(usize::MAX);
     assert!(out.len()-hd<len,"the answer is incomplete: {} of {len} B",out.len()-hd);
-    println!("WALL {}",serde_json::json!({"computeWallMs":(d/2).as_millis() as u64,"sendWallClosedMs":at.as_millis() as u64,"bytesBeforeClose":out.len()}));
+    println!("WALL {}",serde_json::json!({"computeWallMs":wall.as_millis() as u64,"computeDeadlineHits":counter(&c.deadline_hits)-d0,"sendWallClosedMs":at.as_millis() as u64,"bytesBeforeClose":out.len()}));
 }
 /// Review V7: eth_estimateGas stops its search at the first simulation the deadline stops (one
 /// -32020, no further simulations). The initcode loops 250k times (6.5M gas) and succeeds, so the

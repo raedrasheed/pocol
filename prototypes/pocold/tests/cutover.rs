@@ -89,14 +89,17 @@ fn admitted<T>(r: Result<T, String>, net: &Path) -> T {
 }
 
 #[test]
-fn a_stopped_old_chain_becomes_an_earn_in_genesis_that_keeps_every_account() { scenario(false) }
+fn a_stopped_old_chain_becomes_an_earn_in_genesis_that_keeps_every_account() { scenario(false, 20) }
 /// The same from a store-mode data directory (state.redb trie versions), as `pocol start` nodes run.
 #[test]
-fn a_store_mode_old_chain_gives_the_same_cutover() { scenario(true) }
+fn a_store_mode_old_chain_gives_the_same_cutover() { scenario(true, 20) }
 
-fn scenario(store: bool) {
+#[test]
+fn a_cutover_reads_a_25_pcol_bond_from_target_cp() { scenario(false, 25) }
+
+fn scenario(store: bool, bond_pcol: u128) {
     let _serial = serial();
-    let tag = if store { "store" } else { "whole" };
+    let tag = format!("{}-{bond_pcol}",if store { "store" } else { "whole" });
     let limits = || Limits { state_store: store, ..Default::default() };
     let (old_dir, data) = (temp(&format!("old-{tag}")), temp(&format!("data-{tag}")));
     let (_cfg, keys, miners) = old_network(&old_dir);
@@ -125,8 +128,10 @@ fn scenario(store: bool) {
     let contract = old.accounts.iter().find(|(_, a)| a.info.code.as_ref().is_some_and(|c| c.original_byte_slice() == [0u8])).map(|(a, _)| *a).expect("contract deployed");
     drop(node);
 
-    let config = serde_json::json!({"continuous":true,"earnin":true,"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
-        "miners":miners.iter().map(|(id,reward)|serde_json::json!({"id":id,"reward":reward})).collect::<Vec<_>>(),"accounts":[]}).to_string();
+    let mut config = serde_json::json!({"continuous":true,"earnin":true,"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+        "miners":miners.iter().map(|(id,reward)|serde_json::json!({"id":id,"reward":reward})).collect::<Vec<_>>(),"accounts":[]});
+    if bond_pcol!=20 { config["cp"]=serde_json::json!({"B_reg":(bond_pcol*PCOL).to_string()}); }
+    let config=config.to_string();
     let out = temp(&format!("new-{tag}"));
     // A height above the old head is refused, and nothing is written.
     assert!(pocold::cutover::run(&old_dir, &data, s + 1, config.as_bytes(), &out, limits(), &local()).unwrap_err().contains("above the old head"));
@@ -138,7 +143,7 @@ fn scenario(store: bool) {
     let info: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out.join("devnet.json")).unwrap()).unwrap();
     assert_eq!(info["earnin"], true);
     assert_eq!((report["old"]["height"].as_u64(), report["old"]["blockHash"].as_str()), (Some(s), Some(hex(&chain.head().hash).as_str())));
-    let bond20 = U256::from(20 * PCOL);
+    let new_bond = U256::from(bond_pcol * PCOL);
     let rewards: Vec<Address> = miners.iter().map(|(_, r)| *r).collect();
     let mut expected_supply = U256::ZERO;
     for (a, acct) in &old.accounts {
@@ -148,7 +153,7 @@ fn scenario(store: bool) {
         expected_supply += i.balance + refund;
         if i.nonce == 0 && i.balance.is_zero() && refund.is_zero() && i.code.as_ref().is_none_or(|c| c.is_empty()) { continue }
         let new = &alloc.accounts.get(a).unwrap_or_else(|| panic!("{a:#x} missing")).info;
-        let deducted = if rewards.contains(a) { bond20 } else { U256::ZERO };
+        let deducted = if rewards.contains(a) { new_bond } else { U256::ZERO };
         assert_eq!((new.nonce, new.balance), (i.nonce, i.balance + refund - deducted), "{a:#x}");
     }
     assert_eq!(report["totalSupply"].as_str().unwrap(), expected_supply.to_string(), "supply equals old balances plus refunded bonds");
@@ -158,11 +163,11 @@ fn scenario(store: bool) {
     assert_eq!(alloc.accounts[&carol].info.balance, U256::from(4 * PCOL));
     for i in 0..5 { assert!(!alloc.accounts.contains_key(&apply::program_address(i)), "system programs are rebuilt, not copied"); }
 
-    // The new genesis is admitted and runs the earn-in rules: 20 PCOL genesis bonds, bob's old record gone.
+    // The new genesis is admitted and runs the earn-in rules: target-CP genesis bonds, bob's old record gone.
     let new_spec = spec(&out);
     assert_eq!(new_spec.chain_id(), 777918);
     let genesis = Chain::new(new_spec);
-    for (id, _) in &miners { assert_eq!(apply::miner_record(&genesis.head().state, *id).unwrap().bond, bond20); }
+    for (id, _) in &miners { assert_eq!(apply::miner_record(&genesis.head().state, *id).unwrap().bond, new_bond); }
     assert!(apply::miner_record(&genesis.head().state, bob.address()).is_none());
     // Deterministic: the same inputs give the same genesis and allocation bytes.
     let again = temp(&format!("again-{tag}"));

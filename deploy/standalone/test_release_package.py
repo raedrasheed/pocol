@@ -163,6 +163,20 @@ class ReleasePackageTests(unittest.TestCase):
                 self.assertEqual({p.name for p in (self.root / 'dist').iterdir()}, {'build-info.json'}, 'nothing else is staged')
                 shutil.rmtree(self.root / 'dist')
 
+    def test_preview_artifacts_are_refused_even_when_consensus_is_pinned(self):
+        self.native_fixture()
+        self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk')
+        android_info = self.fixture('prototypes/pocold/target/aarch64-linux-android/release/build/pocold-fixture/out/build-info.json')
+        for platform in ('Linux', 'Android'):
+            for change in ({'v3Preview': True}, {'v3Preview': False, 'features': ['v3-preview']}):
+                with self.subTest(platform=platform, change=change):
+                    self.build = {**self.build, 'v3Preview': False, 'features': [], **change}
+                    android_info.write_text(json.dumps(self.build), encoding='utf-8')
+                    with self.assertRaisesRegex(SystemExit, 'v3-preview build'):
+                        self.package(platform)
+                    self.assertEqual({p.name for p in (self.root / 'dist').iterdir()}, {'build-info.json'})
+                    shutil.rmtree(self.root / 'dist')
+
     def test_a_certified_legacy_entry_must_name_the_packaged_consensus_sources(self):
         self.native_fixture()
         text = self.identity.read_text(encoding='utf-8')

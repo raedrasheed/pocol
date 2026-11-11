@@ -5,6 +5,7 @@ use crate::{assignment::{self,Assignment,DrawWeights,Membership,NonceMode,Parent
 use pocol_lp4_execution::{admission::{Admitted,NodeLocal},apply::{self,BlockInput,BlockOutput,EvidenceEffect,Genesis,ParentResult,Proposer},fees,profile::ProfileIdentity,txsign::Key};
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::types::*;
+pub use pocol_lp4_execution::apply::ProgramSet;
 
 /// Longest stored rejection reason (A13 accounting).
 pub const REASON_MAX:usize=256;
@@ -59,11 +60,12 @@ impl Spec{
     pub fn admission(&self)->&Admitted{&self.admitted}
     pub fn cp(&self)->&pocol_lp4_execution::profile::ConsensusParams{self.profile().cp()}
     pub fn chain_id(&self)->u64{self.profile().spec().chain_id}
-    /// Whether this genesis runs the earn-in system programs (EARN-IN-SPEC.md).
-    pub fn earnin(&self)->bool{
-        static EARNIN:std::sync::OnceLock<[u8;32]>=std::sync::OnceLock::new();
-        self.profile().spec().sys_code_hash==*EARNIN.get_or_init(||pocol_lp4_execution::apply::SystemPrograms::earnin().sys_code_hash().0)
+    /// The actual compiled program set committed by this genesis.
+    pub fn programs(&self)->ProgramSet{
+        apply::SystemPrograms::program_set(self.cp(),&self.profile().spec().sys_code_hash)
     }
+    pub fn earnin_rules(&self)->bool{matches!(self.programs(),ProgramSet::EarnIn|ProgramSet::V3)}
+    pub fn v3_active(&self,h:u64)->bool{self.profile().v3_active(h)}
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}
     pub fn active_version(&self,h:u64)->u16{self.profile().forks().active_version(h)}
     /// The genesis CP remains immutable. Consensus v2 activates the complete u64
