@@ -133,3 +133,9 @@ MetaMask through custom RPC (T15) and the embedded wallet (D14). The embedded wa
 PAY does not notify the recipient, block-F tips are burned, and forced transfers are locked.
 
 EVM compatibility does not confer Ethereum consensus security.
+
+---
+
+## v3 amendment — randomness disclosure (D-V3-27)
+
+PREVRANDAO remains derived from the parent seal and is biasable by the block winner. It is not secure randomness for applications, lotteries or fair selection. Seal/timestamp grinding persists; see [the threat disclosure](threat.md). This warning changes no execution input or old-chain verdict. V3 program/fee/carry rules are specified by the scoped amendments in [incentives](incentives.md) and [economics](economics.md), and activate only through the approved version gates.

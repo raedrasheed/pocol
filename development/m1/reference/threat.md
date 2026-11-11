@@ -196,3 +196,17 @@ Breaking cryptography, device compromise, Chrome vulnerabilities, modification o
 - Adequacy of the RP work bound and numeric RPC limits.
 - Timer accuracy on other devices and the bound between socket acceptance and client reading.
 - Absence of JSON-parsing vulnerabilities in BridgeAuth's implementation.
+
+---
+
+## v3 amendment — assumptions and grinding (D-V3-02, 10, 12–14, 27, 31)
+
+These disclosures accompany the v3 target in [the decision record](../../decisions/V3-DECISIONS.md); they do not establish that implementation, resource proofs, simulations or an external audit are complete.
+
+**A5 remains an open security assumption.** Do not transfer the classical PoW 50% threshold to PoCol or infer a safe H_adv threshold from tests. Deterministic range assignment, share omission, withheld signed templates, fallback pre-mining, admission caps and network isolation require separate analysis. Late credit and arrival-qualified tie-breaking mitigate specified attacks; they do not prove fairness, common prefix, chain quality or Sybil resistance.
+
+**A6 is profile-dependent.** Fully bonded members hold B_reg (20 PCOL in the approved v3 choice). Earn-in permits an ACCRUING identity with a partially earned or initially zero bond; its costs include verifiable work and opportunity cost rather than a full up-front locked bond. Limit that pool to P_MAX, enforce T_PROB and separate reactivation budgets/cooldowns. V3 proposer eligibility normally starts at B_reg/4. The owner retained the existing all-probationer exception when every draw member would otherwise be excluded; in that case a proposer may hold less than B_reg/4, so no universal quarter-bond equivocation-loss bound is claimed. Statistical seat contests require late share credit, whole-epoch tenure and grace checks and a normal refund. They require honest-member eviction measurements; a nominal pool cap or a recent share is not a security proof.
+
+**Seal and timestamp bias remain.** `seal=keccak256(TemplateID||be64(nonce))` feeds seed, draw and PREVRANDAO. A winner can search alternate valid nonces or discard a solution, and a proposer chooses a permitted timestamp. The stated model bounds are target inflation <=2^(Phi/tau) and one-block swing <=2^((D_att-1)/tau). In the reward/race model, discarding a block costs alpha*R for a possible gamma*R gain plus head-start value; searching another nonce risks losing the block with probability `1-exp(-(1-q)/q)`. These are conditional model statements, not measured guarantees for arbitrary adversaries or network conditions. Preserve the explicit assumptions when reporting them.
+
+PREVRANDAO is biasable by the block winner and is unsuitable as secure application randomness. A VDF beacon remains deferred. No committee, operator-signed checkpoint, stake-weighted chain selection or replacement PoW hash is authorized. The planned external analysis remains outstanding.

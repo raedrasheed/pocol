@@ -713,5 +713,175 @@
     "id": "D143",
     "decision": "Fixture-vector share thresholds derive from the built UT:\n- T_share = min(2^256−1, UT.target·CP.m), through FixtureMiner.shareThreshold calling the consensus function.\n- Record block-10 ASERT trace in sv-fix literally: Δt = −27, e = −2950, s = −1, f = 62586, target = F·2^223.\n- Item-9 predicate for every share.\n- Controls: TW5-gap (gap share rejected by item 9) and fixture-fault:fixedShareThreshold (deterministically fails threshold equality).\n- TW5 settlement values unchanged.",
     "rationale": "I77.\n\nAlternatives:\n(A) Change sv-fix timestamps to make target = 2^240 at h=10: changes the shared fixture rule and requires rederiving SV8/SV9/TW1–TW4.\n(B) Retain the constant and search again: hides the contradiction.\n\nThe choice makes fixtures use the rule itself, preventing divergence. The deterministic control detects the constant without relying on a probabilistic event.\n\nCost: literal F is not written here; two implementations and a reference establish it in annex M4b."
+  },
+  {
+    "id": "D-V3-01",
+    "decision": "Give a nonce range to every live (non-tombstoned) member whenever the nonce domain is unbounded; removes the permanent-halt and range-starvation path (MISSED share inclusion, ECON-03). For v3 unbounded mode, the parent-state active list excluding tombstones owns the ranges regardless of recent-share activity. Bounded mode and spec-1 behavior remain unchanged. Membership remains independent of attempt.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: touches Ch8 (activity gating) but preserved; P4/P5 kept, Q3.5 improved. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-02",
+    "decision": "Late share credit: proposers of blocks j+1..j+D carry uncredited valid shares of template j as body evidence; late credit only fills the pool up to κm, so it never dilutes header shares. Signed bodies may carry RLP([3, be64(j), [n_1<...<n_k]]) for ancestor templates j in [max(1,h-D),h-1]. Check target, range owner, exclusion of the winning nonce and header shares, branch deduplication and C_header(j)+C_late(j)<=kappa*m. Record late credit after recordResult and before settlement; lastShare=max(lastShare,j). Roll credit back with the branch. This never dilutes header shares.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: touches Ch6 but preserved; P2/P5 kept, P6 strengthened (winner no longer alone decides credit). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-03",
+    "decision": "Multi-hop relay of valid templates and shares.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL (already in tree at 53a9e87). Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-04",
+    "decision": "Fork choice uses timeliness-qualified signed precedence, with the specified arrival allowance for attempt-0 fallback. At first import, signed blocks are timely iff arrival<=T_j+Phi; attempt-0 fallback is timely iff arrival>=T_j-(Delta+Phi); later attempts are timely. On v3 only, sibling key=(timely?0:1,signed?0:1,importSeq,blockHash), compared at first path divergence after cumulative work. Persist first-import time across restart. Amends D133; validity is unchanged.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: touches Ch10 (amends D133) but preserved; D15 signed precedence kept for honest proposers; Q2.8 improved. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-05",
+    "decision": "Δ_rel default derived from measured WAN Δ (not lowered to 7 s); per-proposer template-latency counters in `pocol_status`.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-06",
+    "decision": "Recalibrate T_blk, D_att, dFbWait, Δ_rel from the ParamGate inequalities on measured WAN latency. O-6=b: T_blk=30 s, D_att=150 s, dFbWait=10 s, local delta_rel=13 s, subject to measured WAN Delta<=2 s and phi<=2 s and ParamGate. Otherwise use the approved 60 s fallback and recompute time-derived block counts. These are candidate profile values until measurement and resource proofs.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: parameters (Ch5/Ch11); kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-07",
+    "decision": "M_max 64 → 256; compute draw weights from ledger owners instead of M_max×W_w record reads. M_max=256 is subject to the A13 proof. Iterating ledger owners for draw weights must be result-identical on every old-chain input.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: parameter; P8 loosened. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-08",
+    "decision": "REG_OPS: separate per-block maintenance budget (setRewardAddress/topUp) and at most one maintenance op per identity per block. Use separate REG_MAINT_MAX=8 per-block maintenance budget and at most one maintenance operation per identity per block; registration/deregistration/claim/removal retain REG_OPS minus maintenance used.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: Ch9; restores P8/Q5.2. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-09",
+    "decision": "R_max entry slot: reactivate gets its own budget and a cooldown ≥ U; R_max 1 → 4. Use R_max=4 registration entries, a separate R_react=4 budget and per-record C_react>=U cooldown. Reactivation remains after W_act cooldown and strictly before the refund sweep. Require U>=W_act+2.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: Ch9 + parameter; restores P8/Q5.2. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-10",
+    "decision": "Contestable seats when the set is full: displace (with refund) a member whose credited work in the last full epoch is statistically below threshold. O-10=b: contest only a full set, with previous full-day epoch count below E-3*sqrt(E), E=(1/8)*Tprev/active, with deterministic integer rounding. Victim must be live, active, past grace and active throughout the previous epoch. Refund after U; V3-02 is mandatory first. Validate honest-member eviction rates by simulation.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: touches P8 (new removal reason) and P7; preserved only with V3-02 and the statistical margin. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-11",
+    "decision": "Inactivity eviction delay Θ_inact, set in hours. O-11=b: one hour, converted into blocks using the final measured T_blk.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: parameter. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-12",
+    "decision": "Registration bond B_reg. O-12=a: B_reg=20 PCOL; cutover tooling reads the new genesis CP[16], never a mirrored literal.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: parameter (Ch9). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-13",
+    "decision": "Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. Owner clarification on 2026-11-11: retain the existing all-probationer exception below B_reg/4 when the filter would otherwise exclude every draw member. Keep the share-weighted deterministic draw.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: Ch1 candidate set; P3 kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-14",
+    "decision": "Probation pool size and in-pool contest; P_MAX and T_PROB become CP fields set in time. O-14=b: P_MAX=M_max/4 (64 at M_max=256), T_PROB=30 days as CP fields. Use the same work statistic for contests within the ACCRUING pool, refund accrued bond and conserve ACC_COUNT. V3-09 precedes expansion.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: Ch9; P8. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-15",
+    "decision": "Carry the uncovered share pot into the next pot at closeBlock. O-15=b: send uncovered base-burn share remainder to carry at settlement; roundBurn remains burned. closeBlock(j) adds and zeroes carry after that block phase-0 settlement, so pot j is fixed by its template. Burn carry at a finite final block. Escrow invariant includes carry.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: Ch7; P6 kept (carry fixed before mining). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-16",
+    "decision": "Type-2 evidence burns only the offender's parts; whole-pot burn kept when the accused is ACCRUING. Settle normally after punishment; tombed offender winner/proposer/share parts burn, while honest contributors are paid. Retain whole-pot burn if the accused was ACCRUING below B_reg at block j, recording that fact at recordResult rather than reading later state.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: Ch7; P6/P7 strengthened. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-17",
+    "decision": "Reporter reward ρ of a burned bond. O-17=b: 25% of punished bond goes to the carrying signed proposer reward address; burn 75%. A fallback has no reporter and burns the whole bond. Self-reporting still loses 75%.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: Ch7/Ch9; P6 kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-18",
+    "decision": "Evidence window E_win and bond delay U, set in hours. O-18=b: E_win is one hour; U=E_win+D+margin, with U>=W_act+2 and existing retention constraints. Re-derive memory bounds.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: parameters. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-19",
+    "decision": "Use M3 issuance: a scaled initial rate, four-year halvings and a tail. O-19=M3: issuance(0)=0; otherwise max(k>=256?0:S0>>k,S_tail), k=floor(h/H_half). Rate is 2 PCOL/60 s, scaled by T_blk; halve every four years, tail S0/32. Bound 2*S0*H_half+S_tail*2^64<2^127. The host passes issued explicitly to closeBlock.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: P6 kept (issuance(h) known before mining). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-20",
+    "decision": "Fee market: tip share to proposer and base-fee floor (consensus); fee-ordered pool with replacement, eviction and per-sender quota (node-local). O-20=b: a signed proposer receives 50% of tips directly; the other half enters the shared pot. Fallback sends all tips to the pot. Base-fee floor 10^7 wei. Fee ordering, replace-by-fee and lowest-fee eviction are node-local.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE (+ NODE-LOCAL pool). Principle check: the chosen half-tip split preserves shared precommitted rewards; pool policy is node-local. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-21",
+    "decision": "Live-state caps: raise to an A13-verified middle and add a utilisation-priced, burned creation fee per new account/slot/code byte. O-21=b: candidate caps are ACCT=200000, SLOT=500000, CODE=32 MiB, subject to A13. Burn sender-paid creation charges F0*CAP/(CAP-used), based on running in-block utilization. F0_acct candidate=10^15 wei; F0_slot and F0_code remain to be calibrated in the resource/profile PR. Do not introduce a per-block growth griefing budget. Preserve copied user nonce, code and storage; apply the approved old-bond credits and new-miner bond deductions, and never lower caps below copied usage.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: execution layer (Ch13); kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-22",
+    "decision": "Skip-on-revert for non-value mandatory SYSTEM calls. Deferred; no skip-on-revert change is authorized by this record.",
+    "rationale": "Deferred; DEFER. Principle check: Ch13; would need Q4.3 proof. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-23",
+    "decision": "Height-gated system-code and CP replacement machinery (`cp_at(h)`, irregular state change at H). Compile a height-gated program/CP replacement path, with height-aware cp_at and fixed accounts, transition handling and replay/reorg tests. Ship dormant behind fork:3; this record does not authorize any live deployment or fork activation. Amends D72 only for an explicitly scheduled, tested replacement.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT (build now, use for later forks). Principle check: kept (code compiled in, selected by height). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-24",
+    "decision": "Per-block log caps 32 KiB/546 → 256 KiB/4,368; builder and pool model log caps. On v3 use 256 KiB/4368 block log caps and require RESP_MAX>=2*LOG_BLOCK_MAX. Model caps in builder and gas estimation. Keep old-chain caps unchanged.",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT (+ NODE-LOCAL builder). Principle check: Ch13; kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-25",
+    "decision": "Derive worst-case SYS gas and block-validation time for the exact v3 programs and CP (EXEC-03/EXEC-05). Measure exact v3 execution and system-call gas envelopes, prove A13 with all added memory terms, and require ParamGate. Synthetic calibration is not a worst-case or security proof.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-26",
+    "decision": "RPC `finalized` = persisted local irreversibility floor; reorg telemetry; honest finality docs (CONS-3). Persist finalized_h as a local irreversibility floor; retention floor=max(head-r_keep,finalized_h). Expose local semantics and reorg telemetry. It is not committee or mathematical finality and adds no signed checkpoint.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL. Principle check: kept (Q0.1: not consensus). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-27",
+    "decision": "Disclose seal/timestamp grinding bounds and a PREVRANDAO warning; a VDF beacon later. Disclose timestamp/seal grinding bounds and biasable PREVRANDAO. Do not claim a safe adversarial-work threshold. A VDF beacon remains deferred.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL (docs); beacon DEFER. Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-28",
+    "decision": "Computed launch-readiness flag and a real network-admission path (CONS-4, MAT-02, EXEC-03). Compute readiness from specification admission, no conditions or waivers and completed launch gates; expose blockers. Never turn deployment branding into readiness evidence.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-29",
+    "decision": "One dated v3 decision record plus normative amendments (CONS-7, MAT-03, MAT-04). Record these decisions and scoped normative amendments before v3 code. The approved owner rule is the standing authorization only for changes preserving P1-P10.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL (process). Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-30",
+    "decision": "Multi-threaded miner, localhost work port, network hashrate estimate (security-budget MISSED). Split only the miner own range into disjoint thread slices; local work RPC is off by default, validates own-range work and is unreachable through the site bridge. Account for threads in A13.",
+    "rationale": "Approved within the owner rule; NODE-LOCAL. Principle check: kept (every thread inside the member's own range). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-31",
+    "decision": "Formal security analysis of PoCol (CONS-2). Deferred external common-prefix, chain-quality and economic security analysis; no PoW-equivalent security claim follows from implementation or tests.",
+    "rationale": "Deferred; DEFER (external work). Principle check: —. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-32",
+    "decision": "Disclose the 4,000,000 PCOL genesis allocation and decide how it is held (ECON-05). O-32=b: disclose the four public genesis holders and development purpose; plan public time-lock custody and spending reports as owner-operated actions. Do not move, change or reallocate the owner personal funds in this work.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: not consensus. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-33",
+    "decision": "How the re-genesis is run, and the policy for any later one (DEC-06). O-33=b: no user transactions after the agreed S; publish old-chain data and rebuild instructions; deliver Android migration before S. An export update needs the installed signer or authorized lineage; otherwise use a separate applicationId and pre-S transfers with deregistration. This is the last owner-only re-genesis; future changes use the fork schedule. All deployment remains on hold.",
+    "rationale": "Approved within the owner rule; OWNER-CHOICE (+ NODE-LOCAL operations). Principle check: not consensus. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
+  },
+  {
+    "id": "D-V3-34",
+    "decision": "Fork machinery: schedule v≥3, launcher upgrade path, `==2` → `>=2`, one dual-key rule predicate, program-set registry, off-node verifiers. Use v3_active(h)=active_version(h)>=3 || genesis.spec_version>=2 everywhere. Keep full nonce range for every v>=2 or nonceMode=1. Use a program-set registry and versioned CP schema. Retain sequential schedule versions: future v3-chain in-place forks append (2,H) as a no-op for nonceMode=1, then (3,Hprime).",
+    "rationale": "Approved within the owner rule; CONSENSUS-COMPLIANT (infrastructure). Principle check: kept (schedule semantics unchanged). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
   }
 ]

@@ -277,3 +277,53 @@ FSM, T_j, rejections by rule, ASERT (s, saturated), Escrow, pendingSum, burns, R
   - epochNoGate (D134) uses the shared name without the name gate, demonstrating BR22h(h2) detects it with 41 names.
   - epochSweepEarly (D134) sweeps smaller names immediately after confirmation without waiting T_LATE, demonstrating BR22h(h5) detects it with epochResurrected > 0.
   - epochReserveOmitted (D135, I64) omits EPOCH_NAMES_MAX from name admission, demonstrating BR23(d11 and d11b) detects it.
+
+---
+
+## v3 amendment — profiles and upgrade authority (D-V3-23, 29, 32–34)
+
+The table at the start of this document is a historical specification assumption, not the deployed profile. P-live below is decoded from the committed public H15000 invitation `deploy/mainnet/h15000/network.pocol.json`; it is not a fresh live-node observation and is not an admission/readiness certificate.
+
+| P-live field | Committed value |
+|---|---|
+| chainId / specVersion | 1599846715 / 1 |
+| Genesis hash | `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca` |
+| Fork schedule | `[(1,0),(2,15000)]` |
+| T_blk / tau / D_att / dFbWait | 10 / 600 / 60 / 6 |
+| nonceMode / H_END | 0 / 0 |
+| M_max / R_max / REG_OPS | 64 / 1 / 16 |
+| m / kappa / S_max / D / W_w | 32 / 2 / 256 / 4 / 8 |
+| B_reg (wei) | 100000000000000000000 |
+| W_act / Theta_inact / E_win / U | 32 / 64 / 16 / 40 |
+| ACCT_CAP / SLOT_CAP / CODE_CAP | 20000 / 50000 / 2097152 |
+
+P-live has full u64 nonce range at version>=2 and a continuous horizon. It remains spec 1 and must retain its pinned consensus identity. v3 is a separate held genesis plan; these amendments neither change P-live parameters nor authorize deploying to it.
+
+**D72 amendment, scoped to future version-gated replacement.** CP/specVersion remain committed by genesis. New compiled, pinned rules may introduce an explicitly height/version-selected program and CP set through the future V3-23 machinery, with height-aware cp_at, fixed accounts, ASERT/parameter transitions, caps migration and replay/reorg tests. No peer or RPC may replace pinned cfg or code. Retain coordinated binary release and advance announcement requirements; a future configured fork is an explicit activation, not a mutable contract upgrade or an implied consequence of this document. The first v3-chain in-place fork appends (2,H), a nonce-rule no-op under nonceMode=1, then (3,Hprime). Do not skip schedule versions. Until separately activated, fork:3 remains unreachable with MAX_FORK_VERSION=2.
+
+**Dormant implementation and activation.** Preserve rules=1, maxFork=2 and spec=1 during implementation. New v3 rules use the single predicate `active_version(h)>=3 || genesis.spec_version>=2`. Use neutral gate=spec:2 for dormant host changes, neutral-vector with a spec:2-dormant note for artifacts, and distinct simnet-only preview identities. Only the final activation PR after all implementation/verifier/resource/simulation gates passes raises SPEC_VERSION to 2 and spends spec:2. See the full [lock strategy](../../decisions/V3-DECISIONS.md). Never bump CONSENSUS_RULES_VERSION while H15000 compatibility is required.
+
+**Candidate v3 profile, not frozen or measured.** The following table records the approved options and working profile. Finalization depends on measured WAN timing, exact system programs, A13 and ParamGate. F0_slot and F0_code are still unresolved calibration values; no evidence is invented here.
+
+| Field | Value | Source |
+|---|---|---|
+| T_blk / D_att / dFbWait / Δ_rel (local) | 30 / 150 / 10 / 13 | O-6=b, valid iff measured WAN Δ ≤ 2 s and φ ≤ 2 s; else 60 / 300 / 25 / 26 |
+| nonceMode / H_END | 1 / 0 | earn-in, continuous |
+| M_max / R_max / REG_OPS | 256 / 4 / 16 | V3-07, V3-09 |
+| R_react / C_react | 4 / ≥ U (e.g. 160) | V3-09 |
+| B_reg | 20 PCOL | O-12=a |
+| P_MAX / T_PROB | 64 / 86,400 blocks (30 days) | O-14=b |
+| Θ_inact | 120 blocks (1 h) | O-11=b |
+| E_win / U | 120 / 140 (= E_win + D + 16) | O-18=b; R7, U ≥ W_act+2 |
+| W_act / D / W_w | 32 / 4 / 8 (unchanged unless SimNet says otherwise) | — |
+| S0 (cp[15]) / H_half / S_tail | 1 PCOL / 4,207,680 blocks (4 y) / S0/32 = 0.03125 PCOL | O-19=M3 |
+| γ_tip_bp / baseFeeMin | 5000 / 10^7 wei (0.01 gwei) | O-20=b |
+| ρ_bp | 2500 | O-17=b |
+| E_epoch / θ_bp / k_sigma | 2,880 blocks (1 day) / 1250 / 3 | O-10=b |
+| ACCT_CAP / SLOT_CAP / CODE_CAP | 200,000 / 500,000 / 32 MiB (A13-verified in F) | O-21=b |
+| F0_acct / F0_slot / F0_code | 10^15 wei (0.001 PCOL) / TBD / TBD (F) | O-21=b |
+| LOG_BLOCK_MAX / LOG_COUNT_MAX (host constants) | 256 KiB / 4,368 | V3-24 |
+
+Use T_blk=30 s only with measured WAN Delta<=2 s and phi<=2 s and all gate inequalities. Otherwise use the approved 60 s fallback and recompute every time-derived block count. Log caps remain checked cumulatively, and RESP_MAX>=2*LOG_BLOCK_MAX. The profile/resource PR must establish all gas/write ceilings, memory terms and execution bounds before activation.
+
+**Operations remain owner-controlled.** No live deployment, reinitialization or cutover is authorized. The owner chooses S/date after migration readiness; a private rehearsal or WAN soak is not permission to change the live chain. Before S, deliver the no-user-transactions-after-S builder, public old-chain data/rebuild instructions and an Android migration route preserving signing compatibility. The approved policy is the last owner-only re-genesis; future changes use the fork schedule. The allocation disclosure and planned owner-operated public time lock/spending reports do not authorize moving or reallocating funds.
