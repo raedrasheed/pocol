@@ -105,15 +105,11 @@ pub fn load(path: &Path) -> Result<Key, String> {
         .map_err(|_| "invalid decrypted key size")?;
     Key::from_secret(secret).map_err(|_| "invalid secp256k1 secret scalar".into())
 }
-pub fn generate(path: &Path) -> Result<Key, String> {
-    let mut secret = Zeroizing::new([0u8; 32]);
-    let key = loop {
-        getrandom::getrandom(secret.as_mut()).map_err(|_| "OS randomness unavailable")?;
-        if let Ok(key) = Key::from_secret(&secret) {
-            break key;
-        }
-    };
-    let cipher = transform(secret.as_mut(), true)?;
+/// Writes `secret` as DPAPI ciphertext to a new file (a restored backup, or `generate`'s fresh key).
+pub fn store(path: &Path, secret: &[u8; 32]) -> Result<Key, String> {
+    let key = Key::from_secret(secret).map_err(|_| "invalid secp256k1 secret scalar")?;
+    let mut plain = Zeroizing::new(*secret);
+    let cipher = transform(plain.as_mut(), true)?;
     let mut file = OpenOptions::new()
         .write(true)
         .create_new(true)

@@ -3,8 +3,9 @@
 //! digest, so a release that changes only the digest starts on existing homes, and fork entries of any version the
 //! runtime schedule accepts can be appended (future-only, append-only). A `pocol-network-v1` file names the 0.4.0 build
 //! digest it was made by and is accepted only through a certified `LEGACY_BUILDS` entry (plan §1.7).
-use crate::{identity, keyfile, node, testnet, types};
+use crate::{identity, keyfile, keyfile::backup, node, testnet, types};
 use pocol_lp4_execution::txsign::Key;
+use zeroize::Zeroizing;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
@@ -425,6 +426,39 @@ pub struct Home {
     pub path: PathBuf,
     _lock: File,
 }
+const KEY_FILE: &str = "identity.pocol-key";
+const ADDRESS_FILE: &str = "identity.address";
+struct Current {
+    address: String,
+    readable: bool,
+}
+fn backup_address(secret: &[u8; 32]) -> Result<String, String> {
+    Ok(format!("{:#x}", Key::from_secret(secret).map_err(|_| "key backup holds an invalid secp256k1 secret")?.address()))
+}
+/// `stem` + `suffix` in `dir`, or the first `stem.N` + `suffix` (N < 100) that does not exist yet.
+fn free_name(dir: &Path, stem: &str, suffix: &str) -> Result<String, String> {
+    (0..100)
+        .map(|n| if n == 0 { format!("{stem}{suffix}") } else { format!("{stem}.{n}{suffix}") })
+        .find(|name| fs::symlink_metadata(dir.join(name)).is_err())
+        .ok_or_else(|| format!("too many files named {stem}*{suffix}; move old ones aside"))
+}
+/// Rewrites the public identity address marker atomically (temporary file, then rename).
+fn set_marker(dir: &Path, address: &str) -> Result<(), String> {
+    let marker = dir.join(ADDRESS_FILE);
+    if fs::symlink_metadata(&marker).is_ok() {
+        real_file(&marker)?;
+        if read_bounded(&marker)? == address.as_bytes() {
+            return Ok(());
+        }
+    }
+    let temp = dir.join(format!("{ADDRESS_FILE}.tmp"));
+    if fs::symlink_metadata(&temp).is_ok() {
+        real_file(&temp)?;
+        fs::remove_file(&temp).map_err(|e| e.to_string())?;
+    }
+    write_new(&temp, address.as_bytes())?;
+    fs::rename(&temp, &marker).map_err(|e| e.to_string())
+}
 impl Home {
     pub fn open(path: &Path) -> Result<Self, String> {
         let mut builder = fs::DirBuilder::new();
@@ -497,6 +531,109 @@ impl Home {
     }
     pub fn address(&self) -> Result<String, String> {
         Ok(format!("{:#x}", self.key()?.address()))
+    }
+    /// A passphrase-encrypted backup of this home's key (`keyfile::backup`, CRY-02) and its address. The
+    /// file is opened again before it is returned, so a backup that would not restore is never handed out.
+    /// The plaintext key is never written anywhere; the caller stores the returned ciphertext.
+    pub fn export_key_backup(&self, passphrase: &[u8]) -> Result<(Vec<u8>, String), String> {
+        backup::check_new_passphrase(passphrase)?;
+        let key = self.key()?;
+        let secret = Zeroizing::new(key.secret());
+        let file = backup::seal(&secret, passphrase)?;
+        if backup::open(&file, passphrase)?.as_ref() != secret.as_ref() {
+            return Err("key backup self-check failed; nothing was exported".into());
+        }
+        Ok((file, format!("{:#x}", key.address())))
+    }
+    /// What restoring `file` would do, without writing anything: the backup's address, the account this home
+    /// holds now (`null` for a new home) and whether restoring replaces it (then `import_key_backup` needs
+    /// `replace` = `current`).
+    pub fn inspect_key_backup(&self, file: &[u8], passphrase: &[u8]) -> Result<serde_json::Value, String> {
+        let address = backup_address(&*backup::open(file, passphrase)?)?;
+        let current = self.current_identity()?;
+        let replaces = current.as_ref().is_some_and(|c| !c.address.eq_ignore_ascii_case(&address));
+        Ok(serde_json::json!({"address": address, "current": current.as_ref().map(|c| &c.address),
+            "currentKeyReadable": current.as_ref().map(|c| c.readable), "replaces": replaces}))
+    }
+    /// Restores the key in `file` into this home. Restoring the account the home already holds only repairs a
+    /// missing key file or address marker. Another account replaces the current one only when `replace` names
+    /// the current address (the confirmation the user saw); the old key file is kept beside it as
+    /// `identity.pocol-key.replaced-<address>`, never deleted, and its wallet activity moves aside with it.
+    pub fn import_key_backup(&self, file: &[u8], passphrase: &[u8], replace: Option<&str>) -> Result<serde_json::Value, String> {
+        let secret = backup::open(file, passphrase)?;
+        let address = backup_address(&secret)?;
+        let current = self.current_identity()?;
+        let key_path = self.path.join(KEY_FILE);
+        let same = current.as_ref().is_some_and(|c| c.address.eq_ignore_ascii_case(&address));
+        match &current {
+            // The key file already holds this account: only the marker can need repair.
+            Some(c) if same && c.readable => {
+                set_marker(&self.path, &c.address)?;
+                return Ok(serde_json::json!({"address": c.address, "changed": false}));
+            }
+            Some(c) if !same && !replace.is_some_and(|r| r.eq_ignore_ascii_case(&c.address)) => {
+                return Err(format!("This wallet holds account {}. Confirm replacing it to restore {address}", c.address));
+            }
+            _ => {}
+        }
+        // Stage the restored key beside the current one, move the current one aside, then swap. A staged file
+        // left by an interrupted restore holds a key from a backup file, so it is replaced.
+        let staged = self.path.join(format!("{KEY_FILE}.restoring"));
+        if fs::symlink_metadata(&staged).is_ok() {
+            real_file(&staged)?;
+            fs::remove_file(&staged).map_err(|e| e.to_string())?;
+        }
+        keyfile::store(&staged, &secret)?;
+        let mut retired = serde_json::Value::Null;
+        if let Some(c) = &current {
+            if fs::symlink_metadata(&key_path).is_ok() {
+                let name = free_name(&self.path, &format!("{KEY_FILE}.replaced-{}", c.address), "")?;
+                fs::rename(&key_path, self.path.join(&name)).map_err(|e| e.to_string())?;
+                retired = name.into();
+            }
+            // Another account's transfers are not this one's history (a lost or unreadable key of the same
+            // account keeps it).
+            let activity = self.path.join("wallet-activity.json");
+            if !same && fs::symlink_metadata(&activity).is_ok() {
+                let name = free_name(&self.path, &format!("wallet-activity.replaced-{}", c.address), ".json")?;
+                fs::rename(&activity, self.path.join(name)).map_err(|e| e.to_string())?;
+            }
+        }
+        fs::rename(&staged, &key_path).map_err(|e| e.to_string())?;
+        set_marker(&self.path, &address)?;
+        sync_directory(&self.path)?;
+        Ok(serde_json::json!({"address": address, "changed": true,
+            "previous": current.map(|c| c.address), "previousKeyFile": retired}))
+    }
+    /// The account this home is bound to: its key file's address, or, when the key file is missing or cannot
+    /// be read (another Windows profile, a damaged file), the address marker's. `None` for a new home.
+    fn current_identity(&self) -> Result<Option<Current>, String> {
+        let (key_path, marker) = (self.path.join(KEY_FILE), self.path.join(ADDRESS_FILE));
+        let readable = match fs::symlink_metadata(&key_path) {
+            Ok(_) => keyfile::load(&key_path).ok().map(|k| format!("{:#x}", k.address())),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+            Err(e) => return Err(e.to_string()),
+        };
+        if let Some(address) = readable {
+            return Ok(Some(Current { address, readable: true }));
+        }
+        match fs::symlink_metadata(&marker) {
+            Ok(_) => {
+                real_file(&marker)?;
+                let text = String::from_utf8(read_bounded(&marker)?).map_err(|_| "invalid identity address marker")?;
+                if text.len() != 42 || !text.starts_with("0x") || !text[2..].bytes().all(|b| b.is_ascii_hexdigit()) {
+                    return Err("invalid identity address marker".into());
+                }
+                Ok(Some(Current { address: text, readable: false }))
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                if fs::symlink_metadata(&key_path).is_ok() {
+                    return Err("the identity key cannot be read and no address marker names it; nothing changed".into());
+                }
+                Ok(None)
+            }
+            Err(e) => Err(e.to_string()),
+        }
     }
     /// Explicit, resumable public configuration upgrade. Never opens the wallet key or
     /// the state database for writing, and never creates a new identity or chain.
@@ -1052,5 +1189,126 @@ mod upgrade_tests {
         for e in [home.upgrade(&twin).map(|_| ()), home.import(H15000.as_bytes()).map(|_| ()), home.inspect_upgrade(&twin).map(|_| ())] {
             assert!(e.unwrap_err().contains("finish this upgrade with PoCol 0.4.0 first"));
         }
+    }
+}
+
+#[cfg(test)]
+mod key_backup_tests {
+    use super::*;
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    const PASS: &[u8] = b"a long backup passphrase";
+    /// A new home in its own scratch directory; the directory goes when the guard drops.
+    struct Scratch(PathBuf);
+    impl Scratch {
+        fn new() -> Self {
+            let p = std::env::temp_dir().join(format!("pocol-key-backup-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
+            let _ = fs::remove_dir_all(&p);
+            Self(p)
+        }
+        fn home(&self, name: &str) -> Home { Home::open(&self.0.join(name)).unwrap() }
+    }
+    impl Drop for Scratch { fn drop(&mut self) { let _ = fs::remove_dir_all(&self.0); } }
+    fn names(home: &Home) -> Vec<String> {
+        let mut v: Vec<String> = fs::read_dir(&home.path).unwrap().map(|e| e.unwrap().file_name().into_string().unwrap()).collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn export_then_restore_into_a_new_home_gives_the_same_account() {
+        let t = Scratch::new();
+        let old = t.home("old");
+        let address = old.address().unwrap();
+        let (file, exported) = old.export_key_backup(PASS).unwrap();
+        assert_eq!((file.len(), exported.as_str()), (backup::LEN, address.as_str()));
+        assert!(!file.windows(32).any(|w| w == old.key().unwrap().secret()), "no plaintext key in the backup");
+        assert!(old.export_key_backup(b"too short").is_err(), "the export passphrase policy applies");
+        let new = t.home("new");
+        let preview = new.inspect_key_backup(&file, PASS).unwrap();
+        assert_eq!(preview, serde_json::json!({"address": address, "current": null, "currentKeyReadable": null, "replaces": false}));
+        assert!(names(&new).iter().all(|n| n == "launcher.lock"), "inspecting writes nothing: {:?}", names(&new));
+        assert_eq!(new.import_key_backup(&file, PASS, None).unwrap()["changed"], true);
+        assert_eq!(new.address().unwrap(), address);
+        assert_eq!(fs::read(new.path.join(ADDRESS_FILE)).unwrap(), address.as_bytes());
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(fs::metadata(new.path.join(KEY_FILE)).unwrap().permissions().mode() & 0o777, 0o600);
+        }
+        assert!(new.import_key_backup(&file, b"a long backup passphrasE", None).unwrap_err().contains("Wrong passphrase"));
+        assert_eq!(new.import_key_backup(&file, PASS, None).unwrap()["changed"], false, "restoring the same account again is a no-op");
+    }
+    #[test]
+    fn restoring_another_account_needs_the_confirmed_current_address_and_keeps_the_old_key() {
+        let t = Scratch::new();
+        let source = t.home("source");
+        let (file, restored) = source.export_key_backup(PASS).unwrap();
+        let target = t.home("target");
+        let current = target.address().unwrap();
+        let old_key = fs::read(target.path.join(KEY_FILE)).unwrap();
+        fs::write(target.path.join("wallet-activity.json"), b"[]").unwrap();
+        let preview = target.inspect_key_backup(&file, PASS).unwrap();
+        assert_eq!((&preview["current"], &preview["replaces"]), (&serde_json::json!(current), &serde_json::json!(true)));
+        let before = names(&target);
+        for replace in [None, Some("0x0000000000000000000000000000000000000000"), Some(restored.as_str())] {
+            let e = target.import_key_backup(&file, PASS, replace).unwrap_err();
+            assert!(e.contains("Confirm replacing it"), "{e}");
+            assert_eq!(names(&target), before, "a refused restore changes nothing");
+        }
+        let done = target.import_key_backup(&file, PASS, Some(&current.to_uppercase().replace("0X", "0x"))).unwrap();
+        assert_eq!((&done["changed"], &done["previous"]), (&serde_json::json!(true), &serde_json::json!(current)));
+        assert_eq!(target.address().unwrap(), restored);
+        let kept = format!("{KEY_FILE}.replaced-{current}");
+        assert_eq!(done["previousKeyFile"], kept.as_str());
+        assert_eq!(fs::read(target.path.join(&kept)).unwrap(), old_key, "the replaced key is kept, byte for byte");
+        assert!(target.path.join(format!("wallet-activity.replaced-{current}.json")).is_file());
+        assert!(!target.path.join("wallet-activity.json").exists());
+        assert!(!target.path.join(format!("{KEY_FILE}.restoring")).exists());
+        // Back again: the second replaced file gets its own name, nothing is overwritten.
+        let (back, _) = { let s = t.home("again"); fs::copy(target.path.join(&kept), s.path.join(KEY_FILE)).unwrap();
+            #[cfg(unix)] { use std::os::unix::fs::PermissionsExt; fs::set_permissions(s.path.join(KEY_FILE), fs::Permissions::from_mode(0o600)).unwrap(); }
+            s.export_key_backup(PASS).unwrap() };
+        target.import_key_backup(&back, PASS, Some(&restored)).unwrap();
+        assert_eq!(target.address().unwrap(), current);
+        target.import_key_backup(&file, PASS, Some(&current)).unwrap();
+        assert!(target.path.join(format!("{kept}.1")).is_file());
+    }
+    #[test]
+    fn a_lost_key_is_restored_only_from_its_own_backup() {
+        let t = Scratch::new();
+        let home = t.home("home");
+        let address = home.address().unwrap();
+        let (file, _) = home.export_key_backup(PASS).unwrap();
+        let (other, _) = t.home("other").export_key_backup(PASS).unwrap();
+        fs::remove_file(home.path.join(KEY_FILE)).unwrap();
+        fs::create_dir(home.path.join("state")).unwrap();
+        assert!(home.key().err().unwrap().contains("restore its backup"));
+        let preview = home.inspect_key_backup(&other, PASS).unwrap();
+        assert_eq!((&preview["current"], &preview["currentKeyReadable"], &preview["replaces"]), (&serde_json::json!(address), &serde_json::json!(false), &serde_json::json!(true)));
+        assert!(home.import_key_backup(&other, PASS, None).is_err());
+        assert_eq!(home.import_key_backup(&file, PASS, None).unwrap()["changed"], true);
+        assert_eq!(home.address().unwrap(), address);
+    }
+    #[test]
+    fn an_unreadable_key_file_is_moved_aside_by_its_own_backup() {
+        let t = Scratch::new();
+        let home = t.home("home");
+        let address = home.address().unwrap();
+        let (file, _) = home.export_key_backup(PASS).unwrap();
+        fs::write(home.path.join(KEY_FILE), b"damaged").unwrap();
+        assert!(home.key().is_err());
+        assert_eq!(home.inspect_key_backup(&file, PASS).unwrap()["replaces"], false);
+        let done = home.import_key_backup(&file, PASS, None).unwrap();
+        assert_eq!(done["changed"], true);
+        assert_eq!(home.address().unwrap(), address);
+        assert_eq!(fs::read(home.path.join(format!("{KEY_FILE}.replaced-{address}"))).unwrap(), b"damaged");
+    }
+    #[test]
+    fn a_running_wallet_holds_the_lock_so_no_backup_runs_beside_it() {
+        let t = Scratch::new();
+        let home = t.home("home");
+        home.address().unwrap();
+        assert!(Home::open(&home.path).is_err(), "export and import open the home, which a running wallet holds");
     }
 }
