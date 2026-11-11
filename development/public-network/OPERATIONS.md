@@ -79,13 +79,19 @@ Hello fails closed. A node sends GetAddr (type 8) once on each connection it dia
 answers the first GetAddr of each inbound connection with one Addr (type 9) of at
 most 64 addresses. It learns only the addresses it dialed and verified, the source
 IP and `listenPort` of its inbound peers, and the answer to its own GetAddr. Nothing
-is relayed further, and no peer is banned. This release makes no new connections:
-it dials only its configured peers, as before.
+is relayed further, and no peer is banned. With automatic outbound (on by default) a
+node keeps 4 connections (2 without a listener) to book addresses in distinct address
+groups, plus a spare slot: a short feeler every 2 or 10 minutes, or an extra connection
+while the node is stalled.
 
-| Setting | `pocold run` | Launcher (`pocol start`) |
+| Setting | `pocold run` | Launcher (`pocol start`, wallet, mobile) |
 |---|---|---|
 | Discovery on (default) or off | `--no-discovery`; `POCOL_DISCOVERY=0` or `1` | `POCOL_DISCOVERY` |
 | Local mode (off by default) | `--discover-local`; `POCOL_DISCOVER_LOCAL=0` or `1` | `POCOL_DISCOVER_LOCAL` |
+| Automatic outbound (default `auto`: 4 with a listener, 2 without; 0..8) | `--outbound N\|auto`; `POCOL_OUTBOUND` | `POCOL_OUTBOUND` (wallet and mobile: auto = 2) |
+| Seeds (at most 7) | `--seed ADDR`, repeated; a seed equal to a `--peer` stays static; refused with `--no-discovery` | the invitation's seeds, none once it sets `seedsRetired` |
+| Static peers | `--peer ADDR`, repeated | `pocol start --peer IP:PORT`, repeated (at most 7) |
+| Bootstrap addresses (at most 16, ports >= 1024) | `--bootstrap ADDR`, repeated | the invitation's optional `bootstrap` |
 
 A flag wins over its variable, and an empty value counts as unset. Any other value
 stops the command before the node starts (status 1), naming the variable. Local
@@ -105,7 +111,8 @@ and clearing a configured peer's redial by the address that was dialed.
 or the launcher home's `state/`). It is bound to the chain id and genesis, and it is
 checksummed. The node reads it when the network starts and writes it atomically 60
 s after the start, every 15 minutes, and at a clean stop, each time only if it
-changed. `pocold run` has no signal handler, so a killed node keeps its last save.
+changed, and at once when its anchors change. `pocold run` and the launcher stop cleanly on SIGINT and SIGTERM (so
+`systemctl stop` saves the book and the anchors); a killed node keeps its last save.
 The file is advisory: deleting it only makes the node start with an empty book. It
 may be backed up with the rest of the data directory. In local mode, never copy it
 to another node, because its local addresses mean something only on the host or LAN
@@ -125,8 +132,18 @@ starts with an empty book, logs the reason, and shows it as
 `compatiblePeers` no longer counts a connection to the node itself. A seed whose
 only peer is itself therefore shows 0, and monitor.py and preflight.py can see that
 it is isolated. Watch `compatiblePeers`, `discovery.self`, the `selfConnections`
-counter and `bookSaveErrors`. The automatic-outbound keys (`discovery.outbound`:
-`healthy`, `stalled`, `seeds[].state`) arrive with automatic outbound connections.
+counter and `bookSaveErrors`. Automatic outbound adds `discovery.outbound`:
+`automatic`, `healthy` (useful peers in distinct groups; >= 2 on a listener), `stalled`
+(the head's timestamp older than `windowSeconds`), `quiet`, `starved`, `seedTarget`,
+`seeds[].state` (connected, dialing, suppressed, held, self), `slots[]` (role, kind,
+state, address, group, uptime, failures), `anchors`, `familyDown`, `seedNode`,
+`seedsRetired` and `bootstrap`; and the counters `dials`, `dialFailed`, `dialNoHello`,
+`dialBusy`, `dialIncompatible`, `dialNoRoute`, `slotsStale`, `feelers`, `feelersOk`,
+`feelersIncompatible`, `anchorsDialed`, `extras`, `extraSwaps`, `extraClosed`,
+`extraStarved`, `seedWants`, `seedReleases`, `seedRotations`, `seedHolds`, `stalls`,
+`quiets` and `bootstrapLoaded`. Watch `healthy`, `stalled`, `seedTarget` and
+`dialFailed` against `dials`. A feeler is never in `peers` or `compatiblePeers`;
+`outboundPeers` counts slot connections, the feeler's included.
 
 **Privacy.** Only a listening node is advertised, and only by its own consent: a
 non-zero `listenPort` in its Hello. A node that does not listen sends `listenPort` 0
@@ -139,10 +156,33 @@ claims. A peer that dials this node may receive up to 64 addresses that the node
 verified or was advertised within the last 7 days. It receives at most 2 per address
 group, never addresses the node only heard of, and never timestamps.
 
-**Automatic outbound connections.** Dialing learned addresses (`--outbound`,
-`--seed`, the feeler and anchors) is not part of this release. Inbound eviction now
-exists (PR3, below), so a peer that fills the inbound places can no longer hold them
-against every newcomer; the automatic-outbound release sets its own default.
+**Automatic outbound connections (VA-SPEC §1a.7-§1a.9).** Each slot holds one
+connection at a time, at most one per address group, never to a configured peer, a
+seed, this node, an inbound peer's advertised address or an address already
+connected. Choice: verified or unverified entries 50/50 when both can be dialed, in
+each by source first (all self-advertisements one source), then group, then fewest
+failures; an unverified entry is dialed again after 10 minutes, a verified one after 1
+minute, and a slot waits 1 s doubling to 60 s after failures. A connection that never
+sends a Hello is a failure of an unverified entry, so squatted entries become
+replaceable. A configured peer's dialer also backs off, to one connect per 30 s.
+The feeler sends nothing, reads the peer's Hello, verifies or forgets the address and
+closes, so the peer evicts nobody for it. Stalled (the head's timestamp older than W =
+max(120 s, 12 blocks)) or quiet (no block from a peer moved the head for 4W), the spare
+becomes an extra full connection to a new source (bootstrap addresses first once no
+seed can be wanted); if it moves the head it replaces the slot useful longest ago (never
+the sync peer). Anchors: up to 2 automatic peers connected 10 minutes and useful within
+W, saved with the book and dialed first after a restart. Seeds bootstrap and refill
+only: at most 2 wanted, a dead one held 1 minute doubling to 6 hours (while this host
+itself has no route and no peer, 1 minute only; a failure doubles the hold only after this
+node verified some other address since the last one, so an upstream outage behind a working
+router leaves the holds short; holds clear once it is back online); a listening node
+releases its seed 2 minutes after 2 useful peers hold, a node without a listener keeps
+one (owner decision D7'a). A seed host (its exact `--listen`, or a local listener on the
+seed's port) keeps all other seeds. Configured peers plus slots (the spare included)
+are at most 18 (network.md:157, D14'): `auto` is lowered to fit and an explicit
+`--outbound` past it is refused at boot. Cost at the defaults: +27,517,640 B of model
+(5 slot places and one forwarder) and +16 tasks (144 of TasksMax 256).
+`POCOL_OUTBOUND=0` restores PR2a behaviour (seeds are static peers, with the backoff).
 
 **Upgrades (G2, G3).** G2 is closed: peering no longer depends on the build digest,
 so a release that changes only the digest (no consensus rule, no schedule) interoperates
@@ -201,8 +241,49 @@ defaults and keeps every consensus-relevant path fail-closed:
 nonce and stops dialing that address. This needs NAT hairpinning. A seed behind a NAT
 without hairpinning cannot reach itself, so it cannot detect itself. Its dialer keeps
 retrying its own address, as before this release, which costs nothing but a failed
-connect. Once `pocol start --peer` exists (with automatic outbound), such a seed
-should list the other seeds with it instead (standalone README).
+connect. Such a seed host keeps its local or unspecified `--listen` and lists the other
+seeds with `pocol start --peer` (or `pocold run --peer`: static peers, standalone README),
+so that it keeps them all. Do not pass the public IP as `--listen` on a 1:1 NAT host (most
+cloud VMs with an elastic or public IP): that IP is on no interface, so the bind fails
+(`Cannot assign requested address`, unless `net.ipv4.ip_nonlocal_bind=1`) and the node
+does not start.
+
+## Stopping the seeds
+
+The owner will stop the operator seeds. Nodes of this release keep finding, verifying and keeping community
+connections without them: restarted nodes through their anchors and book, brand-new nodes through the bootstrap list
+in the invitation, stalled nodes through the extra slot.
+
+**Before the first seed stops** (each step checked):
+1. **Release adoption.** Builds before automatic outbound dial only configured peers and are isolated once the seeds
+   stop. Announce the stop with the release and keep the seeds up for an adoption window.
+2. **Community listeners.** At least 8 volunteers in at least 4 /16s, each reachable from outside
+   (deploy/public-testnet/test_remote_listener.py from another network).
+3. **Capacity.** The listeners' `peers_max` sum is at least 1.5·(4·L + 2·N) for L listeners and N non-listening nodes.
+   Phones behind one carrier NAT share a /16: each listener takes at most 5 of them (`per_group_max` + 1); listeners
+   that serve wallets may raise `POCOL_PER_GROUP_MAX` within A13. Watch `refusedGroup`, `refusedRate` and
+   `inboundEvicted` on sample listeners for a day.
+4. **Bootstrap list.** Publish a v2 invitation with the same seeds and a `bootstrap` list
+   (`pocol network --from … --seed … --bootstrap <volunteer> … --out network.pocol.json`) and its fingerprint through
+   the same trusted channel as the genesis. Homes run `pocol inspect-upgrade --network …`, **compare the shown
+   `fingerprintAfter` and `bootstrapAfter` with the published ones**, then `pocol upgrade --network …` (a rebind; a
+   wrong list could eclipse new joiners). Older builds refuse unknown fields, so publish only for this release and later.
+5. **Health without the seeds.** For a day on sample listening nodes: `healthy` >= 2, `seedTarget` 0, seeds
+   "suppressed", `stalled` false; on non-listening nodes `healthy` >= 1 besides the held seed; on each seed
+   `discovery.book.verified` >= 16 in `keys` >= 8.
+
+**Staged stop.** Stop one seed with `systemctl stop` (a clean stop) and watch `stalled`, `healthy` and `extraSwaps` on
+sample nodes for 24 h; then the second, and 24 h later the third. If the seeds were genesis miners, production goes on
+with the other miners (fallback templates fill the stopped ones' drawn slots; expect slower blocks). Then publish an invitation with `seedsRetired: true`
+(`--seeds-retired true`; same seeds and bootstrap list, fingerprint through the trusted channel) and let homes take it
+with `pocol upgrade`; public-testnet join bundles drop their seeds (inventory `seedsRetired`).
+
+**After the stop.** Keep the seed IPs allocated for as long as any invitation in circulation names them without
+`seedsRetired`: a new holder of such an IP would be every brand-new joiner's first contact. Nodes without
+`seedsRetired` want a seed only while needed and hold a dead one 1 minute to 6 hours (about 6 connects per seed per
+6 h per node). An isolated node (`compatiblePeers` 0, `healthy` 0, `stalled`) recovers with `pocol start --peer <known
+node>`, `pocold run --peer` or `--bootstrap`, or a newer invitation through `pocol upgrade`. Rollback: start any seed
+again. Never copy an `addrbook` between nodes in local mode; prefer the bootstrap list.
 
 ## Inbound peers and eviction
 
@@ -233,7 +314,7 @@ POCOL_PEERS_MAX". The seed and join units that `deploy/public-testnet/prepare.py
 writes set neither: **seeds run at the default 32** (see the halt figures below).
 
 **Memory.** A13 counts every inbound place, the 8 waiting for a Hello included: one
-more established place costs 3,424,474 B of model, about **3.73 MiB of budget** with
+more established place costs 3,424,620 B of model, about **3.73 MiB of budget** with
 the 1/8 reserve. The raise from 8 to 32 adds 110,248,134 B of model (about 126 MB of
 budget) to a node with 2 configured peers, on every profile, whether or not it
 listens. An operator who lowers `POCOL_MEMORY_BUDGET_BYTES` (read by `pocol start`
@@ -265,10 +346,11 @@ the defaults). Older canonical entries move to a new file in the data directory,
 window. The A13 bound no longer grows with the journal's record count. On the
 continuous chain it grows only with the observed sizes of history.redb, canon.redb and
 state.redb, at about 1 B per 4 KiB of file. A seed at the defaults (store mode, 7
-configured peers) now stops at about **10.5 TiB of history.redb**
-(`a13_live_chain_halt_disk_bytes`: 11,493,872,746,623 B; with 2 configured peers
-11,754,924,015,743 B), where it stopped at 1,100,218 records (127.3 days) before (with
-PR6's pool terms; 1,102,318 records, 127.6 days, before PR6). Nodes
+configured peers) now stops at about **10.4 TiB of history.redb**
+(`a13_live_chain_halt_disk_bytes`: 11,380,897,964,159 B; with 2 configured peers
+11,642,050,895,999 B), where it stopped at 1,089,603 records (126.1 days) before (with
+PR6's pool terms and automatic outbound; 1,100,218 records, 127.3 days, before automatic
+outbound; 1,102,318 records, 127.6 days, before PR6). Nodes
 on one chain hold almost the same files, so they would reach that size at almost the
 same time; the disk usually fills first.
 
@@ -325,8 +407,8 @@ spawned is logged and skipped for that template instead of stopping the node.
 **Redial backoff.** A configured peer whose connection ends within 60 s (a full peer
 evicting or refusing this node, say) is redialed after 0.6 s, then 1.2 s, doubling to
 at most 30 s; a connection that lasted 60 s or more resets the delay to 300 ms, and a
-failed connect keeps the current delay. A stable peer that is lost is redialed at
-once; one that keeps closing quickly is redialed at most every 30 s.
+failed connect doubles it as well. A stable peer that is lost is redialed at once;
+one that keeps closing quickly, or is down, is redialed at most every 30 s.
 
 **Monitoring.** `pocol_status` gains:
 - `inboundEstablished` (established inbound peers still open) and `inboundMax` (the

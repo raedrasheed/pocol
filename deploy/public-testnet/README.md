@@ -93,7 +93,10 @@ Anyone can generate an independent key and request test coins from the operator.
 The initial distribution remains an operator-signed transfer: an unauthenticated
 automatic faucet is not included. A joining operator uses the same release source
 and published genesis with a one-node inventory and `prepare.py --join`; set one or
-more published seeds. A `null` minerAddress produces an observer with no key input.
+more published seeds. A joining bundle dials them with `--seed` (only to bootstrap and refill; the node then keeps
+automatic outbound connections to listeners it learned), and an optional inventory `bootstrap` list (at most 16
+community listeners, none a seed) is passed as `--bootstrap`; with `"seedsRetired": true` the bundle names no seed.
+The bootstrap (seed) nodes keep their static mesh. A `null` minerAddress produces an observer with no key input.
 An independent miner can start before registration but earns no mining membership
 until its ordinary registry transaction succeeds. Follow the registration/bond
 commands in `development/public-network/KEYS.md`; the reward account must be durable.
@@ -119,7 +122,8 @@ It refuses redirects and oversized responses. The 180-second window covers three
 60-second mining attempts; it does not promise ten-second block latency. It writes
 immutable JSON and Prometheus text. Alert on checker failure, an observation older
 than 360 seconds, no peers, low disk, repeated service restarts and closing-height
-proximity. Archive each sample; do not feed duplicate node series from many old
+proximity. On joined nodes also watch `discovery.outbound.healthy` (>= 2 on a listener), `stalled` and
+`seeds[].state` (development/public-network/OPERATIONS.md, "Peer discovery" and "Stopping the seeds"). Archive each sample; do not feed duplicate node series from many old
 `.prom` files into one textfile collector.
 
 ## 5. Offline backup, restore and rollback

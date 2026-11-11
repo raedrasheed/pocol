@@ -11,7 +11,7 @@ use pocol_lp4_execution::{apply::ParentResult,txsign::Key,wire,native::{self,Nat
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
-pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES};
+pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES,OUT_STATE_BYTES,Outbound,parse_outbound,endpoints,is_own_seed,SEEDS_MAX,SEED_LINKS_MAX,BOOTSTRAP_MAX};
 pub mod canon;
 
 /// D-REORG-REDB: the journal is the off-heap block store. `record_at` reads a block record back by
@@ -644,6 +644,10 @@ impl Node{
         // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
         let evict=crate::resources::evict_depth_of(spec.cp(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
         if spec.cp().H_END==0{cfg.limits.continuous_history=Some(0);}
+        // D3', D14' (VA-SPEC §1a.7, network.md:157): `auto` becomes a count within the 18 outbound places, an explicit
+        // count past them is refused, and every seed must be a configured peer (it is dialed as one, VA-SPEC §1a.8).
+        cfg.limits.discovery.resolve(cfg.listen.is_some(),cfg.peers.len())?;
+        if let Some(s)=cfg.limits.discovery.seeds.iter().find(|s|!cfg.peers.contains(s)){return Err(format!("seed {s}: every seed must also be a configured peer"))}
         // PR7 §6.2 (A1-6): the files are observed before the first check (a missing one counts 0).
         cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
         crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
@@ -949,7 +953,7 @@ impl Node{
         // R2 (PR3): the service must hold the whole A13 thread inventory, or a thread spawn would fail while the node
         // runs (a miner's is not fatal, a peer's closes it); a task limit that cannot be read is not checked.
         if let Some(m)=pids_max(){
-            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.rpc.conn_max).unwrap_or(u128::MAX);
+            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.discovery.slots(),self.cfg.limits.rpc.conn_max).unwrap_or(u128::MAX);
             crate::resources::tasks_fit(need,&m)?;
         }
         // The configured peers (for example the other seeds, which also dial this node) are never refused
@@ -967,6 +971,8 @@ impl Node{
             self.net.expect_hello(net::HelloId{consensus:self.consensus.clone(),nonce:self.disc.wire_nonce()});
             let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn("listen-fwd",crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::listen(l,ntx,self.net.clone());}
+        // VA-SPEC §1a.7: the automatic outbound slots, before the configured dialers.
+        self.disc_start_outbound(self.disc_now())?;
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::dial(a,ntx,self.outbound.clone(),self.net.clone());}
         if let Some(a)=self.cfg.rpc{crate::rpc::serve(a,self.tx.clone(),self.light.clone(),self.cfg.limits.rpc.clone())?;}
@@ -990,8 +996,8 @@ impl Node{
             self.drain_light();self.handle(ev);
             if self.background_pending(){self.background_step();}
         }
-        // VA-SPEC §1a.6: a clean stop saves the address book (`pocold run` has no signal handler: a node that is
-        // killed keeps its last save).
+        // VA-SPEC §1a.6: a clean stop saves the address book. `pocold run` and the launcher stop cleanly on SIGINT and
+        // SIGTERM (so `systemctl stop` is a clean stop); a killed node keeps its last save.
         self.disc_save();
         if let Some(p)=&self.prod{if let Some(m)=&p.miner{m.stop();}}
     }
@@ -1043,10 +1049,16 @@ impl Node{
                 if std::time::Instant::now()>=q.deadline{crate::rpc::COUNTERS.expired.fetch_add(1,std::sync::atomic::Ordering::SeqCst);}
                 else{let r=crate::rpc::answer(self,&q);let _=q.reply.send(r);}
             }
-            Event::Net(NetEvent::Connected(id,peer))=>{self.disc_connected(id,&peer);let hello=self.hello_to(&peer,self.hello());peer.send(&hello);self.peers.insert(id,peer);}
+            // A feeler (VA-SPEC §1a.7) sends nothing and is never a peer; a connection its slot no longer waits for is
+            // closed at once.
+            Event::Net(NetEvent::Connected(id,peer))=>match self.disc_connected(id,&peer,self.disc_now()){
+                discovery::Arrival::Peer=>{let hello=self.hello_to(&peer,self.hello());peer.send(&hello);self.peers.insert(id,peer);}
+                discovery::Arrival::Feeler=>{}
+                discovery::Arrival::Close=>peer.close()},
             Event::Net(NetEvent::Closed(id))=>{self.disc_closed(id,self.disc_now());self.peer_status.remove(&id);if self.session.as_ref().map_or(false,|s|s.peer==id){self.end_session(false);}
                 if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
+            Event::Net(NetEvent::DialFailed(t,a,e))=>self.disc_dial_failed(t,a,e,self.disc_now()),
             // Its Closed follows; the 0.4.0 handshake is refused by arity, as before (plan §6).
             Event::Net(NetEvent::Legacy(id))=>{self.stats.legacy_hellos+=1;
                 let at=self.peers.get(&id).map(|p|p.addr.clone()).unwrap_or_default();self.log(&format!("peer {at} speaks the PoCol 0.4.0 handshake; closing"));}
@@ -1056,7 +1068,8 @@ impl Node{
     /// set, so an ended connection clears the set by that address (`Origin::Configured`), never by the address
     /// its socket reported: that is empty when `peer_addr` failed (a reset right after connect), and clearing by
     /// it would stall the dialer for good.
-    fn allow_redial(&self,origin:net::Origin){if let net::Origin::Configured(a)=origin{if let Ok(mut s)=self.outbound.lock(){s.remove(&a.to_string());}}}
+    /// A suppressed seed's address stays in the set, so its dialer waits (VA-SPEC §1a.8).
+    fn allow_redial(&self,origin:net::Origin){if let net::Origin::Configured(a)=origin{if self.disc.suppressed(a){return}if let Ok(mut s)=self.outbound.lock(){s.remove(&a.to_string());}}}
     /// Φ = 2φ from the admitted local parameters (future-timestamp slack).
     fn capital_phi(&self)->u64{u64::from(self.chain.spec.local().capital_phi())}
     /// `hello` as sent to `p`: without listenPort and nonce when its connection cannot reach the listener
@@ -1857,7 +1870,7 @@ impl Node{
         match rebuilt{
             Ok(ut) if ut==shell.ut_raw=>{
                 let m=Msg::Template{shell:shell.encoded.clone(),body:body.encode()};
-                self.lock(shell,body,false);self.credit(from,Useful::Template);self.relay_template(tid,&m,from);true}
+                self.lock(shell,body,false);self.credit(from,Useful::Template);self.disc_useful(from,false,self.disc_now());self.relay_template(tid,&m,from);true}
             Ok(_)=>self.punish_template(from,"its rebuild differs"),
             Err(e)=>self.template_error(from,"its rebuild fails",e),
         }
@@ -1891,7 +1904,7 @@ impl Node{
     fn credit(&mut self,id:PeerId,u:Useful){if let Some(p)=self.peers.get(&id){p.credit(u);self.stats.credits[u as usize]+=1;}}
     fn punish_template(&mut self,from:PeerId,why:&str)->bool{
         self.stats.template_penalties+=1;self.log(&format!("invalid template from Draw(h,0) ({why}): closing its peer"));
-        if let Some(p)=self.peers.get(&from){p.close();}
+        self.disc_closed_by_us(from);if let Some(p)=self.peers.get(&from){p.close();}
         false
     }
     // ---------------- sync sessions (network.md D38; D-REORG-REDB re-fetch) ----------------
@@ -2007,6 +2020,8 @@ impl Node{
         }
     }
     fn on_msg(&mut self,from:PeerId,m:Msg){
+        // The feeler (VA-SPEC §1a.7) is not in `peers`: only its first Hello is read, then it closes.
+        if self.disc.is_feeler(from){if matches!(m,Msg::Hello{..}){self.disc_feeler_hello(from,m,self.disc_now());}return}
         // Reader events may already be queued when an incompatible Hello closes a socket.
         // Neither those frames nor a later Hello may revive the removed connection.
         if !self.peers.contains_key(&from){return}
@@ -2037,11 +2052,14 @@ impl Node{
                 if first{self.disc_first_hello(from,listen_port,nonce,now);}
                 // Only a peer's first Hello may start a session at once; later Status updates wait for
                 // sync_tick's round-robin, so a peer re-announcing a false claim cannot hold the session
-                // slot. A claim set aside stays aside until the announced head changes.
+                // slot. And only SESSION_GAP_MS after the last start (VA-SPEC §4): a peer that ends its session by
+                // disconnecting gets no new one (and no new SESSION_REBUILD_MAX allowance) at its next first Hello
+                // sooner than the round-robin would give it (sync_tick). A claim set aside stays aside until the
+                // announced head changes.
                 let prev=self.peer_status.get(&from);
                 let stale=prev.map_or(false,|p|p.stale&&p.head==head);
                 let st=PeerStatus{work:U256::from_be_bytes(work),head,height,stale};
-                let start=first&&self.session.is_none()&&height>0&&self.wants(&st);
+                let start=first&&self.session.is_none()&&height>0&&self.wants(&st)&&now_ms().saturating_sub(self.sync_ask_ms)>=SESSION_GAP_MS;
                 self.peer_status.insert(from,st);
                 if start{self.start_session(from,now_ms());}
             }
@@ -2050,7 +2068,11 @@ impl Node{
                 let Ok(b)=Body::decode(&body,self.chain.spec.cp().BODY_MAX as usize) else{return};
                 let solicited=self.session.as_ref().map_or(false,|s|s.peer==from);
                 let height=h.h;let b=Block{header:h,body:b};let hash=b.hash();
-                let r=self.import_with(b,Some(from),solicited);
+                let before=self.chain.head;let r=self.import_with(b,Some(from),solicited);let now=self.disc_now();
+                // D25, D26 (VA-SPEC §1a.7): a peer's block that moved the head; first delivery (new, within 2 of the
+                // head) makes the peer useful. A Duplicate earns nothing, also inside the peer's own sync session.
+                if self.chain.head!=before{self.disc_head(from,now);}
+                if discovery::first_delivery(r.is_ok(),height,self.chain.head().height){self.disc_useful(from,true,now);}
                 // Progress: a block stored by this import, or a stored copy at a new height inside the
                 // R_keep window (the honest common point is inside it). Anything else (junk, duplicates
                 // below the frontier, blocks retention removed at once) does not refresh the session.

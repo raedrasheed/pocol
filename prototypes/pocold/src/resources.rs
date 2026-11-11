@@ -105,14 +105,17 @@ const _:()=assert!(size_of::<(net::PeerId,net::Peer)>()<=node::PEER_ENTRY_BYTES&
 /// an evicted peer keeps its place until then); per configured peer a dialer, an event forwarder,
 /// a reader and a writer; conn_max RPC connection threads; the miner (joined before it is
 /// replaced), the miner and listener forwarders, the timer, the P2P listener and the RPC
-/// acceptor (6). Plus the consensus and main threads. Exiting threads are counted: the RPC
-/// acceptor, the P2P listener and each dialer join a finished thread before its place is used
-/// again (threads::reap), and a reader joins its writer.
-pub fn io_threads(inbound:usize,dials:usize,conn_max:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,conn_max as u128,6])}
+/// acceptor (6); per automatic outbound slot (`slots`, S = K + 1 with the spare, VA-SPEC §1a.7) its thread `out-{t}`,
+/// its connection's reader and writer (3·S), and with any slot the one forwarder `out-fwd`. Plus the consensus and
+/// main threads. Exiting threads are counted: the RPC acceptor, the P2P listener, each dialer and each slot join a
+/// finished thread before its place is used again (threads::reap; a slot joins its last reader before it dials), and
+/// a reader joins its writer.
+pub fn io_threads(inbound:usize,dials:usize,slots:usize,conn_max:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,mul(3,slots as u128)?,u128::from(slots>0),conn_max as u128,6])}
 /// The tasks the A13 thread inventory needs at its peak: the I/O threads (`io_threads` at every physical inbound place,
-/// `net::Limits::inbound_max`) and the consensus and main threads. 128 at the defaults (32 + 8 inbound, 2 configured
-/// peers, 32 RPC connections), 340 at PEERS_MAX_LIMIT with 7 configured peers.
-pub fn tasks_needed(l:&net::Limits,dials:usize,conn_max:usize)->Option<u128>{io_threads(l.inbound_max(),dials,conn_max)?.checked_add(2)}
+/// `net::Limits::inbound_max`) and the consensus and main threads. 144 at the defaults (32 + 8 inbound, 2 configured
+/// peers, S = 5 automatic slots with the spare, 32 RPC connections), 368 at PEERS_MAX_LIMIT with 7 configured peers and
+/// S = 9; 128 at the defaults without automatic outbound.
+pub fn tasks_needed(l:&net::Limits,dials:usize,slots:usize,conn_max:usize)->Option<u128>{io_threads(l.inbound_max(),dials,slots,conn_max)?.checked_add(2)}
 /// Boot check against the service's task limit (systemd TasksMax, the cgroup's pids.max, read by `Node::start_network`):
 /// a node whose thread inventory does not fit would fail a thread spawn while it runs, so it refuses to start. "max",
 /// or a value that does not parse, counts as no limit.
@@ -337,7 +340,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("open-replay-transient","Node::open holds, while it replays, tables that grow with the journal, outside the steady-state bound and counted at open only (`open_transient`, checked by `check_open`; PR7 §7): every record's frame offset (store::open) and two replay events, each a Vec grown by doubling, a rolling hash every ROLL_SAMPLE records, and the checkpoint snapshots it reads (KEPT, each of the window's entries; decoded one at a time, and a format-1 one, every entry of the chain, with the KEPT checkpoints' bytes, by `migration_fits`). Not counted: a format-1 checkpoint decoded once to check it, and again before `migration_fits` refuses one that does not fit, and the stored versions read for their summaries (streamed: the oldest whole, a node at a time with the DFS stack of node ids; each other through its diff from its parent's version, read before it, which holds the accounts and slots that differ, one block's write set (an anchor and the lowest entry above the K_hist cut are read whole), the recursion's path through the two world tries and through the two storage tries of one account, and the storage walk's DFS stack of node ids)"),
     ("store-inventory","store mode (C-1 E4): BATCHES (1) and stored_versions are inventories by code inspection, not enforced by a counter; the node cache is bounded by its resident-byte count (state_store::CACHE_ENTRY, Node::resident_bytes), checked by a test"),
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
-    ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; by inspection"),
+    ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; selection holds one entry list and one source or key list over the book; the exclusions are closures and allocate nothing; each slot channel holds one address; a route probe is a UDP socket without buffers; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
@@ -626,10 +629,13 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let seen=add(&[mul(node::SEEN_MAX as u128+1,3*hdr+128)?,mul(node::SEEN_MAX as u128+1,192)?])?;
     let caches=add(&[mul(chain::INVALID_MAX as u128,32+REASON_MAX+64)?,mul(node::RECEIVED_MAX as u128+1,64)?,mul(node::REJECTS_MAX as u128+1,64+REASON_MAX+64)?,
         mul(node::EVIDENCE_POOL_MAX as u128,u128::from(cp.EVID_BYTES_MAX)+24)?,mul(node::FUTURE_MAX as u128,32)?])?;
-    // Inbound peers <= inbound_max; outbound <= one per dialer (net::dial).
-    let peers=mul(inbound+dials as u128,add(&[l.queue_bytes_max as u128,2*frame,4096])?)?;
+    // Automatic outbound (VA-SPEC §1a.7, node::discovery::outbound): S slots (K and the spare, each one connection at a
+    // time) and, with any slot, F = 1 forwarder `out-fwd` they share.
+    let (s,f)=(limits.discovery.slots() as u128,u128::from(limits.discovery.slots()>0));
+    // Inbound peers <= inbound_max; outbound <= one per dialer (net::dial) and one per slot (net::slot).
+    let peers=mul(inbound+dials as u128+s,add(&[l.queue_bytes_max as u128,2*frame,4096])?)?;
     // Each forwarder also holds the one event it is blocked sending (+1).
-    let (main_events,net_events)=(mul(node::EVENT_QUEUE as u128,frame+256)?,mul((1+dials) as u128,mul(net::NET_EVENT_QUEUE as u128+1,frame+256)?)?);
+    let (main_events,net_events)=(mul(node::EVENT_QUEUE as u128,frame+256)?,mul((1+dials) as u128+f,mul(net::NET_EVENT_QUEUE as u128+1,frame+256)?)?);
     // Gossip and inbound grouping:
     // - the relayed TemplateIDs (node::RELAYED_MAX, cleared when full): a HashSet<[u8;32]> with churn;
     // - one place count per public address group (net::Counters::groups, a HashMap<Group,usize> of 17-B
@@ -641,7 +647,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let gossip=add(&[hash32_churn_bytes(node::RELAYED_MAX as u128+1)?,mul(inbound+1,160)?,mul(dials as u128+1,96)?,1024])?;
     // The connections the node can know at once (its Connected not yet followed by its Closed): the live peers,
     // plus one per Closed still queued (in the main queue or a forwarder's, with the one it is blocked sending).
-    let high=add(&[inbound,dials as u128,node::EVENT_QUEUE as u128,mul((1+dials) as u128,net::NET_EVENT_QUEUE as u128+1)?])?;
+    let high=add(&[inbound,dials as u128,s,node::EVENT_QUEUE as u128,mul((1+dials) as u128+f,net::NET_EVENT_QUEUE as u128+1)?])?;
     // R10: the node's per-connection maps (node.rs `peers` and `peer_status`, from Connected to Closed), each a
     // HashMap at the churn rule of hash32_churn_bytes (< 32/7 buckets per high-water entry, a control byte each, two
     // allocations: c(x) = ⌈(x+1)·32/7⌉), and each peer's address text (`Peer::addr`), + 1,024.
@@ -685,7 +691,11 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
             ("queues/discovery: per-connection links (churn)",add(&[mul(mul(high,2)?,link)?,512])?),
             ("queues/discovery: selection, answer and self scratch",add(&[mul(2*BOOK_MAX as u128,(size_of::<ab::Source>()+size_of::<ab::Key>()+8) as u128)?,
                 mul(2*CACHE_MAX as u128,size_of::<std::net::SocketAddr>() as u128)?,mul((SELF_MAX+ANCHORS_MAX+7) as u128,64)?,1024])?),
-            ("queues/discovery: address-book file buffers",add(&[crate::launcher::MAX_INVITATION as u128+1,mul(FILE_LINE_MAX as u128,(BOOK_MAX+ANCHORS_MAX+3) as u128)?])?)];
+            ("queues/discovery: address-book file buffers",add(&[crate::launcher::MAX_INVITATION as u128+1,mul(FILE_LINE_MAX as u128,(BOOK_MAX+ANCHORS_MAX+3) as u128)?])?),
+            // Automatic outbound's state (`Out`: the slots, their channels, the seeds, bootstrap addresses, the suppressed
+            // set and the anchors, reserved at open, the slots and channels at the network's start; a const assert keeps
+            // it within OUT_STATE_BYTES), with any slot.
+            ("queues/discovery: outbound state",mul(f,node::OUT_STATE_BYTES as u128)?)];
         queues=add(&[queues,add(&d.map(|x|x.1))?])?;items.extend(d);
     }
     // RPC (rpc::conn): per connection its header buffer (HEAD_MAX+READ_CHUNK, and its lossy UTF-8
@@ -714,14 +724,14 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let rpc=add(&rq.map(|x|x.1))?;items.extend(rq);
     // Threads: reserved stacks (an upper bound on their resident stack) and per-thread heap.
     use crate::threads::{IO_STACK,CONSENSUS_STACK};
-    let io=io_threads(l.inbound_max(),dials,r.conn_max)?;
+    let io=io_threads(l.inbound_max(),dials,s as usize,r.conn_max)?;
     // Exiting-not-yet-joined threads (point 3): a reader/outbound-reader/RPC-conn thread can finish
-    // between its reaper's visits. Bound E = inbound_max + dials + conn_max (writers are joined by
+    // between its reaper's visits. Bound E = inbound_max + dials + S + conn_max (writers are joined by
     // their reader synchronously; singletons never respawn). Measured ~25.8 KiB resident each (the
     // bulk of the stack returns to the exited-stack cache counted below); counted CONSERVATIVELY at a
     // full IO_STACK each, so the term is an upper bound, not the measured figure (evidence/thread-
     // inventory + threadmem). 
-    let exiting=(l.inbound_max()+dials+r.conn_max) as u128;
+    let exiting=(l.inbound_max()+dials+s as usize+r.conn_max) as u128;
     let th=[("threads/I/O thread stacks and heap",mul(io,IO_STACK as u128+THREAD_HEAP)?),("threads/consensus stack",CONSENSUS_STACK as u128),
         ("threads/main stack and heap",MAIN_STACK_RESIDENT+2*THREAD_HEAP),("threads/exited-stack cache",STACK_CACHE),
         ("threads/exiting not-yet-joined (conservative)",mul(exiting,IO_STACK as u128)?)];
@@ -842,7 +852,8 @@ mod tests{
         assert_eq!(tasks_fit(128,"128\n"),Ok(()));
         let e=tasks_fit(128,"127").unwrap_err();
         assert_eq!(e,"the A13 thread inventory needs 128 tasks; this service allows 127 (raise TasksMax or lower --peers-max)");
-        assert_eq!(tasks_needed(&net::Limits::default(),2,32),Some(128),"the defaults at 2 configured peers");
-        assert_eq!(tasks_needed(&net::Limits{peers_max:net::PEERS_MAX_LIMIT,..Default::default()},7,32),Some(340),"the largest setting at 7");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,5,32),Some(144),"the defaults at 2 configured peers and S = 5");
+        assert_eq!(tasks_needed(&net::Limits{peers_max:net::PEERS_MAX_LIMIT,..Default::default()},7,9,32),Some(368),"the largest setting at 7 and S = 9");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,0,32),Some(128),"no automatic outbound");
     }
 }

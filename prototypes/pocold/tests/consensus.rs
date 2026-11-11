@@ -1665,8 +1665,10 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     let dir=std::env::temp_dir().join(format!("pocold-a13-{}",std::process::id()));
     let conf=|limits:Limits,peers:usize|Config{dir:dir.clone(),name:"a13".into(),miner:None,listen:None,peers:(0..peers).map(|i|format!("127.0.0.1:{}",1+i).parse().unwrap()).collect(),rpc:None,stop_at:None,log:false,limits};
     let l=pocold::single_host_local();let default=admitted(&cfg(&["a","b","c"]));
-    // The devnet's own configuration: default limits, two configured peers.
-    let d=pocold::resources::derive(default.cp(),l.k_hist,l.side_max,&Limits::default(),2).unwrap();
+    // The devnet's own configuration: default limits, two configured peers, no listener; `auto` resolved as
+    // `Node::open` resolves it before its A13 check (2 automatic slots without a listener, not 4).
+    let mut resolved=Limits::default();resolved.discovery.resolve(false,2).unwrap();
+    let d=pocold::resources::derive(default.cp(),l.k_hist,l.side_max,&resolved,2).unwrap();
     let need=pocold::resources::budget_required(d.total).unwrap();
     // 1. The approved default boots, with its 1/8 reserve inside the 6 GiB budget.
     assert!(need<=u128::from(pocold::node::MEM_BUDGET),"the default needs {need} B: {d:?}");
@@ -1983,12 +1985,17 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // 6,419 entries are resident of the devnet's 20,001 (slimmed entries -18,308,536 B), and the window's own terms
     // are counted: the Canon deque 410,880, the eviction batch 1,413,580, a head drop's reload 2,760,704, the rebuild
     // shadow 5,783,785, two views below the window 859,954, canon.redb's cache 4,194,304 and allocator 531,840 B;
-    // -2,353,489 B, -> 3,357,540,586 B; with eviction off, `evict_depth` Some(0), the total is the one before).
-    // Some terms are type sizes (Entry, Block), so the exact value is pinned for the target the evidence is produced
-    // on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_357_540_586,"the A13 model total changed");
+    // -2,353,489 B, -> 3,357,540,586 B; with eviction off, `evict_depth` Some(0), the total is the one before); PR2b
+    // automatic outbound state per connection (the link's mismatch, self-connection, usefulness and closed-by-us
+    // fields): LINK_BYTES 128 -> 144 at the old high 269, +39,274 B, -> 3,357,579,860 B; PR2b automatic outbound on by
+    // default (auto: S = 5 slot places, the spare's included, at 3,690,508 B, one forwarder at 9,065,100 B with the
+    // 4,096-B outbound state), +27,517,640 B, -> 3,385,097,500 B (merged with PR7: PR2b's terms are the same with
+    // eviction on or off, so eviction off is 3,359,894,075 + 27,556,914 = 3,387,450,989 B, PR2b's own total before
+    // the merge). Some terms are type sizes (Entry, Block), so the exact value is pinned for the target the evidence
+    // is produced on; every target checks that it boots within the budget with its reserve.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_385_097_500,"the A13 model total changed");
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_359_894_075,"eviction off is the model before PR7");
+        assert_eq!(off.total,3_387_450_989,"eviction off is the model before PR7, with PR2b's terms");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);

@@ -22,7 +22,9 @@ def prepare(invitation, build, appended, observed_head):
     if not isinstance(invitation, dict) or invitation.get('schema') not in ('pocol-network-v1', 'pocol-network-v2'):
         raise ValueError('unsupported network invitation')
     binding = 'compatibilitySha256' if invitation['schema'] == 'pocol-network-v1' else 'consensusRulesVersion'
-    if set(invitation) != {'schema', binding, 'seeds', 'files'}:
+    # PR2b (D17, D23): a v2 file may carry the advisory bootstrap list and seedsRetired, which the upgrade keeps.
+    extra = {'bootstrap', 'seedsRetired'} if invitation['schema'] == 'pocol-network-v2' else set()
+    if set(invitation) - extra != {'schema', binding, 'seeds', 'files'}:
         raise ValueError('unsupported network invitation')
     digest, rules = build.get('compatibilitySha256', ''), build.get('consensusRulesVersion')
     if (build.get('schema') != 'pocol-testnet-build-v1' or not re.fullmatch(r'[0-9a-f]{64}', digest)
@@ -53,6 +55,7 @@ def prepare(invitation, build, appended, observed_head):
     # The operator selects only future rule changes, never a new genesis.
     updated = {'schema': 'pocol-network-v2', 'consensusRulesVersion': rules,
                'seeds': copy.deepcopy(invitation['seeds']), 'files': copy.deepcopy(files)}
+    updated.update({k: copy.deepcopy(invitation[k]) for k in ('bootstrap', 'seedsRetired') if k in invitation})
     if entries:
         info['forks'] = forks
         updated['files']['devnet.json'] = json.dumps(info, indent=2) + '\n'

@@ -239,31 +239,35 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 }
 fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution::admission::NodeLocal{delta:5,phi:5,t_exec:3,delta_rel:26,gamma:30,k_hist:32,retention_stress:false,..pocold::single_host_local()}}
 
-/// PR2a (plan §9): peer discovery's four queue terms are counted only with discovery on, each at its formula: the
-/// book's BOOK_MAX entries reserved once; the links table at its churn high-water (the live peers and one stale link
-/// per Closed still queued); the transient scratch; the file's read and save buffers. Off, no term is counted and the
-/// total is the on-total less exactly their sum. Local mode changes nothing.
+/// PR2a (plan §9): peer discovery's queue terms are counted only with discovery on, each at its formula: the book's
+/// BOOK_MAX entries reserved once; the links table at its churn high-water (the live peers, PR2b's S automatic slot
+/// places among them, and one stale link per Closed still queued, the slots' forwarder's queue included); the
+/// transient scratch; the file's read and save buffers; PR2b's outbound state with any slot. Off, no term is counted,
+/// and without automatic outbound (`Count(0)`) the total is the on-total less exactly their sum. Local mode changes
+/// nothing.
 #[test] fn a13_discovery_terms_are_counted_only_when_enabled(){
-    use pocold::{addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX},node::{self,Discovery,Limits},net,resources::derive};use std::mem::size_of;
+    use pocold::{addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX},node::{self,Discovery,Limits,Outbound},net,resources::derive};use std::mem::size_of;
     let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     let disc=|b:&pocold::resources::Bound|b.items.iter().filter(|x|x.0.starts_with("queues/discovery")).cloned().collect::<Vec<_>>();
     let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);
-    for (peers_max,dials) in [(net::Limits::default().peers_max,2usize),(16,5),(1,0)]{
+    for (peers_max,dials) in [(net::Limits::default().peers_max,2usize),(16,5),(1,0)]{for outbound in [Discovery::default().outbound,Outbound::Count(0),Outbound::Count(8)]{
         let at=|d:Discovery|derive(&cp,32,l.side_max,&Limits{net:net::Limits{peers_max,..Default::default()},discovery:d,..Default::default()},dials).unwrap();
-        let (on,off,local)=(at(Discovery::default()),at(Discovery{enabled:false,..Default::default()}),at(Discovery{allow_local:true,..Default::default()}));
+        let d=Discovery{outbound,..Default::default()};let (s,f)=(d.slots(),usize::from(d.slots()>0));
+        let (on,off,local)=(at(d.clone()),at(Discovery{enabled:false,outbound,..Default::default()}),at(Discovery{allow_local:true,..d.clone()}));
         assert!(disc(&off).is_empty(),"off: {:?}",disc(&off));
-        let high=(net::Limits{peers_max,..Default::default()}.inbound_max()+dials+node::EVENT_QUEUE+(1+dials)*(net::NET_EVENT_QUEUE+1)) as u128;
+        let high=(net::Limits{peers_max,..Default::default()}.inbound_max()+dials+s+node::EVENT_QUEUE+(1+dials+f)*(net::NET_EVENT_QUEUE+1)) as u128;
         let want=[("queues/discovery: address book (BOOK_MAX, reserved once)",BOOK_MAX as u128*size_of::<ab::Entry>() as u128+512),
             ("queues/discovery: per-connection links (churn)",high*2*link+512),
             ("queues/discovery: selection, answer and self scratch",(2*BOOK_MAX*(size_of::<ab::Source>()+size_of::<ab::Key>()+8)+2*CACHE_MAX*size_of::<std::net::SocketAddr>()+(SELF_MAX+ANCHORS_MAX+7)*64+1024) as u128),
-            ("queues/discovery: address-book file buffers",(pocold::launcher::MAX_INVITATION+1+FILE_LINE_MAX*(BOOK_MAX+ANCHORS_MAX+3)) as u128)];
-        assert_eq!(disc(&on),want,"peers_max {peers_max}, dials {dials}");
+            ("queues/discovery: address-book file buffers",(pocold::launcher::MAX_INVITATION+1+FILE_LINE_MAX*(BOOK_MAX+ANCHORS_MAX+3)) as u128),
+            ("queues/discovery: outbound state",(f*node::OUT_STATE_BYTES) as u128)];
+        assert_eq!(disc(&on),want,"peers_max {peers_max}, dials {dials}, {outbound:?}");
         let sum:u128=want.iter().map(|x|x.1).sum();
-        assert_eq!((on.total-sum,on.queues-sum),(off.total,off.queues),"off is on less exactly the discovery terms");
+        if s==0{assert_eq!((on.total-sum,on.queues-sum),(off.total,off.queues),"off is on less exactly the discovery terms");}
         assert_eq!(local,on,"local mode costs nothing more");
-    }
+    }}
     assert_eq!(BOOK_MAX,1024);
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,128),"the type sizes the pinned total was derived with");}
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,144),"the type sizes the pinned total was derived with");}
 }
 
 /// R1 (PR3): the live continuous chain (deploy/mainnet/h15000, T_blk 10 s) has no finite lifetime, so A13 projects
@@ -304,11 +308,16 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // 1,132,366 at 8 (-163, 0), 1,125,232 and 1,100,385 at 32 (-7, -163), 1,082,476 and 1,057,845 at 64 (-153, -163).
     // PR6 review, parked runs (PARKED_ENTRY_BYTES 128 -> 160) and the parked senders in the selection's skipped sets:
     // 1,156,856 and 1,132,236 at 8 (-168, -130), 1,125,065 and 1,100,218 at 32 (-167, -167), 1,082,476 and 1,057,678 at
-    // 64 (0, -167); the seed rule's outcome is unchanged.
+    // 64 (0, -167); the seed rule's outcome is unchanged. PR2b, the link's automatic-outbound fields (LINK_BYTES 128 ->
+    // 144): 1,156,841 and 1,132,210 at 8 (-15, -26), 1,125,048 and 1,100,190 at 32 (-17, -28), 1,082,476 and 1,057,648
+    // at 64 (0, -30). PR2b, automatic outbound on by default (auto counted at S = 5 slot places, the forwarder and the
+    // outbound state, +27,517,640 B): 1,146,268 and 1,121,410 at 8 (-10,573, -10,800), 1,114,248 and 1,089,603 at 32
+    // (-10,800, -10,587), 1,071,706 and 1,046,848 at 64 (-10,770, -10,800); the seed rule's outcome is unchanged
+    // (R10[0] - R(32, 2) = 55,465 of the week's 60,480).
     // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[1_156_856,1_132_236,1_125_065,1_100_218,1_082_476,1_057_678],"the live chain's halt moved (record it in the PR)");
+        assert_eq!(got,[1_146_268,1_121_410,1_114_248,1_089_603,1_071_706,1_046_848],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
@@ -348,9 +357,13 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // seed, (32, 2), stops at 11,777,328,119,935 B (10.71 TiB) of history.redb, where it stopped at 1,127,165 records
     // (130.5 days) before. Merged with main's PR6 (the pool's meta, the parked entries and the template selection):
     // 12,091,563,507,839 B (11.00 TiB) at (8, 2) down to 11,045,020,090,495 B (10.05 TiB) at (64, 7); (32, 2) stops at
-    // 11,754,924,015,743 B (10.69 TiB), where it stops at 1,125,065 records (130.2 days) with eviction off.
+    // 11,754,924,015,743 B (10.69 TiB), where it stops at 1,125,065 records (130.2 days) with eviction off. Merged with
+    // PR2b (the link's automatic-outbound fields, 146 B a connection at the old high, and automatic outbound on by
+    // default, +27,517,640 B; each stop moves by 4,096 B of history.redb per model byte): 11,978,704,740,479 B
+    // (10.89 TiB) at (8, 2) down to 10,932,026,171,519 B (9.94 TiB) at (64, 7); (32, 2) stops at 11,642,050,895,999 B
+    // (10.59 TiB), 4,096 × 27,556,914 B before main's, where it stops at 1,114,248 records with eviction off.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[12_091_563_507_839,11_830_512_238_719,11_754_924_015_743,11_493_872_746_623,11_306_071_359_615,11_045_020_090_495],"the live chain's stop moved (record it in the PR)");
+        assert_eq!(got,[11_978_704_740_479,11_717_551_808_639,11_642_050_895_999,11_380_897_964_159,11_193_179_103_359,10_932_026_171_519],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and
@@ -358,7 +371,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// send queues and frames, the group entries, the connection high-water (`high`, with the node's maps at 2,718 B an
 /// entry and each connection's activity record), the I/O threads and the exiting ones; and the eviction registry (a
 /// slot and a selection candidate per place, reserved once, and the ring). At the defaults one more established place
-/// costs 3,424,474 B of model.
+/// costs 3,424,620 B of model (PR2b: 3,424,474 before the link's automatic-outbound fields, 2·73 B a link).
 #[test] fn a13_inbound_terms_count_every_inbound_place_and_the_eviction_registry(){
     use pocold::{net,node::{self,Limits},resources::derive,threads::IO_STACK};
     let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
@@ -367,16 +380,47 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     let conn_max=Limits::default().rpc.conn_max as u128;assert_eq!(conn_max,32,"the RPC connections the io and exiting terms were derived with");
     let (q,f)=(net::Limits::default().queue_bytes_max as u128,net::MAX_FRAME as u128);
     for (p,h,d) in [(8usize,8usize,2usize),(32,8,2),(64,8,7),(1,1,0)]{
+        // PR2b: the default automatic outbound (S = 5 slot places with the spare, F = 1 forwarder).
+        let (sl,fw)=(node::Discovery::default().slots() as u128,1u128);
         let b=at(p,h,d);let (s,d)=((p+h) as u128,d as u128);
-        let high=s+d+node::EVENT_QUEUE as u128+(1+d)*(net::NET_EVENT_QUEUE as u128+1);
+        let high=s+d+sl+node::EVENT_QUEUE as u128+(1+d+fw)*(net::NET_EVENT_QUEUE as u128+1);
         assert_eq!(item(&b,"queues/inbound eviction"),s*192+high*64+3072,"the registry at ({p}, {h}, {d})");
         assert_eq!(item(&b,"queues/node peer and status maps"),high*2718+1024,"the maps at ({p}, {h}, {d})");
-        assert_eq!(item(&b,"queues/peer send queues and frames"),(s+d)*(q+2*f+4096),"the queues at ({p}, {h}, {d})");
-        assert_eq!(item(&b,"threads/I/O thread stacks and heap"),(2*s+4*d+conn_max+6)*(IO_STACK as u128+4096),"the io threads at ({p}, {h}, {d})");
-        assert_eq!(item(&b,"threads/exiting not-yet-joined"),(s+d+conn_max)*IO_STACK as u128,"the exiting threads at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"queues/peer send queues and frames"),(s+d+sl)*(q+2*f+4096),"the queues at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"threads/I/O thread stacks and heap"),(2*s+4*d+3*sl+fw+conn_max+6)*(IO_STACK as u128+4096),"the io threads at ({p}, {h}, {d})");
+        assert_eq!(item(&b,"threads/exiting not-yet-joined"),(s+d+sl+conn_max)*IO_STACK as u128,"the exiting threads at ({p}, {h}, {d})");
     }
-    let d=net::Limits::default();assert_eq!(at(d.peers_max+1,d.handshaking_max,2).total-at(d.peers_max,d.handshaking_max,2).total,3_424_474,"one more established place");
+    let d=net::Limits::default();assert_eq!(at(d.peers_max+1,d.handshaking_max,2).total-at(d.peers_max,d.handshaking_max,2).total,3_424_620,"one more established place");
     assert_eq!((net::SLOT_BYTES,net::CAND_BYTES,net::ACTIVITY_BYTES,net::EVICT_RING,net::EVICT_ENTRY_BYTES),(96,96,64,64,32),"the constants the pinned totals were derived with");
+}
+/// PR2b (plan §4.2, VA-SPEC §1a.7): automatic outbound costs exactly its terms. Each slot place (S = K + 1, the spare's
+/// included) is a peer send queue with its frames, three threads (the slot's, its connection's reader and writer), an
+/// exiting reader, and one more connection the node can know at once (its map entries, activity record and two
+/// links); with any slot, one forwarder (its queue, its thread, and the connections its queue can hold) and the
+/// outbound state. Discovery off counts none of it, whatever the setting.
+#[test] fn a13_outbound_slots_cost_exactly_their_terms(){
+    use pocold::{net,node::{self,Limits,Discovery,Outbound},resources::derive,threads::IO_STACK};
+    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let at=|o:Outbound,on:bool|derive(&cp,32,l.side_max,&Limits{discovery:Discovery{enabled:on,outbound:o,..Default::default()},..Default::default()},2).unwrap();
+    let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
+    let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);let (q,fr)=(net::Limits::default().queue_bytes_max as u128,net::MAX_FRAME as u128);
+    let (io,stack,nq)=(IO_STACK as u128+4096,IO_STACK as u128,net::NET_EVENT_QUEUE as u128+1);
+    let per_high=2718+64+2*link;
+    let p_s=(q+2*fr+4096)+3*io+stack+per_high;
+    let p_f=nq*(fr+256)+io+nq*per_high+node::OUT_STATE_BYTES as u128;
+    let t=|o:Outbound|at(o,true).total;
+    assert_eq!(t(Outbound::Auto)-t(Outbound::Count(0)),5*p_s+p_f,"auto counts S = 5 slot places and the forwarder");
+    assert_eq!(t(Outbound::Count(8))-t(Outbound::Count(4)),4*p_s,"four more slots");
+    assert_eq!(t(Outbound::Count(1))-t(Outbound::Count(0)),2*p_s+p_f,"one slot and the spare");
+    assert_eq!(at(Outbound::Auto,false).total,at(Outbound::Count(0),false).total,"discovery off: no slot terms");
+    println!("A13-OUTBOUND {}",serde_json::json!({"slotPlace":p_s.to_string(),"forwarder":p_f.to_string(),"auto":(5*p_s+p_f).to_string()}));
+    let (a,z)=(at(Outbound::Auto,true),at(Outbound::Count(0),true));
+    for (k,want) in [("queues/peer send queues and frames",5*(q+2*fr+4096)),("queues/network event forwarders",nq*(fr+256)),("threads/I/O thread stacks and heap",16*io),
+        ("threads/exiting not-yet-joined",5*stack),("queues/node peer and status maps",(5+nq)*2718),("queues/inbound eviction",(5+nq)*64),
+        ("queues/discovery: per-connection links",(5+nq)*2*link),("queues/discovery: outbound state",node::OUT_STATE_BYTES as u128)]{
+        assert_eq!(item(&a,k)-item(&z,k),want,"{k}");
+    }
+    assert_eq!(item(&z,"queues/discovery: outbound state"),0,"no outbound state without slots");
 }
 /// PR3 A2: the devnet profile pocold boots passes the A13 gate at a seed's settings (64 established, 8 waiting for a
 /// Hello, 7 configured peers) and at the largest established count (128), in both modes.

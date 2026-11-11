@@ -201,6 +201,45 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
     }
     let _=std::fs::remove_dir_all(&d);
 }
+/// Automatic outbound and seed settings (VA-SPEC §1a.7-§1a.9, plan §7): `--outbound N|auto` (0..8) or for `run`
+/// POCOL_OUTBOUND when the flag is absent, `--seed` (at most 7, distinct, a usable address) and `--bootstrap` (at most
+/// 16, ports >= 1024), neither with discovery off, and the 18 outbound places (network.md:157). A bad value fails `run`
+/// (status 1) naming it, before the network is read; a good one passes the settings and `run` fails later, on the
+/// missing --network. What `status` resolved is read back from `discovery.outbound.automatic`.
+#[test] fn outbound_and_seed_settings_are_validated(){
+    let cmd=|args:&[String],env:Option<&str>|{let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));c.args(args);
+        match env{Some(v)=>{c.env("POCOL_OUTBOUND",v);}None=>{c.env_remove("POCOL_OUTBOUND");}}c.env_remove("POCOL_DISCOVERY");c.output().unwrap()};
+    let v=|a:&[&str]|a.iter().map(|s|s.to_string()).collect::<Vec<_>>();
+    let many=|flag:&str,n:usize,port:u16|(0..n).flat_map(|i|[flag.to_string(),format!("81.2.0.{}:{port}",i+1)]).collect::<Vec<_>>();
+    let run=|rest:Vec<String>|[v(&["run"]),rest].concat();
+    for (args,env,want) in [(run(v(&["--outbound","9"])),None,"--outbound 9: expected auto or 0..=8"),(run(v(&["--outbound","x"])),None,"--outbound x:"),
+        (run(vec![]),Some("9"),"POCOL_OUTBOUND 9: expected auto or 0..=8"),(run(many("--seed",8,30300)),None,"--seed: at most 7"),
+        (run(v(&["--seed","1.2.3.4:30300","--seed","1.2.3.4:30300"])),None,"--seed 1.2.3.4:30300: given twice"),
+        (run(v(&["--seed","1.2.3.4:0"])),None,"--seed 1.2.3.4:0: not a usable address"),(run(v(&["--seed","0.0.0.0:30300"])),None,"--seed 0.0.0.0:30300: not a usable address"),
+        (run(v(&["--seed","1.2.3.4:30300","--no-discovery"])),None,"--seed and --bootstrap need peer discovery"),
+        (run(v(&["--bootstrap","1.2.3.4:30300","--no-discovery"])),None,"--seed and --bootstrap need peer discovery"),
+        (run(v(&["--bootstrap","1.2.3.4:80"])),None,"--bootstrap 1.2.3.4:80: not a usable address"),(run(many("--bootstrap",17,30300)),None,"--bootstrap: at most 16"),
+        (run([v(&["--outbound","4"]),many("--peer",14,30300)].concat()),None,"14 configured peers and 5 automatic outbound slots exceed 18"),
+        (run(v(&["--outbound","1","--no-discovery"])),None,"needs peer discovery"),(v(&["status","--outbound","9"]),None,"--outbound 9:")]{
+        let o=cmd(&args,env);let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains(want),"{args:?} {env:?}: {err}");
+    }
+    for (args,env) in [(run(v(&["--outbound","auto"])),None),(run(v(&["--outbound","0"])),None),(run(vec![]),Some(" 2 ")),(run(vec![]),Some(" ")),
+        (run(v(&["--outbound","3"])),Some("bad")),(run([many("--seed",7,30300),many("--bootstrap",16,1024)].concat()),None),(run([v(&["--outbound","4"]),many("--peer",13,30300)].concat()),None)]{
+        let o=cmd(&args,env);let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{args:?} {env:?}: {err}");
+        assert!(err.contains("--network")&&!err.contains("outbound")&&!err.contains("OUTBOUND")&&!err.contains("seed")&&!err.contains("bootstrap"),"{args:?} {env:?}: {err}");
+    }
+    let d=tmp("outbound");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    for (i,(flag,want)) in [("2",2u64),("auto",2),("0",0)].into_iter().enumerate(){
+        let data=d.join(format!("data{i}"));
+        let st=cmd(&v(&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap(),"--outbound",flag]),Some("8"));assert_eq!(st.status.code(),Some(0),"{}",text(&st.stderr));let st:serde_json::Value=serde_json::from_slice(&st.stdout).unwrap();
+        assert_eq!(st["discovery"]["outbound"]["automatic"].as_u64(),Some(want),"status --outbound {flag} (no listener; the variable is not read)");
+    }
+    let _=std::fs::remove_dir_all(&d);
+}
 /// pocol_status from a node's RPC port, None until it answers.
 fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     use std::io::{Read,Write};
@@ -211,6 +250,71 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();v.is_object().then_some(v)
 }
 
+/// D20: only `pocold run` catches SIGINT and SIGTERM; any other command still ends at once. `pocold status` here
+/// blocks reading its genesis file, a FIFO: the writer's open returns once pocold opened it (the ordering barrier,
+/// past main), then SIGTERM must kill it. With the handlers installed in main it was caught, the read went on, and
+/// the command ran until the writer closed.
+#[cfg(unix)]
+#[test] fn pocold_status_still_dies_on_sigterm(){
+    use std::os::unix::process::ExitStatusExt;
+    let d=tmp("status-term");let net=d.join("net");std::fs::create_dir_all(&net).unwrap();
+    let fifo=net.join("genesis.spec.hex");let c=std::ffi::CString::new(fifo.to_str().unwrap()).unwrap();assert_eq!(unsafe{libc::mkfifo(c.as_ptr(),0o600)},0);
+    let mut p=Command::new(env!("CARGO_BIN_EXE_pocold")).args(["status","--network",net.to_str().unwrap(),"--data",d.join("data").to_str().unwrap()])
+        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+    let w=std::fs::OpenOptions::new().write(true).open(&fifo).unwrap();
+    assert_eq!(unsafe{libc::kill(p.id() as i32,libc::SIGTERM)},0);
+    let t=std::time::Instant::now();
+    let s=loop{if let Some(s)=p.try_wait().unwrap(){break s}if t.elapsed()>std::time::Duration::from_secs(10){drop(w);break p.wait().unwrap()}std::thread::sleep(std::time::Duration::from_millis(20));};
+    assert_eq!((s.signal(),s.code()),(Some(libc::SIGTERM),None),"pocold status ends by SIGTERM");
+    let _=std::fs::remove_dir_all(&d);
+}
+/// D20 (VA-SPEC §1a.6): `pocold run` stops cleanly on SIGTERM, as `systemctl stop` sends it: it leaves its run loop at the
+/// next event boundary, saves the address book if it changed, prints its final status on stdout and exits 0. Without a
+/// handler the signal killed it (no status, no save, exit by signal). (a) A listening node with no peers: a clean book
+/// is not written, so only the exit and the status are expected. (b) A node with a `--peer` that answers: once its
+/// peer's Hello verified (dirtied) the book, SIGTERM leaves `addrbook` in its data directory.
+#[cfg(unix)]
+#[test] fn pocold_run_stops_cleanly_on_sigterm(){
+    use std::process::{Child,Stdio};
+    let d=tmp("sigterm");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let path=|p:&PathBuf|p.to_str().unwrap().to_string();
+    // The node's ports stay held until right before it starts (tests/discovery.rs).
+    let hold=||{let held=[std::net::TcpListener::bind("127.0.0.1:0").unwrap(),std::net::TcpListener::bind("127.0.0.1:0").unwrap()];let a=held.each_ref().map(|l|l.local_addr().unwrap());(held,a)};
+    let start=|data:&PathBuf,extra:&[String]|->(Child,std::net::SocketAddr,std::net::SocketAddr){
+        let (held,[p2p,rpc])=hold();
+        let mut args=vec!["run".to_string(),"--network".into(),path(&net),"--data".into(),path(data),"--listen".into(),p2p.to_string(),"--rpc".into(),rpc.to_string()];args.extend(extra.iter().cloned());
+        drop(held);
+        let c=Command::new(env!("CARGO_BIN_EXE_pocold")).args(&args).env_remove("POCOL_DISCOVERY").stdout(Stdio::piped()).stderr(Stdio::null()).spawn().unwrap();(c,p2p,rpc)
+    };
+    // Polls pocol_status until `ready` holds (the ordering barrier), within 60 s.
+    let wait=|c:&mut Child,rpc,ready:&dyn Fn(&serde_json::Value)->bool|{let t=std::time::Instant::now();
+        loop{if let Some(s)=c.try_wait().unwrap(){panic!("run exited early with {s}")}
+            if rpc_status(rpc).is_some_and(|v|ready(&v)){return}
+            assert!(t.elapsed()<std::time::Duration::from_secs(60),"not ready within 60 s");std::thread::sleep(std::time::Duration::from_millis(50));}};
+    // SIGTERM, then the exit within 10 s: its status and the final status JSON it printed.
+    let term=|mut c:Child|->(Option<i32>,serde_json::Value){
+        assert_eq!(unsafe{libc::kill(c.id() as i32,libc::SIGTERM)},0);
+        let t=std::time::Instant::now();
+        let s=loop{if let Some(s)=c.try_wait().unwrap(){break s}if t.elapsed()>std::time::Duration::from_secs(10){let _=c.kill();panic!("no exit within 10 s of SIGTERM")}std::thread::sleep(std::time::Duration::from_millis(20));};
+        let mut out=String::new();std::io::Read::read_to_string(c.stdout.as_mut().unwrap(),&mut out).unwrap();
+        (s.code(),serde_json::from_str(out.trim()).unwrap_or_else(|e|panic!("no final status on stdout ({e}): {out:?}")))
+    };
+    // (a)
+    let a=d.join("a");let (mut na,_,rpc_a)=start(&a,&[]);wait(&mut na,rpc_a,&|_|true);
+    let (code,st)=term(na);
+    assert_eq!(code,Some(0),"SIGTERM is a clean stop");assert!(st["discovery"].is_object(),"the final status: {st}");
+    assert!(!a.join("addrbook").exists(),"a clean book is not written");
+    // (b)
+    let b=d.join("b");let (mut nb,p2p_b,rpc_b)=start(&b,&[]);wait(&mut nb,rpc_b,&|_|true);
+    let c=d.join("c");let (mut nc,_,rpc_c)=start(&c,&["--peer".into(),p2p_b.to_string()]);
+    wait(&mut nc,rpc_c,&|v|v["compatiblePeers"].as_u64()>=Some(1));
+    let (code,st)=term(nc);
+    assert_eq!((code,st["compatiblePeers"].as_u64()),(Some(0),Some(1)),"a clean stop with its peer: {st}");
+    assert!(c.join("addrbook").exists(),"the book the peer's Hello changed is saved at the clean stop");
+    let _=term(nb);
+    let _=std::fs::remove_dir_all(&d);
+}
 /// PR7 (T17): `run` takes the A13 memory budget from `--memory-budget-bytes N`, or POCOL_MEMORY_BUDGET_BYTES when the
 /// flag is absent (as `pocol start` does), and the eviction depth from `--evict-depth N`. A budget of 1 byte is refused
 /// at open by the bound, by flag and by variable; a value that is not a number fails the command, an empty variable

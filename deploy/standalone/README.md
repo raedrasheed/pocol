@@ -46,7 +46,13 @@ local declared budget after provisioning resources; it does not change consensus
 inbound peers the node keeps, default 32; up to 8 more connections may wait for their
 Hello. When the 32 are full, a newcomer evicts one inbound peer (the youngest of the
 most crowded address range; a few recent useful peers, the longest connected and the
-configured peers are protected) or is closed. `POCOL_PER_GROUP_MAX` (or `pocold run --per-group-max
+configured peers are protected) or is closed. `POCOL_OUTBOUND` (`auto`, the default: 4 automatic outbound connections with `--listen`, 2 without; or 0..8, 0
+restoring the earlier behaviour) sets how many connections the node opens itself to addresses it learned, plus one
+spare slot; `pocol start --peer IP:PORT` (repeated, at most 7) adds static peers besides the invitation's seeds. A
+seed host recognises its own seed address from a local listener on the seed's port (or by its nonce, with NAT
+hairpinning); one behind 1:1 NAT lists the other seeds with `--peer` to keep them all, and never passes its public IP
+as `--listen`, which is on no interface there (the bind fails and the node does not start).
+`POCOL_PER_GROUP_MAX` (or `pocold run --per-group-max
 N`) sets how many inbound connections one public address range (an IPv4 /16 or IPv6
 /32) may hold, default 4, plus one spare place whose newcomer must
 evict within its own range; `0` turns the limit off. Both are local P2P policy and do
@@ -57,7 +63,7 @@ The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup remains
 small pilot, not a worst-case capacity proof. The service's `MemoryMax=3G` was already
 below the model's bound, and the 32 established inbound places add about 126 MB of
 budget to it (110 MB of model) over the earlier 8. The unit's `TasksMax=256` holds the
-thread inventory (148 tasks with 7 configured peers). Disk sizing, compaction and long-term
+thread inventory (164 tasks with 7 configured peers and automatic outbound, 144 with 2). Disk sizing, compaction and long-term
 load qualification remain operational work. Numeric heights retain the format's
 u64 representation; zero disables scheduled expiry, not hardware arithmetic.
 

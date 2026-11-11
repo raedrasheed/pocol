@@ -1488,3 +1488,32 @@ fn blake_then(rounds:u32,tail:&str)->String{
     println!("REDIAL {}",serde_json::json!({"acceptsIn3s":n}));
     assert!((2..=5).contains(&n),"accepts within 3 s of the first: {n}");
 }
+
+/// VA-SPEC §1a.7, A13: an automatic outbound slot (`net::slot`, thread `out-{i}`) dials each address it is given and
+/// hands the connection over as `Origin::Slot(i, addr)`, counted as outbound and never in the inbound places; a connect
+/// that fails is reported as `DialFailed(i, addr, why)`. It takes the next address only after the node saw the last
+/// connection's Closed, and joins that connection's reader before it dials again, so no reader is left behind: once
+/// the next outcome arrives the first connection's threads are gone and its outbound place is given back.
+#[test] fn a_slot_dials_hands_over_and_reports_failures(){
+    let _s=serial();
+    let net=net::Net::new(net::Limits::default());let (ev_tx,ev)=std::sync::mpsc::sync_channel(8);let (assign,rx)=std::sync::mpsc::sync_channel(1);
+    net::slot(0,rx,ev_tx,net.clone()).unwrap();
+    let next=||ev.recv_timeout(Duration::from_secs(10)).expect("an event within 10 s");
+    let raw=TcpListener::bind("127.0.0.1:0").unwrap();let a=raw.local_addr().unwrap();
+    assign.send(a).unwrap();
+    let net::NetEvent::Connected(id,p)=next() else{panic!("Connected first")};
+    assert_eq!((p.origin,p.outbound,net.counters.outbound.load(Ordering::SeqCst),net.counters.live.load(Ordering::SeqCst)),(net::Origin::Slot(0,a),true,1,0),"a slot connection, outbound");
+    // The raw peer closes without a Hello: the reader ends and reports Closed.
+    let (server,_)=raw.accept().unwrap();drop(raw);drop(server);
+    assert!(matches!(next(),net::NetEvent::Closed(x) if x==id),"its Closed");
+    let dead={let l=TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
+    assign.send(dead).unwrap();
+    assert!(matches!(next(),net::NetEvent::DialFailed(0,x,net::DialError::Refused) if x==dead),"a closed port is refused");
+    assert_eq!(net.counters.outbound.load(Ordering::SeqCst),0,"the first connection's place was given back before the next dial");
+    #[cfg(target_os="linux")]{
+        let names:Vec<String>=std::fs::read_dir("/proc/self/task").unwrap().flatten().filter_map(|e|std::fs::read_to_string(e.path().join("comm")).ok()).map(|n|n.trim_end().to_string()).collect();
+        assert!(!names.iter().any(|n|*n==format!("peer-{id}")||*n==format!("peer-{id}-w")),"its reader and writer are gone: {names:?}");
+        assert!(names.iter().any(|n|n=="out-0"),"the slot thread waits for its next address");
+    }
+    drop(assign);
+}

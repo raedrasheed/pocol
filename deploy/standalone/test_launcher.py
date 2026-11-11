@@ -132,6 +132,32 @@ class Launcher(unittest.TestCase):
         }
         self.assertTrue(required <= info['sourceSha256'].keys(),
                         'Local dependency code must be bound to the native compatibility identity')
+    def test_network_writes_a_bootstrap_list_and_retired_flag(self):
+        # PR2b (D17, D23): `pocol network` writes the optional bootstrap list and seedsRetired into a v2 file, outside
+        # the network's identity; `inspect` shows them; a bad list or flag is refused.
+        args = ['network', '--from', None, '--seed', '127.0.0.1:30300', '--bootstrap', '127.0.0.1:30301', '--bootstrap', '127.0.0.1:30302', '--seeds-retired', 'true']
+        plain = network(self.root, [self.root / 'a'], ['127.0.0.1:30300'])
+        listed = self.root / 'listed.pocol.json'
+        call('pocol', *[self.root / 'genesis' if a is None else a for a in args], '--out', listed)
+        value = json.loads(listed.read_text(encoding='utf-8'))
+        self.assertEqual((value['bootstrap'], value['seedsRetired']), (['127.0.0.1:30301', '127.0.0.1:30302'], True))
+        self.assertNotIn('bootstrap', json.loads(plain.read_text(encoding='utf-8')), 'absent when not given')
+        shown = json.loads(call('pocol', 'inspect', '--network', listed).stdout)
+        self.assertEqual((shown['bootstrap'], shown['seedsRetired']), (['127.0.0.1:30301', '127.0.0.1:30302'], True))
+        for bad in (['--bootstrap', '127.0.0.1:80'], ['--bootstrap', '127.0.0.1:30300'], ['--seeds-retired', 'yes']):
+            out = self.root / 'bad.pocol.json'
+            self.assertNotEqual(call('pocol', 'network', '--from', self.root / 'genesis', '--seed', '127.0.0.1:30300', *bad, '--out', out, ok=False).returncode, 0, bad)
+            self.assertFalse(out.exists())
+    def test_start_accepts_repeated_peers_and_rejects_bad_ones(self):
+        # PR2b: `pocol start --peer` may repeat (static peers besides the invitation's seeds); a bad one is refused
+        # before the node starts.
+        home = self.root / 'node'; path = network(self.root, [home], ['127.0.0.1:30300'])
+        call('pocol', 'import', '--home', home, '--network', path)
+        for bad in ('0.0.0.0:30300', '127.0.0.1:0', 'x'):
+            p = call('pocol', 'start', '--home', home, '--peer', '127.0.0.1:30301', '--peer', bad, ok=False)
+            self.assertNotEqual(p.returncode, 0); self.assertIn('--peer', p.stderr)
+        p = call('pocol', 'start', '--home', home, '--peer', '127.0.0.1:30301', '--peer', '127.0.0.1:30301', ok=False)
+        self.assertIn('given twice', p.stderr)
     def test_cli_rejects_ambiguous_options(self):
         for args in [('identity', '--home'), ('identity', '--unknown', 'x'), ('identity', '--home', 'a', '--home', 'b')]:
             self.assertNotEqual(call('pocol', *args, ok=False).returncode, 0)

@@ -22,28 +22,33 @@ evicted peer keeps its place, and its threads, until its reader releases it.
 | dial-{addr} | net.rs:699 | dials | process lifetime | 0 |
 | dial-fwd-{a} | node.rs:648 | dials | process lifetime | 0 |
 | peer reader (inbound) | net.rs:633 | inbound_max | p2p-listen reaps at each accept | <= inbound_max |
-| peer writer | net.rs:612 | inbound_max + dials | its reader joins it before sending Closed | ~0 (joined synchronously by the reader) |
+| peer writer | net.rs:612 | inbound_max + dials + S | its reader joins it before sending Closed | ~0 (joined synchronously by the reader) |
 | peer reader (outbound) | net.rs:633 | dials | the dialer joins the previous reader before the next | <= dials |
+| out-{t} (PR2b, automatic outbound slot) | net.rs `slot` | S = K + 1 (the spare's included; 0 without automatic outbound) | process lifetime | 0 |
+| out-fwd (PR2b) | node/discovery/outbound.rs `disc_start_outbound` | F = 1 with any slot | process lifetime | 0 |
+| peer reader (slot) (PR2b) | net.rs:633 | S | the slot joins the previous reader before its next dial | <= S |
 | rpc-{id} conn | rpc.rs:614 | conn_max | acceptor reaps at each accept | <= conn_max |
 
-io_threads = 2*inbound_max + 4*dials + conn_max + 6 counts max RUNNING (reader+writer per inbound,
-dialer+dial-fwd+reader+writer per configured peer, conn_max rpc, 6 singletons).
+io_threads = 2*inbound_max + 4*dials + 3*S + F + conn_max + 6 counts max RUNNING (reader+writer per inbound,
+dialer+dial-fwd+reader+writer per configured peer, slot+reader+writer per automatic outbound slot and the one
+out-fwd, conn_max rpc, 6 singletons).
 
-Max exiting-not-joined E <= inbound_max + dials + conn_max (readers + outbound readers + rpc conns that
-finished between reap points; writers are joined synchronously; singletons never respawn).
+Max exiting-not-joined E <= inbound_max + dials + S + conn_max (readers + outbound readers + slot readers + rpc conns
+that finished between reap points; writers are joined synchronously; singletons never respawn).
 
 ## Model (resources.rs threads term)
 - Running stacks: io_threads * IO_STACK (full resident, conservative).
 - Exited stacks returned to glibc's cache: STACK_CACHE = 40 MiB (separate term).
 - Exiting-not-joined remainder: E * IO_STACK counted CONSERVATIVELY (real ~26 KiB each, measured),
   so the term is an over-bound that also covers any thread momentarily holding its stack before the
-  cache reclaims it. E = inbound_max + dials + conn_max.
+  cache reclaims it. E = inbound_max + dials + S + conn_max.
 - consensus stack 16 MiB + main 1 MiB + 2*THREAD_HEAP.
 The /proc thread COUNT invariant test may transiently show running + up to E threads; that is counted.
 
 ## Task limit (PR3)
-`resources::tasks_needed` = io_threads + 2 (consensus and main): 2·inbound_max + 4·dials + conn_max + 8, which is
-128 at the defaults (32 + 8 inbound, 2 configured peers, 32 RPC connections), 148 with 7 peers and 340 at
-`--peers-max 128` with 7. `Node::start_network` refuses to start when its cgroup v2 `pids.max` (systemd TasksMax)
+`resources::tasks_needed` = io_threads + 2 (consensus and main): 2·inbound_max + 4·dials + 3·S + F + conn_max + 8,
+which is 144 at the defaults (32 + 8 inbound, 2 configured peers, S = 5 automatic outbound slots with the spare, 32
+RPC connections; PR2b, 128 before it), 164 with 7 peers and 368 at `--peers-max 128` with 7 peers and S = 9 (340
+before PR2b). `Node::start_network` refuses to start when its cgroup v2 `pids.max` (systemd TasksMax)
 is below it (`resources::tasks_fit`); an unreadable limit is not checked. Units: public testnet 512, private
 testnet and standalone 256.
