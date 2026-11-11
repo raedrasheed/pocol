@@ -124,17 +124,17 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
     assert!(n.state_store().is_some()&&n.status_json()["stateStore"]==true);
     drop(n);let _=std::fs::remove_dir_all(&d);
 }
-/// R14/R19 in store mode time each calibration block with its commit, fsynced to the node's disk, inside the span:
-/// one commit the disk holds past t_exec (1 s on a single host) refuses the boot with exactly the refusal
-/// tests/cutover.rs met on Windows (runs 42863094336 and 42969344541, a store-mode cutover beside three other
-/// cutover tests writing to the same disk; that file now runs them one at a time). The same calibration on the same
-/// kind of store, with no commit held, is admitted. The profile is the cutover tests' continuous old network.
-#[test] fn one_calibration_commit_held_past_t_exec_refuses_a_store_mode_boot_on_r14_and_r19(){
+/// A durable commit stalled past the execution limit is reported separately and cannot refuse boot.
+#[test] fn isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused(){
     use pocol_lp4_execution::{admission,node_trie::{Batch,Id,Node,NodeStore,TrieStore}};
     use std::sync::{Arc,atomic::{AtomicU32,Ordering}};
     /// A state store whose `hold`-th commit (0: none) takes `ms` longer, as a flush queued behind other writers.
-    struct Held<'a>{st:&'a pocold::state_store::StateStore,hold:u32,ms:u64,commits:AtomicU32}
-    impl NodeStore for Held<'_>{fn node(&self,id:&Id)->Option<Arc<Node>>{self.st.node(id)} fn code(&self,h:&revm::primitives::B256)->Option<revm::primitives::Bytecode>{self.st.code(h)}}
+    struct Held<'a>{st:&'a pocold::state_store::StateStore,hold:u32,ms:u64,commits:AtomicU32,slow_execution:u8,code_reads:AtomicU32}
+    impl NodeStore for Held<'_>{fn node(&self,id:&Id)->Option<Arc<Node>>{self.st.node(id)} fn code(&self,h:&revm::primitives::B256)->Option<revm::primitives::Bytecode>{
+        if *h==revm::primitives::keccak256([0x5b,0x60,0x00,0x56])&&(self.slow_execution==2||(self.slow_execution==1&&self.code_reads.fetch_add(1,Ordering::SeqCst)==0)){
+            std::thread::sleep(std::time::Duration::from_millis(self.ms));
+        }
+        self.st.code(h)}}
     impl TrieStore for Held<'_>{
         fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{
             if self.commits.fetch_add(1,Ordering::SeqCst)+1==self.hold{std::thread::sleep(std::time::Duration::from_millis(self.ms))}
@@ -146,15 +146,20 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
     c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.h_end=0;c.h_close=0;
     let n=devnet::build(&c).unwrap();let local=pocold::single_host_local();let t_exec_ms=u64::from(local.t_exec)*1000;
     let memory=admission::measure(&n.spec_bytes,&n.alloc,1).unwrap();
-    let boot=|hold:u32|{
-        let d=tmp(&format!("held-commit-{hold}"));std::fs::create_dir_all(&d).unwrap();let st=pocold::state_store::StateStore::open(&d).unwrap();
+    let boot=|hold:u32,slow_execution:u8|{
+        let d=tmp(&format!("held-commit-{hold}-{slow_execution}"));std::fs::create_dir_all(&d).unwrap();let st=pocold::state_store::StateStore::open(&d).unwrap();
         // Commit 1 stores the genesis before the timed blocks; commit 3 is the second block's.
-        let held=Held{st:&st,hold,ms:t_exec_ms+50,commits:AtomicU32::new(0)};
+        let held=Held{st:&st,hold,ms:t_exec_ms+50,commits:AtomicU32::new(0),slow_execution,code_reads:AtomicU32::new(0)};
         let s=admission::measure_on_store(&n.spec_bytes,&n.alloc,1,&held).unwrap();assert!(held.commits.load(Ordering::SeqCst)>3);
         drop(held);drop(st);let _=std::fs::remove_dir_all(&d);
-        let t=memory.with_store(&s).unwrap();(t.phase_ms,admission::admit(&n.request(&local,Some(&t))).map(|_|()).map_err(|e|e.to_string()))
+        let t=memory.with_store(&s).unwrap();(t.clone(),admission::admit(&n.request(&local,Some(&t))).map(|_|()).map_err(|e|e.to_string()))
     };
-    let (ms,r)=boot(0);assert!(r.is_ok(),"{r:?}; phase ms {ms:?}");
-    let (ms,r)=boot(3);assert!(ms[0]>t_exec_ms,"{ms:?}");
-    assert_eq!(r,Err("-32018 ParamGate rejected [R14, R19]".to_string()),"phase ms {ms:?}");
+    let (t,r)=boot(0,0);assert!(r.is_ok(),"{r:?}; timing {t:?}");
+    let (t,r)=boot(3,0);eprintln!("isolated commit stall: {t:?}");assert!(t.store_ms>t_exec_ms,"{t:?}");
+    assert!(t.phase_ms.iter().all(|ms|*ms<=t_exec_ms),"{t:?}");
+    assert!(r.is_ok(),"{r:?}; timing {t:?}");
+    let (t,r)=boot(0,1);assert!(r.is_ok(),"one execution outlier is rejected: {r:?}; {t:?}");
+    let (t,r)=boot(0,2);eprintln!("sustained execution slowdown: {t:?}");assert!(t.phase_ms[0]>t_exec_ms,"{t:?}");
+    let e=r.unwrap_err();assert!(e.starts_with("-32018 ParamGate rejected [R14, R19]"),"{e}");
+    for part in ["execution_ms=","store_fsync_ms=","samples=","t_exec_ms=1000"]{assert!(e.contains(part),"{e}");}
 }

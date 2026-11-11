@@ -4,6 +4,7 @@ history n=1 kind=base rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=
 history n=2 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=f0b19f9cda6bc51aee2b509d1f4856c0474bbd0937a535f4ecd9177ffc778391 vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=PR7 note="C-1 S5 local retention: canonical entries below the eviction window in a node-local index (normalized, reloaded on head fall-back), windowed checkpoint v2 (v1 read), store-mode rebuild anchors, non-slim rebuild ancestors; verdicts, roots and fork choice unchanged"
 history n=3 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=0b765c5dee30631bf346813d7951272f5981c6ab3589574a6cb3a34054d319ae vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=PR7 note="PR7 review fixes: a restore diffs a stored version only against its parent's, and an I/O failure of the canonical index at restore is a local failure; verdicts, roots and fork choice unchanged"
 history n=4 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=dab77c75075547de6c4ae5592aed7e456e4c8f42f53a76a855991f4396456c71 vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=PR7 note="PR7 review fixes: a child context whose BLOCKHASH window reaches below the evicting window is a local failure, never executed on a short window; verdicts, roots and fork choice unchanged"
+history n=5 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=098c369329ddf893e5bd7b5f8d1e67f9ce2b5a9b268467c71d9ab0417d2ef780 vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=PR12 note="Boot calibration only: separate durable commit latency from per-block execution medians and retry timing refusals once; validity and consensus identity unchanged"
 file 9ed951416e93352d66d0c783c7fb09d5485fd79594efd6bef7aeb0466fd749b3 lp1-node/Cargo.toml
 file 8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502 lp1-node/src/asert.rs
 file 33b1000b87761ae54c39bf2e54ecaf69e20209d58270d29042e12e258dfe273b lp1-node/src/assignment.rs
@@ -22,7 +23,7 @@ file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp1-node/s
 file d7a3c3fcbae35e06f916e7e147252b0234d650f48ceae07387912fc00576a61d lp1-node/tests/data/lp4-trie-vectors.json
 file 12a99a38e144bad0b3448a7edcfc627c88acf6665e6a1e4c1fbead0b390f28c1 lp4-execution/Cargo.toml
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 lp4-execution/rust-toolchain.toml
-file a99f09458c91957f64f010962516bfed7f6e0bad3c2e7a599de46d12a5a634eb lp4-execution/src/admission.rs
+file 87d3aff404985c851600d636351baae5c7444ee3d6680af91aafaf87d6c8b7cb lp4-execution/src/admission.rs
 file afe395e91c645871f2a56ca9c62145796a2c102c9aa8b3be9cc95449f7031da0 lp4-execution/src/admission/scope.rs
 file 90f97361d846f2f2fc148783828cee2cbd7ab078ac6511ae24c603b155e8c433 lp4-execution/src/apply.rs
 file d5369a58f2905aad2092c9b63cfef04f401636be74adf48481628e2343dbb4b3 lp4-execution/src/code_caps.rs
@@ -87,7 +88,7 @@ file a40b986d6c8aae1155f1b912a0aa805973a2b8cbcb08f8ca429ba67d4cd89961 pocold/src
 file d9b3b661bc10aa3eb38861fbbf4627ec98ea493054693647c1c11dd4a26a77f2 pocold/src/checkpoint.rs
 file bd5d0cd1c97b740221927592f61c0b1286a77d8cf319decec9204bd6c246b209 pocold/src/history.rs
 file 9e4683117fe1f32a1004b33329d3309486b206134facea2864bf5485d455cbfe pocold/src/identity.rs
-file d235851962212d90a63b06eaefc5a689129d82fdf308de34d2fd4a805eb7bcfb pocold/src/lib.rs
+file 9ec49133a9582504656dec253d4026f72b1ef1589b5a1c640edfb5ace5e1e1d2 pocold/src/lib.rs
 file 8be7eec8c6742dc07402d471d0cfeac31474057615ab61866b81511abfb0b5ab pocold/src/secp_backend.rs
 file b5f41a4940f124d930219026adb7de167d6be6ee362861b65b6eb6967da85158 pocold/src/state_store.rs
 file 42a27dd7c881adf9c200e6dfb4ab51278146323ceee2703561120b8d14e52b72 pocold/src/statediff.rs

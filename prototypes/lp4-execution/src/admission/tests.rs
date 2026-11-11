@@ -67,7 +67,7 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let (tm,gm,rm)=measure_run(&n.spec_bytes,&n.alloc,1,None).unwrap_or_else(|e|panic!("{e}"));
     let (ts,gs_,rs)=measure_run(&n.spec_bytes,&n.alloc,1,Some(&store)).unwrap_or_else(|e|panic!("{e}"));
     assert!(rm.len()>=3&&rm==rs,"the same state root at every height: {} vs {}",rm.len(),rs.len());
-    assert_eq!(gm,gs_,"the same gas at every height");assert_eq!(tm.samples,ts.samples);
+    assert_eq!(gm,gs_,"the same gas at every height");assert_eq!(tm.samples,ts.samples);assert_eq!(tm.samples,3*rm.len() as u32,"at least three execution samples per block");
     assert!(!tm.stored&&ts.stored&&ts.genesis_hash==tm.genesis_hash);
     assert_eq!(store.1.load(std::sync::atomic::Ordering::SeqCst),rs.len() as u64+1,"the genesis and every block committed once");
     assert_eq!(store.pinned().unwrap(),0,"every version the calibration pinned is released");
@@ -77,8 +77,7 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let a=admit(&n.request(&sh(),Some(&tm))).unwrap();
     assert!(!a.report().conditions.iter().any(|c|c.detail.contains("node store")),"an in-memory timing is not reported as stored");
 }
-/// A block's durable commit is inside its timed span: with a store whose commit takes at least 25 ms, every phase
-/// of the store measurement is at least that, and the in-memory one (no commit) is not affected.
+/// Durable commit latency is measured separately from execution.
 #[test] fn the_store_calibration_times_each_block_commit(){
     use crate::node_trie::{Batch,Id,Node,NodeStore,SharedMem,TrieStore};
     #[derive(Default)] struct Slow(SharedMem);
@@ -88,7 +87,8 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
         fn unpin(&self,root:&Id)->Result<(),String>{self.0.unpin(root)}
         fn pinned(&self)->Result<u64,String>{self.0.pinned()}}
     let n=net(&cfg());let t=measure_on_store(&n.spec_bytes,&n.alloc,1,&Slow::default()).unwrap_or_else(|e|panic!("{e}"));
-    assert!(t.phase_ms.iter().all(|p|*p>=25),"every phase includes its commit: {:?}",t.phase_ms);
+    assert!(t.store_ms>=25,"the durable commit is reported separately: {t:?}");
+    assert_eq!(Timing::from_json(&t.to_json()),Some(t));
 }
 /// A store-mode node's timing takes, per phase class, the larger of its in-memory and store measurements, so a
 /// store path slower than t_exec is refused by R14/R19 even when memory is fast; a store measurement for another
