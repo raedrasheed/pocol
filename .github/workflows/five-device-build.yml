@@ -140,8 +140,30 @@ jobs:
             exit 1
           fi
           python deploy/standalone/package.py --platform Android --out dist
+      - name: Build the new-key app under its own application id (V3-33)
+        shell: bash
+        run: |
+          set -euo pipefail
+          export JAVA_HOME="$JAVA_HOME_17_X64"
+          export PATH="$JAVA_HOME/bin:$PATH"
+          # A build for a new signing key cannot update org.pocol.node; it is another app that installs beside it.
+          gradle --no-daemon -p prototypes/pocol-android assembleRelease -PpocolApplicationId=org.pocol.wallet
+          apk=prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk
+          badging=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk")
+          printf '%s\n' "$badging" | grep -F "package: name='org.pocol.wallet' versionCode='5' versionName='0.4.0'"
+          printf '%s\n' "$badging" | grep -F "application-label:'PoCol Wallet (new)'"
+          if gradle --no-daemon -q -p prototypes/pocol-android help -PpocolApplicationId=Not.A.Package; then
+            echo 'An invalid application id must be refused.' >&2
+            exit 1
+          fi
+          python deploy/standalone/package.py --platform Android --android-application-id org.pocol.wallet --out dist-wallet
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
           name: PoCol-Mainnet-0.4.0-Android-arm64-UNSIGNED-${{ env.EXPECTED_COMMIT }}
           path: dist/
+          retention-days: 30
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: PoCol-Wallet-0.4.0-Android-arm64-org.pocol.wallet-UNSIGNED-${{ env.EXPECTED_COMMIT }}
+          path: dist-wallet/
           retention-days: 30

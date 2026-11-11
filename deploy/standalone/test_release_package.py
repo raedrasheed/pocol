@@ -96,6 +96,22 @@ class ReleasePackageTests(unittest.TestCase):
         self.assertEqual(release['versionCode'], 5)
         self.assertEqual(release['signingStatus'], 'blocked-requires-existing-signer')
 
+    def test_android_new_key_app_is_packaged_under_its_own_application_id(self):
+        # V3-33: the new-key build is another app (org.pocol.wallet) that installs beside org.pocol.node.
+        self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk')
+        info = self.fixture('prototypes/pocold/target/aarch64-linux-android/release/build/pocold-fixture/out/build-info.json')
+        info.write_text(json.dumps(self.build), encoding='utf-8')
+        out = self.package('Android', '--android-application-id', 'org.pocol.wallet')
+        release = self.metadata(out)
+        self.assertIn('PoCol-Mainnet-0.4.0-arm64-org.pocol.wallet-unsigned.apk', {p.name for p in out.iterdir()})
+        self.assertNotIn('PoCol-Mainnet-0.4.0-arm64-unsigned.apk', {p.name for p in out.iterdir()})
+        self.assertEqual((release['applicationId'], release['installsBeside']), ('org.pocol.wallet', 'org.pocol.node'))
+        self.assertEqual(release['signingStatus'], 'requires-new-release-signer')
+        self.assertNotIn('lastDistributedSignerSha256', release)
+        self.assertFalse(release['installable'])
+        with self.assertRaises(SystemExit):
+            self.package('Android', '--android-application-id', 'org.example.other')
+
     def test_native_complete_packages_preserve_modes_and_exclude_old_network(self):
         bins = ('pocol', 'pocold', 'pocol-key', 'pocol-sign', 'pocol-site')
         for platform in ('Windows', 'Linux'):

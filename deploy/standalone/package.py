@@ -3,7 +3,10 @@
 import argparse, hashlib, json, runpy, shutil, subprocess, tarfile
 from pathlib import Path
 p=argparse.ArgumentParser(); p.add_argument('--platform',choices=['Linux','Windows','Android'],required=True); p.add_argument('--out',type=Path,required=True)
-p.add_argument('--network',type=Path,help='the v2 invitation this release is for; release-info then names its consensusIdentity'); args=p.parse_args()
+p.add_argument('--network',type=Path,help='the v2 invitation this release is for; release-info then names its consensusIdentity')
+# The installed app is org.pocol.node; an APK for a new signing key is another app (V3-33), built with
+# gradle -PpocolApplicationId=org.pocol.wallet. Only these two ids are packaged.
+p.add_argument('--android-application-id',choices=['org.pocol.node','org.pocol.wallet'],default='org.pocol.node'); args=p.parse_args()
 root=Path(__file__).resolve().parents[2]
 # The consensus identity reference and the LEGACY_BUILDS mirror (standard library only; never imported from a package).
 identity=runpy.run_path(str(root/'deploy/public-testnet/pocol_identity.py'))
@@ -12,7 +15,8 @@ version='0.4.0'
 if args.platform=='Android':
     # CI has no retained signer for the installed app. An unsigned release is a
     # signing input, never an installable update or a freshly debug-signed APK.
-    files={f'PoCol-Mainnet-{version}-arm64-unsigned.apk':root/'prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk'}
+    apk='arm64-unsigned.apk' if args.android_application_id=='org.pocol.node' else f'arm64-{args.android_application_id}-unsigned.apk'
+    files={f'PoCol-Mainnet-{version}-{apk}':root/'prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk'}
     infos=list((root/'prototypes/pocold/target/aarch64-linux-android/release/build').glob('pocold-*/out/build-info.json'))
     assert infos and len({json.loads(f.read_text(encoding='utf-8'))['compatibilitySha256'] for f in infos})==1, 'ambiguous Android build identity'
     (args.out/'build-info.json').write_bytes(infos[0].read_bytes())
@@ -57,9 +61,14 @@ release={'version':version,'platform':args.platform,'sourceCommit':commit,
          'distribution':'unsigned-apk' if args.platform=='Android' else 'portable-native-tools',
          'installable':args.platform!='Android'}
 if args.platform=='Android':
-    release.update({'applicationId':'org.pocol.node','versionCode':5,
-                    'signingStatus':'blocked-requires-existing-signer',
-                    'lastDistributedSignerSha256':'bbb399007be5217a5a939eaa9b0ed1335170f7397a7487ef6da9acddb21b8772'})
+    if args.android_application_id=='org.pocol.node':
+        release.update({'applicationId':'org.pocol.node','versionCode':5,
+                        'signingStatus':'blocked-requires-existing-signer',
+                        'lastDistributedSignerSha256':'bbb399007be5217a5a939eaa9b0ed1335170f7397a7487ef6da9acddb21b8772'})
+    else:
+        # A separate app for the owner's new release key: it installs beside org.pocol.node and never updates it.
+        release.update({'applicationId':args.android_application_id,'versionCode':5,
+                        'signingStatus':'requires-new-release-signer','installsBeside':'org.pocol.node'})
 (args.out/'release-info.json').write_text(json.dumps(release,indent=2)+'\n',encoding='utf-8',newline='\n')
 sums=''.join(f'{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}\n' for f in sorted(args.out.iterdir()) if f.is_file())
 (args.out/'SHA256SUMS').write_text(sums,encoding='utf-8',newline='\n')
