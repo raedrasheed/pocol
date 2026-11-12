@@ -335,3 +335,47 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
         }
     }
 }
+
+/// R18 SYS gas follows the program set the GenesisSpec's sysCodeHash names. V1 and Continuous keep the
+/// legacy table and composition exactly, so the spec-1 H15000 admission (Continuous) has the same
+/// PhaseFacts call_gas, hence the same ResourceFacts digest, and the same condition text; EarnIn gets
+/// GAS_ENVELOPE_EARNIN and a condition naming it.
+#[test] fn the_gas_envelope_follows_the_program_set_and_v1_continuous_facts_are_unchanged(){
+    // The table and composition as they were before the earn-in table, written out.
+    const LEGACY:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_655_000),
+        ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_305_000),("settleFinal",4_230_000)];
+    const LEGACY_TEXT:&str="SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)";
+    let g=|n:&str|LEGACY.iter().find(|x|x.0==n).unwrap().1;
+    let legacy=|cp:&ConsensusParams,class:u8|->Vec<u64>{
+        let mut v=Vec::new();for _ in 0..cp.E_max{v.push(g("invalidate"));v.push(g("punish"));}
+        for n in ["markClose","pruneShares","recordShares","recordResult","settle","beginBlock"]{v.push(g(n))}
+        if class==2{v.push(g("finalize"));for _ in 1..cp.D{v.push(g("settleFinal"))}}else{v.push(g("closeBlock"))}
+        v};
+    assert_eq!(GAS_ENVELOPE,LEGACY);
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::V3]{assert!(std::ptr::eq(gas_envelope(set),GAS_ENVELOPE),"{set:?}");assert_eq!(gas_condition(set),LEGACY_TEXT);}
+    assert!(std::ptr::eq(gas_envelope(ProgramSet::EarnIn),GAS_ENVELOPE_EARNIN));
+    assert_eq!(GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>(),LEGACY.iter().map(|x|x.0).collect::<Vec<_>>(),"the same call names");
+    assert!(gas_condition(ProgramSet::EarnIn).starts_with("SYS gas: GAS_ENVELOPE_EARNIN holds at the earn-in fixture's maxima (earn-in program set)"));
+
+    // The live spec-1 chain: deploy/mainnet/h15000 runs the Continuous set inside GAS_DOMAIN.
+    let bundle:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
+    let bytes=crate::hex::decode(bundle["files"]["genesis.spec.hex"].as_str().unwrap().trim().trim_start_matches("0x")).unwrap();
+    let spec=gs::verify_hash(&bytes,&gs::genesis_hash(&bytes)).unwrap();let cp=ConsensusParams::from_values(&spec.cp).unwrap();
+    let set=SystemPrograms::program_set(&cp,&spec.sys_code_hash);
+    assert_eq!(set,ProgramSet::Continuous);assert!(in_gas_domain(&cp));
+    for class in 0..3{assert_eq!(phase_gas(&cp,class,set),Some(legacy(&cp,class)),"H15000 class {class}");}
+    let info:serde_json::Value=serde_json::from_str(bundle["files"]["devnet.json"].as_str().unwrap()).unwrap();
+    let recorded=info["admission"]["conditions"].as_array().unwrap().iter().find(|c|c["id"]=="gas-monotonicity-assumed").unwrap();
+    assert_eq!(recorded["detail"],gas_condition(set),"the recorded H15000 R18 condition");
+
+    // Admitted devnets of each set report their envelope.
+    for (earnin,h_end,want) in [(false,20_000,ProgramSet::V1),(false,0,ProgramSet::Continuous),(true,0,ProgramSet::EarnIn)]{
+        let mut c=cfg();c.earnin=earnin;c.h_end=h_end;if h_end==0{c.h_close=0}
+        let n=net(&c);let t=measure(&n.spec_bytes,&n.alloc,1).expect("measure");
+        let a=admit(&n.request(&sh(),Some(&t))).unwrap_or_else(|e|panic!("{want:?}: {e}"));
+        let spec=gs::decode(&n.spec_bytes).unwrap();assert_eq!(SystemPrograms::program_set(n.profile.cp(),&spec.sys_code_hash),want);
+        let gas=a.report().conditions.iter().find(|c|c.id=="gas-monotonicity-assumed").unwrap();assert_eq!(gas.detail,gas_condition(want),"{want:?}");
+        let p=phase_gas(n.profile.cp(),0,want).unwrap();
+        if want==ProgramSet::EarnIn{assert!(p.iter().sum::<u64>()>legacy(n.profile.cp(),0).iter().sum::<u64>())}else{assert_eq!(p,legacy(n.profile.cp(),0))}
+    }
+}

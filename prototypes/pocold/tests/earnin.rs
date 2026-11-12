@@ -53,6 +53,14 @@ fn next(net: &mut Net, miner: Address, txs: Vec<Vec<u8>>) -> Address {
                 assert!(net.chain.insert(entry));
                 let h = net.chain.head();
                 apply::check_escrow_invariant(&h.state, net.chain.spec.profile(), h.height, false).unwrap();
+                // The owner list the child's recordShares receives (shares and winner of this real block) names
+                // only registered records: members of the parent's ActList, still records after this block.
+                let owners = h.result.as_ref().expect("a validated block has a result").owner_sequence();
+                let active = apply::active_list(&parent.state);
+                for id in owners {
+                    assert!(active.contains(&id) && apply::miner_record(&parent.state, id).is_some() && apply::miner_record(&h.state, id).is_some(),
+                        "recordShares owner {id} at {} is not a registered member of the parent's ActList", h.height);
+                }
                 return context.proposer;
             }
             if shares.len() < usize::from(net.chain.spec.cp().S_max) && le_target(&hash, &context.t_share) { shares.push(nonce as u64); }

@@ -11,10 +11,12 @@
 //! - SYS slots, keys, accounts (R18): the P7 derivation `resources::derive` over the CP,
 //!   raised to at least the system slots measured in the constructed genesis. The user
 //!   context is charged its full allowance (SYS_KEYS_USER_MAX keys, 16 accounts).
-//! - SYS gas (R18): `GAS_ENVELOPE`, the per-call maxima measured by the worst-case fixture
-//!   `resources::tests::sys_gas_envelope_fixture`, composed into the worst call sequence of
-//!   each phase class. Applicable only inside `GAS_DOMAIN`; gas is assumed monotone in the
-//!   domain fields (open derivation obligation, A13). Outside the domain the facts are absent.
+//! - SYS gas (R18): the per-call maxima of the profile's program set (`gas_envelope`):
+//!   `GAS_ENVELOPE` (V1, Continuous) measured by the worst-case fixture
+//!   `resources::tests::sys_gas_envelope_fixture`, or `GAS_ENVELOPE_EARNIN` (EarnIn) measured by
+//!   `sys_gas_envelope_fixture_earnin`, composed into the worst call sequence of each phase class.
+//!   Applicable only inside `GAS_DOMAIN`; gas is assumed monotone in the domain fields (open
+//!   derivation obligation, A13). Outside the domain the facts are absent.
 //! - timing (R14/R19): a `Timing` record measured on this machine for this exact profile
 //!   (`measure`). Absent or for another genesis: R14/R19 are violated.
 //! - R21: (K_hist + side) snapshots of a state at SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX, checked
@@ -48,7 +50,7 @@
 mod scope;
 pub use scope::{Condition,RpcFacts,Scope,Waiver,RPC_FIELDS,R26_PREDICATES,r26_partial};
 use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,U256,keccak256}};
-use crate::{apply::{self,BlockInput,Genesis,ParentResult,Proposer,SystemPrograms},
+use crate::{apply::{self,BlockInput,Genesis,ParentResult,ProgramSet,Proposer,SystemPrograms},
     gate::{self,Calibration,FactClass,GateProfile,IdentityFacts,LocalParams,Phase,PhaseFacts,ResourceFacts},
     genesis_spec as gs,hashes::sha256,param_gate::RpcLimits,profile::{ConsensusParams,NodeKind,ProfileIdentity,ProfileKind},resources};
 
@@ -80,11 +82,61 @@ impl NodeLocal{
     pub fn capital_phi(&self)->u32{self.phi.checked_mul(2).unwrap_or(u32::MAX)}
 }
 
-/// Measured SYS gas per call name: the largest value in any phase class over the
-/// scenarios of `resources::tests::sys_gas_envelope_fixture`, rounded up to 1000. That
-/// test fails if a measurement ever exceeds an entry, so the table cannot silently go stale.
+/// Measured SYS gas per call name of the V1 and Continuous program sets: the largest value in
+/// any phase class over the scenarios of `resources::tests::sys_gas_envelope_fixture`, rounded
+/// up to 1000. That test fails if a measurement ever exceeds an entry, so the table cannot
+/// silently go stale. The earn-in programs have their own table (`GAS_ENVELOPE_EARNIN`);
+/// `gas_envelope` selects by the program set the GenesisSpec's sysCodeHash names.
+///
+/// recordShares assumes every owner it is given is a registered record (w != 0); an absent
+/// owner costs about 3.6k gas more (four cold SLOADs instead of one SLOAD and a warm SSTORE),
+/// which the entries do not include. No valid block can name one, by these facts:
+/// - owners ⊆ ActList(parent): the host takes each share's owner (and the winner) from the
+///   nonce assignment, built only from the non-tomb entries of the parent state's ActList
+///   (pocold chain.rs `membership`, lp1-node assignment.rs `Membership::from_parent`); a nonce
+///   with no owner rejects the block. Every child of the block, on every attempt, carries the
+///   same parent result.
+/// - no erase in the window: between the parent state and recordShares(h-1) in phase 0 of h only
+///   block h-1 and h's punish/markClose/pruneShares run. punish only tombs, markClose only
+///   refunds. The program erases a record only by claimBond (state EXITED, at least U blocks
+///   after the exit) or by the beginBlock sweep (an exited record past due = exit + U, or a tomb
+///   at least E_win + D + 1 blocks after its burn), and beginBlock runs after recordShares.
+///   R8 (gate.rs) requires U >= E_win + D with D >= 2, so no record that was active at h-2 can be
+///   erased before recordShares(h-1). The earn-in probation deadline only exits a record.
+/// - ActList ⊆ live records: erase() does not remove a record from ActList, and a PAID record
+///   that is punished keeps its ActList entry with the tomb set. A sweep erasing it would leave an
+///   ActList entry naming an absent record, which the host would count as a live member. PAID
+///   exists only once CLOSING is set, and under CLOSING beginBlock returns before the sweep and
+///   claimBond reverts, so this cannot happen in V1, Continuous (which never sets CLOSING) or
+///   EarnIn.
+/// Checked on blocks: `resources::tests::sys_gas_envelope_fixture_earnin` takes its owners from the
+/// parent's ActList as the host does and asserts each is a record before and after the block, and
+/// pocold's tests/earnin.rs asserts it for the result of every real (mined and validated) block.
 pub const GAS_ENVELOPE:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_655_000),
     ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_305_000),("settleFinal",4_230_000)];
+/// Measured SYS gas per call name of the earn-in program set (PoColSystemEarnIn.sol): the largest
+/// value in any phase class over the scenarios of `resources::tests::sys_gas_envelope_fixture_earnin`,
+/// rounded up to 1000. That test fails if a measurement exceeds an entry or an entry is not measured.
+/// Its scenarios: the V1 fixture's two on the earn-in programs, and runs with eight (P_MAX) ACCRUING
+/// payees registered by USER transactions: first bond fills, an ACCRUING winner and proposer, the
+/// promote-and-PAY path through a bond one wei short and through a large tip pot, continuous runs,
+/// ACCRUING records alive into closing (markClose's ACCRUING refunds; settleFinal pays them as PAID
+/// records, since the final block needs the closing cursor done), the sweep scenario with ACCRUING
+/// records moved into the first closing block, and a first fill at a closing boundary where held_total
+/// is zero. Earn-in's payInfos returns a second array and settle calls accrue for ACCRUING payees, so
+/// settle and settleFinal cost more than in V1; markClose and beginBlock do as well. Not measured: the
+/// probation-deadline exit in the beginBlock sweep, which needs a height of at least T_PROB = 60480
+/// (at most P_MAX = 8 such exits per sweep).
+pub const GAS_ENVELOPE_EARNIN:&[(&str,u64)]=&[("beginBlock",944_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_716_000),
+    ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_651_000),("settleFinal",4_345_000)];
+/// The envelope of a program set. V1 and Continuous use `GAS_ENVELOPE` (the spec-1 H15000 chain
+/// runs Continuous, so its admission facts are unchanged); EarnIn uses `GAS_ENVELOPE_EARNIN`.
+/// `SystemPrograms::program_set` never returns V3, which keeps the legacy table.
+pub fn gas_envelope(set:ProgramSet)->&'static [(&'static str,u64)]{
+    match set{ProgramSet::EarnIn=>GAS_ENVELOPE_EARNIN,ProgramSet::V1|ProgramSet::Continuous|ProgramSet::V3=>GAS_ENVELOPE}
+}
+/// The table's name, as the R18 condition reports it.
+fn envelope_name(set:ProgramSet)->&'static str{if set==ProgramSet::EarnIn{"GAS_ENVELOPE_EARNIN"}else{"GAS_ENVELOPE"}}
 /// Gas-driving CP fields of the fixture (loop bounds in PoColSystemV1: S_max+1 owners,
 /// M_max records, RET retirements, D pots, E_max evidence; SWEEP_SCAN/SWEEP_MAX are
 /// capped at 64/16 in the program and were at those caps).
@@ -103,11 +155,11 @@ fn phase_calls(cp:&ConsensusParams,class:u8)->Vec<(&'static str,u64)>{
 fn in_gas_domain(cp:&ConsensusParams)->bool{
     let d=GAS_DOMAIN;cp.S_max<=d.s_max&&cp.M_max<=d.m_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret
 }
-fn envelope(name:&str)->Option<u64>{GAS_ENVELOPE.iter().find(|(n,_)|*n==name).map(|x|x.1)}
-fn phase_gas(cp:&ConsensusParams,class:u8)->Option<Vec<u64>>{
+fn envelope(set:ProgramSet,name:&str)->Option<u64>{gas_envelope(set).iter().find(|(n,_)|*n==name).map(|x|x.1)}
+fn phase_gas(cp:&ConsensusParams,class:u8,set:ProgramSet)->Option<Vec<u64>>{
     if !in_gas_domain(cp){return None}
     let mut out=Vec::new();
-    for (name,count) in phase_calls(cp,class){let g=envelope(name)?;for _ in 0..count{out.push(g)}}
+    for (name,count) in phase_calls(cp,class){let g=envelope(set,name)?;for _ in 0..count{out.push(g)}}
     Some(out)
 }
 
@@ -252,6 +304,8 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     let cp=ConsensusParams::from_values(&spec.cp).map_err(|e|terminal("R24",format!("CP schema: {e:?}")))?;
     let mut notes=Vec::new();
     let programs=SystemPrograms::for_spec(&cp,&spec.sys_code_hash);
+    // The program set selects the SYS gas envelope (R18): the same sysCodeHash match as `for_spec`.
+    let set=SystemPrograms::program_set(&cp,&spec.sys_code_hash);
 
     // Builder facts: allocRoot and system slots of the constructed genesis (before the
     // allocRoot comparison, which the gate makes as R24).
@@ -286,7 +340,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     if !in_gas_domain(&cp){notes.push(format!("SYS gas: CP outside the measured domain {:?} (R18)",GAS_DOMAIN))}
     let phase=|class:u8,p:Phase,keys:u64,accts:u64|PhaseFacts{phase:p,system_keys:sat_u32(keys),user_keys:if class==0{cp.SYS_KEYS_USER_MAX}else{0},
         system_accounts:sat_u32(accts),user_accounts:if class==0{USER_SYS_ACCOUNTS}else{0},live_slots:live,
-        call_gas:phase_gas(&cp,class).unwrap_or_default(),duration_ms:timing.map_or(u64::MAX,|t|t.phase_ms[class as usize]),
+        call_gas:phase_gas(&cp,class,set).unwrap_or_default(),duration_ms:timing.map_or(u64::MAX,|t|t.phase_ms[class as usize]),
         retired_records:if class==1&&cp.RET<=GAS_DOMAIN.ret{cp.RET}else{0}};
     let phases=vec![phase(0,Phase::Ordinary,b.keys_normal,b.accts_normal),phase(1,Phase::Closing,b.keys_closing,b.accts_closing),phase(2,Phase::Final,b.keys_final,b.accts_final)];
     let hist=historical_bytes(&cp,l);
@@ -301,7 +355,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
 
     let mut report=gate::check(&gp,Some(&resource),identity.as_ref(),calibration.as_ref(),r.node);
     let hist_exception=hist>HIST_TRIE_BUDGET;
-    let conditions=conditions(&cp,r,l,timing,hist_exception,&report.deferred);
+    let conditions=conditions(&cp,set,r,l,timing,hist_exception,&report.deferred);
     let mut waivers=Vec::new();
     match r.scope{
         Scope::ExperimentalDevnet=>{
@@ -341,7 +395,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
 }
 
 /// Every reason the admitted facts are not specification evidence (D-A02-SCOPE).
-fn conditions(cp:&ConsensusParams,r:&Request<'_>,l:&NodeLocal,timing:Option<&Timing>,hist_exception:bool,deferred:&[&'static str;3])->Vec<Condition>{
+fn conditions(cp:&ConsensusParams,set:ProgramSet,r:&Request<'_>,l:&NodeLocal,timing:Option<&Timing>,hist_exception:bool,deferred:&[&'static str;3])->Vec<Condition>{
     let mut c=Vec::new();
     let mut add=|id:&'static str,rules:&'static [&'static str],detail:String|c.push(Condition{id,rules,detail});
     if l.rpc.is_fixture(){add("rpc-fixture",&["R26"],"RpcGuard: the values are a fixture, not limits this node enforces".into())}
@@ -350,11 +404,18 @@ fn conditions(cp:&ConsensusParams,r:&Request<'_>,l:&NodeLocal,timing:Option<&Tim
     if cp.H_END==0{add("continuous-protocol",&["R13","R19","R23"],"No scheduled height/time shutdown; only ordinary execution is reachable; its measured timing fills all legacy phase slots. Supply is bounded over the representable u64 height domain, not a network expiration.".into())}
     if let Some(t)=timing{add("timing-not-a-bound",&["R14","R19"],format!("timing: {} apply samples of the synthetic GAS_LIMIT compute workload on this host{}; not a p99 or worst-case bound (A13-DERIVATION §4)",t.samples,
         if t.stored{", in memory and through a scratch node store committed durably per block (store mode), per phase the largest per-block median execution plus that block's durable commit, the single largest commit counted at the median commit"}else{""}))}
-    if in_gas_domain(cp){add("gas-monotonicity-assumed",&["R18"],"SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)".into())}
+    if in_gas_domain(cp){add("gas-monotonicity-assumed",&["R18"],gas_condition(set))}
     for d in deferred{add(match *d{"LP4:general-R21"=>"gate-deferred-general-R21","LP4:general-R18"=>"gate-deferred-general-R18",_=>"gate-deferred-caps64"},
         if d.ends_with("R21"){&["R21"]}else{&["R18"]},format!("gate: deferred LP3 obligation {d}"))}
     if hist_exception{add("r21-retention-stress",&["R21"],"R21: admitted only by the simnet retentionStress exception".into())}
     c
+}
+
+/// The R18 gas condition, naming the envelope of the profile's program set. The V1/Continuous text is
+/// the one every earlier admission report carries, byte for byte.
+fn gas_condition(set:ProgramSet)->String{
+    if set==ProgramSet::EarnIn{format!("SYS gas: {} holds at the earn-in fixture's maxima (earn-in program set); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
+    else{format!("SYS gas: {} holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
 }
 
 /// Calibration code: JUMPDEST; PUSH1 0; JUMP — loops until the transaction's gas is spent.
