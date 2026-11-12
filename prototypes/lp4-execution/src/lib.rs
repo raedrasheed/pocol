@@ -158,6 +158,8 @@ pub mod rpc_http;
 
 // Full block apply, devnet profiles and transaction signing (local devnet only).
 pub mod apply;
+/// V3-19 issuance M3 (v3 program set only).
+pub mod issuance;
 // C-1 E1: the state root kept incrementally (world_root stays the reference).
 pub mod state_trie;
 pub mod node_trie;

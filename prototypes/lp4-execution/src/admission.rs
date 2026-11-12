@@ -125,8 +125,16 @@ fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
 /// (GAS_DOMAIN_V3_KAPPA_M) to distinct owners new to the template's owner list, as the block's first call (every owner's
 /// record cold), measured with owners without a record (each read as four words, 3,457,157 gas) and with recorded
 /// owners whose lastShare it writes (3,228,593); the test asserts the stranger path is the maximum. An evidence item
-/// is counted as the dearer of recordLate and invalidate + punish (`phase_calls`).
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),("settle",6_314_000),("settleFinal",6_314_000)];
+/// is counted as the dearer of recordLate and invalidate + punish (`phase_calls`). V3-PR-E2a (V3-19/V3-15/V3-20,
+/// tests/v3_contracts.rs v3-preview `v3_close_and_finalize_gas_within_the_v3_envelope` and
+/// `v3_final_block_burns_the_carry_on_real_blocks`): closeBlock(tips, issued) at its worst zeroes a nonzero carry and pays
+/// the tip share to an ACCRUING proposer at bond 0 whose share exceeds B_reg (accrue fills and promotes it, the excess is
+/// PAID): 115,597 gas, against a partial fill 82,492, a HELD proposer 76,743, a tomb 73,795 and a fallback 52,823 (the test
+/// asserts the promotion is the maximum); finalize burns a nonzero carry with the tips as the chain's first burn: 56,802.
+/// settle and settleFinal keep 6,314,000: the base burn goes to the carry only when C < kappa*m, so at most 63 payees,
+/// while the measured worst settle pays 256 (C >= kappa*m, no carry write): 6,311,582 after the change.
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",116_000),("finalize",57_000),("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),
+    ("settle",6_314_000),("settleFinal",6_314_000)];
 /// The envelope entry of a SYSTEM call: GAS_ENVELOPE_V3's for the v3 program set where it has one, else GAS_ENVELOPE's.
 pub fn envelope_for(name:&str,v3:bool)->Option<u64>{
     let pick=|t:&[(&str,u64)]|t.iter().find(|(n,_)|*n==name).map(|x|x.1);

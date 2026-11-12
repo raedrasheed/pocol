@@ -1,5 +1,5 @@
 //! V3 system programs (system-v3.json, PoColSystemV3.sol; V3-PR-E0, V3-14 cfg part, V3-34 registry; V3-PR-E1,
-//! V3-08/V3-09 registry budgets; V3-PR-E2b, V3-16/V3-17 evidence penalties).
+//! V3-08/V3-09 registry budgets; V3-PR-E2b, V3-16/V3-17 evidence penalties; V3-PR-E3 late shares; V3-PR-E2a issuance, carry, tips).
 //!
 //! The v3 source is PoColSystemEarnIn.sol with P_MAX/T_PROB read through cfg() (CP schema v2 fields 54/55),
 //! ChainCaps bounded by the v2 CP length, and the registry budgets of V3-08/V3-09 (a maintenance budget
@@ -39,6 +39,15 @@
 //!   included, with the Escrow invariant and the supply after every step; the omitted contributor is paid at settle(j)
 //!   (fails on the earn-in set, which has no recordLate); five planted mutants each fail; with v3-preview, real blocks
 //!   with Late effects through apply_block and recordLate's SYS gas at the worst path within GAS_ENVELOPE_V3.
+//! - V3-PR-E2a, issuance M3, carry and tip split (V3-19, V3-15, V3-20): the host's issuance(h) reproduces the model's
+//!   schedule table (h = 1, H_half - 1, H_half, 256·H_half and more); every scenario of tests/v3/issuance-carry-vectors.json
+//!   reproduces on the bytecode with the host's issuance and every recorded pot compared per step and the Escrow equality
+//!   (carry term included) after every SYSTEM step; each pot is issued + tips - share + carry and the share reaches a HELD,
+//!   ACCRUING or tombed proposer as payTo pays it, nothing on a fallback; pot j+1 is fixed by block j+1 whatever later
+//!   blocks credit late; the earn-in set records CP 15 + tips (fails on the original); five planted RewardEscrow mutants
+//!   each fail; with v3-preview, real blocks: host credit = recorded pot every block over 3·H_half (H_half 8) and CP 15 on
+//!   the spec-1 earn-in devnet, a final block burning the carry, the invariant's carry term, the supply bound at genesis,
+//!   and closeBlock/finalize's SYS gas on their worst paths within GAS_ENVELOPE_V3.
 use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,
     pay::{registry_address,escrow_address}};
 use revm::{DatabaseCommit,InMemoryDB,primitives::{Address,AccountInfo,Bytecode,Bytes,TxEnv,TxKind,U256,keccak256,ResultAndState}};
@@ -53,6 +62,7 @@ const VECTORS_P64:&str=include_str!("v3/earnin-vectors-p64.json");
 const BUDGET_VECTORS:&str=include_str!("v3/registry-budget-vectors.json");
 const EVIDENCE_VECTORS:&str=include_str!("v3/evidence-penalty-vectors.json");
 const LATE_VECTORS:&str=include_str!("v3/late-share-vectors.json");
+const ISSUANCE_VECTORS:&str=include_str!("v3/issuance-carry-vectors.json");
 /// The earn-in model's scenarios (both value sets) re-run through the v3 model (tests/v3_model.py earnin_on_v3).
 const EARNIN_ON_V3:&str=include_str!("v3/earnin-on-v3-vectors.json");
 /// The six planted earn-in mutants (EARN-IN-SPEC.md §9) and the seven V3-08/V3-09 budget mutants, in fixture order.
@@ -63,8 +73,10 @@ const BUDGET_MUTANTS:[&str;7]=["maint-counter-shared","maint-twice-per-block","r
 const EVIDENCE_MUTANTS:[&str;5]=["reporter-paid-on-fallback","whole-pot-for-bonded-accused","accruing-read-at-evidence","accruing-read-at-settle","rho-on-pot-not-bond"];
 /// The five V3-02 late-share mutants (MinerRegistry or ShareLedger), in fixture order.
 const LATE_MUTANTS:[&str;5]=["late-last-share-reverts","late-last-share-overwrites","late-cap-removed","late-window-one-wider","late-total-not-raised"];
+/// The five V3-19/V3-15/V3-20 issuance, carry and tip split mutants (RewardEscrow), in fixture order.
+const ECON_MUTANTS:[&str;5]=["carry-not-added","tip-share-to-pot","base-burn-still-burned","issued-ignored-flat-s0","carry-kept-at-final"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
-const V3_SYS_CODE_HASH:&str="ee5334c0e7f343bcda9694e98967ff3c1474e0cfec5cef3fd356fd7405e439ae";
+const V3_SYS_CODE_HASH:&str="0923f50e17f8295ca57359cb5084a2884c973641f251551018901f037777146c";
 
 fn b()->U256{U256::from(20*PCOL)}
 fn system()->Address{Address::from_word((U256::from(1)<<160u32).wrapping_sub(U256::from(2)).into())}
@@ -126,8 +138,12 @@ impl Setup{
 }
 
 /// `origin`: the current block's proposer (zero on a fallback block), the tx.origin of its SYSTEM calls; `issued`: the
-/// issuance the chain steps credited to Escrow.
-struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>,v3:bool,origin:Address,issued:U256}
+/// issuance the chain steps credited to Escrow; `closed`: per closed height (issued, tips, the carry before closeBlock, the
+/// pot closeBlock recorded) (V3-PR-E2a).
+struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>,v3:bool,origin:Address,issued:U256,
+    closed:BTreeMap<u64,(U256,U256,U256,U256)>}
+/// The account the harness's tips come from (a block's transactions pay them to Escrow, the coinbase).
+fn tipper()->Address{name("tipper")}
 /// SYSTEM calls with a chosen tx.origin (apply.rs runs each SYSTEM call with the block proposer as tx.origin and the
 /// SYSTEM address as msg.sender): this code, installed at the SYSTEM address for one transaction from the origin,
 /// calls the address in its first calldata word with the rest and returns or reverts with the callee's data.
@@ -157,7 +173,7 @@ impl Harness{
         db.accounts.get_mut(&escrow_address()).unwrap().info.balance=b();
         for d in durable{insert(&mut db,name(d),U256::ZERO,1,Bytecode::default());}
         let start=db.accounts.iter().map(|(a,x)|(*a,x.info.balance)).collect();
-        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start,v3:s.v3,origin:Address::ZERO,issued:U256::ZERO}
+        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start,v3:s.v3,origin:Address::ZERO,issued:U256::ZERO,closed:BTreeMap::new()}
     }
     /// One SYSTEM call at the current height with tx.origin = self.origin, through FORWARDER. The origin's nonce and
     /// the SYSTEM account are restored afterwards, so the call leaves only its own effects.
@@ -239,19 +255,58 @@ impl Harness{
         if h>cp_d{let mut data=selector("settle(uint256)");data.extend(U256::from(h-cp_d).to_be_bytes::<32>());self.sys("settle",escrow_address(),data)?;}
         self.sys("beginBlock",registry_address(),selector("beginBlock()"))
     }
-    /// Phase 2 of the current block: the host credits issuance (CP 15) to Escrow, then closeBlock(0) (no tips).
-    fn close(&mut self,h:u64)->Result<(),String>{
+    /// The block's tips reach Escrow (the coinbase) from the tipper, as a transaction's priority fees would.
+    fn pay_tips(&mut self,tips:U256){
+        if tips.is_zero(){return}
+        if !self.db.accounts.contains_key(&tipper()){let v=U256::from(1_000_000*PCOL);insert(&mut self.db,tipper(),v,1,Bytecode::default());self.start.insert(tipper(),v);}
+        self.db.accounts.get_mut(&tipper()).unwrap().info.balance-=tips;self.db.accounts.get_mut(&escrow_address()).unwrap().info.balance+=tips;
+    }
+    /// Phase 2 of the current block, as the host runs it on this program set. V3-19/V3-20 (v3): the host credits
+    /// issuance(h) of lp4-execution issuance.rs (S0 = CP 15, H_half = CP 52, S_tail = CP 53) and calls closeBlock(tips,
+    /// issued); the spec-1 host credits CP 15 and calls closeBlock(tips). Returns the issuance.
+    fn close(&mut self,h:u64,tips:U256)->Result<U256,String>{
         ensure!(h==self.height,"close {h} at {}",self.height);
-        let s0=storage(&self.db,caps(),U256::from(15));
-        self.db.accounts.get_mut(&escrow_address()).unwrap().info.balance+=s0;self.issued+=s0;
-        let mut data=selector("closeBlock(uint256)");data.extend(U256::ZERO.to_be_bytes::<32>());
-        self.sys("closeBlock",escrow_address(),data).map_err(|e|format!("closeBlock at {h}: {e}"))
+        let cp=|n:u64|storage(&self.db,caps(),U256::from(n));
+        let issued=if self.v3{pocol_lp4_execution::issuance::issuance(h,cp(15),cp(52).to::<u64>(),cp(53))}else{cp(15)};
+        self.db.accounts.get_mut(&escrow_address()).unwrap().info.balance+=issued;self.issued+=issued;
+        self.pay_tips(tips);
+        let carry=storage(&self.db,escrow_address(),U256::from(2));
+        let mut data=selector(if self.v3{"closeBlock(uint256,uint256)"}else{"closeBlock(uint256)"});data.extend(tips.to_be_bytes::<32>());
+        if self.v3{data.extend(issued.to_be_bytes::<32>());}
+        self.sys("closeBlock",escrow_address(),data).map_err(|e|format!("closeBlock at {h}: {e}"))?;
+        self.closed.insert(h,(issued,tips,carry,pot(&self.db,h).0));
+        Ok(issued)
+    }
+    /// Phase 2 of a final block F: finalize(tips), then settleFinal(j) for every pending pot j in [F-D+1, F-1].
+    fn finalize(&mut self,h:u64,tips:U256)->Result<(),String>{
+        ensure!(h==self.height,"finalize {h} at {}",self.height);
+        self.pay_tips(tips);
+        let mut data=selector("finalize(uint256)");data.extend(tips.to_be_bytes::<32>());
+        self.sys("finalize",escrow_address(),data).map_err(|e|format!("finalize at {h}: {e}"))?;
+        let d=storage(&self.db,caps(),U256::from(11)).to::<u64>();
+        for j in h.saturating_sub(d)+1..h{
+            if pot(&self.db,j).1.is_zero(){continue}
+            let mut data=selector("settleFinal(uint256)");data.extend(U256::from(j).to_be_bytes::<32>());
+            self.sys("settleFinal",escrow_address(),data).map_err(|e|format!("settleFinal({j}) at {h}: {e}"))?;
+        }
+        Ok(())
+    }
+    /// A model "close" or "final" step: its tips, and (close) the issuance and pot the model recorded.
+    fn phase2(&mut self,step:&serde_json::Value)->Result<(),String>{
+        let op=step["op"].as_array().unwrap();let h:u64=op[1].as_str().unwrap().parse().unwrap();
+        let tips=step.get("tips").map_or(U256::ZERO,|t|t.as_str().unwrap().parse().unwrap());
+        if op[0]=="final"{return self.finalize(h,tips)}
+        let issued=self.close(h,tips)?;
+        if let Some(want)=step.get("issued"){ensure_eq!(issued.to_string(),want.as_str().unwrap(),"issuance at {h} (host issuance.rs vs the model)");}
+        if let Some(want)=step.get("amount"){ensure_eq!(self.closed[&h].3.to_string(),want.as_str().unwrap(),"pot {h} as closeBlock recorded it");}
+        Ok(())
     }
     /// Bytecode-only conservation of a chain (no model): Escrow's balance is exactly the pending pots plus the held
-    /// bonds plus everything burned (T17 with equality: no forced transfers), and the supply is the start plus issuance.
+    /// bonds plus everything burned plus (V3-15, inside a block) the carry (T17 with equality: no forced transfers), and
+    /// the supply is the start plus issuance.
     fn chain_conserved(&self)->Result<(),String>{
         let pending=(1..=self.height).map(|j|pot(&self.db,j).0).fold(U256::ZERO,|a,b|a+b);
-        let need=pending+reg(&self.db,4)+storage(&self.db,escrow_address(),U256::ZERO);
+        let need=pending+reg(&self.db,4)+storage(&self.db,escrow_address(),U256::ZERO)+storage(&self.db,escrow_address(),U256::from(2));
         ensure_eq!(balance(&self.db,escrow_address()),need,"Escrow balance = pending + held + burned");
         let total=self.db.accounts.values().map(|a|a.info.balance).fold(U256::ZERO,|a,b|a+b);
         let start=self.start.values().copied().fold(U256::ZERO,|a,b|a+b);
@@ -628,7 +683,8 @@ fn a_spec1_genesis_naming_the_v3_set_is_refused_by_admission(){
 fn cp_index(n:&str)->u64{
     match n{"D"=>11,"R_max"=>17,"M_max"=>18,"M_min"=>19,"SWEEP_MAX"=>21,"SWEEP_SCAN"=>22,"REG_OPS"=>23,"W_act"=>24,"Theta_inact"=>25,
         "E_win"=>26,"U"=>27,"P_MAX"=>54,"T_PROB"=>55,"R_react"=>61,"C_react"=>62,
-        "m"=>8,"kappa"=>9,"S_max"=>10,"W_w"=>12,"alpha_bp"=>13,"gamma_bp"=>14,"S0"=>15,"rho_bp"=>66,o=>panic!("unknown CP field {o}")}
+        "m"=>8,"kappa"=>9,"S_max"=>10,"W_w"=>12,"alpha_bp"=>13,"gamma_bp"=>14,"S0"=>15,"H_half"=>52,"S_tail"=>53,"gamma_tip_bp"=>59,"rho_bp"=>66,
+        o=>panic!("unknown CP field {o}")}
 }
 fn strs(v:&[&str])->Vec<String>{v.iter().map(|x|x.to_string()).collect()}
 fn ids_of(db:&InMemoryDB,base_slot:u64,len_slot:u64)->Vec<Address>{
@@ -660,7 +716,7 @@ fn budget_run(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<Harn
     let chain=body["final"].get("pots").is_some();
     for step in body["steps"].as_array().unwrap(){
         let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        let got=match op[0].as_str(){"begin"=>h.begin(step)?,"close"=>{h.close(op[1].parse().unwrap())?;None},_=>h.step(&op)?};
+        let got=match op[0].as_str(){"begin"=>h.begin(step)?,"close"|"final"=>{h.phase2(step).map_err(|e|format!("{name_}: {e}"))?;None},_=>h.step(&op)?};
         match (&got,step["ok"].as_bool().unwrap()){
             (None,true)=>{}
             (Some(e),false)=>ensure_eq!(e.as_str(),step["revert"].as_str().unwrap(),"{name_} {op:?}"),
@@ -737,6 +793,8 @@ fn budget_run(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<Harn
         }
         ensure_eq!(balance(&h.db,escrow_address()).to_string(),fin["escrowBalance"].as_str().unwrap(),"{name_} Escrow balance");
         ensure_eq!(h.issued.to_string(),fin["issued"].as_str().unwrap(),"{name_} issuance");
+        let carry=storage(&h.db,escrow_address(),U256::from(2));
+        ensure_eq!(carry.to_string(),fin["carry"].as_str().unwrap(),"{name_} carry");
     }
     if let Some(ledger_)=fin.get("ledger").and_then(|l|l.as_object()){
         // V3-02: every retained ShareLedger height: its total and each owner's count; pruned heights hold nothing.
@@ -1052,9 +1110,17 @@ fn chain_exec(body:&serde_json::Value,s:&Setup)->Harness{
     let mut h=Harness::new(&durable,&s);
     for step in body["steps"].as_array().unwrap(){
         let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        match op[0].as_str(){"begin"=>{h.begin(step).unwrap();}"close"=>h.close(op[1].parse().unwrap()).unwrap(),_=>{h.step(&op).unwrap();}}
+        match op[0].as_str(){"begin"=>{h.begin(step).unwrap();}"close"|"final"=>{let mut st=step.clone();st.as_object_mut().unwrap().retain(|k,_|k=="op"||k=="tips");h.phase2(&st).unwrap()}_=>{h.step(&op).unwrap();}}
     }
     h
+}
+/// What `who` gains in the phase 0 of block `at` of a chain scenario run on a program set (its steps up to that begin).
+fn begin_gain(body:&serde_json::Value,s:&Setup,at:u64,who:&str)->U256{
+    let mut b=body.clone();let steps=b["steps"].as_array_mut().unwrap();
+    let k=steps.iter().position(|st|st["op"][0]=="begin"&&st["op"][1]==at.to_string()&&st.get("revert").is_none()).unwrap();
+    steps.truncate(k);let before=gain(&chain_exec(&b,s),who);
+    let mut b2=body.clone();b2["steps"].as_array_mut().unwrap().truncate(k+1);
+    gain(&chain_exec(&b2,s),who)-before
 }
 /// What an account received: its balance less its start, plus the bond it sent if it is a sender (every sender of the
 /// scenarios these tests read registered once, with B).
@@ -1094,19 +1160,28 @@ fn type2_evidence_before_settlement_pays_contributors_on_v3_but_burns_the_pot_on
     let body=evidence_body("type2-held-winner-pays-contributors");
     let earnin=chain_exec(&body,&Setup::earnin());let v3=chain_exec(&body,&Setup::v3(8,60_480));
     let pcol=|x:u128|U256::from(x);
-    // Pot j (2 PCOL): winner part 0.2, proposer part 0.1, R = 1.7 over Q = max(C, 64) = 64.
-    let r=pcol(17*PCOL/10);
+    // Pot j: winner part 10%, proposer part 5%, R = the rest over Q = max(C, 64) = 64. Pot 3 is 2 PCOL; on v3 pot 5 also
+    // holds the carry of settle(1) in block 5 (V3-15), so its parts are read from the pot closeBlock recorded.
+    let (pp,r)=(|a:U256|a*pcol(500)/pcol(10_000),|a:U256|a-a*pcol(1000)/pcol(10_000)-a*pcol(500)/pcol(10_000));
+    let (a3,a5)=(v3.closed[&3].3,v3.closed[&5].3);
+    assert_eq!(a3,pcol(2*PCOL));assert!(a5>a3,"pot 5 carries pot 1's base burn");
     assert_eq!((gain(&earnin,"c"),gain(&earnin,"p")),(U256::ZERO,U256::ZERO),"the earn-in set burns pots 3 and 5 whole");
-    assert_eq!(gain(&v3,"c"),r*pcol(2)/pcol(64)+r/pcol(64),"two shares in pot 3, one in pot 5");
-    assert_eq!(gain(&v3,"p"),pcol(2*PCOL/10),"the signed proposer part of pots 3 and 5");
-    // The reporters: r (block 4) and m0 (block 7) receive 25% of the 20 PCOL bond on v3, nothing on the earn-in set.
-    assert_eq!(gain(&v3,"m0")-gain(&earnin,"m0"),pcol(5*PCOL));
+    assert_eq!(gain(&v3,"c"),r(a3)*pcol(2)/pcol(64)+r(a5)/pcol(64),"two shares in pot 3, one in pot 5");
+    assert_eq!(gain(&v3,"p"),pp(a3)+pp(a5),"the signed proposer part of pots 3 and 5");
+    // The reporters: r (block 4) and m0 (block 7) receive 25% of the 20 PCOL bond on v3, nothing on the earn-in set, in the
+    // phase 0 that carries the evidence (neither is paid by that block's settlement).
+    for (who,at) in [("r",4u64),("m0",7)]{
+        assert_eq!((begin_gain(&body,&Setup::v3(8,60_480),at,who),begin_gain(&body,&Setup::earnin(),at,who)),(pcol(5*PCOL),U256::ZERO),"{who} reports in block {at}");
+    }
     assert_eq!((gain(&v3,"w"),gain(&v3,"v")),(U256::ZERO,U256::ZERO),"the tombed winners receive nothing");
-    // Earn-in burns both bonds and both pots; v3 burns 75% of each bond and only what of each pot it does not pay: every
-    // wei v3 pays beyond the earn-in set is one the earn-in set burns (the same issuance, pending pots and held bonds).
+    // Earn-in burns both bonds and both pots; v3 burns 75% of each bond and only what of each pot it does not pay, and
+    // carries base burns into later pots: every wei v3 pays beyond the earn-in set is one the earn-in set burns or holds
+    // in a pending pot (the same issuance at these heights and the same held bonds).
     let burned=|h:&Harness|storage(&h.db,escrow_address(),U256::ZERO);
+    let pending=|h:&Harness|(1..=h.height).map(|j|pot(&h.db,j).0).fold(U256::ZERO,|a,b|a+b);
+    assert_eq!((earnin.issued,reg(&earnin.db,4)),(v3.issued,reg(&v3.db,4)));
     let more:U256=v3.db.accounts.iter().filter(|(a,_)|**a!=escrow_address()).map(|(a,x)|x.info.balance-balance(&earnin.db,*a)).fold(U256::ZERO,|x,y|x+y);
-    assert_eq!(burned(&earnin)-burned(&v3),more);
+    assert_eq!(burned(&earnin)+pending(&earnin),burned(&v3)+pending(&v3)+more);
     for h in [&earnin,&v3]{h.chain_conserved().unwrap();}
 }
 
@@ -1146,7 +1221,7 @@ fn a_self_report_loses_three_quarters_of_the_bond(){
 #[test]
 fn the_evidence_penalty_mutants_fail_the_v3_vectors(){
     let list=mutant_programs();
-    assert_eq!(list.iter().map(|m|m.0.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..],&LATE_MUTANTS[..]].concat());
+    assert_eq!(list.iter().map(|m|m.0.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..],&LATE_MUTANTS[..],&ECON_MUTANTS[..]].concat());
     let evidence=&list[EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()..EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()+EVIDENCE_MUTANTS.len()];
     let expect=[("reporter-paid-on-fallback","fallback-has-no-reporter"),("whole-pot-for-bonded-accused","type2-held-winner-pays-contributors"),
         ("accruing-read-at-evidence","accruing-fact-committed-at-record-result"),("accruing-read-at-settle","type2-accruing-winner-burns-whole-pot"),
@@ -1179,7 +1254,7 @@ fn v3_punish_and_invalidate_call_shapes(){
     let mut d=selector("invalidate(uint256)");d.extend(U256::from(next-1).to_be_bytes::<32>());
     assert_eq!(h.sys("invalidate",escrow_address(),d).map_err(|e|e.contains("output: 0x ")),Err(true),"the spec-1 invalidate selector is not in the v3 Escrow");
     // Pot `next` has no recorded winner while its block is open: invalidate refuses it.
-    h.close(next).unwrap();
+    h.close(next,U256::ZERO).unwrap();
     let mut d=selector("invalidate(uint256,address)");d.extend(U256::from(next).to_be_bytes::<32>());d.extend(c.into_word());
     assert_eq!(h.sys("invalidate",escrow_address(),d),Err("BadPending".into()),"j is the current height");
     let mut d=with_arg("punish(address,address)",Some(c));d.extend(name("c").into_word());
@@ -1248,7 +1323,7 @@ fn late_share_pays_the_omitted_contributor_on_v3_not_on_earnin(){
     let mut refused=None;
     for st in body["steps"].as_array().unwrap(){
         let op:Vec<String>=st["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        match op[0].as_str(){"begin"=>{if let Some(e)=h.begin(st).unwrap(){refused=Some((op[1].clone(),e));break}}"close"=>h.close(op[1].parse().unwrap()).unwrap(),_=>{h.step(&op).unwrap();}}
+        match op[0].as_str(){"begin"=>{if let Some(e)=h.begin(st).unwrap(){refused=Some((op[1].clone(),e));break}}"close"=>{h.close(op[1].parse().unwrap(),U256::ZERO).unwrap();}_=>{h.step(&op).unwrap();}}
     }
     let (at,why)=refused.expect("the earn-in programs refuse the carrying block");
     assert_eq!(at,"5");eprintln!("earn-in refuses the carrying block: {why}");
@@ -1271,7 +1346,7 @@ fn late_share_vectors_fail_on_the_earnin_set(){
 #[test]
 fn the_late_share_mutants_fail_the_v3_vectors(){
     let list=mutant_programs();
-    let late=&list[EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()+EVIDENCE_MUTANTS.len()..];
+    let at=EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()+EVIDENCE_MUTANTS.len();let late=&list[at..at+LATE_MUTANTS.len()];
     let expect=[("late-last-share-reverts","late-last-share-is-monotone"),("late-last-share-overwrites","late-last-share-is-monotone"),
         ("late-cap-removed","late-share-cap-fills-only-the-uncovered-pool"),("late-window-one-wider","late-share-at-the-settlement-boundary"),
         ("late-total-not-raised","late-share-pays-the-omitted-contributor")];
@@ -1314,7 +1389,190 @@ fn v3_record_late_call_shapes(){
     assert_eq!(h.sys("recordLate",ledger(),call(j,&[b_],64,None)),Err("Unauthorized".into()),"SYSTEM on the ledger directly");
     assert_eq!(h.sys("recordLate",registry_address(),call(j,&[b_],64,None)),Ok(()),"the shape the host sends");
     assert_eq!(h.sys("recordLate",registry_address(),call(next-4,&[b_],64,None)),Ok(()),"j = h - D, before settle(h - D)");
-    h.close(next).unwrap();h.chain_conserved().unwrap();
+    h.close(next,U256::ZERO).unwrap();h.chain_conserved().unwrap();
+}
+
+// ---------------- V3-PR-E2a: issuance M3, carry and tip split (V3-19, V3-15, V3-20)
+const ISSUANCE_SCENARIOS:[&str;7]=["carry-fuzz-c-1-to-smax-plus-1","carry-random-late-and-tips","final-block-burns-the-carry","issuance-halving-compressed",
+    "late-inclusion-after-7-dropped","late-inclusion-base","tip-split-signed-fallback-accruing-tomb"];
+fn issuance_body(n:&str)->serde_json::Value{let v:serde_json::Value=serde_json::from_str(ISSUANCE_VECTORS).unwrap();v[n].clone()}
+fn issuance_replay(s:&Setup)->BTreeMap<String,Result<Harness,String>>{
+    let v:serde_json::Value=serde_json::from_str(ISSUANCE_VECTORS).unwrap();
+    v.as_object().unwrap().iter().filter(|(_,b)|b.get("steps").is_some()).map(|(n,body)|(n.clone(),budget_run(n,body,s))).collect()
+}
+
+/// V3-19: the host's issuance(h) (issuance.rs) reproduces the model's schedule table: the owner's values (S0 1 PCOL,
+/// H_half 4,207,680, S_tail S0/32) at h = 0, 1, H_half - 1, H_half, ..., 256·H_half, 2^64 - 1, a schedule without a tail, a
+/// U256-sized S0 and the compressed fixture.
+#[test]
+fn issuance_schedule_vectors_reproduce_on_the_host(){
+    let v:serde_json::Value=serde_json::from_str(ISSUANCE_VECTORS).unwrap();
+    let cases=v["schedule"]["cases"].as_array().unwrap();
+    let num=|c:&serde_json::Value,k:&str|c[k].as_str().unwrap().parse::<U256>().unwrap();
+    for c in cases{
+        let (h,s0,hh,tail)=(num(c,"h").to::<u64>(),num(c,"S0"),num(c,"H_half").to::<u64>(),num(c,"S_tail"));
+        assert_eq!(pocol_lp4_execution::issuance::issuance(h,s0,hh,tail),num(c,"issued"),"{c}");
+    }
+    let owner:Vec<u64>=cases.iter().filter(|c|c["label"]=="owner").map(|c|num(c,"h").to::<u64>()).collect();
+    let h=4_207_680u64;
+    for want in [1,h-1,h,256*h]{assert!(owner.contains(&want),"the owner table has h = {want}");}
+    let at=|x:u64|cases.iter().find(|c|c["label"]=="owner"&&num(c,"h").to::<u64>()==x).map(|c|num(c,"issued")).unwrap();
+    assert_eq!((at(1),at(h-1),at(h),at(256*h)),(U256::from(PCOL),U256::from(PCOL),U256::from(PCOL/2),U256::from(PCOL/32)));
+}
+
+/// Model-vs-bytecode differential: every scenario of tests/v3/issuance-carry-vectors.json reproduces on the v3 programs
+/// step by step: the host's issuance(h) and every pot closeBlock records equal the model's, with the Escrow invariant with
+/// equality (the carry term included inside a block) and the supply after every step, and every pot, record, payment,
+/// ledger height and the carry at the end.
+#[test]
+fn v3_issuance_carry_and_tips_reproduce_the_independent_model(){
+    let out=issuance_replay(&Setup::v3(8,60_480));
+    assert_eq!(out.keys().map(|k|k.as_str()).collect::<Vec<_>>(),ISSUANCE_SCENARIOS);
+    let mut carried=0;let mut cs=BTreeSet::new();let (mut signed_tips,mut fallback_tips)=(0,0);
+    for (n,r) in &out{
+        let h=r.as_ref().unwrap_or_else(|e|panic!("{n}: {e}"));
+        carried+=h.closed.values().filter(|c|!c.2.is_zero()).count();
+        let body=issuance_body(n);
+        for st in body["steps"].as_array().unwrap(){
+            if st["op"][0]=="begin"&&st["op"][1]!="1"&&st.get("revert").is_none(){cs.insert((n.clone(),st["shares"].as_array().unwrap().len()+1));}
+        }
+        let proposer:BTreeMap<u64,bool>=body["steps"].as_array().unwrap().iter().filter(|st|st["op"][0]=="begin").map(|st|(st["op"][1].as_str().unwrap().parse().unwrap(),st["op"][2]!="")).collect();
+        for (j,c) in &h.closed{if !c.1.is_zero(){if proposer[j]{signed_tips+=1}else{fallback_tips+=1}}}
+    }
+    // The vectors exercise what they claim: carries into pots, C from 1 to S_max + 1 = 17, tips in signed and fallback
+    // blocks, the halving (six distinct issuances in the compressed fixture) and a final block.
+    assert!(carried>=60,"pots with a carry: {carried}");
+    for c in 1..=17usize{assert!(cs.contains(&("carry-fuzz-c-1-to-smax-plus-1".to_string(),c)),"C = {c}");}
+    assert!(signed_tips>=10&&fallback_tips>=4,"tips in signed blocks {signed_tips}, fallback {fallback_tips}");
+    let comp=out["issuance-halving-compressed"].as_ref().unwrap();
+    assert_eq!(comp.closed.values().map(|c|c.0).collect::<BTreeSet<_>>().len(),6,"S0 >> k for k = 0..4 and the tail");
+}
+
+/// Host credit = recorded pot, and the tip split conserves value (V3-19, V3-15, V3-20), on the bytecode alone: every pot
+/// closeBlock records is issued + tips - share + carry, with share = floor(tips·gamma_tip_bp/10^4) for a signed block and 0
+/// for a fallback block, and the share reaches the proposer as payTo pays it: a HELD record's reward address receives it, an
+/// ACCRUING record's bond takes it first (the rest paid), a tomb's share burns. Nothing else moves at closeBlock.
+#[test]
+fn host_credit_equals_the_recorded_pot_and_the_tip_split_conserves_value(){
+    let s=Setup::v3(8,60_480);
+    let (mut held,mut accruing,mut tomb,mut fallback)=(0,0,0,0);
+    for n in ISSUANCE_SCENARIOS{
+        let body=issuance_body(n);
+        let mut st=s.clone();for (k,v) in body["cp"].as_object().unwrap(){st.cp.push((cp_index(k),v.as_str().map_or_else(||v.as_u64().unwrap().into(),|x|x.parse::<u128>().unwrap())));}
+        let durable:Vec<String>=body["durable"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
+        let mut h=Harness::new(&durable,&st);let gamma=storage(&h.db,caps(),U256::from(59));
+        for step in body["steps"].as_array().unwrap(){
+            let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
+            match op[0].as_str(){
+                "begin"=>{h.begin(step).unwrap();}
+                "close"=>{
+                    let at:u64=op[1].parse().unwrap();let tips:U256=step["tips"].as_str().unwrap().parse().unwrap();
+                    let origin=h.origin;let (w0,w1,bond,_)=h.record(origin);let reward=Address::from_word(w1.into());
+                    let before=(balance(&h.db,reward),storage(&h.db,escrow_address(),U256::ZERO),balance(&h.db,escrow_address()));
+                    h.phase2(step).unwrap();
+                    let (issued,_,carry,amount)=h.closed[&at];
+                    let share=if origin.is_zero(){U256::ZERO}else{tips*gamma/U256::from(10_000)};
+                    assert_eq!(amount,issued+tips-share+carry,"{n}: pot {at}");
+                    assert!(storage(&h.db,escrow_address(),U256::from(2)).is_zero(),"{n}: carry left after closeBlock {at}");
+                    let (w0b,_,bond_after,_)=h.record(origin);
+                    let paid=balance(&h.db,reward)-before.0;let burned=storage(&h.db,escrow_address(),U256::ZERO)-before.1;
+                    if origin.is_zero(){assert_eq!((paid,burned),(U256::ZERO,U256::ZERO));if !tips.is_zero(){fallback+=1}}
+                    else if bits(w0,8,8)!=0{assert_eq!((paid,burned),(U256::ZERO,share),"{n}: a tomb's share burns at {at}");if !share.is_zero(){tomb+=1}}
+                    else if bits(w0,16,8)==4{assert_eq!(bond_after-bond+paid,share,"{n}: an ACCRUING proposer's share fills its bond first at {at}");assert!(burned.is_zero());if !share.is_zero(){accruing+=1;if bits(w0b,16,8)==1{eprintln!("{n}: proposer promoted by its tip share at {at}")}}}
+                    else{assert_eq!((paid,burned),(share,U256::ZERO),"{n}: a HELD proposer's reward address receives its share at {at}");if !share.is_zero(){held+=1}}
+                    // Escrow keeps everything but what it paid: issued + tips in, the paid share out.
+                    assert_eq!(balance(&h.db,escrow_address()),before.2+issued+tips-paid,"{n}: Escrow at {at}");
+                }
+                "final"=>{h.phase2(step).unwrap();}
+                _=>{h.step(&op).unwrap();}
+            }
+            h.chain_conserved().unwrap_or_else(|e|panic!("{n} after {op:?}: {e}"));
+        }
+    }
+    assert!(held>=5&&accruing>=2&&tomb>=1&&fallback>=4,"tip shares: HELD {held}, ACCRUING {accruing}, tomb {tomb}, fallback blocks with tips {fallback}");
+}
+
+/// V3-DESIGN.md V3-15 test: changing LS inclusion in blocks j+2..j+D (block j+1 fixed) does not change pot j+1. The two
+/// scenarios are the same chain except that the second drops late credits of blocks after j+1 = 8: every pot up to 8 is the
+/// same on the bytecode, and a later pot differs (the carry of a settle follows the late credits to its pot, which the
+/// carriers up to the settling block commit).
+#[test]
+fn pot_j_plus_1_is_fixed_by_block_j_plus_1(){
+    let (a,b)=(issuance_body("late-inclusion-base"),issuance_body("late-inclusion-after-7-dropped"));
+    for (x,y) in a["steps"].as_array().unwrap().iter().zip(b["steps"].as_array().unwrap()){
+        if x["op"][0]=="begin"&&x["op"][1].as_str().unwrap().parse::<u64>().unwrap()<=8{assert_eq!(x["evidence"],y["evidence"],"blocks up to 8 are fixed");}
+    }
+    assert_ne!(a["steps"],b["steps"],"the late credits after block 8 differ");
+    let s=Setup::v3(8,60_480);
+    let (ha,hb)=(budget_run("base",&a,&s).unwrap(),budget_run("variant",&b,&s).unwrap());
+    for j in 1..=8u64{assert_eq!(ha.closed[&j],hb.closed[&j],"pot {j}");}
+    let later:Vec<u64>=(9..=ha.height).filter(|j|ha.closed[j].3!=hb.closed[j].3).collect();
+    eprintln!("pots that differ after block 8: {later:?}");
+    assert!(!later.is_empty(),"some later pot carries a different base burn");
+    assert!(later.iter().all(|j|ha.closed[j].2!=hb.closed[j].2&&ha.closed[j].0==hb.closed[j].0),"only the carry differs (the same issuance and tips)");
+}
+
+/// Fails on the original: the earn-in programs with the spec-1 host conventions record every pot as CP 15 + tips (flat
+/// issuance, no tip split, no carry), so the compressed fixture's halvings, the proposer's tip share and the carried base
+/// burns are absent (the scenarios without late credits, which the earn-in set refuses); the vectors fail there as a whole.
+#[test]
+fn issuance_carry_and_tip_split_fail_on_the_earnin_set(){
+    let s0=U256::from(2*PCOL);
+    for n in ["issuance-halving-compressed","tip-split-signed-fallback-accruing-tomb"]{
+        let body=issuance_body(n);let e=chain_exec(&body,&Setup::earnin());
+        let v3=budget_run(n,&body,&Setup::v3(8,60_480)).unwrap();
+        for (j,c) in &e.closed{assert_eq!(c.3,s0+c.1,"{n}: earn-in pot {j} = CP 15 + tips");}
+        let differ=e.closed.iter().filter(|(j,c)|c.3!=v3.closed[j].3).count();
+        assert!(differ*2>e.closed.len(),"{n}: only {differ} of {} pots differ",e.closed.len());
+        assert!(storage(&e.db,escrow_address(),U256::ZERO)>storage(&v3.db,escrow_address(),U256::ZERO),"{n}: the earn-in set burns what v3 carries");
+    }
+    let v:serde_json::Value=serde_json::from_str(ISSUANCE_VECTORS).unwrap();
+    for (n,body) in v.as_object().unwrap(){
+        if body.get("steps").is_none(){continue}
+        let r=budget_scenario(n,body,&Setup::earnin());
+        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-19/V3-15/V3-20");
+    }
+}
+
+/// The five planted V3-19/V3-15/V3-20 mutants (compile_system_v3.cjs --mutants, RewardEscrow) each fail the issuance-carry
+/// vectors, each in the scenario written for it.
+#[test]
+fn the_issuance_carry_mutants_fail_the_v3_vectors(){
+    let list=mutant_programs();
+    let econ=&list[list.len()-ECON_MUTANTS.len()..];
+    let expect=[("carry-not-added","issuance-halving-compressed"),("tip-share-to-pot","tip-split-signed-fallback-accruing-tomb"),
+        ("base-burn-still-burned","carry-fuzz-c-1-to-smax-plus-1"),("issued-ignored-flat-s0","issuance-halving-compressed"),("carry-kept-at-final","final-block-burns-the-carry")];
+    for ((n,program,code),(want_name,killer)) in econ.iter().zip(expect){
+        assert_eq!(n,want_name);assert_eq!(program,"RewardEscrow");
+        let original=runtime(V3,program);assert_ne!(code,&original,"{n} changes the bytecode");
+        let out=issuance_replay(&Setup::v3(8,60_480).with_program(program,code.clone()));
+        let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
+        eprintln!("mutant {n} ({program}): killed by {killed:?}");
+        assert!(killed.iter().any(|k|k.as_str()==killer),"mutant {n} survives {killer}: {killed:?}");
+    }
+}
+
+/// closeBlock and finalize as the v3 host calls them: SYSTEM only, exact calldata (the spec-1 closeBlock(uint256) is gone
+/// from the v3 Escrow); the carry view.
+#[test]
+fn v3_close_block_call_shapes(){
+    let body=issuance_body("issuance-halving-compressed");
+    let mut h=chain_exec(&body,&Setup::v3(8,60_480));
+    let next=h.height+1;let step=serde_json::json!({"op":["begin",next.to_string(),"m0"],"winner":"m0","shares":[],"evidence":[]});
+    assert_eq!(h.begin(&step).unwrap(),None);
+    let mut d=selector("closeBlock(uint256)");d.extend(U256::ZERO.to_be_bytes::<32>());
+    assert!(h.sys("closeBlock",escrow_address(),d).is_err(),"the spec-1 closeBlock selector is not in the v3 Escrow");
+    let mut d=selector("closeBlock(uint256,uint256)");d.extend(U256::ZERO.to_be_bytes::<32>());
+    assert!(h.sys("closeBlock",escrow_address(),d).is_err(),"one word short (the ABI decoder refuses it)");
+    let mut d=selector("closeBlock(uint256,uint256)");d.extend([0u8;96]);
+    assert_eq!(h.sys("closeBlock",escrow_address(),d),Err("BadSystemCall".into()),"one word long");
+    let user=h.sender("u");let mut d=selector("closeBlock(uint256,uint256)");d.extend([0u8;64]);
+    let r=call_to(&mut h.db,user,escrow_address(),d,U256::ZERO,next);assert!(!r.result.is_success(),"a user call");
+    let r=call_to(&mut h.db,user,escrow_address(),selector("carry()"),U256::ZERO,next);assert!(r.result.is_success());
+    assert_eq!(U256::from_be_slice(output(&r.result)),storage(&h.db,escrow_address(),U256::from(2)),"carry() reads slot 2");
+    h.close(next,U256::from(10)).unwrap();h.chain_conserved().unwrap();
+    let mut d=selector("closeBlock(uint256,uint256)");d.extend([0u8;64]);
+    assert_eq!(h.sys("closeBlock",escrow_address(),d),Err("BadPending".into()),"pot h exists");
 }
 
 #[cfg(feature="v3-preview")]
@@ -1379,9 +1637,10 @@ mod preview{
             let o=r.block(Proposer::Signed(a),vec![EvidenceEffect::PunishAndInvalidate{accused:b_,j:1},EvidenceEffect::PunishAndInvalidate{accused:alice,j:2}],vec![],c,vec![]);
             let (p1,p2)=(pot(&o.state,1),pot(&o.state,2));
             let reporter_cut=r.bal(r.reward(0))-before[0];
-            for _ in 0..6{let w=r.id(2);r.block(Proposer::Fallback,vec![],vec![],w,vec![]);}
+            let mut a5=U256::ZERO;
+            for _ in 0..6{let w=r.id(2);let o=r.block(Proposer::Fallback,vec![],vec![],w,vec![]);if r.h==5{a5=pot(&o.state,5).0;}}
             let gains:Vec<U256>=(0..3).map(|i|r.bal(r.reward(i))-before[i]).collect();
-            out.push((p1.1>>168u32,p2.1>>168u32,p2.2>>160u32,reporter_cut,gains,storage(&r.state,escrow_address(),U256::ZERO)));
+            out.push((p1.1>>168u32,p2.1>>168u32,p2.2>>160u32,reporter_cut,gains,storage(&r.state,escrow_address(),U256::ZERO),a5));
         }
         let (earnin,v3)=(&out[0],&out[1]);
         eprintln!("spec-1 earn-in {earnin:?}\nv3 {v3:?}");
@@ -1392,7 +1651,11 @@ mod preview{
         assert_eq!(v3.3,U256::from(5*PCOL),"25% of b's 20 PCOL bond to the signed proposer a's reward address");
         // Pot 1 (2 PCOL, 3 header shares + the winner's): a holds 1 share, c 2; R = 1.7 over Q = max(4, kappa*m = 64).
         let r=U256::from(17*PCOL/10);let share=|n:u64|r*U256::from(n)/U256::from(64);
-        assert_eq!(v3.4[2]-earnin.4[2],share(2),"c is paid its pot 1 shares on v3 only");
+        // Pot 5 (fallback, won by c, C = 1) settles at h = 9. On v3 it also holds pot 1's base burn R - floor(R·4/64), the
+        // carry of settle(1) in block 5 (V3-15), so c's winner part, proposer part and share of it grow by exactly that.
+        assert_eq!(earnin.6,U256::from(2*PCOL));assert_eq!(v3.6-earnin.6,r-r*U256::from(4)/U256::from(64),"pot 5 carries pot 1's base burn");
+        let c_parts=|a:U256|{let (wp,pp)=(a/U256::from(10),a*U256::from(500)/U256::from(10_000));wp+pp+(a-wp-pp)/U256::from(64)};
+        assert_eq!(v3.4[2]-earnin.4[2],share(2)+c_parts(v3.6)-c_parts(earnin.6),"c is paid its pot 1 shares on v3 only, and pot 5's carry");
         assert_eq!(v3.4[0]-earnin.4[0],share(1)+U256::from(5*PCOL)+U256::from(PCOL/10),"a: its share, the reporter cut and the pot 1 proposer part");
         assert_eq!(v3.4[1],earnin.4[1],"b, tombed, receives nothing more on either set");
     }
@@ -1478,9 +1741,11 @@ mod preview{
         // promoted in that one call (p63 through its winner part, p0..p62 through their shares), besides 192 HELD payees.
         // Pot 5's proposer is a HELD genesis member or the ACCRUING p62 (whose proposer part then fills its bond through
         // payTo before distribute).
-        let mut settle5=0u64;
+        // The tip split (V3-20) is off on chain A (gamma_tip_bp 0): a tip share would fill the ACCRUING proposer p62's bond
+        // at closeBlock(5); closeBlock's own worst path is measured in v3_close_and_finalize_gas_within_the_v3_envelope.
+        let mut settle5=0u64;let mut cfg_a=cfg.clone();cfg_a.gamma_tip_bp=0;
         for proposer in [genesis[110],pids[62]]{
-            let mut a=Run::new(&cfg);
+            let mut a=Run::new(&cfg_a);
             for k in 0..4usize{
                 let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|a.register(p,0,0)).collect();
                 a.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],(0..256u64).map(|i|(i+1,genesis[k])).collect());
@@ -1562,5 +1827,193 @@ mod preview{
         for n in ["invalidate","punish","recordResult","settle"]{assert!(gas[n]>admission::envelope_for(n,false).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
         assert_eq!(admission::envelope_for("recordLate",false),None,"recordLate exists on the v3 set only");
         assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
+    }
+
+    // ---------------- V3-PR-E2a through the host (V3-19, V3-15, V3-20)
+    fn tip_tx(r:&Run,nonce:u64,per_gas:U256)->Vec<u8>{
+        let alice=devnet::account_key("alice");
+        Tx{chain_id:r.net.profile.spec().chain_id,nonce,max_priority:per_gas,max_fee:r.base+per_gas,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice)
+    }
+    /// The base burn settle(j) puts into the carry, from the parent state alone (independent of the program): pot j's amount
+    /// A and its ledger total C; R = A - floor(A·alpha) - floor(A·gamma), Q = max(C, kappa·m), baseBurn = R - floor(R·C/Q);
+    /// zero for an INVALID pot (its whole amount burns).
+    fn base_burn(parent:&InMemoryDB,cp:&ConsensusParams,j:u64)->U256{
+        let (a,meta,_)=pot(parent,j);if meta>>168u32!=U256::ZERO{return U256::ZERO}
+        let r=a-a*U256::from(cp.alpha_bp)/U256::from(10_000)-a*U256::from(cp.gamma_bp)/U256::from(10_000);
+        let c=U256::from(apply::share_total(parent,j));let q=c.max(U256::from(u64::from(cp.kappa)*u64::from(cp.m)));
+        r-r*c/q
+    }
+    /// issuance(h) written out again here (V3-19), so the host's issuance.rs is compared with a second implementation.
+    fn m3(h:u64,cp:&ConsensusParams)->U256{
+        if h==0{return U256::ZERO}
+        let k=h/cp.H_half;let s0=devnet::from_fixed(&cp.subsidy);let tail=devnet::from_fixed(&cp.S_tail);
+        (if k>=256{U256::ZERO}else{s0>>(k as usize)}).max(tail)
+    }
+
+    /// V3-19/V3-15/V3-20 test "host credit = recorded pot, every block for 3·H_half on a compressed fixture": a v3 devnet
+    /// with H_half = 8 (S0 2 PCOL, S_tail S0/32) runs 30 blocks (eras 0..3) with tips in signed and fallback blocks. Every
+    /// block's issued is issuance(h) (a second implementation here), Escrow gains exactly issued + tips at phase 2, and pot
+    /// h = issued + tips - floor(tips·gamma_tip/10^4) (0 on a fallback) + the base burn of settle(h - D) computed from the
+    /// parent state; the invariant holds on every block. Old-chain replay: the same blocks on the spec-1 earn-in devnet keep
+    /// CP 15 every block and pot h = CP 15 + tips.
+    #[test]
+    fn v3_host_credit_equals_the_recorded_pot_every_block(){
+        for spec in [1u8,2]{
+            let mut cfg=config(spec,&["a","b","c","d"]);cfg.h_half=8;cfg.s_tail=U256::from(2*PCOL/32);
+            let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..4).map(|i|r.id(i)).collect();
+            let (d,gamma)=(u64::from(cp.D),U256::from(cp.gamma_tip_bp));let mut nonce=0u64;let mut eras=BTreeSet::new();
+            for h in 1..=30u64{
+                let proposer=if h%5==0{Proposer::Fallback}else{Proposer::Signed(ids[(h%4) as usize])};
+                let txs=if h%3==0{nonce+=1;vec![tip_tx(&r,nonce-1,U256::from(1_000_000_000u64+h))]}else{vec![]};
+                let parent=r.state.clone();
+                let o=r.block(proposer,vec![],txs,ids[((h+1)%4) as usize],(0..(h%3)).map(|i|(i+1,ids[(i%4) as usize])).collect());
+                let share=if matches!(proposer,Proposer::Fallback)||spec==1{U256::ZERO}else{o.tips*gamma/U256::from(10_000)};
+                if spec==1{
+                    assert_eq!(o.issued,U256::from(2*PCOL),"spec 1 keeps CP 15 at {h}");
+                    assert_eq!(pot(&o.state,h).0,o.issued+o.tips,"spec 1: pot {h} = CP 15 + tips");
+                    continue
+                }
+                assert_eq!(o.issued,m3(h,&cp),"issuance({h})");assert_eq!(o.issued,pocol_lp4_execution::issuance::for_cp(&cp,h));eras.insert(o.issued);
+                let carry=if h>d{base_burn(&parent,&cp,h-d)}else{U256::ZERO};
+                assert_eq!(pot(&o.state,h).0,o.issued+o.tips-share+carry,"pot {h}: issued {} tips {} share {share} carry {carry}",o.issued,o.tips);
+                assert!(apply::escrow_carry(&o.state).is_zero());
+                apply::check_escrow_invariant(&o.state,&r.net.profile,h,false).unwrap();
+                if h>d+1{assert!(!carry.is_zero(),"C < kappa·m leaves a base burn to carry at {h}");}
+            }
+            if spec==2{assert_eq!(eras.len(),4,"eras 0..3 of H_half = 8 over 30 blocks");}
+        }
+    }
+
+    /// V3-15 at a final block (a finite v3 devnet, H_CLOSE 10, H_END 16, RET 2): settle(12) in phase 0 of F = 16 puts its
+    /// base burn into the carry, finalize burns it with the tips, settleFinal(13..15) burns their base burns directly; after F
+    /// nothing is pending or carried, Escrow holds exactly burnedTotal, and every wei issued and every bond went to a reward
+    /// address or the burn. Run twice: with every pot before 12 fully covered (C = kappa·m, R divisible by 64: nothing burns
+    /// before F, so finalize takes the chain's first burn, its worst path) and with small C everywhere (the carry recycles
+    /// base burns into later pots: the members receive more than on the spec-1 earn-in devnet, which burns them).
+    #[test]
+    fn v3_final_block_burns_the_carry_on_real_blocks(){
+        let mut finalize_gas=0u64;let mut paid=BTreeMap::new();
+        for (spec,covered) in [(2u8,true),(2,false),(1,false)]{
+            let mut cfg=config(spec,&["a","b","c"]);cfg.h_close=10;cfg.h_end=16;cfg.ret=2;
+            let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..3).map(|i|r.id(i)).collect();
+            let bonds=apply::chain_facts(&r.state).held_total;let start:Vec<U256>=(0..3).map(|i|r.bal(r.reward(i))).collect();
+            let km=u64::from(cp.kappa)*u64::from(cp.m);let mut finals=Vec::new();let mut tips=U256::ZERO;
+            for h in 1..=16u64{
+                let c=if covered&&h!=12{km}else{1+h%3};
+                let sh:Vec<(u64,Address)>=(1..c).map(|i|(i,ids[(i%3) as usize])).collect();
+                let txs=if h==16{vec![tip_tx(&r,0,U256::from(3_000_000_000u64))]}else{vec![]};
+                let o=r.block(if h%2==0{Proposer::Signed(ids[(h%3) as usize])}else{Proposer::Fallback},vec![],txs,ids[(h%3) as usize],sh);
+                finals.push(o.is_final);tips+=o.tips;
+                apply::check_escrow_invariant(&o.state,&r.net.profile,h,o.is_final).unwrap();
+                if spec==2&&covered&&h<16{assert!(apply::chain_facts(&o.state).burned_total.is_zero(),"nothing burns before F at {h}");}
+                if o.is_final&&spec==2{
+                    let g=o.meter.call_gas.iter().find(|(n,_)|*n=="finalize").unwrap().1;finalize_gas=finalize_gas.max(g);
+                    assert!(!o.tips.is_zero(),"F's tips burn");
+                }
+            }
+            assert_eq!(finals.iter().filter(|f|**f).count(),1);assert!(finals[15],"h = 16 is final");
+            for j in 1..=16{assert_eq!(pot(&r.state,j),(U256::ZERO,U256::ZERO,U256::ZERO),"pending[{j}]");}
+            assert!(apply::escrow_carry(&r.state).is_zero(),"no carry after F");
+            let f=apply::chain_facts(&r.state);assert_eq!(f.held_total,U256::ZERO,"the closing cursor refunded every bond");
+            assert_eq!(r.bal(escrow_address()),f.burned_total,"Escrow holds exactly the burn after F");
+            let gains=(0..3).map(|i|r.bal(r.reward(i))-start[i]).fold(U256::ZERO,|a,b|a+b);
+            // Every wei issued, every tip and every genesis bond went to a reward address or the burn.
+            assert_eq!(gains+f.burned_total,r.issued+bonds+tips,"conservation");
+            assert_eq!(r.issued,(1..16u64).map(|h|if spec==2{m3(h,&cp)}else{U256::from(2*PCOL)}).fold(U256::ZERO,|a,b|a+b),"no issuance at F");
+            if !covered{paid.insert(spec,(gains,f.burned_total));}
+        }
+        eprintln!("finalize (carry, first burn) {finalize_gas}; small-C chains: v3 {:?} earn-in {:?}",paid[&2],paid[&1]);
+        assert!(paid[&2].0>paid[&1].0&&paid[&2].1<paid[&1].1,"the carry pays members what the spec-1 set burns");
+        assert!(finalize_gas<=admission::envelope_for("finalize",true).unwrap(),"finalize {finalize_gas} above the v3 envelope");
+    }
+
+    /// closeBlock's worst path on the v3 set (V3-15/V3-20): the carry is nonzero (settle(h-D) left a base burn) and the
+    /// tip share goes to an ACCRUING proposer at bond 0 whose share exceeds B_reg: accrue fills the bond, promotes it
+    /// (state word, ACC_COUNT, held_total) and the excess is PAID. Measured against a partial fill, a HELD proposer (PAY
+    /// only), a proposer that reports itself in its own block (a tomb: the share burns) and a fallback block; every block's
+    /// keys and accounts within resources::derive.
+    #[test]
+    fn v3_close_and_finalize_gas_within_the_v3_envelope(){
+        let mut cfg=config(2,&["a","b","c","d"]);for q in ["q0","q1"]{cfg.accounts.push((q.into(),U256::from(20*PCOL)));}
+        let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..4).map(|i|r.id(i)).collect();
+        let (q0,q1)=(devnet::account_key("q0").address(),devnet::account_key("q1").address());
+        let joins=vec![r.register("q0",0,0),r.register("q1",10*PCOL,0)];
+        r.block(Proposer::Signed(ids[0]),vec![],joins,ids[1],vec![(1,ids[2])]);
+        for h in 2..=4u64{r.block(Proposer::Signed(ids[h as usize%4]),vec![],vec![],ids[1],vec![(1,ids[2])]);}
+        let b=resources::derive(&cp);let mut g=BTreeMap::new();let mut nonce=0u64;let mut carry_settle=0u64;
+        let big=U256::from(2_000_000_000_000_000u64);// 42 PCOL of tips: a 21 PCOL share
+        for (label,proposer,per_gas,evidence) in [("accruing-promoted",q0,big,vec![]),("accruing-partial",q1,U256::from(100_000_000_000_000u64),vec![]),
+            ("held",ids[2],big,vec![]),("tomb",ids[3],big,vec![EvidenceEffect::Punish{accused:ids[3]}]),("fallback",Address::ZERO,big,vec![])]{
+            let parent=r.state.clone();let txs=vec![tip_tx(&r,nonce,per_gas)];nonce+=1;
+            let p=if proposer.is_zero(){Proposer::Fallback}else{Proposer::Signed(proposer)};
+            let o=r.block(p,evidence,txs,ids[1],vec![(1,ids[2])]);
+            assert!(!base_burn(&parent,&cp,r.h-u64::from(cp.D)).is_zero(),"{label}: a carry to zero");
+            g.insert(label,o.meter.call_gas.iter().find(|(n,_)|*n=="closeBlock").unwrap().1);
+            carry_settle=carry_settle.max(o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1);
+            assert!(o.meter.keys.len() as u64<=b.keys_normal&&o.meter.accounts.len() as u64<=b.accts_normal,"{label}: keys {} accounts {} vs {b:?}",o.meter.keys.len(),o.meter.accounts.len());
+            let rec=apply::miner_record(&o.state,proposer);
+            match label{
+                "accruing-promoted"=>assert_eq!(rec.map(|x|(x.bond_state,x.bond)),Some((1,b_reg())),"the tip share filled q0's bond and promoted it"),
+                "accruing-partial"=>assert_eq!(rec.map(|x|(x.bond_state,x.bond)),Some((4,U256::from(10*PCOL)+o.tips/U256::from(2))),"q1's bond took its whole share"),
+                "tomb"=>assert!(rec.unwrap().tomb),
+                _=>{}
+            }
+        }
+        eprintln!("closeBlock gas {g:?}; settle with a carry write {carry_settle}");
+        assert!(carry_settle<=admission::envelope_for("settle",true).unwrap());
+        let worst=*g.values().max().unwrap();
+        assert_eq!(g["accruing-promoted"],worst,"the promotion is closeBlock's worst path");
+        assert!(worst<=admission::envelope_for("closeBlock",true).unwrap(),"closeBlock {worst} above the v3 envelope");
+        assert!(worst>admission::envelope_for("closeBlock",false).unwrap(),"closeBlock {worst} fits the spec-1 envelope: drop its v3 entry");
+    }
+    fn b_reg()->U256{U256::from(20*PCOL)}
+
+    /// V3-15 invariant (apply.rs check_escrow_invariant): on the v3 set need = Σpending + held + burned + carry and the carry
+    /// is zero after phase 2. A state with a carry and the matching balance is refused as "carry left after phase 2"; with
+    /// the carry not covered by the balance as "escrow surplus negative" (an invariant without the carry term would call
+    /// that a carry left: this test fails on it). On the spec-1 earn-in set slot 2 means nothing and the verdict is unchanged.
+    #[test]
+    fn v3_escrow_invariant_counts_the_carry(){
+        for spec in [2u8,1]{
+            let mut r=Run::new(&config(spec,&["a","b","c"]));let ids:Vec<Address>=(0..3).map(|i|r.id(i)).collect();
+            for h in 1..=6u64{r.block(Proposer::Signed(ids[(h%3) as usize]),vec![],vec![],ids[0],vec![(1,ids[1])]);}
+            let h=r.h;let x=U256::from(12_345u64);
+            apply::check_escrow_invariant(&r.state,&r.net.profile,h,false).unwrap();
+            let mut carried=r.state.clone();carried.insert_account_storage(escrow_address(),U256::from(2),x).unwrap();
+            let mut covered=carried.clone();covered.accounts.get_mut(&escrow_address()).unwrap().info.balance+=x;
+            let (deficit,left)=(apply::check_escrow_invariant(&carried,&r.net.profile,h,false),apply::check_escrow_invariant(&covered,&r.net.profile,h,false));
+            if spec==2{
+                assert_eq!(deficit,Err(apply::ApplyError::Supply("escrow surplus negative")),"the carry needs Escrow balance");
+                assert_eq!(left,Err(apply::ApplyError::Supply("carry left after phase 2")));
+            }else{assert_eq!((deficit,left),(Ok(()),Ok(())),"spec 1: slot 2 is not part of the invariant");}
+        }
+    }
+
+    /// V3-19 supply bound (genesis_builder.rs): a genesis running the v3 set needs allocations + bonds + 2·S0·H_half +
+    /// S_tail·2^64 < 2^127 (the M3 schedule summed over every height), checked when the genesis is built and on every
+    /// candidate. At the largest S_tail that keeps the total below 2^127 the devnet builds and runs; one more wei of tail
+    /// refuses it (Supply), as does the same total reached through H_half. The flat CP 15 · u64::MAX term of the spec-1
+    /// continuous rule (2 PCOL · (2^64 - 1) < 2^126) would have admitted both.
+    #[test]
+    fn v3_genesis_supply_bound_refuses_at_2_pow_127(){
+        let base=config(2,&["a","b","c"]);
+        let probe=devnet::build(&base).unwrap();let cp=probe.profile.cp().clone();
+        let s0=devnet::from_fixed(&cp.subsidy);
+        let alloc:U256=probe.alloc.accounts.values().map(|a|a.info.balance).fold(U256::ZERO,|a,b|a+b);
+        let bonds=devnet::from_fixed(&cp.B_reg)*U256::from(3);
+        let limit=U256::from(1)<<127;let two64=U256::from(1)<<64;
+        let rest=alloc+bonds+U256::from(2)*s0*U256::from(cp.H_half);
+        let tail=(limit-U256::from(1)-rest)/two64;
+        assert!(s0*U256::from(u64::MAX)+alloc+bonds<limit,"the flat term alone would admit the refused geneses below");
+        let mut ok=base.clone();ok.s_tail=tail;
+        let mut r=Run::new(&ok);for _ in 0..3{let w=r.id(0);r.block(Proposer::Fallback,vec![],vec![],w,vec![]);}
+        assert_eq!(r.issued,tail*U256::from(3),"the tail floors issuance at the boundary");
+        let mut bad=base.clone();bad.s_tail=tail+U256::from(1);
+        let e=devnet::build(&bad).err().expect("one more wei of tail reaches 2^127");assert!(e.contains("Supply"),"{e}");
+        // The halving term: with the same tail, H_half + k crosses 2^127 exactly when 2·S0·k exceeds the slack left.
+        let slack:U256=limit-U256::from(1u64)-rest-tail*two64;let k:u64=(slack/(U256::from(2u64)*s0)).to::<u64>();
+        let mut near=base.clone();near.s_tail=tail;near.h_half=cp.H_half+k;devnet::build(&near).unwrap();
+        let mut far=base.clone();far.s_tail=tail;far.h_half=cp.H_half+k+1;
+        let e=devnet::build(&far).err().expect("2·S0 more of halving term");assert!(e.contains("Supply"),"{e}");
     }
 }

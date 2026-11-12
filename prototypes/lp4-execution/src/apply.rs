@@ -7,7 +7,9 @@
 //!            then applyEvidence (invalidate names the accused, punish the reporter; V3-02 recordLate(j, owners)
 //!            for kind-3 late shares, in body order), markClose, ...;
 //!   phase 1: signed USER transactions (legacy-155/2930/1559);
-//!   phase 2: subsidy issuance + closeBlock(tips), or finalize(tips) at F;
+//!   phase 2: subsidy issuance + closeBlock(tips), or finalize(tips) at F; on the v3 program set (V3-19/V3-15/V3-20)
+//!            issuance(h) of issuance.rs (M3) + closeBlock(tips, issued), which pays the signed proposer its tip share
+//!            and adds the carry (this block's settle base burn) to pot h;
 //!   phase 3: roots (state, tx, receipts, bloom, gasUsed, evidence).
 //! Any error discards the whole candidate; the parent snapshot is never mutated.
 //! Inputs never include the current block's nonce, owners, shares or signatures.
@@ -236,6 +238,8 @@ pub fn share_owners(db:&dyn crate::view::View,j:u64)->impl Iterator<Item=Address
     (0..n).map(move|i|Address::from_word(B256::from(word(db,ledger(),base+U256::from(i)))))
 }
 pub fn share_total(db:&dyn crate::view::View,j:u64)->u64{low_u64(word(db,ledger(),ledger_slot_total(j)))}
+/// V3-15: RewardEscrow slot 2 of the v3 programs, the carry (zero between blocks; the spec-1 programs never write it).
+pub fn escrow_carry(db:&dyn crate::view::View)->U256{word(db,escrow(),U256::from(2))}
 pub fn pending(db:&dyn crate::view::View,j:u64)->(U256,U256,Address){
     let b=U256::from_be_bytes(keccak256([U256::from(j).to_be_bytes::<32>(),U256::from(3).to_be_bytes::<32>()].concat()).0);
     let e=escrow();(word(db,e,b),word(db,e,b+U256::from(1)),Address::from_word(B256::from(word(db,e,b+U256::from(2)))))
@@ -541,14 +545,16 @@ impl Job<'_>{
             None=>{code_caps::validate_snapshot(ex.state.as_view(),limits).map_err(ApplyError::Caps)?;None}
         };
 
-        // Phase 2: issuance + closeBlock, or finalize (no subsidy, tips burned).
+        // Phase 2: issuance + closeBlock, or finalize (no subsidy, tips burned). V3-19 (v3 program set only): issuance(h)
+        // of the M3 schedule instead of CP 15, passed to closeBlock(tips, issued) with the tips (V3-20 splits them there).
         let mut issued=U256::ZERO;
         if !self.is_final{
-            let subsidy=U256::from_be_bytes(profile.spec().cp[15].to_be_bytes());
+            let subsidy=if self.v3{crate::issuance::for_cp(cp,h)}else{U256::from_be_bytes(profile.spec().cp[15].to_be_bytes())};
             let info=ex.state.info_mut(&pay::escrow_address()).ok_or(ApplyError::Genesis("escrow".into()))?;
             info.balance=info.balance.checked_add(subsidy).ok_or(ApplyError::Supply("issuance"))?;
             issued=subsidy;
-            let mut d=selector("closeBlock(uint256)");enc_u256(&mut d,tips);ex.call("closeBlock",escrow(),d)?;
+            if self.v3{let mut d=selector("closeBlock(uint256,uint256)");enc_u256(&mut d,tips);enc_u256(&mut d,issued);ex.call("closeBlock",escrow(),d)?;}
+            else{let mut d=selector("closeBlock(uint256)");enc_u256(&mut d,tips);ex.call("closeBlock",escrow(),d)?;}
         }else{
             let mut d=selector("finalize(uint256)");enc_u256(&mut d,tips);ex.call("finalize",escrow(),d)?;
             // LP4-FINAL-01: one SYSTEM call per remaining pot j in [F-D+1, F-1].
@@ -601,7 +607,8 @@ pub fn root_check()->bool{
 
 /// T17: Escrow surplus = balance-(Σpending+heldTotal+burnedTotal) >= 0, and
 /// pending[j] exists for every j in [h-D+1,h] (non-final) with winners recorded
-/// for j<h; at F no pending remains.
+/// for j<h; at F no pending remains. V3-15 (v3 program set only): need also counts the carry, and after phase 2 the carry
+/// is zero (closeBlock moved it into pot h, or finalize burned it), so no wei is left outside a pot, a bond or the burn.
 pub fn check_escrow_invariant(db:&dyn crate::view::View,profile:&ProfileIdentity,h:u64,is_final:bool)->Result<(),ApplyError>{
     let d=u64::from(profile.cp().D);let lo=h.saturating_sub(d)+1;
     let mut sum=U256::ZERO;
@@ -615,8 +622,11 @@ pub fn check_escrow_invariant(db:&dyn crate::view::View,profile:&ProfileIdentity
     }
     let f=chain_facts(db);
     let balance=db.account(&escrow()).map(|a|a.info.balance).unwrap_or_default();
-    let need=sum.checked_add(f.held_total).and_then(|v|v.checked_add(f.burned_total)).ok_or(ApplyError::Supply("need"))?;
+    let v3=SystemPrograms::program_set(profile.cp(),&profile.spec().sys_code_hash)==ProgramSet::V3;
+    let carry=if v3{escrow_carry(db)}else{U256::ZERO};
+    let need=sum.checked_add(f.held_total).and_then(|v|v.checked_add(f.burned_total)).and_then(|v|v.checked_add(carry)).ok_or(ApplyError::Supply("need"))?;
     if balance<need{return Err(ApplyError::Supply("escrow surplus negative"))}
+    if carry!=U256::ZERO{return Err(ApplyError::Supply("carry left after phase 2"))}
     Ok(())
 }
 

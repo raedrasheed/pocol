@@ -516,3 +516,70 @@ fn r10_v3_late_share_item_fits_evid_bytes_max() {
     refresh(&mut p);
     assert!(!r10(&p) && !v3_late_share_sizing_violated(&p.cp));
 }
+
+/// V3-19 (V3-DECISIONS.md D-V3-19): on CP schema v2, R23's issuance term is the M3 schedule's 2·S0·H_half + S_tail·2^64
+/// (issuance(h) = max(k >= 256 ? 0 : S0 >> k, S_tail), k = h / H_half, summed over every height), not CP 15 · H_END; with
+/// the allocations and the genesis bonds the total must stay below 2^127. Exact boundaries for each term; CP schema v1
+/// keeps CP 15 · H_END (u64::MAX blocks when continuous).
+#[test]
+fn r23_v3_m3_supply_bound() {
+    let pow = |n: u32| U256::pow2(n).unwrap();
+    let r23 = |p: &GateProfile, alloc: Vec<U256>| {
+        let i = IdentityFacts {
+            profile_binding: p.binding(),
+            model: RESOURCE_MODEL.into(),
+            class: FactClass::SyntheticFixture,
+            artifact: sha256(b"explicit synthetic identity fixture, not measurement or proof"),
+            alloc_root: [0; 32],
+            sys_code_hash: [0; 32],
+            alloc_balances: alloc,
+        };
+        check(p, None, Some(&i), None, NodeKind::Node).violations.contains(&"R23".to_string())
+    };
+    let u = profile(false).cp.U;
+    let v2 = |s0: U256, h_half: u64, tail: U256| {
+        let mut p = profile_v2(u - 2, u, u);
+        p.cp.subsidy = s0;
+        p.cp.H_half = h_half;
+        p.cp.S_tail = tail;
+        p.cp.B_reg = U256::ZERO; // the bonds term is the members' B_reg, zero here whatever the genesis decodes to
+        p
+    };
+    let below = |n: u32, less: u64| pow(n).checked_sub(&U256::from_u64(less)).unwrap();
+    // The tail term alone: (2^63 - 1)·2^64 = 2^127 - 2^64.
+    let p = v2(U256::ZERO, 1, below(63, 1));
+    assert!(!r23(&p, vec![below(64, 1)]), "2^127 - 1");
+    assert!(r23(&p, vec![pow(64)]), "2^127");
+    // The halving term alone: 2·2^125·1 = 2^126.
+    let p = v2(pow(125), 1, U256::ZERO);
+    assert!(!r23(&p, vec![below(126, 1)]));
+    assert!(r23(&p, vec![pow(126)]));
+    // A long half-life: 2·2^62·(2^64 - 1) = 2^127 - 2^63.
+    let p = v2(pow(62), u64::MAX, U256::ZERO);
+    assert!(!r23(&p, vec![below(63, 1)]));
+    assert!(r23(&p, vec![pow(63)]));
+    // Both terms: 2·2^124 + 2^62·2^64 = 2^125 + 2^126.
+    let p = v2(pow(124), 1, pow(62));
+    assert!(!r23(&p, vec![below(125, 1)]));
+    assert!(r23(&p, vec![pow(125)]));
+    let t = future_issuance(&p.cp, false);
+    let mut want = [0u64; 8];
+    want[1] = (1 << 61) | (1 << 62);
+    assert_eq!(t.0, want, "2^125 + 2^126");
+    // The owner's values (V3-ROADMAP §5): S0 1 PCOL, H_half 4,207,680, S_tail S0/32, with the 4,000,000 PCOL genesis
+    // allocation: far below the bound, and the term is exactly 2·S0·H_half + S_tail·2^64.
+    let pcol = 1_000_000_000_000_000_000u128;
+    let p = v2(U256::from_be_slice(&pcol.to_be_bytes()).unwrap(), 4_207_680, U256::from_be_slice(&(pcol / 32).to_be_bytes()).unwrap());
+    assert!(!r23(&p, vec![U256::from_be_slice(&(4_000_000 * pcol).to_be_bytes()).unwrap()]));
+    let t = future_issuance(&p.cp, false);
+    let exact = 2 * pcol * 4_207_680 + (pcol / 32) * (1u128 << 64);
+    assert_eq!((t.0[0], t.0[1], t.0[2..].iter().all(|x| *x == 0)), (exact as u64, (exact >> 64) as u64, true));
+    // CP 15 = 2^111: on CP schema v1 the flat term 2^111·H_END (H_END 129,600 > 2^16) exceeds 2^127; on CP schema v2 with
+    // H_half 1 and no tail the M3 term is 2^112.
+    let mut q = profile(false);
+    q.cp.subsidy = pow(111);
+    q.cp.B_reg = U256::ZERO;
+    refresh(&mut q);
+    assert!(r23(&q, vec![U256::ZERO]), "CP schema v1 keeps CP 15 · H_END");
+    assert!(!r23(&v2(pow(111), 1, U256::ZERO), vec![U256::ZERO]), "CP schema v2 takes the M3 term");
+}
