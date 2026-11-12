@@ -328,6 +328,9 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
      a burn limit; the pool and eth_estimateGas refuse a submission whose quoted burn exceeds it, or the owner's
      chosen signed cap is implemented instead. The owner confirms the option before V3-PR-I; the blocker is
      removed only with that change.
+   - V3 receipt polling (V3-PR-C3 review C3-2): a v3 node serves eth_getTransactionReceipt on the heavy lane
+     (heavy queue, RESP_MAX reservation, heavy deadline), so wallets and clients treat receipt polling as heavy-class
+     and back off on −32021 {busy, retryAfterMs}; expose the lane in `pocol_getParams.rpcLimits` if clients need it.
 9. **PR-8 Harnesses and vectors.**
    - SimNet T7c(S) (share omission), T10b(iv) (withholding proposer plus a pre-mined fallback coalition),
      T10 with ASERT (carry and burn).

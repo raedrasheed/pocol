@@ -244,6 +244,15 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     }
     assert!(v3_launch_gate(true,ProfileKind::Simnet,NodeKind::Simnet).is_ok(),"the simnet preview stays admissible");
 }
+/// No current build reaches the gate through `admit` with v3 on a non-simnet profile (preview builds
+/// refuse those first; release builds cannot decode spec 2), so this source check keeps `admit` calling
+/// it until V3-PR-I makes that path reachable and replaces this check with an `admit`-level test.
+#[test] fn admit_calls_the_v3_launch_gate_before_any_fact_is_built(){
+    let src=include_str!("../admission.rs");
+    let start=src.find("\npub fn admit(").expect("admit");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];
+    let gate=body.find("v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;").expect("admit must call v3_launch_gate on the v3 domain of the profile");
+    assert!(gate<body.find("let binding=gp.binding();").expect("binding"),"the launch gate runs before the gate facts are built");
+}
 
 #[test] fn an_enforced_v3_log_limit_cannot_be_waived_by_an_unrelated_absent_field(){
     for (field,value,label) in [("resp_max",2*32768+546*512,"respMax>=2*262144+4368*512+2048"),("logs_count_max",546,"logsCountMax>=4368"),("logs_scan_bytes",32768,"logsScanBytes>=262144")]{

@@ -30,7 +30,14 @@ LIGHT_RESP_MAX (512 KiB). In the v3 domain (`Limits.first_imports`, set at open
 from `spec.v3_active(MAX)`) the node therefore serves eth_getTransactionReceipt
 as heavy: heavy lane, reservation, deadline and RESP_MAX answer limit
 (`rpc::Limits.heavy_receipts`). The v3 R26 adds 2048 bytes to its RESP_MAX
-bound so that it covers that receipt. Spec-1 profiles keep the light row
+bound so that it covers that receipt. The cost is availability: every v3
+receipt request, which wallets poll often, then takes a HEAVY_QUEUE place, a
+RESP_MAX reservation from HEAVY_RESP_POOL and the heavy deadline, so receipt
+polling competes with eth_getLogs and eth_call and gets -32021 busy when the
+heavy lane or pool is full. V3-PR-G clients treat receipt polling as
+heavy-class and back off on -32021 (V3-DESIGN.md PR-7);
+`pocol_getParams.rpcLimits` does not yet report the flag, so that spec-1 output
+stays byte-identical. Spec-1 profiles keep the light row
 (<= 339 KiB) and every legacy lane, limit and R26 predicate byte-identical.
 
 ## Creation pricing and exceptional halts

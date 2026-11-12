@@ -402,6 +402,7 @@ mod preview{
         let ask=|node:&mut pocold::node::Node,light:bool|{let (t,_r)=std::sync::mpsc::channel();
             pocold::rpc::answer(node,&pocold::rpc::Request::local(body.clone().into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(60),light)).body};
         let served=ask(&mut node,light);assert!(served.len()>pocold::rpc::LIGHT_RESP_MAX&&served.len()<=pocold::rpc::RESP_MAX,"{}",served.len());
+        assert!(served.len() as u64<=r26_receipt_bound(),"the v3 R26 receipt bound covers it: {}",served.len());
         let v:serde_json::Value=serde_json::from_str(&served).unwrap();assert_eq!(v["result"]["status"],"0x1","{}",&served[..200]);
         let logs=v["result"]["logs"].as_array().unwrap();assert_eq!(logs.len() as u64,count);assert_eq!(logs[0]["data"].as_str().unwrap().len(),2+2*data as usize);
         assert_eq!(logs[count as usize-1]["logIndex"],format!("{:#x}",count-1));
@@ -411,6 +412,34 @@ mod preview{
         assert_eq!(rpc(&mut node,"eth_getTransactionReceipt",serde_json::json!([hash]))["result"]["logs"].as_array().unwrap().len() as u64,count);
         let mut legacy=node_cfg(|_|{});legacy.spec_version=1;let dir=Temp::new();let old=pocold::node::Node::open(node_config(&dir,false),node_spec(&legacy)).unwrap();
         assert!(!old.cfg.limits.rpc.heavy_receipts,"spec-1 keeps the light receipt row");
+    }
+
+    /// The v3 R26 receipt row (param_gate.rs satisfies_r26_for, network.md (B)):
+    /// 2·V3_LOG_BLOCK_MAX + V3_LOG_COUNT_MAX·512 B + 2 KiB.
+    fn r26_receipt_bound()->u64{let c=user_phase::log_caps(true);2*c.bytes+c.count*512+2048}
+
+    /// C3-2, topics and data: a v3 receipt whose logs carry four topics and data each (720 LOG4 of
+    /// 200 bytes, 262,080 charged bytes) exercises the 2·charged-bytes term of the R26 receipt bound.
+    #[test]
+    fn a_full_topic_and_data_v3_receipt_stays_within_the_r26_receipt_bound(){
+        let dir=Temp::new();let cfg=node_cfg(|_|{});let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        let caps=user_phase::log_caps(true);let data=200u64;let per=36+4*32+data;let count=caps.bytes/per;assert!(count<=caps.count&&count*per+per>caps.bytes);
+        // PUSH2 count; loop: LOG4(0, data, n, n, n, n); count-1; JUMPI loop while nonzero; STOP.
+        let runtime=[0x61,(count>>8) as u8,(count&255) as u8,0x5b,0x80,0x80,0x80,0x80,0x60,data as u8,0x60,0,0xa4,0x60,1,0x90,0x03,0x80,0x60,3,0x57,0];
+        let fee=|n:&pocold::node::Node|{let head=n.chain.full_entry(&n.chain.head).unwrap();n.chain.child_ctx(&head,0).unwrap().base_fee*U256::from(2)+U256::from(7)};
+        let deploy=Tx{chain_id:777938,nonce:0,max_priority:U256::from(7),max_fee:fee(&node),gas:300_000,to:None,value:U256::ZERO,data:Bytes::from(init(&runtime))}.sign_1559(&alice);
+        node.submit_tx(deploy.clone(),false).unwrap();let b=solve(&node,vec![deploy],cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+        let call=Tx{chain_id:777938,nonce:1,max_priority:U256::from(7),max_fee:fee(&node),gas:3_000_000,to:Some(alice.address().create(0)),value:U256::ZERO,data:Default::default()}.sign_1559(&alice);
+        let before=node.chain.head().cum_log_bytes;let hash=node.submit_tx(call.clone(),false).unwrap();let b=solve(&node,vec![call],cfg.g_ts+8);assert!(node.import(b,None).unwrap());
+        assert_eq!(node.chain.head().cum_log_bytes-before,count*per,"the receipt holds every block log");
+        let body=serde_json::json!({"jsonrpc":"2.0","id":1,"method":"eth_getTransactionReceipt","params":[hash]}).to_string();
+        let light=pocold::rpc::is_light_for(body.as_bytes(),node.cfg.limits.rpc.heavy_receipts);assert!(!light);
+        let (t,_r)=std::sync::mpsc::channel();
+        let served=pocold::rpc::answer(&mut node,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(60),light)).body;
+        assert!(served.len()>pocold::rpc::LIGHT_RESP_MAX&&served.len() as u64<=r26_receipt_bound(),"{}",served.len());
+        let v:serde_json::Value=serde_json::from_str(&served).unwrap();assert_eq!(v["result"]["status"],"0x1","{}",&served[..200]);
+        let logs=v["result"]["logs"].as_array().unwrap();assert_eq!(logs.len() as u64,count);
+        assert_eq!(logs[0]["topics"].as_array().unwrap().len(),4);assert_eq!(logs[0]["data"].as_str().unwrap().len(),2+2*data as usize);
     }
 
     #[test]
