@@ -36,13 +36,16 @@ penaltyBurn, baseBurn, roundBurn) with the earn-in rule that a payment to an ACC
 
 - V3-19 (issuance M3), V3-15 (carry) and V3-20 (tip split), V3-PR-E2a: phase 2 credits issuance(h) = h == 0 ? 0 :
   max(k >= 256 ? 0 : S0 >> k, S_tail), k = h // H_half, and closeBlock(tips, issued) records pot h = issued +
-  (1 - gamma_tip) * tips + carry, zeroing the carry; gamma_tip_bp/10^4 of the tips (floor) goes to the signed proposer as
-  the proposer part does (payTo: an ACCRUING record fills its bond first, a tomb burns), a fallback block leaves all
-  tips in the pot. Settlement sends the base burn R - A to the carry (roundBurn, payBurn, penaltyBurn and a whole-pot
-  burn still burn), so the carry of block h is the base burn of settle(h - D), computed after every late credit to
-  h - D (recordLate precedes settle). The Escrow equality gains the carry term, and after phase 2 the carry is zero.
-  tests/v3/issuance-carry-vectors.json; ECON_MUTANTS are six planted model mutants that each fail it, and
-  check_pot_fixed_by_its_block fails on base-burn-into-closed-pot too.
+  (1 - gamma_tip) * tips + carry into pot h, zeroing that carry; gamma_tip_bp/10^4 of the tips (floor) goes to the
+  signed proposer as the proposer part does (payTo: an ACCRUING record fills its bond first, a tomb burns), a fallback
+  block leaves all tips in the pot. Settlement sends the base burn R - A to the carry (roundBurn, payBurn, penaltyBurn
+  and a whole-pot burn still burn), lagged by one block (D-V3-15): settle(h - D) in block h adds to the carry into pot
+  h + 1, so pot h receives the base burn of settle(h - 1 - D), computed after every late credit to h - 1 - D, and block
+  h, the last carrier of late shares of h - D, has no claim on what leaving them out would carry
+  (check_last_carrier_gains_nothing). The Escrow equality gains the carry term (every outstanding carry); after phase 2
+  of block h only the carry into pot h + 1 may remain, and none after a final block.
+  tests/v3/issuance-carry-vectors.json; ECON_MUTANTS are eight planted model mutants that each fail it, and
+  check_pot_fixed_by_its_block fails on base-burn-into-closed-pot, check_last_carrier_gains_nothing on carry-not-lagged.
 
 tests/v3_contracts.rs replays tests/v3/registry-budget-vectors.json, tests/v3/earnin-on-v3-vectors.json (the earn-in
 model's scenarios re-run here), tests/v3/evidence-penalty-vectors.json and tests/v3/late-share-vectors.json, written by
@@ -557,9 +560,11 @@ CHAIN_DEFAULT = {'m': 32, 'kappa': 2, 'S_max': 256, 'W_w': 8, 'alpha_bp': 1000, 
 # the model or fail one of its Escrow checks.
 # base-burn-into-closed-pot is the design V3-15 rejects (safety finding 8): half of settle(j)'s base burn is added to the
 # oldest pot still pending, already closed by its block; check_pot_fixed_by_its_block must also fail on it
-# (fixedness_mutant_killed).
+# (fixedness_mutant_killed). carry-not-lagged is the previous rule (settle(h - D)'s base burn into pot h, the pot of the
+# last carrier of h - D); check_last_carrier_gains_nothing must also fail on it (lag_mutant_killed). final-keeps-own-carry:
+# finalize burns only the carry into pot F and keeps the carry of F's own settle(F - D).
 ECON_MUTANTS = ['carry-not-added', 'tip-share-to-pot', 'base-burn-still-burned', 'invariant-missing-carry',
-                'issuance-off-by-one-at-H_half', 'base-burn-into-closed-pot']
+                'issuance-off-by-one-at-H_half', 'base-burn-into-closed-pot', 'carry-not-lagged', 'final-keeps-own-carry']
 MUTANT = None
 
 def issuance(h, cp):
@@ -583,7 +588,8 @@ class Chain:
         self.ledger = {}                     # j -> {owner: count}, owners in first-seen order
         self.issued = 0
         self.tips = 0                        # V3-20: tips the block's transactions paid to Escrow (the coinbase)
-        self.carry = 0                       # V3-15: base burn of this block's settle(h - D), until closeBlock
+        self.carry = {}                      # V3-15 (lagged): t -> the carry into pot t, the base burn of the settlement
+                                             # in block t - 1, until closeBlock(t) (or finalize burns it)
         self.final = False                   # set by finalize: the final block's settleFinal burns its base burns
         self.settled = {}                    # j -> pot j's amount when settle(j) or settleFinal(j) distributed it
         self.height = 0
@@ -644,7 +650,7 @@ class Chain:
         if h > k + 1:
             del self.ledger[h - k - 1]
         if h > self.cp['D']:
-            self._settle(h - self.cp['D'])
+            self._settle(h - self.cp['D'], h)
         self.reg.block(h)                                # beginBlock: budgets and the refund sweep
         self.height = h
 
@@ -691,7 +697,8 @@ class Chain:
             self._pay(rep.reward, cut)
         reg.burned += r.bond - cut
 
-    def _settle(self, j):
+    def _settle(self, j, h=None):
+        """settle(j) in block h (settleFinal at a final block: h is not needed, the base burn burns)."""
         pot = self.pots.pop(j)
         amount = pot['amount']
         self.settled[j] = amount
@@ -713,13 +720,17 @@ class Chain:
             self._pay_to(o, p)
         a = r * c // q
         self.reg.burned += a - paid                      # roundBurn
+        if r == a:
+            return
         if MUTANT == 'base-burn-still-burned' or self.final:
             self.reg.burned += r - a
-        elif MUTANT == 'base-burn-into-closed-pot' and self.pots:
-            self.pots[min(self.pots)]['amount'] += (r - a) // 2
-            self.carry += r - a - (r - a) // 2
-        else:
-            self.carry += r - a                          # V3-15: the base burn goes to the carry
+            return
+        t = h if MUTANT == 'carry-not-lagged' else h + 1  # V3-15, lagged: into pot h + 1, not the pot block h closes
+        x = 0
+        if MUTANT == 'base-burn-into-closed-pot' and self.pots:
+            x = (r - a) // 2
+            self.pots[min(self.pots)]['amount'] += x
+        self.carry[t] = self.carry.get(t, 0) + r - a - x
 
     # ---- phase 2
     def close(self, h, tips=0):
@@ -731,20 +742,22 @@ class Chain:
         self.issued += issued
         self.tips += tips
         share = 0 if not self.proposer or MUTANT == 'tip-share-to-pot' else tips * self.cp['gamma_tip_bp'] // 10_000
-        carry, self.carry = self.carry, 0
+        carry = self.carry.pop(h, 0)                      # V3-15: the carry into pot h (block h - 1's settlement)
         amount = issued + (tips - share) + (0 if MUTANT == 'carry-not-added' else carry)
         self.pots[h] = {'amount': amount, 'proposer': self.proposer, 'winner': None, 'accruing': False, 'invalid': False}
         self._pay_to(self.proposer, share)               # V3-20: as the proposer part (payTo)
         return issued, amount
 
     def finalize(self, h, tips=0):
-        """Phase 2 of a final block F: finalize(tips) burns the tips and (V3-15) the carry of F's settle(F - D); then
+        """Phase 2 of a final block F: finalize(tips) burns the tips and (V3-15) every outstanding carry: the carry into
+        pot F (block F - 1's settlement; no pot F exists) and the carry into F + 1 of F's own settle(F - D); then
         settleFinal(j) settles every remaining pot, whose base burn now burns (no later pot to carry it into)."""
         if h != self.height:
             raise AssertionError(('finalize the current block', h, self.height))
         self.tips += tips
-        self.reg.burned += tips + self.carry
-        self.carry, self.final = 0, True
+        kept = {h + 1: self.carry[h + 1]} if MUTANT == 'final-keeps-own-carry' and h + 1 in self.carry else {}
+        self.reg.burned += tips + sum(self.carry.values()) - sum(kept.values())
+        self.carry, self.final = kept, True
         for j in sorted(self.pots):
             self._settle(j)
         return 0, 0
@@ -756,11 +769,15 @@ class Chain:
     def check(self, step):
         check_invariants(self.reg, step)
         reg = self.reg
-        # T17 with equality: every wei Escrow holds is a pending pot, a held bond, burned, or (inside a block, after
-        # phase 0's settlement) the carry; after phase 2 the carry is zero.
-        carry = 0 if MUTANT == 'invariant-missing-carry' else self.carry
+        # T17 with equality: every wei Escrow holds is a pending pot, a held bond, burned, or an outstanding carry. Inside
+        # block h the carries are into pots h (from block h - 1) and h + 1 (this block's settlement); after closeBlock(h)
+        # only the one into h + 1, which exists only once a settlement ran (h > D); after a final block none.
+        carry = 0 if MUTANT == 'invariant-missing-carry' else sum(self.carry.values())
         assert self.escrow_balance() == sum(p['amount'] for p in self.pots.values()) + reg.held_total + reg.burned + carry, step
-        assert step[0] not in ('close', 'final') or self.carry == 0, step
+        assert all(v > 0 for v in self.carry.values()), step
+        assert set(self.carry) <= {self.height, self.height + 1}, step
+        assert step[0] != 'close' or set(self.carry) <= ({self.height + 1} if self.height > self.cp['D'] else set()), step
+        assert step[0] != 'final' or not self.carry, step
         assert step[0] != 'final' or not self.pots, step
         # The pending window: contiguous heights within [h-D+1, h] (pot h exists once the block is closed).
         ks = sorted(self.pots)
@@ -774,7 +791,7 @@ def chain_snapshot(ch):
     out['escrowBalance'] = str(ch.escrow_balance())
     out['issued'] = str(ch.issued)
     out['tips'] = str(ch.tips)
-    out['carry'] = str(ch.carry)
+    out['carry'] = {str(t): str(a) for t, a in sorted(ch.carry.items())}
     return out
 
 def run_chain(steps, cp=None, durable=(), ledger=False):
@@ -1198,7 +1215,8 @@ def late_inclusion_variant(steps, after, rng):
 
 def check_pot_fixed_by_its_block(seed=7, blocks=40):
     """V3-15 test (V3-DESIGN.md): changing LS inclusion after block j+1 (block j+1 fixed) never changes pot j+1, nor any
-    pot up to j+1: pot h depends only on blocks 1..h. Compared is both the amount closeBlock(h) recorded and the amount
+    pot up to j+1: pot h depends only on blocks 1..h (its carry, lagged by one block, on blocks 1..h-1). Compared is both
+    the amount closeBlock(h) recorded and the amount
     settle(h) distributed (or still pending at the end), so value added to a closed pot after its block fails the check.
     Positive controls: some later pot does change (the carry of settle(j') follows the late credits to j', which its
     carriers up to the settling block commit), and the compared pots include settled ones."""
@@ -1232,6 +1250,81 @@ def fixedness_mutant_killed():
         MUTANT = None
     raise AssertionError('base-burn-into-closed-pot survives check_pot_fixed_by_its_block')
 
+LAST_J = 2                                           # the template of the last-carrier scenario (D = 4: h = 6)
+
+def last_carrier_steps(include, blocks=12):
+    """D-V3-15 incentive scenario: template j = 2 has C = 2 (winner w and one header share of w), and x holds eight valid
+    shares of it that the header left out. Block h = j + D = 6, signed by a, is the last block whose window [h - D, h - 1]
+    still holds j; it either carries late(2, x * 8) (include) or omits them. a has no other part in any pot (it is no
+    winner and has no share), so everything a is paid comes from pot 6's proposer part."""
+    sc = Script().block(1, ops=joined(('a', B), ('x', B), ('w', B)))
+    for h in range(2, blocks + 1):
+        ev = [late(LAST_J, *['x'] * 8)] if include and h == LAST_J + 4 else []
+        sc.block(h, proposer='a' if h == LAST_J + 4 else 'm0', winner='w', shares=['w'] if h == LAST_J + 1 else [],
+                 evidence=ev)
+    return sc.steps
+
+def play(steps, cp=None):
+    """Runs chain steps (as run_chain, without a revert); returns the Chain and pot h as closeBlock(h) recorded it."""
+    ch, closed = Chain(cp or {}), {}
+    for st in steps:
+        op, args = st[0], st[1:]
+        if op == 'begin':
+            ch.begin(*args)
+        elif op == 'close':
+            closed[args[0]] = ch.close(*args)[1]
+        else:
+            getattr(ch.reg, op)(*args)
+        ch.check(st)
+    return ch, closed
+
+def base_burn_of(amount, c, cp):
+    """settle's base burn R - floor(R*C/Q) of a pot of `amount` whose template holds C shares (Q = max(C, kappa*m))."""
+    r = amount - amount * cp['alpha_bp'] // 10_000 - amount * cp['gamma_bp'] // 10_000
+    q = max(c, cp['kappa'] * cp['m'])
+    return r - r * c // q
+
+def check_last_carrier_gains_nothing():
+    """D-V3-15 (lagged carry) test, fails on the previous rule: the signed proposer of h = j + D, the last carrier of
+    late shares of j, gains nothing in its own pot by omitting LS(j). Pot h is the same with and without the omission,
+    as closeBlock(h) recorded it and as settle(h) distributed it, and so is everything a is paid; the omission moves
+    exactly the extra base burn of settle(j) into pot h + 1 (pot h + 1 = issued + tips - share + base burn of settle(j)
+    in both runs), whose template can no longer credit j, while x loses its eight late shares."""
+    h = LAST_J + 4
+    runs = {}
+    for include in (True, False):
+        ch, closed = play(last_carrier_steps(include))
+        cp = ch.cp
+        assert cp['D'] == 4 and LAST_J + cp['D'] == h, 'block h is the last carrier of j'
+        runs[include] = (closed, ch.settled, ch.reg.paid.get('a', 0), ch.reg.paid.get('x', 0))
+    (ci, si, ai, xi), (co, so, ao, xo) = runs[True], runs[False]
+    assert ci[h] == co[h], ('pot h as closeBlock(h) recorded it', ci[h], co[h])
+    assert si[h] == so[h], ('pot h as settle(h) distributed it', si[h], so[h])
+    assert ai == ao, ("the last carrier's payments", ai, ao)
+    cp = Chain({}).cp
+    a2 = si[LAST_J]
+    assert a2 == so[LAST_J], 'pot j is the same in both runs'
+    bi, bo = base_burn_of(a2, 2 + 8, cp), base_burn_of(a2, 2, cp)   # C = 2 header (w twice) + 8 late, or 2
+    assert bo > bi > 0, ('the omission raises the base burn of settle(j)', bi, bo)
+    tips_share_issued = issuance(h + 1, cp)              # block h + 1 has no tips
+    assert ci[h + 1] == tips_share_issued + bi and co[h + 1] == tips_share_issued + bo, ('the carry of settle(j) is in pot h + 1', ci[h + 1], co[h + 1])
+    assert all(ci[k] == co[k] and si[k] == so[k] for k in range(1, h + 1)), 'no pot up to h differs'
+    assert xi > xo, 'x is paid its late shares only when they are carried'
+    return {'pot h': ci[h], 'pot h+1 (include, omit)': (ci[h + 1], co[h + 1]), 'a paid': ai, 'x loses': xi - xo}
+
+def lag_mutant_killed():
+    """check_last_carrier_gains_nothing fails on carry-not-lagged (the previous rule: the omitted value enters pot h, of
+    which h's signed proposer takes gamma_bp/10^4)."""
+    global MUTANT
+    MUTANT = 'carry-not-lagged'
+    try:
+        check_last_carrier_gains_nothing()
+    except AssertionError as e:
+        return str(e.args[0] if e.args else e)
+    finally:
+        MUTANT = None
+    raise AssertionError('carry-not-lagged survives check_last_carrier_gains_nothing')
+
 def issuance_vectors():
     v = {'schedule': {'cases': schedule_cases()}}
     # Compressed fixture (H_half = 4, S_tail = S0/32): blocks over 6·H_half reach the tail; host credit = recorded pot
@@ -1264,13 +1357,18 @@ def issuance_vectors():
     base = run_issuance_chain(11, 20, cp, late_p=0.9)
     v['late-inclusion-base'] = run_chain(base, cp, ledger=True)
     v['late-inclusion-after-7-dropped'] = run_chain(late_inclusion_variant(base, 7, random.Random(0)), cp, ledger=True)
-    # A final block F = 9: phase 0's settle(5) puts its base burn into the carry, finalize burns it with the tips (no tip
-    # share at F), and settleFinal(6..8) burns their base burns directly; nothing is left pending or carried.
+    # A final block F = 9: the carry into pot 9 (settle(4) in block 8) is outstanding, phase 0's settle(5) adds the carry
+    # into pot 10, finalize burns both with the tips (no tip share at F), and settleFinal(6..8) burns their base burns
+    # directly; nothing is left pending or carried.
     sc = Script().block(1, ops=joined(('w', B), ('c', B)))
     for h in range(2, 9):
         sc.block(h, proposer='m0' if h % 2 else '', winner='w', shares=['c'] * (h % 3), tips=5 * PCOL if h == 6 else 0)
     sc.final(9, winner='w', shares=['c'], tips=3 * PCOL + 1)
     v['final-block-burns-the-carry'] = run_chain(sc.steps)
+    # D-V3-15: the last carrier of template 2 (block 6) carries x's eight late shares of it, or omits them
+    # (tests/v3_contracts.rs last_carrier_gains_nothing_by_omitting_late_shares compares pots 6 and 7 of both runs).
+    v['last-carrier-includes-late'] = run_chain(last_carrier_steps(True))
+    v['last-carrier-omits-late'] = run_chain(last_carrier_steps(False))
     return v
 
 def econ_mutants_killed():
@@ -1501,6 +1599,8 @@ if __name__ == '__main__':
     print('PASS pot h is fixed by block h: dropping later late credits moved a later pot in',
           check_pot_fixed_by_its_block(), 'variants and never an earlier one')
     print('PASS the fixedness check fails on base-burn-into-closed-pot:', fixedness_mutant_killed())
+    print('PASS the last carrier of j gains nothing by omitting LS(j) (D-V3-15, lagged carry):', check_last_carrier_gains_nothing())
+    print('PASS the last-carrier check fails on carry-not-lagged (the previous rule):', lag_mutant_killed())
     econ = econ_mutants_killed()
     print(f'PASS every one of {len(econ)} planted issuance/carry/tip mutants fails the issuance-carry vectors:',
           ', '.join(f'{m} ({k})' for m, k in econ.items()))

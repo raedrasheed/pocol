@@ -142,8 +142,9 @@ contract ShareLedger {
 }
 
 /// Pending pots, bond bridge, settlement and finalization (M1 incentives.md).
-/// Layout: slot0 burnedTotal; slot1 final height F (set only by finalize); slot2 carry (V3-15: the base burn of the pots
-/// settled in this block, zero between blocks); pending[j] at keccak(be256(j)||be256(3))+k,
+/// Layout: slot0 burnedTotal; slot1 final height F (set only by finalize); slots 4 and 5 the carry into pot t at slot
+/// 4+(t&1) (V3-15, lagged one block: the base burn of the pots settled in block t-1; slot 2 is not used); pending[j] at
+/// keccak(be256(j)||be256(3))+k,
 /// k=0 amount, k=1 meta = proposer<<8 | kind (0 signed, 1 fallback) | INVALID<<168,
 /// k=2 winner (zero until recordResult) | WIN_ACCRUING<<160 (V3-16).
 contract RewardEscrow {
@@ -160,8 +161,11 @@ contract RewardEscrow {
     function sys(uint256 len) internal view {if(msg.sender!=Sys.SYSTEM||msg.data.length!=len)revert BadSystemCall();if(block.number==0||block.number>Sys.LOW64)revert BadSystemCall();}
 
     function burnedTotal() external view returns(uint256){return get(0);}
-    /// V3-15: the carry, nonzero only inside a block between settle(h-D) and closeBlock/finalize.
-    function carry() external view returns(uint256){return get(2);}
+    /// V3-15: slot of the carry into pot t. Settlement in block h adds to the carry into pot h+1 and closeBlock(h)
+    /// drains the carry into pot h, so the two never share a slot; at most these two carries are outstanding.
+    function carrySlot(uint256 t) internal pure returns(uint256){return 4+(t&1);}
+    /// V3-15: every outstanding carry (the Escrow invariant's term): between blocks h and h+1 only the carry into pot h+1.
+    function carry() external view returns(uint256){return get(4)+get(5);}
     function pending(uint256 j) external view returns(uint256,uint256,uint256){uint256 b=base(j);return(get(b),get(b+1),get(b+2));}
 
     function releaseBond(address id) external returns(bool) {
@@ -190,15 +194,17 @@ contract RewardEscrow {
     /// V3-19: the host passes issued = issuance(h) (lp4-execution issuance.rs), which it credited to Escrow.
     /// V3-20: gamma_tip_bp/10^4 of the tips (CP 59, floor) goes to the signed proposer (tx.origin) as the proposer part
     /// does (payTo: an ACCRUING record fills its bond first, a tomb or a failed PAY burns); a fallback block (origin zero)
-    /// leaves all tips in the pot. V3-15: the carry, the base burn of this block's settle(h-D), enters pot h and is
-    /// zeroed, so pot h is fixed by block h alone.
+    /// leaves all tips in the pot. V3-15 (lagged): the carry into pot h, the base burn of block h-1's settle(h-1-D), enters
+    /// pot h and is zeroed. Block h's own settle(h-D) went to the carry into pot h+1, so pot h's carry is fixed before
+    /// template h is built, and block h, the last carrier of late shares of h-D, has no claim on what leaving them out
+    /// would carry.
     function closeBlock(uint256 tips,uint256 issued) external {
         sys(68);
         uint256 b=base(block.number);
         if(get(b)!=0||get(b+1)!=0||get(b+2)!=0) revert BadPending();
         uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(59)/10000;
-        uint256 c=get(2);
-        if(c!=0) put(2,0);
+        uint256 k=carrySlot(block.number); uint256 c=get(k);
+        if(c!=0) put(k,0);
         uint256 amount=issued+(tips-share)+c;
         uint256 meta=tx.origin==address(0)?1:(uint256(uint160(tx.origin))<<8);
         put(b,amount); put(b+1,meta);
@@ -237,15 +243,17 @@ contract RewardEscrow {
     /// Phase 2 of the final block F: no pending[F]; tips burned (finalBurn). Marks
     /// F in slot1 so that each remaining pot is settled by its own SYSTEM call
     /// settleFinal(j) (LP4-FINAL-01: keeps every call within the 30M per-call cap).
-    /// V3-15: the carry of the final block's settle(F-D) burns here, and the pots settleFinal settles after it burn their
-    /// base burn directly (slot1 is set), so no carry is left at F.
+    /// V3-15: both outstanding carries burn here, the carry into pot F (block F-1's settle; no pot F exists) and the carry
+    /// of F's own settle(F-D); the pots settleFinal settles after it burn their base burn directly (slot1 is set), so no
+    /// carry is left at F.
     function finalize(uint256 tips) external {
         sys(36);
         uint256 h=block.number; uint256 b=base(h);
         if(get(b)!=0||get(b+1)!=0||get(b+2)!=0||get(1)!=0) revert BadPending();
-        uint256 c=get(2);
-        if(c!=0) put(2,0);
-        put(0,get(0)+tips+c); put(1,h);
+        uint256 c=get(4); uint256 n=get(5);
+        if(c!=0) put(4,0);
+        if(n!=0) put(5,0);
+        put(0,get(0)+tips+c+n); put(1,h);
     }
     function settleFinal(uint256 j) external {
         sys(36);
@@ -273,7 +281,8 @@ contract RewardEscrow {
     }
     /// R split: p_i=floor(R*c_i/Q), A=floor(R*C/Q), Q=max(C,kappa*m);
     /// baseBurn=R-A, roundBurn=A-sum(p_i). Returns the burned value of R: roundBurn, payBurn and penaltyBurn. V3-15: the
-    /// baseBurn goes to the carry (into the pot this block closes), except at the final block (slot1 set), where it burns.
+    /// baseBurn goes to the carry into pot h+1 (lagged: not the pot this block closes), except at the final block (slot1
+    /// set), where it burns.
     function distribute(uint256 j,uint256 r) internal returns(uint256 burned) {
         (address[] memory list,uint256[] memory counts,uint256 c)=ILedgerV1(Sys.LEDGER).entriesOf(uint64(j));
         if(c==0) revert BadPending();
@@ -290,7 +299,7 @@ contract RewardEscrow {
         }
         uint256 a=r*c/q;
         burned+=a-sum;
-        if(r!=a){ if(get(1)!=0) burned+=r-a; else put(2,get(2)+(r-a)); } // V3-15
+        if(r!=a){ if(get(1)!=0) burned+=r-a; else {uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));} } // V3-15
     }
     /// Returns the burned amount: absent record (payBurn), tomb (penaltyBurn) or
     /// failed PAY (payBurn). Otherwise PAY to the record's reward address.
