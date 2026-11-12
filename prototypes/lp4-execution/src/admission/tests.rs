@@ -266,19 +266,29 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     assert!(dead.is_empty(),"never the only failing predicate: {dead:?}");
 }
 
-/// C3-4 / D-V3-21: the creation-burn user bound is an enforced launch blocker. Until it is resolved,
-/// no profile that can activate v3 is admitted outside a simnet profile on a simnet node.
-#[test] fn open_v3_launch_blockers_refuse_every_non_simnet_v3_admission(){
-    assert!(V3_LAUNCH_BLOCKERS.iter().any(|b|b.starts_with("D-V3-21 creation-burn user bound")),"the creation-burn user bound is an open launch blocker");
-    for (k,n) in [(ProfileKind::Network,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Node)]{
-        let e=v3_launch_gate(true,k,n).unwrap_err();assert_eq!(e.rules,v(&["v3-launch-blocker"]));assert!(e.notes[0].contains("creation-burn user bound"),"{e}");
-        assert!(v3_launch_gate(false,k,n).is_ok(),"spec-1 profiles never reach the v3 blockers");
+/// C3-4 / D-V3-21: the creation-burn user bound was an enforced launch blocker until the owner's
+/// option A (2026-11-12) was implemented (the burn is charged only within max_fee*gas_limit; tests in
+/// pocold/tests/v3_execution.rs). The entry is gone and no other blocker is open. The rule itself is
+/// unchanged: any open blocker refuses every non-simnet v3 admission, and spec-1 never reaches it.
+#[test] fn the_v3_launch_gate_enforces_any_open_blocker_and_the_creation_burn_bound_is_closed(){
+    assert!(!V3_LAUNCH_BLOCKERS.iter().any(|b|b.contains("D-V3-21")),"the creation-burn user bound is resolved");
+    assert!(V3_LAUNCH_BLOCKERS.is_empty(),"no other v3 launch blocker is recorded: {V3_LAUNCH_BLOCKERS:?}");
+    let open=["D-V3-99 a later pre-launch item"];
+    for (k,n) in [(ProfileKind::Network,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Node),(ProfileKind::Simnet,NodeKind::Simnet)]{
+        let simnet=k==ProfileKind::Simnet&&n==NodeKind::Simnet;
+        match v3_launch_gate_with(&open,true,k,n){
+            Err(e)=>{assert!(!simnet);assert_eq!(e.rules,v(&["v3-launch-blocker"]));assert!(e.notes[0].contains("D-V3-99"),"{e}");}
+            Ok(())=>assert!(simnet,"the simnet preview stays admissible"),
+        }
+        assert!(v3_launch_gate_with(&open,false,k,n).is_ok(),"spec-1 profiles never reach the v3 blockers");
+        assert_eq!(v3_launch_gate(true,k,n),v3_launch_gate_with(V3_LAUNCH_BLOCKERS,true,k,n),"the admission gate applies the recorded list");
+        assert!(v3_launch_gate(true,k,n).is_ok(),"with no open blocker the gate admits; the preview and SPEC_VERSION restrictions still apply");
     }
-    assert!(v3_launch_gate(true,ProfileKind::Simnet,NodeKind::Simnet).is_ok(),"the simnet preview stays admissible");
 }
 /// No current build reaches the gate through `admit` with v3 on a non-simnet profile (preview builds
 /// refuse those first; release builds cannot decode spec 2), so this source check keeps `admit` calling
-/// it until V3-PR-I makes that path reachable and replaces this check with an `admit`-level test.
+/// it, with whatever V3_LAUNCH_BLOCKERS holds (empty today), until V3-PR-I makes that path reachable
+/// and replaces this check with an `admit`-level test.
 #[test] fn admit_calls_the_v3_launch_gate_before_any_fact_is_built(){
     let src=include_str!("../admission.rs");
     let start=src.find("\npub fn admit(").expect("admit");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];

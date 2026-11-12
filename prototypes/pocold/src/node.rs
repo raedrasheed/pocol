@@ -1458,7 +1458,8 @@ impl Node{
         // one receipt annotation, and an unpaid fee is refused like a cap halt.
         let total=if self.chain.spec.v3_active(self.chain.head().height.saturating_add(1)){match self.pool.code_total{Some(t)=>t,None=>pocol_lp4_execution::code_caps::inventory(&view).map_err(|e|format!("-32000 {e}"))?}}else{0};
         let (slots,accounts,_)=self.pool.meter.live();
-        user_phase::charge_creation(&view,&mut r,caller,&ctx,self.chain.spec.profile(),(slots,accounts),total).map_err(|h|format!("-32000 creation charge would halt ({h:?})"))?;
+        // D-V3-21: refused, too, when the gas cost plus the burn would pass the signed max_fee*gas_limit.
+        user_phase::charge_creation(&view,&mut r,caller,user_phase::SignedFee::of(&env.tx_env()),&ctx,self.chain.spec.profile(),(slots,accounts),total).map_err(|h|format!("-32000 creation charge would halt ({h:?})"))?;
         if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
         // PR6 review: one whose own logs pass a block's log caps would halt in every block on this head. The honest
         // selection takes it only as such a halt (charged all its gas); the pool refuses it, as it refuses one past
@@ -1700,12 +1701,14 @@ impl Node{
             let gas=match &mut sim{
                 Some((st,total))=>{
                     let tx=match env.take(){Some(t)=>t,None=>match decode(){Err(())=>break,Ok(None)=>{skip(slot);continue},Ok(Some(t))=>t}};
-                    let (gas_price,priority)=(tx.gas_price,tx.gas_priority_fee);
+                    let (gas_price,priority,signed)=(tx.gas_price,tx.gas_priority_fee,user_phase::SignedFee::of(&tx));
                     let r=native::execute_on_validated(&*st,*total,tx,&ctx,profile);
                     if let Ok(r)=&r{sel.executed=sel.executed.saturating_add(executed_gas(&r.result));}
                     let r=match r{Ok(mut r)=>{
                         if let Some(m)=&meter{let (slots,accounts,_)=m.live();
-                            if user_phase::charge_creation(&*st,&mut r,caller,&ctx,profile,(slots,accounts),*total).is_err(){skip(slot);continue}}
+                            // Repriced in this selection's order: a burn this order pushes past the signed
+                            // max_fee*gas_limit (D-V3-21) is skipped like an unpaid one, never included as a halt.
+                            if user_phase::charge_creation(&*st,&mut r,caller,signed,&ctx,profile,(slots,accounts),*total).is_err(){skip(slot);continue}}
                         Ok(r)
                     },Err(e)=>Err(e)};
                     match r{
