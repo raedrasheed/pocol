@@ -41,7 +41,7 @@ mod preview {
     use super::*;
     use std::collections::HashMap;
     use pocol_lp4_execution::{admission, apply::{self, Probation, ProgramSet}, txsign::{Key, Tx}};
-    use pocold::{chain::{Chain, Spec}, hashes, types::*, wallet::{self, RejoinStep}};
+    use pocold::{chain::{Chain, Spec}, hashes, rlp, types::*, wallet::{self, RejoinStep}};
     use revm::primitives::{keccak256, Address, Bytes, B256, U256};
 
     const B: u128 = 20 * PCOL;
@@ -157,7 +157,7 @@ mod preview {
         let _ = next(&mut net, a, vec![t]);
         assert_eq!((record(&net, bob.address()).bond_state, record(&net, bob.address()).bond), (4, U256::from(5 * PCOL)));
         // The wallet's probation deadline (status/top-up quote) is registeredAt + CP T_PROB.
-        assert_eq!(record(&net, bob.address()).registered_at + net.chain.spec.probation().unwrap().blocks, record(&net, bob.address()).registered_at + 86_400);
+        assert_eq!(net.chain.spec.probation().unwrap().blocks, 86_400, "the CP T_PROB, not the earn-in 60,480");
         let part = top_up(&net, &bob, 4 * PCOL);
         let _ = next(&mut net, a, vec![part]);
         assert_eq!((record(&net, bob.address()).bond_state, record(&net, bob.address()).bond), (4, U256::from(9 * PCOL)), "a partial top-up stays on probation");
@@ -176,14 +176,25 @@ mod preview {
     /// the record swept out, the wallet's rejoin step `Missed`).
     #[test]
     fn the_cp_probation_pool_is_enforced_on_chain_and_matches_the_wallet() {
+        let (alice, bob) = (devnet::account_key("alice"), devnet::account_key("bob"));
+        // Control: the same blocks on a chain that differs only in P_MAX 2 admit bob's probation seat, so P_MAX is
+        // what refuses it below (not RegOpsLimit, the record caps or the reward probe, which both chains share).
+        let mut control = net(2, 12);
+        let miner = control.one;
+        for (key, value) in [(&alice, 0), (&bob, PCOL)] { let t = register(&control, key, value); let _ = next(&mut control, miner, vec![t]); }
+        assert_eq!((record(&control, bob.address()).bond_state, accruing_count(&control)), (4, U256::from(2)), "P_MAX 2 admits the second probation seat");
+
         let mut net = net(1, 12);
         let one = net.one;
-        let (alice, bob) = (devnet::account_key("alice"), devnet::account_key("bob"));
         let t = register(&net, &alice, 0);
         let _ = next(&mut net, one, vec![t]);
         assert_eq!(record(&net, alice.address()).bond_state, 4);
         let t = register(&net, &bob, PCOL);
         let _ = next(&mut net, one, vec![t]);
+        let entry = net.chain.full_entry(&net.chain.head).unwrap();
+        assert_eq!(entry.receipts.len(), 1);
+        let receipt = rlp::decode(&entry.receipts[0][1..]).unwrap();
+        assert_eq!(receipt.list().unwrap()[0].bytes().unwrap(), &[] as &[u8], "the refused registration is a status-0 receipt");
         assert!(apply::miner_record(&net.chain.head().state, bob.address()).is_none(), "the second probation seat is refused at P_MAX 1 (Capacity)");
         assert_eq!(accruing_count(&net), U256::from(1));
         let t = register(&net, &bob, B);
@@ -192,7 +203,7 @@ mod preview {
 
         let r = record(&net, alice.address());
         let deadline = r.registered_at + net.chain.spec.probation().unwrap().blocks;
-        assert_eq!(deadline, r.registered_at + 12);
+        assert_eq!(net.chain.spec.probation().unwrap().blocks, 12);
         while net.chain.head().height + 2 < deadline { let _ = next(&mut net, one, vec![]); }
         // A top-up included at deadline - 1 is accepted.
         let t = top_up(&net, &alice, PCOL);

@@ -321,8 +321,10 @@ fn wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set(){
         let (writes,reg_gas,top_gas)=ceilings(&s);
         eprintln!("v3 CEILINGS {writes:?} gas: register-zero={reg_gas} (earn-in {earn_reg}) topUp-promote-with-return={top_gas} (earn-in {earn_top})");
         assert_eq!(writes,(11,3,5,2,4));assert_eq!(writes,earn_writes);
-        // pocold's wallet quotes 400,000 gas for an earn-in/v3 registration and 200,000 for a top-up
-        // (EARNIN_REGISTER_GAS, REGISTRY_GAS); the cfg() reads add only a few thousand gas.
+        // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for an earn-in/v3 registration and
+        // REGISTRY_GAS (1,000,000) for a top-up; 200,000 is the tighter top-up bound kept from
+        // earnin_contracts.rs, so both quotes keep their margin. The cfg() reads add only a few
+        // thousand gas.
         assert!(reg_gas<=400_000&&top_gas<=200_000,"register {reg_gas}, topUp {top_gas}");
         assert!(reg_gas>=earn_reg&&reg_gas-earn_reg<=5_000,"register gas {reg_gas} vs earn-in {earn_reg}");
     }
@@ -356,4 +358,34 @@ fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
     assert_eq!(ProgramSet::EarnIn.probation(&spec2),Some(Probation{seats:8,blocks:60_480}));
     assert_eq!(ProgramSet::V3.probation(&spec2),Some(Probation{seats:u64::from(spec2.P_MAX),blocks:u64::from(spec2.T_PROB)}));
     assert_eq!((ProgramSet::V1.probation(&spec1),ProgramSet::Continuous.probation(&spec1)),(None,None));
+}
+
+/// The v3 contracts read CP fields 52..66 as 0 on a 52-field CP (P_MAX 0, T_PROB 0), so nothing in the programs
+/// themselves keeps them off a spec-1 genesis: the registry gate does. A spec-1 GenesisSpec that names the v3
+/// sysCodeHash, with the allocRoot the v3 programs would give it, is built here and refused by every path that
+/// turns a GenesisSpec into a genesis (admission's measurement and the gate itself), with the genesis code check.
+#[test]
+fn a_spec1_genesis_naming_the_v3_set_is_refused_by_admission(){
+    use pocol_lp4_execution::{admission::{self,NodeLocal},apply::Genesis,devnet,genesis_spec as gs,profile::{ProfileIdentity,ProfileKind,NodeKind}};
+    let mut cfg=DevnetConfig::new(777942,1_700_000_000,&["one"]);cfg.h_end=0;cfg.earnin=true;
+    let honest=devnet::build(&cfg).unwrap();
+    assert_eq!(honest.programs.sys_code_hash(),SystemPrograms::earnin().sys_code_hash(),"a spec-1 earn-in devnet runs the earn-in set");
+    let local=NodeLocal::single_host();
+    // Control: the honest candidate passes the same paths.
+    let timing=admission::measure(&honest.spec_bytes,&honest.alloc,1).unwrap();
+    admission::admit(&honest.request(&local,Some(&timing))).unwrap_or_else(|e|panic!("honest spec-1 earn-in candidate: {e}"));
+
+    let mut spec=gs::decode(&honest.spec_bytes).unwrap();assert_eq!(spec.spec_version,1);
+    let v3=SystemPrograms::v3();spec.sys_code_hash=v3.sys_code_hash().0;
+    let identity=|s:&gs::GenesisSpec|{let b=gs::encode(s);ProfileIdentity::validate(&b,&gs::genesis_hash(&b),s.chain_id,ProfileKind::Simnet,NodeKind::Simnet,&honest.forks).unwrap()};
+    // The v3 programs themselves would construct this genesis (only the registry stands in the way).
+    spec.alloc_root=Genesis::derive_root(&honest.alloc,&identity(&spec),&v3).expect("the v3 programs construct on a spec-1 CP").0;
+    let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(cp.schema_version(),1);
+    assert_eq!(SystemPrograms::program_set(&cp,&spec.sys_code_hash),ProgramSet::Continuous,"the v3 hash names nothing on CP schema v1");
+    let forged=devnet::Devnet{spec_bytes:gs::encode(&spec),..honest};
+    let measured=admission::measure(&forged.spec_bytes,&forged.alloc,1).unwrap_err();
+    assert!(measured.contains("Code"),"measurement: {measured}");
+    let refused=match admission::admit(&forged.request(&local,None)){Err(e)=>e.to_string(),Ok(_)=>panic!("a spec-1 genesis naming the v3 set was admitted")};
+    eprintln!("spec-1 + v3 hash: measurement {measured}; admission {refused}");
+    assert!(refused.contains("R24")&&refused.contains("Code"),"admission: {refused}");
 }

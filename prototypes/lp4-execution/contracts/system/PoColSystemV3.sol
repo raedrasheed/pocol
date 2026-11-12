@@ -2,15 +2,15 @@
 pragma solidity 0.8.28;
 
 // PoCol system programs, v3 network (development/decisions/V3-DESIGN.md, V3-DECISIONS.md): a copy of
-// PoColSystemEarnIn.sol (itself derived from PoColSystemV1.sol with its continuous markClose; those
-// differences are marked "EARN-IN"). Every difference from PoColSystemEarnIn.sol is marked "V3-xx".
-// Reachable only through its own sysCodeHash on a specVersion-2 genesis (CP schema v2). Authorities:
-//  - M1 execution.md / incentives.md (phases, pending, settle formulas, bond machine)
-//  - LP4-PAY-01/02, LP4-REGISTRY-01/02, LP4-SYS-01, LP4-ISSUANCE-01
-//  - LP4-LEDGER-01 option 1 (development/LP4-LEDGER-APPROVAL.md)
+// PoColSystemEarnIn.sol (itself from PoColSystemV1.sol with a continuous markClose, marked "EARN-IN");
+// every difference from PoColSystemEarnIn.sol is marked "V3-xx". Reachable only through its own
+// sysCodeHash on a specVersion-2 genesis (CP schema v2). The programs do not check that: on a 52-field CP
+// ChainCaps.get(52..66) reads 0 (P_MAX 0, T_PROB 0). The host registry (apply.rs SystemPrograms::selectable)
+// keeps the set off a CP schema v1 genesis (tests/v3_contracts.rs). Authorities: M1 execution.md and
+// incentives.md (phases, pending, settle formulas, bond machine); LP4-PAY-01/02, LP4-REGISTRY-01/02,
+// LP4-SYS-01, LP4-ISSUANCE-01; LP4-LEDGER-01 option 1 (development/LP4-LEDGER-APPROVAL.md).
 // Addresses: C0C001 MinerRegistry, C0C002 RewardEscrow, C0C003 ShareLedger,
-// C0C004 ChainCaps, C0C005 ChunkFactory (separate source, unchanged D27 code).
-// None of these programs emits a LOG.
+// C0C004 ChainCaps, C0C005 ChunkFactory (separate source, unchanged D27 code). None emits a LOG.
 
 interface ICaps { function get(uint256 n) external view returns(uint256); }
 interface IRegistryV1 {
