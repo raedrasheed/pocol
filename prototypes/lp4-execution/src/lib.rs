@@ -122,6 +122,7 @@ pub mod modexp;
 pub mod wire;
 pub mod receipts;
 pub mod fees;
+pub mod creation_fees;
 #[path="wire_rlp.rs"] #[allow(dead_code)] pub(crate) mod rlp;
 #[path="p1_fixed.rs"] #[allow(dead_code)] pub mod fixed;
 #[path="p1_trie.rs"] #[allow(dead_code)] pub(crate) mod trie;

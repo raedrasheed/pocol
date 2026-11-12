@@ -52,11 +52,16 @@ pub(super) fn open(chain:&Chain,index:&Index,rec:&Recovered,end:impl Fn(usize)->
 
 /// Compute once from the timestamp captured BEFORE validation/rebuild/fsync.
 /// The original boolean is persisted because local limits can change on restart.
-pub(super) fn classify(spec:&Spec,parent:&Entry,entry:&Entry,received_ms:u128,parent_received_ms:u128)->Result<FirstImport,String>{
+/// `template_ms` is when this node first locked the signed template of `entry` (validated
+/// as minable, by T_j), if it still remembers that and the signer did not equivocate there
+/// (`Node::template_seen`, bounded, not persisted).
+/// It decides a signed block's bit; the stored arrival stays the block's own receipt,
+/// which is the b_j of its children. A block classified once is never classified again.
+pub(super) fn classify(spec:&Spec,parent:&Entry,entry:&Entry,received_ms:u128,parent_received_ms:u128,template_ms:Option<u128>)->Result<FirstImport,String>{
     let timely=if !spec.v3_active(entry.height)||entry.header.a>=1{true}else{
         let local=spec.local();let cp=spec.cp();
         let deadline=crate::timing::AttemptWindow::new(parent.ts,0,cp.D_att).and_then(|w|w.deadline_ms(parent_received_ms,u64::from(local.delta_rel),cp.dFbWait)).map_err(|e|format!("first import deadline: {e:?}"))?;
-        crate::timing::is_timely_import(entry.signed,entry.header.a,received_ms,deadline,u64::from(local.delta),u64::from(local.capital_phi()))
+        crate::timing::is_timely_import(entry.signed,entry.header.a,received_ms,template_ms.filter(|_|entry.signed),deadline,u64::from(local.delta),u64::from(local.capital_phi()))
     };
     Ok(FirstImport{received_ms,parent_received_ms,timely})
 }

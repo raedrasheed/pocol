@@ -23,15 +23,20 @@ fn solve(n:&Net,miner:Address,txs:Vec<Vec<u8>>)->Block {
     solve_template(n,miner,txs,false)
 }
 fn solve_template(n:&Net,miner:Address,txs:Vec<Vec<u8>>,fallback:bool)->Block {
+    try_solve_template(n,miner,txs,fallback,0).expect("deterministic fixture has no solution")
+}
+/// A signed template is attempt 0; a fallback may be at a later `attempt`.
+fn try_solve_template(n:&Net,miner:Address,txs:Vec<Vec<u8>>,fallback:bool,attempt:u32)->Option<Block> {
+    assert!(fallback||attempt==0);
     let parent=n.chain.full_entry(&n.chain.head).unwrap();
-    let ctx=n.chain.child_ctx(&parent,0).unwrap();
+    let ctx=n.chain.child_ctx(&parent,attempt).unwrap();
     let range=ctx.assignment.ranges().iter().find(|r|r.id()==raw_addr(miner)).expect("miner owns a range");
     let body=Body{txs,evidence:vec![]};
     let first=if fallback {assert!(body.txs.is_empty());ctx.window.fallback_timestamp(n.chain.spec.cp().dFbWait).unwrap()}
         else{parent.ts+u64::from(n.chain.spec.cp().T_blk)};
     let last=if fallback {first}else{ctx.window.upper()};
     for ts in first..=last {
-        let (mut header,_,_)=if fallback {n.chain.build_fallback(&parent,0).unwrap()}
+        let (mut header,_,_)=if fallback {n.chain.build_fallback(&parent,attempt).unwrap()}
             else{n.chain.build_signed(&parent,&n.keys[&ctx.proposer],ts,body.clone(),vec![]).unwrap()};
         let tid=template_id(&header.ut_raw);let mut shares=Vec::new();
         let end=range.end_exclusive().min(range.start()+1_000_000);
@@ -40,12 +45,12 @@ fn solve_template(n:&Net,miner:Address,txs:Vec<Vec<u8>>,fallback:bool)->Block {
             if le_target(&hash,&ctx.target) {
                 header.nonce=nonce as u64;header.shares=shares;reseal(&mut header);
                 header.winner_sig=n.keys[&miner].sign_hash(&B256::from(hashes::win_msg(&tid,nonce as u64,&share_root(&header))));
-                reseal(&mut header);return Block{header,body};
+                reseal(&mut header);return Some(Block{header,body});
             }
             if shares.len()<usize::from(n.chain.spec.cp().S_max)&&le_target(&hash,&ctx.t_share){shares.push(nonce as u64);}
         }
     }
-    panic!("deterministic fixture has no solution");
+    None
 }
 fn accept(n:&mut Net,b:Block) {
     let (entry,ctx)=n.chain.validate(&b,None,0).unwrap();
@@ -71,6 +76,12 @@ fn assert_draw_parity(n:&Net) {
     assert_eq!(new.weights(),old.weights());assert_eq!(new.total(),old.total());
     assert_eq!(new.draw().unwrap(),old.draw().unwrap());
     assert_eq!(n.chain.draw(&p,&m,h).unwrap(),addr(&old.draw().unwrap().0));
+}
+/// The shares `id` holds in the draw window of height h (heights max(1, h-1-W_w)..=h-2).
+#[cfg_attr(not(feature="v3-preview"),allow(dead_code))]
+fn window_shares(n:&Net,p:&Entry,h:u64,id:Address)->u64 {
+    let lo=h.saturating_sub(1).saturating_sub(u64::from(n.chain.spec.cp().W_w)).max(1);
+    if h<2 {return 0}(lo..=h-2).map(|j|apply::share_count(p.state.as_ref(),j,id)).sum()
 }
 fn tx(n:&Net,key:Address,to:Address,value:U256,data:Vec<u8>,gas:u64,nonce:Option<u64>)->Vec<u8> {
     let p=n.chain.full_entry(&n.chain.head).unwrap();let base=n.chain.child_ctx(&p,0).unwrap().base_fee;
@@ -104,6 +115,11 @@ fn legacy_bounded_full_nonce_and_earnin_membership_and_draw_stay_unchanged() {
 #[cfg(feature="v3-preview")]
 mod preview {
     use super::*;
+    // pr15-2 pins (deterministic fixture): fallback blocks mined after the operators went idle, and the first height
+    // whose drawn proposer can sign. The fixture chain runs the v3 program set (V3-PR-E0), whose bytes enter
+    // the state root and so every block hash, nonce draw and solution: the unbounded pins moved from 16/19 to 15/18.
+    const UNBOUNDED_PERIOD:usize=15;const UNBOUNDED_RECOVERY:u64=18;
+    const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {
         let mut n=net(true,true,true,3);let (x,y)=(n.miners[0],n.miners[1]);
@@ -134,16 +150,73 @@ mod preview {
         let quarter=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)/U256::from(4);
         let t=registration(&n,a,quarter-U256::from(1),None);next(&mut n,x,vec![t]);
         let t=registration(&n,b,quarter,None);next(&mut n,x,vec![t]);
-        next(&mut n,b,vec![]);next(&mut n,b,vec![]);
+        // Both probationers mine, so both hold shares in the draw window: only the bond rule can zero one.
+        next(&mut n,a,vec![]);next(&mut n,b,vec![]);next(&mut n,a,vec![]);next(&mut n,b,vec![]);
         let p=n.chain.full_entry(&n.chain.head).unwrap();let h=p.height+1;
         assert_eq!(apply::miner_record(p.state.as_ref(),a).unwrap().bond,quarter-U256::from(1));
         let rb=apply::miner_record(p.state.as_ref(),b).unwrap();assert_eq!((rb.bond_state,rb.bond),(4,quarter));
+        let window=|id:Address|window_shares(&n,&p,h,id);
+        assert!(window(a)>0&&window(b)>0,"each probationer has shares that would weigh in the draw");
         let members=n.chain.membership(&p,h).unwrap();
         assert!(members.accruing().contains(&raw_addr(a)));assert!(!members.accruing().contains(&raw_addr(b)));
         let weights=n.chain.draw_weights(&p,&members,h).unwrap();
-        assert_eq!(weights.weights().iter().find(|r|r.0==raw_addr(a)).unwrap().1,0);
-        assert!(weights.weights().iter().find(|r|r.0==raw_addr(b)).unwrap().1>0);
+        assert_eq!(weights.weights().iter().find(|r|r.0==raw_addr(a)).unwrap().1,0,"one wei below B_reg/4: its shares do not count");
+        assert_eq!(weights.weights().iter().find(|r|r.0==raw_addr(b)).unwrap().1,u128::from(window(b)),"at B_reg/4: every share counts");
         assert_draw_parity(&n);
+    }
+    /// pr15-2. Bonded operators stay registered but stop mining (they sign nothing); only probationers registered with
+    /// no bond mine. What the code does, pinned:
+    /// - Unbounded nonce ranges (all-live membership): the idle operators stay members. Their shares age out of the
+    ///   draw window, the probationers' shares do not count below B_reg/4, so D2 gives each operator weight 1 and
+    ///   every draw picks an idle operator. No signed template can exist: a fallback-only period, mined by the
+    ///   probationers, whose fallback rewards fill their bonds. Signed blocks resume at the first height where a
+    ///   probationer's accrued bond has reached B_reg/4: its shares count, the operators weigh 0, and it is drawn.
+    /// - Bounded ranges (the activity rule): the idle operators leave the membership after W_act heights. Every
+    ///   member left is a sub-quarter probationer, so the all-probationer exception makes them candidates and a
+    ///   probationer is drawn before any of them reaches B_reg/4.
+    #[test]
+    fn idle_bonded_operators_leave_a_fallback_only_period_until_a_probationer_can_be_drawn() {
+        for (full,period,recovery) in [(true,UNBOUNDED_PERIOD,UNBOUNDED_RECOVERY),(false,BOUNDED_PERIOD,BOUNDED_RECOVERY)] {
+            let mut n=net(true,full,true,3);let x=n.miners[0];let ops=n.miners.clone();
+            let (a,b)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
+            let quarter=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)/U256::from(4);
+            let t=registration(&n,a,U256::ZERO,None);next(&mut n,x,vec![t]);
+            let t=registration(&n,b,U256::ZERO,None);next(&mut n,x,vec![t]);
+            for id in &ops {n.keys.remove(id).unwrap();}
+            let mut fallbacks=0;
+            let (h,drawn)=loop {
+                let p=n.chain.full_entry(&n.chain.head).unwrap();let h=p.height+1;assert!(h<64,"full={full}: no recovery");
+                let members=n.chain.membership(&p,h).unwrap();let weights=n.chain.draw_weights(&p,&members,h).unwrap();
+                let drawn=n.chain.draw(&p,&members,h).unwrap();
+                let record=|id:Address|apply::miner_record(p.state.as_ref(),id).unwrap();
+                let weight=|id:Address|weights.weights().iter().find(|r|r.0==raw_addr(id)).map_or(0,|r|r.1);
+                if !ops.contains(&drawn) {
+                    for id in &ops {assert_eq!(weight(*id),0,"full={full}: an idle operator weighs nothing at recovery");}
+                    let r=record(drawn);
+                    if full {
+                        assert_eq!(members.ids().len(),5,"the idle operators are still members");
+                        assert!(r.bond>=quarter,"recovery needs the drawn probationer at B_reg/4");
+                        assert!(!members.accruing().contains(&raw_addr(drawn)));
+                    }else{
+                        assert_eq!(members.ids(),{let mut v=vec![raw_addr(a),raw_addr(b)];v.sort();v}.as_slice(),"the activity rule removed the operators");
+                        assert_eq!(members.accruing().len(),2,"all members are sub-quarter probationers");
+                        assert!(r.bond<quarter,"the all-probationer exception, not the bond, makes it drawable");
+                    }
+                    break (h,drawn);
+                }
+                // The fallback-only period: an idle operator is drawn and the probationers' shares weigh nothing.
+                for id in [a,b] {let r=record(id);assert_eq!(r.bond_state,4);assert!(r.bond<quarter);assert_eq!(weight(id),0,"full={full} h={h}");}
+                // A fallback has one timestamp. A probationer whose range holds a solution mines it; when only the idle
+                // operators' ranges hold one, the attempt passes and the next fallback attempt is mined.
+                let (first,second)=if h%2==0 {(a,b)}else{(b,a)};
+                let blk=(0..8).find_map(|k|try_solve_template(&n,first,vec![],true,k).or_else(||try_solve_template(&n,second,vec![],true,k))).expect("a probationer solves a fallback");
+                assert!(blk.header.proposer.is_empty()&&blk.header.sig.is_empty());accept(&mut n,blk);fallbacks+=1;assert_draw_parity(&n);
+            };
+            assert_eq!((fallbacks,h),(period,recovery),"full={full}: the pinned fallback-only period and the first drawable height");
+            // The drawn probationer signs again: signed precedence and proposer rewards resume.
+            let blk=solve(&n,drawn,vec![]);assert_eq!(Address::from_slice(&blk.header.proposer),drawn);
+            accept(&mut n,blk);assert_draw_parity(&n);
+        }
     }
     #[test]
     fn all_probationers_below_the_quarter_bond_retain_the_owner_approved_draw_exception() {
