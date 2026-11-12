@@ -2,7 +2,7 @@ name: System programs reproduction
 # V3-PR-E0: every committed system program set (system-{v1,continuous,earnin,v3}.json) is rebuilt from source
 # with the locked solc 0.8.28 and must match byte for byte; the earn-in and v3 contract and chain suites run on
 # main (lp4-execution/tests/{earnin,v3}_contracts.rs, pocold/tests/{earnin,v3_earnin}.rs). V3-PR-E1 adds the
-# registry-budget model (lp4-execution/tests/v3_model.py), its five planted mutants (in the mutant fixture) and
+# registry-budget model (lp4-execution/tests/v3_model.py), its seven planted mutants (in the mutant fixture) and
 # the CP schema v2 ParamGate R8 premises (lp1-node/tests/gate.rs).
 on:
   pull_request:

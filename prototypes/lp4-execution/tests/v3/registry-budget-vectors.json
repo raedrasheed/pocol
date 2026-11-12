@@ -3016,6 +3016,162 @@
    }
   ]
  },
+ "maintenance-clock-per-record": {
+  "cp": {
+   "SWEEP_MAX": 0
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "m0",
+    "x"
+   ],
+   "burned": "0",
+   "counters": {
+    "maint": 1,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "heldTotal": "40000000000000000000",
+   "order": [
+    "m0",
+    "x"
+   ],
+   "paid": {
+    "x": "20000000000000000000"
+   },
+   "records": {
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "x": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 42,
+     "last_maint": 43,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 42,
+     "reward": "x",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "x": "40000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "x",
+     "x",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "x",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "x",
+     "x",
+     "42"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "set_reward",
+     "x",
+     "x",
+     "42"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": true,
+    "op": [
+     "claim_bond",
+     "x",
+     "42"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "x",
+     "x",
+     "20000000000000000000",
+     "42"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "x",
+     "x",
+     "42"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "set_reward",
+     "x",
+     "x",
+     "42"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "x",
+     "x",
+     "43"
+    ],
+    "result": null
+   }
+  ]
+ },
  "maintenance-spam-one-identity": {
   "cp": {
    "REG_OPS": 16,
@@ -23415,6 +23571,579 @@
      "82"
     ],
     "result": null
+   }
+  ]
+ },
+ "reg-ops-exhausted-maint-and-react": {
+  "cp": {
+   "REG_OPS": 4,
+   "R_max": 4
+  },
+  "durable": [],
+  "final": {
+   "accruing": 1,
+   "active": [
+    "a",
+    "b",
+    "h",
+    "i",
+    "m0",
+    "p"
+   ],
+   "burned": "0",
+   "counters": {
+    "maint": 1,
+    "ops": 4,
+    "react": 2,
+    "regs": 2
+   },
+   "cursor": 7,
+   "heldTotal": "203000000000000000000",
+   "order": [
+    "m0",
+    "a",
+    "b",
+    "c",
+    "p",
+    "d",
+    "e",
+    "f",
+    "g",
+    "h",
+    "i"
+   ],
+   "paid": {},
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 36,
+     "last_maint": 1,
+     "last_react": 36,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 36,
+     "last_maint": 1,
+     "last_react": 36,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 43,
+     "exit": 3,
+     "grace": 1,
+     "last_maint": 2,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 2,
+     "tomb": false
+    },
+    "d": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 44,
+     "exit": 4,
+     "grace": 2,
+     "last_maint": 3,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 2,
+     "reward": "d",
+     "status": 2,
+     "tomb": false
+    },
+    "e": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 44,
+     "exit": 4,
+     "grace": 2,
+     "last_maint": 3,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 2,
+     "reward": "e",
+     "status": 2,
+     "tomb": false
+    },
+    "f": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 76,
+     "exit": 36,
+     "grace": 4,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 4,
+     "reward": "f",
+     "status": 2,
+     "tomb": false
+    },
+    "g": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 76,
+     "exit": 36,
+     "grace": 4,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 4,
+     "reward": "g",
+     "status": 2,
+     "tomb": false
+    },
+    "h": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 36,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 36,
+     "reward": "h",
+     "status": 1,
+     "tomb": false
+    },
+    "i": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 36,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 36,
+     "reward": "i",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "p": {
+     "bond": "3000000000000000000",
+     "bond_state": 4,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 36,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "p",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "b": "20000000000000000000",
+    "c": "20000000000000000000",
+    "d": "20000000000000000000",
+    "e": "20000000000000000000",
+    "f": "20000000000000000000",
+    "g": "20000000000000000000",
+    "h": "20000000000000000000",
+    "i": "20000000000000000000",
+    "p": "3000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p",
+     "p",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "register",
+     "d",
+     "d",
+     "20000000000000000000",
+     "1"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": false,
+    "op": [
+     "deregister",
+     "c",
+     "1"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "a",
+     "a",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "top_up",
+     "p",
+     "1000000000000000000",
+     "1"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "b",
+     "b",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "d",
+     "d",
+     "20000000000000000000",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "e",
+     "e",
+     "20000000000000000000",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "a",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "b",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "remove_inactive",
+     "e",
+     "c",
+     "2"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "c",
+     "c",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "top_up",
+     "p",
+     "1000000000000000000",
+     "2"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "d",
+     "d",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "e",
+     "e",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "top_up",
+     "p",
+     "1000000000000000000",
+     "3"
+    ],
+    "result": "0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "c",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "register",
+     "f",
+     "f",
+     "20000000000000000000",
+     "3"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": false,
+    "op": [
+     "deregister",
+     "d",
+     "3"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "d",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "f",
+     "f",
+     "20000000000000000000",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "g",
+     "g",
+     "20000000000000000000",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "e",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "f",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "g",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "h",
+     "h",
+     "20000000000000000000",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "i",
+     "i",
+     "20000000000000000000",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "register",
+     "j",
+     "j",
+     "20000000000000000000",
+     "36"
+    ],
+    "revert": "RegOpsLimit"
+   },
+   {
+    "ok": true,
+    "op": [
+     "reactivate",
+     "a",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "reactivate",
+     "b",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "set_reward",
+     "p",
+     "p",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "ok": false,
+    "op": [
+     "deregister",
+     "h",
+     "36"
+    ],
+    "revert": "RegOpsLimit"
    }
   ]
  }

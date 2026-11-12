@@ -310,19 +310,29 @@ def check_invariants(reg, step):
     assert 0 <= reg.accruing <= max(reg.cp['P_MAX'], 0), step
     assert sorted(reg.active) == sorted(k for k, r in reg.records.items() if r.live() and r.status == 1), step
     assert sorted(reg.order) == sorted(reg.records), step
+    # The three budgets are independent (D-V3-08/09): each counter stays within its own cap. ops + maint can
+    # exceed REG_OPS (REG_OPS users first, maintenance after), so a block admits at most
+    # REG_OPS + REG_MAINT_MAX + R_react registry user operations; each REG_OPS user saw ops + maint < REG_OPS
+    # at its own check (_budget), which run() asserts per step.
     assert reg.maint <= REG_MAINT_MAX and reg.react <= reg.cp['R_react'] and reg.regs <= reg.cp['R_max'], step
-    assert reg.ops + reg.maint <= max(reg.cp['REG_OPS'], reg.maint), step
+    assert reg.ops <= reg.cp['REG_OPS'], step
 
 def run(steps, cp=None, durable=()):
     """Heights never decrease, so the contract harness replays the same steps block by block."""
     cp = cp or {}
     reg = Registry(cp, durable)
     out = []
+    users = {'register', 'deregister', 'claim_bond', 'remove_inactive'}
     for step in steps:
         op, args = step[0], step[1:]
+        if op in users:
+            reg.block(args[-1])
+            before = (reg.ops, reg.maint)
         try:
             result = getattr(reg, op)(*args)
             out.append({'op': [op, *map(str, args)], 'ok': True, 'result': None if result is None else str(result)})
+            if op in users:
+                assert before[0] + before[1] < reg.cp['REG_OPS'], step
         except Revert as e:
             out.append({'op': [op, *map(str, args)], 'ok': False, 'revert': str(e)})
         check_invariants(reg, step)
@@ -447,6 +457,30 @@ def vectors():
     # V3-09 attack: 33 attacker records cycling deregister/reactivate. The newcomer's registration lands in the
     # first block of the cycle; each attacker record's second reactivation inside C_react = U reverts.
     v['attacker-cycle'] = run(attacker_cycle(), live)
+    # D-V3-08/09: the three budgets are independent. Once register/deregister/claimBond/removeInactive have used up
+    # REG_OPS, setRewardAddress and topUp (REG_MAINT_MAX) and reactivate (R_react) still succeed in the same block;
+    # maintenance used first still shrinks REG_OPS for the others (REG_OPS minus maintenance used).
+    v['reg-ops-exhausted-maint-and-react'] = run(
+        [('register', x, x, B, 1) for x in 'abc'] + [('register', 'p', 'p', 0, 1), ('register', 'd', 'd', B, 1),
+         ('deregister', 'c', 1), ('set_reward', 'a', 'a', 1), ('top_up', 'p', PCOL, 1), ('set_reward', 'b', 'b', 1),
+         ('register', 'd', 'd', B, 2), ('register', 'e', 'e', B, 2), ('deregister', 'a', 2), ('deregister', 'b', 2),
+         ('remove_inactive', 'e', 'c', 2), ('set_reward', 'c', 'c', 2), ('top_up', 'p', PCOL, 2),
+         ('set_reward', 'd', 'd', 3), ('set_reward', 'e', 'e', 3), ('top_up', 'p', PCOL, 3),
+         ('deregister', 'c', 3), ('register', 'f', 'f', B, 3), ('deregister', 'd', 3),
+         ('deregister', 'd', 4), ('register', 'f', 'f', B, 4), ('register', 'g', 'g', B, 4), ('deregister', 'e', 4),
+         ('deregister', 'f', 36), ('deregister', 'g', 36), ('register', 'h', 'h', B, 36),
+         ('register', 'i', 'i', B, 36), ('register', 'j', 'j', B, 36), ('reactivate', 'a', 36),
+         ('reactivate', 'b', 36), ('set_reward', 'p', 'p', 36), ('deregister', 'h', 36)],
+        {'REG_OPS': 4, 'R_max': 4})
+    # D-V3-08: the per-identity maintenance clock lives in the record (w0), so it lasts the record's lifetime. An
+    # exited identity whose dueHeight block the sweep has not reached (SWEEP_MAX 0) can maintain, claimBond,
+    # register again and maintain once more in one block: two REG_OPS and an R_max entry for the second
+    # maintenance operation, so no amplification of REG_OPS (REGISTRY-LAYOUT.md).
+    v['maintenance-clock-per-record'] = run(
+        [('register', 'x', 'x', B, 1), ('deregister', 'x', 2), ('set_reward', 'x', 'x', 42),
+         ('set_reward', 'x', 'x', 42), ('claim_bond', 'x', 42), ('register', 'x', 'x', B, 42),
+         ('set_reward', 'x', 'x', 42), ('set_reward', 'x', 'x', 42), ('set_reward', 'x', 'x', 43)],
+        {'SWEEP_MAX': 0})
     for seed in (1, 2, 3):
         v[f'random-{seed}'] = run_random(seed)
     return v

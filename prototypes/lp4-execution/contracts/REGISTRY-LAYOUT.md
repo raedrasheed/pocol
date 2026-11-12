@@ -68,6 +68,16 @@ Budgets per block (the user-path prefix, after BadValue and Closing, before BadP
   only when exitHeight + W_act <= height < dueHeight (strictly before the refund sweep at dueHeight = exitHeight + U),
   and, when lastReactHeight != 0, height >= lastReactHeight + C_react (CP 62); otherwise BadState.
 
+The three budgets are independent: maintenance and reactivate are not bounded by REG_OPS, so once the REG_OPS users
+have used it up, setRewardAddress/topUp and reactivate still succeed in the same block, while maintenance used first
+shrinks what is left for the REG_OPS users. A block therefore admits at most REG_OPS + REG_MAINT_MAX + R_react
+registry user operations (vector reg-ops-exhausted-maint-and-react; mutants maint-bounded-by-reg-ops and
+react-counts-reg-ops). The per-identity maintenance clock lives in the record (w0), which erase zeroes and register
+writes with a zero clock, so "one maintenance operation per identity per block" holds per record lifetime: an exited
+identity in its dueHeight block, before the bounded sweep reaches it, can maintain, claimBond, register again and
+maintain once more. The second operation costs two REG_OPS and an R_max entry, so it never amplifies REG_OPS use
+(vector maintenance-clock-per-record).
+
 slot9 is valid only for the height it carries; any other height reads as nothing used, so beginBlock writes nothing
 new and the sweep, markClose and SYSTEM paths are unchanged. lastReactHeight is a full height. lastMaintHeight keeps
 40 bits (the spare w0 bits): it can only refuse, never admit, so a maintenance operation exactly k*2^40 blocks after
@@ -90,4 +100,4 @@ topUp 3 -> 4 (w0 clock; slot9 for slot3); topUp with promotion 5 -> 5; partial r
 The beginBlock sweep changes the same slots per deletion as earn-in. Gas: register +5,225 (cfg(P_MAX) and the cold
 slot9 read), within the wallet's EARNIN_REGISTER_GAS 400,000; every other user path below 200,000 (REGISTRY_GAS
 1,000,000). The independent model is tests/v3_model.py (vectors tests/v3/registry-budget-vectors.json and
-tests/v3/earnin-on-v3-vectors.json); five planted budget mutants are in tests/v3/system-v3-mutants.json.
+tests/v3/earnin-on-v3-vectors.json); seven planted budget mutants are in tests/v3/system-v3-mutants.json.

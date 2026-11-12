@@ -15,7 +15,7 @@
 //! - the registry budgets: every scenario of the independent model tests/v3_model.py
 //!   (tests/v3/registry-budget-vectors.json) reproduces on the v3 bytecode step by step, with ACC_COUNT and
 //!   held_total conserved after every step; the fails-on-original attacks of V3-DESIGN.md V3-08/V3-09 freeze the
-//!   earn-in registry and not the v3 one; five planted budget mutants each fail;
+//!   earn-in registry and not the v3 one; seven planted budget mutants each fail;
 //! - the CP is really read: at P_MAX=64/T_PROB=86400 (O-14=b) the v3 set reproduces the model at those values
 //!   (tests/v3/earnin-vectors-p64.json, tests/v3_model_vectors.py; "top-up" as the v3 model runs it), which the
 //!   earn-in set does not;
@@ -39,9 +39,10 @@ const VECTORS_P64:&str=include_str!("v3/earnin-vectors-p64.json");
 const BUDGET_VECTORS:&str=include_str!("v3/registry-budget-vectors.json");
 /// The earn-in model's scenarios (both value sets) re-run through the v3 model (tests/v3_model.py earnin_on_v3).
 const EARNIN_ON_V3:&str=include_str!("v3/earnin-on-v3-vectors.json");
-/// The six planted earn-in mutants (EARN-IN-SPEC.md §9) and the five V3-08/V3-09 budget mutants, in fixture order.
+/// The six planted earn-in mutants (EARN-IN-SPEC.md §9) and the seven V3-08/V3-09 budget mutants, in fixture order.
 const EARNIN_MUTANTS:[&str;6]=["p-max-plus-one","r9-removed","no-promotion-at-b","t-prob-plus-one","over-fill-bad-value","excess-kept"];
-const BUDGET_MUTANTS:[&str;5]=["maint-counter-shared","maint-twice-per-block","react-budget-ignored","react-cooldown-off-by-one","react-window-at-sweep-height"];
+const BUDGET_MUTANTS:[&str;7]=["maint-counter-shared","maint-twice-per-block","react-budget-ignored","react-cooldown-off-by-one","react-window-at-sweep-height",
+    "maint-bounded-by-reg-ops","react-counts-reg-ops"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
 const V3_SYS_CODE_HASH:&str="4f42aeb76a6aa1cad6ba54ea045b3bbd2d105c84dd7a6cd226f4eead22114c1a";
 
@@ -572,8 +573,9 @@ fn budget_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
     let v:serde_json::Value=serde_json::from_str(BUDGET_VECTORS).unwrap();
     v.as_object().unwrap().iter().map(|(n,body)|(n.clone(),budget_scenario(n,body,s))).collect()
 }
-const BUDGET_SCENARIOS:[&str;10]=["acc-count-paths","attacker-cycle","maintenance-budget-many-identities","maintenance-spam-one-identity",
-    "maintenance-top-up","random-1","random-2","random-3","react-budget-and-cooldown","react-window-unswept"];
+const BUDGET_SCENARIOS:[&str;12]=["acc-count-paths","attacker-cycle","maintenance-budget-many-identities","maintenance-clock-per-record",
+    "maintenance-spam-one-identity","maintenance-top-up","random-1","random-2","random-3","react-budget-and-cooldown","react-window-unswept",
+    "reg-ops-exhausted-maint-and-react"];
 
 /// Model-vs-bytecode differential: every scenario of the independent model reproduces on the v3 programs, step by
 /// step, with ACC_COUNT and held_total conserved after every step.
@@ -670,7 +672,9 @@ fn deregister_reactivate_cycle_holds_the_entry_slot_on_earnin_but_not_v3(){
     }
 }
 
-/// The five planted V3-08/V3-09 mutants (compile_system_v3.cjs --mutants) each fail the budget vectors.
+/// The seven planted V3-08/V3-09 mutants (compile_system_v3.cjs --mutants) each fail the budget vectors. The two that
+/// also bound maintenance or reactivate by REG_OPS (the budgets are independent, D-V3-08/09) fail the scenario that
+/// runs maintenance and reactivations after REG_OPS is used up.
 #[test]
 fn the_registry_budget_mutants_fail_the_v3_vectors(){
     let list=mutants();let original=runtime(V3,"MinerRegistry");
@@ -682,6 +686,7 @@ fn the_registry_budget_mutants_fail_the_v3_vectors(){
         let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
         eprintln!("mutant {n}: killed by {killed:?}");
         assert!(!killed.is_empty(),"mutant {n} survives the registry-budget vectors");
+        if n.ends_with("-reg-ops"){assert!(killed.iter().any(|k|k.as_str()=="reg-ops-exhausted-maint-and-react"),"mutant {n}: {killed:?}");}
     }
 }
 

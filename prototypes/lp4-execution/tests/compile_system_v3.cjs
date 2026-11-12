@@ -2,7 +2,7 @@
 // Compiles the five v3 system programs (C0C001..C0C005) with the v1/earn-in settings.
 //   node compile_system_v3.cjs OUT.json            the v3 program set (tests/data/system-v3.json)
 //   node compile_system_v3.cjs --mutants OUT.json  planted MinerRegistry mutants (tests/v3/system-v3-mutants.json):
-//     the six of EARN-IN-SPEC.md §9 and five of the V3-08/V3-09 registry budgets (V3-PR-E1)
+//     the six of EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1)
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
 const read=f=>fs.readFileSync(path.join(__dirname,'../contracts',f),'utf8');
@@ -34,6 +34,9 @@ const MUTANTS=[
   ['react-budget-ignored','(reactivating?((used>>8)&255)>=cfg(CP_R_REACT):','(reactivating?false:'],
   ['react-cooldown-off-by-one','if(last!=0 && height<last+cfg(CP_C_REACT))revert BadState();','if(last!=0 && height<=last+cfg(CP_C_REACT))revert BadState();'],
   ['react-window-at-sweep-height','||height>=((clocks>>64)&LOW64))revert BadState();','||height>((clocks>>64)&LOW64))revert BadState();'],
+  // The budgets are independent: maintenance and reactivate must not also be bounded by REG_OPS (D-V3-08/09).
+  ['maint-bounded-by-reg-ops','maintaining?(used&255)>=REG_MAINT_MAX:','maintaining?((used&255)>=REG_MAINT_MAX||(c&65535)+(used&255)>=cfg(23)):'],
+  ['react-counts-reg-ops','(reactivating?((used>>8)&255)>=cfg(CP_R_REACT):','(reactivating?(((used>>8)&255)>=cfg(CP_R_REACT)||(c&65535)+(used&255)>=cfg(23)):'],
 ];
 const args=process.argv.slice(2);const mutants=args[0]==='--mutants';const out=mutants?args[1]:args[0];
 if(!out)throw Error('usage: compile_system_v3.cjs [--mutants] OUT.json');
