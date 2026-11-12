@@ -8,7 +8,7 @@ Status: records the owner approval of 2026-11-08 and its implementation constrai
 
 Node-local changes are approved without reservation. Consensus changes are approved only while preserving collaboration, the common immutable template, and every basic PoCol principle P1–P10 in [V3-DESIGN.md](V3-DESIGN.md). Stop and ask the owner before crossing that boundary or deciding an unanswered owner question.
 
-For compliant items with the choices below, this standing owner authorization supplies the required owner decision; it supersedes the historical proposal-before-implementation gate cited as `development/m1/reference/README.md:484–486` for those items only. It does not approve rejected mechanisms, deferred work, unanswered questions reserved to the owner or live deployment. Preserve earlier decision records as history; the scoped amendments below take precedence only for their stated profiles.
+For compliant items with the choices below, this standing owner authorization supplies the required owner decision; it supersedes the historical proposal-before-implementation gate in the repository root `README.md:484–486` for those items only. That bullet reads: “**Consensus is owner-gated.** A change to a consensus rule, a `CP` parameter or a wire encoding needs an owner decision. Write a proposal in `development/audit-2026-10-22/proposals/` with the alternatives and their effects, and do not implement it before it is approved.” (An earlier version of this record cited the path `development/m1/reference/README.md:484–486`, which does not exist.) It does not approve rejected mechanisms, deferred work, unanswered questions reserved to the owner or live deployment. Preserve earlier decision records as history; the scoped amendments below take precedence only for their stated profiles.
 
 Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIONS-2026-11-08.md), and [consensus boundary policy](../VA-SPEC.md). The implementation PR sequence is the handoff roadmap; its later dormant-gate strategy supersedes the design earlier suggestion to spend a gate at the first v3 scaffold PR.
 
@@ -21,7 +21,7 @@ Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIO
 | O-10 Contestable seats when the set is full | V3-10 | **b**: contest by work over one day with a statistical margin (θ=1/8, 3σ), only when all seats are full, with the displaced member refunded, and only together with V3-02 |
 | O-11 Inactivity removal delay Θ_inact | V3-11 | **b**: 1 hour |
 | O-12 Registration bond B_reg | V3-12 | **a**: 20 PCOL |
-| O-13 Probationers as proposers | V3-13 | **b**: yes, once the accrued bond is at least B_reg/4; retain the all-probationer exception clarified below |
+| O-13 Probationers as proposers | V3-13 | **b**: yes, once the accrued bond is at least B_reg/4 (the all-probationer exception below B_reg/4 is retained: owner decision 2026-11-12, option a) |
 | O-14 Probation pool | V3-14 | **b**: M_max/4 slots (64), contest by work inside the pool, T_PROB = 30 days, both as CP fields (requires V3-09) |
 | O-15 Uncovered share pot | V3-15 | **b**: carried into the next block's pot at closeBlock |
 | O-17 Reward for reporting misbehaviour | V3-17 | **b**: 25% of the burned bond to the reporter, 75% burned |
@@ -32,9 +32,18 @@ Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIO
 | O-32 The 4,000,000 PCOL genesis allocation | V3-32 | **b**: publish the holder addresses and their purpose, and move the development fund into a public time-locked account with published spending reports |
 | O-33 How the re-genesis is run | V3-33 | **b**: no user transactions after S; publish the old-chain data; ship an Android key-export build first; and commit publicly that this is the last owner-only re-genesis, with later consensus changes going through the fork schedule |
 
-## Owner clarification — 2026-11-11
+## All-probationer exception — owner decision (2026-11-12)
 
-For O-13, the owner answered: **“Retain the all-probationer exception below B_reg/4.”** The quarter-bond filter applies normally; when it would exclude every member of the draw membership, retain the existing exception that admits all those probationers to the deterministic share-weighted draw. This avoids removing the draw in that case. The exception means the B_reg/4 minimum equivocation penalty is not universal. This clarification supplements the dated O-13=b answer without rewriting its historical source.
+An earlier version of this section (commit 3d526e0, 2026-11-11) recorded an owner clarification of O-13: “Retain the all-probationer exception below B_reg/4.” The audit of 2026-11-12 found no verifiable owner source for that text, so the question was put to the owner directly on 2026-11-12.
+
+**The owner chose (a) and keeps the exception.** The verbatim answer is «أوافق على (أ)، أبقِ الاستثناء» (“I approve (a); keep the exception”). The question and the answer are recorded in [V3-OWNER-DECISIONS-2026-11-12.md](V3-OWNER-DECISIONS-2026-11-12.md).
+
+What the decision means:
+- Under O-13=b, an ACCRUING member normally enters the proposer draw only once its bond is at least B_reg/4.
+- When that filter would exclude every draw member, the existing earn-in D1 rule ([EARN-IN-SPEC.md](EARN-IN-SPEC.md) §6) applies instead. All those probationers enter the deterministic, share-weighted draw, so signed blocks continue.
+- In that case a drawn proposer may hold less than B_reg/4, possibly zero. The B_reg/4 minimum loss for a type-1 equivocation therefore does not hold then.
+- The dormant v3 code already implements this, so no code change follows.
+- The liveness interplay with all-live membership is disclosed in [threat.md](../m1/reference/threat.md) (v3 amendment, A6).
 
 ## Decisions D-V3-01 through D-V3-34
 
@@ -58,7 +67,7 @@ Approved within the owner rule; NODE-LOCAL (already in tree at 53a9e87). Princip
 
 ### D-V3-04
 
-Fork choice uses timeliness-qualified signed precedence, with the specified arrival allowance for attempt-0 fallback. At first import, signed blocks are timely iff arrival<=T_j+Phi; attempt-0 fallback is timely iff arrival>=T_j-(Delta+Phi); later attempts are timely. On v3 only, sibling key=(timely?0:1,signed?0:1,importSeq,blockHash), compared at first path divergence after cumulative work. Persist first-import time across restart. Amends D133; validity is unchanged.
+Fork choice uses timeliness-qualified signed precedence, with the specified arrival allowance for attempt-0 fallback. At first import, a signed block is timely iff this node first locked its signed template (validated as minable by T_j: drawn signer, window, item 16, body rebuilding to its UT; or its own) by T_j+Phi, because T_j is the template deadline; a shell merely received never counts, and a slot (parent, signer, height) whose signer equivocated counts no template. Only if this node never locked the template, or its slot is poisoned, is the block's own arrival compared with T_j+Phi (the earlier time counts). Template first-lock times are local, bounded (one TemplateID per slot) and not persisted; the bit they give is frozen at first import. Attempt-0 fallback is timely iff arrival>=T_j-(Delta+Phi); later attempts are timely. On v3 only, sibling key=(timely?0:1,signed?0:1,importSeq,blockHash), compared at first path divergence after cumulative work. Persist first-import time across restart. Amends D133; validity is unchanged.
 
 Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: touches Ch10 (amends D133) but preserved; D15 signed precedence kept for honest proposers; Q2.8 improved. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
@@ -112,7 +121,7 @@ Approved within the owner rule; OWNER-CHOICE. Principle check: parameter (Ch9). 
 
 ### D-V3-13
 
-Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. Owner clarification on 2026-11-11: retain the existing all-probationer exception below B_reg/4 when the filter would otherwise exclude every draw member. Keep the share-weighted deterministic draw.
+Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. The existing all-probationer exception below B_reg/4, used when the filter would otherwise exclude every draw member, is retained (owner decision 2026-11-12, option a; see 'All-probationer exception' and V3-OWNER-DECISIONS-2026-11-12.md). Keep the share-weighted deterministic draw.
 
 Approved within the owner rule; OWNER-CHOICE. Principle check: Ch1 candidate set; P3 kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
@@ -167,6 +176,12 @@ Approved within the owner rule; OWNER-CHOICE (+ NODE-LOCAL pool). Principle chec
 Live-state caps: raise to an A13-verified middle and add a utilisation-priced, burned creation fee per new account/slot/code byte. O-21=b: candidate caps are ACCT=200000, SLOT=500000, CODE=32 MiB, subject to A13. Burn sender-paid creation charges F0*CAP/(CAP-used), based on running in-block utilization. F0_acct candidate=10^15 wei; F0_slot and F0_code remain to be calibrated in the resource/profile PR. Do not introduce a per-block growth griefing budget. Preserve copied user nonce, code and storage; apply the approved old-bond credits and new-miner bond deductions, and never lower caps below copied usage.
 
 Approved within the owner rule; OWNER-CHOICE. Principle check: execution layer (Ch13); kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
+
+**Open pre-launch item: a user bound on the creation burn (recorded 2026-11-12, V3-PR-C3 review C3-4).** The burn is limited only by the sender's post-execution balance. It is priced at the running in-block occupancy, which the builder's selection order sets, so no field the sender signs (gas limit, maxFeePerGas, priority fee) bounds it: near a full cap a plain transfer to a fresh address can be charged up to F0·CAP (200 PCOL at the candidate ACCT_CAP and F0_acct). V3-PR-C3 adds no consensus field for it. The bound stays open until the owner chooses one of:
+- (a) node-local: the pool and eth_estimateGas quote the burn and refuse a submission whose quoted burn exceeds a user-supplied limit (wallet/client support in V3-PR-G); inclusion order can still change the charged amount, so this bounds quotes, not the consensus charge;
+- (b) consensus: a sender-signed cap (for example a halt with CreationFee when burn > max_fee·gas_limit − gas cost, or a separate per-transaction burn limit), compatible with the owner rule and every basic PoCol principle.
+
+The owner confirms the choice before V3-PR-I. Until then it is the enforced launch blocker `D-V3-21 creation-burn user bound` (`lp4-execution/src/admission.rs` `V3_LAUNCH_BLOCKERS`): no profile that can activate v3 is admitted outside a simnet profile on a simnet node, in any build. No current build reaches that check through `admit` (preview builds refuse a non-simnet profile first; release builds cannot decode spec 2), so a source check (`admit_calls_the_v3_launch_gate_before_any_fact_is_built`) keeps the call in place; V3-PR-I, which makes the path reachable, replaces it with an `admit`-level test and must show `V3_LAUNCH_BLOCKERS` empty. The V3-PR-G scope includes the client part (V3-DESIGN.md, PR-7).
 
 ### D-V3-22
 
@@ -281,7 +296,7 @@ The owner describes the 4,000,000 PCOL allocation as personal funds intended to 
 
 ## Related owner actions
 
-The three seeds are to stop only after peer discovery works and enough independent nodes exist. The owner creates the real Android release signing key. The planned human security audit is after the real launch; that plan supplies no current audit or readiness evidence. These statements do not authorize live operations in this work.
+Seeds (owner statement, V3-OWNER-DECISIONS-2026-11-08.md §3): the three operator seeds will be stopped once peer-address discovery works. Recommendation only, not an owner statement: also wait until enough independent nodes exist. The owner creates the real Android release signing key. The planned human security audit is after the real launch; that plan supplies no current audit or readiness evidence. These statements do not authorize live operations in this work.
 
 ## Validation and operational boundaries
 
