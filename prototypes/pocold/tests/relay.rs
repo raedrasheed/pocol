@@ -25,7 +25,9 @@ struct Fixture{chain:Chain,keys:HashMap<Address,Key>,p2p:u16,rpc:u16,chain_id:u6
 /// A fresh devnet (genesis now, adjusted by `tune`), node B started on it, and a local chain on the same
 /// admitted profile (timing measured once, admitted twice: a Spec is not Clone) that builds the drawn
 /// proposer's template.
-fn fixture(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig))->Fixture{
+fn fixture(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig))->Fixture{fixture_with(tag,chain_id,tune,Limits::default())}
+/// `fixture` with B's local limits.
+fn fixture_with(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig),limits:Limits)->Fixture{
     let mut c=DevnetConfig::new(chain_id,now_s(),&["a","b","c"]);tune(&mut c);
     let d=devnet::build(&c).unwrap();
     let local=pocold::single_host_local();
@@ -38,7 +40,7 @@ fn fixture(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig))->Fixture{
     let [p2p,rpc]=held.each_ref().map(|l|l.local_addr().unwrap().port());let (chain_id,genesis)=(spec_b.chain_id(),spec_b.genesis_hash());
     let dir=std::env::temp_dir().join(format!("pocold-relay-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     let cfg=Config{dir,name:"b".into(),miner:None,listen:Some(format!("127.0.0.1:{p2p}").parse().unwrap()),peers:vec![],
-        rpc:Some(format!("127.0.0.1:{rpc}").parse().unwrap()),stop_at:None,log:false,limits:Limits::default()};
+        rpc:Some(format!("127.0.0.1:{rpc}").parse().unwrap()),stop_at:None,log:false,limits};
     let mut node=Node::open(cfg,spec_b).unwrap();drop(held);node.start_network().unwrap();std::thread::spawn(move||node.run());
     Fixture{chain:Chain::new(spec_local),keys,p2p,rpc,chain_id,genesis}
 }
@@ -185,4 +187,30 @@ fn stats(f:&Fixture,keys:&[&str])->Vec<Option<u64>>{let s=status(f);keys.iter().
     while let Some(m)=gossip(&mut y,Duration::from_millis(1500)){match m{Msg::Share{tid:t,nonce} if t==tid=>got.push(nonce),m=>panic!("unexpected {m:?}")}}
     assert_eq!(got,sent[..cap],"the first 4·S_max valid shares are relayed, in order, and no more");
     assert_eq!(stats(&f,&["relayedShares","peerShares"]),[Some(cap as u64),Some(cap as u64+1)],"the last one is kept but not relayed");
+}
+
+/// V3-33 (`Limits::freeze_user_txs_after`): a node whose freeze is active (S = 0, its head is genesis) neither pools nor
+/// relays a user transaction a peer sends it, and counts it; the same node without a freeze (control) pools it and
+/// relays it to its other peer.
+#[test] fn a_frozen_node_neither_pools_nor_relays_a_peers_user_transaction(){let _g=serial();
+    for frozen in [false,true]{
+        let f=fixture_with(if frozen{"tx-frozen"}else{"tx-open"},778110+u64::from(frozen),|_|{},Limits{freeze_user_txs_after:frozen.then_some(0),..Limits::default()});
+        let [mut x,mut y]=peers(&f,["x","y"]);
+        let head=f.chain.full_entry(&f.chain.head().hash).unwrap();let base=f.chain.child_ctx(&head,0).unwrap().base_fee;let p=U256::from(1_000_000_000u64);
+        let raw=Tx{chain_id:f.chain_id,nonce:0,max_priority:p,max_fee:base*U256::from(2)+p,gas:21_000,to:Some(Address::with_last_byte(0xca)),value:U256::from(1u64),data:Default::default()}
+            .sign_1559(&devnet::account_key("alice"));
+        x.write_all(&frame(&Msg::Tx{raw:raw.clone()})).unwrap();
+        // Templates or shares may come too; only a Tx counts.
+        let t=Instant::now();let mut relayed=false;
+        while t.elapsed()<Duration::from_secs(3){if let Some(Msg::Tx{raw:r})=gossip(&mut y,Duration::from_millis(500)){assert_eq!(r,raw);relayed=true;break}}
+        let s=status(&f);
+        if frozen{
+            assert!(!relayed,"a frozen node relays no user transaction");
+            assert_eq!(s["pool"],0);
+            assert_eq!(s["userTxFreeze"],serde_json::json!({"freezeUserTxsAfter":0,"active":true,"refused":0,"relayDropped":1}),"{}",s["userTxFreeze"]);
+        }else{
+            assert!(relayed,"positive control: relayed to the other peer");assert_eq!(s["pool"],1);
+            assert!(s.get("userTxFreeze").is_none(),"no freeze, no field");
+        }
+    }
 }

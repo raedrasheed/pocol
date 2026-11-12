@@ -130,6 +130,14 @@ def bound(marker, expected):
             and all(marker.get(k) == expected.get(k) for k in BOUND if k != 'consensusIdentity'))
 
 
+def freeze_args(config):
+    """V3-33: `freezeUserTxsAfter` of node.json (absent in older files: no freeze) as pocold's flag."""
+    if 'freezeUserTxsAfter' not in config: return []
+    value = config['freezeUserTxsAfter']
+    if type(value) is not int or not 0 <= value < 2**64: raise ValueError('freezeUserTxsAfter is a block height')
+    return ['--freeze-user-txs-after', str(value)]
+
+
 @contextlib.contextmanager
 def locked(data, journal=True):
     """Same flock as the Rust journal on Linux; also fences calibration before journal open."""
@@ -180,6 +188,7 @@ def launch(bundle, data, key):
         # PR2b (VA-SPEC §1a.8-§1a.9): seeds and bootstrap addresses of a joining node; older node.json files have none.
         for seed in config.get('seeds', []): args += ['--seed', seed]
         for addr in config.get('bootstrap', []): args += ['--bootstrap', addr]
+        args += freeze_args(config)
         os.set_inheritable(handles[0], True)
         os.execv(args[0], args)
 

@@ -20,6 +20,13 @@ def allowed_ip(address, rehearsal):
     return address.is_loopback if rehearsal else (address.is_global and not address.is_multicast and not address.is_reserved)
 
 
+def freeze_height(value):
+    # V3-33 re-genesis conduct: the height S after which this node builds no block with user transactions and its pool
+    # refuses them (pocold --freeze-user-txs-after S). Node-local; other nodes' blocks are judged as before.
+    if type(value) is not int or not 0 <= value < 2**64: raise ValueError('freezeUserTxsAfter is a block height')
+    return value
+
+
 def validate_inventory(value, rehearsal=False, join=False):
     if set(value) != {'name', 'nodes'}: raise ValueError('Inventory requires exactly name and nodes')
     if not isinstance(value['name'], str) or not re.fullmatch(r'[a-z][a-z0-9-]{0,31}', value['name']):
@@ -30,7 +37,8 @@ def validate_inventory(value, rehearsal=False, join=False):
     names, endpoints, rpc_ports, miners, ips = set(), set(), set(), set(), set()
     for node in nodes:
         # PR2b (D17, D23): optional `bootstrap` (community listeners, at most 16, never a seed) and `seedsRetired`.
-        if set(node) - {'bootstrap', 'seedsRetired'} != {'name', 'ip', 'p2pPort', 'rpcPort', 'rpcHost', 'minerAddress', 'seeds'}:
+        # V3-33: optional `freezeUserTxsAfter` (node-local; pocold --freeze-user-txs-after).
+        if set(node) - {'bootstrap', 'seedsRetired', 'freezeUserTxsAfter'} != {'name', 'ip', 'p2pPort', 'rpcPort', 'rpcHost', 'minerAddress', 'seeds'}:
             raise ValueError('Invalid node fields')
         if not isinstance(node['name'], str) or not re.fullmatch(r'[a-z][a-z0-9-]{0,31}', node['name']) or node['name'] in names:
             raise ValueError('Node names must be unique safe labels')
@@ -65,6 +73,7 @@ def validate_inventory(value, rehearsal=False, join=False):
         if not isinstance(boot, list) or len(boot) > 16 or len(set(boot)) != len(boot) or any(b in node['seeds'] for b in boot):
             raise ValueError('At most 16 distinct bootstrap addresses, none a seed')
         if type(node.get('seedsRetired', False)) is not bool: raise ValueError('seedsRetired is true or false')
+        if 'freezeUserTxsAfter' in node: freeze_height(node['freezeUserTxsAfter'])
         for b in boot:
             ip, _, port = b.rpartition(':')
             if not allowed_ip(ipaddress.IPv4Address(ip), rehearsal) or not port.isdecimal() or str(int(port)) != port or not 1024 <= int(port) <= 65535:
@@ -228,6 +237,7 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
             'listen': f"{node['ip'] if rehearsal else '0.0.0.0'}:{node['p2pPort']}",
             'rpc': f"127.0.0.1:{node['rpcPort']}", 'peers': peers}
         if join: config.update(seeds=[] if node.get('seedsRetired') else list(node['seeds']), bootstrap=list(node.get('bootstrap', [])))
+        if 'freezeUserTxsAfter' in node: config['freezeUserTxsAfter'] = node['freezeUserTxsAfter']
         write_json(bundle / 'node.json', config); write_json(bundle / 'build-info.json', build)
         (bundle / 'pocol-testnet.service').write_text(service(node))
         (bundle / 'nginx.conf').write_text(nginx(node))

@@ -966,6 +966,8 @@ impl Home {
                 // the invitation's seeds and bootstrap addresses.
                 discovery: { let mut d = node::Discovery::default(); d.env(false, false)?; d.outbound_env(false)?;
                     d.seeds = seeds; d.is_seed = is_seed; d.bootstrap = bootstrap; d.seeds_retired = invitation.seeds_retired(); d },
+                // V3-33: the home's saved freeze (`pocol freeze-user-txs`), or POCOL_FREEZE_USER_TXS_AFTER.
+                freeze_user_txs_after: self.effective_user_tx_freeze()?,
                 ..Default::default()
             },
         };
@@ -975,6 +977,94 @@ impl Home {
         node.run_controlled(|n| stop(n));
         node.checkpoint_now()?;
         Ok(())
+    }
+}
+
+/// V3-33 re-genesis conduct (O-33=b): the home's saved freeze setting (`Home::set_user_tx_freeze`), which `pocol start`
+/// (and the Android service, which runs the same `run_mode`) passes to its node as `node::Limits::freeze_user_txs_after`.
+pub const FREEZE_FILE: &str = "freeze-user-txs.json";
+pub const FREEZE_SCHEMA: &str = "pocol-freeze-user-txs-v1";
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct FreezeFile { schema: String, freeze_user_txs_after: u64 }
+impl Home {
+    /// The saved freeze height S, or None when the home has none. A file that is not exactly this schema, or not a regular
+    /// file, is an error (the node does not start on a setting it cannot read).
+    pub fn user_tx_freeze(&self) -> Result<Option<u64>, String> {
+        let path = self.path.join(FREEZE_FILE);
+        if fs::symlink_metadata(&path).is_err() { return Ok(None) }
+        real_file(&path)?;
+        let f: FreezeFile = serde_json::from_slice(&read_bounded(&path)?).map_err(|_| format!("invalid {FREEZE_FILE}"))?;
+        if f.schema != FREEZE_SCHEMA { return Err(format!("invalid {FREEZE_FILE}")) }
+        Ok(Some(f.freeze_user_txs_after))
+    }
+    /// The freeze `pocol start` uses: POCOL_FREEZE_USER_TXS_AFTER when it is set (a height, or `off`; an empty value counts
+    /// as unset), as a variable wins for the other launcher settings, else the saved one.
+    pub fn effective_user_tx_freeze(&self) -> Result<Option<u64>, String> {
+        match std::env::var("POCOL_FREEZE_USER_TXS_AFTER").ok().filter(|v| !v.trim().is_empty()) {
+            Some(v) => node::parse_freeze(&v).map_err(|_| "Invalid POCOL_FREEZE_USER_TXS_AFTER".into()),
+            None => self.user_tx_freeze(),
+        }
+    }
+    /// Saves (Some) or removes (None) the freeze setting, atomically (temporary file, rename, directory sync). It takes
+    /// effect at the next start. Returns the setting as JSON.
+    pub fn set_user_tx_freeze(&self, after: Option<u64>) -> Result<String, String> {
+        let path = self.path.join(FREEZE_FILE);
+        match after {
+            Some(s) => {
+                let temp = self.path.join(format!("{FREEZE_FILE}.tmp"));
+                if fs::symlink_metadata(&temp).is_ok() { real_file(&temp)?; fs::remove_file(&temp).map_err(|e| e.to_string())?; }
+                let bytes = serde_json::to_vec_pretty(&FreezeFile { schema: FREEZE_SCHEMA.into(), freeze_user_txs_after: s }).map_err(|e| e.to_string())?;
+                write_new(&temp, &bytes)?;
+                fs::rename(&temp, &path).map_err(|e| e.to_string())?;
+            }
+            None => if fs::symlink_metadata(&path).is_ok() { real_file(&path)?; fs::remove_file(&path).map_err(|e| e.to_string())?; },
+        }
+        sync_directory(&self.path)?;
+        Ok(serde_json::json!({"freezeUserTxsAfter": after, "file": path, "appliesAt": "next start"}).to_string())
+    }
+}
+
+#[cfg(test)]
+mod freeze_tests {
+    use super::*;
+    #[test]
+    fn the_freeze_setting_round_trips_through_the_home() {
+        let dir = std::env::temp_dir().join(format!("pocol-freeze-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        let home = Home::open(&dir).unwrap();
+        assert_eq!(home.user_tx_freeze().unwrap(), None, "no setting in a new home");
+        let out: serde_json::Value = serde_json::from_str(&home.set_user_tx_freeze(Some(1234)).unwrap()).unwrap();
+        assert_eq!(out["freezeUserTxsAfter"], 1234);
+        assert_eq!(home.user_tx_freeze().unwrap(), Some(1234), "read back as saved");
+        assert!(!dir.join(format!("{FREEZE_FILE}.tmp")).exists(), "no temporary file is left");
+        home.set_user_tx_freeze(Some(0)).unwrap();
+        assert_eq!(home.user_tx_freeze().unwrap(), Some(0), "replaced");
+        home.set_user_tx_freeze(None).unwrap();
+        assert_eq!(home.user_tx_freeze().unwrap(), None, "off removes it");
+        home.set_user_tx_freeze(None).unwrap();
+        // A file this release cannot read stops the start instead of running without the freeze.
+        for bad in [&b"{}"[..], br#"{"schema":"other","freezeUserTxsAfter":5}"#, br#"{"schema":"pocol-freeze-user-txs-v1","freezeUserTxsAfter":-1}"#,
+            br#"{"schema":"pocol-freeze-user-txs-v1","freezeUserTxsAfter":5,"x":1}"#] {
+            fs::write(dir.join(FREEZE_FILE), bad).unwrap();
+            assert!(home.user_tx_freeze().is_err(), "{}", String::from_utf8_lossy(bad));
+        }
+        fs::remove_file(dir.join(FREEZE_FILE)).unwrap();
+        #[cfg(unix)]
+        {
+            std::os::unix::fs::symlink(dir.join("elsewhere"), dir.join(FREEZE_FILE)).unwrap();
+            assert!(home.user_tx_freeze().is_err(), "a symlink is refused");
+            fs::remove_file(dir.join(FREEZE_FILE)).unwrap();
+        }
+        drop(home);
+        let _ = fs::remove_dir_all(&dir);
+    }
+    #[test]
+    fn the_freeze_value_is_a_height_or_off() {
+        assert_eq!(node::parse_freeze("15000").unwrap(), Some(15000));
+        assert_eq!(node::parse_freeze(" 0 ").unwrap(), Some(0));
+        assert_eq!(node::parse_freeze("off").unwrap(), None);
+        for bad in ["", "-1", "+5", "0x10", "1e3", "18446744073709551616", "on"] { assert!(node::parse_freeze(bad).is_err(), "{bad}"); }
     }
 }
 

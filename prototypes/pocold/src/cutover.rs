@@ -5,6 +5,8 @@
 //! state.redb. No block is added to it. The node is not started, mines nothing and has no peers; the old node
 //! must be stopped first, its home lock enforces that.
 use pocol_lp4_execution::apply;
+/// V3-33: the published old-chain data (`pocold export-chain`, `pocold verify-export`).
+pub mod export;
 use revm::{InMemoryDB,primitives::{Address,U256}};
 use serde_json::{json,Value};
 

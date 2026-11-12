@@ -78,7 +78,9 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
 
    Delete `/var/tmp/pocol-rehearsal*` afterwards.
 3. Choose the final height `S` and the launch time. Publish both, with this text:
-   - transactions included after block `S` do not move to the new network;
+   - transactions included after block `S` do not move to the new network; with the V3-33 freeze
+     (step 0.4) the three servers include none after `S` and refuse new ones from block `S` on, so
+     nothing a user sends is voided;
    - wallets must be updated after the launch, as the new release notes describe: an existing wallet
      moves its old network files aside, keeps its key, and imports the new network, so its address
      stays the same (step 3);
@@ -89,12 +91,63 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
      address, so a local profile of the new network has another one. Update the extension in place and
      do not remove it: its wallet seed cannot be exported, and a new install creates a new wallet.
      On-chain sites start with empty local storage on the new network;
-   - old Android installations cannot follow the new network (A3).
+   - old Android installations cannot follow the new network (A3); step 0.4 item 3 gives their path.
+4. **Re-genesis conduct (V3-33, owner choice O-33=b, `development/decisions/V3-DECISIONS.md` D-V3-33).**
+   None of these items changes a consensus rule: a block with user transactions after `S` from any
+   other node stays valid. Each server only stops putting them in its own blocks and its own pool.
+   1. **Announce `S`** (item 3) at least as long before `S` as the Android path in item 3 needs, with
+      the public commitment of item 4. State that from block `S` on the three servers accept no new
+      transaction (RPC answers `-32016` with `{"reason":"frozen"}`) and build no block with one, and
+      that the old chain's data will be published (item 5).
+   2. **Set the freeze on every server before `S`.** The switch is in the release that carries this
+      runbook, which must already run on the old network (H15000) through the release upgrade path:
+      the deployed 0.4.0 build does not have it. On a `pocold run` service (the three servers), add the
+      setting to the unit's environment and restart the node once, well before `S`:
+      ```sh
+      sudo systemctl edit pocol-testnet.service      # add the two lines below
+      #   [Service]
+      #   Environment=POCOL_FREEZE_USER_TXS_AFTER=<S>
+      sudo systemctl restart pocol-testnet.service
+      ```
+      (`pocold run --freeze-user-txs-after <S>` is the same setting; a flag wins over the variable. A
+      public-testnet bundle can carry it as `freezeUserTxsAfter` in its inventory node, which
+      `node.json` passes to `pocold`.) A wallet or community node started with `pocol start` (also the
+      Android service) takes it from `pocol freeze-user-txs --home HOME --after <S>` (saved in the
+      home as `freeze-user-txs.json`; `--after off` removes it; it applies at the next start) or
+      from `POCOL_FREEZE_USER_TXS_AFTER`, which wins. Check every server:
+      ```sh
+      curl -s -H 'Content-Type: application/json' --data \
+        '{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}' http://127.0.0.1:8545 \
+        | python3 -c 'import json,sys; print(json.load(sys.stdin)["result"]["userTxFreeze"])'
+      ```
+      It prints `{'freezeUserTxsAfter': S, 'active': False, ...}` before `S` and `'active': True`
+      from block `S` on, when `refused` counts the refused submissions and `relayDropped` the
+      transactions peers sent. A node without the setting prints a `KeyError`: fix it before `S`.
+      With the setting off a node behaves exactly as before; the switch is node-local (builder and
+      pool policy), not a block-validity rule.
+   3. **Android first.** The key export and the new-application-ID path are in the wallet already
+      (`deploy/standalone/README.md`, "Encrypted key backup"; `prototypes/pocol-android/README.md`,
+      migration path; owner design V3-33): ship that build before announcing `S`. An update reaches
+      existing installs only when it is signed by their signer or an authorized signing lineage; if
+      that key cannot be recovered, existing Android users move their funds before `S` with the
+      installed app's Send action to an address of the new app (new key, new application ID, both
+      apps installed side by side), and Android member identities deregister first. Wait until this
+      has been announced for long enough before `S`.
+   4. **Public commitment.** Publish, with `S`: "This is the last re-genesis that the owner decides
+      alone. Every later change of the rules uses the fork schedule (in-place forks at announced
+      heights), not a new genesis."
+   5. **Old-chain data.** Step 2 exports the old chain up to `S` on every server (`pocold
+      export-chain`) and compares the manifests; step 5 publishes the export and its manifest, so that
+      anyone can check the new allocation from their own node (format below, "Old-chain data export").
+   Nothing here is run by this repository: setting the freeze, restarting a server and publishing
+   are operator actions, each under the approvals of A4.
 
 ## 1. Freeze (approval: stop the live network)
 
-1. Wait until every server's head is at least `S + 60`. Check that all three servers report the same
-   hash for block `S`:
+1. Wait until every server's head is at least `S + 60`. Every block after `S` built by the three
+   servers carries no user transaction (step 0.4; a `"transactions":[]` in the call below with
+   `<S+1 in hex>` and later heights). Check that all three servers report the same hash for block
+   `S`:
    ```sh
    curl -s -H 'Content-Type: application/json' --data \
      '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["<S in hex>",false]}' http://127.0.0.1:8545
@@ -146,6 +199,19 @@ python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"][
   genesis: its hash and every balance. `devnet.json` also records the admission timing that server
   measured (`timing`), and `cutover-report.json` that server's own old head (`old.head`), so those two
   are compared without them. If any sum differs, stop and investigate. Do not pick one.
+- **Old-chain data (V3-33).** On each server, after the cutover and with the old node still
+  stopped, export the old chain up to `S` and check the export:
+  ```sh
+  sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold export-chain --network /opt/pocol-testnet/net \
+      --data /var/lib/pocol-testnet --to-height <S> --out /var/tmp/pocol-old-chain-<S> \
+      --state-store --checkpoint-every 128 --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
+  sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold verify-export --dir /var/tmp/pocol-old-chain-<S> \
+      --network /opt/pocol-testnet/net --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
+  sha256sum /var/tmp/pocol-old-chain-<S>/*
+  ```
+  All three servers must print the same four sums (the export holds nothing node-specific). If one
+  differs, stop as for the cutover. Like the cutover, the export takes the old node's lock, adds no
+  block and writes `--out` only when complete (it builds `<out>.partial` first), so it can run again.
 - `cutover-report.json` holds:
   - `S` and the old block hash;
   - the account count and the copied balances;
@@ -258,6 +324,9 @@ left. Commit, open a PR, let CI build the clients, and merge.
    the same inventory as the old release. `prepare.py` refuses binaries built from other sources than
    the checkout.
 3. On each server:
+   - remove the V3-33 freeze from the unit first (`sudo systemctl revert pocol-testnet.service`
+     removes the drop-in of step 0.4): a drop-in stays when the unit file moves, and would freeze
+     the new network at the old `S`. After step 4, `pocol_status` must have no `userTxFreeze`;
    - move the old installation, data and service unit aside, **without deleting them**.
      `install.sh` refuses to install while any of the three exists. The script stops at the first
      failure and never moves onto an existing name:
@@ -286,6 +355,11 @@ left. Commit, open a PR, let CI build the clients, and merge.
 ## 5. Gateway, Explorer, websites and wallets (approval: publish)
 
 Everything below comes from the merged head of step 3.
+
+- **Old-chain data (V3-33).** Publish one server's `/var/tmp/pocol-old-chain-<S>` (the four files;
+  step 2 showed all three are byte-equal) and the four SHA-256 sums beside the release notes, with
+  the instructions of "Old-chain data export" below for checking it with `pocold verify-export` or a
+  node of one's own.
 
 - **Reward gateway.** Deploy `deploy/rewards`, the gateway that pocol.net and the Explorer use. The
   reward accounting reads CP 16, and an accruing record's payment first fills its bond.
@@ -427,7 +501,10 @@ Everything below comes from the merged head of step 3.
   systemctl start pocol-testnet.service
   EOF
   ```
-  The old chain continues from where it stopped.
+  The old chain continues from where it stopped. Its servers still hold the V3-33 freeze of step 0.4
+  (unless step 4 item 3 reverted it): while that holds, they take no user transactions. Remove it with
+  `sudo systemctl revert pocol-testnet.service` and a restart only when the owner decides that the
+  old chain carries transactions again, and announce it.
 - **After that:** do not roll back. Fix forward on the new network.
 - The clients from step 3 work only on the new network. To serve the old network again, publish
   clients built from a commit before step 3, or from a revert of it.
@@ -435,6 +512,45 @@ Everything below comes from the merged head of step 3.
   step 3, and set the gateway's trusted schedule back to `[[1,0],[2,15000]]`. Set `chain_id` and
   `genesis_hash` in the Explorer's `config.php` back to the old values, and republish the website
   snapshots and the invitation from before step 5.
+
+## Old-chain data export
+
+`pocold export-chain --network OLD_DIR --data OLD_DATA --to-height H --out NEW_DIR [NODE] [LOCAL]`
+(node stopped) writes the canonical chain of the old network up to block `H` (the agreed `S`) and the
+state after block `H`. Two nodes that hold the same chain write the same bytes, whatever their own head,
+storage mode or name. `H` must lie in the node's in-memory window, as for the cutover. The blocks are
+streamed one at a time; the state after `H` is held whole, as the cutover holds it. `NEW_DIR` holds:
+
+- `blocks.jsonl`: one line per height `0..H`, in order. Genesis is `{"height":0,"hash":"0x…"}`; the
+  genesis files are the network's own. Every other line is
+  `{"height":h,"hash":"0x…","header":"0x…","body":"0x…"}`: the block hash, the RLP-encoded header and
+  the encoded body, byte for byte as the block was imported.
+- `state.jsonl`: one line per account of the state after block `H`, in ascending address order:
+  `{"address":"0x…","nonce":n,"balance":"<wei, decimal>","codeHash":"0x…","code":"0x…","storage":[["0x<slot>","0x<value>"],…]}`.
+  `code` is `"0x"` without code. Only nonzero slots are listed, in ascending slot order, each as 32
+  bytes. System programs are included: their storage holds the registry and the Escrow.
+- `facts.json`: `{"height":H,"D":D,"registry":[…],"cutover":{…}}`. `registry` lists every registry
+  record in id order: status, tomb, bond state, bond, reward address, last share, the exit, due,
+  burn and grace heights, and the earn-in registration height. `cutover` is what the cutover
+  (EARN-IN-SPEC.md section 7, C2–C4) reports for this state before the new genesis members' bonds:
+  accounts copied, copied balances, excluded system addresses, bonds credited and their total, pots
+  dropped (the last `D` blocks), the old Escrow totals and the allocation total.
+- `manifest.json`: `{"schema":"pocol-old-chain-export-v1","chainId","genesisHash","height":H,
+  "headHash":<hash of block H>,"stateRoot":<its stateRoot>,"D","parts":[{"name","bytes","records","sha256"},…],"verify"}`,
+  the parts in the order above.
+
+`pocold verify-export --dir NEW_DIR [--network OLD_DIR] [LOCAL]` checks an export without trusting
+its publisher:
+- each part's size and SHA-256;
+- every block: its header decodes, hashes to its line's hash, meets its own PoW target, names the
+  genesis, its height and the block below it as parent, and commits its line's body
+  (`txRoot`, `evidenceRoot`); the last block is `headHash` with `stateRoot`;
+- the world-state root of `state.jsonl` is that `stateRoot`;
+- `facts.json` equals what the state gives.
+
+With `--network` the manifest must name that network's chain ID and genesis hash. Blocks are not
+re-executed here. To check that too, sync your own node of the old network to `H` from the published
+blocks and run `export-chain` on it: the result must be byte-equal.
 
 ## What this does not cover
 

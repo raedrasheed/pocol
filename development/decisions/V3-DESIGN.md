@@ -1042,6 +1042,12 @@ fork; a restart test. **Effort:** S. **Risk:** low.
   - Transactions after S are voided (`EARN-IN-CUTOVER-RUNBOOK.md:81`, `:96`).
   - Android installs cannot follow (`:434`) and keys cannot be exported (`deploy/standalone/README.md:171-173`).
   - The owner alone decides (DEC-06).
+- **Status (N6):** the builder/pool freeze (`--freeze-user-txs-after S`, POCOL_FREEZE_USER_TXS_AFTER, `pocol
+  freeze-user-txs`; `node::Limits::freeze_user_txs_after`), the old-chain export (`pocold export-chain`,
+  `pocold verify-export`; `pocold/src/cutover/export.rs`) and the conduct steps in
+  `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` step 0.4 are in tree. No validity, fork-choice, journal or
+  checkpoint byte changed; with the setting off a node behaves as before. The Android export build is the
+  existing key-backup work. Nothing was run on a real network.
 - **NODE-LOCAL parts:**
   - a builder flag that includes no user transactions after S, so nothing is voided;
   - publish old-chain data and rebuild instructions;

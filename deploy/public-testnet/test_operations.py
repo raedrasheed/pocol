@@ -41,6 +41,19 @@ class Operations(unittest.TestCase):
         with self.assertRaises(ValueError): prepare.validate_inventory(single, True, True)
         single['nodes'][0]['seeds'] = ['127.0.0.8:30300']; prepare.validate_inventory(single, True, True)
 
+    def test_freeze_setting_is_an_optional_node_height(self):
+        # V3-33: an inventory node may carry freezeUserTxsAfter; node.json passes it to pocold, older files have none.
+        good = inventory(); good['nodes'][0]['freezeUserTxsAfter'] = 15000
+        self.assertEqual(prepare.validate_inventory(copy.deepcopy(good), True), good)
+        for value in [-1, '15000', True, 1.5, None, 2**64]:
+            bad = inventory(); bad['nodes'][0]['freezeUserTxsAfter'] = value
+            with self.assertRaises(ValueError, msg=repr(value)): prepare.validate_inventory(bad, True)
+        self.assertEqual(op.freeze_args({'name': 'n0'}), [])
+        self.assertEqual(op.freeze_args({'freezeUserTxsAfter': 0}), ['--freeze-user-txs-after', '0'])
+        self.assertEqual(op.freeze_args({'freezeUserTxsAfter': 15000}), ['--freeze-user-txs-after', '15000'])
+        for value in [-1, '7', False]:
+            with self.assertRaises(ValueError): op.freeze_args({'freezeUserTxsAfter': value})
+
     def test_checksums_reject_links_extras_and_traversal(self):
         d = self.root / 'files'; d.mkdir(); (d / 'file').write_bytes(b'public')
         hashes = {'file': op.digest(d / 'file')}; op.verify_files(d, hashes, set())
