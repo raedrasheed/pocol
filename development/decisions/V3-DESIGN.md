@@ -679,7 +679,7 @@ hashrate (`chain.rs:592`).
   least B_reg/4.
   - Note (2026-11-12): this minimum does not hold while every draw member is a sub-quarter probationer. The
     existing earn-in D1 exception (EARN-IN-SPEC.md §6) then makes all of them candidates, and the dormant v3 code
-    keeps it. That exception is pending owner confirmation; see V3-DECISIONS.md, 'All-probationer exception'.
+    keeps it. The owner confirmed the exception on 2026-11-12 (option a); see V3-OWNER-DECISIONS-2026-11-12.md.
 - The draw stays deterministic and share-weighted (P3). **Deployment:** B (host). **Effort:** S.
 
 ### V3-14 Probation pool (OWNER-CHOICE O-14)
