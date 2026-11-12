@@ -317,9 +317,11 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
     // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        // C3: boxed burn reports (+192 B) and receipt encoding/output-copy
-        // scratch (+878624 B) are inventoried explicitly. Keep the original
-        // R10 baseline and owner seed guards below; all six exact stops remain.
+        // C3: the legacy receipt encoding/root-clone/output-copy under-count is
+        // corrected on every profile (+878624 B on the live spec-1 chain; no
+        // block report grows). The stops are 374/374/374/360/374/147 records below
+        // the earlier pins [1_146_268,1_121_410,1_114_248,1_089_603,1_071_706,1_046_848].
+        // Keep the original R10 baseline and owner seed guards below.
         assert_eq!(got,[1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
@@ -371,8 +373,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // adds 11,815,110 model bytes: each windowed stop moves by
     // 4,096 × 11,815,110 = 48,394,690,560 history bytes. No budget or reserve changes.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        // C3: 4096 * 878816 = 3599630336 fewer modeled file bytes per stop.
-        assert_eq!(got,[11_926_710_419_583,11_665_557_487_743,11_590_056_575_103,11_328_903_643_263,11_141_184_782_463,10_880_031_850_623],"the live chain's stop moved (record it in the PR)");
+        // C3: 4096 * 878624 = 3598843904 fewer modeled file bytes per stop (legacy receipt under-count).
+        assert_eq!(got,[11_926_711_206_015,11_665_558_274_175,11_590_057_361_535,11_328_904_429_695,11_141_185_568_895,10_880_032_637_055],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and

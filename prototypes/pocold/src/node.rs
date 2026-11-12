@@ -657,6 +657,8 @@ impl Node{
         // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
         let evict=crate::resources::evict_depth_of(spec.cp(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
         cfg.limits.first_imports=imports::enabled(&spec);
+        // C3-2: in the same v3 domain one receipt can exceed LIGHT_RESP_MAX, so it is served heavy.
+        cfg.limits.rpc.heavy_receipts=cfg.limits.first_imports;
         if spec.cp().H_END==0||cfg.limits.first_imports{cfg.limits.continuous_history=Some(0);}
         // D3', D14' (VA-SPEC §1a.7, network.md:157): `auto` becomes a count within the 18 outbound places, an explicit
         // count past them is refused, and every seed must be a configured peer (it is dialed as one, VA-SPEC §1a.8).

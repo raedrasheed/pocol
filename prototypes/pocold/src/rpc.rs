@@ -67,13 +67,18 @@ pub struct Limits{
     pub min_send_rate:u64,pub grace:Duration,pub enforce_slack:Duration,pub timer_eps:Duration,
     /// BATCH_WALL (network.md:282): from read-end to sendDone; reaching it closes the connection.
     pub batch_wall:Duration,
+    /// V3 receipt lane (network.md (B)): under a profile that can activate v3 (`Node::open` sets it
+    /// from the `first_imports` domain, spec.v3_active(MAX)), one transaction may emit up to 4,368
+    /// logs / 256 KiB, a receipt above LIGHT_RESP_MAX. eth_getTransactionReceipt is then heavy: heavy
+    /// lane, reservation, deadline and RESP_MAX answer limit. False (the legacy light row) otherwise.
+    pub heavy_receipts:bool,
 }
 impl Default for Limits{
     fn default()->Self{Self{conn_max:32,read_deadline:Duration::from_secs(10),write_deadline:Duration::from_secs(10),work_deadline:Duration::from_secs(30),
         heavy_queue:16,light_queue:32,queue_wait:Duration::from_secs(2),rate:20,bucket_cap:20,
         scratch_heavy:16<<20,compute_heavy:Duration::from_secs(5),compute_light:Duration::from_millis(500),
         min_send_rate:65536,grace:Duration::from_secs(2),enforce_slack:Duration::from_millis(200),timer_eps:Duration::from_millis(1),
-        batch_wall:Duration::from_secs(420)}}
+        batch_wall:Duration::from_secs(420),heavy_receipts:false}}
 }
 /// SEND_MAX(size) = GRACE + size/R + ENFORCE_SLACK, the longest a response of `size` bytes may hold
 /// its reservation before the SendPacer closes (network.md:252). ms, saturating.
@@ -376,7 +381,7 @@ pub fn answer(n:&mut Node,q:&Request)->Reply{
     // The class's deadline by method (network.md (B), :235), as for batch members: a light-table entry
     // whose body exceeds LIGHT_BODY_MAX, or a conditional one, runs on the heavy lane (and reservation)
     // under the light deadline; its answer has the light limit (`member`).
-    let light=q.light||(!batch&&light_class(&q.body));
+    let light=q.light||(!batch&&light_class_for(&q.body,lr.heavy_receipts));
     let mut budget=Budget{compute_by:Instant::now()+if light{lr.compute_light}else{lr.compute_heavy},scratch_max:lr.scratch_heavy,scratch_used:0,walled:false};
     let wall_by=batch.then(||q.queued+lr.batch_wall);
     let mut body=handle_until_budgeted(n,&q.body,q.site,Some(q.deadline),wall_by,&mut budget);
@@ -527,11 +532,16 @@ pub const LIGHT_METHODS:&[&str]=&["eth_chainId","net_version","web3_clientVersio
 /// The probe borrows the method name and skips every other field, so classification allocates
 /// nothing in proportion to the body (A13); any parse error (duplicate keys included) is heavy.
 pub const LIGHT_BODY_MAX:usize=4096;
-pub fn is_light(body:&[u8])->bool{body.len()<=LIGHT_BODY_MAX&&light_method(body)}
+pub fn is_light(body:&[u8])->bool{is_light_for(body,false)}
+/// `is_light` with the v3 receipt lane (`Limits::heavy_receipts`).
+pub fn is_light_for(body:&[u8],heavy_receipts:bool)->bool{body.len()<=LIGHT_BODY_MAX&&light_method_for(body,heavy_receipts)}
+/// A listed light method; with `heavy_receipts` (v3) eth_getTransactionReceipt is heavy.
+fn listed_light(m:&str,heavy_receipts:bool)->bool{LIGHT_METHODS.contains(&m)&&!(heavy_receipts&&m=="eth_getTransactionReceipt")}
 /// A single object whose method is light in the classification table (its class, whatever its size).
-pub fn light_method(body:&[u8])->bool{
+pub fn light_method(body:&[u8])->bool{light_method_for(body,false)}
+pub fn light_method_for(body:&[u8],heavy_receipts:bool)->bool{
     #[derive(serde::Deserialize)] struct Probe<'a>{#[serde(borrow,default)] method:Option<std::borrow::Cow<'a,str>>}
-    body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),Ok(Probe{method:Some(m)}) if LIGHT_METHODS.contains(&m.as_ref()))
+    body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),Ok(Probe{method:Some(m)}) if listed_light(m.as_ref(),heavy_receipts))
 }
 /// The conditional light entries of network.md (B), read as their handlers read params[1]:
 /// eth_getBlockBy* with hashes only (the full flag not `true`) and pocol_getHeaders with count <= 64.
@@ -568,15 +578,17 @@ impl<'de> serde::de::Visitor<'de> for ParamsV{type Value=Params;
 /// The class of a single object by the classification table (network.md (B)): a listed light method,
 /// or a conditional light entry by its params[1]. Like `light_method` it borrows and skips, allocating
 /// nothing in proportion to the body; any parse error is heavy.
-pub fn light_class(body:&[u8])->bool{
+pub fn light_class(body:&[u8])->bool{light_class_for(body,false)}
+pub fn light_class_for(body:&[u8],heavy_receipts:bool)->bool{
     #[derive(serde::Deserialize)] struct Probe<'a>{#[serde(borrow,default)] method:Option<std::borrow::Cow<'a,str>>,#[serde(default)] params:Option<Params>}
-    light_method(body)||body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),
+    light_method_for(body,heavy_receipts)||body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),
         Ok(Probe{method:Some(m),params})if{let (f,c)=params.as_ref().map_or((None,None),|p|(p.0.0,p.0.1));light_cond(&m,f,c)})
 }
 /// `light_class` of a parsed request or batch member.
-pub fn light_value(v:&Value)->bool{
+pub fn light_value(v:&Value)->bool{light_value_for(v,false)}
+pub fn light_value_for(v:&Value,heavy_receipts:bool)->bool{
     let m=v.get("method").and_then(|m|m.as_str()).unwrap_or("");
-    LIGHT_METHODS.contains(&m)||match v.get("params"){None|Some(Value::Null)=>light_cond(m,None,None),
+    listed_light(m,heavy_receipts)||match v.get("params"){None|Some(Value::Null)=>light_cond(m,None,None),
         Some(Value::Array(p))=>{let x=p.get(1);light_cond(m,x.and_then(|x|x.as_bool()),x.and_then(|x|x.as_u64().or_else(||parse_u64(x))))}
         Some(_)=>false}
 }
@@ -671,7 +683,7 @@ fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Se
     // (the node skips the request, or stops a batch between members, once nobody waits for it).
     let queued=Instant::now();let work_by=queued+l.work_deadline;let admit_by=(queued+l.queue_wait).min(work_by);
     let (body,state)=(Arc::new(body),Arc::new(AtomicU8::new(QUEUED)));let (tx,rx)=mpsc::channel();
-    if is_light(&body){
+    if is_light_for(&body,l.heavy_receipts){
         // LIGHT_QUEUE places (network.md:214): a full lane is -32021 {busy}.
         let held=hold(&srv.light,usize::MAX,&COUNTERS.light_queued);
         if light.tx.try_send(Event::Rpc(Request{body:body.clone(),reply:tx,site,deadline:work_by,queued,light:true,held,state:state.clone()})).is_err(){
@@ -804,7 +816,7 @@ pub fn handle_until_budgeted(n:&mut Node,body:&[u8],site:bool,deadline:Option<In
     if let Value::Array(items)=&v{
         if items.is_empty()||items.len()>BATCH_MAX{return err(&Value::Null,-32600,"batch").to_string()}
         let deny:Vec<bool>=items.iter().map(|i|denied(i)).collect();
-        let (heavy,light)=(n.cfg.limits.rpc.compute_heavy,n.cfg.limits.rpc.compute_light);
+        let (heavy,light,heavy_receipts)=(n.cfg.limits.rpc.compute_heavy,n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.heavy_receipts);
         return batch(items,BATCH_RESP_MAX,|k,i|{
             if budget.walled{return String::new()}
             if wall_by.is_some_and(|w|Instant::now()>=w){budget.walled=true;COUNTERS.batch_wall_hits.fetch_add(1,Ordering::SeqCst);return String::new()}
@@ -812,7 +824,7 @@ pub fn handle_until_budgeted(n:&mut Node,body:&[u8],site:bool,deadline:Option<In
             if deny[k]{site_err(i).to_string()}
             else if deadline.is_some_and(|d|Instant::now()>=d){COUNTERS.expired_members.fetch_add(1,Ordering::SeqCst);item_err(i,-32020,"work deadline","deadline")}
             else{
-                let lm=light_value(i);
+                let lm=light_value_for(i,heavy_receipts);
                 let by=Instant::now()+if lm{light}else{heavy};budget.compute_by=wall_by.map_or(by,|w|by.min(w));budget.scratch_used=0;member(n,i,budget)
             }
         });
@@ -877,7 +889,7 @@ pub const ENCODE_DELAY_ID:&str="encode-delay";
 /// the answers of EFFECTFUL methods, which are never lost.
 fn member(n:&mut Node,v:&Value,b:&mut Budget)->String{
     let id=id_of(v);let r=one(n,v,b);let own=r["error"]["code"]==-32020&&r["error"]["data"]["reason"]=="deadline";let mut s=capped(r,&id);
-    if s.len()>LIGHT_RESP_MAX&&light_value(v){s=result_bytes(&id);}
+    if s.len()>LIGHT_RESP_MAX&&light_value_for(v,n.cfg.limits.rpc.heavy_receipts){s=result_bytes(&id);}
     let d=ENCODE_DELAY_MS.load(Ordering::SeqCst);if d>0&&id.as_str()==Some(ENCODE_DELAY_ID){std::thread::sleep(Duration::from_millis(d as u64));}
     let m=v.get("method").and_then(|m|m.as_str()).unwrap_or("");
     if !own&&b.expired()&&!EFFECTFUL.contains(&m){b.late();return fail_json(&id,deadline_fail(n,m,v)).to_string()}
@@ -1325,6 +1337,20 @@ mod tests{
         }
         // Duplicate keys are a probe parse error: heavy (the parsed form keeps the last key).
         assert!(!super::light_class(br#"{"method":"pocol_status","method":"eth_getBlockByNumber","params":["latest",false]}"#));
+    }
+    /// C3-2: only the v3 receipt lane moves eth_getTransactionReceipt to heavy; every other row and
+    /// the legacy classification are unchanged.
+    #[test] fn the_v3_receipt_lane_moves_only_the_receipt_row(){
+        let receipt=br#"{"jsonrpc":"2.0","id":1,"method":"eth_getTransactionReceipt","params":["0x00"]}"#;
+        assert!(super::is_light(receipt)&&super::is_light_for(receipt,false)&&!super::is_light_for(receipt,true));
+        assert!(super::light_class_for(receipt,false)&&!super::light_class_for(receipt,true));
+        let v:serde_json::Value=serde_json::from_slice(receipt).unwrap();assert!(super::light_value_for(&v,false)&&!super::light_value_for(&v,true));
+        for m in super::LIGHT_METHODS.iter().filter(|m|**m!="eth_getTransactionReceipt"){
+            let b=format!(r#"{{"method":"{m}"}}"#);assert!(super::is_light_for(b.as_bytes(),true),"{m}");
+            assert!(super::light_value_for(&serde_json::from_str(&b).unwrap(),true),"{m}");
+        }
+        assert!(super::light_class_for(br#"{"method":"eth_getBlockByNumber","params":["latest",false]}"#,true));
+        assert!(!super::Limits::default().heavy_receipts);
     }
     /// Review 2 (M4): an answer over RESP_MAX is -32020 {resultBytes} (network.md:210), not -32008.
     #[test] fn responses_above_resp_max_become_an_error(){

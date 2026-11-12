@@ -33,6 +33,20 @@ mod preview{
     fn count(db:&InMemoryDB)->Summary{Summary::scan(db,32768)}
     fn sum(db:&InMemoryDB)->U512{db.accounts.values().filter_map(|a|a.info()).map(|a|U512::from(a.balance)).sum()}
     fn new_address(i:u8)->Address{Address::from([i;20])}
+    /// The per-block creation burn as the receipts carry it: the sum of every CreationFeeBurn
+    /// annotation from ChainCaps (no block report or ChainFacts field holds it).
+    fn receipt_burn(receipts:&[Vec<u8>])->creation_fees::CreationBurn{
+        let topic=revm::primitives::keccak256("CreationFeeBurn(address,uint256,uint256,uint256)");let mut total=creation_fees::CreationBurn::default();
+        for r in receipts{
+            let body=if r.first().is_some_and(|b|*b<0x7f){&r[1..]}else{&r[..]};let it=pocold::rlp::decode(body).unwrap();let f=it.list().unwrap();
+            for l in f[3].list().unwrap(){let lf=l.list().unwrap();
+                if lf[0].bytes().unwrap()!=apply::caps().as_slice()||lf[1].list().unwrap().first().and_then(|t|t.bytes())!=Some(topic.as_slice()){continue}
+                let d=lf[2].bytes().unwrap();assert_eq!(d.len(),96);let w=|i:usize|U256::from_be_slice(&d[32*i..32*i+32]);
+                total=total.checked_add(creation_fees::CreationBurn{accounts:w(0),slots:w(1),code:w(2)}).unwrap();
+            }
+        }
+        total
+    }
     fn init(runtime:&[u8])->Vec<u8>{assert!(runtime.len()<256);let len=runtime.len() as u8;let mut b=vec![0x60,len,0x60,12,0x60,0,0x39,0x60,len,0x60,0,0xf3];b.extend_from_slice(runtime);b}
     struct Temp(std::path::PathBuf);
     impl Temp{fn new()->Self{use std::sync::atomic::{AtomicU64,Ordering};static N:AtomicU64=AtomicU64::new(0);Self(std::env::temp_dir().join(format!("pocol-v3-execution-{}-{}",std::process::id(),N.fetch_add(1,Ordering::Relaxed))))}}
@@ -141,7 +155,7 @@ mod preview{
             let b=meter.admit_result(&db,&mut result,env.caller,&context,&n.profile,total).unwrap();burns=burns.checked_add(b).unwrap();logs.extend_from_slice(result.result.logs());
             user_phase::commit_tx(&mut db,result.state,true);let actual=count(&db);assert_eq!(meter.live(),(actual.user_slots,actual.user_accounts,actual.sys_slots));
         }
-        let block=run(&n,start,&raw);assert_eq!(block.creation_burn(),burns);assert_eq!(block.commitments().logs_bloom,receipts::bloom(&logs));
+        let block=run(&n,start,&raw);assert_eq!(block.creation_burn(),burns);assert_eq!(receipt_burn(block.receipts()),burns,"the receipts carry the whole burn");assert_eq!(block.commitments().logs_bloom,receipts::bloom(&logs));
         assert_eq!(block.state_root(100,100).unwrap(),apply::state_root(&db).unwrap());assert_eq!(sum(block.state()),sum(&db));
     }
 
@@ -174,16 +188,24 @@ mod preview{
         assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),0);assert_eq!(o.creation_burn(),Default::default());
     }
 
+    /// C3-8: both domains fill the SAME caps. A dust-filled cap halts v1 and v3 alike (v3 never waives a
+    /// cap); the same raised cap admits both, and only v3 charges the creation burn.
     #[test]
     fn dust_filled_legacy_account_and_slot_caps_halt_while_raised_v3_caps_charge(){
         for v3 in [false,true]{
-            let n=net(v3,|c|c.acct_cap=if v3{10}else{3});
-            let o=run(&n,n.genesis.state(),&[tx(0,Some(new_address(92)),1,vec![],50000)]);
-            if v3{assert!(o.halts().is_empty());assert!(o.creation_burn().accounts>U256::ZERO)}else{assert_eq!(o.halts(),&[(0,Halt::AcctCap)]);}
-            let n=net(v3,|c|c.slot_cap=if v3{4}else{1});let mut db=n.genesis.state().clone();let a=new_address(93);
-            code(&mut db,a,vec![0x60,1,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(1)).unwrap();
-            let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);
-            if v3{assert!(o.halts().is_empty());assert_eq!(o.creation_burn().slots,U256::from(8000/3));assert_eq!(count(o.state()).user_slots,2)}else{assert_eq!(o.halts(),&[(0,Halt::SlotCap)]);assert_eq!(count(o.state()).user_slots,1)}
+            for (cap,full) in [(3,true),(10,false)]{
+                let n=net(v3,|c|c.acct_cap=cap);
+                let o=run(&n,n.genesis.state(),&[tx(0,Some(new_address(92)),1,vec![],50000)]);
+                if full{assert_eq!(o.halts(),&[(0,Halt::AcctCap)],"v3={v3}");assert_eq!(o.creation_burn(),Default::default());}
+                else{assert!(o.halts().is_empty(),"v3={v3}");assert_eq!(o.creation_burn().accounts>U256::ZERO,v3);}
+            }
+            for (cap,full) in [(1,true),(4,false)]{
+                let n=net(v3,|c|c.slot_cap=cap);let mut db=n.genesis.state().clone();let a=new_address(93);
+                code(&mut db,a,vec![0x60,1,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(1)).unwrap();
+                let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);
+                if full{assert_eq!(o.halts(),&[(0,Halt::SlotCap)],"v3={v3}");assert_eq!(count(o.state()).user_slots,1);assert_eq!(o.creation_burn(),Default::default());}
+                else{assert!(o.halts().is_empty(),"v3={v3}");assert_eq!(count(o.state()).user_slots,2);assert_eq!(o.creation_burn().slots,if v3{U256::from(8000/3)}else{U256::ZERO});}
+            }
         }
     }
 
@@ -193,11 +215,14 @@ mod preview{
             let baseline=net(v3,|_|{});let sys=count(baseline.genesis.state()).inventory();
             // The ChainCaps appended words have a fixed width, so changing the
             // cap does not change its own logical runtime length.
-            let n=net(v3,|c|c.code_cap=sys+if v3{200}else{100});let mut db=n.genesis.state().clone();
-            assert_eq!(count(&db).inventory(),sys);code(&mut db,new_address(94),vec![0;100]);
-            let o=run(&n,&db,&[tx(0,None,0,init(&[0;80]),200000)]);
-            if v3{assert!(o.halts().is_empty());assert_eq!(count(o.state()).inventory(),sys+180);assert!(o.creation_burn().code>U256::from(80*3));}
-            else{assert_eq!(count(o.state()).inventory(),sys+100);assert_eq!(o.receipts()[0],receipts::encode(2,false,200000,&[]).unwrap());}
+            for (room,full) in [(100,true),(200,false)]{
+                let n=net(v3,|c|c.code_cap=sys+room);let mut db=n.genesis.state().clone();
+                assert_eq!(count(&db).inventory(),sys);code(&mut db,new_address(94),vec![0;100]);
+                let o=run(&n,&db,&[tx(0,None,0,init(&[0;80]),200000)]);
+                if full{assert_eq!(count(o.state()).inventory(),sys+100,"v3={v3}");assert_eq!(o.receipts()[0],receipts::encode(2,false,200000,&[]).unwrap());assert_eq!(o.creation_burn(),Default::default());}
+                else{assert!(o.halts().is_empty(),"v3={v3}");assert_eq!(count(o.state()).inventory(),sys+180);
+                    if v3{assert!(o.creation_burn().code>U256::from(80*3))}else{assert_eq!(o.creation_burn(),Default::default())}}
+            }
         }
     }
 
@@ -220,12 +245,12 @@ mod preview{
             assert_eq!(apply::state_root(&merged).unwrap(),reference.state_root);assert_eq!(incremental.state_root,reference.state_root);
             assert_eq!(incremental.receipts,reference.receipts);assert_eq!(incremental.facts,reference.facts);assert_eq!(incremental.summary,count(&reference.state));
             assert_eq!(sum(&merged),sum(&reference.state));
-            let burn=reference.facts.creation_burn;assert_eq!(burn.slots,U256::ZERO);assert_eq!(burn.code,U256::ZERO);
+            let burn=receipt_burn(&reference.receipts);assert_eq!(receipt_burn(&run.receipts),burn);assert_eq!(burn.slots,U256::ZERO);assert_eq!(burn.code,U256::ZERO);
             assert_eq!(burn.accounts>U256::ZERO,height<=6);
             issued+=U512::from(reference.issued);external+=U512::from(reference.gas_used*100)+U512::from(burn.total().unwrap());
             assert_eq!(sum(&reference.state)+external,initial+issued,"height {height}: every creation/base burn is external to Escrow's tracked need");
             apply::check_escrow_invariant(&reference.state,&n.profile,height,false).unwrap();
-            assert_eq!(apply::chain_facts(&reference.state).creation_burn,Default::default(),"a state-only query does not invent a per-block burn");
+            assert_eq!(reference.facts,apply::chain_facts(&reference.state),"block facts stay pure state facts: no per-block burn field");
             db=reference.state;parent_result=Some(apply::ParentResult{block_hash:B256::from(U256::from(height)),winner:n.miners[0].id,shares:vec![]});
         }
     }
@@ -353,6 +378,39 @@ mod preview{
             }
             assert_eq!(chain.head().base_fee,if v3{cfg.base_fee_min}else{U256::from(7)});
         }
+    }
+
+    /// C3-2: one v3 transaction may emit every block log (here 4,368 LOG0 of 24 bytes, 262,080 charged
+    /// bytes). Its JSON receipt exceeds LIGHT_RESP_MAX, so a v3 node serves eth_getTransactionReceipt on
+    /// the heavy lane (RESP_MAX); a spec-1 node keeps the light row.
+    #[test]
+    fn a_maximal_log_v3_receipt_is_served_on_the_heavy_lane(){
+        let dir=Temp::new();let cfg=node_cfg(|_|{});let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        assert!(node.cfg.limits.rpc.heavy_receipts,"the v3 domain serves receipts heavy");
+        let caps=user_phase::log_caps(true);let (count,data)=(caps.count,24u64);assert!(count*(36+data)<=caps.bytes&&count*(36+data+1)>caps.bytes);
+        // PUSH2 count; loop: LOG0(0, 24); count-1; JUMPI loop while nonzero; STOP.
+        let runtime=[0x61,(count>>8) as u8,(count&255) as u8,0x5b,0x60,data as u8,0x60,0,0xa0,0x60,1,0x90,0x03,0x80,0x60,3,0x57,0];
+        let fee=|n:&pocold::node::Node|{let head=n.chain.full_entry(&n.chain.head).unwrap();n.chain.child_ctx(&head,0).unwrap().base_fee*U256::from(2)+U256::from(7)};
+        let deploy=Tx{chain_id:777938,nonce:0,max_priority:U256::from(7),max_fee:fee(&node),gas:300_000,to:None,value:U256::ZERO,data:Bytes::from(init(&runtime))}.sign_1559(&alice);
+        node.submit_tx(deploy.clone(),false).unwrap();let b=solve(&node,vec![deploy],cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+        let call=Tx{chain_id:777938,nonce:1,max_priority:U256::from(7),max_fee:fee(&node),gas:3_000_000,to:Some(alice.address().create(0)),value:U256::ZERO,data:Default::default()}.sign_1559(&alice);
+        let before=node.chain.head().cum_log_bytes;let hash=node.submit_tx(call.clone(),false).unwrap();let b=solve(&node,vec![call],cfg.g_ts+8);assert!(node.import(b,None).unwrap());
+        assert_eq!(node.chain.head().cum_log_bytes-before,count*(36+data),"the receipt holds every block log");
+        let body=serde_json::json!({"jsonrpc":"2.0","id":1,"method":"eth_getTransactionReceipt","params":[hash]}).to_string();
+        assert!(pocold::rpc::is_light(body.as_bytes()),"the legacy row is light");
+        let light=pocold::rpc::is_light_for(body.as_bytes(),node.cfg.limits.rpc.heavy_receipts);assert!(!light,"the v3 connection queues it heavy");
+        let ask=|node:&mut pocold::node::Node,light:bool|{let (t,_r)=std::sync::mpsc::channel();
+            pocold::rpc::answer(node,&pocold::rpc::Request::local(body.clone().into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(60),light)).body};
+        let served=ask(&mut node,light);assert!(served.len()>pocold::rpc::LIGHT_RESP_MAX&&served.len()<=pocold::rpc::RESP_MAX,"{}",served.len());
+        let v:serde_json::Value=serde_json::from_str(&served).unwrap();assert_eq!(v["result"]["status"],"0x1","{}",&served[..200]);
+        let logs=v["result"]["logs"].as_array().unwrap();assert_eq!(logs.len() as u64,count);assert_eq!(logs[0]["data"].as_str().unwrap().len(),2+2*data as usize);
+        assert_eq!(logs[count as usize-1]["logIndex"],format!("{:#x}",count-1));
+        // The light reservation cannot hold it: the reason the v3 row is heavy.
+        let forced=ask(&mut node,true);assert!(forced.contains("resultBytes")&&!forced.contains("\"result\""),"{forced}");
+        // The in-process handler applies the same v3 answer limit.
+        assert_eq!(rpc(&mut node,"eth_getTransactionReceipt",serde_json::json!([hash]))["result"]["logs"].as_array().unwrap().len() as u64,count);
+        let mut legacy=node_cfg(|_|{});legacy.spec_version=1;let dir=Temp::new();let old=pocold::node::Node::open(node_config(&dir,false),node_spec(&legacy)).unwrap();
+        assert!(!old.cfg.limits.rpc.heavy_receipts,"spec-1 keeps the light receipt row");
     }
 
     #[test]

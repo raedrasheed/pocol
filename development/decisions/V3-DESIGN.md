@@ -321,8 +321,13 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
    - GAS_ENVELOPE for the v3 programs (`admission.rs:86-87`).
    - A13 re-run at the v3 CP in store mode (`resources.rs:571-577`).
    - ParamGate R1–R26 at the v3 CP and the WAN locals (V3-06).
-8. **PR-7 Off-node verifiers.**
+8. **PR-7 Off-node verifiers** (V3-PR-G, off-node verifiers and clients).
    - `pocol_rewards.py:272-281` (V3-01 membership, late shares, issuance), `rp.js:41-61`, `refdec.js:18`.
+   - V3-21 creation-burn user bound (D-V3-21 open pre-launch item, launch blocker `D-V3-21 creation-burn user
+     bound`): wallets and clients quote the creation burn separately from the maximum gas fee and let the user set
+     a burn limit; the pool and eth_estimateGas refuse a submission whose quoted burn exceeds it, or the owner's
+     chosen signed cap is implemented instead. The owner confirms the option before V3-PR-I; the blocker is
+     removed only with that change.
 9. **PR-8 Harnesses and vectors.**
    - SimNet T7c(S) (share omission), T10b(iv) (withholding proposer plus a pre-mined fallback coalition),
      T10 with ASERT (carry and burn).

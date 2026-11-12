@@ -342,8 +342,8 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
     ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; selection holds one entry list and one source or key list over the book; the exclusions are closures and allocate nothing; each slot channel holds one address; a route probe is a UDP socket without buffers; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
-    ("v3-execution-inventory","For the v3_active(MAX) profile domain derived at open, retained/per-block log terms use 256 KiB and native-result creation-fee annotation scratch adds 4 KiB per execution; encoded annotations are inside the log caps. Count the new CreationBurn fields in two boxed block reports on every profile; other scalars and exact U512 arithmetic use the reserved stack. Per-unit work is bounded by persistent creation gas and dirty caps; this inventory is by inspection, not a measured profile or higher live-state caps"),
-    ("receipt-encoding-inventory","Count receipt RLP nesting/growth at sixteen active charged log-byte copies, two per-block per-tx receipt buffers for USER/report copies, and 64 KiB fixed bloom/short-list scratch. These are conservative inventories of receipts::encode and apply's output copies, separate from native logs and retained history; the active log limit must grow this peak too"),
+    ("v3-execution-inventory","For the v3_active(MAX) profile domain derived at open, retained/per-block log terms use 256 KiB and native-result creation-fee annotation scratch adds 4 KiB per execution; encoded annotations are inside the log caps. No block report, Entry or ChainFacts carries a creation-burn field (the burn is the receipt annotation), so legacy BlockRun/BlockOutput layouts are unchanged; the running CreationBurn, other scalars and exact U512 arithmetic use the reserved stack. Per-unit work is bounded by persistent creation gas and dirty caps; this inventory is by inspection, not a measured profile or higher live-state caps"),
+    ("receipt-encoding-inventory","A legacy under-count corrected on every profile: count receipt RLP nesting/growth and the receipts-root clone at sixteen active charged log-byte copies, two per-block per-tx receipt buffers for the USER list and apply's report copy, and 64 KiB fixed bloom/short-list scratch. These are conservative inventories of the unchanged legacy receipts::encode, ordered_root and apply output copies, separate from native logs and retained history; the active log limit grows this peak under v3"),
     ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
@@ -771,22 +771,21 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // headers, with <4 KiB extra at the execution peak. Encoded/retained copies
     // are already bounded by the active LOG_BLOCK_MAX terms above.
     let annotation=if limits.first_imports{mul(EXECUTIONS,4096)?}else{0};
-    // Chain::Executed::Stored boxes BlockRun; its new per-block fields occupy
-    // space even for a legacy zero burn. Conservatively allow two such reports
-    // during nested template/rebuild work; no Entry retains a report.
-    let reports=mul(2,size_of::<pocol_lp4_execution::creation_fees::CreationBurn>() as u128)?;
-    // receipts::encode nests growing RLP buffers (per-log parts, topic/log
-    // lists, outer payload and typed envelope). Up to sixteen charged log-byte
-    // copies cover these peaks, including Vec growth/metadata. apply.rs clones
-    // the USER receipt list into its report: allow two complete per-tx receipt
-    // buffers too, with 64 KiB for fixed receipt/bloom/short-list scratch.
-    // Retained/history and native EVM logs are separate terms, so this is
-    // deliberately conservative; larger v3 log caps must grow this peak too.
+    // A legacy under-count, corrected on every profile (spec-1 included; the v3
+    // growth is gated through log_caps(first_imports)). Unchanged legacy code
+    // allocates it while a block runs: receipts::encode nests growing RLP
+    // buffers (per-log parts, topic/log lists, outer payload and typed
+    // envelope); ordered_root clones every encoded receipt before building its
+    // trie; apply.rs clones the USER receipt list (users.receipts().to_vec())
+    // into its report while the original is alive. Up to sixteen charged
+    // log-byte copies cover these peaks, including Vec growth/metadata; allow
+    // two complete per-tx receipt buffers too, with 64 KiB for fixed
+    // receipt/bloom/short-list scratch. Retained/history and native EVM logs
+    // are separate terms, so this is deliberately conservative.
     let receipt_scratch=add(&[mul(16,u128::from(block_log_max))?,mul(2,mul(side_txs,per_tx)?)?,65536])?;
-    let execution=add(&[evm_execution,annotation,reports,receipt_scratch])?;
+    let execution=add(&[evm_execution,annotation,receipt_scratch])?;
     items.extend([("execution/frames, code analysis, preallocations, precompiles",fixed),("execution/memory and operation classes (worst gas split)",evm_execution.checked_sub(fixed)?)]);
     if annotation>0{items.push(("execution/v3 creation-fee receipt annotation scratch",annotation));}
-    items.push(("execution/creation-burn fields in two boxed block reports",reports));
     items.push(("execution/receipt RLP encoding and output-copy scratch",receipt_scratch));
     let total=add(&items.iter().map(|x|x.1).collect::<Vec<_>>())?;
     // Each group is the sum of its items.

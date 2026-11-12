@@ -10,6 +10,7 @@ history n=7 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sourc
 history n=8 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=531faf32f0417e3da646ce28066ff2a25757019eade39e2c1211da46a9ad578e vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-C2 note="Dormant v3 timely sibling precedence and frozen local import metadata; legacy order and journal bytes unchanged"
 history n=9 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=0c5d36f6dcb1386637d758e9bc99c401fbae188980eaf25e76095d648380501f vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-C2 note="Keep original v3 timestamps in the journal and frozen timely bits in the existing entry and checkpoint layout; preserve the legacy memory footprint"
 history n=10 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=0696df483d85acdd4ac89d7f610435a266e3683895b708841e0ea86574ed7ece vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-C3 note="Dormant v3 log caps, base-fee floor and classified sender creation burns; legacy transaction, receipt and state rules unchanged; boot resource inventory made explicit"
+history n=11 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=97953101386c0b2ab108ca498a4fc6551f7837102e988845bbb722d4b1a42bbe vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-C3 note="C3 review: ChainFacts/BlockRun keep their legacy layout (burn recorded only by receipt annotations); v3 receipts served heavy with R26 sized for them; v3 admission refused off simnet while launch blocker D-V3-21 creation-burn user bound is open; spec-1 verdicts, roots and rules unchanged; spec-1 A13 model +878624 B for a legacy receipt-scratch under-count"
 file f0df8f047b5797cec691129c3863f48981cde5debc345d0011ab62afe9d90c2f lp1-node/Cargo.toml
 file 8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502 lp1-node/src/asert.rs
 file 39cb326abf9bb24ce152f53de8da7fafd9e406550090c44f50db549f30c617d1 lp1-node/src/assignment.rs
@@ -28,9 +29,9 @@ file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp1-node/s
 file d7a3c3fcbae35e06f916e7e147252b0234d650f48ceae07387912fc00576a61d lp1-node/tests/data/lp4-trie-vectors.json
 file 3c4a5310831bae732c1b31cd5de1d82e2a4b905f28e7b23581c0eb855c3eee61 lp4-execution/Cargo.toml
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 lp4-execution/rust-toolchain.toml
-file 8c19a577bb9d0bc915da39c55266e844e2272866573f5aa209b81b54b0164329 lp4-execution/src/admission.rs
-file d4a2524cf2d561e5980dbc508e50c949df1b676f0cbee8b42b9c671fb681ed3a lp4-execution/src/admission/scope.rs
-file 06969f2ccc443d66360fa3fa4a7684dee9a0efe925d2347a0a48511e5868e43c lp4-execution/src/apply.rs
+file 741d3130dda4354efe8b32f2bb1c49b7a204ccc62c4191e8aa29eaa8e11bb4fc lp4-execution/src/admission.rs
+file 1b66ef4171f62d14e2976c4396bb8919e47dd8acf78c9f8ccb33becd632443ee lp4-execution/src/admission/scope.rs
+file f88bc86384a0c4e69495a0ec9aa35bede3a202d0c94f7e93c54f37a43d8a34c4 lp4-execution/src/apply.rs
 file d5369a58f2905aad2092c9b63cfef04f401636be74adf48481628e2343dbb4b3 lp4-execution/src/code_caps.rs
 file 49b3fba10a3421ed48d0766416df4ef5424a0ff71013a702d1ffb99b3ac14de9 lp4-execution/src/collision.rs
 file 8126c201dec114fb5ab5ce055247c0cc20afc80fb464c7080a0a5806d6d12472 lp4-execution/src/creation_fees.rs

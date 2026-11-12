@@ -24,6 +24,15 @@ cover the active block limits. Defaults already cover v3. Both the complete gate
 and the experimental-devnet partial evaluator use these limits. An unrelated
 absent RPC field cannot waive an enforced log-limit predicate.
 
+One v3 transaction may emit every block log (4368 logs / 256 KiB), so its JSON
+receipt can reach `2*262144 + 4368*512 + 2048` bytes (about 2.63 MiB), above
+LIGHT_RESP_MAX (512 KiB). In the v3 domain (`Limits.first_imports`, set at open
+from `spec.v3_active(MAX)`) the node therefore serves eth_getTransactionReceipt
+as heavy: heavy lane, reservation, deadline and RESP_MAX answer limit
+(`rpc::Limits.heavy_receipts`). The v3 R26 adds 2048 bytes to its RESP_MAX
+bound so that it covers that receipt. Spec-1 profiles keep the light row
+(<= 339 KiB) and every legacy lane, limit and R26 predicate byte-identical.
+
 ## Creation pricing and exceptional halts
 
 After native execution, count persisted additions from the canonical transaction
@@ -75,13 +84,15 @@ log's bytes and count, include it in the receipt bloom/root and ordinary receipt
 history, and discard it on a halt. Zero charges add no log. Ethereum's four-field
 receipt RLP encoding and transaction wire format remain unchanged.
 
-`BlockOutput.facts.creation_burn` and `BlockRun.facts.creation_burn` report these
-three external burn classes for that block. They are not Escrow's internal held
-`burned_total`, and are never added to Escrow's accounting need. A state-only
-`chain_facts(db)` query has no block/receipt context and leaves the per-block class
-zero; it is not a cumulative external-burn query. Receipts preserve the class on
-restart, checkpoints, stored-state replay and history offload. No new system slot,
-SYSTEM write or template/header field is introduced.
+The receipts are the record of these three external burn classes: the block's
+burn is the sum of its CreationFeeBurn annotations (the USER phase result also
+exposes the running total while the block executes). No ChainFacts, BlockRun,
+BlockOutput or Entry field carries a burn, so legacy report layouts and the
+legacy memory model are unchanged; `chain_facts(db)` stays a pure state query.
+The burns are not Escrow's internal held `burned_total`, and are never added to
+Escrow's accounting need. Receipts preserve the class on restart, checkpoints,
+stored-state replay and history offload. No new system slot, SYSTEM write or
+template/header field is introduced.
 
 Conservation tests check at every block that live balances plus external gas-base
 and creation burns equal initial balances plus issuance, alongside the separate
@@ -111,44 +122,67 @@ so the existing maximum gas fee does not bound it. The ordinary sender balance
 check prevents an unpaid inclusion; this PR adds no new signed fee-limit field.
 The release cannot admit this dormant v3 behavior before that client stage.
 
+The amount charged depends on inclusion order. Within one block, every new unit
+is priced at the occupancy left by the transactions before it, and the builder
+chooses that order (its big-first slot included). A transaction's quote, from
+eth_estimateGas or the pool, is therefore a quote at the state it was computed
+on, not a consensus limit: an earlier transaction in the same block can raise
+the price, up to F0*CAP for the last free unit. A sender who wants a ceiling has
+none today. This is the open pre-launch item of D-V3-21 (V3-DECISIONS.md): the
+owner chooses a node-local quoted-burn limit in the pool and eth_estimateGas
+(with V3-PR-G client support) or a sender-signed cap before V3-PR-I. Until then
+`V3_LAUNCH_BLOCKERS` in `lp4-execution/src/admission.rs` holds
+`D-V3-21 creation-burn user bound`, and admission refuses every profile that
+can activate v3 outside a simnet profile on a simnet node, in any build.
+
+ParamGate does not yet check the new CP fields (F0_acct, F0_slot, F0_code > 0;
+an upper bound on baseFeeMin). Zero coefficients are a tested fixture domain
+(a zero F0 waives the price, never the cap), and the values are calibrated by F,
+so these sanity rules belong with F's v3 profile and ParamGate R1-R26 run at the
+v3 CP, before V3-PR-I.
+
 ## Resource model and validation
 
 The node derives its v3-cap domain at open from `spec.v3_active(MAX)` (the existing
 `Limits.first_imports` domain). All per-block retained/window/side/reload log terms
 use the largest active log-byte cap. Finite aggregate LOG_CAP is unchanged.
 Encoded annotations are already inside these
-log bounds. Add 4096 bytes per execution for the extra native-result annotation
-allocation/growth beyond EVM-gas-purchased logs. Count the 96-byte CreationBurn
-fields in two boxed BlockRun reports even on legacy profiles: 192 added model
-bytes. Other scalar amounts and wide arithmetic use the reserved consensus stack.
-No state counter,
-lifetime metadata map or per-unit annotation is retained.
+log bounds. Add 4096 bytes per execution (v3 domain only) for the extra
+native-result annotation allocation/growth beyond EVM-gas-purchased logs. No
+block report, ChainFacts or Entry field carries the burn, so the legacy report
+layouts and model are unchanged by it. Other scalar amounts and wide arithmetic
+use the reserved consensus stack. No state counter, lifetime metadata map or
+per-unit annotation is retained.
 
-Receipt encoding itself nests growing RLP/topic/log/envelope buffers, and apply
-copies the USER receipt list into its report. Count this previously implicit
-peak explicitly: `16*active_log_bytes + 2*side_txs*per_tx + 65536` bytes, where
-`side_txs=min(BODY_MAX/MIN_TX_BYTES,GAS_LIMIT/21000)` and `per_tx=380` is the
-existing receipt/entry allowance. Sixteen log-byte copies cover the nested
-buffers/Vec growth and metadata; the two receipt buffers and 64 KiB cover the
-per-transaction base fields and fixed bloom/short-list scratch. Retained history
-and native EVM log storage remain separate, so this is conservative. It grows
-with the active v3 cap. The default legacy 8M-gas profile adds 878624 B here,
-plus 192 B for the reports: 878816 B in total.
+Receipt building itself was under-counted on every profile, spec-1 included:
+the unchanged legacy `receipts::encode` nests growing RLP/topic/log/envelope
+buffers, `ordered_root` clones every encoded receipt for the receipts root, and
+apply copies the USER receipt list into its report while the original is
+alive. Count this peak explicitly: `16*active_log_bytes + 2*side_txs*per_tx +
+65536` bytes, where `side_txs=min(BODY_MAX/MIN_TX_BYTES,GAS_LIMIT/21000)` and
+`per_tx=380` is the existing receipt/entry allowance. Sixteen log-byte copies
+cover the nested buffers/Vec growth and metadata (about 9.3 by inspection); the
+two receipt buffers and 64 KiB cover the per-transaction base fields and fixed
+bloom/short-list scratch. Retained history and native EVM log storage remain
+separate, so this is conservative. Only its log cap is v3-gated. The default
+legacy 8M-gas profile adds 878624 B.
 
 Exact pricing work is bounded by newly persisted state under existing gas,
 runtime and dirty limits: deployed bytes cost 200 gas each, slots/accounts have
 their existing dirty ceilings. No resource reserve or execution-time limit is
 relaxed. Raising candidate live-state caps still requires F's A13 evidence.
 
-The six legacy continuous non-evicting record stops, ordered by peers 8/32/64
-and dials 2/7, are now 1,145,894 / 1,121,036 / 1,113,874 / 1,089,243 / 1,071,332 /
-1,046,701 (formerly 1,146,268 / 1,121,410 / 1,114,248 / 1,089,603 / 1,071,706 /
-1,046,848). All original R10 baselines and owner seed-rule assertions remain;
-the default 32-peer guard still passes. Every windowed file stop moves down by
-`4096*878816=3599630336` bytes; (32 peers, 2 dials) is now 11,590,056,575,103 B.
-Exact pins and one-byte boundary tests remain enforced. Default Linux x86-64
-devnet model: 3,397,791,426 bytes with eviction, 3,388,329,805 without. These are
-capacity models, not elapsed-life or RSS claims.
+Spec-1 impact of that legacy correction: the six continuous non-evicting record
+stops, ordered by peers 8/32/64 and dials 2/7, are now 1,145,894 / 1,121,036 /
+1,113,874 / 1,089,243 / 1,071,332 / 1,046,701 (formerly 1,146,268 / 1,121,410 /
+1,114,248 / 1,089,603 / 1,071,706 / 1,046,848). All original R10 baselines and
+owner seed-rule assertions remain; the default 32-peer guard still passes. Every
+windowed file stop moves down by `4096*878624=3598843904` bytes; (32 peers, 2
+dials) is now 11,590,057,361,535 B. Exact pins and one-byte boundary tests remain
+enforced. Default Linux x86-64 devnet model: 3,397,791,234 bytes with eviction,
+3,388,329,613 without (3,396,912,610 / 3,387,450,989 before). These are capacity
+models, not elapsed-life or RSS claims; verdicts, roots, fork choice and journal
+and checkpoint bytes are unchanged.
 
 Tests live in `pocold/tests/v3_execution.rs`, LP4 fee/creation-fee and admission
 tests, and LP1 param-gate tests. Original London and USER vector files remain

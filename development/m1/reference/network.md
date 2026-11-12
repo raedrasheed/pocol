@@ -200,13 +200,13 @@ Light (LIGHT_RESP_MAX = 512 KiB):
   - pocol_getBurnTotals, pocol_getEscrow, pocol_getRetention, pocol_getClosing, pocol_getRpcStats, pocol_submitShare.
 - eth_getCode: ≤ 2·B_code_max+1 KiB ≈ 65 KiB.
 - eth_getTransactionByHash: ≤ 2·TX_MAX+2 KiB ≈ 258 KiB.
-- eth_getTransactionReceipt: ≤ 2·LOG_BLOCK_MAX+546·512 B+2 KiB ≈ 339 KiB.
+- eth_getTransactionReceipt: ≤ 2·LOG_BLOCK_MAX+546·512 B+2 KiB ≈ 339 KiB. Under a profile that can activate v3 (V3-24: 256 KiB / 4,368 logs per block, all of which one transaction may emit) the worst receipt is 2·262144+4368·512 B+2 KiB ≈ 2.63 MiB, above LIGHT_RESP_MAX: the node then serves eth_getTransactionReceipt as heavy (heavy lane, reservation and deadline, RESP_MAX answer limit), and v3 R26 requires RESP_MAX ≥ that bound. Spec-1 profiles keep this light row.
 - eth_getBlockBy* with hashes: ≤ 2 KiB+(BODY_MAX/85)·70 B ≈ 160 KiB.
 - pocol_getHeaders with count ≤ 64: ≤ 64·(2·3067+16) B ≈ 385 KiB.
 - pocol_getParams: ≤ 2·|genesisPre|+4 KiB, thus ≤ 92 KiB in end/full.
 - pocol_getAssignment, pocol_getMinerSet and pocol_getTemplate: ≤ 1024·160 B = 160 KiB.
 
-Heavy (RESP_MAX = 8 MiB): eth_getLogs, pocol_getLogs, eth_call, eth_estimateGas, eth_getProof, eth_feeHistory, pocol_getHeaders with count > 64, eth_getBlockBy* with full transactions, pocol_getRejects.
+Heavy (RESP_MAX = 8 MiB): eth_getLogs, pocol_getLogs, eth_call, eth_estimateGas, eth_getProof, eth_feeHistory, pocol_getHeaders with count > 64, eth_getBlockBy* with full transactions, pocol_getRejects, and eth_getTransactionReceipt under a v3-capable profile.
 
 Unlisted method: −32601 before admission. Adding one requires a table row and passing RG13. Overflow while encoding: −32020 {resultBytes}, with clean release (RG12).
 

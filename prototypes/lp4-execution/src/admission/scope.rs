@@ -94,7 +94,8 @@ pub const R26_PREDICATES:&[Pred]=&[
     ("sendSockBuf<=64KiB",&["send_sock_buf"],|r|r.send_sock_buf<=64*1024),
 ];
 const V3_LOG_PREDICATES:&[Pred]=&[
-    ("respMax>=2*262144+4368*512",&["resp_max"],|r|r.resp_max>=2*262144+4368*512),
+    // The v3 receipt row is heavy (C3-2): RESP_MAX covers getLogs and the worst receipt (+2 KiB).
+    ("respMax>=2*262144+4368*512+2048",&["resp_max"],|r|r.resp_max>=2*262144+4368*512+2048),
     ("logsCountMax>=4368",&["logs_count_max"],|r|r.logs_count_max>=4368),
     ("logsScanBytes>=262144",&["logs_scan_bytes"],|r|r.logs_scan_bytes>=262144),
 ];

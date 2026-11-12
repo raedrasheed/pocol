@@ -234,8 +234,19 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     assert!(dead.is_empty(),"never the only failing predicate: {dead:?}");
 }
 
+/// C3-4 / D-V3-21: the creation-burn user bound is an enforced launch blocker. Until it is resolved,
+/// no profile that can activate v3 is admitted outside a simnet profile on a simnet node.
+#[test] fn open_v3_launch_blockers_refuse_every_non_simnet_v3_admission(){
+    assert!(V3_LAUNCH_BLOCKERS.iter().any(|b|b.starts_with("D-V3-21 creation-burn user bound")),"the creation-burn user bound is an open launch blocker");
+    for (k,n) in [(ProfileKind::Network,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Node)]{
+        let e=v3_launch_gate(true,k,n).unwrap_err();assert_eq!(e.rules,v(&["v3-launch-blocker"]));assert!(e.notes[0].contains("creation-burn user bound"),"{e}");
+        assert!(v3_launch_gate(false,k,n).is_ok(),"spec-1 profiles never reach the v3 blockers");
+    }
+    assert!(v3_launch_gate(true,ProfileKind::Simnet,NodeKind::Simnet).is_ok(),"the simnet preview stays admissible");
+}
+
 #[test] fn an_enforced_v3_log_limit_cannot_be_waived_by_an_unrelated_absent_field(){
-    for (field,value,label) in [("resp_max",2*32768+546*512,"respMax>=2*262144+4368*512"),("logs_count_max",546,"logsCountMax>=4368"),("logs_scan_bytes",32768,"logsScanBytes>=262144")]{
+    for (field,value,label) in [("resp_max",2*32768+546*512,"respMax>=2*262144+4368*512+2048"),("logs_count_max",546,"logsCountMax>=4368"),("logs_scan_bytes",32768,"logsScanBytes>=262144")]{
         let f=RpcFacts::enforced(&[(field,value)]).unwrap();assert!(r26_partial(&f).1.is_empty());
         let (w,failed)=r26_partial_for(&f,true);assert_eq!(failed,vec![label]);assert!(w.checked.contains(&label));assert!(!w.waived.contains(&label));
     }
@@ -249,7 +260,7 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     let present:Vec<(&str,u64)>=RPC_FIELDS.iter().filter(|f|!original.absent().contains(f)).map(|f|(*f,*scope_slot(&mut values,f))).collect();
     let local=NodeLocal{rpc:RpcFacts::enforced(&present).unwrap(),..sh()};
     let error=admit(&n.request(&local,Some(&timing))).err().unwrap();assert_eq!(error.rules,v(&["R26"]));
-    assert!(error.notes.iter().any(|note|note.contains("respMax>=2*262144+4368*512")),"{error}");
+    assert!(error.notes.iter().any(|note|note.contains("respMax>=2*262144+4368*512+2048")),"{error}");
 }
 fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     match f{"conn_max"=>&mut l.conn_max,"req_buf"=>&mut l.req_buf,"conn_buf"=>&mut l.conn_buf,"send_sock_buf"=>&mut l.send_sock_buf,"heavy_active"=>&mut l.heavy_active,

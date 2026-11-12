@@ -201,9 +201,11 @@ impl RpcLimits {
     pub fn satisfies_r26(&self) -> bool {
         self.satisfies_r26_for(false)
     }
-    /// R26 must cover every log cap the admitted profile can activate.
+    /// R26 must cover every log cap the admitted profile can activate. Under v3 one transaction can
+    /// emit every block log, so its receipt (2·LOG_BLOCK_MAX + count·512 B + 2 KiB, network.md (B))
+    /// exceeds LIGHT_RESP_MAX: the node serves eth_getTransactionReceipt heavy and RESP_MAX covers it.
     pub fn satisfies_r26_for(&self, v3: bool) -> bool {
-        let (log_bytes, log_count) = if v3 { (256 * 1024, 4368) } else { (32768, 546) };
+        let (log_bytes, log_count, receipt) = if v3 { (256 * 1024, 4368, 2048) } else { (32768, 546, 0) };
         let v = match self.derive() {
             Ok(v) => v,
             Err(_) => return false,
@@ -214,7 +216,7 @@ impl RpcLimits {
             && self.batch_resp_max >= self.resp_max
             && self.light_queue >= self.conn_max
             && self.batch_max as u128 * self.err_item_max as u128 + 64 <= self.conn_buf as u128
-            && self.resp_max >= 2 * log_bytes + log_count * 512
+            && self.resp_max >= 2 * log_bytes + log_count * 512 + receipt
             && self.logs_count_max >= log_count
             && self.logs_scan_bytes >= log_bytes
             && self.light_resp_max >= 385 * 1024

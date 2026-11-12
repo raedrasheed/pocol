@@ -42,7 +42,10 @@ fn v3_rpc_limits_cover_larger_log_bytes_counts_and_encoded_responses() {
     r.resp_max = 2 * 32768 + 546 * 512;
     assert!(r.satisfies_r26());
     assert!(!r.satisfies_r26_for(true));
+    // The v3 bound is the worst receipt (served heavy): getLogs' bound plus 2 KiB.
     r.resp_max = 2 * (256 * 1024) + 4368 * 512;
+    assert!(!r.satisfies_r26_for(true));
+    r.resp_max = 2 * (256 * 1024) + 4368 * 512 + 2048;
     assert!(r.satisfies_r26_for(true));
     r.resp_max -= 1;
     assert!(!r.satisfies_r26_for(true));
@@ -52,6 +55,26 @@ fn v3_rpc_limits_cover_larger_log_bytes_counts_and_encoded_responses() {
     let mut r = default;r.logs_scan_bytes = 256 * 1024 - 1;
     assert!(r.satisfies_r26());assert!(!r.satisfies_r26_for(true));
     r.logs_scan_bytes += 1;assert!(r.satisfies_r26_for(true));
+}
+
+/// C3-2: a v3 receipt can hold every block log (4,368 logs / 256 KiB), above LIGHT_RESP_MAX, so the v3
+/// R26 sizes RESP_MAX for it; the legacy light row (<= 339 KiB within 385 KiB) and its bounds are unchanged.
+#[test]
+fn v3_r26_covers_the_worst_receipt_and_the_legacy_receipt_row_is_unchanged() {
+    let worst_v3 = 2 * (256 * 1024) + 4368 * 512 + 2048;
+    let worst_v1 = 2 * 32768 + 546 * 512 + 2048;
+    let default = RpcLimits::default();
+    assert!(worst_v3 > default.light_resp_max, "a maximal v3 receipt does not fit the light lane");
+    assert!(worst_v1 <= 385 * 1024 && 385 * 1024 <= default.light_resp_max);
+    assert!(default.resp_max >= worst_v3 && default.satisfies_r26_for(true));
+    let mut r = default.clone();
+    r.resp_max = worst_v3 - 1;
+    assert!(!r.satisfies_r26_for(true));
+    r.resp_max = 2 * 32768 + 546 * 512;
+    assert!(r.satisfies_r26(), "the legacy RESP_MAX bound is unchanged");
+    let mut r = default;
+    r.light_resp_max = 385 * 1024 - 1;
+    assert!(!r.satisfies_r26() && !r.satisfies_r26_for(true), "the light lane still serves 385 KiB rows");
 }
 
 #[test]
