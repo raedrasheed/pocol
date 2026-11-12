@@ -105,6 +105,23 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let t=run(Slow{stalled:vec![3,4],stall:1050,..Default::default()});
     assert!(t.phase_ms.iter().max().unwrap()>=&1050,"a second stalled commit reaches R14/R19: {t:?}");
 }
+/// The single-outlier rule for any number of timed blocks: with two or more, exactly one stalled commit is counted at
+/// the lower median (so with two blocks the smaller commit, not the stall itself); with one, its commit is counted.
+#[test] fn the_single_largest_commit_is_counted_at_the_lower_median(){
+    let s=1050u64;
+    // One timed block: its commit is its own median and is counted.
+    assert_eq!(block_costs(&[(0,10,s)]),([10+s,0,0],[10,0,0],s,s));
+    // Two timed blocks, one stalled: counted at the other commit.
+    assert_eq!(block_costs(&[(0,10,20),(2,12,s)]),([30,0,32],[10,0,12],s,20));
+    // Two timed blocks, both slow: the second is still counted.
+    assert_eq!(block_costs(&[(0,10,s),(2,12,s)]).0,[10+s,0,12+s]);
+    // Three and four timed blocks, one stalled: no phase carries the stall; two stalled: one does.
+    assert_eq!(block_costs(&[(0,10,20),(1,10,s),(2,10,30)]),([30,40,40],[10,10,10],s,30));
+    assert_eq!(block_costs(&[(0,10,20),(0,10,25),(1,10,s),(2,10,30)]),([35,35,40],[10,10,10],s,25));
+    assert!(block_costs(&[(0,10,20),(0,10,s),(1,10,s),(2,10,30)]).0.iter().max().unwrap()>=&s);
+    // In memory every commit is 0: phase_ms is exec_ms.
+    assert_eq!(block_costs(&[(0,7,0),(1,8,0),(2,9,0)]),([7,8,9],[7,8,9],0,0));
+}
 /// A store-mode node's timing takes, per phase class, the larger of its in-memory and store measurements, so a
 /// store path slower than t_exec is refused by R14/R19 even when memory is fast; a store measurement for another
 /// genesis is refused.

@@ -1080,10 +1080,13 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
       (in memory: `apply_block`);
     - commit `c` = one timed durable commit of that block's nodes (0 in memory).
     - The block's cost is `e + c`. Exactly one commit of the calibration, the largest, is counted at the median
-      commit of the calibration instead of its own time.
+      commit of the calibration instead of its own time (the lower median for an even number of timed blocks, so
+      with two blocks it is the other block's commit).
     - `phase_ms` (what R14/R19 compare with t_exec, unchanged at 1 s) is, per phase class, the largest block cost.
-      One stalled write therefore cannot refuse a boot. A second stalled commit is counted, and so is a disk
-      whose typical (median) commit exceeds t_exec: such a host is refused.
+      With at least two timed blocks, one stalled write therefore cannot refuse a boot. A second stalled commit is
+      counted, and so is a disk whose typical (median) commit exceeds t_exec: such a host is refused. A finite
+      profile with `H_END = 1` has one timed block; its commit is its own median and is counted, so there only
+      the retry below tolerates a stall. Default and continuous profiles time at least six blocks.
     - Reported, not compared: `execution_ms` (the largest `e` per phase), `store_fsync_ms` (the largest `c`),
       `store_fsync_median_ms`, the sample count and `t_exec_ms`. One `timing:` line carries them: on a
       successful boot `pocold run` prints it to stderr (`pocold: ParamGate admitted, timing: ...`, from
@@ -1096,7 +1099,8 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
       `execution_ms=[12, 12, 12]`, `store_fsync_ms=1058`, `store_fsync_median_ms=1051` on this host) and
       `isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused` (one held commit:
       admitted, `phase_ms=[14, 14, 14]`, `store_fsync_ms=1051`); `lp4-execution` admission unit test
-      `the_store_calibration_times_each_block_commit` (every commit, one, or two commits slow).
+      `the_store_calibration_times_each_block_commit` (every commit, one, or two commits slow) and
+      `the_single_largest_commit_is_counted_at_the_lower_median` (the rule for one to four timed blocks).
     - The owner's two decisions behind this (2026-11-11) are recorded in
       [development/decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md](../decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md).
   - The admission condition `timing-not-a-bound` says that the store was included and how a block's cost is

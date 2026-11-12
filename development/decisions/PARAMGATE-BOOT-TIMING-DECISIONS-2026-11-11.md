@@ -35,8 +35,10 @@ The owner's answer, verbatim (2026-11-11, 09:46 UTC):
   INV-3, pr12-3) found that this broke "a host that is really too slow is still refused".
 - Branch `admission-commit-latency` (2026-11-12) keeps PR #12's per-block execution median and its one retry, and
   counts each block's durable commit in R14/R19 again. A block's cost is its median execution plus its commit. The
-  calibration's single largest commit is counted at the median commit. One stalled write therefore cannot refuse a
-  boot, but a disk whose typical commit exceeds t_exec is refused. The measured times (`phase_ms`, `execution_ms`,
+  calibration's single largest commit is counted at the median commit (the lower median for an even count). With at
+  least two timed blocks one stalled write therefore cannot refuse a boot, but a disk whose typical commit exceeds
+  t_exec is refused. A profile with a single timed block (`H_END = 1`) counts that block's commit; there only the
+  one retry tolerates a stall. The measured times (`phase_ms`, `execution_ms`,
   `store_fsync_ms`, `store_fsync_median_ms`, samples, `t_exec_ms`) are reported in the refusal and, on a
   successful boot, in one stderr line of `pocold run`. See A13-DERIVATION.md §3.
 - The implementation text approved with PG-2 also allowed timing store latency apart from execution, with its own

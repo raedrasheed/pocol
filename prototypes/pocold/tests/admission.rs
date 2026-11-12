@@ -193,15 +193,20 @@ fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000
     let t=spec.admission().timing().expect("the admitted measurement");assert!(t.stored&&t.phase_ms.iter().all(|p|*p<=t_exec_ms),"{t:?}");
     let r=t.report(local.t_exec);
     assert!(r.starts_with("timing: phase_ms=")&&r.contains("store_fsync_ms=")&&r.contains("t_exec_ms=1000"),"{r}");
-    // `run` reports the times it was admitted on, before it starts the network; the node is stopped once it has.
-    let mut child=std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["run","--network",dir.to_str().unwrap(),"--data",d.join("run").to_str().unwrap()])
-        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped()).spawn().unwrap();
-    let mut seen=Vec::new();
-    for l in std::io::BufRead::lines(std::io::BufReader::new(child.stderr.take().unwrap())){
-        let l=l.unwrap();let hit=l.starts_with("pocold: ParamGate admitted, timing: phase_ms=")&&l.contains("execution_ms=")&&l.contains("t_exec_ms=1000");seen.push(l);if hit{break}
+    // `run` reports the times it was admitted on, before it starts the network; the node is stopped once it has, or
+    // at a deadline, and by the guard on any panic, so a missing line fails the test instead of hanging it.
+    struct Kill(std::process::Child);
+    impl Drop for Kill{fn drop(&mut self){let _=self.0.kill();let _=self.0.wait();}}
+    let mut child=Kill(std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["run","--network",dir.to_str().unwrap(),"--data",d.join("run").to_str().unwrap()])
+        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped()).spawn().unwrap());
+    let err=child.0.stderr.take().unwrap();let (tx,rx)=std::sync::mpsc::channel();
+    std::thread::spawn(move||{for l in std::io::BufRead::lines(std::io::BufReader::new(err)){match l{Ok(l)=>{if tx.send(l).is_err(){break}}Err(_)=>break}}});
+    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(300);let mut seen=Vec::new();
+    while let Ok(l)=rx.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now())){
+        let hit=l.starts_with("pocold: ParamGate admitted, timing: phase_ms=")&&l.contains("execution_ms=")&&l.contains("t_exec_ms=1000");seen.push(l);if hit{break}
     }
-    let _=child.kill();let _=child.wait();
-    assert!(seen.last().is_some_and(|l|l.starts_with("pocold: ParamGate admitted, timing: phase_ms=")),"times reported on boot: {seen:?}");
+    drop(child);
+    assert!(seen.last().is_some_and(|l|l.starts_with("pocold: ParamGate admitted, timing: phase_ms=")),"times reported on boot within 300 s: {seen:?}");
     let every=calibrate(EVERY);
     let e=pocold::load_spec_calibrated(&dir,&local,|b,a|{calls+=1;every(b,a)}).map(|_|()).unwrap_err();eprintln!("every commit held: {e}");
     assert_eq!(calls,2,"a timing refusal is measured once more before boot fails");
