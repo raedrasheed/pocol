@@ -100,6 +100,22 @@ function Get-CargoTotals([string]$Text) {
     return [pscustomobject]@{ Passed = $passed; Failed = $failed; Binaries = $n }
 }
 
+# Echoes a failed cargo run's failure lines (failing tests, panics, the failures summary) to the job log,
+# so a failure can be diagnosed without downloading the evidence artifact. At most 300 lines.
+function Show-CargoFailures([string]$Check, [string]$Text) {
+    $out = New-Object System.Collections.Generic.List[string]
+    $inFailures = $false
+    foreach ($l in ($Text -split "`r?`n")) {
+        if ($l -match '^failures:\s*$') { $inFailures = $true }
+        elseif ($l -match '^test result:') { $inFailures = $false }
+        if ($inFailures -or $l -match '^test .* \.\.\. FAILED' -or $l -match 'panicked at' -or $l -match '^error(\[|:)' -or $l -match '^---- .* ----$') { $out.Add($l) }
+        if ($out.Count -ge 300) { $out.Add('(truncated; see the evidence artifact)'); break }
+    }
+    Write-Host ('::group::{0} failure lines' -f $Check)
+    foreach ($l in $out) { Write-Host $l }
+    Write-Host '::endgroup::'
+}
+
 $setupFailed = ''
 function Add-Check([string]$Check, $Step, [string]$Status, [string]$Detail) {
     $Results.Add([pscustomobject][ordered]@{
@@ -118,6 +134,7 @@ function Test-Cargo([string]$Check, [string]$Crate, [string]$Toolchain, [string[
     elseif ($r.ExitCode -eq 0 -and $t.Passed -gt 0) { Add-Check $Check $r 'PASS' $detail }
     elseif ($r.ExitCode -eq 0) { Add-Check $Check $r 'FAIL' ('exit 0 but no test ran; ' + $detail) }
     else { Add-Check $Check $r 'FAIL' ("exit $($r.ExitCode); " + $detail) }
+    if ($r.TimedOut -or $r.ExitCode -ne 0) { Show-CargoFailures $Check $r.Text }
     return $r
 }
 function Test-Program([string]$Check, [string]$Crate, [string]$Program, [string[]]$ArgList, [hashtable]$Env, [int]$TimeoutMinutes = 30) {

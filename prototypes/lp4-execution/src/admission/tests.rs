@@ -77,18 +77,50 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let a=admit(&n.request(&sh(),Some(&tm))).unwrap();
     assert!(!a.report().conditions.iter().any(|c|c.detail.contains("node store")),"an in-memory timing is not reported as stored");
 }
-/// Durable commit latency is measured separately from execution.
+/// R14/R19 count durable commit latency, robustly: a block's cost is its median execution plus its commit, and only the
+/// calibration's single largest commit is counted at the median commit. Every commit slow: every phase carries it. One
+/// stalled commit: no phase carries it. Two stalled commits: the second one is counted.
 #[test] fn the_store_calibration_times_each_block_commit(){
     use crate::node_trie::{Batch,Id,Node,NodeStore,SharedMem,TrieStore};
-    #[derive(Default)] struct Slow(SharedMem);
-    impl NodeStore for Slow{fn node(&self,id:&Id)->Option<std::sync::Arc<Node>>{self.0.node(id)}fn code(&self,h:&B256)->Option<Bytecode>{self.0.code(h)}}
+    use std::sync::atomic::{AtomicU32,Ordering};
+    /// Every commit takes `every` ms; the commits numbered in `stalled` (1: the genesis, before the timed blocks) `stall` ms more.
+    #[derive(Default)] struct Slow{m:SharedMem,every:u64,stalled:Vec<u32>,stall:u64,n:AtomicU32}
+    impl NodeStore for Slow{fn node(&self,id:&Id)->Option<std::sync::Arc<Node>>{self.m.node(id)}fn code(&self,h:&B256)->Option<Bytecode>{self.m.code(h)}}
     impl TrieStore for Slow{
-        fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{std::thread::sleep(std::time::Duration::from_millis(25));self.0.commit(b,root)}
-        fn unpin(&self,root:&Id)->Result<(),String>{self.0.unpin(root)}
-        fn pinned(&self)->Result<u64,String>{self.0.pinned()}}
-    let n=net(&cfg());let t=measure_on_store(&n.spec_bytes,&n.alloc,1,&Slow::default()).unwrap_or_else(|e|panic!("{e}"));
-    assert!(t.store_ms>=25,"the durable commit is reported separately: {t:?}");
+        fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{
+            let k=self.n.fetch_add(1,Ordering::SeqCst)+1;
+            std::thread::sleep(std::time::Duration::from_millis(self.every+if self.stalled.contains(&k){self.stall}else{0}));self.m.commit(b,root)}
+        fn unpin(&self,root:&Id)->Result<(),String>{self.m.unpin(root)}
+        fn pinned(&self)->Result<u64,String>{self.m.pinned()}}
+    let n=net(&cfg());let run=|s:Slow|measure_on_store(&n.spec_bytes,&n.alloc,1,&s).unwrap_or_else(|e|panic!("{e}"));
+    let t=run(Slow{every:25,..Default::default()});
+    assert!(t.store_ms>=25&&t.store_median_ms>=25,"the durable commit is reported: {t:?}");
+    for c in 0..3{assert!(t.phase_ms[c]>=t.exec_ms[c]+25,"every block's commit reaches R14/R19 (phase {c}): {t:?}");}
     assert_eq!(Timing::from_json(&t.to_json()),Some(t));
+    // One commit (the second timed block's) stalled past t_exec: reported, counted at the median commit.
+    let t=run(Slow{stalled:vec![3],stall:1050,..Default::default()});
+    assert!(t.store_ms>=1050&&t.store_median_ms<t.store_ms,"{t:?}");
+    assert!(t.phase_ms.iter().all(|p|*p<t.store_ms),"one stalled commit does not reach R14/R19: {t:?}");
+    // Two stalled commits: only one is replaced, so the other reaches R14/R19.
+    let t=run(Slow{stalled:vec![3,4],stall:1050,..Default::default()});
+    assert!(t.phase_ms.iter().max().unwrap()>=&1050,"a second stalled commit reaches R14/R19: {t:?}");
+}
+/// The single-outlier rule for any number of timed blocks: with two or more, exactly one stalled commit is counted at
+/// the lower median (so with two blocks the smaller commit, not the stall itself); with one, its commit is counted.
+#[test] fn the_single_largest_commit_is_counted_at_the_lower_median(){
+    let s=1050u64;
+    // One timed block: its commit is its own median and is counted.
+    assert_eq!(block_costs(&[(0,10,s)]),([10+s,0,0],[10,0,0],s,s));
+    // Two timed blocks, one stalled: counted at the other commit.
+    assert_eq!(block_costs(&[(0,10,20),(2,12,s)]),([30,0,32],[10,0,12],s,20));
+    // Two timed blocks, both slow: the second is still counted.
+    assert_eq!(block_costs(&[(0,10,s),(2,12,s)]).0,[10+s,0,12+s]);
+    // Three and four timed blocks, one stalled: no phase carries the stall; two stalled: one does.
+    assert_eq!(block_costs(&[(0,10,20),(1,10,s),(2,10,30)]),([30,40,40],[10,10,10],s,30));
+    assert_eq!(block_costs(&[(0,10,20),(0,10,25),(1,10,s),(2,10,30)]),([35,35,40],[10,10,10],s,25));
+    assert!(block_costs(&[(0,10,20),(0,10,s),(1,10,s),(2,10,30)]).0.iter().max().unwrap()>=&s);
+    // In memory every commit is 0: phase_ms is exec_ms.
+    assert_eq!(block_costs(&[(0,7,0),(1,8,0),(2,9,0)]),([7,8,9],[7,8,9],0,0));
 }
 /// A store-mode node's timing takes, per phase class, the larger of its in-memory and store measurements, so a
 /// store path slower than t_exec is refused by R14/R19 even when memory is fast; a store measurement for another
