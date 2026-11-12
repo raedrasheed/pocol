@@ -373,7 +373,8 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
         });
     }
     members.sort_by_key(|m| m.id);
-    let programs = if input.earnin {SystemPrograms::earnin()} else if input.continuous {SystemPrograms::continuous()} else {SystemPrograms::v1()};
+    // V3-34: a v3 config (specVersion 2, CP schema v2) selects the v3 programs; nothing else can.
+    let programs = if input.v3 {SystemPrograms::v3()} else if input.earnin {SystemPrograms::earnin()} else if input.continuous {SystemPrograms::continuous()} else {SystemPrograms::v1()};
     let mut spec = GenesisSpec {
         spec_version: cfg.spec_version,
         chain_id: cfg.chain_id,
