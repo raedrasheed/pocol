@@ -8,7 +8,7 @@ Status: records the owner approval of 2026-11-08 and its implementation constrai
 
 Node-local changes are approved without reservation. Consensus changes are approved only while preserving collaboration, the common immutable template, and every basic PoCol principle P1–P10 in [V3-DESIGN.md](V3-DESIGN.md). Stop and ask the owner before crossing that boundary or deciding an unanswered owner question.
 
-For compliant items with the choices below, this standing owner authorization supplies the required owner decision; it supersedes the historical proposal-before-implementation gate cited as `development/m1/reference/README.md:484–486` for those items only. It does not approve rejected mechanisms, deferred work, unanswered questions reserved to the owner or live deployment. Preserve earlier decision records as history; the scoped amendments below take precedence only for their stated profiles.
+For compliant items with the choices below, this standing owner authorization supplies the required owner decision; it supersedes the historical proposal-before-implementation gate in the repository root `README.md:484–486` for those items only. That bullet reads: “**Consensus is owner-gated.** A change to a consensus rule, a `CP` parameter or a wire encoding needs an owner decision. Write a proposal in `development/audit-2026-10-22/proposals/` with the alternatives and their effects, and do not implement it before it is approved.” (An earlier version of this record cited the path `development/m1/reference/README.md:484–486`, which does not exist.) It does not approve rejected mechanisms, deferred work, unanswered questions reserved to the owner or live deployment. Preserve earlier decision records as history; the scoped amendments below take precedence only for their stated profiles.
 
 Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIONS-2026-11-08.md), and [consensus boundary policy](../VA-SPEC.md). The implementation PR sequence is the handoff roadmap; its later dormant-gate strategy supersedes the design earlier suggestion to spend a gate at the first v3 scaffold PR.
 
@@ -21,7 +21,7 @@ Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIO
 | O-10 Contestable seats when the set is full | V3-10 | **b**: contest by work over one day with a statistical margin (θ=1/8, 3σ), only when all seats are full, with the displaced member refunded, and only together with V3-02 |
 | O-11 Inactivity removal delay Θ_inact | V3-11 | **b**: 1 hour |
 | O-12 Registration bond B_reg | V3-12 | **a**: 20 PCOL |
-| O-13 Probationers as proposers | V3-13 | **b**: yes, once the accrued bond is at least B_reg/4; retain the all-probationer exception clarified below |
+| O-13 Probationers as proposers | V3-13 | **b**: yes, once the accrued bond is at least B_reg/4 (the all-probationer exception below is pending owner confirmation) |
 | O-14 Probation pool | V3-14 | **b**: M_max/4 slots (64), contest by work inside the pool, T_PROB = 30 days, both as CP fields (requires V3-09) |
 | O-15 Uncovered share pot | V3-15 | **b**: carried into the next block's pot at closeBlock |
 | O-17 Reward for reporting misbehaviour | V3-17 | **b**: 25% of the burned bond to the reporter, 75% burned |
@@ -32,9 +32,15 @@ Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIO
 | O-32 The 4,000,000 PCOL genesis allocation | V3-32 | **b**: publish the holder addresses and their purpose, and move the development fund into a public time-locked account with published spending reports |
 | O-33 How the re-genesis is run | V3-33 | **b**: no user transactions after S; publish the old-chain data; ship an Android key-export build first; and commit publicly that this is the last owner-only re-genesis, with later consensus changes going through the fork schedule |
 
-## Owner clarification — 2026-11-11
+## All-probationer exception — pending owner confirmation (asked 2026-11-12)
 
-For O-13, the owner answered: **“Retain the all-probationer exception below B_reg/4.”** The quarter-bond filter applies normally; when it would exclude every member of the draw membership, retain the existing exception that admits all those probationers to the deterministic share-weighted draw. This avoids removing the draw in that case. The exception means the B_reg/4 minimum equivocation penalty is not universal. This clarification supplements the dated O-13=b answer without rewriting its historical source.
+An earlier version of this section (commit 3d526e0, 2026-11-11) recorded an owner clarification of O-13: “Retain the all-probationer exception below B_reg/4.” The audit of 2026-11-12 found no verifiable owner source for that text: neither the dated owner record nor the owner messages it reviewed contain it. The dated record [V3-OWNER-DECISIONS-2026-11-08.md](V3-OWNER-DECISIONS-2026-11-08.md) says only “O-13 **b**: yes, once the accrued bond is at least B_reg/4”. So the exception is **pending owner confirmation (asked 2026-11-12)**. It is not a recorded owner decision.
+
+The question: under O-13=b, every draw member may be a probationer (ACCRUING) below B_reg/4. In that case:
+- **(a) Keep the existing exception.** This is the earn-in D1 rule ([EARN-IN-SPEC.md](EARN-IN-SPEC.md) §6), and the dormant v3 code implements it. All those probationers enter the deterministic share-weighted draw, so signed blocks continue. The cost: a drawn proposer may hold less than B_reg/4, possibly zero, so the B_reg/4 minimum loss for a type-1 equivocation does not hold in that case.
+- **(b) Have no signed candidate.** Only fallback blocks are made until some probationer reaches B_reg/4. The quarter-bond loss bound then holds for every signed proposer. This needs an explicit new rule. Simply removing the exception would leave the draw with zero total weight and stop the chain.
+
+The exception is kept in the dormant code until the owner answers, because removing it alone would stop the chain. Record the owner's verbatim answer and its date in a dated owner-decisions file and point this section at it. The liveness interplay with all-live membership is disclosed in [threat.md](../m1/reference/threat.md) (v3 amendment, A6).
 
 ## Decisions D-V3-01 through D-V3-34
 
@@ -112,7 +118,7 @@ Approved within the owner rule; OWNER-CHOICE. Principle check: parameter (Ch9). 
 
 ### D-V3-13
 
-Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. Owner clarification on 2026-11-11: retain the existing all-probationer exception below B_reg/4 when the filter would otherwise exclude every draw member. Keep the share-weighted deterministic draw.
+Probationary (ACCRUING) members as proposer candidates. O-13=b: an ACCRUING member may enter the proposer draw once bond>=B_reg/4. The existing all-probationer exception below B_reg/4, used when the filter would otherwise exclude every draw member, is retained pending owner confirmation (asked 2026-11-12; see 'All-probationer exception'). Keep the share-weighted deterministic draw.
 
 Approved within the owner rule; OWNER-CHOICE. Principle check: Ch1 candidate set; P3 kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
@@ -277,7 +283,7 @@ The owner describes the 4,000,000 PCOL allocation as personal funds intended to 
 
 ## Related owner actions
 
-The three seeds are to stop only after peer discovery works and enough independent nodes exist. The owner creates the real Android release signing key. The planned human security audit is after the real launch; that plan supplies no current audit or readiness evidence. These statements do not authorize live operations in this work.
+Seeds (owner statement, V3-OWNER-DECISIONS-2026-11-08.md §3): the three operator seeds will be stopped once peer-address discovery works. Recommendation only, not an owner statement: also wait until enough independent nodes exist. The owner creates the real Android release signing key. The planned human security audit is after the real launch; that plan supplies no current audit or readiness evidence. These statements do not authorize live operations in this work.
 
 ## Validation and operational boundaries
 

@@ -42,6 +42,44 @@ class ConsensusIdentity(unittest.TestCase):
         with self.assertRaises(ValueError):
             ident.consensus_id(7, info['genesisHash'], 1, ident.FLAG_UNPINNED, [(1, 0)])
 
+    def test_a_pinned_preview_still_commits_its_source_aggregate(self):
+        # Mirrors pocold identity::tests::pinned_preview_still_commits_its_source_aggregate and identity.rs flags()/
+        # sources(): bit2 (v3-preview) appends the aggregate even on a pinned tree. The Rust test pins no hex value, so
+        # the expected bytes are built here with struct, independently of consensus_id's own encoding.
+        self.assertEqual(ident.FLAG_V3_PREVIEW, 4)
+        genesis = '01' * 32
+        def documented(flags, sources=None):
+            data = b'pocol-consensus-identity-v1\0' + struct.pack('>Q', 7) + bytes.fromhex(genesis)
+            data += struct.pack('>IBB', 1, flags, 1) + struct.pack('>HQ', 1, 0) + (bytes.fromhex(sources) if sources else b'')
+            return hashlib.sha256(data).hexdigest()
+        ordinary = ident.consensus_id(7, genesis, 1, 0, [(1, 0)])
+        a = ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW, [(1, 0)], '08' * 32)
+        b = ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW, [(1, 0)], '09' * 32)
+        unpinned = ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW | ident.FLAG_UNPINNED, [(1, 0)], '08' * 32)
+        self.assertEqual(a, documented(4, '08' * 32))
+        self.assertEqual(unpinned, documented(6, '08' * 32))
+        self.assertEqual(len({ordinary, a, b, unpinned}), 4)
+        # The aggregate goes exactly with bit1 or bit2 (identity.rs asserts the same).
+        with self.assertRaises(ValueError):
+            ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW, [(1, 0)])
+        with self.assertRaises(ValueError):
+            ident.consensus_id(7, genesis, 1, 0, [(1, 0)], '08' * 32)
+        # build-info: a pinned preview build reports v3Preview true and 'v3-preview' in features (pocold build.rs);
+        # either one sets bit2, and its consensusSourcesSha256 (the actual aggregate) is appended.
+        info = {'chainId': 7, 'genesisHash': '0x' + genesis, 'forks': [[1, 0]]}
+        pinned = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '08' * 32}
+        self.assertEqual(ident.for_network(info, pinned), ordinary)
+        self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=False)), ordinary)
+        for preview in (dict(pinned, v3Preview=True, features=['v3-preview']), dict(pinned, v3Preview=True),
+                        dict(pinned, features=['v3-preview'])):
+            self.assertEqual(ident.build_flags(preview), ident.FLAG_V3_PREVIEW, preview)
+            self.assertEqual(ident.for_network(info, preview), a, preview)
+        self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=True, consensusSourcesSha256='09' * 32)), b)
+        self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=True, consensusPinned=False)), unpinned)
+        # The ordinary pinned H15000 identity is unchanged.
+        h15000 = {'chainId': 1599846715, 'genesisHash': '0x' + GENESIS, 'forks': [[1, 0], [2, 15000]]}
+        self.assertEqual(ident.for_network(h15000, dict(pinned, v3Preview=False)), GOLDEN)
+
     def test_the_schedule_rule_is_the_runtime_shape(self):
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9]]), ((1, 0), (2, 9)))
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9], [3, 20]], 3)[-1], (3, 20))
