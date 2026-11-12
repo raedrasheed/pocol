@@ -1409,11 +1409,15 @@ checkpoint/index loss, partial timing-table loss, corruption recovery and re-fet
 Three terms exist only for a CP schema v2 (v3) profile; on CP schema v1 each is zero and the pinned spec-1 totals
 (3,396,912,610 B; eviction off 3,387,450,989 B) are unchanged, as are `Entry`, `Rec`, REC_MIN and REC_MAX.
 
-- `queues/late-share cache`: `node::LateCache`, at most D templates (`LateTemplate`: TemplateID, nMax, share target and
-  at most SHARE_RELAY_PER_S_MAX·S_max = 4·S_max nonces), each nonce Vec and the deque counted at memory::VEC:
-  3·D·(size_of LateTemplate + 3·4·S_max·8) + 64. The design's estimate was D·4·S_max·8 B.
+- `queues/late-share cache`: `node::LateCache`, at most D + LATE_PENDING_MAX + 1 templates (`LateTemplate`: TemplateID,
+  height, nMax, share target and at most SHARE_RELAY_PER_S_MAX·S_max = 4·S_max nonces). `LateCache::prune` keeps the
+  branch's template of each height in the next carrier's window [max(1, H+1−D), H] (D) and the newest
+  LATE_PENDING_MAX = 2 of the production height H+1; one more exists between a stash and its prune. Each nonce Vec and
+  the deque are counted at memory::VEC: 3·(D + 3)·(size_of LateTemplate + 3·4·S_max·8) + 64. The design's estimate was
+  D·4·S_max·8 B; the review of E3 replaced "the last D templates locked" (which dead attempts and an equivocation's
+  other template could fill, pushing a canonical one out) with this window.
 - `history/late-share evidence kept on offloaded entries`: an offloaded entry keeps its body's kind-3 items for the
-  branch deduplication (`chain::offload`), a slimmed one drops them. Per entry at most min(E_max, L) items with
+  branch deduplication (`chain::offload`), a slimmed one drops them, whichever of the two ran first. Per entry at most min(E_max, L) items with
   L = min(E_max·min(S_max, κm − 1), D·(κm − 1)) late shares a block can credit: items·(24 + 17) + 9·L, never above
   E_max·(EVID_BYTES_MAX + 24). Counted for the offloaded canonical entries above the slim depth, the side entries
   (side_cap + 2·R_keep) and a rebuild's shadow copies (max(257, E_win + 1) with eviction on). At the default devnet

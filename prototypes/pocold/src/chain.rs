@@ -262,8 +262,10 @@ pub fn decode_result(rb:&[u8],hash:&[u8;32])->Result<Option<ParentResult>,Reject
 /// encoded header. Fork choice, child contexts and evidence ancestry read only the metadata kept.
 /// V3-02: the block's kind-3 (late share) evidence items stay (`offloaded_body`): the late-share deduplication of its
 /// descendants reads them on the branch (`Chain::late_credited`). A valid spec-1 block carries none, so a spec-1
-/// entry is offloaded to exactly what it was before.
-pub(crate) fn offload(e:&mut Entry){e.body=offloaded_body(&e.body);e.receipts=Vec::new();e.tx_hashes=Vec::new();e.header.encoded=Vec::new();e.offloaded=true;}
+/// entry is offloaded to exactly what it was before. An entry slimmed first keeps none (as `slim` of an offloaded
+/// one): a slimmed and offloaded entry holds no evidence whichever ran first, so the live entry, a replayed one and a
+/// checkpoint-restored one (`checkpoint::entry_of`) are the same, and `unslim` reads the items back.
+pub(crate) fn offload(e:&mut Entry){e.body=if e.slim{Body::default()}else{offloaded_body(&e.body)};e.receipts=Vec::new();e.tx_hashes=Vec::new();e.header.encoded=Vec::new();e.offloaded=true;}
 /// What an offloaded entry keeps of its body: its late-share evidence items (V3-02), nothing else (an empty body
 /// without an allocation when there are none).
 pub(crate) fn offloaded_body(b:&Body)->Body{Body{txs:Vec::new(),evidence:late_items(&b.evidence)}}
@@ -853,7 +855,12 @@ impl Chain{
     fn evidence_late(&self,p:&Entry,f:&[crate::rlp::Item<'_>],h:u64,block:&mut LateBlock)->Result<EvidenceEffect,Reject>{
         let cp=self.spec.cp();let rules=LateRules{h,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
         let (j,nonces)=late_fields(f,rules.s_max)?;
+        // The window is relative to a child of p: an item judged at any other height (a received template's height
+        // is the sender's claim until its block is validated, "2 height") is a verdict on it, never a local fault.
+        if h!=p.height.saturating_add(1){return Err(ls("window"))}
         late_window(&rules,j)?;
+        // h = p.height+1 and j in [max(1,h-D), h-1]: block j is an ancestor of p within D, which the window holds;
+        // not finding it is this node's fault, not the block's.
         let e=self.ancestor_at(p,j).ok_or_else(||Reject::Local(format!("late shares: template {j} is not held on the branch")))?;
         // C-1 S4: a slimmed template is restored first (its TemplateID, shares and ranges), as for type 2.
         if e.slim{return Err(Reject::NeedsRebuild(e.hash))}

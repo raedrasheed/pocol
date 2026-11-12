@@ -172,32 +172,52 @@ pub const FUTURE_MAX:usize=64;pub const TEMPLATES_MAX:usize=64;pub const SEEN_MA
 /// Gossip: TemplateIDs already relayed (each is relayed at most once), and the shares relayed per locked
 /// template, as a multiple of S_max (a block carries at most S_max shares; more only cost bandwidth).
 pub const RELAYED_MAX:usize=256;pub const SHARE_RELAY_PER_S_MAX:usize=4;
-/// V3-02 (node-local, v3 program set only): the shares seen for each of the last D templates this node locked, at most
+/// V3-02 (node-local, v3 program set only): the shares seen for the templates a carrier can still credit, at most
 /// SHARE_RELAY_PER_S_MAX·S_max nonces each (`LateCache`); a proposer carries the uncredited ones as kind-3 evidence.
+/// `height` is the template's block height.
 #[derive(Clone,Debug)]
-pub struct LateTemplate{pub tid:[u8;32],pub nonce_max:u128,pub t_share:Fixed,pub shares:Vec<u64>}
-/// V3-02: the late-share cache, oldest first, at most D templates (A13: resources.rs "queues/late-share cache").
+pub struct LateTemplate{pub tid:[u8;32],pub height:u64,pub nonce_max:u128,pub t_share:Fixed,pub shares:Vec<u64>}
+/// V3-02: the templates of the production height (not yet canonical) the late-share cache keeps, newest first: the
+/// template being left and the one before it (an attempt change, or a signed template and its equivocation fallback).
+pub const LATE_PENDING_MAX:usize=2;
+/// V3-02: the late-share cache, oldest first (A13: resources.rs "queues/late-share cache"). After each `prune` it holds
+/// the canonical template of each height in [max(1, H+1-D), H] (H the head's height: the window of the next carrier)
+/// and at most LATE_PENDING_MAX templates of height H+1; one more between a `stash` and its `prune`.
 #[derive(Clone,Debug,Default)]
 pub struct LateCache{pub templates:VecDeque<LateTemplate>}
 impl LateCache{
-    /// Each template keeps at most `cap` nonces, in ascending order; at most `d` templates are kept.
-    pub fn stash(&mut self,t:LateTemplate,d:usize,cap:usize){
+    /// Adds a template (or merges its shares into the cached copy); each keeps at most `cap` nonces, in ascending order.
+    pub fn stash(&mut self,t:LateTemplate,cap:usize){
         if let Some(x)=self.templates.iter_mut().find(|x|x.tid==t.tid){for n in t.shares{x.add(n,cap);}return}
-        let mut fresh=LateTemplate{tid:t.tid,nonce_max:t.nonce_max,t_share:t.t_share,shares:Vec::new()};for n in t.shares{fresh.add(n,cap);}
-        self.templates.push_back(fresh);while self.templates.len()>d{self.templates.pop_front();}
+        let mut fresh=LateTemplate{tid:t.tid,height:t.height,nonce_max:t.nonce_max,t_share:t.t_share,shares:Vec::new()};for n in t.shares{fresh.add(n,cap);}
+        self.templates.push_back(fresh);
+    }
+    /// Keeps only what a carrier above a head at height `head` can use: a template of height j in [max(1, head+1-d),
+    /// head] only when it is the branch's template at j (`canonical(j)`: a dead attempt, an equivocation's other
+    /// template or a sibling's never pushes a canonical one out), and the newest LATE_PENDING_MAX of height head+1.
+    pub fn prune(&mut self,head:u64,d:u64,canonical:impl Fn(u64)->Option<[u8;32]>){
+        let lo=(head+1).saturating_sub(d).max(1);
+        self.templates.retain(|t|t.height>=lo&&(t.height>head||canonical(t.height)==Some(t.tid))&&t.height<=head+1);
+        let pending=self.templates.iter().filter(|t|t.height==head+1).count();
+        let mut drop=pending.saturating_sub(LATE_PENDING_MAX);
+        self.templates.retain(|t|{if drop>0&&t.height==head+1{drop-=1;false}else{true}});
     }
     pub fn get(&self,tid:&[u8;32])->Option<&LateTemplate>{self.templates.iter().find(|x|x.tid==*tid)}
-    /// A share received for a cached template (checked: below its nMax and meeting its share target). True when the
-    /// template is cached (whether or not the share was new).
-    pub fn take(&mut self,tid:&[u8;32],nonce:u64,cap:usize)->bool{
-        let Some(x)=self.templates.iter_mut().find(|x|x.tid==*tid) else{return false};
-        if (nonce as u128)<x.nonce_max&&le_target(&pow_hash(tid,nonce),&x.t_share){x.add(nonce,cap);}
-        true
+    /// Takes a cached template out (it is locked again, and mined: its shares go back to the production's).
+    pub fn remove(&mut self,tid:&[u8;32])->Option<LateTemplate>{let i=self.templates.iter().position(|x|x.tid==*tid)?;self.templates.remove(i)}
+    /// A share received for a cached template, kept when it is below its nMax, meets its share target and fits the cap.
+    /// None when the template is not cached, else whether the share was new and kept (to be relayed).
+    pub fn take(&mut self,tid:&[u8;32],nonce:u64,cap:usize)->Option<bool>{
+        let x=self.templates.iter_mut().find(|x|x.tid==*tid)?;
+        Some((nonce as u128)<x.nonce_max&&le_target(&pow_hash(tid,nonce),&x.t_share)&&x.add(nonce,cap))
     }
     pub fn len(&self)->usize{self.templates.len()}
     pub fn is_empty(&self)->bool{self.templates.is_empty()}
 }
-impl LateTemplate{fn add(&mut self,n:u64,cap:usize){if self.shares.len()>=cap{return}if let Err(i)=self.shares.binary_search(&n){self.shares.insert(i,n);}}}
+impl LateTemplate{
+    /// Adds a nonce within `cap`; true when it was not there and was added.
+    fn add(&mut self,n:u64,cap:usize)->bool{if self.shares.len()>=cap{return false}match self.shares.binary_search(&n){Err(i)=>{self.shares.insert(i,n);true}Ok(_)=>false}}
+}
 /// F7: hard cap on the persisted attempt-0 signing record (a backstop beyond the reorg-window prune).
 pub const SIGNED_A0_MAX:usize=4096;
 /// Events waiting for the consensus thread (all sources); senders block when it is full.
@@ -498,7 +518,7 @@ pub struct Node{
     pub seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
     seen_wins:HashMap<([u8;32],u64),([u8;32],[u8;65])>,
     pub evidence_pool:Vec<Vec<u8>>,
-    /// V3-02 (v3 program set only): shares seen for the last D locked templates (`LateCache`).
+    /// V3-02 (v3 program set only): shares seen for the templates a carrier can still credit (`LateCache`).
     pub late_cache:LateCache,
     /// F7 double-sign guard. `signed_a0` records, per (parent_hash, height), the template id this node
     /// has already signed at attempt 0; it is persisted to `signed-a0` in the data dir and fsynced
@@ -1742,13 +1762,17 @@ impl Node{
     // ---------------- production (consensus §4) ----------------
     /// Starts producing on the current head, as `run` does first: for a node driven in process.
     pub fn start_production(&mut self){self.restart_production()}
-    /// V3-02: the locked template's shares go to the late-share cache before production leaves it (v3 program set only).
+    /// V3-02: the locked template's shares go to the late-share cache before production leaves it, and the cache is
+    /// pruned to the current head's carrier window (`LateCache::prune`; v3 program set only).
     fn stash_late(&mut self){
         let h=self.chain.head().height+1;if !self.chain.late_shares(h){return}
-        let Some(pr)=&self.prod else{return};let Mode::Locked(l)=&pr.mode else{return};
-        let t=LateTemplate{tid:l.tid,nonce_max:l.ctx.assignment.nonce_max(),t_share:l.ctx.t_share,shares:pr.shares.iter().copied().collect()};
-        let (d,cap)=(usize::from(self.chain.spec.cp().D),SHARE_RELAY_PER_S_MAX*usize::from(self.chain.spec.cp().S_max));
-        self.late_cache.stash(t,d,cap);
+        let (d,cap)=(u64::from(self.chain.spec.cp().D),SHARE_RELAY_PER_S_MAX*usize::from(self.chain.spec.cp().S_max));
+        if let Some(Production{mode:Mode::Locked(l),shares,..})=&self.prod{
+            let t=LateTemplate{tid:l.tid,height:l.header.h,nonce_max:l.ctx.assignment.nonce_max(),t_share:l.ctx.t_share,shares:shares.iter().copied().collect()};
+            self.late_cache.stash(t,cap);
+        }
+        let chain=&self.chain;let head=chain.head();
+        self.late_cache.prune(head.height,d,|j|chain.late_template(head,j));
     }
     fn restart_production(&mut self){
         self.stash_late();
@@ -1936,7 +1960,10 @@ impl Node{
             // Shares and `solved` belong to one TemplateID. A switch within an attempt (a locked template to
             // the sticky fallback after a type-1 equivocation) must not carry the abandoned template's shares
             // into the new header: they do not meet its share target, and its block would be invalid (item 9).
-            if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.solved=false;}
+            if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.solved=false;
+                // V3-02: a template locked again (the head back on its parent, or the F7 attempt-0 copy) is mined
+                // again: its cached shares come back to the production's, and its later shares take the locked path.
+                if let Some(t)=self.late_cache.remove(&tid){pr.shares.extend(t.shares);}}
         }
         // A miner that cannot be spawned (the task limit reached) leaves this node idle for the template, not stopped.
         let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).and_then(|(s,e)|
@@ -1964,6 +1991,9 @@ impl Node{
         let tid=template_id(&shell.ut_raw);
         let ok_sig=matches!(hashes::recover_address(&hashes::sig_msg(&tid),&shell.sig),Ok(a) if a[..]==shell.proposer[..]);
         if !ok_sig||shell.proposer[..]!=ctx.proposer[..]||!ctx.window.contains(shell.ts)||crate::timing::is_future(shell.ts,now_s(),self.capital_phi()){return false}
+        // Its block would fail item 2 (h = parent height + 1): as if absent, and the peer is punished. Checked before
+        // the evidence, whose rules are relative to a child of p (V3-02 kind 3: the window [max(1,h-D), h-1]).
+        if shell.h!=p.height+1{return self.punish_template(from,"its height is not its parent's plus one (item 2)")}
         // consensus.md:101, §4(a): a template whose block would fail item 16 is as if absent (no lock).
         if !self.chain.within_caps(&p,&body.txs){return self.punish_template(from,"over a cap (item 16)")}
         let effects=match self.chain.evidence_effects(&p,&body,shell.h){Ok(e)=>e,Err(e)=>return self.template_error(from,"invalid evidence",e)};
@@ -2203,9 +2233,18 @@ impl Node{
             }
             Msg::Share{tid,nonce}=>{
                 let relay_max=SHARE_RELAY_PER_S_MAX*usize::from(self.chain.spec.cp().S_max);
-                // V3-02: a share of a cached earlier template is kept for late credit (never relayed: its template is
-                // no longer mined here). Only the v3 program set caches.
-                if self.late_cache.take(&tid,nonce,relay_max){return}
+                // V3-02: a share of a cached earlier template (not the one locked here) is kept for late credit, and a
+                // new one is relayed as a live share is: its credit then does not depend on which peers its finder
+                // reaches. Within the cache's cap, so a template's shares are relayed at most SHARE_RELAY_PER_S_MAX·S_max
+                // times over its life, locked and cached together. Only the v3 program set caches.
+                let locked=matches!(&self.prod,Some(Production{mode:Mode::Locked(l),..}) if l.tid==tid);
+                if !locked{
+                    match self.late_cache.take(&tid,nonce,relay_max){
+                        Some(true)=>{self.credit(from,Useful::Share);self.broadcast(&Msg::Share{tid,nonce},Some(from));self.stats.relayed_shares+=1;return}
+                        Some(false)=>return,
+                        None=>{}
+                    }
+                }
                 let relay={let Some(pr)=&mut self.prod else{return};let Mode::Locked(l)=&pr.mode else{return};
                     if tid!=l.tid||(nonce as u128)>=l.ctx.assignment.nonce_max()||pr.shares.contains(&nonce){return}
                     if !le_target(&pow_hash(&tid,nonce),&l.ctx.t_share){return}
@@ -2614,7 +2653,8 @@ impl Node{
             let mut block=chain::LateBlock::default();
             for raw in &out{if let Ok((j,ns))=chain::late_parse(raw,u64::MAX){block.seen.entry(j).or_default().extend(ns);}}
             let lo=h.saturating_sub(u64::from(self.chain.spec.cp().D)).max(1);
-            for j in (lo..h).rev(){
+            // Oldest first: j = h-D has no later carrier (settle(h-D) runs in this block), newer ones still do.
+            for j in lo..h{
                 if out.len()>=e_max{break}
                 let Some(tid)=self.chain.late_template(p,j) else{continue};
                 let Some(t)=self.late_cache.get(&tid) else{continue};
@@ -2786,5 +2826,77 @@ mod f7_tests{
         assert_eq!(n2.signed_a0.get(&(gh,1)),Some(&tid1),"still only T1");
         eprintln!("F7: a recorded (parent,h) is never re-signed — re-broadcast in-process, declined after restart.");
         stop_miner(&mut n2);drop(n2);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+
+#[cfg(test)]
+mod late_cache_tests{
+    //! V3-02 node-local (review E3): a template the node locks again is mined again, so a peer's share of it takes the
+    //! locked path (into the production's shares, relayed) and never stops in the late-share cache; the cached shares
+    //! come back to the production on that lock. A share of a template that is only cached is kept and relayed once.
+    //! (The handler and the cache do not depend on the program set; a v3 node fills the cache, `stash_late`.)
+    use super::*;
+    use pocol_lp4_execution::devnet::{self,DevnetConfig};
+    #[test] fn a_template_locked_again_takes_its_shares_back_and_its_peer_shares_are_relayed(){
+        let c=DevnetConfig::new(777918,1_700_000_000,&["a","b","c"]);
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let dir=std::env::temp_dir().join(format!("pocold-latecache-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let cfg=Config{dir:dir.clone(),name:"latecache".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
+        let mut n=Node::open(cfg,spec).unwrap();
+        let (_p7,_o7)=net::test_peer(7,1<<16);let (p8,_o8)=net::test_peer(8,1<<16);n.peers.insert(7,_p7.clone());n.peers.insert(8,p8.clone());
+        let gh=n.chain.head().hash;let par=n.full_entry(&gh).unwrap();
+        for id in [7,8]{n.peer_status.insert(id,PeerStatus{work:U256::ZERO,head:gh,height:0,stale:false});}
+        let (fb,_,ctx)=n.chain.build_fallback(&par,0).unwrap();let tid=template_id(&fb.ut_raw);drop(par);
+        let nmax=ctx.assignment.nonce_max();let cap=SHARE_RELAY_PER_S_MAX*usize::from(n.chain.spec.cp().S_max);
+        let on:Vec<u64>=(0..nmax as u64).filter(|x|le_target(&pow_hash(&tid,*x),&ctx.t_share)).take(4).collect();assert_eq!(on.len(),4);
+        // The template was mined and left (stashed) with one share; the head is back on its parent and it is locked again.
+        n.late_cache.stash(LateTemplate{tid,height:1,nonce_max:nmax,t_share:ctx.t_share,shares:vec![on[0]]},cap);
+        n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms()});
+        n.lock(fb.clone(),Body::default(),true);
+        let shares=|n:&Node|n.prod.as_ref().unwrap().shares.iter().copied().collect::<Vec<u64>>();
+        assert!(n.late_cache.get(&tid).is_none(),"FAIL-ON-ORIGINAL: a template locked again leaves the cache");
+        assert_eq!(shares(&n),vec![on[0]],"its cached share comes back to the production");
+        // A peer's share of it: into the production's shares (a header share if this node wins) and relayed.
+        let q=p8.queued_bytes();
+        n.on_msg(7,Msg::Share{tid,nonce:on[1]});
+        assert_eq!(shares(&n),vec![on[0],on[1]],"FAIL-ON-ORIGINAL: the locked template's peer share is not swallowed by the cache");
+        assert!(p8.queued_bytes()>q,"relayed to the other peer");let q=p8.queued_bytes();
+        // Production leaves it (another mode): a later share of the cached template is kept and relayed once.
+        n.late_cache.stash(LateTemplate{tid,height:1,nonce_max:nmax,t_share:ctx.t_share,shares:shares(&n)},cap);
+        n.prod.as_mut().unwrap().mode=Mode::Idle;
+        n.on_msg(7,Msg::Share{tid,nonce:on[2]});
+        assert_eq!(n.late_cache.get(&tid).unwrap().shares,vec![on[0],on[1],on[2]],"kept for late credit");
+        assert!(p8.queued_bytes()>q,"FAIL-ON-ORIGINAL: a new late share is relayed");let q=p8.queued_bytes();
+        n.on_msg(7,Msg::Share{tid,nonce:on[2]});
+        assert_eq!(p8.queued_bytes(),q,"a duplicate is not relayed");
+        let off=(0..nmax as u64).find(|x|!le_target(&pow_hash(&tid,*x),&ctx.t_share)).unwrap();
+        n.on_msg(7,Msg::Share{tid,nonce:off});n.on_msg(7,Msg::Share{tid,nonce:nmax as u64});
+        assert_eq!((p8.queued_bytes(),n.late_cache.get(&tid).unwrap().shares.len()),(q,3),"off target or past nMax: neither kept nor relayed");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// Review E3 (blocking): a template the drawn proposer signed for the production parent but at a height other than
+    /// the parent's plus one is a verdict on it (item 2): no lock, its sender punished, and its evidence never judged
+    /// (kind-3 rules are relative to a child of the parent; judged at a false height one made the node stop).
+    #[test] fn a_signed_template_at_a_false_height_is_punished_before_its_evidence(){
+        let c=DevnetConfig::new(777919,1_700_000_000,&["a","b","c"]);
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let dir=std::env::temp_dir().join(format!("pocold-latefalseh-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let cfg=Config{dir:dir.clone(),name:"latefalseh".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
+        let mut n=Node::open(cfg,spec).unwrap();
+        let gh=n.chain.head().hash;let par=n.full_entry(&gh).unwrap();let ctx=n.chain.child_ctx(&par,0).unwrap();
+        let label=["a","b","c"].into_iter().find(|l|devnet::miner_identity(l).key.address()==ctx.proposer).expect("the draw is a genesis miner");
+        let key=devnet::miner_identity(label).key;
+        let (mut hd,_,_)=n.chain.build_signed(&par,&key,ctx.window.lower(),Body::default(),vec![]).unwrap();drop(par);
+        n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms()});
+        // (An empty body: on this spec-1 node a kind-3 item would be "15 evidence form" anyway; the v3 verdict on the
+        // item itself is tests/v3_late_shares.rs late_shares_refused_on_a_real_branch. The original locked this.)
+        hd.h=2;
+        assert!(!n.try_lock_signed(hd.clone(),Body::default(),1),"FAIL-ON-ORIGINAL: no lock");
+        assert_eq!(n.stats.template_penalties,1,"its sender is punished for the height (item 2)");
+        assert!(matches!(n.prod.as_ref().unwrap().mode,Mode::Idle));
+        // Positive control: the same template at its true height locks.
+        hd.h=1;assert!(n.try_lock_signed(hd,Body::default(),1),"the true height locks");
+        if let Some(p)=n.prod.as_mut(){if let Some(m)=p.miner.take(){m.stop();}}
+        drop(n);let _=std::fs::remove_dir_all(&dir);
     }
 }

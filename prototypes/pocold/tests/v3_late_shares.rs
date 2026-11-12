@@ -82,9 +82,11 @@ fn a13_counts_late_share_memory_on_cp_schema_v2_only(){
     let (a,b)=(at(&v1),at(&v2));
     let item=|d:&pocold::resources::Bound,k:&str|d.items.iter().find(|x|x.0.starts_with(k)).map(|x|x.1);
     for k in ["queues/late-share cache","history/late-share evidence kept on offloaded entries"]{assert_eq!(item(&a,k),None,"{k} on CP schema v1");}
-    // The cache: D = 4 templates of 4·256 nonces at memory::VEC, beside the type's own size.
+    // The cache: D = 4 canonical templates, LATE_PENDING_MAX = 2 of the production height and one between a stash and
+    // its prune, of 4·256 nonces at memory::VEC, beside the type's own size.
     let per=std::mem::size_of::<pocold::node::LateTemplate>() as u128+3*4*256*8;
-    assert_eq!(item(&b,"queues/late-share cache"),Some(3*4*per+64));
+    assert_eq!(pocold::node::LATE_PENDING_MAX,2);
+    assert_eq!(item(&b,"queues/late-share cache"),Some(3*(4+2+1)*per+64));
     assert_eq!(pocold::resources::late_cache_bytes(&v1),Some(0));assert_eq!(pocold::resources::late_kept_bytes(&v1),Some(0));
     // Per offloaded entry: L = min(E_max·min(S_max, kappa*m - 1), D·(kappa*m - 1)) = min(4·63, 4·63) = 252 late shares in at most E_max = 4
     // items: 4·(24 + 17) + 9·252 = 2,432 bytes.
@@ -232,6 +234,13 @@ mod preview{
         assert_eq!(reason(&n,h4,vec![late_encode(4,&[b4.nonce])]),"15 ls winning nonce");
         assert_eq!(reason(&n,h4,vec![late_encode(4,&b4.shares[..1])]),"15 ls header share");
         let p4=n.chain.full_entry(&h4).unwrap();let tid4=template_id(&b4.ut_raw);
+        // Review E3 (blocking): judged at a height other than a child of the parent (a received template's claim), an
+        // item is a verdict on it (the window), never a local fault (which stopped the node: j = h-1 is not held).
+        for h in [p4.height+2,p4.height,p4.height+9]{
+            match n.chain.evidence_effects(&p4,&pocold::types::Body{txs:vec![],evidence:vec![late_encode(p4.height+1,&o[..1])]},h){
+                Err(Reject::Block(w))=>assert_eq!(w,"15 ls window","h = {h}"),r=>panic!("FAIL-ON-ORIGINAL: h = {h}: {r:?}")}
+        }
+        match n.chain.evidence_effects(&p4,&pocold::types::Body{txs:vec![],evidence:vec![late_encode(4,&o[..1])]},p4.height+1){Ok(e)=>assert_eq!(e.len(),1),r=>panic!("positive control: {r:?}")}
         let ctx4=n.chain.child_ctx(&n.chain.full_entry(&p4.parent.unwrap()).unwrap(),0).unwrap();
         let nmax=ctx4.assignment.nonce_max() as u64;
         let miss=(0..nmax).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
@@ -317,7 +326,7 @@ mod preview{
         let mut node=Node::open(Config{miner:Some(key),..node_config(&d,Limits::default())},spec_of(&n.cfg)).unwrap();
         for b in &blocks{assert!(node.import(b.clone(),None).unwrap());}
         let mut shares=m4.omitted.clone();shares.extend([b4.shares[0],b4.nonce,miss,nmax as u64,m4.omitted[0]]);
-        node.late_cache.stash(LateTemplate{tid:tid4,nonce_max:nmax,t_share:ctx4.t_share,shares},usize::from(n.chain.spec.cp().D),4*256);
+        node.late_cache.stash(LateTemplate{tid:tid4,height:4,nonce_max:nmax,t_share:ctx4.t_share,shares},4*256);
         let (h,body)=node.build_template_unrecorded(&p,Selection::default(),p.ts+4).expect("a template");
         // The no-dilution cap leaves kappa*m - C_header(4) of them (two found more than that).
         let room=(64-(b4.shares.len()+1)).min(m4.omitted.len());assert!(room<m4.omitted.len(),"positive control: the cap binds");
@@ -331,14 +340,25 @@ mod preview{
         let h5=accept(&mut n,&Block{header:hh,body});
         assert_eq!((count(&n,&h5,4,n.ids[1]),total(&n,&h5,4)),(room as u64,64),"filled to kappa*m");
         drop(node);let _=std::fs::remove_dir_all(&d);
-        // The cache's own bounds.
-        let mut c=LateCache::default();
-        for i in 0..6u8{c.stash(LateTemplate{tid:[i;32],nonce_max:100,t_share:ctx4.t_share,shares:(0..10).collect()},4,8);}
-        assert_eq!(c.len(),4,"the last D templates");assert!(c.get(&[0;32]).is_none()&&c.get(&[5;32]).is_some());
+        // The cache's own bounds (review E3: it keeps the canonical templates of the carrier window, never the last D
+        // locked ones). Head at height 8, D = 4: the window of the next carrier is [5, 8]; heights 5..8 each have a
+        // canonical template ([h;32]) and dead ones (an attempt, an equivocation's other template: [h+100;32]),
+        // stashed after it; height 9 is being produced (three attempts); height 4 is out of the window.
+        let mut c=LateCache::default();let lt=|tid:[u8;32],height:u64|LateTemplate{tid,height,nonce_max:100,t_share:ctx4.t_share,shares:(0..10).collect()};
+        for h in 4..=8u8{c.stash(lt([h;32],u64::from(h)),8);c.stash(lt([h+100;32],u64::from(h)),8);c.stash(lt([h+150;32],u64::from(h)),8);}
+        for a in 0..3u8{c.stash(lt([200+a;32],9),8);}
+        c.prune(8,4,|j|(1..=8).contains(&j).then(||[j as u8;32]));
+        assert_eq!(c.len(),4+pocold::node::LATE_PENDING_MAX,"the window's canonical templates and the newest of the production height");
+        for h in 5..=8u8{assert!(c.get(&[h;32]).is_some(),"FAIL-ON-ORIGINAL: canonical {h} kept past the dead templates");assert!(c.get(&[h+100;32]).is_none()&&c.get(&[h+150;32]).is_none());}
+        assert!(c.get(&[4;32]).is_none(),"below the window");
+        assert!(c.get(&[200;32]).is_none()&&c.get(&[201;32]).is_some()&&c.get(&[202;32]).is_some(),"the newest pending ones");
+        // A reorg to a shorter head drops what is above its production height; a re-locked template leaves the cache.
+        c.prune(7,4,|j|(1..=7).contains(&j).then(||[j as u8;32]));assert!(c.get(&[8;32]).is_some()&&c.get(&[201;32]).is_none(),"8 is now pending, 9 gone");
+        assert!(c.remove(&[8;32]).is_some()&&c.get(&[8;32]).is_none());
         assert_eq!(c.get(&[5;32]).unwrap().shares,(0..8).collect::<Vec<u64>>(),"at most the cap, smallest first");
-        let t=[9u8;32];c.stash(LateTemplate{tid:t,nonce_max:100,t_share:ctx4.t_share,shares:vec![]},4,8);
+        let t=[9u8;32];c.stash(LateTemplate{tid:t,height:7,nonce_max:100,t_share:ctx4.t_share,shares:vec![]},8);
         let hit=(0..100u64).find(|x|le_target(&pow_hash(&t,*x),&ctx4.t_share)).unwrap();let off=(0..100u64).find(|x|!le_target(&pow_hash(&t,*x),&ctx4.t_share)).unwrap();
-        assert!(c.take(&t,hit,8)&&c.take(&t,off,8)&&c.take(&t,100,8)&&!c.take(&[7;32],hit,8));
+        assert_eq!((c.take(&t,hit,8),c.take(&t,hit,8),c.take(&t,off,8),c.take(&t,100,8),c.take(&[77;32],hit,8)),(Some(true),Some(false),Some(false),Some(false),None));
         assert_eq!(c.get(&t).unwrap().shares,vec![hit],"only a share below nMax and on target");
         let _=one;
     }
@@ -366,6 +386,10 @@ mod preview{
                 let c5=node.chain.get(&b5.block.hash()).unwrap();
                 assert!(c5.offloaded&&c5.slim==slim,"positive control: the carrier is offloaded, and slimmed or not");
                 if !slim{assert_eq!(c5.body.evidence,b5.block.body.evidence,"an offloaded entry keeps its kind-3 items (only them)");assert!(c5.body.txs.is_empty());}
+                // Review E3: slimmed before it is offloaded (slim depth 0 <= history window 1), it keeps no evidence either,
+                // as a checkpoint-restored copy (offload, then slim) and the A13 late-share term have it.
+                else{assert!(c5.body.evidence.is_empty(),"FAIL-ON-ORIGINAL: a slimmed and offloaded carrier drops its kind-3 items");}
+                for e in node.chain.blocks.values(){if e.slim&&e.offloaded{assert!(e.body.evidence.is_empty()&&e.body.txs.is_empty(),"height {}",e.height);}}
                 if store{node.checkpoint_now().unwrap();}
             }
             let mut node=Node::open(node_config(&d,limits()),spec_of(&n.cfg)).unwrap();
