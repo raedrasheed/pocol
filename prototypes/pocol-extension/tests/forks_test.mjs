@@ -85,6 +85,8 @@ export async function forkChecks(dist) {
   let v2Name = false; try { RP.cpv(spec, 'H_half'); } catch { v2Name = true; }
   ok('a CP v2 field name is not readable from a spec-1 genesis', v2Name);
   ok('the preview size bound covers the longer CP v2 encoding only above the release ceiling', D.maxSpecBytes(2) > D.MAX_SPEC_BYTES && D.maxSpecBytes(1) === D.MAX_SPEC_BYTES);
+  // The same numbers as genesis_spec.rs MAX_SPEC_BYTES of a release and a v3-preview build (pinned in pocold/tests/decoder_reference.rs).
+  ok('the size bounds equal the Rust MAX_SPEC_BYTES of each build', D.MAX_SPEC_BYTES === 2818474 && D.maxSpecBytes(2) === 2818680);
   for (const [name, c, want] of [
     ['H-1/H/H+1 window accepted', chain({ spec: spec2 }), 'accepted'],
     ['high nonce rejected under v1 immediately before H', chain({ spec: spec2, head: 2, nonces: { 2: maxNonce } }), '6'],

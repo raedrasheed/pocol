@@ -283,7 +283,7 @@ def bundle_report(bundle):
     require(build.get('features') == [] and type(build.get('protocolVersion')) is int
             and build['protocolVersion'] >= PROTOCOL_VERSION_MIN, 'unsupported or test-feature native build')
     schedule = forks(network.get('forks', [[1, 0]]))
-    # Hex of at most MAX_SPEC_BYTES (about 2.8 MB) plus a line ending.
+    # Hex of at most MAX_SPEC_BYTES (about 2.8 MB of bytes, about 5.6 MB as hex) plus a line ending.
     spec_version(network, public_bytes(bundle / 'net/genesis.spec.hex', 8 * 1024 * 1024).decode('ascii', 'replace'))
     public = release_identity(network, build, schedule)
     binding = binding_identity(manifest.get('identity', {}))
