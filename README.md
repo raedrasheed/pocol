@@ -393,7 +393,7 @@ It also serves `net_*`, `web3_clientVersion`, and PoCol-specific methods:
 | `pocol_getSettlement`, `pocol_getEscrow`, `pocol_getPot`, `pocol_getBurnTotals`                 | Rewards, settlement, burns                                   |
 | `pocol_getHeaders`, `pocol_getBlockRlp`, `pocol_getLogs`                                        | Headers for light clients, raw blocks, branch-bound logs     |
 | `pocol_getParams`, `pocol_getCaps`, `pocol_getTiming`, `pocol_getClosing`, `pocol_getRetention` | Parameters, caps, timing, closing, retention                 |
-| `pocol_getRejects`, `pocol_getRpcStats`                                                         | Diagnostics                                                  |
+| `pocol_getRejects`, `pocol_getRpcStats`, `pocol_templateLatency`                                | Diagnostics (template latency: network.md)                   |
 
 RPC limits (connections, sizes, deadlines) are described in `development/m1/reference/network.md` and
 `development/audit-2026-10-22/RPCGUARD.md`.
