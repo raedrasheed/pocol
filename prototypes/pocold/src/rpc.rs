@@ -1254,6 +1254,39 @@ fn logs_from(n:&Node,m:&str,f:&Value)->Option<u64>{
 
 #[cfg(test)]
 mod tests{
+    /// Deadline delivery must not wait for backend completion. Holding the
+    /// admitted request until after the client gets 504 tests that ordering
+    /// directly, without comparing scheduler latency to a short VM benchmark.
+    #[test] fn work_deadline_replies_while_the_admitted_backend_is_still_held(){
+        use super::*;
+        let heavy=r#"{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{}]}"#;
+        let batch=format!("[{}]",vec![heavy;20].join(","));
+        for body in [heavy.to_string(),batch]{
+            let listener=TcpListener::bind("127.0.0.1:0").unwrap();let addr=listener.local_addr().unwrap();
+            let (answered,answer)=mpsc::channel();
+            let client=std::thread::spawn(move||{
+                let mut s=TcpStream::connect(addr).unwrap();s.set_nodelay(true).unwrap();s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                let request=format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len());
+                s.write_all(request.as_bytes()).unwrap();let mut response=String::new();let read=s.read_to_string(&mut response);drop(s);
+                answered.send((read,response)).unwrap();
+            });
+            let (socket,_)=listener.accept().unwrap();socket.set_nodelay(true).unwrap();sockbuf::set(&socket,SEND_SOCK_BUF).unwrap();
+            let (events,backend)=mpsc::sync_channel(1);let (light,_light_rx)=mpsc::sync_channel(1);
+            let queued=Arc::new(AtomicUsize::new(0));let held=queued.clone();
+            let limits=Limits{work_deadline:Duration::from_secs(1),queue_wait:Duration::from_secs(30),..Default::default()};let queue_wait=limits.queue_wait;
+            let connection=std::thread::spawn(move||conn(socket,events,LightLane{tx:light,wake:Arc::new(AtomicBool::new(false))},&limits,&Server{queued:held,light:Arc::new(AtomicUsize::new(0))}));
+            let request=match backend.recv_timeout(Duration::from_secs(5)).unwrap(){Event::Rpc(q)=>q,_=>panic!("expected RPC work")};
+            assert!(!request.light);assert!(request.admit(queue_wait).is_ok(),"backend takes the request before its deadline");
+            // Do not send a backend reply or release its body before observing
+            // the HTTP result. An implementation waiting for backend completion
+            // instead of the deadline cannot satisfy this bounded receive.
+            let (read,response)=answer.recv_timeout(Duration::from_secs(2)).expect("the work deadline must answer while backend work is held, before the 30-second admission wait");
+            assert!(read.is_ok(),"the transport must answer without a backend reply: {read:?}");
+            assert!(response.starts_with("HTTP/1.1 504"),"{response}");assert!(Instant::now()>=request.deadline,"a timeout is never sent early");
+            assert_eq!(request.state.load(Ordering::SeqCst),ADMITTED);assert_eq!(queued.load(Ordering::SeqCst),1,"the pending backend body remains bounded and held");
+            drop(request);assert_eq!(queued.load(Ordering::SeqCst),0,"dropping backend work releases its place");client.join().unwrap();connection.join().unwrap().unwrap();
+        }
+    }
     // F13: a loopback-RPC answer must never carry a CORS grant a cross-origin page could use, and a
     // rebound DNS Host must be refused. Encodes the FIXED behavior (fails on the original `*` header /
     // absent Host check). Pure-function checks, no socket needed.

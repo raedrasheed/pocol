@@ -153,3 +153,12 @@ capacity models, not elapsed-life or RSS claims.
 Tests live in `pocold/tests/v3_execution.rs`, LP4 fee/creation-fee and admission
 tests, and LP1 param-gate tests. Original London and USER vector files remain
 byte-identical. The preview CI job runs the new execution suite explicitly.
+
+The RPC deadline regression also tests ordering directly: for a single request
+and a batch, hold admitted backend work and its body until the real HTTP client
+receives 504, then release it. A transport waiting for backend completion cannot
+pass. The real-node flood test retains expired-work, batch-member and resource
+assertions. Its old client-wall-time upper bound compared an unloaded ~29 ms VM
+sample with a client competing against eight flood threads; CI observed ~48 ms
+despite HTTP 504. The causal probe replaces that scheduler-dependent comparison;
+production deadlines and cancellation behavior are unchanged.
