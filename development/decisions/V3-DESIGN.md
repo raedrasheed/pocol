@@ -271,7 +271,7 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
 1. **PR-0 Decision record (docs).**
    - Add `development/decisions/V3-DECISIONS.md` and `decisions.json` entries D-V3-*.
    - Quote the owner's rule verbatim. Record the §5 answers.
-   - State that the rule supersedes `development/m1/reference/README.md:484-486` (the proposal-before-implementation
+   - State that the rule supersedes the repository root `README.md:484-486` (the proposal-before-implementation
      gate) for compliant items.
    - Write the normative amendments (V3-29).
    - Must merge before any consensus code.
@@ -677,6 +677,9 @@ hashrate (`chain.rs:592`).
   servers can propose (DEC-05).
 - Option (b) filter: `bond_state==4 && bond < B_reg/4` → excluded. A type-1 equivocation then always burns at
   least B_reg/4.
+  - Note (2026-11-12): this minimum does not hold while every draw member is a sub-quarter probationer. The
+    existing earn-in D1 exception (EARN-IN-SPEC.md §6) then makes all of them candidates, and the dormant v3 code
+    keeps it. The owner confirmed the exception on 2026-11-12 (option a); see V3-OWNER-DECISIONS-2026-11-12.md.
 - The draw stays deterministic and share-weighted (P3). **Deployment:** B (host). **Effort:** S.
 
 ### V3-14 Probation pool (OWNER-CHOICE O-14)
