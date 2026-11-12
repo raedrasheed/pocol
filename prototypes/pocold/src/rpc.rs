@@ -1019,6 +1019,8 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             if f["fromBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true)||f["toBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true){return Err(bad("numeric fromBlock/toBlock").into())}
             logs(n,f,b)}
         "pocol_status"=>Ok(n.status_json()),
+        // V3-05: per-proposer template arrival and lock latency (also pocol_status.templateLatency; network.md).
+        "pocol_templateLatency"=>Ok(n.template_latency_json()),
         // pocold's own RPC counters and gauges (process-wide), a superset of pocol_getRpcStats.
         "pocold_rpcCounters"=>Ok(rpc_stats(n)),
         // network.md:347 pocol_getRpcStats: every field of the record; a field for a mechanism pocold
