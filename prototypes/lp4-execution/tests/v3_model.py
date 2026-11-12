@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Independent model of the v3 registry budgets (V3-08, V3-09; V3-DESIGN.md, V3-DECISIONS.md D-V3-08/09),
-extending the earn-in model (earnin_model.py).
+"""Independent model of the v3 registry budgets (V3-08, V3-09; V3-DESIGN.md, V3-DECISIONS.md D-V3-08/09) and of
+the v3 evidence penalties (V3-16, V3-17; D-V3-16/17), extending the earn-in model (earnin_model.py).
 
 No bytecode, no Rust and no storage encoding: plain records, lists and integers. Unlike earnin_model.py it
 models every block start the way the chain runs it (each new height first runs beginBlock: the per-block
@@ -14,13 +14,26 @@ budgets of every user path:
   once per C_react blocks, counted from its previous reactivation. A reactivation is valid after the W_act
   cooldown and strictly before dueHeight = exitHeight + U, the height at which the refund sweep erases it.
 
-tests/v3_contracts.rs replays tests/v3/registry-budget-vectors.json and tests/v3/earnin-on-v3-vectors.json (the
-earn-in model's scenarios re-run here), written by this script, on the v3 programs and checks every step's
-result, every record (including the new clocks), the record array order, the sweep cursor, the counters,
-ACC_COUNT and the Escrow accounting. Run with --check (default) to compare against the committed files, or
---write to regenerate them.
+- V3-16: type-2 evidence settles pot j normally after punish (the tombed offender's winner part, proposer part and
+  shares burn; honest contributors are paid), except that the whole pot burns when the accused is pot j's winner
+  and that winner was ACCRUING (bond below B_reg) when the result of block j was recorded. The v3 host records the
+  parent's result before the block's evidence, so that fact is the state at block j, never read later.
+- V3-17: punish pays rho_bp/10^4 of the burned bond to the reward address of the carrying block's signed proposer
+  (the reporter; a self-report included) and burns the rest; a fallback block has no reporter and burns it all.
+  The reporter passed with the evidence must be the block's proposer (zero on a fallback), else the block is invalid.
+
+The evidence scenarios (class Chain) run whole blocks: phase 0 in the v3 order (recordShares and recordResult of
+h-1, evidence, markClose, pruneShares, settle(h-D), beginBlock), the block's user transactions, phase 2 (issuance
+and closeBlock). Settlement follows M1 incentives.md (winnerPart, propPart, R split over Q = max(C, kappa*m), payBurn,
+penaltyBurn, baseBurn, roundBurn) with the earn-in rule that a payment to an ACCRUING record fills its bond first.
+
+tests/v3_contracts.rs replays tests/v3/registry-budget-vectors.json, tests/v3/earnin-on-v3-vectors.json (the earn-in
+model's scenarios re-run here) and tests/v3/evidence-penalty-vectors.json, written by this script, on the v3
+programs and checks every step's result, every record (including the new clocks), the record array order, the sweep
+cursor, the counters, ACC_COUNT, every pending pot and the Escrow accounting. Run with --check (default) to compare
+against the committed files, or --write to regenerate them.
 """
-import json, random, sys
+import copy, json, random, sys
 from dataclasses import dataclass, asdict
 from pathlib import Path
 sys.dont_write_bytecode = True
@@ -515,8 +528,366 @@ def earnin_on_v3():
         assert differ == ['top-up'], (label, differ)
     return out
 
+# ---------------- V3-16 / V3-17: evidence penalties (V3-PR-E2b)
+# Settlement CP fields the contract harness installs for the chain scenarios (CP schema v2 indices as CP_INDEX).
+CHAIN_CP_INDEX = {'m': 8, 'kappa': 9, 'S_max': 10, 'W_w': 12, 'alpha_bp': 13, 'gamma_bp': 14, 'S0': 15, 'rho_bp': 66}
+CHAIN_DEFAULT = {'m': 32, 'kappa': 2, 'S_max': 256, 'W_w': 8, 'alpha_bp': 1000, 'gamma_bp': 500, 'S0': 2 * PCOL,
+                 'rho_bp': 2500}
+
+class Chain:
+    """Whole blocks over the v3 registry model: the v3 phase 0, user transactions, phase 2, and RewardEscrow's pending
+    pots and settlement. The Escrow balance is never stored: it is the genesis bond plus what senders moved into the
+    registry and the issuance, less every payment out of Escrow, and check() requires it to equal the pending pots
+    plus the held bonds plus everything burned (no surplus: the scenarios make no forced transfers)."""
+
+    def __init__(self, cp, durable=()):
+        self.cp = dict(DEFAULT_CP, **CHAIN_DEFAULT, **cp)
+        self.reg = Registry(self.cp, durable)
+        self.reg.durable.add('m0')           # the genesis member's reward account exists with a nonce
+        self.pots = {}                       # j -> {amount, proposer ('' = fallback), winner, accruing, invalid}
+        self.ledger = {}                     # j -> {owner: count}, owners in first-seen order
+        self.issued = 0
+        self.height = 0
+        self.proposer = ''
+
+    # ---- payments out of Escrow
+    def _pay(self, to, amount):
+        """PAY to a reward address: a recipient that is not durable (PAY-02) fails, and the amount burns."""
+        if to in self.reg.durable:
+            self.reg.pay(to, amount)
+        else:
+            self.reg.burned += amount
+
+    def _pay_to(self, ident, amount):
+        """payTo and distribute: an absent record (payBurn) or a tomb (penaltyBurn) burns; an ACCRUING record fills
+        its bond first (EARN-IN P1); the rest is paid to the reward address."""
+        if amount == 0:
+            return
+        r = self.reg.records.get(ident)
+        if r is None or r.tomb:
+            self.reg.burned += amount
+            return
+        out = self.reg.accrue(ident, amount) if r.bond_state == ACCRUING else amount
+        if out:
+            self._pay(r.reward, out)
+
+    def _accruing(self, ident):
+        r = self.reg.records.get(ident)
+        return r is not None and r.live() and r.bond_state == ACCRUING
+
+    # ---- phase 0
+    def begin(self, h, proposer, winner, shares, evidence):
+        if h != self.height + 1:
+            raise AssertionError(('heights are contiguous', h, self.height))
+        self.proposer = proposer
+        if h >= 2:
+            counts = {}
+            for o in list(shares) + [winner]:           # recordShares: the header shares, then the implicit winner
+                counts[o] = counts.get(o, 0) + 1
+            self.ledger[h - 1] = counts
+            for o in counts:
+                r = self.reg.records.get(o)
+                if r is not None:
+                    r.last_share = h - 1
+            pot = self.pots[h - 1]                      # recordResult: the winner and whether it is ACCRUING now
+            pot['winner'], pot['accruing'] = winner, self._accruing(winner)
+        for accused, j, reporter in evidence:
+            if j is not None and j in self.pots:        # the host invalidates only a pending pot
+                pot = self.pots[j]
+                if pot['winner'] == accused and pot['accruing']:
+                    pot['invalid'] = True
+            self._punish(accused, reporter, h)
+        k = max(self.cp['D'], self.cp['W_w'])            # pruneShares (markClose: nothing on a continuous network)
+        if h > k + 1:
+            del self.ledger[h - k - 1]
+        if h > self.cp['D']:
+            self._settle(h - self.cp['D'])
+        self.reg.block(h)                                # beginBlock: budgets and the refund sweep
+        self.height = h
+
+    def _punish(self, ident, reporter, h):
+        if reporter != self.proposer:
+            raise Revert('BadCalldata')                  # the reporter is the block's signed proposer, none on a fallback
+        reg = self.reg
+        r = reg.records.get(ident)
+        if r is None or r.tomb:
+            raise Revert('BadState')                     # a host error: the block is invalid
+        if r.bond_state == PAID:
+            r.tomb, r.burn = True, h
+            return
+        if r.bond_state == ACCRUING:
+            reg.accruing -= 1
+        if r.status == 1:
+            reg.active.remove(ident)
+            r.status, r.exit, r.due = 2, h, h
+        reg.held_total -= r.bond
+        r.bond_state, r.tomb, r.burn = BURNED, True, h
+        rep = reg.records.get(reporter) if reporter else None
+        cut = r.bond * self.cp['rho_bp'] // 10_000 if rep is not None else 0
+        if cut:
+            self._pay(rep.reward, cut)
+        reg.burned += r.bond - cut
+
+    def _settle(self, j):
+        pot = self.pots.pop(j)
+        amount = pot['amount']
+        if pot['invalid']:
+            self.reg.burned += amount
+            return
+        wp = amount * self.cp['alpha_bp'] // 10_000
+        pp = amount * self.cp['gamma_bp'] // 10_000
+        self._pay_to(pot['winner'], wp)
+        self._pay_to(pot['proposer'] or pot['winner'], pp)
+        r = amount - wp - pp
+        counts = self.ledger[j]
+        c = sum(counts.values())
+        q = max(c, self.cp['kappa'] * self.cp['m'])
+        paid = 0
+        for o, n in counts.items():
+            p = r * n // q
+            paid += p
+            self._pay_to(o, p)
+        a = r * c // q
+        self.reg.burned += (r - a) + (a - paid)
+
+    # ---- phase 2
+    def close(self, h):
+        if h != self.height:
+            raise AssertionError(('close the current block', h, self.height))
+        self.issued += self.cp['S0']
+        self.pots[h] = {'amount': self.cp['S0'], 'proposer': self.proposer, 'winner': None, 'accruing': False, 'invalid': False}
+
+    def escrow_balance(self):
+        reg = self.reg
+        return B + sum(reg.spent.values()) + self.issued - sum(reg.paid.values())
+
+    def check(self, step):
+        check_invariants(self.reg, step)
+        reg = self.reg
+        # T17 with equality: every wei Escrow holds is a pending pot, a held bond or burned.
+        assert self.escrow_balance() == sum(p['amount'] for p in self.pots.values()) + reg.held_total + reg.burned, step
+        # The pending window: contiguous heights within [h-D+1, h] (pot h exists once the block is closed).
+        ks = sorted(self.pots)
+        assert ks == list(range(ks[0], ks[-1] + 1)) if ks else True, step
+        assert all(self.height - self.cp['D'] < j <= self.height for j in ks), step
+
+def chain_snapshot(ch):
+    out = snapshot(ch.reg)
+    out['pots'] = {str(j): {'amount': str(p['amount']), 'proposer': p['proposer'], 'winner': p['winner'] or '',
+                            'accruing': p['accruing'], 'invalid': p['invalid']} for j, p in sorted(ch.pots.items())}
+    out['escrowBalance'] = str(ch.escrow_balance())
+    out['issued'] = str(ch.issued)
+    return out
+
+def run_chain(steps, cp=None, durable=()):
+    """Steps: ('begin', h, proposer, winner, shares, evidence), registry user operations at h, ('close', h). A begin
+    that reverts invalidates the block: the state is the one before it, and the script produces height h again."""
+    cp = cp or {}
+    ch = Chain(cp, durable)
+    out = []
+    for step in steps:
+        op, args = step[0], step[1:]
+        if op == 'begin':
+            h, proposer, winner, shares, evidence = args
+            rec = {'op': ['begin', str(h), proposer], 'winner': winner or '', 'shares': list(shares),
+                   'evidence': [[a, j, rep] for a, j, rep in evidence]}
+            saved = copy.deepcopy(ch)
+            try:
+                ch.begin(h, proposer, winner, shares, evidence)
+                rec.update(ok=True, result=None)
+            except Revert as e:
+                ch = saved
+                rec.update(ok=False, revert=str(e))
+            out.append(rec)
+        elif op == 'close':
+            ch.close(*args)
+            out.append({'op': ['close', str(args[0])], 'ok': True, 'result': None})
+        else:
+            if args[-1] != ch.height:
+                raise AssertionError(('a user operation runs in the current block', step))
+            try:
+                result = getattr(ch.reg, op)(*args)
+                out.append({'op': [op, *map(str, args)], 'ok': True, 'result': None if result is None else str(result)})
+            except Revert as e:
+                out.append({'op': [op, *map(str, args)], 'ok': False, 'revert': str(e)})
+        ch.check(step)
+    return {'cp': dict(sorted({**CHAIN_DEFAULT, **cp}.items())), 'durable': sorted(durable), 'steps': out,
+            'final': chain_snapshot(ch)}
+
+class Script:
+    """Builds chain steps: block(h, ...) emits begin, the block's user operations and close."""
+    def __init__(self):
+        self.steps = []
+
+    def block(self, h, proposer='m0', winner='m0', shares=(), evidence=(), ops=()):
+        self.invalid(h, proposer, winner, shares, evidence)
+        self.steps.extend(ops)
+        self.steps.append(('close', h))
+        return self
+
+    def invalid(self, h, proposer='m0', winner='m0', shares=(), evidence=()):
+        """A begin alone (the scenario expects it to revert, or block() completes it)."""
+        ev = [(e[0], e[1], e[2] if len(e) > 2 else proposer) for e in evidence]
+        self.steps.append(('begin', h, proposer, winner if h >= 2 else '', list(shares), ev))
+        return self
+
+    def quiet(self, start, end, proposer='m0'):
+        for h in range(start, end + 1):
+            self.block(h, proposer)
+        return self
+
+def joined(*members, h=1):
+    """Block-1 registrations: (id, bond) with a self reward, or (id, bond, reward)."""
+    return [('register', m[0], m[2] if len(m) > 2 else m[0], m[1], h) for m in members]
+
+def run_chain_random(seed, blocks=64):
+    """A seeded random chain: signed and fallback blocks, random winners and shares among members and strangers,
+    registrations (full, partial and zero bonds), top-ups, exits, and type-1 and type-2 evidence against live
+    records (never m0, so that a proposer remains), aimed at pending pots' winners often enough to reach the whole-pot
+    burn. About one block in twelve first
+    tries a block the program refuses (a reporter that is not the proposer, or evidence against a tomb), then makes
+    the height again. Every step is checked by Chain.check."""
+    rng = random.Random(seed)
+    actors = [f'r{i}' for i in range(8)]
+    probe = Chain({}, ['rw'])
+    sc = Script()
+    def play(step):
+        nonlocal probe
+        saved = copy.deepcopy(probe)
+        op, args = step[0], step[1:]
+        try:
+            if op == 'begin':
+                probe.begin(*args)
+            elif op == 'close':
+                probe.close(*args)
+            else:
+                getattr(probe.reg, op)(*args)
+        except Revert:
+            if op == 'begin':
+                probe = saved
+        sc.steps.append(step)
+    for h in range(1, blocks + 1):
+        live = [k for k, r in probe.reg.records.items() if r.live() and k != 'm0']   # m0 stays, so a proposer remains
+        active = [k for k in probe.reg.active]
+        proposer = '' if not active or rng.random() < 0.3 else rng.choice(active)
+        pool = actors + ['m0']
+        winner = rng.choice(pool) if h >= 2 else ''
+        shares = [rng.choice(pool) for _ in range(rng.randint(0, 6))] if h >= 2 else []
+        if h >= 3 and live and rng.random() < 0.08:
+            # A block the program refuses: a mismatched reporter, or evidence against a tomb.
+            tombs = [k for k, r in probe.reg.records.items() if r.tomb]
+            if tombs and rng.random() < 0.5:
+                bad = [(rng.choice(tombs), None, proposer)]
+            else:
+                bad = [(rng.choice(live), None, rng.choice([x for x in ['m0', 'r0', 'r1', ''] if x != proposer]))]
+            play(('begin', h, proposer, winner, shares, bad))
+        evidence = []
+        if h >= 2 and rng.random() < 0.25:
+            pending = [j for j in probe.pots if j < h]
+            for _ in range(rng.randint(1, 2)):
+                if pending and rng.random() < 0.65:
+                    j = rng.choice(pending)
+                    w = probe.pots[j]['winner'] if j < h - 1 else winner
+                    cands = [w] if (w in live and rng.random() < 0.6) else live
+                else:
+                    j, cands = None, live
+                cands = [c for c in cands if c not in [e[0] for e in evidence]]
+                if cands:
+                    evidence.append((rng.choice(cands), j, proposer))
+        play(('begin', h, proposer, winner, shares, evidence))
+        for _ in range(rng.randint(0, 3)):
+            k = rng.random()
+            a = rng.choice(actors)
+            if k < 0.45:
+                s = ('register', a, rng.choice([a, a, 'rw']), rng.choice([0, 0, 5 * PCOL, 15 * PCOL, B]), h)
+            elif k < 0.75:
+                s = ('top_up', a, rng.choice([PCOL, 6 * PCOL, B]), h)
+            else:
+                s = ('deregister', a, h)
+            play(s)
+        play(('close', h))
+    return run_chain(sc.steps, {}, ['rw'])
+
+def evidence_vectors():
+    v = {}
+    # Fails on the original: type-2 evidence against a HELD winner before settle(j) (at j+1 and at j+2). Pot 3 and pot 5
+    # settle normally: the tombed winner's winner part (and own shares) burn, the signed proposer of pot 3 and the
+    # contributors are paid; the reporter (the carrying block's proposer) receives rho = 25% of the 20 PCOL bond.
+    sc = Script().block(1, ops=joined(('w', B), ('c', B), ('r', B), ('p', B), ('v', B)))
+    sc.block(2).block(3, proposer='p')
+    sc.block(4, proposer='r', winner='w', shares=['c', 'c', 'r', 'w'], evidence=[('w', 3)])
+    sc.block(5, proposer='p')
+    sc.block(6, proposer='m0', winner='v', shares=['c', 'v', 'r'])
+    sc.block(7, proposer='m0', evidence=[('v', 5)])
+    sc.quiet(8, 10)
+    v['type2-held-winner-pays-contributors'] = run_chain(sc.steps)
+    # The whole pot burns when the accused winner was ACCRUING when its result was recorded: a zero bond (evidence in
+    # j+1, before the same block's punish could change the record) and a partial bond (evidence in j+2).
+    sc = Script().block(1, ops=joined(('a', 0), ('q', 5 * PCOL), ('c', B)))
+    sc.block(2).block(3, proposer='c')
+    sc.block(4, winner='a', shares=['c', 'c', 'a'], evidence=[('a', 3)])
+    sc.block(5, proposer='c')
+    sc.block(6, winner='q', shares=['c', 'q'])
+    sc.block(7, proposer='c', evidence=[('q', 5)])
+    sc.quiet(8, 10)
+    v['type2-accruing-winner-burns-whole-pot'] = run_chain(sc.steps)
+    # The ACCRUING fact is the one committed by recordResult, never read later: q is ACCRUING when pot 3's result is
+    # recorded (phase 0 of block 4), tops up to B in block 4 (HELD), and is accused in block 5; the whole pot burns.
+    sc = Script().block(1, ops=joined(('q', 15 * PCOL), ('c', B)))
+    sc.block(2).block(3)
+    sc.block(4, winner='q', shares=['c'], ops=[('top_up', 'q', 5 * PCOL, 4)])
+    sc.block(5, proposer='c', evidence=[('q', 3)])
+    sc.quiet(6, 9)
+    v['accruing-fact-committed-at-record-result'] = run_chain(sc.steps)
+    # P7: evidence against members of pot 3 other than its winner settles it normally. The ACCRUING share owner a and
+    # the signed proposer p of pot 3 are both accused (two pieces of evidence for one pot in one block): a's shares and
+    # p's proposer part burn, the HELD winner w and the contributor c are paid.
+    sc = Script().block(1, ops=joined(('w', B), ('c', B), ('p', B), ('a', 0)))
+    sc.block(2).block(3, proposer='p')
+    sc.block(4, winner='w', shares=['a', 'a', 'c'], evidence=[('a', 3), ('p', 3)])
+    sc.quiet(5, 8)
+    v['non-winner-accused-settles-normally'] = run_chain(sc.steps)
+    # The settlement boundary: evidence in block j+D still precedes settle(j) in that phase 0 (the ACCRUING winner's
+    # whole pot burns); in block j+D+1 the pot is already settled (the winner part accrued into the winner's bond), so
+    # only the bond burns, with the accrued part, and rho of it goes to the reporter.
+    sc = Script().block(1, ops=joined(('q', 5 * PCOL), ('y', 5 * PCOL), ('c', B)))
+    sc.block(2).block(3).block(4, winner='q', shares=['c']).block(5, winner='y', shares=['c', 'y'])
+    sc.block(6).block(7, proposer='c', evidence=[('q', 3)])
+    sc.block(8).block(9, proposer='c', evidence=[('y', 4)])
+    sc.quiet(10, 12)
+    v['evidence-at-the-settlement-boundary'] = run_chain(sc.steps)
+    # V3-17 self-report: proposer r reports itself (type 1) and c in the same block. r loses its bond but receives rho of
+    # it and of c's at its reward address rr: a self-report loses (1 - rho) * B.
+    sc = Script().block(1, ops=joined(('r', B, 'rr'), ('c', B)))
+    sc.quiet(2, 3)
+    sc.block(4, proposer='r', evidence=[('r', None), ('c', None)])
+    sc.quiet(5, 8)
+    v['self-report-loses-three-quarters'] = run_chain(sc.steps, durable=['rr'])
+    # V3-17 on a fallback block (no reporter): the whole bond burns. A reporter on a fallback block, a reporter that is
+    # not the signed proposer and evidence against a tomb are refused (the block is invalid; the height is made again).
+    sc = Script().block(1, ops=joined(('w', B), ('r', B), ('c', B)))
+    sc.block(2).block(3)
+    sc.invalid(4, proposer='', winner='w', shares=['c'], evidence=[('w', 3, 'r')])
+    sc.invalid(4, proposer='c', winner='w', shares=['c'], evidence=[('w', 3, 'r')])
+    sc.block(4, proposer='', winner='w', shares=['c'], evidence=[('w', 3)])
+    sc.invalid(5, proposer='r', evidence=[('w', None)])
+    sc.block(5, proposer='r')
+    sc.quiet(6, 8)
+    v['fallback-has-no-reporter'] = run_chain(sc.steps)
+    # V3-17: the cut is paid to the reporter's reward address directly, also when the reporter is ACCRUING (its bond is
+    # not filled from it): q (5 PCOL on probation) reports w, then m0 reports c.
+    sc = Script().block(1, ops=joined(('q', 5 * PCOL), ('w', B), ('c', B)))
+    sc.block(2, proposer='q', evidence=[('w', None)])
+    sc.block(3, evidence=[('c', None)])
+    sc.quiet(4, 7)
+    v['reporter-cut-paid-directly'] = run_chain(sc.steps)
+    for seed in (1, 2):
+        v[f'random-{seed}'] = run_chain_random(seed)
+    return v
+
 if __name__ == '__main__':
-    files = {'registry-budget-vectors.json': vectors, 'earnin-on-v3-vectors.json': earnin_on_v3}
+    files = {'registry-budget-vectors.json': vectors, 'earnin-on-v3-vectors.json': earnin_on_v3,
+             'evidence-penalty-vectors.json': evidence_vectors}
     for name, make in files.items():
         path = Path(__file__).with_name('v3') / name
         data = json.dumps(make(), indent=1, sort_keys=True) + '\n'
@@ -525,4 +896,4 @@ if __name__ == '__main__':
             print('wrote', path)
         else:
             assert path.read_text() == data, f'{name} differs from the model; run --write and review'
-            print('PASS v3 registry-budget model matches', name)
+            print('PASS v3 model matches', name)

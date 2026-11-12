@@ -303,3 +303,17 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
         }
     }
 }
+
+/// V3-PR-E2b: the v3 program set composes GAS_ENVELOPE_V3 where it has an entry and GAS_ENVELOPE elsewhere; spec-1
+/// sets compose GAS_ENVELOPE alone, as before. The v3 domain also bounds P_MAX (settlement accrual).
+#[test] fn v3_envelope_entries_apply_only_to_the_v3_set(){
+    for (n,g) in GAS_ENVELOPE{assert_eq!(envelope_for(n,false),Some(*g),"spec-1 {n}");}
+    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope_for(n,true),Some(*g));assert!(*g>envelope_for(n,false).unwrap(),"{n}: the v3 entry exceeds the spec-1 one");}
+    assert_eq!(envelope_for("beginBlock",true),envelope_for("beginBlock",false),"entries without a v3 measurement apply unchanged");
+    let c=net(&cfg());let cp=c.profile.cp().clone();
+    let spec1=phase_gas(&cp,0,false).unwrap();let v3=phase_gas(&cp,0,true).unwrap();
+    assert_eq!(spec1.len(),v3.len());assert!(v3.iter().sum::<u64>()>spec1.iter().sum::<u64>());
+    let mut wide=cp.clone();wide.P_MAX=GAS_DOMAIN_V3_P_MAX+1;
+    assert!(in_gas_domain(&wide,false)&&!in_gas_domain(&wide,true),"P_MAX bounds the v3 domain only");
+    assert_eq!(phase_gas(&wide,0,true),None);
+}

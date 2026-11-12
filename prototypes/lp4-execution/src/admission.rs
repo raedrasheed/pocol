@@ -100,14 +100,29 @@ fn phase_calls(cp:&ConsensusParams,class:u8)->Vec<(&'static str,u64)>{
     if class==2{v.push(("finalize",1));v.push(("settleFinal",u64::from(cp.D).saturating_sub(1)));}else{v.push(("closeBlock",1));}
     v
 }
-fn in_gas_domain(cp:&ConsensusParams)->bool{
-    let d=GAS_DOMAIN;cp.S_max<=d.s_max&&cp.M_max<=d.m_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret
+/// The v3 program set also loops over its probation pool in settlement (each ACCRUING payee's bond fills through
+/// accrue): GAS_ENVELOPE_V3 was measured with P_MAX at this bound.
+pub const GAS_DOMAIN_V3_P_MAX:u16=64;
+fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
+    let d=GAS_DOMAIN;cp.S_max<=d.s_max&&cp.M_max<=d.m_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret&&(!v3||cp.P_MAX<=GAS_DOMAIN_V3_P_MAX)
 }
-fn envelope(name:&str)->Option<u64>{GAS_ENVELOPE.iter().find(|(n,_)|*n==name).map(|x|x.1)}
-fn phase_gas(cp:&ConsensusParams,class:u8)->Option<Vec<u64>>{
-    if !in_gas_domain(cp){return None}
+/// V3-PR-E2b: entries for a genesis running the v3 program set, measured (rounded up to 1000) by tests/v3_contracts.rs
+/// (v3-preview) `v3_sys_gas_and_caps_within_the_v3_envelope` at the GAS_DOMAIN maxima with P_MAX 64; every other entry
+/// of GAS_ENVELOPE applies unchanged, and spec-1 sets compose GAS_ENVELOPE alone. V3-16/V3-17 make recordResult read
+/// the winner's record, invalidate read the winner word, and punish read the reporter's record and pay its rho_bp cut;
+/// settlement fills up to P_MAX ACCRUING bonds from zero to B_reg in one call (the earn-in accrual, measured here
+/// for the v3 pool), so settle and settleFinal (the same settleOne) take the measured worst settle.
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("invalidate",9_000),("punish",99_000),("recordResult",37_000),("settle",6_115_000),("settleFinal",6_115_000)];
+/// The envelope entry of a SYSTEM call: GAS_ENVELOPE_V3's for the v3 program set where it has one, else GAS_ENVELOPE's.
+pub fn envelope_for(name:&str,v3:bool)->Option<u64>{
+    let pick=|t:&[(&str,u64)]|t.iter().find(|(n,_)|*n==name).map(|x|x.1);
+    if v3{if let Some(g)=pick(GAS_ENVELOPE_V3){return Some(g)}}
+    pick(GAS_ENVELOPE)
+}
+fn phase_gas(cp:&ConsensusParams,class:u8,v3:bool)->Option<Vec<u64>>{
+    if !in_gas_domain(cp,v3){return None}
     let mut out=Vec::new();
-    for (name,count) in phase_calls(cp,class){let g=envelope(name)?;for _ in 0..count{out.push(g)}}
+    for (name,count) in phase_calls(cp,class){let g=envelope_for(name,v3)?;for _ in 0..count{out.push(g)}}
     Some(out)
 }
 
@@ -230,6 +245,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     let cp=ConsensusParams::from_values(&spec.cp).map_err(|e|terminal("R24",format!("CP schema: {e:?}")))?;
     let mut notes=Vec::new();
     let programs=SystemPrograms::for_spec(&cp,&spec.sys_code_hash);
+    let v3=SystemPrograms::program_set(&cp,&spec.sys_code_hash)==crate::apply::ProgramSet::V3;
 
     // Builder facts: allocRoot and system slots of the constructed genesis (before the
     // allocRoot comparison, which the gate makes as R24).
@@ -261,10 +277,10 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     else if timing.is_none(){notes.push("timing: measurement recorded for another genesis (R14/R19)".into())}
     let b=resources::derive(&cp);
     let live=sat_u32(b.slot_min.max(genesis_slots.unwrap_or(0)));
-    if !in_gas_domain(&cp){notes.push(format!("SYS gas: CP outside the measured domain {:?} (R18)",GAS_DOMAIN))}
+    if !in_gas_domain(&cp,v3){notes.push(format!("SYS gas: CP outside the measured domain {:?}{} (R18)",GAS_DOMAIN,if v3{format!(", P_MAX <= {GAS_DOMAIN_V3_P_MAX}")}else{String::new()}))}
     let phase=|class:u8,p:Phase,keys:u64,accts:u64|PhaseFacts{phase:p,system_keys:sat_u32(keys),user_keys:if class==0{cp.SYS_KEYS_USER_MAX}else{0},
         system_accounts:sat_u32(accts),user_accounts:if class==0{USER_SYS_ACCOUNTS}else{0},live_slots:live,
-        call_gas:phase_gas(&cp,class).unwrap_or_default(),duration_ms:timing.map_or(u64::MAX,|t|t.phase_ms[class as usize]),
+        call_gas:phase_gas(&cp,class,v3).unwrap_or_default(),duration_ms:timing.map_or(u64::MAX,|t|t.phase_ms[class as usize]),
         retired_records:if class==1&&cp.RET<=GAS_DOMAIN.ret{cp.RET}else{0}};
     let phases=vec![phase(0,Phase::Ordinary,b.keys_normal,b.accts_normal),phase(1,Phase::Closing,b.keys_closing,b.accts_closing),phase(2,Phase::Final,b.keys_final,b.accts_final)];
     let hist=historical_bytes(&cp,l);
@@ -279,7 +295,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
 
     let mut report=gate::check(&gp,Some(&resource),identity.as_ref(),calibration.as_ref(),r.node);
     let hist_exception=hist>HIST_TRIE_BUDGET;
-    let conditions=conditions(&cp,r,l,timing,hist_exception,&report.deferred);
+    let conditions=conditions(&cp,r,l,timing,hist_exception,&report.deferred,v3);
     let mut waivers=Vec::new();
     match r.scope{
         Scope::ExperimentalDevnet=>{
@@ -319,7 +335,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
 }
 
 /// Every reason the admitted facts are not specification evidence (D-A02-SCOPE).
-fn conditions(cp:&ConsensusParams,r:&Request<'_>,l:&NodeLocal,timing:Option<&Timing>,hist_exception:bool,deferred:&[&'static str;3])->Vec<Condition>{
+fn conditions(cp:&ConsensusParams,r:&Request<'_>,l:&NodeLocal,timing:Option<&Timing>,hist_exception:bool,deferred:&[&'static str;3],v3:bool)->Vec<Condition>{
     let mut c=Vec::new();
     let mut add=|id:&'static str,rules:&'static [&'static str],detail:String|c.push(Condition{id,rules,detail});
     if l.rpc.is_fixture(){add("rpc-fixture",&["R26"],"RpcGuard: the values are a fixture, not limits this node enforces".into())}
@@ -328,7 +344,7 @@ fn conditions(cp:&ConsensusParams,r:&Request<'_>,l:&NodeLocal,timing:Option<&Tim
     if cp.H_END==0{add("continuous-protocol",&["R13","R19","R23"],"No scheduled height/time shutdown; only ordinary execution is reachable; its measured timing fills all legacy phase slots. Supply is bounded over the representable u64 height domain, not a network expiration.".into())}
     if let Some(t)=timing{add("timing-not-a-bound",&["R14","R19"],format!("timing: {} apply samples of the synthetic GAS_LIMIT compute workload on this host{}; not a p99 or worst-case bound (A13-DERIVATION §4)",t.samples,
         if t.stored{", in memory and through a scratch node store committed durably per block (store mode), largest per-block median execution per phase; durable commit latency excluded from the execution budget"}else{""}))}
-    if in_gas_domain(cp){add("gas-monotonicity-assumed",&["R18"],"SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)".into())}
+    if in_gas_domain(cp,v3){add("gas-monotonicity-assumed",&["R18"],"SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)".into())}
     for d in deferred{add(match *d{"LP4:general-R21"=>"gate-deferred-general-R21","LP4:general-R18"=>"gate-deferred-general-R18",_=>"gate-deferred-caps64"},
         if d.ends_with("R21"){&["R21"]}else{&["R18"]},format!("gate: deferred LP3 obligation {d}"))}
     if hist_exception{add("r21-retention-stress",&["R21"],"R21: admitted only by the simnet retentionStress exception".into())}
