@@ -1404,6 +1404,51 @@ H15000-bundle projections above. Candidate v3 caps still need the resource/profi
 `memory_bounds` checks observations and side-record growth; `v3_fork_choice` checks actual retention,
 checkpoint/index loss, partial timing-table loss, corruption recovery and re-fetch with original flags.
 
+### V3-PR-C3: active log limits and creation-fee annotation
+
+For the same admitted `v3_active(MAX)` domain as first-import indexing, every
+per-block log term now uses 256 KiB rather than 32 KiB: continuous projected
+history, the resident canonical window, retained receipts, side blocks and a
+reloaded view. Finite LOG_CAP=1 GiB is unchanged. R26 also reserves response/count/scan capacity for the
+largest active log cap; its partial evaluator cannot waive an enforced bound.
+
+A paid creation charge adds at most one receipt annotation to the native result:
+one Log, two topics and 96 data bytes (196 LOG-ACCT-01 bytes). The encoded/retained
+copies are inside the active log bounds. `execution/v3 creation-fee receipt
+annotation scratch` adds 4096 B per execution for the extra live log and its
+allocation/growth peak beyond EVM-gas-purchased logs. Two boxed BlockRun reports
+can hold the new 96-byte CreationBurn fields, even for legacy zero burns: count
+192 additional bytes on all profiles. Other scalar values and U512 arithmetic
+use the already reserved consensus stack. There is no
+new system slot, snapshot map, checkpoint field or lifetime burn map.
+
+Receipt RLP encoding has nested growing parts/topic/log/payload/envelope buffers;
+apply also copies its USER receipt list into the block report. Count the peak
+explicitly as `16*active_log_bytes + 2*side_txs*per_tx + 65536`, where the existing
+per-tx allowance is 380 B and `side_txs=min(BODY_MAX/MIN_TX_BYTES,GAS_LIMIT/21000)`.
+Sixteen log-byte copies cover nesting, growth and metadata; two receipt buffers
+and 64 KiB cover the base fields and fixed bloom/short-list scratch. Native logs
+and retained receipts are counted separately. This conservative inspection term
+adds 878624 B on the legacy default 8M-gas profile and grows with the v3 log cap.
+
+Together with 192 B of report fields, that profile's increment is 878816 B.
+All six non-evicting record stops move, in peers 8/32/64 and dials 2/7 order:
+1,145,894 / 1,121,036 / 1,113,874 / 1,089,243 / 1,071,332 / 1,046,701. The exact
+pins and original R10 owner seed guards remain; the default 32-peer rule still
+passes. Windowed disk stops decrease by 3,599,630,336 B (4096*878816);
+(32 peers, 2 dials) is now 11,590,056,575,103 B. The default Linux x86-64 devnet
+model is 3,397,791,426 B with eviction, 3,388,329,805 B without. Budgets, reserve
+and one-byte boundary checks are unchanged. These are capacity models, not
+measured RSS or chain lifetime.
+
+Pricing is exact per persisted new unit; its loops are bounded by existing gas
+and dirty limits (runtime deposit is 200 gas per byte). No shared growth budget
+or reduced resource reserve substitutes for this inventory. See
+`development/decisions/V3-EXECUTION-FEES.md` and `v3_execution` for count/byte
+boundaries, annotation rollback, classified conservation and copy/overlay/store
+parity. These are representation bounds and fixture results; candidate v3 caps
+and coefficient calibration still require the resource/profile PR.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

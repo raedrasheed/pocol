@@ -150,7 +150,10 @@ pub struct BlockOutput{
 
 /// Parent-state facts used by consensus (finality, closing, membership).
 #[derive(Clone,Copy,Debug,PartialEq,Eq,Default)]
-pub struct ChainFacts{pub closing:bool,pub close_h:u64,pub cursor_done:bool,pub rec_len:u64,pub act_len:u64,pub held_total:U256,pub burned_total:U256}
+pub struct ChainFacts{pub closing:bool,pub close_h:u64,pub cursor_done:bool,pub rec_len:u64,pub act_len:u64,pub held_total:U256,pub burned_total:U256,
+    /// External USER burns in this block (receipt-backed), not a balance held by Escrow.
+    /// State-only `chain_facts` has no transaction context and reports zero here.
+    pub creation_burn:crate::creation_fees::CreationBurn}
 
 fn word(db:&dyn crate::view::View,a:Address,slot:U256)->U256{db.slot(&a,&slot)}
 fn bits(v:U256,shift:u32,width:u32)->U256{(v>>shift)&((U256::from(1)<<width)-U256::from(1))}
@@ -161,7 +164,7 @@ pub fn chain_facts(db:&dyn crate::view::View)->ChainFacts{
     let cursor=bits(c,90,32);
     ChainFacts{closing:bits(c,89,1)!=U256::ZERO,close_h:low_u64(bits(c,187,64)),cursor_done:cursor>=len,
         rec_len:low_u64(len),act_len:low_u64(word(db,r,U256::from(1))),held_total:word(db,r,U256::from(4)),
-        burned_total:word(db,escrow(),U256::ZERO)}
+        burned_total:word(db,escrow(),U256::ZERO),creation_burn:Default::default()}
 }
 
 /// One Registry record (four words, REGISTRY-LAYOUT.md).
@@ -394,7 +397,7 @@ pub fn apply_block_on<B:crate::view::View>(parent:&B,parent_summary:&crate::stat
     check_escrow_invariant(child,profile,h,is_final)?;
     let c=users.commitments().clone();
     let evidence_root=crate::trie::ordered_root(input.evidence_raw,usize::from(cp.E_max)).map(B256::from).map_err(|_|ApplyError::Root)?;
-    let facts=chain_facts(child);
+    let facts=ChainFacts{creation_burn:users.creation_burn(),..chain_facts(child)};
     Ok(BlockRun{layer:ran.state.into_layer(),writes,summary,transactions_root:c.transactions_root,receipts_root:c.receipts_root,evidence_root,logs_bloom:c.logs_bloom,gas_used:c.gas_used,
         receipts:users.receipts().to_vec(),tips,issued,system_gas,is_final,facts,meter,log_bytes:users.log_bytes(),halts:users.halts().to_vec(),dirty_accounts:users.dirty_accounts()})
 }
@@ -437,7 +440,7 @@ fn apply_impl(parent:&InMemoryDB,parent_trie:Option<&crate::state_trie::StateTri
     let trie=match (parent_trie,&touched){(Some(p),Some(t))=>p.update(&state,t),_=>crate::state_trie::StateTrie::build(&state)};
     let state_root=trie.root();
     if root_check(){assert_eq!(state_root,self::state_root(&state)?,"C-1 E1: the incremental state root differs from the full computation at height {h}")}
-    let facts=chain_facts(&state);
+    let facts=ChainFacts{creation_burn:users.creation_burn(),..chain_facts(&state)};
     Ok(BlockOutput{state,state_root,transactions_root:c.transactions_root,receipts_root:c.receipts_root,evidence_root,logs_bloom:c.logs_bloom,gas_used:c.gas_used,
         receipts:users.receipts().to_vec(),tips,issued,system_gas,is_final,facts,meter,log_bytes:users.log_bytes(),halts:users.halts().to_vec(),dirty_accounts:users.dirty_accounts(),trie,summary,writes:None})
 }

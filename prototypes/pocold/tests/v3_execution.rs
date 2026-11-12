@@ -1,0 +1,343 @@
+//! V3-20/21/24 on disposable fixtures. No production profile or coefficients.
+use pocol_lp4_execution::{creation_fees,fees};
+use revm::primitives::U256;
+
+#[test]
+fn fee_floor_and_exact_creation_prices_have_no_legacy_shortcut(){
+    let floor=U256::from(10_000_000);let mut old=U256::from(1_000_000_000);let mut new=old;
+    for _ in 0..1000{old=fees::next_base_fee(old,0,8_000_000,U256::ZERO).unwrap();new=fees::next_base_fee(new,0,8_000_000,floor).unwrap();assert!(new>=floor)}
+    assert_eq!(old,U256::from(7));assert_eq!(new,floor);
+    assert_eq!(creation_fees::price(U256::from(100),10,7,3),Some(U256::from(333+500+1000)));
+}
+
+#[cfg(feature="v3-preview")]
+mod preview{
+    use super::*;
+    use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},native::{self,NativeBlockContext},receipts,state_summary::Summary,txsign::Tx,user_phase::{self,Halt,PoolMeter},view::View,wire};
+    use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,Log,alloy_primitives::U512}};
+
+    fn net(v3:bool,tune:impl FnOnce(&mut DevnetConfig))->devnet::Devnet{
+        let mut c=DevnetConfig::new(777938,1_800_000_000,&["execution"]);
+        c.spec_version=if v3{2}else{1};c.earnin=true;c.nonce_mode=1;
+        c.f0_acct=U256::from(1000);c.f0_slot=U256::from(2000);c.f0_code=U256::from(3);
+        tune(&mut c);devnet::build(&c).unwrap()
+    }
+    fn ctx(n:&devnet::Devnet)->NativeBlockContext{NativeBlockContext{height:U256::from(1),timestamp:U256::from(1_800_000_004u64),gas_limit:U256::from(n.profile.cp().GAS_LIMIT),base_fee:U256::from(100),prevrandao:B256::ZERO}}
+    fn tx(nonce:u64,to:Option<Address>,value:u64,data:Vec<u8>,gas:u64)->Vec<u8>{
+        Tx{chain_id:777938,nonce,max_priority:U256::from(7),max_fee:U256::from(200),gas,to,value:U256::from(value),data:Bytes::from(data)}.sign_1559(&devnet::account_key("alice"))
+    }
+    fn run(n:&devnet::Devnet,db:&InMemoryDB,raw:&[Vec<u8>])->user_phase::UserCandidate{
+        user_phase::execute_for_block(db,raw,&ctx(n),2_000_000,1000,&n.profile,user_phase::UserContext::default()).unwrap()
+    }
+    fn code(db:&mut InMemoryDB,a:Address,bytes:Vec<u8>){let b=Bytecode::new_raw(Bytes::from(bytes));db.insert_account_info(a,AccountInfo{nonce:1,code_hash:b.hash_slow(),code:Some(b),..Default::default()});}
+    fn count(db:&InMemoryDB)->Summary{Summary::scan(db,32768)}
+    fn sum(db:&InMemoryDB)->U512{db.accounts.values().filter_map(|a|a.info()).map(|a|U512::from(a.balance)).sum()}
+    fn new_address(i:u8)->Address{Address::from([i;20])}
+    fn init(runtime:&[u8])->Vec<u8>{assert!(runtime.len()<256);let len=runtime.len() as u8;let mut b=vec![0x60,len,0x60,12,0x60,0,0x39,0x60,len,0x60,0,0xf3];b.extend_from_slice(runtime);b}
+    struct Temp(std::path::PathBuf);
+    impl Temp{fn new()->Self{use std::sync::atomic::{AtomicU64,Ordering};static N:AtomicU64=AtomicU64::new(0);Self(std::env::temp_dir().join(format!("pocol-v3-execution-{}-{}",std::process::id(),N.fetch_add(1,Ordering::Relaxed))))}}
+    impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
+    fn node_config(dir:&Temp,store:bool)->pocold::node::Config{pocold::node::Config{dir:dir.0.clone(),name:"execution-test".into(),miner:None,listen:None,rpc:None,peers:vec![],stop_at:None,log:false,
+        limits:pocold::node::Limits{r_keep:4,side_cap:2,state_store:store,history_window:Some(2),slim_depth:Some(4),pool_sender_gas_max:Some(8_000_000),..Default::default()}}}
+    fn node_cfg(tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{
+        let mut c=DevnetConfig::new(777938,1_700_000_000,&["execution"]);c.spec_version=2;c.earnin=true;c.nonce_mode=1;c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;
+        c.f0_acct=U256::from(1000);c.f0_slot=U256::from(2000);c.f0_code=U256::from(3);tune(&mut c);c
+    }
+    fn node_spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap().0)}
+    fn node_tx(node:&pocold::node::Node,key:&pocol_lp4_execution::txsign::Key,nonce:u64,to:Address,gas:u64)->Vec<u8>{
+        let head=node.chain.full_entry(&node.chain.head).unwrap();let base=node.chain.child_ctx(&head,0).unwrap().base_fee;
+        Tx{chain_id:777938,nonce,max_priority:U256::from(7),max_fee:base*U256::from(2)+U256::from(7),gas,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(key)
+    }
+    fn rpc(node:&mut pocold::node::Node,method:&str,params:serde_json::Value)->serde_json::Value{
+        serde_json::from_str(&pocold::rpc::handle(node,serde_json::json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string().as_bytes())).unwrap()
+    }
+    fn solve(node:&pocold::node::Node,raw:Vec<Vec<u8>>,clock:u64)->pocold::types::Block{
+        use pocold::types::*;let p=node.chain.full_entry(&node.chain.head).unwrap();let key=devnet::miner_identity("execution").key;let body=Body{txs:raw,evidence:vec![]};
+        let (mut h,_,ctx)=node.chain.build_signed(&p,&key,clock,body.clone(),vec![]).unwrap();let tid=template_id(&h.ut_raw);
+        for nonce in 0..1_000_000{if le_target(&pow_hash(&tid,nonce),&ctx.target){h.nonce=nonce;reseal(&mut h);h.winner_sig=key.sign_hash(&B256::from(pocold::hashes::win_msg(&tid,nonce,&share_root(&h))));reseal(&mut h);return Block{header:h,body}}}
+        panic!("private fixture solution not found");
+    }
+
+    #[test]
+    fn account_creation_uses_running_counts_receipts_and_sender_burns(){
+        for v3 in [false,true]{
+            let n=net(v3,|c|c.acct_cap=8);let db=n.genesis.state();let before=count(db);let mut expected=U256::ZERO;
+            let raw:Vec<_>=(0..3).map(|i|tx(i,Some(new_address(40+i as u8)),1,vec![],21000)).collect();let o=run(&n,db,&raw);
+            assert!(o.halts().is_empty());assert_eq!(o.commitments().gas_used,63000);
+            let mut all_logs=Vec::new();
+            for i in 0..3{
+                let fee=if v3{creation_fees::price(U256::from(1000),8,before.user_accounts+i,1).unwrap()}else{U256::ZERO};expected+=fee;
+                let burn=creation_fees::CreationBurn{accounts:fee,..Default::default()};let logs:Vec<Log>=burn.log(devnet::account_key("alice").address()).into_iter().collect();
+                assert_eq!(o.receipts()[i as usize],receipts::encode(2,true,(i+1)*21000,&logs).unwrap());all_logs.extend(logs);
+            }
+            assert_eq!(o.creation_burn().accounts,expected);assert_eq!(o.creation_burn().slots,U256::ZERO);assert_eq!(o.creation_burn().code,U256::ZERO);
+            assert_eq!(sum(db)-sum(o.state()),U512::from(63000*100)+U512::from(expected));
+            assert_eq!(o.tips(),U256::from(63000*7));assert_eq!(o.commitments().logs_bloom,receipts::bloom(&all_logs));
+            assert_eq!(o.log_bytes(),user_phase::log_charge(&all_logs));
+            let alice=devnet::account_key("alice").address();assert_eq!(db.accounts[&alice].info.balance-o.state().accounts[&alice].info.balance,U256::from(63000*107+3)+expected);
+            assert_eq!(count(o.state()).user_accounts,before.user_accounts+3);
+        }
+    }
+
+    #[test]
+    fn unpaid_or_overflowing_fee_is_a_full_gas_halt_and_commits_no_creation(){
+        for f0 in [U256::from(1_000_000_000_000u64),U256::MAX]{
+            let n=net(true,|c|{c.f0_acct=f0;c.accounts[0].1=U256::from(20_000_000)});
+            let db=n.genesis.state();let to=new_address(51);let o=run(&n,db,&[tx(0,Some(to),1,vec![],50000)]);
+            assert_eq!(o.halts(),&[(0,Halt::CreationFee)]);assert_eq!(o.commitments().gas_used,50000);assert_eq!(o.log_bytes(),0);
+            assert_eq!(o.creation_burn(),Default::default());assert!(!o.state().accounts.contains_key(&to));
+            let a=devnet::account_key("alice").address();assert_eq!(o.state().accounts[&a].info.nonce,1);
+            assert_eq!(db.accounts[&a].info.balance-o.state().accounts[&a].info.balance,U256::from(50000*107));
+            assert_eq!(sum(db)-sum(o.state()),U512::from(50000*100));
+            assert_eq!(o.receipts()[0],receipts::encode(2,false,50000,&[]).unwrap());
+        }
+    }
+
+    #[test]
+    fn slot_replacement_at_a_full_cap_pays_for_a_gross_creation_and_never_hash_order(){
+        let n=net(true,|c|{c.slot_cap=1;c.f0_slot=U256::from(101)});let a=new_address(61);let mut db=n.genesis.state().clone();
+        // Clear slot0 then insert slot1. The final live count remains one, but a
+        // different persistent slot was created and must pay the last-unit fee.
+        code(&mut db,a,vec![0x60,0,0x60,0,0x55,0x60,9,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(5)).unwrap();
+        let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);assert!(o.halts().is_empty());
+        assert_eq!(o.creation_burn().slots,U256::from(101));assert_eq!(count(o.state()).user_slots,1);
+        assert_eq!(o.state().slot(&a,&U256::ZERO),U256::ZERO);assert_eq!(o.state().slot(&a,&U256::from(1)),U256::from(9));
+        // Reverse the independent writes: pricing is a function of committed
+        // additions/removals, never revm's map order or transient opcode order.
+        code(&mut db,a,vec![0x60,9,0x60,1,0x55,0x60,0,0x60,0,0x55,0]);
+        let r=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);assert_eq!(r.creation_burn(),o.creation_burn());
+        assert_eq!(r.state().slot(&a,&U256::from(1)),U256::from(9));
+    }
+
+    #[test]
+    fn native_reverts_and_temporary_slot_creations_are_not_charged(){
+        for tail in [vec![0x60,0,0x60,0,0xfd],vec![0x60,0,0x60,0,0x55,0]]{
+            let n=net(true,|_|{});let a=new_address(62);let mut db=n.genesis.state().clone();let mut runtime=vec![0x60,1,0x60,0,0x55];runtime.extend(tail);code(&mut db,a,runtime);
+            let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);assert!(o.halts().is_empty());assert_eq!(o.creation_burn(),Default::default());assert_eq!(o.log_bytes(),0);
+            assert_eq!(o.state().slot(&a,&U256::ZERO),U256::ZERO);
+        }
+    }
+
+    #[test]
+    fn deployment_charges_each_logical_code_byte_in_addition_to_its_account(){
+        let n=net(true,|_|{});let db=n.genesis.state();let before=count(db);let runtime=vec![0;80];
+        let o=run(&n,db,&[tx(0,None,0,init(&runtime),200000),tx(1,None,0,init(&runtime),200000)]);assert!(o.halts().is_empty());
+        let cp=n.profile.cp();let expected=creation_fees::price(U256::from(3),cp.CODE_CAP,before.inventory(),160).unwrap();
+        assert_eq!(o.creation_burn().code,expected);assert_eq!(count(o.state()).inventory(),before.inventory()+160,"identical code at two addresses is charged twice, like the logical cap");
+        assert!(o.creation_burn().accounts>U256::ZERO);assert_eq!(o.creation_burn().slots,U256::ZERO);
+        assert_eq!(sum(db)-sum(o.state()),U512::from(o.commitments().gas_used*100)+U512::from(o.creation_burn().total().unwrap()));
+    }
+
+    #[test]
+    fn pool_pending_state_and_block_execution_deduct_identical_running_fees(){
+        let n=net(true,|c|c.acct_cap=10);let start=n.genesis.state();let mut db=start.clone();let mut meter=PoolMeter::of(&db,&n.profile);let context=ctx(&n);
+        let raw:Vec<_>=(0..4).map(|i|tx(i,Some(new_address(70+i as u8)),1,vec![],21000)).collect();let mut burns=creation_fees::CreationBurn::default();let mut logs=Vec::new();
+        for r in &raw{
+            let env=wire::decode_for_profile(r,&n.profile).unwrap().tx_env();let total=count(&db).inventory();
+            let mut result=native::execute_on_validated(&db,total,env.clone(),&context,&n.profile).unwrap();
+            let b=meter.admit_result(&db,&mut result,env.caller,&context,&n.profile,total).unwrap();burns=burns.checked_add(b).unwrap();logs.extend_from_slice(result.result.logs());
+            user_phase::commit_tx(&mut db,result.state,true);let actual=count(&db);assert_eq!(meter.live(),(actual.user_slots,actual.user_accounts,actual.sys_slots));
+        }
+        let block=run(&n,start,&raw);assert_eq!(block.creation_burn(),burns);assert_eq!(block.commitments().logs_bloom,receipts::bloom(&logs));
+        assert_eq!(block.state_root(100,100).unwrap(),apply::state_root(&db).unwrap());assert_eq!(sum(block.state()),sum(&db));
+    }
+
+    #[test]
+    fn a_front_loaded_32k_log_does_not_halt_a_later_transfer_log_on_v3(){
+        for v3 in [false,true]{
+            let n=net(v3,|_|{});let mut db=n.genesis.state().clone();let front=new_address(81);let transfer=new_address(82);
+            // LOG0 charges 36+32732=32768 bytes. A fixed-transfer token fixture
+            // moves one unit between balances and emits ERC-20 Transfer.
+            code(&mut db,front,vec![0x61,0x7f,0xdc,0x60,0,0xa0,0]);
+            let mut token=vec![0x60,99,0x60,0,0x55,0x60,1,0x60,1,0x55,0x60,1,0x60,0,0x52,0x73];
+            token.extend_from_slice(devnet::account_key("bob").address().as_slice());token.push(0x73);token.extend_from_slice(devnet::account_key("alice").address().as_slice());token.push(0x7f);
+            token.extend_from_slice(revm::primitives::keccak256("Transfer(address,address,uint256)").as_slice());token.extend_from_slice(&[0x60,32,0x60,0,0xa3,0]);code(&mut db,transfer,token);
+            db.insert_account_storage(transfer,U256::ZERO,U256::from(100)).unwrap();
+            let o=run(&n,&db,&[tx(0,Some(front),0,vec![],1000000),tx(1,Some(transfer),0,vec![],100000)]);
+            if v3{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),32768+36+96+32+196);assert!(o.creation_burn().slots>U256::ZERO);
+                assert_eq!(o.state().slot(&transfer,&U256::ZERO),U256::from(99));assert_eq!(o.state().slot(&transfer,&U256::from(1)),U256::from(1));
+            }else{assert_eq!(o.halts(),&[(1,Halt::LogBytes)]);assert_eq!(o.log_bytes(),32768);assert_eq!(o.state().slot(&transfer,&U256::ZERO),U256::from(100));assert_eq!(o.state().slot(&transfer,&U256::from(1)),U256::ZERO)}
+        }
+    }
+
+    #[test]
+    fn zero_coefficients_do_not_waive_live_caps(){
+        let n=net(true,|c|{c.acct_cap=3;c.f0_acct=U256::ZERO;c.f0_slot=U256::ZERO;c.f0_code=U256::ZERO});
+        assert_eq!(count(n.genesis.state()).user_accounts,3);
+        let o=run(&n,n.genesis.state(),&[tx(0,Some(new_address(91)),1,vec![],50000)]);
+        assert_eq!(o.halts(),&[(0,Halt::AcctCap)]);assert_eq!(o.creation_burn(),Default::default());
+        let free=net(true,|c|{c.f0_acct=U256::ZERO;c.f0_slot=U256::ZERO;c.f0_code=U256::ZERO});
+        let o=run(&free,free.genesis.state(),&[tx(0,Some(new_address(91)),1,vec![],21000)]);
+        assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),0);assert_eq!(o.creation_burn(),Default::default());
+    }
+
+    #[test]
+    fn dust_filled_legacy_account_and_slot_caps_halt_while_raised_v3_caps_charge(){
+        for v3 in [false,true]{
+            let n=net(v3,|c|c.acct_cap=if v3{10}else{3});
+            let o=run(&n,n.genesis.state(),&[tx(0,Some(new_address(92)),1,vec![],50000)]);
+            if v3{assert!(o.halts().is_empty());assert!(o.creation_burn().accounts>U256::ZERO)}else{assert_eq!(o.halts(),&[(0,Halt::AcctCap)]);}
+            let n=net(v3,|c|c.slot_cap=if v3{4}else{1});let mut db=n.genesis.state().clone();let a=new_address(93);
+            code(&mut db,a,vec![0x60,1,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(1)).unwrap();
+            let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);
+            if v3{assert!(o.halts().is_empty());assert_eq!(o.creation_burn().slots,U256::from(8000/3));assert_eq!(count(o.state()).user_slots,2)}else{assert_eq!(o.halts(),&[(0,Halt::SlotCap)]);assert_eq!(count(o.state()).user_slots,1)}
+        }
+    }
+
+    #[test]
+    fn dust_filled_legacy_code_cap_halts_a_deployment_while_v3_pays(){
+        for v3 in [false,true]{
+            let baseline=net(v3,|_|{});let sys=count(baseline.genesis.state()).inventory();
+            // The ChainCaps appended words have a fixed width, so changing the
+            // cap does not change its own logical runtime length.
+            let n=net(v3,|c|c.code_cap=sys+if v3{200}else{100});let mut db=n.genesis.state().clone();
+            assert_eq!(count(&db).inventory(),sys);code(&mut db,new_address(94),vec![0;100]);
+            let o=run(&n,&db,&[tx(0,None,0,init(&[0;80]),200000)]);
+            if v3{assert!(o.halts().is_empty());assert_eq!(count(o.state()).inventory(),sys+180);assert!(o.creation_burn().code>U256::from(80*3));}
+            else{assert_eq!(count(o.state()).inventory(),sys+100);assert_eq!(o.receipts()[0],receipts::encode(2,false,200000,&[]).unwrap());}
+        }
+    }
+
+    #[test]
+    fn classified_burns_conserve_supply_and_escrow_on_copy_overlay_and_stored_views(){
+        use pocol_lp4_execution::{node_trie::{Batch,MemStore,NodeTrie,TrieState},state_trie::StateTrie,view::Overlay};
+        let n=net(true,|c|c.acct_cap=20);let mut db=n.genesis.state().clone();let initial=sum(&db);let mut issued=U512::ZERO;let mut external=U512::ZERO;let mut parent_result=None;
+        for height in 1..=12{
+            let raw=vec![tx(height-1,Some(new_address(100+((height-1)%6) as u8)),1,vec![],21000)];
+            let input=apply::BlockInput{height,timestamp:1_800_000_000+height*4,base_fee:U256::from(100),gas_limit:n.profile.cp().GAS_LIMIT,prevrandao:B256::ZERO,
+                proposer:apply::Proposer::Fallback,parent_result:parent_result.clone(),evidence:vec![],evidence_raw:&[],transactions:&raw,ancestors:vec![(0,n.genesis_hash)],cum_log_bytes:0};
+            let before=count(&db);let trie=StateTrie::build(&db);
+            let reference=apply::apply_block(&db,&n.genesis,&n.profile,&input).unwrap();
+            let incremental=apply::apply_block_with(&db,Some(&trie),Some(&before),&n.genesis,&n.profile,&input).unwrap();
+            let mut store=MemStore::default();let mut batch=Batch::default();let nt=NodeTrie::build(&db,&store,&mut batch);store.commit(&batch,nt.world);
+            let block_hashes=Default::default();let stored=TrieState{store:&store,trie:nt,block_hashes:&block_hashes};
+            let run=apply::apply_block_on(&stored,&before,&n.genesis,&n.profile,&input).unwrap();
+            assert_eq!(run.facts,reference.facts);assert_eq!(run.receipts,reference.receipts);assert_eq!(run.receipts_root,reference.receipts_root);
+            let merged=Overlay::from_layer(&db,run.layer).merge();
+            assert_eq!(apply::state_root(&merged).unwrap(),reference.state_root);assert_eq!(incremental.state_root,reference.state_root);
+            assert_eq!(incremental.receipts,reference.receipts);assert_eq!(incremental.facts,reference.facts);assert_eq!(incremental.summary,count(&reference.state));
+            assert_eq!(sum(&merged),sum(&reference.state));
+            let burn=reference.facts.creation_burn;assert_eq!(burn.slots,U256::ZERO);assert_eq!(burn.code,U256::ZERO);
+            assert_eq!(burn.accounts>U256::ZERO,height<=6);
+            issued+=U512::from(reference.issued);external+=U512::from(reference.gas_used*100)+U512::from(burn.total().unwrap());
+            assert_eq!(sum(&reference.state)+external,initial+issued,"height {height}: every creation/base burn is external to Escrow's tracked need");
+            apply::check_escrow_invariant(&reference.state,&n.profile,height,false).unwrap();
+            assert_eq!(apply::chain_facts(&reference.state).creation_burn,Default::default(),"a state-only query does not invent a per-block burn");
+            db=reference.state;parent_result=Some(apply::ParentResult{block_hash:B256::from(U256::from(height)),winner:n.miners[0].id,shares:vec![]});
+        }
+    }
+
+    #[test]
+    fn node_pool_builder_rpc_receipts_and_restart_preserve_the_paid_fee(){
+        for stored in [false,true]{let dir=Temp::new();let cfg=node_cfg(|c|c.base_fee_min=U256::from(2_000_000_000u64));
+            let mut node=pocold::node::Node::open(node_config(&dir,stored),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");let to=new_address(121);
+            let head=node.chain.full_entry(&node.chain.head).unwrap();let child=node.chain.child_ctx(&head,0).unwrap();assert_eq!(child.base_fee,U256::from(2_000_000_000u64));
+            assert_eq!(rpc(&mut node,"eth_gasPrice",serde_json::json!([]))["result"],"0xb2d05e00");
+            let estimate=rpc(&mut node,"eth_estimateGas",serde_json::json!([{"from":alice.address(),"to":to,"value":"0x1"},"latest"]));
+            assert!(estimate.get("error").is_none(),"{estimate}");let gas=u64::from_str_radix(estimate["result"].as_str().unwrap().trim_start_matches("0x"),16).unwrap();assert!((21000..=22000).contains(&gas));
+            let raw=node_tx(&node,&alice,0,to,21000);let hash=node.submit_tx(raw.clone(),false).unwrap();
+            let head=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&head,cfg.g_ts+4);assert_eq!(selection.txs,vec![raw.clone()]);assert_eq!(selection.counted,21000);
+            let b=solve(&node,selection.txs,cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+            let receipt=rpc(&mut node,"eth_getTransactionReceipt",serde_json::json!([hash]));assert!(receipt.get("error").is_none(),"{receipt}");assert_eq!(receipt["result"]["status"],"0x1");
+            let logs=receipt["result"]["logs"].as_array().unwrap();assert_eq!(logs.len(),1);assert_eq!(logs[0]["address"],serde_json::json!(apply::caps()));assert_eq!(logs[0]["data"].as_str().unwrap().len(),2+96*2);
+            let head_hash=node.chain.head;let root=node.chain.head().header.state_root;if stored{node.checkpoint_now().unwrap();}drop(node);
+            let mut reopened=pocold::node::Node::open(node_config(&dir,stored),node_spec(&cfg)).unwrap();assert_eq!(reopened.chain.head,head_hash);assert_eq!(reopened.chain.head().header.state_root,root);
+            assert_eq!(rpc(&mut reopened,"eth_getTransactionReceipt",serde_json::json!([hash])),receipt);
+        }
+    }
+
+    #[test]
+    fn estimation_and_pool_refuse_unpaid_creation_but_unpriced_call_remains_a_query(){
+        let dir=Temp::new();let cfg=node_cfg(|c|c.f0_acct=U256::MAX);let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");let to=new_address(122);
+        let raw=node_tx(&node,&alice,0,to,21000);assert!(node.submit_tx(raw,false).unwrap_err().contains("CreationFee"));assert!(node.pool.txs.is_empty());
+        let request=serde_json::json!([{"from":alice.address(),"to":to,"value":"0x1"},"latest"]);
+        let estimate=rpc(&mut node,"eth_estimateGas",request.clone());assert_eq!(estimate["error"]["code"],-32000);assert!(estimate["error"]["message"].as_str().unwrap().contains("CreationFee"),"{estimate}");
+        let call=rpc(&mut node,"eth_call",request);assert_eq!(call["result"],"0x");
+        // No-from estimation of a read must not charge creation of a synthetic
+        // default caller; its virtual balance/cap unit is never committed.
+        let read=rpc(&mut node,"eth_estimateGas",serde_json::json!([{"to":devnet::account_key("bob").address()},"latest"]));assert!(read.get("error").is_none(),"{read}");
+    }
+
+    #[test]
+    fn builder_reprices_after_its_big_first_order_and_skips_an_unpayable_candidate(){
+        let dir=Temp::new();let f0=U256::from(100_000_000_000_000_000u64);let first=creation_fees::price(f0,8,3,1).unwrap();
+        let cfg=node_cfg(|c|{c.acct_cap=8;c.f0_acct=f0;c.accounts[0].1=first+U256::from(50_000_000_000_000u64)});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");let bob=devnet::account_key("bob");
+        let small=node_tx(&node,&alice,0,new_address(123),21000);let big=node_tx(&node,&bob,0,new_address(124),5_000_000);
+        node.submit_tx(small,false).unwrap();node.submit_tx(big.clone(),false).unwrap();assert_eq!(node.pool.txs.len(),2);
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,cfg.g_ts+4);assert_eq!(selection.txs,vec![big]);assert_eq!(selection.counted,21000);
+        let b=solve(&node,selection.txs,cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+        let view=node.chain.view_of(&node.chain.head).unwrap();assert!(view.account(&new_address(123)).is_none());assert!(view.account(&new_address(124)).is_some());
+    }
+
+    #[test]
+    fn log_count_and_byte_boundaries_are_inclusive_in_both_domains(){
+        for v3 in [false,true]{let n=net(v3,|_|{});let limits=user_phase::log_caps(v3);let target=new_address(125);
+            for extra in [0,1]{let mut db=n.genesis.state().clone();let count=limits.count+extra;let mut runtime=Vec::new();
+                for _ in 0..count{runtime.extend_from_slice(&[0x60,0,0x60,0,0xa0])}runtime.push(0);code(&mut db,target,runtime);
+                let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
+                if extra==0{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),36*count)}else{assert_eq!(o.halts(),&[(0,Halt::LogCount)]);assert_eq!(o.log_bytes(),0)}
+                let bytes=limits.bytes-36+extra;let mut runtime=vec![0x62,((bytes>>16)&255) as u8,((bytes>>8)&255) as u8,(bytes&255) as u8,0x60,0,0xa0,0];code(&mut db,target,std::mem::take(&mut runtime));
+                let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
+                if extra==0{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),limits.bytes)}else{assert_eq!(o.halts(),&[(0,Halt::LogBytes)]);assert_eq!(o.log_bytes(),0)}
+            }
+        }
+    }
+
+    #[test]
+    fn the_creation_burn_annotation_is_included_in_log_caps_and_reverted_on_halt(){
+        let n=net(true,|_|{});let target=new_address(126);
+        for extra in [0,1]{let mut db=n.genesis.state().clone();let bytes=256*1024-36-196+extra;
+            let mut runtime=vec![0x60,1,0x60,0,0x55,0x62,((bytes>>16)&255) as u8,((bytes>>8)&255) as u8,(bytes&255) as u8,0x60,0,0xa0,0];
+            code(&mut db,target,std::mem::take(&mut runtime));let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
+            if extra==0{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),256*1024);assert!(o.creation_burn().slots>U256::ZERO)}else{
+                assert_eq!(o.halts(),&[(0,Halt::LogBytes)]);assert_eq!(o.log_bytes(),0);assert_eq!(o.creation_burn(),Default::default());assert_eq!(o.state().slot(&target,&U256::ZERO),U256::ZERO);assert_eq!(o.commitments().gas_used,5_000_000);
+            }
+        }
+    }
+
+    #[test]
+    fn create_collision_preserves_copied_storage_without_charging_fictitious_creations(){
+        let n=net(true,|c|c.slot_cap=1);let mut db=n.genesis.state().clone();let alice=devnet::account_key("alice").address();let contract=alice.create(0);
+        db.insert_account_info(contract,AccountInfo{balance:U256::from(1),..Default::default()});db.insert_account_storage(contract,U256::from(99),U256::from(7)).unwrap();
+        // LP4-CREATE-01 deliberately includes nonzero storage in the collision
+        // check, even with nonce zero and empty code. V3 preserves this rule.
+        let raw=vec![tx(0,None,0,init(&[0x60,1,0x60,0,0x55,0]),200000),tx(1,Some(contract),0,vec![],100000)];
+        let o=run(&n,&db,&raw);assert!(o.halts().is_empty(),"{:?}",o.halts());assert_eq!(o.creation_burn().accounts,U256::ZERO);
+        assert_eq!(o.creation_burn(),Default::default());assert_eq!(o.state().slot(&contract,&U256::from(99)),U256::from(7));assert_eq!(o.state().slot(&contract,&U256::ZERO),U256::ZERO);assert_eq!(count(o.state()).user_slots,1);
+        assert_eq!(o.state().accounts[&contract].info.nonce,0);assert_eq!(o.receipts()[0],receipts::encode(2,false,200000,&[]).unwrap());assert_eq!(o.receipts()[1],receipts::encode(2,true,221000,&[]).unwrap());
+        let mut state=db.clone();let mut meter=PoolMeter::of(&state,&n.profile);let context=ctx(&n);
+        for raw in raw{let env=wire::decode_for_profile(&raw,&n.profile).unwrap().tx_env();let total=count(&state).inventory();let mut r=native::execute_on_validated(&state,total,env.clone(),&context,&n.profile).unwrap();
+            meter.admit_result(&state,&mut r,env.caller,&context,&n.profile,total).unwrap();user_phase::commit_tx(&mut state,r.state,true);let summary=count(&state);assert_eq!(meter.live(),(summary.user_slots,summary.user_accounts,summary.sys_slots));}
+        assert_eq!(apply::state_root(&state).unwrap(),o.state_root(100,100).unwrap());
+    }
+
+    #[test]
+    fn unpaid_slot_and_code_charges_revert_all_native_effects_and_burn_only_gas(){
+        for deployment in [false,true]{let n=net(true,|c|{c.f0_acct=U256::ZERO;if deployment{c.f0_code=U256::from(10u128.pow(30))}else{c.f0_slot=U256::from(10u128.pow(30))}});
+            let mut db=n.genesis.state().clone();let target=new_address(127);code(&mut db,target,vec![0x60,1,0x60,0,0x55,0]);let before=count(&db);
+            let raw=if deployment{tx(0,None,0,init(&[0;80]),200000)}else{tx(0,Some(target),0,vec![],200000)};
+            let o=run(&n,&db,&[raw]);assert_eq!(o.halts(),&[(0,Halt::CreationFee)]);assert_eq!(o.creation_burn(),Default::default());assert_eq!(o.log_bytes(),0);assert_eq!(o.commitments().gas_used,200000);
+            let after=count(o.state());assert_eq!((after.user_accounts,after.user_slots,after.code_total),(before.user_accounts,before.user_slots,before.code_total));
+            assert_eq!(sum(&db)-sum(o.state()),U512::from(200000*100));
+        }
+    }
+
+    #[test]
+    fn estimation_needs_only_affordable_transaction_gas_and_accepts_no_sender_reads_at_a_full_cap(){
+        let dir=Temp::new();let cfg=node_cfg(|c|c.accounts[0].1=U256::from(21_000_000_001_001u64));
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");let to=new_address(128);
+        let params=serde_json::json!([{"from":alice.address(),"to":to,"value":"0x1","gasPrice":"0x3b9aca00"},"latest"]);
+        let estimate=rpc(&mut node,"eth_estimateGas",params);assert_eq!(estimate["result"],"0x5208","{estimate}");
+        let raw=Tx{chain_id:777938,nonce:0,max_priority:U256::ZERO,max_fee:U256::from(1_000_000_000u64),gas:21000,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(&alice);
+        node.submit_tx(raw,false).unwrap();
+        // Boot with calibration headroom, then fill the cap through actual
+        // paid transactions. A cap below the calibration fixture cannot boot.
+        let dir=Temp::new();let cfg=node_cfg(|c|c.acct_cap=8);let mut full=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();
+        let mut raw=Vec::new();for i in 0..5{let tx=node_tx(&full,&alice,i,new_address(130+i as u8),21000);full.submit_tx(tx.clone(),false).unwrap();raw.push(tx);}
+        let block=solve(&full,raw,cfg.g_ts+4);assert!(full.import(block,None).unwrap());
+        for from in [None,Some(serde_json::Value::Null)]{let mut request=serde_json::json!({"to":devnet::account_key("bob").address()});if let Some(from)=from{request["from"]=from;}
+            let result=rpc(&mut full,"eth_estimateGas",serde_json::json!([request,"latest"]));assert!(result.get("error").is_none(),"a virtual query caller uses no live account unit: {result}");}
+        assert_eq!(full.chain.head().summary.as_ref().unwrap().user_accounts,8);
+    }
+}

@@ -342,6 +342,8 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
     ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; selection holds one entry list and one source or key list over the book; the exclusions are closures and allocate nothing; each slot channel holds one address; a route probe is a UDP socket without buffers; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
+    ("v3-execution-inventory","For the v3_active(MAX) profile domain derived at open, retained/per-block log terms use 256 KiB and native-result creation-fee annotation scratch adds 4 KiB per execution; encoded annotations are inside the log caps. Count the new CreationBurn fields in two boxed block reports on every profile; other scalars and exact U512 arithmetic use the reserved stack. Per-unit work is bounded by persistent creation gas and dirty caps; this inventory is by inspection, not a measured profile or higher live-state caps"),
+    ("receipt-encoding-inventory","Count receipt RLP nesting/growth at sixteen active charged log-byte copies, two per-block per-tx receipt buffers for USER/report copies, and 64 KiB fixed bloom/short-list scratch. These are conservative inventories of receipts::encode and apply's output copies, separate from native logs and retained history; the active log limit must grow this peak too"),
     ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
@@ -436,12 +438,15 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         p.TX_CAP=orig.TX_CAP.min(orig.GAS_LIMIT/21_000).checked_mul(n.checked_add(1)?)?;p.TXBYTES_CAP=orig.TXBYTES_CAP.min(u64::from(orig.BODY_MAX)).checked_mul(n.checked_add(1)?)?;Some(p)};
     let (projected,disk)=match (continuous,windowed){(false,_)=>(cp.clone(),None),(true,None)=>(over(limits.continuous_history?.checked_add(2048)?)?,None),(true,Some(_))=>(over(DISK_HEADROOM)?,Some(limits.disk?))};
     let cp=&projected;
-    let log_cap=if continuous{u128::from(caps::LOG_BLOCK_MAX).checked_mul(u128::from(cp.H_END)+1)?}else{u128::from(caps::LOG_CAP)};
+    // Node::open derives first_imports from spec.v3_active(MAX), before admission;
+    // reserve the largest log cap anywhere in that same profile domain.
+    let block_log_max=pocol_lp4_execution::user_phase::log_caps(limits.first_imports).bytes;
+    let log_cap=if continuous{u128::from(block_log_max).checked_mul(u128::from(cp.H_END)+1)?}else{u128::from(caps::LOG_CAP)};
     // The canonical entries in memory, and the caps the window's content is bounded by: on the continuous windowed
     // chain the per-block caps over the resident entries (the projection above is the files' headroom only).
     let resident=match (continuous,windowed){(true,Some(e))=>u128::from(e)+2,_=>resident_of(cp,k_hist,limits)?};
     let (tx_mem,txbytes_mem,log_mem)=if continuous&&windowed.is_some(){
-        (u128::from(orig.TX_CAP.min(orig.GAS_LIMIT/21_000)).checked_mul(resident)?,u128::from(orig.TXBYTES_CAP.min(u64::from(orig.BODY_MAX))).checked_mul(resident)?,u128::from(caps::LOG_BLOCK_MAX).checked_mul(resident)?)
+        (u128::from(orig.TX_CAP.min(orig.GAS_LIMIT/21_000)).checked_mul(resident)?,u128::from(orig.TXBYTES_CAP.min(u64::from(orig.BODY_MAX))).checked_mul(resident)?,u128::from(block_log_max).checked_mul(resident)?)
     }else{(u128::from(cp.TX_CAP),u128::from(cp.TXBYTES_CAP),log_cap)};
     let s=u128::from(cp.S_max);let m=u128::from(cp.M_max);let hdr=header_max(cp.S_max);
     // Snapshot: accounts <= ACCT_CAP user accounts (genesis check_caps, USER halts AcctCap)
@@ -556,7 +561,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         let identities=u128::from(cp.M_max).checked_add(mul(u128::from(cp.R_max),u128::from(cp.H_END))?)?;w_evidence.min(mul(identities,u128::from(cp.EVID_BYTES_MAX)+24)?)};
     let w_bodies=mul(window,u128::from(cp.BODY_MAX))?.min(txbytes_mem);
     let w_receipts=mul(mul(window,side_txs)?.min(tx_mem),per_tx)?;
-    let w_logs=mul(window,u128::from(caps::LOG_BLOCK_MAX))?.min(log_mem)/32*33;
+    let w_logs=mul(window,u128::from(block_log_max))?.min(log_mem)/32*33;
     // history.redb (crate::history): its page cache is HISTORY_CACHE (redb splits it 9:1 between reads
     // and the write buffer, and flushes the write buffer to the file past its share). Its allocator keeps
     // per page two buddy bitmaps over the page orders (about 4 bits a page, redb 2.6.4 buddy_allocator.rs),
@@ -595,7 +600,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         //   non-durable puts between two durable ones) and its allocator over the observed file (CANON_ROW a row).
         let batch=add(&[limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?,2])?;
         let keep=u128::from(cp.E_win).checked_add(1)?.max(257);
-        let view=add(&[offloaded_entry,hdr,u128::from(cp.BODY_MAX),mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?,mul(side_txs,per_tx)?,u128::from(caps::LOG_BLOCK_MAX)/32*33])?;
+        let view=add(&[offloaded_entry,hdr,u128::from(cp.BODY_MAX),mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?,mul(side_txs,per_tx)?,u128::from(block_log_max)/32*33])?;
         let canon_alloc=redb_alloc_max(add(&[disk.map_or(0,|d|u128::from(d.canon)),mul(mul(blocks,CANON_ROW)?,HISTORY_FILE_FACTOR)?])?)?;
         hist.extend([("history/canonical window (the Canon deque, C-1 S5)",mul(64,resident.checked_add(1)?)?),
             ("history/eviction batch (rows on their way to canon.redb)",eviction_batch_bytes(batch)?),
@@ -621,7 +626,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // by a sync session. Replay: all <= side_cap + protect_max (Chain::replaying). One full block is
     // resident between its insert and that retain (or while restore_canonical re-executes it): its
     // transactions are bounded by its body and by its gas.
-    let side_block=add(&[per_block,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?,u128::from(cp.BODY_MAX),mul(side_txs,per_tx)?,u128::from(caps::LOG_BLOCK_MAX)/32*33])?;
+    let side_block=add(&[per_block,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?,u128::from(cp.BODY_MAX),mul(side_txs,per_tx)?,u128::from(block_log_max)/32*33])?;
     let side_entries=add(&[limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?])?;
     let side_entry=per_block.checked_sub(hdr)?.checked_sub(mul(u128::from(cp.E_max),24)?)?.checked_add(304+64)?;
     // Protect filtering holds old/new sets (including deletion churn) and a Vec.
@@ -760,8 +765,29 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let threads=add(&th.map(|x|x.1))?;items.extend(th);
     // EVM execution buffers, journal, transient storage and loaded state (A13 obligation 4).
     let (gas,code_max)=(memory::execution_gas(cp.GAS_LIMIT),u128::from(cp.B_code_max));
-    let execution=mul(EXECUTIONS,memory::execution(gas,code_max)?)?;let fixed=mul(EXECUTIONS,memory::fixed_heap(gas,code_max)?)?;
-    items.extend([("execution/frames, code analysis, preallocations, precompiles",fixed),("execution/memory and operation classes (worst gas split)",execution.checked_sub(fixed)?)]);
+    let evm_execution=mul(EXECUTIONS,memory::execution(gas,code_max)?)?;let fixed=mul(EXECUTIONS,memory::fixed_heap(gas,code_max)?)?;
+    // One additional log per successful charged transaction, beyond logs bought
+    // with EVM gas: Log + two topics + 96 bytes, all Vec growth and allocator
+    // headers, with <4 KiB extra at the execution peak. Encoded/retained copies
+    // are already bounded by the active LOG_BLOCK_MAX terms above.
+    let annotation=if limits.first_imports{mul(EXECUTIONS,4096)?}else{0};
+    // Chain::Executed::Stored boxes BlockRun; its new per-block fields occupy
+    // space even for a legacy zero burn. Conservatively allow two such reports
+    // during nested template/rebuild work; no Entry retains a report.
+    let reports=mul(2,size_of::<pocol_lp4_execution::creation_fees::CreationBurn>() as u128)?;
+    // receipts::encode nests growing RLP buffers (per-log parts, topic/log
+    // lists, outer payload and typed envelope). Up to sixteen charged log-byte
+    // copies cover these peaks, including Vec growth/metadata. apply.rs clones
+    // the USER receipt list into its report: allow two complete per-tx receipt
+    // buffers too, with 64 KiB for fixed receipt/bloom/short-list scratch.
+    // Retained/history and native EVM logs are separate terms, so this is
+    // deliberately conservative; larger v3 log caps must grow this peak too.
+    let receipt_scratch=add(&[mul(16,u128::from(block_log_max))?,mul(2,mul(side_txs,per_tx)?)?,65536])?;
+    let execution=add(&[evm_execution,annotation,reports,receipt_scratch])?;
+    items.extend([("execution/frames, code analysis, preallocations, precompiles",fixed),("execution/memory and operation classes (worst gas split)",evm_execution.checked_sub(fixed)?)]);
+    if annotation>0{items.push(("execution/v3 creation-fee receipt annotation scratch",annotation));}
+    items.push(("execution/creation-burn fields in two boxed block reports",reports));
+    items.push(("execution/receipt RLP encoding and output-copy scratch",receipt_scratch));
     let total=add(&items.iter().map(|x|x.1).collect::<Vec<_>>())?;
     // Each group is the sum of its items.
     let group=|g:&str|add(&items.iter().filter(|x|x.0.split('/').next()==Some(g)).map(|x|x.1).collect::<Vec<_>>());

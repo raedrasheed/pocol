@@ -35,6 +35,26 @@ fn exact_default_rpc_derivations() {
 }
 
 #[test]
+fn v3_rpc_limits_cover_larger_log_bytes_counts_and_encoded_responses() {
+    let default = RpcLimits::default();
+    assert!(default.satisfies_r26_for(true));
+    let mut r = default.clone();
+    r.resp_max = 2 * 32768 + 546 * 512;
+    assert!(r.satisfies_r26());
+    assert!(!r.satisfies_r26_for(true));
+    r.resp_max = 2 * (256 * 1024) + 4368 * 512;
+    assert!(r.satisfies_r26_for(true));
+    r.resp_max -= 1;
+    assert!(!r.satisfies_r26_for(true));
+    let mut r = default.clone();r.logs_count_max = 4367;
+    assert!(r.satisfies_r26());assert!(!r.satisfies_r26_for(true));
+    r.logs_count_max = 4368;assert!(r.satisfies_r26_for(true));
+    let mut r = default;r.logs_scan_bytes = 256 * 1024 - 1;
+    assert!(r.satisfies_r26());assert!(!r.satisfies_r26_for(true));
+    r.logs_scan_bytes += 1;assert!(r.satisfies_r26_for(true));
+}
+
+#[test]
 fn all_named_pg_rpc_rejections_and_405_acceptance() {
     const M: u64 = 1024 * 1024;
     let mutations: &[(&str, fn(&mut RpcLimits))] = &[

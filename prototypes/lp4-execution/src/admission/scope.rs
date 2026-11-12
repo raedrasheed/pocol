@@ -93,12 +93,28 @@ pub const R26_PREDICATES:&[Pred]=&[
     ("enforceSlack<=500",&["enforce_slack_ms"],|r|r.enforce_slack_ms<=500),
     ("sendSockBuf<=64KiB",&["send_sock_buf"],|r|r.send_sock_buf<=64*1024),
 ];
+const V3_LOG_PREDICATES:&[Pred]=&[
+    ("respMax>=2*262144+4368*512",&["resp_max"],|r|r.resp_max>=2*262144+4368*512),
+    ("logsCountMax>=4368",&["logs_count_max"],|r|r.logs_count_max>=4368),
+    ("logsScanBytes>=262144",&["logs_scan_bytes"],|r|r.logs_scan_bytes>=262144),
+];
+/// Keep legacy diagnostic labels stable; replace only the active log limits.
+pub fn r26_predicates(v3:bool)->impl Iterator<Item=&'static Pred>{
+    R26_PREDICATES.iter().map(move|p|if !v3{p}else{match p.0{
+        "respMax>=2*32768+546*512"=>&V3_LOG_PREDICATES[0],
+        "logsCountMax>=546"=>&V3_LOG_PREDICATES[1],
+        "logsScanBytes>=32768"=>&V3_LOG_PREDICATES[2],_=>p,
+    }})
+}
 
 /// R26 over the enforced fields only: the predicates reading no absent field are checked, the
 /// others are waived. Returns the waiver and the checked predicates that fail.
 pub fn r26_partial(f:&RpcFacts)->(Waiver,Vec<&'static str>){
+    r26_partial_for(f,false)
+}
+pub fn r26_partial_for(f:&RpcFacts,v3:bool)->(Waiver,Vec<&'static str>){
     let reads_absent=|p:&Pred|p.1.iter().any(|x|f.absent.contains(x));
-    let checked:Vec<&Pred>=R26_PREDICATES.iter().filter(|p|!reads_absent(p)).collect();
+    let checked:Vec<&Pred>=r26_predicates(v3).filter(|p|!reads_absent(p)).collect();
     let failed=checked.iter().filter(|p|!(p.2)(&f.values)).map(|p|p.0).collect();
-    (Waiver{rule:"R26",absent:f.absent.clone(),waived:R26_PREDICATES.iter().filter(|p|reads_absent(p)).map(|p|p.0).collect(),checked:checked.iter().map(|p|p.0).collect()},failed)
+    (Waiver{rule:"R26",absent:f.absent.clone(),waived:r26_predicates(v3).filter(|p|reads_absent(p)).map(|p|p.0).collect(),checked:checked.iter().map(|p|p.0).collect()},failed)
 }

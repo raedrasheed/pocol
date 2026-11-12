@@ -968,14 +968,14 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         "eth_getStorageAt"=>{let a=p.first().and_then(parse_addr).ok_or(bad("address"))?;let k=p.get(1).and_then(parse_u256).ok_or(bad("slot"))?;
             let s=state_for(n,p.get(2).unwrap_or(&Value::Null))?;let v=s.v().slot(&a,&k);
             Ok(json!(hex(&v.to_be_bytes::<32>())))}
-        "eth_call"=>{let o=p.first().ok_or(bad("call"))?;let r=simulate(n,o,p.get(1).unwrap_or(&Value::Null),None,b)?;
+        "eth_call"=>{let o=p.first().ok_or(bad("call"))?;let r=simulate(n,o,p.get(1).unwrap_or(&Value::Null),None,b)?.result;
             match r{ExecutionResult::Success{output,..}=>Ok(json!(hex(output.data()))),ExecutionResult::Revert{output,..}=>Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>Err(Fail::from((-32000,format!("halt {reason:?}"))))}}
         "eth_estimateGas"=>{
             let o=p.first().ok_or(bad("call"))?;let tag=Value::String("latest".into());
             let first=simulate(n,o,&tag,Some(cp.GAS_LIMIT),b)?;
-            let used=match first{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
-            let (mut lo,mut hi)=(used,cp.GAS_LIMIT);
-            while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b){Ok(ExecutionResult::Success{..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
+            let used=match first.result{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
+            let (mut lo,mut hi)=(used,first.gas_limit);
+            while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b){Ok(Simulated{result:ExecutionResult::Success{..},..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
             Ok(json!(qty(hi)))
         }
         "eth_sendRawTransaction"=>{let raw=p.first().and_then(|x|x.as_str()).and_then(|s|unhex(s).ok()).ok_or(bad("raw"))?;
@@ -1040,7 +1040,7 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         _=>Err(Fail::from(not_found(m))),
     }
 }
-fn next_base(n:&Node)->U256{let h=n.chain.head();if h.height==0{chain::from_fixed_lp4(&n.chain.spec.cp().baseFee0)}else{pocol_lp4_execution::fees::next_base_fee(h.base_fee,h.gas_used,h.header.gas_limit).unwrap_or(h.base_fee)}}
+fn next_base(n:&Node)->U256{let h=n.chain.head();let floor=n.chain.spec.base_fee_floor(h.height.saturating_add(1));if h.height==0{chain::from_fixed_lp4(&n.chain.spec.cp().baseFee0).max(floor)}else{pocol_lp4_execution::fees::next_base_fee(h.base_fee,h.gas_used,h.header.gas_limit,floor).unwrap_or(h.base_fee.max(floor))}}
 /// netKey = keccak256(RLP(['PoCol-net-v1', chainId, genesisHash])) (FINAL_DESIGN.md:981), as the
 /// extension derives it (pocol-extension/src/sw.js netKeyOf).
 pub fn net_key(chain_id:u64,genesis:&[u8;32])->[u8;32]{
@@ -1084,7 +1084,8 @@ fn rpc_stats(n:&Node)->Value{
     if let (Some(m),Value::Object(o))=(v.as_object_mut(),own){m.extend(o);}
     v
 }
-fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<ExecutionResult,Fail>{
+struct Simulated{result:ExecutionResult,gas_limit:u64}
+fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simulated,Fail>{
     // COMPUTE_DEADLINE before each simulation (eth_estimateGas runs several): none starts past it.
     let deadline=||{b.late();Err(Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline"}))))};
     if b.expired(){return deadline()}
@@ -1094,22 +1095,60 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Execu
     if e.pruned{return Err(Fail::from((-32017,"state outside the retained trie window (K_hist)".into())))}
     let to=o["to"].as_str().and_then(|s|s.parse::<Address>().ok());
     let data=o.get("data").or_else(||o.get("input")).and_then(|x|x.as_str()).map(|s|unhex(s)).transpose().map_err(|_|Fail::from(bad("data")))?.unwrap_or_default();
-    let tx=TxEnv{caller:o["from"].as_str().and_then(|s|s.parse().ok()).unwrap_or(Address::ZERO),transact_to:to.map(TxKind::Call).unwrap_or(TxKind::Create),
+    let mut tx=TxEnv{caller:o["from"].as_str().and_then(|s|s.parse().ok()).unwrap_or(Address::ZERO),transact_to:to.map(TxKind::Call).unwrap_or(TxKind::Create),
         gas_limit:gas.or_else(||parse_u64(&o["gas"])).unwrap_or(CALL_GAS_MAX).min(CALL_GAS_MAX),gas_price:U256::ZERO,value:parse_u256(&o["value"]).unwrap_or_default(),
         data:Bytes::from(data),nonce:None,chain_id:Some(n.chain.spec.chain_id()),..Default::default()};
-    let ctx=NativeBlockContext{height:U256::from(e.height+1),timestamp:U256::from(e.ts+1),gas_limit:U256::from(cp.GAS_LIMIT.max(CALL_GAS_MAX)),base_fee:U256::ZERO,prevrandao:B256::ZERO};
+    let estimate_v3=gas.is_some()&&n.chain.spec.v3_active(e.height.saturating_add(1));
+    let floor=n.chain.spec.base_fee_floor(e.height.saturating_add(1));
+    let base_fee=if !estimate_v3{U256::ZERO}else if e.height==0{chain::from_fixed_lp4(&cp.baseFee0).max(floor)}else{
+        pocol_lp4_execution::fees::next_base_fee(e.base_fee,e.gas_used,e.header.gas_limit,floor).map_err(|_|Fail::from((-32000,"base fee prediction".into())))?};
+    if estimate_v3{
+        tx.gas_price=o.get("maxFeePerGas").or_else(||o.get("gasPrice")).and_then(parse_u256).unwrap_or(base_fee);
+        tx.gas_priority_fee=o.get("maxPriorityFeePerGas").and_then(parse_u256);
+        tx.gas_limit=tx.gas_limit.min(parse_u64(&o["gas"]).unwrap_or(u64::MAX));
+    }
+    let ctx=NativeBlockContext{height:U256::from(e.height+1),timestamp:U256::from(e.ts+1),gas_limit:U256::from(cp.GAS_LIMIT.max(CALL_GAS_MAX)),base_fee,prevrandao:B256::ZERO};
     let base=n.chain.view_of(&e.hash).ok_or_else(||Fail::from((-32017,"state outside the retained trie window (K_hist)".to_string())))?;
     // eth_call simulation: fund the caller for value transfers, never committed (C-1 E3: on an overlay,
     // not a copy of the state).
     let mut st=pocol_lp4_execution::view::Overlay::new(&base);
-    {use pocol_lp4_execution::view::WorkState;if let Some(a)=st.info_mut(&tx.caller){a.balance=a.balance.max(tx.value);}}
+    {use pocol_lp4_execution::view::{WorkState,View};
+        if estimate_v3{
+            // With `from`, estimation checks real funds for gas/value/creation.
+            // With no sender, this remains a gas query: a virtual pre-existing
+            // caller must not itself incur a spurious account creation charge.
+            if o["from"].is_null(){let mut a=st.account(&tx.caller).and_then(|a|a.info()).unwrap_or_default();
+                a.balance=a.balance.max((U256::from(1)<<127)-U256::from(1));st.insert_info(tx.caller,a);}
+            if tx.gas_price!=U256::ZERO{
+                let balance=st.account(&tx.caller).and_then(|a|a.info()).map_or(U256::ZERO,|a|a.balance);
+                let available=balance.checked_sub(tx.value).ok_or_else(||Fail::from((-32000,"insufficient funds for value".into())))?;
+                // A sender need only afford this transaction, not the entire
+                // block's declared gas. Search within its real gas-price budget.
+                let affordable=(available/tx.gas_price).try_into().unwrap_or(u64::MAX);tx.gas_limit=tx.gas_limit.min(affordable);
+            }
+        }else if let Some(a)=st.info_mut(&tx.caller){a.balance=a.balance.max(tx.value);}
+    }
     // Cancellation (network.md:286): the stop hook ends the execution at its next poll once the
     // deadline has passed (native::simulate_for_profile: every STOP_GAS gas of a frame, before every
     // call). A precompile runs to its end, so the cancellation gap is not bounded there (CANCEL_MAX
     // is not enforced); `member` still answers a late result -32020.
     let by=b.compute_by;let stop:std::rc::Rc<dyn Fn()->bool>=std::rc::Rc::new(move||Instant::now()>=by);
+    let (caller,gas_limit)=(tx.caller,tx.gas_limit);
     match native::simulate_for_profile(&st,tx,&ctx,n.chain.spec.profile(),stop){
-        Ok(r)=>Ok(r.result),
+        Ok(mut r)=>{
+            if estimate_v3{
+                // Counts refer to the actual parent, before the optional query
+                // caller above; the virtual caller occupies no live cap unit.
+                let summary=e.summary.as_deref().copied().unwrap_or_else(||pocol_lp4_execution::state_summary::Summary::scan_view(&base,cp.B_code_max));
+                let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
+                meter.admit_result(&st,&mut r,caller,&ctx,n.chain.spec.profile(),summary.inventory()).map_err(|why|Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))?;
+                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),true){return Err(Fail::from((-32000,format!("execution would halt ({why:?})"))))}
+                if b.expired(){return deadline()}
+            }
+            // Preserve the legacy search ceiling; only v3 introduces priced
+            // estimation with the request/funds-constrained upper bound.
+            Ok(Simulated{result:r.result,gas_limit:if estimate_v3{gas_limit}else{gas.unwrap_or(gas_limit)}})
+        },
         Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>deadline(),
         Err(e)=>Err(Fail::from((-32000,format!("{e:?}")))),
     }

@@ -46,7 +46,7 @@
 //! }
 //! ```
 mod scope;
-pub use scope::{Condition,RpcFacts,Scope,Waiver,RPC_FIELDS,R26_PREDICATES,r26_partial};
+pub use scope::{Condition,RpcFacts,Scope,Waiver,RPC_FIELDS,R26_PREDICATES,r26_partial,r26_partial_for};
 use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,U256,keccak256}};
 use crate::{apply::{self,BlockInput,Genesis,ParentResult,Proposer,SystemPrograms},
     gate::{self,Calibration,FactClass,GateProfile,IdentityFacts,LocalParams,Phase,PhaseFacts,ResourceFacts},
@@ -287,7 +287,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
             if r.kind!=ProfileKind::Simnet||r.node!=NodeKind::Simnet{
                 return Err(terminal("R22","the experimental-devnet scope admits only a simnet profile on a simnet node".into()))}
             if !l.rpc.absent().is_empty(){
-                let (w,failed)=r26_partial(&l.rpc);
+                let (w,failed)=r26_partial_for(&l.rpc,gp.v3_active(u64::MAX));
                 if failed.is_empty(){report.violations.retain(|v|v!="R26")}else{notes.push(format!("R26: enforced RpcGuard fields fail {failed:?}"))}
                 waivers.push(w);
             }

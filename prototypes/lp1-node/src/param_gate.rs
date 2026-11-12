@@ -199,6 +199,11 @@ impl RpcLimits {
     }
     /// Only R26. A true result is never a complete ParamGate result or boot permit.
     pub fn satisfies_r26(&self) -> bool {
+        self.satisfies_r26_for(false)
+    }
+    /// R26 must cover every log cap the admitted profile can activate.
+    pub fn satisfies_r26_for(&self, v3: bool) -> bool {
+        let (log_bytes, log_count) = if v3 { (256 * 1024, 4368) } else { (32768, 546) };
         let v = match self.derive() {
             Ok(v) => v,
             Err(_) => return false,
@@ -209,9 +214,9 @@ impl RpcLimits {
             && self.batch_resp_max >= self.resp_max
             && self.light_queue >= self.conn_max
             && self.batch_max as u128 * self.err_item_max as u128 + 64 <= self.conn_buf as u128
-            && self.resp_max >= 2 * 32768 + 546 * 512
-            && self.logs_count_max >= 546
-            && self.logs_scan_bytes >= 32768
+            && self.resp_max >= 2 * log_bytes + log_count * 512
+            && self.logs_count_max >= log_count
+            && self.logs_scan_bytes >= log_bytes
             && self.light_resp_max >= 385 * 1024
             && v.batch_wall_min.at_most_ms(self.batch_wall_ms)
             && self.rate >= 1

@@ -223,6 +223,8 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
         if i%1000==0{l=d.clone()}
         let each:Vec<bool>=R26_PREDICATES.iter().map(|p|(p.2)(&l)).collect();
         assert_eq!(each.iter().all(|b|*b),l.satisfies_r26(),"{l:?}");agree+=1;
+        let v3_each:Vec<bool>=super::scope::r26_predicates(true).map(|p|(p.2)(&l)).collect();
+        assert_eq!(v3_each.iter().all(|b|*b),l.satisfies_r26_for(true),"v3 split differs: {l:?}");
         if l.satisfies_r26(){pass+=1}else{fail+=1}
         if each.iter().filter(|b|!**b).count()==1{fails_alone[each.iter().position(|b|!*b).unwrap()]=true}
     }
@@ -230,6 +232,24 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     // Every predicate except the derive guard can decide the verdict alone (none is dead code).
     let dead:Vec<&str>=R26_PREDICATES.iter().zip(&fails_alone).filter(|(p,f)|!**f&&p.0!="derive").map(|(p,_)|p.0).collect();
     assert!(dead.is_empty(),"never the only failing predicate: {dead:?}");
+}
+
+#[test] fn an_enforced_v3_log_limit_cannot_be_waived_by_an_unrelated_absent_field(){
+    for (field,value,label) in [("resp_max",2*32768+546*512,"respMax>=2*262144+4368*512"),("logs_count_max",546,"logsCountMax>=4368"),("logs_scan_bytes",32768,"logsScanBytes>=262144")]{
+        let f=RpcFacts::enforced(&[(field,value)]).unwrap();assert!(r26_partial(&f).1.is_empty());
+        let (w,failed)=r26_partial_for(&f,true);assert_eq!(failed,vec![label]);assert!(w.checked.contains(&label));assert!(!w.waived.contains(&label));
+    }
+}
+
+#[cfg(feature="v3-preview")]
+#[test] fn v3_boot_admission_keeps_enforced_log_predicates_at_the_active_limits(){
+    let mut c=cfg();c.spec_version=2;c.nonce_mode=1;c.earnin=true;c.r_max=1;c.d_att=91;
+    let n=net(&c);let (_,timing)=n.admit(&sh()).unwrap();
+    let original=pocold_like();let mut values=original.values().clone();values.resp_max=2*32768+546*512;
+    let present:Vec<(&str,u64)>=RPC_FIELDS.iter().filter(|f|!original.absent().contains(f)).map(|f|(*f,*scope_slot(&mut values,f))).collect();
+    let local=NodeLocal{rpc:RpcFacts::enforced(&present).unwrap(),..sh()};
+    let error=admit(&n.request(&local,Some(&timing))).err().unwrap();assert_eq!(error.rules,v(&["R26"]));
+    assert!(error.notes.iter().any(|note|note.contains("respMax>=2*262144+4368*512")),"{error}");
 }
 fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     match f{"conn_max"=>&mut l.conn_max,"req_buf"=>&mut l.req_buf,"conn_buf"=>&mut l.conn_buf,"send_sock_buf"=>&mut l.send_sock_buf,"heavy_active"=>&mut l.heavy_active,
