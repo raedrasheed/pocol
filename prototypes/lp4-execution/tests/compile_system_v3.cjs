@@ -5,7 +5,7 @@
 //     EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17
 //     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3),
 //     MinerRegistry or ShareLedger; eight of the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow;
-//     twelve of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4), MinerRegistry.
+//     thirteen of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4), MinerRegistry.
 //     Each entry names the program it replaces.
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
@@ -73,7 +73,10 @@ const MUTANTS=[
   ['contest-threshold-off-by-one','if(count>=thr||count>=CNT_SAT)return(7,count,thr);','if(count>thr||count>=CNT_SAT)return(7,count,thr);'],
   ['contest-grace-ignored','if(height<grace+cfg(25))return(5,0,0);',''],
   ['contest-joined-in-epoch-allowed','if(grace>(cur-1)*e)return(6,0,0);','if(grace>cur*e)return(6,0,0);'],
-  ['contest-set-not-full-allowed','if(!pool&&get(1)<cfg(18))return(2,0,0);',''],
+  ['contest-set-not-full-allowed','if(get(1)<cfg(18))return(2,0,0);',''],
+  // The pool contest without a full set (the first draft): E's denominator is then the active count at the contest,
+  // which a contestant lowers by exiting its own members in the contest block.
+  ['pool-contest-set-not-full-allowed','if(get(1)<cfg(18))return(2,0,0);','if(!pool&&get(1)<cfg(18))return(2,0,0);'],
   ['contest-late-window-open','if(cur==0||height%e+1<cfg(11))return(4,0,0);','if(cur==0)return(4,0,0);'],
   // The pool contest's victim is erased with its accounting but without the refund (its accrued bond stays in Escrow).
   ['pool-contest-refund-skipped','uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);','uint256 w=removeActive(vr,vw);put(4,get(4)-get(vr+2));put(ACC_COUNT,get(ACC_COUNT)-1);erase(victim,vr,w);'],

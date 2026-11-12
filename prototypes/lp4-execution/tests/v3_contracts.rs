@@ -53,10 +53,11 @@
 //!   genesis, and closeBlock/finalize's SYS gas on their worst paths within GAS_ENVELOPE_V3.
 //! - V3-PR-E4, contestable seats and the probation-pool contest (V3-10, V3-14): every scenario of
 //!   tests/v3/contest-vectors.json (the epoch counters of recordShares/recordLate, registerContest's seat and pool contests,
-//!   every refusal: above the threshold, in grace, the set not full, joined after the start of the measured epoch, the
-//!   late window open, the budgets) reproduces on the bytecode step by step, with every contestStatus view, the counters
+//!   every refusal: above the threshold, in grace, the set not full (for a pool contest too, so exits cannot raise E),
+//!   joined after the start of the measured epoch, the late window open, the budgets; a pool victim's pending pots, which
+//!   burn; seat victims punished before their due height) reproduces on the bytecode step by step, with every contestStatus view, the counters
 //!   and epoch totals compared and the Escrow invariant and supply after every step; the threshold table reproduces through
-//!   contestThreshold (threshold and integer square root); twelve planted mutants each fail; the counters saturate and a
+//!   contestThreshold (threshold and integer square root); thirteen planted mutants each fail; the counters saturate and a
 //!   saturated count is never contestable; the contest's write ceilings, gas and user SYS keys; with v3-preview the worst
 //!   recordShares/recordLate gas with the counters within admission's envelope.
 use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,
@@ -88,12 +89,12 @@ const LATE_MUTANTS:[&str;5]=["late-last-share-reverts","late-last-share-overwrit
 /// The eight V3-19/V3-15/V3-20 issuance, carry and tip split mutants (RewardEscrow), in fixture order.
 const ECON_MUTANTS:[&str;8]=["carry-not-added","tip-share-to-pot","base-burn-still-burned","issued-ignored-flat-s0","carry-kept-at-final","base-burn-into-closed-pot",
     "carry-not-lagged","lagged-carry-kept-at-final"];
-/// The twelve V3-10/V3-14 contest mutants (MinerRegistry), in fixture order.
-const CONTEST_MUTANTS:[&str;12]=["contest-threshold-off-by-one","contest-grace-ignored","contest-joined-in-epoch-allowed","contest-set-not-full-allowed",
-    "contest-late-window-open","pool-contest-refund-skipped","pool-contest-exits-instead","pool-contest-held-victim","counters-not-rolled","late-not-counted",
+/// The thirteen V3-10/V3-14 contest mutants (MinerRegistry), in fixture order.
+const CONTEST_MUTANTS:[&str;13]=["contest-threshold-off-by-one","contest-grace-ignored","contest-joined-in-epoch-allowed","contest-set-not-full-allowed",
+    "pool-contest-set-not-full-allowed","contest-late-window-open","pool-contest-refund-skipped","pool-contest-exits-instead","pool-contest-held-victim","counters-not-rolled","late-not-counted",
     "isqrt-not-floored","contest-one-reg-ops-unit"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
-const V3_SYS_CODE_HASH:&str="4b7df8067c62bd46f70dc8edeaeecb79a89e432cefa792ef53d772f2b1090355";
+const V3_SYS_CODE_HASH:&str="2702736463d3a053bd7b8b224d1d5a369f01f9f75068d3b672e982c0968be9a5";
 
 fn b()->U256{U256::from(20*PCOL)}
 fn system()->Address{Address::from_word((U256::from(1)<<160u32).wrapping_sub(U256::from(2)).into())}
@@ -1719,10 +1720,12 @@ fn v3_close_block_call_shapes(){
 
 // ---------------- V3-PR-E4: contestable seats and the probation-pool contest (V3-10, V3-14)
 
-const CONTEST_SCENARIOS:[&str;17]=["acc-count-promote-exit-displace-punish","contest-budget","contest-in-grace","contest-joined-after-the-measured-epoch-start",
+const CONTEST_SCENARIOS:[&str;23]=["acc-count-promote-exit-displace-punish","contest-budget","contest-in-grace","contest-joined-after-the-measured-epoch-start",
     "counters-roll-at-the-epoch-boundary","late-credit-counts-in-the-statistic","omitted-shares-without-late-credit","pool-and-seats-full","pool-contest",
-    "pool-rotation-race","seat-contest-below-threshold-refund-after-u","seat-contest-probation-newcomer-accruing-victim","seat-contest-refusals",
-    "threshold-boundary-6-shares","threshold-boundary-7-shares","tiny-epoch-never-contestable","threshold-table"];
+    "pool-contest-above-the-threshold-at-the-full-set","pool-contest-exits-cannot-raise-the-threshold","pool-rotation-race","pool-victim-pending-pots-burn",
+    "pool-victim-pending-pots-without-a-contest","seat-contest-below-threshold-refund-after-u","seat-contest-probation-newcomer-accruing-victim",
+    "seat-contest-refusals","seat-victims-punished-before-due","seat-victims-punished-then-swept","threshold-boundary-6-shares","threshold-boundary-7-shares",
+    "tiny-epoch-never-contestable","threshold-table"];
 fn contest_body(n:&str)->serde_json::Value{let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();v[n].clone()}
 fn contest_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
     let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();
@@ -1802,7 +1805,7 @@ fn the_threshold_table_reproduces_on_the_bytecode(){
     assert!(contest_threshold(&mut h,U256::from(100),0,1250,3).is_err(),"active 0");
 }
 
-/// The twelve planted V3-10/V3-14 mutants each fail tests/v3/contest-vectors.json (a chain scenario or the threshold
+/// The thirteen planted V3-10/V3-14 mutants each fail tests/v3/contest-vectors.json (a chain scenario or the threshold
 /// table), each in the scenario written for it.
 #[test]
 fn the_contest_mutants_fail_the_contest_vectors(){
@@ -1810,7 +1813,7 @@ fn the_contest_mutants_fail_the_contest_vectors(){
     let contest=&list[list.len()-CONTEST_MUTANTS.len()..];
     let expect=[("contest-threshold-off-by-one","threshold-boundary-7-shares"),("contest-grace-ignored","contest-in-grace"),
         ("contest-joined-in-epoch-allowed","contest-joined-after-the-measured-epoch-start"),("contest-set-not-full-allowed","seat-contest-refusals"),
-        ("contest-late-window-open","seat-contest-below-threshold-refund-after-u"),("pool-contest-refund-skipped","pool-contest"),
+        ("pool-contest-set-not-full-allowed","pool-contest-exits-cannot-raise-the-threshold"),("contest-late-window-open","seat-contest-below-threshold-refund-after-u"),("pool-contest-refund-skipped","pool-contest"),
         ("pool-contest-exits-instead","pool-contest"),("pool-contest-held-victim","pool-contest"),("counters-not-rolled","counters-roll-at-the-epoch-boundary"),
         ("late-not-counted","late-credit-counts-in-the-statistic"),("isqrt-not-floored","threshold-table"),("contest-one-reg-ops-unit","contest-budget")];
     let original=runtime(V3,"MinerRegistry");
@@ -1849,7 +1852,7 @@ fn sys_keys(r:&ResultAndState)->usize{
 fn contest_write_ceilings_gas_and_user_sys_keys(){
     let mut out=Vec::new();
     for (scenario_,sender,victim,value) in [("contest-joined-after-the-measured-epoch-start","n1","c",b()),("seat-contest-below-threshold-refund-after-u","n","c",b()),
-        ("pool-and-seats-full","q","p2",U256::ZERO),("pool-contest","q","p2",U256::ZERO)]{
+        ("pool-and-seats-full","q","p2",U256::ZERO),("pool-victim-pending-pots-burn","q","p2",U256::ZERO)]{
         let mut h=contest_until(scenario_,|op|op[0]=="register_contest"&&op[1]==sender&&op[3]==victim&&op[5]=="19");
         let s=h.sender(sender);let mut d=with_arg("registerContest(address,address)",Some(s));d.extend(name(victim).into_word());
         let r=call(&mut h.db,s,d,value,h.height);
@@ -2183,6 +2186,38 @@ mod preview{
         for n in ["invalidate","punish","recordResult","settle"]{assert!(gas[n]>admission::envelope_for(n,false).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
         assert_eq!(admission::envelope_for("recordLate",false),None,"recordLate exists on the v3 set only");
         assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
+    }
+
+    /// markClose's closing phase on the v3 set at the GAS_DOMAIN maxima (review of V3-PR-E4: the larger registry dispatch
+    /// adds gas to every nested Registry call, and each refund's Escrow.releaseBond calls back into bondRecord): 192 HELD
+    /// genesis members and 64 ACCRUING probationers p0..p63 with half a bond (M_max records, P_MAX 64), RET 128, closing
+    /// from H_CLOSE 8. The first closing markClose refunds 128 HELD records, the second 64 HELD and the 64 ACCRUING ones
+    /// (each refund pays a bond and the ACCRUING ones also write ACC_COUNT). Both stay within admission's envelope for the
+    /// v3 set (GAS_ENVELOPE_V3 markClose, above the spec-1 entry), every record ends PAID and ACC_COUNT 0.
+    #[test]
+    fn v3_closing_mark_close_gas_within_the_envelope(){
+        let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
+        let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
+        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.p_max=64;cfg.r_max=16;cfg.ret=128;cfg.h_close=8;cfg.h_end=30;
+        let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();
+        for p in &probation{cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
+        let pids:Vec<Address>=probation.iter().map(|p|devnet::account_key(p).address()).collect();
+        let mut r=Run::new(&cfg);let genesis:Vec<Address>=(0..192).map(|i|r.id(i)).collect();let half=10*PCOL;
+        let mut closing=Vec::new();
+        for h in 1..=10u64{
+            let joins:Vec<Vec<u8>>=if h<=4{probation[16*(h as usize-1)..16*h as usize].iter().map(|p|r.register(p,half,0)).collect()}else{vec![]};
+            let o=r.block(Proposer::Signed(genesis[100+h as usize]),vec![],joins,genesis[h as usize],vec![(1,genesis[h as usize])]);
+            if h==4{for p in &pids{assert_eq!(apply::miner_record(&o.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((1,4,U256::from(half))),"an ACCRUING probationer with half a bond");}}
+            if o.facts.closing{closing.push((h,o.meter.call_gas.iter().find(|(n,_)|*n=="markClose").unwrap().1,storage(&o.state,registry_address(),U256::from(8))));}
+        }
+        eprintln!("MARK-CLOSE closing (height, gas, ACC_COUNT after): {closing:?}");
+        assert!(closing.len()>=2&&closing[0].0==8,"closing from H_CLOSE: {closing:?}");
+        assert_eq!((closing[0].2,closing[1].2),(U256::from(64),U256::ZERO),"128 HELD refunds, then 64 HELD and 64 ACCRUING");
+        for id in genesis.iter().chain(&pids){assert_eq!(apply::miner_record(&r.state,*id).map(|x|x.bond_state),Some(3),"every record PAID");}
+        let worst=closing.iter().map(|c|c.1).max().unwrap();let bound=admission::envelope_for("markClose",true).unwrap();
+        assert!(worst<=bound,"v3 markClose {worst} above its envelope {bound}");
+        assert_eq!(worst,closing[1].1,"the worst refunds the 64 ACCRUING records");
+        assert!(worst>admission::envelope_for("markClose",false).unwrap(),"markClose {worst} fits the spec-1 envelope: drop its v3 entry");
     }
 
     /// V3-PR-E4 (V3-10): recordShares at its worst with the epoch counters, through apply_block at the GAS_DOMAIN maxima

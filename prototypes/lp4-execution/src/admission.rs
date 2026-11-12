@@ -145,9 +145,14 @@ fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
 /// roll 13,626,629): 14,388,687 measured, above the spec-1 entry, so it gets a v3 entry; recordLate's stranger path
 /// 3,465,613 (recorded owners 3,284,110). The registry's larger dispatch (registerContest, contestStatus, contestThreshold,
 /// epochTotals) raises every nested Registry call by a few gas: settle's worst path (64 bond fills) measures 6,314,420, punish
-/// 98,699, closeBlock 132,869 (the held-zero promotion), all re-measured on the same paths.
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",133_000),("finalize",62_000),("invalidate",9_000),("punish",99_000),("recordLate",3_466_000),("recordResult",37_000),
-    ("recordShares",14_389_000),("settle",6_315_000),("settleFinal",6_315_000)];
+/// 98,699, closeBlock 132,869 (the held-zero promotion), all re-measured on the same paths. Review of V3-PR-E4
+/// (tests/v3_contracts.rs v3-preview `v3_closing_mark_close_gas_within_the_envelope`): markClose's closing phase refunds
+/// RET = 128 records per call, each through Escrow.releaseBond calling back into the larger Registry dispatch, and an
+/// ACCRUING refund also writes ACC_COUNT; at the GAS_DOMAIN maxima with P_MAX 64 (192 HELD genesis members, 64 ACCRUING
+/// probationers with half a bond) the call refunding 64 HELD and 64 ACCRUING records measures 2,734,171 (128 HELD
+/// 2,711,375), above the spec-1 entry 2,655,000, so markClose gets a v3 entry.
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",133_000),("finalize",62_000),("invalidate",9_000),("markClose",2_735_000),("punish",99_000),("recordLate",3_466_000),
+    ("recordResult",37_000),("recordShares",14_389_000),("settle",6_315_000),("settleFinal",6_315_000)];
 /// The envelope entry of a SYSTEM call: GAS_ENVELOPE_V3's for the v3 program set where it has one, else GAS_ENVELOPE's.
 pub fn envelope_for(name:&str,v3:bool)->Option<u64>{
     let pick=|t:&[(&str,u64)]|t.iter().find(|(n,_)|*n==name).map(|x|x.1);

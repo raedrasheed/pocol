@@ -27,6 +27,9 @@
     "m0",
     "p3",
     "q",
+    "w",
+    "x",
+    "y",
     "z"
    ],
    "burned": "12162665688110311067",
@@ -39,21 +42,24 @@
     "react": 0,
     "regs": 0
    },
-   "cursor": 4,
+   "cursor": 1,
    "epochTotals": {
     "cur": 30,
     "epoch": 5,
     "prev": 40
    },
-   "escrowBalance": "114714825921830416620",
-   "heldTotal": "63004856500343300781",
+   "escrowBalance": "174714825921830416620",
+   "heldTotal": "123004856500343300781",
    "issued": "92000000000000000000",
    "order": [
     "m0",
     "a",
-    "q",
+    "y",
     "z",
-    "p3"
+    "p3",
+    "w",
+    "q",
+    "x"
    ],
    "paid": {
     "a": "12709253392926439798",
@@ -158,6 +164,57 @@
      "status": 1,
      "tomb": false
     },
+    "w": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "w",
+     "status": 1,
+     "tomb": false
+    },
+    "x": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "x",
+     "status": 1,
+     "tomb": false
+    },
+    "y": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "y",
+     "status": 1,
+     "tomb": false
+    },
     "z": {
      "bond": "0",
      "bond_state": 4,
@@ -183,6 +240,9 @@
     "p3": "20000000000000000000",
     "p4": "0",
     "q": "0",
+    "w": "20000000000000000000",
+    "x": "20000000000000000000",
+    "y": "20000000000000000000",
     "z": "0"
    },
    "tips": "0"
@@ -818,7 +878,50 @@
      "true",
      "19"
     ],
-    "result": "0,0,6"
+    "result": "2,0,0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "x",
+     "x",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "y",
+     "y",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "contest_status",
+     "p4",
+     "true",
+     "19"
+    ],
+    "result": "0,0,3"
    },
    {
     "ok": true,
@@ -8802,7 +8905,9 @@
     "a",
     "m0",
     "p1",
-    "q"
+    "q",
+    "x",
+    "y"
    ],
    "burned": "4179424316231161366",
    "carry": {
@@ -8814,19 +8919,21 @@
     "react": 0,
     "regs": 0
    },
-   "cursor": 0,
+   "cursor": 2,
    "epochTotals": {
     "cur": 40,
     "epoch": 2,
     "prev": 40
    },
-   "escrowBalance": "75807628209609538326",
-   "heldTotal": "41070463591586798425",
+   "escrowBalance": "115807628209609538326",
+   "heldTotal": "81070463591586798425",
    "issued": "48000000000000000000",
    "order": [
     "m0",
     "a",
     "p1",
+    "y",
+    "x",
     "q"
    ],
    "paid": {
@@ -8932,13 +9039,49 @@
      "reward": "q",
      "status": 1,
      "tomb": false
+    },
+    "x": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "x",
+     "status": 1,
+     "tomb": false
+    },
+    "y": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "y",
+     "status": 1,
+     "tomb": false
     }
    },
    "spent": {
     "a": "20000000000000000000",
     "p1": "0",
     "p2": "5000000000000000000",
-    "q": "0"
+    "q": "0",
+    "x": "20000000000000000000",
+    "y": "20000000000000000000"
    },
    "tips": "0"
   },
@@ -9511,7 +9654,63 @@
      "true",
      "19"
     ],
-    "result": "0,0,7"
+    "result": "2,0,0"
+   },
+   {
+    "ok": false,
+    "op": [
+     "register_contest",
+     "q",
+     "q",
+     "p2",
+     "0",
+     "19"
+    ],
+    "revert": "NotContestable"
+   },
+   {
+    "ok": false,
+    "op": [
+     "register_contest",
+     "q",
+     "q",
+     "p2",
+     "20000000000000000000",
+     "19"
+    ],
+    "revert": "NotContestable"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "x",
+     "x",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "y",
+     "y",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "contest_status",
+     "p2",
+     "true",
+     "19"
+    ],
+    "result": "0,0,5"
    },
    {
     "ok": false,
@@ -9536,18 +9735,6 @@
      "19"
     ],
     "revert": "BadState"
-   },
-   {
-    "ok": false,
-    "op": [
-     "register_contest",
-     "q",
-     "q",
-     "p2",
-     "20000000000000000000",
-     "19"
-    ],
-    "revert": "NotContestable"
    },
    {
     "ok": true,
@@ -9724,12 +9911,1830 @@
    }
   ]
  },
+ "pool-contest-above-the-threshold-at-the-full-set": {
+  "cp": {
+   "E_epoch": 8,
+   "H_half": 4207680,
+   "M_max": 6,
+   "P_MAX": 2,
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "S_tail": 62500000000000000,
+   "Theta_inact": 4,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
+   "k_sigma": 1,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500,
+   "theta_bp": 10000
+  },
+  "durable": [],
+  "final": {
+   "accruing": 2,
+   "active": [
+    "a",
+    "c",
+    "d",
+    "m0",
+    "p1",
+    "p2"
+   ],
+   "burned": "3357618883448839191",
+   "carry": {
+    "23": "4482457853065431120"
+   },
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "epochTotals": {
+    "cur": 30,
+    "epoch": 2,
+    "prev": 45
+   },
+   "escrowBalance": "118387094495999813087",
+   "heldTotal": "86182960676859319206",
+   "issued": "44000000000000000000",
+   "order": [
+    "m0",
+    "a",
+    "c",
+    "d",
+    "p1",
+    "p2"
+   ],
+   "paid": {
+    "a": "3677274592715501782",
+    "m0": "6935630911284685131"
+   },
+   "pots": {
+    "19": {
+     "accruing": false,
+     "amount": "5720384897232055665",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "b"
+    },
+    "20": {
+     "accruing": false,
+     "amount": "5720384897232055665",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "21": {
+     "accruing": false,
+     "amount": "6461643644081056120",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "a"
+    },
+    "22": {
+     "accruing": false,
+     "amount": "6461643644081056120",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 21,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "d": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "d",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 21,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "p1": {
+     "bond": "913457363794744012",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 6,
+     "cnt_prev": 8,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 21,
+     "registered_at": 1,
+     "reward": "p1",
+     "status": 1,
+     "tomb": false
+    },
+    "p2": {
+     "bond": "5269503313064575194",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 5,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 12,
+     "registered_at": 1,
+     "reward": "p2",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "c": "20000000000000000000",
+    "d": "20000000000000000000",
+    "p1": "0",
+    "p2": "5000000000000000000"
+   },
+   "tips": "0"
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "d",
+     "d",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p1",
+     "p1",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p2",
+     "p2",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "4747849121093750000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4747849121093750000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4747849121093750000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "5693822397232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5693822397232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "5720384897232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "contest_status",
+     "p2",
+     "true",
+     "19"
+    ],
+    "result": "7,5,5"
+   },
+   {
+    "ok": false,
+    "op": [
+     "register_contest",
+     "q",
+     "q",
+     "p2",
+     "0",
+     "19"
+    ],
+    "revert": "NotContestable"
+   },
+   {
+    "amount": "5720384897232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5720384897232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6461643644081056120",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6461643644081056120",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null,
+    "tips": "0"
+   }
+  ]
+ },
+ "pool-contest-exits-cannot-raise-the-threshold": {
+  "cp": {
+   "E_epoch": 8,
+   "H_half": 4207680,
+   "M_max": 6,
+   "P_MAX": 2,
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "S_tail": 62500000000000000,
+   "Theta_inact": 4,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
+   "k_sigma": 1,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500,
+   "theta_bp": 10000
+  },
+  "durable": [],
+  "final": {
+   "accruing": 2,
+   "active": [
+    "d",
+    "m0",
+    "p1",
+    "p2"
+   ],
+   "burned": "3357618883448839191",
+   "carry": {
+    "23": "4482457853065431120"
+   },
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "epochTotals": {
+    "cur": 30,
+    "epoch": 2,
+    "prev": 45
+   },
+   "escrowBalance": "118387094495999813087",
+   "heldTotal": "86182960676859319206",
+   "issued": "44000000000000000000",
+   "order": [
+    "m0",
+    "a",
+    "c",
+    "d",
+    "p1",
+    "p2"
+   ],
+   "paid": {
+    "a": "3677274592715501782",
+    "m0": "6935630911284685131"
+   },
+   "pots": {
+    "19": {
+     "accruing": false,
+     "amount": "5720384897232055665",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "b"
+    },
+    "20": {
+     "accruing": false,
+     "amount": "5720384897232055665",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "21": {
+     "accruing": false,
+     "amount": "6461643644081056120",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "a"
+    },
+    "22": {
+     "accruing": false,
+     "amount": "6461643644081056120",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 11,
+     "due": 59,
+     "exit": 19,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 21,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 2,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 59,
+     "exit": 19,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 2,
+     "tomb": false
+    },
+    "d": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "d",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 21,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "p1": {
+     "bond": "913457363794744012",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 6,
+     "cnt_prev": 8,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 21,
+     "registered_at": 1,
+     "reward": "p1",
+     "status": 1,
+     "tomb": false
+    },
+    "p2": {
+     "bond": "5269503313064575194",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 5,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 12,
+     "registered_at": 1,
+     "reward": "p2",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "c": "20000000000000000000",
+    "d": "20000000000000000000",
+    "p1": "0",
+    "p2": "5000000000000000000"
+   },
+   "tips": "0"
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "d",
+     "d",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p1",
+     "p1",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p2",
+     "p2",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "4747849121093750000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4747849121093750000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4747849121093750000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "5693822397232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5693822397232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "5720384897232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "a",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "deregister",
+     "c",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "contest_status",
+     "p2",
+     "true",
+     "19"
+    ],
+    "result": "2,0,0"
+   },
+   {
+    "ok": false,
+    "op": [
+     "register_contest",
+     "q",
+     "q",
+     "p2",
+     "0",
+     "19"
+    ],
+    "revert": "NotContestable"
+   },
+   {
+    "amount": "5720384897232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5720384897232055665",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6461643644081056120",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6461643644081056120",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null,
+    "tips": "0"
+   }
+  ]
+ },
  "pool-rotation-race": {
   "cp": {
    "C_react": 6,
    "E_epoch": 8,
    "H_half": 4207680,
-   "M_max": 6,
+   "M_max": 4,
    "P_MAX": 2,
    "S0": 2000000000000000000,
    "SWEEP_MAX": 0,
@@ -11097,6 +13102,1772 @@
     "op": [
      "close",
      "37"
+    ],
+    "result": null,
+    "tips": "0"
+   }
+  ]
+ },
+ "pool-victim-pending-pots-burn": {
+  "cp": {
+   "E_epoch": 8,
+   "H_half": 4207680,
+   "M_max": 4,
+   "P_MAX": 2,
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "S_tail": 62500000000000000,
+   "Theta_inact": 4,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
+   "k_sigma": 1,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500,
+   "theta_bp": 10000
+  },
+  "durable": [],
+  "final": {
+   "accruing": 2,
+   "active": [
+    "a",
+    "m0",
+    "p1",
+    "q"
+   ],
+   "burned": "4408825065062940130",
+   "carry": {
+    "25": "4511548060358315707"
+   },
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "epochTotals": {
+    "cur": 43,
+    "epoch": 2,
+    "prev": 40
+   },
+   "escrowBalance": "75807628209609538326",
+   "heldTotal": "41070463591586798425",
+   "issued": "48000000000000000000",
+   "order": [
+    "m0",
+    "a",
+    "p1",
+    "q"
+   ],
+   "paid": {
+    "a": "3843853176988661285",
+    "m0": "8348518613401800389",
+    "p2": "5000000000000000000"
+   },
+   "pots": {
+    "21": {
+     "accruing": false,
+     "amount": "6435081144081056119",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "a"
+    },
+    "22": {
+     "accruing": false,
+     "amount": "6435081144081056119",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "b"
+    },
+    "23": {
+     "accruing": false,
+     "amount": "6435081144081056119",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "24": {
+     "accruing": false,
+     "amount": "6511548060358315707",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 10,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 23,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 11,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 23,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "p1": {
+     "bond": "1070463591586798425",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 8,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 23,
+     "registered_at": 1,
+     "reward": "p1",
+     "status": 1,
+     "tomb": false
+    },
+    "q": {
+     "bond": "0",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "q",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "p1": "0",
+    "p2": "5000000000000000000",
+    "q": "0"
+   },
+   "tips": "0"
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p1",
+     "p1",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p2",
+     "p2",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "contest_status",
+     "p2",
+     "true",
+     "19"
+    ],
+    "result": "0,0,7"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register_contest",
+     "q",
+     "q",
+     "p2",
+     "0",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6435081144081056119",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6435081144081056119",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "23",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "6435081144081056119",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "23"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "24",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6511548060358315707",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "24"
+    ],
+    "result": null,
+    "tips": "0"
+   }
+  ]
+ },
+ "pool-victim-pending-pots-without-a-contest": {
+  "cp": {
+   "E_epoch": 8,
+   "H_half": 4207680,
+   "M_max": 4,
+   "P_MAX": 2,
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "S_tail": 62500000000000000,
+   "Theta_inact": 4,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
+   "k_sigma": 1,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500,
+   "theta_bp": 10000
+  },
+  "durable": [],
+  "final": {
+   "accruing": 2,
+   "active": [
+    "a",
+    "m0",
+    "p1",
+    "p2"
+   ],
+   "burned": "4179424316231161366",
+   "carry": {
+    "25": "4511548060358315707"
+   },
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "epochTotals": {
+    "cur": 43,
+    "epoch": 2,
+    "prev": 40
+   },
+   "escrowBalance": "80807628209609538326",
+   "heldTotal": "46299864340418577189",
+   "issued": "48000000000000000000",
+   "order": [
+    "m0",
+    "a",
+    "p1",
+    "p2"
+   ],
+   "paid": {
+    "a": "3843853176988661285",
+    "m0": "8348518613401800389"
+   },
+   "pots": {
+    "21": {
+     "accruing": false,
+     "amount": "6435081144081056119",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "a"
+    },
+    "22": {
+     "accruing": false,
+     "amount": "6435081144081056119",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "b"
+    },
+    "23": {
+     "accruing": false,
+     "amount": "6435081144081056119",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "24": {
+     "accruing": false,
+     "amount": "6511548060358315707",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 10,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 23,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 11,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 23,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "p1": {
+     "bond": "1070463591586798425",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 8,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 23,
+     "registered_at": 1,
+     "reward": "p1",
+     "status": 1,
+     "tomb": false
+    },
+    "p2": {
+     "bond": "5229400748831778764",
+     "bond_state": 4,
+     "burn": 0,
+     "cnt_cur": 3,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 18,
+     "registered_at": 1,
+     "reward": "p2",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "p1": "0",
+    "p2": "5000000000000000000"
+   },
+   "tips": "0"
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p1",
+     "p1",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p2",
+     "p2",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4795225830078125000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1",
+     "p2"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5757508990287780762",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6435081144081056119",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6435081144081056119",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "23",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "6435081144081056119",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "23"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "24",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b",
+     "p1"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6511548060358315707",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "24"
     ],
     "result": null,
     "tips": "0"
@@ -15906,6 +19677,3048 @@
     "op": [
      "close",
      "24"
+    ],
+    "result": null,
+    "tips": "0"
+   }
+  ]
+ },
+ "seat-victims-punished-before-due": {
+  "cp": {
+   "E_epoch": 8,
+   "H_half": 4207680,
+   "M_max": 4,
+   "P_MAX": 2,
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "S_tail": 62500000000000000,
+   "Theta_inact": 4,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
+   "k_sigma": 1,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500,
+   "theta_bp": 10000
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "a",
+    "m0",
+    "n1",
+    "n2"
+   ],
+   "burned": "25039170090509287556",
+   "carry": {
+    "31": "5837070137058617550"
+   },
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 2,
+   "epochTotals": {
+    "cur": 24,
+    "epoch": 3,
+    "prev": 32
+   },
+   "escrowBalance": "140176043268489593194",
+   "heldTotal": "80000000000000000000",
+   "issued": "60000000000000000000",
+   "order": [
+    "m0",
+    "a",
+    "c",
+    "p",
+    "n1",
+    "n2"
+   ],
+   "paid": {
+    "a": "5947961662364832584",
+    "m0": "18875995069145574222"
+   },
+   "pots": {
+    "27": {
+     "accruing": false,
+     "amount": "7324950760230422022",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "a"
+    },
+    "28": {
+     "accruing": false,
+     "amount": "7324950760230422022",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "b"
+    },
+    "29": {
+     "accruing": false,
+     "amount": "7324950760230422022",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "30": {
+     "accruing": false,
+     "amount": "7324950760230422022",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 10,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 29,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 2,
+     "burn": 21,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 59,
+     "exit": 19,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 2,
+     "tomb": true
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 8,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 29,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "n1": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "n1",
+     "status": 1,
+     "tomb": false
+    },
+    "n2": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "n2",
+     "status": 1,
+     "tomb": false
+    },
+    "p": {
+     "bond": "5000000000000000000",
+     "bond_state": 2,
+     "burn": 21,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 59,
+     "exit": 19,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "p",
+     "status": 2,
+     "tomb": true
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "c": "20000000000000000000",
+    "n1": "20000000000000000000",
+    "n2": "20000000000000000000",
+    "p": "5000000000000000000"
+   },
+   "tips": "0"
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p",
+     "p",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register_contest",
+     "n1",
+     "n1",
+     "c",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register_contest",
+     "n2",
+     "n2",
+     "p",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [
+     [
+      "c",
+      null,
+      "m0"
+     ],
+     [
+      "p",
+      null,
+      "m0"
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "23",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "23"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "24",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "24"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "25",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "25"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "26",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "26"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "27",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "27"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "28",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "28"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "29",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "29"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "30",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "30"
+    ],
+    "result": null,
+    "tips": "0"
+   }
+  ]
+ },
+ "seat-victims-punished-then-swept": {
+  "cp": {
+   "E_epoch": 8,
+   "H_half": 4207680,
+   "M_max": 4,
+   "P_MAX": 2,
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "S_tail": 62500000000000000,
+   "Theta_inact": 4,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
+   "k_sigma": 1,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500,
+   "theta_bp": 10000
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "a",
+    "m0",
+    "n1",
+    "n2"
+   ],
+   "burned": "39396937120959312572",
+   "carry": {
+    "65": "7331708497605082090"
+   },
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "epochTotals": {
+    "cur": 32,
+    "epoch": 7,
+    "prev": 32
+   },
+   "escrowBalance": "164055479608984723022",
+   "heldTotal": "80000000000000000000",
+   "issued": "128000000000000000000",
+   "order": [
+    "m0",
+    "a",
+    "n2",
+    "n1"
+   ],
+   "paid": {
+    "a": "21260611647601038978",
+    "m0": "47683908743414238000"
+   },
+   "pots": {
+    "61": {
+     "accruing": false,
+     "amount": "9331708497605082090",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "b"
+    },
+    "62": {
+     "accruing": false,
+     "amount": "9331708497605082090",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "63": {
+     "accruing": false,
+     "amount": "9331708497605082090",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "a"
+    },
+    "64": {
+     "accruing": false,
+     "amount": "9331708497605082090",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 11,
+     "cnt_prev": 11,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 63,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 11,
+     "cnt_prev": 10,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 63,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "n1": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "n1",
+     "status": 1,
+     "tomb": false
+    },
+    "n2": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "cnt_cur": 0,
+     "cnt_prev": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 19,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 19,
+     "reward": "n2",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "20000000000000000000",
+    "c": "20000000000000000000",
+    "n1": "20000000000000000000",
+    "n2": "20000000000000000000",
+    "p": "5000000000000000000"
+   },
+   "tips": "0"
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "p",
+     "p",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "4863769531250000000",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "register_contest",
+     "n1",
+     "n1",
+     "c",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register_contest",
+     "n2",
+     "n2",
+     "p",
+     "20000000000000000000",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "5875816345214843750",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [
+     [
+      "c",
+      null,
+      "m0"
+     ],
+     [
+      "p",
+      null,
+      "m0"
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "23",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "23"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "24",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "24"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "25",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "6682291150093078614",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "25"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "26",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "26"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "27",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "27"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "28",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "28"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "29",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "29"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "30",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "7324950760230422022",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "30"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "31",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "7837070137058617550",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "31"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "32",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "7837070137058617550",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "32"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "33",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "7837070137058617550",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "33"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "34",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "7837070137058617550",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "34"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "35",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "7837070137058617550",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "35"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "36",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "8245165265468585861",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "36"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "37",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "8245165265468585861",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "37"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "38",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "8245165265468585861",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "38"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "39",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "8245165265468585861",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "39"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "40",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "8245165265468585861",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "40"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "41",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "8570366070920279359",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "41"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "42",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "8570366070920279359",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "42"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "43",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "8570366070920279359",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "43"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "44",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "8570366070920279359",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "44"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "45",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "8570366070920279359",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "45"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "46",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "8829510462764597616",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "46"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "47",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "8829510462764597616",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "47"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "48",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "8829510462764597616",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "48"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "49",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "8829510462764597616",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "49"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "50",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "8829510462764597616",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "50"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "51",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "9036016150015538727",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "51"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "52",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "9036016150015538727",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "52"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "53",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "9036016150015538727",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "53"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "54",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "9036016150015538727",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "54"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "55",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "9036016150015538727",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "55"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "56",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "9200575369543632425",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "56"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "57",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "9200575369543632425",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "57"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "58",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "9200575369543632425",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "58"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "59",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "9200575369543632425",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "59"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "60",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "9200575369543632425",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "60"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "61",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "9331708497605082090",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "61"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "62",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "amount": "9331708497605082090",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "62"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "63",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "amount": "9331708497605082090",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "63"
+    ],
+    "result": null,
+    "tips": "0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "64",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "amount": "9331708497605082090",
+    "issued": "2000000000000000000",
+    "ok": true,
+    "op": [
+     "close",
+     "64"
     ],
     "result": null,
     "tips": "0"

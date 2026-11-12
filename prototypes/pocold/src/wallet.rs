@@ -15,7 +15,8 @@
 //! contestStatus(victim, probation), is run on the head state at the next height, so the wallet's checks are the program's:
 //! every refusal is explained before anything is signed, with the measured count and threshold, and the quote states what
 //! the confirmed registerContest(reward, victim) does: a seat contest exits the victim (its bond is refunded after U), a
-//! pool contest refunds a probationer's accrued bond and removes its record; this account then registers as with
+//! pool contest refunds a probationer's accrued bond and removes its record (its part of pots not yet settled burns);
+//! both need all seats taken; this account then registers as with
 //! quote_register. The registry decides again at inclusion (its phase 0 may credit shares or start an epoch first).
 use crate::{launcher::Home,node::Node,types};
 use pocol_lp4_execution::{apply,txsign::{Key,Tx},view::View};
@@ -52,9 +53,10 @@ const REGISTRY_GAS:u64=1_000_000;
 /// Earn-in registration: about 2x the 194,143 gas a zero-bond first registration measures
 /// (lp4-execution tests/earnin_contracts.rs), so the fee faucet's 0.002 PCOL covers its maximum fee.
 const EARNIN_REGISTER_GAS:u64=400_000;
-/// V3-10/V3-14 registerContest: about 2x the largest contest measured (232,479 gas, a seat contest with the victim in the
+/// V3-10/V3-14 registerContest: about 2x the largest contest measured (232,451 gas, a seat contest with the victim in the
 /// middle of the active list; lp4-execution tests/v3_contracts.rs contest_write_ceilings_gas_and_user_sys_keys), so that a
-/// zero-bond newcomer's fee faucet covers its maximum fee at a moderate base fee.
+/// zero-bond newcomer's fee faucet (0.002 PCOL) covers its maximum fee while the base fee stays below 1.5 gwei
+/// (deploy/faucet/README.md).
 pub const CONTEST_GAS:u64=500_000;
 /// Heads the exit may stay unincluded before the plan stops (nothing changed on chain then).
 pub const EXIT_WAIT_BLOCKS:u64=30;
@@ -144,8 +146,8 @@ pub fn contest_check(v:&ContestView,p:&ContestParams,probation:bool,pool_full:bo
     match v.code{
         0=>Ok(probation&&pool_full),
         1=>Err("That address has no active registry record, so there is nothing to contest.".into()),
-        2=>Err(if probation{format!("Contests open only when all {} seats or all {} probation seats are taken. Register normally instead.",p.m_max,p.p_max)}
-            else{format!("Contests open only when all {} seats are taken. Register normally instead.",p.m_max)}),
+        // A pool contest needs the full set as well (O-10=b: contests only when all seats are full).
+        2=>Err(format!("Contests open only when all {} seats are taken. Register normally instead.",p.m_max)),
         3=>Err(format!("All {} probation seats are taken, so a probation bond can contest only another probationer. Pick a probationer, or contest with the full bond while all seats are taken.",p.p_max)),
         4=>Err(match contest_opens(p){u64::MAX=>"This network's epoch is shorter than its late-share window, so no member can ever be contested.".into(),
             b=>format!("No full epoch can be judged yet: the previous epoch's late shares are still being credited. Contests open at block {b}.")}),
@@ -155,6 +157,53 @@ pub fn contest_check(v:&ContestView,p:&ContestParams,probation:bool,pool_full:bo
         7=>Err(format!("The member credited {} shares in the last full epoch, not below the threshold of {}. It cannot be contested.",v.count,v.threshold)),
         c=>Err(format!("The registry refused the contest (code {c}).")),
     }
+}
+/// What a contest quote signs and states, decided from the head state alone (no fee, no peers), so that tests can drive
+/// the whole quote decision on a real chain: the guards, the bond, the registry's verdict and the seat or pool routing.
+#[derive(Clone,Debug)]
+pub struct ContestPlan{pub victim:Address,pub value:U256,pub full:U256,pub probation:bool,pub pool:bool,pub view:ContestView,pub params:ContestParams}
+/// V3-10/V3-14: the contest `me` would send against `victim` with `bond` (a decimal PCOL amount; default 0) at the head.
+pub fn contest_plan(chain:&crate::chain::Chain,me:Address,victim:&str,bond:Option<&str>)->Result<ContestPlan,String>{
+    if chain.spec.programs()!=apply::ProgramSet::V3{return Err("Contests exist only on the v3 network".into())}
+    let head=chain.head();let cp=chain.spec.cp();
+    let state=chain.view_of(&head.hash).ok_or("The head state is not available")?;
+    if apply::miner_record(state.v(),me).is_some(){return Err("This identity already has a registry record".into())}
+    if victim.len()!=42||!victim.starts_with("0x"){return Err("Enter the member's full 0x address (42 characters)".into())}
+    let victim:Address=victim.parse().map_err(|_|"Invalid member address")?;
+    if victim==me{return Err("An identity cannot contest itself".into())}
+    let full=crate::chain::from_fixed_lp4(&cp.B_reg);
+    let value=match bond{None|Some("0")=>U256::ZERO,Some(text)=>amount(text)?};
+    if value>full{return Err(format!("The bond is at most {} PCOL",coins(full)))}
+    let probation=value<full;
+    let taken=state.v().slot(&apply::program_address(0),&U256::from(8));let seats=chain.spec.probation().map_or(0,|p|p.seats);
+    let record=apply::miner_record(state.v(),victim);
+    let params=ContestParams{next:head.height+1,e_epoch:u64::from(cp.E_epoch).max(1),d:u64::from(cp.D),theta_inact:u64::from(cp.Theta_inact),u:u64::from(cp.U),
+        m_max:u64::from(cp.M_max),p_max:seats,grace_start:record.map_or(0,|r|r.grace_start)};
+    let view=contest_view_on(state.v(),chain.spec.profile(),head.height+1,head.ts+1,me,victim,probation)?;
+    let pool=contest_check(&view,&params,probation,taken>=U256::from(seats))?;
+    Ok(ContestPlan{victim,value,full,probation,pool,view,params})
+}
+impl ContestPlan{
+    /// The quote's contest fields: what the confirmed registerContest does, in the wallet's words.
+    pub fn describe(&self)->Value{
+        let (victim,v,p,epoch)=(self.victim,&self.view,&self.params,self.params.next/self.params.e_epoch-1);
+        let steps=if self.pool{vec![format!("The probationer {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",v.count,v.threshold),
+            format!("Its accrued bond is refunded to it and its record is removed now; its part of the pots of the last {} blocks, not yet settled, is burned. You take its probation seat.",p.d),
+            format!("You register with a {} PCOL bond, filled from your rewards up to {} PCOL.",coins(self.value),coins(self.full))]}
+        else{vec![format!("The member {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",v.count,v.threshold),
+            format!("It leaves the active set; its bond is refunded after {} blocks (no penalty).",p.u),
+            format!("You take its seat with a {} PCOL bond{}.",coins(self.value),if self.probation{format!(", filled from your rewards up to {} PCOL",coins(self.full))}else{String::new()})]};
+        json!({"victim":format!("{victim:#x}"),"contest":{"kind":if self.pool{"pool"}else{"seat"},"count":v.count,"threshold":v.threshold.to_string(),"epoch":epoch,
+            "refundAfterBlocks":if self.pool{0}else{p.u}},"steps":steps,"bondTarget":coins(self.full),"probation":self.probation,
+            "note":"Checked against the current head. The registry judges the contest again when the transaction is included; if a share or a new epoch changes the result first, it reverts and only the fee is spent."})
+    }
+}
+/// The status flags of a contest (v3 program set only): whether a newcomer would need quote_contest (all seats taken;
+/// a pool contest needs them too), and whether the seats and the probation seats are all taken.
+pub fn contest_flags(chain:&crate::chain::Chain,v:&dyn View,registered:bool)->(bool,bool,bool){
+    let a=apply::active_list(v).len() as u64;let taken=v.slot(&apply::program_address(0),&U256::from(8));
+    let seats_full=a>=u64::from(chain.spec.cp().M_max);let pool_full=chain.spec.probation().is_some_and(|p|taken>=U256::from(p.seats));
+    (chain.spec.programs()==apply::ProgramSet::V3&&!registered&&seats_full,seats_full,pool_full)
 }
 /// Registry calls of a rejoin, sent by the member itself to `apply::program_address(0)` with value 0.
 pub fn exit_calldata()->Bytes{selector("deregister()")}
@@ -278,10 +327,7 @@ impl<'a> Wallet<'a>{
             (Some(r),Some(end)) if self.rejoin.is_none()=>format!("{mining_state} · Probation: bond {} of {} PCOL, filled from your rewards (by block {end})",coins(r.bond),coins(target)),
             _=>mining_state,
         };
-        let (seats_full,pool_full)=state.as_ref().map(|s|{
-            let v=s.v();let a=apply::active_list(v).len() as u64;let taken=v.slot(&apply::program_address(0),&U256::from(8));
-            (a>=u64::from(n.chain.spec.cp().M_max),n.chain.spec.probation().is_some_and(|p|taken>=U256::from(p.seats)))}).unwrap_or((false,false));
-        let contest_open=n.chain.spec.programs()==apply::ProgramSet::V3&&record.is_none()&&(seats_full||pool_full);
+        let (contest_open,seats_full,pool_full)=state.as_ref().map(|s|contest_flags(&n.chain,s.v(),record.is_some())).unwrap_or((false,false,false));
         let diag=n.incompatible_json();
         crate::network_display::annotate(json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
@@ -396,35 +442,9 @@ impl<'a> Wallet<'a>{
         serde_json::to_vec(&self.activity).ok().is_some_and(|bytes|save_activity(&file,&bytes).is_ok())
     }
     fn quote_contest(&mut self,n:&Node,victim:&str,bond:Option<&str>)->Result<Value,String>{
-        if n.chain.spec.programs()!=apply::ProgramSet::V3{return Err("Contests exist only on the v3 network".into())}
-        if self.status(n)["registered"].as_bool().unwrap_or(false){return Err("This identity already has a registry record".into())}
-        if victim.len()!=42||!victim.starts_with("0x"){return Err("Enter the member's full 0x address (42 characters)".into())}
-        let victim:Address=victim.parse().map_err(|_|"Invalid member address")?;
-        if victim==self.key.address(){return Err("An identity cannot contest itself".into())}
-        let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
-        let value=match bond{None|Some("0")=>U256::ZERO,Some(text)=>amount(text)?};
-        if value>full{return Err(format!("The bond is at most {} PCOL",coins(full)))}
-        let probation=value<full;
-        let head=n.chain.head();let cp=n.chain.spec.cp();
-        let state=n.chain.view_of(&head.hash).ok_or("The head state is not available")?;
-        let taken=state.v().slot(&apply::program_address(0),&U256::from(8));let seats=n.chain.spec.probation().map_or(0,|p|p.seats);
-        let record=apply::miner_record(state.v(),victim);
-        let params=ContestParams{next:head.height+1,e_epoch:u64::from(cp.E_epoch).max(1),d:u64::from(cp.D),theta_inact:u64::from(cp.Theta_inact),u:u64::from(cp.U),
-            m_max:u64::from(cp.M_max),p_max:seats,grace_start:record.map_or(0,|r|r.grace_start)};
-        let view=contest_view_on(state.v(),n.chain.spec.profile(),head.height+1,head.ts+1,self.key.address(),victim,probation)?;
-        let pool=contest_check(&view,&params,probation,taken>=U256::from(seats))?;
-        let mut q=self.quote(n,"contest",apply::program_address(0),value,contest_calldata(self.key.address(),victim),CONTEST_GAS)?;
-        let epoch=params.next/params.e_epoch-1;
-        let steps=if pool{vec![format!("The probationer {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",view.count,view.threshold),
-            "Its accrued bond is refunded to it and its record is removed now; you take its probation seat.".to_owned(),
-            format!("You register with a {} PCOL bond, filled from your rewards up to {} PCOL.",coins(value),coins(full))]}
-        else{vec![format!("The member {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",view.count,view.threshold),
-            format!("It leaves the active set; its bond is refunded after {} blocks (no penalty).",params.u),
-            format!("You take its seat with a {} PCOL bond{}.",coins(value),if probation{format!(", filled from your rewards up to {} PCOL",coins(full))}else{String::new()})]};
-        q["victim"]=json!(format!("{victim:#x}"));q["contest"]=json!({"kind":if pool{"pool"}else{"seat"},"count":view.count,"threshold":view.threshold.to_string(),"epoch":epoch,
-            "refundAfterBlocks":if pool{0}else{params.u}});
-        q["steps"]=json!(steps);q["bondTarget"]=json!(coins(full));q["probation"]=json!(probation);
-        q["note"]=json!("Checked against the current head. The registry judges the contest again when the transaction is included; if a share or a new epoch changes the result first, it reverts and only the fee is spent.");
+        let plan=contest_plan(&n.chain,self.key.address(),victim,bond)?;
+        let mut q=self.quote(n,"contest",apply::program_address(0),plan.value,contest_calldata(self.key.address(),plan.victim),CONTEST_GAS)?;
+        if let Value::Object(fields)=plan.describe(){for (k,v) in fields{q[k]=v;}}
         Ok(q)
     }
     fn quote_rejoin(&mut self,n:&Node)->Result<Value,String>{
@@ -638,7 +658,7 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         assert_eq!(contest_check(&v(0),&p,true,false),Ok(false),"a probation bond with pool room: a seat contest");
         let msg=|code:u64,probation:bool|contest_check(&v(code),&p,probation,false).unwrap_err();
         assert!(msg(1,false).contains("no active registry record"));
-        assert!(msg(2,false).contains("all 256 seats")&&msg(2,true).contains("64 probation seats"));
+        assert!(msg(2,false).contains("all 256 seats")&&msg(2,true).contains("all 256 seats")&&!msg(2,true).contains("probation seats"),"a pool contest needs every seat taken too");
         assert!(msg(3,true).contains("only another probationer"));
         // Epoch 12 starts at 96 and its predecessor's late window closes at 96 + D - 1 = 99; in epoch 0 nothing is measured
         // until 8 + 3 = 11.

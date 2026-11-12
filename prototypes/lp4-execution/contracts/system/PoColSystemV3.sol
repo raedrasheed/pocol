@@ -518,10 +518,11 @@ contract MinerRegistry {
     /// V3-10 / V3-14 registerContest(address reward, address victim), payable 0..B_reg like register: the same user-path prefix
     /// (BadCalldata, BadValue, Closing, RegOpsLimit with two REG_OPS units and one R_max entry, BadPhase), the sender must have
     /// no record (BadState), the victim must pass contestCheck (codes 1 and 3: BadState; 2 and 4..7: NotContestable). A
+    /// contest needs a full set (active == M_max, O-10=b "only when all seats are full"), the pool contest included. A
     /// probationer newcomer (msg.value < B_reg) facing a full pool (ACC_COUNT >= P_MAX) displaces an ACCRUING victim from
-    /// the pool: its accrued bond is refunded and its record erased now (ACC_COUNT falls as at refund). Otherwise the set is
-    /// full (active == M_max) and the victim exits as by deregister (refund by the sweep or claimBond at dueHeight = h + U).
-    /// The sender then registers exactly as register(reward) does.
+    /// the pool: its accrued bond is refunded and its record erased now (ACC_COUNT falls as at refund; its share of pots
+    /// still pending then burns, as for any erased payee). Otherwise the victim exits as by deregister (refund by the sweep
+    /// or claimBond at dueHeight = h + U). The sender then registers exactly as register(reward) does.
     function contest() internal {
         if(msg.data.length!=68)revert BadCalldata();
         uint256 a;uint256 v;assembly{a:=calldataload(4) v:=calldataload(36)}
@@ -545,7 +546,8 @@ contract MinerRegistry {
     }
     /// V3-10 / V3-14 contest rule for victim record word vw (record slot vr) against a newcomer that is a probationer or not,
     /// at `height`. Codes, in order: 0 contestable; 1 the victim is not a live active record; 2 nothing to contest (the set
-    /// is not full, and for a probationer neither is the pool); 3 the pool is full and the victim is not ACCRUING; 4 no
+    /// is not full: active < M_max, for a pool contest too, so E's denominator is always M_max); 3 the pool is full and the
+    /// victim is not ACCRUING; 4 no
     /// measured epoch yet (height < E_epoch) or the late window of its last template still open (height mod E_epoch < D - 1);
     /// 5 the victim is in grace (height < graceStart + Theta_inact); 6 it registered or reactivated after the first block of
     /// the measured epoch; 7 its count in the measured epoch is not below the threshold (or saturated). Also returns that
@@ -553,7 +555,7 @@ contract MinerRegistry {
     function contestCheck(uint256 vr,uint256 vw,bool probation,uint256 height) internal view returns(uint256,uint256,uint256){
         if(!live(vw)||(vw&255)!=1)return(1,0,0);
         bool pool=probation&&get(ACC_COUNT)>=cfg(CP_P_MAX);
-        if(!pool&&get(1)<cfg(18))return(2,0,0);
+        if(get(1)<cfg(18))return(2,0,0);
         if(pool&&!accruingState(vw))return(3,0,0);
         uint256 e=cfg(CP_E_EPOCH);uint256 cur=height/e;
         if(cur==0||height%e+1<cfg(11))return(4,0,0);
@@ -565,7 +567,8 @@ contract MinerRegistry {
         return(0,count,thr);
     }
     /// V3-10: the victim's count and the threshold of measured epoch p: countCur when the record's epoch (lastShare / E) is
-    /// p, countPrev when it is p + 1, else 0; Tprev likewise from slot 10; active = the active count now.
+    /// p, countPrev when it is p + 1, else 0; Tprev likewise from slot 10; active = the active count now, which contestCheck
+    /// has required to be M_max (so exits before a contest cannot raise E).
     function measured(uint256 vw,uint256 p,uint256 e) internal view returns(uint256 count,uint256 thr){
         uint256 el=((vw>>88)&LOW64)/e;count=el==p?(vw>>216)&CNT_SAT:(el==p+1?vw>>236:0);
         uint256 t=get(EPOCHS);uint256 g=t&LOW64;

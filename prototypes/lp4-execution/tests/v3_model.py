@@ -286,13 +286,13 @@ class Registry(em.Registry):
 
     def contest_check(self, victim, probation, h):
         """The contest rule (codes as PoColSystemV3.sol contestCheck): 0 contestable, 1 no live active victim, 2 nothing
-        to contest, 3 pool full and the victim not ACCRUING, 4 no measured epoch or its late window open, 5 in grace,
+        to contest (the set not full, for a pool contest too), 3 pool full and the victim not ACCRUING, 4 no measured epoch or its late window open, 5 in grace,
         6 registered or reactivated after the first block of the measured epoch, 7 not below the threshold."""
         r = self.records.get(victim)
         if r is None or not r.live() or r.status != 1:
             return 1, 0, 0
         pool = probation and self.accruing >= self.cp['P_MAX']
-        if not pool and len(self.active) < self.cp['M_max']:
+        if len(self.active) < self.cp['M_max']:
             return 2, 0, 0
         if pool and r.bond_state != ACCRUING:
             return 3, 0, 0
@@ -320,9 +320,10 @@ class Registry(em.Registry):
         return ','.join(map(str, self.contest_check(victim, probation in (True, 'true', 1), h)))
 
     def register_contest(self, sender, reward, victim, value, h):
-        """registerContest(reward, victim) with bond `value`: a probationer newcomer facing a full pool displaces an
-        ACCRUING victim (refund of the accrued bond, record erased, ACC_COUNT down); otherwise, with the set full, the
-        victim exits as by deregister (refund after U). Then the sender registers as register(reward)."""
+        """registerContest(reward, victim) with bond `value`, only with the set full (active == M_max, the pool contest
+        included): a probationer newcomer facing a full pool displaces an ACCRUING victim (refund of the accrued bond, record
+        erased, ACC_COUNT down; its share of pots still pending burns at their settlement, as for any erased payee);
+        otherwise the victim exits as by deregister (refund after U). Then the sender registers as register(reward)."""
         self.block(h)
         if value > B:
             self.durable.add(sender)
@@ -1637,14 +1638,50 @@ def contest_vectors():
            21: [('set_reward', 'm0', 'm0', 21), ('set_reward', 'n', 'n', 21), contest('n2', 'x', 21)],
            22: [contest_status('x', 22), contest('n2', 'x', 22)]}
     v['contest-budget'] = contest_chain(24, ops, cp={'REG_OPS': 3, 'R_max': 4})
-    # V3-14, the pool contest: six seats (not full), two probation slots held by p1 (mining, zero bond) and p2 (idle, 5
-    # PCOL). At 19 q's probation register reverts Capacity; contesting p1 (above threshold) and a (HELD: the pool contest
-    # takes only ACCRUING victims) revert, so does q's contest with the full bond (the seats are not full); with bond 0 it
-    # displaces p2: the accrued 5 PCOL refunded, the record erased, ACC_COUNT 2 -> 1 -> 2.
-    ops = {19: [('register', 'q', 'q', 0, 19), contest_status('p2', 19, True), contest('q', 'p1', 19, 0),
-                contest('q', 'a', 19, 0), contest('q', 'p2', 19, B), contest('q', 'p2', 19, 0), contest_status('q', 19, True)]}
+    # V3-14, the pool contest: six seats, two probation slots held by p1 (mining, zero bond) and p2 (idle, 5 PCOL). At 19
+    # q's probation register reverts Capacity. The set is not full (four of six seats), so nothing is contestable (code 2:
+    # a pool contest needs a full set, as every contest, O-10=b), with a probation bond or the full one. x and y fill the
+    # set; then contesting p1 (above the threshold) and a (HELD: the pool contest takes only ACCRUING victims) revert, and
+    # q's contest with bond 0 displaces p2: the accrued 5 PCOL refunded, the record erased, ACC_COUNT 2 -> 1 -> 2.
+    ops = {19: [('register', 'q', 'q', 0, 19), contest_status('p2', 19, True), contest('q', 'p2', 19, 0),
+                contest('q', 'p2', 19, B), ('register', 'x', 'x', B, 19), ('register', 'y', 'y', B, 19),
+                contest_status('p2', 19, True), contest('q', 'p1', 19, 0), contest('q', 'a', 19, 0), contest('q', 'p2', 19, 0),
+                contest_status('q', 19, True)]}
     v['pool-contest'] = contest_chain(24, ops, members=(('a', B), ('p1', 0), ('p2', 5 * PCOL)),
                                       extra=lambda h: ['p1'], cp={'M_max': 6})
+    # Exits before a pool contest cannot raise the threshold (review finding: with a pool contest on a set that is not
+    # full, E's denominator was the active count at the contest). Six seats full (m0, a, c, d, p1, p2), p2 with 5 shares in
+    # epoch 1: Tprev = 40 + 5 = 45, threshold at six seats ceil(7.5 - sqrt(7.5)) = 5, so p2 is not contestable (code 7);
+    # on the copy, a and c deregister first (active 4): nothing is contestable (code 2), where the first draft's rule (E
+    # over the active count now) would give ceil(11.25 - sqrt(11.25)) = 8 and displace p2.
+    work = lambda h: ['p1'] + (['p2'] if 9 <= h <= 13 else [])
+    four = (('a', B), ('c', B), ('d', B), ('p1', 0), ('p2', 5 * PCOL))
+    v['pool-contest-exits-cannot-raise-the-threshold'] = contest_chain(
+        22, {19: [('deregister', 'a', 19), ('deregister', 'c', 19), contest_status('p2', 19, True), contest('q', 'p2', 19, 0)]},
+        members=four, extra=work, cp={'M_max': 6})
+    v['pool-contest-above-the-threshold-at-the-full-set'] = contest_chain(
+        22, {19: [contest_status('p2', 19, True), contest('q', 'p2', 19, 0)]}, members=four, extra=work, cp={'M_max': 6})
+    # The pool victim's pending pots (review finding, open for the owner, D-V3-14): p2 is idle in epoch 1 and mines
+    # templates 16..18 of epoch 2; displaced at 19, its record is erased before pots 16..18 settle (at 20..22), so its
+    # shares of them burn (payInfos names no reward address for an erased id) instead of filling the bond it was refunded.
+    # The bytecode reproduces the burn and the conservation exactly; the seat contest keeps its victim payable until U.
+    ops = {19: [contest_status('p2', 19, True), contest('q', 'p2', 19, 0)]}
+    v['pool-victim-pending-pots-burn'] = contest_chain(
+        24, ops, members=(('a', B), ('p1', 0), ('p2', 5 * PCOL)), extra=lambda h: ['p1'] + (['p2'] if h in (17, 18, 19) else []))
+    v['pool-victim-pending-pots-without-a-contest'] = contest_chain(
+        24, {}, members=(('a', B), ('p1', 0), ('p2', 5 * PCOL)), extra=lambda h: ['p1'] + (['p2'] if h in (17, 18, 19) else []))
+    burn, keep = v['pool-victim-pending-pots-burn']['final'], v['pool-victim-pending-pots-without-a-contest']['final']
+    assert burn['paid']['p2'] == str(5 * PCOL) and int(burn['burned']) - int(keep['burned']) == int(keep['records']['p2']['bond']) - 5 * PCOL > 0, \
+        'the pool victim is refunded its 5 PCOL; exactly what its pending pots would have accrued burns instead'
+    # A seat-contest victim stays punishable until its due height: c (HELD) and p (ACCRUING, 5 PCOL), both idle, are
+    # displaced at 19 by full-bond newcomers; block 21 carries type-1 evidence against both (reporter m0): each is tombed,
+    # its bond burned less the reporter's cut, ACC_COUNT falls once (at the punish, not again at the sweep), held_total by
+    # both bonds. The first scenario ends at 30 (both tombs held, before the due height 59); the second runs on to 64: the
+    # sweep refunds neither, and erases both tombs at 21 + E_win + D + 1 = 42.
+    ops = {19: [contest('n1', 'c', 19), contest('n2', 'p', 19)]}
+    for name_, last in (('seat-victims-punished-before-due', 30), ('seat-victims-punished-then-swept', 64)):
+        v[name_] = contest_chain(last, ops, members=(('a', B), ('c', B), ('p', 5 * PCOL)),
+                                 late=lambda h: [('c', None), ('p', None)] if h == 21 else [])
     # A probationer newcomer with room in the pool contests a full set: the seat contest. Its victim p is ACCRUING (idle,
     # zero bond): p exits and keeps its slot (ACC_COUNT 2 with q) until the sweep refunds it at 19 + U = 59 (ACC_COUNT 1).
     ops = {19: [contest_status('p', 19), contest('q', 'p', 19, 0)]}
@@ -1652,7 +1689,8 @@ def contest_vectors():
     # Both full (four seats, two slots): q's probation contest of the idle p2 frees its seat and its slot at once.
     ops = {19: [contest_status('p2', 19, True), contest('q', 'p2', 19, 0)]}
     v['pool-and-seats-full'] = contest_chain(22, ops, members=(('p1', 0), ('p2', 0), ('a', B)), extra=lambda h: ['p1'])
-    # A rotation race in the pool (SWEEP_MAX 0, so only claimBond refunds; W_act 2, U 6): s exits at 9 and, at its due
+    # A rotation race in the pool (four seats, full while s holds one; SWEEP_MAX 0, so only claimBond refunds; W_act 2,
+    # U 6): s exits at 9 and, at its due
     # height 15, claims its bond and registers again in the same block before q, so q's register reverts Capacity and its
     # contest of the fresh record reverts (in grace, code 5; past it, code 6 until its registration precedes the measured
     # epoch); at 27 (epoch 2 measured) s, idle, is displaced. Then p1 exits at 28: at 34 q2 registers too early (the exited p1 still holds its
@@ -1667,14 +1705,16 @@ def contest_vectors():
            34: [('register', 'q2', 'q2', 0, 34), ('claim_bond', 'p1', 34), ('register', 'q2', 'q2', 0, 34), ('register', 'p1', 'p1', 0, 34)],
            35: [('deregister', 'a', 35), contest('z', 'a', 35)]}
     v['pool-rotation-race'] = contest_chain(37, ops, members=(('a', B), ('p1', 0), ('s', 0)),
-                                            cp={'M_max': 6, 'W_act': 2, 'U': 6, 'C_react': 6, 'SWEEP_MAX': 0})
+                                            cp={'M_max': 4, 'W_act': 2, 'U': 6, 'C_react': 6, 'SWEEP_MAX': 0})
     # ACC_COUNT through promote, exit, displace and punish (P_MAX 3, eight seats): p3 promotes by topUp, p4 takes the slot,
     # p1 exits (still counted until its refund), p2 is punished (type-1 evidence, reporter m0), q takes that slot; at 19 the
-    # pool (p1 exited, p4, q) is full and z displaces the idle p4; the sweep refunds p1 at 45. The model checks ACC_COUNT =
-    # the live ACCRUING records after every step.
+    # pool (p1 exited, p4, q) is full, x, y and w fill the set (a pool contest needs a full set) and z displaces the idle
+    # p4; the sweep refunds p1 at 45. The model checks ACC_COUNT = the live ACCRUING records after every step.
     sc_ops = {2: [('top_up', 'p3', 5 * PCOL, 2), ('register', 'p4', 'p4', 0, 2), ('register', 'p5', 'p5', 0, 2)],
               5: [('deregister', 'p1', 5)], 7: [('register', 'q', 'q', 0, 7)],
-              19: [('register', 'z', 'z', 0, 19), contest_status('p4', 19, True), contest('z', 'p4', 19, 0)]}
+              19: [('register', 'z', 'z', 0, 19), contest_status('p4', 19, True), ('register', 'x', 'x', B, 19),
+                   ('register', 'y', 'y', B, 19), ('register', 'w', 'w', B, 19), contest_status('p4', 19, True),
+                   contest('z', 'p4', 19, 0)]}
     sc = Script().block(1, ops=joined(('a', B), ('p1', 0), ('p2', 0), ('p3', 15 * PCOL)))
     for h in range(2, 47):
         r = busy(h, ['q'] if h > 8 else [])

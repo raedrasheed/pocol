@@ -20,7 +20,7 @@ name: System programs reproduction
 # block burning the carry, the supply bound at genesis and closeBlock/finalize's SYS gas against GAS_ENVELOPE_V3. V3-PR-E4
 # adds the contestable seats and the probation-pool contest (V3-10, V3-14): the model's contest scenarios and threshold
 # table (tests/v3/contest-vectors.json: epoch counters, registerContest's seat and pool contests and every refusal)
-# replayed on the bytecode with twelve planted MinerRegistry mutants, the wallet's contest checks, and under v3-preview
+# replayed on the bytecode with thirteen planted MinerRegistry mutants, the wallet's contest checks, and under v3-preview
 # contests on real v3 chains (pocold/tests/v3_earnin.rs) and recordShares/recordLate's SYS gas with the epoch counters
 # against GAS_ENVELOPE_V3.
 on:

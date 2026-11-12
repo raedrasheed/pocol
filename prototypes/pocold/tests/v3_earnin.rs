@@ -235,6 +235,7 @@ mod preview {
     fn contest_net(p_max: u16, m_max: u16) -> Net {
         let mut cfg = config(p_max, 86_400);
         cfg.m_max = m_max; cfg.e_epoch = 8; cfg.theta_bp = 10_000; cfg.k_sigma = 1; cfg.theta_inact = 4;
+        cfg.accounts.push(("carol".into(), U256::from(10u128.pow(24))));
         net_with(cfg)
     }
     fn contest_tx(net: &Net, key: &Key, victim: Address, value: u128) -> Vec<u8> {
@@ -243,6 +244,15 @@ mod preview {
     fn receipts_status(net: &Net) -> Vec<Vec<u8>> {
         let entry = net.chain.full_entry(&net.chain.head).unwrap();
         entry.receipts.iter().map(|r| rlp::decode(&r[1..]).unwrap().list().unwrap()[0].bytes().unwrap().to_vec()).collect()
+    }
+    /// The wallet's contest quote decision (wallet::contest_plan, all of quote_contest but the fee) for `me` at the head.
+    fn plan(net: &Net, me: Address, victim: Address, bond: Option<&str>) -> Result<wallet::ContestPlan, String> {
+        wallet::contest_plan(&net.chain, me, &format!("{victim:#x}"), bond)
+    }
+    /// The wallet status's contest flags (contestAvailable, seatsFull, probationSeatsFull) for `me` at the head.
+    fn flags(net: &Net, me: Address) -> (bool, bool, bool) {
+        let head = net.chain.head();
+        wallet::contest_flags(&net.chain, &head.state, apply::miner_record(&head.state, me).is_some())
     }
     /// What the wallet's contest quote sees at the next block: the registry's contestStatus view on the head state.
     fn contest_view(net: &Net, caller: Address, victim: Address, probation: bool) -> wallet::ContestView {
@@ -274,6 +284,24 @@ mod preview {
         assert_eq!(busy.code, 7, "one is above the threshold: {busy:?}");
         assert!(params(&busy, &net).unwrap_err().contains("not below the threshold"));
         assert_eq!(params(&open, &net), Ok(false), "the wallet quotes a seat contest");
+        // The quote decision on the same head: the seat contest with the full bond or a probation bond (the pool has room),
+        // and every guard before the registry is asked.
+        let seat = plan(&net, bob.address(), two, Some("20")).unwrap();
+        assert_eq!((seat.pool, seat.probation, seat.value, seat.view), (false, false, U256::from(B), open));
+        let d = seat.describe();
+        assert_eq!((d["contest"]["kind"].as_str(), d["contest"]["refundAfterBlocks"].as_u64(), d["victim"].as_str()), (Some("seat"), Some(u64::from(cp.U)), Some(format!("{two:#x}").as_str())));
+        assert!(d["steps"][1].as_str().unwrap().contains("refunded after") && d["steps"][2].as_str().unwrap().contains("20 PCOL bond"));
+        let probation = plan(&net, bob.address(), two, None).unwrap();
+        assert_eq!((probation.pool, probation.probation, probation.value), (false, true, U256::ZERO), "a probation bond with pool room: a seat contest");
+        assert!(probation.describe()["steps"][2].as_str().unwrap().contains("filled from your rewards"));
+        assert!(plan(&net, alice.address(), one, None).unwrap_err().contains("not below the threshold"), "the registry's verdict, code 7");
+        assert!(plan(&net, bob.address(), bob.address(), None).unwrap_err().contains("cannot contest itself"));
+        assert!(plan(&net, bob.address(), two, Some("20.000000000000000001")).unwrap_err().contains("at most 20 PCOL"));
+        assert!(plan(&net, one, two, None).unwrap_err().contains("already has a registry record"));
+        assert!(wallet::contest_plan(&net.chain, bob.address(), "0x1234", None).unwrap_err().contains("42 characters"));
+        assert!(plan(&net, bob.address(), alice.address(), None).unwrap_err().contains("no active registry record"));
+        assert_eq!(flags(&net, bob.address()), (true, true, false), "both seats taken: a newcomer needs a contest");
+        assert_eq!(flags(&net, one), (false, true, false), "a member needs none");
         let funded = balance(&net, record(&net, two).reward);
         let txs = vec![contest_tx(&net, &alice, one, B), contest_tx(&net, &bob, two, B)];
         let _ = next(&mut net, one, txs);
@@ -286,22 +314,25 @@ mod preview {
         while net.chain.head().height < h + u64::from(cp.U) { let _ = next(&mut net, one, vec![]); }
         assert!(apply::miner_record(&net.chain.head().state, two).is_none(), "the sweep erased two at its due height");
         assert_eq!(balance(&net, r.reward) - funded, U256::from(B), "two's bond refunded in full");
+        assert!(plan(&net, bob.address(), one, None).unwrap_err().contains("already has a registry record"), "bob now has a record");
     }
 
     /// V3-14 on chain: P_MAX 1 is held by alice, a zero-bond probationer who never mines (registered at 1, so judged on
-    /// epoch 1 from h = 19). bob's probation registration is refused (Capacity) and his contest of alice before 19 too;
-    /// at 19 it lands: alice's record is erased and her accrued bond (0) refunded, bob takes the probation seat, and
-    /// ACC_COUNT stays 1 throughout.
+    /// epoch 1 from h = 19), with three of four seats taken. bob's probation registration is refused (Capacity), and so is
+    /// his contest of alice: first she is not judgeable yet, then the set is not full (a pool contest needs every seat
+    /// taken, as every contest). carol fills the set with a full bond at 19; at 20 bob's contest lands: alice's record is
+    /// erased and her accrued bond (0) refunded, bob takes the probation seat, and ACC_COUNT stays 1 throughout. The
+    /// wallet's quote decision and status flags follow each step.
     #[test]
     fn an_idle_probationer_is_displaced_from_the_pool_on_chain() {
         let mut net = contest_net(1, 4);
         let one = net.one;
-        let (alice, bob) = (devnet::account_key("alice"), devnet::account_key("bob"));
+        let (alice, bob, carol) = (devnet::account_key("alice"), devnet::account_key("bob"), devnet::account_key("carol"));
         let t = register(&net, &alice, 0);
         let _ = next(&mut net, one, vec![t]);
         assert_eq!((record(&net, alice.address()).bond_state, accruing_count(&net)), (4, U256::from(1)));
         while net.chain.head().height < 12 { let _ = next(&mut net, one, vec![]); }
-        assert_eq!(contest_view(&net, bob.address(), alice.address(), true).code, 6, "alice registered after the first block of epoch 0");
+        assert_eq!(contest_view(&net, bob.address(), alice.address(), true).code, 2, "three of four seats: nothing to contest");
         let second = {
             // bob's second transaction in the block, at his next nonce.
             let head = net.chain.full_entry(&net.chain.head).unwrap();
@@ -312,17 +343,31 @@ mod preview {
         };
         let txs = vec![register(&net, &bob, 0), second];
         let _ = next(&mut net, one, txs);
-        assert_eq!(receipts_status(&net), vec![Vec::<u8>::new(), Vec::new()], "the pool is full and alice not yet judgeable");
+        assert_eq!(receipts_status(&net), vec![Vec::<u8>::new(), Vec::new()], "the pool is full and the set is not");
         while net.chain.head().height < 18 { let _ = next(&mut net, one, vec![]); }
+        assert_eq!(contest_view(&net, bob.address(), alice.address(), true).code, 2, "epoch 1 measured, but the set is not full");
+        assert!(plan(&net, bob.address(), alice.address(), None).unwrap_err().contains("all 4 seats"), "the wallet refuses before signing");
+        assert_eq!(flags(&net, bob.address()), (false, false, true), "the probation seats are taken, the seats are not: no contest");
+        let t = register(&net, &carol, B);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!((receipts_status(&net), apply::active_list(&net.chain.head().state).len()), (vec![vec![1u8]], 4), "carol fills the set at 19");
         let v = contest_view(&net, bob.address(), alice.address(), true);
-        assert_eq!((v.code, v.count), (0, 0), "epoch 1 measured: alice idle");
-        assert_eq!(contest_view(&net, bob.address(), alice.address(), false).code, 2, "with the full bond there is nothing to contest: four seats, three taken");
+        assert_eq!((v.code, v.count), (0, 0), "epoch 1 measured: alice idle, the set full");
+        assert_eq!(flags(&net, bob.address()), (true, true, true));
+        let pool = plan(&net, bob.address(), alice.address(), None).unwrap();
+        assert_eq!((pool.pool, pool.probation, pool.view), (true, true, v), "a probation bond against a full pool: the pool contest");
+        let d = pool.describe();
+        assert_eq!((d["contest"]["kind"].as_str(), d["contest"]["refundAfterBlocks"].as_u64(), d["probation"].as_bool()), (Some("pool"), Some(0), Some(true)));
+        assert!(d["steps"][1].as_str().unwrap().contains("refunded to it") && d["steps"][1].as_str().unwrap().contains("burned"), "{d}");
+        let seat = plan(&net, bob.address(), alice.address(), Some("20")).unwrap();
+        assert_eq!((seat.pool, contest_view(&net, bob.address(), alice.address(), false).code), (false, 0), "with the full bond: a seat contest of the same victim");
         let t = contest_tx(&net, &bob, alice.address(), 0);
         let _ = next(&mut net, one, vec![t]);
         assert_eq!(receipts_status(&net), vec![vec![1u8]]);
         assert!(apply::miner_record(&net.chain.head().state, alice.address()).is_none(), "alice's record erased at once");
         let r = record(&net, bob.address());
         assert_eq!((r.status, r.bond_state, accruing_count(&net)), (1, 4, U256::from(1)), "bob holds the probation seat; ACC_COUNT conserved");
+        assert_eq!(flags(&net, bob.address()), (false, true, true), "bob is registered now");
     }
 
     /// V3-08 on chain (V3-PR-E1): one identity's second maintenance operation in a block is a status-0 receipt, while

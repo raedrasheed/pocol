@@ -301,7 +301,7 @@ sender has a record, then the rule (contestCheck, codes in order; code 1 or 3 re
 | Code | Refusal |
 |---|---|
 | 1 | the victim is not a live active record (no record, a tomb, a PAID or BURNED bond, or exited) |
-| 2 | nothing to contest: a pool contest needs a probationer newcomer (msg.value < B_reg) and ACC_COUNT >= P_MAX; otherwise the set must be full, active >= M_max |
+| 2 | nothing to contest: the set is not full, active < M_max, for a pool contest too (O-10=b: contests only when all seats are full) |
 | 3 | the pool contest's victim is not ACCRUING |
 | 4 | no measured epoch yet (height < E_epoch), or the late window of its last template still open (height mod E_epoch < D - 1) |
 | 5 | the victim is in grace: height < graceStart + Theta_inact (graceStart = registration or last reactivation, w3 192..255) |
@@ -310,7 +310,8 @@ sender has a record, then the rule (contestCheck, codes in order; code 1 or 3 re
 
 The measured epoch p is the previous one, height / E_epoch - 1. The count is countCur when the victim's epoch
 (lastShare / E_epoch) is p, countPrev when it is p + 1, else 0; Tprev likewise from slot10. The threshold decides
-count < E - k_sigma * sqrt(E), E = theta * Tprev / active (theta = theta_bp / 10^4, active = the active count now), exactly
+count < E - k_sigma * sqrt(E), E = theta * Tprev / active (theta = theta_bp / 10^4, active = the active count now, which
+code 2 has required to be M_max: exits just before a contest cannot raise E, nor bonded joins lower it), exactly
 over the reals: with N = theta_bp * Tprev, Dn = 10^4 * active and s = isqrt(k_sigma^2 * N * Dn) (floor; the
 initial estimate 2^(floor(log2 x) / 2), seven Newton steps, then min(y, x / y), OpenZeppelin's Math.sqrt method), the
 real threshold is (N - sqrt(k^2 N Dn)) / Dn, and since ceil(N - x) = N - floor(x) the integer threshold is ceil((N - s) /
@@ -323,10 +324,14 @@ credited by height (p + 1) * E_epoch + D - 1 (block j + D is the last carrier of
 before the carriers ran cannot manufacture a victim (V3-02 is the prerequisite of V3-10). It requires E_epoch >= D for any
 contest to be possible.
 
-Effects. Pool contest (a probationer newcomer and ACC_COUNT >= P_MAX, the victim ACCRUING): the victim leaves the active
+Effects. Pool contest (the set full, a probationer newcomer and ACC_COUNT >= P_MAX, the victim ACCRUING): the victim leaves the active
 list, its accrued bond is refunded (Escrow.releaseBond; an undeliverable refund reverts PaymentFailed), held_total and
-ACC_COUNT fall as in refund, and the record is erased now, so the newcomer takes its probation seat in the same call (and
-its active seat, if the set was full). Seat contest (otherwise, with the set full): the victim exits as by deregister
+ACC_COUNT fall as in refund, and the record is erased now, so the newcomer takes its probation seat and its active seat
+in the same call. Pots still pending then (the victim's shares, winner or proposer parts of the last D templates, and late
+shares of them credited afterwards) settle to an id without a record: payInfos names no reward address, so its parts burn
+(payTo returns them for payBurn) instead of filling the bond it was refunded (vector pool-victim-pending-pots-burn: the
+burn exceeds the same chain without the contest by exactly what the victim's bond would have accrued). If the victim
+registers again within D blocks, those parts go to its new record. Seat contest (otherwise, the set full as well): the victim exits as by deregister
 (status 2, exitHeight = h, dueHeight = h + U, no M_min check: the newcomer takes the seat at once), keeps its bond and
 evidence exposure until dueHeight, may reactivate inside the usual window, and is refunded by the sweep or claimBond.
 Then the sender registers exactly as register(reward) (capacity, R9 / PAY-02, P_MAX, the bond into Escrow). slot3 gains
@@ -338,8 +343,8 @@ epochTotals() returns slot10's three fields. pocold's wallet (quote_contest) run
 next height and explains each code before anything is signed.
 
 Write ceilings and gas (tests/v3_contracts.rs contest_write_ceilings_gas_and_user_sys_keys; a slot written back to its value
-is unchanged): seat contest, victim in the middle of the active list 13 slots (232,479 gas), at the tail 11 (221,899);
-pool contest, victim at bond 0 in the middle of both lists 12 (188,188), a 5 PCOL victim at the tail 11 (180,579); the
+is unchanged): seat contest, victim in the middle of the active list 13 slots (232,451 gas), at the tail 11 (221,871);
+pool contest, victim at bond 0 in the middle of both lists 12 (189,028), a 5 PCOL victim at the tail 11 (181,430); the
 user-context SYS keys equal these counts (Registry only), within the devnet SYS_KEYS_USER_MAX 256. The wallet quotes
 CONTEST_GAS 500,000. Other user paths: register 205,207 gas (the internal enroll it now shares with registerContest),
 every other path below 85,000.
@@ -352,23 +357,34 @@ roll 13,626,629), above the spec-1 entry 13,216,000, so admission composes GAS_E
 genesis running the v3 set; recordLate 3,465,613 on its stranger path (GAS_ENVELOPE_V3 3,466,000); the larger Registry
 dispatch adds a few gas to every nested Registry call: settle 6,314,420 on its 64-fill path (GAS_ENVELOPE_V3 settle and
 settleFinal 6,315,000), punish 98,699, closeBlock 132,869 (entries unchanged). The beginBlock sweep is unchanged (865,273
-at the program caps). Runtime sizes: MinerRegistry 13,979 bytes (from 10,734; below 24,576), RewardEscrow 5,591,
+at the program caps). markClose's closing phase (`v3_closing_mark_close_gas_within_the_envelope`: RET 128 refunds a call,
+each through Escrow.releaseBond and the larger dispatch, an ACCRUING one also writing ACC_COUNT) measures 2,734,171 for 64
+HELD and 64 ACCRUING refunds (128 HELD 2,711,375), above the spec-1 entry 2,655,000: GAS_ENVELOPE_V3 markClose 2,735,000.
+Runtime sizes: MinerRegistry 13,969 bytes (from 10,734; below 24,576), RewardEscrow 5,591,
 ShareLedger 3,478.
 
 The independent model is tests/v3_model.py (Registry.credit, credit_total, contest_check, register_contest; vectors
 tests/v3/contest-vectors.json: the seat contest with the refund after U; refusals above the threshold, by a registered
 sender, of an exited victim, with the set not full; the threshold off by one; grace; joined or reactivated after the
-start of the measured epoch; the budgets; the pool contest and its refusals; both full; a probationer newcomer's seat
-contest of an ACCRUING victim; a rotation race in the pool; ACC_COUNT through promote, exit, displace and punish; late
-credit counted, and the same chain without it; the counters rolling at epoch boundaries; an epoch shorter than D; the
-threshold table). Twelve planted MinerRegistry mutants (contest-threshold-off-by-one, contest-grace-ignored,
-contest-joined-in-epoch-allowed, contest-set-not-full-allowed, contest-late-window-open, pool-contest-refund-skipped,
+start of the measured epoch; the budgets; the pool contest and its refusals (the set not full included); exits in the
+contest block that cannot turn a refused pool contest into one that lands, and the same chain without them; a pool
+victim with pending pots (they burn), and the same chain without the contest; both full; a probationer newcomer's seat
+contest of an ACCRUING victim; seat victims (HELD and ACCRUING) punished between the contest and their due height, before
+and after the sweep; a rotation race in the pool; ACC_COUNT through promote, exit, displace and punish; late credit
+counted, and the same chain without it; the counters rolling at epoch boundaries; an epoch shorter than D; the threshold
+table). Thirteen planted MinerRegistry mutants (contest-threshold-off-by-one, contest-grace-ignored,
+contest-joined-in-epoch-allowed, contest-set-not-full-allowed, pool-contest-set-not-full-allowed (the first draft's pool
+contest on a set that is not full), contest-late-window-open, pool-contest-refund-skipped,
 pool-contest-exits-instead, pool-contest-held-victim, counters-not-rolled, late-not-counted, isqrt-not-floored,
 contest-one-reg-ops-unit) are in tests/v3/system-v3-mutants.json; the E1 mutant maint-twice-per-block and the E3 mutants
 late-last-share-reverts/-overwrites are re-patched onto the moved clock and the credit call.
 
-Open points the design leaves to the owner (not decided here): a pool contest erases its victim at once, so an ACCRUING
-member that has just committed an offence within E_win escapes the evidence penalty if it is contested before any block
-carries the evidence (the seat contest keeps the victim exited and punishable until dueHeight); and a member that exits
+Open points the design leaves to the owner (not decided here): a pool contest erases its victim at once, as the design
+says, so an ACCRUING member that has just committed an offence within E_win escapes the evidence penalty if it is
+contested before any block carries the evidence, and an honest victim's parts of its pending pots burn (above; the seat
+contest keeps the victim exited, payable and punishable until dueHeight); a pool contest is allowed only with the set
+full, the literal reading of O-10=b and of the roadmap ("registerContest only when active == M_max"), so a full pool
+with free seats admits no contest (the owner may instead want pool contests on a set that is not full, which needs a
+denominator the contestant cannot move: M_max, or the active count recorded for the measured epoch); and a member that exits
 and reactivates (or rotates claimBond + register) once per epoch restarts its eligibility each time, as the design's
 "registration or last reactivation" rule says, so it is never contestable.
