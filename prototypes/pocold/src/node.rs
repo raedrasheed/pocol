@@ -169,6 +169,14 @@ pub const MEM_BUDGET:u64=6<<30;
 /// Blocks waiting for their timestamp, buffered templates, equivocation observations,
 /// status rejects and evidence awaiting inclusion (A13 accounting).
 pub const FUTURE_MAX:usize=64;pub const TEMPLATES_MAX:usize=64;pub const SEEN_MAX:usize=4096;pub const REJECTS_MAX:usize=256;pub const EVIDENCE_POOL_MAX:usize=64;
+/// V3-04 (v3 profiles only, A13 `history/first-import template first-seen times`): per signed-template slot (the
+/// seen_templates key: parent and signer, height), the TemplateID this node first LOCKED there and when, kept for
+/// classifying its solved block. At most TEMPLATE_SEEN_MAX slots; each is TEMPLATE_SEEN_ENTRY_BYTES of a HashMap
+/// bucket at most (resources.rs asserts that the type fits).
+pub const TEMPLATE_SEEN_MAX:usize=256;pub const TEMPLATE_SEEN_ENTRY_BYTES:usize=96;
+/// The TemplateID a template_seen slot holds once its signer equivocated there: no template of the slot counts
+/// (a keccak256 output, which a TemplateID is, is never all zero in practice).
+const NO_TEMPLATE:[u8;32]=[0;32];
 /// Gossip: TemplateIDs already relayed (each is relayed at most once), and the shares relayed per locked
 /// template, as a multiple of S_max (a block carries at most S_max shares; more only cost bandwidth).
 pub const RELAYED_MAX:usize=256;pub const SHARE_RELAY_PER_S_MAX:usize=4;
@@ -457,6 +465,11 @@ pub struct Node{
     /// Own sealed blocks waiting in `future` for their timestamp (Φ=2φ may be 0 on one host).
     own_future:HashSet<[u8;32]>,
     templates:HashMap<[u8;32],(Header,Body,u128,PeerId)>,
+    /// V3-04: seen_key slot -> (TemplateID, first lock ms) of the signed templates this node validated as minable and
+    /// locked (`note_template_seen`), NO_TEMPLATE for a slot whose signer equivocated (`template_equivocated`); empty
+    /// on profiles that cannot activate v3. Not persisted: a block first imported after a restart whose template was
+    /// locked before it is judged on its own arrival.
+    template_seen:HashMap<([u8;32],u64),([u8;32],u128)>,
     /// Gossip: TemplateIDs this node sent or relayed (at most RELAYED_MAX), so each is relayed once.
     relayed:HashSet<[u8;32]>,
     received:HashMap<[u8;32],u128>,
@@ -937,7 +950,7 @@ impl Node{
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
-            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
+            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),template_seen:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
@@ -1218,7 +1231,9 @@ impl Node{
                         Ok(None)=>self.received.get(&b.header.parent_hash).copied().unwrap_or(received_ms),
                         Err(e)=>self.fatal(&e),
                     };
-                    let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms){
+                    let tid=template_id(&b.header.ut_raw);
+                    let template_ms=self.template_seen.get(&Self::seen_key(&b.header)).filter(|x|x.0==tid).map(|x|x.1);
+                    let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms,template_ms){
                     Ok(stamp)=>stamp,Err(e)=>self.fatal(&e)}},
                 Err(e)=>self.fatal(&e),
             });
@@ -1888,6 +1903,7 @@ impl Node{
         let Some(p)=self.full_entry(&parent) else{return};
         let ctx=match self.chain.child_ctx(&p,header.a){Ok(c)=>c,Err(_)=>return};
         let tid=template_id(&header.ut_raw);
+        if !fallback{self.note_template_seen(&header);}
         self.log(&format!("lock h={} a={} {} tid={}",header.h,header.a,if fallback{"FB"}else{"PROP"},&hex(&tid)[..12]));
         // The previous miner is stopped and joined before the next starts: one miner thread at a time.
         if let Some(pr)=&mut self.prod{
@@ -2510,6 +2526,40 @@ impl Node{
                 &&self.chain.child_ctx(pe,0).is_ok_and(|c|h.proposer[..]==c.proposer[..]));
         drawn&&self.record_template(h)
     }
+    /// V3-04: the first time this node LOCKED a signed template, for classifying its solved block (`imports::classify`).
+    /// `lock` calls it for a signed template only: its own, or one `try_lock_signed` validated as minable here (the
+    /// drawn signer, the window, item 16 and its body rebuilding to its UT) by T_j. A template merely received, say a
+    /// signed shell whose body does not rebuild, never counts: nobody else can mine it, so its block is a withheld one.
+    /// Only on a profile that can activate v3: a spec-1 node keeps the map empty. One TemplateID per slot (parent and
+    /// signer, height), the earliest time kept; a second TemplateID for a slot, or one seen_templates already
+    /// contradicts, is an equivocation and poisons the slot (`template_equivocated`).
+    fn note_template_seen(&mut self,h:&Header){
+        if !self.cfg.limits.first_imports{return}
+        let key=Self::seen_key(h);let tid=template_id(&h.ut_raw);let ms=self.import_clock.unwrap_or_else(now_ms);
+        match self.template_seen.get_mut(&key){
+            Some(x) if x.0==tid=>x.1=x.1.min(ms),
+            Some(x)=>x.0=NO_TEMPLATE,
+            None=>{let other=self.seen_templates.get(&key).is_some_and(|x|x.0!=h.ut_raw);self.insert_template_seen(key,if other{NO_TEMPLATE}else{tid},ms)}
+        }
+    }
+    /// V3-04: the signer of slot `key` equivocated (type-1 evidence). No template of the slot is timely by the template
+    /// rule, so the equivocator's privately released block is judged on its own arrival, as without the map.
+    fn template_equivocated(&mut self,key:([u8;32],u64)){
+        if !self.cfg.limits.first_imports{return}
+        match self.template_seen.get_mut(&key){Some(x)=>x.0=NO_TEMPLATE,None=>self.insert_template_seen(key,NO_TEMPLATE,0)}
+    }
+    /// Bounded at TEMPLATE_SEEN_MAX slots. A full map first forgets the heights below the head (blocks there can only
+    /// be side blocks of a chosen head's parent), then the heights above the tip (head+1, the height this node
+    /// locks at). Each slot is one per (parent, signer, height) and a lock needs this node's production on that
+    /// parent, so only valid blocks at the head and the tip, with PoW, can fill it; still full, a new slot is not
+    /// recorded and its block falls back to the block-arrival rule: never more timely than without the map.
+    fn insert_template_seen(&mut self,key:([u8;32],u64),tid:[u8;32],ms:u128){
+        if self.template_seen.len()>=TEMPLATE_SEEN_MAX{
+            let head=self.chain.head().height;self.template_seen.retain(|k,_|k.1>=head);
+            if self.template_seen.len()>=TEMPLATE_SEEN_MAX{self.template_seen.retain(|k,_|k.1<=head+1);}
+        }
+        if self.template_seen.len()<TEMPLATE_SEEN_MAX{self.template_seen.insert(key,(tid,ms));}
+    }
     /// The seen_templates key: (parent, signer) folded into one digest, and the height. Each of the two signers a
     /// (parent, h) can take (the canonically drawn proposer and Draw(parent,0)) has its own slot, so one's template
     /// never hides the other's pair; the key keeps its size (A13 `seen`).
@@ -2522,7 +2572,8 @@ impl Node{
             None=>{if self.seen_templates.len()>SEEN_MAX{self.evict_seen_templates();}self.seen_templates.insert(key,(h.ut_raw.clone(),st,h.proposer.clone()));false}
             Some((ut,first,prop)) if *ut!=h.ut_raw&&*prop==h.proposer=>{
                 let mut p=Vec::new();crate::rlp::encode_bytes(&[1],&mut p);p.extend(first.clone());p.extend(st);let mut ev=Vec::new();crate::rlp::encode_list_payload(&p,&mut ev);
-                if !self.evidence_pool.contains(&ev)&&self.evidence_pool.len()<EVIDENCE_POOL_MAX{self.log(&format!("equivocation (type 1) by proposer of h={}",h.h));self.evidence_pool.push(ev);}true}
+                if !self.evidence_pool.contains(&ev)&&self.evidence_pool.len()<EVIDENCE_POOL_MAX{self.log(&format!("equivocation (type 1) by proposer of h={}",h.h));self.evidence_pool.push(ev);}
+                self.template_equivocated(key);true}
             _=>false,
         }
     }
@@ -2630,10 +2681,12 @@ mod f5f6_tests{
     //! self-signed pair). Synthetic keys only; no network.
     use super::*;
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
-    fn open_node()->(Node,std::path::PathBuf){
+    fn open_node()->(Node,std::path::PathBuf){open_node_at("f5f6")}
+    /// Each test of this module opens its own directory: they run in parallel.
+    fn open_node_at(tag:&str)->(Node,std::path::PathBuf){
         let c=DevnetConfig::new(777915,1_700_000_000,&["a","b","c"]);
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
-        let dir=std::env::temp_dir().join(format!("pocold-f5f6-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let dir=std::env::temp_dir().join(format!("pocold-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let cfg=Config{dir:dir.clone(),name:"f5f6".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
         (Node::open(cfg,spec).unwrap(),dir)
     }
@@ -2665,6 +2718,47 @@ mod f5f6_tests{
         assert!(n.observe_template(&selfsigned(gh,1,&drawn_key,11)),"a real drawn-proposer equivocation is still flagged");
         assert_eq!(n.evidence_pool.len(),1,"exactly one type-1 evidence, from the real proposer");
         eprintln!("F5/F6: attacker self-signed pair ignored (pool stayed empty); real proposer equivocation still detected.");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// V3-04 template first-seen times: none on a profile that cannot activate v3; on one that can, a template counts
+    /// only once locked (a received shell never does), one TemplateID per slot with the earliest time, an equivocated
+    /// slot poisoned however many templates its signer floods, and never more than TEMPLATE_SEEN_MAX slots.
+    #[test] fn template_first_seen_times_are_v3_only_locked_one_per_slot_and_bounded(){
+        let (mut n,dir)=open_node_at("template-seen");
+        let gh=n.chain.head().hash;let par=n.full_entry(&gh).unwrap();let drawn=n.chain.child_ctx(&par,0).unwrap().proposer;drop(par);
+        let drawn_key=["a","b","c"].into_iter().map(|l|devnet::miner_identity(l).key).find(|k|k.address()==drawn).unwrap();
+        // A signed template with a distinct UT per salt (up to 2^16 of them).
+        let signed=|parent:[u8;32],h:u64,key:&Key,salt:u16|{let mut t=selfsigned(parent,h,key,0);t.ut_raw=salt.to_be_bytes().repeat(4);
+            t.sig=key.sign_hash(&B256::from(hashes::sig_msg(&template_id(&t.ut_raw)))).to_vec();t};
+        let t=signed(gh,1,&drawn_key,20);let tid=template_id(&t.ut_raw);let slot=Node::seen_key(&t);
+        assert!(!n.cfg.limits.first_imports,"a spec-1 profile");n.note_template_seen(&t);n.template_equivocated(slot);assert!(n.template_seen.is_empty(),"spec 1 keeps no map");
+        n.cfg.limits.first_imports=true;
+        // Gossip alone never counts: a drawn signer's shell may carry a body nobody can rebuild (a withheld template).
+        n.import_clock=Some(3);n.observe_template(&t);assert!(n.template_seen.is_empty(),"received, not locked: not recorded");
+        n.import_clock=Some(9);n.note_template_seen(&t);n.import_clock=Some(5);n.note_template_seen(&t);n.import_clock=Some(8);n.note_template_seen(&t);
+        assert_eq!(n.template_seen.get(&slot),Some(&(tid,5)),"the earliest lock is kept");
+        // A flood of distinct templates by the drawn signer for one (parent, h) is one slot, poisoned at the first pair.
+        for salt in 21..21+TEMPLATE_SEEN_MAX as u16+44{n.observe_template(&signed(gh,1,&drawn_key,salt));}
+        assert_eq!(n.template_seen.len(),1,"one slot however many templates");assert_eq!(n.template_seen[&slot].0,NO_TEMPLATE,"equivocation poisons the slot");
+        n.note_template_seen(&t);assert_eq!(n.template_seen[&slot].0,NO_TEMPLATE,"a later lock of the slot stays poisoned");
+        // A first lock that seen_templates already contradicts (the pair seen while this slot was not held) is poisoned.
+        n.template_seen.clear();n.note_template_seen(&signed(gh,1,&drawn_key,21));assert_eq!(n.template_seen[&slot].0,NO_TEMPLATE);
+        // A second TemplateID locked for a held slot poisons it as well.
+        let other=signed([0x77;32],1,&drawn_key,1);let other_slot=Node::seen_key(&other);n.note_template_seen(&other);
+        assert_eq!(n.template_seen[&other_slot].0,template_id(&other.ut_raw));
+        n.note_template_seen(&signed([0x77;32],1,&drawn_key,2));assert_eq!(n.template_seen[&other_slot].0,NO_TEMPLATE);
+        // The bound: a full map forgets the slots above the tip (head+1) first; full of head and tip slots, it records
+        // nothing new and keeps the earlier entries.
+        n.template_seen.clear();let parent=|i:u16|{let mut p=[0xab;32];p[..2].copy_from_slice(&i.to_be_bytes());p};
+        for i in 0..TEMPLATE_SEEN_MAX as u16-1{n.note_template_seen(&signed(parent(i),7,&drawn_key,i));}
+        n.note_template_seen(&t);assert_eq!(n.template_seen.len(),TEMPLATE_SEEN_MAX);
+        let tip=signed([0xcd;32],1,&drawn_key,9);n.note_template_seen(&tip);
+        assert_eq!(n.template_seen.len(),2,"the slots above the tip were forgotten");assert_eq!(n.template_seen[&Node::seen_key(&tip)].0,template_id(&tip.ut_raw));
+        for i in 0..TEMPLATE_SEEN_MAX as u16-2{n.note_template_seen(&signed(parent(i),1,&drawn_key,i));}
+        assert_eq!(n.template_seen.len(),TEMPLATE_SEEN_MAX);
+        let late=signed([0xce;32],1,&drawn_key,10);n.note_template_seen(&late);
+        assert_eq!(n.template_seen.len(),TEMPLATE_SEEN_MAX,"the bound holds");assert!(!n.template_seen.contains_key(&Node::seen_key(&late)),"a full map keeps the earlier entries");
+        assert_eq!(n.template_seen[&Node::seen_key(&tip)].0,template_id(&tip.ut_raw));
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
 }

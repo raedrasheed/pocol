@@ -1434,6 +1434,54 @@ H15000-bundle projections above. Candidate v3 caps still need the resource/profi
 `memory_bounds` checks observations and side-record growth; `v3_fork_choice` checks actual retention,
 checkpoint/index loss, partial timing-table loss, corruption recovery and re-fetch with original flags.
 
+**Spec-1 impact of the eviction-batch correction (recorded 2026-11-12, audit of PR #16).**
+- **Scope.** The corrected term is not gated on `first_imports` or `v3_active`. It applies to every
+  profile with canonical eviction on. That includes the live H15000 chain: spec 1, schedule
+  [(1,0),(2,15000)], continuous, eviction on by default.
+- **Classification.** It is a node-local correction of an A13 under-count, which the owner rule approves
+  without reservation. It makes the model more conservative and is kept.
+- **What does not change.** Verdicts, roots, fork choice, journal and checkpoint bytes, Entry/Rec sizes,
+  REC_MIN/REC_MAX, the 6 GiB default budget and the 1/8 reserve.
+- **Model change.** At the default limits the batch is side_cap + 2·R_keep + 2 = 6,146 rows, whatever
+  the profile. The change is +1,922 B a row (11,812,612 B) plus 6 × (REC_MAX + 40) + 512 = 2,498 B of
+  row buffers: **+11,815,110 B of model**. For the default devnet this moves the model from
+  3,385,097,500 to 3,396,912,610 B, and the required budget from 3,868,682,858 to 3,882,185,840 B
+  (+13,502,982 B).
+- **Spec-1 eviction-on effect.** A spec-1 node whose memory budget lies between its old and its new
+  requirement now fails the boot check. Each of the six windowed live-chain history-file stops comes
+  **48,394,690,560 B** (about 45.07 GiB) earlier; at (32,2), 11,642,050,895,999 → 11,593,656,205,439 B.
+- **Spec-1 eviction-off effect.** None: the model stays 3,387,450,989 B and the record stops are
+  unchanged.
+- **Lock notes n=8 and n=9.** The batch correction entered in commit 7331ce4 (lock n=8, note "legacy
+  order and journal bytes unchanged"). At that commit the pins moved to 3,398,806,648 B (eviction on)
+  and 3,388,705,997 B (eviction off); both also carried inline first-import metadata. Commit 4386002
+  (lock n=9, titled "preserve the legacy entry footprint") moved the timestamps back out of Entry/Rec,
+  bringing eviction off back to 3,387,450,989 B, and kept the batch correction, leaving eviction on at
+  3,396,912,610 B (+11,815,110 B net). Neither note discloses the eviction-on change. The n=9 phrase "preserve the legacy memory footprint" (ref
+  V3-PR-C2) is accurate only for the Entry/Rec layout and the eviction-off total; read as the
+  eviction-on A13 model total it is incorrect. The lock is append-only, so the correction is recorded
+  here, and the next lock line will reference it.
+
+**The network/store capacity case, checked (2026-11-12).**
+- **Which case.** "The itemized synthetic network/store case" is the store-mode model of
+  `tests/network_budget.rs`: `a13_store_model_at_the_network_profile`, and the `NETWORK-A13`
+  `stateStore:true` line of `network_profile_boot_gates_itemized`. Both use K_hist 32, the default side
+  limit, 2 dials and default limits.
+- **Profile.** It is the governance.md network-profile *candidate*, built with chainId 777920 because
+  the builder refuses 777001. It is an illustrative decision-package projection, not a shipped profile.
+  No deploy/ network file uses it. pocold does not admit the network profile (§4; the test file's
+  header says pocold refuses to boot it). The tests print the model and assert only that the printed
+  verdict agrees with `resources::check`; no value is pinned.
+- **Its A13 verdict did flip, from fits to refused.** Eviction is on for it (H_END 129,600, default
+  depth). The batch term does not depend on the profile, so #16 added the same 11,815,110 B:
+  - Before #16: 5,626,147,869 B of model, 6,429,883,279 B required. That fits the 6 GiB budget
+    (6,442,450,944 B) with 12,567,665 B to spare.
+  - After #16: 5,637,962,979 B of model, 6,443,386,262 B required. That is 935,318 B over the budget
+    (818,403 B of model above the 5,637,144,576 B ceiling), so it is refused.
+- **Provenance and effect.** The pre-#16 figure is derived by subtracting the profile-independent
+  delta, not re-run. Re-running the network_budget prints on the parent of 4d62ef9 would confirm it;
+  that was not done for this record. The flip changes no shipped or live configuration.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:
