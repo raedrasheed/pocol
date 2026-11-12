@@ -113,28 +113,46 @@ fn phase_gas(cp:&ConsensusParams,class:u8)->Option<Vec<u64>>{
 
 /// Timing of this profile's blocks on this machine (`measure`). Bound to one genesis.
 #[derive(Clone,Debug,PartialEq,Eq)]
-pub struct Timing{pub genesis_hash:[u8;32],/** Largest per-block median execution time per phase class (ordinary, closing, final), ms. */pub phase_ms:[u64;3],pub samples:u32,
+pub struct Timing{pub genesis_hash:[u8;32],
+    /// What R14/R19 compare with t_exec, per phase class (ordinary, closing, final), ms: the largest per-block cost, where a
+    /// block's cost is its median execution time plus, in store mode, its durable commit. The calibration's single largest
+    /// commit is counted at the median commit instead, so one outlier write cannot refuse a boot but a disk whose typical
+    /// commit takes longer than t_exec is refused. In memory (no commit) this is `exec_ms`.
+    pub phase_ms:[u64;3],pub samples:u32,
     /// The blocks also went through a node store (`measure_on_store`), each committed durably: the timing of a
     /// node that keeps its states there (C-1 store mode).
     pub stored:bool,
-    /// Slowest durable commit, reported separately from execution (not compared with t_exec).
-    pub store_ms:u64}
+    /// Largest per-block median execution time per phase class, ms, without any commit (reported).
+    pub exec_ms:[u64;3],
+    /// Slowest durable commit of the calibration, ms (reported; counted at `store_median_ms` in `phase_ms`).
+    pub store_ms:u64,
+    /// Median durable commit of the calibration, ms (reported).
+    pub store_median_ms:u64}
 impl Timing{
-    pub fn to_json(&self)->serde_json::Value{serde_json::json!({"genesisHash":crate::hex::encode(&self.genesis_hash),"phaseMs":self.phase_ms,"samples":self.samples,"stored":self.stored,"storeMs":self.store_ms,
-        "method":if self.stored{"apply_block on a scratch copy of the genesis, and apply_block_on through a scratch node store with each block's nodes committed durably; largest per-block median execution time per phase, commit latency separate; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps"}
+    pub fn to_json(&self)->serde_json::Value{serde_json::json!({"genesisHash":crate::hex::encode(&self.genesis_hash),"phaseMs":self.phase_ms,"samples":self.samples,"stored":self.stored,"execMs":self.exec_ms,"storeMs":self.store_ms,"storeMedianMs":self.store_median_ms,
+        "method":if self.stored{"apply_block on a scratch copy of the genesis, and apply_block_on through a scratch node store with each block's nodes committed durably; per phase the larger of the two paths' largest per-block cost, a block's cost being its median execution time plus (store path) its durable commit, with the single largest commit counted at the median commit; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps"}
             else{"apply_block on a scratch copy of the genesis; largest per-block median execution time per phase; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps"}})}
     pub fn from_json(v:&serde_json::Value)->Option<Self>{
         let h=crate::hex::decode(v["genesisHash"].as_str()?)?;let p=v["phaseMs"].as_array()?;
         if p.len()!=3{return None}
-        Some(Self{genesis_hash:h.try_into().ok()?,phase_ms:[p[0].as_u64()?,p[1].as_u64()?,p[2].as_u64()?],samples:u32::try_from(v["samples"].as_u64()?).ok()?,
-            stored:v["stored"].as_bool().unwrap_or(false),store_ms:v["storeMs"].as_u64().unwrap_or(0)})
+        let phase_ms=[p[0].as_u64()?,p[1].as_u64()?,p[2].as_u64()?];
+        // A record written before execMs existed: its phase times are the execution times.
+        let exec_ms=match v["execMs"].as_array(){Some(e) if e.len()==3=>[e[0].as_u64()?,e[1].as_u64()?,e[2].as_u64()?],_=>phase_ms};
+        Some(Self{genesis_hash:h.try_into().ok()?,phase_ms,samples:u32::try_from(v["samples"].as_u64()?).ok()?,
+            stored:v["stored"].as_bool().unwrap_or(false),exec_ms,store_ms:v["storeMs"].as_u64().unwrap_or(0),store_median_ms:v["storeMedianMs"].as_u64().unwrap_or(0)})
     }
     /// The timing of a store-mode node: per phase class the larger of the in-memory measurement and the one
-    /// through its node store (both for this genesis).
+    /// through its node store (both for this genesis); the store's commit times.
     pub fn with_store(&self,store:&Timing)->Result<Timing,String>{
         if store.genesis_hash!=self.genesis_hash{return Err("timing: the store measurement is for another genesis".into())}
-        let mut phase_ms=self.phase_ms;for (m,s) in phase_ms.iter_mut().zip(store.phase_ms){*m=(*m).max(s);}
-        Ok(Timing{genesis_hash:self.genesis_hash,phase_ms,samples:self.samples.saturating_add(store.samples),stored:true,store_ms:store.store_ms})
+        let max=|a:[u64;3],b:[u64;3]|[a[0].max(b[0]),a[1].max(b[1]),a[2].max(b[2])];
+        Ok(Timing{genesis_hash:self.genesis_hash,phase_ms:max(self.phase_ms,store.phase_ms),samples:self.samples.saturating_add(store.samples),stored:true,
+            exec_ms:max(self.exec_ms,store.exec_ms),store_ms:store.store_ms,store_median_ms:store.store_median_ms})
+    }
+    /// The measured times, as reported by a successful boot (`Admitted::timing`) and with an R14/R19 refusal.
+    pub fn report(&self,t_exec:u32)->String{
+        format!("timing: phase_ms={:?} (R14/R19), execution_ms={:?}, store_fsync_ms={}, store_fsync_median_ms={}, samples={}, t_exec_ms={}",
+            self.phase_ms,self.exec_ms,self.store_ms,self.store_median_ms,self.samples,u64::from(t_exec)*1000)
     }
 }
 
@@ -184,7 +202,7 @@ pub struct Report{
 }
 
 /// The only bootable configuration. Fields are private; `admit` is the only constructor.
-pub struct Admitted{profile:ProfileIdentity,genesis:Genesis,spec_bytes:Vec<u8>,local:NodeLocal,report:Report}
+pub struct Admitted{profile:ProfileIdentity,genesis:Genesis,spec_bytes:Vec<u8>,local:NodeLocal,report:Report,timing:Option<Timing>}
 impl Admitted{
     pub fn profile(&self)->&ProfileIdentity{&self.profile}
     pub fn genesis(&self)->&Genesis{&self.genesis}
@@ -192,6 +210,9 @@ impl Admitted{
     pub fn genesis_hash(&self)->[u8;32]{self.profile.genesis_hash()}
     pub fn local(&self)->&NodeLocal{&self.local}
     pub fn report(&self)->&Report{&self.report}
+    /// The R14/R19 measurement this admission used, for the boot to report (`Timing::report`). Kept out of the
+    /// report, whose text stays deterministic.
+    pub fn timing(&self)->Option<&Timing>{self.timing.as_ref()}
     pub fn scope(&self)->Scope{self.report.scope}
     /// True only for a `Scope::Specification` admission, which has no waiver and no condition.
     pub fn specification_compliant(&self)->bool{self.report.scope==Scope::Specification&&self.report.waivers.is_empty()&&self.report.conditions.is_empty()}
@@ -304,7 +325,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     }
     if !report.accepted(){
         if report.violations.iter().any(|r|r=="R14"||r=="R19"){
-            if let Some(t)=timing{notes.push(format!("timing: execution_ms={:?}, store_fsync_ms={}, samples={}, t_exec_ms={}",t.phase_ms,t.store_ms,t.samples,u64::from(l.t_exec)*1000));}
+            if let Some(t)=timing{notes.push(t.report(l.t_exec));}
         }
         return Err(Rejection{rules:report.violations,missing:report.missing.iter().map(|s|s.to_string()).collect(),notes})}
 
@@ -315,7 +336,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     if r21_exception{notes.push(format!("R21: retained-state bound {hist} B exceeds {HIST_TRIE_BUDGET} B; admitted by the simnet retentionStress exception"))}
     Ok(Admitted{profile,genesis,spec_bytes:r.spec_bytes.to_vec(),local:l.clone(),
         report:Report{binding,resource_class:report.resource_class,identity_class:report.identity_class,calibration_class:report.calibration_class,deferred:report.deferred,r21_exception,historical_bytes:hist,notes,
-            scope:r.scope,waivers,conditions}})
+            scope:r.scope,waivers,conditions},timing:timing.cloned()})
 }
 
 /// Every reason the admitted facts are not specification evidence (D-A02-SCOPE).
@@ -327,7 +348,7 @@ fn conditions(cp:&ConsensusParams,r:&Request<'_>,l:&NodeLocal,timing:Option<&Tim
     if matches!(r.calibration,Some((_,FactClass::SyntheticFixture))){add("calibration-synthetic",&["R25"],"calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate".into())}
     if cp.H_END==0{add("continuous-protocol",&["R13","R19","R23"],"No scheduled height/time shutdown; only ordinary execution is reachable; its measured timing fills all legacy phase slots. Supply is bounded over the representable u64 height domain, not a network expiration.".into())}
     if let Some(t)=timing{add("timing-not-a-bound",&["R14","R19"],format!("timing: {} apply samples of the synthetic GAS_LIMIT compute workload on this host{}; not a p99 or worst-case bound (A13-DERIVATION §4)",t.samples,
-        if t.stored{", in memory and through a scratch node store committed durably per block (store mode), largest per-block median execution per phase; durable commit latency excluded from the execution budget"}else{""}))}
+        if t.stored{", in memory and through a scratch node store committed durably per block (store mode), per phase the largest per-block median execution plus that block's durable commit, the single largest commit counted at the median commit"}else{""}))}
     if in_gas_domain(cp){add("gas-monotonicity-assumed",&["R18"],"SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)".into())}
     for d in deferred{add(match *d{"LP4:general-R21"=>"gate-deferred-general-R21","LP4:general-R18"=>"gate-deferred-general-R18",_=>"gate-deferred-caps64"},
         if d.ends_with("R21"){&["R21"]}else{&["R18"]},format!("gate: deferred LP3 obligation {d}"))}
@@ -347,8 +368,9 @@ fn scratch_address(tag:&str)->Address{Address::from_slice(&keccak256(tag.as_byte
 pub fn measure(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32)->Result<Timing,String>{measure_with_gas(spec_bytes,alloc,repeats).map(|(t,_)|t)}
 /// `measure` for a node that keeps its states in a node store (C-1 store mode): the same blocks, each applied
 /// with `apply_block_on` to the parent version read in place, its trie updated, its root computed and its nodes
-/// committed to `store` (durably for pocold's state.redb). Commit latency is measured separately from execution. `store` should be a
-/// scratch store on the node's own disk; every version the measurement pins is released at the end.
+/// committed to `store` (durably for pocold's state.redb). A block's cost is its median execution time plus its commit;
+/// the single largest commit of the calibration is counted at the median commit (see `Timing::phase_ms`). `store`
+/// should be a scratch store on the node's own disk; every version the measurement pins is released at the end.
 pub fn measure_on_store(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:&dyn crate::node_trie::TrieStore)->Result<Timing,String>{
     measure_run(spec_bytes,alloc,repeats,Some(store)).map(|(t,_,_)|t)}
 /// `measure`, also returning the gas each sampled block used (in height order), so tests can check
@@ -357,7 +379,9 @@ pub(crate) fn measure_with_gas(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32)->
 /// The measurement in memory (`store` None) or through a node store; also the state root of each block, so
 /// tests can check that both paths ran the same blocks.
 pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:Option<&dyn crate::node_trie::TrieStore>)->Result<(Timing,Vec<u64>,Vec<B256>),String>{
-    let mut gas_log=Vec::new();let mut roots=Vec::new();let mut store_ms=0;
+    let mut gas_log=Vec::new();let mut roots=Vec::new();
+    // Per timed block: phase class, median execution, durable commit (0 in memory).
+    let mut costs:Vec<(usize,u64,u64)>=Vec::new();
     let hash=gs::genesis_hash(spec_bytes);let spec=gs::verify_hash(spec_bytes,&hash).map_err(|e|format!("{e:?}"))?;
     let profile=fact_identity(spec_bytes,&hash,spec.chain_id)?;let cp=profile.cp().clone();
     let genesis=Genesis::build(alloc,&profile,&SystemPrograms::for_spec(&cp,&spec.sys_code_hash)).map_err(|e|format!("{e:?}"))?;
@@ -379,7 +403,7 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
     let code=Bytecode::new_raw(Bytes::copy_from_slice(&SPIN));state.insert_account_info(spin,AccountInfo{code_hash:code.hash_slow(),code:Some(code),..Default::default()});
     let members:Vec<Address>=spec.m0_list.iter().map(|m|Address::from(m.id)).collect();
     if members.is_empty(){return Err("calibration: empty M_0".into())}
-    let mut prev:Option<ParentResult>=None;let mut nonce=0u64;let mut phase_ms=[0u64;3];let mut samples=0u32;let mut seen=[false;3];
+    let mut prev:Option<ParentResult>=None;let mut nonce=0u64;let mut samples=0u32;let mut seen=[false;3];
     // Store mode: the prepared genesis as the first stored version, read in place from then on.
     let hashes:std::collections::HashMap<U256,B256>=[(U256::ZERO,B256::from(hash))].into_iter().collect();
     let mut stored=match store{
@@ -394,6 +418,7 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
             evidence:vec![],evidence_raw:&[],transactions:&txs,ancestors:vec![(0,B256::from(hash))],cum_log_bytes:0};
         let ms=|t0:std::time::Instant|u64::try_from(t0.elapsed().as_millis()).unwrap_or(u64::MAX).max(1);
         let mut elapsed=Vec::new();
+        let mut commit_ms=0;
         let (gas_used,is_final,closing)=if let Some((s,trie,sum))=&mut stored{
             let view=crate::node_trie::TrieState{store:*s,trie:*trie,block_hashes:&hashes};let mut out=None;
             for _ in 0..repeats.max(3){
@@ -403,8 +428,8 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
                 let mut b=crate::node_trie::Batch::default();let next=trie.update(*s,&mut b,&child,&run.writes);let root=next.root(*s,&b);
                 elapsed.push(ms(t0));samples+=1;out=Some((run,next,b,root));
             }
-            // Commit once per block; storage stalls do not consume the execution budget.
-            let (run,next,b,root)=out.unwrap();let t0=std::time::Instant::now();s.commit(&b,next.world)?;store_ms=store_ms.max(ms(t0));
+            // Commit once per block, timed apart from execution; the block's cost adds it (see below).
+            let (run,next,b,root)=out.unwrap();let t0=std::time::Instant::now();s.commit(&b,next.world)?;commit_ms=ms(t0);
             if let Some(old)=trie.world{s.unpin(&old)?;}
             *trie=next;*sum=run.summary;roots.push(root);(run.gas_used,run.is_final,run.facts.closing)
         }else{
@@ -418,21 +443,31 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
         gas_log.push(gas_used);
         if gas_used<cp.GAS_LIMIT{return Err(format!("calibration h={h}: the block used {gas_used} gas, not the GAS_LIMIT workload"))}
         let class=if is_final{2}else if closing{1}else{0};
-        elapsed.sort_unstable();let median=elapsed[elapsed.len()/2];
-        phase_ms[class]=phase_ms[class].max(median);seen[class]=true;
+        elapsed.sort_unstable();costs.push((class,elapsed[elapsed.len()/2],commit_ms));seen[class]=true;
         let shares:Vec<(u64,Address)>=(0..u64::from(cp.S_max)).map(|i|(i+1,members[(i as usize+h as usize)%members.len()])).collect();
         prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner:members[h as usize%members.len()],shares});
         if is_final{break}
     }
     if let Some((s,trie,_))=&stored{if let Some(r)=trie.world{s.unpin(&r)?;}}
+    // R14/R19 per block: median execution plus its commit. Exactly one commit, the largest, is counted at the median
+    // commit, so one stalled write (a flush queued behind other writers) cannot refuse a boot, while a disk whose
+    // typical commit exceeds t_exec still is. Both statistics are reported.
+    let mut commits:Vec<u64>=costs.iter().map(|c|c.2).collect();commits.sort_unstable();
+    let store_ms=commits.last().copied().unwrap_or(0);let store_median_ms=commits.get(commits.len()/2).copied().unwrap_or(0);
+    let outlier=costs.iter().enumerate().max_by_key(|(_,c)|c.2).map(|(i,_)|i);
+    let (mut phase_ms,mut exec_ms)=([0u64;3],[0u64;3]);
+    for (i,&(class,exec,commit)) in costs.iter().enumerate(){
+        let commit=if Some(i)==outlier{store_median_ms}else{commit};
+        exec_ms[class]=exec_ms[class].max(exec);phase_ms[class]=phase_ms[class].max(exec.saturating_add(commit));
+    }
     // H_CLOSE <= 1: no ordinary block can exist in this profile; its fact takes the larger
     // measured phase (conservative), so R14/R19 still cover every reachable block.
-    if !seen[0]&&cp.H_CLOSE<=1{phase_ms[0]=phase_ms[1].max(phase_ms[2]);seen[0]=true;}
+    if !seen[0]&&cp.H_CLOSE<=1{phase_ms[0]=phase_ms[1].max(phase_ms[2]);exec_ms[0]=exec_ms[1].max(exec_ms[2]);seen[0]=true;}
     // Continuous profiles have no reachable closing/final phase. Keep conservative ordinary timing
     // in those legacy slots without claiming those phases were observed.
-    if cp.H_END==0 && seen[0]{phase_ms[1]=phase_ms[0];phase_ms[2]=phase_ms[0];seen=[true;3];}
+    if cp.H_END==0 && seen[0]{phase_ms[1]=phase_ms[0];phase_ms[2]=phase_ms[0];exec_ms[1]=exec_ms[0];exec_ms[2]=exec_ms[0];seen=[true;3];}
     if !seen.iter().all(|s|*s){return Err(format!("calibration: phase classes reached {seen:?}"))}
-    Ok((Timing{genesis_hash:hash,phase_ms,samples,stored:store.is_some(),store_ms},gas_log,roots))
+    Ok((Timing{genesis_hash:hash,phase_ms,samples,stored:store.is_some(),exec_ms,store_ms,store_median_ms},gas_log,roots))
 }
 fn spec_ts(cp:&ConsensusParams,h:u64)->u64{cp.g_ts.saturating_add(h.saturating_mul(u64::from(cp.T_blk)))}
 

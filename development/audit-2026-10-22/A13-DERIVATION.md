@@ -1072,9 +1072,35 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   - `load_spec_for` now runs the same calibration blocks also through a scratch state store at
     `<data>/calibration.store`, on the node's own disk, before the node opens:
     `admission::measure_on_store`, which uses `apply_block_on`, the trie update, the root and a durable
-    commit, all inside each block's timed span.
+    commit for each block.
   - R14/R19 then see, per phase class, the larger of the two times (`Timing::with_store`).
-  - The admission condition `timing-not-a-bound` says that the store was included.
+  - **Measurement since 2026-11-12** (branch `admission-commit-latency`; it corrects PR #12, which had dropped the
+    commit from R14/R19, so a disk slow on every write was admitted). Per calibration block:
+    - execution `e` = the median of at least three timed runs of `apply_block_on`, the trie update and the root
+      (in memory: `apply_block`);
+    - commit `c` = one timed durable commit of that block's nodes (0 in memory).
+    - The block's cost is `e + c`. Exactly one commit of the calibration, the largest, is counted at the median
+      commit of the calibration instead of its own time.
+    - `phase_ms` (what R14/R19 compare with t_exec, unchanged at 1 s) is, per phase class, the largest block cost.
+      One stalled write therefore cannot refuse a boot. A second stalled commit is counted, and so is a disk
+      whose typical (median) commit exceeds t_exec: such a host is refused.
+    - Reported, not compared: `execution_ms` (the largest `e` per phase), `store_fsync_ms` (the largest `c`),
+      `store_fsync_median_ms`, the sample count and `t_exec_ms`. One `timing:` line carries them: on a
+      successful boot `pocold run` prints it to stderr (`pocold: ParamGate admitted, timing: ...`, from
+      `Admitted::timing`), and a -32018 [R14, R19] refusal carries it as a note. It is kept out of the admission
+      report, so the published devnet.json stays the same apart from its `timing` record.
+    - `load_spec_for` measures once more after a timing refusal (PR #12) and refuses only if the second
+      calibration also fails.
+    - Tests: `pocold/tests/admission.rs` `a_store_slow_on_every_commit_is_refused_on_r14_and_r19_after_two_calibrations`
+      (every commit held 1,050 ms: refused after two calibrations, `phase_ms=[1065, 1065, 1065]`,
+      `execution_ms=[12, 12, 12]`, `store_fsync_ms=1058`, `store_fsync_median_ms=1051` on this host) and
+      `isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused` (one held commit:
+      admitted, `phase_ms=[14, 14, 14]`, `store_fsync_ms=1051`); `lp4-execution` admission unit test
+      `the_store_calibration_times_each_block_commit` (every commit, one, or two commits slow).
+    - The owner's two decisions behind this (2026-11-11) are recorded in
+      [development/decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md](../decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md).
+  - The admission condition `timing-not-a-bound` says that the store was included and how a block's cost is
+    counted.
   - The scratch store is removed before the node opens. One a crash left behind is removed first.
   - Whole-state mode is unchanged.
   - The memory it uses is transient, before the node allocates its own, and within the store terms the

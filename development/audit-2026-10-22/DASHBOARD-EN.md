@@ -116,6 +116,7 @@
 > - **Store selectable** `--state-store`, default unchanged. All store E2E on `9bd9bc0`: devnet 43, site 21, Chrome 80, integrated 19. Default integrated nonce race after healing fixed `919a50c`; reruns in evidence.
 > - **Measurements, not guarantees:** loaded RSS13 MB default/15.7 store; state.redb churn stable 67.9 MB/factor≤7.95. R14/R19 initially excluded store commit/fsync, calibration open.
 >   - Update: store boot now times actual path, including temporary disk store/durable block commits; gate takes maximum. Host store 10–26 ms, memory 8–18 ms,15 runs, t_exec 1,000 ms.
+>   - 2026-11-12 (`admission-commit-latency`): PR #12 had dropped the commit from R14/R19, so a disk slow on every write booted. Now per block: median execution + its durable commit, the single largest commit counted at the median; one stalled write still boots, a disk slow on every commit is refused [R14, R19] after two calibrations. Times reported on boot (`pocold run` stderr) and on refusal. t_exec and R14/R19 unchanged.
 >   - **Your decision:** compute-only calibration writes little state; state-heavy blocks exceed t_exec both modes (up to 1,068.5 ms), so including them rejects both at 1 s.
 > - **Witnesses/Windows:** A01–A14 all NOT_REPRODUCED, controls OK; Windows run 64 passed.
 > - [evidence/d7-bound/](evidence/d7-bound/README.md).
