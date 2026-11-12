@@ -369,6 +369,26 @@ mod preview{
         assert_eq!(full.chain.head().summary.as_ref().unwrap().user_accounts,8);
     }
 
+    /// N4 (V3-24): a v3 estimate models the v3 log caps (256 KiB / 4,368 per block). A call whose one LOG0 carries
+    /// 32 KiB of data (past the spec-1 block cap, which the spec-1 estimate refuses: fee_pool.rs) is estimated; one whose
+    /// LOG0 charges past 256 KiB is refused (LogBytes), and so is one that emits 4,369 logs (LogCount).
+    #[test]
+    fn v3_estimate_models_the_v3_log_caps(){
+        let dir=Temp::new();let cfg=node_cfg(|_|{});let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        let caps=user_phase::log_caps(true);
+        // PUSH3 size; PUSH1 0; LOG0; STOP.
+        let one=|size:u64|vec![0x62,(size>>16) as u8,(size>>8) as u8,size as u8,0x60,0,0xa0,0];
+        // PUSH2 count; loop: LOG0(0, 0); count-1; JUMPI loop while nonzero; STOP.
+        let count=caps.count+1;let many=vec![0x61,(count>>8) as u8,(count&255) as u8,0x5b,0x60,0,0x60,0,0xa0,0x60,1,0x90,0x03,0x80,0x60,3,0x57,0];
+        let head=node.chain.full_entry(&node.chain.head).unwrap();let fee=node.chain.child_ctx(&head,0).unwrap().base_fee*U256::from(2)+U256::from(7);
+        let deploy=|nonce:u64,r:&[u8]|Tx{chain_id:777938,nonce,max_priority:U256::from(7),max_fee:fee,gas:300_000,to:None,value:U256::ZERO,data:Bytes::from(init(r))}.sign_1559(&alice);
+        let b=solve(&node,vec![deploy(0,&one(32768)),deploy(1,&one(caps.bytes)),deploy(2,&many)],cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+        let est=|node:&mut pocold::node::Node,i:u64|rpc(node,"eth_estimateGas",serde_json::json!([{"from":alice.address(),"to":alice.address().create(i)},"latest"]));
+        let r=est(&mut node,0);assert!(r.get("error").is_none(),"32 KiB of logs fit a v3 block: {r}");
+        let r=est(&mut node,1);assert_eq!(r["error"]["code"],-32000,"{r}");assert_eq!(r["error"]["data"]["reason"],"LogBytes","{r}");
+        let r=est(&mut node,2);assert_eq!(r["error"]["code"],-32000,"{r}");assert_eq!(r["error"]["data"]["reason"],"LogCount","{r}");
+    }
+
     #[test]
     fn a_thousand_validated_empty_blocks_keep_the_v3_floor_and_legacy_london_decay(){
         for v3 in [false,true]{let mut cfg=node_cfg(|_|{});cfg.spec_version=if v3{2}else{1};let mut chain=pocold::chain::Chain::new(node_spec(&cfg));

@@ -550,6 +550,21 @@ three terms: one up and two down. It also withdraws one projection.
   that term (a candidate it leaves out commits nothing to the overlay; its execution is bounded in time by the
   execution budget above, not in memory). The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), by up to 163
   more with the tail and by up to 168 more with the parked runs.
+- **A13 (N4, V3-20 node-local pool).** G, `pool_gas` and the pending-layer term are unchanged. Evicted transactions
+  and replacements that declare less keep their gas in the pool's `gas` until the next head (`ghost_gas`), so the
+  layer still holds at most the gas bound's writes. Row changes:
+  - queues/pool sender and declared gas: META_ENTRY_BYTES 32 → 80, adding the nonce, two u128 fee caps and a
+    replacement count;
+  - queues/parked transactions' entries: PARKED_ENTRY_BYTES 160 → 192, adding the fee caps and replacement count;
+  - new row, queues/the pool's fee order or an eviction's tail scan: 3 × (POOL_MAX_TXS + POOL_PARKED_MAX) ×
+    FEE_ORDER_ENTRY_BYTES (40). This covers the index of `fee_order` (which the output reuses), its next link and
+    a heap entry. An eviction's scan holds fewer entries: an index and a parked sender. Both run on the consensus
+    thread and free their scratch before returning, so they are counted once.
+
+  Devnet pin: +589,824 + 98,304 + 614,400 = +1,302,528 B, 3,397,791,234 → 3,399,093,762 (eviction off
+  3,389,632,141). The live chain's halt moves by −513 to −554 records (tests/network_budget.rs). The seed rule's
+  outcome is unchanged. The disk-bytes stop moves by 4,096 × 1,302,528 B. Replacements, at most POOL_REPLACE_MAX per
+  head, take an entry's place and hold no memory beyond POOL_MAX_BYTES.
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
   which no stop hook can cut short.

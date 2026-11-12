@@ -859,6 +859,20 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
     are relayed (at most POOL_PARKED_MAX per head, none that evicted another) and are template candidates. Fee ordering, replacement and lowest-fee eviction remain: cheap
     declared gas can still hold the pool's bound (not the next block), so admission into the pending state, not
     inclusion, waits.
+  - **Delivered by N4** (node-local: `pocold/src/node.rs`, `rpc.rs`, `resources.rs`; no boundary file, block
+    validity, fork choice or journal/checkpoint byte changes). The policy and its errors are in network.md
+    "Mempool fee policy".
+    - Fee-ordered selection. The pooled and parked candidates are taken highest effective tip first, where the
+      effective tip is min(priority, maxFee − baseFee) at the block's base fee. Each sender's transactions keep nonce
+      order. Ties keep the earlier candidate order (FIFO), so the order is deterministic. The big-first slot is kept.
+    - Replace-by-fee. The same sender and nonce, pooled or parked, is replaced in place when both caps rise by at
+      least 10 %. At most 256 replacements per head and 4 per entry per head, and each is offered to peers once.
+    - Lowest-fee eviction. At the count or byte bound, a higher tip evicts the lowest-tip tail of another sender's
+      pooled nonce chain, and only after the newcomer has executed. A full parked set evicts the lowest-tip parked
+      tail once PR6's rules make no room. The quota, parking, the gas bound (evicted gas stays counted until the next
+      head) and the relay bounds are unchanged.
+    - A13 records the larger meta and parked entries and the fee order's scratch: +1,302,528 B on the devnet pin.
+      The live chain's halt moves by −513 to −554 records, and the seed rule's outcome is unchanged.
 
 **Principle check.**
 - (a) and (b) keep P6: R_tot is still shared by a deterministic pre-mining rule, and the proposer is drawn
@@ -947,7 +961,10 @@ never lowered, across it (`genesis_builder.rs:60`).
   - Raise RESP_MAX ≥ 2·LOG_BLOCK_MAX (R26) in lockstep.
   - NODE-LOCAL: model the log caps in PoolMeter/`template_txs` and in `eth_estimateGas`. PR6: the builder
     (`template_selection`) now models the log caps (count, block bytes, LOG_CAP) and SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX;
-    the pool refuses a transaction whose own logs pass a log cap; `eth_estimateGas` does not model them yet.
+    the pool refuses a transaction whose own logs pass a log cap. C3 made the v3 `eth_estimateGas` check a call's own
+    logs against the v3 caps. N4 makes every estimate model the caps active in the next block: v3 256 KiB / 4,368, or
+    spec-1 32 KiB / 546, plus LOG_CAP when H_END ≠ 0. A call whose own logs pass a cap gets −32000 {reason}, not a
+    gas value.
 - **Classification:** CONSENSUS-COMPLIANT. **Deployment:** B; later forks through A1.
 - **Tests:** fails on the original code: front-load 32 KiB of logs, then a later ERC-20 transfer halts today and
   succeeds under v3. Also an A13 boot test.

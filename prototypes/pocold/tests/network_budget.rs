@@ -67,6 +67,10 @@ fn print(tag:&str,b:&pocold::resources::Bound){
             use pocold::node::{META_ENTRY_BYTES,PARKED_ENTRY_BYTES,POOL_PARKED_MAX};
             assert_eq!(item(&b,"queues/pool sender and declared gas"),3*POOL_MAX_TXS as u128*META_ENTRY_BYTES as u128);
             assert_eq!(item(&b,"queues/parked transactions' entries"),3*POOL_PARKED_MAX as u128*PARKED_ENTRY_BYTES as u128);
+            // N4 (V3-20): the entries carry the nonce, fee caps and replacements (80 and 192 B), and the fee order's scratch
+            // (or an eviction's tail scan) is one term of FEE_ORDER_ENTRY_BYTES per pooled and parked candidate.
+            assert_eq!((META_ENTRY_BYTES,PARKED_ENTRY_BYTES,pocold::node::FEE_ORDER_ENTRY_BYTES),(80,192,40),"the N4 entry sizes the pinned totals were derived with");
+            assert_eq!(item(&b,"queues/the pool's fee order"),3*(POOL_MAX_TXS+POOL_PARKED_MAX) as u128*pocold::node::FEE_ORDER_ENTRY_BYTES as u128);
             assert_eq!(item(&b,"queues/template selection"),r::selection_bytes(cp).unwrap());assert!(r::selection_bytes(cp).unwrap()>2*body);
             // PR6 review: after a gas failure the selection's tail (at most GAS_LIMIT/TX_GAS_MIN transactions, BODY_MAX
             // bytes) joins the append round's candidates, so the term counts it beside their own bound.
@@ -322,7 +326,11 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // block report grows). The stops are 374/374/374/360/374/147 records below
         // the earlier pins [1_146_268,1_121_410,1_114_248,1_089_603,1_071_706,1_046_848].
         // Keep the original R10 baseline and owner seed guards below.
-        assert_eq!(got,[1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701],"the live chain's halt moved (record it in the PR)");
+        // N4 (V3-20 node-local pool): the meta and parked entries' fee fields and the fee order's scratch (+1,302,528 B,
+        // consensus.rs a13_bound_breakdown) move the stops by -554/-548/-513/-554/-554/-554 records from C3's
+        // [1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701]; the seed rule's outcome is unchanged
+        // (R10[0] - R(32, 2) = 56,352 of the week's 60,480; R10[1] - R(64, 7) = 98,724 > a week).
+        assert_eq!(got,[1_145_340,1_120_488,1_113_361,1_088_689,1_070_778,1_046_147],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
@@ -374,7 +382,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // 4,096 × 11,815,110 = 48,394,690,560 history bytes. No budget or reserve changes.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
         // C3: 4096 * 878624 = 3598843904 fewer modeled file bytes per stop (legacy receipt under-count).
-        assert_eq!(got,[11_926_711_206_015,11_665_558_274_175,11_590_057_361_535,11_328_904_429_695,11_141_185_568_895,10_880_032_637_055],"the live chain's stop moved (record it in the PR)");
+        // N4: 4,096 x 1,302,528 = 5,335,154,688 fewer per stop (the pool's fee fields and fee order).
+        assert_eq!(got,[11_921_376_051_327,11_660_223_119_487,11_584_722_206_847,11_323_569_275_007,11_135_850_414_207,10_874_697_482_367],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and
