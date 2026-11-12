@@ -124,10 +124,11 @@ fn command() -> Result<(), String> {
         return Ok(());
     }
     if command == "freeze-user-txs" {
-        // Without --after: the saved setting. With it: saved (a height) or removed (off); used from the next start.
+        // Without --after: the saved setting and whether it applies to this home's network. With it: saved (a height, for
+        // the network the home is bound to) or removed (off); used from the next start.
         let home = Home::open_existing(&home_path, command)?;
         let out = match get("--after") {
-            None => serde_json::json!({"freezeUserTxsAfter": home.user_tx_freeze()?, "effective": home.effective_user_tx_freeze()?}).to_string(),
+            None => home.describe_user_tx_freeze()?,
             Some(v) => home.set_user_tx_freeze(pocold::node::parse_freeze(v).map_err(|e| format!("--after {v}: {e}"))?)?,
         };
         println!("{out}");

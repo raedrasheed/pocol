@@ -190,11 +190,22 @@ fn scenario(store: bool, bond_pcol: u128) {
     let genesis = Chain::new(new_spec);
     for (id, _) in &miners { assert_eq!(apply::miner_record(&genesis.head().state, *id).unwrap().bond, new_bond); }
     assert!(apply::miner_record(&genesis.head().state, bob.address()).is_none());
-    // Deterministic: the same inputs give the same genesis and allocation bytes.
-    let again = temp(&format!("again-{tag}"));
-    admitted(pocold::cutover::run(&old_dir, &data, s, config.as_bytes(), &again, limits(), &local()), &old_dir);
-    for f in ["genesis.spec.hex", "alloc.json"] { assert_eq!(std::fs::read(out.join(f)).unwrap(), std::fs::read(again.join(f)).unwrap(), "{f}"); }
-    for d in [old_dir, data, out, again] { let _ = std::fs::remove_dir_all(d); }
+    // Deterministic: the same inputs give the same genesis and allocation bytes, also when the run writes the V3-33
+    // old-chain export (`--export-chain`) from the same rebuilt state: that export is the one `export-chain` writes,
+    // and the cutover's own output does not change with it.
+    let (again, exported, separate) = (temp(&format!("again-{tag}")), temp(&format!("with-export-{tag}")), temp(&format!("separate-export-{tag}")));
+    std::fs::create_dir_all(&exported).unwrap();
+    assert!(pocold::cutover::run_with_export(&old_dir, &data, s, config.as_bytes(), &again, Some(&exported), limits(), &local()).unwrap_err().contains("never overwritten"));
+    assert!(!again.exists(), "an existing export directory is refused before anything is written");
+    std::fs::remove_dir(&exported).unwrap();
+    assert!(pocold::cutover::run_with_export(&old_dir, &data, s, config.as_bytes(), &again, Some(&again), limits(), &local()).unwrap_err().contains("different directories"));
+    admitted(pocold::cutover::run_with_export(&old_dir, &data, s, config.as_bytes(), &again, Some(&exported), limits(), &local()), &old_dir);
+    for f in ["genesis.spec.hex", "alloc.json", "cutover-report.json"] { assert_eq!(std::fs::read(out.join(f)).unwrap(), std::fs::read(again.join(f)).unwrap(), "{f}"); }
+    admitted(pocold::cutover::export::run(&old_dir, &data, s, &separate, limits(), &local()), &old_dir);
+    use pocold::cutover::export::{MANIFEST, PARTS};
+    for f in [MANIFEST, PARTS[0], PARTS[1], PARTS[2]] { assert_eq!(std::fs::read(exported.join(f)).unwrap(), std::fs::read(separate.join(f)).unwrap(), "{f} of the export written by the cutover"); }
+    pocold::cutover::export::verify(&exported, Some((chain.spec.chain_id(), chain.spec.genesis_hash()))).unwrap_or_else(|e| panic!("{e}"));
+    for d in [old_dir, data, out, again, exported, separate] { let _ = std::fs::remove_dir_all(d); }
 }
 
 /// The runbook cuts S at least 60 blocks below the stopped head, below the K_hist window (32) of kept states.

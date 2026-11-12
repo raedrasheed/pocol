@@ -1046,8 +1046,11 @@ fork; a restart test. **Effort:** S. **Risk:** low.
   freeze-user-txs`; `node::Limits::freeze_user_txs_after`), the old-chain export (`pocold export-chain`,
   `pocold verify-export`; `pocold/src/cutover/export.rs`) and the conduct steps in
   `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` step 0.4 are in tree. No validity, fork-choice, journal or
-  checkpoint byte changed; with the setting off a node behaves as before. The Android export build is the
-  existing key-backup work. Nothing was run on a real network.
+  checkpoint byte changed; with the setting off a node behaves as before. The freeze is local policy, so "nothing
+  is voided" holds only when every node that can be drawn as proposer runs it; the runbook's step 1 checks every
+  block after S, whoever proposed it. A saved launcher or inventory setting names its network and is not applied
+  to the new one. The cutover can write the export in the same run (`--export-chain`), rebuilding the state at S
+  once. The Android export build is the existing key-backup work. Nothing was run on a real network.
 - **NODE-LOCAL parts:**
   - a builder flag that includes no user transactions after S, so nothing is voided;
   - publish old-chain data and rebuild instructions;

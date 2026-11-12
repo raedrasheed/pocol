@@ -73,14 +73,21 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    `ionice`). Each run's time is in `seconds`, and the slower run's time per block in
    `secondsPerBlock`. Step 2 runs up to the final `S`, which is higher, on all three servers with the
    network stopped: plan it for at least `S × secondsPerBlock`, with a generous margin for a slower
-   server, or rehearse again on a fresh copy closer to the freeze. A cutover error here is a stop: do
+   server, or rehearse again on a fresh copy closer to the freeze. Step 2 writes the old-chain export
+   (V3-33) in the same run (`--export-chain`), which adds only the time to write about `S` blocks and
+   the state; a separate `pocold export-chain` run would rebuild the state at `S` again and cost
+   another `S × secondsPerBlock` of stopped network. A cutover error here is a stop: do
    not go on to step 1.
 
    Delete `/var/tmp/pocol-rehearsal*` afterwards.
 3. Choose the final height `S` and the launch time. Publish both, with this text:
-   - transactions included after block `S` do not move to the new network; with the V3-33 freeze
-     (step 0.4) the three servers include none after `S` and refuse new ones from block `S` on, so
-     nothing a user sends is voided;
+   - transactions included after block `S` do not move to the new network. With the V3-33 freeze
+     (step 0.4) the three servers include none after `S` and refuse new ones from block `S` on. The
+     freeze is each node's own builder and pool policy, not a rule: a block after `S` with user
+     transactions from any other node stays valid. So nothing a user sends is voided only if every
+     node that can be drawn as proposer (the three servers and every registered member) runs the
+     freeze; a transaction that reached an unfrozen member's pool before `S` can still be included
+     after `S`, and is then voided. Step 1 checks the blocks after `S` and says what to do then;
    - wallets must be updated after the launch, as the new release notes describe: an existing wallet
      moves its old network files aside, keeps its key, and imports the new network, so its address
      stays the same (step 3);
@@ -98,7 +105,9 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
    1. **Announce `S`** (item 3) at least as long before `S` as the Android path in item 3 needs, with
       the public commitment of item 4. State that from block `S` on the three servers accept no new
       transaction (RPC answers `-32016` with `{"reason":"frozen"}`) and build no block with one, and
-      that the old chain's data will be published (item 5).
+      that the old chain's data will be published (item 5). Ask every operator of a registered member
+      (any node that can be drawn as proposer) to set the freeze of item 2 before `S` too: a member
+      without it can still put user transactions into its blocks after `S`, and those are voided.
    2. **Set the freeze on every server before `S`.** The switch is in the release that carries this
       runbook, which must already run on the old network (H15000) through the release upgrade path:
       the deployed 0.4.0 build does not have it. On a `pocold run` service (the three servers), add the
@@ -110,11 +119,16 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
       sudo systemctl restart pocol-testnet.service
       ```
       (`pocold run --freeze-user-txs-after <S>` is the same setting; a flag wins over the variable. A
-      public-testnet bundle can carry it as `freezeUserTxsAfter` in its inventory node, which
-      `node.json` passes to `pocold`.) A wallet or community node started with `pocol start` (also the
-      Android service) takes it from `pocol freeze-user-txs --home HOME --after <S>` (saved in the
-      home as `freeze-user-txs.json`; `--after off` removes it; it applies at the next start) or
-      from `POCOL_FREEZE_USER_TXS_AFTER`, which wins. Check every server:
+      public-testnet bundle can carry it as `freezeUserTxsAfter` in its inventory node, together with
+      `freezeGenesisHash`, the old network's genesis hash; `node.json` passes it to `pocold`, and
+      `prepare.py` and `node_operator.py` refuse it in a bundle of any other network.) A wallet or
+      community node started with `pocol start` takes it from `pocol freeze-user-txs --home HOME
+      --after <S>` (saved in the home as `freeze-user-txs.json`, with the chain ID and genesis hash of
+      the network the home is bound to, and applied only on that network; `--after off` removes it;
+      it applies at the next start) or from `POCOL_FREEZE_USER_TXS_AFTER`, which wins and names no
+      network. The Android service runs the same start, but the app has no setting for the freeze and
+      its users cannot run `pocol`: an Android node is frozen only by a build that sets it. Check
+      every server:
       ```sh
       curl -s -H 'Content-Type: application/json' --data \
         '{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}' http://127.0.0.1:8545 \
@@ -144,14 +158,33 @@ files, `/var/backups/pocol-pre-0.4.0.*` or `api/config.php`.
 
 ## 1. Freeze (approval: stop the live network)
 
-1. Wait until every server's head is at least `S + 60`. Every block after `S` built by the three
-   servers carries no user transaction (step 0.4; a `"transactions":[]` in the call below with
-   `<S+1 in hex>` and later heights). Check that all three servers report the same hash for block
-   `S`:
+1. Wait until every server's head is at least `S + 60`. Check that all three servers report the same
+   hash for block `S`:
    ```sh
    curl -s -H 'Content-Type: application/json' --data \
      '{"jsonrpc":"2.0","id":1,"method":"eth_getBlockByNumber","params":["<S in hex>",false]}' http://127.0.0.1:8545
    ```
+   Then check that every block from `S + 1` to the head carries no user transaction, whoever proposed
+   it (the freeze of step 0.4 covers only the nodes that run it):
+   ```sh
+   python3 - <<'EOF'
+   import json, urllib.request
+   S = <S>
+   def call(method, params):
+       req = urllib.request.Request('http://127.0.0.1:8545', headers={'Content-Type': 'application/json'},
+           data=json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode())
+       return json.load(urllib.request.urlopen(req))['result']
+   head = int(call('eth_blockNumber', []), 16)
+   late = [(h, b['miner'], b['transactions']) for h in range(S + 1, head + 1)
+           for b in [call('eth_getBlockByNumber', [hex(h), False])] if b['transactions']]
+   print('blocks after S with user transactions:', json.dumps(late))
+   EOF
+   ```
+   It must print `[]`. If it lists blocks, those transactions are not copied to the new network: stop
+   here, before the old service is stopped, and decide with the owner. Either choose a new `S` at or
+   above the last such block (publish it, and wait again for `S + 60`), or keep `S` and list each of
+   those transactions (hash, sender, block) in the launch announcement as voided, so that its sender
+   can send it again on the new network.
 2. Stop the old service on all three servers: `sudo systemctl stop pocol-testnet.service`.
 3. Take the normal backup (`node_operator.py backup`). Keep the old data directory. **Never delete
    it**: it is the only rollback.
@@ -167,7 +200,7 @@ python3 deploy/mainnet/new_network_config.py --old /opt/pocol-testnet/net/devnet
     --genesis-time <launch time> --out /var/tmp/new-network.json
 sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold cutover --network /opt/pocol-testnet/net \
     --data /var/lib/pocol-testnet --height <S> --config /var/tmp/new-network.json \
-    --out /var/tmp/pocol-earnin-genesis \
+    --out /var/tmp/pocol-earnin-genesis --export-chain /var/tmp/pocol-old-chain-<S> \
     --state-store --checkpoint-every 128 --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
 cd /var/tmp/pocol-earnin-genesis
 sha256sum /var/tmp/new-network.json genesis.spec.hex alloc.json
@@ -199,19 +232,22 @@ python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"][
   genesis: its hash and every balance. `devnet.json` also records the admission timing that server
   measured (`timing`), and `cutover-report.json` that server's own old head (`old.head`), so those two
   are compared without them. If any sum differs, stop and investigate. Do not pick one.
-- **Old-chain data (V3-33).** On each server, after the cutover and with the old node still
-  stopped, export the old chain up to `S` and check the export:
+- **Old-chain data (V3-33).** `--export-chain` makes the cutover also write the old chain up to `S`
+  and the state after `S` (format below, "Old-chain data export") from the state it has just rebuilt,
+  so the state at `S` is rebuilt once. The export is written first, the genesis files only after it.
+  Check it on each server:
   ```sh
-  sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold export-chain --network /opt/pocol-testnet/net \
-      --data /var/lib/pocol-testnet --to-height <S> --out /var/tmp/pocol-old-chain-<S> \
-      --state-store --checkpoint-every 128 --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
   sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold verify-export --dir /var/tmp/pocol-old-chain-<S> \
       --network /opt/pocol-testnet/net --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
   sha256sum /var/tmp/pocol-old-chain-<S>/*
   ```
   All three servers must print the same four sums (the export holds nothing node-specific). If one
-  differs, stop as for the cutover. Like the cutover, the export takes the old node's lock, adds no
-  block and writes `--out` only when complete (it builds `<out>.partial` first), so it can run again.
+  differs, stop as for the cutover. The export adds no block and appears under its name only when
+  complete (it builds `<dir>.partial` first). Before running the cutover again, remove what an earlier
+  run left: the export directory if the cutover failed after writing it, and `<dir>.partial` after a
+  run that was killed or crashed (the next run refuses while it exists). `pocold export-chain
+  --network … --data … --to-height <S> --out DIR` writes the same export on its own, with the old node
+  stopped, but rebuilds the state at `S` again: plan another `S × secondsPerBlock` for it.
 - `cutover-report.json` holds:
   - `S` and the old block hash;
   - the account count and the copied balances;
@@ -283,7 +319,12 @@ In the same PR, change what the tool cannot, because it ships with the packages:
   4. keep `identity.pocol-key` and `identity.address` where they are;
   5. open the wallet, or start the service: it imports the new invitation beside it (Settings →
      Import, or `pocol import --home <home> --network network.pocol.json`, does the same). The address
-     stays the same.
+     stays the same;
+  6. if you set the V3-33 freeze for the old network (step 0.4): remove it with `pocol freeze-user-txs
+     --home <home> --after off`, and remove `POCOL_FREEZE_USER_TXS_AFTER` from the service's or the
+     shell's environment. A saved setting names the old network and is not applied on the new one
+     (the start prints why), but the variable names no network and would freeze the new chain once
+     its head reaches the old `S`.
 
   `deploy/standalone/test_upgrade.py` (`NewGenesisRejoin`) runs these steps, and shows that an old
   invitation left beside the application binds the home to the old genesis again. A release built
@@ -321,12 +362,17 @@ left. Commit, open a PR, let CI build the clients, and merge.
    ```
 2. Build the release from the merged head of step 3, after its CI passes, and build the server
    bundles from it with `deploy/public-testnet/prepare.py --network /var/tmp/pocol-earnin-net`, from
-   the same inventory as the old release. `prepare.py` refuses binaries built from other sources than
-   the checkout.
+   the same inventory as the old release, without the V3-33 `freezeUserTxsAfter` and
+   `freezeGenesisHash` fields of step 0.4 (`prepare.py` refuses them for a network other than the one
+   `freezeGenesisHash` names). `prepare.py` refuses binaries built from other sources than the
+   checkout.
 3. On each server:
    - remove the V3-33 freeze from the unit first (`sudo systemctl revert pocol-testnet.service`
      removes the drop-in of step 0.4): a drop-in stays when the unit file moves, and would freeze
-     the new network at the old `S`. After step 4, `pocol_status` must have no `userTxFreeze`;
+     the new network at the old `S`. After step 4, `pocol_status` must have no `userTxFreeze`. If it
+     has one, the unit still sets `POCOL_FREEZE_USER_TXS_AFTER` (`systemctl cat pocol-testnet.service`
+     shows where) or the bundle's `node.json` has `freezeUserTxsAfter`: remove the drop-in, or rebuild
+     the bundles without the field, and restart the node before the new head reaches the old `S`;
    - move the old installation, data and service unit aside, **without deleting them**.
      `install.sh` refuses to install while any of the three exists. The script stops at the first
      failure and never moves onto an existing name:
@@ -554,5 +600,6 @@ blocks and run `export-chain` on it: the result must be byte-equal.
 
 ## What this does not cover
 
-- Old Android installations cannot follow the new network (A3). Android stays deferred.
+- Old Android installations cannot follow the new network (A3); step 0.4 item 3 gives their path (the
+  key-export build first, or a move of funds to the new application ID before `S`).
 - `Initialize-PoColNetwork.ps1` must not be used to join either network.
