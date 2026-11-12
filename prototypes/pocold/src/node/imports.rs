@@ -20,8 +20,8 @@ pub(super) fn first(index:&Index,journal:&Journal,hash:&[u8;32])->Result<Option<
 /// A checked coverage marker avoids rescanning an unchanged checkpoint prefix.
 /// A missing index is rebuilt one journal payload at a time, including records a
 /// checkpoint skips executing. Journal locking and the memory gate precede this.
-pub(super) fn open(chain:&mut Chain,index:&Index,rec:&Recovered,end:impl Fn(usize)->u64,roll:impl Fn(usize)->Result<[u8;32],String>,roll_end:[u8;32],now_ms:u128)->Result<(),String>{
-    if !enabled(&chain.spec){return Ok(())}
+pub(super) fn open(chain:&Chain,index:&Index,rec:&Recovered,end:impl Fn(usize)->u64,roll:impl Fn(usize)->Result<[u8;32],String>,roll_end:[u8;32],now_ms:u128)->Result<Option<u128>,String>{
+    if !enabled(&chain.spec){return Ok(None)}
     index.prepare_imports()?;
     let n=rec.offsets.len();let mut coverage=index.import_coverage()?;
     if let Some(c)=coverage{
@@ -47,9 +47,7 @@ pub(super) fn open(chain:&mut Chain,index:&Index,rec:&Recovered,end:impl Fn(usiz
     }
     if coverage.binding.hash!=roll_end{return Err("the journal changed while first imports were indexed".into())}
     index.sync()?;
-    let received=coverage.genesis_received_ms.unwrap_or(now_ms);
-    chain.blocks.get_mut(&genesis).unwrap().first_import=Some(FirstImport{received_ms:received,parent_received_ms:received,timely:true});
-    Ok(())
+    Ok(Some(coverage.genesis_received_ms.unwrap_or(now_ms)))
 }
 
 /// Compute once from the timestamp captured BEFORE validation/rebuild/fsync.

@@ -492,6 +492,9 @@ pub struct Node{
     /// Deterministic first-import clock for in-process simulations; None uses the
     /// wall clock. This never changes the legacy validity/Future clock.
     #[doc(hidden)] pub import_clock:Option<u128>,
+    /// Genesis has no journal frame. Its original receipt is restored from
+    /// timing-index coverage; other timestamps are read from the journal.
+    genesis_received_ms:Option<u128>,
     /// Peer discovery (VA-SPEC §1a, `node::discovery`): the self-connection nonce, the address book and each
     /// connection's discovery state.
     disc:discovery::Disc,
@@ -711,7 +714,7 @@ impl Node{
         let end_of=|k:usize|->u64{if k<n_rec{rec.offsets[k]}else{rec.journal.end_offset()}};
         let roll_at=|k:usize|->Result<[u8;32],String>{if k>=n_rec{return Ok(roll_end)}let j=k/ROLL_SAMPLE;let mut r=samples[j];
             for i in j*ROLL_SAMPLE..k{r=crate::checkpoint::roll(&r,&rec.payload(i).map_err(|e|format!("record {i}: {e:?}"))?);}Ok(r)};
-        imports::open(&mut chain,&canon,&rec,end_of,roll_at,roll_end,now_ms())?;
+        let mut genesis_received_ms=imports::open(&chain,&canon,&rec,end_of,roll_at,roll_end,now_ms())?;
         // C-1 E4: states in state.redb. C-1 E4.4 (D-6): open resumes from the newest checkpoint that verifies
         // (`checkpoint::restore`) and replays only the records after it; one that does not is released and
         // the one before it is tried. With none, or a store that is new, damaged or inconsistent, or a
@@ -796,7 +799,7 @@ impl Node{
                 drop(canon);canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;
                 // Replacing the derived file also discarded its first-import
                 // table. Restore it from the journal before replay/live use.
-                imports::open(&mut chain,&canon,&rec,end_of,roll_at,roll_end,now_ms())?;
+                genesis_received_ms=imports::open(&chain,&canon,&rec,end_of,roll_at,roll_end,now_ms())?;
             }
             match resumed{
                 Some(k)=>{start=k;state_store=Some(st);opened_release=released_at_open;}
@@ -855,7 +858,7 @@ impl Node{
                 let deep=|x:&[u8;32]|->Result<Option<u64>,String>{Ok(canon.height_of(x).map_err(|e|format!("record {i}: canonical index: {e}"))?.filter(|h|*h<base))};
                 if let Some(h)=deep(&hash)?{
                     let mut r=canon.at(h).map_err(|e|format!("record {i}: canonical index: {e}"))?.ok_or_else(||format!("record {i}: canonical index: no row at height {h}"))?;
-                    if chain.spec.v3_active(h)&&r.first_import!=first_import{return Err(format!("record {i}: canonical first import changed"))}
+                    if chain.spec.v3_active(h)&&(r.flags&crate::checkpoint::flags::LATE==0)!=first_import.map_or(true,|m|m.timely){return Err(format!("record {i}: canonical first import changed"))}
                     r.import_seq=chain.note_reimported();r.body_off=Some(this_off);canon.put(&[(h,r)]).map_err(|e|format!("record {i}: canonical index: {e}"))?;return Ok(true)
                 }
                 let held=block.header.h>0&&chain.canonical.get(block.header.h as usize-1)==Some(&parent);
@@ -868,7 +871,7 @@ impl Node{
             match validated{
                 None=>{}
                 Some(Err(Reject::Duplicate))=>{
-                    if chain.spec.v3_active(block.header.h)&&chain.get(&hash).unwrap().first_import!=first_import{return Err(format!("record {i}: first import changed"))}
+                    if chain.spec.v3_active(block.header.h)&&chain.get(&hash).unwrap().timely!=first_import.map_or(true,|m|m.timely){return Err(format!("record {i}: first import changed"))}
                     chain.reimport(&hash,block.header.clone(),Some(this_off));
                 }
                 // Unreachable by (1) for a block whose parent replay holds; counted (Stats::replay_skipped) rather than
@@ -882,7 +885,7 @@ impl Node{
                         r=>r.map_err(|e|format!("replay {i}: {e:?}"))?,
                     };
                     if result_bytes(&entry.result).as_slice()!=record.result{return Err(format!("parentResultMismatch at record {i}"))}
-                    entry.body_off=Some(this_off);entry.first_import=first_import;
+                    entry.body_off=Some(this_off);entry.timely=first_import.map_or(true,|m|m.timely);
                     // Replay refills a store that was lost or damaged (I1): a stored block is left as it is.
                     // Writes are made durable every HISTORY_SYNC blocks (redb frees pages only then) and at the end.
                     let t=Instant::now();
@@ -936,12 +939,19 @@ impl Node{
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
-            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None};
+            state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
         if rec.torn_tail{node.log("recovered torn journal tail into a new journal");}
         if rec.migrated_v1{node.log("migrated a fully verified v1 journal to format v2 (original kept as blocks.journal.v1-n)");}
         Ok(node)
+    }
+    /// Local first-import metadata, verified against the original journal
+    /// frame. This is not a lifetime RAM map, and is absent on legacy profiles.
+    pub fn first_import(&self,hash:&[u8;32])->Result<Option<store::FirstImport>,String>{
+        if !imports::enabled(&self.chain.spec){return Ok(None)}
+        if *hash==self.chain.spec.genesis_hash(){return Ok(self.genesis_received_ms.map(|received_ms|store::FirstImport{received_ms,parent_received_ms:received_ms,timely:true}))}
+        imports::first(&self.canon,&self.journal,hash)
     }
     /// C-1 E4.4: a checkpoint every `checkpoint_every` journal records (store mode). The block's state,
     /// history and journal record are durable already (I3), so the checkpoint describes durable data only.
@@ -1142,7 +1152,6 @@ impl Node{
     }
     pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
         let import_ms=imports::enabled(&self.chain.spec).then(||self.import_clock.unwrap_or_else(now_ms));
-        let parent_received_ms=import_ms.map(|now|self.chain.get(&b.header.parent_hash).and_then(|p|p.first_import.map(|m|m.received_ms)).or_else(||self.received.get(&b.header.parent_hash).copied()).unwrap_or(now));
         if (self.chain.spec.cp().H_END==0||self.cfg.limits.first_imports) && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{self.capacity_recheck()?;}
         let hash=b.hash();
         let was_evicted=self.chain.was_evicted(&hash);
@@ -1197,13 +1206,23 @@ impl Node{
             Err(Reject::Block(why))=>{self.chain.mark_invalid(hash,why.clone());self.reject(hash,&why);return Err(Reject::Block(why))}
             Err(e)=>{if let Reject::Envelope(w)=&e{self.reject(hash,w);}return Err(e)}
         };
+        let mut first_import=None;
         if let Some(received_ms)=import_ms{
-            entry.first_import=Some(match imports::first(&self.canon,&self.journal,&hash){
+            first_import=Some(match imports::first(&self.canon,&self.journal,&hash){
                 Ok(Some(original))=>original,
-                Ok(None)=>{let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms.unwrap()){
+                Ok(None)=>{
+                    // Only a fully valid block can cause these original-frame
+                    // reads. Their time is not charged to the captured arrival.
+                    let parent_received_ms=match self.first_import(&b.header.parent_hash){
+                        Ok(Some(m))=>m.received_ms,
+                        Ok(None)=>self.received.get(&b.header.parent_hash).copied().unwrap_or(received_ms),
+                        Err(e)=>self.fatal(&e),
+                    };
+                    let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms){
                     Ok(stamp)=>stamp,Err(e)=>self.fatal(&e)}},
                 Err(e)=>self.fatal(&e),
             });
+            entry.timely=first_import.unwrap().timely;
         }
         crate::crash_point("state-commit");
         // PR4: a validated signed block passed items 1, 2, 3 and 12 (20-byte proposer, a=0, h=p.h+1, sig by the
@@ -1216,19 +1235,19 @@ impl Node{
         // append does; the next open sets a damaged store aside and replay rebuilds it.
         if let Err(e)=self.history.put(&entry.hash,&entry.receipts,&entry.tx_hashes,&entry.ranges){self.log(&format!("FATAL history write: {}",e.0));std::process::exit(70);}
         crate::crash_point("history");
-        let record=store::encode_record_with_import(&b.header.encoded,&b.body.encode(),&result_bytes(&entry.result),entry.first_import);
+        let record=store::encode_record_with_import(&b.header.encoded,&b.body.encode(),&result_bytes(&entry.result),first_import);
         // D-REORG-REDB: record the journal frame offset so this block's body can be read back off-heap.
         match self.journal.append(&record){Ok(off)=>entry.body_off=Some(off),Err(e)=>{self.log(&format!("FATAL journal append: {e:?}"));std::process::exit(70);}}
         self.ckpt.roll=crate::checkpoint::roll(&self.ckpt.roll,&record);
         if import_ms.is_some(){
             crate::crash_point("import-index");
             let coverage=canon::ImportCoverage{binding:crate::checkpoint::Binding{records:self.journal.records,end:self.journal.end_offset(),hash:self.ckpt.roll},
-                genesis_received_ms:self.chain.get(&self.chain.spec.genesis_hash()).and_then(|g|g.first_import.map(|m|m.received_ms))};
+                genesis_received_ms:self.genesis_received_ms};
             if let Err(e)=self.canon.note_import(Some((hash,entry.body_off.unwrap())),coverage){self.fatal(&e)}
         }
         crate::crash_point("journal");
         if solicited&&was_evicted{self.stats.refetched+=1;}
-        self.received.insert(hash,entry.first_import.map_or_else(now_ms,|m|m.received_ms));
+        self.received.insert(hash,first_import.map_or_else(now_ms,|m|m.received_ms));
         if self.received.len()>RECEIVED_MAX{let keep=self.chain.head().height.saturating_sub(8);let blocks=&self.chain.blocks;self.received.retain(|h,_|blocks.get(h).map_or(false,|e|e.height>=keep));}
         let old_head=self.chain.head;
         let new_head=self.chain.insert(entry);self.stats.imported+=1;
@@ -1697,7 +1716,10 @@ impl Node{
         if let Some(p)=self.prod.take(){if let Some(m)=p.miner{m.stop();}}
         let head=self.chain.head().meta_clone();
         if head.is_final{self.log("chain is final; no production");return}
-        let received_ms=head.first_import.map(|m|m.received_ms).unwrap_or_else(||*self.received.get(&head.hash).unwrap_or(&now_ms()));
+        let received_ms=match self.first_import(&head.hash){
+            Ok(Some(m))=>m.received_ms,
+            Ok(None)=>*self.received.get(&head.hash).unwrap_or(&now_ms()),Err(e)=>self.fatal(&e),
+        };
         self.prod=Some(Production{parent:head.hash,height:head.height+1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms});
         self.begin_attempt(0);
     }

@@ -1993,12 +1993,12 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // eviction on or off, so eviction off is 3,359,894,075 + 27,556,914 = 3,387,450,989 B, PR2b's own total before
     // the merge). Some terms are type sizes (Entry, Block), so the exact value is pinned for the target the evidence
     // is produced on; every target checks that it boots within the budget with its reserve.
-    // V3-04: inline frozen timing increases Entry even on dormant chains; the
-    // eviction batch now counts normalized Entry boxes and actual Rec slots
-    // (optional fields occupy inline space), rather than encoded REC_MIN.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_398_806_648,"the A13 model total changed");
+    // V3-04: timestamps stay in the journal; the timely bit fits the existing
+    // Entry layout and checkpoint flags. The eviction batch now counts actual
+    // normalized Entry boxes and Rec slots, rather than encoded REC_MIN.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_396_912_610,"the A13 model total changed");
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_388_705_997,"eviction off includes inline first-import metadata");
+        assert_eq!(off.total,3_387_450_989,"eviction off keeps the legacy record footprint");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -3983,7 +3983,7 @@ fn e4_checkpoint_kill_child(){
 /// "snapshot count beyond its bytes" and open rebuilt the store from genesis (evidence/r4/hend/).
 #[test] fn a_snapshot_of_minimal_entries_reads_back(){
     use pocold::checkpoint::*;
-    let rec=|i:u64|Rec{hash:{let mut h=[0u8;32];h[..8].copy_from_slice(&(i+1).to_be_bytes());h},body_off:None,import_seq:i,total_work:U256::from(i),flags:0,cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None,first_import:None};
+    let rec=|i:u64|Rec{hash:{let mut h=[0u8;32];h[..8].copy_from_slice(&(i+1).to_be_bytes());h},body_off:None,import_seq:i,total_work:U256::from(i),flags:0,cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None};
     let snap=|n:u64|Snapshot{genesis:[7;32],params:Params{r_keep:2048,side_cap:256,k_hist:32,side_max:2,history_window:Some(32),slim_depth:Some(100),keep_full:false,evict_depth:None,anchor_step:None},
         binding:Binding{records:n,end:1,hash:[2;32]},head:rec(n.max(1)-1).hash,next_seq:n,slim_cursor:1,history_cursor:1,evicted_total:0,canon_base:0,base_parent:[0;32],base_parent_work:U256::ZERO,anchor_cursor:0,v1:false,unslimmed:vec![],evicted_order:vec![],protect:None,entries:(0..n).map(rec).collect()};
     let s=snap(1000);let b=encode_snapshot(&s);

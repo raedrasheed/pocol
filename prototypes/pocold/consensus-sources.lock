@@ -8,6 +8,7 @@ history n=5 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sourc
 history n=6 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=e8d3531caff22fea8203c395484af9ae38e2e784d13169c17f50f2205d340e18 vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-B note="Dormant spec-2 schema and rule predicate; preview is isolated by identity, simnet admission and packaging refusal; spec-1 encodings, roots and rules unchanged; genesis tooling resolves CP and local boot policy explicitly"
 history n=7 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=f68b32fa1be937d4c9d4462826d401a6d264c98b75c47b894457645026522328 vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-C1 note="dormant v3 all-live unbounded membership and quarter-bond proposer eligibility; owner-approved all-probationer exception retained; streaming ledger owners preserves every legacy weight and window; specVersion 2 refused by SPEC_VERSION 1 release builds"
 history n=8 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=531faf32f0417e3da646ce28066ff2a25757019eade39e2c1211da46a9ad578e vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-C2 note="Dormant v3 timely sibling precedence and frozen local import metadata; legacy order and journal bytes unchanged"
+history n=9 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=0c5d36f6dcb1386637d758e9bc99c401fbae188980eaf25e76095d648380501f vectors=212dd2aa1a76585163406ca03632f5e8781b035c54f1f30cb0ff6b6ad77fc104 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=spec:2 ref=V3-PR-C2 note="Keep original v3 timestamps in the journal and frozen timely bits in the existing entry and checkpoint layout; preserve the legacy memory footprint"
 file f0df8f047b5797cec691129c3863f48981cde5debc345d0011ab62afe9d90c2f lp1-node/Cargo.toml
 file 8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502 lp1-node/src/asert.rs
 file 39cb326abf9bb24ce152f53de8da7fafd9e406550090c44f50db549f30c617d1 lp1-node/src/assignment.rs
@@ -87,8 +88,8 @@ file 460a3d0c6b792e1e3b6925bcc2e2fd15aec1465a827ea74ac6fdae8c28db84b8 pocold/bui
 file 3cddc68246172c12b2420f15e9734e5b2cc0eeea9738c0ef2255a00c83bd6c77 pocold/consensus-boundary.txt
 file d738791f204eb705c4a9b86c991e0e6124d61595a55709b77255dfa0244bbc43 pocold/consensus_boundary.rs
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 pocold/rust-toolchain.toml
-file 6edf1479f339f05c2c595e5e018fc414d76960ff66b47487fc1245d6a99f20e0 pocold/src/chain.rs
-file 1bd76ca483dcf6930caf67c548d6d0aed1dd6275703bdb06deaaadcf01114c11 pocold/src/checkpoint.rs
+file f35164c4f7d48fbe3b9bf7dba1725b4c74b749da8a6950459594ac4d90aba894 pocold/src/chain.rs
+file fc8458eeb8bc8e35bea1a73cfe403cc1dbf82271ac8977c03989e9849d6ccdb5 pocold/src/checkpoint.rs
 file bd5d0cd1c97b740221927592f61c0b1286a77d8cf319decec9204bd6c246b209 pocold/src/history.rs
 file 0f3d7ea6352b228d43e214d5fdf29e4e540d25f40bf99a232b4ec7e59a60f709 pocold/src/identity.rs
 file c756d7af2f35d1ee165f272744e03e6b83374d564fc62a3c1d3eb55a1f55d9ae pocold/src/lib.rs

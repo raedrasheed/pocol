@@ -2,7 +2,7 @@
 //! Private fixture chains only; no network listener or production keys.
 use std::{collections::HashMap,path::{Path,PathBuf},sync::atomic::{AtomicU64,Ordering}};
 use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::Key};
-use pocold::{chain::{Chain,Spec},node::{Config,Limits,Node},store::{self,FirstImport},types::*};
+use pocold::{chain::{Chain,Spec},node::{Config,Limits,Node},store,types::*};
 use revm::primitives::{Address,B256};
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig}
@@ -38,7 +38,7 @@ fn block(n:&Net,parent:[u8;32],signed:bool,attempt:u32,start:u64)->Block{
 }
 fn accept(n:&mut Net,b:&Block,timely:bool){
     let (mut e,_)=n.chain.validate(b,None,0).unwrap();
-    e.first_import=Some(FirstImport{received_ms:123,parent_received_ms:100,timely});n.chain.insert(e);
+    e.timely=timely;n.chain.insert(e);
 }
 fn dir(label:&str)->PathBuf{
     static NEXT:AtomicU64=AtomicU64::new(0);
@@ -49,7 +49,7 @@ fn config(d:&Path,store:bool)->Config{Config{name:"fork-test".into(),dir:d.to_pa
 #[cfg(feature="v3-preview")]
 fn deadline(n:&Node,parent:[u8;32])->u128{
     let p=n.chain.get(&parent).unwrap();let local=n.chain.spec.local();
-    pocold::timing::AttemptWindow::new(p.ts,0,n.chain.spec.cp().D_att).unwrap().deadline_ms(p.first_import.unwrap().received_ms,u64::from(local.delta_rel),n.chain.spec.cp().dFbWait).unwrap()
+    pocold::timing::AttemptWindow::new(p.ts,0,n.chain.spec.cp().D_att).unwrap().deadline_ms(n.first_import(&parent).unwrap().unwrap().received_ms,u64::from(local.delta_rel),n.chain.spec.cp().dFbWait).unwrap()
 }
 fn at(n:&mut Node,b:&Block,ms:u128)->bool{n.import_clock=Some(ms);n.import(b.clone(),None).unwrap()}
 
@@ -61,7 +61,7 @@ fn best(c:&Chain)->[u8;32]{
     for e in c.blocks.values(){
         let b=&c.blocks[&best];let better=if e.total_work!=b.total_work{e.total_work>b.total_work}else if e.hash==best{false}else{
             let (x,y)=(path(e.hash),path(best));let i=x.iter().zip(&y).take_while(|(a,b)|a==b).count();
-            let key=|h:&[u8;32]|{let e=&c.blocks[h];(u8::from(c.spec.v3_active(e.height)&&!e.first_import.unwrap().timely),u8::from(!e.signed),e.import_seq,e.hash)};
+            let key=|h:&[u8;32]|{let e=&c.blocks[h];(u8::from(c.spec.v3_active(e.height)&&!e.timely),u8::from(!e.signed),e.import_seq,e.hash)};
             key(&x[i])<key(&y[i])
         };if better{best=e.hash}
     }best
@@ -90,7 +90,7 @@ fn twenty_orders(v3:bool){
     let n=net(false);let g=n.chain.head;let fb=block(&n,g,false,0,0);let sg=block(&n,g,true,0,0);let d=dir("legacy");
     {let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();
         assert!(at(&mut node,&fb,u128::MAX));assert!(at(&mut node,&sg,u128::MAX));assert_eq!(node.chain.head,sg.hash());
-        assert!(node.chain.blocks.values().all(|e|e.first_import.is_none()));}
+        assert!(node.chain.blocks.values().all(|e|e.timely&&node.first_import(&e.hash).unwrap().is_none()));}
     let r=store::open(&d,&g).unwrap();for p in r.payloads(){assert!(store::decode_record_ref(&p).unwrap().first_import.is_none());assert_eq!(pocold::rlp::decode(&p).unwrap().list().unwrap().len(),3);}drop(r);
     let node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();assert_eq!(node.chain.head,sg.hash());drop(node);std::fs::remove_dir_all(d).unwrap();
 }
@@ -107,8 +107,10 @@ mod preview{
             assert!(at(&mut node,&fb,if early{low-1}else{low}));assert_eq!(node.chain.head,fb.hash());
             let changed=at(&mut node,&sg,if early{high}else{high+1});assert_eq!(changed,early);
             assert_eq!(node.chain.head,if early{sg.hash()}else{fb.hash()});
-            assert_eq!(node.chain.get(&fb.hash()).unwrap().first_import.unwrap().timely,!early);
-            assert_eq!(node.chain.get(&sg.hash()).unwrap().first_import.unwrap().timely,early);
+            assert_eq!(node.chain.get(&fb.hash()).unwrap().timely,!early);
+            assert_eq!(node.chain.get(&sg.hash()).unwrap().timely,early);
+            assert_eq!(node.first_import(&fb.hash()).unwrap().unwrap().timely,!early);
+            assert_eq!(node.first_import(&sg.hash()).unwrap().unwrap().timely,early);
             drop(node);std::fs::remove_dir_all(d).unwrap();
         }
     }
@@ -118,13 +120,19 @@ mod preview{
             let (first,head)={let mut node=Node::open(config(&d,store),spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);
                 at(&mut node,&fb,tj);at(&mut node,&sg,tj+1);assert_eq!(node.chain.head,fb.hash());
                 if store{node.checkpoint_now().unwrap();}
-                (node.chain.blocks.iter().map(|(h,e)|(*h,e.first_import)).collect::<HashMap<_,_>>(),node.chain.head)};
+                (node.chain.blocks.iter().map(|(h,e)|(*h,(e.timely,node.first_import(h).unwrap()))).collect::<HashMap<_,_>>(),node.chain.head)};
             // A larger local deadline would call that signed import timely if
             // replay recalculated instead of using the original persisted flag.
-            for lost_index in [false,true]{if lost_index{std::fs::remove_file(d.join(pocold::node::canon::FILE)).unwrap();}
+            for damage in ["none","file","timing-table"]{
+                if damage=="file"{std::fs::remove_file(d.join(pocold::node::canon::FILE)).unwrap();}
+                if damage=="timing-table"{
+                    let db=redb::Database::open(d.join(pocold::node::canon::FILE)).unwrap();let w=db.begin_write().unwrap();
+                    let t:redb::TableDefinition<&[u8;32],u64>=redb::TableDefinition::new("first_import");assert!(w.delete_table(t).unwrap());w.commit().unwrap();
+                }
                 let node=Node::open(config(&d,store),spec(&n.cfg,1)).unwrap();assert_eq!(node.chain.head,head);
-                for (h,want) in &first{assert_eq!(node.chain.get(h).unwrap().first_import,*want,"original stamp {h:?}");}
-                if store&&!lost_index{assert_eq!(node.stats.resumed_from,Some(2));}
+                for (h,want) in &first{assert_eq!((node.chain.get(h).unwrap().timely,node.first_import(h).unwrap()),*want,"original stamp {h:?}");}
+                assert!(node.canon().first_import_offset(&sg.hash()).unwrap().is_some(),"the original timing index row survives {damage}");
+                if store&&damage!="file"{assert_eq!(node.stats.resumed_from,Some(2));}
             }
             std::fs::remove_dir_all(d).unwrap();
         }
@@ -141,14 +149,14 @@ mod preview{
                 at(&mut node,&timely,tj);assert_eq!(node.chain.head,timely.hash());
                 node.import_clock=Some(tj);assert!(!node.import_with(late.clone(),None,true).unwrap());
                 let e=node.chain.get(&late.hash()).unwrap();assert_eq!(e.import_seq,4);
-                assert_eq!(e.first_import.unwrap().received_ms,tj+1);assert!(!e.first_import.unwrap().timely);
-                let out=(e.first_import,e.import_seq,node.chain.head);
+                let stamp=node.first_import(&late.hash()).unwrap();assert_eq!(stamp.unwrap().received_ms,tj+1);assert!(!stamp.unwrap().timely);assert!(!e.timely);
+                let out=(stamp,e.import_seq,node.chain.head);
                 if store{node.checkpoint_now().unwrap();}out};
             let mut cfg=config(&d,store);cfg.limits.side_cap=0;
             let mut node=Node::open(cfg,spec(&n.cfg,1)).unwrap();assert_eq!(node.chain.head,head);
             assert!(node.chain.get(&late.hash()).is_none(),"the old sync protection ends at restart");
             node.import_clock=Some(stamp.unwrap().received_ms-1);assert!(!node.import_with(late.clone(),None,true).unwrap());
-            let e=node.chain.get(&late.hash()).unwrap();assert_eq!((e.first_import,e.import_seq),(stamp,seq+1));
+            let e=node.chain.get(&late.hash()).unwrap();assert_eq!((node.first_import(&late.hash()).unwrap(),e.import_seq),(stamp,seq+1));assert!(!e.timely);
             drop(node);std::fs::remove_dir_all(d).unwrap();
         }
     }
@@ -170,16 +178,16 @@ mod preview{
             let count=node.chain.evict_depth.unwrap()+3;assert!(count<500,"keep this private fixture bounded");
             let mut root=[0;32];let mut stamp=None;
             for h in 1..=count{let p=n.chain.head;let b=block(&n,p,false,0,0);let tj=deadline(&node,p);assert!(at(&mut node,&b,tj));accept(&mut n,&b,true);
-                if h==1{root=b.hash();stamp=node.chain.get(&root).unwrap().first_import;}
-                if h==50{let e=node.chain.get(&root).unwrap();assert!(e.slim&&e.offloaded);assert_eq!(e.first_import,stamp);}
+                if h==1{root=b.hash();stamp=node.first_import(&root).unwrap();}
+                if h==50{let e=node.chain.get(&root).unwrap();assert!(e.slim&&e.offloaded);assert_eq!(Some(e.timely),stamp.map(|m|m.timely));assert_eq!(node.first_import(&root).unwrap(),stamp);}
             }
             assert!(node.chain.get(&root).is_none(),"root left the canonical RAM window");
-            let restored=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!(restored.first_import,stamp);drop(restored);
+            let restored=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!(Some(restored.timely),stamp.map(|m|m.timely));assert_eq!(node.first_import(&root).unwrap(),stamp);drop(restored);
             node.checkpoint_now().unwrap();(root,stamp,node.chain.head,node.chain.canonical.base())};
         assert!(base>1);
         let mut cfg=config(&d,true);cfg.limits.checkpoint_every=64;
         let node=Node::open(cfg,spec(&n.cfg,1)).unwrap();assert_eq!(node.chain.head,head);assert!(node.stats.resumed_from.is_some());
-        let e=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!((e.hash,e.first_import),(root,stamp));drop(e);drop(node);
+        let e=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!((e.hash,Some(e.timely)),(root,stamp.map(|m|m.timely)));assert_eq!(node.first_import(&root).unwrap(),stamp);drop(e);drop(node);
         // A structurally valid redb file can hold a row whose application seal
         // is bad. Here only checkpoint restoration discovers the damage, after
         // the initial timing-index setup. Replacing canon.redb must rebuild
@@ -191,7 +199,7 @@ mod preview{
         let mut node=Node::open(cfg,spec(&n.cfg,1)).unwrap();assert!(node.stats.checkpoints_refused>=1);assert!(node.canon().rebuilt);
         assert!(node.canon().first_import_offset(&root).unwrap().is_some(),"replacement index retains the original timing row");
         assert_eq!(node.chain.head,head);
-        let e=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!(e.first_import,stamp);drop(e);
+        let e=node.canonical_view(1,pocold::node::Want{receipts:false}).unwrap().unwrap();assert_eq!(Some(e.timely),stamp.map(|m|m.timely));assert_eq!(node.first_import(&root).unwrap(),stamp);drop(e);
         let b=block(&n,n.chain.head,false,0,0);let tj=deadline(&node,node.chain.head);assert!(at(&mut node,&b,tj));drop(node);
         std::fs::remove_dir_all(d).unwrap();
     }
@@ -200,7 +208,7 @@ mod preview{
         let n=net(true);let g=n.chain.head;let a=block(&n,g,false,1,0);let b=block(&n,g,false,1,a.header.nonce+1);let d=dir("later-attempt");
         let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();
         at(&mut node,&a,0);at(&mut node,&b,u128::MAX);
-        for h in [a.hash(),b.hash()]{assert!(node.chain.get(&h).unwrap().first_import.unwrap().timely);}
+        for h in [a.hash(),b.hash()]{assert!(node.chain.get(&h).unwrap().timely);assert!(node.first_import(&h).unwrap().unwrap().timely);}
         drop(node);std::fs::remove_dir_all(d).unwrap();
     }
 
@@ -209,8 +217,8 @@ mod preview{
         assert_eq!(bad.hash(),b.hash());let d=dir("invalid-copy");let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);
         node.import_clock=Some(tj);assert!(matches!(node.import(bad,None),Err(pocold::chain::Reject::Envelope(_))));
         assert_eq!(node.journal_records(),0);assert!(node.chain.get(&b.hash()).is_none());
-        at(&mut node,&b,tj+1);let first=node.chain.get(&b.hash()).unwrap().first_import.unwrap();assert_eq!(first.received_ms,tj+1);assert!(!first.timely);
+        at(&mut node,&b,tj+1);let first=node.first_import(&b.hash()).unwrap().unwrap();assert_eq!(first.received_ms,tj+1);assert!(!first.timely);assert!(!node.chain.get(&b.hash()).unwrap().timely);
         node.import_clock=Some(tj);assert!(matches!(node.import(b.clone(),None),Err(pocold::chain::Reject::Duplicate)));
-        assert_eq!(node.chain.get(&b.hash()).unwrap().first_import,Some(first));drop(node);std::fs::remove_dir_all(d).unwrap();
+        assert_eq!(node.first_import(&b.hash()).unwrap(),Some(first));assert!(!node.chain.get(&b.hash()).unwrap().timely);drop(node);std::fs::remove_dir_all(d).unwrap();
     }
 }

@@ -8,7 +8,7 @@
 use std::path::{Path,PathBuf};
 use std::panic::{catch_unwind,AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool,AtomicU64,Ordering};
-use redb::{Database,Durability,ReadableTable,TableDefinition};
+use redb::{Database,Durability,ReadableTable,TableDefinition,TableHandle};
 use revm::primitives::keccak256;
 use crate::checkpoint::{self,Rec};
 
@@ -114,7 +114,13 @@ impl Index{
     /// A durable commit: every earlier `put` is persisted (invariant I5: before each checkpoint).
     pub fn sync(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;w.commit().map_err(rerr)})}
     /// Called only by a profile that can activate v3. Legacy files need no new table.
-    pub fn prepare_imports(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;{w.open_table(FIRST_IMPORT).map_err(rerr)?;}w.commit().map_err(rerr)})}
+    pub fn prepare_imports(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;
+        let existed=w.list_tables().map_err(rerr)?.any(|t|t.name()==FIRST_IMPORT.name());
+        {w.open_table(FIRST_IMPORT).map_err(rerr)?;
+            // An old coverage marker cannot certify a newly created empty
+            // table. Preserve canonical rows, but stream timing rows again.
+            if !existed{let mut m=w.open_table(META).map_err(rerr)?;m.remove("imports").map_err(rerr)?;}}
+        w.commit().map_err(rerr)})}
     pub fn import_coverage(&self)->Result<Option<ImportCoverage>,String>{
         let b=self.guard(||{let r=self.db.begin_read().map_err(rerr)?;let t=r.open_table(META).map_err(rerr)?;Ok(t.get("imports").map_err(rerr)?.map(|v|v.value().to_vec()))})?;
         b.map(|b|ImportCoverage::decode(&b).map_err(|e|self.mark_damaged(&e))).transpose()
