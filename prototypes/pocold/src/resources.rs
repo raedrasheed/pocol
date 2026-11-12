@@ -331,6 +331,7 @@ pub fn header_max(s_max:u16)->u128{768+9*u128::from(s_max)}
 /// resident memory of the process.
 pub const CONDITIONS:&[(&str,&str)]=&[
     ("allocator-overhead","allocator per-allocation overhead and fragmentation are not modelled"),
+    ("telemetry-inventory","V3-05 template-latency telemetry (node::latency: at most PROPOSERS_MAX proposers' histograms and SLOTS_MAX recent slots) is bounded by latency::BOUND_BYTES, under 160 KiB (asserted at compile time), and is not a term of the total"),
     ("transient-snapshot-inventory","TRANSIENT_SNAPSHOTS (2, C-1 E3) and EXECUTIONS (1) are inventories by code inspection, not enforced by a counter"),
     ("main-thread","the main thread's stack is reserved by the platform; counted at 1 MiB because it only spawns and joins"),
     ("revm-representation","the execution term relies on revm 19.7 behaviour checked by source inspection (iterative frames, SharedMemory truncation, fixed stack capacity) and by measured adversarial peaks"),
