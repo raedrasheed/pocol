@@ -330,8 +330,13 @@ fn second_implementation_id(chain_id:u64,genesis:&[u8;32],rules:u32,flags:u8,for
     assert_eq!(r.net.counters.outbound.load(Ordering::SeqCst),1);
     // The configured peer drops; the node reconnects although inbound is full.
     drop(first);
-    assert!(accept(&target).is_some(),"outbound reconnects despite a full inbound set");
-    assert!(wait_until(1000,||r.net.counters.outbound.load(Ordering::SeqCst)==1));drop(idle);
+    // Keep the replacement's remote end alive through the counter assertions. A temporary
+    // `accept(...).is_some()` closes it at the semicolon, so its reader may release the outbound
+    // slot before the test observes it (especially on Windows). That measures a closed connection.
+    let second=accept(&target).expect("outbound reconnects despite a full inbound set");
+    assert!(wait_until(1000,||r.net.counters.outbound.load(Ordering::SeqCst)==1),"the held replacement retains its outbound slot");
+    assert_eq!(r.net.counters.handshaking.load(Ordering::SeqCst),3,"inbound handshakes are still full when the replacement is admitted");
+    drop((second,idle));
 }
 /// RpcGuard REQ_BUF (network.md:229): request line, headers and body together. A request that
 /// fills REQ_BUF exactly is served; one byte more is 413 without reaching the node.

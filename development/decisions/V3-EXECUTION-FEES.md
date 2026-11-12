@@ -162,3 +162,10 @@ assertions. Its old client-wall-time upper bound compared an unloaded ~29 ms VM
 sample with a client competing against eight flood threads; CI observed ~48 ms
 despite HTTP 504. The causal probe replaces that scheduler-dependent comparison;
 production deadlines and cancellation behavior are unchanged.
+
+The inbound-flood regression holds the accepted replacement connection until
+both its reserved outbound slot and the still-full inbound handshake set are
+checked. Previously the temporary `accept(...).is_some()` dropped the remote
+socket before checking its live count; Windows could release the slot first.
+This fixes the test's socket lifetime, without changing production connection
+limits, reconnect behavior, or test timeouts.
