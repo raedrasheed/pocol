@@ -101,6 +101,8 @@ control does not create a fictitious charged sender. `eth_call` remains an
 unpriced read-only simulation. Neither query commits state or burns funds.
 The gas search respects an explicit gas limit and the sender's real gas-price
 budget; it does not require enough balance to buy a whole block of gas.
+Priced estimates expose the actual next block's GASLIMIT to code, so the
+separate read-only call ceiling cannot select a different creation-fee branch.
 
 Gas estimates remain gas quantities, not coin-denominated fee quotes. Before I,
 the G client work must show the additional creation-burn estimate separately

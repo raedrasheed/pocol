@@ -1107,7 +1107,10 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
         tx.gas_priority_fee=o.get("maxPriorityFeePerGas").and_then(parse_u256);
         tx.gas_limit=tx.gas_limit.min(parse_u64(&o["gas"]).unwrap_or(u64::MAX));
     }
-    let ctx=NativeBlockContext{height:U256::from(e.height+1),timestamp:U256::from(e.ts+1),gas_limit:U256::from(cp.GAS_LIMIT.max(CALL_GAS_MAX)),base_fee,prevrandao:B256::ZERO};
+    // A priced estimate observes the real next block's GASLIMIT. The larger
+    // read-only call ceiling must not select a different state-creation branch.
+    let context_gas=if estimate_v3{cp.GAS_LIMIT}else{cp.GAS_LIMIT.max(CALL_GAS_MAX)};
+    let ctx=NativeBlockContext{height:U256::from(e.height+1),timestamp:U256::from(e.ts+1),gas_limit:U256::from(context_gas),base_fee,prevrandao:B256::ZERO};
     let base=n.chain.view_of(&e.hash).ok_or_else(||Fail::from((-32017,"state outside the retained trie window (K_hist)".to_string())))?;
     // eth_call simulation: fund the caller for value transfers, never committed (C-1 E3: on an overlay,
     // not a copy of the state).

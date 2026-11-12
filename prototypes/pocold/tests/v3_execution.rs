@@ -354,4 +354,16 @@ mod preview{
             assert_eq!(chain.head().base_fee,if v3{cfg.base_fee_min}else{U256::from(7)});
         }
     }
+
+    #[test]
+    fn creation_fee_estimation_uses_the_actual_block_gaslimit_opcode(){
+        let dir=Temp::new();let cfg=node_cfg(|c|c.f0_slot=U256::MAX);let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        // With the real 8M block limit this is a read. At the unrelated 30M
+        // eth_call ceiling it instead creates a slot whose fee is unpayable.
+        let runtime=[0x45,0x62,0x7a,0x12,0x00,0x14,0x60,15,0x57,0x60,1,0x60,0,0x55,0,0x5b,0];
+        let raw=Tx{chain_id:777938,nonce:0,max_priority:U256::from(7),max_fee:U256::from(2_000_000_007u64),gas:200000,to:None,value:U256::ZERO,data:Bytes::from(init(&runtime))}.sign_1559(&alice);
+        node.submit_tx(raw.clone(),false).unwrap();let block=solve(&node,vec![raw],cfg.g_ts+4);assert!(node.import(block,None).unwrap());
+        let result=rpc(&mut node,"eth_estimateGas",serde_json::json!([{"from":alice.address(),"to":alice.address().create(0)},"latest"]));
+        assert!(result.get("error").is_none(),"the next block has an 8M GASLIMIT and creates no slot: {result}");
+    }
 }
