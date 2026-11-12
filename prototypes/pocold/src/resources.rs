@@ -71,11 +71,20 @@ pub fn overlay_max(cp:&ConsensusParams)->Option<u128>{
 /// declared gas in the fallback, or a halt's declared gas), so GAS_LIMIT/TX_GAS_MIN more entries, and at most
 /// BODY_MAX more raw bytes (moved from the selection, which the template being built may fill again from the
 /// candidates). The candidates' bound therefore holds after the recovery too.
+/// N4 (V3-20, node-local): the third set, the senders seen while finding the big-first slot (B6), is gone: the fee
+/// order (`Node::fee_order_and_big`) finds that slot in its pass by sender. Its scratch, FEE_ORDER_ENTRY_BYTES (a u32
+/// index, which the selection keeps as its order, and a u64 priority) per pooled and parked candidate, each Vec
+/// allocated once at its length and never grown, is counted in that set's place, at the larger of the two. An
+/// eviction's scan (`Node::eviction_victim`, `Node::evict_parked_by_fee`) holds less and runs on the consensus thread
+/// in an admission, never during a selection, so the same place bounds it (`fee_order_bytes`).
 pub fn selection_bytes(cp:&ConsensusParams)->Option<u128>{
     let entries=add(&[u128::from(cp.BODY_MAX)/MIN_TX_BYTES+1,u128::from(cp.GAS_LIMIT)/TX_GAS_MIN])?;let senders=(node::POOL_MAX_TXS+node::POOL_PARKED_MAX+node::BUILD_VISIT_MAX) as u128;
     let per=add(&[mul(memory::VEC,node::CAND_ENTRY_BYTES as u128)?,mul(memory::VEC,24+8)?,mul(memory::VEC,24)?,memory::entry_bytes(28)])?;
-    add(&[mul(2,u128::from(cp.BODY_MAX))?,u128::from(cp.TX_MAX),mul(entries,per)?,mul(3,add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?)?])
+    let set=add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?;
+    add(&[mul(2,u128::from(cp.BODY_MAX))?,u128::from(cp.TX_MAX),mul(entries,per)?,mul(2,set)?,set.max(fee_order_bytes()?)])
 }
+/// N4: the fee order's scratch (`Node::fee_order_and_big`): FEE_ORDER_ENTRY_BYTES per pooled and parked candidate.
+pub fn fee_order_bytes()->Option<u128>{mul((node::POOL_MAX_TXS+node::POOL_PARKED_MAX) as u128,node::FEE_ORDER_ENTRY_BYTES as u128)}
 /// D-7: the gas the pool's layer can hold: its bound (`node::pool_gas_bound`), and at most POOL_MAX_TXS
 /// transactions of GAS_LIMIT each (the count bound binds first above it).
 pub fn pool_gas(cp:&ConsensusParams,limits:&Limits)->Option<u128>{
@@ -653,12 +662,6 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // `Node::pool_audit`), each a Vec counted at memory::VEC times its length.
     let pool_meta=mul(memory::VEC,mul(node::POOL_MAX_TXS as u128,node::META_ENTRY_BYTES as u128)?)?;
     let parked=mul(memory::VEC,mul(node::POOL_PARKED_MAX as u128,node::PARKED_ENTRY_BYTES as u128)?)?;
-    // N4 (V3-20): META_ENTRY_BYTES 32 -> 80 and PARKED_ENTRY_BYTES 160 -> 192 (nonce, fee caps, replacements), and the
-    // fee order's scratch (`Node::fee_order`: FEE_ORDER_ENTRY_BYTES per pooled and parked candidate, each Vec at
-    // memory::VEC times its length). An eviction's tail scan (`eviction_victim`, `evict_parked_by_fee`) holds fewer
-    // entries of at most that size; both run on the consensus thread and free their scratch before they return, so
-    // at most one is alive, counted once here.
-    let fee_order=mul(memory::VEC,mul((node::POOL_MAX_TXS+node::POOL_PARKED_MAX) as u128,node::FEE_ORDER_ENTRY_BYTES as u128)?)?;
     let selection=selection_bytes(cp)?;
     // D-7: revalidation expands one abandoned block's body at a time into the backlog, beside the pool's bytes
     // (`Node::pool_step_until`; `Node::pool_audit` checks the sum).
@@ -703,7 +706,6 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let ck=((32*(size_of::<([u8;32],chain::Costly)>() as u128+1)).div_ceil(7)).div_ceil(8)*8;
     let costly=add(&[mul(chain::COSTLY_MAX as u128+1,add(&[mul(2,ck)?,128,REASON_MAX,16])?)?,1024])?;
     let q=[("queues/transaction pool",pool),("queues/pool sender and declared gas (POOL_MAX_TXS, PR6)",pool_meta),("queues/parked transactions' entries (POOL_PARKED_MAX, PR6)",parked),
-        ("queues/the pool's fee order or an eviction's tail scan (POOL_MAX_TXS + POOL_PARKED_MAX, N4)",fee_order),
         ("queues/template selection: append-round candidates and skipped senders (BODY_MAX, PR6)",selection),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
         ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps),

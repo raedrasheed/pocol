@@ -553,18 +553,24 @@ three terms: one up and two down. It also withdraws one projection.
 - **A13 (N4, V3-20 node-local pool).** G, `pool_gas` and the pending-layer term are unchanged. Evicted transactions
   and replacements that declare less keep their gas in the pool's `gas` until the next head (`ghost_gas`), so the
   layer still holds at most the gas bound's writes. Row changes:
-  - queues/pool sender and declared gas: META_ENTRY_BYTES 32 → 80, adding the nonce, two u128 fee caps and a
-    replacement count;
-  - queues/parked transactions' entries: PARKED_ENTRY_BYTES 160 → 192, adding the fee caps and replacement count;
-  - new row, queues/the pool's fee order or an eviction's tail scan: 3 × (POOL_MAX_TXS + POOL_PARKED_MAX) ×
-    FEE_ORDER_ENTRY_BYTES (40). This covers the index of `fee_order` (which the output reuses), its next link and
-    a heap entry. An eviction's scan holds fewer entries: an index and a parked sender. Both run on the consensus
-    thread and free their scratch before returning, so they are counted once.
+  - queues/pool sender and declared gas and queues/parked transactions' entries: unchanged (META_ENTRY_BYTES 32,
+    PARKED_ENTRY_BYTES 160). Nonces and fee caps are read from the raw bytes (`node::tx_fields`, no allocation); the
+    replacement count fits each entry's padding.
+  - queues/template selection: the third sender set, the senders seen while finding the big-first slot (B6), is
+    gone. The fee order (`Node::fee_order_and_big`) finds that slot in its pass by sender. Its scratch,
+    (POOL_MAX_TXS + POOL_PARKED_MAX) × FEE_ORDER_ENTRY_BYTES (12: a u32 index, which the selection keeps as its order,
+    and a u64 priority) = 61,440 B, is counted in that set's place (885,052 B), at the larger of the two
+    (`resources::selection_bytes`, `fee_order_bytes`). Both Vecs are allocated once at their length and never grown.
+    An eviction's scan (a u32 per pooled and parked transaction) and the parked set's fee eviction (a u32 and a u64
+    per parked one) hold less. They run on the consensus thread during an admission, never during a selection, so the
+    same place bounds them.
+  - A pooled replacement's execution checks run on a scratch overlay over the head state: one execution, the same
+    term as any admission's (EXECUTIONS = 1).
 
-  Devnet pin: +589,824 + 98,304 + 614,400 = +1,302,528 B, 3,397,791,234 → 3,399,093,762 (eviction off
-  3,389,632,141). The live chain's halt moves by −513 to −554 records (tests/network_budget.rs). The seed rule's
-  outcome is unchanged. The disk-bytes stop moves by 4,096 × 1,302,528 B. Replacements, at most POOL_REPLACE_MAX per
-  head, take an entry's place and hold no memory beyond POOL_MAX_BYTES.
+  No pin moves: the devnet total stays 3,397,791,234 (eviction off 3,388,329,613), and the live chain's halt and
+  disk-bytes stops in tests/network_budget.rs are unchanged. (The first N4 draft added +1,302,528 B with wider
+  entries and a separate fee-order row; the review asked for the pins to return.)
+  Replacements take an entry's place and hold no memory beyond POOL_MAX_BYTES.
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
   which no stop hook can cut short.

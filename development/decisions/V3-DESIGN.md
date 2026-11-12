@@ -862,17 +862,29 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
   - **Delivered by N4** (node-local: `pocold/src/node.rs`, `rpc.rs`, `resources.rs`; no boundary file, block
     validity, fork choice or journal/checkpoint byte changes). The policy and its errors are in network.md
     "Mempool fee policy".
-    - Fee-ordered selection. The pooled and parked candidates are taken highest effective tip first, where the
-      effective tip is min(priority, maxFee − baseFee) at the block's base fee. Each sender's transactions keep nonce
-      order. Ties keep the earlier candidate order (FIFO), so the order is deterministic. The big-first slot is kept.
+    - Fee-ordered selection. The pooled and parked candidates are taken highest priority first. A candidate's
+      priority is the lowest effective tip, min(priority fee, maxFee − baseFee) at the block's base fee, among it and
+      its sender's earlier candidates, so each sender's transactions keep nonce order. Ties keep the earlier
+      candidate order (FIFO), so the order is deterministic. The big-first slot is kept.
+    - Overdraft rule. A new submission must be covered by its sender's head-state balance together with its pooled
+      and parked transactions (gas × maxFee + value each). No pooled transaction then depends on another pending
+      one's funds, so an eviction, a replacement or the fee order cannot leave transactions pooled but unaffordable.
     - Replace-by-fee. The same sender and nonce, pooled or parked, is replaced in place when both caps rise by at
-      least 10 %. At most 256 replacements per head and 4 per entry per head, and each is offered to peers once.
-    - Lowest-fee eviction. At the count or byte bound, a higher tip evicts the lowest-tip tail of another sender's
-      pooled nonce chain, and only after the newcomer has executed. A full parked set evicts the lowest-tip parked
-      tail once PR6's rules make no room. The quota, parking, the gas bound (evicted gas stays counted until the next
-      head) and the relay bounds are unchanged.
-    - A13 records the larger meta and parked entries and the fee order's scratch: +1,302,528 B on the devnet pin.
-      The live chain's halt moves by −513 to −554 records, and the seed rule's outcome is unchanged.
+      least 10 % and the overdraft rule holds. A pooled replacement also passes the pool's execution checks, run on
+      the head without committing. At most 4 replacements per entry and 8 per sender per head; no pool-wide
+      acceptance limit. At most 256 are relayed per head; a later one is pooled but not relayed.
+    - Lowest-fee eviction. At the count or byte bound, a higher priority evicts the tail of another sender's pooled
+      nonce chain ranked lowest by the fee order (its chain's lowest tip), only after the newcomer has executed. The
+      victim's nonce goes back to its sender in the pending state, so the sender can resubmit or outbid. Under the
+      default limits the gas bound binds before the count bound, so pooled eviction rarely runs; fee competition at
+      the gas bound works through the fee-ordered parked set, whose fee eviction is planned in one pass and evicts
+      nothing unless it frees all the room. The quota, parking, the gas bound (evicted gas stays counted until the
+      next head) and the relay bounds are unchanged. The open gap above (cheap declared gas holding the gas bound
+      against admission into the pending state) is narrowed, not closed: such transactions still hold the gas bound
+      until the next head, but higher payers reach the next block through the parked set.
+    - A13: no pin moves. The meta and parked entries keep their PR6 sizes (nonces and fee caps are read from the raw
+      bytes). The fee order's scratch, (4,096 + 1,024) × 12 = 61,440 B, takes the place of the selection's first-seen
+      sender set (885,052 B), which the fee order's pass by sender replaces.
 
 **Principle check.**
 - (a) and (b) keep P6: R_tot is still shared by a deterministic pre-mining rule, and the proposer is drawn

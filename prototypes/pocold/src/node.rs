@@ -289,10 +289,11 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     pub gas:u64,pub gas_max:u64,pub ghost_gas:u64,
     /// PR6 P4: per pooled transaction (aligned with `txs`), its sender, declared gas limit and whether it is
     /// exempt from the sender quota (returned from an abandoned block); and the quota (`pool_sender_gas_bound`).
-    /// N4: also its nonce, fee caps (the fee order) and replacements since the last head (`Meta`).
+    /// N4: also its replacements since the last head (`Meta`); its nonce and fee caps are read from its bytes
+    /// (`TxFields`), so the entry keeps its PR6 size.
     meta:Vec<Meta>,pub sender_gas_max:u64,
-    /// N4 (V3-20, node-local): replacements accepted since the last head (at most POOL_REPLACE_MAX).
-    replaced:usize,
+    /// N4 (V3-20, node-local): replacements relayed since the last head (at most POOL_REPLACE_RELAY_MAX).
+    replace_relays:usize,
     /// PR6 P2: transactions refused only by the gas bound and held for the next head (at most `parked_max`
     /// <= POOL_PARKED_MAX; per sender a run of its next nonces, in arrival order); their bytes share POOL_MAX_BYTES
     /// with `txs` and the backlog; and the arrival counter that orders them. PR6 review: they are template
@@ -305,53 +306,81 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
 /// (gas_limit × fee cap + value), how it is relayed once admitted, and its bytes. PR6 third review: `ahead`, the
 /// number of pooled transactions when it was parked. The pool only grows between two heads, so the pooled
 /// transactions at an index below it arrived before it and the others after it (the big-first slot, B6).
-/// N4: its fee caps (the fee order and replacement, `Fees`) and its replacements since the last head; a replacement
-/// keeps the entry's arrival, run and `ahead`.
-struct Parked{gas:u64,nonce:u64,seq:u64,run:(u64,u64),ahead:u64,sender:Address,hash:B256,cost:U256,relay:Relay,raw:Vec<u8>,fees:Fees,repl:u8}
+/// N4: its replacements since the last head; a replacement keeps the entry's arrival, run and `ahead`. Its fee caps
+/// are read from its bytes (`TxFields`).
+struct Parked{gas:u64,nonce:u64,seq:u64,run:(u64,u64),ahead:u64,sender:Address,hash:B256,cost:U256,relay:Relay,raw:Vec<u8>,repl:u8}
 /// N4 (V3-20, node-local): a pooled transaction's entry beside its raw bytes (`Pool::meta`): sender, declared gas,
-/// whether it is exempt from the sender quota, nonce, fee caps and its replacements since the last head.
+/// whether it is exempt from the sender quota (PR6 P4) and its replacements since the last head.
 #[derive(Clone,Copy,Debug)]
-struct Meta{fees:Fees,gas:u64,nonce:u64,sender:Address,exempt:bool,repl:u8}
-/// N4: a transaction's fee caps in wei per gas: maxFeePerGas and maxPriorityFeePerGas (a legacy or EIP-2930
-/// transaction's gas price for both, as revm prices it). Held as u128, saturated: a pooled or parked transaction's
-/// sender can pay gas_limit x fee cap, so a cap past u128::MAX needs a balance past 2^128 x 21,000 wei; caps that
-/// saturate compare equal and the arrival order decides between them.
+struct Meta{gas:u64,sender:Address,exempt:bool,repl:u8}
+/// N4 (V3-20, node-local): what the fee market reads of a pooled or parked transaction: its nonce, fee caps in wei
+/// per gas (maxFeePerGas and maxPriorityFeePerGas; a legacy or EIP-2930 transaction's gas price for both, as revm
+/// prices it) and value. Read from its raw bytes (`tx_fields`, no signature recovery) rather than stored beside it,
+/// so the pool's entries keep their PR6 sizes (A13).
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
-pub struct Fees{pub cap:u128,pub tip:u128}
-impl Fees{
-    pub fn of(tx:&revm::primitives::TxEnv)->Fees{
-        let sat=|v:U256|u128::try_from(v).unwrap_or(u128::MAX);let cap=sat(tx.gas_price);
-        Fees{cap,tip:tx.gas_priority_fee.map_or(cap,sat)}
-    }
+pub struct TxFields{pub nonce:u64,pub cap:U256,pub tip:U256,pub value:U256}
+impl TxFields{
+    pub fn of(tx:&revm::primitives::TxEnv)->TxFields{TxFields{nonce:tx.nonce.unwrap_or(0),cap:tx.gas_price,tip:tx.gas_priority_fee.unwrap_or(tx.gas_price),value:tx.value}}
     /// The effective tip per gas at `base`, the fee order's key: min(tip cap, fee cap - base fee), or 0 when the fee
     /// cap is below the base fee (such a transaction is not includable now; it is tried last and fails then).
-    pub fn effective_tip(&self,base:U256)->u128{
-        let b=u128::try_from(base).unwrap_or(u128::MAX);if self.cap<b{0}else{self.tip.min(self.cap-b)}
-    }
+    /// Saturated at u64::MAX wei per gas (18.4 ether per gas): tips past it compare equal and the candidate order
+    /// decides between them.
+    pub fn effective_tip(&self,base:U256)->u64{if self.cap<base{0}else{u64::try_from(self.tip.min(self.cap-base)).unwrap_or(u64::MAX)}}
+    /// gas_limit x fee cap + value, what the sender must hold for it (None past U256).
+    pub fn cost(&self,gas:u64)->Option<U256>{U256::from(gas).checked_mul(self.cap).and_then(|c|c.checked_add(self.value))}
     /// Whether `self` replaces `old` (replace-by-fee): both caps strictly higher and each at least POOL_PRICE_BUMP
-    /// percent above the old one (EIP-1559 clients' rule). Exact: the products are taken in U256.
-    pub fn bumps(&self,old:&Fees)->bool{
-        let need=|o:u128|U256::from(o)*U256::from(100+POOL_PRICE_BUMP);
-        self.cap>old.cap&&self.tip>old.tip&&U256::from(self.cap)*U256::from(100)>=need(old.cap)&&U256::from(self.tip)*U256::from(100)>=need(old.tip)
+    /// percent above the old one (EIP-1559 clients' rule).
+    pub fn bumps(&self,old:&TxFields)->bool{
+        let need=|o:U256|o.saturating_mul(U256::from(100+POOL_PRICE_BUMP));let have=|n:U256|n.saturating_mul(U256::from(100));
+        self.cap>old.cap&&self.tip>old.tip&&have(self.cap)>=need(old.cap)&&have(self.tip)>=need(old.tip)
     }
     /// The least caps that replace `old`: each strictly above it and at least POOL_PRICE_BUMP percent above it.
-    pub fn min_replacement(old:&Fees)->(U256,U256){
-        let f=|o:u128|(U256::from(o)*U256::from(100+POOL_PRICE_BUMP)).div_ceil(U256::from(100)).max(U256::from(o)+U256::from(1));
+    pub fn min_replacement(old:&TxFields)->(U256,U256){
+        let f=|o:U256|o.saturating_mul(U256::from(100+POOL_PRICE_BUMP)).div_ceil(U256::from(100)).max(o.saturating_add(U256::from(1)));
         (f(old.cap),f(old.tip))
     }
 }
+/// One RLP item at the start of `b`: whether it is a list, its payload and the bytes after it.
+fn rlp_item(b:&[u8])->Option<(bool,&[u8],&[u8])>{
+    let (&h,rest)=b.split_first()?;
+    let long=|n:usize,r:&[u8]|->Option<(usize,usize)>{if n>8||r.len()<n{return None}Some((r[..n].iter().fold(0usize,|a,x|(a<<8)|*x as usize),n))};
+    let (list,len,skip)=match h{0x00..=0x7f=>return Some((false,&b[..1],rest)),0x80..=0xb7=>(false,(h-0x80) as usize,0),
+        0xb8..=0xbf=>{let (l,n)=long((h-0xb7) as usize,rest)?;(false,l,n)},0xc0..=0xf7=>(true,(h-0xc0) as usize,0),_=>{let (l,n)=long((h-0xf7) as usize,rest)?;(true,l,n)}};
+    let rest=&rest[skip..];if rest.len()<len{return None}Some((list,&rest[..len],&rest[len..]))
+}
+/// N4: a decoded transaction's `TxFields` read from its raw bytes (wire.rs's layouts: legacy [nonce, gasPrice, gas,
+/// to, value, ..], EIP-2930 [chainId, nonce, gasPrice, gas, to, value, ..], EIP-1559 [chainId, nonce,
+/// maxPriorityFeePerGas, maxFeePerGas, gas, to, value, ..]). Only the leading fields are walked; no allocation and
+/// no signature recovery. The pool holds only transactions `wire::decode_for_profile` accepted, so this is None only
+/// for bytes it would refuse (`pool_audit` checks the two agree).
+pub fn tx_fields(raw:&[u8])->Option<TxFields>{
+    let (kind,enc)=match *raw.first()?{k@(0x01|0x02)=>(k,&raw[1..]),0xc0..=0xff=>(0,raw),_=>return None};
+    let (list,mut p,_)=rlp_item(enc)?;if !list{return None}
+    let mut f=[&[][..];7];let n=match kind{0=>5,1=>6,_=>7};
+    for x in f.iter_mut().take(n){let (l,v,r)=rlp_item(p)?;if l{return None}*x=v;p=r;}
+    let u=|b:&[u8]|(b.len()<=32).then(||U256::from_be_slice(b));let u64_=|b:&[u8]|(b.len()<=8).then(||b.iter().fold(0u64,|a,x|(a<<8)|*x as u64));
+    Some(match kind{0=>TxFields{nonce:u64_(f[0])?,cap:u(f[1])?,tip:u(f[1])?,value:u(f[4])?},1=>TxFields{nonce:u64_(f[1])?,cap:u(f[2])?,tip:u(f[2])?,value:u(f[5])?},
+        _=>TxFields{nonce:u64_(f[1])?,tip:u(f[2])?,cap:u(f[3])?,value:u(f[6])?}})
+}
 /// N4 (V3-20, node-local): replace-by-fee. A transaction with a pooled or parked one's sender and nonce replaces it
-/// only when both its fee caps rise by at least this many percent (`Fees::bumps`).
+/// only when both its fee caps rise by at least this many percent (`TxFields::bumps`).
 pub const POOL_PRICE_BUMP:u64=10;
-/// N4: the most replacements the pool accepts between two heads, and the most of one pooled or parked entry. Each
-/// accepted replacement is offered to the peers once, so these bound the relays replacements cost per head
-/// (POOL_REPLACE_MAX), whatever the bump; one more is refused with POOL_REPLACE_LIMIT until the next head.
-pub const POOL_REPLACE_MAX:usize=256;pub const POOL_REPLACE_SLOT_MAX:u8=4;
+/// N4: the most replacements of one pooled or parked entry, and of one sender's entries, between two heads; one more
+/// is refused with POOL_REPLACE_LIMIT until the next head. There is no pool-wide limit on accepting them (one sender
+/// cannot use up another's), so the entries and senders bound them: at most 4 x (POOL_MAX_TXS + POOL_PARKED_MAX).
+pub const POOL_REPLACE_SLOT_MAX:u8=4;pub const POOL_REPLACE_SENDER_MAX:u32=8;
+/// N4: the most replacements relayed between two heads. Each is offered to the peers once while fewer were relayed,
+/// so replacements cost at most this many relays per head, whatever the bump; a later one is pooled here and not
+/// relayed (`Stats::replace_unrelayed`).
+pub const POOL_REPLACE_RELAY_MAX:usize=256;
 /// N4: the refusal of a replacement whose caps do not both rise by POOL_PRICE_BUMP percent (the answer goes on with
 /// the least caps that would replace it). -32000, the code and words EIP-1559 clients use.
 pub const POOL_REPLACE_UNDERPRICED:&str="-32000 replacement transaction underpriced";
-/// N4: the refusal of a replacement past POOL_REPLACE_MAX or POOL_REPLACE_SLOT_MAX since the last head.
-pub const POOL_REPLACE_LIMIT:&str="-32016 pool full (replacements): retry after the next block";
+/// N4: the refusal of a replacement past POOL_REPLACE_SLOT_MAX or POOL_REPLACE_SENDER_MAX since the last head.
+pub const POOL_REPLACE_LIMIT:&str="-32016 replacement limit: retry after the next block";
+/// N4: the refusal of a new submission (RPC or a peer's relay) whose sender's head-state balance does not cover it
+/// with the sender's pooled and parked transactions, each at gas_limit x maxFeePerGas + value (`Node::committed`).
+pub const POOL_OVERDRAFT:&str="-32000 insufficient funds for gas * price + value with the sender's pooled and parked transactions";
 /// N4: the refusal of a transaction at the pool's count or byte bound that does not pay a higher effective tip than
 /// the lowest one it could evict (the answer goes on with that tip), or finds none to evict.
 pub const POOL_EVICT_UNDERPRICED:&str="-32016 pool full: tip too low to evict";
@@ -361,15 +390,18 @@ pub const POOL_PARKED_MAX:usize=1024;
 /// A13 (resources, PR6): the bytes counted for one pool meta entry, one parked entry (its raw bytes are inside
 /// POOL_MAX_BYTES) and one append-round candidate (its raw bytes are counted apart). Fixed, so the pinned total
 /// does not follow rustc's layout; checked below.
-/// N4: META_ENTRY_BYTES 32 -> 80 (nonce, fee caps, replacements) and PARKED_ENTRY_BYTES 160 -> 192 (fee caps,
-/// replacements); FEE_ORDER_ENTRY_BYTES, one candidate of the fee order (`fee_order`: its index, which the output
-/// reuses, its next link and a heap entry) or of an eviction's tail scan (an index and a parked sender).
-pub const META_ENTRY_BYTES:usize=80;pub const PARKED_ENTRY_BYTES:usize=192;pub const CAND_ENTRY_BYTES:usize=64;pub const FEE_ORDER_ENTRY_BYTES:usize=40;
-const _:()=assert!(2*std::mem::size_of::<u32>()+std::mem::size_of::<(u128,std::cmp::Reverse<u32>)>()<=FEE_ORDER_ENTRY_BYTES&&std::mem::size_of::<u32>()+std::mem::size_of::<Address>()<=FEE_ORDER_ENTRY_BYTES);
+/// N4: the entries keep these sizes (the replacement count fits their padding). FEE_ORDER_ENTRY_BYTES: one candidate
+/// of the fee order's scratch (`fee_order_and_big`: its index, which the output reuses, and its priority), of an
+/// eviction's scan (`eviction_victim`: a pooled index, or a parked index by sender) or of the parked set's fee
+/// eviction (`evict_parked_by_fee`: a parked index and its priority); each allocated at its full length once, never
+/// grown. A13 counts it in the place of the selection's former first-seen sender set (`resources::selection_bytes`).
+pub const META_ENTRY_BYTES:usize=32;pub const PARKED_ENTRY_BYTES:usize=160;pub const CAND_ENTRY_BYTES:usize=64;pub const FEE_ORDER_ENTRY_BYTES:usize=12;
+const _:()=assert!(std::mem::size_of::<u32>()+std::mem::size_of::<u64>()<=FEE_ORDER_ENTRY_BYTES);
 const _:()=assert!(std::mem::size_of::<Meta>()<=META_ENTRY_BYTES&&std::mem::size_of::<Parked>()<=PARKED_ENTRY_BYTES&&std::mem::size_of::<Cand>()<=CAND_ENTRY_BYTES);
 /// One backlog entry: an abandoned block's journal offset, or a transaction and how to relay it once
-/// admitted (a P2P transaction that arrived during the backlog is relayed then, as it would have been).
-enum PoolItem{Block(u64),Tx(Vec<u8>,Relay)}
+/// admitted. N4 review: `Fresh` is a P2P transaction that arrived during the backlog (`relay_tx`), a new submission
+/// (it may replace or evict, `admit_tx`), relayed once admitted as it would have been; a `Tx` is revalidated.
+enum PoolItem{Block(u64),Tx(Vec<u8>,Relay),Fresh(Vec<u8>)}
 /// N4: the entry a replacement takes: a pooled transaction's index, or a parked one's.
 #[derive(Clone,Copy,Debug)]
 enum Slot{Pooled(usize),Parked(usize)}
@@ -630,10 +662,10 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     pub template_gas_fallbacks:u64,pub template_gas_recoveries:u64,pub template_appended:u64,pub template_builds:u64,
     /// PR6 P1: submissions refused by the sender quota; P2: parked transactions evicted by one declaring less.
     pub sender_quota_refused:u64,pub parked_evicted:u64,
-    /// N4 (V3-20): replacements accepted, refused (underpriced or past a limit) and offered to the peers; pooled
-    /// transactions evicted by a higher tip and submissions refused for a tip too low to evict; parked ones evicted
-    /// by a higher tip.
-    pub pool_replaced:u64,pub replace_refused:u64,pub replace_relayed:u64,pub pool_evicted:u64,pub evict_refused:u64,pub parked_fee_evicted:u64,
+    /// N4 (V3-20): replacements accepted, refused (underpriced or past a limit), offered to the peers and accepted
+    /// past the relay bound (not relayed); pooled transactions evicted by a higher tip and submissions refused for a
+    /// tip too low to evict; parked ones evicted by a higher tip; new submissions refused by the overdraft rule.
+    pub pool_replaced:u64,pub replace_refused:u64,pub replace_relayed:u64,pub replace_unrelayed:u64,pub pool_evicted:u64,pub evict_refused:u64,pub parked_fee_evicted:u64,pub overdraft_refused:u64,
     /// PR6 review: parked transactions relayed when parked.
     pub parked_relayed:u64,
     /// VA-SPEC §2.5: Hellos refused for another network, a wire version below MIN and another consensus identity
@@ -1025,7 +1057,7 @@ impl Node{
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),template_seen:HashMap::new(),latency:Default::default(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,ghost_gas:0,meta:vec![],sender_gas_max:pool_sender_max,replaced:0,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,ghost_gas:0,meta:vec![],sender_gas_max:pool_sender_max,replace_relays:0,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -1425,6 +1457,14 @@ impl Node{
             None=>self.pool_settle()}}
         self.admit_tx(raw,if relay{Relay::Gossip}else{Relay::No},by,true)
     }
+    /// Tests only: queues `raw` for revalidation, as a new head queues a transaction returned from an abandoned block
+    /// or left in the previous pool (`PoolItem::Tx`, not relayed), and settles the backlog. Such a transaction is not
+    /// a new submission: the overdraft rule, replacement and fee eviction do not apply to it (N4), so a transaction
+    /// funded only by another pending one is admitted on the pending state, as an abandoned block's can be.
+    #[doc(hidden)]
+    pub fn requeue_for_revalidation(&mut self,raw:Vec<u8>){
+        self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_back(PoolItem::Tx(raw,Relay::No));self.pool_settle();
+    }
     /// A transaction from peer `from`: admitted now, or queued behind the backlog (D-7) and relayed once
     /// admitted. A queued one is held within POOL_MAX_BYTES with the pool. Only one admitted now credits `from`
     /// (`credit`): a duplicate is answered Ok without entering the pool, so the pool must grow; a queued one earns
@@ -1432,7 +1472,7 @@ impl Node{
     fn relay_tx(&mut self,raw:Vec<u8>,from:PeerId){
         if !self.pool_pending(){let n=self.pool.txs.len();let _=self.submit_tx(raw,true);if self.pool.txs.len()>n{self.credit(from,Useful::Tx);}return}
         if self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{return}
-        self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_back(PoolItem::Tx(raw,Relay::Gossip));
+        self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_back(PoolItem::Fresh(raw));
     }
     /// Whether a new head left pool revalidation to do (D-7).
     pub fn pool_pending(&self)->bool{!self.pool.backlog.is_empty()}
@@ -1476,16 +1516,20 @@ impl Node{
                     // A pool full by count refuses every further submission without a state change, so
                     // the rest of the backlog is dropped (PR #27 review R5-6).
                     if self.pool.txs.len()>=POOL_MAX_TXS{self.pool.backlog.clear();self.pool.backlog_bytes=0;break}
-                    // N4: a P2P arrival queued behind the backlog is a new submission (replacement, eviction).
-                    let fresh=relay==Relay::Gossip;let _=self.admit_tx(raw,relay,None,fresh);}
+                    let _=self.admit_tx(raw,relay,None,false);}
+                // N4 review: only a P2P arrival queued behind the backlog (`relay_tx`) is a new submission; a parked or
+                // previous-pool transaction re-queued at a head is revalidated (`fresh` false) whatever its relay.
+                PoolItem::Fresh(raw)=>{self.pool.backlog_bytes-=raw.len();let _=self.admit_tx(raw,Relay::Gossip,None,true);}
             }
             if Instant::now()>=by{break}
         }
         let ms=t0.elapsed().as_millis() as u64;self.stats.pool_slices+=1;self.stats.pool_slice_max_ms=self.stats.pool_slice_max_ms.max(ms);
     }
     /// `fresh`: a new submission (RPC, or a peer's relay), which may replace a pooled or parked transaction of its
-    /// sender and nonce (N4, `replace`) or evict the lowest-tip one at the count or byte bound (N4, `eviction_victim`);
-    /// a revalidation at a new head (the previous pool, the abandoned blocks) does neither.
+    /// sender and nonce (N4, `replace`) or evict the lowest-priority one at the count or byte bound (N4,
+    /// `eviction_victim`), and must be covered by its sender's head-state balance with the sender's other pooled and
+    /// parked transactions (N4 review, POOL_OVERDRAFT); a revalidation at a new head (the previous pool, the parked
+    /// set, the abandoned blocks) does none of these.
     fn admit_tx(&mut self,raw:Vec<u8>,relay:Relay,by:Option<Instant>,fresh:bool)->Result<B256,String>{
         let cp=self.chain.spec.cp();
         if raw.len()>cp.TX_MAX as usize{return Err("-32014 oversized".into())}
@@ -1495,28 +1539,43 @@ impl Node{
         // PR6 P2: a parked one is held already; nothing changes.
         if self.pool.parked.iter().any(|x|x.hash==hash){return Err(POOL_PARKED.into())}
         // D-7: refused before it is executed, with no state change; a new head recounts the sum.
-        let (gas_limit,caller,nonce)=(env.tx_env().gas_limit,env.tx_env().caller,env.tx_env().nonce.unwrap_or(0));let fees=Fees::of(&env.tx_env());
-        // N4 (V3-20), replace-by-fee: a new submission with a pooled or parked transaction's sender and nonce replaces
-        // it, or is refused (`replace`); it is never executed on the pending state, where that nonce is used.
+        let (gas_limit,caller,nonce)=(env.tx_env().gas_limit,env.tx_env().caller,env.tx_env().nonce.unwrap_or(0));let fields=TxFields::of(&env.tx_env());
         if fresh{
-            if let Some(i)=self.pool.meta.iter().position(|m|m.sender==caller&&m.nonce==nonce){return self.replace(raw,hash,&env.tx_env(),fees,Slot::Pooled(i),relay)}
-            if let Some(j)=self.pool.parked.iter().position(|x|x.sender==caller&&x.nonce==nonce){return self.replace(raw,hash,&env.tx_env(),fees,Slot::Parked(j),relay)}
+            // N4 (V3-20), replace-by-fee: a new submission with a pooled or parked transaction's sender and nonce replaces
+            // it, or is refused (`replace`); it is never committed to the pending state, where that nonce is used.
+            if let Some(i)=self.pooled_at(caller,nonce){return self.replace(raw,hash,&env.tx_env(),fields,Slot::Pooled(i),relay,by)}
+            if let Some(j)=self.pool.parked.iter().position(|x|x.sender==caller&&x.nonce==nonce){return self.replace(raw,hash,&env.tx_env(),fields,Slot::Parked(j),relay,by)}
         }
+        // N4 review, the overdraft rule (EIP-1559 clients'): a new submission's sender's balance at the head covers it
+        // and its pooled and parked ones, each at gas_limit x maxFeePerGas + value. A transaction funded only by
+        // another pending one (whose effects are in the pending state) waits until that one is mined, so taking a
+        // pooled transaction out before the next head (eviction, replacement) or ordering by fee never leaves another
+        // sender's transactions pooled but unaffordable in the next block. Checked where the transaction would be
+        // pooled or parked, after the refusals that come first as before PR N4 (the count and byte bounds' plain
+        // refusal, the sender quota), and before the eviction scan. Two reads and a scan of the pool's entries.
+        let overdraft=|n:&Self|fresh&&fields.cost(gas_limit).is_none_or(|c|!n.covers(caller,c,None));
         // N4 (V3-20), lowest-fee eviction: at the count or byte bound, a new submission that would be executed into the
         // pending state (its sender has nothing parked and the gas bound has room; otherwise it is refused, as before)
-        // evicts the pooled transaction with the lowest effective tip at the next base fee, among the last ones of
-        // their senders (so no remaining transaction follows it by nonce) of senders with nothing parked, that frees
-        // enough bytes, when it pays a strictly higher tip; else it is refused (POOL_EVICT_UNDERPRICED). The victim
-        // leaves only once the newcomer has executed and is committed, so an invalid newcomer evicts nothing.
+        // evicts the pooled transaction of lowest priority at the next base fee (`eviction_victim`: the last one of a
+        // sender with nothing parked, ranked as the fee order ranks it), when its own priority is strictly higher;
+        // else it is refused (POOL_EVICT_UNDERPRICED). The cheap refusals come first (N4 review): a fee cap below the
+        // next base fee, an effective tip of 0, a nonce other than the sender's pending one. The victim leaves only once
+        // the newcomer has executed and is committed, so an invalid newcomer evicts nothing.
         let mut victim=None;
         let total=self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len();
         if total>POOL_MAX_BYTES||self.pool.txs.len()>=POOL_MAX_TXS{
+            use pocol_lp4_execution::view::View;
             let executes=!self.pool.parked.iter().any(|x|x.sender==caller)&&self.pool.gas.saturating_add(gas_limit)<=self.pool.gas_max;
             if !fresh||!executes{return Err("-32016 pool full".into())}
-            let base=self.next_block_ctx().base_fee;let tip=fees.effective_tip(base);
+            let base=self.next_block_ctx().base_fee;let tip=fields.effective_tip(base);
+            if tip==0{self.stats.evict_refused+=1;return Err(format!("{POOL_EVICT_UNDERPRICED} (an effective tip of 0 at the next base fee {base} evicts nothing)"))}
+            if self.pool_view().account(&caller).map_or(0,|a|a.info.nonce)!=nonce{return Err("-32016 pool full".into())}
+            if overdraft(self){self.stats.overdraft_refused+=1;return Err(POOL_OVERDRAFT.into())}
+            // Its own priority: the fee order ranks it at the lowest tip of its sender's pooled ones and its own.
+            let own=tip.min(self.chain_priority(caller,base));
             match self.eviction_victim(caller,total.saturating_sub(POOL_MAX_BYTES),base){
-                Some((i,low)) if tip>low=>victim=Some(i),
-                Some((_,low))=>{self.stats.evict_refused+=1;return Err(format!("{POOL_EVICT_UNDERPRICED} (the lowest evictable effective tip is {low} wei per gas)"))}
+                Some((i,low)) if own>low=>victim=Some(i),
+                Some((_,low))=>{self.stats.evict_refused+=1;return Err(format!("{POOL_EVICT_UNDERPRICED} (the lowest evictable priority is {low} wei per gas; this one ranks at {own} wei per gas)"))}
                 None=>{self.stats.evict_refused+=1;return Err(format!("{POOL_EVICT_UNDERPRICED} (no pooled transaction can be evicted for it)"))}}
         }
         // PR6 P1: the sender quota, before the pool's bound. A transaction returned from an abandoned block was in a
@@ -1535,7 +1594,10 @@ impl Node{
             // PR6 second review: refused as the engine would refuse it before executing it (intrinsic gas and the
             // rest), never parked.
             let (tx,ctx)=(env.tx_env(),self.next_block_ctx());pre_execution(&tx,&ctx,self.chain.spec.profile().spec().chain_id)?;
-            return Err(self.park(raw,hash,&tx,relay).into())}
+            // N4 review: one the overdraft rule refuses is not held (the answer of any unaffordable one here).
+            if overdraft(self){self.stats.overdraft_refused+=1;return Err(POOL_FULL_GAS.into())}
+            return Err(self.park(raw,hash,&tx,relay,fresh).into())}
+        if overdraft(self){self.stats.overdraft_refused+=1;return Err(POOL_OVERDRAFT.into())}
         let ctx=self.next_block_ctx();
         let base=self.pool.pending_base.clone();let view=pocol_lp4_execution::view::LayerView{base:&base,layer:&self.pool.pending};
         let r=match(by,self.pool.code_total){
@@ -1572,7 +1634,7 @@ impl Node{
             (Some(t),Ok(b),Ok(a))=>t.checked_sub(b).and_then(|t|t.checked_add(a)),_=>None};
         // N4: the victim leaves now (the newcomer executed); its effects stay in the pending layer until the next head.
         if let Some(i)=victim{self.evict_pooled(i);}
-        self.pool.bytes+=raw.len();self.pool.gas+=gas_limit;self.pool.txs.push((hash,raw.clone()));self.pool.meta.push(Meta{fees,gas:gas_limit,nonce,sender:caller,exempt,repl:0});
+        self.pool.bytes+=raw.len();self.pool.gas+=gas_limit;self.pool.txs.push((hash,raw.clone()));self.pool.meta.push(Meta{gas:gas_limit,sender:caller,exempt,repl:0});
         match relay{
             Relay::Gossip=>self.broadcast(&Msg::Tx{raw},None),
             Relay::Offer=>{let m=Msg::Tx{raw};for p in self.peers.values(){if p.offer(&m){self.stats.reinserted_offered+=1}else{self.stats.reinserted_unoffered+=1}}}
@@ -1591,7 +1653,9 @@ impl Node{
     /// (`template_selection`) and is relayed now (PR6 review): the drawn proposer can take it in the next block
     /// even while the gas bound is held; PR6 second review: only one that evicted nothing, at most `parked_max` per
     /// head, offered; another is relayed when admitted at a later head. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
-    fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay)->&'static str{
+    /// N4: `fresh` (a new submission) may also evict parked ones of lower priority (`evict_parked_by_fee`); a
+    /// revalidation at a new head does not.
+    fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay,fresh:bool)->&'static str{
         use pocol_lp4_execution::view::View;
         let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
         let acct=view.account(&tx.caller).map(|a|a.info).unwrap_or_default();
@@ -1601,7 +1665,7 @@ impl Node{
         let total=cost.and_then(|c|spent.and_then(|s|s.checked_add(c)));
         let base=self.next_block_ctx().base_fee;
         if tx.nonce!=Some(next)||total.is_none_or(|c|acct.balance<c)||tx.gas_price<base{return POOL_FULL_GAS}
-        let fees=Fees::of(tx);let tip=fees.effective_tip(base);
+        let prio=TxFields::of(tx).effective_tip(base).min(self.chain_priority(tx.caller,base));
         let mut evicted=false;
         while self.pool.parked.len()>=self.pool.parked_max||self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()>POOL_MAX_BYTES{
             evicted=true;
@@ -1616,13 +1680,13 @@ impl Node{
             // PR6 second review: a run's later entries hold room only while it is spare. A newcomer that would be its
             // sender's first parked one evicts, at equal declared gas, the last entry of the longest run (the latest
             // of equals), so one sender's run of cheap transactions cannot set the eviction floor for many slots.
-            // N4 (V3-20): when neither rule makes room, the last parked transaction of another sender with the lowest
-            // effective tip (the latest of equals) makes room for one paying a strictly higher tip.
-            if run.is_some(){if self.evict_parked_by_fee(tx.caller,tip,base){continue}return POOL_FULL_GAS}
+            // N4 (V3-20): when neither rule makes room, a fresh submission takes the room from parked transactions of
+            // other senders of lower priority (`evict_parked_by_fee`), when they free all of it; else nothing is evicted.
+            if run.is_some(){if fresh&&self.evict_parked_by_fee(tx.caller,prio,base,raw.len()){continue}return POOL_FULL_GAS}
             let p=&self.pool.parked;let mut runs:HashMap<Address,(usize,usize)>=HashMap::new();
             for (j,x) in p.iter().enumerate(){let e=runs.entry(x.sender).or_insert((0,j));e.0+=1;if x.nonce>p[e.1].nonce{e.1=j;}}
             let Some(j)=runs.values().filter(|(m,j)|*m>=2&&p[*j].gas>=tx.gas_limit).max_by_key(|(m,j)|(*m,p[*j].seq)).map(|(_,j)|*j) else{
-                if self.evict_parked_by_fee(tx.caller,tip,base){continue}return POOL_FULL_GAS};
+                if fresh&&self.evict_parked_by_fee(tx.caller,prio,base,raw.len()){continue}return POOL_FULL_GAS};
             let x=self.pool.parked.remove(j);self.pool.parked_bytes-=x.raw.len();self.stats.parked_evicted+=1;
         }
         self.pool.parked_bytes+=raw.len();self.pool.park_seq+=1;let seq=self.pool.park_seq;
@@ -1633,104 +1697,197 @@ impl Node{
         let relay=if relay==Relay::Gossip&&!evicted&&self.pool.parked_relays<self.pool.parked_max{
             let m=Msg::Tx{raw:raw.clone()};for p in self.peers.values(){let _=p.offer(&m);}
             self.pool.parked_relays+=1;self.stats.parked_relayed+=1;Relay::No}else{relay};
-        self.pool.parked.push(Parked{gas:tx.gas_limit,nonce:next,seq,run:run.unwrap_or((tx.gas_limit,seq)),ahead:self.pool.txs.len() as u64,sender:tx.caller,hash,cost:cost.unwrap_or_default(),relay,raw,fees,repl:0});
+        self.pool.parked.push(Parked{gas:tx.gas_limit,nonce:next,seq,run:run.unwrap_or((tx.gas_limit,seq)),ahead:self.pool.txs.len() as u64,sender:tx.caller,hash,cost:cost.unwrap_or_default(),relay,raw,repl:0});
         POOL_PARKED
+    }
+    /// N4: the pooled transaction of `sender` with `nonce` (its nonce read from its bytes, `tx_fields`).
+    fn pooled_at(&self,sender:Address,nonce:u64)->Option<usize>{
+        self.pool.meta.iter().enumerate().filter(|(_,m)|m.sender==sender).map(|(i,_)|i).find(|&i|tx_fields(&self.pool.txs[i].1).is_some_and(|f|f.nonce==nonce))
+    }
+    /// N4 review: the summed cost (gas_limit x maxFeePerGas + value) of `sender`'s pooled and parked transactions,
+    /// leaving out `skip` (the entry a replacement takes); None past U256.
+    fn committed(&self,sender:Address,skip:Option<Slot>)->Option<U256>{
+        let mut sum=U256::ZERO;
+        for (i,m) in self.pool.meta.iter().enumerate(){
+            if m.sender!=sender||matches!(skip,Some(Slot::Pooled(k)) if k==i){continue}
+            sum=sum.checked_add(tx_fields(&self.pool.txs[i].1)?.cost(m.gas)?)?;
+        }
+        for (j,x) in self.pool.parked.iter().enumerate(){if x.sender==sender&&!matches!(skip,Some(Slot::Parked(k)) if k==j){sum=sum.checked_add(x.cost)?;}}
+        Some(sum)
+    }
+    /// N4 review, the overdraft rule: whether `sender`'s balance at the head covers `cost` with its pooled and parked
+    /// transactions (`committed`, without `skip`).
+    fn covers(&self,sender:Address,cost:U256,skip:Option<Slot>)->bool{self.headroom(sender,skip).is_some_and(|h|h>=cost)}
+    /// What the overdraft rule leaves `sender` for one more transaction: its head-state balance less `committed`.
+    fn headroom(&self,sender:Address,skip:Option<Slot>)->Option<U256>{
+        use pocol_lp4_execution::view::View;
+        let head=self.pool.pending_base.account(&sender).map(|a|a.info.balance).unwrap_or_default();
+        head.checked_sub(self.committed(sender,skip)?)
+    }
+    /// N4: the priority the fee order gives a transaction `sender` adds after its pooled and parked ones: the lowest
+    /// effective tip at `base` among them (u64::MAX when it holds none), capped by the newcomer's own tip by the caller.
+    fn chain_priority(&self,sender:Address,base:U256)->u64{
+        let pooled=self.pool.meta.iter().enumerate().filter(|(_,m)|m.sender==sender).map(|(i,_)|tx_fields(&self.pool.txs[i].1).map_or(0,|f|f.effective_tip(base)));
+        let parked=self.pool.parked.iter().filter(|x|x.sender==sender).map(|x|tx_fields(&x.raw).map_or(0,|f|f.effective_tip(base)));
+        pooled.chain(parked).min().unwrap_or(u64::MAX)
     }
     /// N4 (V3-20): the eviction candidate at the pool's count or byte bound for a new submission of `caller` that
     /// needs `need` more bytes: among the pooled transactions that are the last of their sender (pool order is each
-    /// sender's nonce order) of senders other than `caller` with nothing parked, holding at least `need` bytes, the
-    /// one with the lowest effective tip at `base` (the latest of equals), with that tip. The scan holds one
-    /// FEE_ORDER_ENTRY_BYTES entry per pooled transaction (A13: the fee order's term) and the parked senders.
-    fn eviction_victim(&self,caller:Address,need:usize,base:U256)->Option<(usize,u128)>{
-        let mut parked:Vec<Address>=self.pool.parked.iter().map(|x|x.sender).collect();parked.sort_unstable();parked.dedup();
+    /// sender's nonce order), of senders other than `caller` with nothing parked, holding at least `need` bytes, the
+    /// one of lowest priority at `base`, with that priority. N4 review: a tail's priority is the lowest effective tip
+    /// along its sender's pooled transactions, the rank the fee order gives it (`fee_order`), not its own tip: a
+    /// cheap first transaction holds a sender's later ones back whatever they pay. Ties take the latest. The scan
+    /// holds one u32 per pooled and per parked transaction (A13: FEE_ORDER_ENTRY_BYTES).
+    fn eviction_victim(&self,caller:Address,need:usize,base:U256)->Option<(usize,u64)>{
+        let p=&self.pool.parked;let mut ps:Vec<u32>=(0..p.len() as u32).collect();ps.sort_unstable_by_key(|&j|p[j as usize].sender);
         let m=&self.pool.meta;let mut by:Vec<u32>=(0..m.len() as u32).collect();by.sort_unstable_by_key(|&i|(m[i as usize].sender,i));
-        let mut best:Option<(u128,usize)>=None;
+        let (mut best,mut low):(Option<(u64,usize)>,u64)=(None,u64::MAX);
         for k in 0..by.len(){
             let i=by[k] as usize;let s=m[i].sender;
-            if k+1<by.len()&&m[by[k+1] as usize].sender==s||s==caller||parked.binary_search(&s).is_ok()||self.pool.txs[i].1.len()<need{continue}
-            let t=self.pool.meta[i].fees.effective_tip(base);
-            if best.is_none_or(|(bt,bi)|t<bt||(t==bt&&i>bi)){best=Some((t,i));}
+            if k==0||m[by[k-1] as usize].sender!=s{low=u64::MAX;}
+            low=low.min(tx_fields(&self.pool.txs[i].1).map_or(0,|f|f.effective_tip(base)));
+            if k+1<by.len()&&m[by[k+1] as usize].sender==s||s==caller||self.pool.txs[i].1.len()<need{continue}
+            if ps.binary_search_by(|&j|p[j as usize].sender.cmp(&s)).is_ok(){continue}
+            if best.is_none_or(|(bt,bi)|low<bt||(low==bt&&i>bi)){best=Some((low,i));}
         }
         best.map(|(t,i)|(i,t))
     }
     /// N4: removes pooled transaction `i` (an eviction). Its effects stay in the pending layer until the next head,
     /// so its gas moves to `ghost_gas` (`gas` does not fall); the parked ones that arrived after it keep their order.
+    /// N4 review: it was its sender's last transaction, so its nonce goes back to its sender in the pending state
+    /// (the account keeps the balance the victim spent, which only makes its next checks stricter): the sender can
+    /// submit it again, at a fee that outbids the pool's lowest, and its pending nonce (eth_getTransactionCount) does
+    /// not count the evicted one. An account that would read as empty (EIP-161) keeps the nonce.
     fn evict_pooled(&mut self,i:usize){
+        use pocol_lp4_execution::view::WorkState;
         let (_,raw)=self.pool.txs.remove(i);let m=self.pool.meta.remove(i);
         self.pool.bytes-=raw.len();self.pool.ghost_gas=self.pool.ghost_gas.saturating_add(m.gas);
         for x in &mut self.pool.parked{if x.ahead>i as u64{x.ahead-=1;}}
+        if let Some(n)=tx_fields(&raw).map(|f|f.nonce){
+            let mut ov=pocol_lp4_execution::view::Overlay::from_layer(&self.pool.pending_base,std::mem::take(&mut self.pool.pending));
+            if let Some(info)=ov.info_mut(&m.sender){
+                if info.nonce==n.saturating_add(1)&&(n>0||!info.balance.is_zero()||info.code_hash!=revm::primitives::KECCAK_EMPTY){info.nonce=n;}
+            }
+            self.pool.pending=ov.into_layer();
+        }
         self.stats.pool_evicted+=1;
     }
-    /// N4 (V3-20): makes room in the parked set for a transaction of `caller` paying effective tip `tip` at `base`:
-    /// evicts the last parked transaction (its run's highest nonce, so no parked one follows it) of another sender
-    /// with the lowest effective tip below `tip`, the latest of equals. False when there is none.
-    fn evict_parked_by_fee(&mut self,caller:Address,tip:u128,base:U256)->bool{
-        let p=&self.pool.parked;let mut by:Vec<u32>=(0..p.len() as u32).collect();by.sort_unstable_by_key(|&j|(p[j as usize].sender,j));
-        let mut best:Option<(u128,usize)>=None;
-        for k in 0..by.len(){
-            let j=by[k] as usize;let s=p[j].sender;
-            if k+1<by.len()&&p[by[k+1] as usize].sender==s||s==caller{continue}
-            let t=p[j].fees.effective_tip(base);
-            if t<tip&&best.is_none_or(|(bt,bj)|t<bt||(t==bt&&p[j].seq>p[bj].seq)){best=Some((t,j));}
+    /// N4 (V3-20): makes room in the parked set for a transaction of `caller` of priority `prio` at `base` and `len`
+    /// bytes (a free place when the set is full, and the bytes past POOL_MAX_BYTES). The candidates are the parked
+    /// transactions of other senders whose priority, the fee order's (the lowest effective tip among their sender's
+    /// pooled ones and their run up to them), is below `prio`, taken lowest first and the latest of equals first, so a
+    /// run's later ones go before its earlier ones and what stays is still a run. N4 review: the room is planned in
+    /// one pass first; only when the candidates free all of it are they evicted, else nothing is and the answer is
+    /// false. Scratch: a u32 and a u64 per parked transaction (A13: FEE_ORDER_ENTRY_BYTES).
+    fn evict_parked_by_fee(&mut self,caller:Address,prio:u64,base:U256,len:usize)->bool{
+        let p=&self.pool.parked;let n=p.len();
+        let tip=|j:usize|tx_fields(&p[j].raw).map_or(0,|f|f.effective_tip(base));
+        let mut by:Vec<u32>=(0..n as u32).collect();by.sort_unstable_by_key(|&j|(p[j as usize].sender,p[j as usize].nonce));
+        // Each run's priority: its sender's pooled minimum (kept at the run's first entry), then the running minimum.
+        let mut pr:Vec<u64>=vec![u64::MAX;n];
+        for (i,m) in self.pool.meta.iter().enumerate(){
+            let k=by.partition_point(|&j|p[j as usize].sender<m.sender);
+            if k<n&&p[by[k] as usize].sender==m.sender{let f=by[k] as usize;pr[f]=pr[f].min(tx_fields(&self.pool.txs[i].1).map_or(0,|x|x.effective_tip(base)));}
         }
-        let Some((_,j))=best else{return false};
-        let x=self.pool.parked.remove(j);self.pool.parked_bytes-=x.raw.len();self.stats.parked_fee_evicted+=1;true
+        let mut low=u64::MAX;
+        for k in 0..n{let j=by[k] as usize;if k==0||p[by[k-1] as usize].sender!=p[j].sender{low=pr[j];}low=low.min(tip(j));pr[j]=low;}
+        by.retain(|&j|p[j as usize].sender!=caller&&pr[j as usize]<prio);
+        by.sort_unstable_by_key(|&j|(pr[j as usize],std::cmp::Reverse(p[j as usize].seq)));
+        let need_n=(n+1).saturating_sub(self.pool.parked_max);
+        let need_b=(self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+len).saturating_sub(POOL_MAX_BYTES);
+        let (mut take,mut freed)=(0usize,0usize);
+        while take<by.len()&&(take<need_n||freed<need_b){freed+=p[by[take] as usize].raw.len();take+=1;}
+        if take<need_n||freed<need_b{return false}
+        by.truncate(take);by.sort_unstable();
+        let mut k=0u32;self.pool.parked.retain(|_|{let keep=by.binary_search(&k).is_err();k+=1;keep});
+        self.pool.parked_bytes-=freed;self.stats.parked_fee_evicted+=take as u64;true
     }
     /// N4 (V3-20), replace-by-fee: `tx` has the sender and nonce of the pooled or parked entry `slot`. It replaces
     /// that entry in place (its position, so the arrival order, and a parked one's run and `ahead`, are kept) when:
-    /// - both fee caps rise by at least POOL_PRICE_BUMP percent (`Fees::bumps`), else POOL_REPLACE_UNDERPRICED;
-    /// - fewer than POOL_REPLACE_MAX replacements were accepted since the last head and fewer than
-    ///   POOL_REPLACE_SLOT_MAX of this entry, else POOL_REPLACE_LIMIT (the relay bound: each accepted one is offered
-    ///   to the peers once, as a parked one is);
+    /// - both fee caps rise by at least POOL_PRICE_BUMP percent (`TxFields::bumps`), else POOL_REPLACE_UNDERPRICED;
+    /// - fewer than POOL_REPLACE_SLOT_MAX replacements of this entry and fewer than POOL_REPLACE_SENDER_MAX of its
+    ///   sender's entries were accepted since the last head, else POOL_REPLACE_LIMIT (N4 review: per entry and per
+    ///   sender, so one sender cannot use up the others' replacements);
     /// - the engine's checks before execution pass (`pre_execution`) and its fee cap covers the next base fee;
     /// - the pool's byte bound, the sender quota (the replacement is a new transaction, never exempt) and, for a
     ///   pooled entry, the gas bound hold with it in the old one's place;
-    /// - its sender can pay it at its fee cap and value: a pooled entry from the head state, the sender's balance
-    ///   before any of its pooled transactions; a parked one with the sender's other parked ones, from the pending
-    ///   state, as `park` checks.
-    /// It is not executed: a pooled one's predecessor effects stay in the pending layer until the next head, which
-    /// re-executes the replacement in its place (`rebuild_pool`), and the selection executes it on the block's parent
-    /// like any candidate. `gas` covers the larger of the two declared gases (`ghost_gas` the difference), so the
-    /// pending layer stays within the gas bound.
-    fn replace(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,fees:Fees,slot:Slot,relay:Relay)->Result<B256,String>{
+    /// - N4 review, the overdraft rule: the sender's head-state balance covers it with the sender's other pooled and
+    ///   parked transactions (`covers`), so its later transactions stay affordable whatever it spends; a parked one's
+    ///   pending-state check (`park`'s) holds too;
+    /// - N4 review: a pooled one passes the pool's execution checks (`replacement_checks`: the engine, the creation
+    ///   charge, its own logs, the meter) run on the head, as the selection runs it, without committing.
+    /// It is not committed to the pending state: the old one's effects stay in the pending layer until the next head,
+    /// which re-executes the replacement in its place (`rebuild_pool`), and the selection executes it on the block's
+    /// parent like any candidate. `gas` covers the larger of the two declared gases (`ghost_gas` the difference), so
+    /// the pending layer stays within the gas bound. It is relayed while fewer than POOL_REPLACE_RELAY_MAX were since
+    /// the last head; a later one is pooled here only (a parked one is relayed when admitted at the next head).
+    fn replace(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,fields:TxFields,slot:Slot,relay:Relay,by:Option<Instant>)->Result<B256,String>{
         use pocol_lp4_execution::view::View;
         let (old,repl,old_gas,old_len,old_exempt)=match slot{
-            Slot::Pooled(i)=>{let m=&self.pool.meta[i];(m.fees,m.repl,m.gas,self.pool.txs[i].1.len(),m.exempt)}
-            Slot::Parked(j)=>{let x=&self.pool.parked[j];(x.fees,x.repl,x.gas,x.raw.len(),matches!(x.relay,Relay::Offer|Relay::Returned))}};
-        if !fees.bumps(&old){let (c,t)=Fees::min_replacement(&old);self.stats.replace_refused+=1;
+            Slot::Pooled(i)=>{let m=self.pool.meta[i];(tx_fields(&self.pool.txs[i].1).unwrap_or_default(),m.repl,m.gas,self.pool.txs[i].1.len(),m.exempt)}
+            Slot::Parked(j)=>{let x=&self.pool.parked[j];(tx_fields(&x.raw).unwrap_or_default(),x.repl,x.gas,x.raw.len(),matches!(x.relay,Relay::Offer|Relay::Returned))}};
+        if !fields.bumps(&old){let (c,t)=TxFields::min_replacement(&old);self.stats.replace_refused+=1;
             return Err(format!("{POOL_REPLACE_UNDERPRICED} (both caps must rise by {POOL_PRICE_BUMP}%: maxFeePerGas >= {c} and maxPriorityFeePerGas >= {t} wei)"))}
-        if self.pool.replaced>=POOL_REPLACE_MAX||repl>=POOL_REPLACE_SLOT_MAX{self.stats.replace_refused+=1;return Err(POOL_REPLACE_LIMIT.into())}
+        let by_sender=self.pool.meta.iter().filter(|m|m.sender==tx.caller).map(|m|u32::from(m.repl)).chain(self.pool.parked.iter().filter(|x|x.sender==tx.caller).map(|x|u32::from(x.repl))).sum::<u32>();
+        if repl>=POOL_REPLACE_SLOT_MAX||by_sender>=POOL_REPLACE_SENDER_MAX{self.stats.replace_refused+=1;return Err(POOL_REPLACE_LIMIT.into())}
         let ctx=self.next_block_ctx();pre_execution(tx,&ctx,self.chain.spec.profile().spec().chain_id)?;
         if tx.gas_price<ctx.base_fee{return Err(format!("-32000 replacement maxFeePerGas {} is below the next base fee {}",tx.gas_price,ctx.base_fee))}
         if (self.pool.bytes+self.pool.backlog_bytes+self.pool.parked_bytes+raw.len()).saturating_sub(old_len)>POOL_MAX_BYTES{return Err("-32016 pool full".into())}
         let held=self.pool.meta.iter().filter(|m|m.sender==tx.caller&&!m.exempt).fold(0u64,|n,m|n.saturating_add(m.gas));
         let held=self.pool.parked.iter().filter(|x|x.sender==tx.caller&&!matches!(x.relay,Relay::Offer|Relay::Returned)).fold(held,|n,x|n.saturating_add(x.gas));
         if held.saturating_sub(if old_exempt{0}else{old_gas}).saturating_add(tx.gas_limit)>self.pool.sender_gas_max{self.stats.sender_quota_refused+=1;return Err(POOL_FULL_SENDER.into())}
-        let funds="-32000 insufficient funds for the replacement (gas limit x maxFeePerGas + value)";
-        let cost=U256::from(tx.gas_limit).checked_mul(tx.gas_price).and_then(|c|c.checked_add(tx.value)).ok_or(funds)?;
+        let cost=fields.cost(tx.gas_limit).ok_or(POOL_OVERDRAFT)?;
+        let Some(room)=self.headroom(tx.caller,Some(slot)).filter(|h|*h>=cost) else{self.stats.overdraft_refused+=1;return Err(POOL_OVERDRAFT.into())};
+        let relayed=relay==Relay::Gossip&&self.pool.replace_relays<POOL_REPLACE_RELAY_MAX;
         match slot{
             Slot::Pooled(i)=>{
-                let balance=self.pool.pending_base.account(&tx.caller).map(|a|a.info.balance).unwrap_or_default();
-                if balance<cost{return Err(funds.into())}
-                if tx.gas_limit>old_gas{let g=self.pool.gas.saturating_add(tx.gas_limit-old_gas);if g>self.pool.gas_max{return Err(POOL_FULL_GAS.into())}self.pool.gas=g;}
-                else{self.pool.ghost_gas=self.pool.ghost_gas.saturating_add(old_gas-tx.gas_limit);}
+                let gas=if tx.gas_limit>old_gas{let g=self.pool.gas.saturating_add(tx.gas_limit-old_gas);if g>self.pool.gas_max{return Err(POOL_FULL_GAS.into())}Some(g)}else{None};
+                self.replacement_checks(tx,&ctx,by,room)?;
+                match gas{Some(g)=>self.pool.gas=g,None=>self.pool.ghost_gas=self.pool.ghost_gas.saturating_add(old_gas-tx.gas_limit)}
                 self.pool.bytes=self.pool.bytes+raw.len()-old_len;self.pool.txs[i]=(hash,raw.clone());
-                let m=&mut self.pool.meta[i];m.fees=fees;m.gas=tx.gas_limit;m.exempt=false;m.repl=repl+1;
+                let m=&mut self.pool.meta[i];m.gas=tx.gas_limit;m.exempt=false;m.repl=repl+1;
             }
             Slot::Parked(j)=>{
                 let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
                 let balance=view.account(&tx.caller).map(|a|a.info.balance).unwrap_or_default();
                 let spent=self.pool.parked.iter().enumerate().filter(|(k,x)|x.sender==tx.caller&&*k!=j).try_fold(cost,|n,(_,x)|n.checked_add(x.cost));
-                if spent.is_none_or(|c|balance<c){return Err(funds.into())}
+                if spent.is_none_or(|c|balance<c){self.stats.overdraft_refused+=1;return Err(POOL_OVERDRAFT.into())}
                 self.pool.parked_bytes=self.pool.parked_bytes+raw.len()-old_len;
-                let x=&mut self.pool.parked[j];x.gas=tx.gas_limit;x.hash=hash;x.cost=cost;x.raw=raw.clone();x.fees=fees;x.repl=repl+1;
-                // Relayed now (below), so not again when admitted; a local one keeps no relay.
-                x.relay=Relay::No;
+                let x=&mut self.pool.parked[j];x.gas=tx.gas_limit;x.hash=hash;x.cost=cost;x.raw=raw.clone();x.repl=repl+1;
+                // Relayed now (below), so not again when admitted; one past the relay bound is relayed when admitted at
+                // the next head (within the parked set's own bounds); a local one keeps no relay.
+                x.relay=if relay==Relay::Gossip&&!relayed{Relay::Gossip}else{Relay::No};
             }
         }
-        self.pool.replaced+=1;self.stats.pool_replaced+=1;
-        if relay==Relay::Gossip{let m=Msg::Tx{raw};for p in self.peers.values(){let _=p.offer(&m);}self.stats.replace_relayed+=1;}
+        self.stats.pool_replaced+=1;
+        if relayed{let m=Msg::Tx{raw};for p in self.peers.values(){let _=p.offer(&m);}self.pool.replace_relays+=1;self.stats.replace_relayed+=1;}
+        else if relay==Relay::Gossip{self.stats.replace_unrelayed+=1;}
         Ok(hash)
+    }
+    /// N4 review: the execution checks a pooled replacement passes before it takes the old one's place. It runs as the
+    /// selection runs a candidate, on the head state (the next block's parent; the pending state still holds the old
+    /// one's effects), with its sender's nonce at its own and its balance at `room`, what the overdraft rule leaves
+    /// it; then the pool's admission checks: the engine's, the creation charge and the meter's caps at the pending
+    /// state's utilisation (as a newcomer's are priced) and its own logs. Nothing is committed (a scratch overlay).
+    fn replacement_checks(&self,tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,by:Option<Instant>,room:U256)->Result<(),String>{
+        use pocol_lp4_execution::view::{View,WorkState};
+        let mut ov=pocol_lp4_execution::view::Overlay::new(&self.pool.pending_base);
+        let mut info=self.pool.pending_base.account(&tx.caller).map(|a|a.info).unwrap_or_default();
+        info.nonce=tx.nonce.unwrap_or(0);info.balance=room;ov.insert_info(tx.caller,info);
+        let profile=self.chain.spec.profile();
+        let r=match(by,self.pool.code_total){
+            (Some(by),total)=>native::admit_for_profile(&ov,total,tx.clone(),ctx,profile,std::rc::Rc::new(move||Instant::now()>=by)),
+            (None,Some(total))=>native::execute_on_validated(&ov,total,tx.clone(),ctx,profile),
+            (None,None)=>native::execute_for_profile(&ov,tx.clone(),ctx,profile)};
+        let mut r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
+        if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
+        let v3=self.chain.spec.v3_active(self.chain.head().height.saturating_add(1));
+        let total=if v3{match self.pool.code_total{Some(t)=>t,None=>pocol_lp4_execution::code_caps::inventory(&ov).map_err(|e|format!("-32000 {e}"))?}}else{0};
+        let (slots,accounts,_)=self.pool.meter.live();
+        user_phase::charge_creation(&ov,&mut r,tx.caller,ctx,profile,(slots,accounts),total).map_err(|h|format!("-32000 creation charge would halt ({h:?})"))?;
+        if let Some(why)=own_logs_halt_for(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs(),v3){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
+        let mut meter=self.pool.meter;meter.admit(&ov,&r.state).map_err(|h|format!("-32000 pending state would exceed a cap ({h:?})"))?;
+        Ok(())
     }
     /// The parked transactions, in the order the next head admits them (PR6 P2; tests and inspection): each
     /// sender's run by its first one's declared gas and arrival, in nonce order.
@@ -1770,7 +1927,7 @@ impl Node{
         let mut parked=std::mem::take(&mut self.pool.parked);self.pool.backlog_bytes+=std::mem::take(&mut self.pool.parked_bytes);self.pool.parked_relays=0;
         parked.sort_by_key(|x|(x.run,x.nonce));
         // N4: the replacements' budget and the evicted or replaced gas restart with the pending layer.
-        self.pool.bytes=0;self.pool.gas=0;self.pool.ghost_gas=0;self.pool.replaced=0;self.pool.pending=Default::default();self.pool.pending_base=chain::StateHandle::of(self.chain.head());
+        self.pool.bytes=0;self.pool.gas=0;self.pool.ghost_gas=0;self.pool.replace_relays=0;self.pool.pending=Default::default();self.pool.pending_base=chain::StateHandle::of(self.chain.head());
         let (meter,code)=pool_start(self.chain.head(),&self.chain.spec);self.pool.code_total=code;self.pool.meter=meter;
         let big=self.chain.spec.cp().GAS_LIMIT/2;
         let mut q:VecDeque<PoolItem>=detached.into_iter().map(PoolItem::Block).collect();
@@ -1801,28 +1958,37 @@ impl Node{
         Some((NativeBlockContext{height:U256::from(p.height+1),timestamp:U256::from(ts),gas_limit:U256::from(self.chain.spec.cp().GAS_LIMIT),base_fee:ctx.base_fee,prevrandao:ctx.prevrandao},ctx.ancestors))
     }
     /// N4 (V3-20, node-local): the order the selection takes the pooled and parked candidates in, as candidate keys (a
-    /// pooled one its index, a parked one the pool's length + its index): the highest effective tip at `base`
-    /// (`Fees::effective_tip`, min(maxPriorityFeePerGas, maxFeePerGas - base fee)) first, a sender's candidate only after
-    /// its predecessor (each sender's queue is its pooled ones in pool order, then its parked ones in arrival order:
-    /// its nonce order), ties by candidate key (the pooled ones in pool order, then the parked ones in arrival order;
-    /// keys are distinct, so the order is total and deterministic). With equal tips this is the order before N4.
-    /// Bounded: one FEE_ORDER_ENTRY_BYTES entry per candidate (at most POOL_MAX_TXS + POOL_PARKED_MAX), O(n log n).
-    pub fn fee_order(&self,base:U256)->Vec<u32>{
-        use std::{cmp::Reverse,collections::BinaryHeap};
+    /// pooled one its index, a parked one the pool's length + its index). Each candidate's priority is the lowest
+    /// effective tip at `base` (`TxFields::effective_tip`, min(maxPriorityFeePerGas, maxFeePerGas - base fee)) among it
+    /// and its sender's earlier candidates (each sender's queue is its pooled ones in pool order, then its parked ones
+    /// in arrival order: its nonce order); the highest priority comes first, ties by candidate key (the pooled ones in
+    /// pool order, then the parked ones in arrival order; keys are distinct, so the order is total and deterministic).
+    /// A sender's priorities do not rise along its queue and its keys do, so its candidates keep their nonce order;
+    /// with equal tips this is the order before N4. N4 review: the eviction ranks a sender's last transaction the same
+    /// way (`eviction_victim`). Bounded: a u32 and a u64 per candidate (at most POOL_MAX_TXS + POOL_PARKED_MAX, A13
+    /// FEE_ORDER_ENTRY_BYTES, `resources::fee_order_bytes`), each allocated at its length once; O(n log n), sorted in place.
+    pub fn fee_order(&self,base:U256)->Vec<u32>{self.fee_order_and_big(base,u64::MAX).0}
+    /// `fee_order`, and the big-first slot's candidate (B6, PR6 third review) read from the same pass by sender: the
+    /// oldest candidate that is its sender's first (its first pooled one, or its first parked one when it has
+    /// nothing pooled) and declares more than `half`. Pooled ones are in arrival order; a parked one arrived after the
+    /// pooled ones below its `ahead` and before the others, and the parked set is in arrival order. This is the rule
+    /// PR6 computed with a set of the senders seen, which this pass replaces (A13: `resources::selection_bytes`
+    /// counts this scratch, at most 12 B per candidate, in that set's place).
+    pub fn fee_order_and_big(&self,base:U256,half:u64)->(Vec<u32>,Option<usize>){
         let np=self.pool.txs.len();let n=np+self.pool.parked.len();
         let sender=|c:usize|if c<np{self.pool.meta[c].sender}else{self.pool.parked[c-np].sender};
-        let tip=|c:usize|if c<np{self.pool.meta[c].fees}else{self.pool.parked[c-np].fees}.effective_tip(base);
+        let raw=|c:usize|if c<np{&self.pool.txs[c].1}else{&self.pool.parked[c-np].raw};
+        let gas=|c:usize|if c<np{self.pool.meta[c].gas}else{self.pool.parked[c-np].gas};
         // The candidates sorted in place by (sender, key): each sender's queue is a run, in its order.
         let mut idx:Vec<u32>=(0..n as u32).collect();idx.sort_unstable_by_key(|&c|(sender(c as usize),c));
-        let mut next=vec![u32::MAX;n];let mut senders=0usize;
-        for k in 0..n{if k==0||sender(idx[k-1] as usize)!=sender(idx[k] as usize){senders+=1;}
-            if k+1<n&&sender(idx[k+1] as usize)==sender(idx[k] as usize){next[idx[k] as usize]=idx[k+1];}}
-        let mut heap:BinaryHeap<(u128,Reverse<u32>)>=BinaryHeap::with_capacity(senders);
-        for k in 0..n{if k==0||sender(idx[k-1] as usize)!=sender(idx[k] as usize){heap.push((tip(idx[k] as usize),Reverse(idx[k])));}}
-        // The output reuses the index buffer (at most n entries, its capacity).
-        idx.clear();
-        while let Some((_,Reverse(c)))=heap.pop(){idx.push(c);let x=next[c as usize];if x!=u32::MAX{heap.push((tip(x as usize),Reverse(x)));}}
-        idx
+        let mut prio=vec![0u64;n];let mut low=u64::MAX;let (mut big_pooled,mut big_parked)=(None::<usize>,None::<usize>);
+        for k in 0..n{let c=idx[k] as usize;
+            if k==0||sender(idx[k-1] as usize)!=sender(c){low=u64::MAX;
+                if gas(c)>half{let b=if c<np{&mut big_pooled}else{&mut big_parked};if b.is_none_or(|b|c<b){*b=Some(c);}}}
+            low=low.min(tx_fields(raw(c)).map_or(0,|f|f.effective_tip(base)));prio[c]=low;}
+        let big=match(big_pooled,big_parked){(i,Some(c)) if i.is_none_or(|i|self.pool.parked[c-np].ahead as usize<=i)=>Some(c),(i,_)=>i};
+        idx.sort_unstable_by_key(|&c|(std::cmp::Reverse(prio[c as usize]),c));
+        (idx,big)
     }
     /// Pool transactions for a signed template on `p` built at `clock` (PR6). execution.md:83: a
     /// transaction that would pass TX_CAP or TXBYTES_CAP on p's branch (item 16, the accounting of
@@ -1880,11 +2046,10 @@ impl Node{
         // transactions below its `ahead` and before the others. Without the parked ones a big transaction held by
         // the gas bound (parked when submitted, or again at each head behind the parked small ones, P3) was tried
         // only after every pooled one and never fit a block they used more than half of.
-        let (np,half)=(self.pool.txs.len(),cp.GAS_LIMIT/2);let mut first_seen=HashSet::new();let mut big=None;
-        for (i,m) in self.pool.meta.iter().enumerate(){if first_seen.insert(m.sender)&&m.gas>half&&big.is_none(){big=Some(i);}}
-        // The parked set is in arrival order (`seq`; `ahead` follows it), so its first such entry is its oldest.
-        if let Some((j,x))=self.pool.parked.iter().enumerate().find(|(_,x)|first_seen.insert(x.sender)&&x.gas>half){
-            if big.is_none_or(|i|x.ahead as usize<=i){big=Some(np+j);}}
+        // N4 (V3-20): each sender's first candidate is read from the fee order's pass by sender (`fee_order_and_big`),
+        // which takes the place of the first-seen sender set (A13: its scratch is counted in that set's place).
+        let (np,half)=(self.pool.txs.len(),cp.GAS_LIMIT/2);
+        let (order,big)=self.fee_order_and_big(ctx.base_fee,half);
         // PR6 review: then the parked ones, in arrival order (each sender's run in nonce order): they were checked on
         // the pending state when parked (next nonce, balance, fee cap) and are executed here like any candidate, so
         // a valid transaction the gas bound holds out of the pool still reaches the next block. Candidate keys: a
@@ -1892,9 +2057,9 @@ impl Node{
         // N4 (V3-20): the pooled and parked candidates are taken in fee order (`fee_order`): the highest effective tip
         // at the block's base fee first, each sender's in nonce order, ties in that candidate order (so equal tips
         // keep the order above).
-        let ordered=self.fee_order(ctx.base_fee).into_iter().map(|c|{let c=c as usize;
+        let ordered=order.into_iter().map(|c|{let c=c as usize;
             if c<np{let m=&self.pool.meta[c];(false,c,&self.pool.txs[c].1,Some((m.sender,m.gas)))}else{let x=&self.pool.parked[c-np];(false,c,&x.raw,Some((x.sender,x.gas)))}});
-        let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)=>Some((false,usize::MAX,r,None)),PoolItem::Block(_)=>None});
+        let backlog=self.pool.backlog.iter().filter_map(|i|match i{PoolItem::Tx(r,_)|PoolItem::Fresh(r)=>Some((false,usize::MAX,r,None)),PoolItem::Block(_)=>None});
         let slot_first=big.map(|i|if i<np{let m=self.pool.meta[i];(true,i,&self.pool.txs[i].1,Some((m.sender,m.gas)))}
             else{let x=&self.pool.parked[i-np];(true,i,&x.raw,Some((x.sender,x.gas)))});
         let mut big_in=false;
@@ -2648,20 +2813,23 @@ impl Node{
         let mut held:HashMap<Address,u64>=HashMap::new();
         // N4: and each sender and nonce is held once (pooled or parked), within the replacement limits.
         let mut nonces=HashSet::new();
-        if self.pool.replaced>POOL_REPLACE_MAX{return Err(format!("{} replacements since the last head, past POOL_REPLACE_MAX",self.pool.replaced))}
+        if self.pool.replace_relays>POOL_REPLACE_RELAY_MAX{return Err(format!("{} replacements relayed since the last head, past POOL_REPLACE_RELAY_MAX",self.pool.replace_relays))}
+        let mut repl:HashMap<Address,u32>=HashMap::new();
         for ((h,raw),m) in self.pool.txs.iter().zip(&self.pool.meta){
             let Meta{sender,gas:g,exempt,..}=m;
             let env=wire::decode_for_profile(raw,profile).map_err(|e|format!("a pooled transaction does not decode: {e:?}"))?;
             if env.hash()!=*h{return Err(format!("pooled under {h}, which is not its hash"))}
             if !seen.insert(*h){return Err(format!("{h} is pooled twice"))}
             if (env.tx_env().caller,env.tx_env().gas_limit)!=(*sender,*g){return Err(format!("{h}: meta ({sender}, {g}) is not its sender and gas"))}
-            if (env.tx_env().nonce,Fees::of(&env.tx_env()))!=(Some(m.nonce),m.fees){return Err(format!("{h}: meta nonce {} and fees {:?} are not its own",m.nonce,m.fees))}
-            if m.repl>POOL_REPLACE_SLOT_MAX||!nonces.insert((*sender,m.nonce)){return Err(format!("{h}: replaced {} times, or its sender and nonce are pooled twice",m.repl))}
+            // N4: the fields the fee market reads from its bytes are the decoder's.
+            let f=TxFields::of(&env.tx_env());if tx_fields(raw)!=Some(f){return Err(format!("{h}: its bytes read as {:?}, not its decoded {f:?}",tx_fields(raw)))}
+            if m.repl>POOL_REPLACE_SLOT_MAX||!nonces.insert((*sender,f.nonce)){return Err(format!("{h}: replaced {} times, or its sender and nonce are pooled twice",m.repl))}
+            *repl.entry(*sender).or_default()+=u32::from(m.repl);
             if !exempt{let s=held.entry(*sender).or_default();*s=s.checked_add(*g).ok_or("sender gas overflows")?;
                 if *s>self.pool.sender_gas_max{return Err(format!("{sender} holds {s} declared gas, past the sender quota {}",self.pool.sender_gas_max))}}
             gas=gas.checked_add(env.tx_env().gas_limit).ok_or("pooled gas overflows")?;bytes+=raw.len();
         }
-        let backlog:usize=self.pool.backlog.iter().map(|i|match i{PoolItem::Tx(r,_)=>r.len(),PoolItem::Block(_)=>0}).sum();
+        let backlog:usize=self.pool.backlog.iter().map(|i|match i{PoolItem::Tx(r,_)|PoolItem::Fresh(r)=>r.len(),PoolItem::Block(_)=>0}).sum();
         // PR6 P2: the parked set is bounded, counted, per sender a run of consecutive nonces sharing its run key (in
         // arrival order), within the sender quota with its pooled ones, and holds nothing pooled.
         let parked:usize=self.pool.parked.iter().map(|x|x.raw.len()).sum();let mut runs:HashMap<Address,((u64,u64),u64,u64)>=HashMap::new();
@@ -2676,12 +2844,14 @@ impl Node{
             if x.ahead>self.pool.txs.len() as u64{return Err(format!("parked {} arrived behind {} pooled transactions, more than are pooled",x.hash,x.ahead))}
             let env=wire::decode_for_profile(&x.raw,profile).map_err(|e|format!("a parked transaction does not decode: {e:?}"))?;
             if (env.hash(),env.tx_env().caller,env.tx_env().gas_limit,env.tx_env().nonce)!=(x.hash,x.sender,x.gas,Some(x.nonce)){return Err(format!("parked {} is not its hash, sender, gas and nonce",x.hash))}
-            if Fees::of(&env.tx_env())!=x.fees||x.repl>POOL_REPLACE_SLOT_MAX||!nonces.insert((x.sender,x.nonce)){return Err(format!("parked {}: fees not its own, replaced {} times, or its sender and nonce held twice",x.hash,x.repl))}
+            if tx_fields(&x.raw)!=Some(TxFields::of(&env.tx_env()))||x.repl>POOL_REPLACE_SLOT_MAX||!nonces.insert((x.sender,x.nonce)){return Err(format!("parked {}: its bytes read other fields, replaced {} times, or its sender and nonce held twice",x.hash,x.repl))}
+            *repl.entry(x.sender).or_default()+=u32::from(x.repl);
         }
         for (s,(_,_,g)) in &runs{
             let all=held.get(s).copied().unwrap_or(0).saturating_add(*g);
             if *g>0&&all>self.pool.sender_gas_max{return Err(format!("{s} holds {all} declared gas pooled and parked, past the sender quota {}",self.pool.sender_gas_max))}
         }
+        if let Some((s,n))=repl.iter().find(|(_,n)|**n>POOL_REPLACE_SENDER_MAX){return Err(format!("{s}'s entries were replaced {n} times since the last head, past POOL_REPLACE_SENDER_MAX"))}
         // N4: `gas` is the pooled declared gas plus `ghost_gas` (evicted, or replaced by less, since the last head).
         let gas=gas.checked_add(self.pool.ghost_gas).ok_or("pooled gas overflows")?;
         if (gas,bytes,backlog)!=(self.pool.gas,self.pool.bytes,self.pool.backlog_bytes){
@@ -2725,8 +2895,9 @@ impl Node{
         status["stats"]["parkedEvicted"]=serde_json::json!(self.stats.parked_evicted);status["stats"]["parkedRelayed"]=serde_json::json!(self.stats.parked_relayed);
         // N4 (V3-20): the fee market's pool (replacement and eviction).
         status["stats"]["poolReplaced"]=serde_json::json!(self.stats.pool_replaced);status["stats"]["replaceRefused"]=serde_json::json!(self.stats.replace_refused);
-        status["stats"]["replaceRelayed"]=serde_json::json!(self.stats.replace_relayed);status["stats"]["poolEvicted"]=serde_json::json!(self.stats.pool_evicted);
-        status["stats"]["evictRefused"]=serde_json::json!(self.stats.evict_refused);status["stats"]["parkedFeeEvicted"]=serde_json::json!(self.stats.parked_fee_evicted);
+        status["stats"]["replaceRelayed"]=serde_json::json!(self.stats.replace_relayed);status["stats"]["replaceUnrelayed"]=serde_json::json!(self.stats.replace_unrelayed);
+        status["stats"]["poolEvicted"]=serde_json::json!(self.stats.pool_evicted);status["stats"]["evictRefused"]=serde_json::json!(self.stats.evict_refused);
+        status["stats"]["parkedFeeEvicted"]=serde_json::json!(self.stats.parked_fee_evicted);status["stats"]["overdraftRefused"]=serde_json::json!(self.stats.overdraft_refused);
         status["stats"]["relayedShares"]=serde_json::json!(self.stats.relayed_shares);
         status["stats"]["peerShares"]=serde_json::json!(self.stats.peer_shares);
         status["stats"]["inboundRefusedByGroup"]=serde_json::json!(self.net.counters.refused_group.load(std::sync::atomic::Ordering::SeqCst));
@@ -2928,6 +3099,26 @@ mod relay_tests{
         assert_eq!((n.stats.reinserted_offered,n.stats.reinserted_unoffered),(1,1));
         assert!(p.send(&Msg::Tx{raw:vec![1u8;8]}),"the peer is kept");
         assert_eq!(n.pool.txs.len(),2,"both are pooled");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// N4 review: freshness is explicit. A transaction re-queued for revalidation (`PoolItem::Tx`), whatever its relay
+    /// (a parked one keeps `Relay::Gossip` when it was not relayed when parked), is not a new submission: with a pooled
+    /// one's sender and nonce and higher fees it replaces nothing (executed on the pending state, its nonce is used).
+    /// Only a P2P arrival queued behind the backlog (`PoolItem::Fresh`) may replace (or evict).
+    #[test] fn only_a_queued_p2p_arrival_is_a_new_submission(){
+        let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let dir=std::env::temp_dir().join(format!("pocold-fresh-unit-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let cfg=Config{dir:dir.clone(),name:"fresh".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
+        let mut n=Node::open(cfg,spec).unwrap();
+        let bump=|tip:u64|{let alice=devnet::account_key("alice");Tx{chain_id:777910,nonce:0,max_priority:U256::from(tip),max_fee:U256::from(200_000_000_000u64),gas:21000,to:Some(devnet::account_key("bob").address()),value:U256::from(1u64),data:Default::default()}.sign_1559(&alice)};
+        let old=pay(0);n.submit_tx(old.clone(),false).unwrap();
+        let (gossip,fresh)=(bump(2_000_000_000),bump(3_000_000_000));
+        for (item,raw) in [(PoolItem::Tx(gossip.clone(),Relay::Gossip),&gossip),(PoolItem::Fresh(fresh.clone()),&fresh)]{
+            n.pool.backlog_bytes+=raw.len();n.pool.backlog.push_back(item);n.pool_settle();n.pool_audit().unwrap();
+            if raw==&gossip{assert_eq!((n.pool.txs[0].1.clone(),n.stats.pool_replaced),(old.clone(),0),"a revalidation replaces nothing")}
+            else{assert_eq!((n.pool.txs[0].1.clone(),n.stats.pool_replaced),(fresh.clone(),1),"a queued P2P arrival replaces")}
+        }
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
 }

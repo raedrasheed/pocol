@@ -2007,14 +2007,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // unchanged receipts::encode nesting, the receipts-root clone and apply's
     // USER receipt report copy (+878624 B, identically with eviction on/off).
     // No block report carries a creation-burn field (ChainFacts is unchanged).
-    // N4 (V3-20 node-local pool): the pool's meta entries carry the nonce, fee caps and replacements
-    // (META_ENTRY_BYTES 32 -> 80: 3 x 4,096 x 48 = +589,824 B), the parked entries their fee caps and replacements
-    // (PARKED_ENTRY_BYTES 160 -> 192: 3 x 1,024 x 32 = +98,304 B), and the fee order's scratch is a new term
-    // (3 x (4,096 + 1,024) x 40 = +614,400 B): +1,302,528 B, 3,397,791,234 -> 3,399,093,762 (eviction off
-    // 3,388,329,613 -> 3,389,632,141). No other term moves.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_399_093_762,"the A13 model total changed");
+    // N4 (V3-20 node-local pool) moves nothing: the pool's meta and parked entries keep their PR6 sizes (32 and 160 B:
+    // the fee market reads nonces and fee caps from the raw bytes, and the replacement count fits the padding), and
+    // the fee order's scratch ((4,096 + 1,024) x 12 = 61,440 B) takes the place of the selection's first-seen sender
+    // set (885,052 B), which the fee order's pass by sender replaces (resources::selection_bytes).
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_791_234,"the A13 model total changed");
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_389_632_141,"eviction off includes the same receipt scratch");
+        assert_eq!(off.total,3_388_329_613,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);

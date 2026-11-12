@@ -2,7 +2,7 @@
 //! estimate's log caps, on the spec-1 devnet. Pool policy only: the blocks built from it are validated by the
 //! unchanged consensus code (`Chain::validate`) and imported.
 use std::collections::HashMap;
-use pocold::{chain::{Chain,Spec},types::*,hashes,node::{self,Fees,Limits,Node}};
+use pocold::{chain::{Chain,Spec},types::*,hashes,node::{self,TxFields,Limits,Node}};
 use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::{Key,Tx}};
 use revm::primitives::{Address,B256,U256};
 
@@ -56,9 +56,10 @@ fn rpc(n:&mut Node,method:&str,params:serde_json::Value)->serde_json::Value{
 }
 fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).collect::<String>())}
 
-/// N4 (1): the selection takes the highest effective tip first, a sender's transaction only after its predecessor.
-/// alice pools nonce 0 at 1 gwei and nonce 1 at 50 gwei, bob 10 gwei, carol 5 gwei: the order is bob, carol, alice 0,
-/// alice 1 (alice's 50 gwei waits for her nonce 0). The effective tip is min(priority, max fee - base fee): erin's
+/// N4 (1): the selection takes the highest priority first, a sender's transaction only after its predecessor. A
+/// candidate's priority is the lowest effective tip among it and its sender's earlier ones. alice pools nonce 0 at
+/// 1 gwei and nonce 1 at 50 gwei, bob 10 gwei, carol 5 gwei: the order is bob, carol, alice 0, alice 1 (alice's 50
+/// gwei ranks at her nonce 0's 1 gwei). The effective tip is min(priority, max fee - base fee): erin's
 /// priority of base + 2 gwei under a max fee of base + 2 gwei pays 2 gwei. The block built from it is valid and imported.
 #[test] fn the_selection_takes_the_highest_effective_tip_first_in_nonce_order(){
     let c=cfg(&["carol","erin"]);let (mut n,_d)=node_with("order",Limits::default(),&c);let mut h=net_with(&c);
@@ -67,7 +68,8 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
     let a0=pay(&alice,0,GWEI);let a1=pay(&alice,1,50*GWEI);let b0=pay(&bob,0,10*GWEI);let c0=pay(&carol,0,5*GWEI);
     let e0=tx(&erin,0,b64+2*GWEI,b64+2*GWEI,21000,Address::with_last_byte(0xbb));
     for t in [&a0,&a1,&b0,&c0,&e0]{n.submit_tx(t.clone(),false).unwrap();}n.pool_audit().unwrap();
-    assert_eq!(Fees::of(&pocol_lp4_execution::wire::decode_for_profile(&e0,n.chain.spec.profile()).unwrap().tx_env()).effective_tip(b),u128::from(2*GWEI));
+    let f=TxFields::of(&pocol_lp4_execution::wire::decode_for_profile(&e0,n.chain.spec.profile()).unwrap().tx_env());
+    assert_eq!((f.effective_tip(b),node::tx_fields(&e0)),(2*GWEI,Some(f)),"read from the bytes as the decoder reads it");
     // Pool order: a0 a1 b0 c0 e0 (keys 0..4).
     assert_eq!(n.fee_order(b),vec![2,3,4,0,1],"bob 10, carol 5, erin 2 (capped), alice 1 then her 50");
     let p=head(&n);let sel=n.template_selection(&p,pocold::node::now_s());
@@ -119,66 +121,116 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
     let f=fallback(&h,h.chain.head);import(&mut h,&f);n.import(f,None).unwrap();n.pool_settle();assert_eq!((n.pool.gas,n.pool.ghost_gas),(21000,0),"recounted at the next head");n.pool_audit().unwrap();
 }
 
-/// N4 (2): replacements are bounded. One entry takes at most POOL_REPLACE_SLOT_MAX replacements between two heads
-/// and the pool at most POOL_REPLACE_MAX; past either the answer is POOL_REPLACE_LIMIT (-32016) and nothing changes.
-/// Each accepted replacement is offered to the peers once, so the relays replacements cost per head are at most
-/// POOL_REPLACE_MAX. A new head restores both budgets.
-#[test] fn replacements_are_bounded_per_entry_and_per_head(){
-    use node::{POOL_REPLACE_LIMIT,POOL_REPLACE_MAX,POOL_REPLACE_SLOT_MAX};
-    let senders:Vec<String>=(0..POOL_REPLACE_MAX/POOL_REPLACE_SLOT_MAX as usize+1).map(|i|format!("rbf-{i}")).collect();
+/// N4 (2): replacements are bounded per entry (POOL_REPLACE_SLOT_MAX) and per sender (POOL_REPLACE_SENDER_MAX) between
+/// two heads; past either the answer is POOL_REPLACE_LIMIT (-32016) and nothing changes. N4 review: there is no
+/// pool-wide limit on accepting them, so senders that use up POOL_REPLACE_RELAY_MAX relays do not stop another
+/// sender's replacement: it is accepted and pooled, only not relayed (`replace_unrelayed`). Each accepted one is
+/// offered to the peers at most once, so replacements cost at most POOL_REPLACE_RELAY_MAX relays per head. A new head
+/// restores the budgets.
+#[test] fn replacements_are_bounded_per_entry_per_sender_and_relays_per_head(){
+    use node::{POOL_REPLACE_LIMIT,POOL_REPLACE_RELAY_MAX,POOL_REPLACE_SENDER_MAX,POOL_REPLACE_SLOT_MAX};
+    let (slot,per)=(u32::from(POOL_REPLACE_SLOT_MAX),POOL_REPLACE_SENDER_MAX);assert_eq!((slot,per),(4,8));
+    let spenders=POOL_REPLACE_RELAY_MAX/per as usize;
+    let senders:Vec<String>=(0..=spenders).map(|i|format!("rbf-{i}")).collect();
     let refs:Vec<&str>=senders.iter().map(|s|s.as_str()).collect();let c=cfg(&refs);let (mut n,_d)=node_with("rbfspam",Limits::default(),&c);let mut h=net_with(&c);
     // Fee caps that rise by 20% at each replacement.
     let fees=|k:u32|(100*GWEI*6u64.pow(k)/5u64.pow(k),GWEI*6u64.pow(k)/5u64.pow(k));
-    let first=key(&senders[0]);let (c0,t0)=fees(0);n.submit_tx(tx(&first,0,c0,t0,21000,Address::with_last_byte(1)),true).unwrap();
-    for k in 1..=u32::from(POOL_REPLACE_SLOT_MAX){let (c,t)=fees(k);n.submit_tx(tx(&first,0,c,t,21000,Address::with_last_byte(1)),true).unwrap();}
-    let (c,t)=fees(u32::from(POOL_REPLACE_SLOT_MAX)+1);let over=tx(&first,0,c,t,21000,Address::with_last_byte(1));
-    let held=n.pool.txs[0].1.clone();assert_eq!(n.submit_tx(over.clone(),true).unwrap_err(),POOL_REPLACE_LIMIT,"the entry's budget is spent");assert_eq!(n.pool.txs[0].1,held);
+    let t=|k:&Key,nonce:u64,j:u32|{let (c,t)=fees(j);tx(k,nonce,c,t,21000,Address::with_last_byte(1))};
+    // The first sender: an entry takes POOL_REPLACE_SLOT_MAX replacements, then one more is refused (its budget).
+    let first=key(&senders[0]);n.submit_tx(t(&first,0,0),true).unwrap();
+    for j in 1..=slot{n.submit_tx(t(&first,0,j),true).unwrap();}
+    let over=t(&first,0,slot+1);let held=n.pool.txs[0].1.clone();
+    assert_eq!(n.submit_tx(over.clone(),true).unwrap_err(),POOL_REPLACE_LIMIT,"the entry's budget is spent");assert_eq!(n.pool.txs[0].1,held);
     let r=rpc(&mut n,"eth_sendRawTransaction",serde_json::json!([hex(&over)]));assert_eq!(r["error"]["code"],-32016,"{r}");
-    // The pool's budget: the other senders' entries take the rest of POOL_REPLACE_MAX, then one more is refused.
-    let mut done=usize::from(POOL_REPLACE_SLOT_MAX);
-    for s in &senders[1..]{let k=key(s);let (c0,t0)=fees(0);n.submit_tx(tx(&k,0,c0,t0,21000,Address::with_last_byte(1)),true).unwrap();
-        for j in 1..=u32::from(POOL_REPLACE_SLOT_MAX){let (c,t)=fees(j);let r=n.submit_tx(tx(&k,0,c,t,21000,Address::with_last_byte(1)),true);
-            if done<POOL_REPLACE_MAX{r.unwrap();done+=1;}else{assert_eq!(r.unwrap_err(),POOL_REPLACE_LIMIT,"the head's budget is spent");}}}
-    assert_eq!(done,POOL_REPLACE_MAX);assert_eq!((n.stats.pool_replaced,n.stats.replace_relayed),(POOL_REPLACE_MAX as u64,POOL_REPLACE_MAX as u64),"each offered once, at most POOL_REPLACE_MAX per head");
+    // Its second entry takes the rest of the sender's POOL_REPLACE_SENDER_MAX; a third entry's first one is refused.
+    n.submit_tx(t(&first,1,0),true).unwrap();for j in 1..=slot{n.submit_tx(t(&first,1,j),true).unwrap();}
+    n.submit_tx(t(&first,2,0),true).unwrap();assert_eq!(n.submit_tx(t(&first,2,1),true).unwrap_err(),POOL_REPLACE_LIMIT,"the sender's budget is spent");
+    // The other senders use up the relays: POOL_REPLACE_RELAY_MAX in all.
+    for s in &senders[1..spenders]{let k=key(s);for e in 0..2{n.submit_tx(t(&k,e,0),true).unwrap();for j in 1..=slot{n.submit_tx(t(&k,e,j),true).unwrap();}}}
+    assert_eq!((n.stats.pool_replaced,n.stats.replace_relayed,n.stats.replace_unrelayed),(POOL_REPLACE_RELAY_MAX as u64,POOL_REPLACE_RELAY_MAX as u64,0));
+    // One more sender still replaces: accepted and pooled, not relayed.
+    let last=key(&senders[spenders]);n.submit_tx(t(&last,0,0),true).unwrap();let hash=n.submit_tx(t(&last,0,1),true).unwrap();
+    assert!(n.pool.txs.iter().any(|(h,_)|*h==hash),"another sender's replacement is pooled");
+    assert_eq!((n.stats.pool_replaced,n.stats.replace_relayed,n.stats.replace_unrelayed),(POOL_REPLACE_RELAY_MAX as u64+1,POOL_REPLACE_RELAY_MAX as u64,1),"each offered once, at most POOL_REPLACE_RELAY_MAX per head");
     n.pool_audit().unwrap();
-    // A new head (empty) restores both budgets.
+    // A new head (empty) restores the budgets.
     let f=fallback(&h,h.chain.head);import(&mut h,&f);n.import(f,None).unwrap();n.pool_settle();n.pool_audit().unwrap();
-    n.submit_tx(over,true).unwrap();assert_eq!(n.stats.pool_replaced,POOL_REPLACE_MAX as u64+1);n.pool_audit().unwrap();
+    n.submit_tx(over,true).unwrap();assert_eq!((n.stats.pool_replaced,n.stats.replace_relayed),(POOL_REPLACE_RELAY_MAX as u64+2,POOL_REPLACE_RELAY_MAX as u64+1));n.pool_audit().unwrap();
 }
 
-/// N4 (3): lowest-fee eviction at the count bound (POOL_MAX_TXS). Sixteen senders pool 256 transfers each; s3's pay
-/// 1 gwei, the others 2 gwei. A newcomer paying 3 gwei evicts s3's last nonce (the tail: nothing of s3 follows it),
-/// the next one s3's new tail, never an earlier nonce; one paying the lowest tip or less is refused
-/// (POOL_EVICT_UNDERPRICED, -32016 over RPC) and nothing changes. A newcomer whose sender has a parked transaction is
-/// refused as before (it would be parked, not executed). The pending layer keeps the evicted gas (`ghost_gas`) until
-/// the next head, which revalidates the pool without the evicted transactions.
-#[test] fn a_higher_tip_evicts_the_lowest_tail_at_the_count_bound(){
-    use node::{POOL_EVICT_UNDERPRICED,POOL_MAX_TXS};
-    let senders:Vec<String>=(0..16).map(|i|format!("s{i}")).collect();let mut labels:Vec<&str>=senders.iter().map(|s|s.as_str()).collect();labels.extend(["zed","yan","xin"]);
+/// N4 review (finding 1): a replacement must be as strict as a new admission. The overdraft rule: a new submission and
+/// a replacement must be covered by the sender's head-state balance together with its other pooled and parked
+/// transactions (gas_limit x maxFeePerGas + value each). So a replacement cannot drain the balance its sender's later
+/// transactions need, and a sender funded only by a pending transfer waits until that transfer is mined (taking the
+/// transfer out before the next head, or ordering by fee, cannot leave it pooled but unaffordable).
+#[test] fn the_overdraft_rule_covers_pooled_and_parked_spending(){
+    use node::POOL_OVERDRAFT;use pocol_lp4_execution::view::View;
+    let c=cfg(&[]);let (mut n,_d)=node_with("overdraft",Limits::default(),&c);let mut h=net_with(&c);
+    let (alice,newbie)=(key("alice"),key("n4-newbie"));let to=Address::with_last_byte(0xbb);
+    let send=|nonce:u64,cap:u64,tip:u64,to:Address,value:U256|Tx{chain_id:CHAIN,nonce,max_priority:U256::from(tip),max_fee:U256::from(cap),gas:21000,to:Some(to),value,data:Default::default()}.sign_1559(&alice);
+    let fund=send(0,100*GWEI,GWEI,newbie.address(),U256::from(10u128.pow(18)));n.submit_tx(fund.clone(),false).unwrap();
+    // newbie can pay on the pending state, not from its head balance (0).
+    assert!(n.pool_view().account(&newbie.address()).unwrap().info.balance>=U256::from(10u128.pow(18)));
+    let nb=pay(&newbie,0,GWEI);assert_eq!(n.submit_tx(nb.clone(),false).unwrap_err(),POOL_OVERDRAFT);assert_eq!(n.stats.overdraft_refused,1);
+    // alice's later transactions pay 50 gwei behind her funding at 1 gwei.
+    let later:Vec<Vec<u8>>=(1..4).map(|k|send(k,100*GWEI,50*GWEI,to,U256::from(1u64))).collect();for t in &later{n.submit_tx(t.clone(),false).unwrap();}
+    // A replacement of the funding whose value takes the balance its later ones need is refused; nothing changes.
+    let bal:U256=rpc(&mut n,"eth_getBalance",serde_json::json!([alice.address(),"latest"]))["result"].as_str().unwrap().parse().unwrap();assert_eq!(bal,U256::from(10u128.pow(24)));
+    let drain=send(0,110*GWEI,2*GWEI,Address::with_last_byte(0xcc),bal-U256::from(21000u64*110*GWEI));
+    assert_eq!(n.submit_tx(drain,false).unwrap_err(),POOL_OVERDRAFT);assert_eq!(n.pool.txs[0].1,fund);
+    let r=rpc(&mut n,"eth_sendRawTransaction",serde_json::json!([hex(&send(0,110*GWEI,2*GWEI,to,bal))]));assert_eq!(r["error"]["code"],-32000,"{r}");
+    // One its later ones stay affordable with is accepted.
+    let ok=send(0,110*GWEI,2*GWEI,newbie.address(),U256::from(10u128.pow(18)));n.submit_tx(ok.clone(),false).unwrap();assert_eq!(n.pool.txs[0].1,ok);n.pool_audit().unwrap();
+    // Once the funding is mined, newbie's transaction is admitted.
+    let sel=n.template_selection(&head(&n),pocold::node::now_s());assert_eq!(sel.txs.len(),4);
+    let blk=signed(&h,h.chain.head,sel.txs);import(&mut h,&blk);assert!(n.import(blk,None).unwrap());n.pool_settle();
+    n.submit_tx(nb,false).unwrap();n.pool_audit().unwrap();
+}
+
+/// N4 (3): lowest-priority eviction at the count bound (POOL_MAX_TXS). Fifteen senders pool 256 transfers and one 255
+/// at 2 gwei, except s3, whose first one pays 1 gwei and its other 255 50 gwei; vic pools one at 1 gwei. N4 review:
+/// a tail ranks at the lowest tip along its sender's transactions (the fee order's rank), so s3's 50 gwei tail ranks at
+/// 1 gwei. A newcomer whose own rank is no higher than the lowest (1 gwei) is refused (POOL_EVICT_UNDERPRICED, -32016
+/// over RPC) and nothing changes. A 3 gwei newcomer evicts vic (the latest of the two lowest), the next one s3's 50
+/// gwei tail, never an earlier nonce. N4 review: an evicted transaction's nonce goes back to its sender in the pending
+/// state, so vic's pending nonce is 0 again, its next nonce is refused (not pooled to be dropped at the next head), and
+/// it can submit nonce 0 again at a fee that outbids the lowest. s3 cannot outbid with its own 9 gwei: it ranks at its
+/// 1 gwei first one. The pending layer keeps the evicted gas (`ghost_gas`) until the next head, which revalidates the
+/// pool without the evicted transactions.
+#[test] fn a_higher_priority_evicts_the_lowest_tail_at_the_count_bound(){
+    use node::{POOL_EVICT_UNDERPRICED,POOL_MAX_TXS};use pocol_lp4_execution::view::View;
+    let senders:Vec<String>=(0..16).map(|i|format!("s{i}")).collect();let mut labels:Vec<&str>=senders.iter().map(|s|s.as_str()).collect();labels.extend(["zed","yan","vic"]);
     let c=cfg(&labels);let gas_max=POOL_MAX_TXS as u64*21000+10*21000;
     let (mut n,_d)=node_with("evict",Limits{pool_gas_max:Some(gas_max),..Default::default()},&c);let mut h=net_with(&c);
     let per=POOL_MAX_TXS/senders.len();
-    for (i,s) in senders.iter().enumerate(){let k=key(s);for j in 0..per{n.submit_tx(pay(&k,j as u64,if i==3{GWEI}else{2*GWEI}),false).unwrap();}}
+    for (i,s) in senders.iter().enumerate(){let k=key(s);for j in 0..per-usize::from(i==15){n.submit_tx(pay(&k,j as u64,match (i,j){(3,0)=>GWEI,(3,_)=>50*GWEI,_=>2*GWEI}),false).unwrap();}}
+    let v0=pay(&key("vic"),0,GWEI);n.submit_tx(v0.clone(),false).unwrap();
     assert_eq!(n.pool.txs.len(),POOL_MAX_TXS);n.pool_audit().unwrap();
-    let s3=key("s3").address();let tail=|n:&Node,nonce:u64|n.pool.txs.iter().any(|(_,r)|{let e=pocol_lp4_execution::wire::decode_for_profile(r,n.chain.spec.profile()).unwrap();e.sender()==s3&&e.tx_env().nonce==Some(nonce)});
-    // A lower or equal payer is refused.
+    let held=|n:&Node,who:&str,nonce:u64|{let a=key(who).address();n.pool.txs.iter().any(|(_,r)|{let e=pocol_lp4_execution::wire::decode_for_profile(r,n.chain.spec.profile()).unwrap();e.sender()==a&&e.tx_env().nonce==Some(nonce)})};
+    let pending=|n:&mut Node,who:&str|rpc(n,"eth_getTransactionCount",serde_json::json!([key(who).address(),"pending"]))["result"].clone();
+    // A lower or equal rank is refused.
     for tip in [GWEI,GWEI/2]{let e=n.submit_tx(pay(&key("yan"),0,tip),false).unwrap_err();assert!(e.starts_with(POOL_EVICT_UNDERPRICED)&&e.contains("1000000000 wei"),"{e}");}
     let r=rpc(&mut n,"eth_sendRawTransaction",serde_json::json!([hex(&pay(&key("yan"),0,GWEI))]));assert_eq!(r["error"]["code"],-32016,"{r}");
     assert!(r["error"]["message"].as_str().unwrap().contains("tip too low to evict"),"{r}");
     assert_eq!((n.pool.txs.len(),n.pool.ghost_gas,n.stats.pool_evicted),(POOL_MAX_TXS,0,0),"nothing changed");
+    // zed evicts vic's (the latest of the two lowest ranks); vic's nonce is free again in the pending state.
     let z0=pay(&key("zed"),0,3*GWEI);n.submit_tx(z0.clone(),false).unwrap();
-    assert_eq!(n.pool.txs.len(),POOL_MAX_TXS);assert!(!tail(&n,per as u64-1)&&tail(&n,per as u64-2),"s3's last nonce left");
-    assert_eq!((n.pool.ghost_gas,n.stats.pool_evicted),(21000,1));n.pool_audit().unwrap();
-    // zed's own pooled transaction is never its victim: its next one evicts s3's new tail.
-    n.submit_tx(pay(&key("zed"),1,3*GWEI),false).unwrap();assert!(!tail(&n,per as u64-2)&&tail(&n,0),"the new tail, never an earlier nonce");
-    assert_eq!(n.pool.ghost_gas,42000);n.pool_audit().unwrap();
-    // An evicted nonce stays used in the pending state until the next head.
-    let e=n.submit_tx(pay(&key("s3"),per as u64-1,9*GWEI),false).unwrap_err();assert!(e.contains("NonceTooLow"),"{e}");
-    // The selection takes the higher payers first: zed's two, then the 2 gwei senders.
-    let sel=n.template_selection(&head(&n),pocold::node::now_s());assert_eq!(sel.txs[0],z0);
+    assert!(!held(&n,"vic",0)&&held(&n,"s3",per as u64-1));assert_eq!((n.pool.txs.len(),n.pool.ghost_gas,n.stats.pool_evicted),(POOL_MAX_TXS,21000,1));
+    assert_eq!(pending(&mut n,"vic"),"0x0");assert_eq!(n.pool_view().account(&key("vic").address()).unwrap().info.nonce,0);
+    assert_eq!(n.submit_tx(pay(&key("vic"),1,9*GWEI),false).unwrap_err(),"-32016 pool full","its next nonce would follow a gap");n.pool_audit().unwrap();
+    // zed's next one evicts s3's 50 gwei tail (ranked at 1 gwei), never an earlier nonce, and never zed's own.
+    n.submit_tx(pay(&key("zed"),1,3*GWEI),false).unwrap();assert!(!held(&n,"s3",per as u64-1)&&held(&n,"s3",per as u64-2)&&held(&n,"zed",0));
+    assert_eq!(pending(&mut n,"s3"),serde_json::json!(format!("{:#x}",per-1)));
+    let e=n.submit_tx(pay(&key("s3"),per as u64-1,9*GWEI),false).unwrap_err();assert!(e.starts_with(POOL_EVICT_UNDERPRICED)&&e.contains("ranks at 1000000000 wei"),"{e}");
+    // vic outbids the lowest with its nonce 0 again.
+    let v1=pay(&key("vic"),0,4*GWEI);n.submit_tx(v1.clone(),false).unwrap();assert!(held(&n,"vic",0)&&!held(&n,"s3",per as u64-2));
+    assert_eq!((n.pool.txs.len(),n.pool.ghost_gas,n.stats.pool_evicted),(POOL_MAX_TXS,63000,3));n.pool_audit().unwrap();
+    // The selection takes the higher ranks first: vic's 4 gwei, then zed's two.
+    let sel=n.template_selection(&head(&n),pocold::node::now_s());assert_eq!(sel.txs[..2],[v1.clone(),z0.clone()]);
     // The next head re-executes the pool from its state: the evicted ones are gone, the counters are recounted.
     let f=fallback(&h,h.chain.head);import(&mut h,&f);n.import(f,None).unwrap();n.pool_settle();
-    assert_eq!((n.pool.txs.len(),n.pool.ghost_gas,n.pool.gas),(POOL_MAX_TXS,0,POOL_MAX_TXS as u64*21000));n.pool_audit().unwrap();assert!(!tail(&n,per as u64-2));
+    assert_eq!((n.pool.txs.len(),n.pool.ghost_gas,n.pool.gas),(POOL_MAX_TXS,0,POOL_MAX_TXS as u64*21000));n.pool_audit().unwrap();
+    assert!(!held(&n,"s3",per as u64-2)&&held(&n,"vic",0));
 }
 
 /// N4 (3) with PR6 parking and the sender quota. At the gas bound a valid transaction is parked (PR6); when the parked
@@ -210,6 +262,34 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
     let sel=n.template_selection(&head(&n),pocold::node::now_s());assert!(sel.txs.contains(&c1)&&sel.txs.contains(&g0),"the parked ones are candidates");
 }
 
+/// N4 review: the parked set's fee eviction is planned before anything is evicted. With three parked (bob and carol
+/// at 1 gwei, erin at 9 gwei) and the bound lowered to one, a 5 gwei newcomer needs three places but only two parked
+/// ones rank below it: it is refused (POOL_FULL_GAS) and all three stay. With one place needed, the lowest-ranked
+/// latest one goes. A parked transaction ranks at the lowest tip of its sender's pooled ones too: frank's parked 9
+/// gwei, behind his pooled 1 gwei ones, ranks at 1 gwei and goes for a 2 gwei newcomer.
+#[test] fn the_parked_fee_eviction_evicts_only_when_it_frees_the_room(){
+    use node::{POOL_FULL_GAS,POOL_PARKED};
+    let c=cfg(&["carol","erin","frank","gina","hal","ivy","kim","lee"]);let (mut n,_d)=node_with("parkplan",Limits::default(),&c);let gl=n.chain.spec.cp().GAS_LIMIT;
+    let to=Address::with_last_byte(0xbb);
+    for k in 0..2{n.submit_tx(tx(&key("alice"),k,100*GWEI,GWEI,gl/2,to),false).unwrap();}
+    for l in ["hal","ivy"]{n.submit_tx(tx(&key(l),0,100*GWEI,GWEI,gl,to),false).unwrap();}
+    n.submit_tx(tx(&key("frank"),0,100*GWEI,GWEI,gl/2,to),false).unwrap();n.submit_tx(tx(&key("frank"),1,100*GWEI,GWEI,gl/2-21000,to),false).unwrap();
+    n.submit_tx(pay(&key("kim"),0,GWEI),false).unwrap();assert_eq!(n.pool.gas,n.pool.gas_max,"the gas bound is full");
+    let parked=[pay(&key("bob"),0,GWEI),pay(&key("carol"),0,GWEI),pay(&key("erin"),0,9*GWEI)];
+    for t in &parked{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
+    n.set_pool_parked_max(1);let before=n.pool_parked();
+    assert_eq!(n.submit_tx(pay(&key("gina"),0,5*GWEI),false).unwrap_err(),POOL_FULL_GAS);
+    assert_eq!((n.pool_parked(),n.stats.parked_fee_evicted),(before,0),"nothing evicted when the room cannot be made");
+    // One place needed: the latest of the lowest rank (carol's) goes for gina's.
+    n.set_pool_parked_max(3);n.pool_audit().unwrap();let g0=pay(&key("gina"),0,5*GWEI);assert_eq!(n.submit_tx(g0.clone(),false).unwrap_err(),POOL_PARKED);
+    let p=n.pool_parked();assert_eq!((p.len(),n.stats.parked_fee_evicted),(3,1));assert!(!p.contains(&parked[1])&&p.contains(&g0));
+    // frank's parked nonce 2 at 9 gwei ranks at his pooled 1 gwei: it goes (the latest of bob's rank) for lee's 2 gwei.
+    n.set_pool_parked_max(4);let f2=pay(&key("frank"),2,9*GWEI);assert_eq!(n.submit_tx(f2.clone(),false).unwrap_err(),POOL_PARKED);
+    let l0=pay(&key("lee"),0,2*GWEI);assert_eq!(n.submit_tx(l0.clone(),false).unwrap_err(),POOL_PARKED);
+    let p=n.pool_parked();assert_eq!((p.len(),n.stats.parked_fee_evicted),(4,2));assert!(!p.contains(&f2)&&p.contains(&parked[0])&&p.contains(&l0));
+    n.pool_audit().unwrap();
+}
+
 /// N4 (V3-24): eth_estimateGas models the log caps active in the next block. On spec-1 (32 KiB / 546 per block) a call
 /// whose one LOG0 carries 32 KiB of data (36 + 32,768 charged bytes) halts in every block, so it gets no estimate
 /// (-32000, LogBytes) while one of 1 KiB does; eth_call is not an estimate and still runs it. The pool refuses the
@@ -229,4 +309,9 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
     let call=rpc(&mut n,"eth_call",serde_json::json!([{"from":alice.address(),"to":to_big},"latest"]));assert!(call.get("error").is_none(),"{call}");
     let e=n.submit_tx(Tx{chain_id:CHAIN,nonce:2,max_priority:U256::from(GWEI),max_fee:U256::from(100*GWEI),gas:400_000,to:Some(to_big),value:U256::ZERO,data:Default::default()}.sign_1559(&alice),false).unwrap_err();
     assert!(e.contains("LogBytes"),"{e}");
+    // N4 review: a pooled replacement passes the same execution checks (run on the head, not committed). A plain
+    // transfer at nonce 2 is pooled; replacing it with the call that halts on its own logs is refused, nothing changes.
+    let plain=pay(&alice,2,GWEI);n.submit_tx(plain.clone(),false).unwrap();
+    let e=n.submit_tx(Tx{chain_id:CHAIN,nonce:2,max_priority:U256::from(2*GWEI),max_fee:U256::from(110*GWEI),gas:400_000,to:Some(to_big),value:U256::ZERO,data:Default::default()}.sign_1559(&alice),false).unwrap_err();
+    assert!(e.contains("LogBytes"),"{e}");assert_eq!((n.pool.txs[0].1.clone(),n.stats.pool_replaced),(plain,0));n.pool_audit().unwrap();
 }
