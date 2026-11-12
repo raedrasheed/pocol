@@ -491,7 +491,7 @@ pub(crate) fn block_costs(costs:&[(usize,u64,u64)])->([u64;3],[u64;3],u64,u64){
     // Isolated stalls: the largest max(1, n/4) commits are counted at the lower median. One stalled write cannot refuse a
     // boot (the owner's ParamGate decision, 2026-11-11), nor can the occasional fsync spikes of a host whose disk is
     // otherwise fast (seen on the Windows CI runners: 3 of 22 commits at 1-4 s, median 439 ms). A disk whose typical
-    // (lower-median) commit is past t_exec, or that is slow on more than a quarter of its writes, is still refused.
+    // (lower-median) commit is past t_exec, or that is slow on more than max(1, n/4) of its writes, is still refused.
     let outliers=(costs.len()/4).max(1);
     let mut by_commit:Vec<usize>=(0..costs.len()).collect();by_commit.sort_by_key(|&i|std::cmp::Reverse(costs[i].2));
     let outlier:Vec<usize>=by_commit.into_iter().take(outliers).collect();

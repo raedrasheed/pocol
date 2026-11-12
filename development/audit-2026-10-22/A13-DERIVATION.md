@@ -1097,8 +1097,9 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
       test's one held commit and the runner's natural multi-second fsync spikes). Only the largest was replaced,
       so the next one (2256 − 14 = 2,242 ms) reached R14/R19. A real Windows node would be refused at
       boot the same way, against the owner's PG-2 ("one slow disk write must not refuse a boot"). With `k = 5`
-      for 22 blocks those spikes are replaced, while a disk slow on every write, or on more than a quarter of
-      them, is still refused. Node-local only: no validity rule, root, fork choice or consensus identity changes.
+      for 22 blocks those spikes are replaced, while a disk slow on every write, or on more than k of them
+      (k = max(1, ⌊n/4⌋)), is still refused. Node-local only: no validity rule, root, fork choice or consensus
+      identity changes.
     - Reported, not compared: `execution_ms` (the largest `e` per phase), `store_fsync_ms` (the largest `c`),
       `store_fsync_median_ms`, the sample count and `t_exec_ms`. One `timing:` line carries them: on a
       successful boot `pocold run` prints it to stderr (`pocold: ParamGate admitted, timing: ...`, from
