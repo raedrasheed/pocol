@@ -214,6 +214,8 @@ for (const c of await recvGuardChecks(rel)) ok('D98 ' + c.name, c.pass, c.detail
 for (const c of await recordChecks(rel)) ok('D103 ' + c.name, c.pass, c.detail);
 { const r = await decoderDiffChecks(rel);
   ok(`A07/A08 GenesisSpec and header decoders give the Rust reference verdict on all ${r.items} corpus items`, r.items > 1000 && r.mismatches.length === 0, r.mismatches.slice(0, 5).join('; '));
+  ok(`A07/A08 with the v3-preview ceiling (2) the GenesisSpec decoder gives the Rust preview verdict on all ${r.items} corpus items, ${r.spec2} of them spec 2`, r.spec2 > 400 && r.previewAccepted > r.accepted && r.previewMismatches.length === 0, r.previewMismatches.slice(0, 5).join('; '));
+  ok('A07/A08 both verdict files cover the corpus and the release decoder accepts no spec-2 item', r.complete);
   ok('A07/A08 the shipped RP entry points use the reference decoders', r.entryPoints); }
 for (const c of await workerChecks(rel)) ok(c.name, c.pass, c.detail);
 

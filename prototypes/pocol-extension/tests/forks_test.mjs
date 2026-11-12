@@ -32,9 +32,9 @@ export async function forkChecks(dist) {
   rawSpec[2][1] = R.encUint((1n << 256n) - 1n); // Every nonce satisfies PoW: boundaries are deterministic.
   rawSpec[2][2] = R.encUint(7n); rawSpec[2][4] = R.encUint(0n); rawSpec[2][5] = R.encUint(2n);
   rawSpec[2][6] = R.encUint(60n); rawSpec[2][7] = R.encUint(6n);
-  const spec = RP.decodeSpec(R.encode(rawSpec));
+  const spec = RP.decodeSpec(R.encode(rawSpec)), spec1 = spec;
   const u = R.encUint, empty = new Uint8Array(), zero = () => new Uint8Array(32), maxNonce = (1n << 64n) - 1n;
-  function chain({ head = 4, versions = {}, nonces = {}, shares = {}, upgraded = true } = {}) {
+  function chain({ head = 4, versions = {}, nonces = {}, shares = {}, upgraded = true, spec = spec1 } = {}) {
     const headers = []; let parent = spec.genesisHash;
     for (let n = 1; n <= head; n++) {
       const height = BigInt(n), version = BigInt(versions[n] ?? (upgraded && n >= 3 ? 2 : 1));
@@ -47,7 +47,7 @@ export async function forkChecks(dist) {
       headers.push(H.toHex(bytes)); parent = RP.decodeHeader(bytes).hash;
     }
     const calls = [];
-    return { calls, rpc: async (method, params) => {
+    return { calls, spec, rpc: async (method, params) => {
       calls.push(method);
       if (method === 'eth_blockNumber') return '0x' + head.toString(16);
       if (method === 'pocol_getHeaders') { const start = Number(BigInt(params[0])) - 1, count = Number(BigInt(params[1])); return headers.slice(start, start + count); }
@@ -57,7 +57,7 @@ export async function forkChecks(dist) {
     } };
   }
   const clock = Number(RP.cpv(spec, 'g_ts')) + 1000;
-  const verdict = async (c, forks, extraSpec = {}) => { try { return (await RP.verifyWindow(c.rpc, { ...spec, ...extraSpec }, clock, forks)).ok ? 'accepted' : 'not-ok'; } catch (e) { return e.flag || e.message; } };
+  const verdict = async (c, forks, extraSpec = {}) => { try { return (await RP.verifyWindow(c.rpc, { ...c.spec, ...extraSpec }, clock, forks)).ok ? 'accepted' : 'not-ok'; } catch (e) { return e.flag || e.message; } };
   for (const head of [2, 3, 4]) ok('H-1/H/H+1 header window accepted at head ' + head, await verdict(chain({ head }), normalized) === 'accepted');
   ok('high nonce rejected under v1 immediately before H', await verdict(chain({ head: 2, nonces: { 2: maxNonce } }), normalized) === '6');
   ok('high share accepted under v2 at H', await verdict(chain({ head: 3, shares: { 3: [maxNonce - 1n] } }), normalized) === 'accepted');
@@ -69,5 +69,31 @@ export async function forkChecks(dist) {
   const untrusted = chain();
   ok('RPC cannot activate v2 for an old profile', await verdict(untrusted) === 'netVersion' && !untrusted.calls.includes('pocol_getParams'));
   ok('schedule attached to untrusted spec metadata cannot override local profile', await verdict(chain(), undefined, { forkSchedule: normalized, activeVersion: 2 }) === 'netVersion');
+  // A spec-2 (v3) genesis: the same CP prefix plus the fifteen CP v2 fields (refdec.js CP_V2_EXTRA). The release
+  // entry point refuses it with the reference's gsVersion until activation (V3-PR-I); an explicit ceiling of 2 (the
+  // v3-preview decoder) accepts it, and RP then applies exactly the same nMax rule, keyed on the header version and
+  // CP nonceMode only.
+  const D = await L('refdec.js');
+  const extra = D.CP_V2_EXTRA.map(([, , lo]) => u(BigInt(lo + 3)));
+  const raw2 = [u(2n), rawSpec[1], [...rawSpec[2], ...extra], rawSpec[3], rawSpec[4], rawSpec[5]], spec2Bytes = R.encode(raw2);
+  let refused = ''; try { RP.decodeSpec(spec2Bytes); } catch (e) { refused = `${e.gs}:${e.detail}`; }
+  ok('the release RP entry point refuses a spec-2 genesis with gsVersion until activation', refused === 'gsVersion:2' && D.SPEC_VERSION === 1);
+  const spec2 = RP.decodeSpec(spec2Bytes, 2);
+  ok('the explicit preview ceiling decodes a spec-2 genesis with its version and the 67-field CP v2 schema',
+    spec2.specVersion === 2 && spec2.cp.length === 67 && D.CP_V2_LEN === 67 && RP.cpv(spec2, 'H_half') === 4n && RP.cpv(spec2, 'rho_bp') === 3n
+    && RP.cpv(spec2, 'D_att') === RP.cpv(spec, 'D_att') && spec.specVersion === 1);
+  let v2Name = false; try { RP.cpv(spec, 'H_half'); } catch { v2Name = true; }
+  ok('a CP v2 field name is not readable from a spec-1 genesis', v2Name);
+  ok('the preview size bound covers the longer CP v2 encoding only above the release ceiling', D.maxSpecBytes(2) > D.MAX_SPEC_BYTES && D.maxSpecBytes(1) === D.MAX_SPEC_BYTES);
+  for (const [name, c, want] of [
+    ['H-1/H/H+1 window accepted', chain({ spec: spec2 }), 'accepted'],
+    ['high nonce rejected under v1 immediately before H', chain({ spec: spec2, head: 2, nonces: { 2: maxNonce } }), '6'],
+    ['high share accepted under v2 at H', chain({ spec: spec2, head: 3, shares: { 3: [maxNonce - 1n] } }), 'accepted'],
+    ['high share rejected under v1 at H-1', chain({ spec: spec2, head: 2, shares: { 2: [maxNonce - 1n] } }), '9'],
+    ['premature v2 header rejected', chain({ spec: spec2, head: 2, versions: { 2: 2 } }), 'netVersion'],
+  ]) ok('spec 2 keeps the nMax rule: ' + name, await verdict(c, normalized) === want);
+  const fullSpec2 = { ...spec2, cp: spec2.cp.map((x, i) => (i === 4 ? 1n : x)) };
+  ok('spec 2 with nonceMode 1 takes the full nonce range under v1, as spec 1 does', await verdict({ ...chain({ spec: spec2, head: 2, nonces: { 2: maxNonce } }), spec: fullSpec2 }, normalized) === 'accepted'
+    && await verdict({ ...chain({ head: 2, nonces: { 2: maxNonce } }), spec: { ...spec, cp: spec.cp.map((x, i) => (i === 4 ? 1n : x)) } }, normalized) === 'accepted');
   return checks;
 }
