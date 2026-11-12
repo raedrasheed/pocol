@@ -146,6 +146,60 @@ fn v3_config_implies_the_new_schema_and_full_nonce_only_in_preview(){
         }
     }else{assert!(result.unwrap_err().contains("requires a v3-preview build"));assert!(!out.0.exists());}
 }
+/// V3-05: the launcher's local timing for the live H15000 network files is unchanged (Δ_rel 8, Γ 5), and a spec-1
+/// config cannot declare local timing.
+#[test]
+fn v3_05_keeps_spec1_local_timing_and_refuses_declared_timing_on_spec1(){
+    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(root().join("deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
+    let net=Temp::new("h15000");std::fs::create_dir_all(&net.0).unwrap();
+    for name in ["genesis.spec.hex","alloc.json","devnet.json"]{std::fs::write(net.0.join(name),bundle["files"][name].as_str().unwrap()).unwrap();}
+    let l=pocold::testnet::local_for_network(&net.0).unwrap();
+    assert_eq!((l.delta,l.phi,l.t_exec,l.delta_rel,l.gamma),(1,1,1,8,5),"the live H15000 chain's local timing");
+    // A devnet.json localTiming is never read on a spec-1 network.
+    let mut info:serde_json::Value=serde_json::from_str(bundle["files"]["devnet.json"].as_str().unwrap()).unwrap();
+    info["localTiming"]=serde_json::json!({"delta":5,"phi":5,"tExec":3});std::fs::write(net.0.join("devnet.json"),info.to_string()).unwrap();
+    let l=pocold::testnet::local_for_network(&net.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(8,5));
+    let out=Temp::new("spec1-timing");let mut input=config();input["localTiming"]=serde_json::json!({"delta":2,"phi":2,"tExec":2});
+    assert!(prepare(&input,&out.0).unwrap_err().contains("v3 profile input"));assert!(!out.0.exists());
+    let out=Temp::new("spec1-plain");prepare(&config(),&out.0).unwrap();
+    let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta,l.phi,l.t_exec,l.delta_rel,l.gamma),(1,1,1,8,5));
+}
+/// V3-05 on a v3 genesis (preview builds): Δ_rel = σ + Δ + 2·t_exec from the declared assumptions, V3_WAN (13) by
+/// default at the O-6=b CP; devnet.json records them and the launcher derives the same; assumptions the CP cannot
+/// carry (R3) are refused by admission before any output.
+#[test]
+fn v3_05_derives_delta_rel_for_v3_profiles_from_declared_timing(){
+    let v3=|cp:serde_json::Value,timing:Option<serde_json::Value>|{let mut input=config();let o=input.as_object_mut().unwrap();o.remove("earnin");o.remove("continuous");
+        input["v3"]=serde_json::json!(true);input["cp"]=cp;if let Some(t)=timing{input["localTiming"]=t;}input};
+    let ob=serde_json::json!({"T_blk":30,"D_att":150,"dFbWait":10});
+    if !pocol_lp4_execution::V3_PREVIEW{
+        // A release build has no v3 profile: the declaration is refused with the config, before any output.
+        let out=Temp::new("v3-release");let err=prepare(&v3(ob,Some(serde_json::json!({"delta":2,"phi":2,"tExec":2}))),&out.0).unwrap_err();
+        assert!(err.contains("requires a v3-preview build"),"{err}");assert!(!out.0.exists());return;
+    }
+    let out=Temp::new("v3-default");prepare(&v3(ob.clone(),None),&out.0).unwrap();
+    let info:serde_json::Value=serde_json::from_slice(&std::fs::read(out.0.join("devnet.json")).unwrap()).unwrap();
+    assert_eq!(info["localTiming"],serde_json::json!({"delta":2,"phi":2,"tExec":2,"deltaRel":13,"gamma":8,"source":"v3-wan-default"}));
+    let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta,l.phi,l.t_exec,l.delta_rel,l.gamma),(2,2,2,13,8));
+    pocold::load_spec_for(&out.0,&l,None).unwrap();
+    // Declared single-host assumptions: Δ_rel 7 (the R2 minimum), Γ 5; the launcher reads them back.
+    let out=Temp::new("v3-declared");prepare(&v3(ob.clone(),Some(serde_json::json!({"delta":1,"phi":1,"tExec":1}))),&out.0).unwrap();
+    let info:serde_json::Value=serde_json::from_slice(&std::fs::read(out.0.join("devnet.json")).unwrap()).unwrap();
+    assert_eq!((info["localTiming"]["deltaRel"].as_u64(),info["localTiming"]["gamma"].as_u64(),info["localTiming"]["source"].as_str()),(Some(7),Some(5),Some("declared")));
+    let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(7,5));pocold::load_spec_for(&out.0,&l,None).unwrap();
+    // Without devnet.json the launcher falls back to the V3_WAN default.
+    std::fs::remove_file(out.0.join("devnet.json")).unwrap();let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(13,8));
+    // The governance WAN locals need dFbWait ≥ Φ + Δ + 2·t_exec = 21 (R3): refused at the O-6=b CP, admitted at (c).
+    let gov=serde_json::json!({"delta":5,"phi":5,"tExec":3});
+    let out=Temp::new("v3-r3");let err=prepare(&v3(ob.clone(),Some(gov.clone())),&out.0).unwrap_err();assert!(err.contains("R3"),"{err}");assert!(!out.0.exists());
+    let out=Temp::new("v3-60s");prepare(&v3(serde_json::json!({"T_blk":60,"D_att":300,"dFbWait":25}),Some(gov)),&out.0).unwrap();
+    let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!(l.delta_rel,25);
+    // Malformed declarations fail closed.
+    for (name,bad) in [("zero",serde_json::json!({"delta":0,"phi":1,"tExec":1})),("huge",serde_json::json!({"delta":3601,"phi":1,"tExec":1})),
+        ("unknown",serde_json::json!({"delta":1,"phi":1,"tExec":1,"deltaRel":4})),("missing",serde_json::json!({"delta":1,"phi":1}))]{
+        let out=Temp::new(name);assert!(prepare(&v3(ob.clone(),Some(bad)),&out.0).is_err(),"{name}");assert!(!out.0.exists());
+    }
+}
 #[test]
 fn preview_admission_rejects_every_non_simnet_context(){
     let cfg=devnet::DevnetConfig::new(777933,1_700_000_000,&["one"]);let net=devnet::build(&cfg).unwrap();

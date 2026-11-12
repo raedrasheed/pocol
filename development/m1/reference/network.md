@@ -349,6 +349,21 @@ blockHash filter = one block.
   - sendOverrunMaxMs = maximum (sendTime at sendDone − (GRACE+size/R)) in milliseconds.
   - originDenied counts H2 responses.
 
+**Template latency (V3-05, node-local telemetry)**
+- pocol_templateLatency → {local, tracked, trackedMax, evicted, bucketsMs, all, proposers[]}; the same object is pocol_status.templateLatency. Heavy class (unlisted method). Informational, not validity: no production, import or fork-choice decision reads it.
+- Slot: an attempt-0 slot this node waits in, i.e. a parent it produces on whose Draw(h,0) is another member. Recorded when the wait starts, with b_j (the parent's first local receipt, the time T_j uses), L(0) (the attempt window's first second, ×1000) and T_j = max(b_j+Δ_rel, L(0)+dFbWait). A slot is counted once however often production restarts on its parent. The node's own templates are never timed.
+- Arrival: the first copy of a signed a=0 template for a recorded slot whose signature recovers to the slot's Draw(h,0), whenever it arrives and whatever happens to it next (it may be late, or fail to lock). A template buffered before its parent's production started counts at its buffered receipt time. Later copies (relays) are not samples.
+- Lock: the time the node locked that template after the §4(a) checks (signature, window, item 16, rebuild), once per slot.
+- Per proposer and in `all` (every proposer, evicted ones included):
+  - slots; received (arrivals); missing = slots − received (slots whose template never arrived: the fallback ratio's numerator); locked;
+  - late: arrivals after T_j (the template could not lock; the node was on the attempt-0 fallback or later);
+  - early: arrivals before b_j (the template outran its parent);
+  - sinceParentMs = arrival − b_j (0 when early), sinceWindowMs = arrival − L(0)·1000, lockMs = lock − b_j, each {count, p50, p90, p99, max, mean} in milliseconds, null without samples.
+- Quantiles come from fixed buckets with upper bounds bucketsMs (50 ms … 120 s, then one open bucket): pXX is the upper bound of the bucket holding the sample of rank ⌈XX·count/100⌉, capped at the exact max. It is never below the exact sample percentile and at most one bucket width above it. max and mean are exact (saturating at 2^32−1 ms).
+- local: the node's Δ, φ, t_exec, Δ_rel, Γ and dFbWait, so a reader can recompute T_j.
+- Bounds: at most trackedMax = 256 proposers (the least recently drawn is evicted, counted in evicted) and 64 recent slots; latency::BOUND_BYTES = 114,128 B on x86-64, asserted below 160 KiB at compile time and listed in the A13 conditions (telemetry-inventory), not as a term.
+- Reading Δ and φ for V3-06: sinceParentMs covers the proposer's own receipt of the parent, its template build and the delivery (what R2's σ+Δ+2t_exec must cover), so zero late arrivals with p99 below Δ_rel·1000 show that Δ_rel holds at the measured locals. sinceWindowMs is relative to L(0), the same instant for every node: when the parent arrived before L(0), the proposer signs at L(0) by its own clock, so sinceWindowMs ≈ build time + delivery + the receiver's clock offset from the proposer, and its spread across receivers and proposers estimates Δ+φ. Every time is the reporting node's local clock; compare the same metric across nodes, not raw times.
+
 **Local RPC**
 - 127.0.0.1; disallowed Host returns 403; Origin absent or chrome-extension://<ID>.
 - Body ≤ 1 MiB, batch ≤ 20, eth_call ≤ 30M gas.
