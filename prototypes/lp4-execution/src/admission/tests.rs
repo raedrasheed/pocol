@@ -78,8 +78,8 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     assert!(!a.report().conditions.iter().any(|c|c.detail.contains("node store")),"an in-memory timing is not reported as stored");
 }
 /// R14/R19 count durable commit latency, robustly: a block's cost is its median execution plus its commit, and only the
-/// calibration's single largest commit is counted at the median commit. Every commit slow: every phase carries it. One
-/// stalled commit: no phase carries it. Two stalled commits: the second one is counted.
+/// calibration's largest k = max(1, n/4) of its n commits are counted at the median commit. Every commit slow: every
+/// phase carries it. One stalled commit: no phase carries it. k + 1 stalled commits: one of them is counted.
 #[test] fn the_store_calibration_times_each_block_commit(){
     use crate::node_trie::{Batch,Id,Node,NodeStore,SharedMem,TrieStore};
     use std::sync::atomic::{AtomicU32,Ordering};
@@ -96,18 +96,22 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let t=run(Slow{every:25,..Default::default()});
     assert!(t.store_ms>=25&&t.store_median_ms>=25,"the durable commit is reported: {t:?}");
     for c in 0..3{assert!(t.phase_ms[c]>=t.exec_ms[c]+25,"every block's commit reaches R14/R19 (phase {c}): {t:?}");}
+    // The timed blocks (three samples each with repeats 1) and the commits counted at the median, k = max(1, n/4).
+    let blocks=t.samples/3;let k=(blocks/4).max(1);assert!(blocks>=2,"{t:?}");
     assert_eq!(Timing::from_json(&t.to_json()),Some(t));
     // One commit (the second timed block's) stalled past t_exec: reported, counted at the median commit.
     let t=run(Slow{stalled:vec![3],stall:1050,..Default::default()});
     assert!(t.store_ms>=1050&&t.store_median_ms<t.store_ms,"{t:?}");
     assert!(t.phase_ms.iter().all(|p|*p<t.store_ms),"one stalled commit does not reach R14/R19: {t:?}");
-    // Two stalled commits: only one is replaced, so the other reaches R14/R19.
-    let t=run(Slow{stalled:vec![3,4],stall:1050,..Default::default()});
-    assert!(t.phase_ms.iter().max().unwrap()>=&1050,"a second stalled commit reaches R14/R19: {t:?}");
+    // k + 1 stalled commits (two when k = 1): only k are replaced, so the other reaches R14/R19.
+    let t=run(Slow{stalled:(3..3+k+1).collect(),stall:1050,..Default::default()});
+    assert!(t.phase_ms.iter().max().unwrap()>=&1050,"stalled commit {} of {blocks} reaches R14/R19: {t:?}",k+1);
 }
-/// The single-outlier rule for any number of timed blocks: with two or more, exactly one stalled commit is counted at
-/// the lower median (so with two blocks the smaller commit, not the stall itself); with one, its commit is counted.
-#[test] fn the_single_largest_commit_is_counted_at_the_lower_median(){
+/// The isolated-outlier rule for any number of timed blocks: with n >= 2, the largest k = max(1, n/4) commits are
+/// counted at the lower median (so with two blocks the smaller commit, not the stall itself); with one, its commit is
+/// counted. One to four timed blocks tolerate exactly one stall (k = 1), eight tolerate two (k = 2); a disk whose lower
+/// median commit is past t_exec, or that stalls on more than k writes, still reaches R14/R19.
+#[test] fn the_largest_quarter_of_commits_is_counted_at_the_lower_median(){
     let s=1050u64;
     // One timed block: its commit is its own median and is counted.
     assert_eq!(block_costs(&[(0,10,s)]),([10+s,0,0],[10,0,0],s,s));
@@ -119,6 +123,31 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     assert_eq!(block_costs(&[(0,10,20),(1,10,s),(2,10,30)]),([30,40,40],[10,10,10],s,30));
     assert_eq!(block_costs(&[(0,10,20),(0,10,25),(1,10,s),(2,10,30)]),([35,35,40],[10,10,10],s,25));
     assert!(block_costs(&[(0,10,20),(0,10,s),(1,10,s),(2,10,30)]).0.iter().max().unwrap()>=&s);
+    // Eight timed blocks (k = 2): two stalls are counted at the lower median (23 ms), no phase carries either.
+    assert_eq!(block_costs(&[(0,10,20),(0,10,21),(0,10,22),(0,10,23),(0,10,24),(1,10,25),(1,10,s),(2,10,s)]),([34,35,33],[10,10,10],s,23));
+    // Three stalls among eight: the third is counted at its own time (equal commits: the earlier blocks are replaced).
+    let three=block_costs(&[(0,10,20),(0,10,21),(0,10,22),(0,10,23),(0,10,s),(1,10,25),(1,10,s),(2,10,s)]);
+    assert_eq!(three,([33,35,10+s],[10,10,10],s,23));assert!(three.0.iter().max().unwrap()>=&s);
+    // The Windows CI evidence (a continuous profile: 22 timed blocks, all ordinary; execution 14 ms; lower median
+    // commit 439 ms; three fsync stalls of 1.5-4.2 s): k = 5, so the R14/R19 figure is the largest remaining commit
+    // (480 ms) plus execution, well inside t_exec. Counting only the largest at the median gave 14 + 2242 = 2256 ms,
+    // the refused phase_ms of that run.
+    let windows:Vec<(usize,u64,u64)>=[380,390,4169,400,405,410,415,2242,420,425,430,435,439,445,450,1500,455,460,470,480,490,500]
+        .iter().map(|&c|(0,14,c)).collect();
+    assert_eq!(windows.len(),22);
+    assert_eq!(block_costs(&windows),([494,0,0],[14,0,0],4169,439));
+    // A disk whose typical commit is past t_exec (eight blocks, six commits at 1050 ms): the lower median is 1050 ms.
+    assert_eq!(block_costs(&[(0,10,20),(0,10,30),(0,10,s),(0,10,s),(0,10,s),(0,10,s),(0,10,s),(0,10,s)]),([10+s,0,0],[10,0,0],s,s));
+    // More than a quarter slow (22 blocks, six stalls > k = 5): one stall is counted at its own time.
+    let mut six:Vec<(usize,u64,u64)>=(0..16).map(|_|(0,14,439)).collect();six.extend((0..6).map(|_|(0,14,s)));
+    assert_eq!(block_costs(&six),([14+s,0,0],[14,0,0],s,439));
+    // For every n from 2 to 64: k = max(1, n/4) stalls are tolerated, k + 1 are not.
+    for n in 2..=64usize{
+        let k=(n/4).max(1);
+        let with=|stalls:usize|->Vec<(usize,u64,u64)>{(0..n).map(|i|(0,10,if i<stalls{s}else{20+i as u64})).collect()};
+        let (p,_,_,_)=block_costs(&with(k));assert!(p[0]<s,"n={n}: {k} stalls tolerated, {p:?}");
+        let (p,_,_,_)=block_costs(&with(k+1));assert!(p[0]>=s,"n={n}: {} stalls refused, {p:?}",k+1);
+    }
     // In memory every commit is 0: phase_ms is exec_ms.
     assert_eq!(block_costs(&[(0,7,0),(1,8,0),(2,9,0)]),([7,8,9],[7,8,9],0,0));
 }
