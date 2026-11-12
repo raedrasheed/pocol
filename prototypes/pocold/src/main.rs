@@ -37,7 +37,7 @@ fn main(){
         Ok(Ok(code))=>code,Ok(Err(_))=>101,Err(e)=>{eprintln!("error: spawn consensus thread: {e}");1}};
     std::process::exit(code);
 }
-const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--seed ADDR]... [--bootstrap ADDR]... [--outbound N|auto] [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] [--memory-budget-bytes N] [--evict-depth N] (--memory-budget-bytes: the A13 memory budget, default 6 GiB; run also reads POCOL_MEMORY_BUDGET_BYTES; --evict-depth: canonical blocks kept in memory below the head, 0 off; --state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; automatic outbound: --outbound N (0..8) or auto (default: 4 with --listen, else 2; POCOL_OUTBOUND), plus 1 spare slot; --seed (<= 7) peers used only to bootstrap and refill; --bootstrap (<= 16) unverified addresses to try; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
+const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--seed ADDR]... [--bootstrap ADDR]... [--outbound N|auto] [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] [--memory-budget-bytes N] [--evict-depth N] (--memory-budget-bytes: the A13 memory budget, default 6 GiB; run also reads POCOL_MEMORY_BUDGET_BYTES; --evict-depth: canonical blocks kept in memory below the head, 0 off; --state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; automatic outbound: --outbound N (0..8) or auto (default: 4 with --listen, else 2; POCOL_OUTBOUND), plus 1 spare slot; --seed (<= 7) peers used only to bootstrap and refill; --bootstrap (<= 16) unverified addresses to try; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host, but run and status on a v3 network default to its V3-05 timing): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
 /// Runs one command and returns the process exit status. `help` (also `--help`, `-h`) prints the
 /// usage on stdout and exits 0. No command, or a command this build does not have, prints the
 /// usage on stderr and exits 2, so a script never takes a command that did not run for success.
@@ -97,9 +97,19 @@ fn limits(args:&[String])->Result<node::Limits,String>{
     Ok(l)
 }
 /// Node-local ParamGate inputs: the single-host defaults with optional overrides.
-fn local(args:&[String])->NodeLocal{
-    let d=single_host_local();
+fn local(args:&[String])->NodeLocal{local_over(args,single_host_local())}
+/// `--delta`, `--phi`, `--t-exec`, `--delta-rel` and `--gamma` over the defaults `d`.
+fn local_over(args:&[String],d:NodeLocal)->NodeLocal{
     NodeLocal{delta:num(args,"--delta",d.delta),phi:num(args,"--phi",d.phi),t_exec:num(args,"--t-exec",d.t_exec),delta_rel:num(args,"--delta-rel",d.delta_rel),gamma:num(args,"--gamma",d.gamma),..d}
+}
+/// The local inputs a node on the network in `net` runs with (`run`, `status`). Spec 1 (every committed network):
+/// `local`, unchanged. A v3 (spec-2) network: V3-05's timing from its files (`testnet::local_for_network`, as the
+/// launcher), with the same overrides. A network whose spec cannot be read keeps `local`, and opening it reports why.
+fn local_at(args:&[String],net:&std::path::Path)->Result<NodeLocal,String>{
+    match pocold::testnet::spec_version_of(net){
+        Ok(v) if v>=2=>Ok(local_over(args,pocold::testnet::local_for_network(net)?)),
+        _=>Ok(local(args)),
+    }
 }
 fn init(args:&[String])->Result<(),String>{
     let out=PathBuf::from(arg(args,"--out").ok_or("--out")?);
@@ -179,7 +189,7 @@ fn run(args:&[String])->Result<(),String>{
     limits.discovery.resolve(listen.is_some(),peers.len())?;
     let net=PathBuf::from(arg(args,"--network").ok_or("--network")?);
     let data=PathBuf::from(arg(args,"--data").ok_or("--data")?);
-    let spec=load_spec_for(&net,&local(args),limits.state_store.then_some(data.as_path()))?;
+    let spec=load_spec_for(&net,&local_at(args,&net)?,limits.state_store.then_some(data.as_path()))?;
     let name=arg(args,"--name").unwrap_or_else(||"node".into());
     let cfg=node::Config{dir:data,name,miner,listen,peers,
         rpc:arg(args,"--rpc").map(|s|parse(&s)).transpose()?,
@@ -203,7 +213,7 @@ fn cutover(args:&[String])->Result<(),String>{
 }
 fn status(args:&[String])->Result<(),String>{
     let limits=limits(args)?;let net=PathBuf::from(arg(args,"--network").ok_or("--network")?);let data=PathBuf::from(arg(args,"--data").ok_or("--data")?);
-    let spec=load_spec_for(&net,&local(args),limits.state_store.then_some(data.as_path()))?;
+    let spec=load_spec_for(&net,&local_at(args,&net)?,limits.state_store.then_some(data.as_path()))?;
     let cfg=node::Config{dir:data,name:"status".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits};
     let n=node::Node::open(cfg,spec)?;println!("{}",n.status_json());Ok(())
 }

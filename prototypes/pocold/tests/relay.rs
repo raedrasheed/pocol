@@ -25,10 +25,11 @@ struct Fixture{chain:Chain,keys:HashMap<Address,Key>,p2p:u16,rpc:u16,chain_id:u6
 /// A fresh devnet (genesis now, adjusted by `tune`), node B started on it, and a local chain on the same
 /// admitted profile (timing measured once, admitted twice: a Spec is not Clone) that builds the drawn
 /// proposer's template.
-fn fixture(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig))->Fixture{
+fn fixture(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig))->Fixture{fixture_at(tag,chain_id,pocold::single_host_local(),tune)}
+/// `fixture` with both B and the local chain on the given local timing.
+fn fixture_at(tag:&str,chain_id:u64,local:admission::NodeLocal,tune:impl FnOnce(&mut DevnetConfig))->Fixture{
     let mut c=DevnetConfig::new(chain_id,now_s(),&["a","b","c"]);tune(&mut c);
     let d=devnet::build(&c).unwrap();
-    let local=pocold::single_host_local();
     let (admitted,timing)=d.admit(&local).unwrap_or_else(|e|panic!("{e}"));
     let spec_b=Spec::new(admitted);
     let spec_local=Spec::new(admission::admit(&d.request(&local,Some(&timing))).unwrap_or_else(|e|panic!("{e}")));
@@ -77,11 +78,16 @@ fn peers<const N:usize>(f:&Fixture,names:[&str;N])->[TcpStream;N]{
 }
 /// Waits until attempt 0 at height 1 is open (C >= L(0)), then has Draw(1,0) sign a template with `body`
 /// at C. Returns its TemplateID, the Template message as the proposer sends it, and the child context.
-fn template(f:&Fixture,body:Body)->([u8;32],Msg,ChildCtx){
+fn template(f:&Fixture,body:Body)->([u8;32],Msg,ChildCtx){let (tid,m,ctx,_)=template_at(f,body,0);(tid,m,ctx)}
+/// `template`, stamped `ahead` seconds past the proposer's clock (a proposer whose clock is ahead of B's); also
+/// returns the stamp.
+fn template_at(f:&Fixture,body:Body,ahead:u64)->([u8;32],Msg,ChildCtx,u64){
     let p=f.chain.full_entry(&f.chain.head().hash).unwrap();let ctx=f.chain.child_ctx(&p,0).unwrap();
     while now_s()<ctx.window.lower(){std::thread::sleep(Duration::from_millis(50));}
-    let (h,_,ctx)=f.chain.build_signed(&p,&f.keys[&ctx.proposer],now_s(),body.clone(),vec![]).unwrap();
-    (template_id(&h.ut_raw),Msg::Template{shell:h.encoded.clone(),body:body.encode()},ctx)
+    let ts=now_s()+ahead;
+    let (h,_,ctx)=f.chain.build_signed(&p,&f.keys[&ctx.proposer],ts,body.clone(),vec![]).unwrap();
+    assert_eq!(h.ts,ts);
+    (template_id(&h.ut_raw),Msg::Template{shell:h.encoded.clone(),body:body.encode()},ctx,ts)
 }
 /// The nonces below nMax (when `below`) or from nMax on (otherwise) whose PoW for `tid` meets T_share.
 fn valid_shares<'a>(tid:&'a [u8;32],ctx:&'a ChildCtx,below:bool)->impl Iterator<Item=u64>+'a{
@@ -206,9 +212,9 @@ fn wait_for(ms:u64,mut f:impl FnMut()->bool)->bool{let t=Instant::now();while t.
     let [mut x,mut y]=peers(&f,["x","y"]);
     let before=call(f.rpc,"pocol_templateLatency");
     assert_eq!((before["tracked"].as_u64(),before["all"]["slots"].as_u64(),before["all"]["received"].as_u64()),(Some(1),Some(1),Some(0)),"B waits in one slot: {before}");
-    let (tid,tmsg,ctx)=template(&f,Body::default());
-    x.write_all(&frame(&tmsg)).unwrap();
-    assert_eq!(gossip(&mut y,Duration::from_secs(5)),Some(tmsg.clone()),"locked and relayed");
+    let (tid,tmsg,ctx,ts)=template_at(&f,Body::default(),0);
+    let sent=pocold::node::now_ms();x.write_all(&frame(&tmsg)).unwrap();
+    assert_eq!(gossip(&mut y,Duration::from_secs(5)),Some(tmsg.clone()),"locked and relayed");let relayed=pocold::node::now_ms();
     // y's copy, then a share from y: once x gets the share, B has handled the copy.
     let s=valid_shares(&tid,&ctx,true).next().unwrap();
     y.write_all(&frame(&tmsg)).unwrap();y.write_all(&frame(&Msg::Share{tid,nonce:s})).unwrap();
@@ -219,12 +225,15 @@ fn wait_for(ms:u64,mut f:impl FnMut()->bool)->bool{let t=Instant::now();while t.
     assert_eq!(p["proposer"],format!("{:#x}",ctx.proposer),"keyed by Draw(1,0)");
     let n=|k:&str|p[k].as_u64().unwrap();
     assert_eq!((n("slots"),n("received"),n("locked"),n("late"),n("missing")),(1,1,1,0,0),"{p}");
-    for h in ["sinceParentMs","sinceWindowMs","lockMs"]{
+    for h in ["sinceParentMs","sinceStampMs","lockMs"]{
         assert_eq!(p[h]["count"],1,"{h}");let m=p[h]["max"].as_u64().unwrap();
         assert!(p[h]["p50"].as_u64().unwrap()<=m&&p[h]["p99"].as_u64().unwrap()<=m&&p[h]["mean"].as_u64().unwrap()<=m,"{h}: {}",p[h]);
     }
     assert!(n("late")==0&&p["lockMs"]["max"].as_u64()>=p["sinceParentMs"]["max"].as_u64(),"the lock follows the arrival: {p}");
-    assert!(p["sinceWindowMs"]["max"].as_u64().unwrap()<25_000,"inside the attempt window: {p}");
+    // B and the proposer share this host's clock: the offset is the arrival at B minus the template's own stamp.
+    let off=u128::from(p["sinceStampMs"]["max"].as_u64().unwrap());
+    assert!(sent-u128::from(ts)*1000<=off&&off<=relayed-u128::from(ts)*1000,"arrival − ts·1000 in [{sent},{relayed}] − {ts}000: {p}");
+    assert_eq!(p["beforeStampMs"]["count"],0,"{p}");
     assert_eq!(t["all"]["received"],1);assert_eq!(t["all"]["locked"],1);
     assert_eq!(status(&f)["templateLatency"],t,"pocol_status carries the same counters");
 }
@@ -245,6 +254,28 @@ fn wait_for(ms:u64,mut f:impl FnMut()->bool)->bool{let t=Instant::now();while t.
     assert!(status(&f)["production"].as_str().unwrap().starts_with("FB"),"B stays on its fallback");
 }
 
+/// With Φ > 0 (φ = 1 s, Φ = 2 s) a template may be stamped up to Φ past B's clock. The window opened before the
+/// template was built (genesis 3 s ago), so the stamp is the proposer's clock, not L(0): the sample is timed against
+/// that stamp, falls before it on B's clock, and is reported in beforeStampMs (not clipped to 0 in sinceStampMs).
+#[test] fn a_template_stamped_ahead_of_the_receivers_clock_is_a_negative_stamp_offset(){let _g=serial();
+    let local=pocold::testnet::local();assert_eq!(local.capital_phi(),2);
+    // A CP that carries Φ = 2 s (R3: dFbWait ≥ Φ + Δ + 2·t_exec = 5; R7 then needs a longer D_att).
+    let f=fixture_at("latency-ahead",778108,local,|c|{c.g_ts-=3;c.d_fb_wait=6;c.d_att=40;});
+    let [mut x,mut y]=peers(&f,["x","y"]);
+    let (_,tmsg,ctx,ts)=template_at(&f,Body::default(),2);
+    assert!(ts>ctx.window.lower(),"stamped past L(0)");
+    let sent=pocold::node::now_ms();x.write_all(&frame(&tmsg)).unwrap();
+    assert_eq!(gossip(&mut y,Duration::from_secs(5)),Some(tmsg),"within Φ of B's clock: locked and relayed");let relayed=pocold::node::now_ms();
+    let t=call(f.rpc,"pocol_templateLatency");let p=&t["proposers"][0];
+    assert_eq!(t["local"]["phi"],1);assert_eq!(p["proposer"],format!("{:#x}",ctx.proposer));
+    let n=|k:&str|p[k].as_u64().unwrap();
+    assert_eq!((n("slots"),n("received"),n("locked"),n("late"),n("stampAtWindow")),(1,1,1,0,0),"{p}");
+    assert_eq!((p["sinceStampMs"]["count"].as_u64(),p["beforeStampMs"]["count"].as_u64()),(Some(0),Some(1)),"{p}");
+    // ts·1000 − arrival, with the arrival at B in [sent, relayed].
+    let before=u128::from(p["beforeStampMs"]["max"].as_u64().unwrap());let stamp=u128::from(ts)*1000;
+    assert!(stamp-relayed<=before&&before<=stamp-sent,"ts·1000 − arrival in {stamp} − [{sent},{relayed}]: {p}");
+}
+
 /// A local devnet of three mining nodes over loopback: each one's counters fill from the other members' templates,
 /// and never list the node's own proposals.
 #[test] fn template_latency_populates_on_a_local_multi_node_devnet(){let _g=serial();
@@ -254,16 +285,18 @@ fn wait_for(ms:u64,mut f:impl FnMut()->bool)->bool{let t=Instant::now();while t.
     let d=devnet::build(&DevnetConfig::new(778107,now_s(),&["a","b","c"])).unwrap();
     let local=pocold::single_host_local();
     let (first,timing)=d.admit(&local).unwrap_or_else(|e|panic!("{e}"));let mut first=Some(first);
-    let held:Vec<[TcpListener;2]>=(0..3).map(|_|[TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()]).collect();
-    let ports:Vec<(u16,u16)>=held.iter().map(|h|(h[0].local_addr().unwrap().port(),h[1].local_addr().unwrap().port())).collect();
-    drop(held);
-    let root=std::env::temp_dir().join(format!("pocold-latency-live-{}",std::process::id()));let _=std::fs::remove_dir_all(&root);
+    // Each node's ports stay held by listeners until that node binds them (as in `fixture`).
+    let mut held:Vec<Option<[TcpListener;2]>>=(0..3).map(|_|Some([TcpListener::bind("127.0.0.1:0").unwrap(),TcpListener::bind("127.0.0.1:0").unwrap()])).collect();
+    let ports:Vec<(u16,u16)>=held.iter().flatten().map(|h|(h[0].local_addr().unwrap().port(),h[1].local_addr().unwrap().port())).collect();
+    // Dropped after the nodes (declared before them), also when an assertion fails.
+    struct Root(std::path::PathBuf);impl Drop for Root{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
+    let root=Root(std::env::temp_dir().join(format!("pocold-latency-live-{}",std::process::id())));let _=std::fs::remove_dir_all(&root.0);
     let nodes:Vec<Live>=d.miners.iter().enumerate().map(|(i,m)|{
         let spec=first.take().map(Spec::new).unwrap_or_else(||Spec::new(admission::admit(&d.request(&local,Some(&timing))).unwrap_or_else(|e|panic!("{e}"))));
         let peers=ports[..i].iter().map(|(p,_)|format!("127.0.0.1:{p}").parse().unwrap()).collect();
-        let cfg=Config{dir:root.join(i.to_string()),name:format!("n{i}"),miner:Some(Key::from_secret(&m.key.secret()).unwrap()),listen:Some(format!("127.0.0.1:{}",ports[i].0).parse().unwrap()),
+        let cfg=Config{dir:root.0.join(i.to_string()),name:format!("n{i}"),miner:Some(Key::from_secret(&m.key.secret()).unwrap()),listen:Some(format!("127.0.0.1:{}",ports[i].0).parse().unwrap()),
             peers,rpc:Some(format!("127.0.0.1:{}",ports[i].1).parse().unwrap()),stop_at:None,log:false,limits:Limits::default()};
-        let mut n=Node::open(cfg,spec).unwrap();n.start_network().unwrap();
+        let mut n=Node::open(cfg,spec).unwrap();drop(held[i].take());n.start_network().unwrap();
         let stop=Arc::new(AtomicBool::new(false));let s=stop.clone();
         Live{rpc:ports[i].1,me:m.id,stop,run:Some(std::thread::spawn(move||n.run_controlled(|_|s.load(Ordering::SeqCst))))}
     }).collect();
@@ -282,5 +315,5 @@ fn wait_for(ms:u64,mut f:impl FnMut()->bool)->bool{let t=Instant::now();while t.
         assert_eq!(t["all"]["sinceParentMs"]["count"],t["all"]["received"]);
         let st=call(n.rpc,"pocol_status")["templateLatency"].clone();assert_eq!(st["trackedMax"],256);assert!(st["all"]["received"].as_u64()>=t["all"]["received"].as_u64());
     }
-    drop(nodes);let _=std::fs::remove_dir_all(&root);
+    drop(nodes);
 }

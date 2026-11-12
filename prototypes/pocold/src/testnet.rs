@@ -159,9 +159,14 @@ pub fn local_for_spec(cp: &ConsensusParams, spec_version: u8, declared: Option<T
     local_for_v3(cp, declared.unwrap_or(TimingAssumptions::V3_WAN))
 }
 
-/// The declared assumptions of devnet.json's `localTiming` (`delta`, `phi`, `tExec`; the derived `deltaRel` and
-/// `gamma` are recomputed, never read). None when the file or the object is absent.
-fn declared_in(dir: &Path) -> Result<Option<TimingAssumptions>, String> {
+/// devnet.json's `localTiming`: the declared assumptions (`delta`, `phi`, `tExec`) and the `deltaRel` and `gamma`
+/// recorded with them, when present. None when the file or the object is absent.
+struct Recorded {
+    assumptions: TimingAssumptions,
+    delta_rel: Option<u64>,
+    gamma: Option<u64>,
+}
+fn declared_in(dir: &Path) -> Result<Option<Recorded>, String> {
     use std::io::Read;
     let file = match std::fs::File::open(dir.join("devnet.json")) {
         Ok(f) => f,
@@ -176,12 +181,19 @@ fn declared_in(dir: &Path) -> Result<Option<TimingAssumptions>, String> {
     let Some(t) = info.get("localTiming") else { return Ok(None) };
     let field = |name: &str| t.get(name).and_then(serde_json::Value::as_u64).and_then(|v| u32::try_from(v).ok())
         .ok_or_else(|| format!("devnet.json localTiming.{name} must be an unsigned 32-bit integer"));
-    Ok(Some(TimingAssumptions { delta: field("delta")?, phi: field("phi")?, t_exec: field("tExec")? }))
+    let recorded = |name: &str| match t.get(name) {
+        None => Ok(None),
+        Some(v) => v.as_u64().map(Some).ok_or_else(|| format!("devnet.json localTiming.{name} must be an unsigned integer")),
+    };
+    Ok(Some(Recorded {
+        assumptions: TimingAssumptions { delta: field("delta")?, phi: field("phi")?, t_exec: field("tExec")? },
+        delta_rel: recorded("deltaRel")?,
+        gamma: recorded("gamma")?,
+    }))
 }
 
-/// The launcher uses the same final CP-derived local timing as the genesis builder: spec 1 `local_for`; a v3
-/// genesis `local_for_v3` at the assumptions its devnet.json declares (`TimingAssumptions::V3_WAN` without one).
-pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
+/// The network's GenesisSpec (genesis.spec.hex, bounded read).
+fn genesis_spec_in(dir: &Path) -> Result<gs::GenesisSpec, String> {
     use std::io::Read;
     let mut text = String::new();
     let limit = (gs::MAX_SPEC_BYTES * 2 + 3) as u64;
@@ -189,12 +201,38 @@ pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
         .take(limit + 1).read_to_string(&mut text).map_err(|e| format!("genesis.spec.hex: {e}"))?;
     if text.len() as u64 > limit { return Err("GenesisSpec exceeds size bound".into()); }
     let bytes = crate::types::unhex(text.trim())?;
-    let spec = gs::decode(&bytes).map_err(|e| format!("GenesisSpec: {e:?}"))?;
+    gs::decode(&bytes).map_err(|e| format!("GenesisSpec: {e:?}"))
+}
+
+/// The spec version of the network in `dir` (its genesis.spec.hex).
+pub fn spec_version_of(dir: &Path) -> Result<u8, String> {
+    Ok(genesis_spec_in(dir)?.spec_version)
+}
+
+/// The launcher uses the same final CP-derived local timing as the genesis builder: spec 1 `local_for`; a v3
+/// genesis `local_for_v3` at the assumptions its devnet.json declares (`TimingAssumptions::V3_WAN` without one).
+/// A v3 devnet.json whose recorded `deltaRel` or `gamma` differs from what V3-05 derives from its assumptions (a
+/// file written before V3-05, or one edited by hand) is refused, so a node never runs a T_j other than the one the
+/// file states.
+pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
+    let spec = genesis_spec_in(dir)?;
     let cp = ConsensusParams::from_values(&spec.cp).map_err(|e| format!("CP: {e:?}"))?;
     if spec.spec_version < 2 {
         return local_for(&cp);
     }
-    local_for_spec(&cp, spec.spec_version, declared_in(dir)?)
+    let recorded = declared_in(dir)?;
+    let local = local_for_spec(&cp, spec.spec_version, recorded.as_ref().map(|r| r.assumptions))?;
+    if let Some(r) = recorded {
+        let differs = |v: Option<u64>, want: u32| v.is_some_and(|v| v != u64::from(want));
+        if differs(r.delta_rel, local.delta_rel) || differs(r.gamma, local.gamma) {
+            let shown = |v: Option<u64>| v.map_or("absent".to_string(), |v| v.to_string());
+            return Err(format!(
+                "devnet.json localTiming records deltaRel {} and gamma {}, but V3-05 derives deltaRel {} and gamma {} from delta {}, phi {}, tExec {} \
+                 (deltaRel = sigma + delta + 2 tExec); this v3 network's files predate V3-05 or were edited: rebuild them, or set deltaRel and gamma to the derived values",
+                shown(r.delta_rel), shown(r.gamma), local.delta_rel, local.gamma, local.delta, local.phi, local.t_exec));
+        }
+    }
+    Ok(local)
 }
 
 fn cp_number(value: &serde_json::Value) -> Result<pocol_lp4_execution::fixed::U256, String> {

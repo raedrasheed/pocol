@@ -1967,7 +1967,7 @@ impl Node{
         let Some(drawn)=self.latency.waiting_for(&h.parent_hash) else{return};
         if h.proposer[..]!=drawn[..]{return}
         if !matches!(hashes::recover_address(&hashes::sig_msg(&template_id(&h.ut_raw)),&h.sig),Ok(a) if a[..]==drawn[..]){return}
-        self.latency.arrival(&h.parent_hash,arrival);
+        self.latency.arrival(&h.parent_hash,arrival,h.ts);
     }
     /// pocol_templateLatency (and pocol_status `templateLatency`): the V3-05 counters, with the local timing T_j
     /// derives from.
@@ -2198,7 +2198,10 @@ impl Node{
                         let p=self.chain.get(&h.parent_hash).unwrap().clone();self.lock_fallback(&p,0);}
                 }else if waiting{self.try_lock_signed(h,b,from);}
                 else if !self.chain.blocks.contains_key(&h.parent_hash)||self.prod.as_ref().map(|p|p.parent!=h.parent_hash).unwrap_or(true){
-                    if self.templates.len()>TEMPLATES_MAX{self.templates.clear();}self.templates.insert(h.parent_hash,(h,b,now_ms(),from));
+                    // A copy identical to the buffered one (a relay of the same template) keeps the first receipt
+                    // time, so the V3-05 arrival (and T_j's check at slot start) counts from the first copy.
+                    let first=match self.templates.get(&h.parent_hash){Some((o,ob,t,_)) if o.encoded==h.encoded&&*ob==b=>*t,_=>arrival};
+                    if self.templates.len()>TEMPLATES_MAX{self.templates.clear();}self.templates.insert(h.parent_hash,(h,b,first,from));
                 }
             }
             Msg::Share{tid,nonce}=>{

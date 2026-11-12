@@ -1,8 +1,15 @@
 //! V3-05 template-latency telemetry (node-local; network.md "Template latency"). For each attempt-0 slot this node
 //! waits in (a parent it produces on, whose Draw(h,0) is another member), it records when the drawn proposer's
-//! signed template first arrived and when it locked, relative to the parent's first receipt b_j and to the attempt
-//! window's start L(0), and whether it arrived after the local deadline T_j. Samples are kept per proposer in
-//! fixed-bucket histograms, and in one aggregate over all proposers, so the WAN soak (V3-06) can read Δ and φ.
+//! signed template first arrived and when it locked, relative to the parent's first receipt b_j and to the
+//! template's own timestamp (the proposer's clock when it built it), and whether it arrived after the local deadline
+//! T_j. Samples are kept per proposer in fixed-bucket histograms, and in one aggregate over all proposers, so the WAN
+//! soak (V3-06) can read Δ and φ.
+//!
+//! The stamp offset is signed: arrival − ts·1000 goes to `since_stamp` when it is at least 0, and ts·1000 − arrival
+//! to `before_stamp` when the template arrived before its own timestamp by the receiver's clock (the receiver's
+//! clock is behind the proposer's by more than the delivery). A template stamped exactly L(0) is counted in
+//! `stamp_at_window`: a proposer may sign up to Φ s before L(0) and then stamps L(0), not its clock, so such a
+//! sample may sit up to Φ s below the true offset.
 //! Nothing here feeds a production, import or validity decision.
 //!
 //! Bounds: at most PROPOSERS_MAX proposers (least recently drawn evicted first; the aggregate keeps their samples)
@@ -58,8 +65,11 @@ pub struct Stats{
     pub slots:u64,
     /// Templates that arrived after T_j, and templates that arrived before this node first received their parent.
     pub late:u64,pub early:u64,
-    /// First arrival − b_j (0 when early), first arrival − L(0), and lock − b_j.
-    pub since_parent:Histogram,pub since_window:Histogram,pub lock:Histogram,
+    /// Arrivals whose template is stamped L(0) (its timestamp may be the window floor, not the proposer's clock).
+    pub stamp_at_window:u64,
+    /// First arrival − b_j (0 when early); first arrival − ts·1000 when not negative, and ts·1000 − first arrival
+    /// when negative (each arrival is in exactly one of the two); and lock − b_j.
+    pub since_parent:Histogram,pub since_stamp:Histogram,pub before_stamp:Histogram,pub lock:Histogram,
     /// The tracker sequence of the last slot drawn to this proposer (least recently drawn is evicted first).
     last:u64,
 }
@@ -67,7 +77,9 @@ impl Stats{
     pub fn json(&self)->serde_json::Value{
         let received=self.since_parent.count();
         serde_json::json!({"slots":self.slots,"received":received,"missing":self.slots.saturating_sub(received),"late":self.late,"early":self.early,
-            "locked":self.lock.count(),"sinceParentMs":self.since_parent.json(),"sinceWindowMs":self.since_window.json(),"lockMs":self.lock.json()})
+            "stampAtWindow":self.stamp_at_window,
+            "locked":self.lock.count(),"sinceParentMs":self.since_parent.json(),"sinceStampMs":self.since_stamp.json(),"beforeStampMs":self.before_stamp.json(),
+            "lockMs":self.lock.json()})
     }
 }
 
@@ -109,14 +121,19 @@ impl Tracker{
     }
     /// Draw(h,0) of a recorded slot on `parent` whose template has not arrived yet, for the caller's signature check.
     pub fn waiting_for(&self,parent:&[u8;32])->Option<[u8;20]>{self.slots.iter().find(|s|s.parent==*parent&&!s.arrived).map(|s|s.proposer)}
-    /// The drawn proposer's signed template for `parent` first arrived at `arrival_ms` (the caller checked its
-    /// signature). Later copies, and a template for a slot not recorded, are ignored.
-    pub fn arrival(&mut self,parent:&[u8;32],arrival_ms:u128){
+    /// The drawn proposer's signed template for `parent`, stamped `stamp_s` (its header ts), first arrived at
+    /// `arrival_ms` (the caller checked its signature). Later copies, and a template for a slot not recorded, are
+    /// ignored.
+    pub fn arrival(&mut self,parent:&[u8;32],arrival_ms:u128,stamp_s:u64){
         let Some(s)=self.slot_mut(parent).filter(|s|!s.arrived) else{return};
         s.arrived=true;let s=*s;
         let late=arrival_ms>s.deadline_ms;let early=arrival_ms<s.parent_ms;
-        let (p,w)=(arrival_ms.saturating_sub(s.parent_ms),arrival_ms.saturating_sub(s.window_ms));
-        let note=|st:&mut Stats|{st.late+=u64::from(late);st.early+=u64::from(early);st.since_parent.record(p);st.since_window.record(w);};
+        let stamp_ms=u128::from(stamp_s)*1000;let at_window=stamp_ms==s.window_ms;
+        let p=arrival_ms.saturating_sub(s.parent_ms);
+        let note=|st:&mut Stats|{
+            st.late+=u64::from(late);st.early+=u64::from(early);st.stamp_at_window+=u64::from(at_window);st.since_parent.record(p);
+            if arrival_ms>=stamp_ms{st.since_stamp.record(arrival_ms-stamp_ms)}else{st.before_stamp.record(stamp_ms-arrival_ms)}
+        };
         note(&mut self.all);note(self.stats(&s.proposer));
     }
     /// The drawn proposer's template for `parent` locked here at `lock_ms`. Counted once per slot.
@@ -179,30 +196,58 @@ mod tests{
         // b_j 10 s, L(0) 9 s, T_j 15 s.
         t.slot(parent(1),a,10_000,9_000,15_000);t.slot(parent(1),a,10_000,9_000,15_000);
         assert_eq!(t.waiting_for(&parent(1)),Some(a));
-        t.arrival(&parent(1),11_200);t.arrival(&parent(1),11_300);t.locked(&parent(1),11_250);t.locked(&parent(1),11_400);
+        // Stamped 10 s (past L(0)): 1.2 s after its own timestamp.
+        t.arrival(&parent(1),11_200,10);t.arrival(&parent(1),11_300,10);t.locked(&parent(1),11_250);t.locked(&parent(1),11_400);
         assert_eq!(t.waiting_for(&parent(1)),None);
         let s=*t.get(&a).unwrap();
-        assert_eq!((s.slots,s.late,s.early,s.since_parent.max(),s.since_window.max(),s.lock.max(),s.lock.count()),(1,0,0,Some(1200),Some(2200),Some(1250),1));
+        assert_eq!((s.slots,s.late,s.early,s.since_parent.max(),s.since_stamp.max(),s.lock.max(),s.lock.count()),(1,0,0,Some(1200),Some(1200),Some(1250),1));
+        assert_eq!((s.before_stamp.count(),s.stamp_at_window),(0,0));
         // A late template (after T_j), an early one (before b_j: 0 since the parent) and a slot without a template.
-        t.slot(parent(2),a,20_000,19_000,25_000);t.arrival(&parent(2),25_001);
-        t.slot(parent(3),b,30_000,29_000,35_000);t.arrival(&parent(3),29_500);
+        // The early one is stamped 30 s and arrives at 29.5 s by this node's clock: 500 ms before its stamp.
+        t.slot(parent(2),a,20_000,19_000,25_000);t.arrival(&parent(2),25_001,20);
+        t.slot(parent(3),b,30_000,29_000,35_000);t.arrival(&parent(3),29_500,30);
         t.slot(parent(4),b,40_000,39_000,45_000);
         // Unknown slots are ignored.
-        t.arrival(&parent(9),1);t.locked(&parent(9),1);
+        t.arrival(&parent(9),1,0);t.locked(&parent(9),1);
         let (sa,sb)=(*t.get(&a).unwrap(),*t.get(&b).unwrap());
         assert_eq!((sa.slots,sa.late,sa.since_parent.count()),(2,1,2));
-        assert_eq!((sb.slots,sb.early,sb.since_parent.max(),sb.since_window.max()),(2,1,Some(0),Some(500)));
+        assert_eq!((sb.slots,sb.early,sb.since_parent.max(),sb.since_stamp.count(),sb.before_stamp.max()),(2,1,Some(0),0,Some(500)));
+        assert_eq!(sa.since_stamp.max(),Some(5001));
         assert_eq!(sb.json()["missing"],1);assert_eq!(sa.json()["missing"],0);
         let all=*t.all();assert_eq!((all.slots,all.late,all.early,all.since_parent.count(),all.lock.count()),(4,1,1,3,1));
         let j=t.json(serde_json::json!({"deltaRel":5}));
         assert_eq!(j["tracked"],2);assert_eq!(j["proposers"][0]["proposer"],crate::types::hex(&a));
         assert_eq!(j["all"]["received"],3);assert_eq!(j["local"]["deltaRel"],5);assert_eq!(j["proposers"][1]["sinceParentMs"]["p50"],0);
+        assert_eq!((j["all"]["sinceStampMs"]["count"].as_u64(),j["all"]["beforeStampMs"]["count"].as_u64(),j["proposers"][1]["beforeStampMs"]["max"].as_u64()),(Some(2),Some(1),Some(500)));
+        assert!(j["all"].get("sinceWindowMs").is_none());
+    }
+
+    /// The stamp offset follows the template's own timestamp, not L(0) or b_j: with a parent received long after
+    /// its window opened (b_j − L(0) is the parent's round, about T_blk), the offset is arrival − ts·1000. With Φ > 0
+    /// a template may be stamped ahead of the receiver's clock (negative offset: beforeStampMs, never clipped to 0),
+    /// and one stamped exactly L(0) is counted in stampAtWindow.
+    #[test] fn the_stamp_offset_is_signed_and_relative_to_the_templates_own_timestamp(){
+        let mut t=Tracker::default();let a=addr(7);
+        // L(0) = 1000 s, b_j = 1031.4 s (a 31 s parent round), T_j = 1044.4 s.
+        let (l0,bj,tj)=(1_000_000u128,1_031_400u128,1_044_400u128);
+        // Built at 1032 s by the proposer's clock, received at 1032.35 s here: +350 ms, whatever b_j − L(0) is.
+        t.slot(parent(1),a,bj,l0,tj);t.arrival(&parent(1),1_032_350,1032);
+        // Stamped 1034 s (Φ = 2 s allows it) and received at 1033.1 s here: 900 ms before its stamp.
+        t.slot(parent(2),a,bj,l0,tj);t.arrival(&parent(2),1_033_100,1034);
+        // Stamped exactly L(0) (signed up to Φ early): counted at the window, and timed against L(0).
+        t.slot(parent(3),a,1_000_500,l0,1_013_000);t.arrival(&parent(3),1_000_200,1000);
+        let s=*t.get(&a).unwrap();
+        assert_eq!((s.since_stamp.count(),s.since_stamp.max()),(2,Some(350)));
+        assert_eq!((s.before_stamp.count(),s.before_stamp.max()),(1,Some(900)));
+        assert_eq!((s.stamp_at_window,s.early,s.since_parent.count()),(1,1,3));
+        assert_eq!(s.since_stamp.count()+s.before_stamp.count(),s.since_parent.count(),"each arrival is on one side of its stamp");
+        let j=s.json();assert_eq!((j["sinceStampMs"]["max"].as_u64(),j["beforeStampMs"]["p50"].as_u64(),j["stampAtWindow"].as_u64()),(Some(350),Some(900),Some(1)));
     }
 
     #[test] fn proposers_and_slots_stay_bounded_and_evict_the_least_recent(){
         let mut t=Tracker::default();
         for i in 0..(3*PROPOSERS_MAX as u64){
-            let p=addr(i as u32);t.slot(parent(i),p,1000,0,2000);t.arrival(&parent(i),1500);t.locked(&parent(i),1600);
+            let p=addr(i as u32);t.slot(parent(i),p,1000,0,2000);t.arrival(&parent(i),1500,1);t.locked(&parent(i),1600);
             assert!(t.tracked()<=PROPOSERS_MAX&&t.slots.len()<=SLOTS_MAX);
             assert!(t.proposers.capacity()<=PROPOSERS_MAX&&t.slots.capacity()<=SLOTS_MAX.next_power_of_two());
         }

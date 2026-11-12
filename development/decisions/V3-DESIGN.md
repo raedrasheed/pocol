@@ -548,9 +548,15 @@ first-lock times are lost on a restart; a block first imported after it is judge
     T_blk 30 / D_att 150 / dFbWait 10. The governance WAN locals (5, 5, 3) derive 25 and need dFbWait ≥ 21 (R3),
     which admission enforces. The production values stay V3-PR-F's.
   - Telemetry (`pocold/src/node/latency.rs`): per drawn proposer, the arrival of its signed a=0 template relative to
-    b_j and to L(0), the lock time relative to b_j, late (after T_j) and early counts, slots and missing templates,
-    in bounded histograms (256 proposers, 64 slots, 114 KB), in `pocol_status.templateLatency` and
-    `pocol_templateLatency`. Metric definitions: `development/m1/reference/network.md`, "Template latency".
+    b_j (sinceParentMs: what Δ_rel must cover) and, signed, relative to the template's own timestamp, the proposer's
+    clock at the build (sinceStampMs / beforeStampMs: delivery + build + the receiver's clock offset, the φ-bearing
+    quantity; templates stamped at the L(0) floor are counted apart), the lock time relative to b_j, late (after
+    T_j) and early counts, slots and missing templates, in bounded histograms (256 proposers, 64 slots, 147 KB), in
+    `pocol_status.templateLatency` and `pocol_templateLatency`. Nothing is measured against L(0): b_j − L(0) is
+    about the parent's PoW round, not a clock offset. Metric definitions and how to read Δ and φ from them:
+    `development/m1/reference/network.md`, "Template latency".
+  - A v3 node takes this timing on every path (the launcher, `pocold run` and `pocold status`); a v3 devnet.json
+    whose recorded deltaRel or gamma differs from the derivation is refused.
 
 ### V3-06 Timing recalibration (OWNER-CHOICE O-6)
 
