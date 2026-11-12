@@ -77,18 +77,50 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let a=admit(&n.request(&sh(),Some(&tm))).unwrap();
     assert!(!a.report().conditions.iter().any(|c|c.detail.contains("node store")),"an in-memory timing is not reported as stored");
 }
-/// Durable commit latency is measured separately from execution.
+/// R14/R19 count durable commit latency, robustly: a block's cost is its median execution plus its commit, and only the
+/// calibration's single largest commit is counted at the median commit. Every commit slow: every phase carries it. One
+/// stalled commit: no phase carries it. Two stalled commits: the second one is counted.
 #[test] fn the_store_calibration_times_each_block_commit(){
     use crate::node_trie::{Batch,Id,Node,NodeStore,SharedMem,TrieStore};
-    #[derive(Default)] struct Slow(SharedMem);
-    impl NodeStore for Slow{fn node(&self,id:&Id)->Option<std::sync::Arc<Node>>{self.0.node(id)}fn code(&self,h:&B256)->Option<Bytecode>{self.0.code(h)}}
+    use std::sync::atomic::{AtomicU32,Ordering};
+    /// Every commit takes `every` ms; the commits numbered in `stalled` (1: the genesis, before the timed blocks) `stall` ms more.
+    #[derive(Default)] struct Slow{m:SharedMem,every:u64,stalled:Vec<u32>,stall:u64,n:AtomicU32}
+    impl NodeStore for Slow{fn node(&self,id:&Id)->Option<std::sync::Arc<Node>>{self.m.node(id)}fn code(&self,h:&B256)->Option<Bytecode>{self.m.code(h)}}
     impl TrieStore for Slow{
-        fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{std::thread::sleep(std::time::Duration::from_millis(25));self.0.commit(b,root)}
-        fn unpin(&self,root:&Id)->Result<(),String>{self.0.unpin(root)}
-        fn pinned(&self)->Result<u64,String>{self.0.pinned()}}
-    let n=net(&cfg());let t=measure_on_store(&n.spec_bytes,&n.alloc,1,&Slow::default()).unwrap_or_else(|e|panic!("{e}"));
-    assert!(t.store_ms>=25,"the durable commit is reported separately: {t:?}");
+        fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{
+            let k=self.n.fetch_add(1,Ordering::SeqCst)+1;
+            std::thread::sleep(std::time::Duration::from_millis(self.every+if self.stalled.contains(&k){self.stall}else{0}));self.m.commit(b,root)}
+        fn unpin(&self,root:&Id)->Result<(),String>{self.m.unpin(root)}
+        fn pinned(&self)->Result<u64,String>{self.m.pinned()}}
+    let n=net(&cfg());let run=|s:Slow|measure_on_store(&n.spec_bytes,&n.alloc,1,&s).unwrap_or_else(|e|panic!("{e}"));
+    let t=run(Slow{every:25,..Default::default()});
+    assert!(t.store_ms>=25&&t.store_median_ms>=25,"the durable commit is reported: {t:?}");
+    for c in 0..3{assert!(t.phase_ms[c]>=t.exec_ms[c]+25,"every block's commit reaches R14/R19 (phase {c}): {t:?}");}
     assert_eq!(Timing::from_json(&t.to_json()),Some(t));
+    // One commit (the second timed block's) stalled past t_exec: reported, counted at the median commit.
+    let t=run(Slow{stalled:vec![3],stall:1050,..Default::default()});
+    assert!(t.store_ms>=1050&&t.store_median_ms<t.store_ms,"{t:?}");
+    assert!(t.phase_ms.iter().all(|p|*p<t.store_ms),"one stalled commit does not reach R14/R19: {t:?}");
+    // Two stalled commits: only one is replaced, so the other reaches R14/R19.
+    let t=run(Slow{stalled:vec![3,4],stall:1050,..Default::default()});
+    assert!(t.phase_ms.iter().max().unwrap()>=&1050,"a second stalled commit reaches R14/R19: {t:?}");
+}
+/// The single-outlier rule for any number of timed blocks: with two or more, exactly one stalled commit is counted at
+/// the lower median (so with two blocks the smaller commit, not the stall itself); with one, its commit is counted.
+#[test] fn the_single_largest_commit_is_counted_at_the_lower_median(){
+    let s=1050u64;
+    // One timed block: its commit is its own median and is counted.
+    assert_eq!(block_costs(&[(0,10,s)]),([10+s,0,0],[10,0,0],s,s));
+    // Two timed blocks, one stalled: counted at the other commit.
+    assert_eq!(block_costs(&[(0,10,20),(2,12,s)]),([30,0,32],[10,0,12],s,20));
+    // Two timed blocks, both slow: the second is still counted.
+    assert_eq!(block_costs(&[(0,10,s),(2,12,s)]).0,[10+s,0,12+s]);
+    // Three and four timed blocks, one stalled: no phase carries the stall; two stalled: one does.
+    assert_eq!(block_costs(&[(0,10,20),(1,10,s),(2,10,30)]),([30,40,40],[10,10,10],s,30));
+    assert_eq!(block_costs(&[(0,10,20),(0,10,25),(1,10,s),(2,10,30)]),([35,35,40],[10,10,10],s,25));
+    assert!(block_costs(&[(0,10,20),(0,10,s),(1,10,s),(2,10,30)]).0.iter().max().unwrap()>=&s);
+    // In memory every commit is 0: phase_ms is exec_ms.
+    assert_eq!(block_costs(&[(0,7,0),(1,8,0),(2,9,0)]),([7,8,9],[7,8,9],0,0));
 }
 /// A store-mode node's timing takes, per phase class, the larger of its in-memory and store measurements, so a
 /// store path slower than t_exec is refused by R14/R19 even when memory is fast; a store measurement for another
@@ -223,6 +255,8 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
         if i%1000==0{l=d.clone()}
         let each:Vec<bool>=R26_PREDICATES.iter().map(|p|(p.2)(&l)).collect();
         assert_eq!(each.iter().all(|b|*b),l.satisfies_r26(),"{l:?}");agree+=1;
+        let v3_each:Vec<bool>=super::scope::r26_predicates(true).map(|p|(p.2)(&l)).collect();
+        assert_eq!(v3_each.iter().all(|b|*b),l.satisfies_r26_for(true),"v3 split differs: {l:?}");
         if l.satisfies_r26(){pass+=1}else{fail+=1}
         if each.iter().filter(|b|!**b).count()==1{fails_alone[each.iter().position(|b|!*b).unwrap()]=true}
     }
@@ -230,6 +264,44 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     // Every predicate except the derive guard can decide the verdict alone (none is dead code).
     let dead:Vec<&str>=R26_PREDICATES.iter().zip(&fails_alone).filter(|(p,f)|!**f&&p.0!="derive").map(|(p,_)|p.0).collect();
     assert!(dead.is_empty(),"never the only failing predicate: {dead:?}");
+}
+
+/// C3-4 / D-V3-21: the creation-burn user bound is an enforced launch blocker. Until it is resolved,
+/// no profile that can activate v3 is admitted outside a simnet profile on a simnet node.
+#[test] fn open_v3_launch_blockers_refuse_every_non_simnet_v3_admission(){
+    assert!(V3_LAUNCH_BLOCKERS.iter().any(|b|b.starts_with("D-V3-21 creation-burn user bound")),"the creation-burn user bound is an open launch blocker");
+    for (k,n) in [(ProfileKind::Network,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Node)]{
+        let e=v3_launch_gate(true,k,n).unwrap_err();assert_eq!(e.rules,v(&["v3-launch-blocker"]));assert!(e.notes[0].contains("creation-burn user bound"),"{e}");
+        assert!(v3_launch_gate(false,k,n).is_ok(),"spec-1 profiles never reach the v3 blockers");
+    }
+    assert!(v3_launch_gate(true,ProfileKind::Simnet,NodeKind::Simnet).is_ok(),"the simnet preview stays admissible");
+}
+/// No current build reaches the gate through `admit` with v3 on a non-simnet profile (preview builds
+/// refuse those first; release builds cannot decode spec 2), so this source check keeps `admit` calling
+/// it until V3-PR-I makes that path reachable and replaces this check with an `admit`-level test.
+#[test] fn admit_calls_the_v3_launch_gate_before_any_fact_is_built(){
+    let src=include_str!("../admission.rs");
+    let start=src.find("\npub fn admit(").expect("admit");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];
+    let gate=body.find("v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;").expect("admit must call v3_launch_gate on the v3 domain of the profile");
+    assert!(gate<body.find("let binding=gp.binding();").expect("binding"),"the launch gate runs before the gate facts are built");
+}
+
+#[test] fn an_enforced_v3_log_limit_cannot_be_waived_by_an_unrelated_absent_field(){
+    for (field,value,label) in [("resp_max",2*32768+546*512,"respMax>=2*262144+4368*512+2048"),("logs_count_max",546,"logsCountMax>=4368"),("logs_scan_bytes",32768,"logsScanBytes>=262144")]{
+        let f=RpcFacts::enforced(&[(field,value)]).unwrap();assert!(r26_partial(&f).1.is_empty());
+        let (w,failed)=r26_partial_for(&f,true);assert_eq!(failed,vec![label]);assert!(w.checked.contains(&label));assert!(!w.waived.contains(&label));
+    }
+}
+
+#[cfg(feature="v3-preview")]
+#[test] fn v3_boot_admission_keeps_enforced_log_predicates_at_the_active_limits(){
+    let mut c=cfg();c.spec_version=2;c.nonce_mode=1;c.earnin=true;c.r_max=1;c.d_att=91;
+    let n=net(&c);let (_,timing)=n.admit(&sh()).unwrap();
+    let original=pocold_like();let mut values=original.values().clone();values.resp_max=2*32768+546*512;
+    let present:Vec<(&str,u64)>=RPC_FIELDS.iter().filter(|f|!original.absent().contains(f)).map(|f|(*f,*scope_slot(&mut values,f))).collect();
+    let local=NodeLocal{rpc:RpcFacts::enforced(&present).unwrap(),..sh()};
+    let error=admit(&n.request(&local,Some(&timing))).err().unwrap();assert_eq!(error.rules,v(&["R26"]));
+    assert!(error.notes.iter().any(|note|note.contains("respMax>=2*262144+4368*512+2048")),"{error}");
 }
 fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     match f{"conn_max"=>&mut l.conn_max,"req_buf"=>&mut l.req_buf,"conn_buf"=>&mut l.conn_buf,"send_sock_buf"=>&mut l.send_sock_buf,"heavy_active"=>&mut l.heavy_active,
