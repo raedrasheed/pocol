@@ -471,14 +471,24 @@ NODE-LOCAL. Nothing further.
   - the fallback body is empty and its winner also takes propPart (`PoColSystemV1.sol:194-196`).
 
 **Change.** Each block gets a `timely` flag at its first import, which is local, like importSeq.
-- **signed:** timely iff first import ≤ T_j(local) + Φ.
+- **signed:** T_j is the deadline for the signed TEMPLATE, so a signed block is timely iff this node first saw its
+  signed template (received with the drawn proposer's valid signature, or locked) at or before T_j(local) + Φ,
+  however long the solution then took. Only when this node never saw the template is the solved block's own first
+  import compared with T_j(local) + Φ instead. The earlier of the two times counts.
 - **attempt-0 fallback:** timely iff first import ≥ T_j(local) − (Δ + Φ).
 - **attempt ≥ 1:** always timely.
+
+Template first-seen times are node-local, kept in a bounded map (TEMPLATE_SEEN_MAX TemplateIDs, the heights below
+the head forgotten first, a new one not recorded while it is full) and not persisted. They are read only once, at a
+block's first import; the resulting bit is frozen in the journal and the checkpoint flags, so a restart, a refetch
+or a changed local deadline never reclassifies. A template the map no longer holds (after a restart, or past its
+bound) leaves the block to the block-arrival rule, which is never more timely.
 
 The key becomes `(timely?0:1, signed?0:1, importSeq, blockHash)`.
 
 **Effects:**
-- An honest timely signed block beats everything.
+- An honest signed block whose template was seen on time beats everything, even if it was solved after T_j + Φ
+  and an attempt-0 fallback is released after it (D15 for honest proposers).
 - A withheld signed block loses to a timely fallback.
 - A pre-mined early fallback loses to the timely signed block.
 - The key is fixed per stored block, so D133's total-order and transition lemmas still hold.

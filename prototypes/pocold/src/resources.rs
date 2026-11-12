@@ -97,6 +97,8 @@ pub const MAIN_STACK_RESIDENT:u128=1<<20;
 /// admission timing all run on the consensus thread, one at a time.
 pub const EXECUTIONS:u128=1;
 const _:()=assert!(crate::rpc::CALL_GAS_MAX<=pocol_lp4_execution::apply::PER_CALL_GAS,"eth_call gas exceeds the execution model");
+// V3-04: a template first-seen entry fits the bytes "history/first-import template first-seen times" counts for it.
+const _:()=assert!(size_of::<([u8;32],(u64,u128))>()<=node::TEMPLATE_SEEN_ENTRY_BYTES,"a template first-seen entry exceeds its A13 bytes");
 // R10: the node's per-connection map entries fit the bytes "queues/node peer and status maps" counts for them.
 const _:()=assert!(size_of::<(net::PeerId,net::Peer)>()<=node::PEER_ENTRY_BYTES&&size_of::<(net::PeerId,node::PeerStatus)>()<=node::STATUS_ENTRY_BYTES,"a node map entry exceeds its A13 bytes");
 /// Threads alive at once, every one created by `threads::spawn` with its reservation: per
@@ -342,7 +344,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
     ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; selection holds one entry list and one source or key list over the book; the exclusions are closures and allocate nothing; each slot channel holds one address; a route probe is a UDP socket without buffers; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
-    ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
+    ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node, and a bounded TemplateID map (TEMPLATE_SEEN_MAX entries of height and first-seen time, not persisted) for classifying signed blocks by their template. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
 /// group fields are the sums of their items and `total` is the sum of all items.
@@ -611,7 +613,10 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         // window already counted this same file. It also covers eviction off,
         // bounded chains, and rebuilding a lost index from a long journal.
         hist.extend([("history/first-import index cache and allocator",add(&[node::canon::CANON_CACHE as u128,redb_alloc_max(file)?])?),
-            ("history/first-import journal lookup scratch",add(&[mul(2,crate::store::MAX_RECORD as u128+crate::store::OVERHEAD as u128)?,mul(8,hdr)?,4096])?)]);
+            ("history/first-import journal lookup scratch",add(&[mul(2,crate::store::MAX_RECORD as u128+crate::store::OVERHEAD as u128)?,mul(8,hdr)?,4096])?),
+            // Node::template_seen: a HashMap of at most TEMPLATE_SEEN_MAX entries that a retain() churns, at the churn
+            // rule of hash32_churn_bytes (< 32/7 buckets per high-water entry, a control byte each, two allocations).
+            ("history/first-import template first-seen times (TEMPLATE_SEEN_MAX entries)",add(&[mul(node::TEMPLATE_SEEN_MAX as u128+1,mul(2,(node::TEMPLATE_SEEN_ENTRY_BYTES as u128+1)*32/7+1)?)?,512])?)]);
     }
     let history=add(&hist.iter().map(|x|x.1).collect::<Vec<_>>())?;items.extend(hist);
     // Side blocks (D-REORG-REDB): every journaled non-canonical block is offloaded to metadata at the

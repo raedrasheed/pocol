@@ -113,13 +113,19 @@ pub fn arrives_by_deadline(arrival_ms: u128, deadline_ms: u128) -> bool {
 
 /// V3-04 local first-import classification, never a block-validity predicate.
 /// T_j is the original first-attempt deadline; both boundaries are inclusive.
+/// T_j is a deadline for the signed TEMPLATE, so a signed block is judged on the first time this
+/// node saw its template (received or locked), `template_ms`: an honest block whose template was
+/// public by T_j+Phi stays timely however long its solution took. Only a node that never saw the
+/// template judges the solved block's own arrival. An attempt-0 fallback has no template to wait
+/// for and is always judged on its own arrival.
 /// Saturation represents a mathematical bound outside the u128 clock domain.
-pub fn is_timely_import(signed: bool, attempt: u32, arrival_ms: u128, deadline_ms: u128, delta: u64, phi: u64) -> bool {
+pub fn is_timely_import(signed: bool, attempt: u32, arrival_ms: u128, template_ms: Option<u128>, deadline_ms: u128, delta: u64, phi: u64) -> bool {
     if attempt >= 1 {
         return true;
     }
     if signed {
-        arrival_ms <= deadline_ms.saturating_add(phi as u128 * 1000)
+        let seen_ms = template_ms.map_or(arrival_ms, |t| t.min(arrival_ms));
+        seen_ms <= deadline_ms.saturating_add(phi as u128 * 1000)
     } else {
         arrival_ms >= deadline_ms.saturating_sub((delta as u128 + phi as u128) * 1000)
     }

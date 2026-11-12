@@ -169,6 +169,11 @@ pub const MEM_BUDGET:u64=6<<30;
 /// Blocks waiting for their timestamp, buffered templates, equivocation observations,
 /// status rejects and evidence awaiting inclusion (A13 accounting).
 pub const FUTURE_MAX:usize=64;pub const TEMPLATES_MAX:usize=64;pub const SEEN_MAX:usize=4096;pub const REJECTS_MAX:usize=256;pub const EVIDENCE_POOL_MAX:usize=64;
+/// V3-04 (v3 profiles only, A13 `history/first-import template first-seen times`): signed TemplateIDs with the
+/// height and the first time this node saw them (received or locked), kept for classifying their solved blocks.
+/// At most TEMPLATE_SEEN_MAX entries; each is TEMPLATE_SEEN_ENTRY_BYTES of a HashMap bucket at most
+/// (resources.rs asserts that the type fits).
+pub const TEMPLATE_SEEN_MAX:usize=256;pub const TEMPLATE_SEEN_ENTRY_BYTES:usize=64;
 /// Gossip: TemplateIDs already relayed (each is relayed at most once), and the shares relayed per locked
 /// template, as a multiple of S_max (a block carries at most S_max shares; more only cost bandwidth).
 pub const RELAYED_MAX:usize=256;pub const SHARE_RELAY_PER_S_MAX:usize=4;
@@ -457,6 +462,10 @@ pub struct Node{
     /// Own sealed blocks waiting in `future` for their timestamp (Φ=2φ may be 0 on one host).
     own_future:HashSet<[u8;32]>,
     templates:HashMap<[u8;32],(Header,Body,u128,PeerId)>,
+    /// V3-04: TemplateID -> (height, first seen ms) of signed templates this node authenticated (a drawn proposer's
+    /// signature) or locked; empty on profiles that cannot activate v3 (`note_template_seen`). Not persisted: a block
+    /// first imported after a restart whose template was seen before it is judged on its own arrival.
+    template_seen:HashMap<[u8;32],(u64,u128)>,
     /// Gossip: TemplateIDs this node sent or relayed (at most RELAYED_MAX), so each is relayed once.
     relayed:HashSet<[u8;32]>,
     received:HashMap<[u8;32],u128>,
@@ -937,7 +946,7 @@ impl Node{
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
-            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
+            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),template_seen:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
@@ -1218,7 +1227,8 @@ impl Node{
                         Ok(None)=>self.received.get(&b.header.parent_hash).copied().unwrap_or(received_ms),
                         Err(e)=>self.fatal(&e),
                     };
-                    let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms){
+                    let template_ms=self.template_seen.get(&template_id(&b.header.ut_raw)).map(|x|x.1);
+                    let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms,template_ms){
                     Ok(stamp)=>stamp,Err(e)=>self.fatal(&e)}},
                 Err(e)=>self.fatal(&e),
             });
@@ -1888,6 +1898,7 @@ impl Node{
         let Some(p)=self.full_entry(&parent) else{return};
         let ctx=match self.chain.child_ctx(&p,header.a){Ok(c)=>c,Err(_)=>return};
         let tid=template_id(&header.ut_raw);
+        if !fallback{self.note_template_seen(tid,header.h);}
         self.log(&format!("lock h={} a={} {} tid={}",header.h,header.a,if fallback{"FB"}else{"PROP"},&hex(&tid)[..12]));
         // The previous miner is stopped and joined before the next starts: one miner thread at a time.
         if let Some(pr)=&mut self.prod{
@@ -2508,7 +2519,21 @@ impl Node{
         let drawn=canon.is_some_and(|d|h.proposer[..]==d[..])||
             ((canon.is_none()||!self.chain.is_canonical(&h.parent_hash))&&pe.full&&!pe.pruned&&!pe.slim
                 &&self.chain.child_ctx(pe,0).is_ok_and(|c|h.proposer[..]==c.proposer[..]));
+        if drawn{self.note_template_seen(tid,h.h);}
         drawn&&self.record_template(h)
+    }
+    /// V3-04: the first time this node saw (received or locked) a signed template, for classifying its solved block
+    /// (`imports::classify`). Only on a profile that can activate v3: a spec-1 node keeps the map empty. The earliest
+    /// time is kept. A full map first forgets the heights below the head (their blocks are imported, or can only be
+    /// side blocks of a head already chosen); still full, a new TemplateID is not recorded, so a flood of templates
+    /// from a drawn equivocator never displaces an earlier one. A template not recorded leaves its block to the
+    /// block-arrival rule: never more timely than without this map.
+    fn note_template_seen(&mut self,tid:[u8;32],height:u64){
+        if !self.cfg.limits.first_imports{return}
+        let ms=self.import_clock.unwrap_or_else(now_ms);
+        if let Some(seen)=self.template_seen.get_mut(&tid){seen.1=seen.1.min(ms);return}
+        if self.template_seen.len()>=TEMPLATE_SEEN_MAX{let head=self.chain.head().height;self.template_seen.retain(|_,x|x.0>=head);}
+        if self.template_seen.len()<TEMPLATE_SEEN_MAX{self.template_seen.insert(tid,(height,ms));}
     }
     /// The seen_templates key: (parent, signer) folded into one digest, and the height. Each of the two signers a
     /// (parent, h) can take (the canonically drawn proposer and Draw(parent,0)) has its own slot, so one's template
@@ -2630,10 +2655,12 @@ mod f5f6_tests{
     //! self-signed pair). Synthetic keys only; no network.
     use super::*;
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
-    fn open_node()->(Node,std::path::PathBuf){
+    fn open_node()->(Node,std::path::PathBuf){open_node_at("f5f6")}
+    /// Each test of this module opens its own directory: they run in parallel.
+    fn open_node_at(tag:&str)->(Node,std::path::PathBuf){
         let c=DevnetConfig::new(777915,1_700_000_000,&["a","b","c"]);
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
-        let dir=std::env::temp_dir().join(format!("pocold-f5f6-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let dir=std::env::temp_dir().join(format!("pocold-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let cfg=Config{dir:dir.clone(),name:"f5f6".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
         (Node::open(cfg,spec).unwrap(),dir)
     }
@@ -2665,6 +2692,25 @@ mod f5f6_tests{
         assert!(n.observe_template(&selfsigned(gh,1,&drawn_key,11)),"a real drawn-proposer equivocation is still flagged");
         assert_eq!(n.evidence_pool.len(),1,"exactly one type-1 evidence, from the real proposer");
         eprintln!("F5/F6: attacker self-signed pair ignored (pool stayed empty); real proposer equivocation still detected.");
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+    /// V3-04 template first-seen times: none on a profile that cannot activate v3; on one that can, only a drawn
+    /// proposer's authenticated template, the earliest time, and never more than TEMPLATE_SEEN_MAX TemplateIDs.
+    #[test] fn template_first_seen_times_are_v3_only_authenticated_earliest_and_bounded(){
+        let (mut n,dir)=open_node_at("template-seen");
+        let gh=n.chain.head().hash;let par=n.full_entry(&gh).unwrap();let drawn=n.chain.child_ctx(&par,0).unwrap().proposer;drop(par);
+        let drawn_key=["a","b","c"].into_iter().map(|l|devnet::miner_identity(l).key).find(|k|k.address()==drawn).unwrap();
+        let t=selfsigned(gh,1,&drawn_key,20);let tid=template_id(&t.ut_raw);
+        assert!(!n.cfg.limits.first_imports,"a spec-1 profile");n.observe_template(&t);assert!(n.template_seen.is_empty(),"spec 1 keeps no map");
+        n.cfg.limits.first_imports=true;
+        n.import_clock=Some(7);n.observe_template(&selfsigned(gh,1,&devnet::account_key("zzz-v3-04"),21));assert!(n.template_seen.is_empty(),"not drawn: not recorded");
+        n.import_clock=Some(9);n.observe_template(&t);n.import_clock=Some(5);n.observe_template(&t);n.import_clock=Some(8);n.observe_template(&t);
+        assert_eq!(n.template_seen.get(&tid),Some(&(1,5)),"the earliest time is kept");
+        for i in 1..TEMPLATE_SEEN_MAX as u64{let mut k=[0xab;32];k[..8].copy_from_slice(&i.to_be_bytes());n.note_template_seen(k,1);}
+        assert_eq!(n.template_seen.len(),TEMPLATE_SEEN_MAX);
+        let mut late=[0xcd;32];late[0]=1;n.note_template_seen(late,1);
+        assert_eq!(n.template_seen.len(),TEMPLATE_SEEN_MAX,"the bound holds");assert!(!n.template_seen.contains_key(&late),"a full map keeps the earlier entries");
+        assert_eq!(n.template_seen.get(&tid),Some(&(1,5)));
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
 }

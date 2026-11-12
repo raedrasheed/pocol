@@ -19,6 +19,12 @@ fn net(v3:bool)->Net{
     let d=devnet::build(&cfg).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
     Net{chain:Chain::new(spec(&cfg,0)),keys,cfg}
 }
+/// The drawn proposer's signed attempt-0 template on `parent`: what it gossips before anyone mines.
+#[cfg_attr(not(feature="v3-preview"),allow(dead_code))]
+fn template(n:&Net,parent:[u8;32])->pocold::header::Header{
+    let p=n.chain.full_entry(&parent).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
+    n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.fallback_timestamp(n.chain.spec.cp().dFbWait).unwrap(),Body::default(),vec![]).unwrap().0
+}
 fn block(n:&Net,parent:[u8;32],signed:bool,attempt:u32,start:u64)->Block{
     let p=n.chain.full_entry(&parent).unwrap();let ctx=n.chain.child_ctx(&p,attempt).unwrap();
     let (mut h,_,_)=if signed{
@@ -96,8 +102,83 @@ fn twenty_orders(v3:bool){
 }
 
 #[cfg(feature="v3-preview")]
+#[path="support/auth_peer.rs"] mod auth_peer;
+
+#[cfg(feature="v3-preview")]
 mod preview{
     use super::*;
+    use pocold::{net::{Msg,NetEvent},node::Event};
+    /// A peer gossips `shell` (a signed template, unsolved) at the simulated time `ms`.
+    fn gossip(node:&mut Node,shell:&pocold::header::Header,ms:u128){
+        let (peer,_socket)=auth_peer::connect(node);node.import_clock=Some(ms);
+        node.handle(Event::Net(NetEvent::Message(peer,Msg::Template{shell:shell.encoded.clone(),body:Body::default().encode()})));
+    }
+    /// T_j+Phi on the genesis parent, and the signed template with its slowly solved block and the attempt-0 fallback.
+    fn honest_race(n:&Net,node:&Node)->(u128,pocold::header::Header,Block,Block){
+        let g=n.chain.head;let shell=template(n,g);let sg=block(n,g,true,0,0);let fb=block(n,g,false,0,0);
+        assert_eq!(template_id(&shell.ut_raw),template_id(&sg.header.ut_raw),"the block solves the gossiped template");
+        (deadline(node,g)+u128::from(node.chain.spec.local().capital_phi())*1000,shell,sg,fb)
+    }
+
+    // pr16: T_j is the template deadline. An honest proposer published on time and every member locked its
+    // template; the solution took longer than T_j+Phi. A fallback released after the signed block must not take
+    // the head from it (D15 for honest proposers).
+    #[test]fn signed_block_solved_late_keeps_the_head_when_its_template_was_seen_on_time(){
+        for seen in ["at T_j","at T_j+Phi"]{let n=net(true);let d=dir("template-on-time");
+            let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&node);
+            let tj=deadline(&node,n.chain.head);gossip(&mut node,&shell,if seen=="at T_j"{tj}else{high});
+            assert!(at(&mut node,&sg,high+1),"{seen}");assert_eq!(node.chain.head,sg.hash());
+            let stamp=node.first_import(&sg.hash()).unwrap().unwrap();
+            assert_eq!(stamp.received_ms,high+1,"the stored arrival stays the block's own: its children's b_j");
+            assert!(stamp.timely&&node.chain.get(&sg.hash()).unwrap().timely,"{seen}: judged on the template");
+            // The attempt-0 fallback arrives even later. It is timely by its unchanged rule, yet signed precedence holds.
+            assert!(!at(&mut node,&fb,high+5_000));assert_eq!(node.chain.head,sg.hash());
+            assert!(node.chain.get(&fb.hash()).unwrap().timely);
+            drop(node);std::fs::remove_dir_all(d).unwrap();
+        }
+    }
+
+    // Without the template the node cannot tell a slow honest solution from a withheld one: the solved block's
+    // arrival decides, as before, and so does a template seen only after T_j+Phi.
+    #[test]fn signed_block_late_without_a_timely_template_loses_to_a_later_fallback(){
+        for seen in [false,true]{let n=net(true);let d=dir("template-unseen");
+            let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&node);
+            if seen{gossip(&mut node,&shell,high+1);}
+            assert!(at(&mut node,&sg,high+1));assert!(!node.first_import(&sg.hash()).unwrap().unwrap().timely);assert!(!node.chain.get(&sg.hash()).unwrap().timely);
+            assert!(at(&mut node,&fb,high+5_000),"seen late={seen}: the timely fallback takes the head");assert_eq!(node.chain.head,fb.hash());
+            drop(node);std::fs::remove_dir_all(d).unwrap();
+        }
+    }
+
+    // The template-based bit is decided once, at first import, and frozen in the journal and checkpoint flags.
+    // first-seen times are not persisted: a restart (here also with a larger local deadline) neither needs them nor
+    // reclassifies, and a duplicate import changes nothing.
+    #[test]fn restart_keeps_template_based_classifications_frozen(){
+        for store in [false,true]{let n=net(true);let d=dir("template-restart");
+            let (first,head,sg,fb)={let mut node=Node::open(config(&d,store),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&node);
+                gossip(&mut node,&shell,high);at(&mut node,&sg,high+1);at(&mut node,&fb,high+5_000);assert_eq!(node.chain.head,sg.hash());
+                if store{node.checkpoint_now().unwrap();}
+                (node.chain.blocks.iter().map(|(h,e)|(*h,(e.timely,node.first_import(h).unwrap()))).collect::<HashMap<_,_>>(),node.chain.head,sg,fb)};
+            assert!(first.values().all(|x|x.0),"both siblings were timely");
+            for extra_rel in [0,1]{
+                let mut node=Node::open(config(&d,store),spec(&n.cfg,extra_rel)).unwrap();assert_eq!(node.chain.head,head);
+                if store{assert_eq!(node.stats.resumed_from,Some(2));}
+                for (h,want) in &first{assert_eq!((node.chain.get(h).unwrap().timely,node.first_import(h).unwrap()),*want,"original stamp {h:?}");}
+                for b in [&sg,&fb]{node.import_clock=Some(0);assert!(matches!(node.import(b.clone(),None),Err(pocold::chain::Reject::Duplicate)));}
+                for (h,want) in &first{assert_eq!((node.chain.get(h).unwrap().timely,node.first_import(h).unwrap()),*want);}
+                drop(node);
+            }
+            std::fs::remove_dir_all(d).unwrap();
+        }
+        // A template seen before a restart but a block first imported after it: the map is gone, so the arrival rule
+        // decides (never more timely than the template rule), and that first classification is the frozen one.
+        let n=net(true);let d=dir("template-restart-first");
+        let high={let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,_,_)=honest_race(&n,&node);gossip(&mut node,&shell,high);high};
+        let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let g=n.chain.head;let sg=block(&n,g,true,0,0);
+        let high=high.max(deadline(&node,g)+u128::from(node.chain.spec.local().capital_phi())*1000);
+        assert!(at(&mut node,&sg,high+1));assert!(!node.chain.get(&sg.hash()).unwrap().timely);
+        drop(node);std::fs::remove_dir_all(d).unwrap();
+    }
     #[test]fn twenty_import_orders_use_the_timely_key_at_the_first_divergence(){twenty_orders(true)}
 
     #[test]fn timely_fallback_beats_late_signed_and_early_fallback_loses(){
