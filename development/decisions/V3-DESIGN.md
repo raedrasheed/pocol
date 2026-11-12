@@ -471,15 +471,20 @@ NODE-LOCAL. Nothing further.
   - the fallback body is empty and its winner also takes propPart (`PoColSystemV1.sol:194-196`).
 
 **Change.** Each block gets a `timely` flag at its first import, which is local, like importSeq.
-- **signed:** T_j is the deadline for the signed TEMPLATE, so a signed block is timely iff this node first saw its
-  signed template (received with the drawn proposer's valid signature, or locked) at or before T_j(local) + Φ,
-  however long the solution then took. Only when this node never saw the template is the solved block's own first
-  import compared with T_j(local) + Φ instead. The earlier of the two times counts.
+- **signed:** T_j is the deadline for the signed TEMPLATE, so a signed block is timely iff this node first LOCKED its
+  signed template at or before T_j(local) + Φ, however long the solution then took. Locking is the existing §4(a)
+  check: the drawn proposer's signature, the window, item 16 and a body that rebuilds to the template's UT, by T_j;
+  or the node's own template. A shell merely received (its signature valid, its body missing or not rebuilding)
+  never counts: nobody else can mine it, so its block is a withheld one. A slot (parent, signer, height) whose
+  signer equivocated (type-1 evidence seen here) counts no template. Only when this node never locked the template,
+  or its slot is poisoned, is the solved block's own first import compared with T_j(local) + Φ instead. The earlier
+  of the two times counts.
 - **attempt-0 fallback:** timely iff first import ≥ T_j(local) − (Δ + Φ).
 - **attempt ≥ 1:** always timely.
 
-Template first-seen times are node-local, kept in a bounded map (TEMPLATE_SEEN_MAX TemplateIDs, the heights below
-the head forgotten first, a new one not recorded while it is full) and not persisted. They are read only once, at a
+Template first-seen (first lock) times are node-local, kept in a bounded map (one TemplateID per slot, at most
+TEMPLATE_SEEN_MAX slots; a full map forgets the heights below the head, then those above head+1, and records no new
+slot while still full) and not persisted. They are read only once, at a
 block's first import; the resulting bit is frozen in the journal and the checkpoint flags, so a restart, a refetch
 or a changed local deadline never reclassifies. A template the map no longer holds (after a restart, or past its
 bound) leaves the block to the block-arrival rule, which is never more timely.
@@ -487,9 +492,10 @@ bound) leaves the block to the block-arrival rule, which is never more timely.
 The key becomes `(timely?0:1, signed?0:1, importSeq, blockHash)`.
 
 **Effects:**
-- An honest signed block whose template was seen on time beats everything, even if it was solved after T_j + Φ
+- An honest signed block whose template was locked on time beats everything, even if it was solved after T_j + Φ
   and an attempt-0 fallback is released after it (D15 for honest proposers).
-- A withheld signed block loses to a timely fallback.
+- A withheld signed block loses to a timely fallback: a withheld template, or a shell gossiped without a minable
+  body, is never locked, and an equivocator's slot is poisoned, so its late block is judged on its own arrival.
 - A pre-mined early fallback loses to the timely signed block.
 - The key is fixed per stored block, so D133's total-order and transition lemmas still hold.
 
@@ -509,8 +515,9 @@ The key becomes `(timely?0:1, signed?0:1, importSeq, blockHash)`.
 
 The remainder depends on V3-06.
 
-**Deployment:** B (host). **Safety:** a node restart re-imports blocks and assigns new flags, exactly as
-importSeq is local today.
+**Deployment:** B (host). **Safety:** the flags and first-import times are persisted (journal and checkpoint flags)
+and never reassigned: a restart replays them, and only importSeq is assigned afresh, as today. Only template
+first-lock times are lost on a restart; a block first imported after it is judged on its own arrival.
 
 **Tests.**
 - Fails on the original code: import a timely fallback, then a late signed sibling. Today the head switches;

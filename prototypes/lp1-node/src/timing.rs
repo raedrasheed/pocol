@@ -114,9 +114,9 @@ pub fn arrives_by_deadline(arrival_ms: u128, deadline_ms: u128) -> bool {
 /// V3-04 local first-import classification, never a block-validity predicate.
 /// T_j is the original first-attempt deadline; both boundaries are inclusive.
 /// T_j is a deadline for the signed TEMPLATE, so a signed block is judged on the first time this
-/// node saw its template (received or locked), `template_ms`: an honest block whose template was
-/// public by T_j+Phi stays timely however long its solution took. Only a node that never saw the
-/// template judges the solved block's own arrival. An attempt-0 fallback has no template to wait
+/// node locked its template (validated as minable), `template_ms`: an honest block whose template
+/// every node could mine by T_j+Phi stays timely however long its solution took. Only a node that
+/// never locked the template judges the solved block's own arrival. An attempt-0 fallback has no template to wait
 /// for and is always judged on its own arrival.
 /// Saturation represents a mathematical bound outside the u128 clock domain.
 pub fn is_timely_import(signed: bool, attempt: u32, arrival_ms: u128, template_ms: Option<u128>, deadline_ms: u128, delta: u64, phi: u64) -> bool {

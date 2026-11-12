@@ -52,8 +52,9 @@ pub(super) fn open(chain:&Chain,index:&Index,rec:&Recovered,end:impl Fn(usize)->
 
 /// Compute once from the timestamp captured BEFORE validation/rebuild/fsync.
 /// The original boolean is persisted because local limits can change on restart.
-/// `template_ms` is when this node first saw (received or locked) the signed template
-/// of `entry`, if it still remembers that (`Node::template_seen`, bounded, not persisted).
+/// `template_ms` is when this node first locked the signed template of `entry` (validated
+/// as minable, by T_j), if it still remembers that and the signer did not equivocate there
+/// (`Node::template_seen`, bounded, not persisted).
 /// It decides a signed block's bit; the stored arrival stays the block's own receipt,
 /// which is the b_j of its children. A block classified once is never classified again.
 pub(super) fn classify(spec:&Spec,parent:&Entry,entry:&Entry,received_ms:u128,parent_received_ms:u128,template_ms:Option<u128>)->Result<FirstImport,String>{
