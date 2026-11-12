@@ -1422,12 +1422,15 @@ checkpoint/index loss, partial timing-table loss, corruption recovery and re-fet
   **48,394,690,560 B** (about 45.07 GiB) earlier; at (32,2), 11,642,050,895,999 → 11,593,656,205,439 B.
 - **Spec-1 eviction-off effect.** None: the model stays 3,387,450,989 B and the record stops are
   unchanged.
-- **Lock note n=9.** Its phrase "preserve the legacy memory footprint" (ref V3-PR-C2) refers only to
-  the Entry/record footprint: commit 4386002 is titled "preserve the legacy entry footprint", and the
-  eviction-off total is unchanged. It does not mean the A13 model total, which grows as stated above
-  with eviction on. Lock n=8 ("legacy order and journal bytes unchanged") also does not disclose this
-  change. The lock is append-only, so the correction is recorded here, and the next lock line will
-  reference it.
+- **Lock notes n=8 and n=9.** The batch correction entered in commit 7331ce4 (lock n=8, note "legacy
+  order and journal bytes unchanged"). At that commit the pins moved to 3,398,806,648 B (eviction on)
+  and 3,388,705,997 B (eviction off); both also carried inline first-import metadata. Commit 4386002
+  (lock n=9, titled "preserve the legacy entry footprint") moved the timestamps back out of Entry/Rec,
+  bringing eviction off back to 3,387,450,989 B, and kept the batch correction, leaving eviction on at
+  3,396,912,610 B (+11,815,110 B net). Neither note discloses the eviction-on change. The n=9 phrase "preserve the legacy memory footprint" (ref
+  V3-PR-C2) is accurate only for the Entry/Rec layout and the eviction-off total; read as the
+  eviction-on A13 model total it is incorrect. The lock is append-only, so the correction is recorded
+  here, and the next lock line will reference it.
 
 **The network/store capacity case, checked (2026-11-12).**
 - **Which case.** "The itemized synthetic network/store case" is the store-mode model of
