@@ -1233,57 +1233,116 @@ mod preview{
     }
 
     /// SYS gas and caps of the v3 calls at the GAS_DOMAIN maxima (S_max 256, M_max 256, D 16, E_max 4) with the v3
-    /// probation pool full (P_MAX 64): 192 genesis members and 64 zero-bond probationers, every block's shares naming all
-    /// 256. The worst cases of the calls V3-PR-E2b changes, and of settlement on the v3 set:
-    /// - settle: pot 5, raised by a large tip, pays every probationer (and its ACCRUING winner) at least B, so 65 bonds
-    ///   go from 0 to B and are promoted in one call, besides 191 HELD payees;
-    /// - recordResult reads an ACCRUING winner's record (every block);
-    /// - invalidate: four type-2 items in one block against the ACCRUING winners of pending pots, each writing INVALID;
-    /// - punish: four type-1 items against genesis members (never-written clock word, middle of the active list), each
-    ///   paying the signed proposer's reporter cut.
+    /// probation pool full (P_MAX 64): chains of 192 genesis members and 64 probationers p0..p63 joining in blocks 1..4
+    /// (M_max records), every block from 5 on naming all 256 owners in its shares. The worst cases of the calls
+    /// V3-PR-E2b changes, and of settlement on the v3 set:
+    /// - settle (chain A, run twice): pot 5, raised by a large tip and won by p63, settles in block 21 while all 64
+    ///   probationers are live, ACCRUING and at bond 0, as the chain's first burn: exactly 64 bonds go from 0 to B and are
+    ///   promoted in that one call, besides 192 HELD payees; pot 5's proposer is HELD on one run, ACCRUING on the other;
+    /// - recordResult reads an ACCRUING winner's record (pot 5 on chain A, pots 5..8 on chain B);
+    /// - invalidate (chain B, run twice, probationers with half a bond, 0 < B/2 < B): four type-2 items name p0..p3, the
+    ///   ACCRUING winners of pots 5..8, each writing INVALID;
+    /// - punish: the same items punish an ACCRUING accused with a nonzero bond in the middle of the active list (the
+    ///   ACC_COUNT write, removeActive, the bond burn and the reporter's PAY to the signed proposer's reward address);
+    ///   four type-1 items punish HELD genesis members (never-written clock word, middle of the active list, the
+    ///   reporter's PAY). Each kind comes first on one run of chain B, so each also pays the chain's first burn.
     /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry) and the blocks
-    /// within resources::derive.
+    /// within resources::derive; the test asserts that the settle and punish maxima are taken on these paths.
     #[test]
     fn v3_sys_gas_and_caps_within_the_v3_envelope(){
         let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
         let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
         cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.p_max=64;cfg.r_max=16;
         let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();
-        for p in &probation{cfg.accounts.push((p.clone(),U256::from(PCOL)));}
-        let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();
+        for p in &probation{cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
         let pids:Vec<Address>=probation.iter().map(|p|devnet::account_key(p).address()).collect();
-        let genesis:Vec<Address>=(0..192).map(|i|r.id(i)).collect();
+        // Chain B starts with its 64 probationers joining in blocks 1..4 with `bond` each (the shares of blocks 1..4 name
+        // only the 192 genesis members, so pots 1..4 pay no probationer).
+        let net=Run::new(&cfg);let cp=net.net.profile.cp().clone();
+        let genesis:Vec<Address>=(0..192).map(|i|net.id(i)).collect();
         let ids:Vec<Address>=genesis.iter().copied().chain(pids.iter().copied()).collect();
-        // Shares naming all 256 owners (192 only before the probationers' pots should pay them).
-        let shares=|h:u64,n:usize|->Vec<(u64,Address)>{(0..256u64).map(|i|(i*3+1,ids[((h+i) as usize)%n])).collect()};
-        for k in 0..4usize{
-            let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|r.register(p,0,0)).collect();
-            r.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],shares(k as u64,192));
+        let start=|bond:u128|->Run{
+            let mut r=Run::new(&cfg);
+            for k in 0..4usize{
+                let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|r.register(p,bond,0)).collect();
+                let sh=(0..256u64).map(|i|(i*3+1,ids[((k as u64+i) as usize)%192])).collect();
+                r.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],sh);
+            }
+            for p in &pids{assert_eq!(apply::miner_record(&r.state,*p).map(|x|(x.status,x.bond_state,x.bond,x.tomb)),Some((1,4,U256::from(bond),false)),"an ACCRUING probationer");}
+            r
+        };
+        let shares=|ids:&[Address],h:u64|->Vec<(u64,Address)>{(0..256u64).map(|i|(i*3+1,ids[((h+i) as usize)%256])).collect()};
+
+        let mut gas:BTreeMap<&'static str,u64>=BTreeMap::new();let (mut keys,mut accounts)=(0usize,0usize);
+        let mut fold=|r:&Run|{for (n,g) in &r.gas{let e=gas.entry(*n).or_default();*e=(*e).max(*g);}keys=keys.max(r.keys);accounts=accounts.max(r.accounts);};
+        // Chain A: the worst settlement. Pots 1..4 burn nothing (one owner, the HELD winner, holds every share, and
+        // C = 256 >= kappa*m), so pot 5, raised by a large tip and won by p63, settles in block 21 as the chain's first
+        // burn (Escrow's burnedTotal from 0 to nonzero). All 64 probationers are then live, ACCRUING and at bond 0 (no
+        // evidence names them on this chain), and pot 5 pays each more than B: exactly 64 bonds go from 0 to B and are
+        // promoted in that one call (p63 through its winner part, p0..p62 through their shares), besides 192 HELD payees.
+        // Pot 5's proposer is a HELD genesis member or the ACCRUING p62 (whose proposer part then fills its bond through
+        // payTo before distribute).
+        let mut settle5=0u64;
+        for proposer in [genesis[110],pids[62]]{
+            let mut a=Run::new(&cfg);
+            for k in 0..4usize{
+                let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|a.register(p,0,0)).collect();
+                a.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],(0..256u64).map(|i|(i+1,genesis[k])).collect());
+            }
+            let alice=devnet::account_key("alice");let tip=U256::from(400_000_000_000_000_000u128);
+            let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:a.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
+            let o=a.block(Proposer::Signed(proposer),vec![],vec![big],pids[63],shares(&ids,5));
+            assert!(o.tips>U256::from(8000*PCOL),"pot 5 tips {}",o.tips);
+            for k in 6..=20u64{a.block(Proposer::Signed(genesis[(114+k) as usize]),vec![],vec![],genesis[k as usize],shares(&ids,k));}
+            for p in &pids{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.status,x.bond_state,x.bond,x.tomb)),Some((1,4,U256::ZERO,false)),"zero-bond ACCRUING until pot 5 settles");}
+            assert_eq!(storage(&a.state,escrow_address(),U256::ZERO),U256::ZERO,"pots 1..4 burned nothing");
+            let o=a.block(Proposer::Signed(genesis[140]),vec![],vec![],genesis[21],shares(&ids,21));
+            let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
+            for p in &pids{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.bond_state,x.bond,x.tomb)),Some((1,b(),false)),"filled from 0 to B and promoted by pot 5's settlement");}
+            assert!(storage(&a.state,escrow_address(),U256::ZERO)>U256::ZERO,"pot 5's settlement burns");
+            eprintln!("settle(5) with proposer {proposer}: {g}");settle5=settle5.max(g);fold(&a);
         }
-        for p in &pids{assert_eq!(apply::miner_record(&r.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((1,4,U256::ZERO)),"a zero-bond probationer");}
-        // Block 5: a tip that makes pot 5 pay every owner more than B; won by a probationer.
-        let alice=devnet::account_key("alice");let tip=U256::from(400_000_000_000_000_000u128);
-        let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:r.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
-        let o=r.block(Proposer::Signed(genesis[110]),vec![],vec![big],pids[63],shares(5,256));
-        assert!(o.tips>U256::from(8000*PCOL),"pot 5 tips {}",o.tips);
-        // Pots 6..=9 are won by probationers p0..p3, accused (type 2) in block 10; block 11 accuses four genesis members.
-        for k in 0..4usize{r.block(Proposer::Signed(genesis[120+k]),vec![],vec![],pids[k],shares(6+k as u64,256));}
-        let ev=(0..4usize).map(|i|EvidenceEffect::PunishAndInvalidate{accused:pids[i],j:6+i as u64}).collect();
-        r.block(Proposer::Signed(genesis[130]),ev,vec![],genesis[5],shares(10,256));
-        let ev=(0..4usize).map(|i|EvidenceEffect::Punish{accused:genesis[40+i]}).collect();
-        r.block(Proposer::Signed(genesis[131]),ev,vec![],genesis[6],shares(11,256));
-        for k in 0..16u64{let w=genesis[(7+k) as usize];r.block(Proposer::Signed(genesis[(140+k) as usize]),vec![],vec![],w,shares(12+k,256));}
-        // Pot 5 (settled in block 21) promoted every probationer still live.
-        for p in &pids[4..]{let x=apply::miner_record(&r.state,*p).unwrap();assert_eq!((x.bond_state,x.bond),(1,b()),"promoted by pot 5's settlement");}
-        for p in &pids[..4]{assert!(apply::miner_record(&r.state,*p).unwrap().tomb);}
+
+        // Chain B: type-2 evidence against ACCRUING winners with a nonzero bond (block 9 or 10) and type-1 evidence against
+        // HELD genesis members (the other block). Each order once, so that each path also pays the first burn of the
+        // chain (Escrow's burnedTotal from 0 to nonzero), which only the first punish of a chain does.
+        let half=10*PCOL;let (mut punish_acc,mut punish_held)=(0u64,0u64);
+        for held_first in [false,true]{
+            let mut c=start(half);
+            for k in 0..4usize{c.block(Proposer::Signed(genesis[120+k]),vec![],vec![],pids[k],shares(&ids,5+k as u64));}
+            for step in 0..2u64{
+                let rep=130+step as usize;let reporter=c.net.miners[rep].reward;let before=c.bal(reporter);
+                if held_first==(step==0){
+                    let ev=(0..4usize).map(|i|EvidenceEffect::Punish{accused:genesis[40+i]}).collect();
+                    let o=c.block(Proposer::Signed(genesis[rep]),ev,vec![],genesis[5+step as usize],shares(&ids,9+step));
+                    punish_held=punish_held.max(o.meter.call_gas.iter().filter(|(n,_)|*n=="punish").map(|x|x.1).max().unwrap());
+                    assert_eq!(c.bal(reporter)-before,U256::from(4*b().to::<u128>()/4),"rho_bp 2500 of each 20 PCOL bond to the signed proposer's reward address");
+                }else{
+                    let ev=(0..4usize).map(|i|EvidenceEffect::PunishAndInvalidate{accused:pids[i],j:5+i as u64}).collect();
+                    let o=c.block(Proposer::Signed(genesis[rep]),ev,vec![],genesis[5+step as usize],shares(&ids,9+step));
+                    punish_acc=punish_acc.max(o.meter.call_gas.iter().filter(|(n,_)|*n=="punish").map(|x|x.1).max().unwrap());
+                    assert_eq!(c.bal(reporter)-before,U256::from(4*half/4),"rho_bp 2500 of each half bond to the signed proposer's reward address");
+                    for j in 5..9u64{assert_eq!(pot(&o.state,j).1>>168u32,U256::from(1),"pot {j} INVALID");}
+                }
+            }
+            for x in pids[..4].iter().chain(genesis[40..44].iter()){assert!(apply::miner_record(&c.state,*x).unwrap().tomb);}
+            fold(&c);
+        }
+
         let b=resources::derive(&cp);
-        eprintln!("V3-GAS {:?}; keys {} (derive {}), accounts {} (derive {})",r.gas,r.keys,b.keys_normal,r.accounts,b.accts_normal);
-        for (n,g) in &r.gas{
+        eprintln!("V3-GAS {gas:?}; settle(5) {settle5}, punish ACCRUING {punish_acc} HELD {punish_held}; keys {keys} (derive {}), accounts {accounts} (derive {})",b.keys_normal,b.accts_normal);
+        // The maxima are taken on the paths named above.
+        assert_eq!(gas["settle"],settle5,"the worst settle is pot 5's 64 bond fills");
+        assert_eq!(gas["punish"],punish_acc.max(punish_held));
+        // A genesis member's clock word was never written (punish writes it from zero), while register writes every
+        // probationer's (graceStart), which outweighs the ACCRUING path's ACC_COUNT write: the HELD path is the worst.
+        assert!(punish_held>punish_acc,"punish HELD {punish_held} vs ACCRUING with a bond {punish_acc}");
+        for (n,g) in &gas{
             let bound=admission::envelope_for(n,true).unwrap_or_else(||panic!("no envelope entry for {n}"));
             assert!(*g<=bound,"v3 {n} = {g} above its envelope {bound}");
         }
         // The v3 table is needed: each of its measured entries exceeds the spec-1 entry of the same name.
-        for n in ["invalidate","punish","recordResult","settle"]{assert!(r.gas[n]>admission::envelope_for(n,false).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",r.gas[n]);}
-        assert!(r.keys as u64<=b.keys_normal&&r.accounts as u64<=b.accts_normal,"keys {} accounts {} vs {b:?}",r.keys,r.accounts);
+        for n in ["invalidate","punish","recordResult","settle"]{assert!(gas[n]>admission::envelope_for(n,false).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
+        assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
     }
 }

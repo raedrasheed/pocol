@@ -17,7 +17,8 @@
 //!   final: finalize 2 + 4·(D-1)
 //! SYS accounts touched per block (R18 SYS_ACCT_BLOCK_MAX):
 //!   8 fixed (5 programs, PAY, SYSTEM, origin) + payees
-//!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET.
+//!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET;
+//!   each +1 on CP schema v2 when E>0 (V3-17: the reporter's reward address, paid the cut of a punished bond).
 use crate::profile::ConsensusParams;
 
 #[derive(Clone,Debug,PartialEq,Eq)]

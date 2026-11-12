@@ -138,8 +138,10 @@ SYS footprint (resources::derive on CP schema v2): pending pots keep three words
 a block with evidence touches one more account (the proposer's reward address receiving the cut). SYS gas, measured
 at the GAS_DOMAIN maxima with P_MAX 64 (tests/v3_contracts.rs v3-preview `v3_sys_gas_and_caps_within_the_v3_envelope`):
 recordResult 36,135, invalidate 8,515, punish 98,677 (a genesis member's never-written clock word, a middle active
-record, the reporter's PAY), settle 6,114,691 (65 bonds filled from 0 to B_reg and promoted in one settlement: the
-earn-in accrual, first measured here). Admission composes them from GAS_ENVELOPE_V3 (37,000; 9,000; 99,000; 6,115,000,
+record, the reporter's PAY and the chain's first burn; an ACCRUING accused with a bond and the first burn measures
+86,701, since register writes its clock word), settle 6,313,113 (all P_MAX = 64 probationers live and at bond 0 filled
+to B_reg and promoted in one settlement, the chain's first burn, 192 HELD payees: the earn-in accrual, first measured
+here). Admission composes them from GAS_ENVELOPE_V3 (37,000; 9,000; 99,000; 6,314,000,
 also for settleFinal) for a genesis running the v3 set, whose gas domain also requires P_MAX <= 64; every other entry
 of GAS_ENVELOPE applies unchanged. Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes.
 

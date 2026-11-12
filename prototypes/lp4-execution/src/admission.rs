@@ -101,7 +101,7 @@ fn phase_calls(cp:&ConsensusParams,class:u8)->Vec<(&'static str,u64)>{
     v
 }
 /// The v3 program set also loops over its probation pool in settlement (each ACCRUING payee's bond fills through
-/// accrue): GAS_ENVELOPE_V3 was measured with P_MAX at this bound.
+/// accrue): GAS_ENVELOPE_V3's settle was measured with P_MAX ACCRUING payees, at this bound, filled in one call.
 pub const GAS_DOMAIN_V3_P_MAX:u16=64;
 fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
     let d=GAS_DOMAIN;cp.S_max<=d.s_max&&cp.M_max<=d.m_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret&&(!v3||cp.P_MAX<=GAS_DOMAIN_V3_P_MAX)
@@ -109,10 +109,13 @@ fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
 /// V3-PR-E2b: entries for a genesis running the v3 program set, measured (rounded up to 1000) by tests/v3_contracts.rs
 /// (v3-preview) `v3_sys_gas_and_caps_within_the_v3_envelope` at the GAS_DOMAIN maxima with P_MAX 64; every other entry
 /// of GAS_ENVELOPE applies unchanged, and spec-1 sets compose GAS_ENVELOPE alone. V3-16/V3-17 make recordResult read
-/// the winner's record, invalidate read the winner word, and punish read the reporter's record and pay its rho_bp cut;
-/// settlement fills up to P_MAX ACCRUING bonds from zero to B_reg in one call (the earn-in accrual, measured here
-/// for the v3 pool), so settle and settleFinal (the same settleOne) take the measured worst settle.
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("invalidate",9_000),("punish",99_000),("recordResult",37_000),("settle",6_115_000),("settleFinal",6_115_000)];
+/// the winner's record, invalidate read the winner word, and punish read the reporter's record and pay its rho_bp cut
+/// (worst: a HELD genesis member's never-written clock word with the chain's first burn; an ACCRUING accused with a
+/// bond, whose clock word register wrote, costs less, and the test asserts both); settlement fills up to P_MAX ACCRUING
+/// bonds from zero to B_reg in one call (the earn-in accrual, measured here for the v3 pool with all 64 probationers
+/// live at bond 0, the chain's first burn and 192 HELD payees), so settle and settleFinal (the same settleOne) take the
+/// measured worst settle.
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("invalidate",9_000),("punish",99_000),("recordResult",37_000),("settle",6_314_000),("settleFinal",6_314_000)];
 /// The envelope entry of a SYSTEM call: GAS_ENVELOPE_V3's for the v3 program set where it has one, else GAS_ENVELOPE's.
 pub fn envelope_for(name:&str,v3:bool)->Option<u64>{
     let pick=|t:&[(&str,u64)]|t.iter().find(|(n,_)|*n==name).map(|x|x.1);
