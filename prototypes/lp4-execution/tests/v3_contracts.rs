@@ -2036,6 +2036,19 @@ mod preview{
             assert_eq!(finals.iter().filter(|f|**f).count(),1);assert!(finals[15],"h = 16 is final");
             for j in 1..=16{assert_eq!(pot(&r.state,j),(U256::ZERO,U256::ZERO,U256::ZERO),"pending[{j}]");}
             assert!(apply::escrow_carry(&r.state).is_zero(),"no carry after F (both carry slots)");
+            if spec==2{
+                // The invariant's final arm: a carry into pot F+1 is the one a non-final block above D keeps (block 15
+                // kept the carry into pot 16 and passed), but after F it is refused even when the balance covers it,
+                // and it is still counted when it does not. Without the is_final term the covered case would pass at
+                // F = 16 > D.
+                let x=U256::from(12_345u64);let next=U256::from(4+(17u64&1));
+                let mut with=r.state.clone();with.insert_account_storage(escrow_address(),next,x).unwrap();
+                assert_eq!(apply::escrow_carry_into(&with,17),x);
+                assert_eq!(apply::check_escrow_invariant(&with,&r.net.profile,16,true),Err(apply::ApplyError::Supply("escrow surplus negative")),"an uncovered carry into pot F+1 is counted");
+                with.accounts.get_mut(&escrow_address()).unwrap().info.balance+=x;
+                assert_eq!(apply::check_escrow_invariant(&with,&r.net.profile,16,true),Err(apply::ApplyError::Supply("carry left after phase 2")),"a covered carry into pot F+1 after F");
+                apply::check_escrow_invariant(&r.state,&r.net.profile,16,true).unwrap();
+            }
             let f=apply::chain_facts(&r.state);assert_eq!(f.held_total,U256::ZERO,"the closing cursor refunded every bond");
             assert_eq!(r.bal(escrow_address()),f.burned_total,"Escrow holds exactly the burn after F");
             let gains=(0..3).map(|i|r.bal(r.reward(i))-start[i]).fold(U256::ZERO,|a,b|a+b);

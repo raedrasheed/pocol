@@ -343,14 +343,38 @@ fn a_deep_cutover_restores_the_slimmed_ancestor_an_evidence_walk_reads() {
 fn a_genesis_miner_without_a_durable_bond_balance_is_refused() {
     let db = revm::InMemoryDB::default();
     let poor = Address::with_last_byte(0x77);
-    let err = pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL)).unwrap_err();
+    let err = pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL), false).unwrap_err();
     assert!(err.contains("no balance"), "{err}");
     let mut db = revm::InMemoryDB::default();
     db.insert_account_info(poor, revm::primitives::AccountInfo { balance: U256::from(30 * PCOL), ..Default::default() });
-    assert!(pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL)).unwrap_err().contains("not durable"));
+    assert!(pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL), false).unwrap_err().contains("not durable"));
     db.insert_account_info(poor, revm::primitives::AccountInfo { balance: U256::from(10 * PCOL), nonce: 3, ..Default::default() });
-    assert!(pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL)).unwrap_err().contains("less than the bond"));
+    assert!(pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL), false).unwrap_err().contains("less than the bond"));
     db.insert_account_info(poor, revm::primitives::AccountInfo { balance: U256::from(25 * PCOL), nonce: 3, ..Default::default() });
-    let (alloc, _) = pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL)).unwrap();
+    let (alloc, _) = pocold::cutover::transform(&db, 1, 4, &[poor], U256::from(20 * PCOL), false).unwrap();
     assert_eq!(alloc.accounts[&poor].info.balance, U256::from(5 * PCOL));
+}
+
+/// D-V3-15: a v3 Escrow keeps the carry into pot S + 1 between blocks (slot 4 + ((S + 1) & 1)), part of its balance and of
+/// no pot, held bond or burn. The report names it as oldEscrow.carry so that balance = pots + held + burned + carry
+/// reconciles; on any other program set slots 4 and 5 are not a carry and the report has no such field.
+#[test]
+fn a_v3_cutover_report_names_the_carry_that_outlives_block_s() {
+    let s = 6u64;
+    let carry = U256::from(12_345u64);
+    let mut db = revm::InMemoryDB::default();
+    let poor = Address::with_last_byte(0x77);
+    db.insert_account_info(poor, revm::primitives::AccountInfo { balance: U256::from(25 * PCOL), nonce: 3, ..Default::default() });
+    let escrow = pocol_lp4_execution::apply::escrow();
+    db.insert_account_info(escrow, revm::primitives::AccountInfo { balance: carry, ..Default::default() });
+    db.insert_account_storage(escrow, U256::from(4 + ((s + 1) & 1)), carry).unwrap();
+    let (_, v3) = pocold::cutover::transform(&db, s, 4, &[poor], U256::from(20 * PCOL), true).unwrap();
+    assert_eq!(v3["oldEscrow"]["carry"], carry.to_string(), "{v3}");
+    assert_eq!(v3["oldEscrow"]["balance"], carry.to_string(), "the carry is the whole Escrow balance here");
+    assert_eq!((v3["potsDroppedTotal"].as_str(), v3["oldEscrow"]["heldTotal"].as_str(), v3["oldEscrow"]["burnedTotal"].as_str()), (Some("0"), Some("0"), Some("0")));
+    let (_, other) = pocold::cutover::transform(&db, s, 4, &[poor], U256::from(20 * PCOL), false).unwrap();
+    assert!(other["oldEscrow"].get("carry").is_none(), "{other}");
+    let mut same = v3.clone();
+    same["oldEscrow"].as_object_mut().unwrap().remove("carry");
+    assert_eq!(same, other, "the carry field is the only difference");
 }

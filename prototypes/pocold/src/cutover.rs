@@ -9,8 +9,10 @@ use revm::{InMemoryDB,primitives::{Address,U256}};
 use serde_json::{json,Value};
 
 /// C2–C4: the new allocation and its report. `miners` are the new genesis members' reward addresses, each
-/// funding a bond of `bond` from its own copied balance.
-pub fn transform(old:&InMemoryDB,height:u64,d:u64,miners:&[Address],bond:U256)->Result<(InMemoryDB,Value),String>{
+/// funding a bond of `bond` from its own copied balance. `v3`: the old chain runs the v3 program set, whose Escrow
+/// keeps a carry between blocks (D-V3-15: the carry into pot S + 1), reported as oldEscrow.carry so that the
+/// balance reconciles with pots + held + burned + carry; other sets have no carry and their report is unchanged.
+pub fn transform(old:&InMemoryDB,height:u64,d:u64,miners:&[Address],bond:U256,v3:bool)->Result<(InMemoryDB,Value),String>{
     let mut alloc=InMemoryDB::default();
     let (mut copied,mut excluded,mut accounts)=(U256::ZERO,Vec::new(),0u64);
     let mut addrs:Vec<_>=old.accounts.keys().copied().collect();addrs.sort();
@@ -50,19 +52,20 @@ pub fn transform(old:&InMemoryDB,height:u64,d:u64,miners:&[Address],bond:U256)->
         if info.nonce==0&&info.code.as_ref().is_none_or(|c|c.is_empty()){return Err(format!("genesis miner reward {reward:#x} is not durable (nonce 0, no code)"))}
         info.balance-=bond;alloc.insert_account_info(*reward,info);
     }
-    // Reported, not reproduced: the unsettled pots of the last D blocks, burns, and the Escrow balance.
+    // Reported, not reproduced: the unsettled pots of the last D blocks, burns, the v3 carry and the Escrow balance.
     let mut pots=Vec::new();let mut pots_total=U256::ZERO;
     for j in height.saturating_sub(d)+1..=height{let (amount,meta,_)=apply::pending(old,j);if !meta.is_zero(){pots_total+=amount;pots.push(json!({"height":j,"amount":amount.to_string()}));}}
     let facts=apply::chain_facts(old);
     let alloc_total=alloc.accounts.values().filter_map(|a|a.info()).fold(U256::ZERO,|t,i|t+i.balance);
     let bonds=bond*U256::from(miners.len());
-    let report=json!({
+    let mut report=json!({
         "accountsCopied":accounts,"copiedBalances":copied.to_string(),"excluded":excluded,
         "bondsCredited":credited,"bondsCreditedTotal":credited_total.to_string(),
         "minerBondsDeducted":bonds.to_string(),"potsDropped":pots,"potsDroppedTotal":pots_total.to_string(),
         "oldEscrow":{"heldTotal":facts.held_total.to_string(),"burnedTotal":facts.burned_total.to_string(),
             "balance":old.accounts.get(&apply::escrow()).and_then(|a|a.info()).map(|i|i.balance).unwrap_or_default().to_string()},
         "allocTotal":alloc_total.to_string(),"totalSupply":(alloc_total+bonds).to_string()});
+    if v3{report["oldEscrow"]["carry"]=json!(apply::escrow_carry(old).to_string());}
     Ok((alloc,report))
 }
 
@@ -102,7 +105,7 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     let (miners,new_bond)=crate::testnet::cutover_params(config)?;
     let spec=crate::load_spec_for(net,local,limits.state_store.then_some(data))?;
     let (chain_id,genesis)=(spec.chain_id(),crate::types::hex(&spec.genesis_hash()));
-    let d=u64::from(spec.cp().D);
+    let d=u64::from(spec.cp().D);let v3=spec.programs()==apply::ProgramSet::V3;
     let cfg=crate::node::Config{dir:data.to_path_buf(),name:"cutover".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits};
     let mut node=crate::node::Node::open(cfg,spec)?;
     let head=node.chain.head().height;
@@ -120,7 +123,7 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     let hashes:Vec<_>=old.accounts.values().filter_map(|a|a.info()).filter(|i|i.code.is_none()&&i.code_hash!=revm::primitives::KECCAK_EMPTY).map(|i|i.code_hash).collect();
     for h in hashes{if let Some(c)=state.v().contract(&h){old.contracts.insert(h,c);}}
     drop(state);
-    let (alloc,mut report)=transform(&old,height,d,&miners,new_bond)?;
+    let (alloc,mut report)=transform(&old,height,d,&miners,new_bond,v3)?;
     report["old"]=json!({"chainId":chain_id,"genesisHash":genesis,"height":height,"blockHash":block,"head":head});
     drop(node);
     crate::testnet::prepare_cutover(config,alloc,report,out)
