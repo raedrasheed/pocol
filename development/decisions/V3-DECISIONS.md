@@ -173,6 +173,12 @@ Live-state caps: raise to an A13-verified middle and add a utilisation-priced, b
 
 Approved within the owner rule; OWNER-CHOICE. Principle check: execution layer (Ch13); kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
+**Open pre-launch item: a user bound on the creation burn (recorded 2026-11-12, V3-PR-C3 review C3-4).** The burn is limited only by the sender's post-execution balance. It is priced at the running in-block occupancy, which the builder's selection order sets, so no field the sender signs (gas limit, maxFeePerGas, priority fee) bounds it: near a full cap a plain transfer to a fresh address can be charged up to F0·CAP (200 PCOL at the candidate ACCT_CAP and F0_acct). V3-PR-C3 adds no consensus field for it. The bound stays open until the owner chooses one of:
+- (a) node-local: the pool and eth_estimateGas quote the burn and refuse a submission whose quoted burn exceeds a user-supplied limit (wallet/client support in V3-PR-G); inclusion order can still change the charged amount, so this bounds quotes, not the consensus charge;
+- (b) consensus: a sender-signed cap (for example a halt with CreationFee when burn > max_fee·gas_limit − gas cost, or a separate per-transaction burn limit), compatible with the owner rule and every basic PoCol principle.
+
+The owner confirms the choice before V3-PR-I. Until then it is the enforced launch blocker `D-V3-21 creation-burn user bound` (`lp4-execution/src/admission.rs` `V3_LAUNCH_BLOCKERS`): no profile that can activate v3 is admitted outside a simnet profile on a simnet node, in any build. No current build reaches that check through `admit` (preview builds refuse a non-simnet profile first; release builds cannot decode spec 2), so a source check (`admit_calls_the_v3_launch_gate_before_any_fact_is_built`) keeps the call in place; V3-PR-I, which makes the path reachable, replaces it with an `admit`-level test and must show `V3_LAUNCH_BLOCKERS` empty. The V3-PR-G scope includes the client part (V3-DESIGN.md, PR-7).
+
 ### D-V3-22
 
 Skip-on-revert for non-value mandatory SYSTEM calls. Deferred; no skip-on-revert change is authorized by this record.
