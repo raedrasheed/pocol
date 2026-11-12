@@ -52,8 +52,11 @@ mod preview{
         serde_json::from_str(&pocold::rpc::handle(node,serde_json::json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string().as_bytes())).unwrap()
     }
     fn solve(node:&pocold::node::Node,raw:Vec<Vec<u8>>,clock:u64)->pocold::types::Block{
-        use pocold::types::*;let p=node.chain.full_entry(&node.chain.head).unwrap();let key=devnet::miner_identity("execution").key;let body=Body{txs:raw,evidence:vec![]};
-        let (mut h,_,ctx)=node.chain.build_signed(&p,&key,clock,body.clone(),vec![]).unwrap();let tid=template_id(&h.ut_raw);
+        solve_chain(&node.chain,raw,clock)
+    }
+    fn solve_chain(chain:&pocold::chain::Chain,raw:Vec<Vec<u8>>,clock:u64)->pocold::types::Block{
+        use pocold::types::*;let p=chain.full_entry(&chain.head).unwrap();let key=devnet::miner_identity("execution").key;let body=Body{txs:raw,evidence:vec![]};
+        let (mut h,_,ctx)=chain.build_signed(&p,&key,clock,body.clone(),vec![]).unwrap();let tid=template_id(&h.ut_raw);
         for nonce in 0..1_000_000{if le_target(&pow_hash(&tid,nonce),&ctx.target){h.nonce=nonce;reseal(&mut h);h.winner_sig=key.sign_hash(&B256::from(pocold::hashes::win_msg(&tid,nonce,&share_root(&h))));reseal(&mut h);return Block{header:h,body}}}
         panic!("private fixture solution not found");
     }
@@ -339,5 +342,16 @@ mod preview{
         for from in [None,Some(serde_json::Value::Null)]{let mut request=serde_json::json!({"to":devnet::account_key("bob").address()});if let Some(from)=from{request["from"]=from;}
             let result=rpc(&mut full,"eth_estimateGas",serde_json::json!([request,"latest"]));assert!(result.get("error").is_none(),"a virtual query caller uses no live account unit: {result}");}
         assert_eq!(full.chain.head().summary.as_ref().unwrap().user_accounts,8);
+    }
+
+    #[test]
+    fn a_thousand_validated_empty_blocks_keep_the_v3_floor_and_legacy_london_decay(){
+        for v3 in [false,true]{let mut cfg=node_cfg(|_|{});cfg.spec_version=if v3{2}else{1};let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
+            for height in 1..=1000{let clock=cfg.g_ts+height*u64::from(cfg.t_blk);let block=solve_chain(&chain,vec![],clock);
+                let (entry,_)=chain.validate(&block,None,0).unwrap();assert_eq!(entry.gas_used,0);if v3{assert!(entry.base_fee>=cfg.base_fee_min,"height {height}");}
+                assert!(chain.insert(entry));assert_eq!(chain.head().height,height);
+            }
+            assert_eq!(chain.head().base_fee,if v3{cfg.base_fee_min}else{U256::from(7)});
+        }
     }
 }
