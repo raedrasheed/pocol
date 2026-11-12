@@ -12,6 +12,7 @@ use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::{chain::{self,Chain,ChildCtx,Entry,Reject,Spec},miner::{self,MinerEvent,MinerHandle},net::{self,Msg,NetEvent,Peer,PeerId,Useful},store::{self,Journal},types::*};
 mod discovery;
 mod imports;
+pub mod latency;
 pub use discovery::{Discovery,DiscoveryTimes,LINK_BYTES,OUT_STATE_BYTES,Outbound,parse_outbound,endpoints,is_own_seed,SEEDS_MAX,SEED_LINKS_MAX,BOOTSTRAP_MAX};
 pub mod canon;
 
@@ -493,6 +494,9 @@ pub struct Node{
     /// on profiles that cannot activate v3. Not persisted: a block first imported after a restart whose template was
     /// locked before it is judged on its own arrival.
     template_seen:HashMap<([u8;32],u64),([u8;32],u128)>,
+    /// V3-05 telemetry (node-local, every profile): per-proposer template arrival and lock latency in the attempt-0
+    /// slots this node waits in (`latency::Tracker`, bounded by latency::BOUND_BYTES; pocol_templateLatency).
+    latency:latency::Tracker,
     /// Gossip: TemplateIDs this node sent or relayed (at most RELAYED_MAX), so each is relayed once.
     relayed:HashSet<[u8;32]>,
     received:HashMap<[u8;32],u128>,
@@ -978,7 +982,7 @@ impl Node{
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
-            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),template_seen:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
+            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),template_seen:HashMap::new(),latency:Default::default(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
@@ -1838,8 +1842,10 @@ impl Node{
             let received=self.prod.as_ref().unwrap().received_ms;
             let deadline=ctx.window.deadline_ms(received,u64::from(self.chain.spec.local().delta_rel),self.chain.spec.cp().dFbWait).unwrap_or(0);
             if let Some(pr)=&mut self.prod{pr.mode=Mode::Wait{deadline_ms:deadline};}
+            // V3-05 telemetry: this node waits in this slot for Draw(h,0)'s template (b_j, L(0), T_j).
+            if deadline>0{self.latency.slot(parent_hash,ctx.proposer.0.0,received,u128::from(ctx.window.lower())*1000,deadline);}
             // A signed template may already have arrived for this parent.
-            if let Some((h,b,arr,from))=self.templates.remove(&parent_hash){if arr<=deadline{self.try_lock_signed(h,b,from);}}
+            if let Some((h,b,arr,from))=self.templates.remove(&parent_hash){self.note_template_arrival(&h,arr);if arr<=deadline{self.try_lock_signed(h,b,from);}}
         }else{
             self.lock_fallback(&p,a);
         }
@@ -2006,10 +2012,28 @@ impl Node{
         match rebuilt{
             Ok(ut) if ut==shell.ut_raw=>{
                 let m=Msg::Template{shell:shell.encoded.clone(),body:body.encode()};
+                self.latency.locked(&parent,now_ms());
                 self.lock(shell,body,false);self.credit(from,Useful::Template);self.disc_useful(from,false,self.disc_now());self.relay_template(tid,&m,from);true}
             Ok(_)=>self.punish_template(from,"its rebuild differs"),
             Err(e)=>self.template_error(from,"its rebuild fails",e),
         }
+    }
+    /// V3-05 telemetry: the first arrival of Draw(h,0)'s signed template for a slot this node waits in
+    /// (`latency::Tracker::slot`), whatever happens to it next (it may be late, or not lock). Only a template whose
+    /// signature recovers to the slot's drawn proposer counts, so no other peer can write a sample; one signature
+    /// recovery per such template until the slot's first one arrived. Telemetry only: no decision reads it.
+    fn note_template_arrival(&mut self,h:&Header,arrival:u128){
+        if h.a!=0||h.sig.len()!=65{return}
+        let Some(drawn)=self.latency.waiting_for(&h.parent_hash) else{return};
+        if h.proposer[..]!=drawn[..]{return}
+        if !matches!(hashes::recover_address(&hashes::sig_msg(&template_id(&h.ut_raw)),&h.sig),Ok(a) if a[..]==drawn[..]){return}
+        self.latency.arrival(&h.parent_hash,arrival,h.ts);
+    }
+    /// pocol_templateLatency (and pocol_status `templateLatency`): the V3-05 counters, with the local timing T_j
+    /// derives from.
+    pub fn template_latency_json(&self)->serde_json::Value{
+        let l=self.chain.spec.local();
+        self.latency.json(serde_json::json!({"delta":l.delta,"phi":l.phi,"tExec":l.t_exec,"deltaRel":l.delta_rel,"gamma":l.gamma,"dFbWait":self.chain.spec.cp().dFbWait}))
     }
     /// An error checking a template from Draw(h,0). Only a verdict on its block (`Reject::Block`) punishes
     /// the sender. The node's own storage failing (`Reject::Local`) stops it, as on every production path,
@@ -2223,6 +2247,7 @@ impl Node{
                 let Ok(h)=decode_header(&shell) else{return};
                 let Ok(b)=Body::decode(&body,self.chain.spec.cp().BODY_MAX as usize) else{return};
                 let arrival=now_ms();
+                self.note_template_arrival(&h,arrival);
                 let equivocated=self.observe_template(&h);
                 let waiting=matches!(&self.prod,Some(p) if p.parent==h.parent_hash&&p.attempt==0&&matches!(p.mode,Mode::Wait{deadline_ms} if arrival<=deadline_ms));
                 if equivocated{
@@ -2233,7 +2258,10 @@ impl Node{
                         let p=self.chain.get(&h.parent_hash).unwrap().clone();self.lock_fallback(&p,0);}
                 }else if waiting{self.try_lock_signed(h,b,from);}
                 else if !self.chain.blocks.contains_key(&h.parent_hash)||self.prod.as_ref().map(|p|p.parent!=h.parent_hash).unwrap_or(true){
-                    if self.templates.len()>TEMPLATES_MAX{self.templates.clear();}self.templates.insert(h.parent_hash,(h,b,now_ms(),from));
+                    // A copy identical to the buffered one (a relay of the same template) keeps the first receipt
+                    // time, so the V3-05 arrival (and T_j's check at slot start) counts from the first copy.
+                    let first=match self.templates.get(&h.parent_hash){Some((o,ob,t,_)) if o.encoded==h.encoded&&*ob==b=>*t,_=>arrival};
+                    if self.templates.len()>TEMPLATES_MAX{self.templates.clear();}self.templates.insert(h.parent_hash,(h,b,first,from));
                 }
             }
             Msg::Share{tid,nonce}=>{
@@ -2534,6 +2562,8 @@ impl Node{
         // V3-33: present only when this node has a freeze, so a node without one reports what it reported before.
         if let Some(s)=self.user_tx_freeze(){status["userTxFreeze"]=serde_json::json!({"freezeUserTxsAfter":s,"active":self.user_txs_frozen(),
             "refused":self.stats.frozen_refused,"relayDropped":self.stats.frozen_dropped});}
+        // V3-05: per-proposer template arrival and lock latency (network.md, "Template latency").
+        status["templateLatency"]=self.template_latency_json();
         crate::network_display::annotate(status)
     }
     pub fn template_json(&self)->serde_json::Value{
