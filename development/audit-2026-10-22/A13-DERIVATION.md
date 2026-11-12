@@ -1066,14 +1066,25 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   it the gas facts are absent and R18 fails.
 - **Earn-in program set (2026-11-12).** The table above was measured on the V1 programs, and admission used it
   for every program set. On the earn-in programs it is exceeded inside the domain: settle 4,420,973 with no
-  ACCRUING record (payInfos returns a second array) and 4,650,722 with eight ACCRUING payees whose first fill
-  promotes them and PAYs the rest, settleFinal 4,344,322, markClose 2,715,144, beginBlock 943,609. Admission now
+  ACCRUING record (payInfos returns a second array), 4,667,822 with eight ACCRUING payees whose first fill at a
+  closing boundary promotes them and PAYs the rest, and 4,684,922 when that settle is also the chain's first
+  burn (escrow slot 0 written from zero); settleFinal 4,408,101 in a tomb-free final block and 4,423,202 when
+  its first settleFinal makes the first burn; markClose 2,715,144, beginBlock 943,609. Admission now
   selects the table by the program set the sysCodeHash names (`admission::gas_envelope`): V1 and Continuous keep
-  `GAS_ENVELOPE` (also checked on the Continuous programs, the spec-1 H15000 chain's set, whose admission report
-  is unchanged), and EarnIn uses `GAS_ENVELOPE_EARNIN`, measured by `sys_gas_envelope_fixture_earnin` (ACCRUING
-  records registered by USER transactions; the scenarios are listed at the table). Worst earn-in composition
-  89.9M ≤ G_SYS 96M (measured worst block 85.6M), so no R18 outcome at the default G_SYS changes; only the
-  reported facts become sound. Not measured: the probation-deadline exit in the beginBlock sweep (height ≥ 60480).
+  `GAS_ENVELOPE` (the spec-1 H15000 chain's Continuous set, whose admission report is unchanged), and EarnIn
+  uses `GAS_ENVELOPE_EARNIN`, measured by `sys_gas_envelope_fixture_earnin` (ACCRUING records registered by
+  USER transactions, runs with and without evidence; the scenarios are listed at the table). Worst earn-in
+  composition 91.1M ≤ G_SYS 96M (measured worst block 86.6M), so no R18 outcome at the default G_SYS changes;
+  only the reported facts become sound. Not measured: the probation-deadline exit in the beginBlock sweep
+  (height ≥ 60480).
+- **Open: V1 settleFinal (2026-11-12).** `sys_gas_envelope_fixture` runs no tomb-free final block. On the V1
+  programs one measures settleFinal 4,291,596, and 4,306,697 when its first settleFinal makes the first burn,
+  above the 4,230,000 entry of `GAS_ENVELOPE` (settle, 4,304,468 tomb-free and on the Continuous programs, is
+  covered). The V1 class-2 facts, and the composed class-2 facts of the Continuous set (H15000 included, though
+  Continuous never runs settleFinal), are therefore understated by up to 15 × 77,000 gas: worst V1 composition
+  about 88.9M instead of 87.7M, still ≤ G_SYS 96M, so no outcome changes. The table is left unchanged here so the
+  spec-1 H15000 admission facts stay byte-identical; raising it (and adding the tomb-free runs to the V1 fixture)
+  is the owner's call.
   recordShares assumes registered owners; the invariant that makes an unregistered owner unreachable
   (owners ⊆ ActList(parent), no erase before recordShares by R8, ActList ⊆ live records outside CLOSING) is
   documented at `GAS_ENVELOPE` and checked on fixture and real blocks.
@@ -1508,7 +1519,7 @@ admission is refused while any remains (D-A02-SCOPE).
 
 | # | assumption | status | basis / remaining obligation |
 |---|---|---|---|
-| 1 | SYS gas is monotone in the domain fields (the program set's envelope, GAS_ENVELOPE or GAS_ENVELOPE_EARNIN, covers every profile in GAS_DOMAIN) | OPEN | No opcode-level worst-case derivation. Admission condition `gas-monotonicity-assumed` (R18) |
+| 1 | SYS gas is monotone in the domain fields (the program set's envelope, GAS_ENVELOPE or GAS_ENVELOPE_EARNIN, covers every profile in GAS_DOMAIN) | OPEN | No opcode-level worst-case derivation. Admission condition `gas-monotonicity-assumed` (R18). Known gap: GAS_ENVELOPE settleFinal (4,230,000) is below a tomb-free V1 final block (up to 4,306,697), so V1 and composed Continuous class-2 facts are understated (§3, "Open: V1 settleFinal") |
 | 2 | R14/R19 timing is a worst-case bound | OPEN | `measure` applies one synthetic GAS_LIMIT compute workload per phase on this host, a representative sample. Not a bound for worst-case state size, world-root rebuild, PAY or settlement paths. Admission condition `timing-not-a-bound` (R14, R19). **Round 3 (JOURNAL-GROWTH-AND-REPLAY.md §3.2a, §3.2d), measured on this host:** one valid one-tx MODEXP block validates in about 1.0 s, and in about 1.3 s with the state at the devnet caps, above the devnet t_exec = 1 s (single_host; R14 requires t_exec ≥ validate_p99, governance.md:93); a valid 380-transfer block re-executes in about 10.2 s on a near-cap devnet state, above t_exec = 1 s and T_blk = 4 s. The admission gate itself was not re-measured |
 | 3a | thread stacks and the exiting-thread overlap | ENFORCED (measured + conservative) | Every thread is spawned with an explicit reservation and counted at it (io_threads). The inventory is enforced by join ordering: the acceptor, listener and dialers join a finished thread before reusing its place (`threads::reap`); a reader joins its writer; the miner is joined before the next starts. A thread can finish between its reaper's visits: the bound on exiting-not-yet-joined threads is E = inbound_max + dials + conn_max (peers_max before PR3) (writers join synchronously; singletons never respawn), counted CONSERVATIVELY at a full IO_STACK each (10.5 MiB). Measurement (evidence/threadmem.rs, evidence/THREAD-INVENTORY.md): a finished joinable thread retains only ~25.8 KiB, not 256 KiB — the bulk returns to the glibc stack cache (the 40 MiB STACK_CACHE term) — so the term is an upper bound, not the measured figure, as the owner directed (measurement is evidence, not a guaranteed ceiling). Tests: `peer_threads_stay_within_the_inventory_while_consensus_is_stalled`, `miner_replacement_keeps_at_most_one_miner_thread` (handle high-water 1; mutation fails), F1's lost-wakeup unit test. Residual: the main thread's stack is platform-reserved, counted at 1 MiB (INSPECTION) |
 | 3b | allocator per-allocation overhead and fragmentation | OPEN (reserve kept) | Not modelled; the total is requested bytes. The boot gate keeps 1/8 of the budget outside the model (D-A13-BUDGET). Measured: full-cap snapshot clones use 0.45 of their model in RSS; header estimate for history under 8 MB (§2b). Fragmentation is not bounded. Status condition `allocator-overhead` |

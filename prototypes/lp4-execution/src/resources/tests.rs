@@ -62,6 +62,15 @@ fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
 /// Records the largest gas of every SYSTEM call name in any phase class;
 /// `admission::GAS_ENVELOPE` must dominate every value.
 fn gas_scenario(c:&DevnetConfig,evidence_at:&dyn Fn(u64,&[Address])->Vec<EvidenceEffect>,owners:usize,seen:&mut std::collections::BTreeMap<&'static str,u64>)->([u64;3],usize){
+    gas_scenario_from(c,evidence_at,owners,0,seen)
+}
+/// Escrow slot 0: the cumulative burn (burnedTotal). settleOne adds each pot's burn to it, so the
+/// first pot that burns anything pays a zero-to-nonzero SSTORE.
+fn burned_total(st:&revm::InMemoryDB)->U256{apply::chain_facts(st).burned_total}
+/// `gas_scenario`, with every pot below height `single_before` owned by one member (all shares and the
+/// win): such a pot burns nothing, so escrow slot 0 is still zero at the first pot of many owners.
+/// With `single_before = H_END - D + 1` that is the final block's first settleFinal (asserted).
+fn gas_scenario_from(c:&DevnetConfig,evidence_at:&dyn Fn(u64,&[Address])->Vec<EvidenceEffect>,owners:usize,single_before:u64,seen:&mut std::collections::BTreeMap<&'static str,u64>)->([u64;3],usize){
     let net=devnet::build(c).unwrap();
     let ids:Vec<Address>=net.miners.iter().map(|m|m.id).collect();
     let mut state=net.genesis.state().clone();let mut prev:Option<ParentResult>=None;let mut base=U256::from(1_000_000_000u64);let mut block_max=[0u64;3];let mut fewest=usize::MAX;
@@ -73,9 +82,13 @@ fn gas_scenario(c:&DevnetConfig,evidence_at:&dyn Fn(u64,&[Address])->Vec<Evidenc
         base=crate::fees::next_base_fee(base,o.gas_used,8_000_000).unwrap();
         for (name,g) in &o.meter.call_gas{let e=seen.entry(*name).or_default();*e=(*e).max(*g);}
         let class=if o.is_final{2}else if o.facts.closing{1}else{0};block_max[class]=block_max[class].max(o.system_gas);
+        if single_before!=0&&o.is_final&&single_before==h-u64::from(c.d)+1{
+            assert!(burned_total(&state).is_zero()&&!burned_total(&o.state).is_zero(),"h={h}: the final block's settleFinal makes the first burn");
+        }
         state=o.state.clone();fewest=fewest.min(apply::record_list(&state).len());
-        let shares:Vec<(u64,Address)>=(0..256u64).map(|i|(i*3+1,ids[((h+i) as usize)%owners])).collect();
-        prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner:ids[h as usize%owners],shares});
+        let single=h<single_before;
+        let shares:Vec<(u64,Address)>=(0..256u64).map(|i|(i*3+1,ids[if single{0}else{((h+i) as usize)%owners}])).collect();
+        prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner:ids[if single{0}else{h as usize%owners}],shares});
         if o.is_final{return (block_max,fewest)}
     }
     assert!(c.h_end==0,"final block not reached");(block_max,fewest)
@@ -128,6 +141,9 @@ struct Accruing{
     /// Share owners: the ACCRUING records and the genesis members among the first `owners` miners
     /// (as the V1 sweep scenario, whose other members are never paid).
     owners:usize,
+    /// Pots below this height have one owner (all shares and the win: the first member), so they
+    /// burn nothing and escrow slot 0 (burnedTotal) is still zero when the first-fill pot is settled.
+    single_owner_before:u64,
 }
 const PCOL:u128=1_000_000_000_000_000_000;
 fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Address],&[Address])->Vec<EvidenceEffect>,seen:&mut std::collections::BTreeMap<&'static str,u64>)->[u64;3]{
@@ -179,6 +195,9 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
             let held=o.state.accounts[&apply::registry()].storage.get(&U256::from(4)).copied().unwrap_or_default();
             assert_eq!(held,acc.iter().map(|id|rec(id).bond).fold(U256::ZERO,|x,y|x+y),"{a:?}: only the ACCRUING bonds are held at the first fill");
         }
+        if a.single_owner_before!=0&&h==first+u64::from(cp.D){
+            assert!(burned_total(&state).is_zero()&&!burned_total(&o.state).is_zero(),"{a:?}: the first-fill settle makes the first burn");
+        }
         if h==first+u64::from(cp.D)&&!o.is_final{for id in &acc{let r=rec(id);
             if a.bond_short_by_one||a.tip_pcol>0{assert_eq!((r.bond_state,r.bond),(1,b_reg),"{a:?}: {id} promoted by the first-fill settle");}
             else{assert!(r.bond_state==4&&r.bond>U256::ZERO,"{a:?}: {id} first fill {r:?}");}
@@ -190,8 +209,9 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
             paid_at_final=acc.iter().all(|id|rec(id).tomb||balance(&o.state,id)>balance(&state,id));
         }
         state=o.state.clone();
-        let shares:Vec<(u64,Address)>=(0..u64::from(cp.S_max)).map(|i|(i*3+1,owners[(h as usize+i as usize)%owners.len()])).collect();
-        let winner=if h==first{if a.winner_proposer{acc[0]}else{*owners.iter().find(|id|!acc.contains(id)).unwrap()}}else{owners[h as usize%owners.len()]};
+        let single=h<a.single_owner_before&&h!=first;
+        let shares:Vec<(u64,Address)>=(0..u64::from(cp.S_max)).map(|i|(i*3+1,owners[if single{0}else{(h as usize+i as usize)%owners.len()}])).collect();
+        let winner=if h==first{if a.winner_proposer{acc[0]}else{*owners.iter().find(|id|!acc.contains(id)).unwrap()}}else if single{owners[0]}else{owners[h as usize%owners.len()]};
         prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner,shares});
         if o.is_final{break}
     }
@@ -213,6 +233,9 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
     let evidence=move |h:u64,ids:&[Address],acc:&[Address]|->Vec<EvidenceEffect>{if h==40{vec![EvidenceEffect::Punish{accused:acc[7]}]}else{worst_evidence(h,ids)}};
     // The survivors run keeps all eight (registered at 63): scenario 1's evidence only.
     let unpunished=move |h:u64,ids:&[Address],_:&[Address]|->Vec<EvidenceEffect>{worst_evidence(h,ids)};
+    // No evidence at all: every record stays a payee and no punishment burns into escrow slot 0
+    // (burnedTotal), which can then still be zero at a measured call (the tomb-free runs below).
+    let no_evidence=|_:u64,_:&[Address],_:&[Address]|->Vec<EvidenceEffect>{vec![]};
     // The V1 sweep scenario with ACCRUING records: 76 genesis tombstones erased by the beginBlock sweep
     // (short E_win), which moves the last records (the ACCRUING ones) into the erased positions, so that
     // the first closing block's markClose refunds them.
@@ -220,7 +243,9 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
     let mut sweep=e.clone();sweep.e_win=16;sweep.u=40;
     // A closing boundary at the ACCRUING records: RET 124 refunds records 0..123 at 60 and 124..247 at 61,
     // so in block 61 every bond but the zero ACCRUING ones is refunded when settle(45) gives the eight
-    // (registered at 44) their first fill: held_total goes from zero to nonzero.
+    // (registered at 44) their first fill: held_total goes from zero to nonzero. Run with scenario 1's
+    // evidence (eight tombs, not payees) and with none (all 256 records payees; the settle maximum, with
+    // single-owner pots before 45 so that this settle is also the first burn).
     let mut boundary=e.clone();boundary.ret=124;
     let mut continuous=e.clone();continuous.h_end=0;continuous.h_close=0;
     // ACCRUING records that survive until closing starts (64) and are first paid in the final block (80):
@@ -229,7 +254,7 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
     type Evidence<'a>=&'a (dyn Fn(u64,&[Address],&[Address])->Vec<EvidenceEffect>+Sync);
     let run=|a:Accruing,cfg:&DevnetConfig,ev:Evidence|{let mut seen=BTreeMap::new();let m=accruing_scenario(cfg,a,ev,&mut seen);
         (format!("{a:?} hEnd={} hClose={} eWin={}",cfg.h_end,cfg.h_close,cfg.e_win),seen,m)};
-    let fresh=Accruing{bond_short_by_one:false,winner_proposer:false,tip_pcol:0,reg_at:2,owners:usize::MAX};
+    let fresh=Accruing{bond_short_by_one:false,winner_proposer:false,tip_pcol:0,reg_at:2,owners:usize::MAX,single_owner_before:0};
     let runs:Vec<(Accruing,&DevnetConfig,Evidence)>=vec![(fresh,&e,&evidence),(Accruing{winner_proposer:true,..fresh},&e,&evidence),
         (Accruing{bond_short_by_one:true,..fresh},&e,&evidence),(Accruing{bond_short_by_one:true,winner_proposer:true,..fresh},&e,&evidence),
         (Accruing{tip_pcol:10_000,..fresh},&e,&evidence),(Accruing{tip_pcol:10_000,winner_proposer:true,..fresh},&e,&evidence),
@@ -237,7 +262,18 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
         (Accruing{reg_at:63,winner_proposer:true,..fresh},&survivors,&unpunished),
         (Accruing{owners:100,..fresh},&sweep,&sweep_evidence),(Accruing{owners:100,winner_proposer:true,..fresh},&sweep,&sweep_evidence),
         (Accruing{reg_at:44,..fresh},&boundary,&unpunished),(Accruing{reg_at:44,winner_proposer:true,..fresh},&boundary,&unpunished),
-        (Accruing{reg_at:44,tip_pcol:10_000,..fresh},&boundary,&unpunished),(Accruing{reg_at:44,tip_pcol:10_000,winner_proposer:true,..fresh},&boundary,&unpunished)];
+        (Accruing{reg_at:44,tip_pcol:10_000,..fresh},&boundary,&unpunished),(Accruing{reg_at:44,tip_pcol:10_000,winner_proposer:true,..fresh},&boundary,&unpunished),
+        // Tomb-free: the closing boundary (held_total zero before the first fill), the final block, and
+        // the first burn: pot 1 has one owner, so settle(2), the first fill (and with the tip, the
+        // promote-and-PAY path), writes escrow slot 0 from zero.
+        (Accruing{reg_at:44,..fresh},&boundary,&no_evidence),(Accruing{reg_at:44,tip_pcol:10_000,..fresh},&boundary,&no_evidence),
+        (Accruing{reg_at:44,tip_pcol:10_000,winner_proposer:true,..fresh},&boundary,&no_evidence),
+        (fresh,&e,&no_evidence),(Accruing{reg_at:63,winner_proposer:true,..fresh},&survivors,&no_evidence),
+        (Accruing{reg_at:1,single_owner_before:2,..fresh},&e,&no_evidence),(Accruing{reg_at:1,single_owner_before:2,tip_pcol:10_000,..fresh},&e,&no_evidence),
+        (Accruing{reg_at:1,single_owner_before:2,tip_pcol:10_000,winner_proposer:true,..fresh},&e,&no_evidence),
+        (Accruing{reg_at:1,single_owner_before:2,bond_short_by_one:true,..fresh},&e,&no_evidence),
+        // Both at once: the boundary first fill is also the first burn (pots 1..44 of one owner).
+        (Accruing{reg_at:44,single_owner_before:45,..fresh},&boundary,&no_evidence),(Accruing{reg_at:44,single_owner_before:45,tip_pcol:10_000,..fresh},&boundary,&no_evidence)];
     let mut seen:BTreeMap<&'static str,u64>=Default::default();let mut report=Vec::new();
     std::thread::scope(|s|{
         let worst=s.spawn(||{let mut seen=BTreeMap::new();let (m,_)=gas_scenario(&c,&|h,ids|worst_evidence(h,ids),256,&mut seen);("no ACCRUING, scenario 1".to_string(),seen,m)});
@@ -245,7 +281,12 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
             let (m,fewest)=gas_scenario(&c2,&|h,ids|if (2..=20).contains(&h){(0..4).map(|i|EvidenceEffect::Punish{accused:ids[100+4*(h as usize-2)+i]}).collect()}else{vec![]},100,&mut seen);
             assert!(fewest<=256-76,"the sweep scenario must delete the 76 tombstoned records, fewest={fewest}");("no ACCRUING, sweep".to_string(),seen,m)});
         let handles:Vec<_>=runs.iter().map(|(a,cfg,ev)|{let run=&run;s.spawn(move||run(*a,cfg,*ev))}).collect();
-        let mut all=vec![worst.join().unwrap(),sweep_v1.join().unwrap()];all.extend(handles.into_iter().map(|h|h.join().unwrap()));
+        // Tomb-free final blocks without ACCRUING records: every pot of 256 owners, and pots 1..H_END-D of
+        // one owner, so that the final block's first settleFinal makes the first burn.
+        let tomb_free=s.spawn(||{let mut seen=BTreeMap::new();let (m,_)=gas_scenario(&c,&|_,_|vec![],256,&mut seen);("no ACCRUING, no evidence".to_string(),seen,m)});
+        let first_burn_final=s.spawn(||{let mut seen=BTreeMap::new();let (m,_)=gas_scenario_from(&c,&|_,_|vec![],256,c.h_end-u64::from(c.d)+1,&mut seen);
+            ("no ACCRUING, no evidence, first burn at settleFinal".to_string(),seen,m)});
+        let mut all=vec![worst.join().unwrap(),sweep_v1.join().unwrap(),tomb_free.join().unwrap(),first_burn_final.join().unwrap()];all.extend(handles.into_iter().map(|h|h.join().unwrap()));
         for (label,m,block) in all{for (n,g) in &m{let e=seen.entry(*n).or_default();*e=(*e).max(*g);}report.push(serde_json::json!({"run":label,"settle":m.get("settle"),"settleFinal":m.get("settleFinal"),"markClose":m.get("markClose"),"beginBlock":m.get("beginBlock"),"blockMax":block}));}
     });
     println!("GAS-ENVELOPE-EARNIN {}",serde_json::json!({"perCall":seen,"runs":report,"G_SYS":c.cp()[44].to_u64()}));

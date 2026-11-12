@@ -88,6 +88,15 @@ impl NodeLocal{
 /// silently go stale. The earn-in programs have their own table (`GAS_ENVELOPE_EARNIN`);
 /// `gas_envelope` selects by the program set the GenesisSpec's sysCodeHash names.
 ///
+/// Known gap, left open for the owner (this table is kept unchanged so the spec-1 H15000 admission
+/// facts stay byte-identical): the fixture's final blocks all carry tombs, and a tomb-free final block
+/// on the V1 programs measures settleFinal 4,291,596, or 4,306,697 when every earlier pot burned
+/// nothing so that the first settleFinal writes escrow slot 0 (burnedTotal) from zero; both exceed the
+/// 4,230,000 entry. So the class-2 facts of V1 are understated by up to 15 * 77,000 gas (worst
+/// composition about 88.9M instead of 87.7M, still under G_SYS 96M), and so are the composed class-2
+/// facts of the Continuous set, which never runs settleFinal. The other entries cover the tomb-free
+/// runs (V1 settle 4,304,468, also on the Continuous programs).
+///
 /// recordShares assumes every owner it is given is a registered record (w != 0); an absent
 /// owner costs about 3.6k gas more (four cold SLOADs instead of one SLOAD and a warm SSTORE),
 /// which the entries do not include. No valid block can name one, by these facts:
@@ -122,16 +131,26 @@ pub const GAS_ENVELOPE:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_0
 /// promote-and-PAY path through a bond one wei short and through a large tip pot, continuous runs,
 /// ACCRUING records alive into closing (markClose's ACCRUING refunds; settleFinal pays them as PAID
 /// records, since the final block needs the closing cursor done), the sweep scenario with ACCRUING
-/// records moved into the first closing block, and a first fill at a closing boundary where held_total
-/// is zero. Earn-in's payInfos returns a second array and settle calls accrue for ACCRUING payees, so
+/// records moved into the first closing block, and a first fill at a closing boundary where every
+/// other bond is refunded (held_total goes from zero to nonzero); and tomb-free runs (no evidence, so
+/// no member is dropped from the payees), including runs where escrow slot 0 (burnedTotal) is still
+/// zero, because every earlier pot had one owner and burned nothing, so the measured call writes it
+/// from zero (17,100 gas more). Measured: the boundary first fill with a tip pot 4,667,822, the
+/// first-burn first fill with a tip pot 4,669,821, both at once 4,684,922 (the settle maximum), and a
+/// tomb-free final block 4,408,101, or 4,423,202 when its first settleFinal makes the first burn (the
+/// settleFinal maximum; runs with tombs reach only 4,344,322).
+/// Earn-in's payInfos returns a second array and settle calls accrue for ACCRUING payees, so
 /// settle and settleFinal cost more than in V1; markClose and beginBlock do as well. Not measured: the
 /// probation-deadline exit in the beginBlock sweep, which needs a height of at least T_PROB = 60480
 /// (at most P_MAX = 8 such exits per sweep).
 pub const GAS_ENVELOPE_EARNIN:&[(&str,u64)]=&[("beginBlock",944_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_716_000),
-    ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_651_000),("settleFinal",4_345_000)];
+    ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_685_000),("settleFinal",4_424_000)];
 /// The envelope of a program set. V1 and Continuous use `GAS_ENVELOPE` (the spec-1 H15000 chain
 /// runs Continuous, so its admission facts are unchanged); EarnIn uses `GAS_ENVELOPE_EARNIN`.
-/// `SystemPrograms::program_set` never returns V3, which keeps the legacy table.
+/// On main `SystemPrograms::program_set` never returns V3, so the V3 arm is unreachable here. When the
+/// v3 stack is rebased, its fallback must be decided explicitly: the earn-in programs measure
+/// markClose and beginBlock above `GAS_ENVELOPE` (2,715,144 and 943,609), so a V3 table built on the
+/// earn-in programs should fall back to `GAS_ENVELOPE_EARNIN`, not to `GAS_ENVELOPE`.
 pub fn gas_envelope(set:ProgramSet)->&'static [(&'static str,u64)]{
     match set{ProgramSet::EarnIn=>GAS_ENVELOPE_EARNIN,ProgramSet::V1|ProgramSet::Continuous|ProgramSet::V3=>GAS_ENVELOPE}
 }
