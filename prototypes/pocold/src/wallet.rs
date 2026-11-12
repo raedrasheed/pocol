@@ -64,11 +64,13 @@ pub enum RejoinStep {
     /// Exited and past the window: the sweep refunds the bond and erases the record.
     Missed,
 }
-pub fn rejoin_step(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64)->RejoinStep{
+/// `t_prob`: the probation deadline in blocks of the genesis programs (`Spec::probation`), None without earn-in.
+pub fn rejoin_step(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64,t_prob:Option<u64>)->RejoinStep{
     let Some(r)=record else{return RejoinStep::Unavailable};
     if r.tomb||!matches!(r.bond_state,1|4){return RejoinStep::Unavailable}
-    // Earn-in (EARN-IN-SPEC U4): a probation record reactivates only before registeredAt + T_PROB.
-    let deadline=(r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).then(|| r.registered_at.saturating_add(apply::SystemPrograms::EARNIN_T_PROB));
+    // Earn-in (EARN-IN-SPEC U4): a probation record reactivates only before registeredAt + T_PROB
+    // (60,480 on the earn-in programs, CP T_PROB on the v3 programs, V3-14).
+    let deadline=t_prob.filter(|_|r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).map(|t|r.registered_at.saturating_add(t));
     match r.status{
         1 if member=>RejoinStep::Active,
         1 if deadline.is_some_and(|d|next.saturating_add(w_act)>=d)=>RejoinStep::Missed,
@@ -167,7 +169,7 @@ impl<'a> Wallet<'a>{
         let addr=self.key.address();let head=n.chain.head();
         let record=n.chain.view_of(&head.hash).and_then(|s|apply::miner_record(s.v(),addr));
         let member=n.chain.membership(head,head.height+1).ok().map(|m|m.ids().contains(&types::raw_addr(addr)));
-        let step=match member{Some(m)=>rejoin_step(record.as_ref(),head.height+1,m,u64::from(n.chain.spec.cp().W_act)),None=>RejoinStep::Unavailable};
+        let step=match member{Some(m)=>rejoin_step(record.as_ref(),head.height+1,m,u64::from(n.chain.spec.cp().W_act),n.chain.spec.probation().map(|p|p.blocks)),None=>RejoinStep::Unavailable};
         (record,member,step)
     }
     pub fn status(&self,n:&Node)->Value{
@@ -209,7 +211,7 @@ impl<'a> Wallet<'a>{
         rejoin["inProgress"]=json!(self.rejoin.is_some());rejoin["attempts"]=json!(self.rejoin.as_ref().map(|p|p.attempts).unwrap_or(0));
         let registry=match &record{None=>"none",Some(r) if r.tomb=>"removed",Some(r) if !matches!(r.bond_state,1|4)=>"closed",
             Some(r) if r.status==1&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING=>"probation",Some(r) if r.status==1=>"member",Some(r) if r.status==2=>"exited",Some(_)=>"closed"};
-        let ends=probation.map(|r|r.registered_at+apply::SystemPrograms::EARNIN_T_PROB);
+        let ends=probation.zip(n.chain.spec.probation()).map(|(r,p)|r.registered_at+p.blocks);
         let mining_state=match (probation,ends){
             (Some(r),Some(end)) if self.rejoin.is_none()=>format!("{mining_state} · Probation: bond {} of {} PCOL, filled from your rewards (by block {end})",coins(r.bond),coins(target)),
             _=>mining_state,
@@ -267,7 +269,8 @@ impl<'a> Wallet<'a>{
                 if earn&&value<full{
                     let head=n.chain.head();
                     let taken=n.chain.view_of(&head.hash).map(|s|s.v().slot(&apply::program_address(0),&U256::from(8))).unwrap_or_default();
-                    if taken>=U256::from(apply::SystemPrograms::EARNIN_P_MAX){return Err(format!("All {} probation seats are taken. Register with the full {} PCOL bond, or try again later.",apply::SystemPrograms::EARNIN_P_MAX,coins(full)))}
+                    let seats=n.chain.spec.probation().map_or(0,|p|p.seats);
+                    if taken>=U256::from(seats){return Err(format!("All {seats} probation seats are taken. Register with the full {} PCOL bond, or try again later.",coins(full)))}
                 }
                 // PAY-02: the reward address (this identity) must have nonce > 0 in the state before the
                 // registration, or register(address) reverts with RewardNotDurable and only costs the fee.
@@ -284,7 +287,8 @@ impl<'a> Wallet<'a>{
                 if !n.chain.spec.earnin_rules(){return Err("Bond top-up exists only on the earn-in network".into())}
                 let (record,_,_)=self.rejoin_view(n);let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
                 let r=record.filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).ok_or("Top-up needs an active probation record")?;
-                if n.chain.head().height+1>=r.registered_at+apply::SystemPrograms::EARNIN_T_PROB{return Err("The probation period has ended".into())}
+                let t_prob=n.chain.spec.probation().ok_or("Bond top-up exists only on the earn-in network")?.blocks;
+                if n.chain.head().height+1>=r.registered_at+t_prob{return Err("The probation period has ended".into())}
                 let remaining=full-r.bond;
                 let value=match requested.as_deref(){None=>remaining,Some(text)=>amount(text)?};
                 if value>remaining{return Err(format!("At most {} PCOL remains to fill the bond",coins(remaining)))}
@@ -457,20 +461,21 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
     }
     #[test] fn rejoin_step_follows_the_registry_window(){
         // Mainnet: W_act=32, U=40. Exit at 100 → reactivate() may be included at 132..=139; the sweep refunds at 140.
-        let w=32;
-        assert_eq!(rejoin_step(None,200,false,w),RejoinStep::Unavailable);
-        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,true,w),RejoinStep::Active);
-        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,false,w),RejoinStep::Exit);
+        // Record states 1-3 have no probation deadline, so the earn-in T_PROB changes nothing here.
+        let w=32;let t=Some(apply::Probation::EARNIN.blocks);
+        assert_eq!(rejoin_step(None,200,false,w,t),RejoinStep::Unavailable);
+        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,true,w,t),RejoinStep::Active);
+        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,false,w,t),RejoinStep::Exit);
         let exited=record(2,100,140);
-        assert_eq!(rejoin_step(Some(&exited),101,false,w),RejoinStep::Wait{opens:132,closes:140});
-        assert_eq!(rejoin_step(Some(&exited),131,false,w),RejoinStep::Wait{opens:132,closes:140});
-        assert_eq!(rejoin_step(Some(&exited),132,false,w),RejoinStep::Reactivate{closes:140});
-        assert_eq!(rejoin_step(Some(&exited),139,false,w),RejoinStep::Reactivate{closes:140});
-        assert_eq!(rejoin_step(Some(&exited),140,false,w),RejoinStep::Missed);
+        assert_eq!(rejoin_step(Some(&exited),101,false,w,t),RejoinStep::Wait{opens:132,closes:140});
+        assert_eq!(rejoin_step(Some(&exited),131,false,w,t),RejoinStep::Wait{opens:132,closes:140});
+        assert_eq!(rejoin_step(Some(&exited),132,false,w,t),RejoinStep::Reactivate{closes:140});
+        assert_eq!(rejoin_step(Some(&exited),139,false,w,t),RejoinStep::Reactivate{closes:140});
+        assert_eq!(rejoin_step(Some(&exited),140,false,w,t),RejoinStep::Missed);
         // An exited record is never "active", even on the empty-set fallback that lists every live member.
-        assert_eq!(rejoin_step(Some(&exited),135,true,w),RejoinStep::Reactivate{closes:140});
+        assert_eq!(rejoin_step(Some(&exited),135,true,w,t),RejoinStep::Reactivate{closes:140});
         for r in [apply::MinerRecord{tomb:true,..record(1,0,0)},apply::MinerRecord{bond_state:2,..record(2,100,140)},apply::MinerRecord{bond_state:3,..record(1,0,0)},record(3,0,0)]{
-            assert_eq!(rejoin_step(Some(&r),135,false,w),RejoinStep::Unavailable,"{r:?}");
+            assert_eq!(rejoin_step(Some(&r),135,false,w,t),RejoinStep::Unavailable,"{r:?}");
         }
     }
     fn plan()->Rejoin{Rejoin{exit:Some((B256::repeat_byte(1),50)),max_fee:U256::from(3u64),priority:U256::from(1u64),attempts:0,last:None,tried_at:None}}
@@ -506,17 +511,21 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         assert_eq!(reactivate_calldata().as_ref(),&keccak256("reactivate()")[..4]);
     }
     #[test] fn probation_rejoin_ends_at_the_deadline(){
-        // Heights offset by T_PROB so registeredAt stays positive.
-        let t=apply::SystemPrograms::EARNIN_T_PROB;
-        let mut r=record(2,t+100,t+140);r.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;r.registered_at=t;
-        assert_eq!(rejoin_step(Some(&r),t+132,false,32),RejoinStep::Reactivate{closes:t+140},"before the deadline the usual window applies");
-        r.registered_at=135;
-        assert_eq!(rejoin_step(Some(&r),t+132,false,32),RejoinStep::Reactivate{closes:t+135},"the deadline closes the window early");
-        assert_eq!(rejoin_step(Some(&r),t+135,false,32),RejoinStep::Missed);
-        let mut active=record(1,0,0);active.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;active.registered_at=200;
-        assert_eq!(rejoin_step(Some(&active),t+168,false,32),RejoinStep::Missed,"an exit at T+168 would reopen at the deadline");
-        assert_eq!(rejoin_step(Some(&active),t+167,false,32),RejoinStep::Exit);
-        assert_eq!(rejoin_step(Some(&active),t+500,true,32),RejoinStep::Active);
+        // The earn-in programs' constant T_PROB and a v3 CP T_PROB (V3-14: 30 days at 30 s) give the same windows.
+        for t in [apply::Probation::EARNIN.blocks,86_400]{
+            // Heights offset by T_PROB so registeredAt stays positive.
+            let p=Some(t);
+            let mut r=record(2,t+100,t+140);r.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;r.registered_at=t;
+            assert_eq!(rejoin_step(Some(&r),t+132,false,32,p),RejoinStep::Reactivate{closes:t+140},"before the deadline the usual window applies");
+            r.registered_at=135;
+            assert_eq!(rejoin_step(Some(&r),t+132,false,32,p),RejoinStep::Reactivate{closes:t+135},"the deadline closes the window early");
+            assert_eq!(rejoin_step(Some(&r),t+135,false,32,p),RejoinStep::Missed);
+            let mut active=record(1,0,0);active.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;active.registered_at=200;
+            assert_eq!(rejoin_step(Some(&active),t+168,false,32,p),RejoinStep::Missed,"an exit at T+168 would reopen at the deadline");
+            assert_eq!(rejoin_step(Some(&active),t+167,false,32,p),RejoinStep::Exit);
+            assert_eq!(rejoin_step(Some(&active),t+500,true,32,p),RejoinStep::Active);
+        }
+        assert_eq!(apply::Probation::EARNIN,apply::Probation{seats:8,blocks:60_480},"PoColSystemEarnIn.sol P_MAX and T_PROB");
     }
     #[test] fn command_surface_is_closed(){
         assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_rejoin"}"#),Ok(Command::QuoteRejoin)));

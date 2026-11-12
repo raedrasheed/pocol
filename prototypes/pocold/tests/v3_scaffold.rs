@@ -138,8 +138,10 @@ fn v3_config_implies_the_new_schema_and_full_nonce_only_in_preview(){
         result.unwrap();let spec=read_spec(&out.0);assert_eq!(spec.spec_version,2);assert_eq!(spec.cp.len(),67);
         let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!((cp.nonceMode,cp.H_END,cp.M_max,cp.P_MAX,cp.T_PROB,cp.E_epoch),(1,0,256,64,86400,2880));
         let local=pocold::testnet::local_for_network(&out.0).unwrap();let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert!(admitted.v3_active(0));assert!(admitted.v3_active(u64::MAX));
-        // E0 adds the compiled V3 set. This scaffold honestly runs the existing earn-in artifact.
-        assert_eq!(admitted.programs(),ProgramSet::EarnIn);
+        // V3-PR-E0: a v3 config selects the compiled v3 set, whose probation pool is the CP's P_MAX/T_PROB.
+        assert_eq!(admitted.programs(),ProgramSet::V3);assert!(admitted.earnin_rules());
+        assert_eq!(admitted.probation(),Some(apply::Probation{seats:64,blocks:86_400}));
+        assert_eq!(spec.sys_code_hash,apply::SystemPrograms::v3().sys_code_hash().0);
         for (field,value) in [("rho_bp",10001),("T_PROB",0),("E_epoch",0)]{
             let invalid=Temp::new(field);let mut config=input.clone();config["cp"][field]=serde_json::json!(value);
             assert!(prepare(&config,&invalid.0).unwrap_err().contains("gsRange"));assert!(!invalid.0.exists());
