@@ -7,6 +7,19 @@ use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::Key};
 use revm::primitives::{Address,B256};
 use std::collections::HashMap;
 
+#[test]fn first_import_index_requires_observations_and_counts_side_record_growth(){
+    use pocold::{resources::derive,node::Limits};
+    let s=admitted();let local=s.local();let cp=s.cp();
+    let mut l=Limits{first_imports:true,evict_depth:Some(0),..Default::default()};
+    assert!(derive(cp,local.k_hist,local.side_max,&l,0).is_none(),"unknown journal/file sizes cannot mean zero");
+    l.disk=Some(Default::default());assert!(derive(cp,local.k_hist,local.side_max,&l,0).is_none());
+    l.continuous_history=Some(0);let a=derive(cp,local.k_hist,local.side_max,&l,0).unwrap();
+    l.continuous_history=Some(100_000_000);let b=derive(cp,local.k_hist,local.side_max,&l,0).unwrap();
+    assert!(b.total>a.total,"even a bounded chain can journal many distinct side blocks");
+    let scratch=a.items.iter().find(|x|x.0=="history/first-import journal lookup scratch").unwrap().1;
+    assert!(scratch>=2*pocold::store::MAX_RECORD as u128,"current replay payload and first-offset lookup coexist");
+}
+
 // ---------------- chain helpers (as tests/consensus.rs) ----------------
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
@@ -76,6 +89,8 @@ fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c
     let b=rec_bytes(&min);assert_eq!(b.len(),REC_MIN);assert_eq!(rec_from(&b).unwrap(),min);
     let sum=pocol_lp4_execution::state_summary::Summary{runtime:1,code_total:2,code_missing:3,code_mismatch:4,over_runtime:5,user_accounts:6,user_slots:7,sys_slots:8,balance:U512::from(9u64),contracts_clean:true};
     let full=Rec{flags:flags::STORED|flags::WORLD|flags::SUMMARY|flags::OFF,summary:Some(sum),root:Some([8;32]),..min.clone()};
+    let legacy=rec_bytes(&full);assert_eq!(legacy.len(),REC_MAX);assert_eq!(rec_from(&legacy).unwrap(),full);
+    let full=Rec{flags:full.flags|flags::LATE,..full};
     let b=rec_bytes(&full);assert_eq!(b.len(),REC_MAX);assert_eq!(rec_from(&b).unwrap(),full);
     assert!(rec_from(&b[..b.len()-1]).is_err(),"a cut record");let mut x=b.clone();x.push(0);assert!(rec_from(&x).is_err(),"a record with a byte more");
     assert!(rec_from(&rec_bytes(&Rec{flags:flags::WORLD,..full.clone()})).is_err(),"a root without a stored version");

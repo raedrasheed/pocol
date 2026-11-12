@@ -1993,9 +1993,12 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // eviction on or off, so eviction off is 3,359,894,075 + 27,556,914 = 3,387,450,989 B, PR2b's own total before
     // the merge). Some terms are type sizes (Entry, Block), so the exact value is pinned for the target the evidence
     // is produced on; every target checks that it boots within the budget with its reserve.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_385_097_500,"the A13 model total changed");
+    // V3-04: timestamps stay in the journal; the timely bit fits the existing
+    // Entry layout and checkpoint flags. The eviction batch now counts actual
+    // normalized Entry boxes and Rec slots, rather than encoded REC_MIN.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_396_912_610,"the A13 model total changed");
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_387_450_989,"eviction off is the model before PR7, with PR2b's terms");
+        assert_eq!(off.total,3_387_450_989,"eviction off keeps the legacy record footprint");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);

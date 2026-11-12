@@ -48,7 +48,7 @@ pub struct Binding{pub records:u64,pub end:u64,pub hash:[u8;32]}
 /// The rolling hash of a journal prefix, extended by one record's payload.
 pub fn roll(prev:&[u8;32],payload:&[u8])->[u8;32]{let mut b=[0u8;64];b[..32].copy_from_slice(prev);b[32..].copy_from_slice(&keccak256(payload).0);keccak256(b).0}
 
-const F_PRUNED:u16=1;const F_FULL:u16=2;const F_SLIM:u16=4;const F_OFFLOADED:u16=8;const F_FINAL:u16=16;const F_SUMMARY:u16=32;const F_STORED:u16=64;const F_WORLD:u16=128;const F_OFF:u16=256;
+const F_PRUNED:u16=1;const F_FULL:u16=2;const F_SLIM:u16=4;const F_OFFLOADED:u16=8;const F_FINAL:u16=16;const F_SUMMARY:u16=32;const F_STORED:u16=64;const F_WORLD:u16=128;const F_OFF:u16=256;const F_LATE:u16=512;
 
 /// One entry as a snapshot keeps it.
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -121,7 +121,7 @@ pub fn rec_of_meta(e:&Entry)->Rec{let mut r=rec_fields(e);r.flags&=!(F_STORED|F_
 fn rec_fields(e:&Entry)->Rec{
     let mut f=0u16;
     for (on,bit) in [(e.pruned,F_PRUNED),(e.full,F_FULL),(e.slim,F_SLIM),(e.offloaded,F_OFFLOADED),(e.is_final,F_FINAL),(e.summary.is_some(),F_SUMMARY),(e.stored.is_some(),F_STORED),
-        (e.stored.as_ref().map_or(false,|s|s.trie.world.is_some()),F_WORLD),(e.body_off.is_some(),F_OFF)]{if on{f|=bit}}
+        (e.stored.as_ref().map_or(false,|s|s.trie.world.is_some()),F_WORLD),(e.body_off.is_some(),F_OFF),(!e.timely,F_LATE)]{if on{f|=bit}}
     Rec{hash:e.hash,body_off:e.body_off,import_seq:e.import_seq,total_work:e.total_work,flags:f,cum_txs:e.cum_txs,cum_tx_bytes:e.cum_tx_bytes,cum_log_bytes:e.cum_log_bytes,
         drawn:e.drawn,summary:e.summary.as_deref().copied(),root:e.stored.as_ref().and_then(|s|s.trie.world)}
 }
@@ -259,6 +259,7 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
         let e=if i==0{
             if r.hash!=gh||r.body_off.is_some(){return Err(why("the first entry is not genesis"))}
             let mut g=(*c.blocks[&gh]).clone();
+            if r.flags&F_LATE!=0{return Err(why("genesis cannot be late"))}
             if g.summary.as_deref()!=r.summary.as_ref(){return Err(why("genesis summary"))}
             // Genesis's version is the one `enable_store` just built from the admitted genesis state.
             if r.root!=g.stored.as_ref().and_then(|p|p.trie.world){if r.root.is_some(){return Err(why("genesis root"))}g.stored=None;}
@@ -348,17 +349,19 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
 /// block's body, which an offloaded entry does not hold.
 pub fn entry_of(r:&Rec,payload:&[u8],parent:impl FnOnce(&crate::header::Header)->Result<(),String>,receipts:impl FnOnce()->Result<Option<Vec<Vec<u8>>>,String>,
     ranges:impl FnOnce()->Result<Option<Vec<(Address,u128,u128)>>,String>,body_max:usize,slim:bool,why:&dyn Fn(&str)->String)->Result<(Entry,Body),String>{
-    let (hb,bb,rb)=crate::store::decode_record(payload).map_err(|e|why(&format!("record: {e}")))?;
-    let header=decode_header(&hb).map_err(|e|why(&format!("header: {e}")))?;
+    let record=crate::store::decode_record_ref(payload).map_err(|e|why(&format!("record: {e}")))?;
+    let timely=record.first_import.map_or(true,|m|m.timely);
+    if timely!=(r.flags&F_LATE==0){return Err(why("first-import flag differs from the journal"))}
+    let header=decode_header(record.header).map_err(|e|why(&format!("header: {e}")))?;
     if block_hash(&header)!=r.hash{return Err(why("the journal header does not hash to the entry"))}
     parent(&header)?;
-    let body=Body::decode(&bb,body_max).map_err(|e|why(&format!("body: {e}")))?;
-    let result=crate::chain::decode_result(&rb,&r.hash).map_err(|e|why(&format!("result: {e:?}")))?;
+    let body=Body::decode(record.body,body_max).map_err(|e|why(&format!("body: {e}")))?;
+    let result=crate::chain::decode_result(record.result,&r.hash).map_err(|e|why(&format!("result: {e:?}")))?;
     let (offloaded,slimmed)=(r.flags&F_OFFLOADED!=0,slim&&r.flags&F_SLIM!=0);
     let receipts=if offloaded{Vec::new()}else{receipts()?.ok_or_else(||why("receipts not in history.redb"))?};
     let ranges=if slimmed{Vec::new()}else{ranges()?.ok_or_else(||why("nonce ranges not in history.redb"))?};
     let tx_hashes=body.txs.iter().map(|t|keccak256(t)).collect();
-    let mut e=Entry{hash:r.hash,height:header.h,parent:Some(header.parent_hash),total_work:r.total_work,import_seq:r.import_seq,signed:!header.proposer.is_empty(),ts:header.ts,
+    let mut e=Entry{hash:r.hash,height:header.h,parent:Some(header.parent_hash),total_work:r.total_work,import_seq:r.import_seq,signed:!header.proposer.is_empty(),timely,ts:header.ts,
         target:header.target,base_fee:from_fixed(&header.base_fee),gas_used:header.gas_used,seal:seal(&template_id(&header.ut_raw),header.nonce),state:crate::chain::empty_state(),
         is_final:r.flags&F_FINAL!=0,result,receipts,tx_hashes,cum_txs:r.cum_txs,cum_tx_bytes:r.cum_tx_bytes,cum_log_bytes:r.cum_log_bytes,pruned:r.flags&F_PRUNED!=0,full:r.flags&F_FULL!=0,diff:None,
         slim:false,drawn:r.drawn,ranges,body_off:r.body_off,offloaded:false,trie:None,summary:r.summary.map(Box::new),stored:None,header,body:if offloaded{Body::default()}else{body.clone()}};
@@ -398,4 +401,4 @@ impl Source for JournalSource<'_>{
 pub fn fingerprint(c:&Chain)->Result<Snapshot,String>{snapshot_of(c,&Binding{records:0,end:0,hash:[0;32]})}
 /// The flag bits of `Rec::flags` (tests read them).
 pub mod flags{pub const PRUNED:u16=super::F_PRUNED;pub const FULL:u16=super::F_FULL;pub const SLIM:u16=super::F_SLIM;pub const OFFLOADED:u16=super::F_OFFLOADED;pub const STORED:u16=super::F_STORED;
-    pub const SUMMARY:u16=super::F_SUMMARY;pub const WORLD:u16=super::F_WORLD;pub const OFF:u16=super::F_OFF;}
+    pub const SUMMARY:u16=super::F_SUMMARY;pub const WORLD:u16=super::F_WORLD;pub const OFF:u16=super::F_OFF;pub const LATE:u16=super::F_LATE;}

@@ -76,6 +76,24 @@ fn future_equality_and_u64_overflow_edges() {
 }
 
 #[test]
+fn v3_first_import_boundaries_are_inclusive_and_never_wrap() {
+    let tj=1_046_123u128;
+    for (arrival,expected) in [(tj+2_000-1,true),(tj+2_000,true),(tj+2_000+1,false)] {
+        assert_eq!(timing::is_timely_import(true,0,arrival,tj,1,2),expected);
+    }
+    for (arrival,expected) in [(tj-3_000-1,false),(tj-3_000,true),(tj-3_000+1,true)] {
+        assert_eq!(timing::is_timely_import(false,0,arrival,tj,1,2),expected);
+    }
+    for signed in [false,true] {for attempt in [1,u32::MAX] {for arrival in [0,u128::MAX] {
+        assert!(timing::is_timely_import(signed,attempt,arrival,tj,1,2));
+    }}}
+    assert!(timing::is_timely_import(true,0,u128::MAX,u128::MAX,u64::MAX,u64::MAX));
+    assert!(timing::is_timely_import(false,0,0,1,u64::MAX,u64::MAX));
+    assert!(!timing::is_timely_import(false,0,0,u128::MAX,u64::MAX,u64::MAX));
+    assert!(!timing::is_timely_import(true,0,u128::MAX,0,u64::MAX,u64::MAX));
+}
+
+#[test]
 fn seeded_adversarial_windows_never_wrap_or_panic() {
     let mut seed = 0x533320261017u64;
     for _ in 0..10000 {

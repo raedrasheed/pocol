@@ -111,6 +111,20 @@ pub fn arrives_by_deadline(arrival_ms: u128, deadline_ms: u128) -> bool {
     arrival_ms <= deadline_ms
 }
 
+/// V3-04 local first-import classification, never a block-validity predicate.
+/// T_j is the original first-attempt deadline; both boundaries are inclusive.
+/// Saturation represents a mathematical bound outside the u128 clock domain.
+pub fn is_timely_import(signed: bool, attempt: u32, arrival_ms: u128, deadline_ms: u128, delta: u64, phi: u64) -> bool {
+    if attempt >= 1 {
+        return true;
+    }
+    if signed {
+        arrival_ms <= deadline_ms.saturating_add(phi as u128 * 1000)
+    } else {
+        arrival_ms >= deadline_ms.saturating_sub((delta as u128 + phi as u128) * 1000)
+    }
+}
+
 /// ts > C+Phi means future. Phi here is the capital-Phi clock-skew bound, not phi.
 pub fn is_future(ts: u64, clock: u64, phi: u64) -> bool {
     ts as u128 > clock as u128 + phi as u128

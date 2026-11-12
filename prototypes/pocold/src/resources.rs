@@ -342,6 +342,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("revm-loading","the pool layer, overlay and store-mode code terms rely on revm 19.7 behaviour checked by source inspection (A13-DERIVATION §2d): a touch needs paid gas or a warm address, a touch or write in a reverted frame is undone, a loaded account or slot stays until its transaction ends; that a created account keeps the slots it loaded in out-of-gas frames is also tested"),
     ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; selection holds one entry list and one source or key list over the book; the exclusions are closures and allocate nothing; each slot channel holds one address; a route probe is a UDP socket without buffers; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
+    ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
 /// group fields are the sums of their items and `total` is the sum of all items.
@@ -385,6 +386,17 @@ impl DiskBytes{
 pub const DISK_HEADROOM:u64=256+2048;
 /// One canon.redb row with its keys (PR7 §4.3): BY_HEIGHT's height, seal and record, BY_HASH's hash and height.
 pub const CANON_ROW:u128=crate::checkpoint::REC_MIN as u128+32+8+8+32;
+/// V3-04's derived hash -> first journal offset, including side blocks and
+/// re-fetches. A conservative row count is the entire journal, not chain height.
+pub const FIRST_IMPORT_ROW:u128=32+8;
+/// Normalized entries coexist with the growing vector of their checkpoint rows.
+/// Charge their actual inline types and vector growth, plus the one encoded row
+/// and its sealed/replaced copies in Index::put. This replaces REC_MIN as a
+/// stand-in for an inline Rec (whose optional fields still occupy memory).
+pub fn eviction_batch_bytes(batch:u128)->Option<u128>{
+    add(&[mul(batch,add(&[size_of::<Entry>() as u128+32,memory::VEC*(size_of::<Box<Entry>>()+size_of::<(u64,crate::checkpoint::Rec)>()) as u128])?)?,
+        mul(6,crate::checkpoint::REC_MAX as u128+40)?,512])
+}
 /// The eviction depth E the node uses (`Limits::evict_depth` as Node::open sets it; for a caller that leaves it None,
 /// the default at the configured R_keep), or None with eviction off (Some(0)). Some(u64::MAX) never evicts.
 pub fn evict_resolved(cp:&ConsensusParams,k_hist:u32,limits:&Limits)->Option<u64>{
@@ -403,7 +415,8 @@ pub fn redb_alloc_max(bytes:u128)->Option<u128>{Some(redb_allocator_bytes(bytes)
 /// Why `derive` gave None: a continuous chain with eviction on whose files were not observed (`Limits::disk`), or an
 /// arithmetic overflow.
 fn derive_none(cp:&ConsensusParams,k_hist:u32,limits:&Limits)->String{
-    if cp.H_END==0&&limits.disk.is_none()&&evict_resolved(cp,k_hist,limits).is_some_and(|e|e<u64::MAX){"A13: disk sizes not observed".into()}
+    if limits.first_imports&&(limits.disk.is_none()||limits.continuous_history.is_none()){"A13: first-import index needs observed journal records and disk sizes".into()}
+    else if cp.H_END==0&&limits.disk.is_none()&&evict_resolved(cp,k_hist,limits).is_some_and(|e|e<u64::MAX){"A13: disk sizes not observed".into()}
     else if cp.H_END==0&&limits.continuous_history.is_none()&&evict_resolved(cp,k_hist,limits).is_none_or(|e|e==u64::MAX){"A13: continuous history not observed".into()}
     else{"A13 memory bound: arithmetic overflow".into()}
 }
@@ -585,11 +598,20 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         let view=add(&[offloaded_entry,hdr,u128::from(cp.BODY_MAX),mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?,mul(side_txs,per_tx)?,u128::from(caps::LOG_BLOCK_MAX)/32*33])?;
         let canon_alloc=redb_alloc_max(add(&[disk.map_or(0,|d|u128::from(d.canon)),mul(mul(blocks,CANON_ROW)?,HISTORY_FILE_FACTOR)?])?)?;
         hist.extend([("history/canonical window (the Canon deque, C-1 S5)",mul(64,resident.checked_add(1)?)?),
-            ("history/eviction batch (rows on their way to canon.redb)",mul(batch,crate::checkpoint::REC_MIN as u128+32+8+64)?),
+            ("history/eviction batch (rows on their way to canon.redb)",eviction_batch_bytes(batch)?),
             ("history/reload after a head drop (R_keep slimmed entries)",mul(u128::from(limits.r_keep),slim_entry)?),
             ("history/rebuild shadow (max(257, E_win + 1) entries)",mul(keep,per_block)?),
             ("history/RPC and sync views below the window (two blocks)",mul(2,view)?),
             ("history/canon.redb page cache (CANON_CACHE)",node::canon::CANON_CACHE as u128),("history/canon.redb allocator state",canon_alloc)]);
+    }
+    if limits.first_imports{
+        let rows=u128::from(limits.continuous_history?.checked_add(DISK_HEADROOM)?);
+        let file=add(&[u128::from(limits.disk?.canon),mul(mul(rows,FIRST_IMPORT_ROW)?,HISTORY_FILE_FACTOR)?])?;
+        // Counting a separate allocator is conservative when the canonical
+        // window already counted this same file. It also covers eviction off,
+        // bounded chains, and rebuilding a lost index from a long journal.
+        hist.extend([("history/first-import index cache and allocator",add(&[node::canon::CANON_CACHE as u128,redb_alloc_max(file)?])?),
+            ("history/first-import journal lookup scratch",add(&[mul(2,crate::store::MAX_RECORD as u128+crate::store::OVERHEAD as u128)?,mul(8,hdr)?,4096])?)]);
     }
     let history=add(&hist.iter().map(|x|x.1).collect::<Vec<_>>())?;items.extend(hist);
     // Side blocks (D-REORG-REDB): every journaled non-canonical block is offloaded to metadata at the

@@ -362,8 +362,13 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // default, +27,517,640 B; each stop moves by 4,096 B of history.redb per model byte): 11,978,704,740,479 B
     // (10.89 TiB) at (8, 2) down to 10,932,026,171,519 B (9.94 TiB) at (64, 7); (32, 2) stops at 11,642,050,895,999 B
     // (10.59 TiB), 4,096 × 27,556,914 B before main's, where it stops at 1,114,248 records with eviction off.
+    // V3-04: timestamps stay in the journal and the timely bit fits the old
+    // Entry/Rec layout, preserving the record stops and seed-rule assertions
+    // above. Correcting the eviction batch to actual inline Entry/Rec storage
+    // adds 11,815,110 model bytes: each windowed stop moves by
+    // 4,096 × 11,815,110 = 48,394,690,560 history bytes. No budget or reserve changes.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
-        assert_eq!(got,[11_978_704_740_479,11_717_551_808_639,11_642_050_895_999,11_380_897_964_159,11_193_179_103_359,10_932_026_171_519],"the live chain's stop moved (record it in the PR)");
+        assert_eq!(got,[11_930_310_049_919,11_669_157_118_079,11_593_656_205_439,11_332_503_273_599,11_144_784_412_799,10_883_631_480_959],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and

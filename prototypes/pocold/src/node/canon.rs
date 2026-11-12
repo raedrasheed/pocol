@@ -8,7 +8,7 @@
 use std::path::{Path,PathBuf};
 use std::panic::{catch_unwind,AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool,AtomicU64,Ordering};
-use redb::{Database,Durability,ReadableTable,TableDefinition};
+use redb::{Database,Durability,ReadableTable,TableDefinition,TableHandle};
 use revm::primitives::keccak256;
 use crate::checkpoint::{self,Rec};
 
@@ -16,6 +16,9 @@ use crate::checkpoint::{self,Rec};
 const BY_HEIGHT:TableDefinition<u64,&[u8]>=TableDefinition::new("by_height");
 /// block hash -> height (checked against the row at that height by its reader).
 const BY_HASH:TableDefinition<&[u8;32],u64>=TableDefinition::new("by_hash");
+/// V3-04: every timed block's FIRST journal offset, including evicted side blocks.
+/// Values are checked against the authenticated journal before they supply a stamp.
+const FIRST_IMPORT:TableDefinition<&[u8;32],u64>=TableDefinition::new("first_import");
 /// "genesis" (32 bytes) and "format" (u64, big-endian): a file of another chain or layout is set aside.
 const META:TableDefinition<&str,&[u8]>=TableDefinition::new("meta");
 pub const FILE:&str="canon.redb";
@@ -31,6 +34,20 @@ const IO:&str="I/O failure: ";
 /// redb's PreviousIo after one) begins with "I/O failure: ".
 pub fn rerr(e:impl Into<redb::Error>)->String{let e:redb::Error=e.into();if crate::state_store::disk_failed(&e){format!("{IO}{e}")}else{e.to_string()}}
 fn seal(h:u64,rec:&[u8])->[u8;32]{let mut b=Vec::with_capacity(8+rec.len());b.extend_from_slice(&h.to_be_bytes());b.extend_from_slice(rec);keccak256(&b).0}
+
+/// The journal prefix indexed for first imports. Its rolling hash is checked by
+/// open before a checkpoint can skip that prefix's execution.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct ImportCoverage{pub binding:checkpoint::Binding,pub genesis_received_ms:Option<u128>}
+impl ImportCoverage{
+    fn bytes(self)->[u8;65]{let mut b=[0u8;65];b[..8].copy_from_slice(&self.binding.records.to_be_bytes());b[8..16].copy_from_slice(&self.binding.end.to_be_bytes());b[16..48].copy_from_slice(&self.binding.hash);
+        if let Some(t)=self.genesis_received_ms{b[48]=1;b[49..].copy_from_slice(&t.to_be_bytes());}b}
+    fn decode(b:&[u8])->Result<Self,String>{
+        if b.len()!=65||b[48]>1||(b[48]==0&&b[49..].iter().any(|x|*x!=0)){return Err("first-import coverage".into())}
+        Ok(Self{binding:checkpoint::Binding{records:u64::from_be_bytes(b[..8].try_into().unwrap()),end:u64::from_be_bytes(b[8..16].try_into().unwrap()),hash:b[16..48].try_into().unwrap()},
+            genesis_received_ms:(b[48]==1).then(||u128::from_be_bytes(b[49..].try_into().unwrap()))})
+    }
+}
 
 pub struct Index{db:Database,dir:PathBuf,pub rebuilt:bool,damaged:AtomicBool,puts:AtomicU64,
     /// Lookups made (one per `at`, `height_of` and `range_each` call): serving and RPC tests bound them.
@@ -96,6 +113,32 @@ impl Index{
     }
     /// A durable commit: every earlier `put` is persisted (invariant I5: before each checkpoint).
     pub fn sync(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;w.commit().map_err(rerr)})}
+    /// Called only by a profile that can activate v3. Legacy files need no new table.
+    pub fn prepare_imports(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;
+        let existed=w.list_tables().map_err(rerr)?.any(|t|t.name()==FIRST_IMPORT.name());
+        {w.open_table(FIRST_IMPORT).map_err(rerr)?;
+            // An old coverage marker cannot certify a newly created empty
+            // table. Preserve canonical rows, but stream timing rows again.
+            if !existed{let mut m=w.open_table(META).map_err(rerr)?;m.remove("imports").map_err(rerr)?;}}
+        w.commit().map_err(rerr)})}
+    pub fn import_coverage(&self)->Result<Option<ImportCoverage>,String>{
+        let b=self.guard(||{let r=self.db.begin_read().map_err(rerr)?;let t=r.open_table(META).map_err(rerr)?;Ok(t.get("imports").map_err(rerr)?.map(|v|v.value().to_vec()))})?;
+        b.map(|b|ImportCoverage::decode(&b).map_err(|e|self.mark_damaged(&e))).transpose()
+    }
+    /// A changed/foreign prefix invalidates derived timing rows, never the journal.
+    pub fn reset_imports(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;
+        w.delete_table(FIRST_IMPORT).map_err(rerr)?;{w.open_table(FIRST_IMPORT).map_err(rerr)?;let mut m=w.open_table(META).map_err(rerr)?;m.remove("imports").map_err(rerr)?;}
+        w.commit().map_err(rerr)})}
+    pub fn first_import_offset(&self,hash:&[u8;32])->Result<Option<u64>,String>{self.guard(||{let r=self.db.begin_read().map_err(rerr)?;let t=r.open_table(FIRST_IMPORT).map_err(rerr)?;Ok(t.get(hash).map_err(rerr)?.map(|v|v.value()))})}
+    /// The row and its covered prefix commit atomically. Re-import never replaces
+    /// the first offset. The existing cache/sync policy bounds non-durable writes.
+    pub fn note_import(&self,first:Option<([u8;32],u64)>,coverage:ImportCoverage)->Result<(),String>{
+        let n=self.puts.fetch_add(1,Ordering::SeqCst)+1;
+        self.guard(||{let mut w=self.db.begin_write().map_err(rerr)?;if n%SYNC_EVERY!=0{w.set_durability(Durability::None);}
+            if let Some((hash,off))=first{let mut t=w.open_table(FIRST_IMPORT).map_err(rerr)?;let old=t.get(&hash).map_err(rerr)?.map(|v|v.value());if old.is_none(){t.insert(&hash,off).map_err(rerr)?;}}
+            {let mut m=w.open_table(META).map_err(rerr)?;m.insert("imports",&coverage.bytes()[..]).map_err(rerr)?;}
+            w.commit().map_err(rerr)})
+    }
     fn row(&self,h:u64,v:&[u8])->Result<Rec,String>{
         self.rows.fetch_add(1,Ordering::Relaxed);
         if v.len()<32||v[..32]!=seal(h,&v[32..])[..]{return Err(self.mark_damaged(&format!("the row at height {h} fails its seal")))}

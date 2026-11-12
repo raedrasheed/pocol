@@ -129,7 +129,7 @@ jobs:
           set -euo pipefail
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --features v3-preview --lib
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features v3-preview --lib
-          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --lib --test v3_scaffold --test v3_membership --test cutover --test consensus_guard
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --lib --test v3_scaffold --test v3_membership --test v3_fork_choice --test cutover --test consensus_guard
           python3 -B -m unittest discover -s deploy/standalone -p test_release_package.py -v
       - name: Dependency-only preview must not compile
         run: |
