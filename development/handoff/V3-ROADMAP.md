@@ -206,7 +206,16 @@ v3 suites with `--features v3-preview`.
 
 Effort: S ≤ 2 engineer-days, M 3–6, L 7–15.
 
-### V3-PR-A — Decision record and normative amendments (docs) — V3-29, V3-27, V3-32 docs
+**Status (2026-11-12 ~17:40 UTC):**
+- **Done (merged):** A (#13), B (#14), C1 (#15), C2 (#16, plus C2b #20: signed timeliness from the template lock
+  time), C3 (#17).
+- **In review:** E0 (#21, `claude/v3-pr-e0-programs`), N1 (#22, `claude/v3-n1-template-latency`).
+- **Ready, stacked, not yet PRs:** E1 (`claude/v3-pr-e1-registry-budgets`, on E0), E2b
+  (`claude/v3-pr-e2b-evidence-penalties`, on E1). Open each PR after its parent merges.
+- **In progress:** E3 (`claude/v3-pr-e3-late-shares`).
+- **Not started:** E2a, E4, F, G, H, I, J, N2–N6, K.
+
+### V3-PR-A — **[done, #13]** Decision record and normative amendments (docs) — V3-29, V3-27, V3-32 docs
 - **Scope:** `development/decisions/V3-DECISIONS.md` (owner rule verbatim, the O-answers, supersession of
   `development/m1/reference/README.md:484-486` for compliant items), `decisions.json` D-V3-01…34; amendments to
   `consensus.md` (§5 nMax for v≥2, §8/10a H_END=0, §9 V3-04 key = D133 amendment, §12 V3-26), `threat.md`
@@ -218,7 +227,7 @@ Effort: S ≤ 2 engineer-days, M 3–6, L 7–15.
 - **Files:** docs only. **Tests:** markdown/link checks. **Lock:** none (no boundary file).
 - **Effort:** M. **Risk:** low; must merge before any consensus code (design §3.4 step 1).
 
-### V3-PR-B — v3 scaffold: spec version, CP schema v2, `v3_active`, preview build, program-set registry, genesis tooling — V3-34, V3-12, PR-2 of the design
+### V3-PR-B — **[done, #14]** v3 scaffold: spec version, CP schema v2, `v3_active`, preview build, program-set registry, genesis tooling — V3-34, V3-12, PR-2 of the design
 - **Scope:**
   - `genesis_spec.rs` (lp1 original + byte-identical `lp4-execution/src/p1_genesis_spec.rs`, CI `cmp`): `GenesisSpec.spec_version`; `CP_SCHEMA_V2` = the 52 v1 fields + appended: `H_half`, `S_tail`, `P_MAX`, `T_PROB`, `F0_acct`, `F0_slot`, `F0_code`, `gamma_tip_bp`, `baseFeeMin`, `R_react`, `C_react`, `E_epoch` (contest epoch in blocks), `theta_bp`, `k_sigma`, `rho_bp` (final list fixed here once, so later PRs never touch the schema); CP length per version; encode/decode by version; accepted gsVersion `1` in release, `1..=2` under `v3-preview`; `decode_bounded` for unit tests.
   - `profile.rs` (both copies): `ConsensusParams` new named fields (zero on v1); `ProfileIdentity::spec_version()`, `ProfileIdentity::v3_active(h)` defined once and re-exported to `pocold::chain::Spec::v3_active`.
@@ -232,47 +241,47 @@ Effort: S ≤ 2 engineer-days, M 3–6, L 7–15.
 - **Lock:** `neutral`, `POCOL_REPIN_GATE=spec:2` (line records spec=1, gate stays fresh). Cargo manifests change but no new crates → no `neutral-dep`. No vector file changes in this PR (keep new vectors in `pocold/tests/`).
 - **Effort:** L (8–10 d). **Risk:** medium — touches the genesis decoder shared by four implementations (Rust ×2, `refdec.js`, `pocol_rewards.py`); a spec-1 regression would change genesis hashes. Mitigation: byte-identity tests on every committed `genesis.spec.hex`.
 
-### V3-PR-C1 — Membership and draw — V3-01, V3-13, V3-07 (draw iteration)
+### V3-PR-C1 — **[done, #15]** Membership and draw — V3-01, V3-13, V3-07 (draw iteration)
 - **Scope:** `Membership::from_parent(.., all_live)` (new parameter or constructor; shared `assignment.rs`); `chain.rs::membership` passes `v3_active(h) && effective_nonce_mode(h)==Unbounded`; accruing filter `bond_state==4 && bond < B_reg/4` under `v3_active` (else today's E5 rule); `draw` iterates ledger owners of the window instead of M_max×W_w reads (same result, all chains).
 - **Files:** `lp1-node/src/assignment.rs`, `pocold/src/chain.rs:438-452`, `lp1-node/tests/assignment.rs`.
 - **Tests:** fails-on-original: 3 members, only X shares recently, X stops → today every candidate fails "13 owner", under v3 another member mines; bounded mode unchanged; `drawn` stored per block still verifies type-1 evidence; probationer at B_reg/4−1 excluded, at B_reg/4 drawn; draw-weight differential (old vs new iteration) over randomized ledgers on v1/earn-in/v3 states.
 - **Lock:** `neutral gate=spec:2` (the draw refactor is neutral on all chains; note it).
 - **Effort:** M. **Risk:** low.
 
-### V3-PR-C2 — Fork choice: timely signed precedence — V3-04
+### V3-PR-C2 — **[done, #16 + #20]** Fork choice: timely signed precedence — V3-04
 - **Scope:** `Entry.timely` set once at first import from the node's local `T_j` (`timing.rs::deadline_ms`) and Φ, Δ: signed → timely iff import ≤ T_j+Φ; attempt-0 fallback → timely iff import ≥ T_j−(Δ+Φ); attempt ≥ 1 → timely. Key `(timely?0:1, signed?0:1, importSeq, hash)` only when `v3_active(h)`. Persist the first-import wall time per block in journal metadata so a restart re-derives the same flags (design says flags are local like importSeq, but a restart that re-imports everything "late" would flip ties; persisting avoids head churn).
 - **Files:** `pocold/src/chain.rs` (`Entry`, `key`, `better`, import), `pocold/src/node.rs` (import_with, journal record), `pocold/src/store.rs`/journal format (node-local file), `lp1-node/src/timing.rs` (helper only).
 - **Tests:** fails-on-original: timely fallback then late signed sibling → head stays under v3, switches on v1; early pre-mined fallback loses to the timely signed block; re-run the twenty-import-order D133 suite on v1 (unchanged) and v3; restart determinism (same head after replay); SimNet T10b(iv) lands in H.
 - **Lock:** `neutral gate=spec:2`. Journal-format change is node-local but `store.rs` is a boundary file → covered by the same line; add a journal migration test.
 - **Effort:** M. **Risk:** medium — fork choice; restart semantics; interacts with #8's journal/slim changes and #9's import paths (rebase after both).
 
-### V3-PR-C3 — Execution caps and fees — V3-24, V3-20 (base-fee floor), V3-21 (creation fee rule)
+### V3-PR-C3 — **[done, #17]** Execution caps and fees — V3-24, V3-20 (base-fee floor), V3-21 (creation fee rule)
 - **Scope:** `user_phase.rs` log caps become `log_caps(v3)` = (256 KiB, 4,368) vs (32 KiB, 546); `fees::next_base_fee(.., floor)` with `floor = baseFeeMin` under `v3_active` (callers: `chain.rs::child_pre`, pool/RPC predictions); creation fee: per new account / new nonzero slot / new code byte `F0·CAP/(CAP−used)` from the running in-block count, charged to the sender and burned as a classified burn (receipt + `chain_facts` burn class), halting like a cap overflow if unpaid; `PoolMeter` and the builder (`node.rs` template selection) model both; `param_gate.rs` R26 RESP_MAX ≥ 2·LOG_BLOCK_MAX.
 - **Files:** `lp4-execution/src/{user_phase,fees,state_summary,apply}.rs`, `pocold/src/{chain,node,rpc}.rs`, `lp1-node/src/param_gate.rs`.
 - **Tests:** fails-on-original: front-load 32 KiB logs then an ERC-20 transfer halts on v1, succeeds on v3; dust-fill each cap then a legitimate fund/deploy halts on v1, pays the fee on v3; griefer fill-cost ≈ F0·CAP·(ln CAP+0.58) within 1 %; fee floor: 1000 empty blocks never go below baseFeeMin on v3 and decay as London on v1; conservation (`check_escrow_invariant`, supply) with fees burned; `user-phase.json` vectors untouched for v1.
 - **Lock:** `neutral gate=spec:2` (new v3 vectors, if any, go in a separate `neutral-vector` commit or into `pocold/tests`).
 - **Effort:** M. **Risk:** medium (creation-fee interaction with the C-1 summaries and the builder's PoolMeter).
 
-### V3-PR-E0 — v3 program set, reproducible build, CI, CP-read constants — V3-14 (cfg part), V3-34 registry
+### V3-PR-E0 — **[in review, #21]** v3 program set, reproducible build, CI, CP-read constants — V3-14 (cfg part), V3-34 registry
 - **Scope:** `PoColSystemV3.sol` = copy of `PoColSystemEarnIn.sol` with only: `ChainCaps.get` bound = v2 CP length; `P_MAX`/`T_PROB` read through `cfg()`; `compile_system_v3.cjs`; `system-v3.json`; `SystemPrograms::v3()` + `for_spec`; delete `EARNIN_P_MAX`/`EARNIN_T_PROB` and read CP in `wallet.rs`; `pocold/build.rs` adds `system-v3.json`; main-branch CI job reproducing all system JSONs (§2) and running `lp4-execution/tests/earnin_contracts.rs` + `pocold/tests/earnin.rs` (currently not on main CI) and their v3 twins.
 - **Files:** `lp4-execution/contracts/system/PoColSystemV3.sol`, `tests/compile_system_v3.cjs`, `tests/data/system-v3.json`, `src/apply.rs`, `pocold/src/{wallet,chain}.rs`, `pocold/build.rs`, new workflow (or a job in `full-nonce-upgrade.yml`), `lp4-execution/tests/v3_contracts.rs` (earn-in scenarios replayed on v3 with P_MAX/T_PROB from CP).
 - **Tests:** earn-in vectors pass on the v3 set at P_MAX=8/T_PROB=60480 (proves the fork is behaviour-equal); P_MAX=64/T_PROB from CP; the six earn-in mutants still fail; wallet bond features on the v3 set; sysCodeHash pinned.
 - **Lock:** `neutral-vector` (system-v3.json is in the vector dir), note "v3 program set, reachable only via the v3 sysCodeHash on a specVersion-2 genesis".
 - **Effort:** M. **Risk:** low.
 
-### V3-PR-E1 — Registry budgets — V3-08, V3-09
+### V3-PR-E1 — **[ready, stacked on E0]** Registry budgets — V3-08, V3-09
 - **Scope:** MinerRegistry: maintenance counter REG_MAINT_MAX = 8 (program constant) and `lastMaintHeight` (≤ 40 bits in w0 spare bits or one record word, re-derived against SYS_SLOT_MAX, `REGISTRY-LAYOUT.md`); register/deregister/claimBond/removeInactive use `REG_OPS − maintenance_used`; reactivate uses its own `R_react` budget and `C_react` per-record clock; reactivation window strictly before the refund sweep; ParamGate `U ≥ W_act+2`, `C_react ≥ U`.
 - **Files:** `PoColSystemV3.sol`, `system-v3.json`, `REGISTRY-LAYOUT.md`, `lp1-node/src/gate.rs`, `lp4-execution/tests/v3_model.py` (independent Python model extending `earnin_model.py`) + `tests/data/v3-vectors.json`, `lp4-execution/tests/v3_contracts.rs`, write-ceiling measurement (as `earn_in_write_ceilings`).
 - **Tests:** fails-on-original: 16 `setRewardAddress` from one identity, then another identity's register reverts on earn-in and succeeds on v3, spammer still evictable; 33 attacker records cycling deregister/reactivate, newcomer registers within k blocks; ACC_COUNT conservation through each path; model-vs-bytecode differential; planted mutants (counter shared, cooldown off-by-one, window = sweep height) fail.
 - **Lock:** `neutral-vector`. **Effort:** M. **Risk:** low-medium (record bit layout; SYS caps R18).
 
-### V3-PR-E2b — Evidence penalties — V3-16, V3-17
+### V3-PR-E2b — **[ready, stacked on E1]** Evidence penalties — V3-16, V3-17
 - **Scope:** Escrow `invalidate` no longer burns the whole pot on v3: settle normally after `punish`; tomb → offender's winnerPart/propPart/shares burn via `payTo`; whole-pot burn retained when the accused was ACCRUING with bond < B_reg at block j (recorded at `recordResult` time in pot meta, not read later); `punish(accused, reporter)` pays `rho_bp`·bond to the carrying block proposer's reward address (fallback block: no reporter → full burn), burns the rest; host passes the reporter in `apply.rs:440-445`.
 - **Files:** `PoColSystemV3.sol`, `system-v3.json`, `apply.rs`, `pocold/src/chain.rs` (effect carries reporter), `v3_model.py`/vectors.
 - **Tests:** fails-on-original: type-2 evidence before settle(j) pays contributors and burns only the offender's parts; ACCRUING-accused vector burns the whole pot; E_win boundary; self-report loses (1−ρ)·B; conservation every step.
 - **Lock:** `neutral-vector`. **Effort:** M. **Risk:** low-medium.
 
-### V3-PR-E3 — Late share credit — V3-02
+### V3-PR-E3 — **[in progress]** Late share credit — V3-02
 - **Scope:** body evidence kind 3 `LS = RLP([3, be64(j), [n_1<…<n_k]])`, signed bodies only; validity (window `[max(1,h−D), h−1]` on the carrying branch, `n_i < nMax_j`, `≠ nonce_j`, share target, owner from stored `e.ranges` of block j, not in header shares / any LS(j) on the branch / repeated, no-dilution `C_header(j)+C_late(j) ≤ κm` read from parent state); `EvidenceEffect::Late{j, owners}`; phase-0 `recordLate(j, owners)` after `recordResult`, before `settle(h−D)`; ShareLedger/Registry `recordLate` (count, total, `lastShare = max(lastShare, j)` without revert); branch-derived dedup kept on `Entry` (restored by #8's `unslim` for slimmed entries); E_max/EVID_BYTES_MAX sizing (≤ 2.4 KB at S_max 256). Node-local: per-TemplateID share cache for the last D canonical templates (≤ 4·S_max each), proposer adds uncredited ones like evidence (`node.rs` ~`:2215`); A13 term ≈ D·4·S_max·8 B.
 - **Files:** `pocold/src/chain.rs`, `pocold/src/node.rs`, `lp4-execution/src/apply.rs`, `PoColSystemV3.sol`, `system-v3.json`, `admission.rs` GAS_ENVELOPE entry for `recordLate`, `pocold/src/resources.rs`, `v3_model.py`, `tests/data/v3-vectors.json`.
 - **Tests:** fails-on-original: winner omits B's share, LS(j) in j+1 pays B at settle(j); negative vectors (duplicates in list / across carriers / within a block, j outside window, non-ancestor tid, nonce ≥ nMax, other member's range, target miss, LS in a fallback body, past the κm cap); reorg across a carrier rolls the credit back (inverse diffs); replay determinism; T17 on every block; cutover-style rebuild through slimmed entries (`cutover::rebuild_at`) with LS evidence.
@@ -296,10 +305,16 @@ Effort: S ≤ 2 engineer-days, M 3–6, L 7–15.
 - **Files:** `lp4-execution/src/admission.rs`, `lp4-execution/src/resources.rs`, `pocold/src/resources.rs`, `lp1-node/src/gate.rs`, `deploy/mainnet/{new_network_config.py,v3-profile.json,test_new_network_config.py}`, `development/audit-2026-10-22/A13-DERIVATION.md` (update).
 - **Tests:** admission of the v3 profile (store mode) passes; boot refuses a profile violating each new rule; A13 budget ≤ 6 GiB (`node.rs:85`) with margin; worst-case SYS gas ≤ G_SYS.
 - **Lock:** GAS_ENVELOPE is in `admission.rs` (boundary): `neutral gate=spec:2` (boot admission only). Resource modules are excluded (`-lp4-execution/src/resources.rs`, `=pocold::resources`, `=lp4::gate`).
+- **Also:** a ParamGate rule REG_OPS > REG_MAINT_MAX; re-measure `GAS_ENVELOPE_V3` (added in E2b) at the v3 profile.
 - **Depends on:** all E PRs (final programs), N1 measurement (Δ, φ). **Effort:** M–L. **Risk:** medium (if WAN Δ > 2 s, O-6 falls back to 60 s and every block-count value is recomputed — cheap since values are expressed in seconds).
 
 ### V3-PR-G — Off-node verifiers and clients — V3-34 verifier hygiene, PR-7 of the design
 - **Scope:** `deploy/rewards/pocol_rewards.py` (spec v2 decode, `v3_active`, all-live membership, late shares, issuance M3, carry, tip split, offender-only burn, ρ); `pocol-extension/src/lib/refdec.js` (gsVersion 2, CP v2 schema) with new decoder-corpus items (release verdicts unchanged until I); `rp.js` (spec version, unchanged nMax rule); `forks.js` unchanged (MAX_FORK_VERSION stays 2); `deploy/mainnet/{preflight.py,network_identity.py}` and `deploy/public-testnet/pocol_identity.py` for a spec-2 genesis; Windows/Android/extension wallets: bond, top-up, probation, contest flows against the v3 programs; `lp3-model` CP schema (optional, its CI only runs on the legacy branch).
+  - **D-V3-21 creation-burn user bound, client part:** once the owner chooses option (a) or (b) (V3-DECISIONS.md
+    D-V3-21), wallets and `eth_estimateGas` quote the creation burn and let the user bound it. Must be resolved before
+    V3-PR-I.
+  - **Wallet `rejoin_step`** reads the per-record `C_react` clock (V3-09), not the earn-in reactivation rule.
+  - Every E change (E1–E4) is mirrored in `pocol_rewards.py`, `refdec.js` and `rp.js`.
 - **Files:** as listed; tests `deploy/rewards/test_pocol_rewards.py`, `pocol-extension/tests/*`, `deploy/mainnet/test_*.py`.
 - **Tests:** gateway reproduces owners and payouts block by block on a v3 devnet chain produced by the preview build (differential against node receipts/escrow state); decoder corpus parity Rust vs JS; v1 gateway outputs unchanged on the H15000 fixture.
 - **Lock:** none (outside the boundary), except new `pocold/tests/decoder_reference.rs` corpus items (not a vector dir).
@@ -312,6 +327,8 @@ Effort: S ≤ 2 engineer-days, M 3–6, L 7–15.
 
 ### V3-PR-I — Activation (SPEC_VERSION 2)
 - **Scope:** `SPEC_VERSION = 2` in both `genesis_spec.rs` copies (decoder accepts 1..=2); remove the preview-only acceptance (keep the feature as a no-op or delete it); `refdec.js` `SPEC_VERSION`/corpus verdicts (`decoder-verdicts.json`) regenerated; VA-SPEC/consensus.md state "spec 2 = v3"; freeze note.
+- **Gate:** `V3_LAUNCH_BLOCKERS` (`lp4-execution/src/admission.rs`) is empty, and the source check
+  `admit_calls_the_v3_launch_gate_before_any_fact_is_built` is replaced by a test through `admit()`.
 - **Lock:** `neutral`, `POCOL_REPIN_GATE=spec:2` → **spends** spec:2. After this: corrections via `spec:3` (bump SPEC_VERSION, regenerate the genesis) or `bump` only after H15000 retirement.
 - **Tests:** release build decodes and admits the v3 profile; every spec-1 genesis hash unchanged; H15000 identity unchanged; full v3 suite without `--features v3-preview`.
 - **Depends on:** F, G (refdec/gateway), H green. **Effort:** S. **Risk:** low in code, high in process (gate spent; any later v3 change costs a spec bump).
@@ -321,7 +338,7 @@ Effort: S ≤ 2 engineer-days, M 3–6, L 7–15.
 - **Lock:** none (deploy scripts, docs). **Effort:** M + calendar time. **Risk:** medium (operational).
 
 ### Parallel tracks (no ordering constraint against the consensus chain except as noted)
-- **N1 V3-05** Δ_rel derivation + per-proposer template latency counters (`testnet.rs:50-58`, launcher defaults, `node.rs`, `rpc.rs`). Node-local, no lock line (unless `chain.rs` is touched). **Land early**: it is the instrument for the V3-06 WAN measurement feeding F. S.
+- **N1 V3-05** **[in review, #22]** Δ_rel derivation + per-proposer template latency counters (`testnet.rs:50-58`, launcher defaults, `node.rs`, `rpc.rs`). Node-local, no lock line (unless `chain.rs` is touched). **Land early**: it is the instrument for the V3-06 WAN measurement feeding F. S.
 - **N2 V3-26** persisted `finalized_h`, floor `max(head−r_keep, finalized_h)` in `chain.rs::retain` and node open/replay, telemetry `pocol_finality`, docs. `chain.rs` is a boundary file: `neutral` line with note "local retention policy, like r_keep (excluded from identity)". Tests: depth-100 heavier fork keeps finalized; heavier-shorter branch then deep fork; restart. S–M. Rebase on #8.
 - **N3 V3-30** `--mine-threads N` (disjoint slices of the own range), localhost `pocol_getWork/submitWork` (off by default, own-range check), `networkHashrateEst`; A13 io_threads. Node-local. S–M.
 - **N4 V3-20 pool + V3-24 RPC**: fee-ordered pool, replace-by-fee, lowest-fee eviction on top of #7's quota/parking; `eth_estimateGas` models log caps. Node-local (`node.rs`, `rpc.rs`; `lp4-execution/src/pool.rs` is excluded). M.
