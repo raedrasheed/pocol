@@ -239,6 +239,14 @@ pub fn reject_unknown_fields(value: &serde_json::Value, allowed: &[&str]) -> Res
     Ok(())
 }
 
+/// R8 on CP schema v2 (the v3 registry, V3-09; V3-DECISIONS.md D-V3-09): a reactivation is valid after the W_act
+/// cooldown and strictly before dueHeight = exitHeight + U, where the refund sweep erases the record, so U >= W_act + 2
+/// keeps that window at least two blocks wide; and an identity reactivates at most once per C_react >= U blocks. CP
+/// schema v1 has no C_react and runs the v1/earn-in programs, whose window the gate leaves as it was.
+pub fn v3_registry_window_violated(c: &ConsensusParams) -> bool {
+    c.schema_version() >= 2 && ((c.U as u128) < c.W_act as u128 + 2 || c.C_react < c.U)
+}
+
 pub fn check(
     p: &GateProfile,
     resource: Option<&ResourceFacts>,
@@ -261,7 +269,7 @@ pub fn check(
     bad[4] = 3 * c.dFbWait as u128 > c.D_att as u128;
     bad[5] = l.x_h as u128 != m.x_h || l.x_w as u128 != m.x_w;
     bad[6] = (c.D_att as u128 + l.gamma as u128) < 2 * (m.x_w + c.c as u128 * c.T_blk as u128) + phi;
-    bad[7] = c.D < 2 || (c.U as u128) < c.E_win as u128 + c.D as u128 || c.E_win > l.r_keep;
+    bad[7] = c.D < 2 || (c.U as u128) < c.E_win as u128 + c.D as u128 || c.E_win > l.r_keep || v3_registry_window_violated(c);
     bad[8] = (c.S_max as u128) < 4 * c.kappa as u128 * c.m as u128 || c.B_code_max < 24577;
     bad[9] = (c.BODY_MAX as u128) < c.TX_MAX as u128 + 16384;
     bad[10] = l.k_final > l.r_keep || l.k_view >= l.k_hist || l.k_view as u128 + 2 > 512;

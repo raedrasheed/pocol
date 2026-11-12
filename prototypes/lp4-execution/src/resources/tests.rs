@@ -24,6 +24,17 @@ fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
     println!("R18-DERIVED {}",serde_json::json!({"slotMin":b.slot_min,"keys":[b.keys_normal,b.keys_closing,b.keys_final],"accounts":[b.accts_normal,b.accts_closing,b.accts_final]}));
 }
 
+/// CP schema v2 runs the v3 registry: two more fixed Registry slots (ACC_COUNT and the V3-08/V3-09 budget slot) and the
+/// 15 appended CP slots; record words, keys and accounts are unchanged (REGISTRY-LAYOUT.md).
+#[test] fn r18_cp_schema_v2_counts_the_v3_registry_slots(){
+    let mut c=network_like(4,1000,2000);c.h_end=0;c.earnin=true;
+    let v1=ConsensusParams::from_values(&c.cp()).unwrap();c.spec_version=2;let v2=ConsensusParams::from_values(&c.cp()).unwrap();
+    assert_eq!((v1.schema_version(),v2.schema_version()),(1,2));
+    let (a,b)=(derive(&v1),derive(&v2));
+    assert_eq!(b.slot_min,a.slot_min+2+15);
+    assert_eq!((b.keys_normal,b.keys_closing,b.keys_final,b.accts_normal,b.accts_closing,b.accts_final),(a.keys_normal,a.keys_closing,a.keys_final,a.accts_normal,a.accts_closing,a.accts_final));
+}
+
 /// Worst-case stress: 256 identities (M_max), every height carries S_max shares
 /// so 256 distinct owners per height, four evidence punishments in one block,
 /// closing cursor over 256 records with RET=128, finalization at H_END.

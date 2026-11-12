@@ -44,3 +44,50 @@ views, authenticated bridge and native PAY are called; recipient code is never c
 These structural write ceilings do not prove SYS gas/access, R18/R21, caps64, R16/LAG,
 GenesisBuilder, SV5/SV6, finalization, storage durability or an admitted profile.
 Re-measure all of those with complete CP/profile/model identities before merge.
+
+## v3 registry budgets (PoColSystemV3.sol only; V3-08, V3-09, V3-PR-E1)
+
+Applies to the v3 program set (system-v3.json), reachable only through its sysCodeHash on a specVersion-2
+genesis (CP schema v2). PoColSystemV1.sol and PoColSystemEarnIn.sol, their JSONs and every layout above are
+unchanged. Earn-in already uses w0 bits 152..215 (registeredAt) and slot 8 (ACC_COUNT).
+
+| Location | Bit ranges, low first |
+|---|---|
+| slot9 (budgets) | maintenance used 0..7, reactivations used 8..15, budgetHeight 16..79; remaining zero |
+| w0 | earn-in layout, plus lastMaintHeight mod 2^40 at 216..255 |
+| w1 | reward address 0..159, lastReactHeight 160..223; remaining zero |
+| slot3 | as above, but userOps0..15 counts register/deregister/claimBond/removeInactive only and 16..23 register only |
+
+Budgets per block (the user-path prefix, after BadValue and Closing, before BadPhase):
+- setRewardAddress and topUp (maintenance): RegOpsLimit when maintenance used >= REG_MAINT_MAX = 8 (program
+  constant); after the record is found live, RegOpsLimit when lastMaintHeight == height mod 2^40 (one maintenance
+  operation per identity per block). They no longer touch slot3.
+- register, deregister, claimBond, removeInactive: RegOpsLimit when userOps + maintenance used >= REG_OPS (CP 23);
+  register also when its counter >= R_max (CP 17).
+- reactivate: RegOpsLimit when reactivations used >= R_react (CP 61); it no longer touches slot3 or R_max. Valid
+  only when exitHeight + W_act <= height < dueHeight (strictly before the refund sweep at dueHeight = exitHeight + U),
+  and, when lastReactHeight != 0, height >= lastReactHeight + C_react (CP 62); otherwise BadState.
+
+slot9 is valid only for the height it carries; any other height reads as nothing used, so beginBlock writes nothing
+new and the sweep, markClose and SYSTEM paths are unchanged. lastReactHeight is a full height. lastMaintHeight keeps
+40 bits (the spare w0 bits): it can only refuse, never admit, so a maintenance operation exactly k*2^40 blocks after
+the identity's previous one (or at such a height, for one with none) reverts once; at T_blk 30 s that is about a
+million years. setRewardAddress keeps w1's clock; recordWords returns w1 as the reward address alone and
+recordClocks(id) returns (lastMaintHeight mod 2^40, lastReactHeight). The host reads only bits it masks (apply.rs
+miner_record, Escrow via bondRecord/payInfos), so the clocks change no host reading. ParamGate R8 on CP schema v2
+requires U >= W_act + 2 (the window holds at least two blocks) and C_react >= U (lp1-node/src/gate.rs).
+
+SYS footprint (R18, resources::derive on CP schema v2): Registry fixed slots 7 (0..4, 8, 9), four words per record
+as before (no fifth word; erase clears the clocks with w0/w1), so SYS_SLOT_MAX grows by two slots plus the 15
+appended CP slots. A fifth record word was measured and rejected: zeroing it on erase put the worst beginBlock sweep
+(64 scans, 16 refunds of ACCRUING records) at 930,080 gas, above admission's GAS_ENVELOPE beginBlock 926,000; with
+the spare bits it is 864,902, as before the change (tests/v3_contracts.rs v3_sweep_deletions_keep_the_sys_envelope).
+
+Changed Registry slots of successful user calls, earn-in -> v3 (tests/v3_contracts.rs v3_registry_write_ceilings,
+wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set): register10 -> 10; reward2 -> 3 (w0, w1,
+slot9); deactivate middle7/tail5 -> 7/5; reactivate5 -> 6 (w1 clock; slot9 for slot3); claim middle10/tail8 -> 10/8;
+topUp 3 -> 4 (w0 clock; slot9 for slot3); topUp with promotion 5 -> 5; partial register 11 -> 11; accrue 2/4 -> 2/4.
+The beginBlock sweep changes the same slots per deletion as earn-in. Gas: register +5,225 (cfg(P_MAX) and the cold
+slot9 read), within the wallet's EARNIN_REGISTER_GAS 400,000; every other user path below 200,000 (REGISTRY_GAS
+1,000,000). The independent model is tests/v3_model.py (vectors tests/v3/registry-budget-vectors.json and
+tests/v3/earnin-on-v3-vectors.json); five planted budget mutants are in tests/v3/system-v3-mutants.json.

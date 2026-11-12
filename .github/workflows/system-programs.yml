@@ -1,7 +1,9 @@
 name: System programs reproduction
 # V3-PR-E0: every committed system program set (system-{v1,continuous,earnin,v3}.json) is rebuilt from source
 # with the locked solc 0.8.28 and must match byte for byte; the earn-in and v3 contract and chain suites run on
-# main (lp4-execution/tests/{earnin,v3}_contracts.rs, pocold/tests/{earnin,v3_earnin}.rs).
+# main (lp4-execution/tests/{earnin,v3}_contracts.rs, pocold/tests/{earnin,v3_earnin}.rs). V3-PR-E1 adds the
+# registry-budget model (lp4-execution/tests/v3_model.py), its five planted mutants (in the mutant fixture) and
+# the CP schema v2 ParamGate R8 premises (lp1-node/tests/gate.rs).
 on:
   pull_request:
     branches: [main]
@@ -52,9 +54,10 @@ jobs:
           # Every runtime stays EIP-170-sized for tooling (V3 roadmap risk 10).
           node -e 'for (const f of process.argv.slice(1)) for (const p of require(f).programs) { const n = (p.runtime.length - 2) / 2; console.log(f.split("/").pop(), p.name, n); if (n > 24576) { console.error(`${p.name} in ${f} is ${n} bytes, above 24576`); process.exit(1); } }' \
             "$PWD/$t/data/system-v1.json" "$PWD/$t/data/system-continuous.json" "$PWD/$t/data/system-earnin.json" "$PWD/$t/data/system-v3.json"
-          # The independent models the contract tests replay.
+          # The independent models the contract tests replay (v3_model.py: V3-08/V3-09 registry budgets).
           python3 -B "$t/earnin_model.py"
           python3 -B "$t/v3_model_vectors.py"
+          python3 -B "$t/v3_model.py"
       - name: Earn-in and v3 contract and chain tests
         run: |
           set -euo pipefail
@@ -65,3 +68,8 @@ jobs:
           set -euo pipefail
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features v3-preview --test earnin_contracts --test v3_contracts
           cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test earnin --test v3_earnin
+      - name: ParamGate v3 registry premises (R8 on CP schema v2)
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --test gate
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --features v3-preview --test gate

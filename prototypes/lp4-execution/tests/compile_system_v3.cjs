@@ -1,11 +1,12 @@
 // Invoke with NODE_PATH pointing to the isolated, locked solc@0.8.28 installation.
 // Compiles the five v3 system programs (C0C001..C0C005) with the v1/earn-in settings.
 //   node compile_system_v3.cjs OUT.json            the v3 program set (tests/data/system-v3.json)
-//   node compile_system_v3.cjs --mutants OUT.json  six planted MinerRegistry mutants (tests/v3/system-v3-mutants.json)
+//   node compile_system_v3.cjs --mutants OUT.json  planted MinerRegistry mutants (tests/v3/system-v3-mutants.json):
+//     the six of EARN-IN-SPEC.md §9 and five of the V3-08/V3-09 registry budgets (V3-PR-E1)
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
 const read=f=>fs.readFileSync(path.join(__dirname,'../contracts',f),'utf8');
-// The v3 source is PoColSystemEarnIn.sol with the V3-xx changes (P_MAX/T_PROB from CP schema v2).
+// The v3 source is PoColSystemEarnIn.sol with the V3-xx changes (P_MAX/T_PROB from CP schema v2; registry budgets).
 const source=read('system/PoColSystemV3.sol');
 const settings={optimizer:{enabled:true,runs:200},evmVersion:'cancun',metadata:{bytecodeHash:'none',appendCBOR:false},
   outputSelection:{'*':{'*':['abi','evm.deployedBytecode.object','storageLayout']}}};
@@ -27,6 +28,12 @@ const MUTANTS=[
   ['t-prob-plus-one','return height>=registeredAt(w)+cfg(CP_T_PROB);','return height>=registeredAt(w)+cfg(CP_T_PROB)+1;'],
   ['over-fill-bad-value','uint256 add=cfg(16)-bond;if(msg.value<add)add=msg.value;','uint256 add=cfg(16)-bond;if(msg.value>add)revert BadValue();if(msg.value<add)add=msg.value;'],
   ['excess-kept','if(msg.value>add && !Sys.pay(msg.sender,msg.value-add))revert PaymentFailed();',''],
+  // V3-PR-E1 (V3-08, V3-09): each must fail tests/v3_contracts.rs on tests/v3/registry-budget-vectors.json.
+  ['maint-counter-shared','bool maintaining=rewarding||topping; // V3-08','bool maintaining=false; // V3-08'],
+  ['maint-twice-per-block','if((w>>216)==(height&MAINT_MOD))revert RegOpsLimit();',''],
+  ['react-budget-ignored','(reactivating?((used>>8)&255)>=cfg(CP_R_REACT):','(reactivating?false:'],
+  ['react-cooldown-off-by-one','if(last!=0 && height<last+cfg(CP_C_REACT))revert BadState();','if(last!=0 && height<=last+cfg(CP_C_REACT))revert BadState();'],
+  ['react-window-at-sweep-height','||height>=((clocks>>64)&LOW64))revert BadState();','||height>((clocks>>64)&LOW64))revert BadState();'],
 ];
 const args=process.argv.slice(2);const mutants=args[0]==='--mutants';const out=mutants?args[1]:args[0];
 if(!out)throw Error('usage: compile_system_v3.cjs [--mutants] OUT.json');
