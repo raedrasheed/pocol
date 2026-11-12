@@ -137,9 +137,17 @@ fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
 /// burn: 61,932. settle and settleFinal keep 6,314,000: the base burn goes to the carry only when C < kappa*m, so at most
 /// 63 payees (a settle writing the carry into pot h+1 measured 134,192), while the measured worst settle pays 256
 /// (C >= kappa*m, no carry write): 6,311,582 after the change. A settle that accrues from held_total zero has no HELD payee
-/// (at most P_MAX live ACCRUING ones): 162,150 measured.
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",133_000),("finalize",62_000),("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),
-    ("settle",6_314_000),("settleFinal",6_314_000)];
+/// (at most P_MAX live ACCRUING ones): 162,150 measured. V3-PR-E4 (V3-10/V3-14, tests/v3_contracts.rs v3-preview
+/// `v3_record_shares_gas_with_the_epoch_counters` and `v3_sys_gas_and_caps_within_the_v3_envelope`): recordShares and recordLate
+/// also write each recorded owner's epoch counters (in the w0 word they already write) and the epoch totals (Registry slot
+/// 10), and recordShares reads the owners' counts through entriesOf. recordShares at its worst names 257 distinct owners
+/// without a record as the chain's first call (each read as four words; 256 recorded owners measure 13,628,815, the epoch
+/// roll 13,626,629): 14,388,687 measured, above the spec-1 entry, so it gets a v3 entry; recordLate's stranger path
+/// 3,465,613 (recorded owners 3,284,110). The registry's larger dispatch (registerContest, contestStatus, contestThreshold,
+/// epochTotals) raises every nested Registry call by a few gas: settle's worst path (64 bond fills) measures 6,314,420, punish
+/// 98,699, closeBlock 132,869 (the held-zero promotion), all re-measured on the same paths.
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",133_000),("finalize",62_000),("invalidate",9_000),("punish",99_000),("recordLate",3_466_000),("recordResult",37_000),
+    ("recordShares",14_389_000),("settle",6_315_000),("settleFinal",6_315_000)];
 /// The envelope entry of a SYSTEM call: GAS_ENVELOPE_V3's for the v3 program set where it has one, else GAS_ENVELOPE's.
 pub fn envelope_for(name:&str,v3:bool)->Option<u64>{
     let pick=|t:&[(&str,u64)]|t.iter().find(|(n,_)|*n==name).map(|x|x.1);

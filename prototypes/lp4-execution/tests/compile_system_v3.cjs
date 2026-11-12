@@ -4,13 +4,14 @@
 //   node compile_system_v3.cjs --mutants OUT.json  planted mutants (tests/v3/system-v3-mutants.json): the six of
 //     EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17
 //     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3),
-//     MinerRegistry or ShareLedger; eight of the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow.
+//     MinerRegistry or ShareLedger; eight of the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow;
+//     twelve of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4), MinerRegistry.
 //     Each entry names the program it replaces.
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
 const read=f=>fs.readFileSync(path.join(__dirname,'../contracts',f),'utf8');
 // The v3 source is PoColSystemEarnIn.sol with the V3-xx changes (P_MAX/T_PROB from CP schema v2; registry budgets;
-// evidence penalties; late share credit; issuance, carry and tip split).
+// evidence penalties; late share credit; issuance, carry and tip split; contestable seats and the probation-pool contest).
 const source=read('system/PoColSystemV3.sol');
 const settings={optimizer:{enabled:true,runs:200},evmVersion:'cancun',metadata:{bytecodeHash:'none',appendCBOR:false},
   outputSelection:{'*':{'*':['abi','evm.deployedBytecode.object','storageLayout']}}};
@@ -34,7 +35,7 @@ const MUTANTS=[
   ['excess-kept','if(msg.value>add && !Sys.pay(msg.sender,msg.value-add))revert PaymentFailed();',''],
   // V3-PR-E1 (V3-08, V3-09): each must fail tests/v3_contracts.rs on tests/v3/registry-budget-vectors.json.
   ['maint-counter-shared','bool maintaining=rewarding||topping; // V3-08','bool maintaining=false; // V3-08'],
-  ['maint-twice-per-block','if((w>>216)==(height&MAINT_MOD))revert RegOpsLimit();',''],
+  ['maint-twice-per-block','if((x>>224)==(height&MAINT_MOD))revert RegOpsLimit();',''],
   ['react-budget-ignored','(reactivating?((used>>8)&255)>=cfg(CP_R_REACT):','(reactivating?false:'],
   ['react-cooldown-off-by-one','if(last!=0 && height<last+cfg(CP_C_REACT))revert BadState();','if(last!=0 && height<=last+cfg(CP_C_REACT))revert BadState();'],
   ['react-window-at-sweep-height','||height>=((clocks>>64)&LOW64))revert BadState();','||height>((clocks>>64)&LOW64))revert BadState();'],
@@ -48,8 +49,8 @@ const MUTANTS=[
   ['accruing-read-at-settle','if(meta&INVALID!=0){ burned=amount; }','if(meta&INVALID!=0&&accruingNow(winner)){ burned=amount; }','RewardEscrow'],
   ['rho-on-pot-not-bond','uint256 cut=reward==address(0)?0:amount*Sys.cfg(66)/10000;','uint256 cut=reward==address(0)?0:Sys.cfg(15)*Sys.cfg(66)/10000;','RewardEscrow'],
   // V3-PR-E3 (V3-02): each must fail tests/v3_contracts.rs on tests/v3/late-share-vectors.json.
-  ['late-last-share-reverts','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88));','if(((w>>88)&LOW64)>uint256(j)) revert BadState(); put(r,(w&~LAST_MASK)|(uint256(j)<<88));','MinerRegistry'],
-  ['late-last-share-overwrites','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88));','put(r,(w&~LAST_MASK)|(uint256(j)<<88));','MinerRegistry'],
+  ['late-last-share-reverts','put(r,credit(w,j,1,e)); // V3-02','if(((w>>88)&LOW64)>uint256(j)) revert BadState(); put(r,credit(w,j,1,e)); // V3-02','MinerRegistry'],
+  ['late-last-share-overwrites','put(r,credit(w,j,1,e)); // V3-02','put(r,(credit(w,j,1,e)&~LAST_MASK)|(uint256(j)<<88)); // V3-02','MinerRegistry'],
   ['late-cap-removed','if(t==0 || t+n>Sys.cfg(8)*Sys.cfg(9)) revert BadState();','if(t==0) revert BadState();','ShareLedger'],
   ['late-window-one-wider','uint256(j)>=height || uint256(j)+Sys.cfg(11)<height','uint256(j)>=height || uint256(j)+Sys.cfg(11)+1<height','ShareLedger'],
   ['late-total-not-raised','        total[j]=t+n;\n','','ShareLedger'],
@@ -68,6 +69,22 @@ const MUTANTS=[
   ['carry-not-lagged','uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));','uint256 k=carrySlot(block.number); put(k,get(k)+(r-a));','RewardEscrow'],
   // The final block burns only the carry of its own settle(F-D) and keeps the carry into pot F that block F-1 left.
   ['lagged-carry-kept-at-final','        if(c!=0) put(4,0);\n        if(n!=0) put(5,0);\n        put(0,get(0)+tips+c+n); put(1,h);','        uint256 f=get(carrySlot(h+1)); if(f!=0) put(carrySlot(h+1),0); put(0,get(0)+tips+f); put(1,h);','RewardEscrow'],
+  // V3-PR-E4 (V3-10, V3-14): each must fail tests/v3_contracts.rs on tests/v3/contest-vectors.json.
+  ['contest-threshold-off-by-one','if(count>=thr||count>=CNT_SAT)return(7,count,thr);','if(count>thr||count>=CNT_SAT)return(7,count,thr);'],
+  ['contest-grace-ignored','if(height<grace+cfg(25))return(5,0,0);',''],
+  ['contest-joined-in-epoch-allowed','if(grace>(cur-1)*e)return(6,0,0);','if(grace>cur*e)return(6,0,0);'],
+  ['contest-set-not-full-allowed','if(!pool&&get(1)<cfg(18))return(2,0,0);',''],
+  ['contest-late-window-open','if(cur==0||height%e+1<cfg(11))return(4,0,0);','if(cur==0)return(4,0,0);'],
+  // The pool contest's victim is erased with its accounting but without the refund (its accrued bond stays in Escrow).
+  ['pool-contest-refund-skipped','uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);','uint256 w=removeActive(vr,vw);put(4,get(4)-get(vr+2));put(ACC_COUNT,get(ACC_COUNT)-1);erase(victim,vr,w);'],
+  // The pool contest's victim exits like a seat contest's (refund after U), so its slot is not freed.
+  ['pool-contest-exits-instead','uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);','exitAt(vr,vw,get(vr+3),height);'],
+  ['pool-contest-held-victim','if(pool&&!accruingState(vw))return(3,0,0);',''],
+  ['counters-not-rolled','else if(ej>el){prev=ej==el+1?cur:0;cur=n;}','else if(ej>el){cur+=n;}'],
+  // recordLate keeps the E3 rule (lastShare only): late credit is not counted in the victim's counters.
+  ['late-not-counted','put(r,credit(w,j,1,e)); // V3-02','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88)); // V3-02'],
+  ['isqrt-not-floored','uint256 q=x/y;if(q<y)y=q;',''],
+  ['contest-one-reg-ops-unit','checkBudgets(c,true,false,false,1);','checkBudgets(c,true,false,false,0);'],
 ];
 const args=process.argv.slice(2);const mutants=args[0]==='--mutants';const out=mutants?args[1]:args[0];
 if(!out)throw Error('usage: compile_system_v3.cjs [--mutants] OUT.json');

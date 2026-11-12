@@ -51,7 +51,12 @@ mod preview {
     struct Net { chain: Chain, keys: HashMap<Address, Key>, one: Address }
 
     fn net(p_max: u16, t_prob: u32) -> Net {
-        let mut candidate = devnet::build(&config(p_max, t_prob)).unwrap();
+        let net = net_with(config(p_max, t_prob));
+        assert_eq!(net.chain.spec.probation(), Some(Probation { seats: u64::from(p_max), blocks: u64::from(t_prob) }), "the CP values, not the earn-in constants");
+        net
+    }
+    fn net_with(cfg: DevnetConfig) -> Net {
+        let mut candidate = devnet::build(&cfg).unwrap();
         candidate.forks.push((2, 2));
         let mut keys: HashMap<Address, Key> = candidate.miners.iter()
             .map(|m| (m.id, Key::from_secret(&m.key.secret()).unwrap())).collect();
@@ -62,7 +67,6 @@ mod preview {
         let chain = Chain::new(Spec::new(admitted));
         assert_eq!(chain.spec.programs(), ProgramSet::V3);
         assert!(chain.spec.earnin_rules() && chain.spec.v3_active(0));
-        assert_eq!(chain.spec.probation(), Some(Probation { seats: u64::from(p_max), blocks: u64::from(t_prob) }), "the CP values, not the earn-in constants");
         Net { chain, keys, one }
     }
 
@@ -223,6 +227,102 @@ mod preview {
         let step = wallet::rejoin_step(Some(&r), head.height + 1, member, u64::from(net.chain.spec.cp().W_act), net.chain.spec.probation().map(|p| p.blocks));
         assert_eq!(step, RejoinStep::Missed, "the wallet offers no reactivation past the CP deadline");
         assert_eq!(accruing_count(&net), U256::from(1), "an exited probation record keeps its seat until the refund");
+    }
+
+    // ---------------- V3-PR-E4: contestable seats and the probation-pool contest (V3-10, V3-14)
+    /// A contest network: two genesis members fill M_max 2, an 8-block epoch (D 4: judged from h mod 8 = 3), theta 1 and
+    /// k_sigma 1 (threshold ceil(E - sqrt(E)), E = Tprev/active), a 4-block grace.
+    fn contest_net(p_max: u16, m_max: u16) -> Net {
+        let mut cfg = config(p_max, 86_400);
+        cfg.m_max = m_max; cfg.e_epoch = 8; cfg.theta_bp = 10_000; cfg.k_sigma = 1; cfg.theta_inact = 4;
+        net_with(cfg)
+    }
+    fn contest_tx(net: &Net, key: &Key, victim: Address, value: u128) -> Vec<u8> {
+        tx(net, key, wallet::contest_calldata(key.address(), victim).to_vec(), U256::from(value))
+    }
+    fn receipts_status(net: &Net) -> Vec<Vec<u8>> {
+        let entry = net.chain.full_entry(&net.chain.head).unwrap();
+        entry.receipts.iter().map(|r| rlp::decode(&r[1..]).unwrap().list().unwrap()[0].bytes().unwrap().to_vec()).collect()
+    }
+    /// What the wallet's contest quote sees at the next block: the registry's contestStatus view on the head state.
+    fn contest_view(net: &Net, caller: Address, victim: Address, probation: bool) -> wallet::ContestView {
+        let head = net.chain.head();
+        wallet::contest_view_on(&head.state, net.chain.spec.profile(), head.height + 1, head.ts + 1, caller, victim, probation).unwrap()
+    }
+
+    /// V3-10 on chain: genesis member two never mines while one mines every block, so two's credited count in epoch 0 is 0
+    /// against a threshold above it. Before h = 11 (epoch 0's late window) the wallet's view says code 4; from 11 the
+    /// contest is open. In one block alice's contest of the productive one is a status-0 receipt (above the threshold),
+    /// bob's of two lands: two exits, bob takes the seat, and the sweep refunds two's 20 PCOL bond U blocks later. The
+    /// escrow invariant holds after every block.
+    #[test]
+    fn an_idle_member_is_contested_on_chain_and_refunded_after_u() {
+        let mut net = contest_net(1, 2);
+        let one = net.one;
+        let two = net.chain.spec.profile().spec().m0_list.iter().map(|m| Address::from(m.id)).find(|m| *m != one).unwrap();
+        let (alice, bob) = (devnet::account_key("alice"), devnet::account_key("bob"));
+        while net.chain.head().height < 9 { let _ = next(&mut net, one, vec![]); }
+        assert_eq!(contest_view(&net, bob.address(), two, false).code, 4, "next = 10: epoch 0's late window is open");
+        let _ = next(&mut net, one, vec![]);
+        let open = contest_view(&net, bob.address(), two, false);
+        assert_eq!((open.code, open.count), (0, 0), "next = 11: two idle for all of epoch 0, threshold {}", open.threshold);
+        assert!(open.threshold > U256::ZERO);
+        let cp = net.chain.spec.cp().clone();
+        let params = |v: &wallet::ContestView, n: &Net| wallet::contest_check(v, &wallet::ContestParams { next: n.chain.head().height + 1, e_epoch: 8, d: u64::from(cp.D),
+            theta_inact: 4, u: u64::from(cp.U), m_max: 2, p_max: 1, grace_start: 0 }, false, false);
+        let busy = contest_view(&net, alice.address(), one, false);
+        assert_eq!(busy.code, 7, "one is above the threshold: {busy:?}");
+        assert!(params(&busy, &net).unwrap_err().contains("not below the threshold"));
+        assert_eq!(params(&open, &net), Ok(false), "the wallet quotes a seat contest");
+        let funded = balance(&net, record(&net, two).reward);
+        let txs = vec![contest_tx(&net, &alice, one, B), contest_tx(&net, &bob, two, B)];
+        let _ = next(&mut net, one, txs);
+        let h = net.chain.head().height;
+        assert_eq!(receipts_status(&net), vec![vec![], vec![1u8]], "alice's contest of one refused, bob's of two included");
+        assert!(apply::miner_record(&net.chain.head().state, alice.address()).is_none(), "the refused contest registers nobody");
+        let r = record(&net, two);
+        assert_eq!((r.status, r.exit_height, r.due_height, r.tomb, r.bond), (2, h, h + u64::from(cp.U), false, U256::from(B)), "two exits with its bond, no burn");
+        assert_eq!((record(&net, bob.address()).status, apply::active_list(&net.chain.head().state).len()), (1, 2), "bob takes the seat; the set stays full");
+        while net.chain.head().height < h + u64::from(cp.U) { let _ = next(&mut net, one, vec![]); }
+        assert!(apply::miner_record(&net.chain.head().state, two).is_none(), "the sweep erased two at its due height");
+        assert_eq!(balance(&net, r.reward) - funded, U256::from(B), "two's bond refunded in full");
+    }
+
+    /// V3-14 on chain: P_MAX 1 is held by alice, a zero-bond probationer who never mines (registered at 1, so judged on
+    /// epoch 1 from h = 19). bob's probation registration is refused (Capacity) and his contest of alice before 19 too;
+    /// at 19 it lands: alice's record is erased and her accrued bond (0) refunded, bob takes the probation seat, and
+    /// ACC_COUNT stays 1 throughout.
+    #[test]
+    fn an_idle_probationer_is_displaced_from_the_pool_on_chain() {
+        let mut net = contest_net(1, 4);
+        let one = net.one;
+        let (alice, bob) = (devnet::account_key("alice"), devnet::account_key("bob"));
+        let t = register(&net, &alice, 0);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!((record(&net, alice.address()).bond_state, accruing_count(&net)), (4, U256::from(1)));
+        while net.chain.head().height < 12 { let _ = next(&mut net, one, vec![]); }
+        assert_eq!(contest_view(&net, bob.address(), alice.address(), true).code, 6, "alice registered after the first block of epoch 0");
+        let second = {
+            // bob's second transaction in the block, at his next nonce.
+            let head = net.chain.full_entry(&net.chain.head).unwrap();
+            let base = net.chain.child_ctx(&head, 0).unwrap().base_fee;
+            let priority = U256::from(1_000_000_000u64);
+            Tx { chain_id: net.chain.spec.chain_id(), nonce: nonce(&net, bob.address()) + 1, max_priority: priority, max_fee: base * U256::from(2) + priority,
+                 gas: 1_000_000, to: Some(apply::program_address(0)), value: U256::ZERO, data: wallet::contest_calldata(bob.address(), alice.address()) }.sign_1559(&bob)
+        };
+        let txs = vec![register(&net, &bob, 0), second];
+        let _ = next(&mut net, one, txs);
+        assert_eq!(receipts_status(&net), vec![Vec::<u8>::new(), Vec::new()], "the pool is full and alice not yet judgeable");
+        while net.chain.head().height < 18 { let _ = next(&mut net, one, vec![]); }
+        let v = contest_view(&net, bob.address(), alice.address(), true);
+        assert_eq!((v.code, v.count), (0, 0), "epoch 1 measured: alice idle");
+        assert_eq!(contest_view(&net, bob.address(), alice.address(), false).code, 2, "with the full bond there is nothing to contest: four seats, three taken");
+        let t = contest_tx(&net, &bob, alice.address(), 0);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!(receipts_status(&net), vec![vec![1u8]]);
+        assert!(apply::miner_record(&net.chain.head().state, alice.address()).is_none(), "alice's record erased at once");
+        let r = record(&net, bob.address());
+        assert_eq!((r.status, r.bond_state, accruing_count(&net)), (1, 4, U256::from(1)), "bob holds the probation seat; ACC_COUNT conserved");
     }
 
     /// V3-08 on chain (V3-PR-E1): one identity's second maintenance operation in a block is a status-0 receipt, while

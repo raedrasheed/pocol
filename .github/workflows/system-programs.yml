@@ -17,7 +17,12 @@ name: System programs reproduction
 # by one block, so the last carrier of a template gains nothing by omitting its late shares) replayed on the
 # bytecode with eight planted RewardEscrow mutants, the M3 schedule checked a second time by issuance_oracle.py --v3, the
 # CP schema v2 ParamGate supply rule (R23) and, under v3-preview, the host's credit against every recorded pot, a final
-# block burning the carry, the supply bound at genesis and closeBlock/finalize's SYS gas against GAS_ENVELOPE_V3.
+# block burning the carry, the supply bound at genesis and closeBlock/finalize's SYS gas against GAS_ENVELOPE_V3. V3-PR-E4
+# adds the contestable seats and the probation-pool contest (V3-10, V3-14): the model's contest scenarios and threshold
+# table (tests/v3/contest-vectors.json: epoch counters, registerContest's seat and pool contests and every refusal)
+# replayed on the bytecode with twelve planted MinerRegistry mutants, the wallet's contest checks, and under v3-preview
+# contests on real v3 chains (pocold/tests/v3_earnin.rs) and recordShares/recordLate's SYS gas with the epoch counters
+# against GAS_ENVELOPE_V3.
 on:
   pull_request:
     branches: [main]
@@ -69,12 +74,12 @@ jobs:
           node -e 'for (const f of process.argv.slice(1)) for (const p of require(f).programs) { const n = (p.runtime.length - 2) / 2; console.log(f.split("/").pop(), p.name, n); if (n > 24576) { console.error(`${p.name} in ${f} is ${n} bytes, above 24576`); process.exit(1); } }' \
             "$PWD/$t/data/system-v1.json" "$PWD/$t/data/system-continuous.json" "$PWD/$t/data/system-earnin.json" "$PWD/$t/data/system-v3.json"
           # The independent models the contract tests replay (v3_model.py: V3-08/V3-09 registry budgets, V3-16/V3-17
-          # evidence penalties).
+          # evidence penalties, V3-02 late shares, V3-19/V3-15/V3-20 issuance and carry, V3-10/V3-14 contests).
           python3 -B "$t/earnin_model.py"
           python3 -B "$t/v3_model_vectors.py"
           python3 -B "$t/v3_model.py"
           # V3-19: the M3 schedule written a second time (standard library only) against the vectors' issuances.
-          python3 -B "$t/issuance_oracle.py" --v3 "$t/v3/issuance-carry-vectors.json" "$t/v3/evidence-penalty-vectors.json" "$t/v3/late-share-vectors.json"
+          python3 -B "$t/issuance_oracle.py" --v3 "$t/v3/issuance-carry-vectors.json" "$t/v3/evidence-penalty-vectors.json" "$t/v3/late-share-vectors.json" "$t/v3/contest-vectors.json"
       - name: Earn-in and v3 contract and chain tests
         run: |
           set -euo pipefail
