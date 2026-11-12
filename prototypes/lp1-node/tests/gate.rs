@@ -1,7 +1,7 @@
 use lp1_node::gate::*;
 use lp1_node::param_gate::RpcLimits;
 use lp1_node::profile::{ConsensusParams, NodeKind, ProfileKind};
-use lp1_node::{fixed::U256, genesis_spec as gs, hashes::sha256, hex};
+use lp1_node::{fixed::{U256, U512}, genesis_spec as gs, hashes::sha256, hex};
 
 fn profile(end: bool) -> GateProfile {
     let fixture: serde_json::Value = serde_json::from_str(include_str!("../fixtures/profile.json")).unwrap();
@@ -106,6 +106,8 @@ fn facts(p: &GateProfile) -> (ResourceFacts, IdentityFacts, Calibration) {
             alloc_root: s.alloc_root,
             sys_code_hash: s.sys_code_hash,
             alloc_balances: vec![U256::from_u64(1_000_000_000_000_000_000)],
+            // The CP schema v2 fixtures stand for the v3 program set (the only set that reads CP schema v2's fields).
+            m3_issuance: p.cp.schema_version() >= 2,
         },
         Calibration {
             profile_binding: p.binding(),
@@ -517,14 +519,15 @@ fn r10_v3_late_share_item_fits_evid_bytes_max() {
     assert!(!r10(&p) && !v3_late_share_sizing_violated(&p.cp));
 }
 
-/// V3-19 (V3-DECISIONS.md D-V3-19): on CP schema v2, R23's issuance term is the M3 schedule's 2·S0·H_half + S_tail·2^64
-/// (issuance(h) = max(k >= 256 ? 0 : S0 >> k, S_tail), k = h / H_half, summed over every height), not CP 15 · H_END; with
-/// the allocations and the genesis bonds the total must stay below 2^127. Exact boundaries for each term; CP schema v1
-/// keeps CP 15 · H_END (u64::MAX blocks when continuous).
+/// V3-19 (V3-DECISIONS.md D-V3-19): for a genesis running the v3 program set (CP schema v2, `m3_issuance`), R23's
+/// issuance term is the M3 schedule's 2·S0·H_half + S_tail·2^64 (issuance(h) = max(k >= 256 ? 0 : S0 >> k, S_tail),
+/// k = h / H_half, summed over every height), not CP 15 · H_END; with the allocations and the genesis bonds the total must
+/// stay below 2^127. Exact boundaries for each term; CP schema v1, and a CP schema v2 genesis naming another program set,
+/// keep CP 15 · H_END (u64::MAX blocks when continuous), as genesis_builder.rs does.
 #[test]
 fn r23_v3_m3_supply_bound() {
     let pow = |n: u32| U256::pow2(n).unwrap();
-    let r23 = |p: &GateProfile, alloc: Vec<U256>| {
+    let r23_set = |p: &GateProfile, alloc: Vec<U256>, m3: bool| {
         let i = IdentityFacts {
             profile_binding: p.binding(),
             model: RESOURCE_MODEL.into(),
@@ -533,9 +536,11 @@ fn r23_v3_m3_supply_bound() {
             alloc_root: [0; 32],
             sys_code_hash: [0; 32],
             alloc_balances: alloc,
+            m3_issuance: m3,
         };
         check(p, None, Some(&i), None, NodeKind::Node).violations.contains(&"R23".to_string())
     };
+    let r23 = |p: &GateProfile, alloc: Vec<U256>| r23_set(p, alloc, true);
     let u = profile(false).cp.U;
     let v2 = |s0: U256, h_half: u64, tail: U256| {
         let mut p = profile_v2(u - 2, u, u);
@@ -562,7 +567,7 @@ fn r23_v3_m3_supply_bound() {
     let p = v2(pow(124), 1, pow(62));
     assert!(!r23(&p, vec![below(125, 1)]));
     assert!(r23(&p, vec![pow(125)]));
-    let t = future_issuance(&p.cp, false);
+    let t = future_issuance(&p.cp, false, true);
     let mut want = [0u64; 8];
     want[1] = (1 << 61) | (1 << 62);
     assert_eq!(t.0, want, "2^125 + 2^126");
@@ -571,7 +576,7 @@ fn r23_v3_m3_supply_bound() {
     let pcol = 1_000_000_000_000_000_000u128;
     let p = v2(U256::from_be_slice(&pcol.to_be_bytes()).unwrap(), 4_207_680, U256::from_be_slice(&(pcol / 32).to_be_bytes()).unwrap());
     assert!(!r23(&p, vec![U256::from_be_slice(&(4_000_000 * pcol).to_be_bytes()).unwrap()]));
-    let t = future_issuance(&p.cp, false);
+    let t = future_issuance(&p.cp, false, true);
     let exact = 2 * pcol * 4_207_680 + (pcol / 32) * (1u128 << 64);
     assert_eq!((t.0[0], t.0[1], t.0[2..].iter().all(|x| *x == 0)), (exact as u64, (exact >> 64) as u64, true));
     // CP 15 = 2^111: on CP schema v1 the flat term 2^111·H_END (H_END 129,600 > 2^16) exceeds 2^127; on CP schema v2 with
@@ -581,5 +586,13 @@ fn r23_v3_m3_supply_bound() {
     q.cp.B_reg = U256::ZERO;
     refresh(&mut q);
     assert!(r23(&q, vec![U256::ZERO]), "CP schema v1 keeps CP 15 · H_END");
-    assert!(!r23(&v2(pow(111), 1, U256::ZERO), vec![U256::ZERO]), "CP schema v2 takes the M3 term");
+    assert!(r23_set(&q, vec![U256::ZERO], false), "CP schema v1 keeps CP 15 · H_END whatever the set");
+    assert!(!r23(&v2(pow(111), 1, U256::ZERO), vec![U256::ZERO]), "the v3 set on CP schema v2 takes the M3 term");
+    // A CP schema v2 genesis naming another program set (the continuous or v1 programs credit CP 15 per block): the gate
+    // keeps CP 15 · H_END, the term genesis_builder.rs checks there, and the M3 term alone would have admitted it.
+    let other = v2(pow(111), 1, U256::ZERO);
+    assert!(other.cp.H_END > 1 << 16, "H_END {} keeps 2^111 · H_END above 2^127", other.cp.H_END);
+    assert!(r23_set(&other, vec![U256::ZERO], false), "CP schema v2, another program set: CP 15 · H_END");
+    assert_eq!(future_issuance(&other.cp, false, false), U512::mul_u256_u64(&pow(111), other.cp.H_END));
+    assert_eq!(future_issuance(&other.cp, true, false), U512::mul_u256_u64(&pow(111), u64::MAX), "continuous: u64::MAX blocks");
 }

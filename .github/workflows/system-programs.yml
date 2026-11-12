@@ -13,8 +13,8 @@ name: System programs reproduction
 # through pocold's chain.rs rules, and under v3-preview real v3 chains (pocold/tests/v3_late_shares.rs: omission,
 # negative cases on a branch, reorg, restart and checkpoint, cutover rebuild, the proposer's cache) and recordLate's SYS
 # gas against GAS_ENVELOPE_V3. V3-PR-E2a adds issuance M3, the carry and the tip split (V3-19, V3-15, V3-20): the
-# model's issuance-carry scenarios (tests/v3/issuance-carry-vectors.json, five planted model mutants) replayed on the
-# bytecode with five planted RewardEscrow mutants, the M3 schedule checked a second time by issuance_oracle.py --v3, the
+# model's issuance-carry scenarios (tests/v3/issuance-carry-vectors.json, six planted model mutants) replayed on the
+# bytecode with six planted RewardEscrow mutants, the M3 schedule checked a second time by issuance_oracle.py --v3, the
 # CP schema v2 ParamGate supply rule (R23) and, under v3-preview, the host's credit against every recorded pot, a final
 # block burning the carry, the supply bound at genesis and closeBlock/finalize's SYS gas against GAS_ENVELOPE_V3.
 on:

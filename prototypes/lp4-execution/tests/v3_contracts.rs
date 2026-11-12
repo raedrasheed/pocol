@@ -44,7 +44,7 @@
 //!   reproduces on the bytecode with the host's issuance and every recorded pot compared per step and the Escrow equality
 //!   (carry term included) after every SYSTEM step; each pot is issued + tips - share + carry and the share reaches a HELD,
 //!   ACCRUING or tombed proposer as payTo pays it, nothing on a fallback; pot j+1 is fixed by block j+1 whatever later
-//!   blocks credit late; the earn-in set records CP 15 + tips (fails on the original); five planted RewardEscrow mutants
+//!   blocks credit late; the earn-in set records CP 15 + tips (fails on the original); six planted RewardEscrow mutants
 //!   each fail; with v3-preview, real blocks: host credit = recorded pot every block over 3·H_half (H_half 8) and CP 15 on
 //!   the spec-1 earn-in devnet, a final block burning the carry, the invariant's carry term, the supply bound at genesis,
 //!   and closeBlock/finalize's SYS gas on their worst paths within GAS_ENVELOPE_V3.
@@ -74,7 +74,7 @@ const EVIDENCE_MUTANTS:[&str;5]=["reporter-paid-on-fallback","whole-pot-for-bond
 /// The five V3-02 late-share mutants (MinerRegistry or ShareLedger), in fixture order.
 const LATE_MUTANTS:[&str;5]=["late-last-share-reverts","late-last-share-overwrites","late-cap-removed","late-window-one-wider","late-total-not-raised"];
 /// The five V3-19/V3-15/V3-20 issuance, carry and tip split mutants (RewardEscrow), in fixture order.
-const ECON_MUTANTS:[&str;5]=["carry-not-added","tip-share-to-pot","base-burn-still-burned","issued-ignored-flat-s0","carry-kept-at-final"];
+const ECON_MUTANTS:[&str;6]=["carry-not-added","tip-share-to-pot","base-burn-still-burned","issued-ignored-flat-s0","carry-kept-at-final","base-burn-into-closed-pot"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
 const V3_SYS_CODE_HASH:&str="0923f50e17f8295ca57359cb5084a2884c973641f251551018901f037777146c";
 
@@ -139,9 +139,10 @@ impl Setup{
 
 /// `origin`: the current block's proposer (zero on a fallback block), the tx.origin of its SYSTEM calls; `issued`: the
 /// issuance the chain steps credited to Escrow; `closed`: per closed height (issued, tips, the carry before closeBlock, the
-/// pot closeBlock recorded) (V3-PR-E2a).
+/// pot closeBlock recorded) (V3-PR-E2a); `distributed`: per settled height, pot j's amount just before settle(j) or
+/// settleFinal(j) distributed it.
 struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>,v3:bool,origin:Address,issued:U256,
-    closed:BTreeMap<u64,(U256,U256,U256,U256)>}
+    closed:BTreeMap<u64,(U256,U256,U256,U256)>,distributed:BTreeMap<u64,U256>}
 /// The account the harness's tips come from (a block's transactions pay them to Escrow, the coinbase).
 fn tipper()->Address{name("tipper")}
 /// SYSTEM calls with a chosen tx.origin (apply.rs runs each SYSTEM call with the block proposer as tx.origin and the
@@ -173,7 +174,7 @@ impl Harness{
         db.accounts.get_mut(&escrow_address()).unwrap().info.balance=b();
         for d in durable{insert(&mut db,name(d),U256::ZERO,1,Bytecode::default());}
         let start=db.accounts.iter().map(|(a,x)|(*a,x.info.balance)).collect();
-        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start,v3:s.v3,origin:Address::ZERO,issued:U256::ZERO,closed:BTreeMap::new()}
+        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start,v3:s.v3,origin:Address::ZERO,issued:U256::ZERO,closed:BTreeMap::new(),distributed:BTreeMap::new()}
     }
     /// One SYSTEM call at the current height with tx.origin = self.origin, through FORWARDER. The origin's nonce and
     /// the SYSTEM account are restored afterwards, so the call leaves only its own effects.
@@ -252,7 +253,10 @@ impl Harness{
         self.sys("markClose",registry_address(),selector("markClose()"))?;
         self.sys("pruneShares",ledger(),selector("pruneShares()"))?;
         if !self.v3{record(self)?;}
-        if h>cp_d{let mut data=selector("settle(uint256)");data.extend(U256::from(h-cp_d).to_be_bytes::<32>());self.sys("settle",escrow_address(),data)?;}
+        if h>cp_d{
+            self.distributed.insert(h-cp_d,pot(&self.db,h-cp_d).0);
+            let mut data=selector("settle(uint256)");data.extend(U256::from(h-cp_d).to_be_bytes::<32>());self.sys("settle",escrow_address(),data)?;
+        }
         self.sys("beginBlock",registry_address(),selector("beginBlock()"))
     }
     /// The block's tips reach Escrow (the coinbase) from the tipper, as a transaction's priority fees would.
@@ -286,6 +290,7 @@ impl Harness{
         let d=storage(&self.db,caps(),U256::from(11)).to::<u64>();
         for j in h.saturating_sub(d)+1..h{
             if pot(&self.db,j).1.is_zero(){continue}
+            self.distributed.insert(j,pot(&self.db,j).0);
             let mut data=selector("settleFinal(uint256)");data.extend(U256::from(j).to_be_bytes::<32>());
             self.sys("settleFinal",escrow_address(),data).map_err(|e|format!("settleFinal({j}) at {h}: {e}"))?;
         }
@@ -1493,23 +1498,44 @@ fn host_credit_equals_the_recorded_pot_and_the_tip_split_conserves_value(){
 }
 
 /// V3-DESIGN.md V3-15 test: changing LS inclusion in blocks j+2..j+D (block j+1 fixed) does not change pot j+1. The two
-/// scenarios are the same chain except that the second drops late credits of blocks after j+1 = 8: every pot up to 8 is the
-/// same on the bytecode, and a later pot differs (the carry of a settle follows the late credits to its pot, which the
-/// carriers up to the settling block commit).
+/// scenarios are the same chain except that the second drops late credits of blocks after 7 (those of blocks 13 and 14,
+/// to template 10, as the seeded draw fell): with j+1 the last block both share (12, at least 8), every pot up to j+1 is
+/// the same on the bytecode, both as closeBlock recorded it and as settle distributed it (a design adding value to an
+/// already-closed pot at settle time, safety finding 8's rejected shape, changes the second: the planted
+/// base-burn-into-closed-pot moves half of settle(10)'s base burn into pot 11 and fails here), and a later pot differs (the
+/// carry of a settle follows the late credits to its pot, which the carriers up to the settling block commit).
 #[test]
 fn pot_j_plus_1_is_fixed_by_block_j_plus_1(){
     let (a,b)=(issuance_body("late-inclusion-base"),issuance_body("late-inclusion-after-7-dropped"));
-    for (x,y) in a["steps"].as_array().unwrap().iter().zip(b["steps"].as_array().unwrap()){
-        if x["op"][0]=="begin"&&x["op"][1].as_str().unwrap().parse::<u64>().unwrap()<=8{assert_eq!(x["evidence"],y["evidence"],"blocks up to 8 are fixed");}
-    }
-    assert_ne!(a["steps"],b["steps"],"the late credits after block 8 differ");
+    let differ:Vec<u64>=a["steps"].as_array().unwrap().iter().zip(b["steps"].as_array().unwrap())
+        .filter(|(x,y)|x["op"][0]=="begin"&&x["evidence"]!=y["evidence"]).map(|(x,_)|x["op"][1].as_str().unwrap().parse().unwrap()).collect();
+    assert_ne!(a["steps"],b["steps"],"the late credits differ");
+    let fixed=differ[0]-1;
+    assert!(fixed>=8,"blocks up to {fixed} are the same in both");
     let s=Setup::v3(8,60_480);
     let (ha,hb)=(budget_run("base",&a,&s).unwrap(),budget_run("variant",&b,&s).unwrap());
-    for j in 1..=8u64{assert_eq!(ha.closed[&j],hb.closed[&j],"pot {j}");}
-    let later:Vec<u64>=(9..=ha.height).filter(|j|ha.closed[j].3!=hb.closed[j].3).collect();
-    eprintln!("pots that differ after block 8: {later:?}");
-    assert!(!later.is_empty(),"some later pot carries a different base burn");
+    let later=pots_fixed_by_their_blocks(&ha,&hb,fixed).unwrap();
+    eprintln!("blocks whose late credits differ: {differ:?}; pots that differ after block {fixed}: {later:?}");
     assert!(later.iter().all(|j|ha.closed[j].2!=hb.closed[j].2&&ha.closed[j].0==hb.closed[j].0),"only the carry differs (the same issuance and tips)");
+    // The property check itself fails on the planted mutant (the bytecode run without the model's per-step comparison).
+    let list=mutant_programs();
+    let (_,program,code)=list.iter().find(|m|m.0=="base-burn-into-closed-pot").unwrap();
+    let m=Setup::v3(8,60_480).with_program(program,code.clone());
+    let e=pots_fixed_by_their_blocks(&chain_exec(&a,&m),&chain_exec(&b,&m),fixed).err().expect("base-burn-into-closed-pot survives the fixedness check");
+    eprintln!("base-burn-into-closed-pot: {e}");
+    assert!(e.contains("as settle distributed it"),"{e}");
+}
+/// Pots 1..=fixed agree between two runs as closeBlock recorded them and as settle distributed them (each of them settled
+/// in both); returns the later heights whose recorded pot differs (at least one: else the comparison tests nothing).
+fn pots_fixed_by_their_blocks(ha:&Harness,hb:&Harness,fixed:u64)->Result<Vec<u64>,String>{
+    for j in 1..=fixed{
+        ensure_eq!(ha.closed[&j],hb.closed[&j],"pot {j} as closeBlock recorded it");
+        ensure!(ha.distributed.contains_key(&j)&&hb.distributed.contains_key(&j),"pot {j} settled in both runs");
+        ensure_eq!(ha.distributed[&j],hb.distributed[&j],"pot {j} as settle distributed it");
+    }
+    let later:Vec<u64>=(fixed+1..=ha.height).filter(|j|ha.closed[j].3!=hb.closed[j].3).collect();
+    ensure!(!later.is_empty(),"some later pot carries a different base burn");
+    Ok(later)
 }
 
 /// Fails on the original: the earn-in programs with the spec-1 host conventions record every pot as CP 15 + tips (flat
@@ -1534,14 +1560,15 @@ fn issuance_carry_and_tip_split_fail_on_the_earnin_set(){
     }
 }
 
-/// The five planted V3-19/V3-15/V3-20 mutants (compile_system_v3.cjs --mutants, RewardEscrow) each fail the issuance-carry
+/// The six planted V3-19/V3-15/V3-20 mutants (compile_system_v3.cjs --mutants, RewardEscrow) each fail the issuance-carry
 /// vectors, each in the scenario written for it.
 #[test]
 fn the_issuance_carry_mutants_fail_the_v3_vectors(){
     let list=mutant_programs();
     let econ=&list[list.len()-ECON_MUTANTS.len()..];
     let expect=[("carry-not-added","issuance-halving-compressed"),("tip-share-to-pot","tip-split-signed-fallback-accruing-tomb"),
-        ("base-burn-still-burned","carry-fuzz-c-1-to-smax-plus-1"),("issued-ignored-flat-s0","issuance-halving-compressed"),("carry-kept-at-final","final-block-burns-the-carry")];
+        ("base-burn-still-burned","carry-fuzz-c-1-to-smax-plus-1"),("issued-ignored-flat-s0","issuance-halving-compressed"),("carry-kept-at-final","final-block-burns-the-carry"),
+        ("base-burn-into-closed-pot","late-inclusion-base")];
     for ((n,program,code),(want_name,killer)) in econ.iter().zip(expect){
         assert_eq!(n,want_name);assert_eq!(program,"RewardEscrow");
         let original=runtime(V3,program);assert_ne!(code,&original,"{n} changes the bytecode");
@@ -1929,9 +1956,11 @@ mod preview{
 
     /// closeBlock's worst path on the v3 set (V3-15/V3-20): the carry is nonzero (settle(h-D) left a base burn) and the
     /// tip share goes to an ACCRUING proposer at bond 0 whose share exceeds B_reg: accrue fills the bond, promotes it
-    /// (state word, ACC_COUNT, held_total) and the excess is PAID. Measured against a partial fill, a HELD proposer (PAY
-    /// only), a proposer that reports itself in its own block (a tomb: the share burns) and a fallback block; every block's
-    /// keys and accounts within resources::derive.
+    /// (state word, ACC_COUNT, held_total) and the excess is PAID, while held_total is zero (no bond held anywhere: the
+    /// genesis members' bonds were burned by evidence and the probationers are at bond 0), so accrue's held_total store
+    /// goes from zero to nonzero (EIP-2200: 20,000 instead of 2,900). Measured against the same promotion with
+    /// held_total nonzero, a partial fill, a HELD proposer (PAY only), a proposer that reports itself in its own block (a
+    /// tomb: the share burns) and a fallback block; every block's keys and accounts within resources::derive.
     #[test]
     fn v3_close_and_finalize_gas_within_the_v3_envelope(){
         let mut cfg=config(2,&["a","b","c","d"]);for q in ["q0","q1"]{cfg.accounts.push((q.into(),U256::from(20*PCOL)));}
@@ -1959,14 +1988,56 @@ mod preview{
                 _=>{}
             }
         }
-        eprintln!("closeBlock gas {g:?}; settle with a carry write {carry_settle}");
+        let (held_zero_close,held_zero_settle)=(held_zero_gas(false),held_zero_gas(true));
+        g.insert("accruing-promoted-held-zero",held_zero_close);
+        eprintln!("closeBlock gas {g:?}; settle with a carry write {carry_settle}; settle accruing from held_total 0 {held_zero_settle}");
         assert!(carry_settle<=admission::envelope_for("settle",true).unwrap());
+        assert!(held_zero_settle<=admission::envelope_for("settle",true).unwrap());
         let worst=*g.values().max().unwrap();
-        assert_eq!(g["accruing-promoted"],worst,"the promotion is closeBlock's worst path");
+        assert_eq!(g["accruing-promoted-held-zero"],worst,"the promotion from held_total 0 is closeBlock's worst path");
+        assert!(worst>g["accruing-promoted"],"held_total's zero-to-nonzero store costs more");
         assert!(worst<=admission::envelope_for("closeBlock",true).unwrap(),"closeBlock {worst} above the v3 envelope");
         assert!(worst>admission::envelope_for("closeBlock",false).unwrap(),"closeBlock {worst} fits the spec-1 envelope: drop its v3 entry");
     }
     fn b_reg()->U256{U256::from(20*PCOL)}
+    /// A v3 chain on which held_total reaches zero: genesis members a..d at B_reg, probationers q0 and q1 registered at
+    /// bond 0 in block 1, and in blocks 2..5 each genesis member, as the signed proposer, reports itself (type-1 evidence:
+    /// its bond burns, its record is a tomb), so every pot's winner, proposer and shares are tombs and their payments
+    /// burn. Fallback blocks follow up to h = D + 2. `settle_payee`: pot 2's winner is q1 instead, so the measured block's
+    /// settle(2) accrues into q1's bond from held_total 0 (returns settle's gas); otherwise the measured block, signed by
+    /// q0 with 42 PCOL of tips, has a carry to zero and a 21 PCOL tip share that fills q0's bond from held_total 0,
+    /// promotes it and pays the excess (returns closeBlock's gas).
+    fn held_zero_gas(settle_payee:bool)->u64{
+        let mut cfg=config(2,&["a","b","c","d"]);for q in ["q0","q1"]{cfg.accounts.push((q.into(),U256::from(20*PCOL)));}
+        let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..4).map(|i|r.id(i)).collect();
+        let (q0,q1)=(devnet::account_key("q0").address(),devnet::account_key("q1").address());
+        let joins=vec![r.register("q0",0,0),r.register("q1",0,0)];
+        r.block(Proposer::Signed(ids[0]),vec![],joins,ids[1],vec![(1,ids[2])]);
+        for k in 0..4usize{
+            let winner=if settle_payee&&k==0{q1}else{ids[1]};
+            r.block(Proposer::Signed(ids[k]),vec![EvidenceEffect::Punish{accused:ids[k]}],vec![],winner,vec![(1,ids[2])]);
+        }
+        while r.h<u64::from(cp.D)+1{r.block(Proposer::Fallback,vec![],vec![],ids[1],vec![(1,ids[2])]);}
+        let f=apply::chain_facts(&r.state);
+        assert_eq!(f.held_total,U256::ZERO,"no bond is held before the measured block");
+        for (q,i) in [(q0,0),(q1,1)]{assert_eq!(apply::miner_record(&r.state,q).map(|x|(x.bond_state,x.bond)),Some((4,U256::ZERO)),"q{i} ACCRUING at bond 0");}
+        for i in 0..4{assert!(apply::miner_record(&r.state,ids[i]).unwrap().tomb);}
+        let parent=r.state.clone();let j=r.h+1-u64::from(cp.D);
+        assert!(!base_burn(&parent,&cp,j).is_zero(),"a carry to zero");
+        if settle_payee{assert_eq!(pot(&parent,j).2&((U256::from(1)<<160u32)-U256::from(1)),U256::from_be_slice(q1.as_slice()),"pot {j} won by q1");}
+        let o=r.block(Proposer::Signed(q0),vec![],vec![tip_tx(&r,0,U256::from(2_000_000_000_000_000u64))],ids[1],vec![(1,ids[2])]);
+        let b=resources::derive(&cp);
+        assert!(o.meter.keys.len() as u64<=b.keys_normal&&o.meter.accounts.len() as u64<=b.accts_normal,"keys {} accounts {} vs {b:?}",o.meter.keys.len(),o.meter.accounts.len());
+        let gas=|n:&str|o.meter.call_gas.iter().find(|(x,_)|*x==n).unwrap().1;
+        if settle_payee{
+            assert_eq!(apply::miner_record(&o.state,q1).unwrap().bond_state,4);assert!(!apply::miner_record(&o.state,q1).unwrap().bond.is_zero(),"settle(2) filled q1's bond in part");
+            gas("settle")
+        }else{
+            assert_eq!(apply::miner_record(&o.state,q0).map(|x|(x.bond_state,x.bond)),Some((1,b_reg())),"the tip share filled q0's bond and promoted it");
+            assert_eq!(apply::chain_facts(&o.state).held_total,b_reg(),"held_total went from zero to B_reg in closeBlock");
+            gas("closeBlock")
+        }
+    }
 
     /// V3-15 invariant (apply.rs check_escrow_invariant): on the v3 set need = Σpending + held + burned + carry and the carry
     /// is zero after phase 2. A state with a carry and the matching balance is refused as "carry left after phase 2"; with

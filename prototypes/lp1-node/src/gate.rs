@@ -168,6 +168,9 @@ pub struct IdentityFacts {
     pub alloc_root: H256,
     pub sys_code_hash: H256,
     pub alloc_balances: Vec<U256>,
+    /// V3-19: the genesis runs the v3 program set (its sysCodeHash on CP schema v2), whose issuance is the M3 schedule;
+    /// every other program set credits CP 15 per block. The admitting node derives it from sys_code_hash.
+    pub m3_issuance: bool,
 }
 #[derive(Clone, Debug)]
 pub struct Calibration {
@@ -247,13 +250,12 @@ pub fn v3_registry_window_violated(c: &ConsensusParams) -> bool {
     c.schema_version() >= 2 && ((c.U as u128) < c.W_act as u128 + 2 || c.C_react < c.U)
 }
 
-/// R23's issuance term. CP schema v1: CP 15 per block up to H_END (u64::MAX blocks on a continuous profile). CP schema v2
-/// (the v3 programs, V3-19, D-V3-19; lp4-execution issuance.rs): the M3 schedule issuance(h) = max(k >= 256 ? 0 : S0 >> k,
-/// S_tail), k = h / H_half, sums over every height to at most 2·S0·H_half + S_tail·2^64, whatever H_END is.
-/// genesis_builder.rs applies the same term to a genesis that runs the v3 program set (and CP 15 · H_END to one that
-/// names another set on CP schema v2).
-pub fn future_issuance(c: &ConsensusParams, continuous: bool) -> U512 {
-    if c.schema_version() >= 2 {
+/// R23's issuance term, by the program set the genesis runs (as genesis_builder.rs chooses it). The v3 program set (`m3`,
+/// on CP schema v2; V3-19, D-V3-19; lp4-execution issuance.rs): the M3 schedule issuance(h) = max(k >= 256 ? 0 : S0 >> k,
+/// S_tail), k = h / H_half, sums over every height to at most 2·S0·H_half + S_tail·2^64, whatever H_END is. Every other
+/// program set, on either CP schema: CP 15 per block up to H_END (u64::MAX blocks on a continuous profile).
+pub fn future_issuance(c: &ConsensusParams, continuous: bool, m3: bool) -> U512 {
+    if m3 && c.schema_version() >= 2 {
         let mut t = U512::mul_u256_u64(&c.subsidy, c.H_half).shl(1);
         add512(&mut t, &U512::from_u256(&c.S_tail).shl(64));
         t
@@ -357,7 +359,7 @@ pub fn check(
             add512(&mut total, &U512::from_u256(balance));
         }
         add512(&mut total, &U512::mul_u256_u64(&c.B_reg, members as u64));
-        add512(&mut total, &future_issuance(c, continuous));
+        add512(&mut total, &future_issuance(c, continuous, i.m3_issuance));
         total.bits() > 127
     });
     bad[23] = spec.as_ref().map_or(true,|s|s.chain_id!=p.chain_id || s.cp!=c.to_values() || id.map_or(true,|i|s.alloc_root!=i.alloc_root || s.sys_code_hash!=i.sys_code_hash))

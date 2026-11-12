@@ -218,29 +218,39 @@ CP 52, S_tail = CP 53), then `closeBlock(tips, issued)`. A final block calls fin
 
 Pot h is fixed by block h: its carry is the base burn of settle(h - D) in block h's own phase 0, which runs after every
 late credit to h - D (recordLate precedes settle; the carriers are blocks h - D + 1 .. h), so changing late-share
-inclusion after block h never changes pot h (tests/v3_model.py `check_pot_fixed_by_its_block`, tests/v3_contracts.rs
-`pot_j_plus_1_is_fixed_by_block_j_plus_1`).
+inclusion after block h never changes pot h, neither the amount closeBlock(h) records nor the amount settle(h) later
+distributes (tests/v3_model.py `check_pot_fixed_by_its_block`, tests/v3_contracts.rs
+`pot_j_plus_1_is_fixed_by_block_j_plus_1`; both fail on the planted base-burn-into-closed-pot, which adds half of a
+settle's base burn to an already-closed pot).
+
+Open for the owner (V3-DECISIONS.md D-V3-15): block h is the last carrier of template h - D and its own pot receives
+settle(h - D)'s base burn, so its signed proposer gains gamma_bp/10^4 (plus its own winner and pool fraction of pot h) of
+every late share of h - D it leaves out while C < kappa·m.
 
 Escrow invariant (apply.rs `check_escrow_invariant`, v3 set): balance >= Σpending + held + burnedTotal + carry, and the
 carry is zero after phase 2 ("carry left after phase 2" otherwise). The model and the contract harness check the equality
 after every SYSTEM step, inside the block too, where the carry term is nonzero.
 
-Supply bound (genesis_builder.rs for a genesis running the v3 set; lp1-node gate.rs R23 on CP schema v2): allocations +
-genesis bonds + 2·S0·H_half + S_tail·2^64 < 2^127, the M3 schedule summed over every height (issuance.rs module doc).
+Supply bound (genesis_builder.rs and lp1-node gate.rs R23, for a genesis running the v3 set; admission.rs sets the
+gate's `m3_issuance` from the sysCodeHash): allocations + genesis bonds + 2·S0·H_half + S_tail·2^64 < 2^127, the M3
+schedule summed over every height (issuance.rs module doc). Every other program set keeps CP 15 · H_END (u64::MAX blocks
+when continuous) on either CP schema.
 
 SYS footprint (resources::derive on CP schema v2): one key for the carry in every phase class; on normal and closing
 blocks five keys for the tip share's payTo (bond, state word, ACC_COUNT, held_total, burnedTotal) and the proposer's
 reward address as an account even without evidence. SYS gas (tests/v3_contracts.rs v3-preview): closeBlock at its worst
-115,597 (a nonzero carry zeroed and a 21 PCOL tip share to an ACCRUING proposer at bond 0: accrue fills and promotes it,
-the excess PAID; a partial fill 82,492, a HELD proposer 76,743, a tomb 73,795, a fallback block 52,823); finalize 56,802
+132,697 (a nonzero carry zeroed and a 21 PCOL tip share to an ACCRUING proposer at bond 0: accrue fills and promotes it,
+the excess PAID, while held_total is zero, so its store goes from zero to nonzero; the same promotion with held_total
+nonzero 115,597, a partial fill 82,492, a HELD proposer 76,743, a tomb 73,795, a fallback block 52,823); finalize 56,802
 (a nonzero carry burned with the tips as the chain's first burn); settle 6,311,582 on the 256-payee path (C >= kappa·m,
-no carry write; a carry write needs C < kappa·m, so at most 63 payees). Admission composes GAS_ENVELOPE_V3 closeBlock
-116,000 and finalize 57,000 (settle and settleFinal keep 6,314,000). Runtime size: RewardEscrow 5,496 bytes (MinerRegistry
+no carry write; a carry write needs C < kappa·m, so at most 63 payees; a settle accruing from held_total zero has no
+HELD payee: 161,949). Admission composes GAS_ENVELOPE_V3 closeBlock 133,000 and finalize 57,000 (settle and settleFinal
+keep 6,314,000). Runtime size: RewardEscrow 5,496 bytes (MinerRegistry
 10,734 and ShareLedger 3,478 unchanged).
 
 The independent model is tests/v3_model.py (issuance, Chain.close/finalize; vectors tests/v3/issuance-carry-vectors.json:
 the schedule table, a compressed H_half = 4 chain over 6·H_half, the tip split for HELD, fallback, ACCRUING and tombed
-proposers, C from 1 to S_max + 1 with late credits, a random chain, the late-inclusion pair, a final block), with five
+proposers, C from 1 to S_max + 1 with late credits, a random chain, the late-inclusion pair, a final block), with six
 planted model mutants (ECON_MUTANTS) each failing it; tests/issuance_oracle.py --v3 checks the schedule a second time;
-five planted RewardEscrow mutants (carry-not-added, tip-share-to-pot, base-burn-still-burned, issued-ignored-flat-s0,
-carry-kept-at-final) are in tests/v3/system-v3-mutants.json.
+six planted RewardEscrow mutants (carry-not-added, tip-share-to-pot, base-burn-still-burned, issued-ignored-flat-s0,
+carry-kept-at-final, base-burn-into-closed-pot) are in tests/v3/system-v3-mutants.json.

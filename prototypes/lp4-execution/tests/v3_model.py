@@ -41,7 +41,8 @@ penaltyBurn, baseBurn, roundBurn) with the earn-in rule that a payment to an ACC
   tips in the pot. Settlement sends the base burn R - A to the carry (roundBurn, payBurn, penaltyBurn and a whole-pot
   burn still burn), so the carry of block h is the base burn of settle(h - D), computed after every late credit to
   h - D (recordLate precedes settle). The Escrow equality gains the carry term, and after phase 2 the carry is zero.
-  tests/v3/issuance-carry-vectors.json; ECON_MUTANTS are five planted model mutants that each fail it.
+  tests/v3/issuance-carry-vectors.json; ECON_MUTANTS are six planted model mutants that each fail it, and
+  check_pot_fixed_by_its_block fails on base-burn-into-closed-pot too.
 
 tests/v3_contracts.rs replays tests/v3/registry-budget-vectors.json, tests/v3/earnin-on-v3-vectors.json (the earn-in
 model's scenarios re-run here), tests/v3/evidence-penalty-vectors.json and tests/v3/late-share-vectors.json, written by
@@ -554,8 +555,11 @@ CHAIN_DEFAULT = {'m': 32, 'kappa': 2, 'S_max': 256, 'W_w': 8, 'alpha_bp': 1000, 
 
 # V3-PR-E2a planted model mutants (econ_mutants_killed): each must make tests/v3/issuance-carry-vectors.json differ from
 # the model or fail one of its Escrow checks.
+# base-burn-into-closed-pot is the design V3-15 rejects (safety finding 8): half of settle(j)'s base burn is added to the
+# oldest pot still pending, already closed by its block; check_pot_fixed_by_its_block must also fail on it
+# (fixedness_mutant_killed).
 ECON_MUTANTS = ['carry-not-added', 'tip-share-to-pot', 'base-burn-still-burned', 'invariant-missing-carry',
-                'issuance-off-by-one-at-H_half']
+                'issuance-off-by-one-at-H_half', 'base-burn-into-closed-pot']
 MUTANT = None
 
 def issuance(h, cp):
@@ -581,6 +585,7 @@ class Chain:
         self.tips = 0                        # V3-20: tips the block's transactions paid to Escrow (the coinbase)
         self.carry = 0                       # V3-15: base burn of this block's settle(h - D), until closeBlock
         self.final = False                   # set by finalize: the final block's settleFinal burns its base burns
+        self.settled = {}                    # j -> pot j's amount when settle(j) or settleFinal(j) distributed it
         self.height = 0
         self.proposer = ''
 
@@ -689,6 +694,7 @@ class Chain:
     def _settle(self, j):
         pot = self.pots.pop(j)
         amount = pot['amount']
+        self.settled[j] = amount
         if pot['invalid']:
             self.reg.burned += amount
             return
@@ -709,6 +715,9 @@ class Chain:
         self.reg.burned += a - paid                      # roundBurn
         if MUTANT == 'base-burn-still-burned' or self.final:
             self.reg.burned += r - a
+        elif MUTANT == 'base-burn-into-closed-pot' and self.pots:
+            self.pots[min(self.pots)]['amount'] += (r - a) // 2
+            self.carry += r - a - (r - a) // 2
         else:
             self.carry += r - a                          # V3-15: the base burn goes to the carry
 
@@ -1162,7 +1171,9 @@ def run_issuance_chain(seed, blocks, cp, late_p=0.3, tip_p=0.4, c_cycle=None):
     return sc.steps
 
 def pots_at_close(steps, cp):
-    """Pot h's amount as closeBlock(h) recorded it, for every h."""
+    """For every h: (pot h's amount as closeBlock(h) recorded it, the amount settle(h) distributed, or the amount still
+    pending at the chain's end when settle(h) has not run). The second is what V3-15 fixes: a design that adds value to
+    an already-closed pot later (safety finding 8's rejected shape) changes it, never the first."""
     ch, out = Chain(cp), {}
     for st in steps:
         op, args = st[0], st[1:]
@@ -1172,7 +1183,7 @@ def pots_at_close(steps, cp):
             out[args[0]] = ch.close(*args)[1]
         else:
             getattr(ch.reg, op)(*args)
-    return out
+    return {h: (a, ch.settled[h] if h in ch.settled else ch.pots[h]['amount'], h in ch.settled) for h, a in out.items()}
 
 def late_inclusion_variant(steps, after, rng):
     """The same chain with the late credits of every block after `after` changed: each late item dropped with
@@ -1187,22 +1198,39 @@ def late_inclusion_variant(steps, after, rng):
 
 def check_pot_fixed_by_its_block(seed=7, blocks=40):
     """V3-15 test (V3-DESIGN.md): changing LS inclusion after block j+1 (block j+1 fixed) never changes pot j+1, nor any
-    pot up to j+1: pot h depends only on blocks 1..h. Positive control: some later pot does change (the carry of
-    settle(j') follows the late credits to j', which its carriers up to the settling block commit)."""
+    pot up to j+1: pot h depends only on blocks 1..h. Compared is both the amount closeBlock(h) recorded and the amount
+    settle(h) distributed (or still pending at the end), so value added to a closed pot after its block fails the check.
+    Positive controls: some later pot does change (the carry of settle(j') follows the late credits to j', which its
+    carriers up to the settling block commit), and the compared pots include settled ones."""
     cp = {'m': 4, 'S_max': 16}
     base = run_issuance_chain(seed, blocks, cp, late_p=0.8)
     pots = pots_at_close(base, cp)
     rng = random.Random(seed)
-    changed_later = 0
+    changed_later = settled_compared = 0
     for j in range(1, blocks - 1):
         variant = late_inclusion_variant(base, j + 1, rng)
         if variant == base:
             continue
         other = pots_at_close(variant, cp)
         assert all(other[h] == pots[h] for h in range(1, j + 2)), ('pot fixed by its block', j)
-        changed_later += any(other[h] != pots[h] for h in range(j + 2, blocks + 1))
+        settled_compared += sum(pots[h][2] for h in range(1, j + 2))
+        changed_later += any(other[h][0] != pots[h][0] for h in range(j + 2, blocks + 1))
     assert changed_later > 0, 'the late credits never moved a later pot: the check tests nothing'
+    assert settled_compared > 0, 'no compared pot was settled: the settle-time amount is not tested'
     return changed_later
+
+def fixedness_mutant_killed():
+    """check_pot_fixed_by_its_block fails on base-burn-into-closed-pot (value moved into an already-closed pot at settle
+    time, which a close-time comparison alone cannot see)."""
+    global MUTANT
+    MUTANT = 'base-burn-into-closed-pot'
+    try:
+        check_pot_fixed_by_its_block()
+    except AssertionError as e:
+        return str(e.args[0] if e.args else e)
+    finally:
+        MUTANT = None
+    raise AssertionError('base-burn-into-closed-pot survives check_pot_fixed_by_its_block')
 
 def issuance_vectors():
     v = {'schedule': {'cases': schedule_cases()}}
@@ -1472,6 +1500,7 @@ if __name__ == '__main__':
             print('PASS v3 model matches', name)
     print('PASS pot h is fixed by block h: dropping later late credits moved a later pot in',
           check_pot_fixed_by_its_block(), 'variants and never an earlier one')
+    print('PASS the fixedness check fails on base-burn-into-closed-pot:', fixedness_mutant_killed())
     econ = econ_mutants_killed()
     print(f'PASS every one of {len(econ)} planted issuance/carry/tip mutants fails the issuance-carry vectors:',
           ', '.join(f'{m} ({k})' for m, k in econ.items()))
