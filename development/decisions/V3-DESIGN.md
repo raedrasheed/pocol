@@ -909,10 +909,13 @@ never lowered, across it (`genesis_builder.rs:60`).
 **User bound (D-V3-21, owner option A, 2026-11-12; implemented dormant, v3 only).**
 - A nonzero burn is charged only if `gas_used·effective_price + burn ≤ max_fee·gas_limit` (types 0/1: the gas
   price; the value stays separate, as in the Ethereum balance pre-check); otherwise `Halt::CreationFee`.
-- That halt charges the executed gas, not the declared gas, so a builder order that raises the burn past the
-  maximum cannot convert the burn allowance in gas_limit into a gas charge (decided under the owner rule).
+- That halt charges the spent gas (before refunds), not the declared gas, so a builder order that raises the
+  burn past the maximum cannot convert the burn allowance in gas_limit into a gas charge through it (decided
+  under the owner rule). Other order-dependent cap halts (LogCount, AcctCap, ...) still charge the declared
+  gas, so under hostile ordering the loss bound is the signed `max_fee·gas_limit`.
 - One transaction burns at most `max_fee·GAS_LIMIT` minus its gas cost. eth_estimateGas covers the burn with a
-  4-unit occupancy margin; `pocol_quoteCreationBurn` quotes it. Details: V3-EXECUTION-FEES.md, "The signed
+  margin of 4 creations ahead per class (4·B_code_max code bytes); a fixed 21000-gas transfer to a new address
+  is refused; `pocol_quoteCreationBurn` quotes it. Details: V3-EXECUTION-FEES.md, "The signed
   maximum fee".
 - Principle check: a function of the transaction and ancestor state (Q2.4); classified burn (Q4.3); Q5 untouched.
 

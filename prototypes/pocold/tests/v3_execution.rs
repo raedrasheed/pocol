@@ -367,7 +367,25 @@ mod preview{
         let mut poor=fresh();poor.state.get_mut(&env.caller).unwrap().info.balance=burn.accounts-U256::from(1);let kept=poor.state[&env.caller].info.balance;
         assert_eq!(user_phase::charge_creation(db,&mut poor,env.caller,user_phase::SignedFee::of(&env),&ctx(&n),&n.profile,live,total),Err(Halt::CreationFee));
         assert_eq!(poor.state[&env.caller].info.balance,kept);assert!(poor.result.logs().is_empty());
-        let quoted=user_phase::quote_creation(db,&fresh(),&ctx(&n),&n.profile,live,total,0).unwrap();assert_eq!(quoted,burn);
+        let quoted=user_phase::quote_creation(db,&fresh(),&ctx(&n),&n.profile,live,total,[0;3]).unwrap();assert_eq!(quoted,burn);
+    }
+
+    /// The estimate's margin is per class (accounts, slots, code bytes): each drift moves only its own
+    /// class, and the code drift counts bytes, so a margin of whole deployments is d·B_code_max bytes.
+    #[test]
+    fn the_quote_drift_prices_each_class_at_its_own_margin(){
+        let sys=count(net(true,|_|{}).genesis.state()).inventory();let bmax=u64::from(net(true,|_|{}).profile.cp().B_code_max);
+        let n=net(true,|c|{c.code_cap=sys+8*bmax;c.f0_code=U256::from(1_000_000u64)});let db=n.genesis.state();let raw=tx(0,None,0,init(&[0;80]),400000);
+        let env=wire::decode_for_profile(&raw,&n.profile).unwrap().tx_env();let s=count(db);let live=(s.user_slots,s.user_accounts);let total=s.inventory();
+        let r=native::execute_on_validated(db,total,env,&ctx(&n),&n.profile).unwrap();let cp=n.profile.cp();
+        let q=|drift|user_phase::quote_creation(db,&r,&ctx(&n),&n.profile,live,total,drift).unwrap();
+        let base=q([0;3]);assert!(base.accounts>U256::ZERO&&base.code>U256::ZERO,"{base:?}");assert_eq!(base.slots,U256::ZERO);
+        let f0=|v:u128|U256::from(v);
+        let accts=q([4,0,0]);assert_eq!(accts.accounts,creation_fees::price(f0(1000),cp.ACCT_CAP,s.user_accounts+4,1).unwrap());assert_eq!(accts.code,base.code);
+        let bytes=4*u64::from(cp.B_code_max);let code=q([0,0,bytes]);
+        assert_eq!(code.code,creation_fees::price(f0(1_000_000),cp.CODE_CAP,total+bytes,80).unwrap());assert_eq!(code.accounts,base.accounts);
+        assert!(code.code>q([0,0,4]).code,"4 deployments of the largest size cost more than 4 bytes");
+        assert_eq!(q([0,0,u64::MAX]).code,creation_fees::price(f0(1_000_000),cp.CODE_CAP,cp.CODE_CAP-80,80).unwrap(),"clamped so the deployment still fits");
     }
 
     /// A 1559 transfer with explicit fee fields, signed by `key`.
@@ -510,6 +528,25 @@ mod preview{
             let after=count(o.state());assert_eq!((after.user_accounts,after.user_slots,after.code_total),(before.user_accounts,before.user_slots,before.code_total));
             assert_eq!(sum(&db)-sum(o.state()),U512::from(executed*100));
         }
+    }
+
+    /// A CreationFee halt discards every effect, including the storage clear that earned an EIP-3529
+    /// refund, so it charges the gas spent before the refund (gas_used + gas_refunded), as a revert of
+    /// the same work would, never less. Here slot 0 (5) is cleared and slot 1 is created: the new slot's
+    /// burn is unpayable, the transaction halts, the sender pays the spent gas and slot 0 keeps its value.
+    #[test]
+    fn a_creation_fee_halt_charges_the_gas_spent_before_the_refund(){
+        let n=net(true,|c|{c.f0_acct=U256::ZERO;c.f0_slot=U256::from(10u128.pow(30))});let a=new_address(62);let mut db=n.genesis.state().clone();
+        code(&mut db,a,vec![0x60,0,0x60,0,0x55,0x60,9,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(5)).unwrap();
+        let raw=tx(0,Some(a),0,vec![],100000);let env=wire::decode_for_profile(&raw,&n.profile).unwrap().tx_env();
+        let (gas_used,gas_refunded)=match native::execute_on_validated(&db,count(&db).inventory(),env,&ctx(&n),&n.profile).unwrap().result{
+            revm::primitives::ExecutionResult::Success{gas_used,gas_refunded,..}=>(gas_used,gas_refunded),other=>panic!("{other:?}")};
+        assert_eq!(gas_refunded,4800,"the slot clear earns the EIP-3529 refund");let spent=gas_used+gas_refunded;assert!(spent<100000);
+        let free=net(true,|c|{c.f0_acct=U256::ZERO;c.f0_slot=U256::ZERO});assert_eq!(run(&free,&db,&[raw.clone()]).commitments().gas_used,gas_used,"a success pays after the refund");
+        let o=run(&n,&db,&[raw]);assert_eq!(o.halts(),&[(0,Halt::CreationFee)]);assert_eq!(o.creation_burn(),Default::default());
+        assert_eq!(o.commitments().gas_used,spent);assert_eq!(o.receipts()[0],receipts::encode(2,false,spent,&[]).unwrap());
+        let alice=devnet::account_key("alice").address();assert_eq!(db.accounts[&alice].info.balance-o.state().accounts[&alice].info.balance,U256::from(spent*107));
+        assert_eq!(o.tips(),U256::from(spent*7));assert_eq!(o.state().slot(&a,&U256::ZERO),U256::from(5));assert_eq!(o.state().slot(&a,&U256::from(1)),U256::ZERO);
     }
 
     #[test]

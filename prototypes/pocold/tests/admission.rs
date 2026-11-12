@@ -148,8 +148,8 @@ impl pocol_lp4_execution::node_trie::TrieStore for Held<'_>{
 }
 /// The continuous single-host profile the held-store tests boot.
 fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000,&["one","two","three"]);c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.h_end=0;c.h_close=0;c}
-/// One durable commit stalled past the execution limit is reported and counted at the median commit, so it cannot
-/// refuse boot; a sustained execution slowdown is refused.
+/// One durable commit stalled past the execution limit is reported and counted at the median commit (it is among the
+/// calibration's largest max(1, n/4) commits), so it cannot refuse boot; a sustained execution slowdown is refused.
 #[test] fn isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused(){
     use pocol_lp4_execution::admission;
     use std::sync::atomic::Ordering;

@@ -186,10 +186,11 @@ fn phase_gas(cp:&ConsensusParams,class:u8,set:ProgramSet)->Option<Vec<u64>>{
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Timing{pub genesis_hash:[u8;32],
     /// What R14/R19 compare with t_exec, per phase class (ordinary, closing, final), ms: the largest per-block cost, where a
-    /// block's cost is its median execution time plus, in store mode, its durable commit. The calibration's single largest
-    /// commit is counted at the (lower) median commit instead, so with at least two timed blocks one outlier write cannot
-    /// refuse a boot, but a disk whose typical commit takes longer than t_exec is refused. With one timed block its commit
-    /// is counted (only the boot's retry tolerates a stall). In memory (no commit) this is `exec_ms`.
+    /// block's cost is its median execution time plus, in store mode, its durable commit. The calibration's largest
+    /// max(1, n/4) of its n commits are counted at the (lower) median commit instead, so with at least two timed blocks
+    /// isolated outlier writes (up to a quarter of them, at least one) cannot refuse a boot, but a disk whose typical
+    /// commit takes longer than t_exec, or that is slow on more than that many writes, is refused. With one timed block
+    /// its commit is counted (only the boot's retry tolerates a stall). In memory (no commit) this is `exec_ms`.
     pub phase_ms:[u64;3],pub samples:u32,
     /// The blocks also went through a node store (`measure_on_store`), each committed durably: the timing of a
     /// node that keeps its states there (C-1 store mode).
@@ -202,7 +203,7 @@ pub struct Timing{pub genesis_hash:[u8;32],
     pub store_median_ms:u64}
 impl Timing{
     pub fn to_json(&self)->serde_json::Value{serde_json::json!({"genesisHash":crate::hex::encode(&self.genesis_hash),"phaseMs":self.phase_ms,"samples":self.samples,"stored":self.stored,"execMs":self.exec_ms,"storeMs":self.store_ms,"storeMedianMs":self.store_median_ms,
-        "method":if self.stored{"apply_block on a scratch copy of the genesis, and apply_block_on through a scratch node store with each block's nodes committed durably; per phase the larger of the two paths' largest per-block cost, a block's cost being its median execution time plus (store path) its durable commit, with the single largest commit counted at the median commit; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps"}
+        "method":if self.stored{"apply_block on a scratch copy of the genesis, and apply_block_on through a scratch node store with each block's nodes committed durably; per phase the larger of the two paths' largest per-block cost, a block's cost being its median execution time plus (store path) its durable commit, with the largest max(1, n/4) of the n commits counted at the median commit; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps"}
             else{"apply_block on a scratch copy of the genesis; largest per-block median execution time per phase; every block carries a GAS_LIMIT compute loop; closing and final reached by timestamps"}})}
     pub fn from_json(v:&serde_json::Value)->Option<Self>{
         let h=crate::hex::decode(v["genesisHash"].as_str()?)?;let p=v["phaseMs"].as_array()?;
@@ -441,7 +442,7 @@ fn conditions(cp:&ConsensusParams,set:ProgramSet,r:&Request<'_>,l:&NodeLocal,tim
     if matches!(r.calibration,Some((_,FactClass::SyntheticFixture))){add("calibration-synthetic",&["R25"],"calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate".into())}
     if cp.H_END==0{add("continuous-protocol",&["R13","R19","R23"],"No scheduled height/time shutdown; only ordinary execution is reachable; its measured timing fills all legacy phase slots. Supply is bounded over the representable u64 height domain, not a network expiration.".into())}
     if let Some(t)=timing{add("timing-not-a-bound",&["R14","R19"],format!("timing: {} apply samples of the synthetic GAS_LIMIT compute workload on this host{}; not a p99 or worst-case bound (A13-DERIVATION §4)",t.samples,
-        if t.stored{", in memory and through a scratch node store committed durably per block (store mode), per phase the largest per-block median execution plus that block's durable commit, the single largest commit counted at the median commit"}else{""}))}
+        if t.stored{", in memory and through a scratch node store committed durably per block (store mode), per phase the largest per-block median execution plus that block's durable commit, the largest max(1, n/4) of the n commits counted at the median commit"}else{""}))}
     if in_gas_domain(cp){add("gas-monotonicity-assumed",&["R18"],gas_condition(set))}
     for d in deferred{add(match *d{"LP4:general-R21"=>"gate-deferred-general-R21","LP4:general-R18"=>"gate-deferred-general-R18",_=>"gate-deferred-caps64"},
         if d.ends_with("R21"){&["R21"]}else{&["R18"]},format!("gate: deferred LP3 obligation {d}"))}
@@ -469,7 +470,7 @@ pub fn measure(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32)->Result<Timing,St
 /// `measure` for a node that keeps its states in a node store (C-1 store mode): the same blocks, each applied
 /// with `apply_block_on` to the parent version read in place, its trie updated, its root computed and its nodes
 /// committed to `store` (durably for pocold's state.redb). A block's cost is its median execution time plus its commit;
-/// the single largest commit of the calibration is counted at the median commit (see `Timing::phase_ms`). `store`
+/// the largest max(1, n/4) of the calibration's n commits are counted at the median commit (see `Timing::phase_ms`). `store`
 /// should be a scratch store on the node's own disk; every version the measurement pins is released at the end.
 pub fn measure_on_store(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:&dyn crate::node_trie::TrieStore)->Result<Timing,String>{
     measure_run(spec_bytes,alloc,repeats,Some(store)).map(|(t,_,_)|t)}
@@ -560,19 +561,27 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
     Ok((Timing{genesis_hash:hash,phase_ms,samples,stored:store.is_some(),exec_ms,store_ms,store_median_ms},gas_log,roots))
 }
 /// R14/R19 per timed block (phase class, median execution, durable commit): median execution plus its commit.
-/// Exactly one commit, the largest, is counted at the lower median commit, so one stalled write (a flush queued
-/// behind other writers) cannot refuse a boot when at least two blocks were timed, while a disk whose typical commit
-/// exceeds t_exec still is. With a single timed block that block's commit is its own median: it is counted, and
-/// only the boot's one retry tolerates a stall. Returns phase_ms, exec_ms, the largest and the lower median commit.
+/// The largest max(1, n/4) of the n commits are counted at the lower median commit (ties: the earlier block), so
+/// isolated stalled writes (a flush queued behind other writers, an fsync spike), up to a quarter of the writes and at
+/// least one, cannot refuse a boot when at least two blocks were timed, while a disk whose typical commit exceeds
+/// t_exec, or that stalls on more writes than that, still is. With a single timed block that block's commit is its
+/// own median: it is counted, and only the boot's one retry tolerates a stall. Returns phase_ms, exec_ms, the largest
+/// and the lower median commit.
 pub(crate) fn block_costs(costs:&[(usize,u64,u64)])->([u64;3],[u64;3],u64,u64){
     let mut commits:Vec<u64>=costs.iter().map(|c|c.2).collect();commits.sort_unstable();
     let store_ms=commits.last().copied().unwrap_or(0);
     // The lower median: with two timed blocks it is the smaller commit, not the outlier itself.
     let store_median_ms=commits.get(commits.len().saturating_sub(1)/2).copied().unwrap_or(0);
-    let outlier=costs.iter().enumerate().max_by_key(|(_,c)|c.2).map(|(i,_)|i);
+    // Isolated stalls: the largest max(1, n/4) commits are counted at the lower median. One stalled write cannot refuse a
+    // boot (the owner's ParamGate decision, 2026-11-11), nor can the occasional fsync spikes of a host whose disk is
+    // otherwise fast (seen on the Windows CI runners: 3 of 22 commits at 1-4 s, median 439 ms). A disk whose typical
+    // (lower-median) commit is past t_exec, or that is slow on more than max(1, n/4) of its writes, is still refused.
+    let outliers=(costs.len()/4).max(1);
+    let mut by_commit:Vec<usize>=(0..costs.len()).collect();by_commit.sort_by_key(|&i|std::cmp::Reverse(costs[i].2));
+    let outlier:Vec<usize>=by_commit.into_iter().take(outliers).collect();
     let (mut phase_ms,mut exec_ms)=([0u64;3],[0u64;3]);
     for (i,&(class,exec,commit)) in costs.iter().enumerate(){
-        let commit=if Some(i)==outlier{store_median_ms}else{commit};
+        let commit=if outlier.contains(&i){store_median_ms}else{commit};
         exec_ms[class]=exec_ms[class].max(exec);phase_ms[class]=phase_ms[class].max(exec.saturating_add(commit));
     }
     (phase_ms,exec_ms,store_ms,store_median_ms)

@@ -70,8 +70,8 @@ value. Deduct only after all classes are quoted and the total is payable, and
 only within the signed maximum fee (D-V3-21, next section). A charge past that
 maximum, unpaid or overflowing halts with `Halt::CreationFee` on the existing
 exceptional-halt path: discard the native effects and logs, increment the
-original sender nonce, charge the executed gas (not the declared gas; see "The
-signed maximum fee") and credit only its gas tips to Escrow. The block remains
+original sender nonce, charge the spent gas before refunds (not the declared
+gas; see "The signed maximum fee") and credit only its gas tips to Escrow. The block remains
 valid.
 A later block-cap halt also discards the provisional creation charge. Native
 reverts pay no creation fee. Pool admission refuses such unpayable effects;
@@ -106,22 +106,46 @@ transaction's signed fields. Spec-1 is unchanged: `charge_creation` returns no
 burn and no halt unless `v3_active(height)`.
 
 **Halt charge (decided under the owner rule).** A `Halt::CreationFee` charges
-the executed gas `gas_used` at the effective price (tips on that gas to Escrow;
+the gas the execution spent, at the effective price (tips on that gas to Escrow;
 the block's gas used and the receipt's cumulative gas count it), never the
-declared gas_limit. Every other A03 cap halt keeps the declared gas. Reason:
-under option A a wallet raises gas_limit above the execution's gas so that
-`max_fee*gas_limit` also carries the burn. The burn's price is set by the
-occupancy at inclusion, which the builder's order sets. Charging the declared
-gas when that order pushes the burn past the maximum would turn the sender's
-unused burn allowance into a gas charge, which a hostile proposer could cause
-on purpose. With the executed gas the sender pays what the execution cost,
-gets no effects and pays no burn, so its loss is `gas_used*effective_price <=
-max_fee*gas_limit`. The halt is not cheaper than an ordinary revert of the same
-work, so it opens no spam discount. Principle check: a function of the
-transaction and ancestor state (Q2.4); burns stay classified (Q4.3); collaborative
-consensus, the template block and fork choice are untouched; constants and
-identity are unchanged. No current balance-only CreationFee halt remains
-reachable for an engine result, so this rule covers every CreationFee halt.
+declared gas_limit. The spent gas is taken before the EIP-3529 refund
+(`gas_used + gas_refunded` of the successful native result, at most gas_limit):
+the halt discards every effect, including the storage clears that earned the
+refund, so it is priced like a revert of the same work (revm applies refunds
+only on success) and opens no spam discount against a revert. Every other A03
+cap halt keeps the declared gas. Reason: under option A a wallet raises
+gas_limit above the execution's gas so that `max_fee*gas_limit` also carries
+the burn. The burn's price is set by the occupancy at inclusion, which the
+builder's order sets. Charging the declared gas when that order pushes the burn
+past the maximum would turn the sender's unused burn allowance into a gas
+charge, which a hostile proposer could cause on purpose. With the spent gas the
+sender pays what the execution cost, gets no effects and pays no burn, so on
+this route its loss is `spent*effective_price <= max_fee*gas_limit`. Principle
+check: a function of the transaction and ancestor state (Q2.4); burns stay
+classified (Q4.3); collaborative consensus, the template block and fork choice
+are untouched; constants and identity are unchanged. No current balance-only
+CreationFee halt remains reachable for an engine result, so this rule covers
+every CreationFee halt.
+
+**Residual under hostile ordering (not closed).** The spent-gas rule closes the
+CreationFee route only. A hostile proposer can still order a block so that the
+transaction meets another order-dependent A03 cap halt, which charges the
+declared gas: for example its own transactions ahead fill the block's log count
+(`V3_LOG_COUNT_MAX = 4368`; at 375 gas per LOG0 about 1.6M gas), and every
+transaction with a nonzero burn emits at least its CreationFeeBurn log, so it
+halts with LogCount; filling the remaining account or slot units ahead
+(AcctCap/SlotCap) is another, costlier route, and so are LogBytes, LogCap and
+the dirty-key/account caps. Such a block is valid, and the sender pays its whole
+declared `gas_limit*effective_price`, which under option A includes the gas it
+added to carry the burn, for no effect. The guaranteed loss bound under hostile
+ordering is therefore the owner's bound itself, the signed `max_fee*gas_limit`:
+never more than the sender signed, but not only its spent gas. This was already
+true of A03 cap halts before option A (any transaction that logs can be pushed
+into a LogCount halt); option A raises the declared gas that such a halt
+charges. Extending the spent-gas charge to these halts would change A03's
+full-gas anti-spam semantics and is not part of option A. The honest builder
+never includes a transaction that would halt (it skips a CreationFee and any
+cap halt in its own order).
 
 **Per-transaction burn ceiling.** Since gas_limit <= GAS_LIMIT, one transaction
 can burn at most `max_fee*GAS_LIMIT - gas_used*effective_price`. Creating a unit
@@ -138,16 +162,35 @@ it signed. The anti-fill cost of the pricing rule is unchanged.
 **Estimation and quote.** eth_estimateGas finds a gas limit whose
 `max_fee*gas_limit` covers the burn: its first run, at the largest affordable
 limit, must pass the bound at the current occupancy (otherwise the error names
-CreationFee); its binary search requires the bound with the burn priced at
-`ESTIMATE_DRIFT_UNITS = 4` more occupied units of each class (accounts, slots,
-code bytes), clamped so the additions still fit the cap. The margin absorbs a
-few creations included ahead of the transaction; it is not a guarantee, and the
-consensus bound limits the loss when it is exceeded. The price used for the
-gas term is the request's maxFeePerGas/gasPrice and maxPriorityFeePerGas, or
-the predicted base fee; a wallet that then signs a higher max_fee is still
-covered. `pocol_quoteCreationBurn` (node-local, v3 profiles only, network.md
-"Creation burn quote") returns the burn split by class, its total and the gas,
-at the head's occupancy, priced like the estimate's first run.
+CreationFee); its binary search requires the bound with the burn priced as if a
+few more creations were included ahead (`ESTIMATE_DRIFT_UNITS = 4`): 4 more
+occupied accounts, 4 more slots and `4*B_code_max` more code bytes (4
+deployments of the largest size), each clamped so the additions still fit the
+cap. The margin absorbs a few creations included ahead of the transaction; it
+is not a guarantee, and the consensus bound limits the loss when it is
+exceeded. The margin applies only when a limit below the first run's passes
+it: when none does, or when the funds or the request's gas cap leave less than
+1000 gas to search, the estimate is the first run's limit, which is checked
+only at the current occupancy. The price used for the gas term is the request's
+maxFeePerGas/gasPrice and maxPriorityFeePerGas, or the predicted base fee; a
+wallet that then signs a higher max_fee is still covered. `pocol_quoteCreationBurn`
+(node-local, v3 profiles only, network.md "Creation burn quote") returns the
+burn split by class, its total and the gas, at the head's occupancy, priced
+like the estimate's first run.
+
+**Client consequence: no fixed 21000-gas creating transfers.** Under v3 a
+transaction whose effects create an account, slot or code needs a gas_limit
+above its executed gas, at least
+`ceil((gas_used*effective_price + burn) / max_fee)`. With gas_limit = 21000 =
+gas_used a type 0/1 transfer has no room at all (its effective price is its
+max_fee), and a type 2 transfer has only `21000*(max_fee - effective_price)`,
+about 2·10^13 wei at a 1 gwei base fee with max_fee = 2·base fee, below the
+first account's price F0_acct = 10^15 wei. So a plain transfer to a new address
+signed with the hard-coded 21000 (common in scripts, library defaults and
+wallets that skip eth_estimateGas for code-less recipients) is refused by the
+pool (`-32000 creation charge would halt (CreationFee)`) and skipped by the
+builder. Clients must use eth_estimateGas, or add the burn from
+`pocol_quoteCreationBurn`, to set the gas limit.
 
 The pool refuses a submission whose burn would pass its signed maximum on the
 pending state; the builder reprices in its own order and skips one that would
@@ -211,7 +254,8 @@ builder chooses that order (its big-first slot included); an earlier
 transaction can raise the price, up to F0*CAP for the last free unit. Since
 option A that order can no longer charge a sender more than it signed: if the
 burn would pass `max_fee*gas_limit`, the transaction halts with CreationFee and
-pays only its executed gas. This closes the open pre-launch item of D-V3-21;
+pays only its spent gas (other order-dependent cap halts still charge the
+declared gas; see "Residual under hostile ordering"). This closes the open pre-launch item of D-V3-21;
 the `D-V3-21 creation-burn user bound` entry has left `V3_LAUNCH_BLOCKERS`
 (`lp4-execution/src/admission.rs`), which is now empty. The gate and its call in
 `admit` stay so that a later blocker is enforced again. Admission of a v3

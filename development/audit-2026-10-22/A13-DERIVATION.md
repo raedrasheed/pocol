@@ -1103,14 +1103,27 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
     - execution `e` = the median of at least three timed runs of `apply_block_on`, the trie update and the root
       (in memory: `apply_block`);
     - commit `c` = one timed durable commit of that block's nodes (0 in memory).
-    - The block's cost is `e + c`. Exactly one commit of the calibration, the largest, is counted at the median
-      commit of the calibration instead of its own time (the lower median for an even number of timed blocks, so
-      with two blocks it is the other block's commit).
+    - The block's cost is `e + c`. With `n` timed blocks, the largest `k = max(1, ⌊n/4⌋)` commits of the
+      calibration are counted at the median commit of the calibration instead of their own times (the lower median
+      for an even number of timed blocks, so with two blocks it is the other block's commit; equal commits: the
+      earlier blocks are replaced). Before branch `admission-commit-outliers` (2026-11-12) exactly one commit, the
+      largest, was replaced; that is still the rule for one to seven timed blocks.
     - `phase_ms` (what R14/R19 compare with t_exec, unchanged at 1 s) is, per phase class, the largest block cost.
-      With at least two timed blocks, one stalled write therefore cannot refuse a boot. A second stalled commit is
-      counted, and so is a disk whose typical (median) commit exceeds t_exec: such a host is refused. A finite
-      profile with `H_END = 1` has one timed block; its commit is its own median and is counted, so there only
-      the retry below tolerates a stall. Default and continuous profiles time at least six blocks.
+      With at least two timed blocks, isolated stalled writes (up to `k` of them, at least one) therefore cannot
+      refuse a boot. A `(k+1)`-th stalled commit is counted, and so is a disk whose typical (lower-median) commit
+      exceeds t_exec: such a host is refused. A finite profile with `H_END = 1` has one timed block; its commit is
+      its own median and is counted, so there only the retry below tolerates a stall. Default and continuous
+      profiles time at least six blocks.
+    - Why a quarter, not one (2026-11-12): on the Windows CI runner the pocold test
+      `isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused` was refused with
+      `phase_ms=[2256, 2256, 2256]`, `execution_ms=[14, 14, 14]`, `store_fsync_ms=4169`,
+      `store_fsync_median_ms=439`, `samples=66` (22 timed blocks): three of the 22 commits were slow (the
+      test's one held commit and the runner's natural multi-second fsync spikes). Only the largest was replaced,
+      so the next one (2256 − 14 = 2,242 ms) reached R14/R19. A real Windows node would be refused at
+      boot the same way, against the owner's PG-2 ("one slow disk write must not refuse a boot"). With `k = 5`
+      for 22 blocks those spikes are replaced, while a disk slow on every write, or on more than k of them
+      (k = max(1, ⌊n/4⌋)), is still refused. Node-local only: no validity rule, root, fork choice or consensus
+      identity changes.
     - Reported, not compared: `execution_ms` (the largest `e` per phase), `store_fsync_ms` (the largest `c`),
       `store_fsync_median_ms`, the sample count and `t_exec_ms`. One `timing:` line carries them: on a
       successful boot `pocold run` prints it to stderr (`pocold: ParamGate admitted, timing: ...`, from
@@ -1123,8 +1136,12 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
       `execution_ms=[12, 12, 12]`, `store_fsync_ms=1058`, `store_fsync_median_ms=1051` on this host) and
       `isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused` (one held commit:
       admitted, `phase_ms=[14, 14, 14]`, `store_fsync_ms=1051`); `lp4-execution` admission unit test
-      `the_store_calibration_times_each_block_commit` (every commit, one, or two commits slow) and
-      `the_single_largest_commit_is_counted_at_the_lower_median` (the rule for one to four timed blocks).
+      `the_store_calibration_times_each_block_commit` (every commit, one, or `k+1` commits slow) and
+      `the_largest_quarter_of_commits_is_counted_at_the_lower_median` (exact outputs for one to four timed blocks,
+      `k = 1`; eight blocks with two stalls tolerated and three counted, `k = 2`; the 22-block Windows evidence,
+      reconstructed with median 439 ms and stalls of 1,500, 2,242 and 4,169 ms: `phase_ms=[494, 0, 0]` instead of
+      2,256 ms; a lower-median commit past t_exec; six stalls among 22; and
+      `k` tolerated, `k+1` counted, for every `n` from 2 to 64).
     - The owner's two decisions behind this (2026-11-11) are recorded in
       [development/decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md](../decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md).
   - The admission condition `timing-not-a-bound` says that the store was included and how a block's cost is

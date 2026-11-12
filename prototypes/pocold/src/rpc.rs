@@ -986,8 +986,10 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             let o=p.first().ok_or(bad("call"))?;let tag=Value::String("latest".into());
             // V3 (D-V3-21 option A): a creation burn must fit in max_fee*gas_limit with the gas, so the
             // search finds the gas limit that also covers the burn. The first run (the largest limit)
-            // needs the burn at the current occupancy; the search needs it at ESTIMATE_DRIFT_UNITS more
-            // occupied units, so a little growth before inclusion does not halt the transaction.
+            // needs the burn at the current occupancy; the search needs it at the ESTIMATE_DRIFT_UNITS
+            // margin (`estimate_drift`), so a little growth before inclusion does not halt the transaction.
+            // When no smaller limit passes the margin (or the funds/request cap leaves under 1000 gas to
+            // search), the first run's limit is returned, checked only at the current occupancy.
             let first=simulate(n,o,&tag,Some(cp.GAS_LIMIT),b,Pricing::Charge)?;
             let used=match first.result{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
             let (mut lo,mut hi)=(used,first.gas_limit);
@@ -1106,16 +1108,22 @@ fn rpc_stats(n:&Node)->Value{
     v
 }
 /// eth_estimateGas's occupancy margin (D-V3-21, node-local): the gas search prices each creation
-/// class as if this many more units (accounts, slots, code bytes) were occupied, clamped at the cap,
-/// so that a few creations included before this transaction do not push its burn past the signed
+/// class as if this many more creations were included ahead of the transaction, clamped at the cap:
+/// 4 accounts, 4 slots and 4 code deployments of the largest size (ESTIMATE_DRIFT_UNITS*B_code_max
+/// code bytes; one account or slot is one unit, but one deployment adds up to B_code_max bytes), so
+/// that a few creations included before this transaction do not push its burn past the signed
 /// max_fee*gas_limit. It is a margin, not a guarantee: the consensus bound limits the sender's loss.
 pub const ESTIMATE_DRIFT_UNITS:u64=4;
+/// The margin per class [accounts, slots, code bytes] (`ESTIMATE_DRIFT_UNITS`).
+fn estimate_drift(cp:&pocol_lp4_execution::profile::ConsensusParams)->[u64;3]{
+    [ESTIMATE_DRIFT_UNITS,ESTIMATE_DRIFT_UNITS,ESTIMATE_DRIFT_UNITS.saturating_mul(u64::from(cp.B_code_max))]
+}
 /// How a priced (v3) estimate treats the creation burn.
 #[derive(Clone,Copy,PartialEq,Eq)]
 enum Pricing{
     /// Charge it as a block would (the D-V3-21 bound at the current occupancy). Also every unpriced call.
     Charge,
-    /// Charge, and also require the bound at ESTIMATE_DRIFT_UNITS more occupied units.
+    /// Charge, and also require the bound at the ESTIMATE_DRIFT_UNITS margin (`estimate_drift`).
     Margin,
     /// Only quote it (pocol_quoteCreationBurn): no bound, no charge.
     Quote,
@@ -1196,12 +1204,12 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget,pricing:Pricin
                 let summary=e.summary.as_deref().copied().unwrap_or_else(||pocol_lp4_execution::state_summary::Summary::scan_view(&base,cp.B_code_max));
                 let halt=|why:pocol_lp4_execution::user_phase::Halt|Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")})));
                 let quoted=|drift|pocol_lp4_execution::user_phase::quote_creation(&st,&r,&ctx,n.chain.spec.profile(),(summary.user_slots,summary.user_accounts),summary.inventory(),drift);
-                let burn=quoted(0).map_err(halt)?;quote=Some((burn,summary));
+                let burn=quoted([0;3]).map_err(halt)?;quote=Some((burn,summary));
                 if pricing==Pricing::Quote{
                     if b.expired(){return deadline()}
                     return Ok(Simulated{result:r.result,gas_limit,quote})}
                 if pricing==Pricing::Margin{
-                    let margin=quoted(ESTIMATE_DRIFT_UNITS).map_err(halt)?.total().unwrap_or(U256::MAX);
+                    let margin=quoted(estimate_drift(cp)).map_err(halt)?.total().unwrap_or(U256::MAX);
                     if margin!=U256::ZERO&&!signed.covers(ctx.base_fee,r.result.gas_used(),margin){return Err(halt(pocol_lp4_execution::user_phase::Halt::CreationFee))}
                 }
                 let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());

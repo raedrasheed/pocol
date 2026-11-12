@@ -247,10 +247,10 @@ impl SignedFee{
 /// transactions see its committed live counts. Existing SYS slots/accounts are
 /// excluded exactly as by the live caps; code follows the logical code inventory.
 /// A reverted native execution pays no creation fee. Without v3 or for a revert the quote is zero.
-/// `drift` prices every class as if that many more units (accounts, slots, code bytes) were
+/// `drift` = [accounts, slots, code bytes] prices each class as if that many more units were
 /// already occupied, clamped so the additions still fit the cap: zero in consensus, a small
 /// node-local margin for eth_estimateGas (the occupancy can grow before inclusion).
-pub fn quote_creation(pre:&dyn View,result:&revm::primitives::ResultAndState,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity,live:(u64,u64),code_total:u64,drift:u64)->Result<crate::creation_fees::CreationBurn,Halt>{
+pub fn quote_creation(pre:&dyn View,result:&revm::primitives::ResultAndState,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity,live:(u64,u64),code_total:u64,drift:[u64;3])->Result<crate::creation_fees::CreationBurn,Halt>{
  use crate::creation_fees::{self,CreationBurn};
  let mut burn=CreationBurn::default();
  if !profile.v3_active(block.height.try_into().unwrap_or(u64::MAX))||!result.result.is_success(){return Ok(burn)}
@@ -271,10 +271,10 @@ pub fn quote_creation(pre:&dyn View,result:&revm::primitives::ResultAndState,blo
  }
  let code=code_total.checked_sub(removed_code).ok_or(Halt::CreationFee)?;
  // Zero drift leaves `used` unchanged (used+units <= cap is checked by `price`).
- let at=|used:u64,cap:u64,units:u64|if drift==0{used}else{used.saturating_add(drift).min(cap.saturating_sub(units)).max(used)};
- burn.accounts=creation_fees::price(U256::from_be_bytes(cp.F0_acct.to_be_bytes()),cp.ACCT_CAP,at(accts,cp.ACCT_CAP,e.new_accts),e.new_accts).ok_or(Halt::CreationFee)?;
- burn.slots=creation_fees::price(U256::from_be_bytes(cp.F0_slot.to_be_bytes()),cp.SLOT_CAP,at(slots,cp.SLOT_CAP,e.new_slots),e.new_slots).ok_or(Halt::CreationFee)?;
- burn.code=creation_fees::price(U256::from_be_bytes(cp.F0_code.to_be_bytes()),cp.CODE_CAP,at(code,cp.CODE_CAP,new_code),new_code).ok_or(Halt::CreationFee)?;
+ let at=|used:u64,drift:u64,cap:u64,units:u64|if drift==0{used}else{used.saturating_add(drift).min(cap.saturating_sub(units)).max(used)};
+ burn.accounts=creation_fees::price(U256::from_be_bytes(cp.F0_acct.to_be_bytes()),cp.ACCT_CAP,at(accts,drift[0],cp.ACCT_CAP,e.new_accts),e.new_accts).ok_or(Halt::CreationFee)?;
+ burn.slots=creation_fees::price(U256::from_be_bytes(cp.F0_slot.to_be_bytes()),cp.SLOT_CAP,at(slots,drift[1],cp.SLOT_CAP,e.new_slots),e.new_slots).ok_or(Halt::CreationFee)?;
+ burn.code=creation_fees::price(U256::from_be_bytes(cp.F0_code.to_be_bytes()),cp.CODE_CAP,at(code,drift[2],cp.CODE_CAP,new_code),new_code).ok_or(Halt::CreationFee)?;
  Ok(burn)
 }
 /// Prices the transaction's persisted additions (`quote_creation` at zero drift) and deducts the burn
@@ -284,7 +284,7 @@ pub fn quote_creation(pre:&dyn View,result:&revm::primitives::ResultAndState,blo
 /// Halt::CreationFee without changing either the caller's state or result. Under the Ethereum
 /// pre-check the bound implies affordability; the balance check stays as a defence.
 pub fn charge_creation(pre:&dyn View,result:&mut revm::primitives::ResultAndState,caller:Address,fee:SignedFee,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity,live:(u64,u64),code_total:u64)->Result<crate::creation_fees::CreationBurn,Halt>{
- let burn=quote_creation(pre,result,block,profile,live,code_total,0)?;
+ let burn=quote_creation(pre,result,block,profile,live,code_total,[0;3])?;
  let amount=burn.total().ok_or(Halt::CreationFee)?;
  if amount!=U256::ZERO{
   // A zero burn needs no check: gas_used <= gas_limit and the effective price <= max_fee.
@@ -327,7 +327,7 @@ impl BlockMeter{
 }
 /// Exceptional halt applied to the pre-transaction state: nonce + 1, the sender pays
 /// gas·price, the coinbase (Escrow) receives gas·tip. Nothing else changes. `gas` is the declared
-/// gas_limit for every A03 cap halt, and the executed gas for a v3 Halt::CreationFee (`halt_gas`).
+/// gas_limit for every A03 cap halt, and the spent (pre-refund) gas for a v3 Halt::CreationFee (`halt_gas`).
 fn apply_halt<S:WorkState+?Sized>(state:&mut S,m:&mut BlockMeter,tx:&TxEnv,gas:u64,price:U256,tip:U256,i:usize)->Result<(),UserError>{
  let fee=price.checked_mul(U256::from(gas)).ok_or(UserError::Arithmetic)?;let reward=tip.checked_mul(U256::from(gas)).ok_or(UserError::Arithmetic)?;
  let existed=state.account(&tx.caller).and_then(|a|a.info()).is_some();
@@ -343,13 +343,22 @@ fn apply_halt<S:WorkState+?Sized>(state:&mut S,m:&mut BlockMeter,tx:&TxEnv,gas:u
 }
 /// The gas an exceptional halt charges. A03 cap halts charge the declared gas_limit, as before.
 /// D-V3-21 option A: a Halt::CreationFee (v3 only; `charge_creation` returns it only when v3 is
-/// active) charges only the gas the successful native execution used (`gas_used`, the quantity the
-/// bound prices), never the declared limit. Under option A wallets raise gas_limit above the
-/// execution's gas so that max_fee*gas_limit also covers the burn; if the occupancy at inclusion
-/// (which the builder's order sets) raises the burn past that maximum, charging the declared gas
-/// would turn the unused burn allowance into a gas charge. With the executed gas the sender pays
-/// what the execution cost and nothing for the burn it did not get; the effects are still discarded.
-fn halt_gas(why:Halt,gas_limit:u64,gas_used:u64)->u64{if why==Halt::CreationFee{gas_used.min(gas_limit)}else{gas_limit}}
+/// active, and only for a successful native execution) charges only the gas that execution spent,
+/// never the declared limit. Under option A wallets raise gas_limit above the execution's gas so
+/// that max_fee*gas_limit also covers the burn; if the occupancy at inclusion (which the builder's
+/// order sets) raises the burn past that maximum, charging the declared gas would turn the unused
+/// burn allowance into a gas charge. The spent gas is taken before the EIP-3529 refund
+/// (`gas_used + gas_refunded`): the halt discards every effect, including the storage clears that
+/// earned the refund, so it is priced like a revert of the same work (revm applies refunds only on
+/// success), never below it. It is at most gas_limit, so the sender still pays at most
+/// max_fee*gas_limit. This closes the CreationFee route only: every other cap halt, which hostile
+/// ordering can also force, still charges the declared gas (V3-EXECUTION-FEES.md).
+fn halt_gas(why:Halt,gas_limit:u64,result:&revm::primitives::ExecutionResult)->u64{
+ use revm::primitives::ExecutionResult;
+ if why!=Halt::CreationFee{return gas_limit}
+ let spent=match result{ExecutionResult::Success{gas_used,gas_refunded,..}=>gas_used.saturating_add(*gas_refunded),other=>other.gas_used()};
+ spent.min(gas_limit)
+}
 /// Logical code at `touched` before a commit (C-2 item 2; no work on the profile-free control path,
 /// where `touched` is empty).
 fn code_change_start(state:&dyn View,touched:&[Address],i:usize)->Result<u64,UserError>{
@@ -408,10 +417,10 @@ pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),know
   let e=effects(state.as_view(),&result.state);
   // The caps are PoCol execution: the profile-free Cancun control path stays geth-equivalent.
   if let Some(why)=fee.as_ref().err().copied().or_else(||profile.and_then(|_|meter.check(result.result.logs(),&e))){
-   // Exceptional halt (A03): all gas (a v3 CreationFee: its executed gas, `halt_gas`), no logs,
+   // Exceptional halt (A03): all gas (a v3 CreationFee: its spent gas, `halt_gas`), no logs,
    // status 0; only nonce and fee remain.
    let touched=[tx.caller,crate::pay::escrow_address()];let before=code_change_start(state.as_view(),&touched,i)?;
-   let gas=halt_gas(why,tx.gas_limit,result.result.gas_used());
+   let gas=halt_gas(why,tx.gas_limit,&result.result);
    apply_halt(&mut state,&mut meter,&tx,gas,price,tip,i)?;halts.push((i,why));
    code_total=code_change_end(state.as_view(),&touched,code_total,before,i)?;
    used=used.checked_add(gas).ok_or(UserError::Gas)?;if used>limit{return Err(UserError::Gas)}
