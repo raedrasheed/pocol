@@ -92,10 +92,13 @@ pub const GAS_ENVELOPE:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_0
 pub struct GasDomain{pub s_max:u16,pub m_max:u16,pub d:u16,pub e_max:u8,pub ret:u32}
 pub const GAS_DOMAIN:GasDomain=GasDomain{s_max:256,m_max:256,d:16,e_max:4,ret:128};
 
-/// Worst SYSTEM call sequence of each phase class (apply_block phase 0 and 2).
-fn phase_calls(cp:&ConsensusParams,class:u8)->Vec<(&'static str,u64)>{
+/// Worst SYSTEM call sequence of each phase class (apply_block phase 0 and 2). V3-02: on the v3 program set an
+/// evidence item is either type 1/2 (invalidate and punish) or kind 3 (one recordLate); each of the E_max items is
+/// counted as the dearer of the two.
+fn phase_calls(cp:&ConsensusParams,class:u8,v3:bool)->Vec<(&'static str,u64)>{
     let mut v:Vec<(&'static str,u64)>=Vec::new();
-    for _ in 0..cp.E_max{v.push(("invalidate",1));v.push(("punish",1));}
+    let late=v3&&envelope_for("recordLate",true).zip(envelope_for("invalidate",true).zip(envelope_for("punish",true))).is_some_and(|(l,(i,p))|l>i+p);
+    for _ in 0..cp.E_max{if late{v.push(("recordLate",1));}else{v.push(("invalidate",1));v.push(("punish",1));}}
     for n in ["markClose","pruneShares","recordShares","recordResult","settle","beginBlock"]{v.push((n,1))}
     if class==2{v.push(("finalize",1));v.push(("settleFinal",u64::from(cp.D).saturating_sub(1)));}else{v.push(("closeBlock",1));}
     v
@@ -103,8 +106,12 @@ fn phase_calls(cp:&ConsensusParams,class:u8)->Vec<(&'static str,u64)>{
 /// The v3 program set also loops over its probation pool in settlement (each ACCRUING payee's bond fills through
 /// accrue): GAS_ENVELOPE_V3's settle was measured with P_MAX ACCRUING payees, at this bound, filled in one call.
 pub const GAS_DOMAIN_V3_P_MAX:u16=64;
+/// V3-02: recordLate credits at most kappa*m - 1 shares of one template in one call (the no-dilution cap, with the
+/// winner's share already counted); GAS_ENVELOPE_V3's recordLate was measured at kappa*m = 64 (S_max 256 >= 4*kappa*m, R8).
+pub const GAS_DOMAIN_V3_KAPPA_M:u32=64;
 fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
-    let d=GAS_DOMAIN;cp.S_max<=d.s_max&&cp.M_max<=d.m_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret&&(!v3||cp.P_MAX<=GAS_DOMAIN_V3_P_MAX)
+    let d=GAS_DOMAIN;cp.S_max<=d.s_max&&cp.M_max<=d.m_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret
+        &&(!v3||(cp.P_MAX<=GAS_DOMAIN_V3_P_MAX&&u32::from(cp.kappa)*u32::from(cp.m)<=GAS_DOMAIN_V3_KAPPA_M))
 }
 /// V3-PR-E2b: entries for a genesis running the v3 program set, measured (rounded up to 1000) by tests/v3_contracts.rs
 /// (v3-preview) `v3_sys_gas_and_caps_within_the_v3_envelope` at the GAS_DOMAIN maxima with P_MAX 64; every other entry
@@ -114,8 +121,12 @@ fn in_gas_domain(cp:&ConsensusParams,v3:bool)->bool{
 /// bond, whose clock word register wrote, costs less, and the test asserts both); settlement fills up to P_MAX ACCRUING
 /// bonds from zero to B_reg in one call (the earn-in accrual, measured here for the v3 pool with all 64 probationers
 /// live at bond 0, the chain's first burn and 192 HELD payees), so settle and settleFinal (the same settleOne) take the
-/// measured worst settle.
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("invalidate",9_000),("punish",99_000),("recordResult",37_000),("settle",6_314_000),("settleFinal",6_314_000)];
+/// measured worst settle. V3-PR-E3 (V3-02): recordLate, at its worst one call crediting kappa*m - 1 = 63 late shares
+/// (GAS_DOMAIN_V3_KAPPA_M) to distinct owners new to the template's owner list, as the block's first call (every owner's
+/// record cold), measured with owners without a record (each read as four words, 3,457,157 gas) and with recorded
+/// owners whose lastShare it writes (3,228,593); the test asserts the stranger path is the maximum. An evidence item
+/// is counted as the dearer of recordLate and invalidate + punish (`phase_calls`).
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),("settle",6_314_000),("settleFinal",6_314_000)];
 /// The envelope entry of a SYSTEM call: GAS_ENVELOPE_V3's for the v3 program set where it has one, else GAS_ENVELOPE's.
 pub fn envelope_for(name:&str,v3:bool)->Option<u64>{
     let pick=|t:&[(&str,u64)]|t.iter().find(|(n,_)|*n==name).map(|x|x.1);
@@ -125,7 +136,7 @@ pub fn envelope_for(name:&str,v3:bool)->Option<u64>{
 fn phase_gas(cp:&ConsensusParams,class:u8,v3:bool)->Option<Vec<u64>>{
     if !in_gas_domain(cp,v3){return None}
     let mut out=Vec::new();
-    for (name,count) in phase_calls(cp,class){let g=envelope_for(name,v3)?;for _ in 0..count{out.push(g)}}
+    for (name,count) in phase_calls(cp,class,v3){let g=envelope_for(name,v3)?;for _ in 0..count{out.push(g)}}
     Some(out)
 }
 
@@ -280,7 +291,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     else if timing.is_none(){notes.push("timing: measurement recorded for another genesis (R14/R19)".into())}
     let b=resources::derive(&cp);
     let live=sat_u32(b.slot_min.max(genesis_slots.unwrap_or(0)));
-    if !in_gas_domain(&cp,v3){notes.push(format!("SYS gas: CP outside the measured domain {:?}{} (R18)",GAS_DOMAIN,if v3{format!(", P_MAX <= {GAS_DOMAIN_V3_P_MAX}")}else{String::new()}))}
+    if !in_gas_domain(&cp,v3){notes.push(format!("SYS gas: CP outside the measured domain {:?}{} (R18)",GAS_DOMAIN,if v3{format!(", P_MAX <= {GAS_DOMAIN_V3_P_MAX}, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M}")}else{String::new()}))}
     let phase=|class:u8,p:Phase,keys:u64,accts:u64|PhaseFacts{phase:p,system_keys:sat_u32(keys),user_keys:if class==0{cp.SYS_KEYS_USER_MAX}else{0},
         system_accounts:sat_u32(accts),user_accounts:if class==0{USER_SYS_ACCOUNTS}else{0},live_slots:live,
         call_gas:phase_gas(&cp,class,v3).unwrap_or_default(),duration_ms:timing.map_or(u64::MAX,|t|t.phase_ms[class as usize]),

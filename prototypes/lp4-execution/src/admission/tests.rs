@@ -308,12 +308,23 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
 /// sets compose GAS_ENVELOPE alone, as before. The v3 domain also bounds P_MAX (settlement accrual).
 #[test] fn v3_envelope_entries_apply_only_to_the_v3_set(){
     for (n,g) in GAS_ENVELOPE{assert_eq!(envelope_for(n,false),Some(*g),"spec-1 {n}");}
-    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope_for(n,true),Some(*g));assert!(*g>envelope_for(n,false).unwrap(),"{n}: the v3 entry exceeds the spec-1 one");}
+    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope_for(n,true),Some(*g));if let Some(s)=envelope_for(n,false){assert!(*g>s,"{n}: the v3 entry exceeds the spec-1 one");}}
     assert_eq!(envelope_for("beginBlock",true),envelope_for("beginBlock",false),"entries without a v3 measurement apply unchanged");
+    // V3-02: recordLate exists on the v3 set only, and each evidence item of a v3 block is counted as the dearer of a
+    // type 1/2 item (invalidate and punish) and a kind-3 item (recordLate).
+    assert_eq!(envelope_for("recordLate",false),None);
     let c=net(&cfg());let cp=c.profile.cp().clone();
     let spec1=phase_gas(&cp,0,false).unwrap();let v3=phase_gas(&cp,0,true).unwrap();
-    assert_eq!(spec1.len(),v3.len());assert!(v3.iter().sum::<u64>()>spec1.iter().sum::<u64>());
+    let (late,pair)=(envelope_for("recordLate",true).unwrap(),envelope_for("invalidate",true).unwrap()+envelope_for("punish",true).unwrap());
+    assert!(late>pair,"recordLate {late} is the dearer evidence item");
+    assert_eq!(spec1.len(),v3.len()+usize::from(cp.E_max),"one recordLate in place of each invalidate and punish pair");
+    assert_eq!(v3.iter().filter(|g|**g==late).count(),usize::from(cp.E_max));
+    assert!(v3.iter().sum::<u64>()>spec1.iter().sum::<u64>());
+    for class in 0..3{assert!(phase_calls(&cp,class,false).iter().all(|(n,_)|*n!="recordLate"),"spec 1 never composes recordLate");}
     let mut wide=cp.clone();wide.P_MAX=GAS_DOMAIN_V3_P_MAX+1;
     assert!(in_gas_domain(&wide,false)&&!in_gas_domain(&wide,true),"P_MAX bounds the v3 domain only");
     assert_eq!(phase_gas(&wide,0,true),None);
+    // kappa*m bounds recordLate's owners per call (the no-dilution cap): the v3 domain only.
+    let mut wide=cp.clone();wide.m=(GAS_DOMAIN_V3_KAPPA_M/u32::from(wide.kappa)+1) as u16;
+    assert!(in_gas_domain(&wide,false)&&!in_gas_domain(&wide,true),"kappa*m bounds the v3 domain only");
 }

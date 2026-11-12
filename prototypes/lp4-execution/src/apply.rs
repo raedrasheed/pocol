@@ -4,7 +4,8 @@
 //!   phase 0: applyEvidence, markClose, pruneShares, recordShares(h-1),
 //!            recordResult(h-1), settle(h-D), beginBlock (h=1 skips record*);
 //!            on the v3 program set (V3-16/V3-17) recordShares(h-1) and recordResult(h-1) come first,
-//!            then applyEvidence (invalidate names the accused, punish the reporter), markClose, ...;
+//!            then applyEvidence (invalidate names the accused, punish the reporter; V3-02 recordLate(j, owners)
+//!            for kind-3 late shares, in body order), markClose, ...;
 //!   phase 1: signed USER transactions (legacy-155/2930/1559);
 //!   phase 2: subsidy issuance + closeBlock(tips), or finalize(tips) at F;
 //!   phase 3: roots (state, tx, receipts, bloom, gasUsed, evidence).
@@ -120,8 +121,11 @@ pub enum Proposer{Signed(Address),Fallback}
 /// invalidate (the program burns the whole pot only for an accused winner that was ACCRUING when the result was
 /// recorded; otherwise the pot settles normally) and the reporter to punish: the carrying block's signed proposer
 /// (`BlockInput::proposer`, zero on a fallback block), which is also the calls' tx.origin.
+/// V3-02 (v3 program set only): `Late` credits the late shares of template j that kind-3 evidence carried, one owner
+/// per share in nonce order (each the owner of its nonce under block j's assignment): recordLate(j, owners) raises
+/// count[j][owner] and total[j] and sets lastShare = max(lastShare, j), after recordResult(h-1) and before settle(h-D).
 #[derive(Clone,Debug,PartialEq,Eq)]
-pub enum EvidenceEffect{Punish{accused:Address},PunishAndInvalidate{accused:Address,j:u64}}
+pub enum EvidenceEffect{Punish{accused:Address},PunishAndInvalidate{accused:Address,j:u64},Late{j:u64,owners:Vec<Address>}}
 
 /// ctx = {chainId, h, ts, baseFee, gasLimit, prevrandao, coinbase=Escrow, ancestors, parentResult}.
 pub struct BlockInput<'a>{
@@ -494,7 +498,9 @@ impl Job<'_>{
         // invalidate names the accused and punish the reporter (the signed proposer, tx.origin; zero on a fallback).
         if self.v3{record_parent(&mut ex,cp,input,h)?;}
         for e in &input.evidence{
-            let (accused,j)=match e{EvidenceEffect::Punish{accused}=>(*accused,None),EvidenceEffect::PunishAndInvalidate{accused,j}=>(*accused,Some(*j))};
+            let (accused,j)=match e{EvidenceEffect::Punish{accused}=>(*accused,None),EvidenceEffect::PunishAndInvalidate{accused,j}=>(*accused,Some(*j)),
+                // V3-02: only the v3 programs have recordLate; the host never derives the effect elsewhere.
+                EvidenceEffect::Late{j,owners}=>{if !self.v3{return Err(ApplyError::Context("late shares need the v3 program set"))}record_late(&mut ex,cp,*j,owners)?;continue}};
             if self.v3{
                 if let Some(j)=j{ if pending(ex.state.as_view(),j).1!=U256::ZERO{let mut d=selector("invalidate(uint256,address)");enc_u256(&mut d,U256::from(j));enc_addr(&mut d,accused);ex.call("invalidate",escrow(),d)?;} }
                 let mut d=selector("punish(address,address)");enc_addr(&mut d,accused);enc_addr(&mut d,self.origin);ex.call("punish",registry(),d)?;
@@ -569,6 +575,13 @@ fn record_parent<S:crate::view::WorkState>(ex:&mut Exec<'_,S>,cp:&crate::profile
         ex.call("recordResult",escrow(),d)?;
     }
     Ok(())
+}
+/// V3-02 phase 0: recordLate(j, owners) on the v3 MinerRegistry (one owner per late share, at most S_max).
+fn record_late<S:crate::view::WorkState>(ex:&mut Exec<'_,S>,cp:&crate::profile::ConsensusParams,j:u64,owners:&[Address])->Result<(),ApplyError>{
+    if owners.is_empty()||owners.len()>usize::from(cp.S_max){return Err(ApplyError::Context("late shares"))}
+    let mut d=selector("recordLate(uint64,address[])");enc_u256(&mut d,U256::from(j));enc_u256(&mut d,U256::from(64));enc_u256(&mut d,U256::from(owners.len()));
+    for a in owners{enc_addr(&mut d,*a)}
+    ex.call("recordLate",registry(),d)?;Ok(())
 }
 /// The two write sets name the same accounts and slots (the overlay's may name more: written but unchanged).
 fn same_touched(overlay:&crate::state_trie::Touched,full:&crate::state_trie::Touched)->bool{

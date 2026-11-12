@@ -148,3 +148,45 @@ of GAS_ENVELOPE applies unchanged. Runtime sizes: MinerRegistry 10,209 bytes, Re
 The independent model is tests/v3_model.py (class Chain; vectors tests/v3/evidence-penalty-vectors.json, whole blocks
 with settlement); five planted mutants (reporter-paid-on-fallback, whole-pot-for-bonded-accused,
 accruing-read-at-evidence, accruing-read-at-settle, rho-on-pot-not-bond) are in tests/v3/system-v3-mutants.json.
+
+## v3 late share credit (PoColSystemV3.sol only; V3-02, V3-PR-E3)
+
+Applies to the v3 program set only, as above; the spec-1 programs, host calls and phase order are unchanged.
+
+| Location | Change |
+|---|---|
+| ShareLedger total[j], count[j][a], owners[j] | no new slot: late shares raise the same count and total, and a new owner is pushed to the same list |
+| MinerRegistry record w0 bits 88..151 | lastShare, now also raised (never lowered) by recordLate |
+
+Host (apply.rs, v3 program set only), phase 0: recordShares(h-1), recordResult(h-1), then the evidence in body order,
+where a kind-3 item (chain.rs `late_check`: RLP([3, be64(j), [n_1<...<n_k]]), validated against template j on the
+carrying branch) becomes `recordLate(j, owners)` with one owner per late share in nonce order; then markClose,
+pruneShares, settle(h-D), beginBlock. A carrier at h = j + D therefore still credits j before settle(j).
+
+- MinerRegistry.recordLate(uint64 j, address[] owners), SYSTEM only, exactly selector||j||0x40||N||N words (N >= 1,
+  N <= S_max): one nested CALL to ShareLedger.recordLate(j, owners), then for every owner with a record
+  lastShare = max(lastShare, j) (a later header share already moved it past j: no revert, unlike recordShares). An
+  owner without a record is skipped (its four words must be zero: BadState otherwise), as recordShares does.
+- ShareLedger.recordLate(j, owners), Registry only, the same calldata shape: BadPhase unless 1 <= j < h and
+  j + D >= h; BadState unless total[j] != 0 (the header shares of j are recorded) and total[j] + N <= kappa*m (the
+  no-dilution cap: q_j = max(total, kappa*m) stays kappa*m, so late credit fills only the uncovered part of the pool and
+  no header share loses value). count[j][a] += 1 per share (a new owner is pushed to owners[j]); total[j] += N.
+- Settlement is unchanged (entriesOf, distribute): late owners are paid like header owners; an absent record's part
+  burns (payBurn), a tomb's (penaltyBurn), an ACCRUING record's fills its bond (EARN-IN P1).
+
+SYS footprint (resources::derive on CP schema v2): owners per height stay within O = min(S_max + 1, M_max) (late credit
+applies only while total[j] < kappa*m <= S_max/4), so the slots are unchanged and pruneShares deletes late owners as
+before; a kind-3 item writes at most 3k + 2 keys for k shares, and a block credits at most L = min(E_max * min(S_max,
+kappa*m - 1), D * (kappa*m - 1)) late shares, so the evidence keys are at most 9 * E_max + 3 * L; no account is added (recordLate pays
+nobody). SYS gas (tests/v3_contracts.rs v3-preview `v3_sys_gas_and_caps_within_the_v3_envelope`, chain C): one call
+crediting kappa*m - 1 = 63 shares to distinct owners new to owners[j], as the block's first call: 3,457,157 with owners
+without a record (four cold words read each), 3,228,593 with recorded owners whose lastShare it writes. Admission
+composes GAS_ENVELOPE_V3 recordLate 3,458,000 for a genesis running the v3 set, counting each of the E_max evidence
+items as the dearer of recordLate and invalidate + punish; the v3 gas domain also requires kappa*m <= 64. Runtime
+sizes: MinerRegistry 10,734 bytes, ShareLedger 3,478 bytes (RewardEscrow unchanged, 5,218).
+
+The independent model is tests/v3_model.py (Chain._record_late; vectors tests/v3/late-share-vectors.json, whole blocks
+with settlement and the ledger compared per height); five planted mutants (late-last-share-reverts,
+late-last-share-overwrites, late-cap-removed, late-window-one-wider, late-total-not-raised) are in
+tests/v3/system-v3-mutants.json. The host's kind-3 validity is modelled by `late_verdict` (vectors
+tests/v3/late-share-validity-vectors.json, replayed by pocold/tests/v3_late_shares.rs), with 17 planted mutants.

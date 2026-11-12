@@ -172,6 +172,32 @@ pub const FUTURE_MAX:usize=64;pub const TEMPLATES_MAX:usize=64;pub const SEEN_MA
 /// Gossip: TemplateIDs already relayed (each is relayed at most once), and the shares relayed per locked
 /// template, as a multiple of S_max (a block carries at most S_max shares; more only cost bandwidth).
 pub const RELAYED_MAX:usize=256;pub const SHARE_RELAY_PER_S_MAX:usize=4;
+/// V3-02 (node-local, v3 program set only): the shares seen for each of the last D templates this node locked, at most
+/// SHARE_RELAY_PER_S_MAX·S_max nonces each (`LateCache`); a proposer carries the uncredited ones as kind-3 evidence.
+#[derive(Clone,Debug)]
+pub struct LateTemplate{pub tid:[u8;32],pub nonce_max:u128,pub t_share:Fixed,pub shares:Vec<u64>}
+/// V3-02: the late-share cache, oldest first, at most D templates (A13: resources.rs "queues/late-share cache").
+#[derive(Clone,Debug,Default)]
+pub struct LateCache{pub templates:VecDeque<LateTemplate>}
+impl LateCache{
+    /// Each template keeps at most `cap` nonces, in ascending order; at most `d` templates are kept.
+    pub fn stash(&mut self,t:LateTemplate,d:usize,cap:usize){
+        if let Some(x)=self.templates.iter_mut().find(|x|x.tid==t.tid){for n in t.shares{x.add(n,cap);}return}
+        let mut fresh=LateTemplate{tid:t.tid,nonce_max:t.nonce_max,t_share:t.t_share,shares:Vec::new()};for n in t.shares{fresh.add(n,cap);}
+        self.templates.push_back(fresh);while self.templates.len()>d{self.templates.pop_front();}
+    }
+    pub fn get(&self,tid:&[u8;32])->Option<&LateTemplate>{self.templates.iter().find(|x|x.tid==*tid)}
+    /// A share received for a cached template (checked: below its nMax and meeting its share target). True when the
+    /// template is cached (whether or not the share was new).
+    pub fn take(&mut self,tid:&[u8;32],nonce:u64,cap:usize)->bool{
+        let Some(x)=self.templates.iter_mut().find(|x|x.tid==*tid) else{return false};
+        if (nonce as u128)<x.nonce_max&&le_target(&pow_hash(tid,nonce),&x.t_share){x.add(nonce,cap);}
+        true
+    }
+    pub fn len(&self)->usize{self.templates.len()}
+    pub fn is_empty(&self)->bool{self.templates.is_empty()}
+}
+impl LateTemplate{fn add(&mut self,n:u64,cap:usize){if self.shares.len()>=cap{return}if let Err(i)=self.shares.binary_search(&n){self.shares.insert(i,n);}}}
 /// F7: hard cap on the persisted attempt-0 signing record (a backstop beyond the reorg-window prune).
 pub const SIGNED_A0_MAX:usize=4096;
 /// Events waiting for the consensus thread (all sources); senders block when it is full.
@@ -472,6 +498,8 @@ pub struct Node{
     pub seen_templates:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>,Vec<u8>)>,
     seen_wins:HashMap<([u8;32],u64),([u8;32],[u8;65])>,
     pub evidence_pool:Vec<Vec<u8>>,
+    /// V3-02 (v3 program set only): shares seen for the last D locked templates (`LateCache`).
+    pub late_cache:LateCache,
     /// F7 double-sign guard. `signed_a0` records, per (parent_hash, height), the template id this node
     /// has already signed at attempt 0; it is persisted to `signed-a0` in the data dir and fsynced
     /// BEFORE the template is broadcast. A second, different signed template for the same pair is
@@ -526,6 +554,8 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// Gossip (network.md:13,15): signed templates of other proposers this node relayed after locking on
     /// them, valid shares it relayed, and valid new shares it received from peers.
     pub relayed_templates:u64,pub relayed_shares:u64,pub peer_shares:u64,
+    /// V3-02: kind-3 late-share items this node put in its templates.
+    pub late_items:u64,
     /// Inbound eviction's protection (`Node::credit`, net::Useful order): a peer's first delivery of a new block, a
     /// template that locked, a transaction that entered the pool at once and a valid new share.
     pub credits:[u64;4],
@@ -938,7 +968,7 @@ impl Node{
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,meta:vec![],sender_gas_max:pool_sender_max,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),late_cache:LateCache::default(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
@@ -1712,7 +1742,16 @@ impl Node{
     // ---------------- production (consensus §4) ----------------
     /// Starts producing on the current head, as `run` does first: for a node driven in process.
     pub fn start_production(&mut self){self.restart_production()}
+    /// V3-02: the locked template's shares go to the late-share cache before production leaves it (v3 program set only).
+    fn stash_late(&mut self){
+        let h=self.chain.head().height+1;if !self.chain.late_shares(h){return}
+        let Some(pr)=&self.prod else{return};let Mode::Locked(l)=&pr.mode else{return};
+        let t=LateTemplate{tid:l.tid,nonce_max:l.ctx.assignment.nonce_max(),t_share:l.ctx.t_share,shares:pr.shares.iter().copied().collect()};
+        let (d,cap)=(usize::from(self.chain.spec.cp().D),SHARE_RELAY_PER_S_MAX*usize::from(self.chain.spec.cp().S_max));
+        self.late_cache.stash(t,d,cap);
+    }
     fn restart_production(&mut self){
+        self.stash_late();
         if let Some(p)=self.prod.take(){if let Some(m)=p.miner{m.stop();}}
         let head=self.chain.head().meta_clone();
         if head.is_final{self.log("chain is final; no production");return}
@@ -1726,6 +1765,7 @@ impl Node{
     fn begin_attempt(&mut self,a:u32){
         let parent_hash=match &self.prod{Some(p)=>p.parent,None=>return};
         let Some(p)=self.full_entry(&parent_hash) else{return};
+        self.stash_late();
         if let Some(pr)=&mut self.prod{pr.attempt=a;pr.shares.clear();pr.solved=false;if let Some(m)=pr.miner.take(){m.stop();}}
         if a==0{
             let ctx=match self.chain.child_ctx(&p,0){Ok(c)=>c,Err(e)=>{self.log(&format!("ctx error {e:?}"));return}};
@@ -1889,6 +1929,7 @@ impl Node{
         let ctx=match self.chain.child_ctx(&p,header.a){Ok(c)=>c,Err(_)=>return};
         let tid=template_id(&header.ut_raw);
         self.log(&format!("lock h={} a={} {} tid={}",header.h,header.a,if fallback{"FB"}else{"PROP"},&hex(&tid)[..12]));
+        if !matches!(&self.prod,Some(Production{mode:Mode::Locked(l),..}) if l.tid==tid){self.stash_late();}
         // The previous miner is stopped and joined before the next starts: one miner thread at a time.
         if let Some(pr)=&mut self.prod{
             pr.miner=None;
@@ -2162,6 +2203,9 @@ impl Node{
             }
             Msg::Share{tid,nonce}=>{
                 let relay_max=SHARE_RELAY_PER_S_MAX*usize::from(self.chain.spec.cp().S_max);
+                // V3-02: a share of a cached earlier template is kept for late credit (never relayed: its template is
+                // no longer mined here). Only the v3 program set caches.
+                if self.late_cache.take(&tid,nonce,relay_max){return}
                 let relay={let Some(pr)=&mut self.prod else{return};let Mode::Locked(l)=&pr.mode else{return};
                     if tid!=l.tid||(nonce as u128)>=l.ctx.assignment.nonce_max()||pr.shares.contains(&nonce){return}
                     if !le_target(&pow_hash(&tid,nonce),&l.ctx.t_share){return}
@@ -2562,7 +2606,22 @@ impl Node{
                 Err(_)=>{} // already applied on this branch (accused tomb) or no longer provable: drop
             }
         }
-        self.evidence_pool=keep;out
+        self.evidence_pool=keep;
+        // V3-02 (v3 program set only): the shares this node saw for its ancestors' templates j in [max(1,h-D), h-1]
+        // that the branch has not credited, as kind-3 items within E_max (`Chain::late_offer` applies every rule).
+        let h=p.height+1;
+        if self.chain.late_shares(h)&&!self.late_cache.is_empty(){
+            let mut block=chain::LateBlock::default();
+            for raw in &out{if let Ok((j,ns))=chain::late_parse(raw,u64::MAX){block.seen.entry(j).or_default().extend(ns);}}
+            let lo=h.saturating_sub(u64::from(self.chain.spec.cp().D)).max(1);
+            for j in (lo..h).rev(){
+                if out.len()>=e_max{break}
+                let Some(tid)=self.chain.late_template(p,j) else{continue};
+                let Some(t)=self.late_cache.get(&tid) else{continue};
+                if let Some(item)=self.chain.late_offer(p,j,&t.shares,&mut block){out.push(item);self.stats.late_items+=1;}
+            }
+        }
+        out
     }
 }
 

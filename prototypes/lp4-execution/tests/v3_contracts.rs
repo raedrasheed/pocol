@@ -33,6 +33,12 @@
 //!   burns the whole pot; the settlement boundary; a self-report loses (1 - rho) * B; five planted mutants each fail;
 //!   with v3-preview, real blocks through apply_block (the host's v3 phase 0) and the SYS gas of the changed calls
 //!   within admission's GAS_ENVELOPE_V3, keys and accounts within resources::derive.
+//! - V3-PR-E3, late share credit (V3-02): every scenario of tests/v3/late-share-vectors.json (recordLate in phase 0
+//!   after recordResult and before settle(h-D), the no-dilution cap, the window, lastShare = max(lastShare, j), owners
+//!   without a record, tombed or ACCRUING) reproduces on the v3 bytecode step by step, the ShareLedger counts and totals
+//!   included, with the Escrow invariant and the supply after every step; the omitted contributor is paid at settle(j)
+//!   (fails on the earn-in set, which has no recordLate); five planted mutants each fail; with v3-preview, real blocks
+//!   with Late effects through apply_block and recordLate's SYS gas at the worst path within GAS_ENVELOPE_V3.
 use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,
     pay::{registry_address,escrow_address}};
 use revm::{DatabaseCommit,InMemoryDB,primitives::{Address,AccountInfo,Bytecode,Bytes,TxEnv,TxKind,U256,keccak256,ResultAndState}};
@@ -46,6 +52,7 @@ const VECTORS:&str=include_str!("data/earnin-vectors.json");
 const VECTORS_P64:&str=include_str!("v3/earnin-vectors-p64.json");
 const BUDGET_VECTORS:&str=include_str!("v3/registry-budget-vectors.json");
 const EVIDENCE_VECTORS:&str=include_str!("v3/evidence-penalty-vectors.json");
+const LATE_VECTORS:&str=include_str!("v3/late-share-vectors.json");
 /// The earn-in model's scenarios (both value sets) re-run through the v3 model (tests/v3_model.py earnin_on_v3).
 const EARNIN_ON_V3:&str=include_str!("v3/earnin-on-v3-vectors.json");
 /// The six planted earn-in mutants (EARN-IN-SPEC.md §9) and the seven V3-08/V3-09 budget mutants, in fixture order.
@@ -54,8 +61,10 @@ const BUDGET_MUTANTS:[&str;7]=["maint-counter-shared","maint-twice-per-block","r
     "maint-bounded-by-reg-ops","react-counts-reg-ops"];
 /// The five V3-16/V3-17 evidence-penalty mutants (MinerRegistry or RewardEscrow), in fixture order.
 const EVIDENCE_MUTANTS:[&str;5]=["reporter-paid-on-fallback","whole-pot-for-bonded-accused","accruing-read-at-evidence","accruing-read-at-settle","rho-on-pot-not-bond"];
+/// The five V3-02 late-share mutants (MinerRegistry or ShareLedger), in fixture order.
+const LATE_MUTANTS:[&str;5]=["late-last-share-reverts","late-last-share-overwrites","late-cap-removed","late-window-one-wider","late-total-not-raised"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
-const V3_SYS_CODE_HASH:&str="150b3ae73be1a9b371106c6aa398b64c293338c1589111891bb48c07e8f5f56b";
+const V3_SYS_CODE_HASH:&str="ee5334c0e7f343bcda9694e98967ff3c1474e0cfec5cef3fd356fd7405e439ae";
 
 fn b()->U256{U256::from(20*PCOL)}
 fn system()->Address{Address::from_word((U256::from(1)<<160u32).wrapping_sub(U256::from(2)).into())}
@@ -109,7 +118,7 @@ impl Setup{
             cp:vec![(54,p_max.into()),(55,t_prob.into()),(61,16),(62,40)],v3:true}
     }
     /// A planted mutant in place of the program it names.
-    fn with_program(mut self,program:&str,code:Bytes)->Self{match program{"MinerRegistry"=>self.registry=code,"RewardEscrow"=>self.escrow=code,o=>panic!("no mutant of {o}")}self}
+    fn with_program(mut self,program:&str,code:Bytes)->Self{match program{"MinerRegistry"=>self.registry=code,"RewardEscrow"=>self.escrow=code,"ShareLedger"=>self.ledger=code,o=>panic!("no mutant of {o}")}self}
     /// The model at P_MAX 64 runs M_MAX 256 and registers 65 probationers in one block (v3_model_vectors.py):
     /// M_max, R_max and REG_OPS wide enough that only P_MAX refuses a seat.
     fn wide(mut self)->Self{self.cp.extend([(17,255),(18,256),(23,1024)]);self}
@@ -124,6 +133,8 @@ struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeM
 /// calls the address in its first calldata word with the rest and returns or reverts with the callee's data.
 const FORWARDER:&str="602036036020600037600060006020360360006000600035 5af13d600060003e602757 3d6000fd5b3d6000f3";
 fn ledger()->Address{Address::from_word(U256::from(0xc0c003u64).into())}
+/// ShareLedger's mapping slots for height j: k = 0 total, 1 count (a mapping by owner), 2 owners.
+fn ledger_slot(j:u64,k:u64)->U256{U256::from_be_bytes(keccak256([U256::from(j).to_be_bytes::<32>(),U256::from(k).to_be_bytes::<32>()].concat()).0)}
 fn pot(db:&InMemoryDB,j:u64)->(U256,U256,U256){
     let b=U256::from_be_bytes(keccak256([U256::from(j).to_be_bytes::<32>(),U256::from(3).to_be_bytes::<32>()].concat()).0);
     (storage(db,escrow_address(),b),storage(db,escrow_address(),b+U256::from(1)),storage(db,escrow_address(),b+U256::from(2)))
@@ -199,6 +210,14 @@ impl Harness{
         };
         if self.v3{record(self)?;}
         for e in step["evidence"].as_array().unwrap(){
+            // V3-02: a late credit is recordLate(j, owners) (selector absent from the earn-in programs: the call reverts).
+            if e[0]=="late"{
+                let owners:Vec<Address>=e[2].as_array().unwrap().iter().map(|x|name(x.as_str().unwrap())).collect();
+                let mut data=selector("recordLate(uint64,address[])");data.extend(U256::from(e[1].as_u64().unwrap()).to_be_bytes::<32>());
+                data.extend(U256::from(64).to_be_bytes::<32>());data.extend(U256::from(owners.len()).to_be_bytes::<32>());
+                for a in &owners{data.extend(a.into_word());}
+                self.sys("recordLate",registry_address(),data)?;continue
+            }
             // The spec-1 host has no reporter: punish(accused) whatever the evidence names.
             let accused=name(e[0].as_str().unwrap());let reporter=e[2].as_str().unwrap();
             if let Some(j)=e[1].as_u64(){
@@ -486,7 +505,7 @@ fn chain_caps_serves_exactly_the_v2_cp(){
 #[test]
 fn the_six_planted_mutants_fail_on_the_v3_set(){
     let list=mutants();
-    assert_eq!(list.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..1]].concat(),"the MinerRegistry mutants");
+    assert_eq!(list.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..1],&LATE_MUTANTS[..2]].concat(),"the MinerRegistry mutants");
     let list=&list[..EARNIN_MUTANTS.len()];
     let j:serde_json::Value=serde_json::from_str(MUTANTS).unwrap();let v3:serde_json::Value=serde_json::from_str(V3).unwrap();
     assert_eq!((&j["compiler"],&j["settings"]),(&v3["compiler"],&v3["settings"]),"mutants built by the same compiler and settings");
@@ -549,11 +568,11 @@ fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
     // The existing sets' hashes are unchanged (spec-1 genesis bytes commit them).
     let (v1,continuous,earnin)=(SystemPrograms::v1().sys_code_hash(),SystemPrograms::continuous().sys_code_hash(),SystemPrograms::earnin().sys_code_hash());
     assert!(![v1,continuous,earnin].contains(&v3.sys_code_hash()));
-    // MinerRegistry, RewardEscrow (V3-16/V3-17) and ChainCaps differ from the earn-in set; ShareLedger and ChunkFactory
-    // are the same bytes.
+    // MinerRegistry, RewardEscrow (V3-16/V3-17), ShareLedger (V3-02 recordLate) and ChainCaps differ from the earn-in
+    // set; ChunkFactory is the same bytes.
     let e=SystemPrograms::earnin();
-    assert_eq!((v3.codes[2]==e.codes[2],v3.codes[4]==e.codes[4]),(true,true));
-    assert!(v3.codes[0]!=e.codes[0]&&v3.codes[1]!=e.codes[1]&&v3.codes[3]!=e.codes[3]);
+    assert!(v3.codes[4]==e.codes[4]);
+    assert!(v3.codes[0]!=e.codes[0]&&v3.codes[1]!=e.codes[1]&&v3.codes[2]!=e.codes[2]&&v3.codes[3]!=e.codes[3]);
     // EIP-170-sized for tooling (roadmap risk 10).
     for (i,c) in v3.codes.iter().enumerate(){assert!(c.len()<=24_576,"program {i} is {} bytes",c.len());}
     let mut cfg=DevnetConfig::new(777940,1_700_000_000,&["one"]);cfg.h_end=0;cfg.earnin=true;
@@ -718,6 +737,22 @@ fn budget_run(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<Harn
         }
         ensure_eq!(balance(&h.db,escrow_address()).to_string(),fin["escrowBalance"].as_str().unwrap(),"{name_} Escrow balance");
         ensure_eq!(h.issued.to_string(),fin["issued"].as_str().unwrap(),"{name_} issuance");
+    }
+    if let Some(ledger_)=fin.get("ledger").and_then(|l|l.as_object()){
+        // V3-02: every retained ShareLedger height: its total and each owner's count; pruned heights hold nothing.
+        for j in 1..=h.height{
+            let total=storage(&h.db,ledger(),ledger_slot(j,0));
+            match ledger_.get(&j.to_string()){
+                None=>ensure!(total.is_zero(),"{name_}: ledger height {j} should be pruned"),
+                Some(l)=>{
+                    ensure_eq!(total.to::<u64>(),l["total"].as_u64().unwrap(),"{name_} ledger total {j}");
+                    for (o,c) in l["counts"].as_object().unwrap(){
+                        let slot=U256::from_be_bytes(keccak256([name(o).into_word().as_slice(),ledger_slot(j,1).to_be_bytes::<32>().as_slice()].concat()).0);
+                        ensure_eq!(storage(&h.db,ledger(),slot).to::<u64>(),c.as_u64().unwrap(),"{name_} ledger count {j} {o}");
+                    }
+                }
+            }
+        }
     }
     Ok(h)
 }
@@ -1111,8 +1146,8 @@ fn a_self_report_loses_three_quarters_of_the_bond(){
 #[test]
 fn the_evidence_penalty_mutants_fail_the_v3_vectors(){
     let list=mutant_programs();
-    assert_eq!(list.iter().map(|m|m.0.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..]].concat());
-    let evidence=&list[EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()..];
+    assert_eq!(list.iter().map(|m|m.0.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..],&LATE_MUTANTS[..]].concat());
+    let evidence=&list[EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()..EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()+EVIDENCE_MUTANTS.len()];
     let expect=[("reporter-paid-on-fallback","fallback-has-no-reporter"),("whole-pot-for-bonded-accused","type2-held-winner-pays-contributors"),
         ("accruing-read-at-evidence","accruing-fact-committed-at-record-result"),("accruing-read-at-settle","type2-accruing-winner-burns-whole-pot"),
         ("rho-on-pot-not-bond","self-report-loses-three-quarters")];
@@ -1150,6 +1185,136 @@ fn v3_punish_and_invalidate_call_shapes(){
     let mut d=with_arg("punish(address,address)",Some(c));d.extend(name("c").into_word());
     assert_eq!(h.sys("punish",registry_address(),d),Ok(()),"the proposer reports");
     h.chain_conserved().unwrap();
+}
+
+// ---------------- V3-PR-E3: late share credit (V3-02)
+const LATE_SCENARIOS:[&str;7]=["late-last-share-is-monotone","late-random-1","late-random-2","late-share-at-the-settlement-boundary",
+    "late-share-cap-fills-only-the-uncovered-pool","late-share-owners-absent-tomb-and-accruing","late-share-pays-the-omitted-contributor"];
+fn late_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
+    let v:serde_json::Value=serde_json::from_str(LATE_VECTORS).unwrap();
+    v.as_object().unwrap().iter().map(|(n,body)|(n.clone(),budget_scenario(n,body,s))).collect()
+}
+fn late_body(n:&str)->serde_json::Value{let v:serde_json::Value=serde_json::from_str(LATE_VECTORS).unwrap();v[n].clone()}
+/// A scenario's steps with every late credit taken out of its blocks (what the chain was without V3-02).
+fn without_late(body:&serde_json::Value)->serde_json::Value{
+    let mut b=body.clone();
+    for st in b["steps"].as_array_mut().unwrap(){if let Some(e)=st.get_mut("evidence"){e.as_array_mut().unwrap().retain(|x|x[0]!="late");}}
+    b
+}
+
+/// Model-vs-bytecode differential: every late-share scenario of the independent model reproduces on the v3 programs
+/// step by step (recordLate in phase 0 after recordResult and before settle(h-D)), with ACC_COUNT, held_total, the
+/// Escrow invariant with equality and the supply after every step, and every pot, record (lastShare included), payment
+/// and retained ShareLedger height (counts and totals) at the end.
+#[test]
+fn v3_late_shares_reproduce_the_independent_model(){
+    let out=late_replay(&Setup::v3(8,60_480));
+    assert_eq!(out.keys().map(|k|k.as_str()).collect::<Vec<_>>(),LATE_SCENARIOS);
+    for (n,r) in &out{if let Err(e)=r{panic!("{n}: {e}")}}
+    // The vectors exercise what they claim: accepted late credits, both refusals (the window: BadPhase; the cap and an
+    // unrecorded height: BadState) and type-1 evidence in the same blocks.
+    let v:serde_json::Value=serde_json::from_str(LATE_VECTORS).unwrap();
+    let (mut reverts,mut credits,mut punish)=(BTreeSet::new(),0,0);
+    for body in v.as_object().unwrap().values(){
+        assert!(body["final"].get("ledger").is_some(),"every late scenario compares the ledger");
+        for st in body["steps"].as_array().unwrap(){
+            if st["op"][0]=="begin"{
+                if let Some(r)=st.get("revert"){reverts.insert(r.as_str().unwrap().to_string());}
+                else{for e in st["evidence"].as_array().unwrap(){if e[0]=="late"{credits+=e[2].as_array().unwrap().len()}else{punish+=1}}}
+            }
+        }
+    }
+    assert_eq!(reverts,BTreeSet::from(["BadPhase".to_string(),"BadState".to_string()]));
+    assert!(credits>=60&&punish>=2,"late credits {credits}, punish {punish}");
+}
+
+/// V3-DESIGN.md V3-02, fails on the original: the winner of block 4 omits b's share. On the v3 set LS(4) carried by
+/// block 5 credits b, and settle(4) at h = 8 pays b R/Q (R = 1.7 PCOL, Q = max(C, kappa*m) = 64) and sets its lastShare
+/// to 4. The earn-in programs have no recordLate (the block's call reverts), and without the late credit b is paid
+/// nothing: the winner alone decided b's credit. The header shares keep their value: c is paid the same R/Q either way.
+#[test]
+fn late_share_pays_the_omitted_contributor_on_v3_not_on_earnin(){
+    let body=late_body("late-share-pays-the-omitted-contributor");
+    let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    let r=U256::from(17*PCOL/10);
+    assert_eq!(gain(&v3,"b"),r/U256::from(64),"b's late share is paid at settle(4)");
+    assert_eq!(bits(v3.record(name("b")).0,88,64),4,"b's lastShare");
+    let original=chain_exec(&without_late(&body),&Setup::v3(8,60_480));
+    assert_eq!(gain(&original,"b"),U256::ZERO,"without V3-02 the winner's omission removes b's pay");
+    assert_eq!(gain(&original,"c"),gain(&v3,"c"),"no header share loses value (no dilution: Q is unchanged)");
+    assert_eq!(bits(original.record(name("b")).0,88,64),0);
+    // The earn-in set refuses the block that carries it: recordLate does not exist there.
+    let mut h=Harness::new(&[],&Setup::earnin());
+    let mut refused=None;
+    for st in body["steps"].as_array().unwrap(){
+        let op:Vec<String>=st["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
+        match op[0].as_str(){"begin"=>{if let Some(e)=h.begin(st).unwrap(){refused=Some((op[1].clone(),e));break}}"close"=>h.close(op[1].parse().unwrap()).unwrap(),_=>{h.step(&op).unwrap();}}
+    }
+    let (at,why)=refused.expect("the earn-in programs refuse the carrying block");
+    assert_eq!(at,"5");eprintln!("earn-in refuses the carrying block: {why}");
+    for x in [&v3,&original]{x.chain_conserved().unwrap();}
+}
+
+/// The late-share vectors test V3-02: on the earn-in set (no recordLate) every scenario differs from the model.
+#[test]
+fn late_share_vectors_fail_on_the_earnin_set(){
+    let v:serde_json::Value=serde_json::from_str(LATE_VECTORS).unwrap();
+    for (n,body) in v.as_object().unwrap(){
+        let r=budget_scenario(n,body,&Setup::earnin());
+        eprintln!("earn-in {n}: {}",r.as_ref().err().map_or("reproduces",|e|e.as_str()));
+        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-02");
+    }
+}
+
+/// The five planted V3-02 mutants (compile_system_v3.cjs --mutants) each fail the late-share vectors, each in the
+/// scenario written for it.
+#[test]
+fn the_late_share_mutants_fail_the_v3_vectors(){
+    let list=mutant_programs();
+    let late=&list[EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()+EVIDENCE_MUTANTS.len()..];
+    let expect=[("late-last-share-reverts","late-last-share-is-monotone"),("late-last-share-overwrites","late-last-share-is-monotone"),
+        ("late-cap-removed","late-share-cap-fills-only-the-uncovered-pool"),("late-window-one-wider","late-share-at-the-settlement-boundary"),
+        ("late-total-not-raised","late-share-pays-the-omitted-contributor")];
+    assert_eq!(late.len(),expect.len());
+    for ((n,program,code),(want_name,killer)) in late.iter().zip(expect){
+        assert_eq!(n,want_name);
+        let original=runtime(V3,program);assert_ne!(code,&original,"{n} changes the bytecode");
+        let out=late_replay(&Setup::v3(8,60_480).with_program(program,code.clone()));
+        let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
+        eprintln!("mutant {n} ({program}): killed by {killed:?}");
+        assert!(killed.iter().any(|k|k.as_str()==killer),"mutant {n} survives {killer}: {killed:?}");
+    }
+}
+
+/// recordLate as the v3 host calls it, and only so: SYSTEM only on the registry, the registry only on the ledger; the
+/// exact calldata shape, 1 <= n <= S_max, nonzero clean owners; a recorded height inside the window under the cap.
+#[test]
+fn v3_record_late_call_shapes(){
+    let body=late_body("late-share-pays-the-omitted-contributor");
+    let mut h=chain_exec(&body,&Setup::v3(8,60_480));
+    let next=h.height+1;let step=serde_json::json!({"op":["begin",next.to_string(),"m0"],"winner":"m0","shares":[],"evidence":[]});
+    assert_eq!(h.begin(&step).unwrap(),None);
+    let call=|j:u64,owners:&[U256],off:u64,count:Option<u64>|->Vec<u8>{
+        let mut d=selector("recordLate(uint64,address[])");d.extend(U256::from(j).to_be_bytes::<32>());d.extend(U256::from(off).to_be_bytes::<32>());
+        d.extend(U256::from(count.unwrap_or(owners.len() as u64)).to_be_bytes::<32>());for o in owners{d.extend(o.to_be_bytes::<32>());}d
+    };
+    let b_=U256::from_be_slice(name("b").as_slice());let j=next-1;
+    assert_eq!(h.sys("recordLate",registry_address(),call(j,&[],64,None)),Err("BadCalldata".into()),"no owner");
+    // A malformed array (offset, or a count the calldata does not hold) fails the ABI decoding before the checks.
+    assert!(h.sys("recordLate",registry_address(),call(j,&[b_],32,None)).is_err(),"offset");
+    assert!(h.sys("recordLate",registry_address(),call(j,&[b_],64,Some(2))).is_err(),"length");
+    assert_eq!(h.sys("recordLate",registry_address(),call(j,&[U256::ZERO],64,None)),Err("BadCalldata".into()),"zero owner");
+    assert!(h.sys("recordLate",registry_address(),call(j,&[b_|(U256::from(1)<<160u32)],64,None)).is_err(),"dirty owner word (refused by the ABI re-encoding of the nested call)");
+    assert_eq!(h.sys("recordLate",registry_address(),call(j,&vec![b_;257],64,None)),Err("BadCalldata".into()),"n > S_max");
+    assert_eq!(h.sys("recordLate",registry_address(),call(next,&[b_],64,None)),Err("BadPhase".into()),"j = h");
+    assert_eq!(h.sys("recordLate",registry_address(),call(next-5,&[b_],64,None)),Err("BadPhase".into()),"j < h - D");
+    // A user may not call either: only SYSTEM reaches the registry's recordLate, only the registry the ledger's.
+    let user=h.sender("u");
+    let r=call_to(&mut h.db,user,registry_address(),call(j,&[b_],64,None),U256::ZERO,next);assert!(!r.result.is_success(),"a user call");
+    assert_eq!(h.sys("recordLate",ledger(),call(j,&[b_],64,None)),Err("Unauthorized".into()),"SYSTEM on the ledger directly");
+    assert_eq!(h.sys("recordLate",registry_address(),call(j,&[b_],64,None)),Ok(()),"the shape the host sends");
+    assert_eq!(h.sys("recordLate",registry_address(),call(next-4,&[b_],64,None)),Ok(()),"j = h - D, before settle(h - D)");
+    h.close(next).unwrap();h.chain_conserved().unwrap();
 }
 
 #[cfg(feature="v3-preview")]
@@ -1230,6 +1395,37 @@ mod preview{
         assert_eq!(v3.4[2]-earnin.4[2],share(2),"c is paid its pot 1 shares on v3 only");
         assert_eq!(v3.4[0]-earnin.4[0],share(1)+U256::from(5*PCOL)+U256::from(PCOL/10),"a: its share, the reporter cut and the pot 1 proposer part");
         assert_eq!(v3.4[1],earnin.4[1],"b, tombed, receives nothing more on either set");
+    }
+
+    /// V3-02 through the host: block 2's winner b omits a's share; block 3 (signed by c) carries Late{j: 2, owners: [a, a]}.
+    /// On v3 settle(2) at h = 6 pays a two shares of pot 2 (R = 1.7 PCOL over Q = 64) and a's lastShare is 2; the spec-1
+    /// earn-in set refuses the effect (no recordLate: apply fails before any call), so there a is paid nothing.
+    #[test]
+    fn v3_host_runs_late_credit_on_real_blocks(){
+        let mut gains=Vec::new();
+        for spec in [1u8,2]{
+            let mut r=Run::new(&config(spec,&["a","b","c"]));
+            let (a,b_,c)=(r.id(0),r.id(1),r.id(2));
+            r.block(Proposer::Signed(a),vec![],vec![],c,vec![]);
+            r.block(Proposer::Signed(c),vec![],vec![],b_,vec![(7,c)]);
+            let before=r.bal(r.reward(0));
+            let late=vec![EvidenceEffect::Late{j:2,owners:vec![a,a]}];
+            if spec==1{
+                let input=BlockInput{height:3,timestamp:1_700_000_012,base_fee:r.base,gas_limit:8_000_000,prevrandao:B256::ZERO,proposer:Proposer::Signed(c),
+                    parent_result:r.prev.clone(),evidence:late,evidence_raw:&[],transactions:&[],ancestors:vec![],cum_log_bytes:0};
+                assert_eq!(apply::apply_block(&r.state,&r.net.genesis,&r.net.profile,&input).err(),Some(apply::ApplyError::Context("late shares need the v3 program set")));
+                r.block(Proposer::Signed(c),vec![],vec![],c,vec![]);
+            }else{
+                let o=r.block(Proposer::Signed(c),late,vec![],c,vec![]);
+                assert_eq!(apply::share_total(&o.state,2),4,"the header's two shares and the two late ones");
+                assert_eq!(apply::share_count(&o.state,2,a),2);
+                assert_eq!(apply::miner_record(&o.state,a).unwrap().last_share,2);
+            }
+            for _ in 0..4{let w=r.id(2);r.block(Proposer::Fallback,vec![],vec![],w,vec![]);}
+            gains.push(r.bal(r.reward(0))-before);
+        }
+        let share=U256::from(17*PCOL/10)/U256::from(64);
+        assert_eq!(gains[1]-gains[0],share*U256::from(2),"a's two late shares of pot 2, on v3 only");
     }
 
     /// SYS gas and caps of the v3 calls at the GAS_DOMAIN maxima (S_max 256, M_max 256, D 16, E_max 4) with the v3
@@ -1329,8 +1525,29 @@ mod preview{
             fold(&c);
         }
 
+        // Chain C (V3-02): recordLate at its worst. Pots 5..8 carry only their winners' shares (C_header = 1), so the
+        // no-dilution cap (kappa*m = 64) admits kappa*m - 1 = 63 late shares each. Block 9 carries E_max = 4 kind-3
+        // effects, j = 5..8, each crediting 63 distinct owners new to the ledger's list for j, the first call of the
+        // block reaching every owner's record cold. Run once with genesis members (each record's lastShare word
+        // written: lastShare < j) and once with owners without a record (recordLate reads the record's four words to
+        // check it is erased, which costs more than a write of a warm-loaded word).
+        let mut late_rec=(0u64,0u64);
+        for strangers in [false,true]{
+            let mut c=Run::new(&cfg);
+            for k in 1..=8u64{let sh=if k<=4{(0..192u64).map(|i|(i+1,genesis[i as usize])).collect()}else{vec![]};c.block(Proposer::Signed(genesis[100+k as usize]),vec![],vec![],genesis[k as usize],sh);}
+            let owner=|i:usize|if strangers{Address::from_word(keccak256(format!("late-owner-{i}")).into())}else{genesis[i%192]};
+            let ev=(0..4usize).map(|t|EvidenceEffect::Late{j:5+t as u64,owners:(0..63).map(|i|owner(63*t+i)).collect()}).collect();
+            let o=c.block(Proposer::Signed(genesis[150]),ev,vec![],genesis[9],vec![]);
+            let g=o.meter.call_gas.iter().filter(|(n,_)|*n=="recordLate").map(|x|x.1).max().unwrap();
+            for j in 5..9u64{assert_eq!(apply::share_total(&o.state,j),64,"pot {j} filled to kappa*m");}
+            if strangers{late_rec.1=g}else{late_rec.0=g;for i in 0..192{let l=apply::miner_record(&o.state,genesis[i]).unwrap().last_share;assert!(l>=5,"genesis {i}: lastShare {l} = max(4, the late heights)");}}
+            fold(&c);
+        }
+
         let b=resources::derive(&cp);
-        eprintln!("V3-GAS {gas:?}; settle(5) {settle5}, punish ACCRUING {punish_acc} HELD {punish_held}; keys {keys} (derive {}), accounts {accounts} (derive {})",b.keys_normal,b.accts_normal);
+        eprintln!("V3-GAS {gas:?}; settle(5) {settle5}, punish ACCRUING {punish_acc} HELD {punish_held}, recordLate recorded {} strangers {}; keys {keys} (derive {}), accounts {accounts} (derive {})",late_rec.0,late_rec.1,b.keys_normal,b.accts_normal);
+        assert_eq!(gas["recordLate"],late_rec.0.max(late_rec.1));
+        assert!(late_rec.1>late_rec.0,"recordLate: owners without a record {} vs recorded owners {}",late_rec.1,late_rec.0);
         // The maxima are taken on the paths named above.
         assert_eq!(gas["settle"],settle5,"the worst settle is pot 5's 64 bond fills");
         assert_eq!(gas["punish"],punish_acc.max(punish_held));
@@ -1343,6 +1560,7 @@ mod preview{
         }
         // The v3 table is needed: each of its measured entries exceeds the spec-1 entry of the same name.
         for n in ["invalidate","punish","recordResult","settle"]{assert!(gas[n]>admission::envelope_for(n,false).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
+        assert_eq!(admission::envelope_for("recordLate",false),None,"recordLate exists on the v3 set only");
         assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
     }
 }

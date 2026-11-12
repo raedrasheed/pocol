@@ -343,6 +343,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("discovery-transient","the address book's selection, answer and file buffers are transient on the consensus thread and counted at their bounds; each outbound slot holds one connection at a time, joining the previous reader first; selection holds one entry list and one source or key list over the book; the exclusions are closures and allocate nothing; each slot channel holds one address; a route probe is a UDP socket without buffers; by inspection"),
     ("store-file-factor","the state.redb allocator term takes the largest file as STATE_FILE_FACTOR times the stored bytes: a factor measured on stores of 1.5 to 15 MB (evidence/c1-e4 disk measurements), not established for the terabyte files of the adversarial case (every version a whole state on disk)"),
     ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
+    ("late-share-inventory","V3-02 (CP schema v2 only): an offloaded entry keeps its kind-3 evidence items, bounded per block by E_max items and the L = min(E_max·min(S_max, κm − 1), D·(κm − 1)) late shares one block can credit, and a slimmed one drops them; the late-share cache holds at most D templates of SHARE_RELAY_PER_S_MAX·S_max nonces; both by inspection of chain::offload/slim and node::LateCache, zero on CP schema v1"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
 /// group fields are the sums of their items and `total` is the sum of all items.
@@ -552,7 +553,9 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // R_max registrations per block (D86 registry rotation).
     // C-1 S5: the continuous windowed chain has no such total (its height is unbounded): the window's own bound.
     let w_evidence=mul(window,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?)?;
-    let w_evidence=if continuous&&windowed.is_some(){w_evidence}else{
+    // V3-02 (CP schema v2): kind-3 evidence is not one item per identity (late shares can be carried in every block),
+    // so a v3 window is bounded per block only.
+    let w_evidence=if (continuous&&windowed.is_some())||cp.schema_version()>=2{w_evidence}else{
         let identities=u128::from(cp.M_max).checked_add(mul(u128::from(cp.R_max),u128::from(cp.H_END))?)?;w_evidence.min(mul(identities,u128::from(cp.EVID_BYTES_MAX)+24)?)};
     let w_bodies=mul(window,u128::from(cp.BODY_MAX))?.min(txbytes_mem);
     let w_receipts=mul(mul(window,side_txs)?.min(tx_mem),per_tx)?;
@@ -612,6 +615,15 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         // bounded chains, and rebuilding a lost index from a long journal.
         hist.extend([("history/first-import index cache and allocator",add(&[node::canon::CANON_CACHE as u128,redb_alloc_max(file)?])?),
             ("history/first-import journal lookup scratch",add(&[mul(2,crate::store::MAX_RECORD as u128+crate::store::OVERHEAD as u128)?,mul(8,hdr)?,4096])?)]);
+    }
+    // V3-02 (CP schema v2 only): an offloaded entry keeps its kind-3 evidence items (chain::offload), for the late-share
+    // deduplication of its descendants; a slimmed one drops them. So do the offloaded canonical entries above the slim
+    // depth, the side entries and a rebuild's shadow copies (offloaded, not slimmed): `late_kept_bytes` each.
+    let late=late_kept_bytes(cp)?;
+    if late>0{
+        let shadow=if windowed.is_some(){u128::from(cp.E_win).checked_add(1)?.max(257)}else{0};
+        hist.push(("history/late-share evidence kept on offloaded entries (V3-02: offloaded canonical, side and shadow entries)",
+            mul(add(&[full_old,limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?,shadow])?,late)?));
     }
     let history=add(&hist.iter().map(|x|x.1).collect::<Vec<_>>())?;items.extend(hist);
     // Side blocks (D-REORG-REDB): every journaled non-canonical block is offloaded to metadata at the
@@ -692,6 +704,10 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         ("queues/inbound eviction: registry, selection scratch, per-connection activity and eviction ring",evict),
         ("queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)",costly)];
     let mut queues=add(&q.map(|x|x.1))?;items.extend(q);
+    // V3-02 (CP schema v2 only): the late-share cache (node::LateCache), at most D templates of at most
+    // SHARE_RELAY_PER_S_MAX·S_max nonces each, a Vec counted at memory::VEC times its length, in a VecDeque counted the same.
+    let cache=late_cache_bytes(cp)?;
+    if cache>0{queues=queues.checked_add(cache)?;items.push(("queues/late-share cache (V3-02: D templates, 4·S_max shares each)",cache));}
     // Peer discovery (VA-SPEC §1a, node::discovery), with discovery on only (off, the book reserves nothing and no
     // link is kept):
     // - the address book, its BOOK_MAX entries reserved once (addrbook::Book::new, never grown); Node::open builds
@@ -772,6 +788,21 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
 }
 /// One block entry in memory: its map slot (key and box, a control byte, counted at 4 for growth), the Entry and its
 /// allocation header (`derive`'s per-block term starts from it).
+/// V3-02 (CP schema v2): the most kind-3 evidence one offloaded entry keeps: at most min(E_max, L) items (L =
+/// lp4 resources::late_shares_max, the late shares one block can credit), each its Vec slot (24 B) and at most 17 B of
+/// RLP framing plus 9 B per nonce; never more than E_max whole items. 0 on CP schema v1 (no kind-3 evidence).
+pub fn late_kept_bytes(cp:&ConsensusParams)->Option<u128>{
+    let l=u128::from(pocol_lp4_execution::resources::late_shares_max(cp));if l==0{return Some(0)}
+    let items=u128::from(cp.E_max).min(l);
+    Some(add(&[mul(items,24+17)?,mul(l,9)?])?.min(mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX)+24)?))
+}
+/// V3-02 (CP schema v2): node::LateCache at its bound, D entries of size_of::<LateTemplate>() and SHARE_RELAY_PER_S_MAX·S_max
+/// nonces, counted at memory::VEC; 0 on CP schema v1 (the cache is never filled).
+pub fn late_cache_bytes(cp:&ConsensusParams)->Option<u128>{
+    if cp.schema_version()<2{return Some(0)}
+    let per=add(&[size_of::<node::LateTemplate>() as u128,mul(memory::VEC,mul((node::SHARE_RELAY_PER_S_MAX as u128)*u128::from(cp.S_max),8)?)?])?;
+    add(&[mul(memory::VEC,mul(u128::from(cp.D),per)?)?,64])
+}
 pub fn entry_bytes()->Option<u128>{add(&[mul(size_of::<([u8;32],Box<Entry>)>() as u128+1,4)?,size_of::<Entry>() as u128,32])}
 /// A slimmed entry (C-1 S4): the entry and its canonical-index slot, with the shared empty state.
 pub fn slim_entry_bytes()->Option<u128>{add(&[entry_bytes()?,64])}

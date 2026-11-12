@@ -19,6 +19,13 @@
 //!   8 fixed (5 programs, PAY, SYSTEM, origin) + payees
 //!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET;
 //!   each +1 on CP schema v2 when E>0 (V3-17: the reporter's reward address, paid the cut of a punished bond).
+//! V3-02 late share credit (CP schema v2, the v3 programs): a kind-3 item's recordLate writes per share at most its
+//!   owner's count, owner-list element and record word, and per item the list length and the total: 3k + 2 keys for
+//!   k shares. Each template j takes at most κm − C_header(j) <= κm − 1 late shares (the no-dilution cap), so one item
+//!   carries at most min(S, κm − 1) and a block at most L = min(E·min(S, κm − 1), D·(κm − 1)); the evidence keys are at
+//!   most 9·E + 3·L. No account and no SYS slot
+//!   bound changes: the owners of a height stay within O (κm <= S/4 when late credit applies), and recordLate pays
+//!   nobody.
 use crate::profile::ConsensusParams;
 
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -30,7 +37,7 @@ pub fn derive(cp:&ConsensusParams)->SysBounds{
     let e=u64::from(cp.E_max);let ret=u64::from(cp.RET);let sw=u64::from(cp.SWEEP_MAX).min(16);let o=(s+1).min(m);let rmax=u64::from(cp.R_max);
     let registry_fixed=if cp.schema_version()>=2{7}else{5};
     let slot_min=registry_fixed+5*rrm+m + k*(2*o+2) + 2+3*(d+1) + cp.cp_len() as u64;
-    let common=9*e+(2*o+2)+(3*o+2)+1+4;
+    let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2)+1+4;
     let keys_normal=common+1+(2+8*sw+1)+2;
     let keys_closing=common+(1+ret+1)+1+2;
     let keys_final=common+(1+ret+1)+1+2+4*d.saturating_sub(1);
@@ -39,6 +46,19 @@ pub fn derive(cp:&ConsensusParams)->SysBounds{
     let reporter=u64::from(cp.schema_version()>=2&&e>0);
     let accts_normal=8+o+1+sw+reporter;let accts_closing=8+o+1+ret+reporter;let accts_final=8+(d*(o+1)).min(m+rmax*d+1)+ret+reporter;
     SysBounds{slot_min,keys_normal,keys_closing,keys_final,accts_normal,accts_closing,accts_final}
+}
+/// V3-02: the late-share keys 3·L a block can add on CP schema v2 (module doc); 0 on CP schema v1.
+pub fn late_keys(cp:&ConsensusParams)->u64{
+    if cp.schema_version()<2{return 0}
+    3*late_shares_max(cp)
+}
+/// V3-02: the most late shares one block can credit, L = min(E_max·min(S_max, κm − 1), D·(κm − 1)): at most E_max items,
+/// each within S_max and the template's cap κm − C_header(j) <= κm − 1, and at most κm − 1 for each of the D templates
+/// of the window (0 on CP schema v1).
+pub fn late_shares_max(cp:&ConsensusParams)->u64{
+    if cp.schema_version()<2{return 0}
+    let per=(u64::from(cp.kappa)*u64::from(cp.m)).saturating_sub(1);
+    (u64::from(cp.E_max)*per.min(u64::from(cp.S_max))).min(u64::from(cp.D)*per)
 }
 /// R18 (general, v1 layout): SYS_SLOT_MAX >= slot_min, per-block key/account caps
 /// cover every phase class, and G_SYS can hold at least the per-call cap.

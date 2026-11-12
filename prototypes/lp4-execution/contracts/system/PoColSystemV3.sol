@@ -8,7 +8,8 @@ pragma solidity 0.8.28;
 // ChainCaps.get(52..66) reads 0 (P_MAX 0, T_PROB 0, R_react 0). The host registry (apply.rs SystemPrograms::selectable)
 // keeps the set off a CP schema v1 genesis (tests/v3_contracts.rs). V3-08/V3-09 registry budgets: REGISTRY-LAYOUT.md,
 // tests/v3_model.py. V3-16/V3-17 evidence penalties (RewardEscrow recordResult/invalidate/burnBond, MinerRegistry
-// punish): REGISTRY-LAYOUT.md "v3 evidence penalties", tests/v3_model.py. Authorities: M1 execution.md and
+// punish): REGISTRY-LAYOUT.md "v3 evidence penalties", tests/v3_model.py. V3-02 late share credit (MinerRegistry and
+// ShareLedger recordLate): REGISTRY-LAYOUT.md "v3 late share credit", tests/v3_model.py. Authorities: M1 execution.md and
 // incentives.md (phases, pending, settle formulas, bond machine); LP4-PAY-01/02, LP4-REGISTRY-01/02,
 // LP4-SYS-01, LP4-ISSUANCE-01; LP4-LEDGER-01 option 1 (development/LP4-LEDGER-APPROVAL.md).
 // Addresses: C0C001 MinerRegistry, C0C002 RewardEscrow, C0C003 ShareLedger,
@@ -23,6 +24,7 @@ interface IRegistryV1 {
 interface IEscrowV1 { function releaseBond(address id) external returns(bool); function burnBond(uint256 amount,address reward) external; } // V3-17: burnBond pays the reporter's cut
 interface ILedgerV1 {
     function record(uint64 j,address[] calldata seq) external;
+    function recordLate(uint64 j,address[] calldata seq) external; // V3-02
     function totalOf(uint64 j) external view returns(uint256);
     function countOf(uint64 j,address a) external view returns(uint256);
     function ownersOf(uint64 j) external view returns(address[] memory);
@@ -87,6 +89,32 @@ contract ShareLedger {
             count[j][a]=c+1;
         }
         total[j]=n;
+    }
+
+    /// V3-02 late share credit, CALLER=Registry only, exactly selector||j||0x40||N||N addresses: one owner per late
+    /// share of template j, which the host validated (kind-3 evidence of the carrying block, phase 0 after
+    /// recordShares/recordResult of h-1 and before settle(h-D)). j is in [max(1,h-D), h-1] with its header shares
+    /// recorded (total[j] != 0), and the no-dilution cap holds: total[j] + N <= kappa*m (C_header(j) + C_late(j)), so
+    /// q_j = max(total, kappa*m) never changes and late credit fills only the uncovered part of the pool.
+    function recordLate(uint64 j,address[] calldata) external {
+        if(msg.sender!=Sys.REGISTRY) revert Unauthorized();
+        uint256 n; uint256 off;
+        assembly { off:=calldataload(36) n:=calldataload(68) }
+        if(off!=64 || n==0 || n>Sys.cfg(10) || msg.data.length!=100+32*n) revert BadCalldata();
+        uint256 height=block.number;
+        if(height<2 || height>Sys.LOW64 || j==0 || uint256(j)>=height || uint256(j)+Sys.cfg(11)<height) revert BadPhase();
+        uint256 t=total[j];
+        if(t==0 || t+n>Sys.cfg(8)*Sys.cfg(9)) revert BadState();
+        address[] storage list=owners[j];
+        for(uint256 i;i<n;i++){
+            uint256 raw; assembly { raw:=calldataload(add(100,mul(32,i))) }
+            if(raw==0 || raw>>160!=0) revert BadCalldata();
+            address a=address(uint160(raw));
+            uint256 c=count[j][a];
+            if(c==0) list.push(a);
+            count[j][a]=c+1;
+        }
+        total[j]=t+n;
     }
 
     /// SYSTEM only. K=max(D,W_w); deletes exactly j=h-K-1 when h>K+1, else no-op.
@@ -513,6 +541,22 @@ contract MinerRegistry {
             if(w==0){ if(get(r+1)!=0||get(r+2)!=0||get(r+3)!=0) revert BadState(); continue; }
             if(((w>>88)&LOW64)>uint256(j)) revert BadState();
             put(r,(w&~LAST_MASK)|(uint256(j)<<88));
+        }
+    }
+    /// V3-02 (phase 0, SYSTEM, kind-3 evidence): one nested CALL to Ledger.recordLate, then lastShare=max(lastShare,j)
+    /// for every existing record among the owners (absent all-zero records skipped, as recordShares). Unlike
+    /// recordShares it never reverts on lastShare > j: a later header share of the owner already moved it past j.
+    function recordLate(uint64 j,address[] calldata seq) external {
+        if(msg.sender!=Sys.SYSTEM) revert Unauthorized();
+        uint256 n; uint256 off;
+        assembly { off:=calldataload(36) n:=calldataload(68) }
+        if(off!=64 || n==0 || n>cfg(10) || msg.data.length!=100+32*n) revert BadCalldata();
+        ILedgerV1(Sys.LEDGER).recordLate(j,seq);
+        for(uint256 i;i<n;i++){
+            uint256 raw; assembly { raw:=calldataload(add(100,mul(32,i))) }
+            uint256 r=rec(address(uint160(raw))); uint256 w=get(r);
+            if(w==0){ if(get(r+1)!=0||get(r+2)!=0||get(r+3)!=0) revert BadState(); continue; }
+            if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88));
         }
     }
     /// Evidence effect (phase 0, SYSTEM): HELD -> BURNED+tomb (active exits);

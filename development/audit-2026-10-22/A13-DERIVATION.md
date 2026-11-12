@@ -1404,6 +1404,26 @@ H15000-bundle projections above. Candidate v3 caps still need the resource/profi
 `memory_bounds` checks observations and side-record growth; `v3_fork_choice` checks actual retention,
 checkpoint/index loss, partial timing-table loss, corruption recovery and re-fetch with original flags.
 
+### V3-PR-E3: late share credit (V3-02), CP schema v2 only
+
+Three terms exist only for a CP schema v2 (v3) profile; on CP schema v1 each is zero and the pinned spec-1 totals
+(3,396,912,610 B; eviction off 3,387,450,989 B) are unchanged, as are `Entry`, `Rec`, REC_MIN and REC_MAX.
+
+- `queues/late-share cache`: `node::LateCache`, at most D templates (`LateTemplate`: TemplateID, nMax, share target and
+  at most SHARE_RELAY_PER_S_MAX·S_max = 4·S_max nonces), each nonce Vec and the deque counted at memory::VEC:
+  3·D·(size_of LateTemplate + 3·4·S_max·8) + 64. The design's estimate was D·4·S_max·8 B.
+- `history/late-share evidence kept on offloaded entries`: an offloaded entry keeps its body's kind-3 items for the
+  branch deduplication (`chain::offload`), a slimmed one drops them. Per entry at most min(E_max, L) items with
+  L = min(E_max·min(S_max, κm − 1), D·(κm − 1)) late shares a block can credit: items·(24 + 17) + 9·L, never above
+  E_max·(EVID_BYTES_MAX + 24). Counted for the offloaded canonical entries above the slim depth, the side entries
+  (side_cap + 2·R_keep) and a rebuild's shadow copies (max(257, E_win + 1) with eviction on). At the default devnet
+  values with CP schema v2 (E_max 4, S_max 256, D 4, κm 64): 2,432 B per entry.
+- The resident window's evidence term drops the one-item-per-identity bound on CP schema v2 (late shares are not one
+  per identity) and is bounded per block, as the continuous windowed chain already was.
+
+`late-share-inventory` records these as inventories by inspection. `pocold/tests/v3_late_shares.rs`
+(`a13_counts_late_share_memory_on_cp_schema_v2_only`) checks the terms and the unchanged spec-1 pin.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

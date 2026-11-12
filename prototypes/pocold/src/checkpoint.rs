@@ -346,7 +346,7 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
 /// ranges. The entry is offloaded and slimmed as the record's flags say, except that `slim: false` keeps a
 /// slimmed record whole (its ranges are then read: a rebuild re-executes it). Refusals are worded by `why`;
 /// an error of `receipts` or `ranges` is passed on as it is (a local failure). Returns the entry and the
-/// block's body, which an offloaded entry does not hold.
+/// block's body, which an offloaded entry does not hold (but for its V3-02 late-share evidence items, `chain::offload`).
 pub fn entry_of(r:&Rec,payload:&[u8],parent:impl FnOnce(&crate::header::Header)->Result<(),String>,receipts:impl FnOnce()->Result<Option<Vec<Vec<u8>>>,String>,
     ranges:impl FnOnce()->Result<Option<Vec<(Address,u128,u128)>>,String>,body_max:usize,slim:bool,why:&dyn Fn(&str)->String)->Result<(Entry,Body),String>{
     let record=crate::store::decode_record_ref(payload).map_err(|e|why(&format!("record: {e}")))?;
@@ -364,7 +364,7 @@ pub fn entry_of(r:&Rec,payload:&[u8],parent:impl FnOnce(&crate::header::Header)-
     let mut e=Entry{hash:r.hash,height:header.h,parent:Some(header.parent_hash),total_work:r.total_work,import_seq:r.import_seq,signed:!header.proposer.is_empty(),timely,ts:header.ts,
         target:header.target,base_fee:from_fixed(&header.base_fee),gas_used:header.gas_used,seal:seal(&template_id(&header.ut_raw),header.nonce),state:crate::chain::empty_state(),
         is_final:r.flags&F_FINAL!=0,result,receipts,tx_hashes,cum_txs:r.cum_txs,cum_tx_bytes:r.cum_tx_bytes,cum_log_bytes:r.cum_log_bytes,pruned:r.flags&F_PRUNED!=0,full:r.flags&F_FULL!=0,diff:None,
-        slim:false,drawn:r.drawn,ranges,body_off:r.body_off,offloaded:false,trie:None,summary:r.summary.map(Box::new),stored:None,header,body:if offloaded{Body::default()}else{body.clone()}};
+        slim:false,drawn:r.drawn,ranges,body_off:r.body_off,offloaded:false,trie:None,summary:r.summary.map(Box::new),stored:None,header,body:if offloaded{crate::chain::offloaded_body(&body)}else{body.clone()}};
     if offloaded{crate::chain::offload(&mut e);}
     if slimmed{crate::chain::slim(&mut e);}
     if e.summary.as_deref()!=r.summary.as_ref(){return Err(why("a slimmed entry with a summary"))}
