@@ -390,7 +390,8 @@ impl<'a> Wallet<'a>{
         let pending=n.pool_view();let account=pending.account(&self.key.address());
         let nonce=account.as_ref().map(|a|a.info.nonce).unwrap_or(0);
         let balance=account.map(|a|a.info.balance).unwrap_or_default();
-        let base=if head.height==0{crate::chain::from_fixed_lp4(&n.chain.spec.cp().baseFee0)}else{pocol_lp4_execution::fees::next_base_fee(head.base_fee,head.gas_used,head.header.gas_limit).map_err(|_|"Invalid base fee")?};
+        let floor=n.chain.spec.base_fee_floor(head.height.saturating_add(1));
+        let base=if head.height==0{crate::chain::from_fixed_lp4(&n.chain.spec.cp().baseFee0).max(floor)}else{pocol_lp4_execution::fees::next_base_fee(head.base_fee,head.gas_used,head.header.gas_limit,floor).map_err(|_|"Invalid base fee")?};
         let priority=U256::from(1_000_000_000u64);let max_fee=base.checked_mul(U256::from(2)).and_then(|b|b.checked_add(priority)).ok_or("Fee overflow")?;
         Ok(Fee{nonce,balance,priority,max_fee})
     }

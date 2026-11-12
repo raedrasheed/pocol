@@ -37,7 +37,7 @@ fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
         let input=BlockInput{height:h,timestamp:1_800_000_000+60*h,base_fee:base,gas_limit:8_000_000,prevrandao:B256::ZERO,
             proposer:if h%2==0{Proposer::Signed(ids[(h as usize*7)%256])}else{Proposer::Fallback},parent_result:prev.clone(),evidence,evidence_raw:&[],transactions:&[],ancestors:vec![],cum_log_bytes:0};
         let o=apply::apply_block(&state,&net.genesis,&net.profile,&input).unwrap_or_else(|e|panic!("h={h} {e:?}"));
-        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000).unwrap();
+        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000,U256::ZERO).unwrap();
         let (k,a)=(o.meter.keys.len(),o.meter.accounts.len());
         if o.is_final{kf=kf.max(k);af=af.max(a);final_seen=true}else if o.facts.closing{kc=kc.max(k);ac=ac.max(a)}else{kn=kn.max(k);an=an.max(a)}
         gas=gas.max(o.system_gas);call=call.max(o.meter.max_call_gas);if h%10==0||o.facts.closing{println!("GAS h={h} sys={} maxcall={} calls={} keys={k} accts={a}",o.system_gas,o.meter.max_call_gas,o.meter.calls);}
@@ -79,7 +79,7 @@ fn gas_scenario_from(c:&DevnetConfig,evidence_at:&dyn Fn(u64,&[Address])->Vec<Ev
         let input=BlockInput{height:h,timestamp:1_800_000_000+60*h,base_fee:base,gas_limit:8_000_000,prevrandao:B256::ZERO,
             proposer:if h%2==0{Proposer::Signed(ids[(h as usize*7)%owners])}else{Proposer::Fallback},parent_result:prev.clone(),evidence:evidence_at(h,&ids),evidence_raw:&[],transactions:&[],ancestors:vec![],cum_log_bytes:0};
         let o=apply::apply_block(&state,&net.genesis,&net.profile,&input).unwrap_or_else(|e|panic!("h={h} {e:?}"));
-        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000).unwrap();
+        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000,U256::ZERO).unwrap();
         for (name,g) in &o.meter.call_gas{let e=seen.entry(*name).or_default();*e=(*e).max(*g);}
         let class=if o.is_final{2}else if o.facts.closing{1}else{0};block_max[class]=block_max[class].max(o.system_gas);
         if single_before!=0&&o.is_final&&single_before==h-u64::from(c.d)+1{
@@ -177,7 +177,7 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
             proposer,parent_result:prev.clone(),evidence:evidence_at(h,&ids,&acc),evidence_raw:&[],transactions:&txs,ancestors:vec![],cum_log_bytes:0};
         let o=apply::apply_block(&state,&net.genesis,&net.profile,&input).unwrap_or_else(|e|panic!("{a:?} h={h} {e:?}"));
         apply::check_escrow_invariant(&o.state,&net.profile,h,o.is_final).unwrap_or_else(|e|panic!("{a:?} h={h} escrow {e:?}"));
-        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000).unwrap();
+        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000,U256::ZERO).unwrap();
         for (name,g) in &o.meter.call_gas{let e=seen.entry(*name).or_default();*e=(*e).max(*g);}
         let class=if o.is_final{2}else if o.facts.closing{1}else{0};block_max[class]=block_max[class].max(o.system_gas);
         // (A) recordShares(h-1) was given only registered owners: each is a record in the parent state

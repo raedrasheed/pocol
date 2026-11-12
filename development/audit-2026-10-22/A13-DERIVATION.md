@@ -1506,6 +1506,65 @@ checkpoint/index loss, partial timing-table loss, corruption recovery and re-fet
   delta, not re-run. Re-running the network_budget prints on the parent of 4d62ef9 would confirm it;
   that was not done for this record. The flip changes no shipped or live configuration.
 
+### V3-PR-C3: active log limits and creation-fee annotation
+
+For the same admitted `v3_active(MAX)` domain as first-import indexing, every
+per-block log term now uses 256 KiB rather than 32 KiB: continuous projected
+history, the resident canonical window, retained receipts, side blocks and a
+reloaded view. Finite LOG_CAP=1 GiB is unchanged. R26 also reserves response/count/scan capacity for the
+largest active log cap; its partial evaluator cannot waive an enforced bound.
+Under v3 eth_getTransactionReceipt is served heavy (one receipt can hold every
+block log, above LIGHT_RESP_MAX); the response pools and their terms are
+unchanged, since a heavy answer already reserves RESP_MAX from HEAVY_RESP_POOL.
+
+A paid creation charge adds at most one receipt annotation to the native result:
+one Log, two topics and 96 data bytes (196 LOG-ACCT-01 bytes). The encoded/retained
+copies are inside the active log bounds. `execution/v3 creation-fee receipt
+annotation scratch` adds 4096 B per execution for the extra live log and its
+allocation/growth peak beyond EVM-gas-purchased logs (v3 domain only). No block
+report carries the burn: ChainFacts, BlockRun, BlockOutput and Entry keep their
+legacy layouts (ChainFacts is 96 B on the pinned target, asserted in
+`memory_bounds`); the receipts are the burn record. The running CreationBurn,
+other scalar values and U512 arithmetic use the already reserved consensus stack.
+There is no new system slot, snapshot map, checkpoint field or lifetime burn map.
+
+**Legacy under-count corrected on every profile (spec-1 included).** While a block
+runs, the unchanged legacy code allocates receipt scratch that no earlier term
+counted: `receipts::encode` nests growing parts/topic/log/payload/envelope buffers
+for the transaction being encoded; `trie::ordered_root` clones every encoded
+receipt (`v.clone()`) before building the receipts root; and apply copies the USER
+receipt list into its report (`users.receipts().to_vec()`) while the original is
+alive. The retained block's own receipts and logs are the separate side-block and
+history terms. Count the peak explicitly as `16*active_log_bytes +
+2*side_txs*per_tx + 65536`, where the existing per-tx allowance is 380 B and
+`side_txs=min(BODY_MAX/MIN_TX_BYTES,GAS_LIMIT/21000)`. By inspection the log-byte
+peak is about 9.3 copies (the encoded list plus about eight nested/growing copies
+of one transaction's logs, or two whole lists plus a leaf's copies at the root);
+sixteen copies cover it with margin, two receipt buffers cover the per-transaction
+base fields and 64 KiB the fixed bloom/short-list scratch. Only the active log cap
+is v3-gated (`log_caps(first_imports)`): 32 KiB on spec-1, 256 KiB under v3.
+
+Spec-1 impact (recorded for the owner): on the legacy default 8M-gas profile and
+the live H15000 chain this adds 878,624 B. The default Linux x86-64 devnet model is
+3,397,791,234 B with eviction (was 3,396,912,610) and 3,388,329,613 B without (was
+3,387,450,989). The six non-evicting record stops, in peers 8/32/64 and dials 2/7
+order, move from 1,146,268 / 1,121,410 / 1,114,248 / 1,089,603 / 1,071,706 /
+1,046,848 to 1,145,894 / 1,121,036 / 1,113,874 / 1,089,243 / 1,071,332 / 1,046,701
+(374/374/374/360/374/147 records earlier). The original R10 baselines and owner
+seed-rule guards remain and still pass. Every windowed file stop moves down by
+4096*878624 = 3,598,843,904 B; (32 peers, 2 dials) is now 11,590,057,361,535 B.
+Budgets, reserve and one-byte boundary checks are unchanged. No verdict, root,
+fork choice, journal or checkpoint byte changes. These are capacity models, not
+measured RSS or chain lifetime.
+
+Pricing is exact per persisted new unit; its loops are bounded by existing gas
+and dirty limits (runtime deposit is 200 gas per byte). No shared growth budget
+or reduced resource reserve substitutes for this inventory. See
+`development/decisions/V3-EXECUTION-FEES.md` and `v3_execution` for count/byte
+boundaries, annotation rollback, classified conservation and copy/overlay/store
+parity. These are representation bounds and fixture results; candidate v3 caps
+and coefficient calibration still require the resource/profile PR.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

@@ -48,7 +48,7 @@
 //! }
 //! ```
 mod scope;
-pub use scope::{Condition,RpcFacts,Scope,Waiver,RPC_FIELDS,R26_PREDICATES,r26_partial};
+pub use scope::{Condition,RpcFacts,Scope,Waiver,RPC_FIELDS,R26_PREDICATES,r26_partial,r26_partial_for};
 use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,U256,keccak256}};
 use crate::{apply::{self,BlockInput,Genesis,ParentResult,ProgramSet,Proposer,SystemPrograms},
     gate::{self,Calibration,FactClass,GateProfile,IdentityFacts,LocalParams,Phase,PhaseFacts,ResourceFacts},
@@ -256,6 +256,20 @@ impl std::fmt::Display for Rejection{
 impl std::error::Error for Rejection{}
 fn terminal(rule:&str,note:String)->Rejection{Rejection{rules:vec![rule.into()],missing:vec![],notes:vec![note]}}
 
+/// Open pre-launch blockers of the dormant v3 rules (V3-28 `launchBlockers`). While any is open, a
+/// profile that can activate v3 is admitted only as a simnet profile on a simnet node, whatever the
+/// build: removing the v3-preview restriction or raising SPEC_VERSION (V3-PR-I) does not admit it.
+/// Remove an entry only with the owner decision and the change that resolve it.
+pub const V3_LAUNCH_BLOCKERS:&[&str]=&[
+    "D-V3-21 creation-burn user bound: the creation burn has no sender-signed bound; choose a pool/eth_estimateGas quoted-burn limit or a signed cap (owner to confirm before V3-PR-I)",
+];
+/// V3_LAUNCH_BLOCKERS as an admission rule. Spec-1 profiles (v3 never active) never reach it.
+pub fn v3_launch_gate(v3:bool,kind:ProfileKind,node:NodeKind)->Result<(),Rejection>{
+    if v3&&!V3_LAUNCH_BLOCKERS.is_empty()&&(kind!=ProfileKind::Simnet||node!=NodeKind::Simnet){
+        return Err(terminal("v3-launch-blocker",format!("a profile that can activate v3 has open launch blockers: {}",V3_LAUNCH_BLOCKERS.join("; "))))}
+    Ok(())
+}
+
 /// What admitted the profile: fact classes, the deferred LP3 items and notes.
 #[derive(Clone,Debug)]
 pub struct Report{
@@ -340,6 +354,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
         local:LocalParams{delta:l.delta,phi:l.phi,capital_phi:big_phi,t_exec:l.t_exec,delta_rel:l.delta_rel,gamma:l.gamma,x_h:sat_u64(m.x_h),x_w:sat_u64(m.x_w),
             r_keep:R_KEEP,k_hist:l.k_hist,k_final:K_FINAL,k_view:K_VIEW,hist_trie_budget:HIST_TRIE_BUDGET,gossip:l.gossip,retention_stress:l.retention_stress},
         rpc:l.rpc.values().clone()};
+    v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;
     let binding=gp.binding();
     let model=gate::RESOURCE_MODEL.to_string();
 
@@ -382,7 +397,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
             if r.kind!=ProfileKind::Simnet||r.node!=NodeKind::Simnet{
                 return Err(terminal("R22","the experimental-devnet scope admits only a simnet profile on a simnet node".into()))}
             if !l.rpc.absent().is_empty(){
-                let (w,failed)=r26_partial(&l.rpc);
+                let (w,failed)=r26_partial_for(&l.rpc,gp.v3_active(u64::MAX));
                 if failed.is_empty(){report.violations.retain(|v|v!="R26")}else{notes.push(format!("R26: enforced RpcGuard fields fail {failed:?}"))}
                 waivers.push(w);
             }

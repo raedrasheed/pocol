@@ -24,6 +24,20 @@ use std::collections::HashMap;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 fn admitted()->Spec{let d=devnet::build(&cfg()).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
+#[test]fn v3_logs_are_counted_and_no_burn_report_grows_the_legacy_model_or_reserve(){
+    use pocold::{resources::{derive,budget_required},node::Limits};
+    let s=admitted();let local=s.local();let legacy=Limits{r_keep:4,history_window:Some(2),slim_depth:Some(4),evict_depth:Some(0),continuous_history:Some(0),disk:Some(Default::default()),..Default::default()};
+    let old=derive(s.cp(),local.k_hist,local.side_max,&legacy,0).unwrap();let active=derive(s.cp(),local.k_hist,local.side_max,&Limits{first_imports:true,..legacy},0).unwrap();
+    let item=|b:&pocold::resources::Bound,name:&str|b.items.iter().find(|x|x.0==name).map(|x|x.1);
+    for b in [&old,&active]{assert_eq!(item(b,"execution/creation-burn fields in two boxed block reports"),None,"no report carries a burn field");assert_eq!(budget_required(b.total).unwrap(),b.total.checked_mul(8).unwrap().div_ceil(7));}
+    // The legacy receipt under-count is corrected on both; only the v3 log cap grows it.
+    let scratch=|b:&pocold::resources::Bound|item(b,"execution/receipt RLP encoding and output-copy scratch").unwrap();
+    assert_eq!(scratch(&active)-scratch(&old),16*(256*1024-32*1024));
+    // ChainFacts (inside every BlockRun/BlockOutput) keeps its legacy layout on the pinned target.
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(std::mem::size_of::<pocol_lp4_execution::apply::ChainFacts>(),96);}
+    assert_eq!(item(&old,"execution/v3 creation-fee receipt annotation scratch"),None);assert_eq!(item(&active,"execution/v3 creation-fee receipt annotation scratch"),Some(4096));
+    assert_eq!(item(&active,"history/resident window: logs").unwrap(),8*item(&old,"history/resident window: logs").unwrap());assert!(active.total>old.total);
+}
 fn net()->Net{let d=devnet::build(&cfg()).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();Net{chain:Chain::new(admitted()),keys}}
 fn try_seal(n:&Net,mut h:pocold::header::Header,body:Body,attempt:u32)->Option<Block>{
     let p=n.chain.full_entry(&h.parent_hash).unwrap();let ctx=n.chain.child_ctx(&p,attempt).unwrap();

@@ -9,7 +9,7 @@ fn run_chain(net:&devnet::Devnet,blocks:u64,txs_at:&dyn Fn(u64)->Vec<Vec<u8>>)->
     let ids:Vec<Address>=net.miners.iter().map(|m|m.id).collect();
     let mut base_fee=U256::from(1_000_000_000u64);let mut parent_gas=0u64;
     for h in 1..=blocks{
-        if h>1{base_fee=crate::fees::next_base_fee(base_fee,parent_gas,8_000_000).unwrap();}
+        if h>1{base_fee=crate::fees::next_base_fee(base_fee,parent_gas,8_000_000,U256::ZERO).unwrap();}
         let txs=txs_at(h);
         let input=BlockInput{height:h,timestamp:1_800_000_000+2*h,base_fee,gas_limit:8_000_000,prevrandao:B256::ZERO,
             proposer:if h%2==0{Proposer::Signed(ids[(h as usize)%3])}else{Proposer::Fallback},
@@ -97,7 +97,7 @@ fn run_chain(net:&devnet::Devnet,blocks:u64,txs_at:&dyn Fn(u64)->Vec<Vec<u8>>)->
     let net=devnet3();let chain=run_chain(&net,3,&|_|vec![]);let s=&chain[2].0.state;let accused=net.miners[1].id;
     let input=BlockInput{height:4,timestamp:1_800_000_008,base_fee:U256::from(1_000_000_000u64)/U256::from(2),gas_limit:8_000_000,prevrandao:B256::ZERO,proposer:Proposer::Fallback,
         parent_result:Some(chain[2].1.clone()),evidence:vec![EvidenceEffect::PunishAndInvalidate{accused,j:3}],evidence_raw:&[vec![0xc0]],transactions:&[],ancestors:vec![],cum_log_bytes:0};
-    let base=crate::fees::next_base_fee(chain[2].0.state.accounts.get(&escrow()).map(|_|U256::from(1u64)).unwrap()*U256::ZERO+chain_base(&chain),0,8_000_000).unwrap();
+    let base=crate::fees::next_base_fee(chain[2].0.state.accounts.get(&escrow()).map(|_|U256::from(1u64)).unwrap()*U256::ZERO+chain_base(&chain),0,8_000_000,U256::ZERO).unwrap();
     let input=BlockInput{base_fee:base,..input};
     let o=apply_block(s,&net.genesis,&net.profile,&input).unwrap();
     let r=miner_record(&o.state,accused).unwrap();assert!(r.tomb);assert_eq!(r.bond_state,2);assert_eq!(r.status,2);
@@ -105,10 +105,10 @@ fn run_chain(net:&devnet::Devnet,blocks:u64,txs_at:&dyn Fn(u64)->Vec<Vec<u8>>)->
     assert_eq!(o.facts.held_total,U256::from(2u64)*U256::from(10u128.pow(20)));
     assert_eq!(pending(&o.state,3).1>>168u32,U256::from(1),"pot 3 invalidated");
     // Punishing a tomb again rejects the block.
-    let again=BlockInput{height:5,timestamp:1_800_000_010,base_fee:crate::fees::next_base_fee(base,0,8_000_000).unwrap(),parent_result:Some(chain[2].1.clone()),evidence:vec![EvidenceEffect::Punish{accused}],..input};
+    let again=BlockInput{height:5,timestamp:1_800_000_010,base_fee:crate::fees::next_base_fee(base,0,8_000_000,U256::ZERO).unwrap(),parent_result:Some(chain[2].1.clone()),evidence:vec![EvidenceEffect::Punish{accused}],..input};
     assert!(apply_block(&o.state,&net.genesis,&net.profile,&again).is_err());
 }
-fn chain_base(chain:&[(BlockOutput,ParentResult)])->U256{let mut b=U256::from(1_000_000_000u64);for (o,_) in chain.iter().take(chain.len()-1){b=crate::fees::next_base_fee(b,o.gas_used,8_000_000).unwrap();}b}
+fn chain_base(chain:&[(BlockOutput,ParentResult)])->U256{let mut b=U256::from(1_000_000_000u64);for (o,_) in chain.iter().take(chain.len()-1){b=crate::fees::next_base_fee(b,o.gas_used,8_000_000,U256::ZERO).unwrap();}b}
 
 #[test] fn closing_cursor_pays_bonds_and_final_block_settles_everything(){
     let mut cfg=DevnetConfig::new(777901,1_800_000_000,&["a","b","c"]);cfg.h_close=10;cfg.h_end=16;cfg.ret=2;
@@ -121,7 +121,7 @@ fn chain_base(chain:&[(BlockOutput,ParentResult)])->U256{let mut b=U256::from(1_
         let input=BlockInput{height:h,timestamp:1_800_000_000+2*h,base_fee:base,gas_limit:8_000_000,prevrandao:B256::ZERO,proposer:Proposer::Fallback,
             parent_result:prev.clone(),evidence:vec![],evidence_raw:&[],transactions:&[],ancestors:vec![],cum_log_bytes:0};
         let o=apply_block(&state,&net.genesis,&net.profile,&input).unwrap_or_else(|e|panic!("h={h} {e:?}"));
-        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000).unwrap();
+        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000,U256::ZERO).unwrap();
         if h>=10{assert!(o.facts.closing,"closing from H_CLOSE");assert_eq!(o.facts.close_h,10);}
         if h==10{assert!(!o.facts.cursor_done,"RET=2 of 3 records");assert_eq!(o.facts.held_total,bond);}
         if h==11{assert!(o.facts.cursor_done);assert_eq!(o.facts.held_total,U256::ZERO);}
@@ -426,7 +426,7 @@ mod a03{
     let (mut state,mut trie,mut sum)=(net.genesis.state().clone(),None::<crate::state_trie::StateTrie>,None::<crate::state_summary::Summary>);
     let (mut prev,mut base_fee,mut parent_gas,mut nonce)=(None::<ParentResult>,U256::from(1_000_000_000u64),0u64,0u64);
     for h in 1..=30u64{
-        if h>1{base_fee=crate::fees::next_base_fee(base_fee,parent_gas,8_000_000).unwrap();}
+        if h>1{base_fee=crate::fees::next_base_fee(base_fee,parent_gas,8_000_000,U256::ZERO).unwrap();}
         let txs:Vec<Vec<u8>>=match h%3{0=>vec![],1=>{nonce+=2;vec![tx(nonce-2,Some(bob),vec![],21000),tx(nonce-1,None,init.clone(),200_000)]},_=>{nonce+=1;vec![tx(nonce-1,Some(bob),vec![],21000)]}};
         let input=BlockInput{height:h,timestamp:1_800_000_000+2*h,base_fee,gas_limit:8_000_000,prevrandao:B256::ZERO,
             proposer:if h%2==0{Proposer::Signed(ids[(h as usize)%3])}else{Proposer::Fallback},
@@ -464,7 +464,7 @@ mod a03{
     let (mut prev,mut base_fee,mut parent_gas,mut nonce)=(None::<ParentResult>,U256::from(1_000_000_000u64),0u64,0u64);
     let (mut with_writes,mut on_store)=(0,0);
     for h in 1..=30u64{
-        if h>1{base_fee=crate::fees::next_base_fee(base_fee,parent_gas,8_000_000).unwrap();}
+        if h>1{base_fee=crate::fees::next_base_fee(base_fee,parent_gas,8_000_000,U256::ZERO).unwrap();}
         let created=|n:u64|alice.address().create(n);
         let txs:Vec<Vec<u8>>=match h%3{0=>{nonce+=1;vec![tx(nonce-1,Some(created(1)),vec![],60_000)]},1=>{nonce+=2;vec![tx(nonce-2,Some(bob),vec![],21000),tx(nonce-1,None,init.clone(),200_000)]},_=>{nonce+=1;vec![tx(nonce-1,Some(bob),vec![],21000)]}};
         let input=BlockInput{height:h,timestamp:1_800_000_000+2*h,base_fee,gas_limit:8_000_000,prevrandao:B256::ZERO,
@@ -591,7 +591,7 @@ mod a03{
     assert_eq!(o.state.contracts.len(),r.state.contracts.len());
     // A child of the full state: its SYSTEM calls start from a total of exactly CODE_CAP.
     let pr=ParentResult{block_hash:B256::from(U256::from(1)),winner:ids[1],shares:vec![]};
-    let input2=BlockInput{height:2,timestamp:1_800_000_004,base_fee:crate::fees::next_base_fee(U256::from(1_000_000_000u64),r.gas_used,8_000_000).unwrap(),gas_limit:8_000_000,prevrandao:B256::ZERO,proposer:Proposer::Fallback,
+    let input2=BlockInput{height:2,timestamp:1_800_000_004,base_fee:crate::fees::next_base_fee(U256::from(1_000_000_000u64),r.gas_used,8_000_000,U256::ZERO).unwrap(),gas_limit:8_000_000,prevrandao:B256::ZERO,proposer:Proposer::Fallback,
         parent_result:Some(pr),evidence:vec![],evidence_raw:&[],transactions:&[],ancestors:vec![(0,net.genesis_hash)],cum_log_bytes:0};
     let r2=apply_block(&r.state,&net.genesis,&net.profile,&input2).unwrap();
     let o2=apply_block_with(&o.state,Some(&o.trie),Some(&o.summary),&net.genesis,&net.profile,&input2).unwrap();
