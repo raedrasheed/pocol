@@ -198,6 +198,8 @@ fn run(args:&[String])->Result<(),String>{
     if !n.chain.spec.admission().specification_compliant(){
         eprintln!("pocold: {} admission, not specification compliance ({} conditions; see status \"admission\")",n.chain.spec.admission().scope().name(),n.chain.spec.admission().report().conditions.len());
     }
+    // The R14/R19 times this boot was admitted on (owner decision PG-1, PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md).
+    if let Some(t)=n.chain.spec.admission().timing(){eprintln!("pocold: ParamGate admitted, {}",t.report(n.chain.spec.admission().local().t_exec));}
     n.log(&format!("opened: head h={} records={}",n.chain.head().height,n.journal_records()));
     catch_stop();n.start_network()?;n.run_controlled(|_|STOP.load(Ordering::Relaxed));
     println!("{}",n.status_json());Ok(())
