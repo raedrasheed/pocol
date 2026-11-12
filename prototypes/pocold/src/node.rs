@@ -1953,6 +1953,9 @@ impl Node{
         let ctx=match self.chain.child_ctx(&p,header.a){Ok(c)=>c,Err(_)=>return};
         let tid=template_id(&header.ut_raw);
         self.log(&format!("lock h={} a={} {} tid={}",header.h,header.a,if fallback{"FB"}else{"PROP"},&hex(&tid)[..12]));
+        // V3-02: a template locked again leaves the late-share cache before stash_late prunes it, so its cached shares
+        // cannot be dropped by that prune.
+        let relocked=self.late_cache.remove(&tid);
         if !matches!(&self.prod,Some(Production{mode:Mode::Locked(l),..}) if l.tid==tid){self.stash_late();}
         // The previous miner is stopped and joined before the next starts: one miner thread at a time.
         if let Some(pr)=&mut self.prod{
@@ -1963,7 +1966,8 @@ impl Node{
             if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.solved=false;
                 // V3-02: a template locked again (the head back on its parent, or the F7 attempt-0 copy) is mined
                 // again: its cached shares come back to the production's, and its later shares take the locked path.
-                if let Some(t)=self.late_cache.remove(&tid){pr.shares.extend(t.shares);}}
+                if let Some(t)=relocked{pr.shares.extend(t.shares);}}
+            else if let Some(t)=relocked{self.late_cache.templates.push_back(t);}
         }
         // A miner that cannot be spawned (the task limit reached) leaves this node idle for the template, not stopped.
         let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).and_then(|(s,e)|
@@ -1991,8 +1995,10 @@ impl Node{
         let tid=template_id(&shell.ut_raw);
         let ok_sig=matches!(hashes::recover_address(&hashes::sig_msg(&tid),&shell.sig),Ok(a) if a[..]==shell.proposer[..]);
         if !ok_sig||shell.proposer[..]!=ctx.proposer[..]||!ctx.window.contains(shell.ts)||crate::timing::is_future(shell.ts,now_s(),self.capital_phi()){return false}
-        // Its block would fail item 2 (h = parent height + 1): as if absent, and the peer is punished. Checked before
-        // the evidence, whose rules are relative to a child of p (V3-02 kind 3: the window [max(1,h-D), h-1]).
+        // Its block would fail item 2 (h = parent height + 1): as if absent, and the peer is punished, on every chain. This
+        // is node-local: on spec 1 such a template used to be locked and mined although its block could never be valid.
+        // Under V3-02 it is also checked before the evidence, whose rules are relative to a child of p (kind 3: the window
+        // [max(1,h-D), h-1]); judged at a false height, a kind-3 item made the node stop.
         if shell.h!=p.height+1{return self.punish_template(from,"its height is not its parent's plus one (item 2)")}
         // consensus.md:101, §4(a): a template whose block would fail item 16 is as if absent (no lock).
         if !self.chain.within_caps(&p,&body.txs){return self.punish_template(from,"over a cap (item 16)")}
