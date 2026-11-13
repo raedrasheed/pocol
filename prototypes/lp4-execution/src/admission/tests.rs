@@ -435,7 +435,11 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     assert!(std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE_V3_COMPOSED));
     for (n,g) in GAS_ENVELOPE_EARNIN{if !GAS_ENVELOPE_V3.iter().any(|x|x.0==*n){assert_eq!(envelope(ProgramSet::V3,n),Some(*g),"{n}: entries without a v3 measurement take the earn-in entry");}}
     assert_eq!(envelope(ProgramSet::V3,"beginBlock"),envelope(ProgramSet::EarnIn,"beginBlock"),"entries without a v3 measurement apply unchanged");
-    assert!(envelope(ProgramSet::V3,"markClose")>envelope(ProgramSet::V1,"markClose"),"markClose falls back to the earn-in entry, not GAS_ENVELOPE's");
+    // Reworded on review of V3-PR-E4: markClose now takes its own v3 entry (GAS_ENVELOPE_V3 2,735,000), no longer the
+    // earn-in fallback, so the message says so; the fallback stays covered by the loop above and by pruneShares below,
+    // which still has no v3 entry.
+    assert!(envelope(ProgramSet::V3,"markClose")>envelope(ProgramSet::V1,"markClose"),"markClose takes its v3 entry (V3-PR-E4), above GAS_ENVELOPE's");
+    assert_eq!(envelope(ProgramSet::V3,"pruneShares"),envelope(ProgramSet::EarnIn,"pruneShares"),"pruneShares has no v3 entry: it falls back to the earn-in entry");
     // Reworded on review: the text names which entries the v3 measurement covers and that the final phase is not
     // measured on v3 (finalize takes the earn-in entry), instead of claiming the whole table holds at the v3 maxima.
     // V3-PR-E3 adds the kappa*m domain bound (recordLate's owners per call) to the text. V3-PR-E2a measures finalize on
