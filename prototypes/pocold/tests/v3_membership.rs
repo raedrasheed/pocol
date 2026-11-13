@@ -117,8 +117,8 @@ mod preview {
     use super::*;
     // pr15-2 pins (deterministic fixture): fallback blocks mined after the operators went idle, and the first height
     // whose drawn proposer can sign. The fixture chain runs the v3 program set (V3-PR-E0), whose bytes enter
-    // the state root and so every block hash, nonce draw and solution: the unbounded pins moved from 16/19 to 15/18 (V3-PR-E0) to 14/17 (V3-PR-E1) and to 13/16 (V3-PR-E2b).
-    const UNBOUNDED_PERIOD:usize=13;const UNBOUNDED_RECOVERY:u64=16;
+    // the state root and so every block hash, nonce draw and solution: the unbounded pins moved from 16/19 to 15/18 (V3-PR-E0) to 14/17 (V3-PR-E1), to 13/16 (V3-PR-E2b) and to 11/14 (V3-PR-E3).
+    const UNBOUNDED_PERIOD:usize=11;const UNBOUNDED_RECOVERY:u64=14;
     const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {

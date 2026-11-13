@@ -3,12 +3,13 @@
 //   node compile_system_v3.cjs OUT.json            the v3 program set (tests/data/system-v3.json)
 //   node compile_system_v3.cjs --mutants OUT.json  planted mutants (tests/v3/system-v3-mutants.json): the six of
 //     EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17
-//     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow. Each entry names the program it replaces.
+//     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3),
+//     MinerRegistry or ShareLedger. Each entry names the program it replaces.
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
 const read=f=>fs.readFileSync(path.join(__dirname,'../contracts',f),'utf8');
 // The v3 source is PoColSystemEarnIn.sol with the V3-xx changes (P_MAX/T_PROB from CP schema v2; registry budgets;
-// evidence penalties).
+// evidence penalties; late share credit).
 const source=read('system/PoColSystemV3.sol');
 const settings={optimizer:{enabled:true,runs:200},evmVersion:'cancun',metadata:{bytecodeHash:'none',appendCBOR:false},
   outputSelection:{'*':{'*':['abi','evm.deployedBytecode.object','storageLayout']}}};
@@ -45,6 +46,12 @@ const MUTANTS=[
   ['accruing-read-at-evidence','if(address(uint160(w))==accused && w&WIN_ACCRUING!=0)','if(address(uint160(w))==accused && accruingNow(accused))','RewardEscrow'],
   ['accruing-read-at-settle','if(meta&INVALID!=0){ burned=amount; }','if(meta&INVALID!=0&&accruingNow(winner)){ burned=amount; }','RewardEscrow'],
   ['rho-on-pot-not-bond','uint256 cut=reward==address(0)?0:amount*Sys.cfg(66)/10000;','uint256 cut=reward==address(0)?0:Sys.cfg(15)*Sys.cfg(66)/10000;','RewardEscrow'],
+  // V3-PR-E3 (V3-02): each must fail tests/v3_contracts.rs on tests/v3/late-share-vectors.json.
+  ['late-last-share-reverts','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88));','if(((w>>88)&LOW64)>uint256(j)) revert BadState(); put(r,(w&~LAST_MASK)|(uint256(j)<<88));','MinerRegistry'],
+  ['late-last-share-overwrites','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88));','put(r,(w&~LAST_MASK)|(uint256(j)<<88));','MinerRegistry'],
+  ['late-cap-removed','if(t==0 || t+n>Sys.cfg(8)*Sys.cfg(9)) revert BadState();','if(t==0) revert BadState();','ShareLedger'],
+  ['late-window-one-wider','uint256(j)>=height || uint256(j)+Sys.cfg(11)<height','uint256(j)>=height || uint256(j)+Sys.cfg(11)+1<height','ShareLedger'],
+  ['late-total-not-raised','        total[j]=t+n;\n','','ShareLedger'],
 ];
 const args=process.argv.slice(2);const mutants=args[0]==='--mutants';const out=mutants?args[1]:args[0];
 if(!out)throw Error('usage: compile_system_v3.cjs [--mutants] OUT.json');

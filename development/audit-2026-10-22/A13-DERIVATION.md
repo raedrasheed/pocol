@@ -1084,6 +1084,10 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   (invalidate, punish, recordResult, settle, settleFinal), measured by tests/v3_contracts.rs
   `v3_sys_gas_and_caps_within_the_v3_envelope`, where it has one, the earn-in entry otherwise. The v3 domain
   also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual). V1, Continuous and EarnIn are unchanged.
+  V3-PR-E3 (V3-02) adds recordLate (3,458,000; the one v3-only call name, measured by the same test crediting
+  κm − 1 = 63 late shares to owners new to the template, the stranger path asserted as the maximum) and bounds the
+  v3 domain by κ·m ≤ 64 (`GAS_DOMAIN_V3_KAPPA_M`) as well; each evidence item is counted as the dearer of recordLate
+  and invalidate + punish (`phase_calls`).
 - **Open: v3 final phase (V3-PR-E2b).** The v3 gas runs are continuous (h_end 0) and never reach the final
   phase: finalize takes the earn-in entry with no v3 measurement, and settleFinal takes the measured v3 settle
   (the same settleOne) rather than a measured tomb-free v3 final block. A v3 final-phase measurement
@@ -1592,6 +1596,30 @@ or reduced resource reserve substitutes for this inventory. See
 boundaries, annotation rollback, classified conservation and copy/overlay/store
 parity. These are representation bounds and fixture results; candidate v3 caps
 and coefficient calibration still require the resource/profile PR.
+
+### V3-PR-E3: late share credit (V3-02), CP schema v2 only
+
+Three terms exist only for a CP schema v2 (v3) profile; on CP schema v1 each is zero and the pinned spec-1 totals
+(3,397,791,234 B; eviction off 3,388,329,613 B, after V3-PR-C3's receipt-encoding correction) are unchanged, as are `Entry`, `Rec`, REC_MIN and REC_MAX.
+
+- `queues/late-share cache`: `node::LateCache`, at most D + LATE_PENDING_MAX + 1 templates (`LateTemplate`: TemplateID,
+  height, nMax, share target and at most SHARE_RELAY_PER_S_MAX·S_max = 4·S_max nonces). `LateCache::prune` keeps the
+  branch's template of each height in the next carrier's window [max(1, H+1−D), H] (D) and the newest
+  LATE_PENDING_MAX = 2 of the production height H+1; one more exists between a stash and its prune. Each nonce Vec and
+  the deque are counted at memory::VEC: 3·(D + 3)·(size_of LateTemplate + 3·4·S_max·8) + 64. The design's estimate was
+  D·4·S_max·8 B; the review of E3 replaced "the last D templates locked" (which dead attempts and an equivocation's
+  other template could fill, pushing a canonical one out) with this window.
+- `history/late-share evidence kept on offloaded entries`: an offloaded entry keeps its body's kind-3 items for the
+  branch deduplication (`chain::offload`), a slimmed one drops them, whichever of the two ran first. Per entry at most min(E_max, L) items with
+  L = min(E_max·min(S_max, κm − 1), D·(κm − 1)) late shares a block can credit: items·(24 + 17) + 9·L, never above
+  E_max·(EVID_BYTES_MAX + 24). Counted for the offloaded canonical entries above the slim depth, the side entries
+  (side_cap + 2·R_keep) and a rebuild's shadow copies (max(257, E_win + 1) with eviction on). At the default devnet
+  values with CP schema v2 (E_max 4, S_max 256, D 4, κm 64): 2,432 B per entry.
+- The resident window's evidence term drops the one-item-per-identity bound on CP schema v2 (late shares are not one
+  per identity) and is bounded per block, as the continuous windowed chain already was.
+
+`late-share-inventory` records these as inventories by inspection. `pocold/tests/v3_late_shares.rs`
+(`a13_counts_late_share_memory_on_cp_schema_v2_only`) checks the terms and the unchanged spec-1 pin.
 
 ## 4. Assumptions, one by one (round 2)
 

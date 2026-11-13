@@ -7,7 +7,12 @@ name: System programs reproduction
 # (v3_model.py class Chain, tests/v3/evidence-penalty-vectors.json), five planted RewardEscrow/MinerRegistry mutants
 # (in the mutant fixture) and, under v3-preview, real blocks through the host's v3 phase 0 with the SYS gas of the
 # changed calls checked against admission's GAS_ENVELOPE_V3 (v3_contracts.rs) and type-2 evidence on chain
-# (pocold/tests/v3_earnin.rs).
+# (pocold/tests/v3_earnin.rs). V3-PR-E3 adds the V3-02 late share credit: the model's late-share chain scenarios
+# (tests/v3/late-share-vectors.json) replayed on the bytecode with five planted MinerRegistry/ShareLedger mutants, the
+# kind-3 validity vectors (tests/v3/late-share-validity-vectors.json, 17 planted model mutants each failing one) replayed
+# through pocold's chain.rs rules, and under v3-preview real v3 chains (pocold/tests/v3_late_shares.rs: omission,
+# negative cases on a branch, reorg, restart and checkpoint, cutover rebuild, the proposer's cache) and recordLate's SYS
+# gas against GAS_ENVELOPE_V3.
 on:
   pull_request:
     branches: [main]
@@ -67,12 +72,12 @@ jobs:
         run: |
           set -euo pipefail
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test earnin_contracts --test v3_contracts
-          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test earnin --test v3_earnin
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test earnin --test v3_earnin --test v3_late_shares
       - name: Earn-in and v3 contract and chain tests (v3-preview, spec-2 genesis)
         run: |
           set -euo pipefail
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features v3-preview --test earnin_contracts --test v3_contracts
-          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test earnin --test v3_earnin
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test earnin --test v3_earnin --test v3_late_shares
       - name: ParamGate v3 registry premises (R8 on CP schema v2)
         run: |
           set -euo pipefail
