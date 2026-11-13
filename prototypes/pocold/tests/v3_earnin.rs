@@ -222,4 +222,55 @@ mod preview {
         assert_eq!(step, RejoinStep::Missed, "the wallet offers no reactivation past the CP deadline");
         assert_eq!(accruing_count(&net), U256::from(1), "an exited probation record keeps its seat until the refund");
     }
+
+    /// V3-08 on chain (V3-PR-E1): one identity's second maintenance operation in a block is a status-0 receipt, while
+    /// another identity's registration in that block lands; the next block accepts the maintenance operation.
+    #[test]
+    fn one_maintenance_operation_per_identity_per_block_on_chain() {
+        let mut net = net(64, 86_400);
+        let one = net.one;
+        let (alice, bob) = (devnet::account_key("alice"), devnet::account_key("bob"));
+        let t = register(&net, &alice, B);
+        let _ = next(&mut net, one, vec![t]);
+        let reward = |net: &Net, key: &Key, to: Address, offset: u64| {
+            let mut data = keccak256("setRewardAddress(address)")[..4].to_vec();
+            data.extend_from_slice(to.into_word().as_slice());
+            let raw = tx(net, key, data, U256::ZERO);
+            if offset == 0 { return raw; }
+            // The same transaction at the sender's next nonce (two transactions of one sender in one block).
+            let head = net.chain.full_entry(&net.chain.head).unwrap();
+            let base = net.chain.child_ctx(&head, 0).unwrap().base_fee;
+            let priority = U256::from(1_000_000_000u64);
+            let mut data = keccak256("setRewardAddress(address)")[..4].to_vec();
+            data.extend_from_slice(to.into_word().as_slice());
+            Tx { chain_id: net.chain.spec.chain_id(), nonce: nonce(net, key.address()) + offset, max_priority: priority, max_fee: base * U256::from(2) + priority,
+                 gas: 1_000_000, to: Some(apply::program_address(0)), value: U256::ZERO, data: Bytes::from(data) }.sign_1559(key)
+        };
+        let txs = vec![reward(&net, &alice, alice.address(), 0), reward(&net, &alice, bob.address(), 1), register(&net, &bob, B)];
+        let _ = next(&mut net, one, txs);
+        let entry = net.chain.full_entry(&net.chain.head).unwrap();
+        let status: Vec<Vec<u8>> = entry.receipts.iter().map(|r| rlp::decode(&r[1..]).unwrap().list().unwrap()[0].bytes().unwrap().to_vec()).collect();
+        assert_eq!(status, vec![vec![1u8], vec![], vec![1u8]], "maintenance, the same identity's second maintenance (refused), another identity's join");
+        assert_eq!(record(&net, alice.address()).reward, alice.address(), "the refused call changed nothing");
+        assert_eq!(record(&net, bob.address()).status, 1);
+        let t = reward(&net, &alice, bob.address(), 0);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!(record(&net, alice.address()).reward, bob.address(), "accepted in the next block");
+    }
+
+    /// V3-09 ParamGate (lp1-node gate.rs R8 on CP schema v2): admission refuses a v3 devnet whose reactivation window
+    /// before the refund sweep is shorter than two blocks or whose C_react is below U, and admits the boundary.
+    #[test]
+    fn admission_requires_the_v3_reactivation_window_and_cooldown() {
+        for (w_act, u, c_react, ok) in [(32, 34, 34, true), (32, 33, 40, false), (32, 40, 39, false), (32, 40, 40, true)] {
+            let mut cfg = config(64, 86_400);
+            cfg.w_act = w_act; cfg.u = u; cfg.c_react = c_react;
+            let candidate = devnet::build(&cfg).unwrap();
+            let timing = admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap();
+            match admission::admit(&candidate.request(&pocold::single_host_local(), Some(&timing))) {
+                Ok(_) => assert!(ok, "W_act {w_act} U {u} C_react {c_react} admitted"),
+                Err(e) => { assert!(!ok, "W_act {w_act} U {u} C_react {c_react}: {e}"); assert!(e.to_string().contains("R8"), "{e}"); }
+            }
+        }
+    }
 }

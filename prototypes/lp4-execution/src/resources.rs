@@ -5,7 +5,9 @@
 //! RET, SW=min(SWEEP_MAX,16) deletes per beginBlock, O=min(S+1,M) owners per height.
 //!
 //! SYS slots (state footprint, R18 SYS_SLOT_MAX):
-//!   Registry 5 + 5·RRM + M   (fixed, RecArr, Rec 4 words, ActList)
+//!   Registry 5 + 5·RRM + M   (fixed, RecArr, Rec 4 words, ActList); on CP schema v2 (the v3 registry) the fixed
+//!                            part is 7: slots 0..4, ACC_COUNT (slot 8) and the V3-08/V3-09 budget slot 9; its
+//!                            records keep four words (the clocks use spare bits, REGISTRY-LAYOUT.md)
 //!   Ledger   K·(2·O + 2)       (K retained heights: count+owner per owner, len, total)
 //!   Escrow   2 + 3·(D+1)       (burnedTotal, final marker, pending)
 //!   Caps     schema length (52 on v1; 67 on v2)
@@ -25,7 +27,8 @@ impl SysBounds{pub fn keys_max(&self)->u64{self.keys_normal.max(self.keys_closin
 pub fn derive(cp:&ConsensusParams)->SysBounds{
     let s=u64::from(cp.S_max);let d=u64::from(cp.D);let k=d.max(u64::from(cp.W_w));let rrm=u64::from(cp.REG_RECORDS_MAX);let m=u64::from(cp.M_max);
     let e=u64::from(cp.E_max);let ret=u64::from(cp.RET);let sw=u64::from(cp.SWEEP_MAX).min(16);let o=(s+1).min(m);let rmax=u64::from(cp.R_max);
-    let slot_min=5+5*rrm+m + k*(2*o+2) + 2+3*(d+1) + cp.cp_len() as u64;
+    let registry_fixed=if cp.schema_version()>=2{7}else{5};
+    let slot_min=registry_fixed+5*rrm+m + k*(2*o+2) + 2+3*(d+1) + cp.cp_len() as u64;
     let common=9*e+(2*o+2)+(3*o+2)+1+4;
     let keys_normal=common+1+(2+8*sw+1)+2;
     let keys_closing=common+(1+ret+1)+1+2;
