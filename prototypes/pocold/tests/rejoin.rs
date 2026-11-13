@@ -107,7 +107,7 @@ fn member(net: &Net, id: Address) -> bool {
     net.chain.membership(head, head.height + 1).unwrap().ids().contains(&raw_addr(id))
 }
 fn step(net: &Net, id: Address) -> RejoinStep {
-    wallet::rejoin_step(record(net, id).as_ref(), net.chain.head().height + 1, member(net, id), u64::from(net.chain.spec.cp().W_act))
+    wallet::rejoin_step(record(net, id).as_ref(), net.chain.head().height + 1, member(net, id), u64::from(net.chain.spec.cp().W_act), net.chain.spec.probation().map(|p| p.blocks))
 }
 fn height(net: &Net) -> u64 { net.chain.head().height }
 fn balance(net: &Net, id: Address) -> U256 { net.chain.head().state.accounts.get(&id).map(|a| a.info.balance).unwrap_or_default() }

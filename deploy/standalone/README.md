@@ -59,6 +59,16 @@ evict within its own range; `0` turns the limit off. Both are local P2P policy a
 not change consensus. Every inbound place counts against the memory budget, about
 3.73 MiB each: an operator who lowers `POCOL_MEMORY_BUDGET_BYTES` should lower
 `POCOL_PEERS_MAX` with it.
+`pocol freeze-user-txs --home HOME --after S` (V3-33 re-genesis conduct; `--after off` removes it, no `--after`
+shows it and whether it applies) saves a height S in the home (`freeze-user-txs.json`) with the chain ID and genesis
+hash of the network the home is bound to, used from the next `pocol start` on that network only: after the home
+moves to a new network the saved setting is not applied, and the start says so (remove it with `--after off`).
+`POCOL_FREEZE_USER_TXS_AFTER` (a height or `off`) wins over it, as `pocold run --freeze-user-txs-after S` does for
+a server; it names no network, so unset it when the home moves to a new one. The Android service runs the same
+start, but the app has no setting for it. The node then builds no block above S with user transactions, and from
+head S its pool refuses them (`-32016`, `{"reason":"frozen"}`) and relays none; `pocol_status` reports
+`userTxFreeze`. Other nodes' blocks are judged as before: it is local policy, not a consensus rule. Without the
+setting nothing changes. See `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` step 0.4.
 The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup remains a
 small pilot, not a worst-case capacity proof. The service's `MemoryMax=3G` was already
 below the model's bound, and the 32 established inbound places add about 126 MB of

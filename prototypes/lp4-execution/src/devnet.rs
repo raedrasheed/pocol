@@ -117,7 +117,8 @@ pub fn account_key(label:&str)->Key{Key::devnet(&format!("account:{label}"))}
 /// is a candidate, not an admitted profile (see `Devnet::admit`).
 pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     if cfg.chain_id==777001{return Err("network chainId is not a devnet".into())}
-    let programs=if cfg.earnin{SystemPrograms::earnin()}else if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
+    // V3-34: an earn-in devnet on CP schema v2 (specVersion 2) runs the v3 programs, which read P_MAX/T_PROB from it.
+    let programs=if cfg.earnin{if cfg.spec_version>=2{SystemPrograms::v3()}else{SystemPrograms::earnin()}}else if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
     let mut miners:Vec<MinerIdentity>=cfg.miners.iter().map(|l|miner_identity(l)).collect();
     miners.sort_by_key(|m|m.id);
     let mut alloc=InMemoryDB::default();

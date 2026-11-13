@@ -1002,6 +1002,8 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 if e==crate::node::SUBMIT_DEADLINE{b.late();return Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline"})))}
                 // D-7: the pool was still revalidating a new head at the deadline; nothing was pooled.
                 if e==crate::node::SUBMIT_BUSY{COUNTERS.busy.fetch_add(1,Ordering::SeqCst);return Fail(-32021,"busy".into(),Some(json!({"reason":"busy","retryAfterMs":250})))}
+                // V3-33: this node's freeze (`Limits::freeze_user_txs_after`) is active; nothing was pooled or relayed.
+                if e.starts_with(crate::node::USER_TX_FROZEN){return Fail(-32016,e,Some(json!({"reason":"frozen","final":true,"freezeUserTxsAfter":n.user_tx_freeze(),"head":n.chain.head().height})))}
                 let code=e.split(' ').next().and_then(|c|c.parse().ok()).unwrap_or(-32000);Fail(code,e,None)})}
         "eth_getBlockByNumber"=>{let full=p.get(1).and_then(|x|x.as_bool()).unwrap_or(false);
             match meta_by_tag(n,p.first().unwrap_or(&Value::Null))?{None=>Ok(Value::Null),Some(e)=>Ok(block_json(n,&*whole(n,&e)?,full))}}
