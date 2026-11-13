@@ -1553,9 +1553,15 @@ impl Node{
                     Ok(b)=>{for raw in b.txs.into_iter().rev(){self.pool.backlog_bytes+=raw.len();self.pool.backlog.push_front(PoolItem::Tx(raw,Relay::Offer));}}
                     Err(e)=>self.log(&format!("journal read of a detached block at {off}: {e}"))},
                 PoolItem::Tx(raw,relay)=>{self.pool.backlog_bytes-=raw.len();
-                    // A pool full by count refuses every further submission without a state change, so
-                    // the rest of the backlog is dropped (PR #27 review R5-6).
-                    if self.pool.txs.len()>=POOL_MAX_TXS{self.pool.backlog.clear();self.pool.backlog_bytes=0;break}
+                    // A pool full by count refuses every further revalidation without a state change, so the
+                    // rest of the revalidation backlog (and the abandoned bodies) is dropped (PR #27 review R5-6).
+                    // N4: a queued P2P arrival (`Fresh`) is a new submission, which may still replace a pooled
+                    // transaction or evict the lowest-priority one at the count bound, so it is kept and admitted.
+                    if self.pool.txs.len()>=POOL_MAX_TXS{
+                        self.pool.backlog.retain(|i|matches!(i,PoolItem::Fresh(_)));
+                        self.pool.backlog_bytes=self.pool.backlog.iter().map(|i|match i{PoolItem::Fresh(r)=>r.len(),_=>0}).sum();
+                        if self.pool.backlog.is_empty(){break}
+                        continue}
                     let _=self.admit_tx(raw,relay,None,false);}
                 // N4 review: only a P2P arrival queued behind the backlog (`relay_tx`) is a new submission; a parked or
                 // previous-pool transaction re-queued at a head is revalidated (`fresh` false) whatever its relay.
@@ -3295,6 +3301,30 @@ mod relay_tests{
     /// (a parked one keeps `Relay::Gossip` when it was not relayed when parked), is not a new submission: with a pooled
     /// one's sender and nonce and higher fees it replaces nothing (executed on the pending state, its nonce is used).
     /// Only a P2P arrival queued behind the backlog (`PoolItem::Fresh`) may replace (or evict).
+    /// Codex review of #32: a pool full by count drops the revalidation backlog, but not a P2P arrival queued behind it
+    /// (`PoolItem::Fresh`), which may still evict the lowest-priority transaction (or replace one) at the count bound.
+    /// FAIL-ON-ORIGINAL: `backlog.clear()` dropped the arrival with the revalidation entries.
+    #[test] fn a_full_pool_keeps_a_queued_p2p_arrival_when_it_drops_the_revalidation_backlog(){
+        let senders:Vec<String>=(0..16).map(|i|format!("s{i}")).collect();
+        let mut c=DevnetConfig::new(777912,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
+        for l in senders.iter().map(|s|s.as_str()).chain(["zed","yan"]){c.accounts.push((l.into(),U256::from(10u128.pow(24))));}
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let dir=std::env::temp_dir().join(format!("pocold-fullfresh-unit-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let limits=Limits{pool_gas_max:Some(POOL_MAX_TXS as u64*21000+10*21000),..Default::default()};
+        let cfg=Config{dir:dir.clone(),name:"fullfresh".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits};
+        let mut n=Node::open(cfg,spec).unwrap();
+        let tx=|who:&str,nonce:u64,tip:u64|{let k=devnet::account_key(who);Tx{chain_id:777912,nonce,max_priority:U256::from(tip),max_fee:U256::from(100_000_000_000u64),gas:21000,to:Some(Address::with_last_byte(0xbb)),value:U256::from(1u64),data:Default::default()}.sign_1559(&k)};
+        let per=POOL_MAX_TXS/senders.len();
+        for s in &senders{for j in 0..per{n.submit_tx(tx(s,j as u64,2_000_000_000),false).unwrap();}}
+        assert_eq!(n.pool.txs.len(),POOL_MAX_TXS);n.pool_audit().unwrap();
+        // Two revalidation entries (refused at the count bound), then a P2P arrival that outbids the lowest rank.
+        for raw in [tx("yan",0,2_000_000_000),tx("yan",1,2_000_000_000)]{n.pool.backlog_bytes+=raw.len();n.pool.backlog.push_back(PoolItem::Tx(raw,Relay::Gossip));}
+        let fresh=tx("zed",0,3_000_000_000);n.pool.backlog_bytes+=fresh.len();n.pool.backlog.push_back(PoolItem::Fresh(fresh.clone()));
+        n.pool_settle();n.pool_audit().unwrap();
+        assert!(n.pool.txs.iter().any(|(_,r)|r==&fresh),"the queued P2P arrival evicted the lowest and was pooled");
+        assert_eq!((n.pool.txs.len(),n.stats.pool_evicted,n.pool.backlog.len(),n.pool.backlog_bytes),(POOL_MAX_TXS,1,0,0));
+        drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
     #[test] fn only_a_queued_p2p_arrival_is_a_new_submission(){
         let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
