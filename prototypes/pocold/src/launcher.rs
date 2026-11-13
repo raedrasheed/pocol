@@ -1,8 +1,7 @@
 //! One shared, bounded public network invitation; all secrets and state stay on the device.
 //! A `pocol-network-v2` invitation binds a home to the consensus rules revision it runs (VA-SPEC §2.1), not to a build
 //! digest, so a release that changes only the digest starts on existing homes, and fork entries of any version the
-//! runtime schedule accepts can be appended (future-only, append-only). A `pocol-network-v1` file names the 0.4.0 build
-//! digest it was made by and is accepted only through a certified `LEGACY_BUILDS` entry (plan §1.7).
+//! runtime schedule accepts can be appended (future-only, append-only). No other schema is accepted.
 use crate::{identity, keyfile, keyfile::backup, node, testnet, types};
 use pocol_lp4_execution::txsign::Key;
 use zeroize::Zeroizing;
@@ -18,71 +17,33 @@ use std::{
 pub const MAX_INVITATION: usize = 1 << 20;
 const FILES: [&str; 3] = ["alloc.json", "devnet.json", "genesis.spec.hex"];
 const UPGRADE_PENDING: &str = "network-upgrade.pending.json";
-/// The one fixed backup name PoCol 0.4.0 wrote before its full-nonce upgrade. Documentation only: it is never read or
-/// written again. A backup is now named by the replaced binding's fingerprint (`backup_name`), so a second upgrade of
-/// a home that already holds this file no longer collides with it.
-pub const LEGACY_UPGRADE_BACKUP: &str = "network.pocol.json.before-full-nonce";
-pub const SCHEMA_V1: &str = "pocol-network-v1";
-/// The only schema `pocol network` writes (plan §1.7); its fingerprint is stable across digest-only releases.
+/// The only invitation schema (plan §1.7); its fingerprint is stable across digest-only releases.
 pub const SCHEMA_V2: &str = "pocol-network-v2";
-
-/// A released build whose v1 invitations this release may run (plan §1.7). An entry applies only when the chain id
-/// and genesis hash computed from the invitation's genesis.spec.hex equal both those devnet.json declares and the
-/// entry's (attack A1-10), and only once `certified` names the replay evidence (plan §6,
-/// development/decisions/LEGACY-CERTIFICATION-0.4.0.md). `sources` is the consensus-sources aggregate that replay ran;
-/// package.py refuses to package a build whose aggregate differs (A2-8), so a re-pin voids the certification.
-#[derive(Clone, Copy, Debug)]
-pub struct Legacy { pub digest: &'static str, pub rules: u32, pub chain_id: u64, pub genesis_hash: &'static str, pub sources: Option<&'static str>, pub certified: Option<&'static str> }
-/// PoCol Mainnet 0.4.0 (H15000), shipped uncertified: owner decision D1 is open and its recommended Option B moves the
-/// network to a new genesis, so no replay evidence exists. An H15000 home is refused with `legacy_refusal()` until an
-/// owner certifies the entry (fail closed).
-pub const LEGACY_BUILDS: &[Legacy] = &[Legacy {
-    digest: "6cf38a14aa01ca3d824b0309564942cc926ca7232e2a5b2672a17e8c99e35476", rules: 1, chain_id: 1599846715,
-    genesis_hash: "0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca", sources: None, certified: None,
-}];
-/// The R1 switch from deployed 0.4.0 (plan §6, owner decision D1). Both refusal texts exist; `SWITCH` selects one.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Switch { A, B }
-/// D1 is pending; the recommended Option B (ride the earn-in re-genesis) is implemented as the default.
-pub const SWITCH: Switch = Switch::B;
-/// The refusal of an uncertified legacy binding (plan §5.4).
-pub fn legacy_refusal() -> &'static str {
-    match SWITCH {
-        Switch::B => "This network was replaced by a new genesis. Follow the release notes to move the old network files aside; keep your wallet key.",
-        Switch::A => "This release cannot yet run the PoCol Mainnet 0.4.0 network. Keep 0.4.0 until the announced switch.",
-    }
-}
 
 /// Public data only (seeds and genesis files), so Debug prints nothing secret.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Invitation {
     schema: String,
-    /// v1 only: the build digest the file was made by. Skipped when absent, so a v1 file serialises to the bytes it had
-    /// and its `fingerprint()` is unchanged.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    compatibility_sha256: Option<String>,
-    /// v2 only: the consensus rules revision (`identity::CONSENSUS_RULES_VERSION`) the network runs.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    consensus_rules_version: Option<u32>,
+    /// The consensus rules revision (`identity::CONSENSUS_RULES_VERSION`) the network runs.
+    consensus_rules_version: u32,
     seeds: Vec<SocketAddr>,
     files: BTreeMap<String, String>,
-    /// v2 only: advisory bootstrap addresses (VA-SPEC §1a.9, D17), community listeners that agreed to be listed. Not
+    /// Advisory bootstrap addresses (VA-SPEC §1a.9, D17), community listeners that agreed to be listed. Not
     /// part of the network (`content_key`): a newer file with another list is the same network, which `pocol upgrade`
     /// rebinds to. Skipped when empty, so files without it keep their bytes and fingerprints.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     bootstrap: Vec<SocketAddr>,
-    /// v2 only: the seeds are retired (VA-SPEC §1a.8, D23): nodes dial none of them. Not part of the network either;
+    /// The seeds are retired (VA-SPEC §1a.8, D23): nodes dial none of them. Not part of the network either;
     /// skipped when false.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     seeds_retired: bool,
 }
 impl Invitation {
     /// A well-formed invitation whose consensus rules are this release's.
-    pub fn parse(bytes: &[u8]) -> Result<Self, String> { Self::parse_with(bytes, LEGACY_BUILDS) }
-    fn parse_with(bytes: &[u8], legacy: &[Legacy]) -> Result<Self, String> {
+    pub fn parse(bytes: &[u8]) -> Result<Self, String> {
         let value = Self::parse_saved(bytes)?;
-        let rules = value.rules_of_with(legacy)?;
+        let rules = value.consensus_rules_version;
         if rules != identity::CONSENSUS_RULES_VERSION {
             return Err(format!("network invitation requires a different PoCol consensus release (rules {rules}; this release runs rules {})", identity::CONSENSUS_RULES_VERSION));
         }
@@ -99,13 +60,7 @@ impl Invitation {
         Ok(value)
     }
     fn validate(&self) -> Result<(), String> {
-        // v1 carries exactly a 64-hex build digest, v2 exactly a rules revision >= 1.
-        let bound = match (self.schema.as_str(), &self.compatibility_sha256, self.consensus_rules_version) {
-            (SCHEMA_V1, Some(d), None) => d.len() == 64 && d.bytes().all(|b| b.is_ascii_hexdigit()),
-            (SCHEMA_V2, None, Some(rules)) => rules >= 1,
-            _ => false,
-        };
-        if !bound {
+        if self.schema != SCHEMA_V2 || self.consensus_rules_version < 1 {
             return Err("network invitation requires a different PoCol release".into());
         }
         if self.files.len() != FILES.len() || FILES.iter().any(|n| !self.files.contains_key(*n)) {
@@ -121,11 +76,7 @@ impl Invitation {
         {
             return Err("provide 1..7 distinct reachable seed addresses".into());
         }
-        // D17, D23: the advisory fields are v2 only; a bootstrap list holds at most 16 distinct learnable addresses
-        // (ports >= 1024, VA-SPEC §1a.3), none a seed.
-        if (!self.bootstrap.is_empty() || self.seeds_retired) && self.schema != SCHEMA_V2 {
-            return Err("bootstrap addresses and seedsRetired need a pocol-network-v2 invitation".into());
-        }
+        // D17: a bootstrap list holds at most 16 distinct learnable addresses (ports >= 1024, VA-SPEC §1a.3), none a seed.
         let distinct: HashSet<_> = self.bootstrap.iter().collect();
         if self.bootstrap.len() > crate::node::BOOTSTRAP_MAX || distinct.len() != self.bootstrap.len()
             || self.bootstrap.iter().any(|a| a.port() < 1024 || a.ip().is_unspecified() || a.ip().is_multicast() || self.seeds.contains(a))
@@ -142,39 +93,14 @@ impl Invitation {
     fn info(&self) -> Result<serde_json::Value, String> {
         serde_json::from_str(self.files.get("devnet.json").map_or("", String::as_str)).map_err(|_| "invalid network metadata".into())
     }
-    /// The consensus rules revision the invitation binds to: v2 declares it; a v1 file has one only through a certified
-    /// `LEGACY_BUILDS` entry that matches its digest and its computed chain and genesis.
-    pub fn rules_of(&self) -> Result<u32, String> { self.rules_of_with(LEGACY_BUILDS) }
-    fn rules_of_with(&self, legacy: &[Legacy]) -> Result<u32, String> {
-        if let Some(rules) = self.consensus_rules_version { return Ok(rules) }
-        let digest = self.compatibility_sha256.as_deref().unwrap_or_default();
-        let Some(entry) = legacy.iter().find(|l| l.digest.eq_ignore_ascii_case(digest)) else {
-            return Err("network invitation requires a different PoCol release".into());
-        };
-        let (chain_id, genesis) = self.computed_network()?;
-        let info = self.info()?;
-        let declared = (info["chainId"].as_u64(), info["genesisHash"].as_str().map(str::to_ascii_lowercase));
-        if declared != (Some(chain_id), Some(genesis.clone())) || (entry.chain_id, entry.genesis_hash.to_ascii_lowercase()) != (chain_id, genesis) {
-            return Err("network invitation's genesis does not match the chain and genesis it declares for its release".into());
-        }
-        if entry.certified.is_none() { return Err(legacy_refusal().into()) }
-        Ok(entry.rules)
-    }
-    /// The chain id and genesis hash genesis.spec.hex itself commits to, never the declared metadata (A1-10).
-    fn computed_network(&self) -> Result<(u64, String), String> {
-        let bytes = types::unhex(self.files.get("genesis.spec.hex").map_or("", |s| s.trim()))?;
-        if bytes.len() > crate::genesis_spec::MAX_SPEC_BYTES { return Err("genesis specification exceeds its bound".into()) }
-        let spec = crate::genesis_spec::decode(&bytes).map_err(|e| format!("genesis specification: {e:?}"))?;
-        Ok((spec.chain_id, types::hex(&crate::genesis_spec::genesis_hash(&bytes))))
-    }
     pub fn fingerprint(&self) -> String {
         format!(
             "{:x}",
             Sha256::digest(&serde_json::to_vec(self).expect("invitation serialization"))
         )
     }
-    /// What a home is bound to: the seeds and the three files, whatever the schema and binding field. A v2 twin of a
-    /// saved v1 file has the same key, so importing it is the same network (plan §1.7).
+    /// What a home is bound to: the seeds and the three files. A newer file of the same network (another bootstrap list,
+    /// retired seeds) has the same key, so importing it is the same network (plan §1.7).
     pub fn content_key(&self) -> String {
         #[derive(Serialize)]
         struct Content<'a> { seeds: &'a [SocketAddr], files: &'a BTreeMap<String, String> }
@@ -186,16 +112,15 @@ impl Invitation {
         let info = self.info().ok()?;
         let forks = crate::configured_forks(&info).ok()?;
         let genesis: [u8; 32] = types::unhex(info["genesisHash"].as_str()?).ok()?.try_into().ok()?;
-        Some(identity::Consensus::new(info["chainId"].as_u64()?, genesis, &forks, self.rules_of().ok()?, 0, None).hex())
+        Some(identity::Consensus::new(info["chainId"].as_u64()?, genesis, &forks, self.consensus_rules_version, 0, None).hex())
     }
     pub fn describe(&self) -> serde_json::Value {
         let info = self.info().unwrap_or_default();
         let forks = crate::configured_forks(&info).unwrap_or_default();
-        let activation = forks.iter().find(|(version, _)| *version == 2).map(|(_, height)| height.to_string());
         let activations: Vec<&(u16, u64)> = forks.iter().filter(|(version, _)| *version > 1).collect();
         let mut out = serde_json::json!({"networkFingerprint":self.fingerprint(),"invitationSchema":self.schema,
-            "consensusRulesVersion":self.rules_of().ok(),"consensusIdentity":self.published_identity(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],
-            "forkSchedule":forks,"activations":activations,"fullNonceActivationHeight":activation,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"experimental-testnet"});
+            "consensusRulesVersion":self.consensus_rules_version,"consensusIdentity":self.published_identity(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],
+            "forkSchedule":forks,"activations":activations,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"experimental-testnet"});
         crate::readiness::annotate(&mut out, &self.launch_blockers(&info, &forks));
         crate::network_display::annotate_genesis(out, &self.files["genesis.spec.hex"])
     }
@@ -220,10 +145,10 @@ impl Invitation {
                 admission: Admission::Recorded(AdmissionFacts::recorded(info, spec.chain_id)) })),
         }
     }
-    /// What `pocol network` writes: v2, bound to this release's consensus rules, with its bootstrap list and whether the
+    /// What `pocol network` writes: bound to this release's consensus rules, with its bootstrap list and whether the
     /// seeds are retired.
     fn new_v2(seeds: Vec<SocketAddr>, bootstrap: Vec<SocketAddr>, seeds_retired: bool, files: BTreeMap<String, String>) -> Self {
-        Self { schema: SCHEMA_V2.into(), compatibility_sha256: None, consensus_rules_version: Some(identity::CONSENSUS_RULES_VERSION), seeds, files, bootstrap, seeds_retired }
+        Self { schema: SCHEMA_V2.into(), consensus_rules_version: identity::CONSENSUS_RULES_VERSION, seeds, files, bootstrap, seeds_retired }
     }
     /// D17: the advisory bootstrap addresses.
     pub fn bootstrap(&self) -> &[SocketAddr] { &self.bootstrap }
@@ -258,21 +183,17 @@ pub fn schedule_transition(prev: &[(u16, u64)], next: &[(u16, u64)]) -> Result<V
     Ok(next[prev.len()..].to_vec())
 }
 
-/// The appended fork entries of an upgrade from `before` to `after`. Both bind this release's consensus rules (an
-/// uncertified legacy `before` is refused with the §5.4 text), a v2 binding never goes back to v1, and only the fork
-/// schedule may change (the genesis, allocations, seeds and the rest of devnet.json stay).
-fn upgrade_transition(before: &Invitation, after: &Invitation, legacy: &[Legacy]) -> Result<Vec<(u16, u64)>, String> {
+/// The appended fork entries of an upgrade from `before` to `after`. Both bind this release's consensus rules, and only
+/// the fork schedule may change (the genesis, allocations, seeds and the rest of devnet.json stay).
+fn upgrade_transition(before: &Invitation, after: &Invitation) -> Result<Vec<(u16, u64)>, String> {
     before.validate()?;
     after.validate()?;
     let ours = identity::CONSENSUS_RULES_VERSION;
     for (which, invitation) in [("saved", before), ("new", after)] {
-        let rules = invitation.rules_of_with(legacy)?;
+        let rules = invitation.consensus_rules_version;
         if rules != ours {
             return Err(format!("the {which} network invitation runs consensus rules {rules}; this release runs rules {ours}"));
         }
-    }
-    if before.schema == SCHEMA_V2 && after.schema == SCHEMA_V1 {
-        return Err("an upgrade never returns a pocol-network-v2 binding to pocol-network-v1".into());
     }
     if before.seeds != after.seeds
         || ["alloc.json", "genesis.spec.hex"].iter().any(|n| before.files[*n] != after.files[*n])
@@ -291,19 +212,18 @@ fn upgrade_transition(before: &Invitation, after: &Invitation, legacy: &[Legacy]
 }
 /// Where an upgrade keeps the binding it replaces: keyed by that binding's fingerprint, so every upgrade has its own.
 fn backup_name(before: &Invitation) -> String { format!("network.pocol.json.before-{}", &before.fingerprint()[..16]) }
-/// An interrupted upgrade's intent. One this release cannot finish (a 0.4.0 intent whose saved binding it may not run)
-/// is refused with the instruction to finish it with the release that started it.
-fn read_intent(pending: &Path, legacy: &[Legacy]) -> Result<UpgradeIntent, String> {
+/// An interrupted upgrade's intent. One this release cannot finish (its saved binding runs other consensus rules) is
+/// refused with the instruction to finish it with the release that started it.
+fn read_intent(pending: &Path) -> Result<UpgradeIntent, String> {
     real_file(pending)?;
     if fs::metadata(pending).map_err(|e| e.to_string())?.len() > (4 * MAX_INVITATION + 4096) as u64 {
         return Err("upgrade intent is too large".into());
     }
     let intent: UpgradeIntent = serde_json::from_slice(&fs::read(pending).map_err(|e| e.to_string())?)
         .map_err(|_| "invalid interrupted upgrade intent; keep the original configuration backup")?;
-    match intent.before.rules_of_with(legacy) {
-        Ok(rules) if rules == identity::CONSENSUS_RULES_VERSION => Ok(intent),
-        Ok(rules) => Err(format!("an interrupted upgrade for consensus rules {rules} is pending; finish this upgrade with the PoCol release that started it first")),
-        Err(why) => Err(format!("an interrupted upgrade started by PoCol 0.4.0 is pending; finish this upgrade with PoCol 0.4.0 first ({why})")),
+    match intent.before.consensus_rules_version {
+        rules if rules == identity::CONSENSUS_RULES_VERSION => Ok(intent),
+        rules => Err(format!("an interrupted upgrade for consensus rules {rules} is pending; finish this upgrade with the PoCol release that started it first")),
     }
 }
 /// The pending `intent` resumes only with its own file, from a home still bound to its `before` or already to `after`.
@@ -782,9 +702,8 @@ impl Home {
     }
     /// Explicit, resumable public configuration upgrade. Never opens the wallet key or
     /// the state database for writing, and never creates a new identity or chain.
-    pub fn upgrade(&self, bytes: &[u8]) -> Result<Invitation, String> { self.upgrade_with(bytes, LEGACY_BUILDS) }
-    fn upgrade_with(&self, bytes: &[u8], legacy: &[Legacy]) -> Result<Invitation, String> {
-        let after = Invitation::parse_with(bytes, legacy)?;
+    pub fn upgrade(&self, bytes: &[u8]) -> Result<Invitation, String> {
+        let after = Invitation::parse(bytes)?;
         let saved = self.saved()?;
         let binding = self.path.join("network.pocol.json");
         let pending = self.path.join(UPGRADE_PENDING);
@@ -793,9 +712,9 @@ impl Home {
             self.network_files(&after, None)?;
             return Ok(after);
         }
-        let intent = if resuming { resumable(read_intent(&pending, legacy)?, &saved, &after)? } else { UpgradeIntent { before: saved, after: after.clone() } };
+        let intent = if resuming { resumable(read_intent(&pending)?, &saved, &after)? } else { UpgradeIntent { before: saved, after: after.clone() } };
         let network = self.path.join("network");
-        let (_appended, _state_lock) = self.plan(&intent.before, &after, resuming, legacy)?;
+        let (_appended, _state_lock) = self.plan(&intent.before, &after, resuming)?;
         let original = serde_json::to_vec_pretty(&intent.before).map_err(|e| e.to_string())?;
         let backup = self.path.join(backup_name(&intent.before));
         if !self.backup_kept(&intent.before)? { replace_public(&backup, &original)?; }
@@ -817,18 +736,17 @@ impl Home {
     /// release left pending is finished only by `upgrade` with the same file, so for that file the dry run reports the
     /// interrupted transition (from the intent's binding) with `resuming: true` and the wallets confirm and resume it;
     /// any other file is refused, as `upgrade` refuses it. Refusing the same file left a wallet with no way to resume.
-    pub fn inspect_upgrade(&self, bytes: &[u8]) -> Result<serde_json::Value, String> { self.inspect_upgrade_with(bytes, LEGACY_BUILDS) }
-    fn inspect_upgrade_with(&self, bytes: &[u8], legacy: &[Legacy]) -> Result<serde_json::Value, String> {
-        let after = Invitation::parse_with(bytes, legacy)?;
+    pub fn inspect_upgrade(&self, bytes: &[u8]) -> Result<serde_json::Value, String> {
+        let after = Invitation::parse(bytes)?;
         let saved = self.saved()?;
         let pending = self.path.join(UPGRADE_PENDING);
         let resuming = fs::symlink_metadata(&pending).is_ok();
-        let before = if resuming { resumable(read_intent(&pending, legacy)?, &saved, &after)?.before } else { saved };
+        let before = if resuming { resumable(read_intent(&pending)?, &saved, &after)?.before } else { saved };
         let appended = if !resuming && before.fingerprint() == after.fingerprint() {
             self.network_files(&after, None)?;
             None
         } else {
-            let (appended, _state_lock) = self.plan(&before, &after, resuming, legacy)?;
+            let (appended, _state_lock) = self.plan(&before, &after, resuming)?;
             self.backup_kept(&before)?;
             Some(appended)
         };
@@ -879,8 +797,8 @@ impl Home {
     /// Everything an upgrade checks before it writes, shared with the dry run: the transition, the upgraded profile,
     /// the local network files and, when entries are appended, that the first is above every stored block. The
     /// state lock is always taken and is held by the returned file until the caller drops it.
-    fn plan(&self, before: &Invitation, after: &Invitation, resuming: bool, legacy: &[Legacy]) -> Result<(Vec<(u16, u64)>, Option<File>), String> {
-        let appended = upgrade_transition(before, after, legacy)?;
+    fn plan(&self, before: &Invitation, after: &Invitation, resuming: bool) -> Result<(Vec<(u16, u64)>, Option<File>), String> {
+        let appended = upgrade_transition(before, after)?;
         let info = after.info()?;
         let genesis: [u8; 32] = types::unhex(info["genesisHash"].as_str().ok_or("missing genesis hash")?)?
             .try_into().map_err(|_| "invalid genesis hash")?;
@@ -900,19 +818,18 @@ impl Home {
         }
         Ok((appended, lock))
     }
-    /// Binds a new home to `bytes`, or checks that an existing binding is the same network (`content_key`): a v2 twin
-    /// of a saved v1 file is accepted read-only. An existing binding is never rewritten here.
-    pub fn import(&self, bytes: &[u8]) -> Result<Invitation, String> { self.import_with(bytes, LEGACY_BUILDS) }
-    fn import_with(&self, bytes: &[u8], legacy: &[Legacy]) -> Result<Invitation, String> {
+    /// Binds a new home to `bytes`, or checks that an existing binding is the same network (`content_key`): a newer
+    /// file of the saved network is accepted read-only. An existing binding is never rewritten here.
+    pub fn import(&self, bytes: &[u8]) -> Result<Invitation, String> {
         let pending = self.path.join(UPGRADE_PENDING);
         if fs::symlink_metadata(&pending).is_ok() {
-            read_intent(&pending, legacy)?;
+            read_intent(&pending)?;
             return Err("network upgrade is incomplete; resume the explicit upgrade command with the same invitation".into());
         }
-        let invitation = Invitation::parse_with(bytes, legacy)?;
+        let invitation = Invitation::parse(bytes)?;
         let binding = self.path.join("network.pocol.json");
         if binding.exists() {
-            let saved = Invitation::parse_with(&read_bounded(&binding)?, legacy)?;
+            let saved = Invitation::parse(&read_bounded(&binding)?)?;
             if saved.content_key() != invitation.content_key() {
                 return Err("this home is bound to another invitation; if this is the same network in a newer form run `pocol upgrade`; otherwise use a separate home".into());
             }
@@ -1018,7 +935,7 @@ mod upgrade_tests {
     fn invitation() -> Invitation {
         let info = serde_json::json!({"keyMode":"independent-key-files", "chainId":777915,
             "genesisHash":types::hex(&[7; 32]), "forks":[[1,0]]});
-        Invitation { schema: SCHEMA_V2.into(), compatibility_sha256: None, consensus_rules_version: Some(identity::CONSENSUS_RULES_VERSION),
+        Invitation { schema: SCHEMA_V2.into(), consensus_rules_version: identity::CONSENSUS_RULES_VERSION,
             seeds: vec!["127.0.0.1:30300".parse().unwrap()], files: BTreeMap::from([
                 ("alloc.json".into(), "{}".into()), ("genesis.spec.hex".into(), "00".into()),
                 ("devnet.json".into(), info.to_string()),
@@ -1039,13 +956,12 @@ mod upgrade_tests {
         assert_eq!(serde_json::to_vec(&invitation).unwrap(), bytes);
         assert_eq!(invitation.fingerprint(), fingerprint);
     }
-    /// V3-28 H1: the designated PoCol Mainnet invitation is not launch ready, for computed reasons, and its
-    /// designation clears none of them.
+    /// V3-28 H1: a network `pocold init-testnet` generated is not launch ready, for computed reasons.
     #[test]
-    fn the_designated_mainnet_reports_computed_launch_blockers() {
-        let invitation = h15000();
+    fn a_generated_network_reports_computed_launch_blockers() {
+        let invitation = generated(serde_json::Value::Null);
         let description = invitation.describe();
-        assert_eq!(description["networkName"], "PoCol Mainnet");
+        assert!(description.get("networkName").is_none(), "not a designated network");
         assert_eq!(description["publicLaunchReady"], false);
         let blockers = description["launchBlockers"].as_array().unwrap();
         let ids: Vec<&str> = blockers.iter().map(|b| b["id"].as_str().unwrap()).collect();
@@ -1054,7 +970,7 @@ mod upgrade_tests {
         }
         assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable"), "{ids:?}");
         let info = invitation.info().unwrap();
-        let (chain_id, genesis) = invitation.computed_network().unwrap();
+        let (chain_id, genesis) = computed(&invitation);
         let pinned = blockers.iter().find(|b| b["id"] == "network-not-release-pinned").unwrap()["detail"].as_str().unwrap().to_string();
         assert!(pinned.contains(&chain_id.to_string()) && pinned.contains(&genesis), "{pinned}");
         // Exactly the computed list: build facts, then the network's (devnet.json's recorded admission).
@@ -1063,6 +979,7 @@ mod upgrade_tests {
         // A pinned v3 schedule entry would make the rules active; the schedule here has none.
         assert!(forks.iter().all(|&(v, _)| v < 3));
         assert!(ids.contains(&"admission-not-booted"), "{ids:?}");
+        assert!(description.get("fullNonceActivationHeight").is_none());
     }
     /// V3-28 H1 (review): a devnet.json that records a cleared admission and the network profile, on a network the
     /// release pins and with every build fact cleared, still is not launch ready in the launcher: it admits nothing,
@@ -1070,8 +987,8 @@ mod upgrade_tests {
     #[test]
     fn a_forged_recorded_admission_clears_nothing_in_the_launcher() {
         use crate::readiness::Build;
-        let honest = h15000_v2(serde_json::Value::Null);
-        let (chain_id, genesis) = honest.computed_network().unwrap();
+        let honest = generated(serde_json::Value::Null);
+        let (chain_id, genesis) = computed(&honest);
         let genesis: [u8; 32] = types::unhex(&genesis).unwrap().try_into().unwrap();
         let pinned = Build { v3_preview: false, spec_version: 2, consensus_pinned: true, test_features: vec![], v3_launch_blockers: vec![],
             plan_gates_open: vec![], network_profiles: vec![(chain_id, genesis)] };
@@ -1149,13 +1066,13 @@ mod upgrade_tests {
         let mut info: serde_json::Value = serde_json::from_str(&after.files["devnet.json"]).unwrap();
         info["forks"] = serde_json::json!([[1,0],[2,21]]);
         after.files.insert("devnet.json".into(), info.to_string());
-        assert_eq!(upgrade_transition(&before, &after, LEGACY_BUILDS).unwrap(), [(2, 21)]);
-        assert!(upgrade_transition(&after, &before, LEGACY_BUILDS).is_err());
+        assert_eq!(upgrade_transition(&before, &after).unwrap(), [(2, 21)]);
+        assert!(upgrade_transition(&after, &before).is_err());
         // The same schedule appends nothing: a rebind (the same fingerprint is a no-op before this runs).
-        assert_eq!(upgrade_transition(&after, &after, LEGACY_BUILDS).unwrap(), []);
+        assert_eq!(upgrade_transition(&after, &after).unwrap(), []);
         info["extra"] = serde_json::json!(true);
         after.files.insert("devnet.json".into(), info.to_string());
-        assert!(upgrade_transition(&before, &after, LEGACY_BUILDS).is_err());
+        assert!(upgrade_transition(&before, &after).is_err());
     }
     #[test]
     fn upgrade_public_write_resumes_partial_temp_and_preserves_unexpected_data() {
@@ -1179,16 +1096,33 @@ mod upgrade_tests {
 
     // ---- The upgrade path (plan §1.7, §3): T20-T26 ----
 
-    const H15000: &str = include_str!("../../../deploy/mainnet/h15000/network.pocol.json");
-    /// The shipped table with its entry certified, as an owner would after the replay (Option A).
-    fn certified() -> Vec<Legacy> { LEGACY_BUILDS.iter().map(|l| Legacy { certified: Some("test evidence"), ..*l }).collect() }
-    fn h15000() -> Invitation { Invitation::parse_saved(H15000.as_bytes()).unwrap() }
-    /// The H15000 genesis files (a real simnet genesis) under v2, with `forks` in place of the schedule when given.
-    fn h15000_v2(forks: serde_json::Value) -> Invitation {
-        let mut i = h15000();
-        i.schema = SCHEMA_V2.into(); i.compatibility_sha256 = None; i.consensus_rules_version = Some(identity::CONSENSUS_RULES_VERSION);
+    /// A real simnet genesis (spec 1, bounded nonces, schedule [[1,0]]) that `pocold init-testnet` generates once, as
+    /// `pocol network` packs it; `forks`, when given, replaces the schedule in devnet.json.
+    fn generated(forks: serde_json::Value) -> Invitation {
+        static GENERATED: std::sync::OnceLock<BTreeMap<String, String>> = std::sync::OnceLock::new();
+        let files = GENERATED.get_or_init(|| {
+            let t = Scratch::new();
+            let miner = pocol_lp4_execution::devnet::miner_identity("launcher-upgrade-tests");
+            let config = serde_json::json!({"chainId":777916,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+                "miners":[{"id":miner.id,"reward":miner.reward}],
+                "accounts":[{"address":pocol_lp4_execution::devnet::account_key("launcher-upgrade-tests").address(),"wei":"1000000000000000000000000"}]});
+            let out = t.0.join("genesis");
+            testnet::prepare(config.to_string().as_bytes(), &out).unwrap();
+            FILES.iter().map(|n| (n.to_string(), fs::read_to_string(out.join(n)).unwrap())).collect()
+        });
+        let mut i = Invitation::new_v2(vec!["127.0.0.1:30300".parse().unwrap()], vec![], false, files.clone());
         if !forks.is_null() { let mut info = i.info().unwrap(); info["forks"] = forks; i.files.insert("devnet.json".into(), info.to_string()); }
         i
+    }
+    /// The chain id and genesis hash genesis.spec.hex itself commits to (A1-10).
+    fn computed(i: &Invitation) -> (u64, String) {
+        let bytes = types::unhex(i.files["genesis.spec.hex"].trim()).unwrap();
+        (crate::genesis_spec::decode(&bytes).unwrap().chain_id, types::hex(&crate::genesis_spec::genesis_hash(&bytes)))
+    }
+    /// The consensus identity a pinned release node reports on `i`'s network with `forks` (VA-SPEC §2.1).
+    fn identity_on(i: &Invitation, forks: &[(u16, u64)]) -> String {
+        let (chain_id, genesis) = computed(i);
+        identity::Consensus::new(chain_id, types::unhex(&genesis).unwrap().try_into().unwrap(), forks, identity::CONSENSUS_RULES_VERSION, 0, None).hex()
     }
     fn bytes(i: &Invitation) -> Vec<u8> { serde_json::to_vec_pretty(i).unwrap() }
     /// A home bound to `saved` the way `import` leaves one: key, address, binding and the three network files.
@@ -1215,73 +1149,51 @@ mod upgrade_tests {
         out
     }
     #[test]
-    fn the_h15000_invitation_keeps_its_fingerprint() {
-        // T20: the struct at 9c502ff, field for field; the optional fields serialise only when present.
-        #[derive(Serialize, Deserialize)]
-        #[serde(rename_all = "camelCase", deny_unknown_fields)]
-        struct Head { schema: String, compatibility_sha256: String, seeds: Vec<SocketAddr>, files: BTreeMap<String, String> }
-        let head: Head = serde_json::from_str(H15000).unwrap();
-        let fingerprint = format!("{:x}", Sha256::digest(&serde_json::to_vec(&head).unwrap()));
-        assert_eq!(h15000().fingerprint(), fingerprint);
-        assert_eq!(h15000().describe()["invitationSchema"], SCHEMA_V1);
-    }
-    #[test]
-    fn a_legacy_h15000_home_starts_only_when_certified_and_bound_to_its_computed_genesis() {
-        // T21: the shipped (uncertified) table refuses with the §5.4 text; a certified one starts the home and writes nothing.
+    fn every_upgrade_keeps_its_own_backup() {
+        // T22: a backup is named by the replaced binding's fingerprint, so a second upgrade never collides with the first.
         let t = Scratch::new();
-        let home = home_with(&t, H15000.as_bytes());
-        let before = snapshot(&home.path);
-        assert_eq!(home.import(H15000.as_bytes()).unwrap_err(), legacy_refusal());
-        assert_eq!(Invitation::parse(H15000.as_bytes()).unwrap_err(), legacy_refusal());
-        let certified = certified();
-        home.import_with(H15000.as_bytes(), &certified).unwrap();
-        assert_eq!(snapshot(&home.path), before, "a certified legacy home starts without any write");
-        assert_eq!(h15000().rules_of_with(&certified), Ok(1));
-        // Declared metadata that differs from what genesis.spec.hex computes, or an entry for another chain: refused.
-        let mut forged = h15000();
-        let mut info = forged.info().unwrap();
-        info["genesisHash"] = types::hex(&[9; 32]).into();
-        forged.files.insert("devnet.json".into(), info.to_string());
-        assert!(Invitation::parse_with(&bytes(&forged), &certified).unwrap_err().contains("does not match"));
-        let elsewhere: Vec<Legacy> = certified.iter().map(|l| Legacy { genesis_hash: "0x07", ..*l }).collect();
-        assert!(Invitation::parse_with(H15000.as_bytes(), &elsewhere).unwrap_err().contains("does not match"));
-        // The dropped arm (A2-2): a v1 file naming this build's own digest is no longer special.
-        let mut own = h15000();
-        own.compatibility_sha256 = Some(identity::COMPATIBILITY_HEX.into());
-        assert_eq!(Invitation::parse_with(&bytes(&own), &certified).unwrap_err(), "network invitation requires a different PoCol release");
-    }
-    #[test]
-    fn a_second_upgrade_leaves_the_full_nonce_backup_and_writes_its_own() {
-        // T22: 0.4.0's fixed backup name held the first upgrade's binding; a later upgrade must not collide with it.
-        let t = Scratch::new();
-        let (before, after) = (h15000_v2(serde_json::json!([[1, 0]])), h15000_v2(serde_json::json!([[1, 0], [2, 15000]])));
+        let (before, after) = (generated(serde_json::json!([[1, 0]])), generated(serde_json::json!([[1, 0], [2, 15000]])));
         let home = home_with(&t, &bytes(&before));
-        let legacy = home.path.join(LEGACY_UPGRADE_BACKUP);
-        fs::write(&legacy, b"the 0.4.0 full-nonce backup of another binding").unwrap();
         assert_eq!(home.inspect_upgrade(&bytes(&after)).unwrap()["change"], "activation");
         home.upgrade(&bytes(&after)).unwrap();
-        assert_eq!(fs::read(&legacy).unwrap(), b"the 0.4.0 full-nonce backup of another binding");
-        let backup = home.path.join(backup_name(&before));
-        assert_eq!(Invitation::parse_saved(&fs::read(&backup).unwrap()).unwrap().fingerprint(), before.fingerprint());
+        let first = home.path.join(backup_name(&before));
+        assert_eq!(Invitation::parse_saved(&fs::read(&first).unwrap()).unwrap().fingerprint(), before.fingerprint());
         assert_eq!(fs::read(home.path.join("network.pocol.json")).unwrap(), bytes(&after));
         assert!(!home.path.join(UPGRADE_PENDING).exists());
         assert_eq!(home.inspect_upgrade(&bytes(&after)).unwrap()["change"], "none");
+        let listed = Invitation { bootstrap: vec!["81.2.0.9:30300".parse().unwrap()], ..after.clone() };
+        assert_eq!(home.inspect_upgrade(&bytes(&listed)).unwrap()["change"], "rebind");
+        home.upgrade(&bytes(&listed)).unwrap();
+        let second = home.path.join(backup_name(&after));
+        assert_ne!(first, second);
+        assert_eq!(Invitation::parse_saved(&fs::read(&first).unwrap()).unwrap().fingerprint(), before.fingerprint(), "the first backup stays");
+        assert_eq!(Invitation::parse_saved(&fs::read(&second).unwrap()).unwrap().fingerprint(), after.fingerprint());
+        assert_eq!(fs::read(home.path.join("network.pocol.json")).unwrap(), bytes(&listed));
     }
     #[test]
     fn a_v2_binding_does_not_depend_on_the_build_digest() {
-        // T23: what `pocol network` writes names the rules, not a digest, so a release with another digest (R2) and no
-        // legacy table parses and imports it unchanged.
-        let packed = Invitation::new_v2(h15000().seeds, vec![], false, h15000().files);
+        // T23: what `pocol network` writes names the rules, not a digest, so a release with another digest (R2) parses
+        // and imports it unchanged.
+        let packed = generated(serde_json::Value::Null);
         let text = String::from_utf8(bytes(&packed)).unwrap();
         assert!(text.contains("\"schema\": \"pocol-network-v2\"") && text.contains("\"consensusRulesVersion\": 1"), "{text}");
         assert!(!text.contains("compatibilitySha256") && !text.contains(identity::COMPATIBILITY_HEX));
-        Invitation::parse_with(&bytes(&packed), &[]).unwrap();
+        Invitation::parse(&bytes(&packed)).unwrap();
         let t = Scratch::new();
         let home = home_with(&t, &bytes(&packed));
-        home.import_with(&bytes(&packed), &[]).unwrap();
-        assert_eq!(packed.describe()["consensusIdentity"], "bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110", "the T11 golden identity");
+        home.import(&bytes(&packed)).unwrap();
+        assert_eq!(packed.describe()["consensusIdentity"], identity_on(&packed, &[(1, 0)]));
+        // Only this schema and a rules revision bind a home: no other schema, no build digest, no missing rules.
+        let value: serde_json::Value = serde_json::from_slice(&bytes(&packed)).unwrap();
+        let mut v1 = value.clone(); v1["schema"] = "pocol-network-v1".into();
+        let mut digest = value.clone(); digest["compatibilitySha256"] = "6c".repeat(32).into();
+        let mut unbound = value.clone(); unbound.as_object_mut().unwrap().remove("consensusRulesVersion");
+        let mut zero = value; zero["consensusRulesVersion"] = 0.into();
+        for (what, v) in [("v1", v1), ("digest", digest), ("unbound", unbound), ("rules 0", zero)] {
+            assert!(Invitation::parse(&serde_json::to_vec(&v).unwrap()).is_err(), "{what}");
+        }
         let mut other = packed.clone();
-        other.consensus_rules_version = Some(identity::CONSENSUS_RULES_VERSION + 1);
+        other.consensus_rules_version = identity::CONSENSUS_RULES_VERSION + 1;
         assert!(Invitation::parse(&bytes(&other)).unwrap_err().contains("different PoCol consensus release"));
     }
     /// D17, D23: the bootstrap list and the seeds' retirement are v2 fields outside the network's identity: an empty
@@ -1289,7 +1201,7 @@ mod upgrade_tests {
     /// them, and a list holds at most 16 distinct addresses with ports >= 1024, none a seed.
     #[test]
     fn the_bootstrap_list_is_validated_and_kept_out_of_the_content_key() {
-        let plain = h15000_v2(serde_json::Value::Null);
+        let plain = generated(serde_json::Value::Null);
         let b: Vec<SocketAddr> = (0..16).map(|i| SocketAddr::new([81, 2, 0, i + 1].into(), 30300)).collect();
         let text = String::from_utf8(bytes(&plain)).unwrap();assert!(!text.contains("bootstrap") && !text.contains("seedsRetired"), "absent when empty");
         let listed = Invitation { bootstrap: b.clone(), seeds_retired: true, ..plain.clone() };
@@ -1305,16 +1217,13 @@ mod upgrade_tests {
             ("a seed", Invitation { bootstrap: vec![plain.seeds[0]], ..plain.clone() })] {
             assert!(bad(i).contains("at most 16 distinct bootstrap addresses"), "{why}");
         }
-        for v1 in [Invitation { bootstrap: vec![b[0]], ..h15000() }, Invitation { seeds_retired: true, ..h15000() }] {
-            assert!(bad(v1).contains("need a pocol-network-v2 invitation"));
-        }
     }
     /// D17, D23 (A7): an upgrade may change only the bootstrap list or retire the seeds: a rebind (no activation), which
     /// `inspect-upgrade` shows with both lists, both flags and both fingerprints.
     #[test]
     fn an_upgrade_may_change_only_the_bootstrap_list_or_retire_the_seeds() {
         let t = Scratch::new();
-        let before = h15000_v2(serde_json::Value::Null);
+        let before = generated(serde_json::Value::Null);
         let home = home_with(&t, &bytes(&before));
         let b: SocketAddr = "81.2.0.9:30300".parse().unwrap();
         let after = Invitation { bootstrap: vec![b], ..before.clone() };
@@ -1333,7 +1242,7 @@ mod upgrade_tests {
     #[test]
     fn retired_seeds_are_not_dialed() {
         let seeds: Vec<SocketAddr> = ["127.0.0.1:30311", "81.2.0.1:30300", "81.2.0.2:30300"].iter().map(|s| s.parse().unwrap()).collect();
-        let i = Invitation { seeds: seeds.clone(), ..h15000_v2(serde_json::Value::Null) };
+        let i = Invitation { seeds: seeds.clone(), ..generated(serde_json::Value::Null) };
         let p: SocketAddr = "81.9.0.1:30300".parse().unwrap();
         assert_eq!(i.launch_peers(Some(seeds[0]), &[p, seeds[2]]), (vec![p, seeds[2], seeds[1]], vec![seeds[1]], true), "own seed dropped, a static one stays static");
         assert_eq!(i.launch_peers(None, &[]), (seeds.clone(), seeds.clone(), false));
@@ -1351,61 +1260,46 @@ mod upgrade_tests {
         }
     }
     #[test]
-    fn importing_the_v2_twin_of_a_saved_v1_binding_changes_nothing() {
-        // T25: the same seeds and files are the same network; the binding stays the saved v1 file.
+    fn importing_a_newer_file_of_the_saved_network_changes_nothing() {
+        // T25: the same seeds and files are the same network; the binding stays the saved file.
         let t = Scratch::new();
-        let home = home_with(&t, H15000.as_bytes());
+        let saved = generated(serde_json::Value::Null);
+        let home = home_with(&t, &bytes(&saved));
         let before = snapshot(&home.path);
-        let twin = h15000_v2(serde_json::Value::Null);
-        assert_eq!(twin.content_key(), h15000().content_key());
-        assert_ne!(twin.fingerprint(), h15000().fingerprint());
-        home.import_with(&bytes(&twin), &certified()).unwrap();
+        let newer = Invitation { bootstrap: vec!["81.2.0.9:30300".parse().unwrap()], ..saved.clone() };
+        assert_eq!(newer.content_key(), saved.content_key());
+        assert_ne!(newer.fingerprint(), saved.fingerprint());
+        home.import(&bytes(&newer)).unwrap();
         assert_eq!(snapshot(&home.path), before);
-        assert_eq!(home.import(&bytes(&twin)).unwrap_err(), legacy_refusal(), "the saved v1 binding still needs its certification");
-        let other = h15000_v2(serde_json::json!([[1, 0], [2, 15001]]));
-        assert!(home.import_with(&bytes(&other), &certified()).unwrap_err().contains("bound to another invitation; if this is the same network in a newer form run `pocol upgrade`"));
+        let other = generated(serde_json::json!([[1, 0], [2, 15001]]));
+        assert!(home.import(&bytes(&other)).unwrap_err().contains("bound to another invitation; if this is the same network in a newer form run `pocol upgrade`"));
         assert_eq!(snapshot(&home.path), before);
-    }
-    #[test]
-    fn a_certified_legacy_home_rebinds_to_its_v2_twin_and_never_goes_back() {
-        let t = Scratch::new();
-        let home = home_with(&t, H15000.as_bytes());
-        let twin = h15000_v2(serde_json::Value::Null);
-        assert_eq!(home.upgrade(&bytes(&twin)).unwrap_err(), legacy_refusal(), "uncertified as shipped");
-        assert_eq!(home.inspect_upgrade(&bytes(&twin)).unwrap_err(), legacy_refusal());
-        let certified = certified();
-        let dry = home.inspect_upgrade_with(&bytes(&twin), &certified).unwrap();
-        assert_eq!((dry["change"].as_str(), dry["appended"].as_array().map(Vec::len)), (Some("rebind"), Some(0)));
-        assert_eq!(dry["consensusIdentity"], "bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110");
-        home.upgrade_with(&bytes(&twin), &certified).unwrap();
-        assert_eq!(fs::read(home.path.join("network.pocol.json")).unwrap(), bytes(&twin));
-        assert_eq!(fs::read(home.path.join(backup_name(&h15000()))).unwrap(), bytes(&h15000()), "the v1 binding is kept for a rollback");
-        assert!(upgrade_transition(&twin, &h15000(), &certified).unwrap_err().contains("never returns a pocol-network-v2 binding"));
     }
     #[test]
     fn an_upgrade_refuses_every_change_but_appended_future_activations() {
         // T26.
         let t = Scratch::new();
-        let before = h15000_v2(serde_json::json!([[1, 0]]));
+        let before = generated(serde_json::json!([[1, 0]]));
         let home = home_with(&t, &bytes(&before));
         let binding = fs::read(home.path.join("network.pocol.json")).unwrap();
-        let at = |forks| bytes(&h15000_v2(forks));
+        let at = |forks| bytes(&generated(forks));
         assert!(home.upgrade(&at(serde_json::json!([[1, 0], [2, 100], [3, 200]]))).unwrap_err().contains("consensus fork schedule"), "v3 under MAX_FORK_VERSION = 2");
-        let mut rules = h15000_v2(serde_json::json!([[1, 0], [2, 100]]));
-        rules.consensus_rules_version = Some(2);
+        let mut rules = generated(serde_json::json!([[1, 0], [2, 100]]));
+        rules.consensus_rules_version = 2;
         assert!(home.upgrade(&bytes(&rules)).unwrap_err().contains("different PoCol consensus release"));
-        assert!(upgrade_transition(&before, &rules, LEGACY_BUILDS).unwrap_err().contains("runs consensus rules 2"));
-        let changed = |edit: &dyn Fn(&mut Invitation)| { let mut i = h15000_v2(serde_json::json!([[1, 0], [2, 100]])); edit(&mut i); i };
+        assert!(upgrade_transition(&before, &rules).unwrap_err().contains("runs consensus rules 2"));
+        let changed = |edit: &dyn Fn(&mut Invitation)| { let mut i = generated(serde_json::json!([[1, 0], [2, 100]])); edit(&mut i); i };
         for (what, i) in [
             ("seeds", changed(&|i| i.seeds = vec!["127.0.0.1:30301".parse().unwrap()])),
             ("alloc", changed(&|i| { i.files.get_mut("alloc.json").unwrap().push(' '); })),
             ("spec", changed(&|i| { i.files.get_mut("genesis.spec.hex").unwrap().push('\n'); })),
             ("devnet.json key", changed(&|i| { let mut info = i.info().unwrap(); info["genesisTime"] = 1.into(); i.files.insert("devnet.json".into(), info.to_string()); })),
         ] {
-            assert!(upgrade_transition(&before, &i, LEGACY_BUILDS).is_err(), "{what}");
+            assert!(upgrade_transition(&before, &i).is_err(), "{what}");
         }
         // Future-only: an activation at or below a stored block is refused, and nothing is written.
-        journal_of(&home.path, &[1, 20], 1599846715, types::unhex("0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca").unwrap().try_into().unwrap());
+        let (chain_id, genesis) = computed(&before);
+        journal_of(&home.path, &[1, 20], chain_id, types::unhex(&genesis).unwrap().try_into().unwrap());
         assert!(home.upgrade(&at(serde_json::json!([[1, 0], [2, 20]]))).unwrap_err().contains("activation 20 must be above every stored block (highest 20)"));
         assert!(home.inspect_upgrade(&at(serde_json::json!([[1, 0], [2, 20]]))).is_err(), "the dry run refuses it too");
         assert_eq!(fs::read(home.path.join("network.pocol.json")).unwrap(), binding);
@@ -1419,7 +1313,7 @@ mod upgrade_tests {
         // The wallets run the dry run before every upgrade, so refusing the interrupted upgrade's own file left them no
         // way to resume it (and an Android home no way out but clearing the key). Both crash windows: before and after
         // the binding is written.
-        let (before, after) = (h15000_v2(serde_json::json!([[1, 0]])), h15000_v2(serde_json::json!([[1, 0], [2, 15000]])));
+        let (before, after) = (generated(serde_json::json!([[1, 0]])), generated(serde_json::json!([[1, 0], [2, 15000]])));
         for bound in [&before, &after] {
             let t = Scratch::new();
             let home = home_with(&t, &bytes(&before));
@@ -1431,7 +1325,7 @@ mod upgrade_tests {
             let interrupted = snapshot(&home.path);
             let dry = home.inspect_upgrade(&bytes(&after)).unwrap();
             assert_eq!((dry["change"].as_str(), &dry["appended"], &dry["resuming"]), (Some("activation"), &serde_json::json!([[2, 15000]]), &serde_json::json!(true)), "{dry}");
-            let other = h15000_v2(serde_json::json!([[1, 0], [2, 15001]]));
+            let other = generated(serde_json::json!([[1, 0], [2, 15001]]));
             assert_eq!(home.inspect_upgrade(&bytes(&other)).unwrap_err(), "resume the interrupted upgrade with the same network invitation");
             assert_eq!(home.upgrade(&bytes(&other)).unwrap_err(), "resume the interrupted upgrade with the same network invitation");
             assert_eq!(snapshot(&home.path), interrupted, "neither the dry run nor a refused file writes");
@@ -1443,16 +1337,20 @@ mod upgrade_tests {
         }
     }
     #[test]
-    fn a_pending_upgrade_left_by_0_4_0_must_be_finished_with_0_4_0() {
+    fn a_pending_upgrade_for_other_rules_must_be_finished_by_its_release() {
         let t = Scratch::new();
-        let home = home_with(&t, H15000.as_bytes());
-        let mut after = h15000();
-        let mut info = after.info().unwrap(); info["forks"] = serde_json::json!([[1, 0], [2, 15001]]); after.files.insert("devnet.json".into(), info.to_string());
-        fs::write(home.path.join(UPGRADE_PENDING), serde_json::to_vec(&UpgradeIntent { before: h15000(), after }).unwrap()).unwrap();
-        let twin = bytes(&h15000_v2(serde_json::Value::Null));
-        for e in [home.upgrade(&twin).map(|_| ()), home.import(H15000.as_bytes()).map(|_| ()), home.inspect_upgrade(&twin).map(|_| ())] {
-            assert!(e.unwrap_err().contains("finish this upgrade with PoCol 0.4.0 first"));
+        let saved = generated(serde_json::json!([[1, 0]]));
+        let home = home_with(&t, &bytes(&saved));
+        let mut before = saved.clone(); before.consensus_rules_version = identity::CONSENSUS_RULES_VERSION + 1;
+        let after = generated(serde_json::json!([[1, 0], [2, 15001]]));
+        fs::write(home.path.join(UPGRADE_PENDING), serde_json::to_vec(&UpgradeIntent { before, after: after.clone() }).unwrap()).unwrap();
+        let interrupted = snapshot(&home.path);
+        for e in [home.upgrade(&bytes(&after)).map(|_| ()), home.import(&bytes(&saved)).map(|_| ()), home.inspect_upgrade(&bytes(&after)).map(|_| ())] {
+            assert!(e.unwrap_err().contains("finish this upgrade with the PoCol release that started it first"));
         }
+        assert_eq!(snapshot(&home.path), interrupted, "nothing is written");
+        fs::write(home.path.join(UPGRADE_PENDING), b"{\"before\":{\"schema\":\"pocol-network-v1\"}}").unwrap();
+        assert!(home.import(&bytes(&saved)).unwrap_err().contains("invalid interrupted upgrade intent"));
     }
 }
 

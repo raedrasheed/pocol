@@ -54,10 +54,6 @@ fn every_committed_spec1_genesis_keeps_its_original_bytes_and_hash(){
         let (kind,node)=if spec.chain_id==777001{(ProfileKind::Network,NodeKind::Node)}else{(ProfileKind::Simnet,NodeKind::Simnet)};
         let id=ProfileIdentity::validate(&bytes,&gs::genesis_hash(&bytes),spec.chain_id,kind,node,&[(1,0),(2,15000)]).unwrap();
         for h in [0,1,14999,15000,15001,u64::MAX]{assert!(!id.v3_active(h),"{name} at {h}");}
-        if name.starts_with("deploy/mainnet/h15000/"){
-            let legacy=pocold::launcher::LEGACY_BUILDS.iter().find(|entry|entry.chain_id==spec.chain_id).expect("the frozen legacy identity stays supported");
-            assert_eq!(pocold::types::hex(&id.genesis_hash()),legacy.genesis_hash);
-        }
     }
 }
 #[test]

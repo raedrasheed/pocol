@@ -34,7 +34,7 @@ pub(super) fn open(chain:&Chain,index:&Index,rec:&Recovered,end:impl Fn(usize)->
         let payload=rec.payload(i).map_err(|e|format!("first import record {i}: {e:?}"))?;
         let record=store::decode_record_ref(&payload)?;let header=decode_header(record.header).map_err(|e|format!("first import header {i}: {e}"))?;
         let hash=block_hash(&header);
-        if chain.spec.v3_active(header.h)&&record.first_import.is_none(){return Err(format!("record {i}: old v3-preview journal has no first-import timing; its historical flags cannot be reconstructed"))}
+        if chain.spec.v3_active(header.h)&&record.first_import.is_none(){return Err(format!("record {i}: a v3 journal record has no first-import timing; its historical flags cannot be reconstructed"))}
         if let Some(stamp)=record.first_import{
             if let Some(original)=first(index,&rec.journal,&hash)?{if original!=stamp{return Err(format!("record {i}: a re-import changed the original timing"))}}
             if header.h==1&&header.parent_hash==genesis{

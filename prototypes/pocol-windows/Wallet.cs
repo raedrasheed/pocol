@@ -81,14 +81,14 @@ internal sealed class Wallet {
  // While no peer is connected, say why peers were refused (VA-SPEC §2.5, plan §5); the Android wallet shows the same texts.
  static string PeerNote(Dictionary<string,object> s){
   object value;var refused=s.TryGetValue("incompatiblePeers",out value)?value as Dictionary<string,object>:null;
-  long consensus,legacy;long.TryParse(refused==null?"":Text(refused,"consensus"),out consensus);long.TryParse(Text(s,"legacyHellos"),out legacy);
+  long consensus;long.TryParse(refused==null?"":Text(refused,"consensus"),out consensus);
   if(consensus>0){string why=Text(s,"lastIncompatibleReason");return "Peers use a different network configuration: apply the published network upgrade file (Settings → Upgrade) or update PoCol."+(why.Length==0?"":"\n"+why);}
-  return legacy>0?"Seeds still run PoCol 0.4.0; wait for the announced switch.":"Looking for peers. Your balance may be out of date.";
+  return "Looking for peers. Your balance may be out of date.";
  }
  // One line per fork entry an inspected upgrade file appends (`pocol inspect-upgrade`).
  static List<string> UpgradeLines(Dictionary<string,object> preview){
   var lines=new List<string>();object value;if(!preview.TryGetValue("appended",out value))return lines;var entries=value as IList;if(entries==null)return lines;
-  foreach(object entry in entries){var pair=entry as IList;if(pair==null||pair.Count!=2)continue;string v=Convert.ToString(pair[0],System.Globalization.CultureInfo.InvariantCulture),h=Convert.ToString(pair[1],System.Globalization.CultureInfo.InvariantCulture);lines.Add(v=="2"?"Full mining range at block "+h:"Consensus version "+v+" at block "+h);}
+  foreach(object entry in entries){var pair=entry as IList;if(pair==null||pair.Count!=2)continue;string v=Convert.ToString(pair[0],System.Globalization.CultureInfo.InvariantCulture),h=Convert.ToString(pair[1],System.Globalization.CultureInfo.InvariantCulture);lines.Add("Consensus version "+v+" at block "+h);}
   return lines;
  }
  // The notice for a file already applied (none), or after a saved rebind or activation. Only an activation needs the coordinated release.

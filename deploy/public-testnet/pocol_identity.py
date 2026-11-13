@@ -21,13 +21,6 @@ SPEC_VERSION = 1
 PREVIEW_SPEC_VERSION = 2
 # The lowest wire version a peer may send (pocold identity::PROTOCOL_VERSION_MIN).
 PROTOCOL_VERSION_MIN = 2
-# Mirror of pocold launcher::LEGACY_BUILDS (test_pocol_identity compares it with launcher.rs). A 0.4.0 binding names
-# only its build digest; it is accepted only through a certified entry bound to its chain and genesis. The H15000
-# entry ships uncertified (owner decision D1 is pending; its recommended Option B needs no certification), so every
-# legacy path fails closed until an owner records the replay evidence (plan §1.7, §6).
-LEGACY_BUILDS = ({'digest': '6cf38a14aa01ca3d824b0309564942cc926ca7232e2a5b2672a17e8c99e35476', 'rules': 1,
-                  'chainId': 1599846715, 'genesisHash': '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca',
-                  'sources': None, 'certified': None},)
 
 
 def validated_schedule(value, max_version=MAX_FORK_VERSION):
@@ -49,17 +42,6 @@ def validated_schedule(value, max_version=MAX_FORK_VERSION):
             or any(a[1] >= b[1] for a, b in zip(entries, entries[1:]))):
         raise ValueError('unsupported consensus fork schedule')
     return tuple(entries)
-
-
-def legacy_rules(digest, chain_id, genesis, table=None):
-    """The rules revision a certified legacy build runs on this chain and genesis, or None (fail closed).
-    table exists for tests; callers use LEGACY_BUILDS."""
-    for entry in LEGACY_BUILDS if table is None else table:
-        if (entry['certified'] and isinstance(digest, str) and digest.lower() == entry['digest']
-                and type(chain_id) is int and chain_id == entry['chainId']
-                and isinstance(genesis, str) and genesis.lower() == entry['genesisHash']):
-            return entry['rules']
-    return None
 
 
 def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):

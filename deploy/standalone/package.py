@@ -8,7 +8,7 @@ p.add_argument('--network',type=Path,help='the v2 invitation this release is for
 # gradle -PpocolApplicationId=org.pocol.wallet. Only these two ids are packaged.
 p.add_argument('--android-application-id',choices=['org.pocol.node','org.pocol.wallet'],default='org.pocol.node'); args=p.parse_args()
 root=Path(__file__).resolve().parents[2]
-# The consensus identity reference and the LEGACY_BUILDS mirror (standard library only; never imported from a package).
+# The consensus identity reference (standard library only; never imported from a package).
 identity=runpy.run_path(str(root/'deploy/public-testnet/pocol_identity.py'))
 args.out.mkdir()
 version='0.4.0'
@@ -38,10 +38,8 @@ build=json.loads((args.out/'build-info.json').read_text(encoding='utf-8'))
 if build.get('v3Preview') is True or 'v3-preview' in build.get('features', []):
     raise SystemExit('refusing to package a v3-preview build')
 # Release builds are compiled with POCOL_RELEASE=1, so build.rs refuses an unpinned tree; refuse its build-info too
-# (VA-SPEC §2.4). A certified legacy entry is bound to the consensus sources its replay ran: any re-pin voids it (A2-8).
+# (VA-SPEC §2.4).
 if build.get('consensusPinned') is not True: raise SystemExit('refusing to package an unpinned consensus build (consensusPinned is not true)')
-stale=[e['digest'] for e in identity['LEGACY_BUILDS'] if e['certified'] and e['sources']!=build.get('consensusSourcesSha256')]
-if stale: raise SystemExit('a certified legacy build was replayed against other consensus sources; rerun the replay: '+', '.join(stale))
 chain,genesis=1599846715,'0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 network_identity=None
 if args.network:

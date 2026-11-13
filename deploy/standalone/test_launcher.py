@@ -76,7 +76,7 @@ class Launcher(unittest.TestCase):
         path = network(self.root, [self.root / 'a'], ['127.0.0.1:30300'])
         original = json.loads(path.read_text(encoding='utf-8')); fingerprint = json.loads(call('pocol', 'inspect', '--network', path).stdout)['networkFingerprint']
         path.write_text(json.dumps(original, indent=4), encoding='utf-8'); self.assertEqual(json.loads(call('pocol', 'inspect', '--network', path).stdout)['networkFingerprint'], fingerprint)
-        mutations = [dict(original, compatibilitySha256='0'*64), dict(original, seeds=[]), dict(original, seeds=['0.0.0.0:0']), dict(original, files={**original['files'], '../identity.pocol-key':'bad'}), dict(original, unexpected=True)]
+        mutations = [dict(original, compatibilitySha256='0'*64), dict(original, schema='pocol-network-v1'), dict(original, seeds=[]), dict(original, seeds=['0.0.0.0:0']), dict(original, files={**original['files'], '../identity.pocol-key':'bad'}), dict(original, unexpected=True)]
         for changed in mutations:
             path.write_text(json.dumps(changed), encoding='utf-8'); self.assertNotEqual(call('pocol', 'inspect', '--network', path, ok=False).returncode, 0)
         path.write_bytes(b' ' * (1048576 + 1)); self.assertNotEqual(call('pocol', 'inspect', '--network', path, ok=False).returncode, 0)
@@ -105,14 +105,6 @@ class Launcher(unittest.TestCase):
         absent = self.root / 'absent'
         self.assertNotEqual(call('pocol', 'inspect-upgrade', '--home', absent, '--network', target, ok=False).returncode, 0)
         self.assertFalse(absent.exists())
-    def test_the_h15000_invitation_is_refused_while_its_build_is_uncertified(self):
-        # Plan §1.7 and §5.4: LEGACY_BUILDS ships uncertified (owner decision D1, Option B by default); nothing is bound.
-        h15000 = ROOT / 'deploy/mainnet/h15000/network.pocol.json'
-        for args in (('inspect', '--network', h15000), ('import', '--home', self.root / 'node', '--network', h15000)):
-            p = call('pocol', *args, ok=False)
-            self.assertNotEqual(p.returncode, 0)
-            self.assertIn('This network was replaced by a new genesis', p.stderr)
-        self.assertFalse((self.root / 'node' / 'network.pocol.json').exists())
     def test_build_digest_is_canonical_across_platforms(self):
         info=json.loads(call('pocol','build-info').stdout)
         h=hashlib.sha256(b'pocol-testnet-source-compatibility-v1\0')

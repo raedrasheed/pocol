@@ -730,9 +730,8 @@ pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fal
     /// PR6 review: parked transactions relayed when parked.
     pub parked_relayed:u64,
     /// VA-SPEC §2.5: Hellos refused for another network, a wire version below MIN and another consensus identity
-    /// (`identity::Mismatch` order), the last refusal's reason (at most INCOMPATIBLE_REASON_MAX characters) and the
-    /// connections whose first frame was PoCol 0.4.0's 9-item Hello (`net::legacy_hello`).
-    pub incompatible:[u64;3],pub last_incompatible:String,pub legacy_hellos:u64}
+    /// (`identity::Mismatch` order) and the last refusal's reason (at most INCOMPATIBLE_REASON_MAX characters).
+    pub incompatible:[u64;3],pub last_incompatible:String}
 /// The characters of `lastIncompatibleReason` kept (a bounded status field: the peer's name is at most NODE_NAME_MAX).
 pub const INCOMPATIBLE_REASON_MAX:usize=160;
 /// 2026-10-28: the time (ms) each step of `Node::open` took, so an open's cost can be attributed: reading the
@@ -859,10 +858,7 @@ impl Node{
         let (mut samples,mut roll_end,mut bad):(Vec<[u8;32]>,[u8;32],Option<String>)=(vec![[0u8;32]],[0u8;32],None);
         let t=Instant::now();
         let rec=store::open_with(&cfg.dir,&binding,&mut |i,_,payload|{
-            if bad.is_none(){match (||{
-                let record=store::decode_record_ref(payload)?;let header=decode_header(record.header)?;
-                if spec.v3_active(header.h)&&record.first_import.is_none(){return Err("old v3-preview journal has no first-import timing; its historical flags cannot be reconstructed".to_string())}
-                Ok(header)})(){
+            if bad.is_none(){match store::decode_record_ref(payload).and_then(|record|decode_header(record.header)){
                 Ok(header)=>{
                     if header.protocol_version!=spec.active_version(header.h){bad=Some(format!("record {i}: stored block {} conflicts with the configured consensus fork schedule",header.h));}
                     else if i>=EV_RECORDS_MAX{bad=Some(format!("record {i}: a journal of more than {EV_RECORDS_MAX} records cannot be replayed"));}
@@ -1272,9 +1268,6 @@ impl Node{
                 if let Some(p)=self.peers.remove(&id){self.allow_redial(p.origin);}}
             Event::Net(NetEvent::Message(id,m))=>self.on_msg(id,m),
             Event::Net(NetEvent::DialFailed(t,a,e))=>self.disc_dial_failed(t,a,e,self.disc_now()),
-            // Its Closed follows; the 0.4.0 handshake is refused by arity, as before (plan §6).
-            Event::Net(NetEvent::Legacy(id))=>{self.stats.legacy_hellos+=1;
-                let at=self.peers.get(&id).map(|p|p.addr.clone()).unwrap_or_default();self.log(&format!("peer {at} speaks the PoCol 0.4.0 handshake; closing"));}
         }
     }
     /// H2: a configured peer's dialer (`net::dial`) dials again once the address it dialed has left the outbound
@@ -2887,7 +2880,7 @@ impl Node{
     /// VA-SPEC §2.5: what refused peers differed in (pocol_status and wallet status), so a lagging node is told why.
     pub fn incompatible_json(&self)->serde_json::Map<String,serde_json::Value>{
         let [network,wire,consensus]=self.stats.incompatible;let last=&self.stats.last_incompatible;
-        let j=serde_json::json!({"incompatiblePeers":{"network":network,"wire":wire,"consensus":consensus},"legacyHellos":self.stats.legacy_hellos,
+        let j=serde_json::json!({"incompatiblePeers":{"network":network,"wire":wire,"consensus":consensus},
             "lastIncompatibleReason":if last.is_empty(){serde_json::Value::Null}else{serde_json::json!(last)}});
         let serde_json::Value::Object(m)=j else{unreachable!()};m
     }

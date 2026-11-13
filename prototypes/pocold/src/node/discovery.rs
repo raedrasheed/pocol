@@ -734,7 +734,7 @@ mod tests{
         assert_eq!(s["lastIncompatibleReason"],"peer consensus-mismatch: another network (chain id or genesis)");
         assert_eq!(s["consensusIdentity"],ours.hex());
         let home=crate::launcher::Home::open(&dir.join("home")).unwrap();let w=crate::wallet::Wallet::new(&home).unwrap();let ws=w.status(&n);
-        assert_eq!((&ws["incompatiblePeers"],&ws["lastIncompatibleReason"],&ws["legacyHellos"]),(&s["incompatiblePeers"],&s["lastIncompatibleReason"],&serde_json::json!(0)),"wallet status");
+        assert_eq!((&ws["incompatiblePeers"],&ws["lastIncompatibleReason"]),(&s["incompatiblePeers"],&s["lastIncompatibleReason"]),"wallet status");
         drop(w);drop(home);drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// Learned addresses never enter `Net::protect`, which exempts only the configured peers from the inbound group cap
