@@ -171,6 +171,22 @@ class GatewayRewardTests(unittest.TestCase):
         self.assertEqual(first['error']['code'], -32000)
         self.assertEqual(second['error']['code'], -32000)
 
+    def test_an_unexpected_snapshot_exception_is_a_structured_error(self):
+        """A malformed node answer of an unexpected type (AttributeError, TypeError, ...) must not escape Gateway.call:
+        the client gets the generic -32000 error and the failure is throttled like any other."""
+        for kind in (AttributeError, TypeError, IndexError, ZeroDivisionError):
+            service = gateway.Gateway()
+            calls = []
+            def fail(query, *, fork_schedule):
+                calls.append(True)
+                raise kind("'int' object has no attribute 'lower'")
+            with self.subTest(kind=kind.__name__), patch.object(gateway, 'reward_snapshot', fail):
+                first = service.call(request())
+                second = service.call(request())
+                self.assertEqual((first['error']['code'], second['error']['code']), (-32000, -32000))
+                self.assertNotIn('lower', str(first))
+                self.assertEqual(len(calls), 1)
+
     def test_subcall_budget_and_read_only_filter(self):
         for prohibited in (True, False):
             service = gateway.Gateway()

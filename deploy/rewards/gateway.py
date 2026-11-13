@@ -199,9 +199,12 @@ class Gateway:
                         value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule)
                     else:
                         value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule, network=self.network)
-                except Exception:
+                except Exception as error:
                     self.reward_failed_at = time.monotonic()
-                    raise
+                    if isinstance(error, (OSError, ValueError, RuntimeError, KeyError, sqlite3.Error, http.client.HTTPException)):
+                        raise
+                    # Any other failure (a malformed node answer of an unexpected type) is still a structured error.
+                    raise RuntimeError('Reward summary failed') from error
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':value}
             elif method == 'pocol_getTransactions':
                 if self.transactions is None: raise RuntimeError('Transaction index is not installed')

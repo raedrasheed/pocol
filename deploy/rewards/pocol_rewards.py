@@ -39,6 +39,11 @@ def require(ok, message):
         raise RewardUnavailable(message)
 
 
+def _lower(value):
+    """A node text field in lower case, or None when it is not text (so that a comparison with it fails closed)."""
+    return value.lower() if isinstance(value, str) else None
+
+
 # The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION).
 MAX_FORK_VERSION = 2
 
@@ -328,7 +333,7 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
         return answer
     query = bounded
     params = _result(query, 'pocol_getParams', [])
-    require(isinstance(params, dict) and params.get('chainId') == CHAIN_ID and params.get('genesisHash', '').lower() == GENESIS, 'Wrong PoCol network')
+    require(isinstance(params, dict) and params.get('chainId') == CHAIN_ID and _lower(params.get('genesisHash')) == GENESIS, 'Wrong PoCol network')
     # activeVersion describes the moving head, not necessarily the block captured
     # below. A head advancing across H must not change that block's rules.
     require(type(params.get('activeVersion')) is int and
@@ -351,12 +356,12 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
     encoded = _result(query, 'pocol_getBlockRlp', [hex(h)])
     require(isinstance(encoded, dict), 'Missing block header')
     header = decode_header(hex_bytes(encoded.get('header'), maximum=3067), fork_schedule)
-    require(header['height'] == h and header['hash'] == block_hash and header['parentHash'] == block.get('parentHash', '').lower(), 'Block header mismatch')
+    require(header['height'] == h and header['hash'] == block_hash and header['parentHash'] == _lower(block.get('parentHash')), 'Block header mismatch')
     require(type(pocol.get('shares')) is int and pocol['shares'] == len(header['shares']), 'Share count mismatch')
-    require(pocol.get('signed') is header['signed'] and pocol.get('proposer', '').lower() == header['proposer'], 'Proposer mismatch')
+    require(pocol.get('signed') is header['signed'] and _lower(pocol.get('proposer')) == header['proposer'], 'Proposer mismatch')
     require(pocol.get('attempt') == header['attempt'], 'Attempt mismatch')
     if 'templateId' in pocol:
-        require(pocol['templateId'].lower() == '0x'+header['templateId'].hex(), 'Template mismatch')
+        require(_lower(pocol['templateId']) == '0x'+header['templateId'].hex(), 'Template mismatch')
     winner = address(block.get('miner'))
     cp = {i: _call(query, CAPS, 'get(uint256)', [i], h, 1)[0] for i in (4, 5, 8, 9, 10, 11, 13, 14, 15, 16, 18, 24)}
     require(cp[4] in (0, 1) and 0 < cp[5] <= 255 and 0 < cp[24] < 1 << 32, 'Invalid nonce configuration')
@@ -415,7 +420,7 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
         amounts[miner] += payment
         rewards[miner] = reward
     check = _result(query, 'eth_getBlockByNumber', [hex(h), False])
-    if not isinstance(check, dict) or check.get('hash', '').lower() != block_hash:
+    if not isinstance(check, dict) or _lower(check.get('hash')) != block_hash:
         raise SnapshotChanged('Canonical block changed; reload the reward snapshot')
     beneficiaries = [dict({'minerId': m, 'rewardAddress': rewards[m], 'amountWei': str(amounts[m])},
                           **({'bondAccruedWei': str(accrued[m])} if accrued[m] else {}))
@@ -603,47 +608,72 @@ def _ident(value):
     return '0x' + value.to_bytes(20, 'big').hex()
 
 
+def _live(w0):
+    """MinerRegistry.live: a record (status != 0), not a tomb, HELD (1) or ACCRUING (4)."""
+    return w0 & 255 != 0 and not (w0 >> 8) & 255 and (w0 >> 16) & 255 in (1, 4)
+
+
 class _Payments:
     """RewardEscrow payments out of Escrow over one state: payTo/distribute (an absent record or a tomb burns; an ACCRUING
     record, exited included, fills its bond up to B_reg first and is promoted to HELD when it reaches it, EARN-IN P1),
-    and Sys.pay (PAY-02: a non-durable recipient, an underfunded Escrow or a balance overflow burns)."""
+    Sys.pay (PAY-02: a non-durable recipient, an underfunded Escrow or a balance overflow burns) and markClose's bond
+    refunds (releaseBond: a failed PAY leaves the record live)."""
 
     def __init__(self, chain, at):
         self.chain, self.at = chain, at
-        self.records, self.accounts = {}, {}
+        self.records, self.accounts, self.durable = {}, {}, {}
         self.escrow = quantity(chain.result('eth_getBalance', [ESCROW, hex(at)]))
         self.paid, self.accrued, self.rewards = Counter(), Counter(), {}
+        # By (miner, reward address): a miner whose reward address changes within the block (its own setRewardAddress
+        # before the tip share) has one beneficiary entry per address.
+        self.paid_to, self.accrued_to = Counter(), Counter()
         self.burned = 0
+        self.refunds = []
 
     def record(self, miner):
         if miner not in self.records:
             self.records[miner] = list(self.chain.record(miner, self.at))
         return self.records[miner]
 
-    def pay(self, reward, amount, miner):
-        """Sys.pay from Escrow; returns the amount burned (0 or amount)."""
-        if amount == 0:
-            return 0
+    def _durable(self, reward, at):
+        key = (reward, at)
+        if key not in self.durable:
+            nonce = quantity(self.chain.result('eth_getTransactionCount', [reward, hex(at)]))
+            code = b'' if nonce else hex_bytes(self.chain.result('eth_getCode', [reward, hex(at)]), maximum=65536)
+            self.durable[key] = bool(nonce or code)
+        return self.durable[key]
+
+    def transfer(self, reward, amount, at=None):
+        """Sys.pay of `amount` from Escrow to `reward`: False (nothing moves) for the zero address, a recipient without a
+        nonce or code (read at `at`, by default the state these payments start from), an Escrow below the amount or a
+        recipient balance overflow (PAY-02)."""
         if reward == ZERO:
-            self.burned += amount
-            return amount
+            return False
         if reward not in self.accounts:
-            nonce = quantity(self.chain.result('eth_getTransactionCount', [reward, hex(self.at)]))
-            code = b'' if nonce else hex_bytes(self.chain.result('eth_getCode', [reward, hex(self.at)]), maximum=65536)
+            durable = self._durable(reward, self.at)
             balance = self.escrow if reward == ESCROW else quantity(self.chain.result('eth_getBalance', [reward, hex(self.at)]))
-            self.accounts[reward] = [bool(nonce or code), balance]
-        durable, balance = self.accounts[reward]
-        if not durable or self.escrow < amount or (reward != ESCROW and balance + amount > MAX_U256):
-            self.burned += amount
-            return amount
+            self.accounts[reward] = [durable, balance]
+        durable = self.accounts[reward][0] if at is None else self._durable(reward, at)
+        if not durable or self.escrow < amount or (reward != ESCROW and self.accounts[reward][1] + amount > MAX_U256):
+            return False
         if reward != ESCROW:
             self.escrow -= amount
             self.accounts[reward][1] += amount
+        return True
+
+    def pay(self, reward, amount, miner, at=None):
+        """Sys.pay from Escrow; returns the amount burned (0 or amount)."""
+        if amount == 0:
+            return 0
+        if not self.transfer(reward, amount, at):
+            self.burned += amount
+            return amount
         self.paid[miner] += amount
+        self.paid_to[(miner, reward)] += amount
         self.rewards[miner] = reward
         return 0
 
-    def pay_to(self, miner, amount):
+    def pay_to(self, miner, amount, at=None):
         if amount == 0:
             return
         w0, reward, bond, _ = self.record(miner)
@@ -658,9 +688,22 @@ class _Payments:
             if bond + add == b_reg:
                 self.records[miner][0] = (w0 & ~(255 << 16)) | (1 << 16)    # promote: HELD
             self.accrued[miner] += add
+            self.accrued_to[(miner, reward)] += add
             self.rewards[miner] = reward
             amount -= add
-        self.pay(reward, amount, miner)
+        self.pay(reward, amount, miner, at)
+
+    def refund(self, miner):
+        """markClose on a live record: releaseBond pays its whole bond to its reward address (none to pay for a zero
+        bond); on success the record is PAID (3), on a failed PAY it stays as it is. Returns whether it was refunded."""
+        w0, reward, bond, _ = self.record(miner)
+        reward = _ident(reward)
+        if bond and not self.transfer(reward, bond):
+            return False
+        self.records[miner][0] = (w0 & ~(255 << 16)) | (3 << 16)
+        if bond:
+            self.refunds.append({'minerId': miner, 'rewardAddress': reward, 'amountWei': str(bond)})
+        return True
 
     def punish(self, accused):
         """MinerRegistry.punish's record effect: tomb; a HELD or ACCRUING bond burns (returned), a PAID record keeps none."""
@@ -686,25 +729,71 @@ class _Payments:
         self.burned += a - paid
         return r - a
 
-    def beneficiaries(self, only=None):
-        keys = sorted(set(self.paid) | set(self.accrued))
-        return [dict({'minerId': m, 'rewardAddress': self.rewards[m], 'amountWei': str(self.paid[m])},
-                     **({'bondAccruedWei': str(self.accrued[m])} if self.accrued[m] else {}))
-                for m in keys if self.paid[m] > 0 or self.accrued[m] > 0]
+    def beneficiaries(self):
+        return _entries(self.paid_to, self.accrued_to)
+
+
+def _entries(paid, accrued):
+    """Beneficiary entries by (miner, reward address): amountWei paid there, bondAccruedWei filled into the bond."""
+    return [dict({'minerId': m, 'rewardAddress': r, 'amountWei': str(paid.get((m, r), 0))},
+                 **({'bondAccruedWei': str(accrued[(m, r)])} if accrued.get((m, r)) else {}))
+            for m, r in sorted(set(paid) | set(accrued)) if paid.get((m, r), 0) > 0 or accrued.get((m, r), 0) > 0]
+
+
+def _punish(flows, accused, proposer, rho_bp):
+    """MinerRegistry.punish(accused, reporter) with RewardEscrow.burnBond (V3-16/V3-17): the accused's HELD or ACCRUING
+    bond burns, less rho_bp/10^4 of it paid by Sys.pay to the reward address of the reporter's record (tomb or not;
+    `proposer` is the block's signed proposer). No reporter (a fallback block) or no reporter record: no cut. A failed
+    PAY burns the cut too. Returns (bond, reporter reward address or ZERO, cut paid)."""
+    before = flows.burned
+    bond = flows.punish(accused)
+    reward = ZERO
+    if proposer is not None:
+        payee = flows.record(proposer)
+        reward = _ident(payee[1]) if payee[0] != 0 else ZERO
+    cut = reporter_cut(bond, rho_bp, reward != ZERO)
+    if cut and flows.pay(reward, cut, proposer) != 0:
+        cut = 0
+    flows.burned = before + bond - cut
+    return bond, reward, cut
+
+
+def _tip_share_record(chain, flows, proposer, share, h, receipts):
+    """The proposer's record as closeBlock(h) reads it, after the user phase. Phase 0 is reproduced in `flows`; the user
+    phase changes the record of `proposer` only by its own transactions to MinerRegistry (every user path is keyed by
+    msg.sender: setRewardAddress, topUp, deregister, ...), and the record after closeBlock (state h) differs from it only
+    by the tip share's accrual. Without such a transaction the reproduced record is used; with one, the record before
+    closeBlock is recovered from state h: its reward address, and for an ACCRUING record its bond less the share. That
+    is ambiguous only for a record phase 0 left ACCRUING that is HELD at h (a topUp may have promoted it before the
+    share, or the share did): refused."""
+    after = list(chain.record(proposer, h))
+    state = lambda w: (w >> 16) & 255
+    if any(_lower(r.get('from')) == proposer and _lower(r.get('to')) == REGISTRY for r in receipts):
+        pre = list(after)
+        if share and after[0] != 0 and not (after[0] >> 8) & 255:
+            if state(after[0]) == 4:
+                require(after[2] >= share, 'Proposer bond below its tip share')
+                pre[2] = after[2] - share
+            elif state(after[0]) == 1 and state(flows.record(proposer)[0]) == 4:
+                raise RewardUnavailable('The proposer topped up its bond in its own block; its tip share split is ambiguous')
+        flows.records[proposer] = pre
+    return after
+
+
+def _same_record(a, b):
+    """The fields reward payments read: status presence, tomb, bond state, reward address, bond."""
+    return (a[0] != 0, (a[0] >> 8) & 255, (a[0] >> 16) & 255, a[1], a[2]) == (b[0] != 0, (b[0] >> 8) & 255, (b[0] >> 16) & 255, b[1], b[2])
 
 
 class _Delta:
     """The part of a _Payments object's counters one step adds (a settlement, a tip share)."""
     def __init__(self, pay):
-        self.pay, self.paid, self.accrued, self.burned = pay, Counter(pay.paid), Counter(pay.accrued), pay.burned
+        self.pay, self.paid, self.accrued, self.burned = pay, Counter(pay.paid_to), Counter(pay.accrued_to), pay.burned
 
     def close(self):
-        paid = {m: v - self.paid[m] for m, v in self.pay.paid.items() if v - self.paid[m]}
-        accrued = {m: v - self.accrued[m] for m, v in self.pay.accrued.items() if v - self.accrued[m]}
-        beneficiaries = [dict({'minerId': m, 'rewardAddress': self.pay.rewards[m], 'amountWei': str(paid.get(m, 0))},
-                              **({'bondAccruedWei': str(accrued[m])} if accrued.get(m) else {}))
-                         for m in sorted(set(paid) | set(accrued))]
-        return sum(paid.values()), sum(accrued.values()), self.pay.burned - self.burned, beneficiaries
+        paid = {k: v - self.paid[k] for k, v in self.pay.paid_to.items() if v - self.paid[k]}
+        accrued = {k: v - self.accrued[k] for k, v in self.pay.accrued_to.items() if v - self.accrued[k]}
+        return sum(paid.values()), sum(accrued.values()), self.pay.burned - self.burned, _entries(paid, accrued)
 
 
 class _V3Chain:
@@ -861,22 +950,23 @@ class _V3Chain:
 
     def tips(self, k, block):
         """V3-20: the tips block k's user transactions paid to Escrow, sum gasUsed*(effectiveGasPrice - baseFee) over
-        the receipts of the transactions its body commits."""
+        the receipts of the transactions its body commits; returns (tips, receipts)."""
         header = self.header(k)
         txs = self.body(k)[0]
         hashes = block.get('transactions')
-        require(isinstance(hashes, list) and [h.lower() if isinstance(h, str) else h for h in hashes] ==
-                ['0x' + keccak256(t).hex() for t in txs], 'Block transactions differ from its body')
-        total = 0
+        require(isinstance(hashes, list) and [_lower(h) for h in hashes] == ['0x' + keccak256(t).hex() for t in txs],
+                'Block transactions differ from its body')
+        total, receipts = 0, []
         for tx in hashes:
             receipt = self.result('eth_getTransactionReceipt', [tx])
-            require(isinstance(receipt, dict) and receipt.get('transactionHash', '').lower() == tx.lower() and
-                    receipt.get('blockHash', '').lower() == header['hash'] and quantity(receipt.get('blockNumber')) == k,
+            require(isinstance(receipt, dict) and _lower(receipt.get('transactionHash')) == _lower(tx) and
+                    _lower(receipt.get('blockHash')) == header['hash'] and quantity(receipt.get('blockNumber')) == k,
                     'Receipt of another block')
             used, price = quantity(receipt.get('gasUsed')), quantity(receipt.get('effectiveGasPrice'))
             require(price >= header['baseFee'] and used <= header['gasUsed'], 'Receipt below the base fee')
             total += used * (price - header['baseFee'])
-        return total
+            receipts.append(receipt)
+        return total, receipts
 
     def pending(self, j, height):
         return self.call(ESCROW, 'pending(uint256)', [j], height, 3)
@@ -914,6 +1004,132 @@ def _v3_cp(params, network):
     return cp
 
 
+def _result_word(chain, j, h):
+    """pending(j) as block h's phase 0 reads it after recordResult(h-1): for j = h-1 the winner word recordResult writes,
+    WIN_ACCRUING from the parent state (V3-16: committed when the result is recorded, before any evidence of h)."""
+    amount, meta, word = chain.pending(j, h - 1)
+    if j == h - 1:
+        require(meta != 0 and word == 0, 'Parent pot already has a result')
+        won = chain.owner(j, chain.header(j)['nonce'])
+        record = chain.record(won, h - 1)
+        word = int(won, 16) | (WIN_ACCRUING if record[0] != 0 and not (record[0] >> 8) & 255 and
+                               (record[0] >> 16) & 255 == 4 else 0)
+    return amount, meta, word
+
+
+def _evidence_flows(chain, flows, h, proposer):
+    """Block h's evidence in body order (phase 0): kind 3 is recordLate (reported); kind 1/2 invalidate a pending pot j
+    only when the accused is its winner recorded ACCRUING (V3-16), then punish with the reporter's cut (V3-17).
+    Returns (reported items, the pots invalidated in h)."""
+    cp, d = chain.cp, chain.cp[11]
+    evidence, invalidated = [], set()
+    for effect in chain.evidence(h):
+        if effect['kind'] == 3:
+            evidence.append({'kind': 3, 'potHeight': effect['j'], 'nonces': [str(n) for n in effect['nonces']],
+                             'owners': effect['owners']})
+            continue
+        accused, j = effect['accused'], effect['j']
+        invalid = False
+        if j is not None and j >= max(1, h - d):           # the host invalidates only a pending pot
+            _, meta, word = _result_word(chain, j, h)
+            require(meta != 0 and word != 0, 'Evidence names a pot without a result')
+            invalid = _ident(word & LOW160) == accused and bool(word & WIN_ACCRUING)
+            if invalid:
+                invalidated.add(j)
+        bond, reward, cut = _punish(flows, accused, proposer, cp[66])
+        evidence.append({'kind': effect['kind'], 'accused': accused, 'potHeight': j, 'potInvalidated': invalid,
+                         'bondBurnedWei': str(bond), 'reporter': proposer,
+                         'reporterRewardAddress': reward if reward != ZERO else None, 'reporterCutWei': str(cut)})
+    return evidence, invalidated
+
+
+def _mark_close(chain, flows, h, timestamp):
+    """MinerRegistry.markClose in block h's phase 0 (after the evidence, before settle(h-D)). Closing starts at the first
+    block with h >= H_CLOSE (CP 47) or timestamp >= T_CLOSE (CP 48), unless both are zero; from then on each block refunds
+    the bonds of up to CP 50 records of the record list from its cursor, each live record becoming PAID (3) when its
+    PAY succeeds, so that the settlement and the tip share of that block pay it directly. Returns (closing facts or
+    None, the records the cursor visited); the cursor and the closing height are checked against state h."""
+    cp = chain.cp
+    counters = lambda at: chain.call(REGISTRY, 'counters()', [], at, 1)[0]
+    c = counters(h - 1)
+    if not (c >> 89) & 1 and ((cp[47] == 0 and cp[48] == 0) or (h < cp[47] and timestamp < cp[48])):
+        require(not (counters(h) >> 89) & 1, 'Closing state differs from its reconstruction')
+        return None, []
+    cursor, close_h = ((c >> 90) & 0xffffffff, (c >> 187) & LOW64) if (c >> 122) & 1 else (0, h)
+    n = chain.call(REGISTRY, 'lengths()', [], h - 1, 4)[0]
+    end = min(cursor + cp[50], n)
+    visited = []
+    for i in range(cursor, end):
+        miner = _ident(chain.call(REGISTRY, 'recordAt(uint256)', [i], h - 1, 1)[0])
+        visited.append(miner)
+        if _live(flows.record(miner)[0]):
+            flows.refund(miner)
+    after = counters(h)
+    require((after >> 89) & 1 and (after >> 122) & 1 and (after >> 90) & 0xffffffff == max(cursor, end) and
+            (after >> 187) & LOW64 == close_h, 'Closing cursor differs from its reconstruction')
+    return {'closeHeight': close_h, 'cursorDone': max(cursor, end) >= n}, visited
+
+
+def _settle(chain, flows, j, h, invalidated, now, final):
+    """settleOne(j) in block h (settle(h-D) in phase 0, or settleFinal(j) at the final block): the header owners of j
+    and the late shares credited for j in blocks j+1..h (checked against the ShareLedger at h); INVALID (or invalidated
+    in h) burns the whole pot; otherwise the winner part, the proposer part (the winner's for a fallback template) and
+    distribute. The base burn R - A goes to the carry into pot h+1, or burns at the final block (slot1 set).
+    Returns (the settlement, the carried base burn)."""
+    cp = chain.cp
+    amount, meta, word = _result_word(chain, j, h)
+    require(meta != 0 and word != 0, 'Settled pot has no result')
+    jh = chain.header(j)
+    owners = chain.header_owners(j)
+    require(_ident(word & LOW160) == owners[-1], 'Settled pot winner differs from its nonce owner')
+    require(meta & ~INVALID == (int(jh['proposer'], 16) << 8 if jh['signed'] else 1), 'Settled pot proposer mismatch')
+    late = [o for b in range(j + 1, h) for e in chain.evidence(b, (3,)) if e.get('j') == j for o in e['owners']]
+    late += [o for e in now if e['kind'] == 3 and e['potHeight'] == j for o in e['owners']]
+    counts = Counter(owners + late)
+    listed, counts_listed, total_listed = chain.ledger(j, h)
+    require(listed == list(counts) and counts_listed == [counts[m] for m in listed] and total_listed == sum(counts.values()),
+            'ShareLedger differs from the reconstructed owners')
+    total = sum(counts.values())
+    invalid = bool(meta & INVALID) or j in invalidated
+    delta = _Delta(flows)
+    base = 0
+    if invalid:
+        flows.burned += amount
+    else:
+        wp, pp, r = split(amount, cp[13], cp[14])
+        flows.pay_to(owners[-1], wp)
+        flows.pay_to(jh['proposer'] if jh['signed'] else owners[-1], pp)
+        base = flows.distribute(list(counts), counts, total, r, cp[8] * cp[9])
+        if final:
+            flows.burned += base
+    paid, bonded, burned, beneficiaries = delta.close()
+    return {'potHeight': j, 'grossRewardWei': str(amount), 'invalid': invalid, 'winner': owners[-1],
+            'winnerAccruing': bool(word & WIN_ACCRUING), 'signed': jh['signed'], 'shareCount': total,
+            'lateShareCount': len(late), 'owners': [{'minerId': m, 'shares': c} for m, c in counts.items()],
+            'paidWei': str(paid), 'bondWei': str(bonded), 'burnedWei': str(burned),
+            'carryOutWei': str(0 if final else base), 'baseBurnWei': str(base),
+            'beneficiaryCount': len(beneficiaries), 'beneficiaries': beneficiaries}, (0 if final else base)
+
+
+def _carry_in(chain, h):
+    """The carry into pot h (and, at the final block, the carry it burns): the base burn of settle(h-1-D) in block h-1,
+    zero for a pot burned whole (INVALID in h-2 or invalidated by block h-1's evidence) and before any settlement."""
+    cp, d = chain.cp, chain.cp[11]
+    if h - 1 <= d:
+        return 0
+    j0 = h - 1 - d
+    amount0, meta0, word0 = chain.pending(j0, h - 2)
+    require(meta0 != 0 and word0 != 0, 'Carried pot has no result')
+    invalid0 = bool(meta0 & INVALID) or any(
+        e['kind'] == 2 and e['j'] == j0 and e['accused'] == _ident(word0 & LOW160) and word0 & WIN_ACCRUING
+        for e in chain.evidence(h - 1, (1, 2)))
+    if invalid0:
+        return 0
+    total0 = chain.call(LEDGER, 'totalOf(uint64)', [j0], h - 1, 1)[0]
+    require(total0 > 0, 'Carried pot has no shares')
+    return base_burn(split(amount0, cp[13], cp[14])[2], total0, cp[8] * cp[9])
+
+
 def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=None):
     """The v3 block projection (schema pocol-block-reward-v3) of the latest block, or of the canonical block `height`
     (operator and test use; the public gateway method stays a no-argument read of the latest block).
@@ -922,17 +1138,22 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
     - pot h: issued(h) (M3) + tips - the proposer's tip share + the carry into pot h (the base burn of settle(h-1-D),
       lagged one block), checked against RewardEscrow's pending pot; and its projected settlement at h + D from the
       header's owners under the all-live membership (D-V3-01), as the v1 projection does (pending: late shares,
-      evidence and registry changes before h + D can still change it);
+      evidence and registry changes before h + D can still change it; once the registry is closing, the final block
+      may settle it earlier and burn its base burn instead of carrying it: `closing.settlementMayBeFinal`);
     - block h's own reward flows, which are executed, not projected: its evidence (late shares and their owners;
       offender-only burns with the reporter's cut rho to the signed proposer, D-V3-16/17; the whole pot only for an
-      accused winner recorded ACCRUING), settle(h-D) with its header and late owners (cross-checked with the
-      ShareLedger) and its base burn into the carry (cross-checked with RewardEscrow.carry), and the tip share.
+      accused winner recorded ACCRUING), markClose's bond refunds once closing (each refunded record is PAID from then
+      on), settle(h-D) with its header and late owners (cross-checked with the ShareLedger) and its base burn into the
+      carry (cross-checked with RewardEscrow.carry), and the tip share; every burn is cross-checked with burnedTotal.
+    - at the final block F (`final`): no pot F; settle(F-D), then finalize burns the tips and both outstanding carries,
+      and settleFinal settles every pot in [F-D+1, F-1] with its base burn burned (`block.finalize`).
     ACCRUING records, a pool-contest victim exited until its due height included, fill their bond before their
-    reward address is paid (EARN-IN P1; V3-14 owner decision 2026-11-13). Not reported: bond refunds (sweep,
-    claimBond) and user-transaction transfers. The tip share is computed on the proposer's record after settlement and
-    before the block's user transactions (a proposer's own top-up or reward change in that block is not modelled)."""
+    reward address is paid (EARN-IN P1; V3-14 owner decision 2026-11-13). Not reported: the sweep's and claimBond's
+    bond refunds and user-transaction transfers. The tip share uses the proposer's record before closeBlock, recovered
+    from state h when the proposer itself called MinerRegistry in that block (_tip_share_record)."""
     fork_schedule = validated_fork_schedule(fork_schedule)
     network = validated_network(network)
+    require(height is None or type(height) is int, 'Invalid block height')
     started = time.monotonic()
     calls = 0
     raw_query = query
@@ -946,7 +1167,7 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
     query = bounded
     params = _result(query, 'pocol_getParams', [])
     require(isinstance(params, dict) and params.get('chainId') == network.chain_id and
-            params.get('genesisHash', '').lower() == network.genesis, 'Wrong PoCol network')
+            _lower(params.get('genesisHash')) == network.genesis, 'Wrong PoCol network')
     require(type(params.get('activeVersion')) is int and params['activeVersion'] in {v for v, _ in fork_schedule},
             'Unsupported active consensus version')
     advertised = params.get('forkSchedule')
@@ -954,165 +1175,123 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
     require(validated_fork_schedule(advertised) == fork_schedule, 'Node fork schedule differs from trusted configuration')
     cp = _v3_cp(params, network)
     chain = _V3Chain(query, network, fork_schedule, cp)
-    tag = 'latest' if height is None else hex(height)
-    require(height is None or type(height) is int, 'Invalid block height')
-    block = _result(query, 'eth_getBlockByNumber', [tag, False])
+    block = _result(query, 'eth_getBlockByNumber', ['latest' if height is None else hex(height), False])
     require(isinstance(block, dict), 'No such block')
     h = quantity(block.get('number'))
     require(0 < h < (1 << 64)-65536 and (height is None or h == height), 'Invalid block height')
     block_hash = '0x'+hex_bytes(block.get('hash'), 32).hex()
     pocol = block.get('pocol')
-    require(isinstance(pocol, dict) and pocol.get('final') is False, 'Final block has no new reward pot')
+    require(isinstance(pocol, dict) and type(pocol.get('final')) is bool, 'Missing final flag')
+    final = pocol['final']
     encoded = _result(query, 'pocol_getBlockRlp', [hex(h)])
     require(isinstance(encoded, dict), 'Missing block header')
     header = decode_header(hex_bytes(encoded.get('header'), maximum=3067), fork_schedule, network)
-    require(header['height'] == h and header['hash'] == block_hash and header['parentHash'] == block.get('parentHash', '').lower(), 'Block header mismatch')
+    require(header['height'] == h and header['hash'] == block_hash and header['parentHash'] == _lower(block.get('parentHash')),
+            'Block header mismatch')
     require(type(pocol.get('shares')) is int and pocol['shares'] == len(header['shares']), 'Share count mismatch')
-    require(pocol.get('signed') is header['signed'] and pocol.get('proposer', '').lower() == header['proposer'], 'Proposer mismatch')
+    require(pocol.get('signed') is header['signed'] and _lower(pocol.get('proposer')) == header['proposer'], 'Proposer mismatch')
     require(pocol.get('attempt') == header['attempt'], 'Attempt mismatch')
     if 'templateId' in pocol:
-        require(pocol['templateId'].lower() == '0x'+header['templateId'].hex(), 'Template mismatch')
+        require(_lower(pocol['templateId']) == '0x'+header['templateId'].hex(), 'Template mismatch')
     require(len(header['shares']) <= cp[10], 'Invalid reward caps')
     chain.set_anchor(header, encoded.get('body'))
+    # A fallback block commits the empty body (pocold chain.rs validation item 12): no tips, no evidence, no reporter.
+    require(header['signed'] or chain.body(h) == ([], []), 'A fallback block carries a body')
     winner = address(block.get('miner'))
     d, kappa_m = cp[11], cp[8]*cp[9]
     proposer = header['proposer'] if header['signed'] else None
 
-    # Block h's executed flows, phase 0 then phase 2, over the parent state h-1.
+    # Block h's executed flows over the parent state h-1: phase 0 (evidence, markClose, settle(h-D)), then phase 2.
     flows = _Payments(chain, h - 1)
-    evidence, invalidated = [], set()
-    for effect in chain.evidence(h):
-        if effect['kind'] == 3:
-            evidence.append({'kind': 3, 'potHeight': effect['j'], 'nonces': [str(n) for n in effect['nonces']],
-                             'owners': effect['owners']})
-            continue
-        accused, j = effect['accused'], effect['j']
-        invalid = False
-        if j is not None and j >= max(1, h - d):           # the host invalidates only a pending pot
-            _, meta, word = chain.pending(j, h - 1)
-            if j == h - 1:
-                # recordResult(h-1) runs in this block's phase 0 before its evidence: the winner, ACCRUING or not in the
-                # parent state (V3-16: the fact is committed when the result is recorded, never read later).
-                require(meta != 0 and word == 0, 'Parent pot already has a result')
-                won = chain.owner(j, chain.header(j)['nonce'])
-                record = chain.record(won, h - 1)
-                word = int(won, 16) | (WIN_ACCRUING if record[0] != 0 and not (record[0] >> 8) & 255 and
-                                       (record[0] >> 16) & 255 == 4 else 0)
-            require(meta != 0 and word != 0, 'Evidence names a pot without a result')
-            invalid = _ident(word & LOW160) == accused and bool(word & WIN_ACCRUING)
-            if invalid:
-                invalidated.add(j)
-        require(proposer is not None, 'Evidence in a fallback block')
-        before = flows.burned
-        bond = flows.punish(accused)
-        payee = flows.record(proposer)
-        reward = _ident(payee[1]) if payee[0] != 0 else ZERO
-        cut = reporter_cut(bond, cp[66], reward != ZERO)
-        burned = bond - cut + flows.pay(reward, cut, proposer) if cut else bond
-        flows.burned = before + burned
-        evidence.append({'kind': effect['kind'], 'accused': accused, 'potHeight': j, 'potInvalidated': invalid,
-                         'bondBurnedWei': str(bond), 'reporter': proposer,
-                         'reporterRewardAddress': reward if reward != ZERO else None,
-                         'reporterCutWei': str(cut if cut and burned == bond - cut else 0)})
-    settlement = None
+    evidence, invalidated = _evidence_flows(chain, flows, h, proposer)
+    closing, visited = _mark_close(chain, flows, h, header['timestamp'])
+    settlement, carry_out = None, 0
     if h > d:
-        j = h - d
-        amount, meta, word = chain.pending(j, h - 1)
-        require(meta != 0 and word != 0, 'Settled pot has no result')
-        jh = chain.header(j)
-        owners = chain.header_owners(j)
-        require(_ident(word & LOW160) == owners[-1], 'Settled pot winner differs from its nonce owner')
-        require(meta & ~INVALID == (int(jh['proposer'], 16) << 8 if jh['signed'] else 1), 'Settled pot proposer mismatch')
-        late = [o for b in range(j + 1, h) for e in chain.evidence(b, (3,)) if e.get('j') == j for o in e['owners']]
-        listed, counts_listed, total_listed = chain.ledger(j, h - 1)
-        counts = Counter(owners + late)
-        require(listed == list(counts) and counts_listed == [counts[m] for m in listed] and total_listed == sum(counts.values()),
-                'ShareLedger differs from the reconstructed owners')
-        now = [o for e in evidence if e['kind'] == 3 and e['potHeight'] == j for o in e['owners']]
-        counts = Counter(owners + late + now)
-        total = sum(counts.values())
-        invalid = bool(meta & INVALID) or j in invalidated
-        delta = _Delta(flows)
-        carry_out = 0
-        if invalid:
-            flows.burned += amount
-        else:
-            wp, pp, r = split(amount, cp[13], cp[14])
-            flows.pay_to(owners[-1], wp)
-            flows.pay_to(jh['proposer'] if jh['signed'] else owners[-1], pp)
-            carry_out = flows.distribute(list(counts), counts, total, r, kappa_m)
-        paid, bonded, burned, beneficiaries = delta.close()
-        require(chain.call(ESCROW, 'carry()', [], h, 1)[0] == carry_out, 'Carry differs from the reconstructed base burn')
-        settlement = {'potHeight': j, 'grossRewardWei': str(amount), 'invalid': invalid, 'winner': owners[-1],
-                      'winnerAccruing': bool(word & WIN_ACCRUING), 'shareCount': total,
-                      'lateShareCount': len(late) + len(now),
-                      'owners': [{'minerId': m, 'shares': c} for m, c in counts.items()],
-                      'paidWei': str(paid), 'bondWei': str(bonded),
-                      'burnedWei': str(burned), 'carryOutWei': str(carry_out),
-                      'beneficiaryCount': len(beneficiaries), 'beneficiaries': beneficiaries}
-    tips = chain.tips(h, block)
-    share = tip_share(tips, cp[59], header['signed'])
-    delta = _Delta(flows)
-    if share:
-        flows.pay_to(proposer, share)
-    tip_paid, tip_bonded, tip_burned, _ = delta.close()
-
-    # Pot h: issued + tips - share + the carry into h (the base burn of settle(h-1-D) in block h-1).
-    issued = issuance(h, cp[15], cp[52], cp[53])
-    carry_in = 0
-    if h - 1 > d:
-        j0 = h - 1 - d
-        amount0, meta0, word0 = chain.pending(j0, h - 2)
-        require(meta0 != 0 and word0 != 0, 'Carried pot has no result')
-        invalid0 = bool(meta0 & INVALID) or any(
-            e['kind'] == 2 and e['j'] == j0 and e['accused'] == _ident(word0 & LOW160) and word0 & WIN_ACCRUING
-            for e in chain.evidence(h - 1, (1, 2)))
-        if not invalid0:
-            total0 = chain.call(LEDGER, 'totalOf(uint64)', [j0], h - 1, 1)[0]
-            require(total0 > 0, 'Carried pot has no shares')
-            carry_in = base_burn(split(amount0, cp[13], cp[14])[2], total0, kappa_m)
+        settlement, carry_out = _settle(chain, flows, h - d, h, invalidated, evidence, False)
+    tips, receipts = chain.tips(h, block)
+    issued = 0 if final else issuance(h, cp[15], cp[52], cp[53])
+    # The user phase credits the tips to Escrow (coinbase) and the host the issuance, before phase 2 pays out of it.
+    flows.escrow += tips + issued
+    carry_in = _carry_in(chain, h)
     require(chain.call(ESCROW, 'carry()', [], h - 1, 1)[0] == carry_in, 'Carry into the pot differs from its reconstruction')
-    amount, meta, stored_winner = chain.pending(h, h)
-    expected_meta = int(header['proposer'], 16) << 8 if header['signed'] else 1
-    require(meta == expected_meta and stored_winner == 0, 'Missing or inconsistent pending pot')
-    require(amount == pot_amount(issued, tips, share, carry_in), 'Pending pot differs from issuance, tips and carry')
-    require(amount * max(cp[13], cp[14], kappa_m + 1) <= MAX_U256, 'Reward arithmetic overflow')
+    share, tip_paid, tip_bonded, tip_burned, finals = 0, 0, 0, 0, []
+    if final:
+        # finalize(tips): the tips and both outstanding carries burn; then settleFinal(j) for every pending pot.
+        flows.burned += tips + carry_in + carry_out
+        for j in range(max(1, h - d + 1), h):
+            if chain.pending(j, h - 1)[1] != 0:
+                finals.append(_settle(chain, flows, j, h, invalidated, evidence, True)[0])
+        require(chain.call(ESCROW, 'carry()', [], h, 1)[0] == 0 and
+                all(chain.pending(j, h)[1] == 0 for j in range(max(1, h - d + 1), h + 1)), 'Pending pots or carry after the final block')
+    else:
+        require(chain.call(ESCROW, 'carry()', [], h, 1)[0] == carry_out, 'Carry differs from the reconstructed base burn')
+        share = tip_share(tips, cp[59], header['signed'])
+        if proposer is not None:
+            after = _tip_share_record(chain, flows, proposer, share, h, receipts)
+            delta = _Delta(flows)
+            flows.pay_to(proposer, share, at=h)       # PAY-02 durability as closeBlock sees it, after the user phase
+            tip_paid, tip_bonded, tip_burned, _ = delta.close()
+            require(_same_record(flows.record(proposer), after), 'Proposer record differs from its reconstruction')
+    for miner in visited:
+        require((chain.record(miner, h)[0] >> 16) & 255 == (flows.record(miner)[0] >> 16) & 255,
+                'Closing refund differs from its reconstruction')
+    burned_total = chain.call(ESCROW, 'burnedTotal()', [], h, 1)[0] - chain.call(ESCROW, 'burnedTotal()', [], h - 1, 1)[0]
+    require(burned_total == flows.burned, 'Burned total differs from the reconstructed burns')
 
-    owners = chain.header_owners(h)
-    require(owners[-1] == winner, 'Winner assignment mismatch')
-    counts = Counter(owners)
-    projection = _Payments(chain, h)
-    require(projection.escrow >= amount, 'Reward escrow underfunded')
-    wp, pp, r = split(amount, cp[13], cp[14])
-    projection.pay_to(winner, wp)
-    projection.pay_to(proposer or winner, pp)
-    carry_projected = projection.distribute(list(counts), counts, len(owners), r, kappa_m)
-    winner_record = chain.record(winner, h)
-    winner_accruing = winner_record[0] != 0 and not (winner_record[0] >> 8) & 255 and (winner_record[0] >> 16) & 255 == 4
-    beneficiaries = projection.beneficiaries()
-    paid = sum(projection.paid.values()) + sum(projection.accrued.values())
-    require(0 <= paid <= amount - carry_projected, 'Reward accounting mismatch')
+    owners, beneficiaries, paid, carry_projected, amount, winner_accruing, projection = [], [], 0, 0, 0, False, None
+    may_be_final = None
+    if not final:
+        # Pot h: issued + tips - share + the carry into h (the base burn of settle(h-1-D) in block h-1).
+        amount, meta, stored_winner = chain.pending(h, h)
+        expected_meta = int(header['proposer'], 16) << 8 if header['signed'] else 1
+        require(meta == expected_meta and stored_winner == 0, 'Missing or inconsistent pending pot')
+        require(amount == pot_amount(issued, tips, share, carry_in), 'Pending pot differs from issuance, tips and carry')
+        require(amount * max(cp[13], cp[14], kappa_m + 1) <= MAX_U256, 'Reward arithmetic overflow')
+        owners = chain.header_owners(h)
+        require(owners[-1] == winner, 'Winner assignment mismatch')
+        counts = Counter(owners)
+        projection = _Payments(chain, h)
+        require(projection.escrow >= amount, 'Reward escrow underfunded')
+        wp, pp, r = split(amount, cp[13], cp[14])
+        projection.pay_to(winner, wp)
+        projection.pay_to(proposer or winner, pp)
+        carry_projected = projection.distribute(list(counts), counts, len(owners), r, kappa_m)
+        winner_record = chain.record(winner, h)
+        winner_accruing = winner_record[0] != 0 and not (winner_record[0] >> 8) & 255 and (winner_record[0] >> 16) & 255 == 4
+        beneficiaries = projection.beneficiaries()
+        paid = sum(projection.paid.values()) + sum(projection.accrued.values())
+        require(0 <= paid <= amount - carry_projected, 'Reward accounting mismatch')
+        if closing is not None and (cp[45] != 0 or cp[46] != 0):
+            # The final block F needs F >= closeHeight + D (and h_end or t_end reached): pot h settles at F, its base burn
+            # burned, whenever F <= h + D.
+            earliest = max(closing['closeHeight'] + d, h + 1, cp[45] if cp[46] == 0 else 0)
+            may_be_final = earliest <= h + d
+            closing = dict(closing, earliestFinalHeight=earliest, settlementMayBeFinal=may_be_final)
 
     check = _result(query, 'eth_getBlockByNumber', [hex(h), False])
-    if not isinstance(check, dict) or check.get('hash', '').lower() != block_hash:
+    if not isinstance(check, dict) or _lower(check.get('hash')) != block_hash:
         raise SnapshotChanged('Canonical block changed; reload the reward snapshot')
     out = {'schema': 'pocol-block-reward-v3', 'chainId': network.chain_id, 'genesisHash': network.genesis,
            'specVersion': network.spec_version}
     if network.source is not None:
         out['source'] = network.source
+    block_out = {'evidence': evidence, 'bondRefunds': flows.refunds, 'settlement': settlement,
+                 'tipShare': {'proposer': proposer, 'shareWei': str(share), 'paidWei': str(tip_paid),
+                              'bondWei': str(tip_bonded), 'burnedWei': str(tip_burned)},
+                 'paidWei': str(sum(flows.paid.values())), 'bondWei': str(sum(flows.accrued.values())),
+                 'burnedWei': str(flows.burned), 'beneficiaries': flows.beneficiaries()}
+    if final:
+        block_out['finalize'] = {'tipsBurnedWei': str(tips), 'carryBurnedWei': str(carry_in + carry_out), 'settlements': finals}
     out.update({
         'fetchedAt': datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
-        'blockHeight': h, 'blockHash': block_hash, 'settlementHeight': h + d,
+        'blockHeight': h, 'blockHash': block_hash, 'final': final, 'settlementHeight': None if final else h + d,
+        'closing': closing,
         'issuedWei': str(issued), 'tipsWei': str(tips), 'tipShareWei': str(share), 'carryInWei': str(carry_in),
         'grossRewardWei': str(amount), 'winnerAccruing': winner_accruing,
-        'owners': [{'minerId': m, 'shares': c} for m, c in counts.items()],
+        'owners': [{'minerId': m, 'shares': c} for m, c in Counter(owners).items()],
         'projectedPaidWei': str(paid), 'projectedBurnedWei': str(amount - paid - carry_projected),
-        'projectedBondWei': str(sum(projection.accrued.values())), 'projectedCarryWei': str(carry_projected),
+        'projectedBondWei': str(sum(projection.accrued.values()) if projection else 0), 'projectedCarryWei': str(carry_projected),
         'beneficiaryCount': len(beneficiaries), 'beneficiaries': beneficiaries,
-        'block': {'evidence': evidence, 'settlement': settlement,
-                  'tipShare': {'proposer': proposer, 'shareWei': str(share), 'paidWei': str(tip_paid),
-                               'bondWei': str(tip_bonded), 'burnedWei': str(tip_burned)},
-                  'paidWei': str(sum(flows.paid.values())), 'bondWei': str(sum(flows.accrued.values())),
-                  'burnedWei': str(flows.burned), 'beneficiaries': flows.beneficiaries()},
+        'block': block_out,
         'status': 'pending', 'shareCount': len(header['shares'])})
     return out

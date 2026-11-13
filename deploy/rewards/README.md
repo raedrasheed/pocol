@@ -74,7 +74,9 @@ The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For
   settlement uses the header's owners under the all-live membership (D-V3-01: every live member of the parent's
   ActList owns a nonce range on unbounded ranges, without the `W_act` activity filter); `projectedCarryWei` is its
   uncovered pool part, which goes to the next pot rather than burning. Late shares, evidence and registry changes before
-  h + D can still change it, as on spec 1.
+  h + D can still change it, as on spec 1. Once the registry is closing (`closing`), the final block may settle pot h
+  before h + D and burn its base burn instead of carrying it: `closing.settlementMayBeFinal` says when that can happen
+  (`earliestFinalHeight <= h + D`).
 - **block h's own flows** (`block`): these ran in block h and are not projections. They are its evidence in body order:
   kind-3 late shares with one owner per nonce under template j's assignment (D-V3-02); type-1/2 evidence burning
   only the offender's bond (and its parts of pots settled later) with `rho_bp` of that bond paid to the reward address
@@ -82,11 +84,27 @@ The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For
   (V3-16). They also include `settle(h-D)`, with its header and late owners (checked against the ShareLedger) and its
   carry, and the tip share. ACCRUING records, including a pool-contest victim that stays exited until its due height
   (owner decision 2026-11-13), fill their bond before their reward address is paid. Contests change the ActList and
-  so the nonce owners of later blocks.
+  so the nonce owners of later blocks. Once closing starts (H_CLOSE or T_CLOSE), `markClose` runs after the evidence
+  and before `settle(h-D)`: it refunds up to CP 50 live records per block (`bondRefunds`), and each refunded record is
+  PAID from then on, so that block's settlement and tip share pay its reward address directly instead of its bond.
+- **the final block F** (`final: true`): no pot F and no issuance. `settle(F-D)` runs as in any block, then `finalize`
+  burns the tips and both outstanding carries (`block.finalize.carryBurnedWei`) and `settleFinal` settles every pot in
+  [F-D+1, F-1] with its base burn burned (`block.finalize.settlements`).
 
-Bond refunds (sweep, claimBond) and user-transaction transfers are not reward flows and are not reported. The tip
-share is computed on the proposer's record after settlement and before the block's user transactions. Block bodies
-are bound to their headers by the transaction and evidence roots.
+Every reproduced burn is checked against RewardEscrow's `burnedTotal`, the carries against `carry()`, the closing cursor
+against the registry's counters, and the refunded and proposer records against state h; any difference refuses the
+snapshot rather than report it. The tip share is paid after the user phase, out of an Escrow that then also holds the
+block's tips and issuance, with the recipient's PAY durability of state h and on the proposer's record as the user phase
+left it: when the proposer called MinerRegistry itself in that block (setRewardAddress, topUp), that record is read back
+from state h, and a topUp that may have promoted it to HELD before the share (ambiguous from state h) is refused. A
+fallback block commits the empty body (no tips, no evidence). Bond refunds outside closing (sweep, claimBond) and
+user-transaction transfers are not reward flows and are not reported. Block bodies are bound to their headers by the
+transaction and evidence roots.
+
+State reads use block heights: pocold has no EIP-1898 `{blockHash}` form for `eth_call`/`eth_getBalance` (a non-string
+tag is read as `latest`), so a reorganisation away from the anchor and back within one snapshot (A to B to A) is not
+detected by the final anchor re-read. A read of another branch's state would generally break the cross-checks above,
+but this is not a guarantee.
 
 The gateway enables it with `--v3-network FILE` (a JSON object as above, at most 4096 bytes, read once at startup);
 the public `pocol_getBlockReward` method stays a parameterless read. A v3 reward read may also call
@@ -112,12 +130,21 @@ maximum-nonce ownership, incorrect versions and untrusted schedules, moving
 head races, the activity-window regression, reward arithmetic and PAY burns.
 
 The v3 tests check the network configuration and the GenesisSpec proof, and the reward arithmetic against the
-independent model's vectors (`prototypes/lp4-execution/tests/v3/*.json`: the M3 schedule, and for every closed pot of
-every chain scenario issuance + tips - share + the lagged base burn). `V3DevnetDifferential` runs only with
-`POCOL_V3_DEVNET` set. `prototypes/pocold/tests/v3_reward_gateway.rs` (`--features v3-preview`) sets it: it builds a
-v3 devnet chain with tips, late shares, a seat and a pool contest, and type-2 evidence against an ACCRUING and a
-HELD winner, serves it over pocold's JSON-RPC, and compares every block's reproduced payments, bonds, burns, pots,
-carry and owners with the node's state:
+independent model's vectors (`prototypes/lp4-execution/tests/v3/*.json`: the M3 schedule, for every closed pot of
+every chain scenario issuance + tips - share + the lagged base burn, and the scenario with a final block replayed
+through the adapter's own settlement code to its end). `V3FlowTests` run the payment, closing-refund, reporter-cut and
+tip-share code on a fake chain. `V3RecordedTapeTests` replay RPC answers recorded from the devnet chain below
+(`testdata/v3-devnet-tape.json`): the honest answers give the recorded snapshots, and each tampered answer (a body
+or an ancestor its header does not commit, a receipt or transaction list of another block, a ShareLedger, pot, carry,
+burned total, closing cursor or record that differs from the reconstruction, a forged late-share window, winner or
+fallback body, a changed anchor, and every answer field replaced by a value of another JSON type) fails closed.
+`V3DevnetDifferential` runs only with `POCOL_V3_DEVNET` set. `prototypes/pocold/tests/v3_reward_gateway.rs`
+(`--features v3-preview`) sets it: it builds a 50-block v3 devnet chain with tips, late shares (one carried by the
+block that settles their pot), a seat and a pool contest, type-2 evidence against an ACCRUING and a HELD winner,
+against a share owner who is not the winner, against the parent block's ACCRUING winner and against pot h-D's
+ACCRUING winner in block h, a fallback block, the proposer's own registry call in its block, closing with its bond
+refunds and the final block, serves it over pocold's JSON-RPC, and compares every block's reproduced payments, refunds,
+bonds, burns, pots, carry and owners with the node's state (and the recorded tape with the chain's answers):
 
 ```sh
 cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test v3_reward_gateway
