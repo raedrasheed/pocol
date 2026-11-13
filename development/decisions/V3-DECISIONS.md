@@ -260,6 +260,8 @@ Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3
 
 RPC `finalized` = persisted local irreversibility floor; reorg telemetry; honest finality docs (CONS-3). Persist finalized_h as a local irreversibility floor; retention floor=max(head-r_keep,finalized_h). Expose local semantics and reorg telemetry. It is not committee or mathematical finality and adds no signed checkpoint.
 
+Owner decision 12 (2026-11-13): two node-local settings, the RPC `safe` depth k_safe = 6 (`--k-safe`, POCOL_K_SAFE) and the reorg alarm k_alarm = 60 (`--k-alarm`, POCOL_K_ALARM; pocol_finality.reorgsGeKAlarm), 6 and 60 blocks being one and ten minutes at 10 s blocks. A node opens only with 1 ≤ k_safe ≤ k_alarm and k_safe < K_hist, so state queries at `safe` are answered while safe = head − k_safe (when a heavier, shorter branch makes safe = finalized_h, they answer −32017 as at `finalized`).
+
 Approved within the owner rule; NODE-LOCAL. Principle check: kept (Q0.1: not consensus). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
 ### D-V3-27
