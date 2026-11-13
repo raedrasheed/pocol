@@ -3395,6 +3395,105 @@ fn d133_heal(winner_is_c:bool)->serde_json::Value{
     let _=std::fs::remove_dir_all(&dir);
 }
 
+// ---------------- V3-26 (D-V3-26): the persisted local irreversibility floor ----------------
+// Node-local retention (like R_keep, never validity): the floor is max(head − r_keep, finalized_h), finalized_h only
+// rises, and it is kept across a restart in `retention.finalized`. A refused block is Evicted, never invalid.
+fn fnode(tag:&str,rk:u64,k_safe:u64,store:bool)->(pocold::node::Node,std::path::PathBuf,impl Fn()->pocold::node::Config){
+    use pocold::node::{Config,Limits,Node};
+    let dir=std::env::temp_dir().join(format!("pocold-fin-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    let (d,name)=(dir.clone(),tag.to_string());
+    let conf=move||Config{dir:d.clone(),name:name.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,
+        limits:Limits{r_keep:rk,side_cap:rk as usize,k_safe,state_store:store,checkpoint_every:if store{8}else{0},..Default::default()}};
+    (Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap(),dir,conf)
+}
+/// `heavier` for a branch below the K_hist window or beside more side blocks than keep a state: each parent's state is
+/// rebuilt before its child is built.
+fn heavier_rebuilt(h:&mut Net,parent:[u8;32],than:U256,extra:usize)->Vec<Block>{
+    let mut out=vec![];let mut p=parent;let mut more=extra;
+    loop{let done=h.chain.get(&p).unwrap().total_work>than;if done{if more==0{break}more-=1;}
+        h.chain.ensure_state(&p).unwrap();let x=fallback(h,p,0);import(h,&x);h.chain.retain();p=x.hash();out.push(x);}
+    out
+}
+fn fin_file(dir:&std::path::Path)->String{std::fs::read_to_string(dir.join(pocold::node::FINALITY_FILE)).unwrap_or_default().trim().to_string()}
+/// Imports a branch whose blocks the floor refuses: each is Evicted (below the floor) or waits as an orphan (its parent
+/// was refused), none is journaled or marked invalid, and the head does not move.
+fn refused_by_the_floor(n:&mut pocold::node::Node,branch:&[Block],floor:u64){
+    let (head,rec0)=(n.chain.head,n.journal_records());
+    for x in branch{match n.import(x.clone(),None){
+        Err(Reject::Evicted)=>assert!(x.header.h<=floor,"h={} refused as below the floor {floor}",x.header.h),
+        Err(Reject::UnknownParent)=>assert!(x.header.h>floor),
+        r=>panic!("h={}: {r:?}",x.header.h)}}
+    assert_eq!(n.chain.head,head,"the head did not move");assert_eq!(n.journal_records(),rec0,"nothing was journaled");
+    assert!(branch.iter().all(|x|!n.chain.invalid.contains_key(&x.hash())),"retention never marks a block invalid");
+}
+/// A heavier fork 100 blocks deep (R_keep 64, head 150, so finalized_h = 86) is refused from its first block on and
+/// the finalized block stays canonical; RPC `finalized` names it. Positive control: the same branch is adopted by a
+/// node whose head is at the fork point.
+#[test] fn v3_26_a_depth_100_heavier_fork_keeps_the_finalized_block(){
+    let mut a=net();let g=a.chain.head;let ours=grow(&mut a,g,150,&|n,p|signed(n,p,Body::default(),0));
+    let fork=ours[49].hash();a.chain.ensure_state(&fork).unwrap();let w=a.chain.get(&ours[149].hash()).unwrap().total_work;let mut theirs=vec![signed(&a,fork,Body::default(),0)];import(&mut a,&theirs[0]);let t0=theirs[0].hash();theirs.extend(heavier(&mut a,t0,w,1));
+    assert_eq!(a.chain.head,theirs.last().unwrap().hash(),"the branch is heavier");
+    let (mut c,dc,_)=fnode("d100c",64,60,false);for x in ours[..50].iter().chain(theirs.iter()){c.import(x.clone(),None).unwrap();}
+    assert_eq!(c.chain.head,theirs.last().unwrap().hash(),"positive control: the branch is valid and adopted from its fork point");drop(c);
+    let (mut n,dir,conf)=fnode("d100",64,60,false);for x in &ours{n.import(x.clone(),None).unwrap();}
+    assert_eq!((n.chain.head().height,n.chain.finalized_h),(150,86));
+    let fin_hash=n.chain.canonical_at(86).unwrap().hash;assert_eq!(fin_hash,ours[85].hash());
+    refused_by_the_floor(&mut n,&theirs,86);
+    assert_eq!(n.chain.canonical_at(86).unwrap().hash,fin_hash,"the finalized block stays canonical");
+    let f=rpc_local(&mut n,"eth_getBlockByNumber",json!(["finalized",false]));assert_eq!(f["hash"],hex(&fin_hash[..]));
+    let fj=rpc_local(&mut n,"pocol_finality",json!([]));
+    assert_eq!((fj["finalized"].as_u64(),fj["safe"].as_u64(),fj["kSafe"].as_u64(),fj["rKeep"].as_u64(),fj["model"].as_str()),(Some(86),Some(90),Some(60),Some(64),Some("probabilistic")));
+    assert_eq!(fj["finalizedHash"],hex(&fin_hash[..]));assert!(fj["networkHashrateEst"].as_str().is_some_and(|x|x.parse::<u128>().unwrap()>0));
+    drop(n);assert_eq!(fin_file(&dir),format!("86 {}",hex(&fin_hash[..])),"a clean stop writes the floor");
+    let mut r=reopen(&conf);assert_eq!(r.chain.finalized_h,86);refused_by_the_floor(&mut r,&theirs,86);drop(r);
+    for d in [dir,dc]{let _=std::fs::remove_dir_all(&d);}
+}
+/// The safety review's finding 5: a heavier but SHORTER branch lowers the head, and with it head − r_keep. Before V3-26
+/// a later fork above the new head − r_keep but below the old floor could reorganize "finalized" blocks; now
+/// finalized_h stays and refuses it, live and after a restart (whole-state and store mode, with checkpoints). A data
+/// directory without the file (older builds) or with a file another journal left opens with head − r_keep.
+fn heavier_shorter_then_deep(store:bool,tag:&str){
+    let rk=24u64;let mut a=net();let g=a.chain.head;
+    // 44 timely blocks, then 16 late ones (attempt 1: later timestamps, so ASERT lowers the work of each).
+    let mut ours=grow(&mut a,g,44,&|n,p|fallback(n,p,0));
+    for _ in 0..16{let p=ours.last().unwrap().hash();let x=fallback(&a,p,1);import(&mut a,&x);a.chain.retain();ours.push(x);}
+    let ours_tip=ours.last().unwrap().hash();
+    // A timely branch from height 44 overtakes the late blocks with fewer blocks: heavier and shorter.
+    let f44=ours[43].hash();a.chain.ensure_state(&f44).unwrap();let w=a.chain.get(&ours_tip).unwrap().total_work;let theirs=heavier_rebuilt(&mut a,f44,w,0);
+    let theirs_tip=theirs.last().unwrap().hash();let theirs_h=a.chain.get(&theirs_tip).unwrap().height;
+    assert!(theirs_h<54,"heavier and shorter (and head − r_keep below the fork at 30): head {theirs_h}");
+    // A deep fork from height 30: above the lowered head − r_keep, below the floor 60 − 24 = 36 it had.
+    let f30=ours[29].hash();a.chain.ensure_state(&f30).unwrap();let w=a.chain.get(&theirs_tip).unwrap().total_work;let mut deep=vec![signed(&a,f30,Body::default(),0)];import(&mut a,&deep[0]);let d0=deep[0].hash();deep.extend(heavier_rebuilt(&mut a,d0,w,1));
+    // Positive control: a node that never had its head at 60 (floor theirs_h − 24 < 30) adopts the deep fork.
+    let (mut c,dc,_)=fnode(&format!("{tag}-c"),rk,10,store);
+    for x in ours[..44].iter().chain(theirs.iter()).chain(deep.iter()){c.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
+    assert_eq!(c.chain.head,deep.last().unwrap().hash(),"positive control: the deep fork is valid and adopted without the floor");drop(c);
+    let (mut n,dir,conf)=fnode(tag,rk,10,store);
+    for x in ours.iter().chain(theirs.iter()){n.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
+    assert_eq!(n.chain.head,theirs_tip,"the heavier, shorter branch is adopted");
+    assert_eq!(n.chain.finalized_h,36,"finalized_h does not move back with the head");assert_eq!(n.chain.retention_floor(),36);
+    assert_eq!((n.stats.max_reorg_depth,n.stats.reorgs_ge_k_safe),(16,1),"the reorganization abandoned 16 blocks (k_safe 10)");
+    assert_eq!(fin_file(&dir),format!("36 {}",hex(&ours[35].hash()[..])),"written at once: the head fell below finalized_h + r_keep");
+    let fin_hash=ours[35].hash();refused_by_the_floor(&mut n,&deep,36);
+    assert_eq!(n.chain.canonical_at(36).unwrap().hash,fin_hash,"the finalized block was not reorganized away");
+    let fj=rpc_local(&mut n,"pocol_finality",json!([]));assert_eq!((fj["finalized"].as_u64(),fj["safe"].as_u64(),fj["maxReorgDepth"].as_u64(),fj["reorgsGeKSafe"].as_u64()),(Some(36),Some((theirs_h-10).max(36)),Some(16),Some(1)));
+    // Restart: the floor is the file's, not head − r_keep.
+    drop(n);let mut r=reopen(&conf);assert_eq!((r.chain.head,r.chain.finalized_h),(theirs_tip,36),"restart keeps finalized_h");assert_eq!(r.stats.replay_skipped,0);
+    if store{assert!(r.stats.resumed_from.is_some(),"positive control: resumed from a checkpoint (format unchanged)");}
+    refused_by_the_floor(&mut r,&deep,36);assert!(!r.stats.finality_file_ignored);drop(r);
+    // A file another journal left (its block is not canonical here) is not used.
+    std::fs::write(dir.join(pocold::node::FINALITY_FILE),format!("40 {}\n",hex(&[9u8;32]))).unwrap();
+    let r=reopen(&conf);assert!(r.stats.finality_file_ignored);assert_eq!(r.chain.finalized_h,theirs_h-rk);drop(r);
+    // A data directory of an older build (no file) opens, its journal and checkpoints unchanged, at head − r_keep, and
+    // the file is written.
+    std::fs::remove_file(dir.join(pocold::node::FINALITY_FILE)).unwrap();
+    let r=reopen(&conf);assert_eq!((r.chain.head,r.chain.finalized_h),(theirs_tip,theirs_h-rk));assert!(!r.stats.finality_file_ignored);
+    drop(r);assert_eq!(fin_file(&dir),format!("{} {}",theirs_h-rk,hex(&ours[(theirs_h-rk-1) as usize].hash()[..])));
+    for d in [dir,dc]{let _=std::fs::remove_dir_all(&d);}
+}
+#[test] fn v3_26_a_heavier_shorter_branch_then_a_deep_fork_keeps_finalized_h(){heavier_shorter_then_deep(false,"hs")}
+#[test] fn v3_26_a_heavier_shorter_branch_then_a_deep_fork_keeps_finalized_h_in_store_mode(){heavier_shorter_then_deep(true,"hs-store")}
+
 // ---------------- C-1 E4.4 (decision D-6): local checkpoints ----------------
 /// The blocks the E4.4 tests import, in order: the S1 chain (99 blocks with payments and logs), a side
 /// branch 2 below its tip and a heavier branch back from the tip (two reorgs). Built once per process.

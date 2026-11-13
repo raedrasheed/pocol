@@ -431,6 +431,15 @@ pub struct Chain{
     /// Local retention parameters (consensus.md:29, governance.md:15): defaults R_KEEP and SIDE_BLOCKS_MAX.
     /// Tests lower them to exercise the boundaries quickly; they never affect validity.
     pub r_keep:u64,pub side_cap:usize,
+    /// V3-26 (D-V3-26): the local irreversibility floor `finalized_h`, a local retention policy like `r_keep` (never a
+    /// validity rule, excluded from the consensus identity): the highest head − r_keep this node has passed, which never
+    /// moves back, not when a heavier but shorter branch lowers the head and not across a restart (the node persists it,
+    /// `retention.finalized`). The retention floor is max(head − r_keep, finalized_h): no non-canonical block at or below
+    /// it is kept (`retain_unsettled`) or imported (`below_floor`), so the canonical block at finalized_h is never
+    /// reorganized away here. Journal replay reproduces live (it keeps 0 and uses the R_keep floor alone, as before);
+    /// the node sets the persisted value after it. Not mathematical or committee finality: a peer that does not hold
+    /// this floor may follow a heavier branch below it.
+    pub finalized_h:u64,
     /// Blocks the side cap must not evict: the live sync session's fetched prefix, or (on replay) blocks
     /// that later journal records build on. Still subject to the R_keep boundary.
     pub protect:std::collections::HashSet<[u8;32]>,
@@ -480,9 +489,18 @@ impl Chain{
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
-            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new()}
+            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,finalized_h:0,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new()}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
+    /// V3-26: the retention floor max(head − r_keep, finalized_h) (local retention, never validity). Journal replay
+    /// uses the R_keep part alone (`finalized_h` takes effect after it).
+    pub fn retention_floor(&self)->u64{let r=self.head().height.saturating_sub(self.r_keep);if self.replaying{r}else{r.max(self.finalized_h)}}
+    /// V3-26: a block at `height` is at or below the retention floor, so retention would remove it as a non-canonical
+    /// block at once (live import refuses a new one before validating it, as local retention, never as invalid). The
+    /// R_keep part is `height + r_keep <= head` exactly as before; the finality part applies once finalized_h > 0.
+    pub fn below_floor(&self,height:u64)->bool{
+        height.saturating_add(self.r_keep)<=self.head().height||(!self.replaying&&self.finalized_h>0&&height<=self.finalized_h)
+    }
     /// C-1 E4: keeps states in `store` from now on, starting with genesis's (Node::open calls it on a chain
     /// that holds only genesis, before replay).
     pub fn enable_store(&mut self,store:std::sync::Arc<dyn pocol_lp4_execution::node_trie::TrieStore>)->Result<(),Reject>{
@@ -897,7 +915,8 @@ impl Chain{
     /// R21 retention: drop states of canonical blocks at height <= head-K_hist (genesis kept).
     /// A13 side-branch bounds (local retention, never validity; consensus.md:29, D118):
     /// - a non-canonical block `r_keep` or more below the head is removed with its descendants
-    ///   (adoption is owed at depth <= R_keep, network.md:144; deeper is governance.md:200);
+    ///   (adoption is owed at depth <= R_keep, network.md:144; deeper is governance.md:200), and (V3-26) so is one
+    ///   at or below `finalized_h`, which first rises to head − r_keep: the floor is max(head − r_keep, finalized_h);
     /// - at most `side_cap` UNPROTECTED non-canonical blocks are kept: the lowest-work unprotected
     ///   leaf goes first, repeatedly (its parent may become a leaf), so the bound holds after every
     ///   call, a reorg included. `protect` (a sync session's fetched branch, or on replay the blocks
@@ -923,7 +942,10 @@ impl Chain{
         debug_assert!(self.side==self.side_scan(),"the side set is the non-canonical entries");
         let side:Vec<[u8;32]>=self.side.iter().copied().collect();
         let r_keep=self.r_keep;
-        let mut gone:Vec<[u8;32]>=side.iter().filter(|h|self.blocks[*h].height+r_keep<=head_h).copied().collect();
+        // V3-26: the floor max(head − r_keep, finalized_h); finalized_h only rises (replay leaves it to the node).
+        if !self.replaying{self.finalized_h=self.finalized_h.max(head_h.saturating_sub(r_keep));}
+        let fin=if self.replaying{0}else{self.finalized_h};
+        let mut gone:Vec<[u8;32]>=side.iter().filter(|h|{let x=self.blocks[*h].height;x+r_keep<=head_h||x<=fin}).copied().collect();
         for h in &gone{self.blocks.remove(h);self.side.remove(h);}
         // Descendants of a removed block go too (their parent is gone). Only a side block can lose its parent.
         if !gone.is_empty()||self.orphan_check{self.orphan_check=false;

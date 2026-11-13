@@ -14,7 +14,7 @@
 - SYS [CP]: SYS_SLOT_MAX=131072, SYS_KEYS_BLOCK_MAX=2048, SYS_KEYS_USER_MAX=256, SYS_ACCT_BLOCK_MAX=512, G_SYS=96·10^6.
 - Retention (local): K_hist=32, HIST_TRIE_BUDGET=1717986918, R_keep=2048.
 - End [CP]: H_END=129600, T_END=g_ts+10368000, H_CLOSE=129440, T_CLOSE=T_END−9600, Z_close=160, RET=128, P2=2.
-- Confirmation (local): k_safe=6, k_final=60, k_view=12.
+- Confirmation (local): k_safe=6, k_final=60, k_view=12. (V3-26: the node's RPC `safe` is now max(head − k_safe, finalized_h) with a node-local k_safe of 60, and `finalized` the persisted local irreversibility floor finalized_h ≥ head − R_keep; k_final=60 remains the ParamGate R11 input. Both are local and probabilistic: network.md, "Local finality".)
 - Extension (local):
   - VIEW_SLACK_S=4, Φ_view=10s.
   - fetchAll: 4 MiB per attempt, 30s, maxRequests=4096, 3 restarts.

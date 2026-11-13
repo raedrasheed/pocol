@@ -341,6 +341,20 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let _=std::fs::remove_dir_all(&d);
 }
 
+/// V3-26: `--k-safe N` sets the depth of the RPC `safe` tag (local, never finality); status reports it with the
+/// persisted irreversibility floor (0 on a new data directory); a value that is not a number fails the command.
+#[test] fn k_safe_comes_from_the_flag_and_status_reports_the_floor(){
+    let d=tmp("ksafe");let net=d.join("net");let data=d.join("data");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let st=|extra:&[&str]|pocold(&[&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap()][..],extra].concat());
+    let o=st(&["--k-safe","7"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["retention"]["kSafe"].as_u64(),v["retention"]["finalized"].as_u64(),v["retention"]["finalityFileIgnored"].as_bool()),(Some(7),Some(0),Some(false)));
+    let o=st(&[]);let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();assert_eq!(v["retention"]["kSafe"].as_u64(),Some(pocold::node::K_SAFE));
+    let o=st(&["--k-safe","x"]);assert_eq!(o.status.code(),Some(1));assert!(text(&o.stderr).contains("--k-safe x:"),"{}",text(&o.stderr));
+    let _=std::fs::remove_dir_all(&d);
+}
+
 /// V3-33: the freeze switch comes from `--freeze-user-txs-after S|off`, or POCOL_FREEZE_USER_TXS_AFTER for `run` when the
 /// flag is absent; status reports it (and nothing without it); a value that is not a height or `off` fails the command.
 /// A running node with an active freeze answers eth_sendRawTransaction with -32016 {reason: frozen}, before decoding.
