@@ -243,8 +243,9 @@ pub trait BlockBytes{fn record_at(&self,off:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8
     fn canonical_hash(&self,_h:u64)->Result<Option<[u8;32]>,Reject>{Ok(None)}}
 /// C-1 S4: drops what a slimmed entry does not keep: the header's heap fields, the ParentResult and the
 /// nonce ranges. Fork choice, contexts and evidence read only the rest at these depths.
+/// V3-02: an offloaded entry's late-share evidence (kept by `offload`) goes too; `unslim` reads it back with the rest.
 pub(crate) fn slim(e:&mut Entry){let h=&mut e.header;h.logs_bloom=Vec::new();h.proposer=Vec::new();h.sig=Vec::new();h.shares=Vec::new();h.ut_raw=Vec::new();
-    h.share_list_raw=Vec::new();h.encoded=Vec::new();e.result=None;e.ranges=Vec::new();e.summary=None;e.slim=true;}
+    h.share_list_raw=Vec::new();h.encoded=Vec::new();e.result=None;e.ranges=Vec::new();e.summary=None;e.slim=true;if e.offloaded{e.body.evidence=Vec::new();}}
 /// The ParentResult of block `hash` from its journal record's result bytes (node::result_bytes).
 pub fn decode_result(rb:&[u8],hash:&[u8;32])->Result<Option<ParentResult>,Reject>{
     let bad=||Reject::Block("result bytes".into());
@@ -260,7 +261,19 @@ pub fn decode_result(rb:&[u8],hash:&[u8;32])->Result<Option<ParentResult>,Reject
 }
 /// Drops a journaled block's bytes from memory (D-REORG-REDB): body, receipts, tx hashes and the
 /// encoded header. Fork choice, child contexts and evidence ancestry read only the metadata kept.
-pub(crate) fn offload(e:&mut Entry){e.body=Body::default();e.receipts=Vec::new();e.tx_hashes=Vec::new();e.header.encoded=Vec::new();e.offloaded=true;}
+/// V3-02: the block's kind-3 (late share) evidence items stay (`offloaded_body`): the late-share deduplication of its
+/// descendants reads them on the branch (`Chain::late_credited`). A valid spec-1 block carries none, so a spec-1
+/// entry is offloaded to exactly what it was before. An entry slimmed first keeps none (as `slim` of an offloaded
+/// one): a slimmed and offloaded entry holds no evidence whichever ran first, so the live entry, a replayed one and a
+/// checkpoint-restored one (`checkpoint::entry_of`) are the same, and `unslim` reads the items back.
+pub(crate) fn offload(e:&mut Entry){e.body=if e.slim{Body::default()}else{offloaded_body(&e.body)};e.receipts=Vec::new();e.tx_hashes=Vec::new();e.header.encoded=Vec::new();e.offloaded=true;}
+/// What an offloaded entry keeps of its body: its late-share evidence items (V3-02), nothing else (an empty body
+/// without an allocation when there are none).
+pub(crate) fn offloaded_body(b:&Body)->Body{Body{txs:Vec::new(),evidence:late_items(&b.evidence)}}
+/// The kind-3 items of an evidence list, in order (a fresh Vec only when there is one).
+pub fn late_items(evidence:&[Vec<u8>])->Vec<Vec<u8>>{if !evidence.iter().any(|x|is_late_item(x)){return Vec::new()}evidence.iter().filter(|x|is_late_item(x)).cloned().collect()}
+/// An evidence item of kind 3 (V3-02 late shares): an RLP list whose first item is the byte 3.
+pub fn is_late_item(raw:&[u8])->bool{crate::rlp::decode(raw).ok().and_then(|it|it.list().and_then(|f|f.first().and_then(|k|k.bytes()).map(|k|k==[3]))).unwrap_or(false)}
 /// C-1 S5: an entry as it leaves the window or comes back to it: offloaded, slimmed and pruned, without a pin, diff
 /// or trie. A function of the entry's identity only (what a non-evicting chain holds that deep), so live import and
 /// replay evict the same bytes, and a reload gives back exactly what was evicted. (Not a check: a canonical block a
@@ -814,11 +827,15 @@ impl Chain{
     /// Evidence (incentives.md "Evidence"). Type 1: RLP([1, ST1, ST2]); type 2:
     /// RLP([2, TemplateID, nonce, shareRoot1, sig1, shareRoot2, sig2]). Invalid
     /// evidence invalidates the carrying block.
+    /// V3-02 (v3 program set only, `late_shares`): kind 3, RLP([3, be64(j), [n_1<...<n_k]]), credits valid omitted
+    /// shares of the ancestor template j (`late_check`); its effect is recordLate(j, owners) in phase 0.
     pub fn evidence_effects(&self,p:&Entry,body:&Body,h:u64)->Result<Vec<EvidenceEffect>,Reject>{
         let cp=self.spec.cp();let mut out=Vec::new();let mut accused_seen=Vec::new();
+        let late=self.late_shares(h);let mut block=LateBlock::default();
         for raw in &body.evidence{
             let it=crate::rlp::decode(raw).map_err(|_|Reject::Block("15 evidence rlp".into()))?;let f=it.list().ok_or_else(||Reject::Block("15 evidence".into()))?;
             let kind=f.first().and_then(|k|k.bytes()).ok_or_else(||Reject::Block("15 evidence kind".into()))?;
+            if late&&kind==[3]&&f.len()==3{out.push(self.evidence_late(p,f,h,&mut block)?);continue}
             let (accused,j)=match kind{
                 [1] if f.len()==3=>self.evidence_type1(p,&f[1],&f[2],h)?,
                 [2] if f.len()==7=>self.evidence_type2(p,&f,h)?,
@@ -830,6 +847,75 @@ impl Chain{
             out.push(match j{Some(j)=>EvidenceEffect::PunishAndInvalidate{accused,j},None=>EvidenceEffect::Punish{accused}});
         }
         let _=cp;Ok(out)
+    }
+    /// V3-02: kind-3 evidence is valid only on the v3 program set (whose ShareLedger and MinerRegistry have
+    /// recordLate), which only a specVersion-2 genesis selects; everywhere else it is "15 evidence form", as before.
+    pub fn late_shares(&self,h:u64)->bool{self.spec.v3_active(h)&&self.spec.programs()==ProgramSet::V3}
+    /// V3-02: one kind-3 item carried by a child of `p` at height h: form, window, then the ancestor template j on this
+    /// branch (its TemplateID, winning nonce, share target, stored nonce ranges and header shares), the shares already
+    /// credited to j on the branch (`late_credited`) and C_header(j) + C_late(j) from the parent state, and `late_check`.
+    fn evidence_late(&self,p:&Entry,f:&[crate::rlp::Item<'_>],h:u64,block:&mut LateBlock)->Result<EvidenceEffect,Reject>{
+        let cp=self.spec.cp();let rules=LateRules{h,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
+        let (j,nonces)=late_fields(f,rules.s_max)?;
+        // The window is relative to a child of p: an item judged at any other height (a received template's height
+        // is the sender's claim until its block is validated, "2 height") is a verdict on it, never a local fault.
+        if h!=p.height.saturating_add(1){return Err(ls("window"))}
+        late_window(&rules,j)?;
+        // h = p.height+1 and j in [max(1,h-D), h-1]: block j is an ancestor of p within D, which the window holds;
+        // not finding it is this node's fault, not the block's.
+        let e=self.ancestor_at(p,j).ok_or_else(||Reject::Local(format!("late shares: template {j} is not held on the branch")))?;
+        // C-1 S4: a slimmed template is restored first (its TemplateID, shares and ranges), as for type 2.
+        if e.slim{return Err(Reject::NeedsRebuild(e.hash))}
+        let credited=self.late_credited(p,j)?;
+        // C_header(j) + C_late(j): the parent's ledger total, except for j = h-1, whose shares this block records.
+        let total=if j==p.height{p.result.as_ref().ok_or_else(||Reject::Block("15 ls parent result".into()))?.shares.len() as u64+1}
+            else{apply::share_total(self.view_or(p)?.v(),j)};
+        let t_share=to_fixed(from_fixed(&e.target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
+        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,header:&e.header.shares,credited:&credited,total};
+        let owners=late_check(&rules,&base,&nonces,block)?;
+        Ok(EvidenceEffect::Late{j,owners})
+    }
+    /// V3-02, for a proposer (node-local; the block's evidence is validated as any other): the TemplateID of the
+    /// ancestor template j of a child of `p`, when it is held whole on this branch.
+    pub fn late_template(&self,p:&Entry,j:u64)->Option<[u8;32]>{let e=self.ancestor_at(p,j)?;(!e.slim&&e.height>0).then(||template_id(&e.header.ut_raw))}
+    /// V3-02, for a proposer: a kind-3 item for template j carrying the `candidates` (shares seen for it, any order)
+    /// that a child of `p` can still credit, after the items already in `block`: each passes `late_check` alone, and
+    /// as many as the no-dilution cap, S_max and EVID_BYTES_MAX leave, smallest first. None when none can.
+    pub fn late_offer(&self,p:&Entry,j:u64,candidates:&[u64],block:&mut LateBlock)->Option<Vec<u8>>{
+        let cp=self.spec.cp();let h=p.height+1;
+        if !self.late_shares(h){return None}
+        let rules=LateRules{h,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
+        late_window(&rules,j).ok()?;
+        let e=self.ancestor_at(p,j)?;if e.slim{return None}
+        let credited=self.late_credited(p,j).ok()?;
+        let total=if j==p.height{p.result.as_ref()?.shares.len() as u64+1}else{apply::share_total(self.view_or(p).ok()?.v(),j)};
+        let t_share=to_fixed(from_fixed(&e.target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
+        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,header:&e.header.shares,credited:&credited,total};
+        let used=block.seen.get(&j).map_or(0,|s|s.len() as u64);
+        let room=rules.kappa_m.saturating_sub(total.saturating_add(used)).min(rules.s_max);
+        let mut ok:Vec<u64>=Vec::new();let mut sorted=candidates.to_vec();sorted.sort_unstable();sorted.dedup();
+        for n in sorted{
+            if ok.len() as u64>=room{break}
+            let mut probe=block.clone();
+            if late_check(&LateRules{kappa_m:u64::MAX,..rules},&base,&[n],&mut probe).is_ok(){ok.push(n);}
+        }
+        while !ok.is_empty()&&late_encode(j,&ok).len()>cp.EVID_BYTES_MAX as usize{ok.pop();}
+        if ok.is_empty(){return None}
+        late_check(&rules,&base,&ok,block).ok()?;
+        Some(late_encode(j,&ok))
+    }
+    /// V3-02 branch deduplication: the nonces of template j already credited by kind-3 evidence of the blocks above j
+    /// on this branch, from `p` down to j+1 (at most D-1 blocks). Each keeps its kind-3 items when offloaded
+    /// (`offload`); a slimmed and offloaded one is restored first (`unslim`), as the evidence walk of type 2 does.
+    pub fn late_credited(&self,p:&Entry,j:u64)->Result<std::collections::BTreeSet<u64>,Reject>{
+        let mut out=std::collections::BTreeSet::new();let mut cur=Some(p);
+        while let Some(e)=cur{
+            if e.height<=j{break}
+            if e.slim&&e.offloaded{return Err(Reject::NeedsRebuild(e.hash))}
+            for raw in &e.body.evidence{if let Some((jj,ns))=late_parse_lenient(raw){if jj==j{out.extend(ns);}}}
+            cur=e.parent.and_then(|x|self.get(&x));
+        }
+        Ok(out)
     }
     fn ancestor_at<'a>(&'a self,p:&'a Entry,height:u64)->Option<&'a Entry>{let mut cur=Some(p);while let Some(e)=cur{if e.height==height{return Some(e)}if e.height<height{return None}cur=e.parent.and_then(|x|self.get(&x));}None}
     fn evidence_type1(&self,p:&Entry,a:&crate::rlp::Item<'_>,b:&crate::rlp::Item<'_>,h_incl:u64)->Result<(Address,Option<u64>),Reject>{
@@ -1273,7 +1359,8 @@ impl Chain{
             if out.receipts_root().0!=e.header.receipts_root||out.gas_used()!=e.header.gas_used{return blk("restore: receipts mismatch")}
             let x=self.blocks.get_mut(&hash).unwrap();
             // C-1 S4: a slimmed block made whole here is restored first (the next block reads its result).
-            if x.slim{x.header=er.header.clone();x.result=er.result.clone();x.ranges=er.ranges.clone();x.slim=false;self.unslimmed.push(hash);}
+            if x.slim{x.header=er.header.clone();x.result=er.result.clone();x.ranges=er.ranges.clone();x.slim=false;self.unslimmed.push(hash);
+                if x.offloaded{x.body.evidence=er.body.evidence.clone();}}
             let x=self.blocks.get_mut(&hash).unwrap();
             // C-1 S3a: a re-executed block keeps its diff (an adopted block pruned as a side block had none); C-1
             // E3: from the write set when it ran on an overlay.
@@ -1300,20 +1387,27 @@ impl Chain{
     pub fn side_counts(&self)->(usize,usize){(self.side.len(),self.side.iter().filter(|h|self.blocks.get(*h).map_or(false,|e|!e.pruned)).count())}
     /// C-1 S4: a slimmed entry's header (the journal record's header bytes), ParentResult (its result
     /// bytes) and nonce ranges (history.redb), each checked against the entry it restores.
-    fn restored_fields(&self,e:&Entry,src:&dyn BlockBytes)->Result<(Header,Option<ParentResult>,Vec<(Address,u128,u128)>),Reject>{
-        let off=e.body_off.ok_or_else(||Reject::Block("slim entry without body_off".into()))?;let (hb,_,rb)=src.record_at(off)?;
+    /// V3-02: and, for an offloaded entry on the v3 program set, its late-share evidence items (the body's kind-3 items,
+    /// which `slim` dropped); None elsewhere (nothing is read for them on spec-1 chains).
+    fn restored_fields(&self,e:&Entry,src:&dyn BlockBytes)->Result<(Header,Option<ParentResult>,Vec<(Address,u128,u128)>,Option<Vec<Vec<u8>>>),Reject>{
+        let off=e.body_off.ok_or_else(||Reject::Block("slim entry without body_off".into()))?;let (hb,bb,rb)=src.record_at(off)?;
         let header=decode_header(&hb).map_err(|_|Reject::Block("slim header decode".into()))?;
         if block_hash(&header)!=e.hash{return blk("slim: journal header does not hash to the block")}
         let result=decode_result(&rb,&e.hash)?;
         let ranges=src.ranges_of(&e.hash)?.ok_or_else(||Reject::Block("slim: ranges unavailable".into()))?;
-        Ok((header,result,ranges))
+        let late=if e.offloaded&&self.late_shares(e.height){
+            let body=Body::decode(&bb,self.spec.cp().BODY_MAX as usize).map_err(|_|Reject::Block("slim: body decode".into()))?;
+            if crate::types::body_commitment(&body.evidence)!=Some(header.evidence_root){return blk("slim: journal body does not match the evidence root")}
+            Some(late_items(&body.evidence))}else{None};
+        Ok((header,result,ranges,late))
     }
     /// A copy of `e` with its slimmed fields restored (`e` itself when it is not slim).
     pub fn restored<'a>(&self,e:&'a Entry,src:Option<&dyn BlockBytes>)->Result<std::borrow::Cow<'a,Entry>,Reject>{
         if !e.slim{return Ok(std::borrow::Cow::Borrowed(e))}
-        let (mut header,result,ranges)=self.restored_fields(e,src.ok_or_else(||Reject::Block("slim entry without a block source".into()))?)?;
+        let (mut header,result,ranges,late)=self.restored_fields(e,src.ok_or_else(||Reject::Block("slim entry without a block source".into()))?)?;
         if e.offloaded{header.encoded=Vec::new();}
         let mut x=e.meta_clone();x.state=empty_state();x.pruned=e.pruned;x.full=false;x.header=header;x.result=result;x.ranges=ranges;x.slim=false;
+        if let Some(l)=late{x.body.evidence=l;}
         Ok(std::borrow::Cow::Owned(x))
     }
     /// A stored block's metadata copy (no state) with its slimmed fields restored.
@@ -1324,8 +1418,9 @@ impl Chain{
     /// C-1 S4: restores a slimmed entry in place (it is slimmed again by `retain` once it is deep enough).
     pub fn unslim(&mut self,h:&[u8;32],src:&dyn BlockBytes)->Result<(),Reject>{
         let e=self.blocks.get(h).ok_or_else(||Reject::Block("unslim target".into()))?;if !e.slim{return Ok(())}
-        let (mut header,result,ranges)=self.restored_fields(e,src)?;
+        let (mut header,result,ranges,late)=self.restored_fields(e,src)?;
         let x=self.blocks.get_mut(h).unwrap();if x.offloaded{header.encoded=Vec::new();}
+        if let Some(l)=late{x.body.evidence=l;}
         x.header=header;x.result=result;x.ranges=ranges;x.slim=false;self.unslimmed.push(*h);Ok(())
     }
     /// TrieRebuild: re-executes from the nearest retained ancestor and checks
@@ -1389,7 +1484,9 @@ impl Chain{
         // the block that needed it was dropped as a non-verdict.
         // (C-1 S5: a disk walk's root is below the window; its walk kept whole copies of the blocks below it.)
         if let (Some(src),false)=(src,disk){
-            let lo=root.height.saturating_sub(u64::from(self.spec.cp().E_win));let (mut below,mut c)=(vec![],Some(cur));
+            // V3-02: and kind-3 evidence reads the template and carriers up to D heights back.
+            let back=if self.late_shares(root.height+1){u64::from(self.spec.cp().E_win).max(u64::from(self.spec.cp().D))}else{u64::from(self.spec.cp().E_win)};
+            let lo=root.height.saturating_sub(back);let (mut below,mut c)=(vec![],Some(cur));
             while let Some(h)=c{let Some(e)=self.blocks.get(&h) else{break};if e.height<lo{break}if e.slim{below.push(h)}c=e.parent;}
             for h in below.into_iter().rev(){let x=self.restored(&self.blocks[&h],Some(src))?.into_owned();self.shadow_push(x);}
         }
@@ -1499,6 +1596,71 @@ impl Chain{
     }
     /// Whether `hash` is on the current canonical chain.
     pub fn is_canonical(&self,hash:&[u8;32])->bool{self.blocks.get(hash).map(|e|self.canonical.get(e.height as usize)==Some(hash)).unwrap_or(false)}
+}
+// ---------------- V3-02 late share credit (kind-3 evidence) ----------------
+/// The CP the kind-3 rules read for a carrying block at height `h`: D, S_max and kappa*m.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct LateRules{pub h:u64,pub d:u64,pub s_max:u64,pub kappa_m:u64}
+/// What the kind-3 rules read about the ancestor template j on the carrying branch: its TemplateID, winning nonce,
+/// share target (target_j * m), stored nonce ranges and header shares, the nonces kind-3 evidence of the blocks above
+/// it already credited on the branch, and C_header(j) + C_late(j) so far (the winner's share included).
+pub struct LateBase<'a>{pub j:u64,pub tid:[u8;32],pub nonce:u64,pub t_share:Fixed,pub ranges:&'a [(Address,u128,u128)],pub header:&'a [u64],
+    pub credited:&'a std::collections::BTreeSet<u64>,pub total:u64}
+/// Within one carrying block: the nonces credited to each j by its earlier kind-3 items, in body order.
+#[derive(Clone,Debug,Default)]
+pub struct LateBlock{pub seen:BTreeMap<u64,std::collections::BTreeSet<u64>>}
+fn ls(why:&str)->Reject{Reject::Block(format!("15 ls {why}"))}
+/// The form of a kind-3 item's fields [3, be64(j), [n_1<...<n_k]]: j and every nonce exactly eight bytes, 1 <= k <=
+/// S_max, strictly ascending (so no nonce repeats within the item).
+pub fn late_fields(f:&[crate::rlp::Item<'_>],s_max:u64)->Result<(u64,Vec<u64>),Reject>{
+    let be64=|it:&crate::rlp::Item<'_>|->Option<u64>{let b=it.bytes()?;Some(u64::from_be_bytes(b.try_into().ok()?))};
+    if f.len()!=3||f[0].bytes()!=Some(&[3u8][..]){return blk("15 evidence form")}
+    let j=be64(&f[1]).ok_or_else(||ls("form"))?;
+    let list=f[2].list().ok_or_else(||ls("form"))?;
+    let nonces=list.iter().map(be64).collect::<Option<Vec<u64>>>().ok_or_else(||ls("form"))?;
+    if nonces.is_empty()||nonces.len() as u64>s_max{return Err(ls("count"))}
+    if nonces.windows(2).any(|w|w[0]>=w[1]){return Err(ls("order"))}
+    Ok((j,nonces))
+}
+/// A whole kind-3 item, as `evidence_effects` decodes it (vectors and the node's builder).
+pub fn late_parse(raw:&[u8],s_max:u64)->Result<(u64,Vec<u64>),Reject>{
+    let it=crate::rlp::decode(raw).map_err(|_|Reject::Block("15 evidence rlp".into()))?;let f=it.list().ok_or_else(||Reject::Block("15 evidence".into()))?;
+    late_fields(f,s_max)
+}
+/// The kind-3 item RLP([3, be64(j), [n_1..n_k]]).
+pub fn late_encode(j:u64,nonces:&[u64])->Vec<u8>{
+    let mut list=Vec::new();for n in nonces{crate::rlp::encode_bytes(&n.to_be_bytes(),&mut list);}
+    let mut p=Vec::new();crate::rlp::encode_bytes(&[3],&mut p);crate::rlp::encode_bytes(&j.to_be_bytes(),&mut p);crate::rlp::encode_list_payload(&list,&mut p);
+    let mut out=Vec::new();crate::rlp::encode_list_payload(&p,&mut out);out
+}
+/// A stored block's own kind-3 item (validated when the block was), without its bounds.
+fn late_parse_lenient(raw:&[u8])->Option<(u64,Vec<u64>)>{late_parse(raw,u64::MAX).ok()}
+/// j in [max(1, h-D), h-1]: an ancestor template whose pot is still pending in phase 0 of h (settle(h-D) runs after
+/// the evidence, so a carrier at h = j+D still credits j).
+pub fn late_window(r:&LateRules,j:u64)->Result<(),Reject>{
+    if j<r.h.saturating_sub(r.d).max(1)||j>=r.h{return Err(ls("window"))}Ok(())
+}
+/// The kind-3 rules on template j (after `late_fields` and `late_window`), in this order: the no-dilution cap
+/// C_header(j) + C_late(j) <= kappa*m (this block's earlier credits to j included); then per nonce: below nMax_j (its
+/// owner from block j's stored ranges, which partition [0, nMax_j)), not the winning nonce, not a header share, not
+/// credited on the branch, not credited earlier in this block, and SHA256(tid_j || be64(n)) <= target_j * m. Returns
+/// the owners in nonce order (one per share) and records the nonces in `block`.
+pub fn late_check(r:&LateRules,b:&LateBase<'_>,nonces:&[u64],block:&mut LateBlock)->Result<Vec<Address>,Reject>{
+    let seen=block.seen.entry(b.j).or_default();
+    let k=nonces.len() as u64;
+    if b.total.saturating_add(seen.len() as u64).saturating_add(k)>r.kappa_m{return Err(ls("cap"))}
+    let mut owners=Vec::with_capacity(nonces.len());
+    for n in nonces{
+        let owner=b.ranges.iter().find(|(_,s0,e0)|*s0<=u128::from(*n)&&u128::from(*n)<*e0).map(|x|x.0).ok_or_else(||ls("nonce outside nMax"))?;
+        if *n==b.nonce{return Err(ls("winning nonce"))}
+        if b.header.contains(n){return Err(ls("header share"))}
+        if b.credited.contains(n){return Err(ls("credited on the branch"))}
+        if seen.contains(n){return Err(ls("repeated in the block"))}
+        if !le_target(&pow_hash(&b.tid,*n),&b.t_share){return Err(ls("share target"))}
+        owners.push(owner);
+    }
+    seen.extend(nonces.iter().copied());
+    Ok(owners)
 }
 pub fn from_fixed_lp4(v:&pocol_lp4_execution::fixed::U256)->U256{U256::from_be_bytes(v.to_be_bytes())}
 pub fn assignment_range(ctx:&ChildCtx,id:Address)->Option<(u64,u64)>{
