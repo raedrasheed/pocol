@@ -276,6 +276,9 @@ fn send(key:&Key,nonce:u64,to:Address,value:U256,data:usize)->Vec<u8>{Tx{chain_i
 /// which cannot execute on the head, and not bob's independent one; with more than 8 such dependents
 /// no signed template was built at all. Now the selection is executed on a running copy of the parent
 /// state: dave's are skipped with alice's, and bob's transfer is selected and the template builds.
+/// N4 (V3-20, the overdraft rule): a new submission funded only by a pending transaction is refused (its sender's
+/// head balance does not cover it), so dave's transfers reach the pool here as a new head's revalidation admits them
+/// (transactions returned from an abandoned block, in block order: alice's funding, then dave's), on the pending state.
 #[test] fn the_builder_skips_the_dependents_of_a_skipped_transaction(){
     let (alice,bob,dave)=(devnet::account_key("alice"),devnet::account_key("bob"),devnet::account_key("dave-unfunded"));
     let big=send(&alice,0,dave.address(),U256::from(10u128.pow(18)),2000);
@@ -283,8 +286,10 @@ fn send(key:&Key,nonce:u64,to:Address,value:U256,data:usize)->Vec<u8>{Tx{chain_i
     let b0=send(&bob,0,alice.address(),U256::from(1u64),0);
     let room:u64=ds.iter().map(|t|t.len() as u64).sum();assert!(room<big.len() as u64&&b0.len() as u64<=room);
     let c=cfg(1000,room);let (mut n,dir)=node(&c,"r1dep",None,None);let h=net(&c);
-    for t in std::iter::once(&big).chain(ds.iter()).chain(std::iter::once(&b0)){n.submit_tx(t.clone(),false).unwrap();}
-    assert_eq!(n.pool.txs.len(),11,"all admitted on the pending state");
+    n.submit_tx(big.clone(),false).unwrap();
+    assert_eq!(n.submit_tx(ds[0].clone(),false).unwrap_err(),pocold::node::POOL_OVERDRAFT,"N4: a new submission funded only by a pending one waits");
+    for t in &ds{n.requeue_for_revalidation(t.clone());}n.submit_tx(b0.clone(),false).unwrap();
+    assert_eq!(n.pool.txs.len(),11,"all admitted on the pending state");n.pool_audit().unwrap();
     let head=n.chain.head().clone();let offered=n.template_txs(&head);
     assert_eq!(offered,vec![b0.clone()],"only bob's independent transfer: dave's depend on alice's skipped one");
     let ctx=h.chain.child_ctx(&head,0).unwrap();

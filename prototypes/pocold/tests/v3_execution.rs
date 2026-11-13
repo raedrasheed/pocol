@@ -587,6 +587,79 @@ mod preview{
         assert_eq!(node.chain.head().gas_used,42000,"the halt counts its executed gas in the block");
     }
 
+    /// D-V3-21 with N4's replace-by-fee: a replacement's burn is bounded by its own signed fee, as a new submission's
+    /// is. alice pools a creating transfer whose 1.7M gas limit carries the burn of the 4th of 8 accounts. A replacement
+    /// raising both caps by the bump but declaring 21000 gas would burn past its max_fee*gas_limit: it is refused with
+    /// CreationFee, the answer the same transfer gets as a new submission (bob's), and the pooled one stays. A bumped
+    /// replacement keeping the gas limit replaces it.
+    #[test]
+    fn a_replacement_whose_burn_would_pass_its_signed_maximum_is_refused(){
+        let dir=Temp::new();let f0=U256::from(100_000_000_000_000_000u64);let cfg=node_cfg(|c|{c.acct_cap=8;c.f0_acct=f0});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let (alice,bob)=(devnet::account_key("alice"),devnet::account_key("bob"));
+        assert_eq!(node.chain.head().summary.as_ref().unwrap().user_accounts,3);
+        let max_fee=U256::from(100_000_000_000u64);let price=next_base(&node)+U256::from(7);assert!(price<max_fee);
+        let gas=1_700_000u64;assert!(price*U256::from(21000)+creation_fees::price(f0,8,3,1).unwrap()<=max_fee*U256::from(gas));
+        let to=new_address(180);let first=priced_tx(&alice,0,to,U256::from(1),gas,max_fee);node.submit_tx(first.clone(),false).unwrap();
+        let bumped=|key:&pocol_lp4_execution::txsign::Key,to:Address,gas:u64|Tx{chain_id:777938,nonce:0,max_priority:U256::from(8),max_fee:max_fee*U256::from(2),gas,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(key);
+        // Priced as a newcomer is, at the pending state's 4 of 8 accounts: far past 2*max_fee*21000.
+        assert!(max_fee*U256::from(2*21000)<creation_fees::price(f0,8,4,1).unwrap());
+        let e=node.submit_tx(bumped(&alice,to,21000),false).unwrap_err();assert!(e.contains("CreationFee"),"{e}");
+        let pooled=|node:&pocold::node::Node|node.pool.txs.iter().map(|(_,r)|r.clone()).collect::<Vec<_>>();
+        assert_eq!(pooled(&node),vec![first.clone()],"the pooled one stays");assert_eq!(node.stats.pool_replaced,0);node.pool_audit().unwrap();
+        let fresh=node.submit_tx(bumped(&bob,new_address(181),21000),false).unwrap_err();assert_eq!(e,fresh,"refused as a new submission is");
+        let ok=bumped(&alice,to,gas);node.submit_tx(ok.clone(),false).unwrap();assert_eq!(pooled(&node),vec![ok]);assert_eq!(node.stats.pool_replaced,1);node.pool_audit().unwrap();
+    }
+
+    /// D-V3-21 with N4's lowest-fee eviction: the burn bound is checked before the victim leaves, so a newcomer whose
+    /// burn would pass its signed maximum evicts nothing. The pool is full by count (POOL_MAX_TXS transfers to an
+    /// existing account at 1 gwei); zed outbids them at 3 gwei with a 21000-gas transfer to a new account: refused with
+    /// CreationFee, and the pool, its ghost gas and the eviction count are unchanged. The same bid to an existing
+    /// account evicts one.
+    #[test]
+    fn an_over_burn_newcomer_at_the_count_bound_evicts_nothing(){
+        use pocold::node::POOL_MAX_TXS;
+        let senders:Vec<String>=(0..16).map(|i|format!("s{i}")).collect();let f0=U256::from(100_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.acct_cap=64;c.f0_acct=f0;for s in senders.iter().map(|s|s.as_str()).chain(["zed"]){c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let dir=Temp::new();let mut config=node_config(&dir,false);config.limits.pool_gas_max=Some(POOL_MAX_TXS as u64*21000+2*21000);
+        let mut node=pocold::node::Node::open(config,node_spec(&cfg)).unwrap();
+        let max_fee=U256::from(100_000_000_000u64);assert!(next_base(&node)+U256::from(3_000_000_000u64)<max_fee);let sink=devnet::account_key("alice").address();
+        let pay=|key:&pocol_lp4_execution::txsign::Key,nonce:u64,tip:u64,to:Address|Tx{chain_id:777938,nonce,max_priority:U256::from(tip),max_fee,gas:21000,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(key);
+        let per=POOL_MAX_TXS/senders.len();
+        for s in &senders{let k=devnet::account_key(s);for j in 0..per{node.submit_tx(pay(&k,j as u64,1_000_000_000,sink),false).unwrap();}}
+        assert_eq!(node.pool.txs.len(),POOL_MAX_TXS);node.pool_audit().unwrap();
+        let accounts=node.chain.head().summary.as_ref().unwrap().user_accounts;
+        assert!(max_fee*U256::from(21000)<creation_fees::price(f0,64,accounts,1).unwrap(),"the new account's burn passes the signed maximum");
+        let zed=devnet::account_key("zed");
+        let e=node.submit_tx(pay(&zed,0,3_000_000_000,new_address(190)),false).unwrap_err();assert!(e.contains("CreationFee"),"{e}");
+        assert_eq!((node.pool.txs.len(),node.pool.ghost_gas,node.stats.pool_evicted),(POOL_MAX_TXS,0,0),"nothing evicted");node.pool_audit().unwrap();
+        node.submit_tx(pay(&zed,0,3_000_000_000,sink),false).unwrap();
+        assert_eq!((node.pool.txs.len(),node.pool.ghost_gas,node.stats.pool_evicted),(POOL_MAX_TXS,21000,1),"the same bid without a burn evicts one");node.pool_audit().unwrap();
+    }
+
+    /// D-V3-21 wallets raise the gas limit to carry the burn (eth_estimateGas); N4's pool charges that signed limit: the
+    /// gas bound and the sender quota count it (`Pool::gas`), and the overdraft rule prices it at gas_limit*max_fee +
+    /// value. dave holds the estimated creation's maximum plus one 21000-gas transfer's maximum, less one wei: the
+    /// creation is pooled and his next transfer is refused by the overdraft rule, though both would fit his balance at
+    /// 21000 gas each.
+    #[test]
+    fn the_pool_charges_the_gas_limit_a_wallet_raises_for_the_burn(){
+        let f0=U256::from(1_000_000_000_000_000u64);let max_fee=U256::from(100_000_000_000u64);let to=new_address(185);
+        let tune=|c:&mut DevnetConfig,balance:U256|{c.acct_cap=8;c.f0_acct=f0;c.accounts.push(("dave".into(),balance));};
+        let dave=devnet::account_key("dave");
+        let request=serde_json::json!([{"from":dave.address(),"to":to,"value":"0x1","maxFeePerGas":format!("{max_fee:#x}"),"maxPriorityFeePerGas":"0x7"},"latest"]);
+        // Estimated on the same chain with a large balance, so the funds cap does not bind the search.
+        let gas={let dir=Temp::new();let cfg=node_cfg(|c|tune(c,U256::from(10u128.pow(24))));let mut probe=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();
+            let e=rpc(&mut probe,"eth_estimateGas",request);assert!(e.get("error").is_none(),"{e}");quantity(&e["result"]).to::<u64>()};
+        assert!(gas>2*21000,"the gas limit carries the burn: {gas}");
+        let one=max_fee*U256::from(21000)+U256::from(1);let balance=max_fee*U256::from(gas)+one;
+        let dir=Temp::new();let cfg=node_cfg(|c|tune(c,balance));let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();
+        let before=node.pool.gas;node.submit_tx(priced_tx(&dave,0,to,U256::from(1),gas,max_fee),false).unwrap();
+        assert_eq!(node.pool.gas-before,gas,"the pool counts the raised gas limit");
+        assert!(one+one<=balance,"at 21000 gas each both would be covered");
+        let next=priced_tx(&dave,1,devnet::account_key("alice").address(),U256::from(1),21000,max_fee);
+        assert_eq!(node.submit_tx(next,false).unwrap_err(),pocold::node::POOL_OVERDRAFT);assert_eq!(node.pool.txs.len(),1);
+    }
+
     #[test]
     fn log_count_and_byte_boundaries_are_inclusive_in_both_domains(){
         for v3 in [false,true]{let n=net(v3,|_|{});let limits=user_phase::log_caps(v3);let target=new_address(125);
@@ -683,6 +756,26 @@ mod preview{
         assert_eq!(full.chain.head().summary.as_ref().unwrap().user_accounts,8);
     }
 
+    /// N4 (V3-24): a v3 estimate models the v3 log caps (256 KiB / 4,368 per block). A call whose one LOG0 carries
+    /// 32 KiB of data (past the spec-1 block cap, which the spec-1 estimate refuses: fee_pool.rs) is estimated; one whose
+    /// LOG0 charges past 256 KiB is refused (LogBytes), and so is one that emits 4,369 logs (LogCount).
+    #[test]
+    fn v3_estimate_models_the_v3_log_caps(){
+        let dir=Temp::new();let cfg=node_cfg(|_|{});let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        let caps=user_phase::log_caps(true);
+        // PUSH3 size; PUSH1 0; LOG0; STOP.
+        let one=|size:u64|vec![0x62,(size>>16) as u8,(size>>8) as u8,size as u8,0x60,0,0xa0,0];
+        // PUSH2 count; loop: LOG0(0, 0); count-1; JUMPI loop while nonzero; STOP.
+        let count=caps.count+1;let many=vec![0x61,(count>>8) as u8,(count&255) as u8,0x5b,0x60,0,0x60,0,0xa0,0x60,1,0x90,0x03,0x80,0x60,3,0x57,0];
+        let head=node.chain.full_entry(&node.chain.head).unwrap();let fee=node.chain.child_ctx(&head,0).unwrap().base_fee*U256::from(2)+U256::from(7);
+        let deploy=|nonce:u64,r:&[u8]|Tx{chain_id:777938,nonce,max_priority:U256::from(7),max_fee:fee,gas:300_000,to:None,value:U256::ZERO,data:Bytes::from(init(r))}.sign_1559(&alice);
+        let b=solve(&node,vec![deploy(0,&one(32768)),deploy(1,&one(caps.bytes)),deploy(2,&many)],cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+        let est=|node:&mut pocold::node::Node,i:u64|rpc(node,"eth_estimateGas",serde_json::json!([{"from":alice.address(),"to":alice.address().create(i)},"latest"]));
+        let r=est(&mut node,0);assert!(r.get("error").is_none(),"32 KiB of logs fit a v3 block: {r}");
+        let r=est(&mut node,1);assert_eq!(r["error"]["code"],-32000,"{r}");assert_eq!(r["error"]["data"]["reason"],"LogBytes","{r}");
+        let r=est(&mut node,2);assert_eq!(r["error"]["code"],-32000,"{r}");assert_eq!(r["error"]["data"]["reason"],"LogCount","{r}");
+    }
+
     #[test]
     fn a_thousand_validated_empty_blocks_keep_the_v3_floor_and_legacy_london_decay(){
         for v3 in [false,true]{let mut cfg=node_cfg(|_|{});cfg.spec_version=if v3{2}else{1};let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
@@ -766,5 +859,279 @@ mod preview{
         node.submit_tx(raw.clone(),false).unwrap();let block=solve(&node,vec![raw],cfg.g_ts+4);assert!(node.import(block,None).unwrap());
         let result=rpc(&mut node,"eth_estimateGas",serde_json::json!([{"from":alice.address(),"to":alice.address().create(0)},"latest"]));
         assert!(result.get("error").is_none(),"the next block has an 8M GASLIMIT and creates no slot: {result}");
+    }
+
+    /// A 1559 transfer of 1 wei with an explicit tip and gas limit.
+    fn tipped(key:&pocol_lp4_execution::txsign::Key,nonce:u64,tip:u64,max_fee:U256,to:Address,gas:u64)->Vec<u8>{
+        Tx{chain_id:777938,nonce,max_priority:U256::from(tip),max_fee,gas,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(key)
+    }
+
+    /// N4 x D-V3-21 review: a parked transaction is not executed, so before one evicts a parked one by fee it passes the
+    /// pool's checks on the head state. A 21000-gas transfer to a new account (a common wallet default) whose burn
+    /// passes its signed max_fee*gas_limit can never be included; at a full parked set it is refused with the creation
+    /// charge's answer and the valid parked transaction stays. The same bid without a burn evicts it. With free parked
+    /// room the over-burn one is still parked (it is not executed; network.md, Parked set), and the selection skips it.
+    #[test]
+    fn a_parked_over_burn_newcomer_evicts_nothing_by_fee(){
+        let f0=U256::from(100_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.acct_cap=8;c.f0_acct=f0;for s in ["filler","low","hi"]{c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let dir=Temp::new();let mut config=node_config(&dir,false);config.limits.pool_gas_max=Some(8_000_000);
+        let mut node=pocold::node::Node::open(config,node_spec(&cfg)).unwrap();
+        let gl=node.chain.spec.cp().GAS_LIMIT;assert_eq!(gl,8_000_000);
+        let max_fee=U256::from(100_000_000_000u64);let sink=devnet::account_key("alice").address();let key=|s:&str|devnet::account_key(s);
+        node.submit_tx(tipped(&key("filler"),0,1_000_000_000,max_fee,sink,gl),false).unwrap();
+        assert_eq!(node.pool.gas,node.pool.gas_max,"the gas bound is held");
+        node.set_pool_parked_max(1);
+        let low=tipped(&key("low"),0,1_000_000_000,max_fee,sink,21000);
+        assert_eq!(node.submit_tx(low.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        let accounts=node.chain.head().summary.as_ref().unwrap().user_accounts;
+        assert!(max_fee*U256::from(21000)<creation_fees::price(f0,8,accounts,1).unwrap(),"the burn passes the signed maximum");
+        let hi=tipped(&key("hi"),0,3_000_000_000,max_fee,new_address(199),21000);
+        let e=node.submit_tx(hi.clone(),false).unwrap_err();assert_eq!(e,"-32000 creation charge would halt (CreationFee)");
+        assert_eq!((node.pool_parked(),node.stats.parked_fee_evicted,node.stats.parked_evicted),(vec![low.clone()],0,0),"nothing evicted");
+        node.pool_audit().unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();assert!(node.template_selection(&p,cfg.g_ts+4).txs.contains(&low));
+        // The same bid without a burn evicts it, as before.
+        let hi2=tipped(&key("bob"),0,3_000_000_000,max_fee,sink,21000);
+        assert_eq!(node.submit_tx(hi2.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        assert_eq!((node.pool_parked(),node.stats.parked_fee_evicted),(vec![hi2.clone()],1));node.pool_audit().unwrap();
+        // Free parked room: the over-burn one is held (two reads, no execution) but never selected.
+        node.set_pool_parked_max(2);
+        assert_eq!(node.submit_tx(hi.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        let sel=node.template_selection(&p,cfg.g_ts+4);assert!(sel.txs.contains(&hi2)&&!sel.txs.contains(&hi));
+    }
+
+    /// N4 x D-V3-21 review: the same for PR6's declared-gas eviction, which comes first. Honest parked transactions: a
+    /// creation whose wallet raised its gas limit for the burn (the most declared gas, PR6's first victim) and four
+    /// cheap transfers. Over-burn 21000-gas transfers to new accounts at a higher tip are refused with the creation
+    /// charge's answer and evict none of them; the template is unchanged. A valid newcomer still evicts the creation by
+    /// PR6's rule.
+    #[test]
+    fn parked_over_burn_newcomers_evict_no_honest_parked_ones(){
+        let f0=U256::from(10_000_000_000_000_000u64);
+        let honest=["h0","h1","h2","h3"];let spam=["z0","z1","z2","z3","z4"];
+        let cfg=node_cfg(|c|{c.acct_cap=64;c.f0_acct=f0;for s in honest.iter().chain(spam.iter()).chain(["filler","maker","valid"].iter()){c.accounts.push(((*s).into(),U256::from(10u128.pow(24))));}});
+        let spec=node_spec(&cfg);let gl=spec.cp().GAS_LIMIT;
+        let dir=Temp::new();let mut config=node_config(&dir,false);config.limits.pool_gas_max=Some(gl);config.limits.pool_sender_gas_max=Some(gl);
+        let mut node=pocold::node::Node::open(config,spec).unwrap();node.set_pool_parked_max(5);
+        let max_fee=U256::from(100_000_000_000u64);assert!(next_base(&node)+U256::from(3_000_000_000u64)<max_fee);
+        let sink=devnet::account_key("alice").address();let key=|s:&str|devnet::account_key(s);
+        let filler=tipped(&key("filler"),0,2_000_000_000,max_fee,sink,gl);node.submit_tx(filler.clone(),false).unwrap();
+        assert_eq!(node.pool.gas,gl,"the gas bound is held");
+        let accounts=node.chain.head().summary.as_ref().unwrap().user_accounts;let burn=creation_fees::price(f0,64,accounts,1).unwrap();
+        let g=u64::try_from(burn/max_fee).unwrap()*2+21000;assert!(max_fee*U256::from(g)>=burn+max_fee*U256::from(21000u64));
+        let made=tipped(&key("maker"),0,2_000_000_000,max_fee,new_address(201),g);
+        assert_eq!(node.submit_tx(made.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        for h in honest{assert_eq!(node.submit_tx(tipped(&key(h),0,1_000_000_000,max_fee,sink,21000),false).unwrap_err(),pocold::node::POOL_PARKED);}
+        let parked=node.pool_parked();assert_eq!(parked.len(),5);node.pool_audit().unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let before=node.template_txs(&p);
+        assert_eq!(before.len(),6,"the filler and the 5 honest parked ones");
+        assert!(max_fee*U256::from(21000u64)<burn,"the spam's burn alone is past its signed maximum");
+        for (i,z) in spam.iter().enumerate(){
+            let e=node.submit_tx(tipped(&key(z),0,3_000_000_000,max_fee,new_address(210+i as u8),21000),false).unwrap_err();
+            assert_eq!(e,"-32000 creation charge would halt (CreationFee)");
+        }
+        assert_eq!((node.pool_parked(),node.stats.parked_evicted,node.stats.parked_fee_evicted),(parked.clone(),0,0),"no honest parked one was evicted");
+        node.pool_audit().unwrap();assert_eq!(node.template_txs(&p),before);
+        // A valid newcomer declaring less gas evicts the creation by PR6's rule, as before.
+        let valid=tipped(&key("valid"),0,3_000_000_000,max_fee,sink,21000);
+        assert_eq!(node.submit_tx(valid.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        let now=node.pool_parked();assert!(now.contains(&valid)&&!now.contains(&made));assert_eq!(node.stats.parked_evicted,1);node.pool_audit().unwrap();
+    }
+
+    /// N4 x D-V3-21 review: a replaced (or evicted) transaction's writes stay in the pending state until the next head,
+    /// so there a creation can look done. alice pools a transfer creating account A (gas raised for the burn) and
+    /// replaces it with a plain transfer; A stays in the pending state. At the count bound a newcomer that would evict
+    /// also passes the pool's checks on the head state: 21000-gas transfers to A, whose burn on the head is past their
+    /// signed maximum, are refused with the creation charge's answer and evict nothing; the same bid to a funded
+    /// account evicts one.
+    #[test]
+    fn a_ghost_write_lets_no_over_burn_newcomer_evict(){
+        use pocold::node::POOL_MAX_TXS;
+        let senders:Vec<String>=(0..16).map(|i|format!("s{i}")).collect();let attackers:Vec<String>=(0..8).map(|i|format!("a{i}")).collect();
+        let f0=U256::from(10_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.acct_cap=64;c.f0_acct=f0;for s in senders.iter().chain(attackers.iter()).map(|s|s.as_str()).chain(["zed"]){c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let max_fee=U256::from(100_000_000_000u64);
+        let dir=Temp::new();let mut config=node_config(&dir,false);config.limits.pool_gas_max=Some(POOL_MAX_TXS as u64*21000+10_000_000);
+        let mut node=pocold::node::Node::open(config,node_spec(&cfg)).unwrap();
+        let accounts=node.chain.head().summary.as_ref().unwrap().user_accounts;let burn=creation_fees::price(f0,64,accounts,1).unwrap();
+        assert!(next_base(&node)+U256::from(6_000_000_000u64)<max_fee);
+        let sink=devnet::account_key("alice").address();let a_new=new_address(220);let alice=devnet::account_key("alice");
+        let g=u64::try_from(burn/max_fee).unwrap()*2+21000;
+        node.submit_tx(tipped(&alice,0,5_000_000_000,max_fee,a_new,g),false).unwrap();
+        let plain=tipped(&alice,0,6_000_000_000,max_fee*U256::from(2),sink,21000);node.submit_tx(plain.clone(),false).unwrap();assert_eq!(node.stats.pool_replaced,1);
+        let mut nonce=vec![0u64;senders.len()];let mut k=0;
+        while node.pool.txs.len()<POOL_MAX_TXS{let i=k%senders.len();node.submit_tx(tipped(&devnet::account_key(&senders[i]),nonce[i],1_000_000_000,max_fee,sink,21000),false).unwrap();nonce[i]+=1;k+=1;}
+        node.pool_audit().unwrap();
+        let e=node.submit_tx(tipped(&devnet::account_key("zed"),0,3_000_000_000,max_fee,new_address(221),21000),false).unwrap_err();assert!(e.contains("CreationFee"),"{e}");
+        assert!(max_fee*U256::from(21000u64)<burn,"on the head a 21000-gas transfer to A burns past its signed maximum");
+        for a in &attackers{
+            let e=node.submit_tx(tipped(&devnet::account_key(a),0,3_000_000_000,max_fee,a_new,21000),false).unwrap_err();
+            assert_eq!(e,"-32000 creation charge would halt (CreationFee)");
+        }
+        assert_eq!((node.pool.txs.len(),node.stats.pool_evicted,node.pool.ghost_gas),(POOL_MAX_TXS,0,0),"nothing evicted");node.pool_audit().unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();assert!(node.template_txs(&p).contains(&plain));
+        // The same bid to a funded account evicts one, as before.
+        node.submit_tx(tipped(&devnet::account_key(&attackers[0]),0,3_000_000_000,max_fee,sink,21000),false).unwrap();
+        assert_eq!((node.pool.txs.len(),node.stats.pool_evicted,node.pool.ghost_gas),(POOL_MAX_TXS,1,21000));node.pool_audit().unwrap();
+    }
+
+    /// N4 x D-V3-21 review, documented (network.md, Replace-by-fee): a pooled replacement is priced at the pending
+    /// state's utilisation, which counts what the old transaction creates, so near a cap it pays as if one more unit
+    /// were taken. bob's four creations bring the pending state to 7 of 8 accounts; alice's transfer creating the 8th
+    /// is pooled and selected, but her fee bump of it (same gas limit and recipient) is refused (AcctCap) and the
+    /// original stays pooled and selected.
+    #[test]
+    fn a_replacement_creating_the_last_free_account_is_priced_with_its_predecessor(){
+        let dir=Temp::new();let f0=U256::from(1000u64);let cfg=node_cfg(|c|{c.acct_cap=8;c.f0_acct=f0});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        assert_eq!(node.chain.head().summary.as_ref().unwrap().user_accounts,3);
+        let max_fee=U256::from(100_000_000_000u64);let to=new_address(180);
+        let bob=devnet::account_key("bob");for i in 0..4u8{node.submit_tx(priced_tx(&bob,u64::from(i),new_address(170+i),U256::from(1),100_000,max_fee),false).unwrap();}
+        let first=priced_tx(&alice,0,to,U256::from(1),100_000,max_fee);node.submit_tx(first.clone(),false).unwrap();
+        let bumped=Tx{chain_id:777938,nonce:0,max_priority:U256::from(100),max_fee:max_fee*U256::from(2),gas:100_000,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(&alice);
+        assert_eq!(node.submit_tx(bumped,false).unwrap_err(),"-32000 creation charge would halt (AcctCap)");
+        assert_eq!((node.pool.txs.len(),node.stats.pool_replaced),(5,0));
+        let p=node.chain.full_entry(&node.chain.head).unwrap();assert!(node.template_selection(&p,cfg.g_ts+4).txs.contains(&first));
+    }
+
+    /// N4 x D-V3-21 re-review: a parked transaction whose burn depends on a pooled transaction a block takes before it.
+    /// tx1 (pooled, 3 gwei) sends 1 wei to X; tx2 (3 gwei, 100k gas, so its signed maximum is 1e16) is a creation whose
+    /// init code writes a slot only when the address it reads has a balance. On the head X is empty, so the head checks
+    /// alone pass it; every block takes tx1 first, so tx2 creates the slot and burns about 1e17, past its maximum. At a
+    /// full parked set it would evict `low` by fee: it is also checked on the pending state (which has tx1's effects),
+    /// so it is refused with the creation charge's answer, low stays and is selected, and the refusal counts in
+    /// evictRefused. The same holds when tx1 is another sender's. The control (the init code reads an address no one
+    /// funds) evicts low and is selected.
+    fn predecessor_case(watch:u8,same_sender:bool)->Result<(),String>{
+        let f0s=U256::from(100_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.f0_slot=f0s;for s in ["filler","low","ann"]{c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let dir=Temp::new();let mut config=node_config(&dir,false);config.limits.pool_gas_max=Some(8_000_000);
+        let mut node=pocold::node::Node::open(config,node_spec(&cfg)).unwrap();
+        let max_fee=U256::from(100_000_000_000u64);assert!(next_base(&node)+U256::from(3_000_000_000u64)<max_fee);
+        let sink=devnet::account_key("alice").address();let key=|s:&str|devnet::account_key(s);
+        let ann=key("ann");let first=if same_sender{key("ann")}else{key("bob")};
+        let tx1=tipped(&first,0,3_000_000_000,max_fee,new_address(230),100_000);node.submit_tx(tx1.clone(),false).unwrap();
+        let filler=tipped(&key("filler"),0,3_000_000_000,max_fee,sink,8_000_000-150_000);node.submit_tx(filler.clone(),false).unwrap();
+        node.set_pool_parked_max(1);
+        let low=tipped(&key("low"),0,1_000_000_000,max_fee,sink,60_000);
+        assert_eq!(node.submit_tx(low.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        let mut code=vec![0x73];code.extend_from_slice(new_address(watch).as_slice());code.extend_from_slice(&[0x31,0x60,26,0x57,0x00,0x5b,0x60,1,0x60,0,0x55,0x00]);
+        assert_eq!(code[26],0x5b);
+        let tx2=Tx{chain_id:777938,nonce:u64::from(same_sender),max_priority:U256::from(3_000_000_000u64),max_fee,gas:100_000,to:None,value:U256::ZERO,data:Bytes::from(code)}.sign_1559(&ann);
+        assert!(max_fee*U256::from(100_000u64)<f0s,"one slot's burn passes tx2's signed maximum");
+        let refused=node.stats.evict_refused;
+        let e=node.submit_tx(tx2.clone(),false).unwrap_err();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let sel=node.template_selection(&p,cfg.g_ts+4).txs;
+        assert!(sel.contains(&tx1)&&sel.contains(&filler));node.pool_audit().unwrap();
+        if e==pocold::node::POOL_PARKED{
+            assert_eq!((node.pool_parked(),node.stats.parked_fee_evicted,node.stats.evict_refused),(vec![tx2.clone()],1,refused));
+            assert!(sel.contains(&tx2),"the control is selected");
+            return Ok(())
+        }
+        assert_eq!((node.pool_parked(),node.stats.parked_fee_evicted,node.stats.evict_refused),(vec![low.clone()],0,refused+1),"nothing evicted");
+        assert!(sel.contains(&low));
+        Err(e)
+    }
+    #[test]
+    fn a_parked_newcomer_whose_burn_depends_on_a_pooled_predecessor_evicts_nothing(){
+        for same in [true,false]{
+            assert_eq!(predecessor_case(231,same),Ok(()),"control: the init code reads an address no one funds");
+            assert_eq!(predecessor_case(230,same).unwrap_err(),"-32000 creation charge would halt (CreationFee)","same sender: {same}");
+        }
+    }
+
+    /// N4 x D-V3-21 re-review: a replacement of a sender's first parked transaction passes the checks an evicting one
+    /// passes, so a transaction cannot evict by fee and then be swapped for one that could not have evicted. hi's valid
+    /// transfer at 3 gwei evicts `low`; its bumped replacement (4 gwei, 2x max_fee, 21000 gas) to a new account, whose
+    /// burn passes its signed maximum, is refused with the creation charge's answer, and the parked set stays [good],
+    /// which is selected. A bumped replacement without a burn replaces it.
+    #[test]
+    fn a_parked_replacement_passes_the_eviction_checks(){
+        let f0=U256::from(100_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.acct_cap=8;c.f0_acct=f0;for s in ["filler","low","hi"]{c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let dir=Temp::new();let mut config=node_config(&dir,false);config.limits.pool_gas_max=Some(8_000_000);
+        let mut node=pocold::node::Node::open(config,node_spec(&cfg)).unwrap();
+        let gl=node.chain.spec.cp().GAS_LIMIT;
+        let max_fee=U256::from(100_000_000_000u64);let sink=devnet::account_key("alice").address();let key=|s:&str|devnet::account_key(s);
+        node.submit_tx(tipped(&key("filler"),0,1_000_000_000,max_fee,sink,gl),false).unwrap();
+        node.set_pool_parked_max(1);
+        let low=tipped(&key("low"),0,1_000_000_000,max_fee,sink,21000);
+        assert_eq!(node.submit_tx(low.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        let good=tipped(&key("hi"),0,3_000_000_000,max_fee,sink,21000);
+        assert_eq!(node.submit_tx(good.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        assert_eq!((node.pool_parked(),node.stats.parked_fee_evicted),(vec![good.clone()],1),"low evicted by a valid one");
+        let accounts=node.chain.head().summary.as_ref().unwrap().user_accounts;
+        let bad=tipped(&key("hi"),0,4_000_000_000,max_fee*U256::from(2),new_address(231),21000);
+        assert!(max_fee*U256::from(2*21000u64)<creation_fees::price(f0,8,accounts,1).unwrap());
+        assert_eq!(node.submit_tx(bad.clone(),false).unwrap_err(),"-32000 creation charge would halt (CreationFee)");
+        assert_eq!((node.pool_parked(),node.stats.pool_replaced),(vec![good.clone()],0),"the parked one stays");node.pool_audit().unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();assert!(node.template_selection(&p,cfg.g_ts+4).txs.contains(&good));
+        let ok=tipped(&key("hi"),0,4_000_000_000,max_fee*U256::from(2),sink,21000);
+        node.submit_tx(ok.clone(),false).unwrap();
+        assert_eq!((node.pool_parked(),node.stats.pool_replaced),(vec![ok.clone()],1));node.pool_audit().unwrap();
+    }
+
+    /// N4 x D-V3-21 re-review, documented (network.md, Lowest-fee eviction): the eviction checks price a newcomer on
+    /// the head state too, where its sender's own earlier pooled transactions have not run. alice's follow-up to her
+    /// pooled creation of X (a 21000-gas transfer to X) is valid in sequence and, below the bounds, admitted and
+    /// selected after it; at the count bound, with cheaper victims, it is priced on the head as a creation and refused
+    /// (CreationFee) until the next head, and nothing is evicted. The same bid to a funded account evicts one.
+    #[test]
+    fn a_follow_up_to_its_senders_pooled_creation_is_priced_on_the_head_at_the_bound(){
+        use pocold::node::POOL_MAX_TXS;
+        let senders:Vec<String>=(0..16).map(|i|format!("s{i}")).collect();
+        let f0=U256::from(10_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.acct_cap=64;c.f0_acct=f0;for s in senders.iter().map(|s|s.as_str()){c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let max_fee=U256::from(100_000_000_000u64);
+        let open=|dir:&Temp|{let mut config=node_config(dir,false);config.limits.pool_gas_max=Some(POOL_MAX_TXS as u64*21000+10_000_000);pocold::node::Node::open(config,node_spec(&cfg)).unwrap()};
+        let (d1,d2)=(Temp::new(),Temp::new());let (mut node,mut below)=(open(&d1),open(&d2));
+        let accounts=node.chain.head().summary.as_ref().unwrap().user_accounts;let burn=creation_fees::price(f0,64,accounts,1).unwrap();
+        let sink=devnet::account_key("bob").address();let x=new_address(230);let alice=devnet::account_key("alice");
+        let g=u64::try_from(burn/max_fee).unwrap()*2+21000;
+        let create=tipped(&alice,0,5_000_000_000,max_fee,x,g);let follow=tipped(&alice,1,3_000_000_000,max_fee,x,21000);
+        assert!(max_fee*U256::from(21000u64)<burn,"on the bare head the follow-up would burn past its maximum");
+        below.submit_tx(create.clone(),false).unwrap();below.submit_tx(follow.clone(),false).unwrap();
+        let p=below.chain.full_entry(&below.chain.head).unwrap();let sel=below.template_txs(&p);
+        assert!(sel.contains(&create)&&sel.contains(&follow),"valid in sequence");
+        node.submit_tx(create.clone(),false).unwrap();
+        let mut nonce=vec![0u64;senders.len()];let mut k=0;
+        while node.pool.txs.len()<POOL_MAX_TXS{let i=k%senders.len();node.submit_tx(tipped(&devnet::account_key(&senders[i]),nonce[i],1_000_000_000,max_fee,sink,21000),false).unwrap();nonce[i]+=1;k+=1;}
+        let refused=node.stats.evict_refused;
+        assert_eq!(node.submit_tx(follow.clone(),false).unwrap_err(),"-32000 creation charge would halt (CreationFee)");
+        assert_eq!((node.stats.pool_evicted,node.stats.evict_refused,node.pool.txs.len()),(0,refused+1,POOL_MAX_TXS),"nothing evicted");node.pool_audit().unwrap();
+        node.submit_tx(tipped(&alice,1,3_000_000_000,max_fee,sink,21000),false).unwrap();assert_eq!(node.stats.pool_evicted,1);node.pool_audit().unwrap();
+    }
+
+    /// N4 x D-V3-21 re-review: neither the head nor the pending state has a parked transaction's effects, so under v3 a
+    /// transaction behind its sender's parked ones evicts nothing, whatever it would pay: alice's parked creation of X
+    /// and her follow-up transfer to X (valid in sequence; with free room it is parked) at a full parked set would evict
+    /// `low` by fee, and so would her plain transfer to a funded account. Both are refused "pool full (gas)", counted in
+    /// evictRefused, and low stays.
+    #[test]
+    fn a_parked_run_member_evicts_nothing_under_v3(){
+        let f0=U256::from(10_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.acct_cap=64;c.f0_acct=f0;for s in ["filler","low"]{c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let open=|dir:&Temp|{let mut config=node_config(dir,false);config.limits.pool_gas_max=Some(8_000_000);pocold::node::Node::open(config,node_spec(&cfg)).unwrap()};
+        let max_fee=U256::from(100_000_000_000u64);let sink=devnet::account_key("bob").address();let key=|s:&str|devnet::account_key(s);
+        let x=new_address(232);let alice=key("alice");
+        let (d1,d2)=(Temp::new(),Temp::new());let (mut node,mut free)=(open(&d1),open(&d2));
+        let gl=node.chain.spec.cp().GAS_LIMIT;
+        let accounts=node.chain.head().summary.as_ref().unwrap().user_accounts;let burn=creation_fees::price(f0,64,accounts,1).unwrap();
+        let g=u64::try_from(burn/max_fee).unwrap()*2+21000;assert!(max_fee*U256::from(21000u64)<burn);
+        let create=tipped(&alice,0,5_000_000_000,max_fee,x,g);let follow=tipped(&alice,1,3_000_000_000,max_fee,x,21000);
+        let low=tipped(&key("low"),0,1_000_000_000,max_fee,sink,21000);
+        for n in [&mut node,&mut free]{
+            n.submit_tx(tipped(&key("filler"),0,1_000_000_000,max_fee,sink,gl),false).unwrap();
+            assert_eq!(n.submit_tx(low.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+            assert_eq!(n.submit_tx(create.clone(),false).unwrap_err(),pocold::node::POOL_PARKED);
+        }
+        free.set_pool_parked_max(3);assert_eq!(free.submit_tx(follow.clone(),false).unwrap_err(),pocold::node::POOL_PARKED,"with room it is parked");
+        node.set_pool_parked_max(2);
+        let refused=node.stats.evict_refused;
+        assert_eq!(node.submit_tx(follow.clone(),false).unwrap_err(),pocold::node::POOL_FULL_GAS);
+        assert_eq!(node.submit_tx(tipped(&alice,1,3_000_000_000,max_fee,sink,21000),false).unwrap_err(),pocold::node::POOL_FULL_GAS);
+        assert_eq!((node.stats.parked_fee_evicted,node.stats.parked_evicted,node.stats.evict_refused),(0,0,refused+2));
+        assert_eq!(node.pool_parked().len(),2);assert!(node.pool_parked().contains(&low));node.pool_audit().unwrap();
     }
 }
