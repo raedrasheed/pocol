@@ -991,7 +991,10 @@ class VectorChain(FakeV3Chain):
 
 
 TAPE_PATH = Path(__file__).resolve().parent / 'testdata' / 'v3-devnet-tape.json'
-UNREAD_FIELDS = ('logsBloom', 'logs')     # block and receipt fields snapshot_v3 never reads, left out of the tape
+# Block and receipt fields snapshot_v3 never reads, and the pocol_getParams build-identity fields (they change with any
+# node source change, not with the chain), left out of the tape.
+UNREAD_FIELDS = ('logsBloom', 'logs', 'compatibilitySha256', 'consensusCompatibilitySha256', 'consensusIdentity',
+                 'consensusPinned', 'consensusRulesVersion', 'rpcLimits')
 
 
 def _tape_key(method, params):
@@ -1312,7 +1315,7 @@ class V3RecordedTapeTests(unittest.TestCase):
                     except Exception as error:      # noqa: BLE001 - the point of the test
                         self.fail('%s at %s %s: %r' % (key[:60], path, new, error))
                     cases += 1
-        self.assertGreater(cases, 500)
+        self.assertGreater(cases, 450)     # every read field of every answer; the build-identity fields are not on the tape
 
 
 def _devnet():
