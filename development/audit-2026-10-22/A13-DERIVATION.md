@@ -571,7 +571,10 @@ three terms: one up and two down. It also withdraws one projection.
     and u64 per pooled and parked candidate, at most 61,440 B). They run on the consensus thread during an admission,
     never during a selection, so the same place bounds them.
   - A pooled replacement's execution checks run on a scratch overlay over the head state: one execution, the same
-    term as any admission's (EXECUTIONS = 1).
+    term as any admission's (EXECUTIONS = 1). N4 x D-V3-21 review: under v3 the same checks run once for a newcomer
+    before it evicts (a pooled transaction: before its own execution on the pending state, so no result is held
+    across them; a parked one: a parked transaction is executed only there), with the fee eviction's plan and PR6's
+    run map dropped first. One execution at a time, so the term is unchanged.
 
   No pin moves: the devnet total stays 3,397,791,234 (eviction off 3,388,329,613), and the live chain's halt and
   disk-bytes stops in tests/network_budget.rs are unchanged. (The first N4 draft added +1,302,528 B with wider
