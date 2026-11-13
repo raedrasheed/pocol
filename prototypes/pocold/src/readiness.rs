@@ -238,7 +238,7 @@ mod tests{
         let a=AdmissionFacts::recorded(&serde_json::json!({"profileKind":"Network","admission":{}}),777001).unwrap();
         assert_eq!(a,AdmissionFacts{scope:"unrecorded".into(),conditions:vec!["unreadable".into()],waivers:vec!["unreadable".into()],network_profile:true});
         // R22: a recorded network profile on any other chain is not one (the boot refuses it).
-        for chain in [1599846715,777002,0]{
+        for chain in [123456789,777002,0]{
             assert!(!AdmissionFacts::recorded(&serde_json::json!({"profileKind":"network","admission":{}}),chain).unwrap().network_profile,"{chain}");
         }
     }
