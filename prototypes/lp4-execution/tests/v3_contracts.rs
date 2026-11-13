@@ -2021,7 +2021,7 @@ mod preview{
     /// them).
     #[test]
     fn v3_final_block_burns_the_carry_on_real_blocks(){
-        let mut finalize_gas=0u64;let mut paid=BTreeMap::new();
+        let mut finalize_gas=0u64;let mut paid=BTreeMap::new();let mut v3_calls:BTreeMap<&str,u64>=BTreeMap::new();
         for (spec,covered) in [(2u8,true),(2,false),(1,false)]{
             let mut cfg=config(spec,&["a","b","c"]);cfg.h_close=10;cfg.h_end=16;cfg.ret=2;
             let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..3).map(|i|r.id(i)).collect();
@@ -2039,6 +2039,7 @@ mod preview{
                 let o=r.block(if h%2==0{Proposer::Signed(ids[(h%3) as usize])}else{Proposer::Fallback},vec![],txs,ids[(h%3) as usize],sh);
                 finals.push(o.is_final);tips+=o.tips;
                 apply::check_escrow_invariant(&o.state,&r.net.profile,h,o.is_final).unwrap();
+                if spec==2{for (n,g) in &o.meter.call_gas{let e=v3_calls.entry(*n).or_insert(0);*e=(*e).max(*g);}}
                 if spec==2&&covered&&h<16{assert!(apply::chain_facts(&o.state).burned_total.is_zero(),"nothing burns before F at {h}");}
                 if o.is_final&&spec==2{
                     let g=o.meter.call_gas.iter().find(|(n,_)|*n=="finalize").unwrap().1;finalize_gas=finalize_gas.max(g);
@@ -2073,6 +2074,15 @@ mod preview{
         assert!(paid[&2].0>paid[&1].0&&paid[&2].1<paid[&1].1,"the carry pays members what the spec-1 set burns");
         assert!(finalize_gas<=admission::envelope(ProgramSet::V3,"finalize").unwrap(),"finalize {finalize_gas} above the v3 envelope");
         assert!(finalize_gas>admission::envelope(ProgramSet::EarnIn,"finalize").unwrap(),"finalize {finalize_gas} fits the earn-in envelope: drop its v3 entry");
+        // Every call these v3 chains ran, the final block's settleFinal among them, within its composed v3 entry (a
+        // small-chain check of settleFinal on a real v3 final block; its entry's bound by the measured settle maximum is
+        // v3_sys_gas_and_caps_within_the_v3_envelope's).
+        eprintln!("v3 final-chain call gas {v3_calls:?}");
+        for n in ["finalize","settleFinal"]{assert!(v3_calls.contains_key(n),"the v3 final chain ran {n}");}
+        for (n,g) in &v3_calls{
+            let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
+            assert!(*g<=bound,"v3 {n} = {g} above its composed envelope {bound}");
+        }
     }
 
     /// closeBlock's worst path on the v3 set (V3-15/V3-20): the carry into pot h is nonzero (block h-1's settle(h-1-D) left
@@ -2091,7 +2101,7 @@ mod preview{
         let joins=vec![r.register("q0",0,0),r.register("q1",10*PCOL,0)];
         r.block(Proposer::Signed(ids[0]),vec![],joins,ids[1],vec![(1,ids[2])]);
         for h in 2..=5u64{r.block(Proposer::Signed(ids[h as usize%4]),vec![],vec![],ids[1],vec![(1,ids[2])]);}
-        let b=resources::derive(&cp);let mut g=BTreeMap::new();let mut nonce=0u64;let mut carry_settle=0u64;
+        let b=resources::derive(&cp);let mut g=BTreeMap::new();let mut nonce=0u64;let mut carry_settle=0u64;let mut calls:BTreeMap<&str,u64>=BTreeMap::new();
         let big=U256::from(2_000_000_000_000_000u64);// 42 PCOL of tips: a 21 PCOL share
         for (label,proposer,per_gas,evidence) in [("accruing-promoted",q0,big,vec![]),("accruing-partial",q1,U256::from(100_000_000_000_000u64),vec![]),
             ("held",ids[2],big,vec![]),("tomb",ids[3],big,vec![EvidenceEffect::Punish{accused:ids[3]}]),("fallback",Address::ZERO,big,vec![])]{
@@ -2101,6 +2111,7 @@ mod preview{
             assert!(!apply::escrow_carry_into(&parent,r.h).is_zero(),"{label}: a carry into pot h to zero");
             g.insert(label,o.meter.call_gas.iter().find(|(n,_)|*n=="closeBlock").unwrap().1);
             carry_settle=carry_settle.max(o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1);
+            for (n,gas) in &o.meter.call_gas{let e=calls.entry(*n).or_insert(0);*e=(*e).max(*gas);}
             assert!(o.meter.keys.len() as u64<=b.keys_normal&&o.meter.accounts.len() as u64<=b.accts_normal,"{label}: keys {} accounts {} vs {b:?}",o.meter.keys.len(),o.meter.accounts.len());
             let rec=apply::miner_record(&o.state,proposer);
             match label{
@@ -2123,6 +2134,12 @@ mod preview{
         // the spec-1 entry of the same name.
         assert!(worst>admission::envelope(ProgramSet::EarnIn,"closeBlock").unwrap(),"closeBlock {worst} fits the earn-in envelope: drop its v3 entry");
         assert!(worst>admission::envelope(ProgramSet::V1,"closeBlock").unwrap(),"closeBlock {worst} fits the spec-1 envelope: drop its v3 entry");
+        // Every other call the measured blocks ran, within its composed v3 entry.
+        eprintln!("measured blocks' call gas {calls:?}");
+        for (n,gas) in &calls{
+            let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
+            assert!(*gas<=bound,"v3 {n} = {gas} above its composed envelope {bound}");
+        }
     }
     fn b_reg()->U256{U256::from(20*PCOL)}
     /// A v3 chain on which held_total reaches zero: genesis members a..d at B_reg, probationers q0 and q1 registered at
