@@ -28,7 +28,8 @@ to a new genesis; its step 3 switches the identity above.
 
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and
-`publicLaunchReady: false`; these are not overridden by branding. Independent
+`publicLaunchReady: false`, computed with the `launchBlockers` that keep it false
+(V3-28 H1, `pocold status`, `pocold build-info`); these are not overridden by branding. Independent
 external security review and the technical conditions in
 [Current status and limits](#current-status-and-limits) remain outstanding.
 

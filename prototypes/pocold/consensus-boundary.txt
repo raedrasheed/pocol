@@ -65,6 +65,7 @@ root sha3
 =pocold::keyfile
 =pocold::site
 =pocold::network_display
+=pocold::readiness
 # testnet and cutover build genesis files; their outputs are committed by the genesis hash.
 =pocold::testnet
 =pocold::cutover

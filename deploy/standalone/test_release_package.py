@@ -95,6 +95,12 @@ class ReleasePackageTests(unittest.TestCase):
         self.assertEqual(release['applicationId'], 'org.pocol.node')
         self.assertEqual(release['versionCode'], 5)
         self.assertEqual(release['signingStatus'], 'blocked-requires-existing-signer')
+        # V3-28 H1: the raw identity plus the readiness keys the desktop build-info has, marked as not computed.
+        packaged = json.loads((out / 'build-info.json').read_text(encoding='utf-8'))
+        self.assertEqual({k: packaged[k] for k in self.build}, self.build)
+        self.assertIs(packaged['publicLaunchReady'], False)
+        self.assertEqual([b['id'] for b in packaged['launchBlockers']], ['readiness-not-computed'])
+        self.assertEqual(set(packaged), set(self.build) | {'publicLaunchReady', 'launchBlockers'})
 
     def test_android_new_key_app_is_packaged_under_its_own_application_id(self):
         # V3-33: the new-key build is another app (org.pocol.wallet) that installs beside org.pocol.node.

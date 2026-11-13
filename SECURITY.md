@@ -2,7 +2,8 @@
 
 PoCol is experimental software. The public network is operator-designated **PoCol Mainnet**; that name is a
 deployment designation, not a statement of maturity. The engine reports its experimental admission scope,
-`specificationCompliant: false` and `publicLaunchReady: false`, and there has been no independent external
+`specificationCompliant: false` and `publicLaunchReady: false` (computed, with the `launchBlockers` that keep it
+false), and there has been no independent external
 security review (see [Current status and limits](README.md#current-status-and-limits)). Do not hold more value
 on it than you can afford to lose. Even so, we want to hear about every vulnerability, and we treat reports
 seriously.

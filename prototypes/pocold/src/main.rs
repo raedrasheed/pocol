@@ -46,7 +46,7 @@ const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain
 fn command(args:&[String])->i32{
     let Some(cmd)=args.get(1).map(|s|s.as_str()) else {eprintln!("{USAGE}");return 2};
     let r=match cmd{
-        "build-info"=>{println!("{}",pocold::identity::BUILD_INFO);Ok(())},
+        "build-info"=>{println!("{}",pocold::readiness::build_info());Ok(())},
         "init-devnet"=>init(args),
         "init-testnet"=>pocold::testnet::init(args),
         "cutover"=>cutover(args),
