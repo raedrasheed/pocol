@@ -193,9 +193,27 @@ impl Invitation {
         let forks = crate::configured_forks(&info).unwrap_or_default();
         let activation = forks.iter().find(|(version, _)| *version == 2).map(|(_, height)| height.to_string());
         let activations: Vec<&(u16, u64)> = forks.iter().filter(|(version, _)| *version > 1).collect();
-        crate::network_display::annotate_genesis(serde_json::json!({"networkFingerprint":self.fingerprint(),"invitationSchema":self.schema,
+        let mut out = serde_json::json!({"networkFingerprint":self.fingerprint(),"invitationSchema":self.schema,
             "consensusRulesVersion":self.rules_of().ok(),"consensusIdentity":self.published_identity(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],
-            "forkSchedule":forks,"activations":activations,"fullNonceActivationHeight":activation,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"experimental-testnet","publicLaunchReady":false}), &self.files["genesis.spec.hex"])
+            "forkSchedule":forks,"activations":activations,"fullNonceActivationHeight":activation,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"experimental-testnet"});
+        crate::readiness::annotate(&mut out, &self.launch_blockers(&info, &forks));
+        crate::network_display::annotate_genesis(out, &self.files["genesis.spec.hex"])
+    }
+    /// V3-28 H1: this build's readiness for the invitation's network, from what genesis.spec.hex commits to (chain,
+    /// genesis hash, spec version), the fork schedule and the admission devnet.json records. The launcher admits
+    /// nothing itself; a node's status reports the admission it booted with.
+    fn launch_blockers(&self, info: &serde_json::Value, forks: &[(u16, u64)]) -> Vec<crate::readiness::Blocker> {
+        use crate::readiness::{blockers, AdmissionFacts, Build, Network, Subject};
+        let genesis = types::unhex(self.files.get("genesis.spec.hex").map_or("", |s| s.trim())).and_then(|bytes| {
+            if bytes.len() > crate::genesis_spec::MAX_SPEC_BYTES { return Err("genesis specification exceeds its bound".into()) }
+            let spec = crate::genesis_spec::decode(&bytes).map_err(|e| format!("genesis specification: {e:?}"))?;
+            Ok((spec, crate::genesis_spec::genesis_hash(&bytes)))
+        });
+        match genesis {
+            Err(why) => blockers(&Build::this(), Subject::Unreadable(why)),
+            Ok((spec, genesis_hash)) => blockers(&Build::this(), Subject::Network(&Network { chain_id: spec.chain_id, genesis_hash,
+                v3_active: spec.spec_version >= 2 || forks.iter().any(|&(version, _)| version >= 3), admission: AdmissionFacts::recorded(info) })),
+        }
     }
     /// What `pocol network` writes: v2, bound to this release's consensus rules, with its bootstrap list and whether the
     /// seeds are retired.
@@ -1166,9 +1184,35 @@ mod upgrade_tests {
         assert!(description.get("networkName").is_none());
         assert!(description.get("networkEnvironment").is_none());
         assert_eq!(description["publicLaunchReady"], false);
+        let ids: Vec<&str> = description["launchBlockers"].as_array().unwrap().iter().map(|b| b["id"].as_str().unwrap()).collect();
+        assert_eq!(ids.last(), Some(&"genesis-unreadable"), "{ids:?}");
         assert_eq!(description["networkFingerprint"], fingerprint);
         assert_eq!(serde_json::to_vec(&invitation).unwrap(), bytes);
         assert_eq!(invitation.fingerprint(), fingerprint);
+    }
+    /// V3-28 H1: the designated PoCol Mainnet invitation is not launch ready, for computed reasons, and its
+    /// designation clears none of them.
+    #[test]
+    fn the_designated_mainnet_reports_computed_launch_blockers() {
+        let invitation = h15000();
+        let description = invitation.describe();
+        assert_eq!(description["networkName"], "PoCol Mainnet");
+        assert_eq!(description["publicLaunchReady"], false);
+        let blockers = description["launchBlockers"].as_array().unwrap();
+        let ids: Vec<&str> = blockers.iter().map(|b| b["id"].as_str().unwrap()).collect();
+        for id in ["spec-version", "plan-gate-Q1", "v3-inactive", "network-not-release-pinned", "profile-kind"] {
+            assert!(ids.contains(&id), "{id}: {ids:?}");
+        }
+        assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable"), "{ids:?}");
+        let info = invitation.info().unwrap();
+        let (chain_id, genesis) = invitation.computed_network().unwrap();
+        let pinned = blockers.iter().find(|b| b["id"] == "network-not-release-pinned").unwrap()["detail"].as_str().unwrap().to_string();
+        assert!(pinned.contains(&chain_id.to_string()) && pinned.contains(&genesis), "{pinned}");
+        // Exactly the computed list: build facts, then the network's (devnet.json's recorded admission).
+        let forks = crate::configured_forks(&info).unwrap();
+        assert_eq!(description["launchBlockers"], crate::readiness::json(&invitation.launch_blockers(&info, &forks))["launchBlockers"]);
+        // A pinned v3 schedule entry would make the rules active; the schedule here has none.
+        assert!(forks.iter().all(|&(v, _)| v < 3));
     }
     fn journal(path: &Path, heights: &[u64]) -> Vec<u8> { journal_of(path, heights, 777915, [7; 32]) }
     fn journal_of(path: &Path, heights: &[u64], chain_id: u64, genesis: [u8; 32]) -> Vec<u8> {

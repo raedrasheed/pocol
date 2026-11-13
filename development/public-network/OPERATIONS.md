@@ -220,7 +220,12 @@ entry is uncertified and every H15000 home is refused. Deployment is held.
   characters, for example "peer has not scheduled activation (2,H): it must apply the
   published network upgrade" or "peer runs consensus rules 2; this node runs rules 1";
 - `legacyHellos`: first frames that were a 0.4.0 handshake. During the switch this is
-  the progress metric: it falls to 0 once no 0.4.0 node dials in.
+  the progress metric: it falls to 0 once no 0.4.0 node dials in;
+- `publicLaunchReady` and `launchBlockers` [{id, detail}] (V3-28 H1,
+  `prototypes/pocold/src/readiness.rs`): computed from this build and the admission the
+  node booted with, true only with no blocker. Today it is false, for example
+  `spec-version`, `plan-gate-Q1`, `v3-inactive`, `admission-scope` and `profile-kind`;
+  `pocold build-info` and the launcher's network description report the same fields.
 `compatibilitySha256` stays for install integrity: `monitor.py` and `collect_seeds.py`
 group nodes by `consensusIdentity` (and fork schedule) and warn about mixed digests
 (`collect_seeds.py` still refuses a digest set that changes between its two rounds);

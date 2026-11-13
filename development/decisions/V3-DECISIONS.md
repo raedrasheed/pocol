@@ -230,6 +230,27 @@ Computed launch-readiness flag and a real network-admission path (CONS-4, MAT-02
 
 Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
+**Implementation note (H1, N5).** `prototypes/pocold/src/readiness.rs` replaces the literal `publicLaunchReady:false`
+(`build.rs`, `launcher.rs`, `testnet.rs`) with a computed value: `publicLaunchReady` is true only when
+`launchBlockers` is empty, and both are reported by `pocold build-info`/`pocol build-info` (the build alone, which
+is never ready: blocker `no-network`), `pocold status` and `pocol_status` (the admission the node booted with),
+`init-testnet` (the profile it admitted) and the launcher's network description (`pocol network`/`import`/
+`upgrade`, from what genesis.spec.hex commits to and the admission devnet.json records). Each blocker has a stable
+`id` and a `detail`:
+- build: `v3-preview-build`; `spec-version` (SPEC_VERSION < 2, cleared by V3-PR-I); `consensus-unpinned`;
+  `test-features` (caps-test, crash-test, io-fault); `v3-launch-blocker` (each `V3_LAUNCH_BLOCKERS` entry, none
+  today); `plan-gate-<id>` (each acceptance-ledger gate of `development/public-network/PLAN.md` not marked
+  closed, all nine today; a test keeps `PLAN_GATES_OPEN` equal to the ledger);
+- network: `v3-inactive` (spec-1 genesis and no fork to version 3); `network-not-release-pinned` ((chainId,
+  genesisHash) not in `NETWORK_PROFILES`, the H2 hook, empty today); `admission-scope` (not `specification`);
+  `admission-condition-<id>` and `admission-waiver-<rule>` (each condition and waiver); `profile-kind` (not the
+  network profile on a network node, R22); `admission-unrecorded` and `genesis-unreadable` (launcher only).
+
+It is false today with the build reasons `spec-version` and the nine PLAN gates and, for any network, the network
+reasons above. Deployment branding (`network_display`) clears none of them. Node-local reporting only: no validity
+rule, fork choice, persisted byte or consensus identity reads it; `build.rs` (a boundary file) only drops the
+literal, under a `neutral` lock line. H2 (release-pinned profiles and closing the conditions) is unchanged.
+
 ### D-V3-29
 
 One dated v3 decision record plus normative amendments (CONS-7, MAT-03, MAT-04). Record these decisions and scoped normative amendments before v3 code. The approved owner rule is the standing authorization only for changes preserving P1-P10.

@@ -2542,6 +2542,8 @@ impl Node{
         for (k,v) in self.identity_json(){status[k]=v;}
         for (k,v) in self.incompatible_json(){status[k]=v;}
         status["compatiblePeers"]=serde_json::json!(self.peer_status.len());
+        // V3-28 H1: computed from this build and the admission this node booted with (readiness.rs).
+        crate::readiness::annotate(&mut status,&crate::readiness::of_admitted(self.chain.spec.admission()));
         // Gossip and inbound grouping (net::Limits::per_group_max).
         status["stats"]["relayedTemplates"]=serde_json::json!(self.stats.relayed_templates);
         // PR6: the builder (gas used) and the pool's sender quota and parking.

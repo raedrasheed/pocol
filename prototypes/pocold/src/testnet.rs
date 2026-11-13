@@ -458,11 +458,11 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
         std::fs::write(out.join("cutover-report.json"), serde_json::to_string_pretty(&report).unwrap())
             .map_err(|e| format!("write cutover-report.json: {e}"))?;
     }
-    println!(
-        "{}",
-        serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),
-        "scope":"experimental-devnet","publicLaunchReady":false})
-    );
+    let mut summary = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),
+        "scope":admitted.scope().name()});
+    // V3-28 H1: computed from this build and the admission above (readiness.rs).
+    crate::readiness::annotate(&mut summary, &crate::readiness::of_admitted(&admitted));
+    println!("{summary}");
     Ok(())
 }
 
