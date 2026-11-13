@@ -80,6 +80,37 @@ class ConsensusIdentity(unittest.TestCase):
         h15000 = {'chainId': 1599846715, 'genesisHash': '0x' + GENESIS, 'forks': [[1, 0], [2, 15000]]}
         self.assertEqual(ident.for_network(h15000, dict(pinned, v3Preview=False)), GOLDEN)
 
+    def test_a_spec_2_genesis_needs_a_preview_build_and_keeps_the_identity_formula(self):
+        # A v3 genesis (pocold testnet --v3 writes specVersion 2 and v3 true): the spec version is no identity input,
+        # so a preview build's identity is the documented byte string with bit2 and the aggregate, built here with
+        # struct. A release build refuses it (genesis_spec.rs SPEC_VERSION is 1 until V3-PR-I).
+        self.assertEqual((ident.SPEC_VERSION, ident.PREVIEW_SPEC_VERSION), (1, 2))
+        genesis = '02' * 32
+        v3 = {'chainId': 7, 'genesisHash': '0x' + genesis, 'forks': [[1, 0]], 'specVersion': 2, 'v3': True}
+        pinned = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '08' * 32}
+        preview = dict(pinned, v3Preview=True, features=['v3-preview'])
+        data = b'pocol-consensus-identity-v1\0' + struct.pack('>Q', 7) + bytes.fromhex(genesis)
+        data += struct.pack('>IBB', 1, 4, 1) + struct.pack('>HQ', 1, 0) + bytes.fromhex('08' * 32)
+        self.assertEqual(ident.for_network(v3, preview), hashlib.sha256(data).hexdigest())
+        self.assertEqual(ident.for_network(v3, preview), ident.for_network({k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, preview))
+        self.assertEqual(ident.for_network(dict(v3, forks=[[1, 0], [2, 1]]), preview),
+                         ident.consensus_id(7, genesis, 1, 4, [(1, 0), (2, 1)], '08' * 32))
+        for release in (pinned, dict(pinned, v3Preview=False), dict(pinned, consensusPinned=False), dict(pinned, features=['caps-test'])):
+            with self.assertRaisesRegex(ValueError, 'release build refuses a spec-2', msg=release):
+                ident.for_network(v3, release)
+        # A preview build still opens a spec-1 network (with its own isolated identity).
+        self.assertEqual(ident.for_network(dict(v3, specVersion=1, v3=False), preview), ident.for_network({k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, preview))
+        for bad in ({'specVersion': 3, 'v3': True}, {'specVersion': 0}, {'specVersion': True}, {'specVersion': '2', 'v3': True},
+                    {'specVersion': 2}, {'specVersion': 2, 'v3': 1}, {'v3': True}, {'specVersion': 1, 'v3': True}, {'v3': False, 'specVersion': 2}):
+            with self.assertRaisesRegex(ValueError, 'GenesisSpec version', msg=bad):
+                ident.for_network({**{k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, **bad}, preview)
+        # The published spec-1 H15000 files give the pinned identity, with or without an explicit specVersion 1.
+        info = json.loads(json.loads(H15000.read_text())['files']['devnet.json'])
+        build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '00' * 32}
+        self.assertNotIn('specVersion', info)
+        self.assertEqual(ident.spec_version(info), 1)
+        self.assertEqual(ident.for_network(dict(info, specVersion=1), build), GOLDEN)
+
     def test_the_schedule_rule_is_the_runtime_shape(self):
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9]]), ((1, 0), (2, 9)))
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9], [3, 20]], 3)[-1], (3, 20))
