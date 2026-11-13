@@ -1652,9 +1652,13 @@ impl Node{
         // N4 x D-V3-21 review: under v3 a newcomer that would evict also passes the pool's checks on the head state (the
         // next block's parent, `head_checks`), as the selection will run it. The pending state can hold writes that no
         // block will make (an evicted or replaced transaction's, which stay until the next head), so there a creation
-        // can look done and its burn zero; priced on the head, one whose burn would pass its signed maximum evicts
-        // nothing. Run before its execution on the pending state, so no result is held across it (A13: one execution
-        // at a time); nothing is committed.
+        // can look done and its burn zero; the head lacks what the pooled transactions ahead of it write. It evicts
+        // only when both pass: the head checks, and its own execution on the pending state below (with its creation
+        // charge within its signed maximum), as `eviction_checks` runs them for a parked one. N4 x D-V3-21 re-review:
+        // priced on those two states only; a parked transaction of another sender that a block takes first is not
+        // modelled (its sender has nothing parked here, else it is parked). Run before its execution on the pending
+        // state, so no result is held across it (A13: one execution at a time); nothing is committed. An RPC
+        // submission runs both within its one deadline (`by`).
         if victim.is_some()&&self.chain.spec.v3_active(self.chain.head().height.saturating_add(1)){
             let (tx,ctx,room)=(env.tx_env(),self.next_block_ctx(),self.headroom(caller,None).unwrap_or_default());
             if let Err(e)=self.head_checks(&tx,&ctx,by,room){self.stats.evict_refused+=1;return Err(e)}
@@ -1726,10 +1730,14 @@ impl Node{
     /// N4: `fresh` (a new submission) may also evict parked ones of lower priority (`evict_parked_by_fee`); a
     /// revalidation at a new head does not.
     /// N4 x D-V3-21 review: under v3, before it evicts anything (by either rule), it passes the pool's checks on the
-    /// head state (`head_checks`: the engine, the creation charge within its signed max_fee*gas_limit, its own logs,
-    /// the meter), once; if they fail nothing is evicted and the answer is their refusal. A parked transaction is not
-    /// executed otherwise, so one whose burn would pass its signed maximum can take free parked room (never evict),
-    /// until the head that admits it refuses it.
+    /// head state and on the pending state (`eviction_checks`: the engine, the creation charge within its signed
+    /// max_fee*gas_limit, its own logs, the meter), once; if they fail nothing is evicted, the refusal counts in
+    /// `evict_refused` and the answer is their refusal. N4 x D-V3-21 re-review: neither state holds a parked
+    /// transaction's effects, so under v3 one behind its sender's parked ones (a run) evicts nothing (POOL_FULL_GAS,
+    /// counted in `evict_refused`), whatever it would pay: its sender's earlier parked ones come first in every block.
+    /// A revalidated one is held to the same rule (dropped, with its sender's later ones, as one finding no room is).
+    /// A parked transaction is not executed otherwise, so one whose burn would pass its signed maximum can take free
+    /// parked room (never evict), until the head that admits it refuses it.
     fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay,fresh:bool,by:Option<Instant>)->String{
         use pocol_lp4_execution::view::View;
         let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
@@ -1741,13 +1749,16 @@ impl Node{
         let base=self.next_block_ctx().base_fee;
         if tx.nonce!=Some(next)||total.is_none_or(|c|acct.balance<c)||tx.gas_price<base{return POOL_FULL_GAS.into()}
         let prio=TxFields::of(tx).effective_tip(base).min(self.chain_priority(tx.caller,base));
-        // N4 x D-V3-21 review: the head checks are owed (under v3) until the first eviction, run with the balance the
-        // checks above leave it: for a new submission what the overdraft rule leaves (as for a replacement), else its
-        // pending-state balance less its sender's other parked ones.
+        // N4 x D-V3-21 review: the eviction checks are owed (under v3) until the first eviction, run with the balance
+        // the checks above leave it: for a new submission what the overdraft rule leaves (as for a replacement), else
+        // its pending-state balance less its sender's other parked ones. One behind its sender's parked ones evicts
+        // nothing (re-review: no state the pool holds has their effects).
         let mut owed=self.chain.spec.v3_active(self.chain.head().height.saturating_add(1));
         let room=if fresh{self.headroom(tx.caller,None).unwrap_or_default()}else{spent.map_or(U256::ZERO,|s|acct.balance.saturating_sub(s))};
         let ctx=self.next_block_ctx();
-        macro_rules! gate{()=>{if std::mem::take(&mut owed){if let Err(e)=self.head_checks(tx,&ctx,by,room){return e}}}}
+        macro_rules! gate{()=>{if std::mem::take(&mut owed){
+            if run.is_some(){self.stats.evict_refused+=1;return POOL_FULL_GAS.into()}
+            if let Err(e)=self.eviction_checks(tx,&ctx,by,room){self.stats.evict_refused+=1;return e}}}}
         // The fee eviction is planned first when the checks are owed, so they run only when it would evict; its plan
         // is dropped before they execute (the scratch is not held across an execution).
         macro_rules! by_fee{()=>{{
@@ -1901,7 +1912,11 @@ impl Node{
     ///   parked transactions (`covers`), so its later transactions stay affordable whatever it spends; a parked one's
     ///   pending-state check (`park`'s) holds too;
     /// - N4 review: a pooled one passes the pool's execution checks (`head_checks`: the engine, the creation
-    ///   charge, its own logs, the meter) run on the head, as the selection runs it, without committing.
+    ///   charge, its own logs, the meter) run on the head, as the selection runs it, without committing;
+    /// - N4 x D-V3-21 re-review: under v3, a parked one that is its sender's first parked one (the only kind that can
+    ///   have evicted, `park`) passes the checks an evicting one passes (`eviction_checks`, on the head and on the
+    ///   pending state), so a transaction cannot evict and then be swapped for one that could not have. A later one
+    ///   of a run evicted nothing (`park`) and is checked like a parked transaction (two reads).
     /// It is not committed to the pending state: the old one's effects stay in the pending layer until the next head,
     /// which re-executes the replacement in its place (`rebuild_pool`), and the selection executes it on the block's
     /// parent like any candidate. N4 second review: a pooled entry is charged (`Meta::gas`, in `gas` and the sender
@@ -1944,6 +1959,8 @@ impl Node{
                 let balance=view.account(&tx.caller).map(|a|a.info.balance).unwrap_or_default();
                 let spent=self.pool.parked.iter().enumerate().filter(|(k,x)|x.sender==tx.caller&&*k!=j).try_fold(cost,|n,(_,x)|n.checked_add(x.cost));
                 if spent.is_none_or(|c|balance<c){self.stats.overdraft_refused+=1;return Err(POOL_OVERDRAFT.into())}
+                let first=!self.pool.parked.iter().any(|x|x.sender==tx.caller&&x.nonce<self.pool.parked[j].nonce);
+                if first&&self.chain.spec.v3_active(self.chain.head().height.saturating_add(1)){self.eviction_checks(tx,&ctx,by,room)?;}
                 self.pool.parked_bytes=self.pool.parked_bytes+raw.len()-old_len;
                 let x=&mut self.pool.parked[j];x.gas=tx.gas_limit;x.hash=hash;x.cost=cost;x.raw=raw.clone();x.repl=repl+1;
                 // Relayed now (below), so not again when admitted; one past the relay bound is relayed when admitted at
@@ -1967,10 +1984,31 @@ impl Node{
     /// replacement (its effects stay in the pending state), so a replacement is priced as if one more of each unit it
     /// creates were taken: near a cap it costs more than a block would charge, and one creating the cap's last free
     /// unit is refused (AcctCap, SlotCap) until the next head (network.md, Replace-by-fee).
+    /// N4 x D-V3-21 re-review: priced on the head state alone; the effects of the transactions a block takes before it
+    /// (its sender's own earlier pooled and parked ones, and other senders') are not modelled, so a transaction that
+    /// depends on them is priced as if they were not there (`eviction_checks` adds the pending state).
     fn head_checks(&self,tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,by:Option<Instant>,room:U256)->Result<(),String>{
-        use pocol_lp4_execution::view::{View,WorkState};
-        let mut ov=pocol_lp4_execution::view::Overlay::new(&self.pool.pending_base);
-        let mut info=self.pool.pending_base.account(&tx.caller).map(|a|a.info).unwrap_or_default();
+        self.checks_on(&self.pool.pending_base,tx,ctx,by,room)
+    }
+    /// N4 x D-V3-21 re-review: the checks owed under v3 before a transaction evicts anything (a pooled one at the count
+    /// or byte bound, `admit_tx`; a parked one, `park`) or replaces a parked one that may have evicted (`replace`):
+    /// `head_checks` (an evicted or replaced transaction's writes, which no block makes, are not there), then the same
+    /// checks on the pending state (the pooled transactions' effects, its sender's earlier ones and other senders', are
+    /// there), with its sender's nonce at its own and its balance at `room` in both; both must pass. Two executions,
+    /// one after the other, nothing held across them and nothing committed (A13: one at a time). Neither state holds a
+    /// parked transaction's effects, so `park` lets no transaction behind its sender's parked ones evict; another
+    /// sender's parked transaction that a block takes first is not modelled (network.md, Parked set). `admit_tx` runs
+    /// the pending-state half as its own execution there.
+    fn eviction_checks(&self,tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,by:Option<Instant>,room:U256)->Result<(),String>{
+        self.head_checks(tx,ctx,by,room)?;
+        let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
+        self.checks_on(&view,tx,ctx,by,room)
+    }
+    /// The pool's execution checks of `tx` on `base` (`head_checks`, `eviction_checks`), on a scratch overlay.
+    fn checks_on<B:pocol_lp4_execution::view::View>(&self,base:&B,tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,by:Option<Instant>,room:U256)->Result<(),String>{
+        use pocol_lp4_execution::view::WorkState;
+        let mut ov=pocol_lp4_execution::view::Overlay::new(base);
+        let mut info=base.account(&tx.caller).map(|a|a.info).unwrap_or_default();
         info.nonce=tx.nonce.unwrap_or(0);info.balance=room;ov.insert_info(tx.caller,info);
         let profile=self.chain.spec.profile();
         let r=match(by,self.pool.code_total){

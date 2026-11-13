@@ -574,7 +574,10 @@ three terms: one up and two down. It also withdraws one projection.
     term as any admission's (EXECUTIONS = 1). N4 x D-V3-21 review: under v3 the same checks run once for a newcomer
     before it evicts (a pooled transaction: before its own execution on the pending state, so no result is held
     across them; a parked one: a parked transaction is executed only there), with the fee eviction's plan and PR6's
-    run map dropped first. One execution at a time, so the term is unchanged.
+    run map dropped first. One execution at a time, so the term is unchanged. N4 x D-V3-21 re-review: an evicting
+    parked newcomer, and under v3 a replacement of a sender's first parked transaction, run the same checks once on
+    the head and then once on the pending state (`eviction_checks`), one after the other on scratch overlays, nothing
+    held across them: still one execution at a time (EXECUTIONS = 1).
 
   No pin moves: the devnet total stays 3,397,791,234 (eviction off 3,388,329,613), and the live chain's halt and
   disk-bytes stops in tests/network_budget.rs are unchanged. (The first N4 draft added +1,302,528 B with wider
