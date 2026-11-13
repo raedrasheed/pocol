@@ -226,8 +226,6 @@ first; the shipped legacy entry is uncertified and every H15000 home is refused.
 - `lastIncompatibleReason`: the last refusal, `peer <name>: <reason>`, at most 160
   characters, for example "peer has not scheduled activation (2,H): it must apply the
   published network upgrade" or "peer runs consensus rules 2; this node runs rules 1";
-- `legacyHellos`: first frames that were a 0.4.0 handshake. During the switch this is
-  the progress metric: it falls to 0 once no 0.4.0 node dials in;
 - `publicLaunchReady` and `launchBlockers` [{id, detail}] (V3-28 H1,
   `prototypes/pocold/src/readiness.rs`): computed from this build and the admission the
   node booted with, true only with no blocker. Today it is false, for example
@@ -245,7 +243,8 @@ first; the shipped legacy entry is uncertified and every H15000 home is refused.
 **Owner decisions (PR5).** D1–D5 are pending; the code implements their recommended
 defaults and keeps every consensus-relevant path fail-closed:
 - D1, Option B: `launcher::SWITCH = B` selects the refusal text above, and the H15000
-  `LEGACY_BUILDS` entry (with its Python mirror) ships uncertified;
+  `LEGACY_BUILDS` entry (with its Python mirror) ships uncertified (the switch and the
+  table were removed in the fresh-network Phase 2);
 - D2, "merged to main counts as released": gate values are spent on merge (VA-SPEC §2.3);
 - D3, the runtime schedule shape still refuses a skipped version;
 - D4, no further legacy build is certified;
