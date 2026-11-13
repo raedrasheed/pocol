@@ -41,11 +41,21 @@ GitHub; trust the repository over this file.
 - **O-13 follow-up (2026-11-12):** the owner confirmed option (a): keep the all-probationer exception below B_reg/4.
   Verbatim: «أوافق على (أ)، أبقِ الاستثناء». Recorded in `development/decisions/V3-OWNER-DECISIONS-2026-11-12.md`. The
   dormant v3 code already implements it; no code change.
+- **D-V3-21 creation-burn user bound (2026-11-12):** option A, verbatim «أوافق على الخيار أ، استمر في العمل». A v3-only
+  consensus bound `gas_used*effective_price + burn <= max_fee*gas_limit`, otherwise `Halt::CreationFee`, plus the
+  node-local quote RPC. Recorded in `V3-OWNER-DECISIONS-2026-11-12.md` (second decision). Implemented and merged in #29;
+  `V3_LAUNCH_BLOCKERS` is now empty.
 
 ### Questions waiting for the owner (do not decide them yourself)
-- **D-V3-21 creation-burn user bound** (V3-DECISIONS.md, D-V3-21): option (a) node-local quote and refusal in the pool,
-  `eth_estimateGas` and wallets, or (b) a consensus sender-signed cap. It must be decided before V3-PR-I. Until then it
-  is the enforced launch blocker in `V3_LAUNCH_BLOCKERS` (`lp4-execution/src/admission.rs`, checked in `admit()`).
+- **V3-PR-E4 pool-contest victim (D-V3-14):** the pool victim is erased at once, so (1) its unsettled pot shares burn
+  instead of joining its refunded bond (conflicts with V3-10 "refund, no stake penalty") and (2) evidence carried
+  later can no longer punish it. Options: (a, recommended) keep it EXITED, payable and punishable, until its pots
+  settle or U; (b) route the unsettled parts to its reward address; (c) accept the burn. Asked 2026-11-12 ~23:40 UTC.
+- **D-V3-21 residual:** other A03 cap halts (LogCount, AcctCap/SlotCap, LogBytes, LogCap, dirty caps) still charge the
+  declared `gas_limit`, which under option A includes the burn allowance, so a sender can lose up to
+  `max_fee*gas_limit` with no effect. Changing that changes A03's full-gas rule, outside option A.
+- Also from E4: a pool contest needs every seat taken (literal O-10=b); rejoining resets contest eligibility (for the
+  V3-PR-H study); add an `E_epoch >= D` gate rule in V3-PR-F.
 - Anything a later PR review flags as needing the owner. Read each PR description and its review threads.
 
 Read this whole file first. After it, read in order:
@@ -125,6 +135,17 @@ Owner decisions already taken:
 | #18 | Audit records for #12–#17 (A13 spec-1 impact of the C2 eviction batch recorded, V3-DECISIONS provenance, Python identity bit 2) |
 | #19 | Store-mode R14/R19 count durable commit latency again (median, one stalled write tolerated); the Windows CI job prints failing test lines |
 | #20 | V3-PR-C2b: v3 signed timeliness measured from the template lock time (poisoning resistant, bounded map) |
+| #21 | V3-PR-E0: dormant v3 program set (`PoColSystemV3.sol`, `system-v3.json`), reproducible solc CI, P_MAX/T_PROB from CP |
+| #22 | N1 V3-05: v3 Δ_rel derivation, `pocol_templateLatency` |
+| #23 | Earn-in SYS gas envelope per program set (`gas_envelope(set)`, `GAS_ENVELOPE_EARNIN`) |
+| #24 | ParamGate boot timing tolerates the largest max(1, n/4) commits (isolated fsync stalls) |
+| #25 | N6 V3-33: user-transaction freeze after S, verifiable old-chain export |
+| #26 | V3-PR-G part 1: off-node decoders and identity tools for a spec-2 genesis |
+| #27 | V3-PR-E1: v3 registry budgets (maintenance, reactivation budget, cooldown, window) |
+| #28 | Windows CI: `pocold-io-fault` 120 min; a timeout prints where it stopped |
+| #29 | D-V3-21 option A: creation burn bounded by the signed max fee; quote RPC; launch blockers empty |
+| #30 | Serving tests wait for the node's answer instead of a fixed window |
+| #33 | Windows CI: pocold suite split into `pocold` and `pocold-consensus` |
 
 The audit of the earlier PRs #12–#17 is done; its fixes are #18, #19, #20 and the fixes merged with #17:
 - the legacy receipt-scratch A13 under-count (+878,624 B on spec 1) is recorded;
@@ -136,26 +157,22 @@ The audit of the earlier PRs #12–#17 is done; its fixes are #18, #19, #20 and 
 
 ## 3. Open work. Do these first, in this order.
 
-**Update (2026-11-12 ~17:40 UTC).**
+**Update (2026-11-13 ~06:30 UTC).**
 
 ### 3.1 Open PRs (repository raedrasheed/pocol)
 | PR | Branch | Content |
 |---|---|---|
-| #21 | `claude/v3-pr-e0-programs` | V3-PR-E0: dormant v3 program set (`PoColSystemV3.sol`, `system-v3.json`), reproducible solc CI workflow `system-programs.yml`, P_MAX/T_PROB read from CP |
-| #22 | `claude/v3-n1-template-latency` | N1 V3-05: v3 Δ_rel derivation, per-proposer template latency telemetry (`pocol_templateLatency`) |
-| #23 | `claude/earnin-gas-envelope` | Earn-in SYS gas envelope (node-local admission) |
+| #31 | `claude/v3-pr-e2b-evidence-penalties` | V3-PR-E2b: offender-only type-2 burn, reporter's cut ρ, `GAS_ENVELOPE_V3` over `GAS_ENVELOPE_EARNIN` (lock n=19) |
+| #32 | `claude/v3-n4-fee-pool` | N4 V3-20/V3-24 (node-local): fee-ordered pool, replace-by-fee, overdraft rule, lowest-fee eviction, estimate log caps; being merged with main after D-V3-21 |
 
-Merge each when it meets the standing approval (section 1). #22 and #23 are independent of the v3 stack.
+Merge each when it meets the standing approval (section 1). Every merge to main moves the lock's last line, so the
+next PR with a lock line must merge main and re-pin on top.
 
-### 3.2 Stacked branches (not yet PRs; merge in order after #21)
-1. `claude/v3-pr-e1-registry-budgets` (V3-PR-E1). Already merged onto the updated E0 branch.
-2. `claude/v3-pr-e2b-evidence-penalties` (V3-PR-E2b):
-   - offender-only type-2 burn and the reporter's cut ρ;
-   - the whole pot burns only when the accused is the winner that was ACCRUING at `recordResult` (this interpretation
-     is documented in D-V3-16);
-   - v3 phase-0 reorder;
-   - `GAS_ENVELOPE_V3`.
-3. `claude/v3-pr-e3-late-shares` (V3-PR-E3, late share credit): **in progress**. Finish it per roadmap §4.
+### 3.2 Stacked branches (not yet PRs; open each after its parent merges)
+1. `claude/v3-pr-e3-late-shares` (V3-PR-E3, late share credit, kind-3 evidence), stacked on E2b.
+2. `claude/v3-pr-e2a-issuance` (V3-PR-E2a, issuance with carry, tip split), stacked on E3.
+3. `claude/v3-pr-e4-contest` (V3-PR-E4, seat and pool contest), stacked on E2a; its owner item is in section 0.
+All three have been reviewed and were brought up to date on the updated E2b (2026-11-13).
 
 Procedure for each stacked branch, once its parent has merged or moved:
 - Merge the updated parent (or `origin/main` once the parent has merged) into the branch. Never rebase.
@@ -163,7 +180,7 @@ Procedure for each stacked branch, once its parent has merged or moved:
   `POCOL_REPIN_CONSENSUS=neutral-vector` (no gate: the guard refuses a gate on `neutral-vector`). The note starts with
   `spec:2-dormant`.
 - `prototypes/pocold/tests/v3_membership.rs` "pr15-2" pins (`UNBOUNDED_PERIOD` / `UNBOUNDED_RECOVERY`) move with every
-  program-byte change: 16/19 on main, 15/18 on E0, 14/17 on E1. Update them with a comment saying why. Never loosen a
+  program-byte change (14/17 on main after E1, 13/16 on E2b). Update them with a comment saying why. Never loosen a
   behavioural assertion.
 - Open the PR to `main` only after its parent has merged, so the diff shows only its own change.
 
@@ -175,15 +192,17 @@ Procedure for each stacked branch, once its parent has merged or moved:
 - **REG_OPS > REG_MAINT_MAX** gate rule: add in V3-PR-F.
 - **`GAS_ENVELOPE_V3`**: re-measure at the v3 profile in V3-PR-F.
 - **Wallet `rejoin_step`** must read the `C_react` clock: V3-PR-G.
-- **D-V3-21 creation-burn user bound**: owner decision needed (section 0); must be resolved before V3-PR-I.
+- **v3 final phase gas** (finalize, settleFinal) is not measured on the v3 programs (A13-DERIVATION §3, "Open").
+- **N4 cost:** the fee order reads one head-state account per sender (template selection and eviction scans); not
+  measured in store mode.
 - **Off-node reward mirrors** (`deploy/rewards/pocol_rewards.py`, `refdec.js`, `rp.js`) must follow every E change:
   V3-PR-G.
 - The first Windows `pocold` failure on PR #19 (2026-11-12 ~12:33 UTC, exit 101) did not reproduce on rerun and showed
   no test name. The job log now prints the failure lines; if it recurs, root-cause it from the log.
 
 ### 3.4 Smaller follow-ups
-- On main, PR #8 made the Windows `pocold` CI job take about 69 minutes against a 90-minute step timeout. If it nears
-  the limit, raise the timeout in the workflow or make the slowest consensus tests cheaper. Never skip tests.
+- Windows CI durations (2026-11-13): `pocold` about 21 min, `pocold-consensus` about 54 min, `pocold-io-fault` 55–92 min
+  (limit 120). If a group nears its limit, split it further; never skip tests.
 - `net::rpc_work_deadline_skips_expired_work_and_releases_resources` can fail with "threads N vs N" when many tests run
   in parallel (a `/proc` thread count). It passes alone. Make it robust: measure its own threads, not the process
   total.
