@@ -422,24 +422,42 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
 #[test] fn v3_envelope_entries_apply_only_to_the_v3_set(){
     for (n,g) in GAS_ENVELOPE{assert_eq!(envelope(ProgramSet::V1,n),Some(*g),"spec-1 {n}");assert_eq!(envelope(ProgramSet::Continuous,n),Some(*g),"spec-1 {n}");}
     for (n,g) in GAS_ENVELOPE_EARNIN{assert_eq!(envelope(ProgramSet::EarnIn,n),Some(*g),"earn-in {n}");}
-    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope(ProgramSet::V3,n),Some(*g));assert!(*g>envelope(ProgramSet::EarnIn,n).unwrap(),"{n}: the v3 entry exceeds the earn-in one it replaces");}
-    // The composed table: every earn-in call name, in order, the v3 entry where one exists and the earn-in one otherwise.
-    assert_eq!(gas_envelope(ProgramSet::V3).iter().map(|x|x.0).collect::<Vec<_>>(),GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>(),"the same call names");
-    for (n,_) in GAS_ENVELOPE_V3{assert!(GAS_ENVELOPE_EARNIN.iter().any(|x|x.0==*n),"{n} is an earn-in call name");}
+    // V3-PR-E3 (V3-02): recordLate is the one v3-only call name; it has no earn-in (or spec-1) entry to replace.
+    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope(ProgramSet::V3,n),Some(*g));
+        match envelope(ProgramSet::EarnIn,n){Some(e)=>assert!(*g>e,"{n}: the v3 entry exceeds the earn-in one it replaces"),None=>assert_eq!(*n,"recordLate","{n}: only recordLate is v3-only")}}
+    // The composed table: every earn-in call name, in order, the v3 entry where one exists and the earn-in one
+    // otherwise, then the v3-only names. Merging V3-PR-E3 (recordLate) into the composition: the names are the earn-in
+    // names followed by recordLate, where before E3 they were the earn-in names alone.
+    let mut names=GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>();names.push("recordLate");
+    assert_eq!(gas_envelope(ProgramSet::V3).iter().map(|x|x.0).collect::<Vec<_>>(),names,"the earn-in call names, then recordLate");
+    for (n,_) in GAS_ENVELOPE_V3{assert!(*n=="recordLate"||GAS_ENVELOPE_EARNIN.iter().any(|x|x.0==*n),"{n} is an earn-in call name");}
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert_eq!(envelope(set,"recordLate"),None,"recordLate exists on the v3 set only: {set:?}");}
     assert!(std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE_V3_COMPOSED));
     for (n,g) in GAS_ENVELOPE_EARNIN{if !GAS_ENVELOPE_V3.iter().any(|x|x.0==*n){assert_eq!(envelope(ProgramSet::V3,n),Some(*g),"{n}: entries without a v3 measurement take the earn-in entry");}}
     assert_eq!(envelope(ProgramSet::V3,"beginBlock"),envelope(ProgramSet::EarnIn,"beginBlock"),"entries without a v3 measurement apply unchanged");
     assert!(envelope(ProgramSet::V3,"markClose")>envelope(ProgramSet::V1,"markClose"),"markClose falls back to the earn-in entry, not GAS_ENVELOPE's");
     // Reworded on review: the text names which entries the v3 measurement covers and that the final phase is not
     // measured on v3 (finalize takes the earn-in entry), instead of claiming the whole table holds at the v3 maxima.
-    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= 64; final phase not measured on v3: settleFinal takes the measured settle, finalize the earn-in entry)"));
+    // V3-PR-E3 adds the kappa*m domain bound (recordLate's owners per call) to the text.
+    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= 64, kappa*m <= 64; final phase not measured on v3: settleFinal takes the measured settle, finalize the earn-in entry)"));
     let c=net(&cfg());let cp=c.profile.cp().clone();
     let spec1=phase_gas(&cp,0,ProgramSet::V1).unwrap();let earnin=phase_gas(&cp,0,ProgramSet::EarnIn).unwrap();let v3=phase_gas(&cp,0,ProgramSet::V3).unwrap();
-    assert_eq!(spec1.len(),v3.len());assert_eq!(earnin.len(),v3.len());
+    // V3-02: each evidence item of a v3 block is counted as the dearer of a type 1/2 item (invalidate and punish) and a
+    // kind-3 item (recordLate), so the v3 sequence has one recordLate in place of each pair.
+    let (late,pair)=(envelope(ProgramSet::V3,"recordLate").unwrap(),envelope(ProgramSet::V3,"invalidate").unwrap()+envelope(ProgramSet::V3,"punish").unwrap());
+    assert!(late>pair,"recordLate {late} is the dearer evidence item");
+    assert_eq!(spec1.len(),v3.len()+usize::from(cp.E_max),"one recordLate in place of each invalidate and punish pair");assert_eq!(earnin.len(),spec1.len());
+    assert_eq!(v3.iter().filter(|g|**g==late).count(),usize::from(cp.E_max));
     assert!(v3.iter().sum::<u64>()>earnin.iter().sum::<u64>()&&earnin.iter().sum::<u64>()>spec1.iter().sum::<u64>());
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{for class in 0..3{assert!(phase_calls(&cp,class,set).iter().all(|(n,_)|*n!="recordLate"),"spec 1 never composes recordLate: {set:?}");}}
     let mut wide=cp.clone();wide.P_MAX=GAS_DOMAIN_V3_P_MAX+1;
     for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(in_gas_domain(&wide,set),"P_MAX bounds the v3 domain only: {set:?}");}
     assert!(!in_gas_domain(&wide,ProgramSet::V3),"P_MAX bounds the v3 domain");
+    assert_eq!(phase_gas(&wide,0,ProgramSet::V3),None);
+    // kappa*m bounds recordLate's owners per call (the no-dilution cap): the v3 domain only.
+    let mut wide=cp.clone();wide.m=(GAS_DOMAIN_V3_KAPPA_M/u32::from(wide.kappa)+1) as u16;
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(in_gas_domain(&wide,set),"kappa*m bounds the v3 domain only: {set:?}");}
+    assert!(!in_gas_domain(&wide,ProgramSet::V3),"kappa*m bounds the v3 domain");
     assert_eq!(phase_gas(&wide,0,ProgramSet::V3),None);
 }
 

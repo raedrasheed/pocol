@@ -61,7 +61,9 @@ impl DevnetConfig{
          big(2_000_000_000_000_000_000),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
          n(self.gas_limit),n(1_000_000_000),n(131072),n(196608),n(32768),n(self.code_cap),n(self.txbytes_cap),n(self.tx_cap),n(self.slot_cap),n(self.acct_cap),
-         n(self.sys_slot_max.into()),n(2048),n(256),n(512),n(96_000_000),
+         // V3-02: a CP schema v2 (v3) devnet doubles SYS_KEYS_BLOCK_MAX (2048 -> 4096): R18 counts the 3·L keys a block's
+         // late shares can write (resources::late_keys), above 2048 at M_max 256; spec-1 devnets keep 2048.
+         n(self.sys_slot_max.into()),n(if self.spec_version>=2{4096}else{2048}),n(256),n(512),n(96_000_000),
          n(self.h_end),n(if self.h_end==0{0}else{self.g_ts+self.t_end_offset}),n(if self.h_end==0{0}else{self.h_close}),n(if self.h_end==0{0}else{self.g_ts+self.t_close_offset}),n(self.z_close.into()),n(self.ret.into()),n(self.p2.into())];
         if self.spec_version==2{cp.extend([
             n(self.h_half),to_fixed(self.s_tail),n(self.p_max.into()),n(self.t_prob.into()),

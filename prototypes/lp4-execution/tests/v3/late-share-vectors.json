@@ -1,0 +1,6156 @@
+{
+ "late-last-share-is-monotone": {
+  "cp": {
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "b",
+    "c",
+    "d",
+    "m0",
+    "w"
+   ],
+   "burned": "13254687500000000000",
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 4,
+   "escrowBalance": "121254687500000000000",
+   "heldTotal": "100000000000000000000",
+   "issued": "24000000000000000000",
+   "ledger": {
+    "10": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "11": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "4": {
+     "counts": {
+      "b": 1,
+      "c": 1,
+      "d": 1,
+      "w": 1
+     },
+     "total": 4
+    },
+    "5": {
+     "counts": {
+      "b": 1,
+      "c": 1
+     },
+     "total": 2
+    },
+    "6": {
+     "counts": {
+      "c": 2
+     },
+     "total": 2
+    },
+    "7": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "8": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "9": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    }
+   },
+   "order": [
+    "m0",
+    "w",
+    "b",
+    "c",
+    "d"
+   ],
+   "paid": {
+    "b": "253125000000000000",
+    "c": "306250000000000000",
+    "d": "26562500000000000",
+    "m0": "1932812500000000000",
+    "w": "226562500000000000"
+   },
+   "pots": {
+    "10": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "11": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "12": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    },
+    "9": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    }
+   },
+   "records": {
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 5,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 6,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "d": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "d",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 11,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "w": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "w",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "b": "20000000000000000000",
+    "c": "20000000000000000000",
+    "d": "20000000000000000000",
+    "w": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "d",
+     "d",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "b",
+       "d"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      5,
+      [
+       "c"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "late-random-1": {
+  "cp": {
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "kappa": 2,
+   "m": 4,
+   "rho_bp": 2500
+  },
+  "durable": [],
+  "final": {
+   "accruing": 1,
+   "active": [
+    "c",
+    "m0",
+    "w",
+    "x"
+   ],
+   "burned": "53725208333333333352",
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 4,
+   "escrowBalance": "132297430555555555571",
+   "heldTotal": "70572222222222222219",
+   "issued": "96000000000000000000",
+   "ledger": {
+    "40": {
+     "counts": {
+      "b": 1,
+      "stranger": 1,
+      "w": 1
+     },
+     "total": 3
+    },
+    "41": {
+     "counts": {
+      "c": 1,
+      "m0": 2,
+      "w": 1
+     },
+     "total": 4
+    },
+    "42": {
+     "counts": {
+      "b": 1,
+      "c": 3,
+      "w": 1,
+      "x": 3
+     },
+     "total": 8
+    },
+    "43": {
+     "counts": {
+      "a": 1,
+      "b": 2,
+      "m0": 2,
+      "w": 1,
+      "x": 3
+     },
+     "total": 9
+    },
+    "44": {
+     "counts": {
+      "a": 3,
+      "b": 2,
+      "stranger": 1,
+      "w": 1,
+      "x": 1
+     },
+     "total": 8
+    },
+    "45": {
+     "counts": {
+      "a": 3,
+      "c": 2,
+      "m0": 2,
+      "stranger": 1,
+      "w": 2
+     },
+     "total": 10
+    },
+    "46": {
+     "counts": {
+      "b": 1,
+      "m0": 2,
+      "x": 2
+     },
+     "total": 5
+    },
+    "47": {
+     "counts": {
+      "a": 1,
+      "b": 1,
+      "c": 2,
+      "m0": 1,
+      "w": 2
+     },
+     "total": 7
+    }
+   },
+   "order": [
+    "m0",
+    "w",
+    "b",
+    "c",
+    "x"
+   ],
+   "paid": {
+    "b": "7883611111111111108",
+    "c": "11361111111111111107",
+    "m0": "20263124999999999995",
+    "w": "9194722222222222219"
+   },
+   "pots": {
+    "45": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "c"
+    },
+    "46": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "47": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "a"
+    },
+    "48": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 2,
+     "burn": 37,
+     "due": 37,
+     "exit": 37,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 47,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 2,
+     "tomb": true
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 47,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 47,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "w": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 47,
+     "registered_at": 1,
+     "reward": "w",
+     "status": 1,
+     "tomb": false
+    },
+    "x": {
+     "bond": "10572222222222222219",
+     "bond_state": 4,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 46,
+     "registered_at": 1,
+     "reward": "x",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "0",
+    "b": "20000000000000000000",
+    "c": "20000000000000000000",
+    "w": "20000000000000000000",
+    "x": "5000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "x",
+     "x",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "stranger",
+     "stranger",
+     "m0",
+     "b",
+     "m0",
+     "c",
+     "stranger",
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "w",
+     "m0",
+     "c",
+     "m0",
+     "stranger"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "a"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [
+     "b",
+     "x",
+     "stranger",
+     "w",
+     "a",
+     "m0",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "x",
+     "stranger",
+     "w",
+     "a",
+     "m0",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "stranger",
+     "c",
+     "c",
+     "a",
+     "w",
+     "b",
+     "w"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "a",
+     "x",
+     "m0",
+     "w",
+     "x"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "a",
+     "stranger",
+     "x",
+     "w",
+     "b",
+     "b",
+     "a"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "m0",
+     "c",
+     "w",
+     "x",
+     "stranger",
+     "c",
+     "c",
+     "x"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      8,
+      [
+       "c",
+       "x",
+       "m0"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "a",
+     "c",
+     "x",
+     "w",
+     "w",
+     "a",
+     "w",
+     "m0"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "b",
+     "stranger",
+     "a",
+     "b",
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "stranger",
+     "stranger",
+     "x",
+     "a",
+     "stranger"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "b",
+     "a",
+     "a",
+     "w",
+     "a",
+     "c"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      11,
+      [
+       "stranger"
+      ]
+     ],
+     [
+      "late",
+      10,
+      [
+       "m0"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "stranger",
+     "a",
+     "b",
+     "c",
+     "a",
+     "m0",
+     "stranger"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      14,
+      [
+       "x",
+       "b",
+       "c",
+       "c"
+      ]
+     ],
+     [
+      "a",
+      null,
+      "m0"
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "m0",
+     "b"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      13,
+      [
+       "a"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [
+     "stranger",
+     "m0",
+     "w",
+     "m0",
+     "c",
+     "w"
+    ],
+    "winner": "a"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "m0",
+     "w",
+     "m0",
+     "c",
+     "w"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "w",
+     "a",
+     "x",
+     "m0",
+     "c",
+     "x",
+     "a"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "m0"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "a"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "stranger",
+     "stranger",
+     "stranger",
+     "stranger",
+     "x",
+     "a"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      19,
+      [
+       "w",
+       "stranger"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "23",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "c",
+     "a",
+     "w",
+     "c",
+     "m0",
+     "x",
+     "c",
+     "b"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "23"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "24",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "c"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "24"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "25",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "x",
+     "a",
+     "c",
+     "stranger"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "25"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "26",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "stranger",
+     "b"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "26"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "27",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "27"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      24,
+      [
+       "stranger",
+       "stranger"
+      ]
+     ],
+     [
+      "late",
+      25,
+      [
+       "b",
+       "m0"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "28",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "a"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "28"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "29",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "29"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      28,
+      [
+       "a"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "30",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "a",
+     "m0",
+     "c"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "30"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "31",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "stranger",
+     "stranger",
+     "m0",
+     "w",
+     "w"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "31"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "32",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "w"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "32"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      29,
+      [
+       "x",
+       "a"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "33",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "b",
+     "a",
+     "b",
+     "x",
+     "c",
+     "b",
+     "m0"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "33"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      33,
+      [
+       "b",
+       "w"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "34",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "m0",
+     "m0",
+     "b",
+     "a"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "34"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      31,
+      [
+       "x",
+       "b",
+       "w",
+       "c",
+       "b"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "35",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "b",
+     "m0"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "35"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      31,
+      [
+       "w"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "36",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [
+     "b",
+     "w",
+     "b",
+     "m0",
+     "a",
+     "a",
+     "a",
+     "stranger",
+     "a"
+    ],
+    "winner": "b"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "36",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "w",
+     "b",
+     "m0",
+     "a",
+     "a",
+     "a",
+     "stranger",
+     "a"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "b",
+      null,
+      "m0"
+     ],
+     [
+      "late",
+      36,
+      [
+       "stranger",
+       "stranger",
+       "w",
+       "m0"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "37",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "37"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      36,
+      [
+       "w"
+      ]
+     ],
+     [
+      "late",
+      34,
+      [
+       "stranger",
+       "a",
+       "stranger"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "38",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "stranger"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "38"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      36,
+      [
+       "stranger"
+      ]
+     ],
+     [
+      "late",
+      38,
+      [
+       "a",
+       "b",
+       "a",
+       "c"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "39",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "b",
+     "c"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "39"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      39,
+      [
+       "stranger"
+      ]
+     ],
+     [
+      "late",
+      39,
+      [
+       "m0",
+       "m0",
+       "x",
+       "b",
+       "a"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "40",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "40"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "41",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "stranger"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "41"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "42",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "m0",
+     "w"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "42"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "43",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "b",
+     "c"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "43"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "44",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "x",
+     "x",
+     "b",
+     "x",
+     "w",
+     "m0",
+     "m0"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "44"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "45",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "b",
+     "x"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "45"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      42,
+      [
+       "x",
+       "c",
+       "x",
+       "x"
+      ]
+     ],
+     [
+      "late",
+      44,
+      [
+       "a",
+       "stranger",
+       "w",
+       "a"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "46",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "stranger",
+     "m0",
+     "a",
+     "a",
+     "a",
+     "c",
+     "w",
+     "w"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "46"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "47",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "m0",
+     "b",
+     "x"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "47"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      47,
+      [
+       "w",
+       "b",
+       "c",
+       "w"
+      ]
+     ],
+     [
+      "late",
+      47,
+      [
+       "m0"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "48",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "48"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "late-random-2": {
+  "cp": {
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "kappa": 2,
+   "m": 4,
+   "rho_bp": 2500
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "b",
+    "c",
+    "m0"
+   ],
+   "burned": "65541736111111111119",
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 3,
+   "escrowBalance": "133541736111111111119",
+   "heldTotal": "60000000000000000000",
+   "issued": "96000000000000000000",
+   "ledger": {
+    "40": {
+     "counts": {
+      "c": 2,
+      "stranger": 2,
+      "x": 3
+     },
+     "total": 7
+    },
+    "41": {
+     "counts": {
+      "a": 2,
+      "b": 1,
+      "c": 1,
+      "m0": 2,
+      "w": 1
+     },
+     "total": 7
+    },
+    "42": {
+     "counts": {
+      "a": 1,
+      "b": 2,
+      "m0": 1,
+      "stranger": 1,
+      "w": 1,
+      "x": 2
+     },
+     "total": 8
+    },
+    "43": {
+     "counts": {
+      "a": 2,
+      "stranger": 3,
+      "w": 2
+     },
+     "total": 7
+    },
+    "44": {
+     "counts": {
+      "m0": 2
+     },
+     "total": 2
+    },
+    "45": {
+     "counts": {
+      "b": 3,
+      "c": 1,
+      "m0": 1,
+      "w": 1
+     },
+     "total": 6
+    },
+    "46": {
+     "counts": {
+      "b": 2,
+      "m0": 1,
+      "w": 4,
+      "x": 1
+     },
+     "total": 8
+    },
+    "47": {
+     "counts": {
+      "b": 1,
+      "stranger": 1,
+      "w": 4
+     },
+     "total": 6
+    }
+   },
+   "order": [
+    "m0",
+    "a",
+    "b",
+    "c"
+   ],
+   "paid": {
+    "b": "8462777777777777776",
+    "c": "10770555555555555553",
+    "m0": "25778541666666666664",
+    "w": "2446388888888888888"
+   },
+   "pots": {
+    "45": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "w"
+    },
+    "46": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "w"
+    },
+    "47": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "w"
+    },
+    "48": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "8959999999999999998",
+     "bond_state": 2,
+     "burn": 39,
+     "due": 39,
+     "exit": 39,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 43,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 2,
+     "tomb": true
+    },
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 47,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 45,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 46,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "0",
+    "b": "20000000000000000000",
+    "c": "20000000000000000000",
+    "w": "20000000000000000000",
+    "x": "5000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "x",
+     "x",
+     "5000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      1,
+      [
+       "m0",
+       "a",
+       "x",
+       "w",
+       "c"
+      ]
+     ],
+     [
+      "late",
+      2,
+      [
+       "b",
+       "a",
+       "c",
+       "a",
+       "b"
+      ]
+     ],
+     [
+      "late",
+      1,
+      [
+       "b"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "stranger"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "c",
+     "a",
+     "w",
+     "a"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "a",
+     "x",
+     "a",
+     "w",
+     "c",
+     "stranger",
+     "c"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "stranger",
+     "c",
+     "w",
+     "stranger"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "c",
+     "a",
+     "a",
+     "stranger",
+     "stranger",
+     "b"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "a",
+     "x",
+     "c",
+     "c",
+     "x",
+     "w",
+     "b",
+     "stranger"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "a",
+     "x",
+     "a",
+     "a",
+     "c",
+     "b",
+     "x"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      9,
+      [
+       "x",
+       "m0"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "c",
+     "x"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      8,
+      [
+       "w"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      10,
+      [
+       "b",
+       "c",
+       "m0"
+      ]
+     ],
+     [
+      "late",
+      12,
+      [
+       "a",
+       "stranger",
+       "a",
+       "x"
+      ]
+     ],
+     [
+      "late",
+      10,
+      [
+       "stranger",
+       "c"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "14",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "m0",
+     "c",
+     "a",
+     "m0",
+     "stranger",
+     "w",
+     "w"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "14"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      14,
+      [
+       "c"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "revert": "BadState",
+    "shares": [
+     "w",
+     "m0",
+     "x",
+     "x",
+     "b",
+     "stranger",
+     "m0"
+    ],
+    "winner": "w"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "15",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "m0",
+     "x",
+     "x",
+     "b",
+     "stranger",
+     "m0"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "15"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      14,
+      [
+       "m0"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "revert": "BadState",
+    "shares": [
+     "b",
+     "a",
+     "c",
+     "x"
+    ],
+    "winner": "b"
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      12,
+      [
+       "x",
+       "w"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "16",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "a",
+     "c",
+     "x"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "16"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      15,
+      [
+       "b",
+       "x",
+       "c",
+       "b"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "revert": "BadState",
+    "shares": [
+     "w",
+     "x",
+     "c"
+    ],
+    "winner": "m0"
+   },
+   {
+    "evidence": [
+     [
+      "w",
+      null,
+      "m0"
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "17",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "x",
+     "c"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "17"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "18",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "18"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      19,
+      [
+       "a"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [
+     "w"
+    ],
+    "winner": "w"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "19",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "19"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "20",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "a",
+     "m0",
+     "a",
+     "a",
+     "m0"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "20"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "21",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "m0",
+     "a",
+     "m0",
+     "a",
+     "b",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "21"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "22",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "22"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      21,
+      [
+       "x",
+       "m0",
+       "w"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "23",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "c",
+     "x",
+     "c",
+     "c",
+     "w",
+     "a"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "23"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "24",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "24"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "25",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "b",
+     "m0",
+     "m0",
+     "m0",
+     "a"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "25"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "x",
+      null,
+      "m0"
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "26",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "26"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "27",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "stranger",
+     "b",
+     "b",
+     "c",
+     "a",
+     "stranger"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "27"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "28",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "w",
+     "w",
+     "c"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "28"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "29",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "stranger",
+     "a",
+     "m0",
+     "m0",
+     "b",
+     "w",
+     "a",
+     "w"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "29"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "30",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "c"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "30"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "31",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "b"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "31"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "32",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "32"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      29,
+      [
+       "c",
+       "x",
+       "w",
+       "c",
+       "a"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "33",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "w",
+     "c",
+     "stranger",
+     "b",
+     "stranger",
+     "stranger"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "33"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "34",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "x",
+     "c",
+     "x"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "34"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "35",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "a",
+     "w"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "35"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      33,
+      [
+       "a",
+       "a",
+       "c"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "36",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "a",
+     "x",
+     "c",
+     "x"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "36"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "37",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "stranger",
+     "a",
+     "stranger",
+     "stranger",
+     "w",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "37"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "38",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0",
+     "a"
+    ],
+    "winner": "a"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "38"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "a",
+      null,
+      "m0"
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "39",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "w",
+     "stranger",
+     "m0",
+     "b",
+     "m0",
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "39"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "40",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "a",
+     "c",
+     "m0",
+     "m0",
+     "a",
+     "stranger"
+    ],
+    "winner": "b"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "40"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      40,
+      [
+       "c",
+       "x"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "41",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "x",
+     "stranger",
+     "stranger"
+    ],
+    "winner": "c"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "41"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      39,
+      [
+       "stranger"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "42",
+     "m0"
+    ],
+    "revert": "BadState",
+    "shares": [
+     "a",
+     "c",
+     "m0",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "42",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "c",
+     "m0",
+     "b"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "42"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "43",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "a",
+     "x",
+     "b",
+     "m0",
+     "b",
+     "stranger"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "43"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      41,
+      [
+       "a",
+       "w"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "44",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "a",
+     "a",
+     "stranger",
+     "stranger",
+     "w",
+     "stranger"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "44"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "45",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "m0"
+    ],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "45"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "46",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "b",
+     "m0",
+     "b",
+     "c",
+     "b"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "46"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "47",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "x",
+     "w",
+     "b",
+     "b",
+     "w",
+     "m0",
+     "w"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "47"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "48",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "w",
+     "stranger",
+     "w",
+     "w",
+     "b"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "48"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "late-share-at-the-settlement-boundary": {
+  "cp": {
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "b",
+    "c",
+    "m0",
+    "w"
+   ],
+   "burned": "14981250000000000000",
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "escrowBalance": "102981250000000000000",
+   "heldTotal": "80000000000000000000",
+   "issued": "26000000000000000000",
+   "ledger": {
+    "10": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "11": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "12": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "5": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "6": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "7": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "8": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "9": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    }
+   },
+   "order": [
+    "m0",
+    "w",
+    "b",
+    "c"
+   ],
+   "paid": {
+    "b": "53125000000000000",
+    "c": "26562500000000000",
+    "m0": "2712500000000000000",
+    "w": "226562500000000000"
+   },
+   "pots": {
+    "10": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "11": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "12": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "13": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 12,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "w": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "w",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "b": "20000000000000000000",
+    "c": "20000000000000000000",
+    "w": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "b",
+       "b"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "b"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      9,
+      [
+       "b"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      0,
+      [
+       "b"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "revert": "BadPhase",
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "13",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "13"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "late-share-cap-fills-only-the-uncovered-pool": {
+  "cp": {
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "kappa": 2,
+   "m": 4,
+   "rho_bp": 2500
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "b",
+    "c",
+    "d",
+    "m0",
+    "w"
+   ],
+   "burned": "8925000000000000000",
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 4,
+   "escrowBalance": "116925000000000000000",
+   "heldTotal": "100000000000000000000",
+   "issued": "24000000000000000000",
+   "ledger": {
+    "10": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "11": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "4": {
+     "counts": {
+      "b": 1,
+      "c": 5,
+      "d": 1,
+      "w": 1
+     },
+     "total": 8
+    },
+    "5": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "6": {
+     "counts": {
+      "c": 7,
+      "w": 1
+     },
+     "total": 8
+    },
+    "7": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "8": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "9": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    }
+   },
+   "order": [
+    "m0",
+    "w",
+    "b",
+    "c",
+    "d"
+   ],
+   "paid": {
+    "b": "212500000000000000",
+    "c": "2550000000000000000",
+    "d": "212500000000000000",
+    "m0": "3275000000000000000",
+    "w": "825000000000000000"
+   },
+   "pots": {
+    "10": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "11": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "12": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    },
+    "9": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    }
+   },
+   "records": {
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 6,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "d": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "d",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 11,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "w": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 6,
+     "registered_at": 1,
+     "reward": "w",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "b": "20000000000000000000",
+    "c": "20000000000000000000",
+    "d": "20000000000000000000",
+    "w": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "d",
+     "d",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "b"
+      ]
+     ],
+     [
+      "late",
+      4,
+      [
+       "d"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "c",
+     "c",
+     "c",
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "d"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "revert": "BadState",
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      6,
+      [
+       "b"
+      ]
+     ]
+    ],
+    "ok": false,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "revert": "BadState",
+    "shares": [
+     "c",
+     "c",
+     "c",
+     "c",
+     "c",
+     "c",
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c",
+     "c",
+     "c",
+     "c",
+     "c",
+     "c",
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "11",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "11"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "12",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "12"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "late-share-owners-absent-tomb-and-accruing": {
+  "cp": {
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500
+  },
+  "durable": [],
+  "final": {
+   "accruing": 1,
+   "active": [
+    "a",
+    "c",
+    "m0",
+    "w"
+   ],
+   "burned": "24907812500000000000",
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 1,
+   "escrowBalance": "92987500000000000000",
+   "heldTotal": "60079687500000000000",
+   "issued": "20000000000000000000",
+   "ledger": {
+    "2": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "3": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "4": {
+     "counts": {
+      "a": 1,
+      "c": 1,
+      "stranger": 1,
+      "w": 1
+     },
+     "total": 4
+    },
+    "5": {
+     "counts": {
+      "a": 2,
+      "c": 1,
+      "t": 1,
+      "w": 1
+     },
+     "total": 5
+    },
+    "6": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "7": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "8": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "9": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    }
+   },
+   "order": [
+    "m0",
+    "w",
+    "t",
+    "a",
+    "c"
+   ],
+   "paid": {
+    "c": "53125000000000000",
+    "m0": "6506250000000000000",
+    "w": "453125000000000000"
+   },
+   "pots": {
+    "10": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    },
+    "7": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "8": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "9": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    }
+   },
+   "records": {
+    "a": {
+     "bond": "79687500000000000",
+     "bond_state": 4,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 5,
+     "registered_at": 1,
+     "reward": "a",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 5,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 9,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "t": {
+     "bond": "20000000000000000000",
+     "bond_state": 2,
+     "burn": 6,
+     "due": 6,
+     "exit": 6,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 5,
+     "registered_at": 1,
+     "reward": "t",
+     "status": 2,
+     "tomb": true
+    },
+    "w": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 5,
+     "registered_at": 1,
+     "reward": "w",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "a": "0",
+    "c": "20000000000000000000",
+    "t": "20000000000000000000",
+    "w": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "t",
+     "t",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "a",
+     "a",
+     "0",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "stranger",
+       "a"
+      ]
+     ],
+     [
+      "t",
+      null,
+      "m0"
+     ],
+     [
+      "late",
+      5,
+      [
+       "t",
+       "a",
+       "a"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "10",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "10"
+    ],
+    "result": null
+   }
+  ]
+ },
+ "late-share-pays-the-omitted-contributor": {
+  "cp": {
+   "S0": 2000000000000000000,
+   "S_max": 256,
+   "W_w": 8,
+   "alpha_bp": 1000,
+   "gamma_bp": 500,
+   "kappa": 2,
+   "m": 32,
+   "rho_bp": 2500
+  },
+  "durable": [],
+  "final": {
+   "accruing": 0,
+   "active": [
+    "b",
+    "c",
+    "m0",
+    "w"
+   ],
+   "burned": "8314062500000000000",
+   "counters": {
+    "maint": 0,
+    "ops": 0,
+    "react": 0,
+    "regs": 0
+   },
+   "cursor": 0,
+   "escrowBalance": "96314062500000000000",
+   "heldTotal": "80000000000000000000",
+   "issued": "18000000000000000000",
+   "ledger": {
+    "1": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "2": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "3": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "4": {
+     "counts": {
+      "b": 1,
+      "c": 1,
+      "w": 1
+     },
+     "total": 3
+    },
+    "5": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "6": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "7": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    },
+    "8": {
+     "counts": {
+      "m0": 1
+     },
+     "total": 1
+    }
+   },
+   "order": [
+    "m0",
+    "w",
+    "b",
+    "c"
+   ],
+   "paid": {
+    "b": "26562500000000000",
+    "c": "26562500000000000",
+    "m0": "1406250000000000000",
+    "w": "226562500000000000"
+   },
+   "pots": {
+    "6": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "7": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "8": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": "m0"
+    },
+    "9": {
+     "accruing": false,
+     "amount": "2000000000000000000",
+     "invalid": false,
+     "proposer": "m0",
+     "winner": ""
+    }
+   },
+   "records": {
+    "b": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "b",
+     "status": 1,
+     "tomb": false
+    },
+    "c": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "c",
+     "status": 1,
+     "tomb": false
+    },
+    "m0": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 0,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 8,
+     "registered_at": 0,
+     "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "w": {
+     "bond": "20000000000000000000",
+     "bond_state": 1,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 4,
+     "registered_at": 1,
+     "reward": "w",
+     "status": 1,
+     "tomb": false
+    }
+   },
+   "spent": {
+    "b": "20000000000000000000",
+    "c": "20000000000000000000",
+    "w": "20000000000000000000"
+   }
+  },
+  "steps": [
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "1",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": ""
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "w",
+     "w",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "b",
+     "b",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "register",
+     "c",
+     "c",
+     "20000000000000000000",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "1"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "2",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "2"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "3",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "3"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "4",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "4"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [
+     [
+      "late",
+      4,
+      [
+       "b"
+      ]
+     ]
+    ],
+    "ok": true,
+    "op": [
+     "begin",
+     "5",
+     "m0"
+    ],
+    "result": null,
+    "shares": [
+     "c"
+    ],
+    "winner": "w"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "5"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "6",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "6"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "7",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "7"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "8",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "8"
+    ],
+    "result": null
+   },
+   {
+    "evidence": [],
+    "ok": true,
+    "op": [
+     "begin",
+     "9",
+     "m0"
+    ],
+    "result": null,
+    "shares": [],
+    "winner": "m0"
+   },
+   {
+    "ok": true,
+    "op": [
+     "close",
+     "9"
+    ],
+    "result": null
+   }
+  ]
+ }
+}

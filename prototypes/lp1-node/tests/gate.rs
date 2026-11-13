@@ -487,3 +487,32 @@ fn r8_v3_registry_window_and_cooldown() {
     p.cp.D = 1;
     assert!(r8(&p));
 }
+
+/// V3-02 (V3-DECISIONS.md D-V3-02): on CP schema v2, R10 (the byte limits) also requires that the largest kind-3 late-share item a block
+/// can need, min(S_max, kappa*m - 1) nonces, fits EVID_BYTES_MAX. CP schema v1 profiles keep their R10 unchanged.
+#[test]
+fn r10_v3_late_share_item_fits_evid_bytes_max() {
+    // Exact RLP sizes: [3, be64(j), [k eight-byte nonces]].
+    // outer header + kind byte + (0x88 + j) + nonce list header + 9 bytes per nonce.
+    assert_eq!(late_item_bytes(1), 1 + 1 + 9 + 1 + 9);
+    assert_eq!(late_item_bytes(6), 2 + 1 + 9 + 1 + 54, "the item payload passes 55 bytes first");
+    assert_eq!(late_item_bytes(7), 2 + 1 + 9 + 2 + 63, "then the nonce list's");
+    assert_eq!(late_item_bytes(63), 3 + 1 + 9 + 3 + 567, "about 0.6 KB at kappa*m = 64");
+    assert_eq!(late_item_bytes(256), 3 + 1 + 9 + 3 + 2304, "about 2.3 KB at S_max = 256");
+    let u = profile(false).cp.U;
+    let r10 = |p: &GateProfile| check(p, None, None, None, NodeKind::Node).violations.contains(&"R10".to_string());
+    let base = profile_v2(u - 2, u, u);
+    let k = (base.cp.S_max as u64).min(base.cp.kappa as u64 * base.cp.m as u64 - 1);
+    let need = late_item_bytes(k) as u32;
+    assert!(!r10(&base) && !v3_late_share_sizing_violated(&base.cp), "fixture EVID_BYTES_MAX {} >= {need}", base.cp.EVID_BYTES_MAX);
+    for (evid, bad) in [(need, false), (need - 1, true), (need + 1, false)] {
+        let mut p = profile_v2(u - 2, u, u);
+        p.cp.EVID_BYTES_MAX = evid;
+        assert_eq!((r10(&p), v3_late_share_sizing_violated(&p.cp)), (bad, bad), "EVID_BYTES_MAX {evid} for k = {k}");
+    }
+    // The same EVID_BYTES_MAX on CP schema v1 is not an R10 matter (no late shares).
+    let mut p = profile(false);
+    p.cp.EVID_BYTES_MAX = need - 1;
+    refresh(&mut p);
+    assert!(!r10(&p) && !v3_late_share_sizing_violated(&p.cp));
+}

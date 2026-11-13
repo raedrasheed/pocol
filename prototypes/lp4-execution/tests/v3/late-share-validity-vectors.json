@@ -1,0 +1,4542 @@
+{
+ "another-members-range-is-that-members": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "effects": [
+    [
+     9,
+     [
+      "a",
+      "b"
+     ]
+    ]
+   ],
+   "ok": true
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000000048800000000000003ef"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "cap-already-full": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls cap"
+  },
+  "items": [
+   "d403880000000000000009c98800000000000003ef"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 3
+  }
+ },
+ "cap-exceeded-across-items": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 1,
+   "ok": false,
+   "reason": "ls cap"
+  },
+  "items": [
+   "e603880000000000000009db8800000000000003ef8800000000000003f38800000000000003f4",
+   "e603880000000000000009db8800000000000003fb8800000000000003fc8800000000000003fd"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "cap-exceeded-by-the-item": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls cap"
+  },
+  "items": [
+   "f84103880000000000000009f68800000000000003ef8800000000000003f38800000000000003f48800000000000003fb8800000000000003fc8800000000000003fd"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "count-above-s-max": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls count"
+  },
+  "items": [
+   "f85d03880000000000000008f85188000000000000000488000000000000000688000000000000000788000000000000000888000000000000000a88000000000000000b88000000000000000c88000000000000000e880000000000000010"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 64
+  }
+ },
+ "count-empty": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls count"
+  },
+  "items": [
+   "cb03880000000000000009c0"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "duplicate-across-carriers": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls credited on the branch"
+  },
+  "items": [
+   "d403880000000000000009c98800000000000003ec"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "duplicate-in-the-list": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls order"
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000003ef8800000000000003ef"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "duplicate-within-the-block": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 1,
+   "ok": false,
+   "reason": "ls repeated in the block"
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000003ef8800000000000003f3",
+   "dd03880000000000000009d28800000000000003f38800000000000003f4"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "form-four-fields": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "evidence form"
+  },
+  "items": [
+   "d503880000000000000009c98800000000000003ef78"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "form-j-seven-bytes": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls form"
+  },
+  "items": [
+   "d3038700000000000009c98800000000000003ef"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "form-nonce-nine-bytes": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls form"
+  },
+  "items": [
+   "d503880000000000000009ca890000000000000003ef"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "form-nonces-not-a-list": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls form"
+  },
+  "items": [
+   "d3038800000000000000098800000000000003ef"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "header-share": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls header share"
+  },
+  "items": [
+   "d403880000000000000009c9880000000000000001"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "non-ancestor-template": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls share target"
+  },
+  "items": [
+   "d403880000000000000009c98800000000000003e8"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "nonce-above-nmax": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls nonce outside nMax"
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000003ef880000010000000000"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "nonce-at-nmax": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls nonce outside nMax"
+  },
+  "items": [
+   "d403880000000000000009c9880000000000000bb8"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "ok-one-item": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "effects": [
+    [
+     9,
+     [
+      "b",
+      "b"
+     ]
+    ]
+   ],
+   "ok": true
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000003ef8800000000000003f3"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "ok-owner-from-block-j-ranges": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "effects": [
+    [
+     9,
+     [
+      "b",
+      "c"
+     ]
+    ]
+   ],
+   "ok": true
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000003ef8800000000000007d5"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "ok-two-items-one-template-fill-the-cap": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "effects": [
+    [
+     9,
+     [
+      "b",
+      "b"
+     ]
+    ],
+    [
+     9,
+     [
+      "b",
+      "b",
+      "b"
+     ]
+    ]
+   ],
+   "ok": true
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000003ef8800000000000003f3",
+   "e603880000000000000009db8800000000000003f48800000000000003fb8800000000000003fc"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "ok-two-templates": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "effects": [
+    [
+     9,
+     [
+      "b"
+     ]
+    ],
+    [
+     8,
+     [
+      "a",
+      "a"
+     ]
+    ]
+   ],
+   "ok": true
+  },
+  "items": [
+   "d403880000000000000009c98800000000000003ef",
+   "dd03880000000000000008d2880000000000000004880000000000000006"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "ok-window-low-boundary-j-equals-h-minus-d": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "effects": [
+    [
+     6,
+     [
+      "a",
+      "a"
+     ]
+    ]
+   ],
+   "ok": true
+  },
+  "items": [
+   "dd03880000000000000006d2880000000000000002880000000000000006"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "target-miss": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls share target"
+  },
+  "items": [
+   "d403880000000000000009c98800000000000003e8"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "unsorted-list": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls order"
+  },
+  "items": [
+   "dd03880000000000000009d28800000000000003f38800000000000003ef"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "window-below-h-minus-d": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls window"
+  },
+  "items": [
+   "d403880000000000000005c9880000000000000007"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "window-current-height": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls window"
+  },
+  "items": [
+   "d40388000000000000000ac9880000000000000007"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ },
+ "window-zero": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls window"
+  },
+  "items": [
+   "d403880000000000000000c9880000000000000007"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 3,
+   "kappa_m": 8
+  }
+ },
+ "winning-nonce": {
+  "bases": {
+   "10": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "3af7dd574399afd02db2a6c2f621d52cc5b14e6fb7e6083489c49fd1fdddc39c",
+    "total": 1
+   },
+   "5": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "09bd828a6bd4648a4d4a46656587c8fc1162049de955fa659547bb680d81bf44",
+    "total": 1
+   },
+   "6": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "c83b40d7e78f94f8202e66939e405d309041e2569497a77a3982cbcdb6b6c190",
+    "total": 1
+   },
+   "8": {
+    "credited": [],
+    "header": [],
+    "nonce": 5,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "935407bdcdc680a1f88a8fe6bffb4dea9d67e5cb64af98879e48902237f6f9d9",
+    "total": 1
+   },
+   "9": {
+    "credited": [
+     1004
+    ],
+    "header": [
+     1,
+     3
+    ],
+    "nonce": 2002,
+    "ranges": [
+     [
+      "a",
+      0,
+      1000
+     ],
+     [
+      "b",
+      1000,
+      2000
+     ],
+     [
+      "c",
+      2000,
+      3000
+     ]
+    ],
+    "tShare": "7fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "tid": "cff412a14399ddf82e1f83041e9faa4e6af3efed8d3eb3d32ec9d265491a3816",
+    "total": 3
+   }
+  },
+  "carrierRanges": [
+   [
+    "c",
+    0,
+    1500
+   ],
+   [
+    "a",
+    1500,
+    3000
+   ]
+  ],
+  "expect": {
+   "at": 0,
+   "ok": false,
+   "reason": "ls winning nonce"
+  },
+  "items": [
+   "d403880000000000000009c98800000000000007d2"
+  ],
+  "rules": {
+   "D": 4,
+   "S_max": 8,
+   "h": 10,
+   "kappa_m": 8
+  }
+ }
+}
