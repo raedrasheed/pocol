@@ -544,6 +544,27 @@ first-lock times are lost on a restart; a block first imported after it is judge
   - Add per-proposer template-arrival latency counters to `pocol_status`.
 - **Classification:** NODE-LOCAL. **Deployment:** any release. **Tests:** the default satisfies R2 for each
   locals profile. **Effort:** S.
+- **Implementation note (N1).**
+  - Derivation (`pocold/src/testnet.rs`): `derive_delta_rel(Δ, φ, t_exec) = σ + Δ + 2·t_exec` with
+    σ = max(Δ, Φ+1) + t_exec, Φ = 2φ (R2 at equality); `local_for_v3` adds Γ as the R6 slack at those locals
+    (never below 5). It applies only to spec-2 (v3) genesis files: `local_for_spec` and `local_for_network` keep the
+    spec-1 derivation `local_for` (Δ_rel = dFbWait + Δ + t_exec, Γ the R6 slack) byte for byte, so the live H15000
+    chain stays at Δ_rel 8, Γ 5, and a spec-1 config that declares timing is refused.
+  - Inputs: the public testnet config's `localTiming {delta, phi, tExec}` (v3 only), recorded in devnet.json
+    `localTiming` with `source` (`declared` or `v3-wan-default`) and read back by the launcher; without it the
+    default is `TimingAssumptions::V3_WAN` (Δ = φ = t_exec = 2 s, the O-6=b bounds): Δ_rel 13, Γ 8 at
+    T_blk 30 / D_att 150 / dFbWait 10. The governance WAN locals (5, 5, 3) derive 25 and need dFbWait ≥ 21 (R3),
+    which admission enforces. The production values stay V3-PR-F's.
+  - Telemetry (`pocold/src/node/latency.rs`): per drawn proposer, the arrival of its signed a=0 template relative to
+    b_j (sinceParentMs: what Δ_rel must cover) and, signed, relative to the template's own timestamp, the proposer's
+    clock at the build (sinceStampMs / beforeStampMs: delivery + build + the receiver's clock offset, the φ-bearing
+    quantity; templates stamped at the L(0) floor are counted apart), the lock time relative to b_j, late (after
+    T_j) and early counts, slots and missing templates, in bounded histograms (256 proposers, 64 slots, 147 KB), in
+    `pocol_status.templateLatency` and `pocol_templateLatency`. Nothing is measured against L(0): b_j − L(0) is
+    about the parent's PoW round, not a clock offset. Metric definitions and how to read Δ and φ from them:
+    `development/m1/reference/network.md`, "Template latency".
+  - A v3 node takes this timing on every path (the launcher, `pocold run` and `pocold status`); a v3 devnet.json
+    whose recorded deltaRel or gamma differs from the derivation is refused.
 
 ### V3-06 Timing recalibration (OWNER-CHOICE O-6)
 
@@ -1042,6 +1063,15 @@ fork; a restart test. **Effort:** S. **Risk:** low.
   - Transactions after S are voided (`EARN-IN-CUTOVER-RUNBOOK.md:81`, `:96`).
   - Android installs cannot follow (`:434`) and keys cannot be exported (`deploy/standalone/README.md:171-173`).
   - The owner alone decides (DEC-06).
+- **Status (N6):** the builder/pool freeze (`--freeze-user-txs-after S`, POCOL_FREEZE_USER_TXS_AFTER, `pocol
+  freeze-user-txs`; `node::Limits::freeze_user_txs_after`), the old-chain export (`pocold export-chain`,
+  `pocold verify-export`; `pocold/src/cutover/export.rs`) and the conduct steps in
+  `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` step 0.4 are in tree. No validity, fork-choice, journal or
+  checkpoint byte changed; with the setting off a node behaves as before. The freeze is local policy, so "nothing
+  is voided" holds only when every node that can be drawn as proposer runs it; the runbook's step 1 checks every
+  block after S, whoever proposed it. A saved launcher or inventory setting names its network and is not applied
+  to the new one. The cutover can write the export in the same run (`--export-chain`), rebuilding the state at S
+  once. The Android export build is the existing key-backup work. Nothing was run on a real network.
 - **NODE-LOCAL parts:**
   - a builder flag that includes no user transactions after S, so nothing is voided;
   - publish old-chain data and rebuild instructions;
