@@ -321,8 +321,13 @@ within its own group.
 |---|---|---|
 | Established inbound peers (default 32, 1..128) | `--peers-max N`; `POCOL_PEERS_MAX` | `POCOL_PEERS_MAX` |
 | Inbound peers per public /16 or /32 (default 4, 0 off) | `--per-group-max N`; `POCOL_PER_GROUP_MAX` | `POCOL_PER_GROUP_MAX` |
+| RPC `safe` depth k_safe (V3-26, default 6; 1 ≤ k_safe ≤ k_alarm, below K_hist = 32) | `--k-safe N`; `POCOL_K_SAFE` | `POCOL_K_SAFE` |
+| Reorg alarm depth k_alarm (V3-26, default 60; `pocol_finality.reorgsGeKAlarm`) | `--k-alarm N`; `POCOL_K_ALARM` | `POCOL_K_ALARM` |
 
-A flag wins over its variable, and an empty value counts as unset. For `pocold run`, a
+A flag wins over its variable, and an empty value counts as unset (except for
+`POCOL_K_SAFE` and `POCOL_K_ALARM`, where an empty or non-numeric value is refused:
+`run` names the variable, the launcher answers "Invalid POCOL_K_SAFE" or "Invalid
+POCOL_K_ALARM"; a pair outside the k_safe bounds stops the node at open, naming it). For `pocold run`, a
 value outside 1..128 (0 included) stops the command before the node starts (status
 1), naming the flag or variable; the launcher refuses it as "Invalid
 POCOL_PEERS_MAX". The seed and join units that `deploy/public-testnet/prepare.py`

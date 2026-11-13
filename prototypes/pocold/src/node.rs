@@ -119,6 +119,17 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// unprotected non-canonical metadata (chain::R_KEEP, chain::SIDE_BLOCKS_MAX). Live import and
     /// replay must use the same values; tests lower them to reach the boundaries quickly.
     pub r_keep:u64,pub side_cap:usize,
+    /// V3-26 (local confirmation depth, never validity; owner decision 12, 2026-11-13): the RPC `safe` tag is
+    /// max(head − k_safe, finalized_h). K_SAFE; `--k-safe N`, or POCOL_K_SAFE for `run` and `pocol start`. Node::open
+    /// refuses k_safe = 0, k_safe > k_alarm, and k_safe >= K_hist (the trie window of the network's local profile), so a
+    /// state query at `safe` is answered while safe = head − k_safe (`check_confirmation`). When a heavier, shorter branch
+    /// lowers the head to within k_safe of finalized_h, safe = finalized_h, and with R_keep >= K_hist (production) its
+    /// state was pruned at the old head: a state query there answers −32017, as at `finalized` (block queries answer).
+    pub k_safe:u64,
+    /// V3-26 (local reorg alarm, never validity; owner decision 12): a reorganization abandoning k_alarm or more canonical
+    /// blocks is counted (`pocol_finality.reorgsGeKAlarm`). K_ALARM; `--k-alarm N`, or POCOL_K_ALARM for `run` and
+    /// `pocol start`.
+    pub k_alarm:u64,
     /// Decision D-7 (local pool policy, never validity): the longest one slice of pool revalidation runs
     /// on the consensus thread before the next event is taken (POOL_SLICE), and the bound on the pooled
     /// transactions' summed declared gas limits (None: POOL_GAS_BLOCKS × GAS_LIMIT, approved 2026-10-25;
@@ -163,11 +174,37 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// (`rpc::serve_all`). The main RPC port never serves them, so a reverse proxy in front of it never reaches them.
     /// None (the default): no work port, and both methods answer -32601 as unknown ones everywhere.
     pub work_rpc:Option<std::net::SocketAddr>}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,first_imports:false,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default(),freeze_user_txs_after:None,mine_threads:1,work_rpc:None}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,first_imports:false,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,k_safe:K_SAFE,k_alarm:K_ALARM,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default(),freeze_user_txs_after:None,mine_threads:1,work_rpc:None}}}
 /// C-1 S5 (PR7): what a view of a canonical block below the window reads besides its index row and journal
 /// record: its receipts (history.redb) only when asked.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
 pub struct Want{pub receipts:bool}
+/// V3-26 (owner decision 12, 2026-11-13): the default local confirmation depth of the RPC `safe` tag (`Limits::k_safe`):
+/// 6 blocks, one minute at 10 s blocks.
+pub const K_SAFE:u64=6;
+/// V3-26 (owner decision 12): the default depth from which a reorganization counts in `reorgsGeKAlarm`
+/// (`Limits::k_alarm`): 60 blocks, ten minutes at 10 s blocks.
+pub const K_ALARM:u64=60;
+/// V3-26 (owner decision 12; local, never validity): the confirmation settings a node may run with:
+/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so the state at head − k_safe is inside the retained trie window (heights
+/// head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node flag). This
+/// does not bound the other branch of `safe` = max(head − k_safe, finalized_h): after a heavier, shorter branch,
+/// safe = finalized_h can be a pruned height, whose state answers −32017 as at `finalized`.
+pub fn check_confirmation(k_safe:u64,k_alarm:u64,k_hist:u64)->Result<(),String>{
+    if k_safe==0{return Err("k_safe 0: the RPC safe depth must be at least 1 (--k-safe, POCOL_K_SAFE)".into())}
+    if k_safe>k_alarm{return Err(format!("k_safe {k_safe} exceeds k_alarm {k_alarm}: the RPC safe depth must not exceed the reorg alarm depth (--k-safe/POCOL_K_SAFE, --k-alarm/POCOL_K_ALARM)"))}
+    if k_safe>=k_hist{return Err(format!("k_safe {k_safe} must be below K_hist {k_hist} (the retained trie window), or state queries at the RPC safe tag could not be answered (--k-safe, POCOL_K_SAFE)"))}
+    Ok(())
+}
+/// V3-26: the file beside the journal that keeps the local irreversibility floor `Chain::finalized_h` across restarts:
+/// one line `<height> <canonical block hash, hex>`, written durably (temporary file, fsync, rename, directory fsync).
+/// A data directory without it (written before V3-26) opens with the floor head − r_keep, and the file is written.
+/// It is rewritten every time finalized_h rises, after that import's retain and before the next block is journaled,
+/// so it always holds the floor every journaled block was imported under: a block that lowers the head (a heavier,
+/// shorter branch) never raises finalized_h, so the file already holds the floor it keeps, and a crash before a
+/// rewrite loses only a rise that replay re-derives as head − r_keep. A failed write stops the node (exit 70), as any
+/// local storage failure does. To drop the floor, stop the node and remove the file (the next open uses head − r_keep).
+pub const FINALITY_FILE:&str="retention.finalized";
 /// What a view that cannot read its block's history answers (the store is logged, marked and rebuilt at the next open).
 pub const HISTORY_UNAVAILABLE:&str="block history unavailable (logged; the store is rebuilt at the next open)";
 /// C-1 S1: replay refills history.redb with non-durable commits and makes them durable every this many blocks.
@@ -710,6 +747,8 @@ pub struct Node{
     /// re-broadcasts the cached template from `signed_a0_mem` (not persisted).
     signed_a0:HashMap<([u8;32],u64),[u8;32]>,
     signed_a0_mem:HashMap<([u8;32],u64),(Vec<u8>,Vec<u8>)>,
+    /// V3-26: the floor `retention.finalized` holds (0: none written yet).
+    fin_saved:u64,
     /// C-1 E4.4: the node store (store mode) and the checkpoint cadence: records between checkpoints (0:
     /// none), the records the last one covers, and the journal's rolling hash (`checkpoint::roll`).
     state_store:Option<Arc<crate::state_store::StateStore>>,ckpt:Ckpt,
@@ -748,6 +787,11 @@ pub struct Stats{
     /// not a share, duplicate, past the share cap or after the solution).
     pub work_shares:u64,pub work_solutions:u64,pub work_refused:u64,
     pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fallback_templates:u64,pub shares_seen:u64,pub hashes:u64,pub reorgs:u64,
+    /// V3-26 reorg telemetry since this start (live imports, not replay): the most canonical blocks one reorganization
+    /// abandoned (old head height − fork height), and the reorganizations that abandoned k_alarm or more.
+    pub max_reorg_depth:u64,pub reorgs_ge_k_alarm:u64,
+    /// V3-26: a `retention.finalized` the open did not use (its block is not canonical in this journal, or unreadable).
+    pub finality_file_ignored:bool,
     /// Sync sessions started and rounds asked; solicited imports of blocks retention had removed
     /// (re-fetch); canonical blocks made whole after adoptions (restore); journal records replay skipped.
     pub sync_sessions:u64,pub sync_rounds:u64,pub refetched:u64,pub restored:u64,pub replay_skipped:u64,
@@ -846,6 +890,17 @@ fn retention_rkeep(dir:&std::path::Path,configured:u64)->std::io::Result<u64>{
     Ok(rk)
 }
 
+/// V3-26: `retention.finalized` as written by `Node::persist_finality`: None without the file. A file that cannot be
+/// read (permissions, an I/O error, a directory) or does not parse is an error: the open refuses rather than overwrite
+/// a floor it could not read (the operator removes the file to restart the floor at head − r_keep).
+fn load_finality(dir:&std::path::Path)->Result<Option<(u64,[u8;32])>,String>{
+    let why=|e:&dyn std::fmt::Display|format!("{FINALITY_FILE}: {e}; remove it to restart the local irreversibility floor at head - r_keep (network.md, Local finality)");
+    let s=match std::fs::read_to_string(dir.join(FINALITY_FILE)){Ok(s)=>s,Err(e) if e.kind()==std::io::ErrorKind::NotFound=>return Ok(None),Err(e)=>return Err(why(&e))};
+    let mut it=s.split_whitespace();
+    let h=it.next().and_then(|x|x.parse::<u64>().ok());let hash=it.next().and_then(|x|unhex(x).ok()).and_then(|v|<[u8;32]>::try_from(v).ok());
+    match (h,hash,it.next()){(Some(h),Some(hash),None)=>Ok(Some((h,hash))),_=>Err(why(&"not `<height> <block hash>`"))}
+}
+
 /// C-1 S5 (PR7 §7, review 2026-11): the record count the journal's commit file gives (its valid slot with the larger
 /// seq, as `store::open` reads it), read before the journal pass so that the replay tables are checked before the pass
 /// builds them. None when it cannot be read (no journal or commit file, a format-1 journal, no valid slot): the pass
@@ -880,7 +935,7 @@ fn load_signed_a0(dir:&std::path::Path)->HashMap<([u8;32],u64),[u8;32]>{
 
 /// C-1 E5: a closing node leaves its entries' versions pinned (`StateStore::close`); the next open releases them.
 /// C-1 S5: and the canonical index's last puts are made durable, if they can be (replay writes them again if not).
-impl Drop for Node{fn drop(&mut self){if let Some(s)=&self.state_store{s.close();}let _=self.canon.sync();}}
+impl Drop for Node{fn drop(&mut self){if self.chain.finalized_h>self.fin_saved{if let Err(e)=self.persist_finality(){self.log(&format!("V3-26: {e}"));}}if let Some(s)=&self.state_store{s.close();}let _=self.canon.sync();}}
 impl Node{
     /// Opens the journal, replays and re-executes every committed block.
     pub fn open(mut cfg:Config,spec:Spec)->Result<Self,String>{
@@ -888,6 +943,8 @@ impl Node{
         // A13: the resident bound of this profile with these limits must fit the budget (the pool counted at
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
+        // V3-26 (owner decision 12): the RPC safe depth and the reorg alarm depth, checked before anything is opened.
+        check_confirmation(cfg.limits.k_safe,cfg.limits.k_alarm,u64::from(spec.local().k_hist))?;
         // V3-30: the miner's thread count is checked before A13 counts it.
         if !(1..=miner::MINE_THREADS_MAX).contains(&cfg.limits.mine_threads){return Err(format!("mine threads must be 1..={}, not {}",miner::MINE_THREADS_MAX,cfg.limits.mine_threads))}
         let mine_warning=mine_threads_warning(cfg.limits.mine_threads,std::thread::available_parallelism().ok().map(|n|n.get()));
@@ -1172,6 +1229,21 @@ impl Node{
         }
         timing.replay_ms=ms(t_replay);
         if refilled>0{history.sync().map_err(|e|format!("replay: history {}",e.0))?;}
+        // V3-26: the persisted irreversibility floor, used only when its block is canonical in this journal (a file left
+        // by another journal, or by an older build that reorganized below it, is not); the retain below raises it to
+        // head − r_keep and removes the non-canonical blocks at or below it (replay kept the R_keep floor alone).
+        // The file is overwritten only when it parsed and its block is not canonical here; when the canonical index
+        // cannot be read for its height, the file is not used for this run and is kept (fin_saved = its height, so it
+        // is rewritten only once the floor passes it), and the open goes on.
+        let (fin_loaded,fin_ignored,fin_kept,fin_note)=match load_finality(&cfg.dir)?{
+            None=>(None,false,0,None),
+            Some((fh,fhash))=>{
+                let at=if fh==0||fh>=chain.canonical.base(){Ok(chain.canonical.get(fh as usize).copied())}else{canon.at(fh).map(|r|r.map(|r|r.hash))};
+                match at{Ok(at) if at==Some(fhash)=>(Some(fh),false,fh,None),
+                    Ok(_)=>(None,true,0,Some(format!("{FINALITY_FILE}: its block {fh} is not canonical in this journal; the floor restarts at head - r_keep"))),
+                    Err(e)=>(None,true,fh,Some(format!("{FINALITY_FILE}: the canonical index cannot be read at its height {fh} ({e}); not used for this run, kept, and the floor is head - r_keep")))}}
+        };
+        chain.finalized_h=fin_loaded.unwrap_or(0);
         drop(evs);drop(samples);chain.protect.clear();chain.replaying=false;chain.r_keep=cfg.limits.r_keep;chain.retain_unsettled();
         // C-1 S5: at open the window reaches its floor whatever was restored (a format-1 snapshot holds every entry):
         // batch after batch, each made durable, then the tables give back what the evicted entries held.
@@ -1192,10 +1264,14 @@ impl Node{
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
             orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),mine_warning,templates:HashMap::new(),template_seen:HashMap::new(),latency:Default::default(),relayed:HashSet::new(),received:HashMap::new(),
-            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,ghost_gas:0,meta:vec![],sender_gas_max:pool_sender_max,replace_relays:0,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),late_cache:LateCache::default(),signed_a0,signed_a0_mem:HashMap::new(),
+            pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,ghost_gas:0,meta:vec![],sender_gas_max:pool_sender_max,replace_relays:0,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),late_cache:LateCache::default(),signed_a0,signed_a0_mem:HashMap::new(),fin_saved:fin_kept,
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
         node.stats.resumed_from=(start>0).then_some(start as u64);node.stats.checkpoints_refused=refused;node.stats.pins_released=released;node.stats.checkpoints_written=written;node.stats.versions_read=versions_read;node.stats.released_at_open=opened_release;node.stats.open=OpenTiming{total_ms:ms(t_open),..timing};
+        node.stats.finality_file_ignored=fin_ignored;
+        if let Some(w)=&fin_note{node.log(w);}
+        // A file that is not canonical here is replaced; otherwise the file is rewritten only when the floor rose.
+        if node.chain.finalized_h>node.fin_saved||(fin_ignored&&fin_kept==0){node.persist_finality()?;}
         if rec.torn_tail{node.log("recovered torn journal tail into a new journal");}
         if rec.migrated_v1{node.log("migrated a fully verified v1 journal to format v2 (original kept as blocks.journal.v1-n)");}
         Ok(node)
@@ -1413,8 +1489,9 @@ impl Node{
         if was_evicted&&!solicited{return Err(Reject::Evicted)}
         // A new block at or below head-R_keep is removed by the next retain() and cannot become canonical
         // (its work is at most the canonical block's at that height): refused before validation or
-        // journaling, as local retention (governance.md:200), never as invalid.
-        if !self.chain.blocks.contains_key(&hash)&&b.header.h.saturating_add(self.chain.r_keep)<=self.chain.head().height{return Err(Reject::Evicted)}
+        // journaling, as local retention (governance.md:200), never as invalid. V3-26: so is one at or below the
+        // irreversibility floor finalized_h (the floor is max(head − r_keep, finalized_h), `Chain::below_floor`).
+        if !self.chain.blocks.contains_key(&hash)&&self.chain.below_floor(b.header.h){return Err(Reject::Evicted)}
         let mut res=self.chain.validate(&b,Some(now_s()),self.capital_phi());
         let mut tries=0;
         let on_branch=solicited&&self.session.as_ref().is_some_and(|s|self.on_session_branch(s,&b.header.parent_hash));
@@ -1506,7 +1583,7 @@ impl Node{
         if solicited&&was_evicted{self.stats.refetched+=1;}
         self.received.insert(hash,first_import.map_or_else(now_ms,|m|m.received_ms));
         if self.received.len()>RECEIVED_MAX{let keep=self.chain.head().height.saturating_sub(8);let blocks=&self.chain.blocks;self.received.retain(|h,_|blocks.get(h).map_or(false,|e|e.height>=keep));}
-        let old_head=self.chain.head;
+        let old_head=self.chain.head;let old_h=self.chain.head().height;
         let new_head=self.chain.insert(entry);self.stats.imported+=1;
         // Only a block new here gets this far (a duplicate, an orphan or an invalid block returned above).
         if let Some(id)=from{self.credit(id,Useful::Block);}
@@ -1527,10 +1604,14 @@ impl Node{
         if new_head{match self.chain.restore_canonical(fork_h,&Src{journal:&self.journal,history:&self.history,canon:&self.canon}){Ok(n)=>self.stats.restored+=n as u64,
             Err(e)=>{self.log(&format!("FATAL restore of the adopted branch: {e:?}"));std::process::exit(70);}}}
         self.chain.settle();
+        self.persist_finality_if_due();
         self.checkpoint_if_due();
         self.broadcast(&Msg::Block{header:b.header.encoded.clone(),body:b.body.encode()},from);
         if new_head{
-            if self.chain.get(&self.chain.head).and_then(|e|e.parent)!=Some(old_head){self.stats.reorgs+=1;}
+            if self.chain.get(&self.chain.head).and_then(|e|e.parent)!=Some(old_head){self.stats.reorgs+=1;
+                // V3-26: the canonical blocks this reorganization abandoned.
+                let depth=old_h.saturating_sub(fork_h);self.stats.max_reorg_depth=self.stats.max_reorg_depth.max(depth);
+                if depth>=self.cfg.limits.k_alarm{self.stats.reorgs_ge_k_alarm+=1;}}
             self.log(&format!("head h={} {} signed={} txs={}",self.chain.head().height,&hex(&hash)[..14],self.chain.head().signed,b.body.txs.len()));
             self.on_new_head(detached);
             // Status refresh (network.md:7): peers learn the new head and its cumulative work.
@@ -2575,6 +2656,40 @@ impl Node{
         if builds>1{self.log(&format!("signed template: {builds} builds in {} ms",t0.elapsed().as_millis()));}
         last_good
     }
+    /// V3-26: rewrites `retention.finalized` whenever finalized_h rose (after each import's retain, before the next
+    /// block is journaled; FINALITY_FILE). A failed write stops the node (exit 70), as any local storage failure does:
+    /// a floor that is held only in memory could be lost by a crash after a heavier, shorter branch lowered the head.
+    fn persist_finality_if_due(&mut self){
+        if self.chain.finalized_h>self.fin_saved{if let Err(e)=self.persist_finality(){self.fatal(&e)}}
+    }
+    /// V3-26: writes `retention.finalized` (height and canonical hash of `Chain::finalized_h`) durably, the same way as
+    /// `retention_rkeep`, and records the height it holds (`fin_saved`).
+    fn persist_finality(&mut self)->Result<(),String>{
+        use std::io::Write;
+        let f=self.chain.finalized_h;
+        let hash=match self.canon_hash(f){Ok(Some(h))=>h,Ok(None)=>return Err(format!("{FINALITY_FILE}: no canonical block at the floor {f}")),
+            Err(e)=>return Err(format!("{FINALITY_FILE}: the floor's block {f}: {e}"))};
+        let dir=self.cfg.dir.clone();let (path,tmp)=(dir.join(FINALITY_FILE),dir.join(format!("{FINALITY_FILE}.tmp")));
+        (||->std::io::Result<()>{
+            {let mut fl=std::fs::File::create(&tmp)?;fl.write_all(format!("{f} {}\n",hex(&hash[..])).as_bytes())?;fl.sync_all()?;}
+            std::fs::rename(&tmp,&path)?;if cfg!(unix){std::fs::File::open(&dir)?.sync_all()?;}Ok(())
+        })().map_err(|e|format!("{FINALITY_FILE}: could not persist the irreversibility floor {f}: {e}"))?;
+        self.fin_saved=f;Ok(())
+    }
+    /// V3-26: the RPC `safe` height, max(head − k_safe, finalized_h), at most the head.
+    pub fn safe_height(&self)->u64{let h=self.chain.head().height;h.saturating_sub(self.cfg.limits.k_safe).max(self.chain.finalized_h).min(h)}
+    /// V3-26: pocol_finality. A local, probabilistic view (model "probabilistic"): `finalized` is this node's persisted
+    /// irreversibility floor (retention, not consensus: no signature or committee stands behind it, and a node without
+    /// this history may follow a heavier branch below it), `safe` is max(head − kSafe, finalized); reorgsGeKAlarm counts the
+    /// reorganizations of kAlarm blocks or more.
+    pub fn finality_json(&self)->serde_json::Value{
+        let f=self.chain.finalized_h;let s=self.safe_height();
+        let hash_of=|h:u64|self.canon_hash(h).ok().flatten().map(|x|hex(&x[..]));
+        serde_json::json!({"head":self.chain.head().height,"safe":s,"safeHash":hash_of(s),"finalized":f,"finalizedHash":hash_of(f),"kSafe":self.cfg.limits.k_safe,"kAlarm":self.cfg.limits.k_alarm,
+            "rKeep":self.chain.r_keep,"retentionFloor":self.chain.retention_floor(),"reorgs":self.stats.reorgs,"maxReorgDepth":self.stats.max_reorg_depth,
+            "reorgsGeKAlarm":self.stats.reorgs_ge_k_alarm,"networkHashrateEst":self.network_hashrate_json(),
+            "model":"probabilistic","scope":"local"})
+    }
     /// F7: record that we signed `tid` for (parent,h), persist it durably BEFORE the caller broadcasts,
     /// and cache the encoded template so a same-process re-attempt re-broadcasts it unchanged. Pruned to
     /// the reorg window (a pair below it can never become the production parent again) and hard-capped.
@@ -3220,7 +3335,7 @@ impl Node{
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
             "stats":{"imported":self.stats.imported,"mined":self.stats.mined,"signedTemplates":self.stats.signed_templates,"fallbackTemplates":self.stats.fallback_templates,"sharesSeen":self.stats.shares_seen,"hashesInExhaustedRanges":self.stats.hashes,"reorgs":self.stats.reorgs,
                 "syncSessions":self.stats.sync_sessions,"syncRounds":self.stats.sync_rounds,"refetched":self.stats.refetched,"restored":self.stats.restored,"replaySkipped":self.stats.replay_skipped,"templatePenalties":self.stats.template_penalties,"poolSlices":self.stats.pool_slices,"poolSliceMaxMs":self.stats.pool_slice_max_ms,"reinsertedOffered":self.stats.reinserted_offered,"reinsertedUnoffered":self.stats.reinserted_unoffered,"poolBacklog":self.pool.backlog.len(),"historyRefilled":self.stats.history_refilled,"historyRebuilt":self.history.rebuilt,"historyDamaged":self.history.is_damaged()},
-            "open":serde_json::to_value(&self.stats.open).unwrap_or_default(),"retention":{"rKeep":self.chain.r_keep,"sideCap":self.chain.side_cap,"side":self.chain.side_counts().0,"protected":self.chain.protect.len(),"evicted":self.chain.evicted_total}});
+            "open":serde_json::to_value(&self.stats.open).unwrap_or_default(),"retention":{"rKeep":self.chain.r_keep,"kSafe":self.cfg.limits.k_safe,"kAlarm":self.cfg.limits.k_alarm,"finalized":self.chain.finalized_h,"finalizedPersisted":self.fin_saved,"finalityFileIgnored":self.stats.finality_file_ignored,"floor":self.chain.retention_floor(),"maxReorgDepth":self.stats.max_reorg_depth,"reorgsGeKAlarm":self.stats.reorgs_ge_k_alarm,"sideCap":self.chain.side_cap,"side":self.chain.side_counts().0,"protected":self.chain.protect.len(),"evicted":self.chain.evicted_total}});
         // VA-SPEC §2: the wire range and the consensus identity peers are checked against; the build digest
         // (compatibilitySha256) is informational install-integrity status.
         status["protocolVersion"]=serde_json::json!(crate::identity::PROTOCOL_VERSION);

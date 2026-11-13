@@ -980,7 +980,11 @@ fn bad(m:&str)->(i64,String){(-32602,m.to_string())}
 /// pruned: a state query answers -32017 as for any pruned height).
 fn meta_by_tag<'a>(n:&'a Node,tag:&Value)->Result<Option<std::borrow::Cow<'a,Entry>>,Fail>{
     let h=match tag.as_str(){
-        None|Some("latest")|Some("pending")|Some("safe")|Some("finalized")=>{let k=match tag.as_str(){Some("safe")=>6,Some("finalized")=>60,_=>0};n.chain.head().height.saturating_sub(k)}
+        // V3-26: `finalized` is the node's persisted local irreversibility floor (Chain::finalized_h), `safe` is
+        // max(head − k_safe, finalized) (Node::safe_height); both local and probabilistic, never consensus finality.
+        None|Some("latest")|Some("pending")=>n.chain.head().height,
+        Some("safe")=>n.safe_height(),
+        Some("finalized")=>n.chain.finalized_h,
         Some("earliest")=>0,
         Some(_)=>match parse_u64(tag){Some(x)=>x,None=>return Ok(None)},
     };
@@ -1086,6 +1090,8 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         // (network.md, "Creation burn quote"). Node-local; only a profile that can activate v3 serves it.
         "pocol_quoteCreationBurn" if n.chain.spec.v3_active(u64::MAX)=>quote_creation_burn(n,p.first().ok_or(bad("call"))?,b),
         "pocol_status"=>Ok(n.status_json()),
+        // V3-26: the local finality view (network.md, "Local finality").
+        "pocol_finality"=>Ok(n.finality_json()),
         // V3-05: per-proposer template arrival and lock latency (also pocol_status.templateLatency; network.md).
         "pocol_templateLatency"=>Ok(n.template_latency_json()),
         // pocold's own RPC counters and gauges (process-wide), a superset of pocol_getRpcStats.
