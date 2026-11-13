@@ -60,8 +60,10 @@ fn thread_kinds()->(usize,usize,usize){
     #[cfg(not(target_os="linux"))]{(0,0,0)}
 }
 fn wait_until(ms:u64,f:impl Fn()->bool)->bool{let t=Instant::now();while t.elapsed()<Duration::from_millis(ms){if f(){return true}std::thread::sleep(Duration::from_millis(20));}f()}
-fn rpc(port:u16,body:&str,origin:bool)->(u16,String){
-    let mut s=TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();let _=s.set_nodelay(true);
+fn rpc(port:u16,body:&str,origin:bool)->(u16,String){rpc_within(port,body,origin,Duration::from_secs(5))}
+/// As `rpc`, waiting at most `read` for each read of the answer.
+fn rpc_within(port:u16,body:&str,origin:bool,read:Duration)->(u16,String){
+    let mut s=TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(read)).unwrap();let _=s.set_nodelay(true);
     let o=if origin{"Origin: https://site.example\r\n"}else{""};
     // A refused connection is closed unread (RPC_CONN_MAX): the write or the read may then see a reset (code 0).
     // One write: write! would send a write per piece, and Nagle plus delayed ACKs (Windows) adds about
@@ -776,11 +778,15 @@ fn blake_max()->String{blake(29_900_000,"eth_call")}
 /// a node with wide limits. Timings under test are fractions of it.
 fn duration_of(tag:&str,body:&str)->Duration{
     let mut wide=small();wide.rpc.work_deadline=Duration::from_secs(60);wide.rpc.compute_heavy=Duration::from_secs(60);let w=start(tag,wide);
-    (0..2).map(|_|{let t=Instant::now();let v=rpc_json(w.rpc,body);assert!(v["result"].is_string(),"{v}");t.elapsed()}).min().unwrap()
+    (0..2).map(|_|{let t=Instant::now();let (_,b)=rpc_within(w.rpc,body,false,Duration::from_secs(120));
+        let v=serde_json::from_str::<serde_json::Value>(&b).unwrap_or(serde_json::Value::Null);assert!(v["result"].is_string(),"{v}");t.elapsed()}).min().unwrap()
 }
 /// Starts `body` on a thread and returns once the consensus thread is running it (the heavyActive gauge).
 fn hold_with(port:u16,body:&str)->std::thread::JoinHandle<serde_json::Value>{
-    let (b0,body)=(counter(&pocold::rpc::COUNTERS.heavy_active),body.to_string());let h=std::thread::spawn(move||rpc_json(port,&body));
+    let (b0,body)=(counter(&pocold::rpc::COUNTERS.heavy_active),body.to_string());
+    // The holder runs to its end, several uninterruptible BLAKE2F runs: on a slow runner that is longer than the 5 s the
+    // other requests wait for an answer, so its client waits up to 120 s (the tests widen the node's limits to match).
+    let h=std::thread::spawn(move||{let (_,b)=rpc_within(port,&body,false,Duration::from_secs(120));serde_json::from_str::<serde_json::Value>(&b).unwrap_or(serde_json::Value::Null)});
     assert!(wait_until(10_000,||counter(&pocold::rpc::COUNTERS.heavy_active)>b0),"the holder runs");h
 }
 fn busy_of(v:&serde_json::Value)->bool{v["error"]["code"]==-32021&&v["error"]["data"]["reason"]=="busy"&&(250..=2000).contains(&v["error"]["data"]["retryAfterMs"].as_u64().unwrap_or(0))}
@@ -1063,10 +1069,13 @@ fn pacer_batch()->String{
 /// -32020. The holder is an eth_estimateGas over BLAKE2F (about a dozen uninterruptible runs).
 #[test] fn light_requests_behind_long_heavy_work_are_answered_never_deadline(){let _g=serial();
     let holder=blake(5_400_000,"eth_estimateGas");let hd=duration_of("behind-d",&holder);
-    let mut l=small();l.rpc.compute_light=(hd/4).min(Duration::from_millis(500));let r=start("behind",l);
+    let mut l=small();l.rpc.compute_light=(hd/4).min(Duration::from_millis(500));
+    // The holder must run to its end: on a slow runner it can take longer than the default 5 s heavy compute limit
+    // (which another test covers), so that limit is widened here; the light request keeps its own short limit.
+    l.rpc.compute_heavy=Duration::from_secs(120);l.rpc.work_deadline=Duration::from_secs(120);let r=start("behind",l);
     let h=hold_with(r.rpc,&holder);let t=Instant::now();let v=rpc_json(r.rpc,LIGHT);let waited=t.elapsed();
     assert!(v["result"].is_string()||busy_of(&v),"answered (or busy past QUEUE_WAIT), never -32020: {v}");
-    assert!(h.join().unwrap()["result"].is_string(),"the holder is answered too");
+    let hv=h.join().unwrap();assert!(hv["result"].is_string(),"the holder is answered too: {hv}");
     println!("BEHIND {}",serde_json::json!({"holderMs":hd.as_millis() as u64,"lightWaitedMs":waited.as_millis() as u64,"answer":v}));
 }
 /// Review B2: QUEUE_WAIT bounds the wait of a request that holds a queue place (network.md:234). While
@@ -1245,14 +1254,14 @@ fn blake_then(rounds:u32,tail:&str)->String{
 /// request is -32021 busy at QUEUE_WAIT, long before the place frees (when the holder ends).
 #[test] fn queue_wait_bounds_the_wait_for_a_heavy_queue_place(){let _g=serial();
     let b=duration_of("place-d",&blake_max());let qw=(b/6).max(Duration::from_millis(20));
-    let mut l=small();l.rpc.heavy_queue=1;l.rpc.queue_wait=qw;l.rpc.work_deadline=Duration::from_secs(60);let r=start("place",l);
+    let mut l=small();l.rpc.heavy_queue=1;l.rpc.queue_wait=qw;l.rpc.work_deadline=Duration::from_secs(120);l.rpc.compute_heavy=Duration::from_secs(120);let r=start("place",l);
     let holder=format!("[{},{},{}]",blake_max(),blake_max(),blake_max());let h=hold_with(r.rpc,&holder);
     let req=|p:u16|std::thread::spawn(move||{let t=Instant::now();let v=rpc_json(p,r#"{"jsonrpc":"2.0","id":3,"method":"pocol_status","params":[]}"#);(v,t.elapsed())});
     let a=req(r.rpc);assert!(wait_until(5_000,||counter(&pocold::rpc::COUNTERS.queued)>=1),"the first request takes the one place");
     let (vb,tb)=req(r.rpc).join().unwrap();let (va,ta)=a.join().unwrap();
     assert!(busy_of(&va)&&busy_of(&vb),"both busy: {va} {vb}");
     assert!(tb>=qw&&tb<b,"the place waiter is busy at QUEUE_WAIT ({qw:?}), not when the place frees (about {:?}): {tb:?}",b*3);
-    assert!(h.join().unwrap().is_array(),"the holder is answered");
+    let hv=h.join().unwrap();assert!(hv.is_array()&&hv.as_array().unwrap().iter().all(|m|m["result"].is_string()),"the holder is answered: {hv}");
     println!("PLACE {}",serde_json::json!({"blakeMs":b.as_millis() as u64,"queueWaitMs":qw.as_millis() as u64,"queuedMs":ta.as_millis() as u64,"placeWaiterMs":tb.as_millis() as u64}));
 }
 /// Review 2 (RG2-M3, N2): QUEUE_WAIT bounds the wait on a full main event queue (node::EVENT_QUEUE)
@@ -1261,7 +1270,7 @@ fn blake_then(rounds:u32,tail:&str)->String{
 /// cap and the memory budget are raised so 150 connections are served.
 #[test] fn queue_wait_bounds_the_wait_on_a_full_main_queue(){let _g=serial();
     let b=duration_of("mainq-d",&blake_max());let qw=(b/4).max(Duration::from_millis(20));let n=150usize;assert!(n>pocold::node::EVENT_QUEUE);
-    let mut l=small();l.rpc.conn_max=n+8;l.rpc.heavy_queue=4*n;l.rpc.queue_wait=qw;l.rpc.work_deadline=Duration::from_secs(60);l.mem_budget=64<<30;let r=start("mainq",l);
+    let mut l=small();l.rpc.conn_max=n+8;l.rpc.heavy_queue=4*n;l.rpc.queue_wait=qw;l.rpc.work_deadline=Duration::from_secs(120);l.rpc.compute_heavy=Duration::from_secs(120);l.mem_budget=64<<30;let r=start("mainq",l);
     let c=&pocold::rpc::COUNTERS;let f0=counter(&c.queue_full);
     let holder=format!("[{},{},{}]",blake_max(),blake_max(),blake_max());let h=hold_with(r.rpc,&holder);
     // One client per millisecond: a burst of 150 connects can overflow the listen backlog (128), and a
@@ -1273,7 +1282,7 @@ fn blake_then(rounds:u32,tail:&str)->String{
     assert!(res.iter().all(|(v,_)|busy_of(v)),"every request is busy at QUEUE_WAIT: {:?}",res.iter().find(|(v,_)|!busy_of(v)));
     assert!(full>=1,"some requests found the main queue full ({full})");
     assert!(worst<b*2,"answered at QUEUE_WAIT ({qw:?}), not when the queue drains (about {:?}): worst {worst:?}",b*3);
-    assert!(h.join().unwrap().is_array(),"the holder is answered");
+    let hv=h.join().unwrap();assert!(hv.is_array()&&hv.as_array().unwrap().iter().all(|m|m["result"].is_string()),"the holder is answered: {hv}");
     println!("MAINQ {}",serde_json::json!({"blakeMs":b.as_millis() as u64,"queueWaitMs":qw.as_millis() as u64,"requests":n,"foundQueueFull":full,"worstMs":worst.as_millis() as u64}));
 }
 /// Review 2 (RG2-M3, N6, witness W10): atomic admission, in process. A request its connection already
