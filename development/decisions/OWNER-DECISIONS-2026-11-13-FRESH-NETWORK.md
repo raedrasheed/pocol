@@ -47,5 +47,5 @@ Answers to the 16 questions put to the owner (verbatim):
 16. Name PoCol, coin PCOL.
 
 Earlier constraints about the old servers (no re-initialisation, never run Initialize-PoColNetwork.ps1, never delete wallet
-data, preserve api/config.php) concerned the old network, which the owner now retires himself; Claude still does not act on
+data, preserve api/config.php) concerned the old network, which the owner now retires; Claude still does not act on
 any server without explicit approval, and deployment of the new network stays held until the owner approves it.
