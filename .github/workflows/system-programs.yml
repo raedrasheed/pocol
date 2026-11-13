@@ -3,7 +3,11 @@ name: System programs reproduction
 # with the locked solc 0.8.28 and must match byte for byte; the earn-in and v3 contract and chain suites run on
 # main (lp4-execution/tests/{earnin,v3}_contracts.rs, pocold/tests/{earnin,v3_earnin}.rs). V3-PR-E1 adds the
 # registry-budget model (lp4-execution/tests/v3_model.py), its seven planted mutants (in the mutant fixture) and
-# the CP schema v2 ParamGate R8 premises (lp1-node/tests/gate.rs).
+# the CP schema v2 ParamGate R8 premises (lp1-node/tests/gate.rs). V3-PR-E2b adds the evidence-penalty chain model
+# (v3_model.py class Chain, tests/v3/evidence-penalty-vectors.json), five planted RewardEscrow/MinerRegistry mutants
+# (in the mutant fixture) and, under v3-preview, real blocks through the host's v3 phase 0 with the SYS gas of the
+# changed calls checked against admission's GAS_ENVELOPE_V3 (v3_contracts.rs) and type-2 evidence on chain
+# (pocold/tests/v3_earnin.rs).
 on:
   pull_request:
     branches: [main]
@@ -54,7 +58,8 @@ jobs:
           # Every runtime stays EIP-170-sized for tooling (V3 roadmap risk 10).
           node -e 'for (const f of process.argv.slice(1)) for (const p of require(f).programs) { const n = (p.runtime.length - 2) / 2; console.log(f.split("/").pop(), p.name, n); if (n > 24576) { console.error(`${p.name} in ${f} is ${n} bytes, above 24576`); process.exit(1); } }' \
             "$PWD/$t/data/system-v1.json" "$PWD/$t/data/system-continuous.json" "$PWD/$t/data/system-earnin.json" "$PWD/$t/data/system-v3.json"
-          # The independent models the contract tests replay (v3_model.py: V3-08/V3-09 registry budgets).
+          # The independent models the contract tests replay (v3_model.py: V3-08/V3-09 registry budgets, V3-16/V3-17
+          # evidence penalties).
           python3 -B "$t/earnin_model.py"
           python3 -B "$t/v3_model_vectors.py"
           python3 -B "$t/v3_model.py"
