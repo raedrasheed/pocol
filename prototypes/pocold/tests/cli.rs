@@ -414,6 +414,30 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     }
     let _=std::fs::remove_dir_all(&d);
 }
+/// V3-30: `--mine-threads N` (1..=64, default 1) and `--work-rpc` (off by default) come from the flags, status reports
+/// them, and a thread count outside its bounds fails the command.
+#[test] fn mine_threads_and_work_rpc_come_from_the_flags_and_are_reported(){
+    let d=tmp("mine");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let status=|i:usize,flags:&[&str]|->Output{let data=d.join(format!("s{i}"));
+        Command::new(env!("CARGO_BIN_EXE_pocold")).args([&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap()][..],flags].concat()).output().unwrap()};
+    let o=status(0,&[]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(v["mining"]["threads"].as_u64(),Some(1),"the defaults: {}",v["mining"]);assert!(v["mining"]["workRpc"].is_null()&&v["mining"]["warning"].is_null(),"{}",v["mining"]);
+    assert!(v["networkHashrateEst"].is_null(),"no block yet");
+    let o=status(1,&["--mine-threads","8","--work-rpc","127.0.0.1:18547"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["mining"]["threads"].as_u64(),v["mining"]["workRpc"].as_str()),(Some(8),Some("127.0.0.1:18547")),"{}",v["mining"]);
+    // More threads than the host's cores is warned in status (the node still runs them).
+    let cores=std::thread::available_parallelism().map_or(0,|n|n.get());assert_eq!(v["mining"]["cores"].as_u64(),Some(cores as u64));
+    assert_eq!(v["mining"]["warning"].is_string(),cores<8,"{}",v["mining"]);
+    // The work port takes a loopback address, never a bare flag or another interface.
+    for (bad,want) in [(&["--work-rpc"][..],"--work-rpc needs ADDR"),(&["--work-rpc","0.0.0.0:8547"][..],"binds loopback only"),(&["--work-rpc","x"][..],"--work-rpc x:")]{
+        let o=status(3,bad);assert_eq!(o.status.code(),Some(1),"{bad:?}");assert!(text(&o.stderr).contains(want),"{bad:?}: {}",text(&o.stderr));}
+    for bad in ["0","65","x",""]{let o=status(2,&["--mine-threads",bad]);
+        assert_eq!(o.status.code(),Some(1),"{bad}");assert!(text(&o.stderr).contains(&format!("--mine-threads {bad}:")),"{bad}: {}",text(&o.stderr));}
+    let _=std::fs::remove_dir_all(&d);
+}
 
 /// V3-28 H1: `publicLaunchReady` is computed and reported beside `launchBlockers`, every reason it is false: by
 /// `pocold build-info` and `pocol build-info` (the build alone), by `init-testnet` (the profile it admitted), by a

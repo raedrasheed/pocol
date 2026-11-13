@@ -153,8 +153,17 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// unchanged), and its pool refuse, and stop relaying, user transactions once its head is at S or above
     /// (`USER_TX_FROZEN`). Blocks of other nodes are judged as before: one with user transactions above S stays
     /// valid. None (the default): no freeze, every behaviour as before.
-    pub freeze_user_txs_after:Option<u64>}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,first_imports:false,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default(),freeze_user_txs_after:None}}}
+    pub freeze_user_txs_after:Option<u64>,
+    /// V3-30 S1 (D-V3-30; local mining policy, never validity): the threads this node's miner scans its own nonce range
+    /// with (`--mine-threads N`, 1..=miner::MINE_THREADS_MAX), each a disjoint slice of it (`miner::slices`). A13 counts
+    /// every one (`resources::io_threads`). 1 (the default): the single miner thread of before.
+    pub mine_threads:usize,
+    /// V3-30 S2 (D-V3-30; local, never validity): the loopback work port (`--work-rpc ADDR`), a listener of its own that
+    /// serves pocol_getWork and pocol_submitWork and nothing else, to loopback callers without an Origin header
+    /// (`rpc::serve_all`). The main RPC port never serves them, so a reverse proxy in front of it never reaches them.
+    /// None (the default): no work port, and both methods answer -32601 as unknown ones everywhere.
+    pub work_rpc:Option<std::net::SocketAddr>}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,first_imports:false,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default(),freeze_user_txs_after:None,mine_threads:1,work_rpc:None}}}
 /// C-1 S5 (PR7): what a view of a canonical block below the window reads besides its index row and journal
 /// record: its receipts (history.redb) only when asked.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
@@ -171,6 +180,28 @@ pub const POOL_SLICE:Duration=Duration::from_millis(50);
 /// network's state caps a step, fsynced, held the consensus thread 32-45 ms on average (180 ms at most, two
 /// runs), against 8-11 s for the whole release inside a checkpoint's write.
 pub const RELEASE_SLICE:usize=256;
+/// V3-30 S2: the most slices pocol_getWork cuts the own range into (`work_json`).
+pub const WORK_SLICES_MAX:u64=1<<16;
+/// V3-30 S3: the canonical blocks networkHashrateEst averages over (V3-DESIGN, V3-30).
+pub const HASHRATE_WINDOW:u64=360;
+/// V3-30 S1: the warning for `threads` miner threads on a host with `cores` (std::thread::available_parallelism), or
+/// None. The miner's threads are CPU-bound at the consensus thread's priority: more of them than cores delays the
+/// consensus thread (template validation, lock, relay, RPC) by up to hundreds of ms (measured: 64 threads on 4 cores
+/// raised pocol_status p95 from 7 ms to 146 ms) and eats into the δ / δ_rel budget. One thread (the default) never
+/// warns; an unknown core count warns for no setting.
+pub fn mine_threads_warning(threads:usize,cores:Option<usize>)->Option<String>{
+    let c=cores?;
+    (threads>1&&threads>c).then(||format!("--mine-threads {threads} is more than this host's {c} cores: consensus and RPC latency rise; use at most {} (one core left for the consensus and network threads)",c.saturating_sub(1).max(1)))
+}
+/// V3-30 S3: the first entry `at` gives in the window below `head` (heights head − HASHRATE_WINDOW .. head − 1, from
+/// the oldest; a height `at` has no entry for, evicted or not stored, is skipped). At most HASHRATE_WINDOW lookups.
+pub fn hashrate_window_start<T>(head:u64,at:impl FnMut(u64)->Option<T>)->Option<T>{(head.saturating_sub(HASHRATE_WINDOW)..head).find_map(at)}
+/// V3-30 S3: hashes per second from two canonical points (timestamp, cumulative work): the work between them over the
+/// seconds between them, rounded down. None when no time or no work separates them.
+pub fn hashrate_estimate(from_ts:u64,from_work:U256,to_ts:u64,to_work:U256)->Option<U256>{
+    let dt=to_ts.checked_sub(from_ts).filter(|d|*d>0)?;let w=to_work.checked_sub(from_work).filter(|w|!w.is_zero())?;
+    Some(w/U256::from(dt))
+}
 /// Default memory budget of one single-host devnet node.
 pub const MEM_BUDGET:u64=6<<30;
 /// Blocks waiting for their timestamp, buffered templates, equivocation observations,
@@ -313,7 +344,10 @@ struct Locked{header:Header,body:Body,tid:[u8;32],ctx:ChildCtx,fallback:bool}
 /// Propose: Draw(h,0) waits until its template timestamp max(L(0),C) is not in the
 /// future for receivers (C+Φ >= L(0)); with Φ=0 a template built earlier is rejected.
 enum Mode{Wait{deadline_ms:u128},Locked(Box<Locked>),Idle,Propose{at_s:u64}}
-struct Production{parent:[u8;32],height:u64,attempt:u32,mode:Mode,shares:BTreeSet<u64>,miner:Option<MinerHandle>,solved:bool,received_ms:u128}
+/// `own_shares` (V3-30): the shares of this node's own range it holds for the locked template, from its miner and from
+/// pocol_submitWork together: at most S_max (`on_miner`), so the work interface never adds own shares past the miner's
+/// cap. `exhausted` (V3-30): the miner reported its whole own range scanned for the locked template.
+struct Production{parent:[u8;32],height:u64,attempt:u32,mode:Mode,shares:BTreeSet<u64>,miner:Option<MinerHandle>,solved:bool,received_ms:u128,own_shares:usize,exhausted:bool}
 
 /// Pending pool: transactions are kept only if they execute in order on top of
 /// the head state (pending state), so several nonces per sender are allowed. The pending
@@ -639,6 +673,9 @@ pub struct Node{
     future:Vec<Block>,
     /// Own sealed blocks waiting in `future` for their timestamp (Φ=2φ may be 0 on one host).
     own_future:HashSet<[u8;32]>,
+    /// V3-30 S1: why this node's `--mine-threads` setting may slow it down (more threads than the host's cores), or
+    /// None. Reported in pocol_status.mining.warning and logged when the network starts.
+    mine_warning:Option<String>,
     templates:HashMap<[u8;32],(Header,Body,u128,PeerId)>,
     /// V3-04: seen_key slot -> (TemplateID, first lock ms) of the signed templates this node validated as minable and
     /// locked (`note_template_seen`), NO_TEMPLATE for a slot whose signer equivocated (`template_equivocated`); empty
@@ -706,7 +743,11 @@ fn write_checkpoint(chain:&Chain,st:&crate::state_store::StateStore,b:&crate::ch
     crate::crash_point("checkpoint-after");Ok(q)
 }
 #[derive(Default,Clone,Debug)]
-pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fallback_templates:u64,pub shares_seen:u64,pub hashes:u64,pub reorgs:u64,
+pub struct Stats{
+    /// V3-30 S2: pocol_submitWork shares and solutions accepted, and submissions refused (stale, outside the own range,
+    /// not a share, duplicate, past the share cap or after the solution).
+    pub work_shares:u64,pub work_solutions:u64,pub work_refused:u64,
+    pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fallback_templates:u64,pub shares_seen:u64,pub hashes:u64,pub reorgs:u64,
     /// Sync sessions started and rounds asked; solicited imports of blocks retention had removed
     /// (re-fetch); canonical blocks made whole after adoptions (restore); journal records replay skipped.
     pub sync_sessions:u64,pub sync_rounds:u64,pub refetched:u64,pub restored:u64,pub replay_skipped:u64,
@@ -847,6 +888,14 @@ impl Node{
         // A13: the resident bound of this profile with these limits must fit the budget (the pool counted at
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
+        // V3-30: the miner's thread count is checked before A13 counts it.
+        if !(1..=miner::MINE_THREADS_MAX).contains(&cfg.limits.mine_threads){return Err(format!("mine threads must be 1..={}, not {}",miner::MINE_THREADS_MAX,cfg.limits.mine_threads))}
+        let mine_warning=mine_threads_warning(cfg.limits.mine_threads,std::thread::available_parallelism().ok().map(|n|n.get()));
+        // V3-30 S2: the work port binds loopback only, never the main RPC address.
+        if let Some(w)=cfg.limits.work_rpc{
+            if !w.ip().is_loopback(){return Err(format!("the work port binds loopback only, not {w}"))}
+            if cfg.rpc==Some(w){return Err(format!("the work port {w} must not be the RPC address"))}
+        }
         // The quota applies within the gas bound in effect (the operator's value is validated against the configured bound).
         let pool_gas_max=pool_gas_in_effect(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?.min(pool_gas_max);
         // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
@@ -1142,7 +1191,7 @@ impl Node{
         let disc=discovery::Disc::open(&cfg.limits.discovery,cfg.listen)?;
         let consensus=crate::identity::Consensus::of(&chain.spec);
         let mut node=Self{cfg,chain,net,disc,consensus,orphan_order:VecDeque::new(),orphan_bytes:0,journal:rec.journal,history,canon,peers:HashMap::new(),peer_status:HashMap::new(),session:None,sync_ask_ms:0,sync_turn:0,outbound:Arc::new(Mutex::new(HashSet::new())),tx,rx,light,light_rx,draining:false,deferred:VecDeque::new(),between:false,resp,tick_pending:Arc::new(std::sync::atomic::AtomicBool::new(false)),miner_tx,prod:None,
-            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),templates:HashMap::new(),template_seen:HashMap::new(),latency:Default::default(),relayed:HashSet::new(),received:HashMap::new(),
+            orphans:HashMap::new(),future:Vec::new(),own_future:HashSet::new(),mine_warning,templates:HashMap::new(),template_seen:HashMap::new(),latency:Default::default(),relayed:HashSet::new(),received:HashMap::new(),
             pool:Pool{code_total:pool_code,txs:vec![],pending:Default::default(),pending_base:head_state,bytes:0,meter,backlog:VecDeque::new(),backlog_bytes:0,gas:0,gas_max:pool_gas_max,ghost_gas:0,meta:vec![],sender_gas_max:pool_sender_max,replace_relays:0,parked:vec![],parked_bytes:0,park_seq:0,parked_max:POOL_PARKED_MAX,parked_relays:0},rejects:VecDeque::new(),stats:Stats::default(),stopped:false,capacity_warned:false,seen_templates:HashMap::new(),seen_wins:HashMap::new(),evidence_pool:Vec::new(),late_cache:LateCache::default(),signed_a0,signed_a0_mem:HashMap::new(),
             state_store,ckpt:Ckpt{every:ckpt_every,last:ckpt_last,roll:roll_end},release_turn:false,rebuild_tokens:REBUILD_BURST,rebuild_refill_ms:0,rebuild_clock:None,import_clock:None,genesis_received_ms};
         node.stats.imported=n_rec as u64;node.stats.replay_skipped=skipped;node.stats.restored=restored as u64;node.stats.history_refilled=refilled;
@@ -1190,7 +1239,7 @@ impl Node{
         // R2 (PR3): the service must hold the whole A13 thread inventory, or a thread spawn would fail while the node
         // runs (a miner's is not fatal, a peer's closes it); a task limit that cannot be read is not checked.
         if let Some(m)=pids_max(){
-            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.discovery.slots(),self.cfg.limits.rpc.conn_max).unwrap_or(u128::MAX);
+            let need=crate::resources::tasks_needed(&self.cfg.limits.net,self.cfg.peers.len(),self.cfg.limits.discovery.slots(),self.cfg.limits.rpc.conn_max,self.cfg.limits.mine_threads,self.cfg.limits.work_rpc.is_some()).unwrap_or(u128::MAX);
             crate::resources::tasks_fit(need,&m)?;
         }
         // The configured peers (for example the other seeds, which also dial this node) are never refused
@@ -1212,7 +1261,8 @@ impl Node{
         self.disc_start_outbound(self.disc_now())?;
         for a in self.cfg.peers.clone(){let tx=self.tx.clone();let (ntx,nrx)=mpsc::sync_channel(net::NET_EVENT_QUEUE);crate::threads::spawn(format!("dial-fwd-{a}"),crate::threads::IO_STACK,move||{for e in nrx{if tx.send(Event::Net(e)).is_err(){break}}}).map_err(|e|format!("spawn: {e}"))?;
             net::dial(a,ntx,self.outbound.clone(),self.net.clone());}
-        if let Some(a)=self.cfg.rpc{crate::rpc::serve(a,self.tx.clone(),self.light.clone(),self.cfg.limits.rpc.clone())?;}
+        if let Some(w)=&self.mine_warning{eprintln!("warning: {w}");}
+        crate::rpc::serve_all(self.cfg.rpc,self.cfg.limits.work_rpc,self.tx.clone(),self.light.clone(),self.cfg.limits.rpc.clone())?;
         let (t,pending)=(self.tx.clone(),self.tick_pending.clone());
         crate::threads::spawn("tick",crate::threads::IO_STACK,move||loop{std::thread::sleep(Duration::from_millis(50));
             if !pending.swap(true,std::sync::atomic::Ordering::SeqCst)&&t.send(Event::Tick).is_err(){break}}).map_err(|e|format!("spawn: {e}"))?;
@@ -2379,14 +2429,14 @@ impl Node{
             Ok(Some(m))=>m.received_ms,
             Ok(None)=>*self.received.get(&head.hash).unwrap_or(&now_ms()),Err(e)=>self.fatal(&e),
         };
-        self.prod=Some(Production{parent:head.hash,height:head.height+1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms});
+        self.prod=Some(Production{parent:head.hash,height:head.height+1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms,own_shares:0,exhausted:false});
         self.begin_attempt(0);
     }
     fn begin_attempt(&mut self,a:u32){
         let parent_hash=match &self.prod{Some(p)=>p.parent,None=>return};
         let Some(p)=self.full_entry(&parent_hash) else{return};
         self.stash_late();
-        if let Some(pr)=&mut self.prod{pr.attempt=a;pr.shares.clear();pr.solved=false;if let Some(m)=pr.miner.take(){m.stop();}}
+        if let Some(pr)=&mut self.prod{pr.attempt=a;pr.shares.clear();pr.own_shares=0;pr.exhausted=false;pr.solved=false;if let Some(m)=pr.miner.take(){m.stop();}}
         if a==0{
             let ctx=match self.chain.child_ctx(&p,0){Ok(c)=>c,Err(e)=>{self.log(&format!("ctx error {e:?}"));return}};
             let me=self.cfg.miner.as_ref().map(|k|k.address());
@@ -2572,21 +2622,27 @@ impl Node{
         // cannot be dropped by that prune.
         let relocked=self.late_cache.remove(&tid);
         if !matches!(&self.prod,Some(Production{mode:Mode::Locked(l),..}) if l.tid==tid){self.stash_late();}
-        // The previous miner is stopped and joined before the next starts: one miner thread at a time.
+        // V3-30: this node's own range of the template, to count the own shares among cached ones that come back.
+        let own_range=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address()));
+        // The previous miner is stopped and joined (all its threads) before the next starts: one miner at a time.
         if let Some(pr)=&mut self.prod{
             pr.miner=None;
             // Shares and `solved` belong to one TemplateID. A switch within an attempt (a locked template to
             // the sticky fallback after a type-1 equivocation) must not carry the abandoned template's shares
             // into the new header: they do not meet its share target, and its block would be invalid (item 9).
-            if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.solved=false;
+            if !matches!(&pr.mode,Mode::Locked(l) if l.tid==tid){pr.shares.clear();pr.own_shares=0;pr.solved=false;
                 // V3-02: a template locked again (the head back on its parent, or the F7 attempt-0 copy) is mined
                 // again: its cached shares come back to the production's, and its later shares take the locked path.
-                if let Some(t)=relocked{pr.shares.extend(t.shares);}}
+                // V3-30: the own-range shares among them count toward the one own-share cap again.
+                if let Some(t)=relocked{pr.shares.extend(t.shares);
+                    pr.own_shares=own_range.map_or(0,|(s,e)|pr.shares.range(s..=e).count());}}
             else if let Some(t)=relocked{self.late_cache.templates.push_back(t);}
+            // The next miner scans the own range again.
+            pr.exhausted=false;
         }
         // A miner that cannot be spawned (the task limit reached) leaves this node idle for the template, not stopped.
         let miner=self.cfg.miner.as_ref().and_then(|k|chain::assignment_range(&ctx,k.address())).and_then(|(s,e)|
-            miner::start(tid,s,e,ctx.target,ctx.t_share,usize::from(self.chain.spec.cp().S_max),self.miner_tx.clone()));
+            miner::start_threads(tid,s,e,ctx.target,ctx.t_share,usize::from(self.chain.spec.cp().S_max),self.cfg.limits.mine_threads,self.miner_tx.clone()));
         if let Some(pr)=&mut self.prod{pr.mode=Mode::Locked(Box::new(Locked{header,body,tid,ctx,fallback}));pr.miner=miner;}
     }
     /// Validates a received signed template for the current parent: signature,
@@ -2771,10 +2827,16 @@ impl Node{
         let Some(pr)=&mut self.prod else{return};
         let Mode::Locked(l)=&pr.mode else{return};
         match m{
-            MinerEvent::Share{tid,nonce} if tid==l.tid=>{pr.shares.insert(nonce);self.stats.shares_seen+=1;self.broadcast(&Msg::Share{tid,nonce},None);}
-            MinerEvent::Exhausted{tid,hashes} if tid==l.tid=>{self.stats.hashes=self.stats.hashes.saturating_add(hashes);pr.miner=None;self.log("range exhausted; idle until next template");}
+            // V3-30: at most S_max own shares per template from the miner and pocol_submitWork together; a nonce already
+            // held (submitted, or relayed by a peer) is neither counted nor sent again.
+            MinerEvent::Share{tid,nonce} if tid==l.tid=>{
+                if pr.own_shares<usize::from(self.chain.spec.cp().S_max)&&pr.shares.insert(nonce){pr.own_shares+=1;self.stats.shares_seen+=1;self.broadcast(&Msg::Share{tid,nonce},None);}
+            }
+            MinerEvent::Exhausted{tid,hashes} if tid==l.tid=>{self.stats.hashes=self.stats.hashes.saturating_add(hashes);pr.miner=None;pr.exhausted=true;self.log("range exhausted; idle until next template");}
             MinerEvent::Solution{tid,nonce} if tid==l.tid&&!pr.solved=>{
-                pr.solved=true;
+                // The template is solved: its miner stops and is joined (all threads), whether this solution is its own
+                // or came through pocol_submitWork, also while the block waits in own_future for its timestamp.
+                pr.solved=true;pr.miner=None;
                 let s_max=usize::from(self.chain.spec.cp().S_max);
                 let shares:Vec<u64>=pr.shares.iter().copied().filter(|n|*n!=nonce).take(s_max).collect();
                 let mut h=l.header.clone();h.nonce=nonce;h.shares=shares;reseal(&mut h);
@@ -3210,9 +3272,88 @@ impl Node{
         // V3-33: present only when this node has a freeze, so a node without one reports what it reported before.
         if let Some(s)=self.user_tx_freeze(){status["userTxFreeze"]=serde_json::json!({"freezeUserTxsAfter":s,"active":self.user_txs_frozen(),
             "refused":self.stats.frozen_refused,"relayDropped":self.stats.frozen_dropped});}
+        // V3-30: the miner's threads (configured, and running for the locked template), the local work interface and
+        // what it accepted, and the network hash rate estimate (network.md, "Mining threads and local work").
+        // `running` is 0 once the template is solved or the own range exhausted (the miner is then stopped and joined).
+        status["mining"]=serde_json::json!({"threads":self.cfg.limits.mine_threads,"running":self.prod.as_ref().and_then(|p|p.miner.as_ref()).map_or(0,|m|m.threads()),
+            "cores":std::thread::available_parallelism().map_or(0,|n|n.get()),"warning":self.mine_warning,
+            "workRpc":self.cfg.limits.work_rpc.map(|a|a.to_string()),"workShares":self.stats.work_shares,"workSolutions":self.stats.work_solutions,"workRefused":self.stats.work_refused});
+        status["networkHashrateEst"]=self.network_hashrate_json();
         // V3-05: per-proposer template arrival and lock latency (network.md, "Template latency").
         status["templateLatency"]=self.template_latency_json();
         crate::network_display::annotate(status)
+    }
+    /// V3-30 S2 (pocol_getWork): the locked template and this node's own range of it, or the slice `index` of `count`
+    /// disjoint slices of that range (`miner::slice`, the cut `--mine-threads` uses), for an external worker. A worker
+    /// hashes sha256(templateId ‖ be64(nonce)) (`types::pow_hash`) for nonces of its slice only and submits each hash at
+    /// or below shareTarget with pocol_submitWork. The node's own miner threads scan the same own range at the same time
+    /// (minerRunning of them), so external work duplicates theirs unless it reaches a nonce first. Errors: −32010 (no
+    /// mining key, no locked template), −32011 (no own range in this template, or an empty slice: more slices than
+    /// nonces), −32013 (the own miner already scanned the whole own range of this template: it holds no solution, so
+    /// work on it is wasted until the next template), −32602 (index ≥ count, count 0 or past WORK_SLICES_MAX).
+    pub fn work_json(&self,slice:Option<(u64,u64)>)->Result<serde_json::Value,(i64,String)>{
+        let Some(key)=self.cfg.miner.as_ref() else{return Err((-32010,"no mining key: this node mines no template".into()))};
+        let Some(pr)=&self.prod else{return Err((-32010,"no locked template".into()))};
+        let Mode::Locked(l)=&pr.mode else{return Err((-32010,"no locked template".into()))};
+        let Some((s,e))=chain::assignment_range(&l.ctx,key.address()) else{return Err((-32011,"this node has no nonce range in the locked template".into()))};
+        let (index,count)=slice.unwrap_or((0,1));
+        if count==0||count>WORK_SLICES_MAX||index>=count{return Err((-32602,format!("slice: index < count <= {WORK_SLICES_MAX}")))}
+        if pr.exhausted{return Err((-32013,"own range exhausted: this node's miner scanned it all for the locked template; wait for the next template".into()))}
+        let Some((a,b))=miner::slice(s,e,count,index) else{return Err((-32011,"empty slice: more slices than nonces in the own range".into()))};
+        let q=|v:u64|format!("0x{v:x}");
+        Ok(serde_json::json!({"templateId":hex(&l.tid),"header":hex(&l.header.encoded),"height":pr.height,"attempt":pr.attempt,"fallback":l.fallback,
+            "rangeStart":q(s),"rangeEnd":q(e),"slice":[index,count],"sliceStart":q(a),"sliceEnd":q(b),
+            "target":hex(&l.ctx.target.to_be_bytes()),"shareTarget":hex(&l.ctx.t_share.to_be_bytes()),"nonceMax":l.ctx.assignment.nonce_max().to_string(),
+            "solved":pr.solved,"minerRunning":pr.miner.as_ref().map_or(0,|m|m.threads()),"ownShares":pr.own_shares,"powHash":"sha256(templateId || be64(nonce))"}))
+    }
+    /// V3-30 S2 (pocol_submitWork): a nonce an external worker found for the locked template. Checked in this order:
+    /// a mining key and a locked template (−32010), the TemplateID is the locked one (−32010 stale work: a new parent,
+    /// attempt or template replaced it), the nonce is inside this node's own range of it (−32011: a foreign range is
+    /// never mined or submitted, P4/P5), and its hash is at or below the share target (−32012). A hash at or below the
+    /// target is the solution: sealed, signed and imported as the miner's own (`on_miner`, which also stops the miner);
+    /// `pending` when the block waits for its timestamp (own_future). Otherwise it is a share, kept and relayed like
+    /// the miner's: at most S_max own shares per template from the miner and this method together. A duplicate, a
+    /// share past that cap, or a solution after the template was solved is answered {accepted: false, reason}.
+    pub fn submit_work(&mut self,tid:[u8;32],nonce:u64)->Result<serde_json::Value,(i64,String)>{
+        let r=self.check_work(tid,nonce);
+        if !matches!(&r,Ok(v) if v["accepted"]==true){self.stats.work_refused+=1;}
+        let Ok(v)=r else{return r};
+        if v["accepted"]!=true{return Ok(v)}
+        if v["kind"]=="solution"{
+            let (before,waiting)=(self.stats.mined,self.own_future.len());self.on_miner(MinerEvent::Solution{tid,nonce});self.stats.work_solutions+=1;
+            return Ok(serde_json::json!({"accepted":true,"kind":"solution","imported":self.stats.mined>before,"pending":self.own_future.len()>waiting}))
+        }
+        self.stats.work_shares+=1;self.on_miner(MinerEvent::Share{tid,nonce});Ok(v)
+    }
+    fn check_work(&self,tid:[u8;32],nonce:u64)->Result<serde_json::Value,(i64,String)>{
+        let Some(key)=self.cfg.miner.as_ref() else{return Err((-32010,"no mining key: this node mines no template".into()))};
+        let Some(pr)=&self.prod else{return Err((-32010,"no locked template".into()))};
+        let Mode::Locked(l)=&pr.mode else{return Err((-32010,"no locked template".into()))};
+        if l.tid!=tid{return Err((-32010,"stale work: not the locked template".into()))}
+        let Some((s,e))=chain::assignment_range(&l.ctx,key.address()) else{return Err((-32011,"this node has no nonce range in the locked template".into()))};
+        if nonce<s||nonce>e{return Err((-32011,"nonce outside this node's own range".into()))}
+        let h=pow_hash(&tid,nonce);
+        if le_target(&h,&l.ctx.target){
+            if pr.solved{return Ok(serde_json::json!({"accepted":false,"kind":"solution","reason":"solved"}))}
+            return Ok(serde_json::json!({"accepted":true,"kind":"solution"}))
+        }
+        if !le_target(&h,&l.ctx.t_share){return Err((-32012,"not a share: the hash is above the share target".into()))}
+        if pr.shares.contains(&nonce){return Ok(serde_json::json!({"accepted":false,"kind":"share","reason":"duplicate"}))}
+        if pr.own_shares>=usize::from(self.chain.spec.cp().S_max){return Ok(serde_json::json!({"accepted":false,"kind":"share","reason":"shareCap"}))}
+        Ok(serde_json::json!({"accepted":true,"kind":"share"}))
+    }
+    /// V3-30 S3: the network hash rate estimated over the last HASHRATE_WINDOW canonical blocks (fewer near genesis or
+    /// below the in-memory window): their summed work (each block's 2^256/(target+1), the expected hashes of the whole
+    /// membership per solution) over the seconds between the window's first and last timestamps. Informational, never
+    /// read by production, import or fork choice. Null with no block in the window or no time between its ends.
+    pub fn network_hashrate_json(&self)->serde_json::Value{
+        // The first resident canonical entry of the window (at most HASHRATE_WINDOW + 1 index lookups; an evicted one is None).
+        let head=self.chain.head();let from=hashrate_window_start(head.height,|h|self.chain.canonical_at(h));
+        let Some(from)=from else{return serde_json::Value::Null};
+        match hashrate_estimate(from.ts,from.total_work,head.ts,head.total_work){
+            Some(r)=>serde_json::json!({"hashesPerSecond":u64::try_from(r).unwrap_or(u64::MAX),"blocks":head.height-from.height,"fromHeight":from.height,"toHeight":head.height,
+                "seconds":head.ts-from.ts,"work":format!("{:#x}",head.total_work.saturating_sub(from.total_work)),"window":HASHRATE_WINDOW}),
+            None=>serde_json::Value::Null}
     }
     pub fn template_json(&self)->serde_json::Value{
         match &self.prod{Some(Production{mode:Mode::Locked(l),..})=>serde_json::json!({"templateId":hex(&l.tid),"header":hex(&l.header.encoded),"fallback":l.fallback,"nonceMax":l.ctx.assignment.nonce_max().to_string()}),_=>serde_json::Value::Null}
@@ -3588,7 +3729,7 @@ mod f7_tests{
         (n,devnet::miner_identity(label).key,gh)
     }
     fn set_prod(n:&mut Node,parent:[u8;32]){
-        n.prod=Some(Production{parent,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms()});
+        n.prod=Some(Production{parent,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms(),own_shares:0,exhausted:false});
     }
     fn locked(n:&Node)->Option<([u8;32],bool)>{match &n.prod{Some(Production{mode:Mode::Locked(l),..})=>Some((l.tid,l.fallback)),_=>None}}
     fn stop_miner(n:&mut Node){if let Some(p)=n.prod.as_mut(){if let Some(m)=p.miner.take(){m.stop();}}}
@@ -3624,6 +3765,107 @@ mod f7_tests{
         stop_miner(&mut n2);drop(n2);let _=std::fs::remove_dir_all(&dir);
     }
 }
+#[cfg(test)]
+mod v3_30_tests{
+    //! V3-30 (node-local): the own-share cap shared by the miner and pocol_submitWork, the miner stopped by any
+    //! solution, the `solved` and exhausted refusals, and the --mine-threads warning.
+    use super::*;
+    use pocol_lp4_execution::devnet::{self,DevnetConfig};
+    /// A node that is the drawn proposer of height 1 with its template locked (genesis a few seconds ago), two miner
+    /// threads and a work port, and its own range of the locked template. The template (and so what its own range
+    /// holds) depends on the second the test starts, so chain ids 777911, 777912, ... are tried until `needs` holds for
+    /// the locked template's own range (at most 64; every assertion of the caller is unchanged).
+    fn locked_node(tag:&str,needs:impl Fn(&Node,&[u8;32],(u64,u64))->bool)->(Node,std::path::PathBuf,[u8;32],(u64,u64)){
+        for i in 0..64u64{
+            let (n,dir,tid,range)=locked_node_on(tag,777911+i);
+            if needs(&n,&tid,range){return (n,dir,tid,range)}
+            drop(n);let _=std::fs::remove_dir_all(dir);
+        }
+        panic!("no chain id in 777911..777975 gave an own range with what the test needs")
+    }
+    fn locked_node_on(tag:&str,chain_id:u64)->(Node,std::path::PathBuf,[u8;32],(u64,u64)){
+        let mut c=DevnetConfig::new(chain_id,now_s()-10,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
+        let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
+        let dir=std::env::temp_dir().join(format!("pocold-v330-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let limits=Limits{mine_threads:2,work_rpc:Some("127.0.0.1:1".parse().unwrap()),..Default::default()};
+        let cfg=Config{dir:dir.clone(),name:tag.into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits};
+        let mut n=Node::open(cfg,spec).unwrap();
+        let g=n.chain.head().hash;let par=n.full_entry(&g).unwrap();let drawn=n.chain.child_ctx(&par,0).unwrap().proposer;drop(par);
+        let label=["a","b","c"].into_iter().find(|l|devnet::miner_identity(l).key.address()==drawn).unwrap();
+        n.cfg.miner=Some(devnet::miner_identity(label).key);n.start_production();
+        let Some(Production{mode:Mode::Locked(l),..})=&n.prod else{panic!("locked")};
+        let tid=l.tid;let range=chain::assignment_range(&l.ctx,n.cfg.miner.as_ref().unwrap().address()).unwrap();
+        (n,dir,tid,range)
+    }
+    fn own_shares(n:&Node)->usize{n.prod.as_ref().unwrap().own_shares}
+    fn held(n:&Node)->usize{n.prod.as_ref().unwrap().shares.len()}
+    fn targets(n:&Node)->(Fixed,Fixed){let Some(Production{mode:Mode::Locked(l),..})=&n.prod else{panic!()};(l.ctx.target,l.ctx.t_share)}
+    /// Real shares (share target, not a solution) and solutions in the own range of the locked template.
+    fn real_shares(n:&Node,tid:&[u8;32],(s,e):(u64,u64),k:usize)->Vec<u64>{let (target,t_share)=targets(n);
+        (s..=e).filter(|x|{let h=pow_hash(tid,*x);le_target(&h,&t_share)&&!le_target(&h,&target)}).take(k).collect()}
+    fn solutions(n:&Node,tid:&[u8;32],(s,e):(u64,u64),k:usize)->Vec<u64>{let (target,_)=targets(n);
+        (s..=e).filter(|x|le_target(&pow_hash(tid,*x),&target)).take(k).collect()}
+    /// One S_max per template for the node's own shares, from its miner and pocol_submitWork together: with S_max − 1
+    /// held from the miner, one submitted share fills the cap; the next is refused (shareCap) and a further miner
+    /// share is neither kept nor counted.
+    #[test] fn own_shares_from_the_miner_and_submit_work_share_one_s_max(){
+        let (mut n,dir,tid,(s,e))=locked_node("cap",|n,tid,r|real_shares(n,tid,r,3).len()==3);
+        let s_max=usize::from(n.chain.spec.cp().S_max);let (target,t_share)=targets(&n);
+        let real:Vec<u64>=(s..=e).filter(|x|{let h=pow_hash(&tid,*x);le_target(&h,&t_share)&&!le_target(&h,&target)}).take(3).collect();
+        assert_eq!(real.len(),3,"three real shares in the own range");
+        // The miner's shares (it is trusted: on_miner does not re-hash them), never one of the real ones.
+        let fake=(0u64..).map(|i|s.wrapping_add(i)).filter(|x|!real.contains(x)).take(s_max+1).collect::<Vec<_>>();
+        for x in &fake[..s_max-1]{n.on_miner(MinerEvent::Share{tid,nonce:*x});}
+        assert_eq!((own_shares(&n),held(&n)),(s_max-1,s_max-1));
+        // A repeated miner share is neither counted nor kept again.
+        n.on_miner(MinerEvent::Share{tid,nonce:fake[0]});assert_eq!(own_shares(&n),s_max-1);
+        let r=n.submit_work(tid,real[0]).unwrap();assert_eq!(r,serde_json::json!({"accepted":true,"kind":"share"}));
+        assert_eq!(own_shares(&n),s_max,"the submitted share fills the one cap");
+        let r=n.submit_work(tid,real[1]).unwrap();assert_eq!(r,serde_json::json!({"accepted":false,"kind":"share","reason":"shareCap"}),"S_max + 1-th own share");
+        n.on_miner(MinerEvent::Share{tid,nonce:fake[s_max]});
+        assert_eq!((own_shares(&n),held(&n)),(s_max,s_max),"a miner share past the cap is dropped (not kept, not relayed)");
+        // A peer's share (another member's range) is not an own share: Msg::Share keeps it outside this count.
+        // A new attempt starts a new count.
+        n.begin_attempt(1);assert_eq!(own_shares(&n),0);
+        drop(n);let _=std::fs::remove_dir_all(dir);
+    }
+    /// A solution through pocol_submitWork stops and joins the internal miner even when its block is not imported,
+    /// and a second solution for the solved template is refused (`solved`).
+    #[test] fn an_external_solution_stops_the_miner_and_a_second_is_refused(){
+        let (mut n,dir,tid,(s,e))=locked_node("solved",|n,tid,r|!solutions(n,tid,r,1).is_empty());let (target,_)=targets(&n);
+        let sols:Vec<u64>=(s..=e).filter(|x|le_target(&pow_hash(&tid,*x),&target)).take(2).collect();
+        assert!(!sols.is_empty(),"a solution in the own range");
+        let threads=n.prod.as_ref().unwrap().miner.as_ref().map(|m|m.threads());assert_eq!(threads,Some(2),"two miner threads run");
+        let exited=n.prod.as_ref().unwrap().miner.as_ref().unwrap().exited();
+        // The block this solution seals is rejected (another chain id), so production stays on this template.
+        if let Some(Production{mode:Mode::Locked(l),..})=&mut n.prod{l.header.chain_id+=1;}
+        let r=n.submit_work(tid,sols[0]).unwrap();
+        assert_eq!(r,serde_json::json!({"accepted":true,"kind":"solution","imported":false,"pending":false}),"{r}");
+        assert!(n.prod.as_ref().unwrap().miner.is_none(),"the miner is stopped");assert_eq!(exited.load(std::sync::atomic::Ordering::SeqCst),2,"and both threads joined");
+        assert_eq!(n.status_json()["mining"]["running"],0);
+        let again=*sols.get(1).unwrap_or(&sols[0]);
+        let r=n.submit_work(tid,again).unwrap();assert_eq!(r,serde_json::json!({"accepted":false,"kind":"solution","reason":"solved"}),"{r}");
+        assert!(n.work_json(None).unwrap()["solved"]==true);
+        drop(n);let _=std::fs::remove_dir_all(dir);
+    }
+    /// Once the own miner reported the whole own range scanned, getWork is refused (the range holds no solution) until
+    /// the next template; a range the miner could not start on (no miner) is not exhausted.
+    #[test] fn an_exhausted_own_range_is_not_handed_out(){
+        let (mut n,dir,tid,_)=locked_node("exhausted",|_,_,_|true);
+        assert!(n.work_json(None).is_ok());
+        n.prod.as_mut().unwrap().miner=None;assert!(n.work_json(None).is_ok(),"no miner is not exhaustion");
+        n.on_miner(MinerEvent::Exhausted{tid,hashes:1});
+        assert_eq!(n.work_json(None).unwrap_err().0,-32013);assert_eq!(n.work_json(Some((1,4))).unwrap_err().0,-32013);
+        n.begin_attempt(1);assert!(!n.prod.as_ref().unwrap().exhausted,"a new attempt scans again");
+        drop(n);let _=std::fs::remove_dir_all(dir);
+    }
+    #[test] fn more_threads_than_cores_warn(){
+        assert_eq!(mine_threads_warning(1,Some(1)),None,"the default never warns");
+        assert_eq!(mine_threads_warning(4,Some(4)),None);assert_eq!(mine_threads_warning(4,None),None);
+        let w=mine_threads_warning(64,Some(4)).unwrap();assert!(w.contains("--mine-threads 64")&&w.contains("4 cores")&&w.contains("at most 3"),"{w}");
+        assert!(mine_threads_warning(2,Some(1)).unwrap().contains("at most 1"));
+    }
+}
 
 #[cfg(test)]
 mod late_cache_tests{
@@ -3647,7 +3889,7 @@ mod late_cache_tests{
         let on:Vec<u64>=(0..nmax as u64).filter(|x|le_target(&pow_hash(&tid,*x),&ctx.t_share)).take(4).collect();assert_eq!(on.len(),4);
         // The template was mined and left (stashed) with one share; the head is back on its parent and it is locked again.
         n.late_cache.stash(LateTemplate{tid,height:1,nonce_max:nmax,t_share:ctx.t_share,shares:vec![on[0]]},cap);
-        n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms()});
+        n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms(),own_shares:0,exhausted:false});
         n.lock(fb.clone(),Body::default(),true);
         let shares=|n:&Node|n.prod.as_ref().unwrap().shares.iter().copied().collect::<Vec<u64>>();
         assert!(n.late_cache.get(&tid).is_none(),"FAIL-ON-ORIGINAL: a template locked again leaves the cache");
@@ -3683,7 +3925,7 @@ mod late_cache_tests{
         let label=["a","b","c"].into_iter().find(|l|devnet::miner_identity(l).key.address()==ctx.proposer).expect("the draw is a genesis miner");
         let key=devnet::miner_identity(label).key;
         let (mut hd,_,_)=n.chain.build_signed(&par,&key,ctx.window.lower(),Body::default(),vec![]).unwrap();drop(par);
-        n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms()});
+        n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms(),own_shares:0,exhausted:false});
         // (An empty body: on this spec-1 node a kind-3 item would be "15 evidence form" anyway; the v3 verdict on the
         // item itself is tests/v3_late_shares.rs late_shares_refused_on_a_real_branch. The original locked this.)
         hd.h=2;
