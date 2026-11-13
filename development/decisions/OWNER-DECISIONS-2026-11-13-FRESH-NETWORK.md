@@ -100,3 +100,17 @@ Summary:
   new install.
 - Requirements restated: the network stores HTML, CSS and JS to publish web pages (on-chain sites); work on the three
   sites explorer.pocol.net, studio.pocol.net, ide.pocol.net and on the Chrome extension.
+
+## Third follow-up: the design questions (2026-11-13, verbatim)
+
+> س1 أ، س2 أ، س3 أ، س4 أ
+
+(Questions in development/handoff/FRESH-NETWORK-DESIGN.md section 5 and the Arabic summary sent to the owner.)
+- Q1 (a): no creation fee; accept the cap-fill risk with a ready cap-raise path (C10) at launch, an 80 % occupancy
+  alarm and disclosure. baseFeeMin stays 10^7 wei.
+- Q2 (a): an inactive member (no credited share for Θ_inact = 360 blocks, 1 h) is removed only when the set is full
+  (10,000), atomically by a newcomer's registerReplacing; the removed member is refunded after U and may return.
+- Q3 (a): launch the public network admitted as Simnet/Simnet/ExperimentalDevnet, as the old network was;
+  publicLaunchReady stays false with its blockers disclosed.
+- Q4 (a): explorer/studio/ide stay HTTPS-hosted and work with the new network; user sites (HTML/CSS/JS up to the
+  publisher's 4 MiB) are on-chain; the explorer bundle is published on-chain in the rehearsal as the reference site.
