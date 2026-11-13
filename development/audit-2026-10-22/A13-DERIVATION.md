@@ -552,6 +552,37 @@ three terms: one up and two down. It also withdraws one projection.
   that term (a candidate it leaves out commits nothing to the overlay; its execution is bounded in time by the
   execution budget above, not in memory). The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), by up to 163
   more with the tail and by up to 168 more with the parked runs.
+- **A13 (N4, V3-20 node-local pool).** G, `pool_gas` and the pending-layer term are unchanged. Evicted transactions
+  keep their gas in the pool's `gas` until the next head (`ghost_gas`), and a replaced pooled entry stays charged the
+  most gas it or any replacement declared since the last head (`Meta::gas`). The node applies its gas bound at most
+  POOL_MAX_TXS × GAS_LIMIT (`node::pool_gas_in_effect`), the same minimum `resources::pool_gas` counts, so the layer
+  still holds at most that term's writes. (N4 second review: before this clamp, a `pool_gas_max` above the product
+  let evictions take the layer past the counted term, since the count bound no longer bounds the executions between
+  two heads once victims leave their writes behind.) Row changes:
+  - queues/pool sender and declared gas and queues/parked transactions' entries: unchanged (META_ENTRY_BYTES 32,
+    PARKED_ENTRY_BYTES 160). Nonces and fee caps are read from the raw bytes (`node::tx_fields`, no allocation); the
+    replacement count fits each entry's padding.
+  - queues/template selection: the third sender set, the senders seen while finding the big-first slot (B6), is
+    gone. The fee order (`Node::fee_order_and_big`) finds that slot in its pass by sender. Its scratch,
+    (POOL_MAX_TXS + POOL_PARKED_MAX) × FEE_ORDER_ENTRY_BYTES (12: a u32 index, which the selection keeps as its order,
+    and a u64 priority) = 61,440 B, is counted in that set's place (885,052 B), at the larger of the two
+    (`resources::selection_bytes`, `fee_order_bytes`). Both Vecs are allocated once at their length and never grown.
+    An eviction's scan and the parked set's fee eviction rank with the same pass (`Node::fee_ranks`: the same u32
+    and u64 per pooled and parked candidate, at most 61,440 B). They run on the consensus thread during an admission,
+    never during a selection, so the same place bounds them.
+  - A pooled replacement's execution checks run on a scratch overlay over the head state: one execution, the same
+    term as any admission's (EXECUTIONS = 1). N4 x D-V3-21 review: under v3 the same checks run once for a newcomer
+    before it evicts (a pooled transaction: before its own execution on the pending state, so no result is held
+    across them; a parked one: a parked transaction is executed only there), with the fee eviction's plan and PR6's
+    run map dropped first. One execution at a time, so the term is unchanged. N4 x D-V3-21 re-review: an evicting
+    parked newcomer, and under v3 a replacement of a sender's first parked transaction, run the same checks once on
+    the head and then once on the pending state (`eviction_checks`), one after the other on scratch overlays, nothing
+    held across them: still one execution at a time (EXECUTIONS = 1).
+
+  No pin moves: the devnet total stays 3,397,791,234 (eviction off 3,388,329,613), and the live chain's halt and
+  disk-bytes stops in tests/network_budget.rs are unchanged. (The first N4 draft added +1,302,528 B with wider
+  entries and a separate fee-order row; the review asked for the pins to return.)
+  Replacements take an entry's place and hold no memory beyond POOL_MAX_BYTES.
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
   which no stop hook can cut short.
@@ -1084,10 +1115,20 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   (invalidate, punish, recordResult, settle, settleFinal), measured by tests/v3_contracts.rs
   `v3_sys_gas_and_caps_within_the_v3_envelope`, where it has one, the earn-in entry otherwise. The v3 domain
   also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual). V1, Continuous and EarnIn are unchanged.
+  V3-PR-E3 (V3-02) adds recordLate (3,458,000; the one v3-only call name, measured by the same test crediting
+  κm − 1 = 63 late shares to owners new to the template, the stranger path asserted as the maximum) and bounds the
+  v3 domain by κ·m ≤ 64 (`GAS_DOMAIN_V3_KAPPA_M`) as well; each evidence item is counted as the dearer of recordLate
+  and invalidate + punish (`phase_calls`).
 - **Open: v3 final phase (V3-PR-E2b).** The v3 gas runs are continuous (h_end 0) and never reach the final
   phase: finalize takes the earn-in entry with no v3 measurement, and settleFinal takes the measured v3 settle
   (the same settleOne) rather than a measured tomb-free v3 final block. A v3 final-phase measurement
   (finalize, settleFinal) is still owed before the V3 class-2 facts are measured rather than inherited.
+  V3-PR-E2a (2026-11-13) measures finalize on v3 at its worst path (both outstanding carries burned with the tips
+  as the chain's first burn, 61,932 gas on a small final chain, tests/v3_contracts.rs
+  `v3_final_block_burns_the_carry_on_real_blocks`) and closeBlock at its worst tip-share path (132,825,
+  `v3_close_and_finalize_gas_within_the_v3_envelope`): `GAS_ENVELOPE_V3` gains closeBlock 133,000 and finalize
+  62,000, which replace the earn-in entries (53,000, 32,000) in the composition. settleFinal still takes the measured
+  v3 settle, not a measured tomb-free v3 final block at the domain maxima: that part of this item stays open.
 - **Open: V1 settleFinal (2026-11-12).** `sys_gas_envelope_fixture` runs no tomb-free final block. On the V1
   programs one measures settleFinal 4,291,596, and 4,306,697 when its first settleFinal makes the first burn,
   above the 4,230,000 entry of `GAS_ENVELOPE` (settle, 4,304,468 tomb-free and on the Continuous programs, is
@@ -1592,6 +1633,30 @@ or reduced resource reserve substitutes for this inventory. See
 boundaries, annotation rollback, classified conservation and copy/overlay/store
 parity. These are representation bounds and fixture results; candidate v3 caps
 and coefficient calibration still require the resource/profile PR.
+
+### V3-PR-E3: late share credit (V3-02), CP schema v2 only
+
+Three terms exist only for a CP schema v2 (v3) profile; on CP schema v1 each is zero and the pinned spec-1 totals
+(3,397,791,234 B; eviction off 3,388,329,613 B, after V3-PR-C3's receipt-encoding correction) are unchanged, as are `Entry`, `Rec`, REC_MIN and REC_MAX.
+
+- `queues/late-share cache`: `node::LateCache`, at most D + LATE_PENDING_MAX + 1 templates (`LateTemplate`: TemplateID,
+  height, nMax, share target and at most SHARE_RELAY_PER_S_MAX·S_max = 4·S_max nonces). `LateCache::prune` keeps the
+  branch's template of each height in the next carrier's window [max(1, H+1−D), H] (D) and the newest
+  LATE_PENDING_MAX = 2 of the production height H+1; one more exists between a stash and its prune. Each nonce Vec and
+  the deque are counted at memory::VEC: 3·(D + 3)·(size_of LateTemplate + 3·4·S_max·8) + 64. The design's estimate was
+  D·4·S_max·8 B; the review of E3 replaced "the last D templates locked" (which dead attempts and an equivocation's
+  other template could fill, pushing a canonical one out) with this window.
+- `history/late-share evidence kept on offloaded entries`: an offloaded entry keeps its body's kind-3 items for the
+  branch deduplication (`chain::offload`), a slimmed one drops them, whichever of the two ran first. Per entry at most min(E_max, L) items with
+  L = min(E_max·min(S_max, κm − 1), D·(κm − 1)) late shares a block can credit: items·(24 + 17) + 9·L, never above
+  E_max·(EVID_BYTES_MAX + 24). Counted for the offloaded canonical entries above the slim depth, the side entries
+  (side_cap + 2·R_keep) and a rebuild's shadow copies (max(257, E_win + 1) with eviction on). At the default devnet
+  values with CP schema v2 (E_max 4, S_max 256, D 4, κm 64): 2,432 B per entry.
+- The resident window's evidence term drops the one-item-per-identity bound on CP schema v2 (late shares are not one
+  per identity) and is bounded per block, as the continuous windowed chain already was.
+
+`late-share-inventory` records these as inventories by inspection. `pocold/tests/v3_late_shares.rs`
+(`a13_counts_late_share_memory_on_cp_schema_v2_only`) checks the terms and the unchanged spec-1 pin.
 
 ## 4. Assumptions, one by one (round 2)
 

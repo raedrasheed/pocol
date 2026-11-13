@@ -858,6 +858,37 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
     are relayed (at most POOL_PARKED_MAX per head, none that evicted another) and are template candidates. Fee ordering, replacement and lowest-fee eviction remain: cheap
     declared gas can still hold the pool's bound (not the next block), so admission into the pending state, not
     inclusion, waits.
+  - **Delivered by N4** (node-local: `pocold/src/node.rs`, `rpc.rs`, `resources.rs`; no boundary file, block
+    validity, fork choice or journal/checkpoint byte changes). The policy and its errors are in network.md
+    "Mempool fee policy".
+    - Fee-ordered selection. The pooled and parked candidates are taken highest priority first. A candidate's
+      priority is the lowest effective tip, min(priority fee, maxFee − baseFee) at the block's base fee, among it and
+      its sender's earlier candidates, so each sender's transactions keep nonce order; from the first one its sender's head balance does not cover, the priority is 0. Ties keep the earlier
+      candidate order (FIFO), so the order is deterministic. The big-first slot is kept.
+    - Overdraft rule. A new submission must be covered by its sender's head-state balance together with its pooled
+      and parked transactions (gas × maxFee + value each). No new submission then depends on another pending one's
+      funds, so an eviction, a replacement or the fee order cannot leave it pooled but unaffordable. The guarantee
+      covers new submissions only: a transaction a new head revalidates (a reorg's returned ones, the previous pool)
+      keeps the pending-state check and may depend on another sender's pending funds. The fee order ranks it last, so
+      it follows its funding; an eviction or replacement of the funding can leave it unaffordable until the next head.
+    - Replace-by-fee. The same sender and nonce, pooled or parked, is replaced in place when both caps rise by at
+      least 10 % and the overdraft rule holds. A pooled replacement also passes the pool's execution checks, run on
+      the head without committing. A pooled entry is charged the most gas it or a replacement declared since the last
+      head, so up and down replacements cannot take a sender past its quota of the gas bound. At most 4 replacements per entry and 8 per sender per head; no pool-wide
+      acceptance limit. At most 256 are relayed per head; a later one is pooled but not relayed.
+    - Lowest-fee eviction. At the count or byte bound, a higher priority evicts the tail of another sender's pooled
+      nonce chain ranked lowest by the fee order (its chain's lowest tip), only after the newcomer has executed. The
+      victim's nonce goes back to its sender in the pending state, so the sender can resubmit or outbid. Under the
+      default limits the gas bound binds before the count bound, so pooled eviction rarely runs; fee competition at
+      the gas bound works through the fee-ordered parked set, whose fee eviction is planned in one pass and evicts
+      nothing unless it frees all the room. The quota, parking, the gas bound (evicted gas stays counted until the
+      next head; it applies at most POOL_MAX_TXS × GAS_LIMIT, the pending-layer term A13 counts, so evictions cannot
+      pass it) and the relay bounds are unchanged. The open gap above (cheap declared gas holding the gas bound
+      against admission into the pending state) is narrowed, not closed: such transactions still hold the gas bound
+      until the next head, but higher payers reach the next block through the parked set.
+    - A13: no pin moves. The meta and parked entries keep their PR6 sizes (nonces and fee caps are read from the raw
+      bytes). The fee order's scratch, (4,096 + 1,024) × 12 = 61,440 B, takes the place of the selection's first-seen
+      sender set (885,052 B), which the fee order's pass by sender replaces.
 
 **Principle check.**
 - (a) and (b) keep P6: R_tot is still shared by a deterministic pre-mining rule, and the proposer is drawn
@@ -960,7 +991,10 @@ never lowered, across it (`genesis_builder.rs:60`).
   - Raise RESP_MAX ≥ 2·LOG_BLOCK_MAX (R26) in lockstep.
   - NODE-LOCAL: model the log caps in PoolMeter/`template_txs` and in `eth_estimateGas`. PR6: the builder
     (`template_selection`) now models the log caps (count, block bytes, LOG_CAP) and SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX;
-    the pool refuses a transaction whose own logs pass a log cap; `eth_estimateGas` does not model them yet.
+    the pool refuses a transaction whose own logs pass a log cap. C3 made the v3 `eth_estimateGas` check a call's own
+    logs against the v3 caps. N4 makes every estimate model the caps active in the next block: v3 256 KiB / 4,368, or
+    spec-1 32 KiB / 546, plus LOG_CAP when H_END ≠ 0. A call whose own logs pass a cap gets −32000 {reason}, not a
+    gas value.
 - **Classification:** CONSENSUS-COMPLIANT. **Deployment:** B; later forks through A1.
 - **Tests:** fails on the original code: front-load 32 KiB of logs, then a later ERC-20 transfer halts today and
   succeeds under v3. Also an A13 boot test.
