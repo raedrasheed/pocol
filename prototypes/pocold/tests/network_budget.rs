@@ -457,6 +457,10 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     assert_eq!(item(&at(8),"threads/exiting not-yet-joined (conservative)"),item(&at(1),"threads/exiting not-yet-joined (conservative)"),
         "a miner's threads are joined before the next miner starts: none is exiting");
     let n=pocold::net::Limits::default();
-    assert_eq!(tasks_needed(&n,2,5,32,8).unwrap()-tasks_needed(&n,2,5,32,1).unwrap(),7);
-    assert_eq!(tasks_needed(&n,2,5,32,1),Some(144),"the defaults' inventory is unchanged");
+    assert_eq!(tasks_needed(&n,2,5,32,8,false).unwrap()-tasks_needed(&n,2,5,32,1,false).unwrap(),7);
+    assert_eq!(tasks_needed(&n,2,5,32,1,false),Some(144),"the defaults' inventory is unchanged");
+    // The V3-30 work port: its acceptor only (its connections are among the conn_max, rpc::serve_all).
+    let work=derive(&cp,32,l.side_max,&Limits{work_rpc:Some("127.0.0.1:1".parse().unwrap()),..Default::default()},2).unwrap();
+    assert_eq!(work.total-at(1).total,io,"one more thread");
+    assert_eq!(tasks_needed(&n,2,5,32,1,true),Some(145));
 }

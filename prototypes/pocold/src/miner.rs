@@ -26,23 +26,31 @@ pub fn parse_threads(v:&str)->Result<usize,String>{
 /// L = end − start + 1 (in u128, so the full 2^64 domain fits), slice i is [start + ⌊i·L/n⌋, start + ⌊(i+1)·L/n⌋ − 1].
 /// Deterministic (a function of the range and n only); a slice that would be empty (n > L) is left out, so no two
 /// slices share a nonce and their union is the range. An empty range (start > end) or n = 0 has no slice.
-pub fn slices(start:u64,end:u64,n:usize)->Vec<(u64,u64)>{
-    if start>end||n==0{return vec![]}
-    let len=u128::from(end-start)+1;let n128=n as u128;
-    (0..n128).filter_map(|i|{
-        let (a,b)=(i*len/n128,(i+1)*len/n128);
-        (b>a).then(||(start+a as u64,start+(b-1) as u64))
-    }).collect()
+pub fn slices(start:u64,end:u64,n:usize)->Vec<(u64,u64)>{(0..n).filter_map(|i|slice(start,end,n as u64,i as u64)).collect()}
+/// Slice `i` of `slices(start, end, n)` alone, without the others: [start + ⌊i·L/n⌋, start + ⌊(i+1)·L/n⌋ − 1], None
+/// when it is empty (n > L), i ≥ n, n = 0 or start > end. pocol_getWork computes the one slice a worker asks for.
+pub fn slice(start:u64,end:u64,n:u64,i:u64)->Option<(u64,u64)>{
+    if start>end||i>=n{return None}
+    let len=u128::from(end-start)+1;let (n,i)=(u128::from(n),u128::from(i));
+    let (a,b)=(i*len/n,(i+1)*len/n);
+    (b>a).then(||(start+a as u64,start+(b-1) as u64))
 }
 
 /// Dropping the handle stops the miner and joins all its threads, so at most one miner (one handle, with its
 /// `--mine-threads` threads) per node exists (A13 thread inventory).
-pub struct MinerHandle{stop:Arc<AtomicBool>,pub tid:[u8;32],threads:Vec<std::thread::JoinHandle<()>>}
+pub struct MinerHandle{stop:Arc<AtomicBool>,pub tid:[u8;32],threads:Vec<std::thread::JoinHandle<()>>,exited:Arc<AtomicUsize>}
 impl MinerHandle{
     pub fn stop(&self){self.stop.store(true,Ordering::SeqCst);}
     /// The threads this miner runs (its slices).
     pub fn threads(&self)->usize{self.threads.len()}
+    /// How many of this miner's threads have returned (each counts its own exit as its last action): all of them once
+    /// the handle is dropped, since Drop joins every thread.
+    pub fn exited(&self)->Arc<AtomicUsize>{self.exited.clone()}
 }
+/// Counts its thread's exit when the thread's scan returns, whichever way (cancelled, solved, exhausted). In the
+/// crate's unit tests the count waits 10 ms first, so a handle that returned without joining is seen before it.
+struct ExitCount(Arc<AtomicUsize>);
+impl Drop for ExitCount{fn drop(&mut self){#[cfg(test)]std::thread::sleep(std::time::Duration::from_millis(10));self.0.fetch_add(1,Ordering::SeqCst);}}
 impl Drop for MinerHandle{fn drop(&mut self){self.stop();let n=self.threads.len();for t in self.threads.drain(..){let _=t.join();}LIVE.fetch_sub(1,Ordering::SeqCst);THREADS_LIVE.fetch_sub(n,Ordering::SeqCst);}}
 /// Miner handles alive in the process and their high-water mark. A miner thread exists only
 /// between its spawn and the join in its handle's Drop, so the handles bound the threads: a peak
@@ -76,11 +84,11 @@ pub fn start_threads(tid:[u8;32],start:u64,end:u64,target:Fixed,t_share:Fixed,ma
     let parts=slices(start,end,threads.max(1));
     let stop=Arc::new(AtomicBool::new(false));
     let sh=Arc::new(Shared{shares:AtomicUsize::new(0),left:AtomicUsize::new(parts.len()),hashes:AtomicU64::new(0),solved:AtomicBool::new(false)});
-    let mut handles=Vec::with_capacity(parts.len());
+    let mut handles=Vec::with_capacity(parts.len());let exited=Arc::new(AtomicUsize::new(0));
     for (i,&(s,e)) in parts.iter().enumerate(){
-        let (flag,sh,events)=(stop.clone(),sh.clone(),events.clone());
+        let (flag,sh,events,done)=(stop.clone(),sh.clone(),events.clone(),ExitCount(exited.clone()));
         let name=if parts.len()==1{"miner".to_string()}else{format!("miner-{i}")};
-        let t=crate::threads::spawn(name,crate::threads::IO_STACK,move||scan(tid,s,e,target,t_share,max_shares,&flag,&sh,&events));
+        let t=crate::threads::spawn(name,crate::threads::IO_STACK,move||{let _done=done;scan(tid,s,e,target,t_share,max_shares,&flag,&sh,&events)});
         match t{
             Ok(t)=>handles.push(t),
             Err(err)=>{
@@ -92,7 +100,7 @@ pub fn start_threads(tid:[u8;32],start:u64,end:u64,target:Fixed,t_share:Fixed,ma
     // Counted once the threads exist: only a handle's Drop gives LIVE back.
     PEAK.fetch_max(LIVE.fetch_add(1,Ordering::SeqCst)+1,Ordering::SeqCst);STARTS.fetch_add(1,Ordering::SeqCst);
     THREADS_PEAK.fetch_max(THREADS_LIVE.fetch_add(handles.len(),Ordering::SeqCst)+handles.len(),Ordering::SeqCst);
-    Some(MinerHandle{stop,tid,threads:handles})
+    Some(MinerHandle{stop,tid,threads:handles,exited})
 }
 /// Takes one of the template's `max` share places; false once they are all taken.
 fn take_share(count:&AtomicUsize,max:usize)->bool{
@@ -198,21 +206,57 @@ mod tests{
         assert!(matches!(ev.last(),Some(MinerEvent::Exhausted{hashes:1000,..})));
     }
     /// Exactly one solution per template however many threads find one; the others stop without an exhaustion.
-    #[test] fn one_solution_stops_every_thread(){
+    #[test] fn one_solution_reported_when_every_thread_finds_one(){
         let (tx,rx)=std::sync::mpsc::channel();
         let h=start_threads([1u8;32],0,u64::MAX,Fixed::MAX,Fixed::MAX,4,8,tx).unwrap();
         let ev=events(&rx,|e|matches!(e,MinerEvent::Solution{..}));drop(h);
         assert!(matches!(ev.as_slice(),[MinerEvent::Solution{..}]),"{ev:?}");
         let rest:Vec<_>=rx.try_iter().collect();assert!(rest.iter().all(|e|!matches!(e,MinerEvent::Solution{..}|MinerEvent::Exhausted{..})),"{rest:?}");
     }
-    /// Dropping the handle stops and joins every thread of a miner that would otherwise run for ever.
+    /// A nonce of tid [1; 32] whose hash has 28 leading zero bits (found off line): with the target set to that hash,
+    /// only about one hash in 2^28 meets it, so in practice only the slice that starts at this nonce finds a solution.
+    const LOW_NONCE:u64=374_770_398;
+    /// One thread's solution stops the others, which would otherwise scan for ever: every thread exits while the
+    /// handle is still held (nobody is joining them), and only the one solution is reported.
+    #[test] fn one_solution_stops_every_thread(){
+        let tid=[1u8;32];let target=Fixed::from_be_slice(&pow_hash(&tid,LOW_NONCE)).unwrap();
+        assert!(target.bits()<=228,"the fixed nonce's hash has 28 leading zero bits");
+        let (tx,rx)=std::sync::mpsc::channel();
+        // Slice 0 starts at the solving nonce; the seven others cover the rest of the 64-bit domain above it.
+        // The share target is the target (a solution is checked inside the share check): no share event either.
+        let h=start_threads(tid,LOW_NONCE,u64::MAX,target,target,4,8,tx).unwrap();assert_eq!(h.threads(),8);
+        let ev=events(&rx,|e|matches!(e,MinerEvent::Solution{..}));
+        assert!(matches!(ev.as_slice(),[MinerEvent::Solution{nonce:LOW_NONCE,..}]),"{ev:?}");
+        let exited=h.exited();let t=std::time::Instant::now();
+        while exited.load(Ordering::SeqCst)<8&&t.elapsed()<std::time::Duration::from_secs(10){std::thread::sleep(std::time::Duration::from_millis(5));}
+        assert_eq!(exited.load(Ordering::SeqCst),8,"the solution stopped all eight threads, not only its own");
+        drop(h);assert!(rx.try_iter().all(|e|!matches!(e,MinerEvent::Solution{..}|MinerEvent::Exhausted{..})));
+    }
+    /// Dropping the handle stops and joins every thread of a miner that would otherwise run for ever: once drop
+    /// returns, all six threads have returned (each counts its exit 10 ms after it stops in this build, so a Drop
+    /// that only detached them would return before any count).
     #[test] fn cancellation_joins_all_threads(){
-        let (tx,_rx)=std::sync::mpsc::channel();let before=THREADS_LIVE.load(Ordering::SeqCst);
+        let (tx,_rx)=std::sync::mpsc::channel();
         let h=start_threads([2u8;32],0,u64::MAX,Fixed::ZERO,Fixed::ZERO,4,6,tx).unwrap();
         assert_eq!(h.threads(),6);assert!(THREADS_PEAK.load(Ordering::SeqCst)>=6);
+        let exited=h.exited();std::thread::sleep(std::time::Duration::from_millis(20));
+        assert_eq!(exited.load(Ordering::SeqCst),0,"nothing stops the threads before the drop");
         let t=std::time::Instant::now();drop(h);
+        assert_eq!(exited.load(Ordering::SeqCst),6,"every thread was joined before drop returned");
         assert!(t.elapsed()<std::time::Duration::from_secs(30),"joined at the next cancellation checkpoint");
-        // Other tests of this binary may run miners at the same time: the count only returns to at most where it was.
-        assert!(THREADS_LIVE.load(Ordering::SeqCst)<=before+12,"the six threads were given back");
+    }
+    /// The one slice pocol_getWork computes is the same slice as the full cut's, for every case `check` covers.
+    #[test] fn one_slice_equals_the_cut(){
+        for &(s,e) in &[(0u64,0u64),(5,5),(0,9),(3,1000),(17,17+63),(1u64<<40,(1u64<<41)-1),(0,u64::MAX),(u64::MAX-6,u64::MAX),(1,u64::MAX)]{
+            for n in [1u64,2,3,4,7,8,13,64,65536]{
+                let all=slices(s,e,n as usize);let one:Vec<_>=(0..n).filter_map(|i|slice(s,e,n,i)).collect();
+                assert_eq!(one,all,"{s}..={e} n={n}");
+                // With at least as many nonces as slices every slice is non-empty: slice i is the cut's i-th.
+                if u128::from(n)<=u128::from(e-s)+1{for i in 0..n.min(64){assert_eq!(slice(s,e,n,i),Some(all[i as usize]),"{s}..={e} n={n} i={i}");}}
+            }
+        }
+        assert_eq!(slice(0,9,4,4),None,"index past the count");assert_eq!(slice(0,9,0,0),None);assert_eq!(slice(5,4,2,0),None);
+        assert_eq!((slice(10,12,8,0),slice(10,12,8,1)),(None,None),"empty slices of a short range");
+        assert_eq!([2,5,7].map(|i|slice(10,12,8,i)),[Some((10,10)),Some((11,11)),Some((12,12))],"the non-empty ones, one nonce each");
     }
 }

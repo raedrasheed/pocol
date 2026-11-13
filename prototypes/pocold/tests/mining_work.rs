@@ -22,27 +22,41 @@ fn call(n:&mut Node,m:&str,p:Value)->Value{serde_json::from_str(&rpc::handle(n,j
 fn q(v:&Value)->u64{u64::from_str_radix(v.as_str().unwrap().trim_start_matches("0x"),16).unwrap()}
 fn hex32(v:&Value)->[u8;32]{<[u8;32]>::try_from(unhex(v.as_str().unwrap()).unwrap().as_slice()).unwrap()}
 fn fixed(v:&Value)->Fixed{Fixed::from_be_slice(&unhex(v.as_str().unwrap()).unwrap()).unwrap()}
-fn work_on()->Limits{Limits{work_rpc:true,..Default::default()}}
+fn work_on()->Limits{Limits{work_rpc:Some("127.0.0.1:1".parse().unwrap()),..Default::default()}}
 
-/// The work interface is off by default (an unknown method), never served to a request with an Origin header or
-/// from a peer that is not loopback, alone or in a batch, and the peer check accepts loopback addresses only.
-#[test] fn get_work_is_off_by_default_and_refused_from_sites_and_non_loopback_peers(){
+/// The work interface is off by default (an unknown method), never served to a request with an Origin header, never
+/// on the main RPC port (only on the work port, which serves nothing else), alone or in a batch, and the work port's
+/// peer check accepts loopback addresses only.
+#[test] fn get_work_is_off_by_default_and_refused_from_sites_and_the_main_port(){
     let c=cfg();let (me,_)=keys(&c);
     let (mut off,d1)=node("off",&c,Some(Key::from_secret(&me.secret()).unwrap()),Limits::default());
     for m in ["pocol_getWork","pocol_submitWork"]{let r=call(&mut off,m,json!([]));assert_eq!(r["error"]["code"],-32601,"{m} off by default: {r}");}
-    assert_eq!(off.status_json()["mining"]["workRpc"],false);
+    assert!(off.status_json()["mining"]["workRpc"].is_null());
+    let mut b=rpc::Budget{compute_by:std::time::Instant::now()+std::time::Duration::from_secs(30),scratch_max:usize::MAX,scratch_used:0,walled:false};
+    let get=br#"{"jsonrpc":"2.0","id":7,"method":"pocol_getWork","params":[]}"#;
+    let r:Value=serde_json::from_str(&rpc::handle_from(&mut off,get,false,rpc::Via::Rpc,None,None,&mut b)).unwrap();
+    assert_eq!((r["error"]["code"].clone(),r["error"]["message"].clone()),(json!(-32601),json!("method pocol_getWork not found")),"no work port: an unknown method on the main port: {r}");
     let (mut on,d2)=node("on",&c,Some(me),work_on());
     let body=br#"{"jsonrpc":"2.0","id":7,"method":"pocol_getWork","params":[]}"#;
     let site:Value=serde_json::from_str(&rpc::handle_with(&mut on,body,true)).unwrap();
     assert_eq!((site["error"]["code"].clone(),site["error"]["message"].clone()),(json!(-32601),json!("method not available to sites")),"{site}");
-    let mut b=rpc::Budget{compute_by:std::time::Instant::now()+std::time::Duration::from_secs(30),scratch_max:usize::MAX,scratch_used:0,walled:false};
-    let remote:Value=serde_json::from_str(&rpc::handle_from(&mut on,body,false,false,None,None,&mut b)).unwrap();
-    assert_eq!((remote["error"]["code"].clone(),remote["error"]["message"].clone()),(json!(-32601),json!("method available to loopback callers only")),"{remote}");
+    // The main port (which a reverse proxy may front) never serves them, alone or in a batch.
+    let main:Value=serde_json::from_str(&rpc::handle_from(&mut on,body,false,rpc::Via::Rpc,None,None,&mut b)).unwrap();
+    assert_eq!((main["error"]["code"].clone(),main["error"]["message"].clone()),(json!(-32601),json!("method served on the work port only (--work-rpc ADDR)")),"{main}");
     let batch=br#"[{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]},{"jsonrpc":"2.0","id":2,"method":"pocol_submitWork","params":["0x00",1]}]"#;
-    let r:Value=serde_json::from_str(&rpc::handle_from(&mut on,batch,false,false,None,None,&mut b)).unwrap();
+    let r:Value=serde_json::from_str(&rpc::handle_from(&mut on,batch,false,rpc::Via::Rpc,None,None,&mut b)).unwrap();
     assert!(r[0]["result"].is_string(),"{r}");assert_eq!(r[1]["error"]["code"],-32601,"{r}");
-    let loopback:Value=serde_json::from_str(&rpc::handle_from(&mut on,body,false,true,None,None,&mut b)).unwrap();
-    assert_eq!(loopback["error"]["code"],-32010,"served to loopback (no template locked yet): {loopback}");
+    // The work port serves them and nothing else.
+    let work:Value=serde_json::from_str(&rpc::handle_from(&mut on,body,false,rpc::Via::Work,None,None,&mut b)).unwrap();
+    assert_eq!(work["error"]["code"],-32010,"served on the work port (no template locked yet): {work}");
+    let r:Value=serde_json::from_str(&rpc::handle_from(&mut on,batch,false,rpc::Via::Work,None,None,&mut b)).unwrap();
+    assert_eq!((r[0]["error"]["code"].clone(),r[0]["error"]["message"].clone()),(json!(-32601),json!("the work port serves pocol_getWork and pocol_submitWork only")),"{r}");
+    assert_eq!(r[1]["error"]["code"],-32602,"a work method on the work port runs (a malformed TemplateID): {r}");
+    let site:Value=serde_json::from_str(&rpc::handle_from(&mut on,body,true,rpc::Via::Work,None,None,&mut b)).unwrap();
+    assert_eq!(site["error"]["message"],"method not available to sites","{site}");
+    let local:Value=serde_json::from_str(&rpc::handle_from(&mut on,body,false,rpc::Via::Local,None,None,&mut b)).unwrap();
+    assert_eq!(local["error"]["code"],-32010,"in process (the node itself, tests): {local}");
+    assert_eq!(on.status_json()["mining"]["workRpc"],"127.0.0.1:1");
     for (ip,ok) in [("127.0.0.1",true),("127.3.4.5",true),("::1",true),("::ffff:127.0.0.1",true),("10.0.0.1",false),("192.168.1.2",false),("::",false),("2001:db8::1",false),("::ffff:10.0.0.1",false)]{
         assert_eq!(rpc::work_peer_ok(Some(ip.parse().unwrap())),ok,"{ip}");
     }
@@ -69,7 +83,8 @@ fn work_on()->Limits{Limits{work_rpc:true,..Default::default()}}
     let sl:Vec<(u64,u64)>=(0..4).map(|i|{let v=call(&mut n,"pocol_getWork",json!([i,4]));(q(&v["result"]["sliceStart"]),q(&v["result"]["sliceEnd"]))}).collect();
     assert_eq!(sl,pocold::miner::slices(s,e,4));assert_eq!((sl[0].0,sl[3].1),(s,e));
     for i in 1..4{assert_eq!(sl[i].0,sl[i-1].1+1);}
-    for bad in [json!([4,4]),json!([0,0]),json!([0,65537]),json!([1])]{assert_eq!(call(&mut n,"pocol_getWork",bad.clone())["error"]["code"],-32602,"{bad}");}
+    assert_eq!((w["minerRunning"].as_u64(),w["ownShares"].as_u64()),(Some(3),Some(0)),"the own miner's threads scan the same range: {w}");
+    for bad in [json!([4,4]),json!([0,0]),json!([0,65537]),json!([1]),json!([0,4,1])]{assert_eq!(call(&mut n,"pocol_getWork",bad.clone())["error"]["code"],-32602,"{bad}");}
     // Thread count respected (V3-30 S1).
     let st=n.status_json();assert_eq!((st["mining"]["threads"].as_u64(),st["mining"]["running"].as_u64()),(Some(3),Some(3)),"three threads run the locked template: {}",st["mining"]);
     assert!(pocold::miner::THREADS_PEAK.load(std::sync::atomic::Ordering::SeqCst)>=3);
@@ -88,9 +103,10 @@ fn work_on()->Limits{Limits{work_rpc:true,..Default::default()}}
     if s>0{assert_eq!(sub(&mut n,&tid,s-1)["error"]["code"],-32011,"just before the own range");}
     assert_eq!(sub(&mut n,&tid,miss)["error"]["code"],-32012,"not a share");
     assert_eq!(call(&mut n,"pocol_submitWork",json!(["0x12",share]))["error"]["code"],-32602,"a malformed TemplateID");
+    assert_eq!(call(&mut n,"pocol_submitWork",json!([hex(&tid),share,1]))["error"]["code"],-32602,"extra parameters");
     let r=sub(&mut n,&tid,share);assert_eq!(r["result"],json!({"accepted":true,"kind":"share"}),"{r}");
     let r=sub(&mut n,&tid,share);assert_eq!(r["result"],json!({"accepted":false,"kind":"share","reason":"duplicate"}),"{r}");
-    let r=sub(&mut n,&tid,solution);assert_eq!(r["result"],json!({"accepted":true,"kind":"solution","imported":true}),"{r}");
+    let r=sub(&mut n,&tid,solution);assert_eq!(r["result"],json!({"accepted":true,"kind":"solution","imported":true,"pending":false}),"{r}");
     assert_eq!(n.chain.head().height,1,"the submitted solution is block 1");assert_eq!(n.chain.head().header.nonce,solution);
     assert!(n.chain.head().header.shares.contains(&share),"the submitted share is credited in the block");
     let st=n.status_json()["mining"].clone();
@@ -134,5 +150,20 @@ fn work_on()->Limits{Limits{work_rpc:true,..Default::default()}}
     let want=head.total_work/U256::from(secs);assert_eq!(U256::from(est["hashesPerSecond"].as_u64().unwrap()),want,"{est}");
     // Sanity: the work of one block is the expected hashes of one solution, 2^256/(target+1).
     assert_eq!(head.total_work,chain::work(&head.header.target));
+    // The window starts at its OLDEST resident entry: heights the lookup has no entry for (evicted) are skipped.
+    use pocold::node::{hashrate_window_start,HASHRATE_WINDOW};
+    let mut asked=vec![];
+    assert_eq!(hashrate_window_start(5,|h|{asked.push(h);(h>=2).then_some(h)}),Some(2),"heights 0 and 1 evicted: the window starts at 2, not at the newest");
+    assert_eq!(asked,vec![0,1,2]);
+    assert_eq!(hashrate_window_start(3,|h|Some(h)),Some(0),"three blocks: from genesis");
+    assert_eq!(hashrate_window_start(1000,|h|Some(h)),Some(1000-HASHRATE_WINDOW),"the last 360 blocks");
+    assert_eq!(hashrate_window_start(1000,|h|(h>=990).then_some(h)),Some(990));
+    assert_eq!(hashrate_window_start(0,|h|Some(h)),None,"no block");assert_eq!(hashrate_window_start::<u64>(9,|_|None),None,"nothing resident");
+    let mut n_ask=0;hashrate_window_start::<u64>(u64::MAX,|_|{n_ask+=1;None});assert_eq!(n_ask,HASHRATE_WINDOW,"at most HASHRATE_WINDOW lookups");
+    // On three points (ts, cumulative work): from the oldest, (30 − 3) work over (130 − 100) s.
+    let pts=[(100u64,3u64),(110,10),(120,20),(130,30)];
+    let from=hashrate_window_start(3,|h|pts.get(h as usize).copied()).unwrap();
+    assert_eq!(hashrate_estimate(from.0,U256::from(from.1),130,U256::from(30u64)),Some(U256::from(27u64/30)),"27 hashes over 30 s rounds down to 0");
+    assert_eq!(hashrate_estimate(from.0,U256::from(from.1),130,U256::from(3003u64)),Some(U256::from(100u64)));
     drop(n);let _=std::fs::remove_dir_all(d);
 }

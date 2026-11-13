@@ -1530,16 +1530,26 @@ fn blake_then(rounds:u32,tail:&str)->String{
     }
     drop(assign);
 }
-/// V3-30 S2 over sockets: the work interface is an unknown method by default; with `--work-rpc` a loopback client
-/// without Origin reaches it (this node has no mining key: −32010), and a site never does (ORIGIN_DENY), alone or in a batch.
-#[test] fn the_work_interface_is_off_by_default_and_served_to_loopback_without_origin_only(){let _g=serial();
+/// V3-30 S2 over sockets: the work interface is an unknown method by default; with `--work-rpc ADDR` it is served on
+/// that loopback work port only (this node has no mining key: −32010), which serves nothing else, never on the main
+/// RPC port (a reverse proxy in front of it never reaches the work methods), and never to a site, alone or in a batch.
+#[test] fn the_work_interface_is_off_by_default_and_served_on_its_own_loopback_port_only(){let _g=serial();
     let get=r#"{"jsonrpc":"2.0","id":1,"method":"pocol_getWork","params":[]}"#;
+    let j=|r:(u16,String)|->serde_json::Value{serde_json::from_str(&r.1).unwrap()};
     let off=start("work-off",small());
-    let v:serde_json::Value=serde_json::from_str(&rpc(off.rpc,get,false).1).unwrap();assert_eq!(v["error"]["code"],-32601,"off: {v}");
-    let on=start("work-on",Limits{work_rpc:true,..small()});
-    let v:serde_json::Value=serde_json::from_str(&rpc(on.rpc,get,false).1).unwrap();assert_eq!(v["error"]["code"],-32010,"served to loopback: {v}");
-    let v:serde_json::Value=serde_json::from_str(&rpc(on.rpc,get,true).1).unwrap();
+    let v=j(rpc(off.rpc,get,false));assert_eq!(v["error"]["code"],-32601,"off: {v}");
+    let work=free_port();
+    let on=start("work-on",Limits{work_rpc:Some(format!("127.0.0.1:{work}").parse().unwrap()),..small()});
+    let v=j(rpc(on.rpc,get,false));
+    assert_eq!((v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(-32601),serde_json::json!("method served on the work port only (--work-rpc ADDR)")),"the main port: {v}");
+    let v=j(rpc(work,get,false));assert_eq!(v["error"]["code"],-32010,"served on the work port: {v}");
+    let v=j(rpc(work,r#"{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}"#,false));
+    assert_eq!((v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(-32601),serde_json::json!("the work port serves pocol_getWork and pocol_submitWork only")),"{v}");
+    let v=j(rpc(work,get,true));
     assert_eq!((v["error"]["code"].clone(),v["error"]["message"].clone()),(serde_json::json!(-32601),serde_json::json!("method not available to sites")),"{v}");
     let b=r#"[{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]},{"jsonrpc":"2.0","id":2,"method":"pocol_submitWork","params":["0x00",1]}]"#;
-    let v:serde_json::Value=serde_json::from_str(&rpc(on.rpc,b,true).1).unwrap();assert!(v[0]["result"].is_string(),"{v}");assert_eq!(v[1]["error"]["code"],-32601,"{v}");
+    let v=j(rpc(on.rpc,b,false));assert!(v[0]["result"].is_string(),"{v}");assert_eq!(v[1]["error"]["code"],-32601,"{v}");
+    let v=j(rpc(work,b,false));assert_eq!(v[0]["error"]["code"],-32601,"{v}");assert_eq!(v[1]["error"]["code"],-32602,"the work method runs there: {v}");
+    let v=j(rpc(on.rpc,r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#,false));
+    assert_eq!(v["result"]["mining"]["workRpc"],format!("127.0.0.1:{work}"),"{}",v["result"]["mining"]);
 }
