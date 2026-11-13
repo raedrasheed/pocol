@@ -204,7 +204,7 @@ fn scenario(store: bool, bond_pcol: u128) {
     admitted(pocold::cutover::export::run(&old_dir, &data, s, &separate, limits(), &local()), &old_dir);
     use pocold::cutover::export::{MANIFEST, PARTS};
     for f in [MANIFEST, PARTS[0], PARTS[1], PARTS[2]] { assert_eq!(std::fs::read(exported.join(f)).unwrap(), std::fs::read(separate.join(f)).unwrap(), "{f} of the export written by the cutover"); }
-    pocold::cutover::export::verify(&exported, Some((chain.spec.chain_id(), chain.spec.genesis_hash()))).unwrap_or_else(|e| panic!("{e}"));
+    pocold::cutover::export::verify(&exported, Some(&pocold::cutover::export::Network::of(&chain.spec)), None, None).unwrap_or_else(|e| panic!("{e}"));
     for d in [old_dir, data, out, again, exported, separate] { let _ = std::fs::remove_dir_all(d); }
 }
 
@@ -611,9 +611,14 @@ fn two_nodes_export_byte_equal_old_chain_data_that_verifies() {
     assert_eq!(m1["parts"], m2["parts"]);
     assert_eq!(m1["genesisHash"], hex(&chain.spec.genesis_hash()));
 
-    let g = (chain.spec.chain_id(), chain.spec.genesis_hash());
-    let v = export::verify(&o1, Some(g)).unwrap_or_else(|e| panic!("{e}"));
+    let g = export::Network::of(&chain.spec);
+    let v = export::verify(&o1, Some(&g), None, None).unwrap_or_else(|e| panic!("{e}"));
     assert_eq!((v["blocks"].as_u64(), v["transactions"].as_u64()), (Some(s + 1), Some(4)), "{v}");
+    assert_eq!(v["D"].as_u64(), Some(u64::from(chain.spec.cp().D)), "D comes from the state: {v}");
+    let msha = hex(&pocold::hashes::sha256(&std::fs::read(o1.join(export::MANIFEST)).unwrap()));
+    assert_eq!((v["manifestSha256"].as_str(), m1["manifestSha256"].as_str()), (Some(msha.as_str()), Some(msha.as_str())), "export-chain and verify-export show the manifest's digest");
+    export::verify(&o1, Some(&g), Some(&msha), None).unwrap_or_else(|e| panic!("{e}"));
+    export::verify(&o1, None, Some(msha.trim_start_matches("0x")), None).unwrap_or_else(|e| panic!("the digest as sha256sum prints it: {e}"));
     let facts: serde_json::Value = serde_json::from_slice(&std::fs::read(o1.join("facts.json")).unwrap()).unwrap();
     let bonds = facts["cutover"]["bondsCredited"].as_array().unwrap();
     assert!(bonds.iter().any(|b| b["bond"] == (100 * PCOL).to_string()), "bob's HELD bond is in the facts: {facts}");
@@ -621,35 +626,185 @@ fn two_nodes_export_byte_equal_old_chain_data_that_verifies() {
     let state = std::fs::read_to_string(o1.join("state.jsonl")).unwrap();
     assert!(state.contains(&format!("\"address\":\"{carol:#x}\",\"nonce\":0,\"balance\":\"{}\"", 4 * PCOL)), "carol's balance at S");
     assert!(state.contains("\"code\":\"0x00\""), "the contract's code");
-    assert!(export::verify(&o1, Some((g.0 + 1, g.1))).unwrap_err().contains("another network"));
+    let other = |f: &dyn Fn(&mut export::Network)| { let mut n = export::Network::of(&chain.spec); f(&mut n); n };
+    assert!(export::verify(&o1, Some(&other(&|n| n.chain_id += 1)), None, None).unwrap_err().contains("another network"));
+    assert!(export::verify(&o1, Some(&other(&|n| n.genesis[0] ^= 1)), None, None).unwrap_err().contains("another network"));
+    // Network files whose consensus parameters differ from those the state's ChainCaps holds (D among them).
+    let e = export::verify(&o1, Some(&other(&|n| n.cp[export::CP_D] += U256::from(1))), None, None).unwrap_err();
+    assert!(e.contains("consensus parameter 11") && e.contains("given network"), "{e}");
+    let e = export::verify(&o1, Some(&other(&|n| n.cp[0] += U256::from(1))), None, None).unwrap_err();
+    assert!(e.contains("consensus parameter 0"), "{e}");
+    assert!(export::verify(&o1, None, Some(&hex(&[0u8; 32])), None).unwrap_err().contains("SHA-256"), "another manifest digest");
 
     // Tampering: a changed byte; a changed balance or fact with the manifest's digests recomputed.
     let copy = |tag: &str| { let t = temp(tag); std::fs::create_dir_all(&t).unwrap();
         for f in [export::MANIFEST, export::PARTS[0], export::PARTS[1], export::PARTS[2]] { std::fs::copy(o1.join(f), t.join(f)).unwrap(); } t };
+    // As the export writes JSON: pretty, with a newline, so only the check under test can refuse it.
+    let pretty = |v: &serde_json::Value| { let mut b = serde_json::to_vec_pretty(v).unwrap(); b.push(b'\n'); b };
+    let read_manifest = |t: &Path| -> serde_json::Value { serde_json::from_slice(&std::fs::read(t.join(export::MANIFEST)).unwrap()).unwrap() };
     let redigest = |t: &Path| {
-        let mut m: serde_json::Value = serde_json::from_slice(&std::fs::read(t.join(export::MANIFEST)).unwrap()).unwrap();
+        let mut m = read_manifest(t);
         for p in m["parts"].as_array_mut().unwrap() {
             let b = std::fs::read(t.join(p["name"].as_str().unwrap())).unwrap();
             p["bytes"] = serde_json::json!(b.len()); p["sha256"] = serde_json::json!(hex(&pocold::hashes::sha256(&b)));
         }
-        std::fs::write(t.join(export::MANIFEST), serde_json::to_vec_pretty(&m).unwrap()).unwrap();
+        std::fs::write(t.join(export::MANIFEST), pretty(&m)).unwrap();
     };
+    // Positive control of the copies: an unchanged copy, redigested, verifies.
+    let t0 = copy("export-t0"); redigest(&t0);
+    export::verify(&t0, Some(&g), Some(&msha), None).unwrap_or_else(|e| panic!("an unchanged copy verifies: {e}"));
     let t = copy("export-t1");
     let mut b = std::fs::read(t.join("blocks.jsonl")).unwrap(); let i = b.len() / 2; b[i] = if b[i] == b'a' { b'b' } else { b'a' };
     std::fs::write(t.join("blocks.jsonl"), &b).unwrap();
-    assert!(export::verify(&t, None).unwrap_err().contains("do not match the manifest"));
+    assert!(export::verify(&t, None, None, None).unwrap_err().contains("do not match the manifest"));
     redigest(&t);
-    assert!(export::verify(&t, None).is_err(), "a changed block fails its own checks");
+    assert!(export::verify(&t, None, None, None).is_err(), "a changed block fails its own checks");
     let t2 = copy("export-t2");
     std::fs::write(t2.join("state.jsonl"), state.replace(&format!("\"balance\":\"{}\"", 4 * PCOL), &format!("\"balance\":\"{}\"", 5 * PCOL))).unwrap();
     redigest(&t2);
-    assert!(export::verify(&t2, None).unwrap_err().contains("world-state root"), "a changed balance does not reach the block's stateRoot");
+    assert!(export::verify(&t2, None, None, None).unwrap_err().contains("world-state root"), "a changed balance does not reach the block's stateRoot");
     let t3 = copy("export-t3");
     let mut f = facts.clone(); f["cutover"]["allocTotal"] = serde_json::json!("1");
-    std::fs::write(t3.join("facts.json"), serde_json::to_vec_pretty(&f).unwrap()).unwrap();
+    std::fs::write(t3.join("facts.json"), pretty(&f)).unwrap();
     redigest(&t3);
-    assert!(export::verify(&t3, None).unwrap_err().contains("facts.json"));
-    for d in [old_dir, d1, d2, o1, o2, t, t2, t3] { let _ = std::fs::remove_dir_all(d); }
+    assert!(export::verify(&t3, None, None, None).unwrap_err().contains("facts.json"));
+
+    // Codex P2 on #25: D set to 0 in the manifest, and facts.json made to agree (D 0, no pots dropped), its digest
+    // recomputed. The facts are recomputed with the state's own D (ChainCaps, under the stateRoot), so it fails, with
+    // and without --network. Positive control: this export has unsettled pots for the facts to drop.
+    let d = u64::from(chain.spec.cp().D);
+    assert!(d > 0 && !facts["cutover"]["potsDropped"].as_array().unwrap().is_empty() && facts["cutover"]["potsDroppedTotal"] != "0", "pots to drop: {facts}");
+    let t4 = copy("export-t4");
+    let mut f = facts.clone(); f["D"] = serde_json::json!(0); f["cutover"]["potsDropped"] = serde_json::json!([]); f["cutover"]["potsDroppedTotal"] = serde_json::json!("0");
+    std::fs::write(t4.join("facts.json"), pretty(&f)).unwrap();
+    let mut m = read_manifest(&t4); m["D"] = serde_json::json!(0); std::fs::write(t4.join(export::MANIFEST), pretty(&m)).unwrap();
+    redigest(&t4);
+    for n in [None, Some(&g)] {
+        let e = export::verify(&t4, n, None, None).unwrap_err();
+        assert!(e.contains("manifest: D is 0") && e.contains(&format!("D = {d}")), "{e}");
+    }
+    // The same facts with the manifest's D left alone: facts.json is not what the state gives.
+    let t5 = copy("export-t5");
+    std::fs::write(t5.join("facts.json"), pretty(&f)).unwrap(); redigest(&t5);
+    assert!(export::verify(&t5, Some(&g), None, None).unwrap_err().contains("facts.json is not what the state gives"));
+    // Every manifest field is bound: a part's record count, and a field the export does not write.
+    let t6 = copy("export-t6");
+    let mut m = read_manifest(&t6); m["parts"][0]["records"] = serde_json::json!(1); std::fs::write(t6.join(export::MANIFEST), pretty(&m)).unwrap();
+    assert!(export::verify(&t6, Some(&g), None, None).unwrap_err().contains("manifest.json is not the manifest of this export"));
+    let mut m = read_manifest(&t6); m["parts"][0]["records"] = serde_json::json!(s + 1); m["verifiedBy"] = serde_json::json!("three servers");
+    std::fs::write(t6.join(export::MANIFEST), pretty(&m)).unwrap();
+    assert!(export::verify(&t6, Some(&g), None, None).unwrap_err().contains("manifest.json is not the manifest of this export"));
+    // Every line is bound: a field the export does not write, on a block line and on an account line, digests recomputed.
+    let t7 = copy("export-t7");
+    let blocks = std::fs::read_to_string(o1.join("blocks.jsonl")).unwrap();
+    std::fs::write(t7.join("blocks.jsonl"), blocks.replacen("{\"height\":1,", "{\"height\":1,\"note\":\"x\",", 1)).unwrap(); redigest(&t7);
+    assert!(export::verify(&t7, Some(&g), None, None).unwrap_err().contains("blocks.jsonl line 2: not the line the export writes"));
+    let t8 = copy("export-t8");
+    std::fs::write(t8.join("state.jsonl"), state.replacen("\"storage\":[", "\"note\":\"x\",\"storage\":[", 1)).unwrap(); redigest(&t8);
+    assert!(export::verify(&t8, Some(&g), None, None).unwrap_err().contains("state.jsonl line 1: not the line the export writes"));
+
+    // Review finding 1: `verified` is true only with block H pinned to a hash from outside the export (the caller's own
+    // node); otherwise the export is reported only as self-consistent. The summary says which checks ran.
+    assert_eq!(v["verified"], "selfConsistent", "{v}");
+    assert_eq!((v["network"].as_bool(), v["manifestSha256Checked"].as_bool(), v["headHashPinned"].as_bool()), (Some(true), Some(false), Some(false)), "{v}");
+    let vp = export::verify(&o1, Some(&g), Some(&msha), Some(&hex(&head_s))).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!((&vp["verified"], vp["manifestSha256Checked"].as_bool(), vp["headHashPinned"].as_bool()), (&serde_json::json!(true), Some(true), Some(true)), "{vp}");
+    assert_eq!(export::verify(&o1, None, None, Some(hex(&head_s).trim_start_matches("0x"))).unwrap()["verified"], true, "the hash without 0x");
+    let e = export::verify(&o1, Some(&g), None, Some(&hex(&root_s))).unwrap_err();
+    assert!(e.contains("not the given --head-hash"), "another block H: {e}");
+    // Review finding 3: a malformed pin is refused, never ignored.
+    for bad in ["", "00", "0x", &format!("{msha}00"), &hex(&[0u8; 31]), &msha.replace("0x", "zz")] {
+        assert!(export::verify(&o1, Some(&g), Some(bad), None).unwrap_err().contains("--manifest-sha256 must be 64 hex digits"), "{bad:?}");
+        assert!(export::verify(&o1, Some(&g), None, Some(bad)).unwrap_err().contains("--head-hash must be 64 hex digits"), "{bad:?}");
+    }
+
+    // Review finding 1, attack A: a made-up state (carol holds 1,000,000 PCOL) under a forged block H whose header names
+    // the largest target, so nonce 0 meets "its own target"; blocks 0..H-1, the facts' D and every digest are
+    // consistent. Positive control: without --network that is self-consistent (and changes the allocation). With
+    // --network the header fails H-pre at the ASERT target; pinned to the real block H it fails without --network too.
+    let fa = temp("export-fa");
+    forge(&o1, &fa, d, false, &|a| for x in a.iter_mut() { if x.a == carol { x.balance = U256::from(1_000_000 * PCOL); } });
+    let sc = export::verify(&fa, None, None, None).unwrap_or_else(|e| panic!("control: the forgery is self-consistent: {e}"));
+    assert_eq!(sc["verified"], "selfConsistent"); assert_ne!(sc["allocTotal"], v["allocTotal"], "control: the forgery changes the allocation");
+    let fsha = hex(&pocold::hashes::sha256(&std::fs::read(fa.join(export::MANIFEST)).unwrap()));
+    for m in [None, Some(fsha.as_str())] {
+        let e = export::verify(&fa, Some(&g), m, None).unwrap_err();
+        assert!(e.contains(&format!("blocks.jsonl line {}: the header fails H-pre on the given network (5 target", s + 1)), "{e}");
+    }
+    assert!(export::verify(&fa, None, None, Some(&hex(&head_s))).unwrap_err().contains("not the given --head-hash"));
+    // The same forgery mined at the real ASERT target (what forging block H now costs: one block of proof of work)
+    // passes H-pre, so it is still only self-consistent; the pinned head hash refuses it.
+    let fm = temp("export-fm");
+    forge(&o1, &fm, d, true, &|a| for x in a.iter_mut() { if x.a == carol { x.balance = U256::from(1_000_000 * PCOL); } });
+    assert_eq!(export::verify(&fm, Some(&g), None, None).unwrap_or_else(|e| panic!("{e}"))["verified"], "selfConsistent");
+    assert!(export::verify(&fm, Some(&g), None, Some(&hex(&head_s))).unwrap_err().contains("not the given --head-hash"));
+    // Attack C, the Codex shape without --network: ChainCaps slot 11 removed (the state's D is then 0) under a forged
+    // block H, the manifest and facts.json with D 0 and no dropped pots. Never `verified: true`: self-consistent at
+    // most, refused with --network (H-pre, before the CP check) and refused with the real head hash.
+    let fc = temp("export-fc");
+    forge(&o1, &fc, 0, false, &|a| for x in a.iter_mut() { if x.a == apply::caps() { x.slots.retain(|(k, _)| *k != U256::from(export::CP_D)); } });
+    let sc = export::verify(&fc, None, None, None).unwrap_or_else(|e| panic!("{e}"));
+    assert_eq!((&sc["verified"], sc["D"].as_u64()), (&serde_json::json!("selfConsistent"), Some(0)), "{sc}");
+    assert!(export::verify(&fc, Some(&g), None, None).unwrap_err().contains("H-pre"));
+    assert!(export::verify(&fc, None, None, Some(&hex(&head_s))).unwrap_err().contains("not the given --head-hash"));
+    for d in [old_dir, d1, d2, o1, o2, t0, t, t2, t3, t4, t5, t6, t7, t8, fa, fm, fc] { let _ = std::fs::remove_dir_all(d); }
+}
+/// An export forged from `src` into `dst` (review finding 1): `edit` changes the state; block H's header gets the new
+/// stateRoot and a proposer and signatures of its own (alice's key), with the largest target and nonce 0 (`mine`
+/// false) or a nonce mined at its real target (`mine` true); block line H, facts.json (recomputed with `d`) and the
+/// manifest (headHash, stateRoot, D, part digests) follow. Nothing below block H changes.
+fn forge(src: &Path, dst: &Path, d: u64, mine: bool, edit: &dyn Fn(&mut Vec<Acct>)) {
+    use pocold::cutover::export;
+    let pretty = |v: &serde_json::Value| { let mut b = serde_json::to_vec_pretty(v).unwrap(); b.push(b'\n'); b };
+    std::fs::create_dir_all(dst).unwrap();
+    let mut accts = parse_state(&std::fs::read_to_string(src.join("state.jsonl")).unwrap());
+    edit(&mut accts);
+    std::fs::write(dst.join("state.jsonl"), accts.iter().map(|x| account_line(x) + "\n").collect::<String>()).unwrap();
+    let mut db = revm::InMemoryDB::default();
+    for x in &accts {
+        let code = (!x.code.is_empty()).then(|| revm::primitives::Bytecode::new_raw(x.code.clone().into()));
+        db.insert_account_info(x.a, revm::primitives::AccountInfo { balance: x.balance, nonce: x.nonce, code_hash: x.code_hash, code });
+        for (k, v) in &x.slots { db.insert_account_storage(x.a, *k, *v).unwrap(); }
+    }
+    let root = apply::state_root(&db).unwrap().0;
+    let mut lines: Vec<String> = std::fs::read_to_string(src.join("blocks.jsonl")).unwrap().lines().map(String::from).collect();
+    let last: serde_json::Value = serde_json::from_str(lines.last().unwrap()).unwrap();
+    let height = last["height"].as_u64().unwrap();
+    let key = devnet::account_key("alice");
+    let mut h = decode_header(&unhex(last["header"].as_str().unwrap()).unwrap()).unwrap();
+    h.state_root = root; h.proposer = key.address().to_vec(); h.shares = vec![]; h.nonce = 0;
+    if !mine { h.target = Fixed::MAX; }
+    reseal(&mut h);
+    let tid = template_id(&h.ut_raw);
+    h.sig = key.sign_hash(&B256::from(hashes::sig_msg(&tid))).to_vec();
+    while !le_target(&pow_hash(&tid, h.nonce), &h.target) { h.nonce += 1; }
+    reseal(&mut h); h.winner_sig = key.sign_hash(&B256::from(hashes::win_msg(&tid, h.nonce, &share_root(&h)))); reseal(&mut h);
+    let hash = block_hash(&h);
+    *lines.last_mut().unwrap() = format!("{{\"height\":{height},\"hash\":\"{}\",\"header\":\"{}\",\"body\":\"{}\"}}", hex(&hash), hex(&h.encoded), last["body"].as_str().unwrap());
+    std::fs::write(dst.join("blocks.jsonl"), lines.iter().map(|l| l.clone() + "\n").collect::<String>()).unwrap();
+    std::fs::write(dst.join("facts.json"), pretty(&export::facts(&db, height, d).unwrap())).unwrap();
+    let mut m: serde_json::Value = serde_json::from_slice(&std::fs::read(src.join(export::MANIFEST)).unwrap()).unwrap();
+    m["headHash"] = serde_json::json!(hex(&hash)); m["stateRoot"] = serde_json::json!(hex(&root)); m["D"] = serde_json::json!(d);
+    for p in m["parts"].as_array_mut().unwrap() {
+        let b = std::fs::read(dst.join(p["name"].as_str().unwrap())).unwrap();
+        p["bytes"] = serde_json::json!(b.len()); p["sha256"] = serde_json::json!(hex(&hashes::sha256(&b)));
+    }
+    std::fs::write(dst.join(export::MANIFEST), pretty(&m)).unwrap();
+}
+/// One state.jsonl line, parsed (the export's `account_line` fields).
+struct Acct { a: Address, nonce: u64, balance: U256, code_hash: B256, code: Vec<u8>, slots: Vec<(U256, U256)> }
+fn parse_state(s: &str) -> Vec<Acct> {
+    s.lines().map(|l| { let v: serde_json::Value = serde_json::from_str(l).unwrap();
+        let w = |x: &serde_json::Value| U256::from_be_bytes::<32>(unhex(x.as_str().unwrap()).unwrap().try_into().unwrap());
+        Acct { a: v["address"].as_str().unwrap().parse().unwrap(), nonce: v["nonce"].as_u64().unwrap(), balance: v["balance"].as_str().unwrap().parse().unwrap(),
+            code_hash: B256::from(<[u8; 32]>::try_from(unhex(v["codeHash"].as_str().unwrap()).unwrap()).unwrap()), code: unhex(v["code"].as_str().unwrap()).unwrap(),
+            slots: v["storage"].as_array().unwrap().iter().map(|p| (w(&p[0]), w(&p[1]))).collect() } }).collect()
+}
+/// The bytes export-chain writes for an account (as export.rs `account_line`).
+fn account_line(x: &Acct) -> String {
+    let mut s = format!("{{\"address\":\"{:#x}\",\"nonce\":{},\"balance\":\"{}\",\"codeHash\":\"{}\",\"code\":\"{}\",\"storage\":[", x.a, x.nonce, x.balance, hex(x.code_hash.as_slice()), hex(&x.code));
+    for (i, (k, v)) in x.slots.iter().enumerate() { if i > 0 { s.push(','); } s.push_str(&format!("[\"{}\",\"{}\"]", hex(&k.to_be_bytes::<32>()), hex(&v.to_be_bytes::<32>()))); }
+    s.push_str("]}"); s
 }
 /// The refusal of an export: a ParamGate refusal is reported like `admitted`, any other error is returned.
 fn admitted_err(r: Result<serde_json::Value, String>) -> String {

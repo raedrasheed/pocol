@@ -537,7 +537,9 @@ three terms: one up and two down. It also withdraws one projection.
     review: its candidates are pooled or parked ones only (a backlog one is only decoded: junk relayed during
     revalidation, unfunded or below its intrinsic gas, went first and failed each append build in turn, so the
     round added nothing and cost all eight builds), and an appended transaction the build refuses drops every
-    appended one after it, so the round costs at most two builds more whatever its candidates are.
+    appended one after it, so the round costs at most two builds more whatever its candidates are. Under v3
+    (D-V3-21 review) an appended one that halts in a successful append build is dropped the same way, so the round
+    costs at most three builds more (within TEMPLATE_BUILDS_MAX); spec-1 builds are unchanged.
 - **A13 (PR6).** G and `pool_gas` are unchanged. New rows: queues/pool sender and declared gas (POOL_MAX_TXS
   entries), queues/parked transactions' entries (POOL_PARKED_MAX; their bytes are inside POOL_MAX_BYTES; PR6
   review: PARKED_ENTRY_BYTES 160, with the nonce, the run and the cost; PR6 third review: and its arrival position
@@ -550,6 +552,37 @@ three terms: one up and two down. It also withdraws one projection.
   that term (a candidate it leaves out commits nothing to the overlay; its execution is bounded in time by the
   execution budget above, not in memory). The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), by up to 163
   more with the tail and by up to 168 more with the parked runs.
+- **A13 (N4, V3-20 node-local pool).** G, `pool_gas` and the pending-layer term are unchanged. Evicted transactions
+  keep their gas in the pool's `gas` until the next head (`ghost_gas`), and a replaced pooled entry stays charged the
+  most gas it or any replacement declared since the last head (`Meta::gas`). The node applies its gas bound at most
+  POOL_MAX_TXS × GAS_LIMIT (`node::pool_gas_in_effect`), the same minimum `resources::pool_gas` counts, so the layer
+  still holds at most that term's writes. (N4 second review: before this clamp, a `pool_gas_max` above the product
+  let evictions take the layer past the counted term, since the count bound no longer bounds the executions between
+  two heads once victims leave their writes behind.) Row changes:
+  - queues/pool sender and declared gas and queues/parked transactions' entries: unchanged (META_ENTRY_BYTES 32,
+    PARKED_ENTRY_BYTES 160). Nonces and fee caps are read from the raw bytes (`node::tx_fields`, no allocation); the
+    replacement count fits each entry's padding.
+  - queues/template selection: the third sender set, the senders seen while finding the big-first slot (B6), is
+    gone. The fee order (`Node::fee_order_and_big`) finds that slot in its pass by sender. Its scratch,
+    (POOL_MAX_TXS + POOL_PARKED_MAX) × FEE_ORDER_ENTRY_BYTES (12: a u32 index, which the selection keeps as its order,
+    and a u64 priority) = 61,440 B, is counted in that set's place (885,052 B), at the larger of the two
+    (`resources::selection_bytes`, `fee_order_bytes`). Both Vecs are allocated once at their length and never grown.
+    An eviction's scan and the parked set's fee eviction rank with the same pass (`Node::fee_ranks`: the same u32
+    and u64 per pooled and parked candidate, at most 61,440 B). They run on the consensus thread during an admission,
+    never during a selection, so the same place bounds them.
+  - A pooled replacement's execution checks run on a scratch overlay over the head state: one execution, the same
+    term as any admission's (EXECUTIONS = 1). N4 x D-V3-21 review: under v3 the same checks run once for a newcomer
+    before it evicts (a pooled transaction: before its own execution on the pending state, so no result is held
+    across them; a parked one: a parked transaction is executed only there), with the fee eviction's plan and PR6's
+    run map dropped first. One execution at a time, so the term is unchanged. N4 x D-V3-21 re-review: an evicting
+    parked newcomer, and under v3 a replacement of a sender's first parked transaction, run the same checks once on
+    the head and then once on the pending state (`eviction_checks`), one after the other on scratch overlays, nothing
+    held across them: still one execution at a time (EXECUTIONS = 1).
+
+  No pin moves: the devnet total stays 3,397,791,234 (eviction off 3,388,329,613), and the live chain's halt and
+  disk-bytes stops in tests/network_budget.rs are unchanged. (The first N4 draft added +1,302,528 B with wider
+  entries and a separate fee-order row; the review asked for the pins to return.)
+  Replacements take an entry's place and hold no memory beyond POOL_MAX_BYTES.
 - **Revalidation does not hold up consensus.** The run loop takes one event between two slices of
   revalidation. The test runs `Node::run` with the pool at its bound: four BLAKE2F transactions of 7.9M gas,
   which no stop hook can cut short.

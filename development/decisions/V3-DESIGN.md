@@ -323,11 +323,10 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
    - ParamGate R1–R26 at the v3 CP and the WAN locals (V3-06).
 8. **PR-7 Off-node verifiers** (V3-PR-G, off-node verifiers and clients).
    - `pocol_rewards.py:272-281` (V3-01 membership, late shares, issuance), `rp.js:41-61`, `refdec.js:18`.
-   - V3-21 creation-burn user bound (D-V3-21 open pre-launch item, launch blocker `D-V3-21 creation-burn user
-     bound`): wallets and clients quote the creation burn separately from the maximum gas fee and let the user set
-     a burn limit; the pool and eth_estimateGas refuse a submission whose quoted burn exceeds it, or the owner's
-     chosen signed cap is implemented instead. The owner confirms the option before V3-PR-I; the blocker is
-     removed only with that change.
+   - V3-21 creation-burn user bound (D-V3-21; owner option A, 2026-11-12, implemented in V3-D21-burn-bound, the
+     launch blocker removed): the consensus bound keeps gas plus burn within the signed max_fee·gas_limit, and
+     eth_estimateGas sizes gas_limit to carry the burn, so unmodified wallets stay bounded. Clients may show the
+     burn separately from the gas fee with `pocol_quoteCreationBurn` (network.md, "Creation burn quote").
    - V3 receipt polling (V3-PR-C3 review C3-2): a v3 node serves eth_getTransactionReceipt on the heavy lane
      (heavy queue, RESP_MAX reservation, heavy deadline), so wallets and clients treat receipt polling as heavy-class
      and back off on −32021 {busy, retryAfterMs}; expose the lane in `pocol_getParams.rpcLimits` if clients need it.
@@ -862,6 +861,37 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
     are relayed (at most POOL_PARKED_MAX per head, none that evicted another) and are template candidates. Fee ordering, replacement and lowest-fee eviction remain: cheap
     declared gas can still hold the pool's bound (not the next block), so admission into the pending state, not
     inclusion, waits.
+  - **Delivered by N4** (node-local: `pocold/src/node.rs`, `rpc.rs`, `resources.rs`; no boundary file, block
+    validity, fork choice or journal/checkpoint byte changes). The policy and its errors are in network.md
+    "Mempool fee policy".
+    - Fee-ordered selection. The pooled and parked candidates are taken highest priority first. A candidate's
+      priority is the lowest effective tip, min(priority fee, maxFee − baseFee) at the block's base fee, among it and
+      its sender's earlier candidates, so each sender's transactions keep nonce order; from the first one its sender's head balance does not cover, the priority is 0. Ties keep the earlier
+      candidate order (FIFO), so the order is deterministic. The big-first slot is kept.
+    - Overdraft rule. A new submission must be covered by its sender's head-state balance together with its pooled
+      and parked transactions (gas × maxFee + value each). No new submission then depends on another pending one's
+      funds, so an eviction, a replacement or the fee order cannot leave it pooled but unaffordable. The guarantee
+      covers new submissions only: a transaction a new head revalidates (a reorg's returned ones, the previous pool)
+      keeps the pending-state check and may depend on another sender's pending funds. The fee order ranks it last, so
+      it follows its funding; an eviction or replacement of the funding can leave it unaffordable until the next head.
+    - Replace-by-fee. The same sender and nonce, pooled or parked, is replaced in place when both caps rise by at
+      least 10 % and the overdraft rule holds. A pooled replacement also passes the pool's execution checks, run on
+      the head without committing. A pooled entry is charged the most gas it or a replacement declared since the last
+      head, so up and down replacements cannot take a sender past its quota of the gas bound. At most 4 replacements per entry and 8 per sender per head; no pool-wide
+      acceptance limit. At most 256 are relayed per head; a later one is pooled but not relayed.
+    - Lowest-fee eviction. At the count or byte bound, a higher priority evicts the tail of another sender's pooled
+      nonce chain ranked lowest by the fee order (its chain's lowest tip), only after the newcomer has executed. The
+      victim's nonce goes back to its sender in the pending state, so the sender can resubmit or outbid. Under the
+      default limits the gas bound binds before the count bound, so pooled eviction rarely runs; fee competition at
+      the gas bound works through the fee-ordered parked set, whose fee eviction is planned in one pass and evicts
+      nothing unless it frees all the room. The quota, parking, the gas bound (evicted gas stays counted until the
+      next head; it applies at most POOL_MAX_TXS × GAS_LIMIT, the pending-layer term A13 counts, so evictions cannot
+      pass it) and the relay bounds are unchanged. The open gap above (cheap declared gas holding the gas bound
+      against admission into the pending state) is narrowed, not closed: such transactions still hold the gas bound
+      until the next head, but higher payers reach the next block through the parked set.
+    - A13: no pin moves. The meta and parked entries keep their PR6 sizes (nonces and fee caps are read from the raw
+      bytes). The fee order's scratch, (4,096 + 1,024) × 12 = 61,440 B, takes the place of the selection's first-seen
+      sender set (885,052 B), which the fee order's pass by sender replaces.
 
 **Principle check.**
 - (a) and (b) keep P6: R_tot is still shared by a deterministic pre-mining rule, and the proposer is drawn
@@ -910,6 +940,20 @@ never lowered, across it (`genesis_builder.rs:60`).
 - A13 boot in store mode at the new caps.
 - The raised caps survive `transform` → `genesis_builder`.
 
+**User bound (D-V3-21, owner option A, 2026-11-12; implemented dormant, v3 only).**
+- A nonzero burn is charged only if `gas_used·effective_price + burn ≤ max_fee·gas_limit` (types 0/1: the gas
+  price; the value stays separate, as in the Ethereum balance pre-check); otherwise `Halt::CreationFee`.
+- That halt charges the spent gas (before refunds), not the declared gas, so a builder order that raises the
+  burn past the maximum cannot convert the burn allowance in gas_limit into a gas charge through it (decided
+  under the owner rule). Other order-dependent cap halts (LogCount, AcctCap, ...) still charge the declared
+  gas; a hostile proposer, or another user against an honest builder, can cause one, so the loss bound is the
+  signed `max_fee·gas_limit` (the v3 append round drops an appended transaction that halts; node-local).
+- One transaction burns at most `max_fee·GAS_LIMIT` minus its gas cost. eth_estimateGas covers the burn with a
+  margin of 4 creations ahead per class (4·B_code_max code bytes); a fixed 21000-gas transfer to a new address
+  is refused; `pocol_quoteCreationBurn` quotes it. Details: V3-EXECUTION-FEES.md, "The signed
+  maximum fee".
+- Principle check: a function of the transaction and ancestor state (Q2.4); classified burn (Q4.3); Q5 untouched.
+
 **Effort:** M. **Risk:** medium.
 
 ### V3-22 SYSTEM-call failure semantics (DEFER)
@@ -950,7 +994,10 @@ never lowered, across it (`genesis_builder.rs:60`).
   - Raise RESP_MAX ≥ 2·LOG_BLOCK_MAX (R26) in lockstep.
   - NODE-LOCAL: model the log caps in PoolMeter/`template_txs` and in `eth_estimateGas`. PR6: the builder
     (`template_selection`) now models the log caps (count, block bytes, LOG_CAP) and SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX;
-    the pool refuses a transaction whose own logs pass a log cap; `eth_estimateGas` does not model them yet.
+    the pool refuses a transaction whose own logs pass a log cap. C3 made the v3 `eth_estimateGas` check a call's own
+    logs against the v3 caps. N4 makes every estimate model the caps active in the next block: v3 256 KiB / 4,368, or
+    spec-1 32 KiB / 546, plus LOG_CAP when H_END ≠ 0. A call whose own logs pass a cap gets −32000 {reason}, not a
+    gas value.
 - **Classification:** CONSENSUS-COMPLIANT. **Deployment:** B; later forks through A1.
 - **Tests:** fails on the original code: front-load 32 KiB of logs, then a later ERC-20 transfer halts today and
   succeeds under v3. Also an A13 boot test.
