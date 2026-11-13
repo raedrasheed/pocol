@@ -78,19 +78,19 @@ function Invoke-Step {
     $psi.StandardOutputEncoding = $Utf8; $psi.StandardErrorEncoding = $Utf8
     foreach ($k in $ChildEnvRemove) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } }
     foreach ($k in $ExtraEnv.Keys) { $psi.EnvironmentVariables[$k] = $ExtraEnv[$k] }
-    $sw = [System.Diagnostics.Stopwatch]::StartNew(); $text = ''; $code = $null; $timedOut = $false
+    $sw = [System.Diagnostics.Stopwatch]::StartNew(); $text = ''; $stdout = ''; $code = $null; $timedOut = $false
     try {
         $p = [System.Diagnostics.Process]::Start($psi)
         $o = $p.StandardOutput.ReadToEndAsync(); $e = $p.StandardError.ReadToEndAsync()
         if (-not $p.WaitForExit($TimeoutMinutes * 60000)) { $timedOut = $true; try { $p.Kill($true) } catch { } }
-        $p.WaitForExit(); $text = $o.Result + "`n" + $e.Result
+        $p.WaitForExit(); $stdout = $o.Result; $text = $o.Result + "`n" + $e.Result
         if (-not $timedOut) { $code = $p.ExitCode }
     }
     catch { $text = 'could not start: ' + $_.Exception.Message }
     $sw.Stop()
     [System.IO.File]::WriteAllText((Join-Path $Logs ($Name + '.log')), $text, $Utf8)
     Write-Host ('{0,-28} exit {1,-8} {2,8}s' -f $Name, $(if ($timedOut) { 'TIMEOUT' } else { $code }), [math]::Round($sw.Elapsed.TotalSeconds, 1))
-    return [pscustomobject]@{ ExitCode = $code; Text = $text; TimedOut = $timedOut; Seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); Command = ($Program + ' ' + $psi.Arguments); Cwd = $Cwd }
+    return [pscustomobject]@{ ExitCode = $code; Text = $text; Stdout = $stdout; TimedOut = $timedOut; Seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); Command = ($Program + ' ' + $psi.Arguments); Cwd = $Cwd }
 }
 
 # Totals of cargo's "test result:" lines.
@@ -102,9 +102,10 @@ function Get-CargoTotals([string]$Text) {
 
 # Echoes a failed cargo run's failure lines (failing tests, panics, the failures summary) to the job log,
 # so a failure can be diagnosed without downloading the evidence artifact. At most 300 lines.
-# On a timeout it also echoes each test binary's start and result line and the last 40 output lines,
+# On a timeout it also echoes each test binary's start and result line and the last 40 lines of the tests' own
+# output (stdout: Text holds all of stdout, then all of stderr, so its tail would be cargo's stderr),
 # which show the binary (and the test) that was still running when the run was stopped.
-function Show-CargoFailures([string]$Check, [string]$Text, [bool]$TimedOut = $false) {
+function Show-CargoFailures([string]$Check, [string]$Text, [bool]$TimedOut = $false, [string]$Stdout = '') {
     $out = New-Object System.Collections.Generic.List[string]
     $inFailures = $false
     $lines = $Text -split "`r?`n"
@@ -117,8 +118,8 @@ function Show-CargoFailures([string]$Check, [string]$Text, [bool]$TimedOut = $fa
     if ($TimedOut) {
         $out.Add('--- timed out: test binaries started and finished ---')
         foreach ($l in $lines) { if ($l -match '^\s*Running ' -or $l -match '^test result:') { $out.Add($l) } }
-        $out.Add('--- timed out: last 40 output lines ---')
-        foreach ($l in ($lines | Select-Object -Last 40)) { $out.Add($l) }
+        $out.Add('--- timed out: last 40 lines of test output (stdout) ---')
+        foreach ($l in (($Stdout -split "`r?`n") | Select-Object -Last 40)) { $out.Add($l) }
     }
     Write-Host ('::group::{0} failure lines' -f $Check)
     foreach ($l in $out) { Write-Host $l }
@@ -143,7 +144,7 @@ function Test-Cargo([string]$Check, [string]$Crate, [string]$Toolchain, [string[
     elseif ($r.ExitCode -eq 0 -and $t.Passed -gt 0) { Add-Check $Check $r 'PASS' $detail }
     elseif ($r.ExitCode -eq 0) { Add-Check $Check $r 'FAIL' ('exit 0 but no test ran; ' + $detail) }
     else { Add-Check $Check $r 'FAIL' ("exit $($r.ExitCode); " + $detail) }
-    if ($r.TimedOut -or $r.ExitCode -ne 0) { Show-CargoFailures $Check $r.Text $r.TimedOut }
+    if ($r.TimedOut -or $r.ExitCode -ne 0) { Show-CargoFailures $Check $r.Text $r.TimedOut $r.Stdout }
     return $r
 }
 function Test-Program([string]$Check, [string]$Crate, [string]$Program, [string[]]$ArgList, [hashtable]$Env, [int]$TimeoutMinutes = 30) {
