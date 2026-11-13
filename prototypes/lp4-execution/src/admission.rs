@@ -15,7 +15,7 @@
 //!   `GAS_ENVELOPE` (V1, Continuous) measured by the worst-case fixture
 //!   `resources::tests::sys_gas_envelope_fixture`, or `GAS_ENVELOPE_EARNIN` (EarnIn) measured by
 //!   `sys_gas_envelope_fixture_earnin`, or for V3 `GAS_ENVELOPE_V3` (measured by tests/v3_contracts.rs)
-//!   over `GAS_ENVELOPE_EARNIN`, composed into the worst call sequence of each phase class.
+//!   over `GAS_ENVELOPE_EARNIN` (finalize: earn-in entry, no v3 measurement), composed into the worst call sequence of each phase class.
 //!   Applicable only inside `GAS_DOMAIN` (for V3 also P_MAX <= `GAS_DOMAIN_V3_P_MAX`); gas is assumed monotone in the domain fields (open
 //!   derivation obligation, A13). Outside the domain the facts are absent.
 //! - timing (R14/R19): a `Timing` record measured on this machine for this exact profile
@@ -485,7 +485,10 @@ fn conditions(cp:&ConsensusParams,set:ProgramSet,r:&Request<'_>,l:&NodeLocal,tim
 /// the one every earlier admission report carries, byte for byte.
 fn gas_condition(set:ProgramSet)->String{
     if set==ProgramSet::EarnIn{format!("SYS gas: {} holds at the earn-in fixture's maxima (earn-in program set); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
-    else if set==ProgramSet::V3{format!("SYS gas: {} holds at the v3 fixture's maxima (v3 program set, P_MAX <= {GAS_DOMAIN_V3_P_MAX}); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
+    // V3: the composed table's v3 entries come from the v3 measurement (tests/v3_contracts.rs), the rest from the earn-in
+    // fixture. The v3 runs check every call they reach against the composition; they do not reach the final phase
+    // (h_end 0), so finalize has no v3 measurement and settleFinal is bounded by the measured settle (A13-DERIVATION §3).
+    else if set==ProgramSet::V3{format!("SYS gas: {} (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= {GAS_DOMAIN_V3_P_MAX}; final phase not measured on v3: settleFinal takes the measured settle, finalize the earn-in entry); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
     else{format!("SYS gas: {} holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
 }
 
