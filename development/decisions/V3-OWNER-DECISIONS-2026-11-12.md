@@ -73,8 +73,13 @@ Translation: "I approve (a); continue working."
   - Until then its parts of pending pots, and any late credit to them, are paid to it as to any exited record. For an
     ACCRUING record they fill its accrued bond first, so the refund includes them. A bond that reaches B_reg
     promotes the record to HELD.
-  - Until then it can be punished: the bond burn, and V3-16's whole-pot burn as pot j's ACCRUING winner. It may also
-    reactivate inside the usual window, but only into a free pool seat.
+  - Until then it can be punished: the bond burn, and V3-16's whole-pot burn as pot j's ACCRUING winner.
+  - Not decided separately (an implementation consequence, for the owner to confirm or forbid): as an exited record
+    it may also reactivate inside the usual window, because deregister's exit allows that. An ACCRUING victim
+    reactivates only into a free pool seat; one its pots promoted to HELD reactivates as any HELD record. Reactivation
+    keeps registeredAt, so the T_PROB deadline still runs, but resets graceStart. It therefore meets the open point
+    already recorded in D-V3-10's implementation note: a member that exits and reactivates once per epoch is never
+    contestable.
 - The newcomer takes the freed probation seat at once. ACC_COUNT now counts only the ACCRUING records that hold a
   pool seat.
   - The victim leaves ACC_COUNT in the contest call. A new record bit, POOL_OUT (w0 bit 87), marks it.
@@ -82,6 +87,10 @@ Translation: "I approve (a); continue working."
     a pool seat again, with Capacity if the pool is full.
   - held_total is unchanged by the contest. It falls at the refund or the punishment. Escrow balance = pending +
     held + burned holds after every step.
+  - Live ACCRUING records can now outnumber P_MAX, because exited victims are not counted. Settlement is still bounded:
+    one pot fills at most P_MAX bonds. Its payees come from the ActList of its block's parent, and every ACCRUING
+    member of that list holds a pool seat. So GAS_ENVELOPE_V3 settle is unchanged (review of this decision;
+    REGISTRY-LAYOUT.md "v3 contestable seats").
 - Everything else in V3-PR-E4 is unchanged: the full-set requirement, the statistic and the budgets. The change is
   in the dormant v3 programs only (PoColSystemV3.sol MinerRegistry). The spec-1 and earn-in programs, SPEC_VERSION,
   MAX_FORK_VERSION, CONSENSUS_RULES_VERSION and the identity are unchanged.

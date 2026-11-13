@@ -5,7 +5,7 @@
 //     EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17
 //     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3),
 //     MinerRegistry or ShareLedger; eight of the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow;
-//     seventeen of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4, with the owner decision of
+//     eighteen of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4, with the owner decision of
 //     2026-11-13 on the pool-contest victim), MinerRegistry.
 //     Each entry names the program it replaces.
 const fs=require('fs'),path=require('path'),solc=require('solc');
@@ -90,6 +90,8 @@ const MUTANTS=[
   ['pool-victim-promote-counted-again','if(w&POOL_OUT==0)put(ACC_COUNT,get(ACC_COUNT)-1);','put(ACC_COUNT,get(ACC_COUNT)-1);'],
   // The victim reactivates without a free pool seat (and without retaking one).
   ['pool-victim-reactivates-without-a-pool-seat','if(accruingState(w)&&w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);if(a>=cfg(CP_P_MAX))revert Capacity();put(ACC_COUNT,a+1);}',''],
+  // A victim promoted to HELD while exited (it keeps POOL_OUT) takes a pool seat at its reactivation, as an ACCRUING one.
+  ['pool-victim-held-reactivation-takes-a-pool-seat','if(accruingState(w)&&w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);','if(w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);'],
   ['pool-contest-held-victim','if(pool&&!accruingState(vw))return(3,0,0);',''],
   ['counters-not-rolled','else if(ej>el){prev=ej==el+1?cur:0;cur=n;}','else if(ej>el){cur+=n;}'],
   // recordLate keeps the E3 rule (lastShare only): late credit is not counted in the victim's counters.

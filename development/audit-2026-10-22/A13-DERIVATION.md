@@ -1081,7 +1081,10 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   `gas_envelope(ProgramSet::V3)` composes `GAS_ENVELOPE_V3` over `GAS_ENVELOPE_EARNIN`: the v3 entries
   (invalidate, punish, recordResult, settle, settleFinal), measured by tests/v3_contracts.rs
   `v3_sys_gas_and_caps_within_the_v3_envelope`, where it has one, the earn-in entry otherwise. The v3 domain
-  also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual). V1, Continuous and EarnIn are unchanged.
+  also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual: at most P_MAX fills per pot, whose payees the host
+  draws from the ActList of its parent, every ACCRUING member of which holds a pool seat; exited pool-contest victims,
+  live ACCRUING records outside ACC_COUNT since the owner decision of 2026-11-13, do not raise it). V1, Continuous and
+  EarnIn are unchanged.
   V3-PR-E3 (V3-02) adds recordLate (3,458,000; the one v3-only call name, measured by the same test crediting
   κm − 1 = 63 late shares to owners new to the template, the stranger path asserted as the maximum) and bounds the
   v3 domain by κ·m ≤ 64 (`GAS_DOMAIN_V3_KAPPA_M`) as well; each evidence item is counted as the dearer of recordLate

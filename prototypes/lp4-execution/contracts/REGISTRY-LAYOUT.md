@@ -342,8 +342,22 @@ P_MAX, the victim ACCRUING): the victim also gives up its probation seat in the 
   POOL_OUT, so the victim's refund, punishment or promotion never lowers it a second time.
 - reactivate of a POOL_OUT record that is still ACCRUING takes a pool seat again: Capacity when ACC_COUNT >= P_MAX,
   else ACC_COUNT + 1. Its write of the position field clears the bit. A promoted (HELD) victim reactivates as any
-  HELD record.
+  HELD record: it keeps POOL_OUT until then, but takes no pool seat and leaves ACC_COUNT (vector
+  pool-victim-promoted-then-reactivates, with the pool full). Reactivation follows from "exits as by deregister"; the
+  owner did not decide it separately (open points below).
 - held_total is unchanged by the contest. It falls at the refund or the punishment, by the bond the pots filled.
+- The settle bound. Before the decision every live ACCRUING record was counted in ACC_COUNT (<= P_MAX). An exited pool
+  victim is a live ACCRUING record outside it, so the number of live ACCRUING records can exceed P_MAX (2 pooled plus
+  the victim in pool-newcomer-seated-at-once, with P_MAX 2). The fills of one settlement stay bounded by P_MAX all the
+  same. Pot j's ACCRUING payees are its owners (late ones included), its winner and block j's proposer, which the host
+  draws from the ActList of block j's parent (the nonce assignment and the draw, admission.rs GAS_ENVELOPE). Every
+  ACCRUING member of that ActList holds a pool seat, since POOL_OUT is only on exited records and reactivate clears it,
+  so they number at most ACC_COUNT <= P_MAX at that parent. A victim displaced after the parent is still one of them,
+  and its promotion skips ACC_COUNT's write. tests/v3_model.py check_payee_bound asserts this for every settlement of a
+  host chain (a chain naming an owner outside its parent's ActList with a record is counted apart), and
+  tests/v3_contracts.rs v3-preview `v3_settle_gas_with_pool_victims_among_the_payees` measures the worst such pot at the
+  GAS_DOMAIN maxima: 64 exited victims filled from 0 to B and promoted with 128 live ACCRUING records, 6,274,600, within
+  GAS_ENVELOPE_V3 settle 6,317,000.
 The first draft refunded and erased the pool victim in the contest call. Its parts of pending pots then settled to an
 id without a record and burned, and evidence carried later found no record. The mutant pool-contest-erased-at-once
 restores that draft and fails the vectors below.
@@ -388,17 +402,18 @@ start of the measured epoch; the budgets; the pool contest and its refusals (the
 contest block that cannot turn a refused pool contest into one that lands, and the same chain without them; a pool
 victim with pending pots (they fill its accrued bond: no burn beyond the same chain without the contest), its refund at
 dueHeight (ACC_COUNT not lowered again), its promotion to HELD by those pots, its punishment by type-2 evidence carried
-after the contest (tomb, bond and whole pot burned), its reactivation only into a free pool seat, and the newcomer seated
-at once; both full; a probationer newcomer's seat
+after the contest (tomb, bond and whole pot burned), its reactivation only into a free pool seat, its reactivation as a
+HELD record once its pots promoted it (no pool seat taken, with the pool full), and the newcomer seated at once; both full; a probationer newcomer's seat
 contest of an ACCRUING victim; seat victims (HELD and ACCRUING) punished between the contest and their due height, before
 and after the sweep; a rotation race in the pool; ACC_COUNT through promote, exit, displace and punish; late credit
 counted, and the same chain without it; the counters rolling at epoch boundaries; an epoch shorter than D; the threshold
-table). Seventeen planted MinerRegistry mutants (contest-threshold-off-by-one, contest-grace-ignored,
+table). Eighteen planted MinerRegistry mutants (contest-threshold-off-by-one, contest-grace-ignored,
 contest-joined-in-epoch-allowed, contest-set-not-full-allowed, pool-contest-set-not-full-allowed (the first draft's pool
 contest on a set that is not full), contest-late-window-open, pool-contest-erased-at-once (the first draft's immediate
 refund and erase), pool-contest-seat-kept, pool-victim-refund-counted-again, pool-victim-punish-counted-again,
-pool-victim-promote-counted-again, pool-victim-reactivates-without-a-pool-seat, pool-contest-held-victim,
-counters-not-rolled, late-not-counted, isqrt-not-floored, contest-one-reg-ops-unit; the owner decision's six replace the
+pool-victim-promote-counted-again, pool-victim-reactivates-without-a-pool-seat,
+pool-victim-held-reactivation-takes-a-pool-seat (a promoted victim taking a pool seat at its reactivation), pool-contest-held-victim,
+counters-not-rolled, late-not-counted, isqrt-not-floored, contest-one-reg-ops-unit; the owner decision's seven (six with the decision, the held-reactivation one from its review) replace the
 first draft's pool-contest-refund-skipped and pool-contest-exits-instead, whose patched lines are gone) are in tests/v3/system-v3-mutants.json; the E1 mutant maint-twice-per-block and the E3 mutants
 late-last-share-reverts/-overwrites are re-patched onto the moved clock and the credit call.
 
@@ -408,4 +423,6 @@ full, the literal reading of O-10=b and of the roadmap ("registerContest only wh
 with free seats admits no contest (the owner may instead want pool contests on a set that is not full, which needs a
 denominator the contestant cannot move: M_max, or the active count recorded for the measured epoch); and a member that exits
 and reactivates (or rotates claimBond + register) once per epoch restarts its eligibility each time, as the design's
-"registration or last reactivation" rule says, so it is never contestable.
+"registration or last reactivation" rule says, so it is never contestable. The pool victim's reactivation (above) is
+derived from "exits as by deregister", not separately decided; it keeps registeredAt (the T_PROB deadline still runs) but
+resets graceStart, so it meets this point too, and the owner may confirm it or forbid it for pool victims.

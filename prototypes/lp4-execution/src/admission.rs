@@ -200,7 +200,16 @@ fn phase_calls(cp:&ConsensusParams,class:u8,set:ProgramSet)->Vec<(&'static str,u
     v
 }
 /// The v3 program set also loops over its probation pool in settlement (each ACCRUING payee's bond fills through
-/// accrue): GAS_ENVELOPE_V3's settle was measured with P_MAX ACCRUING payees, at this bound, filled in one call.
+/// accrue): GAS_ENVELOPE_V3's settle was measured with P_MAX ACCRUING payees, at this bound, filled in one call. The bound
+/// is per pot: pot j's ACCRUING payees are its owners (late ones included), its winner or block j's proposer, which the
+/// host draws from the ActList of j's parent state (the nonce assignment and the draw, as for recordShares in
+/// `GAS_ENVELOPE`), and every ACCRUING member of that ActList holds a pool seat (POOL_OUT is set only on exited records and
+/// reactivate clears it), so they number at most ACC_COUNT <= P_MAX there. Since the owner decision of 2026-11-13 (V3-14,
+/// option a) an exited pool-contest victim is a live ACCRUING record outside ACC_COUNT, so the live ACCRUING records may
+/// outnumber P_MAX; a victim displaced after j's parent is still one of j's payees, and its promotion skips ACC_COUNT's
+/// write (tests/v3_contracts.rs v3-preview `v3_settle_gas_with_pool_victims_among_the_payees`: 64 exited victims filled
+/// from 0 to B_reg and promoted in one settle with 128 live ACCRUING records, 6,274,600; tests/v3_model.py
+/// check_payee_bound asserts the bound for every settlement of a host chain).
 pub const GAS_DOMAIN_V3_P_MAX:u16=64;
 /// V3-02: recordLate credits at most kappa*m - 1 shares of one template in one call (the no-dilution cap, with the
 /// winner's share already counted); GAS_ENVELOPE_V3's recordLate was measured at kappa*m = 64 (S_max 256 >= 4*kappa*m, R8).
@@ -218,7 +227,7 @@ fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// the winner's record, invalidate read the winner word, and punish read the reporter's record and pay its rho_bp cut
 /// (worst: a HELD genesis member's never-written clock word with the chain's first burn; an ACCRUING accused with a
 /// bond, whose clock word register wrote, costs less, and the test asserts both); settlement fills up to P_MAX ACCRUING
-/// bonds from zero to B_reg in one call (the earn-in accrual, measured here for the v3 pool with all 64 probationers
+/// bonds (per pot, `GAS_DOMAIN_V3_P_MAX`) from zero to B_reg in one call (the earn-in accrual, measured here for the v3 pool with all 64 probationers
 /// live at bond 0, the chain's first burn and 192 HELD payees), so settle and settleFinal (the same settleOne) take the
 /// measured worst settle. V3-PR-E3 (V3-02): recordLate, at its worst one call crediting kappa*m - 1 = 63 late shares
 /// (GAS_DOMAIN_V3_KAPPA_M) to distinct owners new to the template's owner list, as the block's first call (every owner's
@@ -237,7 +246,8 @@ fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// burn: 61,932. Both replace their earn-in entries (53,000 and 32,000) in the composition. settle and settleFinal keep
 /// 6,314,000: the base burn goes to the carry only when C < kappa*m, so at most 63 payees (a settle writing the carry into
 /// pot h+1 measured 134,192), while the measured worst settle pays 256 (C >= kappa*m, no carry write): 6,311,582 after the
-/// change. A settle that accrues from held_total zero has no HELD payee (at most P_MAX live ACCRUING ones): 162,150 measured.
+/// change. A settle that accrues from held_total zero has no HELD payee (at most P_MAX ACCRUING ones, the pooled records of
+/// its pot's parent, `GAS_DOMAIN_V3_P_MAX`): 162,150 measured.
 /// V3-PR-E4 (V3-10/V3-14, tests/v3_contracts.rs v3-preview `v3_record_shares_gas_with_the_epoch_counters` and
 /// `v3_sys_gas_and_caps_within_the_v3_envelope`): recordShares and recordLate also write each recorded owner's epoch
 /// counters (in the w0 word they already write) and the epoch totals (Registry slot 10), and recordShares reads the owners'

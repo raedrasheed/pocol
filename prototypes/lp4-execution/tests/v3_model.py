@@ -758,6 +758,8 @@ class Chain:
         self.settled = {}                    # j -> pot j's amount when settle(j) or settleFinal(j) distributed it
         self.height = 0
         self.proposer = ''
+        self.parents = {}                    # j -> (ActList, pooled records) of block j's parent state (pot j's payees)
+        self.accrued = None                  # the idents settle(j) fills through accrue, while it runs
 
     # ---- payments out of Escrow
     def _pay(self, to, amount):
@@ -776,6 +778,8 @@ class Chain:
         if r is None or r.tomb:
             self.reg.burned += amount
             return
+        if r.bond_state == ACCRUING and self.accrued is not None:
+            self.accrued.append(ident)
         out = self.reg.accrue(ident, amount) if r.bond_state == ACCRUING else amount
         if out:
             self._pay(r.reward, out)
@@ -789,6 +793,10 @@ class Chain:
         if h != self.height + 1:
             raise AssertionError(('heights are contiguous', h, self.height))
         self.proposer = proposer
+        # Block h's parent state: template h's owners and winner, its late owners and block h's proposer are drawn from
+        # its ActList by the host (the nonce assignment and the draw), so they are pot h's only payees (check_payee_bound).
+        reg = self.reg
+        self.parents[h] = (frozenset(reg.active), frozenset(k for k, r in reg.records.items() if r.pooled()))
         if h >= 2:
             counts = {}
             for o in list(shares) + [winner]:           # recordShares: the header shares, then the implicit winner
@@ -864,9 +872,18 @@ class Chain:
         pot = self.pots.pop(j)
         amount = pot['amount']
         self.settled[j] = amount
+        parent = self.parents.pop(j, None)
         if pot['invalid']:
             self.reg.burned += amount
             return
+        self.accrued = []
+        try:
+            self._settle_valid(j, h, pot, amount)
+        finally:
+            accrued, self.accrued = self.accrued, None
+        check_payee_bound(self, j, pot, parent, accrued)
+
+    def _settle_valid(self, j, h, pot, amount):
         wp = amount * self.cp['alpha_bp'] // 10_000
         pp = amount * self.cp['gamma_bp'] // 10_000
         self._pay_to(pot['winner'], wp)
@@ -945,6 +962,31 @@ class Chain:
         ks = sorted(self.pots)
         assert ks == list(range(ks[0], ks[-1] + 1)) if ks else True, step
         assert all(self.height - self.cp['D'] < j <= self.height for j in ks), step
+
+# V3-14 review: the settle gas bound. GAS_ENVELOPE_V3's settle was measured with P_MAX ACCRUING payees filled in one call.
+# Since the owner decision of 2026-11-13 an exited pool-contest victim is a live ACCRUING record outside ACC_COUNT, so the
+# number of live ACCRUING records can exceed P_MAX; the bound holds per pot instead: pot j's payees (its owners, late ones
+# included, its winner and block j's proposer) are drawn by the host from the ActList of block j's parent state, whose
+# ACCRUING members all hold a pool seat (POOL_OUT only on exited records; reactivate clears it), so on such a chain the
+# records settle(j) fills through accrue are among the pooled records of j's parent, at most P_MAX. The scenarios name
+# owners without a record freely (their parts burn, as for an owner erased before settlement); a pot naming an owner that
+# was not in its parent's ActList but has a record at settlement is not a host chain and is counted apart.
+PAYEE_BOUND = {'host': 0, 'other': 0, 'victims': 0, 'most': 0, 'other_most': 0}
+
+def check_payee_bound(ch, j, pot, parent, accrued):
+    if parent is None:
+        return
+    act, pooled = parent
+    payees = set(ch.ledger.get(j, {})) | {pot['winner']} | ({pot['proposer']} if pot['proposer'] else set())
+    filled = set(accrued)
+    if any(k not in act and k in ch.reg.records for k in payees):
+        PAYEE_BOUND['other'] += 1
+        PAYEE_BOUND['other_most'] = max(PAYEE_BOUND['other_most'], len(filled))
+        return
+    PAYEE_BOUND['host'] += 1
+    assert filled <= pooled and len(filled) <= ch.cp['P_MAX'], ('settle fills more than the pooled records of its parent', j, filled, pooled)
+    PAYEE_BOUND['most'] = max(PAYEE_BOUND['most'], len(filled))
+    PAYEE_BOUND['victims'] += sum(1 for k in filled if k in ch.reg.records and ch.reg.records[k].pool_out)
 
 def chain_snapshot(ch):
     out = snapshot(ch.reg)
@@ -1619,6 +1661,7 @@ def threshold_table():
     return {'rows': rows, 'sensitive': sorted(set(moved))}
 
 def contest_vectors():
+    PAYEE_BOUND.update(host=0, other=0, victims=0, most=0, other_most=0)
     v = {'threshold-table': threshold_table()}
     # V3-10, the main test: a full set (m0, a, b, c; M_max 4), c idle. Epoch 1 (templates 8..15) holds Tprev = 8*4 = 32
     # shares, so E = 32/4 = 8 and the threshold is ceil(8 - sqrt(8)) = 6; c has 0. Contests open at h = 19 (19 mod 8 = 3 =
@@ -1740,6 +1783,17 @@ def contest_vectors():
         24, {**ops, **react}, **pots, cp={'W_act': 2, 'U': 6, 'C_react': 6})
     fin = v['pool-victim-reactivates-into-a-free-pool-seat']['final']
     assert fin['records']['p2']['status'] == 1 and 'pool_out' not in fin['records']['p2'] and fin['accruing'] == 2
+    # A pool victim promoted to HELD while exited reactivates as any HELD record (review finding: no vector had it): p2,
+    # promoted at 20 by its pot 16 share (B_reg less 0.01 PCOL before), reactivates at 21 into the seat a frees while the
+    # pool is full (p1, q): no Capacity revert, ACC_COUNT stays 2, pool_out cleared, HELD (a pool seat is taken only by an
+    # ACCRUING victim).
+    promo = {21: [('deregister', 'a', 21), ('reactivate', 'p2', 21)]}
+    v['pool-victim-promoted-then-reactivates'] = contest_chain(
+        24, {**ops, **promo}, **near, cp={'W_act': 2, 'U': 6, 'C_react': 6})
+    fin = v['pool-victim-promoted-then-reactivates']['final']
+    assert [s_['ok'] for s_ in v['pool-victim-promoted-then-reactivates']['steps'] if s_['op'][0] == 'reactivate'] == [True]
+    assert fin['records']['p2']['status'] == 1 and fin['records']['p2']['bond_state'] == HELD and \
+        'pool_out' not in fin['records']['p2'] and fin['accruing'] == 2
     # A seat-contest victim stays punishable until its due height: c (HELD) and p (ACCRUING, 5 PCOL), both idle, are
     # displaced at 19 by full-bond newcomers; block 21 carries type-1 evidence against both (reporter m0): each is tombed,
     # its bond burned less the reporter's cut, ACC_COUNT falls once (at the punish, not again at the sweep), held_total by
@@ -1815,7 +1869,42 @@ def contest_vectors():
     ops = {h: [contest_status('c', h)] for h in range(9, 15)}
     v['tiny-epoch-never-contestable'] = contest_chain(
         16, ops, extra=lambda h: ['c'], late=lambda h: [late(h - 4, 'c')] if h >= 6 else [], cp={'E_epoch': 2})
+    # The settle bound held on every host chain of these scenarios (check_payee_bound), pool victims among the payees.
+    assert PAYEE_BOUND['host'] > 0 and PAYEE_BOUND['victims'] > 0, PAYEE_BOUND
     return v
+
+def check_payee_bound_with_pool_victims():
+    """V3-14 review (the settle gas bound, check_payee_bound). The review's chain: P_MAX 2 held by p1 and p2 (bond 0), p2
+    displaced by q at 19, and q also named as an owner of templates 16..18, before it had a record. Pots 16..18 then fill
+    three ACCRUING bonds (p1, the exited victim p2 and q) with P_MAX 2: that is not a host chain (q is not in the ActList
+    of those templates' parents), and check_payee_bound counts those pots apart. On the host chain (q mines from template
+    20, the first whose parent lists it) pots 16..18 fill p1 and the victim p2, two, while three live ACCRUING records
+    exist. Returns (most fills of a pot on the host chain, the live ACCRUING records at its end)."""
+    ops = {19: [contest_status('p2', 19, True), contest('q', 'p2', 19, 0)]}
+    members = (('a', B), ('p1', 0), ('p2', 0))
+    fills = {}
+    orig = Chain._settle
+    def spy(self, j, h=None):
+        before = dict(PAYEE_BOUND)
+        orig(self, j, h)
+        fills[j] = (PAYEE_BOUND['host'] - before['host'], PAYEE_BOUND['other'] - before['other'])
+    PAYEE_BOUND.update(host=0, other=0, victims=0, most=0, other_most=0)
+    Chain._settle = spy
+    try:
+        contest_chain(24, ops, members=members, extra=lambda h: ['p1'] + (['p2', 'q'] if h in (17, 18, 19) else []))
+        review = {j: fills[j] for j in (16, 17, 18)}
+        assert all(x == (0, 1) for x in review.values()) and PAYEE_BOUND['other_most'] == 3, \
+            ('the review chain fills three bonds per pot and is not a host chain', review, PAYEE_BOUND)
+        PAYEE_BOUND.update(host=0, other=0, victims=0, most=0, other_most=0)
+        v = contest_chain(24, ops, members=members,
+                          extra=lambda h: ['p1'] + (['p2'] if h in (17, 18, 19) else []) + (['q'] if h >= 21 else []))
+    finally:
+        Chain._settle = orig
+    recs = v['final']['records']
+    live_acc = sorted(k for k, r in recs.items() if r['bond_state'] == ACCRUING and r['status'] in (1, 2) and not r['tomb'])
+    assert PAYEE_BOUND['victims'] > 0 and PAYEE_BOUND['most'] == 2 and live_acc == ['p1', 'p2', 'q'] and \
+        v['final']['accruing'] == 2, (PAYEE_BOUND, live_acc)
+    return PAYEE_BOUND['most'], live_acc
 
 # ---------------- V3-02: the host's kind-3 validity (pocold chain.rs late_fields / late_window / late_check)
 import hashlib
@@ -2031,6 +2120,9 @@ if __name__ == '__main__':
     print('PASS the fixedness check fails on base-burn-into-closed-pot:', fixedness_mutant_killed())
     print('PASS the last carrier of j gains nothing by omitting LS(j) (D-V3-15, lagged carry):', check_last_carrier_gains_nothing())
     print('PASS the last-carrier check fails on carry-not-lagged (the previous rule):', lag_mutant_killed())
+    most, live_acc = check_payee_bound_with_pool_victims()
+    print(f'PASS settle fills at most P_MAX = 2 ACCRUING bonds per pot on host chains ({most} with the pool victim p2 among '
+          f'them) while {len(live_acc)} live ACCRUING records exist; the review chain names an owner outside its ActList')
     econ = econ_mutants_killed()
     print(f'PASS every one of {len(econ)} planted issuance/carry/tip mutants fails the issuance-carry vectors:',
           ', '.join(f'{m} ({k})' for m, k in econ.items()))
