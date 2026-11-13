@@ -5,7 +5,38 @@ use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::Key};
 use serde_json::{json,Value};
 
 /// About 2^12 hashes per block, genesis a few seconds ago so a template built now is inside its window.
-fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,pocold::node::now_s()-10,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+fn cfg()->DevnetConfig{cfg_at(0)}
+/// `cfg` on chain id 777910 + `i`: another chain id is another template, so another own range and other hashes.
+fn cfg_at(i:u64)->DevnetConfig{let mut c=DevnetConfig::new(777910+i,pocold::node::now_s()-10,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+/// How many chain ids `locked` tries before it gives up.
+const LOCK_TRIES:u64=64;
+/// The drawn proposer of height 1 (its key, the other members' keys) with its template locked and its getWork result,
+/// on the first chain id (`cfg_at(0)`, `cfg_at(1)`, ...) whose locked template satisfies `pick` (template id, getWork
+/// result). Which nonces of the own range are solutions or shares depends on the template, so on the second a test
+/// starts (the template's time): a test that needs a solution, a share or a miss in the own range asks for it here,
+/// instead of failing on a template whose range holds none (about one run in 30 before).
+fn locked<T>(tag:&str,limits:&dyn Fn()->Limits,pick:&dyn Fn(&[u8;32],&Value)->Option<T>)->(DevnetConfig,Key,Vec<Key>,Node,std::path::PathBuf,Value,T){
+    for i in 0..LOCK_TRIES{
+        let c=cfg_at(i);let (me,others)=keys(&c);let mine=Key::from_secret(&me.secret()).unwrap();
+        let (mut n,d)=node(tag,&c,Some(me),limits());
+        n.start_production();
+        let w=call(&mut n,"pocol_getWork",json!([]))["result"].clone();assert!(w.is_object(),"locked: {w}");
+        if let Some(t)=pick(&hex32(&w["templateId"]),&w){return (c,mine,others,n,d,w,t);}
+        drop(n);let _=std::fs::remove_dir_all(&d);
+    }
+    panic!("no template of {LOCK_TRIES} chain ids had what the test needs in the own range");
+}
+/// The first share (not a solution), solution and miss (not a share) of the own range of getWork result `w`.
+fn share_solution_miss(tid:&[u8;32],w:&Value)->Option<(u64,u64,u64)>{
+    let (target,t_share)=(fixed(&w["target"]),fixed(&w["shareTarget"]));
+    let (mut share,mut solution,mut miss)=(None,None,None);
+    for nonce in q(&w["rangeStart"])..=q(&w["rangeEnd"]){
+        let h=pow_hash(tid,nonce);
+        if le_target(&h,&target){solution.get_or_insert(nonce);}else if le_target(&h,&t_share){share.get_or_insert(nonce);}else{miss.get_or_insert(nonce);}
+        if share.is_some()&&solution.is_some()&&miss.is_some(){break}
+    }
+    Some((share?,solution?,miss?))
+}
 fn admitted(c:&DevnetConfig)->Spec{let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn dir(tag:&str)->std::path::PathBuf{let d=std::env::temp_dir().join(format!("pocold-work-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
 /// The drawn proposer of height 1's key, and the other members' keys.
@@ -68,10 +99,9 @@ fn work_on()->Limits{Limits{work_rpc:Some("127.0.0.1:1".parse().unwrap()),..Defa
 /// range for the locked template and refuses stale work, a nonce of another member's range and a hash that is not
 /// a share. The solution is sealed and imported, after which the old template's work is stale.
 #[test] fn submit_work_accepts_the_own_range_and_refuses_foreign_and_stale_work(){
-    let c=cfg();let (me,others)=keys(&c);let addr=me.address();
-    let (mut n,d)=node("submit",&c,Some(me),Limits{mine_threads:3,..work_on()});
-    n.start_production();
-    let w=call(&mut n,"pocol_getWork",json!([]));let w=&w["result"];assert!(w.is_object(),"locked: {w}");
+    // A template whose own range holds a share, a solution and a miss (the first of each, in nonce order).
+    let (_c,me,others,mut n,d,w,(share,solution,miss))=locked("submit",&||Limits{mine_threads:3,..work_on()},&share_solution_miss);
+    let addr=me.address();let w=&w;
     let tid=hex32(&w["templateId"]);let (s,e)=(q(&w["rangeStart"]),q(&w["rangeEnd"]));
     assert_eq!((q(&w["sliceStart"]),q(&w["sliceEnd"])),(s,e),"no slice asked: the whole own range");
     assert_eq!(w["height"],1);assert_eq!(w["powHash"],"sha256(templateId || be64(nonce))");
@@ -88,14 +118,12 @@ fn work_on()->Limits{Limits{work_rpc:Some("127.0.0.1:1".parse().unwrap()),..Defa
     // Thread count respected (V3-30 S1).
     let st=n.status_json();assert_eq!((st["mining"]["threads"].as_u64(),st["mining"]["running"].as_u64()),(Some(3),Some(3)),"three threads run the locked template: {}",st["mining"]);
     assert!(pocold::miner::THREADS_PEAK.load(std::sync::atomic::Ordering::SeqCst)>=3);
+    // The share, solution and miss are of this template's own range and of the kind the scan says.
     let (target,t_share)=(fixed(&w["target"]),fixed(&w["shareTarget"]));
-    let (mut share,mut solution,mut miss)=(None,None,None);
-    for nonce in s..=e{
-        let h=pow_hash(&tid,nonce);
-        if le_target(&h,&target){solution.get_or_insert(nonce);}else if le_target(&h,&t_share){share.get_or_insert(nonce);}else{miss.get_or_insert(nonce);}
-        if share.is_some()&&solution.is_some()&&miss.is_some(){break}
-    }
-    let (share,solution,miss)=(share.unwrap(),solution.unwrap(),miss.unwrap());
+    for x in [share,solution,miss]{assert!((s..=e).contains(&x),"{x} in the own range");}
+    assert!(le_target(&pow_hash(&tid,solution),&target),"a solution");
+    assert!(!le_target(&pow_hash(&tid,share),&target)&&le_target(&pow_hash(&tid,share),&t_share),"a share, not a solution");
+    assert!(!le_target(&pow_hash(&tid,miss),&t_share),"a miss");
     let sub=|n:&mut Node,t:&[u8;32],nonce:u64|call(n,"pocol_submitWork",json!([hex(t),format!("0x{nonce:x}")]));
     assert_eq!(sub(&mut n,&[0x55;32],share)["error"]["code"],-32010,"another TemplateID is stale work");
     assert_eq!(sub(&mut n,&tid,foreign)["error"]["code"],-32011,"another member's nonce");
@@ -137,12 +165,12 @@ fn work_on()->Limits{Limits{work_rpc:Some("127.0.0.1:1".parse().unwrap()),..Defa
     assert_eq!(hashrate_estimate(100,U256::ZERO,100,U256::from(1000u64)),None,"no time");
     assert_eq!(hashrate_estimate(100,U256::from(5u64),120,U256::from(5u64)),None,"no work");
     assert_eq!(hashrate_estimate(120,U256::ZERO,100,U256::from(5u64)),None,"time backwards");
-    let c=cfg();let (me,_)=keys(&c);
-    let (mut n,d)=node("rate",&c,Some(me),work_on());
-    assert!(n.status_json()["networkHashrateEst"].is_null(),"no block yet");
-    n.start_production();
-    let w=call(&mut n,"pocol_getWork",json!([]))["result"].clone();let tid=hex32(&w["templateId"]);let target=fixed(&w["target"]);
-    let sol=(q(&w["rangeStart"])..=q(&w["rangeEnd"])).find(|x|le_target(&pow_hash(&tid,*x),&target)).unwrap();
+    // A template whose own range holds a solution.
+    let first_solution=|tid:&[u8;32],w:&Value|{let target=fixed(&w["target"]);(q(&w["rangeStart"])..=q(&w["rangeEnd"])).find(|x|le_target(&pow_hash(tid,*x),&target))};
+    let (c,_,_,mut n,d,w,sol)=locked("rate",&work_on,&first_solution);
+    assert!(n.status_json()["networkHashrateEst"].is_null(),"no block yet (the template is locked, nothing imported)");
+    assert_eq!(n.chain.head().height,0);
+    let tid=hex32(&w["templateId"]);
     assert_eq!(call(&mut n,"pocol_submitWork",json!([hex(&tid),sol]))["result"]["imported"],true);
     let est=n.status_json()["networkHashrateEst"].clone();let head=n.chain.head().clone();
     let secs=head.ts-c.g_ts;assert!(secs>0);
