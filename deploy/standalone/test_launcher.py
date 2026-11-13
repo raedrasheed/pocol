@@ -79,6 +79,10 @@ class Launcher(unittest.TestCase):
         mutations = [dict(original, compatibilitySha256='0'*64), dict(original, schema='pocol-network-v1'), dict(original, seeds=[]), dict(original, seeds=['0.0.0.0:0']), dict(original, files={**original['files'], '../identity.pocol-key':'bad'}), dict(original, unexpected=True)]
         for changed in mutations:
             path.write_text(json.dumps(changed), encoding='utf-8'); self.assertNotEqual(call('pocol', 'inspect', '--network', path, ok=False).returncode, 0)
+        # A file of another schema says so (with or without that schema's other fields), not that it is malformed.
+        for changed in (dict(original, schema='pocol-network-v1'), dict(original, schema='pocol-network-v1', compatibilitySha256='0'*64)):
+            path.write_text(json.dumps(changed), encoding='utf-8'); p = call('pocol', 'inspect', '--network', path, ok=False)
+            self.assertNotEqual(p.returncode, 0); self.assertIn('uses schema pocol-network-v1, which this release does not read', p.stderr)
         path.write_bytes(b' ' * (1048576 + 1)); self.assertNotEqual(call('pocol', 'inspect', '--network', path, ok=False).returncode, 0)
     def test_pocol_network_binds_the_rules_and_inspect_upgrade_is_a_dry_run(self):
         # T27 (plan §1.7): `pocol network` writes v2 bound to the consensus rules, never to the build digest; the dry

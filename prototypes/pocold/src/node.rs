@@ -3013,10 +3013,12 @@ impl Node{
     pub fn restored_entry(&self,h:&[u8;32])->Option<Entry>{
         let e=self.chain.get(h)?;self.chain.restored(e,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon})).ok().map(|x|x.into_owned())
     }
-    /// TrieRebuild of a stored block's state through the journal (offloaded bodies read back).
+    /// TrieRebuild of a stored block's state through the journal (offloaded bodies read back). Test and inspection
+    /// API: no production path calls it (import re-executes through `ensure_state_with` itself).
     pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon}))}
     /// C-1 S4: restores a slimmed entry's fields in place (header, ParentResult, nonce ranges) from the
-    /// journal and history.redb, for a walk that reads the chain's own entries (the evidence walk).
+    /// journal and history.redb, for a walk that reads the chain's own entries (the evidence walk). Test and
+    /// inspection API: import restores slimmed entries itself.
     pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history,canon:&self.canon})}
     /// A stored block's committed body (resident or from the journal).
     pub fn body_of(&self,hash:&[u8;32])->Result<Body,Reject>{let e=self.chain.get(hash).ok_or(Reject::UnknownParent)?;self.chain.body_of(e,Some(&self.journal))}

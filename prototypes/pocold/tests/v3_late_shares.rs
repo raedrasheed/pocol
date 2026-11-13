@@ -409,9 +409,9 @@ mod preview{
 
     /// A pruned state's rebuild (`Node::rebuild_state`, the node's own re-execution path) re-executes carriers whose
     /// kind-3 evidence reads slimmed ancestors (the template and an earlier carrier): the evidence walk restores them
-    /// as it does for type 2 (a walk that still meets a slimmed entry answers NeedsRebuild, which the caller answers by
-    /// restoring that entry and the slimmed canonical entries in the E_win heights below it, as import does), and the
-    /// rebuild reaches the same state as a node that never slims.
+    /// as it does for type 2 (a walk that still meets a slimmed entry answers NeedsRebuild, which the test's `rebuild`
+    /// answers by restoring that entry and the slimmed canonical entries in the E_win heights below it; import instead
+    /// restores only the named entry per try), and the rebuild reaches the same state as a node that never slims.
     #[test]
     fn a_rebuild_through_slimmed_entries_with_late_shares(){
         let mut n=net(2);let one=n.ids[0];

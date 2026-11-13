@@ -39,6 +39,11 @@ pub struct Invitation {
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     seeds_retired: bool,
 }
+/// A network file of a schema this release does not read (the schema is echoed only when it is a short plain name).
+fn unsupported_schema(schema: &str) -> String {
+    let shown = if schema.len() <= 64 && schema.bytes().all(|b| b.is_ascii_alphanumeric() || b"-_.".contains(&b)) { schema } else { "unknown" };
+    format!("this network file uses schema {shown}, which this release does not read ({SCHEMA_V2}); move the old network files aside (keep your wallet key) and import the current network file")
+}
 impl Invitation {
     /// A well-formed invitation whose consensus rules are this release's.
     pub fn parse(bytes: &[u8]) -> Result<Self, String> {
@@ -54,13 +59,22 @@ impl Invitation {
         if bytes.len() > MAX_INVITATION {
             return Err("network invitation exceeds 1 MiB".into());
         }
-        let value: Self =
-            serde_json::from_slice(bytes).map_err(|_| "invalid network invitation")?;
+        let value: Self = serde_json::from_slice(bytes).map_err(|_| {
+            // A file of another schema has other fields, so the strict decode fails first: name the schema then,
+            // not a malformed file.
+            match serde_json::from_slice::<serde_json::Value>(bytes).ok().as_ref().and_then(|v| v.get("schema")?.as_str()) {
+                Some(schema) if schema != SCHEMA_V2 => unsupported_schema(schema),
+                _ => "invalid network invitation".into(),
+            }
+        })?;
         value.validate()?;
         Ok(value)
     }
     fn validate(&self) -> Result<(), String> {
-        if self.schema != SCHEMA_V2 || self.consensus_rules_version < 1 {
+        if self.schema != SCHEMA_V2 {
+            return Err(unsupported_schema(&self.schema));
+        }
+        if self.consensus_rules_version < 1 {
             return Err("network invitation requires a different PoCol release".into());
         }
         if self.files.len() != FILES.len() || FILES.iter().any(|n| !self.files.contains_key(*n)) {
@@ -107,7 +121,8 @@ impl Invitation {
         format!("{:x}", Sha256::digest(&serde_json::to_vec(&Content { seeds: &self.seeds, files: &self.files }).expect("invitation serialization")))
     }
     /// The consensus identity a pinned release build has on this network (VA-SPEC §2.1: no caps-test or unpinned
-    /// flag), which its status reports as `consensusIdentity` once it runs. None when the rules are unknown.
+    /// flag), which its status reports as `consensusIdentity` once it runs. None when devnet.json, its fork schedule
+    /// or its genesis hash cannot be read.
     fn published_identity(&self) -> Option<String> {
         let info = self.info().ok()?;
         let forks = crate::configured_forks(&info).ok()?;
@@ -1189,6 +1204,16 @@ mod upgrade_tests {
         let mut digest = value.clone(); digest["compatibilitySha256"] = "6c".repeat(32).into();
         let mut unbound = value.clone(); unbound.as_object_mut().unwrap().remove("consensusRulesVersion");
         let mut zero = value; zero["consensusRulesVersion"] = 0.into();
+        // A file of another schema is named as such, whether or not it carries that schema's other fields; a v2 file
+        // with an unknown field is malformed.
+        let mut v1_digest = v1.clone(); v1_digest["compatibilitySha256"] = "6c".repeat(32).into();
+        let mut odd = v1.clone(); odd["schema"] = "x\u{1b}y".into();
+        let err = |v: &serde_json::Value| Invitation::parse(&serde_json::to_vec(v).unwrap()).unwrap_err();
+        for v in [&v1, &v1_digest] {
+            assert!(err(v).starts_with("this network file uses schema pocol-network-v1, which this release does not read"), "{}", err(v));
+        }
+        assert!(err(&odd).starts_with("this network file uses schema unknown,"), "{}", err(&odd));
+        assert_eq!(err(&digest), "invalid network invitation");
         for (what, v) in [("v1", v1), ("digest", digest), ("unbound", unbound), ("rules 0", zero)] {
             assert!(Invitation::parse(&serde_json::to_vec(&v).unwrap()).is_err(), "{what}");
         }
