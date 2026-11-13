@@ -21,14 +21,15 @@ The public chain is operator-designated **PoCol Mainnet**, with currency symbol
 
 History: the 0.4.0 upgrade of the first PoCol Mainnet kept that network's identity,
 wallets, balances and history. Its consensus version 2 enables the complete nonce
-range `0` through `18446744073709551615` at one explicitly configured height; see the
-[coordinated rollout guide](deploy/mainnet/README.md). The
-[earn-in cutover runbook](deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md) moves PoCol Mainnet
-to a new genesis; its step 3 switches the identity above.
+range `0` through `18446744073709551615` at one explicitly configured height. The owner
+has since decided to launch a brand-new network from a fresh genesis and keep nothing of
+the old one ([decisions, 2026-11-13](development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md));
+the identity above is replaced once that genesis exists (see [deploy/mainnet](deploy/mainnet/README.md)).
 
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and
-`publicLaunchReady: false`; these are not overridden by branding. Independent
+`publicLaunchReady: false`, computed with the `launchBlockers` that keep it false
+(V3-28 H1, `pocold status`, `pocold build-info`); these are not overridden by branding. Independent
 external security review and the technical conditions in
 [Current status and limits](#current-status-and-limits) remain outstanding.
 
@@ -396,6 +397,7 @@ It also serves `net_*`, `web3_clientVersion`, and PoCol-specific methods:
 | `pocol_getRejects`, `pocol_getRpcStats`, `pocol_templateLatency`                                | Diagnostics (template latency: network.md)                   |
 | `pocol_quoteCreationBurn`                                                                       | v3 creation-burn quote, split from gas (network.md)          |
 | `pocol_finality`                                                                                | Local finality: safe, finalized, kSafe, kAlarm, reorg alarm  |
+| `pocol_getWork`, `pocol_submitWork`                                                             | Local work for external miners, own range only, on the loopback work port `--work-rpc ADDR` only |
 
 Block tags: `latest` and `pending` are the head; `safe` is max(head − k_safe, finalized), k_safe 6 by default
 (`--k-safe N` or POCOL_K_SAFE), and state queries at it are answered while it is head − k_safe (a node refuses

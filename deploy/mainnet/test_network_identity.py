@@ -4,10 +4,10 @@ versions and the Studio installer derived from them; --check fails on any other 
 from the current one; line endings are kept, and hashed sources with converted (CRLF) line endings are
 refused; nothing is written when anything fails, an I/O error included; bad or non-canonical input is
 refused; no tracked file pins the old Mainnet identity unless it is switched or kept on purpose; and on the
-switched tree the shipped notes, versions and release texts of the old network are replaced (runbook step 3).
+switched tree the shipped versions and release texts of the old network are replaced (the identity-switch PR).
 
-The tests derive their fixtures from the tree's current identity, so they pass before the cutover and on
-the reviewed step-3 commit that switches the tree (the runbook merges it through CI)."""
+The tests derive their fixtures from the tree's current identity, so they pass before and after the reviewed
+commit that switches the tree."""
 import base64, hashlib, json, os, re, shutil, subprocess, tempfile, unittest
 from pathlib import Path
 from unittest import mock
@@ -98,20 +98,14 @@ def held(text, chain_id, genesis, spec_hex):
 # pins it must be in ni.FILES, so no copy can be missed at the cutover.
 KEPT_PREFIXES = {
     'development/': "the project's history",
-    'deploy/websites/': 'website snapshots: build output that runbook step 5 updates or rebuilds',
+    'deploy/websites/': 'website snapshots: build output that is updated or rebuilt with the new network',
 }
 KEPT = {
     'deploy/mainnet/network_identity.py': 'the identity it replaces',
     'deploy/mainnet/test_network_identity.py': "this guard's detector",
-    'deploy/mainnet/new_network_config.py': 'refuses the old chain ID for the new network',
-    'deploy/mainnet/collect_seeds.py': 'read-only evidence for the old network before cutover; its source pin refuses a switched preflight',
-    'deploy/mainnet/test_new_network_config.py': 'an old devnet.json fixture',
     'deploy/faucet/test_pocol_faucet.py': 'the faucet refuses the old chain',
     'deploy/mainnet/h15000/network.pocol.json': "the old network's invitation (and its published GenesisSpec)",
     'deploy/mainnet/h15000/README.md': "the old network's H15000 upgrade",
-    'deploy/mainnet/README.md': "the old network's operations",
-    'deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md': 'the move from the old network',
-    'deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK-AR.md': 'the move from the old network',
     # PR5: the old network as the legacy 0.4.0 build and the pinned golden values of the consensus identity.
     'deploy/public-testnet/pocol_identity.py': "the LEGACY_BUILDS mirror: the 0.4.0 build bound to the old chain",
     'deploy/public-testnet/test_pocol_identity.py': "the old network's golden consensus identity",
@@ -121,20 +115,14 @@ KEPT = {
     'prototypes/pocold/src/net.rs': 'a pinned canonical Hello frame (wire golden vectors), not a network setting',
     'prototypes/pocold/tests/data/wire-golden.json': 'the pinned canonical Hello frame (wire golden vectors)',
 }
-# The release notes every package ships. The step-3 PR replaces the old network's 0.4.0 notes with the new
-# network's, which may name the old network as history but must name the tree's identity: the chain ID and
-# genesis hash users check (after a redo, the new genesis).
-NOTES = 'deploy/standalone/RELEASE-UPGRADE.md'
-# Shipped with the packages, so the step-3 PR replaces or bumps them (runbook step 3): before the switch each
+# Shipped with the packages, so the identity-switch PR replaces or bumps them: before the switch each
 # holds its pattern (the old release's version, or text that is true only on the old network), on the
 # switched tree none may.
 STEP3 = {
-    NOTES: re.compile(r'(?m)^# PoCol Mainnet · 0\.4\.0 update$|^## Windows: keep the same account and wallet home$'),
     'deploy/standalone/package.py': re.compile(r"version\s*=\s*'0\.4\.0'"),
     'deploy/standalone/README.md': re.compile(r'Wallet 0\.4\.0|retain their genesis'),
     'deploy/standalone/linux-desktop/pocol-desktop': re.compile(r'0\.4\.0'),
     'deploy/standalone/linux-desktop/install-desktop-icon.sh': re.compile(r'0\.4\.0'),
-    'deploy/standalone/linux-desktop/README-LINUX-ICONS.md': re.compile(r'0\.4\.0'),
     'prototypes/pocol-windows/Wallet.cs': re.compile(r'Assembly(?:File)?Version\("0\.4\.0\.0"\)'),
     'prototypes/pocol-windows/Wallet.xaml': re.compile(r'PoCol Wallet · 0\.4\.0'),
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
@@ -154,7 +142,7 @@ TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER]
 def unaccounted(files):
     """Paths among (path, text) pairs that pin the old identity but are neither switched nor kept."""
     return [rel for rel, text in files
-            if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT and rel != NOTES
+            if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT
             and (rel not in ni.FILES or SWITCHED) and OLD_ANYWHERE.search(text)]
 
 def digests(files):
@@ -520,24 +508,11 @@ class NetworkIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, '--v3', genesis=hash_v3b, spec='v3b.hex'), 0)
         self.assert_carries(root, hash_v3b, spec_v2(flip=1))
 
-    def test_the_release_notes_name_the_current_identity(self):
-        # True of the old notes today; on the switched tree the new notes must name the new network, and after a
-        # redo with a later genesis, that genesis.
-        notes = (ni.ROOT / NOTES).read_text(encoding='utf-8')
-        self.assertTrue(str(CUR_CHAIN) in notes, f'{NOTES}: the notes name the chain ID {CUR_CHAIN} (runbook step 3)')
-        self.assertTrue('0x' + CUR_GENESIS in notes.lower(),
-                        f'{NOTES}: the notes name the genesis hash 0x{CUR_GENESIS}; after a redo, the new one (runbook step 3)')
-        if SWITCHED:
-            # The way across for an existing wallet: the key file stays, the old network's files move aside.
-            for marker in ('identity.pocol-key', 'network.pocol.json'):
-                self.assertTrue(marker in notes, f'{NOTES}: the notes give existing wallets their way across (runbook step 3)')
-
     def test_the_guard_flags_planted_copies(self):
         planted = [('a.py', 'X = 1599846715n'), ('b.rs', 'const X: u64 = 1_599_846_715;'), ('c.js', "c='0x5F5BB93B'"),
                    ('d.md', 'genesis be137bfd...'), ('e.json', CUR_SPEC.hex() if not SWITCHED else 'f9016b01845f5bb93b')]
         self.assertEqual(unaccounted(planted), [rel for rel, _ in planted])
-        exempt = [('development/x.md', '1599846715'), ('deploy/websites/x.js', '1599846715'), ('deploy/mainnet/README.md', '1599846715'),
-                  ('deploy/standalone/RELEASE-UPGRADE.md', '1599846715')]
+        exempt = [('development/x.md', '1599846715'), ('deploy/websites/x.js', '1599846715'), ('deploy/mainnet/h15000/README.md', '1599846715')]
         self.assertEqual(unaccounted(exempt), [])
         self.assertEqual(unaccounted([(list(ni.FILES)[0], '1599846715')]), [list(ni.FILES)[0]] if SWITCHED else [])
 
@@ -557,7 +532,7 @@ class NetworkIdentity(unittest.TestCase):
             self.assertTrue((ni.ROOT / rel).is_file(), rel)
         held = [rel for rel, old in STEP3.items() if old.search((ni.ROOT / rel).read_text(encoding='utf-8'))]
         if SWITCHED:
-            self.assertEqual(held, [], 'the step-3 PR replaces or bumps these (runbook step 3): ' + ', '.join(held))
+            self.assertEqual(held, [], 'the identity-switch PR replaces or bumps these: ' + ', '.join(held))
         else:
             self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
 

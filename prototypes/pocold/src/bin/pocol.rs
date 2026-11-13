@@ -56,7 +56,7 @@ fn command() -> Result<(), String> {
         // V3-33 re-genesis conduct: this node's freeze of user transactions after height S (saved in the home).
         "freeze-user-txs" => &["--home", "--after"],
         "network" => &["--from", "--seed", "--bootstrap", "--seeds-retired", "--out"], "inspect" => &["--network"],
-        "build-info" => { println!("{}", pocold::identity::BUILD_INFO); return Ok(()); }
+        "build-info" => { println!("{}", pocold::readiness::build_info()); return Ok(()); }
         _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE | export-key [--home DIR] --out FILE | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] | freeze-user-txs [--home DIR] [--after HEIGHT|off] (key backup passphrases are read from stdin: export-key reads it twice)".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();

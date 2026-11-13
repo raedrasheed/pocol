@@ -31,7 +31,7 @@ class ReleasePackageTests(unittest.TestCase):
         self.build = {'compatibilitySha256': 'c' * 64, 'consensusPinned': True, 'consensusRulesVersion': 1,
                       'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': []}
         self.commit = 'd' * 40
-        for name in ('README.md', 'RELEASE-UPGRADE.md', 'install-linux.sh',
+        for name in ('README.md', 'install-linux.sh',
                      'Start-PoCol.cmd', 'Initialize-PoColNetwork.ps1'):
             (self.script.parent / name).write_text('public fixture\n', encoding='utf-8')
         for name in ('network.pocol.json', 'wallet.key', 'debug.keystore'):
@@ -88,13 +88,19 @@ class ReleasePackageTests(unittest.TestCase):
         out = self.package('Android')
         release = self.metadata(out)
         self.assertEqual({p.name for p in out.iterdir()}, {
-            'PoCol-Mainnet-0.4.0-arm64-unsigned.apk', 'README.md', 'RELEASE-UPGRADE.md',
+            'PoCol-Mainnet-0.4.0-arm64-unsigned.apk', 'README.md',
             'build-info.json', 'release-info.json', 'source-commit.txt', 'SHA256SUMS',
             'THIRD-PARTY-CRYPTO-NOTICES.txt'})
         self.assertFalse(release['installable'])
         self.assertEqual(release['applicationId'], 'org.pocol.node')
         self.assertEqual(release['versionCode'], 5)
         self.assertEqual(release['signingStatus'], 'blocked-requires-existing-signer')
+        # V3-28 H1: the raw identity plus the readiness keys the desktop build-info has, marked as not computed.
+        packaged = json.loads((out / 'build-info.json').read_text(encoding='utf-8'))
+        self.assertEqual({k: packaged[k] for k in self.build}, self.build)
+        self.assertIs(packaged['publicLaunchReady'], False)
+        self.assertEqual([b['id'] for b in packaged['launchBlockers']], ['readiness-not-computed'])
+        self.assertEqual(set(packaged), set(self.build) | {'publicLaunchReady', 'launchBlockers'})
 
     def test_android_new_key_app_is_packaged_under_its_own_application_id(self):
         # V3-33: the new-key build is another app (org.pocol.wallet) that installs beside org.pocol.node.

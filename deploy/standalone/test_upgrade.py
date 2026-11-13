@@ -298,7 +298,7 @@ class FullNonceUpgrade(unittest.TestCase):
 
 class NewGenesisRejoin(unittest.TestCase):
     """A home bound to one genesis joins a network with another genesis (the earn-in cutover, owner decision D1
-    Option B) the way the release notes describe (runbook step 3; RELEASE-UPGRADE.md "Resync a launcher home"): the
+    Option B) the way the launcher's refusal text describes: the
     new invitation goes beside the application, the old network's files (state, wallet activity, every
     network.pocol.json.before-* backup) go to a folder in the home, the key stays, and the wallet imports the new
     invitation. Both invitations are `pocol network` output, so pocol-network-v2 bound to the rules revision. Import

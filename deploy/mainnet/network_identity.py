@@ -26,7 +26,7 @@ rebuilt from the switched gateway sources. Those hashed sources must have the LF
 so a checkout that converts line endings (core.autocrlf) is refused. Files are read and written as bytes
 (line endings are kept), and nothing is written unless every file passes: every new file is written beside
 its original first, then each original is replaced whole, the node file last. Documents about the old
-network's history and the website snapshots in deploy/websites (build output, runbook step 5) are not
+network's history and the website snapshots in deploy/websites (build output) are not
 changed. Nothing is deployed.
 """
 import argparse, hashlib, json, os, re, shutil, sys
@@ -69,7 +69,6 @@ FILES = {
     'prototypes/pocol-studio/dist/app.js': (3, 1, 0),
     'prototypes/pocol-studio/README.md': (1, 1, 0),
     'prototypes/pocol-windows/WalletUiTests.cs': (1, 0, 0),
-    'deploy/mainnet/preflight.py': (1, 1, 0),
     'deploy/rewards/pocol_rewards.py': (1, 1, 0),
     'deploy/rewards/gateway.py': (1, 1, 0),
     'deploy/rewards/test_pocol_rewards.py': (1, 1, 0),

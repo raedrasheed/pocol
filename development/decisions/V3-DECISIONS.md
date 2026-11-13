@@ -1,5 +1,31 @@
 # PoCol v3 decisions — 2026-11-11
 
+> **Superseded in part by the owner decisions of 2026-11-13**
+> ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)): PoCol launches a brand-new network from a
+> fresh genesis and keeps nothing related to the old network. This record stays as dated history. Affected items:
+>
+> - **O-0** (v3 rides the held earn-in re-genesis): superseded. v3 launches as a brand-new network from a fresh
+>   genesis with new keys and a new chain ID; there is no re-genesis or cutover of the old chain (answers 1-5).
+> - **O-6** (block time 30 s): changed. Difficulty adjustment stays, with a 10 s average block time (answer 10a).
+> - **O-10** (contestable seats when the set is full): superseded. There is no seat contest; registrations are
+>   rate-limited per block, and inactive members are removed after about an hour and may return (answers 10, 10b).
+> - The member limit **M_max** (V3-07, 256): changed to **M_max = 10,000** (second follow-up, answer 2).
+> - **O-14** (probation pool of M_max/4 slots with a contest inside the pool): superseded. There is no separate
+>   probation pool: newcomers accruing their 20 PCOL bond count within M_max = 10,000. New miners register for free
+>   and the first 20 PCOL of their rewards is held as their bond, forfeited on misbehaviour (answers 10, 10c; second
+>   follow-up, answer 2).
+> - **O-21** (raised state caps with a burned creation fee): the creation fee is removed; new accounts pay ordinary
+>   gas only (answer 10d).
+> - **O-32** (the 4,000,000 PCOL genesis allocation): superseded. The new genesis gives each of the four founding
+>   miners 1,000,000 PCOL (answers 8, 9, 15).
+> - **O-33** (how the re-genesis is run): moot. The old network is stopped and nothing carries over, so there is no
+>   freeze height S, old-chain export or migration (answers 1-4).
+> - **O-19** (issuance, M3): changed. S0 = 4 PCOL per block at the 10 s average block, halving every 4 years
+>   (H_half = 12,623,040 blocks), with a tail of S0/32 = 0.125 PCOL (answer 7; second follow-up, answer 1).
+>
+> How these map onto the parameters and programs is implemented in later changes; until then the code still carries
+> the 2026-11-08 values.
+
 Status: records the owner approval of 2026-11-08 and its implementation constraints. This is a documentation decision record, not an activation, a deployment approval or evidence that the implementation is complete. The live network remains untouched.
 
 ## Owner rule and scope
@@ -249,6 +275,41 @@ Approved within the owner rule; NODE-LOCAL (docs); beacon DEFER. Principle check
 Computed launch-readiness flag and a real network-admission path (CONS-4, MAT-02, EXEC-03). Compute readiness from specification admission, no conditions or waivers and completed launch gates; expose blockers. Never turn deployment branding into readiness evidence.
 
 Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
+
+**Implementation note (H1, N5).** `prototypes/pocold/src/readiness.rs` replaces the literal `publicLaunchReady:false`
+(`build.rs`, `launcher.rs`, `testnet.rs`) with a computed value: `publicLaunchReady` is true only when
+`launchBlockers` is empty, and both are reported by `pocold build-info`/`pocol build-info` (the build alone, which
+is never ready: blocker `no-network`), `pocold status` and `pocol_status` (the admission the node booted with),
+`init-testnet` (the profile it admitted) and the launcher's network description (`pocol network`/`import`/
+`upgrade`, from what genesis.spec.hex commits to; the launcher admits nothing, so it is never ready). Each blocker
+has a stable `id` and a `detail`:
+- build: `v3-preview-build`; `spec-version` (SPEC_VERSION < 2, cleared by V3-PR-I); `consensus-unpinned`;
+  `test-features` (caps-test, crash-test, io-fault); `v3-launch-blocker` (each `V3_LAUNCH_BLOCKERS` entry, none
+  today); `plan-gate-<id>` (each acceptance-ledger gate of `development/public-network/PLAN.md` not marked
+  closed, all nine today; a test keeps `PLAN_GATES_OPEN` equal to the ledger);
+- network: `v3-inactive` (spec-1 genesis and no fork to version 3); `network-not-release-pinned` ((chainId,
+  genesisHash) not in `NETWORK_PROFILES`, the H2 hook, empty today); `admission-scope` (not `specification`);
+  `admission-condition-<id>` and `admission-waiver-<rule>` (each condition and waiver); `profile-kind` (not the
+  network profile on a network node, R22); `admission-not-booted` (always), `admission-unrecorded` and
+  `genesis-unreadable` (launcher only). The admission devnet.json records about itself is operator metadata that
+  nothing commits to, so the launcher never treats it as evidence: `admission-not-booted` always blocks, and the
+  recorded scope, condition ids and waiver rules are reflected only as further blockers, in the gate's id shape
+  (`[a-z0-9-]{1,64}`, `R[0-9]{1,3}`, else `unreadable`), deduplicated and capped at 32 each (then `overflow`); a
+  recorded network profile counts only on chain 777001, as R22 requires at boot.
+
+It is false today with the build reasons `spec-version` and the nine PLAN gates and, for any network, the network
+reasons above. Deployment branding (`network_display`) clears none of them. Node-local reporting only: no validity
+rule, fork choice, persisted byte or consensus identity reads it; `build.rs` (a boundary file) only drops the
+literal, under a `neutral` lock line. H2 (release-pinned profiles and closing the conditions) is unchanged.
+
+Open for H2 and the owner. (1) If the launcher is ever to report a network ready before a node boots it, each
+`NETWORK_PROFILES` entry must also pin the expected admission (scope specification, no condition, no waiver, the
+network profile on a network node, or a digest of them) and the launcher must compare against that pin, never
+against devnet.json; until then `admission-not-booted` stays. (2) `profile-kind` clears only with a Network profile,
+which R22 allows only on chainId 777001: the designated PoCol Mainnet (chain 1599846715) or any v3 re-genesis on
+another chain id can never clear it without an R22 or admission change, or a launch on 777001. That change belongs
+to H2, may be consensus-adjacent (R22 is checked at profile validation), and is the owner's decision; N5 changes
+nothing there.
 
 ### D-V3-29
 

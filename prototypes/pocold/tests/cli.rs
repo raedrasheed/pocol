@@ -453,3 +453,81 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     }
     let _=std::fs::remove_dir_all(&d);
 }
+/// V3-30: `--mine-threads N` (1..=64, default 1) and `--work-rpc` (off by default) come from the flags, status reports
+/// them, and a thread count outside its bounds fails the command.
+#[test] fn mine_threads_and_work_rpc_come_from_the_flags_and_are_reported(){
+    let d=tmp("mine");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let status=|i:usize,flags:&[&str]|->Output{let data=d.join(format!("s{i}"));
+        Command::new(env!("CARGO_BIN_EXE_pocold")).args([&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap()][..],flags].concat()).output().unwrap()};
+    let o=status(0,&[]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(v["mining"]["threads"].as_u64(),Some(1),"the defaults: {}",v["mining"]);assert!(v["mining"]["workRpc"].is_null()&&v["mining"]["warning"].is_null(),"{}",v["mining"]);
+    assert!(v["networkHashrateEst"].is_null(),"no block yet");
+    let o=status(1,&["--mine-threads","8","--work-rpc","127.0.0.1:18547"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["mining"]["threads"].as_u64(),v["mining"]["workRpc"].as_str()),(Some(8),Some("127.0.0.1:18547")),"{}",v["mining"]);
+    // More threads than the host's cores is warned in status (the node still runs them).
+    let cores=std::thread::available_parallelism().map_or(0,|n|n.get());assert_eq!(v["mining"]["cores"].as_u64(),Some(cores as u64));
+    assert_eq!(v["mining"]["warning"].is_string(),cores<8,"{}",v["mining"]);
+    // The work port takes a loopback address, never a bare flag or another interface.
+    for (bad,want) in [(&["--work-rpc"][..],"--work-rpc needs ADDR"),(&["--work-rpc","0.0.0.0:8547"][..],"binds loopback only"),(&["--work-rpc","x"][..],"--work-rpc x:")]{
+        let o=status(3,bad);assert_eq!(o.status.code(),Some(1),"{bad:?}");assert!(text(&o.stderr).contains(want),"{bad:?}: {}",text(&o.stderr));}
+    for bad in ["0","65","x",""]{let o=status(2,&["--mine-threads",bad]);
+        assert_eq!(o.status.code(),Some(1),"{bad}");assert!(text(&o.stderr).contains(&format!("--mine-threads {bad}:")),"{bad}: {}",text(&o.stderr));}
+    let _=std::fs::remove_dir_all(&d);
+}
+
+/// V3-28 H1: `publicLaunchReady` is computed and reported beside `launchBlockers`, every reason it is false: by
+/// `pocold build-info` and `pocol build-info` (the build alone), by `init-testnet` (the profile it admitted), by a
+/// running node's pocol_status and by `pocold status` (the admission the node booted with). Today it is false for
+/// the build's reasons (SPEC_VERSION 1, the open PLAN.md gates) and the network's (experimental-devnet admission with
+/// its conditions, a simnet profile, v3 never active, no release-pinned launch network).
+#[test] fn launch_readiness_is_computed_and_reported_with_its_blockers(){
+    let ids=|v:&serde_json::Value|->Vec<String>{
+        assert_eq!(v["publicLaunchReady"],false,"{v}");
+        let b=v["launchBlockers"].as_array().unwrap_or_else(||panic!("launchBlockers: {v}"));
+        assert!(!b.is_empty()&&b.iter().all(|x|x["id"].is_string()&&x["detail"].as_str().is_some_and(|d|!d.is_empty())),"{v}");
+        b.iter().map(|x|x["id"].as_str().unwrap().to_string()).collect()};
+    let has=|got:&[String],want:&[&str]|for w in want{assert!(got.iter().any(|g|g==w),"{w}: {got:?}")};
+    let build=["spec-version","plan-gate-A1","plan-gate-Q1"];
+    for bin in [env!("CARGO_BIN_EXE_pocold"),env!("CARGO_BIN_EXE_pocol")]{
+        let o=Command::new(bin).arg("build-info").output().unwrap();assert!(o.status.success(),"{}",text(&o.stderr));
+        let info:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+        let got=ids(&info);has(&got,&build);has(&got,&["no-network"]);
+        assert!(!got.iter().any(|g|g=="v3-inactive"||g.starts_with("admission-")),"the build alone has no network facts: {got:?}");
+        assert_eq!(info["v3Preview"],cfg!(feature="v3-preview"));assert_eq!(got.iter().any(|g|g=="v3-preview-build"),cfg!(feature="v3-preview"));
+    }
+    let network=["v3-inactive","network-not-release-pinned","admission-scope","admission-condition-calibration-synthetic","profile-kind"];
+    let d=tmp("launch-ready");std::fs::create_dir_all(&d).unwrap();
+    let miner=pocol_lp4_execution::devnet::miner_identity("launch-ready");
+    let config=d.join("public.json");
+    std::fs::write(&config,serde_json::json!({"chainId":777941,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,"miners":[{"id":miner.id,"reward":miner.reward}],
+        "accounts":[{"address":pocol_lp4_execution::devnet::account_key("launch-ready").address(),"wei":"1000000000000000000000"}]}).to_string()).unwrap();
+    let out=d.join("testnet");
+    let o=pocold(&["init-testnet","--config",config.to_str().unwrap(),"--out",out.to_str().unwrap()]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(summary["scope"],"experimental-devnet");
+    let got=ids(&summary);has(&got,&build);has(&got,&network);assert!(!got.iter().any(|g|g=="no-network"),"{got:?}");
+    // A running node answers pocol_status with the same computed fields; `pocold status` prints the same list.
+    let rpc={let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
+    let data=d.join("data");
+    let mut c=Command::new(env!("CARGO_BIN_EXE_pocold")).args(["run","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap(),"--rpc",&rpc.to_string(),"--no-discovery"])
+        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+    let t=std::time::Instant::now();let mut seen=None;
+    while seen.is_none()&&t.elapsed()<std::time::Duration::from_secs(60){
+        if let Some(s)=c.try_wait().unwrap(){panic!("run exited with {s}")}
+        seen=rpc_status(rpc);if seen.is_none(){std::thread::sleep(std::time::Duration::from_millis(50));}
+    }
+    let _=c.kill();let _=c.wait();
+    let status=seen.expect("pocol_status within 60 s");
+    let live=ids(&status);has(&live,&build);has(&live,&network);
+    assert_eq!(status["launchBlockers"],summary["launchBlockers"],"the node reports what init-testnet reported for the same build and profile");
+    assert_eq!(status["admission"]["scope"],"experimental-devnet");
+    let conditions:Vec<String>=status["admission"]["conditions"].as_array().unwrap().iter().map(|c|format!("admission-condition-{}",c["id"].as_str().unwrap())).collect();
+    has(&live,&conditions.iter().map(String::as_str).collect::<Vec<_>>());
+    let o=pocold(&["status","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap()]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let offline:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!(offline["publicLaunchReady"],false);assert_eq!(offline["launchBlockers"],status["launchBlockers"]);
+    let _=std::fs::remove_dir_all(&d);
+}

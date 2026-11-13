@@ -86,7 +86,7 @@ def verify(bundle, expected=None):
         raise ValueError('Untrusted manifest identity')
     manifest = read_json(bundle / 'manifest.json')
     if manifest['schema'] != SCHEMA: raise ValueError('Unsupported bundle schema')
-    required = {'node.json', 'node_operator.py', 'build-info.json', 'pocol-testnet.service',
+    required = {'node.json', 'node_operator.py', 'pocol_identity.py', 'build-info.json', 'pocol-testnet.service',
                 'net/genesis.spec.hex', 'net/devnet.json', 'net/alloc.json'} | {'bin/' + n for n in BINARIES}
     if not required.issubset(manifest['sha256']): raise ValueError('Incomplete bundle manifest')
     verify_files(bundle, manifest['sha256'], {'manifest.json'})
@@ -95,12 +95,9 @@ def verify(bundle, expected=None):
     build = read_json(bundle / 'build-info.json')
     if build['features'] or not pocol_identity.PROTOCOL_VERSION_MIN <= build['protocolVersion']:
         raise ValueError('Unsupported or test-feature binary')
-    # A release build is pinned (VA-SPEC §2.4); an unpinned one would peer with nobody. A 0.4.0 build reports no rules.
-    if 'consensusRulesVersion' in build and build.get('consensusPinned') is not True:
+    # A release build is pinned (VA-SPEC §2.4) and reports its consensus rules; an unpinned one would peer with nobody.
+    if 'consensusRulesVersion' not in build or build.get('consensusPinned') is not True:
         raise ValueError('Unpinned consensus build; use a release build')
-    # node_operator.py imports the identity reference beside it.
-    if 'consensusRulesVersion' in build and 'pocol_identity.py' not in manifest['sha256']:
-        raise ValueError('Incomplete bundle manifest')
     if info['admission']['scope'] != 'experimental-devnet' or info['chainId'] == 777001:
         raise ValueError('Only the experimental testnet profile is supported')
     if manifest['identity'] != identity(config, info, build): raise ValueError('Bundle identity mismatch')
@@ -108,39 +105,20 @@ def verify(bundle, expected=None):
 
 
 def identity(config, info, build):
-    """The bundle's public identity. A build that reports its consensus rules (R1 on) adds them and the consensus
-    identity (VA-SPEC §2.1) its node sends on this network; a 0.4.0 build-info has neither."""
+    """The bundle's public identity, with the consensus rules and the consensus identity (VA-SPEC §2.1) its node
+    sends on this network."""
     value = {'chainId': info['chainId'], 'genesisHash': info['genesisHash'],
-             'protocolVersion': build['protocolVersion'], 'compatibilitySha256': build['compatibilitySha256']}
-    if 'consensusRulesVersion' in build:
-        value.update(consensusRulesVersion=build['consensusRulesVersion'],
-                     consensusIdentity=pocol_identity.for_network(info, build))
+             'protocolVersion': build['protocolVersion'], 'compatibilitySha256': build['compatibilitySha256'],
+             'consensusRulesVersion': build['consensusRulesVersion'],
+             'consensusIdentity': pocol_identity.for_network(info, build)}
     return {**value, 'stateStore': True, 'node': config['name'], 'miner': config['minerAddress']}
 
 
 def bound(marker, expected):
-    """Whether the state marker binds this bundle's node (plan §4). A marker with a consensus identity matches on
-    BOUND, so a digest-only release starts on it. A 0.4.0 marker names only its build digest: it matches its own
-    release exactly, or a newer one only through a certified LEGACY_BUILDS entry for its chain and genesis."""
-    if not isinstance(marker, dict): return False
-    if 'consensusIdentity' in marker: return all(marker.get(k) == expected.get(k) for k in BOUND)
-    if marker == expected: return True
-    rules = pocol_identity.legacy_rules(marker.get('compatibilitySha256'), marker.get('chainId'), marker.get('genesisHash'))
-    return (rules is not None and rules == expected.get('consensusRulesVersion')
-            and all(marker.get(k) == expected.get(k) for k in BOUND if k != 'consensusIdentity'))
-
-
-def freeze_args(config, genesis_hash):
-    """V3-33: `freezeUserTxsAfter` of node.json (absent in older files: no freeze) as pocold's flag. It applies only to
-    the network it names (`freezeGenesisHash`): a bundle of another network with the field refuses to start, so a freeze
-    of the old chain never freezes the new one once its head reaches the old S."""
-    if 'freezeUserTxsAfter' not in config and 'freezeGenesisHash' not in config: return []
-    value = config.get('freezeUserTxsAfter')
-    if type(value) is not int or not 0 <= value < 2**64: raise ValueError('freezeUserTxsAfter is a block height')
-    named = config.get('freezeGenesisHash')
-    if not isinstance(named, str) or named.lower() != str(genesis_hash).lower():
-        raise ValueError('freezeUserTxsAfter was set for another network (freezeGenesisHash); remove both fields')
-    return ['--freeze-user-txs-after', str(value)]
+    """Whether the state marker binds this bundle's node (plan §4). The marker matches on BOUND, so a digest-only
+    release starts on it; a marker without a consensus identity is refused."""
+    if not isinstance(marker, dict) or 'consensusIdentity' not in marker: return False
+    return all(marker.get(k) == expected.get(k) for k in BOUND)
 
 
 @contextlib.contextmanager
@@ -179,8 +157,7 @@ def launch(bundle, data, key):
         marker = data / 'network-binding.json'
         if marker.exists():
             if not bound(read_json(marker), expected):
-                raise ValueError('State belongs to another network, consensus rules, node or key, '
-                                 'or to a PoCol 0.4.0 release this release is not certified to run')
+                raise ValueError('State belongs to another network, consensus rules, node or key')
         else:
             if set(p.name for p in data.iterdir()) - {'.operator.lock'}:
                 raise ValueError('Refusing unbound existing data')
@@ -193,7 +170,6 @@ def launch(bundle, data, key):
         # PR2b (VA-SPEC §1a.8-§1a.9): seeds and bootstrap addresses of a joining node; older node.json files have none.
         for seed in config.get('seeds', []): args += ['--seed', seed]
         for addr in config.get('bootstrap', []): args += ['--bootstrap', addr]
-        args += freeze_args(config, expected['genesisHash'])
         os.set_inheritable(handles[0], True)
         os.execv(args[0], args)
 

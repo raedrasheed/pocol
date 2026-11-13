@@ -44,9 +44,8 @@ jobs:
           cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml
           python deploy/standalone/test_launcher.py -v
           python deploy/standalone/test_upgrade.py -v
-          python -m unittest discover -s deploy/standalone -p test_prepare_nonce_upgrade.py -v
           python -m unittest discover -s deploy/rewards -v
-      - name: Test stopped seed migration, mainnet preflight and cutover tools, Studio gateway and faucet
+      - name: Test the caps-test feature gate, the network identity tool, Studio gateway and faucet
         if: runner.os == 'Linux'
         run: |
           set -euo pipefail
@@ -55,20 +54,9 @@ jobs:
             echo 'pocol-lp4-execution/caps-test alone must fail to compile' >&2; exit 1
           fi
           grep -F "enable caps-test through pocold's feature" "$RUNNER_TEMP/caps-only.log"
-          python3 -B -m unittest discover -s deploy/public-testnet -p test_nonce_upgrade.py -v
           python3 -B -m unittest discover -s deploy/mainnet -p 'test_*.py' -v
-          # The cutover on a local Mainnet-shaped network, 60+ blocks below the stopped head as in the runbook.
-          python3 -B deploy/mainnet/rehearse_cutover.py --local --work "$RUNNER_TEMP/pocol-rehearsal"
           python3 -B -m unittest discover -s deploy/studio -v
           python3 -B -m unittest discover -s deploy/faucet -v
-      - name: Keep the cutover rehearsal's node logs when it fails
-        if: failure() && runner.os == 'Linux'
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: cutover-rehearsal-logs-${{ github.event.pull_request.head.sha || github.sha }}
-          path: ${{ runner.temp }}/pocol-rehearsal/*.log
-          if-no-files-found: ignore
-          retention-days: 14
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -130,6 +118,8 @@ jobs:
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --features v3-preview --lib
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features v3-preview --lib
           cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --lib --test v3_scaffold --test v3_membership --test v3_fork_choice --test v3_execution --test cutover --test consensus_guard --test decoder_reference
+          # V3-PR-G: the reward gateway (deploy/rewards V3DevnetDifferential) against a v3 chain served over pocold's RPC.
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test v3_reward_gateway
           python3 -B -m unittest discover -s deploy/standalone -p test_release_package.py -v
       - name: Dependency-only preview must not compile
         run: |

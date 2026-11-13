@@ -2,7 +2,8 @@
 
 PoCol is experimental software. The public network is operator-designated **PoCol Mainnet**; that name is a
 deployment designation, not a statement of maturity. The engine reports its experimental admission scope,
-`specificationCompliant: false` and `publicLaunchReady: false`, and there has been no independent external
+`specificationCompliant: false` and `publicLaunchReady: false` (computed, with the `launchBlockers` that keep it
+false), and there has been no independent external
 security review (see [Current status and limits](README.md#current-status-and-limits)). Do not hold more value
 on it than you can afford to lose. Even so, we want to hear about every vulnerability, and we treat reports
 seriously.
@@ -103,5 +104,5 @@ file with its terms. Until then we credit reporters in the advisory, unless they
 ## Supported versions
 
 Only the latest release, and the `main` branch, receive security fixes. The public network runs experimental
-software: a fix can require a new release that every node operator installs, or a coordinated upgrade (see
-`deploy/standalone/RELEASE-UPGRADE.md`).
+software: a fix can require a new release that every node operator installs, or a coordinated upgrade of every
+node.

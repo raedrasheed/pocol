@@ -3511,7 +3511,10 @@ fn refused_by_the_floor(n:&mut pocold::node::Node,branch:&[Block],floor:u64){
         let at_safe=rpc_local_raw(&mut n,m,json!([who,"safe"]));assert!(at_safe.get("error").is_none()&&at_safe["result"].is_string(),"{m} at safe: {at_safe}");
         assert_eq!(at_safe["result"],rpc_local(&mut n,m,json!([who,"0x90"])),"{m} at safe = at height 144");
         assert_eq!(rpc_local_raw(&mut n,m,json!([who,"finalized"]))["error"]["code"],json!(-32017),"{m} at finalized: below the trie window");}
-    assert_eq!(fj["finalizedHash"],hex(&fin_hash[..]));assert!(fj["networkHashrateEst"].as_str().is_some_and(|x|x.parse::<u128>().unwrap()>0));
+    assert_eq!(fj["finalizedHash"],hex(&fin_hash[..]));
+    // One definition of the estimate (V3-30 S3, the HASHRATE_WINDOW canonical blocks), the same object as pocol_status.
+    assert!(fj["networkHashrateEst"]["hashesPerSecond"].as_u64().is_some_and(|x|x>0),"{}",fj["networkHashrateEst"]);
+    assert_eq!(fj["networkHashrateEst"],n.status_json()["networkHashrateEst"]);
     drop(n);assert_eq!(fin_file(&dir),format!("86 {}",hex(&fin_hash[..])),"a clean stop writes the floor");
     let mut r=reopen(&conf);assert_eq!(r.chain.finalized_h,86);refused_by_the_floor(&mut r,&theirs,86);drop(r);
     for d in [dir,dc]{let _=std::fs::remove_dir_all(&d);}

@@ -19,7 +19,12 @@ if args.platform=='Android':
     files={f'PoCol-Mainnet-{version}-{apk}':root/'prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk'}
     infos=list((root/'prototypes/pocold/target/aarch64-linux-android/release/build').glob('pocold-*/out/build-info.json'))
     assert infos and len({json.loads(f.read_text(encoding='utf-8'))['compatibilitySha256'] for f in infos})==1, 'ambiguous Android build identity'
-    (args.out/'build-info.json').write_bytes(infos[0].read_bytes())
+    # build.rs writes the raw build identity; readiness is computed at run time (V3-28 H1), which a host cannot do for
+    # the Android binary. Say so in the same keys the desktop build-info carries, never as a computed value.
+    android_info=json.loads(infos[0].read_text(encoding='utf-8'))
+    android_info['publicLaunchReady']=False
+    android_info['launchBlockers']=[{'id':'readiness-not-computed','detail':'this file is the Android build\'s raw identity; the computed readiness is in pocol_status on the device (pocold::readiness)'}]
+    (args.out/'build-info.json').write_text(json.dumps(android_info,separators=(',',':')),encoding='utf-8',newline='\n')
 else:
     suffix='.exe' if args.platform=='Windows' else ''
     files={n+suffix:root/'prototypes/pocold/target/release'/(n+suffix) for n in ['pocol','pocold','pocol-key','pocol-sign','pocol-site']}
@@ -49,7 +54,6 @@ if args.platform=='Linux':
         if asset.is_file(): files[asset.name]=asset
 for name,source in files.items(): shutil.copy2(source,args.out/name)
 shutil.copy2(root/'deploy/standalone/README.md',args.out/'README.md')
-shutil.copy2(root/'deploy/standalone/RELEASE-UPGRADE.md',args.out/'RELEASE-UPGRADE.md')
 shutil.copy2(root/'prototypes/third-party/evm-crypto/NOTICE.txt',args.out/'THIRD-PARTY-CRYPTO-NOTICES.txt')
 commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
 (args.out/'source-commit.txt').write_text(commit+'\n',encoding='utf-8',newline='\n')
