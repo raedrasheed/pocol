@@ -1082,6 +1082,10 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   (invalidate, punish, recordResult, settle, settleFinal), measured by tests/v3_contracts.rs
   `v3_sys_gas_and_caps_within_the_v3_envelope`, where it has one, the earn-in entry otherwise. The v3 domain
   also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual). V1, Continuous and EarnIn are unchanged.
+  V3-PR-E3 (V3-02) adds recordLate (3,458,000; the one v3-only call name, measured by the same test crediting
+  κm − 1 = 63 late shares to owners new to the template, the stranger path asserted as the maximum) and bounds the
+  v3 domain by κ·m ≤ 64 (`GAS_DOMAIN_V3_KAPPA_M`) as well; each evidence item is counted as the dearer of recordLate
+  and invalidate + punish (`phase_calls`).
 - **Open: v3 final phase (V3-PR-E2b).** The v3 gas runs are continuous (h_end 0) and never reach the final
   phase: finalize takes the earn-in entry with no v3 measurement, and settleFinal takes the measured v3 settle
   (the same settleOne) rather than a measured tomb-free v3 final block. A v3 final-phase measurement

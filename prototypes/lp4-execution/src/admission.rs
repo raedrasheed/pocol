@@ -16,7 +16,7 @@
 //!   `resources::tests::sys_gas_envelope_fixture`, or `GAS_ENVELOPE_EARNIN` (EarnIn) measured by
 //!   `sys_gas_envelope_fixture_earnin`, or for V3 `GAS_ENVELOPE_V3` (measured by tests/v3_contracts.rs)
 //!   over `GAS_ENVELOPE_EARNIN` (finalize: earn-in entry, no v3 measurement; recordLate: v3 only), composed into the worst call sequence of each phase class.
-//!   Applicable only inside `GAS_DOMAIN` (for V3 also P_MAX <= `GAS_DOMAIN_V3_P_MAX`); gas is assumed monotone in the domain fields (open
+//!   Applicable only inside `GAS_DOMAIN` (for V3 also P_MAX <= `GAS_DOMAIN_V3_P_MAX` and kappa*m <= `GAS_DOMAIN_V3_KAPPA_M`); gas is assumed monotone in the domain fields (open
 //!   derivation obligation, A13). Outside the domain the facts are absent.
 //! - timing (R14/R19): a `Timing` record measured on this machine for this exact profile
 //!   (`measure`). Absent or for another genesis: R14/R19 are violated.
