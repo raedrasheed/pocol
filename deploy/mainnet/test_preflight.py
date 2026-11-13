@@ -14,6 +14,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'public-testnet'))
 import pocol_identity  # noqa: E402
 
 
+H15000 = Path(__file__).parent / 'h15000/network.pocol.json'
+H15000_SPEC = json.loads(H15000.read_text())['files']['genesis.spec.hex']
+# A spec-2 (v3) GenesisSpec from the decoder corpus: the Rust reference gives it gsVersion in the release build and
+# accepts it in the v3-preview build (pocold/tests/decoder_reference.rs, the two verdict files).
+EXTENSION_DATA = Path(__file__).resolve().parents[2] / 'prototypes/pocol-extension/tests/data'
+SPEC_V2 = next(item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus.json').read_text())['items']
+               if item['label'] == 'devnet-v2/base')
+
+
 class PreflightTests(unittest.TestCase):
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory(); self.addCleanup(self.temporary.cleanup)
@@ -32,6 +41,8 @@ class PreflightTests(unittest.TestCase):
         for filename in preflight.REQUIRED_FILES - {'manifest.json'}:
             path = self.bundle / filename; path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text('public fixture')
+        # The published GenesisSpec of the network this fixture names (spec version 1).
+        (self.bundle / 'net/genesis.spec.hex').write_text(H15000_SPEC + '\n')
         self.write('node.json', self.node); self.write('net/devnet.json', self.network)
         self.write('build-info.json', self.build)
         self.manifest()
@@ -308,6 +319,41 @@ class PreflightTests(unittest.TestCase):
         for bad in ([], [[2, 0]], [[1, 1]], [[1, 0], [1, 5]], [[1, 0], [3, 5]], [[1, 0], [2, 0]],
                     [[1, 0], [2, 9], [3, 20]], [[1, 0]] * 17, [[1, 0], [2, 9], [2, 20]]):
             with self.subTest(bad=bad), self.assertRaises(preflight.PreflightError): preflight.forks(bad)
+
+    def test_a_release_seed_refuses_a_spec_2_genesis(self):
+        verdicts = {name: json.loads((EXTENSION_DATA / name).read_text())['devnet-v2/base']
+                    for name in ('decoder-verdicts.json', 'decoder-verdicts-preview.json')}
+        self.assertEqual(verdicts, {'decoder-verdicts.json': 'gsVersion:2', 'decoder-verdicts-preview.json': 'ok'})
+        self.assertEqual(preflight.SPEC_VERSION, 1)
+        self.assertEqual(preflight.spec_version(self.network, H15000_SPEC), 1)
+        self.assertEqual(preflight.spec_version({'specVersion': 1}, '0x' + H15000_SPEC[2:].upper() + '\n'), 1)
+        v3 = {**self.network, 'specVersion': 2, 'v3': True}
+        cases = [(v3, SPEC_V2, 'refuses a spec-2'), (self.network, SPEC_V2, 'differs from the network metadata'),
+                 (v3, H15000_SPEC, 'differs from the network metadata'),
+                 ({**self.network, 'specVersion': 2}, SPEC_V2, 'inconsistent'), ({**self.network, 'v3': True}, SPEC_V2, 'inconsistent'),
+                 ({**self.network, 'specVersion': 3, 'v3': True}, SPEC_V2, 'inconsistent'), ({**self.network, 'specVersion': True}, H15000_SPEC, 'inconsistent'),
+                 (self.network, 'public fixture', 'invalid public GenesisSpec'), (self.network, '0x', 'invalid public GenesisSpec'),
+                 (self.network, '01', 'invalid public GenesisSpec version'), (self.network, 'c0', 'invalid public GenesisSpec version'),
+                 (self.network, 'c3810102', 'invalid public GenesisSpec version'), (self.network, 'c180', 'invalid public GenesisSpec version')]
+        for network, spec, message in cases:
+            with self.subTest(network=network, spec=spec[:12]):
+                with self.assertRaisesRegex(preflight.PreflightError, message): preflight.spec_version(network, spec)
+        # The declaration rule mirrors pocol_identity.spec_version.
+        for network in ({}, {'specVersion': 1}, {'specVersion': 2, 'v3': True}, {'specVersion': 2}, {'v3': True}, {'specVersion': 0}):
+            try: reference = pocol_identity.spec_version(network)
+            except ValueError: reference = None
+            try: inline = preflight.spec_version(network, SPEC_V2 if network.get('specVersion') == 2 else H15000_SPEC)
+            except preflight.PreflightError as error: inline = 2 if 'refuses a spec-2' in str(error) else None
+            self.assertEqual(inline, reference, network)
+        # A bundle on a spec-2 genesis fails its stage, before any identity is reported; the H15000 bundle passes.
+        self.assertEqual(self.collect()['result'], 'PASS')
+        (self.bundle / 'net/genesis.spec.hex').write_text(SPEC_V2 + '\n'); self.write('net/devnet.json', v3); self.manifest()
+        result = self.collect()
+        self.assertEqual(result['result'], 'FAIL')
+        self.assertFalse(result['checks']['bundle'])
+        self.assertIn({'stage': 'bundle', 'reason': 'a release seed refuses a spec-2 (v3) genesis until activation'}, result['issues'])
+        self.write('net/devnet.json', self.network); self.manifest()
+        self.assertIn({'stage': 'bundle', 'reason': 'GenesisSpec version differs from the network metadata'}, self.collect()['issues'])
 
     def test_the_inline_consensus_id_equals_the_reference_implementation(self):
         cases = [(preflight.CHAIN_ID, preflight.GENESIS, 1, [[1, 0], [2, 150]]), (7, '0x' + '01' * 32, 2, [[1, 0]]),

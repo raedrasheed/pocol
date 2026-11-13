@@ -4436,10 +4436,41 @@ fn pr7_peer(n:&mut pocold::node::Node,port:u16)->(std::net::TcpStream,Vec<u8>){
         compatibility:support::hello_identity(spec),listen_port:0,nonce:0}.encode();
     let mut f=(hello.len() as u32).to_be_bytes().to_vec();f.extend(hello);s.write_all(&f).unwrap();let mut buf=Vec::new();frames_from(n,&mut s,&mut buf,800);(s,buf)
 }
-/// `m` sent by the peer on `s`; the blocks the node answers within `ms`.
-fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>,m:pocold::net::Msg,ms:u64)->Vec<Block>{
+/// How long a serving test waits at most for the node to act on a request. The waits below end as soon as the
+/// expected answer (or effect) is there, so this bounds a slow, loaded machine without slowing a fast one.
+const PR7_WAIT_MS:u64=30_000;
+fn pr7_send(s:&mut std::net::TcpStream,m:pocold::net::Msg){
     use std::io::Write;let b=m.encode();let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);s.write_all(&f).unwrap();
-    frames_from(n,s,buf,ms).into_iter().filter_map(|m|match m{pocold::net::Msg::Block{header,body}=>Some(Block{header:decode_header(&header).unwrap(),body:Body::decode(&body,1<<24).unwrap()}),_=>None}).collect()
+}
+/// Drives the node and collects the blocks it sends on `s` until `done(node, blocks)` holds or `ms` pass.
+fn pr7_pump(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>,ms:u64,mut done:impl FnMut(&pocold::node::Node,&[Block])->bool)->Vec<Block>{
+    use std::io::Read;let t=std::time::Instant::now();let mut got=Vec::new();let mut b=[0u8;65536];
+    while !done(n,&got)&&t.elapsed()<std::time::Duration::from_millis(ms){
+        n.drain_between_members();
+        match s.read(&mut b){Ok(0)=>break,Ok(k)=>buf.extend_from_slice(&b[..k]),Err(_)=>{}}
+        while buf.len()>=4{let len=u32::from_be_bytes(buf[..4].try_into().unwrap()) as usize;if buf.len()<4+len{break}
+            if let pocold::net::Msg::Block{header,body}=pocold::net::Msg::decode(&buf[4..4+len]).unwrap(){got.push(Block{header:decode_header(&header).unwrap(),body:Body::decode(&body,1<<24).unwrap()})}
+            buf.drain(..4+len);}
+    }
+    got
+}
+/// `m` sent by the peer on `s`; the blocks the node answers, once `want` of them arrived (at most PR7_WAIT_MS).
+fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>,m:pocold::net::Msg,want:usize)->Vec<Block>{
+    pr7_send(s,m);pr7_pump(n,s,buf,PR7_WAIT_MS,|_,g|g.len()>=want)
+}
+/// `m` sent by the peer on `s`, then pumped until `effect(node)` holds (at most PR7_WAIT_MS) and for `settle_ms`
+/// more, so a request answered with nothing is checked only once the node acted on it. The blocks it sent.
+fn pr7_ask_until(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>,m:pocold::net::Msg,mut effect:impl FnMut(&pocold::node::Node)->bool,settle_ms:u64)->Vec<Block>{
+    pr7_send(s,m);let mut got=pr7_pump(n,s,buf,PR7_WAIT_MS,|n,_|effect(n));assert!(effect(n),"the node did not act on the request within {PR7_WAIT_MS} ms");
+    got.extend(pr7_pump(n,s,buf,settle_ms,|_,_|false));got
+}
+/// The peer `j` asks `a` with GetFrom from its own locator, importing each answer, until it holds `a`'s head (at most
+/// `rounds` requests). An answer is complete once its last block is `a`'s head or 512 blocks arrived.
+fn pr7_sync(a:&mut pocold::node::Node,j:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>,rounds:usize,who:&str){
+    for _ in 0..rounds{if j.chain.head==a.chain.head{break}
+        let loc=j.locator(None);let head=a.chain.head;pr7_send(s,pocold::net::Msg::GetFrom{locator:loc,count:512});
+        let got=pr7_pump(a,s,buf,PR7_WAIT_MS,|_,g|g.len()>=512||g.last().map_or(false,|b|b.hash()==head));
+        for b in got{match j.import(b,None){Ok(_)|Err(Reject::Duplicate)=>{},Err(e)=>panic!("{who}: {e:?}")}}}
 }
 
 /// PR7 (T5, T22): a node that evicted its old history still serves it. Its locator is the one it gives with eviction
@@ -4457,20 +4488,21 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     let base=a.chain.canonical.base();assert!(base>100,"positive control: base {base}");
     assert_eq!(a.locator(None),r.locator(None),"the locator with eviction on and off");
     let (mut s,mut buf)=pr7_peer(&mut a,port);
-    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:1,count:100},1200);
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:1,count:100},100);
     assert_eq!(got.len(),100);for (x,b) in got.iter().zip(&blocks){assert_eq!((&x.header.encoded,x.body.encode()),(&b.header.encoded,b.body.encode()),"GetRange byte for byte");}
-    let rd=a.canon().reads();
-    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetBlock{hash:[0x5a;32]},300).is_empty());assert_eq!(a.canon().reads(),rd,"GetBlock reads no index row");
-    let junk:Vec<[u8;32]>=(0..32u8).map(|i|[i;32]).collect();
-    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:junk,count:512},300).is_empty());
-    assert_eq!(a.canon().reads()-rd,pocold::net::LOCATOR_MAX as u64,"GetFrom of unknown hashes reads one row each, at most LOCATOR_MAX");
-    let rd=a.canon().reads();assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},600).len(),20);assert_eq!(a.canon().reads()-rd,1,"one range read below the window");
+    // GetBlock of an unknown hash, then a GetFrom of 32 unknown hashes on the same connection, which the node handles
+    // in order: once the GetFrom's reads are counted the GetBlock was handled, so the total is what each read.
+    let rd=a.canon().reads();pr7_send(&mut s,pocold::net::Msg::GetBlock{hash:[0x5a;32]});
+    let junk:Vec<[u8;32]>=(0..32u8).map(|i|[i;32]).collect();let max=pocold::net::LOCATOR_MAX as u64;
+    assert!(pr7_ask_until(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:junk,count:512},|n|n.canon().reads()-rd>=max,300).is_empty(),"nothing is served for unknown hashes");
+    assert_eq!(a.canon().reads()-rd,max,"GetBlock reads no index row, and GetFrom of unknown hashes reads one row each, at most LOCATOR_MAX");
+    let rd=a.canon().reads();assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},20).len(),20);
+    pr7_pump(&mut a,&mut s,&mut buf,300,|_,_|false);assert_eq!(a.canon().reads()-rd,1,"one range read below the window");
     let g=a.chain.spec.genesis_hash();let lag:Vec<[u8;32]>=(50..=60usize).rev().map(|x|blocks[x-1].hash()).chain([g]).collect();
-    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:lag,count:5},600);
+    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:lag,count:5},5);
     assert_eq!(got.iter().map(|b|b.header.h).collect::<Vec<_>>(),(61..=65).collect::<Vec<_>>(),"a peer behind, below the window, is answered from its height");
     let mut j=reopen(&pr7_conf(&dj,pr7_limits(8,false,0,None)));
-    for _ in 0..10{let loc=j.locator(None);let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);if got.is_empty(){break}
-        for b in got{match j.import(b,None){Ok(_)|Err(Reject::Duplicate)=>{},Err(e)=>panic!("the joiner: {e:?}")}}}
+    pr7_sync(&mut a,&mut j,&mut s,&mut buf,10,"the joiner");
     assert_eq!(j.chain.head,a.chain.head,"the joiner syncs to the head from genesis");
     drop(s);drop(a);drop(r);drop(j);for d in [da,dr,dj]{let _=std::fs::remove_dir_all(&d);}
 }
@@ -4493,11 +4525,11 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     let loc=j.locator(None);
     assert!(loc.iter().take(12).all(|x|a.canon_height(x).unwrap().is_none()),"positive control: the locator's first 12 hashes are the peer's own fork");
     let (mut s,mut buf)=pr7_peer(&mut a,port);
-    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);
+    let head=a.chain.head;pr7_send(&mut s,pocold::net::Msg::GetFrom{locator:loc,count:512});
+    let got=pr7_pump(&mut a,&mut s,&mut buf,PR7_WAIT_MS,|_,g|g.len()>=512||g.last().map_or(false,|b|b.hash()==head));
     let first=got.first().map(|b|b.header.h).unwrap_or(0);
     assert!(first>1&&first<=fp as u64+1,"GetFrom answers from the first shared locator hash, at or below the fork point {fp}: from {first}");
-    for _ in 0..10{let loc=j.locator(None);let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetFrom{locator:loc,count:512},1500);if got.is_empty(){break}
-        for b in got{match j.import(b,None){Ok(_)|Err(Reject::Duplicate)=>{},Err(e)=>panic!("the peer: {e:?}")}}}
+    pr7_sync(&mut a,&mut j,&mut s,&mut buf,10,"the peer");
     assert_eq!(j.chain.head,a.chain.head,"the forked peer syncs to the server's head");
     drop(s);drop(a);drop(j);for d in [da,dj]{let _=std::fs::remove_dir_all(&d);}
 }
@@ -4515,13 +4547,14 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     for x in &blocks[..420]{a.import(x.clone(),None).unwrap();}let base=a.chain.canonical.base();assert!(base>30,"positive control: base {base}");
     let (mut s,mut buf)=pr7_peer(&mut a,port);let journal=da.join("blocks.journal");
     io_fault::arm_now(&journal,Op::Read);
-    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:20},600).is_empty(),"nothing is served past a failed journal read");
+    assert!(pr7_ask_until(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:20},|_|!io_fault::fired(&journal).is_empty(),300).is_empty(),"nothing is served past a failed journal read");
     assert_eq!(io_fault::fired(&journal).len(),1,"positive control: the journal read failed");
     assert!(!a.canon().is_damaged()&&!da.join(pocold::node::canon::DAMAGED).exists(),"the index is not marked damaged");
     for x in &blocks[420..]{a.import(x.clone(),None).expect("the next evictions put their rows");}
     assert!(a.chain.canonical.base()>base,"positive control: the window moved");
-    let got=pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:20},600);
     // (The imports' new heads are relayed to the peer too.)
+    pr7_send(&mut s,pocold::net::Msg::GetRange{start:2,count:20});
+    let got=pr7_pump(&mut a,&mut s,&mut buf,PR7_WAIT_MS,|_,g|g.iter().filter(|b|(2..22).contains(&b.header.h)).count()>=20);
     assert_eq!(got.iter().map(|b|b.header.h).filter(|h|*h<=420).collect::<Vec<_>>(),(2..22).collect::<Vec<_>>(),"served once the journal reads again");
     drop(s);drop(a);let _=std::fs::remove_dir_all(&da);
 }
@@ -4539,10 +4572,10 @@ fn pr7_ask(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec<u8>
     for x in &blocks{a.import(x.clone(),None).unwrap();}assert!(a.chain.canonical.base()>514,"positive control: base {}",a.chain.canonical.base());
     let (mut s,mut buf)=pr7_peer(&mut a,port);let journal=da.join("blocks.journal");
     let (rd,rows)=(a.canon().reads(),a.canon().rows_read());
-    assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},600).len(),20);
+    assert_eq!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:10,count:20},20).len(),20);pr7_pump(&mut a,&mut s,&mut buf,300,|_,_|false);
     assert_eq!((a.canon().reads()-rd,a.canon().rows_read()-rows),(1,20),"a range served whole: one index read, one row a block");
     io_fault::arm_now(&journal,Op::Read);let rows=a.canon().rows_read();
-    assert!(pr7_ask(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:512},600).is_empty());
+    assert!(pr7_ask_until(&mut a,&mut s,&mut buf,pocold::net::Msg::GetRange{start:2,count:512},|_|!io_fault::fired(&journal).is_empty(),300).is_empty());
     assert_eq!(io_fault::fired(&journal).len(),1,"positive control: the first block's journal read failed");
     assert_eq!(a.canon().rows_read()-rows,1,"a request stopped at its first block reads one row");
     drop(s);drop(a);let _=std::fs::remove_dir_all(&da);

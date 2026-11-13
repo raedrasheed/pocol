@@ -537,7 +537,9 @@ three terms: one up and two down. It also withdraws one projection.
     review: its candidates are pooled or parked ones only (a backlog one is only decoded: junk relayed during
     revalidation, unfunded or below its intrinsic gas, went first and failed each append build in turn, so the
     round added nothing and cost all eight builds), and an appended transaction the build refuses drops every
-    appended one after it, so the round costs at most two builds more whatever its candidates are.
+    appended one after it, so the round costs at most two builds more whatever its candidates are. Under v3
+    (D-V3-21 review) an appended one that halts in a successful append build is dropped the same way, so the round
+    costs at most three builds more (within TEMPLATE_BUILDS_MAX); spec-1 builds are unchanged.
 - **A13 (PR6).** G and `pool_gas` are unchanged. New rows: queues/pool sender and declared gas (POOL_MAX_TXS
   entries), queues/parked transactions' entries (POOL_PARKED_MAX; their bytes are inside POOL_MAX_BYTES; PR6
   review: PARKED_ENTRY_BYTES 160, with the nonce, the run and the cost; PR6 third review: and its arrival position
