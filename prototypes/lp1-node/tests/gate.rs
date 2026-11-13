@@ -432,3 +432,58 @@ fn exact_supply_calibration_and_timing_boundaries() {
         assert!(verdict(&q, NodeKind::Node).violations.contains(&"R24".into()));
     }
 }
+
+/// The network-synthetic profile on CP schema v2 (the v3 registry programs), with the given W_act, U and C_react, its
+/// genesis a specVersion-2 GenesisSpec. Release builds cannot decode that genesis (SPEC_VERSION 1), so the profile
+/// also violates the genesis rules there; the R8 premises below are evaluated from the CP either way.
+fn profile_v2(w_act: u32, u: u32, c_react: u32) -> GateProfile {
+    let mut p = profile(false);
+    p.cp.W_act = w_act;
+    p.cp.U = u;
+    let mut values = p.cp.to_values();
+    for f in &gs::CP_SCHEMA_V2[gs::CP_LEN..] {
+        values.push(U256::from_u64(match f.name {
+            "P_MAX" => 64,
+            "T_PROB" => 86_400,
+            "R_react" => 4,
+            "C_react" => c_react as u64,
+            _ => f.lo,
+        }));
+    }
+    p.cp = ConsensusParams::from_values(&values).unwrap();
+    assert_eq!((p.cp.schema_version(), p.cp.C_react), (2, c_react));
+    let mut s = gs::decode(&p.genesis_pre).unwrap();
+    s.spec_version = 2;
+    s.cp = p.cp.to_values();
+    p.genesis_pre = gs::encode(&s);
+    p.genesis_hash = gs::genesis_hash(&p.genesis_pre);
+    p
+}
+
+/// V3-09 (V3-DECISIONS.md D-V3-09): on CP schema v2, R8 also requires U >= W_act + 2 (the reactivation window before
+/// the refund sweep holds at least two blocks) and C_react >= U. CP schema v1 profiles keep their R8 unchanged.
+#[test]
+fn r8_v3_registry_window_and_cooldown() {
+    let base = profile(false);
+    let (w, u) = (base.cp.W_act, base.cp.U);
+    assert!(u >= w + 2 && !verdict(&base, NodeKind::Node).violations.contains(&"R8".to_string()), "fixture W_act {w} U {u}");
+    // Without facts: R8 depends on the CP and local parameters alone (the facts of a spec-2 genesis cannot be built
+    // where it does not decode).
+    let r8 = |p: &GateProfile| check(p, None, None, None, NodeKind::Node).violations.contains(&"R8".to_string());
+    // Boundaries on CP schema v2.
+    for (w_act, c_react, bad) in [(u - 2, u, false), (u - 1, u, true), (u, u, true), (u - 2, u - 1, true), (u - 2, u + 1000, false), (0, u, false)] {
+        let p = profile_v2(w_act, u, c_react);
+        assert_eq!(r8(&p), bad, "W_act {w_act} U {u} C_react {c_react}");
+        assert_eq!(v3_registry_window_violated(&p.cp), bad);
+    }
+    // The same W_act on CP schema v1 is not an R8 matter (no C_react, earn-in programs).
+    let mut p = profile(false);
+    p.cp.W_act = u;
+    refresh(&mut p);
+    assert!(!r8(&p), "a CP schema v1 profile keeps its R8");
+    assert!(!v3_registry_window_violated(&p.cp));
+    // A violation of the original R8 terms is still R8 on schema v2.
+    let mut p = profile_v2(u - 2, u, u);
+    p.cp.D = 1;
+    assert!(r8(&p));
+}

@@ -102,14 +102,23 @@ function Get-CargoTotals([string]$Text) {
 
 # Echoes a failed cargo run's failure lines (failing tests, panics, the failures summary) to the job log,
 # so a failure can be diagnosed without downloading the evidence artifact. At most 300 lines.
-function Show-CargoFailures([string]$Check, [string]$Text) {
+# On a timeout it also echoes each test binary's start and result line and the last 40 output lines,
+# which show the binary (and the test) that was still running when the run was stopped.
+function Show-CargoFailures([string]$Check, [string]$Text, [bool]$TimedOut = $false) {
     $out = New-Object System.Collections.Generic.List[string]
     $inFailures = $false
-    foreach ($l in ($Text -split "`r?`n")) {
+    $lines = $Text -split "`r?`n"
+    foreach ($l in $lines) {
         if ($l -match '^failures:\s*$') { $inFailures = $true }
         elseif ($l -match '^test result:') { $inFailures = $false }
         if ($inFailures -or $l -match '^test .* \.\.\. FAILED' -or $l -match 'panicked at' -or $l -match '^error(\[|:)' -or $l -match '^---- .* ----$') { $out.Add($l) }
         if ($out.Count -ge 300) { $out.Add('(truncated; see the evidence artifact)'); break }
+    }
+    if ($TimedOut) {
+        $out.Add('--- timed out: test binaries started and finished ---')
+        foreach ($l in $lines) { if ($l -match '^\s*Running ' -or $l -match '^test result:') { $out.Add($l) } }
+        $out.Add('--- timed out: last 40 output lines ---')
+        foreach ($l in ($lines | Select-Object -Last 40)) { $out.Add($l) }
     }
     Write-Host ('::group::{0} failure lines' -f $Check)
     foreach ($l in $out) { Write-Host $l }
@@ -134,7 +143,7 @@ function Test-Cargo([string]$Check, [string]$Crate, [string]$Toolchain, [string[
     elseif ($r.ExitCode -eq 0 -and $t.Passed -gt 0) { Add-Check $Check $r 'PASS' $detail }
     elseif ($r.ExitCode -eq 0) { Add-Check $Check $r 'FAIL' ('exit 0 but no test ran; ' + $detail) }
     else { Add-Check $Check $r 'FAIL' ("exit $($r.ExitCode); " + $detail) }
-    if ($r.TimedOut -or $r.ExitCode -ne 0) { Show-CargoFailures $Check $r.Text }
+    if ($r.TimedOut -or $r.ExitCode -ne 0) { Show-CargoFailures $Check $r.Text $r.TimedOut }
     return $r
 }
 function Test-Program([string]$Check, [string]$Crate, [string]$Program, [string[]]$ArgList, [hashtable]$Env, [int]$TimeoutMinutes = 30) {
@@ -197,8 +206,9 @@ if (@('all', 'pocold') -contains $Group) {
 [void](Test-Cargo 'pocold' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 120)
 }
 # Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store and consensus.
+# This group takes about 70 minutes on a hosted runner; 120 minutes leaves room for a slow runner inside the 150-minute job.
 if (@('all', 'pocold-io-fault') -contains $Group) {
-[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory') 90)
+[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory') 120)
 }
 if ($NeedsExtension) {
 $npm = $(if ($NodeDir) { Join-Path $NodeDir 'npm.cmd' } else { 'npm' }); $node = $(if ($NodeDir) { Join-Path $NodeDir 'node.exe' } else { 'node' })

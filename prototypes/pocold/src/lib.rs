@@ -217,9 +217,9 @@ pub const CALIBRATION_STORE:&str="calibration.store";
 /// measured on the path that node runs: the calibration blocks are also applied through a scratch state store in
 /// `store_data` (each block's nodes committed and fsynced to its state.redb, on the node's own disk), and each phase
 /// class takes the larger of the two paths' per-block costs: execution median, plus each block's durable commit on the
-/// store path, the calibration's single largest commit counted at the median commit. The measured times are in a timing
-/// refusal and kept with the admission (`Admitted::timing`, printed by `run`). A timing refusal is measured once more
-/// before boot fails. The scratch store is removed before the node opens.
+/// store path, the calibration's largest max(1, n/4) of n commits counted at the median commit. The measured times are
+/// in a timing refusal and kept with the admission (`Admitted::timing`, printed by `run`). A timing refusal is measured
+/// once more before boot fails. The scratch store is removed before the node opens.
 pub fn load_spec_for(dir:&std::path::Path,local:&NodeLocal,store_data:Option<&std::path::Path>)->Result<chain::Spec,String>{
     load_spec_calibrated(dir,local,|bytes,alloc|{
         let mem=admission::measure(bytes,alloc,3)?;

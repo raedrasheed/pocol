@@ -65,6 +65,9 @@ impl Spec{
         apply::SystemPrograms::program_set(self.cp(),&self.profile().spec().sys_code_hash)
     }
     pub fn earnin_rules(&self)->bool{matches!(self.programs(),ProgramSet::EarnIn|ProgramSet::V3)}
+    /// The probation pool the genesis programs enforce (V3-14): the earn-in constants on the earn-in set, CP
+    /// schema v2 P_MAX/T_PROB on the v3 set, none otherwise. Read-only (wallet quotes and displays).
+    pub fn probation(&self)->Option<apply::Probation>{self.programs().probation(self.cp())}
     pub fn v3_active(&self,h:u64)->bool{self.profile().v3_active(h)}
     pub fn base_fee_floor(&self,h:u64)->U256{if self.v3_active(h){from_fixed_lp4(&self.cp().baseFeeMin)}else{U256::ZERO}}
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}

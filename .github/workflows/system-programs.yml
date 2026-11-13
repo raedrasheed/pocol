@@ -1,0 +1,75 @@
+name: System programs reproduction
+# V3-PR-E0: every committed system program set (system-{v1,continuous,earnin,v3}.json) is rebuilt from source
+# with the locked solc 0.8.28 and must match byte for byte; the earn-in and v3 contract and chain suites run on
+# main (lp4-execution/tests/{earnin,v3}_contracts.rs, pocold/tests/{earnin,v3_earnin}.rs). V3-PR-E1 adds the
+# registry-budget model (lp4-execution/tests/v3_model.py), its seven planted mutants (in the mutant fixture) and
+# the CP schema v2 ParamGate R8 premises (lp1-node/tests/gate.rs).
+on:
+  pull_request:
+    branches: [main]
+    paths: ['prototypes/**', '.github/workflows/system-programs.yml']
+  push:
+    branches: [main]
+    paths: ['prototypes/**', '.github/workflows/system-programs.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Install the locked compiler (solc 0.8.28, tools/package-lock.json)
+        run: |
+          set -euo pipefail
+          npm ci --prefix prototypes/lp4-execution/tools --ignore-scripts --no-audit --no-fund
+          # The soljson recorded by the compiler comparison (development/security-dependency-followup-2026-11-05).
+          echo '9ef37cc1d2597ed6d2f706a960f449e33eb9eee920936cea77b11e6f43861970  prototypes/lp4-execution/tools/node_modules/solc/soljson.js' | sha256sum -c -
+      - name: Recompile all four system program sets and compare byte for byte
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/system-programs"
+          mkdir -p "$out"
+          export NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules"
+          t=prototypes/lp4-execution/tests
+          node "$t/compile_system_v1.cjs" "$out/system-v1.json"
+          node "$t/compile_system_v1.cjs" "$out/system-continuous.json" --continuous
+          node "$t/compile_system_earnin.cjs" "$out/system-earnin.json"
+          node "$t/compile_system_v3.cjs" "$out/system-v3.json"
+          node "$t/compile_system_v3.cjs" --mutants "$out/system-v3-mutants.json"
+          for set in v1 continuous earnin v3; do
+            cmp "$t/data/system-$set.json" "$out/system-$set.json"
+          done
+          cmp "$t/v3/system-v3-mutants.json" "$out/system-v3-mutants.json"
+          # Every runtime stays EIP-170-sized for tooling (V3 roadmap risk 10).
+          node -e 'for (const f of process.argv.slice(1)) for (const p of require(f).programs) { const n = (p.runtime.length - 2) / 2; console.log(f.split("/").pop(), p.name, n); if (n > 24576) { console.error(`${p.name} in ${f} is ${n} bytes, above 24576`); process.exit(1); } }' \
+            "$PWD/$t/data/system-v1.json" "$PWD/$t/data/system-continuous.json" "$PWD/$t/data/system-earnin.json" "$PWD/$t/data/system-v3.json"
+          # The independent models the contract tests replay (v3_model.py: V3-08/V3-09 registry budgets).
+          python3 -B "$t/earnin_model.py"
+          python3 -B "$t/v3_model_vectors.py"
+          python3 -B "$t/v3_model.py"
+      - name: Earn-in and v3 contract and chain tests
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test earnin_contracts --test v3_contracts
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test earnin --test v3_earnin
+      - name: Earn-in and v3 contract and chain tests (v3-preview, spec-2 genesis)
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features v3-preview --test earnin_contracts --test v3_contracts
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test earnin --test v3_earnin
+      - name: ParamGate v3 registry premises (R8 on CP schema v2)
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --test gate
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --features v3-preview --test gate

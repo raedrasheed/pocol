@@ -41,6 +41,35 @@ class Operations(unittest.TestCase):
         with self.assertRaises(ValueError): prepare.validate_inventory(single, True, True)
         single['nodes'][0]['seeds'] = ['127.0.0.8:30300']; prepare.validate_inventory(single, True, True)
 
+    def test_freeze_setting_is_an_optional_node_height_bound_to_its_network(self):
+        # V3-33: an inventory node may carry freezeUserTxsAfter with freezeGenesisHash, the network it is for; node.json
+        # passes it to pocold, older files have none. A bundle of another network (the new one after the re-genesis,
+        # built from the same inventory) is refused by prepare and by the operator, so it never freezes the new chain.
+        old, new = '0x' + 'ab' * 32, '0x' + 'cd' * 32
+        good = inventory(); good['nodes'][0].update(freezeUserTxsAfter=15000, freezeGenesisHash=old)
+        self.assertEqual(prepare.validate_inventory(copy.deepcopy(good), True), good)
+        for value in [-1, '15000', True, 1.5, None, 2**64]:
+            bad = copy.deepcopy(good); bad['nodes'][0]['freezeUserTxsAfter'] = value
+            with self.assertRaises(ValueError, msg=repr(value)): prepare.validate_inventory(bad, True)
+        for named in [None, '', 'ab' * 32, '0x' + 'ab' * 31, 5]:
+            bad = copy.deepcopy(good); bad['nodes'][0]['freezeGenesisHash'] = named
+            with self.assertRaises(ValueError, msg=repr(named)): prepare.validate_inventory(bad, True)
+        for field in ['freezeUserTxsAfter', 'freezeGenesisHash']:
+            bad = copy.deepcopy(good); del bad['nodes'][0][field]
+            with self.assertRaises(ValueError, msg=field): prepare.validate_inventory(bad, True)
+        self.assertEqual(prepare.freeze_config(good['nodes'][0], old.upper().replace('0X', '0x')),
+                         {'freezeUserTxsAfter': 15000, 'freezeGenesisHash': old})
+        self.assertEqual(prepare.freeze_config(good['nodes'][1], new), {})
+        with self.assertRaisesRegex(ValueError, 'another network'): prepare.freeze_config(good['nodes'][0], new)
+        self.assertEqual(op.freeze_args({'name': 'n0'}, new), [])
+        self.assertEqual(op.freeze_args({'freezeUserTxsAfter': 0, 'freezeGenesisHash': old}, old), ['--freeze-user-txs-after', '0'])
+        self.assertEqual(op.freeze_args({'freezeUserTxsAfter': 15000, 'freezeGenesisHash': old}, old.upper().replace('0X', '0x')),
+                         ['--freeze-user-txs-after', '15000'])
+        with self.assertRaisesRegex(ValueError, 'another network'): op.freeze_args({'freezeUserTxsAfter': 15000, 'freezeGenesisHash': old}, new)
+        for config in [{'freezeUserTxsAfter': 7}, {'freezeGenesisHash': old}, {'freezeUserTxsAfter': -1, 'freezeGenesisHash': old},
+                       {'freezeUserTxsAfter': '7', 'freezeGenesisHash': old}, {'freezeUserTxsAfter': False, 'freezeGenesisHash': old}]:
+            with self.assertRaises(ValueError, msg=repr(config)): op.freeze_args(config, old)
+
     def test_checksums_reject_links_extras_and_traversal(self):
         d = self.root / 'files'; d.mkdir(); (d / 'file').write_bytes(b'public')
         hashes = {'file': op.digest(d / 'file')}; op.verify_files(d, hashes, set())
