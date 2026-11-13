@@ -58,7 +58,7 @@ fn unhex_rejects_multibyte_without_panic() {
 fn invitation_import_rejects_nonascii_genesis_spec() {
     let n = devnet();
     let dir = tmp("invite");
-    // A well-formed invitation/boot directory (as init-devnet / cutover writes it).
+    // A well-formed invitation/boot directory (as init-devnet / init-testnet writes it).
     std::fs::write(dir.join("genesis.spec.hex"), pocold::types::hex(&n.spec_bytes)).unwrap();
     std::fs::write(dir.join("alloc.json"), serde_json::to_string(&devnet::alloc_to_json(&n.alloc)).unwrap()).unwrap();
     std::fs::write(dir.join("devnet.json"), serde_json::json!({"calibration":{"hashesPerSecond":n.hash_rate}}).to_string()).unwrap();

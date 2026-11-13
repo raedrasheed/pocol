@@ -1,6 +1,6 @@
 //! The command line's exit status. A command this build does not have, or no command, fails
 //! with status 2 and the usage on stderr, so a script cannot take a command that never ran for
-//! success (for example `cutover` given to a release without it). `help`, `--help` and `-h` print
+//! success (for example `cutover`, which this build no longer has). `help`, `--help` and `-h` print
 //! the usage on stdout with status 0. Every command the usage lists runs; its own errors exit 1.
 use std::path::PathBuf;
 use std::process::{Command,Output};
@@ -16,7 +16,8 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
     std::fs::create_dir_all(&net).unwrap();std::fs::create_dir_all(&data).unwrap();std::fs::write(&config,"{}").unwrap();
     let path=|p:&PathBuf|p.to_str().unwrap().to_string();
     let rest=["--network".to_string(),path(&net),"--data".into(),path(&data),"--height".into(),"5".into(),"--config".into(),path(&config),"--out".into(),path(&out)];
-    for cmd in ["cutovr","Cutover","CUTOVER","cut-over","run2","stat","init","build_info","version","--version","-V","--network","-x","HELP","-help","--h",""," run","run ","تشغيل"]{
+    // cutover, export-chain and verify-export were removed with the old network (fresh-network phase 2a).
+    for cmd in ["cutover","export-chain","verify-export","cutovr","Cutover","CUTOVER","cut-over","run2","stat","init","build_info","version","--version","-V","--network","-x","HELP","-help","--h",""," run","run ","تشغيل"]{
         for extra in [&[][..],&rest[..]]{
             let mut a=vec![cmd];a.extend(extra.iter().map(|s|s.as_str()));
             let o=pocold(&a);let err=text(&o.stderr);
@@ -53,7 +54,7 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
     let usage=text(&pocold(&["help"]).stdout);
     let mut listed:Vec<&str>=usage.lines().filter_map(|l|l.strip_prefix("  pocold ")).map(|l|l.split_whitespace().next().unwrap()).collect();
     listed.sort();
-    assert_eq!(listed,["build-info","cutover","export-chain","help","init-devnet","init-testnet","run","status","verify-export"],"{usage}");
+    assert_eq!(listed,["build-info","help","init-devnet","init-testnet","run","status"],"{usage}");
     for cmd in listed{
         let o=pocold(&[cmd]);let err=text(&o.stderr);
         match cmd{
@@ -337,80 +338,6 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
         (&["--evict-depth","4370","--state-store"],None,"evict depth 4370 is below the store-mode anchor reach")].into_iter().enumerate(){
         let (code,err)=run(i,flags,env);
         assert_eq!(code,Some(1),"FAIL-ON-ORIGINAL: run {flags:?} {env:?}: {err}");assert!(err.contains(want),"run {flags:?} {env:?}: {err}");
-    }
-    let _=std::fs::remove_dir_all(&d);
-}
-
-/// V3-33: the freeze switch comes from `--freeze-user-txs-after S|off`, or POCOL_FREEZE_USER_TXS_AFTER for `run` when the
-/// flag is absent; status reports it (and nothing without it); a value that is not a height or `off` fails the command.
-/// A running node with an active freeze answers eth_sendRawTransaction with -32016 {reason: frozen}, before decoding.
-#[test] fn the_user_transaction_freeze_comes_from_the_flag_or_the_environment_and_is_reported(){
-    use std::process::Stdio;
-    let d=tmp("freeze");let net=d.join("net");
-    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
-    let status=|i:usize,flags:&[&str]|->Output{let data=d.join(format!("s{i}"));
-        Command::new(env!("CARGO_BIN_EXE_pocold")).args([&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap()][..],flags].concat()).output().unwrap()};
-    let o=status(0,&[]);assert!(o.status.success(),"{}",text(&o.stderr));
-    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();assert!(v.get("userTxFreeze").is_none(),"off: no field");
-    let o=status(1,&["--freeze-user-txs-after","5"]);assert!(o.status.success(),"{}",text(&o.stderr));
-    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
-    assert_eq!(v["userTxFreeze"],serde_json::json!({"freezeUserTxsAfter":5,"active":false,"refused":0,"relayDropped":0}));
-    let o=status(2,&["--freeze-user-txs-after","off"]);assert!(o.status.success());
-    assert!(serde_json::from_slice::<serde_json::Value>(&o.stdout).unwrap().get("userTxFreeze").is_none());
-    for bad in ["x","-1","0x5",""]{let o=status(3,&["--freeze-user-txs-after",bad]);
-        assert_eq!(o.status.code(),Some(1),"{bad}");assert!(text(&o.stderr).contains(&format!("--freeze-user-txs-after {bad}:")),"{bad}: {}",text(&o.stderr));}
-    // run: the flag, else the variable; a bad variable fails before the network starts.
-    let hold=||{let held=[std::net::TcpListener::bind("127.0.0.1:0").unwrap(),std::net::TcpListener::bind("127.0.0.1:0").unwrap()];let a=held.each_ref().map(|l|l.local_addr().unwrap());(held,a)};
-    let run=|i:usize,flags:&[&str],env:Option<&str>|{let data=d.join(format!("r{i}"));let (held,[p2p,rpc])=hold();
-        let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));
-        c.args([&["run","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap(),"--listen",&p2p.to_string(),"--rpc",&rpc.to_string(),"--no-discovery"][..],flags].concat());
-        match env{Some(v)=>{c.env("POCOL_FREEZE_USER_TXS_AFTER",v);}None=>{c.env_remove("POCOL_FREEZE_USER_TXS_AFTER");}}
-        drop(held);(c.stdout(Stdio::null()).stderr(Stdio::piped()).spawn().unwrap(),rpc)};
-    let ready=|c:&mut std::process::Child,rpc|->serde_json::Value{let t=std::time::Instant::now();
-        loop{if let Some(s)=c.try_wait().unwrap(){panic!("run exited early with {s}")}
-            if let Some(v)=rpc_status(rpc){return v}
-            assert!(t.elapsed()<std::time::Duration::from_secs(60),"not ready within 60 s");std::thread::sleep(std::time::Duration::from_millis(50));}};
-    let (c,_)=run(0,&[],Some("x"));let o=c.wait_with_output().unwrap();
-    assert_eq!(o.status.code(),Some(1));assert!(text(&o.stderr).contains("POCOL_FREEZE_USER_TXS_AFTER x:"),"{}",text(&o.stderr));
-    let (mut c,rpc)=run(1,&[],Some("7"));let v=ready(&mut c,rpc);let _=c.kill();let _=c.wait();
-    assert_eq!(v["userTxFreeze"]["freezeUserTxsAfter"],7,"from the variable: {v}");
-    let (mut c,rpc)=run(2,&["--freeze-user-txs-after","0"],Some("7"));let v=ready(&mut c,rpc);
-    assert_eq!((v["userTxFreeze"]["freezeUserTxsAfter"].as_u64(),v["userTxFreeze"]["active"].as_bool()),(Some(0),Some(true)),"the flag wins, active at genesis: {v}");
-    let body=r#"{"jsonrpc":"2.0","id":1,"method":"eth_sendRawTransaction","params":["0x02"]}"#;
-    let r={use std::io::{Read,Write};let mut s=std::net::TcpStream::connect(rpc).unwrap();s.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap();
-        s.write_all(format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes()).unwrap();
-        let mut out=String::new();let _=s.read_to_string(&mut out);serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1).unwrap()).unwrap()};
-    assert_eq!(r["error"]["code"],-32016,"{r}");assert_eq!(r["error"]["data"]["reason"],"frozen","{r}");assert_eq!(r["error"]["data"]["freezeUserTxsAfter"],0,"{r}");
-    let _=c.kill();let _=c.wait();
-    let _=std::fs::remove_dir_all(&d);
-}
-/// V3-33: export-chain and verify-export refuse bad inputs with status 1 and write nothing.
-#[test] fn export_chain_and_verify_export_refuse_bad_inputs(){
-    let d=tmp("export");let net=d.join("net");let out=d.join("out");
-    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
-    let (n,data,o_)=(net.to_str().unwrap(),d.join("data"),out.to_str().unwrap());let data=data.to_str().unwrap();
-    for (args,want) in [(vec!["export-chain","--network",n,"--data",data,"--out",o_],"--to-height H"),
-        (vec!["export-chain","--network",n,"--data",data,"--to-height","x","--out",o_],"--to-height:"),
-        (vec!["export-chain","--network",n,"--data",data,"--to-height","1"],"--out NEW_DIR"),
-        (vec!["export-chain","--network",n,"--data",data,"--to-height","0","--out",o_],"at least 1"),
-        (vec!["export-chain","--network",n,"--data",data,"--to-height","1","--out",o_],"above the head 0"),
-        (vec!["export-chain","--network",d.join("none").to_str().unwrap(),"--data",data,"--to-height","1","--out",o_],"genesis"),
-        (vec!["verify-export"],"--dir EXPORT_DIR"),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap()],"manifest.json"),
-        // Review finding 3: a pin that is missing its value, misspelt, in `=` form, repeated or malformed is refused,
-        // never silently skipped (each would otherwise print verified output with no digest checked).
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256"],"--manifest-sha256 needs a value"),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256","--network",n],"--manifest-sha256 needs a value"),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256=00"],"unknown argument \"--manifest-sha256=00\""),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha","00"],"unknown argument \"--manifest-sha\""),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"extra"],"unknown argument \"extra\""),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--head-hash"],"--head-hash needs a value"),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--head-hash","00","--head-hash","00"],"--head-hash is given twice"),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256","00"],"--manifest-sha256 must be 64 hex digits"),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--head-hash","0x12"],"--head-hash must be 64 hex digits")]{
-        let o=pocold(&args);let err=text(&o.stderr);
-        assert_eq!(o.status.code(),Some(1),"{args:?}: {err}");assert!(err.starts_with("error: ")&&err.contains(want),"{args:?}: {err}");
-        assert!(!out.exists(),"{args:?} wrote nothing");
     }
     let _=std::fs::remove_dir_all(&d);
 }

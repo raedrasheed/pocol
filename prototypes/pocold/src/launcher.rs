@@ -963,8 +963,6 @@ impl Home {
         }
         let (peers, seeds, is_seed) = invitation.launch_peers(listen, peers);
         let bootstrap = invitation.bootstrap().to_vec();
-        let (freeze, not_applied) = self.effective_user_tx_freeze()?;
-        if let Some(note) = not_applied { eprintln!("{note}"); }
         let cfg = node::Config {
             dir: data,
             name: "pocol".into(),
@@ -991,8 +989,6 @@ impl Home {
                 // the invitation's seeds and bootstrap addresses.
                 discovery: { let mut d = node::Discovery::default(); d.env(false, false)?; d.outbound_env(false)?;
                     d.seeds = seeds; d.is_seed = is_seed; d.bootstrap = bootstrap; d.seeds_retired = invitation.seeds_retired(); d },
-                // V3-33: the home's saved freeze for this network (`pocol freeze-user-txs`), or POCOL_FREEZE_USER_TXS_AFTER.
-                freeze_user_txs_after: freeze,
                 ..Default::default()
             },
         };
@@ -1002,158 +998,6 @@ impl Home {
         node.run_controlled(|n| stop(n));
         node.checkpoint_now()?;
         Ok(())
-    }
-}
-
-/// V3-33 re-genesis conduct (O-33=b): the home's saved freeze setting (`Home::set_user_tx_freeze`), which `pocol start`
-/// (and the Android service, which runs the same `run_mode`) passes to its node as `node::Limits::freeze_user_txs_after`.
-/// The setting names the network it was saved on (the chain ID and genesis hash that the home's genesis.spec.hex
-/// commits to), and applies only to that network: a home that keeps its key and moves to a new network after the
-/// re-genesis must not freeze the new chain once its head reaches the old S.
-pub const FREEZE_FILE: &str = "freeze-user-txs.json";
-pub const FREEZE_SCHEMA: &str = "pocol-freeze-user-txs-v1";
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct FreezeFile { schema: String, pub freeze_user_txs_after: u64, pub chain_id: u64, pub genesis_hash: String }
-impl Home {
-    /// The chain ID and genesis hash of the network this home is bound to (computed from its saved invitation's
-    /// genesis.spec.hex, not the declared metadata), or None when it is bound to none yet.
-    fn bound_network(&self) -> Result<Option<(u64, String)>, String> {
-        let binding = self.path.join("network.pocol.json");
-        if fs::symlink_metadata(&binding).is_err() { return Ok(None) }
-        real_file(&binding)?;
-        Invitation::parse_saved(&read_bounded(&binding)?)?.computed_network().map(Some)
-    }
-    /// The saved freeze file, whatever network it names, or None when the home has none. A file that is not exactly
-    /// this schema, or not a regular file, is an error (the node does not start on a setting it cannot read).
-    pub fn saved_user_tx_freeze(&self) -> Result<Option<FreezeFile>, String> {
-        let path = self.path.join(FREEZE_FILE);
-        if fs::symlink_metadata(&path).is_err() { return Ok(None) }
-        real_file(&path)?;
-        let f: FreezeFile = serde_json::from_slice(&read_bounded(&path)?).map_err(|_| format!("invalid {FREEZE_FILE}"))?;
-        if f.schema != FREEZE_SCHEMA { return Err(format!("invalid {FREEZE_FILE}")) }
-        Ok(Some(f))
-    }
-    /// The saved freeze height S for the network this home is bound to now. A setting saved on another network
-    /// (the old chain, after the home moved to the new one) is not applied: None, with the reason as the second value.
-    pub fn user_tx_freeze(&self) -> Result<(Option<u64>, Option<String>), String> {
-        let Some(f) = self.saved_user_tx_freeze()? else { return Ok((None, None)) };
-        match self.bound_network()? {
-            Some((chain_id, genesis)) if chain_id == f.chain_id && genesis.eq_ignore_ascii_case(&f.genesis_hash) => Ok((Some(f.freeze_user_txs_after), None)),
-            bound => Ok((None, Some(format!("{FREEZE_FILE} was saved for chain {} genesis {}, and this home is bound to {}: not applied; `pocol freeze-user-txs --after off` removes it",
-                f.chain_id, f.genesis_hash, bound.map_or("no network".into(), |(c, g)| format!("chain {c} genesis {g}")))))),
-        }
-    }
-    /// The freeze `pocol start` uses: POCOL_FREEZE_USER_TXS_AFTER when it is set (a height, or `off`; an empty value counts
-    /// as unset), as a variable wins for the other launcher settings, else the saved one for this home's network.
-    /// The variable names no network: it applies to whatever network the home runs, so unset it after the re-genesis.
-    pub fn effective_user_tx_freeze(&self) -> Result<(Option<u64>, Option<String>), String> {
-        match std::env::var("POCOL_FREEZE_USER_TXS_AFTER").ok().filter(|v| !v.trim().is_empty()) {
-            Some(v) => Ok((node::parse_freeze(&v).map_err(|_| "Invalid POCOL_FREEZE_USER_TXS_AFTER")?, None)),
-            None => self.user_tx_freeze(),
-        }
-    }
-    /// Saves (Some) or removes (None) the freeze setting, atomically (temporary file, rename, directory sync), for the
-    /// network the home is bound to now (a home bound to none is refused). It takes effect at the next start.
-    /// Returns the setting as JSON.
-    pub fn set_user_tx_freeze(&self, after: Option<u64>) -> Result<String, String> {
-        let path = self.path.join(FREEZE_FILE);
-        let mut network = None;
-        match after {
-            Some(s) => {
-                let (chain_id, genesis_hash) = self.bound_network()?.ok_or("this home is bound to no network yet: run `pocol start --network FILE` first, then set the freeze")?;
-                network = Some(serde_json::json!({"chainId": chain_id, "genesisHash": genesis_hash}));
-                let temp = self.path.join(format!("{FREEZE_FILE}.tmp"));
-                if fs::symlink_metadata(&temp).is_ok() { real_file(&temp)?; fs::remove_file(&temp).map_err(|e| e.to_string())?; }
-                let bytes = serde_json::to_vec_pretty(&FreezeFile { schema: FREEZE_SCHEMA.into(), freeze_user_txs_after: s, chain_id, genesis_hash }).map_err(|e| e.to_string())?;
-                write_new(&temp, &bytes)?;
-                fs::rename(&temp, &path).map_err(|e| e.to_string())?;
-            }
-            None => if fs::symlink_metadata(&path).is_ok() { real_file(&path)?; fs::remove_file(&path).map_err(|e| e.to_string())?; },
-        }
-        sync_directory(&self.path)?;
-        Ok(serde_json::json!({"freezeUserTxsAfter": after, "network": network, "file": path, "appliesAt": "next start"}).to_string())
-    }
-    /// `pocol freeze-user-txs` without `--after`: the saved file, whether it applies to this home's network, and what
-    /// the next start uses (POCOL_FREEZE_USER_TXS_AFTER included).
-    pub fn describe_user_tx_freeze(&self) -> Result<String, String> {
-        let saved = self.saved_user_tx_freeze()?;
-        let (applied, note) = self.user_tx_freeze()?;
-        let (effective, _) = self.effective_user_tx_freeze()?;
-        Ok(serde_json::json!({"freezeUserTxsAfter": applied, "saved": saved.map(|f| serde_json::json!({"freezeUserTxsAfter": f.freeze_user_txs_after,
-            "chainId": f.chain_id, "genesisHash": f.genesis_hash})), "notApplied": note, "effective": effective}).to_string())
-    }
-}
-
-#[cfg(test)]
-mod freeze_tests {
-    use super::*;
-    #[test]
-    fn the_freeze_setting_round_trips_through_the_home_and_applies_only_to_its_network() {
-        let dir = std::env::temp_dir().join(format!("pocol-freeze-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        let home = Home::open(&dir).unwrap();
-        assert_eq!(home.user_tx_freeze().unwrap(), (None, None), "no setting in a new home");
-        assert!(home.set_user_tx_freeze(Some(5)).unwrap_err().contains("bound to no network"), "a home bound to no network is refused");
-        assert!(!dir.join(FREEZE_FILE).exists());
-        // Bound to the H15000 network (its saved invitation): the setting names that network.
-        let saved = include_str!("../../../deploy/mainnet/h15000/network.pocol.json");
-        fs::write(dir.join("network.pocol.json"), saved).unwrap();
-        let (chain_id, genesis) = Invitation::parse_saved(saved.as_bytes()).unwrap().computed_network().unwrap();
-        let out: serde_json::Value = serde_json::from_str(&home.set_user_tx_freeze(Some(1234)).unwrap()).unwrap();
-        assert_eq!((&out["freezeUserTxsAfter"], &out["network"]), (&serde_json::json!(1234), &serde_json::json!({"chainId": chain_id, "genesisHash": genesis})));
-        assert_eq!(home.user_tx_freeze().unwrap(), (Some(1234), None), "read back as saved");
-        assert_eq!(home.saved_user_tx_freeze().unwrap().map(|f| (f.chain_id, f.genesis_hash)), Some((chain_id, genesis.clone())));
-        assert!(!dir.join(format!("{FREEZE_FILE}.tmp")).exists(), "no temporary file is left");
-        home.set_user_tx_freeze(Some(0)).unwrap();
-        assert_eq!(home.user_tx_freeze().unwrap(), (Some(0), None), "replaced");
-        // After the re-genesis the home keeps its key and is bound to the new network: a setting saved on the old one
-        // is not applied (the new chain is not frozen at the old S), and says why.
-        for (c, g) in [(chain_id, format!("0x{}", "11".repeat(32))), (chain_id + 1, genesis.clone())] {
-            let other = FreezeFile { schema: FREEZE_SCHEMA.into(), freeze_user_txs_after: 7, chain_id: c, genesis_hash: g };
-            fs::write(dir.join(FREEZE_FILE), serde_json::to_vec(&other).unwrap()).unwrap();
-            let (applied, note) = home.user_tx_freeze().unwrap();
-            assert_eq!(applied, None, "a setting of another network is not applied");
-            assert!(note.as_deref().is_some_and(|n| n.contains("not applied") && n.contains("--after off")), "{note:?}");
-            let shown: serde_json::Value = serde_json::from_str(&home.describe_user_tx_freeze().unwrap()).unwrap();
-            assert_eq!((&shown["freezeUserTxsAfter"], &shown["saved"]["freezeUserTxsAfter"]), (&serde_json::Value::Null, &serde_json::json!(7)), "{shown}");
-        }
-        // The same network in upper case hex still applies.
-        let upper = FreezeFile { schema: FREEZE_SCHEMA.into(), freeze_user_txs_after: 9, chain_id, genesis_hash: format!("0x{}", genesis[2..].to_ascii_uppercase()) };
-        fs::write(dir.join(FREEZE_FILE), serde_json::to_vec(&upper).unwrap()).unwrap();
-        assert_eq!(home.user_tx_freeze().unwrap(), (Some(9), None));
-        // Unbound again (the old network files moved aside): not applied.
-        fs::remove_file(dir.join("network.pocol.json")).unwrap();
-        assert_eq!(home.user_tx_freeze().unwrap().0, None);
-        fs::write(dir.join("network.pocol.json"), saved).unwrap();
-        home.set_user_tx_freeze(None).unwrap();
-        assert_eq!(home.user_tx_freeze().unwrap(), (None, None), "off removes it");
-        home.set_user_tx_freeze(None).unwrap();
-        // A file this release cannot read stops the start instead of running without the freeze.
-        let g = &genesis;
-        for bad in [String::from("{}"), format!(r#"{{"schema":"other","freezeUserTxsAfter":5,"chainId":{chain_id},"genesisHash":"{g}"}}"#),
-            format!(r#"{{"schema":"pocol-freeze-user-txs-v1","freezeUserTxsAfter":-1,"chainId":{chain_id},"genesisHash":"{g}"}}"#),
-            format!(r#"{{"schema":"pocol-freeze-user-txs-v1","freezeUserTxsAfter":5,"chainId":{chain_id},"genesisHash":"{g}","x":1}}"#),
-            r#"{"schema":"pocol-freeze-user-txs-v1","freezeUserTxsAfter":5}"#.into()] {
-            fs::write(dir.join(FREEZE_FILE), &bad).unwrap();
-            assert!(home.user_tx_freeze().is_err(), "{bad}");
-        }
-        fs::remove_file(dir.join(FREEZE_FILE)).unwrap();
-        #[cfg(unix)]
-        {
-            std::os::unix::fs::symlink(dir.join("elsewhere"), dir.join(FREEZE_FILE)).unwrap();
-            assert!(home.user_tx_freeze().is_err(), "a symlink is refused");
-            fs::remove_file(dir.join(FREEZE_FILE)).unwrap();
-        }
-        drop(home);
-        let _ = fs::remove_dir_all(&dir);
-    }
-    #[test]
-    fn the_freeze_value_is_a_height_or_off() {
-        assert_eq!(node::parse_freeze("15000").unwrap(), Some(15000));
-        assert_eq!(node::parse_freeze(" 0 ").unwrap(), Some(0));
-        assert_eq!(node::parse_freeze("off").unwrap(), None);
-        for bad in ["", "-1", "+5", "0x10", "1e3", "18446744073709551616", "on"] { assert!(node::parse_freeze(bad).is_err(), "{bad}"); }
     }
 }
 

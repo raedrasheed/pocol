@@ -66,9 +66,8 @@ root sha3
 =pocold::site
 =pocold::network_display
 =pocold::readiness
-# testnet and cutover build genesis files; their outputs are committed by the genesis hash.
+# testnet builds genesis files; its outputs are committed by the genesis hash.
 =pocold::testnet
-=pocold::cutover
 =pocold::resources
 # LP1 boot-admission evaluators loaded by lp4 (boot policy, not validity).
 =lp4::param_gate

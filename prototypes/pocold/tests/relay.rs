@@ -197,30 +197,18 @@ fn stats(f:&Fixture,keys:&[&str])->Vec<Option<u64>>{let s=status(f);keys.iter().
     assert_eq!(stats(&f,&["relayedShares","peerShares"]),[Some(cap as u64),Some(cap as u64+1)],"the last one is kept but not relayed");
 }
 
-/// V3-33 (`Limits::freeze_user_txs_after`): a node whose freeze is active (S = 0, its head is genesis) neither pools nor
-/// relays a user transaction a peer sends it, and counts it; the same node without a freeze (control) pools it and
-/// relays it to its other peer.
-#[test] fn a_frozen_node_neither_pools_nor_relays_a_peers_user_transaction(){let _g=serial();
-    for frozen in [false,true]{
-        let f=fixture_with(if frozen{"tx-frozen"}else{"tx-open"},778110+u64::from(frozen),|_|{},Limits{freeze_user_txs_after:frozen.then_some(0),..Limits::default()});
-        let [mut x,mut y]=peers(&f,["x","y"]);
-        let head=f.chain.full_entry(&f.chain.head().hash).unwrap();let base=f.chain.child_ctx(&head,0).unwrap().base_fee;let p=U256::from(1_000_000_000u64);
-        let raw=Tx{chain_id:f.chain_id,nonce:0,max_priority:p,max_fee:base*U256::from(2)+p,gas:21_000,to:Some(Address::with_last_byte(0xca)),value:U256::from(1u64),data:Default::default()}
-            .sign_1559(&devnet::account_key("alice"));
-        x.write_all(&frame(&Msg::Tx{raw:raw.clone()})).unwrap();
-        // Templates or shares may come too; only a Tx counts.
-        let t=Instant::now();let mut relayed=false;
-        while t.elapsed()<Duration::from_secs(3){if let Some(Msg::Tx{raw:r})=gossip(&mut y,Duration::from_millis(500)){assert_eq!(r,raw);relayed=true;break}}
-        let s=status(&f);
-        if frozen{
-            assert!(!relayed,"a frozen node relays no user transaction");
-            assert_eq!(s["pool"],0);
-            assert_eq!(s["userTxFreeze"],serde_json::json!({"freezeUserTxsAfter":0,"active":true,"refused":0,"relayDropped":1}),"{}",s["userTxFreeze"]);
-        }else{
-            assert!(relayed,"positive control: relayed to the other peer");assert_eq!(s["pool"],1);
-            assert!(s.get("userTxFreeze").is_none(),"no freeze, no field");
-        }
-    }
+/// A node pools a user transaction a peer sends it and relays it to its other peer (over real sockets).
+#[test] fn a_node_pools_and_relays_a_peers_user_transaction(){let _g=serial();
+    let f=fixture_with("tx-open",778110,|_|{},Limits::default());
+    let [mut x,mut y]=peers(&f,["x","y"]);
+    let head=f.chain.full_entry(&f.chain.head().hash).unwrap();let base=f.chain.child_ctx(&head,0).unwrap().base_fee;let p=U256::from(1_000_000_000u64);
+    let raw=Tx{chain_id:f.chain_id,nonce:0,max_priority:p,max_fee:base*U256::from(2)+p,gas:21_000,to:Some(Address::with_last_byte(0xca)),value:U256::from(1u64),data:Default::default()}
+        .sign_1559(&devnet::account_key("alice"));
+    x.write_all(&frame(&Msg::Tx{raw:raw.clone()})).unwrap();
+    // Templates or shares may come too; only a Tx counts.
+    let t=Instant::now();let mut relayed=false;
+    while t.elapsed()<Duration::from_secs(3){if let Some(Msg::Tx{raw:r})=gossip(&mut y,Duration::from_millis(500)){assert_eq!(r,raw);relayed=true;break}}
+    assert!(relayed,"relayed to the other peer");assert_eq!(status(&f)["pool"],1);
 }
 
 // ---------------- V3-05 template-latency telemetry (network.md, "Template latency") ----------------

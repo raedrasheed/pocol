@@ -243,8 +243,8 @@ fn cp_number(value: &serde_json::Value) -> Result<pocol_lp4_execution::fixed::U2
     Ok(devnet::to_fixed(number))
 }
 
-/// Resolve once from typed public input; cutover reads exactly this CP[16] before transforming funds.
-fn resolve(config: &[u8], cutover: bool) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4_execution::fixed::U256>), String> {
+/// Resolve once from typed public input.
+fn resolve(config: &[u8]) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4_execution::fixed::U256>), String> {
     if config.len() > 262144 { return Err("testnet config exceeds 256 KiB".into()); }
     let mut input: Config = serde_json::from_slice(config).map_err(|_| "invalid public genesis config schema")?;
     if input.local_timing.is_some() && !input.v3 { return Err("localTiming is a v3 profile input; a spec-1 network keeps its fixed local timing".into()); }
@@ -256,7 +256,7 @@ fn resolve(config: &[u8], cutover: bool) -> Result<(Config, devnet::DevnetConfig
         || input.genesis_time > u64::MAX - 10_000_000
         || !(1..=if input.v3 { 256 } else { 64 }).contains(&input.miners.len())
         || input.accounts.len() > 10000 || input.registration_per_block > 4
-        || (input.earnin && !input.continuous) || (cutover && !input.accounts.is_empty()) {
+        || (input.earnin && !input.continuous) {
         return Err("invalid experimental testnet parameters".into());
     }
     let mut cfg = devnet::DevnetConfig::new(input.chain_id, input.genesis_time, &[]);
@@ -294,16 +294,6 @@ fn resolve(config: &[u8], cutover: bool) -> Result<(Config, devnet::DevnetConfig
     Ok((input, cfg, cp))
 }
 
-pub(crate) fn cutover_params(config: &[u8]) -> Result<(Vec<Address>, U256), String> {
-    let (input, _, cp) = resolve(config, true)?;
-    if !input.earnin || !input.continuous { return Err("the new network config must set earnin and continuous, or v3".into()); }
-    let mut seen = HashSet::new();
-    for miner in &input.miners {
-        if !allowed(miner.id) || !allowed(miner.reward) || !seen.insert(miner.id) { return Err("invalid or duplicate miner identity".into()); }
-    }
-    Ok((input.miners.iter().map(|m| m.reward).collect(), devnet::from_fixed(&cp[16])))
-}
-
 pub(crate) fn allowed(address: Address) -> bool {
     let numeric = U256::from_be_slice(address.as_slice());
     !address.is_zero()
@@ -313,24 +303,15 @@ pub(crate) fn allowed(address: Address) -> bool {
 }
 
 pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
-    build(config, None, out)
+    build(config, out)
 }
-/// Cutover genesis (EARN-IN-SPEC.md section 7): `alloc` is the allocation built from the old chain, and
-/// `report` is written next to the genesis as cutover-report.json with the new genesis hash added. The
-/// config must list no accounts; every balance comes from the old chain.
-pub fn prepare_cutover(config: &[u8], alloc: InMemoryDB, report: serde_json::Value, out: &Path) -> Result<(), String> {
-    build(config, Some((alloc, report)), out)
-}
-fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &Path) -> Result<(), String> {
+fn build(config: &[u8], out: &Path) -> Result<(), String> {
     if out.exists() {
         return Err("output must be a new directory; genesis is never overwritten".into());
     }
-    let (input, cfg, cp) = resolve(config, cutover.is_some())?;
+    let (input, cfg, cp) = resolve(config)?;
     let params = ConsensusParams::from_values(&cp).map_err(|e| format!("CP: {e:?}"))?;
-    let (mut alloc, report) = match cutover {
-        Some((alloc, report)) => (alloc, Some(report)),
-        None => (InMemoryDB::default(), None),
-    };
+    let mut alloc = InMemoryDB::default();
     let mut seen = HashSet::new();
     for account in &input.accounts {
         if !allowed(account.address)
@@ -358,8 +339,8 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
         if !allowed(miner.id) || !allowed(miner.reward) || !seen.insert(miner.id) {
             return Err("invalid or duplicate miner identity".into());
         }
-        // Preserve an existing reward account (its balance, and in a cutover its nonce, code and storage)
-        // and give it at least the required durable nonce.
+        // Preserve an existing reward account (its allocated balance) and give it at least the required
+        // durable nonce.
         let mut info = alloc
             .accounts
             .get(&miner.reward)
@@ -452,11 +433,6 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
         ("devnet.json", serde_json::to_string_pretty(&info).unwrap()),
     ] {
         std::fs::write(out.join(name), contents).map_err(|e| format!("write {name}: {e}"))?;
-    }
-    if let Some(mut report) = report {
-        report["newGenesis"] = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),"genesisTime":cfg.g_ts});
-        std::fs::write(out.join("cutover-report.json"), serde_json::to_string_pretty(&report).unwrap())
-            .map_err(|e| format!("write cutover-report.json: {e}"))?;
     }
     let mut summary = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),
         "scope":admitted.scope().name()});

@@ -22,7 +22,6 @@ pub mod wallet;
 #[cfg(any(target_os = "android", test))]
 mod mobile;
 pub mod testnet;
-pub mod cutover;
 /// Whether an address may hold an allocation (not zero, PAY, a system program or SYSTEM).
 pub fn testnet_allowed(a:revm::primitives::Address)->bool{testnet::allowed(a)}
 pub mod identity;
