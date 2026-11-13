@@ -551,8 +551,12 @@ three terms: one up and two down. It also withdraws one projection.
   execution budget above, not in memory). The live chain's halt moved by 1,770 to 1,996 records (tests/network_budget.rs), by up to 163
   more with the tail and by up to 168 more with the parked runs.
 - **A13 (N4, V3-20 node-local pool).** G, `pool_gas` and the pending-layer term are unchanged. Evicted transactions
-  and replacements that declare less keep their gas in the pool's `gas` until the next head (`ghost_gas`), so the
-  layer still holds at most the gas bound's writes. Row changes:
+  keep their gas in the pool's `gas` until the next head (`ghost_gas`), and a replaced pooled entry stays charged the
+  most gas it or any replacement declared since the last head (`Meta::gas`). The node applies its gas bound at most
+  POOL_MAX_TXS × GAS_LIMIT (`node::pool_gas_in_effect`), the same minimum `resources::pool_gas` counts, so the layer
+  still holds at most that term's writes. (N4 second review: before this clamp, a `pool_gas_max` above the product
+  let evictions take the layer past the counted term, since the count bound no longer bounds the executions between
+  two heads once victims leave their writes behind.) Row changes:
   - queues/pool sender and declared gas and queues/parked transactions' entries: unchanged (META_ENTRY_BYTES 32,
     PARKED_ENTRY_BYTES 160). Nonces and fee caps are read from the raw bytes (`node::tx_fields`, no allocation); the
     replacement count fits each entry's padding.
@@ -561,9 +565,9 @@ three terms: one up and two down. It also withdraws one projection.
     (POOL_MAX_TXS + POOL_PARKED_MAX) × FEE_ORDER_ENTRY_BYTES (12: a u32 index, which the selection keeps as its order,
     and a u64 priority) = 61,440 B, is counted in that set's place (885,052 B), at the larger of the two
     (`resources::selection_bytes`, `fee_order_bytes`). Both Vecs are allocated once at their length and never grown.
-    An eviction's scan (a u32 per pooled and parked transaction) and the parked set's fee eviction (a u32 and a u64
-    per parked one) hold less. They run on the consensus thread during an admission, never during a selection, so the
-    same place bounds them.
+    An eviction's scan and the parked set's fee eviction rank with the same pass (`Node::fee_ranks`: the same u32
+    and u64 per pooled and parked candidate, at most 61,440 B). They run on the consensus thread during an admission,
+    never during a selection, so the same place bounds them.
   - A pooled replacement's execution checks run on a scratch overlay over the head state: one execution, the same
     term as any admission's (EXECUTIONS = 1).
 

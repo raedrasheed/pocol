@@ -86,7 +86,9 @@ pub fn selection_bytes(cp:&ConsensusParams)->Option<u128>{
 /// N4: the fee order's scratch (`Node::fee_order_and_big`): FEE_ORDER_ENTRY_BYTES per pooled and parked candidate.
 pub fn fee_order_bytes()->Option<u128>{mul((node::POOL_MAX_TXS+node::POOL_PARKED_MAX) as u128,node::FEE_ORDER_ENTRY_BYTES as u128)}
 /// D-7: the gas the pool's layer can hold: its bound (`node::pool_gas_bound`), and at most POOL_MAX_TXS
-/// transactions of GAS_LIMIT each (the count bound binds first above it).
+/// transactions of GAS_LIMIT each (the count bound binds first above it). N4 second review: an eviction leaves its
+/// victim's writes in the layer, so the node applies this same minimum as its gas bound (`node::pool_gas_in_effect`)
+/// and evictions cannot take the layer past it.
 pub fn pool_gas(cp:&ConsensusParams,limits:&Limits)->Option<u128>{
     let g=u128::from(node::pool_gas_bound(cp,limits).ok()?);Some(g.min(mul(node::POOL_MAX_TXS as u128,u128::from(cp.GAS_LIMIT))?))
 }

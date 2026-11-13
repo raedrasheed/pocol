@@ -1258,7 +1258,8 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
 /// transaction of a sender and nonce". Another with the same nonce replaces the pooled one only when both fee caps
 /// rise by POOL_PRICE_BUMP percent; one that does not (here the same caps, another value) is refused
 /// (POOL_REPLACE_UNDERPRICED) and changes no counter. The replacement is not executed on the pending state, which
-/// keeps the replaced one's 1M declared gas until the next head (`ghost_gas`). A head without either keeps the
+/// keeps the replaced one's 1M declared gas until the next head (N4 second review: the entry stays charged the most
+/// gas declared since the last head, so nothing moves to `ghost_gas`). A head without either keeps the
 /// replacement; a head that includes the replaced one drops the replacement (its nonce is used), and its gas is
 /// freed then.
 #[test] fn a_same_nonce_transaction_replaces_a_pooled_one_only_at_the_fee_bump(){
@@ -1270,7 +1271,7 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let e=n.submit_tx(pay_gas(&alice,0,2,1_000_000),false).unwrap_err();assert!(e.starts_with(POOL_REPLACE_UNDERPRICED),"{e}");
     assert_eq!(pool(&mut n),vec![a.clone()]);assert_eq!(n.pool.gas,1_000_000,"the refused one is not counted");n.pool_audit().unwrap();
     n.submit_tx(b.clone(),false).unwrap();assert_eq!(pool(&mut n),vec![b.clone()],"replaced in place");
-    assert_eq!((n.pool.gas,n.pool.ghost_gas),(1_000_000,979_000),"the pending layer keeps the replaced one's gas");n.pool_audit().unwrap();
+    assert_eq!((n.pool.gas,n.pool.ghost_gas),(1_000_000,0),"the pending layer keeps the replaced one's gas: the entry stays charged it");n.pool_audit().unwrap();
     let mut h=net();let g=h.chain.head;let x=branch(&mut h,g,1,&[]);n.import(x[0].clone(),None).unwrap();
     assert_eq!(pool(&mut n),vec![b.clone()],"a head without either keeps the replacement");assert_eq!((n.pool.gas,n.pool.ghost_gas),(21000,0));n.pool_audit().unwrap();
     let y=branch(&mut h,x[0].hash(),1,&[Body{txs:vec![a],evidence:vec![]}]);n.import(y[0].clone(),None).unwrap();
