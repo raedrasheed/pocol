@@ -15,6 +15,10 @@ FLAG_V3_PREVIEW = 4
 FLAGS_WITH_SOURCES = FLAG_UNPINNED | FLAG_V3_PREVIEW
 # The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION).
 MAX_FORK_VERSION = 2
+# The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION). A v3-preview build also decodes
+# spec 2 (the v3 genesis, CP schema v2); a release build refuses it until activation (V3-PR-I).
+SPEC_VERSION = 1
+PREVIEW_SPEC_VERSION = 2
 # The lowest wire version a peer may send (pocold identity::PROTOCOL_VERSION_MIN).
 PROTOCOL_VERSION_MIN = 2
 # Mirror of pocold launcher::LEGACY_BUILDS (test_pocol_identity compares it with launcher.rs). A 0.4.0 binding names
@@ -88,9 +92,22 @@ def build_flags(build):
             | (FLAG_V3_PREVIEW if build.get('v3Preview') is True or 'v3-preview' in features else 0))
 
 
+def spec_version(info):
+    """The GenesisSpec version devnet.json `info` declares (pocold testnet writes `specVersion: 2` and `v3: true`
+    together for a v3 genesis and neither for spec 1). Anything else is refused."""
+    version = info.get('specVersion', 1)
+    if type(version) is not int or version not in (1, PREVIEW_SPEC_VERSION) or info.get('v3', False) is not (version == 2):
+        raise ValueError('unsupported or inconsistent GenesisSpec version')
+    return version
+
+
 def for_network(info, build):
-    """The identity a node of build-info `build` sends on the network of devnet.json `info`."""
+    """The identity a node of build-info `build` sends on the network of devnet.json `info`. The spec version is not
+    an identity input (genesisHash already commits the whole GenesisSpec), but a node opens a spec-2 (v3) genesis only
+    when its build decodes it: a v3-preview build, never a release build before activation."""
     flags = build_flags(build)
+    if spec_version(info) > SPEC_VERSION and not flags & FLAG_V3_PREVIEW:
+        raise ValueError('a release build refuses a spec-2 (v3) genesis until activation; only a v3-preview build opens it')
     return consensus_id(info['chainId'], info['genesisHash'], build['consensusRulesVersion'], flags,
                         validated_schedule(info.get('forks', [[1, 0]]), build.get('maxForkVersion', MAX_FORK_VERSION)),
                         build['consensusSourcesSha256'] if flags & FLAGS_WITH_SOURCES else None)

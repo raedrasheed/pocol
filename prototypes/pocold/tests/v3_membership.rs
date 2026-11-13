@@ -224,7 +224,9 @@ mod preview {
         let (a,b,c)=(devnet::account_key("alice").address(),devnet::account_key("bob").address(),devnet::account_key("carol").address());
         // Fund the existing miner identities so they can sign their own exits. Everything is
         // on this disposable fixture chain; the three transfers and registration are ordered.
-        let mut txs:Vec<_>=n.miners.iter().enumerate().map(|(i,id)|tx(&n,a,*id,U256::from(100_000_000_000_000_000_000u128),vec![],21_000,Some(i as u64))).collect();
+        // Each transfer creates an account: under D-V3-21 its burn (about F0_acct = 10^15 wei) must
+        // fit in max_fee*gas_limit with the gas, so the gas limit carries it (as eth_estimateGas sizes it).
+        let mut txs:Vec<_>=n.miners.iter().enumerate().map(|(i,id)|tx(&n,a,*id,U256::from(100_000_000_000_000_000_000u128),vec![],1_000_000,Some(i as u64))).collect();
         txs.push(registration(&n,a,U256::ZERO,Some(3)));next(&mut n,x,txs);
         let t=registration(&n,b,U256::ZERO,None);next(&mut n,a,vec![t]);
         let t=registration(&n,c,U256::ZERO,None);next(&mut n,a,vec![t]);
