@@ -32,7 +32,7 @@ POCOL_STUDIO_INSTALL
 '''
 
 def script(sources):
-    """The installer text for {name: bytes} of `files` (network_identity.py rebuilds it from switched bytes)."""
+    """The installer text for {name: bytes} of `files` (set_network_identity.py rebuilds it from switched bytes)."""
     payloads = {name: {'sha256': hashlib.sha256(sources[name]).hexdigest(),
                        'base64': base64.b64encode(sources[name]).decode()} for name in files}
     return TEMPLATE.replace('__PAYLOADS__', repr(payloads))

@@ -140,11 +140,11 @@ await test('corrupt saved public schedule fails closed and explicit settings can
   assert.ok((await getPublic()).invalid);assert.equal((await call('studio.status')).ok,false);
   assert.equal((await setSchedule([[1,'0']])).ok,true);assert.deepEqual((await getPublic()).forkSchedule,[[1,'0']]);assert.equal((await getPublic()).netKey,initialPublic.netKey);
 });
-// The Viewer wallet keeps its address when the built-in profile's pinned identity changes (the earn-in
-// cutover): that profile's wallet is keyed with a fixed salt (PUBLIC_WALLET_SALT). A custom profile keys its
-// wallet with its own netKey (D14), so no extension update moves its address.
+// Every profile keys its wallet with its own netKey (D14), the built-in one included: a wallet's address belongs to
+// one network, so an extension pinned to another network gives the built-in profile that network's address, and
+// no extension update moves a custom profile's address.
 const W=await import('../dist/lib/wallet.js'),C=await import('../dist/lib/crypto.js'),{Transaction}=await import('ethers');
-const viewerSeed='0x'+'42'.repeat(32),viewerAddress=W.addressOf(await W.networkKey(H.fromHex(viewerSeed),W.PUBLIC_WALLET_SALT));
+const viewerSeed='0x'+'42'.repeat(32);
 const fixtureSpec=(from,to)=>{let pre=readFileSync(new URL('./data/devnet-spec.hex',import.meta.url),'utf8').trim();if(from){assert.ok(pre.includes(from));pre=pre.replace(from,to);}const spec=RP.decodeSpec(H.fromHex(pre));return {pre,chainId:Number(spec.chainId),hash:H.toHex(C.keccak(H.fromHex(pre)))};};
 const localProfile=(name,s,forkSchedule=[[1,'0']])=>({name,chainId:s.chainId,genesisPre:s.pre,genesisHash:s.hash,trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule});
 const walletOf=async(m,name)=>(await m.send({type:'wallet.address',name})).address;
@@ -152,20 +152,23 @@ const keyOf=async(m,name)=>(await m.send({type:'profiles.list'})).profiles.find(
 const addressFor=async(netKey)=>W.addressOf(await W.networkKey(H.fromHex(viewerSeed),netKey));
 // The network the copy below is switched to; a custom profile of it is added here, before the "update".
 const nextNetwork=fixtureSpec();let nextBefore;
-await test('the built-in profile keys its wallet with the fixed salt; a custom profile keys it with its netKey',async()=>{
+let viewerAddress;
+await test('the built-in profile and every custom profile key their wallets with their own netKey',async()=>{
   await mock.send({type:'wallet.create',password:'studio-test-pw',replace:true,seedHex:viewerSeed});
-  assert.equal(await walletOf(mock,N.NETWORK.name),viewerAddress);
-  // A custom profile with the pinned identity: its netKey is the original Mainnet's, so it shares the address now.
+  const builtinKey=await keyOf(mock,N.NETWORK.name);assert.equal(builtinKey,(await getPublic()).netKey);
+  viewerAddress=await walletOf(mock,N.NETWORK.name);
+  assert.equal(viewerAddress,await addressFor(builtinKey));
+  assert.equal(W.PUBLIC_WALLET_SALT,undefined,'no fixed built-in salt');
+  // A custom profile with the pinned identity has the same netKey, so it shares the address.
   assert.equal((await mock.send({type:'profiles.add',profile:{...N.NETWORK,name:'operator-local',trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule:(await getPublic()).forkSchedule}})).ok,true);
-  const localKey=await keyOf(mock,'operator-local');
-  assert.equal(await walletOf(mock,'operator-local'),await addressFor(localKey));
-  assert.equal(await walletOf(mock,'operator-local')===viewerAddress,localKey===W.PUBLIC_WALLET_SALT);
+  const localKey=await keyOf(mock,'operator-local');assert.equal(localKey,builtinKey);
+  assert.equal(await walletOf(mock,'operator-local'),viewerAddress);
   assert.equal((await mock.send({type:'profiles.add',profile:localProfile('next-net',nextNetwork)})).ok,true);
   nextBefore=await walletOf(mock,'next-net');
   assert.equal(nextBefore,await addressFor(await keyOf(mock,'next-net')));assert.notEqual(nextBefore,viewerAddress);
   for(const name of ['operator-local','next-net'])await mock.send({type:'profiles.remove',name});
 });
-await test('after the pinned identity changes, the built-in profile keeps its wallet address, also for a site, and custom profiles keep theirs',async()=>{
+await test('after the pinned identity changes, the built-in profile keys its wallet with the new netKey, also for a site, and custom profiles keep theirs',async()=>{
   // A copy of the built extension pinned to nextNetwork, as the identity-switch PR switches it.
   const switched=mkdtempSync(join(tmpdir(),'pocol-switched-'));
   try{
@@ -176,9 +179,12 @@ await test('after the pinned identity changes, the built-in profile keeps its wa
     assert.notEqual(out,src);writeFileSync(file,out);
     const m=installChromeMock();await loadWorker(switched,'switched-identity');
     const pub=(await m.send({type:'profiles.list'})).profiles.find(p=>p.name===N.NETWORK.name);
-    assert.equal(pub.invalid,undefined);assert.equal(pub.chainId,nextNetwork.chainId);assert.equal(pub.genesisHash,nextNetwork.hash);assert.notEqual(pub.netKey,W.PUBLIC_WALLET_SALT);
+    assert.equal(pub.invalid,undefined);assert.equal(pub.chainId,nextNetwork.chainId);assert.equal(pub.genesisHash,nextNetwork.hash);
     await m.send({type:'wallet.create',password:'studio-test-pw',seedHex:viewerSeed});
-    assert.equal(await walletOf(m,N.NETWORK.name),viewerAddress);
+    // The built-in profile now has the new network's netKey, so its wallet is that network's address, the one a
+    // custom profile of that network had before the update; the old built-in address is not reused.
+    const switchedAddress=await walletOf(m,N.NETWORK.name);
+    assert.equal(switchedAddress,await addressFor(pub.netKey));assert.equal(switchedAddress,nextBefore);assert.notEqual(switchedAddress,viewerAddress);
     // The custom profile of nextNetwork keeps the address the extension gave it before the update.
     assert.equal((await m.send({type:'profiles.add',profile:localProfile('next-net',nextNetwork,pub.forkSchedule)})).ok,true);
     assert.equal(await walletOf(m,'next-net'),nextBefore);
@@ -187,7 +193,7 @@ await test('after the pinned identity changes, the built-in profile keeps its wa
     assert.notEqual(other.chainId,nextNetwork.chainId);assert.equal(twin.chainId,nextNetwork.chainId);assert.notEqual(twin.hash,nextNetwork.hash);
     for(const [name,s] of [['other-net',other],['same-chain',twin]]){
       assert.equal((await m.send({type:'profiles.add',profile:localProfile(name,s)})).ok,true);
-      assert.equal(await walletOf(m,name),await addressFor(await keyOf(m,name)));assert.notEqual(await walletOf(m,name),viewerAddress);
+      assert.equal(await walletOf(m,name),await addressFor(await keyOf(m,name)));assert.notEqual(await walletOf(m,name),switchedAddress);
     }
     for(const name of ['next-net','other-net','same-chain'])await m.send({type:'profiles.remove',name});
     // A site opened on the built-in profile is offered, and granted, the same address.
@@ -197,15 +203,15 @@ await test('after the pinned identity changes, the built-in profile keeps its wa
     const opened=await m.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true,JSON.stringify(opened));
     const port=m.connect('bridge:'+opened.sessionId);
     port.post({seq:1,frame:1,text:JSON.stringify({id:1,kind:'wallet_req',payload:{method:'eth_requestAccounts',params:[]}})});
-    const ask=await port.next(x=>x.ask!==undefined && x.q.type==='confirmAccounts');assert.equal(ask.q.address,viewerAddress);
+    const ask=await port.next(x=>x.ask!==undefined && x.q.type==='confirmAccounts');assert.equal(ask.q.address,switchedAddress);
     port.post({answer:ask.ask,ok:true});
-    assert.deepEqual((await port.next(x=>x.seq===1)).reply.result,[viewerAddress]);
+    assert.deepEqual((await port.next(x=>x.seq===1)).reply.result,[switchedAddress]);
     // A transaction it signs there comes from that address, for the new chain ID.
     port.post({seq:2,frame:1,text:JSON.stringify({id:2,kind:'wallet_req',payload:{method:'eth_sendTransaction',params:[{to:'0x'+'22'.repeat(20),value:'0x1'}]}})});
     port.post({answer:(await port.next(x=>x.ask!==undefined && x.q.type==='confirmTx')).ask,ok:true});
     const sent=(await port.next(x=>x.seq===2)).reply;assert.equal(sent.error,undefined,JSON.stringify(sent));
     const raws=log.filter(entry=>entry.method==='eth_sendRawTransaction');assert.equal(raws.length,1);
-    const signed=Transaction.from(raws[0].params[0]);assert.equal(signed.from.toLowerCase(),viewerAddress);assert.equal(Number(signed.chainId),nextNetwork.chainId);assert.equal(sent.result,signed.hash);
+    const signed=Transaction.from(raws[0].params[0]);assert.equal(signed.from.toLowerCase(),switchedAddress);assert.equal(Number(signed.chainId),nextNetwork.chainId);assert.equal(sent.result,signed.hash);
   }finally{rmSync(switched,{recursive:true,force:true});}
 });
 console.log(JSON.stringify({result:'PASS',passed:count}));

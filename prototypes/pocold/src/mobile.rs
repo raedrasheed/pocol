@@ -216,15 +216,20 @@ mod tests {
     }
     #[test]
     fn inspect_upgrade_reports_none_rebind_activation_and_an_interrupted_upgrade_to_resume() {
-        // T33: the H15000 genesis files under pocol-network-v2 (rules 1), as `pocol network` writes them from R1 on.
+        // T33: a generated continuous spec-1 network (`pocold init-testnet`) under pocol-network-v2 (rules 1), as
+        // `pocol network` packs it from R1 on.
         let dir = std::env::temp_dir().join(format!("pocol-mobile-inspect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir(&dir).unwrap();
-        let mut v2: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/h15000/network.pocol.json")).unwrap();
-        let o = v2.as_object_mut().unwrap();
-        o.remove("compatibilitySha256");
-        o.insert("schema".into(), launcher::SCHEMA_V2.into());
-        o.insert("consensusRulesVersion".into(), crate::identity::CONSENSUS_RULES_VERSION.into());
+        let miner = pocol_lp4_execution::devnet::miner_identity("mobile-inspect");
+        let config = serde_json::json!({"continuous":true,"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+            "miners":[{"id":miner.id,"reward":miner.reward}],
+            "accounts":[{"address":pocol_lp4_execution::devnet::account_key("mobile-inspect").address(),"wei":"1000000000000000000000000"}]});
+        crate::testnet::prepare(config.to_string().as_bytes(), &dir.join("genesis")).unwrap();
+        let files: serde_json::Map<String, serde_json::Value> = ["genesis.spec.hex", "alloc.json", "devnet.json"].iter()
+            .map(|n| (n.to_string(), std::fs::read_to_string(dir.join("genesis").join(n)).unwrap().into())).collect();
+        let v2 = serde_json::json!({"schema": launcher::SCHEMA_V2, "consensusRulesVersion": crate::identity::CONSENSUS_RULES_VERSION,
+            "seeds": ["127.0.0.1:30300"], "files": files});
         let devnet = |forks: serde_json::Value, pretty: bool| {
             let mut info: serde_json::Value = serde_json::from_str(v2["files"]["devnet.json"].as_str().unwrap()).unwrap();
             info["forks"] = forks;
@@ -235,7 +240,7 @@ mod tests {
         let write = |name: &str, value: &serde_json::Value| { let p = dir.join(name); std::fs::write(&p, value.to_string()).unwrap(); p };
         let base = write("base.json", &devnet(serde_json::json!([[1, 0]]), false));
         let rebind = write("rebind.json", &devnet(serde_json::json!([[1, 0]]), true));
-        let activation = write("activation.json", &devnet(serde_json::json!([[1, 0], [2, 15000]]), false));
+        let activation = write("activation.json", &devnet(serde_json::json!([[1, 0], [2, 1000]]), false));
         let home = dir.join("home");
         let identity = CString::new(home.to_str().unwrap()).unwrap();
         unsafe { pocol_mobile_free(pocol_mobile_identity(identity.as_ptr())) };
@@ -248,13 +253,17 @@ mod tests {
         };
         let before = files(&home);
         for (file, change, appended) in [(&base, "none", serde_json::json!([])), (&rebind, "rebind", serde_json::json!([])),
-                                         (&activation, "activation", serde_json::json!([[2, 15000]]))] {
+                                         (&activation, "activation", serde_json::json!([[2, 1000]]))] {
             let dry = ask(pocol_mobile_inspect_upgrade, &home, file);
             assert_eq!((dry["change"].as_str(), &dry["appended"]), (Some(change), &appended), "{dry}");
             assert_eq!(files(&home), before, "the dry run writes nothing ({change})");
         }
-        assert_eq!(ask(pocol_mobile_inspect_upgrade, &home, &activation)["consensusIdentity"],
-                   "bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110", "the T11 golden identity");
+        // The identity a pinned release node reports on the activated schedule (identity.rs pins the formula, T11).
+        let info: serde_json::Value = serde_json::from_str(v2["files"]["devnet.json"].as_str().unwrap()).unwrap();
+        let genesis: [u8; 32] = crate::types::unhex(info["genesisHash"].as_str().unwrap()).unwrap().try_into().unwrap();
+        let expected = crate::identity::Consensus::new(777918, genesis, &[(1, 0), (2, 1000)], crate::identity::CONSENSUS_RULES_VERSION, 0, None).hex();
+        assert_eq!(ask(pocol_mobile_inspect_upgrade, &home, &activation)["consensusIdentity"], expected.as_str());
+        assert_ne!(ask(pocol_mobile_inspect_upgrade, &home, &base)["consensusIdentity"], expected.as_str(), "the activation changes the identity");
         // An upgrade killed after its intent (the app has no CLI): the same file's dry run offers to resume it, so the
         // confirm dialog opens and the upgrade finishes; another file is refused.
         let read = |p: &Path| -> serde_json::Value { serde_json::from_slice(&std::fs::read(p).unwrap()).unwrap() };

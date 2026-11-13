@@ -4,20 +4,40 @@ use pocol_lp4_execution::{admission::NodeLocal,apply::{self,ProgramSet},devnet,g
 use revm::primitives::U256;
 use sha2::{Digest,Sha256};
 use std::{path::{Path,PathBuf},sync::atomic::{AtomicU64,Ordering}};
+#[path="support/continuous.rs"] mod continuous;
 
+/// Generated spec-1 encodings, one per decode path the committed networks took: finite chains on the v1 programs at two
+/// timings (the e2e browser networks' shape), a continuous chain on the Continuous programs (a public chain's shape), an
+/// earn-in chain and a full-nonce one, as `pocold init-testnet` and the lp4 devnet builder write them. Each one's bytes
+/// are pinned, so a builder or codec change that moves any spec-1 genesis byte is seen; finite-default is byte for byte
+/// the genesis the earlier committed e2e evidence recorded for its second network.
 const GENESIS: &[(&str,&str)] = &[
-    ("deploy/mainnet/h15000/network.pocol.json#files/genesis.spec.hex", "650ab748ef23c4906d14ec677fb0eefd0a3c384b5171827b31e12d8909dc71e7"),
-    ("deploy/websites/pocol.net/downloads/network.pocol.json#files/genesis.spec.hex", "650ab748ef23c4906d14ec677fb0eefd0a3c384b5171827b31e12d8909dc71e7"),
-    ("development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/net/genesis.spec.hex", "192242af7f4289006c0cd2d9266cec74209d7f992293fa39cc2339fa82a8882f"),
-    ("development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T163501406Z-1354/work/other/genesis.spec.hex", "8f71c221b7cb9a4d11e75214e579a5655b85e8248d5515f7a26faa5fb3564bba"),
-    ("development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/net/genesis.spec.hex", "4277c31ca87225842dd640f8185594f572084e292fbf4413def2878d1638c6b1"),
-    ("development/audit-2026-10-22/evidence/r4/accept-051dfaa/kept/e2e_browser-2026-10-28T165527020Z-19707/work/other/genesis.spec.hex", "8f71c221b7cb9a4d11e75214e579a5655b85e8248d5515f7a26faa5fb3564bba"),
-    ("development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/net/genesis.spec.hex", "b5892451a25c4b34760a028e1b09d399eb239d010905a3c2f7cb8fc116b07b5d"),
-    ("development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_browser-2026-10-28T151315995Z-28289/work/other/genesis.spec.hex", "8f71c221b7cb9a4d11e75214e579a5655b85e8248d5515f7a26faa5fb3564bba"),
-    ("development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T151536223Z-31457/work/net/genesis.spec.hex", "820fc8e547b98c3790a3b69a793311965adae9036815a348781d9df76f6ccdad"),
-    ("development/audit-2026-10-22/evidence/r4/accept-719da04/kept/e2e_integrated-2026-10-28T152016586Z-530/work/net/genesis.spec.hex", "1a2c95ede20e545c8a783e010314c5e8c8f73464e298789c37e3ff6495df0478"),
+    ("finite-default", "8f71c221b7cb9a4d11e75214e579a5655b85e8248d5515f7a26faa5fb3564bba"),
+    ("finite-fast", "abaacd658029cc72c318f4a08ee7cfc8e3050bc70b730d45abc16deb5ee69abe"),
+    ("continuous", "cdcf5f8c9dfd50528185306a1875c45d23c5939a9e8bc121afb7723e0d39d7bb"),
+    ("earnin", "7fbd9f5e1e96a5d6239e1b90e521805e355a99fb81436709f4327574314ac43f"),
+    ("full-nonce", "73f66898eca3f0c74a73595ae35e4a14fef0cd2f7d861a32bdba7f392382477a"),
 ];
-fn root()->PathBuf{Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().parent().unwrap().to_path_buf()}
+/// The genesis.spec.hex bytes of the generated network `name` (GENESIS).
+fn generated_genesis(name:&str)->Vec<u8>{
+    let built=|t_blk:u32,tau:u32,d_att:u32,fb:u32|{let mut c=devnet::DevnetConfig::new(777900,1_700_000_000,&["a","b","c"]);
+        c.t_blk=t_blk;c.tau=tau;c.d_att=d_att;c.d_fb_wait=fb;devnet::build(&c).unwrap().spec_bytes};
+    let prepared=|extra:serde_json::Value|{let out=Temp::new(name);
+        let miners:Vec<serde_json::Value>=["a","b","c"].iter().map(|l|{let m=devnet::miner_identity(&format!("v3-scaffold-{l}"));serde_json::json!({"id":m.id,"reward":m.reward})}).collect();
+        let mut input=serde_json::json!({"chainId":777933,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+            "miners":miners,
+            "accounts":[{"address":devnet::account_key("v3-scaffold-funder").address(),"wei":"1000000000000000000000000"}]});
+        for (k,v) in extra.as_object().unwrap(){input[k]=v.clone();}
+        prepare(&input,&out.0).unwrap();pocold::types::unhex(std::fs::read_to_string(out.0.join("genesis.spec.hex")).unwrap().trim()).unwrap()};
+    match name{
+        "finite-default"=>built(4,40,25,3),
+        "finite-fast"=>built(2,20,41,3),
+        "continuous"=>prepared(serde_json::json!({"continuous":true})),
+        "earnin"=>prepared(serde_json::json!({"continuous":true,"earnin":true})),
+        "full-nonce"=>prepared(serde_json::json!({"fullNonce":true})),
+        _=>unreachable!("{name}"),
+    }
+}
 struct Temp(PathBuf);
 impl Temp{fn new(label:&str)->Self{static N:AtomicU64=AtomicU64::new(0);Self(std::env::temp_dir().join(format!("pocol-v3-{label}-{}-{}",std::process::id(),N.fetch_add(1,Ordering::Relaxed))))}}
 impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
@@ -39,21 +59,22 @@ fn shared_codec_and_profile_sources_stay_byte_identical(){
     assert_eq!(include_bytes!("../../lp1-node/src/profile.rs").as_slice(),include_bytes!("../../lp4-execution/src/p1_profile.rs").as_slice());
 }
 #[test]
-fn every_committed_spec1_genesis_keeps_its_original_bytes_and_hash(){
-    assert_eq!(GENESIS.len(),10);
+fn every_generated_spec1_genesis_keeps_its_pinned_bytes_and_hash(){
+    assert_eq!(GENESIS.len(),5);
+    let mut digests=std::collections::BTreeSet::new();
     for (name,sha) in GENESIS{
-        let text=if let Some((file,key))=name.split_once('#'){
-            let doc:serde_json::Value=serde_json::from_slice(&std::fs::read(root().join(file)).unwrap()).unwrap();
-            assert_eq!(key,"files/genesis.spec.hex");doc["files"]["genesis.spec.hex"].as_str().unwrap().to_string()
-        }else{std::fs::read_to_string(root().join(name)).unwrap()};
-        let bytes=pocold::types::unhex(text.trim()).unwrap();
-        assert_eq!(format!("{:x}",Sha256::digest(&bytes)),*sha,"{name}: immutable pre-scaffold bytes");
+        let bytes=generated_genesis(name);
+        assert_eq!(format!("{:x}",Sha256::digest(&bytes)),*sha,"{name}: pinned spec-1 bytes");
+        assert!(digests.insert(*sha),"{name}: each path its own genesis");
         let spec=gs::decode(&bytes).unwrap();assert_eq!(spec.spec_version,1);assert_eq!(spec.cp.len(),52);
         assert_eq!(gs::encode(&spec),bytes,"{name}");
         assert_eq!(pocold::genesis_spec::encode(&pocold::genesis_spec::decode(&bytes).unwrap()),bytes,"{name}: node codec");
+        let cp=ConsensusParams::from_values(&spec.cp).unwrap();
+        assert_eq!(cp.H_END==0,["continuous","earnin"].contains(name),"{name}: H_END");
+        assert_eq!(cp.nonceMode,u8::from(["earnin","full-nonce"].contains(name)),"{name}: nonceMode");
         let (kind,node)=if spec.chain_id==777001{(ProfileKind::Network,NodeKind::Node)}else{(ProfileKind::Simnet,NodeKind::Simnet)};
-        let id=ProfileIdentity::validate(&bytes,&gs::genesis_hash(&bytes),spec.chain_id,kind,node,&[(1,0),(2,15000)]).unwrap();
-        for h in [0,1,14999,15000,15001,u64::MAX]{assert!(!id.v3_active(h),"{name} at {h}");}
+        let id=ProfileIdentity::validate(&bytes,&gs::genesis_hash(&bytes),spec.chain_id,kind,node,&[(1,0),(2,1000)]).unwrap();
+        for h in [0,1,999,1000,1001,u64::MAX]{assert!(!id.v3_active(h),"{name} at {h}");}
     }
 }
 #[test]
@@ -144,17 +165,15 @@ fn v3_config_implies_the_new_schema_and_full_nonce_only_in_preview(){
         }
     }else{assert!(result.unwrap_err().contains("requires a v3-preview build"));assert!(!out.0.exists());}
 }
-/// V3-05: the launcher's local timing for the live H15000 network files is unchanged (Δ_rel 8, Γ 5), and a spec-1
-/// config cannot declare local timing.
+/// V3-05: the launcher's local timing for a continuous spec-1 network's files (T_blk 10, D_att 60, dFbWait 6) is
+/// unchanged (Δ_rel 8, Γ 5), and a spec-1 config cannot declare local timing.
 #[test]
 fn v3_05_keeps_spec1_local_timing_and_refuses_declared_timing_on_spec1(){
-    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(root().join("deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
-    let net=Temp::new("h15000");std::fs::create_dir_all(&net.0).unwrap();
-    for name in ["genesis.spec.hex","alloc.json","devnet.json"]{std::fs::write(net.0.join(name),bundle["files"][name].as_str().unwrap()).unwrap();}
+    let net=Temp::new("continuous");continuous::continuous_network(&net.0);
     let l=pocold::testnet::local_for_network(&net.0).unwrap();
-    assert_eq!((l.delta,l.phi,l.t_exec,l.delta_rel,l.gamma),(1,1,1,8,5),"the live H15000 chain's local timing");
+    assert_eq!((l.delta,l.phi,l.t_exec,l.delta_rel,l.gamma),(1,1,1,8,5),"a continuous spec-1 chain's local timing");
     // A devnet.json localTiming is never read on a spec-1 network.
-    let mut info:serde_json::Value=serde_json::from_str(bundle["files"]["devnet.json"].as_str().unwrap()).unwrap();
+    let mut info:serde_json::Value=serde_json::from_slice(&std::fs::read(net.0.join("devnet.json")).unwrap()).unwrap();
     info["localTiming"]=serde_json::json!({"delta":5,"phi":5,"tExec":3});std::fs::write(net.0.join("devnet.json"),info.to_string()).unwrap();
     let l=pocold::testnet::local_for_network(&net.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(8,5));
     let out=Temp::new("spec1-timing");let mut input=config();input["localTiming"]=serde_json::json!({"delta":2,"phi":2,"tExec":2});

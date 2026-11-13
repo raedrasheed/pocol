@@ -3,6 +3,7 @@
 //! facts are measured on the booting machine.
 use pocol_lp4_execution::devnet::{self,DevnetConfig};
 use std::path::{Path,PathBuf};
+#[path="support/continuous.rs"] mod continuous;
 
 fn tmp(tag:&str)->PathBuf{let d=std::env::temp_dir().join(format!("pocold-adm-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
 /// Writes a candidate's published files exactly as init-devnet does, with or without
@@ -216,21 +217,20 @@ fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000
     assert!(median>t_exec_ms,"the typical commit is past t_exec: {e}");
     let _=std::fs::remove_dir_all(&d);
 }
-/// Earn-in gas envelope (boot admission only): the spec-1 H15000 chain runs the Continuous program set, whose
-/// SYS gas envelope is unchanged, so admitting its published files with the recorded timing reproduces the
-/// admission report its devnet.json records (scope, conditions, notes, waivers, deferred items), byte for byte.
-/// The binding is the one exception: it hashes the profile and this node's local parameters (computed before any
-/// SYS gas fact), and the local parameters changed after the bundle was recorded; the whole report, binding
-/// included, was the same with the admission.rs of origin/main at 28e295f.
-#[test] fn the_h15000_admission_report_is_unchanged(){
-    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
-    let d=tmp("h15000");std::fs::create_dir_all(&d).unwrap();
-    for (name,text) in bundle["files"].as_object().unwrap(){std::fs::write(d.join(name),text.as_str().unwrap()).unwrap();}
-    let info:serde_json::Value=serde_json::from_str(bundle["files"]["devnet.json"].as_str().unwrap()).unwrap();
+/// Boot admission reproduces the recorded report: a generated continuous spec-1 network (support/continuous.rs, the
+/// Continuous program set, whose SYS gas envelope GAS_ENVELOPE covers it) admitted from its files with the timing its
+/// devnet.json records gives the admission report `pocold init-testnet` recorded (scope, conditions with the R18 gas
+/// facts, notes, waivers, deferred items), byte for byte. The binding is the one exception: it hashes the profile and
+/// the node's local parameters, which differ between the builder (`local_for`) and a booting node.
+#[test] fn a_generated_continuous_networks_admission_report_is_reproduced_at_boot(){
+    let d=tmp("continuous");continuous::continuous_network(&d);
+    let info:serde_json::Value=serde_json::from_slice(&std::fs::read(d.join("devnet.json")).unwrap()).unwrap();
     let timing=pocol_lp4_execution::admission::Timing::from_json(&info["timing"]).unwrap();
     let spec=pocold::load_spec_calibrated(&d,&pocold::single_host_local(),|_,_|Ok(timing.clone())).unwrap();
     let (mut now,mut recorded)=(pocold::admission_json(spec.admission()),info["admission"].clone());
     now.as_object_mut().unwrap().remove("binding");recorded.as_object_mut().unwrap().remove("binding");
     assert_eq!(now,recorded);
+    let ids:Vec<&str>=recorded["conditions"].as_array().unwrap().iter().map(|c|c["id"].as_str().unwrap()).collect();
+    for id in ["continuous-protocol","gas-monotonicity-assumed","gate-deferred-general-R18"]{assert!(ids.contains(&id),"{id}: {ids:?}");}
     let _=std::fs::remove_dir_all(&d);
 }

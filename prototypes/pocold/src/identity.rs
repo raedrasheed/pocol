@@ -136,13 +136,14 @@ pub fn explain(local: &Consensus, peer: &[u8; 32]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    const H15000_GENESIS: &str = "be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca";
     fn local(forks: &[(u16, u64)]) -> Consensus { Consensus::new(7, [1; 32], forks, 1, 0, None) }
     #[test]
-    fn the_h15000_identity_is_pinned() {
-        // T11: computed from public data only; deploy/public-testnet/test_pocol_identity.py pins the same value.
-        let id = consensus_id(1599846715, &unhex32(H15000_GENESIS).unwrap(), 1, 0, &[(1, 0), (2, 15000)], None);
-        assert_eq!(hex(&id), "bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110");
+    fn a_scheduled_upgrade_identity_is_pinned() {
+        // T11: a synthetic network (chain 777915, genesis 0x5a…5a) with one scheduled activation, computed from public
+        // data only; deploy/public-testnet/test_pocol_identity.py pins the same value and rebuilds it with struct. The
+        // new network's own golden identity is pinned once its genesis exists.
+        let id = consensus_id(777915, &unhex32(&"5a".repeat(32)).unwrap(), 1, 0, &[(1, 0), (2, 1000)], None);
+        assert_eq!(hex(&id), "633afe4beab508ba5ab174300e3961d6ebb72235b68b994d597c508c5abd3021");
     }
     #[test]
     fn different_heights_give_different_ids() {
@@ -187,8 +188,8 @@ mod tests {
     }
     #[test]
     fn explain_names_what_a_refused_peer_differs_in() {
-        let ours = local(&[(1, 0), (2, 15000)]);
-        assert_eq!(explain(&ours, &local(&[(1, 0)]).id), "peer has not scheduled activation (2,15000): it must apply the published network upgrade");
+        let ours = local(&[(1, 0), (2, 1000)]);
+        assert_eq!(explain(&ours, &local(&[(1, 0)]).id), "peer has not scheduled activation (2,1000): it must apply the published network upgrade");
         assert_eq!(explain(&ours, &Consensus::new(7, [1; 32], &ours.forks, 2, 0, None).id), "peer runs consensus rules 2; this node runs rules 1");
         assert_eq!(explain(&ours, &Consensus::new(7, [1; 32], &ours.forks, 1, FLAG_CAPS_TEST, None).id), "peer runs a caps-test build");
         // The reverse of a missing activation: this node is the one behind, so the text carries the instruction.

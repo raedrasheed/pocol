@@ -187,13 +187,13 @@ class ReleasePackageTests(unittest.TestCase):
         self.native_fixture()
         # The network package.py names (switched with it at the cutover), so no identity is pinned here.
         chain, genesis = re.search(r"chain,genesis=([0-9]+),'(0x[0-9a-f]{64})'", self.script.read_text(encoding='utf-8')).groups()
-        info = {'chainId': int(chain), 'genesisHash': genesis, 'forks': [[1, 0], [2, 15000]]}
+        info = {'chainId': int(chain), 'genesisHash': genesis, 'forks': [[1, 0], [2, 1000]]}
         network = self.root / 'next.pocol.json'
         network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 1, 'seeds': [],
                                        'files': {'devnet.json': json.dumps(info)}}), encoding='utf-8')
         release = self.metadata(self.expanded(self.package('Linux', '--network', str(network))))
         reference = runpy.run_path(str(self.identity))['consensus_id']
-        self.assertEqual(release['consensusIdentity'], reference(int(chain), genesis, 1, 0, [(1, 0), (2, 15000)]))
+        self.assertEqual(release['consensusIdentity'], reference(int(chain), genesis, 1, 0, [(1, 0), (2, 1000)]))
         shutil.rmtree(self.root / 'dist'); shutil.rmtree(self.root / 'expanded')
         self.assertIsNone(self.metadata(self.expanded(self.package('Linux')))['consensusIdentity'], 'no invitation, no claim')
         shutil.rmtree(self.root / 'dist')

@@ -22,6 +22,15 @@ The build vendors the pinned Noble and ethers dependencies; it downloads no exec
 
 The built-in `pocol-public` profile pins chain ID `1599846715`, genesis hash `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`, and the complete GenesisSpec preimage. It connects only to `https://gateway.pocol.net/studio/rpc` using RN trust: trust the remote node for execution, independently verify site content hashes and the network identity. The relay must be deployed before live publishing/viewing through that profile works. Existing loopback profiles and the original local verification modes remain available.
 
+## Release note: the Viewer wallet address on the new network
+
+The Viewer's seed-derived wallet keys each profile's address with that profile's network key (netKey, D14), the
+built-in `pocol-public` profile included. Releases up to 0.4.1 keyed the built-in profile with a fixed salt (the
+retired network's netKey) so that its address survived an identity change; that salt is removed. When the built-in
+profile is pinned to the new network, the Viewer shows a **different address** for the same seed on it: the new
+network's own address, the same one a custom profile of that network gets. Nothing carries over from the retired
+network, so no balance is lost. Studio and IDE use the imported wallet key directly and are not affected.
+
 ## Existing Windows wallet
 
 `identity.pocol-key` on Windows is DPAPI user-bound ciphertext. A browser cannot decrypt DPAPI directly. Run `tools/Export-Studio-Wallet.ps1` under the Windows account that owns the wallet:

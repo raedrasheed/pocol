@@ -43,7 +43,7 @@ class Operations(unittest.TestCase):
 
     def test_inventory_refuses_the_removed_freeze_fields(self):
         for field in ['freezeUserTxsAfter', 'freezeGenesisHash']:
-            bad = inventory(); bad['nodes'][0][field] = 15000 if field == 'freezeUserTxsAfter' else '0x' + 'ab' * 32
+            bad = inventory(); bad['nodes'][0][field] = 1000 if field == 'freezeUserTxsAfter' else '0x' + 'ab' * 32
             with self.assertRaisesRegex(ValueError, 'Invalid node fields', msg=field): prepare.validate_inventory(bad, True)
 
     def test_checksums_reject_links_extras_and_traversal(self):
@@ -211,7 +211,7 @@ class Operations(unittest.TestCase):
         self.assertEqual(manifest['consensusIdentity'], prepare.pocol_identity.consensus_id(777915, info['genesisHash'], 1, 0, [(1, 0), (2, 50)]))
         self.assertEqual(manifest['consensusRulesVersion'], 1)
         self.assertTrue(op.bound(dict(manifest), manifest))
-        # A marker without a consensus identity (a 0.4.0 state binding) never binds a node.
+        # A marker without a consensus identity (an older state binding) never binds a node.
         self.assertFalse(op.bound({k: v for k, v in manifest.items() if k not in ('consensusIdentity', 'consensusRulesVersion')}, manifest))
 
     def test_duplicate_json_keys_are_refused(self):

@@ -469,7 +469,7 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
 }
 
 /// R18 SYS gas follows the program set the GenesisSpec's sysCodeHash names. V1 and Continuous keep the
-/// legacy table and composition exactly, so the spec-1 H15000 admission (Continuous) has the same
+/// legacy table and composition exactly, so a spec-1 continuous chain's admission (Continuous) has the same
 /// PhaseFacts call_gas, hence the same ResourceFacts digest, and the same condition text; EarnIn gets
 /// GAS_ENVELOPE_EARNIN and a condition naming it.
 #[test] fn the_gas_envelope_follows_the_program_set_and_v1_continuous_facts_are_unchanged(){
@@ -492,16 +492,21 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     assert_eq!(GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>(),LEGACY.iter().map(|x|x.0).collect::<Vec<_>>(),"the same call names");
     assert!(gas_condition(ProgramSet::EarnIn).starts_with("SYS gas: GAS_ENVELOPE_EARNIN holds at the earn-in fixture's maxima (earn-in program set)"));
 
-    // The live spec-1 chain: deploy/mainnet/h15000 runs the Continuous set inside GAS_DOMAIN.
-    let bundle:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
-    let bytes=crate::hex::decode(bundle["files"]["genesis.spec.hex"].as_str().unwrap().trim().trim_start_matches("0x")).unwrap();
-    let spec=gs::verify_hash(&bytes,&gs::genesis_hash(&bytes)).unwrap();let cp=ConsensusParams::from_values(&spec.cp).unwrap();
+    // A continuous spec-1 chain as `pocold init-testnet` generates one at its defaults (T_blk 10, tau 600, D_att 60,
+    // dFbWait 6, R_max 1, no H_END): it runs the Continuous set inside GAS_DOMAIN, and its admission records the
+    // legacy R18 condition.
+    let mut c=cfg();c.t_blk=10;c.tau=600;c.d_att=60;c.d_fb_wait=6;c.hash_rate=(1<<18)/10;c.r_max=1;c.h_end=0;c.h_close=0;
+    let n=net(&c);let spec=gs::verify_hash(&n.spec_bytes,&gs::genesis_hash(&n.spec_bytes)).unwrap();let cp=ConsensusParams::from_values(&spec.cp).unwrap();
+    assert_eq!((cp.T_blk,cp.D_att,cp.dFbWait,cp.R_max,cp.H_END,cp.H_CLOSE),(10,60,6,1,0,0));
     let set=SystemPrograms::program_set(&cp,&spec.sys_code_hash);
     assert_eq!(set,ProgramSet::Continuous);assert!(in_gas_domain(&cp,set));
-    for class in 0..3{assert_eq!(phase_gas(&cp,class,set),Some(legacy(&cp,class)),"H15000 class {class}");}
-    let info:serde_json::Value=serde_json::from_str(bundle["files"]["devnet.json"].as_str().unwrap()).unwrap();
-    let recorded=info["admission"]["conditions"].as_array().unwrap().iter().find(|c|c["id"]=="gas-monotonicity-assumed").unwrap();
-    assert_eq!(recorded["detail"],gas_condition(set),"the recorded H15000 R18 condition");
+    for class in 0..3{assert_eq!(phase_gas(&cp,class,set),Some(legacy(&cp,class)),"continuous class {class}");}
+    let local=NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..sh()};
+    let t=measure(&n.spec_bytes,&n.alloc,1).expect("measure");
+    let a=admit(&n.request(&local,Some(&t))).unwrap_or_else(|e|panic!("continuous: {e}"));
+    let recorded=a.report().conditions.iter().find(|c|c.id=="gas-monotonicity-assumed").unwrap();
+    assert_eq!(recorded.detail,gas_condition(set),"the continuous chain's R18 condition");
+    assert_eq!(recorded.detail,LEGACY_TEXT);
 
     // Admitted devnets of each set report their envelope.
     for (earnin,h_end,want) in [(false,20_000,ProgramSet::V1),(false,0,ProgramSet::Continuous),(true,0,ProgramSet::EarnIn)]{

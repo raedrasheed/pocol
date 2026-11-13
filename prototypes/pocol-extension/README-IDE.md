@@ -24,7 +24,7 @@ A new unpacked folder can have a different extension ID/storage. In that case im
 5. Click **Prepare transaction review**. Check the signing address, target or expected deployment address, bytecode/calldata fingerprints, value, and maximum PCOL fee.
 6. Select the consent checkbox and click **Confirm & sign transaction**. Keep the confirmation tab open while it checks the receipt.
 
-The original imported key is used directly. The older Viewer seed-derived wallet is a separate mechanism and is not used for IDE or Studio publication.
+The original imported key is used directly. The older Viewer seed-derived wallet is a separate mechanism and is not used for IDE or Studio publication. The Viewer wallet now keys the built-in profile by its network key too, so its address changes with the network (see the release note in `README-STUDIO.md`).
 
 ## Linux encrypted export
 
