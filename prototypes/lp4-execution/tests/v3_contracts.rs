@@ -1442,7 +1442,8 @@ mod preview{
     ///   ACC_COUNT write, removeActive, the bond burn and the reporter's PAY to the signed proposer's reward address);
     ///   four type-1 items punish HELD genesis members (never-written clock word, middle of the active list, the
     ///   reporter's PAY). Each kind comes first on one run of chain B, so each also pays the chain's first burn.
-    /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry) and the blocks
+    /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry, GAS_ENVELOPE_EARNIN
+    /// otherwise: `gas_envelope(ProgramSet::V3)`), every call name measured has an entry there, and the blocks
     /// within resources::derive; the test asserts that the settle and punish maxima are taken on these paths.
     #[test]
     fn v3_sys_gas_and_caps_within_the_v3_envelope(){
@@ -1555,12 +1556,22 @@ mod preview{
         // probationer's (graceStart), which outweighs the ACCRUING path's ACC_COUNT write: the HELD path is the worst.
         assert!(punish_held>punish_acc,"punish HELD {punish_held} vs ACCRUING with a bond {punish_acc}");
         for (n,g) in &gas{
-            let bound=admission::envelope_for(n,true).unwrap_or_else(||panic!("no envelope entry for {n}"));
-            assert!(*g<=bound,"v3 {n} = {g} above its envelope {bound}");
+            let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
+            assert!(*g<=bound,"v3 {n} = {g} above its composed envelope {bound}");
         }
-        // The v3 table is needed: each of its measured entries exceeds the spec-1 entry of the same name.
-        for n in ["invalidate","punish","recordResult","settle"]{assert!(gas[n]>admission::envelope_for(n,false).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
-        assert_eq!(admission::envelope_for("recordLate",false),None,"recordLate exists on the v3 set only");
+        // Every other name of the composed table was measured here (recordLate, the v3-only name, included), so no
+        // ordinary or closing entry is unchecked. These chains are continuous (h_end 0), so the final phase is not
+        // reached: finalize takes the earn-in entry unmeasured on v3, and settleFinal runs the same settleOne as settle,
+        // so its entry is the settle maximum measured here.
+        for (n,_) in admission::gas_envelope(ProgramSet::V3){if !["finalize","settleFinal"].contains(n){assert!(gas.contains_key(n),"the v3 envelope names {n}, which no run measured");}}
+        assert!(admission::gas_envelope(ProgramSet::V3).iter().any(|x|x.0=="recordLate"),"the composed v3 envelope names recordLate");
+        assert!(gas["settle"]<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settleFinal covers the measured settle");
+        // The v3 table is needed: each of its measured entries exceeds the earn-in entry it replaces in the composition,
+        // and the spec-1 entry of the same name.
+        for n in ["invalidate","punish","recordResult","settle"]{
+            assert!(gas[n]>admission::envelope(ProgramSet::EarnIn,n).unwrap(),"{n} {} fits the earn-in envelope: drop its v3 entry",gas[n]);
+            assert!(gas[n]>admission::envelope(ProgramSet::V1,n).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
+        for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert_eq!(admission::envelope(set,"recordLate"),None,"recordLate exists on the v3 set only: {set:?}");}
         assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
     }
 }

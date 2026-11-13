@@ -1064,6 +1064,39 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   fixture fails if any value exceeds the table. Worst composition 87.7M ≤ G_SYS 96M (measured worst
   block 83.7M). Applicable only inside S_max ≤ 256, M_max ≤ 256, D ≤ 16, E_max ≤ 4, RET ≤ 128; outside
   it the gas facts are absent and R18 fails.
+- **Earn-in program set (2026-11-12).** The table above was measured on the V1 programs, and admission used it
+  for every program set. On the earn-in programs it is exceeded inside the domain: settle 4,420,973 with no
+  ACCRUING record (payInfos returns a second array), 4,667,822 with eight ACCRUING payees whose first fill at a
+  closing boundary promotes them and PAYs the rest, and 4,684,922 when that settle is also the chain's first
+  burn (escrow slot 0 written from zero); settleFinal 4,408,101 in a tomb-free final block and 4,423,202 when
+  its first settleFinal makes the first burn; markClose 2,715,144, beginBlock 943,609. Admission now
+  selects the table by the program set the sysCodeHash names (`admission::gas_envelope`): V1 and Continuous keep
+  `GAS_ENVELOPE` (the spec-1 H15000 chain's Continuous set, whose admission report is unchanged), and EarnIn
+  uses `GAS_ENVELOPE_EARNIN`, measured by `sys_gas_envelope_fixture_earnin` (ACCRUING records registered by
+  USER transactions, runs with and without evidence; the scenarios are listed at the table). Worst earn-in
+  composition 91.1M ≤ G_SYS 96M (measured worst block 86.6M), so no R18 outcome at the default G_SYS changes;
+  only the reported facts become sound. Not measured: the probation-deadline exit in the beginBlock sweep
+  (height ≥ 60480).
+- **V3 program set (V3-PR-E2b, 2026-11-13).** PoColSystemV3.sol is built on the earn-in programs, so
+  `gas_envelope(ProgramSet::V3)` composes `GAS_ENVELOPE_V3` over `GAS_ENVELOPE_EARNIN`: the v3 entries
+  (invalidate, punish, recordResult, settle, settleFinal), measured by tests/v3_contracts.rs
+  `v3_sys_gas_and_caps_within_the_v3_envelope`, where it has one, the earn-in entry otherwise. The v3 domain
+  also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual). V1, Continuous and EarnIn are unchanged.
+- **Open: v3 final phase (V3-PR-E2b).** The v3 gas runs are continuous (h_end 0) and never reach the final
+  phase: finalize takes the earn-in entry with no v3 measurement, and settleFinal takes the measured v3 settle
+  (the same settleOne) rather than a measured tomb-free v3 final block. A v3 final-phase measurement
+  (finalize, settleFinal) is still owed before the V3 class-2 facts are measured rather than inherited.
+- **Open: V1 settleFinal (2026-11-12).** `sys_gas_envelope_fixture` runs no tomb-free final block. On the V1
+  programs one measures settleFinal 4,291,596, and 4,306,697 when its first settleFinal makes the first burn,
+  above the 4,230,000 entry of `GAS_ENVELOPE` (settle, 4,304,468 tomb-free and on the Continuous programs, is
+  covered). The V1 class-2 facts, and the composed class-2 facts of the Continuous set (H15000 included, though
+  Continuous never runs settleFinal), are therefore understated by up to 15 × 77,000 gas: worst V1 composition
+  about 88.9M instead of 87.7M, still ≤ G_SYS 96M, so no outcome changes. The table is left unchanged here so the
+  spec-1 H15000 admission facts stay byte-identical; raising it (and adding the tomb-free runs to the V1 fixture)
+  is the owner's call.
+  recordShares assumes registered owners; the invariant that makes an unregistered owner unreachable
+  (owners ⊆ ActList(parent), no erase before recordShares by R8, ActList ⊆ live records outside CLOSING) is
+  documented at `GAS_ENVELOPE` and checked on fixture and real blocks.
 - Timing: measured per profile on the admitting machine (blocks with a GAS_LIMIT compute loop through
   closing and the final block). Representative, not adversarial worst case.
 - **Timing of a store-mode node (2026-10-25).** Until then a node that boots in store mode was admitted on the
@@ -1072,9 +1105,56 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   - `load_spec_for` now runs the same calibration blocks also through a scratch state store at
     `<data>/calibration.store`, on the node's own disk, before the node opens:
     `admission::measure_on_store`, which uses `apply_block_on`, the trie update, the root and a durable
-    commit, all inside each block's timed span.
+    commit for each block.
   - R14/R19 then see, per phase class, the larger of the two times (`Timing::with_store`).
-  - The admission condition `timing-not-a-bound` says that the store was included.
+  - **Measurement since 2026-11-12** (branch `admission-commit-latency`; it corrects PR #12, which had dropped the
+    commit from R14/R19, so a disk slow on every write was admitted). Per calibration block:
+    - execution `e` = the median of at least three timed runs of `apply_block_on`, the trie update and the root
+      (in memory: `apply_block`);
+    - commit `c` = one timed durable commit of that block's nodes (0 in memory).
+    - The block's cost is `e + c`. With `n` timed blocks, the largest `k = max(1, ⌊n/4⌋)` commits of the
+      calibration are counted at the median commit of the calibration instead of their own times (the lower median
+      for an even number of timed blocks, so with two blocks it is the other block's commit; equal commits: the
+      earlier blocks are replaced). Before branch `admission-commit-outliers` (2026-11-12) exactly one commit, the
+      largest, was replaced; that is still the rule for one to seven timed blocks.
+    - `phase_ms` (what R14/R19 compare with t_exec, unchanged at 1 s) is, per phase class, the largest block cost.
+      With at least two timed blocks, isolated stalled writes (up to `k` of them, at least one) therefore cannot
+      refuse a boot. A `(k+1)`-th stalled commit is counted, and so is a disk whose typical (lower-median) commit
+      exceeds t_exec: such a host is refused. A finite profile with `H_END = 1` has one timed block; its commit is
+      its own median and is counted, so there only the retry below tolerates a stall. Default and continuous
+      profiles time at least six blocks.
+    - Why a quarter, not one (2026-11-12): on the Windows CI runner the pocold test
+      `isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused` was refused with
+      `phase_ms=[2256, 2256, 2256]`, `execution_ms=[14, 14, 14]`, `store_fsync_ms=4169`,
+      `store_fsync_median_ms=439`, `samples=66` (22 timed blocks): three of the 22 commits were slow (the
+      test's one held commit and the runner's natural multi-second fsync spikes). Only the largest was replaced,
+      so the next one (2256 − 14 = 2,242 ms) reached R14/R19. A real Windows node would be refused at
+      boot the same way, against the owner's PG-2 ("one slow disk write must not refuse a boot"). With `k = 5`
+      for 22 blocks those spikes are replaced, while a disk slow on every write, or on more than k of them
+      (k = max(1, ⌊n/4⌋)), is still refused. Node-local only: no validity rule, root, fork choice or consensus
+      identity changes.
+    - Reported, not compared: `execution_ms` (the largest `e` per phase), `store_fsync_ms` (the largest `c`),
+      `store_fsync_median_ms`, the sample count and `t_exec_ms`. One `timing:` line carries them: on a
+      successful boot `pocold run` prints it to stderr (`pocold: ParamGate admitted, timing: ...`, from
+      `Admitted::timing`), and a -32018 [R14, R19] refusal carries it as a note. It is kept out of the admission
+      report, so the published devnet.json stays the same apart from its `timing` record.
+    - `load_spec_for` measures once more after a timing refusal (PR #12) and refuses only if the second
+      calibration also fails.
+    - Tests: `pocold/tests/admission.rs` `a_store_slow_on_every_commit_is_refused_on_r14_and_r19_after_two_calibrations`
+      (every commit held 1,050 ms: refused after two calibrations, `phase_ms=[1065, 1065, 1065]`,
+      `execution_ms=[12, 12, 12]`, `store_fsync_ms=1058`, `store_fsync_median_ms=1051` on this host) and
+      `isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused` (one held commit:
+      admitted, `phase_ms=[14, 14, 14]`, `store_fsync_ms=1051`); `lp4-execution` admission unit test
+      `the_store_calibration_times_each_block_commit` (every commit, one, or `k+1` commits slow) and
+      `the_largest_quarter_of_commits_is_counted_at_the_lower_median` (exact outputs for one to four timed blocks,
+      `k = 1`; eight blocks with two stalls tolerated and three counted, `k = 2`; the 22-block Windows evidence,
+      reconstructed with median 439 ms and stalls of 1,500, 2,242 and 4,169 ms: `phase_ms=[494, 0, 0]` instead of
+      2,256 ms; a lower-median commit past t_exec; six stalls among 22; and
+      `k` tolerated, `k+1` counted, for every `n` from 2 to 64).
+    - The owner's two decisions behind this (2026-11-11) are recorded in
+      [development/decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md](../decisions/PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md).
+  - The admission condition `timing-not-a-bound` says that the store was included and how a block's cost is
+    counted.
   - The scratch store is removed before the node opens. One a crash left behind is removed first.
   - Whole-state mode is unchanged.
   - The memory it uses is transient, before the node allocates its own, and within the store terms the
@@ -1404,10 +1484,117 @@ H15000-bundle projections above. Candidate v3 caps still need the resource/profi
 `memory_bounds` checks observations and side-record growth; `v3_fork_choice` checks actual retention,
 checkpoint/index loss, partial timing-table loss, corruption recovery and re-fetch with original flags.
 
+**Spec-1 impact of the eviction-batch correction (recorded 2026-11-12, audit of PR #16).**
+- **Scope.** The corrected term is not gated on `first_imports` or `v3_active`. It applies to every
+  profile with canonical eviction on. That includes the live H15000 chain: spec 1, schedule
+  [(1,0),(2,15000)], continuous, eviction on by default.
+- **Classification.** It is a node-local correction of an A13 under-count, which the owner rule approves
+  without reservation. It makes the model more conservative and is kept.
+- **What does not change.** Verdicts, roots, fork choice, journal and checkpoint bytes, Entry/Rec sizes,
+  REC_MIN/REC_MAX, the 6 GiB default budget and the 1/8 reserve.
+- **Model change.** At the default limits the batch is side_cap + 2·R_keep + 2 = 6,146 rows, whatever
+  the profile. The change is +1,922 B a row (11,812,612 B) plus 6 × (REC_MAX + 40) + 512 = 2,498 B of
+  row buffers: **+11,815,110 B of model**. For the default devnet this moves the model from
+  3,385,097,500 to 3,396,912,610 B, and the required budget from 3,868,682,858 to 3,882,185,840 B
+  (+13,502,982 B).
+- **Spec-1 eviction-on effect.** A spec-1 node whose memory budget lies between its old and its new
+  requirement now fails the boot check. Each of the six windowed live-chain history-file stops comes
+  **48,394,690,560 B** (about 45.07 GiB) earlier; at (32,2), 11,642,050,895,999 → 11,593,656,205,439 B.
+- **Spec-1 eviction-off effect.** None: the model stays 3,387,450,989 B and the record stops are
+  unchanged.
+- **Lock notes n=8 and n=9.** The batch correction entered in commit 7331ce4 (lock n=8, note "legacy
+  order and journal bytes unchanged"). At that commit the pins moved to 3,398,806,648 B (eviction on)
+  and 3,388,705,997 B (eviction off); both also carried inline first-import metadata. Commit 4386002
+  (lock n=9, titled "preserve the legacy entry footprint") moved the timestamps back out of Entry/Rec,
+  bringing eviction off back to 3,387,450,989 B, and kept the batch correction, leaving eviction on at
+  3,396,912,610 B (+11,815,110 B net). Neither note discloses the eviction-on change. The n=9 phrase "preserve the legacy memory footprint" (ref
+  V3-PR-C2) is accurate only for the Entry/Rec layout and the eviction-off total; read as the
+  eviction-on A13 model total it is incorrect. The lock is append-only, so the correction is recorded
+  here, and the next lock line will reference it.
+
+**The network/store capacity case, checked (2026-11-12).**
+- **Which case.** "The itemized synthetic network/store case" is the store-mode model of
+  `tests/network_budget.rs`: `a13_store_model_at_the_network_profile`, and the `NETWORK-A13`
+  `stateStore:true` line of `network_profile_boot_gates_itemized`. Both use K_hist 32, the default side
+  limit, 2 dials and default limits.
+- **Profile.** It is the governance.md network-profile *candidate*, built with chainId 777920 because
+  the builder refuses 777001. It is an illustrative decision-package projection, not a shipped profile.
+  No deploy/ network file uses it. pocold does not admit the network profile (§4; the test file's
+  header says pocold refuses to boot it). The tests print the model and assert only that the printed
+  verdict agrees with `resources::check`; no value is pinned.
+- **Its A13 verdict did flip, from fits to refused.** Eviction is on for it (H_END 129,600, default
+  depth). The batch term does not depend on the profile, so #16 added the same 11,815,110 B:
+  - Before #16: 5,626,147,869 B of model, 6,429,883,279 B required. That fits the 6 GiB budget
+    (6,442,450,944 B) with 12,567,665 B to spare.
+  - After #16: 5,637,962,979 B of model, 6,443,386,262 B required. That is 935,318 B over the budget
+    (818,403 B of model above the 5,637,144,576 B ceiling), so it is refused.
+- **Provenance and effect.** The pre-#16 figure is derived by subtracting the profile-independent
+  delta, not re-run. Re-running the network_budget prints on the parent of 4d62ef9 would confirm it;
+  that was not done for this record. The flip changes no shipped or live configuration.
+
+### V3-PR-C3: active log limits and creation-fee annotation
+
+For the same admitted `v3_active(MAX)` domain as first-import indexing, every
+per-block log term now uses 256 KiB rather than 32 KiB: continuous projected
+history, the resident canonical window, retained receipts, side blocks and a
+reloaded view. Finite LOG_CAP=1 GiB is unchanged. R26 also reserves response/count/scan capacity for the
+largest active log cap; its partial evaluator cannot waive an enforced bound.
+Under v3 eth_getTransactionReceipt is served heavy (one receipt can hold every
+block log, above LIGHT_RESP_MAX); the response pools and their terms are
+unchanged, since a heavy answer already reserves RESP_MAX from HEAVY_RESP_POOL.
+
+A paid creation charge adds at most one receipt annotation to the native result:
+one Log, two topics and 96 data bytes (196 LOG-ACCT-01 bytes). The encoded/retained
+copies are inside the active log bounds. `execution/v3 creation-fee receipt
+annotation scratch` adds 4096 B per execution for the extra live log and its
+allocation/growth peak beyond EVM-gas-purchased logs (v3 domain only). No block
+report carries the burn: ChainFacts, BlockRun, BlockOutput and Entry keep their
+legacy layouts (ChainFacts is 96 B on the pinned target, asserted in
+`memory_bounds`); the receipts are the burn record. The running CreationBurn,
+other scalar values and U512 arithmetic use the already reserved consensus stack.
+There is no new system slot, snapshot map, checkpoint field or lifetime burn map.
+
+**Legacy under-count corrected on every profile (spec-1 included).** While a block
+runs, the unchanged legacy code allocates receipt scratch that no earlier term
+counted: `receipts::encode` nests growing parts/topic/log/payload/envelope buffers
+for the transaction being encoded; `trie::ordered_root` clones every encoded
+receipt (`v.clone()`) before building the receipts root; and apply copies the USER
+receipt list into its report (`users.receipts().to_vec()`) while the original is
+alive. The retained block's own receipts and logs are the separate side-block and
+history terms. Count the peak explicitly as `16*active_log_bytes +
+2*side_txs*per_tx + 65536`, where the existing per-tx allowance is 380 B and
+`side_txs=min(BODY_MAX/MIN_TX_BYTES,GAS_LIMIT/21000)`. By inspection the log-byte
+peak is about 9.3 copies (the encoded list plus about eight nested/growing copies
+of one transaction's logs, or two whole lists plus a leaf's copies at the root);
+sixteen copies cover it with margin, two receipt buffers cover the per-transaction
+base fields and 64 KiB the fixed bloom/short-list scratch. Only the active log cap
+is v3-gated (`log_caps(first_imports)`): 32 KiB on spec-1, 256 KiB under v3.
+
+Spec-1 impact (recorded for the owner): on the legacy default 8M-gas profile and
+the live H15000 chain this adds 878,624 B. The default Linux x86-64 devnet model is
+3,397,791,234 B with eviction (was 3,396,912,610) and 3,388,329,613 B without (was
+3,387,450,989). The six non-evicting record stops, in peers 8/32/64 and dials 2/7
+order, move from 1,146,268 / 1,121,410 / 1,114,248 / 1,089,603 / 1,071,706 /
+1,046,848 to 1,145,894 / 1,121,036 / 1,113,874 / 1,089,243 / 1,071,332 / 1,046,701
+(374/374/374/360/374/147 records earlier). The original R10 baselines and owner
+seed-rule guards remain and still pass. Every windowed file stop moves down by
+4096*878624 = 3,598,843,904 B; (32 peers, 2 dials) is now 11,590,057,361,535 B.
+Budgets, reserve and one-byte boundary checks are unchanged. No verdict, root,
+fork choice, journal or checkpoint byte changes. These are capacity models, not
+measured RSS or chain lifetime.
+
+Pricing is exact per persisted new unit; its loops are bounded by existing gas
+and dirty limits (runtime deposit is 200 gas per byte). No shared growth budget
+or reduced resource reserve substitutes for this inventory. See
+`development/decisions/V3-EXECUTION-FEES.md` and `v3_execution` for count/byte
+boundaries, annotation rollback, classified conservation and copy/overlay/store
+parity. These are representation bounds and fixture results; candidate v3 caps
+and coefficient calibration still require the resource/profile PR.
+
 ### V3-PR-E3: late share credit (V3-02), CP schema v2 only
 
 Three terms exist only for a CP schema v2 (v3) profile; on CP schema v1 each is zero and the pinned spec-1 totals
-(3,396,912,610 B; eviction off 3,387,450,989 B) are unchanged, as are `Entry`, `Rec`, REC_MIN and REC_MAX.
+(3,397,791,234 B; eviction off 3,388,329,613 B, after V3-PR-C3's receipt-encoding correction) are unchanged, as are `Entry`, `Rec`, REC_MIN and REC_MAX.
 
 - `queues/late-share cache`: `node::LateCache`, at most D + LATE_PENDING_MAX + 1 templates (`LateTemplate`: TemplateID,
   height, nMax, share target and at most SHARE_RELAY_PER_S_MAX·S_max = 4·S_max nonces). `LateCache::prune` keeps the
@@ -1441,7 +1628,7 @@ admission is refused while any remains (D-A02-SCOPE).
 
 | # | assumption | status | basis / remaining obligation |
 |---|---|---|---|
-| 1 | SYS gas is monotone in the domain fields (GAS_ENVELOPE covers every profile in GAS_DOMAIN) | OPEN | No opcode-level worst-case derivation. Admission condition `gas-monotonicity-assumed` (R18) |
+| 1 | SYS gas is monotone in the domain fields (the program set's envelope, GAS_ENVELOPE, GAS_ENVELOPE_EARNIN, or for V3 GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN with P_MAX ≤ 64, covers every profile in GAS_DOMAIN) | OPEN | No opcode-level worst-case derivation. Admission condition `gas-monotonicity-assumed` (R18). Known gap: GAS_ENVELOPE settleFinal (4,230,000) is below a tomb-free V1 final block (up to 4,306,697), so V1 and composed Continuous class-2 facts are understated (§3, "Open: V1 settleFinal"). V3: the final phase (finalize, settleFinal) has no v3 measurement (§3, "Open: v3 final phase") |
 | 2 | R14/R19 timing is a worst-case bound | OPEN | `measure` applies one synthetic GAS_LIMIT compute workload per phase on this host, a representative sample. Not a bound for worst-case state size, world-root rebuild, PAY or settlement paths. Admission condition `timing-not-a-bound` (R14, R19). **Round 3 (JOURNAL-GROWTH-AND-REPLAY.md §3.2a, §3.2d), measured on this host:** one valid one-tx MODEXP block validates in about 1.0 s, and in about 1.3 s with the state at the devnet caps, above the devnet t_exec = 1 s (single_host; R14 requires t_exec ≥ validate_p99, governance.md:93); a valid 380-transfer block re-executes in about 10.2 s on a near-cap devnet state, above t_exec = 1 s and T_blk = 4 s. The admission gate itself was not re-measured |
 | 3a | thread stacks and the exiting-thread overlap | ENFORCED (measured + conservative) | Every thread is spawned with an explicit reservation and counted at it (io_threads). The inventory is enforced by join ordering: the acceptor, listener and dialers join a finished thread before reusing its place (`threads::reap`); a reader joins its writer; the miner is joined before the next starts. A thread can finish between its reaper's visits: the bound on exiting-not-yet-joined threads is E = inbound_max + dials + conn_max (peers_max before PR3) (writers join synchronously; singletons never respawn), counted CONSERVATIVELY at a full IO_STACK each (10.5 MiB). Measurement (evidence/threadmem.rs, evidence/THREAD-INVENTORY.md): a finished joinable thread retains only ~25.8 KiB, not 256 KiB — the bulk returns to the glibc stack cache (the 40 MiB STACK_CACHE term) — so the term is an upper bound, not the measured figure, as the owner directed (measurement is evidence, not a guaranteed ceiling). Tests: `peer_threads_stay_within_the_inventory_while_consensus_is_stalled`, `miner_replacement_keeps_at_most_one_miner_thread` (handle high-water 1; mutation fails), F1's lost-wakeup unit test. Residual: the main thread's stack is platform-reserved, counted at 1 MiB (INSPECTION) |
 | 3b | allocator per-allocation overhead and fragmentation | OPEN (reserve kept) | Not modelled; the total is requested bytes. The boot gate keeps 1/8 of the budget outside the model (D-A13-BUDGET). Measured: full-cap snapshot clones use 0.45 of their model in RSS; header estimate for history under 8 MB (§2b). Fragmentation is not bounded. Status condition `allocator-overhead` |

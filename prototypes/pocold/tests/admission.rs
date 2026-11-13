@@ -124,32 +124,42 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
     assert!(n.state_store().is_some()&&n.status_json()["stateStore"]==true);
     drop(n);let _=std::fs::remove_dir_all(&d);
 }
-/// A durable commit stalled past the execution limit is reported separately and cannot refuse boot.
-#[test] fn isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused(){
-    use pocol_lp4_execution::{admission,node_trie::{Batch,Id,Node,NodeStore,TrieStore}};
-    use std::sync::{Arc,atomic::{AtomicU32,Ordering}};
-    /// A state store whose `hold`-th commit (0: none) takes `ms` longer, as a flush queued behind other writers.
-    struct Held<'a>{st:&'a pocold::state_store::StateStore,hold:u32,ms:u64,commits:AtomicU32,slow_execution:u8,code_reads:AtomicU32}
-    impl NodeStore for Held<'_>{fn node(&self,id:&Id)->Option<Arc<Node>>{self.st.node(id)} fn code(&self,h:&revm::primitives::B256)->Option<revm::primitives::Bytecode>{
+/// A state store whose `hold`-th commit (0: none; `EVERY`: every commit) takes `ms` longer, as a flush queued behind
+/// other writers or a disk slow on every write; `slow_execution` 1 slows the first code read, 2 every one.
+struct Held<'a>{st:&'a pocold::state_store::StateStore,hold:u32,ms:u64,commits:std::sync::atomic::AtomicU32,slow_execution:u8,code_reads:std::sync::atomic::AtomicU32}
+const EVERY:u32=u32::MAX;
+impl<'a> Held<'a>{fn new(st:&'a pocold::state_store::StateStore,hold:u32,ms:u64,slow_execution:u8)->Self{
+    Held{st,hold,ms,commits:Default::default(),slow_execution,code_reads:Default::default()}}}
+impl pocol_lp4_execution::node_trie::NodeStore for Held<'_>{
+    fn node(&self,id:&pocol_lp4_execution::node_trie::Id)->Option<std::sync::Arc<pocol_lp4_execution::node_trie::Node>>{pocol_lp4_execution::node_trie::NodeStore::node(self.st,id)}
+    fn code(&self,h:&revm::primitives::B256)->Option<revm::primitives::Bytecode>{
+        use std::sync::atomic::Ordering;
         if self.commits.load(Ordering::SeqCst)>0&&*h==revm::primitives::keccak256([0x5b,0x60,0x00,0x56])&&(self.slow_execution==2||(self.slow_execution==1&&self.code_reads.fetch_add(1,Ordering::SeqCst)==0)){
             std::thread::sleep(std::time::Duration::from_millis(self.ms));
         }
-        self.st.code(h)}}
-    impl TrieStore for Held<'_>{
-        fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{
-            if self.commits.fetch_add(1,Ordering::SeqCst)+1==self.hold{std::thread::sleep(std::time::Duration::from_millis(self.ms))}
-            TrieStore::commit(self.st,b,root)}
-        fn unpin(&self,root:&Id)->Result<(),String>{TrieStore::unpin(self.st,root)}
-        fn pinned(&self)->Result<u64,String>{TrieStore::pinned(self.st)}
-    }
-    let mut c=DevnetConfig::new(777917,1_700_000_000,&["one","two","three"]);
-    c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.h_end=0;c.h_close=0;
+        pocol_lp4_execution::node_trie::NodeStore::code(self.st,h)}}
+impl pocol_lp4_execution::node_trie::TrieStore for Held<'_>{
+    fn commit(&self,b:&pocol_lp4_execution::node_trie::Batch,root:Option<pocol_lp4_execution::node_trie::Id>)->Result<(),String>{
+        let k=self.commits.fetch_add(1,std::sync::atomic::Ordering::SeqCst)+1;
+        if self.hold==EVERY||k==self.hold{std::thread::sleep(std::time::Duration::from_millis(self.ms))}
+        pocol_lp4_execution::node_trie::TrieStore::commit(self.st,b,root)}
+    fn unpin(&self,root:&pocol_lp4_execution::node_trie::Id)->Result<(),String>{pocol_lp4_execution::node_trie::TrieStore::unpin(self.st,root)}
+    fn pinned(&self)->Result<u64,String>{pocol_lp4_execution::node_trie::TrieStore::pinned(self.st)}
+}
+/// The continuous single-host profile the held-store tests boot.
+fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000,&["one","two","three"]);c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.h_end=0;c.h_close=0;c}
+/// One durable commit stalled past the execution limit is reported and counted at the median commit (it is among the
+/// calibration's largest max(1, n/4) commits), so it cannot refuse boot; a sustained execution slowdown is refused.
+#[test] fn isolated_commit_stalls_are_admitted_but_sustained_execution_slowdown_is_refused(){
+    use pocol_lp4_execution::admission;
+    use std::sync::atomic::Ordering;
+    let c=held_profile();
     let n=devnet::build(&c).unwrap();let local=pocold::single_host_local();let t_exec_ms=u64::from(local.t_exec)*1000;
     let memory=admission::measure(&n.spec_bytes,&n.alloc,1).unwrap();
     let boot=|hold:u32,slow_execution:u8|{
         let d=tmp(&format!("held-commit-{hold}-{slow_execution}"));std::fs::create_dir_all(&d).unwrap();let st=pocold::state_store::StateStore::open(&d).unwrap();
         // Commit 1 stores the genesis before the timed blocks; commit 3 is the second block's.
-        let held=Held{st:&st,hold,ms:t_exec_ms+50,commits:AtomicU32::new(0),slow_execution,code_reads:AtomicU32::new(0)};
+        let held=Held::new(&st,hold,t_exec_ms+50,slow_execution);
         let s=admission::measure_on_store(&n.spec_bytes,&n.alloc,1,&held).unwrap();assert!(held.commits.load(Ordering::SeqCst)>3);
         drop(held);drop(st);let _=std::fs::remove_dir_all(&d);
         let t=memory.with_store(&s).unwrap();(t.clone(),admission::admit(&n.request(&local,Some(&t))).map(|_|()).map_err(|e|e.to_string()))
@@ -162,4 +172,65 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
     let (t,r)=boot(0,2);eprintln!("sustained execution slowdown: {t:?}");assert!(t.phase_ms[0]>t_exec_ms,"{t:?}");
     let e=r.unwrap_err();assert!(e.starts_with("-32018 ParamGate rejected [R14, R19]"),"{e}");
     for part in ["execution_ms=","store_fsync_ms=","samples=","t_exec_ms=1000"]{assert!(e.contains(part),"{e}");}
+}
+/// A disk slow on every durable commit (each held past t_exec) is a truly slow host for a store-mode node: R14/R19
+/// count each block's commit, so boot is refused after both calibrations, and the refusal carries the measured times.
+/// The same boot path on the same store with no held commit is admitted, and `run` reports the times it booted on.
+#[test] fn a_store_slow_on_every_commit_is_refused_on_r14_and_r19_after_two_calibrations(){
+    use pocol_lp4_execution::admission;
+    let d=tmp("held-every");let dir=d.join("net");publish(&held_profile(),&dir,true);
+    let local=pocold::single_host_local();let t_exec_ms=u64::from(local.t_exec)*1000;
+    let mut calls=0u32;
+    // As load_spec_for: memory and a scratch state store on this disk, three samples per block; the store's commits held.
+    let calibrate=|hold:u32|{let d=d.clone();move |bytes:&[u8],alloc:&revm::InMemoryDB|->Result<admission::Timing,String>{
+        let mem=admission::measure(bytes,alloc,3)?;
+        let sd=d.join(format!("store-{hold}"));let _=std::fs::remove_dir_all(&sd);std::fs::create_dir_all(&sd).map_err(|e|e.to_string())?;
+        let st=pocold::state_store::StateStore::open(&sd).map_err(|e|e.0)?;
+        let s=admission::measure_on_store(bytes,alloc,3,&Held::new(&st,hold,t_exec_ms+50,0));drop(st);let _=std::fs::remove_dir_all(&sd);
+        mem.with_store(&s?)
+    }};
+    let spec=pocold::load_spec_calibrated(&dir,&local,calibrate(0)).unwrap_or_else(|e|panic!("an unheld store boots: {e}"));
+    let t=spec.admission().timing().expect("the admitted measurement");assert!(t.stored&&t.phase_ms.iter().all(|p|*p<=t_exec_ms),"{t:?}");
+    let r=t.report(local.t_exec);
+    assert!(r.starts_with("timing: phase_ms=")&&r.contains("store_fsync_ms=")&&r.contains("t_exec_ms=1000"),"{r}");
+    // `run` reports the times it was admitted on, before it starts the network; the node is stopped once it has, or
+    // at a deadline, and by the guard on any panic, so a missing line fails the test instead of hanging it.
+    struct Kill(std::process::Child);
+    impl Drop for Kill{fn drop(&mut self){let _=self.0.kill();let _=self.0.wait();}}
+    let mut child=Kill(std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["run","--network",dir.to_str().unwrap(),"--data",d.join("run").to_str().unwrap()])
+        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::piped()).spawn().unwrap());
+    let err=child.0.stderr.take().unwrap();let (tx,rx)=std::sync::mpsc::channel();
+    std::thread::spawn(move||{for l in std::io::BufRead::lines(std::io::BufReader::new(err)){match l{Ok(l)=>{if tx.send(l).is_err(){break}}Err(_)=>break}}});
+    let deadline=std::time::Instant::now()+std::time::Duration::from_secs(300);let mut seen=Vec::new();
+    while let Ok(l)=rx.recv_timeout(deadline.saturating_duration_since(std::time::Instant::now())){
+        let hit=l.starts_with("pocold: ParamGate admitted, timing: phase_ms=")&&l.contains("execution_ms=")&&l.contains("t_exec_ms=1000");seen.push(l);if hit{break}
+    }
+    drop(child);
+    assert!(seen.last().is_some_and(|l|l.starts_with("pocold: ParamGate admitted, timing: phase_ms=")),"times reported on boot within 300 s: {seen:?}");
+    let every=calibrate(EVERY);
+    let e=pocold::load_spec_calibrated(&dir,&local,|b,a|{calls+=1;every(b,a)}).map(|_|()).unwrap_err();eprintln!("every commit held: {e}");
+    assert_eq!(calls,2,"a timing refusal is measured once more before boot fails");
+    assert!(e.starts_with("-32018 ParamGate rejected [R14, R19]"),"{e}");
+    for part in ["phase_ms=","execution_ms=","store_fsync_ms=","store_fsync_median_ms=","samples=","t_exec_ms=1000"]{assert!(e.contains(part),"{e}");}
+    let median:u64=e.split("store_fsync_median_ms=").nth(1).and_then(|x|x.split(',').next()).and_then(|x|x.parse().ok()).expect("the median commit");
+    assert!(median>t_exec_ms,"the typical commit is past t_exec: {e}");
+    let _=std::fs::remove_dir_all(&d);
+}
+/// Earn-in gas envelope (boot admission only): the spec-1 H15000 chain runs the Continuous program set, whose
+/// SYS gas envelope is unchanged, so admitting its published files with the recorded timing reproduces the
+/// admission report its devnet.json records (scope, conditions, notes, waivers, deferred items), byte for byte.
+/// The binding is the one exception: it hashes the profile and this node's local parameters (computed before any
+/// SYS gas fact), and the local parameters changed after the bundle was recorded; the whole report, binding
+/// included, was the same with the admission.rs of origin/main at 28e295f.
+#[test] fn the_h15000_admission_report_is_unchanged(){
+    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
+    let d=tmp("h15000");std::fs::create_dir_all(&d).unwrap();
+    for (name,text) in bundle["files"].as_object().unwrap(){std::fs::write(d.join(name),text.as_str().unwrap()).unwrap();}
+    let info:serde_json::Value=serde_json::from_str(bundle["files"]["devnet.json"].as_str().unwrap()).unwrap();
+    let timing=pocol_lp4_execution::admission::Timing::from_json(&info["timing"]).unwrap();
+    let spec=pocold::load_spec_calibrated(&d,&pocold::single_host_local(),|_,_|Ok(timing.clone())).unwrap();
+    let (mut now,mut recorded)=(pocold::admission_json(spec.admission()),info["admission"].clone());
+    now.as_object_mut().unwrap().remove("binding");recorded.as_object_mut().unwrap().remove("binding");
+    assert_eq!(now,recorded);
+    let _=std::fs::remove_dir_all(&d);
 }

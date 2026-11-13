@@ -200,13 +200,13 @@ Light (LIGHT_RESP_MAX = 512 KiB):
   - pocol_getBurnTotals, pocol_getEscrow, pocol_getRetention, pocol_getClosing, pocol_getRpcStats, pocol_submitShare.
 - eth_getCode: ≤ 2·B_code_max+1 KiB ≈ 65 KiB.
 - eth_getTransactionByHash: ≤ 2·TX_MAX+2 KiB ≈ 258 KiB.
-- eth_getTransactionReceipt: ≤ 2·LOG_BLOCK_MAX+546·512 B+2 KiB ≈ 339 KiB.
+- eth_getTransactionReceipt: ≤ 2·LOG_BLOCK_MAX+546·512 B+2 KiB ≈ 339 KiB. Under a profile that can activate v3 (V3-24: 256 KiB / 4,368 logs per block, all of which one transaction may emit) the worst receipt is 2·262144+4368·512 B+2 KiB ≈ 2.63 MiB, above LIGHT_RESP_MAX: the node then serves eth_getTransactionReceipt as heavy (heavy lane, reservation and deadline, RESP_MAX answer limit), and v3 R26 requires RESP_MAX ≥ that bound. Trade-off: under v3 every receipt request (which wallets poll often) takes a HEAVY_QUEUE place, a RESP_MAX reservation from HEAVY_RESP_POOL and the heavy deadline, so receipt polling competes with eth_getLogs and eth_call and is answered −32021 {busy, retryAfterMs} when the heavy lane or pool is full; v3 clients must treat it as heavy-class and back off on −32021. Spec-1 profiles keep this light row.
 - eth_getBlockBy* with hashes: ≤ 2 KiB+(BODY_MAX/85)·70 B ≈ 160 KiB.
 - pocol_getHeaders with count ≤ 64: ≤ 64·(2·3067+16) B ≈ 385 KiB.
 - pocol_getParams: ≤ 2·|genesisPre|+4 KiB, thus ≤ 92 KiB in end/full.
 - pocol_getAssignment, pocol_getMinerSet and pocol_getTemplate: ≤ 1024·160 B = 160 KiB.
 
-Heavy (RESP_MAX = 8 MiB): eth_getLogs, pocol_getLogs, eth_call, eth_estimateGas, eth_getProof, eth_feeHistory, pocol_getHeaders with count > 64, eth_getBlockBy* with full transactions, pocol_getRejects.
+Heavy (RESP_MAX = 8 MiB): eth_getLogs, pocol_getLogs, eth_call, eth_estimateGas, eth_getProof, eth_feeHistory, pocol_getHeaders with count > 64, eth_getBlockBy* with full transactions, pocol_getRejects, and eth_getTransactionReceipt under a v3-capable profile.
 
 Unlisted method: −32601 before admission. Adding one requires a table row and passing RG13. Overflow while encoding: −32020 {resultBytes}, with clean release (RG12).
 
@@ -348,6 +348,24 @@ blockHash filter = one block.
 - pocol_getRpcStats → {conns, heavyActive, heavyQueued, lightActive, lightQueued, heavyResv, lightResv, scratchHeavyMax, scratchLightMax, snapshotsOpen, maxResPerConn, cancelled, cancelMaxMs, busyCount, rateCount, limitCount, anchorRejects, originDenied, pacerClosed, pacerLateMaxMs, lastPacerClose{sendTime, accepted}, sendDoneCount, sendOverrunMaxMs, batchSendMaxS, batchWallMaxS, batchWallHits, traceDropped}.
   - sendOverrunMaxMs = maximum (sendTime at sendDone − (GRACE+size/R)) in milliseconds.
   - originDenied counts H2 responses.
+
+**Template latency (V3-05, node-local telemetry)**
+- pocol_templateLatency → {local, tracked, trackedMax, evicted, bucketsMs, all, proposers[]}; the same object is pocol_status.templateLatency. Heavy class (unlisted method). Informational, not validity: no production, import or fork-choice decision reads it.
+- Slot: an attempt-0 slot this node waits in, i.e. a parent it produces on whose Draw(h,0) is another member. Recorded when the wait starts, with b_j (the parent's first local receipt, the time T_j uses), L(0) (the attempt window's first second, ×1000) and T_j = max(b_j+Δ_rel, L(0)+dFbWait). A slot is counted once however often production restarts on its parent. The node's own templates are never timed.
+- Arrival: the first copy of a signed a=0 template for a recorded slot whose signature recovers to the slot's Draw(h,0), whenever it arrives and whatever happens to it next (it may be late, or fail to lock). Later copies (relays) are not samples. A template that arrives before its parent's production started waits in the template buffer (one per parent) and is timed at slot start: an identical later copy keeps the first copy's receipt time, but a different template for the same parent (an equivocation, or an unsigned or junk one from any peer) replaces the buffered copy, and the slot is then timed at the replacement or, if its signature is not Draw(h,0)'s, counted missing. So a peer can inflate `missing` for slots whose template outran its parent; a reader should treat `missing` together with `early`, and with the fallback count, not alone. (Checking every buffered template's signature to avoid this would let any peer buy one signature recovery per frame: at buffer time the parent, and so Draw(h,0), is often not known yet.)
+- Lock: the time the node locked that template after the §4(a) checks (signature, window, item 16, rebuild), once per slot.
+- Per proposer and in `all` (every proposer, evicted ones included):
+  - slots; received (arrivals); missing = slots − received (slots whose template never arrived: the fallback ratio's numerator); locked;
+  - late: arrivals after T_j (the template could not lock; the node was on the attempt-0 fallback or later);
+  - early: arrivals before b_j (the template outran its parent);
+  - stampAtWindow: arrivals of a template stamped exactly L(0) (see sinceStampMs);
+  - sinceParentMs = arrival − b_j (0 when early); lockMs = lock − b_j;
+  - sinceStampMs = arrival − ts·1000 and beforeStampMs = ts·1000 − arrival, where ts is the template's own header timestamp (the proposer's clock, in whole seconds, when it built the template). Each arrival is in exactly one of the two: sinceStampMs when it is at or after its stamp by this node's clock, beforeStampMs when before (this node's clock is behind the proposer's by more than the delivery took). Nothing is clipped: received = sinceStampMs.count + beforeStampMs.count;
+  - each histogram is {count, p50, p90, p99, max, mean} in milliseconds, null without samples.
+- Quantiles come from fixed buckets with upper bounds bucketsMs (50 ms … 120 s, then one open bucket): pXX is the upper bound of the bucket holding the sample of rank ⌈XX·count/100⌉, capped at the exact max. It is never below the exact sample percentile and at most one bucket width above it. max and mean are exact (saturating at 2^32−1 ms).
+- local: the node's Δ, φ, t_exec, Δ_rel, Γ and dFbWait, so a reader can recompute T_j.
+- Bounds: at most trackedMax = 256 proposers (the least recently drawn is evicted, counted in evicted) and 64 recent slots; latency::BOUND_BYTES = 147,024 B on x86-64, asserted below 160 KiB at compile time and listed in the A13 conditions (telemetry-inventory), not as a term.
+- Reading Δ and φ for V3-06: sinceParentMs covers the proposer's own receipt of the parent, its template build and the delivery (what R2's σ+Δ+2t_exec must cover), so zero late arrivals with p99 below Δ_rel·1000 show that Δ_rel holds at the measured locals. The stamp offset (sinceStampMs, or −beforeStampMs) is arrival − ts·1000 = build time + delivery + (this node's clock − the proposer's clock) + the sub-second part of the proposer's clock at the build (ts is truncated to the second, 0 to 1000 ms, about 500 ms on average). It is the φ-bearing quantity: for a pair of nodes, half the difference of the offsets each measures for the other's templates cancels build, delivery and truncation when they are about symmetric, and leaves their clock offset; beforeStampMs samples exist only where the receiver's clock is behind the proposer's. The offset is measured against the proposer's clock only when its stamp is past L(0): a proposer may sign up to Φ s before L(0) and then stamps L(0), not its clock (consensus.md:97, ts = max(L(0), C)), so a sample in stampAtWindow may sit up to Φ s below the true offset. In steady state L(0) = parent.ts + 1 is about one block round in the past when the template is built, so stampAtWindow stays near 0; read its count before the stamp histograms. (L(0) itself is no clock reference: b_j − L(0) is about the parent's PoW round, about T_blk, which is why no metric is taken relative to it.) Every time is the reporting node's local clock; compare the same metric across nodes, not raw times.
 
 **Local RPC**
 - 127.0.0.1; disallowed Host returns 403; Origin absent or chrome-extension://<ID>.

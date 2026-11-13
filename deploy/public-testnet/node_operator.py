@@ -130,6 +130,19 @@ def bound(marker, expected):
             and all(marker.get(k) == expected.get(k) for k in BOUND if k != 'consensusIdentity'))
 
 
+def freeze_args(config, genesis_hash):
+    """V3-33: `freezeUserTxsAfter` of node.json (absent in older files: no freeze) as pocold's flag. It applies only to
+    the network it names (`freezeGenesisHash`): a bundle of another network with the field refuses to start, so a freeze
+    of the old chain never freezes the new one once its head reaches the old S."""
+    if 'freezeUserTxsAfter' not in config and 'freezeGenesisHash' not in config: return []
+    value = config.get('freezeUserTxsAfter')
+    if type(value) is not int or not 0 <= value < 2**64: raise ValueError('freezeUserTxsAfter is a block height')
+    named = config.get('freezeGenesisHash')
+    if not isinstance(named, str) or named.lower() != str(genesis_hash).lower():
+        raise ValueError('freezeUserTxsAfter was set for another network (freezeGenesisHash); remove both fields')
+    return ['--freeze-user-txs-after', str(value)]
+
+
 @contextlib.contextmanager
 def locked(data, journal=True):
     """Same flock as the Rust journal on Linux; also fences calibration before journal open."""
@@ -180,6 +193,7 @@ def launch(bundle, data, key):
         # PR2b (VA-SPEC §1a.8-§1a.9): seeds and bootstrap addresses of a joining node; older node.json files have none.
         for seed in config.get('seeds', []): args += ['--seed', seed]
         for addr in config.get('bootstrap', []): args += ['--bootstrap', addr]
+        args += freeze_args(config, expected['genesisHash'])
         os.set_inheritable(handles[0], True)
         os.execv(args[0], args)
 

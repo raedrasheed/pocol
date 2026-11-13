@@ -19,6 +19,8 @@ pub mod caps{
     pub const LOG_BLOCK_MAX:u64=32*1024;
     /// Logs per block (LG2: 546 succeed, 547 halt; lemma P1).
     pub const LOG_COUNT_MAX:u64=546;
+    pub const V3_LOG_BLOCK_MAX:u64=256*1024;
+    pub const V3_LOG_COUNT_MAX:u64=4368;
     /// Aggregate charged log bytes over the canonical chain (execution.md:82: 1 GiB). Not a CP field: it
     /// enters neither GenesisSpec nor genesisHash. The caps-test build (validation.md:2065, simnet only,
     /// absent from the release) sets 2^24 so that T18b L6 reaches it.
@@ -30,9 +32,12 @@ pub mod caps{
     /// User-context SYS allowance per block: SYS_KEYS_USER_MAX keys (CP) and 16 accounts; none while closing.
     pub const USER_SYS_ACCOUNTS:usize=16;
 }
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct LogCaps{pub bytes:u64,pub count:u64}
+pub const fn log_caps(v3:bool)->LogCaps{if v3{LogCaps{bytes:caps::V3_LOG_BLOCK_MAX,count:caps::V3_LOG_COUNT_MAX}}else{LogCaps{bytes:caps::LOG_BLOCK_MAX,count:caps::LOG_COUNT_MAX}}}
 /// Why a transaction halted exceptionally.
 #[derive(Debug,Clone,Copy,PartialEq,Eq)]
-pub enum Halt{LogCount,LogBytes,LogCap,DirtyKeys,DirtyAccounts,SlotCap,AcctCap,SysKeys,SysAccounts,SysWriteClosing}
+pub enum Halt{LogCount,LogBytes,LogCap,DirtyKeys,DirtyAccounts,SlotCap,AcctCap,SysKeys,SysAccounts,SysWriteClosing,CreationFee}
 /// LOG-ACCT-01 charge of a transaction's logs.
 pub fn log_charge(logs:&[Log])->u64{logs.iter().map(|l|36+32*l.data.topics().len() as u64+l.data.data.len() as u64).sum()}
 /// Block-level context of the USER phase.
@@ -46,13 +51,13 @@ pub struct UserContext{
 #[derive(Clone,Debug,PartialEq,Eq)] pub struct UserCommitments{
  pub transactions_root:B256,pub receipts_root:B256,pub gas_used:u64,pub logs_bloom:[u8;256],
 }
-pub struct UserCandidate<S=InMemoryDB>{state:S,commitments:UserCommitments,receipts:Vec<Vec<u8>>,tips:U256,log_bytes:u64,halts:Vec<(usize,Halt)>,dirty_accounts:u64}
+pub struct UserCandidate<S=InMemoryDB>{state:S,commitments:UserCommitments,receipts:Vec<Vec<u8>>,tips:U256,creation_burn:crate::creation_fees::CreationBurn,log_bytes:u64,halts:Vec<(usize,Halt)>,dirty_accounts:u64}
 impl<S> UserCandidate<S>{
  pub fn state(&self)->&S{&self.state}
  /// The state, and the rest of the candidate without it (C-1 E3: the block keeps working on the state).
  pub(crate) fn split(self)->(S,UserCandidate<()>){
-  let UserCandidate{state,commitments,receipts,tips,log_bytes,halts,dirty_accounts}=self;
-  (state,UserCandidate{state:(),commitments,receipts,tips,log_bytes,halts,dirty_accounts})
+  let UserCandidate{state,commitments,receipts,tips,creation_burn,log_bytes,halts,dirty_accounts}=self;
+  (state,UserCandidate{state:(),commitments,receipts,tips,creation_burn,log_bytes,halts,dirty_accounts})
  }
  /// Charged log bytes of this block (LOG-ACCT-01).
  pub fn log_bytes(&self)->u64{self.log_bytes}
@@ -63,6 +68,8 @@ impl<S> UserCandidate<S>{
  pub fn commitments(&self)->&UserCommitments{&self.commitments}
  pub fn receipts(&self)->&[Vec<u8>]{&self.receipts}
  pub fn tips(&self)->U256{self.tips}
+ /// External creation burns of this block, separate from Escrow tracked burns.
+ pub fn creation_burn(&self)->crate::creation_fees::CreationBurn{self.creation_burn}
 }
 impl UserCandidate{
  /// Intermediate USER root, never the final PoCol header state root.
@@ -129,11 +136,12 @@ pub fn drop_unreferenced_code(db:&mut InMemoryDB){
 /// Per-block meter of the A03 limits; live counts follow the state incrementally.
 struct BlockMeter{log_bytes:u64,log_count:u64,cum_log:u64,dirty_keys:HashSet<(Address,U256)>,dirty_accts:HashSet<Address>,
     sys_keys:HashSet<(Address,U256)>,sys_accts:HashSet<Address>,live_slots:u64,live_accts:u64,closing:bool,
+    logs:LogCaps,
     /// SLOT_CAP, ACCT_CAP, SYS_KEYS_USER_MAX when profile-bound.
     caps:Option<(u64,u64,u64)>}
 /// Effects of one transaction's state diff on the meter, before it is committed.
 #[derive(Default)]
-struct Effects{keys:Vec<(Address,U256)>,accts:Vec<Address>,sys_keys:Vec<(Address,U256)>,sys_accts:Vec<Address>,d_slots:i64,d_accts:i64}
+struct Effects{keys:Vec<(Address,U256)>,accts:Vec<Address>,sys_keys:Vec<(Address,U256)>,sys_accts:Vec<Address>,d_slots:i64,d_accts:i64,new_slots:u64,new_accts:u64}
 fn is_system(a:&Address)->bool{(0..5).any(|i|*a==crate::apply::program_address(i))}
 /// Live (nonzero) storage slots and existing accounts of the user state (outside the five
 /// system programs), counted as genesis check_caps does (D-A03-CAPS).
@@ -154,8 +162,11 @@ fn effects(pre:&dyn View,post:&EvmState)->Effects{
  for (a,acct) in post{
   if !acct.is_touched(){continue}
   let pre_info=pre.account(a).and_then(|x|x.info());
-  let mut pre_nonzero:Vec<U256>=Vec::new();pre.each_slot(a,&mut |k,v|{if *v!=U256::ZERO{pre_nonzero.push(*k)}});
   let removed=acct.is_selfdestructed()||acct.is_empty();
+  // Only removal needs the old account's complete slot inventory. Ordinary
+  // diffs already carry original/present values for every changed key; scanning
+  // a large token's entire storage for each transfer adds no accounting fact.
+  let mut pre_nonzero:Vec<U256>=Vec::new();if removed{pre.each_slot(a,&mut |k,v|{if *v!=U256::ZERO{pre_nonzero.push(*k)}});}
   let changed:Vec<U256>=if removed{vec![]}else{acct.storage.iter().filter(|(_,v)|v.is_changed()).map(|(k,_)|*k).collect()};
   let pre_slots=pre_nonzero.len() as i64;
   let info_changed=match &pre_info{Some(i)=>removed||i.balance!=acct.info.balance||i.nonce!=acct.info.nonce||i.code_hash!=acct.info.code_hash,None=>!removed};
@@ -166,9 +177,9 @@ fn effects(pre:&dyn View,post:&EvmState)->Effects{
    // Removed slots of a removed account are dirty as well.
    for k in &pre_nonzero{e.keys.push((*a,*k))}}
   else if user{
-   if pre_info.is_none(){e.d_accts+=1}
+   if pre_info.is_none(){e.d_accts+=1;e.new_accts+=1}
    for (_,v) in acct.storage.iter().filter(|(_,v)|v.is_changed()){
-    if v.original_value()==U256::ZERO&&v.present_value()!=U256::ZERO{e.d_slots+=1}else if v.original_value()!=U256::ZERO&&v.present_value()==U256::ZERO{e.d_slots-=1}
+    if v.original_value()==U256::ZERO&&v.present_value()!=U256::ZERO{e.d_slots+=1;e.new_slots+=1}else if v.original_value()!=U256::ZERO&&v.present_value()==U256::ZERO{e.d_slots-=1}
    }
   }
   if is_system(a)&&!changed.is_empty(){e.sys_accts.push(*a);for k in &changed{e.sys_keys.push((*a,*k))}}
@@ -186,6 +197,12 @@ fn sys_slots(db:&InMemoryDB)->u64{
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct PoolMeter{live_slots:u64,live_accts:u64,sys_slots:u64,slot_cap:u64,acct_cap:u64,sys_slot_max:u64}
 impl PoolMeter{
+ /// The same v3 fee deduction and receipt annotation as a committed USER phase,
+ /// followed by its live-state checks. Callers discard the result on refusal.
+ pub fn admit_result(&mut self,pre:&dyn View,result:&mut revm::primitives::ResultAndState,caller:Address,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity,code_total:u64)->Result<crate::creation_fees::CreationBurn,Halt>{
+  let burn=charge_creation(pre,result,caller,block,profile,(self.live_slots,self.live_accts),code_total)?;
+  self.admit(pre,&result.state)?;Ok(burn)
+ }
  /// C-1 E3: from counts already known (a state summary's user slots, user accounts and system slots).
  pub fn from_counts(live_slots:u64,live_accts:u64,sys_slots:u64,profile:&crate::profile::ProfileIdentity)->Self{let cp=profile.cp();
   Self{live_slots,live_accts,sys_slots,slot_cap:cp.SLOT_CAP,acct_cap:cp.ACCT_CAP,sys_slot_max:u64::from(cp.SYS_SLOT_MAX)}}
@@ -207,14 +224,55 @@ impl PoolMeter{
  }
  pub fn live(&self)->(u64,u64,u64){(self.live_slots,self.live_accts,self.sys_slots)}
 }
+/// Final-diff accounting is independent of revm's hash-map iteration order. Each
+/// transaction releases deleted units before pricing persisted additions; later
+/// transactions see its committed live counts. Existing SYS slots/accounts are
+/// excluded exactly as by the live caps; code follows the logical code inventory.
+/// A reverted native execution pays no creation fee. An unpaid/overflowing charge
+/// returns a cap-style halt without changing either the caller's state or result.
+pub fn charge_creation(pre:&dyn View,result:&mut revm::primitives::ResultAndState,caller:Address,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity,live:(u64,u64),code_total:u64)->Result<crate::creation_fees::CreationBurn,Halt>{
+ use crate::creation_fees::{self,CreationBurn};
+ let mut burn=CreationBurn::default();
+ if !profile.v3_active(block.height.try_into().unwrap_or(u64::MAX))||!result.result.is_success(){return Ok(burn)}
+ let cp=profile.cp();let e=effects(pre,&result.state);
+ let final_slots=add(live.0,e.d_slots);let final_accts=add(live.1,e.d_accts);
+ if final_slots>cp.SLOT_CAP{return Err(Halt::SlotCap)}
+ if final_accts>cp.ACCT_CAP{return Err(Halt::AcctCap)}
+ let slots=final_slots.checked_sub(e.new_slots).ok_or(Halt::SlotCap)?;
+ let accts=final_accts.checked_sub(e.new_accts).ok_or(Halt::AcctCap)?;
+ let mut removed_code=0u64;let mut new_code=0u64;
+ for (address,account) in result.state.iter().filter(|(_,a)|a.is_touched()){
+  let before=pre.account(address).and_then(|a|a.info());
+  let removed=account.is_selfdestructed()||account.is_empty();
+  if removed||before.as_ref().map_or(true,|i|i.code_hash!=account.info.code_hash){
+   if let Some(i)=before{removed_code=removed_code.checked_add(crate::code_caps::code_len(pre,&i).map_err(|_|Halt::CreationFee)?).ok_or(Halt::CreationFee)?;}
+   if !removed{new_code=new_code.checked_add(crate::code_caps::code_len(pre,&account.info).map_err(|_|Halt::CreationFee)?).ok_or(Halt::CreationFee)?;}
+  }
+ }
+ let code=code_total.checked_sub(removed_code).ok_or(Halt::CreationFee)?;
+ burn.accounts=creation_fees::price(U256::from_be_bytes(cp.F0_acct.to_be_bytes()),cp.ACCT_CAP,accts,e.new_accts).ok_or(Halt::CreationFee)?;
+ burn.slots=creation_fees::price(U256::from_be_bytes(cp.F0_slot.to_be_bytes()),cp.SLOT_CAP,slots,e.new_slots).ok_or(Halt::CreationFee)?;
+ burn.code=creation_fees::price(U256::from_be_bytes(cp.F0_code.to_be_bytes()),cp.CODE_CAP,code,new_code).ok_or(Halt::CreationFee)?;
+ let amount=burn.total().ok_or(Halt::CreationFee)?;
+ if amount!=U256::ZERO{
+  let sender=result.state.get(&caller).ok_or(Halt::CreationFee)?;
+  let balance=sender.info.balance.checked_sub(amount).ok_or(Halt::CreationFee)?;
+  // Allocate the bounded annotation only after affordability is known. The log
+  // is metered by the same block/pool/builder log checks as all receipt logs.
+  let log=burn.log(caller).ok_or(Halt::CreationFee)?;
+  result.state.get_mut(&caller).unwrap().info.balance=balance;
+  if let revm::primitives::ExecutionResult::Success{logs,..}=&mut result.result{logs.push(log);}
+ }
+ Ok(burn)
+}
 fn new_count<T:std::hash::Hash+Eq+Copy>(set:&HashSet<T>,items:&[T])->usize{let mut seen=HashSet::new();items.iter().filter(|x|!set.contains(x)&&seen.insert(**x)).count()}
 fn add(n:u64,d:i64)->u64{if d>=0{n.saturating_add(d as u64)}else{n.saturating_sub(d.unsigned_abs())}}
 impl BlockMeter{
  /// The first violated limit, if the transaction's logs and state diff were committed.
  fn check(&self,logs:&[Log],e:&Effects)->Option<Halt>{
   let n=logs.len() as u64;let charge=log_charge(logs);
-  if self.log_count+n>caps::LOG_COUNT_MAX{return Some(Halt::LogCount)}
-  if self.log_bytes+charge>caps::LOG_BLOCK_MAX{return Some(Halt::LogBytes)}
+  if self.log_count+n>self.logs.count{return Some(Halt::LogCount)}
+  if self.log_bytes+charge>self.logs.bytes{return Some(Halt::LogBytes)}
   if self.cum_log.saturating_add(self.log_bytes+charge)>caps::LOG_CAP{return Some(Halt::LogCap)}
   if self.dirty_keys.len()+new_count(&self.dirty_keys,&e.keys)>caps::DIRTY_BLOCK_MAX{return Some(Halt::DirtyKeys)}
   if self.dirty_accts.len()+new_count(&self.dirty_accts,&e.accts)>caps::ACCT_DIRTY_BLOCK_MAX{return Some(Halt::DirtyAccounts)}
@@ -274,10 +332,10 @@ fn execute_user_phase_inner_ctx(snapshot:&InMemoryDB,raw:&[Vec<u8>],block:&Nativ
 pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),known_total:Option<u64>,raw:&[Vec<u8>],block:&NativeBlockContext,byte_budget:usize,entry_budget:usize,profile:Option<&crate::profile::ProfileIdentity>,ctx:UserContext)->Result<UserCandidate<S>,UserError>{
  if raw.len()>entry_budget || raw.iter().try_fold(0usize,|n,v|n.checked_add(v.len())).ok_or(UserError::Budget)?>byte_budget{return Err(UserError::Budget)}
  let limit:u64=block.gas_limit.try_into().map_err(|_|UserError::Gas)?;
- let mut used=0u64;let mut tips=U256::ZERO;let mut encoded=Vec::new();let mut bloom=[0u8;256];
+ let mut used=0u64;let mut tips=U256::ZERO;let mut creation_burn=crate::creation_fees::CreationBurn::default();let mut encoded=Vec::new();let mut bloom=[0u8;256];
  let (live_slots,live_accts)=live;
  let mut meter=BlockMeter{log_bytes:0,log_count:0,cum_log:if profile.is_some_and(|p|p.cp().H_END==0){0}else{ctx.cum_log_bytes},dirty_keys:HashSet::new(),dirty_accts:HashSet::new(),sys_keys:HashSet::new(),sys_accts:HashSet::new(),
-  live_slots,live_accts,closing:ctx.closing,caps:profile.map(|p|(p.cp().SLOT_CAP,p.cp().ACCT_CAP,u64::from(p.cp().SYS_KEYS_USER_MAX)))};
+  live_slots,live_accts,closing:ctx.closing,logs:log_caps(profile.is_some_and(|p|p.v3_active(block.height.try_into().unwrap_or(u64::MAX)))),caps:profile.map(|p|(p.cp().SLOT_CAP,p.cp().ACCT_CAP,u64::from(p.cp().SYS_KEYS_USER_MAX)))};
  let mut halts=Vec::new();
  // C-2 item 2: the state's logical code total, set at the first transaction and kept by each commit.
  let mut code_total=0u64;
@@ -301,10 +359,11 @@ pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),know
     }
    }
   }
-  let result=match profile{Some(p)=>native::execute_on_validated(state.as_view(),code_total,tx.clone(),block,p),None=>native::execute_in_context(state.as_view(),tx.clone(),block)}.map_err(|e|UserError::Execution(i,format!("{e:?}")))?;
+  let mut result=match profile{Some(p)=>native::execute_on_validated(state.as_view(),code_total,tx.clone(),block,p),None=>native::execute_in_context(state.as_view(),tx.clone(),block)}.map_err(|e|UserError::Execution(i,format!("{e:?}")))?;
+  let fee=match profile{Some(p)=>charge_creation(state.as_view(),&mut result,tx.caller,block,p,(meter.live_slots,meter.live_accts),code_total),None=>Ok(crate::creation_fees::CreationBurn::default())};
   let e=effects(state.as_view(),&result.state);
   // The caps are PoCol execution: the profile-free Cancun control path stays geth-equivalent.
-  if let Some(why)=profile.and_then(|_|meter.check(result.result.logs(),&e)){
+  if let Some(why)=fee.as_ref().err().copied().or_else(||profile.and_then(|_|meter.check(result.result.logs(),&e))){
    // Exceptional halt (A03): all gas, no logs, status 0; only nonce and fee remain.
    let touched=[tx.caller,crate::pay::escrow_address()];let before=code_change_start(state.as_view(),&touched,i)?;
    apply_halt(&mut state,&mut meter,&tx,price,tip,i)?;halts.push((i,why));
@@ -314,6 +373,7 @@ pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),know
    encoded.push(receipts::encode(signed.kind(),false,used,&[]).map_err(|_|UserError::Root)?);
    continue;
   }
+  creation_burn=creation_burn.checked_add(fee.unwrap()).ok_or(UserError::Arithmetic)?;
   meter.commit(result.result.logs(),e);
   let gas=result.result.gas_used();used=used.checked_add(gas).ok_or(UserError::Gas)?;if used>limit{return Err(UserError::Gas)}
   tips=tips.checked_add(tip.checked_mul(U256::from(gas)).ok_or(UserError::Arithmetic)?).ok_or(UserError::Arithmetic)?;
@@ -325,7 +385,7 @@ pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),know
   code_total=code_change_end(state.as_view(),&touched,code_total,before,i)?;
  }
  let commitments=UserCommitments{transactions_root:receipts::ordered_root(raw,entry_budget).map_err(|_|UserError::Root)?,receipts_root:receipts::ordered_root(&encoded,entry_budget).map_err(|_|UserError::Root)?,gas_used:used,logs_bloom:bloom};
- Ok(UserCandidate{state,commitments,receipts:encoded,tips,log_bytes:meter.log_bytes,halts,dirty_accounts:meter.dirty_accts.len() as u64})
+ Ok(UserCandidate{state,commitments,receipts:encoded,tips,creation_burn,log_bytes:meter.log_bytes,halts,dirty_accounts:meter.dirty_accts.len() as u64})
 }
 /// Validates USER-phase commitments only. No storage/block acceptance side effect.
 pub fn validate_user_phase(snapshot:&InMemoryDB,raw:&[Vec<u8>],block:&NativeBlockContext,byte_budget:usize,entry_budget:usize,expected:&UserCommitments)->Result<UserCandidate,UserError>{
@@ -338,8 +398,8 @@ pub fn validate_user_phase(snapshot:&InMemoryDB,raw:&[Vec<u8>],block:&NativeBloc
 mod tests{
  use super::*;
  fn meter(closing:bool,sys_keys:u64)->BlockMeter{BlockMeter{log_bytes:0,log_count:0,cum_log:0,dirty_keys:HashSet::new(),dirty_accts:HashSet::new(),sys_keys:HashSet::new(),sys_accts:HashSet::new(),
-  live_slots:0,live_accts:0,closing,caps:Some((u64::MAX,u64::MAX,sys_keys))}}
- fn sys_write(n:u64)->Effects{let a=crate::apply::program_address(0);Effects{keys:(0..n).map(|k|(a,U256::from(k))).collect(),accts:vec![a],sys_keys:(0..n).map(|k|(a,U256::from(k))).collect(),sys_accts:vec![a],d_slots:0,d_accts:0}}
+  live_slots:0,live_accts:0,closing,logs:log_caps(false),caps:Some((u64::MAX,u64::MAX,sys_keys))}}
+ fn sys_write(n:u64)->Effects{let a=crate::apply::program_address(0);Effects{keys:(0..n).map(|k|(a,U256::from(k))).collect(),accts:vec![a],sys_keys:(0..n).map(|k|(a,U256::from(k))).collect(),sys_accts:vec![a],d_slots:0,d_accts:0,new_slots:0,new_accts:0}}
  #[test] fn user_context_sys_allowance_and_closing(){
   // v1 programs expose no USER-callable storage writes; the rule is enforced regardless.
   assert_eq!(meter(false,256).check(&[],&sys_write(256)),None);

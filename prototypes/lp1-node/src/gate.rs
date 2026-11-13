@@ -38,6 +38,11 @@ pub struct GateProfile {
     pub rpc: RpcLimits,
 }
 impl GateProfile {
+    /// CP schema and GenesisSpec version agree under R22. Reserve for the
+    /// largest active cap over the admitted schedule, including a future fork.
+    pub fn v3_active(&self, height: u64) -> bool {
+        self.cp.schema_version() >= 2 || ForkSchedule::new(&self.forks).map_or(false, |f| f.active_version(height) >= 3)
+    }
     /// Canonical fixed-width domain-separated binding of every profile/CP/local/RPC field.
     /// NodeKind is an evaluation context, not a resource-driving profile field.
     pub fn binding(&self) -> H256 {
@@ -358,7 +363,7 @@ pub fn check(
         || cal.map_or(true, |r| {
             r.hashes_per_second == 0 || r.duration_seconds == 0 || r.artifact == [0; 32] || calibration_target(r.hashes_per_second, c.T_blk) != Some(c.target_g)
         });
-    bad[25] = !p.rpc.satisfies_r26();
+    bad[25] = !p.rpc.satisfies_r26_for(p.v3_active(u64::MAX));
     GateReport {
         violations: bad.iter().enumerate().filter(|(_, b)| **b).map(|(i, _)| format!("R{}", i + 1)).collect(),
         missing,

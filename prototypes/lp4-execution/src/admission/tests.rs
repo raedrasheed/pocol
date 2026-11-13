@@ -77,18 +77,79 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let a=admit(&n.request(&sh(),Some(&tm))).unwrap();
     assert!(!a.report().conditions.iter().any(|c|c.detail.contains("node store")),"an in-memory timing is not reported as stored");
 }
-/// Durable commit latency is measured separately from execution.
+/// R14/R19 count durable commit latency, robustly: a block's cost is its median execution plus its commit, and only the
+/// calibration's largest k = max(1, n/4) of its n commits are counted at the median commit. Every commit slow: every
+/// phase carries it. One stalled commit: no phase carries it. k + 1 stalled commits: one of them is counted.
 #[test] fn the_store_calibration_times_each_block_commit(){
     use crate::node_trie::{Batch,Id,Node,NodeStore,SharedMem,TrieStore};
-    #[derive(Default)] struct Slow(SharedMem);
-    impl NodeStore for Slow{fn node(&self,id:&Id)->Option<std::sync::Arc<Node>>{self.0.node(id)}fn code(&self,h:&B256)->Option<Bytecode>{self.0.code(h)}}
+    use std::sync::atomic::{AtomicU32,Ordering};
+    /// Every commit takes `every` ms; the commits numbered in `stalled` (1: the genesis, before the timed blocks) `stall` ms more.
+    #[derive(Default)] struct Slow{m:SharedMem,every:u64,stalled:Vec<u32>,stall:u64,n:AtomicU32}
+    impl NodeStore for Slow{fn node(&self,id:&Id)->Option<std::sync::Arc<Node>>{self.m.node(id)}fn code(&self,h:&B256)->Option<Bytecode>{self.m.code(h)}}
     impl TrieStore for Slow{
-        fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{std::thread::sleep(std::time::Duration::from_millis(25));self.0.commit(b,root)}
-        fn unpin(&self,root:&Id)->Result<(),String>{self.0.unpin(root)}
-        fn pinned(&self)->Result<u64,String>{self.0.pinned()}}
-    let n=net(&cfg());let t=measure_on_store(&n.spec_bytes,&n.alloc,1,&Slow::default()).unwrap_or_else(|e|panic!("{e}"));
-    assert!(t.store_ms>=25,"the durable commit is reported separately: {t:?}");
+        fn commit(&self,b:&Batch,root:Option<Id>)->Result<(),String>{
+            let k=self.n.fetch_add(1,Ordering::SeqCst)+1;
+            std::thread::sleep(std::time::Duration::from_millis(self.every+if self.stalled.contains(&k){self.stall}else{0}));self.m.commit(b,root)}
+        fn unpin(&self,root:&Id)->Result<(),String>{self.m.unpin(root)}
+        fn pinned(&self)->Result<u64,String>{self.m.pinned()}}
+    let n=net(&cfg());let run=|s:Slow|measure_on_store(&n.spec_bytes,&n.alloc,1,&s).unwrap_or_else(|e|panic!("{e}"));
+    let t=run(Slow{every:25,..Default::default()});
+    assert!(t.store_ms>=25&&t.store_median_ms>=25,"the durable commit is reported: {t:?}");
+    for c in 0..3{assert!(t.phase_ms[c]>=t.exec_ms[c]+25,"every block's commit reaches R14/R19 (phase {c}): {t:?}");}
+    // The timed blocks (three samples each with repeats 1) and the commits counted at the median, k = max(1, n/4).
+    let blocks=t.samples/3;let k=(blocks/4).max(1);assert!(blocks>=2,"{t:?}");
     assert_eq!(Timing::from_json(&t.to_json()),Some(t));
+    // One commit (the second timed block's) stalled past t_exec: reported, counted at the median commit.
+    let t=run(Slow{stalled:vec![3],stall:1050,..Default::default()});
+    assert!(t.store_ms>=1050&&t.store_median_ms<t.store_ms,"{t:?}");
+    assert!(t.phase_ms.iter().all(|p|*p<t.store_ms),"one stalled commit does not reach R14/R19: {t:?}");
+    // k + 1 stalled commits (two when k = 1): only k are replaced, so the other reaches R14/R19.
+    let t=run(Slow{stalled:(3..3+k+1).collect(),stall:1050,..Default::default()});
+    assert!(t.phase_ms.iter().max().unwrap()>=&1050,"stalled commit {} of {blocks} reaches R14/R19: {t:?}",k+1);
+}
+/// The isolated-outlier rule for any number of timed blocks: with n >= 2, the largest k = max(1, n/4) commits are
+/// counted at the lower median (so with two blocks the smaller commit, not the stall itself); with one, its commit is
+/// counted. One to four timed blocks tolerate exactly one stall (k = 1), eight tolerate two (k = 2); a disk whose lower
+/// median commit is past t_exec, or that stalls on more than k writes, still reaches R14/R19.
+#[test] fn the_largest_quarter_of_commits_is_counted_at_the_lower_median(){
+    let s=1050u64;
+    // One timed block: its commit is its own median and is counted.
+    assert_eq!(block_costs(&[(0,10,s)]),([10+s,0,0],[10,0,0],s,s));
+    // Two timed blocks, one stalled: counted at the other commit.
+    assert_eq!(block_costs(&[(0,10,20),(2,12,s)]),([30,0,32],[10,0,12],s,20));
+    // Two timed blocks, both slow: the second is still counted.
+    assert_eq!(block_costs(&[(0,10,s),(2,12,s)]).0,[10+s,0,12+s]);
+    // Three and four timed blocks, one stalled: no phase carries the stall; two stalled: one does.
+    assert_eq!(block_costs(&[(0,10,20),(1,10,s),(2,10,30)]),([30,40,40],[10,10,10],s,30));
+    assert_eq!(block_costs(&[(0,10,20),(0,10,25),(1,10,s),(2,10,30)]),([35,35,40],[10,10,10],s,25));
+    assert!(block_costs(&[(0,10,20),(0,10,s),(1,10,s),(2,10,30)]).0.iter().max().unwrap()>=&s);
+    // Eight timed blocks (k = 2): two stalls are counted at the lower median (23 ms), no phase carries either.
+    assert_eq!(block_costs(&[(0,10,20),(0,10,21),(0,10,22),(0,10,23),(0,10,24),(1,10,25),(1,10,s),(2,10,s)]),([34,35,33],[10,10,10],s,23));
+    // Three stalls among eight: the third is counted at its own time (equal commits: the earlier blocks are replaced).
+    let three=block_costs(&[(0,10,20),(0,10,21),(0,10,22),(0,10,23),(0,10,s),(1,10,25),(1,10,s),(2,10,s)]);
+    assert_eq!(three,([33,35,10+s],[10,10,10],s,23));assert!(three.0.iter().max().unwrap()>=&s);
+    // The Windows CI evidence (a continuous profile: 22 timed blocks, all ordinary; execution 14 ms; lower median
+    // commit 439 ms; three fsync stalls of 1.5-4.2 s): k = 5, so the R14/R19 figure is the largest remaining commit
+    // (480 ms) plus execution, well inside t_exec. Counting only the largest at the median gave 14 + 2242 = 2256 ms,
+    // the refused phase_ms of that run.
+    let windows:Vec<(usize,u64,u64)>=[380,390,4169,400,405,410,415,2242,420,425,430,435,439,445,450,1500,455,460,470,480,490,500]
+        .iter().map(|&c|(0,14,c)).collect();
+    assert_eq!(windows.len(),22);
+    assert_eq!(block_costs(&windows),([494,0,0],[14,0,0],4169,439));
+    // A disk whose typical commit is past t_exec (eight blocks, six commits at 1050 ms): the lower median is 1050 ms.
+    assert_eq!(block_costs(&[(0,10,20),(0,10,30),(0,10,s),(0,10,s),(0,10,s),(0,10,s),(0,10,s),(0,10,s)]),([10+s,0,0],[10,0,0],s,s));
+    // More than a quarter slow (22 blocks, six stalls > k = 5): one stall is counted at its own time.
+    let mut six:Vec<(usize,u64,u64)>=(0..16).map(|_|(0,14,439)).collect();six.extend((0..6).map(|_|(0,14,s)));
+    assert_eq!(block_costs(&six),([14+s,0,0],[14,0,0],s,439));
+    // For every n from 2 to 64: k = max(1, n/4) stalls are tolerated, k + 1 are not.
+    for n in 2..=64usize{
+        let k=(n/4).max(1);
+        let with=|stalls:usize|->Vec<(usize,u64,u64)>{(0..n).map(|i|(0,10,if i<stalls{s}else{20+i as u64})).collect()};
+        let (p,_,_,_)=block_costs(&with(k));assert!(p[0]<s,"n={n}: {k} stalls tolerated, {p:?}");
+        let (p,_,_,_)=block_costs(&with(k+1));assert!(p[0]>=s,"n={n}: {} stalls refused, {p:?}",k+1);
+    }
+    // In memory every commit is 0: phase_ms is exec_ms.
+    assert_eq!(block_costs(&[(0,7,0),(1,8,0),(2,9,0)]),([7,8,9],[7,8,9],0,0));
 }
 /// A store-mode node's timing takes, per phase class, the larger of its in-memory and store measurements, so a
 /// store path slower than t_exec is refused by R14/R19 even when memory is fast; a store measurement for another
@@ -223,6 +284,8 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
         if i%1000==0{l=d.clone()}
         let each:Vec<bool>=R26_PREDICATES.iter().map(|p|(p.2)(&l)).collect();
         assert_eq!(each.iter().all(|b|*b),l.satisfies_r26(),"{l:?}");agree+=1;
+        let v3_each:Vec<bool>=super::scope::r26_predicates(true).map(|p|(p.2)(&l)).collect();
+        assert_eq!(v3_each.iter().all(|b|*b),l.satisfies_r26_for(true),"v3 split differs: {l:?}");
         if l.satisfies_r26(){pass+=1}else{fail+=1}
         if each.iter().filter(|b|!**b).count()==1{fails_alone[each.iter().position(|b|!*b).unwrap()]=true}
     }
@@ -230,6 +293,44 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     // Every predicate except the derive guard can decide the verdict alone (none is dead code).
     let dead:Vec<&str>=R26_PREDICATES.iter().zip(&fails_alone).filter(|(p,f)|!**f&&p.0!="derive").map(|(p,_)|p.0).collect();
     assert!(dead.is_empty(),"never the only failing predicate: {dead:?}");
+}
+
+/// C3-4 / D-V3-21: the creation-burn user bound is an enforced launch blocker. Until it is resolved,
+/// no profile that can activate v3 is admitted outside a simnet profile on a simnet node.
+#[test] fn open_v3_launch_blockers_refuse_every_non_simnet_v3_admission(){
+    assert!(V3_LAUNCH_BLOCKERS.iter().any(|b|b.starts_with("D-V3-21 creation-burn user bound")),"the creation-burn user bound is an open launch blocker");
+    for (k,n) in [(ProfileKind::Network,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Node)]{
+        let e=v3_launch_gate(true,k,n).unwrap_err();assert_eq!(e.rules,v(&["v3-launch-blocker"]));assert!(e.notes[0].contains("creation-burn user bound"),"{e}");
+        assert!(v3_launch_gate(false,k,n).is_ok(),"spec-1 profiles never reach the v3 blockers");
+    }
+    assert!(v3_launch_gate(true,ProfileKind::Simnet,NodeKind::Simnet).is_ok(),"the simnet preview stays admissible");
+}
+/// No current build reaches the gate through `admit` with v3 on a non-simnet profile (preview builds
+/// refuse those first; release builds cannot decode spec 2), so this source check keeps `admit` calling
+/// it until V3-PR-I makes that path reachable and replaces this check with an `admit`-level test.
+#[test] fn admit_calls_the_v3_launch_gate_before_any_fact_is_built(){
+    let src=include_str!("../admission.rs");
+    let start=src.find("\npub fn admit(").expect("admit");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];
+    let gate=body.find("v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;").expect("admit must call v3_launch_gate on the v3 domain of the profile");
+    assert!(gate<body.find("let binding=gp.binding();").expect("binding"),"the launch gate runs before the gate facts are built");
+}
+
+#[test] fn an_enforced_v3_log_limit_cannot_be_waived_by_an_unrelated_absent_field(){
+    for (field,value,label) in [("resp_max",2*32768+546*512,"respMax>=2*262144+4368*512+2048"),("logs_count_max",546,"logsCountMax>=4368"),("logs_scan_bytes",32768,"logsScanBytes>=262144")]{
+        let f=RpcFacts::enforced(&[(field,value)]).unwrap();assert!(r26_partial(&f).1.is_empty());
+        let (w,failed)=r26_partial_for(&f,true);assert_eq!(failed,vec![label]);assert!(w.checked.contains(&label));assert!(!w.waived.contains(&label));
+    }
+}
+
+#[cfg(feature="v3-preview")]
+#[test] fn v3_boot_admission_keeps_enforced_log_predicates_at_the_active_limits(){
+    let mut c=cfg();c.spec_version=2;c.nonce_mode=1;c.earnin=true;c.r_max=1;c.d_att=91;
+    let n=net(&c);let (_,timing)=n.admit(&sh()).unwrap();
+    let original=pocold_like();let mut values=original.values().clone();values.resp_max=2*32768+546*512;
+    let present:Vec<(&str,u64)>=RPC_FIELDS.iter().filter(|f|!original.absent().contains(f)).map(|f|(*f,*scope_slot(&mut values,f))).collect();
+    let local=NodeLocal{rpc:RpcFacts::enforced(&present).unwrap(),..sh()};
+    let error=admit(&n.request(&local,Some(&timing))).err().unwrap();assert_eq!(error.rules,v(&["R26"]));
+    assert!(error.notes.iter().any(|note|note.contains("respMax>=2*262144+4368*512+2048")),"{error}");
 }
 fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     match f{"conn_max"=>&mut l.conn_max,"req_buf"=>&mut l.req_buf,"conn_buf"=>&mut l.conn_buf,"send_sock_buf"=>&mut l.send_sock_buf,"heavy_active"=>&mut l.heavy_active,
@@ -304,27 +405,95 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     }
 }
 
-/// V3-PR-E2b: the v3 program set composes GAS_ENVELOPE_V3 where it has an entry and GAS_ENVELOPE elsewhere; spec-1
-/// sets compose GAS_ENVELOPE alone, as before. The v3 domain also bounds P_MAX (settlement accrual).
+/// V3-PR-E2b: the v3 program set composes GAS_ENVELOPE_V3 where it has an entry and, since PoColSystemV3.sol is built
+/// on the earn-in programs, GAS_ENVELOPE_EARNIN elsewhere (main's admission.rs asked for that fallback to be decided
+/// when the v3 stack was rebased; it was GAS_ENVELOPE before). Spec-1 sets compose their own tables alone, as before.
+/// The v3 domain also bounds P_MAX (settlement accrual).
 #[test] fn v3_envelope_entries_apply_only_to_the_v3_set(){
-    for (n,g) in GAS_ENVELOPE{assert_eq!(envelope_for(n,false),Some(*g),"spec-1 {n}");}
-    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope_for(n,true),Some(*g));if let Some(s)=envelope_for(n,false){assert!(*g>s,"{n}: the v3 entry exceeds the spec-1 one");}}
-    assert_eq!(envelope_for("beginBlock",true),envelope_for("beginBlock",false),"entries without a v3 measurement apply unchanged");
-    // V3-02: recordLate exists on the v3 set only, and each evidence item of a v3 block is counted as the dearer of a
-    // type 1/2 item (invalidate and punish) and a kind-3 item (recordLate).
-    assert_eq!(envelope_for("recordLate",false),None);
+    for (n,g) in GAS_ENVELOPE{assert_eq!(envelope(ProgramSet::V1,n),Some(*g),"spec-1 {n}");assert_eq!(envelope(ProgramSet::Continuous,n),Some(*g),"spec-1 {n}");}
+    for (n,g) in GAS_ENVELOPE_EARNIN{assert_eq!(envelope(ProgramSet::EarnIn,n),Some(*g),"earn-in {n}");}
+    // V3-PR-E3 (V3-02): recordLate is the one v3-only call name; it has no earn-in (or spec-1) entry to replace.
+    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope(ProgramSet::V3,n),Some(*g));
+        match envelope(ProgramSet::EarnIn,n){Some(e)=>assert!(*g>e,"{n}: the v3 entry exceeds the earn-in one it replaces"),None=>assert_eq!(*n,"recordLate","{n}: only recordLate is v3-only")}}
+    // The composed table: every earn-in call name, in order, the v3 entry where one exists and the earn-in one
+    // otherwise, then the v3-only names. Merging V3-PR-E3 (recordLate) into the composition: the names are the earn-in
+    // names followed by recordLate, where before E3 they were the earn-in names alone.
+    let mut names=GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>();names.push("recordLate");
+    assert_eq!(gas_envelope(ProgramSet::V3).iter().map(|x|x.0).collect::<Vec<_>>(),names,"the earn-in call names, then recordLate");
+    for (n,_) in GAS_ENVELOPE_V3{assert!(*n=="recordLate"||GAS_ENVELOPE_EARNIN.iter().any(|x|x.0==*n),"{n} is an earn-in call name");}
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert_eq!(envelope(set,"recordLate"),None,"recordLate exists on the v3 set only: {set:?}");}
+    assert!(std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE_V3_COMPOSED));
+    for (n,g) in GAS_ENVELOPE_EARNIN{if !GAS_ENVELOPE_V3.iter().any(|x|x.0==*n){assert_eq!(envelope(ProgramSet::V3,n),Some(*g),"{n}: entries without a v3 measurement take the earn-in entry");}}
+    assert_eq!(envelope(ProgramSet::V3,"beginBlock"),envelope(ProgramSet::EarnIn,"beginBlock"),"entries without a v3 measurement apply unchanged");
+    assert!(envelope(ProgramSet::V3,"markClose")>envelope(ProgramSet::V1,"markClose"),"markClose falls back to the earn-in entry, not GAS_ENVELOPE's");
+    // Reworded on review: the text names which entries the v3 measurement covers and that the final phase is not
+    // measured on v3 (finalize takes the earn-in entry), instead of claiming the whole table holds at the v3 maxima.
+    // V3-PR-E3 adds the kappa*m domain bound (recordLate's owners per call) to the text.
+    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= 64, kappa*m <= 64; final phase not measured on v3: settleFinal takes the measured settle, finalize the earn-in entry)"));
     let c=net(&cfg());let cp=c.profile.cp().clone();
-    let spec1=phase_gas(&cp,0,false).unwrap();let v3=phase_gas(&cp,0,true).unwrap();
-    let (late,pair)=(envelope_for("recordLate",true).unwrap(),envelope_for("invalidate",true).unwrap()+envelope_for("punish",true).unwrap());
+    let spec1=phase_gas(&cp,0,ProgramSet::V1).unwrap();let earnin=phase_gas(&cp,0,ProgramSet::EarnIn).unwrap();let v3=phase_gas(&cp,0,ProgramSet::V3).unwrap();
+    // V3-02: each evidence item of a v3 block is counted as the dearer of a type 1/2 item (invalidate and punish) and a
+    // kind-3 item (recordLate), so the v3 sequence has one recordLate in place of each pair.
+    let (late,pair)=(envelope(ProgramSet::V3,"recordLate").unwrap(),envelope(ProgramSet::V3,"invalidate").unwrap()+envelope(ProgramSet::V3,"punish").unwrap());
     assert!(late>pair,"recordLate {late} is the dearer evidence item");
-    assert_eq!(spec1.len(),v3.len()+usize::from(cp.E_max),"one recordLate in place of each invalidate and punish pair");
+    assert_eq!(spec1.len(),v3.len()+usize::from(cp.E_max),"one recordLate in place of each invalidate and punish pair");assert_eq!(earnin.len(),spec1.len());
     assert_eq!(v3.iter().filter(|g|**g==late).count(),usize::from(cp.E_max));
-    assert!(v3.iter().sum::<u64>()>spec1.iter().sum::<u64>());
-    for class in 0..3{assert!(phase_calls(&cp,class,false).iter().all(|(n,_)|*n!="recordLate"),"spec 1 never composes recordLate");}
+    assert!(v3.iter().sum::<u64>()>earnin.iter().sum::<u64>()&&earnin.iter().sum::<u64>()>spec1.iter().sum::<u64>());
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{for class in 0..3{assert!(phase_calls(&cp,class,set).iter().all(|(n,_)|*n!="recordLate"),"spec 1 never composes recordLate: {set:?}");}}
     let mut wide=cp.clone();wide.P_MAX=GAS_DOMAIN_V3_P_MAX+1;
-    assert!(in_gas_domain(&wide,false)&&!in_gas_domain(&wide,true),"P_MAX bounds the v3 domain only");
-    assert_eq!(phase_gas(&wide,0,true),None);
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(in_gas_domain(&wide,set),"P_MAX bounds the v3 domain only: {set:?}");}
+    assert!(!in_gas_domain(&wide,ProgramSet::V3),"P_MAX bounds the v3 domain");
+    assert_eq!(phase_gas(&wide,0,ProgramSet::V3),None);
     // kappa*m bounds recordLate's owners per call (the no-dilution cap): the v3 domain only.
     let mut wide=cp.clone();wide.m=(GAS_DOMAIN_V3_KAPPA_M/u32::from(wide.kappa)+1) as u16;
-    assert!(in_gas_domain(&wide,false)&&!in_gas_domain(&wide,true),"kappa*m bounds the v3 domain only");
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(in_gas_domain(&wide,set),"kappa*m bounds the v3 domain only: {set:?}");}
+    assert!(!in_gas_domain(&wide,ProgramSet::V3),"kappa*m bounds the v3 domain");
+    assert_eq!(phase_gas(&wide,0,ProgramSet::V3),None);
+}
+
+/// R18 SYS gas follows the program set the GenesisSpec's sysCodeHash names. V1 and Continuous keep the
+/// legacy table and composition exactly, so the spec-1 H15000 admission (Continuous) has the same
+/// PhaseFacts call_gas, hence the same ResourceFacts digest, and the same condition text; EarnIn gets
+/// GAS_ENVELOPE_EARNIN and a condition naming it.
+#[test] fn the_gas_envelope_follows_the_program_set_and_v1_continuous_facts_are_unchanged(){
+    // The table and composition as they were before the earn-in table, written out.
+    const LEGACY:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_655_000),
+        ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_305_000),("settleFinal",4_230_000)];
+    const LEGACY_TEXT:&str="SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)";
+    let g=|n:&str|LEGACY.iter().find(|x|x.0==n).unwrap().1;
+    let legacy=|cp:&ConsensusParams,class:u8|->Vec<u64>{
+        let mut v=Vec::new();for _ in 0..cp.E_max{v.push(g("invalidate"));v.push(g("punish"));}
+        for n in ["markClose","pruneShares","recordShares","recordResult","settle","beginBlock"]{v.push(g(n))}
+        if class==2{v.push(g("finalize"));for _ in 1..cp.D{v.push(g("settleFinal"))}}else{v.push(g("closeBlock"))}
+        v};
+    assert_eq!(GAS_ENVELOPE,LEGACY);
+    // V3 was listed here while main's program_set could not return it; the rebased v3 stack composes GAS_ENVELOPE_V3
+    // over GAS_ENVELOPE_EARNIN for it (v3_envelope_entries_apply_only_to_the_v3_set), as main's gas_envelope note asked.
+    for set in [ProgramSet::V1,ProgramSet::Continuous]{assert!(std::ptr::eq(gas_envelope(set),GAS_ENVELOPE),"{set:?}");assert_eq!(gas_condition(set),LEGACY_TEXT);}
+    assert!(!std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE));assert_ne!(gas_condition(ProgramSet::V3),LEGACY_TEXT);
+    assert!(std::ptr::eq(gas_envelope(ProgramSet::EarnIn),GAS_ENVELOPE_EARNIN));
+    assert_eq!(GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>(),LEGACY.iter().map(|x|x.0).collect::<Vec<_>>(),"the same call names");
+    assert!(gas_condition(ProgramSet::EarnIn).starts_with("SYS gas: GAS_ENVELOPE_EARNIN holds at the earn-in fixture's maxima (earn-in program set)"));
+
+    // The live spec-1 chain: deploy/mainnet/h15000 runs the Continuous set inside GAS_DOMAIN.
+    let bundle:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
+    let bytes=crate::hex::decode(bundle["files"]["genesis.spec.hex"].as_str().unwrap().trim().trim_start_matches("0x")).unwrap();
+    let spec=gs::verify_hash(&bytes,&gs::genesis_hash(&bytes)).unwrap();let cp=ConsensusParams::from_values(&spec.cp).unwrap();
+    let set=SystemPrograms::program_set(&cp,&spec.sys_code_hash);
+    assert_eq!(set,ProgramSet::Continuous);assert!(in_gas_domain(&cp,set));
+    for class in 0..3{assert_eq!(phase_gas(&cp,class,set),Some(legacy(&cp,class)),"H15000 class {class}");}
+    let info:serde_json::Value=serde_json::from_str(bundle["files"]["devnet.json"].as_str().unwrap()).unwrap();
+    let recorded=info["admission"]["conditions"].as_array().unwrap().iter().find(|c|c["id"]=="gas-monotonicity-assumed").unwrap();
+    assert_eq!(recorded["detail"],gas_condition(set),"the recorded H15000 R18 condition");
+
+    // Admitted devnets of each set report their envelope.
+    for (earnin,h_end,want) in [(false,20_000,ProgramSet::V1),(false,0,ProgramSet::Continuous),(true,0,ProgramSet::EarnIn)]{
+        let mut c=cfg();c.earnin=earnin;c.h_end=h_end;if h_end==0{c.h_close=0}
+        let n=net(&c);let t=measure(&n.spec_bytes,&n.alloc,1).expect("measure");
+        let a=admit(&n.request(&sh(),Some(&t))).unwrap_or_else(|e|panic!("{want:?}: {e}"));
+        let spec=gs::decode(&n.spec_bytes).unwrap();assert_eq!(SystemPrograms::program_set(n.profile.cp(),&spec.sys_code_hash),want);
+        let gas=a.report().conditions.iter().find(|c|c.id=="gas-monotonicity-assumed").unwrap();assert_eq!(gas.detail,gas_condition(want),"{want:?}");
+        let p=phase_gas(n.profile.cp(),0,want).unwrap();
+        if want==ProgramSet::EarnIn{assert!(p.iter().sum::<u64>()>legacy(n.profile.cp(),0).iter().sum::<u64>())}else{assert_eq!(p,legacy(n.profile.cp(),0))}
+    }
 }
