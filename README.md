@@ -398,7 +398,8 @@ It also serves `net_*`, `web3_clientVersion`, and PoCol-specific methods:
 | `pocol_finality`                                                                                | Local finality: safe, finalized, kSafe, kAlarm, reorg alarm  |
 
 Block tags: `latest` and `pending` are the head; `safe` is max(head − k_safe, finalized), k_safe 6 by default
-(`--k-safe N` or POCOL_K_SAFE), and state queries at it are answered (a node refuses k_safe ≥ K_hist = 32);
+(`--k-safe N` or POCOL_K_SAFE), and state queries at it are answered while it is head − k_safe (a node refuses
+k_safe ≥ K_hist = 32; when a heavier, shorter branch makes it finalized, they answer −32017 as at `finalized`);
 `finalized` is the node's persisted local irreversibility floor (head − R_keep or above). Both are local and
 probabilistic, not consensus finality. Reorganizations of k_alarm blocks or more (60 by default, `--k-alarm N` or
 POCOL_K_ALARM) are counted in `pocol_finality.reorgsGeKAlarm` (network.md, "Local finality").

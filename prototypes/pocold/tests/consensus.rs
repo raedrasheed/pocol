@@ -3568,13 +3568,36 @@ fn heavier_shorter_then_deep(store:bool,tag:&str){
     // Restart: the floor is the file's, not head − r_keep.
     drop(n);
     // With k_safe 31 (the deepest below K_hist 32) the head − k_safe part is below the floor: RPC safe is finalized_h
-    // (the other branch of the max), and its state is still answered.
+    // (the other branch of the max). Its state is still answered here only because r_keep 24 is below K_hist 32, so
+    // finalized_h = 60 − 24 = 36 was never pruned (the r_keep 32 case below is the production one).
     assert!(theirs_h-31<36,"head − 31 below the floor");
     {let mut c=conf();c.limits.k_safe=31;c.limits.k_alarm=60;let mut r=pocold::node::Node::open(c,admitted(&cfg(&["a","b","c"]))).unwrap();
         let sb=rpc_local(&mut r,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&fin_hash[..]),"RPC safe = finalized_h when head − k_safe is below it");
         let who=format!("{:#x}",devnet::account_key("alice").address());let at_safe=rpc_local_raw(&mut r,"eth_getBalance",json!([who,"safe"]));
         assert!(at_safe.get("error").is_none(),"state at safe = finalized_h 36 is inside the window: {at_safe}");
         assert_eq!(at_safe["result"],rpc_local(&mut r,"eth_getBalance",json!([who,"0x24"])));}
+    // Review N2-R1: with r_keep at or above K_hist (production: R_keep 2048, K_hist 32) finalized_h is at or below the
+    // old head − K_hist, so its state was pruned before the heavier, shorter branch lowered the head, and it is not
+    // restored. When safe falls back to finalized_h (k_safe 31 here), a block query at `safe` is answered and a state
+    // query answers -32017, as at `finalized`, live and after a restart. With the default k_safe 6, safe = head − 6 is
+    // inside the window and its state is answered.
+    for rk2 in [32u64,34]{
+        let (mut m,dm,mconf)=fnode(&format!("{tag}-rk{rk2}"),rk2,(31,K_ALARM),store);
+        for x in ours.iter().chain(theirs.iter()){m.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
+        assert_eq!((m.chain.head,m.chain.finalized_h),(theirs_tip,60-rk2),"r_keep {rk2}: the branch is adopted, the floor stays");
+        let fin=m.chain.canonical_at(60-rk2).unwrap().hash;drop(m);
+        let who=format!("{:#x}",devnet::account_key("alice").address());
+        for (ks,state_answered) in [(31,false),(K_SAFE,true)]{
+            let mut c=mconf();c.limits.k_safe=ks;let mut r=pocold::node::Node::open(c,admitted(&cfg(&["a","b","c"]))).unwrap();
+            let safe=(theirs_h-ks).max(60-rk2);assert_eq!(r.safe_height(),safe);
+            let sb=rpc_local(&mut r,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&r.chain.canonical_at(safe).unwrap().hash[..]),"r_keep {rk2}, k_safe {ks}: a block query at safe is answered");
+            if ks==31{assert_eq!(sb["hash"],hex(&fin[..]),"safe = finalized_h");}
+            let at_safe=rpc_local_raw(&mut r,"eth_getBalance",json!([who,"safe"]));
+            if state_answered{assert!(at_safe.get("error").is_none()&&at_safe["result"].is_string(),"r_keep {rk2}, k_safe {ks}: {at_safe}");}
+            else{assert_eq!(at_safe["error"]["code"],json!(-32017),"r_keep {rk2}, k_safe {ks}: safe = finalized_h was pruned: {at_safe}");
+                assert_eq!(rpc_local_raw(&mut r,"eth_getBalance",json!([who,"finalized"]))["error"]["code"],json!(-32017),"as at finalized");}
+            drop(r);}
+        let _=std::fs::remove_dir_all(&dm);}
     let mut r=reopen(&conf);assert_eq!((r.chain.head,r.chain.finalized_h),(theirs_tip,36),"restart keeps finalized_h");assert_eq!(r.stats.replay_skipped,0);
     if store{assert!(r.stats.resumed_from.is_some(),"positive control: resumed from a checkpoint (format unchanged)");}
     refused_by_the_floor(&mut r,deep,36);assert!(!r.stats.finality_file_ignored);drop(r);
@@ -3592,7 +3615,8 @@ fn heavier_shorter_then_deep(store:bool,tag:&str){
 #[test] fn v3_26_a_heavier_shorter_branch_then_a_deep_fork_keeps_finalized_h_in_store_mode(){heavier_shorter_then_deep(true,"hs-store")}
 /// Owner decision 12 (2026-11-13): the RPC `safe` depth k_safe and the reorg alarm depth k_alarm are two settings, and
 /// Node::open refuses a pair outside 1 <= k_safe <= k_alarm with k_safe < K_hist (32 here, from the network's local
-/// profile): the state at `safe` is then always inside the retained trie window. Nothing is created for a refused pair.
+/// profile): the state at head − k_safe is then inside the retained trie window (safe = finalized_h after a heavier,
+/// shorter branch is not bounded by this; `heavier_shorter_then_deep`). Nothing is created for a refused pair.
 #[test] fn v3_26_open_checks_k_safe_and_k_alarm(){
     assert_eq!(pocold::single_host_local().k_hist,32);
     let dir=std::env::temp_dir().join(format!("pocold-fin-kcheck-{}",std::process::id()));

@@ -239,7 +239,7 @@ Effect:
 An honest miner starts within X^W; in bounded mode p0 ≥ 1−exp(−c·ρ_hon).
 
 **12. Finality**
-Probabilistic: safe = head−6, finalized = head−60 [PDF:76-77], without a mathematical guarantee. (Superseded for the node by the Section 12 amendment below, V3-26: `finalized` is the persisted local floor finalized_h, `safe` = max(head − k_safe, finalized_h) with k_safe = 60; network.md, "Local finality".)
+Probabilistic: safe = head−6, finalized = head−60 [PDF:76-77], without a mathematical guarantee. (Superseded for the node by the Section 12 amendment below, V3-26: `finalized` is the persisted local floor finalized_h, `safe` = max(head − k_safe, finalized_h) with k_safe = 6 by default (reorg alarm k_alarm = 60, owner decision 12); network.md, "Local finality".)
 
 **13. Consensus independence from RPC and the extension (D87–D97)**
 - Validation/mining run in a separate prioritized runtime with one redb writer.

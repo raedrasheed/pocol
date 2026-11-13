@@ -370,7 +370,8 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let budget="exceeds the node memory budget 1 B";
     let (code,err)=run(&[],&[("POCOL_K_SAFE","x")]);assert_eq!(code,Some(1));assert!(err.contains("POCOL_K_SAFE \"x\":"),"{err}");
     let (code,err)=run(&["--k-safe","7"],&[("POCOL_K_SAFE","x")]);assert_eq!(code,Some(1));assert!(err.contains(budget)&&!err.contains("POCOL_K_SAFE"),"{err}");
-    let (code,err)=run(&[],&[("POCOL_K_SAFE","7")]);assert_eq!(code,Some(1));assert!(err.contains(budget),"{err}");
+    let (code,err)=run(&[],&[("POCOL_K_SAFE","61")]);assert_eq!(code,Some(1));assert!(err.contains("k_safe 61 exceeds k_alarm 60"),"POCOL_K_SAFE alone is used: {err}");
+    let (code,err)=run(&[],&[("POCOL_K_ALARM","5")]);assert_eq!(code,Some(1));assert!(err.contains("k_safe 6 exceeds k_alarm 5"),"POCOL_K_ALARM alone is used: {err}");
     let (code,err)=run(&[],&[("POCOL_K_ALARM","x")]);assert_eq!(code,Some(1));assert!(err.contains("POCOL_K_ALARM \"x\":"),"{err}");
     let (code,err)=run(&["--k-alarm","60"],&[("POCOL_K_ALARM","x")]);assert_eq!(code,Some(1));assert!(err.contains(budget)&&!err.contains("POCOL_K_ALARM"),"{err}");
     let (code,err)=run(&[],&[("POCOL_K_SAFE","8"),("POCOL_K_ALARM","7")]);assert_eq!(code,Some(1));assert!(err.contains("k_safe 8 exceeds k_alarm 7"),"the variables are used: {err}");

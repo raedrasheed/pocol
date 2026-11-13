@@ -122,7 +122,9 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// V3-26 (local confirmation depth, never validity; owner decision 12, 2026-11-13): the RPC `safe` tag is
     /// max(head − k_safe, finalized_h). K_SAFE; `--k-safe N`, or POCOL_K_SAFE for `run` and `pocol start`. Node::open
     /// refuses k_safe = 0, k_safe > k_alarm, and k_safe >= K_hist (the trie window of the network's local profile), so a
-    /// state query at `safe` is always answerable (`check_confirmation`).
+    /// state query at `safe` is answered while safe = head − k_safe (`check_confirmation`). When a heavier, shorter branch
+    /// lowers the head to within k_safe of finalized_h, safe = finalized_h, and with R_keep >= K_hist (production) its
+    /// state was pruned at the old head: a state query there answers −32017, as at `finalized` (block queries answer).
     pub k_safe:u64,
     /// V3-26 (local reorg alarm, never validity; owner decision 12): a reorganization abandoning k_alarm or more canonical
     /// blocks is counted (`pocol_finality.reorgsGeKAlarm`). K_ALARM; `--k-alarm N`, or POCOL_K_ALARM for `run` and
@@ -175,8 +177,10 @@ pub const K_SAFE:u64=6;
 /// (`Limits::k_alarm`): 60 blocks, ten minutes at 10 s blocks.
 pub const K_ALARM:u64=60;
 /// V3-26 (owner decision 12; local, never validity): the confirmation settings a node may run with:
-/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so the state at `safe` is inside the retained trie window (heights
-/// head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node flag).
+/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so the state at head − k_safe is inside the retained trie window (heights
+/// head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node flag). This
+/// does not bound the other branch of `safe` = max(head − k_safe, finalized_h): after a heavier, shorter branch,
+/// safe = finalized_h can be a pruned height, whose state answers −32017 as at `finalized`.
 pub fn check_confirmation(k_safe:u64,k_alarm:u64,k_hist:u64)->Result<(),String>{
     if k_safe==0{return Err("k_safe 0: the RPC safe depth must be at least 1 (--k-safe, POCOL_K_SAFE)".into())}
     if k_safe>k_alarm{return Err(format!("k_safe {k_safe} exceeds k_alarm {k_alarm}: the RPC safe depth must not exceed the reorg alarm depth (--k-safe/POCOL_K_SAFE, --k-alarm/POCOL_K_ALARM)"))}
