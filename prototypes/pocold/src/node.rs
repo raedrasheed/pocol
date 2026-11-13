@@ -774,7 +774,8 @@ impl Node{
         // A13: the resident bound of this profile with these limits must fit the budget (the pool counted at
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
-        let pool_gas_max=pool_gas_in_effect(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?;
+        // The quota applies within the gas bound in effect (the operator's value is validated against the configured bound).
+        let pool_gas_max=pool_gas_in_effect(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?.min(pool_gas_max);
         // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
         // kept); a larger one only keeps blocks that were below the head when imported. The largest value
         // this data directory has used is kept durably beside the journal and replay uses it.
