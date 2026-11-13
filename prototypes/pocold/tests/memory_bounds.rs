@@ -35,7 +35,8 @@ fn admitted()->Spec{let d=devnet::build(&cfg()).unwrap();Spec::new(d.admit(&poco
     assert_eq!(scratch(&active)-scratch(&old),16*(256*1024-32*1024));
     // ChainFacts (inside every BlockRun/BlockOutput) keeps its legacy layout on the pinned target.
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(std::mem::size_of::<pocol_lp4_execution::apply::ChainFacts>(),96);}
-    assert_eq!(item(&old,"execution/v3 creation-fee receipt annotation scratch"),None);assert_eq!(item(&active,"execution/v3 creation-fee receipt annotation scratch"),Some(4096));
+    // FN-2a (owner decision 10d): no creation burn, so no receipt annotation scratch on either domain.
+    for b in [&old,&active]{assert!(!b.items.iter().any(|x|x.0.contains("creation-fee")||x.0.contains("creation-burn")),"no creation-fee term: {:?}",b.items.iter().map(|x|x.0).collect::<Vec<_>>());}
     assert_eq!(item(&active,"history/resident window: logs").unwrap(),8*item(&old,"history/resident window: logs").unwrap());assert!(active.total>old.total);
 }
 fn net()->Net{let d=devnet::build(&cfg()).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();Net{chain:Chain::new(admitted()),keys}}

@@ -64,9 +64,6 @@ pub struct ConsensusParams {
     pub S_tail: U256,
     pub P_MAX: u16,
     pub T_PROB: u32,
-    pub F0_acct: U256,
-    pub F0_slot: U256,
-    pub F0_code: U256,
     pub gamma_tip_bp: u16,
     pub baseFeeMin: U256,
     pub R_react: u8,
@@ -154,17 +151,14 @@ impl ConsensusParams {
             S_tail: v.get(53).copied().unwrap_or(U256::ZERO),
             P_MAX: v.get(54).and_then(U256::to_u64).unwrap_or(0) as u16,
             T_PROB: v.get(55).and_then(U256::to_u64).unwrap_or(0) as u32,
-            F0_acct: v.get(56).copied().unwrap_or(U256::ZERO),
-            F0_slot: v.get(57).copied().unwrap_or(U256::ZERO),
-            F0_code: v.get(58).copied().unwrap_or(U256::ZERO),
-            gamma_tip_bp: v.get(59).and_then(U256::to_u64).unwrap_or(0) as u16,
-            baseFeeMin: v.get(60).copied().unwrap_or(U256::ZERO),
-            R_react: v.get(61).and_then(U256::to_u64).unwrap_or(0) as u8,
-            C_react: v.get(62).and_then(U256::to_u64).unwrap_or(0) as u32,
-            E_epoch: v.get(63).and_then(U256::to_u64).unwrap_or(0) as u32,
-            theta_bp: v.get(64).and_then(U256::to_u64).unwrap_or(0) as u16,
-            k_sigma: v.get(65).and_then(U256::to_u64).unwrap_or(0) as u16,
-            rho_bp: v.get(66).and_then(U256::to_u64).unwrap_or(0) as u16,
+            gamma_tip_bp: v.get(56).and_then(U256::to_u64).unwrap_or(0) as u16,
+            baseFeeMin: v.get(57).copied().unwrap_or(U256::ZERO),
+            R_react: v.get(58).and_then(U256::to_u64).unwrap_or(0) as u8,
+            C_react: v.get(59).and_then(U256::to_u64).unwrap_or(0) as u32,
+            E_epoch: v.get(60).and_then(U256::to_u64).unwrap_or(0) as u32,
+            theta_bp: v.get(61).and_then(U256::to_u64).unwrap_or(0) as u16,
+            k_sigma: v.get(62).and_then(U256::to_u64).unwrap_or(0) as u16,
+            rho_bp: v.get(63).and_then(U256::to_u64).unwrap_or(0) as u16,
             schema_version,
         })
     }
@@ -232,9 +226,6 @@ impl ConsensusParams {
                 self.S_tail,
                 U256::from_u64(self.P_MAX as u64),
                 U256::from_u64(self.T_PROB as u64),
-                self.F0_acct,
-                self.F0_slot,
-                self.F0_code,
                 U256::from_u64(self.gamma_tip_bp as u64),
                 self.baseFeeMin,
                 U256::from_u64(self.R_react as u64),
@@ -400,7 +391,7 @@ mod v3_tests {
             for h in [0,1,999,1000,1001,u64::MAX]{assert!(!p.v3_active(h));}
             assert_eq!(p.spec_version(),1);assert_eq!(p.cp().cp_len(),52);
             assert_eq!((p.cp().H_half,p.cp().P_MAX,p.cp().T_PROB,p.cp().rho_bp),(0,0,0,0));
-            assert_eq!(p.cp().F0_acct,U256::ZERO);assert!(!p.bootable());
+            assert_eq!(p.cp().baseFeeMin,U256::ZERO);assert!(!p.bootable());
         }
     }
     #[test]
@@ -411,7 +402,7 @@ mod v3_tests {
         assert_eq!(p.forks().active_version(20),3);
         let p=identity(2,1,&[(1,0)],2);
         for h in [0,1,u64::MAX]{assert!(p.v3_active(h));}
-        assert_eq!(p.spec_version(),2);assert_eq!(p.cp().cp_len(),67);
+        assert_eq!(p.spec_version(),2);assert_eq!(p.cp().cp_len(),64);
         assert_eq!(p.cp().to_values(),p.spec().cp);assert!(!p.bootable());
     }
 }

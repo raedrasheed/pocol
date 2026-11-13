@@ -455,10 +455,10 @@ from collections import namedtuple
 # decoded only by a v3-preview build until activation. CP item count of each version's schema.
 SPEC_VERSION = 1
 V3_SPEC_VERSION = 2
-CP_ITEMS = {1: 52, 2: 67}
+CP_ITEMS = {1: 52, 2: 64}
 # sysCodeHash of the v3 program set: keccak256(RLP([C0C001..C0C005 runtimes of lp4-execution/tests/data/system-v3.json,
 # 0x80 for PAY])) (apply.rs SystemPrograms::sys_code_hash); test_pocol_rewards recomputes it from that file.
-V3_SYS_CODE_HASH = '0x72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849'
+V3_SYS_CODE_HASH = '0x70d4a3fd1b3ea222cef3e952b05f57c20c04cd2a2014f09472d14ccb0c0da5d7'
 LEDGER = '0x0000000000000000000000000000000000c0c003'
 MAX_MEMBERS_V3 = 256
 MAX_CALLS_V3 = 8192
@@ -1039,7 +1039,7 @@ def _v3_cp(params, network):
             'Invalid reward configuration')
     require(cp[13] + cp[14] <= 10000 and 0 < cp[15] <= MAX_U256 and 0 < cp[16] <= MAX_U256 and 0 < cp[18] <= MAX_MEMBERS_V3,
             'Invalid reward caps')
-    require(0 < cp[52] < 1 << 64 and cp[53] <= MAX_U256 and cp[59] <= 10000 and cp[66] <= 10000, 'Invalid v3 reward fields')
+    require(0 < cp[52] < 1 << 64 and cp[53] <= MAX_U256 and cp[56] <= 10000 and cp[63] <= 10000, 'Invalid v3 reward fields')
     return cp
 
 
@@ -1075,7 +1075,7 @@ def _evidence_flows(chain, flows, h, proposer):
             invalid = _ident(word & LOW160) == accused and bool(word & WIN_ACCRUING)
             if invalid:
                 invalidated.add(j)
-        bond, reward, cut = _punish(flows, accused, proposer, cp[66])
+        bond, reward, cut = _punish(flows, accused, proposer, cp[63])
         evidence.append({'kind': effect['kind'], 'accused': accused, 'potHeight': j, 'potInvalidated': invalid,
                          'bondBurnedWei': str(bond), 'reporter': proposer,
                          'reporterRewardAddress': reward if reward != ZERO else None, 'reporterCutWei': str(cut)})
@@ -1264,7 +1264,7 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
                 all(chain.pending(j, h)[1] == 0 for j in range(max(1, h - d + 1), h + 1)), 'Pending pots or carry after the final block')
     else:
         require(chain.call(ESCROW, 'carry()', [], h, 1)[0] == carry_out, 'Carry differs from the reconstructed base burn')
-        share = tip_share(tips, cp[59], header['signed'])
+        share = tip_share(tips, cp[56], header['signed'])
         if proposer is not None:
             after = _tip_share_record(chain, flows, proposer, share, h, user_calls)
             delta = _Delta(flows)

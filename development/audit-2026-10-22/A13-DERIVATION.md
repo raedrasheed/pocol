@@ -1595,6 +1595,12 @@ Under v3 eth_getTransactionReceipt is served heavy (one receipt can hold every
 block log, above LIGHT_RESP_MAX); the response pools and their terms are
 unchanged, since a heavy answer already reserves RESP_MAX from HEAVY_RESP_POOL.
 
+**FN-2a (owner decision 10d, 2026-11-13): the creation burn is deleted, so the
+annotation term below is removed from the model (`resources.rs`: no
+`execution/v3 creation-fee receipt annotation scratch` item; `memory_bounds`
+asserts no creation term on either domain). Spec-1 never had it. The paragraph
+is kept as the record.**
+
 A paid creation charge adds at most one receipt annotation to the native result:
 one Log, two topics and 96 data bytes (196 LOG-ACCT-01 bytes). The encoded/retained
 copies are inside the active log bounds. `execution/v3 creation-fee receipt

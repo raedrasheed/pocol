@@ -48,7 +48,7 @@ const MUTANTS=[
   ['whole-pot-for-bonded-accused','if(address(uint160(w))==accused && w&WIN_ACCRUING!=0) put(b+1,meta|INVALID);','if(address(uint160(w))==accused) put(b+1,meta|INVALID);','RewardEscrow'],
   ['accruing-read-at-evidence','if(address(uint160(w))==accused && w&WIN_ACCRUING!=0)','if(address(uint160(w))==accused && accruingNow(accused))','RewardEscrow'],
   ['accruing-read-at-settle','if(meta&INVALID!=0){ burned=amount; }','if(meta&INVALID!=0&&accruingNow(winner)){ burned=amount; }','RewardEscrow'],
-  ['rho-on-pot-not-bond','uint256 cut=reward==address(0)?0:amount*Sys.cfg(66)/10000;','uint256 cut=reward==address(0)?0:Sys.cfg(15)*Sys.cfg(66)/10000;','RewardEscrow'],
+  ['rho-on-pot-not-bond','uint256 cut=reward==address(0)?0:amount*Sys.cfg(63)/10000;','uint256 cut=reward==address(0)?0:Sys.cfg(15)*Sys.cfg(63)/10000;','RewardEscrow'],
   // V3-PR-E3 (V3-02): each must fail tests/v3_contracts.rs on tests/v3/late-share-vectors.json.
   ['late-last-share-reverts','put(r,credit(w,j,1,e)); // V3-02','if(((w>>88)&LOW64)>uint256(j)) revert BadState(); put(r,credit(w,j,1,e)); // V3-02','MinerRegistry'],
   ['late-last-share-overwrites','put(r,credit(w,j,1,e)); // V3-02','put(r,(credit(w,j,1,e)&~LAST_MASK)|(uint256(j)<<88)); // V3-02','MinerRegistry'],
@@ -57,7 +57,7 @@ const MUTANTS=[
   ['late-total-not-raised','        total[j]=t+n;\n','','ShareLedger'],
   // V3-PR-E2a (V3-19, V3-15, V3-20): each must fail tests/v3_contracts.rs on tests/v3/issuance-carry-vectors.json.
   ['carry-not-added','uint256 amount=issued+(tips-share)+c;','uint256 amount=issued+(tips-share);','RewardEscrow'],
-  ['tip-share-to-pot','uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(59)/10000;','uint256 share=0;','RewardEscrow'],
+  ['tip-share-to-pot','uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(56)/10000;','uint256 share=0;','RewardEscrow'],
   ['base-burn-still-burned','if(r!=a){ if(get(1)!=0) burned+=r-a; else {uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));} } // V3-15','burned+=r-a;','RewardEscrow'],
   ['issued-ignored-flat-s0','uint256 amount=issued+(tips-share)+c;','uint256 amount=Sys.cfg(15)+(tips-share)+c;','RewardEscrow'],
   // The final block keeps the carry of its own settle(F-D) instead of burning it.

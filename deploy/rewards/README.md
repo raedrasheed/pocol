@@ -62,7 +62,7 @@ result = snapshot(node_query, fork_schedule=trusted_schedule, network=network)
 
 `chain_id`, `genesis_hash` and `trusted_schedule` come from the operator's deployment configuration, never from RPC.
 The adapter requires the node's `pocol_getParams` to name that chain and genesis, its `genesisPre` to hash (keccak256)
-to the configured genesis and to decode as a version-2 GenesisSpec with the 67 CP items of CP schema v2 and the v3
+to the configured genesis and to decode as a version-2 GenesisSpec with the 64 CP items of CP schema v2 and the v3
 program set's sysCodeHash (`V3_SYS_CODE_HASH`, recomputed by the tests from `system-v3.json`), and the node's
 advertised fork schedule to equal the configured one. `v3_active(h)` is `active_version(h) >= 3 || specVersion >= 2`.
 

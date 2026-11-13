@@ -1663,10 +1663,10 @@ impl Node{
         // N4 x D-V3-21 review: under v3 a newcomer that would evict also passes the pool's checks on the head state (the
         // next block's parent, `head_checks`), as the selection will run it. The pending state can hold writes that no
         // block will make (an evicted or replaced transaction's, which stay until the next head), so there a creation
-        // can look done and its burn zero; the head lacks what the pooled transactions ahead of it write. It evicts
-        // only when both pass: the head checks, and its own execution on the pending state below (with its creation
-        // charge within its signed maximum), as `eviction_checks` runs them for a parked one. N4 x D-V3-21 re-review:
-        // priced on those two states only; a parked transaction of another sender that a block takes first is not
+        // can look done and its cap use zero; the head lacks what the pooled transactions ahead of it write. It evicts
+        // only when both pass: the head checks, and its own execution on the pending state below, as `eviction_checks`
+        // runs them for a parked one (FN-2a: no creation charge any more, owner 10d). N4 x D-V3-21 re-review:
+        // checked on those two states only; a parked transaction of another sender that a block takes first is not
         // modelled (its sender has nothing parked here, else it is parked). Run before its execution on the pending
         // state, so no result is held across it (A13: one execution at a time); nothing is committed. An RPC
         // submission runs both within its one deadline (`by`).
@@ -1688,15 +1688,8 @@ impl Node{
             (Some(by),total)=>native::admit_for_profile(&view,total,env.tx_env(),&ctx,self.chain.spec.profile(),std::rc::Rc::new(move||Instant::now()>=by)),
             (None,Some(total))=>native::execute_on_validated(&view,total,env.tx_env(),&ctx,self.chain.spec.profile()),
             (None,None)=>native::execute_for_profile(&view,env.tx_env(),&ctx,self.chain.spec.profile())};
-        let mut r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
+        let r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
         // A precompile runs to its end between two polls: the deadline is checked again before the commit.
-        if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
-        // Price on the actual pending state before checking logs: a paid fee has
-        // one receipt annotation, and an unpaid fee is refused like a cap halt.
-        let total=if self.chain.spec.v3_active(self.chain.head().height.saturating_add(1)){match self.pool.code_total{Some(t)=>t,None=>pocol_lp4_execution::code_caps::inventory(&view).map_err(|e|format!("-32000 {e}"))?}}else{0};
-        let (slots,accounts,_)=self.pool.meter.live();
-        // D-V3-21: refused, too, when the gas cost plus the burn would pass the signed max_fee*gas_limit.
-        user_phase::charge_creation(&view,&mut r,caller,user_phase::SignedFee::of(&env.tx_env()),&ctx,self.chain.spec.profile(),(slots,accounts),total).map_err(|h|format!("-32000 creation charge would halt ({h:?})"))?;
         if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
         // PR6 review: one whose own logs pass a block's log caps would halt in every block on this head. The honest
         // selection takes it only as such a halt (charged all its gas); the pool refuses it, as it refuses one past
@@ -1741,14 +1734,13 @@ impl Node{
     /// N4: `fresh` (a new submission) may also evict parked ones of lower priority (`evict_parked_by_fee`); a
     /// revalidation at a new head does not.
     /// N4 x D-V3-21 review: under v3, before it evicts anything (by either rule), it passes the pool's checks on the
-    /// head state and on the pending state (`eviction_checks`: the engine, the creation charge within its signed
-    /// max_fee*gas_limit, its own logs, the meter), once; if they fail nothing is evicted, the refusal counts in
+    /// head state and on the pending state (`eviction_checks`: the engine, its own logs, the meter), once; if they fail nothing is evicted, the refusal counts in
     /// `evict_refused` and the answer is their refusal. N4 x D-V3-21 re-review: neither state holds a parked
     /// transaction's effects, so under v3 one behind its sender's parked ones (a run) evicts nothing (POOL_FULL_GAS,
     /// counted in `evict_refused`), whatever it would pay: its sender's earlier parked ones come first in every block.
     /// A revalidated one is held to the same rule (dropped, with its sender's later ones, as one finding no room is).
-    /// A parked transaction is not executed otherwise, so one whose burn would pass its signed maximum can take free
-    /// parked room (never evict), until the head that admits it refuses it.
+    /// A parked transaction is not executed otherwise, so one that would pass a live cap can take free parked room
+    /// (never evict), until the head that admits it refuses it.
     fn park(&mut self,raw:Vec<u8>,hash:B256,tx:&revm::primitives::TxEnv,relay:Relay,fresh:bool,by:Option<Instant>)->String{
         use pocol_lp4_execution::view::View;
         let view=pocol_lp4_execution::view::LayerView{base:&self.pool.pending_base,layer:&self.pool.pending};
@@ -1922,8 +1914,8 @@ impl Node{
     /// - N4 review, the overdraft rule: the sender's head-state balance covers it with the sender's other pooled and
     ///   parked transactions (`covers`), so its later transactions stay affordable whatever it spends; a parked one's
     ///   pending-state check (`park`'s) holds too;
-    /// - N4 review: a pooled one passes the pool's execution checks (`head_checks`: the engine, the creation
-    ///   charge, its own logs, the meter) run on the head, as the selection runs it, without committing;
+    /// - N4 review: a pooled one passes the pool's execution checks (`head_checks`: the engine, its own logs,
+    ///   the meter) run on the head, as the selection runs it, without committing;
     /// - N4 x D-V3-21 re-review: under v3, a parked one that is its sender's first parked one (the only kind that can
     ///   have evicted, `park`) passes the checks an evicting one passes (`eviction_checks`, on the head and on the
     ///   pending state), so a transaction cannot evict and then be swapped for one that could not have. A later one
@@ -1987,17 +1979,17 @@ impl Node{
     /// N4 review: the execution checks a pooled replacement passes before it takes the old one's place. It runs as the
     /// selection runs a candidate, on the head state (the next block's parent; the pending state still holds the old
     /// one's effects), with its sender's nonce at its own and its balance at `room`, what the overdraft rule leaves
-    /// it; then the pool's admission checks: the engine's, the creation charge and the meter's caps at the pending
-    /// state's utilisation (as a newcomer's are priced) and its own logs. Nothing is committed (a scratch overlay).
+    /// it; then the pool's admission checks: the engine's and the meter's caps at the pending state's utilisation
+    /// (as a newcomer's are checked) and its own logs. Nothing is committed (a scratch overlay).
     /// N4 x D-V3-21 review: also run, under v3, for a newcomer before it evicts a pooled transaction (`admit_tx`) or a
     /// parked one (`park`), with its balance at what the pool's checks leave it.
     /// The pending utilisation counts what the pooled transactions create, the old one's own creations included for a
-    /// replacement (its effects stay in the pending state), so a replacement is priced as if one more of each unit it
-    /// creates were taken: near a cap it costs more than a block would charge, and one creating the cap's last free
-    /// unit is refused (AcctCap, SlotCap) until the next head (network.md, Replace-by-fee).
-    /// N4 x D-V3-21 re-review: priced on the head state alone; the effects of the transactions a block takes before it
+    /// replacement (its effects stay in the pending state), so a replacement is checked as if one more of each unit it
+    /// creates were taken: one creating the cap's last free unit is refused (AcctCap, SlotCap) until the next head
+    /// (network.md, Replace-by-fee).
+    /// N4 x D-V3-21 re-review: checked on the head state alone; the effects of the transactions a block takes before it
     /// (its sender's own earlier pooled and parked ones, and other senders') are not modelled, so a transaction that
-    /// depends on them is priced as if they were not there (`eviction_checks` adds the pending state).
+    /// depends on them is checked as if they were not there (`eviction_checks` adds the pending state).
     fn head_checks(&self,tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,by:Option<Instant>,room:U256)->Result<(),String>{
         self.checks_on(&self.pool.pending_base,tx,ctx,by,room)
     }
@@ -2026,14 +2018,9 @@ impl Node{
             (Some(by),total)=>native::admit_for_profile(&ov,total,tx.clone(),ctx,profile,std::rc::Rc::new(move||Instant::now()>=by)),
             (None,Some(total))=>native::execute_on_validated(&ov,total,tx.clone(),ctx,profile),
             (None,None)=>native::execute_for_profile(&ov,tx.clone(),ctx,profile)};
-        let mut r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
+        let r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
         if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
         let v3=self.chain.spec.v3_active(self.chain.head().height.saturating_add(1));
-        let total=if v3{match self.pool.code_total{Some(t)=>t,None=>pocol_lp4_execution::code_caps::inventory(&ov).map_err(|e|format!("-32000 {e}"))?}}else{0};
-        let (slots,accounts,_)=self.pool.meter.live();
-        // D-V3-21: as a new submission's (`admit_tx`), the replacement's own signed fee bounds its burn: one whose gas
-        // cost plus the burn would pass its max_fee*gas_limit is refused here, before the old one leaves.
-        user_phase::charge_creation(&ov,&mut r,tx.caller,user_phase::SignedFee::of(tx),ctx,profile,(slots,accounts),total).map_err(|h|format!("-32000 creation charge would halt ({h:?})"))?;
         if let Some(why)=own_logs_halt_for(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs(),v3){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
         let mut meter=self.pool.meter;meter.admit(&ov,&r.state).map_err(|h|format!("-32000 pending state would exceed a cap ({h:?})"))?;
         Ok(())
@@ -2259,16 +2246,9 @@ impl Node{
             let gas=match &mut sim{
                 Some((st,total))=>{
                     let tx=match env.take(){Some(t)=>t,None=>match decode(){Err(())=>break,Ok(None)=>{skip(slot);continue},Ok(Some(t))=>t}};
-                    let (gas_price,priority,signed)=(tx.gas_price,tx.gas_priority_fee,user_phase::SignedFee::of(&tx));
+                    let (gas_price,priority)=(tx.gas_price,tx.gas_priority_fee);
                     let r=native::execute_on_validated(&*st,*total,tx,&ctx,profile);
                     if let Ok(r)=&r{sel.executed=sel.executed.saturating_add(executed_gas(&r.result));}
-                    let r=match r{Ok(mut r)=>{
-                        if let Some(m)=&meter{let (slots,accounts,_)=m.live();
-                            // Repriced in this selection's order: a burn this order pushes past the signed
-                            // max_fee*gas_limit (D-V3-21) is skipped like an unpaid one, never included as a halt.
-                            if user_phase::charge_creation(&*st,&mut r,caller,signed,&ctx,profile,(slots,accounts),*total).is_err(){skip(slot);continue}}
-                        Ok(r)
-                    },Err(e)=>Err(e)};
                     match r{
                     // PR6 review: one whose own logs pass a log cap halts in every block on p (the pool refuses
                     // it, but its logs can follow the context, for example PREVRANDAO, which admission does not
@@ -2427,7 +2407,7 @@ impl Node{
                     if let Some(n)=base{
                         // D-V3-21 review (v3 only, node-local): an appended transaction that halts in this build
                         // (an A03 cap halt charged its declared gas, for example LogCount behind the selected
-                        // ones' logs, or a CreationFee) is dropped with every appended one after it, as one the
+                        // ones' logs) is dropped with every appended one after it, as one the
                         // build reports by index, and the block is built once more (its prefix executed, so that
                         // build has no halt from n on). The selection checks only its own order; this keeps the
                         // honest append round from including a halt it could leave out. It stays pooled.

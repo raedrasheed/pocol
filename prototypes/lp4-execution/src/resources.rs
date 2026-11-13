@@ -12,7 +12,7 @@
 //!   Ledger   K·(2·O + 2)       (K retained heights: count+owner per owner, len, total)
 //!   Escrow   2 + 3·(D+1)       (burnedTotal, final marker, pending); + 1 on CP schema v2 (the v3 programs: the carry
 //!                            into the next pot, the one carry slot that can be nonzero between blocks, V3-15)
-//!   Caps     schema length (52 on v1; 67 on v2)
+//!   Caps     schema length (52 on v1; 64 on v2)
 //! SYS keys changed per block (R18 SYS_KEYS_BLOCK_MAX):
 //!   evidence 9·E; markClose 1 (+RET+1 closing); prune 2·O+2; recordShares 3·O+2 (3·O+3 on CP schema v2: the V3-10
 //!   epoch totals, slot 10; the counters share each owner's w0);

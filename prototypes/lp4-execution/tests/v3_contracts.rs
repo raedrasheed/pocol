@@ -4,7 +4,7 @@
 //! The v3 source is PoColSystemEarnIn.sol with P_MAX/T_PROB read through cfg() (CP schema v2 fields 54/55),
 //! ChainCaps bounded by the v2 CP length, and the registry budgets of V3-08/V3-09 (a maintenance budget
 //! REG_MAINT_MAX = 8 with one maintenance operation per identity per block; reactivate on its own R_react budget,
-//! CP 61, with a per-record C_react clock, CP 62, and a window that closes strictly before dueHeight). This file
+//! CP 58, with a per-record C_react clock, CP 59, and a window that closes strictly before dueHeight). This file
 //! proves:
 //! - behaviour-equal outside the budgets: with P_MAX=8/T_PROB=60480 in the CP, every model scenario of
 //!   tests/data/earnin-vectors.json replays on the v3 set exactly as the v3 model runs it
@@ -100,7 +100,7 @@ const CONTEST_MUTANTS:[&str;18]=["contest-threshold-off-by-one","contest-grace-i
     "pool-victim-held-reactivation-takes-a-pool-seat","pool-contest-held-victim",
     "counters-not-rolled","late-not-counted","isqrt-not-floored","contest-one-reg-ops-unit"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
-const V3_SYS_CODE_HASH:&str="72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849";
+const V3_SYS_CODE_HASH:&str="70d4a3fd1b3ea222cef3e952b05f57c20c04cd2a2014f09472d14ccb0c0da5d7";
 
 fn b()->U256{U256::from(20*PCOL)}
 fn system()->Address{Address::from_word((U256::from(1)<<160u32).wrapping_sub(U256::from(2)).into())}
@@ -148,11 +148,11 @@ macro_rules! ensure_eq{($a:expr,$b:expr,$($m:tt)*)=>{{let (a,b)=(&$a,&$b);if a!=
 struct Setup{registry:Bytes,escrow:Bytes,ledger:Bytes,caps:Bytes,cp_len:u64,cp:Vec<(u64,u128)>,v3:bool}
 impl Setup{
     fn earnin()->Self{Self{registry:runtime(EARNIN,"MinerRegistry"),escrow:runtime(EARNIN,"RewardEscrow"),ledger:runtime(EARNIN,"ShareLedger"),caps:runtime(EARNIN,"ChainCaps"),cp_len:52,cp:vec![],v3:false}}
-    /// R_react 16 (as the harness's R_max) and C_react 40 (= U, the least ParamGate admits) in CP 61/62; V3-10 (O-10 = b)
-    /// E_epoch 2880, theta_bp 1250 and k_sigma 3 in CP 63..65 (tests/v3_model.py DEFAULT_CP; scenarios override them).
+    /// R_react 16 (as the harness's R_max) and C_react 40 (= U, the least ParamGate admits) in CP 58/59; V3-10 (O-10 = b)
+    /// E_epoch 2880, theta_bp 1250 and k_sigma 3 in CP 60..62 (tests/v3_model.py DEFAULT_CP; scenarios override them).
     fn v3(p_max:u64,t_prob:u64)->Self{
-        Self{registry:runtime(V3,"MinerRegistry"),escrow:runtime(V3,"RewardEscrow"),ledger:runtime(V3,"ShareLedger"),caps:runtime(V3,"ChainCaps"),cp_len:67,
-            cp:vec![(54,p_max.into()),(55,t_prob.into()),(61,16),(62,40),(63,2880),(64,1250),(65,3)],v3:true}
+        Self{registry:runtime(V3,"MinerRegistry"),escrow:runtime(V3,"RewardEscrow"),ledger:runtime(V3,"ShareLedger"),caps:runtime(V3,"ChainCaps"),cp_len:64,
+            cp:vec![(54,p_max.into()),(55,t_prob.into()),(58,16),(59,40),(60,2880),(61,1250),(62,3)],v3:true}
     }
     /// A planted mutant in place of the program it names.
     fn with_program(mut self,program:&str,code:Bytes)->Self{match program{"MinerRegistry"=>self.registry=code,"RewardEscrow"=>self.escrow=code,"ShareLedger"=>self.ledger=code,o=>panic!("no mutant of {o}")}self}
@@ -601,10 +601,16 @@ fn chain_caps_serves_exactly_the_v2_cp(){
         let r=call_to(&mut h.db,name("reader"),caps(),d,U256::ZERO,1);r.result.is_success().then(||U256::from_be_slice(output(&r.result)))};
     let v3=Setup::v3(64,86_400);
     assert_eq!(read(&v3,54),Some(U256::from(64)));assert_eq!(read(&v3,55),Some(U256::from(86_400)));
-    assert_eq!(read(&v3,66),Some(U256::ZERO));assert_eq!(read(&v3,67),None,"slot 67 is outside CP schema v2");
+    assert_eq!(read(&v3,63),Some(U256::ZERO));assert_eq!(read(&v3,64),None,"slot 64 is outside CP schema v2 (FN-2a: F0_* deleted)");
     assert_eq!(read(&Setup::earnin(),51),Some(U256::ZERO));assert_eq!(read(&Setup::earnin(),52),None,"the earn-in ChainCaps keeps its 52-field bound");
-    assert_eq!(pocol_lp4_execution::genesis_spec::CP_SCHEMA_V2.len(),67);
+    assert_eq!(pocol_lp4_execution::genesis_spec::CP_SCHEMA_V2.len(),64);
     assert_eq!((pocol_lp4_execution::genesis_spec::cp_index_for(2,"P_MAX"),pocol_lp4_execution::genesis_spec::cp_index_for(2,"T_PROB")),(Some(54),Some(55)));
+    // The harness's (and tests/v3_model.py's) named indices are the schema's own: a renumbering missed here would
+    // install every scenario's field in the wrong ChainCaps slot.
+    for f in ["D","R_max","M_max","M_min","SWEEP_MAX","SWEEP_SCAN","REG_OPS","W_act","Theta_inact","E_win","U","P_MAX","T_PROB","R_react","C_react",
+        "E_epoch","theta_bp","k_sigma","m","kappa","S_max","W_w","alpha_bp","gamma_bp","H_half","S_tail","gamma_tip_bp","rho_bp"]{
+        assert_eq!(Some(cp_index(f) as usize),pocol_lp4_execution::genesis_spec::cp_index_for(2,f),"{f}");}
+    assert_eq!(Some(cp_index("S0") as usize),pocol_lp4_execution::genesis_spec::cp_index_for(2,"subsidy"));
 }
 
 #[test]
@@ -732,8 +738,8 @@ fn a_spec1_genesis_naming_the_v3_set_is_refused_by_admission(){
 /// CP schema names of tests/v3_model.py's CP_INDEX and CHAIN_CP_INDEX.
 fn cp_index(n:&str)->u64{
     match n{"D"=>11,"R_max"=>17,"M_max"=>18,"M_min"=>19,"SWEEP_MAX"=>21,"SWEEP_SCAN"=>22,"REG_OPS"=>23,"W_act"=>24,"Theta_inact"=>25,
-        "E_win"=>26,"U"=>27,"P_MAX"=>54,"T_PROB"=>55,"R_react"=>61,"C_react"=>62,"E_epoch"=>63,"theta_bp"=>64,"k_sigma"=>65,
-        "m"=>8,"kappa"=>9,"S_max"=>10,"W_w"=>12,"alpha_bp"=>13,"gamma_bp"=>14,"S0"=>15,"H_half"=>52,"S_tail"=>53,"gamma_tip_bp"=>59,"rho_bp"=>66,
+        "E_win"=>26,"U"=>27,"P_MAX"=>54,"T_PROB"=>55,"R_react"=>58,"C_react"=>59,"E_epoch"=>60,"theta_bp"=>61,"k_sigma"=>62,
+        "m"=>8,"kappa"=>9,"S_max"=>10,"W_w"=>12,"alpha_bp"=>13,"gamma_bp"=>14,"S0"=>15,"H_half"=>52,"S_tail"=>53,"gamma_tip_bp"=>56,"rho_bp"=>63,
         o=>panic!("unknown CP field {o}")}
 }
 fn strs(v:&[&str])->Vec<String>{v.iter().map(|x|x.to_string()).collect()}
@@ -1529,7 +1535,7 @@ fn host_credit_equals_the_recorded_pot_and_the_tip_split_conserves_value(){
         let body=issuance_body(n);
         let mut st=s.clone();for (k,v) in body["cp"].as_object().unwrap(){st.cp.push((cp_index(k),v.as_str().map_or_else(||v.as_u64().unwrap().into(),|x|x.parse::<u128>().unwrap())));}
         let durable:Vec<String>=body["durable"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        let mut h=Harness::new(&durable,&st);let gamma=storage(&h.db,caps(),U256::from(59));
+        let mut h=Harness::new(&durable,&st);let gamma=storage(&h.db,caps(),U256::from(cp_index("gamma_tip_bp")));
         for step in body["steps"].as_array().unwrap(){
             let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
             match op[0].as_str(){
@@ -1745,9 +1751,9 @@ fn contest_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
     let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();
     v.as_object().unwrap().iter().filter(|(_,b)|b.get("steps").is_some()).map(|(n,body)|(n.clone(),budget_scenario(n,body,s))).collect()
 }
-/// contestThreshold(tprev, active) with theta_bp and k_sigma in CP 64/65: (threshold, isqrt(k^2*N*Dn)).
+/// contestThreshold(tprev, active) with theta_bp and k_sigma in CP 61/62: (threshold, isqrt(k^2*N*Dn)).
 fn contest_threshold(h:&mut Harness,tprev:U256,active:u64,theta_bp:u64,k_sigma:u64)->Result<(U256,U256),String>{
-    put(&mut h.db,caps(),U256::from(64),U256::from(theta_bp));put(&mut h.db,caps(),U256::from(65),U256::from(k_sigma));
+    put(&mut h.db,caps(),U256::from(cp_index("theta_bp")),U256::from(theta_bp));put(&mut h.db,caps(),U256::from(cp_index("k_sigma")),U256::from(k_sigma));
     let mut d=selector("contestThreshold(uint256,uint256)");d.extend(tprev.to_be_bytes::<32>());d.extend(U256::from(active).to_be_bytes::<32>());
     let r=call(&mut h.db,name("viewer"),d,U256::ZERO,h.height.max(1));
     if !r.result.is_success(){return Err(format!("contestThreshold reverted: {:?}",output(&r.result)))}
@@ -1899,7 +1905,7 @@ fn contest_write_ceilings_gas_and_user_sys_keys(){
 #[test]
 fn epoch_counters_saturate_and_a_saturated_count_is_never_contestable(){
     let sat=(1u64<<20)-1;
-    let mut s=Setup::v3(8,60_480);s.cp.extend([(10,256),(63,8),(64,10_000),(65,1),(18,4),(25,4)]);
+    let mut s=Setup::v3(8,60_480);s.cp.extend([(10,256),(60,8),(61,10_000),(62,1),(18,4),(25,4)]);
     let mut h=Harness::new(&[],&s);
     for x in ["a","b","c"]{assert_eq!(h.step(&strs(&["register",x,x,&b().to_string(),"1"])).unwrap(),None);}
     let c=name("c");let r=slot(c);

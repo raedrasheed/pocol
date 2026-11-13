@@ -484,7 +484,7 @@ MODEL_DEFAULT = {'D': 4, 'm': 32, 'kappa': 2, 'alpha_bp': 1000, 'gamma_bp': 500,
                  'S_tail': 2 * 10**18 // 32, 'gamma_tip_bp': 5000}
 
 
-def v3_spec(chain_id=777963, version=2, items=67, sys_hash=None):
+def v3_spec(chain_id=777963, version=2, items=64, sys_hash=None):
     """A canonical GenesisSpec [version, chainId, CP, allocRoot, M_0List, sysCodeHash] for the refusal tests."""
     cp = [uint(1) for _ in range(items)]
     sys_hash = bytes.fromhex((sys_hash or rewards.V3_SYS_CODE_HASH)[2:])
@@ -697,7 +697,7 @@ class FakeV3Chain:
     words by (to, signature, args, height). Anything else is an unexpected read."""
 
     def __init__(self, cp=None):
-        self.cp = {8: 32, 9: 2, 11: 4, 13: 1000, 14: 500, 16: B_REG, 45: 0, 46: 0, 47: 0, 48: 0, 50: 128, 66: 2500}
+        self.cp = {8: 32, 9: 2, 11: 4, 13: 1000, 14: 500, 16: B_REG, 45: 0, 46: 0, 47: 0, 48: 0, 50: 128, 63: 2500}
         self.cp.update(cp or {})
         self.records, self.accounts, self.words = {}, {}, {}
 

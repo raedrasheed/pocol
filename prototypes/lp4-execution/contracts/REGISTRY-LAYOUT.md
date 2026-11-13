@@ -64,9 +64,9 @@ Budgets per block (the user-path prefix, after BadValue and Closing, before BadP
   operation per identity per block). They no longer touch slot3.
 - register, deregister, claimBond, removeInactive: RegOpsLimit when userOps + maintenance used >= REG_OPS (CP 23);
   register also when its counter >= R_max (CP 17).
-- reactivate: RegOpsLimit when reactivations used >= R_react (CP 61); it no longer touches slot3 or R_max. Valid
+- reactivate: RegOpsLimit when reactivations used >= R_react (CP 58); it no longer touches slot3 or R_max. Valid
   only when exitHeight + W_act <= height < dueHeight (strictly before the refund sweep at dueHeight = exitHeight + U),
-  and, when lastReactHeight != 0, height >= lastReactHeight + C_react (CP 62); otherwise BadState.
+  and, when lastReactHeight != 0, height >= lastReactHeight + C_react (CP 59); otherwise BadState.
 
 The three budgets are independent: maintenance and reactivate are not bounded by REG_OPS, so once the REG_OPS users
 have used it up, setRewardAddress/topUp and reactivate still succeed in the same block, while maintenance used first
@@ -130,7 +130,7 @@ block h-1, before any evidence of block h can tomb it. Every SYSTEM call keeps t
 - punish(id, reporter), 68 bytes: BadCalldata unless reporter == tx.origin. The bond branch calls
   Escrow.burnBond(bond, reward), where reward is the reporter record's reward address (w1 bits 0..159, tomb or not, so
   a self-report is paid) or zero (no reporter, or no record). The PAID branch is unchanged (tomb only, no bond).
-- Escrow.burnBond(amount, reward), Registry-only, 68 bytes: cut = amount * rho_bp / 10^4 (CP 66) when reward is
+- Escrow.burnBond(amount, reward), Registry-only, 68 bytes: cut = amount * rho_bp / 10^4 (CP 63) when reward is
   nonzero, paid by PAY directly to the reward address (not into an ACCRUING reporter's bond); a failed PAY burns it;
   burnedTotal += amount - cut. The Escrow invariant holds with the same terms: held_total falls by the bond, burnedTotal
   rises by the bond less the cut that leaves Escrow.
@@ -212,7 +212,7 @@ Host (apply.rs, v3 program set only), phase 2 of a non-final block h: credit iss
 CP 52, S_tail = CP 53), then `closeBlock(tips, issued)`. A final block calls finalize(tips) and settleFinal(j) as before.
 
 - closeBlock(uint256 tips, uint256 issued), SYSTEM only, 68 bytes: BadPending if pending[h] exists. share =
-  floor(tips · gamma_tip_bp / 10^4) (CP 59) for a signed block (tx.origin nonzero), 0 for a fallback block;
+  floor(tips · gamma_tip_bp / 10^4) (CP 56) for a signed block (tx.origin nonzero), 0 for a fallback block;
   pending[h] = {issued + tips - share + carry into pot h, kind/proposer as before, winner 0}; that carry (slot 4 + (h & 1))
   is zeroed. The share then goes
   to tx.origin through payTo, as the proposer part does: a HELD record's reward address is PAID, an ACCRUING record's bond
@@ -274,7 +274,7 @@ tests/v3/system-v3-mutants.json.
 ## v3 contestable seats and the probation-pool contest (PoColSystemV3.sol only; V3-10, V3-14, V3-PR-E4)
 
 Applies to the v3 program set only, as above; the spec-1 programs, host calls and phase order are unchanged. O-10 = b and
-O-14 = b (V3-DESIGN.md, V3-DECISIONS.md D-V3-10/D-V3-14): E_epoch, theta_bp and k_sigma are CP schema v2 fields 63..65
+O-14 = b (V3-DESIGN.md, V3-DECISIONS.md D-V3-10/D-V3-14): E_epoch, theta_bp and k_sigma are CP schema v2 fields 60..62
 (one day, 1250, 3 in the draft v3 CP). No host code changes: registerContest is a user transaction, and the host reads
 only the bits it masks (apply.rs miner_record).
 

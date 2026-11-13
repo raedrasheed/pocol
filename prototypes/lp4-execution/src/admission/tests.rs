@@ -296,11 +296,12 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
 }
 
 /// C3-4 / D-V3-21: the creation-burn user bound was an enforced launch blocker until the owner's
-/// option A (2026-11-12) was implemented (the burn is charged only within max_fee*gas_limit; tests in
-/// pocold/tests/v3_execution.rs). The entry is gone and no other blocker is open. The rule itself is
-/// unchanged: any open blocker refuses every non-simnet v3 admission, and spec-1 never reaches it.
-#[test] fn the_v3_launch_gate_enforces_any_open_blocker_and_the_creation_burn_bound_is_closed(){
-    assert!(!V3_LAUNCH_BLOCKERS.iter().any(|b|b.contains("D-V3-21")),"the creation-burn user bound is resolved");
+/// option A (2026-11-12); owner decision 10d (2026-11-13) then deleted the creation burn itself (FN-2a:
+/// new state pays ordinary gas only; tests in pocold/tests/v3_execution.rs). The entry is gone and no
+/// other blocker is open. The rule itself is unchanged: any open blocker refuses every non-simnet v3
+/// admission, and spec-1 never reaches it.
+#[test] fn the_v3_launch_gate_enforces_any_open_blocker_and_no_creation_burn_blocker_remains(){
+    assert!(!V3_LAUNCH_BLOCKERS.iter().any(|b|b.contains("D-V3-21")),"no creation-burn blocker: the burn is deleted (owner 10d)");
     assert!(V3_LAUNCH_BLOCKERS.is_empty(),"no other v3 launch blocker is recorded: {V3_LAUNCH_BLOCKERS:?}");
     let open=["D-V3-99 a later pre-launch item"];
     for (k,n) in [(ProfileKind::Network,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Node),(ProfileKind::Simnet,NodeKind::Simnet)]{

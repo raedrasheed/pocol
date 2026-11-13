@@ -283,17 +283,19 @@ admission or a production-profile selection; cross-field bounds and measured val
 | 53 | S_tail | 256 | 0..2^256-1 |
 | 54 | P_MAX | 16 | 0..65535 |
 | 55 | T_PROB | 32 | 1..2^32-1 |
-| 56 | F0_acct | 256 | 0..2^256-1 |
-| 57 | F0_slot | 256 | 0..2^256-1 |
-| 58 | F0_code | 256 | 0..2^256-1 |
-| 59 | gamma_tip_bp | 16 | 0..10000 |
-| 60 | baseFeeMin | 256 | 0..2^256-1 |
-| 61 | R_react | 8 | 0..255 |
-| 62 | C_react | 32 | 0..2^32-1 |
-| 63 | E_epoch | 32 | 1..2^32-1 |
-| 64 | theta_bp | 16 | 0..10000 |
-| 65 | k_sigma | 16 | 0..65535 |
-| 66 | rho_bp | 16 | 0..10000 |
+| 56 | gamma_tip_bp | 16 | 0..10000 |
+| 57 | baseFeeMin | 256 | 0..2^256-1 |
+| 58 | R_react | 8 | 0..255 |
+| 59 | C_react | 32 | 0..2^32-1 |
+| 60 | E_epoch | 32 | 1..2^32-1 |
+| 61 | theta_bp | 16 | 0..10000 |
+| 62 | k_sigma | 16 | 0..65535 |
+| 63 | rho_bp | 16 | 0..10000 |
+
+FN-2a (owner decision 10d of 2026-11-13, no account-creation fee) deleted the three creation-fee coefficients
+F0_acct, F0_slot and F0_code (formerly 56..58), so CP schema v2 has 64 fields and every later field moved down by
+three (gamma_tip_bp 59 → 56, baseFeeMin 60 → 57, R_react 61 → 58, C_react 62 → 59, E_epoch 63 → 60, theta_bp 64 → 61,
+k_sigma 65 → 62, rho_bp 66 → 63). No chain runs CP schema v2, so the deletion binds nothing persisted.
 
 ### 2.4 Boundary, lock and enforcement
 `pocold/consensus-boundary.txt` lists the consensus sources (paths relative to `prototypes/`): `+` includes (all of

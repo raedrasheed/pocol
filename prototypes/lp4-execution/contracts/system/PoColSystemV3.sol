@@ -5,7 +5,7 @@ pragma solidity 0.8.28;
 // PoColSystemEarnIn.sol (itself from PoColSystemV1.sol with a continuous markClose, marked "EARN-IN");
 // every difference from PoColSystemEarnIn.sol is marked "V3-xx". Reachable only through its own
 // sysCodeHash on a specVersion-2 genesis (CP schema v2). The programs do not check that: on a 52-field CP
-// ChainCaps.get(52..66) reads 0 (P_MAX 0, T_PROB 0, R_react 0). The host registry (apply.rs SystemPrograms::selectable)
+// ChainCaps.get(52..63) reads 0 (P_MAX 0, T_PROB 0, R_react 0). The host registry (apply.rs SystemPrograms::selectable)
 // keeps the set off a CP schema v1 genesis (tests/v3_contracts.rs). V3-08/V3-09 registry budgets: REGISTRY-LAYOUT.md,
 // tests/v3_model.py. V3-16/V3-17 evidence penalties (RewardEscrow recordResult/invalidate/burnBond, MinerRegistry
 // punish): REGISTRY-LAYOUT.md "v3 evidence penalties", tests/v3_model.py. V3-02 late share credit (MinerRegistry and
@@ -51,10 +51,10 @@ library Sys {
     }
 }
 
-/// V3-34: complete CP (67 fields, schema v2 order) at slots 0..66, written only by genesis.
+/// V3-34: complete CP (64 fields, schema v2 order) at slots 0..63, written only by genesis.
 contract ChainCaps {
     function get(uint256 n) external view returns(uint256 v) {
-        require(n<67); assembly { v:=sload(n) } // V3-34: CP schema v2 length (52 v1 fields + 15 appended)
+        require(n<64); assembly { v:=sload(n) } // V3-34: CP schema v2 length (52 v1 fields + 12 appended; FN-2a deleted F0_*)
     }
 }
 
@@ -182,19 +182,19 @@ contract RewardEscrow {
         if(bond!=0 && !Sys.pay(reward,bond)) return false;
         return true;
     }
-    /// Registry-only: an evidence-burned bond stays in Escrow balance as burned. V3-17: rho_bp/10^4 of it (CP 66) is
+    /// Registry-only: an evidence-burned bond stays in Escrow balance as burned. V3-17: rho_bp/10^4 of it (CP 63) is
     /// paid to `reward`, the reward address of the carrying block's signed proposer (zero: a fallback block or no
     /// record, nothing paid); a failed PAY burns that part too.
     function burnBond(uint256 amount,address reward) external {
         if(msg.sender!=Sys.REGISTRY||msg.data.length!=68) revert Unauthorized();
-        uint256 cut=reward==address(0)?0:amount*Sys.cfg(66)/10000;
+        uint256 cut=reward==address(0)?0:amount*Sys.cfg(63)/10000;
         if(cut!=0 && !Sys.pay(reward,cut)) cut=0;
         put(0,get(0)+amount-cut);
     }
 
     /// Phase 2 (non-final): pending[h]={issued + (1 - gamma_tip)*tips + carry, kind, proposer}, winner=0 (D141).
     /// V3-19: the host passes issued = issuance(h) (lp4-execution issuance.rs), which it credited to Escrow.
-    /// V3-20: gamma_tip_bp/10^4 of the tips (CP 59, floor) goes to the signed proposer (tx.origin) as the proposer part
+    /// V3-20: gamma_tip_bp/10^4 of the tips (CP 56, floor) goes to the signed proposer (tx.origin) as the proposer part
     /// does (payTo: an ACCRUING record fills its bond first, a tomb or a failed PAY burns); a fallback block (origin zero)
     /// leaves all tips in the pot. V3-15 (lagged): the carry into pot h, the base burn of block h-1's settle(h-1-D), enters
     /// pot h and is zeroed. Block h's own settle(h-D) went to the carry into pot h+1, so pot h's carry is fixed before
@@ -204,7 +204,7 @@ contract RewardEscrow {
         sys(68);
         uint256 b=base(block.number);
         if(get(b)!=0||get(b+1)!=0||get(b+2)!=0) revert BadPending();
-        uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(59)/10000;
+        uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(56)/10000;
         uint256 k=carrySlot(block.number); uint256 c=get(k);
         if(c!=0) put(k,0);
         uint256 amount=issued+(tips-share)+c;
@@ -351,21 +351,21 @@ contract MinerRegistry {
     // identity's previous one (or at such a height, for one with none) reverts once.
     uint256 constant BUDGETS=9;
     uint256 constant REG_MAINT_MAX=8;
-    uint256 constant CP_R_REACT=61;
-    uint256 constant CP_C_REACT=62;
+    uint256 constant CP_R_REACT=58;
+    uint256 constant CP_C_REACT=59;
     // V3-PR-E4 moved lastMaintHeight from w0 bits 216..255 (mod 2^40) to w1 bits 224..255 (mod 2^32), so that the epoch
     // counters sit in w0 next to lastShare, in the word recordShares and recordLate already write.
     uint256 constant MAINT_MOD=(uint256(1)<<32)-1;
     uint256 constant LOW160=uint256(type(uint160).max);
     // V3-10 / V3-14 (REGISTRY-LAYOUT.md, v3 contestable seats). The epoch of a credited share is the epoch of its template j,
-    // j / E_epoch (CP 63). A record's counters describe the epoch of its lastShare: countCur (w0 bits 216..235) the shares
+    // j / E_epoch (CP 60). A record's counters describe the epoch of its lastShare: countCur (w0 bits 216..235) the shares
     // credited in epoch lastShare / E_epoch, countPrev (236..255) those of the epoch before; each saturates at 2^20 - 1, and a
     // saturated count is never contestable. Slot 10 holds the totals of every credited share (header and late, owners with
     // a record or not): the latest epoch credited 0..63, its total 64..159, the previous epoch's total 160..255.
     uint256 constant EPOCHS=10;
-    uint256 constant CP_E_EPOCH=63;
-    uint256 constant CP_THETA=64;
-    uint256 constant CP_K_SIGMA=65;
+    uint256 constant CP_E_EPOCH=60;
+    uint256 constant CP_THETA=61;
+    uint256 constant CP_K_SIGMA=62;
     uint256 constant CNT_SAT=(uint256(1)<<20)-1;
     uint256 constant CNT_MASK=((uint256(1)<<40)-1)<<216;
     uint256 constant LOW96=(uint256(1)<<96)-1;
@@ -418,7 +418,7 @@ contract MinerRegistry {
     /// V3-08/V3-09: lastMaintHeight modulo 2^32 (w1 bits 224..255), lastReactHeight (w1 bits 160..223); the budget slot.
     function recordClocks(address id) external view returns(uint256,uint256){uint256 x=get(rec(id)+1);return(x>>224,(x>>160)&LOW64);}
     function budgets() external view returns(uint256){return get(BUDGETS);}
-    /// V3-08: setRewardAddress/topUp draw on REG_MAINT_MAX; V3-09: reactivate on R_react (CP 61), and no
+    /// V3-08: setRewardAddress/topUp draw on REG_MAINT_MAX; V3-09: reactivate on R_react (CP 58), and no
     /// longer on R_max. Register, deregister, claimBond and removeInactive keep REG_OPS less the maintenance
     /// used this block; register also keeps R_max.
     function usedThisBlock() internal view returns(uint256){uint256 b=get(BUDGETS);return ((b>>16)&LOW64)==block.number?b&65535:0;}
@@ -585,7 +585,7 @@ contract MinerRegistry {
         uint256 t=get(EPOCHS);uint256 g=t&LOW64;
         (thr,)=threshold(g==p?(t>>64)&LOW96:(g==p+1?t>>160:0),get(1));
     }
-    /// V3-10: countPrev < E - k_sigma*sqrt(E), E = theta*Tprev/active, theta = theta_bp/10^4 (CP 64), k_sigma CP 65, decided
+    /// V3-10: countPrev < E - k_sigma*sqrt(E), E = theta*Tprev/active, theta = theta_bp/10^4 (CP 61), k_sigma CP 62, decided
     /// exactly over the reals. With N = theta_bp*Tprev, Dn = 10^4*active and s = isqrt(k^2*N*Dn) (floor), the real threshold
     /// is (N - sqrt(k^2*N*Dn))/Dn and the integer one ceil((N - s)/Dn) (ceil(N - x) = N - floor(x)); an integer count is
     /// below the real threshold iff it is below the integer one. 0 when N <= s (nobody is below). Returns s as well.

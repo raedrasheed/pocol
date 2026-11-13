@@ -124,8 +124,11 @@ mod preview {
     // the state root again; the bounded pins and every behaviour assertion are unchanged) and to 13/16 (V3-PR-E4, the
     // owner decision of 2026-11-13 on the pool-contest victim: MinerRegistry's new bytes, POOL_OUT and the exit of a pool
     // victim, change the state root again; no contest runs in this fixture, so the cause is the bytes alone; the bounded
-    // pins and every behaviour assertion are unchanged).
-    const UNBOUNDED_PERIOD:usize=13;const UNBOUNDED_RECOVERY:u64=16;
+    // pins and every behaviour assertion are unchanged), and to 12/15 (FN-2a: the CP schema v2 loses F0_acct/F0_slot/
+    // F0_code, so the genesis CP, ChainCaps' bound and the renumbered cfg() indices change the genesis and every state
+    // root, and so every draw and solution; the cause is inferred, not traced block by block; the bounded pins and every
+    // behaviour assertion are unchanged).
+    const UNBOUNDED_PERIOD:usize=12;const UNBOUNDED_RECOVERY:u64=15;
     const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {
@@ -231,9 +234,9 @@ mod preview {
         let (a,b,c)=(devnet::account_key("alice").address(),devnet::account_key("bob").address(),devnet::account_key("carol").address());
         // Fund the existing miner identities so they can sign their own exits. Everything is
         // on this disposable fixture chain; the three transfers and registration are ordered.
-        // Each transfer creates an account: under D-V3-21 its burn (about F0_acct = 10^15 wei) must
-        // fit in max_fee*gas_limit with the gas, so the gas limit carries it (as eth_estimateGas sizes it).
-        let mut txs:Vec<_>=n.miners.iter().enumerate().map(|(i,id)|tx(&n,a,*id,U256::from(100_000_000_000_000_000_000u128),vec![],1_000_000,Some(i as u64))).collect();
+        // Each transfer creates an account and pays ordinary gas only (owner decision 10d: no creation burn), so the
+        // plain 21,000 gas of a transfer suffices.
+        let mut txs:Vec<_>=n.miners.iter().enumerate().map(|(i,id)|tx(&n,a,*id,U256::from(100_000_000_000_000_000_000u128),vec![],21_000,Some(i as u64))).collect();
         txs.push(registration(&n,a,U256::ZERO,Some(3)));next(&mut n,x,txs);
         let t=registration(&n,b,U256::ZERO,None);next(&mut n,a,vec![t]);
         let t=registration(&n,c,U256::ZERO,None);next(&mut n,a,vec![t]);

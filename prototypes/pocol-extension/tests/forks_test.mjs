@@ -69,7 +69,7 @@ export async function forkChecks(dist) {
   const untrusted = chain();
   ok('RPC cannot activate v2 for an old profile', await verdict(untrusted) === 'netVersion' && !untrusted.calls.includes('pocol_getParams'));
   ok('schedule attached to untrusted spec metadata cannot override local profile', await verdict(chain(), undefined, { forkSchedule: normalized, activeVersion: 2 }) === 'netVersion');
-  // A spec-2 (v3) genesis: the same CP prefix plus the fifteen CP v2 fields (refdec.js CP_V2_EXTRA). The release
+  // A spec-2 (v3) genesis: the same CP prefix plus the twelve CP v2 fields (refdec.js CP_V2_EXTRA). The release
   // entry point refuses it with the reference's gsVersion until activation (V3-PR-I); an explicit ceiling of 2 (the
   // v3-preview decoder) accepts it, and RP then applies exactly the same nMax rule, keyed on the header version and
   // CP nonceMode only.
@@ -79,14 +79,14 @@ export async function forkChecks(dist) {
   let refused = ''; try { RP.decodeSpec(spec2Bytes); } catch (e) { refused = `${e.gs}:${e.detail}`; }
   ok('the release RP entry point refuses a spec-2 genesis with gsVersion until activation', refused === 'gsVersion:2' && D.SPEC_VERSION === 1);
   const spec2 = RP.decodeSpec(spec2Bytes, 2);
-  ok('the explicit preview ceiling decodes a spec-2 genesis with its version and the 67-field CP v2 schema',
-    spec2.specVersion === 2 && spec2.cp.length === 67 && D.CP_V2_LEN === 67 && RP.cpv(spec2, 'H_half') === 4n && RP.cpv(spec2, 'rho_bp') === 3n
+  ok('the explicit preview ceiling decodes a spec-2 genesis with its version and the 64-field CP v2 schema',
+    spec2.specVersion === 2 && spec2.cp.length === 64 && D.CP_V2_LEN === 64 && RP.cpv(spec2, 'H_half') === 4n && RP.cpv(spec2, 'rho_bp') === 3n
     && RP.cpv(spec2, 'D_att') === RP.cpv(spec, 'D_att') && spec.specVersion === 1);
   let v2Name = false; try { RP.cpv(spec, 'H_half'); } catch { v2Name = true; }
   ok('a CP v2 field name is not readable from a spec-1 genesis', v2Name);
   ok('the preview size bound covers the longer CP v2 encoding only above the release ceiling', D.maxSpecBytes(2) > D.MAX_SPEC_BYTES && D.maxSpecBytes(1) === D.MAX_SPEC_BYTES);
   // The same numbers as genesis_spec.rs MAX_SPEC_BYTES of a release and a v3-preview build (pinned in pocold/tests/decoder_reference.rs).
-  ok('the size bounds equal the Rust MAX_SPEC_BYTES of each build', D.MAX_SPEC_BYTES === 2818474 && D.maxSpecBytes(2) === 2818680);
+  ok('the size bounds equal the Rust MAX_SPEC_BYTES of each build', D.MAX_SPEC_BYTES === 2818474 && D.maxSpecBytes(2) === 2818581);
   for (const [name, c, want] of [
     ['H-1/H/H+1 window accepted', chain({ spec: spec2 }), 'accepted'],
     ['high nonce rejected under v1 immediately before H', chain({ spec: spec2, head: 2, nonces: { 2: maxNonce } }), '6'],
