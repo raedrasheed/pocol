@@ -1,8 +1,6 @@
-# PoCol fee faucet (earn-in network)
+# PoCol fee faucet
 
-Decision A2 in [the earn-in proposal](../../development/decisions/EARN-IN-MEMBERSHIP-PROPOSAL.md).
-A new miner can register on the earn-in network with a 0 PCOL bond, but its first transaction still
-pays a fee. The faucet sends a new account enough for that fee, and nothing more.
+A new miner can register with a 0 PCOL bond, but its first transaction still pays a fee. The faucet sends a new account enough for that fee, and nothing more.
 
 ## Rules
 
@@ -28,8 +26,8 @@ measured (232,489 gas, `prototypes/lp4-execution/tests/v3_contracts.rs`,
 reservation only while the base fee stays below 1.5 gwei (at 1 gwei it is 0.0015 PCOL). Above that, a contestant needs
 more than the faucet's amount; the faucet amount is sized for registration, not for contests.
 
-The faucet creates no coins. It spends an operator account's own balance, which moves to the new
-network at the cutover (N1). Refill it with an ordinary transfer.
+The faucet creates no coins. It spends an operator account's own balance. Refill it with an ordinary
+transfer.
 
 ## Key handling
 

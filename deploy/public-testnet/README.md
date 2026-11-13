@@ -121,8 +121,8 @@ different `compatibilitySha256` (builds of the same rules) pass with a warning.
 It refuses redirects and oversized responses. The 180-second window covers three
 60-second mining attempts; it does not promise ten-second block latency. It writes
 immutable JSON and Prometheus text. Alert on checker failure, an observation older
-than 360 seconds, no peers, low disk, repeated service restarts and closing-height
-proximity. On joined nodes also watch `discovery.outbound.healthy` (>= 2 on a listener), `stalled` and
+than 360 seconds, no peers, low disk, repeated service restarts and, on a finite chain,
+closing-height proximity (a continuous chain reports no closing height). On joined nodes also watch `discovery.outbound.healthy` (>= 2 on a listener), `stalled` and
 `seeds[].state` (development/public-network/OPERATIONS.md, "Peer discovery" and "Stopping the seeds"). Archive each sample; do not feed duplicate node series from many old
 `.prom` files into one textfile collector.
 
@@ -153,12 +153,17 @@ Wire v2 refuses old handshakes and any different consensus identity (rules, chai
 genesis or fork schedule). A release that keeps the rules and the schedule needs no
 coordination: `node_operator.py` compares the state marker on chain, genesis,
 `consensusIdentity`, state store, node and miner, so a digest-only bundle swap starts
-without a migration. A new fork entry needs a coordinated upgrade with
-`nonce_upgrade.py`, which appends future entries only (none: a rebind) and keeps each
-previous binding as `network-binding.before-<16 hex of the marker's SHA-256>.json`. A
-0.4.0 marker (no `consensusIdentity`) is accepted only through a certified legacy entry;
-none is certified, so it is refused. These scripts do not rewrite state bindings to
-make an upgrade appear compatible. For a failed same-release deployment, stop the service and restore its
+without a migration. A new fork entry changes the `consensusIdentity`, so it needs a
+coordinated upgrade of every node, and `node_operator.py` refuses the existing marker. A
+marker without a `consensusIdentity` is refused. These scripts do not rewrite state bindings to
+make an upgrade appear compatible.
+
+**TODO (tracked, open): there is no seed fork migration tool.** The seed-side tool that
+rewrote a stopped seed's binding for a new fork schedule (`nonce_upgrade.py` and its tests)
+was removed with the old-network transition tooling. Before the first fork of the new chain,
+restore it from commit d24843d without the 0.4.0 parts (`LEGACY_BACKUP`, legacy rules) and
+its tests. Until then a seed can take only a release with the same rules and schedule. The
+launcher side (`pocol upgrade`) is unaffected. For a failed same-release deployment, stop the service and restore its
 matching prior snapshot and binaries. Never run two copies of one miner key at once.
 
 ## Lifetime and unresolved work

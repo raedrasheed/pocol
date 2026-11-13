@@ -1,9 +1,7 @@
 # PoCol Mainnet · Wallet 0.4.0 and native node tools
 
-For an existing wallet or server, start with **[RELEASE-UPGRADE.md](RELEASE-UPGRADE.md)**.
-It covers preserving the current account, the explicit network upgrade, the
-matching future activation block, and the Android signing requirement. The
-Android artifact is an **unsigned release APK**, not an installable update.
+The Android artifact is an **unsigned release APK**: it is not installable until the
+release operator signs it (see `prototypes/pocol-android/README.md`).
 
 Run three Linux server miners, one native Windows wallet, and one native Android
 wallet. Both wallets contain the same full validating Rust/P2P engine and sign

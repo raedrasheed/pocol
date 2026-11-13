@@ -2,7 +2,7 @@ name: Windows wallet UI regression
 on:
   pull_request:
     branches: [main, codex/public-network-operations]
-    paths: ['prototypes/pocol-windows/**', 'deploy/standalone/build-windows-wallet.ps1', 'deploy/standalone/README-WINDOWS-UPDATE.md', '.github/workflows/windows-wallet-ui.yml']
+    paths: ['prototypes/pocol-windows/**', 'deploy/standalone/build-windows-wallet.ps1', '.github/workflows/windows-wallet-ui.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -33,7 +33,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Path dist -Force | Out-Null
           Copy-Item prototypes/pocold/target/release/PoCol-Wallet.exe dist/
-          Copy-Item deploy/standalone/README-WINDOWS-UPDATE.md dist/
           Copy-Item wallet-ui-tests/*.log dist/
           Copy-Item wallet-ui-tests/activity-fixture.png dist/
           Copy-Item wallet-preview.png dist/PoCol-Wallet-preview.png

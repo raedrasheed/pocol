@@ -130,7 +130,7 @@ starts with an empty book, logs the reason, and shows it as
 - `discovery.counters`.
 
 `compatiblePeers` no longer counts a connection to the node itself. A seed whose
-only peer is itself therefore shows 0, and monitor.py and preflight.py can see that
+only peer is itself therefore shows 0, and monitor.py can see that
 it is isolated. Watch `compatiblePeers`, `discovery.self`, the `selfConnections`
 counter and `bookSaveErrors`. Automatic outbound adds `discovery.outbound`:
 `automatic`, `healthy` (useful peers in distinct groups; >= 2 on a listener), `stalled`
@@ -193,9 +193,17 @@ fingerprint is stable across such releases, and `pocol upgrade` appends future f
 entries of any supported version (append-only, future-only) or rebinds to an
 equivalent v2 file. `pocol inspect-upgrade` shows the effect first and writes nothing.
 G3 (a fork activation) still needs a coordinated release: a node without the new
-schedule entry is refused by the others with an explicit reason.
+schedule entry is refused by the others with an explicit reason. **TODO (tracked, open):**
+seeds have no fork migration tool at present. `deploy/public-testnet/nonce_upgrade.py` was
+removed with the old-network transition tooling (fresh network, Phase 1), and
+`node_operator.py` refuses a marker whose `consensusIdentity` differs. Before the first fork
+of the new chain, restore the tool from commit d24843d without its 0.4.0 parts, together
+with its tests (`deploy/public-testnet/README.md`).
 
-**The last coordinated switch.** Deployed 0.4.0 sends a 9-item Hello; every later
+**The last coordinated switch** (superseded: on 2026-11-13 the owner decided to launch a
+brand-new network from a fresh genesis instead, so there is no switch and no 0.4.0 node
+to reach; `development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md`; the text
+below is kept until the operations guide is rewritten). Deployed 0.4.0 sends a 9-item Hello; every later
 build sends 11 items, so the two peer sets are disjoint (a partition, not a rule
 divergence). The first release with the consensus identity (R1) therefore needs one
 last coordinated switch. The recommended path (owner decision D1, Option B, which this
@@ -204,10 +212,9 @@ code implements by default) rides the held earn-in re-genesis: freeze a height, 
 genesis, start the seeds together and publish packages once they report the same
 `consensusIdentity` and head. Old launcher homes then get "This network was replaced
 by a new genesis. Follow the release notes to move the old network files aside; keep
-your wallet key." (RELEASE-UPGRADE.md, "Resync a launcher home"). Option A (run R1 on
-the live H15000 chain) needs a certified replay first (see
-`development/decisions/LEGACY-CERTIFICATION-0.4.0.md`); until then the shipped legacy
-entry is uncertified and every H15000 home is refused. Deployment is held.
+your wallet key." (Packages no longer ship those release notes; the fresh-network Phase 2 removes this
+refusal, `Switch::B` in prototypes/pocold/src/launcher.rs, which is inside the consensus boundary.) Option A (run R1 on the live H15000 chain) needed a certified replay
+first; the shipped legacy entry is uncertified and every H15000 home is refused. Deployment is held.
 
 **Reading the status fields.** `pocol_status` (and wallet status) report:
 - `consensusIdentity`, `consensusRulesVersion`, `maxForkVersion`, `protocolVersion`
@@ -232,11 +239,8 @@ entry is uncertified and every H15000 home is refused. Deployment is held.
   evidence. Only a booted node's status reports the admission readiness is computed from.
   An Android package's build-info.json is the build's raw identity, with
   `publicLaunchReady: false` and the single blocker `readiness-not-computed`.
-`compatibilitySha256` stays for install integrity: `monitor.py` and `collect_seeds.py`
-group nodes by `consensusIdentity` (and fork schedule) and warn about mixed digests
-(`collect_seeds.py` still refuses a digest set that changes between its two rounds);
-`preflight.py` still checks that each seed runs the source it installed, and adds
-"running consensus identity differs".
+`compatibilitySha256` stays for install integrity: `monitor.py` groups nodes by
+`consensusIdentity` (and fork schedule) and warns about mixed digests.
 
 **Owner decisions (PR5).** D1–D5 are pending; the code implements their recommended
 defaults and keeps every consensus-relevant path fail-closed:

@@ -1,6 +1,14 @@
 # Earn-in network: normative specification (P1)
 
-Status: P1 draft, implementing the owner-approved [proposal](EARN-IN-MEMBERSHIP-PROPOSAL.md). The key words
+> **Affected by the 2026-11-13 owner decisions**
+> ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)): PoCol launches a
+> brand-new network from a fresh genesis, so there is no cutover from the old network. The cutover and rehearsal
+> tooling this text cites (`deploy/mainnet/rehearse_cutover.py`, `new_network_config.py`,
+> `EARN-IN-CUTOVER-RUNBOOK*.md`, `deploy/standalone/RELEASE-UPGRADE.md`, the earn-in proposal and the
+> `evidence/` logs) was removed; it can be read at commit `d24843d`.
+
+Status: P1 draft, implementing the owner-approved proposal (`EARN-IN-MEMBERSHIP-PROPOSAL.md`, removed; see the
+note above). The key words
 MUST, MUST NOT and MAY are normative. Every rule here holds from genesis on the new network.
 Wherever this text is silent, `PoColSystemV1.sol`, `REGISTRY-LAYOUT.md`, `consensus.md` and
 `incentives.md` keep governing.
