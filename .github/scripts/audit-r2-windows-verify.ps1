@@ -28,7 +28,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Evidence,
     [Parameter(Mandatory = $true)][string]$ExpectedCommit,
-    [ValidateSet('all', 'lp1', 'lp4', 'pocold', 'pocold-io-fault', 'extension')][string]$Group = 'all'
+    [ValidateSet('all', 'lp1', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault', 'extension')][string]$Group = 'all'
 )
 
 Set-StrictMode -Version 2.0
@@ -41,7 +41,7 @@ $NodeVersion = '22.22.0'
 # https://nodejs.org/dist/v22.22.0/SHASUMS256.txt, node-v22.22.0-win-x64.zip
 $NodeSha256 = 'c97fa376d2becdc8863fcd3ca2dd9a83a9f3468ee7ccf7a6d076ec66a645c77a'
 $NeedsLp1 = @('all', 'lp1') -contains $Group
-$NeedsMain = @('all', 'lp4', 'pocold', 'pocold-io-fault') -contains $Group
+$NeedsMain = @('all', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault') -contains $Group
 $NeedsExtension = @('all', 'extension') -contains $Group
 
 if ($ExpectedCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'ExpectedCommit must be a full 40-character lowercase hex SHA' }
@@ -188,7 +188,7 @@ $NodeEnv = $(if ($NodeDir) { @{ PATH = ($NodeDir + ';' + $env:PATH) } } else { @
 $SelectedCrates = @()
 if ($NeedsLp1) { $SelectedCrates += 'lp1-node' }
 if (@('all', 'lp4') -contains $Group) { $SelectedCrates += 'lp4-execution' }
-if (@('all', 'pocold', 'pocold-io-fault') -contains $Group) { $SelectedCrates += 'pocold' }
+if (@('all', 'pocold', 'pocold-consensus', 'pocold-io-fault') -contains $Group) { $SelectedCrates += 'pocold' }
 foreach ($c in @(@('lp1-node', $RustLp1), @('lp4-execution', $RustMain), @('pocold', $RustMain))) {
     if ($SelectedCrates -notcontains $c[0]) { continue }
     $r = Invoke-Step ('fetch-' + $c[0]) 'cargo' @('fetch', '--locked') (& $P $c[0]) @{ RUSTUP_TOOLCHAIN = $c[1] }
@@ -201,9 +201,18 @@ if ($NeedsLp1) {
 if (@('all', 'lp4') -contains $Group) {
 [void](Test-Cargo 'lp4-execution' 'lp4-execution' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 90)
 }
+# pocold's suite is split in two groups so that each fits the 150-minute job with room for a slow runner (the whole
+# suite took 80 to 119 minutes in one job). Together they run what `cargo test` runs: the library, binaries and
+# examples, every tests/*.rs target (found here, so a new file is included) and the doctests.
 if (@('all', 'pocold') -contains $Group) {
-# Leave room for the full durable-store suite inside the workflow's 150-minute job.
-[void](Test-Cargo 'pocold' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 120)
+$PocoldTests = @(Get-ChildItem -LiteralPath (Join-Path (& $P 'pocold') 'tests') -Filter '*.rs' -File | ForEach-Object { $_.BaseName } | Where-Object { $_ -ne 'consensus' } | Sort-Object)
+$PocoldArgs = @('test', '--release', '--locked', '--no-fail-fast', '--lib', '--bins', '--examples'); foreach ($t in $PocoldTests) { $PocoldArgs += @('--test', $t) }
+[void](Test-Cargo 'pocold' 'pocold' $RustMain $PocoldArgs 120)
+[void](Test-Program 'pocold-doc' 'pocold' 'cargo' @('test', '--release', '--locked', '--doc') @{ RUSTUP_TOOLCHAIN = $RustMain })
+}
+# tests/consensus.rs alone (the largest target).
+if (@('all', 'pocold-consensus') -contains $Group) {
+[void](Test-Cargo 'pocold-consensus' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--test', 'consensus') 120)
 }
 # Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store and consensus.
 # This group takes about 70 minutes on a hosted runner; 120 minutes leaves room for a slow runner inside the 150-minute job.
