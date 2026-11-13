@@ -954,6 +954,8 @@ impl Home {
             limits: node::Limits {
                 state_store: true,
                 mem_budget: std::env::var("POCOL_MEMORY_BUDGET_BYTES").ok().map(|s|s.parse::<u64>().map_err(|_|"Invalid POCOL_MEMORY_BUDGET_BYTES")).transpose()?.unwrap_or(node::MEM_BUDGET),
+                // V3-26: the depth of the RPC `safe` tag (node-local, never validity), as `pocold run` reads it.
+                k_safe: std::env::var("POCOL_K_SAFE").ok().map(|s|s.parse::<u64>().map_err(|_|"Invalid POCOL_K_SAFE")).transpose()?.unwrap_or(node::K_SAFE),
                 // Local P2P policy (net::Limits::peers_max, per_group_max): the established inbound peers, and inbound
                 // peers per public address group. A13 counts every inbound place against POCOL_MEMORY_BUDGET_BYTES, so an
                 // operator who lowers the budget lowers POCOL_PEERS_MAX with it.

@@ -352,6 +352,14 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     assert_eq!((v["retention"]["kSafe"].as_u64(),v["retention"]["finalized"].as_u64(),v["retention"]["finalityFileIgnored"].as_bool()),(Some(7),Some(0),Some(false)));
     let o=st(&[]);let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();assert_eq!(v["retention"]["kSafe"].as_u64(),Some(pocold::node::K_SAFE));
     let o=st(&["--k-safe","x"]);assert_eq!(o.status.code(),Some(1));assert!(text(&o.stderr).contains("--k-safe x:"),"{}",text(&o.stderr));
+    // `run` also reads POCOL_K_SAFE when the flag is absent (as `pocol start` does): a value that is not a number fails
+    // the command before the node opens; with the flag the variable is not read (the open then fails on the 1-byte
+    // memory budget instead).
+    let run=|flags:&[&str],env:&str|{let o=Command::new(env!("CARGO_BIN_EXE_pocold")).args([&["run","--network",net.to_str().unwrap(),"--data",d.join("run").to_str().unwrap(),"--memory-budget-bytes","1"][..],flags].concat())
+        .env("POCOL_K_SAFE",env).output().unwrap();(o.status.code(),text(&o.stderr))};
+    let (code,err)=run(&[],"x");assert_eq!(code,Some(1));assert!(err.contains("POCOL_K_SAFE \"x\":"),"{err}");
+    let (code,err)=run(&["--k-safe","7"],"x");assert_eq!(code,Some(1));assert!(err.contains("exceeds the node memory budget 1 B")&&!err.contains("POCOL_K_SAFE"),"{err}");
+    let (code,err)=run(&[],"7");assert_eq!(code,Some(1));assert!(err.contains("exceeds the node memory budget 1 B"),"{err}");
     let _=std::fs::remove_dir_all(&d);
 }
 
