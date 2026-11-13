@@ -120,8 +120,12 @@ mod preview {
     // the state root and so every block hash, nonce draw and solution: the unbounded pins moved from 16/19 to 15/18 (V3-PR-E0) to 14/17 (V3-PR-E1), to 13/16 (V3-PR-E2b), to 11/14 (V3-PR-E3) and to 12/15 (V3-PR-E2a: the period grew by one block. Besides the
     // bytes, E2a's reward flow, M3 issuance and the carry lagged by one block change what each fallback pays toward the
     // probationers' bonds, which likely moves the height where a drawn probationer reaches B_reg/4; this cause is inferred,
-    // not traced block by block).
-    const UNBOUNDED_PERIOD:usize=12;const UNBOUNDED_RECOVERY:u64=15;
+    // not traced block by block), to 11/14 (V3-PR-E4: the contest and epoch-counter bytes of PoColSystemV3.sol change
+    // the state root again; the bounded pins and every behaviour assertion are unchanged) and to 13/16 (V3-PR-E4, the
+    // owner decision of 2026-11-13 on the pool-contest victim: MinerRegistry's new bytes, POOL_OUT and the exit of a pool
+    // victim, change the state root again; no contest runs in this fixture, so the cause is the bytes alone; the bounded
+    // pins and every behaviour assertion are unchanged).
+    const UNBOUNDED_PERIOD:usize=13;const UNBOUNDED_RECOVERY:u64=16;
     const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {

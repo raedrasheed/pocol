@@ -1114,11 +1114,20 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   `gas_envelope(ProgramSet::V3)` composes `GAS_ENVELOPE_V3` over `GAS_ENVELOPE_EARNIN`: the v3 entries
   (invalidate, punish, recordResult, settle, settleFinal), measured by tests/v3_contracts.rs
   `v3_sys_gas_and_caps_within_the_v3_envelope`, where it has one, the earn-in entry otherwise. The v3 domain
-  also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual). V1, Continuous and EarnIn are unchanged.
+  also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual: at most P_MAX fills per pot, whose payees the host
+  draws from the ActList of its parent, every ACCRUING member of which holds a pool seat; exited pool-contest victims,
+  live ACCRUING records outside ACC_COUNT since the owner decision of 2026-11-13, do not raise it). V1, Continuous and
+  EarnIn are unchanged.
   V3-PR-E3 (V3-02) adds recordLate (3,458,000; the one v3-only call name, measured by the same test crediting
   κm − 1 = 63 late shares to owners new to the template, the stranger path asserted as the maximum) and bounds the
   v3 domain by κ·m ≤ 64 (`GAS_DOMAIN_V3_KAPPA_M`) as well; each evidence item is counted as the dearer of recordLate
-  and invalidate + punish (`phase_calls`).
+  and invalidate + punish (`phase_calls`). V3-PR-E4 (V3-10/V3-14, the epoch counters and the larger registry
+  dispatch) adds recordShares 14,389,000 (14,388,687 measured, `v3_record_shares_gas_with_the_epoch_counters`) and
+  markClose 2,735,000 (2,734,171 measured on the closing phase's refunds,
+  `v3_closing_mark_close_gas_within_the_envelope`), each above the earn-in entry it replaces in the composition
+  (13,216,000 and 2,716,000), and re-measures recordLate (3,466,000) and settle/settleFinal (6,315,000). The owner decision of 2026-11-13 on the
+  pool-contest victim (D-V3-14: promote tests POOL_OUT on each of settle's 64 promotions) raises settle's worst path to
+  6,316,532, so settle/settleFinal take 6,317,000.
 - **Open: v3 final phase (V3-PR-E2b).** The v3 gas runs are continuous (h_end 0) and never reach the final
   phase: finalize takes the earn-in entry with no v3 measurement, and settleFinal takes the measured v3 settle
   (the same settleOne) rather than a measured tomb-free v3 final block. A v3 final-phase measurement

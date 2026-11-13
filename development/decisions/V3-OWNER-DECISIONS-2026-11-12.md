@@ -71,3 +71,62 @@ Translation: "I approve option A; continue working."
 - When it is implemented and tested, the `D-V3-21 creation-burn user bound` entry leaves `V3_LAUNCH_BLOCKERS`.
 - Collaborative consensus, the template block and every PoCol principle are unchanged: the check is a function of
   the transaction and ancestor state.
+
+---
+
+# Third decision (2026-11-13): the probation-pool contest victim (D-V3-14)
+
+Status: **decided by the owner on 2026-11-13, about 06:30 UTC.** It adds to
+[V3-OWNER-DECISIONS-2026-11-08.md](V3-OWNER-DECISIONS-2026-11-08.md), items O-10 and O-14. (The second decision of
+2026-11-12, on the v3 creation-burn user bound, D-V3-21, is recorded above in this file.) Approving a design rule is
+not approval to deploy it. Every live-network change stays on hold until the owner releases it.
+
+## The question put to the owner (2026-11-13, in Arabic, summarized)
+
+In V3-PR-E4 a probation-pool contest erased its victim (an ACCRUING member) at once. That had two effects:
+1. The victim's parts of the pots not yet settled burned. They should have joined the bond that was refunded to it.
+   This conflicts with V3-10's "refund, no stake penalty".
+2. Evidence carried in a later block could no longer punish it. A seat-contest victim stays punishable until its
+   due height.
+
+Three options were presented:
+- **(a) Recommended.** Keep the victim EXITED, payable and punishable, until its pots settle or until U.
+- (b) Route the unsettled parts to its reward address.
+- (c) Accept the burn.
+
+## The owner's answer (verbatim)
+
+> أوافق على (أ)، استمر في العمل
+
+Translation: "I approve (a); continue working."
+
+## Effect
+
+- A pool-contest victim leaves the active list and becomes EXITED exactly as a seat-contest victim does, which is
+  also how deregister exits a record: exitHeight = h, dueHeight = h + U. It is refunded at dueHeight by the sweep or
+  by claimBond, with no burn.
+  - Until then its parts of pending pots, and any late credit to them, are paid to it as to any exited record. For an
+    ACCRUING record they fill its accrued bond first, so the refund includes them. A bond that reaches B_reg
+    promotes the record to HELD.
+  - Until then it can be punished: the bond burn, and V3-16's whole-pot burn as pot j's ACCRUING winner.
+  - Not decided separately (an implementation consequence, for the owner to confirm or forbid): as an exited record
+    it may also reactivate inside the usual window, because deregister's exit allows that. An ACCRUING victim
+    reactivates only into a free pool seat; one its pots promoted to HELD reactivates as any HELD record. Reactivation
+    keeps registeredAt, so the T_PROB deadline still runs, but resets graceStart. It therefore meets the open point
+    already recorded in D-V3-10's implementation note: a member that exits and reactivates once per epoch is never
+    contestable.
+- The newcomer takes the freed probation seat at once. ACC_COUNT now counts only the ACCRUING records that hold a
+  pool seat.
+  - The victim leaves ACC_COUNT in the contest call. A new record bit, POOL_OUT (w0 bit 87), marks it.
+  - Its later refund, punishment or promotion does not lower ACC_COUNT again. Reactivation clears the bit and takes
+    a pool seat again, with Capacity if the pool is full.
+  - held_total is unchanged by the contest. It falls at the refund or the punishment. Escrow balance = pending +
+    held + burned holds after every step.
+  - Live ACCRUING records can now outnumber P_MAX, because exited victims are not counted. Settlement is still bounded:
+    one pot fills at most P_MAX bonds. Its payees come from the ActList of its block's parent, and every ACCRUING
+    member of that list holds a pool seat. So GAS_ENVELOPE_V3 settle is unchanged (review of this decision;
+    REGISTRY-LAYOUT.md "v3 contestable seats").
+- Everything else in V3-PR-E4 is unchanged: the full-set requirement, the statistic and the budgets. The change is
+  in the dormant v3 programs only (PoColSystemV3.sol MinerRegistry). The spec-1 and earn-in programs, SPEC_VERSION,
+  MAX_FORK_VERSION, CONSENSUS_RULES_VERSION and the identity are unchanged.
+- Collaborative consensus, the template block and every PoCol principle are unchanged.

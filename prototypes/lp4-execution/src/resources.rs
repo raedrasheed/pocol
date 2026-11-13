@@ -6,14 +6,16 @@
 //!
 //! SYS slots (state footprint, R18 SYS_SLOT_MAX):
 //!   Registry 5 + 5·RRM + M   (fixed, RecArr, Rec 4 words, ActList); on CP schema v2 (the v3 registry) the fixed
-//!                            part is 7: slots 0..4, ACC_COUNT (slot 8) and the V3-08/V3-09 budget slot 9; its
-//!                            records keep four words (the clocks use spare bits, REGISTRY-LAYOUT.md)
+//!                            part is 8: slots 0..4, ACC_COUNT (slot 8), the V3-08/V3-09 budget slot 9 and the V3-10
+//!                            epoch totals (slot 10); its records keep four words (the clocks and the V3-10 epoch
+//!                            counters use spare bits, REGISTRY-LAYOUT.md)
 //!   Ledger   K·(2·O + 2)       (K retained heights: count+owner per owner, len, total)
 //!   Escrow   2 + 3·(D+1)       (burnedTotal, final marker, pending); + 1 on CP schema v2 (the v3 programs: the carry
 //!                            into the next pot, the one carry slot that can be nonzero between blocks, V3-15)
 //!   Caps     schema length (52 on v1; 67 on v2)
 //! SYS keys changed per block (R18 SYS_KEYS_BLOCK_MAX):
-//!   evidence 9·E; markClose 1 (+RET+1 closing); prune 2·O+2; recordShares 3·O+2;
+//!   evidence 9·E; markClose 1 (+RET+1 closing); prune 2·O+2; recordShares 3·O+2 (3·O+3 on CP schema v2: the V3-10
+//!   epoch totals, slot 10; the counters share each owner's w0);
 //!   recordResult 1; settle 4; beginBlock 2+8·SW+1 (1 when closing); closeBlock 2;
 //!   final: finalize 2 + 4·(D-1)
 //! SYS accounts touched per block (R18 SYS_ACCT_BLOCK_MAX):
@@ -31,9 +33,9 @@
 //!   owner's count, owner-list element and record word, and per item the list length and the total: 3k + 2 keys for
 //!   k shares. Each template j takes at most κm − C_header(j) <= κm − 1 late shares (the no-dilution cap), so one item
 //!   carries at most min(S, κm − 1) and a block at most L = min(E·min(S, κm − 1), D·(κm − 1)); the evidence keys are at
-//!   most 9·E + 3·L. No account and no SYS slot
-//!   bound changes: the owners of a height stay within O (κm <= S/4 when late credit applies), and recordLate pays
-//!   nobody.
+//!   most 9·E + 3·L (V3-10: recordLate also writes the epoch totals, slot 10, one key of an item's fixed nine). No account
+//!   and no SYS slot bound changes: the owners of a height stay within O (κm <= S/4 when late credit applies), and
+//!   recordLate pays nobody.
 use crate::profile::ConsensusParams;
 
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -43,11 +45,11 @@ impl SysBounds{pub fn keys_max(&self)->u64{self.keys_normal.max(self.keys_closin
 pub fn derive(cp:&ConsensusParams)->SysBounds{
     let s=u64::from(cp.S_max);let d=u64::from(cp.D);let k=d.max(u64::from(cp.W_w));let rrm=u64::from(cp.REG_RECORDS_MAX);let m=u64::from(cp.M_max);
     let e=u64::from(cp.E_max);let ret=u64::from(cp.RET);let sw=u64::from(cp.SWEEP_MAX).min(16);let o=(s+1).min(m);let rmax=u64::from(cp.R_max);
-    let registry_fixed=if cp.schema_version()>=2{7}else{5};
+    let registry_fixed=if cp.schema_version()>=2{8}else{5};
     let carry_slot=u64::from(cp.schema_version()>=2);
     let slot_min=registry_fixed+5*rrm+m + k*(2*o+2) + 2+3*(d+1)+carry_slot + cp.cp_len() as u64;
-    let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2)+1+4;
     let v2=cp.schema_version()>=2;
+    let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2+u64::from(v2))+1+4;
     let (carry,tip_share)=if v2{(2,5)}else{(0,0)};
     let keys_normal=common+1+(2+8*sw+1)+2+carry+tip_share;
     let keys_closing=common+(1+ret+1)+1+2+carry+tip_share;
