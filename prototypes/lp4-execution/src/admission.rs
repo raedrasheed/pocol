@@ -15,7 +15,7 @@
 //!   `GAS_ENVELOPE` (V1, Continuous) measured by the worst-case fixture
 //!   `resources::tests::sys_gas_envelope_fixture`, or `GAS_ENVELOPE_EARNIN` (EarnIn) measured by
 //!   `sys_gas_envelope_fixture_earnin`, or for V3 `GAS_ENVELOPE_V3` (measured by tests/v3_contracts.rs)
-//!   over `GAS_ENVELOPE_EARNIN` (finalize: earn-in entry, no v3 measurement; recordLate: v3 only), composed into the worst call sequence of each phase class.
+//!   over `GAS_ENVELOPE_EARNIN` (V3-PR-E2a: closeBlock and finalize measured on v3; recordLate: v3 only), composed into the worst call sequence of each phase class.
 //!   Applicable only inside `GAS_DOMAIN` (for V3 also P_MAX <= `GAS_DOMAIN_V3_P_MAX` and kappa*m <= `GAS_DOMAIN_V3_KAPPA_M`); gas is assumed monotone in the domain fields (open
 //!   derivation obligation, A13). Outside the domain the facts are absent.
 //! - timing (R14/R19): a `Timing` record measured on this machine for this exact profile
@@ -224,8 +224,21 @@ fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// record cold), measured with owners without a record (each read as four words, 3,457,157 gas) and with recorded
 /// owners whose lastShare it writes (3,228,593); the test asserts the stranger path is the maximum. recordLate is the
 /// one v3-only call name (no earn-in entry to fall back to), so the composition appends it after the earn-in names. An
-/// evidence item is counted as the dearer of recordLate and invalidate + punish (`phase_calls`).
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),("settle",6_314_000),("settleFinal",6_314_000)];
+/// evidence item is counted as the dearer of recordLate and invalidate + punish (`phase_calls`). V3-PR-E2a (V3-19/V3-15/V3-20,
+/// tests/v3_contracts.rs v3-preview `v3_close_and_finalize_gas_within_the_v3_envelope` and
+/// `v3_final_block_burns_the_carry_on_real_blocks`; the carry lagged by one block, D-V3-15): closeBlock(tips, issued) at its
+/// worst zeroes a nonzero carry into pot h and pays the tip share to an ACCRUING proposer at bond 0 whose share exceeds
+/// B_reg (accrue fills and promotes it, the excess is PAID) while held_total is zero (no bond held anywhere: the genesis
+/// bonds burned by evidence, every probationer at bond 0), so accrue's held_total store goes from zero to nonzero: 132,825
+/// gas, against the same promotion with held_total nonzero 115,725, a partial fill 82,620, a HELD proposer 76,871, a tomb
+/// 73,923 and a fallback 52,951 (the test asserts the held-zero promotion is the maximum); finalize burns both outstanding
+/// carries (the one into pot F, from block F-1, and the one of F's own settle(F-D)) with the tips as the chain's first
+/// burn: 61,932. Both replace their earn-in entries (53,000 and 32,000) in the composition. settle and settleFinal keep
+/// 6,314,000: the base burn goes to the carry only when C < kappa*m, so at most 63 payees (a settle writing the carry into
+/// pot h+1 measured 134,192), while the measured worst settle pays 256 (C >= kappa*m, no carry write): 6,311,582 after the
+/// change. A settle that accrues from held_total zero has no HELD payee (at most P_MAX live ACCRUING ones): 162,150 measured.
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",133_000),("finalize",62_000),("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),
+    ("settle",6_314_000),("settleFinal",6_314_000)];
 /// The envelope entry of a SYSTEM call for a program set (`gas_envelope`).
 pub fn envelope(set:ProgramSet,name:&str)->Option<u64>{gas_envelope(set).iter().find(|(n,_)|*n==name).map(|x|x.1)}
 fn phase_gas(cp:&ConsensusParams,class:u8,set:ProgramSet)->Option<Vec<u64>>{
@@ -421,7 +434,9 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
         let flat:Vec<u8>=balances.iter().flat_map(|(a,b)|[a.as_slice(),&b.to_be_bytes::<32>()].concat()).collect();
         IdentityFacts{profile_binding:binding,model:model.clone(),class:FactClass::Measurement,artifact:digest("PoColIdentityFacts",&[&root.0,&programs.sys_code_hash().0,&flat]),
             alloc_root:root.0,sys_code_hash:programs.sys_code_hash().0,
-            alloc_balances:balances.iter().map(|(_,b)|crate::devnet::to_fixed(*b)).collect()}
+            alloc_balances:balances.iter().map(|(_,b)|crate::devnet::to_fixed(*b)).collect(),
+            // V3-19: R23 takes the M3 term only for the v3 program set, as genesis_builder.rs does.
+            m3_issuance:set==ProgramSet::V3}
     });
 
     let timing=r.timing.filter(|t|t.genesis_hash==hash);
@@ -508,9 +523,11 @@ fn conditions(cp:&ConsensusParams,set:ProgramSet,r:&Request<'_>,l:&NodeLocal,tim
 fn gas_condition(set:ProgramSet)->String{
     if set==ProgramSet::EarnIn{format!("SYS gas: {} holds at the earn-in fixture's maxima (earn-in program set); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
     // V3: the composed table's v3 entries come from the v3 measurement (tests/v3_contracts.rs), the rest from the earn-in
-    // fixture. The v3 runs check every call they reach against the composition; they do not reach the final phase
-    // (h_end 0), so finalize has no v3 measurement and settleFinal is bounded by the measured settle (A13-DERIVATION §3).
-    else if set==ProgramSet::V3{format!("SYS gas: {} (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= {GAS_DOMAIN_V3_P_MAX}, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M}; final phase not measured on v3: settleFinal takes the measured settle, finalize the earn-in entry); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
+    // fixture. The v3 runs check every call they reach against the composition; the fixture's runs do not reach the final
+    // phase (h_end 0). V3-PR-E2a measures finalize on v3 on its worst path (two outstanding carries burned with the tips
+    // as the chain's first burn) on a small final chain, and closeBlock on its worst tip-share path; settleFinal is still
+    // bounded by the measured settle (the same settleOne), not by a measured v3 final block (A13-DERIVATION §3).
+    else if set==ProgramSet::V3{format!("SYS gas: {} (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= {GAS_DOMAIN_V3_P_MAX}, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M}; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
     else{format!("SYS gas: {} holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
 }
 

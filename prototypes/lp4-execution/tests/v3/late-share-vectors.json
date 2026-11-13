@@ -1,11 +1,14 @@
 {
  "late-last-share-is-monotone": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -20,7 +23,10 @@
     "m0",
     "w"
    ],
-   "burned": "13254687500000000000",
+   "burned": "0",
+   "carry": {
+    "13": "3073634033203125000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -28,7 +34,7 @@
     "regs": 0
    },
    "cursor": 4,
-   "escrowBalance": "121254687500000000000",
+   "escrowBalance": "120412739257812500000",
    "heldTotal": "100000000000000000000",
    "issued": "24000000000000000000",
    "ledger": {
@@ -94,36 +100,36 @@
    ],
    "paid": {
     "b": "253125000000000000",
-    "c": "306250000000000000",
+    "c": "518044433593750000",
     "d": "26562500000000000",
-    "m0": "1932812500000000000",
+    "m0": "2562966308593750000",
     "w": "226562500000000000"
    },
    "pots": {
     "10": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3646875000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "11": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "5024846191406250000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "12": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "5073634033203125000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
     },
     "9": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3593750000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
@@ -211,7 +217,8 @@
     "c": "20000000000000000000",
     "d": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -271,12 +278,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -291,12 +301,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -311,12 +324,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -331,12 +347,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -353,12 +372,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -382,12 +404,15 @@
     "winner": "b"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -404,12 +429,15 @@
     "winner": "c"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -432,12 +460,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -452,12 +483,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -472,12 +506,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3646875000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -492,12 +529,15 @@
     "winner": "m0"
    },
    {
+    "amount": "5024846191406250000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -512,22 +552,28 @@
     "winner": "m0"
    },
    {
+    "amount": "5073634033203125000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "late-random-1": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 4,
    "rho_bp": 2500
@@ -541,7 +587,8 @@
     "w",
     "x"
    ],
-   "burned": "53725208333333333352",
+   "burned": "43794854929267035606",
+   "carry": {},
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -549,8 +596,8 @@
     "regs": 0
    },
    "cursor": 4,
-   "escrowBalance": "132297430555555555571",
-   "heldTotal": "70572222222222222219",
+   "escrowBalance": "125291629943169487860",
+   "heldTotal": "71584275013902452254",
    "issued": "96000000000000000000",
    "ledger": {
     "40": {
@@ -635,22 +682,22 @@
     "x"
    ],
    "paid": {
-    "b": "7883611111111111108",
-    "c": "11361111111111111107",
-    "m0": "20263124999999999995",
-    "w": "9194722222222222219"
+    "b": "9448233669704861109",
+    "c": "13720152560763888886",
+    "m0": "22206910037824842661",
+    "w": "10333073788536919484"
    },
    "pots": {
     "45": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3062500000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "c"
     },
     "46": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "2850000000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
@@ -732,7 +779,7 @@
      "tomb": false
     },
     "x": {
-     "bond": "10572222222222222219",
+     "bond": "11584275013902452254",
      "bond_state": 4,
      "burn": 0,
      "due": 0,
@@ -753,7 +800,8 @@
     "c": "20000000000000000000",
     "w": "20000000000000000000",
     "x": "5000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -824,12 +872,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -854,12 +905,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -881,12 +935,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -937,12 +994,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -966,12 +1026,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -993,12 +1056,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1022,12 +1088,15 @@
     "winner": "b"
    },
    {
+    "amount": "2212500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1052,12 +1121,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1084,12 +1156,15 @@
     "winner": "b"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1114,12 +1189,15 @@
     "winner": "b"
    },
    {
+    "amount": "2212500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1141,12 +1219,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1168,12 +1249,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1196,12 +1280,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2637500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "13"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1240,12 +1327,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "14"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1260,12 +1350,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "15"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1299,12 +1392,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "16"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1323,12 +1419,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "17"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1377,12 +1476,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "18"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1406,12 +1508,15 @@
     "winner": "w"
    },
    {
+    "amount": "2637500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "19"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1429,12 +1534,15 @@
     "winner": "b"
    },
    {
+    "amount": "3062500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "20"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1452,12 +1560,15 @@
     "winner": "b"
    },
    {
+    "amount": "2850000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "21"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1480,12 +1591,15 @@
     "winner": "a"
    },
    {
+    "amount": "2212500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "22"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1519,12 +1633,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "23"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1542,12 +1659,15 @@
     "winner": "a"
    },
    {
+    "amount": "2840703125000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "24"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1568,12 +1688,15 @@
     "winner": "a"
    },
    {
+    "amount": "3626953125000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "25"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1592,12 +1715,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "26"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1614,12 +1740,15 @@
     "winner": "b"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "27"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1654,12 +1783,15 @@
     "winner": "c"
    },
    {
+    "amount": "3062500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "28"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1676,12 +1808,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "29"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1709,12 +1844,15 @@
     "winner": "b"
    },
    {
+    "amount": "2770727539062500000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "30"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1736,12 +1874,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3275000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "31"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1759,12 +1900,15 @@
     "winner": "c"
    },
    {
+    "amount": "3062500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "32"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1797,12 +1941,15 @@
     "winner": "c"
    },
    {
+    "amount": "3626953125000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "33"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1832,12 +1979,15 @@
     "winner": "c"
    },
    {
+    "amount": "2212500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "34"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1868,12 +2018,15 @@
     "winner": "b"
    },
    {
+    "amount": "2294389801025390625",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "35"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1928,12 +2081,15 @@
     "winner": "b"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "36"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1966,12 +2122,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "37"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2006,12 +2165,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "38"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2048,12 +2210,15 @@
     "winner": "a"
    },
    {
+    "amount": "2235078125000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "39"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2087,12 +2252,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "40"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2110,12 +2278,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "41"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2134,12 +2305,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3062500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "42"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2158,12 +2332,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "43"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2187,12 +2364,15 @@
     "winner": "b"
    },
    {
+    "amount": "2237477050781250000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "44"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2211,12 +2391,15 @@
     "winner": "a"
    },
    {
+    "amount": "3062500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "45"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2262,12 +2445,15 @@
     "winner": "c"
    },
    {
+    "amount": "2850000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "46"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2287,12 +2473,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "47"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2327,22 +2516,28 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "48"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "late-random-2": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 4,
    "rho_bp": 2500
@@ -2355,7 +2550,10 @@
     "c",
     "m0"
    ],
-   "burned": "65541736111111111119",
+   "burned": "54335954813300238723",
+   "carry": {
+    "49": "1275000000000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -2363,7 +2561,7 @@
     "regs": 0
    },
    "cursor": 3,
-   "escrowBalance": "133541736111111111119",
+   "escrowBalance": "124372414011298285598",
    "heldTotal": "60000000000000000000",
    "issued": "96000000000000000000",
    "ledger": {
@@ -2444,22 +2642,22 @@
     "c"
    ],
    "paid": {
-    "b": "8462777777777777776",
-    "c": "10770555555555555553",
-    "m0": "25778541666666666664",
-    "w": "2446388888888888888"
+    "b": "10535386301676432290",
+    "c": "13022053904893663192",
+    "m0": "30536100643242730032",
+    "w": "2534045138888888888"
    },
    "pots": {
     "45": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "2299487518310546875",
      "invalid": false,
      "proposer": "m0",
      "winner": "w"
     },
     "46": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "2249471679687500000",
      "invalid": false,
      "proposer": "m0",
      "winner": "w"
@@ -2473,7 +2671,7 @@
     },
     "48": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "2212500000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -2481,7 +2679,7 @@
    },
    "records": {
     "a": {
-     "bond": "8959999999999999998",
+     "bond": "10335709666612413192",
      "bond_state": 2,
      "burn": 39,
      "due": 39,
@@ -2547,7 +2745,8 @@
     "c": "20000000000000000000",
     "w": "20000000000000000000",
     "x": "5000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -2618,12 +2817,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2640,12 +2842,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2693,12 +2898,15 @@
     "winner": "b"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2719,12 +2927,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2748,12 +2959,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2774,12 +2988,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2802,12 +3019,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2832,12 +3052,15 @@
     "winner": "b"
    },
    {
+    "amount": "2425000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2861,12 +3084,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2883,12 +3109,15 @@
     "winner": "a"
    },
    {
+    "amount": "2425000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2905,12 +3134,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2938,12 +3170,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2978,12 +3213,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "13"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3035,12 +3273,15 @@
     "winner": "w"
    },
    {
+    "amount": "2850000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "14"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3091,12 +3332,15 @@
     "winner": "w"
    },
    {
+    "amount": "2257656250000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "15"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3150,12 +3394,15 @@
     "winner": "b"
    },
    {
+    "amount": "2850000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "16"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3207,12 +3454,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2212500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "17"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3230,12 +3480,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "18"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3274,12 +3527,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "19"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3301,12 +3557,15 @@
     "winner": "w"
    },
    {
+    "amount": "2719627929687500000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "20"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3329,12 +3588,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3211250000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "21"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3351,12 +3613,15 @@
     "winner": "c"
    },
    {
+    "amount": "3175390625000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "22"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3389,12 +3654,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3275000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "23"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3411,12 +3679,15 @@
     "winner": "w"
    },
    {
+    "amount": "2212500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "24"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3438,12 +3709,15 @@
     "winner": "b"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "25"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3464,12 +3738,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3023585937500000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "26"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3492,12 +3769,15 @@
     "winner": "b"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "27"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3517,12 +3797,15 @@
     "winner": "c"
    },
    {
+    "amount": "4087812500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "28"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3547,12 +3830,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2235078125000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "29"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3570,12 +3856,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3487500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "30"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3593,12 +3882,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "31"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3615,12 +3907,15 @@
     "winner": "c"
    },
    {
+    "amount": "2637500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "32"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3655,12 +3950,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "33"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3680,12 +3978,15 @@
     "winner": "c"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "34"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3704,12 +4005,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3852734375000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "35"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3740,12 +4044,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3275000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "36"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3767,12 +4074,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "37"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3790,12 +4100,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "38"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3824,12 +4137,15 @@
     "winner": "w"
    },
    {
+    "amount": "2850000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "39"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3852,12 +4168,15 @@
     "winner": "b"
    },
    {
+    "amount": "2818706054687500000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "40"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3886,12 +4205,15 @@
     "winner": "c"
    },
    {
+    "amount": "2347968750000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "41"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3936,12 +4258,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3062500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "42"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3964,12 +4289,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "43"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -4000,12 +4328,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "44"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4022,12 +4353,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2299487518310546875",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "45"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4048,12 +4382,15 @@
     "winner": "w"
    },
    {
+    "amount": "2249471679687500000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "46"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4076,12 +4413,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "47"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4102,22 +4442,28 @@
     "winner": "w"
    },
    {
+    "amount": "2212500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "48"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "late-share-at-the-settlement-boundary": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -4131,7 +4477,10 @@
     "m0",
     "w"
    ],
-   "burned": "14981250000000000000",
+   "burned": "0",
+   "carry": {
+    "14": "3006958007812500000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -4139,7 +4488,7 @@
     "regs": 0
    },
    "cursor": 0,
-   "escrowBalance": "102981250000000000000",
+   "escrowBalance": "101901297607421875000",
    "heldTotal": "80000000000000000000",
    "issued": "26000000000000000000",
    "ledger": {
@@ -4201,34 +4550,34 @@
    "paid": {
     "b": "53125000000000000",
     "c": "26562500000000000",
-    "m0": "2712500000000000000",
+    "m0": "3792452392578125000",
     "w": "226562500000000000"
    },
    "pots": {
     "10": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "11": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "5073634033203125000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "12": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "5073634033203125000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "13": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "5073634033203125000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -4300,7 +4649,8 @@
     "b": "20000000000000000000",
     "c": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -4349,12 +4699,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4369,12 +4722,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4389,12 +4745,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4409,12 +4768,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4431,12 +4793,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4451,12 +4816,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4471,12 +4839,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -4500,12 +4871,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -4580,12 +4954,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4600,12 +4977,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4620,12 +5000,15 @@
     "winner": "m0"
    },
    {
+    "amount": "5073634033203125000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4640,12 +5023,15 @@
     "winner": "m0"
    },
    {
+    "amount": "5073634033203125000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4660,22 +5046,28 @@
     "winner": "m0"
    },
    {
+    "amount": "5073634033203125000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "13"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "late-share-cap-fills-only-the-uncovered-pool": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 4,
    "rho_bp": 2500
@@ -4690,7 +5082,10 @@
     "m0",
     "w"
    ],
-   "burned": "8925000000000000000",
+   "burned": "0",
+   "carry": {
+    "13": "2593828125000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -4698,7 +5093,7 @@
     "regs": 0
    },
    "cursor": 4,
-   "escrowBalance": "116925000000000000000",
+   "escrowBalance": "114675156250000000000",
    "heldTotal": "100000000000000000000",
    "issued": "24000000000000000000",
    "ledger": {
@@ -4764,15 +5159,15 @@
    ],
    "paid": {
     "b": "212500000000000000",
-    "c": "2550000000000000000",
+    "c": "3656328125000000000",
     "d": "212500000000000000",
-    "m0": "3275000000000000000",
-    "w": "825000000000000000"
+    "m0": "4111718750000000000",
+    "w": "1131796875000000000"
    },
    "pots": {
     "10": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3487500000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
@@ -4786,7 +5181,7 @@
     },
     "12": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "4593828125000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -4881,7 +5276,8 @@
     "c": "20000000000000000000",
     "d": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -4941,12 +5337,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4961,12 +5360,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4981,12 +5383,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5001,12 +5406,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -5042,12 +5450,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -5082,12 +5493,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3487500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -5138,12 +5552,15 @@
     "winner": "w"
    },
    {
+    "amount": "3487500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5158,12 +5575,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3487500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5178,12 +5598,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5198,12 +5621,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3487500000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5218,12 +5644,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5238,22 +5667,28 @@
     "winner": "m0"
    },
    {
+    "amount": "4593828125000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "late-share-owners-absent-tomb-and-accruing": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -5267,7 +5702,10 @@
     "m0",
     "w"
    ],
-   "burned": "24907812500000000000",
+   "burned": "15053125000000000000",
+   "carry": {
+    "11": "3073634033203125000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -5275,7 +5713,7 @@
     "regs": 0
    },
    "cursor": 1,
-   "escrowBalance": "92987500000000000000",
+   "escrowBalance": "92714259033203125000",
    "heldTotal": "60079687500000000000",
    "issued": "20000000000000000000",
    "ledger": {
@@ -5343,34 +5781,34 @@
    ],
    "paid": {
     "c": "53125000000000000",
-    "m0": "6506250000000000000",
+    "m0": "6779490966796875000",
     "w": "453125000000000000"
    },
    "pots": {
     "10": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3567187500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "8": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "9": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3593750000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
@@ -5458,7 +5896,8 @@
     "c": "20000000000000000000",
     "t": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -5518,12 +5957,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5538,12 +5980,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5558,12 +6003,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5578,12 +6026,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5600,12 +6051,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -5645,12 +6099,15 @@
     "winner": "w"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5665,12 +6122,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5685,12 +6145,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5705,12 +6168,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5725,22 +6191,28 @@
     "winner": "m0"
    },
    {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "late-share-pays-the-omitted-contributor": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -5754,7 +6226,10 @@
     "m0",
     "w"
    ],
-   "burned": "8314062500000000000",
+   "burned": "0",
+   "carry": {
+    "10": "1673437500000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -5832,28 +6307,28 @@
    "pots": {
     "6": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "8": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "9": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3620312500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -5925,7 +6400,8 @@
     "b": "20000000000000000000",
     "c": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -5974,12 +6450,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5994,12 +6473,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6014,12 +6496,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6034,12 +6519,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -6064,12 +6552,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6084,12 +6575,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6104,12 +6598,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6124,12 +6621,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6144,12 +6644,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3620312500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  }

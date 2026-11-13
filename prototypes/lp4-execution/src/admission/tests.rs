@@ -438,8 +438,11 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     assert!(envelope(ProgramSet::V3,"markClose")>envelope(ProgramSet::V1,"markClose"),"markClose falls back to the earn-in entry, not GAS_ENVELOPE's");
     // Reworded on review: the text names which entries the v3 measurement covers and that the final phase is not
     // measured on v3 (finalize takes the earn-in entry), instead of claiming the whole table holds at the v3 maxima.
-    // V3-PR-E3 adds the kappa*m domain bound (recordLate's owners per call) to the text.
-    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= 64, kappa*m <= 64; final phase not measured on v3: settleFinal takes the measured settle, finalize the earn-in entry)"));
+    // V3-PR-E3 adds the kappa*m domain bound (recordLate's owners per call) to the text. V3-PR-E2a measures finalize on
+    // v3 (tests/v3_contracts.rs v3_final_block_burns_the_carry_on_real_blocks: GAS_ENVELOPE_V3 gains a finalize entry), so
+    // the text no longer says finalize takes the earn-in entry; settleFinal still takes the measured settle.
+    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= 64, kappa*m <= 64; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle)"));
+    assert!(envelope(ProgramSet::V3,"finalize")>envelope(ProgramSet::EarnIn,"finalize"),"V3-PR-E2a: finalize takes its v3 measurement, not the earn-in entry");
     let c=net(&cfg());let cp=c.profile.cp().clone();
     let spec1=phase_gas(&cp,0,ProgramSet::V1).unwrap();let earnin=phase_gas(&cp,0,ProgramSet::EarnIn).unwrap();let v3=phase_gas(&cp,0,ProgramSet::V3).unwrap();
     // V3-02: each evidence item of a v3 block is counted as the dearer of a type 1/2 item (invalidate and punish) and a

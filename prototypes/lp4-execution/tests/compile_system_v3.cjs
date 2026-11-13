@@ -4,12 +4,13 @@
 //   node compile_system_v3.cjs --mutants OUT.json  planted mutants (tests/v3/system-v3-mutants.json): the six of
 //     EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17
 //     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3),
-//     MinerRegistry or ShareLedger. Each entry names the program it replaces.
+//     MinerRegistry or ShareLedger; eight of the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow.
+//     Each entry names the program it replaces.
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
 const read=f=>fs.readFileSync(path.join(__dirname,'../contracts',f),'utf8');
 // The v3 source is PoColSystemEarnIn.sol with the V3-xx changes (P_MAX/T_PROB from CP schema v2; registry budgets;
-// evidence penalties; late share credit).
+// evidence penalties; late share credit; issuance, carry and tip split).
 const source=read('system/PoColSystemV3.sol');
 const settings={optimizer:{enabled:true,runs:200},evmVersion:'cancun',metadata:{bytecodeHash:'none',appendCBOR:false},
   outputSelection:{'*':{'*':['abi','evm.deployedBytecode.object','storageLayout']}}};
@@ -52,6 +53,21 @@ const MUTANTS=[
   ['late-cap-removed','if(t==0 || t+n>Sys.cfg(8)*Sys.cfg(9)) revert BadState();','if(t==0) revert BadState();','ShareLedger'],
   ['late-window-one-wider','uint256(j)>=height || uint256(j)+Sys.cfg(11)<height','uint256(j)>=height || uint256(j)+Sys.cfg(11)+1<height','ShareLedger'],
   ['late-total-not-raised','        total[j]=t+n;\n','','ShareLedger'],
+  // V3-PR-E2a (V3-19, V3-15, V3-20): each must fail tests/v3_contracts.rs on tests/v3/issuance-carry-vectors.json.
+  ['carry-not-added','uint256 amount=issued+(tips-share)+c;','uint256 amount=issued+(tips-share);','RewardEscrow'],
+  ['tip-share-to-pot','uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(59)/10000;','uint256 share=0;','RewardEscrow'],
+  ['base-burn-still-burned','if(r!=a){ if(get(1)!=0) burned+=r-a; else {uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));} } // V3-15','burned+=r-a;','RewardEscrow'],
+  ['issued-ignored-flat-s0','uint256 amount=issued+(tips-share)+c;','uint256 amount=Sys.cfg(15)+(tips-share)+c;','RewardEscrow'],
+  // The final block keeps the carry of its own settle(F-D) instead of burning it.
+  ['carry-kept-at-final','        if(c!=0) put(4,0);\n        if(n!=0) put(5,0);\n        put(0,get(0)+tips+c+n); put(1,h);','        uint256 f=get(carrySlot(h)); if(f!=0) put(carrySlot(h),0); put(0,get(0)+tips+f); put(1,h);','RewardEscrow'],
+  // The design V3-15 rejects (safety finding 8): half of settle(j)'s base burn goes into pot j+1, closed by an earlier
+  // block; it must fail tests/v3_contracts.rs pot_j_plus_1_is_fixed_by_block_j_plus_1.
+  ['base-burn-into-closed-pot','if(r!=a){ if(get(1)!=0) burned+=r-a; else {uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));} } // V3-15','if(r!=a){ if(get(1)!=0) burned+=r-a; else {uint256 x=(r-a)/2; uint256 n=base(j+1); put(n,get(n)+x); put(carrySlot(block.number+1),get(carrySlot(block.number+1))+(r-a)-x);} }','RewardEscrow'],
+  // The previous, unlagged rule (D-V3-15 incentive finding): settle(h-D)'s base burn enters pot h, the pot of the last
+  // carrier of h-D; it must fail tests/v3_contracts.rs last_carrier_gains_nothing_by_omitting_late_shares.
+  ['carry-not-lagged','uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));','uint256 k=carrySlot(block.number); put(k,get(k)+(r-a));','RewardEscrow'],
+  // The final block burns only the carry of its own settle(F-D) and keeps the carry into pot F that block F-1 left.
+  ['lagged-carry-kept-at-final','        if(c!=0) put(4,0);\n        if(n!=0) put(5,0);\n        put(0,get(0)+tips+c+n); put(1,h);','        uint256 f=get(carrySlot(h+1)); if(f!=0) put(carrySlot(h+1),0); put(0,get(0)+tips+f); put(1,h);','RewardEscrow'],
 ];
 const args=process.argv.slice(2);const mutants=args[0]==='--mutants';const out=mutants?args[1]:args[0];
 if(!out)throw Error('usage: compile_system_v3.cjs [--mutants] OUT.json');

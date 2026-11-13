@@ -1092,6 +1092,12 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   phase: finalize takes the earn-in entry with no v3 measurement, and settleFinal takes the measured v3 settle
   (the same settleOne) rather than a measured tomb-free v3 final block. A v3 final-phase measurement
   (finalize, settleFinal) is still owed before the V3 class-2 facts are measured rather than inherited.
+  V3-PR-E2a (2026-11-13) measures finalize on v3 at its worst path (both outstanding carries burned with the tips
+  as the chain's first burn, 61,932 gas on a small final chain, tests/v3_contracts.rs
+  `v3_final_block_burns_the_carry_on_real_blocks`) and closeBlock at its worst tip-share path (132,825,
+  `v3_close_and_finalize_gas_within_the_v3_envelope`): `GAS_ENVELOPE_V3` gains closeBlock 133,000 and finalize
+  62,000, which replace the earn-in entries (53,000, 32,000) in the composition. settleFinal still takes the measured
+  v3 settle, not a measured tomb-free v3 final block at the domain maxima: that part of this item stays open.
 - **Open: V1 settleFinal (2026-11-12).** `sys_gas_envelope_fixture` runs no tomb-free final block. On the V1
   programs one measures settleFinal 4,291,596, and 4,306,697 when its first settleFinal makes the first burn,
   above the 4,230,000 entry of `GAS_ENVELOPE` (settle, 4,304,468 tomb-free and on the Continuous programs, is

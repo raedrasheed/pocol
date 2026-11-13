@@ -192,3 +192,77 @@ with settlement and the ledger compared per height); five planted mutants (late-
 late-last-share-overwrites, late-cap-removed, late-window-one-wider, late-total-not-raised) are in
 tests/v3/system-v3-mutants.json. The host's kind-3 validity is modelled by `late_verdict` (vectors
 tests/v3/late-share-validity-vectors.json, replayed by pocold/tests/v3_late_shares.rs), with 17 planted mutants.
+
+## v3 issuance, carry and tip split (PoColSystemV3.sol only; V3-19, V3-15, V3-20, V3-PR-E2a)
+
+Applies to the v3 program set only, as above; the spec-1 programs keep closeBlock(tips) with CP 15 every block.
+
+| Location | Change |
+|---|---|
+| RewardEscrow slots 4 and 5 | carry (new), lagged by one block (D-V3-15): slot 4 + (t & 1) holds the carry into pot t, the base burn of the pots settled in block t - 1; between blocks h and h + 1 only the carry into pot h + 1 can be nonzero |
+| RewardEscrow slot 2 | not used (an earlier draft's unlagged carry) |
+| RewardEscrow pending[j] | unchanged layout; k=0 amount = issued + (1 - gamma_tip)·tips + carry into pot j |
+
+Host (apply.rs, v3 program set only), phase 2 of a non-final block h: credit issued = issuance(h) to Escrow
+(lp4-execution issuance.rs: h == 0 ? 0 : max(k >= 256 ? 0 : S0 >> k, S_tail), k = h / H_half; S0 = CP 15, H_half =
+CP 52, S_tail = CP 53), then `closeBlock(tips, issued)`. A final block calls finalize(tips) and settleFinal(j) as before.
+
+- closeBlock(uint256 tips, uint256 issued), SYSTEM only, 68 bytes: BadPending if pending[h] exists. share =
+  floor(tips · gamma_tip_bp / 10^4) (CP 59) for a signed block (tx.origin nonzero), 0 for a fallback block;
+  pending[h] = {issued + tips - share + carry into pot h, kind/proposer as before, winner 0}; that carry (slot 4 + (h & 1))
+  is zeroed. The share then goes
+  to tx.origin through payTo, as the proposer part does: a HELD record's reward address is PAID, an ACCRUING record's bond
+  takes it first (EARN-IN P1: promoted on reaching B_reg, the excess PAID), an absent record, a tomb (a proposer that
+  reported itself in its own block) or a failed PAY burns it.
+- settleOne / distribute in block h: the base burn R - A (Q = max(C, kappa·m)) is added to the carry into pot h + 1
+  (slot 4 + ((h + 1) & 1)) instead of burnedTotal, never to the pot block h closes; roundBurn A - Σp_i, payBurn,
+  penaltyBurn and a whole-pot (INVALID) burn still burn. Once slot 1 is set (the final block's settleFinal), the base burn
+  burns.
+- finalize(tips): burnedTotal += tips + both carries (the carry into pot F, which block F - 1's settle left and no pot
+  receives, and the carry of F's own phase-0 settle(F-D)), both slots zeroed, slot 1 = F.
+- carry() view: slot 4 + slot 5, every outstanding carry.
+
+Pot h is fixed by block h: its carry is the base burn of settle(h - 1 - D) in block h - 1's phase 0, which runs after
+every late credit to h - 1 - D (recordLate precedes settle; the carriers are blocks h - D .. h - 1), so changing
+late-share inclusion after block h - 1 never changes pot h, neither the amount closeBlock(h) records nor the amount
+settle(h) later distributes (tests/v3_model.py `check_pot_fixed_by_its_block`, tests/v3_contracts.rs
+`pot_j_plus_1_is_fixed_by_block_j_plus_1`; both fail on the planted base-burn-into-closed-pot, which adds half of a
+settle's base burn to an already-closed pot).
+
+Why the lag (D-V3-15, the review's incentive finding): block h is the last block that can carry late shares of
+template h - D (window [max(1, h - D), h - 1]). Had pot h received settle(h - D)'s base burn, h's signed proposer would
+have gained gamma_bp/10^4 (plus its own winner and pool fraction of pot h) of every late share of h - D it left out
+while C < kappa·m. With the lag that value reaches pot h + 1, whose block can no longer carry late shares of h - D, so
+the last carrier gains nothing in its own pot (tests/v3_model.py `check_last_carrier_gains_nothing`, tests/v3_contracts.rs
+`last_carrier_gains_nothing_by_omitting_late_shares`; both fail on the planted carry-not-lagged, the unlagged rule).
+
+Escrow invariant (apply.rs `check_escrow_invariant`, v3 set): balance >= Σpending + held + burnedTotal + both carries;
+after phase 2 of a non-final block h the carry into pot h is zero and the carry into pot h + 1 is zero while h <= D (no
+settlement ran yet); after a final block both are zero ("carry left after phase 2" otherwise). The model and the contract
+harness check the equality after every SYSTEM step, and the v3-preview host test after every block.
+
+Supply bound (genesis_builder.rs and lp1-node gate.rs R23, for a genesis running the v3 set; admission.rs sets the
+gate's `m3_issuance` from the sysCodeHash): allocations + genesis bonds + 2·S0·H_half + S_tail·2^64 < 2^127, the M3
+schedule summed over every height (issuance.rs module doc). Every other program set keeps CP 15 · H_END (u64::MAX blocks
+when continuous) on either CP schema.
+
+SYS footprint (resources::derive on CP schema v2): one more Escrow slot (the carry into the next pot outlives the block)
+and two keys for the carry in every phase class (settle writes the carry into pot h + 1, closeBlock or finalize zeroes
+the carry into pot h); on normal and closing blocks five keys for the tip share's payTo (bond, state word, ACC_COUNT,
+held_total, burnedTotal) and the proposer's reward address as an account even without evidence. SYS gas
+(tests/v3_contracts.rs v3-preview): closeBlock at its worst 132,825 (a nonzero carry into pot h zeroed and a 21 PCOL tip
+share to an ACCRUING proposer at bond 0: accrue fills and promotes it, the excess PAID, while held_total is zero, so its
+store goes from zero to nonzero; the same promotion with held_total nonzero 115,725, a partial fill 82,620, a HELD
+proposer 76,871, a tomb 73,923, a fallback block 52,951); finalize 61,932 (both carries nonzero, burned with the tips as
+the chain's first burn); settle 6,311,582 on the 256-payee path (C >= kappa·m, no carry write; a carry write needs
+C < kappa·m, so at most 63 payees: 134,192 measured; a settle accruing from held_total zero has no HELD payee: 162,150).
+Admission composes GAS_ENVELOPE_V3 closeBlock 133,000 and finalize 62,000 (settle and settleFinal keep 6,314,000).
+Runtime size: RewardEscrow 5,591 bytes (MinerRegistry 10,734 and ShareLedger 3,478 unchanged).
+
+The independent model is tests/v3_model.py (issuance, Chain.close/finalize; vectors tests/v3/issuance-carry-vectors.json:
+the schedule table, a compressed H_half = 4 chain over 6·H_half, the tip split for HELD, fallback, ACCRUING and tombed
+proposers, C from 1 to S_max + 1 with late credits, a random chain, the late-inclusion pair, a final block with both
+carries outstanding, the last-carrier pair), with eight planted model mutants (ECON_MUTANTS) each failing it; tests/issuance_oracle.py --v3 checks the schedule a second time;
+eight planted RewardEscrow mutants (carry-not-added, tip-share-to-pot, base-burn-still-burned, issued-ignored-flat-s0,
+carry-kept-at-final, base-burn-into-closed-pot, carry-not-lagged, lagged-carry-kept-at-final) are in
+tests/v3/system-v3-mutants.json.

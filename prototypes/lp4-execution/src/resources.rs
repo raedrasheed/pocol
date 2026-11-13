@@ -9,7 +9,8 @@
 //!                            part is 7: slots 0..4, ACC_COUNT (slot 8) and the V3-08/V3-09 budget slot 9; its
 //!                            records keep four words (the clocks use spare bits, REGISTRY-LAYOUT.md)
 //!   Ledger   K·(2·O + 2)       (K retained heights: count+owner per owner, len, total)
-//!   Escrow   2 + 3·(D+1)       (burnedTotal, final marker, pending)
+//!   Escrow   2 + 3·(D+1)       (burnedTotal, final marker, pending); + 1 on CP schema v2 (the v3 programs: the carry
+//!                            into the next pot, the one carry slot that can be nonzero between blocks, V3-15)
 //!   Caps     schema length (52 on v1; 67 on v2)
 //! SYS keys changed per block (R18 SYS_KEYS_BLOCK_MAX):
 //!   evidence 9·E; markClose 1 (+RET+1 closing); prune 2·O+2; recordShares 3·O+2;
@@ -18,7 +19,14 @@
 //! SYS accounts touched per block (R18 SYS_ACCT_BLOCK_MAX):
 //!   8 fixed (5 programs, PAY, SYSTEM, origin) + payees
 //!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET;
-//!   each +1 on CP schema v2 when E>0 (V3-17: the reporter's reward address, paid the cut of a punished bond).
+//!   each +1 on CP schema v2 when E>0 (V3-17: the reporter's reward address, paid the cut of a punished bond); normal
+//!   and closing +1 on CP schema v2 whatever E is (V3-20: closeBlock pays the signed proposer's tip share to its reward
+//!   address, the same account as the reporter's, so it is counted once).
+//! V3-15/V3-20 (CP schema v2, the v3 programs): the carry is lagged by one block, so block h's settle writes the carry into
+//!   pot h+1 (Escrow slot 4 + ((h+1)&1)) and closeBlock(h) zeroes the carry into pot h (the other slot): 2 keys; a final
+//!   block's settle writes one and finalize zeroes both, also 2; closeBlock's tip share goes through payTo, which can write
+//!   the proposer's bond, state word, ACC_COUNT and held_total (accrue) and burnedTotal: 2 + 5 keys on a normal or closing
+//!   block, 2 on a final one.
 //! V3-02 late share credit (CP schema v2, the v3 programs): a kind-3 item's recordLate writes per share at most its
 //!   owner's count, owner-list element and record word, and per item the list length and the total: 3k + 2 keys for
 //!   k shares. Each template j takes at most κm − C_header(j) <= κm − 1 late shares (the no-dilution cap), so one item
@@ -36,15 +44,19 @@ pub fn derive(cp:&ConsensusParams)->SysBounds{
     let s=u64::from(cp.S_max);let d=u64::from(cp.D);let k=d.max(u64::from(cp.W_w));let rrm=u64::from(cp.REG_RECORDS_MAX);let m=u64::from(cp.M_max);
     let e=u64::from(cp.E_max);let ret=u64::from(cp.RET);let sw=u64::from(cp.SWEEP_MAX).min(16);let o=(s+1).min(m);let rmax=u64::from(cp.R_max);
     let registry_fixed=if cp.schema_version()>=2{7}else{5};
-    let slot_min=registry_fixed+5*rrm+m + k*(2*o+2) + 2+3*(d+1) + cp.cp_len() as u64;
+    let carry_slot=u64::from(cp.schema_version()>=2);
+    let slot_min=registry_fixed+5*rrm+m + k*(2*o+2) + 2+3*(d+1)+carry_slot + cp.cp_len() as u64;
     let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2)+1+4;
-    let keys_normal=common+1+(2+8*sw+1)+2;
-    let keys_closing=common+(1+ret+1)+1+2;
-    let keys_final=common+(1+ret+1)+1+2+4*d.saturating_sub(1);
+    let v2=cp.schema_version()>=2;
+    let (carry,tip_share)=if v2{(2,5)}else{(0,0)};
+    let keys_normal=common+1+(2+8*sw+1)+2+carry+tip_share;
+    let keys_closing=common+(1+ret+1)+1+2+carry+tip_share;
+    let keys_final=common+(1+ret+1)+1+2+4*d.saturating_sub(1)+carry;
     // V3-17: on CP schema v2 (the v3 programs) punish pays the reporter's cut to the block proposer's reward address,
     // one more account in a block that carries evidence (one proposer per block).
-    let reporter=u64::from(cp.schema_version()>=2&&e>0);
-    let accts_normal=8+o+1+sw+reporter;let accts_closing=8+o+1+ret+reporter;let accts_final=8+(d*(o+1)).min(m+rmax*d+1)+ret+reporter;
+    // V3-20: closeBlock (normal and closing blocks) pays the tip share to that same reward address, whatever E is.
+    let reporter=u64::from(v2&&e>0);let proposer=u64::from(v2);
+    let accts_normal=8+o+1+sw+proposer;let accts_closing=8+o+1+ret+proposer;let accts_final=8+(d*(o+1)).min(m+rmax*d+1)+ret+reporter;
     SysBounds{slot_min,keys_normal,keys_closing,keys_final,accts_normal,accts_closing,accts_final}
 }
 /// V3-02: the late-share keys 3·L a block can add on CP schema v2 (module doc); 0 on CP schema v1.

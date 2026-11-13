@@ -60,13 +60,14 @@ fn account_line(a:&Address,info:&AccountInfo,code:&[u8],slots:&[(U256,U256)])->S
 }
 /// The registry records of a state, in id order, and the cutover facts `transform` reports for it with no new genesis
 /// members (EARN-IN-SPEC.md section 7, C2–C4): the copied accounts, the HELD bonds the new genesis returns, the dropped
-/// pots of the last D blocks and the Escrow totals. Recomputed by `verify` from state.jsonl.
+/// pots of the last D blocks and the Escrow totals (and, when the state runs the v3 programs, the carry into pot H + 1,
+/// D-V3-15). Recomputed by `verify` from state.jsonl.
 pub fn facts(state:&InMemoryDB,height:u64,d:u64)->Result<Value,String>{
     let mut ids=apply::record_list(state);ids.sort();
     let records:Vec<Value>=ids.iter().filter_map(|id|apply::miner_record(state,*id)).map(|r|json!({"id":format!("{:#x}",r.id),"status":r.status,"tomb":r.tomb,
         "bondState":r.bond_state,"bond":r.bond.to_string(),"reward":format!("{:#x}",r.reward),"lastShare":r.last_share,"registeredAt":r.registered_at,
         "exitHeight":r.exit_height,"dueHeight":r.due_height,"burnHeight":r.burn_height,"graceStart":r.grace_start})).collect();
-    let (_,report)=super::transform(state,height,d,&[],U256::ZERO)?;
+    let (_,report)=super::transform(state,height,d,&[],U256::ZERO,super::runs_v3_programs(state))?;
     Ok(json!({"height":height,"D":d,"registry":records,"cutover":report}))
 }
 
