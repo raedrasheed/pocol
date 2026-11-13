@@ -20,28 +20,6 @@ def allowed_ip(address, rehearsal):
     return address.is_loopback if rehearsal else (address.is_global and not address.is_multicast and not address.is_reserved)
 
 
-def freeze_height(node):
-    # V3-33 re-genesis conduct: the height S after which this node builds no block with user transactions and its pool
-    # refuses them (pocold --freeze-user-txs-after S). Node-local; other nodes' blocks are judged as before. It names
-    # the network it is for (`freezeGenesisHash`, that network's genesis hash): `prepare` refuses a bundle of another
-    # network, so an inventory reused for the new network after the re-genesis cannot freeze it at the old S.
-    value, named = node.get('freezeUserTxsAfter'), node.get('freezeGenesisHash')
-    if type(value) is not int or not 0 <= value < 2**64: raise ValueError('freezeUserTxsAfter is a block height')
-    if not isinstance(named, str) or not re.fullmatch(r'0x[0-9a-fA-F]{64}', named):
-        raise ValueError('freezeUserTxsAfter needs freezeGenesisHash, the genesis hash of the network it is for')
-    return value
-
-
-def freeze_config(node, genesis_hash):
-    """The node.json fields of a validated inventory node's freeze for the network of `genesis_hash`: none without
-    one; a freeze set for another network is refused (remove both fields for the new network)."""
-    if 'freezeUserTxsAfter' not in node: return {}
-    if node['freezeGenesisHash'].lower() != str(genesis_hash).lower():
-        raise ValueError(f"{node['name']}: freezeUserTxsAfter was set for another network (freezeGenesisHash "
-                         f"{node['freezeGenesisHash']}, this network {genesis_hash}); remove both fields")
-    return {'freezeUserTxsAfter': node['freezeUserTxsAfter'], 'freezeGenesisHash': node['freezeGenesisHash']}
-
-
 def validate_inventory(value, rehearsal=False, join=False):
     if set(value) != {'name', 'nodes'}: raise ValueError('Inventory requires exactly name and nodes')
     if not isinstance(value['name'], str) or not re.fullmatch(r'[a-z][a-z0-9-]{0,31}', value['name']):
@@ -52,8 +30,7 @@ def validate_inventory(value, rehearsal=False, join=False):
     names, endpoints, rpc_ports, miners, ips = set(), set(), set(), set(), set()
     for node in nodes:
         # PR2b (D17, D23): optional `bootstrap` (community listeners, at most 16, never a seed) and `seedsRetired`.
-        # V3-33: optional `freezeUserTxsAfter` with `freezeGenesisHash` (node-local; pocold --freeze-user-txs-after).
-        if set(node) - {'bootstrap', 'seedsRetired', 'freezeUserTxsAfter', 'freezeGenesisHash'} != {'name', 'ip', 'p2pPort', 'rpcPort', 'rpcHost', 'minerAddress', 'seeds'}:
+        if set(node) - {'bootstrap', 'seedsRetired'} != {'name', 'ip', 'p2pPort', 'rpcPort', 'rpcHost', 'minerAddress', 'seeds'}:
             raise ValueError('Invalid node fields')
         if not isinstance(node['name'], str) or not re.fullmatch(r'[a-z][a-z0-9-]{0,31}', node['name']) or node['name'] in names:
             raise ValueError('Node names must be unique safe labels')
@@ -88,7 +65,6 @@ def validate_inventory(value, rehearsal=False, join=False):
         if not isinstance(boot, list) or len(boot) > 16 or len(set(boot)) != len(boot) or any(b in node['seeds'] for b in boot):
             raise ValueError('At most 16 distinct bootstrap addresses, none a seed')
         if type(node.get('seedsRetired', False)) is not bool: raise ValueError('seedsRetired is true or false')
-        if 'freezeUserTxsAfter' in node or 'freezeGenesisHash' in node: freeze_height(node)
         for b in boot:
             ip, _, port = b.rpartition(':')
             if not allowed_ip(ipaddress.IPv4Address(ip), rehearsal) or not port.isdecimal() or str(int(port)) != port or not 1024 <= int(port) <= 65535:
@@ -252,7 +228,6 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
             'listen': f"{node['ip'] if rehearsal else '0.0.0.0'}:{node['p2pPort']}",
             'rpc': f"127.0.0.1:{node['rpcPort']}", 'peers': peers}
         if join: config.update(seeds=[] if node.get('seedsRetired') else list(node['seeds']), bootstrap=list(node.get('bootstrap', [])))
-        config.update(freeze_config(node, info['genesisHash']))
         write_json(bundle / 'node.json', config); write_json(bundle / 'build-info.json', build)
         (bundle / 'pocol-testnet.service').write_text(service(node))
         (bundle / 'nginx.conf').write_text(nginx(node))

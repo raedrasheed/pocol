@@ -166,7 +166,7 @@ await test('the built-in profile keys its wallet with the fixed salt; a custom p
   for(const name of ['operator-local','next-net'])await mock.send({type:'profiles.remove',name});
 });
 await test('after the pinned identity changes, the built-in profile keeps its wallet address, also for a site, and custom profiles keep theirs',async()=>{
-  // A copy of the built extension pinned to nextNetwork, as runbook step 3 switches it.
+  // A copy of the built extension pinned to nextNetwork, as the identity-switch PR switches it.
   const switched=mkdtempSync(join(tmpdir(),'pocol-switched-'));
   try{
     // The copy sits outside this package, so it needs its own module type.

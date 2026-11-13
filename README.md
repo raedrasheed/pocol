@@ -21,10 +21,10 @@ The public chain is operator-designated **PoCol Mainnet**, with currency symbol
 
 History: the 0.4.0 upgrade of the first PoCol Mainnet kept that network's identity,
 wallets, balances and history. Its consensus version 2 enables the complete nonce
-range `0` through `18446744073709551615` at one explicitly configured height; see the
-[coordinated rollout guide](deploy/mainnet/README.md). The
-[earn-in cutover runbook](deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md) moves PoCol Mainnet
-to a new genesis; its step 3 switches the identity above.
+range `0` through `18446744073709551615` at one explicitly configured height. The owner
+has since decided to launch a brand-new network from a fresh genesis and keep nothing of
+the old one ([decisions, 2026-11-13](development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md));
+the identity above is replaced once that genesis exists (see [deploy/mainnet](deploy/mainnet/README.md)).
 
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and

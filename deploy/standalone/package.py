@@ -54,7 +54,6 @@ if args.platform=='Linux':
         if asset.is_file(): files[asset.name]=asset
 for name,source in files.items(): shutil.copy2(source,args.out/name)
 shutil.copy2(root/'deploy/standalone/README.md',args.out/'README.md')
-shutil.copy2(root/'deploy/standalone/RELEASE-UPGRADE.md',args.out/'RELEASE-UPGRADE.md')
 shutil.copy2(root/'prototypes/third-party/evm-crypto/NOTICE.txt',args.out/'THIRD-PARTY-CRYPTO-NOTICES.txt')
 commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
 (args.out/'source-commit.txt').write_text(commit+'\n',encoding='utf-8',newline='\n')

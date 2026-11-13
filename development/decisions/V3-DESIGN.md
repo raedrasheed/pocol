@@ -2,7 +2,10 @@
 
 Status: design, approved by the owner on 2026-11-08 (see V3-OWNER-DECISIONS-2026-11-08.md). Nothing here is deployed or built yet. Every file:line was read at commit
 `53a9e878f5d1fd9caa5a39275911a9d5960de8a9` (head of PR #1). Paths are relative to the repository root
-(`WT`) at that commit.
+(`WT`) at that commit. The old network's cutover and upgrade tooling cited here (the earn-in cutover runbook,
+`preflight.py`, `nonce_upgrade.py`, `prepare_nonce_upgrade.py`, `RELEASE-UPGRADE.md`, the earn-in proposal and the
+earn-in rollout records) was removed after the owner's 2026-11-13 decision to launch a brand-new network
+([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)); read it in git history, for example at commit `d24843d`.
 Thesis citations are "T p<PDF page>/<printed page>" of `WT/PhD-thesis-Raed-Rasheed-120211566-61.pdf`.
 
 **The owner's rule (verbatim):** «أوافق على تعديل التي لا تغيير خوارزمية الاجماع بدون اي تحفظ. أما التي تحتاج

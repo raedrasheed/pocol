@@ -200,17 +200,6 @@ The explorer's existing `pocol_getParams` sanitizer now retains the public field
 `forkSchedule`, `effectiveNonceMode`, `nextBlockNonceMode`, and
 `consensusCompatibilitySha256`. The public RPC method allowlist is unchanged.
 
-`studio-fork-fields.patch` makes the corresponding sanitizer-only change to the
-separately installed `pocol_studio_gateway.py`. Review it against that service's
-current source and apply it from the directory containing the file:
-
-```sh
-patch --dry-run -p1 < /path/to/studio-fork-fields.patch
-patch -p1 < /path/to/studio-fork-fields.patch
-```
-
-That patch adds no transaction or read methods and changes no authentication,
-request validation, or limits. Restart the Studio gateway through its existing
-service management after applying the reviewed patch. Both gateway changes must
-be included in the coordinated rollout; no live deployment is performed by the
-repository tests.
+The Studio gateway (`deploy/studio/pocol_studio_gateway.py`) retains the same public
+fields in its own sanitizer. Neither gateway adds transaction or read methods, and no
+live deployment is performed by the repository tests.

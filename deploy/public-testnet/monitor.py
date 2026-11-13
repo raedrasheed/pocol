@@ -46,7 +46,13 @@ def snapshot(release, urls, warnings=None):
         if s['name'] != name or not s['stateStore'] or s['admission']['scope'] != 'experimental-devnet':
             raise ValueError('Unexpected node mode or name on ' + name)
         if s['compatiblePeers'] < 1: raise ValueError('No compatible peers on ' + name)
-        if s['head']['height'] >= s['lifetime']['closingHeight'] - 100:
+        # A continuous chain (H_END = 0) reports closingHeight null; a finite one reports its closing height.
+        lifetime = s['lifetime']
+        if lifetime.get('continuous') is True:
+            if lifetime.get('closingHeight') is not None: raise ValueError('Inconsistent lifetime on ' + name)
+        elif type(lifetime.get('closingHeight')) is not int:
+            raise ValueError('Missing closing height on ' + name)
+        elif s['head']['height'] >= lifetime['closingHeight'] - 100:
             raise ValueError('Finite testnet approaching closing height on ' + name)
         if s['stats']['historyDamaged']: raise ValueError('Damaged history on ' + name)
         values[name] = s

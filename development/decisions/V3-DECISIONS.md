@@ -1,5 +1,31 @@
 # PoCol v3 decisions — 2026-11-11
 
+> **Superseded in part by the owner decisions of 2026-11-13**
+> ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)): PoCol launches a brand-new network from a
+> fresh genesis and keeps nothing related to the old network. This record stays as dated history. Affected items:
+>
+> - **O-0** (v3 rides the held earn-in re-genesis): superseded. v3 launches as a brand-new network from a fresh
+>   genesis with new keys and a new chain ID; there is no re-genesis or cutover of the old chain (answers 1-5).
+> - **O-6** (block time 30 s): changed. Difficulty adjustment stays, with a 10 s average block time (answer 10a).
+> - **O-10** (contestable seats when the set is full): superseded. There is no seat contest; registrations are
+>   rate-limited per block, and inactive members are removed after about an hour and may return (answers 10, 10b).
+> - The member limit **M_max** (V3-07, 256): changed to **M_max = 10,000** (second follow-up, answer 2).
+> - **O-14** (probation pool of M_max/4 slots with a contest inside the pool): superseded. There is no separate
+>   probation pool: newcomers accruing their 20 PCOL bond count within M_max = 10,000. New miners register for free
+>   and the first 20 PCOL of their rewards is held as their bond, forfeited on misbehaviour (answers 10, 10c; second
+>   follow-up, answer 2).
+> - **O-21** (raised state caps with a burned creation fee): the creation fee is removed; new accounts pay ordinary
+>   gas only (answer 10d).
+> - **O-32** (the 4,000,000 PCOL genesis allocation): superseded. The new genesis gives each of the four founding
+>   miners 1,000,000 PCOL (answers 8, 9, 15).
+> - **O-33** (how the re-genesis is run): moot. The old network is stopped and nothing carries over, so there is no
+>   freeze height S, old-chain export or migration (answers 1-4).
+> - **O-19** (issuance, M3): changed. S0 = 4 PCOL per block at the 10 s average block, halving every 4 years
+>   (H_half = 12,623,040 blocks), with a tail of S0/32 = 0.125 PCOL (answer 7; second follow-up, answer 1).
+>
+> How these map onto the parameters and programs is implemented in later changes; until then the code still carries
+> the 2026-11-08 values.
+
 Status: records the owner approval of 2026-11-08 and its implementation constraints. This is a documentation decision record, not an activation, a deployment approval or evidence that the implementation is complete. The live network remains untouched.
 
 ## Owner rule and scope
