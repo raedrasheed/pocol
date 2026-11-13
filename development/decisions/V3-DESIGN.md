@@ -737,8 +737,11 @@ hashrate (`chain.rs:592`).
 
 **Change.**
 - Make P_MAX and T_PROB CP fields read through `cfg()`, and delete the host mirrors.
-- Optionally run a contest inside the pool (the V3-10 statistic, restricted to ACCRUING victims; the victim's
-  accrued bond is refunded and the record erased; ACC_COUNT is updated as at `:394`).
+- Optionally run a contest inside the pool (the V3-10 statistic, restricted to ACCRUING victims; ACC_COUNT is updated
+  as at `:394`). Owner decision 2026-11-13 (V3-OWNER-DECISIONS-2026-11-12.md, third decision, option a): the victim is
+  not erased at once. It exits as by deregister and stays payable and punishable until dueHeight = h + U, so its pending
+  pot parts fill its accrued bond, which is refunded then. It gives up its probation seat at once (ACC_COUNT counts only
+  the ACCRUING records that hold a pool seat), so the newcomer is seated in the same call.
 - Re-derive T_PROB with the chosen issuance. Under M3 at 30 s, earning 20 PCOL in 7 days needs about 0.23% of
   hashrate; 30 days needs about 0.054%.
 - V3-09 is a prerequisite for any larger zero-bond pool.

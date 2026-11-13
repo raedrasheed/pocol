@@ -54,10 +54,13 @@
 //! - V3-PR-E4, contestable seats and the probation-pool contest (V3-10, V3-14): every scenario of
 //!   tests/v3/contest-vectors.json (the epoch counters of recordShares/recordLate, registerContest's seat and pool contests,
 //!   every refusal: above the threshold, in grace, the set not full (for a pool contest too, so exits cannot raise E),
-//!   joined after the start of the measured epoch, the late window open, the budgets; a pool victim's pending pots, which
-//!   burn; seat victims punished before their due height) reproduces on the bytecode step by step, with every contestStatus view, the counters
+//!   joined after the start of the measured epoch, the late window open, the budgets; seat victims punished before their
+//!   due height; the pool victim kept exited, payable and punishable until dueHeight (owner decision 2026-11-13, option a):
+//!   its pending pots fill its bond, it is refunded at dueHeight, promoted by its pots, punished by evidence carried after
+//!   the contest, reactivates only into a free pool seat, and the newcomer is seated at once) reproduces on the bytecode
+//!   step by step, with every contestStatus view, the counters, the POOL_OUT bit
 //!   and epoch totals compared and the Escrow invariant and supply after every step; the threshold table reproduces through
-//!   contestThreshold (threshold and integer square root); thirteen planted mutants each fail; the counters saturate and a
+//!   contestThreshold (threshold and integer square root); seventeen planted mutants each fail; the counters saturate and a
 //!   saturated count is never contestable; the contest's write ceilings, gas and user SYS keys; with v3-preview the worst
 //!   recordShares/recordLate gas with the counters within admission's envelope.
 use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,
@@ -89,12 +92,13 @@ const LATE_MUTANTS:[&str;5]=["late-last-share-reverts","late-last-share-overwrit
 /// The eight V3-19/V3-15/V3-20 issuance, carry and tip split mutants (RewardEscrow), in fixture order.
 const ECON_MUTANTS:[&str;8]=["carry-not-added","tip-share-to-pot","base-burn-still-burned","issued-ignored-flat-s0","carry-kept-at-final","base-burn-into-closed-pot",
     "carry-not-lagged","lagged-carry-kept-at-final"];
-/// The thirteen V3-10/V3-14 contest mutants (MinerRegistry), in fixture order.
-const CONTEST_MUTANTS:[&str;13]=["contest-threshold-off-by-one","contest-grace-ignored","contest-joined-in-epoch-allowed","contest-set-not-full-allowed",
-    "pool-contest-set-not-full-allowed","contest-late-window-open","pool-contest-refund-skipped","pool-contest-exits-instead","pool-contest-held-victim","counters-not-rolled","late-not-counted",
-    "isqrt-not-floored","contest-one-reg-ops-unit"];
+/// The seventeen V3-10/V3-14 contest mutants (MinerRegistry), in fixture order.
+const CONTEST_MUTANTS:[&str;17]=["contest-threshold-off-by-one","contest-grace-ignored","contest-joined-in-epoch-allowed","contest-set-not-full-allowed",
+    "pool-contest-set-not-full-allowed","contest-late-window-open","pool-contest-erased-at-once","pool-contest-seat-kept","pool-victim-refund-counted-again",
+    "pool-victim-punish-counted-again","pool-victim-promote-counted-again","pool-victim-reactivates-without-a-pool-seat","pool-contest-held-victim",
+    "counters-not-rolled","late-not-counted","isqrt-not-floored","contest-one-reg-ops-unit"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
-const V3_SYS_CODE_HASH:&str="2702736463d3a053bd7b8b224d1d5a369f01f9f75068d3b672e982c0968be9a5";
+const V3_SYS_CODE_HASH:&str="72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849";
 
 fn b()->U256{U256::from(20*PCOL)}
 fn system()->Address{Address::from_word((U256::from(1)<<160u32).wrapping_sub(U256::from(2)).into())}
@@ -735,12 +739,14 @@ fn ids_of(db:&InMemoryDB,base_slot:u64,len_slot:u64)->Vec<Address>{
     (0..reg(db,len_slot).to::<u64>()).map(|i|Address::from_word(storage(db,registry_address(),base(base_slot)+U256::from(i)).into())).collect()
 }
 /// Bytecode-only conservation, independent of any model: ACC_COUNT (slot 8) is the number of live ACCRUING records
-/// and held_total (slot 4) the sum of live bonds, over the record array.
+/// that hold a pool seat (V3-14: without POOL_OUT, w0 bit 87, which only an exited pool-contest victim carries) and
+/// held_total (slot 4) the sum of live bonds, over the record array.
 fn conserved(h:&Harness)->Result<(),String>{
     let (mut accruing,mut held)=(0u64,U256::ZERO);
     for id in ids_of(&h.db,5,0){
         let (w0,_,w2,_)=h.record(id);let st=bits(w0,16,8);
-        if bits(w0,0,8)!=0&&bits(w0,8,8)==0&&(st==1||st==4){held+=w2;if st==4{accruing+=1}}
+        ensure!(bits(w0,87,1)==0||bits(w0,0,8)==2,"POOL_OUT on a record that is not exited");
+        if bits(w0,0,8)!=0&&bits(w0,8,8)==0&&(st==1||st==4){held+=w2;if st==4&&bits(w0,87,1)==0{accruing+=1}}
     }
     ensure_eq!(reg(&h.db,8).to::<u64>(),accruing,"ACC_COUNT");ensure_eq!(reg(&h.db,4),held,"held_total");
     Ok(())
@@ -793,10 +799,11 @@ fn budget_run(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<Harn
     for (n,r) in records{
         let (w0,w1,w2,w3)=h.record(name(n));
         let got=(bits(w0,0,8),bits(w0,16,8),w2.to_string(),bits(w0,8,8)!=0,bits(w0,152,64),Address::from_word(w1.into()),
-            (bits(w3,0,64),bits(w3,64,64),bits(w3,128,64),bits(w3,192,64)),bits(w0,88,64),(bits(w1,224,32),bits(w1,160,64)),(bits(w0,216,20),bits(w0,236,20)));
+            (bits(w3,0,64),bits(w3,64,64),bits(w3,128,64),bits(w3,192,64)),bits(w0,88,64),(bits(w1,224,32),bits(w1,160,64)),(bits(w0,216,20),bits(w0,236,20)),bits(w0,87,1)!=0);
         let u=|k:&str|r[k].as_u64().unwrap();
+        // V3-14: the vectors name pool_out only when it is set (POOL_OUT, w0 bit 87).
         let want=(u("status"),u("bond_state"),r["bond"].as_str().unwrap().to_string(),r["tomb"].as_bool().unwrap(),u("registered_at"),name(r["reward"].as_str().unwrap()),
-            (u("exit"),u("due"),u("burn"),u("grace")),u("last_share"),(u("last_maint"),u("last_react")),(u("cnt_cur"),u("cnt_prev")));
+            (u("exit"),u("due"),u("burn"),u("grace")),u("last_share"),(u("last_maint"),u("last_react")),(u("cnt_cur"),u("cnt_prev")),r.get("pool_out").is_some_and(|x|x.as_bool().unwrap()));
         ensure_eq!(got,want,"{name_} record {n}");
         // w1 is exactly the reward address, lastReactHeight (160..223) and lastMaintHeight mod 2^32 (224..255).
         let w1_want=U256::from_be_slice(name(r["reward"].as_str().unwrap()).as_slice())|(U256::from(u("last_react"))<<160u32)|(U256::from(u("last_maint"))<<224u32);
@@ -1722,10 +1729,12 @@ fn v3_close_block_call_shapes(){
 
 // ---------------- V3-PR-E4: contestable seats and the probation-pool contest (V3-10, V3-14)
 
-const CONTEST_SCENARIOS:[&str;23]=["acc-count-promote-exit-displace-punish","contest-budget","contest-in-grace","contest-joined-after-the-measured-epoch-start",
+const CONTEST_SCENARIOS:[&str;28]=["acc-count-promote-exit-displace-punish","contest-budget","contest-in-grace","contest-joined-after-the-measured-epoch-start",
     "counters-roll-at-the-epoch-boundary","late-credit-counts-in-the-statistic","omitted-shares-without-late-credit","pool-and-seats-full","pool-contest",
-    "pool-contest-above-the-threshold-at-the-full-set","pool-contest-exits-cannot-raise-the-threshold","pool-rotation-race","pool-victim-pending-pots-burn",
-    "pool-victim-pending-pots-without-a-contest","seat-contest-below-threshold-refund-after-u","seat-contest-probation-newcomer-accruing-victim",
+    "pool-contest-above-the-threshold-at-the-full-set","pool-contest-exits-cannot-raise-the-threshold","pool-newcomer-seated-at-once","pool-rotation-race",
+    "pool-victim-pending-pots-fill-its-bond","pool-victim-pending-pots-without-a-contest","pool-victim-promoted-by-its-pending-pots",
+    "pool-victim-punished-after-the-contest","pool-victim-reactivates-into-a-free-pool-seat","pool-victim-refunded-at-due",
+    "seat-contest-below-threshold-refund-after-u","seat-contest-probation-newcomer-accruing-victim",
     "seat-contest-refusals","seat-victims-punished-before-due","seat-victims-punished-then-swept","threshold-boundary-6-shares","threshold-boundary-7-shares",
     "tiny-epoch-never-contestable","threshold-table"];
 fn contest_body(n:&str)->serde_json::Value{let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();v[n].clone()}
@@ -1807,7 +1816,7 @@ fn the_threshold_table_reproduces_on_the_bytecode(){
     assert!(contest_threshold(&mut h,U256::from(100),0,1250,3).is_err(),"active 0");
 }
 
-/// The thirteen planted V3-10/V3-14 mutants each fail tests/v3/contest-vectors.json (a chain scenario or the threshold
+/// The seventeen planted V3-10/V3-14 mutants each fail tests/v3/contest-vectors.json (a chain scenario or the threshold
 /// table), each in the scenario written for it.
 #[test]
 fn the_contest_mutants_fail_the_contest_vectors(){
@@ -1815,8 +1824,11 @@ fn the_contest_mutants_fail_the_contest_vectors(){
     let contest=&list[list.len()-CONTEST_MUTANTS.len()..];
     let expect=[("contest-threshold-off-by-one","threshold-boundary-7-shares"),("contest-grace-ignored","contest-in-grace"),
         ("contest-joined-in-epoch-allowed","contest-joined-after-the-measured-epoch-start"),("contest-set-not-full-allowed","seat-contest-refusals"),
-        ("pool-contest-set-not-full-allowed","pool-contest-exits-cannot-raise-the-threshold"),("contest-late-window-open","seat-contest-below-threshold-refund-after-u"),("pool-contest-refund-skipped","pool-contest"),
-        ("pool-contest-exits-instead","pool-contest"),("pool-contest-held-victim","pool-contest"),("counters-not-rolled","counters-roll-at-the-epoch-boundary"),
+        ("pool-contest-set-not-full-allowed","pool-contest-exits-cannot-raise-the-threshold"),("contest-late-window-open","seat-contest-below-threshold-refund-after-u"),
+        ("pool-contest-erased-at-once","pool-victim-pending-pots-fill-its-bond"),("pool-contest-seat-kept","pool-contest"),
+        ("pool-victim-refund-counted-again","pool-victim-refunded-at-due"),("pool-victim-punish-counted-again","pool-victim-punished-after-the-contest"),
+        ("pool-victim-promote-counted-again","pool-victim-promoted-by-its-pending-pots"),
+        ("pool-victim-reactivates-without-a-pool-seat","pool-victim-reactivates-into-a-free-pool-seat"),("pool-contest-held-victim","pool-contest"),("counters-not-rolled","counters-roll-at-the-epoch-boundary"),
         ("late-not-counted","late-credit-counts-in-the-statistic"),("isqrt-not-floored","threshold-table"),("contest-one-reg-ops-unit","contest-budget")];
     let original=runtime(V3,"MinerRegistry");
     for ((n,code),(want,killer)) in contest.iter().zip(expect){
@@ -1847,14 +1859,15 @@ fn sys_keys(r:&ResultAndState)->usize{
 }
 
 /// registerContest's write ceilings, gas and user-context SYS keys: the seat contest with the victim in the middle of the
-/// active list (as deregister middle, plus a registration) and at its tail, and the pool contest (refund, erase, register)
-/// with the victim in the middle and with a bonded victim at the tail. Each stays within half the wallet's CONTEST_GAS
+/// active list (as deregister middle, plus a registration) and at its tail, and the pool contest (the same exit with
+/// POOL_OUT, ACC_COUNT down, then register; owner decision 2026-11-13) with the victim in the middle and with a bonded
+/// victim at the tail. Each stays within half the wallet's CONTEST_GAS
 /// quote and the devnet's SYS_KEYS_USER_MAX (256): one contest leaves room for the block's other user operations.
 #[test]
 fn contest_write_ceilings_gas_and_user_sys_keys(){
     let mut out=Vec::new();
     for (scenario_,sender,victim,value) in [("contest-joined-after-the-measured-epoch-start","n1","c",b()),("seat-contest-below-threshold-refund-after-u","n","c",b()),
-        ("pool-and-seats-full","q","p2",U256::ZERO),("pool-victim-pending-pots-burn","q","p2",U256::ZERO)]{
+        ("pool-and-seats-full","q","p2",U256::ZERO),("pool-victim-pending-pots-fill-its-bond","q","p2",U256::ZERO)]{
         let mut h=contest_until(scenario_,|op|op[0]=="register_contest"&&op[1]==sender&&op[3]==victim&&op[5]=="19");
         let s=h.sender(sender);let mut d=with_arg("registerContest(address,address)",Some(s));d.extend(name(victim).into_word());
         let r=call(&mut h.db,s,d,value,h.height);
@@ -1866,11 +1879,12 @@ fn contest_write_ceilings_gas_and_user_sys_keys(){
     // Changed slots (a slot written back to its value is unchanged). Seat contest, victim in the middle: the victim's w0
     // and w3, the moved record's w0, the two ActList elements (the newcomer takes the freed last one; ActLen nets out),
     // the newcomer's four words, its RecArr element, RecLen, held_total and slot 3: 13; at the tail 11 (no moved record).
-    // Pool contest, victim and newcomer at bond 0, victim in the middle of both lists: the moved record's w0 (both
-    // positions), two ActList and two RecArr elements (RecLen, ActLen and ACC_COUNT net out, held_total unchanged), the
-    // victim's w0, w1 and w3 zeroed (w2 is already 0), the newcomer's w0, w1 and w3, slot 3: 12; a 5 PCOL victim at the
-    // tail: its w2 and held_total as well, no moved record: 11.
-    assert_eq!(out.iter().map(|x|x.1).collect::<Vec<_>>(),[13,11,12,11]);
+    // Pool contest (the victim exits, keeping its record and bond until dueHeight), victim and newcomer at bond 0, victim in
+    // the middle of the active list: the victim's w0 (status, POOL_OUT) and w3, the moved record's w0, the two ActList
+    // elements (ActLen and ACC_COUNT net out, held_total unchanged), the newcomer's w0, w1 and w3, its RecArr element,
+    // RecLen and slot 3: 11; a 5 PCOL victim at the tail: no moved record and one ActList element: 9 (its bond and
+    // held_total stay until its refund).
+    assert_eq!(out.iter().map(|x|x.1).collect::<Vec<_>>(),[13,11,11,9]);
     // pocold's wallet quotes CONTEST_GAS (500,000) for registerContest: at least twice every contest measured here.
     for (n,_,keys,gas) in &out{assert!(*keys<=256&&*gas<=250_000,"{n}: {keys} SYS keys, {gas} gas");}
 }

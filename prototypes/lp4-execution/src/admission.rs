@@ -247,7 +247,9 @@ fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// (recorded owners 3,284,110). The registry's larger dispatch (registerContest, contestStatus, contestThreshold,
 /// epochTotals) raises every nested Registry call by a few gas: settle's worst path (64 bond fills) measures 6,314,420, punish
 /// 98,699, closeBlock 132,869 (the held-zero promotion), all re-measured on the same paths, so settle and settleFinal take
-/// 6,315,000. Review of V3-PR-E4 (tests/v3_contracts.rs v3-preview `v3_closing_mark_close_gas_within_the_envelope`):
+/// 6,315,000. Owner decision 2026-11-13 on the pool-contest victim (V3-14, option a: it exits with POOL_OUT and ACC_COUNT
+/// counts only the ACCRUING records that hold a pool seat): promote now tests POOL_OUT before lowering ACC_COUNT, which
+/// settle's worst path pays on each of its 64 promotions: 6,316,532 measured, so settle and settleFinal take 6,317,000. Review of V3-PR-E4 (tests/v3_contracts.rs v3-preview `v3_closing_mark_close_gas_within_the_envelope`):
 /// markClose's closing phase refunds RET = 128 records per call, each through Escrow.releaseBond calling back into the larger
 /// Registry dispatch, and an ACCRUING refund also writes ACC_COUNT; at the GAS_DOMAIN maxima with P_MAX 64 (192 HELD genesis
 /// members, 64 ACCRUING probationers with half a bond) the call refunding 64 HELD and 64 ACCRUING records measures 2,734,171
@@ -255,7 +257,7 @@ fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// gets a v3 entry. Both markClose and recordShares are earn-in call names, so they replace their earn-in entries in the
 /// composition and recordLate stays the one v3-only name.
 pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",133_000),("finalize",62_000),("invalidate",9_000),("markClose",2_735_000),("punish",99_000),("recordLate",3_466_000),
-    ("recordResult",37_000),("recordShares",14_389_000),("settle",6_315_000),("settleFinal",6_315_000)];
+    ("recordResult",37_000),("recordShares",14_389_000),("settle",6_317_000),("settleFinal",6_317_000)];
 /// The envelope entry of a SYSTEM call for a program set (`gas_envelope`).
 pub fn envelope(set:ProgramSet,name:&str)->Option<u64>{gas_envelope(set).iter().find(|(n,_)|*n==name).map(|x|x.1)}
 fn phase_gas(cp:&ConsensusParams,class:u8,set:ProgramSet)->Option<Vec<u64>>{

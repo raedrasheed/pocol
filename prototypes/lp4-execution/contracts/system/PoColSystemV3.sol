@@ -369,6 +369,12 @@ contract MinerRegistry {
     uint256 constant CNT_SAT=(uint256(1)<<20)-1;
     uint256 constant CNT_MASK=((uint256(1)<<40)-1)<<216;
     uint256 constant LOW96=(uint256(1)<<96)-1;
+    // V3-14, owner decision 2026-11-13 (option a; V3-OWNER-DECISIONS-2026-11-12.md): a pool-contest victim exits as by
+    // deregister and gives up its probation seat at once. POOL_OUT, w0 bit 87 (the top bit of the ActList position 56..87,
+    // which every exit clears and no position below M_max <= 65535 sets), marks it while it is exited. ACC_COUNT counts the
+    // ACCRUING records that hold a pool seat, those without POOL_OUT: the contest lowers it once, and the victim's later
+    // refund, punish or promotion to HELD does not lower it again; reactivate clears the bit and takes a pool seat again.
+    uint256 constant POOL_OUT=uint256(1)<<87;
     function get(uint256 k) internal view returns(uint256 v){assembly{v:=sload(k)}}
     function put(uint256 k,uint256 v) internal {assembly{sstore(k,v)}}
     function cfg(uint256 n) internal view returns(uint256){return ICaps(Sys.CAPS).get(n);}
@@ -379,11 +385,13 @@ contract MinerRegistry {
     function held(uint256 w) internal pure returns(bool){return (w&255)!=0 && ((w>>8)&255)==0 && ((w>>16)&255)==1;}
     function live(uint256 w) internal pure returns(bool){uint256 st=(w>>16)&255;return (w&255)!=0 && ((w>>8)&255)==0 && (st==1 || st==ACCRUING);}
     function accruingState(uint256 w) internal pure returns(bool){return ((w>>16)&255)==ACCRUING;}
+    /// V3-14: an ACCRUING record that holds a pool seat (counted in ACC_COUNT): not a pool-contest victim (POOL_OUT).
+    function pooled(uint256 w) internal pure returns(bool){return (w&(STATE_MASK|POOL_OUT))==(ACCRUING<<16);}
     function registeredAt(uint256 w) internal pure returns(uint256){return (w>>152)&LOW64;}
     function pastProbation(uint256 w,uint256 height) internal view returns(bool){return height>=registeredAt(w)+cfg(CP_T_PROB);} // V3-14
-    /// HELD once the bond reaches B: leaves the accruing count.
+    /// HELD once the bond reaches B: leaves the accruing count (V3-14: a pool-contest victim left it at the contest).
     function promote(uint256 r,uint256 w,uint256 bond) internal {
-        if(bond==cfg(16)){put(r,(w&~STATE_MASK)|(uint256(1)<<16));put(ACC_COUNT,get(ACC_COUNT)-1);}
+        if(bond==cfg(16)){put(r,(w&~STATE_MASK)|(uint256(1)<<16));if(w&POOL_OUT==0)put(ACC_COUNT,get(ACC_COUNT)-1);}
     }
     function system() internal view {if(msg.sender!=Sys.SYSTEM)revert Unauthorized();if(msg.data.length!=4)revert BadCalldata();}
     function bondRecord(address id) external view returns(uint256,address,uint256){uint256 r=rec(id);return(get(r),address(uint160(get(r+1))),get(r+2));}
@@ -490,6 +498,7 @@ contract MinerRegistry {
                 if(accruingState(w)&&pastProbation(w,height))revert BadState(); // EARN-IN U4
                 reactClock(r,height); // V3-09
                 uint256 active=get(1);if(active>=cfg(18))revert Capacity();
+                if(accruingState(w)&&w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);if(a>=cfg(CP_P_MAX))revert Capacity();put(ACC_COUNT,a+1);} // V3-14: a pool seat again
                 put(arr(6)+active,uint160(id));put(1,active+1);put(r,((w&~(ACTPOS_MASK|uint256(255)))|1|(active<<56)));
                 put(r+3,(clocks&(LOW64<<128))|(height<<192));
             }else{
@@ -520,9 +529,9 @@ contract MinerRegistry {
     /// no record (BadState), the victim must pass contestCheck (codes 1 and 3: BadState; 2 and 4..7: NotContestable). A
     /// contest needs a full set (active == M_max, O-10=b "only when all seats are full"), the pool contest included. A
     /// probationer newcomer (msg.value < B_reg) facing a full pool (ACC_COUNT >= P_MAX) displaces an ACCRUING victim from
-    /// the pool: its accrued bond is refunded and its record erased now (ACC_COUNT falls as at refund; its share of pots
-    /// still pending then burns, as for any erased payee). Otherwise the victim exits as by deregister (refund by the sweep
-    /// or claimBond at dueHeight = h + U). The sender then registers exactly as register(reward) does.
+    /// the pool. Either way the victim exits as by deregister (refund by the sweep or claimBond at dueHeight = h + U, no
+    /// burn; payable and punishable until then); a pool-contest victim also gives up its pool seat at once (POOL_OUT,
+    /// ACC_COUNT down by one, owner decision 2026-11-13). The sender then registers exactly as register(reward) does.
     function contest() internal {
         if(msg.data.length!=68)revert BadCalldata();
         uint256 a;uint256 v;assembly{a:=calldataload(4) v:=calldataload(36)}
@@ -537,10 +546,12 @@ contract MinerRegistry {
         (uint256 code,,)=contestCheck(vr,vw,probation,height);
         if(code==1||code==3)revert BadState();
         if(code!=0)revert NotContestable();
-        if(probation&&get(ACC_COUNT)>=cfg(CP_P_MAX)){
-            // V3-14: the pool contest. The accrued bond is refunded and the record erased (refund lowers ACC_COUNT).
-            uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);
-        }else exitAt(vr,vw,get(vr+3),height); // V3-10: the victim exits; refunded after U
+        // V3-10: the victim exits; refunded after U. V3-14 (owner decision 2026-11-13, option a): a pool-contest victim exits
+        // the same way, keeping its accrued bond, its pending pot parts and its evidence exposure until dueHeight, and leaves
+        // the pool now (POOL_OUT; ACC_COUNT falls here, not again at its refund), so the newcomer takes its probation seat.
+        bool pool=probation&&get(ACC_COUNT)>=cfg(CP_P_MAX);
+        exitAt(vr,vw,get(vr+3),height,pool?POOL_OUT:0);
+        if(pool)put(ACC_COUNT,get(ACC_COUNT)-1);
         enroll(msg.sender,address(uint160(a)),r,0,height);
         put(3,c+2+(uint256(1)<<16));
     }
@@ -638,11 +649,12 @@ contract MinerRegistry {
     /// EARN-IN S1: exits like deregister, while more than M_min members stay active.
     function probationExit(uint256 r,uint256 w,uint256 clocks,uint256 height) internal {
         if(get(1)<=cfg(19))return;
-        exitAt(r,w,clocks,height);
+        exitAt(r,w,clocks,height,0);
     }
-    /// The exit of deregister: status 2, out of the active list, exitHeight = height, dueHeight = height + U.
-    function exitAt(uint256 r,uint256 w,uint256 clocks,uint256 height) internal {
-        uint256 due=sumHeight(height,cfg(27));put(r,(removeActive(r,w)&~uint256(255))|2);
+    /// The exit of deregister: status 2, out of the active list, exitHeight = height, dueHeight = height + U; `out` is
+    /// POOL_OUT for a pool-contest victim (V3-14), else 0.
+    function exitAt(uint256 r,uint256 w,uint256 clocks,uint256 height,uint256 out) internal {
+        uint256 due=sumHeight(height,cfg(27));put(r,(removeActive(r,w)&~uint256(255))|2|out);
         put(r+3,(clocks&~((uint256(1)<<128)-1))|height|(due<<64));
     }
     function refund(address id,uint256 r) internal returns(bool){
@@ -651,7 +663,7 @@ contract MinerRegistry {
         // accounted in held_total; the caller decides whether to erase/settle (it must not).
         if(!IEscrowV1(Sys.ESCROW).releaseBond(id))return false;
         put(4,get(4)-get(r+2));
-        if(accruingState(get(r)))put(ACC_COUNT,get(ACC_COUNT)-1); // EARN-IN S2
+        if(pooled(get(r)))put(ACC_COUNT,get(ACC_COUNT)-1); // EARN-IN S2; V3-14: once only for a pool-contest victim
         return true;
     }
     function erase(address,uint256 r,uint256 w) internal {
@@ -740,7 +752,7 @@ contract MinerRegistry {
         if(w==0 || ((w>>8)&255)!=0) revert BadState();
         uint256 st=(w>>16)&255; uint256 clocks=get(r+3);
         if(st==1||st==ACCRUING){
-            if(st==ACCRUING)put(ACC_COUNT,get(ACC_COUNT)-1); // EARN-IN S4
+            if(pooled(w))put(ACC_COUNT,get(ACC_COUNT)-1); // EARN-IN S4; V3-14: a pool-contest victim left it at the contest
             if((w&255)==1){ w=(removeActive(r,w)&~uint256(255))|2; clocks=(clocks&~((uint256(1)<<128)-1))|height|(height<<64); }
             w=(w&~STATE_MASK)|(uint256(2)<<16)|(uint256(1)<<8);
             uint256 bond=get(r+2); put(4,get(4)-bond); IEscrowV1(Sys.ESCROW).burnBond(bond,payee(reporter)); // V3-17

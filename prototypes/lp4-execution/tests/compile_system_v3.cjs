@@ -5,7 +5,8 @@
 //     EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17
 //     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3),
 //     MinerRegistry or ShareLedger; eight of the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow;
-//     thirteen of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4), MinerRegistry.
+//     seventeen of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4, with the owner decision of
+//     2026-11-13 on the pool-contest victim), MinerRegistry.
 //     Each entry names the program it replaces.
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
@@ -78,10 +79,17 @@ const MUTANTS=[
   // which a contestant lowers by exiting its own members in the contest block.
   ['pool-contest-set-not-full-allowed','if(get(1)<cfg(18))return(2,0,0);','if(!pool&&get(1)<cfg(18))return(2,0,0);'],
   ['contest-late-window-open','if(cur==0||height%e+1<cfg(11))return(4,0,0);','if(cur==0)return(4,0,0);'],
-  // The pool contest's victim is erased with its accounting but without the refund (its accrued bond stays in Escrow).
-  ['pool-contest-refund-skipped','uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);','uint256 w=removeActive(vr,vw);put(4,get(4)-get(vr+2));put(ACC_COUNT,get(ACC_COUNT)-1);erase(victim,vr,w);'],
-  // The pool contest's victim exits like a seat contest's (refund after U), so its slot is not freed.
-  ['pool-contest-exits-instead','uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);','exitAt(vr,vw,get(vr+3),height);'],
+  // V3-14, owner decision 2026-11-13 (option a). The first draft's pool contest: the victim refunded and erased at once,
+  // so its parts of pending pots burn and later evidence finds no record.
+  ['pool-contest-erased-at-once','exitAt(vr,vw,get(vr+3),height,pool?POOL_OUT:0);\n        if(pool)put(ACC_COUNT,get(ACC_COUNT)-1);','if(pool){uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);}else exitAt(vr,vw,get(vr+3),height,0);'],
+  // The pool contest's victim exits like a seat contest's but keeps its pool seat, so the newcomer finds the pool full.
+  ['pool-contest-seat-kept','exitAt(vr,vw,get(vr+3),height,pool?POOL_OUT:0);\n        if(pool)put(ACC_COUNT,get(ACC_COUNT)-1);','exitAt(vr,vw,get(vr+3),height,0);'],
+  // The victim's refund, punish or promotion lowers ACC_COUNT a second time.
+  ['pool-victim-refund-counted-again','if(pooled(get(r)))put(ACC_COUNT,get(ACC_COUNT)-1);','if(accruingState(get(r)))put(ACC_COUNT,get(ACC_COUNT)-1);'],
+  ['pool-victim-punish-counted-again','if(pooled(w))put(ACC_COUNT,get(ACC_COUNT)-1);','if(st==ACCRUING)put(ACC_COUNT,get(ACC_COUNT)-1);'],
+  ['pool-victim-promote-counted-again','if(w&POOL_OUT==0)put(ACC_COUNT,get(ACC_COUNT)-1);','put(ACC_COUNT,get(ACC_COUNT)-1);'],
+  // The victim reactivates without a free pool seat (and without retaking one).
+  ['pool-victim-reactivates-without-a-pool-seat','if(accruingState(w)&&w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);if(a>=cfg(CP_P_MAX))revert Capacity();put(ACC_COUNT,a+1);}',''],
   ['pool-contest-held-victim','if(pool&&!accruingState(vw))return(3,0,0);',''],
   ['counters-not-rolled','else if(ej>el){prev=ej==el+1?cur:0;cur=n;}','else if(ej>el){cur+=n;}'],
   // recordLate keeps the E3 rule (lastShare only): late credit is not counted in the victim's counters.

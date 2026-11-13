@@ -23,7 +23,7 @@ covers the reservation while the base fee stays below 2 gwei.
 
 On the v3 network (dormant until activation) a zero-bond newcomer facing a full set may need a contest instead
 (`quote_contest`, registerContest): the wallet reserves CONTEST_GAS = 500,000 gas, about twice the largest contest
-measured (232,451 gas, `prototypes/lp4-execution/tests/v3_contracts.rs`,
+measured (232,489 gas, `prototypes/lp4-execution/tests/v3_contracts.rs`,
 `contest_write_ceilings_gas_and_user_sys_keys`). With the maximum fee at 2 x base fee + 1 gwei, 0.002 PCOL covers that
 reservation only while the base fee stays below 1.5 gwei (at 1 gwei it is 0.0015 PCOL). Above that, a contestant needs
 more than the faucet's amount; the faucet amount is sized for registration, not for contests.

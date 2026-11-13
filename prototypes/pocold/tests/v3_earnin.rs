@@ -320,8 +320,9 @@ mod preview {
     /// V3-14 on chain: P_MAX 1 is held by alice, a zero-bond probationer who never mines (registered at 1, so judged on
     /// epoch 1 from h = 19), with three of four seats taken. bob's probation registration is refused (Capacity), and so is
     /// his contest of alice: first she is not judgeable yet, then the set is not full (a pool contest needs every seat
-    /// taken, as every contest). carol fills the set with a full bond at 19; at 20 bob's contest lands: alice's record is
-    /// erased and her accrued bond (0) refunded, bob takes the probation seat, and ACC_COUNT stays 1 throughout. The
+    /// taken, as every contest). carol fills the set with a full bond at 19; at 20 bob's contest lands: alice exits as by
+    /// deregister (her accrued bond, 0, refunded after U; owner decision 2026-11-13) and gives up her probation seat at once,
+    /// bob takes it, and ACC_COUNT stays 1 throughout (the sweep's refund of alice at 20 + U does not lower it). The
     /// wallet's quote decision and status flags follow each step.
     #[test]
     fn an_idle_probationer_is_displaced_from_the_pool_on_chain() {
@@ -357,17 +358,22 @@ mod preview {
         let pool = plan(&net, bob.address(), alice.address(), None).unwrap();
         assert_eq!((pool.pool, pool.probation, pool.view), (true, true, v), "a probation bond against a full pool: the pool contest");
         let d = pool.describe();
-        assert_eq!((d["contest"]["kind"].as_str(), d["contest"]["refundAfterBlocks"].as_u64(), d["probation"].as_bool()), (Some("pool"), Some(0), Some(true)));
-        assert!(d["steps"][1].as_str().unwrap().contains("refunded to it") && d["steps"][1].as_str().unwrap().contains("burned"), "{d}");
+        assert_eq!((d["contest"]["kind"].as_str(), d["contest"]["refundAfterBlocks"].as_u64(), d["probation"].as_bool()), (Some("pool"), Some(u64::from(net.chain.spec.cp().U)), Some(true)));
+        assert!(d["steps"][1].as_str().unwrap().contains("probation seat now") && !d["steps"][1].as_str().unwrap().contains("burn"), "{d}");
         let seat = plan(&net, bob.address(), alice.address(), Some("20")).unwrap();
         assert_eq!((seat.pool, contest_view(&net, bob.address(), alice.address(), false).code), (false, 0), "with the full bond: a seat contest of the same victim");
         let t = contest_tx(&net, &bob, alice.address(), 0);
         let _ = next(&mut net, one, vec![t]);
         assert_eq!(receipts_status(&net), vec![vec![1u8]]);
-        assert!(apply::miner_record(&net.chain.head().state, alice.address()).is_none(), "alice's record erased at once");
+        let h = net.chain.head().height;
+        let a = record(&net, alice.address());
+        assert_eq!((a.status, a.bond_state, a.exit_height, a.due_height, a.tomb), (2, 4, h, h + u64::from(net.chain.spec.cp().U), false), "alice exits as by deregister, not erased");
         let r = record(&net, bob.address());
         assert_eq!((r.status, r.bond_state, accruing_count(&net)), (1, 4, U256::from(1)), "bob holds the probation seat; ACC_COUNT conserved");
         assert_eq!(flags(&net, bob.address()), (false, true, true), "bob is registered now");
+        while net.chain.head().height < a.due_height { let _ = next(&mut net, one, vec![]); }
+        assert!(apply::miner_record(&net.chain.head().state, alice.address()).is_none(), "the sweep refunded and erased alice at her due height");
+        assert_eq!(accruing_count(&net), U256::from(1), "her refund does not lower ACC_COUNT again: bob still holds the seat");
     }
 
     /// V3-08 on chain (V3-PR-E1): one identity's second maintenance operation in a block is a status-0 receipt, while

@@ -14,9 +14,9 @@
 //! Contest (V3-10/V3-14, the v3 program set only). `quote_contest` names a victim and a bond. The registry's own view,
 //! contestStatus(victim, probation), is run on the head state at the next height, so the wallet's checks are the program's:
 //! every refusal is explained before anything is signed, with the measured count and threshold, and the quote states what
-//! the confirmed registerContest(reward, victim) does: a seat contest exits the victim (its bond is refunded after U), a
-//! pool contest refunds a probationer's accrued bond and removes its record (its part of pots not yet settled burns);
-//! both need all seats taken; this account then registers as with
+//! the confirmed registerContest(reward, victim) does: both exit the victim (its bond is refunded after U, no penalty), and
+//! a pool contest also frees the probationer's probation seat at once (its part of pots not yet settled still fills its
+//! accrued bond; owner decision 2026-11-13); both need all seats taken; this account then registers as with
 //! quote_register. The registry decides again at inclusion (its phase 0 may credit shares or start an epoch first).
 use crate::{launcher::Home,node::Node,types};
 use pocol_lp4_execution::{apply,txsign::{Key,Tx},view::View};
@@ -53,7 +53,7 @@ const REGISTRY_GAS:u64=1_000_000;
 /// Earn-in registration: about 2x the 194,143 gas a zero-bond first registration measures
 /// (lp4-execution tests/earnin_contracts.rs), so the fee faucet's 0.002 PCOL covers its maximum fee.
 const EARNIN_REGISTER_GAS:u64=400_000;
-/// V3-10/V3-14 registerContest: about 2x the largest contest measured (232,451 gas, a seat contest with the victim in the
+/// V3-10/V3-14 registerContest: about 2x the largest contest measured (232,489 gas, a seat contest with the victim in the
 /// middle of the active list; lp4-execution tests/v3_contracts.rs contest_write_ceilings_gas_and_user_sys_keys), so that a
 /// zero-bond newcomer's fee faucet (0.002 PCOL) covers its maximum fee while the base fee stays below 1.5 gwei
 /// (deploy/faucet/README.md).
@@ -188,13 +188,13 @@ impl ContestPlan{
     pub fn describe(&self)->Value{
         let (victim,v,p,epoch)=(self.victim,&self.view,&self.params,self.params.next/self.params.e_epoch-1);
         let steps=if self.pool{vec![format!("The probationer {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",v.count,v.threshold),
-            format!("Its accrued bond is refunded to it and its record is removed now; its part of the pots of the last {} blocks, not yet settled, is burned. You take its probation seat.",p.d),
+            format!("It leaves the active set and its probation seat now; its accrued bond, with its part of the pots of the last {} blocks not yet settled, is refunded after {} blocks (no penalty). You take its probation seat.",p.d,p.u),
             format!("You register with a {} PCOL bond, filled from your rewards up to {} PCOL.",coins(self.value),coins(self.full))]}
         else{vec![format!("The member {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",v.count,v.threshold),
             format!("It leaves the active set; its bond is refunded after {} blocks (no penalty).",p.u),
             format!("You take its seat with a {} PCOL bond{}.",coins(self.value),if self.probation{format!(", filled from your rewards up to {} PCOL",coins(self.full))}else{String::new()})]};
         json!({"victim":format!("{victim:#x}"),"contest":{"kind":if self.pool{"pool"}else{"seat"},"count":v.count,"threshold":v.threshold.to_string(),"epoch":epoch,
-            "refundAfterBlocks":if self.pool{0}else{p.u}},"steps":steps,"bondTarget":coins(self.full),"probation":self.probation,
+            "refundAfterBlocks":p.u},"steps":steps,"bondTarget":coins(self.full),"probation":self.probation,
             "note":"Checked against the current head. The registry judges the contest again when the transaction is included; if a share or a new epoch changes the result first, it reverts and only the fee is spent."})
     }
 }
