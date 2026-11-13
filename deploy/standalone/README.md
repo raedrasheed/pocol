@@ -190,7 +190,10 @@ The review shows the maximum fee for all four signatures. No PCOL is transferred
 - Keep mining running afterwards: an identity that stops sharing leaves the
   active set again after `W_act` blocks.
 - Nothing about consensus, the Registry, keys or balances changes.
-- The Android app offers the same action (**Rejoin mining** on its Mining tab), and **Top up bond**.
+- The Android app offers the same action (**Rejoin mining** on its Mining tab), and **Top up bond**. Its engine
+  loop advances a confirmed rejoin every 2 seconds, as the desktop wallet does (it signs `reactivate()` when the window
+  opens), and shows each step (scheduled, reactivating, retrying, rejoined, stopped) as a notice; keep the app
+  running until the account is back in the active set.
 
 **On the v3 network (dormant: a specVersion-2 genesis, decoded only by preview builds).** The engine adds, only
 there (every answer on today's networks is unchanged):
@@ -200,8 +203,10 @@ there (every answer on today's networks is unchanged):
   record) before anything is signed. One bond top-up or reward-address change per identity per block (V3-08).
 - *Rejoin:* the Registry allows one reactivation per `C_react` blocks per identity (V3-09). The engine reads the
   record's own clock: after an exit the window opens at `max(exit + W_act, lastReactivation + C_react)`, and if the
-  clock keeps it shut until the refund at `exit + U`, the wallet says so at once instead of trying. An active member
-  outside the active set is told when an exit becomes useful (`cooldown`). No reactivation is signed while it would
+  clock keeps it shut until the refund at `exit + U`, the wallet says so at once instead of trying. The rejoin review
+  states that window in block heights. An active member outside the active set is told when an exit becomes useful
+  (`cooldown`); a probation record whose deadline comes first is told that it cannot rejoin (it has not exited). The
+  mining card shows the last reactivation, and the next allowed height while it is still ahead. No reactivation is signed while it would
   fail for lack of a seat (every seat taken, or, for a record contested out of the probation pool, every probation
   seat taken); the engine waits for one to free up while the window is open.
 - *Contest:* when every seat is taken, **Contest a seat** (both wallets) lists the members the Registry's own view
@@ -214,7 +219,8 @@ there (every answer on today's networks is unchanged):
 - *Creation burn* (D-V3-21): a transfer that creates an account pays a creation burn, burned within the maximum fee
   you sign. The transfer review shows the quoted burn apart from the gas fee and the amount, and the maximum fee you
   sign (max fee per gas × gas limit), which bounds the gas and the burn together; the gas limit comes from the node's
-  burn-aware estimate. You can lower or raise that maximum (`quote_send` `fee_bound`, or the field in the Send and
+  burn-aware estimate, raised if needed so that the gas at the full max fee per gas plus the burn fit (the estimate,
+  like consensus, prices the gas at the base fee plus the tip). You can lower or raise that maximum (`quote_send` `fee_bound`, or the field in the Send and
   review dialogs); a maximum below the quoted gas and burn is refused before signing, and one below the suggested
   maximum is accepted with a warning that a few accounts created first could make the transfer halt (then only its
   gas is charged). Registry calls write only system storage, so they carry no creation burn.

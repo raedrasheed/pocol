@@ -19,3 +19,4 @@ body { display: flex; flex-direction: column; }
 .btns button { padding: 6px 16px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
 #approve { background: var(--ln); color: #fff; border-color: transparent; }
 #approve[aria-disabled="true"] { opacity: .55; cursor: not-allowed; }
+#boundrow { margin: 8px 0; } #boundrow input { width: 100%; box-sizing: border-box; margin: 4px 0; } #bounderr { color: #c0392b; }

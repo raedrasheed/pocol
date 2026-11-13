@@ -86,6 +86,8 @@ internal static class WalletUiTests {
    state["contestAvailable"]=false;Response(state);Check(Control<Button>("Contest").Visibility==Visibility.Collapsed,"Contest stayed visible.");
    state["bondHeld"]="5";state["bondRemaining"]="15";state["reactivation"]=D("lastAt",120,"cooldownBlocks",200,"allowedFrom",320);Response(state);
    Check(Control<TextBlock>("Mined").Text.Contains("Bond held: 5 PCOL · still to accrue: 15 PCOL")&&Control<TextBlock>("Mined").Text.Contains("next one allowed from block 320"),"Probation bond or reactivation clock missing.");
+   state["reactivation"]=D("lastAt",120,"cooldownBlocks",200,"allowedFrom",null);Response(state);
+   Check(Control<TextBlock>("Mined").Text.Contains("Last reactivation: block 120")&&!Control<TextBlock>("Mined").Text.Contains("next one allowed"),"A passed reactivation height was shown as still ahead.");
    state.Remove("bondRemaining");state.Remove("reactivation");state.Remove("bondHeld");Response(state);Check(!Control<TextBlock>("Mined").Text.Contains("still to accrue"),"Probation line shown without probation.");
    Response(Snapshot(new object[]{Entry(Transfer,"contest","Included")}));Check(CardText(0,0)=="Mining registration · contest","Contest history row missing.");
    const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic;

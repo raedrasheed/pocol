@@ -129,7 +129,8 @@ function approval(sess, ask, q) {
   return new Promise((resolve) => {
     const a = { sess, cancel: (code, message) => { approvals.delete(a); resolve(E(code, message)); p.dismiss(); } };
     approvals.add(a);
-    p.then((ok) => { if (approvals.delete(a)) resolve(ok ? null : E(4001, 'user rejected')); });
+    // A confirmTx with a creation burn may come back with the user's new maximum fee ({bound}): no approval, a new review.
+    p.then((ok) => { if (approvals.delete(a)) resolve(ok === true ? null : ok && ok.bound !== undefined && q.type === 'confirmTx' && q.creationBurn !== undefined ? { bound: ok.bound } : E(4001, 'user rejected')); });
   });
 }
 /** Identity of the session's endpoint; a mismatch ends the session with 4901. */
@@ -333,23 +334,44 @@ async function wallet(sess, m, ask) {
     const maxPriority = o.maxPriorityFeePerGas ? BigInt(o.maxPriorityFeePerGas) : 1000000000n;
     const maxFee = o.maxFeePerGas ? BigInt(o.maxFeePerGas) : base * 2n + maxPriority;
     const call = { from: address, to: o.to, data, value: '0x' + value.toString(16) };
-    // D-V3-21 option A: a v3 node quotes the creation burn with the fee fields to be signed; a spec-1 node answers -32601
-    // (unknown method) and the send is as before. A quote error (a cap halt) refuses the send before anything is signed.
+    // D-V3-21 option A: a node whose next block charges a creation burn quotes it with the fee fields to be signed
+    // (v3Active true). Any other answer leaves the send exactly as before: a spec-1 node answers -32601 (unknown method), a
+    // v3-scheduled node before activation answers v3Active false, and a quote that fails (a revert or missing funds at
+    // 'latest', where a site's dependent send may not run yet, or a cap halt) is no quote: the site's gas is signed as
+    // before, and without it the estimate below decides as before (it fails the same way for a revert or a halt).
     const fees = { maxFeePerGas: '0x' + maxFee.toString(16), maxPriorityFeePerGas: '0x' + maxPriority.toString(16) };
     let quote = null;
     try { const q = await step(sess.rpc('pocol_quoteCreationBurn', [{ ...call, ...fees }])); if (q && q.v3Active === true) quote = q; }
-    catch (e) { if (!(e && e.rpc && e.rpc.code === -32601)) throw e; }
-    // The burn-aware estimate (v3) prices the burn at the signed maxFee, so its gas limit carries it.
-    const gas = o.gas ? BigInt(o.gas) : qty(await step(sess.rpc('eth_estimateGas', [quote ? { ...call, ...fees } : call])));
-    const tx = { chainId: sess.profile.chainId, nonce, maxPriority, maxFee, gas, to: o.to, value, data };
-    const burn = quote ? creationBurnReview({ gas, maxFee, gasUsed: qty(quote.gasUsed), burn: qty(quote.total) }) : null;
-    if (burn && !burn.ok) return E(-32000, 'creation burn and gas exceed the signed maximum fee', { reason: 'CreationFee', creationBurn: burn.burn.toString(), gasFeeMax: burn.gasFeeMax.toString(), signedMax: burn.signedMax.toString(), needGas: burn.needGas.toString() });
-    const ut = unsignedTx(tx);
-    // Every committed field is shown, with the worst-case cost gas·maxFee + value (review finding: fees were hidden);
-    // on v3 the quoted creation burn too, apart from the gas fee and the value, within that signed maximum.
-    if ((err = await approval(sess, ask, { type: 'confirmTx', site: sess.site, network: sess.profile.name, chainId: tx.chainId, from: address, payload: toHex(ut.payload), signingHash: toHex(ut.signingHash), to: o.to, value: value.toString(), data, gas: gas.toString(), nonce: nonce.toString(),
-      maxFeePerGas: tx.maxFee.toString(), maxPriorityFeePerGas: tx.maxPriority.toString(), maxCost: (gas * tx.maxFee + value).toString(),
-      ...(burn ? { creationBurn: burn.burn.toString(), gasFeeMax: burn.gasFeeMax.toString(), signedMax: burn.signedMax.toString() } : {}) }))) return err;
+    catch (e) { if (e && e.reply) throw e; }
+    // The burn-aware estimate (v3) covers the burn at the consensus price of the gas (the effective price); the review
+    // checks it with the gas at maxFee, so a short estimate is raised to the least gas limit that passes (review finding:
+    // otherwise default sends to new accounts were refused at a large cap).
+    let gas = o.gas ? BigInt(o.gas) : qty(await step(sess.rpc('eth_estimateGas', [quote ? { ...call, ...fees } : call])));
+    const quoted = quote ? { gasUsed: qty(quote.gasUsed), burn: qty(quote.total) } : null;
+    let burn = quoted ? creationBurnReview({ gas, maxFee, ...quoted }) : null;
+    if (burn && !burn.ok && !o.gas && burn.needGas > gas) { gas = burn.needGas; burn = creationBurnReview({ gas, maxFee, ...quoted }); }
+    const blockGas = blk && typeof blk.gasLimit === 'string' ? qty(blk.gasLimit) : null;
+    let tx, ut;
+    for (;;) {
+      if (burn && !burn.ok) return E(-32000, 'creation burn and gas exceed the signed maximum fee', { reason: 'CreationFee', creationBurn: burn.burn.toString(), gasFeeMax: burn.gasFeeMax.toString(), signedMax: burn.signedMax.toString(), needGas: burn.needGas.toString() });
+      tx = { chainId: sess.profile.chainId, nonce, maxPriority, maxFee, gas, to: o.to, value, data };
+      ut = unsignedTx(tx);
+      // Every committed field is shown, with the worst-case cost gas·maxFee + value (review finding: fees were hidden);
+      // on v3 the quoted creation burn too, apart from the gas fee and the value, within that signed maximum, which the
+      // user may lower or raise (a new review of the new gas limit follows; nothing is signed until it is approved).
+      err = await approval(sess, ask, { type: 'confirmTx', site: sess.site, network: sess.profile.name, chainId: tx.chainId, from: address, payload: toHex(ut.payload), signingHash: toHex(ut.signingHash), to: o.to, value: value.toString(), data, gas: gas.toString(), nonce: nonce.toString(),
+        maxFeePerGas: tx.maxFee.toString(), maxPriorityFeePerGas: tx.maxPriority.toString(), maxCost: (gas * tx.maxFee + value).toString(),
+        ...(burn ? { creationBurn: burn.burn.toString(), gasFeeMax: burn.gasFeeMax.toString(), signedMax: burn.signedMax.toString() } : {}) });
+      if (err && err.bound !== undefined && burn) {
+        // The user's maximum (wei): the gas limit it allows at this maxFee; one over the block's gas is refused.
+        gas = BigInt(err.bound) / maxFee;
+        if (blockGas !== null && gas > blockGas) return E(-32000, 'the maximum fee allows more gas than one block holds', { reason: 'GasLimit', signedMax: err.bound, blockGas: blockGas.toString() });
+        burn = creationBurnReview({ gas, maxFee, ...quoted });
+        continue;
+      }
+      if (err) return err.bound !== undefined ? E(4001, 'user rejected') : err;
+      break;
+    }
     const s = await profileLocked(async () => {
       if ((err = await signEligible(sess, ep))) return err;
       if ((err = await identity(sess))) return err;
@@ -406,7 +428,8 @@ chrome.runtime.onConnect.addListener((port) => {
   post({ hello: genId }); // D103 section 5: the viewer tears frames down if the worker generation changes
   // ask(q) resolves true only on an explicit approval; dismiss() withdraws the dialog (A06 cancellation).
   const ask = (q) => {
-    const id = ++asks; let resolve; const p = new Promise((r) => { resolve = r; }); waiting.set(id, resolve); post({ ask: id, q });
+    // Only a confirmTx can resolve to anything but true/false (the user's new maximum fee, {bound}).
+    const id = ++asks; let resolve; const p = new Promise((r) => { resolve = r; }); waiting.set(id, (v) => resolve(q.type === 'confirmTx' ? v : v === true)); post({ ask: id, q });
     p.dismiss = () => { if (waiting.delete(id)) { post({ dismiss: id }); resolve(false); } };
     return p;
   };
@@ -425,7 +448,9 @@ chrome.runtime.onConnect.addListener((port) => {
   };
   const tick = setInterval(() => { if (!sess.checking) { sess.checking = true; identity(sess).finally(() => { sess.checking = false; }); } isUnlocked(); }, IDENTITY_CHECK_MS);
   port.onMessage.addListener((msg) => {
-    if (msg && msg.answer !== undefined) { const r = waiting.get(msg.answer); if (r) { waiting.delete(msg.answer); r(msg.ok === true); } return; }
+    // An answer is an approval only with ok === true; a confirmTx may instead carry the user's new maximum fee in wei
+    // (`bound`, a decimal string), which asks for a new review (D-V3-21), never a signature.
+    if (msg && msg.answer !== undefined) { const r = waiting.get(msg.answer); if (r) { waiting.delete(msg.answer); r(msg.ok === true ? true : typeof msg.bound === 'string' && /^[1-9][0-9]{0,77}$/.test(msg.bound) ? { bound: msg.bound } : false); } return; }
     const arrivalMs = Math.floor(performance.now()); // stamped on receipt, before any check (D97)
     if (!msg || typeof msg !== 'object' || !Number.isInteger(msg.seq) || !Number.isInteger(msg.frame)) return;
     // Bpre-B3 run synchronously in arrival order; routing never blocks the next message.

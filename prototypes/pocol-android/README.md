@@ -12,7 +12,9 @@ The release APK is unsigned; see `deploy/standalone/RELEASE-UPGRADE.md` for sign
 
 The Mining tab shows **Review mining registration**, and, when the engine offers them, **Rejoin mining**, **Top up
 bond** and (on the v3 network only, when every seat is taken) **Contest a seat**. Each opens a review from the engine
-(`quote_*` commands of `pocold/src/wallet.rs`); nothing is signed before **Confirm & sign**. On the v3 network the card
+(`quote_*` commands of `pocold/src/wallet.rs`); nothing is signed before **Confirm & sign**. After a confirmed rejoin the
+engine loop (`pocold/src/mobile.rs`, every 2 s as on the desktop) signs `reactivate()` when the window opens; its steps
+appear as notices (the status's `event`, apart from the command answers in `response`). On the v3 network the card
 shows the bond still to accrue on probation and the reactivation clock, and a transfer review shows the quoted creation
 burn apart from the gas fee, with a field to lower or raise the maximum fee that bounds both
 (`deploy/standalone/README.md`, "On the v3 network"). The texts are the Windows wallet's (`WalletText.java`, checked by

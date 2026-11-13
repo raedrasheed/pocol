@@ -384,6 +384,36 @@ mod preview {
         assert!(wallet::v3_top_up_refusal(Some(&a), U256::from(B)).unwrap().contains("has exited"));
         assert!(wallet::reactivation_blocked(&net.chain, state, &a).unwrap().contains("All 4 seats"), "the set is full");
         assert_eq!(wallet::reactivation_clock(&net.chain, state, alice.address()).map(|c| c.last), Some(0), "never reactivated");
+        // The wallet status's v3 fields for the victim: contested, the bond still to accrue, the blocked reactivation.
+        let (w_act, u) = (u64::from(net.chain.spec.cp().W_act), u64::from(net.chain.spec.cp().U));
+        let alice_status = |net: &Net| {
+            let head = net.chain.head();
+            let r = apply::miner_record(&head.state, alice.address());
+            let member = net.chain.membership(head, head.height + 1).unwrap().ids().contains(&raw_addr(alice.address()));
+            let clock = wallet::reactivation_clock(&net.chain, &head.state, alice.address());
+            let step = wallet::rejoin_step_with(r.as_ref(), head.height + 1, member, w_act, net.chain.spec.probation().map(|p| p.blocks), clock);
+            (step, wallet::v3_status(&net.chain, &head.state, alice.address(), r.as_ref(), step, head.height + 1).unwrap())
+        };
+        let (step, st) = alice_status(&net);
+        assert_eq!(step, RejoinStep::Wait { opens: h + w_act, closes: h + u });
+        assert!(st.contested && st.blocked.as_deref().is_some_and(|b| b.contains("All 4 seats")), "{st:?}");
+        assert_eq!((&st.fields["registryStatus"], &st.fields["poolContested"], &st.fields["bondRemaining"], &st.fields["reactivationBlocked"]),
+            (&serde_json::json!("contested"), &serde_json::json!(true), &serde_json::json!("20"), &serde_json::json!(st.blocked)), "{}", st.fields);
+        // A seat frees up (carol exits), but the probation pool stays full (bob holds its one seat): in alice's window the
+        // wallet still signs nothing, because reactivate() would revert with Capacity for a pool-contest victim, as the
+        // receipt shows.
+        let t = tx(&net, &carol, wallet::exit_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!((receipts_status(&net), apply::active_list(&net.chain.head().state).len(), accruing_count(&net)), (vec![vec![1u8]], 3, U256::from(1)), "a free seat, a full pool");
+        while net.chain.head().height + 1 < h + w_act { let _ = next(&mut net, one, vec![]); }
+        let (step, st) = alice_status(&net);
+        assert_eq!(step, RejoinStep::Reactivate { closes: h + u }, "alice's window is open");
+        let why = wallet::reactivation_blocked(&net.chain, &net.chain.head().state, &record(&net, alice.address())).expect("blocked by the full pool");
+        assert!(why.contains("All 1 probation seats are taken"), "{why}");
+        assert_eq!(st.blocked.as_deref(), Some(why.as_str()));
+        let t = tx(&net, &alice, wallet::reactivate_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!((receipts_status(&net), record(&net, alice.address()).status), (vec![Vec::<u8>::new()], 2), "the registry refuses it (Capacity), as the wallet said");
         while net.chain.head().height < a.due_height { let _ = next(&mut net, one, vec![]); }
         assert!(apply::miner_record(&net.chain.head().state, alice.address()).is_none(), "the sweep refunded and erased alice at her due height");
         assert_eq!(accruing_count(&net), U256::from(1), "her refund does not lower ACC_COUNT again: bob still holds the seat");
@@ -470,6 +500,11 @@ mod preview {
         assert_eq!((receipts_status(&net), record(&net, two).status), (vec![vec![1u8]], 1), "reactivated at {l}");
         assert_eq!(wallet::react_clock(&net.chain.head().state, two), l, "the clock is the reactivation height");
         assert_eq!(step(&net).1, RejoinStep::Active);
+        // The wallet status shows the clock while its next allowed height is ahead.
+        let st = { let head = net.chain.head(); wallet::v3_status(&net.chain, &head.state, two, apply::miner_record(&head.state, two).as_ref(), RejoinStep::Active, head.height + 1).unwrap() };
+        assert_eq!((&st.fields["reactivation"]["lastAt"], &st.fields["reactivation"]["allowedFrom"], &st.fields["reactivation"]["cooldownBlocks"]),
+            (&serde_json::json!(l), &serde_json::json!(l + 200), &serde_json::json!(200)), "{}", st.fields);
+        assert!(!st.contested && st.blocked.is_none() && st.fields["bondRemaining"].is_null());
         let t = tx(&net, &net.keys[&two], wallet::exit_calldata().to_vec(), U256::ZERO);
         let _ = next(&mut net, one, vec![t]);
         let e2 = net.chain.head().height;

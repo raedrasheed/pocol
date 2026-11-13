@@ -48,12 +48,29 @@ final class WalletText {
         }
     }
     /** The mining card: blocks and bond, and on the v3 network the probation bond still to accrue and the reactivation
-     *  clock (V3-09). Empty strings leave a line out. */
+     *  clock (V3-09): the last reactivation, and the next allowed height only while it is still ahead (the engine leaves
+     *  allowedFrom out once it has passed). Empty strings leave a line or part out. */
     static String minedText(String blocks,String bond,String bondHeld,String remaining,String lastAt,String allowedFrom){
         String text="Accepted blocks this session: "+blocks+"\nRegistration bond: "+bond+" PCOL";
         if(!remaining.isEmpty())text+="\nBond held: "+bondHeld+" PCOL · still to accrue: "+remaining+" PCOL";
-        if(!allowedFrom.isEmpty())text+="\nLast reactivation: block "+lastAt+" · next one allowed from block "+allowedFrom;
+        if(!lastAt.isEmpty())text+="\nLast reactivation: block "+lastAt+(allowedFrom.isEmpty()?"":" · next one allowed from block "+allowedFrom);
         return text;
+    }
+    /** The review's amount row {label, value} for a quote of `kind`. A rejoin or reactivation moves no PCOL and keeps the
+     *  bond locked (the Windows wallet's text). */
+    static String[] amountRow(String kind,String amount){
+        switch(kind){
+            case "rejoin":case "reactivation":return new String[]{"Amount",amount+" PCOL · the bond stays locked"};
+            case "registration":return new String[]{"Bond",amount+" PCOL"};
+            case "topup":return new String[]{"Top-up",amount+" PCOL"};
+            default:return new String[]{"Amount",amount+" PCOL"};
+        }
+    }
+    /** A rejoin engine message (type "rejoin": the Scheduled answer to Confirm, and the Reactivating, Retrying, Rejoined and
+     *  Stopped events of a running rejoin) as one notice; empty for any other message. */
+    static String rejoinNotice(String type,String state,String message){
+        if(!type.equals("rejoin"))return "";
+        return state.isEmpty()?message:"Mining rejoin · "+state+": "+message;
     }
     /** D-V3-21 option A: the quoted creation burn apart from the gas fee and the amount, and the signed maximum that bounds
      *  both. `burn` empty: the network charges no creation burn (no lines). */

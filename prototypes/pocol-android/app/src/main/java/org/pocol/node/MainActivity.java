@@ -32,7 +32,7 @@ public final class MainActivity extends Activity {
      *  was destroyed meanwhile (a rotation recreates the activity). Main thread only. */
     private static MainActivity live;
     private String home,address="",tab="Wallet";
-    private long responseId;
+    private long responseId,eventId=-1;
     private JSONObject snapshot=new JSONObject();
     private LinearLayout content,nav;
     private TextView balance,connectionStatus,miningStatus,headerStatus,networkBadge;
@@ -46,7 +46,7 @@ public final class MainActivity extends Activity {
         return true;
     }));
     private final ServiceConnection connection=new ServiceConnection(){
-        public void onServiceConnected(ComponentName name,IBinder binder){service=new Messenger(binder);responseId=0;}
+        public void onServiceConnected(ComponentName name,IBinder binder){service=new Messenger(binder);responseId=0;eventId=-1;}
         public void onServiceDisconnected(ComponentName name){service=null;requestPending=false;render();}
     };
     private final Runnable refresh=new Runnable(){public void run(){
@@ -165,7 +165,7 @@ public final class MainActivity extends Activity {
         if(contest){JSONObject c=q.optJSONObject("contest");for(String line:WalletText.contestLines(c==null?"":c.optString("kind"),q.optString("victim"),strings(q.optJSONArray("steps")),q.optString("amount"),q.optBoolean("probation"),q.optString("bondTarget"),q.optString("note")))body.addView(text(line,14,INK,false));divider(body);}
         if(rejoin){String[] steps=strings(q.optJSONArray("steps"));for(int i=0;i<steps.length;i++)body.addView(text((i+1)+". "+steps[i],14,INK,false));divider(body);}
         reviewRow(body,"Network",String.valueOf(q.optLong("chainId")),false);reviewRow(body,"To",q.optString("to"),true);divider(body);
-        if(!contest)reviewRow(body,registration||rejoin?"Bond":top?"Top-up":"Amount",q.optString("amount")+" PCOL",false);
+        if(!contest){String[] row=WalletText.amountRow(kind,q.optString("amount"));reviewRow(body,row[0],row[1],false);}
         if(top)body.addView(text("Bond held now: "+q.optString("bondHeld")+" of "+q.optString("bondTarget")+" PCOL. If rewards fill part of it first, the extra top-up returns to you.",13,MUTED,false));
         if(registration&&q.optBoolean("probation"))body.addView(text("Probation: the rest of the "+q.optString("bondTarget")+" PCOL bond is filled from your mining rewards. You can top it up any time.",13,MUTED,false));
         java.util.List<String> burn=WalletText.burnLines(q.optString("creationBurn",""),q.optString("gasFee"),q.optString("feeBound"),q.optString("suggestedFeeBound"),q.optBoolean("feeBoundSet"),strings(q.optJSONArray("burnNote")));
@@ -177,7 +177,10 @@ public final class MainActivity extends Activity {
         if(bound!=null)builder.setNeutralButton(WalletText.REVIEW_AGAIN,(d,w)->command(sendCommand(q.optString("to"),q.optString("amount"),bound.getText().toString().trim())));
         quoteDialog=builder.create();quoteDialog.show();styleDialog(quoteDialog);
     }
-    private void update(String raw){try{JSONObject v=new JSONObject(raw);if(v.has("address")){snapshot=v;showSnapshot();long id=v.optLong("responseId");if(id>responseId){responseId=id;JSONObject r=v.optJSONObject("response");if(r!=null){requestPending=false;String type=r.optString("type");if(type.equals("quote"))review(r);else if(type.equals("contestCandidates"))chooseContest(r);else if(type.equals("error"))notice(r.optString("message"));else if(type.equals("submitted"))new AlertDialog.Builder(this).setTitle("Transaction submitted").setMessage("Waiting for network inclusion.\n\n"+r.optString("hash")).setPositiveButton("Done",null).show();}}}else if(v.has("error")){headerStatus.setText(v.optString("error"));}else headerStatus.setText("Preparing local validation…");}catch(JSONException ignored){}}
+    private void update(String raw){try{JSONObject v=new JSONObject(raw);if(v.has("address")){snapshot=v;showSnapshot();showEvent(v);long id=v.optLong("responseId");if(id>responseId){responseId=id;JSONObject r=v.optJSONObject("response");if(r!=null){requestPending=false;String type=r.optString("type");if(type.equals("quote"))review(r);else if(type.equals("contestCandidates"))chooseContest(r);else if(type.equals("error"))notice(r.optString("message"));else if(type.equals("rejoin"))notice(WalletText.rejoinNotice(type,r.optString("state"),r.optString("message")));else if(type.equals("submitted"))new AlertDialog.Builder(this).setTitle("Transaction submitted").setMessage("Waiting for network inclusion.\n\n"+r.optString("hash")).setPositiveButton("Done",null).show();}}}else if(v.has("error")){headerStatus.setText(v.optString("error"));}else headerStatus.setText("Preparing local validation…");}catch(JSONException ignored){}}
+    /** A running rejoin's events (the engine's 2 s advance: Reactivating, Retrying, Rejoined, Stopped), published apart
+     *  from the command answers. The first snapshot after connecting only records the current event. */
+    private void showEvent(JSONObject v){long id=v.optLong("eventId");if(eventId<0){eventId=id;return;}if(id<=eventId)return;eventId=id;JSONObject e=v.optJSONObject("event");if(e==null)return;String text=WalletText.rejoinNotice(e.optString("type"),e.optString("state"),e.optString("message"));if(!text.isEmpty())notice(text);}
     private void showSnapshot(){if(headerStatus==null)return;if(networkBadge!=null)networkBadge.setText(snapshot.optString("networkName","PoCol network"));if(service==null){headerStatus.setText("Wallet offline · balances unavailable");return;}if(!snapshot.has("balance"))return;if(tab.equals("Activity")){content.removeAllViews();activity();}headerStatus.setText(snapshot.optInt("peers")+" peers · Block "+snapshot.optLong("height"));if(balance!=null)balance.setText(snapshot.optString("balance","—"));if(connectionStatus!=null)connectionStatus.setText(snapshot.optInt("peers")>0?"Your device is validating blocks. Mining is "+(snapshot.optBoolean("miningEnabled")?"on.":"off."):peerNote());if(miningSwitch!=null){updating=true;miningSwitch.setChecked(snapshot.optBoolean("miningEnabled"));miningSwitch.setEnabled(snapshot.optBoolean("miningEligible")||snapshot.optBoolean("miningEnabled"));updating=false;}if(miningStatus!=null){JSONObject react=snapshot.optJSONObject("reactivation");miningStatus.setText(snapshot.optString("miningState")+"\n"+WalletText.minedText(String.valueOf(snapshot.optLong("blocksMined")),snapshot.optString("bond"),snapshot.optString("bondHeld"),snapshot.isNull("bondRemaining")?"":snapshot.optString("bondRemaining"),react==null||react.isNull("lastAt")?"":react.optString("lastAt"),react==null||react.isNull("allowedFrom")?"":react.optString("allowedFrom")));}
         if(rejoinButton!=null)rejoinButton.setVisibility(snapshot.optBoolean("rejoinAvailable")?View.VISIBLE:View.GONE);if(topUpButton!=null)topUpButton.setVisibility(snapshot.optBoolean("topUpAvailable")?View.VISIBLE:View.GONE);if(contestButton!=null)contestButton.setVisibility(snapshot.optBoolean("contestAvailable")?View.VISIBLE:View.GONE);}
     /** Why no peer is connected (VA-SPEC §2.5): the wallet status carries the node's refusal counts and last reason. */

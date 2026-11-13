@@ -117,7 +117,8 @@ internal sealed class Wallet {
   string text="Accepted blocks this session: "+Text(s,"blocksMined")+"\nRegistration bond: "+Text(s,"bond")+" PCOL";
   if(Text(s,"bondRemaining").Length>0)text+="\nBond held: "+Text(s,"bondHeld")+" PCOL · still to accrue: "+Text(s,"bondRemaining")+" PCOL";
   object r;var react=s.TryGetValue("reactivation",out r)?r as Dictionary<string,object>:null;
-  if(react!=null&&Text(react,"allowedFrom").Length>0)text+="\nLast reactivation: block "+Text(react,"lastAt")+" · next one allowed from block "+Text(react,"allowedFrom");
+  // The next allowed height only while it is still ahead: the engine leaves allowedFrom out once it has passed.
+  if(react!=null&&Text(react,"lastAt").Length>0)text+="\nLast reactivation: block "+Text(react,"lastAt")+(Text(react,"allowedFrom").Length>0?" · next one allowed from block "+Text(react,"allowedFrom"):"");
   return text;
  }
  // D-V3-21: the creation burn apart from the gas fee and the amount, and the signed maximum that bounds both.

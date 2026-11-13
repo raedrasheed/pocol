@@ -478,6 +478,74 @@ mod preview{
         assert!(plain.describe()["burnNote"][0].as_str().unwrap().contains("no creation burn"));
     }
 
+    /// Review finding (D-V3-21 option A, client part): with a large account cap the estimate's drift margin is small, and the
+    /// estimate prices the gas at the effective price (as consensus) while the wallet's check prices it at max_fee. The plan
+    /// at the default fee fields (max_fee = 2*base + priority, base > 0) must still sign a transfer to a new account, with a
+    /// gas limit whose max_fee*gas covers gas at max_fee and the burn, and the transfer is included and charged.
+    #[test]
+    fn the_wallet_transfer_plan_signs_at_a_large_cap_and_a_positive_base_fee(){
+        let dir=Temp::new();let f0=U256::from(1_000_000_000_000_000u64);let cfg=node_cfg(|c|{c.acct_cap=200_000;c.f0_acct=f0});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        let base=next_base(&node);assert!(base>U256::ZERO);let tip=U256::from(7);let max_fee=base*U256::from(2)+tip;let to=new_address(171);
+        let call=serde_json::json!({"from":alice.address(),"to":to,"value":"0x1","maxFeePerGas":format!("{max_fee:#x}"),"maxPriorityFeePerGas":format!("{tip:#x}")});
+        let estimate=quantity(&rpc(&mut node,"eth_estimateGas",serde_json::json!([call,"latest"]))["result"]).to::<u64>();
+        let plan=pocold::wallet::transfer_burn_plan(&node,alice.address(),to,U256::from(1),max_fee,tip,None).unwrap();
+        let burn=plan.quote.total;assert!(burn>U256::ZERO);
+        assert!(plan.gas>=estimate&&U256::from(plan.gas)*max_fee>=U256::from(21_000u64)*max_fee+burn,"gas {} estimate {estimate} burn {burn}",plan.gas);
+        assert_eq!(plan.suggested,plan.gas);
+        let raw=priced_tx(&alice,0,to,U256::from(1),plan.gas,max_fee);node.submit_tx(raw.clone(),false).unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,cfg.g_ts+4);assert_eq!(selection.txs,vec![raw]);
+        let before=balance(&node,alice.address());let price=base+tip;
+        let b=solve(&node,selection.txs,cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+        assert_eq!(before-balance(&node,alice.address()),price*U256::from(21_000)+burn+U256::from(1),"included: gas at the effective price, the burn, the value");
+    }
+
+    /// The wallet engine's quote_send on a v3 node, through Wallet::handle (review: the v3 QuoteSend path had no test): the
+    /// signed gas limit is the reported gasLimit (the burn-aware plan's), maximumFee is feeBound = gasLimit*maxFeePerGas, the
+    /// confirmed transaction is exactly the quoted one and lands; a user bound is honoured or refused before signing; the v3
+    /// status fields are present. On a spec-1 node fee_bound is refused and no v3 field is shown.
+    #[test]
+    fn the_wallet_engine_quotes_and_signs_a_burn_aware_transfer(){
+        let dir=Temp::new();let f0=U256::from(1_000_000_000_000_000u64);let cfg=node_cfg(|c|{c.acct_cap=200_000;c.f0_acct=f0});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        let home_dir=Temp::new();let home=pocold::launcher::Home::open(&home_dir.0).unwrap();let key=home.key().unwrap();let me=key.address();
+        // Fund the wallet's account (a new account: alice pays its creation burn within a generous gas limit).
+        let fund=priced_tx(&alice,0,me,U256::from(10u128.pow(18)),1_000_000,next_base(&node)*U256::from(2)+U256::from(7));node.submit_tx(fund.clone(),false).unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,cfg.g_ts+4);assert_eq!(selection.txs,vec![fund]);
+        let b=solve(&node,selection.txs,cfg.g_ts+4);assert!(node.import(b,None).unwrap());assert_eq!(balance(&node,me),U256::from(10u128.pow(18)));
+        let mut wallet=pocold::wallet::Wallet::new(&home).unwrap().without_network_checks();
+        let status=wallet.status(&node);
+        assert_eq!((&status["creationBurn"],&status["poolContested"],&status["bondRemaining"],&status["reactivationBlocked"]),(&serde_json::json!(true),&serde_json::json!(false),&serde_json::Value::Null,&serde_json::Value::Null),"{status}");
+        assert_eq!((&status["reactivation"]["lastAt"],&status["reactivation"]["allowedFrom"],&status["registryStatus"]),(&serde_json::Value::Null,&serde_json::Value::Null,&serde_json::json!("none")),"{status}");
+        let to=new_address(172);
+        let send=|bound:Option<&str>|{let mut c=serde_json::json!({"method":"quote_send","to":format!("{to:#x}"),"amount":"0.001"});if let Some(b)=bound{c["fee_bound"]=serde_json::json!(b);}c.to_string()};
+        let q=wallet.handle(&mut node,&send(None));
+        assert_eq!(q["type"],"quote","{q}");
+        let (gas,max_fee)=(q["gasLimit"].as_u64().unwrap(),U256::from_str_radix(q["maxFeePerGas"].as_str().unwrap(),10).unwrap());
+        let burn=pocold::wallet::amount(q["creationBurn"].as_str().unwrap()).unwrap();assert!(burn>U256::ZERO,"{q}");
+        assert_eq!((q["maximumFee"].as_str(),q["feeBound"].as_str(),q["feeBoundSet"].as_bool()),(Some(pocold::wallet::coins(U256::from(gas)*max_fee).as_str()),Some(pocold::wallet::coins(U256::from(gas)*max_fee).as_str()),Some(false)),"{q}");
+        assert!(U256::from(gas)*max_fee>=U256::from(21_000u64)*max_fee+burn&&gas>21_000,"{q}");
+        // A bound one wei-per-gas below gas at max_fee plus the burn is refused before signing; the needed one signs it.
+        let need=(U256::from(21_000u64)*max_fee+burn).div_ceil(max_fee)*max_fee;
+        let low=wallet.handle(&mut node,&send(Some(&pocold::wallet::coins(need-max_fee))));
+        assert!(low["type"]=="error"&&low["message"].as_str().unwrap().contains("creation burn"),"{low}");
+        let set=wallet.handle(&mut node,&send(Some(&pocold::wallet::coins(need))));
+        assert_eq!((set["gasLimit"].as_u64(),set["feeBoundSet"].as_bool(),set["maximumFee"].as_str()),(Some(u64::try_from(need/max_fee).unwrap()),Some(true),Some(pocold::wallet::coins(need).as_str())),"{set}");
+        // Confirm the default quote: the pooled transaction is exactly the reviewed one (gas = gasLimit) and lands.
+        let q=wallet.handle(&mut node,&send(None));let (gas,max_fee)=(q["gasLimit"].as_u64().unwrap(),U256::from_str_radix(q["maxFeePerGas"].as_str().unwrap(),10).unwrap());
+        let done=wallet.handle(&mut node,&serde_json::json!({"method":"confirm","quote_id":q["quoteId"]}).to_string());assert_eq!(done["type"],"submitted","{done}");
+        let expected=Tx{chain_id:777938,nonce:0,max_priority:U256::from(1_000_000_000u64),max_fee,gas,to:Some(to),value:U256::from(10u128.pow(15)),data:Default::default()}.sign_1559(&key);
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,cfg.g_ts+8);assert_eq!(selection.txs,vec![expected],"the signed gas limit is the reviewed gasLimit");
+        let before=balance(&node,me);let b=solve(&node,selection.txs,cfg.g_ts+8);assert!(node.import(b,None).unwrap());
+        let lost=before-balance(&node,me);assert!(lost<=pocold::wallet::amount(q["maximumTotal"].as_str().unwrap()).unwrap()&&lost>U256::from(10u128.pow(15))+burn-U256::from(1),"{lost} {q}");
+        // A spec-1 node: no creation burn, so a maximum fee is refused and the status shows no v3 field.
+        let dir1=Temp::new();let cfg1=node_cfg(|c|c.spec_version=1);let mut spec1=pocold::node::Node::open(node_config(&dir1,false),node_spec(&cfg1)).unwrap();
+        let refused=wallet.handle(&mut spec1,&send(Some("0.01")));
+        assert_eq!((refused["type"].as_str(),refused["message"].as_str()),(Some("error"),Some("A maximum fee applies only on networks with a creation burn.")),"{refused}");
+        let s1=wallet.status(&spec1);
+        for k in ["creationBurn","poolContested","bondRemaining","reactivation","reactivationBlocked"]{assert!(s1.get(k).is_none(),"{k}: {s1}");}
+    }
+
     /// Deploys each runtime from bob (nonces 0, 1, ...) in one imported block at `clock`; their addresses.
     fn deploy(node:&mut pocold::node::Node,runtimes:&[Vec<u8>],clock:u64)->Vec<Address>{
         let bob=devnet::account_key("bob");

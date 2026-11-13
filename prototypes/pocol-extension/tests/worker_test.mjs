@@ -125,10 +125,58 @@ export async function workerChecks(dist) {
     const s2 = w.req('eth_sendTransaction', [{ to: '0x' + '22'.repeat(20), value: '0x1', gas: '0x5208' }]); const r2 = await w.reply(s2);
     ok('D-V3-21 v3 node: a send whose quoted burn exceeds the signed maximum is refused before signing',
       r2.error && r2.error.code === -32000 && r2.error.data && r2.error.data.reason === 'CreationFee' && BigInt(r2.error.data.needGas) === (21000n * maxFee + burn + maxFee - 1n) / maxFee && asks() === before && w.count('eth_sendRawTransaction') === 0, JSON.stringify(r2));
-    // A quote that reports a cap halt refuses the send too (the node's error).
-    const w3 = await world({ handlers: { pocol_quoteCreationBurn: () => ({ __error: { code: -32000, message: 'execution would halt (AcctCap)', data: { reason: 'AcctCap' } } }) } });
-    const r3 = await w3.reply(w3.tx());
-    ok('D-V3-21 v3 node: a quote halt refuses the send before any dialog', r3.error && r3.error.code === -32000 && /AcctCap/.test(r3.error.message) && noAsk(w3, 'confirmTx') && w3.count('eth_sendRawTransaction') === 0, JSON.stringify(r3));
+    // A quote that fails is no quote (review finding): the send is as before. Without the site's gas the estimate decides,
+    // and a halt there refuses the send with the node's error, before any dialog.
+    const halt = { __error: { code: -32000, message: 'execution would halt (AcctCap)', data: { reason: 'AcctCap' } } };
+    const w3 = await world({ handlers: { pocol_quoteCreationBurn: () => halt, eth_estimateGas: () => halt } });
+    const r3 = await w3.reply(w3.tx()); const est3 = w3.log.filter((x) => x.method === 'eth_estimateGas');
+    ok('D-V3-21 v3 node: a failed quote leaves the old flow, whose estimate halt refuses the send before any dialog',
+      r3.error && r3.error.code === -32000 && /AcctCap/.test(r3.error.message) && noAsk(w3, 'confirmTx') && w3.count('eth_sendRawTransaction') === 0 && est3.length === 1 && est3[0].params[0].maxFeePerGas === undefined, JSON.stringify(r3));
+  });
+  await scenario(async () => {
+    // A dependent send with the site's own gas (its quote reverts at 'latest'): signed with that gas as before the quote existed.
+    const w = await world({ handlers: { pocol_quoteCreationBurn: () => ({ __error: { code: 3, message: 'execution reverted:0x' } }) } });
+    const s = w.req('eth_sendTransaction', [{ to: '0x' + '22'.repeat(20), value: '0x1', gas: '0x7530' }]); const a = await w.ask('confirmTx');
+    ok('D-V3-21 v3 node: a reverting quote with the site\'s gas shows the old review with that gas and no estimate',
+      a.q.gas === '30000' && a.q.creationBurn === undefined && w.count('eth_estimateGas') === 0 && w.count('pocol_quoteCreationBurn') === 1, JSON.stringify(a.q));
+    w.answer(a, false); await w.reply(s);
+  });
+  await scenario(async () => {
+    // A v3-scheduled node before activation: v3Active false, no burn, the estimate without fee fields (as on spec 1).
+    const w = await world({ handlers: { pocol_quoteCreationBurn: () => ({ height: '0x6', v3Active: false, accounts: '0x0', slots: '0x0', code: '0x0', total: '0x0', gasUsed: '0x5208', baseFee: '0x3b9aca00', occupancy: null }) } });
+    const s = w.tx(); const a = await w.ask('confirmTx'); const est = w.log.filter((x) => x.method === 'eth_estimateGas');
+    ok('D-V3-21 before activation (v3Active false): no burn fields, the estimate without fee fields',
+      a.q.creationBurn === undefined && a.q.signedMax === undefined && est.length === 1 && est[0].params[0].maxFeePerGas === undefined && a.q.gas === '21000', JSON.stringify([a.q, est[0] && est[0].params]));
+    w.answer(a, false); await w.reply(s);
+  });
+  await scenario(async () => {
+    // The review shows the total burn (accounts and slots), and an estimate short of gasUsed·maxFee + burn (it prices the
+    // gas at the effective price) is raised to the least gas limit that carries both at maxFee.
+    const accounts = 5n * 10n ** 15n, slots = 3n * 10n ** 15n, total = accounts + slots;
+    const quoteOf = () => ({ height: '0x6', v3Active: true, accounts: '0x' + accounts.toString(16), slots: '0x' + slots.toString(16), code: '0x0', total: '0x' + total.toString(16), gasUsed: '0x5208', baseFee: '0x3b9aca00', occupancy: null });
+    const w = await world({ handlers: { pocol_quoteCreationBurn: quoteOf } });
+    const s = w.tx(); const a = await w.ask('confirmTx'); const maxFee = BigInt(a.q.maxFeePerGas);
+    const need = (21000n * maxFee + total + maxFee - 1n) / maxFee;
+    ok('D-V3-21 v3 node: the burn shown is the quote\'s total, not one class', a.q.creationBurn === total.toString(), JSON.stringify(a.q));
+    ok('D-V3-21 v3 node: a short estimate is raised to the least gas limit that carries gas at maxFee and the burn',
+      BigInt(a.q.gas) === need && BigInt(a.q.signedMax) === need * maxFee && BigInt(a.q.signedMax) >= 21000n * maxFee + total, JSON.stringify(a.q));
+    // The user raises the maximum: a new review of the new gas limit, nothing signed yet; approving it signs that gas.
+    const raised = (need + 1000n) * maxFee + 5n;
+    w.port.post({ answer: a.ask, ok: false, bound: raised.toString() });
+    const b = await w.ask('confirmTx');
+    ok('D-V3-21 v3 node: a raised maximum is reviewed again with gas = maximum / maxFee, nothing sent',
+      BigInt(b.q.gas) === need + 1000n && BigInt(b.q.signedMax) === (need + 1000n) * maxFee && b.q.payload !== a.q.payload && w.count('eth_sendRawTransaction') === 0, JSON.stringify(b.q));
+    w.answer(b, true); const r = await w.reply(s); const sent = w.log.filter((x) => x.method === 'eth_sendRawTransaction');
+    const fields = sent.length === 1 ? R.decode(H.fromHex(sent[0].params[0]).subarray(1)) : null;
+    ok('D-V3-21 v3 node: the approved review is signed with its gas limit', fields && BigInt(H.toHex(fields[4]) === '0x' ? 0 : H.toHex(fields[4])) === need + 1000n && r.result, JSON.stringify(r));
+    // A maximum below the quoted gas and burn is refused before signing; a non-decimal one is no answer but a rejection.
+    const s2 = w.tx(); const c = await w.ask('confirmTx');
+    w.port.post({ answer: c.ask, ok: false, bound: ((need - 1n) * maxFee).toString() });
+    const r2 = await w.reply(s2);
+    ok('D-V3-21 v3 node: a lowered maximum that cannot carry the quoted gas and burn is refused before signing',
+      r2.error && r2.error.code === -32000 && r2.error.data.reason === 'CreationFee' && BigInt(r2.error.data.needGas) === need && w.count('eth_sendRawTransaction') === 1, JSON.stringify(r2));
+    const s3 = w.tx(); const d = await w.ask('confirmTx'); w.port.post({ answer: d.ask, ok: false, bound: '0x10' }); const r3 = await w.reply(s3);
+    ok('D-V3-21 v3 node: a malformed maximum is a rejection (4001), never an approval', code(r3) === 4001 && w.count('eth_sendRawTransaction') === 1, JSON.stringify(r3));
   });
   // ---- A06 rejection ----
   await scenario(async () => { const w = await world(); const s = w.tx(); w.answer(await w.ask('confirmTx'), false); const r = await w.reply(s);

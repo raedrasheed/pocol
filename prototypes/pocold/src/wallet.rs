@@ -29,7 +29,8 @@
 //! (HELD, exited, no record).
 //!
 //! Creation burn (D-V3-21 option A, client part; only where the next block charges it): a transfer quote takes its gas
-//! limit from the burn-aware eth_estimateGas, or from the user's `fee_bound` (max_fee*gas_limit at the quoted max_fee),
+//! limit from the burn-aware eth_estimateGas (raised, if needed, to cover the gas at max_fee and the burn: `burn_bound`),
+//! or from the user's `fee_bound` (max_fee*gas_limit at the quoted max_fee),
 //! shows the quoted burn apart from the gas fee and the amount, and is refused before signing when the quoted gas and burn
 //! exceed the signed maximum (`BurnPlan`). Registry calls write only system storage and carry no creation burn: they keep
 //! their measured gas limits.
@@ -81,7 +82,7 @@ pub const CONTEST_GAS:u64=500_000;
 /// Heads the exit may stay unincluded before the plan stops (nothing changed on chain then).
 pub const EXIT_WAIT_BLOCKS:u64=30;
 struct Rejoin { exit:Option<(B256,u64)>, max_fee:U256, priority:U256, attempts:u8, last:Option<B256>, tried_at:Option<u64> }
-pub struct Wallet<'a> { home:&'a Home,key:Key,quote:Option<Quote>,rejoin:Option<Rejoin>,activity:VecDeque<Value>,pub stopped:bool }
+pub struct Wallet<'a> { home:&'a Home,key:Key,quote:Option<Quote>,rejoin:Option<Rejoin>,activity:VecDeque<Value>,pub stopped:bool,network_checks:bool }
 
 /// Where a registry record stands for rejoining, at the next block `next`. `member` is whether the
 /// account is in A_next (consensus membership from the head state).
@@ -110,6 +111,8 @@ pub struct ReactClock{pub last:u64,pub c_react:u64,pub u:u64}
 impl ReactClock{
     /// The first height at which the clock allows a reactivation (0: any).
     pub fn allows_from(&self)->u64{if self.last==0{0}else{self.last.saturating_add(self.c_react)}}
+    /// The status's "next one allowed from" height: only while it is still ahead of the next block `next`.
+    pub fn allowed_from_ahead(&self,next:u64)->Option<u64>{(self.last!=0&&self.allows_from()>next).then_some(self.allows_from())}
 }
 /// The registry's per-record reactivation clock (V3-09; PoColSystemV3.sol recordClocks): lastReactHeight in w1 bits
 /// 160..223, 0 for an identity that never reactivated or has no record. Only the v3 program set writes it.
@@ -150,6 +153,21 @@ pub fn rejoin_step_with(record:Option<&apply::MinerRecord>,next:u64,member:bool,
         2=>{let opens=r.exit_height.saturating_add(w_act).max(gate);let closes=deadline.map_or(r.due_height,|d|d.min(r.due_height));
             if next>=closes||(clock.is_some()&&opens>=closes){RejoinStep::Missed}else if next<opens{RejoinStep::Wait{opens,closes}}else{RejoinStep::Reactivate{closes}}},
         _=>RejoinStep::Unavailable,
+    }
+}
+/// V3 (`clock` Some, the v3 program set): the reactivation window [opens, closes) the rejoin review states. For `Exit`, the
+/// window an exit included at `next` leaves: max(next + W_act, lastReactHeight + C_react) .. next + U, and before the
+/// probation deadline for a probation record; for `Wait`/`Reactivate`, the record's own window. None on spec 1 (the review
+/// keeps the W_act/U wording) and for every other step.
+pub fn v3_rejoin_window(record:Option<&apply::MinerRecord>,step:RejoinStep,next:u64,w_act:u64,u:u64,t_prob:Option<u64>,clock:Option<ReactClock>)->Option<(u64,u64)>{
+    let c=clock?;
+    match step{
+        RejoinStep::Exit=>{let r=record?;
+            let deadline=t_prob.filter(|_|r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).map(|t|r.registered_at.saturating_add(t));
+            Some((next.saturating_add(w_act).max(c.allows_from()),deadline.map_or(next.saturating_add(u),|d|d.min(next.saturating_add(u)))))}
+        RejoinStep::Wait{opens,closes}=>Some((opens,closes)),
+        RejoinStep::Reactivate{closes}=>Some((next,closes)),
+        _=>None,
     }
 }
 fn step_json(step:RejoinStep)->Value{
@@ -287,6 +305,33 @@ pub fn reactivation_blocked(chain:&crate::chain::Chain,v:&dyn View,record:&apply
     }
     None
 }
+/// V3 (the v3 program set): what the wallet status adds for `id` at the next block `next` (`v3_status`).
+#[derive(Clone,Debug,PartialEq)]
+pub struct V3Status{
+    /// A probation-pool contest victim (V3-14, owner decision 2026-11-13, option a): exited, payable and punishable until U.
+    pub contested:bool,
+    /// Why a reactivation would revert with Capacity now (`reactivation_blocked`), for a record in its window.
+    pub blocked:Option<String>,
+    /// The status fields: poolContested, bondRemaining (the probation bond still to accrue, active or exited), reactivation
+    /// (the V3-09 clock: lastAt, cooldownBlocks and allowedFrom while it is still ahead), reactivationBlocked, and
+    /// registryStatus "contested" for a victim.
+    pub fields:Value,
+}
+/// The v3 status of `id` with registry record `record` and rejoin step `step`; None on the spec-1 program sets.
+pub fn v3_status(chain:&crate::chain::Chain,v:&dyn View,id:Address,record:Option<&apply::MinerRecord>,step:RejoinStep,next:u64)->Option<V3Status>{
+    if chain.spec.programs()!=apply::ProgramSet::V3{return None}
+    let target=crate::chain::from_fixed_lp4(&chain.spec.cp().B_reg);
+    let contested=record.is_some_and(|r|r.status==2&&!r.tomb)&&pool_contested(v,id);
+    let blocked=record.filter(|_|matches!(step,RejoinStep::Wait{..}|RejoinStep::Reactivate{..})).and_then(|r|reactivation_blocked(chain,v,r));
+    let clock=reactivation_clock(chain,v,id);
+    let mut fields=json!({"poolContested":contested,
+        "bondRemaining":record.filter(|r|!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).map(|r|coins(target.saturating_sub(r.bond))),
+        // allowedFrom only while it is still ahead of the next block: a past height allows nothing new.
+        "reactivation":clock.map(|c|json!({"lastAt":(c.last!=0).then_some(c.last),"cooldownBlocks":c.c_react,"allowedFrom":c.allowed_from_ahead(next)})),
+        "reactivationBlocked":blocked});
+    if contested{fields["registryStatus"]=json!("contested");}
+    Some(V3Status{contested,blocked,fields})
+}
 /// D-V3-21 option A, the client part (v3 only): what a transfer review signs and states. The consensus charges a creation
 /// burn only if gas_used*effective_price + burn <= max_fee*gas_limit, else the transaction halts with CreationFee and pays
 /// only the gas it spent; so the signed maximum max_fee*gas_limit bounds gas and burn together. The wallet takes the gas
@@ -294,14 +339,23 @@ pub fn reactivation_blocked(chain:&crate::chain::Chain,v:&dyn View,record:&apply
 /// user's bound at the same max_fee, and refuses before signing when the quoted gas and burn do not fit the bound.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct BurnPlan{pub gas:u64,pub suggested:u64,pub gas_used:u64,pub max_fee:U256,pub quote:crate::rpc::BurnQuote,pub user_bound:bool}
-/// The gas limit a transfer signs, and the suggested one (the estimate's, at least `floor`), for a quote `q` at `max_fee`
-/// and an optional user bound (PCOL wei, max_fee*gas_limit); `gas_cap` is the block gas limit.
+/// The gas limit a transfer signs, and the suggested one, for a quote `q` at `max_fee` and an optional user bound (PCOL wei,
+/// max_fee*gas_limit); `gas_cap` is the block gas limit.
+///
+/// The wallet checks the bound conservatively, with the gas priced at max_fee: gas_used*max_fee + burn <= max_fee*gas.
+/// Consensus prices the gas at the effective price min(max_fee, base + priority), and so does the burn-aware estimate (at
+/// the predicted base fee), so the estimate's limit alone can be short of the wallet's check by about
+/// gas_used*(max_fee - effective price) when the drift margin is small (a large cap). The suggested limit is therefore the
+/// estimate's, at least `floor`, raised to the least limit that passes the wallet's check: it also covers a base fee that
+/// rises up to max_fee before inclusion.
 pub fn burn_bound(floor:u64,q:&crate::rpc::BurnQuote,max_fee:U256,bound:Option<U256>,gas_cap:u64)->Result<(u64,u64),String>{
     if max_fee.is_zero(){return Err("Invalid fee".into())}
-    let suggested=floor.max(q.gas_limit);
-    let gas=match bound{None=>suggested,Some(b)=>u64::try_from(b/max_fee).unwrap_or(u64::MAX)};
     let need_gas=U256::from(q.gas_used).checked_mul(max_fee).and_then(|g|g.checked_add(q.total)).ok_or("Fee overflow")?;
-    let need=need_gas.div_ceil(max_fee).max(U256::from(floor.max(q.gas_used)))*max_fee;
+    let least=u64::try_from(need_gas.div_ceil(max_fee)).unwrap_or(u64::MAX).max(floor.max(q.gas_used));
+    let need=U256::from(least)*max_fee;
+    let suggested=q.gas_limit.max(least);
+    if bound.is_none()&&suggested>gas_cap{return Err(format!("The quoted creation burn of {} PCOL and the gas of this transfer need more than one block's gas at the current fee rate. Nothing was signed.",coins(q.total)))}
+    let gas=match bound{None=>suggested,Some(b)=>u64::try_from(b/max_fee).unwrap_or(u64::MAX)};
     if gas>gas_cap{return Err(format!("That maximum fee is above what one block allows at the current fee rate ({} PCOL).",coins(U256::from(gas_cap)*max_fee)))}
     if U256::from(gas)*max_fee<need_gas||gas<floor.max(q.gas_used){
         return Err(if q.total.is_zero(){format!("The maximum fee must be at least {} PCOL to cover the gas of this transfer.",coins(need))}
@@ -360,6 +414,11 @@ pub fn exit_calldata()->Bytes{selector("deregister()")}
 pub fn reactivate_calldata()->Bytes{selector("reactivate()")}
 #[derive(Debug,PartialEq,Eq)]
 enum Action { Wait, Stop(String), Done, Reactivate }
+/// V3: a reactivation that would revert with Capacity now (`blocked`, `reactivation_blocked`) is not signed: the plan waits,
+/// spending neither a fee nor an attempt; every other action stands.
+fn hold_while_blocked(action:Action,blocked:bool)->Action{
+    match action{Action::Reactivate if blocked=>Action::Wait,a=>a}
+}
 /// One step of a confirmed rejoin. `exit`/`last` are the local states (tx_state) of the exit and of
 /// the latest reactivation; `head` is the local head height.
 fn decide(step:RejoinStep,plan:&Rejoin,head:u64,exit:Option<&str>,last:Option<&str>,has_record:bool)->Action{
@@ -424,7 +483,7 @@ impl<'a> Wallet<'a>{
     pub fn new(home:&'a Home)->Result<Self,String>{
         let key=home.key()?;let path=home.path.join(crate::launcher::ACTIVITY_FILE);
         let activity=if path.exists(){let bytes=crate::launcher::read_bounded(&path)?;let a:VecDeque<Value>=serde_json::from_slice(&bytes).map_err(|_|"Wallet activity is damaged; preserve it before recovery")?;if a.len()>100{return Err("Wallet activity exceeds limit".into())}a}else{VecDeque::new()};
-        Ok(Self{home,key,quote:None,rejoin:None,activity,stopped:false})
+        Ok(Self{home,key,quote:None,rejoin:None,activity,stopped:false,network_checks:true})
     }
     /// The head's registry record, whether the account is in A_{head+1} (None if unknown) and the step.
     fn rejoin_view(&self,n:&Node)->(Option<apply::MinerRecord>,Option<bool>,RejoinStep){
@@ -467,6 +526,10 @@ impl<'a> Wallet<'a>{
             (_,RejoinStep::Exit)=>"Inactive — no recent shares, so no assigned work. Use Rejoin mining.".to_owned(),
             (_,RejoinStep::Wait{opens,closes})=>format!("Exited — reactivate between blocks {opens} and {} with Rejoin mining",closes-1),
             (_,RejoinStep::Reactivate{closes})=>format!("Exited — reactivate before block {closes} with Rejoin mining"),
+            // V3: a status-1 probation record outside A_next whose deadline comes before any reactivation could be included
+            // (earn-in U4 and the C_react clock): it has not exited and nothing is refunded yet. (Spec-1 text unchanged.)
+            (_,RejoinStep::Missed) if n.chain.spec.programs()==apply::ProgramSet::V3&&record.as_ref().is_some_and(|r|r.status==1)=>format!("Inactive — no recent shares. An exit now could not be reactivated before the probation deadline{}, so Rejoin mining is not offered; the record exits at that deadline and its accrued bond is refunded afterwards",
+                record.as_ref().zip(n.chain.spec.probation()).map(|(r,p)|format!(" (block {})",r.registered_at.saturating_add(p.blocks))).unwrap_or_default()),
             (_,RejoinStep::Missed)=>"Exited — the bond is being refunded; register again to mine".to_owned(),
             // V3-09 (v3 only): one reactivation per C_react blocks.
             (_,RejoinStep::Cooldown{exit_from})=>format!("Inactive — no recent shares. This identity reactivated recently (one reactivation per {} blocks): Rejoin mining opens at block {exit_from}",n.chain.spec.cp().C_react),
@@ -484,10 +547,9 @@ impl<'a> Wallet<'a>{
         };
         let (contest_open,seats_full,pool_full)=state.as_ref().map(|s|contest_flags(&n.chain,s.v(),record.is_some())).unwrap_or((false,false,false));
         // V3 (the v3 program set): the pool-contest victim, the reactivation clock and what blocks a reactivation now.
-        let v3=n.chain.spec.programs()==apply::ProgramSet::V3;
-        let contested=v3&&record.as_ref().is_some_and(|r|r.status==2&&!r.tomb)&&state.as_ref().is_some_and(|s|pool_contested(s.v(),addr));
-        let blocked=record.as_ref().filter(|_|matches!(step,RejoinStep::Wait{..}|RejoinStep::Reactivate{..})).and_then(|r|state.as_ref().and_then(|s|reactivation_blocked(&n.chain,s.v(),r)));
-        let registry=if contested{"contested"}else{registry};
+        let v3=state.as_ref().and_then(|s|v3_status(&n.chain,s.v(),addr,record.as_ref(),step,head.height.saturating_add(1)));
+        let contested=v3.as_ref().is_some_and(|v|v.contested);
+        let blocked=v3.as_ref().and_then(|v|v.blocked.clone());
         let mining_state=match (&record,contested,&blocked){
             (Some(r),true,_) if self.rejoin.is_none()=>format!("{mining_state} · Contested out of the probation pool at block {}: your accrued bond ({} of {} PCOL) is still filled from rewards not yet settled, and it stays accountable for evidence until block {}, when it is refunded",
                 r.exit_height,coins(r.bond),coins(target),r.due_height),
@@ -509,14 +571,7 @@ impl<'a> Wallet<'a>{
             "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true,
             // Why peers were refused (VA-SPEC §2.5, attack A2-6), so the wallet can tell a lagging node what to do.
             "incompatiblePeers":diag["incompatiblePeers"],"legacyHellos":diag["legacyHellos"],"lastIncompatibleReason":diag["lastIncompatibleReason"]});
-        if v3{
-            let clock=state.as_ref().and_then(|s|reactivation_clock(&n.chain,s.v(),addr));
-            status["poolContested"]=json!(contested);
-            // The bond still to accrue on probation (ACCRUING, active or exited): filled from rewards or by a top-up.
-            status["bondRemaining"]=json!(record.as_ref().filter(|r|!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).map(|r|coins(target.saturating_sub(r.bond))));
-            status["reactivation"]=json!(clock.map(|c|json!({"lastAt":(c.last!=0).then_some(c.last),"cooldownBlocks":c.c_react,"allowedFrom":(c.last!=0).then_some(c.allows_from())})));
-            status["reactivationBlocked"]=json!(blocked);
-        }
+        if let Some(Value::Object(fields))=v3.map(|v|v.fields){for (k,v) in fields{status[k]=v;}}
         // D-V3-21: the next block charges a creation burn; a transfer review shows it and takes a maximum fee.
         if n.chain.spec.v3_active(head.height.saturating_add(1)){status["creationBurn"]=json!(true);}
         crate::network_display::annotate(status)
@@ -648,7 +703,7 @@ impl<'a> Wallet<'a>{
         if self.rejoin.is_some(){return Err("Rejoining is already in progress".into())}
         let cp=n.chain.spec.cp();let (w_act,u)=(u64::from(cp.W_act),u64::from(cp.U));
         if w_act>=u{return Err("This network's registry leaves no reactivation window".into())}
-        let (_,_,step)=self.rejoin_view(n);
+        let (record,_,step)=self.rejoin_view(n);
         let (kind,tx_data)=match step{
             RejoinStep::Exit=>{
                 let head=n.chain.head();
@@ -658,12 +713,12 @@ impl<'a> Wallet<'a>{
             }
             RejoinStep::Wait{..}|RejoinStep::Reactivate{..}=>("reactivation",None),
             RejoinStep::Active=>return Err("This account is already in the active mining set".into()),
+            RejoinStep::Missed if n.chain.spec.programs()==apply::ProgramSet::V3&&record.as_ref().is_some_and(|r|r.status==1)=>return Err("An exit now could not be reactivated before this record's probation deadline. The record exits at that deadline and its accrued bond is refunded afterwards; register again after that.".into()),
             RejoinStep::Missed=>return Err("The reactivation window has passed. The bond is refunded when the record is removed; register again after that.".into()),
             RejoinStep::Unavailable=>return Err("Rejoining needs a registry record with a held bond. Register first.".into()),
             RejoinStep::Cooldown{exit_from}=>return Err(format!("This identity reactivated recently, and the registry allows one reactivation per {} blocks: an exit now could not be reactivated before the bond is refunded. Rejoin mining from block {exit_from}.",cp.C_react)),
         };
         // V3: a reactivation that would revert with Capacity now is not quoted (its fee would be spent for nothing).
-        let (record,_,_)=self.rejoin_view(n);
         if tx_data.is_none(){if let Some(why)=record.as_ref().and_then(|r|n.chain.view_of(&n.chain.head().hash).and_then(|st|reactivation_blocked(&n.chain,st.v(),r))){return Err(why)}}
         let fee=self.fee(n)?;
         let count=u64::from(REACTIVATE_ATTEMPTS)+u64::from(tx_data.is_some());
@@ -672,9 +727,18 @@ impl<'a> Wallet<'a>{
         let to=apply::program_address(0);
         let tx=tx_data.map(|data|Tx{chain_id:n.chain.spec.chain_id(),nonce:fee.nonce,max_priority:fee.priority,max_fee:fee.max_fee,gas:REGISTRY_GAS,to:Some(to),value:U256::ZERO,data});
         let mut steps=Vec::new();
-        if tx.is_some(){steps.push("Sign now: leave the registry (deregister). The bond stays locked.".to_owned());
-            steps.push(format!("After {w_act} blocks, the wallet signs reactivate() and has {} blocks for it to be included.",u-w_act));}
-        else{steps.push(format!("The wallet signs reactivate() when the window opens, up to {REACTIVATE_ATTEMPTS} times."));}
+        let next=n.chain.head().height.saturating_add(1);
+        let window=v3_rejoin_window(record.as_ref(),step,next,w_act,u,n.chain.spec.probation().map(|p|p.blocks),
+            n.chain.view_of(&n.chain.head().hash).and_then(|st|reactivation_clock(&n.chain,st.v(),self.key.address())));
+        match (tx.is_some(),window){
+            // V3-09: the window the record's own clock leaves, in block heights.
+            (true,Some((opens,closes)))=>{steps.push("Sign now: leave the registry (deregister). The bond stays locked.".to_owned());
+                steps.push(format!("If the exit is included in block {next}, the wallet signs reactivate() from block {opens} and it must be included before block {closes} ({} blocks). A later exit moves both heights.",closes.saturating_sub(opens)));}
+            (true,None)=>{steps.push("Sign now: leave the registry (deregister). The bond stays locked.".to_owned());
+                steps.push(format!("After {w_act} blocks, the wallet signs reactivate() and has {} blocks for it to be included.",u-w_act));}
+            (false,Some((opens,closes)))=>steps.push(format!("The wallet signs reactivate() from block {} (up to {REACTIVATE_ATTEMPTS} times); it must be included before block {closes}.",opens.max(next))),
+            (false,None)=>steps.push(format!("The wallet signs reactivate() when the window opens, up to {REACTIVATE_ATTEMPTS} times.")),
+        }
         if n.chain.spec.programs()==apply::ProgramSet::V3{
             // V3-09: the reactivation starts the record's C_react clock; V3-10: an exit frees the seat for others.
             steps.push(format!("A reactivation starts a {}-block cooldown: this identity cannot reactivate again before it ends.",cp.C_react));
@@ -697,7 +761,7 @@ impl<'a> Wallet<'a>{
         // V3: no reactivation is signed while it would revert with Capacity (a full set or, for a pool-contest victim, a
         // full probation pool); the window may still close, which stops the plan as Missed.
         let blocked=record.as_ref().and_then(|r|n.chain.view_of(&n.chain.head().hash).and_then(|st|reactivation_blocked(&n.chain,st.v(),r)));
-        let action=match decide(step,&plan,head,exit,last,record.is_some()){Action::Reactivate if blocked.is_some()=>Action::Wait,a=>a};
+        let action=hold_while_blocked(decide(step,&plan,head,exit,last,record.is_some()),blocked.is_some());
         match action{
             Action::Wait=>{self.rejoin=Some(plan);None}
             Action::Stop(message)=>stop(message),
@@ -718,10 +782,16 @@ impl<'a> Wallet<'a>{
             }
         }
     }
+    /// Tests only (a single node on a fixture chain): quote without a peer and on an old head. The wallet engine never
+    /// calls it.
+    #[doc(hidden)]
+    pub fn without_network_checks(mut self)->Self{self.network_checks=false;self}
     fn fee(&self,n:&Node)->Result<Fee,String>{
-        if n.peer_count()==0{return Err("Connect to the network before sending".into())}
         let head=n.chain.head();
-        if head.ts.saturating_add(180)<crate::node::now_s(){return Err("The local chain is behind. Wait for synchronization.".into())}
+        if self.network_checks{
+            if n.peer_count()==0{return Err("Connect to the network before sending".into())}
+            if head.ts.saturating_add(180)<crate::node::now_s(){return Err("The local chain is behind. Wait for synchronization.".into())}
+        }
         let pending=n.pool_view();let account=pending.account(&self.key.address());
         let nonce=account.as_ref().map(|a|a.info.nonce).unwrap_or(0);
         let balance=account.map(|a|a.info.balance).unwrap_or_default();
@@ -943,12 +1013,64 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         let none=crate::rpc::BurnQuote{gas_limit:21_976,total:U256::ZERO,accounts:U256::ZERO,..q};
         assert_eq!(burn_bound(21_000,&none,fee,None,8_000_000),Ok((21_976,21_976)));
         assert!(burn_bound(21_000,&none,fee,Some(U256::from(2_099_999u64)),8_000_000).unwrap_err().contains("cover the gas"));
-        // A quote the estimate's own limit does not cover is refused, never signed.
-        let short=crate::rpc::BurnQuote{gas_limit:30_000,..q};assert!(burn_bound(21_000,&short,fee,None,8_000_000).is_err());
+        // An estimate below the wallet's check (it prices the gas at the effective price, the wallet at max_fee) is raised
+        // to the least limit that passes it, never signed short.
+        let short=crate::rpc::BurnQuote{gas_limit:30_000,..q};assert_eq!(burn_bound(21_000,&short,fee,None,8_000_000),Ok((31_000,31_000)));
+        assert!(burn_bound(21_000,&short,fee,None,30_999).unwrap_err().contains("more than one block's gas"),"no default above the block gas limit");
         assert!(burn_bound(21_000,&q,U256::ZERO,None,8_000_000).is_err());
         let p=BurnPlan{gas:31_000,suggested:35_000,gas_used:21_000,max_fee:fee,quote:q,user_bound:true};let d=p.describe();
         assert_eq!((d["creationBurn"].as_str(),d["gasFee"].as_str(),d["feeBound"].as_str(),d["suggestedFeeBound"].as_str()),(Some("0.000000000001"),Some("0.0000000000021"),Some("0.0000000000031"),Some("0.0000000000035")));
         assert!(d["burnNote"][2].as_str().unwrap().contains("below the suggested"),"{d}");
+    }
+    /// Review finding: with a large cap the estimate's drift margin is small, and the estimate (consensus too) prices the
+    /// gas at the effective price min(max_fee, base + priority) while the wallet's check prices it at max_fee. The v3
+    /// working profile (ACCT_CAP 200,000, F0_acct 1e15) at 1,000 accounts, base 1 gwei, priority 1 gwei (max_fee 3 gwei):
+    /// the estimate returns about 349,015 gas, which the wallet's check alone refused for every default transfer.
+    #[test] fn the_default_transfer_limit_covers_the_burn_at_max_fee(){
+        let (base,priority)=(U256::from(1_000_000_000u64),U256::from(1_000_000_000u64));let max_fee=base*U256::from(2)+priority;let eff=base+priority;
+        let f0=U256::from(1_000_000_000_000_000u64);
+        let burn=pocol_lp4_execution::creation_fees::price(f0,200_000,1_000,1).unwrap();let margin=pocol_lp4_execution::creation_fees::price(f0,200_000,1_004,1).unwrap();
+        // The estimate's search: the least limit (to its 1000-gas resolution) with 21000*eff + margin <= max_fee*limit.
+        let estimate=u64::try_from((U256::from(21_000u64)*eff+margin).div_ceil(max_fee)).unwrap()+999;
+        let q=crate::rpc::BurnQuote{gas_limit:estimate,gas_used:21_000,accounts:burn,slots:U256::ZERO,code:U256::ZERO,total:burn};
+        let need=u64::try_from((U256::from(21_000u64)*max_fee+burn).div_ceil(max_fee)).unwrap();
+        assert!(need>estimate,"the counterexample: the estimate alone is short of the wallet's check ({need} > {estimate})");
+        let (gas,suggested)=burn_bound(21_000,&q,max_fee,None,30_000_000).unwrap();
+        assert_eq!((gas,suggested),(need,need),"raised to the least limit at max_fee");
+        assert!(U256::from(gas)*max_fee>=U256::from(21_000u64)*max_fee+burn,"the signed maximum covers gas at max_fee and the burn");
+        assert!(U256::from(gas)*max_fee>=U256::from(21_000u64)*eff+burn,"so also the consensus bound");
+        // A bound at exactly that maximum signs; one wei-per-gas below it is refused.
+        assert_eq!(burn_bound(21_000,&q,max_fee,Some(U256::from(need)*max_fee),30_000_000),Ok((need,need)));
+        assert!(burn_bound(21_000,&q,max_fee,Some(U256::from(need-1)*max_fee),30_000_000).is_err());
+        // An estimate above the least limit is kept.
+        let big=crate::rpc::BurnQuote{gas_limit:need+5_000,..q};assert_eq!(burn_bound(21_000,&big,max_fee,None,30_000_000),Ok((need+5_000,need+5_000)));
+    }
+    /// V3: no reactivation is signed while it would revert with Capacity; the plan waits instead.
+    #[test] fn a_blocked_reactivation_waits(){
+        assert_eq!(hold_while_blocked(Action::Reactivate,true),Action::Wait);
+        assert_eq!(hold_while_blocked(Action::Reactivate,false),Action::Reactivate);
+        for blocked in [false,true]{
+            assert_eq!(hold_while_blocked(Action::Done,blocked),Action::Done);assert_eq!(hold_while_blocked(Action::Wait,blocked),Action::Wait);
+            assert_eq!(hold_while_blocked(Action::Stop("x".into()),blocked),Action::Stop("x".into()));
+        }
+    }
+    /// V3-09: the rejoin review states the window the clock leaves; the status shows "allowed from" only while ahead.
+    #[test] fn the_rejoin_review_window_follows_the_clock(){
+        let (w,u)=(32,40);let active=record(1,0,0);let exited=record(2,100,140);
+        // lastReact 100, C_react 200: an exit at 262 leaves [300, 302), two blocks, not U - W_act = 8.
+        assert_eq!(v3_rejoin_window(Some(&active),RejoinStep::Exit,262,w,u,None,react(100,200,u)),Some((300,302)));
+        // A clock that never ran (or one long past): the W_act/U window of an exit at next.
+        assert_eq!(v3_rejoin_window(Some(&active),RejoinStep::Exit,262,w,u,None,react(0,200,u)),Some((294,302)));
+        // A probation record's deadline closes it earlier.
+        let mut p=record(1,0,0);p.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;p.registered_at=0;
+        assert_eq!(v3_rejoin_window(Some(&p),RejoinStep::Exit,262,w,u,Some(301),react(100,200,u)),Some((300,301)));
+        assert_eq!(v3_rejoin_window(Some(&exited),RejoinStep::Wait{opens:135,closes:140},101,w,u,None,react(95,40,u)),Some((135,140)));
+        assert_eq!(v3_rejoin_window(Some(&exited),RejoinStep::Reactivate{closes:140},136,w,u,None,react(95,40,u)),Some((136,140)));
+        assert_eq!(v3_rejoin_window(Some(&active),RejoinStep::Exit,262,w,u,None,None),None,"spec 1: the W_act/U wording");
+        assert_eq!(v3_rejoin_window(Some(&active),RejoinStep::Active,262,w,u,None,react(100,200,u)),None);
+        let c=ReactClock{last:120,c_react:200,u:40};
+        assert_eq!((c.allowed_from_ahead(319),c.allowed_from_ahead(320),c.allowed_from_ahead(400)),(Some(320),None,None),"a past or current height allows nothing new");
+        assert_eq!(ReactClock{last:0,c_react:200,u:40}.allowed_from_ahead(1),None);
     }
     /// V3: the registry's topUp() refusals, said before anything is signed.
     #[test] fn v3_top_up_refusals_name_the_reason(){

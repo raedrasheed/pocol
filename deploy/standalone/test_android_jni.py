@@ -97,6 +97,12 @@ public final class JniBoundaryTest {
                 equal(WalletText.kindLabel("contest"),"Mining registration \u00b7 contest");equal(WalletText.kindLabel("topup"),"Bond top-up");equal(WalletText.kindLabel("transfer"),"Sent PCOL");
                 equal(WalletText.minedText("5","20","","","",""),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL");
                 equal(WalletText.minedText("5","20","4","16","120","320"),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL\nBond held: 4 PCOL \u00b7 still to accrue: 16 PCOL\nLast reactivation: block 120 \u00b7 next one allowed from block 320");
+                equal(WalletText.minedText("5","20","","","120",""),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL\nLast reactivation: block 120");
+                // Review: a rejoin moves no PCOL and keeps the bond locked (not "Bond: 0 PCOL"); rejoin messages and events.
+                equal(String.join("|",WalletText.amountRow("rejoin","0")),"Amount|0 PCOL \u00b7 the bond stays locked");equal(String.join("|",WalletText.amountRow("reactivation","0")),"Amount|0 PCOL \u00b7 the bond stays locked");
+                equal(String.join("|",WalletText.amountRow("registration","20")),"Bond|20 PCOL");equal(String.join("|",WalletText.amountRow("topup","5")),"Top-up|5 PCOL");equal(String.join("|",WalletText.amountRow("transfer","1")),"Amount|1 PCOL");
+                equal(WalletText.rejoinNotice("rejoin","Stopped","The reactivation window passed."),"Mining rejoin \u00b7 Stopped: The reactivation window passed.");
+                equal(WalletText.rejoinNotice("rejoin","","x"),"x");equal(WalletText.rejoinNotice("status","Stopped","x"),"");
                 if(!WalletText.burnLines("","1","2","2",false,new String[]{"x"}).isEmpty())throw new AssertionError("burn lines without a creation burn");
                 java.util.List<String> burn=WalletText.burnLines("0.008","0.0021","0.0101","0.012",true,new String[]{"first","second"});
                 equal(String.join("|",burn),"Creation burn (quoted): 0.008 PCOL|Gas fee (at most): 0.0021 PCOL|Maximum fee you sign: 0.0101 PCOL \u00b7 it bounds the gas and the burn together (your maximum)|Suggested maximum fee: 0.012 PCOL|first|second");

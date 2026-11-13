@@ -34,6 +34,19 @@ function pump() {
     : q.type === 'confirmAccounts' ? `site: ${q.site}\nnetwork: ${q.network}\naccount: ${q.address}`
     : `network: ${q.network} (chainId ${q.chainId})\nsite: ${q.site}\nfrom: ${q.from}\nto: ${q.to}\nvalue (wei): ${q.value}\nmax cost (wei, gas·maxFee + value): ${q.maxCost}\ngas: ${q.gas}\nmaxFeePerGas (wei): ${q.maxFeePerGas}\nmaxPriorityFeePerGas (wei): ${q.maxPriorityFeePerGas}\nnonce: ${q.nonce}${q.creationBurn === undefined ? '' : `\ncreation burn (wei, quoted; burned only within the signed maximum): ${q.creationBurn}\ngas fee at most (wei, gasUsed·maxFee): ${q.gasFeeMax}\nsigned maximum (wei, gas·maxFee; bounds gas + burn together): ${q.signedMax}`}\ndata: ${q.data}\nsigningHash: ${q.signingHash}\nunsigned: ${q.payload}`;
   $('modal').hidden = false; $('modal').dataset.kind = q.type;
+  // D-V3-21 option A: with a quoted creation burn the user may lower or raise the signed maximum (wei, gas·maxFee). It
+  // signs nothing: the worker derives the new gas limit, refuses one that cannot carry the quoted gas and burn, and asks
+  // for a new review of the new transaction.
+  const editable = q.type === 'confirmTx' && q.creationBurn !== undefined;
+  $('boundrow').hidden = !editable; $('bounderr').textContent = '';
+  if (editable) {
+    $('bound').value = q.signedMax;
+    $('rebound').onclick = () => {
+      const v = $('bound').value.trim();
+      if (!/^[1-9][0-9]{0,77}$/.test(v)) { $('bounderr').textContent = 'Enter the maximum in wei, digits only.'; return; }
+      done({ bound: v });
+    };
+  }
   // F8: Approve becomes live only after BOTH (a) ARM_MS with no pointer press anywhere on the dialog —
   // every press during the wait restarts the delay, so a fast burst (the clickjacking "game") can never
   // outlast it — AND (b), for a mouse, a fresh pointer movement onto the Approve button, which a fixed-spot
@@ -53,7 +66,7 @@ function pump() {
   const onMove = (e) => { if (timeReady && e.pointerType === 'mouse' && e.target === approve) { movedOver = true; approve.removeAttribute('aria-disabled'); } };
   const done = (ok) => {
     if (showing !== cur) return;
-    approve.onclick = $('reject').onclick = null;
+    approve.onclick = $('reject').onclick = $('rebound').onclick = null; $('boundrow').hidden = true;
     modal.removeEventListener('pointerdown', onPress); modal.removeEventListener('pointermove', onMove);
     if (armTimer) clearTimeout(armTimer);
     modal.hidden = true; approve.textContent = 'Approve'; approve.removeAttribute('aria-disabled');
@@ -127,7 +140,11 @@ async function start() {
   port.onMessage.addListener(async (m) => {
     if (m.hello !== undefined) { if (ctx.genId && ctx.genId !== m.hello) workerLost(); ctx.genId = m.hello; return; }
     // The port may be gone by the time a withdrawn dialog resolves (revocation, lost worker).
-    if (m.ask !== undefined) { const ok = await confirmUI(m.q, m.ask); try { port.postMessage({ answer: m.ask, ok }); } catch {} return; }
+    if (m.ask !== undefined) {
+      const r = await confirmUI(m.q, m.ask);
+      try { port.postMessage(r && r.bound !== undefined ? { answer: m.ask, ok: false, bound: r.bound } : { answer: m.ask, ok: r === true }); } catch {}
+      return;
+    }
     if (m.dismiss !== undefined) { dismiss(m.dismiss); return; }
     // Identity or profile change (browser.md: 4901): the frame is torn down, nothing reloads by itself.
     if (m.revoked) { ctx.revoked = true; dismissAll(); teardown(); ctx.frame = Number.MAX_SAFE_INTEGER; fail(`Session terminated (${m.revoked.code}): ${m.revoked.message}`); return; }
