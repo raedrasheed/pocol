@@ -116,8 +116,9 @@ fn legacy_bounded_full_nonce_and_earnin_membership_and_draw_stay_unchanged() {
 mod preview {
     use super::*;
     // pr15-2 pins (deterministic fixture): fallback blocks mined after the operators went idle, and the first height
-    // whose drawn proposer can sign.
-    const UNBOUNDED_PERIOD:usize=16;const UNBOUNDED_RECOVERY:u64=19;
+    // whose drawn proposer can sign. The fixture chain runs the v3 program set (V3-PR-E0), whose bytes enter
+    // the state root and so every block hash, nonce draw and solution: the unbounded pins moved from 16/19 to 15/18 (V3-PR-E0) and to 14/17 (V3-PR-E1).
+    const UNBOUNDED_PERIOD:usize=14;const UNBOUNDED_RECOVERY:u64=17;
     const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {

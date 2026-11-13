@@ -21,10 +21,29 @@ pub fn ledger()->Address{program_address(2)}
 pub fn caps()->Address{program_address(3)}
 pub fn chunk_factory()->Address{program_address(4)}
 
-/// Program-set identity. V3 is reserved for the separately reviewed E0 artifact;
-/// preview scaffolding reports the actual legacy set it currently executes.
+/// Program-set identity: the bundled set a GenesisSpec's sysCodeHash names. V3 (system-v3.json) is
+/// registered only for a CP schema v2 (specVersion 2) genesis; elsewhere its hash names nothing.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum ProgramSet{V1,Continuous,EarnIn,V3}
+/// The probation pool of an earn-in-rules program set (EARN-IN-SPEC U3/U4, V3-14): the ACCRUING seats and
+/// the deadline in blocks after registeredAt.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct Probation{pub seats:u64,pub blocks:u64}
+impl Probation{
+    /// The constants of PoColSystemEarnIn.sol (P_MAX 8, T_PROB 60,480), which no CP can change.
+    pub const EARNIN:Probation=Probation{seats:8,blocks:60_480};
+}
+impl ProgramSet{
+    /// Earn-in: `Probation::EARNIN`. V3: what PoColSystemV3.sol reads through cfg(), CP schema v2 fields
+    /// P_MAX and T_PROB. Other sets have no probation.
+    pub fn probation(self,cp:&crate::profile::ConsensusParams)->Option<Probation>{
+        match self{
+            ProgramSet::EarnIn=>Some(Probation::EARNIN),
+            ProgramSet::V3=>Some(Probation{seats:cp.P_MAX.into(),blocks:cp.T_PROB.into()}),
+            ProgramSet::V1|ProgramSet::Continuous=>None,
+        }
+    }
+}
 
 /// The five compiled runtime programs C0C001..C0C005, in order.
 #[derive(Clone,Debug)]
@@ -47,26 +66,27 @@ impl SystemPrograms{
     pub fn continuous()->Self{Self::from_compiled_json(include_str!("../tests/data/system-continuous.json")).expect("bundled continuous system programs")}
     pub fn for_params(cp:&crate::profile::ConsensusParams)->Self{if cp.H_END==0{Self::continuous()}else{Self::v1()}}
     /// Earn-in network programs (development/decisions/EARN-IN-SPEC.md), compile_system_earnin.cjs.
-    /// Earn-in constants of the bundled program (PoColSystemEarnIn.sol): bondState ACCRUING, probation seats
-    /// and the probation deadline in blocks.
+    /// bondState ACCRUING of the earn-in and v3 programs; their probation pool is `ProgramSet::probation`.
     pub const EARNIN_ACCRUING:u8=4;
-    pub const EARNIN_P_MAX:u64=8;
-    pub const EARNIN_T_PROB:u64=60_480;
     pub fn earnin()->Self{Self::from_compiled_json(include_str!("../tests/data/system-earnin.json")).expect("bundled earn-in system programs")}
-    /// The bundled program set whose sysCodeHash a GenesisSpec names; otherwise the CP default, which
-    /// then fails the genesis code check exactly as before.
-    fn registered()->[(ProgramSet,Self);3]{
-        [(ProgramSet::Continuous,Self::continuous()),(ProgramSet::V1,Self::v1()),(ProgramSet::EarnIn,Self::earnin())]
+    /// V3 network programs (PoColSystemV3.sol: the earn-in programs with P_MAX/T_PROB read from CP schema v2
+    /// and ChainCaps over all 67 fields), compile_system_v3.cjs. Dormant: only a specVersion-2 genesis selects it.
+    pub fn v3()->Self{Self::from_compiled_json(include_str!("../tests/data/system-v3.json")).expect("bundled v3 system programs")}
+    fn of(kind:ProgramSet)->Self{
+        match kind{ProgramSet::V1=>Self::v1(),ProgramSet::Continuous=>Self::continuous(),ProgramSet::EarnIn=>Self::earnin(),ProgramSet::V3=>Self::v3()}
     }
+    /// V3-34 registry. A set is selectable only on a genesis whose CP it reads: V3 needs CP schema v2.
+    fn selectable(kind:ProgramSet,cp:&crate::profile::ConsensusParams)->bool{kind!=ProgramSet::V3||cp.schema_version()>=2}
+    /// The bundled program set whose sysCodeHash a GenesisSpec names (and whose CP schema it has); otherwise
+    /// the CP default, which then fails the genesis code check exactly as before. On a spec-1 genesis the v3
+    /// hash names nothing, so every spec-1 verdict is the one before the v3 set existed.
     pub fn program_set(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->ProgramSet{
-        static HASHES:std::sync::OnceLock<[(ProgramSet,[u8;32]);3]>=std::sync::OnceLock::new();
-        HASHES.get_or_init(||Self::registered().map(|(kind,p)|(kind,p.sys_code_hash().0)))
-            .iter().find(|(_,hash)|hash==sys_code_hash).map(|(kind,_)|*kind)
+        static HASHES:std::sync::OnceLock<[(ProgramSet,[u8;32]);4]>=std::sync::OnceLock::new();
+        HASHES.get_or_init(||[ProgramSet::Continuous,ProgramSet::V1,ProgramSet::EarnIn,ProgramSet::V3].map(|kind|(kind,Self::of(kind).sys_code_hash().0)))
+            .iter().find(|(kind,hash)|hash==sys_code_hash&&Self::selectable(*kind,cp)).map(|(kind,_)|*kind)
             .unwrap_or(if cp.H_END==0{ProgramSet::Continuous}else{ProgramSet::V1})
     }
-    pub fn for_spec(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->Self{
-        Self::registered().into_iter().find(|(_,p)|p.sys_code_hash().0==*sys_code_hash).map(|(_,p)|p).unwrap_or_else(||Self::for_params(cp))
-    }
+    pub fn for_spec(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->Self{Self::of(Self::program_set(cp,sys_code_hash))}
     /// sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])).
     pub fn sys_code_hash(&self)->B256{crate::genesis_builder::code_hash(&self.codes)}
 }
