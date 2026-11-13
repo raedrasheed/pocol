@@ -4230,7 +4230,7 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
         let (base,head)=(a.chain.canonical.base(),a.chain.head().height);let s=head-40;
         assert!(base>1&&s>=base,"positive control ({store}): the evicting node's window starts at {base} (export height {s})");
         assert!(r.chain.canonical.base()<=1,"the reference keeps every block ({store})");
-        let g=(a.chain.spec.chain_id(),a.chain.spec.genesis_hash());
+        let g=export::Network::of(&a.chain.spec);
         let out=|tag:&str|{let d=e44_dir(&format!("v333-out-{tag}-{store}"));let _=std::fs::remove_dir_all(d.with_file_name(format!("{}.partial",d.file_name().unwrap().to_string_lossy())));d};
         let (oa,or)=(out("evict"),out("keep"));
         let ma=export::export(&mut a,s,&oa).unwrap_or_else(|e|panic!("{e}"));let mr=export::export(&mut r,s,&or).unwrap_or_else(|e|panic!("{e}"));
@@ -4243,7 +4243,7 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
             assert_eq!(std::fs::read(ob.join(f)).unwrap(),want,"({store}): {f} of the reopened evicting node");
         }
         assert_eq!((&ma["parts"],&mb["parts"]),(&mr["parts"],&mr["parts"]));
-        let v=export::verify(&oa,Some(g)).unwrap_or_else(|e|panic!("{e}"));assert_eq!((v["blocks"].as_u64(),v["transactions"].as_u64()),(Some(s+1),Some(10)),"{v}");
+        let v=export::verify(&oa,Some(&g),None).unwrap_or_else(|e|panic!("{e}"));assert_eq!((v["blocks"].as_u64(),v["transactions"].as_u64()),(Some(s+1),Some(10)),"{v}");
         for d in [da,dr,oa,or,ob]{let _=std::fs::remove_dir_all(&d);}
     }
 }

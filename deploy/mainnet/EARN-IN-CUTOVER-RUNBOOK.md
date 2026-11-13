@@ -403,7 +403,8 @@ left. Commit, open a PR, let CI build the clients, and merge.
 Everything below comes from the merged head of step 3.
 
 - **Old-chain data (V3-33).** Publish one server's `/var/tmp/pocol-old-chain-<S>` (the four files;
-  step 2 showed all three are byte-equal) and the four SHA-256 sums beside the release notes, with
+  step 2 showed all three are byte-equal) and the four SHA-256 sums beside the release notes (the manifest's sum is the `manifestSha256`
+  that `verify-export` prints, for its `--manifest-sha256`), with
   the instructions of "Old-chain data export" below for checking it with `pocold verify-export` or a
   node of one's own.
 
@@ -585,18 +586,36 @@ streamed one at a time; the state after `H` is held whole, as the cutover holds 
   "headHash":<hash of block H>,"stateRoot":<its stateRoot>,"D","parts":[{"name","bytes","records","sha256"},…],"verify"}`,
   the parts in the order above.
 
-`pocold verify-export --dir NEW_DIR [--network OLD_DIR] [LOCAL]` checks an export without trusting
-its publisher:
+`pocold verify-export --dir NEW_DIR [--network OLD_DIR] [--manifest-sha256 HEX] [LOCAL]` checks an
+export without trusting its publisher. Every value it recomputes from or reports is bound to the
+block headers and the `stateRoot` of block `H`; no value that only the manifest or `facts.json`
+states is taken on trust:
 - each part's size and SHA-256;
 - every block: its header decodes, hashes to its line's hash, meets its own PoW target, names the
-  genesis, its height and the block below it as parent, and commits its line's body
+  genesis, the chain ID, its height and the block below it as parent, and commits its line's body
   (`txRoot`, `evidenceRoot`); the last block is `headHash` with `stateRoot`;
 - the world-state root of `state.jsonl` is that `stateRoot`;
-- `facts.json` equals what the state gives.
+- every line of `blocks.jsonl` and `state.jsonl` is the exact bytes `export-chain` writes for that
+  block or account (no added field, other key order, spacing or hex case);
+- `D` is read from the state: consensus parameter 11 in ChainCaps (`0xc0c004`, written only by
+  genesis), under that `stateRoot`. The manifest's `D` must equal it, and the dropped pots are
+  recomputed with it. A manifest and `facts.json` that both claim another `D` (for example `D: 0`
+  and no dropped pots) are refused;
+- `facts.json` is byte for byte what the state gives with that `D`;
+- `manifest.json` is byte for byte the manifest of these checked values (chain ID, genesis hash,
+  height, `headHash`, `stateRoot`, `D`, and each part's bytes, records and SHA-256), so none of its
+  fields is unchecked.
 
-With `--network` the manifest must name that network's chain ID and genesis hash. Blocks are not
-re-executed here. To check that too, sync your own node of the old network to `H` from the published
-blocks and run `export-chain` on it: the result must be byte-equal.
+With `--network` the manifest must name that network's chain ID and genesis hash, and the state's
+ChainCaps must hold every consensus parameter of its genesis spec. Without `--network` the export is
+checked only against itself: its genesis hash is the publisher's word until compared with the
+network's, so publish and check with `--network`. The summary (and the output of `export-chain`)
+shows `manifestSha256`; publish it with the export, and `--manifest-sha256 HEX` (with or without
+`0x`, as `sha256sum` prints it) refuses a manifest with another digest. As the manifest commits
+every part, that digest pins the whole export. Blocks are not re-executed here, and a header's PoW
+is checked against its own target, not the ASERT target. To check that too, sync your own node of
+the old network to `H` from the published blocks and run `export-chain` on it: the result must be
+byte-equal.
 
 ## What this does not cover
 

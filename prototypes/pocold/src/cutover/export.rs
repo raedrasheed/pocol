@@ -40,9 +40,11 @@ impl Part{
     fn line(&mut self,s:&str)->Result<(),String>{self.write(s.as_bytes())?;self.write(b"\n")?;self.records+=1;Ok(())}
     fn finish(self,name:&str)->Result<Value,String>{
         let f=self.w.into_inner().map_err(|e|e.to_string())?;f.sync_all().map_err(|e|e.to_string())?;
-        Ok(json!({"name":name,"bytes":self.bytes,"records":self.records,"sha256":hex(&self.sha.finalize())}))
+        Ok(part_json(name,self.bytes,self.records,&hex(&self.sha.finalize())))
     }
 }
+/// A part's manifest entry.
+fn part_json(name:&str,bytes:u64,records:u64,sha256:&str)->Value{json!({"name":name,"bytes":bytes,"records":records,"sha256":sha256})}
 
 /// One block line: `{"height":h,"hash":"0x..","header":"0x..","body":"0x.."}` (the encoded header and body exactly as
 /// the block was imported); genesis is `{"height":0,"hash":"0x.."}` (its files are the network's own).
@@ -68,6 +70,40 @@ pub fn facts(state:&InMemoryDB,height:u64,d:u64)->Result<Value,String>{
         "exitHeight":r.exit_height,"dueHeight":r.due_height,"burnHeight":r.burn_height,"graceStart":r.grace_start})).collect();
     let (_,report)=super::transform(state,height,d,&[],U256::ZERO)?;
     Ok(json!({"height":height,"D":d,"registry":records,"cutover":report}))
+}
+
+/// The index of D (the reward delay) in the consensus parameters (profile.rs, schema order).
+pub const CP_D:usize=11;
+/// Consensus parameter `i` as `state` holds it: slot `i` of ChainCaps (0xc0c004), which genesis writes with every
+/// parameter and nothing writes after it (the system programs read their parameters there). Bound to the state's
+/// world-state root, so to the stateRoot of block H, unlike any value the manifest or facts.json states.
+pub fn state_cp(state:&InMemoryDB,i:usize)->Result<U256,String>{
+    let caps=state.accounts.get(&apply::caps()).filter(|a|a.info().is_some()).ok_or("the state has no ChainCaps account (0xc0c004)")?;
+    Ok(caps.storage.get(&U256::from(i)).copied().unwrap_or_default())
+}
+/// D as the state gives it (consensus parameter 11 in ChainCaps): the D of the facts, never the manifest's.
+pub fn state_d(state:&InMemoryDB)->Result<u64,String>{
+    let v=state_cp(state,CP_D)?;
+    if v>U256::from(u16::MAX){return Err(format!("the state's D (consensus parameter {CP_D}) is not a 16-bit value"))}
+    Ok(v.to::<u64>())
+}
+
+/// The caller's own network files, which `verify` checks an export against: the chain id, the genesis hash and every
+/// consensus parameter of the genesis spec (which the genesis hash commits).
+pub struct Network{pub chain_id:u64,pub genesis:[u8;32],pub cp:Vec<U256>}
+impl Network{
+    pub fn of(spec:&crate::chain::Spec)->Self{
+        Self{chain_id:spec.chain_id(),genesis:spec.genesis_hash(),cp:spec.profile().spec().cp.iter().map(|v|U256::from_be_bytes(v.to_be_bytes())).collect()}
+    }
+}
+
+/// A manifest or facts.json as the export writes it: pretty JSON and a newline. `verify` compares the bytes it reads
+/// with this rendering of what it recomputed, so no field, key order or spacing is left to the publisher.
+fn pretty(v:&Value)->Result<Vec<u8>,String>{let mut b=serde_json::to_vec_pretty(v).map_err(|e|e.to_string())?;b.push(b'\n');Ok(b)}
+/// The manifest of an export with these values and part entries.
+fn manifest_json(chain_id:u64,genesis:&[u8;32],height:u64,head:&[u8;32],state_root:&[u8;32],d:u64,parts:[Value;3])->Value{
+    json!({"schema":SCHEMA,"chainId":chain_id,"genesisHash":hex(genesis),"height":height,"headHash":hex(head),"stateRoot":hex(state_root),"D":d,
+        "parts":parts,"verify":"pocold verify-export --dir EXPORT_DIR [--network OLD_GENESIS_DIR]"})
 }
 
 /// `pocold export-chain --network OLD_DIR --data OLD_DATA --to-height H --out NEW_DIR [NODE] [LOCAL]` (the node stopped:
@@ -156,13 +192,16 @@ fn write_parts(node:&Node,height:u64,hash:&[u8;32],dir:&Path)->Result<Value,Stri
         st.line(&account_line(a,&info,&code,&slots))?;
     }
     let st=st.finish(PARTS[1])?;
+    // D as `verify` derives it: from the state's ChainCaps, which must hold the network's own D.
+    let sd=state_d(&old)?;
+    if sd!=d{return Err(format!("the state at height {height} holds D = {sd} (consensus parameter {CP_D}), not the network's D = {d}"))}
     let mut fx=Part::create(&dir.join(PARTS[2]))?;
-    let f=facts(&old,height,d)?;fx.write(serde_json::to_string_pretty(&f).map_err(|e|e.to_string())?.as_bytes())?;fx.write(b"\n")?;fx.records=1;
+    fx.write(&pretty(&facts(&old,height,d)?)?)?;fx.records=1;
     let fx=fx.finish(PARTS[2])?;
-    let manifest=json!({"schema":SCHEMA,"chainId":chain_id,"genesisHash":hex(&genesis),"height":height,"headHash":hex(hash),"stateRoot":hex(&state_root),"D":d,
-        "parts":[blocks,st,fx],
-        "verify":"pocold verify-export --dir EXPORT_DIR [--network OLD_GENESIS_DIR]"});
-    let mut m=Part::create(&dir.join(MANIFEST))?;m.write(serde_json::to_string_pretty(&manifest).map_err(|e|e.to_string())?.as_bytes())?;m.write(b"\n")?;m.finish(MANIFEST)?;
+    let mut manifest=manifest_json(chain_id,&genesis,height,hash,&state_root,d,[blocks,st,fx]);
+    let mut m=Part::create(&dir.join(MANIFEST))?;m.write(&pretty(&manifest)?)?;
+    // The manifest's own SHA-256, shown (not written): what `verify-export --manifest-sha256` compares.
+    let digest=m.finish(MANIFEST)?["sha256"].clone();manifest["manifestSha256"]=digest;
     Ok(manifest)
 }
 
@@ -193,29 +232,48 @@ fn hex32(v:&Value,k:&str,at:&str)->Result<[u8;32],String>{
     b.try_into().map_err(|_|format!("{at}: {k} is not 32 bytes"))
 }
 
-/// `pocold verify-export --dir EXPORT [--network OLD_GENESIS_DIR]`: checks an export without trusting its publisher.
-/// - manifest: the schema, the three parts, each part's byte count and SHA-256;
+/// `pocold verify-export --dir EXPORT [--network OLD_GENESIS_DIR] [--manifest-sha256 HEX]`: checks an export without
+/// trusting its publisher. What it recomputes and reports is bound to the blocks' headers and to the stateRoot of block H;
+/// no value the manifest or facts.json states is used on trust:
+/// - manifest: the schema, the three parts, each part's byte count and SHA-256 (first, so a damaged copy fails at once);
 /// - blocks.jsonl: heights 0..=H in order, genesis the manifest's; each header decodes, hashes to its line's hash,
-///   meets its own PoW target, names the genesis, its height and the block below it as parent, and commits the body
-///   on its line (tx_root and evidence_root); block H is the manifest's headHash with its stateRoot;
-/// - state.jsonl: accounts in strictly ascending address order whose world-state root is that stateRoot;
-/// - facts.json: equal to the registry records and cutover facts recomputed from that state.
+///   meets its own PoW target, names the genesis, the chain id, its height and the block below it as parent, and
+///   commits the body on its line (tx_root and evidence_root); block H is the manifest's headHash with its stateRoot;
+///   every line is the bytes `export-chain` writes for that block;
+/// - state.jsonl: accounts in strictly ascending address order, each line the bytes `export-chain` writes for it,
+///   whose world-state root is that stateRoot;
+/// - D: consensus parameter 11 in the state's ChainCaps (`state_d`), under that stateRoot. The manifest's D must be
+///   it: the dropped pots of facts.json are recomputed with it, never with the manifest's value;
+/// - facts.json: the bytes of the registry records and cutover facts recomputed from that state and D;
+/// - manifest, last: its bytes are the manifest those checked values give (chain id, genesis, height, headHash,
+///   stateRoot, D, and each part's bytes, records and SHA-256), so no field of it is unchecked.
 ///
-/// With `genesis` (the chain id and genesis hash of the caller's own network files) the manifest must name them.
-/// A block's execution is not repeated here: a node that syncs the old chain does that, and its own export of the
-/// same height must then be byte-equal. Returns a summary.
-pub fn verify(dir:&Path,genesis:Option<(u64,[u8;32])>)->Result<Value,String>{
-    let m:Value=serde_json::from_slice(&read_small(&dir.join(MANIFEST))?).map_err(|_|"manifest.json is not JSON")?;
+/// With `network` (the caller's own network files) the manifest must name its chain id and genesis hash, and the
+/// state's ChainCaps must hold every consensus parameter of its genesis spec. With `manifest_sha256` (the digest
+/// published with the export) manifest.json must have it; the manifest commits every part, so that pins the whole
+/// export. Without `network` an export is only checked against itself: its genesis hash is then the publisher's
+/// word until compared with the network's. A block's execution is not repeated here: a node that syncs the old chain
+/// does that, and its own export of the same height must then be byte-equal. Returns a summary.
+pub fn verify(dir:&Path,network:Option<&Network>,manifest_sha256:Option<&str>)->Result<Value,String>{
+    let mbytes=read_small(&dir.join(MANIFEST))?;
+    let msha=hex(&Sha256::digest(&mbytes));
+    if let Some(want)=manifest_sha256{
+        let want=want.trim();let want=want.strip_prefix("0x").unwrap_or(want).to_ascii_lowercase();
+        if want!=msha[2..]{return Err(format!("manifest.json: its SHA-256 is {msha}, not the given {want}"))}
+    }
+    let m:Value=serde_json::from_slice(&mbytes).map_err(|_|"manifest.json is not JSON")?;
     if m["schema"]!=SCHEMA{return Err(format!("manifest.json: schema is not {SCHEMA}"))}
-    let height=field(&m,"height","manifest")?.as_u64().ok_or("manifest: height")?;let d=field(&m,"D","manifest")?.as_u64().ok_or("manifest: D")?;
+    let height=field(&m,"height","manifest")?.as_u64().ok_or("manifest: height")?;let stated_d=field(&m,"D","manifest")?.as_u64().ok_or("manifest: D")?;
     let chain_id=field(&m,"chainId","manifest")?.as_u64().ok_or("manifest: chainId")?;
     let (g,head,root)=(hex32(&m,"genesisHash","manifest")?,hex32(&m,"headHash","manifest")?,hex32(&m,"stateRoot","manifest")?);
-    if let Some((c,h))=genesis{if c!=chain_id||h!=g{return Err("the export is of another network than the given network files".into())}}
+    if let Some(n)=network{if n.chain_id!=chain_id||n.genesis!=g{return Err("the export is of another network than the given network files".into())}}
     let parts=field(&m,"parts","manifest")?.as_array().ok_or("manifest: parts")?;
     if parts.len()!=PARTS.len()||parts.iter().zip(PARTS).any(|(p,n)|p["name"]!=n){return Err(format!("manifest: the parts must be {PARTS:?}"))}
+    let mut sizes=Vec::new();
     for p in parts{
         let name=p["name"].as_str().unwrap_or_default();let (n,sha)=sha256_file(&dir.join(name))?;
         if p["bytes"].as_u64()!=Some(n)||p["sha256"].as_str()!=Some(sha.as_str()){return Err(format!("{name}: its bytes do not match the manifest"))}
+        sizes.push((n,sha));
     }
     // Blocks.
     let mut prev=[0u8;32];let mut last=None;let mut txs=0u64;
@@ -223,7 +281,11 @@ pub fn verify(dir:&Path,genesis:Option<(u64,[u8;32])>)->Result<Value,String>{
         let at=format!("blocks.jsonl line {}",i+1);let v:Value=serde_json::from_slice(line).map_err(|_|format!("{at}: not JSON"))?;
         if field(&v,"height",&at)?.as_u64()!=Some(i){return Err(format!("{at}: height is not {i}"))}
         let hash=hex32(&v,"hash",&at)?;
-        if i==0{if hash!=g{return Err(format!("{at}: genesis is not the manifest's"))}prev=hash;return Ok(())}
+        if i==0{
+            if hash!=g{return Err(format!("{at}: genesis is not the manifest's"))}
+            if line!=block_line(0,&hash,&[],&[]).as_bytes(){return Err(format!("{at}: not the line the export writes for genesis"))}
+            prev=hash;return Ok(())
+        }
         let hb=unhex(field(&v,"header",&at)?.as_str().ok_or_else(||format!("{at}: header"))?)?;let bb=unhex(field(&v,"body",&at)?.as_str().ok_or_else(||format!("{at}: body"))?)?;
         let h=types::decode_header(&hb).map_err(|e|format!("{at}: header: {e}"))?;
         if types::block_hash(&h)!=hash{return Err(format!("{at}: the header does not hash to the line's hash"))}
@@ -231,6 +293,8 @@ pub fn verify(dir:&Path,genesis:Option<(u64,[u8;32])>)->Result<Value,String>{
         if h.h!=i||h.parent_hash!=prev||h.genesis_hash!=g||h.chain_id!=chain_id{return Err(format!("{at}: the header is not the child of the line before it on this network"))}
         let body=Body::decode(&bb,bb.len()).map_err(|e|format!("{at}: body: {e}"))?;
         if body.encode()!=bb||types::body_commitment(&body.txs)!=Some(h.tx_root)||types::body_commitment(&body.evidence)!=Some(h.evidence_root){return Err(format!("{at}: the body is not the one the header commits"))}
+        // No other field, key order, spacing or hex case: the line is the one the export writes for this block.
+        if line!=block_line(i,&hash,&hb,&bb).as_bytes(){return Err(format!("{at}: not the line the export writes for this block"))}
         txs+=body.txs.len() as u64;prev=hash;last=Some((i,hash,h.state_root));Ok(())
     })?;
     match last{Some((h,x,r)) if h==height&&x==head&&r==root=>{},_=>return Err("blocks.jsonl does not end at the manifest's height, headHash and stateRoot".into())}
@@ -244,25 +308,43 @@ pub fn verify(dir:&Path,genesis:Option<(u64,[u8;32])>)->Result<Value,String>{
         let nonce=field(&v,"nonce",&at)?.as_u64().ok_or_else(||format!("{at}: nonce"))?;
         let balance:U256=field(&v,"balance",&at)?.as_str().filter(|s|!s.is_empty()&&s.bytes().all(|b|b.is_ascii_digit())).and_then(|s|s.parse().ok()).ok_or_else(||format!("{at}: balance"))?;
         let code_hash=B256::from(hex32(&v,"codeHash",&at)?);
-        let code=unhex(field(&v,"code",&at)?.as_str().ok_or_else(||format!("{at}: code"))?)?;
-        let code=if code.is_empty(){if code_hash!=KECCAK_EMPTY{return Err(format!("{at}: code is missing"))}None}else{
-            let c=Bytecode::new_raw(code.into());if c.hash_slow()!=code_hash{return Err(format!("{at}: code does not hash to codeHash"))}Some(c)};
-        db.insert_account_info(a,AccountInfo{balance,nonce,code_hash,code});
-        let mut last_slot:Option<U256>=None;
+        let raw=unhex(field(&v,"code",&at)?.as_str().ok_or_else(||format!("{at}: code"))?)?;
+        let code=if raw.is_empty(){if code_hash!=KECCAK_EMPTY{return Err(format!("{at}: code is missing"))}None}else{
+            let c=Bytecode::new_raw(raw.clone().into());if c.hash_slow()!=code_hash{return Err(format!("{at}: code does not hash to codeHash"))}Some(c)};
+        let info=AccountInfo{balance,nonce,code_hash,code};
+        let mut slots:Vec<(U256,U256)>=Vec::new();
         for s in field(&v,"storage",&at)?.as_array().ok_or_else(||format!("{at}: storage"))?{
             let pair=s.as_array().filter(|p|p.len()==2).ok_or_else(||format!("{at}: storage entry"))?;
             let w=|x:&Value|->Result<U256,String>{let b:[u8;32]=unhex(x.as_str().unwrap_or("-"))?.try_into().map_err(|_|format!("{at}: storage word"))?;Ok(U256::from_be_bytes(b))};
             let (k,val)=(w(&pair[0])?,w(&pair[1])?);
-            if val.is_zero()||last_slot.is_some_and(|l|l>=k){return Err(format!("{at}: storage must hold nonzero slots in ascending order"))}last_slot=Some(k);
-            db.insert_account_storage(a,k,val).map_err(|_|format!("{at}: storage"))?;
+            if val.is_zero()||slots.last().is_some_and(|(l,_)|*l>=k){return Err(format!("{at}: storage must hold nonzero slots in ascending order"))}
+            slots.push((k,val));
         }
+        // No other field, key order, spacing, address or hex case: the line is the one the export writes for it.
+        if line!=account_line(&a,&info,&raw,&slots).as_bytes(){return Err(format!("{at}: not the line the export writes for this account"))}
+        db.insert_account_info(a,info);
+        for (k,val) in slots{db.insert_account_storage(a,k,val).map_err(|_|format!("{at}: storage"))?;}
         Ok(())
     })?;
     let got=apply::state_root(&db).map_err(|e|format!("state root: {e:?}"))?;
     if got.0!=root{return Err(format!("state.jsonl: its world-state root {} is not the stateRoot {}",hex(&got.0),hex(&root)))}
-    // Facts.
-    let f:Value=serde_json::from_slice(&read_small(&dir.join(PARTS[2]))?).map_err(|_|"facts.json is not JSON")?;
-    if f!=facts(&db,height,d)?{return Err("facts.json is not what the state gives".into())}
-    Ok(json!({"verified":true,"chainId":chain_id,"genesisHash":hex(&g),"height":height,"headHash":hex(&head),"stateRoot":hex(&root),"blocks":blocks,"transactions":txs,"accounts":accounts,
-        "allocTotal":f["cutover"]["allocTotal"],"bondsCreditedTotal":f["cutover"]["bondsCreditedTotal"]}))
+    // D and the other consensus parameters: from the state's ChainCaps, under the stateRoot.
+    let d=state_d(&db)?;
+    if stated_d!=d{return Err(format!("manifest: D is {stated_d}, but the state's ChainCaps holds D = {d} (consensus parameter {CP_D}, under the stateRoot)"))}
+    if let Some(n)=network{
+        for (i,v) in n.cp.iter().enumerate(){if state_cp(&db,i)?!=*v{return Err(format!("state.jsonl: consensus parameter {i} in the state's ChainCaps is not the given network's"))}}
+    }
+    // Facts, byte for byte as the export writes them for this state and D.
+    let fbytes=read_small(&dir.join(PARTS[2]))?;
+    let f=facts(&db,height,d)?;
+    if fbytes!=pretty(&f)?{return Err("facts.json is not what the state gives".into())}
+    // The manifest, byte for byte as the export writes it for these checked values.
+    let records=[blocks,accounts,1];
+    let entries:Vec<Value>=PARTS.iter().zip(&sizes).zip(records).map(|((name,(n,sha)),r)|part_json(name,*n,r,sha)).collect();
+    let entries:[Value;3]=entries.try_into().map_err(|_|"manifest: parts")?;
+    if mbytes!=pretty(&manifest_json(chain_id,&g,height,&head,&root,d,entries))?{
+        return Err("manifest.json is not the manifest of this export (a field, a part's record count, or its form differs)".into())
+    }
+    Ok(json!({"verified":true,"chainId":chain_id,"genesisHash":hex(&g),"height":height,"headHash":hex(&head),"stateRoot":hex(&root),"D":d,"blocks":blocks,"transactions":txs,"accounts":accounts,
+        "allocTotal":f["cutover"]["allocTotal"],"bondsCreditedTotal":f["cutover"]["bondsCreditedTotal"],"manifestSha256":msha,"network":network.is_some()}))
 }
