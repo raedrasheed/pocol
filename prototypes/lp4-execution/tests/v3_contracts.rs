@@ -1063,7 +1063,9 @@ fn v3_registry_write_ceilings(){
 
 /// The beginBlock sweep at its program caps (64 scans, 16 deletions) deleting records that carry clocks: the same
 /// changed slots per deletion as earn-in (the clocks sit in words erase clears anyway) and its gas, which stays
-/// inside admission's GAS_ENVELOPE (the per-call maxima R18 composes). A fifth record word would put the worst case
+/// inside admission's GAS_ENVELOPE (spec-1's beginBlock 926,000). For the v3 set R18 composes beginBlock from
+/// GAS_ENVELOPE_EARNIN (944,000: GAS_ENVELOPE_V3 has no beginBlock entry), which v3_sys_gas_and_caps_within_the_v3_envelope
+/// checks; this test keeps the stricter spec-1 bound on purpose. A fifth record word would put the worst case
 /// above that envelope; this pins that it is not there.
 #[test]
 fn v3_sweep_deletions_keep_the_sys_envelope(){

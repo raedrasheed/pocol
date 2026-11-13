@@ -212,7 +212,8 @@ fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// V3-PR-E2b: entries for a genesis running the v3 program set, measured (rounded up to 1000) by tests/v3_contracts.rs
 /// (v3-preview) `v3_sys_gas_and_caps_within_the_v3_envelope` at the GAS_DOMAIN maxima with P_MAX 64. PoColSystemV3.sol
 /// is built on the earn-in programs, so every call without an entry here takes `GAS_ENVELOPE_EARNIN`'s (the earn-in
-/// programs measure markClose and beginBlock above `GAS_ENVELOPE`); `gas_envelope(ProgramSet::V3)` is that composition,
+/// programs measure markClose and beginBlock above `GAS_ENVELOPE`; markClose took the earn-in entry until V3-PR-E4 gave it
+/// a v3 entry, below); `gas_envelope(ProgramSet::V3)` is that composition,
 /// and spec-1 sets compose their own tables alone. V3-16/V3-17 make recordResult read
 /// the winner's record, invalidate read the winner word, and punish read the reporter's record and pay its rho_bp cut
 /// (worst: a HELD genesis member's never-written clock word with the chain's first burn; an ACCRUING accused with a

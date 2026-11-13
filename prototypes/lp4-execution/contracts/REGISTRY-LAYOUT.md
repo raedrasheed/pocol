@@ -146,7 +146,9 @@ to B_reg and promoted in one settlement, the chain's first burn, 192 HELD payees
 here). Admission composes them from GAS_ENVELOPE_V3 (37,000; 9,000; 99,000; 6,314,000,
 also for settleFinal) for a genesis running the v3 set, whose gas domain also requires P_MAX <= 64; every other entry
 is GAS_ENVELOPE_EARNIN's (PoColSystemV3.sol is built on the earn-in programs, whose markClose and beginBlock measure
-above GAS_ENVELOPE; the same test measures v3 beginBlock 573,516 and markClose 30,889 within it). Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes.
+above GAS_ENVELOPE; the same test measures v3 beginBlock 573,516 and markClose 30,889 within it). markClose took the
+earn-in entry until V3-PR-E4 gave it a v3 entry (2,735,000, its closing-phase refunds; see the V3-PR-E4 section below);
+beginBlock still takes the earn-in entry. Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes.
 
 The independent model is tests/v3_model.py (class Chain; vectors tests/v3/evidence-penalty-vectors.json, whole blocks
 with settlement); five planted mutants (reporter-paid-on-fallback, whole-pot-for-bonded-accused,
