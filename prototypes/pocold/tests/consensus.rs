@@ -1460,14 +1460,26 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     let alice=devnet::account_key("alice");
     let input=pocold::types::unhex(&format!("{:08x}{}01",7_800_000u32,"00".repeat(64+128+16))).unwrap();
     let heavy=|nonce:u64|Tx{chain_id:777910,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas:7_900_000,to:Some(Address::with_last_byte(9)),value:U256::ZERO,data:input.clone().into()}.sign_1559(&alice);
-    for k in 0..4{n.submit_tx(heavy(k),false).unwrap();}
+    // One heavy transaction's time on this machine, as it is now: each submission executes it once.
+    let mut one_tx=Duration::ZERO;for k in 0..4{let t=Instant::now();n.submit_tx(heavy(k),false).unwrap();one_tx=one_tx.max(t.elapsed());}
     let mut h=net();let g=h.chain.head;let b=branch(&mut h,g,1,&[]);n.import(b[0].clone(),None).unwrap();assert!(n.pool_pending(),"a backlog of heavy transactions");
+    let pending=|n:&Node|n.status_json()["stats"]["poolBacklog"].as_u64().unwrap();let backlog=pending(&n);
     let body=format!(r#"{{"jsonrpc":"2.0","id":3,"method":"eth_sendRawTransaction","params":["0x{}"]}}"#,pocold::types::hex(&pay(&devnet::account_key("bob"),0,1)).trim_start_matches("0x"));
     let req=||{let (t,_r)=std::sync::mpsc::channel();Request::local(body.as_bytes().to_vec(),t,Instant::now()+Duration::from_secs(30),true)};
     let t=Instant::now();let v:serde_json::Value=serde_json::from_str(&answer(&mut n,&req()).body).unwrap();let took=t.elapsed();
     assert_eq!((v["error"]["code"].clone(),v["error"]["data"]["reason"].clone()),(serde_json::json!(-32021),serde_json::json!("busy")),"{v}");
-    assert!(took<Duration::from_millis(100)+Duration::from_millis(400),"held about its deadline plus one transaction: {took:?}");
     assert!(n.pool.txs.iter().all(|(_,r)|*r!=pay(&devnet::account_key("bob"),0,1)),"not pooled");
+    let left=pending(&n);assert!(left>0,"busy: the backlog was still pending at the deadline ({left} of {backlog} left)");
+    // The rest of the backlog, one transaction a step (pool_slice 0), timed right after the held request.
+    while n.pool_pending(){let t=Instant::now();n.pool_step();one_tx=one_tx.max(t.elapsed());}
+    // Held about its deadline plus one transaction (the one running when the deadline passes; no stop hook
+    // cuts a BLAKE2F run short). A transaction's time is measured on this machine around the request, not
+    // assumed: under a load average of about 45 one took over 500 ms, past the old fixed 100+400 ms. One more
+    // transaction's time absorbs a load spike between the measured runs and the held one, and 100 ms covers
+    // parsing, admission and encoding. Driving the whole backlog would not have answered busy (above).
+    let deadline=n.cfg.limits.rpc.compute_light;let bound=deadline+one_tx*2+Duration::from_millis(100);
+    println!("D7-BUSY tookMs {} oneTxMs {} boundMs {} backlog {backlog} left {left}",took.as_millis(),one_tx.as_millis(),bound.as_millis());
+    assert!(took<bound,"held about its deadline plus one transaction: {took:?}, over {bound:?} (deadline {deadline:?}, one transaction {one_tx:?})");
     n.pool_settle();let v:serde_json::Value=serde_json::from_str(&answer(&mut n,&req()).body).unwrap();assert!(v["result"].is_string(),"positive control: after the backlog it is admitted: {v}");
     let _=std::fs::remove_dir_all(&dir);
 }
@@ -2100,10 +2112,27 @@ fn heavier(h:&mut Net,parent:[u8;32],than:U256,extra:usize)->Vec<Block>{
 fn side_matches(c:&Chain)->bool{let walk:Vec<&pocold::chain::Entry>=c.blocks.values().filter(|e|e.height>0&&!c.is_canonical(&e.hash)).map(|e|&**e).collect();
     c.side_counts()==(walk.len(),walk.iter().filter(|e|!e.pruned).count())}
 fn unprotected(n:&pocold::node::Node)->usize{n.chain.blocks.keys().filter(|h|n.chain.blocks[*h].height>0&&!n.chain.is_canonical(h)&&!n.chain.protect.contains(*h)).count()}
+/// One JSON-RPC request answered in process (rpc::answer: admission, class, reservation and budget as over
+/// HTTP) for the tests that compare answers: two nodes, or one node before and after a reorg or a reopen.
+/// The compute deadline is not their subject (net.rs tests it). On a loaded machine (load average about 45) a
+/// state query that reads or rebuilds a stored version can pass the light class's 500 ms; the node then
+/// rightly answers -32020 {deadline} and no value, which `rpc_local` used to read as a null result and the
+/// comparison then failed against the other node's value. So the request runs under compute deadlines as
+/// long as its 120 s work deadline (the node's limits are restored after it), and a -32020 {deadline} that
+/// still comes back fails the test here, naming the request: it is no answer, and is never compared as one.
+fn rpc_unhurried(n:&mut pocold::node::Node,body:String)->serde_json::Value{
+    let long=std::time::Duration::from_secs(120);
+    let kept=(n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy);
+    (n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy)=(long,long);
+    let (t,_r)=std::sync::mpsc::channel();
+    let a=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.clone().into_bytes(),t,std::time::Instant::now()+long,false));
+    (n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy)=kept;
+    let v=serde_json::from_str::<serde_json::Value>(&a.body).unwrap();
+    assert!(!(v["error"]["code"]==-32020&&v["error"]["data"]["reason"]=="deadline"),"{body}: a compute deadline is no answer to compare: {v}");
+    v
+}
 fn rpc_local(n:&mut pocold::node::Node,method:&str,params:serde_json::Value)->serde_json::Value{
-    let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();let (t,_r)=std::sync::mpsc::channel();
-    let a=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-    serde_json::from_str::<serde_json::Value>(&a.body).unwrap()["result"].clone()
+    rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string())["result"].clone()
 }
 /// Every canonical block (with full transactions) and every receipt, as the node answers them over RPC.
 fn chain_view(n:&mut pocold::node::Node)->Vec<serde_json::Value>{
@@ -2507,9 +2536,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let (_,blocks,_)=s1_chain();
     let mut a=open();for x in &blocks{a.import(x.clone(),None).unwrap();}
     let txs:Vec<String>=blocks.iter().flat_map(|x|x.body.txs.iter().map(|t|format!("{}",revm::primitives::keccak256(t)))).collect();
-    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let body=json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string();let (t,_r)=std::sync::mpsc::channel();
-        let r=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-        let v:serde_json::Value=serde_json::from_str(&r.body).unwrap();if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
+    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let v=rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string());
+        if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
     // (answer, whether it is a transaction lookup)
     let answers=|n:&mut Node|->Vec<(serde_json::Value,bool)>{let top=n.chain.head().height;let mut v=vec![];
         for t in &txs{v.push((full(n,"eth_getTransactionByHash",json!([t])),true));v.push((full(n,"eth_getTransactionReceipt",json!([t])),true));}
@@ -2775,9 +2803,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let back=heavier(&mut h,p,h2.chain.head().total_work,1);
     let alice=devnet::account_key("alice");let alice_a=alice.address();
     let accounts:Vec<Address>=std::iter::once(alice_a).chain([bob.address(),Address::ZERO]).chain((0..50u64).map(|k|alice_a.create(k))).collect();
-    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let body=json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string();let (t,_r)=std::sync::mpsc::channel();
-        let r=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-        let v:serde_json::Value=serde_json::from_str(&r.body).unwrap();if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
+    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let v=rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string());
+        if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
     let answers=|n:&mut Node|->Vec<serde_json::Value>{let top=n.chain.head().height;let mut v=vec![];
         let tags:Vec<serde_json::Value>=(0..=top).map(|x|json!(format!("{x:#x}"))).chain(["latest","safe","finalized","earliest","pending"].map(|t|json!(t))).collect();
         for t in &tags{for a in &accounts{let a=format!("{a:#x}");
@@ -2839,9 +2866,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let back=heavier(&mut h,p,h2.chain.head().total_work,1);
     let alice=devnet::account_key("alice").address();
     let accounts:Vec<Address>=std::iter::once(alice).chain([bob.address(),Address::ZERO]).chain((0..50u64).map(|k|alice.create(k))).collect();
-    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let body=json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string();let (t,_r)=std::sync::mpsc::channel();
-        let r=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-        let v:serde_json::Value=serde_json::from_str(&r.body).unwrap();if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
+    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let v=rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string());
+        if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
     let answers=|n:&mut Node|->Vec<serde_json::Value>{let top=n.chain.head().height;let mut v=vec![];
         let tags:Vec<serde_json::Value>=(0..=top).map(|x|json!(format!("{x:#x}"))).chain(["latest","safe","finalized","earliest"].map(|t|json!(t))).collect();
         for t in &tags{for a in &accounts{let a=format!("{a:#x}");
@@ -4717,9 +4743,7 @@ fn pr7_damage_child(){
 }
 /// The whole JSON-RPC answer (result or error).
 fn rpc_local_raw(n:&mut pocold::node::Node,method:&str,params:serde_json::Value)->serde_json::Value{
-    let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();let (t,_r)=std::sync::mpsc::channel();
-    let a=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-    serde_json::from_str::<serde_json::Value>(&a.body).unwrap()
+    rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string())
 }
 
 /// A block's ParentResult as its journal record keeps it (node::result_bytes).
