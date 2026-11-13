@@ -982,20 +982,7 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             Ok(json!(hex(&v.to_be_bytes::<32>())))}
         "eth_call"=>{let o=p.first().ok_or(bad("call"))?;let r=simulate(n,o,p.get(1).unwrap_or(&Value::Null),None,b,Pricing::Charge)?.result;
             match r{ExecutionResult::Success{output,..}=>Ok(json!(hex(output.data()))),ExecutionResult::Revert{output,..}=>Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>Err(Fail::from((-32000,format!("halt {reason:?}"))))}}
-        "eth_estimateGas"=>{
-            let o=p.first().ok_or(bad("call"))?;let tag=Value::String("latest".into());
-            // V3 (D-V3-21 option A): a creation burn must fit in max_fee*gas_limit with the gas, so the
-            // search finds the gas limit that also covers the burn. The first run (the largest limit)
-            // needs the burn at the current occupancy; the search needs it at the ESTIMATE_DRIFT_UNITS
-            // margin (`estimate_drift`), so a little growth before inclusion does not halt the transaction.
-            // When no smaller limit passes the margin (or the funds/request cap leaves under 1000 gas to
-            // search), the first run's limit is returned, checked only at the current occupancy.
-            let first=simulate(n,o,&tag,Some(cp.GAS_LIMIT),b,Pricing::Charge)?;
-            let used=match first.result{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
-            let (mut lo,mut hi)=(used,first.gas_limit);
-            while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b,Pricing::Margin){Ok(Simulated{result:ExecutionResult::Success{..},..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
-            Ok(json!(qty(hi)))
-        }
+        "eth_estimateGas"=>{let o=p.first().ok_or(bad("call"))?;Ok(json!(qty(estimate_gas(n,o,b)?)))}
         "eth_sendRawTransaction"=>{let raw=p.first().and_then(|x|x.as_str()).and_then(|s|unhex(s).ok()).ok_or(bad("raw"))?;
             // Admission runs under the request's COMPUTE_DEADLINE (review R2-2); past it nothing is pooled.
             n.submit_tx_by(raw,true,Some(b.compute_by)).map(|h|json!(format!("{h}"))).map_err(|e|{
@@ -1133,17 +1120,56 @@ enum Pricing{
 struct Simulated{result:ExecutionResult,gas_limit:u64,
     /// Priced (v3) runs: the burn at the current occupancy and the parent's live counts it was priced at.
     quote:Option<(pocol_lp4_execution::creation_fees::CreationBurn,pocol_lp4_execution::state_summary::Summary)>}
+/// eth_estimateGas: the least gas limit (within the search's 1000-gas resolution) at which the call succeeds.
+/// V3 (D-V3-21 option A): a creation burn must fit in max_fee*gas_limit with the gas, so the
+/// search finds the gas limit that also covers the burn. The first run (the largest limit)
+/// needs the burn at the current occupancy; the search needs it at the ESTIMATE_DRIFT_UNITS
+/// margin (`estimate_drift`), so a little growth before inclusion does not halt the transaction.
+/// When no smaller limit passes the margin (or the funds/request cap leaves under 1000 gas to
+/// search), the first run's limit is returned, checked only at the current occupancy.
+fn estimate_gas(n:&Node,o:&Value,b:&Budget)->Result<u64,Fail>{
+    let cp=n.chain.spec.cp();let tag=Value::String("latest".into());
+    let first=simulate(n,o,&tag,Some(cp.GAS_LIMIT),b,Pricing::Charge)?;
+    let used=match first.result{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
+    let (mut lo,mut hi)=(used,first.gas_limit);
+    while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b,Pricing::Margin){Ok(Simulated{result:ExecutionResult::Success{..},..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
+    Ok(hi)
+}
+/// The creation burn of a call (split by class), its gas and the occupancy it was priced at (None before v3 activates).
+type BurnParts=(pocol_lp4_execution::creation_fees::CreationBurn,u64,Option<pocol_lp4_execution::state_summary::Summary>);
+/// pocol_quoteCreationBurn's simulation: priced like eth_estimateGas's first run (the next block, the head's live
+/// counts, the request's fee fields).
+fn creation_burn_parts(n:&Node,o:&Value,b:&Budget)->Result<BurnParts,Fail>{
+    let tag=Value::String("latest".into());let s=simulate(n,o,&tag,Some(n.chain.spec.cp().GAS_LIMIT),b,Pricing::Quote)?;
+    let gas=match &s.result{ExecutionResult::Success{gas_used,..}=>*gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
+    // Before v3 activates the next block charges no burn: zeros, and no occupancy is read.
+    Ok(match s.quote{Some((burn,c))=>(burn,gas,Some(c)),None=>(Default::default(),gas,None)})
+}
 /// pocol_quoteCreationBurn: the burn split by class, its total and the call's gas, priced like
 /// eth_estimateGas's first run (the next block, the head's live counts, the request's fee fields).
 fn quote_creation_burn(n:&Node,o:&Value,b:&Budget)->Result<Value,Fail>{
-    let tag=Value::String("latest".into());let s=simulate(n,o,&tag,Some(n.chain.spec.cp().GAS_LIMIT),b,Pricing::Quote)?;
-    let gas=match &s.result{ExecutionResult::Success{gas_used,..}=>*gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
+    let (burn,gas,summary)=creation_burn_parts(n,o,b)?;
     let h=n.chain.head().height.saturating_add(1);
-    // Before v3 activates the next block charges no burn: zeros, and no occupancy is read.
-    let (burn,occupancy)=match s.quote{Some((burn,c))=>(burn,json!({"accounts":qty(c.user_accounts),"slots":qty(c.user_slots),"code":qty(c.inventory())})),None=>(Default::default(),Value::Null)};
+    let occupancy=summary.map_or(Value::Null,|c|json!({"accounts":qty(c.user_accounts),"slots":qty(c.user_slots),"code":qty(c.inventory())}));
     let total=burn.total().ok_or_else(||Fail::from((-32000,"creation burn overflow".to_string())))?;
     Ok(json!({"height":qty(h),"v3Active":n.chain.spec.v3_active(h),"accounts":qty256(burn.accounts),"slots":qty256(burn.slots),"code":qty256(burn.code),"total":qty256(total),
         "gasUsed":qty(gas),"baseFee":qty256(next_base(n)),"occupancy":occupancy}))
+}
+/// The wallet's creation-burn quote (D-V3-21 option A, client part; pocold wallet.rs): eth_estimateGas's gas limit and
+/// pocol_quoteCreationBurn's burn for one call object, computed exactly as those methods compute them on this node.
+/// Node-local: the wallet calls it in-process, nothing is served over RPC.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct BurnQuote{pub gas_limit:u64,pub gas_used:u64,pub accounts:U256,pub slots:U256,pub code:U256,pub total:U256}
+/// How long one wallet quote may simulate (the estimate's search and the quote).
+pub const WALLET_QUOTE_DEADLINE:Duration=Duration::from_secs(10);
+pub fn burn_quote(n:&Node,call:&Value)->Result<BurnQuote,String>{
+    let b=Budget{compute_by:Instant::now()+WALLET_QUOTE_DEADLINE,scratch_max:usize::MAX,scratch_used:0,walled:false};
+    let why=|f:Fail|match f.0{-32020=>"The node could not finish the fee estimate in time. Try again.".to_owned(),3=>format!("The transaction would fail ({}). Nothing was signed.",f.1),
+        _=>format!("The network would refuse this transaction ({}). Nothing was signed.",f.2.as_ref().and_then(|d|d["reason"].as_str().map(str::to_owned)).unwrap_or(f.1))};
+    let gas_limit=estimate_gas(n,call,&b).map_err(why)?;
+    let (burn,gas_used,_)=creation_burn_parts(n,call,&b).map_err(why)?;
+    let total=burn.total().ok_or("The creation burn overflows")?;
+    Ok(BurnQuote{gas_limit,gas_used,accounts:burn.accounts,slots:burn.slots,code:burn.code,total})
 }
 fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget,pricing:Pricing)->Result<Simulated,Fail>{
     // COMPUTE_DEADLINE before each simulation (eth_estimateGas runs several): none starts past it.

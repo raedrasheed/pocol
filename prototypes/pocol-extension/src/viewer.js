@@ -32,7 +32,7 @@ function pump() {
   $('mtitle').textContent = titles[q.type] || q.type;
   $('mtext').textContent = q.type === 'confirmExternal' ? q.url
     : q.type === 'confirmAccounts' ? `site: ${q.site}\nnetwork: ${q.network}\naccount: ${q.address}`
-    : `network: ${q.network} (chainId ${q.chainId})\nsite: ${q.site}\nfrom: ${q.from}\nto: ${q.to}\nvalue (wei): ${q.value}\nmax cost (wei, gas·maxFee + value): ${q.maxCost}\ngas: ${q.gas}\nmaxFeePerGas (wei): ${q.maxFeePerGas}\nmaxPriorityFeePerGas (wei): ${q.maxPriorityFeePerGas}\nnonce: ${q.nonce}\ndata: ${q.data}\nsigningHash: ${q.signingHash}\nunsigned: ${q.payload}`;
+    : `network: ${q.network} (chainId ${q.chainId})\nsite: ${q.site}\nfrom: ${q.from}\nto: ${q.to}\nvalue (wei): ${q.value}\nmax cost (wei, gas·maxFee + value): ${q.maxCost}\ngas: ${q.gas}\nmaxFeePerGas (wei): ${q.maxFeePerGas}\nmaxPriorityFeePerGas (wei): ${q.maxPriorityFeePerGas}\nnonce: ${q.nonce}${q.creationBurn === undefined ? '' : `\ncreation burn (wei, quoted; burned only within the signed maximum): ${q.creationBurn}\ngas fee at most (wei, gasUsed·maxFee): ${q.gasFeeMax}\nsigned maximum (wei, gas·maxFee; bounds gas + burn together): ${q.signedMax}`}\ndata: ${q.data}\nsigningHash: ${q.signingHash}\nunsigned: ${q.payload}`;
   $('modal').hidden = false; $('modal').dataset.kind = q.type;
   // F8: Approve becomes live only after BOTH (a) ARM_MS with no pointer press anywhere on the dialog —
   // every press during the wait restarts the delay, so a fast burst (the clickjacking "game") can never

@@ -36,5 +36,50 @@ final class WalletText {
     static String restored(boolean changed,String address){
         return changed?"Key restored. This wallet now uses account "+address+".":"This backup holds the account this wallet already uses.";
     }
+    /** Activity rows: the engine's transaction kinds. */
+    static String kindLabel(String kind){
+        switch(kind){
+            case "registration":return "Mining registration";
+            case "rejoin":return "Mining rejoin · exit";
+            case "reactivation":return "Mining reactivation";
+            case "topup":return "Bond top-up";
+            case "contest":return "Mining registration · contest";
+            default:return "Sent PCOL";
+        }
+    }
+    /** The mining card: blocks and bond, and on the v3 network the probation bond still to accrue and the reactivation
+     *  clock (V3-09). Empty strings leave a line out. */
+    static String minedText(String blocks,String bond,String bondHeld,String remaining,String lastAt,String allowedFrom){
+        String text="Accepted blocks this session: "+blocks+"\nRegistration bond: "+bond+" PCOL";
+        if(!remaining.isEmpty())text+="\nBond held: "+bondHeld+" PCOL · still to accrue: "+remaining+" PCOL";
+        if(!allowedFrom.isEmpty())text+="\nLast reactivation: block "+lastAt+" · next one allowed from block "+allowedFrom;
+        return text;
+    }
+    /** D-V3-21 option A: the quoted creation burn apart from the gas fee and the amount, and the signed maximum that bounds
+     *  both. `burn` empty: the network charges no creation burn (no lines). */
+    static java.util.List<String> burnLines(String burn,String gasFee,String bound,String suggested,boolean set,String[] notes){
+        java.util.List<String> lines=new java.util.ArrayList<>();if(burn.isEmpty())return lines;
+        lines.add("Creation burn (quoted): "+burn+" PCOL");lines.add("Gas fee (at most): "+gasFee+" PCOL");
+        lines.add("Maximum fee you sign: "+bound+" PCOL · it bounds the gas and the burn together"+(set?" (your maximum)":" (suggested)"));
+        if(set&&!suggested.equals(bound))lines.add("Suggested maximum fee: "+suggested+" PCOL");
+        for(String n:notes)lines.add(n);
+        return lines;
+    }
+    static final String MAX_FEE_FIELD="Maximum fee in PCOL (optional: gas and creation burn together; leave empty for the suggested one)";
+    static final String CHANGE_MAX_FEE="Change the maximum fee (PCOL)";
+    static final String REVIEW_AGAIN="Review with this maximum fee";
+    /** V3-10/V3-14: what a contest review states (`kind` seat or pool). */
+    static java.util.List<String> contestLines(String kind,String victim,String[] steps,String amount,boolean probation,String target,String note){
+        java.util.List<String> lines=new java.util.ArrayList<>();
+        lines.add((kind.equals("pool")?"Probation-pool contest of ":"Seat contest of ")+victim);
+        for(int i=0;i<steps.length;i++)lines.add((i+1)+". "+steps[i]);
+        lines.add("Bond now: "+amount+" PCOL"+(probation?" · filled from your rewards up to "+target+" PCOL":""));
+        if(!note.isEmpty())lines.add(note);
+        return lines;
+    }
+    static String candidateLine(String address,String count,String threshold){return address+" · "+count+" shares, threshold "+threshold;}
+    static final String SEAT_CANDIDATES="Members you can contest with the full bond";
+    static final String POOL_CANDIDATES="Probationers you can contest with a probation bond (every probation seat is taken)";
+    static final String CONTEST_BOND="Bond now in PCOL (optional: empty or 0 is a probation bond filled from your rewards)";
     private WalletText(){}
 }

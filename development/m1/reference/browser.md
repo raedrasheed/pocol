@@ -220,6 +220,7 @@ rpc_read matrix (method: schema):
 wallet_req matrix:
 - eth_accounts, eth_requestAccounts, eth_chainId: [].
 - eth_sendTransaction: [txObj], where txObj fields are from {from, to, gas, value, data, maxFeePerGas, maxPriorityFeePerGas, nonce}. from is the account granted to (netKey, siteAddress), otherwise 4100.
+- D-V3-21 (v3 networks): before the confirmation the wallet asks pocol_quoteCreationBurn with the fee fields it will sign. A v3-active answer adds the quoted creation burn, the gas fee at most (gasUsed·maxFee) and the signed maximum (gas·maxFee, which bounds gas and burn together) to the confirmation, and the gas limit, when the site gives none, comes from eth_estimateGas with the same fee fields; a quote whose gas and burn exceed the signed maximum is refused with −32000 {reason: CreationFee, needGas} before any dialog, and a quote error is returned as the node's error. A −32601 answer (a spec-1 node) leaves the flow unchanged.
 
 storage_set matrix (D96, local, no network request):
 - site_storageSet: [str(256), str(61440) or null]. null means deletion.

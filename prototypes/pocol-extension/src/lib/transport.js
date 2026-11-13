@@ -15,6 +15,8 @@ export const RECV_LIMIT = Object.freeze(new Map([
   ['eth_getBlockByNumber', 164 * KiB], ['eth_getBlockByHash', 164 * KiB], ['eth_feeHistory', 176 * KiB],
   ['eth_getTransactionByHash', 260 * KiB], ['eth_getTransactionReceipt', 340 * KiB],
   ['eth_call', 1 * MiB], ['eth_estimateGas', 64 * KiB], ['pocol_getLogs', 8 * MiB],
+  // D-V3-21: the node-local creation burn quote of a v3 node (a fixed object of quantities, network.md).
+  ['pocol_quoteCreationBurn', 4096],
 ]));
 export const SITE_POOL = 32 * MiB, TRUST_POOL = 2 * MiB, CONTENT_POOL = 8 * 68 * KiB, SESSION_RECV_MAX = 10 * MiB, RECV_INFLIGHT_MAX = 48, RESERVE_WAIT_MS = 2000;
 export const RESP_DEPTH_MAX = 16, ERR_MESSAGE_MAX = 256, ERR_DATA_MAX = 4096;

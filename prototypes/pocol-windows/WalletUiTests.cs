@@ -79,6 +79,31 @@ internal static class WalletUiTests {
    state["topUpAvailable"]=true;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Visible,"Top-up action missing during probation.");
    state["topUpAvailable"]=false;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Collapsed,"Top-up stayed visible after probation.");
    Response(Snapshot(new object[]{Entry(Transfer,"topup","Included")}));Check(CardText(0,0)=="Bond top-up","Top-up history row missing.");
+   // V3 (the v3 program set): the contest action, the probation bond still to accrue, the reactivation clock and the
+   // contest history row; the engine decides availability.
+   state["type"]="status";Response(state);Check(Control<Button>("Contest").Visibility==Visibility.Collapsed,"Contest shown although the engine did not offer it.");
+   state["contestAvailable"]=true;Response(state);Check(Control<Button>("Contest").Visibility==Visibility.Visible,"Contest action missing when every seat is taken.");
+   state["contestAvailable"]=false;Response(state);Check(Control<Button>("Contest").Visibility==Visibility.Collapsed,"Contest stayed visible.");
+   state["bondHeld"]="5";state["bondRemaining"]="15";state["reactivation"]=D("lastAt",120,"cooldownBlocks",200,"allowedFrom",320);Response(state);
+   Check(Control<TextBlock>("Mined").Text.Contains("Bond held: 5 PCOL · still to accrue: 15 PCOL")&&Control<TextBlock>("Mined").Text.Contains("next one allowed from block 320"),"Probation bond or reactivation clock missing.");
+   state.Remove("bondRemaining");state.Remove("reactivation");state.Remove("bondHeld");Response(state);Check(!Control<TextBlock>("Mined").Text.Contains("still to accrue"),"Probation line shown without probation.");
+   Response(Snapshot(new object[]{Entry(Transfer,"contest","Included")}));Check(CardText(0,0)=="Mining registration · contest","Contest history row missing.");
+   const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic;
+   Func<string,object[],object> call=(name,a)=>typeof(Wallet).GetMethod(name,Static).Invoke(null,a);
+   // D-V3-21: the creation burn apart from the gas fee and the amount, and the signed maximum that bounds both.
+   var quote=Json.Deserialize<Dictionary<string,object>>("{\"type\":\"quote\",\"kind\":\"transfer\",\"amount\":\"1\",\"creationBurn\":\"0.008\",\"gasFee\":\"0.0021\",\"feeBound\":\"0.0101\",\"suggestedFeeBound\":\"0.012\",\"feeBoundSet\":true,\"burnNote\":[\"first\",\"second\"]}");
+   var burn=(List<string>)call("BurnLines",new object[]{quote});
+   Check(burn.Count==6&&burn[0]=="Creation burn (quoted): 0.008 PCOL"&&burn[1]=="Gas fee (at most): 0.0021 PCOL"&&burn[2]=="Maximum fee you sign: 0.0101 PCOL · it bounds the gas and the burn together (your maximum)"&&burn[3]=="Suggested maximum fee: 0.012 PCOL"&&burn[5]=="second","Creation burn lines wrong: "+string.Join(" | ",burn));
+   Check(((List<string>)call("BurnLines",new object[]{D("kind","transfer","amount","1")})).Count==0,"Burn lines shown on a network without a creation burn.");
+   var send=(Dictionary<string,object>)call("SendCommand",new object[]{"0x01","1",""});Check(!send.ContainsKey("fee_bound")&&(string)send["method"]=="quote_send","An empty maximum fee was sent.");
+   send=(Dictionary<string,object>)call("SendCommand",new object[]{"0x01","1","0.02"});Check((string)send["fee_bound"]=="0.02","The maximum fee was not sent.");
+   // V3-10/V3-14: the contest review and the candidate list.
+   var contest=Json.Deserialize<Dictionary<string,object>>("{\"kind\":\"contest\",\"victim\":\"0x02\",\"amount\":\"0\",\"bondTarget\":\"20\",\"probation\":true,\"contest\":{\"kind\":\"pool\"},\"steps\":[\"a\",\"b\"],\"note\":\"n\"}");
+   var lines=(List<string>)call("ContestLines",new object[]{contest});
+   Check(lines.Count==5&&lines[0]=="Probation-pool contest of 0x02"&&lines[1]=="1. a"&&lines[3]=="Bond now: 0 PCOL · filled from your rewards up to 20 PCOL"&&lines[4]=="n","Contest review lines wrong: "+string.Join(" | ",lines));
+   var candidates=Json.Deserialize<Dictionary<string,object>>("{\"type\":\"contestCandidates\",\"seat\":[{\"address\":\"0x03\",\"count\":0,\"threshold\":\"25\"}],\"pool\":[]}");
+   var seats=(List<string>)call("CandidateLines",new object[]{candidates,"seat"});Check(seats.Count==1&&seats[0]=="0x03 · 0 shares, threshold 25","Contest candidates wrong.");
+   Check(((List<string>)call("CandidateLines",new object[]{candidates,"pool"})).Count==0,"Pool candidates invented.");
    // T34, network upgrades (plan §5): the dry run's change picks the text; only an activation waits for a coordinated release.
    var outcome=typeof(Wallet).GetMethod("UpgradeOutcome",BindingFlags.Static|BindingFlags.NonPublic);Check(outcome!=null,"Network upgrade texts are missing.");
    Check((string)outcome.Invoke(null,new object[]{"rebind"})=="Release update: consensus rules and schedule unchanged — saved; you can connect now","Rebind text missing.");
@@ -100,7 +125,7 @@ internal static class WalletUiTests {
     var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var file=File.Create(args[0]))png.Save(file);
    }
    window.Close();app.Shutdown();Check(Directory.Exists(home)==homeExisted,"UI test unexpectedly created a wallet home.");
-   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin, probation top-up, network upgrade texts and peer diagnostics");return 0;
+   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin, probation top-up, contest and creation-burn review texts, network upgrade texts and peer diagnostics");return 0;
   }catch(Exception e){Console.WriteLine("FAIL "+e.GetBaseException().Message);return 1;}
  }
 }

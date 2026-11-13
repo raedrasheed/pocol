@@ -91,7 +91,19 @@ public final class JniBoundaryTest {
                 equal(WalletText.outcome("rebind"),"Release update: consensus rules and schedule unchanged \u2014 saved; you can connect now");
                 if(!WalletText.outcome("activation").contains("coordinated release"))throw new AssertionError("activation text");
                 equal(WalletText.restored(true,"0x01"),"Key restored. This wallet now uses account 0x01.");
-                equal(WalletText.restored(false,"0x01"),"This backup holds the account this wallet already uses.");break;
+                equal(WalletText.restored(false,"0x01"),"This backup holds the account this wallet already uses.");
+                // V3 wallet texts: activity kinds, the probation bond still to accrue and the reactivation clock, the creation
+                // burn review (D-V3-21) and the contest review (V3-10/V3-14).
+                equal(WalletText.kindLabel("contest"),"Mining registration \u00b7 contest");equal(WalletText.kindLabel("topup"),"Bond top-up");equal(WalletText.kindLabel("transfer"),"Sent PCOL");
+                equal(WalletText.minedText("5","20","","","",""),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL");
+                equal(WalletText.minedText("5","20","4","16","120","320"),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL\nBond held: 4 PCOL \u00b7 still to accrue: 16 PCOL\nLast reactivation: block 120 \u00b7 next one allowed from block 320");
+                if(!WalletText.burnLines("","1","2","2",false,new String[]{"x"}).isEmpty())throw new AssertionError("burn lines without a creation burn");
+                java.util.List<String> burn=WalletText.burnLines("0.008","0.0021","0.0101","0.012",true,new String[]{"first","second"});
+                equal(String.join("|",burn),"Creation burn (quoted): 0.008 PCOL|Gas fee (at most): 0.0021 PCOL|Maximum fee you sign: 0.0101 PCOL \u00b7 it bounds the gas and the burn together (your maximum)|Suggested maximum fee: 0.012 PCOL|first|second");
+                equal(String.join("|",WalletText.burnLines("0","0.0021","0.0022","0.0022",false,new String[0])),"Creation burn (quoted): 0 PCOL|Gas fee (at most): 0.0021 PCOL|Maximum fee you sign: 0.0022 PCOL \u00b7 it bounds the gas and the burn together (suggested)");
+                equal(String.join("|",WalletText.contestLines("pool","0x02",new String[]{"a","b"},"0",true,"20","n")),"Probation-pool contest of 0x02|1. a|2. b|Bond now: 0 PCOL \u00b7 filled from your rewards up to 20 PCOL|n");
+                equal(String.join("|",WalletText.contestLines("seat","0x03",new String[0],"20",false,"20","")),"Seat contest of 0x03|Bond now: 20 PCOL");
+                equal(WalletText.candidateLine("0x03","0","25"),"0x03 \u00b7 0 shares, threshold 25");break;
             case "key-backup":
                 // Passphrases cross as standard UTF-8 bytes built from char[] (never a String), files as raw bytes.
                 char[] typed="p\u00e4ss \uD83D\uDE80 phrase".toCharArray();

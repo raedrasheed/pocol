@@ -190,7 +190,34 @@ The review shows the maximum fee for all four signatures. No PCOL is transferred
 - Keep mining running afterwards: an identity that stops sharing leaves the
   active set again after `W_act` blocks.
 - Nothing about consensus, the Registry, keys or balances changes.
-- The Android app does not offer this action.
+- The Android app offers the same action (**Rejoin mining** on its Mining tab), and **Top up bond**.
+
+**On the v3 network (dormant: a specVersion-2 genesis, decoded only by preview builds).** The engine adds, only
+there (every answer on today's networks is unchanged):
+- *Probation:* the status carries `bondRemaining` (the bond still to accrue from rewards or a top-up), and both
+  wallets show it next to the bond held. **Top up bond** works while the record is active and on probation before
+  its deadline; otherwise the review says why (the bond is already held in full, the record has exited, or there is no
+  record) before anything is signed. One bond top-up or reward-address change per identity per block (V3-08).
+- *Rejoin:* the Registry allows one reactivation per `C_react` blocks per identity (V3-09). The engine reads the
+  record's own clock: after an exit the window opens at `max(exit + W_act, lastReactivation + C_react)`, and if the
+  clock keeps it shut until the refund at `exit + U`, the wallet says so at once instead of trying. An active member
+  outside the active set is told when an exit becomes useful (`cooldown`). No reactivation is signed while it would
+  fail for lack of a seat (every seat taken, or, for a record contested out of the probation pool, every probation
+  seat taken); the engine waits for one to free up while the window is open.
+- *Contest:* when every seat is taken, **Contest a seat** (both wallets) lists the members the Registry's own view
+  would let this account contest now (`contest_candidates`: each with its share count and the threshold), and
+  `quote_contest` reviews one: the Registry's refusal reasons are explained before signing; a seat contest needs the
+  full bond, a probation bond against a full probation pool displaces a probationer.
+- *Contested out of the pool* (owner decision 2026-11-13): the record stays exited until `exit + U`. Rewards not yet
+  settled still fill its accrued bond, it can still be punished for evidence until then, and the bond is refunded at
+  that height. The wallet shows this state; reactivation needs a free probation seat (or a bond already full).
+- *Creation burn* (D-V3-21): a transfer that creates an account pays a creation burn, burned within the maximum fee
+  you sign. The transfer review shows the quoted burn apart from the gas fee and the amount, and the maximum fee you
+  sign (max fee per gas × gas limit), which bounds the gas and the burn together; the gas limit comes from the node's
+  burn-aware estimate. You can lower or raise that maximum (`quote_send` `fee_bound`, or the field in the Send and
+  review dialogs); a maximum below the quoted gas and burn is refused before signing, and one below the suggested
+  maximum is accepted with a warning that a few accounts created first could make the transfer halt (then only its
+  gas is charged). Registry calls write only system storage, so they carry no creation burn.
 
 ## Keys and updates
 

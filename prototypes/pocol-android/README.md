@@ -8,6 +8,16 @@ backup, the backup's ciphertext.
 Build: `bash deploy/standalone/build-android.sh` (SDK 35, NDK 27.2.12479018, JDK 17, Gradle 8.11.1).
 The release APK is unsigned; see `deploy/standalone/RELEASE-UPGRADE.md` for signing.
 
+## Mining actions
+
+The Mining tab shows **Review mining registration**, and, when the engine offers them, **Rejoin mining**, **Top up
+bond** and (on the v3 network only, when every seat is taken) **Contest a seat**. Each opens a review from the engine
+(`quote_*` commands of `pocold/src/wallet.rs`); nothing is signed before **Confirm & sign**. On the v3 network the card
+shows the bond still to accrue on probation and the reactivation clock, and a transfer review shows the quoted creation
+burn apart from the gas fee, with a field to lower or raise the maximum fee that bounds both
+(`deploy/standalone/README.md`, "On the v3 network"). The texts are the Windows wallet's (`WalletText.java`, checked by
+`deploy/standalone/test_android_jni.py`).
+
 ## Key backup and restore
 
 **Settings → Key backup** has two actions:

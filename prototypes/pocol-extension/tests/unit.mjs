@@ -182,6 +182,14 @@ ok('T16 size mismatch rejected', throws(() => { const f = file('/index.html', 1,
 {
   const seed = new Uint8Array(32).fill(7); const box = await WAL.encryptSeed(seed, 'pw');
   ok('wallet PBKDF2 600000 + AES-GCM roundtrip', box.iter === 600000 && HEX.eq(await WAL.decryptSeed(box, 'pw'), seed));
+  { // D-V3-21 option A: the signed maximum gas·maxFee must carry the quoted gas and burn.
+    const r = WAL.creationBurnReview({ gas: 31000n, maxFee: 100n, gasUsed: 21000n, burn: 1000000n });
+    ok('wallet creation burn review: gas + burn within the signed maximum', r.ok && r.signedMax === 3100000n && r.gasFeeMax === 2100000n && r.need === 3100000n && r.needGas === 31000n, JSON.stringify(r, (k, v) => typeof v === 'bigint' ? v.toString() : v));
+    const low = WAL.creationBurnReview({ gas: 30999n, maxFee: 100n, gasUsed: 21000n, burn: 1000000n });
+    ok('wallet creation burn review: one gas short is refused, the least gas limit named', !low.ok && low.needGas === 31000n);
+    ok('wallet creation burn review: no burn needs only the executed gas', WAL.creationBurnReview({ gas: 21000n, maxFee: 7n, gasUsed: 21000n, burn: 0n }).ok && !WAL.creationBurnReview({ gas: 20999n, maxFee: 7n, gasUsed: 21000n, burn: 0n }).ok);
+    ok('wallet creation burn review: a zero maxFee never passes', !WAL.creationBurnReview({ gas: 21000n, maxFee: 0n, gasUsed: 21000n, burn: 0n }).ok);
+  }
   ok('wallet wrong password rejected', await WAL.decryptSeed(box, 'nope').then(() => false, () => true));
   const k1 = await WAL.networkKey(seed, '0x' + '01'.repeat(32)), k2 = await WAL.networkKey(seed, '0x' + '02'.repeat(32));
   ok('wallet key differs per netKey (HKDF)', !HEX.eq(k1, k2));

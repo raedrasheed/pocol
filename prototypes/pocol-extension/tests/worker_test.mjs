@@ -30,7 +30,7 @@ export async function workerChecks(dist) {
 
   let n = 0;
   /** A fresh worker with one LN profile p1 (s1) open in tab 7, wallet unlocked and accounts granted. */
-  async function world({ grant = true, wallet = true, extra = [] } = {}) {
+  async function world({ grant = true, wallet = true, extra = [], handlers = {} } = {}) {
     const env = { genesis: s1.hash, chainId: s1.chainId, gates: {} };
     const gate = (m) => { let open; env.gates[m] = new Promise((r) => { open = r; }); return () => { delete env.gates[m]; open(); }; };
     const mock = installChromeMock(); const fx = await siteFixture(dist);
@@ -39,7 +39,7 @@ export async function workerChecks(dist) {
       eth_chainId: () => wait('eth_chainId', () => '0x' + env.chainId.toString(16)), pocol_status: () => wait('pocol_status', () => ({ genesisHash: env.genesis })),
       eth_getTransactionCount: () => wait('eth_getTransactionCount', () => (env.nonce === undefined ? '0x0' : env.nonce)), eth_getBlockByNumber: () => wait('eth_getBlockByNumber', { number: '0x5', baseFeePerGas: '0x3b9aca00' }),
       eth_estimateGas: () => wait('eth_estimateGas', '0x5208'), eth_sendRawTransaction: ([raw]) => wait('eth_sendRawTransaction', () => (env.sendFail ? { __raw: () => 'not json' } : H.toHex(C.keccak(H.fromHex(raw))))),
-      pocol_getLogs: () => wait('pocol_getLogs', []) });
+      pocol_getLogs: () => wait('pocol_getLogs', []), ...handlers });
     await loadWorker(dist, 'wt' + ++n);
     for (const p of [prof('p1', s1), ...extra]) { const r = await mock.send({ type: 'profiles.add', profile: p }); if (!r.ok) throw new Error('profile ' + JSON.stringify(r)); }
     if (wallet) await mock.send({ type: 'wallet.create', password: 'worker-test-pw', seedHex: '0x' + '42'.repeat(32) });
@@ -98,6 +98,37 @@ export async function workerChecks(dist) {
     ok('A06 approved: one submission whose signed preimage is the displayed payload, signed by the granted account, result = keccak(raw)',
       sent.length === 1 && pre === a.q.payload && signer === w.address.toLowerCase() && r.result === H.toHex(C.keccak(raw)), `${sent.length} ${signer} ${w.address}`);
     ok('A06 identity re-checked at signing (pocol_status after the click)', w.count('pocol_status') === st0 + 1, `${st0} -> ${w.count('pocol_status')}`);
+  });
+  // ---- D-V3-21 option A, the client part: a spec-1 node (no pocol_quoteCreationBurn) keeps the spec-1 review and estimate;
+  // a v3 node's quoted burn is shown apart from the gas fee and the value within the signed maximum gas·maxFee, the gas
+  // limit comes from the estimate priced at the signed fee fields, and a send whose quoted gas and burn exceed the signed
+  // maximum (the site's own gas limit) is refused before any dialog or signature. ----
+  await scenario(async () => {
+    const w = await world(); const s = w.tx(); const a = await w.ask('confirmTx'); w.answer(a, false); await w.reply(s);
+    const est = w.log.filter((x) => x.method === 'eth_estimateGas');
+    ok('D-V3-21 spec-1 node: no burn fields, the estimate request without fee fields, one quote attempt answered -32601',
+      a.q.creationBurn === undefined && a.q.signedMax === undefined && est.length === 1 && est[0].params[0].maxFeePerGas === undefined && w.count('pocol_quoteCreationBurn') === 1, JSON.stringify(est[0] && est[0].params));
+  });
+  await scenario(async () => {
+    const burn = 8n * 10n ** 15n, gas = 29000n;
+    const w = await world({ handlers: { pocol_quoteCreationBurn: () => ({ height: '0x6', v3Active: true, accounts: '0x' + burn.toString(16), slots: '0x0', code: '0x0', total: '0x' + burn.toString(16), gasUsed: '0x5208', baseFee: '0x3b9aca00', occupancy: null }),
+      eth_estimateGas: () => '0x' + (gas * 10n ** 3n).toString(16) } });
+    const s = w.tx(); const a = await w.ask('confirmTx');
+    const est = w.log.filter((x) => x.method === 'eth_estimateGas'); const q = w.log.filter((x) => x.method === 'pocol_quoteCreationBurn');
+    const maxFee = BigInt(a.q.maxFeePerGas), g = BigInt(a.q.gas);
+    ok('D-V3-21 v3 node: the estimate and the quote carry the fee fields to be signed', est.length === 1 && BigInt(est[0].params[0].maxFeePerGas) === maxFee && q.length === 1 && BigInt(q[0].params[0].maxFeePerGas) === maxFee && BigInt(q[0].params[0].maxPriorityFeePerGas) === BigInt(a.q.maxPriorityFeePerGas), JSON.stringify([est[0] && est[0].params, q[0] && q[0].params]));
+    ok('D-V3-21 v3 node: the review shows the burn, the gas fee and the signed maximum that bounds both',
+      a.q.creationBurn === burn.toString() && a.q.gasFeeMax === (21000n * maxFee).toString() && a.q.signedMax === (g * maxFee).toString() && BigInt(a.q.signedMax) >= burn + 21000n * maxFee && a.q.maxCost === (g * maxFee + 1n).toString(), JSON.stringify(a.q));
+    w.answer(a, false); await w.reply(s);
+    // The site's own gas limit (21000) cannot carry the burn: refused before any dialog or signature.
+    const asks = () => w.port.inbox.filter((m) => m.ask !== undefined && m.q.type === 'confirmTx').length; const before = asks();
+    const s2 = w.req('eth_sendTransaction', [{ to: '0x' + '22'.repeat(20), value: '0x1', gas: '0x5208' }]); const r2 = await w.reply(s2);
+    ok('D-V3-21 v3 node: a send whose quoted burn exceeds the signed maximum is refused before signing',
+      r2.error && r2.error.code === -32000 && r2.error.data && r2.error.data.reason === 'CreationFee' && BigInt(r2.error.data.needGas) === (21000n * maxFee + burn + maxFee - 1n) / maxFee && asks() === before && w.count('eth_sendRawTransaction') === 0, JSON.stringify(r2));
+    // A quote that reports a cap halt refuses the send too (the node's error).
+    const w3 = await world({ handlers: { pocol_quoteCreationBurn: () => ({ __error: { code: -32000, message: 'execution would halt (AcctCap)', data: { reason: 'AcctCap' } } }) } });
+    const r3 = await w3.reply(w3.tx());
+    ok('D-V3-21 v3 node: a quote halt refuses the send before any dialog', r3.error && r3.error.code === -32000 && /AcctCap/.test(r3.error.message) && noAsk(w3, 'confirmTx') && w3.count('eth_sendRawTransaction') === 0, JSON.stringify(r3));
   });
   // ---- A06 rejection ----
   await scenario(async () => { const w = await world(); const s = w.tx(); w.answer(await w.ask('confirmTx'), false); const r = await w.reply(s);

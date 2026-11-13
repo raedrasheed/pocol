@@ -50,6 +50,16 @@ export function signUnsigned(secret, ut) {
   const raw = concat(Uint8Array.of(2), rlp.encode(all));
   return { raw: toHex(raw), hash: toHex(keccak(raw)) };
 }
+/** D-V3-21 option A (v3 networks, a node that serves pocol_quoteCreationBurn): the consensus charges a creation burn
+ *  only if gasUsed·price + burn <= maxFee·gas, the signed maximum; otherwise the transaction halts and pays only the gas
+ *  it spent. The review shows the quoted burn apart from the gas fee and the value, and a send whose quoted gas and burn
+ *  do not fit the signed maximum is refused before signing (`ok` false). All amounts are wei BigInts: `gas` and `maxFee`
+ *  are the fields to be signed, `gasUsed` and `burn` the node's quote. `needGas` is the least gas limit at this maxFee. */
+export function creationBurnReview({ gas, maxFee, gasUsed, burn }) {
+  const signedMax = gas * maxFee, gasFeeMax = gasUsed * maxFee, need = gasFeeMax + burn;
+  const needGas = maxFee > 0n ? (need + maxFee - 1n) / maxFee : 0n;
+  return { burn, gasFeeMax, signedMax, need, needGas: needGas > gasUsed ? needGas : gasUsed, ok: maxFee > 0n && gas >= gasUsed && need <= signedMax };
+}
 /** EIP-1559 envelope 0x02 || RLP([chainId, nonce, tip, maxFee, gas, to, value, data, [], y, r, s]). */
 export const signTx = (secret, tx) => signUnsigned(secret, unsignedTx(tx));
 const stripZeros = (b) => { let i = 0; while (i < b.length && b[i] === 0) i++; return b.subarray(i); };

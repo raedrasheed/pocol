@@ -7,7 +7,7 @@ import * as bridge from './lib/bridge.js';
 import { StoreAdmission, qbytes } from './lib/sitestore.js';
 import { RecordStore } from './lib/records.js';
 import * as http from './lib/transport.js';
-import { encryptSeed, decryptSeed, networkKey, addressOf, unsignedTx, signUnsigned, LOCK_MS, PUBLIC_WALLET_SALT } from './lib/wallet.js';
+import { encryptSeed, decryptSeed, networkKey, addressOf, unsignedTx, signUnsigned, creationBurnReview, LOCK_MS, PUBLIC_WALLET_SALT } from './lib/wallet.js';
 import { keccak } from './lib/crypto.js';
 import * as rlp from './lib/rlp.js';
 import { toHex, fromHex, eq } from './lib/hex.js';
@@ -330,13 +330,26 @@ async function wallet(sess, m, ask) {
     const nonce = o.nonce ? BigInt(o.nonce) : qty(await step(sess.rpc('eth_getTransactionCount', [address, 'pending'])));
     const blk = await step(sess.rpc('eth_getBlockByNumber', ['latest', false])); const base = qty(blk && blk.baseFeePerGas);
     const data = o.data || '0x', value = o.value ? BigInt(o.value) : 0n;
-    const gas = o.gas ? BigInt(o.gas) : qty(await step(sess.rpc('eth_estimateGas', [{ from: address, to: o.to, data, value: '0x' + value.toString(16) }])));
     const maxPriority = o.maxPriorityFeePerGas ? BigInt(o.maxPriorityFeePerGas) : 1000000000n;
-    const tx = { chainId: sess.profile.chainId, nonce, maxPriority, maxFee: o.maxFeePerGas ? BigInt(o.maxFeePerGas) : base * 2n + maxPriority, gas, to: o.to, value, data };
+    const maxFee = o.maxFeePerGas ? BigInt(o.maxFeePerGas) : base * 2n + maxPriority;
+    const call = { from: address, to: o.to, data, value: '0x' + value.toString(16) };
+    // D-V3-21 option A: a v3 node quotes the creation burn with the fee fields to be signed; a spec-1 node answers -32601
+    // (unknown method) and the send is as before. A quote error (a cap halt) refuses the send before anything is signed.
+    const fees = { maxFeePerGas: '0x' + maxFee.toString(16), maxPriorityFeePerGas: '0x' + maxPriority.toString(16) };
+    let quote = null;
+    try { const q = await step(sess.rpc('pocol_quoteCreationBurn', [{ ...call, ...fees }])); if (q && q.v3Active === true) quote = q; }
+    catch (e) { if (!(e && e.rpc && e.rpc.code === -32601)) throw e; }
+    // The burn-aware estimate (v3) prices the burn at the signed maxFee, so its gas limit carries it.
+    const gas = o.gas ? BigInt(o.gas) : qty(await step(sess.rpc('eth_estimateGas', [quote ? { ...call, ...fees } : call])));
+    const tx = { chainId: sess.profile.chainId, nonce, maxPriority, maxFee, gas, to: o.to, value, data };
+    const burn = quote ? creationBurnReview({ gas, maxFee, gasUsed: qty(quote.gasUsed), burn: qty(quote.total) }) : null;
+    if (burn && !burn.ok) return E(-32000, 'creation burn and gas exceed the signed maximum fee', { reason: 'CreationFee', creationBurn: burn.burn.toString(), gasFeeMax: burn.gasFeeMax.toString(), signedMax: burn.signedMax.toString(), needGas: burn.needGas.toString() });
     const ut = unsignedTx(tx);
-    // Every committed field is shown, with the worst-case cost gas·maxFee + value (review finding: fees were hidden).
+    // Every committed field is shown, with the worst-case cost gas·maxFee + value (review finding: fees were hidden);
+    // on v3 the quoted creation burn too, apart from the gas fee and the value, within that signed maximum.
     if ((err = await approval(sess, ask, { type: 'confirmTx', site: sess.site, network: sess.profile.name, chainId: tx.chainId, from: address, payload: toHex(ut.payload), signingHash: toHex(ut.signingHash), to: o.to, value: value.toString(), data, gas: gas.toString(), nonce: nonce.toString(),
-      maxFeePerGas: tx.maxFee.toString(), maxPriorityFeePerGas: tx.maxPriority.toString(), maxCost: (gas * tx.maxFee + value).toString() }))) return err;
+      maxFeePerGas: tx.maxFee.toString(), maxPriorityFeePerGas: tx.maxPriority.toString(), maxCost: (gas * tx.maxFee + value).toString(),
+      ...(burn ? { creationBurn: burn.burn.toString(), gasFeeMax: burn.gasFeeMax.toString(), signedMax: burn.signedMax.toString() } : {}) }))) return err;
     const s = await profileLocked(async () => {
       if ((err = await signEligible(sess, ep))) return err;
       if ((err = await identity(sess))) return err;

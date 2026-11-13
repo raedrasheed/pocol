@@ -438,6 +438,46 @@ mod preview{
     }
     fn cfg_gas_limit(node:&pocold::node::Node)->u64{node.chain.spec.cp().GAS_LIMIT}
 
+    /// D-V3-21 option A, the wallet's part (pocold wallet.rs `transfer_burn_plan`): a transfer quote takes its gas limit
+    /// from the burn-aware eth_estimateGas and its burn from pocol_quoteCreationBurn, exactly as the RPC answers them; a
+    /// user bound below the quoted gas and burn is refused before signing, one at the needed amount signs exactly that
+    /// maximum; the planned transaction is pooled, included, pays gas + burn and stays within the signed maximum. A
+    /// transfer to an existing account quotes no burn.
+    #[test]
+    fn the_wallet_transfer_plan_uses_the_burn_aware_estimate_and_the_user_bound(){
+        let dir=Temp::new();let f0=U256::from(1_000_000_000_000_000u64);let cfg=node_cfg(|c|{c.acct_cap=8;c.f0_acct=f0});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        assert!(node.chain.spec.v3_active(node.chain.head().height+1));
+        let (max_fee,tip)=(U256::from(100_000_000_000u64),U256::from(7));let to=new_address(170);
+        let plan=pocold::wallet::transfer_burn_plan(&node,alice.address(),to,U256::from(1),max_fee,tip,None).unwrap();
+        let call=serde_json::json!({"from":alice.address(),"to":to,"value":"0x1","maxFeePerGas":format!("{max_fee:#x}"),"maxPriorityFeePerGas":"0x7"});
+        let e=rpc(&mut node,"eth_estimateGas",serde_json::json!([call.clone(),"latest"]));let q=rpc(&mut node,"pocol_quoteCreationBurn",serde_json::json!([call]));
+        assert_eq!(plan.gas,quantity(&e["result"]).to::<u64>().max(21_000),"the estimate's gas limit");assert_eq!(plan.suggested,plan.gas);
+        assert_eq!((plan.quote.total,plan.quote.accounts,plan.gas_used),(quantity(&q["result"]["total"]),quantity(&q["result"]["accounts"]),21_000),"the quote's burn");
+        let burn=plan.quote.total;assert_eq!(burn,creation_fees::price(f0,8,3,1).unwrap(),"one new account at 3 of 8");
+        let signed=max_fee*U256::from(plan.gas);assert!(signed>=max_fee*U256::from(21_000)+burn,"the signed maximum bounds gas and burn");
+        let d=plan.describe();assert_eq!(d["creationBurn"].as_str().unwrap(),pocold::wallet::coins(burn));assert_eq!(d["feeBound"].as_str().unwrap(),pocold::wallet::coins(signed));
+        assert_eq!(d["gasFee"].as_str().unwrap(),pocold::wallet::coins(max_fee*U256::from(21_000)));assert_eq!(d["feeBoundSet"],false);
+        // The user's bound: below gas + burn is refused before signing; at exactly gas + burn it signs that maximum.
+        let need=max_fee*U256::from(21_000)+burn;assert_eq!(need%max_fee,U256::ZERO);
+        let low=pocold::wallet::transfer_burn_plan(&node,alice.address(),to,U256::from(1),max_fee,tip,Some(&pocold::wallet::coins(need-U256::from(1)))).unwrap_err();
+        assert!(low.contains("creation burn")&&low.contains(&pocold::wallet::coins(need)),"{low}");
+        let exact=pocold::wallet::transfer_burn_plan(&node,alice.address(),to,U256::from(1),max_fee,tip,Some(&pocold::wallet::coins(need))).unwrap();
+        assert_eq!((max_fee*U256::from(exact.gas),exact.user_bound),(need,true));assert!(exact.describe()["burnNote"][2].as_str().unwrap().contains("below the suggested"));
+        // The planned transfer, as the wallet signs it.
+        let raw=priced_tx(&alice,0,to,U256::from(1),plan.gas,max_fee);let hash=node.submit_tx(raw.clone(),false).unwrap();
+        let price=next_base(&node)+tip;let before=balance(&node,alice.address());
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,cfg.g_ts+4);assert_eq!(selection.txs,vec![raw]);
+        let b=solve(&node,selection.txs,cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+        let receipt=rpc(&mut node,"eth_getTransactionReceipt",serde_json::json!([hash]));assert_eq!(receipt["result"]["status"],"0x1","{receipt}");
+        let lost=before-balance(&node,alice.address());assert_eq!(lost,price*U256::from(21_000)+burn+U256::from(1));assert!(lost<=signed+U256::from(1));
+        // An existing account: no burn.
+        let bob=devnet::account_key("bob").address();
+        let plain=pocold::wallet::transfer_burn_plan(&node,alice.address(),bob,U256::from(1),max_fee,tip,None).unwrap();
+        assert_eq!((plain.quote.total,plain.gas_used),(U256::ZERO,21_000));assert!(plain.gas>=21_000&&plain.gas<22_001,"{}",plain.gas);
+        assert!(plain.describe()["burnNote"][0].as_str().unwrap().contains("no creation burn"));
+    }
+
     /// Deploys each runtime from bob (nonces 0, 1, ...) in one imported block at `clock`; their addresses.
     fn deploy(node:&mut pocold::node::Node,runtimes:&[Vec<u8>],clock:u64)->Vec<Address>{
         let bob=devnet::account_key("bob");
