@@ -1,5 +1,5 @@
 //! V3 system programs (system-v3.json, PoColSystemV3.sol; V3-PR-E0, V3-14 cfg part, V3-34 registry; V3-PR-E1,
-//! V3-08/V3-09 registry budgets).
+//! V3-08/V3-09 registry budgets; V3-PR-E2b, V3-16/V3-17 evidence penalties).
 //!
 //! The v3 source is PoColSystemEarnIn.sol with P_MAX/T_PROB read through cfg() (CP schema v2 fields 54/55),
 //! ChainCaps bounded by the v2 CP length, and the registry budgets of V3-08/V3-09 (a maintenance budget
@@ -24,7 +24,15 @@
 //!   scenarios as the v3 model runs them, at both value sets);
 //! - the write ceilings and gas the wallet's bond quotes are sized from: unchanged except for the measured V3-08/09
 //!   additions (REGISTRY-LAYOUT.md), and the beginBlock sweep within admission's GAS_ENVELOPE;
-//! - sysCodeHash pins and the registry: the v3 set is selected only on a CP schema v2 (specVersion 2) genesis.
+//! - sysCodeHash pins and the registry: the v3 set is selected only on a CP schema v2 (specVersion 2) genesis;
+//! - V3-PR-E2b, the evidence penalties (V3-16, V3-17): every scenario of the independent chain model of tests/v3_model.py
+//!   (tests/v3/evidence-penalty-vectors.json: whole blocks with phase 0 in the v3 order, user transactions, phase 2,
+//!   settlement through RewardEscrow) reproduces on the v3 bytecode step by step, with the Escrow invariant held with
+//!   equality and the supply conserved after every step; type-2 evidence before settle(j) pays the contributors and
+//!   burns only the offender's parts (fails on the earn-in set, which burns the whole pot); an ACCRUING accused winner
+//!   burns the whole pot; the settlement boundary; a self-report loses (1 - rho) * B; five planted mutants each fail;
+//!   with v3-preview, real blocks through apply_block (the host's v3 phase 0) and the SYS gas of the changed calls
+//!   within admission's GAS_ENVELOPE_V3, keys and accounts within resources::derive.
 use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,
     pay::{registry_address,escrow_address}};
 use revm::{DatabaseCommit,InMemoryDB,primitives::{Address,AccountInfo,Bytecode,Bytes,TxEnv,TxKind,U256,keccak256,ResultAndState}};
@@ -37,14 +45,17 @@ const MUTANTS:&str=include_str!("v3/system-v3-mutants.json");
 const VECTORS:&str=include_str!("data/earnin-vectors.json");
 const VECTORS_P64:&str=include_str!("v3/earnin-vectors-p64.json");
 const BUDGET_VECTORS:&str=include_str!("v3/registry-budget-vectors.json");
+const EVIDENCE_VECTORS:&str=include_str!("v3/evidence-penalty-vectors.json");
 /// The earn-in model's scenarios (both value sets) re-run through the v3 model (tests/v3_model.py earnin_on_v3).
 const EARNIN_ON_V3:&str=include_str!("v3/earnin-on-v3-vectors.json");
 /// The six planted earn-in mutants (EARN-IN-SPEC.md §9) and the seven V3-08/V3-09 budget mutants, in fixture order.
 const EARNIN_MUTANTS:[&str;6]=["p-max-plus-one","r9-removed","no-promotion-at-b","t-prob-plus-one","over-fill-bad-value","excess-kept"];
 const BUDGET_MUTANTS:[&str;7]=["maint-counter-shared","maint-twice-per-block","react-budget-ignored","react-cooldown-off-by-one","react-window-at-sweep-height",
     "maint-bounded-by-reg-ops","react-counts-reg-ops"];
+/// The five V3-16/V3-17 evidence-penalty mutants (MinerRegistry or RewardEscrow), in fixture order.
+const EVIDENCE_MUTANTS:[&str;5]=["reporter-paid-on-fallback","whole-pot-for-bonded-accused","accruing-read-at-evidence","accruing-read-at-settle","rho-on-pot-not-bond"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
-const V3_SYS_CODE_HASH:&str="4f42aeb76a6aa1cad6ba54ea045b3bbd2d105c84dd7a6cd226f4eead22114c1a";
+const V3_SYS_CODE_HASH:&str="150b3ae73be1a9b371106c6aa398b64c293338c1589111891bb48c07e8f5f56b";
 
 fn b()->U256{U256::from(20*PCOL)}
 fn system()->Address{Address::from_word((U256::from(1)<<160u32).wrapping_sub(U256::from(2)).into())}
@@ -57,10 +68,13 @@ fn runtime(json:&str,n:&str)->Bytes{
     let p=j["programs"].as_array().unwrap().iter().find(|p|p["name"]==n).unwrap();
     Bytes::from(unhex(p["runtime"].as_str().unwrap()))
 }
-fn mutants()->Vec<(String,Bytes)>{
+/// (name, program, runtime) of every planted mutant.
+fn mutant_programs()->Vec<(String,String,Bytes)>{
     let j:serde_json::Value=serde_json::from_str(MUTANTS).unwrap();
-    j["mutants"].as_array().unwrap().iter().map(|m|(m["name"].as_str().unwrap().to_string(),Bytes::from(unhex(m["runtime"].as_str().unwrap())))).collect()
+    j["mutants"].as_array().unwrap().iter().map(|m|(m["name"].as_str().unwrap().to_string(),m["program"].as_str().unwrap().to_string(),Bytes::from(unhex(m["runtime"].as_str().unwrap())))).collect()
 }
+/// The MinerRegistry mutants (E0's six, E1's seven, and E2b's punish mutant).
+fn mutants()->Vec<(String,Bytes)>{mutant_programs().into_iter().filter(|m|m.1=="MinerRegistry").map(|(n,_,c)|(n,c)).collect()}
 fn insert(db:&mut InMemoryDB,a:Address,balance:U256,nonce:u64,code:Bytecode){db.insert_account_info(a,AccountInfo::new(balance,nonce,code.hash_slow(),code));}
 fn slot(id:Address)->U256{U256::from_be_bytes(keccak256([id.into_word().as_slice(),U256::from(7).to_be_bytes::<32>().as_slice()].concat()).0)}
 fn base(n:u64)->U256{U256::from_be_bytes(keccak256(U256::from(n).to_be_bytes::<32>()).0)}
@@ -83,26 +97,42 @@ macro_rules! ensure_eq{($a:expr,$b:expr,$($m:tt)*)=>{{let (a,b)=(&$a,&$b);if a!=
 
 /// The program set the harness runs, and its CP: the earn-in harness CP (earnin_contracts.rs), plus, for a v3
 /// set, the 15 schema-v2 slots with P_MAX/T_PROB, and per-run overrides.
+/// `v3`: the host conventions of the v3 program set (V3-16/V3-17: phase 0 records the parent's result before the
+/// evidence, invalidate(j, accused), punish(accused, reporter)); otherwise the spec-1 host's.
 #[derive(Clone)]
-struct Setup{registry:Bytes,escrow:Bytes,caps:Bytes,cp_len:u64,cp:Vec<(u64,u128)>}
+struct Setup{registry:Bytes,escrow:Bytes,ledger:Bytes,caps:Bytes,cp_len:u64,cp:Vec<(u64,u128)>,v3:bool}
 impl Setup{
-    fn earnin()->Self{Self{registry:runtime(EARNIN,"MinerRegistry"),escrow:runtime(EARNIN,"RewardEscrow"),caps:runtime(EARNIN,"ChainCaps"),cp_len:52,cp:vec![]}}
+    fn earnin()->Self{Self{registry:runtime(EARNIN,"MinerRegistry"),escrow:runtime(EARNIN,"RewardEscrow"),ledger:runtime(EARNIN,"ShareLedger"),caps:runtime(EARNIN,"ChainCaps"),cp_len:52,cp:vec![],v3:false}}
     /// R_react 16 (as the harness's R_max) and C_react 40 (= U, the least ParamGate admits) in CP 61/62.
     fn v3(p_max:u64,t_prob:u64)->Self{
-        Self{registry:runtime(V3,"MinerRegistry"),escrow:runtime(V3,"RewardEscrow"),caps:runtime(V3,"ChainCaps"),cp_len:67,cp:vec![(54,p_max.into()),(55,t_prob.into()),(61,16),(62,40)]}
+        Self{registry:runtime(V3,"MinerRegistry"),escrow:runtime(V3,"RewardEscrow"),ledger:runtime(V3,"ShareLedger"),caps:runtime(V3,"ChainCaps"),cp_len:67,
+            cp:vec![(54,p_max.into()),(55,t_prob.into()),(61,16),(62,40)],v3:true}
     }
+    /// A planted mutant in place of the program it names.
+    fn with_program(mut self,program:&str,code:Bytes)->Self{match program{"MinerRegistry"=>self.registry=code,"RewardEscrow"=>self.escrow=code,o=>panic!("no mutant of {o}")}self}
     /// The model at P_MAX 64 runs M_MAX 256 and registers 65 probationers in one block (v3_model_vectors.py):
     /// M_max, R_max and REG_OPS wide enough that only P_MAX refuses a seat.
     fn wide(mut self)->Self{self.cp.extend([(17,255),(18,256),(23,1024)]);self}
     fn with_registry(mut self,code:Bytes)->Self{self.registry=code;self}
 }
 
-struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>}
+/// `origin`: the current block's proposer (zero on a fallback block), the tx.origin of its SYSTEM calls; `issued`: the
+/// issuance the chain steps credited to Escrow.
+struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>,v3:bool,origin:Address,issued:U256}
+/// SYSTEM calls with a chosen tx.origin (apply.rs runs each SYSTEM call with the block proposer as tx.origin and the
+/// SYSTEM address as msg.sender): this code, installed at the SYSTEM address for one transaction from the origin,
+/// calls the address in its first calldata word with the rest and returns or reverts with the callee's data.
+const FORWARDER:&str="602036036020600037600060006020360360006000600035 5af13d600060003e602757 3d6000fd5b3d6000f3";
+fn ledger()->Address{Address::from_word(U256::from(0xc0c003u64).into())}
+fn pot(db:&InMemoryDB,j:u64)->(U256,U256,U256){
+    let b=U256::from_be_bytes(keccak256([U256::from(j).to_be_bytes::<32>(),U256::from(3).to_be_bytes::<32>()].concat()).0);
+    (storage(db,escrow_address(),b),storage(db,escrow_address(),b+U256::from(1)),storage(db,escrow_address(),b+U256::from(2)))
+}
 impl Harness{
     fn new(durable:&[String],s:&Setup)->Self{
         let mut db=InMemoryDB::default();
         insert(&mut db,system(),U256::ZERO,1,Bytecode::default());
-        for (a,code) in [(registry_address(),&s.registry),(escrow_address(),&s.escrow),(caps(),&s.caps)]{insert(&mut db,a,U256::ZERO,1,Bytecode::new_raw(code.clone()));}
+        for (a,code) in [(registry_address(),&s.registry),(escrow_address(),&s.escrow),(ledger(),&s.ledger),(caps(),&s.caps)]{insert(&mut db,a,U256::ZERO,1,Bytecode::new_raw(code.clone()));}
         for n in 0..s.cp_len{put(&mut db,caps(),U256::from(n),U256::ZERO);}
         // CP of a continuous network (47/48 zero), with per-block limits wide enough for the vectors'
         // many same-block registrations; consensus values otherwise as Mainnet (as earnin_contracts.rs).
@@ -116,7 +146,98 @@ impl Harness{
         db.accounts.get_mut(&escrow_address()).unwrap().info.balance=b();
         for d in durable{insert(&mut db,name(d),U256::ZERO,1,Bytecode::default());}
         let start=db.accounts.iter().map(|(a,x)|(*a,x.info.balance)).collect();
-        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start}
+        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start,v3:s.v3,origin:Address::ZERO,issued:U256::ZERO}
+    }
+    /// One SYSTEM call at the current height with tx.origin = self.origin, through FORWARDER. The origin's nonce and
+    /// the SYSTEM account are restored afterwards, so the call leaves only its own effects.
+    fn sys_call(&mut self,to:Address,data:Vec<u8>)->ResultAndState{
+        let origin=self.origin;let before=self.db.accounts.get(&origin).map(|a|a.info.nonce);
+        let code=Bytecode::new_raw(Bytes::from(unhex(&FORWARDER.replace(' ',""))));
+        insert(&mut self.db,system(),U256::ZERO,1,code);
+        let mut d=to.into_word().to_vec();d.extend(data);
+        let r=call_to(&mut self.db,origin,system(),d,U256::ZERO,self.height);
+        insert(&mut self.db,system(),U256::ZERO,1,Bytecode::default());
+        match before{Some(n)=>self.db.accounts.get_mut(&origin).unwrap().info.nonce=n,None=>{self.db.accounts.remove(&origin);}}
+        r
+    }
+    /// A SYSTEM call that must succeed or name its revert.
+    fn sys(&mut self,what:&str,to:Address,data:Vec<u8>)->Result<(),String>{
+        let r=self.sys_call(to,data);
+        if r.result.is_success(){return Ok(())}
+        let out=output(&r.result).to_vec();
+        let known=["BadCalldata","BadState","BadPending","BadSystemCall","Unauthorized","BadPhase","HeightOverflow","PaymentFailed"];
+        Err(known.iter().find(|k|selector(&format!("{k}()"))==out).map(|k|k.to_string()).unwrap_or(format!("{what}: {:?} {out:?}",r.result)))
+    }
+    /// punish as the host calls it on this program set: v3 `punish(accused, reporter)` with the reporter = tx.origin,
+    /// spec-1 `punish(accused)`.
+    fn punish_call(&mut self,accused:Address)->Result<(),String>{
+        if self.v3{let mut d=with_arg("punish(address,address)",Some(accused));d.extend(self.origin.into_word());self.sys("punish",registry_address(),d)}
+        else{self.sys("punish",registry_address(),with_arg("punish(address)",Some(accused)))}
+    }
+    /// Phase 0 of block h (tests/v3_model.py Chain.begin): v3 records the parent's result first, then the evidence;
+    /// the spec-1 host runs the evidence first. A revert invalidates the block: the state is restored.
+    fn begin(&mut self,step:&serde_json::Value)->Result<Option<String>,String>{
+        let op=step["op"].as_array().unwrap();let h:u64=op[1].as_str().unwrap().parse().unwrap();let proposer=op[2].as_str().unwrap();
+        ensure!(h==self.height+1,"begin {h} after {}",self.height);
+        let saved=(self.db.clone(),self.height,self.origin);
+        self.height=h;self.origin=if proposer.is_empty(){Address::ZERO}else{name(proposer)};
+        let r=self.phase0(step,h);
+        if let Err(e)=r{(self.db,self.height,self.origin)=saved;return Ok(Some(e))}
+        Ok(None)
+    }
+    fn phase0(&mut self,step:&serde_json::Value,h:u64)->Result<(),String>{
+        let cp_d=storage(&self.db,caps(),U256::from(11)).to::<u64>();
+        let record=|x:&mut Harness|->Result<(),String>{
+            if h<2{return Ok(())}
+            let winner=name(step["winner"].as_str().unwrap());
+            let mut seq:Vec<Address>=step["shares"].as_array().unwrap().iter().map(|x|name(x.as_str().unwrap())).collect();seq.push(winner);
+            let mut data=selector("recordShares(uint64,address[])");data.extend(U256::from(h-1).to_be_bytes::<32>());data.extend(U256::from(64).to_be_bytes::<32>());data.extend(U256::from(seq.len()).to_be_bytes::<32>());
+            for a in &seq{data.extend(a.into_word());}
+            x.sys("recordShares",registry_address(),data)?;
+            let mut data=selector("recordResult(uint256,address)");data.extend(U256::from(h-1).to_be_bytes::<32>());data.extend(winner.into_word());
+            x.sys("recordResult",escrow_address(),data)
+        };
+        if self.v3{record(self)?;}
+        for e in step["evidence"].as_array().unwrap(){
+            // The spec-1 host has no reporter: punish(accused) whatever the evidence names.
+            let accused=name(e[0].as_str().unwrap());let reporter=e[2].as_str().unwrap();
+            if let Some(j)=e[1].as_u64(){
+                if !pot(&self.db,j).1.is_zero(){
+                    let mut data=selector(if self.v3{"invalidate(uint256,address)"}else{"invalidate(uint256)"});data.extend(U256::from(j).to_be_bytes::<32>());
+                    if self.v3{data.extend(accused.into_word());}
+                    self.sys("invalidate",escrow_address(),data)?;
+                }
+            }
+            if self.v3{
+                // The reporter the evidence names (the honest host passes the proposer; the vectors also try others).
+                let mut data=with_arg("punish(address,address)",Some(accused));data.extend((if reporter.is_empty(){Address::ZERO}else{name(reporter)}).into_word());
+                self.sys("punish",registry_address(),data)?;
+            }else{self.punish_call(accused)?;}
+        }
+        self.sys("markClose",registry_address(),selector("markClose()"))?;
+        self.sys("pruneShares",ledger(),selector("pruneShares()"))?;
+        if !self.v3{record(self)?;}
+        if h>cp_d{let mut data=selector("settle(uint256)");data.extend(U256::from(h-cp_d).to_be_bytes::<32>());self.sys("settle",escrow_address(),data)?;}
+        self.sys("beginBlock",registry_address(),selector("beginBlock()"))
+    }
+    /// Phase 2 of the current block: the host credits issuance (CP 15) to Escrow, then closeBlock(0) (no tips).
+    fn close(&mut self,h:u64)->Result<(),String>{
+        ensure!(h==self.height,"close {h} at {}",self.height);
+        let s0=storage(&self.db,caps(),U256::from(15));
+        self.db.accounts.get_mut(&escrow_address()).unwrap().info.balance+=s0;self.issued+=s0;
+        let mut data=selector("closeBlock(uint256)");data.extend(U256::ZERO.to_be_bytes::<32>());
+        self.sys("closeBlock",escrow_address(),data).map_err(|e|format!("closeBlock at {h}: {e}"))
+    }
+    /// Bytecode-only conservation of a chain (no model): Escrow's balance is exactly the pending pots plus the held
+    /// bonds plus everything burned (T17 with equality: no forced transfers), and the supply is the start plus issuance.
+    fn chain_conserved(&self)->Result<(),String>{
+        let pending=(1..=self.height).map(|j|pot(&self.db,j).0).fold(U256::ZERO,|a,b|a+b);
+        let need=pending+reg(&self.db,4)+storage(&self.db,escrow_address(),U256::ZERO);
+        ensure_eq!(balance(&self.db,escrow_address()),need,"Escrow balance = pending + held + burned");
+        let total=self.db.accounts.values().map(|a|a.info.balance).fold(U256::ZERO,|a,b|a+b);
+        let start=self.start.values().copied().fold(U256::ZERO,|a,b|a+b);
+        ensure_eq!(total,start+self.issued,"supply = start + issuance");
+        Ok(())
     }
     fn at(&mut self,h:u64)->Result<(),String>{
         if h>self.height{for s in ["markClose()","beginBlock()"]{let r=call(&mut self.db,system(),selector(s),U256::ZERO,h);ensure!(r.result.is_success(),"{s} at {h}: {:?}",r.result);}self.height=h;}
@@ -138,7 +259,9 @@ impl Harness{
             "set_reward"=>{let s=self.sender(&op[1]);self.at(num(3) as u64)?;call(&mut self.db,s,with_arg("setRewardAddress(address)",Some(name(&op[2]))),U256::ZERO,self.height)}
             "remove_inactive"=>{let s=self.sender(&op[1]);self.at(num(3) as u64)?;call(&mut self.db,s,with_arg("removeInactive(address)",Some(name(&op[2]))),U256::ZERO,self.height)}
             "sweep"=>{self.at(num(1) as u64)?;return Ok(None)}
-            "punish"=>{let id=name(&op[1]);self.at(num(2) as u64)?;let r=call(&mut self.db,system(),with_arg("punish(address)",Some(id)),U256::ZERO,self.height);ensure!(r.result.is_success(),"punish: {:?}",r.result);return Ok(None)}
+            // A registry scenario's punish runs outside any block's evidence: no reporter (the whole bond burns, as the
+            // registry model's punish), so on v3 with tx.origin zero.
+            "punish"=>{let id=name(&op[1]);self.at(num(2) as u64)?;self.origin=Address::ZERO;self.punish_call(id).map_err(|e|format!("punish: {e}"))?;return Ok(None)}
             "settle_to"=>{self.settle(name(&op[1]),U256::from(num(2)))?;return Ok(None)}
             o=>panic!("unknown op {o}"),
         };
@@ -363,7 +486,7 @@ fn chain_caps_serves_exactly_the_v2_cp(){
 #[test]
 fn the_six_planted_mutants_fail_on_the_v3_set(){
     let list=mutants();
-    assert_eq!(list.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..]].concat());
+    assert_eq!(list.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..1]].concat(),"the MinerRegistry mutants");
     let list=&list[..EARNIN_MUTANTS.len()];
     let j:serde_json::Value=serde_json::from_str(MUTANTS).unwrap();let v3:serde_json::Value=serde_json::from_str(V3).unwrap();
     assert_eq!((&j["compiler"],&j["settings"]),(&v3["compiler"],&v3["settings"]),"mutants built by the same compiler and settings");
@@ -426,10 +549,11 @@ fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
     // The existing sets' hashes are unchanged (spec-1 genesis bytes commit them).
     let (v1,continuous,earnin)=(SystemPrograms::v1().sys_code_hash(),SystemPrograms::continuous().sys_code_hash(),SystemPrograms::earnin().sys_code_hash());
     assert!(![v1,continuous,earnin].contains(&v3.sys_code_hash()));
-    // Only MinerRegistry and ChainCaps differ from the earn-in set; the other three runtimes are the same bytes.
+    // MinerRegistry, RewardEscrow (V3-16/V3-17) and ChainCaps differ from the earn-in set; ShareLedger and ChunkFactory
+    // are the same bytes.
     let e=SystemPrograms::earnin();
-    assert_eq!((v3.codes[1]==e.codes[1],v3.codes[2]==e.codes[2],v3.codes[4]==e.codes[4]),(true,true,true));
-    assert!(v3.codes[0]!=e.codes[0]&&v3.codes[3]!=e.codes[3]);
+    assert_eq!((v3.codes[2]==e.codes[2],v3.codes[4]==e.codes[4]),(true,true));
+    assert!(v3.codes[0]!=e.codes[0]&&v3.codes[1]!=e.codes[1]&&v3.codes[3]!=e.codes[3]);
     // EIP-170-sized for tooling (roadmap risk 10).
     for (i,c) in v3.codes.iter().enumerate(){assert!(c.len()<=24_576,"program {i} is {} bytes",c.len());}
     let mut cfg=DevnetConfig::new(777940,1_700_000_000,&["one"]);cfg.h_end=0;cfg.earnin=true;
@@ -481,10 +605,11 @@ fn a_spec1_genesis_naming_the_v3_set_is_refused_by_admission(){
 
 // ---------------- V3-PR-E1: registry budgets (V3-08, V3-09)
 
-/// CP schema names of tests/v3_model.py's CP_INDEX.
+/// CP schema names of tests/v3_model.py's CP_INDEX and CHAIN_CP_INDEX.
 fn cp_index(n:&str)->u64{
     match n{"D"=>11,"R_max"=>17,"M_max"=>18,"M_min"=>19,"SWEEP_MAX"=>21,"SWEEP_SCAN"=>22,"REG_OPS"=>23,"W_act"=>24,"Theta_inact"=>25,
-        "E_win"=>26,"U"=>27,"P_MAX"=>54,"T_PROB"=>55,"R_react"=>61,"C_react"=>62,o=>panic!("unknown CP field {o}")}
+        "E_win"=>26,"U"=>27,"P_MAX"=>54,"T_PROB"=>55,"R_react"=>61,"C_react"=>62,
+        "m"=>8,"kappa"=>9,"S_max"=>10,"W_w"=>12,"alpha_bp"=>13,"gamma_bp"=>14,"S0"=>15,"rho_bp"=>66,o=>panic!("unknown CP field {o}")}
 }
 fn strs(v:&[&str])->Vec<String>{v.iter().map(|x|x.to_string()).collect()}
 fn ids_of(db:&InMemoryDB,base_slot:u64,len_slot:u64)->Vec<Address>{
@@ -501,22 +626,29 @@ fn conserved(h:&Harness)->Result<(),String>{
     ensure_eq!(reg(&h.db,8).to::<u64>(),accruing,"ACC_COUNT");ensure_eq!(reg(&h.db,4),held,"held_total");
     Ok(())
 }
-/// One scenario of registry-budget-vectors.json on a program set; Err names the first difference from the model.
+/// One scenario of registry-budget-vectors.json or evidence-penalty-vectors.json on a program set; Err names the first
+/// difference from the model. A chain scenario (one whose final state has pots) also checks the Escrow invariant and
+/// the supply after every step, and every pending pot at the end.
 fn budget_scenario(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<(),String>{
+    budget_run(name_,body,base_setup).map(|_|())
+}
+fn budget_run(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<Harness,String>{
     let mut s=base_setup.clone();
-    for (k,v) in body["cp"].as_object().unwrap(){s.cp.push((cp_index(k),v.as_u64().unwrap().into()));}
+    for (k,v) in body["cp"].as_object().unwrap(){s.cp.push((cp_index(k),v.as_str().map_or_else(||v.as_u64().unwrap().into(),|x|x.parse::<u128>().unwrap())));}
     if s.cp.iter().any(|(n,_)|*n>=s.cp_len){return Err(format!("{name_}: a CP field outside this program set's ChainCaps"))}
     let durable:Vec<String>=body["durable"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
     let mut h=Harness::new(&durable,&s);
+    let chain=body["final"].get("pots").is_some();
     for step in body["steps"].as_array().unwrap(){
         let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        let got=h.step(&op)?;
+        let got=match op[0].as_str(){"begin"=>h.begin(step)?,"close"=>{h.close(op[1].parse().unwrap())?;None},_=>h.step(&op)?};
         match (&got,step["ok"].as_bool().unwrap()){
             (None,true)=>{}
             (Some(e),false)=>ensure_eq!(e.as_str(),step["revert"].as_str().unwrap(),"{name_} {op:?}"),
             _=>return Err(format!("{name_} {op:?}: contract {got:?}, model {step}")),
         }
         conserved(&h).map_err(|e|format!("{name_} after {op:?}: {e}"))?;
+        if chain{h.chain_conserved().map_err(|e|format!("{name_} after {op:?}: {e}"))?;}
     }
     let fin=&body["final"];
     ensure_eq!(reg(&h.db,4).to_string(),fin["heldTotal"].as_str().unwrap(),"{name_} heldTotal");
@@ -567,7 +699,27 @@ fn budget_scenario(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result
         let refunds=field("paid")-h.settled.get(a).copied().unwrap_or_default();
         ensure_eq!(h.start[a]-balance(&h.db,*a),field("spent")-refunds,"{name_} sender {n} net PCOL");
     }
-    Ok(())
+    if let Some(pots)=fin.get("pots").and_then(|p|p.as_object()){
+        // Every pending pot: amount, proposer and kind, winner, the V3-16 ACCRUING bit (winner word bit 160) and INVALID
+        // (meta bit 168); every other height holds no pot.
+        for j in 1..=h.height{
+            let (amount,meta,winner)=pot(&h.db,j);
+            match pots.get(&j.to_string()){
+                None=>ensure!(amount.is_zero()&&meta.is_zero()&&winner.is_zero(),"{name_}: pot {j} should be settled"),
+                Some(p)=>{
+                    let proposer=p["proposer"].as_str().unwrap();
+                    let want_meta=if proposer.is_empty(){U256::from(1)}else{U256::from_be_slice(name(proposer).as_slice())<<8};
+                    let want_winner=match p["winner"].as_str().unwrap(){""=>U256::ZERO,w=>U256::from_be_slice(name(w).as_slice())};
+                    let one=U256::from(1);let got=(amount.to_string(),meta&!(one<<168u32),meta>>168u32,winner&((one<<160u32)-one),winner>>160u32);
+                    let want=(p["amount"].as_str().unwrap().to_string(),want_meta,U256::from(p["invalid"].as_bool().unwrap() as u8),want_winner,U256::from(p["accruing"].as_bool().unwrap() as u8));
+                    ensure_eq!(got,want,"{name_} pot {j}");
+                }
+            }
+        }
+        ensure_eq!(balance(&h.db,escrow_address()).to_string(),fin["escrowBalance"].as_str().unwrap(),"{name_} Escrow balance");
+        ensure_eq!(h.issued.to_string(),fin["issued"].as_str().unwrap(),"{name_} issuance");
+    }
+    Ok(h)
 }
 fn budget_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
     let v:serde_json::Value=serde_json::from_str(BUDGET_VECTORS).unwrap();
@@ -678,7 +830,7 @@ fn deregister_reactivate_cycle_holds_the_entry_slot_on_earnin_but_not_v3(){
 #[test]
 fn the_registry_budget_mutants_fail_the_v3_vectors(){
     let list=mutants();let original=runtime(V3,"MinerRegistry");
-    let budget=&list[EARNIN_MUTANTS.len()..];
+    let budget=&list[EARNIN_MUTANTS.len()..EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()];
     assert_eq!(budget.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),BUDGET_MUTANTS);
     for (n,code) in budget{
         assert_ne!(code,&original,"{n} changes the bytecode");
@@ -844,4 +996,359 @@ fn record_clocks_layout_and_views(){
     assert_eq!(h.step(&strs(&["deregister","s",&(far+33).to_string()])).unwrap(),None);
     assert_eq!(h.step(&strs(&["reactivate","s",&(far+71).to_string()])).unwrap().as_deref(),Some("BadState"),"inside C_react 40");
     assert_eq!(h.step(&strs(&["reactivate","s",&(far+72).to_string()])).unwrap(),None,"exactly last + C_react");
+}
+
+// ---------------- V3-PR-E2b: evidence penalties (V3-16, V3-17)
+
+const EVIDENCE_SCENARIOS:[&str;10]=["accruing-fact-committed-at-record-result","evidence-at-the-settlement-boundary","fallback-has-no-reporter",
+    "non-winner-accused-settles-normally","random-1","random-2","reporter-cut-paid-directly","self-report-loses-three-quarters",
+    "type2-accruing-winner-burns-whole-pot","type2-held-winner-pays-contributors"];
+fn evidence_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
+    let v:serde_json::Value=serde_json::from_str(EVIDENCE_VECTORS).unwrap();
+    v.as_object().unwrap().iter().map(|(n,body)|(n.clone(),budget_scenario(n,body,s))).collect()
+}
+fn evidence_body(n:&str)->serde_json::Value{let v:serde_json::Value=serde_json::from_str(EVIDENCE_VECTORS).unwrap();v[n].clone()}
+/// Runs a chain scenario's steps on a program set with that set's host conventions, without comparing them to the
+/// model (the earn-in set's own outcome).
+fn chain_exec(body:&serde_json::Value,s:&Setup)->Harness{
+    let mut s=s.clone();
+    for (k,v) in body["cp"].as_object().unwrap(){let n=cp_index(k);if n<s.cp_len{s.cp.push((n,v.as_u64().unwrap().into()));}}
+    let durable:Vec<String>=body["durable"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
+    let mut h=Harness::new(&durable,&s);
+    for step in body["steps"].as_array().unwrap(){
+        let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
+        match op[0].as_str(){"begin"=>{h.begin(step).unwrap();}"close"=>h.close(op[1].parse().unwrap()).unwrap(),_=>{h.step(&op).unwrap();}}
+    }
+    h
+}
+/// What an account received: its balance less its start, plus the bond it sent if it is a sender (every sender of the
+/// scenarios these tests read registered once, with B).
+fn gain(h:&Harness,n:&str)->U256{
+    let a=name(n);let sent=if h.senders.contains(&a){b()}else{U256::ZERO};
+    balance(&h.db,a)+sent-h.start.get(&a).copied().unwrap_or_default()
+}
+
+/// Model-vs-bytecode differential: every chain scenario of the independent model reproduces on the v3 programs step by
+/// step (each block's phase 0 in the v3 order, its user transactions and phase 2), with ACC_COUNT, held_total, the Escrow
+/// invariant (with equality) and the supply conserved after every step, and every pot, record and payment at the end.
+#[test]
+fn v3_evidence_penalties_reproduce_the_independent_model(){
+    let out=evidence_replay(&Setup::v3(8,60_480));
+    assert_eq!(out.keys().map(|k|k.as_str()).collect::<Vec<_>>(),EVIDENCE_SCENARIOS);
+    for (n,r) in &out{if let Err(e)=r{panic!("{n}: {e}")}}
+    // The vectors exercise what they claim: whole-pot burns and normal settlements of pots with type-2 evidence, both
+    // refusals of a block (a reporter that is not the proposer; evidence against a tomb), type 1 and type 2.
+    let v:serde_json::Value=serde_json::from_str(EVIDENCE_VECTORS).unwrap();
+    let (mut reverts,mut type1,mut type2)=(BTreeSet::new(),0,0);
+    for body in v.as_object().unwrap().values(){for st in body["steps"].as_array().unwrap(){
+        if st["op"][0]=="begin"{
+            if let Some(r)=st.get("revert"){reverts.insert(r.as_str().unwrap().to_string());}
+            else{for e in st["evidence"].as_array().unwrap(){if e[1].is_null(){type1+=1}else{type2+=1}}}
+        }
+    }}
+    assert_eq!(reverts,BTreeSet::from(["BadCalldata".to_string(),"BadState".to_string()]));
+    assert!(type1>=10&&type2>=20,"type 1 {type1}, type 2 {type2}");
+}
+
+/// V3-DESIGN.md V3-16, fails on the original: type-2 evidence against a HELD winner before settle(j), in block j+1 (pot 3)
+/// and in block j+2 (pot 5). On the earn-in set both pots burn whole, so the contributor c and the signed proposer p of
+/// both pots receive nothing; on v3 they are paid and only the tombed winners' parts burn, and the reporters receive
+/// rho of the burned bonds instead of nothing.
+#[test]
+fn type2_evidence_before_settlement_pays_contributors_on_v3_but_burns_the_pot_on_earnin(){
+    let body=evidence_body("type2-held-winner-pays-contributors");
+    let earnin=chain_exec(&body,&Setup::earnin());let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    let pcol=|x:u128|U256::from(x);
+    // Pot j (2 PCOL): winner part 0.2, proposer part 0.1, R = 1.7 over Q = max(C, 64) = 64.
+    let r=pcol(17*PCOL/10);
+    assert_eq!((gain(&earnin,"c"),gain(&earnin,"p")),(U256::ZERO,U256::ZERO),"the earn-in set burns pots 3 and 5 whole");
+    assert_eq!(gain(&v3,"c"),r*pcol(2)/pcol(64)+r/pcol(64),"two shares in pot 3, one in pot 5");
+    assert_eq!(gain(&v3,"p"),pcol(2*PCOL/10),"the signed proposer part of pots 3 and 5");
+    // The reporters: r (block 4) and m0 (block 7) receive 25% of the 20 PCOL bond on v3, nothing on the earn-in set.
+    assert_eq!(gain(&v3,"m0")-gain(&earnin,"m0"),pcol(5*PCOL));
+    assert_eq!((gain(&v3,"w"),gain(&v3,"v")),(U256::ZERO,U256::ZERO),"the tombed winners receive nothing");
+    // Earn-in burns both bonds and both pots; v3 burns 75% of each bond and only what of each pot it does not pay: every
+    // wei v3 pays beyond the earn-in set is one the earn-in set burns (the same issuance, pending pots and held bonds).
+    let burned=|h:&Harness|storage(&h.db,escrow_address(),U256::ZERO);
+    let more:U256=v3.db.accounts.iter().filter(|(a,_)|**a!=escrow_address()).map(|(a,x)|x.info.balance-balance(&earnin.db,*a)).fold(U256::ZERO,|x,y|x+y);
+    assert_eq!(burned(&earnin)-burned(&v3),more);
+    for h in [&earnin,&v3]{h.chain_conserved().unwrap();}
+}
+
+/// The evidence vectors test V3-16/V3-17: run with the spec-1 host conventions on the earn-in set, every scenario
+/// differs from the v3 model.
+#[test]
+fn evidence_penalty_vectors_fail_on_the_earnin_set(){
+    let v:serde_json::Value=serde_json::from_str(EVIDENCE_VECTORS).unwrap();
+    for (n,body) in v.as_object().unwrap(){
+        let r=budget_scenario(n,body,&Setup::earnin());
+        eprintln!("earn-in {n}: {}",r.as_ref().err().map_or("reproduces",|e|e.as_str()));
+        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-16/V3-17");
+    }
+}
+
+/// V3-17: a self-report loses exactly (1 - rho) * B. r (reward rr) reports itself and c in its own block: its 20 PCOL bond
+/// burns, its reward address receives 25% of it, and 25% of c's as the block's reporter.
+#[test]
+fn a_self_report_loses_three_quarters_of_the_bond(){
+    let body=evidence_body("self-report-loses-three-quarters");
+    let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    let rec=v3.record(name("r"));
+    assert_eq!((bits(rec.0,8,8),bits(rec.0,16,8)),(1,2),"r is a tomb with its bond burned");
+    let own=b()*U256::from(2500)/U256::from(10_000);
+    assert_eq!(gain(&v3,"rr"),own+own,"rho of its own bond and of c's");
+    assert_eq!(b()-own,U256::from(15*PCOL),"the self-report's net loss is (1 - rho) * B = 15 PCOL");
+    // The fallback block of the same evidence has no reporter: the whole bond burns.
+    // The fallback block of the same evidence has no reporter (the whole bond burns); the refused blocks that named r
+    // as the reporter paid it nothing.
+    let body=evidence_body("fallback-has-no-reporter");let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    assert_eq!(gain(&v3,"r"),U256::ZERO,"the refused blocks paid no reporter");
+    assert!(storage(&v3.db,escrow_address(),U256::ZERO)>=b(),"w's whole bond burned");
+}
+
+/// The five planted V3-16/V3-17 mutants (compile_system_v3.cjs --mutants) each fail the evidence vectors, each in the
+/// scenario written for it.
+#[test]
+fn the_evidence_penalty_mutants_fail_the_v3_vectors(){
+    let list=mutant_programs();
+    assert_eq!(list.iter().map(|m|m.0.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..]].concat());
+    let evidence=&list[EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()..];
+    let expect=[("reporter-paid-on-fallback","fallback-has-no-reporter"),("whole-pot-for-bonded-accused","type2-held-winner-pays-contributors"),
+        ("accruing-read-at-evidence","accruing-fact-committed-at-record-result"),("accruing-read-at-settle","type2-accruing-winner-burns-whole-pot"),
+        ("rho-on-pot-not-bond","self-report-loses-three-quarters")];
+    for ((n,program,code),(want_name,killer)) in evidence.iter().zip(expect){
+        assert_eq!(n,want_name);
+        let original=runtime(V3,program);assert_ne!(code,&original,"{n} changes the bytecode");
+        let out=evidence_replay(&Setup::v3(8,60_480).with_program(program,code.clone()));
+        let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
+        eprintln!("mutant {n} ({program}): killed by {killed:?}");
+        assert!(killed.iter().any(|k|k.as_str()==killer),"mutant {n} survives {killer}: {killed:?}");
+    }
+}
+
+/// punish and invalidate as the v3 host calls them, and only so: the reporter must be the block's tx.origin (none on a
+/// fallback), the accused 20-byte clean; invalidate needs the recorded winner; the spec-1 selectors are gone from the
+/// v3 programs (a v3 genesis can never run the spec-1 host's calls by mistake).
+#[test]
+fn v3_punish_and_invalidate_call_shapes(){
+    let body=evidence_body("type2-held-winner-pays-contributors");
+    let mut h=chain_exec(&body,&Setup::v3(8,60_480));
+    let next=h.height+1;let step=serde_json::json!({"op":["begin",next.to_string(),"c"],"winner":"m0","shares":[],"evidence":[]});
+    assert_eq!(h.begin(&step).unwrap(),None);
+    let c=name("c");
+    assert_eq!(h.sys("punish",registry_address(),with_arg("punish(address)",Some(c))),Err("BadCalldata".into()),"the spec-1 punish selector reaches only the user-path fallback");
+    let mut d=with_arg("punish(address,address)",Some(c));d.extend(name("p").into_word());
+    assert_eq!(h.sys("punish",registry_address(),d),Err("BadCalldata".into()),"a reporter other than tx.origin");
+    let mut d=with_arg("punish(address,address)",Some(c));d.extend((U256::from(1)<<200u32).to_be_bytes::<32>());
+    assert!(h.sys("punish",registry_address(),d).is_err(),"a dirty reporter word (the ABI decoder refuses it)");
+    let mut d=selector("invalidate(uint256)");d.extend(U256::from(next-1).to_be_bytes::<32>());
+    assert_eq!(h.sys("invalidate",escrow_address(),d).map_err(|e|e.contains("output: 0x ")),Err(true),"the spec-1 invalidate selector is not in the v3 Escrow");
+    // Pot `next` has no recorded winner while its block is open: invalidate refuses it.
+    h.close(next).unwrap();
+    let mut d=selector("invalidate(uint256,address)");d.extend(U256::from(next).to_be_bytes::<32>());d.extend(c.into_word());
+    assert_eq!(h.sys("invalidate",escrow_address(),d),Err("BadPending".into()),"j is the current height");
+    let mut d=with_arg("punish(address,address)",Some(c));d.extend(name("c").into_word());
+    assert_eq!(h.sys("punish",registry_address(),d),Ok(()),"the proposer reports");
+    h.chain_conserved().unwrap();
+}
+
+#[cfg(feature="v3-preview")]
+mod preview{
+    //! Real blocks through apply_block on a specVersion-2 devnet (the v3 program set), so through the host's v3 phase 0
+    //! (apply.rs): the parent's result recorded first, invalidate(j, accused), punish(accused, reporter = the signed
+    //! proposer). The spec-1 earn-in devnet runs the same blocks for the fails-on-original comparison.
+    use super::*;
+    use pocol_lp4_execution::{apply::{self,BlockInput,BlockOutput,EvidenceEffect,ParentResult,Proposer},admission,devnet::{self,Devnet},resources,txsign::Tx};
+    use revm::primitives::B256;
+
+    struct Run{net:Devnet,state:InMemoryDB,prev:Option<ParentResult>,h:u64,base:U256,gas:BTreeMap<&'static str,u64>,keys:usize,accounts:usize,burnt_fees:U256,issued:U256,supply:U256}
+    fn total(db:&InMemoryDB)->U256{db.accounts.values().map(|a|a.info.balance).fold(U256::ZERO,|a,b|a+b)}
+    impl Run{
+        fn new(cfg:&DevnetConfig)->Self{
+            let net=devnet::build(cfg).unwrap();let state=net.genesis.state().clone();let supply=total(&state);
+            Run{net,state,prev:None,h:0,base:U256::from(1_000_000_000u64),gas:BTreeMap::new(),keys:0,accounts:0,burnt_fees:U256::ZERO,issued:U256::ZERO,supply}
+        }
+        fn id(&self,i:usize)->Address{self.net.miners[i].id}
+        fn reward(&self,i:usize)->Address{self.net.miners[i].reward}
+        /// Block h+1 with this proposer, evidence and transactions; its own result (consumed by the next block) is `winner`
+        /// with `shares`.
+        fn block(&mut self,proposer:Proposer,evidence:Vec<EvidenceEffect>,txs:Vec<Vec<u8>>,winner:Address,shares:Vec<(u64,Address)>)->BlockOutput{
+            self.h+=1;let h=self.h;
+            let input=BlockInput{height:h,timestamp:1_700_000_000+4*h,base_fee:self.base,gas_limit:8_000_000,prevrandao:B256::ZERO,proposer,
+                parent_result:self.prev.clone(),evidence,evidence_raw:&[],transactions:&txs,ancestors:vec![],cum_log_bytes:0};
+            let o=apply::apply_block(&self.state,&self.net.genesis,&self.net.profile,&input).unwrap_or_else(|e|panic!("h={h}: {e:?}"));
+            for (n,g) in &o.meter.call_gas{let e=self.gas.entry(*n).or_default();*e=(*e).max(*g);}
+            self.keys=self.keys.max(o.meter.keys.len());self.accounts=self.accounts.max(o.meter.accounts.len());
+            self.burnt_fees+=U256::from(o.gas_used)*self.base;self.issued+=o.issued;
+            self.state=o.state.clone();self.prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner,shares});
+            // The supply: genesis plus issuance less the burned base fees.
+            assert_eq!(total(&self.state)+self.burnt_fees,self.supply+self.issued,"supply at {h}");
+            o
+        }
+        fn register(&self,label:&str,value:u128,nonce:u64)->Vec<u8>{
+            let key=devnet::account_key(label);let mut data=selector("register(address)");data.extend(key.address().into_word());
+            Tx{chain_id:self.net.profile.spec().chain_id,nonce,max_priority:U256::ZERO,max_fee:self.base,gas:400_000,to:Some(registry_address()),value:U256::from(value),data:Bytes::from(data)}.sign_1559(&key)
+        }
+        fn bal(&self,a:Address)->U256{balance(&self.state,a)}
+    }
+    fn config(spec:u8,miners:&[&str])->DevnetConfig{
+        let mut cfg=DevnetConfig::new(777943,1_700_000_000,miners);cfg.h_end=0;cfg.earnin=true;cfg.spec_version=spec;cfg.r_max=8;cfg
+    }
+
+    /// V3-16/V3-17 through the host: block 3 carries type-2 evidence against b, the HELD winner of pot 1, and against
+    /// alice, the ACCRUING (zero-bond) winner of pot 2, with signed proposer a as the reporter. On v3 pot 1 settles
+    /// normally (c and a paid their shares, b's parts burn), pot 2 burns whole (alice was ACCRUING when its result was
+    /// recorded, in block 3's phase 0 before the evidence), and a's reward receives 25% of b's 20 PCOL bond. The spec-1
+    /// earn-in devnet runs the same blocks and burns both pots whole, paying no reporter (fails on the original).
+    #[test]
+    fn v3_host_runs_the_evidence_penalties_on_real_blocks(){
+        let mut out=Vec::new();
+        for spec in [1u8,2]{
+            let mut r=Run::new(&config(spec,&["a","b","c"]));
+            let (a,b_,c)=(r.id(0),r.id(1),r.id(2));let alice=devnet::account_key("alice").address();
+            let t=r.register("alice",0,0);
+            r.block(Proposer::Signed(a),vec![],vec![t],b_,vec![(1,a),(2,c),(3,c)]);
+            assert_eq!(apply::miner_record(&r.state,alice).unwrap().bond_state,4,"alice is on probation");
+            r.block(Proposer::Signed(c),vec![],vec![],alice,vec![(1,c)]);
+            let before:Vec<U256>=(0..3).map(|i|r.bal(r.reward(i))).collect();
+            let o=r.block(Proposer::Signed(a),vec![EvidenceEffect::PunishAndInvalidate{accused:b_,j:1},EvidenceEffect::PunishAndInvalidate{accused:alice,j:2}],vec![],c,vec![]);
+            let (p1,p2)=(pot(&o.state,1),pot(&o.state,2));
+            let reporter_cut=r.bal(r.reward(0))-before[0];
+            for _ in 0..6{let w=r.id(2);r.block(Proposer::Fallback,vec![],vec![],w,vec![]);}
+            let gains:Vec<U256>=(0..3).map(|i|r.bal(r.reward(i))-before[i]).collect();
+            out.push((p1.1>>168u32,p2.1>>168u32,p2.2>>160u32,reporter_cut,gains,storage(&r.state,escrow_address(),U256::ZERO)));
+        }
+        let (earnin,v3)=(&out[0],&out[1]);
+        eprintln!("spec-1 earn-in {earnin:?}\nv3 {v3:?}");
+        // INVALID bits after block 3: both pots on the earn-in set, only pot 2 on v3 (with its ACCRUING winner bit).
+        assert_eq!((earnin.0,earnin.1),(U256::from(1),U256::from(1)));
+        assert_eq!((v3.0,v3.1,v3.2),(U256::ZERO,U256::from(1),U256::from(1)));
+        assert_eq!(earnin.3,U256::ZERO,"no reporter on the earn-in set");
+        assert_eq!(v3.3,U256::from(5*PCOL),"25% of b's 20 PCOL bond to the signed proposer a's reward address");
+        // Pot 1 (2 PCOL, 3 header shares + the winner's): a holds 1 share, c 2; R = 1.7 over Q = max(4, kappa*m = 64).
+        let r=U256::from(17*PCOL/10);let share=|n:u64|r*U256::from(n)/U256::from(64);
+        assert_eq!(v3.4[2]-earnin.4[2],share(2),"c is paid its pot 1 shares on v3 only");
+        assert_eq!(v3.4[0]-earnin.4[0],share(1)+U256::from(5*PCOL)+U256::from(PCOL/10),"a: its share, the reporter cut and the pot 1 proposer part");
+        assert_eq!(v3.4[1],earnin.4[1],"b, tombed, receives nothing more on either set");
+    }
+
+    /// SYS gas and caps of the v3 calls at the GAS_DOMAIN maxima (S_max 256, M_max 256, D 16, E_max 4) with the v3
+    /// probation pool full (P_MAX 64): chains of 192 genesis members and 64 probationers p0..p63 joining in blocks 1..4
+    /// (M_max records), every block from 5 on naming all 256 owners in its shares. The worst cases of the calls
+    /// V3-PR-E2b changes, and of settlement on the v3 set:
+    /// - settle (chain A, run twice): pot 5, raised by a large tip and won by p63, settles in block 21 while all 64
+    ///   probationers are live, ACCRUING and at bond 0, as the chain's first burn: exactly 64 bonds go from 0 to B and are
+    ///   promoted in that one call, besides 192 HELD payees; pot 5's proposer is HELD on one run, ACCRUING on the other;
+    /// - recordResult reads an ACCRUING winner's record (pot 5 on chain A, pots 5..8 on chain B);
+    /// - invalidate (chain B, run twice, probationers with half a bond, 0 < B/2 < B): four type-2 items name p0..p3, the
+    ///   ACCRUING winners of pots 5..8, each writing INVALID;
+    /// - punish: the same items punish an ACCRUING accused with a nonzero bond in the middle of the active list (the
+    ///   ACC_COUNT write, removeActive, the bond burn and the reporter's PAY to the signed proposer's reward address);
+    ///   four type-1 items punish HELD genesis members (never-written clock word, middle of the active list, the
+    ///   reporter's PAY). Each kind comes first on one run of chain B, so each also pays the chain's first burn.
+    /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry, GAS_ENVELOPE_EARNIN
+    /// otherwise: `gas_envelope(ProgramSet::V3)`), every call name measured has an entry there, and the blocks
+    /// within resources::derive; the test asserts that the settle and punish maxima are taken on these paths.
+    #[test]
+    fn v3_sys_gas_and_caps_within_the_v3_envelope(){
+        let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
+        let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
+        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.p_max=64;cfg.r_max=16;
+        let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();
+        for p in &probation{cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
+        let pids:Vec<Address>=probation.iter().map(|p|devnet::account_key(p).address()).collect();
+        // Chain B starts with its 64 probationers joining in blocks 1..4 with `bond` each (the shares of blocks 1..4 name
+        // only the 192 genesis members, so pots 1..4 pay no probationer).
+        let net=Run::new(&cfg);let cp=net.net.profile.cp().clone();
+        let genesis:Vec<Address>=(0..192).map(|i|net.id(i)).collect();
+        let ids:Vec<Address>=genesis.iter().copied().chain(pids.iter().copied()).collect();
+        let start=|bond:u128|->Run{
+            let mut r=Run::new(&cfg);
+            for k in 0..4usize{
+                let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|r.register(p,bond,0)).collect();
+                let sh=(0..256u64).map(|i|(i*3+1,ids[((k as u64+i) as usize)%192])).collect();
+                r.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],sh);
+            }
+            for p in &pids{assert_eq!(apply::miner_record(&r.state,*p).map(|x|(x.status,x.bond_state,x.bond,x.tomb)),Some((1,4,U256::from(bond),false)),"an ACCRUING probationer");}
+            r
+        };
+        let shares=|ids:&[Address],h:u64|->Vec<(u64,Address)>{(0..256u64).map(|i|(i*3+1,ids[((h+i) as usize)%256])).collect()};
+
+        let mut gas:BTreeMap<&'static str,u64>=BTreeMap::new();let (mut keys,mut accounts)=(0usize,0usize);
+        let mut fold=|r:&Run|{for (n,g) in &r.gas{let e=gas.entry(*n).or_default();*e=(*e).max(*g);}keys=keys.max(r.keys);accounts=accounts.max(r.accounts);};
+        // Chain A: the worst settlement. Pots 1..4 burn nothing (one owner, the HELD winner, holds every share, and
+        // C = 256 >= kappa*m), so pot 5, raised by a large tip and won by p63, settles in block 21 as the chain's first
+        // burn (Escrow's burnedTotal from 0 to nonzero). All 64 probationers are then live, ACCRUING and at bond 0 (no
+        // evidence names them on this chain), and pot 5 pays each more than B: exactly 64 bonds go from 0 to B and are
+        // promoted in that one call (p63 through its winner part, p0..p62 through their shares), besides 192 HELD payees.
+        // Pot 5's proposer is a HELD genesis member or the ACCRUING p62 (whose proposer part then fills its bond through
+        // payTo before distribute).
+        let mut settle5=0u64;
+        for proposer in [genesis[110],pids[62]]{
+            let mut a=Run::new(&cfg);
+            for k in 0..4usize{
+                let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|a.register(p,0,0)).collect();
+                a.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],(0..256u64).map(|i|(i+1,genesis[k])).collect());
+            }
+            let alice=devnet::account_key("alice");let tip=U256::from(400_000_000_000_000_000u128);
+            let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:a.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
+            let o=a.block(Proposer::Signed(proposer),vec![],vec![big],pids[63],shares(&ids,5));
+            assert!(o.tips>U256::from(8000*PCOL),"pot 5 tips {}",o.tips);
+            for k in 6..=20u64{a.block(Proposer::Signed(genesis[(114+k) as usize]),vec![],vec![],genesis[k as usize],shares(&ids,k));}
+            for p in &pids{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.status,x.bond_state,x.bond,x.tomb)),Some((1,4,U256::ZERO,false)),"zero-bond ACCRUING until pot 5 settles");}
+            assert_eq!(storage(&a.state,escrow_address(),U256::ZERO),U256::ZERO,"pots 1..4 burned nothing");
+            let o=a.block(Proposer::Signed(genesis[140]),vec![],vec![],genesis[21],shares(&ids,21));
+            let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
+            for p in &pids{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.bond_state,x.bond,x.tomb)),Some((1,b(),false)),"filled from 0 to B and promoted by pot 5's settlement");}
+            assert!(storage(&a.state,escrow_address(),U256::ZERO)>U256::ZERO,"pot 5's settlement burns");
+            eprintln!("settle(5) with proposer {proposer}: {g}");settle5=settle5.max(g);fold(&a);
+        }
+
+        // Chain B: type-2 evidence against ACCRUING winners with a nonzero bond (block 9 or 10) and type-1 evidence against
+        // HELD genesis members (the other block). Each order once, so that each path also pays the first burn of the
+        // chain (Escrow's burnedTotal from 0 to nonzero), which only the first punish of a chain does.
+        let half=10*PCOL;let (mut punish_acc,mut punish_held)=(0u64,0u64);
+        for held_first in [false,true]{
+            let mut c=start(half);
+            for k in 0..4usize{c.block(Proposer::Signed(genesis[120+k]),vec![],vec![],pids[k],shares(&ids,5+k as u64));}
+            for step in 0..2u64{
+                let rep=130+step as usize;let reporter=c.net.miners[rep].reward;let before=c.bal(reporter);
+                if held_first==(step==0){
+                    let ev=(0..4usize).map(|i|EvidenceEffect::Punish{accused:genesis[40+i]}).collect();
+                    let o=c.block(Proposer::Signed(genesis[rep]),ev,vec![],genesis[5+step as usize],shares(&ids,9+step));
+                    punish_held=punish_held.max(o.meter.call_gas.iter().filter(|(n,_)|*n=="punish").map(|x|x.1).max().unwrap());
+                    assert_eq!(c.bal(reporter)-before,U256::from(4*b().to::<u128>()/4),"rho_bp 2500 of each 20 PCOL bond to the signed proposer's reward address");
+                }else{
+                    let ev=(0..4usize).map(|i|EvidenceEffect::PunishAndInvalidate{accused:pids[i],j:5+i as u64}).collect();
+                    let o=c.block(Proposer::Signed(genesis[rep]),ev,vec![],genesis[5+step as usize],shares(&ids,9+step));
+                    punish_acc=punish_acc.max(o.meter.call_gas.iter().filter(|(n,_)|*n=="punish").map(|x|x.1).max().unwrap());
+                    assert_eq!(c.bal(reporter)-before,U256::from(4*half/4),"rho_bp 2500 of each half bond to the signed proposer's reward address");
+                    for j in 5..9u64{assert_eq!(pot(&o.state,j).1>>168u32,U256::from(1),"pot {j} INVALID");}
+                }
+            }
+            for x in pids[..4].iter().chain(genesis[40..44].iter()){assert!(apply::miner_record(&c.state,*x).unwrap().tomb);}
+            fold(&c);
+        }
+
+        let b=resources::derive(&cp);
+        eprintln!("V3-GAS {gas:?}; settle(5) {settle5}, punish ACCRUING {punish_acc} HELD {punish_held}; keys {keys} (derive {}), accounts {accounts} (derive {})",b.keys_normal,b.accts_normal);
+        // The maxima are taken on the paths named above.
+        assert_eq!(gas["settle"],settle5,"the worst settle is pot 5's 64 bond fills");
+        assert_eq!(gas["punish"],punish_acc.max(punish_held));
+        // A genesis member's clock word was never written (punish writes it from zero), while register writes every
+        // probationer's (graceStart), which outweighs the ACCRUING path's ACC_COUNT write: the HELD path is the worst.
+        assert!(punish_held>punish_acc,"punish HELD {punish_held} vs ACCRUING with a bond {punish_acc}");
+        for (n,g) in &gas{
+            let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
+            assert!(*g<=bound,"v3 {n} = {g} above its composed envelope {bound}");
+        }
+        // Every other name of the composed table was measured here, so no ordinary or closing entry is unchecked. These
+        // chains are continuous (h_end 0), so the final phase is not reached: finalize takes the earn-in entry unmeasured
+        // on v3, and settleFinal runs the same settleOne as settle, so its entry is the settle maximum measured here.
+        for (n,_) in admission::gas_envelope(ProgramSet::V3){if !["finalize","settleFinal"].contains(n){assert!(gas.contains_key(n),"the v3 envelope names {n}, which no run measured");}}
+        assert!(gas["settle"]<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settleFinal covers the measured settle");
+        // The v3 table is needed: each of its measured entries exceeds the earn-in entry it replaces in the composition.
+        for n in ["invalidate","punish","recordResult","settle"]{assert!(gas[n]>admission::envelope(ProgramSet::EarnIn,n).unwrap(),"{n} {} fits the earn-in envelope: drop its v3 entry",gas[n]);}
+        assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
+    }
 }

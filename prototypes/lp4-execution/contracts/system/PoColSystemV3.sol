@@ -7,7 +7,8 @@ pragma solidity 0.8.28;
 // sysCodeHash on a specVersion-2 genesis (CP schema v2). The programs do not check that: on a 52-field CP
 // ChainCaps.get(52..66) reads 0 (P_MAX 0, T_PROB 0, R_react 0). The host registry (apply.rs SystemPrograms::selectable)
 // keeps the set off a CP schema v1 genesis (tests/v3_contracts.rs). V3-08/V3-09 registry budgets: REGISTRY-LAYOUT.md,
-// tests/v3_model.py. Authorities: M1 execution.md and
+// tests/v3_model.py. V3-16/V3-17 evidence penalties (RewardEscrow recordResult/invalidate/burnBond, MinerRegistry
+// punish): REGISTRY-LAYOUT.md "v3 evidence penalties", tests/v3_model.py. Authorities: M1 execution.md and
 // incentives.md (phases, pending, settle formulas, bond machine); LP4-PAY-01/02, LP4-REGISTRY-01/02,
 // LP4-SYS-01, LP4-ISSUANCE-01; LP4-LEDGER-01 option 1 (development/LP4-LEDGER-APPROVAL.md).
 // Addresses: C0C001 MinerRegistry, C0C002 RewardEscrow, C0C003 ShareLedger,
@@ -19,7 +20,7 @@ interface IRegistryV1 {
     function payInfos(address[] calldata ids) external view returns(address[] memory rewards,bool[] memory accruing);
     function accrue(address id,uint256 amount) external returns(uint256 excess);
 }
-interface IEscrowV1 { function releaseBond(address id) external returns(bool); function burnBond(uint256 amount) external; }
+interface IEscrowV1 { function releaseBond(address id) external returns(bool); function burnBond(uint256 amount,address reward) external; } // V3-17: burnBond pays the reporter's cut
 interface ILedgerV1 {
     function record(uint64 j,address[] calldata seq) external;
     function totalOf(uint64 j) external view returns(uint256);
@@ -113,11 +114,15 @@ contract ShareLedger {
 /// Pending pots, bond bridge, settlement and finalization (M1 incentives.md).
 /// Layout: slot0 burnedTotal; slot1 final height F (set only by finalize); pending[j] at keccak(be256(j)||be256(3))+k,
 /// k=0 amount, k=1 meta = proposer<<8 | kind (0 signed, 1 fallback) | INVALID<<168,
-/// k=2 winner (zero until recordResult).
+/// k=2 winner (zero until recordResult) | WIN_ACCRUING<<160 (V3-16).
 contract RewardEscrow {
     error Unauthorized(); error BondUnavailable(); error PaymentFailed(); error BadCalldata();
     error BadSystemCall(); error BadPending();
     uint256 constant INVALID=uint256(1)<<168;
+    // V3-16: recordResult commits in the winner word whether pot j's winner was ACCRUING (so its bond below B_reg)
+    // when the result was recorded, at the start of block j+1 before any of its evidence (apply.rs runs the v3
+    // phase 0 in that order). INVALID (whole-pot burn) is set only for type-2 evidence against that winner.
+    uint256 constant WIN_ACCRUING=uint256(1)<<160;
     function base(uint256 j) internal pure returns(uint256) {return uint256(keccak256(abi.encode(j,uint256(3))));}
     function get(uint256 k) internal view returns(uint256 v){assembly{v:=sload(k)}}
     function put(uint256 k,uint256 v) internal {assembly{sstore(k,v)}}
@@ -138,10 +143,14 @@ contract RewardEscrow {
         if(bond!=0 && !Sys.pay(reward,bond)) return false;
         return true;
     }
-    /// Registry-only: an evidence-burned bond stays in Escrow balance as burned.
-    function burnBond(uint256 amount) external {
-        if(msg.sender!=Sys.REGISTRY||msg.data.length!=36) revert Unauthorized();
-        put(0,get(0)+amount);
+    /// Registry-only: an evidence-burned bond stays in Escrow balance as burned. V3-17: rho_bp/10^4 of it (CP 66) is
+    /// paid to `reward`, the reward address of the carrying block's signed proposer (zero: a fallback block or no
+    /// record, nothing paid); a failed PAY burns that part too.
+    function burnBond(uint256 amount,address reward) external {
+        if(msg.sender!=Sys.REGISTRY||msg.data.length!=68) revert Unauthorized();
+        uint256 cut=reward==address(0)?0:amount*Sys.cfg(66)/10000;
+        if(cut!=0 && !Sys.pay(reward,cut)) cut=0;
+        put(0,get(0)+amount-cut);
     }
 
     /// Phase 2 (non-final): pending[h]={subsidy+tips, kind, proposer}, winner=0 (D141).
@@ -159,14 +168,22 @@ contract RewardEscrow {
         if(winner==address(0)||block.number<2||j!=block.number-1) revert BadSystemCall();
         uint256 b=base(j); uint256 meta=get(b+1)&~INVALID;
         if(meta==0||meta>>168!=0||(meta&255)>1||((meta&255)==1&&meta!=1)||get(b+2)!=0) revert BadPending();
-        put(b+2,uint256(uint160(winner)));
+        put(b+2,uint256(uint160(winner))|(accruingNow(winner)?WIN_ACCRUING:0)); // V3-16
     }
-    /// Phase 0 type-2 evidence: pot_j becomes invalid before settle(j).
-    function invalidate(uint256 j) external {
-        sys(36);
-        uint256 b=base(j); uint256 meta=get(b+1);
-        if(j>=block.number||meta==0||meta&INVALID!=0) revert BadPending();
-        put(b+1,meta|INVALID);
+    /// V3-16: a live ACCRUING record (its bond is below B_reg: a bond reaching B_reg promotes it to HELD).
+    function accruingNow(address id) internal view returns(bool){
+        (uint256 w,,)=IRegistryV1(Sys.REGISTRY).bondRecord(id);
+        return (w&255)!=0 && ((w>>8)&255)==0 && ((w>>16)&255)==4;
+    }
+    /// Phase 0 type-2 evidence before settle(j), after recordResult(h-1) and before punish (V3-16): the pot settles
+    /// normally, the tombed offender's winner part, proposer part and shares burning through payTo and distribute,
+    /// unless the accused is pot j's winner and was ACCRUING when its result was recorded: then INVALID burns the
+    /// whole pot at settle(j). Several pieces of evidence may name one pot.
+    function invalidate(uint256 j,address accused) external {
+        sys(68);
+        uint256 b=base(j); uint256 meta=get(b+1); uint256 w=get(b+2);
+        if(j>=block.number||meta==0||w==0) revert BadPending();
+        if(address(uint160(w))==accused && w&WIN_ACCRUING!=0) put(b+1,meta|INVALID);
     }
     /// Phase 0 of h: settle(h-D).
     function settle(uint256 j) external {
@@ -342,6 +359,11 @@ contract MinerRegistry {
         if(last!=0 && height<last+cfg(CP_C_REACT))revert BadState();
         put(r+1,(x&~(LOW64<<160))|(height<<160));
     }
+    /// V3-17: the reward address of the reporter's record (tomb or not), or zero (no reporter, or no record).
+    function payee(address reporter) internal view returns(address){
+        if(reporter==address(0))return address(0);uint256 r=rec(reporter);
+        return get(r)==0?address(0):address(uint160(get(r+1)&LOW160));
+    }
     function recordAt(uint256 i) external view returns(address){if(i>=get(0))revert BadState();return address(uint160(get(arr(5)+i)));}
     function activeAt(uint256 i) external view returns(address){if(i>=get(1))revert BadState();return address(uint160(get(arr(6)+i)));}
 
@@ -495,9 +517,12 @@ contract MinerRegistry {
     }
     /// Evidence effect (phase 0, SYSTEM): HELD -> BURNED+tomb (active exits);
     /// PAID -> tomb only. Tomb/absent records are a host error (block invalid).
-    function punish(address id) external {
-        if(msg.sender!=Sys.SYSTEM||msg.data.length!=36) revert Unauthorized();
+    /// V3-17: `reporter` is the carrying block's signed proposer, which must be tx.origin (zero on a fallback block);
+    /// Escrow pays rho_bp of the burned bond to its record's reward address (a self-report included) and burns the rest.
+    function punish(address id,address reporter) external {
+        if(msg.sender!=Sys.SYSTEM||msg.data.length!=68) revert Unauthorized();
         uint256 raw; assembly{raw:=calldataload(4)} if(raw>>160!=0) revert BadCalldata();
+        if(reporter!=tx.origin) revert BadCalldata(); // V3-17: no reporter on a fallback block
         uint256 height=h(); uint256 r=rec(id); uint256 w=get(r);
         if(w==0 || ((w>>8)&255)!=0) revert BadState();
         uint256 st=(w>>16)&255; uint256 clocks=get(r+3);
@@ -505,7 +530,7 @@ contract MinerRegistry {
             if(st==ACCRUING)put(ACC_COUNT,get(ACC_COUNT)-1); // EARN-IN S4
             if((w&255)==1){ w=(removeActive(r,w)&~uint256(255))|2; clocks=(clocks&~((uint256(1)<<128)-1))|height|(height<<64); }
             w=(w&~STATE_MASK)|(uint256(2)<<16)|(uint256(1)<<8);
-            uint256 bond=get(r+2); put(4,get(4)-bond); IEscrowV1(Sys.ESCROW).burnBond(bond);
+            uint256 bond=get(r+2); put(4,get(4)-bond); IEscrowV1(Sys.ESCROW).burnBond(bond,payee(reporter)); // V3-17
         } else if(st==3){ w=w|(uint256(1)<<8); }
         else revert BadState();
         clocks=(clocks&~(LOW64<<128))|(height<<128);
