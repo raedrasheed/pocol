@@ -51,6 +51,10 @@ export async function v3PreviewChecks(rel) {
   try { await RP.verifyWindow(win2b.rpc, spec2, win2b.lastTs + 1, [[1, '0']]); } catch (e) { premature = e.flag; }
   ok('a v3 window keeps the fork-version check (netVersion)', premature === 'netVersion', premature);
 
+  // The fault regions keep the source modules plain JavaScript: src/lib/refdec.js parses as it is (as its release text).
+  const parsed = spawnSync(process.execPath, ['--check', join(HERE, '..', 'src', 'lib', 'refdec.js')], { encoding: 'utf8' });
+  ok('src/lib/refdec.js parses outside the build', parsed.status === 0, parsed.stderr);
+
   // ---- the test-only v3-preview build ----
   let both = ''; try { build({ fault: 'noDnr', v3Preview: true }); } catch (e) { both = e.message; }
   ok('a fault build is never a v3-preview build', /never a v3-preview build/.test(both));
@@ -78,9 +82,20 @@ export async function v3PreviewChecks(rel) {
       mkdirSync(join(tmp, 'scripts'));
       cpSync(join(HERE, '..', 'scripts', 'package-release.py'), join(tmp, 'scripts', 'package-release.py'));
       writeFileSync(join(tmp, 'package.json'), readFileSync(join(HERE, '..', 'package.json')));
-      const pack = (dist) => { rmSync(join(tmp, 'dist'), { recursive: true, force: true }); cpSync(dist, join(tmp, 'dist'), { recursive: true }); return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip')], { encoding: 'utf8' }); };
+      // `mix` copies single files of another dist over the copied one, so each leg of the refusal is tested alone.
+      const pack = (dist, mix = null, files = []) => {
+        rmSync(join(tmp, 'dist'), { recursive: true, force: true }); rmSync(join(tmp, 'out.zip'), { force: true });
+        cpSync(dist, join(tmp, 'dist'), { recursive: true });
+        for (const f of files) cpSync(join(mix, f), join(tmp, 'dist', f));
+        return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip')], { encoding: 'utf8' });
+      };
+      const refusedBy = (r) => r.status !== 0 && /Refusing a v3-preview build/.test(r.stderr) && !existsSync(join(tmp, 'out.zip'));
       const refused = pack(pre);
-      ok('the release packager refuses a v3-preview build', refused.status !== 0 && /Refusing a v3-preview build/.test(refused.stderr) && !existsSync(join(tmp, 'out.zip')), refused.stderr);
+      ok('the release packager refuses a v3-preview build', refusedBy(refused), refused.stderr);
+      const ceilingOnly = pack(rel, pre, ['lib/refdec.js']);
+      ok('the release packager refuses a release dist carrying the preview refdec.js (the entry-point ceiling alone)', refusedBy(ceilingOnly), ceilingOnly.stderr);
+      const manifestOnly = pack(rel, pre, ['manifest.json']);
+      ok('the release packager refuses a release dist carrying the preview manifest (the manifest name alone)', refusedBy(manifestOnly), manifestOnly.stderr);
       const packed = pack(rel);
       ok('the release packager still packages the release build', packed.status === 0 && existsSync(join(tmp, 'out.zip')), packed.stderr);
     } finally { rmSync(tmp, { recursive: true, force: true }); }

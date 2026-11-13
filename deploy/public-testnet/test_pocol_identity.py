@@ -194,6 +194,29 @@ class GenesisSpecReference(unittest.TestCase):
         self.assertGreater(checked, 1270)
         self.assertGreater(accepted[2], accepted[1])
 
+    def test_the_version_detail_is_the_exact_decimal_at_any_length(self):
+        # genesis_spec.rs reports gsVersion with decimal.rs decimal(raw) whatever the item's length; Python 3.11+ refuses
+        # str() of an int past 4300 digits, so the port converts long items itself. Compared with an unlimited str().
+        limit = sys.get_int_max_str_digits() if hasattr(sys, 'get_int_max_str_digits') else None
+        cases = [b'', bytes(5), b'\x07', b'\0\0\x01\0', bytes(range(256)) * 9, b'\0' * 3 + b'\xff' * 2000, b'\x01' * 1024,
+                 b'\x01' * 1025, b'\x80' + bytes(4096), bytes(range(1, 256)) * 40]
+        expected = []
+        try:
+            if limit is not None:
+                sys.set_int_max_str_digits(0)
+            expected = [str(int.from_bytes(raw, 'big')) for raw in cases]
+        finally:
+            if limit is not None:
+                sys.set_int_max_str_digits(limit)
+        self.assertEqual([ident._decimal(raw) for raw in cases], expected)
+        self.assertTrue(any(len(x) > 4300 for x in expected))
+        # A version item of 10,000 bytes is refused with its full decimal, not with Python's conversion error.
+        version = bytes(range(1, 251)) * 40
+        spec = bytes([0xf9, 0x27, 0x13, 0xb9, 0x27, 0x10]) + version
+        with self.assertRaises(ident.GenesisSpecError) as caught:
+            ident.decode_genesis_spec(spec, 2)
+        self.assertEqual((caught.exception.code, len(caught.exception.detail)), ('gsVersion', len(ident._decimal(version))))
+
     def test_the_schemas_are_the_rust_schemas(self):
         source = (REPO / 'prototypes' / 'lp1-node' / 'src' / 'genesis_spec.rs').read_text(encoding='utf-8')
         def schema(name):

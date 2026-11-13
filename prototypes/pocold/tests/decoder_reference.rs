@@ -69,7 +69,7 @@ fn spec_verdict(r:Result<gs::GenesisSpec,gs::GsError>)->String{match r{Ok(_)=>"o
                 if let Ok(s)=gs::decode_bounded(&b,2){
                     assert_eq!(gs::encode(&s),b,"canonical round trip of {label}");
                     if s.spec_version==2{assert!(r.starts_with("gsVersion:"),"release accepted spec 2: {label}");}
-                    // The accepted v3 genesis files name the program set pocold selects for a spec-2 genesis.
+                    // The accepted v3 genesis files name the v3 program set (the set testnet.rs pairs with a spec-2 genesis).
                     if s.sys_code_hash==pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash().0{v3_programs+=1;}
                 }
                 (r,p)

@@ -198,10 +198,14 @@ do not establish that any remote service or website has been updated.
 The v3 consensus bundle is dormant until its activation release: release nodes and
 clients decode only GenesisSpec version 1. `preflight.py` reads the version at the head
 of the public `genesis.spec.hex`, which must equal the `devnet.json` declaration
-(`specVersion: 2` with `v3: true`); it reports a spec-2 genesis that is not one
-canonical list of six items with CP schema v2's 67 fields, 32-byte roots and the v3
-program set's `sysCodeHash` as invalid, and refuses a well-formed one with "a release
-seed refuses a spec-2 (v3) genesis until activation". `network_identity.py` switches a
+(`specVersion: 2` with `v3: true`). A spec-2 genesis goes through the whole v3-preview
+decoder (an inline, verbatim copy of `deploy/public-testnet/pocol_identity`'s decoder
+block, so the file still runs alone): a malformed one is reported as "invalid spec-2 (v3)
+GenesisSpec" with the reference decoder's code and detail (framing, structure, counts,
+canonical integers, widths and bounds of every CP schema v2 field, roots, M_0List order
+and reserved ids), one naming another program set as such, and a well-formed one naming
+the v3 program set is refused with "a release seed refuses a spec-2 (v3) genesis until
+activation". `network_identity.py` switches a
 tree to a spec-2 genesis only with `--v3`, and only after the whole v3-preview decoder
 (`deploy/public-testnet/pocol_identity.decode_genesis_spec` at ceiling 2, checked
 against the Rust verdicts of the decoder corpus) accepts it and its `sysCodeHash` names

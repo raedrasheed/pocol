@@ -4,6 +4,7 @@
 A second reference implementation of pocold/src/identity.rs consensus_id: two nodes
 peer only when they send the same identity. Standard library only, so it can be
 copied into single-file tools (deploy/mainnet/preflight.py keeps an inline copy)."""
+import decimal
 import hashlib
 
 DOMAIN = b'pocol-consensus-identity-v1\0'
@@ -119,15 +120,35 @@ def for_network(info, build):
 # and details, for CP schema v1 and v2. test_pocol_identity checks it against the Rust verdicts of the whole decoder
 # corpus (prototypes/pocol-extension/tests/data, the release and the v3-preview verdict files), as refdec.js is checked.
 # ---------------------------------------------------------------------------------------------------------------------
+# The block below is the decoder; preflight.py keeps a verbatim copy of it (to run alone over stdin, within a Windows
+# command-line budget), so its documentation is here, outside the block:
+# - GenesisSpecError: a refusal with `code` (L0, gsStructure, gsVersion, ...) and `detail`, exactly as genesis_spec.rs
+#   GsError.
+# - CP_SCHEMA: CP schema v1 in order: name, width in bits, lower bound, upper bound (None: none; GAMMA: 10^4 - alpha_bp).
+#   CP_V2_EXTRA (genesis_spec.rs CP_V2_EXTRA): CP schema v2 is the complete v1 prefix, then these fields in immutable
+#   wire order. cp_schema knows these schemas only (genesis_spec.rs cp_schema): a future wire version never inherits
+#   v2's layout.
+# - V3_SYS_CODE_HASH: sysCodeHash of the v3 program set (apply.rs SystemPrograms::v3, the set testnet.rs pairs with a
+#   spec-2 genesis): keccak256(RLP([C0C001..C0C005 runtimes of lp4-execution/tests/data/system-v3.json, 0x80 for PAY]));
+#   equal to deploy/rewards/pocol_rewards.V3_SYS_CODE_HASH, and test_pocol_identity recomputes it from that file.
+# - _head(b, i): ('byte'|'str'|'list', payload length, payload start) of the item at i; _item(b, i): (is list, payload
+#   start, payload length, wrapped single byte) of the framing-checked item at i.
+# - _decimal(raw): the exact decimal of the big-endian unsigned `raw` (lp1-node decimal.rs decimal; empty or all zero is
+#   "0"), not str(int): Python 3.11+ refuses an int of more than 4300 digits there, and a gsVersion item can be as long
+#   as the spec. Items past 1024 bytes are split in halves and recombined in exact Decimal arithmetic (libmpdec's fast
+#   multiplication), so a MAX_SPEC_BYTES-long item takes seconds, not the quadratic int conversion's minutes.
+# - decode_genesis_spec(b, max_version): genesis_spec.rs decode_bounded: a GenesisSpec of version 1..max_version, or
+#   GenesisSpecError with the reference's code and detail. The default ceiling is the release decoder (SPEC_VERSION 1,
+#   which refuses spec 2 with gsVersion until activation, V3-PR-I); 2 is the v3-preview decoder (CP schema v2). Returns
+#   {specVersion, chainId, cp, allocRoot, m0 [(id, reward)], sysCodeHash} with byte values.
+# ---- BEGIN GenesisSpec reference decoder (deploy/mainnet/preflight.py keeps a verbatim copy; test_preflight compares) ----
 class GenesisSpecError(ValueError):
-    """A GenesisSpec refusal: `code` (L0, gsStructure, gsVersion, ...) and `detail`, exactly as genesis_spec.rs GsError."""
     def __init__(self, code, detail):
         super().__init__(f'{code}:{detail}')
         self.code, self.detail = code, detail
 
 
 GAMMA = 'gamma'   # gamma_bp <= 10^4 - alpha_bp
-# CP schema v1 in order: name, width in bits, lower bound, upper bound (None: none).
 CP_SCHEMA = (
     ('g_ts', 64, 0, None), ('target_g', 256, 1, None), ('T_blk', 32, 1, None), ('tau', 32, 1, None), ('nonceMode', 8, 0, 1),
     ('c', 8, 1, None), ('D_att', 32, 0, None), ('dFbWait', 32, 0, None), ('m', 16, 1, None), ('kappa', 8, 1, None),
@@ -142,7 +163,6 @@ CP_SCHEMA = (
     ('G_SYS', 64, 0, None), ('H_END', 64, 0, None), ('T_END', 64, 0, None), ('H_CLOSE', 64, 0, None), ('T_CLOSE', 64, 0, None),
     ('Z_close', 32, 0, None), ('RET', 32, 1, None), ('P2', 32, 0, None),
 )
-# CP schema v2 (genesis_spec.rs CP_V2_EXTRA): the complete v1 prefix, then these fields in immutable wire order.
 CP_V2_EXTRA = (
     ('H_half', 64, 1, None), ('S_tail', 256, 0, None), ('P_MAX', 16, 0, None), ('T_PROB', 32, 1, None),
     ('F0_acct', 256, 0, None), ('F0_slot', 256, 0, None), ('F0_code', 256, 0, None), ('gamma_tip_bp', 16, 0, 10000),
@@ -151,14 +171,10 @@ CP_V2_EXTRA = (
 )
 CP_SCHEMA_V2 = CP_SCHEMA + CP_V2_EXTRA
 _ALPHA_BP = 13
-# sysCodeHash of the v3 program set (apply.rs SystemPrograms::v3, the set a spec-2 genesis selects):
-# keccak256(RLP([C0C001..C0C005 runtimes of lp4-execution/tests/data/system-v3.json, 0x80 for PAY])); equal to
-# deploy/rewards/pocol_rewards.V3_SYS_CODE_HASH, and test_pocol_identity recomputes it from that file.
 V3_SYS_CODE_HASH = '72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849'
 
 
 def cp_schema(version):
-    """Known schemas only (genesis_spec.rs cp_schema); a future wire version never inherits v2's layout."""
     return {1: CP_SCHEMA, 2: CP_SCHEMA_V2}.get(version)
 
 
@@ -174,7 +190,6 @@ def _long_len(b, i, ll, short):
 
 
 def _head(b, i):
-    """('byte'|'str'|'list', payload length, payload start) of the item at i."""
     if i >= len(b):
         raise GenesisSpecError('L0', 'truncated')
     p = b[i]
@@ -219,7 +234,6 @@ def _check_framing(b):
 
 
 def _item(b, i):
-    """(is list, payload start, payload length, wrapped single byte) of the framing-checked item at i."""
     kind, n, st = _head(b, i)
     return kind == 'list', st, n, kind == 'str' and n == 1 and b[st] < 0x80
 
@@ -233,6 +247,25 @@ def _children(b, it):
     return out
 
 
+def _decimal(raw):
+    raw = bytes(raw).lstrip(b'\0')
+    if len(raw) <= 1024:
+        return str(int.from_bytes(raw, 'big'))
+    with decimal.localcontext() as ctx:
+        ctx.prec, ctx.Emax, ctx.Emin = decimal.MAX_PREC, decimal.MAX_EMAX, decimal.MIN_EMIN
+        ctx.traps[decimal.Inexact] = ctx.traps[decimal.Rounded] = True
+        powers = {}
+
+        def convert(part):
+            if len(part) <= 1024:
+                return decimal.Decimal(int.from_bytes(part, 'big'))
+            k = len(part) // 2
+            if k not in powers:
+                powers[k] = decimal.Decimal(2) ** (8 * k)
+            return convert(part[:-k]) * powers[k] + convert(part[-k:])
+        return str(convert(raw))
+
+
 def _is_reserved(ident):
     if ident == bytes(20) or ident == b'\xff' * 19 + b'\xfe':
         return True
@@ -240,10 +273,6 @@ def _is_reserved(ident):
 
 
 def decode_genesis_spec(b, max_version=SPEC_VERSION):
-    """genesis_spec.rs decode_bounded: a GenesisSpec of version 1..max_version, or GenesisSpecError with the reference's
-    code and detail. The default ceiling is the release decoder (SPEC_VERSION 1, which refuses spec 2 with gsVersion until
-    activation, V3-PR-I); 2 is the v3-preview decoder (CP schema v2). Returns {specVersion, chainId, cp, allocRoot,
-    m0 [(id, reward)], sysCodeHash} with byte values."""
     b = bytes(b)
     _check_framing(b)
     top = _item(b, 0)
@@ -269,7 +298,7 @@ def decode_genesis_spec(b, max_version=SPEC_VERSION):
         raw = payload(slot[0])
         value = raw.lstrip(b'\0')
         if len(value) != 1 or value[0] > max_version or cp_schema(value[0]) is None:
-            raise GenesisSpecError('gsVersion', str(int.from_bytes(raw, 'big')))
+            raise GenesisSpecError('gsVersion', _decimal(raw))
         spec_version = value[0]
     schema = cp_schema(spec_version)
     if not (all(x is not None for x in slot) and top_len == 6):
@@ -313,14 +342,16 @@ def decode_genesis_spec(b, max_version=SPEC_VERSION):
     return {'specVersion': spec_version, 'chainId': int.from_bytes(chain_bytes, 'big'), 'cp': values,
             'allocRoot': payload(alloc_root), 'm0': [(payload(i), payload(r)) for i, r in pairs],
             'sysCodeHash': payload(sys_code_hash)}
+# ---- END GenesisSpec reference decoder ----
 
 
 def public_spec(info, spec, max_version=SPEC_VERSION):
     """The decoded public GenesisSpec `spec` (bytes) of the network devnet.json `info` declares: the reference decoder at
     `max_version` (a release build's SPEC_VERSION by default; PREVIEW_SPEC_VERSION only for a v3-preview build), whose
     version must equal the declaration (spec_version) and whose chainId must be the network's. A spec-2 genesis must name
-    the v3 program set (V3_SYS_CODE_HASH): pocold selects that set for it, so any other sysCodeHash cannot start. The
-    genesis hash (keccak256 of the spec) is not recomputed here; the node checks it against the profile."""
+    the v3 program set (V3_SYS_CODE_HASH). The node itself runs any bundled set whose hash a CP-v2 genesis names
+    (apply.rs SystemPrograms::program_set), but the deploy tools, like the reward gateway, accept a spec-2 genesis only
+    with the v3 set, the one testnet.rs pairs with spec 2: stricter than the node, never looser. The genesis hash (keccak256 of the spec) is not recomputed here; the node checks it against the profile."""
     declared = spec_version(info)
     decoded = decode_genesis_spec(spec, max_version)
     if decoded['specVersion'] != declared:

@@ -78,7 +78,7 @@ def int_item(v):
 
 # A spec-2 (v3) genesis for the new chain: SPEC_A's items with version 2, the fifteen CP v2 fields appended (the
 # lp4 devnet defaults, as pocol-extension/tests/decoder_corpus.mjs uses for its devnet-v2 items) and the v3 program
-# set's sysCodeHash (the only set pocold runs on a spec-2 genesis); `flip` changes the last byte of allocRoot.
+# set's sysCodeHash (the only set the deploy tools accept on a spec-2 genesis); `flip` changes the last byte of allocRoot.
 CP_V2_EXTRA = [31557600, 62500000000000000, 16, 648000, 10**15, 0, 0, 5000, 10000000, 4, 40, 21600, 1250, 3, 2500]
 _alloc, _members, _sys = _rest[_cp_end:_cp_end + 33], _rest[_cp_end + 33:-33], _rest[-33:]
 assert _alloc[0] == _sys[0] == 0xa0

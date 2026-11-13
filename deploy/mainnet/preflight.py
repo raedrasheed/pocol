@@ -7,6 +7,7 @@ Does not choose an activation height, stop/start a service, or change node files
 """
 import argparse
 from datetime import datetime, timezone
+import decimal
 import hashlib
 import http.client
 import json
@@ -50,10 +51,8 @@ PROTOCOL_VERSION_MIN = 2
 # genesis opens only in a v3-preview build, which a seed never runs, so this release-mode inventory refuses it until
 # activation (V3-PR-I).
 SPEC_VERSION = 1
-# A spec-2 genesis is identified as a v3 genesis only with six top items, CP schema v2's 67 items, 32-byte roots and the
-# v3 program set's sysCodeHash (deploy/public-testnet/pocol_identity.V3_SYS_CODE_HASH; test_preflight compares them).
-V3_CP_ITEMS = 67
-V3_SYS_CODE_HASH = '72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849'
+# The GenesisSpec version a v3-preview build also decodes (spec 2: the v3 genesis, CP schema v2).
+PREVIEW_SPEC_VERSION = 2
 # The state binding fields node_operator.launch compares (plan §4); the build digest is informational.
 BOUND = ('chainId', 'genesisHash', 'consensusIdentity', 'stateStore', 'node', 'miner')
 LAYOUTS = {
@@ -176,37 +175,218 @@ def spec_version(network, spec_text):
 
 
 def v3_genesis(spec):
-    """The shape that identifies a spec-2 GenesisSpec as a v3 genesis: one canonical top list of six items whose CP is a
-    list of 67 strings, 32-byte allocRoot and sysCodeHash, and the v3 program set's sysCodeHash (the only set pocold runs
-    on a spec-2 genesis). The full decode is the node's (and pocol_identity.decode_genesis_spec's); a seed refuses spec 2
-    either way, so this only tells a well-formed v3 genesis from a malformed one in the report."""
-    def item(i, end):
-        require(i < end, 'invalid spec-2 (v3) GenesisSpec')
-        p = spec[i]
-        if p < 0x80: return False, i, i + 1
-        short = p - (0xc0 if p >= 0xc0 else 0x80)
-        if short <= 55: s, n = i + 1, short
+    """A spec-2 genesis is a v3 genesis only when the whole v3-preview decoder accepts it (the reference's code and
+    detail otherwise) and it names the v3 program set, the only set the deploy tools accept on spec 2."""
+    try:
+        decoded = decode_genesis_spec(spec, PREVIEW_SPEC_VERSION)
+    except GenesisSpecError as error:
+        raise PreflightError(f'invalid spec-2 (v3) GenesisSpec ({error.code}: {error.detail})') from None
+    require(decoded['sysCodeHash'].hex() == V3_SYS_CODE_HASH, 'a spec-2 GenesisSpec that does not name the v3 program set')
+
+
+# A verbatim copy of pocol_identity.py's decoder block (documented there), so this file runs alone over stdin.
+# ---- BEGIN GenesisSpec reference decoder (deploy/mainnet/preflight.py keeps a verbatim copy; test_preflight compares) ----
+class GenesisSpecError(ValueError):
+    def __init__(self, code, detail):
+        super().__init__(f'{code}:{detail}')
+        self.code, self.detail = code, detail
+
+
+GAMMA = 'gamma'   # gamma_bp <= 10^4 - alpha_bp
+CP_SCHEMA = (
+    ('g_ts', 64, 0, None), ('target_g', 256, 1, None), ('T_blk', 32, 1, None), ('tau', 32, 1, None), ('nonceMode', 8, 0, 1),
+    ('c', 8, 1, None), ('D_att', 32, 0, None), ('dFbWait', 32, 0, None), ('m', 16, 1, None), ('kappa', 8, 1, None),
+    ('S_max', 16, 0, 256), ('D', 16, 0, None), ('W_w', 16, 0, None), ('alpha_bp', 16, 0, 10000), ('gamma_bp', 16, 0, GAMMA),
+    ('subsidy', 256, 0, None), ('B_reg', 256, 0, None), ('R_max', 8, 0, None), ('M_max', 16, 1, None), ('M_min', 16, 1, None),
+    ('REG_RECORDS_MAX', 32, 0, None), ('SWEEP_MAX', 16, 0, None), ('SWEEP_SCAN', 16, 0, None), ('REG_OPS', 16, 0, None),
+    ('W_act', 32, 0, None), ('Theta_inact', 32, 0, None), ('E_win', 32, 0, None), ('U', 32, 0, None), ('E_max', 8, 0, None),
+    ('EVID_BYTES_MAX', 32, 0, None), ('GAS_LIMIT', 64, 0, None), ('baseFee0', 256, 0, None), ('TX_MAX', 32, 0, None),
+    ('BODY_MAX', 32, 0, None), ('B_code_max', 32, 0, None), ('CODE_CAP', 64, 0, None), ('TXBYTES_CAP', 64, 0, None),
+    ('TX_CAP', 64, 0, None), ('SLOT_CAP', 64, 0, None), ('ACCT_CAP', 64, 0, None), ('SYS_SLOT_MAX', 32, 0, None),
+    ('SYS_KEYS_BLOCK_MAX', 32, 0, None), ('SYS_KEYS_USER_MAX', 32, 0, None), ('SYS_ACCT_BLOCK_MAX', 32, 0, None),
+    ('G_SYS', 64, 0, None), ('H_END', 64, 0, None), ('T_END', 64, 0, None), ('H_CLOSE', 64, 0, None), ('T_CLOSE', 64, 0, None),
+    ('Z_close', 32, 0, None), ('RET', 32, 1, None), ('P2', 32, 0, None),
+)
+CP_V2_EXTRA = (
+    ('H_half', 64, 1, None), ('S_tail', 256, 0, None), ('P_MAX', 16, 0, None), ('T_PROB', 32, 1, None),
+    ('F0_acct', 256, 0, None), ('F0_slot', 256, 0, None), ('F0_code', 256, 0, None), ('gamma_tip_bp', 16, 0, 10000),
+    ('baseFeeMin', 256, 0, None), ('R_react', 8, 0, None), ('C_react', 32, 0, None), ('E_epoch', 32, 1, None),
+    ('theta_bp', 16, 0, 10000), ('k_sigma', 16, 0, None), ('rho_bp', 16, 0, 10000),
+)
+CP_SCHEMA_V2 = CP_SCHEMA + CP_V2_EXTRA
+_ALPHA_BP = 13
+V3_SYS_CODE_HASH = '72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849'
+
+
+def cp_schema(version):
+    return {1: CP_SCHEMA, 2: CP_SCHEMA_V2}.get(version)
+
+
+def _long_len(b, i, ll, short):
+    if len(b) - (i + 1) < ll:
+        raise GenesisSpecError('L0', 'truncated length')
+    if b[i + 1] == 0:
+        raise GenesisSpecError('L0', 'leading zero in length')
+    n = int.from_bytes(b[i + 1:i + 1 + ll], 'big')
+    if n < 56:
+        raise GenesisSpecError('L0', short)
+    return n, i + 1 + ll
+
+
+def _head(b, i):
+    if i >= len(b):
+        raise GenesisSpecError('L0', 'truncated')
+    p = b[i]
+    if p < 0x80:
+        return 'byte', 1, i
+    if p <= 0xb7:
+        return 'str', p - 0x80, i + 1
+    if p <= 0xbf:
+        return ('str',) + _long_len(b, i, p - 0xb7, 'long form for short string')
+    if p <= 0xf7:
+        return 'list', p - 0xc0, i + 1
+    return ('list',) + _long_len(b, i, p - 0xf7, 'long form for short list')
+
+
+def _check_framing(b):
+    ends, i = [], 0
+    while True:
+        kind, n, st = _head(b, i)
+        if kind == 'byte':
+            i += 1
+        elif kind == 'str':
+            if n > len(b) - st:
+                raise GenesisSpecError('L0', 'truncated string')
+            i = st + n
         else:
-            k = short - 55
-            require(i + 1 + k <= end and spec[i + 1] != 0, 'invalid spec-2 (v3) GenesisSpec')
-            s, n = i + 1 + k, int.from_bytes(spec[i + 1:i + 1 + k], 'big')
-            require(n > 55, 'invalid spec-2 (v3) GenesisSpec')
-        require(s + n <= end, 'invalid spec-2 (v3) GenesisSpec')
-        return p >= 0xc0, s, s + n
-    def children(s, e):
-        out = []
-        while s < e:
-            out.append(item(s, e)); s = out[-1][2]
-        return out
-    is_list, s, e = item(0, len(spec))
-    require(is_list and e == len(spec), 'invalid spec-2 (v3) GenesisSpec')
-    top = children(s, e)
-    require(len(top) == 6 and top[2][0] and top[4][0] and not any(top[k][0] for k in (0, 1, 3, 5)),
-            'invalid spec-2 (v3) GenesisSpec')
-    cp = children(top[2][1], top[2][2])
-    require(len(cp) == V3_CP_ITEMS and not any(x[0] for x in cp), 'invalid spec-2 (v3) GenesisSpec')
-    require(all(top[k][2] - top[k][1] == 32 for k in (3, 5)), 'invalid spec-2 (v3) GenesisSpec')
-    require(spec[top[5][1]:top[5][2]].hex() == V3_SYS_CODE_HASH, 'a spec-2 GenesisSpec that does not name the v3 program set')
+            if n > len(b) - st:
+                raise GenesisSpecError('L0', 'truncated list')
+            i = st
+            if n > 0:
+                ends.append(st + n)
+                continue
+        while True:
+            if not ends:
+                if i != len(b):
+                    raise GenesisSpecError('L0', f'{len(b) - i} trailing bytes')
+                return
+            if i > ends[-1]:
+                raise GenesisSpecError('L0', 'item crosses list end')
+            if i < ends[-1]:
+                break
+            ends.pop()
+
+
+def _item(b, i):
+    kind, n, st = _head(b, i)
+    return kind == 'list', st, n, kind == 'str' and n == 1 and b[st] < 0x80
+
+
+def _children(b, it):
+    out, i = [], it[1]
+    while it[0] and i < it[1] + it[2]:
+        child = _item(b, i)
+        out.append(child)
+        i = child[1] + child[2]
+    return out
+
+
+def _decimal(raw):
+    raw = bytes(raw).lstrip(b'\0')
+    if len(raw) <= 1024:
+        return str(int.from_bytes(raw, 'big'))
+    with decimal.localcontext() as ctx:
+        ctx.prec, ctx.Emax, ctx.Emin = decimal.MAX_PREC, decimal.MAX_EMAX, decimal.MIN_EMIN
+        ctx.traps[decimal.Inexact] = ctx.traps[decimal.Rounded] = True
+        powers = {}
+
+        def convert(part):
+            if len(part) <= 1024:
+                return decimal.Decimal(int.from_bytes(part, 'big'))
+            k = len(part) // 2
+            if k not in powers:
+                powers[k] = decimal.Decimal(2) ** (8 * k)
+            return convert(part[:-k]) * powers[k] + convert(part[-k:])
+        return str(convert(raw))
+
+
+def _is_reserved(ident):
+    if ident == bytes(20) or ident == b'\xff' * 19 + b'\xfe':
+        return True
+    return ident[:17] == bytes(17) and 0xc0c001 <= int.from_bytes(ident[17:], 'big') <= 0xc0c0ff
+
+
+def decode_genesis_spec(b, max_version=SPEC_VERSION):
+    b = bytes(b)
+    _check_framing(b)
+    top = _item(b, 0)
+    if not top[0]:
+        raise GenesisSpecError('gsStructure', 'top not a list')
+    kinds, slot, top_len = (False, False, True, False, True, False), [None] * 6, 0
+    for idx, it in enumerate(_children(b, top)):
+        if idx < 6:
+            if it[0] != kinds[idx]:
+                raise GenesisSpecError('gsStructure', f'top[{idx}]')
+            slot[idx] = it
+        top_len += 1
+    none = (True, 0, 0, False)
+    cp, m0 = slot[2] or none, slot[4] or none
+    if any(x[0] for x in _children(b, cp)):
+        raise GenesisSpecError('gsStructure', 'CP item is a list')
+    for e in _children(b, m0):
+        if not e[0] or any(x[0] for x in _children(b, e)):
+            raise GenesisSpecError('gsStructure', 'M_0List entry')
+    payload = lambda it: b[it[1]:it[1] + it[2]]
+    spec_version = 1
+    if slot[0] is not None:
+        raw = payload(slot[0])
+        value = raw.lstrip(b'\0')
+        if len(value) != 1 or value[0] > max_version or cp_schema(value[0]) is None:
+            raise GenesisSpecError('gsVersion', _decimal(raw))
+        spec_version = value[0]
+    schema = cp_schema(spec_version)
+    if not (all(x is not None for x in slot) and top_len == 6):
+        raise GenesisSpecError('gsCount', f'top {top_len}')
+    version, chain, _, alloc_root, _, sys_code_hash = slot
+    cps, members = _children(b, cp), _children(b, m0)
+    if len(cps) != len(schema):
+        raise GenesisSpecError('gsCount', f'CP {len(cps)}')
+    for e in members:
+        n = len(_children(b, e))
+        if n != 2:
+            raise GenesisSpecError('gsCount', f'M_0List entry {n}')
+    if not members:
+        raise GenesisSpecError('gsCount', 'M_0List empty')
+    for name, it in [('specVersion', version), ('chainId', chain)] + [(f[0], c) for f, c in zip(schema, cps)]:
+        if it[3] or (it[2] > 0 and b[it[1]] == 0):
+            raise GenesisSpecError('gsInt', name)
+    if alloc_root[2] != 32 or sys_code_hash[2] != 32:
+        raise GenesisSpecError('gsLen', 'root')
+    pairs = [(_children(b, e) + [none, none])[:2] for e in members]
+    if any(ident[2] != 20 or reward[2] != 20 for ident, reward in pairs):
+        raise GenesisSpecError('gsLen', 'M_0List address')
+    chain_bytes = payload(chain)
+    if not 1 <= len(chain_bytes) <= 8:
+        raise GenesisSpecError('gsRange', 'chainId')
+    values = []
+    for (name, width, lo, hi), it in zip(schema, cps):
+        x = int.from_bytes(payload(it), 'big')
+        if x.bit_length() > width or x < lo:
+            raise GenesisSpecError('gsRange', name)
+        values.append(x)
+        bound = max(0, 10000 - values[_ALPHA_BP]) if hi == GAMMA else hi
+        if bound is not None and x > bound:
+            raise GenesisSpecError('gsRange', name)
+    ids = [payload(ident) for ident, _ in pairs]
+    if any(a >= b_ for a, b_ in zip(ids, ids[1:])):
+        raise GenesisSpecError('gsOrder', 'ids')
+    for ident in ids:
+        if _is_reserved(ident):
+            raise GenesisSpecError('gsSys', '0x' + ident.hex())
+    return {'specVersion': spec_version, 'chainId': int.from_bytes(chain_bytes, 'big'), 'cp': values,
+            'allocRoot': payload(alloc_root), 'm0': [(payload(i), payload(r)) for i, r in pairs],
+            'sysCodeHash': payload(sys_code_hash)}
+# ---- END GenesisSpec reference decoder ----
 
 
 def consensus_id(chain_id, genesis, rules, schedule):

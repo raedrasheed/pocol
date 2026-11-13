@@ -3,6 +3,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -21,7 +22,8 @@ H15000_SPEC = json.loads(H15000.read_text())['files']['genesis.spec.hex']
 EXTENSION_DATA = Path(__file__).resolve().parents[2] / 'prototypes/pocol-extension/tests/data'
 SPEC_V2 = next(item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus-v3.json').read_text())['items']
                if item['label'] == 'v3/base')
-# The same spec naming another program set (the decoder accepts it; pocold would not run it), and malformed spec-2 items.
+# The same spec naming another program set (the decoder accepts it; the deploy tools accept only the v3 set on spec 2),
+# and malformed spec-2 items.
 SPEC_V2_OTHER_PROGRAMS = next(item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus.json').read_text())['items']
                               if item['label'] == 'devnet-v2/base')
 V3_CORPUS = {item['label']: item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus-v3.json').read_text())['items']}
@@ -330,8 +332,7 @@ class PreflightTests(unittest.TestCase):
         self.assertEqual(verdicts, {'decoder-verdicts.json': 'gsVersion:2', 'decoder-verdicts-preview.json': 'ok'})
         v3_verdicts = json.loads((EXTENSION_DATA / 'decoder-verdicts-v3.json').read_text())
         self.assertEqual((v3_verdicts['release']['v3/base'], v3_verdicts['preview']['v3/base']), ('gsVersion:2', 'ok'))
-        # The inline v3 program set hash and CP count are the reference's.
-        self.assertEqual((preflight.V3_SYS_CODE_HASH, preflight.V3_CP_ITEMS), (pocol_identity.V3_SYS_CODE_HASH, len(pocol_identity.CP_SCHEMA_V2)))
+        self.assertEqual((preflight.V3_SYS_CODE_HASH, preflight.PREVIEW_SPEC_VERSION), (pocol_identity.V3_SYS_CODE_HASH, pocol_identity.PREVIEW_SPEC_VERSION))
         self.assertEqual(preflight.SPEC_VERSION, 1)
         self.assertEqual(preflight.spec_version(self.network, H15000_SPEC), 1)
         self.assertEqual(preflight.spec_version({'specVersion': 1}, '0x' + H15000_SPEC[2:].upper() + '\n'), 1)
@@ -351,6 +352,14 @@ class PreflightTests(unittest.TestCase):
                  (v3, V3_CORPUS['v3/order/len-before-range'], 'invalid spec-2 \\(v3\\) GenesisSpec'),
                  (v3, SPEC_V2[:-2], 'invalid spec-2 \\(v3\\) GenesisSpec'), (v3, SPEC_V2 + '00', 'invalid spec-2 \\(v3\\) GenesisSpec'),
                  (v3, 'c202c0', 'invalid spec-2 \\(v3\\) GenesisSpec'), (v3, 'c102', 'invalid spec-2 \\(v3\\) GenesisSpec')]
+        # The whole v3-preview decoder judges a spec-2 genesis, not only its shape: faults in the ranges, the member
+        # order and the reserved ids are reported with the reference's code and detail.
+        for label, verdict in (('v3/order/range-before-order', 'gsRange: H_half'), ('v3/order/order-before-sys', 'gsOrder: ids'),
+                               ('v3/m0-256-last-system', 'gsSys: 0xff'), ('v3/m0-256-last-unsorted', 'gsOrder: ids'),
+                               ('v3/m0-256-last-duplicate', 'gsOrder: ids'), ('v3/gamma-past-bound', 'gsRange: gamma_bp'),
+                               ('v3/order/count-m0-before-int', 'gsCount: M_0List entry 1'), ('v3/order/int-wrapped-before-len', 'gsInt: E_epoch'),
+                               ('v3/framing/root-long-form-55', 'L0: long form for short string'), ('v3/framing/cp-length-short', 'L0: item crosses list end')):
+            cases.append((v3, V3_CORPUS[label], re.escape(f'invalid spec-2 (v3) GenesisSpec ({verdict}')))
         for network, spec, message in cases:
             with self.subTest(network=network, spec=spec[:12]):
                 with self.assertRaisesRegex(preflight.PreflightError, message): preflight.spec_version(network, spec)
@@ -382,6 +391,39 @@ class PreflightTests(unittest.TestCase):
         info = json.loads(json.loads((Path(__file__).parent / 'h15000/network.pocol.json').read_text())['files']['devnet.json'])
         self.assertEqual(preflight.consensus_id(info['chainId'], info['genesisHash'], 1, info['forks']),
                          'bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110', 'the T11 golden identity')
+
+
+class InlineDecoderTests(unittest.TestCase):
+    """preflight.py keeps a verbatim copy of the GenesisSpec reference decoder of pocol_identity.py, so it still runs
+    alone over stdin; the copy is the same text, and gives the Rust verdicts of the whole decoder corpus at the v3-preview
+    ceiling, as pocol_identity does (test_pocol_identity)."""
+
+    @staticmethod
+    def block(path):
+        text = path.read_text(encoding='utf-8')
+        begin, end = text.index('# ---- BEGIN GenesisSpec reference decoder'), text.index('# ---- END GenesisSpec reference decoder ----')
+        return text[begin:end]
+
+    def test_the_inline_decoder_is_the_reference_text(self):
+        inline, reference = self.block(Path(preflight.__file__)), self.block(Path(pocol_identity.__file__))
+        self.assertGreater(len(reference), 5000)
+        self.assertEqual(inline, reference)
+
+    def test_the_inline_decoder_gives_the_rust_preview_verdicts(self):
+        checked = 0
+        for corpus, verdicts in (('decoder-corpus.json', json.loads((EXTENSION_DATA / 'decoder-verdicts-preview.json').read_text())),
+                                 ('decoder-corpus-v3.json', json.loads((EXTENSION_DATA / 'decoder-verdicts-v3.json').read_text())['preview'])):
+            for item in json.loads((EXTENSION_DATA / corpus).read_text())['items']:
+                if item['kind'] != 'spec':
+                    continue
+                try:
+                    preflight.decode_genesis_spec(bytes.fromhex(item['hex']), preflight.PREVIEW_SPEC_VERSION)
+                    got = 'ok'
+                except preflight.GenesisSpecError as error:
+                    got = f'{error.code}:{error.detail}'
+                self.assertEqual(got, verdicts[item['label']], item['label'])
+                checked += 1
+        self.assertGreater(checked, 1280)
 
 
 if __name__ == '__main__':

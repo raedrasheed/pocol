@@ -161,7 +161,7 @@ export async function generate({ v3 = false } = {}) {
 
   // ---------------- V3-PR-G3a supplement: a v3 genesis as pocold builds one ----------------
   // The devnet-v2 base naming the v3 program set: sysCodeHash = keccak256(RLP([C0C001..C0C005 runtimes of
-  // lp4-execution/tests/data/system-v3.json, 0x80 for PAY])) (apply.rs SystemPrograms::v3, the set pocold selects for a
+  // lp4-execution/tests/data/system-v3.json, 0x80 for PAY])) (apply.rs SystemPrograms::v3, the set testnet.rs pairs with a
   // spec-2 genesis; the decoder itself does not read it). Every item below is judged by both ceilings.
   items.length = 0;
   const C = await import(pathToFileURL(join(dist, 'lib', 'crypto.js')).href);
@@ -205,6 +205,22 @@ export async function generate({ v3 = false } = {}) {
   add('spec', 'v3/gamma-past-bound', encode(cpAt(cpAt(v3t, 'alpha_bp', be(10000)), 'gamma_bp', be(1))));
   add('spec', 'v3/cp-v2-extras-nested', encode(at(v3t, [2], (c) => [...c.slice(0, 52), c.slice(52)])));
   add('spec', 'v3/version-1-with-v3-programs', encode(at(at(v3t, [0], () => Uint8Array.of(1)), [2], (c) => c.slice(0, 52))));
+  // gsVersion of a long version item: the detail is its exact decimal (thousands of digits, past Python's default
+  // int-to-str limit), with leading zero bytes ignored and an all-zero item "0".
+  add('spec', 'v3/version-2000-bytes', encode(at(v3t, [0], () => bytes(2000, 0x01))));
+  add('spec', 'v3/version-2003-bytes-leading-zero', encode(at(v3t, [0], () => Uint8Array.from([0, 0, 0, ...bytes(2000, 0xff)]))));
+  add('spec', 'v3/version-2000-zero-bytes', encode(at(v3t, [0], () => new Uint8Array(2000))));
+  // L0 framing branches on the v3 genesis: an item that crosses its list's end (the top list, the CP list), a string
+  // past the end of the input, and the long-form boundary (55 is short, 56 long) for a string and for a list.
+  const relen = (b, d) => { const ll = b[0] - 0xf7, out = b.slice(); let n = 0; for (let i = 1; i <= ll; i++) n = n * 256 + b[i]; n += d; for (let i = ll; i >= 1; i--) { out[i] = n & 255; n = Math.floor(n / 256); } return out; };
+  add('spec', 'v3/framing/top-length-short', relen(v3b, -1));
+  add('spec', 'v3/framing/cp-length-short', encode(at(v3t, [2], (c) => ({ raw: relen(encode(c), -1) }))));
+  add('spec', 'v3/framing/last-string-truncated', relen(v3b, -1).subarray(0, v3b.length - 1));
+  add('spec', 'v3/framing/string-past-input', Uint8Array.of(0xc3, 0x85, 1, 2));
+  for (const n of [55, 56]) {
+    add('spec', `v3/framing/root-long-form-${n}`, encode(at(v3t, [3], () => ({ raw: Uint8Array.from([0xb8, n, ...bytes(n)]) }))));
+    add('spec', `v3/framing/m0-long-form-${n}`, encode(at(v3t, [4], () => ({ raw: Uint8Array.from([0xf8, n, ...bytes(n, 0x01)]) }))));
+  }
   // Headers of a v3 chain (the RP window of the v3 genesis, decoded with the preview ceiling): the header decoder does
   // not depend on the spec version, so both ceilings give the same verdict.
   const { headers: v3Headers } = await rpWindow(dist, v3b, 3, undefined, 2);

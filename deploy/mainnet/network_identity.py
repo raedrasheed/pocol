@@ -15,7 +15,8 @@ spec, which proves the other two. A spec-2 (v3) genesis (CP schema v2, 67 CP ite
 explicit --v3: the release node and clients refuse spec 2 until activation (V3-PR-I), so the switch is for a tree
 whose node and clients are built for it. A spec-2 genesis must also pass the whole v3-preview decoder (the reference
 port deploy/public-testnet/pocol_identity.decode_genesis_spec at ceiling 2: every CP v2 width and bound, the roots,
-M_0List order and reserved ids) and name the v3 program set (sysCodeHash), the only set pocold runs on it. The tree's
+M_0List order and reserved ids) and name the v3 program set (sysCodeHash): the deploy tools, like the reward gateway,
+accept a spec-2 genesis only with the v3 set (pocold itself would run any bundled set a CP-v2 genesis names). The tree's
 current identity is the one the node file ANCHOR names, proven by its own GenesisSpec. Before and after the
 switch every listed file must carry exactly its FILES counts of the identity and no copy of the old Mainnet
 identity, so --check fails on a tree pinned to any other genesis, and a redo with a new genesis for the
@@ -199,7 +200,7 @@ def spec_identity(b, versions=(SPEC_VERSION,)):
     except IndexError:
         raise ValueError('truncated RLP') from None
     if version == V3_SPEC_VERSION:
-        # The whole v3-preview decoder, then the program set pocold selects for a spec-2 genesis (spec 1 is unchanged).
+        # The whole v3-preview decoder, then the v3 program set, the only one the deploy tools accept on spec 2 (spec 1 is unchanged).
         try:
             decoded = pocol_identity.decode_genesis_spec(b, V3_SPEC_VERSION)
         except pocol_identity.GenesisSpecError as error:

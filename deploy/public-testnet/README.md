@@ -170,9 +170,15 @@ and v2). Its default ceiling is the release `SPEC_VERSION` 1: a spec-2 (v3) gene
 refused with `gsVersion 2` until activation, and ceiling 2 is the v3-preview decoder.
 `public_spec(info, spec, ceiling)` decodes a network's public `genesis.spec.hex`, checks
 its version and chain ID against `devnet.json`, and requires a spec-2 genesis to name the
-v3 program set. `test_pocol_identity.py` checks the decoder against the Rust verdicts of
-the whole decoder corpus (`prototypes/pocol-extension/tests/data`). A release bundle
-(`prepare.py`, `node_operator.py`) still refuses a spec-2 network.
+v3 program set: the node runs any bundled program set a CP-v2 genesis names, but the
+deploy tools, like the reward gateway, accept only the v3 set on spec 2. The gsVersion
+detail is the exact decimal of the version item at any length, as the node reports it.
+`test_pocol_identity.py` checks the decoder against the Rust verdicts of the whole
+decoder corpus (`prototypes/pocol-extension/tests/data`). `deploy/mainnet/preflight.py`
+keeps a verbatim copy of the decoder block (`test_preflight.py` compares the text). A
+release bundle (`prepare.py`, `node_operator.py`) still refuses a spec-2 network from its
+`devnet.json` declaration alone; wiring `public_spec` into them is left for the release
+that opens spec 2 (V3-PR-I).
 
 ## Lifetime and unresolved work
 
