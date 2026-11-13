@@ -438,6 +438,118 @@ mod preview{
     }
     fn cfg_gas_limit(node:&pocold::node::Node)->u64{node.chain.spec.cp().GAS_LIMIT}
 
+    /// Deploys each runtime from bob (nonces 0, 1, ...) in one imported block at `clock`; their addresses.
+    fn deploy(node:&mut pocold::node::Node,runtimes:&[Vec<u8>],clock:u64)->Vec<Address>{
+        let bob=devnet::account_key("bob");
+        let raw:Vec<_>=runtimes.iter().enumerate().map(|(i,rt)|Tx{chain_id:777938,nonce:i as u64,max_priority:U256::from(7),max_fee:U256::from(1_000_000_000_000u64),gas:500_000,to:None,value:U256::ZERO,data:Bytes::from(init(rt))}.sign_1559(&bob)).collect();
+        let b=solve(node,raw,clock);assert!(node.import(b,None).unwrap());
+        let out:Vec<_>=(0..runtimes.len() as u64).map(|i|bob.address().create(i)).collect();
+        let view=node.chain.view_of(&node.chain.head).unwrap();assert!(out.iter().all(|a|view.account(a).is_some_and(|x|x.info.code_hash!=revm::primitives::KECCAK_EMPTY)),"deployed");out
+    }
+    /// eth_estimateGas and pocol_quoteCreationBurn for one call object (alice at `max_fee`, tip 7).
+    fn estimate_and_quote(node:&mut pocold::node::Node,to:Option<Address>,data:&[u8],max_fee:U256)->(u64,serde_json::Value){
+        let mut call=serde_json::json!({"from":devnet::account_key("alice").address(),"data":format!("0x{}",data.iter().map(|b|format!("{b:02x}")).collect::<String>()),"maxFeePerGas":format!("{max_fee:#x}"),"maxPriorityFeePerGas":"0x7"});
+        if let Some(to)=to{call["to"]=serde_json::json!(to);}
+        let e=rpc(node,"eth_estimateGas",serde_json::json!([call.clone(),"latest"]));assert!(e.get("error").is_none(),"{e}");
+        let q=rpc(node,"pocol_quoteCreationBurn",serde_json::json!([call]));assert!(q.get("error").is_none(),"{q}");
+        (quantity(&e["result"]).to::<u64>(),q["result"].clone())
+    }
+
+    /// The slot class of eth_estimateGas's margin (`rpc::ESTIMATE_DRIFT_UNITS` slots), at the RPC: a call
+    /// that creates one slot (SSTORE(CALLER, 1)) near a full SLOT_CAP 8 gets a gas limit whose
+    /// max_fee·gas_limit covers the slot priced ESTIMATE_DRIFT_UNITS units further in, within the search's
+    /// 1000-gas resolution, and not only at the current occupancy the quote reports.
+    #[test]
+    fn estimated_gas_covers_a_new_slot_at_the_slot_margin(){
+        let dir=Temp::new();let f0=U256::from(1_000_000_000_000_000u64);
+        let cfg=node_cfg(|c|{c.slot_cap=8;c.f0_slot=f0;c.f0_acct=U256::ZERO;c.f0_code=U256::ZERO});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();
+        let x=deploy(&mut node,&[vec![0x60,1,0x33,0x55,0x00]],cfg.g_ts+4)[0];
+        // Signed at the effective price, so the burn, not the execution's gas, sets the gas limit.
+        let price=next_base(&node)+U256::from(7);let max_fee=price;let cap=node.chain.spec.cp().SLOT_CAP;assert_eq!(cap,8);
+        let (gas,q)=estimate_and_quote(&mut node,Some(x),&[],max_fee);
+        let slots=quantity(&q["occupancy"]["slots"]).to::<u64>();assert!(slots+4<cap,"{q}");let used=quantity(&q["gasUsed"]);
+        assert_eq!(quantity(&q["slots"]),creation_fees::price(f0,cap,slots,1).unwrap(),"{q}");assert_eq!(quantity(&q["total"]),quantity(&q["slots"]));
+        let margin=creation_fees::price(f0,cap,slots+pocold::rpc::ESTIMATE_DRIFT_UNITS,1).unwrap();
+        // The margin is worth more than the search's resolution, so a search without it is caught.
+        assert!(margin-quantity(&q["slots"])>max_fee*U256::from(1001));
+        let need=price*used+margin;let signed=max_fee*U256::from(gas);
+        assert!(signed>=need&&signed<need+max_fee*U256::from(1001),"gas {gas}: {signed} for {need}");
+    }
+
+    /// The code class of eth_estimateGas's margin, at the RPC: a deployment of 80 bytes near a full
+    /// CODE_CAP gets a gas limit that covers its code priced ESTIMATE_DRIFT_UNITS·B_code_max bytes further
+    /// in (4 deployments of the largest size), within the search's resolution, and not merely 4 bytes in.
+    #[test]
+    fn estimated_gas_covers_a_deployment_at_the_code_margin_of_whole_deployments(){
+        let tune=|c:&mut DevnetConfig|{c.f0_code=U256::from(10_000_000_000_000u64);c.f0_acct=U256::ZERO;c.f0_slot=U256::ZERO};
+        let probe=node_cfg(tune);let built=devnet::build(&probe).unwrap();let bmax=u64::from(built.profile.cp().B_code_max);
+        let sys=Summary::scan(built.genesis.state(),built.profile.cp().B_code_max).inventory();
+        let cfg=node_cfg(|c|{tune(c);c.code_cap=sys+8*bmax});let dir=Temp::new();
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();
+        let price=next_base(&node)+U256::from(7);let max_fee=price;let cp=node.chain.spec.cp();let (cap,f0)=(cp.CODE_CAP,U256::from(10_000_000_000_000u64));
+        let (gas,q)=estimate_and_quote(&mut node,None,&init(&[0;80]),max_fee);
+        let code=quantity(&q["occupancy"]["code"]).to::<u64>();assert_eq!(code,sys,"{q}");let used=quantity(&q["gasUsed"]);
+        assert_eq!(quantity(&q["code"]),creation_fees::price(f0,cap,code,80).unwrap(),"{q}");assert_eq!(quantity(&q["accounts"]),U256::ZERO);
+        let drift=pocold::rpc::ESTIMATE_DRIFT_UNITS*bmax;assert!(code+drift<=cap-80);
+        let margin=creation_fees::price(f0,cap,code+drift,80).unwrap();let bytes4=creation_fees::price(f0,cap,code+pocold::rpc::ESTIMATE_DRIFT_UNITS,80).unwrap();
+        assert!(margin-bytes4>max_fee*U256::from(1001),"whole deployments, not bytes, are worth more than the resolution");
+        let need=price*used+margin;let signed=max_fee*U256::from(gas);
+        assert!(signed>=need&&signed<need+max_fee*U256::from(1001),"gas {gas}: {signed} for {need}");
+        assert!(signed>=price*used+bytes4+max_fee*U256::from(1001),"more than a 4-byte margin");
+    }
+
+    /// pocol_quoteCreationBurn reports the cap halts eth_estimateGas reports, with the same reason: a call
+    /// that creates a slot and emits V3_LOG_COUNT_MAX logs passes the log count only with the CreationFeeBurn
+    /// log its burn adds, so both answer LogCount; the same logs without a creation are quoted.
+    #[test]
+    fn the_burn_quote_reports_the_estimate_s_own_log_halt(){
+        let dir=Temp::new();let cfg=node_cfg(|_|{});let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();
+        // 4368 x LOG0(0, 0), after SSTORE(CALLER, 1) or not.
+        let logs=|from:u8|vec![0x61,0x11,0x10,0x5b,0x60,0,0x60,0,0xa0,0x60,1,0x90,0x03,0x80,0x60,from,0x57,0x00];
+        let mut slot=vec![0x60,1,0x33,0x55];slot.extend(logs(7));
+        let a=deploy(&mut node,&[slot,logs(3)],cfg.g_ts+4);assert_eq!(user_phase::caps::V3_LOG_COUNT_MAX,4368);
+        let call=|to:Address|serde_json::json!({"from":devnet::account_key("alice").address(),"to":to,"maxFeePerGas":"0xe8d4a51000","maxPriorityFeePerGas":"0x7"});
+        let e=rpc(&mut node,"eth_estimateGas",serde_json::json!([call(a[0]),"latest"]));let q=rpc(&mut node,"pocol_quoteCreationBurn",serde_json::json!([call(a[0])]));
+        assert_eq!(e["error"]["message"],"execution would halt (LogCount)","{e}");assert_eq!(q["error"]["code"],-32000,"{q}");assert_eq!(q["error"]["message"],e["error"]["message"]);
+        let (_,ok)=estimate_and_quote(&mut node,Some(a[1]),&[],U256::from(1_000_000_000_000u64));assert_eq!(quantity(&ok["total"]),U256::ZERO);
+    }
+
+    /// The append round (B5) executes its candidates only in `build_signed`, which accepts halts. A user fills
+    /// the block's log count with one included call and uses the selection's execution budget with four heavy
+    /// one-log calls that B4 then leaves out (they stay pooled); an estimated creating transfer (its gas limit
+    /// carries the burn) is held for the append round. Appended after the filler it would halt with LogCount and
+    /// pay its whole declared gas (review reproduction); under v3 the honest builder drops it instead, and it
+    /// stays pooled.
+    #[test]
+    fn the_v3_append_round_drops_an_appended_transaction_that_would_halt(){
+        let dir=Temp::new();let f0=U256::from(1_000_000_000_000_000u64);let senders=["carol","h1","h2","h3","h4"];
+        let cfg=node_cfg(|c|{c.f0_acct=f0;for s in senders{c.accounts.push((s.into(),U256::from(10u128.pow(24))));}});
+        let mut config=node_config(&dir,false);let k=devnet::miner_identity("execution").key;config.miner=Some(pocol_lp4_execution::txsign::Key::from_secret(&k.secret()).unwrap());
+        let mut node=pocold::node::Node::open(config,node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        // F: 4368 x LOG0. H: a 150000-iteration loop, then one LOG0.
+        let filler=vec![0x61,0x11,0x10,0x5b,0x60,0,0x60,0,0xa0,0x60,1,0x90,0x03,0x80,0x60,3,0x57,0x00];
+        let heavy=vec![0x62,0x02,0x49,0xf0,0x5b,0x60,1,0x90,0x03,0x80,0x60,4,0x57,0x60,0,0x60,0,0xa0,0x00];
+        let d=deploy(&mut node,&[filler,heavy],cfg.g_ts+4);let (fa,ha)=(d[0],d[1]);
+        let price=next_base(&node)+U256::from(7);
+        let call=|k:&str,to:Address,gas:u64|Tx{chain_id:777938,nonce:0,max_priority:U256::from(7),max_fee:price*U256::from(2),gas,to:Some(to),value:U256::ZERO,data:Default::default()}.sign_1559(&devnet::account_key(k));
+        let f=call("carol",fa,2_000_000);node.submit_tx(f.clone(),false).unwrap();
+        for h in ["h1","h2","h3","h4"]{node.submit_tx(call(h,ha,3_990_000),false).unwrap();}
+        let to=new_address(170);
+        let est=rpc(&mut node,"eth_estimateGas",serde_json::json!([{"from":alice.address(),"to":to,"value":"0x1","maxFeePerGas":format!("{price:#x}"),"maxPriorityFeePerGas":"0x7"},"latest"]));
+        let gas=quantity(&est["result"]).to::<u64>();assert!(gas>900_000,"the gas limit carries the burn: {gas}");
+        let v=priced_tx(&alice,0,to,U256::from(1),gas,price);node.submit_tx(v.clone(),false).unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let clock=cfg.g_ts+8;let sel=node.template_selection(&p,clock);
+        assert_eq!(sel.txs,vec![f.clone()],"only the filler is selected; B4 leaves the heavy calls out");
+        assert!(sel.rest.iter().any(|c|c.raw==v),"the transfer is held for the append round");
+        let (_,body)=node.build_template_unrecorded(&p,sel,clock).expect("a template");
+        assert_eq!(body.txs,vec![f.clone()],"the honest append round leaves out the transfer that would halt");
+        assert!(node.pool.txs.iter().any(|(_,r)|*r==v),"it stays pooled");
+        // The template is valid and charges alice nothing.
+        let before=balance(&node,alice.address());let b=solve(&node,body.txs,clock);assert!(node.import(b,None).unwrap());
+        assert_eq!(balance(&node,alice.address()),before);
+    }
+
     /// pocol_quoteCreationBurn is node-local and v3 only: a spec-1 node answers it exactly as any unknown
     /// method, so its RPC surface is byte-identical.
     #[test]

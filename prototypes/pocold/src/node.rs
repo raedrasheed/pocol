@@ -1867,7 +1867,9 @@ impl Node{
     ///   time; the block is built again only if one fits. The simulation cannot inflate declared gas, so a
     ///   transaction that burns gas only in the simulation cannot leave the block under-filled. PR6 third review:
     ///   an appended transaction the build reports by index is dropped with every appended one after it, and the
-    ///   block is built once more (its prefix executed), so the round costs at most two builds.
+    ///   block is built once more (its prefix executed), so the round costs at most two builds. Under v3
+    ///   (D-V3-21 review) an appended one that halts in a successful append build is dropped the same way, so
+    ///   the round costs at most three builds (a halt found in the build after an index failure).
     /// The last good build is kept when a later one fails.
     fn build_signed_template(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{
         self.cfg.miner.as_ref()?;
@@ -1882,6 +1884,7 @@ impl Node{
         if self.user_txs_frozen_at(p.height.saturating_add(1)){txs.clear();rest.clear();}
         let sender=|chain:&Chain,raw:&Vec<u8>|wire::decode_for_profile(raw,chain.spec.profile()).ok().map(|e|(e.tx_env().caller,e.tx_env().gas_limit));
         let mut last_good:Option<(Header,Body)>=None;let mut base:Option<usize>=None;let t0=Instant::now();let mut builds=0;
+        let v3=self.chain.spec.v3_active(p.height.saturating_add(1));
         while builds<TEMPLATE_BUILDS_MAX{
             builds+=1;
             // Evidence shares BODY_MAX with the transactions: drop transactions until the encoded body fits.
@@ -1890,8 +1893,19 @@ impl Node{
             if base.is_some_and(|n|txs.len()<=n){break}
             let key=self.cfg.miner.as_ref()?;
             match self.chain.build_signed(p,key,clock,body.clone(),effects.clone()){
-                Ok((h,_,_))=>{
-                    if let Some(n)=base{self.stats.template_appended+=(body.txs.len()-n) as u64;last_good=Some((h,body));break}
+                Ok((h,out,_))=>{
+                    if let Some(n)=base{
+                        // D-V3-21 review (v3 only, node-local): an appended transaction that halts in this build
+                        // (an A03 cap halt charged its declared gas, for example LogCount behind the selected
+                        // ones' logs, or a CreationFee) is dropped with every appended one after it, as one the
+                        // build reports by index, and the block is built once more (its prefix executed, so that
+                        // build has no halt from n on). The selection checks only its own order; this keeps the
+                        // honest append round from including a halt it could leave out. It stays pooled.
+                        if v3{let halts=match &out{chain::Executed::Mem(o)=>&o.halts,chain::Executed::Stored{run,..}=>&run.halts};
+                            if let Some(i)=halts.iter().map(|(i,_)|*i).filter(|i|*i>=n&&*i<txs.len()).min(){
+                                self.log(&format!("signed template: appended transaction {i} would halt ({:?}); dropped",halts.iter().find(|x|x.0==i).map(|x|x.1)));
+                                txs.truncate(i);continue}}
+                        self.stats.template_appended+=(body.txs.len()-n) as u64;last_good=Some((h,body));break}
                     // The append round, within the room this build left (exact: its own gas used).
                     let (room_txs,room_bytes)=self.chain.caps_room(p);let used_bytes:u64=body.txs.iter().map(|t|t.len() as u64).sum();
                     let add=append_round(&rest,gas_limit-h.gas_used,room_txs.saturating_sub(body.txs.len() as u64),room_bytes.saturating_sub(used_bytes),body_max.saturating_sub(body.encode().len()+8));
@@ -1918,7 +1932,7 @@ impl Node{
                     match idx{
                         // PR6 third review: in the append build, the appended ones from the failing one on are dropped
                         // (the transactions before it executed, so the next build succeeds): the append round costs at
-                        // most two builds more, whatever its candidates are.
+                        // most two builds more (three under v3, with the halt drop above), whatever its candidates are.
                         Some(i) if base.is_some_and(|n|i>=n)&&i<txs.len()=>txs.truncate(i),
                         Some(i) if i<txs.len()=>{let s=sender(&self.chain,&txs[i]).map(|x|x.0);let chain=&self.chain;let mut j=0;txs.retain(|t|{j+=1;j-1<i||(j-1>i&&(s.is_none()||sender(chain,t).map(|x|x.0)!=s))});}
                         _ if base.is_some()=>break,

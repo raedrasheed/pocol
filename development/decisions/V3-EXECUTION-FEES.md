@@ -127,25 +127,48 @@ are untouched; constants and identity are unchanged. No current balance-only
 CreationFee halt remains reachable for an engine result, so this rule covers
 every CreationFee halt.
 
-**Residual under hostile ordering (not closed).** The spent-gas rule closes the
-CreationFee route only. A hostile proposer can still order a block so that the
-transaction meets another order-dependent A03 cap halt, which charges the
-declared gas: for example its own transactions ahead fill the block's log count
-(`V3_LOG_COUNT_MAX = 4368`; at 375 gas per LOG0 about 1.6M gas), and every
-transaction with a nonzero burn emits at least its CreationFeeBurn log, so it
-halts with LogCount; filling the remaining account or slot units ahead
-(AcctCap/SlotCap) is another, costlier route, and so are LogBytes, LogCap and
-the dirty-key/account caps. Such a block is valid, and the sender pays its whole
-declared `gas_limit*effective_price`, which under option A includes the gas it
-added to carry the burn, for no effect. The guaranteed loss bound under hostile
-ordering is therefore the owner's bound itself, the signed `max_fee*gas_limit`:
-never more than the sender signed, but not only its spent gas. This was already
-true of A03 cap halts before option A (any transaction that logs can be pushed
-into a LogCount halt); option A raises the declared gas that such a halt
-charges. Extending the spent-gas charge to these halts would change A03's
-full-gas anti-spam semantics and is not part of option A. The honest builder
-never includes a transaction that would halt (it skips a CreationFee and any
-cap halt in its own order).
+**Residual: other cap halts (not closed).** The spent-gas rule closes the
+CreationFee route only. Every other order-dependent A03 cap halt charges the
+declared gas, and a transaction can meet one in a block built by a hostile
+proposer or, through another user, in a block an honest node builds. Such a
+block is valid, and the sender pays its whole declared
+`gas_limit*effective_price`, which under option A includes the gas it added to
+carry the burn, for no effect. The guaranteed loss bound, whoever orders the
+block, is therefore the owner's bound itself, the signed `max_fee*gas_limit`:
+never more than the sender signed, but not only its spent gas. Routes:
+
+- Hostile order. A proposer's own transactions ahead fill the block's log count
+  (`V3_LOG_COUNT_MAX = 4368`; at 375 gas per LOG0 about 1.6M gas), and every
+  transaction with a nonzero burn emits at least its CreationFeeBurn log, so it
+  halts with LogCount; filling the remaining account or slot units ahead
+  (AcctCap/SlotCap) is another, costlier route, and so are LogBytes, LogCap and
+  the dirty-key/account caps.
+- Any user against an honest builder. The honest selection checks the caps (B4)
+  only in its own order and on its own simulation. Its append round (B5) adds
+  the candidates it held back for gas or for the execution budget after the
+  selected ones, and `build_signed` accepts halts. Review reproduction: a user
+  fills the log count with one included call (4368 LOG0) and exhausts the
+  selection's execution budget with heavy one-log calls that B4 then leaves out
+  (they stay pooled, unpaid, and can be reused every block); an estimated
+  creating transfer held for the append round was appended after the filler and
+  halted with LogCount, charged its whole declared gas, in a template the honest
+  node signed. Since this review, under v3, the append round drops an appended
+  transaction that halts in its build with every appended one after it (as one
+  the build reports by index; node-local, `build_signed_template`), so this
+  route is closed for honest builders. The transaction stays pooled.
+- Honest-builder routes still open. The selection includes, by design, a
+  transaction whose own logs pass a log cap in every block on its parent (for
+  example logs that follow PREVRANDAO, which admission does not see) as that
+  halt at its declared gas, so it cannot stay pooled unpaid; and caps the
+  selection does not model (the dirty-key and dirty-account caps), or the
+  difference between its simulation and the block (whose SYSTEM phase runs
+  first), can make a selected transaction halt in the real build.
+
+This was already true of A03 cap halts before option A (any transaction that
+logs can be pushed into a LogCount halt); option A raises the declared gas that
+such a halt charges. Extending the spent-gas charge to these halts would change
+A03's full-gas anti-spam semantics and is not part of option A; it is an open
+question for the owner.
 
 **Per-transaction burn ceiling.** Since gas_limit <= GAS_LIMIT, one transaction
 can burn at most `max_fee*GAS_LIMIT - gas_used*effective_price`. Creating a unit
@@ -194,8 +217,9 @@ builder. Clients must use eth_estimateGas, or add the burn from
 
 The pool refuses a submission whose burn would pass its signed maximum on the
 pending state; the builder reprices in its own order and skips one that would
-then pass it (it never includes such a halt). Another proposer may include it;
-the transaction then halts with CreationFee as above.
+then pass it, and its append round drops an appended transaction that halts
+(under v3). Another proposer may include it; the transaction then halts with
+CreationFee as above.
 
 ## Receipt and accounting class
 
@@ -255,7 +279,7 @@ transaction can raise the price, up to F0*CAP for the last free unit. Since
 option A that order can no longer charge a sender more than it signed: if the
 burn would pass `max_fee*gas_limit`, the transaction halts with CreationFee and
 pays only its spent gas (other order-dependent cap halts still charge the
-declared gas; see "Residual under hostile ordering"). This closes the open pre-launch item of D-V3-21;
+declared gas; see "Residual: other cap halts"). This closes the open pre-launch item of D-V3-21;
 the `D-V3-21 creation-burn user bound` entry has left `V3_LAUNCH_BLOCKERS`
 (`lp4-execution/src/admission.rs`), which is now empty. The gate and its call in
 `admit` stay so that a later blocker is enforced again. Admission of a v3

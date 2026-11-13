@@ -912,7 +912,8 @@ never lowered, across it (`genesis_builder.rs:60`).
 - That halt charges the spent gas (before refunds), not the declared gas, so a builder order that raises the
   burn past the maximum cannot convert the burn allowance in gas_limit into a gas charge through it (decided
   under the owner rule). Other order-dependent cap halts (LogCount, AcctCap, ...) still charge the declared
-  gas, so under hostile ordering the loss bound is the signed `max_fee·gas_limit`.
+  gas; a hostile proposer, or another user against an honest builder, can cause one, so the loss bound is the
+  signed `max_fee·gas_limit` (the v3 append round drops an appended transaction that halts; node-local).
 - One transaction burns at most `max_fee·GAS_LIMIT` minus its gas cost. eth_estimateGas covers the burn with a
   margin of 4 creations ahead per class (4·B_code_max code bytes); a fixed 21000-gas transfer to a new address
   is refused; `pocol_quoteCreationBurn` quotes it. Details: V3-EXECUTION-FEES.md, "The signed

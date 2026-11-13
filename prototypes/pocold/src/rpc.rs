@@ -1208,6 +1208,14 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget,pricing:Pricin
                 let quoted=|drift|pocol_lp4_execution::user_phase::quote_creation(&st,&r,&ctx,n.chain.spec.profile(),(summary.user_slots,summary.user_accounts),summary.inventory(),drift);
                 let burn=quoted([0;3]).map_err(halt)?;quote=Some((burn,summary));
                 if pricing==Pricing::Quote{
+                    // The estimate's other cap checks too, so a call it answers with a halt gets no quote:
+                    // the live caps on the effects (SysKeys, ...) and the own-log caps on the call's logs
+                    // with the CreationFeeBurn annotation a nonzero burn adds. Neither the signed-fee bound
+                    // nor the burn's payment is checked (a quote, not an admission).
+                    let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
+                    meter.admit(&st,&r.state).map_err(halt)?;
+                    let mut logs=r.result.logs().to_vec();logs.extend(burn.log(caller));
+                    if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,&logs,true){return Err(halt(why))}
                     if b.expired(){return deadline()}
                     return Ok(Simulated{result:r.result,gas_limit,quote})}
                 if pricing==Pricing::Margin{
