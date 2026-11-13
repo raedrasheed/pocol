@@ -254,7 +254,7 @@ pub fn v3_registry_window_violated(c: &ConsensusParams) -> bool {
 
 /// V3-02: the encoded bytes of a kind-3 late-share item RLP([3, be64(j), [n_1..n_k]]) carrying k nonces.
 pub fn late_item_bytes(k: u64) -> u128 {
-    let rlp_len = |payload: u128| if payload <= 55 { 1 + payload } else { 1 + (128 - payload.leading_zeros() as u128).div_ceil(8) + payload };
+    let rlp_len = |payload: u128| if payload <= 55 { 1 + payload } else { 1 + ((128 - payload.leading_zeros() as u128) + 7) / 8 + payload };
     rlp_len(1 + 9 + rlp_len(9 * k as u128))
 }
 /// V3-02 sizing (R10, the byte limits, on CP schema v2; V3-DECISIONS.md D-V3-02): the largest kind-3 item a block can need fits
