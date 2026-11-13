@@ -32,11 +32,23 @@ struct Config {
     /// Mainnet after its v2 height). Absent or false keeps the v1 bounded range and the same genesis bytes.
     #[serde(default)]
     full_nonce: bool,
+    /// V3-05: the declared (or measured, V3-06 soak) WAN timing assumptions a v3 profile's local Δ_rel and Γ are
+    /// derived from (`local_for_v3`). Absent: `TimingAssumptions::V3_WAN`. Refused without `v3`: spec-1 local
+    /// timing stays the fixed `local_for` derivation.
+    #[serde(default)]
+    local_timing: Option<DeclaredTiming>,
     chain_id: u64,
     genesis_time: u64,
     registration_per_block: u8,
     miners: Vec<Miner>,
     accounts: Vec<Account>,
+}
+#[derive(Deserialize, Clone, Copy)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct DeclaredTiming {
+    delta: u32,
+    phi: u32,
+    t_exec: u32,
 }
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -63,19 +75,125 @@ pub fn local() -> NodeLocal {
 }
 
 /// Synthetic P11 local assumptions, with wait/attempt slack derived from the final CP.
-/// This does not measure WAN latency or select the production v3 profile.
+/// This does not measure WAN latency or select the production v3 profile. Spec-1 profiles (every committed
+/// network, the live H15000 chain included) keep exactly this derivation: Δ_rel = dFbWait + Δ + t_exec (8 at
+/// dFbWait 6) and Γ the R6 slack (5). V3-05 changes only spec-2 (v3) profiles (`local_for_v3`).
 pub fn local_for(cp: &ConsensusParams) -> Result<NodeLocal, String> {
     let mut local = local();
     local.delta_rel = cp.dFbWait.checked_add(local.delta).and_then(|v| v.checked_add(local.t_exec))
         .ok_or("local timing exceeds u32")?;
+    local.gamma = gamma_for(cp, &local)?;
+    Ok(local)
+}
+/// Γ: the attempt-advance slack R6 needs at these locals (`D_att + Γ ≥ 2(X^W + c·T_blk) + Φ`), never below
+/// `local().gamma` (5).
+fn gamma_for(cp: &ConsensusParams, local: &NodeLocal) -> Result<u32, String> {
     let metrics = crate::timing::metrics(local.delta.into(), local.capital_phi().into(), local.t_exec.into(), local.delta_rel.into(), cp.dFbWait.into());
     let need = (2 * (metrics.x_w + u128::from(cp.c) * u128::from(cp.T_blk)) + u128::from(local.capital_phi()))
         .saturating_sub(u128::from(cp.D_att));
-    local.gamma = local.gamma.max(u32::try_from(need).map_err(|_| "local timing exceeds u32")?);
+    Ok(self::local().gamma.max(u32::try_from(need).map_err(|_| "local timing exceeds u32")?))
+}
+
+/// V3-05: the timing assumptions a v3 profile's local Δ_rel is derived from, in seconds: Δ the delivery bound
+/// between honest nodes, φ the clock-skew bound (Φ = 2φ) and t_exec the validation bound. Declared by the
+/// operator (`localTiming` in the public testnet config, kept in devnet.json) or measured: the WAN soak (V3-06)
+/// reads Δ and φ from `pocol_templateLatency` (network.md, "Template latency").
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TimingAssumptions {
+    pub delta: u32,
+    pub phi: u32,
+    pub t_exec: u32,
+}
+impl TimingAssumptions {
+    /// The synthetic single-host assumptions of `local()`: Δ = φ = t_exec = 1 s (Δ_rel 7 by V3-05; spec-1
+    /// profiles keep 8, `local_for`).
+    pub const SINGLE_HOST: Self = Self { delta: 1, phi: 1, t_exec: 1 };
+    /// The WAN bounds the owner's O-6=b timing holds under (D-V3-06): measured Δ ≤ 2 s, φ ≤ 2 s, t_exec 2 s,
+    /// so Δ_rel = 13 (V3-06 (b): σ = 7, R2 13, R3 dFbWait ≥ 10). The default for a v3 profile.
+    pub const V3_WAN: Self = Self { delta: 2, phi: 2, t_exec: 2 };
+    /// The largest value of each assumption accepted, in seconds (one hour): beyond it no block-time
+    /// profile is meaningful, and the arithmetic stays far inside u32.
+    pub const MAX_SECONDS: u32 = 3600;
+    fn check(self) -> Result<Self, String> {
+        if self.delta == 0 || self.t_exec == 0 {
+            return Err("local timing: delta and tExec must be at least 1 s".into());
+        }
+        if [self.delta, self.phi, self.t_exec].iter().any(|v| *v > Self::MAX_SECONDS) {
+            return Err(format!("local timing: each of delta, phi and tExec is at most {} s", Self::MAX_SECONDS));
+        }
+        Ok(self)
+    }
+}
+
+/// V3-05 (V3-DESIGN, item V3-05): the default Δ_rel is derived from Δ, φ and t_exec as ParamGate R2 at equality,
+/// Δ_rel = σ + Δ + 2·t_exec with σ = max(Δ, Φ + 1) + t_exec (`timing::metrics`), rather than lowered to a
+/// single-host minimum. At `V3_WAN` it is 13; at the governance WAN locals Δ = 5, φ = 5, t_exec = 3, it is 25.
+pub fn derive_delta_rel(a: TimingAssumptions) -> Result<u32, String> {
+    let a = a.check()?;
+    let m = crate::timing::metrics(a.delta.into(), u64::from(a.phi) * 2, a.t_exec.into(), 0, 0);
+    let v = m.sigma + u128::from(a.delta) + 2 * u128::from(a.t_exec);
+    u32::try_from(v).map_err(|_| "local timing exceeds u32".into())
+}
+
+/// V3-05: the local timing of a v3 (spec-2) profile: Δ, φ and t_exec as assumed, Δ_rel from
+/// `derive_delta_rel`, Γ the R6 slack at those locals (`gamma_for`). Whether the CP then admits them (R3
+/// `dFbWait ≥ Φ + Δ + 2·t_exec`, R6, ...) is decided by admission, as for every profile.
+pub fn local_for_v3(cp: &ConsensusParams, a: TimingAssumptions) -> Result<NodeLocal, String> {
+    let a = a.check()?;
+    let mut local = NodeLocal { delta: a.delta, phi: a.phi, t_exec: a.t_exec, ..local() };
+    local.delta_rel = derive_delta_rel(a)?;
+    local.gamma = gamma_for(cp, &local)?;
     Ok(local)
 }
-/// The launcher uses the same final CP-derived local timing as the genesis builder.
-pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
+
+/// The local timing for a genesis of `spec_version`: spec 1 is exactly `local_for` (declared assumptions are
+/// refused, so every spec-1 network keeps its timing); spec 2 (v3) is `local_for_v3` at the declared
+/// assumptions, `TimingAssumptions::V3_WAN` by default.
+pub fn local_for_spec(cp: &ConsensusParams, spec_version: u8, declared: Option<TimingAssumptions>) -> Result<NodeLocal, String> {
+    if spec_version < 2 {
+        if declared.is_some() {
+            return Err("localTiming is a v3 profile input; a spec-1 network keeps its fixed local timing".into());
+        }
+        return local_for(cp);
+    }
+    local_for_v3(cp, declared.unwrap_or(TimingAssumptions::V3_WAN))
+}
+
+/// devnet.json's `localTiming`: the declared assumptions (`delta`, `phi`, `tExec`) and the `deltaRel` and `gamma`
+/// recorded with them, when present. None when the file or the object is absent.
+struct Recorded {
+    assumptions: TimingAssumptions,
+    delta_rel: Option<u64>,
+    gamma: Option<u64>,
+}
+fn declared_in(dir: &Path) -> Result<Option<Recorded>, String> {
+    use std::io::Read;
+    let file = match std::fs::File::open(dir.join("devnet.json")) {
+        Ok(f) => f,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(e) => return Err(format!("devnet.json: {e}")),
+    };
+    const LIMIT: u64 = 1 << 20;
+    let mut text = Vec::new();
+    file.take(LIMIT + 1).read_to_end(&mut text).map_err(|e| format!("devnet.json: {e}"))?;
+    if text.len() as u64 > LIMIT { return Err("devnet.json exceeds 1 MiB".into()); }
+    let info: serde_json::Value = serde_json::from_slice(&text).map_err(|e| format!("devnet.json: {e}"))?;
+    let Some(t) = info.get("localTiming") else { return Ok(None) };
+    let field = |name: &str| t.get(name).and_then(serde_json::Value::as_u64).and_then(|v| u32::try_from(v).ok())
+        .ok_or_else(|| format!("devnet.json localTiming.{name} must be an unsigned 32-bit integer"));
+    let recorded = |name: &str| match t.get(name) {
+        None => Ok(None),
+        Some(v) => v.as_u64().map(Some).ok_or_else(|| format!("devnet.json localTiming.{name} must be an unsigned integer")),
+    };
+    Ok(Some(Recorded {
+        assumptions: TimingAssumptions { delta: field("delta")?, phi: field("phi")?, t_exec: field("tExec")? },
+        delta_rel: recorded("deltaRel")?,
+        gamma: recorded("gamma")?,
+    }))
+}
+
+/// The network's GenesisSpec (genesis.spec.hex, bounded read).
+fn genesis_spec_in(dir: &Path) -> Result<gs::GenesisSpec, String> {
     use std::io::Read;
     let mut text = String::new();
     let limit = (gs::MAX_SPEC_BYTES * 2 + 3) as u64;
@@ -83,9 +201,38 @@ pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
         .take(limit + 1).read_to_string(&mut text).map_err(|e| format!("genesis.spec.hex: {e}"))?;
     if text.len() as u64 > limit { return Err("GenesisSpec exceeds size bound".into()); }
     let bytes = crate::types::unhex(text.trim())?;
-    let spec = gs::decode(&bytes).map_err(|e| format!("GenesisSpec: {e:?}"))?;
+    gs::decode(&bytes).map_err(|e| format!("GenesisSpec: {e:?}"))
+}
+
+/// The spec version of the network in `dir` (its genesis.spec.hex).
+pub fn spec_version_of(dir: &Path) -> Result<u8, String> {
+    Ok(genesis_spec_in(dir)?.spec_version)
+}
+
+/// The launcher uses the same final CP-derived local timing as the genesis builder: spec 1 `local_for`; a v3
+/// genesis `local_for_v3` at the assumptions its devnet.json declares (`TimingAssumptions::V3_WAN` without one).
+/// A v3 devnet.json whose recorded `deltaRel` or `gamma` differs from what V3-05 derives from its assumptions (a
+/// file written before V3-05, or one edited by hand) is refused, so a node never runs a T_j other than the one the
+/// file states.
+pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
+    let spec = genesis_spec_in(dir)?;
     let cp = ConsensusParams::from_values(&spec.cp).map_err(|e| format!("CP: {e:?}"))?;
-    local_for(&cp)
+    if spec.spec_version < 2 {
+        return local_for(&cp);
+    }
+    let recorded = declared_in(dir)?;
+    let local = local_for_spec(&cp, spec.spec_version, recorded.as_ref().map(|r| r.assumptions))?;
+    if let Some(r) = recorded {
+        let differs = |v: Option<u64>, want: u32| v.is_some_and(|v| v != u64::from(want));
+        if differs(r.delta_rel, local.delta_rel) || differs(r.gamma, local.gamma) {
+            let shown = |v: Option<u64>| v.map_or("absent".to_string(), |v| v.to_string());
+            return Err(format!(
+                "devnet.json localTiming records deltaRel {} and gamma {}, but V3-05 derives deltaRel {} and gamma {} from delta {}, phi {}, tExec {} \
+                 (deltaRel = sigma + delta + 2 tExec); this v3 network's files predate V3-05 or were edited: rebuild them, or set deltaRel and gamma to the derived values",
+                shown(r.delta_rel), shown(r.gamma), local.delta_rel, local.gamma, local.delta, local.phi, local.t_exec));
+        }
+    }
+    Ok(local)
 }
 
 fn cp_number(value: &serde_json::Value) -> Result<pocol_lp4_execution::fixed::U256, String> {
@@ -100,6 +247,7 @@ fn cp_number(value: &serde_json::Value) -> Result<pocol_lp4_execution::fixed::U2
 fn resolve(config: &[u8], cutover: bool) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4_execution::fixed::U256>), String> {
     if config.len() > 262144 { return Err("testnet config exceeds 256 KiB".into()); }
     let mut input: Config = serde_json::from_slice(config).map_err(|_| "invalid public genesis config schema")?;
+    if input.local_timing.is_some() && !input.v3 { return Err("localTiming is a v3 profile input; a spec-1 network keeps its fixed local timing".into()); }
     if input.v3 {
         if gs::SPEC_VERSION < 2 && !pocol_lp4_execution::V3_PREVIEW { return Err("v3 config requires a v3-preview build".into()); }
         input.earnin = true; input.continuous = true; input.full_nonce = true;
@@ -254,7 +402,8 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
     // admit below performs the complete genesis/root validation; there is no unchecked boot path.
     let bytes = gs::encode(&spec);
     let timing = admission::measure(&bytes, &alloc, 1)?;
-    let local = local_for(&params)?;
+    let declared = input.local_timing.map(|t| TimingAssumptions { delta: t.delta, phi: t.phi, t_exec: t.t_exec });
+    let local = local_for_spec(&params, cfg.spec_version, declared)?;
     let request = Request {
         spec_bytes: &bytes,
         alloc: &alloc,
@@ -287,6 +436,10 @@ fn build(config: &[u8], cutover: Option<(InMemoryDB, serde_json::Value)>, out: &
     }
     if input.v3 || !input.cp.is_empty() {
         info["localTiming"] = serde_json::json!({"delta":local.delta,"phi":local.phi,"tExec":local.t_exec,"deltaRel":local.delta_rel,"gamma":local.gamma});
+    }
+    if input.v3 {
+        // V3-05: where the assumptions came from; deltaRel = sigma + delta + 2 tExec, recomputed by the launcher.
+        info["localTiming"]["source"] = serde_json::json!(if declared.is_some() { "declared" } else { "v3-wan-default" });
     }
     // Admission must succeed before any output. Partial I/O failures remain visible and are not overwritten.
     std::fs::create_dir(out).map_err(|e| format!("output directory: {e}"))?;
@@ -348,4 +501,94 @@ pub fn init(args: &[String]) -> Result<(), String> {
         .read_to_end(&mut input)
         .map_err(|_| "cannot read public config")?;
     prepare(&input, Path::new(value("--out")?))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    /// The live H15000 chain's CP (deploy/mainnet/h15000), a spec-1 genesis.
+    fn h15000() -> ConsensusParams {
+        let bundle: serde_json::Value = serde_json::from_slice(&std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
+        let spec = gs::decode(&crate::types::unhex(bundle["files"]["genesis.spec.hex"].as_str().unwrap().trim()).unwrap()).unwrap();
+        assert_eq!(spec.spec_version, 1);
+        ConsensusParams::from_values(&spec.cp).unwrap()
+    }
+    fn cp(t_blk: u32, d_att: u32, fb: u32) -> ConsensusParams {
+        let mut c = devnet::DevnetConfig::new(777990, 1_800_000_000, &["a"]);
+        c.t_blk = t_blk; c.d_att = d_att; c.d_fb_wait = fb;
+        ConsensusParams::from_values(&c.cp()).unwrap()
+    }
+    /// The R2/R3/R6 inequalities ParamGate checks (lp1 gate.rs), at the given locals.
+    fn r2_r3_r6(cp: &ConsensusParams, l: &NodeLocal) -> (bool, bool, bool) {
+        let (d, t, phi) = (u128::from(l.delta), u128::from(l.t_exec), u128::from(l.capital_phi()));
+        let m = crate::timing::metrics(l.delta.into(), l.capital_phi().into(), l.t_exec.into(), l.delta_rel.into(), cp.dFbWait.into());
+        (u128::from(l.delta_rel) >= m.sigma + d + 2 * t, u128::from(cp.dFbWait) >= phi + d + 2 * t,
+            u128::from(cp.D_att) + u128::from(l.gamma) >= 2 * (m.x_w + u128::from(cp.c) * u128::from(cp.T_blk)) + phi)
+    }
+
+    #[test]
+    fn spec1_local_timing_is_unchanged_and_refuses_declared_assumptions() {
+        let live = h15000();
+        assert_eq!((live.T_blk, live.D_att, live.dFbWait), (10, 60, 6));
+        let l = local_for(&live).unwrap();
+        assert_eq!((l.delta, l.phi, l.t_exec, l.delta_rel, l.gamma), (1, 1, 1, 8, 5), "the live H15000 local timing");
+        let s = local_for_spec(&live, 1, None).unwrap();
+        assert_eq!((s.delta, s.phi, s.t_exec, s.delta_rel, s.gamma), (1, 1, 1, 8, 5));
+        assert!(local_for_spec(&live, 1, Some(TimingAssumptions::V3_WAN)).unwrap_err().contains("v3 profile input"));
+        // The spec-1 derivation at other CPs is the one before V3-05: dFbWait + Δ + t_exec, Γ the R6 slack.
+        for (t, d, f, rel, gamma) in [(10, 60, 6, 8, 5), (30, 150, 10, 12, 5), (4, 25, 3, 5, 7), (10, 30, 6, 8, 32)] {
+            let l = local_for(&cp(t, d, f)).unwrap();
+            assert_eq!((l.delta_rel, l.gamma), (rel, gamma), "T_blk {t} D_att {d} dFbWait {f}");
+        }
+    }
+
+    #[test]
+    fn delta_rel_is_sigma_plus_delta_plus_two_t_exec() {
+        let at = |delta, phi, t_exec| derive_delta_rel(TimingAssumptions { delta, phi, t_exec }).unwrap();
+        assert_eq!(derive_delta_rel(TimingAssumptions::SINGLE_HOST).unwrap(), 7);
+        assert_eq!(derive_delta_rel(TimingAssumptions::V3_WAN).unwrap(), 13, "O-6=b: Δ_rel 13 at Δ ≤ 2 s, φ ≤ 2 s");
+        assert_eq!(at(5, 5, 3), 25, "V3-05: the governance WAN locals need Δ_rel ≥ 25");
+        assert_eq!(at(1, 0, 1), 5, "single host, one clock (NodeLocal::single_host)");
+        // σ = max(Δ, Φ+1) + t: the Δ branch once Δ exceeds Φ + 1.
+        assert_eq!(at(10, 1, 1), 10 + 1 + 10 + 2);
+        for delta in 1..=12 { for phi in 0..=12 { for t in 1..=6 {
+            let rel = at(delta, phi, t);
+            let sigma = delta.max(2 * phi + 1) + t;
+            assert_eq!(rel, sigma + delta + 2 * t);
+            // R2 holds at equality: one second less fails it.
+            let l = NodeLocal { delta, phi, t_exec: t, delta_rel: rel, ..local() };
+            let m = crate::timing::metrics(delta.into(), l.capital_phi().into(), t.into(), rel.into(), 0);
+            assert_eq!(u128::from(rel), m.sigma + u128::from(delta) + 2 * u128::from(t));
+        }}}
+        for bad in [TimingAssumptions { delta: 0, phi: 1, t_exec: 1 }, TimingAssumptions { delta: 1, phi: 1, t_exec: 0 },
+            TimingAssumptions { delta: 3601, phi: 1, t_exec: 1 }, TimingAssumptions { delta: 1, phi: 3601, t_exec: 1 },
+            TimingAssumptions { delta: 1, phi: 1, t_exec: 3601 }] {
+            assert!(derive_delta_rel(bad).is_err(), "{bad:?}");
+        }
+        let max = TimingAssumptions { delta: 3600, phi: 3600, t_exec: 3600 };
+        assert_eq!(derive_delta_rel(max).unwrap(), (7201 + 3600) + 3600 + 7200);
+    }
+
+    #[test]
+    fn the_v3_default_satisfies_r2_r3_and_r6_for_each_locals_profile() {
+        // O-6=b (D-V3-06): T_blk 30, D_att 150, dFbWait 10 at the V3_WAN default.
+        let ob = cp(30, 150, 10);
+        let l = local_for_spec(&ob, 2, None).unwrap();
+        assert_eq!((l.delta, l.phi, l.t_exec, l.delta_rel, l.gamma), (2, 2, 2, 13, 8));
+        assert_eq!(r2_r3_r6(&ob, &l), (true, true, true));
+        // The 60 s fallback with the governance WAN locals (V3-06 (c)): Δ_rel 25 by derivation.
+        let oc = cp(60, 300, 25);
+        let l = local_for_v3(&oc, TimingAssumptions { delta: 5, phi: 5, t_exec: 3 }).unwrap();
+        assert_eq!(l.delta_rel, 25);
+        assert_eq!(r2_r3_r6(&oc, &l), (true, true, true));
+        // R2 holds for every profile by construction; R6 by Γ. R3 is a CP condition admission decides.
+        for (cp, a) in [(&ob, TimingAssumptions::SINGLE_HOST), (&ob, TimingAssumptions::V3_WAN), (&oc, TimingAssumptions::V3_WAN),
+            (&oc, TimingAssumptions { delta: 5, phi: 5, t_exec: 3 }), (&cp(10, 60, 6), TimingAssumptions::SINGLE_HOST)] {
+            let l = local_for_v3(cp, a).unwrap();
+            let (r2, _, r6) = r2_r3_r6(cp, &l);
+            assert!(r2 && r6, "{a:?} at T_blk {}", cp.T_blk);
+        }
+        let (_, r3, _) = r2_r3_r6(&cp(10, 60, 6), &local_for_v3(&cp(10, 60, 6), TimingAssumptions::V3_WAN).unwrap());
+        assert!(!r3, "the 10 s CP cannot carry the WAN assumptions (V3-06 (a)): admission refuses it");
+    }
 }

@@ -330,8 +330,13 @@ fn second_implementation_id(chain_id:u64,genesis:&[u8;32],rules:u32,flags:u8,for
     assert_eq!(r.net.counters.outbound.load(Ordering::SeqCst),1);
     // The configured peer drops; the node reconnects although inbound is full.
     drop(first);
-    assert!(accept(&target).is_some(),"outbound reconnects despite a full inbound set");
-    assert!(wait_until(1000,||r.net.counters.outbound.load(Ordering::SeqCst)==1));drop(idle);
+    // Keep the replacement's remote end alive through the counter assertions. A temporary
+    // `accept(...).is_some()` closes it at the semicolon, so its reader may release the outbound
+    // slot before the test observes it (especially on Windows). That measures a closed connection.
+    let second=accept(&target).expect("outbound reconnects despite a full inbound set");
+    assert!(wait_until(1000,||r.net.counters.outbound.load(Ordering::SeqCst)==1),"the held replacement retains its outbound slot");
+    assert_eq!(r.net.counters.handshaking.load(Ordering::SeqCst),3,"inbound handshakes are still full when the replacement is admitted");
+    drop((second,idle));
 }
 /// RpcGuard REQ_BUF (network.md:229): request line, headers and body together. A request that
 /// fills REQ_BUF exactly is served; one byte more is 413 without reaching the node.
@@ -517,9 +522,13 @@ fn heavy_duration()->Duration{
 }
 /// pocold's RPC counters. A heavy request: while it runs it holds its own RESP_MAX reservation.
 fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id":9,"method":"pocold_rpcCounters","params":[]}"#,false);serde_json::from_str::<serde_json::Value>(&b).unwrap()["result"].clone()}
-/// Review F8: the work deadline, independently of build speed. The deadline under test is a
-/// quarter of the heavy call's measured duration d, so the heavy call always outlasts it:
-/// - the heavy caller is answered 504 at the deadline, while the work runs on;
+/// Review F8: the real VM, queued requests, batches and resource release. The
+/// deadline is a quarter of a warm call's duration to exercise expiration.
+/// Transport independence from backend completion is proved causally by
+/// rpc::tests::work_deadline_replies_while_the_admitted_backend_is_still_held;
+/// a wall-clock comparison with the shortest VM sample also measures unrelated
+/// OS scheduling of the HTTP client and cannot establish that ordering.
+/// - the heavy caller is answered 504 after its deadline;
 /// - light requests sent meanwhile are run (200) when they are drained before the heavy event,
 ///   or wait behind it and expire (504); one dequeued after its deadline is skipped, never run,
 ///   so the skipped count is at most the 504s, and at least one is skipped;
@@ -534,7 +543,7 @@ fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id
     let lights:Vec<_>=(0..8).map(|_|{let (p,stop)=(r.rpc,stop.clone());std::thread::spawn(move||{let mut v=vec![];while !stop.load(Ordering::SeqCst){v.push(rpc(p,LIGHT,false).0)}v})}).collect();
     let (hc,ht)=h.join().unwrap();std::thread::sleep(d);stop.store(true,Ordering::SeqCst);
     let codes:Vec<u16>=lights.into_iter().flat_map(|t|t.join().unwrap()).collect();
-    assert_eq!(hc,504);assert!(ht>=dl&&ht<d,"the heavy caller is answered at the deadline ({dl:?}), not after the work ({d:?}): {ht:?}");
+    assert_eq!(hc,504);assert!(ht>=dl,"the heavy caller must not time out before its deadline ({dl:?}): {ht:?}");
     // A full light lane (requests that expired behind the heavy call and are not yet skipped) answers
     // -32021 {busy} with HTTP 200 (network.md:214); 503 is only the RPC_CONN_MAX refusal.
     assert!(codes.iter().all(|c|matches!(*c,200|503|504)),"{codes:?}");let late=codes.iter().filter(|c|**c==504).count();
@@ -556,7 +565,7 @@ fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id
     let (mut sends,mut whole)=(0,0);
     let members=loop{sends+=1;
         let (m1,e1)=(counter(&c.expired_members),counter(&c.expired));
-        let (code,t)=timed(r.rpc,&body);assert_eq!(code,504);assert!(t<d,"{t:?}");
+        let (code,t)=timed(r.rpc,&body);assert_eq!(code,504);assert!(t>=dl,"a batch timeout must not precede its deadline {dl:?}: {t:?}");
         // The node has finished with this batch: it ran it (19 members expire after the first), or skipped it.
         assert!(wait_until(30_000,||counter(&c.expired_members)-m1>=19||counter(&c.expired)>e1),
             "the node runs or skips the batch: members {}, skipped {}",counter(&c.expired_members)-m1,counter(&c.expired)-e1);

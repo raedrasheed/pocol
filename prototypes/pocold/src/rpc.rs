@@ -67,13 +67,18 @@ pub struct Limits{
     pub min_send_rate:u64,pub grace:Duration,pub enforce_slack:Duration,pub timer_eps:Duration,
     /// BATCH_WALL (network.md:282): from read-end to sendDone; reaching it closes the connection.
     pub batch_wall:Duration,
+    /// V3 receipt lane (network.md (B)): under a profile that can activate v3 (`Node::open` sets it
+    /// from the `first_imports` domain, spec.v3_active(MAX)), one transaction may emit up to 4,368
+    /// logs / 256 KiB, a receipt above LIGHT_RESP_MAX. eth_getTransactionReceipt is then heavy: heavy
+    /// lane, reservation, deadline and RESP_MAX answer limit. False (the legacy light row) otherwise.
+    pub heavy_receipts:bool,
 }
 impl Default for Limits{
     fn default()->Self{Self{conn_max:32,read_deadline:Duration::from_secs(10),write_deadline:Duration::from_secs(10),work_deadline:Duration::from_secs(30),
         heavy_queue:16,light_queue:32,queue_wait:Duration::from_secs(2),rate:20,bucket_cap:20,
         scratch_heavy:16<<20,compute_heavy:Duration::from_secs(5),compute_light:Duration::from_millis(500),
         min_send_rate:65536,grace:Duration::from_secs(2),enforce_slack:Duration::from_millis(200),timer_eps:Duration::from_millis(1),
-        batch_wall:Duration::from_secs(420)}}
+        batch_wall:Duration::from_secs(420),heavy_receipts:false}}
 }
 /// SEND_MAX(size) = GRACE + size/R + ENFORCE_SLACK, the longest a response of `size` bytes may hold
 /// its reservation before the SendPacer closes (network.md:252). ms, saturating.
@@ -376,7 +381,7 @@ pub fn answer(n:&mut Node,q:&Request)->Reply{
     // The class's deadline by method (network.md (B), :235), as for batch members: a light-table entry
     // whose body exceeds LIGHT_BODY_MAX, or a conditional one, runs on the heavy lane (and reservation)
     // under the light deadline; its answer has the light limit (`member`).
-    let light=q.light||(!batch&&light_class(&q.body));
+    let light=q.light||(!batch&&light_class_for(&q.body,lr.heavy_receipts));
     let mut budget=Budget{compute_by:Instant::now()+if light{lr.compute_light}else{lr.compute_heavy},scratch_max:lr.scratch_heavy,scratch_used:0,walled:false};
     let wall_by=batch.then(||q.queued+lr.batch_wall);
     let mut body=handle_until_budgeted(n,&q.body,q.site,Some(q.deadline),wall_by,&mut budget);
@@ -527,11 +532,16 @@ pub const LIGHT_METHODS:&[&str]=&["eth_chainId","net_version","web3_clientVersio
 /// The probe borrows the method name and skips every other field, so classification allocates
 /// nothing in proportion to the body (A13); any parse error (duplicate keys included) is heavy.
 pub const LIGHT_BODY_MAX:usize=4096;
-pub fn is_light(body:&[u8])->bool{body.len()<=LIGHT_BODY_MAX&&light_method(body)}
+pub fn is_light(body:&[u8])->bool{is_light_for(body,false)}
+/// `is_light` with the v3 receipt lane (`Limits::heavy_receipts`).
+pub fn is_light_for(body:&[u8],heavy_receipts:bool)->bool{body.len()<=LIGHT_BODY_MAX&&light_method_for(body,heavy_receipts)}
+/// A listed light method; with `heavy_receipts` (v3) eth_getTransactionReceipt is heavy.
+fn listed_light(m:&str,heavy_receipts:bool)->bool{LIGHT_METHODS.contains(&m)&&!(heavy_receipts&&m=="eth_getTransactionReceipt")}
 /// A single object whose method is light in the classification table (its class, whatever its size).
-pub fn light_method(body:&[u8])->bool{
+pub fn light_method(body:&[u8])->bool{light_method_for(body,false)}
+pub fn light_method_for(body:&[u8],heavy_receipts:bool)->bool{
     #[derive(serde::Deserialize)] struct Probe<'a>{#[serde(borrow,default)] method:Option<std::borrow::Cow<'a,str>>}
-    body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),Ok(Probe{method:Some(m)}) if LIGHT_METHODS.contains(&m.as_ref()))
+    body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),Ok(Probe{method:Some(m)}) if listed_light(m.as_ref(),heavy_receipts))
 }
 /// The conditional light entries of network.md (B), read as their handlers read params[1]:
 /// eth_getBlockBy* with hashes only (the full flag not `true`) and pocol_getHeaders with count <= 64.
@@ -568,15 +578,17 @@ impl<'de> serde::de::Visitor<'de> for ParamsV{type Value=Params;
 /// The class of a single object by the classification table (network.md (B)): a listed light method,
 /// or a conditional light entry by its params[1]. Like `light_method` it borrows and skips, allocating
 /// nothing in proportion to the body; any parse error is heavy.
-pub fn light_class(body:&[u8])->bool{
+pub fn light_class(body:&[u8])->bool{light_class_for(body,false)}
+pub fn light_class_for(body:&[u8],heavy_receipts:bool)->bool{
     #[derive(serde::Deserialize)] struct Probe<'a>{#[serde(borrow,default)] method:Option<std::borrow::Cow<'a,str>>,#[serde(default)] params:Option<Params>}
-    light_method(body)||body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),
+    light_method_for(body,heavy_receipts)||body.iter().find(|b|!b.is_ascii_whitespace())==Some(&b'{')&&matches!(serde_json::from_slice::<Probe>(body),
         Ok(Probe{method:Some(m),params})if{let (f,c)=params.as_ref().map_or((None,None),|p|(p.0.0,p.0.1));light_cond(&m,f,c)})
 }
 /// `light_class` of a parsed request or batch member.
-pub fn light_value(v:&Value)->bool{
+pub fn light_value(v:&Value)->bool{light_value_for(v,false)}
+pub fn light_value_for(v:&Value,heavy_receipts:bool)->bool{
     let m=v.get("method").and_then(|m|m.as_str()).unwrap_or("");
-    LIGHT_METHODS.contains(&m)||match v.get("params"){None|Some(Value::Null)=>light_cond(m,None,None),
+    listed_light(m,heavy_receipts)||match v.get("params"){None|Some(Value::Null)=>light_cond(m,None,None),
         Some(Value::Array(p))=>{let x=p.get(1);light_cond(m,x.and_then(|x|x.as_bool()),x.and_then(|x|x.as_u64().or_else(||parse_u64(x))))}
         Some(_)=>false}
 }
@@ -671,7 +683,7 @@ fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Se
     // (the node skips the request, or stops a batch between members, once nobody waits for it).
     let queued=Instant::now();let work_by=queued+l.work_deadline;let admit_by=(queued+l.queue_wait).min(work_by);
     let (body,state)=(Arc::new(body),Arc::new(AtomicU8::new(QUEUED)));let (tx,rx)=mpsc::channel();
-    if is_light(&body){
+    if is_light_for(&body,l.heavy_receipts){
         // LIGHT_QUEUE places (network.md:214): a full lane is -32021 {busy}.
         let held=hold(&srv.light,usize::MAX,&COUNTERS.light_queued);
         if light.tx.try_send(Event::Rpc(Request{body:body.clone(),reply:tx,site,deadline:work_by,queued,light:true,held,state:state.clone()})).is_err(){
@@ -804,7 +816,7 @@ pub fn handle_until_budgeted(n:&mut Node,body:&[u8],site:bool,deadline:Option<In
     if let Value::Array(items)=&v{
         if items.is_empty()||items.len()>BATCH_MAX{return err(&Value::Null,-32600,"batch").to_string()}
         let deny:Vec<bool>=items.iter().map(|i|denied(i)).collect();
-        let (heavy,light)=(n.cfg.limits.rpc.compute_heavy,n.cfg.limits.rpc.compute_light);
+        let (heavy,light,heavy_receipts)=(n.cfg.limits.rpc.compute_heavy,n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.heavy_receipts);
         return batch(items,BATCH_RESP_MAX,|k,i|{
             if budget.walled{return String::new()}
             if wall_by.is_some_and(|w|Instant::now()>=w){budget.walled=true;COUNTERS.batch_wall_hits.fetch_add(1,Ordering::SeqCst);return String::new()}
@@ -812,7 +824,7 @@ pub fn handle_until_budgeted(n:&mut Node,body:&[u8],site:bool,deadline:Option<In
             if deny[k]{site_err(i).to_string()}
             else if deadline.is_some_and(|d|Instant::now()>=d){COUNTERS.expired_members.fetch_add(1,Ordering::SeqCst);item_err(i,-32020,"work deadline","deadline")}
             else{
-                let lm=light_value(i);
+                let lm=light_value_for(i,heavy_receipts);
                 let by=Instant::now()+if lm{light}else{heavy};budget.compute_by=wall_by.map_or(by,|w|by.min(w));budget.scratch_used=0;member(n,i,budget)
             }
         });
@@ -877,7 +889,7 @@ pub const ENCODE_DELAY_ID:&str="encode-delay";
 /// the answers of EFFECTFUL methods, which are never lost.
 fn member(n:&mut Node,v:&Value,b:&mut Budget)->String{
     let id=id_of(v);let r=one(n,v,b);let own=r["error"]["code"]==-32020&&r["error"]["data"]["reason"]=="deadline";let mut s=capped(r,&id);
-    if s.len()>LIGHT_RESP_MAX&&light_value(v){s=result_bytes(&id);}
+    if s.len()>LIGHT_RESP_MAX&&light_value_for(v,n.cfg.limits.rpc.heavy_receipts){s=result_bytes(&id);}
     let d=ENCODE_DELAY_MS.load(Ordering::SeqCst);if d>0&&id.as_str()==Some(ENCODE_DELAY_ID){std::thread::sleep(Duration::from_millis(d as u64));}
     let m=v.get("method").and_then(|m|m.as_str()).unwrap_or("");
     if !own&&b.expired()&&!EFFECTFUL.contains(&m){b.late();return fail_json(&id,deadline_fail(n,m,v)).to_string()}
@@ -968,14 +980,14 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         "eth_getStorageAt"=>{let a=p.first().and_then(parse_addr).ok_or(bad("address"))?;let k=p.get(1).and_then(parse_u256).ok_or(bad("slot"))?;
             let s=state_for(n,p.get(2).unwrap_or(&Value::Null))?;let v=s.v().slot(&a,&k);
             Ok(json!(hex(&v.to_be_bytes::<32>())))}
-        "eth_call"=>{let o=p.first().ok_or(bad("call"))?;let r=simulate(n,o,p.get(1).unwrap_or(&Value::Null),None,b)?;
+        "eth_call"=>{let o=p.first().ok_or(bad("call"))?;let r=simulate(n,o,p.get(1).unwrap_or(&Value::Null),None,b)?.result;
             match r{ExecutionResult::Success{output,..}=>Ok(json!(hex(output.data()))),ExecutionResult::Revert{output,..}=>Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>Err(Fail::from((-32000,format!("halt {reason:?}"))))}}
         "eth_estimateGas"=>{
             let o=p.first().ok_or(bad("call"))?;let tag=Value::String("latest".into());
             let first=simulate(n,o,&tag,Some(cp.GAS_LIMIT),b)?;
-            let used=match first{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
-            let (mut lo,mut hi)=(used,cp.GAS_LIMIT);
-            while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b){Ok(ExecutionResult::Success{..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
+            let used=match first.result{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
+            let (mut lo,mut hi)=(used,first.gas_limit);
+            while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b){Ok(Simulated{result:ExecutionResult::Success{..},..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
             Ok(json!(qty(hi)))
         }
         "eth_sendRawTransaction"=>{let raw=p.first().and_then(|x|x.as_str()).and_then(|s|unhex(s).ok()).ok_or(bad("raw"))?;
@@ -984,6 +996,8 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 if e==crate::node::SUBMIT_DEADLINE{b.late();return Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline"})))}
                 // D-7: the pool was still revalidating a new head at the deadline; nothing was pooled.
                 if e==crate::node::SUBMIT_BUSY{COUNTERS.busy.fetch_add(1,Ordering::SeqCst);return Fail(-32021,"busy".into(),Some(json!({"reason":"busy","retryAfterMs":250})))}
+                // V3-33: this node's freeze (`Limits::freeze_user_txs_after`) is active; nothing was pooled or relayed.
+                if e.starts_with(crate::node::USER_TX_FROZEN){return Fail(-32016,e,Some(json!({"reason":"frozen","final":true,"freezeUserTxsAfter":n.user_tx_freeze(),"head":n.chain.head().height})))}
                 let code=e.split(' ').next().and_then(|c|c.parse().ok()).unwrap_or(-32000);Fail(code,e,None)})}
         "eth_getBlockByNumber"=>{let full=p.get(1).and_then(|x|x.as_bool()).unwrap_or(false);
             match meta_by_tag(n,p.first().unwrap_or(&Value::Null))?{None=>Ok(Value::Null),Some(e)=>Ok(block_json(n,&*whole(n,&e)?,full))}}
@@ -1007,6 +1021,8 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             if f["fromBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true)||f["toBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true){return Err(bad("numeric fromBlock/toBlock").into())}
             logs(n,f,b)}
         "pocol_status"=>Ok(n.status_json()),
+        // V3-05: per-proposer template arrival and lock latency (also pocol_status.templateLatency; network.md).
+        "pocol_templateLatency"=>Ok(n.template_latency_json()),
         // pocold's own RPC counters and gauges (process-wide), a superset of pocol_getRpcStats.
         "pocold_rpcCounters"=>Ok(rpc_stats(n)),
         // network.md:347 pocol_getRpcStats: every field of the record; a field for a mechanism pocold
@@ -1040,7 +1056,7 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         _=>Err(Fail::from(not_found(m))),
     }
 }
-fn next_base(n:&Node)->U256{let h=n.chain.head();if h.height==0{chain::from_fixed_lp4(&n.chain.spec.cp().baseFee0)}else{pocol_lp4_execution::fees::next_base_fee(h.base_fee,h.gas_used,h.header.gas_limit).unwrap_or(h.base_fee)}}
+fn next_base(n:&Node)->U256{let h=n.chain.head();let floor=n.chain.spec.base_fee_floor(h.height.saturating_add(1));if h.height==0{chain::from_fixed_lp4(&n.chain.spec.cp().baseFee0).max(floor)}else{pocol_lp4_execution::fees::next_base_fee(h.base_fee,h.gas_used,h.header.gas_limit,floor).unwrap_or(h.base_fee.max(floor))}}
 /// netKey = keccak256(RLP(['PoCol-net-v1', chainId, genesisHash])) (FINAL_DESIGN.md:981), as the
 /// extension derives it (pocol-extension/src/sw.js netKeyOf).
 pub fn net_key(chain_id:u64,genesis:&[u8;32])->[u8;32]{
@@ -1084,7 +1100,8 @@ fn rpc_stats(n:&Node)->Value{
     if let (Some(m),Value::Object(o))=(v.as_object_mut(),own){m.extend(o);}
     v
 }
-fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<ExecutionResult,Fail>{
+struct Simulated{result:ExecutionResult,gas_limit:u64}
+fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simulated,Fail>{
     // COMPUTE_DEADLINE before each simulation (eth_estimateGas runs several): none starts past it.
     let deadline=||{b.late();Err(Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline"}))))};
     if b.expired(){return deadline()}
@@ -1094,22 +1111,63 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Execu
     if e.pruned{return Err(Fail::from((-32017,"state outside the retained trie window (K_hist)".into())))}
     let to=o["to"].as_str().and_then(|s|s.parse::<Address>().ok());
     let data=o.get("data").or_else(||o.get("input")).and_then(|x|x.as_str()).map(|s|unhex(s)).transpose().map_err(|_|Fail::from(bad("data")))?.unwrap_or_default();
-    let tx=TxEnv{caller:o["from"].as_str().and_then(|s|s.parse().ok()).unwrap_or(Address::ZERO),transact_to:to.map(TxKind::Call).unwrap_or(TxKind::Create),
+    let mut tx=TxEnv{caller:o["from"].as_str().and_then(|s|s.parse().ok()).unwrap_or(Address::ZERO),transact_to:to.map(TxKind::Call).unwrap_or(TxKind::Create),
         gas_limit:gas.or_else(||parse_u64(&o["gas"])).unwrap_or(CALL_GAS_MAX).min(CALL_GAS_MAX),gas_price:U256::ZERO,value:parse_u256(&o["value"]).unwrap_or_default(),
         data:Bytes::from(data),nonce:None,chain_id:Some(n.chain.spec.chain_id()),..Default::default()};
-    let ctx=NativeBlockContext{height:U256::from(e.height+1),timestamp:U256::from(e.ts+1),gas_limit:U256::from(cp.GAS_LIMIT.max(CALL_GAS_MAX)),base_fee:U256::ZERO,prevrandao:B256::ZERO};
+    let estimate_v3=gas.is_some()&&n.chain.spec.v3_active(e.height.saturating_add(1));
+    let floor=n.chain.spec.base_fee_floor(e.height.saturating_add(1));
+    let base_fee=if !estimate_v3{U256::ZERO}else if e.height==0{chain::from_fixed_lp4(&cp.baseFee0).max(floor)}else{
+        pocol_lp4_execution::fees::next_base_fee(e.base_fee,e.gas_used,e.header.gas_limit,floor).map_err(|_|Fail::from((-32000,"base fee prediction".into())))?};
+    if estimate_v3{
+        tx.gas_price=o.get("maxFeePerGas").or_else(||o.get("gasPrice")).and_then(parse_u256).unwrap_or(base_fee);
+        tx.gas_priority_fee=o.get("maxPriorityFeePerGas").and_then(parse_u256);
+        tx.gas_limit=tx.gas_limit.min(parse_u64(&o["gas"]).unwrap_or(u64::MAX));
+    }
+    // A priced estimate observes the real next block's GASLIMIT. The larger
+    // read-only call ceiling must not select a different state-creation branch.
+    let context_gas=if estimate_v3{cp.GAS_LIMIT}else{cp.GAS_LIMIT.max(CALL_GAS_MAX)};
+    let ctx=NativeBlockContext{height:U256::from(e.height+1),timestamp:U256::from(e.ts+1),gas_limit:U256::from(context_gas),base_fee,prevrandao:B256::ZERO};
     let base=n.chain.view_of(&e.hash).ok_or_else(||Fail::from((-32017,"state outside the retained trie window (K_hist)".to_string())))?;
     // eth_call simulation: fund the caller for value transfers, never committed (C-1 E3: on an overlay,
     // not a copy of the state).
     let mut st=pocol_lp4_execution::view::Overlay::new(&base);
-    {use pocol_lp4_execution::view::WorkState;if let Some(a)=st.info_mut(&tx.caller){a.balance=a.balance.max(tx.value);}}
+    {use pocol_lp4_execution::view::{WorkState,View};
+        if estimate_v3{
+            // With `from`, estimation checks real funds for gas/value/creation.
+            // With no sender, this remains a gas query: a virtual pre-existing
+            // caller must not itself incur a spurious account creation charge.
+            if o["from"].is_null(){let mut a=st.account(&tx.caller).and_then(|a|a.info()).unwrap_or_default();
+                a.balance=a.balance.max((U256::from(1)<<127)-U256::from(1));st.insert_info(tx.caller,a);}
+            if tx.gas_price!=U256::ZERO{
+                let balance=st.account(&tx.caller).and_then(|a|a.info()).map_or(U256::ZERO,|a|a.balance);
+                let available=balance.checked_sub(tx.value).ok_or_else(||Fail::from((-32000,"insufficient funds for value".into())))?;
+                // A sender need only afford this transaction, not the entire
+                // block's declared gas. Search within its real gas-price budget.
+                let affordable=(available/tx.gas_price).try_into().unwrap_or(u64::MAX);tx.gas_limit=tx.gas_limit.min(affordable);
+            }
+        }else if let Some(a)=st.info_mut(&tx.caller){a.balance=a.balance.max(tx.value);}
+    }
     // Cancellation (network.md:286): the stop hook ends the execution at its next poll once the
     // deadline has passed (native::simulate_for_profile: every STOP_GAS gas of a frame, before every
     // call). A precompile runs to its end, so the cancellation gap is not bounded there (CANCEL_MAX
     // is not enforced); `member` still answers a late result -32020.
     let by=b.compute_by;let stop:std::rc::Rc<dyn Fn()->bool>=std::rc::Rc::new(move||Instant::now()>=by);
+    let (caller,gas_limit)=(tx.caller,tx.gas_limit);
     match native::simulate_for_profile(&st,tx,&ctx,n.chain.spec.profile(),stop){
-        Ok(r)=>Ok(r.result),
+        Ok(mut r)=>{
+            if estimate_v3{
+                // Counts refer to the actual parent, before the optional query
+                // caller above; the virtual caller occupies no live cap unit.
+                let summary=e.summary.as_deref().copied().unwrap_or_else(||pocol_lp4_execution::state_summary::Summary::scan_view(&base,cp.B_code_max));
+                let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
+                meter.admit_result(&st,&mut r,caller,&ctx,n.chain.spec.profile(),summary.inventory()).map_err(|why|Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))?;
+                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),true){return Err(Fail::from((-32000,format!("execution would halt ({why:?})"))))}
+                if b.expired(){return deadline()}
+            }
+            // Preserve the legacy search ceiling; only v3 introduces priced
+            // estimation with the request/funds-constrained upper bound.
+            Ok(Simulated{result:r.result,gas_limit:if estimate_v3{gas_limit}else{gas.unwrap_or(gas_limit)}})
+        },
         Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>deadline(),
         Err(e)=>Err(Fail::from((-32000,format!("{e:?}")))),
     }
@@ -1212,6 +1270,39 @@ fn logs_from(n:&Node,m:&str,f:&Value)->Option<u64>{
 
 #[cfg(test)]
 mod tests{
+    /// Deadline delivery must not wait for backend completion. Holding the
+    /// admitted request until after the client gets 504 tests that ordering
+    /// directly, without comparing scheduler latency to a short VM benchmark.
+    #[test] fn work_deadline_replies_while_the_admitted_backend_is_still_held(){
+        use super::*;
+        let heavy=r#"{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{}]}"#;
+        let batch=format!("[{}]",vec![heavy;20].join(","));
+        for body in [heavy.to_string(),batch]{
+            let listener=TcpListener::bind("127.0.0.1:0").unwrap();let addr=listener.local_addr().unwrap();
+            let (answered,answer)=mpsc::channel();
+            let client=std::thread::spawn(move||{
+                let mut s=TcpStream::connect(addr).unwrap();s.set_nodelay(true).unwrap();s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();
+                let request=format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len());
+                s.write_all(request.as_bytes()).unwrap();let mut response=String::new();let read=s.read_to_string(&mut response);drop(s);
+                answered.send((read,response)).unwrap();
+            });
+            let (socket,_)=listener.accept().unwrap();socket.set_nodelay(true).unwrap();sockbuf::set(&socket,SEND_SOCK_BUF).unwrap();
+            let (events,backend)=mpsc::sync_channel(1);let (light,_light_rx)=mpsc::sync_channel(1);
+            let queued=Arc::new(AtomicUsize::new(0));let held=queued.clone();
+            let limits=Limits{work_deadline:Duration::from_secs(1),queue_wait:Duration::from_secs(30),..Default::default()};let queue_wait=limits.queue_wait;
+            let connection=std::thread::spawn(move||conn(socket,events,LightLane{tx:light,wake:Arc::new(AtomicBool::new(false))},&limits,&Server{queued:held,light:Arc::new(AtomicUsize::new(0))}));
+            let request=match backend.recv_timeout(Duration::from_secs(5)).unwrap(){Event::Rpc(q)=>q,_=>panic!("expected RPC work")};
+            assert!(!request.light);assert!(request.admit(queue_wait).is_ok(),"backend takes the request before its deadline");
+            // Do not send a backend reply or release its body before observing
+            // the HTTP result. An implementation waiting for backend completion
+            // instead of the deadline cannot satisfy this bounded receive.
+            let (read,response)=answer.recv_timeout(Duration::from_secs(2)).expect("the work deadline must answer while backend work is held, before the 30-second admission wait");
+            assert!(read.is_ok(),"the transport must answer without a backend reply: {read:?}");
+            assert!(response.starts_with("HTTP/1.1 504"),"{response}");assert!(Instant::now()>=request.deadline,"a timeout is never sent early");
+            assert_eq!(request.state.load(Ordering::SeqCst),ADMITTED);assert_eq!(queued.load(Ordering::SeqCst),1,"the pending backend body remains bounded and held");
+            drop(request);assert_eq!(queued.load(Ordering::SeqCst),0,"dropping backend work releases its place");client.join().unwrap();connection.join().unwrap().unwrap();
+        }
+    }
     // F13: a loopback-RPC answer must never carry a CORS grant a cross-origin page could use, and a
     // rebound DNS Host must be refused. Encodes the FIXED behavior (fails on the original `*` header /
     // absent Host check). Pure-function checks, no socket needed.
@@ -1250,6 +1341,20 @@ mod tests{
         }
         // Duplicate keys are a probe parse error: heavy (the parsed form keeps the last key).
         assert!(!super::light_class(br#"{"method":"pocol_status","method":"eth_getBlockByNumber","params":["latest",false]}"#));
+    }
+    /// C3-2: only the v3 receipt lane moves eth_getTransactionReceipt to heavy; every other row and
+    /// the legacy classification are unchanged.
+    #[test] fn the_v3_receipt_lane_moves_only_the_receipt_row(){
+        let receipt=br#"{"jsonrpc":"2.0","id":1,"method":"eth_getTransactionReceipt","params":["0x00"]}"#;
+        assert!(super::is_light(receipt)&&super::is_light_for(receipt,false)&&!super::is_light_for(receipt,true));
+        assert!(super::light_class_for(receipt,false)&&!super::light_class_for(receipt,true));
+        let v:serde_json::Value=serde_json::from_slice(receipt).unwrap();assert!(super::light_value_for(&v,false)&&!super::light_value_for(&v,true));
+        for m in super::LIGHT_METHODS.iter().filter(|m|**m!="eth_getTransactionReceipt"){
+            let b=format!(r#"{{"method":"{m}"}}"#);assert!(super::is_light_for(b.as_bytes(),true),"{m}");
+            assert!(super::light_value_for(&serde_json::from_str(&b).unwrap(),true),"{m}");
+        }
+        assert!(super::light_class_for(br#"{"method":"eth_getBlockByNumber","params":["latest",false]}"#,true));
+        assert!(!super::Limits::default().heavy_receipts);
     }
     /// Review 2 (M4): an answer over RESP_MAX is -32020 {resultBytes} (network.md:210), not -32008.
     #[test] fn responses_above_resp_max_become_an_error(){

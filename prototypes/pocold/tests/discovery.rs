@@ -66,7 +66,17 @@ impl Running{
         Self{p2p,rpc,net,stop,run:Some(std::thread::spawn(move||n.run_controlled(|_|s.load(Ordering::SeqCst))))}
     }
     fn status(&self)->serde_json::Value{status(self.rpc)}
-    fn counter(&self,k:&str)->u64{self.status()["discovery"]["counters"][k].as_u64().unwrap()}
+    /// A discovery counter. A status request can come back empty while the node is busy (a read timeout or a busy
+    /// lane answer under CI load), so it is asked again for up to 30 s before the missing counter fails the test.
+    fn counter(&self,k:&str)->u64{
+        let t=Instant::now();
+        loop{
+            let s=self.status();
+            if let Some(v)=s["discovery"]["counters"][k].as_u64(){return v}
+            assert!(t.elapsed()<Duration::from_secs(30),"discovery counter {k} missing from status: {s}");
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    }
 }
 impl Drop for Running{fn drop(&mut self){self.stop.store(true,Ordering::SeqCst);if let Some(r)=self.run.take(){let _=r.join();}}}
 /// The node's connection to the raw listener `r`, which it dials as a configured peer.

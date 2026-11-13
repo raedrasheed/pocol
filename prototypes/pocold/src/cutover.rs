@@ -5,6 +5,8 @@
 //! state.redb. No block is added to it. The node is not started, mines nothing and has no peers; the old node
 //! must be stopped first, its home lock enforces that.
 use pocol_lp4_execution::apply;
+/// V3-33: the published old-chain data (`pocold export-chain`, `pocold verify-export`).
+pub mod export;
 use revm::{InMemoryDB,primitives::{Address,U256}};
 use serde_json::{json,Value};
 
@@ -69,6 +71,14 @@ pub fn transform(old:&InMemoryDB,height:u64,d:u64,miners:&[Address],bond:U256,v3
     Ok((alloc,report))
 }
 
+/// Whether a state's system programs are the bundled v3 set (each of C0C001..C0C005 holds the v3 program's code), read
+/// from the state itself: an old-chain export and its verification (`export::facts`) have no genesis spec to name the
+/// program set, and only the v3 Escrow keeps a carry between blocks (`transform`'s `v3`).
+pub fn runs_v3_programs(state:&InMemoryDB)->bool{
+    let v3=pocol_lp4_execution::apply::SystemPrograms::v3();
+    v3.codes.iter().enumerate().all(|(i,code)|state.accounts.get(&apply::program_address(i)).and_then(|a|a.info()).is_some_and(|info|info.code_hash==revm::primitives::keccak256(code)))
+}
+
 /// The state of the canonical block `hash` (at `height`), rebuilt when R21 has pruned it: a node keeps states only
 /// for the last K_hist blocks (32), and the runbook cuts S at least 60 below the head. The rebuild re-executes
 /// through the node's own path (TrieRebuild) from genesis, the nearest state kept below S, and checks every
@@ -101,7 +111,18 @@ pub fn rebuild_at(node:&mut crate::node::Node,hash:&[u8;32],height:u64)->Result<
 
 /// `pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]`
 pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],out:&std::path::Path,limits:crate::node::Limits,local:&pocol_lp4_execution::admission::NodeLocal)->Result<(),String>{
+    run_with_export(net,data,height,config,out,None,limits,local)
+}
+/// `run`, and with `export` (`--export-chain DIR`, V3-33) also the old-chain data export of S (`export::export`) from the
+/// same open node, so the state at S is rebuilt once for both (a separate `pocold export-chain` rebuilds it again). The
+/// export is written first; the genesis files only once it is complete. Neither directory may exist beforehand.
+#[allow(clippy::too_many_arguments)]
+pub fn run_with_export(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],out:&std::path::Path,export:Option<&std::path::Path>,limits:crate::node::Limits,local:&pocol_lp4_execution::admission::NodeLocal)->Result<(),String>{
     if out.exists(){return Err("output must be a new directory; genesis is never overwritten".into())}
+    if let Some(x)=export{
+        if std::fs::symlink_metadata(x).is_ok(){return Err("--export-chain must be a new directory; an export is never overwritten".into())}
+        if std::path::absolute(x).ok()==std::path::absolute(out).ok(){return Err("--export-chain and --out must be different directories".into())}
+    }
     let (miners,new_bond)=crate::testnet::cutover_params(config)?;
     let spec=crate::load_spec_for(net,local,limits.state_store.then_some(data))?;
     let (chain_id,genesis)=(spec.chain_id(),crate::types::hex(&spec.genesis_hash()));
@@ -125,6 +146,9 @@ pub fn run(net:&std::path::Path,data:&std::path::Path,height:u64,config:&[u8],ou
     drop(state);
     let (alloc,mut report)=transform(&old,height,d,&miners,new_bond,v3)?;
     report["old"]=json!({"chainId":chain_id,"genesisHash":genesis,"height":height,"blockHash":block,"head":head});
+    drop(old);
+    // The state at S is still held (`rebuild_at` returns at once); the cutover report does not change with it.
+    if let Some(x)=export{export::export(&mut node,height,x)?;}
     drop(node);
     crate::testnet::prepare_cutover(config,alloc,report,out)
 }

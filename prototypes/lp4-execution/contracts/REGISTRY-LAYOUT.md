@@ -143,7 +143,8 @@ record, the reporter's PAY and the chain's first burn; an ACCRUING accused with 
 to B_reg and promoted in one settlement, the chain's first burn, 192 HELD payees: the earn-in accrual, first measured
 here). Admission composes them from GAS_ENVELOPE_V3 (37,000; 9,000; 99,000; 6,314,000,
 also for settleFinal) for a genesis running the v3 set, whose gas domain also requires P_MAX <= 64; every other entry
-of GAS_ENVELOPE applies unchanged. Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes.
+is GAS_ENVELOPE_EARNIN's (PoColSystemV3.sol is built on the earn-in programs, whose markClose and beginBlock measure
+above GAS_ENVELOPE; the same test measures v3 beginBlock 573,516 and markClose 30,889 within it). Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes.
 
 The independent model is tests/v3_model.py (class Chain; vectors tests/v3/evidence-penalty-vectors.json, whole blocks
 with settlement); five planted mutants (reporter-paid-on-fallback, whole-pot-for-bonded-accused,
@@ -181,7 +182,8 @@ kappa*m - 1), D * (kappa*m - 1)) late shares, so the evidence keys are at most 9
 nobody). SYS gas (tests/v3_contracts.rs v3-preview `v3_sys_gas_and_caps_within_the_v3_envelope`, chain C): one call
 crediting kappa*m - 1 = 63 shares to distinct owners new to owners[j], as the block's first call: 3,457,157 with owners
 without a record (four cold words read each), 3,228,593 with recorded owners whose lastShare it writes. Admission
-composes GAS_ENVELOPE_V3 recordLate 3,458,000 for a genesis running the v3 set, counting each of the E_max evidence
+composes GAS_ENVELOPE_V3 recordLate 3,458,000 for a genesis running the v3 set (the one v3-only call name, appended to
+the GAS_ENVELOPE_V3-over-GAS_ENVELOPE_EARNIN composition), counting each of the E_max evidence
 items as the dearer of recordLate and invalidate + punish; the v3 gas domain also requires kappa*m <= 64. Runtime
 sizes: MinerRegistry 10,734 bytes, ShareLedger 3,478 bytes (RewardEscrow unchanged, 5,218).
 

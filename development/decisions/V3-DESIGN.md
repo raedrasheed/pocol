@@ -271,7 +271,7 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
 1. **PR-0 Decision record (docs).**
    - Add `development/decisions/V3-DECISIONS.md` and `decisions.json` entries D-V3-*.
    - Quote the owner's rule verbatim. Record the §5 answers.
-   - State that the rule supersedes `development/m1/reference/README.md:484-486` (the proposal-before-implementation
+   - State that the rule supersedes the repository root `README.md:484-486` (the proposal-before-implementation
      gate) for compliant items.
    - Write the normative amendments (V3-29).
    - Must merge before any consensus code.
@@ -321,8 +321,16 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
    - GAS_ENVELOPE for the v3 programs (`admission.rs:86-87`).
    - A13 re-run at the v3 CP in store mode (`resources.rs:571-577`).
    - ParamGate R1–R26 at the v3 CP and the WAN locals (V3-06).
-8. **PR-7 Off-node verifiers.**
+8. **PR-7 Off-node verifiers** (V3-PR-G, off-node verifiers and clients).
    - `pocol_rewards.py:272-281` (V3-01 membership, late shares, issuance), `rp.js:41-61`, `refdec.js:18`.
+   - V3-21 creation-burn user bound (D-V3-21 open pre-launch item, launch blocker `D-V3-21 creation-burn user
+     bound`): wallets and clients quote the creation burn separately from the maximum gas fee and let the user set
+     a burn limit; the pool and eth_estimateGas refuse a submission whose quoted burn exceeds it, or the owner's
+     chosen signed cap is implemented instead. The owner confirms the option before V3-PR-I; the blocker is
+     removed only with that change.
+   - V3 receipt polling (V3-PR-C3 review C3-2): a v3 node serves eth_getTransactionReceipt on the heavy lane
+     (heavy queue, RESP_MAX reservation, heavy deadline), so wallets and clients treat receipt polling as heavy-class
+     and back off on −32021 {busy, retryAfterMs}; expose the lane in `pocol_getParams.rpcLimits` if clients need it.
 9. **PR-8 Harnesses and vectors.**
    - SimNet T7c(S) (share omission), T10b(iv) (withholding proposer plus a pre-mined fallback coalition),
      T10 with ASERT (carry and burn).
@@ -471,15 +479,31 @@ NODE-LOCAL. Nothing further.
   - the fallback body is empty and its winner also takes propPart (`PoColSystemV1.sol:194-196`).
 
 **Change.** Each block gets a `timely` flag at its first import, which is local, like importSeq.
-- **signed:** timely iff first import ≤ T_j(local) + Φ.
+- **signed:** T_j is the deadline for the signed TEMPLATE, so a signed block is timely iff this node first LOCKED its
+  signed template at or before T_j(local) + Φ, however long the solution then took. Locking is the existing §4(a)
+  check: the drawn proposer's signature, the window, item 16 and a body that rebuilds to the template's UT, by T_j;
+  or the node's own template. A shell merely received (its signature valid, its body missing or not rebuilding)
+  never counts: nobody else can mine it, so its block is a withheld one. A slot (parent, signer, height) whose
+  signer equivocated (type-1 evidence seen here) counts no template. Only when this node never locked the template,
+  or its slot is poisoned, is the solved block's own first import compared with T_j(local) + Φ instead. The earlier
+  of the two times counts.
 - **attempt-0 fallback:** timely iff first import ≥ T_j(local) − (Δ + Φ).
 - **attempt ≥ 1:** always timely.
+
+Template first-seen (first lock) times are node-local, kept in a bounded map (one TemplateID per slot, at most
+TEMPLATE_SEEN_MAX slots; a full map forgets the heights below the head, then those above head+1, and records no new
+slot while still full) and not persisted. They are read only once, at a
+block's first import; the resulting bit is frozen in the journal and the checkpoint flags, so a restart, a refetch
+or a changed local deadline never reclassifies. A template the map no longer holds (after a restart, or past its
+bound) leaves the block to the block-arrival rule, which is never more timely.
 
 The key becomes `(timely?0:1, signed?0:1, importSeq, blockHash)`.
 
 **Effects:**
-- An honest timely signed block beats everything.
-- A withheld signed block loses to a timely fallback.
+- An honest signed block whose template was locked on time beats everything, even if it was solved after T_j + Φ
+  and an attempt-0 fallback is released after it (D15 for honest proposers).
+- A withheld signed block loses to a timely fallback: a withheld template, or a shell gossiped without a minable
+  body, is never locked, and an equivocator's slot is poisoned, so its late block is judged on its own arrival.
 - A pre-mined early fallback loses to the timely signed block.
 - The key is fixed per stored block, so D133's total-order and transition lemmas still hold.
 
@@ -499,8 +523,9 @@ The key becomes `(timely?0:1, signed?0:1, importSeq, blockHash)`.
 
 The remainder depends on V3-06.
 
-**Deployment:** B (host). **Safety:** a node restart re-imports blocks and assigns new flags, exactly as
-importSeq is local today.
+**Deployment:** B (host). **Safety:** the flags and first-import times are persisted (journal and checkpoint flags)
+and never reassigned: a restart replays them, and only importSeq is assigned afresh, as today. Only template
+first-lock times are lost on a restart; a block first imported after it is judged on its own arrival.
 
 **Tests.**
 - Fails on the original code: import a timely fallback, then a late signed sibling. Today the head switches;
@@ -519,6 +544,27 @@ importSeq is local today.
   - Add per-proposer template-arrival latency counters to `pocol_status`.
 - **Classification:** NODE-LOCAL. **Deployment:** any release. **Tests:** the default satisfies R2 for each
   locals profile. **Effort:** S.
+- **Implementation note (N1).**
+  - Derivation (`pocold/src/testnet.rs`): `derive_delta_rel(Δ, φ, t_exec) = σ + Δ + 2·t_exec` with
+    σ = max(Δ, Φ+1) + t_exec, Φ = 2φ (R2 at equality); `local_for_v3` adds Γ as the R6 slack at those locals
+    (never below 5). It applies only to spec-2 (v3) genesis files: `local_for_spec` and `local_for_network` keep the
+    spec-1 derivation `local_for` (Δ_rel = dFbWait + Δ + t_exec, Γ the R6 slack) byte for byte, so the live H15000
+    chain stays at Δ_rel 8, Γ 5, and a spec-1 config that declares timing is refused.
+  - Inputs: the public testnet config's `localTiming {delta, phi, tExec}` (v3 only), recorded in devnet.json
+    `localTiming` with `source` (`declared` or `v3-wan-default`) and read back by the launcher; without it the
+    default is `TimingAssumptions::V3_WAN` (Δ = φ = t_exec = 2 s, the O-6=b bounds): Δ_rel 13, Γ 8 at
+    T_blk 30 / D_att 150 / dFbWait 10. The governance WAN locals (5, 5, 3) derive 25 and need dFbWait ≥ 21 (R3),
+    which admission enforces. The production values stay V3-PR-F's.
+  - Telemetry (`pocold/src/node/latency.rs`): per drawn proposer, the arrival of its signed a=0 template relative to
+    b_j (sinceParentMs: what Δ_rel must cover) and, signed, relative to the template's own timestamp, the proposer's
+    clock at the build (sinceStampMs / beforeStampMs: delivery + build + the receiver's clock offset, the φ-bearing
+    quantity; templates stamped at the L(0) floor are counted apart), the lock time relative to b_j, late (after
+    T_j) and early counts, slots and missing templates, in bounded histograms (256 proposers, 64 slots, 147 KB), in
+    `pocol_status.templateLatency` and `pocol_templateLatency`. Nothing is measured against L(0): b_j − L(0) is
+    about the parent's PoW round, not a clock offset. Metric definitions and how to read Δ and φ from them:
+    `development/m1/reference/network.md`, "Template latency".
+  - A v3 node takes this timing on every path (the launcher, `pocold run` and `pocold status`); a v3 devnet.json
+    whose recorded deltaRel or gamma differs from the derivation is refused.
 
 ### V3-06 Timing recalibration (OWNER-CHOICE O-6)
 
@@ -677,6 +723,9 @@ hashrate (`chain.rs:592`).
   servers can propose (DEC-05).
 - Option (b) filter: `bond_state==4 && bond < B_reg/4` → excluded. A type-1 equivocation then always burns at
   least B_reg/4.
+  - Note (2026-11-12): this minimum does not hold while every draw member is a sub-quarter probationer. The
+    existing earn-in D1 exception (EARN-IN-SPEC.md §6) then makes all of them candidates, and the dormant v3 code
+    keeps it. The owner confirmed the exception on 2026-11-12 (option a); see V3-OWNER-DECISIONS-2026-11-12.md.
 - The draw stays deterministic and share-weighted (P3). **Deployment:** B (host). **Effort:** S.
 
 ### V3-14 Probation pool (OWNER-CHOICE O-14)
@@ -1014,6 +1063,15 @@ fork; a restart test. **Effort:** S. **Risk:** low.
   - Transactions after S are voided (`EARN-IN-CUTOVER-RUNBOOK.md:81`, `:96`).
   - Android installs cannot follow (`:434`) and keys cannot be exported (`deploy/standalone/README.md:171-173`).
   - The owner alone decides (DEC-06).
+- **Status (N6):** the builder/pool freeze (`--freeze-user-txs-after S`, POCOL_FREEZE_USER_TXS_AFTER, `pocol
+  freeze-user-txs`; `node::Limits::freeze_user_txs_after`), the old-chain export (`pocold export-chain`,
+  `pocold verify-export`; `pocold/src/cutover/export.rs`) and the conduct steps in
+  `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` step 0.4 are in tree. No validity, fork-choice, journal or
+  checkpoint byte changed; with the setting off a node behaves as before. The freeze is local policy, so "nothing
+  is voided" holds only when every node that can be drawn as proposer runs it; the runbook's step 1 checks every
+  block after S, whoever proposed it. A saved launcher or inventory setting names its network and is not applied
+  to the new one. The cutover can write the export in the same run (`--export-chain`), rebuilding the state at S
+  once. The Android export build is the existing key-backup work. Nothing was run on a real network.
 - **NODE-LOCAL parts:**
   - a builder flag that includes no user transactions after S, so nothing is voided;
   - publish old-chain data and rebuild instructions;
