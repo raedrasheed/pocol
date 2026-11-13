@@ -3770,9 +3770,19 @@ mod v3_30_tests{
     use super::*;
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
     /// A node that is the drawn proposer of height 1 with its template locked (genesis a few seconds ago), two miner
-    /// threads and a work port, and its own range of the locked template.
-    fn locked_node(tag:&str)->(Node,std::path::PathBuf,[u8;32],(u64,u64)){
-        let mut c=DevnetConfig::new(777911,now_s()-10,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
+    /// threads and a work port, and its own range of the locked template. The template (and so what its own range
+    /// holds) depends on the second the test starts, so chain ids 777911, 777912, ... are tried until `needs` holds for
+    /// the locked template's own range (at most 64; every assertion of the caller is unchanged).
+    fn locked_node(tag:&str,needs:impl Fn(&Node,&[u8;32],(u64,u64))->bool)->(Node,std::path::PathBuf,[u8;32],(u64,u64)){
+        for i in 0..64u64{
+            let (n,dir,tid,range)=locked_node_on(tag,777911+i);
+            if needs(&n,&tid,range){return (n,dir,tid,range)}
+            drop(n);let _=std::fs::remove_dir_all(dir);
+        }
+        panic!("no chain id in 777911..777975 gave an own range with what the test needs")
+    }
+    fn locked_node_on(tag:&str,chain_id:u64)->(Node,std::path::PathBuf,[u8;32],(u64,u64)){
+        let mut c=DevnetConfig::new(chain_id,now_s()-10,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
         let dir=std::env::temp_dir().join(format!("pocold-v330-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let limits=Limits{mine_threads:2,work_rpc:Some("127.0.0.1:1".parse().unwrap()),..Default::default()};
@@ -3788,11 +3798,16 @@ mod v3_30_tests{
     fn own_shares(n:&Node)->usize{n.prod.as_ref().unwrap().own_shares}
     fn held(n:&Node)->usize{n.prod.as_ref().unwrap().shares.len()}
     fn targets(n:&Node)->(Fixed,Fixed){let Some(Production{mode:Mode::Locked(l),..})=&n.prod else{panic!()};(l.ctx.target,l.ctx.t_share)}
+    /// Real shares (share target, not a solution) and solutions in the own range of the locked template.
+    fn real_shares(n:&Node,tid:&[u8;32],(s,e):(u64,u64),k:usize)->Vec<u64>{let (target,t_share)=targets(n);
+        (s..=e).filter(|x|{let h=pow_hash(tid,*x);le_target(&h,&t_share)&&!le_target(&h,&target)}).take(k).collect()}
+    fn solutions(n:&Node,tid:&[u8;32],(s,e):(u64,u64),k:usize)->Vec<u64>{let (target,_)=targets(n);
+        (s..=e).filter(|x|le_target(&pow_hash(tid,*x),&target)).take(k).collect()}
     /// One S_max per template for the node's own shares, from its miner and pocol_submitWork together: with S_max − 1
     /// held from the miner, one submitted share fills the cap; the next is refused (shareCap) and a further miner
     /// share is neither kept nor counted.
     #[test] fn own_shares_from_the_miner_and_submit_work_share_one_s_max(){
-        let (mut n,dir,tid,(s,e))=locked_node("cap");
+        let (mut n,dir,tid,(s,e))=locked_node("cap",|n,tid,r|real_shares(n,tid,r,3).len()==3);
         let s_max=usize::from(n.chain.spec.cp().S_max);let (target,t_share)=targets(&n);
         let real:Vec<u64>=(s..=e).filter(|x|{let h=pow_hash(&tid,*x);le_target(&h,&t_share)&&!le_target(&h,&target)}).take(3).collect();
         assert_eq!(real.len(),3,"three real shares in the own range");
@@ -3815,7 +3830,7 @@ mod v3_30_tests{
     /// A solution through pocol_submitWork stops and joins the internal miner even when its block is not imported,
     /// and a second solution for the solved template is refused (`solved`).
     #[test] fn an_external_solution_stops_the_miner_and_a_second_is_refused(){
-        let (mut n,dir,tid,(s,e))=locked_node("solved");let (target,_)=targets(&n);
+        let (mut n,dir,tid,(s,e))=locked_node("solved",|n,tid,r|!solutions(n,tid,r,1).is_empty());let (target,_)=targets(&n);
         let sols:Vec<u64>=(s..=e).filter(|x|le_target(&pow_hash(&tid,*x),&target)).take(2).collect();
         assert!(!sols.is_empty(),"a solution in the own range");
         let threads=n.prod.as_ref().unwrap().miner.as_ref().map(|m|m.threads());assert_eq!(threads,Some(2),"two miner threads run");
@@ -3834,7 +3849,7 @@ mod v3_30_tests{
     /// Once the own miner reported the whole own range scanned, getWork is refused (the range holds no solution) until
     /// the next template; a range the miner could not start on (no miner) is not exhausted.
     #[test] fn an_exhausted_own_range_is_not_handed_out(){
-        let (mut n,dir,tid,_)=locked_node("exhausted");
+        let (mut n,dir,tid,_)=locked_node("exhausted",|_,_,_|true);
         assert!(n.work_json(None).is_ok());
         n.prod.as_mut().unwrap().miner=None;assert!(n.work_json(None).is_ok(),"no miner is not exhaustion");
         n.on_miner(MinerEvent::Exhausted{tid,hashes:1});
