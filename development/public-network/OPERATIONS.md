@@ -220,7 +220,18 @@ entry is uncertified and every H15000 home is refused. Deployment is held.
   characters, for example "peer has not scheduled activation (2,H): it must apply the
   published network upgrade" or "peer runs consensus rules 2; this node runs rules 1";
 - `legacyHellos`: first frames that were a 0.4.0 handshake. During the switch this is
-  the progress metric: it falls to 0 once no 0.4.0 node dials in.
+  the progress metric: it falls to 0 once no 0.4.0 node dials in;
+- `publicLaunchReady` and `launchBlockers` [{id, detail}] (V3-28 H1,
+  `prototypes/pocold/src/readiness.rs`): computed from this build and the admission the
+  node booted with, true only with no blocker. Today it is false, for example
+  `spec-version`, `plan-gate-Q1`, `v3-inactive`, `admission-scope` and `profile-kind`.
+  `pocold build-info` reports the build's readiness alone (blocker `no-network`). The
+  launcher's network description (`pocol network`, `import`, `upgrade`) reports these
+  fields for the invitation's files, but it admits nothing, so it always adds
+  `admission-not-booted`: what devnet.json records about its admission is never
+  evidence. Only a booted node's status reports the admission readiness is computed from.
+  An Android package's build-info.json is the build's raw identity, with
+  `publicLaunchReady: false` and the single blocker `readiness-not-computed`.
 `compatibilitySha256` stays for install integrity: `monitor.py` and `collect_seeds.py`
 group nodes by `consensusIdentity` (and fork schedule) and warn about mixed digests
 (`collect_seeds.py` still refuses a digest set that changes between its two rounds);
