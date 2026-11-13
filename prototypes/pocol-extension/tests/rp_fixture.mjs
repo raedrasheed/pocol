@@ -1,13 +1,14 @@
 // Synthetic RP header windows: consecutive fallback headers (a=0) built from a GenesisSpec with
 // exact timing (L(0)+dFbWait), ASERT targets, real PoW nonces below nMax and a recoverable winnerSig.
-// `mutate(h, ut)` may alter UT fields of height h (as RLP items) before sealing.
+// `mutate(h, ut)` may alter UT fields of height h (as RLP items) before sealing. `maxVersion` is the decoder
+// ceiling for the spec (2 for a v3 genesis, the v3-preview decoder).
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 
-export async function rpWindow(dist, specBytes, heights, mutate = () => {}) {
+export async function rpWindow(dist, specBytes, heights, mutate = () => {}, maxVersion = undefined) {
   const L = async (m) => import(pathToFileURL(join(dist, 'lib', m)).href);
   const RP = await L('rp.js'), R = await L('rlp.js'), H = await L('hex.js'), C = await L('crypto.js');
-  const spec = RP.decodeSpec(specBytes); const cp = (k) => RP.cpv(spec, k);
+  const spec = maxVersion === undefined ? RP.decodeSpec(specBytes) : RP.decodeSpec(specBytes, maxVersion); const cp = (k) => RP.cpv(spec, k);
   const u = (v) => R.encUint(BigInt(v)); const enc = new TextEncoder();
   const winKey = new Uint8Array(32).fill(3);
   let parent = { hash: spec.genesisHash, ts: cp('g_ts'), h: 0n };

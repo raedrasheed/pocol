@@ -50,6 +50,10 @@ PROTOCOL_VERSION_MIN = 2
 # genesis opens only in a v3-preview build, which a seed never runs, so this release-mode inventory refuses it until
 # activation (V3-PR-I).
 SPEC_VERSION = 1
+# A spec-2 genesis is identified as a v3 genesis only with six top items, CP schema v2's 67 items, 32-byte roots and the
+# v3 program set's sysCodeHash (deploy/public-testnet/pocol_identity.V3_SYS_CODE_HASH; test_preflight compares them).
+V3_CP_ITEMS = 67
+V3_SYS_CODE_HASH = '72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849'
 # The state binding fields node_operator.launch compares (plan §4); the build digest is informational.
 BOUND = ('chainId', 'genesisHash', 'consensusIdentity', 'stateStore', 'node', 'miner')
 LAYOUTS = {
@@ -165,8 +169,44 @@ def spec_version(network, spec_text):
     start = 1 if spec[0] <= 0xf7 else 1 + spec[0] - 0xf7
     require(spec[0] >= 0xc0 and start < len(spec) and 0 < spec[start] < 0x80, 'invalid public GenesisSpec version')
     require(spec[start] == declared, 'GenesisSpec version differs from the network metadata')
+    if declared == 2:
+        v3_genesis(spec)
     require(declared == SPEC_VERSION, 'a release seed refuses a spec-2 (v3) genesis until activation')
     return declared
+
+
+def v3_genesis(spec):
+    """The shape that identifies a spec-2 GenesisSpec as a v3 genesis: one canonical top list of six items whose CP is a
+    list of 67 strings, 32-byte allocRoot and sysCodeHash, and the v3 program set's sysCodeHash (the only set pocold runs
+    on a spec-2 genesis). The full decode is the node's (and pocol_identity.decode_genesis_spec's); a seed refuses spec 2
+    either way, so this only tells a well-formed v3 genesis from a malformed one in the report."""
+    def item(i, end):
+        require(i < end, 'invalid spec-2 (v3) GenesisSpec')
+        p = spec[i]
+        if p < 0x80: return False, i, i + 1
+        short = p - (0xc0 if p >= 0xc0 else 0x80)
+        if short <= 55: s, n = i + 1, short
+        else:
+            k = short - 55
+            require(i + 1 + k <= end and spec[i + 1] != 0, 'invalid spec-2 (v3) GenesisSpec')
+            s, n = i + 1 + k, int.from_bytes(spec[i + 1:i + 1 + k], 'big')
+            require(n > 55, 'invalid spec-2 (v3) GenesisSpec')
+        require(s + n <= end, 'invalid spec-2 (v3) GenesisSpec')
+        return p >= 0xc0, s, s + n
+    def children(s, e):
+        out = []
+        while s < e:
+            out.append(item(s, e)); s = out[-1][2]
+        return out
+    is_list, s, e = item(0, len(spec))
+    require(is_list and e == len(spec), 'invalid spec-2 (v3) GenesisSpec')
+    top = children(s, e)
+    require(len(top) == 6 and top[2][0] and top[4][0] and not any(top[k][0] for k in (0, 1, 3, 5)),
+            'invalid spec-2 (v3) GenesisSpec')
+    cp = children(top[2][1], top[2][2])
+    require(len(cp) == V3_CP_ITEMS and not any(x[0] for x in cp), 'invalid spec-2 (v3) GenesisSpec')
+    require(all(top[k][2] - top[k][1] == 32 for k in (3, 5)), 'invalid spec-2 (v3) GenesisSpec')
+    require(spec[top[5][1]:top[5][2]].hex() == V3_SYS_CODE_HASH, 'a spec-2 GenesisSpec that does not name the v3 program set')
 
 
 def consensus_id(chain_id, genesis, rules, schedule):

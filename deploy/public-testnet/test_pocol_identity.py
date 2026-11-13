@@ -4,11 +4,14 @@ import json
 from pathlib import Path
 import re
 import struct
+import sys
 import unittest
 
 import pocol_identity as ident
 
 H15000 = Path(__file__).resolve().parents[1] / 'mainnet' / 'h15000' / 'network.pocol.json'
+REPO = Path(__file__).resolve().parents[2]
+CORPUS = REPO / 'prototypes' / 'pocol-extension' / 'tests' / 'data'
 LAUNCHER = Path(__file__).resolve().parents[2] / 'prototypes' / 'pocold' / 'src' / 'launcher.rs'
 GENESIS = 'be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 # Pinned also by pocold identity::tests::the_h15000_identity_is_pinned.
@@ -150,6 +153,114 @@ class ConsensusIdentity(unittest.TestCase):
         for other in ((('f' * 64),) + args[1:], (args[0], 7, args[2]), (args[0], args[1], '0x' + '00' * 32),
                       (None, args[1], args[2]), (args[0], True, args[2])):
             self.assertIsNone(ident.legacy_rules(*other, table=certified), other)
+
+
+
+def corpus(name):
+    return json.loads((CORPUS / name).read_text())['items']
+
+
+def verdict(b, max_version):
+    try:
+        ident.decode_genesis_spec(b, max_version)
+        return 'ok'
+    except ident.GenesisSpecError as error:
+        return f'{error.code}:{error.detail}'
+
+
+class GenesisSpecReference(unittest.TestCase):
+    """The Python port of genesis_spec.rs decode_bounded gives the Rust verdicts (pocold/tests/decoder_reference.rs
+    writes them) on every GenesisSpec item of the decoder corpus and of its V3-PR-G3a supplement, at the release ceiling
+    and at the v3-preview ceiling, as refdec.js does (pocol-extension/tests/decoder_diff.mjs)."""
+
+    def test_the_corpus_verdicts_equal_the_rust_reference(self):
+        release = json.loads((CORPUS / 'decoder-verdicts.json').read_text())
+        preview = json.loads((CORPUS / 'decoder-verdicts-preview.json').read_text())
+        v3 = json.loads((CORPUS / 'decoder-verdicts-v3.json').read_text())
+        checked, accepted = 0, {1: 0, 2: 0}
+        for items, want in ((corpus('decoder-corpus.json'), {1: release, 2: preview}),
+                            (corpus('decoder-corpus-v3.json'), {1: v3['release'], 2: v3['preview']})):
+            for item in items:
+                if item['kind'] != 'spec':
+                    continue
+                b = bytes.fromhex(item['hex'])
+                for ceiling in (1, 2):
+                    got = verdict(b, ceiling)
+                    self.assertEqual(got, want[ceiling][item['label']], (item['label'], ceiling))
+                    accepted[ceiling] += got == 'ok'
+                # The default ceiling is the release decoder.
+                self.assertEqual(verdict(b, ident.SPEC_VERSION), verdict(b, 1))
+                checked += 1
+        self.assertGreater(checked, 1270)
+        self.assertGreater(accepted[2], accepted[1])
+
+    def test_the_schemas_are_the_rust_schemas(self):
+        source = (REPO / 'prototypes' / 'lp1-node' / 'src' / 'genesis_spec.rs').read_text(encoding='utf-8')
+        def schema(name):
+            body = re.search(rf'{name}: \[CpField; [A-Z0-9_ -]+\] = \[(.*?)\];', source, re.S)
+            self.assertIsNotNone(body, name)
+            fields = []
+            for field, width, lo, hi in re.findall(r'f\("(\w+)", (\d+), ([\d_]+), Upper::(None|Gamma|Value\([\d_]+\))\)', body[1]):
+                bound = None if hi == 'None' else ident.GAMMA if hi == 'Gamma' else int(hi[6:-1].replace('_', ''))
+                fields.append((field, int(width), int(lo.replace('_', '')), bound))
+            return tuple(fields)
+        self.assertEqual(schema('CP_SCHEMA'), ident.CP_SCHEMA)
+        self.assertEqual(schema('CP_V2_EXTRA'), ident.CP_V2_EXTRA)
+        self.assertEqual((len(ident.CP_SCHEMA), len(ident.CP_SCHEMA_V2)), (52, 67))
+        self.assertEqual((ident.cp_schema(1), ident.cp_schema(2), ident.cp_schema(3), ident.cp_schema(0)),
+                         (ident.CP_SCHEMA, ident.CP_SCHEMA_V2, None, None))
+
+    def test_the_v3_program_set_hash_is_recomputed_from_the_bundled_programs(self):
+        sys.path.insert(0, str(REPO / 'deploy' / 'rewards'))
+        import pocol_rewards
+        programs = json.loads((REPO / 'prototypes' / 'lp4-execution' / 'tests' / 'data' / 'system-v3.json').read_text())['programs']
+        codes = [bytes.fromhex(p['runtime'].removeprefix('0x')) for p in programs]
+        self.assertEqual(len(codes), 5)
+        self.assertEqual(pocol_rewards.keccak256(pocol_rewards.rlp_encode(codes + [b''])).hex(), ident.V3_SYS_CODE_HASH)
+        self.assertEqual('0x' + ident.V3_SYS_CODE_HASH, pocol_rewards.V3_SYS_CODE_HASH)
+
+    def test_the_reward_gateway_reads_every_accepted_v3_genesis_as_the_reference_does(self):
+        # deploy/rewards/pocol_rewards keeps its own minimal v3 reader (a trusted genesis hash binds the spec there);
+        # on every spec-2 item the v3-preview reference accepts it gives the same version, chain, CP and sysCodeHash.
+        sys.path.insert(0, str(REPO / 'deploy' / 'rewards'))
+        import pocol_rewards
+        accepted = 0
+        for item in corpus('decoder-corpus.json') + corpus('decoder-corpus-v3.json'):
+            b = bytes.fromhex(item['hex'])
+            if item['kind'] != 'spec' or verdict(b, 2) != 'ok' or ident.decode_genesis_spec(b, 2)['specVersion'] != 2:
+                continue
+            spec = ident.decode_genesis_spec(b, 2)
+            self.assertEqual(pocol_rewards.decode_genesis_spec(b), (2, spec['chainId'], spec['cp'], '0x' + spec['sysCodeHash'].hex()), item['label'])
+            accepted += 1
+        self.assertGreaterEqual(accepted, 100)
+
+    def test_a_public_spec_2_genesis_is_decoded_and_identified(self):
+        items = {item['label']: bytes.fromhex(item['hex']) for item in corpus('decoder-corpus-v3.json') + corpus('decoder-corpus.json')}
+        v3 = items['v3/base']
+        chain = ident.decode_genesis_spec(v3, 2)['chainId']
+        info = {'chainId': chain, 'specVersion': 2, 'v3': True}
+        spec = ident.public_spec(info, v3, ident.PREVIEW_SPEC_VERSION)
+        self.assertEqual((spec['specVersion'], len(spec['cp']), spec['sysCodeHash'].hex(), spec['cp'][66]), (2, 67, ident.V3_SYS_CODE_HASH, 2500))
+        self.assertEqual(ident.public_spec(info, items['v3/m0-256'], 2)['m0'][255][0], bytes([0x31] * 18 + [0, 255]))
+        # A release ceiling refuses it with the reference's gsVersion; a malformed spec-2 genesis with its reference
+        # verdict; a declaration, chain or program set that differs, with what differs.
+        cases = [((info, v3, 1), 'gsVersion:2'), ((info, items['v3/order/len-before-range'], 2), 'gsLen:root'),
+                 ((info, items['v3/m0-256-last-system'], 2), 'gsSys:0xff'), ((info, items['v3/gamma-past-bound'], 2), 'gsRange:gamma_bp'),
+                 ((dict(info, chainId=chain + 1), v3, 2), 'chain ID differs'),
+                 ((info, items['devnet-v2/base'], 2), 'v3 program set'),
+                 (({'chainId': chain}, v3, 2), 'version differs'), (({'chainId': chain, 'specVersion': 2}, v3, 2), 'inconsistent')]
+        for args, message in cases:
+            with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
+                ident.public_spec(*args)
+        # A spec-1 genesis: the published H15000 spec under its own devnet.json, at either ceiling.
+        published = json.loads(H15000.read_text())['files']
+        spec1 = bytes.fromhex(published['genesis.spec.hex'].strip().removeprefix('0x'))
+        info1 = json.loads(published['devnet.json'])
+        for ceiling in (1, 2):
+            decoded = ident.public_spec(info1, spec1, ceiling)
+            self.assertEqual((decoded['specVersion'], decoded['chainId'], len(decoded['cp'])), (1, 1599846715, 52))
+        with self.assertRaisesRegex(ValueError, 'version differs'):
+            ident.public_spec({**info1, 'specVersion': 2, 'v3': True}, spec1, 2)
 
 
 if __name__ == '__main__':

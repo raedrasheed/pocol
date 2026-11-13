@@ -19,8 +19,12 @@ H15000_SPEC = json.loads(H15000.read_text())['files']['genesis.spec.hex']
 # A spec-2 (v3) GenesisSpec from the decoder corpus: the Rust reference gives it gsVersion in the release build and
 # accepts it in the v3-preview build (pocold/tests/decoder_reference.rs, the two verdict files).
 EXTENSION_DATA = Path(__file__).resolve().parents[2] / 'prototypes/pocol-extension/tests/data'
-SPEC_V2 = next(item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus.json').read_text())['items']
-               if item['label'] == 'devnet-v2/base')
+SPEC_V2 = next(item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus-v3.json').read_text())['items']
+               if item['label'] == 'v3/base')
+# The same spec naming another program set (the decoder accepts it; pocold would not run it), and malformed spec-2 items.
+SPEC_V2_OTHER_PROGRAMS = next(item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus.json').read_text())['items']
+                              if item['label'] == 'devnet-v2/base')
+V3_CORPUS = {item['label']: item['hex'] for item in json.loads((EXTENSION_DATA / 'decoder-corpus-v3.json').read_text())['items']}
 
 
 class PreflightTests(unittest.TestCase):
@@ -324,6 +328,10 @@ class PreflightTests(unittest.TestCase):
         verdicts = {name: json.loads((EXTENSION_DATA / name).read_text())['devnet-v2/base']
                     for name in ('decoder-verdicts.json', 'decoder-verdicts-preview.json')}
         self.assertEqual(verdicts, {'decoder-verdicts.json': 'gsVersion:2', 'decoder-verdicts-preview.json': 'ok'})
+        v3_verdicts = json.loads((EXTENSION_DATA / 'decoder-verdicts-v3.json').read_text())
+        self.assertEqual((v3_verdicts['release']['v3/base'], v3_verdicts['preview']['v3/base']), ('gsVersion:2', 'ok'))
+        # The inline v3 program set hash and CP count are the reference's.
+        self.assertEqual((preflight.V3_SYS_CODE_HASH, preflight.V3_CP_ITEMS), (pocol_identity.V3_SYS_CODE_HASH, len(pocol_identity.CP_SCHEMA_V2)))
         self.assertEqual(preflight.SPEC_VERSION, 1)
         self.assertEqual(preflight.spec_version(self.network, H15000_SPEC), 1)
         self.assertEqual(preflight.spec_version({'specVersion': 1}, '0x' + H15000_SPEC[2:].upper() + '\n'), 1)
@@ -334,7 +342,15 @@ class PreflightTests(unittest.TestCase):
                  ({**self.network, 'specVersion': 3, 'v3': True}, SPEC_V2, 'inconsistent'), ({**self.network, 'specVersion': True}, H15000_SPEC, 'inconsistent'),
                  (self.network, 'public fixture', 'invalid public GenesisSpec'), (self.network, '0x', 'invalid public GenesisSpec'),
                  (self.network, '01', 'invalid public GenesisSpec version'), (self.network, 'c0', 'invalid public GenesisSpec version'),
-                 (self.network, 'c3810102', 'invalid public GenesisSpec version'), (self.network, 'c180', 'invalid public GenesisSpec version')]
+                 (self.network, 'c3810102', 'invalid public GenesisSpec version'), (self.network, 'c180', 'invalid public GenesisSpec version'),
+                 # A spec-2 genesis is identified as a v3 genesis (and then refused) only when well formed with the v3
+                 # program set; otherwise the report says what it is.
+                 (v3, SPEC_V2_OTHER_PROGRAMS, 'does not name the v3 program set'),
+                 (v3, V3_CORPUS['v3/order/count-before-int'], 'invalid spec-2 \\(v3\\) GenesisSpec'),
+                 (v3, V3_CORPUS['v3/cp-v2-extras-nested'], 'invalid spec-2 \\(v3\\) GenesisSpec'),
+                 (v3, V3_CORPUS['v3/order/len-before-range'], 'invalid spec-2 \\(v3\\) GenesisSpec'),
+                 (v3, SPEC_V2[:-2], 'invalid spec-2 \\(v3\\) GenesisSpec'), (v3, SPEC_V2 + '00', 'invalid spec-2 \\(v3\\) GenesisSpec'),
+                 (v3, 'c202c0', 'invalid spec-2 \\(v3\\) GenesisSpec'), (v3, 'c102', 'invalid spec-2 \\(v3\\) GenesisSpec')]
         for network, spec, message in cases:
             with self.subTest(network=network, spec=spec[:12]):
                 with self.assertRaisesRegex(preflight.PreflightError, message): preflight.spec_version(network, spec)

@@ -221,18 +221,21 @@ class StandaloneTests(unittest.TestCase):
         self.assertFalse(self.collect()['checks']['bundle'])
 
     def test_the_r1_profile_refuses_a_v2_invitation_on_a_spec_2_genesis(self):
-        # Both invitations name a spec-2 (v3) genesis (the decoder corpus's devnet-v2/base, which only the v3-preview
-        # decoder accepts) with the matching devnet.json declaration: a release seed refuses it at the bundle.
+        # Both invitations name a spec-2 (v3) genesis (the v3 decoder corpus's v3/base, which only the v3-preview
+        # decoder accepts, naming the v3 program set) with the matching devnet.json declaration: a release seed refuses
+        # it at the bundle. A spec-2 genesis naming another program set is reported as such.
         patches = self.r1_release(saved_v1=False)
         for guard in patches: guard.start(); self.addCleanup(guard.stop)
-        corpus = json.loads((Path(__file__).resolve().parents[2] / 'prototypes/pocol-extension/tests/data/decoder-corpus.json').read_text())
-        spec = next(item['hex'] for item in corpus['items'] if item['label'] == 'devnet-v2/base')
+        data = Path(__file__).resolve().parents[2] / 'prototypes/pocol-extension/tests/data'
+        spec = next(item['hex'] for item in json.loads((data / 'decoder-corpus-v3.json').read_text())['items'] if item['label'] == 'v3/base')
+        other = next(item['hex'] for item in json.loads((data / 'decoder-corpus.json').read_text())['items'] if item['label'] == 'devnet-v2/base')
         self.assertEqual(self.collect()['result'], 'PASS')
         twin = json.loads((self.bundle / 'network.pocol.json').read_text())
         devnet = json.loads(twin['files']['devnet.json'])
-        for declared, reason in (({'specVersion': 2, 'v3': True}, 'a release seed refuses a spec-2 (v3) genesis until activation'),
-                                 ({}, 'GenesisSpec version differs from the network metadata')):
-            with self.subTest(declared=declared):
+        for declared, reason, spec in (({'specVersion': 2, 'v3': True}, 'a release seed refuses a spec-2 (v3) genesis until activation', spec),
+                                       ({}, 'GenesisSpec version differs from the network metadata', spec),
+                                       ({'specVersion': 2, 'v3': True}, 'a spec-2 GenesisSpec that does not name the v3 program set', other)):
+            with self.subTest(declared=declared, reason=reason):
                 files = {**twin['files'], 'genesis.spec.hex': spec, 'devnet.json': json.dumps({**devnet, **declared})}
                 for directory in (self.bundle, self.home):
                     (directory / 'network.pocol.json').write_text(json.dumps({**twin, 'files': files}))

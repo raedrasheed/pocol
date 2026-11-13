@@ -13,7 +13,9 @@ The given GenesisSpec must be canonical RLP throughout, of version 1 with six to
 CP schema v1, hash (keccak256) to --genesis-hash and carry --chain-id; the extension and the node pin the whole
 spec, which proves the other two. A spec-2 (v3) genesis (CP schema v2, 67 CP items) is switched to only with an
 explicit --v3: the release node and clients refuse spec 2 until activation (V3-PR-I), so the switch is for a tree
-whose node and clients are built for it. The tree's
+whose node and clients are built for it. A spec-2 genesis must also pass the whole v3-preview decoder (the reference
+port deploy/public-testnet/pocol_identity.decode_genesis_spec at ceiling 2: every CP v2 width and bound, the roots,
+M_0List order and reserved ids) and name the v3 program set (sysCodeHash), the only set pocold runs on it. The tree's
 current identity is the one the node file ANCHOR names, proven by its own GenesisSpec. Before and after the
 switch every listed file must carry exactly its FILES counts of the identity and no copy of the old Mainnet
 identity, so --check fails on a tree pinned to any other genesis, and a redo with a new genesis for the
@@ -35,8 +37,10 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'deploy' / 'rewards'))
 sys.path.insert(0, str(ROOT / 'deploy' / 'studio'))
+sys.path.insert(0, str(ROOT / 'deploy' / 'public-testnet'))
 from pocol_rewards import keccak256  # noqa: E402  (the keccak256 the reward accounting uses)
 import build_installer  # noqa: E402
+import pocol_identity  # noqa: E402  (the GenesisSpec reference decoder, checked against the Rust verdicts)
 
 OLD_CHAIN_ID = 1599846715   # PoCol Mainnet before the cutover; never a target
 OLD_GENESIS = 'be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
@@ -194,6 +198,14 @@ def spec_identity(b, versions=(SPEC_VERSION,)):
             raise ValueError(f'CP of version {version} has {CP_ITEMS[version]} items')
     except IndexError:
         raise ValueError('truncated RLP') from None
+    if version == V3_SPEC_VERSION:
+        # The whole v3-preview decoder, then the program set pocold selects for a spec-2 genesis (spec 1 is unchanged).
+        try:
+            decoded = pocol_identity.decode_genesis_spec(b, V3_SPEC_VERSION)
+        except pocol_identity.GenesisSpecError as error:
+            raise ValueError(f'not a valid spec-2 (v3) GenesisSpec ({error.code}: {error.detail})') from None
+        if decoded['sysCodeHash'].hex() != pocol_identity.V3_SYS_CODE_HASH:
+            raise ValueError('a spec-2 (v3) GenesisSpec must name the v3 program set (sysCodeHash)')
     return version, int.from_bytes(b[s:e], 'big')
 
 def spec_chain_id(b, versions=(SPEC_VERSION,)):

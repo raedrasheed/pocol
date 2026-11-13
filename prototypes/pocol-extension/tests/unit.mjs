@@ -2,7 +2,8 @@
 // BR19a (bucket table, exact), BR13, BR1-BR12 schema/allowlist cases, BR17d/e/g,
 // BR18d/g, StoreQueue admission (D101), manifest T16 negatives, wallet, netKey,
 // the BR-neg fault controls that must FAIL their gates, the A07/A08 decoder differential and the
-// A06/A09/A12/A14 worker and transport regressions.
+// A06/A09/A12/A14 worker and transport regressions, and the V3-PR-G3a spec-2 (v3) checks of the release and the
+// test-only v3-preview builds.
 import { build } from '../build.mjs';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
@@ -12,15 +13,18 @@ import { recordChecks } from './records_test.mjs';
 import { workerChecks } from './worker_test.mjs';
 import { decoderDiffChecks } from './decoder_diff.mjs';
 import { forkChecks } from './forks_test.mjs';
+import { v3PreviewChecks } from './v3_preview_test.mjs';
 
 const load = async (dist, m) => import(pathToFileURL(join(dist, 'lib', m)).href + '?' + dist);
 const rel = build().dist;
 const forkResults = await forkChecks(rel);
+const v3Results = await v3PreviewChecks(rel);
 const B = await load(rel, 'bridge.js'), S = await load(rel, 'sitestore.js'), SITE = await load(rel, 'site.js');
 const RLP = await load(rel, 'rlp.js'), HEX = await load(rel, 'hex.js'), C = await load(rel, 'crypto.js'), WAL = await load(rel, 'wallet.js');
 let passed = 0; const failed = [];
 const ok = (name, cond, detail = '') => { if (cond) passed++; else failed.push(name + (detail ? ' — ' + detail : '')); };
 for (const c of forkResults) ok('Maximum nonce ' + c.name, c.pass, c.detail);
+for (const c of v3Results) ok('V3-PR-G3a ' + c.name, c.pass, c.detail);
 const msg = (id, kind, method, params) => JSON.stringify({ id, kind, payload: { method, params } });
 const code = (r) => (r.ok ? 'ok' : r.reply.error.code);
 
@@ -216,6 +220,7 @@ for (const c of await recordChecks(rel)) ok('D103 ' + c.name, c.pass, c.detail);
   ok(`A07/A08 GenesisSpec and header decoders give the Rust reference verdict on all ${r.items} corpus items`, r.items > 1000 && r.mismatches.length === 0, r.mismatches.slice(0, 5).join('; '));
   ok(`A07/A08 with the v3-preview ceiling (2) the GenesisSpec decoder gives the Rust preview verdict on all ${r.items} corpus items, ${r.spec2} of them spec 2`, r.spec2 > 400 && r.previewAccepted > r.accepted && r.previewMismatches.length === 0, r.previewMismatches.slice(0, 5).join('; '));
   ok('A07/A08 both verdict files cover the corpus and the release decoder accepts no spec-2 item', r.complete);
+  ok(`V3-PR-G3a the v3 supplement (${r.v3Items} items: a v3 genesis naming the v3 program set, 256 members, the stage order across the CP v2 fields, v3 chain headers) gives the Rust verdict at both ceilings`, r.v3Items >= 30 && r.v3Accepted >= 4 && r.v3Mismatches.length === 0 && r.v3Complete, r.v3Mismatches.slice(0, 5).join('; '));
   ok('A07/A08 the shipped RP entry points use the reference decoders', r.entryPoints); }
 for (const c of await workerChecks(rel)) ok(c.name, c.pass, c.detail);
 

@@ -1,8 +1,12 @@
 // A07/A08 differential corpus: valid GenesisSpec and header bases (the accepted GSV1 vector, a
 // pocold devnet spec, synthetic RP headers) and mutations of every field and of the framing.
-// `node tests/decoder_corpus.mjs` writes tests/data/decoder-corpus.json; the Rust reference
-// decoders give the verdicts (pocold/tests/decoder_reference.rs, REFERENCE_WRITE=1 writes
-// tests/data/decoder-verdicts.json) and tests/decoder_diff.mjs checks the extension against them.
+// `node tests/decoder_corpus.mjs` writes tests/data/decoder-corpus.json and the v3 supplement
+// tests/data/decoder-corpus-v3.json (V3-PR-G3a: a v3 genesis naming the v3 program set, 256 members,
+// the stage order across the CP v2 fields, headers of a v3 chain); the Rust reference decoders give the
+// verdicts (pocold/tests/decoder_reference.rs, REFERENCE_WRITE=1 writes tests/data/decoder-verdicts.json,
+// decoder-verdicts-preview.json and decoder-verdicts-v3.json) and tests/decoder_diff.mjs checks the extension
+// against them. The supplement is a file of its own so that the release verdict file of the original corpus
+// stays byte-identical until activation (V3-PR-I).
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -10,10 +14,12 @@ import { build } from '../build.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 export const CORPUS = join(HERE, 'data', 'decoder-corpus.json'), VERDICTS = join(HERE, 'data', 'decoder-verdicts.json');
+export const CORPUS_V3 = join(HERE, 'data', 'decoder-corpus-v3.json');
 const hex = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 const unhex = (s) => Uint8Array.from((s.replace(/^0x/, '').match(/../g) || []).map((x) => parseInt(x, 16)));
 
-export async function generate() {
+/** The original corpus, or with `v3` the V3-PR-G3a supplement (decoder-corpus-v3.json). */
+export async function generate({ v3 = false } = {}) {
   const dist = build().dist;
   const R = await import(pathToFileURL(join(dist, 'lib', 'rlp.js')).href);
   const { rpWindow } = await import(pathToFileURL(join(HERE, 'rp_fixture.mjs')).href);
@@ -151,6 +157,58 @@ export async function generate() {
   add('spec', 'devnet-v2/cp-v2-extra-all-lo', encode(at(v2t, [2], (c) => [...c.slice(0, 52), ...REFDEC.CP_V2_EXTRA.map(([, , lo]) => be(lo))])));
   // Stage order on a v2 spec: a version-2 item whose CP v2 field is out of range and whose M_0List is empty is gsCount.
   add('spec', 'devnet-v2/empty-m0-and-bad-rho', encode(at(at(v2t, [4], () => []), [2, 66], () => be(10001))));
+  if (!v3) return items;
+
+  // ---------------- V3-PR-G3a supplement: a v3 genesis as pocold builds one ----------------
+  // The devnet-v2 base naming the v3 program set: sysCodeHash = keccak256(RLP([C0C001..C0C005 runtimes of
+  // lp4-execution/tests/data/system-v3.json, 0x80 for PAY])) (apply.rs SystemPrograms::v3, the set pocold selects for a
+  // spec-2 genesis; the decoder itself does not read it). Every item below is judged by both ceilings.
+  items.length = 0;
+  const C = await import(pathToFileURL(join(dist, 'lib', 'crypto.js')).href);
+  const system = JSON.parse(readFileSync(join(HERE, '..', '..', 'lp4-execution', 'tests', 'data', 'system-v3.json'), 'utf8'));
+  const v3Hash = C.keccak(R.encode([...system.programs.map((p) => unhex(p.runtime)), new Uint8Array(0)]));
+  const v3t = at(v2t, [5], () => v3Hash), v3b = encode(v3t);
+  add('spec', 'v3/base', v3b);
+  // 256 members (the v3 testnet bound; the decoder's own bound is MAX_MEMBERS): sorted ids, then a fault at the end.
+  const id = (i, hi = 0x31) => { const x = new Uint8Array(20).fill(hi); x[18] = i >> 8; x[19] = i & 255; return x; };
+  const members = Array.from({ length: 256 }, (_, i) => [id(i), bytes(20, 0x42)]);
+  const sys = new Uint8Array(20).fill(0xff); sys[19] = 0xfe;
+  add('spec', 'v3/m0-256', encode(at(v3t, [4], () => members)));
+  add('spec', 'v3/m0-256-last-unsorted', encode(at(v3t, [4], () => [...members.slice(0, 254), members[255], members[254]])));
+  add('spec', 'v3/m0-256-last-duplicate', encode(at(v3t, [4], () => [...members.slice(0, 255), members[254]])));
+  add('spec', 'v3/m0-256-last-system', encode(at(v3t, [4], () => [...members.slice(0, 255), [sys, bytes(20, 0x42)]])));
+  add('spec', 'v3/m0-256-last-entry-3', encode(at(v3t, [4], () => [...members.slice(0, 255), [...members[255], bytes(20)]])));
+  // Stage order with the faults in the CP v2 fields: each item has two faults, and the earlier stage decides.
+  const k = (name) => REFDEC.CP_SCHEMA_V2.findIndex((f) => f[0] === name);
+  const cpAt = (t, name, val) => at(t, [2, k(name)], () => val);
+  const pairs = [
+    ['structure-before-version', at(at(v3t, [0], () => Uint8Array.of(3)), [2, k('rho_bp')], () => [Uint8Array.of(1)])],
+    ['structure-m0-before-version', at(at(v3t, [0], () => Uint8Array.of(3)), [4, 0], () => [[bytes(20)], bytes(20)])],
+    ['version-before-count', at(at(v3t, [0], () => Uint8Array.of(3)), [2], (c) => c.slice(0, 66))],
+    ['count-before-int', cpAt(at(v3t, [2], (c) => c.slice(0, 66)), 'H_half', Uint8Array.of(0, 1))],
+    ['count-m0-before-int', cpAt(at(v3t, [4, 0], (e) => [e[0]]), 'rho_bp', Uint8Array.of(0, 1))],
+    ['int-before-len', at(cpAt(v3t, 'rho_bp', Uint8Array.of(0, 1)), [3], () => bytes(31))],
+    ['int-wrapped-before-len', at(cpAt(v3t, 'E_epoch', { raw: Uint8Array.of(0x81, 0x05) }), [5], () => bytes(33))],
+    ['len-before-range', at(cpAt(v3t, 'theta_bp', be(10001)), [5], () => bytes(31))],
+    ['len-m0-before-range', at(cpAt(v3t, 'H_half', new Uint8Array(0)), [4, 0, 1], () => bytes(19))],
+    ['range-before-order', at(cpAt(v3t, 'H_half', new Uint8Array(0)), [4], () => [members[1], members[0]])],
+    ['range-before-sys', at(cpAt(v3t, 'rho_bp', be(10001)), [4], () => [[sys, bytes(20, 0x42)]])],
+    ['order-before-sys', at(v3t, [4], () => [[sys, bytes(20, 0x42)], members[0]])],
+    ['prefix-int-before-extra-int', cpAt(cpAt(v3t, 'H_half', Uint8Array.of(0, 1)), 'P2', Uint8Array.of(0, 1))],
+    ['prefix-range-before-extra-range', cpAt(cpAt(v3t, 'P_MAX', be(1n << 16n)), 'S_max', be(257))],
+    ['first-extra-range-wins', cpAt(cpAt(v3t, 'rho_bp', be(10001)), 'gamma_tip_bp', be(10001))],
+    ['extra-width-before-bound', cpAt(v3t, 'theta_bp', be(1n << 16n))],
+  ];
+  for (const [name, tree] of pairs) add('spec', `v3/order/${name}`, encode(tree));
+  // gamma_bp <= 10^4 - alpha_bp on a v2 spec, at and past the bound; the CP v2 extras as one nested list.
+  add('spec', 'v3/gamma-at-bound', encode(cpAt(cpAt(v3t, 'alpha_bp', be(6000)), 'gamma_bp', be(4000))));
+  add('spec', 'v3/gamma-past-bound', encode(cpAt(cpAt(v3t, 'alpha_bp', be(10000)), 'gamma_bp', be(1))));
+  add('spec', 'v3/cp-v2-extras-nested', encode(at(v3t, [2], (c) => [...c.slice(0, 52), c.slice(52)])));
+  add('spec', 'v3/version-1-with-v3-programs', encode(at(at(v3t, [0], () => Uint8Array.of(1)), [2], (c) => c.slice(0, 52))));
+  // Headers of a v3 chain (the RP window of the v3 genesis, decoded with the preview ceiling): the header decoder does
+  // not depend on the spec version, so both ceilings give the same verdict.
+  const { headers: v3Headers } = await rpWindow(dist, v3b, 3, undefined, 2);
+  for (const [hi, h] of v3Headers.entries()) { const t = parse(unhex(h)); add('header', `v3/header${hi}/base`, encode(t)); add('header', `v3/header${hi}/tag`, encode(at(t, [0, 0, 0], () => new TextEncoder().encode('PoCol-tpl-v3')))); }
   return items;
 }
 
@@ -158,4 +216,7 @@ if (process.argv[1] && process.argv[1].endsWith('decoder_corpus.mjs')) {
   const items = await generate(); mkdirSync(dirname(CORPUS), { recursive: true });
   writeFileSync(CORPUS, JSON.stringify({ note: 'A07/A08 differential corpus; generated by tests/decoder_corpus.mjs', items }, null, 0) + '\n');
   console.log(`wrote ${items.length} items to ${CORPUS}`);
+  const v3 = await generate({ v3: true });
+  writeFileSync(CORPUS_V3, JSON.stringify({ note: 'A07/A08 differential corpus, V3-PR-G3a supplement; generated by tests/decoder_corpus.mjs', items: v3 }, null, 0) + '\n');
+  console.log(`wrote ${v3.length} items to ${CORPUS_V3}`);
 }

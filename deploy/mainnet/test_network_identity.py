@@ -76,14 +76,17 @@ def int_item(v):
     raw = v.to_bytes((v.bit_length() + 7) // 8, 'big')
     return raw if len(raw) == 1 and raw[0] < 0x80 else bytes([0x80 + len(raw)]) + raw
 
-# A spec-2 (v3) genesis for the new chain: SPEC_A's items with version 2 and the fifteen CP v2 fields appended (the
-# lp4 devnet defaults, as pocol-extension/tests/decoder_corpus.mjs uses for its devnet-v2 items).
+# A spec-2 (v3) genesis for the new chain: SPEC_A's items with version 2, the fifteen CP v2 fields appended (the
+# lp4 devnet defaults, as pocol-extension/tests/decoder_corpus.mjs uses for its devnet-v2 items) and the v3 program
+# set's sysCodeHash (the only set pocold runs on a spec-2 genesis); `flip` changes the last byte of allocRoot.
 CP_V2_EXTRA = [31557600, 62500000000000000, 16, 648000, 10**15, 0, 0, 5000, 10000000, 4, 40, 21600, 1250, 3, 2500]
-def spec_v2(version=b'\x02', extra=CP_V2_EXTRA, flip=0):
-    cp = rlp_list(_rest[_cp_start:_cp_end] + b''.join(int_item(v) for v in extra))
-    spec = bytearray(rlp_list(version + bytes([0x80 + len(_chain)]) + _chain + cp + _rest[_cp_end:]))
-    spec[-1] ^= flip
-    return bytes(spec)
+_alloc, _members, _sys = _rest[_cp_end:_cp_end + 33], _rest[_cp_end + 33:-33], _rest[-33:]
+assert _alloc[0] == _sys[0] == 0xa0
+V3_SYS = bytes.fromhex(ni.pocol_identity.V3_SYS_CODE_HASH)
+def spec_v2(version=b'\x02', extra=CP_V2_EXTRA, flip=0, sys=V3_SYS, items=None):
+    cp = rlp_list(_rest[_cp_start:_cp_end] + (items if items is not None else b''.join(int_item(v) for v in extra)))
+    alloc = _alloc[:-1] + bytes([_alloc[-1] ^ flip])
+    return rlp_list(version + bytes([0x80 + len(_chain)]) + _chain + cp + alloc + _members + b'\xa0' + sys)
 SPEC_V3 = spec_v2()
 HASH_V3 = '0x' + ni.keccak256(SPEC_V3).hex()
 
@@ -496,7 +499,28 @@ class NetworkIdentity(unittest.TestCase):
             for versions in ((1,), (2,), (1, 2)):
                 with self.subTest(spec=bad.hex()[:16], versions=versions), self.assertRaises(ValueError):
                     ni.spec_identity(bad, versions)
+        # A spec-2 genesis must pass the whole v3-preview decoder and name the v3 program set, with or without the
+        # release version allowed beside it.
+        extra = b''.join(int_item(v) for v in CP_V2_EXTRA[:-1])
+        for bad, reason in ((spec_v2(sys=_sys[1:]), 'v3 program set'), (spec_v2(sys=b'\x00' * 32), 'v3 program set'),
+                            (spec_v2(extra=CP_V2_EXTRA[:-1] + [10001]), 'gsRange: rho_bp'),
+                            (spec_v2(extra=[0] + CP_V2_EXTRA[1:]), 'gsRange: H_half'),
+                            (spec_v2(items=extra + b'\x82\x00\x05'), 'gsInt: rho_bp'),
+                            (spec_v2(extra=CP_V2_EXTRA[:7] + [10001] + CP_V2_EXTRA[8:]), 'gsRange: gamma_tip_bp')):
+            for versions in ((2,), (1, 2)):
+                with self.subTest(reason=reason, versions=versions), self.assertRaisesRegex(ValueError, reason):
+                    ni.spec_identity(bad, versions)
+        # The reference decoder accepts SPEC_V3 at the preview ceiling only, as the Rust and JS decoders do.
+        self.assertEqual(ni.pocol_identity.decode_genesis_spec(SPEC_V3, 2)['specVersion'], 2)
+        with self.assertRaisesRegex(ValueError, 'gsVersion:2'):
+            ni.pocol_identity.decode_genesis_spec(SPEC_V3)
         root = self.copy()
+        (root / 'v3bad.hex').write_text('0x' + spec_v2(sys=b'\x00' * 32).hex() + '\n', encoding='utf-8')
+        before = self.snapshot(root)
+        with self.assertRaises(SystemExit):
+            self.run_tool(root, '--v3', genesis='0x' + ni.keccak256(spec_v2(sys=b'\x00' * 32)).hex(), spec='v3bad.hex')
+        self.assertEqual(before, self.snapshot(root), 'a malformed v3 genesis writes nothing')
+        (root / 'v3bad.hex').unlink()
         (root / 'v3.hex').write_text('0x' + SPEC_V3.hex() + '\n', encoding='utf-8')
         (root / 'v3b.hex').write_text('0x' + spec_v2(flip=1).hex() + '\n', encoding='utf-8')
         before = self.snapshot(root)

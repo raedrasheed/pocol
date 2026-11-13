@@ -10,13 +10,18 @@ root = Path(__file__).resolve().parents[1]
 dist = root / 'dist'
 version = json.loads((root / 'package.json').read_text())['version']
 output = Path(sys.argv[1]) if len(sys.argv) > 1 else root / 'releases' / f'PoCol-Studio-IDE-Viewer-{version}.zip'
-required = ['lib/forks.js', 'lib/rp.js', 'icons/pocol-16.png', 'icons/pocol-32.png', 'icons/pocol-48.png', 'icons/pocol-128.png', 'manifest.json', 'contract.html', 'contract-ui.js', 'lib/contracts.js',
+required = ['lib/forks.js', 'lib/rp.js', 'lib/refdec.js', 'icons/pocol-16.png', 'icons/pocol-32.png', 'icons/pocol-48.png', 'icons/pocol-128.png', 'manifest.json', 'contract.html', 'contract-ui.js', 'lib/contracts.js',
             'tools/Export-Studio-Wallet.ps1', 'tools/export-studio-wallet.py', 'README-EN.md', 'README-AR.md',
             'LICENSE', 'NOTICE', 'vendor/hashes/LICENSE', 'vendor/secp256k1/LICENSE',
             'vendor/ethers-LICENSE.md']
 for name in required:
     if not (dist / name).is_file():
         raise SystemExit(f'Missing built release file: {name}. Run npm run build first.')
+# A v3-preview build (build.mjs --v3-preview, dist-v3-preview/) decodes a spec-2 genesis at its entry points; the release
+# keeps the SPEC_VERSION ceiling until activation (V3-PR-I), so a preview dist copied over dist/ is refused here.
+if 'export const DECODE_CEILING = SPEC_VERSION;' not in (dist / 'lib/refdec.js').read_text(encoding='utf-8') \
+        or 'PREVIEW' in json.loads((dist / 'manifest.json').read_text(encoding='utf-8'))['name']:
+    raise SystemExit('Refusing a v3-preview build: rebuild the release with npm run build')
 output.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for path in sorted(dist.rglob('*')):

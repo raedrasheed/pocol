@@ -161,6 +161,19 @@ none is certified, so it is refused. These scripts do not rewrite state bindings
 make an upgrade appear compatible. For a failed same-release deployment, stop the service and restore its
 matching prior snapshot and binaries. Never run two copies of one miner key at once.
 
+## Consensus identity and GenesisSpec reference
+
+`pocol_identity.py` (standard library only) is the consensus identity reference
+(`consensus_id`, `for_network`) and the GenesisSpec reference decoder
+(`decode_genesis_spec`, a port of the node's decoder with its error codes, CP schema v1
+and v2). Its default ceiling is the release `SPEC_VERSION` 1: a spec-2 (v3) genesis is
+refused with `gsVersion 2` until activation, and ceiling 2 is the v3-preview decoder.
+`public_spec(info, spec, ceiling)` decodes a network's public `genesis.spec.hex`, checks
+its version and chain ID against `devnet.json`, and requires a spec-2 genesis to name the
+v3 program set. `test_pocol_identity.py` checks the decoder against the Rust verdicts of
+the whole decoder corpus (`prototypes/pocol-extension/tests/data`). A release bundle
+(`prepare.py`, `node_operator.py`) still refuses a spec-2 network.
+
 ## Lifetime and unresolved work
 
 The current profile closes at height 19,000 and ends at 20,000: approximately 53/56
