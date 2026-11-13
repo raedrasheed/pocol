@@ -71,13 +71,24 @@ pub fn overlay_max(cp:&ConsensusParams)->Option<u128>{
 /// declared gas in the fallback, or a halt's declared gas), so GAS_LIMIT/TX_GAS_MIN more entries, and at most
 /// BODY_MAX more raw bytes (moved from the selection, which the template being built may fill again from the
 /// candidates). The candidates' bound therefore holds after the recovery too.
+/// N4 (V3-20, node-local): the third set, the senders seen while finding the big-first slot (B6), is gone: the fee
+/// order (`Node::fee_order_and_big`) finds that slot in its pass by sender. Its scratch, FEE_ORDER_ENTRY_BYTES (a u32
+/// index, which the selection keeps as its order, and a u64 priority) per pooled and parked candidate, each Vec
+/// allocated once at its length and never grown, is counted in that set's place, at the larger of the two. An
+/// eviction's scan (`Node::eviction_victim`, `Node::evict_parked_by_fee`) holds less and runs on the consensus thread
+/// in an admission, never during a selection, so the same place bounds it (`fee_order_bytes`).
 pub fn selection_bytes(cp:&ConsensusParams)->Option<u128>{
     let entries=add(&[u128::from(cp.BODY_MAX)/MIN_TX_BYTES+1,u128::from(cp.GAS_LIMIT)/TX_GAS_MIN])?;let senders=(node::POOL_MAX_TXS+node::POOL_PARKED_MAX+node::BUILD_VISIT_MAX) as u128;
     let per=add(&[mul(memory::VEC,node::CAND_ENTRY_BYTES as u128)?,mul(memory::VEC,24+8)?,mul(memory::VEC,24)?,memory::entry_bytes(28)])?;
-    add(&[mul(2,u128::from(cp.BODY_MAX))?,u128::from(cp.TX_MAX),mul(entries,per)?,mul(3,add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?)?])
+    let set=add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?;
+    add(&[mul(2,u128::from(cp.BODY_MAX))?,u128::from(cp.TX_MAX),mul(entries,per)?,mul(2,set)?,set.max(fee_order_bytes()?)])
 }
+/// N4: the fee order's scratch (`Node::fee_order_and_big`): FEE_ORDER_ENTRY_BYTES per pooled and parked candidate.
+pub fn fee_order_bytes()->Option<u128>{mul((node::POOL_MAX_TXS+node::POOL_PARKED_MAX) as u128,node::FEE_ORDER_ENTRY_BYTES as u128)}
 /// D-7: the gas the pool's layer can hold: its bound (`node::pool_gas_bound`), and at most POOL_MAX_TXS
-/// transactions of GAS_LIMIT each (the count bound binds first above it).
+/// transactions of GAS_LIMIT each (the count bound binds first above it). N4 second review: an eviction leaves its
+/// victim's writes in the layer, so the node applies this same minimum as its gas bound (`node::pool_gas_in_effect`)
+/// and evictions cannot take the layer past it.
 pub fn pool_gas(cp:&ConsensusParams,limits:&Limits)->Option<u128>{
     let g=u128::from(node::pool_gas_bound(cp,limits).ok()?);Some(g.min(mul(node::POOL_MAX_TXS as u128,u128::from(cp.GAS_LIMIT))?))
 }

@@ -1225,7 +1225,8 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let root=apply::state_root(&n.pool_state()).unwrap();
     assert_eq!(n.submit_tx(pay_gas(&key("dave-unfunded"),0,1,gl),false).unwrap_err(),POOL_FULL_GAS,"one gas past the bound is refused");
     assert_eq!(n.submit_tx(pay(&bob,0,1),false).unwrap_err(),POOL_PARKED,"a valid one is held for the next head");
-    assert_eq!(n.submit_tx(pay_gas(&bob,0,2,1_000_000),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce is not held");
+    // N4 (V3-20): another with a held one's nonce is a replacement; at the same fee caps it is refused (not held).
+    assert!(n.submit_tx(pay_gas(&bob,0,2,1_000_000),false).unwrap_err().starts_with(pocold::node::POOL_REPLACE_UNDERPRICED),"another with a held one's nonce is not held");
     assert_eq!(n.submit_tx(pay_gas(&bob,1,2,gl),false).unwrap_err(),pocold::node::POOL_FULL_SENDER,"PR6 review: a held one counts against its sender's quota");
     assert_eq!((n.pool.txs.len(),n.pool.gas),(4,4*gl),"refused, nothing pooled");
     assert_eq!(apply::state_root(&n.pool_state()).unwrap(),root,"and the pending state is unchanged");
@@ -1253,21 +1254,28 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let (big,d2)=gas_node("big",Limits{pool_gas_max:Some(16*gl),..Default::default()});let big=big.unwrap();assert_eq!(big.pool.gas_max,16*gl);
     drop((one,big));for d in [d0,d1,d2]{let _=std::fs::remove_dir_all(&d);}
 }
-/// D-7, replacement: the pool keeps the first transaction of a sender and nonce. Another with the same nonce
-/// (whatever its fee) is refused by its execution on the pending state (-32000, nonce) and changes no counter.
-/// The pooled one leaves only when a new head makes it invalid, here by including the other, and its gas is
+/// D-7, replacement; N4 (V3-20, owner O-20=b: replace-by-fee, node-local) supersedes "the pool keeps the first
+/// transaction of a sender and nonce". Another with the same nonce replaces the pooled one only when both fee caps
+/// rise by POOL_PRICE_BUMP percent; one that does not (here the same caps, another value) is refused
+/// (POOL_REPLACE_UNDERPRICED) and changes no counter. The replacement is not executed on the pending state, which
+/// keeps the replaced one's 1M declared gas until the next head (N4 second review: the entry stays charged the most
+/// gas declared since the last head, so nothing moves to `ghost_gas`). A head without either keeps the
+/// replacement; a head that includes the replaced one drops the replacement (its nonce is used), and its gas is
 /// freed then.
-#[test] fn a_same_nonce_transaction_does_not_replace_a_pooled_one(){
+#[test] fn a_same_nonce_transaction_replaces_a_pooled_one_only_at_the_fee_bump(){
+    use pocold::node::POOL_REPLACE_UNDERPRICED;
     let (n,dir)=gas_node("nonce",Default::default());let mut n=n.unwrap();let alice=devnet::account_key("alice");
     let a=pay_gas(&alice,0,1,1_000_000);
     let b=Tx{chain_id:777910,nonce:0,max_priority:U256::from(50_000_000_000u64),max_fee:U256::from(200_000_000_000u64),gas:21000,to:Some(devnet::account_key("bob").address()),value:U256::from(2u64),data:Default::default()}.sign_1559(&alice);
     n.submit_tx(a.clone(),false).unwrap();
-    let e=n.submit_tx(b.clone(),false).unwrap_err();assert!(e.starts_with("-32000")&&e.contains("NonceTooLow"),"{e}");
+    let e=n.submit_tx(pay_gas(&alice,0,2,1_000_000),false).unwrap_err();assert!(e.starts_with(POOL_REPLACE_UNDERPRICED),"{e}");
     assert_eq!(pool(&mut n),vec![a.clone()]);assert_eq!(n.pool.gas,1_000_000,"the refused one is not counted");n.pool_audit().unwrap();
+    n.submit_tx(b.clone(),false).unwrap();assert_eq!(pool(&mut n),vec![b.clone()],"replaced in place");
+    assert_eq!((n.pool.gas,n.pool.ghost_gas),(1_000_000,0),"the pending layer keeps the replaced one's gas: the entry stays charged it");n.pool_audit().unwrap();
     let mut h=net();let g=h.chain.head;let x=branch(&mut h,g,1,&[]);n.import(x[0].clone(),None).unwrap();
-    assert_eq!(pool(&mut n),vec![a.clone()],"a head without either keeps it");n.pool_audit().unwrap();
-    let y=branch(&mut h,x[0].hash(),1,&[Body{txs:vec![b],evidence:vec![]}]);n.import(y[0].clone(),None).unwrap();
-    assert!(pool(&mut n).is_empty(),"a head that includes the other drops it");assert_eq!(n.pool.gas,0);n.pool_audit().unwrap();
+    assert_eq!(pool(&mut n),vec![b.clone()],"a head without either keeps the replacement");assert_eq!((n.pool.gas,n.pool.ghost_gas),(21000,0));n.pool_audit().unwrap();
+    let y=branch(&mut h,x[0].hash(),1,&[Body{txs:vec![a],evidence:vec![]}]);n.import(y[0].clone(),None).unwrap();
+    assert!(pool(&mut n).is_empty(),"a head that includes the replaced one drops the replacement");assert_eq!(n.pool.gas,0);n.pool_audit().unwrap();
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// D-7, re-insertion after a reorganization (consensus.md: excluded transactions return to the pool once checked
@@ -2000,6 +2008,10 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // unchanged receipts::encode nesting, the receipts-root clone and apply's
     // USER receipt report copy (+878624 B, identically with eviction on/off).
     // No block report carries a creation-burn field (ChainFacts is unchanged).
+    // N4 (V3-20 node-local pool) moves nothing: the pool's meta and parked entries keep their PR6 sizes (32 and 160 B:
+    // the fee market reads nonces and fee caps from the raw bytes, and the replacement count fits the padding), and
+    // the fee order's scratch ((4,096 + 1,024) x 12 = 61,440 B) takes the place of the selection's first-seen sender
+    // set (885,052 B), which the fee order's pass by sender replaces (resources::selection_bytes).
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_791_234,"the A13 model total changed");
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
         assert_eq!(off.total,3_388_329_613,"eviction off includes the same receipt scratch");
@@ -5141,7 +5153,8 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     for (t,why) in [(pay(&key("dave-unfunded"),0,1),"unfunded"),(pay(&alice,3,1),"a wrong nonce"),(cheap,"a fee cap below the base fee")]{
         assert_eq!(n.submit_tx(t,false).unwrap_err(),POOL_FULL_GAS,"{why} is not held");}
     let b0=pay(&bob,0,1);assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED);
-    assert_eq!(n.submit_tx(pay(&bob,0,2),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce");
+    // N4 (V3-20): another with a held one's nonce is a replacement; at the same fee caps it is refused (not held).
+    assert!(n.submit_tx(pay(&bob,0,2),false).unwrap_err().starts_with(pocold::node::POOL_REPLACE_UNDERPRICED),"another with a held one's nonce");
     assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED,"a duplicate of a held one changes nothing");
     n.set_pool_parked_max(2);
     let a0=pay_gas(&alice,0,1,1_000_000);assert_eq!(n.submit_tx(a0.clone(),false).unwrap_err(),POOL_PARKED);
@@ -5199,7 +5212,8 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert_eq!((n.pool.txs.len(),n.pool.gas),(0,0),"nothing holds the gas bound");n.pool_audit().unwrap();
     let g0=create("gina",&loop_of(546));n.submit_tx(g0.clone(),false).unwrap();
     let b0=pay(&bob,0,1);n.submit_tx(b0.clone(),false).unwrap();n.pool_audit().unwrap();
-    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![g0,b0],"546 logs is the limit, and bob's transfer is taken");
+    // N4 (V3-20): in fee order, bob's transfer (1 gwei tip) before gina's CREATE (1 wei).
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![b0,g0],"546 logs is the limit, and bob's transfer is taken");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// PR6 review (log caps), the context: a transaction's logs can follow the block's context, which admission does
@@ -5223,7 +5237,10 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     let senders=["carol","erin","frank","gina"];
     for l in senders{for k in 0..2{n.submit_tx(call(l,k),false).unwrap_or_else(|e|panic!("{l}'s call is pooled (no logs at admission): {e}"));}}
     assert_eq!(n.pool.gas,4*GL,"the default bound is full");
-    let b0=pay(&bob,0,1);let _=n.submit_tx(b0.clone(),false);n.pool_audit().unwrap();
+    // N4 (V3-20): bob pays the calls' tip (1 wei), so the fee order keeps the candidate order and his transfer waits
+    // behind them; a higher tip would take it first (fee_pool.rs).
+    let b0=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:21000,to:Some(bob.address()),value:U256::from(1u64),data:Default::default()}.sign_1559(&bob);
+    let _=n.submit_tx(b0.clone(),false);n.pool_audit().unwrap();
     let mut mined=false;
     for (i,l) in senders.iter().enumerate(){
         let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
@@ -5300,7 +5317,8 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     for t in &parked{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED,"a burner is parked (not executed)");}
     let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
     let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
-    assert_eq!(sel.txs,vec![fill[0].clone(),logger.clone(),fill[3].clone()],"the big one first, the logger and gina's transfer; no burner fits the log count");
+    // N4 (V3-20): after the big-first slot the fee order takes gina's transfer (1 gwei tip) before the logger (1 wei).
+    assert_eq!(sel.txs,vec![fill[0].clone(),fill[3].clone(),logger.clone()],"the big one first, gina's transfer and the logger; no burner fits the log count");
     let budget=pocold::node::selection_exec_budget(GL);
     assert!(sel.executed<=budget,"the selection executed {} gas, past its budget {budget}",sel.executed);
     assert!(sel.executed>budget-1_500_000,"positive control: the burners use the budget ({})",sel.executed);
@@ -5378,12 +5396,15 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     let burn=vec![0x62,0x00,0xc3,0x50,0x5b,0x60,0x01,0x90,0x03,0x80,0x60,0x04,0x57,0x5f,0x5f,0xa0,0x00];
     let create=|l:&str|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:1_500_000,to:None,value:U256::ZERO,data:burn.clone().into()}.sign_1559(&key(l));
     let small:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|create(l)).collect();
-    let x=pay_gas(&bob,0,1,5_000_000);n.submit_tx(x.clone(),false).unwrap();
+    // N4 (V3-20): the big transfers pay the CREATEs' tip (1 wei), so the fee order keeps the candidate order and this
+    // tests the slot alone; a higher tip would also take alice's big one ahead of the CREATEs.
+    let big=|k:&Key|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:5_000_000,to:Some(bob.address()),value:U256::from(1u64),data:Default::default()}.sign_1559(k);
+    let x=big(&bob);n.submit_tx(x.clone(),false).unwrap();
     for t in &small[..2]{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,GL,"the bound is full");
     for t in &small[2..]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
     let e=branch(&mut h,g,1,&[]);n.import(e[0].clone(),None).unwrap();
     assert_eq!(pool(&mut n),small,"the small ones are re-admitted first");assert_eq!(n.pool_parked(),vec![x.clone()],"bob's is parked at the head");n.pool_audit().unwrap();
-    let y=pay_gas(&alice,0,1,5_000_000);assert_eq!(n.submit_tx(y.clone(),false).unwrap_err(),POOL_PARKED,"alice's is parked when submitted");
+    let y=big(&alice);assert_eq!(n.submit_tx(y.clone(),false).unwrap_err(),POOL_PARKED,"alice's is parked when submitted");
     let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
     let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
     assert!(sel.counted>GL/2+21000,"positive control: the CREATEs use more than half a block ({})",sel.counted);
