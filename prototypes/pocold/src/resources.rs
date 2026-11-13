@@ -105,19 +105,19 @@ const _:()=assert!(size_of::<(net::PeerId,net::Peer)>()<=node::PEER_ENTRY_BYTES&
 /// inbound place (`inbound`, `net::Limits::inbound_max`: the established places and those waiting for a Hello) a
 /// reader and a writer (`net::spawn_peer`: the reader joins the writer and releases the slot as its last action;
 /// an evicted peer keeps its place until then); per configured peer a dialer, an event forwarder,
-/// a reader and a writer; conn_max RPC connection threads; the miner (joined before it is
-/// replaced), the miner and listener forwarders, the timer, the P2P listener and the RPC
-/// acceptor (6); per automatic outbound slot (`slots`, S = K + 1 with the spare, VA-SPEC §1a.7) its thread `out-{t}`,
+/// a reader and a writer; conn_max RPC connection threads; the miner's `mine_threads` threads (V3-30 `--mine-threads`,
+/// default 1: every one of a miner's threads is joined before the next template's miner starts, `miner::THREADS_PEAK`),
+/// the miner and listener forwarders, the timer, the P2P listener and the RPC acceptor (5 singletons); per automatic outbound slot (`slots`, S = K + 1 with the spare, VA-SPEC §1a.7) its thread `out-{t}`,
 /// its connection's reader and writer (3·S), and with any slot the one forwarder `out-fwd`. Plus the consensus and
 /// main threads. Exiting threads are counted: the RPC acceptor, the P2P listener, each dialer and each slot join a
 /// finished thread before its place is used again (threads::reap; a slot joins its last reader before it dials), and
 /// a reader joins its writer.
-pub fn io_threads(inbound:usize,dials:usize,slots:usize,conn_max:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,mul(3,slots as u128)?,u128::from(slots>0),conn_max as u128,6])}
+pub fn io_threads(inbound:usize,dials:usize,slots:usize,conn_max:usize,mine_threads:usize)->Option<u128>{add(&[mul(2,inbound as u128)?,mul(4,dials as u128)?,mul(3,slots as u128)?,u128::from(slots>0),conn_max as u128,mine_threads.max(1) as u128,5])}
 /// The tasks the A13 thread inventory needs at its peak: the I/O threads (`io_threads` at every physical inbound place,
 /// `net::Limits::inbound_max`) and the consensus and main threads. 144 at the defaults (32 + 8 inbound, 2 configured
-/// peers, S = 5 automatic slots with the spare, 32 RPC connections), 368 at PEERS_MAX_LIMIT with 7 configured peers and
-/// S = 9; 128 at the defaults without automatic outbound.
-pub fn tasks_needed(l:&net::Limits,dials:usize,slots:usize,conn_max:usize)->Option<u128>{io_threads(l.inbound_max(),dials,slots,conn_max)?.checked_add(2)}
+/// peers, S = 5 automatic slots with the spare, 32 RPC connections, one miner thread), 368 at PEERS_MAX_LIMIT with 7
+/// configured peers and S = 9; 128 at the defaults without automatic outbound; each further `--mine-threads` thread adds one.
+pub fn tasks_needed(l:&net::Limits,dials:usize,slots:usize,conn_max:usize,mine_threads:usize)->Option<u128>{io_threads(l.inbound_max(),dials,slots,conn_max,mine_threads)?.checked_add(2)}
 /// Boot check against the service's task limit (systemd TasksMax, the cgroup's pids.max, read by `Node::start_network`):
 /// a node whose thread inventory does not fit would fail a thread spawn while it runs, so it refuses to start. "max",
 /// or a value that does not parse, counts as no limit.
@@ -757,7 +757,8 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     let rpc=add(&rq.map(|x|x.1))?;items.extend(rq);
     // Threads: reserved stacks (an upper bound on their resident stack) and per-thread heap.
     use crate::threads::{IO_STACK,CONSENSUS_STACK};
-    let io=io_threads(l.inbound_max(),dials,s as usize,r.conn_max)?;
+    // V3-30: the miner's threads (`Limits::mine_threads`, 1 by default, so the default bound is the one before V3-30).
+    let io=io_threads(l.inbound_max(),dials,s as usize,r.conn_max,limits.mine_threads)?;
     // Exiting-not-yet-joined threads (point 3): a reader/outbound-reader/RPC-conn thread can finish
     // between its reaper's visits. Bound E = inbound_max + dials + S + conn_max (writers are joined by
     // their reader synchronously; singletons never respawn). Measured ~25.8 KiB resident each (the
@@ -905,8 +906,11 @@ mod tests{
         assert_eq!(tasks_fit(128,"128\n"),Ok(()));
         let e=tasks_fit(128,"127").unwrap_err();
         assert_eq!(e,"the A13 thread inventory needs 128 tasks; this service allows 127 (raise TasksMax or lower --peers-max)");
-        assert_eq!(tasks_needed(&net::Limits::default(),2,5,32),Some(144),"the defaults at 2 configured peers and S = 5");
-        assert_eq!(tasks_needed(&net::Limits{peers_max:net::PEERS_MAX_LIMIT,..Default::default()},7,9,32),Some(368),"the largest setting at 7 and S = 9");
-        assert_eq!(tasks_needed(&net::Limits::default(),2,0,32),Some(128),"no automatic outbound");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,5,32,1),Some(144),"the defaults at 2 configured peers and S = 5");
+        assert_eq!(tasks_needed(&net::Limits{peers_max:net::PEERS_MAX_LIMIT,..Default::default()},7,9,32,1),Some(368),"the largest setting at 7 and S = 9");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,0,32,1),Some(128),"no automatic outbound");
+        // V3-30: each further miner thread is one more task; 0 counts as the one miner thread (the node clamps it).
+        assert_eq!(tasks_needed(&net::Limits::default(),2,5,32,8),Some(151),"eight miner threads");
+        assert_eq!(tasks_needed(&net::Limits::default(),2,5,32,0),Some(144));
     }
 }

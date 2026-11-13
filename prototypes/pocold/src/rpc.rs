@@ -32,7 +32,15 @@ pub const BATCH_MAX:usize=20;pub const BATCH_RESP_MAX:usize=16*1024*1024;
 /// eth_call/eth_estimateGas gas cap. It must not exceed the largest per-execution gas of the
 /// A13 execution model (`memory::execution_gas`), checked at compile time in resources.rs.
 pub const CALL_GAS_MAX:u64=30_000_000;
-pub const ORIGIN_DENY:[&str;2]=["pocol_submitShare","pocol_getTemplate"];
+pub const ORIGIN_DENY:[&str;4]=["pocol_submitShare","pocol_getTemplate","pocol_getWork","pocol_submitWork"];
+/// V3-30 S2 (D-V3-30): the local work interface. Served only with `--work-rpc` (`node::Limits::work_rpc`; otherwise
+/// −32601 as an unknown method), never with an Origin header (ORIGIN_DENY, so never through the site bridge), and
+/// only to a loopback peer: a request whose connection's peer address is not loopback is −32601 before admission to
+/// its handler, even though `serve` binds loopback only (defence in depth).
+pub const WORK_METHODS:[&str;2]=["pocol_getWork","pocol_submitWork"];
+/// V3-30 S2: whether a connection's peer may call the work interface: a loopback address only (an unknown peer address
+/// is refused).
+pub fn work_peer_ok(peer:Option<std::net::IpAddr>)->bool{peer.is_some_and(|ip|match ip{std::net::IpAddr::V4(a)=>a.is_loopback(),std::net::IpAddr::V6(a)=>a.is_loopback()||a.to_ipv4_mapped().is_some_and(|v|v.is_loopback())})}
 
 /// RpcGuard local service policy (network.md:182-330). These are hypotheses for testing, exposed
 /// in pocol_getParams.rpcLimits; none is a validity rule (D87, consensus.md §13). Within pocold's
@@ -201,11 +209,12 @@ pub const QUEUED:u8=0;pub const ADMITTED:u8=1;pub const GONE:u8=2;
 /// Origin header (a site), the instant after which nobody waits for the answer, the end of its
 /// parsing (it enters its queue: QUEUE_WAIT and BATCH_WALL run from here), its lane, its queue place
 /// and its admission state.
-pub struct Request{pub body:Arc<Vec<u8>>,pub reply:Sender<Reply>,pub site:bool,pub deadline:Instant,pub queued:Instant,pub light:bool,pub held:Option<Held>,pub state:Arc<AtomicU8>}
+/// `loopback`: the connection's peer is a loopback address (`work_peer_ok`; in-process requests are).
+pub struct Request{pub body:Arc<Vec<u8>>,pub reply:Sender<Reply>,pub site:bool,pub deadline:Instant,pub queued:Instant,pub light:bool,pub held:Option<Held>,pub state:Arc<AtomicU8>,pub loopback:bool}
 impl Request{
     /// A request queued now, outside any connection (in-process callers and tests).
     pub fn local(body:Vec<u8>,reply:Sender<Reply>,deadline:Instant,light:bool)->Self{
-        Self{body:Arc::new(body),reply,site:false,deadline,queued:Instant::now(),light,held:None,state:Arc::new(AtomicU8::new(QUEUED))}
+        Self{body:Arc::new(body),reply,site:false,deadline,queued:Instant::now(),light,held:None,state:Arc::new(AtomicU8::new(QUEUED)),loopback:true}
     }
     /// Atomic admission (network.md:232-234): the consensus thread takes the request only within
     /// QUEUE_WAIT of the end of its parsing and only while its connection still waits for it.
@@ -384,7 +393,7 @@ pub fn answer(n:&mut Node,q:&Request)->Reply{
     let light=q.light||(!batch&&light_class_for(&q.body,lr.heavy_receipts));
     let mut budget=Budget{compute_by:Instant::now()+if light{lr.compute_light}else{lr.compute_heavy},scratch_max:lr.scratch_heavy,scratch_used:0,walled:false};
     let wall_by=batch.then(||q.queued+lr.batch_wall);
-    let mut body=handle_until_budgeted(n,&q.body,q.site,Some(q.deadline),wall_by,&mut budget);
+    let mut body=handle_from(n,&q.body,q.site,q.loopback,Some(q.deadline),wall_by,&mut budget);
     if budget.walled{return Reply{body:String::new(),_resv:None,close:true,batch_from:None}}
     // Over the class's reservation: -32020 {resultBytes}, and the reservation shrinks to the error
     // (network.md:210, RG12).
@@ -663,6 +672,8 @@ fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Se
     // then treats us as the page's own origin. Non-browser clients (no Origin: curl, the pocol-site
     // client, the test harness) are unaffected, as is the extension (its Host is the loopback address).
     if site && !host_ok(&host){return respond(&mut s,403,"{}")}
+    // V3-30: the work interface needs a loopback peer (WORK_METHODS).
+    let loopback=work_peer_ok(s.peer_addr().ok().map(|a|a.ip()));
     if len>REQ_BUF.saturating_sub(head_end){
         // Closing with unread input makes the kernel reset the connection, which can discard the
         // 413 before the client reads it: shut down the write side and drain at most REQ_BUF more
@@ -686,7 +697,7 @@ fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Se
     if is_light_for(&body,l.heavy_receipts){
         // LIGHT_QUEUE places (network.md:214): a full lane is -32021 {busy}.
         let held=hold(&srv.light,usize::MAX,&COUNTERS.light_queued);
-        if light.tx.try_send(Event::Rpc(Request{body:body.clone(),reply:tx,site,deadline:work_by,queued,light:true,held,state:state.clone()})).is_err(){
+        if light.tx.try_send(Event::Rpc(Request{body:body.clone(),reply:tx,site,deadline:work_by,queued,light:true,held,state:state.clone(),loopback})).is_err(){
             COUNTERS.light_full.fetch_add(1,Ordering::SeqCst);COUNTERS.busy.fetch_add(1,Ordering::SeqCst);return respond(&mut s,200,&busy(&body));
         }
         COUNTERS.light_pushed.fetch_add(1,Ordering::SeqCst);
@@ -696,7 +707,7 @@ fn conn(mut s:TcpStream,node:SyncSender<Event>,light:LightLane,l:&Limits,srv:&Se
         // consensus thread makes active heavy work <= 1 <= HEAVY_ACTIVE.
         let Some(held)=reserve_heavy(&srv.queued,l.heavy_queue,admit_by) else{COUNTERS.queue_full.fetch_add(1,Ordering::SeqCst);COUNTERS.busy.fetch_add(1,Ordering::SeqCst);return respond(&mut s,200,&busy(&body))};
         // A full main event queue is waited for until QUEUE_WAIT too (the place is released on busy).
-        let mut ev=Event::Rpc(Request{body:body.clone(),reply:tx,site,deadline:work_by,queued,light:false,held:Some(held),state:state.clone()});
+        let mut ev=Event::Rpc(Request{body:body.clone(),reply:tx,site,deadline:work_by,queued,light:false,held:Some(held),state:state.clone(),loopback});
         loop{match node.try_send(ev){
             Ok(())=>break,
             Err(mpsc::TrySendError::Full(e)) if Instant::now()<admit_by=>{ev=e;std::thread::sleep(Duration::from_millis(1));}
@@ -809,10 +820,18 @@ pub fn handle_with(n:&mut Node,body:&[u8],site:bool)->String{handle_until_budget
 /// in their lane, and queued P2P, miner and timer events, run between members (`drain_between_members`). Once `wall_by` (BATCH_WALL from the read-end, network.md:282)
 /// has passed, no further member runs and the batch is closed (`Budget::walled`).
 pub fn handle_until_budgeted(n:&mut Node,body:&[u8],site:bool,deadline:Option<Instant>,wall_by:Option<Instant>,budget:&mut Budget)->String{
+    handle_from(n,body,site,true,deadline,wall_by,budget)
+}
+/// As `handle_until_budgeted` for a caller whose connection's peer is (`loopback`) or is not a loopback address: a
+/// WORK_METHODS request or batch member from a peer that is not is −32601 without running (V3-30 S2).
+pub fn handle_from(n:&mut Node,body:&[u8],site:bool,loopback:bool,deadline:Option<Instant>,wall_by:Option<Instant>,budget:&mut Budget)->String{
     if json_values(body)>JSON_VALUES_MAX{COUNTERS.too_complex.fetch_add(1,Ordering::SeqCst);return err(&Value::Null,-32600,"request has too many JSON values").to_string()}
     let v:Value=match serde_json::from_slice(body){Ok(v)=>v,Err(_)=>return err(&Value::Null,-32700,"parse error").to_string()};
-    let denied=|i:&Value|site&&i.get("method").and_then(|m|m.as_str()).map_or(false,|m|ORIGIN_DENY.contains(&m));
-    let site_err=|i:&Value|{COUNTERS.origin_denied.fetch_add(1,Ordering::SeqCst);err(&echo_id(id_of(i)),-32601,"method not available to sites")};
+    let method=|i:&Value|i.get("method").and_then(|m|m.as_str()).map(str::to_owned);
+    let remote=|i:&Value|!loopback&&method(i).is_some_and(|m|WORK_METHODS.contains(&m.as_str()));
+    let denied=|i:&Value|remote(i)||site&&method(i).is_some_and(|m|ORIGIN_DENY.contains(&m.as_str()));
+    let site_err=|i:&Value|if remote(i){err(&echo_id(id_of(i)),-32601,"method available to loopback callers only")}
+        else{COUNTERS.origin_denied.fetch_add(1,Ordering::SeqCst);err(&echo_id(id_of(i)),-32601,"method not available to sites")};
     if let Value::Array(items)=&v{
         if items.is_empty()||items.len()>BATCH_MAX{return err(&Value::Null,-32600,"batch").to_string()}
         let deny:Vec<bool>=items.iter().map(|i|denied(i)).collect();
@@ -872,7 +891,7 @@ fn item_err(i:&Value,code:i64,m:&str,reason:&str)->String{
 /// Methods whose effect happens when they run: their answer is returned even when it completes past
 /// the deadline (a late -32020 would hide an accepted transaction or share). This is the running
 /// reading of network.md:235 pending a decision (proposals/RPCGUARD-R2-PROPOSALS.md P3, option A).
-const EFFECTFUL:&[&str]=&["eth_sendRawTransaction","pocol_submitShare"];
+const EFFECTFUL:&[&str]=&["eth_sendRawTransaction","pocol_submitShare","pocol_submitWork"];
 /// The log handlers: they check COMPUTE_DEADLINE themselves, so their -32020 carries resume data.
 const LOGS:&[&str]=&["eth_getLogs","pocol_getLogs"];
 /// Test hook (a slow encoding): nonzero holds the answer of a request or member whose id is
@@ -1062,6 +1081,18 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         "pocol_getMiners"=>{let head=n.chain.head;let s=n.chain.view_of(&head).ok_or((-32001,"head state".to_string()))?;let s=s.v();Ok(json!(apply::record_list(s).iter().map(|id|{let r=apply::miner_record(s,*id).unwrap();
             json!({"id":format!("{id:#x}"),"status":r.status,"tomb":r.tomb,"bondState":r.bond_state,"lastShare":r.last_share,"bond":qty256(r.bond),"registeredAt":r.registered_at,"reward":format!("{:#x}",r.reward),"rewardBalance":qty256(s.account(&r.reward).map(|a|a.info.balance).unwrap_or_default())})}).collect::<Vec<_>>()))}
         "pocol_getTemplate"=>Ok(n.template_json()),
+        // V3-30 S2: the local work interface, only with --work-rpc (otherwise as an unknown method); ORIGIN_DENY and
+        // WORK_METHODS keep sites and non-loopback peers out before this runs.
+        "pocol_getWork" if n.cfg.limits.work_rpc=>{
+            let slice=match (p.first(),p.get(1)){
+                (None,None)=>None,
+                (Some(i),Some(c))=>Some((i.as_u64().or_else(||parse_u64(i)).ok_or(bad("index"))?,c.as_u64().or_else(||parse_u64(c)).ok_or(bad("count"))?)),
+                _=>return Err(bad("params: [] or [index, count]").into())};
+            Ok(n.work_json(slice)?)}
+        "pocol_submitWork" if n.cfg.limits.work_rpc=>{
+            let tid:[u8;32]=p.first().and_then(|v|v.as_str()).and_then(|t|unhex(t).ok()).and_then(|b|<[u8;32]>::try_from(b.as_slice()).ok()).ok_or(bad("templateId"))?;
+            let nonce=p.get(1).and_then(|x|x.as_u64().or_else(||parse_u64(x))).ok_or(bad("nonce"))?;
+            Ok(n.submit_work(tid,nonce)?)}
         _=>Err(Fail::from(not_found(m))),
     }
 }

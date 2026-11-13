@@ -443,3 +443,20 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         println!("A13-DEVNET-INBOUND {}",serde_json::json!({"peersMax":peers_max,"stateStore":state_store,"total":b.total.to_string()}));
     }}
 }
+/// V3-30 S1 (D-V3-30): the miner's threads are counted in A13, each at a full IO_STACK and its heap, and in the task
+/// inventory; the default (one thread) is the bound and inventory of before V3-30, so the pinned totals are unchanged.
+#[test] fn a13_counts_every_miner_thread(){
+    use pocold::{node::Limits,resources::{derive,tasks_needed},threads::IO_STACK};
+    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let at=|n:usize|derive(&cp,32,l.side_max,&Limits{mine_threads:n,..Default::default()},2).unwrap();
+    let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0==k).unwrap_or_else(||panic!("{k}")).1;
+    let io=IO_STACK as u128+4096;
+    assert_eq!(at(1).total,derive(&cp,32,l.side_max,&Limits::default(),2).unwrap().total,"one thread is the default");
+    assert_eq!(at(8).total-at(1).total,7*io,"seven more miner threads");
+    assert_eq!(item(&at(64),"threads/I/O thread stacks and heap")-item(&at(1),"threads/I/O thread stacks and heap"),63*io);
+    assert_eq!(item(&at(8),"threads/exiting not-yet-joined (conservative)"),item(&at(1),"threads/exiting not-yet-joined (conservative)"),
+        "a miner's threads are joined before the next miner starts: none is exiting");
+    let n=pocold::net::Limits::default();
+    assert_eq!(tasks_needed(&n,2,5,32,8).unwrap()-tasks_needed(&n,2,5,32,1).unwrap(),7);
+    assert_eq!(tasks_needed(&n,2,5,32,1),Some(144),"the defaults' inventory is unchanged");
+}

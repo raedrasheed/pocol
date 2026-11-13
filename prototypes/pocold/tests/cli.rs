@@ -403,3 +403,21 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     }
     let _=std::fs::remove_dir_all(&d);
 }
+/// V3-30: `--mine-threads N` (1..=64, default 1) and `--work-rpc` (off by default) come from the flags, status reports
+/// them, and a thread count outside its bounds fails the command.
+#[test] fn mine_threads_and_work_rpc_come_from_the_flags_and_are_reported(){
+    let d=tmp("mine");let net=d.join("net");
+    let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let status=|i:usize,flags:&[&str]|->Output{let data=d.join(format!("s{i}"));
+        Command::new(env!("CARGO_BIN_EXE_pocold")).args([&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap()][..],flags].concat()).output().unwrap()};
+    let o=status(0,&[]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["mining"]["threads"].as_u64(),v["mining"]["workRpc"].as_bool()),(Some(1),Some(false)),"the defaults: {}",v["mining"]);
+    assert!(v["networkHashrateEst"].is_null(),"no block yet");
+    let o=status(1,&["--mine-threads","8","--work-rpc"]);assert!(o.status.success(),"{}",text(&o.stderr));
+    let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["mining"]["threads"].as_u64(),v["mining"]["workRpc"].as_bool()),(Some(8),Some(true)),"{}",v["mining"]);
+    for bad in ["0","65","x",""]{let o=status(2,&["--mine-threads",bad]);
+        assert_eq!(o.status.code(),Some(1),"{bad}");assert!(text(&o.stderr).contains(&format!("--mine-threads {bad}:")),"{bad}: {}",text(&o.stderr));}
+    let _=std::fs::remove_dir_all(&d);
+}
