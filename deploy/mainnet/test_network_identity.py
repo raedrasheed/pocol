@@ -71,6 +71,22 @@ NON_CANONICAL = {
     'an item that overruns its list': rlp_list(_payload + b'\xc2\x01\x82\x03\x04'),
 }
 
+def int_item(v):
+    """A canonical RLP integer item."""
+    raw = v.to_bytes((v.bit_length() + 7) // 8, 'big')
+    return raw if len(raw) == 1 and raw[0] < 0x80 else bytes([0x80 + len(raw)]) + raw
+
+# A spec-2 (v3) genesis for the new chain: SPEC_A's items with version 2 and the fifteen CP v2 fields appended (the
+# lp4 devnet defaults, as pocol-extension/tests/decoder_corpus.mjs uses for its devnet-v2 items).
+CP_V2_EXTRA = [31557600, 62500000000000000, 16, 648000, 10**15, 0, 0, 5000, 10000000, 4, 40, 21600, 1250, 3, 2500]
+def spec_v2(version=b'\x02', extra=CP_V2_EXTRA, flip=0):
+    cp = rlp_list(_rest[_cp_start:_cp_end] + b''.join(int_item(v) for v in extra))
+    spec = bytearray(rlp_list(version + bytes([0x80 + len(_chain)]) + _chain + cp + _rest[_cp_end:]))
+    spec[-1] ^= flip
+    return bytes(spec)
+SPEC_V3 = spec_v2()
+HASH_V3 = '0x' + ni.keccak256(SPEC_V3).hex()
+
 def held(text, chain_id, genesis, spec_hex):
     """(chain ID tokens, hash copies, GenesisSpec copies), counted independently of the tool."""
     spellings = '|'.join(re.escape(s) for s in (str(chain_id), f'{chain_id:_}', hex(chain_id)))
@@ -466,6 +482,43 @@ class NetworkIdentity(unittest.TestCase):
             with self.subTest(chain=chain), self.assertRaises(SystemExit):
                 self.run_tool(root, '--chain-id', str(chain), genesis='0x' + ni.keccak256(bytes(spec)).hex(), spec=name)
         self.assertEqual(before, self.snapshot(root))
+
+    def test_a_spec_2_genesis_is_switched_to_only_with_v3(self):
+        self.assertEqual(ni.spec_identity(SPEC_A), (1, ni.NEW_CHAIN_ID))
+        self.assertEqual(ni.spec_identity(CUR_SPEC), (1, CUR_CHAIN))
+        self.assertEqual(ni.spec_identity(SPEC_V3, (2,)), (2, ni.NEW_CHAIN_ID))
+        with self.assertRaisesRegex(ValueError, 'v3 genesis'):
+            ni.spec_chain_id(SPEC_V3)
+        # The release version and the v3 version each with the other's CP length, a version without a schema, and
+        # a CP v2 one item short or long, are refused whichever versions are allowed.
+        for bad in (spec_v2(version=b'\x01'), NON_CANONICAL['version 2'], spec_v2(version=b'\x03'),
+                    spec_v2(extra=CP_V2_EXTRA[:-1]), spec_v2(extra=CP_V2_EXTRA + [1]), rlp_list(SPEC_V3[ni.rlp_item(SPEC_V3, 0)[1]:] + b'\x01')):
+            for versions in ((1,), (2,), (1, 2)):
+                with self.subTest(spec=bad.hex()[:16], versions=versions), self.assertRaises(ValueError):
+                    ni.spec_identity(bad, versions)
+        root = self.copy()
+        (root / 'v3.hex').write_text('0x' + SPEC_V3.hex() + '\n', encoding='utf-8')
+        (root / 'v3b.hex').write_text('0x' + spec_v2(flip=1).hex() + '\n', encoding='utf-8')
+        before = self.snapshot(root)
+        for args, case in (((), dict(genesis=HASH_V3, spec='v3.hex')), (('--check',), dict(genesis=HASH_V3, spec='v3.hex')),
+                           (('--v3',), dict()), (('--v3', '--check'), dict())):
+            with self.subTest(args=args), self.assertRaises(SystemExit):
+                self.run_tool(root, *args, **case)
+        self.assertEqual(before, self.snapshot(root), 'a refused v3 switch writes nothing')
+        self.assertEqual(self.run_tool(root, '--v3', genesis=HASH_V3, spec='v3.hex'), 0)
+        self.assert_carries(root, HASH_V3, SPEC_V3)
+        self.assertEqual(self.run_tool(root, '--v3', '--check', genesis=HASH_V3, spec='v3.hex'), 0)
+        # The tree now pins a spec-2 genesis: without --v3 its identity is not proven, so nothing runs.
+        switched = self.snapshot(root)
+        with self.assertRaises(SystemExit):
+            self.run_tool(root, '--check', genesis=HASH_V3, spec='v3.hex')
+        with self.assertRaises(SystemExit):
+            self.run_tool(root)
+        self.assertEqual(switched, self.snapshot(root))
+        # A redo to another v3 genesis of the same chain switches from the current one.
+        hash_v3b = '0x' + ni.keccak256(spec_v2(flip=1)).hex()
+        self.assertEqual(self.run_tool(root, '--v3', genesis=hash_v3b, spec='v3b.hex'), 0)
+        self.assert_carries(root, hash_v3b, spec_v2(flip=1))
 
     def test_the_release_notes_name_the_current_identity(self):
         # True of the old notes today; on the switched tree the new notes must name the new network, and after a

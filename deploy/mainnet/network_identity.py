@@ -9,8 +9,11 @@ with the public genesis.spec.hex that the cutover wrote:
         --genesis-spec /var/tmp/pocol-earnin-genesis/genesis.spec.hex
     python deploy/mainnet/network_identity.py --genesis-hash 0x... --genesis-spec ... --check   # verify only
 
-The given GenesisSpec must be canonical RLP throughout (version 1), hash (keccak256) to --genesis-hash and
-carry --chain-id; the extension and the node pin the whole spec, which proves the other two. The tree's
+The given GenesisSpec must be canonical RLP throughout, of version 1 with six top items and the 52 CP items of
+CP schema v1, hash (keccak256) to --genesis-hash and carry --chain-id; the extension and the node pin the whole
+spec, which proves the other two. A spec-2 (v3) genesis (CP schema v2, 67 CP items) is switched to only with an
+explicit --v3: the release node and clients refuse spec 2 until activation (V3-PR-I), so the switch is for a tree
+whose node and clients are built for it. The tree's
 current identity is the one the node file ANCHOR names, proven by its own GenesisSpec. Before and after the
 switch every listed file must carry exactly its FILES counts of the identity and no copy of the old Mainnet
 identity, so --check fails on a tree pinned to any other genesis, and a redo with a new genesis for the
@@ -41,6 +44,11 @@ OLD_GENESIS = 'be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 OLD_INVITATION = ROOT / 'deploy' / 'mainnet' / 'h15000' / 'network.pocol.json'
 # sha256(b'PoCol earn-in network 2026')[:4] mod (2^31 - 2^20) + 2^20; not listed on chainid.network.
 NEW_CHAIN_ID = 261597237
+# The GenesisSpec version the release node and clients decode (genesis_spec.rs and refdec.js SPEC_VERSION), the v3
+# genesis version (accepted only with --v3), and the CP item count of each version's schema (CP_LEN, CP_V2_LEN).
+SPEC_VERSION = 1
+V3_SPEC_VERSION = 2
+CP_ITEMS = {1: 52, 2: 67}
 # The node's network designation names the tree's current identity: MAINNET_CHAIN_ID, MAINNET_GENESIS,
 # and the published GenesisSpec in its test.
 ANCHOR = 'prototypes/pocold/src/network_display.rs'
@@ -150,23 +158,47 @@ def rlp_walk(b, start, end):
             rlp_walk(b, s, e)
         i = e
 
-def spec_chain_id(b):
-    """chainId of a GenesisSpec [version = 1, chainId, ...], after checking that the whole spec is one
-    canonical RLP list and that the chainId integer has no leading zero."""
+def spec_identity(b, versions=(SPEC_VERSION,)):
+    """(specVersion, chainId) of a GenesisSpec [version, chainId, CP, allocRoot, M_0List, sysCodeHash], after
+    checking that the whole spec is one canonical RLP list of six items, that the version is one of `versions` (the
+    release version 1 by default; 2 is the v3 genesis), that CP is a list of that version's CP item count, and that
+    the chainId integer has no leading zero."""
     try:
         is_list, start, end = rlp_item(b, 0)
         if not is_list or end != len(b):
             raise ValueError('not one RLP list')
         rlp_walk(b, start, end)
         is_list, vs, ve = rlp_item(b, start)
-        if is_list or b[vs:ve] != b'\x01':
-            raise ValueError('version is not 1')
+        version = b[vs] if not is_list and ve - vs == 1 and b[vs] in CP_ITEMS else None
+        if version not in versions:
+            if version == V3_SPEC_VERSION:
+                raise ValueError('version 2 (a v3 genesis) is refused by the release node and clients until activation; '
+                                 'pass --v3 only for a tree built for it')
+            raise ValueError(f"version is not {' or '.join(map(str, versions))}")
         is_list, s, e = rlp_item(b, ve)
         if is_list or s == e or b[s] == 0:
             raise ValueError('chainId is not a canonical integer')
+        items, i = [], start
+        while i < end:
+            is_list, cs, ce = rlp_item(b, i)
+            items.append((is_list, cs, ce))
+            i = ce
+        if len(items) != 6:
+            raise ValueError('a GenesisSpec has six top items')
+        cp_list, cs, ce = items[2]
+        count, j = 0, cs
+        while cp_list and j < ce:
+            j = rlp_item(b, j)[2]
+            count += 1
+        if not cp_list or count != CP_ITEMS[version]:
+            raise ValueError(f'CP of version {version} has {CP_ITEMS[version]} items')
     except IndexError:
         raise ValueError('truncated RLP') from None
-    return int.from_bytes(b[s:e], 'big')
+    return version, int.from_bytes(b[s:e], 'big')
+
+def spec_chain_id(b, versions=(SPEC_VERSION,)):
+    """chainId of a GenesisSpec of one of `versions` (spec_identity)."""
+    return spec_identity(b, versions)[1]
 
 def old_spec():
     """The published Mainnet GenesisSpec, checked against the old identity."""
@@ -175,8 +207,8 @@ def old_spec():
         raise SystemExit(f'{OLD_INVITATION}: not the published Mainnet genesis')
     return spec
 
-def current_identity(root):
-    """The tree's identity as ANCHOR names it, proven by the GenesisSpec it pins."""
+def current_identity(root, versions=(SPEC_VERSION,)):
+    """The tree's identity as ANCHOR names it, proven by the GenesisSpec it pins (of one of `versions`)."""
     text = (root / ANCHOR).read_text(encoding='utf-8')
     chain = re.search(r'const MAINNET_CHAIN_ID: u64 = ([0-9_]+);', text)
     genesis = re.search(r'const MAINNET_GENESIS: &str = "([0-9a-fA-F]{64})";', text)
@@ -185,11 +217,12 @@ def current_identity(root):
         raise SystemExit(f'{ANCHOR}: the current chain ID, genesis hash or GenesisSpec is not readable')
     chain_id, genesis, spec = int(chain.group(1).replace('_', '')), genesis.group(1).lower(), bytes.fromhex(spec.group(1))
     try:
-        proven = keccak256(spec).hex() == genesis and spec_chain_id(spec) == chain_id
+        proven = keccak256(spec).hex() == genesis and spec_chain_id(spec, versions) == chain_id
     except ValueError:
         proven = False
     if not proven:
-        raise SystemExit(f'{ANCHOR}: its GenesisSpec does not prove its chain ID and genesis hash')
+        raise SystemExit(f'{ANCHOR}: its GenesisSpec does not prove its chain ID and genesis hash'
+                         + ('' if V3_SPEC_VERSION in versions else ' (a tree on a v3 genesis is switched only with --v3)'))
     return chain_id, genesis, spec
 
 def main(argv=None):
@@ -199,6 +232,9 @@ def main(argv=None):
                    help="the new network's genesis.spec.hex, written by `pocold cutover` (public)")
     p.add_argument('--chain-id', type=int, default=NEW_CHAIN_ID)
     p.add_argument('--check', action='store_true', help='verify that the tree carries exactly this identity')
+    p.add_argument('--v3', action='store_true',
+                   help='the given GenesisSpec is a spec-2 (v3) genesis; the release node and clients refuse spec 2 until '
+                        'activation, so use this only for a tree built for it (the current one may be of either version)')
     p.add_argument('--root', type=Path, default=ROOT)
     a = p.parse_args(argv)
     if not re.fullmatch(r'0x[0-9a-fA-F]{64}', a.genesis_hash):
@@ -208,14 +244,14 @@ def main(argv=None):
         p.error('the new identity must differ from the old network and be a valid chain ID')
     try:
         spec = read_spec(a.genesis_spec.read_text(encoding='utf-8'))
-        spec_chain = spec_chain_id(spec)
+        spec_chain = spec_chain_id(spec, (V3_SPEC_VERSION,) if a.v3 else (SPEC_VERSION,))
     except (OSError, UnicodeDecodeError, ValueError) as e:
-        p.error(f'--genesis-spec: {e}')
+        p.error(f'--genesis-spec: {e}' + (' (--v3 takes a spec-2 genesis only)' if a.v3 and 'version is not' in str(e) else ''))
     if keccak256(spec).hex() != genesis:
         p.error('--genesis-spec does not hash (keccak256) to --genesis-hash')
     if spec_chain != a.chain_id:
         p.error(f'--genesis-spec carries chain ID {spec_chain}, not {a.chain_id}')
-    cur_chain, cur_genesis, cur_spec = current_identity(a.root)
+    cur_chain, cur_genesis, cur_spec = current_identity(a.root, (SPEC_VERSION, V3_SPEC_VERSION) if a.v3 else (SPEC_VERSION,))
     cur, new = tokens(cur_chain, cur_genesis), tokens(a.chain_id, genesis)
     mainnet, mainnet_spec = tokens(OLD_CHAIN_ID, OLD_GENESIS), old_spec().hex()
     same = (cur_chain, cur_genesis) == (a.chain_id, genesis)
@@ -299,7 +335,7 @@ def main(argv=None):
                           f'(git checkout -- {" ".join(replaced)}) and run the same command again', file=sys.stderr)
                 return 2
     print(('verified' if a.check else 'updated'), len(FILES), 'files;', 'changed:', len(changed),
-          f'chainId={a.chain_id} genesisHash=0x{genesis}')
+          f'chainId={a.chain_id} genesisHash=0x{genesis}' + (f' specVersion={V3_SPEC_VERSION}' if a.v3 else ''))
     return 0
 
 def remove(paths):
