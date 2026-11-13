@@ -1562,3 +1562,28 @@ fn blake_then(rounds:u32,tail:&str)->String{
     let v=j(rpc(on.rpc,r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#,false));
     assert_eq!(v["result"]["mining"]["workRpc"],format!("127.0.0.1:{work}"),"{}",v["result"]["mining"]);
 }
+/// Codex review of #42 (V3-30 S2): the two ports share conn_max, and finished connections of one port never hold the
+/// places the other port's next client needs. With conn_max 2: two main-port connections open at once (so the main
+/// acceptor never joins either of them), answered and closed, are followed by a work-port request that is served (not
+/// 503); and the same the other way round.
+#[test] fn finished_connections_of_one_port_free_their_places_for_the_other(){let _g=serial();
+    let get=r#"{"jsonrpc":"2.0","id":1,"method":"pocol_getWork","params":[]}"#;
+    let chain=r#"{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}"#;
+    let work=free_port();
+    let mut l=small();l.rpc.conn_max=2;l.work_rpc=Some(format!("127.0.0.1:{work}").parse().unwrap());
+    let r=start("work-share",l);
+    let served=|port:u16,body:&str|->bool{let (code,b)=rpc(port,body,false);code==200&&serde_json::from_str::<serde_json::Value>(&b).is_ok()};
+    // Two connections accepted together, both answered, then closed: their threads finish while no new client of
+    // that port arrives, so only an acceptor that joins the other port's threads frees their places.
+    let both=|port:u16,body:&str|{
+        let mut ss:Vec<TcpStream>=(0..2).map(|_|{let s=TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(Duration::from_secs(5))).unwrap();s}).collect();
+        assert!(wait_until(5_000,||counter(&pocold::rpc::COUNTERS.active)==2),"both connections are accepted");
+        for s in ss.iter_mut(){s.write_all(format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes()).unwrap();}
+        for s in ss.iter_mut(){let mut b=Vec::new();let _=s.read_to_end(&mut b);assert!(b.starts_with(b"HTTP/1.1 200"),"{}",String::from_utf8_lossy(&b));}
+        drop(ss);assert!(wait_until(5_000,||counter(&pocold::rpc::COUNTERS.active)==0),"their threads finished");
+    };
+    both(r.rpc,chain);
+    assert!(served(work,get),"the work port is served after two finished main-port connections");
+    both(work,get);
+    assert!(served(r.rpc,chain),"the main port is served after two finished work-port connections");
+}

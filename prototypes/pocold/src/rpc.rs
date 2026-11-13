@@ -611,33 +611,35 @@ pub fn light_value_for(v:&Value,heavy_receipts:bool)->bool{
 }
 /// Shared across one server's connections: the heavy admission queue depth (an abandoned heavy
 /// body stays here until the node dequeues it) and the light lane's (bounded by its capacity), and (V3-30) the
-/// connection threads not yet joined of both ports, at most conn_max in all.
-pub struct Server{pub queued:Arc<AtomicUsize>,pub light:Arc<AtomicUsize>,pub conns:Arc<AtomicUsize>}
+/// connection threads not yet joined of both ports with the port each serves (true: the work port), at most conn_max
+/// in all. Either acceptor joins every finished thread in it, of both ports, before it counts the places, so a
+/// finished connection on one port never holds a place the other port's next client needs.
+pub struct Server{pub queued:Arc<AtomicUsize>,pub light:Arc<AtomicUsize>,pub conns:Arc<std::sync::Mutex<Vec<(std::thread::JoinHandle<()>,bool)>>>}
+impl Server{
+    /// A server with no queued request and no connection thread.
+    pub fn new()->Self{Server{queued:Arc::new(AtomicUsize::new(0)),light:Arc::new(AtomicUsize::new(0)),conns:Arc::default()}}
+}
 /// Connection threads are joined by the acceptor before their slot is reused, so at most
 /// conn_max connection threads exist, exiting ones included (A13 thread inventory).
 pub fn serve(addr:SocketAddr,node:SyncSender<Event>,light:LightLane,limits:Limits)->Result<(),String>{serve_all(Some(addr),None,node,light,limits)}
 /// The main RPC port (`main`) and the V3-30 work port (`work`, WORK_METHODS only), each with its acceptor thread; both
 /// bind loopback only and are bound before either acceptor starts. Their connection threads, exiting ones included,
-/// are at most conn_max in all (`Server::conns`), the work port's at most WORK_CONN_MAX of them: a finished work-port
-/// connection holds one of the conn_max places until the work acceptor's next connection joins it.
+/// are at most conn_max in all (`Server::conns`), the work port's at most WORK_CONN_MAX of them. Each acceptor joins the
+/// finished connection threads of both ports before it counts, so a finished thread holds a place only until the next
+/// client of either port arrives.
 pub fn serve_all(main:Option<SocketAddr>,work:Option<SocketAddr>,node:SyncSender<Event>,light:LightLane,limits:Limits)->Result<(),String>{
     for a in [main,work].into_iter().flatten(){if !a.ip().is_loopback(){return Err("RPC binds loopback only".into())}}
     let bind=|a:SocketAddr|TcpListener::bind(a).map_err(|e|format!("rpc bind {a}: {e}"));
     let (lm,lw)=(main.map(bind).transpose()?,work.map(bind).transpose()?);
-    let srv=Arc::new(Server{queued:Arc::new(AtomicUsize::new(0)),light:Arc::new(AtomicUsize::new(0)),conns:Arc::new(AtomicUsize::new(0))});
+    let srv=Arc::new(Server::new());
     if let Some(l)=lm{accept(l,false,node.clone(),light.clone(),limits.clone(),srv.clone())?;}
     if let Some(l)=lw{accept(l,true,node,light,limits,srv)?;}
     Ok(())
 }
-/// One more of `max` places in `count`; false once they are all taken.
-fn reserve(count:&AtomicUsize,max:usize)->bool{
-    let mut c=count.load(Ordering::SeqCst);
-    loop{if c>=max{return false}match count.compare_exchange_weak(c,c+1,Ordering::SeqCst,Ordering::SeqCst){Ok(_)=>return true,Err(x)=>c=x}}
-}
 fn accept(l:TcpListener,work:bool,node:SyncSender<Event>,light:LightLane,limits:Limits,srv:Arc<Server>)->Result<(),String>{
     let (name,own_max)=if work{("rpc-work",WORK_CONN_MAX)}else{("rpc",limits.conn_max)};
     crate::threads::spawn(name,crate::threads::IO_STACK,move||{
-        let mut next=0u64;let mut conns:Vec<std::thread::JoinHandle<()>>=Vec::new();
+        let mut next=0u64;
         for s in l.incoming(){
             // No Nagle delay: with delayed ACKs (Windows) a reply written in two parts would wait
             // about 200 ms for the first part's ACK.
@@ -650,8 +652,12 @@ fn accept(l:TcpListener,work:bool,node:SyncSender<Event>,light:LightLane,limits:
                 Ok(n) if sockbuf_ok(n)=>SEND_SOCK_BUF_SEEN.store(n,Ordering::SeqCst),
                 _=>{COUNTERS.sockbuf_refused.fetch_add(1,Ordering::SeqCst);let _=s.shutdown(std::net::Shutdown::Both);continue}
             }
-            let before=conns.len();crate::threads::reap(&mut conns);srv.conns.fetch_sub(before-conns.len(),Ordering::SeqCst);
-            if conns.len()>=own_max||!reserve(&srv.conns,limits.conn_max){
+            // Join the finished connection threads of both ports (prompt: their functions have returned), then count
+            // the running and exiting ones (A13 thread inventory): this port's against own_max, both against conn_max.
+            let mut conns=srv.conns.lock().unwrap_or_else(|e|e.into_inner());
+            let mut i=0;while i<conns.len(){if conns[i].0.is_finished(){let _=conns.swap_remove(i).0.join();}else{i+=1}}
+            if conns.iter().filter(|c|c.1==work).count()>=own_max||conns.len()>=limits.conn_max{
+                drop(conns);
                 COUNTERS.refused.fetch_add(1,Ordering::SeqCst);
                 // Closed without reading or lingering: the acceptor never waits on a refused client.
                 let _=s.set_write_timeout(Some(Duration::from_millis(100)));let _=write_reply(&mut s,503,"{}");continue
@@ -659,7 +665,7 @@ fn accept(l:TcpListener,work:bool,node:SyncSender<Event>,light:LightLane,limits:
             let (n,lt,lim,srv2)=(node.clone(),light.clone(),limits.clone(),srv.clone());
             COUNTERS.active.fetch_add(1,Ordering::SeqCst);
             match crate::threads::spawn(format!("{name}-{id}"),crate::threads::IO_STACK,move||{let _=conn(s,n,lt,&lim,&srv2,work);COUNTERS.active.fetch_sub(1,Ordering::SeqCst);}){
-                Ok(h)=>conns.push(h),Err(_)=>{COUNTERS.active.fetch_sub(1,Ordering::SeqCst);srv.conns.fetch_sub(1,Ordering::SeqCst);}
+                Ok(h)=>conns.push((h,work)),Err(_)=>{COUNTERS.active.fetch_sub(1,Ordering::SeqCst);}
             }
         }
     }).map_err(|e|e.to_string())?;
@@ -1428,7 +1434,7 @@ mod tests{
             let (events,backend)=mpsc::sync_channel(1);let (light,_light_rx)=mpsc::sync_channel(1);
             let queued=Arc::new(AtomicUsize::new(0));let held=queued.clone();
             let limits=Limits{work_deadline:Duration::from_secs(1),queue_wait:Duration::from_secs(30),..Default::default()};let queue_wait=limits.queue_wait;
-            let connection=std::thread::spawn(move||conn(socket,events,LightLane{tx:light,wake:Arc::new(AtomicBool::new(false))},&limits,&Server{queued:held,light:Arc::new(AtomicUsize::new(0)),conns:Arc::new(AtomicUsize::new(0))},false));
+            let connection=std::thread::spawn(move||conn(socket,events,LightLane{tx:light,wake:Arc::new(AtomicBool::new(false))},&limits,&Server{queued:held,..Server::new()},false));
             let request=match backend.recv_timeout(Duration::from_secs(5)).unwrap(){Event::Rpc(q)=>q,_=>panic!("expected RPC work")};
             assert!(!request.light);assert!(request.admit(queue_wait).is_ok(),"backend takes the request before its deadline");
             // Do not send a backend reply or release its body before observing
