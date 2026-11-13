@@ -55,7 +55,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        group: [lp1, lp4, pocold, pocold-io-fault, extension]
+        group: [lp1, lp4, pocold, pocold-consensus, pocold-io-fault, extension]
     timeout-minutes: 150
     defaults:
       run:
