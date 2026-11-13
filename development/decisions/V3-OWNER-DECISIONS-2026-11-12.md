@@ -9,8 +9,9 @@
 >   which the owner removed: new accounts pay ordinary gas only (answer 10d). It no longer applies once the fee is
 >   removed from the programs.
 > - The **third decision** (the probation-pool contest victim, D-V3-14) concerns the seat and probation-pool
->   contests of O-10 and O-14, which the owner removed: no seat cap, no seat contest and no probation pool (answers
->   10, 10b, 10c). Answer 13 of 2026-11-13 approved it again but notes that it may become moot.
+>   contests of O-10 and O-14, which the owner removed: no seat contest and no separate probation pool; the member
+>   cap is M_max = 10,000, with newcomers accruing their bond counted within it (answers 10, 10b, 10c; second
+>   follow-up, answer 2). Answer 13 of 2026-11-13 approved it again but notes that it may become moot.
 > - The **first decision** (the all-probationer exception, O-13) is not changed by the 2026-11-13 answers.
 > - Every mention of the earn-in re-genesis or of live-network changes on the old network is moot (O-0, O-33).
 

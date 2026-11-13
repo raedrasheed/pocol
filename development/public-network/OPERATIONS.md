@@ -193,7 +193,12 @@ fingerprint is stable across such releases, and `pocol upgrade` appends future f
 entries of any supported version (append-only, future-only) or rebinds to an
 equivalent v2 file. `pocol inspect-upgrade` shows the effect first and writes nothing.
 G3 (a fork activation) still needs a coordinated release: a node without the new
-schedule entry is refused by the others with an explicit reason.
+schedule entry is refused by the others with an explicit reason. **TODO (tracked, open):**
+seeds have no fork migration tool at present. `deploy/public-testnet/nonce_upgrade.py` was
+removed with the old-network transition tooling (fresh network, Phase 1), and
+`node_operator.py` refuses a marker whose `consensusIdentity` differs. Before the first fork
+of the new chain, restore the tool from commit d24843d without its 0.4.0 parts, together
+with its tests (`deploy/public-testnet/README.md`).
 
 **The last coordinated switch** (superseded: on 2026-11-13 the owner decided to launch a
 brand-new network from a fresh genesis instead, so there is no switch and no 0.4.0 node
@@ -207,7 +212,8 @@ code implements by default) rides the held earn-in re-genesis: freeze a height, 
 genesis, start the seeds together and publish packages once they report the same
 `consensusIdentity` and head. Old launcher homes then get "This network was replaced
 by a new genesis. Follow the release notes to move the old network files aside; keep
-your wallet key." Option A (run R1 on the live H15000 chain) needed a certified replay
+your wallet key." (Packages no longer ship those release notes; the fresh-network Phase 2 removes this
+refusal, `Switch::B` in prototypes/pocold/src/launcher.rs, which is inside the consensus boundary.) Option A (run R1 on the live H15000 chain) needed a certified replay
 first; the shipped legacy entry is uncertified and every H15000 home is refused. Deployment is held.
 
 **Reading the status fields.** `pocol_status` (and wallet status) report:

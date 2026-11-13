@@ -78,3 +78,25 @@ Summary:
 - 6: a closed rehearsal on the three US servers before the public launch.
 - 15: founding miners: the three US servers and the owner's computer; the phone is a wallet/observer.
 - Domain: pocol.net.
+
+## Second follow-up (2026-11-13, verbatim)
+
+> 1. ب-2 ويمكن أن تبدأ من 4 PCOL
+> 2. موافق أن يكون 10000
+> 3. نعم هي نفسها
+>
+> هل كل شيء واضح الان
+> للتذكير يجب ان تكون الشبكة قابلة لتخزين html و css و JS لنشر صفحات الانترنت واعمل على المواقع الثلاثة المرفقة
+> https://explorer.pocol.net/
+> https://studio.pocol.net/
+> https://ide.pocol.net/
+> وايضا الاضافة الخاصة بمتصفح كروم
+
+Summary:
+- Issuance: S0 = 4 PCOL per block at a 10 s average block (H_half = 4 years = 12,623,040 blocks; tail S0/32 = 0.125 PCOL).
+  About 12.6 million PCOL in the first year and about 97.8 million over 20 years; the founders' 4 million is about 4%.
+- Member cap M_max = 10,000 (newcomers accruing their 20 PCOL bond count within it; no separate small pool).
+- The three US servers are the old network's servers: they must be wiped after the old network is stopped, before the
+  new install.
+- Requirements restated: the network stores HTML, CSS and JS to publish web pages (on-chain sites); work on the three
+  sites explorer.pocol.net, studio.pocol.net, ide.pocol.net and on the Chrome extension.

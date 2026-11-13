@@ -100,11 +100,12 @@ class Operations(unittest.TestCase):
         self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (1, 2, 2))
         self.assertIs(info['consensusPinned'], True, 're-pin the consensus lock (pocold/tests/consensus_guard.rs)')
 
-    def bundle(self):
-        bundle = self.root / 'bundle'; bundle.mkdir(); (bundle / 'net').mkdir(); (bundle / 'bin').mkdir()
-        config = {'name':'n1', 'minerAddress':None}
+    def bundle(self, name='bundle', digest='b'*64, forks=None):
+        bundle = self.root / name; bundle.mkdir(); (bundle / 'net').mkdir(); (bundle / 'bin').mkdir()
+        config = {'name':'n1', 'minerAddress':None, 'listen':'0.0.0.0:30300', 'rpc':'127.0.0.1:8545', 'peers':[]}
         info = {'chainId':777915, 'genesisHash':'0x'+'a'*64, 'admission':{'scope':'experimental-devnet'}}
-        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':'b'*64, 'consensusRulesVersion':1,
+        if forks is not None: info['forks'] = forks
+        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':digest, 'consensusRulesVersion':1,
                  'consensusPinned':True, 'consensusSourcesSha256':'c'*64}
         op.write_json(bundle / 'node.json', config); op.write_json(bundle / 'net/devnet.json', info)
         op.write_json(bundle / 'build-info.json', build)
@@ -131,6 +132,33 @@ class Operations(unittest.TestCase):
         op.restore(bundle, saved, target, op.digest(saved / 'backup.json'))
         with self.assertRaises(ValueError): op.restore(bundle, saved, target, op.digest(saved / 'backup.json'))
         self.assertEqual((target / 'blocks.journal').read_bytes(), b'fixture\0\xff')
+
+    def test_a_digest_only_bundle_swap_starts_on_the_existing_marker_without_migration(self):
+        old, before = self.bundle('old', 'b' * 64)
+        swap, swapped = self.bundle('swap', 'd' * 64)
+        fork, forked = self.bundle('fork', 'b' * 64, forks=[[1, 0], [2, 100]])
+        self.assertNotEqual(swapped['compatibilitySha256'], before['compatibilitySha256'])
+        self.assertEqual(swapped['consensusIdentity'], before['consensusIdentity'], 'same rules and schedule')
+        self.assertNotEqual(forked['consensusIdentity'], before['consensusIdentity'], 'a fork entry is another identity')
+        self.assertTrue(op.bound(before, swapped), 'a digest-only release binds the existing marker')
+        self.assertFalse(op.bound(before, forked))
+        data = self.root / 'state'; data.mkdir(mode=0o700)
+        op.write_json(data / 'network-binding.json', before)
+        marker = (data / 'network-binding.json').read_bytes()
+        def build_info(bundle):
+            return lambda args, **kwargs: json.dumps(op.read_json(bundle / 'build-info.json'))
+        with unittest.mock.patch.object(op.subprocess, 'check_output', side_effect=build_info(swap)), \
+                unittest.mock.patch.object(op.os, 'execv', side_effect=SystemExit('started')) as started:
+            with self.assertRaisesRegex(SystemExit, 'started'): op.launch(swap, data, None)
+        self.assertEqual(started.call_args.args[1][1], 'run')
+        self.assertEqual(started.call_args.args[1][0], str(swap / 'bin/pocold'))
+        self.assertEqual((data / 'network-binding.json').read_bytes(), marker, 'the marker is never rewritten')
+        # Another fork schedule is another consensus identity: refused, and nothing starts.
+        with unittest.mock.patch.object(op.subprocess, 'check_output', side_effect=build_info(fork)), \
+                unittest.mock.patch.object(op.os, 'execv') as started:
+            with self.assertRaisesRegex(ValueError, 'another network, consensus rules'): op.launch(fork, data, None)
+            started.assert_not_called()
+        self.assertEqual((data / 'network-binding.json').read_bytes(), marker)
 
     def test_monitor_rejects_unsafe_urls_before_any_io(self):
         for url in ('http://example.test', 'http://169.254.169.254:80', 'file:///etc/passwd',

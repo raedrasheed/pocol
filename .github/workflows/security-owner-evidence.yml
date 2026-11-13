@@ -16,7 +16,6 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
-  actions: read
 concurrency:
   group: security-owner-evidence-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
