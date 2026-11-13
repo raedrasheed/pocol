@@ -511,7 +511,7 @@ mod preview{
         let a=deploy(&mut node,&[slot,logs(3)],cfg.g_ts+4);assert_eq!(user_phase::caps::V3_LOG_COUNT_MAX,4368);
         let call=|to:Address|serde_json::json!({"from":devnet::account_key("alice").address(),"to":to,"maxFeePerGas":"0xe8d4a51000","maxPriorityFeePerGas":"0x7"});
         let e=rpc(&mut node,"eth_estimateGas",serde_json::json!([call(a[0]),"latest"]));let q=rpc(&mut node,"pocol_quoteCreationBurn",serde_json::json!([call(a[0])]));
-        assert_eq!(e["error"]["message"],"execution would halt (LogCount)","{e}");assert_eq!(q["error"]["code"],-32000,"{q}");assert_eq!(q["error"]["message"],e["error"]["message"]);
+        assert_eq!(e["error"]["message"],"execution would halt (LogCount)","{e}");assert_eq!(q["error"]["code"],-32000,"{q}");assert_eq!(q["error"]["message"],e["error"]["message"]);assert_eq!(q["error"],e["error"],"the same error object, reason included");assert_eq!(e["error"]["data"]["reason"],"LogCount");
         let (_,ok)=estimate_and_quote(&mut node,Some(a[1]),&[],U256::from(1_000_000_000_000u64));assert_eq!(quantity(&ok["total"]),U256::ZERO);
     }
 

@@ -1224,7 +1224,7 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget,pricing:Pricin
                 }
                 let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
                 meter.admit_result(&st,&mut r,caller,signed,&ctx,n.chain.spec.profile(),summary.inventory()).map_err(halt)?;
-                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),true){return Err(Fail::from((-32000,format!("execution would halt ({why:?})"))))}
+                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),true){return Err(halt(why))}
                 if b.expired(){return deadline()}
             }
             // Preserve the legacy search ceiling; only v3 introduces priced

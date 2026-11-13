@@ -5,8 +5,9 @@ pragma solidity 0.8.28;
 // PoColSystemEarnIn.sol (itself from PoColSystemV1.sol with a continuous markClose, marked "EARN-IN");
 // every difference from PoColSystemEarnIn.sol is marked "V3-xx". Reachable only through its own
 // sysCodeHash on a specVersion-2 genesis (CP schema v2). The programs do not check that: on a 52-field CP
-// ChainCaps.get(52..66) reads 0 (P_MAX 0, T_PROB 0). The host registry (apply.rs SystemPrograms::selectable)
-// keeps the set off a CP schema v1 genesis (tests/v3_contracts.rs). Authorities: M1 execution.md and
+// ChainCaps.get(52..66) reads 0 (P_MAX 0, T_PROB 0, R_react 0). The host registry (apply.rs SystemPrograms::selectable)
+// keeps the set off a CP schema v1 genesis (tests/v3_contracts.rs). V3-08/V3-09 registry budgets: REGISTRY-LAYOUT.md,
+// tests/v3_model.py. Authorities: M1 execution.md and
 // incentives.md (phases, pending, settle formulas, bond machine); LP4-PAY-01/02, LP4-REGISTRY-01/02,
 // LP4-SYS-01, LP4-ISSUANCE-01; LP4-LEDGER-01 option 1 (development/LP4-LEDGER-APPROVAL.md).
 // Addresses: C0C001 MinerRegistry, C0C002 RewardEscrow, C0C003 ShareLedger,
@@ -239,8 +240,8 @@ contract RewardEscrow {
     }
 }
 
-/// MinerRegistry v1: LP4 Registry user paths/sweep/closing cursor (unchanged
-/// layout, REGISTRY-LAYOUT.md) plus SYSTEM recordShares (LEDGER-01) and punish.
+/// MinerRegistry v1: LP4 Registry user paths/sweep/closing cursor (REGISTRY-LAYOUT.md; the v3 set adds the budget
+/// slot 9 and two clocks in spare record bits, V3-08/V3-09) plus SYSTEM recordShares (LEDGER-01) and punish.
 contract MinerRegistry {
     error BadCalldata(); error BadValue(); error Closing(); error RegOpsLimit();
     error BadState(); error Capacity(); error RewardNotDurable(); error PaymentFailed();
@@ -264,6 +265,19 @@ contract MinerRegistry {
     uint256 constant CP_P_MAX=54;
     uint256 constant CP_T_PROB=55;
     uint256 constant ACC_COUNT=8;
+    // V3-08 / V3-09 (REGISTRY-LAYOUT.md, v3 registry budgets). Slot 9 holds this block's maintenance and
+    // reactivation budgets: maintenance used 0..7, reactivations used 8..15, the height they belong to 16..79
+    // (a slot carrying another height reads as nothing used, so beginBlock writes nothing new). The per-record
+    // clocks use spare record bits, so a record keeps four words and erase writes nothing new: lastMaintHeight
+    // modulo 2^40 in w0 bits 216..255, lastReactHeight in w1 bits 160..223 (0 = never; user transactions run at
+    // height >= 1). The modular clock can only refuse: a maintenance operation exactly k*2^40 blocks after the
+    // identity's previous one (or at such a height, for one with none) reverts once.
+    uint256 constant BUDGETS=9;
+    uint256 constant REG_MAINT_MAX=8;
+    uint256 constant CP_R_REACT=61;
+    uint256 constant CP_C_REACT=62;
+    uint256 constant MAINT_MOD=(uint256(1)<<40)-1;
+    uint256 constant LOW160=uint256(type(uint160).max);
     function get(uint256 k) internal view returns(uint256 v){assembly{v:=sload(k)}}
     function put(uint256 k,uint256 v) internal {assembly{sstore(k,v)}}
     function cfg(uint256 n) internal view returns(uint256){return ICaps(Sys.CAPS).get(n);}
@@ -298,9 +312,36 @@ contract MinerRegistry {
         put(r+2,bond+add);put(4,get(4)+add);promote(r,w,bond+add);
         return amount-add;
     }
-    function recordWords(address id) external view returns(uint256,uint256,uint256,uint256){uint256 r=rec(id);return(get(r),get(r+1),get(r+2),get(r+3));}
+    /// V3-09: w1 is returned as the reward address alone (its bits 160..223 hold the C_react clock, recordClocks).
+    function recordWords(address id) external view returns(uint256,uint256,uint256,uint256){uint256 r=rec(id);return(get(r),get(r+1)&LOW160,get(r+2),get(r+3));}
     function lengths() external view returns(uint256,uint256,uint256,uint256){return(get(0),get(1),get(2),get(4));}
     function counters() external view returns(uint256){return get(3);}
+    /// V3-08/V3-09: lastMaintHeight modulo 2^40 (w0 bits 216..255), lastReactHeight (w1 bits 160..223); the budget slot.
+    function recordClocks(address id) external view returns(uint256,uint256){uint256 r=rec(id);return(get(r)>>216,(get(r+1)>>160)&LOW64);}
+    function budgets() external view returns(uint256){return get(BUDGETS);}
+    /// V3-08: setRewardAddress/topUp draw on REG_MAINT_MAX; V3-09: reactivate on R_react (CP 61), and no
+    /// longer on R_max. Register, deregister, claimBond and removeInactive keep REG_OPS less the maintenance
+    /// used this block; register also keeps R_max.
+    function usedThisBlock() internal view returns(uint256){uint256 b=get(BUDGETS);return ((b>>16)&LOW64)==block.number?b&65535:0;}
+    function checkBudgets(uint256 c,bool registering,bool reactivating,bool maintaining) internal view {
+        uint256 used=usedThisBlock();
+        if(maintaining?(used&255)>=REG_MAINT_MAX:(reactivating?((used>>8)&255)>=cfg(CP_R_REACT):((c&65535)+(used&255)>=cfg(23) || (registering && ((c>>16)&255)>=cfg(17)))))revert RegOpsLimit();
+    }
+    function spendBudgets(uint256 c,bool registering,bool reactivating,bool maintaining) internal {
+        if(maintaining||reactivating)put(BUDGETS,(usedThisBlock()+(maintaining?1:256))|(block.number<<16));
+        else put(3,c+1+(registering?(uint256(1)<<16):0));
+    }
+    /// V3-08: at most one maintenance operation per identity per block. Returns w0 with the clock set.
+    function maintain(uint256 r,uint256 w,uint256 height) internal returns(uint256){
+        if((w>>216)==(height&MAINT_MOD))revert RegOpsLimit();
+        w=(w&((uint256(1)<<216)-1))|((height&MAINT_MOD)<<216);put(r,w);return w;
+    }
+    /// V3-09: an identity reactivates at most once per C_react blocks, counted from its previous reactivation.
+    function reactClock(uint256 r,uint256 height) internal {
+        uint256 x=get(r+1);uint256 last=(x>>160)&LOW64;
+        if(last!=0 && height<last+cfg(CP_C_REACT))revert BadState();
+        put(r+1,(x&~(LOW64<<160))|(height<<160));
+    }
     function recordAt(uint256 i) external view returns(address){if(i>=get(0))revert BadState();return address(uint160(get(arr(5)+i)));}
     function activeAt(uint256 i) external view returns(address){if(i>=get(1))revert BadState();return address(uint160(get(arr(6)+i)));}
 
@@ -322,7 +363,8 @@ contract MinerRegistry {
         // EARN-IN V1: register takes 0..B, topUp a positive value, every other path none.
         if(registering?msg.value>cfg(16):(topping?msg.value==0:msg.value!=0))revert BadValue();
         uint256 c=get(3);if(c&CLOSING!=0)revert Closing();
-        if((c&65535)>=cfg(23) || ((registering||reactivating) && ((c>>16)&255)>=cfg(17)))revert RegOpsLimit();
+        bool maintaining=rewarding||topping; // V3-08
+        checkBudgets(c,registering,reactivating,maintaining); // V3-08 / V3-09
         uint256 height=h();if(c&BEGIN_FLAG==0 || ((c>>24)&LOW64)!=height)revert BadPhase();
         address id=removing?arg:msg.sender;uint256 r=rec(id);uint256 w=get(r);
         if(registering){
@@ -342,6 +384,7 @@ contract MinerRegistry {
             if(probation)put(ACC_COUNT,get(ACC_COUNT)+1);
         }else{
             if(!live(w))revert BadState();
+            if(maintaining)w=maintain(r,w,height); // V3-08
             if(topping){
                 // EARN-IN U2: fill up to B; the rest returns to the sender (durable: it sent this transaction).
                 if(!accruingState(w)||(w&255)!=1||pastProbation(w,height))revert BadState();
@@ -350,15 +393,17 @@ contract MinerRegistry {
                 if(msg.value>add && !Sys.pay(msg.sender,msg.value-add))revert PaymentFailed();
                 put(r+2,bond+add);put(4,get(4)+add);promote(r,w,bond+add);
             }
-            else if(rewarding){if(!Sys.pay(arg,0))revert RewardNotDurable();put(r+1,uint160(arg));}
+            else if(rewarding){if(!Sys.pay(arg,0))revert RewardNotDurable();put(r+1,(get(r+1)&~LOW160)|uint160(arg));} // V3-09: keeps the C_react clock
             else if(exiting||removing){
                 if((w&255)!=1||get(1)<=cfg(19))revert BadState();uint256 clocks=get(r+3);
                 if(removing){uint256 last=(w>>88)&LOW64;uint256 grace=clocks>>192;if(height<sumHeight(last>grace?last:grace,cfg(25)))revert BadState();}
                 uint256 due=sumHeight(height,cfg(27));put(r,(removeActive(r,w)&~uint256(255))|2);
                 put(r+3,(clocks&~((uint256(1)<<128)-1))|height|(due<<64));
             }else if(reactivating){
-                uint256 clocks=get(r+3);if((w&255)!=2||height<sumHeight(clocks&LOW64,cfg(24)))revert BadState();
+                // V3-09: after the W_act cooldown and strictly before dueHeight, where the refund sweep erases the record.
+                uint256 clocks=get(r+3);if((w&255)!=2||height<sumHeight(clocks&LOW64,cfg(24))||height>=((clocks>>64)&LOW64))revert BadState();
                 if(accruingState(w)&&pastProbation(w,height))revert BadState(); // EARN-IN U4
+                reactClock(r,height); // V3-09
                 uint256 active=get(1);if(active>=cfg(18))revert Capacity();
                 put(arr(6)+active,uint160(id));put(1,active+1);put(r,((w&~(ACTPOS_MASK|uint256(255)))|1|(active<<56)));
                 put(r+3,(clocks&(LOW64<<128))|(height<<192));
@@ -366,7 +411,7 @@ contract MinerRegistry {
                 if((w&255)!=2||height<((get(r+3)>>64)&LOW64))revert BadState();if(!refund(id,r))revert PaymentFailed();erase(id,r,w);
             }
         }
-        put(3,c+1+((registering||reactivating)?(uint256(1)<<16):0));
+        spendBudgets(c,registering,reactivating,maintaining); // V3-08 / V3-09
     }
     function removeActive(uint256,uint256 w) internal returns(uint256) {
         uint256 n=get(1);uint256 pos=(w>>56)&POSMASK;uint256 b=arr(6);if(pos>=n)revert BadState();

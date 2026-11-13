@@ -351,8 +351,10 @@ fn apply_halt<S:WorkState+?Sized>(state:&mut S,m:&mut BlockMeter,tx:&TxEnv,gas:u
 /// (`gas_used + gas_refunded`): the halt discards every effect, including the storage clears that
 /// earned the refund, so it is priced like a revert of the same work (revm applies refunds only on
 /// success), never below it. It is at most gas_limit, so the sender still pays at most
-/// max_fee*gas_limit. This closes the CreationFee route only: every other cap halt, which hostile
-/// ordering can also force, still charges the declared gas (V3-EXECUTION-FEES.md).
+/// max_fee*gas_limit. This closes the CreationFee route only: every other A03 cap halt still charges
+/// the declared gas, whoever builds the block (a hostile order can force one, and an honest builder's
+/// selection can include one), so the sender's loss bound there is max_fee*gas_limit
+/// (V3-EXECUTION-FEES.md).
 fn halt_gas(why:Halt,gas_limit:u64,result:&revm::primitives::ExecutionResult)->u64{
  use revm::primitives::ExecutionResult;
  if why!=Halt::CreationFee{return gas_limit}
