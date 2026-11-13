@@ -1230,8 +1230,19 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget,pricing:Pricin
                 }
                 let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
                 meter.admit_result(&st,&mut r,caller,signed,&ctx,n.chain.spec.profile(),summary.inventory()).map_err(halt)?;
-                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),true){return Err(halt(why))}
+                // The own-log caps (the CreationFeeBurn annotation included) are checked below for every estimate
+                // (N4, V3-24), with this same error object.
                 if b.expired(){return deadline()}
+            }
+            // N4 (V3-24): an estimate models the log caps active in the next block (`user_phase::log_caps`: the v3
+            // 256 KiB / 4,368 once v3 is active, else 32 KiB / 546, and LOG_CAP when H_END != 0). A transaction whose own
+            // logs pass one halts with all its gas in every block on this parent, so no gas value is answered for it
+            // (the pool refuses it the same way, `own_logs_halt_for`). Before N4 only the v3 estimate checked them.
+            // A v3 quote (pocol_quoteCreationBurn) returned above after its own check on the logs with the burn
+            // annotation; a quote before v3 activates gets this check, as its estimate would.
+            if gas.is_some(){
+                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),n.chain.spec.v3_active(e.height.saturating_add(1))){
+                    return Err(Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))}
             }
             // Preserve the legacy search ceiling; only v3 introduces priced
             // estimation with the request/funds-constrained upper bound.

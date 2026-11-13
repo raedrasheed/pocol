@@ -1225,7 +1225,8 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let root=apply::state_root(&n.pool_state()).unwrap();
     assert_eq!(n.submit_tx(pay_gas(&key("dave-unfunded"),0,1,gl),false).unwrap_err(),POOL_FULL_GAS,"one gas past the bound is refused");
     assert_eq!(n.submit_tx(pay(&bob,0,1),false).unwrap_err(),POOL_PARKED,"a valid one is held for the next head");
-    assert_eq!(n.submit_tx(pay_gas(&bob,0,2,1_000_000),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce is not held");
+    // N4 (V3-20): another with a held one's nonce is a replacement; at the same fee caps it is refused (not held).
+    assert!(n.submit_tx(pay_gas(&bob,0,2,1_000_000),false).unwrap_err().starts_with(pocold::node::POOL_REPLACE_UNDERPRICED),"another with a held one's nonce is not held");
     assert_eq!(n.submit_tx(pay_gas(&bob,1,2,gl),false).unwrap_err(),pocold::node::POOL_FULL_SENDER,"PR6 review: a held one counts against its sender's quota");
     assert_eq!((n.pool.txs.len(),n.pool.gas),(4,4*gl),"refused, nothing pooled");
     assert_eq!(apply::state_root(&n.pool_state()).unwrap(),root,"and the pending state is unchanged");
@@ -1253,21 +1254,28 @@ fn gas_node(tag:&str,limits:pocold::node::Limits)->(Result<pocold::node::Node,St
     let (big,d2)=gas_node("big",Limits{pool_gas_max:Some(16*gl),..Default::default()});let big=big.unwrap();assert_eq!(big.pool.gas_max,16*gl);
     drop((one,big));for d in [d0,d1,d2]{let _=std::fs::remove_dir_all(&d);}
 }
-/// D-7, replacement: the pool keeps the first transaction of a sender and nonce. Another with the same nonce
-/// (whatever its fee) is refused by its execution on the pending state (-32000, nonce) and changes no counter.
-/// The pooled one leaves only when a new head makes it invalid, here by including the other, and its gas is
+/// D-7, replacement; N4 (V3-20, owner O-20=b: replace-by-fee, node-local) supersedes "the pool keeps the first
+/// transaction of a sender and nonce". Another with the same nonce replaces the pooled one only when both fee caps
+/// rise by POOL_PRICE_BUMP percent; one that does not (here the same caps, another value) is refused
+/// (POOL_REPLACE_UNDERPRICED) and changes no counter. The replacement is not executed on the pending state, which
+/// keeps the replaced one's 1M declared gas until the next head (N4 second review: the entry stays charged the most
+/// gas declared since the last head, so nothing moves to `ghost_gas`). A head without either keeps the
+/// replacement; a head that includes the replaced one drops the replacement (its nonce is used), and its gas is
 /// freed then.
-#[test] fn a_same_nonce_transaction_does_not_replace_a_pooled_one(){
+#[test] fn a_same_nonce_transaction_replaces_a_pooled_one_only_at_the_fee_bump(){
+    use pocold::node::POOL_REPLACE_UNDERPRICED;
     let (n,dir)=gas_node("nonce",Default::default());let mut n=n.unwrap();let alice=devnet::account_key("alice");
     let a=pay_gas(&alice,0,1,1_000_000);
     let b=Tx{chain_id:777910,nonce:0,max_priority:U256::from(50_000_000_000u64),max_fee:U256::from(200_000_000_000u64),gas:21000,to:Some(devnet::account_key("bob").address()),value:U256::from(2u64),data:Default::default()}.sign_1559(&alice);
     n.submit_tx(a.clone(),false).unwrap();
-    let e=n.submit_tx(b.clone(),false).unwrap_err();assert!(e.starts_with("-32000")&&e.contains("NonceTooLow"),"{e}");
+    let e=n.submit_tx(pay_gas(&alice,0,2,1_000_000),false).unwrap_err();assert!(e.starts_with(POOL_REPLACE_UNDERPRICED),"{e}");
     assert_eq!(pool(&mut n),vec![a.clone()]);assert_eq!(n.pool.gas,1_000_000,"the refused one is not counted");n.pool_audit().unwrap();
+    n.submit_tx(b.clone(),false).unwrap();assert_eq!(pool(&mut n),vec![b.clone()],"replaced in place");
+    assert_eq!((n.pool.gas,n.pool.ghost_gas),(1_000_000,0),"the pending layer keeps the replaced one's gas: the entry stays charged it");n.pool_audit().unwrap();
     let mut h=net();let g=h.chain.head;let x=branch(&mut h,g,1,&[]);n.import(x[0].clone(),None).unwrap();
-    assert_eq!(pool(&mut n),vec![a.clone()],"a head without either keeps it");n.pool_audit().unwrap();
-    let y=branch(&mut h,x[0].hash(),1,&[Body{txs:vec![b],evidence:vec![]}]);n.import(y[0].clone(),None).unwrap();
-    assert!(pool(&mut n).is_empty(),"a head that includes the other drops it");assert_eq!(n.pool.gas,0);n.pool_audit().unwrap();
+    assert_eq!(pool(&mut n),vec![b.clone()],"a head without either keeps the replacement");assert_eq!((n.pool.gas,n.pool.ghost_gas),(21000,0));n.pool_audit().unwrap();
+    let y=branch(&mut h,x[0].hash(),1,&[Body{txs:vec![a],evidence:vec![]}]);n.import(y[0].clone(),None).unwrap();
+    assert!(pool(&mut n).is_empty(),"a head that includes the replaced one drops the replacement");assert_eq!(n.pool.gas,0);n.pool_audit().unwrap();
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// D-7, re-insertion after a reorganization (consensus.md: excluded transactions return to the pool once checked
@@ -1460,14 +1468,34 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     let alice=devnet::account_key("alice");
     let input=pocold::types::unhex(&format!("{:08x}{}01",7_800_000u32,"00".repeat(64+128+16))).unwrap();
     let heavy=|nonce:u64|Tx{chain_id:777910,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas:7_900_000,to:Some(Address::with_last_byte(9)),value:U256::ZERO,data:input.clone().into()}.sign_1559(&alice);
-    for k in 0..4{n.submit_tx(heavy(k),false).unwrap();}
+    // One heavy transaction's time on this machine, as it is now: each submission executes it once. The
+    // longest (one_tx) bounds the hold's time, the shortest (min_tx) how many ran during it (below).
+    let (mut one_tx,mut min_tx)=(Duration::ZERO,Duration::MAX);
+    for k in 0..4{let t=Instant::now();n.submit_tx(heavy(k),false).unwrap();let e=t.elapsed();(one_tx,min_tx)=(one_tx.max(e),min_tx.min(e));}
     let mut h=net();let g=h.chain.head;let b=branch(&mut h,g,1,&[]);n.import(b[0].clone(),None).unwrap();assert!(n.pool_pending(),"a backlog of heavy transactions");
+    let pending=|n:&Node|n.status_json()["stats"]["poolBacklog"].as_u64().unwrap();let backlog=pending(&n);
     let body=format!(r#"{{"jsonrpc":"2.0","id":3,"method":"eth_sendRawTransaction","params":["0x{}"]}}"#,pocold::types::hex(&pay(&devnet::account_key("bob"),0,1)).trim_start_matches("0x"));
     let req=||{let (t,_r)=std::sync::mpsc::channel();Request::local(body.as_bytes().to_vec(),t,Instant::now()+Duration::from_secs(30),true)};
     let t=Instant::now();let v:serde_json::Value=serde_json::from_str(&answer(&mut n,&req()).body).unwrap();let took=t.elapsed();
     assert_eq!((v["error"]["code"].clone(),v["error"]["data"]["reason"].clone()),(serde_json::json!(-32021),serde_json::json!("busy")),"{v}");
-    assert!(took<Duration::from_millis(100)+Duration::from_millis(400),"held about its deadline plus one transaction: {took:?}");
     assert!(n.pool.txs.iter().all(|(_,r)|*r!=pay(&devnet::account_key("bob"),0,1)),"not pooled");
+    let left=pending(&n);assert!(left>0,"busy: the backlog was still pending at the deadline ({left} of {backlog} left)");
+    // The rest of the backlog, one transaction a step (pool_slice 0), timed right after the held request.
+    while n.pool_pending(){let t=Instant::now();n.pool_step();let e=t.elapsed();(one_tx,min_tx)=(one_tx.max(e),min_tx.min(e));}
+    // Held about its deadline plus one transaction (the one running when the deadline passes; no stop hook
+    // cuts a BLAKE2F run short). A transaction's time is measured on this machine around the request, not
+    // assumed: under a load average of about 45 one took over 500 ms, past the old fixed 100+400 ms. One more
+    // transaction's time absorbs a load spike between the measured runs and the held one, and 100 ms covers
+    // parsing, admission and encoding. Driving the whole backlog would not have answered busy (above).
+    let deadline=n.cfg.limits.rpc.compute_light;let bound=deadline+one_tx*2+Duration::from_millis(100);
+    println!("D7-BUSY tookMs {} oneTxMs {} minTxMs {} boundMs {} backlog {backlog} left {left}",took.as_millis(),one_tx.as_millis(),min_tx.as_millis(),bound.as_millis());
+    assert!(took<bound,"held about its deadline plus one transaction: {took:?}, over {bound:?} (deadline {deadline:?}, one transaction {one_tx:?})");
+    // The same property counted, not timed, so that load cannot loosen it: a backlog transaction starts only
+    // before the deadline and each takes at least min_tx, so at most 1+deadline/min_tx run during the hold
+    // (1 here, unloaded or loaded: one transaction takes longer than the 100 ms deadline). One more run past
+    // the deadline would still fit the wall-clock bound above, but not this count.
+    let ran=backlog-left;let most=1+(deadline.as_nanos()/min_tx.as_nanos().max(1)) as u64;
+    assert!(ran<=most,"only the transaction running at the deadline finishes after it: {ran} ran during the hold, over {most} (deadline {deadline:?}, shortest transaction {min_tx:?})");
     n.pool_settle();let v:serde_json::Value=serde_json::from_str(&answer(&mut n,&req()).body).unwrap();assert!(v["result"].is_string(),"positive control: after the backlog it is admitted: {v}");
     let _=std::fs::remove_dir_all(&dir);
 }
@@ -2000,6 +2028,10 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // unchanged receipts::encode nesting, the receipts-root clone and apply's
     // USER receipt report copy (+878624 B, identically with eviction on/off).
     // No block report carries a creation-burn field (ChainFacts is unchanged).
+    // N4 (V3-20 node-local pool) moves nothing: the pool's meta and parked entries keep their PR6 sizes (32 and 160 B:
+    // the fee market reads nonces and fee caps from the raw bytes, and the replacement count fits the padding), and
+    // the fee order's scratch ((4,096 + 1,024) x 12 = 61,440 B) takes the place of the selection's first-seen sender
+    // set (885,052 B), which the fee order's pass by sender replaces (resources::selection_bytes).
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_791_234,"the A13 model total changed");
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
         assert_eq!(off.total,3_388_329_613,"eviction off includes the same receipt scratch");
@@ -2100,10 +2132,31 @@ fn heavier(h:&mut Net,parent:[u8;32],than:U256,extra:usize)->Vec<Block>{
 fn side_matches(c:&Chain)->bool{let walk:Vec<&pocold::chain::Entry>=c.blocks.values().filter(|e|e.height>0&&!c.is_canonical(&e.hash)).map(|e|&**e).collect();
     c.side_counts()==(walk.len(),walk.iter().filter(|e|!e.pruned).count())}
 fn unprotected(n:&pocold::node::Node)->usize{n.chain.blocks.keys().filter(|h|n.chain.blocks[*h].height>0&&!n.chain.is_canonical(h)&&!n.chain.protect.contains(*h)).count()}
+/// One JSON-RPC request answered in process (rpc::answer: admission, class, reservation and budget as over
+/// HTTP) for the tests that compare answers: two nodes, or one node before and after a reorg or a reopen.
+/// The compute deadline is not their subject (net.rs tests it). On a loaded machine (load average about 45) a
+/// state query that reads or rebuilds a stored version can pass the light class's 500 ms; the node then
+/// rightly answers -32020 {deadline} and no value, which `rpc_local` used to read as a null result and the
+/// comparison then failed against the other node's value. So the request runs under compute deadlines as
+/// long as its 120 s work deadline (the node's limits are restored after it), and a -32020 {deadline} (or a
+/// -32021 refusal) that still comes back fails the test here, naming the request: it is no answer, and is
+/// never compared as one.
+fn rpc_unhurried(n:&mut pocold::node::Node,body:String)->serde_json::Value{
+    let long=std::time::Duration::from_secs(120);
+    let kept=(n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy);
+    (n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy)=(long,long);
+    let (t,_r)=std::sync::mpsc::channel();
+    let a=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.clone().into_bytes(),t,std::time::Instant::now()+long,false));
+    (n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy)=kept;
+    let v=serde_json::from_str::<serde_json::Value>(&a.body).unwrap();
+    assert!(!(v["error"]["code"]==-32020&&v["error"]["data"]["reason"]=="deadline"),"{body}: a compute deadline is no answer to compare: {v}");
+    // Nor is a transient refusal (-32021 busy or rate: admission past QUEUE_WAIT, a full response pool), which
+    // none of these callers expects.
+    assert!(v["error"]["code"]!=-32021,"{body}: a transient refusal is no answer to compare: {v}");
+    v
+}
 fn rpc_local(n:&mut pocold::node::Node,method:&str,params:serde_json::Value)->serde_json::Value{
-    let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();let (t,_r)=std::sync::mpsc::channel();
-    let a=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-    serde_json::from_str::<serde_json::Value>(&a.body).unwrap()["result"].clone()
+    rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string())["result"].clone()
 }
 /// Every canonical block (with full transactions) and every receipt, as the node answers them over RPC.
 fn chain_view(n:&mut pocold::node::Node)->Vec<serde_json::Value>{
@@ -2507,9 +2560,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let (_,blocks,_)=s1_chain();
     let mut a=open();for x in &blocks{a.import(x.clone(),None).unwrap();}
     let txs:Vec<String>=blocks.iter().flat_map(|x|x.body.txs.iter().map(|t|format!("{}",revm::primitives::keccak256(t)))).collect();
-    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let body=json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string();let (t,_r)=std::sync::mpsc::channel();
-        let r=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-        let v:serde_json::Value=serde_json::from_str(&r.body).unwrap();if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
+    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let v=rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string());
+        if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
     // (answer, whether it is a transaction lookup)
     let answers=|n:&mut Node|->Vec<(serde_json::Value,bool)>{let top=n.chain.head().height;let mut v=vec![];
         for t in &txs{v.push((full(n,"eth_getTransactionByHash",json!([t])),true));v.push((full(n,"eth_getTransactionReceipt",json!([t])),true));}
@@ -2775,9 +2827,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let back=heavier(&mut h,p,h2.chain.head().total_work,1);
     let alice=devnet::account_key("alice");let alice_a=alice.address();
     let accounts:Vec<Address>=std::iter::once(alice_a).chain([bob.address(),Address::ZERO]).chain((0..50u64).map(|k|alice_a.create(k))).collect();
-    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let body=json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string();let (t,_r)=std::sync::mpsc::channel();
-        let r=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-        let v:serde_json::Value=serde_json::from_str(&r.body).unwrap();if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
+    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let v=rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string());
+        if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
     let answers=|n:&mut Node|->Vec<serde_json::Value>{let top=n.chain.head().height;let mut v=vec![];
         let tags:Vec<serde_json::Value>=(0..=top).map(|x|json!(format!("{x:#x}"))).chain(["latest","safe","finalized","earliest","pending"].map(|t|json!(t))).collect();
         for t in &tags{for a in &accounts{let a=format!("{a:#x}");
@@ -2839,9 +2890,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let back=heavier(&mut h,p,h2.chain.head().total_work,1);
     let alice=devnet::account_key("alice").address();
     let accounts:Vec<Address>=std::iter::once(alice).chain([bob.address(),Address::ZERO]).chain((0..50u64).map(|k|alice.create(k))).collect();
-    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let body=json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string();let (t,_r)=std::sync::mpsc::channel();
-        let r=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-        let v:serde_json::Value=serde_json::from_str(&r.body).unwrap();if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
+    let full=|n:&mut Node,m:&str,p:serde_json::Value|{let v=rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":m,"params":p}).to_string());
+        if v.get("error").is_some(){json!({"error":v["error"]["code"]})}else{json!({"result":v["result"]})}};
     let answers=|n:&mut Node|->Vec<serde_json::Value>{let top=n.chain.head().height;let mut v=vec![];
         let tags:Vec<serde_json::Value>=(0..=top).map(|x|json!(format!("{x:#x}"))).chain(["latest","safe","finalized","earliest"].map(|t|json!(t))).collect();
         for t in &tags{for a in &accounts{let a=format!("{a:#x}");
@@ -4443,7 +4493,7 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
         let (base,head)=(a.chain.canonical.base(),a.chain.head().height);let s=head-40;
         assert!(base>1&&s>=base,"positive control ({store}): the evicting node's window starts at {base} (export height {s})");
         assert!(r.chain.canonical.base()<=1,"the reference keeps every block ({store})");
-        let g=(a.chain.spec.chain_id(),a.chain.spec.genesis_hash());
+        let g=export::Network::of(&a.chain.spec);
         let out=|tag:&str|{let d=e44_dir(&format!("v333-out-{tag}-{store}"));let _=std::fs::remove_dir_all(d.with_file_name(format!("{}.partial",d.file_name().unwrap().to_string_lossy())));d};
         let (oa,or)=(out("evict"),out("keep"));
         let ma=export::export(&mut a,s,&oa).unwrap_or_else(|e|panic!("{e}"));let mr=export::export(&mut r,s,&or).unwrap_or_else(|e|panic!("{e}"));
@@ -4456,7 +4506,7 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
             assert_eq!(std::fs::read(ob.join(f)).unwrap(),want,"({store}): {f} of the reopened evicting node");
         }
         assert_eq!((&ma["parts"],&mb["parts"]),(&mr["parts"],&mr["parts"]));
-        let v=export::verify(&oa,Some(g)).unwrap_or_else(|e|panic!("{e}"));assert_eq!((v["blocks"].as_u64(),v["transactions"].as_u64()),(Some(s+1),Some(10)),"{v}");
+        let v=export::verify(&oa,Some(&g),None,None).unwrap_or_else(|e|panic!("{e}"));assert_eq!((v["blocks"].as_u64(),v["transactions"].as_u64()),(Some(s+1),Some(10)),"{v}");
         for d in [da,dr,oa,or,ob]{let _=std::fs::remove_dir_all(&d);}
     }
 }
@@ -4930,9 +4980,7 @@ fn pr7_damage_child(){
 }
 /// The whole JSON-RPC answer (result or error).
 fn rpc_local_raw(n:&mut pocold::node::Node,method:&str,params:serde_json::Value)->serde_json::Value{
-    let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();let (t,_r)=std::sync::mpsc::channel();
-    let a=pocold::rpc::answer(n,&pocold::rpc::Request::local(body.into_bytes(),t,std::time::Instant::now()+std::time::Duration::from_secs(120),false));
-    serde_json::from_str::<serde_json::Value>(&a.body).unwrap()
+    rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string())
 }
 
 /// A block's ParentResult as its journal record keeps it (node::result_bytes).
@@ -5354,7 +5402,8 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     for (t,why) in [(pay(&key("dave-unfunded"),0,1),"unfunded"),(pay(&alice,3,1),"a wrong nonce"),(cheap,"a fee cap below the base fee")]{
         assert_eq!(n.submit_tx(t,false).unwrap_err(),POOL_FULL_GAS,"{why} is not held");}
     let b0=pay(&bob,0,1);assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED);
-    assert_eq!(n.submit_tx(pay(&bob,0,2),false).unwrap_err(),POOL_FULL_GAS,"another with a held one's nonce");
+    // N4 (V3-20): another with a held one's nonce is a replacement; at the same fee caps it is refused (not held).
+    assert!(n.submit_tx(pay(&bob,0,2),false).unwrap_err().starts_with(pocold::node::POOL_REPLACE_UNDERPRICED),"another with a held one's nonce");
     assert_eq!(n.submit_tx(b0.clone(),false).unwrap_err(),POOL_PARKED,"a duplicate of a held one changes nothing");
     n.set_pool_parked_max(2);
     let a0=pay_gas(&alice,0,1,1_000_000);assert_eq!(n.submit_tx(a0.clone(),false).unwrap_err(),POOL_PARKED);
@@ -5412,7 +5461,8 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     assert_eq!((n.pool.txs.len(),n.pool.gas),(0,0),"nothing holds the gas bound");n.pool_audit().unwrap();
     let g0=create("gina",&loop_of(546));n.submit_tx(g0.clone(),false).unwrap();
     let b0=pay(&bob,0,1);n.submit_tx(b0.clone(),false).unwrap();n.pool_audit().unwrap();
-    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![g0,b0],"546 logs is the limit, and bob's transfer is taken");
+    // N4 (V3-20): in fee order, bob's transfer (1 gwei tip) before gina's CREATE (1 wei).
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![b0,g0],"546 logs is the limit, and bob's transfer is taken");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// PR6 review (log caps), the context: a transaction's logs can follow the block's context, which admission does
@@ -5436,7 +5486,10 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     let senders=["carol","erin","frank","gina"];
     for l in senders{for k in 0..2{n.submit_tx(call(l,k),false).unwrap_or_else(|e|panic!("{l}'s call is pooled (no logs at admission): {e}"));}}
     assert_eq!(n.pool.gas,4*GL,"the default bound is full");
-    let b0=pay(&bob,0,1);let _=n.submit_tx(b0.clone(),false);n.pool_audit().unwrap();
+    // N4 (V3-20): bob pays the calls' tip (1 wei), so the fee order keeps the candidate order and his transfer waits
+    // behind them; a higher tip would take it first (fee_pool.rs).
+    let b0=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:21000,to:Some(bob.address()),value:U256::from(1u64),data:Default::default()}.sign_1559(&bob);
+    let _=n.submit_tx(b0.clone(),false);n.pool_audit().unwrap();
     let mut mined=false;
     for (i,l) in senders.iter().enumerate(){
         let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
@@ -5513,7 +5566,8 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     for t in &parked{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED,"a burner is parked (not executed)");}
     let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
     let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
-    assert_eq!(sel.txs,vec![fill[0].clone(),logger.clone(),fill[3].clone()],"the big one first, the logger and gina's transfer; no burner fits the log count");
+    // N4 (V3-20): after the big-first slot the fee order takes gina's transfer (1 gwei tip) before the logger (1 wei).
+    assert_eq!(sel.txs,vec![fill[0].clone(),fill[3].clone(),logger.clone()],"the big one first, gina's transfer and the logger; no burner fits the log count");
     let budget=pocold::node::selection_exec_budget(GL);
     assert!(sel.executed<=budget,"the selection executed {} gas, past its budget {budget}",sel.executed);
     assert!(sel.executed>budget-1_500_000,"positive control: the burners use the budget ({})",sel.executed);
@@ -5591,12 +5645,15 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     let burn=vec![0x62,0x00,0xc3,0x50,0x5b,0x60,0x01,0x90,0x03,0x80,0x60,0x04,0x57,0x5f,0x5f,0xa0,0x00];
     let create=|l:&str|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:1_500_000,to:None,value:U256::ZERO,data:burn.clone().into()}.sign_1559(&key(l));
     let small:Vec<Vec<u8>>=["carol","erin","frank","gina"].iter().map(|l|create(l)).collect();
-    let x=pay_gas(&bob,0,1,5_000_000);n.submit_tx(x.clone(),false).unwrap();
+    // N4 (V3-20): the big transfers pay the CREATEs' tip (1 wei), so the fee order keeps the candidate order and this
+    // tests the slot alone; a higher tip would also take alice's big one ahead of the CREATEs.
+    let big=|k:&Key|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:5_000_000,to:Some(bob.address()),value:U256::from(1u64),data:Default::default()}.sign_1559(k);
+    let x=big(&bob);n.submit_tx(x.clone(),false).unwrap();
     for t in &small[..2]{n.submit_tx(t.clone(),false).unwrap();}assert_eq!(n.pool.gas,GL,"the bound is full");
     for t in &small[2..]{assert_eq!(n.submit_tx(t.clone(),false).unwrap_err(),POOL_PARKED);}
     let e=branch(&mut h,g,1,&[]);n.import(e[0].clone(),None).unwrap();
     assert_eq!(pool(&mut n),small,"the small ones are re-admitted first");assert_eq!(n.pool_parked(),vec![x.clone()],"bob's is parked at the head");n.pool_audit().unwrap();
-    let y=pay_gas(&alice,0,1,5_000_000);assert_eq!(n.submit_tx(y.clone(),false).unwrap_err(),POOL_PARKED,"alice's is parked when submitted");
+    let y=big(&alice);assert_eq!(n.submit_tx(y.clone(),false).unwrap_err(),POOL_PARKED,"alice's is parked when submitted");
     let head=n.chain.head().clone();let clock=n.chain.child_ctx(&head,0).unwrap().window.lower();
     let sel=n.template_selection(&head,clock);assert!(!sel.fallback);
     assert!(sel.counted>GL/2+21000,"positive control: the CREATEs use more than half a block ({})",sel.counted);

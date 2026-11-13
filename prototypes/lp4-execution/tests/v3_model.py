@@ -27,9 +27,29 @@ h-1, evidence, markClose, pruneShares, settle(h-D), beginBlock), the block's use
 and closeBlock). Settlement follows M1 incentives.md (winnerPart, propPart, R split over Q = max(C, kappa*m), payBurn,
 penaltyBurn, baseBurn, roundBurn) with the earn-in rule that a payment to an ACCRUING record fills its bond first.
 
+- V3-02 (late share credit): kind-3 evidence of block h credits valid shares of an ancestor template j in
+  [max(1, h-D), h-1] that its header omitted, through recordLate(j, owners) after recordShares/recordResult of h-1
+  and before settle(h-D) (class Chain); the program refuses j outside the window, an unrecorded j and a credit past
+  the no-dilution cap total[j] + n <= kappa*m, and sets lastShare = max(lastShare, j). The host's validity rules
+  (pocold chain.rs late_check) are modelled by late_verdict over concrete TemplateIDs, targets and nonce ranges, with
+  17 planted mutants (LATE_MUTANTS) that each fail one of tests/v3/late-share-validity-vectors.json.
+
+- V3-19 (issuance M3), V3-15 (carry) and V3-20 (tip split), V3-PR-E2a: phase 2 credits issuance(h) = h == 0 ? 0 :
+  max(k >= 256 ? 0 : S0 >> k, S_tail), k = h // H_half, and closeBlock(tips, issued) records pot h = issued +
+  (1 - gamma_tip) * tips + carry into pot h, zeroing that carry; gamma_tip_bp/10^4 of the tips (floor) goes to the
+  signed proposer as the proposer part does (payTo: an ACCRUING record fills its bond first, a tomb burns), a fallback
+  block leaves all tips in the pot. Settlement sends the base burn R - A to the carry (roundBurn, payBurn, penaltyBurn
+  and a whole-pot burn still burn), lagged by one block (D-V3-15): settle(h - D) in block h adds to the carry into pot
+  h + 1, so pot h receives the base burn of settle(h - 1 - D), computed after every late credit to h - 1 - D, and block
+  h, the last carrier of late shares of h - D, has no claim on what leaving them out would carry
+  (check_last_carrier_gains_nothing). The Escrow equality gains the carry term (every outstanding carry); after phase 2
+  of block h only the carry into pot h + 1 may remain, and none after a final block.
+  tests/v3/issuance-carry-vectors.json; ECON_MUTANTS are eight planted model mutants that each fail it, and
+  check_pot_fixed_by_its_block fails on base-burn-into-closed-pot, check_last_carrier_gains_nothing on carry-not-lagged.
+
 tests/v3_contracts.rs replays tests/v3/registry-budget-vectors.json, tests/v3/earnin-on-v3-vectors.json (the earn-in
-model's scenarios re-run here) and tests/v3/evidence-penalty-vectors.json, written by this script, on the v3
-programs and checks every step's result, every record (including the new clocks), the record array order, the sweep
+model's scenarios re-run here), tests/v3/evidence-penalty-vectors.json and tests/v3/late-share-vectors.json, written by
+this script, on the v3 programs and checks every step's result, every record (including the new clocks), the record array order, the sweep
 cursor, the counters, ACC_COUNT, every pending pot and the Escrow accounting. Run with --check (default) to compare
 against the committed files, or --write to regenerate them.
 """
@@ -530,9 +550,29 @@ def earnin_on_v3():
 
 # ---------------- V3-16 / V3-17: evidence penalties (V3-PR-E2b)
 # Settlement CP fields the contract harness installs for the chain scenarios (CP schema v2 indices as CP_INDEX).
-CHAIN_CP_INDEX = {'m': 8, 'kappa': 9, 'S_max': 10, 'W_w': 12, 'alpha_bp': 13, 'gamma_bp': 14, 'S0': 15, 'rho_bp': 66}
+CHAIN_CP_INDEX = {'m': 8, 'kappa': 9, 'S_max': 10, 'W_w': 12, 'alpha_bp': 13, 'gamma_bp': 14, 'S0': 15, 'H_half': 52,
+                  'S_tail': 53, 'gamma_tip_bp': 59, 'rho_bp': 66}
+# V3-19/V3-20 (O-19 = M3, O-20 = b): H_half 4,207,680 blocks (four years at 30 s), S_tail = S0/32, gamma_tip 50%.
 CHAIN_DEFAULT = {'m': 32, 'kappa': 2, 'S_max': 256, 'W_w': 8, 'alpha_bp': 1000, 'gamma_bp': 500, 'S0': 2 * PCOL,
-                 'rho_bp': 2500}
+                 'H_half': 4_207_680, 'S_tail': 2 * PCOL // 32, 'gamma_tip_bp': 5000, 'rho_bp': 2500}
+
+# V3-PR-E2a planted model mutants (econ_mutants_killed): each must make tests/v3/issuance-carry-vectors.json differ from
+# the model or fail one of its Escrow checks.
+# base-burn-into-closed-pot is the design V3-15 rejects (safety finding 8): half of settle(j)'s base burn is added to the
+# oldest pot still pending, already closed by its block; check_pot_fixed_by_its_block must also fail on it
+# (fixedness_mutant_killed). carry-not-lagged is the previous rule (settle(h - D)'s base burn into pot h, the pot of the
+# last carrier of h - D); check_last_carrier_gains_nothing must also fail on it (lag_mutant_killed). final-keeps-own-carry:
+# finalize burns only the carry into pot F and keeps the carry of F's own settle(F - D).
+ECON_MUTANTS = ['carry-not-added', 'tip-share-to-pot', 'base-burn-still-burned', 'invariant-missing-carry',
+                'issuance-off-by-one-at-H_half', 'base-burn-into-closed-pot', 'carry-not-lagged', 'final-keeps-own-carry']
+MUTANT = None
+
+def issuance(h, cp):
+    """V3-19 M3: issuance(h) = h == 0 ? 0 : max(k >= 256 ? 0 : S0 >> k, S_tail), k = h // H_half."""
+    if h == 0:
+        return 0
+    k = (h - 1) // cp['H_half'] if MUTANT == 'issuance-off-by-one-at-H_half' else h // cp['H_half']
+    return max(0 if k >= 256 else cp['S0'] >> k, cp['S_tail'])
 
 class Chain:
     """Whole blocks over the v3 registry model: the v3 phase 0, user transactions, phase 2, and RewardEscrow's pending
@@ -541,12 +581,17 @@ class Chain:
     plus the held bonds plus everything burned (no surplus: the scenarios make no forced transfers)."""
 
     def __init__(self, cp, durable=()):
-        self.cp = dict(DEFAULT_CP, **CHAIN_DEFAULT, **cp)
+        self.cp = dict(DEFAULT_CP, **{**CHAIN_DEFAULT, **cp})
         self.reg = Registry(self.cp, durable)
         self.reg.durable.add('m0')           # the genesis member's reward account exists with a nonce
         self.pots = {}                       # j -> {amount, proposer ('' = fallback), winner, accruing, invalid}
         self.ledger = {}                     # j -> {owner: count}, owners in first-seen order
         self.issued = 0
+        self.tips = 0                        # V3-20: tips the block's transactions paid to Escrow (the coinbase)
+        self.carry = {}                      # V3-15 (lagged): t -> the carry into pot t, the base burn of the settlement
+                                             # in block t - 1, until closeBlock(t) (or finalize burns it)
+        self.final = False                   # set by finalize: the final block's settleFinal burns its base burns
+        self.settled = {}                    # j -> pot j's amount when settle(j) or settleFinal(j) distributed it
         self.height = 0
         self.proposer = ''
 
@@ -591,7 +636,11 @@ class Chain:
                     r.last_share = h - 1
             pot = self.pots[h - 1]                      # recordResult: the winner and whether it is ACCRUING now
             pot['winner'], pot['accruing'] = winner, self._accruing(winner)
-        for accused, j, reporter in evidence:
+        for e in evidence:
+            if e[0] == 'late':                          # V3-02: recordLate(j, owners), in body order
+                self._record_late(e[1], e[2], h)
+                continue
+            accused, j, reporter = e
             if j is not None and j in self.pots:        # the host invalidates only a pending pot
                 pot = self.pots[j]
                 if pot['winner'] == accused and pot['accruing']:
@@ -601,9 +650,29 @@ class Chain:
         if h > k + 1:
             del self.ledger[h - k - 1]
         if h > self.cp['D']:
-            self._settle(h - self.cp['D'])
+            self._settle(h - self.cp['D'], h)
         self.reg.block(h)                                # beginBlock: budgets and the refund sweep
         self.height = h
+
+    def _record_late(self, j, owners, h):
+        """V3-02 recordLate (MinerRegistry, nested ShareLedger): one owner per late share of template j, which the host
+        validated. The program checks the call shape, the window j in [max(1, h-D), h-1], that j's shares are recorded
+        and the no-dilution cap total[j] + n <= kappa*m; then count and total rise and lastShare = max(lastShare, j)
+        for every existing record (never a revert when a later share already moved it past j)."""
+        if not owners or len(owners) > self.cp['S_max']:
+            raise Revert('BadCalldata')
+        if h < 2 or j == 0 or j >= h or j + self.cp['D'] < h:
+            raise Revert('BadPhase')
+        counts = self.ledger.get(j)
+        total = sum(counts.values()) if counts else 0
+        if total == 0 or total + len(owners) > self.cp['kappa'] * self.cp['m']:
+            raise Revert('BadState')
+        for o in owners:
+            counts[o] = counts.get(o, 0) + 1
+        for o in owners:
+            r = self.reg.records.get(o)
+            if r is not None and r.last_share < j:
+                r.last_share = j
 
     def _punish(self, ident, reporter, h):
         if reporter != self.proposer:
@@ -628,9 +697,11 @@ class Chain:
             self._pay(rep.reward, cut)
         reg.burned += r.bond - cut
 
-    def _settle(self, j):
+    def _settle(self, j, h=None):
+        """settle(j) in block h (settleFinal at a final block: h is not needed, the base burn burns)."""
         pot = self.pots.pop(j)
         amount = pot['amount']
+        self.settled[j] = amount
         if pot['invalid']:
             self.reg.burned += amount
             return
@@ -648,24 +719,66 @@ class Chain:
             paid += p
             self._pay_to(o, p)
         a = r * c // q
-        self.reg.burned += (r - a) + (a - paid)
+        self.reg.burned += a - paid                      # roundBurn
+        if r == a:
+            return
+        if MUTANT == 'base-burn-still-burned' or self.final:
+            self.reg.burned += r - a
+            return
+        t = h if MUTANT == 'carry-not-lagged' else h + 1  # V3-15, lagged: into pot h + 1, not the pot block h closes
+        x = 0
+        if MUTANT == 'base-burn-into-closed-pot' and self.pots:
+            x = (r - a) // 2
+            self.pots[min(self.pots)]['amount'] += x
+        self.carry[t] = self.carry.get(t, 0) + r - a - x
 
     # ---- phase 2
-    def close(self, h):
+    def close(self, h, tips=0):
+        """V3-19/V3-15/V3-20 closeBlock(tips, issued): the host credits issued = issuance(h); the tips are already in
+        Escrow (the coinbase). Returns (issued, pot amount)."""
         if h != self.height:
             raise AssertionError(('close the current block', h, self.height))
-        self.issued += self.cp['S0']
-        self.pots[h] = {'amount': self.cp['S0'], 'proposer': self.proposer, 'winner': None, 'accruing': False, 'invalid': False}
+        issued = issuance(h, self.cp)
+        self.issued += issued
+        self.tips += tips
+        share = 0 if not self.proposer or MUTANT == 'tip-share-to-pot' else tips * self.cp['gamma_tip_bp'] // 10_000
+        carry = self.carry.pop(h, 0)                      # V3-15: the carry into pot h (block h - 1's settlement)
+        amount = issued + (tips - share) + (0 if MUTANT == 'carry-not-added' else carry)
+        self.pots[h] = {'amount': amount, 'proposer': self.proposer, 'winner': None, 'accruing': False, 'invalid': False}
+        self._pay_to(self.proposer, share)               # V3-20: as the proposer part (payTo)
+        return issued, amount
+
+    def finalize(self, h, tips=0):
+        """Phase 2 of a final block F: finalize(tips) burns the tips and (V3-15) every outstanding carry: the carry into
+        pot F (block F - 1's settlement; no pot F exists) and the carry into F + 1 of F's own settle(F - D); then
+        settleFinal(j) settles every remaining pot, whose base burn now burns (no later pot to carry it into)."""
+        if h != self.height:
+            raise AssertionError(('finalize the current block', h, self.height))
+        self.tips += tips
+        kept = {h + 1: self.carry[h + 1]} if MUTANT == 'final-keeps-own-carry' and h + 1 in self.carry else {}
+        self.reg.burned += tips + sum(self.carry.values()) - sum(kept.values())
+        self.carry, self.final = kept, True
+        for j in sorted(self.pots):
+            self._settle(j)
+        return 0, 0
 
     def escrow_balance(self):
         reg = self.reg
-        return B + sum(reg.spent.values()) + self.issued - sum(reg.paid.values())
+        return B + sum(reg.spent.values()) + self.issued + self.tips - sum(reg.paid.values())
 
     def check(self, step):
         check_invariants(self.reg, step)
         reg = self.reg
-        # T17 with equality: every wei Escrow holds is a pending pot, a held bond or burned.
-        assert self.escrow_balance() == sum(p['amount'] for p in self.pots.values()) + reg.held_total + reg.burned, step
+        # T17 with equality: every wei Escrow holds is a pending pot, a held bond, burned, or an outstanding carry. Inside
+        # block h the carries are into pots h (from block h - 1) and h + 1 (this block's settlement); after closeBlock(h)
+        # only the one into h + 1, which exists only once a settlement ran (h > D); after a final block none.
+        carry = 0 if MUTANT == 'invariant-missing-carry' else sum(self.carry.values())
+        assert self.escrow_balance() == sum(p['amount'] for p in self.pots.values()) + reg.held_total + reg.burned + carry, step
+        assert all(v > 0 for v in self.carry.values()), step
+        assert set(self.carry) <= {self.height, self.height + 1}, step
+        assert step[0] != 'close' or set(self.carry) <= ({self.height + 1} if self.height > self.cp['D'] else set()), step
+        assert step[0] != 'final' or not self.carry, step
+        assert step[0] != 'final' or not self.pots, step
         # The pending window: contiguous heights within [h-D+1, h] (pot h exists once the block is closed).
         ks = sorted(self.pots)
         assert ks == list(range(ks[0], ks[-1] + 1)) if ks else True, step
@@ -677,9 +790,11 @@ def chain_snapshot(ch):
                             'accruing': p['accruing'], 'invalid': p['invalid']} for j, p in sorted(ch.pots.items())}
     out['escrowBalance'] = str(ch.escrow_balance())
     out['issued'] = str(ch.issued)
+    out['tips'] = str(ch.tips)
+    out['carry'] = {str(t): str(a) for t, a in sorted(ch.carry.items())}
     return out
 
-def run_chain(steps, cp=None, durable=()):
+def run_chain(steps, cp=None, durable=(), ledger=False):
     """Steps: ('begin', h, proposer, winner, shares, evidence), registry user operations at h, ('close', h). A begin
     that reverts invalidates the block: the state is the one before it, and the script produces height h again."""
     cp = cp or {}
@@ -690,7 +805,7 @@ def run_chain(steps, cp=None, durable=()):
         if op == 'begin':
             h, proposer, winner, shares, evidence = args
             rec = {'op': ['begin', str(h), proposer], 'winner': winner or '', 'shares': list(shares),
-                   'evidence': [[a, j, rep] for a, j, rep in evidence]}
+                   'evidence': [[a, j, list(rep) if a == 'late' else rep] for a, j, rep in evidence]}
             saved = copy.deepcopy(ch)
             try:
                 ch.begin(h, proposer, winner, shares, evidence)
@@ -699,9 +814,11 @@ def run_chain(steps, cp=None, durable=()):
                 ch = saved
                 rec.update(ok=False, revert=str(e))
             out.append(rec)
-        elif op == 'close':
-            ch.close(*args)
-            out.append({'op': ['close', str(args[0])], 'ok': True, 'result': None})
+        elif op in ('close', 'final'):
+            issued, amount = (ch.close if op == 'close' else ch.finalize)(*args)
+            tips = args[1] if len(args) > 1 else 0
+            out.append({'op': [op, str(args[0])], 'ok': True, 'result': None, 'tips': str(tips), 'issued': str(issued),
+                        'amount': str(amount)})
         else:
             if args[-1] != ch.height:
                 raise AssertionError(('a user operation runs in the current block', step))
@@ -711,18 +828,27 @@ def run_chain(steps, cp=None, durable=()):
             except Revert as e:
                 out.append({'op': [op, *map(str, args)], 'ok': False, 'revert': str(e)})
         ch.check(step)
+    final = chain_snapshot(ch)
+    if ledger:          # V3-02 scenarios also compare the retained ShareLedger heights (counts and totals)
+        final['ledger'] = {str(j): {'total': sum(c.values()), 'counts': dict(sorted(c.items()))} for j, c in sorted(ch.ledger.items())}
     return {'cp': dict(sorted({**CHAIN_DEFAULT, **cp}.items())), 'durable': sorted(durable), 'steps': out,
-            'final': chain_snapshot(ch)}
+            'final': final}
 
 class Script:
     """Builds chain steps: block(h, ...) emits begin, the block's user operations and close."""
     def __init__(self):
         self.steps = []
 
-    def block(self, h, proposer='m0', winner='m0', shares=(), evidence=(), ops=()):
+    def block(self, h, proposer='m0', winner='m0', shares=(), evidence=(), ops=(), tips=0):
         self.invalid(h, proposer, winner, shares, evidence)
         self.steps.extend(ops)
-        self.steps.append(('close', h))
+        self.steps.append(('close', h, tips) if tips else ('close', h))
+        return self
+
+    def final(self, h, proposer='m0', winner='m0', shares=(), evidence=(), tips=0):
+        """A final block: phase 0 as any block, then finalize(tips) and settleFinal of every remaining pot."""
+        self.invalid(h, proposer, winner, shares, evidence)
+        self.steps.append(('final', h, tips))
         return self
 
     def invalid(self, h, proposer='m0', winner='m0', shares=(), evidence=()):
@@ -885,9 +1011,582 @@ def evidence_vectors():
         v[f'random-{seed}'] = run_chain_random(seed)
     return v
 
+# ---------------- V3-02: late share credit (V3-PR-E3)
+def late(j, *owners):
+    """A kind-3 evidence effect as the host passes it: recordLate(j, owners), one owner per late share."""
+    return ('late', j, list(owners))
+
+def run_late_random(seed, blocks=48):
+    """A seeded random chain with late credit: random winners and header shares among members and strangers, and in
+    about one block in three late credits for random ancestors in [max(1, h-D), h-1], within the no-dilution cap
+    (kappa*m = 8 here), sometimes several items for one template in one block, mixed with type-1 evidence; about one
+    block in ten first tries a late credit the program refuses (past the cap, outside the window), then makes the
+    height again. Every step is checked by Chain.check (the Escrow invariant with equality)."""
+    rng = random.Random(seed)
+    cp = {'m': 4}
+    pool = ['m0', 'w', 'b', 'c', 'a', 'x', 'stranger']
+    sc = Script().block(1, ops=joined(('w', B), ('b', B), ('c', B), ('a', 0), ('x', 5 * PCOL)))
+    probe = Chain(cp)
+    for step in sc.steps:
+        op, args = step[0], step[1:]
+        if op == 'begin':
+            probe.begin(*args)
+        elif op == 'close':
+            probe.close(*args)
+        else:
+            getattr(probe.reg, op)(*args)
+    km = probe.cp['kappa'] * probe.cp['m']
+    tombed = set()
+    for h in range(2, blocks + 1):
+        winner = rng.choice(pool[:5])
+        shares = [rng.choice(pool) for _ in range(rng.randint(0, 9))]
+        lo = max(1, h - probe.cp['D'])
+        evidence = []
+        if h >= 3 and rng.random() < 0.1:
+            j = rng.choice([lo - 1, h]) if lo > 1 else h
+            bad = [late(max(j, 1) if j >= 1 else h, rng.choice(pool))] if rng.random() < 0.5 else []
+            if not bad:
+                # past the cap on a recorded height
+                jj = rng.randrange(lo, h)
+                room = km - (sum(probe.ledger[jj].values()) if jj in probe.ledger else len(shares) + 1)
+                bad = [late(jj, *[rng.choice(pool) for _ in range(max(room, 0) + 1)])]
+            sc.invalid(h, winner=winner, shares=shares, evidence=bad)
+            saved = copy.deepcopy(probe)
+            try:
+                probe.begin(h, 'm0', winner, shares, [(e[0], e[1], e[2]) for e in bad])
+                raise AssertionError(('a refused late credit was accepted', seed, h, bad))
+            except Revert:
+                probe = saved
+        if h >= 3 and rng.random() < 0.35:
+            for _ in range(rng.randint(1, 3)):
+                j = rng.randrange(lo, h)
+                used = (sum(probe.ledger[j].values()) if j in probe.ledger else len(shares) + 1) if j < h - 1 else len(shares) + 1
+                used += sum(len(e[2]) for e in evidence if e[0] == 'late' and e[1] == j)
+                room = km - used
+                if room > 0:
+                    evidence.append(late(j, *[rng.choice(pool) for _ in range(rng.randint(1, room))]))
+        if h >= 4 and rng.random() < 0.08:
+            live = [k for k, r in probe.reg.records.items() if r.live() and k not in ('m0',) and k not in tombed]
+            if live:
+                t = rng.choice(live)
+                tombed.add(t)
+                evidence.insert(rng.randint(0, len(evidence)), (t, None, 'm0'))
+        sc.block(h, winner=winner, shares=shares, evidence=evidence)
+        ev = [(e[0], e[1], e[2] if len(e) > 2 else 'm0') for e in evidence]
+        probe.begin(h, 'm0', winner, shares, ev)
+        probe.close(h)
+    return run_chain(sc.steps, cp, ledger=True)
+
+def late_vectors():
+    """Script.block(h, winner, shares) names block h-1's result (recorded in phase 0 of h, before h's evidence)."""
+    v = {}
+    # Fails on the original: the winner w of block 4 omits b's share (header shares: c only). Block 5 carries LS(4)
+    # crediting b; settle(4) at h = 8 pays b its share of the pool, and b's lastShare is 4.
+    sc = Script().block(1, ops=joined(('w', B), ('b', B), ('c', B)))
+    sc.quiet(2, 4)
+    sc.block(5, winner='w', shares=['c'], evidence=[late(4, 'b')])
+    sc.quiet(6, 9)
+    v['late-share-pays-the-omitted-contributor'] = run_chain(sc.steps, ledger=True)
+    # The settlement boundary: a carrier at h = j+D still credits j (recordLate runs before settle(h-D) in the same
+    # phase 0); at h = j+D+1 the pot is settled and the window refuses it (BadPhase), as it does j = h and j = 0.
+    sc = Script().block(1, ops=joined(('w', B), ('b', B), ('c', B)))
+    sc.quiet(2, 4)
+    sc.block(5, winner='w', shares=['c'])
+    sc.quiet(6, 7)
+    sc.block(8, evidence=[late(4, 'b', 'b')])
+    sc.invalid(9, evidence=[late(4, 'b')])
+    sc.invalid(9, evidence=[late(9, 'b')])
+    sc.invalid(9, evidence=[late(0, 'b')])
+    sc.block(9)
+    sc.quiet(10, 13)
+    v['late-share-at-the-settlement-boundary'] = run_chain(sc.steps, ledger=True)
+    # lastShare = max(lastShare, j), never a revert: b won block 5 (recorded in block 6's phase 0, lastShare 5) before
+    # block 6 credits b's late share of block 4; d had no share, so its lastShare becomes 4. Likewise c (header share
+    # of block 6) keeps lastShare 6 when block 8 credits c's late share of block 5.
+    sc = Script().block(1, ops=joined(('w', B), ('b', B), ('c', B), ('d', B)))
+    sc.quiet(2, 4)
+    sc.block(5, winner='w', shares=['c'])
+    sc.block(6, winner='b', evidence=[late(4, 'b', 'd')])
+    sc.block(7, winner='c', shares=['c'])
+    sc.block(8, evidence=[late(5, 'c')])
+    sc.quiet(9, 12)
+    v['late-last-share-is-monotone'] = run_chain(sc.steps, ledger=True)
+    # The no-dilution cap at kappa*m = 8: block 4's header holds 6 shares (5 + the winner), two items in block 5 fill
+    # it exactly (q stays kappa*m, so no header share loses value); a third credit in block 6 is refused (BadState).
+    # Block 6's header alone reaches the cap, so no late credit for it fits.
+    sc = Script().block(1, ops=joined(('w', B), ('b', B), ('c', B), ('d', B)))
+    sc.quiet(2, 4)
+    sc.block(5, winner='w', shares=['c'] * 5, evidence=[late(4, 'b'), late(4, 'd')])
+    sc.invalid(6, evidence=[late(4, 'd')])
+    sc.block(6)
+    sc.invalid(7, winner='w', shares=['c'] * 7, evidence=[late(6, 'b')])
+    sc.block(7, winner='w', shares=['c'] * 7)
+    sc.quiet(8, 12)
+    v['late-share-cap-fills-only-the-uncovered-pool'] = run_chain(sc.steps, {'m': 4}, ledger=True)
+    # Owners as recordShares treats them: a stranger without a record is counted and its part burns (payBurn); an owner
+    # punished earlier in the carrying block is counted and its part burns (penaltyBurn); a probationer's part fills
+    # its bond (EARN-IN P1). Several late items for different templates in one block.
+    sc = Script().block(1, ops=joined(('w', B), ('t', B), ('a', 0), ('c', B)))
+    sc.quiet(2, 4)
+    sc.block(5, winner='w', shares=['c'])
+    sc.block(6, winner='w', shares=['c'], evidence=[late(4, 'stranger', 'a'), ('t', None), late(5, 't', 'a', 'a')])
+    sc.quiet(7, 10)
+    v['late-share-owners-absent-tomb-and-accruing'] = run_chain(sc.steps, ledger=True)
+    for seed in (1, 2):
+        v[f'late-random-{seed}'] = run_late_random(seed)
+    return v
+
+# ---------------- V3-19 / V3-15 / V3-20: issuance, carry and tip split (V3-PR-E2a)
+OWNER_S0, OWNER_H_HALF = PCOL, 4_207_680             # V3-ROADMAP §5: S0 = 1 PCOL, H_half = 4 years at 30 s, tail S0/32
+
+def schedule_cases():
+    """issuance(h) at the era boundaries for the owner's values, a tail-free schedule, a U256-sized S0 and a compressed
+    H_half (the host's issuance.rs and issuance_oracle.py --v3 replay this table)."""
+    rows = []
+    def add(label, s0, hh, tail, hs):
+        cp = {'S0': s0, 'H_half': hh, 'S_tail': tail}
+        for h in hs:
+            rows.append({'label': label, 'h': str(h), 'S0': str(s0), 'H_half': str(hh), 'S_tail': str(tail),
+                         'issued': str(issuance(h, cp))})
+    H = OWNER_H_HALF
+    add('owner', OWNER_S0, H, OWNER_S0 // 32, [0, 1, H - 1, H, H + 1, 2 * H - 1, 2 * H, 4 * H, 5 * H - 1, 5 * H, 6 * H,
+                                                255 * H, 256 * H - 1, 256 * H, 256 * H + 1, 2**64 - 1])
+    add('no-tail', OWNER_S0, H, 0, [1, H, 59 * H, 60 * H, 256 * H])
+    add('u256-s0', 2**256 - 1, 1, 0, [1, 2, 255, 256, 257, 2**64 - 1])
+    add('compressed', 2 * PCOL, 4, 2 * PCOL // 32, list(range(0, 30)))
+    return rows
+
+def run_issuance_chain(seed, blocks, cp, late_p=0.3, tip_p=0.4, c_cycle=None):
+    """A seeded chain for the carry: header share counts (C, winner included), late credits within the cap, tips in
+    signed and fallback blocks, sometimes a probationer or a tombed proposer. c_cycle gives C(h-1) per block."""
+    rng = random.Random(seed)
+    pool = ['m0', 'w', 'b', 'c', 'a', 'stranger']
+    sc = Script().block(1, ops=joined(('w', B), ('b', B), ('c', B), ('a', 5 * PCOL)))
+    probe = Chain(cp)
+    for st in sc.steps:
+        op, args = st[0], st[1:]
+        (probe.begin if op == 'begin' else probe.close if op == 'close' else getattr(probe.reg, op))(*args)
+    km = probe.cp['kappa'] * probe.cp['m']
+    for h in range(2, blocks + 1):
+        c = c_cycle[(h - 2) % len(c_cycle)] if c_cycle else rng.randint(1, probe.cp['S_max'] + 1)
+        winner = rng.choice(pool[:5])
+        shares = [rng.choice(pool) for _ in range(c - 1)]
+        proposer = '' if rng.random() < 0.3 else rng.choice(['m0', 'w', 'a'])
+        lo = max(1, h - probe.cp['D'])
+        evidence = []
+        if h >= 3 and proposer and rng.random() < late_p:
+            for _ in range(rng.randint(1, 2)):
+                j = rng.randrange(lo, h)
+                used = sum(probe.ledger[j].values()) if j < h - 1 else len(shares) + 1
+                used += sum(len(e[2]) for e in evidence if e[0] == 'late' and e[1] == j)
+                if km - used > 0:
+                    evidence.append(late(j, *[rng.choice(pool) for _ in range(rng.randint(1, km - used))]))
+        tips = rng.choice([1, 3, 12_345, 10**15 + 1, 7 * PCOL]) if rng.random() < tip_p else 0
+        sc.block(h, proposer=proposer, winner=winner, shares=shares, evidence=evidence, tips=tips)
+        probe.begin(h, proposer, winner, shares, [(e[0], e[1], e[2] if len(e) > 2 else proposer) for e in evidence])
+        probe.close(h, tips)
+    return sc.steps
+
+def pots_at_close(steps, cp):
+    """For every h: (pot h's amount as closeBlock(h) recorded it, the amount settle(h) distributed, or the amount still
+    pending at the chain's end when settle(h) has not run). The second is what V3-15 fixes: a design that adds value to
+    an already-closed pot later (safety finding 8's rejected shape) changes it, never the first."""
+    ch, out = Chain(cp), {}
+    for st in steps:
+        op, args = st[0], st[1:]
+        if op == 'begin':
+            ch.begin(*args)
+        elif op == 'close':
+            out[args[0]] = ch.close(*args)[1]
+        else:
+            getattr(ch.reg, op)(*args)
+    return {h: (a, ch.settled[h] if h in ch.settled else ch.pots[h]['amount'], h in ch.settled) for h, a in out.items()}
+
+def late_inclusion_variant(steps, after, rng):
+    """The same chain with the late credits of every block after `after` changed: each late item dropped with
+    probability 0.7 (fewer credits never makes a block invalid)."""
+    out = []
+    for st in steps:
+        if st[0] == 'begin' and st[1] > after and any(e[0] == 'late' for e in st[5]):
+            ev = [e for e in st[5] if e[0] != 'late' or rng.random() < 0.3]
+            st = st[:5] + (ev,)
+        out.append(st)
+    return out
+
+def check_pot_fixed_by_its_block(seed=7, blocks=40):
+    """V3-15 test (V3-DESIGN.md): changing LS inclusion after block j+1 (block j+1 fixed) never changes pot j+1, nor any
+    pot up to j+1: pot h depends only on blocks 1..h (its carry, lagged by one block, on blocks 1..h-1). Compared is both
+    the amount closeBlock(h) recorded and the amount
+    settle(h) distributed (or still pending at the end), so value added to a closed pot after its block fails the check.
+    Positive controls: some later pot does change (the carry of settle(j') follows the late credits to j', which its
+    carriers up to the settling block commit), and the compared pots include settled ones."""
+    cp = {'m': 4, 'S_max': 16}
+    base = run_issuance_chain(seed, blocks, cp, late_p=0.8)
+    pots = pots_at_close(base, cp)
+    rng = random.Random(seed)
+    changed_later = settled_compared = 0
+    for j in range(1, blocks - 1):
+        variant = late_inclusion_variant(base, j + 1, rng)
+        if variant == base:
+            continue
+        other = pots_at_close(variant, cp)
+        assert all(other[h] == pots[h] for h in range(1, j + 2)), ('pot fixed by its block', j)
+        settled_compared += sum(pots[h][2] for h in range(1, j + 2))
+        changed_later += any(other[h][0] != pots[h][0] for h in range(j + 2, blocks + 1))
+    assert changed_later > 0, 'the late credits never moved a later pot: the check tests nothing'
+    assert settled_compared > 0, 'no compared pot was settled: the settle-time amount is not tested'
+    return changed_later
+
+def fixedness_mutant_killed():
+    """check_pot_fixed_by_its_block fails on base-burn-into-closed-pot (value moved into an already-closed pot at settle
+    time, which a close-time comparison alone cannot see)."""
+    global MUTANT
+    MUTANT = 'base-burn-into-closed-pot'
+    try:
+        check_pot_fixed_by_its_block()
+    except AssertionError as e:
+        return str(e.args[0] if e.args else e)
+    finally:
+        MUTANT = None
+    raise AssertionError('base-burn-into-closed-pot survives check_pot_fixed_by_its_block')
+
+LAST_J = 2                                           # the template of the last-carrier scenario (D = 4: h = 6)
+
+def last_carrier_steps(include, blocks=12):
+    """D-V3-15 incentive scenario: template j = 2 has C = 2 (winner w and one header share of w), and x holds eight valid
+    shares of it that the header left out. Block h = j + D = 6, signed by a, is the last block whose window [h - D, h - 1]
+    still holds j; it either carries late(2, x * 8) (include) or omits them. a has no other part in any pot (it is no
+    winner and has no share), so everything a is paid comes from pot 6's proposer part."""
+    sc = Script().block(1, ops=joined(('a', B), ('x', B), ('w', B)))
+    for h in range(2, blocks + 1):
+        ev = [late(LAST_J, *['x'] * 8)] if include and h == LAST_J + 4 else []
+        sc.block(h, proposer='a' if h == LAST_J + 4 else 'm0', winner='w', shares=['w'] if h == LAST_J + 1 else [],
+                 evidence=ev)
+    return sc.steps
+
+def play(steps, cp=None):
+    """Runs chain steps (as run_chain, without a revert); returns the Chain and pot h as closeBlock(h) recorded it."""
+    ch, closed = Chain(cp or {}), {}
+    for st in steps:
+        op, args = st[0], st[1:]
+        if op == 'begin':
+            ch.begin(*args)
+        elif op == 'close':
+            closed[args[0]] = ch.close(*args)[1]
+        else:
+            getattr(ch.reg, op)(*args)
+        ch.check(st)
+    return ch, closed
+
+def base_burn_of(amount, c, cp):
+    """settle's base burn R - floor(R*C/Q) of a pot of `amount` whose template holds C shares (Q = max(C, kappa*m))."""
+    r = amount - amount * cp['alpha_bp'] // 10_000 - amount * cp['gamma_bp'] // 10_000
+    q = max(c, cp['kappa'] * cp['m'])
+    return r - r * c // q
+
+def check_last_carrier_gains_nothing():
+    """D-V3-15 (lagged carry) test, fails on the previous rule: the signed proposer of h = j + D, the last carrier of
+    late shares of j, gains nothing in its own pot by omitting LS(j). Pot h is the same with and without the omission,
+    as closeBlock(h) recorded it and as settle(h) distributed it, and so is everything a is paid; the omission moves
+    exactly the extra base burn of settle(j) into pot h + 1 (pot h + 1 = issued + tips - share + base burn of settle(j)
+    in both runs), whose template can no longer credit j, while x loses its eight late shares."""
+    h = LAST_J + 4
+    runs = {}
+    for include in (True, False):
+        ch, closed = play(last_carrier_steps(include))
+        cp = ch.cp
+        assert cp['D'] == 4 and LAST_J + cp['D'] == h, 'block h is the last carrier of j'
+        runs[include] = (closed, ch.settled, ch.reg.paid.get('a', 0), ch.reg.paid.get('x', 0))
+    (ci, si, ai, xi), (co, so, ao, xo) = runs[True], runs[False]
+    assert ci[h] == co[h], ('pot h as closeBlock(h) recorded it', ci[h], co[h])
+    assert si[h] == so[h], ('pot h as settle(h) distributed it', si[h], so[h])
+    assert ai == ao, ("the last carrier's payments", ai, ao)
+    cp = Chain({}).cp
+    a2 = si[LAST_J]
+    assert a2 == so[LAST_J], 'pot j is the same in both runs'
+    bi, bo = base_burn_of(a2, 2 + 8, cp), base_burn_of(a2, 2, cp)   # C = 2 header (w twice) + 8 late, or 2
+    assert bo > bi > 0, ('the omission raises the base burn of settle(j)', bi, bo)
+    tips_share_issued = issuance(h + 1, cp)              # block h + 1 has no tips
+    assert ci[h + 1] == tips_share_issued + bi and co[h + 1] == tips_share_issued + bo, ('the carry of settle(j) is in pot h + 1', ci[h + 1], co[h + 1])
+    assert all(ci[k] == co[k] and si[k] == so[k] for k in range(1, h + 1)), 'no pot up to h differs'
+    assert xi > xo, 'x is paid its late shares only when they are carried'
+    return {'pot h': ci[h], 'pot h+1 (include, omit)': (ci[h + 1], co[h + 1]), 'a paid': ai, 'x loses': xi - xo}
+
+def lag_mutant_killed():
+    """check_last_carrier_gains_nothing fails on carry-not-lagged (the previous rule: the omitted value enters pot h, of
+    which h's signed proposer takes gamma_bp/10^4)."""
+    global MUTANT
+    MUTANT = 'carry-not-lagged'
+    try:
+        check_last_carrier_gains_nothing()
+    except AssertionError as e:
+        return str(e.args[0] if e.args else e)
+    finally:
+        MUTANT = None
+    raise AssertionError('carry-not-lagged survives check_last_carrier_gains_nothing')
+
+def issuance_vectors():
+    v = {'schedule': {'cases': schedule_cases()}}
+    # Compressed fixture (H_half = 4, S_tail = S0/32): blocks over 6·H_half reach the tail; host credit = recorded pot
+    # every block (tests/v3_contracts.rs replays the chain and the preview test the real host).
+    cp = {'H_half': 4}
+    sc = Script().block(1, ops=joined(('w', B), ('c', B)))
+    for h in range(2, 27):
+        sc.block(h, proposer='' if h % 5 == 0 else 'm0', winner='w' if h % 2 else 'm0', shares=['c'] * (h % 4),
+                 tips=12_345 if h % 3 == 0 else 0)
+    v['issuance-halving-compressed'] = run_chain(sc.steps, cp)
+    # V3-20 tip split: a HELD signed proposer (odd tips: floor for the proposer, the rest to the pot), a fallback block
+    # (all tips to the pot), a probationer proposer (its share fills its bond first; a large tip promotes it), and a
+    # proposer that reports itself in its own block (a tomb: its share burns, penaltyBurn).
+    sc = Script().block(1, ops=joined(('p', B, 'pr'), ('q', 15 * PCOL), ('s', B), ('c', B)))
+    sc.block(2, proposer='p', tips=12_345)
+    sc.block(3, proposer='', tips=10**15 + 1)
+    sc.block(4, proposer='q', winner='c', tips=2 * PCOL + 1)
+    sc.block(5, proposer='q', winner='c', shares=['c'], tips=9 * PCOL)
+    sc.block(6, proposer='s', evidence=[('s', None)], tips=4 * PCOL)
+    sc.block(7, proposer='p', tips=1)
+    sc.quiet(8, 12)
+    v['tip-split-signed-fallback-accruing-tomb'] = run_chain(sc.steps, durable=['pr'])
+    # Fuzz C from 1 to S_max + 1 (S_max 16, kappa*m 8: Q = max(C, 8), so C >= 8 leaves no base burn) with late credits
+    # filling the uncovered pool, and tips.
+    cp = {'m': 4, 'S_max': 16}
+    v['carry-fuzz-c-1-to-smax-plus-1'] = run_chain(run_issuance_chain(3, 40, cp, c_cycle=list(range(1, 18))), cp, ledger=True)
+    v['carry-random-late-and-tips'] = run_chain(run_issuance_chain(5, 40, cp), cp, ledger=True)
+    # Pot j+1 is fixed by block j+1: the same chain with the late credits of blocks after j+1 dropped (j = 6) records
+    # the same pots up to j+1, and a different one at a later height (tests/v3_contracts.rs compares both runs).
+    base = run_issuance_chain(11, 20, cp, late_p=0.9)
+    v['late-inclusion-base'] = run_chain(base, cp, ledger=True)
+    v['late-inclusion-after-7-dropped'] = run_chain(late_inclusion_variant(base, 7, random.Random(0)), cp, ledger=True)
+    # A final block F = 9: the carry into pot 9 (settle(4) in block 8) is outstanding, phase 0's settle(5) adds the carry
+    # into pot 10, finalize burns both with the tips (no tip share at F), and settleFinal(6..8) burns their base burns
+    # directly; nothing is left pending or carried.
+    sc = Script().block(1, ops=joined(('w', B), ('c', B)))
+    for h in range(2, 9):
+        sc.block(h, proposer='m0' if h % 2 else '', winner='w', shares=['c'] * (h % 3), tips=5 * PCOL if h == 6 else 0)
+    sc.final(9, winner='w', shares=['c'], tips=3 * PCOL + 1)
+    v['final-block-burns-the-carry'] = run_chain(sc.steps)
+    # D-V3-15: the last carrier of template 2 (block 6) carries x's eight late shares of it, or omits them
+    # (tests/v3_contracts.rs last_carrier_gains_nothing_by_omitting_late_shares compares pots 6 and 7 of both runs).
+    v['last-carrier-includes-late'] = run_chain(last_carrier_steps(True))
+    v['last-carrier-omits-late'] = run_chain(last_carrier_steps(False))
+    return v
+
+def econ_mutants_killed():
+    """Each ECON_MUTANT makes issuance_vectors() raise (an Escrow check) or differ from the unmutated vectors."""
+    global MUTANT
+    want = json.dumps(issuance_vectors(), sort_keys=True)
+    out = {}
+    for m in ECON_MUTANTS:
+        MUTANT = m
+        try:
+            got = json.dumps(issuance_vectors(), sort_keys=True)
+            out[m] = 'differs' if got != want else None
+        except AssertionError:
+            out[m] = 'escrow check'
+        finally:
+            MUTANT = None
+        assert out[m], f'economic mutant {m} survives tests/v3/issuance-carry-vectors.json'
+    return out
+
+# ---------------- V3-02: the host's kind-3 validity (pocold chain.rs late_fields / late_window / late_check)
+import hashlib
+
+def rlp_bytes(b):
+    if len(b) == 1 and b[0] < 0x80:
+        return bytes(b)
+    return rlp_header(len(b), 0x80) + bytes(b)
+
+def rlp_header(n, base):
+    if n <= 55:
+        return bytes([base + n])
+    ln = n.to_bytes((n.bit_length() + 7) // 8, 'big')
+    return bytes([base + 55 + len(ln)]) + ln
+
+def rlp_list(*encoded):
+    payload = b''.join(encoded)
+    return rlp_header(len(payload), 0xc0) + payload
+
+def rlp_decode(b):
+    """A strict decoder for the items the vectors carry (canonical RLP, as pocold's)."""
+    def item(i):
+        x = b[i]
+        if x < 0x80:
+            return b[i:i + 1], i + 1
+        if x <= 0xb7:
+            n = x - 0x80
+            out = b[i + 1:i + 1 + n]
+            assert len(out) == n and not (n == 1 and out[0] < 0x80)
+            return out, i + 1 + n
+        if x <= 0xbf:
+            k = x - 0xb7
+            n = int.from_bytes(b[i + 1:i + 1 + k], 'big')
+            assert n > 55
+            return b[i + 1 + k:i + 1 + k + n], i + 1 + k + n
+        if x <= 0xf7:
+            n, start = x - 0xc0, i + 1
+        else:
+            k = x - 0xf7
+            n, start = int.from_bytes(b[i + 1:i + 1 + k], 'big'), i + 1 + k
+            assert n > 55
+        out, j = [], start
+        while j < start + n:
+            it, j = item(j)
+            out.append(it)
+        assert j == start + n
+        return out, j
+    it, end = item(0)
+    assert end == len(b)
+    return it
+
+def ls_item(j, nonces, jlen=8, nlen=8, kind=3, extra=()):
+    return rlp_list(rlp_bytes(bytes([kind])), rlp_bytes(j.to_bytes(jlen, 'big')),
+                    rlp_list(*[rlp_bytes(n.to_bytes(nlen, 'big')) for n in nonces]), *extra).hex()
+
+def pow_ok(tid, n, t_share):
+    return int.from_bytes(hashlib.sha256(bytes.fromhex(tid) + n.to_bytes(8, 'big')).digest(), 'big') <= t_share
+
+LATE_MUTANTS = ['form-short-j', 'count-allows-empty', 'count-ignores-s-max', 'order-allows-equal', 'window-below-open',
+                'window-low-plus-one', 'window-allows-current', 'cap-ignores-block', 'cap-strict', 'cap-removed',
+                'nmax-inclusive-end', 'owner-from-carrier', 'winning-nonce-allowed', 'header-share-allowed',
+                'branch-credit-allowed', 'block-repeat-allowed', 'target-ignored']
+
+def late_verdict(case, mutant=None):
+    """The kind-3 rules in pocold's order (chain.rs late_fields, late_window, late_check) over one carrying block's items
+    and the branch facts of each template j. Returns {'ok': True, 'effects': [[j, owners]]} or {'ok': False, 'at': i,
+    'reason': r}. `mutant` plants one wrong rule (LATE_MUTANTS); each must fail some vector (late_validity_vectors)."""
+    r = case['rules']
+    seen = {}
+    effects = []
+    for i, raw in enumerate(case['items']):
+        def no(reason):
+            return {'ok': False, 'at': i, 'reason': reason}
+        f = rlp_decode(bytes.fromhex(raw))
+        if not isinstance(f, list) or len(f) != 3 or f[0] != b'\x03':
+            return no('evidence form')
+        if not isinstance(f[1], bytes) or (len(f[1]) != 8 and not (mutant == 'form-short-j' and 1 <= len(f[1]) <= 8)):
+            return no('ls form')
+        if not isinstance(f[2], list) or any(not isinstance(x, bytes) or len(x) != 8 for x in f[2]):
+            return no('ls form')
+        j = int.from_bytes(f[1], 'big')
+        nonces = [int.from_bytes(x, 'big') for x in f[2]]
+        if (not nonces and mutant != 'count-allows-empty') or (len(nonces) > r['S_max'] and mutant != 'count-ignores-s-max'):
+            return no('ls count')
+        if any(a > b or (a == b and mutant != 'order-allows-equal') for a, b in zip(nonces, nonces[1:])):
+            return no('ls order')
+        lo = max(1, r['h'] - r['D'])
+        if mutant == 'window-below-open':
+            lo = 1
+        if mutant == 'window-low-plus-one':
+            lo = max(1, r['h'] - r['D'] + 1)
+        hi = r['h'] if mutant == 'window-allows-current' else r['h'] - 1
+        if j < lo or j > hi:
+            return no('ls window')
+        b = case['bases'][str(j)]
+        s = seen.setdefault(j, set())
+        used = b['total'] + (0 if mutant == 'cap-ignores-block' else len(s)) + len(nonces)
+        if mutant != 'cap-removed' and (used > r['kappa_m'] or (mutant == 'cap-strict' and used == r['kappa_m'])):
+            return no('ls cap')
+        ranges = case['carrierRanges'] if mutant == 'owner-from-carrier' else b['ranges']
+        owners = []
+        for n in nonces:
+            owner = next((o for o, lo_, hi_ in ranges if lo_ <= n < hi_ or (mutant == 'nmax-inclusive-end' and n == hi_)), None)
+            if owner is None:
+                return no('ls nonce outside nMax')
+            if n == b['nonce'] and mutant != 'winning-nonce-allowed':
+                return no('ls winning nonce')
+            if n in b['header'] and mutant != 'header-share-allowed':
+                return no('ls header share')
+            if n in b['credited'] and mutant != 'branch-credit-allowed':
+                return no('ls credited on the branch')
+            if n in s and mutant != 'block-repeat-allowed':
+                return no('ls repeated in the block')
+            if not pow_ok(b['tid'], n, int(b['tShare'], 16)) and mutant != 'target-ignored':
+                return no('ls share target')
+            owners.append(owner)
+        s.update(nonces)
+        effects.append([j, owners])
+    return {'ok': True, 'effects': effects}
+
+def late_validity_vectors():
+    """Concrete kind-3 cases: TemplateIDs, share targets (about half of all nonces meet 2^255), stored nonce ranges of
+    three members partitioning [0, nMax_j = 3000), header shares, branch credits and ledger totals. Each case's verdict
+    comes from late_verdict; pocold replays them through chain.rs late_parse/late_window/late_check
+    (tests/v3_late_shares.rs), and every planted mutant of LATE_MUTANTS fails at least one."""
+    T = (1 << 255) - 1
+    def tid(label):
+        return hashlib.sha256(b'pocol-v3-late:' + label.encode()).hexdigest()
+    ranges = [['a', 0, 1000], ['b', 1000, 2000], ['c', 2000, 3000]]
+    other = [['c', 0, 1500], ['a', 1500, 3000]]          # the carrier's own assignment (members changed since j)
+    def passing(t, lo, hi, k, skip=()):
+        out = [n for n in range(lo, hi) if pow_ok(t, n, T) and n not in skip]
+        return out[:k]
+    def failing(t, lo, hi):
+        return next(n for n in range(lo, hi) if not pow_ok(t, n, T))
+    rules = {'h': 10, 'D': 4, 'S_max': 8, 'kappa_m': 8}
+    t6, t8, t9 = tid('j6'), tid('j8'), tid('j9')
+    win = passing(t9, 2000, 3000, 1)[0]
+    hdr = passing(t9, 0, 1000, 2)
+    cred = passing(t9, 1000, 2000, 1, skip=hdr)
+    good = passing(t9, 1000, 2000, 6, skip=cred)
+    def base(t, total=3, header=(), credited=(), nonce=None):
+        return {'tid': t, 'nonce': win if nonce is None else nonce, 'tShare': f'{T:064x}', 'ranges': ranges,
+                'header': list(header), 'credited': list(credited), 'total': total}
+    bases = {'9': base(t9, 3, hdr, cred), '8': base(t8, 1, nonce=5), '6': base(t6, 1, nonce=5),
+             '10': base(tid('j10'), 1, nonce=5), '5': base(tid('j5'), 1, nonce=5)}
+    cases = {}
+    def case(name, items, **kw):
+        c = {'rules': dict(rules, **kw.get('rules', {})), 'bases': bases, 'carrierRanges': other, 'items': items}
+        c['expect'] = late_verdict(c)
+        cases[name] = c
+    g8 = passing(t8, 0, 3000, 4)
+    g6 = passing(t6, 0, 3000, 2)
+    case('ok-one-item', [ls_item(9, good[:2])])
+    case('ok-owner-from-block-j-ranges', [ls_item(9, [good[0]] + passing(t9, 2000, 3000, 1, skip=[win]))])
+    case('ok-two-templates', [ls_item(9, good[:1]), ls_item(8, g8[:2])])
+    case('ok-two-items-one-template-fill-the-cap', [ls_item(9, good[:2]), ls_item(9, good[2:5])])
+    case('ok-window-low-boundary-j-equals-h-minus-d', [ls_item(6, g6)])
+    case('form-four-fields', [ls_item(9, good[:1], extra=(rlp_bytes(b'x'),))])
+    case('form-j-seven-bytes', [ls_item(9, good[:1], jlen=7)])
+    case('form-nonce-nine-bytes', [ls_item(9, good[:1], nlen=9)])
+    case('form-nonces-not-a-list', [rlp_list(rlp_bytes(b'\x03'), rlp_bytes((9).to_bytes(8, 'big')), rlp_bytes(good[0].to_bytes(8, 'big'))).hex()])
+    case('count-empty', [ls_item(9, [])])
+    case('count-above-s-max', [ls_item(8, passing(t8, 0, 3000, 9))], rules={'kappa_m': 64})
+    case('duplicate-in-the-list', [ls_item(9, [good[0], good[0]])])
+    case('unsorted-list', [ls_item(9, [good[1], good[0]])])
+    case('window-below-h-minus-d', [ls_item(5, [7])])
+    case('window-current-height', [ls_item(10, [7])])
+    case('window-zero', [ls_item(0, [7])], rules={'h': 3})
+    case('cap-already-full', [ls_item(9, good[:1])], rules={'kappa_m': 3})
+    case('cap-exceeded-by-the-item', [ls_item(9, good[:6])])
+    case('cap-exceeded-across-items', [ls_item(9, good[:3]), ls_item(9, good[3:6])])
+    case('nonce-at-nmax', [ls_item(9, [3000])])
+    case('nonce-above-nmax', [ls_item(9, [good[0], 1 << 40])])
+    case('winning-nonce', [ls_item(9, [win])])
+    case('header-share', [ls_item(9, [hdr[0]])])
+    case('duplicate-across-carriers', [ls_item(9, [cred[0]])])
+    case('duplicate-within-the-block', [ls_item(9, good[:2]), ls_item(9, good[1:3])])
+    case('target-miss', [ls_item(9, [failing(t9, 1000, 2000)])])
+    # A share mined on a sibling template of height 9 (not the branch's ancestor): it meets the sibling's target and
+    # not the ancestor's, so it is refused as a target miss on the branch's TemplateID.
+    sib = tid('j9-sibling')
+    case('non-ancestor-template', [ls_item(9, [next(n for n in range(1000, 2000) if pow_ok(sib, n, T) and not pow_ok(t9, n, T))])])
+    # A share in another member's range is that member's: owners come from block j's stored ranges, never from the
+    # carrier (the carrier's assignment differs here).
+    case('another-members-range-is-that-members', [ls_item(9, passing(t9, 0, 1000, 1, skip=hdr) + good[:1])])
+    return cases
+
+def late_mutants_killed(cases):
+    out = {}
+    for m in LATE_MUTANTS:
+        killed = sorted(n for n, c in cases.items() if late_verdict(c, m) != c['expect'])
+        assert killed, f'late validity mutant {m} survives every vector'
+        out[m] = killed
+    return out
+
 if __name__ == '__main__':
     files = {'registry-budget-vectors.json': vectors, 'earnin-on-v3-vectors.json': earnin_on_v3,
-             'evidence-penalty-vectors.json': evidence_vectors}
+             'evidence-penalty-vectors.json': evidence_vectors, 'late-share-vectors.json': late_vectors,
+             'late-share-validity-vectors.json': late_validity_vectors, 'issuance-carry-vectors.json': issuance_vectors}
     for name, make in files.items():
         path = Path(__file__).with_name('v3') / name
         data = json.dumps(make(), indent=1, sort_keys=True) + '\n'
@@ -897,3 +1596,14 @@ if __name__ == '__main__':
         else:
             assert path.read_text() == data, f'{name} differs from the model; run --write and review'
             print('PASS v3 model matches', name)
+    print('PASS pot h is fixed by block h: dropping later late credits moved a later pot in',
+          check_pot_fixed_by_its_block(), 'variants and never an earlier one')
+    print('PASS the fixedness check fails on base-burn-into-closed-pot:', fixedness_mutant_killed())
+    print('PASS the last carrier of j gains nothing by omitting LS(j) (D-V3-15, lagged carry):', check_last_carrier_gains_nothing())
+    print('PASS the last-carrier check fails on carry-not-lagged (the previous rule):', lag_mutant_killed())
+    econ = econ_mutants_killed()
+    print(f'PASS every one of {len(econ)} planted issuance/carry/tip mutants fails the issuance-carry vectors:',
+          ', '.join(f'{m} ({k})' for m, k in econ.items()))
+    killed = late_mutants_killed(late_validity_vectors())
+    print(f'PASS every one of {len(killed)} planted late-share validity mutants fails a vector:',
+          ', '.join(f'{m} ({len(k)})' for m, k in killed.items()))

@@ -7,7 +7,17 @@ name: System programs reproduction
 # (v3_model.py class Chain, tests/v3/evidence-penalty-vectors.json), five planted RewardEscrow/MinerRegistry mutants
 # (in the mutant fixture) and, under v3-preview, real blocks through the host's v3 phase 0 with the SYS gas of the
 # changed calls checked against admission's GAS_ENVELOPE_V3 (v3_contracts.rs) and type-2 evidence on chain
-# (pocold/tests/v3_earnin.rs).
+# (pocold/tests/v3_earnin.rs). V3-PR-E3 adds the V3-02 late share credit: the model's late-share chain scenarios
+# (tests/v3/late-share-vectors.json) replayed on the bytecode with five planted MinerRegistry/ShareLedger mutants, the
+# kind-3 validity vectors (tests/v3/late-share-validity-vectors.json, 17 planted model mutants each failing one) replayed
+# through pocold's chain.rs rules, and under v3-preview real v3 chains (pocold/tests/v3_late_shares.rs: omission,
+# negative cases on a branch, reorg, restart and checkpoint, cutover rebuild, the proposer's cache) and recordLate's SYS
+# gas against GAS_ENVELOPE_V3. V3-PR-E2a adds issuance M3, the carry and the tip split (V3-19, V3-15, V3-20): the
+# model's issuance-carry scenarios (tests/v3/issuance-carry-vectors.json, eight planted model mutants; the carry lagged
+# by one block, so the last carrier of a template gains nothing by omitting its late shares) replayed on the
+# bytecode with eight planted RewardEscrow mutants, the M3 schedule checked a second time by issuance_oracle.py --v3, the
+# CP schema v2 ParamGate supply rule (R23) and, under v3-preview, the host's credit against every recorded pot, a final
+# block burning the carry, the supply bound at genesis and closeBlock/finalize's SYS gas against GAS_ENVELOPE_V3.
 on:
   pull_request:
     branches: [main]
@@ -63,17 +73,19 @@ jobs:
           python3 -B "$t/earnin_model.py"
           python3 -B "$t/v3_model_vectors.py"
           python3 -B "$t/v3_model.py"
+          # V3-19: the M3 schedule written a second time (standard library only) against the vectors' issuances.
+          python3 -B "$t/issuance_oracle.py" --v3 "$t/v3/issuance-carry-vectors.json" "$t/v3/evidence-penalty-vectors.json" "$t/v3/late-share-vectors.json"
       - name: Earn-in and v3 contract and chain tests
         run: |
           set -euo pipefail
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test earnin_contracts --test v3_contracts
-          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test earnin --test v3_earnin
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test earnin --test v3_earnin --test v3_late_shares
       - name: Earn-in and v3 contract and chain tests (v3-preview, spec-2 genesis)
         run: |
           set -euo pipefail
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features v3-preview --test earnin_contracts --test v3_contracts
-          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test earnin --test v3_earnin
-      - name: ParamGate v3 registry premises (R8 on CP schema v2)
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test earnin --test v3_earnin --test v3_late_shares
+      - name: ParamGate v3 premises (R8, R10 and R23 on CP schema v2)
         run: |
           set -euo pipefail
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp1-node/Cargo.toml --test gate

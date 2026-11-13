@@ -1,7 +1,59 @@
 """Independent actual genesis MPT and signed USER/native issuance/SYS execution.
 Synthetic manifest has one witness role; Escrow settlement/finalization incomplete; not real five-program/UT/P5/P6 acceptance.
+
+V3-19 (V3-PR-E2a): `issuance_oracle.py --v3 VECTORS.json...` is a separate, standard-library-only mode that checks the v3
+M3 schedule issuance(h) = h == 0 ? 0 : max(k >= 256 ? 0 : S0 >> k, S_tail), k = h // H_half, written here a second time
+(independent of tests/v3_model.py): the schedule table of tests/v3/issuance-carry-vectors.json, the issued value of every
+close step of every chain scenario in the given files, and the supply bound 2*S0*H_half + S_tail*2^64 against exact
+sums. The spec-1 mode below (two file arguments, py-evm) is unchanged.
 """
-import sys,json,copy,hashlib,rlp
+import sys
+def _m3(h,s0,h_half,tail):
+ if h==0:return 0
+ k=h//h_half
+ return max(0 if k>=256 else s0>>k,tail)
+def _m3_sum(n,s0,h_half,tail):
+ # Sum over h in 1..=n era by era (eras of H_half heights): no per-height loop, so n may be 2^64 - 1.
+ total=0;k=0
+ while True:
+  lo=max(1,k*h_half)
+  if lo>n:return total
+  hi=min(n,(k+1)*h_half-1)
+  if hi>=lo:total+=_m3(lo,s0,h_half,tail)*(hi-lo+1)
+  if hi==n:return total
+  k+=1
+  if k>=256:return total+tail*(n-hi)
+def _v3(paths):
+ import json
+ from pathlib import Path
+ cases=closes=0
+ for path in paths:
+  v=json.loads(Path(path).read_text())
+  for name,body in v.items():
+   if name=='schedule':
+    for c in body['cases']:
+     h,s0,hh,tail=(int(c[k]) for k in ('h','S0','H_half','S_tail'))
+     assert _m3(h,s0,hh,tail)==int(c['issued']),(path,c);cases+=1
+    continue
+   if 'steps' not in body:continue
+   cp=body['cp']
+   if not all(k in cp for k in ('S0','H_half','S_tail')):continue
+   s0,hh,tail=int(cp['S0']),int(cp['H_half']),int(cp['S_tail'])
+   for st in body['steps']:
+    if st['op'][0]=='close':
+     assert int(st['issued'])==_m3(int(st['op'][1]),s0,hh,tail),(path,name,st['op']);closes+=1
+ # The supply bound: every partial sum, and the whole of 1..2^64-1, stays within 2*S0*H_half + S_tail*2^64.
+ for s0,hh,tail in [(10**18,4_207_680,10**18//32),(10**18,4_207_680,0),(2**256-1,1,0),(2*10**18,4,2*10**18//32),(7,1,1),(1<<20,3,0)]:
+  bound=2*s0*hh+tail*2**64
+  for n in (0,1,hh-1,hh,2*hh+1,255*hh,256*hh,2**64-1):
+   if n<0:continue
+   total=_m3_sum(n,s0,hh,tail);assert total<=bound,(s0,hh,tail,n)
+   if n<=60:assert total==sum(_m3(h,s0,hh,tail) for h in range(1,n+1))
+ assert cases>=40 and closes>=100,(cases,closes)
+ print(f'MATCH v3 issuance M3: {cases} schedule cases and {closes} closeBlock issuances of the chain vectors; supply bound holds')
+if __name__=='__main__' and sys.argv[1:2]==['--v3']:
+ _v3(sys.argv[2:]);sys.exit(0)
+import json,copy,hashlib,rlp
 from pathlib import Path
 from eth_utils import keccak
 from eth.db.atomic import AtomicDB

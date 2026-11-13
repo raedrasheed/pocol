@@ -8,7 +8,10 @@ pragma solidity 0.8.28;
 // ChainCaps.get(52..66) reads 0 (P_MAX 0, T_PROB 0, R_react 0). The host registry (apply.rs SystemPrograms::selectable)
 // keeps the set off a CP schema v1 genesis (tests/v3_contracts.rs). V3-08/V3-09 registry budgets: REGISTRY-LAYOUT.md,
 // tests/v3_model.py. V3-16/V3-17 evidence penalties (RewardEscrow recordResult/invalidate/burnBond, MinerRegistry
-// punish): REGISTRY-LAYOUT.md "v3 evidence penalties", tests/v3_model.py. Authorities: M1 execution.md and
+// punish): REGISTRY-LAYOUT.md "v3 evidence penalties", tests/v3_model.py. V3-02 late share credit (MinerRegistry and
+// ShareLedger recordLate): REGISTRY-LAYOUT.md "v3 late share credit", tests/v3_model.py. V3-19/V3-15/V3-20 issuance, carry
+// and tip split (RewardEscrow closeBlock(tips, issued), settleOne, finalize): REGISTRY-LAYOUT.md "v3 issuance, carry and
+// tip split", tests/v3_model.py. Authorities: M1 execution.md and
 // incentives.md (phases, pending, settle formulas, bond machine); LP4-PAY-01/02, LP4-REGISTRY-01/02,
 // LP4-SYS-01, LP4-ISSUANCE-01; LP4-LEDGER-01 option 1 (development/LP4-LEDGER-APPROVAL.md).
 // Addresses: C0C001 MinerRegistry, C0C002 RewardEscrow, C0C003 ShareLedger,
@@ -23,6 +26,7 @@ interface IRegistryV1 {
 interface IEscrowV1 { function releaseBond(address id) external returns(bool); function burnBond(uint256 amount,address reward) external; } // V3-17: burnBond pays the reporter's cut
 interface ILedgerV1 {
     function record(uint64 j,address[] calldata seq) external;
+    function recordLate(uint64 j,address[] calldata seq) external; // V3-02
     function totalOf(uint64 j) external view returns(uint256);
     function countOf(uint64 j,address a) external view returns(uint256);
     function ownersOf(uint64 j) external view returns(address[] memory);
@@ -89,6 +93,32 @@ contract ShareLedger {
         total[j]=n;
     }
 
+    /// V3-02 late share credit, CALLER=Registry only, exactly selector||j||0x40||N||N addresses: one owner per late
+    /// share of template j, which the host validated (kind-3 evidence of the carrying block, phase 0 after
+    /// recordShares/recordResult of h-1 and before settle(h-D)). j is in [max(1,h-D), h-1] with its header shares
+    /// recorded (total[j] != 0), and the no-dilution cap holds: total[j] + N <= kappa*m (C_header(j) + C_late(j)), so
+    /// q_j = max(total, kappa*m) never changes and late credit fills only the uncovered part of the pool.
+    function recordLate(uint64 j,address[] calldata) external {
+        if(msg.sender!=Sys.REGISTRY) revert Unauthorized();
+        uint256 n; uint256 off;
+        assembly { off:=calldataload(36) n:=calldataload(68) }
+        if(off!=64 || n==0 || n>Sys.cfg(10) || msg.data.length!=100+32*n) revert BadCalldata();
+        uint256 height=block.number;
+        if(height<2 || height>Sys.LOW64 || j==0 || uint256(j)>=height || uint256(j)+Sys.cfg(11)<height) revert BadPhase();
+        uint256 t=total[j];
+        if(t==0 || t+n>Sys.cfg(8)*Sys.cfg(9)) revert BadState();
+        address[] storage list=owners[j];
+        for(uint256 i;i<n;i++){
+            uint256 raw; assembly { raw:=calldataload(add(100,mul(32,i))) }
+            if(raw==0 || raw>>160!=0) revert BadCalldata();
+            address a=address(uint160(raw));
+            uint256 c=count[j][a];
+            if(c==0) list.push(a);
+            count[j][a]=c+1;
+        }
+        total[j]=t+n;
+    }
+
     /// SYSTEM only. K=max(D,W_w); deletes exactly j=h-K-1 when h>K+1, else no-op.
     function pruneShares() external {
         if(msg.sender!=Sys.SYSTEM) revert Unauthorized();
@@ -112,7 +142,9 @@ contract ShareLedger {
 }
 
 /// Pending pots, bond bridge, settlement and finalization (M1 incentives.md).
-/// Layout: slot0 burnedTotal; slot1 final height F (set only by finalize); pending[j] at keccak(be256(j)||be256(3))+k,
+/// Layout: slot0 burnedTotal; slot1 final height F (set only by finalize); slots 4 and 5 the carry into pot t at slot
+/// 4+(t&1) (V3-15, lagged one block: the base burn of the pots settled in block t-1; slot 2 is not used); pending[j] at
+/// keccak(be256(j)||be256(3))+k,
 /// k=0 amount, k=1 meta = proposer<<8 | kind (0 signed, 1 fallback) | INVALID<<168,
 /// k=2 winner (zero until recordResult) | WIN_ACCRUING<<160 (V3-16).
 contract RewardEscrow {
@@ -129,6 +161,11 @@ contract RewardEscrow {
     function sys(uint256 len) internal view {if(msg.sender!=Sys.SYSTEM||msg.data.length!=len)revert BadSystemCall();if(block.number==0||block.number>Sys.LOW64)revert BadSystemCall();}
 
     function burnedTotal() external view returns(uint256){return get(0);}
+    /// V3-15: slot of the carry into pot t. Settlement in block h adds to the carry into pot h+1 and closeBlock(h)
+    /// drains the carry into pot h, so the two never share a slot; at most these two carries are outstanding.
+    function carrySlot(uint256 t) internal pure returns(uint256){return 4+(t&1);}
+    /// V3-15: every outstanding carry (the Escrow invariant's term): between blocks h and h+1 only the carry into pot h+1.
+    function carry() external view returns(uint256){return get(4)+get(5);}
     function pending(uint256 j) external view returns(uint256,uint256,uint256){uint256 b=base(j);return(get(b),get(b+1),get(b+2));}
 
     function releaseBond(address id) external returns(bool) {
@@ -153,14 +190,25 @@ contract RewardEscrow {
         put(0,get(0)+amount-cut);
     }
 
-    /// Phase 2 (non-final): pending[h]={subsidy+tips, kind, proposer}, winner=0 (D141).
-    function closeBlock(uint256 tips) external {
-        sys(36);
+    /// Phase 2 (non-final): pending[h]={issued + (1 - gamma_tip)*tips + carry, kind, proposer}, winner=0 (D141).
+    /// V3-19: the host passes issued = issuance(h) (lp4-execution issuance.rs), which it credited to Escrow.
+    /// V3-20: gamma_tip_bp/10^4 of the tips (CP 59, floor) goes to the signed proposer (tx.origin) as the proposer part
+    /// does (payTo: an ACCRUING record fills its bond first, a tomb or a failed PAY burns); a fallback block (origin zero)
+    /// leaves all tips in the pot. V3-15 (lagged): the carry into pot h, the base burn of block h-1's settle(h-1-D), enters
+    /// pot h and is zeroed. Block h's own settle(h-D) went to the carry into pot h+1, so pot h's carry is fixed before
+    /// template h is built, and block h, the last carrier of late shares of h-D, has no claim on what leaving them out
+    /// would carry.
+    function closeBlock(uint256 tips,uint256 issued) external {
+        sys(68);
         uint256 b=base(block.number);
         if(get(b)!=0||get(b+1)!=0||get(b+2)!=0) revert BadPending();
-        uint256 amount=Sys.cfg(15)+tips;
+        uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(59)/10000;
+        uint256 k=carrySlot(block.number); uint256 c=get(k);
+        if(c!=0) put(k,0);
+        uint256 amount=issued+(tips-share)+c;
         uint256 meta=tx.origin==address(0)?1:(uint256(uint160(tx.origin))<<8);
         put(b,amount); put(b+1,meta);
+        if(share!=0){uint256 burned=payTo(tx.origin,share); if(burned!=0) put(0,get(0)+burned);}
     }
     /// Phase 0 of h: pending[h-1].winner = owner(nonce of h-1).
     function recordResult(uint256 j,address winner) external {
@@ -195,11 +243,17 @@ contract RewardEscrow {
     /// Phase 2 of the final block F: no pending[F]; tips burned (finalBurn). Marks
     /// F in slot1 so that each remaining pot is settled by its own SYSTEM call
     /// settleFinal(j) (LP4-FINAL-01: keeps every call within the 30M per-call cap).
+    /// V3-15: both outstanding carries burn here, the carry into pot F (block F-1's settle; no pot F exists) and the carry
+    /// of F's own settle(F-D); the pots settleFinal settles after it burn their base burn directly (slot1 is set), so no
+    /// carry is left at F.
     function finalize(uint256 tips) external {
         sys(36);
         uint256 h=block.number; uint256 b=base(h);
         if(get(b)!=0||get(b+1)!=0||get(b+2)!=0||get(1)!=0) revert BadPending();
-        put(0,get(0)+tips); put(1,h);
+        uint256 c=get(4); uint256 n=get(5);
+        if(c!=0) put(4,0);
+        if(n!=0) put(5,0);
+        put(0,get(0)+tips+c+n); put(1,h);
     }
     function settleFinal(uint256 j) external {
         sys(36);
@@ -226,7 +280,9 @@ contract RewardEscrow {
         put(0,get(0)+burned);
     }
     /// R split: p_i=floor(R*c_i/Q), A=floor(R*C/Q), Q=max(C,kappa*m);
-    /// baseBurn=R-A, roundBurn=A-sum(p_i). Returns all burned value of R.
+    /// baseBurn=R-A, roundBurn=A-sum(p_i). Returns the burned value of R: roundBurn, payBurn and penaltyBurn. V3-15: the
+    /// baseBurn goes to the carry into pot h+1 (lagged: not the pot this block closes), except at the final block (slot1
+    /// set), where it burns.
     function distribute(uint256 j,uint256 r) internal returns(uint256 burned) {
         (address[] memory list,uint256[] memory counts,uint256 c)=ILedgerV1(Sys.LEDGER).entriesOf(uint64(j));
         if(c==0) revert BadPending();
@@ -242,7 +298,8 @@ contract RewardEscrow {
             if(out!=0 && !Sys.pay(rewards[i],out)) burned+=out;
         }
         uint256 a=r*c/q;
-        burned+=(r-a)+(a-sum);
+        burned+=a-sum;
+        if(r!=a){ if(get(1)!=0) burned+=r-a; else {uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));} } // V3-15
     }
     /// Returns the burned amount: absent record (payBurn), tomb (penaltyBurn) or
     /// failed PAY (payBurn). Otherwise PAY to the record's reward address.
@@ -513,6 +570,22 @@ contract MinerRegistry {
             if(w==0){ if(get(r+1)!=0||get(r+2)!=0||get(r+3)!=0) revert BadState(); continue; }
             if(((w>>88)&LOW64)>uint256(j)) revert BadState();
             put(r,(w&~LAST_MASK)|(uint256(j)<<88));
+        }
+    }
+    /// V3-02 (phase 0, SYSTEM, kind-3 evidence): one nested CALL to Ledger.recordLate, then lastShare=max(lastShare,j)
+    /// for every existing record among the owners (absent all-zero records skipped, as recordShares). Unlike
+    /// recordShares it never reverts on lastShare > j: a later header share of the owner already moved it past j.
+    function recordLate(uint64 j,address[] calldata seq) external {
+        if(msg.sender!=Sys.SYSTEM) revert Unauthorized();
+        uint256 n; uint256 off;
+        assembly { off:=calldataload(36) n:=calldataload(68) }
+        if(off!=64 || n==0 || n>cfg(10) || msg.data.length!=100+32*n) revert BadCalldata();
+        ILedgerV1(Sys.LEDGER).recordLate(j,seq);
+        for(uint256 i;i<n;i++){
+            uint256 raw; assembly { raw:=calldataload(add(100,mul(32,i))) }
+            uint256 r=rec(address(uint160(raw))); uint256 w=get(r);
+            if(w==0){ if(get(r+1)!=0||get(r+2)!=0||get(r+3)!=0) revert BadState(); continue; }
+            if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88));
         }
     }
     /// Evidence effect (phase 0, SYSTEM): HELD -> BURNED+tomb (active exits);

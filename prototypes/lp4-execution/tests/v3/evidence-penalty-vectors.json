@@ -1,11 +1,14 @@
 {
  "accruing-fact-committed-at-record-result": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -17,7 +20,10 @@
     "c",
     "m0"
    ],
-   "burned": "23693750000000000000",
+   "burned": "17000000000000000000",
+   "carry": {
+    "10": "1673437500000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -40,14 +46,14 @@
    "pots": {
     "6": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
@@ -61,7 +67,7 @@
     },
     "9": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -117,7 +123,8 @@
    "spent": {
     "c": "20000000000000000000",
     "q": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -155,12 +162,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -175,12 +185,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -195,12 +208,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -227,12 +243,15 @@
     "result": "0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -253,12 +272,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -273,12 +295,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -293,12 +318,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -313,12 +341,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -333,22 +364,28 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "evidence-at-the-settlement-boundary": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -360,7 +397,10 @@
     "c",
     "m0"
    ],
-   "burned": "21350781250000000000",
+   "burned": "9689843750000000000",
+   "carry": {
+    "13": "1673437500000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -368,7 +408,7 @@
     "regs": 0
    },
    "cursor": 0,
-   "escrowBalance": "69350781250000000000",
+   "escrowBalance": "68804299316406250000",
    "heldTotal": "40000000000000000000",
    "issued": "24000000000000000000",
    "order": [
@@ -378,34 +418,34 @@
     "c"
    ],
    "paid": {
-    "c": "2689843750000000000",
-    "m0": "1959375000000000000"
+    "c": "2773515625000000000",
+    "m0": "2422185058593750000"
    },
    "pots": {
     "10": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "11": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "5073634033203125000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "12": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "5073634033203125000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
     },
     "9": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3620312500000000000",
      "invalid": false,
      "proposer": "c",
      "winner": "m0"
@@ -477,7 +517,8 @@
     "c": "20000000000000000000",
     "q": "5000000000000000000",
     "y": "5000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -526,12 +567,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -546,12 +590,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -566,12 +613,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -588,12 +638,15 @@
     "winner": "q"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -611,12 +664,15 @@
     "winner": "y"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -631,12 +687,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -657,12 +716,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -677,12 +739,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -703,12 +768,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3620312500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -723,12 +791,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -743,12 +814,15 @@
     "winner": "m0"
    },
    {
+    "amount": "5073634033203125000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -763,22 +837,28 @@
     "winner": "m0"
    },
    {
+    "amount": "5073634033203125000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "fallback-has-no-reporter": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -791,7 +871,10 @@
     "m0",
     "r"
    ],
-   "burned": "26893750000000000000",
+   "burned": "20226562500000000000",
+   "carry": {
+    "9": "1673437500000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -822,21 +905,21 @@
     },
     "6": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "8": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3646875000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -908,7 +991,8 @@
     "c": "20000000000000000000",
     "r": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -957,12 +1041,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -977,12 +1064,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -997,12 +1087,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1065,12 +1158,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1103,12 +1199,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1123,12 +1222,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1143,12 +1245,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1163,22 +1268,28 @@
     "winner": "m0"
    },
    {
+    "amount": "3646875000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "non-winner-accused-settles-normally": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -1191,7 +1302,10 @@
     "m0",
     "w"
    ],
-   "burned": "21767187500000000000",
+   "burned": "15153125000000000000",
+   "carry": {
+    "9": "1673437500000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -1224,21 +1338,21 @@
     },
     "6": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "8": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3593750000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -1326,7 +1440,8 @@
     "c": "20000000000000000000",
     "p": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -1386,12 +1501,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1406,12 +1524,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1426,12 +1547,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -1461,12 +1585,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1481,12 +1608,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1501,12 +1631,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1521,12 +1654,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1541,22 +1677,28 @@
     "winner": "m0"
    },
    {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "random-1": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -1571,7 +1713,10 @@
     "r0",
     "r5"
    ],
-   "burned": "237784375000000000000",
+   "burned": "184171180457173960745",
+   "carry": {
+    "65": "7634973989739887148"
+   },
    "counters": {
     "maint": 1,
     "ops": 0,
@@ -1579,8 +1724,8 @@
     "regs": 0
    },
    "cursor": 3,
-   "escrowBalance": "301450000000000000000",
-   "heldTotal": "55665625000000000000",
+   "escrowBalance": "286233751721898267053",
+   "heldTotal": "58041345110791888237",
    "issued": "128000000000000000000",
    "order": [
     "m0",
@@ -1591,37 +1736,37 @@
     "r6"
    ],
    "paid": {
-    "m0": "13739453125000000000",
-    "r0": "232812500000000000",
+    "m0": "26179071708144701215",
+    "r0": "457381025314331054",
     "r4": "3750000000000000000",
-    "r6": "256640625000000000",
-    "rw": "3864843750000000000"
+    "r6": "261755981445312500",
+    "rw": "3926648254394531250"
    },
    "pots": {
     "61": {
      "accruing": true,
-     "amount": "2000000000000000000",
+     "amount": "9152597528636532952",
      "invalid": false,
      "proposer": "r5",
      "winner": "r0"
     },
     "62": {
      "accruing": true,
-     "amount": "2000000000000000000",
+     "amount": "8896748899383861102",
      "invalid": false,
      "proposer": "m0",
      "winner": "r5"
     },
     "63": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "8931946253845038390",
      "invalid": false,
      "proposer": "r0",
      "winner": "r2"
     },
     "64": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "9404959482327098479",
      "invalid": false,
      "proposer": "",
      "winner": ""
@@ -1674,7 +1819,7 @@
      "tomb": true
     },
     "r5": {
-     "bond": "15612500000000000000",
+     "bond": "17791018094734842757",
      "bond_state": 4,
      "burn": 0,
      "due": 0,
@@ -1689,7 +1834,7 @@
      "tomb": false
     },
     "r6": {
-     "bond": "53125000000000000",
+     "bond": "250327016057045480",
      "bond_state": 4,
      "burn": 0,
      "due": 103,
@@ -1704,7 +1849,7 @@
      "tomb": false
     },
     "r7": {
-     "bond": "15985937500000000000",
+     "bond": "19279130857071030308",
      "bond_state": 2,
      "burn": 64,
      "due": 91,
@@ -1720,7 +1865,7 @@
     }
    },
    "spent": {
-    "r0": "39293750000000000000",
+    "r0": "36808608691197143072",
     "r1": "20000000000000000000",
     "r2": "0",
     "r3": "0",
@@ -1728,7 +1873,8 @@
     "r5": "35000000000000000000",
     "r6": "16000000000000000000",
     "r7": "30000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -1744,12 +1890,15 @@
     "winner": ""
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1790,12 +1939,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1825,12 +1977,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1851,12 +2006,15 @@
     "winner": "r3"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1902,12 +2060,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1946,12 +2107,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "3514062500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -1996,12 +2160,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "3540625000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2030,12 +2197,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "3540625000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2077,12 +2247,15 @@
     "result": null
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2126,12 +2299,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2193,12 +2369,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4940281982421875000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2240,12 +2419,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4821435546875000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2267,12 +2449,15 @@
     "winner": "r1"
    },
    {
+    "amount": "4774411621093750000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "13"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2346,12 +2531,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4780906982421875000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "14"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2401,12 +2589,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4768310546875000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "15"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2430,12 +2621,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "5739947844505310059",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "16"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2475,12 +2669,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "5649977378845214844",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "17"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2511,12 +2708,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "18"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2559,12 +2759,15 @@
     "result": null
    },
    {
+    "amount": "5619295989036560059",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "19"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2583,12 +2786,15 @@
     "winner": "r5"
    },
    {
+    "amount": "5989734840393066407",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "20"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2647,12 +2853,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6802721985519677403",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "21"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2693,12 +2902,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6427286961704492570",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "22"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -2746,12 +2958,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "3540625000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "23"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2799,12 +3014,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6477876491263508799",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "24"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2829,12 +3047,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6534416453391313555",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "25"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2864,12 +3085,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7330570430840809716",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "26"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2920,12 +3144,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7036381892648129726",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "27"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -2967,12 +3194,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4868459472656250000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "28"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3019,12 +3249,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7420160720424389005",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "29"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3043,12 +3276,15 @@
     "winner": "m0"
    },
    {
+    "amount": "7120327892774599608",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "30"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3085,12 +3321,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7938907450610874748",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "31"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3142,12 +3381,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7420212926680512431",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "32"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3188,12 +3430,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6008872097015380860",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "33"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3240,12 +3485,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7912940574088184990",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "34"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3285,12 +3533,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7957711854032497017",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "35"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3318,12 +3569,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8220878260127115136",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "36"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3381,12 +3635,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7814432473016057789",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "37"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3417,12 +3674,15 @@
     "result": null
    },
    {
+    "amount": "6868125284847617150",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "38"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3472,12 +3732,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8200530777976913708",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "39"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3526,12 +3789,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8446989994243515163",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "40"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3584,12 +3850,15 @@
     "result": null
    },
    {
+    "amount": "8878562981715734620",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "41"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3611,12 +3880,15 @@
     "winner": "r3"
    },
    {
+    "amount": "8123340445652426535",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "42"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3649,12 +3921,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7564254625302327333",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "43"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3676,12 +3951,15 @@
     "winner": "r2"
    },
    {
+    "amount": "8752624562490364883",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "44"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3707,12 +3985,15 @@
     "result": null
    },
    {
+    "amount": "9067754909245941204",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "45"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3751,12 +4032,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8721349632251989725",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "46"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3781,12 +4065,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8796951263510741267",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "47"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3831,12 +4118,15 @@
     "winner": "r4"
    },
    {
+    "amount": "7726377134310902490",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "48"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -3862,12 +4152,15 @@
     "winner": "r7"
    },
    {
+    "amount": "9323485083146234993",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "49"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3885,12 +4178,15 @@
     "winner": "r1"
    },
    {
+    "amount": "9225867193305359398",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "50"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3937,12 +4233,15 @@
     "result": null
    },
    {
+    "amount": "9297316762610844529",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "51"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -3983,12 +4282,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8776401520173117884",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "52"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4028,12 +4330,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8054340832588933749",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "53"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4052,12 +4357,15 @@
     "winner": "r4"
    },
    {
+    "amount": "9553479711892691945",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "54"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4097,12 +4405,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9474393968326295077",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "55"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4122,12 +4433,15 @@
     "winner": "r3"
    },
    {
+    "amount": "9285319306952091457",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "56"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4158,12 +4472,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9110256544077752537",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "57"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4194,12 +4511,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8418302850969306583",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "58"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4247,12 +4567,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9612929145414488895",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "59"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4304,12 +4627,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9424075898618182785",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "60"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4327,12 +4653,15 @@
     "winner": "r0"
    },
    {
+    "amount": "9152597528636532952",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "61"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4381,12 +4710,15 @@
     "result": null
    },
    {
+    "amount": "8896748899383861102",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "62"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4438,12 +4770,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8931946253845038390",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "63"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -4473,7 +4808,7 @@
      "20000000000000000000",
      "64"
     ],
-    "result": "706250000000000000"
+    "result": "3191391308802856928"
    },
    {
     "ok": false,
@@ -4496,22 +4831,28 @@
     "revert": "BadState"
    },
    {
+    "amount": "9404959482327098479",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "64"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "random-2": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -4524,7 +4865,10 @@
    "active": [
     "m0"
    ],
-   "burned": "281060937500000000000",
+   "burned": "230436030114588502749",
+   "carry": {
+    "65": "6864022842749159511"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -4532,7 +4876,7 @@
     "regs": 0
    },
    "cursor": 5,
-   "escrowBalance": "309060937500000000000",
+   "escrowBalance": "292223820069675467882",
    "heldTotal": "20000000000000000000",
    "issued": "128000000000000000000",
    "order": [
@@ -4544,36 +4888,36 @@
     "r3"
    ],
    "paid": {
-    "m0": "26151562500000000000",
-    "r0": "1303125000000000000",
-    "r2": "26562500000000000",
-    "rw": "5898437500000000000"
+    "m0": "39601957326840959869",
+    "r0": "1491119032964333714",
+    "r2": "88158068775861174",
+    "rw": "7914416065620751297"
    },
    "pots": {
     "61": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "9039697060691745933",
      "invalid": false,
      "proposer": "",
      "winner": "r6"
     },
     "62": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "9131451038686384509",
      "invalid": false,
      "proposer": "",
      "winner": "r2"
     },
     "63": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "7585491548982910244",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "64": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "9167127463976764936",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -4611,7 +4955,7 @@
      "tomb": true
     },
     "r2": {
-     "bond": "15506250000000000000",
+     "bond": "17279539455458691299",
      "bond_state": 2,
      "burn": 61,
      "due": 61,
@@ -4678,8 +5022,9 @@
     "r3": "35000000000000000000",
     "r5": "20000000000000000000",
     "r6": "20000000000000000000",
-    "r7": "39440625000000000000"
-   }
+    "r7": "38319470563877373936"
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -4695,12 +5040,15 @@
     "winner": ""
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4751,12 +5099,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -4790,12 +5141,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4842,12 +5196,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4874,12 +5231,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -4928,12 +5288,15 @@
     "result": null
    },
    {
+    "amount": "3540625000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -4986,12 +5349,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5009,12 +5375,15 @@
     "winner": "r5"
    },
    {
+    "amount": "3620312500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5031,12 +5400,15 @@
     "winner": "r3"
    },
    {
+    "amount": "3620312500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5058,12 +5430,15 @@
     "winner": "r4"
    },
    {
+    "amount": "3620312500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5093,12 +5468,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4774411621093750000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "11"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5123,12 +5501,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4911499023437500000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "12"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5153,12 +5534,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4981101074218750000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "13"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5180,12 +5564,15 @@
     "winner": "m0"
    },
    {
+    "amount": "4740689697265625000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "14"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5233,12 +5620,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4836854248046875000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "15"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -5277,12 +5667,15 @@
     "winner": "r5"
    },
    {
+    "amount": "5994839723587036133",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "16"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5303,12 +5696,15 @@
     "winner": "r6"
    },
    {
+    "amount": "6109543323516845704",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "17"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5356,12 +5752,15 @@
     "result": null
    },
    {
+    "amount": "5770849172592163086",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "18"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5401,12 +5800,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "5966623957633972168",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "19"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5426,12 +5828,15 @@
     "winner": "r7"
    },
    {
+    "amount": "5918607699394226075",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "20"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5451,12 +5856,15 @@
     "winner": "r2"
    },
    {
+    "amount": "6617899974575638773",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "21"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5485,12 +5893,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7030827080458402635",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "22"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5536,12 +5947,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6522001343835890294",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "23"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5568,7 +5982,7 @@
      "6000000000000000000",
      "24"
     ],
-    "result": "1559375000000000000"
+    "result": "2680529436122626064"
    },
    {
     "ok": false,
@@ -5590,12 +6004,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6675409241802245380",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "24"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5645,12 +6062,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "6637784001947194340",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "25"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5681,12 +6101,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7273639042239962149",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "26"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5730,12 +6153,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7696068501902627761",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "27"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5784,12 +6210,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7110599490521404662",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "28"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5807,12 +6236,15 @@
     "winner": "r5"
    },
    {
+    "amount": "7319466739561164288",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "29"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -5865,12 +6297,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7113167988999948141",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "30"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5913,12 +6348,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7506372056195721347",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "31"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -5958,12 +6396,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8235017997244550773",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "32"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -5996,12 +6437,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "33"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -6047,12 +6491,15 @@
     "result": null
    },
    {
+    "amount": "7735488390453006080",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "34"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -6095,12 +6542,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7479362216526522553",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "35"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6153,12 +6603,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7881946228409616026",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "36"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -6210,12 +6663,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8671651299330155589",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "37"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6247,12 +6703,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "3620312500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "38"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6283,12 +6742,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8266954266327943207",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "39"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6316,12 +6778,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7860781486856329783",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "40"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6360,12 +6825,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8594972195802108411",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "41"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6392,12 +6860,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8564711022696031850",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "42"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6428,12 +6899,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "4788771972656250000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "43"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6470,12 +6944,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8807320153679415736",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "44"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6517,12 +6994,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8368461251460948427",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "45"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6563,12 +7043,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9077422417480798646",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "46"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6610,12 +7093,15 @@
     "result": null
    },
    {
+    "amount": "8483753891400355362",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "47"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6661,12 +7147,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "5943254421234130860",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "48"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -6741,12 +7230,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9369249909836448637",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "49"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6788,12 +7280,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8557473933761977558",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "50"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -6818,12 +7313,15 @@
     "winner": "r0"
    },
    {
+    "amount": "8871892439483510851",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "51"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6863,12 +7361,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8985841094949980119",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "52"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6890,12 +7391,15 @@
     "winner": "r4"
    },
    {
+    "amount": "6657097019138932229",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "53"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6916,12 +7420,15 @@
     "winner": "r1"
    },
    {
+    "amount": "9217250321170889343",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "54"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -6950,12 +7457,15 @@
     "result": null
    },
    {
+    "amount": "8819237040966575869",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "55"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -7031,12 +7541,15 @@
     "result": null
    },
    {
+    "amount": "8834129644789641953",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "56"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -7096,12 +7609,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8802562516411352139",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "57"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -7150,12 +7666,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7128045047555458734",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "58"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7207,12 +7726,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9467412955511103320",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "59"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7245,12 +7767,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "8910699025069902812",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "60"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -7314,12 +7839,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9039697060691745933",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "61"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7367,12 +7895,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "9131451038686384509",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "62"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7400,12 +7931,15 @@
     "revert": "BadState"
    },
    {
+    "amount": "7585491548982910244",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "63"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7436,22 +7970,28 @@
     "revert": "BadState"
    },
    {
+    "amount": "9167127463976764936",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "64"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "reporter-cut-paid-directly": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -7463,7 +8003,10 @@
     "m0",
     "q"
    ],
-   "burned": "35020312500000000000",
+   "burned": "30000000000000000000",
+   "carry": {
+    "8": "1673437500000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -7501,14 +8044,14 @@
     },
     "6": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -7580,7 +8123,8 @@
     "c": "20000000000000000000",
     "q": "5000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -7629,12 +8173,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -7655,12 +8202,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -7681,12 +8231,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7701,12 +8254,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7721,12 +8277,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7741,12 +8300,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7761,22 +8323,28 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "self-report-loses-three-quarters": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -7789,7 +8357,10 @@
    "active": [
     "m0"
    ],
-   "burned": "36793750000000000000",
+   "burned": "30100000000000000000",
+   "carry": {
+    "9": "1673437500000000000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -7819,21 +8390,21 @@
     },
     "6": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "8": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
@@ -7889,7 +8460,8 @@
    "spent": {
     "c": "20000000000000000000",
     "r": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -7927,12 +8499,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7947,12 +8522,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -7967,12 +8545,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -7998,12 +8579,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8018,12 +8602,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8038,12 +8625,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8058,12 +8648,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8078,22 +8671,28 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "type2-accruing-winner-burns-whole-pot": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -8105,7 +8704,10 @@
     "c",
     "m0"
    ],
-   "burned": "14443750000000000000",
+   "burned": "7750000000000000000",
+   "carry": {
+    "11": "3073634033203125000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -8113,7 +8715,7 @@
     "regs": 0
    },
    "cursor": 0,
-   "escrowBalance": "62443750000000000000",
+   "escrowBalance": "62170509033203125000",
    "heldTotal": "40000000000000000000",
    "issued": "20000000000000000000",
    "order": [
@@ -8124,7 +8726,7 @@
    ],
    "paid": {
     "c": "1250000000000000000",
-    "m0": "1306250000000000000"
+    "m0": "1579490966796875000"
    },
    "pots": {
     "10": {
@@ -8136,7 +8738,7 @@
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "c",
      "winner": "m0"
@@ -8150,7 +8752,7 @@
     },
     "9": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
@@ -8222,7 +8824,8 @@
     "a": "0",
     "c": "20000000000000000000",
     "q": "5000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -8271,12 +8874,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8291,12 +8897,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8311,12 +8920,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -8341,12 +8953,15 @@
     "winner": "a"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8361,12 +8976,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8384,12 +9002,15 @@
     "winner": "q"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -8410,12 +9031,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8430,12 +9054,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8450,12 +9077,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8470,22 +9100,28 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  },
  "type2-held-winner-pays-contributors": {
   "cp": {
+   "H_half": 4207680,
    "S0": 2000000000000000000,
    "S_max": 256,
+   "S_tail": 62500000000000000,
    "W_w": 8,
    "alpha_bp": 1000,
    "gamma_bp": 500,
+   "gamma_tip_bp": 5000,
    "kappa": 2,
    "m": 32,
    "rho_bp": 2500
@@ -8499,7 +9135,10 @@
     "p",
     "r"
    ],
-   "burned": "40360937500000000000",
+   "burned": "30506250000000000000",
+   "carry": {
+    "11": "3073634033203125000"
+   },
    "counters": {
     "maint": 0,
     "ops": 0,
@@ -8507,7 +9146,7 @@
     "regs": 0
    },
    "cursor": 0,
-   "escrowBalance": "128360937500000000000",
+   "escrowBalance": "128087696533203125000",
    "heldTotal": "80000000000000000000",
    "issued": "20000000000000000000",
    "order": [
@@ -8520,35 +9159,35 @@
    ],
    "paid": {
     "c": "79687500000000000",
-    "m0": "6206250000000000000",
+    "m0": "6479490966796875000",
     "p": "200000000000000000",
     "r": "5153125000000000000"
    },
    "pots": {
     "10": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3593750000000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": ""
     },
     "7": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "8": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3567187500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
     },
     "9": {
      "accruing": false,
-     "amount": "2000000000000000000",
+     "amount": "3673437500000000000",
      "invalid": false,
      "proposer": "m0",
      "winner": "m0"
@@ -8652,7 +9291,8 @@
     "r": "20000000000000000000",
     "v": "20000000000000000000",
     "w": "20000000000000000000"
-   }
+   },
+   "tips": "0"
   },
   "steps": [
    {
@@ -8723,12 +9363,15 @@
     "result": null
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "1"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8743,12 +9386,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "2"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8763,12 +9409,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "3"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -8794,12 +9443,15 @@
     "winner": "w"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "4"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8814,12 +9466,15 @@
     "winner": "m0"
    },
    {
+    "amount": "2000000000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "5"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8838,12 +9493,15 @@
     "winner": "v"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "6"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [
@@ -8864,12 +9522,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "7"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8884,12 +9545,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3567187500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "8"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8904,12 +9568,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3673437500000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "9"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    },
    {
     "evidence": [],
@@ -8924,12 +9591,15 @@
     "winner": "m0"
    },
    {
+    "amount": "3593750000000000000",
+    "issued": "2000000000000000000",
     "ok": true,
     "op": [
      "close",
      "10"
     ],
-    "result": null
+    "result": null,
+    "tips": "0"
    }
   ]
  }

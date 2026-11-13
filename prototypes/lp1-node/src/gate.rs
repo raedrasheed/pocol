@@ -173,6 +173,9 @@ pub struct IdentityFacts {
     pub alloc_root: H256,
     pub sys_code_hash: H256,
     pub alloc_balances: Vec<U256>,
+    /// V3-19: the genesis runs the v3 program set (its sysCodeHash on CP schema v2), whose issuance is the M3 schedule;
+    /// every other program set credits CP 15 per block. The admitting node derives it from sys_code_hash.
+    pub m3_issuance: bool,
 }
 #[derive(Clone, Debug)]
 pub struct Calibration {
@@ -225,7 +228,7 @@ fn add512(a: &mut U512, b: &U512) {
         a.0[i] = s as u64;
         carry = s >> 64;
     }
-    // At most usize::MAX balances of 256 bits plus two 320-bit terms: < 512 bits.
+    // At most usize::MAX balances of 256 bits plus at most three 321-bit terms: < 512 bits.
     debug_assert_eq!(carry, 0);
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -252,6 +255,33 @@ pub fn v3_registry_window_violated(c: &ConsensusParams) -> bool {
     c.schema_version() >= 2 && ((c.U as u128) < c.W_act as u128 + 2 || c.C_react < c.U)
 }
 
+/// R23's issuance term, by the program set the genesis runs (as genesis_builder.rs chooses it). The v3 program set (`m3`,
+/// on CP schema v2; V3-19, D-V3-19; lp4-execution issuance.rs): the M3 schedule issuance(h) = max(k >= 256 ? 0 : S0 >> k,
+/// S_tail), k = h / H_half, sums over every height to at most 2·S0·H_half + S_tail·2^64, whatever H_END is. Every other
+/// program set, on either CP schema: CP 15 per block up to H_END (u64::MAX blocks on a continuous profile).
+pub fn future_issuance(c: &ConsensusParams, continuous: bool, m3: bool) -> U512 {
+    if m3 && c.schema_version() >= 2 {
+        let mut t = U512::mul_u256_u64(&c.subsidy, c.H_half).shl(1);
+        add512(&mut t, &U512::from_u256(&c.S_tail).shl(64));
+        t
+    } else {
+        U512::mul_u256_u64(&c.subsidy, if continuous { u64::MAX } else { c.H_END })
+    }
+}
+
+/// V3-02: the encoded bytes of a kind-3 late-share item RLP([3, be64(j), [n_1..n_k]]) carrying k nonces.
+pub fn late_item_bytes(k: u64) -> u128 {
+    let rlp_len = |payload: u128| if payload <= 55 { 1 + payload } else { 1 + ((128 - payload.leading_zeros() as u128) + 7) / 8 + payload };
+    rlp_len(1 + 9 + rlp_len(9 * k as u128))
+}
+/// V3-02 sizing (R10, the byte limits, on CP schema v2; V3-DECISIONS.md D-V3-02): the largest kind-3 item a block can need fits
+/// EVID_BYTES_MAX. One template takes at most min(S_max, kappa*m - 1) late shares (the no-dilution cap with the winner's
+/// share counted), so one item of that many nonces must fit (about 0.6 KB at kappa*m = 64; 2.3 KB at S_max = 256).
+pub fn v3_late_share_sizing_violated(c: &ConsensusParams) -> bool {
+    let k = (c.S_max as u64).min((c.kappa as u64 * c.m as u64).saturating_sub(1)).max(1);
+    c.schema_version() >= 2 && (c.EVID_BYTES_MAX as u128) < late_item_bytes(k)
+}
+
 pub fn check(
     p: &GateProfile,
     resource: Option<&ResourceFacts>,
@@ -276,7 +306,7 @@ pub fn check(
     bad[6] = (c.D_att as u128 + l.gamma as u128) < 2 * (m.x_w + c.c as u128 * c.T_blk as u128) + phi;
     bad[7] = c.D < 2 || (c.U as u128) < c.E_win as u128 + c.D as u128 || c.E_win > l.r_keep || v3_registry_window_violated(c);
     bad[8] = (c.S_max as u128) < 4 * c.kappa as u128 * c.m as u128 || c.B_code_max < 24577;
-    bad[9] = (c.BODY_MAX as u128) < c.TX_MAX as u128 + 16384;
+    bad[9] = (c.BODY_MAX as u128) < c.TX_MAX as u128 + 16384 || v3_late_share_sizing_violated(c);
     bad[10] = l.k_final > l.r_keep || l.k_view >= l.k_hist || l.k_view as u128 + 2 > 512;
     let spec = gs::verify_hash(&p.genesis_pre, &p.genesis_hash).ok();
     let members = spec.as_ref().map_or(0, |s| s.m0_list.len());
@@ -334,7 +364,7 @@ pub fn check(
             add512(&mut total, &U512::from_u256(balance));
         }
         add512(&mut total, &U512::mul_u256_u64(&c.B_reg, members as u64));
-        add512(&mut total, &U512::mul_u256_u64(&c.subsidy, if continuous{u64::MAX}else{c.H_END}));
+        add512(&mut total, &future_issuance(c, continuous, i.m3_issuance));
         total.bits() > 127
     });
     bad[23] = spec.as_ref().map_or(true,|s|s.chain_id!=p.chain_id || s.cp!=c.to_values() || id.map_or(true,|i|s.alloc_root!=i.alloc_root || s.sys_code_hash!=i.sys_code_hash))

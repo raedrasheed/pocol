@@ -418,7 +418,18 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
         (vec!["export-chain","--network",n,"--data",data,"--to-height","1","--out",o_],"above the head 0"),
         (vec!["export-chain","--network",d.join("none").to_str().unwrap(),"--data",data,"--to-height","1","--out",o_],"genesis"),
         (vec!["verify-export"],"--dir EXPORT_DIR"),
-        (vec!["verify-export","--dir",d.join("none").to_str().unwrap()],"manifest.json")]{
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap()],"manifest.json"),
+        // Review finding 3: a pin that is missing its value, misspelt, in `=` form, repeated or malformed is refused,
+        // never silently skipped (each would otherwise print verified output with no digest checked).
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256"],"--manifest-sha256 needs a value"),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256","--network",n],"--manifest-sha256 needs a value"),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256=00"],"unknown argument \"--manifest-sha256=00\""),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha","00"],"unknown argument \"--manifest-sha\""),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"extra"],"unknown argument \"extra\""),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--head-hash"],"--head-hash needs a value"),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--head-hash","00","--head-hash","00"],"--head-hash is given twice"),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--manifest-sha256","00"],"--manifest-sha256 must be 64 hex digits"),
+        (vec!["verify-export","--dir",d.join("none").to_str().unwrap(),"--head-hash","0x12"],"--head-hash must be 64 hex digits")]{
         let o=pocold(&args);let err=text(&o.stderr);
         assert_eq!(o.status.code(),Some(1),"{args:?}: {err}");assert!(err.starts_with("error: ")&&err.contains(want),"{args:?}: {err}");
         assert!(!out.exists(),"{args:?} wrote nothing");

@@ -67,6 +67,14 @@ fn print(tag:&str,b:&pocold::resources::Bound){
             use pocold::node::{META_ENTRY_BYTES,PARKED_ENTRY_BYTES,POOL_PARKED_MAX};
             assert_eq!(item(&b,"queues/pool sender and declared gas"),3*POOL_MAX_TXS as u128*META_ENTRY_BYTES as u128);
             assert_eq!(item(&b,"queues/parked transactions' entries"),3*POOL_PARKED_MAX as u128*PARKED_ENTRY_BYTES as u128);
+            // N4 (V3-20): the entries keep their PR6 sizes (the fee fields are read from the raw bytes), and the fee order's
+            // scratch (FEE_ORDER_ENTRY_BYTES, a u32 and a u64 per pooled and parked candidate) takes the place of the
+            // selection's first-seen sender set, which it replaces and does not exceed: no new term, no pin moves.
+            assert_eq!((META_ENTRY_BYTES,PARKED_ENTRY_BYTES,pocold::node::FEE_ORDER_ENTRY_BYTES),(32,160,12),"the entry sizes the pinned totals were derived with");
+            assert!(b.items.iter().all(|(k,_)|!k.contains("fee order")),"no separate fee-order term");
+            {use pocol_lp4_execution::resources::memory::{entry_bytes,table_bytes};
+             let set=(POOL_MAX_TXS+POOL_PARKED_MAX+pocold::node::BUILD_VISIT_MAX) as u128*entry_bytes(20)+table_bytes(20);
+             assert_eq!(r::fee_order_bytes().unwrap(),(POOL_MAX_TXS+POOL_PARKED_MAX) as u128*12);assert!(r::fee_order_bytes().unwrap()<=set,"the fee order fits the set's place");}
             assert_eq!(item(&b,"queues/template selection"),r::selection_bytes(cp).unwrap());assert!(r::selection_bytes(cp).unwrap()>2*body);
             // PR6 review: after a gas failure the selection's tail (at most GAS_LIMIT/TX_GAS_MIN transactions, BODY_MAX
             // bytes) joins the append round's candidates, so the term counts it beside their own bound.
@@ -322,6 +330,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // block report grows). The stops are 374/374/374/360/374/147 records below
         // the earlier pins [1_146_268,1_121_410,1_114_248,1_089_603,1_071_706,1_046_848].
         // Keep the original R10 baseline and owner seed guards below.
+        // N4 (V3-20 node-local pool) moves no stop: the pool's entries keep their sizes and the fee order's scratch takes
+        // the place of the selection's first-seen sender set (consensus.rs a13_bound_breakdown).
         assert_eq!(got,[1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
