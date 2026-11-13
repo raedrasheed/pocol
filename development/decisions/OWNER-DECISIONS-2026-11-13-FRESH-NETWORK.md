@@ -49,3 +49,32 @@ Answers to the 16 questions put to the owner (verbatim):
 Earlier constraints about the old servers (no re-initialisation, never run Initialize-PoColNetwork.ps1, never delete wallet
 data, preserve api/config.php) concerned the old network, which the owner now retires; Claude still does not act on
 any server without explicit approval, and deployment of the new network stays held until the owner approves it.
+
+## Follow-up answers (2026-11-13, verbatim)
+
+> 7. اختار (ب) 10PCOL
+>
+> 10. أ) أفضل أن متوط زمن الكتلة 10 ثواني
+>         ب) موافق
+>         ج) موافق
+>         د) موافق
+>
+> 6. موافق
+>
+> 15. موافق
+>
+> الدومين pocol.net
+
+Summary:
+- 7: issuance option (b): a starting reward of 10 PCOL per block (halving every 4 years, tail S0/32). Open: with a 10 s
+  average block the per-block amount gives three times the yearly issuance of the table (computed at 30 s); asked the
+  owner to confirm per block or per year.
+- 10a: difficulty adjustment kept, with a 10 s average block time (instead of 30 s).
+- 10b: no seat cap or seat contest; registrations rate-limited per block; inactive members removed after about an hour
+  (they may return).
+- 10c: new miners register for free; the first 20 PCOL of their rewards is held as a bond, forfeited on misbehaviour;
+  after that rewards are paid in full. The four founders' 20 PCOL bond comes from their genesis allocation.
+- 10d: no account-creation fee; new accounts pay ordinary gas only.
+- 6: a closed rehearsal on the three US servers before the public launch.
+- 15: founding miners: the three US servers and the owner's computer; the phone is a wallet/observer.
+- Domain: pocol.net.
