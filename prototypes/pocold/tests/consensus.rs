@@ -1460,8 +1460,10 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     let alice=devnet::account_key("alice");
     let input=pocold::types::unhex(&format!("{:08x}{}01",7_800_000u32,"00".repeat(64+128+16))).unwrap();
     let heavy=|nonce:u64|Tx{chain_id:777910,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas:7_900_000,to:Some(Address::with_last_byte(9)),value:U256::ZERO,data:input.clone().into()}.sign_1559(&alice);
-    // One heavy transaction's time on this machine, as it is now: each submission executes it once.
-    let mut one_tx=Duration::ZERO;for k in 0..4{let t=Instant::now();n.submit_tx(heavy(k),false).unwrap();one_tx=one_tx.max(t.elapsed());}
+    // One heavy transaction's time on this machine, as it is now: each submission executes it once. The
+    // longest (one_tx) bounds the hold's time, the shortest (min_tx) how many ran during it (below).
+    let (mut one_tx,mut min_tx)=(Duration::ZERO,Duration::MAX);
+    for k in 0..4{let t=Instant::now();n.submit_tx(heavy(k),false).unwrap();let e=t.elapsed();(one_tx,min_tx)=(one_tx.max(e),min_tx.min(e));}
     let mut h=net();let g=h.chain.head;let b=branch(&mut h,g,1,&[]);n.import(b[0].clone(),None).unwrap();assert!(n.pool_pending(),"a backlog of heavy transactions");
     let pending=|n:&Node|n.status_json()["stats"]["poolBacklog"].as_u64().unwrap();let backlog=pending(&n);
     let body=format!(r#"{{"jsonrpc":"2.0","id":3,"method":"eth_sendRawTransaction","params":["0x{}"]}}"#,pocold::types::hex(&pay(&devnet::account_key("bob"),0,1)).trim_start_matches("0x"));
@@ -1471,15 +1473,21 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     assert!(n.pool.txs.iter().all(|(_,r)|*r!=pay(&devnet::account_key("bob"),0,1)),"not pooled");
     let left=pending(&n);assert!(left>0,"busy: the backlog was still pending at the deadline ({left} of {backlog} left)");
     // The rest of the backlog, one transaction a step (pool_slice 0), timed right after the held request.
-    while n.pool_pending(){let t=Instant::now();n.pool_step();one_tx=one_tx.max(t.elapsed());}
+    while n.pool_pending(){let t=Instant::now();n.pool_step();let e=t.elapsed();(one_tx,min_tx)=(one_tx.max(e),min_tx.min(e));}
     // Held about its deadline plus one transaction (the one running when the deadline passes; no stop hook
     // cuts a BLAKE2F run short). A transaction's time is measured on this machine around the request, not
     // assumed: under a load average of about 45 one took over 500 ms, past the old fixed 100+400 ms. One more
     // transaction's time absorbs a load spike between the measured runs and the held one, and 100 ms covers
     // parsing, admission and encoding. Driving the whole backlog would not have answered busy (above).
     let deadline=n.cfg.limits.rpc.compute_light;let bound=deadline+one_tx*2+Duration::from_millis(100);
-    println!("D7-BUSY tookMs {} oneTxMs {} boundMs {} backlog {backlog} left {left}",took.as_millis(),one_tx.as_millis(),bound.as_millis());
+    println!("D7-BUSY tookMs {} oneTxMs {} minTxMs {} boundMs {} backlog {backlog} left {left}",took.as_millis(),one_tx.as_millis(),min_tx.as_millis(),bound.as_millis());
     assert!(took<bound,"held about its deadline plus one transaction: {took:?}, over {bound:?} (deadline {deadline:?}, one transaction {one_tx:?})");
+    // The same property counted, not timed, so that load cannot loosen it: a backlog transaction starts only
+    // before the deadline and each takes at least min_tx, so at most 1+deadline/min_tx run during the hold
+    // (1 here, unloaded or loaded: one transaction takes longer than the 100 ms deadline). One more run past
+    // the deadline would still fit the wall-clock bound above, but not this count.
+    let ran=backlog-left;let most=1+(deadline.as_nanos()/min_tx.as_nanos().max(1)) as u64;
+    assert!(ran<=most,"only the transaction running at the deadline finishes after it: {ran} ran during the hold, over {most} (deadline {deadline:?}, shortest transaction {min_tx:?})");
     n.pool_settle();let v:serde_json::Value=serde_json::from_str(&answer(&mut n,&req()).body).unwrap();assert!(v["result"].is_string(),"positive control: after the backlog it is admitted: {v}");
     let _=std::fs::remove_dir_all(&dir);
 }
@@ -2118,8 +2126,9 @@ fn unprotected(n:&pocold::node::Node)->usize{n.chain.blocks.keys().filter(|h|n.c
 /// state query that reads or rebuilds a stored version can pass the light class's 500 ms; the node then
 /// rightly answers -32020 {deadline} and no value, which `rpc_local` used to read as a null result and the
 /// comparison then failed against the other node's value. So the request runs under compute deadlines as
-/// long as its 120 s work deadline (the node's limits are restored after it), and a -32020 {deadline} that
-/// still comes back fails the test here, naming the request: it is no answer, and is never compared as one.
+/// long as its 120 s work deadline (the node's limits are restored after it), and a -32020 {deadline} (or a
+/// -32021 refusal) that still comes back fails the test here, naming the request: it is no answer, and is
+/// never compared as one.
 fn rpc_unhurried(n:&mut pocold::node::Node,body:String)->serde_json::Value{
     let long=std::time::Duration::from_secs(120);
     let kept=(n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy);
@@ -2129,6 +2138,9 @@ fn rpc_unhurried(n:&mut pocold::node::Node,body:String)->serde_json::Value{
     (n.cfg.limits.rpc.compute_light,n.cfg.limits.rpc.compute_heavy)=kept;
     let v=serde_json::from_str::<serde_json::Value>(&a.body).unwrap();
     assert!(!(v["error"]["code"]==-32020&&v["error"]["data"]["reason"]=="deadline"),"{body}: a compute deadline is no answer to compare: {v}");
+    // Nor is a transient refusal (-32021 busy or rate: admission past QUEUE_WAIT, a full response pool), which
+    // none of these callers expects.
+    assert!(v["error"]["code"]!=-32021,"{body}: a transient refusal is no answer to compare: {v}");
     v
 }
 fn rpc_local(n:&mut pocold::node::Node,method:&str,params:serde_json::Value)->serde_json::Value{
