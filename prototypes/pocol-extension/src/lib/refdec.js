@@ -1,6 +1,7 @@
 // Reference-equivalent decoders (A07, A08): ports of the accepted Rust decoders
-// lp1-node/src/genesis_spec.rs (GenesisSpec v1: framing L0, then gsStructure, gsVersion,
-// gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each stage over the whole input) and
+// lp1-node/src/genesis_spec.rs (GenesisSpec: framing L0, then gsStructure, gsVersion,
+// gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each stage over the whole input; CP schema v1,
+// and v2 = v1 + 15 appended fields, accepted only below an explicit version ceiling) and
 // lp1-node/src/header.rs (size, strict RLP, then every header field). Error codes and details
 // equal the reference's; tests/decoder_diff.mjs checks this against verdicts produced by the
 // Rust decoders on the same corpus (pocold/tests/decoder_reference.rs).
@@ -23,14 +24,30 @@ export const CP_SCHEMA = [
   ['SYS_KEYS_USER_MAX', 32, 0, N], ['SYS_ACCT_BLOCK_MAX', 32, 0, N], ['G_SYS', 64, 0, N], ['H_END', 64, 0, N], ['T_END', 64, 0, N], ['H_CLOSE', 64, 0, N],
   ['T_CLOSE', 64, 0, N], ['Z_close', 32, 0, N], ['RET', 32, 1, N], ['P2', 32, 0, N],
 ];
+/** CP schema v2 (genesis_spec.rs CP_V2_EXTRA): the complete v1 prefix, then these fields in immutable wire order
+ * (V3-DECISIONS.md D-V3-34). */
+export const CP_V2_EXTRA = [
+  ['H_half', 64, 1, N], ['S_tail', 256, 0, N], ['P_MAX', 16, 0, N], ['T_PROB', 32, 1, N], ['F0_acct', 256, 0, N], ['F0_slot', 256, 0, N],
+  ['F0_code', 256, 0, N], ['gamma_tip_bp', 16, 0, 10000], ['baseFeeMin', 256, 0, N], ['R_react', 8, 0, N], ['C_react', 32, 0, N],
+  ['E_epoch', 32, 1, N], ['theta_bp', 16, 0, 10000], ['k_sigma', 16, 0, N], ['rho_bp', 16, 0, 10000],
+];
+export const CP_SCHEMA_V2 = [...CP_SCHEMA, ...CP_V2_EXTRA], CP_V2_LEN = CP_SCHEMA_V2.length;
+/** Known schemas only (genesis_spec.rs cp_schema); a future wire version never inherits v2's layout. */
+export const cpSchema = (version) => (version === 1 ? CP_SCHEMA : version === 2 ? CP_SCHEMA_V2 : null);
+/** genesis_spec.rs cp_index_for: the CP index of `name` in the schema of `version`, or -1. */
+export const cpIndexFor = (version, name) => { const s = cpSchema(version); return s ? s.findIndex((f) => f[0] === name) : -1; };
 const ALPHA_BP = 13;
 export const MAX_MEMBERS = 65535;
 const beLen = (v) => { let n = 0; while (v > 0) { n++; v = Math.floor(v / 256); } return n; };
 const uintItemLen = (v) => (v < 0x80 ? 1 : 1 + beLen(v));
 const listLen = (p) => (p < 56 ? 1 + p : 1 + beLen(p) + p);
-const maxCpPayload = CP_SCHEMA.reduce((a, [, w, , hi]) => a + (hi === N ? 1 + w / 8 : uintItemLen(hi === 'gamma' ? 10000 : hi)), 0);
-/** Largest encoding that can pass decode and R12 (genesis_spec.rs MAX_SPEC_BYTES). */
-export const MAX_SPEC_BYTES = listLen(1 + 9 + listLen(maxCpPayload) + 33 + listLen(MAX_MEMBERS * listLen(21 + 21)) + 33);
+const maxCpPayload = (schema) => schema.reduce((a, [, w, , hi]) => a + (hi === N ? 1 + w / 8 : uintItemLen(hi === 'gamma' ? 10000 : hi)), 0);
+const maxSpec = (schema) => listLen(1 + 9 + listLen(maxCpPayload(schema)) + 33 + listLen(MAX_MEMBERS * listLen(21 + 21)) + 33);
+/** Largest encoding that can pass the release decoder and R12 (genesis_spec.rs MAX_SPEC_BYTES of a build without
+ * v3-preview). */
+export const MAX_SPEC_BYTES = maxSpec(CP_SCHEMA);
+/** The same bound for a decoder whose version ceiling is `maxVersion` (the v3-preview MAX_SPEC_BYTES at 2). */
+export const maxSpecBytes = (maxVersion = SPEC_VERSION) => maxSpec(maxVersion >= 2 ? CP_SCHEMA_V2 : CP_SCHEMA);
 
 function longLen(b, i, ll, short) {
   if (b.length - (i + 1) < ll) throw gsErr('L0', 'truncated length');
@@ -84,8 +101,10 @@ function isReserved(id) {
   const low = (id[17] << 16) | (id[18] << 8) | id[19];
   return id.subarray(0, 17).every((x) => x === 0) && low >= 0xc0c001 && low <= 0xc0c0ff;
 }
-/** GenesisSpec.decode; throws {gs, detail} exactly as the reference does. */
-export function decodeGenesisSpec(b) {
+/** GenesisSpec.decode; throws {gs, detail} exactly as the reference does. `maxVersion` is genesis_spec.rs
+ * decode_bounded's acceptance ceiling: the default SPEC_VERSION is the release decoder (spec 2 is refused with
+ * gsVersion until activation, V3-PR-I); 2 is the v3-preview decoder, for tests and explicit preview tools only. */
+export function decodeGenesisSpec(b, maxVersion = SPEC_VERSION) {
   checkFraming(b);
   const top = itemAt(b, 0);
   if (!top.list) throw gsErr('gsStructure', 'top not a list');
@@ -95,22 +114,25 @@ export function decodeGenesisSpec(b) {
   const cp = slot[2] || none, m0 = slot[4] || none;
   if (children(b, cp).some((x) => x.list)) throw gsErr('gsStructure', 'CP item is a list');
   for (const e of children(b, m0)) if (!e.list || children(b, e).some((x) => x.list)) throw gsErr('gsStructure', 'M_0List entry');
-  if (slot[0]) { const raw = bytesOf(b, slot[0]); const sig = significant(raw); if (!(sig.length === 1 && sig[0] === SPEC_VERSION)) throw gsErr('gsVersion', bigHex(raw).toString(10)); }
+  // gsVersion by value; non-minimal accepted versions are judged later as gsInt.
+  let specVersion = 1;
+  if (slot[0]) { const raw = bytesOf(b, slot[0]); const sig = significant(raw); if (!(sig.length === 1 && sig[0] <= maxVersion && cpSchema(sig[0]))) throw gsErr('gsVersion', bigHex(raw).toString(10)); specVersion = sig[0]; }
+  const schema = cpSchema(specVersion);
   if (!(slot.every((x) => x) && topLen === 6)) throw gsErr('gsCount', `top ${topLen}`);
   const [version, chain, , allocRoot, , sysCodeHash] = slot;
-  const cps = children(b, cp); if (cps.length !== CP_LEN) throw gsErr('gsCount', `CP ${cps.length}`);
+  const cps = children(b, cp); if (cps.length !== schema.length) throw gsErr('gsCount', `CP ${cps.length}`);
   const ms = children(b, m0);
   for (const e of ms) { const n = children(b, e).length; if (n !== 2) throw gsErr('gsCount', `M_0List entry ${n}`); }
   if (ms.length === 0) throw gsErr('gsCount', 'M_0List empty');
-  const ints = [['specVersion', version], ['chainId', chain], ...CP_SCHEMA.map((f, k) => [f[0], cps[k]])];
+  const ints = [['specVersion', version], ['chainId', chain], ...schema.map((f, k) => [f[0], cps[k]])];
   for (const [name, it] of ints) if (it.wrapped || (it.len > 0 && b[it.start] === 0)) throw gsErr('gsInt', name);
   if (allocRoot.len !== 32 || sysCodeHash.len !== 32) throw gsErr('gsLen', 'root');
   const pair = (e) => { const c = children(b, e); return [c[0] || none, c[1] || none]; };
   for (const e of ms) { const [id, reward] = pair(e); if (id.len !== 20 || reward.len !== 20) throw gsErr('gsLen', 'M_0List address'); }
   const chainB = bytesOf(b, chain); if (chainB.length === 0 || chainB.length > 8) throw gsErr('gsRange', 'chainId');
   const vals = [];
-  for (let k = 0; k < CP_LEN; k++) {
-    const [name, width, lo, hi] = CP_SCHEMA[k]; const v = bytesOf(b, cps[k]);
+  for (let k = 0; k < schema.length; k++) {
+    const [name, width, lo, hi] = schema[k]; const v = bytesOf(b, cps[k]);
     if (bitLen(v) > width || v.length > 32) throw gsErr('gsRange', name);
     const x = big(v); vals.push(x);
     if (x < BigInt(lo)) throw gsErr('gsRange', name);
@@ -120,7 +142,7 @@ export function decodeGenesisSpec(b) {
   const ids = ms.map((e) => bytesOf(b, pair(e)[0]));
   for (let i = 1; i < ids.length; i++) if (cmp(ids[i - 1], ids[i]) >= 0) throw gsErr('gsOrder', 'ids');
   for (const id of ids) if (isReserved(id)) throw gsErr('gsSys', '0x' + hex(id));
-  return { chainId: big(chainB), cp: vals, allocRoot: bytesOf(b, allocRoot).slice(), m0: ms.map((e) => { const [id, r] = pair(e); return { id: bytesOf(b, id).slice(), reward: bytesOf(b, r).slice() }; }),
+  return { specVersion, chainId: big(chainB), cp: vals, allocRoot: bytesOf(b, allocRoot).slice(), m0: ms.map((e) => { const [id, r] = pair(e); return { id: bytesOf(b, id).slice(), reward: bytesOf(b, r).slice() }; }),
     sysCodeHash: bytesOf(b, sysCodeHash).slice(), genesisHash: keccak(b) };
 }
 

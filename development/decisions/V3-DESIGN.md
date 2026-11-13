@@ -323,11 +323,10 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
    - ParamGate R1–R26 at the v3 CP and the WAN locals (V3-06).
 8. **PR-7 Off-node verifiers** (V3-PR-G, off-node verifiers and clients).
    - `pocol_rewards.py:272-281` (V3-01 membership, late shares, issuance), `rp.js:41-61`, `refdec.js:18`.
-   - V3-21 creation-burn user bound (D-V3-21 open pre-launch item, launch blocker `D-V3-21 creation-burn user
-     bound`): wallets and clients quote the creation burn separately from the maximum gas fee and let the user set
-     a burn limit; the pool and eth_estimateGas refuse a submission whose quoted burn exceeds it, or the owner's
-     chosen signed cap is implemented instead. The owner confirms the option before V3-PR-I; the blocker is
-     removed only with that change.
+   - V3-21 creation-burn user bound (D-V3-21; owner option A, 2026-11-12, implemented in V3-D21-burn-bound, the
+     launch blocker removed): the consensus bound keeps gas plus burn within the signed max_fee·gas_limit, and
+     eth_estimateGas sizes gas_limit to carry the burn, so unmodified wallets stay bounded. Clients may show the
+     burn separately from the gas fee with `pocol_quoteCreationBurn` (network.md, "Creation burn quote").
    - V3 receipt polling (V3-PR-C3 review C3-2): a v3 node serves eth_getTransactionReceipt on the heavy lane
      (heavy queue, RESP_MAX reservation, heavy deadline), so wallets and clients treat receipt polling as heavy-class
      and back off on −32021 {busy, retryAfterMs}; expose the lane in `pocol_getParams.rpcLimits` if clients need it.
@@ -937,6 +936,20 @@ never lowered, across it (`genesis_builder.rs:60`).
 - Conservation.
 - A13 boot in store mode at the new caps.
 - The raised caps survive `transform` → `genesis_builder`.
+
+**User bound (D-V3-21, owner option A, 2026-11-12; implemented dormant, v3 only).**
+- A nonzero burn is charged only if `gas_used·effective_price + burn ≤ max_fee·gas_limit` (types 0/1: the gas
+  price; the value stays separate, as in the Ethereum balance pre-check); otherwise `Halt::CreationFee`.
+- That halt charges the spent gas (before refunds), not the declared gas, so a builder order that raises the
+  burn past the maximum cannot convert the burn allowance in gas_limit into a gas charge through it (decided
+  under the owner rule). Other order-dependent cap halts (LogCount, AcctCap, ...) still charge the declared
+  gas; a hostile proposer, or another user against an honest builder, can cause one, so the loss bound is the
+  signed `max_fee·gas_limit` (the v3 append round drops an appended transaction that halts; node-local).
+- One transaction burns at most `max_fee·GAS_LIMIT` minus its gas cost. eth_estimateGas covers the burn with a
+  margin of 4 creations ahead per class (4·B_code_max code bytes); a fixed 21000-gas transfer to a new address
+  is refused; `pocol_quoteCreationBurn` quotes it. Details: V3-EXECUTION-FEES.md, "The signed
+  maximum fee".
+- Principle check: a function of the transaction and ancestor state (Q2.4); classified burn (Q4.3); Q5 untouched.
 
 **Effort:** M. **Risk:** medium.
 
