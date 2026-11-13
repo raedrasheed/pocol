@@ -758,24 +758,59 @@ def _punish(flows, accused, proposer, rho_bp):
     return bond, reward, cut
 
 
-def _tip_share_record(chain, flows, proposer, share, h, receipts):
+def earliest_final_height(close_height, h, d, h_end, t_end):
+    """The lowest height above h that can be the final block F, or None when the chain has no scheduled end. The host's
+    final_predicate (lp4-execution finality_core.rs) holds at F when (h_end != 0 or t_end != 0), the parent is closing
+    with its cursor done, F >= closeHeight + D and (F >= h_end or ts >= t_end). That time condition gives no height
+    bound: with t_end == 0 it always holds (ts >= 0), with h_end == 0 likewise (F >= 0), and with both set ts >= t_end
+    can hold below h_end. H_END only caps the chain (child_allowed: F <= h_end), it never delays F."""
+    if h_end == 0 and t_end == 0:
+        return None
+    return max(close_height + d, h + 1)
+
+
+TOP_UP = keccak256(b'topUp()')[:4]
+
+
+def _tx_call(raw):
+    """(to, input) of a committed transaction, as lp4-execution wire.rs decodes the three accepted forms: legacy RLP
+    (9 fields), EIP-2930 0x01 (11) and EIP-1559 0x02 (12). `to` is None for a contract creation."""
+    kind = raw[0] if raw[0] in (1, 2) else 0
+    require(kind or raw[0] >= 0xc0, 'Unsupported transaction type')
+    fields = rlp_decode(raw[1:] if kind else raw, MAX_BODY_BYTES, 1 << 20)
+    require(isinstance(fields, list) and len(fields) == (9, 11, 12)[kind], 'Malformed transaction')
+    to, data = fields[(3, 4, 5)[kind]], fields[(5, 6, 7)[kind]]
+    require(isinstance(to, bytes) and len(to) in (0, 20) and isinstance(data, bytes), 'Malformed transaction')
+    return ('0x' + to.hex() if to else None), data
+
+
+def _tip_share_record(chain, flows, proposer, share, h, calls):
     """The proposer's record as closeBlock(h) reads it, after the user phase. Phase 0 is reproduced in `flows`; the user
-    phase changes the record of `proposer` only by its own transactions to MinerRegistry (every user path is keyed by
-    msg.sender: setRewardAddress, topUp, deregister, ...), and the record after closeBlock (state h) differs from it only
-    by the tip share's accrual. Without such a transaction the reproduced record is used; with one, the record before
-    closeBlock is recovered from state h: its reward address, and for an ACCRUING record its bond less the share. That
-    is ambiguous only for a record phase 0 left ACCRUING that is HELD at h (a topUp may have promoted it before the
-    share, or the share did): refused."""
+    phase changes the payment fields of `proposer`'s record (reward address, bond state, bond) only by its own successful
+    transactions to MinerRegistry (setRewardAddress, topUp, deregister, claimBond, reactivate are keyed by msg.sender;
+    another sender's removeInactive or registerContest only exits it), and the record after closeBlock (state h) differs
+    from the one closeBlock read only by the tip share's accrual. `calls` are the block's transactions (tips()): sender,
+    destination, receipt status and selector. Without a successful registry call of its own the reproduced record is
+    used. With one, the record before closeBlock is recovered from state h: its reward address, and its bond state and
+    bond from phase 0, which only topUp (EARN-IN U2) changes in the user phase. After a topUp, an ACCRUING record's bond
+    is its bond at h less the share; a record phase 0 left ACCRUING that is HELD at h is ambiguous (the topUp may have
+    promoted it before the share, or the share did): refused."""
     after = list(chain.record(proposer, h))
     state = lambda w: (w >> 16) & 255
-    if any(_lower(r.get('from')) == proposer and _lower(r.get('to')) == REGISTRY for r in receipts):
+    own = [c for c in calls if c['from'] == proposer and c['to'] == REGISTRY and c['status'] == 1]
+    if own:
         pre = list(after)
         if share and after[0] != 0 and not (after[0] >> 8) & 255:
-            if state(after[0]) == 4:
-                require(after[2] >= share, 'Proposer bond below its tip share')
-                pre[2] = after[2] - share
-            elif state(after[0]) == 1 and state(flows.record(proposer)[0]) == 4:
-                raise RewardUnavailable('The proposer topped up its bond in its own block; its tip share split is ambiguous')
+            phase0 = flows.record(proposer)
+            if any(c['selector'] == TOP_UP for c in own):
+                if state(after[0]) == 4:
+                    require(after[2] >= share, 'Proposer bond below its tip share')
+                    pre[2] = after[2] - share
+                elif state(after[0]) == 1 and state(phase0[0]) == 4:
+                    raise RewardUnavailable('The proposer topped up its bond in its own block; its tip share split is ambiguous')
+            else:
+                pre[0] = (after[0] & ~(255 << 16)) | (phase0[0] & (255 << 16))
+                pre[2] = phase0[2]
         flows.records[proposer] = pre
     return after
 
@@ -950,14 +985,15 @@ class _V3Chain:
 
     def tips(self, k, block):
         """V3-20: the tips block k's user transactions paid to Escrow, sum gasUsed*(effectiveGasPrice - baseFee) over
-        the receipts of the transactions its body commits; returns (tips, receipts)."""
+        the receipts of the transactions its body commits; returns (tips, calls): each transaction's sender and receipt
+        status (from its receipt), destination and selector (from the committed transaction)."""
         header = self.header(k)
         txs = self.body(k)[0]
         hashes = block.get('transactions')
         require(isinstance(hashes, list) and [_lower(h) for h in hashes] == ['0x' + keccak256(t).hex() for t in txs],
                 'Block transactions differ from its body')
-        total, receipts = 0, []
-        for tx in hashes:
+        total, calls = 0, []
+        for raw, tx in zip(txs, hashes):
             receipt = self.result('eth_getTransactionReceipt', [tx])
             require(isinstance(receipt, dict) and _lower(receipt.get('transactionHash')) == _lower(tx) and
                     _lower(receipt.get('blockHash')) == header['hash'] and quantity(receipt.get('blockNumber')) == k,
@@ -965,8 +1001,11 @@ class _V3Chain:
             used, price = quantity(receipt.get('gasUsed')), quantity(receipt.get('effectiveGasPrice'))
             require(price >= header['baseFee'] and used <= header['gasUsed'], 'Receipt below the base fee')
             total += used * (price - header['baseFee'])
-            receipts.append(receipt)
-        return total, receipts
+            to, data = _tx_call(raw)
+            status = quantity(receipt.get('status'))
+            require(_lower(receipt.get('to')) == to and status in (0, 1), 'Receipt of another transaction')
+            calls.append({'from': _lower(receipt.get('from')), 'to': to, 'status': status, 'selector': data[:4]})
+        return total, calls
 
     def pending(self, j, height):
         return self.call(ESCROW, 'pending(uint256)', [j], height, 3)
@@ -1208,7 +1247,7 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
     settlement, carry_out = None, 0
     if h > d:
         settlement, carry_out = _settle(chain, flows, h - d, h, invalidated, evidence, False)
-    tips, receipts = chain.tips(h, block)
+    tips, user_calls = chain.tips(h, block)
     issued = 0 if final else issuance(h, cp[15], cp[52], cp[53])
     # The user phase credits the tips to Escrow (coinbase) and the host the issuance, before phase 2 pays out of it.
     flows.escrow += tips + issued
@@ -1227,7 +1266,7 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
         require(chain.call(ESCROW, 'carry()', [], h, 1)[0] == carry_out, 'Carry differs from the reconstructed base burn')
         share = tip_share(tips, cp[59], header['signed'])
         if proposer is not None:
-            after = _tip_share_record(chain, flows, proposer, share, h, receipts)
+            after = _tip_share_record(chain, flows, proposer, share, h, user_calls)
             delta = _Delta(flows)
             flows.pay_to(proposer, share, at=h)       # PAY-02 durability as closeBlock sees it, after the user phase
             tip_paid, tip_bonded, tip_burned, _ = delta.close()
@@ -1261,10 +1300,9 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
         beneficiaries = projection.beneficiaries()
         paid = sum(projection.paid.values()) + sum(projection.accrued.values())
         require(0 <= paid <= amount - carry_projected, 'Reward accounting mismatch')
-        if closing is not None and (cp[45] != 0 or cp[46] != 0):
-            # The final block F needs F >= closeHeight + D (and h_end or t_end reached): pot h settles at F, its base burn
-            # burned, whenever F <= h + D.
-            earliest = max(closing['closeHeight'] + d, h + 1, cp[45] if cp[46] == 0 else 0)
+        earliest = None if closing is None else earliest_final_height(closing['closeHeight'], h, d, cp[45], cp[46])
+        if earliest is not None:
+            # Pot h settles at the final block F, its base burn burned, whenever F <= h + D.
             may_be_final = earliest <= h + d
             closing = dict(closing, earliestFinalHeight=earliest, settlementMayBeFinal=may_be_final)
 

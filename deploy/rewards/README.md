@@ -76,7 +76,8 @@ The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For
   uncovered pool part, which goes to the next pot rather than burning. Late shares, evidence and registry changes before
   h + D can still change it, as on spec 1. Once the registry is closing (`closing`), the final block may settle pot h
   before h + D and burn its base burn instead of carrying it: `closing.settlementMayBeFinal` says when that can happen
-  (`earliestFinalHeight <= h + D`).
+  (`earliestFinalHeight <= h + D`). As in the host's final predicate, `earliestFinalHeight` is `max(closeHeight + D,
+  h + 1)`: H_END is only a ceiling, and with T_END = 0 (or H_END = 0) the end condition always holds.
 - **block h's own flows** (`block`): these ran in block h and are not projections. They are its evidence in body order:
   kind-3 late shares with one owner per nonce under template j's assignment (D-V3-02); type-1/2 evidence burning
   only the offender's bond (and its parts of pots settled later) with `rho_bp` of that bond paid to the reward address
@@ -95,8 +96,10 @@ Every reproduced burn is checked against RewardEscrow's `burnedTotal`, the carri
 against the registry's counters, and the refunded and proposer records against state h; any difference refuses the
 snapshot rather than report it. The tip share is paid after the user phase, out of an Escrow that then also holds the
 block's tips and issuance, with the recipient's PAY durability of state h and on the proposer's record as the user phase
-left it: when the proposer called MinerRegistry itself in that block (setRewardAddress, topUp), that record is read back
-from state h, and a topUp that may have promoted it to HELD before the share (ambiguous from state h) is refused. A
+left it: when the proposer's own MinerRegistry call succeeded in that block (setRewardAddress, topUp, ...; the
+destination and selector read from the committed transaction, the status from its receipt), its reward address is read
+back from state h, its bond and bond state kept from phase 0 unless the call was a topUp, and a topUp that may have
+promoted it to HELD before the share (ambiguous from state h) is refused. A
 fallback block commits the empty body (no tips, no evidence). Bond refunds outside closing (sweep, claimBond) and
 user-transaction transfers are not reward flows and are not reported. Block bodies are bound to their headers by the
 transaction and evidence roots.

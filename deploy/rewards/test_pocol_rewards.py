@@ -828,37 +828,46 @@ class V3FlowTests(unittest.TestCase):
         flows = rewards._Payments(c, 99)
         self.assertEqual(rewards._punish(flows, self.MINER, None, 2500), (0, rewards.ZERO, 0))
 
+    def own_call(self, signature, status=1, sender=None):
+        """A transaction of the block as tips() returns it: sender and receipt status, destination and selector."""
+        return {'from': sender or self.MINER, 'to': rewards.REGISTRY, 'status': status,
+                'selector': rewards.keccak256(signature.encode())[:4]}
+
     def test_the_tip_share_uses_the_record_the_user_phase_left(self):
-        """closeBlock pays the tip share on the proposer's record after the user phase: a proposer's own registry call in
-        the block (setRewardAddress, topUp) is read back from state h; a promotion by topUp is ambiguous and refused."""
-        receipt = [{'from': self.MINER, 'to': rewards.REGISTRY}]
+        """closeBlock pays the tip share on the proposer's record after the user phase: a proposer's own successful
+        registry call in the block (setRewardAddress, topUp) is read back from state h; a promotion by topUp is ambiguous
+        and refused."""
+        set_reward, top_up = [self.own_call('setRewardAddress(address)')], [self.own_call('topUp()')]
         new = ident(0x55)
         # setRewardAddress: HELD before and after, a new reward address.
         c = self.chain(w0=1 | HELD, bond=B_REG)
         c.records[(self.MINER, 100)] = (1 | HELD, int(new, 16), B_REG, 0)
         c.accounts[(new, 100)] = (1, '0x', 0)
         flows = rewards._Payments(c, 99)
-        after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, receipt)
+        after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, set_reward)
         flows.pay_to(self.MINER, 10, at=100)
         self.assertEqual((flows.rewards[self.MINER], flows.paid[self.MINER]), (new, 10))
         self.assertTrue(rewards._same_record(flows.record(self.MINER), after))
-        # Without its own registry call the reproduced record must equal state h.
-        flows = rewards._Payments(c, 99)
-        after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, [{'from': self.MINER, 'to': self.OTHER}])
-        flows.pay_to(self.MINER, 10, at=100)
-        self.assertFalse(rewards._same_record(flows.record(self.MINER), after))
+        # Without its own successful registry call (another destination, another sender, a reverted call) the reproduced
+        # record must equal state h.
+        for calls in ([dict(set_reward[0], to=self.OTHER)], [self.own_call('setRewardAddress(address)', sender=self.OTHER)],
+                      [self.own_call('setRewardAddress(address)', status=0)]):
+            flows = rewards._Payments(c, 99)
+            after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, calls)
+            flows.pay_to(self.MINER, 10, at=100)
+            self.assertFalse(rewards._same_record(flows.record(self.MINER), after))
         # topUp below B_reg: ACCRUING at h with bond b + topUp + share; the share accrues on b + topUp.
         c = self.chain(w0=1 | ACCRUING, bond=5 * PCOL)
         c.records[(self.MINER, 100)] = (1 | ACCRUING, int(self.REWARD, 16), 6 * PCOL + 10, 0)
         flows = rewards._Payments(c, 99)
-        after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, receipt)
+        after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, top_up)
         flows.pay_to(self.MINER, 10, at=100)
         self.assertEqual((flows.accrued[self.MINER], flows.paid[self.MINER]), (10, 0))
         self.assertTrue(rewards._same_record(flows.record(self.MINER), after))
         # A topUp that may have promoted it before the share: refused.
         c.records[(self.MINER, 100)] = (1 | HELD, int(self.REWARD, 16), B_REG, 0)
         with self.assertRaisesRegex(rewards.RewardUnavailable, 'ambiguous'):
-            rewards._tip_share_record(c, rewards._Payments(c, 99), self.MINER, 10, 100, receipt)
+            rewards._tip_share_record(c, rewards._Payments(c, 99), self.MINER, 10, 100, top_up)
         # The same promotion without a registry call of its own is the share's doing.
         c = self.chain(w0=1 | ACCRUING, bond=B_REG - 4)
         c.records[(self.MINER, 100)] = (1 | HELD, int(self.REWARD, 16), B_REG, 0)
@@ -867,6 +876,76 @@ class V3FlowTests(unittest.TestCase):
         flows.pay_to(self.MINER, 10, at=100)
         self.assertEqual((flows.accrued[self.MINER], flows.paid[self.MINER]), (4, 6))
         self.assertTrue(rewards._same_record(flows.record(self.MINER), after))
+
+    def test_only_a_successful_top_up_makes_the_share_promotion_ambiguous(self):
+        """setRewardAddress (or any registry call but topUp) keeps the bond and its state, and a reverted topUp changes
+        nothing: a record phase 0 left ACCRUING 4 wei below B_reg and HELD at h was promoted by the share of 10, which
+        accrues 4 and pays 6 (to the new reward address after setRewardAddress)."""
+        new = ident(0x55)
+        for calls, reward in (([self.own_call('setRewardAddress(address)')], new),
+                              ([self.own_call('topUp()', status=0)], self.REWARD),
+                              ([self.own_call('topUp()', status=0), self.own_call('setRewardAddress(address)')], new)):
+            c = self.chain(w0=1 | ACCRUING, bond=B_REG - 4)
+            c.records[(self.MINER, 100)] = (1 | HELD, int(reward, 16), B_REG, 0)
+            c.accounts[(new, 100)] = (1, '0x', 0)
+            flows = rewards._Payments(c, 99)
+            after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, calls)
+            flows.pay_to(self.MINER, 10, at=100)
+            self.assertEqual((flows.accrued[self.MINER], flows.paid[self.MINER], flows.rewards[self.MINER]), (4, 6, reward))
+            self.assertEqual(dict(flows.accrued_to), {(self.MINER, reward): 4})
+            self.assertTrue(rewards._same_record(flows.record(self.MINER), after))
+        # setRewardAddress on a record that stays ACCRUING: the share accrues on the phase-0 bond, and a state h that does
+        # not hold that bond plus the share is caught.
+        c = self.chain(w0=1 | ACCRUING, bond=5 * PCOL)
+        c.records[(self.MINER, 100)] = (1 | ACCRUING, int(new, 16), 5 * PCOL + 10, 0)
+        flows = rewards._Payments(c, 99)
+        after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, [self.own_call('setRewardAddress(address)')])
+        flows.pay_to(self.MINER, 10, at=100)
+        self.assertEqual((flows.accrued[self.MINER], flows.paid[self.MINER]), (10, 0))
+        self.assertTrue(rewards._same_record(flows.record(self.MINER), after))
+        c.records[(self.MINER, 100)] = (1 | ACCRUING, int(new, 16), 6 * PCOL + 10, 0)
+        flows = rewards._Payments(c, 99)
+        after = rewards._tip_share_record(c, flows, self.MINER, 10, 100, [self.own_call('setRewardAddress(address)')])
+        flows.pay_to(self.MINER, 10, at=100)
+        self.assertFalse(rewards._same_record(flows.record(self.MINER), after))
+        # A successful topUp next to setRewardAddress still makes the promotion ambiguous.
+        c = self.chain(w0=1 | ACCRUING, bond=B_REG - 4)
+        c.records[(self.MINER, 100)] = (1 | HELD, int(self.REWARD, 16), B_REG, 0)
+        with self.assertRaisesRegex(rewards.RewardUnavailable, 'ambiguous'):
+            rewards._tip_share_record(c, rewards._Payments(c, 99), self.MINER, 10, 100,
+                                      [self.own_call('setRewardAddress(address)'), self.own_call('topUp()')])
+
+    def test_transaction_destination_and_selector_come_from_the_committed_bytes(self):
+        """_tx_call decodes the three forms lp4-execution accepts (legacy, 0x01, 0x02); a creation has no destination."""
+        to, data = bytes.fromhex(rewards.REGISTRY[2:]), rewards.TOP_UP
+        one, zero = b'\x01', b''
+        legacy = rewards.rlp_encode([zero, one, one, to, one, data, one, one, one])
+        eip2930 = b'\x01' + rewards.rlp_encode([one, zero, one, one, to, one, data, [], zero, one, one])
+        eip1559 = b'\x02' + rewards.rlp_encode([one, zero, one, one, one, to, one, data, [[to, [b'\x00' * 32]]], zero, one, one])
+        for raw in (legacy, eip2930, eip1559):
+            self.assertEqual(rewards._tx_call(raw), (rewards.REGISTRY, data))
+        self.assertEqual(rewards._tx_call(rewards.rlp_encode([zero, one, one, zero, one, b'\x60\x00', one, one, one])),
+                         (None, b'\x60\x00'))
+        for raw, message in ((b'\x03' + eip1559[1:], 'Unsupported transaction type'), (b'\x02' + legacy, 'Malformed transaction'),
+                             (rewards.rlp_encode([zero, one, one, to[:19], one, data, one, one, one]), 'Malformed transaction')):
+            with self.assertRaisesRegex(rewards.RewardUnavailable, message):
+                rewards._tx_call(raw)
+
+    def test_the_earliest_final_block_follows_the_host_final_predicate(self):
+        """finality_core.rs final_predicate: F >= closeHeight + D and (F >= H_END or ts >= T_END), with either end
+        nonzero. T_END = 0 makes the time condition always true, so H_END (only a ceiling) never delays F."""
+        def final(h, ts, close_h, d, h_end, t_end):
+            return (h_end != 0 or t_end != 0) and h >= close_h + d and (h >= h_end or ts >= t_end)
+        # The counterexample: H_END 1000, T_END 0, closing at 100, D 4: block 104 is final at any timestamp, so pot 100
+        # settles there with its base burn burned.
+        self.assertTrue(final(104, 0, 100, 4, 1000, 0))
+        self.assertEqual(rewards.earliest_final_height(100, 100, 4, 1000, 0), 104)
+        for h_end, t_end in ((1000, 0), (0, 1 << 63), (1000, 1 << 63), (101, 5)):
+            for h in range(100, 110):
+                earliest = rewards.earliest_final_height(100, h, 4, h_end, t_end)
+                # A lower bound that some timestamp attains.
+                self.assertEqual(earliest, next(f for f in range(h + 1, h + 20) if final(f, 1 << 64, 100, 4, h_end, t_end)))
+        self.assertIsNone(rewards.earliest_final_height(100, 100, 4, 0, 0))
 
 
 class VectorChain(FakeV3Chain):
@@ -1059,6 +1138,21 @@ class V3RecordedTapeTests(unittest.TestCase):
                                  lambda b: dict(b, transactions=['0x' + '11' * 32])), 'Block transactions differ from its body')
         self.refused(32, self.on('eth_getBlockByNumber', lambda p: p == [hex(32), False],
                                  lambda b: dict(b, transactions=[])), 'Block transactions differ from its body')
+        # The destination is the committed transaction's, the status 0 or 1.
+        own = self.fx['ownRegistryCallBlock']
+        self.refused(own, self.on('eth_getTransactionReceipt', receipt, lambda r: dict(r, to=self.fx['members']['erin'])),
+                     'Receipt of another transaction')
+        self.refused(own, self.on('eth_getTransactionReceipt', receipt, lambda r: dict(r, status='0x2')), 'Receipt of another transaction')
+        self.refused(own, self.on('eth_getTransactionReceipt', receipt, lambda r: dict(r, status=None)), 'Malformed quantity')
+        # The proposer's setRewardAddress claimed reverted: the record phase 0 left (the old reward address) is not state h's.
+        # (The old reward address's durability at h, which the tape did not record, is served as durable.)
+        def reverted(method, params, result, nth):
+            if method == 'eth_getTransactionReceipt':
+                return dict(result, status='0x0')
+            if result is None and method in ('eth_getTransactionCount', 'eth_getBalance'):
+                return '0x1' if method == 'eth_getTransactionCount' else '0x0'
+            return result
+        self.refused(own, reverted, 'Proposer record differs')
 
     def test_the_share_ledger_must_hold_the_reconstructed_owners(self):
         # Block 32 settles pot 28 with its header owners and the two late shares block 32 itself credits.
@@ -1104,8 +1198,23 @@ class V3RecordedTapeTests(unittest.TestCase):
         # The final flag decides which phase 2 ran: claiming the other one fails closed either way.
         flip = lambda flag: self.on('eth_getBlockByNumber', lambda p: True, lambda b: dict(b, pocol=dict(b['pocol'], final=flag)))
         self.refused(final, flip(False), 'Carry differs')
-        self.refused(32, flip(True), '')
         self.refused(32, flip(None), 'Missing final flag')
+        # Block 32 claimed final, with the node answering the reads of the final path: no pot of [29, 31] pending at 31
+        # (so no settleFinal), then also none at 32 and no carry left.
+        pending = rewards.keccak256(b'pending(uint256)')[:4].hex()
+        def claim_final(empty_after):
+            def edit(method, params, result, nth):
+                if method == 'eth_getBlockByNumber':
+                    return dict(result, pocol=dict(result['pocol'], final=True))
+                if method != 'eth_call' or params[0]['to'] != rewards.ESCROW:
+                    return result
+                data, tag = params[0]['data'], params[1]
+                if data[2:10] == pending and int(data[10:], 16) >= 29 and tag in ([hex(31), hex(32)] if empty_after else [hex(31)]):
+                    return '0x' + '00' * 96
+                return '0x' + '00' * 32 if empty_after and escrow('carry()', 32)(params) else result
+            return edit
+        self.refused(32, claim_final(False), 'Pending pots or carry after the final block')
+        self.refused(32, claim_final(True), 'Burned total differs')
 
     def test_the_tip_share_is_paid_after_the_user_phase(self):
         """closeBlock runs after the user phase: Escrow then also holds the block's tips and issuance, and the PAY-02
