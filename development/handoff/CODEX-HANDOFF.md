@@ -46,6 +46,16 @@ GitHub; trust the repository over this file.
   node-local quote RPC. Recorded in `V3-OWNER-DECISIONS-2026-11-12.md` (second decision). Implemented and merged in #29;
   `V3_LAUNCH_BLOCKERS` is now empty.
 
+- **E4 pool-contest victim (2026-11-13):** option (a), verbatim «أوافق على (أ)، استمر في العمل». The victim stays
+  EXITED, payable and punishable until U; the newcomer takes the freed seat at once. Recorded as the third decision in
+  `V3-OWNER-DECISIONS-2026-11-12.md` (on the E4 branch).
+- **Process (2026-11-13), verbatim:** «اوافق على السماح بالدمج دون إعادة CI حين يكون دمج main في الفرع نظيفًا تمامًا
+  وليس فيه إلا سطر القفل» and «اوافق على تقليل جولات المراجعة العدائية في الأعمال المحلية غير الإجماعية، مثل
+  الاختبارات وCI والأدوات». Meaning: (1) a PR whose CI was green may be merged without a new CI run when merging main
+  into it is completely clean except the lock line (re-pinned on top); the agent still prefers waiting for CI on
+  consensus code. (2) Fewer adversarial review rounds (one review, repair if needed) for node-local non-consensus work:
+  tests, CI and tools.
+
 ### Questions waiting for the owner (do not decide them yourself)
 - **V3-PR-E4 pool-contest victim (D-V3-14):** the pool victim is erased at once, so (1) its unsettled pot shares burn
   instead of joining its refunded bond (conflicts with V3-10 "refund, no stake penalty") and (2) evidence carried
