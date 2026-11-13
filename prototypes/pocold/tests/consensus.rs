@@ -3446,17 +3446,19 @@ fn d133_heal(winner_is_c:bool)->serde_json::Value{
 }
 
 // ---------------- V3-26 (D-V3-26): the persisted local irreversibility floor ----------------
+use pocold::node::{K_SAFE,K_ALARM};
 // Node-local retention (like R_keep, never validity): the floor is max(head − r_keep, finalized_h), finalized_h only
 // rises, and it is kept across a restart in `retention.finalized`. A refused block is Evicted, never invalid.
-fn fconf(dir:&std::path::Path,tag:&str,rk:u64,k_safe:u64,store:bool)->impl Fn()->pocold::node::Config{
+/// `k` is (k_safe, k_alarm): the RPC `safe` depth and the reorg alarm depth (owner decision 12: two settings).
+fn fconf(dir:&std::path::Path,tag:&str,rk:u64,k:(u64,u64),store:bool)->impl Fn()->pocold::node::Config{
     use pocold::node::{Config,Limits};
     let (d,name)=(dir.to_path_buf(),tag.to_string());
     move||Config{dir:d.clone(),name:name.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,
-        limits:Limits{r_keep:rk,side_cap:rk as usize,k_safe,state_store:store,checkpoint_every:if store{8}else{0},..Default::default()}}
+        limits:Limits{r_keep:rk,side_cap:rk as usize,k_safe:k.0,k_alarm:k.1,state_store:store,checkpoint_every:if store{8}else{0},..Default::default()}}
 }
-fn fnode(tag:&str,rk:u64,k_safe:u64,store:bool)->(pocold::node::Node,std::path::PathBuf,impl Fn()->pocold::node::Config){
+fn fnode(tag:&str,rk:u64,k:(u64,u64),store:bool)->(pocold::node::Node,std::path::PathBuf,impl Fn()->pocold::node::Config){
     let dir=std::env::temp_dir().join(format!("pocold-fin-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    let conf=fconf(&dir,tag,rk,k_safe,store);
+    let conf=fconf(&dir,tag,rk,k,store);
     (pocold::node::Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap(),dir,conf)
 }
 /// `heavier` for a branch below the K_hist window or beside more side blocks than keep a state: each parent's state is
@@ -3486,18 +3488,29 @@ fn refused_by_the_floor(n:&mut pocold::node::Node,branch:&[Block],floor:u64){
     let mut a=net();let g=a.chain.head;let ours=grow(&mut a,g,150,&|n,p|signed(n,p,Body::default(),0));
     let fork=ours[49].hash();a.chain.ensure_state(&fork).unwrap();let w=a.chain.get(&ours[149].hash()).unwrap().total_work;let mut theirs=vec![signed(&a,fork,Body::default(),0)];import(&mut a,&theirs[0]);let t0=theirs[0].hash();theirs.extend(heavier(&mut a,t0,w,1));
     assert_eq!(a.chain.head,theirs.last().unwrap().hash(),"the branch is heavier");
-    let (mut c,dc,_)=fnode("d100c",64,60,false);for x in ours[..50].iter().chain(theirs.iter()){c.import(x.clone(),None).unwrap();}
+    let (mut c,dc,_)=fnode("d100c",64,(K_SAFE,K_ALARM),false);for x in ours[..50].iter().chain(theirs.iter()){c.import(x.clone(),None).unwrap();}
     assert_eq!(c.chain.head,theirs.last().unwrap().hash(),"positive control: the branch is valid and adopted from its fork point");drop(c);
-    let (mut n,dir,conf)=fnode("d100",64,60,false);for x in &ours{n.import(x.clone(),None).unwrap();}
+    let (mut n,dir,conf)=fnode("d100",64,(K_SAFE,K_ALARM),false);for x in &ours{n.import(x.clone(),None).unwrap();}
     assert_eq!((n.chain.head().height,n.chain.finalized_h),(150,86));
     let fin_hash=n.chain.canonical_at(86).unwrap().hash;assert_eq!(fin_hash,ours[85].hash());
     refused_by_the_floor(&mut n,&theirs,86);
     assert_eq!(n.chain.canonical_at(86).unwrap().hash,fin_hash,"the finalized block stays canonical");
     let f=rpc_local(&mut n,"eth_getBlockByNumber",json!(["finalized",false]));assert_eq!(f["hash"],hex(&fin_hash[..]));
-    // The RPC `safe` tag is head − k_safe = 90 here (above finalized 86), not the old head − 6.
-    let sb=rpc_local(&mut n,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&ours[89].hash()[..]),"RPC safe = head 150 − k_safe 60");
+    // Owner decision 12 (2026-11-13): the RPC `safe` tag is head − k_safe = 144 with the default k_safe 6 (above
+    // finalized 86); the reorg alarm depth is the separate k_alarm, 60 by default.
+    assert_eq!((K_SAFE,K_ALARM),(6,60),"the defaults of owner decision 12");
+    let sb=rpc_local(&mut n,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&ours[143].hash()[..]),"RPC safe = head 150 − k_safe 6");
     let fj=rpc_local(&mut n,"pocol_finality",json!([]));
-    assert_eq!((fj["finalized"].as_u64(),fj["safe"].as_u64(),fj["kSafe"].as_u64(),fj["rKeep"].as_u64(),fj["model"].as_str()),(Some(86),Some(90),Some(60),Some(64),Some("probabilistic")));
+    assert_eq!((fj["finalized"].as_u64(),fj["safe"].as_u64(),fj["kSafe"].as_u64(),fj["kAlarm"].as_u64(),fj["rKeep"].as_u64(),fj["model"].as_str()),(Some(86),Some(144),Some(6),Some(60),Some(64),Some("probabilistic")));
+    assert_eq!((fj["maxReorgDepth"].as_u64(),fj["reorgsGeKAlarm"].as_u64()),(Some(0),Some(0)));assert!(fj.get("reorgsGeKSafe").is_none(),"the alarm counter was renamed");
+    let st=n.status_json();assert_eq!((st["retention"]["kSafe"].as_u64(),st["retention"]["kAlarm"].as_u64(),st["retention"]["reorgsGeKAlarm"].as_u64()),(Some(6),Some(60),Some(0)));
+    // With the defaults (k_safe 6 < K_hist 32) a state query at `safe` is answered, the same answer as at its height;
+    // `finalized` (86, below head − K_hist = 118) still answers -32017 as any pruned height.
+    let who=format!("{:#x}",devnet::account_key("alice").address());
+    for m in ["eth_getBalance","eth_getTransactionCount","eth_getCode"]{
+        let at_safe=rpc_local_raw(&mut n,m,json!([who,"safe"]));assert!(at_safe.get("error").is_none()&&at_safe["result"].is_string(),"{m} at safe: {at_safe}");
+        assert_eq!(at_safe["result"],rpc_local(&mut n,m,json!([who,"0x90"])),"{m} at safe = at height 144");
+        assert_eq!(rpc_local_raw(&mut n,m,json!([who,"finalized"]))["error"]["code"],json!(-32017),"{m} at finalized: below the trie window");}
     assert_eq!(fj["finalizedHash"],hex(&fin_hash[..]));assert!(fj["networkHashrateEst"].as_str().is_some_and(|x|x.parse::<u128>().unwrap()>0));
     drop(n);assert_eq!(fin_file(&dir),format!("86 {}",hex(&fin_hash[..])),"a clean stop writes the floor");
     let mut r=reopen(&conf);assert_eq!(r.chain.finalized_h,86);refused_by_the_floor(&mut r,&theirs,86);drop(r);
@@ -3529,29 +3542,39 @@ fn heavier_shorter_then_deep(store:bool,tag:&str){
     let rk=24u64;let (ours,theirs,deep)=hs_blocks();let (ours,theirs,deep)=(ours.as_slice(),theirs.as_slice(),deep.as_slice());
     let theirs_tip=theirs.last().unwrap().hash();let theirs_h=theirs.last().unwrap().header.h;
     // Positive control: a node that never had its head at 60 (floor theirs_h − 24 < 30) adopts the deep fork.
-    let (mut c,dc,_)=fnode(&format!("{tag}-c"),rk,10,store);
+    let (mut c,dc,_)=fnode(&format!("{tag}-c"),rk,(10,K_ALARM),store);
     for x in ours[..44].iter().chain(theirs.iter()).chain(deep.iter()){c.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
     assert_eq!(c.chain.head,deep.last().unwrap().hash(),"positive control: the deep fork is valid and adopted without the floor");drop(c);
-    // k_safe 16: the reorganization below abandons exactly k_safe blocks, which counts (`depth >= k_safe`).
-    let (mut n,dir,conf)=fnode(tag,rk,16,store);
+    // Negative control: with k_alarm 17 the reorganization below (16 blocks) is not counted.
+    {let (mut m,dm,_)=fnode(&format!("{tag}-a17"),rk,(K_SAFE,17),store);
+        for x in ours.iter().chain(theirs.iter()){m.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
+        assert_eq!((m.stats.max_reorg_depth,m.stats.reorgs_ge_k_alarm),(16,0),"16 blocks abandoned, k_alarm 17: not counted");drop(m);let _=std::fs::remove_dir_all(&dm);}
+    // k_alarm 16 (k_safe 6): the reorganization below abandons exactly k_alarm blocks, which counts (`depth >= k_alarm`).
+    let (mut n,dir,conf)=fnode(tag,rk,(K_SAFE,16),store);
     for x in ours{n.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
     assert_eq!(fin_file(&dir),format!("36 {}",hex(&ours[35].hash()[..])),"the floor is on disk before the block that lowers the head is journaled");
     for x in theirs{n.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
     assert_eq!(n.chain.head,theirs_tip,"the heavier, shorter branch is adopted");
     assert_eq!(n.chain.finalized_h,36,"finalized_h does not move back with the head");assert_eq!(n.chain.retention_floor(),36);
-    assert_eq!((n.stats.max_reorg_depth,n.stats.reorgs_ge_k_safe),(16,1),"the reorganization abandoned 16 blocks, k_safe 16: counted at the boundary");
+    assert_eq!((n.stats.max_reorg_depth,n.stats.reorgs_ge_k_alarm),(16,1),"the reorganization abandoned 16 blocks, k_alarm 16: counted at the boundary");
     assert_eq!(fin_file(&dir),format!("36 {}",hex(&ours[35].hash()[..])),"the file still holds the floor");
     let fin_hash=ours[35].hash();refused_by_the_floor(&mut n,deep,36);
     assert_eq!(n.chain.canonical_at(36).unwrap().hash,fin_hash,"the finalized block was not reorganized away");
-    let safe=(theirs_h-16).max(36);
-    let fj=rpc_local(&mut n,"pocol_finality",json!([]));assert_eq!((fj["finalized"].as_u64(),fj["safe"].as_u64(),fj["maxReorgDepth"].as_u64(),fj["reorgsGeKSafe"].as_u64()),(Some(36),Some(safe),Some(16),Some(1)));
+    let safe=(theirs_h-K_SAFE).max(36);
+    let fj=rpc_local(&mut n,"pocol_finality",json!([]));assert_eq!((fj["finalized"].as_u64(),fj["safe"].as_u64(),fj["maxReorgDepth"].as_u64(),fj["reorgsGeKAlarm"].as_u64(),fj["kSafe"].as_u64(),fj["kAlarm"].as_u64()),(Some(36),Some(safe),Some(16),Some(1),Some(K_SAFE),Some(16)));
     let sb=rpc_local(&mut n,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&n.chain.canonical_at(safe).unwrap().hash[..]),"RPC safe = max(head − k_safe, finalized_h)");
     let st=n.status_json();assert_eq!((st["retention"]["finalized"].as_u64(),st["retention"]["finalizedPersisted"].as_u64()),(Some(36),Some(36)));
+    assert_eq!((st["retention"]["maxReorgDepth"].as_u64(),st["retention"]["reorgsGeKAlarm"].as_u64(),st["retention"]["kAlarm"].as_u64()),(Some(16),Some(1),Some(16)));
     // Restart: the floor is the file's, not head − r_keep.
     drop(n);
-    // With k_safe 60 the head − k_safe part is below the floor: RPC safe is finalized_h (the other branch of the max).
-    {let mut c=conf();c.limits.k_safe=60;let mut r=pocold::node::Node::open(c,admitted(&cfg(&["a","b","c"]))).unwrap();
-        let sb=rpc_local(&mut r,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&fin_hash[..]),"RPC safe = finalized_h when head − k_safe is below it");}
+    // With k_safe 31 (the deepest below K_hist 32) the head − k_safe part is below the floor: RPC safe is finalized_h
+    // (the other branch of the max), and its state is still answered.
+    assert!(theirs_h-31<36,"head − 31 below the floor");
+    {let mut c=conf();c.limits.k_safe=31;c.limits.k_alarm=60;let mut r=pocold::node::Node::open(c,admitted(&cfg(&["a","b","c"]))).unwrap();
+        let sb=rpc_local(&mut r,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&fin_hash[..]),"RPC safe = finalized_h when head − k_safe is below it");
+        let who=format!("{:#x}",devnet::account_key("alice").address());let at_safe=rpc_local_raw(&mut r,"eth_getBalance",json!([who,"safe"]));
+        assert!(at_safe.get("error").is_none(),"state at safe = finalized_h 36 is inside the window: {at_safe}");
+        assert_eq!(at_safe["result"],rpc_local(&mut r,"eth_getBalance",json!([who,"0x24"])));}
     let mut r=reopen(&conf);assert_eq!((r.chain.head,r.chain.finalized_h),(theirs_tip,36),"restart keeps finalized_h");assert_eq!(r.stats.replay_skipped,0);
     if store{assert!(r.stats.resumed_from.is_some(),"positive control: resumed from a checkpoint (format unchanged)");}
     refused_by_the_floor(&mut r,deep,36);assert!(!r.stats.finality_file_ignored);drop(r);
@@ -3567,6 +3590,24 @@ fn heavier_shorter_then_deep(store:bool,tag:&str){
 }
 #[test] fn v3_26_a_heavier_shorter_branch_then_a_deep_fork_keeps_finalized_h(){heavier_shorter_then_deep(false,"hs")}
 #[test] fn v3_26_a_heavier_shorter_branch_then_a_deep_fork_keeps_finalized_h_in_store_mode(){heavier_shorter_then_deep(true,"hs-store")}
+/// Owner decision 12 (2026-11-13): the RPC `safe` depth k_safe and the reorg alarm depth k_alarm are two settings, and
+/// Node::open refuses a pair outside 1 <= k_safe <= k_alarm with k_safe < K_hist (32 here, from the network's local
+/// profile): the state at `safe` is then always inside the retained trie window. Nothing is created for a refused pair.
+#[test] fn v3_26_open_checks_k_safe_and_k_alarm(){
+    assert_eq!(pocold::single_host_local().k_hist,32);
+    let dir=std::env::temp_dir().join(format!("pocold-fin-kcheck-{}",std::process::id()));
+    for (k,want) in [((0,60),"k_safe 0: the RPC safe depth must be at least 1"),((7,6),"k_safe 7 exceeds k_alarm 6"),
+        ((32,60),"k_safe 32 must be below K_hist 32"),((40,40),"k_safe 40 must be below K_hist 32")]{
+        let _=std::fs::remove_dir_all(&dir);
+        let e=pocold::node::Node::open(fconf(&dir,"kcheck",64,k,false)(),admitted(&cfg(&["a","b","c"]))).err().unwrap_or_else(||panic!("{k:?} must be refused"));
+        assert!(e.contains(want),"{k:?}: {e}");assert!(!dir.exists(),"{k:?}: refused before the data directory is made");}
+    for k in [(1,1),(31,31),(6,60),(K_SAFE,K_ALARM),(31,u64::MAX)]{
+        let _=std::fs::remove_dir_all(&dir);
+        let n=pocold::node::Node::open(fconf(&dir,"kcheck",64,k,false)(),admitted(&cfg(&["a","b","c"]))).unwrap_or_else(|e|panic!("{k:?}: {e}"));
+        assert_eq!((n.cfg.limits.k_safe,n.cfg.limits.k_alarm),k);drop(n);}
+    assert_eq!(pocold::node::check_confirmation(K_SAFE,K_ALARM,32),Ok(()),"the defaults pass");
+    let _=std::fs::remove_dir_all(&dir);
+}
 /// Blocks for a child process: each as its header and body, length-prefixed.
 fn write_blocks(path:&std::path::Path,blocks:&[Block]){
     let mut out=vec![];for b in blocks{for part in [b.header.encoded.clone(),b.body.encode()]{out.extend((part.len() as u32).to_be_bytes());out.extend(part);}}
@@ -3591,7 +3632,7 @@ fn v3_26_child(dir:&std::path::Path,blocks:&std::path::Path,mode:&str)->(std::pr
 /// fix the file was rewritten every 64 heights and once after the adoption, and a failed or interrupted write lost the
 /// floor (the restarted node adopted the deep fork and reorganized the finalized block away).
 #[test] fn v3_26_the_floor_is_on_disk_before_a_lower_head_and_a_failed_write_stops_the_node(){
-    let (ours,theirs,deep)=hs_blocks();let (mut n,dir,conf)=fnode("dur",24,10,false);let file=pocold::node::FINALITY_FILE;
+    let (ours,theirs,deep)=hs_blocks();let (mut n,dir,conf)=fnode("dur",24,(10,K_ALARM),false);let file=pocold::node::FINALITY_FILE;
     for x in &ours[..59]{n.import(x.clone(),None).unwrap();let f=n.chain.finalized_h;
         if f>0{assert_eq!(fin_file(&dir),format!("{f} {}",hex(&ours[(f-1) as usize].hash()[..])),"rewritten at every rise (h={})",x.header.h);
             assert_eq!(n.status_json()["retention"]["finalizedPersisted"].as_u64(),Some(f));}}
@@ -3615,7 +3656,7 @@ fn v3_26_child(dir:&std::path::Path,blocks:&std::path::Path,mode:&str)->(std::pr
 fn v3_26_floor_child(){
     use std::io::Write;
     let (Ok(dir),Ok(file),Ok(mode))=(std::env::var("POCOLD_V326_DIR"),std::env::var("POCOLD_V326_BLOCKS"),std::env::var("POCOLD_V326_MODE")) else{return};
-    let mut n=reopen(&fconf(std::path::Path::new(&dir),"dur",24,10,false));let blocks=read_blocks(std::path::Path::new(&file));
+    let mut n=reopen(&fconf(std::path::Path::new(&dir),"dur",24,(10,K_ALARM),false));let blocks=read_blocks(std::path::Path::new(&file));
     for b in &blocks{let r=n.import(b.clone(),None);println!("\nV326-CHILD imported {r:?}");std::io::stdout().flush().unwrap();}
     if mode=="crash"&&n.chain.head==blocks.last().unwrap().hash(){println!("\nV326-CHILD adopted");std::io::stdout().flush().unwrap();std::process::abort();}
 }
@@ -3627,7 +3668,7 @@ fn v3_26_floor_child(){
     let (ours,_,_)=hs_blocks();let mut a=net();for x in &ours[..35]{import(&mut a,x);}
     let side=fallback(&a,ours[34].hash(),1);import(&mut a,&side);a.chain.ensure_state(&side.hash()).unwrap();let child=fallback(&a,side.hash(),0);
     assert_eq!((side.header.h,child.header.h),(36,37));
-    let (mut n,dir,conf)=fnode("raise",24,10,false);for x in &ours[..59]{n.import(x.clone(),None).unwrap();}
+    let (mut n,dir,conf)=fnode("raise",24,(10,K_ALARM),false);for x in &ours[..59]{n.import(x.clone(),None).unwrap();}
     assert_eq!(n.chain.finalized_h,35);n.import(side.clone(),None).unwrap();assert!(n.chain.blocks.contains_key(&side.hash())&&!n.chain.is_canonical(&side.hash()));
     n.import(ours[59].clone(),None).unwrap();assert_eq!(n.chain.finalized_h,36);assert!(!n.chain.blocks.contains_key(&side.hash()),"live retention removes it");drop(n);
     let raised=||{let mut c=conf();c.limits.r_keep=48;c.limits.side_cap=48;c};
@@ -3646,7 +3687,7 @@ fn v3_26_floor_child(){
 /// way to clear it, and is left as it is (never overwritten with a lower floor); once removed, the node opens at
 /// head − r_keep and writes it.
 #[test] fn v3_26_an_unreadable_floor_file_refuses_the_open_and_is_not_overwritten(){
-    let (ours,_,_)=hs_blocks();let (mut n,dir,conf)=fnode("bad",24,10,false);for x in &ours[..40]{n.import(x.clone(),None).unwrap();}
+    let (ours,_,_)=hs_blocks();let (mut n,dir,conf)=fnode("bad",24,(10,K_ALARM),false);for x in &ours[..40]{n.import(x.clone(),None).unwrap();}
     assert_eq!(n.chain.finalized_h,16);drop(n);let f=dir.join(pocold::node::FINALITY_FILE);
     for case in ["garbage","directory"]{
         std::fs::remove_file(&f).unwrap();if case=="garbage"{std::fs::write(&f,"16 x\n").unwrap();}else{std::fs::create_dir(&f).unwrap();}

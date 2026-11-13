@@ -1023,9 +1023,11 @@ never lowered, across it (`genesis_builder.rs:60`).
 - The import and retention floor becomes `max(head−r_keep, finalized_h)` at both `node.rs:714` and `retain()`
   (`chain.rs:757`). A heavier but shorter branch (`chain.rs:1086-1088`) can then no longer reopen the
   "finalized" block (safety review, finding 5).
-- k_safe = 60, configurable.
-- Telemetry: `max_reorg_depth`, `reorgs_ge_k_safe`, and `pocol_finality {safe, finalized, kSafe, rKeep,
-  maxReorgDepth, networkHashrateEst, model:"probabilistic"}`.
+- k_safe = 60, configurable. Amended by owner decision 12 (2026-11-13): two node-local settings, k_safe = 6 for the
+  RPC `safe` tag and k_alarm = 60 for the reorg alarm, with 1 ≤ k_safe ≤ k_alarm and k_safe < K_hist.
+- Telemetry: `max_reorg_depth`, `reorgs_ge_k_safe` (since owner decision 12 `reorgs_ge_k_alarm`, counted at k_alarm),
+  and `pocol_finality {safe, finalized, kSafe, rKeep, maxReorgDepth, networkHashrateEst, model:"probabilistic"}`
+  (since owner decision 12 also kAlarm, and reorgsGeKAlarm).
 - Docs (`consensus.md:242`, `governance.md:17`): the Nakamoto table, labelled indicative only (T p76-77/59-60).
 
 **Principle check:** Q0.1 No: RPC and retention are local (`consensus.md:244-251`). Lowering R_keep as

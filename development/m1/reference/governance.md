@@ -14,7 +14,7 @@
 - SYS [CP]: SYS_SLOT_MAX=131072, SYS_KEYS_BLOCK_MAX=2048, SYS_KEYS_USER_MAX=256, SYS_ACCT_BLOCK_MAX=512, G_SYS=96·10^6.
 - Retention (local): K_hist=32, HIST_TRIE_BUDGET=1717986918, R_keep=2048.
 - End [CP]: H_END=129600, T_END=g_ts+10368000, H_CLOSE=129440, T_CLOSE=T_END−9600, Z_close=160, RET=128, P2=2.
-- Confirmation (local): k_safe=60 (V3-26, D-V3-26: the RPC `safe` tag is max(head − k_safe, finalized_h); node-local, `--k-safe N` or POCOL_K_SAFE; before V3-26 `safe` was head − 6), k_final=60 (the ParamGate R11 input), k_view=12. RPC `finalized` is the persisted local irreversibility floor finalized_h ≥ head − R_keep. Both are local and probabilistic; with k_safe ≥ K_hist a state query at `safe` answers −32017 (network.md, "Local finality").
+- Confirmation (local): k_safe=6 (V3-26, D-V3-26, owner decision 12 of 2026-11-13: the RPC `safe` tag is max(head − k_safe, finalized_h); node-local, `--k-safe N` or POCOL_K_SAFE), k_alarm=60 (owner decision 12: reorganizations of k_alarm blocks or more are counted in pocol_finality.reorgsGeKAlarm; node-local, `--k-alarm N` or POCOL_K_ALARM), k_final=60 (the ParamGate R11 input), k_view=12. A node opens only with 1 ≤ k_safe ≤ k_alarm and k_safe < K_hist, so a state query at `safe` is always answered. RPC `finalized` is the persisted local irreversibility floor finalized_h ≥ head − R_keep. All are local and probabilistic (network.md, "Local finality").
 - Extension (local):
   - VIEW_SLACK_S=4, Φ_view=10s.
   - fetchAll: 4 MiB per attempt, 30s, maxRequests=4096, 3 restarts.

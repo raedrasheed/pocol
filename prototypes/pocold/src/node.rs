@@ -119,10 +119,15 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// unprotected non-canonical metadata (chain::R_KEEP, chain::SIDE_BLOCKS_MAX). Live import and
     /// replay must use the same values; tests lower them to reach the boundaries quickly.
     pub r_keep:u64,pub side_cap:usize,
-    /// V3-26 (local confirmation depth, never validity): the RPC `safe` tag is max(head − k_safe, finalized_h), and a
-    /// reorganization abandoning k_safe or more canonical blocks is counted (`pocol_finality.reorgsGeKSafe`). K_SAFE;
-    /// `--k-safe N`, or POCOL_K_SAFE for `run` and `pocol start`. With k_safe >= K_hist a state query at `safe` answers -32017.
+    /// V3-26 (local confirmation depth, never validity; owner decision 12, 2026-11-13): the RPC `safe` tag is
+    /// max(head − k_safe, finalized_h). K_SAFE; `--k-safe N`, or POCOL_K_SAFE for `run` and `pocol start`. Node::open
+    /// refuses k_safe = 0, k_safe > k_alarm, and k_safe >= K_hist (the trie window of the network's local profile), so a
+    /// state query at `safe` is always answerable (`check_confirmation`).
     pub k_safe:u64,
+    /// V3-26 (local reorg alarm, never validity; owner decision 12): a reorganization abandoning k_alarm or more canonical
+    /// blocks is counted (`pocol_finality.reorgsGeKAlarm`). K_ALARM; `--k-alarm N`, or POCOL_K_ALARM for `run` and
+    /// `pocol start`.
+    pub k_alarm:u64,
     /// Decision D-7 (local pool policy, never validity): the longest one slice of pool revalidation runs
     /// on the consensus thread before the next event is taken (POOL_SLICE), and the bound on the pooled
     /// transactions' summed declared gas limits (None: POOL_GAS_BLOCKS × GAS_LIMIT, approved 2026-10-25;
@@ -158,13 +163,26 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// (`USER_TX_FROZEN`). Blocks of other nodes are judged as before: one with user transactions above S stays
     /// valid. None (the default): no freeze, every behaviour as before.
     pub freeze_user_txs_after:Option<u64>}
-impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,first_imports:false,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,k_safe:K_SAFE,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default(),freeze_user_txs_after:None}}}
+impl Default for Limits{fn default()->Self{Self{net:Default::default(),rpc:Default::default(),mem_budget:MEM_BUDGET,continuous_history:None,first_imports:false,disk:None,r_keep:chain::R_KEEP,side_cap:chain::SIDE_BLOCKS_MAX,k_safe:K_SAFE,k_alarm:K_ALARM,pool_slice:POOL_SLICE,pool_gas_max:None,pool_sender_gas_max:None,history_window:None,full_states:false,slim_depth:None,state_store:false,checkpoint_every:crate::checkpoint::EVERY,evict_depth:None,discovery:Discovery::default(),freeze_user_txs_after:None}}}
 /// C-1 S5 (PR7): what a view of a canonical block below the window reads besides its index row and journal
 /// record: its receipts (history.redb) only when asked.
 #[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
 pub struct Want{pub receipts:bool}
-/// V3-26: the default local confirmation depth of the RPC `safe` tag and of `reorgsGeKSafe` (`Limits::k_safe`).
-pub const K_SAFE:u64=60;
+/// V3-26 (owner decision 12, 2026-11-13): the default local confirmation depth of the RPC `safe` tag (`Limits::k_safe`):
+/// 6 blocks, one minute at 10 s blocks.
+pub const K_SAFE:u64=6;
+/// V3-26 (owner decision 12): the default depth from which a reorganization counts in `reorgsGeKAlarm`
+/// (`Limits::k_alarm`): 60 blocks, ten minutes at 10 s blocks.
+pub const K_ALARM:u64=60;
+/// V3-26 (owner decision 12; local, never validity): the confirmation settings a node may run with:
+/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so the state at `safe` is inside the retained trie window (heights
+/// head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node flag).
+pub fn check_confirmation(k_safe:u64,k_alarm:u64,k_hist:u64)->Result<(),String>{
+    if k_safe==0{return Err("k_safe 0: the RPC safe depth must be at least 1 (--k-safe, POCOL_K_SAFE)".into())}
+    if k_safe>k_alarm{return Err(format!("k_safe {k_safe} exceeds k_alarm {k_alarm}: the RPC safe depth must not exceed the reorg alarm depth (--k-safe/POCOL_K_SAFE, --k-alarm/POCOL_K_ALARM)"))}
+    if k_safe>=k_hist{return Err(format!("k_safe {k_safe} must be below K_hist {k_hist} (the retained trie window), or state queries at the RPC safe tag could not be answered (--k-safe, POCOL_K_SAFE)"))}
+    Ok(())
+}
 /// V3-26: the file beside the journal that keeps the local irreversibility floor `Chain::finalized_h` across restarts:
 /// one line `<height> <canonical block hash, hex>`, written durably (temporary file, fsync, rename, directory fsync).
 /// A data directory without it (written before V3-26) opens with the floor head − r_keep, and the file is written.
@@ -725,8 +743,8 @@ fn write_checkpoint(chain:&Chain,st:&crate::state_store::StateStore,b:&crate::ch
 #[derive(Default,Clone,Debug)]
 pub struct Stats{pub imported:u64,pub mined:u64,pub signed_templates:u64,pub fallback_templates:u64,pub shares_seen:u64,pub hashes:u64,pub reorgs:u64,
     /// V3-26 reorg telemetry since this start (live imports, not replay): the most canonical blocks one reorganization
-    /// abandoned (old head height − fork height), and the reorganizations that abandoned k_safe or more.
-    pub max_reorg_depth:u64,pub reorgs_ge_k_safe:u64,
+    /// abandoned (old head height − fork height), and the reorganizations that abandoned k_alarm or more.
+    pub max_reorg_depth:u64,pub reorgs_ge_k_alarm:u64,
     /// V3-26: a `retention.finalized` the open did not use (its block is not canonical in this journal, or unreadable).
     pub finality_file_ignored:bool,
     /// Sync sessions started and rounds asked; solicited imports of blocks retention had removed
@@ -880,6 +898,8 @@ impl Node{
         // A13: the resident bound of this profile with these limits must fit the budget (the pool counted at
         // its gas bound, which must itself be valid).
         let t_open=Instant::now();let mut timing=OpenTiming::default();
+        // V3-26 (owner decision 12): the RPC safe depth and the reorg alarm depth, checked before anything is opened.
+        check_confirmation(cfg.limits.k_safe,cfg.limits.k_alarm,u64::from(spec.local().k_hist))?;
         // The quota applies within the gas bound in effect (the operator's value is validated against the configured bound).
         let pool_gas_max=pool_gas_in_effect(spec.cp(),&cfg.limits)?;let pool_sender_max=pool_sender_gas_bound(spec.cp(),&cfg.limits)?.min(pool_gas_max);
         // Replay must not use a smaller R_keep than live used for any record (it would drop a parent live
@@ -1537,7 +1557,7 @@ impl Node{
             if self.chain.get(&self.chain.head).and_then(|e|e.parent)!=Some(old_head){self.stats.reorgs+=1;
                 // V3-26: the canonical blocks this reorganization abandoned.
                 let depth=old_h.saturating_sub(fork_h);self.stats.max_reorg_depth=self.stats.max_reorg_depth.max(depth);
-                if depth>=self.cfg.limits.k_safe{self.stats.reorgs_ge_k_safe+=1;}}
+                if depth>=self.cfg.limits.k_alarm{self.stats.reorgs_ge_k_alarm+=1;}}
             self.log(&format!("head h={} {} signed={} txs={}",self.chain.head().height,&hex(&hash)[..14],self.chain.head().signed,b.body.txs.len()));
             self.on_new_head(detached);
             // Status refresh (network.md:7): peers learn the new head and its cumulative work.
@@ -2614,13 +2634,14 @@ impl Node{
     }
     /// V3-26: pocol_finality. A local, probabilistic view (model "probabilistic"): `finalized` is this node's persisted
     /// irreversibility floor (retention, not consensus: no signature or committee stands behind it, and a node without
-    /// this history may follow a heavier branch below it), `safe` is max(head − kSafe, finalized).
+    /// this history may follow a heavier branch below it), `safe` is max(head − kSafe, finalized); reorgsGeKAlarm counts the
+    /// reorganizations of kAlarm blocks or more.
     pub fn finality_json(&self)->serde_json::Value{
         let f=self.chain.finalized_h;let s=self.safe_height();
         let hash_of=|h:u64|self.canon_hash(h).ok().flatten().map(|x|hex(&x[..]));
-        serde_json::json!({"head":self.chain.head().height,"safe":s,"safeHash":hash_of(s),"finalized":f,"finalizedHash":hash_of(f),"kSafe":self.cfg.limits.k_safe,
+        serde_json::json!({"head":self.chain.head().height,"safe":s,"safeHash":hash_of(s),"finalized":f,"finalizedHash":hash_of(f),"kSafe":self.cfg.limits.k_safe,"kAlarm":self.cfg.limits.k_alarm,
             "rKeep":self.chain.r_keep,"retentionFloor":self.chain.retention_floor(),"reorgs":self.stats.reorgs,"maxReorgDepth":self.stats.max_reorg_depth,
-            "reorgsGeKSafe":self.stats.reorgs_ge_k_safe,"networkHashrateEst":self.network_hashrate_est().map(|x|x.to_string()),
+            "reorgsGeKAlarm":self.stats.reorgs_ge_k_alarm,"networkHashrateEst":self.network_hashrate_est().map(|x|x.to_string()),
             "model":"probabilistic","scope":"local"})
     }
     /// F7: record that we signed `tid` for (parent,h), persist it durably BEFORE the caller broadcasts,
@@ -3256,7 +3277,7 @@ impl Node{
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
             "stats":{"imported":self.stats.imported,"mined":self.stats.mined,"signedTemplates":self.stats.signed_templates,"fallbackTemplates":self.stats.fallback_templates,"sharesSeen":self.stats.shares_seen,"hashesInExhaustedRanges":self.stats.hashes,"reorgs":self.stats.reorgs,
                 "syncSessions":self.stats.sync_sessions,"syncRounds":self.stats.sync_rounds,"refetched":self.stats.refetched,"restored":self.stats.restored,"replaySkipped":self.stats.replay_skipped,"templatePenalties":self.stats.template_penalties,"poolSlices":self.stats.pool_slices,"poolSliceMaxMs":self.stats.pool_slice_max_ms,"reinsertedOffered":self.stats.reinserted_offered,"reinsertedUnoffered":self.stats.reinserted_unoffered,"poolBacklog":self.pool.backlog.len(),"historyRefilled":self.stats.history_refilled,"historyRebuilt":self.history.rebuilt,"historyDamaged":self.history.is_damaged()},
-            "open":serde_json::to_value(&self.stats.open).unwrap_or_default(),"retention":{"rKeep":self.chain.r_keep,"kSafe":self.cfg.limits.k_safe,"finalized":self.chain.finalized_h,"finalizedPersisted":self.fin_saved,"finalityFileIgnored":self.stats.finality_file_ignored,"floor":self.chain.retention_floor(),"maxReorgDepth":self.stats.max_reorg_depth,"reorgsGeKSafe":self.stats.reorgs_ge_k_safe,"sideCap":self.chain.side_cap,"side":self.chain.side_counts().0,"protected":self.chain.protect.len(),"evicted":self.chain.evicted_total}});
+            "open":serde_json::to_value(&self.stats.open).unwrap_or_default(),"retention":{"rKeep":self.chain.r_keep,"kSafe":self.cfg.limits.k_safe,"kAlarm":self.cfg.limits.k_alarm,"finalized":self.chain.finalized_h,"finalizedPersisted":self.fin_saved,"finalityFileIgnored":self.stats.finality_file_ignored,"floor":self.chain.retention_floor(),"maxReorgDepth":self.stats.max_reorg_depth,"reorgsGeKAlarm":self.stats.reorgs_ge_k_alarm,"sideCap":self.chain.side_cap,"side":self.chain.side_counts().0,"protected":self.chain.protect.len(),"evicted":self.chain.evicted_total}});
         // VA-SPEC §2: the wire range and the consensus identity peers are checked against; the build digest
         // (compatibilitySha256) is informational install-integrity status.
         status["protocolVersion"]=serde_json::json!(crate::identity::PROTOCOL_VERSION);

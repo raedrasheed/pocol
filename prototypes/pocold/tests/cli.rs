@@ -341,25 +341,41 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let _=std::fs::remove_dir_all(&d);
 }
 
-/// V3-26: `--k-safe N` sets the depth of the RPC `safe` tag (local, never finality); status reports it with the
-/// persisted irreversibility floor (0 on a new data directory); a value that is not a number fails the command.
+/// V3-26 (owner decision 12, 2026-11-13): `--k-safe N` sets the depth of the RPC `safe` tag (local, never finality,
+/// default 6) and `--k-alarm N` the depth from which a reorganization is counted (default 60); status reports both with
+/// the persisted irreversibility floor (0 on a new data directory); a value that is not a number fails the command, and
+/// so does a pair outside 1 <= k_safe <= k_alarm with k_safe < K_hist (32).
 #[test] fn k_safe_comes_from_the_flag_and_status_reports_the_floor(){
     let d=tmp("ksafe");let net=d.join("net");let data=d.join("data");
     let o=pocold(&["init-devnet","--out",net.to_str().unwrap(),"--miners","a,b,c"]);assert!(o.status.success(),"{}",text(&o.stderr));
     let st=|extra:&[&str]|pocold(&[&["status","--network",net.to_str().unwrap(),"--data",data.to_str().unwrap()][..],extra].concat());
     let o=st(&["--k-safe","7"]);assert!(o.status.success(),"{}",text(&o.stderr));
     let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
-    assert_eq!((v["retention"]["kSafe"].as_u64(),v["retention"]["finalized"].as_u64(),v["retention"]["finalityFileIgnored"].as_bool()),(Some(7),Some(0),Some(false)));
-    let o=st(&[]);let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();assert_eq!(v["retention"]["kSafe"].as_u64(),Some(pocold::node::K_SAFE));
-    let o=st(&["--k-safe","x"]);assert_eq!(o.status.code(),Some(1));assert!(text(&o.stderr).contains("--k-safe x:"),"{}",text(&o.stderr));
-    // `run` also reads POCOL_K_SAFE when the flag is absent (as `pocol start` does): a value that is not a number fails
-    // the command before the node opens; with the flag the variable is not read (the open then fails on the 1-byte
-    // memory budget instead).
-    let run=|flags:&[&str],env:&str|{let o=Command::new(env!("CARGO_BIN_EXE_pocold")).args([&["run","--network",net.to_str().unwrap(),"--data",d.join("run").to_str().unwrap(),"--memory-budget-bytes","1"][..],flags].concat())
-        .env("POCOL_K_SAFE",env).output().unwrap();(o.status.code(),text(&o.stderr))};
-    let (code,err)=run(&[],"x");assert_eq!(code,Some(1));assert!(err.contains("POCOL_K_SAFE \"x\":"),"{err}");
-    let (code,err)=run(&["--k-safe","7"],"x");assert_eq!(code,Some(1));assert!(err.contains("exceeds the node memory budget 1 B")&&!err.contains("POCOL_K_SAFE"),"{err}");
-    let (code,err)=run(&[],"7");assert_eq!(code,Some(1));assert!(err.contains("exceeds the node memory budget 1 B"),"{err}");
+    assert_eq!((v["retention"]["kSafe"].as_u64(),v["retention"]["kAlarm"].as_u64(),v["retention"]["finalized"].as_u64(),v["retention"]["finalityFileIgnored"].as_bool()),(Some(7),Some(60),Some(0),Some(false)));
+    assert_eq!(v["retention"]["reorgsGeKAlarm"].as_u64(),Some(0));assert!(v["retention"].get("reorgsGeKSafe").is_none(),"renamed");
+    let o=st(&[]);let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["retention"]["kSafe"].as_u64(),v["retention"]["kAlarm"].as_u64()),(Some(pocold::node::K_SAFE),Some(pocold::node::K_ALARM)));
+    assert_eq!((pocold::node::K_SAFE,pocold::node::K_ALARM),(6,60));
+    let o=st(&["--k-alarm","9","--k-safe","9"]);assert!(o.status.success(),"{}",text(&o.stderr));let v:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+    assert_eq!((v["retention"]["kSafe"].as_u64(),v["retention"]["kAlarm"].as_u64()),(Some(9),Some(9)));
+    for (flags,want) in [(&["--k-safe","x"][..],"--k-safe x:"),(&["--k-alarm","x"][..],"--k-alarm x:"),(&["--k-safe","0"][..],"k_safe 0: the RPC safe depth must be at least 1"),
+        (&["--k-safe","7","--k-alarm","6"][..],"k_safe 7 exceeds k_alarm 6"),(&["--k-alarm","5"][..],"k_safe 6 exceeds k_alarm 5"),
+        (&["--k-safe","32","--k-alarm","100"][..],"k_safe 32 must be below K_hist 32"),(&["--k-safe","60"][..],"k_safe 60 must be below K_hist 32")]{
+        let o=st(flags);assert_eq!(o.status.code(),Some(1),"{flags:?}");assert!(text(&o.stderr).contains(want),"{flags:?}: {}",text(&o.stderr));}
+    // `run` also reads POCOL_K_SAFE and POCOL_K_ALARM when the flag is absent (as `pocol start` does): a value that is not
+    // a number fails the command before the node opens; with the flag the variable is not read (the open then fails on
+    // the 1-byte memory budget instead); a pair the open refuses fails before the budget is checked.
+    let run=|flags:&[&str],env:&[(&str,&str)]|{let mut c=Command::new(env!("CARGO_BIN_EXE_pocold"));c.args([&["run","--network",net.to_str().unwrap(),"--data",d.join("run").to_str().unwrap(),"--memory-budget-bytes","1"][..],flags].concat());
+        c.env_remove("POCOL_K_SAFE").env_remove("POCOL_K_ALARM");for (k,v) in env{c.env(k,v);}let o=c.output().unwrap();(o.status.code(),text(&o.stderr))};
+    let budget="exceeds the node memory budget 1 B";
+    let (code,err)=run(&[],&[("POCOL_K_SAFE","x")]);assert_eq!(code,Some(1));assert!(err.contains("POCOL_K_SAFE \"x\":"),"{err}");
+    let (code,err)=run(&["--k-safe","7"],&[("POCOL_K_SAFE","x")]);assert_eq!(code,Some(1));assert!(err.contains(budget)&&!err.contains("POCOL_K_SAFE"),"{err}");
+    let (code,err)=run(&[],&[("POCOL_K_SAFE","7")]);assert_eq!(code,Some(1));assert!(err.contains(budget),"{err}");
+    let (code,err)=run(&[],&[("POCOL_K_ALARM","x")]);assert_eq!(code,Some(1));assert!(err.contains("POCOL_K_ALARM \"x\":"),"{err}");
+    let (code,err)=run(&["--k-alarm","60"],&[("POCOL_K_ALARM","x")]);assert_eq!(code,Some(1));assert!(err.contains(budget)&&!err.contains("POCOL_K_ALARM"),"{err}");
+    let (code,err)=run(&[],&[("POCOL_K_SAFE","8"),("POCOL_K_ALARM","7")]);assert_eq!(code,Some(1));assert!(err.contains("k_safe 8 exceeds k_alarm 7"),"the variables are used: {err}");
+    let (code,err)=run(&["--k-alarm","8"],&[("POCOL_K_SAFE","8"),("POCOL_K_ALARM","7")]);assert_eq!(code,Some(1));assert!(err.contains(budget),"the flag wins over POCOL_K_ALARM: {err}");
+    let (code,err)=run(&[],&[("POCOL_K_SAFE","40"),("POCOL_K_ALARM","60")]);assert_eq!(code,Some(1));assert!(err.contains("k_safe 40 must be below K_hist 32"),"{err}");
     let _=std::fs::remove_dir_all(&d);
 }
 
