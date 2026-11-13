@@ -2,6 +2,8 @@
 //! selects the v3 programs (system-v3.json) whose probation pool is CP schema v2 P_MAX/T_PROB (V3-14). Real
 //! blocks, real settlement through RewardEscrow, the escrow invariant after every block. A spec-2 genesis decodes
 //! only in a v3-preview build, so the chain tests need `--features v3-preview`; a release build must refuse it.
+//! V3-PR-E2b adds the evidence penalties on chain (V3-16, V3-17): real type-2 evidence, the reporter's cut, the
+//! whole-pot burn of an ACCRUING winner, the E_win boundary and a self-report, against the spec-1 earn-in chain.
 use pocol_lp4_execution::devnet::{self, DevnetConfig};
 
 #[cfg_attr(not(feature = "v3-preview"), allow(dead_code))]
@@ -272,5 +274,169 @@ mod preview {
                 Err(e) => { assert!(!ok, "W_act {w_act} U {u} C_react {c_react}: {e}"); assert!(e.to_string().contains("R8"), "{e}"); }
             }
         }
+    }
+
+    // ---------------- V3-PR-E2b: evidence penalties on chain (V3-16, V3-17)
+
+    /// D = 8, so that the evidence block (drawn deterministically) lands before settle(j).
+    fn net_spec(spec: u8) -> Net {
+        let mut cfg = config(64, 86_400);
+        cfg.spec_version = spec;
+        cfg.d = 8;
+        let mut candidate = devnet::build(&cfg).unwrap();
+        candidate.forks.push((2, 2));
+        let mut keys: HashMap<Address, Key> = candidate.miners.iter().map(|m| (m.id, Key::from_secret(&m.key.secret()).unwrap())).collect();
+        for label in ["alice", "bob"] { let k = devnet::account_key(label); keys.insert(k.address(), k); }
+        let one = candidate.miners[0].id;
+        let timing = admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap();
+        let admitted = admission::admit(&candidate.request(&pocold::single_host_local(), Some(&timing))).unwrap();
+        let chain = Chain::new(Spec::new(admitted));
+        assert_eq!(chain.spec.programs(), if spec == 2 { ProgramSet::V3 } else { ProgramSet::EarnIn });
+        Net { chain, keys, one }
+    }
+
+    /// The next block with this body, won by `winner` in its own range, its header shares one nonce of each of
+    /// `owners`' ranges. Evidence in the body is evaluated as validation does. Returns (height, drawn proposer).
+    fn mine(net: &mut Net, winner: Address, owners: &[Address], body: Body) -> (u64, Address) {
+        let parent = net.chain.full_entry(&net.chain.head).unwrap();
+        let context = net.chain.child_ctx(&parent, 0).unwrap();
+        let effects = net.chain.evidence_effects(&parent, &body, parent.height + 1).unwrap();
+        let nmax = context.assignment.nonce_max();
+        let range = |who: Address| context.assignment.ranges().iter().find(|r| r.id() == raw_addr(who)).cloned().unwrap_or_else(|| panic!("no range at {}", parent.height + 1));
+        'templates: for timestamp in parent.ts + u64::from(net.chain.spec.cp().T_blk)..=context.window.upper() {
+            let (mut header, _, _) = net.chain.build_signed(&parent, &net.keys[&context.proposer], timestamp, body.clone(), effects.clone()).unwrap();
+            let tid = template_id(&header.ut_raw);
+            let mut shares = Vec::new();
+            for o in owners {
+                let r = range(*o);
+                match (r.start()..r.end_exclusive().min(nmax)).find(|n| le_target(&pow_hash(&tid, *n as u64), &context.t_share)) {
+                    Some(n) => shares.push(n as u64), None => continue 'templates,
+                }
+            }
+            shares.sort_unstable(); shares.dedup();
+            let r = range(winner);
+            let found = (r.start()..r.end_exclusive().min(nmax)).find(|n| !shares.contains(&(*n as u64)) && le_target(&pow_hash(&tid, *n as u64), &context.target));
+            let Some(nonce) = found else { continue };
+            header.nonce = nonce as u64; header.shares = shares; reseal(&mut header);
+            header.winner_sig = net.keys[&winner].sign_hash(&B256::from(hashes::win_msg(&tid, nonce as u64, &share_root(&header))));
+            reseal(&mut header);
+            let (entry, _) = net.chain.validate(&Block { header, body }, None, 0).unwrap();
+            assert!(net.chain.insert(entry));
+            let h = net.chain.head();
+            apply::check_escrow_invariant(&h.state, net.chain.spec.profile(), h.height, false).unwrap();
+            return (h.height, context.proposer);
+        }
+        panic!("no solution for deterministic test fixture");
+    }
+
+    /// Type-2 evidence against the winner of the canonical block at `height`: its signed winner copy and a second copy of
+    /// the same template and nonce with no header shares (a different share root), signed by the same winner.
+    fn equivocation(net: &Net, height: u64) -> Vec<u8> {
+        let hash = *net.chain.canonical.get(height as usize).unwrap();
+        let e = net.chain.get(&hash).unwrap();
+        let (h, winner) = (e.header.clone(), e.result.clone().unwrap().winner);
+        let tid = template_id(&h.ut_raw);
+        let mut alt = h.clone(); alt.shares = vec![]; reseal(&mut alt);
+        let (root1, root2) = (share_root(&h), share_root(&alt));
+        assert_ne!(root1, root2, "the block has header shares");
+        let sig2 = net.keys[&winner].sign_hash(&B256::from(hashes::win_msg(&tid, h.nonce, &root2)));
+        let mut payload = Vec::new();
+        rlp::encode_bytes(&[2], &mut payload); rlp::encode_bytes(&tid, &mut payload); rlp::encode_bytes(&h.nonce.to_be_bytes(), &mut payload);
+        rlp::encode_bytes(&root1, &mut payload); rlp::encode_bytes(&h.winner_sig, &mut payload); rlp::encode_bytes(&root2, &mut payload); rlp::encode_bytes(&sig2, &mut payload);
+        let mut out = Vec::new(); rlp::encode_list_payload(&payload, &mut out); out
+    }
+    fn pot_words(net: &Net, j: u64) -> (U256, U256, U256) {
+        let b = U256::from_be_bytes(keccak256([U256::from(j).to_be_bytes::<32>(), U256::from(3).to_be_bytes::<32>()].concat()).0);
+        let s = &net.chain.head().state.accounts[&apply::program_address(1)].storage;
+        let w = |k: U256| s.get(&k).copied().unwrap_or_default();
+        (w(b), w(b + U256::from(1)), w(b + U256::from(2)))
+    }
+
+    /// V3-16/V3-17 on a real chain (fails on the original): block j is won by `two` with a share of `one`; block k by
+    /// alice, a zero-bond probationer. One block, proposed by `one`, carries type-2 evidence against both before settle(j).
+    /// On the v3 chain pot j settles normally (one's share is paid in settle(j), two's winner part burns), pot k burns
+    /// whole (alice was ACCRUING when its result was recorded), and one's reward address receives 25% of two's 20 PCOL
+    /// bond. On the spec-1 earn-in chain both pots burn whole and nobody is paid for reporting.
+    #[test]
+    fn type2_evidence_settles_the_pot_and_pays_the_reporter_on_the_v3_chain() {
+        let mut out = Vec::new();
+        for spec in [1u8, 2] {
+            let mut net = net_spec(spec);
+            let one = net.one;
+            let two = net.chain.spec.profile().spec().m0_list.iter().map(|m| Address::from(m.id)).find(|m| *m != one).unwrap();
+            let alice = devnet::account_key("alice");
+            let t = register(&net, &alice, 0);
+            mine(&mut net, one, &[one], Body { txs: vec![t], evidence: vec![] });
+            let (j, prop_j) = mine(&mut net, two, &[one, two], Body::default());
+            let (k, _) = mine(&mut net, alice.address(), &[alice.address()], Body::default());
+            let d = u64::from(net.chain.spec.cp().D);
+            // The evidence block's drawn proposer must not be `two` (it is the reporter); alice is not drawn below B/4.
+            loop {
+                let p = net.chain.full_entry(&net.chain.head).unwrap();
+                if net.chain.child_ctx(&p, 0).unwrap().proposer == one { break }
+                mine(&mut net, one, &[one], Body::default());
+            }
+            let evidence = vec![equivocation(&net, j), equivocation(&net, k)];
+            let reward = record(&net, one).reward;
+            let before = balance(&net, reward);
+            let (e, reporter) = mine(&mut net, one, &[one], Body { txs: vec![], evidence });
+            assert_eq!(reporter, one);
+            assert!(e < j + d, "the evidence precedes settle(j)'s block (block {e}, j {j})");
+            let cut = balance(&net, reward) - before;
+            let (pj, pk) = (pot_words(&net, j), pot_words(&net, k));
+            assert!(record(&net, two).tomb && record(&net, alice.address()).tomb);
+            // settle(j): one's payment from pot j alone (the block at j + D settles nothing else; its own cut if the
+            // evidence landed there).
+            while net.chain.head().height + 1 < j + d { mine(&mut net, one, &[one], Body::default()); }
+            let before = balance(&net, reward);
+            mine(&mut net, one, &[one], Body::default());
+            assert_eq!(net.chain.head().height, j + d);
+            let paid_j = balance(&net, reward) - before;
+            out.push((spec, pj.1 >> 168u32, pk.1 >> 168u32, pk.2 >> 160u32, cut, paid_j, prop_j == one));
+        }
+        eprintln!("{out:?}");
+        let (earnin, v3) = (&out[0], &out[1]);
+        assert_eq!((earnin.1, earnin.2, earnin.4, earnin.5), (U256::from(1), U256::from(1), U256::ZERO, U256::ZERO), "the earn-in chain burns both pots whole, no reporter");
+        assert_eq!((v3.1, v3.2, v3.3), (U256::ZERO, U256::from(1), U256::from(1)), "v3: pot j normal, pot k whole-burn with its ACCRUING winner bit");
+        assert_eq!(v3.4, U256::from(5 * PCOL), "25% of two's 20 PCOL bond to the reporter one");
+        // Pot j: 2 PCOL, header shares of one and two plus two's winner share; R = 1.7 PCOL over Q = max(3, 64).
+        let share = U256::from(17 * PCOL / 10) / U256::from(64);
+        assert_eq!(v3.5, share + if v3.6 { U256::from(PCOL / 10) } else { U256::ZERO }, "one's share of pot j (and its proposer part if it proposed j)");
+    }
+
+    /// The evidence window on the v3 chain, with a self-report: an equivocation by `one` (the only member left to propose
+    /// after the others are punished) is valid evidence exactly up to E_win blocks later, refused one block later; `one`
+    /// includes it against itself at the boundary and loses (1 - rho) * B: its bond burns, its reward address receives
+    /// 25% of it, and the pot settled in that block pays the tomb nothing.
+    #[test]
+    fn evidence_window_boundary_and_self_report_on_the_v3_chain() {
+        let mut net = net_spec(2);
+        let one = net.one;
+        let two = net.chain.spec.profile().spec().m0_list.iter().map(|m| Address::from(m.id)).find(|m| *m != one).unwrap();
+        // two equivocates first and is punished, so that one is the only proposer from then on.
+        let (j2, _) = mine(&mut net, two, &[one, two], Body::default());
+        loop {
+            let p = net.chain.full_entry(&net.chain.head).unwrap();
+            if net.chain.child_ctx(&p, 0).unwrap().proposer == one { break }
+            mine(&mut net, one, &[one], Body::default());
+        }
+        let ev = equivocation(&net, j2);
+        mine(&mut net, one, &[one], Body { txs: vec![], evidence: vec![ev] });
+        let (jj, _) = mine(&mut net, one, &[one], Body::default());
+        let ev = equivocation(&net, jj);
+        let e_win = u64::from(net.chain.spec.cp().E_win);
+        while net.chain.head().height + 1 < jj + e_win { mine(&mut net, one, &[one], Body::default()); }
+        let p = net.chain.full_entry(&net.chain.head).unwrap();
+        let body = Body { txs: vec![], evidence: vec![ev.clone()] };
+        assert!(net.chain.evidence_effects(&p, &body, p.height + 2).is_err(), "jj + E_win + 1 is outside the window");
+        assert_eq!(net.chain.evidence_effects(&p, &body, p.height + 1).unwrap(), vec![apply::EvidenceEffect::PunishAndInvalidate { accused: one, j: jj }], "exactly jj + E_win");
+        let reward = record(&net, one).reward;
+        let (held, before) = (apply::chain_facts(&net.chain.head().state).held_total, balance(&net, reward));
+        let (h, reporter) = mine(&mut net, one, &[one], body);
+        assert_eq!((h, reporter), (jj + e_win, one), "a self-report at the boundary");
+        let r = record(&net, one);
+        assert!(r.tomb && r.bond_state == 2);
+        assert_eq!(held - apply::chain_facts(&net.chain.head().state).held_total, U256::from(B), "the 20 PCOL bond left the held total");
+        assert_eq!(balance(&net, reward) - before, U256::from(B / 4), "rho = 25% back: the self-report loses 15 PCOL");
     }
 }

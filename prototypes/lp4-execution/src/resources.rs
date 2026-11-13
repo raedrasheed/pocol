@@ -17,7 +17,8 @@
 //!   final: finalize 2 + 4·(D-1)
 //! SYS accounts touched per block (R18 SYS_ACCT_BLOCK_MAX):
 //!   8 fixed (5 programs, PAY, SYSTEM, origin) + payees
-//!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET.
+//!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET;
+//!   each +1 on CP schema v2 when E>0 (V3-17: the reporter's reward address, paid the cut of a punished bond).
 use crate::profile::ConsensusParams;
 
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -33,7 +34,10 @@ pub fn derive(cp:&ConsensusParams)->SysBounds{
     let keys_normal=common+1+(2+8*sw+1)+2;
     let keys_closing=common+(1+ret+1)+1+2;
     let keys_final=common+(1+ret+1)+1+2+4*d.saturating_sub(1);
-    let accts_normal=8+o+1+sw;let accts_closing=8+o+1+ret;let accts_final=8+(d*(o+1)).min(m+rmax*d+1)+ret;
+    // V3-17: on CP schema v2 (the v3 programs) punish pays the reporter's cut to the block proposer's reward address,
+    // one more account in a block that carries evidence (one proposer per block).
+    let reporter=u64::from(cp.schema_version()>=2&&e>0);
+    let accts_normal=8+o+1+sw+reporter;let accts_closing=8+o+1+ret+reporter;let accts_final=8+(d*(o+1)).min(m+rmax*d+1)+ret+reporter;
     SysBounds{slot_min,keys_normal,keys_closing,keys_final,accts_normal,accts_closing,accts_final}
 }
 /// R18 (general, v1 layout): SYS_SLOT_MAX >= slot_min, per-block key/account caps

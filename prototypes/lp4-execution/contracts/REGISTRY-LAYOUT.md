@@ -101,3 +101,51 @@ The beginBlock sweep changes the same slots per deletion as earn-in. Gas: regist
 slot9 read), within the wallet's EARNIN_REGISTER_GAS 400,000; every other user path below 200,000 (REGISTRY_GAS
 1,000,000). The independent model is tests/v3_model.py (vectors tests/v3/registry-budget-vectors.json and
 tests/v3/earnin-on-v3-vectors.json); seven planted budget mutants are in tests/v3/system-v3-mutants.json.
+
+## v3 evidence penalties (PoColSystemV3.sol only; V3-16, V3-17, V3-PR-E2b)
+
+Applies to the v3 program set only, as above; the spec-1 programs, host calls and phase order are unchanged.
+
+| Location | Change |
+|---|---|
+| RewardEscrow pending[j] k=2 | winner 0..159, WIN_ACCRUING at bit 160 (new), remaining zero |
+| RewardEscrow pending[j] k=1 | unchanged: proposer<<8, kind 0..7, INVALID at bit 168 (now set only as below) |
+| MinerRegistry | no new slot or bit |
+
+Host (apply.rs, v3 program set only), phase 0: recordShares(h-1), recordResult(h-1), then the evidence
+(`invalidate(j, accused)` for a pot still pending, `punish(accused, reporter)`), markClose, pruneShares,
+settle(h-D), beginBlock. Recording the parent's result first makes recordResult read the winner's record as of
+block h-1, before any evidence of block h can tomb it. Every SYSTEM call keeps tx.origin = the block's signed proposer
+(zero on a fallback block); `reporter` is that same address.
+
+- recordResult(j, winner): as before, and sets WIN_ACCRUING when the winner is a live ACCRUING record (its bond is
+  below B_reg: reaching B_reg promotes it). The same single write of the winner word.
+- invalidate(j, accused), 68 bytes: BadPending unless j < h, pending[j] exists and its winner is recorded. Sets
+  INVALID only when accused is pot j's winner and WIN_ACCRUING is set; otherwise writes nothing, so the pot settles
+  normally after punish (the tombed offender's winner part, proposer part and shares burn through payTo and payInfos;
+  honest payees are paid). Several pieces of evidence may name one pot (spec-1 reverted the second one).
+- settleOne is unchanged: INVALID burns the whole pot; otherwise the M1 split.
+- punish(id, reporter), 68 bytes: BadCalldata unless reporter == tx.origin. The bond branch calls
+  Escrow.burnBond(bond, reward), where reward is the reporter record's reward address (w1 bits 0..159, tomb or not, so
+  a self-report is paid) or zero (no reporter, or no record). The PAID branch is unchanged (tomb only, no bond).
+- Escrow.burnBond(amount, reward), Registry-only, 68 bytes: cut = amount * rho_bp / 10^4 (CP 66) when reward is
+  nonzero, paid by PAY directly to the reward address (not into an ACCRUING reporter's bond); a failed PAY burns it;
+  burnedTotal += amount - cut. The Escrow invariant holds with the same terms: held_total falls by the bond, burnedTotal
+  rises by the bond less the cut that leaves Escrow.
+- The spec-1 selectors punish(address), invalidate(uint256) and burnBond(uint256) do not exist in the v3 programs.
+
+SYS footprint (resources::derive on CP schema v2): pending pots keep three words, so slots and keys are unchanged;
+a block with evidence touches one more account (the proposer's reward address receiving the cut). SYS gas, measured
+at the GAS_DOMAIN maxima with P_MAX 64 (tests/v3_contracts.rs v3-preview `v3_sys_gas_and_caps_within_the_v3_envelope`):
+recordResult 36,135, invalidate 8,515, punish 98,677 (a genesis member's never-written clock word, a middle active
+record, the reporter's PAY and the chain's first burn; an ACCRUING accused with a bond and the first burn measures
+86,701, since register writes its clock word), settle 6,313,113 (all P_MAX = 64 probationers live and at bond 0 filled
+to B_reg and promoted in one settlement, the chain's first burn, 192 HELD payees: the earn-in accrual, first measured
+here). Admission composes them from GAS_ENVELOPE_V3 (37,000; 9,000; 99,000; 6,314,000,
+also for settleFinal) for a genesis running the v3 set, whose gas domain also requires P_MAX <= 64; every other entry
+is GAS_ENVELOPE_EARNIN's (PoColSystemV3.sol is built on the earn-in programs, whose markClose and beginBlock measure
+above GAS_ENVELOPE; the same test measures v3 beginBlock 573,516 and markClose 30,889 within it). Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes.
+
+The independent model is tests/v3_model.py (class Chain; vectors tests/v3/evidence-penalty-vectors.json, whole blocks
+with settlement); five planted mutants (reporter-paid-on-fallback, whole-pot-for-bonded-accused,
+accruing-read-at-evidence, accruing-read-at-settle, rho-on-pot-not-bond) are in tests/v3/system-v3-mutants.json.

@@ -143,11 +143,15 @@ Type-2 evidence burns only the offender's parts; whole-pot burn kept when the ac
 
 Approved within the owner rule; CONSENSUS-COMPLIANT. Principle check: Ch7; P6/P7 strengthened. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
+Implementation note (V3-PR-E2b, v3 program set only; prototypes/lp4-execution/contracts/REGISTRY-LAYOUT.md). The fact recordResult can commit is about pot j's winner, the only identity known when the result is recorded, and evidence may arrive later; so the whole-pot burn applies when the accused is pot j's winner and that winner was ACCRUING when the result was recorded (bit 160 of the winner word). Evidence against any other member of block j (a share owner, the signed proposer) settles the pot normally, burning that member's parts. To record the fact as of block j even when the evidence is in block j+1, the v3 host runs recordShares(h-1) and recordResult(h-1) before the block's evidence in phase 0. Several pieces of type-2 evidence may name one pot. Whole-pot burn for a non-winner accused (which would let a zero-bond equivocator burn an honest winner's pot) is not implemented.
+
 ### D-V3-17
 
 Reporter reward ρ of a burned bond. O-17=b: 25% of punished bond goes to the carrying signed proposer reward address; burn 75%. A fallback has no reporter and burns the whole bond. Self-reporting still loses 75%.
 
 Approved within the owner rule; OWNER-CHOICE. Principle check: Ch7/Ch9; P6 kept. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
+
+Implementation note (V3-PR-E2b, v3 program set only). ρ is CP schema v2 field rho_bp (CP 66; 2500 in the draft profile). The host passes the reporter to punish; the program requires it to equal tx.origin, the carrying block's signed proposer (zero on a fallback). The cut is floor(bond·rho_bp/10^4), paid by PAY directly to the reward address of the reporter's record, whether that record is live, ACCRUING (no accrual into its bond) or a tomb (a self-report, or a proposer punished earlier in the same block); a failed PAY burns it. The rest burns.
 
 ### D-V3-18
 
