@@ -980,14 +980,20 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
         "eth_getStorageAt"=>{let a=p.first().and_then(parse_addr).ok_or(bad("address"))?;let k=p.get(1).and_then(parse_u256).ok_or(bad("slot"))?;
             let s=state_for(n,p.get(2).unwrap_or(&Value::Null))?;let v=s.v().slot(&a,&k);
             Ok(json!(hex(&v.to_be_bytes::<32>())))}
-        "eth_call"=>{let o=p.first().ok_or(bad("call"))?;let r=simulate(n,o,p.get(1).unwrap_or(&Value::Null),None,b)?.result;
+        "eth_call"=>{let o=p.first().ok_or(bad("call"))?;let r=simulate(n,o,p.get(1).unwrap_or(&Value::Null),None,b,Pricing::Charge)?.result;
             match r{ExecutionResult::Success{output,..}=>Ok(json!(hex(output.data()))),ExecutionResult::Revert{output,..}=>Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>Err(Fail::from((-32000,format!("halt {reason:?}"))))}}
         "eth_estimateGas"=>{
             let o=p.first().ok_or(bad("call"))?;let tag=Value::String("latest".into());
-            let first=simulate(n,o,&tag,Some(cp.GAS_LIMIT),b)?;
+            // V3 (D-V3-21 option A): a creation burn must fit in max_fee*gas_limit with the gas, so the
+            // search finds the gas limit that also covers the burn. The first run (the largest limit)
+            // needs the burn at the current occupancy; the search needs it at the ESTIMATE_DRIFT_UNITS
+            // margin (`estimate_drift`), so a little growth before inclusion does not halt the transaction.
+            // When no smaller limit passes the margin (or the funds/request cap leaves under 1000 gas to
+            // search), the first run's limit is returned, checked only at the current occupancy.
+            let first=simulate(n,o,&tag,Some(cp.GAS_LIMIT),b,Pricing::Charge)?;
             let used=match first.result{ExecutionResult::Success{gas_used,..}=>gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(&output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
             let (mut lo,mut hi)=(used,first.gas_limit);
-            while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b){Ok(Simulated{result:ExecutionResult::Success{..},..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
+            while lo+1000<hi{let mid=(lo+hi)/2;match simulate(n,o,&tag,Some(mid),b,Pricing::Margin){Ok(Simulated{result:ExecutionResult::Success{..},..})=>hi=mid,Err(f) if f.0==-32020=>return Err(f),_=>lo=mid}}
             Ok(json!(qty(hi)))
         }
         "eth_sendRawTransaction"=>{let raw=p.first().and_then(|x|x.as_str()).and_then(|s|unhex(s).ok()).ok_or(bad("raw"))?;
@@ -1020,6 +1026,9 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 return logs(n,&g,b)}
             if f["fromBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true)||f["toBlock"].as_str().map(|s|!s.starts_with("0x")).unwrap_or(true){return Err(bad("numeric fromBlock/toBlock").into())}
             logs(n,f,b)}
+        // D-V3-21: the creation burn of a call at the next block's current occupancy, split from its gas
+        // (network.md, "Creation burn quote"). Node-local; only a profile that can activate v3 serves it.
+        "pocol_quoteCreationBurn" if n.chain.spec.v3_active(u64::MAX)=>quote_creation_burn(n,p.first().ok_or(bad("call"))?,b),
         "pocol_status"=>Ok(n.status_json()),
         // V3-05: per-proposer template arrival and lock latency (also pocol_status.templateLatency; network.md).
         "pocol_templateLatency"=>Ok(n.template_latency_json()),
@@ -1100,8 +1109,43 @@ fn rpc_stats(n:&Node)->Value{
     if let (Some(m),Value::Object(o))=(v.as_object_mut(),own){m.extend(o);}
     v
 }
-struct Simulated{result:ExecutionResult,gas_limit:u64}
-fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simulated,Fail>{
+/// eth_estimateGas's occupancy margin (D-V3-21, node-local): the gas search prices each creation
+/// class as if this many more creations were included ahead of the transaction, clamped at the cap:
+/// 4 accounts, 4 slots and 4 code deployments of the largest size (ESTIMATE_DRIFT_UNITS*B_code_max
+/// code bytes; one account or slot is one unit, but one deployment adds up to B_code_max bytes), so
+/// that a few creations included before this transaction do not push its burn past the signed
+/// max_fee*gas_limit. It is a margin, not a guarantee: the consensus bound limits the sender's loss.
+pub const ESTIMATE_DRIFT_UNITS:u64=4;
+/// The margin per class [accounts, slots, code bytes] (`ESTIMATE_DRIFT_UNITS`).
+fn estimate_drift(cp:&pocol_lp4_execution::profile::ConsensusParams)->[u64;3]{
+    [ESTIMATE_DRIFT_UNITS,ESTIMATE_DRIFT_UNITS,ESTIMATE_DRIFT_UNITS.saturating_mul(u64::from(cp.B_code_max))]
+}
+/// How a priced (v3) estimate treats the creation burn.
+#[derive(Clone,Copy,PartialEq,Eq)]
+enum Pricing{
+    /// Charge it as a block would (the D-V3-21 bound at the current occupancy). Also every unpriced call.
+    Charge,
+    /// Charge, and also require the bound at the ESTIMATE_DRIFT_UNITS margin (`estimate_drift`).
+    Margin,
+    /// Only quote it (pocol_quoteCreationBurn): no bound, no charge.
+    Quote,
+}
+struct Simulated{result:ExecutionResult,gas_limit:u64,
+    /// Priced (v3) runs: the burn at the current occupancy and the parent's live counts it was priced at.
+    quote:Option<(pocol_lp4_execution::creation_fees::CreationBurn,pocol_lp4_execution::state_summary::Summary)>}
+/// pocol_quoteCreationBurn: the burn split by class, its total and the call's gas, priced like
+/// eth_estimateGas's first run (the next block, the head's live counts, the request's fee fields).
+fn quote_creation_burn(n:&Node,o:&Value,b:&Budget)->Result<Value,Fail>{
+    let tag=Value::String("latest".into());let s=simulate(n,o,&tag,Some(n.chain.spec.cp().GAS_LIMIT),b,Pricing::Quote)?;
+    let gas=match &s.result{ExecutionResult::Success{gas_used,..}=>*gas_used,ExecutionResult::Revert{output,..}=>return Err(Fail::from((3,format!("execution reverted:{}",hex(output))))),ExecutionResult::Halt{reason,..}=>return Err(Fail::from((-32000,format!("halt {reason:?}"))))};
+    let h=n.chain.head().height.saturating_add(1);
+    // Before v3 activates the next block charges no burn: zeros, and no occupancy is read.
+    let (burn,occupancy)=match s.quote{Some((burn,c))=>(burn,json!({"accounts":qty(c.user_accounts),"slots":qty(c.user_slots),"code":qty(c.inventory())})),None=>(Default::default(),Value::Null)};
+    let total=burn.total().ok_or_else(||Fail::from((-32000,"creation burn overflow".to_string())))?;
+    Ok(json!({"height":qty(h),"v3Active":n.chain.spec.v3_active(h),"accounts":qty256(burn.accounts),"slots":qty256(burn.slots),"code":qty256(burn.code),"total":qty256(total),
+        "gasUsed":qty(gas),"baseFee":qty256(next_base(n)),"occupancy":occupancy}))
+}
+fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget,pricing:Pricing)->Result<Simulated,Fail>{
     // COMPUTE_DEADLINE before each simulation (eth_estimateGas runs several): none starts past it.
     let deadline=||{b.late();Err(Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline"}))))};
     if b.expired(){return deadline()}
@@ -1152,21 +1196,51 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
     // call). A precompile runs to its end, so the cancellation gap is not bounded there (CANCEL_MAX
     // is not enforced); `member` still answers a late result -32020.
     let by=b.compute_by;let stop:std::rc::Rc<dyn Fn()->bool>=std::rc::Rc::new(move||Instant::now()>=by);
-    let (caller,gas_limit)=(tx.caller,tx.gas_limit);
+    let (caller,gas_limit,signed)=(tx.caller,tx.gas_limit,pocol_lp4_execution::user_phase::SignedFee::of(&tx));
+    let mut quote=None;
     match native::simulate_for_profile(&st,tx,&ctx,n.chain.spec.profile(),stop){
         Ok(mut r)=>{
             if estimate_v3{
                 // Counts refer to the actual parent, before the optional query
                 // caller above; the virtual caller occupies no live cap unit.
                 let summary=e.summary.as_deref().copied().unwrap_or_else(||pocol_lp4_execution::state_summary::Summary::scan_view(&base,cp.B_code_max));
+                let halt=|why:pocol_lp4_execution::user_phase::Halt|Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")})));
+                let quoted=|drift|pocol_lp4_execution::user_phase::quote_creation(&st,&r,&ctx,n.chain.spec.profile(),(summary.user_slots,summary.user_accounts),summary.inventory(),drift);
+                let burn=quoted([0;3]).map_err(halt)?;quote=Some((burn,summary));
+                if pricing==Pricing::Quote{
+                    // The estimate's other cap checks too, so a call it answers with a halt gets no quote:
+                    // the live caps on the effects (SysKeys, ...) and the own-log caps on the call's logs
+                    // with the CreationFeeBurn annotation a nonzero burn adds. Neither the signed-fee bound
+                    // nor the burn's payment is checked (a quote, not an admission).
+                    let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
+                    meter.admit(&st,&r.state).map_err(halt)?;
+                    let mut logs=r.result.logs().to_vec();logs.extend(burn.log(caller));
+                    if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,&logs,true){return Err(halt(why))}
+                    if b.expired(){return deadline()}
+                    return Ok(Simulated{result:r.result,gas_limit,quote})}
+                if pricing==Pricing::Margin{
+                    let margin=quoted(estimate_drift(cp)).map_err(halt)?.total().unwrap_or(U256::MAX);
+                    if margin!=U256::ZERO&&!signed.covers(ctx.base_fee,r.result.gas_used(),margin){return Err(halt(pocol_lp4_execution::user_phase::Halt::CreationFee))}
+                }
                 let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
-                meter.admit_result(&st,&mut r,caller,&ctx,n.chain.spec.profile(),summary.inventory()).map_err(|why|Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))?;
-                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),true){return Err(Fail::from((-32000,format!("execution would halt ({why:?})"))))}
+                meter.admit_result(&st,&mut r,caller,signed,&ctx,n.chain.spec.profile(),summary.inventory()).map_err(halt)?;
+                // The own-log caps (the CreationFeeBurn annotation included) are checked below for every estimate
+                // (N4, V3-24), with this same error object.
                 if b.expired(){return deadline()}
+            }
+            // N4 (V3-24): an estimate models the log caps active in the next block (`user_phase::log_caps`: the v3
+            // 256 KiB / 4,368 once v3 is active, else 32 KiB / 546, and LOG_CAP when H_END != 0). A transaction whose own
+            // logs pass one halts with all its gas in every block on this parent, so no gas value is answered for it
+            // (the pool refuses it the same way, `own_logs_halt_for`). Before N4 only the v3 estimate checked them.
+            // A v3 quote (pocol_quoteCreationBurn) returned above after its own check on the logs with the burn
+            // annotation; a quote before v3 activates gets this check, as its estimate would.
+            if gas.is_some(){
+                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),n.chain.spec.v3_active(e.height.saturating_add(1))){
+                    return Err(Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))}
             }
             // Preserve the legacy search ceiling; only v3 introduces priced
             // estimation with the request/funds-constrained upper bound.
-            Ok(Simulated{result:r.result,gas_limit:if estimate_v3{gas_limit}else{gas.unwrap_or(gas_limit)}})
+            Ok(Simulated{result:r.result,gas_limit:if estimate_v3{gas_limit}else{gas.unwrap_or(gas_limit)},quote})
         },
         Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>deadline(),
         Err(e)=>Err(Fail::from((-32000,format!("{e:?}")))),

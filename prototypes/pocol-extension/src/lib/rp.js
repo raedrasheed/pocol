@@ -1,19 +1,26 @@
 // RP header window (browser.md D77, D80–D84): items 1, 1b, viewFuture, 2–9 and
 // viewTargetCeil over n <= 13 headers. Items 10–17 are not evaluable by RP.
 import { keccak, sha256, recover } from './crypto.js';
-import { decodeGenesisSpec, decodeHeaderRef, MAX_SPEC_BYTES } from './refdec.js';
+import { decodeGenesisSpec, decodeHeaderRef, maxSpecBytes, cpIndexFor, SPEC_VERSION } from './refdec.js';
 import { concat, eq, be, toBig, fromHex, utf8 } from './hex.js';
 import { normalizeForkSchedule, activeVersion } from './forks.js';
 export const VIEW_SLACK_S = 4n, PHI_VIEW = 10;
 const MAX = (1n << 256n) - 1n;
 /** GenesisSpec (A07): the full accepted schema and evaluation order (refdec.js, a port of the
- * reference decoder checked differentially), after the MAX_SPEC_BYTES input bound. */
-export function decodeSpec(b) {
-  if (b.length > MAX_SPEC_BYTES) throw Object.assign(new Error('InputTooLarge'), { gs: 'InputTooLarge', detail: String(b.length) });
-  return decodeGenesisSpec(b);
+ * reference decoder checked differentially), after the MAX_SPEC_BYTES input bound. The result carries its
+ * specVersion. The default ceiling is the release decoder's SPEC_VERSION, so a spec-2 (v3) genesis is refused with
+ * gsVersion until activation (V3-PR-I); a higher `maxVersion` is for tests and explicit preview callers only. */
+export function decodeSpec(b, maxVersion = SPEC_VERSION) {
+  if (b.length > maxSpecBytes(maxVersion)) throw Object.assign(new Error('InputTooLarge'), { gs: 'InputTooLarge', detail: String(b.length) });
+  return decodeGenesisSpec(b, maxVersion);
 }
-const CPI = { g_ts: 0, target_g: 1, T_blk: 2, tau: 3, nonceMode: 4, c: 5, D_att: 6, dFbWait: 7, m: 8, H_END: 45 };
-export const cpv = (spec, k) => spec.cp[CPI[k]];
+/** A CP value by name in the schema of the spec's own version (GenesisSpec::cp_value). The v2 schema keeps the v1
+ * prefix, so every field RP reads has the same index in both; a v2-only name on a v1 spec is an error. */
+export const cpv = (spec, k) => {
+  const i = cpIndexFor(spec.specVersion ?? 1, k);
+  if (i < 0 || i >= spec.cp.length) throw new Error(`CP field ${k} is not in spec version ${spec.specVersion ?? 1}`);
+  return spec.cp[i];
+};
 const floorDiv = (a, b) => { const q = a / b; return (a % b !== 0n && ((a < 0n) !== (b < 0n))) ? q - 1n : q; };
 export function asert(targetG, gTs, tBlk, tau, pTs, pH) {
   const dt = (pTs - gTs) - tBlk * pH; const e = floorDiv(dt * 65536n, tau); const s = floorDiv(e, 65536n); const f = e - 65536n * s;
@@ -23,7 +30,8 @@ export function asert(targetG, gTs, tBlk, tau, pTs, pH) {
   return Y < 1n ? 1n : (Y > MAX ? MAX : Y);
 }
 export const work = (t) => (1n << 256n) / (t + 1n);
-/** pocold chain::full_nonce_rule: v2 introduced the full u64 nonce domain and every later version keeps it. */
+/** pocold chain::full_nonce_rule: v2 introduced the full u64 nonce domain and every later version keeps it. The rule
+ * reads only the fork version and CP nonceMode, never the spec version: a v3 (spec-2) genesis has nonceMode 1. */
 export const fullRange = (v, m) => v >= 2n || m === 1n;
 /** Header (A08): every field, width and canonical encoding of the reference decoder before any
  * trust result (refdec.js). RP still does not establish execution or membership validity. */

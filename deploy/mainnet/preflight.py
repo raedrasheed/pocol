@@ -46,6 +46,10 @@ R1_SOURCE = None
 # What pocold accepts: fork versions 1..MAX_FORK_VERSION and wire versions from PROTOCOL_VERSION_MIN (VA-SPEC §2).
 MAX_FORK_VERSION = 2
 PROTOCOL_VERSION_MIN = 2
+# The GenesisSpec version a release (feature-free) pocold decodes (genesis_spec.rs SPEC_VERSION). A spec-2 (v3)
+# genesis opens only in a v3-preview build, which a seed never runs, so this release-mode inventory refuses it until
+# activation (V3-PR-I).
+SPEC_VERSION = 1
 # The state binding fields node_operator.launch compares (plan §4); the build digest is informational.
 BOUND = ('chainId', 'genesisHash', 'consensusIdentity', 'stateStore', 'node', 'miner')
 LAYOUTS = {
@@ -144,6 +148,25 @@ def forks(value):
     require(value[0] == [1, 0] and all(v == i + 1 <= MAX_FORK_VERSION for i, (v, _) in enumerate(value))
             and all(a[1] < b[1] for a, b in zip(value, value[1:])), 'unsupported fork schedule')
     return value
+
+
+def spec_version(network, spec_text):
+    """The GenesisSpec version of a public network: the first item of genesis.spec.hex (a canonical one-byte integer
+    at the head of its top-level RLP list), which must equal what devnet.json declares (deploy/public-testnet/
+    pocol_identity.spec_version: `specVersion: 2` and `v3: true` together for a v3 genesis, neither for spec 1). The
+    spec version is no identity input (genesisHash commits the whole spec), but a release seed refuses spec 2."""
+    declared = network.get('specVersion', 1)
+    require(type(declared) is int and declared in (1, 2) and network.get('v3', False) is (declared == 2),
+            'unsupported or inconsistent GenesisSpec version')
+    text = spec_text.strip()
+    text = text[2:] if text[:2].lower() == '0x' else text
+    require(re.fullmatch(r'(?:[0-9a-fA-F]{2})+', text) is not None, 'invalid public GenesisSpec')
+    spec = bytes.fromhex(text)
+    start = 1 if spec[0] <= 0xf7 else 1 + spec[0] - 0xf7
+    require(spec[0] >= 0xc0 and start < len(spec) and 0 < spec[start] < 0x80, 'invalid public GenesisSpec version')
+    require(spec[start] == declared, 'GenesisSpec version differs from the network metadata')
+    require(declared == SPEC_VERSION, 'a release seed refuses a spec-2 (v3) genesis until activation')
+    return declared
 
 
 def consensus_id(chain_id, genesis, rules, schedule):
@@ -260,6 +283,8 @@ def bundle_report(bundle):
     require(build.get('features') == [] and type(build.get('protocolVersion')) is int
             and build['protocolVersion'] >= PROTOCOL_VERSION_MIN, 'unsupported or test-feature native build')
     schedule = forks(network.get('forks', [[1, 0]]))
+    # Hex of at most MAX_SPEC_BYTES (about 2.8 MB of bytes, about 5.6 MB as hex) plus a line ending.
+    spec_version(network, public_bytes(bundle / 'net/genesis.spec.hex', 8 * 1024 * 1024).decode('ascii', 'replace'))
     public = release_identity(network, build, schedule)
     binding = binding_identity(manifest.get('identity', {}))
     require(identity(binding) == public, 'bundle identity mismatch')
@@ -360,6 +385,7 @@ def standalone_report(bundle, home):
     network = json_object(files['devnet.json'])
     json_object(files['alloc.json'])
     schedule = forks(network.get('forks', [[1, 0]]))
+    spec_version(network, files['genesis.spec.hex'])
     build = ({'compatibilitySha256': LEGACY_SOURCE} if legacy else
              {'compatibilitySha256': R1_SOURCE, 'consensusRulesVersion': rules, 'consensusPinned': True})
     public = release_identity(network, build, schedule)

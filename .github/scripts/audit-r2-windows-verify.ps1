@@ -28,7 +28,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Evidence,
     [Parameter(Mandatory = $true)][string]$ExpectedCommit,
-    [ValidateSet('all', 'lp1', 'lp4', 'pocold', 'pocold-io-fault', 'extension')][string]$Group = 'all'
+    [ValidateSet('all', 'lp1', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault', 'extension')][string]$Group = 'all'
 )
 
 Set-StrictMode -Version 2.0
@@ -41,7 +41,7 @@ $NodeVersion = '22.22.0'
 # https://nodejs.org/dist/v22.22.0/SHASUMS256.txt, node-v22.22.0-win-x64.zip
 $NodeSha256 = 'c97fa376d2becdc8863fcd3ca2dd9a83a9f3468ee7ccf7a6d076ec66a645c77a'
 $NeedsLp1 = @('all', 'lp1') -contains $Group
-$NeedsMain = @('all', 'lp4', 'pocold', 'pocold-io-fault') -contains $Group
+$NeedsMain = @('all', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault') -contains $Group
 $NeedsExtension = @('all', 'extension') -contains $Group
 
 if ($ExpectedCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'ExpectedCommit must be a full 40-character lowercase hex SHA' }
@@ -78,19 +78,19 @@ function Invoke-Step {
     $psi.StandardOutputEncoding = $Utf8; $psi.StandardErrorEncoding = $Utf8
     foreach ($k in $ChildEnvRemove) { if ($psi.EnvironmentVariables.ContainsKey($k)) { $psi.EnvironmentVariables.Remove($k) } }
     foreach ($k in $ExtraEnv.Keys) { $psi.EnvironmentVariables[$k] = $ExtraEnv[$k] }
-    $sw = [System.Diagnostics.Stopwatch]::StartNew(); $text = ''; $code = $null; $timedOut = $false
+    $sw = [System.Diagnostics.Stopwatch]::StartNew(); $text = ''; $stdout = ''; $code = $null; $timedOut = $false
     try {
         $p = [System.Diagnostics.Process]::Start($psi)
         $o = $p.StandardOutput.ReadToEndAsync(); $e = $p.StandardError.ReadToEndAsync()
         if (-not $p.WaitForExit($TimeoutMinutes * 60000)) { $timedOut = $true; try { $p.Kill($true) } catch { } }
-        $p.WaitForExit(); $text = $o.Result + "`n" + $e.Result
+        $p.WaitForExit(); $stdout = $o.Result; $text = $o.Result + "`n" + $e.Result
         if (-not $timedOut) { $code = $p.ExitCode }
     }
     catch { $text = 'could not start: ' + $_.Exception.Message }
     $sw.Stop()
     [System.IO.File]::WriteAllText((Join-Path $Logs ($Name + '.log')), $text, $Utf8)
     Write-Host ('{0,-28} exit {1,-8} {2,8}s' -f $Name, $(if ($timedOut) { 'TIMEOUT' } else { $code }), [math]::Round($sw.Elapsed.TotalSeconds, 1))
-    return [pscustomobject]@{ ExitCode = $code; Text = $text; TimedOut = $timedOut; Seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); Command = ($Program + ' ' + $psi.Arguments); Cwd = $Cwd }
+    return [pscustomobject]@{ ExitCode = $code; Text = $text; Stdout = $stdout; TimedOut = $timedOut; Seconds = [math]::Round($sw.Elapsed.TotalSeconds, 1); Command = ($Program + ' ' + $psi.Arguments); Cwd = $Cwd }
 }
 
 # Totals of cargo's "test result:" lines.
@@ -102,14 +102,24 @@ function Get-CargoTotals([string]$Text) {
 
 # Echoes a failed cargo run's failure lines (failing tests, panics, the failures summary) to the job log,
 # so a failure can be diagnosed without downloading the evidence artifact. At most 300 lines.
-function Show-CargoFailures([string]$Check, [string]$Text) {
+# On a timeout it also echoes each test binary's start and result line and the last 40 lines of the tests' own
+# output (stdout: Text holds all of stdout, then all of stderr, so its tail would be cargo's stderr),
+# which show the binary (and the test) that was still running when the run was stopped.
+function Show-CargoFailures([string]$Check, [string]$Text, [bool]$TimedOut = $false, [string]$Stdout = '') {
     $out = New-Object System.Collections.Generic.List[string]
     $inFailures = $false
-    foreach ($l in ($Text -split "`r?`n")) {
+    $lines = $Text -split "`r?`n"
+    foreach ($l in $lines) {
         if ($l -match '^failures:\s*$') { $inFailures = $true }
         elseif ($l -match '^test result:') { $inFailures = $false }
         if ($inFailures -or $l -match '^test .* \.\.\. FAILED' -or $l -match 'panicked at' -or $l -match '^error(\[|:)' -or $l -match '^---- .* ----$') { $out.Add($l) }
         if ($out.Count -ge 300) { $out.Add('(truncated; see the evidence artifact)'); break }
+    }
+    if ($TimedOut) {
+        $out.Add('--- timed out: test binaries started and finished ---')
+        foreach ($l in $lines) { if ($l -match '^\s*Running ' -or $l -match '^test result:') { $out.Add($l) } }
+        $out.Add('--- timed out: last 40 lines of test output (stdout) ---')
+        foreach ($l in (($Stdout -split "`r?`n") | Select-Object -Last 40)) { $out.Add($l) }
     }
     Write-Host ('::group::{0} failure lines' -f $Check)
     foreach ($l in $out) { Write-Host $l }
@@ -134,7 +144,7 @@ function Test-Cargo([string]$Check, [string]$Crate, [string]$Toolchain, [string[
     elseif ($r.ExitCode -eq 0 -and $t.Passed -gt 0) { Add-Check $Check $r 'PASS' $detail }
     elseif ($r.ExitCode -eq 0) { Add-Check $Check $r 'FAIL' ('exit 0 but no test ran; ' + $detail) }
     else { Add-Check $Check $r 'FAIL' ("exit $($r.ExitCode); " + $detail) }
-    if ($r.TimedOut -or $r.ExitCode -ne 0) { Show-CargoFailures $Check $r.Text }
+    if ($r.TimedOut -or $r.ExitCode -ne 0) { Show-CargoFailures $Check $r.Text $r.TimedOut $r.Stdout }
     return $r
 }
 function Test-Program([string]$Check, [string]$Crate, [string]$Program, [string[]]$ArgList, [hashtable]$Env, [int]$TimeoutMinutes = 30) {
@@ -179,7 +189,7 @@ $NodeEnv = $(if ($NodeDir) { @{ PATH = ($NodeDir + ';' + $env:PATH) } } else { @
 $SelectedCrates = @()
 if ($NeedsLp1) { $SelectedCrates += 'lp1-node' }
 if (@('all', 'lp4') -contains $Group) { $SelectedCrates += 'lp4-execution' }
-if (@('all', 'pocold', 'pocold-io-fault') -contains $Group) { $SelectedCrates += 'pocold' }
+if (@('all', 'pocold', 'pocold-consensus', 'pocold-io-fault') -contains $Group) { $SelectedCrates += 'pocold' }
 foreach ($c in @(@('lp1-node', $RustLp1), @('lp4-execution', $RustMain), @('pocold', $RustMain))) {
     if ($SelectedCrates -notcontains $c[0]) { continue }
     $r = Invoke-Step ('fetch-' + $c[0]) 'cargo' @('fetch', '--locked') (& $P $c[0]) @{ RUSTUP_TOOLCHAIN = $c[1] }
@@ -192,13 +202,23 @@ if ($NeedsLp1) {
 if (@('all', 'lp4') -contains $Group) {
 [void](Test-Cargo 'lp4-execution' 'lp4-execution' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 90)
 }
+# pocold's suite is split in two groups so that each fits the 150-minute job with room for a slow runner (the whole
+# suite took 80 to 119 minutes in one job). Together they run what `cargo test` runs: the library, binaries and
+# examples, every tests/*.rs target (found here, so a new file is included) and the doctests.
 if (@('all', 'pocold') -contains $Group) {
-# Leave room for the full durable-store suite inside the workflow's 150-minute job.
-[void](Test-Cargo 'pocold' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast') 120)
+$PocoldTests = @(Get-ChildItem -LiteralPath (Join-Path (& $P 'pocold') 'tests') -Filter '*.rs' -File | ForEach-Object { $_.BaseName } | Where-Object { $_ -ne 'consensus' } | Sort-Object)
+$PocoldArgs = @('test', '--release', '--locked', '--no-fail-fast', '--lib', '--bins', '--examples'); foreach ($t in $PocoldTests) { $PocoldArgs += @('--test', $t) }
+[void](Test-Cargo 'pocold' 'pocold' $RustMain $PocoldArgs 120)
+[void](Test-Program 'pocold-doc' 'pocold' 'cargo' @('test', '--release', '--locked', '--doc') @{ RUSTUP_TOOLCHAIN = $RustMain })
+}
+# tests/consensus.rs alone (the largest target).
+if (@('all', 'pocold-consensus') -contains $Group) {
+[void](Test-Cargo 'pocold-consensus' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--test', 'consensus') 120)
 }
 # Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store and consensus.
+# This group takes about 70 minutes on a hosted runner; 120 minutes leaves room for a slow runner inside the 150-minute job.
 if (@('all', 'pocold-io-fault') -contains $Group) {
-[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory') 90)
+[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory') 120)
 }
 if ($NeedsExtension) {
 $npm = $(if ($NodeDir) { Join-Path $NodeDir 'npm.cmd' } else { 'npm' }); $node = $(if ($NodeDir) { Join-Path $NodeDir 'node.exe' } else { 'node' })

@@ -50,17 +50,20 @@ export async function generate() {
   const gsv1 = unhex(v.flatSegments.map((s) => (typeof s === 'string' ? s : s.repeat.repeat(s.count))).join(''));
   if (gsv1.length !== v.expected.length) throw new Error('GSV1 length');
   const devnet = unhex(readFileSync(join(HERE, 'data', 'devnet-spec.hex'), 'utf8').trim());
-  const SCHEMA = (await import(pathToFileURL(join(dist, 'lib', 'refdec.js')).href)).CP_SCHEMA;
-  for (const [label, base] of [['gsv1', gsv1], ['devnet', devnet]]) {
+  const REFDEC = await import(pathToFileURL(join(dist, 'lib', 'refdec.js')).href);
+  const V1 = { schema: REFDEC.CP_SCHEMA, versions: [['0', new Uint8Array(0)], ['2', Uint8Array.of(2)], ['wrapped-1', { raw: Uint8Array.of(0x81, 0x01) }], ['leading-zero-1', Uint8Array.of(0, 1)], ['256', Uint8Array.of(1, 0)]] };
+  // Every base gets the same mutations of the framing, the six top items, each CP field of its own schema (zero,
+  // the bounds and one past them, the width, non-canonical and list encodings), both roots and M_0List.
+  const specMutations = (label, base, { schema, versions, cpCounts = (t) => [[`cp-${schema.length - 1}`, del(t, [2, schema.length - 1])], [`cp-${schema.length + 1}`, at(t, [2], (c) => [...c, Uint8Array.of(1)])]] }) => {
     const t = parse(base); add('spec', `${label}/base`, encode(t));
     byteMutations('spec', label, base);
     add('spec', `${label}/top-string`, encode(bytes(5)));
     add('spec', `${label}/top-5`, encode(t.slice(0, 5))); add('spec', `${label}/top-7`, encode([...t, bytes(1)]));
     for (let i = 0; i < 6; i++) add('spec', `${label}/top[${i}]-kind`, encode(at(t, [i], (x) => (Array.isArray(x) ? bytes(1) : [x]))));
-    for (const [n, val] of [['0', new Uint8Array(0)], ['2', Uint8Array.of(2)], ['wrapped-1', { raw: Uint8Array.of(0x81, 0x01) }], ['leading-zero-1', Uint8Array.of(0, 1)], ['256', Uint8Array.of(1, 0)]]) add('spec', `${label}/version-${n}`, encode(at(t, [0], () => val)));
+    for (const [n, val] of versions) add('spec', `${label}/version-${n}`, encode(at(t, [0], () => val)));
     for (const [n, val] of [['empty', new Uint8Array(0)], ['9-bytes', bytes(9, 1)], ['leading-zero', Uint8Array.of(0, 5)], ['wrapped', { raw: Uint8Array.of(0x81, 0x05) }], ['max', bytes(8, 0xff)]]) add('spec', `${label}/chainId-${n}`, encode(at(t, [1], () => val)));
-    add('spec', `${label}/cp-51`, encode(del(t, [2, 51]))); add('spec', `${label}/cp-53`, encode(at(t, [2], (c) => [...c, Uint8Array.of(1)])));
-    SCHEMA.forEach(([name, width, lo, hi], k) => {
+    for (const [n, tree] of cpCounts(t)) add('spec', `${label}/${n}`, encode(tree));
+    schema.forEach(([name, width, lo, hi], k) => {
       const cp = (val) => encode(at(t, [2, k], () => val));
       add('spec', `${label}/cp.${name}=0`, cp(new Uint8Array(0)));
       if (lo > 0) add('spec', `${label}/cp.${name}=lo-1`, cp(be(lo - 1)));
@@ -85,7 +88,8 @@ export async function generate() {
     const sys = new Uint8Array(20).fill(0xff); sys[19] = 0xfe; const prog = new Uint8Array(20); prog.set([0xc0, 0xc0, 0x01], 17); const progHi = new Uint8Array(20); progHi.set([0xc0, 0xc0, 0xff], 17); const progOut = new Uint8Array(20); progOut.set([0xc0, 0xc1, 0x00], 17);
     for (const [n, id] of [['zero', new Uint8Array(20)], ['system', sys], ['program-low', prog], ['program-high', progHi], ['just-above-programs', progOut]]) add('spec', `${label}/m0-id-${n}`, encode(at(t, [4], (l) => [[id, l[0][1]]])));
     add('spec', `${label}/long-form-short-list`, Uint8Array.from([0xf8, 2, 0xc1, 0x01]));
-  }
+  };
+  for (const [label, base] of [['gsv1', gsv1], ['devnet', devnet]]) specMutations(label, base, V1);
   // Depth: a CP item replaced by nested lists far below any limit is a structure error.
   { let deep = Uint8Array.of(1); for (let i = 0; i < 40; i++) deep = [deep]; add('spec', 'gsv1/deep-cp-item', encode(at(parse(gsv1), [2, 0], () => deep))); }
 
@@ -124,6 +128,29 @@ export async function generate() {
   }
   // The audit's malformed fields (A08): 31-byte stateRoot, empty bloom, list gasLimit, together.
   { const t = parse(unhex(headers[0])); const m = at(at(at(t, [0, 0, 9], () => bytes(31)), [0, 0, 12], () => new Uint8Array(0)), [0, 0, 13], () => [Uint8Array.of(1)]); add('header', 'audit-a08/combined', encode(m)); }
+
+  // ---------------- GenesisSpec version 2 (CP schema v2, V3-PR-B) ----------------
+  // The devnet spec as a v3 genesis: specVersion 2, nonceMode 1 (testnet.rs Config.v3) and the fifteen appended CP
+  // v2 fields at the lp4 devnet defaults (devnet.rs DevnetConfig). The release verdicts (decoder-verdicts.json) refuse
+  // every version-2 item with gsVersion until activation (V3-PR-I); decoder-verdicts-preview.json holds the v3-preview
+  // decoder's verdicts (decode_bounded at ceiling 2) for the whole corpus.
+  const V2_DEVNET = [31557600n, 62500000000000000n, 16n, 648000n, 1000000000000000n, 0n, 0n, 5000n, 10000000n, 4n, 40n, 21600n, 1250n, 3n, 2500n];
+  if (V2_DEVNET.length !== REFDEC.CP_V2_EXTRA.length) throw new Error('CP v2 defaults');
+  const v1t = parse(devnet);
+  const v2t = [Uint8Array.of(2), v1t[1], [...v1t[2].map((x, k) => (k === 4 ? Uint8Array.of(1) : x)), ...V2_DEVNET.map(be)], v1t[3], v1t[4], v1t[5]];
+  const devnetV2 = encode(v2t);
+  specMutations('devnet-v2', devnetV2, {
+    schema: REFDEC.CP_SCHEMA_V2,
+    // 1 with 67 CP items is gsCount; 3 has no schema (a future version never inherits v2's layout). The v1 bases'
+    // version-2 items are the converse: 52 CP items under version 2 (gsCount in the preview decoder).
+    versions: [['0', new Uint8Array(0)], ['1', Uint8Array.of(1)], ['3', Uint8Array.of(3)], ['wrapped-2', { raw: Uint8Array.of(0x81, 0x02) }], ['leading-zero-2', Uint8Array.of(0, 2)], ['255', Uint8Array.of(0xff)], ['256', Uint8Array.of(1, 0)], ['258', Uint8Array.of(1, 2)]],
+    cpCounts: (t) => [['cp-66', del(t, [2, 66])], ['cp-68', at(t, [2], (c) => [...c, Uint8Array.of(1)])], ['cp-52', at(t, [2], (c) => c.slice(0, 52))], ['cp-0', at(t, [2], () => [])]],
+  });
+  // Every extra field at its widest value, and the upper bounds together: the longest CP v2 values still decode.
+  add('spec', 'devnet-v2/cp-v2-extra-all-max', encode(at(v2t, [2], (c) => [...c.slice(0, 52), ...REFDEC.CP_V2_EXTRA.map(([, w, , hi]) => (typeof hi === 'number' ? be(hi) : be((1n << BigInt(w)) - 1n)))])));
+  add('spec', 'devnet-v2/cp-v2-extra-all-lo', encode(at(v2t, [2], (c) => [...c.slice(0, 52), ...REFDEC.CP_V2_EXTRA.map(([, , lo]) => be(lo))])));
+  // Stage order on a v2 spec: a version-2 item whose CP v2 field is out of range and whose M_0List is empty is gsCount.
+  add('spec', 'devnet-v2/empty-m0-and-bad-rho', encode(at(at(v2t, [4], () => []), [2, 66], () => be(10001))));
   return items;
 }
 
