@@ -216,14 +216,20 @@ pub const CALIBRATION_STORE:&str="calibration.store";
 /// `load_spec` for a node about to open `store_data` in store mode (C-1 E4; `None`: whole-state mode). R14/R19 are
 /// measured on the path that node runs: the calibration blocks are also applied through a scratch state store in
 /// `store_data` (each block's nodes committed and fsynced to its state.redb, on the node's own disk), and each phase
-/// class takes the larger per-block execution median of the two paths. Store latency is separate. The scratch store is removed before the node opens.
+/// class takes the larger of the two paths' per-block costs: execution median, plus each block's durable commit on the
+/// store path, the calibration's largest max(1, n/4) of n commits counted at the median commit. The measured times are
+/// in a timing refusal and kept with the admission (`Admitted::timing`, printed by `run`). A timing refusal is measured
+/// once more before boot fails. The scratch store is removed before the node opens.
 pub fn load_spec_for(dir:&std::path::Path,local:&NodeLocal,store_data:Option<&std::path::Path>)->Result<chain::Spec,String>{
     load_spec_calibrated(dir,local,|bytes,alloc|{
         let mem=admission::measure(bytes,alloc,3)?;
         match store_data{Some(data)=>mem.with_store(&store_timing(data,bytes,alloc)?),None=>Ok(mem)}
     })
 }
-fn load_spec_calibrated(dir:&std::path::Path,local:&NodeLocal,mut measure:impl FnMut(&[u8],&revm::InMemoryDB)->Result<admission::Timing,String>)->Result<chain::Spec,String>{
+/// `load_spec_for` with the calibration supplied by `measure` (called once, or twice after a timing refusal); public
+/// so the boot tests can inject a slow store.
+#[doc(hidden)]
+pub fn load_spec_calibrated(dir:&std::path::Path,local:&NodeLocal,mut measure:impl FnMut(&[u8],&revm::InMemoryDB)->Result<admission::Timing,String>)->Result<chain::Spec,String>{
     let hexs=std::fs::read_to_string(dir.join("genesis.spec.hex")).map_err(|e|format!("genesis.spec.hex: {e}"))?;
     let spec_bytes=types::unhex(hexs.trim())?;
     let alloc:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(dir.join("alloc.json")).map_err(|e|format!("alloc.json: {e}"))?).map_err(|e|e.to_string())?;
@@ -286,7 +292,7 @@ fn a_timing_refusal_recalibrates_once_and_admits_a_recovered_host(){
 #[test]
 fn sustained_slow_execution_is_refused_after_two_calibrations_with_the_measured_times(){
     let (dir,n)=fixture("slow");let mut t=admission::measure(&n.spec_bytes,&n.alloc,3).unwrap();
-    t.phase_ms=[1001,1002,1003];t.store_ms=17;t.stored=true;let mut calls=0;
+    t.phase_ms=[1001,1002,1003];t.exec_ms=[1001,1002,1003];t.store_ms=17;t.stored=true;let mut calls=0;
     let e=load_spec_calibrated(&dir,&single_host_local(),|_,_|{calls+=1;Ok(t.clone())}).err().unwrap();
     assert_eq!(calls,2);assert!(e.starts_with("-32018 ParamGate rejected [R14, R19]"),"{e}");
     for part in ["execution_ms=[1001, 1002, 1003]","store_fsync_ms=17",&format!("samples={}",t.samples),"t_exec_ms=1000"]{assert!(e.contains(part),"{e}");}

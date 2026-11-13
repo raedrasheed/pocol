@@ -69,6 +69,7 @@ impl Spec{
     /// schema v2 P_MAX/T_PROB on the v3 set, none otherwise. Read-only (wallet quotes and displays).
     pub fn probation(&self)->Option<apply::Probation>{self.programs().probation(self.cp())}
     pub fn v3_active(&self,h:u64)->bool{self.profile().v3_active(h)}
+    pub fn base_fee_floor(&self,h:u64)->U256{if self.v3_active(h){from_fixed_lp4(&self.cp().baseFeeMin)}else{U256::ZERO}}
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}
     pub fn active_version(&self,h:u64)->u16{self.profile().forks().active_version(h)}
     /// The genesis CP remains immutable. Consensus v2 activates the complete u64
@@ -575,7 +576,8 @@ impl Chain{
         let target=self.target_for_child(p)?;
         let nonce_max=assignment::nonce_max(&target,self.spec.effective_nonce_mode(h),cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
         let t_share=to_fixed(from_fixed(&target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
-        let base_fee=if h==1{from_fixed_lp4(&cp.baseFee0)}else{fees::next_base_fee(p.base_fee,p.gas_used,p.header.gas_limit).map_err(|e|Reject::Block(format!("baseFee {e:?}")))?};
+        let floor=self.spec.base_fee_floor(h);
+        let base_fee=if h==1{from_fixed_lp4(&cp.baseFee0).max(floor)}else{fees::next_base_fee(p.base_fee,p.gas_used,p.header.gas_limit,floor).map_err(|e|Reject::Block(format!("baseFee {e:?}")))?};
         Ok(ChildPre{window,target,nonce_max,t_share,base_fee})
     }
     /// C-1 S5: the BLOCKHASH window must be whole (min(p.height + 1, 256) ancestors). A walk that stops short met an

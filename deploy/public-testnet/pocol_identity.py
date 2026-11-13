@@ -9,6 +9,10 @@ import hashlib
 DOMAIN = b'pocol-consensus-identity-v1\0'
 FLAG_CAPS_TEST = 1
 FLAG_UNPINNED = 2
+# Test-only spec-2 preview (pocold identity::FLAG_V3_PREVIEW): isolated even when its sources are pinned.
+FLAG_V3_PREVIEW = 4
+# The flags that append the consensus-sources aggregate to the identity (identity.rs consensus_id).
+FLAGS_WITH_SOURCES = FLAG_UNPINNED | FLAG_V3_PREVIEW
 # The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION).
 MAX_FORK_VERSION = 2
 # The lowest wire version a peer may send (pocold identity::PROTOCOL_VERSION_MIN).
@@ -56,7 +60,7 @@ def legacy_rules(digest, chain_id, genesis, table=None):
 
 def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
     """SHA-256(domain || chainId u64 || genesisHash || rules u32 || flags u8 || n u8 ||
-    (version u16 || height u64) x n || [sources, only with the unpinned bit]), big-endian.
+    (version u16 || height u64) x n || [sources, exactly with the unpinned or preview bit]), big-endian.
     genesis and sources are 32 bytes or 64 hex characters (an 0x prefix is allowed);
     returns lowercase hex without a prefix, as pocol_status consensusIdentity."""
     def raw(value):
@@ -67,8 +71,8 @@ def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
         return value
     if not 1 <= len(forks) <= 16:
         raise ValueError('a consensus identity covers a validated schedule')
-    if bool(flags & FLAG_UNPINNED) != (sources is not None):
-        raise ValueError('the unpinned bit and the aggregate go together')
+    if bool(flags & FLAGS_WITH_SOURCES) != (sources is not None):
+        raise ValueError('the unpinned or preview bit and the aggregate go together')
     data = DOMAIN + chain_id.to_bytes(8, 'big') + raw(genesis) + rules.to_bytes(4, 'big') + bytes([flags, len(forks)])
     data += b''.join(v.to_bytes(2, 'big') + h.to_bytes(8, 'big') for v, h in forks)
     if sources is not None:
@@ -77,8 +81,11 @@ def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
 
 
 def build_flags(build):
-    """The flags a build reports through `pocold build-info`."""
-    return (FLAG_CAPS_TEST if 'caps-test' in build.get('features', []) else 0) | (0 if build['consensusPinned'] else FLAG_UNPINNED)
+    """The flags a build reports through `pocold build-info` (identity.rs flags(): bit0 caps-test, bit1 unpinned,
+    bit2 v3-preview)."""
+    features = build.get('features', [])
+    return ((FLAG_CAPS_TEST if 'caps-test' in features else 0) | (0 if build['consensusPinned'] else FLAG_UNPINNED)
+            | (FLAG_V3_PREVIEW if build.get('v3Preview') is True or 'v3-preview' in features else 0))
 
 
 def for_network(info, build):
@@ -86,4 +93,4 @@ def for_network(info, build):
     flags = build_flags(build)
     return consensus_id(info['chainId'], info['genesisHash'], build['consensusRulesVersion'], flags,
                         validated_schedule(info.get('forks', [[1, 0]]), build.get('maxForkVersion', MAX_FORK_VERSION)),
-                        build['consensusSourcesSha256'] if flags & FLAG_UNPINNED else None)
+                        build['consensusSourcesSha256'] if flags & FLAGS_WITH_SOURCES else None)

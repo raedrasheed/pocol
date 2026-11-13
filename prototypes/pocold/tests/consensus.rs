@@ -1996,9 +1996,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // V3-04: timestamps stay in the journal; the timely bit fits the existing
     // Entry layout and checkpoint flags. The eviction batch now counts actual
     // normalized Entry boxes and Rec slots, rather than encoded REC_MIN.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_396_912_610,"the A13 model total changed");
+    // C3 corrects a legacy under-count on every profile, spec-1 included: the
+    // unchanged receipts::encode nesting, the receipts-root clone and apply's
+    // USER receipt report copy (+878624 B, identically with eviction on/off).
+    // No block report carries a creation-burn field (ChainFacts is unchanged).
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_791_234,"the A13 model total changed");
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_387_450_989,"eviction off keeps the legacy record footprint");
+        assert_eq!(off.total,3_388_329_613,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -4199,6 +4203,48 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
         {let c=n.canon();c.sync().unwrap();println!("PR7-CANON-BYTES {}",serde_json::json!({"store":store,"rows":2000-e-1,"fileBytes":c.file_bytes(),"bytesPerRow":c.file_bytes()/(2000-e-1)}));}
         if store{println!("PR7-CHECKPOINT-BYTES {sizes:?}");assert!(sizes[0].abs_diff(sizes[1])<=2*pocold::checkpoint::REC_MAX,"FAIL-ON-ORIGINAL: checkpoint bytes {sizes:?}");}
         drop(n);let _=std::fs::remove_dir_all(&dir);
+    }
+}
+
+/// V3-33: the old-chain export (`cutover::export`) reads each block below the in-memory window from the canonical index
+/// and the journal (`canonical_view`), and each block in it from its entry (`block_msg`). A node that evicted its old
+/// history writes the same bytes as one that keeps every block, live and after a reopen from disk (the production
+/// export opens a stopped node), in store and whole-state mode, and the export verifies. The evicting node's window
+/// starts above height 1 when it exports (positive control), so nearly every block of its export takes the index path.
+#[test] fn an_evicting_node_exports_the_same_old_chain_bytes_as_one_that_keeps_every_block(){
+    use pocold::cutover::export;
+    let rk=24u64;
+    // Blocks 1..=10 carry a user transaction each (so the bodies read back from the journal are not empty), then
+    // fallback blocks to E + 60.
+    let e=pr7_depth(&pr7_limits(rk,true,0,None)).max(pr7_depth(&pr7_limits(rk,false,0,None)));
+    let blocks={let mut h=net();let alice=devnet::account_key("alice");let bob=devnet::account_key("bob").address();let mut out=vec![];
+        for i in 0..10u64{let head=h.chain.head;
+            let tx=Tx{chain_id:777910,nonce:i,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas:21000,to:Some(bob),value:U256::from(i+1),data:Default::default()}.sign_1559(&alice);
+            let b=signed(&h,head,Body{txs:vec![tx],evidence:vec![]},0);assert!(import(&mut h,&b));h.chain.retain();out.push(b);}
+        let tip=h.chain.head;out.extend(grow(&mut h,tip,e as usize+50,&|n,p|fallback(n,p,0)));out};
+    for store in [true,false]{
+        let l=pr7_limits(rk,store,0,None);
+        let (da,dr)=(e44_dir(&format!("v333-evict-{store}")),e44_dir(&format!("v333-keep-{store}")));
+        let mut a=reopen(&pr7_conf(&da,l.clone()));let mut r=reopen(&pr7_conf(&dr,pr7_limits(rk,store,0,Some(u64::MAX))));
+        for b in &blocks{a.import(b.clone(),None).unwrap();r.import(b.clone(),None).unwrap();}
+        let (base,head)=(a.chain.canonical.base(),a.chain.head().height);let s=head-40;
+        assert!(base>1&&s>=base,"positive control ({store}): the evicting node's window starts at {base} (export height {s})");
+        assert!(r.chain.canonical.base()<=1,"the reference keeps every block ({store})");
+        let g=(a.chain.spec.chain_id(),a.chain.spec.genesis_hash());
+        let out=|tag:&str|{let d=e44_dir(&format!("v333-out-{tag}-{store}"));let _=std::fs::remove_dir_all(d.with_file_name(format!("{}.partial",d.file_name().unwrap().to_string_lossy())));d};
+        let (oa,or)=(out("evict"),out("keep"));
+        let ma=export::export(&mut a,s,&oa).unwrap_or_else(|e|panic!("{e}"));let mr=export::export(&mut r,s,&or).unwrap_or_else(|e|panic!("{e}"));
+        drop(a);drop(r);
+        let mut a=reopen(&pr7_conf(&da,l.clone()));assert!(a.chain.canonical.base()>1,"the reopened node evicted too ({store})");
+        let ob=out("reopened");let mb=export::export(&mut a,s,&ob).unwrap_or_else(|e|panic!("{e}"));drop(a);
+        for f in [export::MANIFEST,export::PARTS[0],export::PARTS[1],export::PARTS[2]]{
+            let want=std::fs::read(or.join(f)).unwrap();
+            assert_eq!(std::fs::read(oa.join(f)).unwrap(),want,"({store}): {f} of the evicting node");
+            assert_eq!(std::fs::read(ob.join(f)).unwrap(),want,"({store}): {f} of the reopened evicting node");
+        }
+        assert_eq!((&ma["parts"],&mb["parts"]),(&mr["parts"],&mr["parts"]));
+        let v=export::verify(&oa,Some(g)).unwrap_or_else(|e|panic!("{e}"));assert_eq!((v["blocks"].as_u64(),v["transactions"].as_u64()),(Some(s+1),Some(10)),"{v}");
+        for d in [da,dr,oa,or,ob]{let _=std::fs::remove_dir_all(&d);}
     }
 }
 

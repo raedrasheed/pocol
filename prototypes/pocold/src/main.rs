@@ -37,7 +37,9 @@ fn main(){
         Ok(Ok(code))=>code,Ok(Err(_))=>101,Err(e)=>{eprintln!("error: spawn consensus thread: {e}");1}};
     std::process::exit(code);
 }
-const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [NODE] [LOCAL]   (the old node stopped)\n  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--seed ADDR]... [--bootstrap ADDR]... [--outbound N|auto] [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] [--memory-budget-bytes N] [--evict-depth N] (--memory-budget-bytes: the A13 memory budget, default 6 GiB; run also reads POCOL_MEMORY_BUDGET_BYTES; --evict-depth: canonical blocks kept in memory below the head, 0 off; --state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; automatic outbound: --outbound N (0..8) or auto (default: 4 with --listen, else 2; POCOL_OUTBOUND), plus 1 spare slot; --seed (<= 7) peers used only to bootstrap and refill; --bootstrap (<= 16) unverified addresses to try; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
+const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [--export-chain EXPORT_DIR] [NODE] [LOCAL]   (the old node stopped; --export-chain: also the V3-33 old-chain data of S, as export-chain writes it)\n  pocold export-chain --network OLD_DIR --data OLD_DATA --to-height H --out NEW_DIR [NODE] [LOCAL]   (the old node stopped; V3-33 old-chain data)
+  pocold verify-export --dir EXPORT_DIR [--network OLD_DIR] [LOCAL]
+  pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--seed ADDR]... [--bootstrap ADDR]... [--outbound N|auto] [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--freeze-user-txs-after S|off] [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] [--memory-budget-bytes N] [--evict-depth N] (--freeze-user-txs-after: V3-33 re-genesis conduct, this node builds no block above S with user transactions and its pool refuses and relays none once its head is at S, other nodes' blocks are judged as before; run also reads POCOL_FREEZE_USER_TXS_AFTER; --memory-budget-bytes: the A13 memory budget, default 6 GiB; run also reads POCOL_MEMORY_BUDGET_BYTES; --evict-depth: canonical blocks kept in memory below the head, 0 off; --state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; automatic outbound: --outbound N (0..8) or auto (default: 4 with --listen, else 2; POCOL_OUTBOUND), plus 1 spare slot; --seed (<= 7) peers used only to bootstrap and refill; --bootstrap (<= 16) unverified addresses to try; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host, but run and status on a v3 network default to its V3-05 timing): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
 /// Runs one command and returns the process exit status. `help` (also `--help`, `-h`) prints the
 /// usage on stdout and exits 0. No command, or a command this build does not have, prints the
 /// usage on stderr and exits 2, so a script never takes a command that did not run for success.
@@ -48,6 +50,8 @@ fn command(args:&[String])->i32{
         "init-devnet"=>init(args),
         "init-testnet"=>pocold::testnet::init(args),
         "cutover"=>cutover(args),
+        "export-chain"=>export_chain(args),
+        "verify-export"=>verify_export(args),
         "run"=>run(args),
         "status"=>status(args),
         // A reader that closes the pipe early (`pocold help | head`) is not an error.
@@ -75,6 +79,9 @@ fn command(args:&[String])->i32{
 ///   when the flag is absent (`Discovery::env`);
 /// - `--outbound N|auto` (VA-SPEC §1a.7): the automatic outbound slots, resolved at `Node::open`. `run` also reads
 ///   POCOL_OUTBOUND when the flag is absent (`Discovery::outbound_env`);
+/// - `--freeze-user-txs-after S|off` (V3-33 re-genesis conduct, local builder and pool policy, never validity): this
+///   node's blocks above S take no user transaction and its pool refuses and relays none once its head is at S
+///   (`node::Limits::freeze_user_txs_after`). `run` also reads POCOL_FREEZE_USER_TXS_AFTER when the flag is absent;
 /// - `--memory-budget-bytes N` (A13, local): the node memory budget the bound must fit with its 1/8 reserve (default
 ///   6 GiB, `node::MEM_BUDGET`). `run` also reads POCOL_MEMORY_BUDGET_BYTES when the flag is absent (`budget_env`);
 /// - `--evict-depth N` (C-1 S5, local retention, never validity): canonical entries more than N blocks below the head
@@ -89,6 +96,7 @@ fn limits(args:&[String])->Result<node::Limits,String>{
     if let Some(v)=arg(args,"--per-group-max"){l.net.per_group_max=v.parse().map_err(|e|format!("--per-group-max {v}: {e}"))?;}
     l.discovery.enabled=!flag(args,"--no-discovery");l.discovery.allow_local=flag(args,"--discover-local");
     if let Some(v)=arg(args,"--outbound"){l.discovery.outbound=node::parse_outbound(&v).map_err(|e|format!("--outbound {v}: {e}"))?;}
+    if let Some(v)=arg(args,"--freeze-user-txs-after"){l.freeze_user_txs_after=node::parse_freeze(&v).map_err(|e|format!("--freeze-user-txs-after {v}: {e}"))?;}
     l.state_store=args.iter().any(|a|a=="--state-store");
     if let Some(c)=arg(args,"--checkpoint-every"){
         if !l.state_store{return Err("--checkpoint-every needs --state-store".into())}
@@ -97,9 +105,19 @@ fn limits(args:&[String])->Result<node::Limits,String>{
     Ok(l)
 }
 /// Node-local ParamGate inputs: the single-host defaults with optional overrides.
-fn local(args:&[String])->NodeLocal{
-    let d=single_host_local();
+fn local(args:&[String])->NodeLocal{local_over(args,single_host_local())}
+/// `--delta`, `--phi`, `--t-exec`, `--delta-rel` and `--gamma` over the defaults `d`.
+fn local_over(args:&[String],d:NodeLocal)->NodeLocal{
     NodeLocal{delta:num(args,"--delta",d.delta),phi:num(args,"--phi",d.phi),t_exec:num(args,"--t-exec",d.t_exec),delta_rel:num(args,"--delta-rel",d.delta_rel),gamma:num(args,"--gamma",d.gamma),..d}
+}
+/// The local inputs a node on the network in `net` runs with (`run`, `status`). Spec 1 (every committed network):
+/// `local`, unchanged. A v3 (spec-2) network: V3-05's timing from its files (`testnet::local_for_network`, as the
+/// launcher), with the same overrides. A network whose spec cannot be read keeps `local`, and opening it reports why.
+fn local_at(args:&[String],net:&std::path::Path)->Result<NodeLocal,String>{
+    match pocold::testnet::spec_version_of(net){
+        Ok(v) if v>=2=>Ok(local_over(args,pocold::testnet::local_for_network(net)?)),
+        _=>Ok(local(args)),
+    }
 }
 fn init(args:&[String])->Result<(),String>{
     let out=PathBuf::from(arg(args,"--out").ok_or("--out")?);
@@ -134,8 +152,9 @@ fn init(args:&[String])->Result<(),String>{
 }
 /// Local P2P settings a service may give in its environment instead of its command line (only `run` opens
 /// the network): POCOL_PEERS_MAX and POCOL_PER_GROUP_MAX when `--peers-max` and `--per-group-max` are absent, and POCOL_DISCOVERY and POCOL_DISCOVER_LOCAL
-/// when `--no-discovery` and `--discover-local` are (`Discovery::env`), and POCOL_OUTBOUND when `--outbound` is
-/// (`Discovery::outbound_env`). An empty value counts as unset.
+/// when `--no-discovery` and `--discover-local` are (`Discovery::env`), POCOL_OUTBOUND when `--outbound` is
+/// (`Discovery::outbound_env`), and POCOL_FREEZE_USER_TXS_AFTER when `--freeze-user-txs-after` is (V3-33). An empty
+/// value counts as unset.
 fn p2p_env(args:&[String],l:&mut node::Limits)->Result<(),String>{
     if arg(args,"--peers-max").is_none(){
         if let Some(v)=std::env::var("POCOL_PEERS_MAX").ok().filter(|v|!v.trim().is_empty()){
@@ -145,6 +164,11 @@ fn p2p_env(args:&[String],l:&mut node::Limits)->Result<(),String>{
     if arg(args,"--per-group-max").is_none(){
         if let Some(v)=std::env::var("POCOL_PER_GROUP_MAX").ok().filter(|v|!v.trim().is_empty()){
             l.net.per_group_max=v.trim().parse().map_err(|e|format!("POCOL_PER_GROUP_MAX {v}: {e}"))?;
+        }
+    }
+    if arg(args,"--freeze-user-txs-after").is_none(){
+        if let Some(v)=std::env::var("POCOL_FREEZE_USER_TXS_AFTER").ok().filter(|v|!v.trim().is_empty()){
+            l.freeze_user_txs_after=node::parse_freeze(&v).map_err(|e|format!("POCOL_FREEZE_USER_TXS_AFTER {v}: {e}"))?;
         }
     }
     l.discovery.env(flag(args,"--no-discovery"),flag(args,"--discover-local"))?;
@@ -179,7 +203,7 @@ fn run(args:&[String])->Result<(),String>{
     limits.discovery.resolve(listen.is_some(),peers.len())?;
     let net=PathBuf::from(arg(args,"--network").ok_or("--network")?);
     let data=PathBuf::from(arg(args,"--data").ok_or("--data")?);
-    let spec=load_spec_for(&net,&local(args),limits.state_store.then_some(data.as_path()))?;
+    let spec=load_spec_for(&net,&local_at(args,&net)?,limits.state_store.then_some(data.as_path()))?;
     let name=arg(args,"--name").unwrap_or_else(||"node".into());
     let cfg=node::Config{dir:data,name,miner,listen,peers,
         rpc:arg(args,"--rpc").map(|s|parse(&s)).transpose()?,
@@ -188,6 +212,8 @@ fn run(args:&[String])->Result<(),String>{
     if !n.chain.spec.admission().specification_compliant(){
         eprintln!("pocold: {} admission, not specification compliance ({} conditions; see status \"admission\")",n.chain.spec.admission().scope().name(),n.chain.spec.admission().report().conditions.len());
     }
+    // The R14/R19 times this boot was admitted on (owner decision PG-1, PARAMGATE-BOOT-TIMING-DECISIONS-2026-11-11.md).
+    if let Some(t)=n.chain.spec.admission().timing(){eprintln!("pocold: ParamGate admitted, {}",t.report(n.chain.spec.admission().local().t_exec));}
     n.log(&format!("opened: head h={} records={}",n.chain.head().height,n.journal_records()));
     catch_stop();n.start_network()?;n.run_controlled(|_|STOP.load(Ordering::Relaxed));
     println!("{}",n.status_json());Ok(())
@@ -199,11 +225,28 @@ fn cutover(args:&[String])->Result<(),String>{
     let config_path=PathBuf::from(arg(args,"--config").ok_or("--config NEW.json")?);let out=PathBuf::from(arg(args,"--out").ok_or("--out NEW_DIR")?);
     let config=std::fs::read(&config_path).map_err(|e|format!("{}: {e}",config_path.display()))?;
     if config.len()>262144{return Err("new genesis config exceeds 256 KiB".into())}
-    pocold::cutover::run(&net,&data,height,&config,&out,limits(args)?,&local(args))
+    // V3-33: --export-chain DIR also writes the old-chain data export of S from the same rebuilt state.
+    let export=arg(args,"--export-chain").map(PathBuf::from);
+    pocold::cutover::run_with_export(&net,&data,height,&config,&out,export.as_deref(),limits(args)?,&local(args))
+}
+/// V3-33 (O-33=b): the old chain's canonical blocks up to H and the state after block H, with a manifest (`cutover::export`).
+fn export_chain(args:&[String])->Result<(),String>{
+    let net=PathBuf::from(arg(args,"--network").ok_or("--network OLD_GENESIS_DIR")?);let data=PathBuf::from(arg(args,"--data").ok_or("--data OLD_DATA_DIR")?);
+    let height:u64=arg(args,"--to-height").ok_or("--to-height H")?.parse().map_err(|e|format!("--to-height: {e}"))?;
+    let out=PathBuf::from(arg(args,"--out").ok_or("--out NEW_DIR")?);
+    let m=pocold::cutover::export::run(&net,&data,height,&out,limits(args)?,&local(args))?;
+    println!("{}",serde_json::to_string_pretty(&m).unwrap());Ok(())
+}
+/// V3-33: checks an export (`cutover::export::verify`); with --network, against this node's own network files.
+fn verify_export(args:&[String])->Result<(),String>{
+    let dir=PathBuf::from(arg(args,"--dir").ok_or("--dir EXPORT_DIR")?);
+    let genesis=match arg(args,"--network"){Some(n)=>{let spec=load_spec_for(std::path::Path::new(&n),&local(args),None)?;Some((spec.chain_id(),spec.genesis_hash()))},None=>None};
+    let r=pocold::cutover::export::verify(&dir,genesis)?;
+    println!("{}",serde_json::to_string_pretty(&r).unwrap());Ok(())
 }
 fn status(args:&[String])->Result<(),String>{
     let limits=limits(args)?;let net=PathBuf::from(arg(args,"--network").ok_or("--network")?);let data=PathBuf::from(arg(args,"--data").ok_or("--data")?);
-    let spec=load_spec_for(&net,&local(args),limits.state_store.then_some(data.as_path()))?;
+    let spec=load_spec_for(&net,&local_at(args,&net)?,limits.state_store.then_some(data.as_path()))?;
     let cfg=node::Config{dir:data,name:"status".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits};
     let n=node::Node::open(cfg,spec)?;println!("{}",n.status_json());Ok(())
 }

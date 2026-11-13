@@ -2064,7 +2064,8 @@ mod preview{
     ///   ACC_COUNT write, removeActive, the bond burn and the reporter's PAY to the signed proposer's reward address);
     ///   four type-1 items punish HELD genesis members (never-written clock word, middle of the active list, the
     ///   reporter's PAY). Each kind comes first on one run of chain B, so each also pays the chain's first burn.
-    /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry) and the blocks
+    /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry, GAS_ENVELOPE_EARNIN
+    /// otherwise: `gas_envelope(ProgramSet::V3)`), every call name measured has an entry there, and the blocks
     /// within resources::derive; the test asserts that the settle and punish maxima are taken on these paths.
     #[test]
     fn v3_sys_gas_and_caps_within_the_v3_envelope(){
@@ -2179,12 +2180,23 @@ mod preview{
         // probationer's (graceStart), which outweighs the ACCRUING path's ACC_COUNT write: the HELD path is the worst.
         assert!(punish_held>punish_acc,"punish HELD {punish_held} vs ACCRUING with a bond {punish_acc}");
         for (n,g) in &gas{
-            let bound=admission::envelope_for(n,true).unwrap_or_else(||panic!("no envelope entry for {n}"));
-            assert!(*g<=bound,"v3 {n} = {g} above its envelope {bound}");
+            let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
+            assert!(*g<=bound,"v3 {n} = {g} above its composed envelope {bound}");
         }
-        // The v3 table is needed: each of its measured entries exceeds the spec-1 entry of the same name.
-        for n in ["invalidate","punish","recordResult","settle"]{assert!(gas[n]>admission::envelope_for(n,false).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
-        assert_eq!(admission::envelope_for("recordLate",false),None,"recordLate exists on the v3 set only");
+        // Every other name of the composed table was measured here (recordLate, the v3-only name, included), so no
+        // ordinary or closing entry is unchecked. These chains are continuous (h_end 0), so the final phase is not
+        // reached here: finalize is measured on v3 by v3_final_block_burns_the_carry_on_real_blocks (V3-PR-E2a, against
+        // the same composed entry), and settleFinal runs the same settleOne as settle, so its entry is the settle maximum
+        // measured here.
+        for (n,_) in admission::gas_envelope(ProgramSet::V3){if !["finalize","settleFinal"].contains(n){assert!(gas.contains_key(n),"the v3 envelope names {n}, which no run measured");}}
+        assert!(admission::gas_envelope(ProgramSet::V3).iter().any(|x|x.0=="recordLate"),"the composed v3 envelope names recordLate");
+        assert!(gas["settle"]<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settleFinal covers the measured settle");
+        // The v3 table is needed: each of its measured entries exceeds the earn-in entry it replaces in the composition,
+        // and the spec-1 entry of the same name.
+        for n in ["invalidate","punish","recordResult","settle"]{
+            assert!(gas[n]>admission::envelope(ProgramSet::EarnIn,n).unwrap(),"{n} {} fits the earn-in envelope: drop its v3 entry",gas[n]);
+            assert!(gas[n]>admission::envelope(ProgramSet::V1,n).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
+        for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert_eq!(admission::envelope(set,"recordLate"),None,"recordLate exists on the v3 set only: {set:?}");}
         assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
     }
 
@@ -2193,7 +2205,7 @@ mod preview{
     /// genesis members and 64 ACCRUING probationers p0..p63 with half a bond (M_max records, P_MAX 64), RET 128, closing
     /// from H_CLOSE 8. The first closing markClose refunds 128 HELD records, the second 64 HELD and the 64 ACCRUING ones
     /// (each refund pays a bond and the ACCRUING ones also write ACC_COUNT). Both stay within admission's envelope for the
-    /// v3 set (GAS_ENVELOPE_V3 markClose, above the spec-1 entry), every record ends PAID and ACC_COUNT 0.
+    /// v3 set (GAS_ENVELOPE_V3 markClose in the composed v3 table, above the earn-in and spec-1 entries), every record ends PAID and ACC_COUNT 0.
     #[test]
     fn v3_closing_mark_close_gas_within_the_envelope(){
         let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
@@ -2214,10 +2226,13 @@ mod preview{
         assert!(closing.len()>=2&&closing[0].0==8,"closing from H_CLOSE: {closing:?}");
         assert_eq!((closing[0].2,closing[1].2),(U256::from(64),U256::ZERO),"128 HELD refunds, then 64 HELD and 64 ACCRUING");
         for id in genesis.iter().chain(&pids){assert_eq!(apply::miner_record(&r.state,*id).map(|x|x.bond_state),Some(3),"every record PAID");}
-        let worst=closing.iter().map(|c|c.1).max().unwrap();let bound=admission::envelope_for("markClose",true).unwrap();
+        let worst=closing.iter().map(|c|c.1).max().unwrap();let bound=admission::envelope(ProgramSet::V3,"markClose").unwrap();
         assert!(worst<=bound,"v3 markClose {worst} above its envelope {bound}");
         assert_eq!(worst,closing[1].1,"the worst refunds the 64 ACCRUING records");
-        assert!(worst>admission::envelope_for("markClose",false).unwrap(),"markClose {worst} fits the spec-1 envelope: drop its v3 entry");
+        // The v3 entry is needed: the worst exceeds the earn-in entry it replaces in the composed v3 table (PoColSystemV3.sol
+        // is built on the earn-in programs) and the spec-1 entry of the same name.
+        assert!(worst>admission::envelope(ProgramSet::EarnIn,"markClose").unwrap(),"markClose {worst} fits the earn-in envelope: drop its v3 entry");
+        assert!(worst>admission::envelope(ProgramSet::V1,"markClose").unwrap(),"markClose {worst} fits the spec-1 envelope: drop its v3 entry");
     }
 
     /// V3-PR-E4 (V3-10): recordShares at its worst with the epoch counters, through apply_block at the GAS_DOMAIN maxima
@@ -2225,7 +2240,7 @@ mod preview{
     /// each record's w0 written with lastShare and its counters, as the chain's first call (every record cold, the epoch
     /// totals' slot 10 from zero to nonzero), and the next call rolling every record's counters into a new epoch
     /// (E_epoch 2); and the same with 257 distinct owners without a record (each read as four words). The maximum stays
-    /// within admission's envelope for the v3 set (GAS_ENVELOPE_V3 recordShares), which the spec-1 entry no longer holds.
+    /// within admission's envelope for the v3 set (GAS_ENVELOPE_V3 recordShares), which the earn-in and spec-1 entries no longer hold.
     #[test]
     fn v3_record_shares_gas_with_the_epoch_counters(){
         let labels:Vec<String>=(0..256).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
@@ -2249,11 +2264,13 @@ mod preview{
             out.insert(strangers,g);
         }
         let worst=out.values().flatten().copied().max().unwrap();
-        let bound=admission::envelope_for("recordShares",true).unwrap();
-        eprintln!("RECORD-SHARES gas (first call, epoch roll): recorded owners {:?}, owners without a record {:?}; GAS_ENVELOPE_V3 {bound}, spec-1 {}",
-            out[&false],out[&true],admission::envelope_for("recordShares",false).unwrap());
+        let bound=admission::envelope(ProgramSet::V3,"recordShares").unwrap();
+        eprintln!("RECORD-SHARES gas (first call, epoch roll): recorded owners {:?}, owners without a record {:?}; composed v3 {bound}, earn-in {}, spec-1 {}",
+            out[&false],out[&true],admission::envelope(ProgramSet::EarnIn,"recordShares").unwrap(),admission::envelope(ProgramSet::V1,"recordShares").unwrap());
         assert!(worst<=bound,"recordShares {worst} above its envelope {bound}");
-        assert!(worst>admission::envelope_for("recordShares",false).unwrap(),"recordShares {worst} fits the spec-1 envelope: drop its v3 entry");
+        // As for markClose: the worst exceeds the earn-in entry it replaces in the composition and the spec-1 entry.
+        assert!(worst>admission::envelope(ProgramSet::EarnIn,"recordShares").unwrap(),"recordShares {worst} fits the earn-in envelope: drop its v3 entry");
+        assert!(worst>admission::envelope(ProgramSet::V1,"recordShares").unwrap(),"recordShares {worst} fits the spec-1 envelope: drop its v3 entry");
     }
 
     // ---------------- V3-PR-E2a through the host (V3-19, V3-15, V3-20)
@@ -2330,7 +2347,7 @@ mod preview{
     /// them).
     #[test]
     fn v3_final_block_burns_the_carry_on_real_blocks(){
-        let mut finalize_gas=0u64;let mut paid=BTreeMap::new();
+        let mut finalize_gas=0u64;let mut paid=BTreeMap::new();let mut v3_calls:BTreeMap<&str,u64>=BTreeMap::new();
         for (spec,covered) in [(2u8,true),(2,false),(1,false)]{
             let mut cfg=config(spec,&["a","b","c"]);cfg.h_close=10;cfg.h_end=16;cfg.ret=2;
             let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..3).map(|i|r.id(i)).collect();
@@ -2348,6 +2365,7 @@ mod preview{
                 let o=r.block(if h%2==0{Proposer::Signed(ids[(h%3) as usize])}else{Proposer::Fallback},vec![],txs,ids[(h%3) as usize],sh);
                 finals.push(o.is_final);tips+=o.tips;
                 apply::check_escrow_invariant(&o.state,&r.net.profile,h,o.is_final).unwrap();
+                if spec==2{for (n,g) in &o.meter.call_gas{let e=v3_calls.entry(*n).or_insert(0);*e=(*e).max(*g);}}
                 if spec==2&&covered&&h<16{assert!(apply::chain_facts(&o.state).burned_total.is_zero(),"nothing burns before F at {h}");}
                 if o.is_final&&spec==2{
                     let g=o.meter.call_gas.iter().find(|(n,_)|*n=="finalize").unwrap().1;finalize_gas=finalize_gas.max(g);
@@ -2380,7 +2398,17 @@ mod preview{
         }
         eprintln!("finalize (two carries, first burn) {finalize_gas}; small-C chains: v3 {:?} earn-in {:?}",paid[&2],paid[&1]);
         assert!(paid[&2].0>paid[&1].0&&paid[&2].1<paid[&1].1,"the carry pays members what the spec-1 set burns");
-        assert!(finalize_gas<=admission::envelope_for("finalize",true).unwrap(),"finalize {finalize_gas} above the v3 envelope");
+        assert!(finalize_gas<=admission::envelope(ProgramSet::V3,"finalize").unwrap(),"finalize {finalize_gas} above the v3 envelope");
+        assert!(finalize_gas>admission::envelope(ProgramSet::EarnIn,"finalize").unwrap(),"finalize {finalize_gas} fits the earn-in envelope: drop its v3 entry");
+        // Every call these v3 chains ran, the final block's settleFinal among them, within its composed v3 entry (a
+        // small-chain check of settleFinal on a real v3 final block; its entry's bound by the measured settle maximum is
+        // v3_sys_gas_and_caps_within_the_v3_envelope's).
+        eprintln!("v3 final-chain call gas {v3_calls:?}");
+        for n in ["finalize","settleFinal"]{assert!(v3_calls.contains_key(n),"the v3 final chain ran {n}");}
+        for (n,g) in &v3_calls{
+            let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
+            assert!(*g<=bound,"v3 {n} = {g} above its composed envelope {bound}");
+        }
     }
 
     /// closeBlock's worst path on the v3 set (V3-15/V3-20): the carry into pot h is nonzero (block h-1's settle(h-1-D) left
@@ -2399,7 +2427,7 @@ mod preview{
         let joins=vec![r.register("q0",0,0),r.register("q1",10*PCOL,0)];
         r.block(Proposer::Signed(ids[0]),vec![],joins,ids[1],vec![(1,ids[2])]);
         for h in 2..=5u64{r.block(Proposer::Signed(ids[h as usize%4]),vec![],vec![],ids[1],vec![(1,ids[2])]);}
-        let b=resources::derive(&cp);let mut g=BTreeMap::new();let mut nonce=0u64;let mut carry_settle=0u64;
+        let b=resources::derive(&cp);let mut g=BTreeMap::new();let mut nonce=0u64;let mut carry_settle=0u64;let mut calls:BTreeMap<&str,u64>=BTreeMap::new();
         let big=U256::from(2_000_000_000_000_000u64);// 42 PCOL of tips: a 21 PCOL share
         for (label,proposer,per_gas,evidence) in [("accruing-promoted",q0,big,vec![]),("accruing-partial",q1,U256::from(100_000_000_000_000u64),vec![]),
             ("held",ids[2],big,vec![]),("tomb",ids[3],big,vec![EvidenceEffect::Punish{accused:ids[3]}]),("fallback",Address::ZERO,big,vec![])]{
@@ -2409,6 +2437,7 @@ mod preview{
             assert!(!apply::escrow_carry_into(&parent,r.h).is_zero(),"{label}: a carry into pot h to zero");
             g.insert(label,o.meter.call_gas.iter().find(|(n,_)|*n=="closeBlock").unwrap().1);
             carry_settle=carry_settle.max(o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1);
+            for (n,gas) in &o.meter.call_gas{let e=calls.entry(*n).or_insert(0);*e=(*e).max(*gas);}
             assert!(o.meter.keys.len() as u64<=b.keys_normal&&o.meter.accounts.len() as u64<=b.accts_normal,"{label}: keys {} accounts {} vs {b:?}",o.meter.keys.len(),o.meter.accounts.len());
             let rec=apply::miner_record(&o.state,proposer);
             match label{
@@ -2421,13 +2450,22 @@ mod preview{
         let (held_zero_close,held_zero_settle)=(held_zero_gas(false),held_zero_gas(true));
         g.insert("accruing-promoted-held-zero",held_zero_close);
         eprintln!("closeBlock gas {g:?}; settle with a carry write {carry_settle}; settle accruing from held_total 0 {held_zero_settle}");
-        assert!(carry_settle<=admission::envelope_for("settle",true).unwrap());
-        assert!(held_zero_settle<=admission::envelope_for("settle",true).unwrap());
+        assert!(carry_settle<=admission::envelope(ProgramSet::V3,"settle").unwrap());
+        assert!(held_zero_settle<=admission::envelope(ProgramSet::V3,"settle").unwrap());
         let worst=*g.values().max().unwrap();
         assert_eq!(g["accruing-promoted-held-zero"],worst,"the promotion from held_total 0 is closeBlock's worst path");
         assert!(worst>g["accruing-promoted"],"held_total's zero-to-nonzero store costs more");
-        assert!(worst<=admission::envelope_for("closeBlock",true).unwrap(),"closeBlock {worst} above the v3 envelope");
-        assert!(worst>admission::envelope_for("closeBlock",false).unwrap(),"closeBlock {worst} fits the spec-1 envelope: drop its v3 entry");
+        assert!(worst<=admission::envelope(ProgramSet::V3,"closeBlock").unwrap(),"closeBlock {worst} above the v3 envelope");
+        // The v3 entry is needed: closeBlock's worst path exceeds the earn-in entry it replaces in the composition and
+        // the spec-1 entry of the same name.
+        assert!(worst>admission::envelope(ProgramSet::EarnIn,"closeBlock").unwrap(),"closeBlock {worst} fits the earn-in envelope: drop its v3 entry");
+        assert!(worst>admission::envelope(ProgramSet::V1,"closeBlock").unwrap(),"closeBlock {worst} fits the spec-1 envelope: drop its v3 entry");
+        // Every other call the measured blocks ran, within its composed v3 entry.
+        eprintln!("measured blocks' call gas {calls:?}");
+        for (n,gas) in &calls{
+            let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
+            assert!(*gas<=bound,"v3 {n} = {gas} above its composed envelope {bound}");
+        }
     }
     fn b_reg()->U256{U256::from(20*PCOL)}
     /// A v3 chain on which held_total reaches zero: genesis members a..d at B_reg, probationers q0 and q1 registered at
