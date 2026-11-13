@@ -3,7 +3,7 @@
 
 A second reference implementation of pocold/src/identity.rs consensus_id: two nodes
 peer only when they send the same identity. Standard library only, so it can be
-copied into single-file tools (deploy/mainnet/preflight.py keeps an inline copy)."""
+copied into single-file tools."""
 import hashlib
 
 DOMAIN = b'pocol-consensus-identity-v1\0'

@@ -1,5 +1,19 @@
 # PoCol v3 — owner decision (2026-11-12): the all-probationer exception
 
+> **Affected by the owner decisions of 2026-11-13**
+> ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)): PoCol launches a
+> brand-new network from a fresh genesis and keeps nothing related to the old network. This file stays as dated
+> history.
+>
+> - The **second decision** (the user bound on the v3 creation burn, D-V3-21) concerns the creation fee of O-21,
+>   which the owner removed: new accounts pay ordinary gas only (answer 10d). It no longer applies once the fee is
+>   removed from the programs.
+> - The **third decision** (the probation-pool contest victim, D-V3-14) concerns the seat and probation-pool
+>   contests of O-10 and O-14, which the owner removed: no seat cap, no seat contest and no probation pool (answers
+>   10, 10b, 10c). Answer 13 of 2026-11-13 approved it again but notes that it may become moot.
+> - The **first decision** (the all-probationer exception, O-13) is not changed by the 2026-11-13 answers.
+> - Every mention of the earn-in re-genesis or of live-network changes on the old network is moot (O-0, O-33).
+
 Status: **decided by the owner, Raed S. Rasheed, on 2026-11-12.** It adds to
 [V3-OWNER-DECISIONS-2026-11-08.md](V3-OWNER-DECISIONS-2026-11-08.md), item O-13. Approving a design rule is not
 approval to deploy it. Every live-network change stays on hold until the owner releases it.

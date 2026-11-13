@@ -41,34 +41,10 @@ class Operations(unittest.TestCase):
         with self.assertRaises(ValueError): prepare.validate_inventory(single, True, True)
         single['nodes'][0]['seeds'] = ['127.0.0.8:30300']; prepare.validate_inventory(single, True, True)
 
-    def test_freeze_setting_is_an_optional_node_height_bound_to_its_network(self):
-        # V3-33: an inventory node may carry freezeUserTxsAfter with freezeGenesisHash, the network it is for; node.json
-        # passes it to pocold, older files have none. A bundle of another network (the new one after the re-genesis,
-        # built from the same inventory) is refused by prepare and by the operator, so it never freezes the new chain.
-        old, new = '0x' + 'ab' * 32, '0x' + 'cd' * 32
-        good = inventory(); good['nodes'][0].update(freezeUserTxsAfter=15000, freezeGenesisHash=old)
-        self.assertEqual(prepare.validate_inventory(copy.deepcopy(good), True), good)
-        for value in [-1, '15000', True, 1.5, None, 2**64]:
-            bad = copy.deepcopy(good); bad['nodes'][0]['freezeUserTxsAfter'] = value
-            with self.assertRaises(ValueError, msg=repr(value)): prepare.validate_inventory(bad, True)
-        for named in [None, '', 'ab' * 32, '0x' + 'ab' * 31, 5]:
-            bad = copy.deepcopy(good); bad['nodes'][0]['freezeGenesisHash'] = named
-            with self.assertRaises(ValueError, msg=repr(named)): prepare.validate_inventory(bad, True)
+    def test_inventory_refuses_the_removed_freeze_fields(self):
         for field in ['freezeUserTxsAfter', 'freezeGenesisHash']:
-            bad = copy.deepcopy(good); del bad['nodes'][0][field]
-            with self.assertRaises(ValueError, msg=field): prepare.validate_inventory(bad, True)
-        self.assertEqual(prepare.freeze_config(good['nodes'][0], old.upper().replace('0X', '0x')),
-                         {'freezeUserTxsAfter': 15000, 'freezeGenesisHash': old})
-        self.assertEqual(prepare.freeze_config(good['nodes'][1], new), {})
-        with self.assertRaisesRegex(ValueError, 'another network'): prepare.freeze_config(good['nodes'][0], new)
-        self.assertEqual(op.freeze_args({'name': 'n0'}, new), [])
-        self.assertEqual(op.freeze_args({'freezeUserTxsAfter': 0, 'freezeGenesisHash': old}, old), ['--freeze-user-txs-after', '0'])
-        self.assertEqual(op.freeze_args({'freezeUserTxsAfter': 15000, 'freezeGenesisHash': old}, old.upper().replace('0X', '0x')),
-                         ['--freeze-user-txs-after', '15000'])
-        with self.assertRaisesRegex(ValueError, 'another network'): op.freeze_args({'freezeUserTxsAfter': 15000, 'freezeGenesisHash': old}, new)
-        for config in [{'freezeUserTxsAfter': 7}, {'freezeGenesisHash': old}, {'freezeUserTxsAfter': -1, 'freezeGenesisHash': old},
-                       {'freezeUserTxsAfter': '7', 'freezeGenesisHash': old}, {'freezeUserTxsAfter': False, 'freezeGenesisHash': old}]:
-            with self.assertRaises(ValueError, msg=repr(config)): op.freeze_args(config, old)
+            bad = inventory(); bad['nodes'][0][field] = 15000 if field == 'freezeUserTxsAfter' else '0x' + 'ab' * 32
+            with self.assertRaisesRegex(ValueError, 'Invalid node fields', msg=field): prepare.validate_inventory(bad, True)
 
     def test_checksums_reject_links_extras_and_traversal(self):
         d = self.root / 'files'; d.mkdir(); (d / 'file').write_bytes(b'public')
@@ -128,10 +104,11 @@ class Operations(unittest.TestCase):
         bundle = self.root / 'bundle'; bundle.mkdir(); (bundle / 'net').mkdir(); (bundle / 'bin').mkdir()
         config = {'name':'n1', 'minerAddress':None}
         info = {'chainId':777915, 'genesisHash':'0x'+'a'*64, 'admission':{'scope':'experimental-devnet'}}
-        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':'b'*64}
+        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':'b'*64, 'consensusRulesVersion':1,
+                 'consensusPinned':True, 'consensusSourcesSha256':'c'*64}
         op.write_json(bundle / 'node.json', config); op.write_json(bundle / 'net/devnet.json', info)
         op.write_json(bundle / 'build-info.json', build)
-        for name in ['net/genesis.spec.hex','net/alloc.json','node_operator.py','pocol-testnet.service'] + ['bin/'+n for n in op.BINARIES]:
+        for name in ['net/genesis.spec.hex','net/alloc.json','node_operator.py','pocol_identity.py','pocol-testnet.service'] + ['bin/'+n for n in op.BINARIES]:
             (bundle / name).write_bytes(b'public fixture')
         binding = op.identity(config, info, build)
         op.write_json(bundle / 'manifest.json', {'schema':op.SCHEMA, 'identity':binding,
@@ -192,6 +169,12 @@ class Operations(unittest.TestCase):
         self.assertEqual(len(warnings), 1); self.assertIn('n2', warnings[0])
         for change in ({'consensusIdentity': 'e' * 64}, {'chainId': 7}, {'protocolVersion': 1}, {'protocolVersionMin': 3}):
             with self.subTest(change=change), self.assertRaises(ValueError): observe(**change)
+        # A continuous chain reports closingHeight null (pocold node.rs, H_END = 0) and is not near any closing height.
+        continuous = {'continuous': True, 'closingHeight': None, 'finalHeight': None, 'closingTime': None, 'finalTime': None}
+        self.assertEqual(set(observe(lifetime=continuous)[0]), {'n1', 'n2'})
+        for lifetime in ({'continuous': False, 'closingHeight': 105, 'finalHeight': 200}, {'continuous': False, 'closingHeight': None},
+                         {'closingHeight': None}, {'continuous': True, 'closingHeight': 10**6}):
+            with self.subTest(lifetime=lifetime), self.assertRaises(ValueError): observe(lifetime=lifetime)
 
     def test_prepared_release_names_the_consensus_identity_of_its_network(self):
         build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': 'aa' * 32}
@@ -199,8 +182,9 @@ class Operations(unittest.TestCase):
         manifest = op.identity({'name': 'n1', 'minerAddress': None}, info, build | {'protocolVersion': 2, 'compatibilitySha256': 'b' * 64})
         self.assertEqual(manifest['consensusIdentity'], prepare.pocol_identity.consensus_id(777915, info['genesisHash'], 1, 0, [(1, 0), (2, 50)]))
         self.assertEqual(manifest['consensusRulesVersion'], 1)
-        legacy = op.identity({'name': 'n1', 'minerAddress': None}, info, {'protocolVersion': 2, 'compatibilitySha256': 'b' * 64})
-        self.assertNotIn('consensusIdentity', legacy)
+        self.assertTrue(op.bound(dict(manifest), manifest))
+        # A marker without a consensus identity (a 0.4.0 state binding) never binds a node.
+        self.assertFalse(op.bound({k: v for k, v in manifest.items() if k not in ('consensusIdentity', 'consensusRulesVersion')}, manifest))
 
     def test_duplicate_json_keys_are_refused(self):
         path = self.root / 'bad.json'; path.write_text('{"chainId":1,"chainId":2}')

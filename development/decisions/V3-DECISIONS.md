@@ -1,5 +1,31 @@
 # PoCol v3 decisions — 2026-11-11
 
+> **Superseded in part by the owner decisions of 2026-11-13**
+> ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)): PoCol launches a brand-new network from a
+> fresh genesis and keeps nothing related to the old network. This record stays as dated history. Affected items:
+>
+> - **O-0** (v3 rides the held earn-in re-genesis): superseded. v3 launches as a brand-new network from a fresh
+>   genesis with new keys and a new chain ID; there is no re-genesis or cutover of the old chain (answers 1-5).
+> - **O-6** (block time 30 s): changed. Difficulty adjustment stays, with a 10 s average block time (answer 10a).
+> - **O-10** (contestable seats when the set is full) and the member limit **M_max**: superseded. There is no seat
+>   cap and no seat contest: anyone may mine, registrations are rate-limited per block, and inactive members are
+>   removed after about an hour and may return (answers 10, 10b).
+> - **O-14** (probation pool of M_max/4 slots with a contest inside the pool): superseded. There is no probation
+>   pool; new miners register for free and the first 20 PCOL of their rewards is held as their bond, forfeited on
+>   misbehaviour (answers 10, 10c).
+> - **O-21** (raised state caps with a burned creation fee): the creation fee is removed; new accounts pay ordinary
+>   gas only (answer 10d).
+> - **O-32** (the 4,000,000 PCOL genesis allocation): superseded. The new genesis gives each of the four founding
+>   miners 1,000,000 PCOL (answers 8, 9, 15).
+> - **O-33** (how the re-genesis is run): moot. The old network is stopped and nothing carries over, so there is no
+>   freeze height S, old-chain export or migration (answers 1-4).
+> - Also affected: **O-19** (issuance). The owner chose option (b), a starting reward of 10 PCOL per block halving
+>   every 4 years with a tail of S0/32; whether that amount is per block at the 10 s block time is still being
+>   confirmed (answer 7).
+>
+> How these map onto the parameters and programs is implemented in later changes; until then the code still carries
+> the 2026-11-08 values.
+
 Status: records the owner approval of 2026-11-08 and its implementation constraints. This is a documentation decision record, not an activation, a deployment approval or evidence that the implementation is complete. The live network remains untouched.
 
 ## Owner rule and scope

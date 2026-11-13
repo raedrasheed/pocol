@@ -228,8 +228,8 @@ is appended, so an unpinned tree peers only with byte-identical unpinned trees. 
 boundary aggregate even when pinned, accept spec 2 only for simnet admission, and are refused by release packaging.
 Other bits are 0. Left out: the build digest, the crash-test and io-fault features, `r_keep`, admission and other
 boot policy. A pinned ordinary release build's identity
-is computable by anyone from public data (devnet.json and `consensusRulesVersion`): `identity.rs`,
-`deploy/public-testnet/pocol_identity.py` and the inline copy in `deploy/mainnet/preflight.py` compute it, and the
+is computable by anyone from public data (devnet.json and `consensusRulesVersion`): `identity.rs`
+and `deploy/public-testnet/pocol_identity.py` compute it, and the
 H15000 value (chain 1599846715, genesis `0xbe137b…`, rules 1, flags 0, `[(1,0),(2,15000)]`) is pinned in tests:
 `bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110`.
 

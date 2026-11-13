@@ -22,7 +22,7 @@ use pocold::timing::{AttemptWindow, TimingError};
 use pocold::types::{from_fixed, le_target, pow_hash, to_fixed};
 use revm::primitives::U256 as RU256;
 
-const G_TS: i128 = 1_795_000_000; // synthetic launch time (new_network_config example value)
+const G_TS: i128 = 1_795_000_000; // synthetic launch time
 const T_BLK: i128 = 10;
 const TAU: i128 = 600;
 const D_ATT: u32 = 60;

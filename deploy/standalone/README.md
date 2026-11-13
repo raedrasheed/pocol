@@ -1,9 +1,7 @@
 # PoCol Mainnet · Wallet 0.4.0 and native node tools
 
-For an existing wallet or server, start with **[RELEASE-UPGRADE.md](RELEASE-UPGRADE.md)**.
-It covers preserving the current account, the explicit network upgrade, the
-matching future activation block, and the Android signing requirement. The
-Android artifact is an **unsigned release APK**, not an installable update.
+The Android artifact is an **unsigned release APK**: it is not installable until the
+release operator signs it (see `prototypes/pocol-android/README.md`).
 
 Run three Linux server miners, one native Windows wallet, and one native Android
 wallet. Both wallets contain the same full validating Rust/P2P engine and sign
@@ -68,7 +66,7 @@ a server; it names no network, so unset it when the home moves to a new one. The
 start, but the app has no setting for it. The node then builds no block above S with user transactions, and from
 head S its pool refuses them (`-32016`, `{"reason":"frozen"}`) and relays none; `pocol_status` reports
 `userTxFreeze`. Other nodes' blocks are judged as before: it is local policy, not a consensus rule. Without the
-setting nothing changes. See `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` step 0.4.
+setting nothing changes.
 The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup remains a
 small pilot, not a worst-case capacity proof. The service's `MemoryMax=3G` was already
 below the model's bound, and the 32 established inbound places add about 126 MB of

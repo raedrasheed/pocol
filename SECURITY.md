@@ -104,5 +104,5 @@ file with its terms. Until then we credit reporters in the advisory, unless they
 ## Supported versions
 
 Only the latest release, and the `main` branch, receive security fixes. The public network runs experimental
-software: a fix can require a new release that every node operator installs, or a coordinated upgrade (see
-`deploy/standalone/RELEASE-UPGRADE.md`).
+software: a fix can require a new release that every node operator installs, or a coordinated upgrade of every
+node.

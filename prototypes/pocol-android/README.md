@@ -6,7 +6,9 @@ service, and the Java interface talks to it through a small JNI bridge (`app/src
 backup, the backup's ciphertext.
 
 Build: `bash deploy/standalone/build-android.sh` (SDK 35, NDK 27.2.12479018, JDK 17, Gradle 8.11.1).
-The release APK is unsigned; see `deploy/standalone/RELEASE-UPGRADE.md` for signing.
+The release APK is unsigned. The release operator signs it locally with the release keystore (kept outside the
+repository and CI artifacts), checks the signer with `apksigner verify --print-certs` and the application ID and
+versionCode with `aapt dump badging`, and recomputes the checksums before publishing it as installable.
 
 ## Key backup and restore
 
