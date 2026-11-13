@@ -4243,7 +4243,7 @@ fn pr7_same_entries(a:&Chain,r:&Chain,what:&str){
             assert_eq!(std::fs::read(ob.join(f)).unwrap(),want,"({store}): {f} of the reopened evicting node");
         }
         assert_eq!((&ma["parts"],&mb["parts"]),(&mr["parts"],&mr["parts"]));
-        let v=export::verify(&oa,Some(&g),None).unwrap_or_else(|e|panic!("{e}"));assert_eq!((v["blocks"].as_u64(),v["transactions"].as_u64()),(Some(s+1),Some(10)),"{v}");
+        let v=export::verify(&oa,Some(&g),None,None).unwrap_or_else(|e|panic!("{e}"));assert_eq!((v["blocks"].as_u64(),v["transactions"].as_u64()),(Some(s+1),Some(10)),"{v}");
         for d in [da,dr,oa,or,ob]{let _=std::fs::remove_dir_all(&d);}
     }
 }

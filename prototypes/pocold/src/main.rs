@@ -38,7 +38,7 @@ fn main(){
     std::process::exit(code);
 }
 const USAGE:&str="usage:\n  pocold init-devnet --out DIR --miners a,b,c [--chain-id N] [--genesis-time S] [--t-blk S] [--tau S] [--d-att S] [--fb-wait S] [--c N] [--work-bits N] [--h-end N] [--h-close N] [--accounts x,y] [--full-nonce] [LOCAL]\n  pocold init-testnet --config PUBLIC.json --out NEW_DIR\n  pocold cutover --network OLD_DIR --data OLD_DATA --height S --config NEW.json --out NEW_DIR [--export-chain EXPORT_DIR] [NODE] [LOCAL]   (the old node stopped; --export-chain: also the V3-33 old-chain data of S, as export-chain writes it)\n  pocold export-chain --network OLD_DIR --data OLD_DATA --to-height H --out NEW_DIR [NODE] [LOCAL]   (the old node stopped; V3-33 old-chain data)
-  pocold verify-export --dir EXPORT_DIR [--network OLD_DIR] [--manifest-sha256 HEX] [LOCAL]
+  pocold verify-export --dir EXPORT_DIR [--network OLD_DIR] [--manifest-sha256 HEX] [--head-hash HEX] [LOCAL]   (verified is true only with --head-hash, the hash of block H from your own node; else selfConsistent)
   pocold run --network DIR --data DIR --name N [--miner-key-file FILE | --miner DEVNET_LABEL] [--listen ADDR] [--peer ADDR]... [--seed ADDR]... [--bootstrap ADDR]... [--outbound N|auto] [--rpc ADDR] [--stop-at H] [--log] [--no-discovery] [--discover-local] [NODE]\n  pocold status --network DIR --data DIR [NODE]\n  pocold build-info   (this build's identity, as JSON)\n  pocold help   (this text)\nNODE: [--freeze-user-txs-after S|off] [--pool-gas-max GAS] [--state-store [--checkpoint-every N]] [--peers-max N] [--per-group-max N] [--memory-budget-bytes N] [--evict-depth N] (--freeze-user-txs-after: V3-33 re-genesis conduct, this node builds no block above S with user transactions and its pool refuses and relays none once its head is at S, other nodes' blocks are judged as before; run also reads POCOL_FREEZE_USER_TXS_AFTER; --memory-budget-bytes: the A13 memory budget, default 6 GiB; run also reads POCOL_MEMORY_BUDGET_BYTES; --evict-depth: canonical blocks kept in memory below the head, 0 off; --state-store is experimental; open a data directory in the mode it was made in; --peers-max: established inbound peers, default 32, 1..128; run also reads POCOL_PEERS_MAX; --per-group-max: inbound peers per public /16 or /32, default 4, 0 off; run also reads POCOL_PER_GROUP_MAX)\nDISCOVERY (run, VA-SPEC §1a): on unless --no-discovery or POCOL_DISCOVERY=0; --discover-local or POCOL_DISCOVER_LOCAL=1 also learns loopback and private addresses from peers that have them; automatic outbound: --outbound N (0..8) or auto (default: 4 with --listen, else 2; POCOL_OUTBOUND), plus 1 spare slot; --seed (<= 7) peers used only to bootstrap and refill; --bootstrap (<= 16) unverified addresses to try; a flag wins over its variable\nLOCAL (ParamGate local timing, whole seconds; default single host, but run and status on a v3 network default to its V3-05 timing): [--delta S] [--phi S] [--t-exec S] [--delta-rel S] [--gamma S]\nEvery profile is admitted by the full ParamGate (R1-R26) before boot; a rejection lists the violated rules (-32018).\nExit status: 0 done; 1 the command failed; 2 no command, or one this build does not have; 70 a local storage failure stopped the node; 101 an internal failure.";
 /// Runs one command and returns the process exit status. `help` (also `--help`, `-h`) prints the
 /// usage on stdout and exits 0. No command, or a command this build does not have, prints the
@@ -237,14 +237,26 @@ fn export_chain(args:&[String])->Result<(),String>{
     let m=pocold::cutover::export::run(&net,&data,height,&out,limits(args)?,&local(args))?;
     println!("{}",serde_json::to_string_pretty(&m).unwrap());Ok(())
 }
+/// The options `verify-export` takes, each with a value: a check the caller asked for is never skipped because its
+/// option was misspelt, given without a value or as `--name=value`, so every other argument is refused.
+const VERIFY_EXPORT_OPTIONS:[&str;9]=["--dir","--network","--manifest-sha256","--head-hash","--delta","--phi","--t-exec","--delta-rel","--gamma"];
 /// V3-33: checks an export (`cutover::export::verify`); with --network, against this node's own network files.
 fn verify_export(args:&[String])->Result<(),String>{
+    let mut seen=Vec::new();let mut i=2;
+    while i<args.len(){
+        let k=args[i].as_str();
+        if !VERIFY_EXPORT_OPTIONS.contains(&k){return Err(format!("verify-export: unknown argument {k:?} (options: {})",VERIFY_EXPORT_OPTIONS.join(" ")))}
+        if seen.contains(&k){return Err(format!("verify-export: {k} is given twice"))}
+        match args.get(i+1){Some(v) if !v.starts_with("--")=>{},_=>return Err(format!("verify-export: {k} needs a value"))}
+        seen.push(k);i+=2;
+    }
     let dir=PathBuf::from(arg(args,"--dir").ok_or("--dir EXPORT_DIR")?);
     // --network: the chain id, genesis hash and consensus parameters of this node's network files.
     let network=match arg(args,"--network"){Some(n)=>Some(pocold::cutover::export::Network::of(&load_spec_for(std::path::Path::new(&n),&local(args),None)?)),None=>None};
-    // --manifest-sha256: the published digest of manifest.json, which commits every part.
-    let sha=arg(args,"--manifest-sha256");
-    let r=pocold::cutover::export::verify(&dir,network.as_ref(),sha.as_deref())?;
+    // --manifest-sha256: the published digest of manifest.json, which commits every part. --head-hash: the hash of
+    // block H from a source other than the publisher (the caller's own node); `verified` is true only with it.
+    let (sha,head)=(arg(args,"--manifest-sha256"),arg(args,"--head-hash"));
+    let r=pocold::cutover::export::verify(&dir,network.as_ref(),sha.as_deref(),head.as_deref())?;
     println!("{}",serde_json::to_string_pretty(&r).unwrap());Ok(())
 }
 fn status(args:&[String])->Result<(),String>{

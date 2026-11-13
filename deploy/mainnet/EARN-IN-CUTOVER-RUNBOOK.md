@@ -237,12 +237,14 @@ python3 -c 'import json; d=json.load(open("cutover-report.json")); del d["old"][
   so the state at `S` is rebuilt once. The export is written first, the genesis files only after it.
   Check it on each server:
   ```sh
+  HEAD_S=$(python3 -c 'import json; print(json.load(open("/var/tmp/pocol-earnin-genesis/cutover-report.json"))["old"]["blockHash"])')
   sudo -u pocol-testnet /var/tmp/pocol-earnin-bin/pocold verify-export --dir /var/tmp/pocol-old-chain-<S> \
-      --network /opt/pocol-testnet/net --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
+      --network /opt/pocol-testnet/net --head-hash "$HEAD_S" --delta 1 --phi 1 --t-exec 1 --delta-rel 8 --gamma 5
   sha256sum /var/tmp/pocol-old-chain-<S>/*
   ```
-  All three servers must print the same four sums (the export holds nothing node-specific). If one
-  differs, stop as for the cutover. The export adds no block and appears under its name only when
+  It must print `"verified": true` (block `S` pinned to this server's own cutover report). All three
+  servers must print the same `HEAD_S` and the same four sums (the export holds nothing
+  node-specific). If one differs, stop as for the cutover. The export adds no block and appears under its name only when
   complete (it builds `<dir>.partial` first). Before running the cutover again, remove what an earlier
   run left: the export directory if the cutover failed after writing it, and `<dir>.partial` after a
   run that was killed or crashed (the next run refuses while it exists). `pocold export-chain
@@ -403,10 +405,11 @@ left. Commit, open a PR, let CI build the clients, and merge.
 Everything below comes from the merged head of step 3.
 
 - **Old-chain data (V3-33).** Publish one server's `/var/tmp/pocol-old-chain-<S>` (the four files;
-  step 2 showed all three are byte-equal) and the four SHA-256 sums beside the release notes (the manifest's sum is the `manifestSha256`
-  that `verify-export` prints, for its `--manifest-sha256`), with
-  the instructions of "Old-chain data export" below for checking it with `pocold verify-export` or a
-  node of one's own.
+  step 2 showed all three are byte-equal), the four SHA-256 sums and the hash of block `S` (`HEAD_S`)
+  beside the release notes (the manifest's sum is the `manifestSha256` that `verify-export` prints,
+  for its `--manifest-sha256`), with the instructions of "Old-chain data export" below for checking it
+  with `pocold verify-export` and a node of one's own. Say in the notes that the hash of block `S` is
+  to be checked on one's own node, not taken from these notes.
 
 - **Reward gateway.** Deploy `deploy/rewards`, the gateway that pocol.net and the Explorer use. The
   reward accounting reads CP 16, and an accruing record's payment first fills its bond.
@@ -586,14 +589,22 @@ streamed one at a time; the state after `H` is held whole, as the cutover holds 
   "headHash":<hash of block H>,"stateRoot":<its stateRoot>,"D","parts":[{"name","bytes","records","sha256"},…],"verify"}`,
   the parts in the order above.
 
-`pocold verify-export --dir NEW_DIR [--network OLD_DIR] [--manifest-sha256 HEX] [LOCAL]` checks an
-export without trusting its publisher. Every value it recomputes from or reports is bound to the
-block headers and the `stateRoot` of block `H`; no value that only the manifest or `facts.json`
-states is taken on trust:
-- each part's size and SHA-256;
-- every block: its header decodes, hashes to its line's hash, meets its own PoW target, names the
+`pocold verify-export --dir NEW_DIR [--network OLD_DIR] [--manifest-sha256 HEX] [--head-hash HEX] [LOCAL]`
+checks that an export is internally consistent and, with `--network`, of that network. It does not
+by itself prove that block `H` is the old chain's real block `H` (see below: without `--head-hash`
+from a source of your own, the result is only `"selfConsistent"`). Every value it recomputes from or
+reports is bound to the block headers and the `stateRoot` of block `H`; no value that only the
+manifest or `facts.json` states is used without that binding:
+- each part's size and SHA-256 (each part is hashed again in the pass that reads it, and the two
+  digests must agree, so a file that changes while it is checked is refused);
+- every block: its header decodes, hashes to its line's hash, meets its PoW target, names the
   genesis, the chain ID, its height and the block below it as parent, and commits its line's body
   (`txRoot`, `evidenceRoot`); the last block is `headHash` with `stateRoot`;
+- with `--network`, every header also passes the checks a node makes before it needs the parent's
+  state (H-pre), from the headers and the genesis spec alone: the target is the ASERT target (a
+  header cannot name its own), the nonce is below `nMax`, the timestamp is in its attempt window, the
+  protocol version is the fork schedule's, the template and winner signatures recover, the shares
+  are in range, and the gas limit, base fee and body bounds are the network's;
 - the world-state root of `state.jsonl` is that `stateRoot`;
 - every line of `blocks.jsonl` and `state.jsonl` is the exact bytes `export-chain` writes for that
   block or account (no added field, other key order, spacing or hex case);
@@ -606,16 +617,26 @@ states is taken on trust:
   height, `headHash`, `stateRoot`, `D`, and each part's bytes, records and SHA-256), so none of its
   fields is unchecked.
 
+What this does not prove by itself: that block `H` is the old chain's real block `H`. Blocks are not
+re-executed, so whoever publishes an export can mine one block at the ASERT target and put any
+state, allocation and bonds under a header of their own; everything above then holds. That is what
+`--head-hash HEX` closes. Give it the hash of block `H` from a source other than the publisher, best
+your own synced node of the old network (`eth_getBlockByNumber` at `H`, field `hash`), and the
+manifest's `headHash` must be it. Only then does the summary print `"verified": true`; without it,
+it prints `"verified": "selfConsistent"`, which does not authenticate the allocation. So check with
+`--network` and `--head-hash`.
+
 With `--network` the manifest must name that network's chain ID and genesis hash, and the state's
-ChainCaps must hold every consensus parameter of its genesis spec. Without `--network` the export is
-checked only against itself: its genesis hash is the publisher's word until compared with the
-network's, so publish and check with `--network`. The summary (and the output of `export-chain`)
-shows `manifestSha256`; publish it with the export, and `--manifest-sha256 HEX` (with or without
-`0x`, as `sha256sum` prints it) refuses a manifest with another digest. As the manifest commits
-every part, that digest pins the whole export. Blocks are not re-executed here, and a header's PoW
-is checked against its own target, not the ASERT target. To check that too, sync your own node of
-the old network to `H` from the published blocks and run `export-chain` on it: the result must be
-byte-equal.
+ChainCaps must hold every consensus parameter of its genesis spec. Without `--network` the headers
+are checked against their own targets only and the genesis hash is the publisher's word. The summary
+(and the output of `export-chain`) shows `manifestSha256`; `--manifest-sha256 HEX` (with or without
+`0x`, as `sha256sum` prints it) refuses a manifest with another digest. As the manifest commits every
+part, that digest pins the whole export to what was published, not to the chain. A pin must be 64 hex
+digits, and `verify-export` refuses any other argument (a misspelt option, one without a value, or
+`--option=value`), so a check you asked for is never skipped. The summary says what was checked:
+`network`, `headerChecks`, `manifestSha256Checked` and `headHashPinned`. To check the execution too,
+sync your own node of the old network to `H` from the published blocks and run `export-chain` on it:
+the result must be byte-equal.
 
 ## What this does not cover
 
