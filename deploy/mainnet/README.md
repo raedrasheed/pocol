@@ -42,7 +42,19 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
   ```
 
   `<commit>` is any commit before that file was deleted (`git log --diff-filter=D -- deploy/mainnet/h15000`
-  names the deleting commit; use its parent).
+  names the deleting commit; use its parent). The tool prints the identity it switches from and to before it
+  writes anything.
+- `retired-networks.json`: the identities the clients were switched away from, append-only. Every switch adds
+  its `--from` network, and the tool refuses a listed network as `--to` (swapped `--from`/`--to` included):
+  a rollback is a `git revert` of the switch commit, not a reversed run. `--allow-revert` switches back to a
+  retired network on purpose. Its first entry is the network retired on 2026-11-13, which the clients still pin
+  until the new genesis exists.
+
+The tests (`test_set_network_identity.py`) also guard the tree: every tracked file that pins the current
+identity is in `FILES` or kept on purpose; once the tree pins a network that is not retired, no tracked file
+outside `development/` and `deploy/websites/` may hold a retired identity (`FILES` included); and the shipped
+release texts that are true only on the retired network (`STEP3`: the 0.4.x versions and "chain ID and genesis
+unchanged" notes) must be gone by then, so the version bump (removal plan Phase 7) lands before the switch.
 
 ## Local checks
 

@@ -5,6 +5,10 @@ GenesisSpec). Both networks are given as network invitations (network.pocol.json
     python3 deploy/mainnet/set_network_identity.py --from OLD.json --to NEW.json           # switch
     python3 deploy/mainnet/set_network_identity.py --from OLD.json --to NEW.json --check   # verify only
 
+Every switch records the --from identity in RETIRED (deploy/mainnet/retired-networks.json, append-only), and a --to
+identity that is listed there is refused: a rollback reverts the switch commit, it is not a reversed run. Only
+--allow-revert switches back to a retired network on purpose (it stays listed).
+
 --from names the network the tree pins today. An invitation that is no longer in the tree is taken from git
 history, e.g. `git show <commit>:<path>/network.pocol.json > OLD.json`. --to is the network the clients are switched
 to. Nothing in this tool names any particular network: each identity is read from its invitation, whose
@@ -42,6 +46,8 @@ import build_installer  # noqa: E402
 CP_ITEMS = {1: 52, 2: 67}
 # The node's GenesisSpec codec: its SPEC_VERSION is the highest version a release node decodes.
 NODE_SPEC = 'prototypes/lp1-node/src/genesis_spec.rs'
+# The identities the clients were switched away from (append-only): {"retired": [{"chainId", "genesisHash"}]}.
+RETIRED = 'deploy/mainnet/retired-networks.json'
 # The largest invitation the launcher reads (launcher.rs MAX_INVITATION).
 MAX_INVITATION = 1 << 20
 # The node's network designation names the tree's current identity: MAINNET_CHAIN_ID, MAINNET_GENESIS,
@@ -244,6 +250,25 @@ def current_identity(root):
         raise SystemExit(f'{ANCHOR}: its GenesisSpec does not prove its chain ID and genesis hash')
     return chain_id, genesis, spec
 
+def read_retired(data):
+    """[(chain ID, genesis hash hex)] of RETIRED's bytes; ValueError if it is not that list."""
+    try:
+        doc = json.loads(data.decode('utf-8'))
+        out = [(e['chainId'], e['genesisHash']) for e in doc['retired']]
+    except (UnicodeDecodeError, ValueError, KeyError, TypeError):
+        raise ValueError('not a {"retired": [{"chainId", "genesisHash"}]} list') from None
+    for chain, genesis in out:
+        if type(chain) is not int or not isinstance(genesis, str) or not re.fullmatch(r'0x[0-9a-f]{64}', genesis):
+            raise ValueError(f'an entry is not a chain ID and a 0x-prefixed lower-case genesis hash: {chain!r}, {genesis!r}')
+    return [(chain, genesis[2:]) for chain, genesis in out]
+
+def with_retired(data, chain_id, genesis):
+    """RETIRED's bytes with the identity appended, unchanged if it is listed already."""
+    doc = json.loads(data.decode('utf-8'))
+    if (chain_id, genesis) not in read_retired(data):
+        doc['retired'].append({'chainId': chain_id, 'genesisHash': '0x' + genesis})
+    return (json.dumps(doc, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--from', dest='source', required=True, type=Path,
@@ -251,6 +276,8 @@ def main(argv=None):
     p.add_argument('--to', dest='target', required=True, type=Path,
                    help='the invitation (network.pocol.json) of the network the clients are switched to')
     p.add_argument('--check', action='store_true', help='verify that the tree carries exactly the --to identity')
+    p.add_argument('--allow-revert', action='store_true',
+                   help=f'allow a --to identity listed in {RETIRED} (switch back to a retired network on purpose)')
     p.add_argument('--root', type=Path, default=ROOT)
     a = p.parse_args(argv)
     try:
@@ -267,6 +294,16 @@ def main(argv=None):
         p.error('--from and --to name the same network')
     if chain_id in (0, 777001) or not 0 < chain_id < 2**53:
         p.error(f'--to: chain ID {chain_id} is reserved or outside the JavaScript safe-integer range')
+    try:
+        retired_data = (a.root / RETIRED).read_bytes()
+        retired = read_retired(retired_data)
+    except OSError as e:
+        raise SystemExit(f'{RETIRED}: cannot read it: {e.strerror or e}')
+    except ValueError as e:
+        raise SystemExit(f'{RETIRED}: {e}')
+    if (chain_id, genesis) in retired and not a.allow_revert:
+        p.error(f'--to: chain {chain_id} genesis 0x{genesis} is a retired network ({RETIRED}); a rollback reverts the '
+                'switch commit; pass --allow-revert only to switch back to it on purpose')
     cur_chain, cur_genesis, cur_spec = current_identity(a.root)
     if (cur_chain, cur_genesis) not in ((old_chain, old_genesis), (chain_id, genesis)):
         raise SystemExit(f'{ANCHOR}: the tree pins chain {cur_chain} genesis 0x{cur_genesis}, which is neither --from '
@@ -303,6 +340,9 @@ def main(argv=None):
             problems.append(f'{page}: no versioned reference to {Path(rel).name}')
             continue
         out[page] = ref.sub(f'{Path(rel).name}?v={version(out[rel])}', text).encode('utf-8')
+    # A switch retires the --from network (a run that finishes the derived files changes no identity).
+    data[RETIRED] = retired_data
+    out[RETIRED] = retired_data if same else with_retired(retired_data, old_chain, old_genesis)
     data[INSTALLER] = (a.root / INSTALLER).read_bytes()
     out[INSTALLER] = build_installer.script({name: out[rel] for name, rel in INSTALLER_SOURCES.items()}).encode('utf-8')
     # The content versions and the installer payloads hash these files' bytes, which must be the bytes git
@@ -316,7 +356,7 @@ def main(argv=None):
                             '`git config core.autocrlf false`, `git rm -r --cached -q .` and `git reset --hard`')
     changed = [rel for rel in out if out[rel] != data[rel]]
     if a.check and changed:
-        problems += [f'{rel}: does not carry the --to identity (or its content version / installer payload)' for rel in changed]
+        problems += [f'{rel}: does not carry the --to identity (or its content version, installer payload or retired list)' for rel in changed]
     for line in problems:
         print('FAIL', line, file=sys.stderr)
     if stale and same:
@@ -327,6 +367,8 @@ def main(argv=None):
               '(git checkout) and run again', file=sys.stderr)
     if problems:
         return 2
+    if not a.check and not same:
+        print(f'switching from chain {cur_chain} genesis 0x{cur_genesis} to chain {chain_id} genesis 0x{genesis}')
     if not a.check:
         # Every new file is written beside its original first, so an I/O error changes nothing. Then each
         # original is replaced whole, the node file (which names the tree's identity) last, so the next run

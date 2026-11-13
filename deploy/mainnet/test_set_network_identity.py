@@ -3,8 +3,11 @@
 identity to the --to network's, with the content versions and the Studio installer derived from them; --check fails on
 any other identity; a redo switches from the current one; line endings are kept, and hashed sources with converted
 (CRLF) line endings are refused; nothing is written when anything fails, an I/O error included; bad, non-canonical or
-contradictory invitations are refused, as is a --to genesis the tree's release node does not decode; and every tracked
-file that pins the tree's current identity is listed in FILES or kept on purpose.
+contradictory invitations are refused, as is a --to genesis the tree's release node does not decode; a switch records
+the --from network in the retired list and a retired --to needs --allow-revert; every tracked file that pins the
+tree's current identity is listed in FILES or kept on purpose, and none (FILES included) pins a retired identity the
+tree no longer pins; and the shipped release texts that are true only on the retired network are gone once the tree
+pins a network that is not retired.
 
 The tests name no network: the --from fixture is the tree's current identity (the GenesisSpec the node file pins)
 and the --to fixtures are derived from it, so they pass whatever network the tree pins."""
@@ -25,10 +28,18 @@ def _free_chain():
             return chain
     raise AssertionError('no free fixture chain ID')
 NEW_CHAIN = _free_chain()
-# An independent detector of the current identity: the chain ID with or without digit groups, its hex digits, and
-# the start of the genesis hash, in any case.
-CUR_ANYWHERE = re.compile('(?i)' + '|'.join([re.escape(f'{CUR_CHAIN}'), re.escape(f'{CUR_CHAIN:_}'),
-                                              f'{CUR_CHAIN:x}', CUR_GENESIS[:8]]))
+def anywhere(identities):
+    """An independent detector of identities: each chain ID with or without digit groups, its hex digits, and the
+    start of each genesis hash, in any case; None for no identity."""
+    alts = [a for chain, genesis in identities for a in (re.escape(f'{chain}'), re.escape(f'{chain:_}'), f'{chain:x}', genesis[:8])]
+    return re.compile('(?i)' + '|'.join(alts)) if alts else None
+CUR_ANYWHERE = anywhere([(CUR_CHAIN, CUR_GENESIS)])
+# The retired identities (read independently of the tool), and those the tree no longer pins: no tracked file outside
+# the kept ones may hold one of those, FILES included, so no copy of an earlier network outlives its switch.
+RETIRED = [(e['chainId'], e['genesisHash'][2:]) for e in json.loads((ni.ROOT / ni.RETIRED).read_text(encoding='utf-8'))['retired']]
+GONE_ANYWHERE = anywhere([r for r in RETIRED if r != (CUR_CHAIN, CUR_GENESIS)])
+# The tree pins a network that is not retired: the identity switch has happened.
+SWITCHED = (CUR_CHAIN, CUR_GENESIS) not in RETIRED
 
 def sha12(data):
     """The content version the pages use: the first 12 hex digits of SHA-256 (computed here, not by the tool)."""
@@ -121,16 +132,41 @@ KEPT_PREFIXES = {
     'deploy/websites/': 'website snapshots: build output that is updated or rebuilt with the new network',
 }
 KEPT = {
+    ni.RETIRED: 'the retired identities the switch tool and this guard look for',
     'prototypes/pocold/src/net.rs': 'a pinned canonical Hello frame (wire golden vectors), not a network setting',
     'prototypes/pocold/tests/data/wire-golden.json': 'the pinned canonical Hello frame (wire golden vectors)',
 }
-TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC]
+# Shipped with the packages, so the identity-switch release replaces or bumps them (Phase 7 bumps the versions):
+# while the tree pins a retired network each holds its pattern (the old release's version, or text that is true only
+# on the retired network); once it pins a network that is not retired none may. A version bump before the switch
+# removes its entry here.
+STEP3 = {
+    'deploy/standalone/package.py': re.compile(r"version\s*=\s*'0\.4\.0'"),
+    'deploy/standalone/README.md': re.compile(r'Wallet 0\.4\.0|retain their genesis'),
+    'deploy/standalone/linux-desktop/pocol-desktop': re.compile(r'0\.4\.0'),
+    'deploy/standalone/linux-desktop/install-desktop-icon.sh': re.compile(r'0\.4\.0'),
+    'prototypes/pocol-windows/Wallet.cs': re.compile(r'Assembly(?:File)?Version\("0\.4\.0\.0"\)'),
+    'prototypes/pocol-windows/Wallet.xaml': re.compile(r'PoCol Wallet · 0\.4\.0'),
+    'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
+    'prototypes/pocol-extension/README-IDE.md': re.compile(
+        r'(?m)^# PoCol Studio, IDE & Viewer 0\.4\.1|chain ID and genesis remain unchanged'),
+    'prototypes/pocol-extension/README-STUDIO.md': re.compile(
+        r'(?m)^# PoCol Studio extension — 0\.4\.1|its chain ID and genesis are unchanged'),
+    'prototypes/pocol-extension/README-AR.md': re.compile(r'الإصدار 0\.4\.[01]|ومعرّف الشبكة وكتلة التكوين كما هي'),
+    'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
+    'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
+    'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
+    'prototypes/pocol-android/app/build.gradle': re.compile(r"versionName '0\.4\.0'"),
+    '.github/workflows/five-device-build.yml': re.compile(r'0\.4\.0'),
+}
+TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED]
 
-def unaccounted(files):
-    """Paths among (path, text) pairs that pin the current identity but are neither listed nor kept."""
+def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE):
+    """Paths among (path, text) pairs outside the kept ones that pin the current identity without being listed, or
+    pin a retired identity the tree no longer pins (listed or not)."""
     return [rel for rel, text in files
-            if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT and rel not in ni.FILES
-            and CUR_ANYWHERE.search(text)]
+            if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT
+            and ((rel not in ni.FILES and current.search(text)) or (gone is not None and gone.search(text)))]
 
 def digests(files):
     """{name: SHA-256}, so a failing comparison reports quickly instead of diffing whole files."""
@@ -231,10 +267,53 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 0, 'a redo for the same chain')
         self.assert_carries(root, HASH_B, SPEC_B)
         self.assertEqual(self.run_tool(root, '--check', source='a.json', target='b.json'), 0)
-        self.assertEqual(self.run_tool(root, '--check', source='b.json', target='a.json'), 2)
-        # And back: the original network is a valid target again.
-        self.assertEqual(self.run_tool(root, source='b.json', target='cur.json'), 0)
-        self.assertEqual(self.snapshot(root), self.snapshot(ni.ROOT), 'switching back restores the original bytes')
+        with self.assertRaises(SystemExit, msg='pinned to B; A, which B replaced, is retired'):
+            self.run_tool(root, '--check', source='b.json', target='a.json')
+        # And back, on purpose only: the original network is retired (listed before, or by the first switch).
+        before = self.snapshot(root)
+        with self.assertRaises(SystemExit):
+            self.run_tool(root, source='b.json', target='cur.json')
+        self.assertEqual(before, self.snapshot(root), 'a refused revert writes nothing')
+        self.assertEqual(self.run_tool(root, '--allow-revert', source='b.json', target='cur.json'), 0)
+        after, original = self.snapshot(root), self.snapshot(ni.ROOT)
+        self.assertEqual({k: v for k, v in after.items() if k != ni.RETIRED}, {k: v for k, v in original.items() if k != ni.RETIRED},
+                         'switching back restores the original bytes of every pin')
+        expected = RETIRED + [r for r in [(CUR_CHAIN, CUR_GENESIS)] if r not in RETIRED] + [(NEW_CHAIN, HASH_A[2:]), (NEW_CHAIN, HASH_B[2:])]
+        self.assertEqual(ni.read_retired((root / ni.RETIRED).read_bytes()), expected, 'the list is append-only')
+
+    def test_a_switch_retires_the_from_network_and_a_retired_target_is_refused(self):
+        root = self.copy()
+        original = (ni.ROOT / ni.RETIRED).read_bytes()
+        self.assertEqual(self.run_tool(root), 0)
+        listed = ni.read_retired((root / ni.RETIRED).read_bytes())
+        self.assertEqual(listed[:len(RETIRED)], RETIRED, 'earlier entries are kept')
+        self.assertIn((CUR_CHAIN, CUR_GENESIS), listed)
+        self.assertEqual(len(listed), len(set(listed)), 'an identity is listed once')
+        self.assertEqual(json.loads((root / ni.RETIRED).read_text())['about'], json.loads(original)['about'])
+        before = self.snapshot(root)
+        self.assertEqual(self.run_tool(root), 0, 'finishing a switch retires nothing more')
+        self.assertEqual(before, self.snapshot(root))
+        # A network listed as retired is never a target by accident, a redo (A to B to A) included.
+        self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 0)
+        before = self.snapshot(root)
+        with self.assertRaises(SystemExit):
+            self.run_tool(root, source='b.json', target='a.json')
+        with self.assertRaises(SystemExit):
+            self.run_tool(root, '--check', source='b.json', target='a.json')
+        self.assertEqual(before, self.snapshot(root))
+
+    def test_a_missing_or_malformed_retired_list_is_refused(self):
+        for damage in (None, b'{"retired": [{"chainId": "1", "genesisHash": "0x00"}]}', b'[]', b'not json'):
+            root = self.copy()
+            if damage is None:
+                (root / ni.RETIRED).unlink()
+            else:
+                (root / ni.RETIRED).write_bytes(damage)
+            before = self.snapshot(root) if damage is not None else None
+            with self.assertRaises(SystemExit):
+                self.run_tool(root)
+            if before is not None:
+                self.assertEqual(before, self.snapshot(root))
 
     def test_check_refuses_a_stale_content_version_or_installer(self):
         root = self.copy()
@@ -499,8 +578,18 @@ class SetNetworkIdentity(unittest.TestCase):
         planted = [('a.py', f'X = {CUR_CHAIN}n'), ('b.rs', f'const X: u64 = {CUR_CHAIN:_};'), ('c.js', f"c='0x{CUR_CHAIN:X}'"),
                    ('d.md', f'genesis {CUR_GENESIS[:8]}...'), ('e.json', CUR_SPEC.hex())]
         self.assertEqual(unaccounted(planted), [rel for rel, _ in planted])
-        exempt = [('development/x.md', str(CUR_CHAIN)), ('deploy/websites/x.js', str(CUR_CHAIN)), (list(ni.FILES)[0], str(CUR_CHAIN))]
+        exempt = [('development/x.md', str(CUR_CHAIN)), ('deploy/websites/x.js', str(CUR_CHAIN)), (list(ni.FILES)[0], str(CUR_CHAIN)),
+                  (ni.RETIRED, str(CUR_CHAIN))]
         self.assertEqual(unaccounted(exempt), [])
+        # A retired identity the tree no longer pins: flagged everywhere outside the kept files, FILES included.
+        gone_chain, gone_genesis = NEW_CHAIN, HASH_A[2:]
+        gone = anywhere([(gone_chain, gone_genesis)])
+        planted = [('a.py', f'X = {gone_chain}n'), ('b.rs', f'const X: u64 = {gone_chain:_};'), ('c.js', f"c='0x{gone_chain:X}'"),
+                   ('d.md', f'genesis {gone_genesis[:8].upper()}...'), (list(ni.FILES)[0], f'chain {gone_chain}')]
+        self.assertEqual(unaccounted(planted, gone=gone), [rel for rel, _ in planted])
+        exempt = [('development/x.md', str(gone_chain)), ('deploy/websites/x.js', str(gone_chain)), (ni.RETIRED, str(gone_chain)),
+                  ('prototypes/pocold/tests/data/wire-golden.json', str(gone_chain)), ('e.md', 'no identity')]
+        self.assertEqual(unaccounted(exempt, gone=gone), [])
 
     def test_every_tracked_file_that_pins_the_current_identity_is_listed_or_kept(self):
         try:
@@ -513,9 +602,19 @@ class SetNetworkIdentity(unittest.TestCase):
                     yield rel, (ni.ROOT / rel).read_text(encoding='utf-8')
                 except (UnicodeDecodeError, OSError):
                     continue
-        self.assertEqual(unaccounted(texts()), [], 'pins of the current identity: add the file to FILES, or to KEPT with a reason')
+        self.assertEqual(unaccounted(texts()), [], 'pins of the current identity: add the file to FILES, or to KEPT with a '
+                         'reason; pins of a retired identity: remove them')
         for rel in KEPT:
             self.assertTrue((ni.ROOT / rel).is_file(), rel)
+
+    def test_the_retired_release_texts_go_with_the_switch(self):
+        held = [rel for rel, old in STEP3.items() if old.search((ni.ROOT / rel).read_text(encoding='utf-8'))]
+        if SWITCHED:
+            self.assertEqual(held, [], 'the identity-switch release replaces or bumps these: ' + ', '.join(held))
+        else:
+            self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
+        # The detector works: each pattern finds the text it names on the retired release's tree.
+        self.assertIsNotNone(STEP3['prototypes/pocol-extension/README-STUDIO.md'].search('its chain ID and genesis are unchanged'))
 
 if __name__ == '__main__':
     unittest.main()

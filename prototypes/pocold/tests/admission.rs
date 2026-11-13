@@ -217,11 +217,14 @@ fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000
     assert!(median>t_exec_ms,"the typical commit is past t_exec: {e}");
     let _=std::fs::remove_dir_all(&d);
 }
-/// Boot admission reproduces the recorded report: a generated continuous spec-1 network (support/continuous.rs, the
-/// Continuous program set, whose SYS gas envelope GAS_ENVELOPE covers it) admitted from its files with the timing its
-/// devnet.json records gives the admission report `pocold init-testnet` recorded (scope, conditions with the R18 gas
-/// facts, notes, waivers, deferred items), byte for byte. The binding is the one exception: it hashes the profile and
+/// Boot admission reproduces the recorded report, and that report is pinned: a generated continuous spec-1 network
+/// (support/continuous.rs, the Continuous program set, whose SYS gas envelope GAS_ENVELOPE covers it) admitted from
+/// its files with the timing its devnet.json records gives the admission report `pocold init-testnet` recorded, and
+/// both equal CONTINUOUS_ADMISSION (scope, conditions with ids, rules and detail text including the R18 gas facts,
+/// notes, waivers, deferred items, specificationCompliant). The binding is the one exception: it hashes the profile and
 /// the node's local parameters, which differ between the builder (`local_for`) and a booting node.
+/// CONTINUOUS_ADMISSION is the report the retired H15000 bundle recorded (admission.rs of 28e295f), binding removed,
+/// with only the timing-not-a-bound sample count changed (11 there, 33 for this generated network's timing record).
 #[test] fn a_generated_continuous_networks_admission_report_is_reproduced_at_boot(){
     let d=tmp("continuous");continuous::continuous_network(&d);
     let info:serde_json::Value=serde_json::from_slice(&std::fs::read(d.join("devnet.json")).unwrap()).unwrap();
@@ -230,7 +233,121 @@ fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000
     let (mut now,mut recorded)=(pocold::admission_json(spec.admission()),info["admission"].clone());
     now.as_object_mut().unwrap().remove("binding");recorded.as_object_mut().unwrap().remove("binding");
     assert_eq!(now,recorded);
+    let pinned:serde_json::Value=serde_json::from_str(CONTINUOUS_ADMISSION).unwrap();
+    assert_eq!(recorded,pinned,"the admission report text changed: update CONTINUOUS_ADMISSION only for an intended change");
     let ids:Vec<&str>=recorded["conditions"].as_array().unwrap().iter().map(|c|c["id"].as_str().unwrap()).collect();
     for id in ["continuous-protocol","gas-monotonicity-assumed","gate-deferred-general-R18"]{assert!(ids.contains(&id),"{id}: {ids:?}");}
     let _=std::fs::remove_dir_all(&d);
 }
+/// The pinned admission report of the generated continuous network, binding removed (see the test above).
+const CONTINUOUS_ADMISSION:&str=r#"{
+ "conditions": [
+  {
+   "detail": "RpcGuard: mechanisms this node does not enforce: scratch_heavy, scratch_light, mem_total, cancel_max_ms",
+   "id": "rpc-absent",
+   "rules": [
+    "R26"
+   ]
+  },
+  {
+   "detail": "calibration: H_cal is a synthetic fixture (devnet --work-bits), not a measured hash rate",
+   "id": "calibration-synthetic",
+   "rules": [
+    "R25"
+   ]
+  },
+  {
+   "detail": "No scheduled height/time shutdown; only ordinary execution is reachable; its measured timing fills all legacy phase slots. Supply is bounded over the representable u64 height domain, not a network expiration.",
+   "id": "continuous-protocol",
+   "rules": [
+    "R13",
+    "R19",
+    "R23"
+   ]
+  },
+  {
+   "detail": "timing: 33 apply samples of the synthetic GAS_LIMIT compute workload on this host; not a p99 or worst-case bound (A13-DERIVATION §4)",
+   "id": "timing-not-a-bound",
+   "rules": [
+    "R14",
+    "R19"
+   ]
+  },
+  {
+   "detail": "SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",
+   "id": "gas-monotonicity-assumed",
+   "rules": [
+    "R18"
+   ]
+  },
+  {
+   "detail": "gate: deferred LP3 obligation LP4:general-R18",
+   "id": "gate-deferred-general-R18",
+   "rules": [
+    "R18"
+   ]
+  },
+  {
+   "detail": "gate: deferred LP3 obligation LP4:general-R21",
+   "id": "gate-deferred-general-R21",
+   "rules": [
+    "R21"
+   ]
+  },
+  {
+   "detail": "gate: deferred LP3 obligation LP4:caps64-minimum-SYS_SLOT_MAX",
+   "id": "gate-deferred-caps64",
+   "rules": [
+    "R18"
+   ]
+  }
+ ],
+ "deferred": [
+  "LP4:general-R18",
+  "LP4:general-R21",
+  "LP4:caps64-minimum-SYS_SLOT_MAX"
+ ],
+ "notes": [
+  "R26 heavy_active: equivalent, 1, the single consensus thread (active heavy work <= 1 <= HEAVY_ACTIVE)",
+  "R26 light_active: equivalent, 1, the single consensus thread drains the light lane (<= 1 <= LIGHT_ACTIVE)",
+  "R26 conn_buf: equivalent, SMALL_REPLY_MAX, the structural bound of a connection's busy or rate answer (<= 64 KiB)",
+  "R26 light_resp_mem: equivalent, (conn_max+1) x LIGHT_RESP_MAX, 512 KiB above the spec's 32 x 512 KiB: one reservation per connection plus the one being computed for a connection that left, so a light reservation never fails (S1)",
+  "R26 rate: equivalent, vacuous per connection: a connection carries one request of k <= BATCH_MAX = bucket_cap tokens from a full bucket, so the refill rate is never read; the aggregate rate across connections is open (proposals/RPCGUARD-R2-PROPOSALS.md P1)",
+  "R26 bucket_cap: equivalent, the per-connection bucket on the connection's one request (k > bucket_cap is -32021 {rate})"
+ ],
+ "scope": "experimental-devnet",
+ "specificationCompliant": false,
+ "waivers": [
+  {
+   "absent": [
+    "scratch_heavy",
+    "scratch_light",
+    "mem_total",
+    "cancel_max_ms"
+   ],
+   "checked": [
+    "heavyRespMem>=respMax",
+    "lightRespMem>=connMax*lightRespMax",
+    "batchRespMax>=respMax",
+    "lightQueue>=connMax",
+    "batchMax*errItemMax+64<=connBuf",
+    "respMax>=2*32768+546*512",
+    "logsCountMax>=546",
+    "logsScanBytes>=32768",
+    "lightRespMax>=385KiB",
+    "rate>=1",
+    "bucketCap>=batchMax",
+    "timerEps>0",
+    "timerEps<enforceSlack",
+    "enforceSlack<=500",
+    "sendSockBuf<=64KiB"
+   ],
+   "rule": "R26",
+   "waived": [
+    "derive",
+    "memoryRequired<=memTotal",
+    "batchWallMin<=batchWallMs"
+   ]
+  }
+ ]
+}"#;

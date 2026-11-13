@@ -17,10 +17,11 @@ This repository holds the specification and the implementation used by PoCol:
 
 PoCol is launching a brand-new public network, **PoCol Mainnet**, with currency symbol **PCOL**, from a fresh
 genesis; nothing of the retired network is kept
-([decisions, 2026-11-13](development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). Until the new genesis
-exists, the clients in this repository still pin the retired network's chain ID `1599846715` and genesis hash
-`0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`; they are switched to the new identity in one
-reviewed step (see [deploy/mainnet](deploy/mainnet/README.md)).
+([decisions, 2026-11-13](development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). The clients in this
+repository pin chain ID `1599846715` and genesis hash
+`0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`. Until the new genesis exists, that pin is the
+retired network's; the clients are switched to the new identity in one reviewed step (see
+[deploy/mainnet](deploy/mainnet/README.md)).
 
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and
