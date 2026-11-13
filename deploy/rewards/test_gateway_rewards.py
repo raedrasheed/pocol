@@ -185,5 +185,71 @@ class GatewayRewardTests(unittest.TestCase):
             self.assertIn('error', answer)
             self.assertEqual(len(reads), 0 if prohibited else 512)
 
+class GatewayV3NetworkTests(unittest.TestCase):
+    """V3-PR-G: a v3 (spec-2) network only from the operator's startup file; the public method stays parameterless."""
+    NETWORK = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
+
+    def test_network_file_is_validated_and_absent_by_default(self):
+        self.assertIsNone(gateway.load_v3_network())
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            filename = Path(directory) / 'network.json'
+            filename.write_text(json.dumps(self.NETWORK))
+            self.assertEqual(gateway.load_v3_network(filename).genesis, '0x' + '5a' * 32)
+            for bad in (dict(self.NETWORK, specVersion=1), dict(self.NETWORK, v3=False), dict(self.NETWORK, chainId='1'),
+                        dict(self.NETWORK, genesisHash=gateway.GENESIS), [[1, 0]]):
+                filename.write_text(json.dumps(bad))
+                with self.subTest(bad=bad), self.assertRaises((ValueError, RuntimeError)):
+                    gateway.load_v3_network(filename)
+            filename.write_text(' ' * 4097)
+            with self.assertRaisesRegex(ValueError, '4096'):
+                gateway.load_v3_network(filename)
+
+    def test_v3_network_is_forwarded_with_its_read_budget_and_receipts(self):
+        service = gateway.Gateway(fork_schedule=[[1, 0], [2, 2]], network=self.NETWORK)
+        self.assertEqual(service.chain_id, 777963)
+        seen = {}
+        def fake(query, *, fork_schedule, network):
+            seen.update(schedule=fork_schedule, network=network)
+            with patch.object(service, 'query', return_value={'jsonrpc': '2.0', 'id': 1, 'result': {}}):
+                query('eth_getTransactionReceipt', ['0x' + '00' * 32])
+                with self.assertRaisesRegex(RuntimeError, 'Unsupported reward read'):
+                    query('eth_sendRawTransaction', ['0x00'])
+            return {'blockHeight': 3}
+        supplied = request()
+        supplied['network'] = {'chainId': 1}
+        with patch.object(gateway, 'reward_snapshot', fake):
+            self.assertIn('result', service.call(supplied))
+        self.assertEqual((seen['schedule'], seen['network'].chain_id), (((1, 0), (2, 2)), 777963))
+
+    def test_mainnet_gateway_keeps_its_receipt_free_reads(self):
+        service = gateway.Gateway()
+        self.assertIsNone(service.network)
+        def fake(query, *, fork_schedule):
+            with self.assertRaisesRegex(RuntimeError, 'Unsupported reward read'):
+                query('eth_getTransactionReceipt', ['0x' + '00' * 32])
+            return {}
+        with patch.object(gateway, 'reward_snapshot', fake):
+            self.assertIn('result', service.call(request()))
+
+    def test_verify_network_uses_the_configured_identity(self):
+        service = gateway.Gateway(network=self.NETWORK)
+        answers = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32}
+        with patch.object(service, 'query', return_value={'result': answers}):
+            service.verify_network()
+        with patch.object(service, 'query', return_value={'result': {'chainId': gateway.CHAIN_ID, 'genesisHash': gateway.GENESIS}}):
+            with self.assertRaises(RuntimeError):
+                service.verify_network()
+
+    def test_cli_rejects_a_spec_1_network_file_before_connecting(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            filename = Path(directory) / 'network.json'
+            filename.write_text(json.dumps(dict(self.NETWORK, specVersion=1)))
+            result = subprocess.run([sys.executable, str(ROOT / 'gateway.py'), '--v3-network', str(filename)],
+                                    capture_output=True, text=True, timeout=5)
+            self.assertEqual(result.returncode, 2)
+            self.assertIn('spec-2', result.stderr)
+            self.assertNotIn('ConnectionRefusedError', result.stderr)
+
+
 if __name__ == '__main__':
     unittest.main()

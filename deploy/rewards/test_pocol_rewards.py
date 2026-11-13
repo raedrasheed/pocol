@@ -6,8 +6,13 @@ Run: python3 -m unittest -v test_pocol_rewards.py
 """
 import copy
 import hashlib
+import json
+import os
 import time
 import unittest
+import urllib.request
+from collections import Counter
+from pathlib import Path
 
 import pocol_rewards as rewards
 
@@ -465,6 +470,335 @@ class RewardTests(unittest.TestCase):
         node.block['pocol']['shares'] += 1
         with self.assertRaises((ValueError, RuntimeError)):
             rewards.snapshot(node)
+
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# v3 (spec-2) networks, V3-PR-G. The model vectors are the independent model's (prototypes/lp4-execution/tests/v3_model.py,
+# tests/v3/*.json); the differential runs against a v3 devnet chain from the preview build (pocold tests/v3_reward_gateway.rs).
+REPO = Path(__file__).resolve().parents[2]
+V3_VECTORS = REPO / 'prototypes' / 'lp4-execution' / 'tests' / 'v3'
+V3_NETWORK = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
+# The CP schema v2 defaults of the model's chain scenarios (v3_model.py DEFAULT_CP and CHAIN_DEFAULT) by name.
+MODEL_DEFAULT = {'D': 4, 'm': 32, 'kappa': 2, 'alpha_bp': 1000, 'gamma_bp': 500, 'S0': 2 * 10**18, 'H_half': 4_207_680,
+                 'S_tail': 2 * 10**18 // 32, 'gamma_tip_bp': 5000}
+
+
+def v3_spec(chain_id=777963, version=2, items=67, sys_hash=None):
+    """A canonical GenesisSpec [version, chainId, CP, allocRoot, M_0List, sysCodeHash] for the refusal tests."""
+    cp = [uint(1) for _ in range(items)]
+    sys_hash = bytes.fromhex((sys_hash or rewards.V3_SYS_CODE_HASH)[2:])
+    return encode([bytes([version]), chain_id, cp, b'\x33' * 32, [], sys_hash])
+
+
+class V3ConfigurationTests(unittest.TestCase):
+    def test_v3_sys_code_hash_is_the_bundled_v3_program_set(self):
+        programs = json.loads((REPO / 'prototypes' / 'lp4-execution' / 'tests' / 'data' / 'system-v3.json').read_text())['programs']
+        codes = [bytes.fromhex(p['runtime'].removeprefix('0x')) for p in programs]
+        self.assertEqual(len(codes), 5)
+        self.assertEqual('0x' + rewards.keccak256(encode(codes + [b''])).hex(), rewards.V3_SYS_CODE_HASH)
+
+    def test_a_v3_network_is_only_an_explicit_spec_2_configuration(self):
+        net = rewards.validated_network(V3_NETWORK)
+        self.assertEqual((net.chain_id, net.genesis, net.spec_version, net.source), (777963, '0x' + '5a' * 32, 2, None))
+        self.assertEqual(rewards.validated_network(net), net)
+        invalid = [dict(V3_NETWORK, specVersion=1), dict(V3_NETWORK, v3=False), {k: v for k, v in V3_NETWORK.items() if k != 'v3'},
+                   dict(V3_NETWORK, specVersion=True), dict(V3_NETWORK, chainId='777963'), dict(V3_NETWORK, chainId=0),
+                   dict(V3_NETWORK, genesisHash=GENESIS), dict(V3_NETWORK, genesisHash='0x' + '5A' * 32),
+                   dict(V3_NETWORK, extra=1), dict(V3_NETWORK, source='http://example.org'), [], None]
+        for value in invalid:
+            with self.subTest(value=value):
+                with self.assertRaises(rewards.RewardUnavailable):
+                    rewards.validated_network(value)
+
+    def test_the_default_snapshot_refuses_a_v3_node(self):
+        node = Node()
+        node.params['chainId'], node.params['genesisHash'] = 777963, '0x' + '5a' * 32
+        with self.assertRaisesRegex(rewards.RewardUnavailable, 'Wrong PoCol network'):
+            rewards.snapshot(node)
+
+    def test_a_configured_v3_network_refuses_a_v1_node_before_any_state_read(self):
+        node = Node()
+        with self.assertRaisesRegex(rewards.RewardUnavailable, 'Wrong PoCol network'):
+            rewards.snapshot(node, network=V3_NETWORK)
+        self.assertEqual([m for m, _ in node.calls], ['pocol_getParams'])
+
+    def test_the_v3_genesis_spec_is_proven_by_its_trusted_hash(self):
+        def params(spec, genesis=None):
+            return {'chainId': 777963, 'genesisHash': genesis or '0x' + rewards.keccak256(spec).hex(), 'activeVersion': 2,
+                    'forkSchedule': [[1, 0], [2, 2]], 'genesisPre': '0x' + spec.hex()}
+        def run(p):
+            calls = []
+            def query(method, args):
+                calls.append(method)
+                if method != 'pocol_getParams':
+                    raise AssertionError('read past the network check: ' + method)
+                return {'jsonrpc': '2.0', 'id': 1, 'result': p}
+            net = dict(V3_NETWORK, genesisHash=p['genesisHash'])
+            with self.assertRaises(rewards.RewardUnavailable) as caught:
+                rewards.snapshot_v3(query, fork_schedule=((1, 0), (2, 2)), network=net)
+            return str(caught.exception)
+        good = v3_spec()
+        self.assertRegex(run(params(good)), 'Invalid (nonce|reward) configuration', 'a structurally valid v3 spec reaches the CP checks')
+        self.assertIn('does not hash', run(params(good, '0x' + '5a' * 32)))
+        self.assertIn('Unsupported GenesisSpec version', run(params(v3_spec(version=1, items=52))))
+        self.assertIn('CP item count', run(params(v3_spec(items=52))))
+        self.assertIn('chain ID differs', run(params(v3_spec(chain_id=777964))))
+        self.assertIn('v3 program set', run(params(v3_spec(sys_hash='0x' + '11' * 32))))
+        untrusted = params(good)
+        untrusted['forkSchedule'] = [[1, 0], [2, 3]]
+        self.assertIn('differs from trusted', run(untrusted))
+        del untrusted['forkSchedule']
+        self.assertIn('did not advertise', run(untrusted))
+
+    def test_v3_active_follows_the_spec_version_or_a_third_fork(self):
+        self.assertTrue(rewards.v3_active(0, ((1, 0),), 2))
+        self.assertFalse(rewards.v3_active(10**9, ((1, 0), (2, 5)), 1))
+        self.assertTrue(rewards.v3_active(20, ((1, 0), (2, 10), (3, 20)), 1))
+        self.assertFalse(rewards.v3_active(19, ((1, 0), (2, 10), (3, 20)), 1))
+
+    def test_ordered_root_matches_the_empty_and_single_item_tries(self):
+        self.assertEqual(rewards.ordered_root([]).hex(), '56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421')
+        # One item: a single leaf [hex-prefix(key 0x80 nibbles 8,0 as leaf) = 0x2080, value].
+        leaf = encode([b'\x20\x80', b'\x07' * 40])
+        self.assertEqual(rewards.ordered_root([b'\x07' * 40]), rewards.keccak256(leaf))
+
+
+class V3ModelVectorTests(unittest.TestCase):
+    """The reward arithmetic of snapshot_v3 against the independent model's vectors (tests/v3/*.json)."""
+
+    def test_issuance_schedule_vectors(self):
+        cases = json.loads((V3_VECTORS / 'issuance-carry-vectors.json').read_text())['schedule']['cases']
+        self.assertGreater(len(cases), 10)
+        for c in cases:
+            with self.subTest(case=c):
+                self.assertEqual(rewards.issuance(int(c['h']), int(c['S0']), int(c['H_half']), int(c['S_tail'])), int(c['issued']))
+
+    def test_every_pot_is_issuance_plus_tips_less_the_share_plus_the_lagged_base_burn(self):
+        """Every closed pot of every chain scenario: issued = M3, amount = issued + tips - share + carry, and the carry
+        into pot h is the base burn R - A of settle(h-1-D) (Q = max(C, kappa*m), C the header and late shares of
+        h-1-D). A pot that evidence names is skipped for the carry (its settlement may burn whole)."""
+        checked, carried, tipped = 0, 0, 0
+        for name in ('issuance-carry-vectors.json', 'evidence-penalty-vectors.json', 'late-share-vectors.json', 'contest-vectors.json'):
+            for label, vector in json.loads((V3_VECTORS / name).read_text()).items():
+                if not isinstance(vector, dict) or 'steps' not in vector or not any(s['op'][0] == 'begin' for s in vector['steps']):
+                    continue
+                cp = dict(MODEL_DEFAULT, **{k: int(v) for k, v in vector['cp'].items()})
+                d, kappa_m = cp['D'], cp['kappa'] * cp['m']
+                pots, proposers, counts, named, winners = {}, {}, Counter(), set(), {}
+                for step in vector['steps']:
+                    op = step['op']
+                    if op[0] == 'final':
+                        break
+                    if op[0] == 'begin' and step['ok']:
+                        h = int(op[1])
+                        proposers[h] = op[2]
+                        if h >= 2:
+                            counts[h - 1] += len(step['shares']) + 1
+                            winners[h - 1] = step['winner']
+                        for e in step['evidence']:
+                            if e[0] == 'late':
+                                counts[e[1]] += len(e[2])
+                            elif e[1] is not None:
+                                named.add(e[1])
+                    if op[0] == 'close':
+                        h = int(op[1])
+                        issued, tips, amount = int(step['issued']), int(step['tips']), int(step['amount'])
+                        with self.subTest(vector=label, h=h):
+                            self.assertEqual(rewards.issuance(h, cp['S0'], cp['H_half'], cp['S_tail']), issued)
+                            share = rewards.tip_share(tips, cp['gamma_tip_bp'], proposers[h] != '')
+                            carry = amount - rewards.pot_amount(issued, tips, share, 0)
+                            self.assertGreaterEqual(carry, 0)
+                            j0 = h - 1 - d
+                            if j0 >= 1 and j0 not in named:
+                                r = rewards.split(pots[j0], cp['alpha_bp'], cp['gamma_bp'])[2]
+                                self.assertEqual(carry, rewards.base_burn(r, counts[j0], kappa_m))
+                                carried += carry > 0
+                            elif j0 < 1:
+                                self.assertEqual(carry, 0)
+                            checked += 1
+                            tipped += share > 0
+                        pots[h] = amount
+        self.assertGreater(checked, 500)
+        self.assertGreater(carried, 100)
+        self.assertGreater(tipped, 5)
+
+    def test_reporter_cut_and_split_follow_the_programs(self):
+        self.assertEqual(rewards.reporter_cut(20 * 10**18, 2500, True), 5 * 10**18)
+        self.assertEqual(rewards.reporter_cut(20 * 10**18, 2500, False), 0)
+        self.assertEqual(rewards.reporter_cut(7, 2500, True), 1)
+        self.assertEqual(rewards.split(2 * 10**18, 1000, 500), (2 * 10**17, 10**17, 17 * 10**17))
+        r = 17 * 10**17
+        self.assertEqual(rewards.base_burn(r, 3, 64), r - r * 3 // 64)
+        self.assertEqual(rewards.base_burn(r, 64, 64), 0)
+        self.assertEqual(rewards.base_burn(r, 70, 64), 0)
+
+
+def _devnet():
+    raw = os.environ.get('POCOL_V3_DEVNET')
+    return json.loads(raw) if raw else None
+
+
+@unittest.skipUnless(_devnet(), 'needs POCOL_V3_DEVNET: run pocold tests/v3_reward_gateway.rs (--features v3-preview)')
+class V3DevnetDifferential(unittest.TestCase):
+    """snapshot_v3 of every block of a v3 devnet chain from the preview build (pocold tests/v3_reward_gateway.rs), over
+    the node's JSON-RPC, against the node's own state: what each reward address and bond gained in the block, the
+    Escrow burned total, the pending pot and carry, and the ShareLedger's owners."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.fx = _devnet()
+        cls.schedule = tuple(map(tuple, cls.fx['forkSchedule']))
+        cls.network = {'chainId': cls.fx['chainId'], 'genesisHash': cls.fx['genesisHash'], 'specVersion': 2, 'v3': True}
+        cls.names = {v: k for k, v in cls.fx['members'].items()}
+        cls.snaps = {h: rewards.snapshot_v3(cls.rpc, fork_schedule=cls.schedule, network=cls.network, height=h)
+                     for h in range(1, cls.fx['head'] + 1)}
+
+    @classmethod
+    def rpc(cls, method, params):
+        body = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode()
+        request = urllib.request.Request(cls.fx['rpc'], data=body, headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(request, timeout=30) as reply:
+            return json.loads(reply.read())
+
+    def read(self, method, params):
+        answer = self.rpc(method, params)
+        self.assertNotIn('error', answer, (method, params))
+        return answer['result']
+
+    def call(self, to, signature, args, h):
+        data = rewards.keccak256(signature.encode())[:4] + b''.join(word(a) for a in args)
+        raw = bytes.fromhex(self.read('eth_call', [{'to': to, 'data': '0x' + data.hex()}, hex(h)])[2:])
+        return [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
+
+    def records(self, h):
+        """Every registry record at h: id -> recordWords."""
+        n = self.call(REGISTRY, 'lengths()', [], h)[0]
+        ids = ['0x' + self.call(REGISTRY, 'recordAt(uint256)', [i], h)[0].to_bytes(20, 'big').hex() for i in range(n)]
+        return {i: self.call(REGISTRY, 'recordWords(address)', [int(i, 16)], h) for i in ids}
+
+    def senders(self, h):
+        block = self.read('eth_getBlockByNumber', [hex(h), False])
+        return {self.read('eth_getTransactionByHash', [t])['from'].lower() for t in block['transactions']}
+
+    def balance(self, a, h):
+        return int(self.read('eth_getBalance', [a, hex(h)]), 16)
+
+    def ledger(self, j, h):
+        raw = bytes.fromhex(self.read('eth_call', [{'to': rewards.LEDGER, 'data': '0x' + (selector('entriesOf(uint64)') + word(j)).hex()}, hex(h)])[2:])
+        w = [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
+        n = w[3]
+        return Counter({'0x' + w[4 + i].to_bytes(20, 'big').hex(): w[5 + n + i] for i in range(n)})
+
+    def test_every_block_moves_exactly_the_reproduced_payments(self):
+        for h, snap in self.snaps.items():
+            with self.subTest(h=h):
+                block = snap['block']
+                before, after, senders = self.records(h - 1), self.records(h), self.senders(h)
+                by_reward, by_bond = Counter(), Counter()
+                for b in block['beneficiaries']:
+                    by_reward[b['rewardAddress']] += int(b['amountWei'])
+                    by_bond[b['minerId']] += int(b.get('bondAccruedWei', 0))
+                rewards_seen = {'0x' + r[1].to_bytes(20, 'big').hex() for r in list(before.values()) + list(after.values())}
+                self.assertLessEqual(set(by_reward), rewards_seen)
+                for reward in sorted(rewards_seen - senders):
+                    self.assertEqual(self.balance(reward, h) - self.balance(reward, h - 1), by_reward[reward], reward)
+                for ident in sorted(set(before) & set(after) - senders):
+                    self.assertEqual(after[ident][2] - before[ident][2], by_bond[ident], self.names.get(ident, ident))
+                burned = self.call(ESCROW, 'burnedTotal()', [], h)[0] - self.call(ESCROW, 'burnedTotal()', [], h - 1)[0]
+                self.assertEqual(burned, int(block['burnedWei']))
+                self.assertEqual(self.call(ESCROW, 'pending(uint256)', [h], h)[0], int(snap['grossRewardWei']))
+                carry = self.call(ESCROW, 'carry()', [], h)[0]
+                self.assertEqual(carry, int(block['settlement']['carryOutWei']) if block['settlement'] else 0)
+                self.assertEqual(int(snap['grossRewardWei']), int(snap['issuedWei']) + int(snap['tipsWei'])
+                                 - int(snap['tipShareWei']) + int(snap['carryInWei']))
+
+    def test_the_owners_of_every_pot_are_the_ledger_owners(self):
+        d = 4
+        for h, snap in self.snaps.items():
+            with self.subTest(h=h):
+                if h + 1 in self.snaps:
+                    late = Counter(o for e in self.snaps[h + 1]['block']['evidence'] if e['kind'] == 3 and e['potHeight'] == h
+                                   for o in e['owners'])
+                    header = Counter({o['minerId']: o['shares'] for o in snap['owners']})
+                    self.assertEqual(self.ledger(h, h + 1), header + late)
+                settled = snap['block']['settlement']
+                if settled:
+                    self.assertEqual(settled['potHeight'], h - d)
+                    self.assertEqual(self.ledger(h - d, h), Counter({o['minerId']: o['shares'] for o in settled['owners']}))
+
+    def test_an_undisturbed_projection_is_its_settlement(self):
+        """A pot nothing changes between its block and h + D (no late share, no evidence, no bond filled) settles exactly
+        as the block's own projection says."""
+        compared = 0
+        for j, snap in self.snaps.items():
+            if j + 4 not in self.snaps:
+                continue
+            settled = self.snaps[j + 4]['block']['settlement']
+            quiet = (settled['lateShareCount'] == 0 and not settled['invalid'] and
+                     not any(self.snaps[b]['block']['evidence'] for b in range(j + 1, j + 5)) and
+                     not any('bondAccruedWei' in b for b in snap['beneficiaries'] + settled['beneficiaries']))
+            if not quiet:
+                continue
+            with self.subTest(j=j):
+                self.assertEqual(settled['beneficiaries'], snap['beneficiaries'])
+                self.assertEqual(settled['carryOutWei'], snap['projectedCarryWei'])
+                self.assertEqual(settled['grossRewardWei'], snap['grossRewardWei'])
+                compared += 1
+        self.assertGreater(compared, 5)
+
+    def test_the_chain_exercises_every_v3_reward_rule(self):
+        fx, m = self.fx, self.fx['members']
+        rho = 2500
+        # Tips and the tip share (V3-20), issuance M3 (V3-19), the lagged carry (V3-15).
+        self.assertTrue(any(int(s['tipShareWei']) > 0 and int(s['tipShareWei']) * 2 == int(s['tipsWei']) for s in self.snaps.values()))
+        self.assertTrue(any(int(s['carryInWei']) > 0 for s in self.snaps.values()))
+        self.assertTrue(all(s['issuedWei'] == '2000000000000000000' for s in self.snaps.values()))
+        # All-live membership (D-V3-01): the idle three owns a range in a block past W_act (its nonces are assigned).
+        chain = rewards._V3Chain(self.rpc, rewards.validated_network(self.network), self.schedule,
+                                 rewards._v3_cp(self.read('pocol_getParams', []), rewards.validated_network(self.network)))
+        encoded = self.read('pocol_getBlockRlp', [hex(10)])
+        chain.set_anchor(rewards.decode_header(bytes.fromhex(encoded['header'][2:]), self.schedule, rewards.validated_network(self.network)), encoded['body'])
+        self.assertIn(m['three'], [owner for _, _, owner in chain.assignment(10)[1]])
+        self.assertEqual(len(chain.assignment(10)[1]), 4)
+        # Late shares (V3-02): block 5 credits two's omitted shares of template 4, paid at settle(4) in block 8.
+        late = [e for e in self.snaps[fx['lateBlock']]['block']['evidence'] if e['kind'] == 3]
+        self.assertEqual([(e['potHeight'], set(e['owners'])) for e in late], [(4, {m['two']})])
+        settled = self.snaps[8]['block']['settlement']
+        self.assertEqual((settled['potHeight'], settled['lateShareCount']), (4, 2))
+        self.assertIn(m['two'], {b['minerId'] for b in settled['beneficiaries']})
+        # Contests (V3-10/V3-14): three exited at the seat contest; alice exited, still ACCRUING, POOL_OUT (w0 bit 87).
+        three = self.records(fx['seatContest'])[m['three']]
+        self.assertEqual((three[0] & 255, (three[0] >> 8) & 255), (2, 0))
+        alice = self.records(fx['poolContest'])[m['alice']]
+        self.assertEqual((alice[0] & 255, (alice[0] >> 16) & 255, (alice[0] >> 87) & 1), (2, 4, 1))
+        self.assertNotIn(m['alice'], {o['minerId'] for o in self.snaps[fx['poolContest'] + 1]['owners']})
+        # The exited pool victim is payable: its share of a pending pot fills its accrued bond.
+        paid = {b['minerId']: b for b in self.snaps[fx['poolVictimPaid']]['block']['settlement']['beneficiaries']}
+        self.assertGreater(int(paid[m['alice']]['bondAccruedWei']), 0)
+        # And punishable: type-2 evidence against it (pot 18, recorded ACCRUING) burns its bond less rho to the reporter
+        # and pot 18 whole (V3-16/V3-17).
+        burn = fx['wholePotBurn']
+        ev = [e for s in self.snaps.values() for e in s['block']['evidence'] if e['kind'] == 2 and e['potHeight'] == burn]
+        self.assertEqual(len(ev), 1)
+        self.assertEqual((ev[0]['accused'], ev[0]['potInvalidated']), (m['alice'], True))
+        self.assertEqual(int(ev[0]['reporterCutWei']), int(ev[0]['bondBurnedWei']) * rho // 10000)
+        self.assertGreater(int(ev[0]['reporterCutWei']), 0)
+        whole = self.snaps[burn + 4]['block']['settlement']
+        self.assertEqual((whole['potHeight'], whole['invalid'], whole['burnedWei'], whole['beneficiaries']), (burn, True, whole['grossRewardWei'], []))
+        # Offender-only (V3-16): two, a HELD winner, is accused before settle(22); pot 22 settles normally, two's winner
+        # part and shares burn, one is paid, the reporter receives rho of two's 20 PCOL bond.
+        pot = fx['offenderPot']
+        ev = [e for s in self.snaps.values() for e in s['block']['evidence'] if e['kind'] == 2 and e['potHeight'] == pot]
+        self.assertEqual(len(ev), 1)
+        self.assertEqual((ev[0]['accused'], ev[0]['potInvalidated'], ev[0]['bondBurnedWei'], ev[0]['reporterCutWei']),
+                         (m['two'], False, str(20 * 10**18), str(5 * 10**18)))
+        offender = self.snaps[pot + 4]['block']['settlement']
+        self.assertFalse(offender['invalid'])
+        payees = {b['minerId'] for b in offender['beneficiaries']}
+        self.assertNotIn(m['two'], payees)
+        self.assertIn(m['one'], payees)
+        self.assertGreater(int(offender['burnedWei']), 0)
 
 
 if __name__ == '__main__':

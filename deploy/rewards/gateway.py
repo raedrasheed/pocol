@@ -30,6 +30,11 @@ except ImportError:
     reward_snapshot = None
     validated_fork_schedule = None
     DEFAULT_FORK_SCHEDULE = ((1, 0),)
+try:
+    from pocol_rewards import validated_network, MAX_CALLS_V3, MAX_SECONDS_V3
+except ImportError:
+    validated_network = None
+    MAX_CALLS_V3, MAX_SECONDS_V3 = 0, 0
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 CHAIN_ID = 1599846715
@@ -58,6 +63,21 @@ def load_fork_schedule(filename=None):
     if len(raw) > 4096:
         raise ValueError('Fork schedule file exceeds 4096 bytes')
     return trusted_fork_schedule(json.loads(raw))
+
+
+def load_v3_network(filename=None):
+    """Read the operator's v3 network configuration once at startup (V3-PR-G; dormant until V3-PR-I): a JSON object
+    {"chainId": N, "genesisHash": "0x...", "specVersion": 2, "v3": true}. Without a file the gateway serves only the
+    pinned spec-1 Mainnet; a v3 genesis is never enabled by an RPC answer."""
+    if filename is None:
+        return None
+    if validated_network is None:
+        raise RuntimeError('Install the reward module before configuring a v3 network')
+    with open(filename, 'rb') as source:
+        raw = source.read(4097)
+    if len(raw) > 4096:
+        raise ValueError('Network file exceeds 4096 bytes')
+    return validated_network(json.loads(raw))
 
 
 def matches(pattern, value):
@@ -100,8 +120,13 @@ def sanitize(method, value):
     return value
 
 class Gateway:
-    def __init__(self, upstream_port=8545, geography=None, transactions=None, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
+    def __init__(self, upstream_port=8545, geography=None, transactions=None, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
         self.fork_schedule = trusted_fork_schedule(fork_schedule)
+        if network is not None and validated_network is None:
+            raise RuntimeError('Install the reward module before configuring a v3 network')
+        # None: the pinned spec-1 Mainnet. A v3 network only from the operator's validated configuration.
+        self.network = None if network is None else validated_network(network)
+        self.chain_id = CHAIN_ID if self.network is None else self.network.chain_id
         self.port = upstream_port
         self.geography = geography
         self.transactions = transactions
@@ -135,7 +160,8 @@ class Gateway:
         finally: conn.close()
     def verify_network(self):
         params = self.query('pocol_getParams', []).get('result', {})
-        if params.get('chainId') != CHAIN_ID or params.get('genesisHash', '').lower() != GENESIS:
+        chain_id, genesis = (CHAIN_ID, GENESIS) if self.network is None else (self.network.chain_id, self.network.genesis)
+        if params.get('chainId') != chain_id or params.get('genesisHash', '').lower() != genesis:
             raise RuntimeError('The local RPC does not belong to the configured PoCol network')
     def call(self, request):
         method, params = request['method'], request['params']
@@ -157,17 +183,22 @@ class Gateway:
                 reward_locked = self.reward_slot.acquire(blocking=False)
                 if not reward_locked:
                     return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32021,'message':'Reward snapshot is being prepared; retry shortly'}}
-                deadline, remaining = time.monotonic() + 20, 512
+                deadline, remaining = time.monotonic() + (20 if self.network is None else MAX_SECONDS_V3), 512 if self.network is None else MAX_CALLS_V3
+                reads = {'pocol_status', 'pocol_getParams', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'pocol_getBlockRlp', 'eth_call', 'eth_getCode', 'eth_getBalance', 'eth_getTransactionCount'}
+                if self.network is not None: reads = reads | {'eth_getTransactionReceipt'}   # V3-20: the block's tips
                 def bounded_reward_query(read_method, read_params):
                     nonlocal remaining
                     if remaining <= 0 or time.monotonic() >= deadline:
                         raise RuntimeError('Reward read budget exceeded')
-                    if read_method not in {'pocol_status', 'pocol_getParams', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'pocol_getBlockRlp', 'eth_call', 'eth_getCode', 'eth_getBalance', 'eth_getTransactionCount'}:
+                    if read_method not in reads:
                         raise RuntimeError('Unsupported reward read')
                     remaining -= 1
                     return self.query(read_method, read_params)
                 try:
-                    value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule)
+                    if self.network is None:
+                        value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule)
+                    else:
+                        value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule, network=self.network)
                 except Exception:
                     self.reward_failed_at = time.monotonic()
                     raise
@@ -224,7 +255,7 @@ class Handler(BaseHTTPRequestHandler):
         except (BrokenPipeError, ConnectionResetError, socket.timeout): pass
     def do_GET(self):
         if self.path == '/health':
-            self.reply(200, {'service':'pocol-explorer-gateway','readOnly':True,'chainId':CHAIN_ID,'note':'Service health only; the explorer checks upstream identity and freshness.'})
+            self.reply(200, {'service':'pocol-explorer-gateway','readOnly':True,'chainId':self.server.gateway.chain_id,'note':'Service health only; the explorer checks upstream identity and freshness.'})
         else: self.reply(404, {'error':'Not found'})
     def do_POST(self):
         if self.path != '/rpc': self.reply(404, {'error':'Not found'}); return
@@ -272,13 +303,15 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=8088)
     parser.add_argument('--rpc-port', type=int, default=8545)
     parser.add_argument('--fork-schedule', metavar='FILE', help='Trusted JSON [[1,0],[2,activation_height]] schedule; default is version 1 only')
+    parser.add_argument('--v3-network', metavar='FILE', help='Trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true}: serve a v3 (spec-2) network instead of Mainnet; dormant until activation')
     args = parser.parse_args()
     try:
         fork_schedule = load_fork_schedule(args.fork_schedule)
+        network = load_v3_network(args.v3_network)
     except (OSError, ValueError, RuntimeError) as error:
         parser.error(str(error))
     geography = Geography.from_config() if Geography is not None and Path('/opt/pocol-explorer-gateway/geoip-config.json').is_file() else None
-    gateway = Gateway(args.rpc_port, geography, fork_schedule=fork_schedule)
+    gateway = Gateway(args.rpc_port, geography, fork_schedule=fork_schedule, network=network)
     gateway.verify_network()
     if os.environ.get('POCOL_TX_DB'):
         if TransactionIndex is None: raise RuntimeError('Transaction index module is missing')

@@ -47,6 +47,51 @@ blocks)**. The earlier adapter used CP7 (`dFbWait`, seconds), which could exclud
 valid members when their last activity was older than 6 but within 32 blocks
 under the current network configuration.
 
+## v3 (spec-2) networks: dormant until activation
+
+The v3 rules (V3-DESIGN.md, V3-DECISIONS.md) are dormant until V3-PR-I. The adapter reads a v3 genesis only when the
+operator configures it explicitly, in the same trusted way as a fork schedule; without it every call is the pinned
+spec-1 Mainnet projection above, byte for byte, and a node on another genesis is refused:
+
+```python
+from pocol_rewards import snapshot, validated_network
+
+network = validated_network({'chainId': chain_id, 'genesisHash': genesis_hash, 'specVersion': 2, 'v3': True})
+result = snapshot(node_query, fork_schedule=trusted_schedule, network=network)
+```
+
+`chain_id`, `genesis_hash` and `trusted_schedule` come from the operator's deployment configuration, never from RPC.
+The adapter requires the node's `pocol_getParams` to name that chain and genesis, its `genesisPre` to hash (keccak256)
+to the configured genesis and to decode as a version-2 GenesisSpec with the 67 CP items of CP schema v2 and the v3
+program set's sysCodeHash (`V3_SYS_CODE_HASH`, recomputed by the tests from `system-v3.json`), and the node's
+advertised fork schedule to equal the configured one. `v3_active(h)` is `active_version(h) >= 3 || specVersion >= 2`.
+
+The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For the captured block h it reproduces:
+
+- **pot h**: issuance M3 (`issuance(h)`, V3-19) plus the block's tips (its receipts) less the signed proposer's tip
+  share (V3-20) plus the carry into pot h, the base burn `R - A` of `settle(h-1-D)` lagged by one block (V3-15). The
+  sum is checked against RewardEscrow's pending pot and the carry against `RewardEscrow.carry()`. Its projected
+  settlement uses the header's owners under the all-live membership (D-V3-01: every live member of the parent's
+  ActList owns a nonce range on unbounded ranges, without the `W_act` activity filter); `projectedCarryWei` is its
+  uncovered pool part, which goes to the next pot rather than burning. Late shares, evidence and registry changes before
+  h + D can still change it, as on spec 1.
+- **block h's own flows** (`block`): these ran in block h and are not projections. They are its evidence in body order:
+  kind-3 late shares with one owner per nonce under template j's assignment (D-V3-02); type-1/2 evidence burning
+  only the offender's bond (and its parts of pots settled later) with `rho_bp` of that bond paid to the reward address
+  of the block's signed proposer (V3-17); the whole pot burning only for an accused winner recorded ACCRUING
+  (V3-16). They also include `settle(h-D)`, with its header and late owners (checked against the ShareLedger) and its
+  carry, and the tip share. ACCRUING records, including a pool-contest victim that stays exited until its due height
+  (owner decision 2026-11-13), fill their bond before their reward address is paid. Contests change the ActList and
+  so the nonce owners of later blocks.
+
+Bond refunds (sweep, claimBond) and user-transaction transfers are not reward flows and are not reported. The tip
+share is computed on the proposer's record after settlement and before the block's user transactions. Block bodies
+are bound to their headers by the transaction and evidence roots.
+
+The gateway enables it with `--v3-network FILE` (a JSON object as above, at most 4096 bytes, read once at startup);
+the public `pocol_getBlockReward` method stays a parameterless read. A v3 reward read may also call
+`eth_getTransactionReceipt`, and it has a larger read budget (`MAX_CALLS_V3`, `MAX_SECONDS_V3`).
+
 ## Integration boundary
 
 The gateway installer and running service are not changed by adding this
@@ -65,6 +110,18 @@ Tests use a deterministic independent RLP/RPC fixture with block-anchored state
 reads. They cover activation boundaries, a v1 parent of the first v2 block,
 maximum-nonce ownership, incorrect versions and untrusted schedules, moving
 head races, the activity-window regression, reward arithmetic and PAY burns.
+
+The v3 tests check the network configuration and the GenesisSpec proof, and the reward arithmetic against the
+independent model's vectors (`prototypes/lp4-execution/tests/v3/*.json`: the M3 schedule, and for every closed pot of
+every chain scenario issuance + tips - share + the lagged base burn). `V3DevnetDifferential` runs only with
+`POCOL_V3_DEVNET` set. `prototypes/pocold/tests/v3_reward_gateway.rs` (`--features v3-preview`) sets it: it builds a
+v3 devnet chain with tips, late shares, a seat and a pool contest, and type-2 evidence against an ACCRUING and a
+HELD winner, serves it over pocold's JSON-RPC, and compares every block's reproduced payments, bonds, burns, pots,
+carry and owners with the node's state:
+
+```sh
+cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test v3_reward_gateway
+```
 
 The node remains the source of truth for canonical execution. This adapter is
 not a replacement for full block validation.

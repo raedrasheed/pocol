@@ -4,6 +4,8 @@ Uses existing node RPC only. No transaction, node change or contract mutation.
 The result is a projection from the captured block's state, not a settlement
 receipt: evidence, registry changes or PAY eligibility can change before H+D.
 Sources: PoColSystemV1.sol, apply.rs, lp1-node/{assignment,header,hashes}.rs.
+A v3 (spec-2) network is read only with a trusted configuration (snapshot_v3, validated_network; V3-PR-G, dormant
+until V3-PR-I); without one every function keeps the spec-1 Mainnet behaviour.
 """
 from collections import Counter
 from datetime import datetime, timezone
@@ -127,8 +129,8 @@ def rlp_encode(value):
     return prefix(len(value), 128, 183) + value
 
 
-def rlp_decode(raw):
-    require(isinstance(raw, bytes) and 0 < len(raw) <= 32768, 'Invalid RLP size')
+def rlp_decode(raw, limit=32768, max_items=1024):
+    require(isinstance(raw, bytes) and 0 < len(raw) <= limit, 'Invalid RLP size')
     def one(pos, depth=0):
         require(depth <= 6 and pos < len(raw), 'Malformed RLP')
         first = raw[pos]
@@ -154,7 +156,7 @@ def rlp_decode(raw):
         values = []
         while start < end:
             value, start = one(start, depth+1)
-            require(start <= end and len(values) < 1024, 'Invalid RLP list')
+            require(start <= end and len(values) < max_items, 'Invalid RLP list')
             values.append(value)
         return values, end
     value, end = one(0)
@@ -183,8 +185,10 @@ def quantity(value):
     return number
 
 
-def decode_header(raw, fork_schedule=DEFAULT_FORK_SCHEDULE):
+def decode_header(raw, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
+    """network is None for the pinned Mainnet (spec 1); a v3 network is a trusted validated_network value."""
     fork_schedule = validated_fork_schedule(fork_schedule)
+    chain_id, genesis = (CHAIN_ID, GENESIS) if network is None else (network.chain_id, network.genesis)
     require(len(raw) <= 3067, 'Header size limit')
     top = rlp_decode(raw)
     require(isinstance(top, list) and len(top) == 4, 'Header arity')
@@ -198,7 +202,7 @@ def decode_header(raw, fork_schedule=DEFAULT_FORK_SCHEDULE):
         return int.from_bytes(value, 'big')
     for i in (2, 3, 9, 10, 11, 16):
         require(isinstance(ut[i], bytes) and len(ut[i]) == 32, 'Invalid header hash')
-    require(ut[1] and integer(1, 8) == CHAIN_ID and '0x'+ut[2].hex() == GENESIS, 'Header network mismatch')
+    require(ut[1] and integer(1, 8) == chain_id and '0x'+ut[2].hex() == genesis, 'Header network mismatch')
     height, version = integer(4, 8), integer(6, 2)
     require(version == active_version(height, fork_schedule),
             'Header version differs from trusted fork schedule')
@@ -222,7 +226,8 @@ def decode_header(raw, fork_schedule=DEFAULT_FORK_SCHEDULE):
             'parentHash': '0x'+ut[3].hex(), 'proposer': '0x'+ut[17].hex(),
             'signed': bool(ut[17]), 'seal': keccak256(tid+top[1]),
             'stateRoot': '0x'+ut[9].hex(), 'timestamp': integer(7, 8),
-            'gasLimit': integer(13, 8), 'gasUsed': integer(14, 8), 'baseFee': integer(15, 32)}
+            'gasLimit': integer(13, 8), 'gasUsed': integer(14, 8), 'baseFee': integer(15, 32),
+            'txRoot': ut[10], 'evidenceRoot': ut[16]}
 
 
 def _result(query, method, params):
@@ -302,8 +307,14 @@ def reconstruct_owners(query, header, cp, fork_schedule=DEFAULT_FORK_SCHEDULE):
     return owners
 
 
-def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
-    """Return a bounded, block-anchored projection, or raise RewardUnavailable."""
+def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
+    """Return a bounded, block-anchored projection, or raise RewardUnavailable.
+
+    Without `network` this is the pinned Mainnet (spec 1) projection, schema pocol-block-reward-v1. A v3 (spec-2)
+    network is read only with a trusted `network` configuration (validated_network) and returns snapshot_v3's
+    pocol-block-reward-v3 projection."""
+    if network is not None:
+        return snapshot_v3(query, fork_schedule=fork_schedule, network=network)
     fork_schedule = validated_fork_schedule(fork_schedule)
     started = time.monotonic()
     calls = 0
@@ -420,3 +431,688 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE):
             'projectedBondWei': str(sum(accrued.values())),
             'beneficiaryCount': len(beneficiaries), 'beneficiaries': beneficiaries,
             'status': 'pending', 'shareCount': len(header['shares'])}
+
+
+# ---------------------------------------------------------------------------------------------------------------------
+# v3 (spec-2) networks: V3-PR-G. Dormant until V3-PR-I: a v3 genesis is read only with a trusted operator configuration
+# (validated_network), exactly as a fork schedule is. Sources: PoColSystemV3.sol (RewardEscrow closeBlock/settleOne/
+# distribute/payTo/burnBond/invalidate, MinerRegistry punish/payee, ShareLedger), lp4-execution apply.rs (phase order)
+# and issuance.rs (M3), pocold chain.rs (membership, evidence_effects, late shares), V3-DECISIONS.md D-V3-01/02/10/14/
+# 15/16/17/19/20, and the independent model prototypes/lp4-execution/tests/v3_model.py.
+#
+# The phase order of a v3 block h (apply.rs): phase 0 recordShares/recordResult(h-1), the body's evidence in order
+# (kind 3 recordLate; kind 1/2 invalidate then punish with the block's signed proposer as reporter), markClose,
+# pruneShares, settle(h-D), beginBlock; the user transactions; phase 2 issuance(h) and closeBlock(tips, issued).
+# ---------------------------------------------------------------------------------------------------------------------
+from collections import namedtuple
+
+# The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION); 2 is the v3 genesis (CP schema v2),
+# decoded only by a v3-preview build until activation. CP item count of each version's schema.
+SPEC_VERSION = 1
+V3_SPEC_VERSION = 2
+CP_ITEMS = {1: 52, 2: 67}
+# sysCodeHash of the v3 program set: keccak256(RLP([C0C001..C0C005 runtimes of lp4-execution/tests/data/system-v3.json,
+# 0x80 for PAY])) (apply.rs SystemPrograms::sys_code_hash); test_pocol_rewards recomputes it from that file.
+V3_SYS_CODE_HASH = '0x72b5af64a2023c2c1662e011a4dbac454bc06b02b4fa321c8ba1c305461ca849'
+LEDGER = '0x0000000000000000000000000000000000c0c003'
+MAX_MEMBERS_V3 = 256
+MAX_CALLS_V3 = 8192
+MAX_SECONDS_V3 = 60
+MAX_SPEC_BYTES = 262144
+MAX_BODY_BYTES = 4194304
+MAX_LEDGER_OWNERS = 65536
+# RewardEscrow pending words (V3-16): meta INVALID bit 168, winner word WIN_ACCRUING bit 160.
+INVALID = 1 << 168
+WIN_ACCRUING = 1 << 160
+LOW64 = (1 << 64) - 1
+LOW160 = (1 << 160) - 1
+
+Network = namedtuple('Network', 'chain_id genesis spec_version source')
+
+
+def validated_network(value):
+    """Operator configuration of a v3 network, never learned from RPC: {"chainId": int, "genesisHash": "0x<64 hex>",
+    "specVersion": 2, "v3": true} and optionally "source" (an https URL echoed in the answer). The v3 rules are dormant
+    until V3-PR-I, so a spec-2 genesis is accepted only through this explicit configuration; the default (None) is the
+    pinned spec-1 Mainnet. A Network value is validated again."""
+    if isinstance(value, Network):
+        value = {'chainId': value.chain_id, 'genesisHash': value.genesis, 'specVersion': value.spec_version, 'v3': True,
+                 **({'source': value.source} if value.source is not None else {})}
+    require(isinstance(value, dict) and {'chainId', 'genesisHash', 'specVersion', 'v3'} <= set(value) <=
+            {'chainId', 'genesisHash', 'specVersion', 'v3', 'source'}, 'Invalid trusted network configuration')
+    chain_id, genesis, version = value['chainId'], value['genesisHash'], value['specVersion']
+    require(type(chain_id) is int and 0 < chain_id < 1 << 53, 'Invalid trusted network chain ID')
+    require(isinstance(genesis, str) and re.fullmatch(r'0x[0-9a-f]{64}', genesis) is not None and genesis != GENESIS,
+            'Invalid trusted network genesis hash')
+    require(type(version) is int and version == V3_SPEC_VERSION and value['v3'] is True,
+            'Only a spec-2 (v3) network is configured explicitly; spec 1 is the pinned Mainnet')
+    source = value.get('source')
+    require(source is None or (isinstance(source, str) and len(source) <= 200 and
+                               re.fullmatch(r'https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:/[A-Za-z0-9._~/-]*)?', source)),
+            'Invalid trusted network source')
+    return Network(chain_id, genesis, version, source)
+
+
+def v3_active(height, fork_schedule, spec_version):
+    """pocold Spec::v3_active: active_version(h) >= 3 || genesis.spec_version >= 2 (V3-DECISIONS fork machinery)."""
+    return active_version(height, fork_schedule) >= 3 or spec_version >= 2
+
+
+def decode_genesis_spec(raw, versions=(V3_SPEC_VERSION,)):
+    """[specVersion, chainId, CP[...], allocRoot, M_0List, sysCodeHash], canonical RLP, of one of `versions`, with that
+    version's CP item count. Returns (version, chainId, cp list of ints, sysCodeHash hex)."""
+    require(isinstance(raw, bytes) and 0 < len(raw) <= MAX_SPEC_BYTES, 'GenesisSpec size')
+    top = rlp_decode(raw, MAX_SPEC_BYTES, 65536)
+    require(isinstance(top, list) and len(top) == 6, 'A GenesisSpec has six top items')
+    version, chain, cp, alloc_root, members, sys_hash = top
+    def integer(b):
+        require(isinstance(b, bytes) and len(b) <= 32 and (not b or b[0]), 'Noncanonical GenesisSpec integer')
+        return int.from_bytes(b, 'big')
+    require(isinstance(version, bytes) and len(version) == 1 and version[0] in versions,
+            'Unsupported GenesisSpec version')
+    require(isinstance(cp, list) and len(cp) == CP_ITEMS[version[0]], 'CP item count of the GenesisSpec version')
+    require(isinstance(alloc_root, bytes) and len(alloc_root) == 32 and isinstance(members, list) and
+            isinstance(sys_hash, bytes) and len(sys_hash) == 32, 'GenesisSpec structure')
+    chain_id = integer(chain)
+    require(0 < chain_id < 1 << 64, 'GenesisSpec chain ID')
+    return version[0], chain_id, [integer(x) for x in cp], '0x' + sys_hash.hex()
+
+
+def issuance(h, s0, h_half, s_tail):
+    """V3-19 M3 (lp4-execution issuance.rs): h == 0 ? 0 : max(k >= 256 ? 0 : S0 >> k, S_tail), k = h // H_half."""
+    if h == 0:
+        return 0
+    k = h // h_half if h_half else LOW64
+    return max(0 if k >= 256 else s0 >> k, s_tail)
+
+
+def tip_share(tips, gamma_tip_bp, signed):
+    """V3-20 closeBlock: gamma_tip_bp/10^4 of the tips (floor) to the signed proposer; a fallback block keeps them all."""
+    return tips * gamma_tip_bp // 10000 if signed else 0
+
+
+def pot_amount(issued, tips, share, carry):
+    """V3-15/19/20 closeBlock: pot h = issued + (tips - share) + the carry into pot h."""
+    return issued + tips - share + carry
+
+
+def split(amount, alpha_bp, gamma_bp):
+    """M1 settleOne: winnerPart, propPart and R."""
+    wp, pp = amount * alpha_bp // 10000, amount * gamma_bp // 10000
+    return wp, pp, amount - wp - pp
+
+
+def base_burn(r, total, kappa_m):
+    """RewardEscrow.distribute: Q = max(C, kappa*m), A = floor(R*C/Q); the base burn R - A goes to the carry into the
+    next pot (V3-15, lagged), except at a final block."""
+    q = max(total, kappa_m)
+    return r - r * total // q
+
+
+def reporter_cut(bond, rho_bp, has_payee):
+    """V3-17 burnBond: rho_bp/10^4 of the burned bond (floor) to the reporter's reward address, none without a payee."""
+    return bond * rho_bp // 10000 if has_payee else 0
+
+
+def _rlp_list_raw(encoded):
+    raw = b''.join(encoded)
+    if len(raw) < 56:
+        return bytes([192 + len(raw)]) + raw
+    size = len(raw).to_bytes((len(raw).bit_length() + 7)//8, 'big')
+    return bytes([247 + len(size)]) + size + raw
+
+
+def _hex_prefix(nibbles, leaf):
+    flag = 2 if leaf else 0
+    if len(nibbles) % 2:
+        head, rest = bytes([((flag + 1) << 4) | nibbles[0]]), nibbles[1:]
+    else:
+        head, rest = bytes([flag << 4]), nibbles
+    return head + bytes((rest[i] << 4) | rest[i+1] for i in range(0, len(rest), 2))
+
+
+def _trie_node(items, depth):
+    if len(items) == 1:
+        key, value = items[0]
+        return _rlp_list_raw([rlp_encode(_hex_prefix(key[depth:], True)), rlp_encode(value)])
+    first, last = items[0][0], items[-1][0]
+    common = depth
+    while common < min(len(first), len(last)) and first[common] == last[common]:
+        common += 1
+    ref = lambda node: node if len(node) < 32 else rlp_encode(keccak256(node))
+    if common > depth:
+        return _rlp_list_raw([rlp_encode(_hex_prefix(first[depth:common], False)), ref(_trie_node(items, common))])
+    branches = [[] for _ in range(16)]
+    for key, value in items:
+        require(len(key) > depth, 'Trie key is a prefix')   # RLP index keys are prefix-free
+        branches[key[depth]].append((key, value))
+    return _rlp_list_raw([ref(_trie_node(b, depth + 1)) if b else b'\x80' for b in branches] + [b'\x80'])
+
+
+def ordered_root(values):
+    """The ordered Merkle-Patricia root of a block's transactions or evidence items (key RLP(i)), lp4 receipts.rs."""
+    if not values:
+        return keccak256(b'\x80')
+    def nibbles(raw):
+        return [n for b in raw for n in (b >> 4, b & 15)]
+    items = sorted((nibbles(rlp_encode(i.to_bytes((i.bit_length() + 7)//8, 'big'))), v) for i, v in enumerate(values))
+    return keccak256(_trie_node(items, 0))
+
+
+def _ident(value):
+    return '0x' + value.to_bytes(20, 'big').hex()
+
+
+class _Payments:
+    """RewardEscrow payments out of Escrow over one state: payTo/distribute (an absent record or a tomb burns; an ACCRUING
+    record, exited included, fills its bond up to B_reg first and is promoted to HELD when it reaches it, EARN-IN P1),
+    and Sys.pay (PAY-02: a non-durable recipient, an underfunded Escrow or a balance overflow burns)."""
+
+    def __init__(self, chain, at):
+        self.chain, self.at = chain, at
+        self.records, self.accounts = {}, {}
+        self.escrow = quantity(chain.result('eth_getBalance', [ESCROW, hex(at)]))
+        self.paid, self.accrued, self.rewards = Counter(), Counter(), {}
+        self.burned = 0
+
+    def record(self, miner):
+        if miner not in self.records:
+            self.records[miner] = list(self.chain.record(miner, self.at))
+        return self.records[miner]
+
+    def pay(self, reward, amount, miner):
+        """Sys.pay from Escrow; returns the amount burned (0 or amount)."""
+        if amount == 0:
+            return 0
+        if reward == ZERO:
+            self.burned += amount
+            return amount
+        if reward not in self.accounts:
+            nonce = quantity(self.chain.result('eth_getTransactionCount', [reward, hex(self.at)]))
+            code = b'' if nonce else hex_bytes(self.chain.result('eth_getCode', [reward, hex(self.at)]), maximum=65536)
+            balance = self.escrow if reward == ESCROW else quantity(self.chain.result('eth_getBalance', [reward, hex(self.at)]))
+            self.accounts[reward] = [bool(nonce or code), balance]
+        durable, balance = self.accounts[reward]
+        if not durable or self.escrow < amount or (reward != ESCROW and balance + amount > MAX_U256):
+            self.burned += amount
+            return amount
+        if reward != ESCROW:
+            self.escrow -= amount
+            self.accounts[reward][1] += amount
+        self.paid[miner] += amount
+        self.rewards[miner] = reward
+        return 0
+
+    def pay_to(self, miner, amount):
+        if amount == 0:
+            return
+        w0, reward, bond, _ = self.record(miner)
+        if w0 == 0 or (w0 >> 8) & 255:
+            self.burned += amount
+            return
+        reward = _ident(reward)
+        if (w0 >> 16) & 255 == 4:
+            b_reg = self.chain.cp[16]
+            add = min(amount, max(b_reg - bond, 0))
+            self.records[miner][2] = bond + add
+            if bond + add == b_reg:
+                self.records[miner][0] = (w0 & ~(255 << 16)) | (1 << 16)    # promote: HELD
+            self.accrued[miner] += add
+            self.rewards[miner] = reward
+            amount -= add
+        self.pay(reward, amount, miner)
+
+    def punish(self, accused):
+        """MinerRegistry.punish's record effect: tomb; a HELD or ACCRUING bond burns (returned), a PAID record keeps none."""
+        w0, reward, bond, w3 = self.record(accused)
+        require(w0 != 0 and not (w0 >> 8) & 255, 'Evidence accuses a record that is absent or a tomb')
+        state = (w0 >> 16) & 255
+        require(state in (1, 3, 4), 'Evidence accuses a record in an unknown bond state')
+        if state == 3:
+            self.records[accused][0] = w0 | (1 << 8)
+            return 0
+        self.records[accused][0] = (w0 & ~(255 << 16)) | (2 << 16) | (1 << 8)
+        return bond
+
+    def distribute(self, owners, counts, total, r, kappa_m):
+        """RewardEscrow.distribute: p_i = floor(R*c_i/Q); returns (A - sum p_i roundBurn added to burned, base burn)."""
+        q = max(total, kappa_m)
+        paid = 0
+        for miner in owners:
+            p = r * counts[miner] // q
+            paid += p
+            self.pay_to(miner, p)
+        a = r * total // q
+        self.burned += a - paid
+        return r - a
+
+    def beneficiaries(self, only=None):
+        keys = sorted(set(self.paid) | set(self.accrued))
+        return [dict({'minerId': m, 'rewardAddress': self.rewards[m], 'amountWei': str(self.paid[m])},
+                     **({'bondAccruedWei': str(self.accrued[m])} if self.accrued[m] else {}))
+                for m in keys if self.paid[m] > 0 or self.accrued[m] > 0]
+
+
+class _Delta:
+    """The part of a _Payments object's counters one step adds (a settlement, a tip share)."""
+    def __init__(self, pay):
+        self.pay, self.paid, self.accrued, self.burned = pay, Counter(pay.paid), Counter(pay.accrued), pay.burned
+
+    def close(self):
+        paid = {m: v - self.paid[m] for m, v in self.pay.paid.items() if v - self.paid[m]}
+        accrued = {m: v - self.accrued[m] for m, v in self.pay.accrued.items() if v - self.accrued[m]}
+        beneficiaries = [dict({'minerId': m, 'rewardAddress': self.pay.rewards[m], 'amountWei': str(paid.get(m, 0))},
+                              **({'bondAccruedWei': str(accrued[m])} if accrued.get(m) else {}))
+                         for m in sorted(set(paid) | set(accrued))]
+        return sum(paid.values()), sum(accrued.values()), self.pay.burned - self.burned, beneficiaries
+
+
+class _V3Chain:
+    """Block-anchored reads of a v3 chain at and below an anchor block (headers linked by parentHash from the anchor)."""
+
+    def __init__(self, query, network, fork_schedule, cp):
+        self.query, self.network, self.schedule, self.cp = query, network, fork_schedule, cp
+        self.anchor = None
+        self.headers, self.bodies, self.assignments, self.record_cache = {}, {}, {}, {}
+
+    def result(self, method, params):
+        return _result(self.query, method, params)
+
+    def call(self, to, signature, args, height, words=None):
+        data = keccak256(signature.encode())[:4] + b''.join(_word(x) for x in args)
+        raw = hex_bytes(self.result('eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': '0x1e8480'}, hex(height)]),
+                        None if words is None else words*32)
+        return raw if words is None else [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
+
+    def record(self, miner, height):
+        key = (miner, height)
+        if key not in self.record_cache:
+            values = self.call(REGISTRY, 'recordWords(address)', [int(miner, 16)], height, 4)
+            require(values[1] < 1 << 160, 'Malformed reward address')
+            self.record_cache[key] = tuple(values)
+        return self.record_cache[key]
+
+    def set_anchor(self, header, raw_body):
+        self.anchor = header['height']
+        self.headers[self.anchor] = header
+        self.bodies[self.anchor] = self._body(header, raw_body)
+
+    def header(self, k):
+        require(self.anchor is not None and 0 <= k <= self.anchor, 'Header outside the anchored range')
+        if k == 0:
+            return {'height': 0, 'hash': self.network.genesis, 'seal': keccak256(bytes.fromhex(self.network.genesis[2:]))}
+        # Every ancestor a snapshot reads lies within E_win + D + 2 blocks of the anchor (type-2 evidence of the parent
+        # block, and the assignment of the template it names).
+        require(self.anchor - k <= self.cp[26] + self.cp[11] + 2, 'Ancestor outside the reward window')
+        while k not in self.headers:
+            below = min(x for x in self.headers if x > k) - 1
+            encoded = self.result('pocol_getBlockRlp', [hex(below)])
+            require(isinstance(encoded, dict), 'Missing ancestor block')
+            decoded = decode_header(hex_bytes(encoded.get('header'), maximum=3067), self.schedule, self.network)
+            require(decoded['height'] == below and decoded['hash'] == self.headers[below + 1]['parentHash'],
+                    'Ancestor header mismatch')
+            self.headers[below] = decoded
+            self.bodies[below] = self._body(decoded, encoded.get('body'))
+        return self.headers[k]
+
+    def _body(self, header, raw):
+        """(txs, evidence) committed by the header's txRoot and evidenceRoot."""
+        top = rlp_decode(hex_bytes(raw, maximum=MAX_BODY_BYTES), MAX_BODY_BYTES, 1 << 20)
+        require(isinstance(top, list) and len(top) == 2 and all(isinstance(x, list) for x in top) and
+                all(isinstance(i, bytes) and i for x in top for i in x), 'Malformed block body')
+        txs, evidence = top
+        require(ordered_root(txs) == header['txRoot'] and ordered_root(evidence) == header['evidenceRoot'],
+                'Block body is not the one its header commits')
+        return txs, evidence
+
+    def body(self, k):
+        self.header(k)
+        return self.bodies[k]
+
+    def assignment(self, k):
+        """Block k's nonce ranges from its parent's state (consensus.md §5, chain.rs membership): on v3 with unbounded
+        ranges every live (non-tomb) member of the parent's ActList owns one, regardless of recent shares (D-V3-01)."""
+        if k in self.assignments:
+            return self.assignments[k]
+        header, parent = self.header(k), self.header(k - 1)
+        require(k > 0, 'Genesis has no assignment')
+        cp = self.cp
+        n = self.call(REGISTRY, 'lengths()', [], k - 1, 4)[1]
+        require(0 < n <= cp[18] <= MAX_MEMBERS_V3, 'Unsupported active membership size')
+        full = full_nonce_rule(header['protocolVersion'], cp[4])
+        all_live = v3_active(k, self.schedule, self.network.spec_version) and full
+        cutoff = max(0, k - cp[24])
+        live, active, seen = [], [], set()
+        for i in range(n):
+            value = self.call(REGISTRY, 'activeAt(uint256)', [i], k - 1, 1)[0]
+            require(0 < value < 1 << 160 and value != (1 << 160)-2 and not 0xc0c001 <= value <= 0xc0c0ff, 'Invalid active miner')
+            miner = _ident(value)
+            require(miner not in seen, 'Duplicate active miner')
+            seen.add(miner)
+            record = self.record(miner, k - 1)
+            require(record[0] != 0 and record[0] & 255 == 1, 'Invalid active record')
+            if (record[0] >> 8) & 255:
+                continue
+            live.append(miner)
+            if ((record[0] >> 88) & LOW64) >= cutoff or record[3] >> 192 >= cutoff:
+                active.append(miner)
+        members = live if all_live or not active else active
+        require(bool(members), 'No nonce owners')
+        seed = hashlib.sha256(b'PoColNonce' + parent['seal'] + k.to_bytes(8, 'big') + header['attempt'].to_bytes(4, 'big')).digest()
+        tickets = sorted((hashlib.sha256(seed + bytes.fromhex(m[2:])).digest(), m) for m in members)
+        require(len(set(t[0] for t in tickets)) == len(tickets), 'Nonce ticket collision')
+        maximum = 1 << 64 if full else min(1 << 64, ((1 << 256)//(header['target']+1))*cp[5])
+        require(maximum > 0, 'Empty nonce space')
+        ranges = [(i*maximum//len(tickets), (i+1)*maximum//len(tickets), m) for i, (_, m) in enumerate(tickets)]
+        self.assignments[k] = (maximum, ranges)
+        return self.assignments[k]
+
+    def owner(self, k, nonce):
+        maximum, ranges = self.assignment(k)
+        require(0 <= nonce < maximum, 'Nonce outside assigned domain')
+        matches = [m for start, end, m in ranges if start <= nonce < end]
+        require(len(matches) == 1, 'Unassigned nonce')
+        return matches[0]
+
+    def header_owners(self, k):
+        """recordShares(k) sequence: the header shares in nonce order, then the implicit winner once."""
+        header = self.header(k)
+        return [self.owner(k, n) for n in header['shares']] + [self.owner(k, header['nonce'])]
+
+    def evidence(self, k, kinds=(1, 2, 3)):
+        """Block k's evidence effects in body order (chain.rs evidence_effects): kind 3 (late shares of template j,
+        D-V3-02) gives j and one owner per nonce under block j's assignment; kind 1 (two signed templates) accuses
+        their proposer; kind 2 (a winner's two share roots) accuses owner(nonce) of the ancestor template j within
+        E_win that it names. The node validated the block; this reproduces the effects, not the validity."""
+        out = []
+        for raw in self.body(k)[1]:
+            item = rlp_decode(raw, 65536)
+            require(isinstance(item, list) and item and isinstance(item[0], bytes), 'Malformed evidence item')
+            kind = item[0]
+            if kind == b'\x03' and len(item) == 3:
+                if 3 not in kinds:
+                    out.append({'kind': 3})
+                    continue
+                require(isinstance(item[1], bytes) and len(item[1]) == 8 and isinstance(item[2], list) and
+                        all(isinstance(n, bytes) and len(n) == 8 for n in item[2]), 'Malformed late shares')
+                j = int.from_bytes(item[1], 'big')
+                nonces = [int.from_bytes(n, 'big') for n in item[2]]
+                require(max(1, k - self.cp[11]) <= j < k and nonces and nonces == sorted(set(nonces)), 'Late shares outside the window')
+                out.append({'kind': 3, 'j': j, 'nonces': nonces, 'owners': [self.owner(j, n) for n in nonces]})
+            elif kind == b'\x01' and len(item) == 3:
+                st = item[1]
+                require(isinstance(st, list) and len(st) == 2 and isinstance(st[0], list) and len(st[0]) == 18 and
+                        isinstance(st[0][17], bytes) and len(st[0][17]) == 20, 'Malformed type-1 evidence')
+                out.append({'kind': 1, 'accused': '0x' + st[0][17].hex(), 'j': None})
+            elif kind == b'\x02' and len(item) == 7:
+                if 2 not in kinds:
+                    out.append({'kind': 2, 'unparsed': True})
+                    continue
+                require(isinstance(item[1], bytes) and len(item[1]) == 32 and isinstance(item[2], bytes) and len(item[2]) == 8,
+                        'Malformed type-2 evidence')
+                nonce = int.from_bytes(item[2], 'big')
+                j = next((e for e in range(k - 1, max(0, k - self.cp[26] - 1), -1)
+                          if self.header(e)['templateId'] == item[1]), None)
+                require(j is not None, 'Type-2 evidence names no ancestor template')
+                out.append({'kind': 2, 'accused': self.owner(j, nonce), 'j': j})
+            else:
+                raise RewardUnavailable('Unknown evidence form')
+        return out
+
+    def tips(self, k, block):
+        """V3-20: the tips block k's user transactions paid to Escrow, sum gasUsed*(effectiveGasPrice - baseFee) over
+        the receipts of the transactions its body commits."""
+        header = self.header(k)
+        txs = self.body(k)[0]
+        hashes = block.get('transactions')
+        require(isinstance(hashes, list) and [h.lower() if isinstance(h, str) else h for h in hashes] ==
+                ['0x' + keccak256(t).hex() for t in txs], 'Block transactions differ from its body')
+        total = 0
+        for tx in hashes:
+            receipt = self.result('eth_getTransactionReceipt', [tx])
+            require(isinstance(receipt, dict) and receipt.get('transactionHash', '').lower() == tx.lower() and
+                    receipt.get('blockHash', '').lower() == header['hash'] and quantity(receipt.get('blockNumber')) == k,
+                    'Receipt of another block')
+            used, price = quantity(receipt.get('gasUsed')), quantity(receipt.get('effectiveGasPrice'))
+            require(price >= header['baseFee'] and used <= header['gasUsed'], 'Receipt below the base fee')
+            total += used * (price - header['baseFee'])
+        return total
+
+    def pending(self, j, height):
+        return self.call(ESCROW, 'pending(uint256)', [j], height, 3)
+
+    def ledger(self, j, height):
+        """ShareLedger.entriesOf(j): (owners in first-seen order, counts, total)."""
+        raw = self.call(LEDGER, 'entriesOf(uint64)', [j], height)
+        words = lambda at, n: [int.from_bytes(raw[at+32*i:at+32*i+32], 'big') for i in range(n)]
+        require(len(raw) >= 96 and len(raw) % 32 == 0, 'Malformed ledger entries')
+        a, c, total = words(0, 3)
+        require(a == 96 and len(raw) >= a + 32, 'Malformed ledger entries')
+        n = words(a, 1)[0]
+        require(n <= MAX_LEDGER_OWNERS and c == a + 32 + 32*n and len(raw) == c + 32 + 32*n and words(c, 1)[0] == n,
+                'Malformed ledger entries')
+        owners = words(a + 32, n)
+        require(all(0 < x < 1 << 160 for x in owners), 'Malformed ledger owner')
+        return [_ident(x) for x in owners], words(c + 32, n), total
+
+
+def _v3_cp(params, network):
+    """The CP of the network's GenesisSpec (pocol_getParams.genesisPre), proven by the trusted genesis hash: specVersion 2,
+    CP schema v2, the v3 program set."""
+    spec = hex_bytes(params.get('genesisPre'), maximum=MAX_SPEC_BYTES)
+    require('0x' + keccak256(spec).hex() == network.genesis, 'GenesisSpec does not hash to the trusted genesis')
+    version, chain_id, values, sys_hash = decode_genesis_spec(spec, (network.spec_version,))
+    require(chain_id == network.chain_id, 'GenesisSpec chain ID differs from the trusted network')
+    require(sys_hash == V3_SYS_CODE_HASH, 'GenesisSpec does not name the v3 program set')
+    cp = dict(enumerate(values))
+    require(cp[4] in (0, 1) and 0 < cp[5] <= 255 and 0 < cp[24] < 1 << 32, 'Invalid nonce configuration')
+    require(0 < cp[8] <= 65535 and 0 < cp[9] <= 255 and 0 < cp[10] <= 256 and 1 < cp[11] <= 65535 and 0 < cp[26] < 1 << 16,
+            'Invalid reward configuration')
+    require(cp[13] + cp[14] <= 10000 and 0 < cp[15] <= MAX_U256 and 0 < cp[16] <= MAX_U256 and 0 < cp[18] <= MAX_MEMBERS_V3,
+            'Invalid reward caps')
+    require(0 < cp[52] < 1 << 64 and cp[53] <= MAX_U256 and cp[59] <= 10000 and cp[66] <= 10000, 'Invalid v3 reward fields')
+    return cp
+
+
+def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=None):
+    """The v3 block projection (schema pocol-block-reward-v3) of the latest block, or of the canonical block `height`
+    (operator and test use; the public gateway method stays a no-argument read of the latest block).
+
+    For block h it reproduces, from the anchored state and the committed blocks:
+    - pot h: issued(h) (M3) + tips - the proposer's tip share + the carry into pot h (the base burn of settle(h-1-D),
+      lagged one block), checked against RewardEscrow's pending pot; and its projected settlement at h + D from the
+      header's owners under the all-live membership (D-V3-01), as the v1 projection does (pending: late shares,
+      evidence and registry changes before h + D can still change it);
+    - block h's own reward flows, which are executed, not projected: its evidence (late shares and their owners;
+      offender-only burns with the reporter's cut rho to the signed proposer, D-V3-16/17; the whole pot only for an
+      accused winner recorded ACCRUING), settle(h-D) with its header and late owners (cross-checked with the
+      ShareLedger) and its base burn into the carry (cross-checked with RewardEscrow.carry), and the tip share.
+    ACCRUING records, a pool-contest victim exited until its due height included, fill their bond before their
+    reward address is paid (EARN-IN P1; V3-14 owner decision 2026-11-13). Not reported: bond refunds (sweep,
+    claimBond) and user-transaction transfers. The tip share is computed on the proposer's record after settlement and
+    before the block's user transactions (a proposer's own top-up or reward change in that block is not modelled)."""
+    fork_schedule = validated_fork_schedule(fork_schedule)
+    network = validated_network(network)
+    started = time.monotonic()
+    calls = 0
+    raw_query = query
+    def bounded(method, params):
+        nonlocal calls
+        calls += 1
+        require(calls <= MAX_CALLS_V3 and time.monotonic()-started <= MAX_SECONDS_V3, 'Reward read budget exceeded')
+        answer = raw_query(method, params)
+        require(time.monotonic()-started <= MAX_SECONDS_V3, 'Reward read timed out')
+        return answer
+    query = bounded
+    params = _result(query, 'pocol_getParams', [])
+    require(isinstance(params, dict) and params.get('chainId') == network.chain_id and
+            params.get('genesisHash', '').lower() == network.genesis, 'Wrong PoCol network')
+    require(type(params.get('activeVersion')) is int and params['activeVersion'] in {v for v, _ in fork_schedule},
+            'Unsupported active consensus version')
+    advertised = params.get('forkSchedule')
+    require(advertised is not None, 'Node did not advertise the configured fork schedule')
+    require(validated_fork_schedule(advertised) == fork_schedule, 'Node fork schedule differs from trusted configuration')
+    cp = _v3_cp(params, network)
+    chain = _V3Chain(query, network, fork_schedule, cp)
+    tag = 'latest' if height is None else hex(height)
+    require(height is None or type(height) is int, 'Invalid block height')
+    block = _result(query, 'eth_getBlockByNumber', [tag, False])
+    require(isinstance(block, dict), 'No such block')
+    h = quantity(block.get('number'))
+    require(0 < h < (1 << 64)-65536 and (height is None or h == height), 'Invalid block height')
+    block_hash = '0x'+hex_bytes(block.get('hash'), 32).hex()
+    pocol = block.get('pocol')
+    require(isinstance(pocol, dict) and pocol.get('final') is False, 'Final block has no new reward pot')
+    encoded = _result(query, 'pocol_getBlockRlp', [hex(h)])
+    require(isinstance(encoded, dict), 'Missing block header')
+    header = decode_header(hex_bytes(encoded.get('header'), maximum=3067), fork_schedule, network)
+    require(header['height'] == h and header['hash'] == block_hash and header['parentHash'] == block.get('parentHash', '').lower(), 'Block header mismatch')
+    require(type(pocol.get('shares')) is int and pocol['shares'] == len(header['shares']), 'Share count mismatch')
+    require(pocol.get('signed') is header['signed'] and pocol.get('proposer', '').lower() == header['proposer'], 'Proposer mismatch')
+    require(pocol.get('attempt') == header['attempt'], 'Attempt mismatch')
+    if 'templateId' in pocol:
+        require(pocol['templateId'].lower() == '0x'+header['templateId'].hex(), 'Template mismatch')
+    require(len(header['shares']) <= cp[10], 'Invalid reward caps')
+    chain.set_anchor(header, encoded.get('body'))
+    winner = address(block.get('miner'))
+    d, kappa_m = cp[11], cp[8]*cp[9]
+    proposer = header['proposer'] if header['signed'] else None
+
+    # Block h's executed flows, phase 0 then phase 2, over the parent state h-1.
+    flows = _Payments(chain, h - 1)
+    evidence, invalidated = [], set()
+    for effect in chain.evidence(h):
+        if effect['kind'] == 3:
+            evidence.append({'kind': 3, 'potHeight': effect['j'], 'nonces': [str(n) for n in effect['nonces']],
+                             'owners': effect['owners']})
+            continue
+        accused, j = effect['accused'], effect['j']
+        invalid = False
+        if j is not None and j >= max(1, h - d):           # the host invalidates only a pending pot
+            _, meta, word = chain.pending(j, h - 1)
+            if j == h - 1:
+                # recordResult(h-1) runs in this block's phase 0 before its evidence: the winner, ACCRUING or not in the
+                # parent state (V3-16: the fact is committed when the result is recorded, never read later).
+                require(meta != 0 and word == 0, 'Parent pot already has a result')
+                won = chain.owner(j, chain.header(j)['nonce'])
+                record = chain.record(won, h - 1)
+                word = int(won, 16) | (WIN_ACCRUING if record[0] != 0 and not (record[0] >> 8) & 255 and
+                                       (record[0] >> 16) & 255 == 4 else 0)
+            require(meta != 0 and word != 0, 'Evidence names a pot without a result')
+            invalid = _ident(word & LOW160) == accused and bool(word & WIN_ACCRUING)
+            if invalid:
+                invalidated.add(j)
+        require(proposer is not None, 'Evidence in a fallback block')
+        before = flows.burned
+        bond = flows.punish(accused)
+        payee = flows.record(proposer)
+        reward = _ident(payee[1]) if payee[0] != 0 else ZERO
+        cut = reporter_cut(bond, cp[66], reward != ZERO)
+        burned = bond - cut + flows.pay(reward, cut, proposer) if cut else bond
+        flows.burned = before + burned
+        evidence.append({'kind': effect['kind'], 'accused': accused, 'potHeight': j, 'potInvalidated': invalid,
+                         'bondBurnedWei': str(bond), 'reporter': proposer,
+                         'reporterRewardAddress': reward if reward != ZERO else None,
+                         'reporterCutWei': str(cut if cut and burned == bond - cut else 0)})
+    settlement = None
+    if h > d:
+        j = h - d
+        amount, meta, word = chain.pending(j, h - 1)
+        require(meta != 0 and word != 0, 'Settled pot has no result')
+        jh = chain.header(j)
+        owners = chain.header_owners(j)
+        require(_ident(word & LOW160) == owners[-1], 'Settled pot winner differs from its nonce owner')
+        require(meta & ~INVALID == (int(jh['proposer'], 16) << 8 if jh['signed'] else 1), 'Settled pot proposer mismatch')
+        late = [o for b in range(j + 1, h) for e in chain.evidence(b, (3,)) if e.get('j') == j for o in e['owners']]
+        listed, counts_listed, total_listed = chain.ledger(j, h - 1)
+        counts = Counter(owners + late)
+        require(listed == list(counts) and counts_listed == [counts[m] for m in listed] and total_listed == sum(counts.values()),
+                'ShareLedger differs from the reconstructed owners')
+        now = [o for e in evidence if e['kind'] == 3 and e['potHeight'] == j for o in e['owners']]
+        counts = Counter(owners + late + now)
+        total = sum(counts.values())
+        invalid = bool(meta & INVALID) or j in invalidated
+        delta = _Delta(flows)
+        carry_out = 0
+        if invalid:
+            flows.burned += amount
+        else:
+            wp, pp, r = split(amount, cp[13], cp[14])
+            flows.pay_to(owners[-1], wp)
+            flows.pay_to(jh['proposer'] if jh['signed'] else owners[-1], pp)
+            carry_out = flows.distribute(list(counts), counts, total, r, kappa_m)
+        paid, bonded, burned, beneficiaries = delta.close()
+        require(chain.call(ESCROW, 'carry()', [], h, 1)[0] == carry_out, 'Carry differs from the reconstructed base burn')
+        settlement = {'potHeight': j, 'grossRewardWei': str(amount), 'invalid': invalid, 'winner': owners[-1],
+                      'winnerAccruing': bool(word & WIN_ACCRUING), 'shareCount': total,
+                      'lateShareCount': len(late) + len(now),
+                      'owners': [{'minerId': m, 'shares': c} for m, c in counts.items()],
+                      'paidWei': str(paid), 'bondWei': str(bonded),
+                      'burnedWei': str(burned), 'carryOutWei': str(carry_out),
+                      'beneficiaryCount': len(beneficiaries), 'beneficiaries': beneficiaries}
+    tips = chain.tips(h, block)
+    share = tip_share(tips, cp[59], header['signed'])
+    delta = _Delta(flows)
+    if share:
+        flows.pay_to(proposer, share)
+    tip_paid, tip_bonded, tip_burned, _ = delta.close()
+
+    # Pot h: issued + tips - share + the carry into h (the base burn of settle(h-1-D) in block h-1).
+    issued = issuance(h, cp[15], cp[52], cp[53])
+    carry_in = 0
+    if h - 1 > d:
+        j0 = h - 1 - d
+        amount0, meta0, word0 = chain.pending(j0, h - 2)
+        require(meta0 != 0 and word0 != 0, 'Carried pot has no result')
+        invalid0 = bool(meta0 & INVALID) or any(
+            e['kind'] == 2 and e['j'] == j0 and e['accused'] == _ident(word0 & LOW160) and word0 & WIN_ACCRUING
+            for e in chain.evidence(h - 1, (1, 2)))
+        if not invalid0:
+            total0 = chain.call(LEDGER, 'totalOf(uint64)', [j0], h - 1, 1)[0]
+            require(total0 > 0, 'Carried pot has no shares')
+            carry_in = base_burn(split(amount0, cp[13], cp[14])[2], total0, kappa_m)
+    require(chain.call(ESCROW, 'carry()', [], h - 1, 1)[0] == carry_in, 'Carry into the pot differs from its reconstruction')
+    amount, meta, stored_winner = chain.pending(h, h)
+    expected_meta = int(header['proposer'], 16) << 8 if header['signed'] else 1
+    require(meta == expected_meta and stored_winner == 0, 'Missing or inconsistent pending pot')
+    require(amount == pot_amount(issued, tips, share, carry_in), 'Pending pot differs from issuance, tips and carry')
+    require(amount * max(cp[13], cp[14], kappa_m + 1) <= MAX_U256, 'Reward arithmetic overflow')
+
+    owners = chain.header_owners(h)
+    require(owners[-1] == winner, 'Winner assignment mismatch')
+    counts = Counter(owners)
+    projection = _Payments(chain, h)
+    require(projection.escrow >= amount, 'Reward escrow underfunded')
+    wp, pp, r = split(amount, cp[13], cp[14])
+    projection.pay_to(winner, wp)
+    projection.pay_to(proposer or winner, pp)
+    carry_projected = projection.distribute(list(counts), counts, len(owners), r, kappa_m)
+    winner_record = chain.record(winner, h)
+    winner_accruing = winner_record[0] != 0 and not (winner_record[0] >> 8) & 255 and (winner_record[0] >> 16) & 255 == 4
+    beneficiaries = projection.beneficiaries()
+    paid = sum(projection.paid.values()) + sum(projection.accrued.values())
+    require(0 <= paid <= amount - carry_projected, 'Reward accounting mismatch')
+
+    check = _result(query, 'eth_getBlockByNumber', [hex(h), False])
+    if not isinstance(check, dict) or check.get('hash', '').lower() != block_hash:
+        raise SnapshotChanged('Canonical block changed; reload the reward snapshot')
+    out = {'schema': 'pocol-block-reward-v3', 'chainId': network.chain_id, 'genesisHash': network.genesis,
+           'specVersion': network.spec_version}
+    if network.source is not None:
+        out['source'] = network.source
+    out.update({
+        'fetchedAt': datetime.now(timezone.utc).isoformat(timespec='milliseconds').replace('+00:00', 'Z'),
+        'blockHeight': h, 'blockHash': block_hash, 'settlementHeight': h + d,
+        'issuedWei': str(issued), 'tipsWei': str(tips), 'tipShareWei': str(share), 'carryInWei': str(carry_in),
+        'grossRewardWei': str(amount), 'winnerAccruing': winner_accruing,
+        'owners': [{'minerId': m, 'shares': c} for m, c in counts.items()],
+        'projectedPaidWei': str(paid), 'projectedBurnedWei': str(amount - paid - carry_projected),
+        'projectedBondWei': str(sum(projection.accrued.values())), 'projectedCarryWei': str(carry_projected),
+        'beneficiaryCount': len(beneficiaries), 'beneficiaries': beneficiaries,
+        'block': {'evidence': evidence, 'settlement': settlement,
+                  'tipShare': {'proposer': proposer, 'shareWei': str(share), 'paidWei': str(tip_paid),
+                               'bondWei': str(tip_bonded), 'burnedWei': str(tip_burned)},
+                  'paidWei': str(sum(flows.paid.values())), 'bondWei': str(sum(flows.accrued.values())),
+                  'burnedWei': str(flows.burned), 'beneficiaries': flows.beneficiaries()},
+        'status': 'pending', 'shareCount': len(header['shares'])})
+    return out
