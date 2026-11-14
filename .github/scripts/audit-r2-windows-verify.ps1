@@ -215,10 +215,11 @@ $PocoldArgs = @('test', '--release', '--locked', '--no-fail-fast', '--lib', '--b
 if (@('all', 'pocold-consensus') -contains $Group) {
 [void](Test-Cargo 'pocold-consensus' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--test', 'consensus') 120)
 }
-# Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store and consensus.
+# Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store, consensus,
+# checkpoint_source, eviction_memory and fn3_members (history.redb's member tables, FN-3).
 # This group takes about 70 minutes on a hosted runner; 120 minutes leaves room for a slow runner inside the 150-minute job.
 if (@('all', 'pocold-io-fault') -contains $Group) {
-[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory') 120)
+[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory', '--test', 'fn3_members') 120)
 }
 if ($NeedsExtension) {
 $npm = $(if ($NodeDir) { Join-Path $NodeDir 'npm.cmd' } else { 'npm' }); $node = $(if ($NodeDir) { Join-Path $NodeDir 'node.exe' } else { 'node' })

@@ -174,12 +174,19 @@ pub struct Assignment {
 }
 impl Assignment {
     pub fn new(members: &Membership, attempt: u32, target: &U256, mode: NonceMode, c: u8) -> Result<Self, AssignmentError> {
-        if members.ids.is_empty() {
+        Self::from_ids(&members.ids, &members.seal, members.height, attempt, target, mode, c)
+    }
+    /// The assignment of the sorted member ids `ids` of a child at `height` whose parent's seal is `seal` (what
+    /// `new` reads of a `Membership`). FN-3 (C6, node-local): pocold recomputes a stored block's assignment from
+    /// its persisted member set through this one code path, so a historical owner lookup and a live one compute
+    /// the same ranges.
+    pub fn from_ids(ids: &[Address], seal: &H256, height: u64, attempt: u32, target: &U256, mode: NonceMode, c: u8) -> Result<Self, AssignmentError> {
+        if ids.is_empty() {
             return Err(AssignmentError::EmptyMembership);
         }
         let nonce_max = nonce_max(target, mode, c)?;
-        let seed = nonce_seed(&members.seal, members.height, attempt);
-        let mut tickets: Vec<_> = members.ids.iter().map(|id| (nonce_ticket(&seed, id), *id)).collect();
+        let seed = nonce_seed(seal, height, attempt);
+        let mut tickets: Vec<_> = ids.iter().map(|id| (nonce_ticket(&seed, id), *id)).collect();
         tickets.sort();
         if tickets.windows(2).any(|pair| pair[0].0 == pair[1].0) {
             // M1 does not specify a tie policy for distinct identities with equal SHA-256 tickets.
@@ -471,6 +478,21 @@ mod tests {
                 assert_eq!(a.owner(nonce), a.owner_linear(nonce));
             }
         }
+    }
+    #[test]
+    fn from_ids_is_new_on_the_membership_fields() {
+        // FN-3: a stored block's assignment is recomputed from its member set, its parent's seal and its height.
+        let ids: Vec<Address> = (1..=40u64).map(id_of).collect();
+        let members = Membership { height: 11, seal: [3; 32], ids: ids.clone(), accruing: vec![ids[0]] };
+        for (mode, c, attempt) in [(NonceMode::Unbounded, 1u8, 0u32), (NonceMode::Bounded, 1, 3), (NonceMode::Bounded, 16, 1)] {
+            let a = Assignment::new(&members, attempt, &U256::MAX, mode, c).unwrap();
+            let b = Assignment::from_ids(&ids, &[3; 32], 11, attempt, &U256::MAX, mode, c).unwrap();
+            assert_eq!(a, b);
+            // Another seal, height or attempt is another assignment.
+            assert_ne!(a.seed(), Assignment::from_ids(&ids, &[4; 32], 11, attempt, &U256::MAX, mode, c).unwrap().seed());
+            assert_ne!(a.seed(), Assignment::from_ids(&ids, &[3; 32], 12, attempt, &U256::MAX, mode, c).unwrap().seed());
+        }
+        assert_eq!(Assignment::from_ids(&[], &[3; 32], 11, 0, &U256::MAX, NonceMode::Unbounded, 1), Err(AssignmentError::EmptyMembership));
     }
     #[test]
     fn rejected_hash_retries_without_wrap_or_modulo_fallback() {

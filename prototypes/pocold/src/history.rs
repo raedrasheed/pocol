@@ -5,6 +5,11 @@
 //! Bodies and encoded headers stay in the journal, which is never compacted (storage.md:70).
 //! C-1 S4 adds a third table: each block's nonce ranges, so that an entry slimmed in memory is restored
 //! exactly (its header and ParentResult come back from its journal record).
+//! FN-3 (C6, `crate::members`) adds each block's member record (`members`: its member set as a change from its
+//! parent's, or a snapshot) and each snapshot's set (`member_sets`), from which a stored block's assignment is
+//! recomputed; FN-3a writes them beside the nonce ranges, which FN-3b removes. All of a block's rows are written in one
+//! commit (I3). A store written before FN-3 holds no member rows: `has` is false for its blocks, so a checkpoint
+//! restore falls back to replay, whose puts refill them (the S4 path; the file is not set aside).
 //!
 //! The store is never trusted past what it can prove. Each receipts record carries keccak(block hash ++
 //! record), a transaction index entry is checked by its reader against the block's transaction hashes,
@@ -25,6 +30,13 @@ const TXIDX:TableDefinition<&[u8;64],u32>=TableDefinition::new("txidx");
 /// C-1 S4: block hash -> keccak(block hash ++ record) ++ record; the record is the block's nonce ranges
 /// (Entry::ranges), each owner (20 bytes), start and end (16 bytes each, big-endian).
 const RANGES:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("ranges");
+/// FN-3: block hash -> keccak(block hash ++ record) ++ record; the record is the block's member record with its parent's
+/// hash and its height (`members::encode_rec`).
+const MEMBERS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("members");
+/// FN-3: snapshot block hash -> keccak(block hash ++ ids) ++ ids, its member set (20 bytes an id, ascending).
+const MEMBER_SETS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("member_sets");
+/// FN-3: what `put_with` stores of a block's member record: its parent, its height, the record and a snapshot's ids.
+pub struct Members<'a>{pub parent:[u8;32],pub height:u64,pub rec:&'a crate::members::MemberRec,pub set:Option<&'a [crate::members::Id]>}
 /// A block's nonce ranges: (owner, start, end exclusive).
 pub type Ranges=Vec<(revm::primitives::Address,u128,u128)>;
 /// The redb page cache (A13: resources.rs counts it). Reads past it go to the file.
@@ -60,7 +72,7 @@ impl History{
             // Ok(false): redb found damage and repaired what it could; the store is not trusted.
             match catch_unwind(AssertUnwindSafe(||db.check_integrity())){Ok(Ok(true))=>{}Ok(Err(e))=>{let e=rerr(e);if e.is_io(){return Err(e)}return Err(HistoryError("integrity check failed".into()))}_=>return Err(HistoryError("integrity check failed".into()))}
             crate::io_point(p,"history-open-tables");
-            catch_unwind(AssertUnwindSafe(||->Result<(),HistoryError>{let w=db.begin_write().map_err(rerr)?;{w.open_table(RECEIPTS).map_err(rerr)?;w.open_table(TXIDX).map_err(rerr)?;w.open_table(RANGES).map_err(rerr)?;}w.commit().map_err(rerr)}))
+            catch_unwind(AssertUnwindSafe(||->Result<(),HistoryError>{let w=db.begin_write().map_err(rerr)?;{w.open_table(RECEIPTS).map_err(rerr)?;w.open_table(TXIDX).map_err(rerr)?;w.open_table(RANGES).map_err(rerr)?;w.open_table(MEMBERS).map_err(rerr)?;w.open_table(MEMBER_SETS).map_err(rerr)?;}w.commit().map_err(rerr)}))
                 .map_err(|_|HistoryError("redb panicked at open".into()))??;
             Ok(db)};
         let first=if marker.exists(){Err(HistoryError("marked damaged".into()))}else{create(&path)};
@@ -91,21 +103,35 @@ impl History{
         if self.is_damaged(){return Err(HistoryError("history store damaged".into()))}
         catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_|Err(self.mark_damaged("redb panicked")))
     }
-    /// Whether the block's receipts and ranges are stored (a store written before S4 has no ranges: the
-    /// next put of the block adds them).
+    /// Whether the block's receipts, ranges and (FN-3) member record are stored (a store written before S4 has no ranges,
+    /// one written before FN-3 no member rows: the next put of the block adds them). A snapshot's set is committed with
+    /// its record, so it is there whenever the record is.
     pub fn has(&self,block:&[u8;32])->Result<bool,HistoryError>{
-        self.guard(||{let r=self.db.begin_read().map_err(err)?;let t=r.open_table(RECEIPTS).map_err(err)?;let g=r.open_table(RANGES).map_err(err)?;
-            Ok(t.get(block).map_err(err)?.is_some()&&g.get(block).map_err(err)?.is_some())})
+        self.guard(||{let r=self.db.begin_read().map_err(err)?;let t=r.open_table(RECEIPTS).map_err(err)?;let g=r.open_table(RANGES).map_err(err)?;let m=r.open_table(MEMBERS).map_err(err)?;
+            Ok(t.get(block).map_err(err)?.is_some()&&g.get(block).map_err(err)?.is_some()&&m.get(block).map_err(err)?.is_some())})
     }
-    /// Stores a validated block's receipts and transaction index in one durable commit (live import:
-    /// invariant I3). Idempotent: a block already stored is left as it is (its receipts are a function of
-    /// the block and its parent).
-    pub fn put(&self,block:&[u8;32],receipts:&[Vec<u8>],tx_hashes:&[B256],ranges:&[(revm::primitives::Address,u128,u128)])->Result<bool,HistoryError>{self.put_with(block,receipts,tx_hashes,ranges,true)}
+    /// Stores a validated block's receipts, transaction index, nonce ranges and (FN-3) member record, with a snapshot's
+    /// set, in one durable commit (live import: invariant I3). Idempotent: a block already stored is left as it is (each
+    /// row is a function of the block and its parent). An entry without its member record (an offloaded one) or a
+    /// snapshot without its ids is refused (nothing is written).
+    pub fn put(&self,e:&crate::chain::Entry)->Result<bool,HistoryError>{self.put_entry(e,true)}
     /// As `put`; a non-durable commit (`durable` false) is persisted by the next durable one. Replay uses
     /// it: the journal records exist already, so a crash before `sync` only means replay refills again.
     /// Returns whether the block was written (false: already stored).
-    pub fn put_with(&self,block:&[u8;32],receipts:&[Vec<u8>],tx_hashes:&[B256],ranges:&[(revm::primitives::Address,u128,u128)],durable:bool)->Result<bool,HistoryError>{
+    pub fn put_entry(&self,e:&crate::chain::Entry,durable:bool)->Result<bool,HistoryError>{
+        let parent=e.parent.ok_or_else(||HistoryError("genesis is not stored".into()))?;
+        let em=e.members.as_deref().ok_or_else(||HistoryError("an entry without its member record".into()))?;
+        let m=Members{parent,height:e.height,rec:&em.rec,set:em.ids.as_deref()};
+        self.put_with(&e.hash,&e.receipts,&e.tx_hashes,&e.ranges,&m,durable)
+    }
+    /// The rows of one block as `put_entry` writes them.
+    pub fn put_with(&self,block:&[u8;32],receipts:&[Vec<u8>],tx_hashes:&[B256],ranges:&[(revm::primitives::Address,u128,u128)],members:&Members<'_>,durable:bool)->Result<bool,HistoryError>{
         if self.has(block)?{return Ok(false)}
+        let mrec=crate::members::encode_rec(&members.parent,members.height,members.rec);
+        let set=match (members.rec.is_snapshot(),members.set){(false,_)=>None,(true,Some(ids)) if ids.len()==usize::from(members.rec.n)=>Some(crate::members::encode_set(ids)),
+            (true,_)=>return Err(HistoryError("a member snapshot without its ids".into()))};
+        let mut mval=seal(block,&mrec).to_vec();mval.extend_from_slice(&mrec);
+        let sval=set.map(|b|{let mut v=seal(block,&b).to_vec();v.extend_from_slice(&b);v});
         let mut rec=Vec::with_capacity(receipts.iter().map(|r|r.len()+4).sum());
         for r in receipts{rec.extend_from_slice(&(r.len() as u32).to_be_bytes());rec.extend_from_slice(r);}
         let mut val=seal(block,&rec).to_vec();val.extend_from_slice(&rec);
@@ -116,7 +142,9 @@ impl History{
             {let mut t=w.open_table(RECEIPTS).map_err(err)?;t.insert(block,val.as_slice()).map_err(err)?;
              let mut x=w.open_table(TXIDX).map_err(err)?;
              for (i,h) in tx_hashes.iter().enumerate(){let mut k=[0u8;64];k[..32].copy_from_slice(h.as_slice());k[32..].copy_from_slice(block);x.insert(&k,i as u32).map_err(err)?;}
-             let mut g=w.open_table(RANGES).map_err(err)?;g.insert(block,rval.as_slice()).map_err(err)?;}
+             let mut g=w.open_table(RANGES).map_err(err)?;g.insert(block,rval.as_slice()).map_err(err)?;
+             let mut m=w.open_table(MEMBERS).map_err(err)?;m.insert(block,mval.as_slice()).map_err(err)?;
+             if let Some(v)=&sval{let mut q=w.open_table(MEMBER_SETS).map_err(err)?;q.insert(block,v.as_slice()).map_err(err)?;}}
             w.commit().map_err(err)?;Ok(true)})
     }
     /// A durable commit: every earlier non-durable `put_with` is persisted.
@@ -144,6 +172,25 @@ impl History{
         if v.len()<32||v[..32]!=seal(block,&v[32..])[..]||(v.len()-32)%52!=0{return Err(self.mark_damaged("ranges record fails its seal"))}
         Ok(Some(v[32..].chunks(52).map(|c|(revm::primitives::Address::from_slice(&c[..20]),u128::from_be_bytes(c[20..36].try_into().unwrap()),u128::from_be_bytes(c[36..52].try_into().unwrap()))).collect()))
     }
+    /// FN-3: a block's (parent, height, member record), or None if not stored. A row that fails its seal or its shape
+    /// (`members::decode_rec`) marks the store damaged.
+    pub fn members(&self,block:&[u8;32])->Result<Option<([u8;32],u64,crate::members::MemberRec)>,HistoryError>{
+        let v=self.guard(||{let r=self.db.begin_read().map_err(err)?;let t=r.open_table(MEMBERS).map_err(err)?;Ok(t.get(block).map_err(err)?.map(|v|v.value().to_vec()))})?;
+        let Some(v)=v else{return Ok(None)};
+        if v.len()<32||v[..32]!=seal(block,&v[32..])[..]{return Err(self.mark_damaged("member record fails its seal"))}
+        crate::members::decode_rec(&v[32..]).map(Some).map_err(|w|self.mark_damaged(&format!("member record: {w}")))
+    }
+    /// FN-3: a snapshot block's member set, or None if not stored. The set's seal and order, and its count and digest
+    /// against the block's record (which must be a snapshot), are checked; a failure marks the store damaged.
+    pub fn member_set(&self,block:&[u8;32])->Result<Option<crate::members::Set>,HistoryError>{
+        let v=self.guard(||{let r=self.db.begin_read().map_err(err)?;let t=r.open_table(MEMBER_SETS).map_err(err)?;Ok(t.get(block).map_err(err)?.map(|v|v.value().to_vec()))})?;
+        let Some(v)=v else{return Ok(None)};
+        if v.len()<32||v[..32]!=seal(block,&v[32..])[..]{return Err(self.mark_damaged("member set fails its seal"))}
+        let ids=crate::members::decode_set(&v[32..]).map_err(|w|self.mark_damaged(&format!("member set: {w}")))?;
+        let Some((_,_,rec))=self.members(block)? else{return Err(self.mark_damaged("a member set without its record"))};
+        if !rec.is_snapshot()||usize::from(rec.n)!=ids.len()||crate::members::digest_of(&ids)!=rec.digest{return Err(self.mark_damaged("a member set that does not match its record"))}
+        Ok(Some(ids))
+    }
     /// Every stored (block hash, index) that holds the transaction. The caller checks each against the
     /// block's transaction hashes (`mark_damaged` on a mismatch).
     pub fn tx_locations(&self,tx:&B256)->Result<Vec<([u8;32],usize)>,HistoryError>{
@@ -154,4 +201,11 @@ impl History{
             for kv in t.range::<&[u8;64]>(&lo..=&hi).map_err(err)?{let (k,v)=kv.map_err(err)?;let mut b=[0u8;32];b.copy_from_slice(&k.value()[32..]);out.push((b,v.value() as usize));}
             Ok(out)})
     }
+}
+/// FN-3: history.redb as a chain's member source (`Chain::set_member_source`). A read that fails is a local failure; a
+/// fault the chain finds in what it read marks the store damaged, so the next open rebuilds it (I1).
+impl crate::members::MemberSets for History{
+    fn record(&self,hash:&[u8;32])->Result<Option<([u8;32],u64,crate::members::MemberRec)>,crate::chain::Reject>{self.members(hash).map_err(|e|crate::chain::Reject::Local(format!("history: {}",e.0)))}
+    fn set(&self,hash:&[u8;32])->Result<Option<crate::members::Set>,crate::chain::Reject>{self.member_set(hash).map_err(|e|crate::chain::Reject::Local(format!("history: {}",e.0)))}
+    fn damaged(&self,why:&str){let _=self.mark_damaged(why);}
 }

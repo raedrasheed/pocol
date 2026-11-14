@@ -335,7 +335,13 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // the place of the selection's first-seen sender set (consensus.rs a13_bound_breakdown).
         // FN-1 (C6): the child-context cache term (resources::ctx_cache_bytes, 185,920 B at this chain's M_max) moves each
         // stop 79 records earlier than the pins [1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701].
-        assert_eq!(got,[1_145_815,1_120_957,1_113_795,1_089_164,1_071_253,1_046_622],"the live chain's halt moved (record it in the PR)");
+        // FN-3a (C6): the member-record terms (the caches and scratch, the window's records, 3,778,756 B at this chain's
+        // M_max 64 and S_max 256, and each record's and snapshot row's history.redb allocator bytes) move each stop
+        // 2,797/2,766/2,757/2,727/2,704/2,674 records earlier than the pins [1_145_815,1_120_957,1_113_795,1_089_164,
+        // 1_071_253,1_046_622]. An Entry's size is unchanged (its `members` pointer is paid for by `ranges` as a boxed
+        // slice), so a slimmed entry, the bulk of this eviction-off projection, costs what it did. The seed rule's
+        // outcome is unchanged: R10[0] - R(32, 2) = 58,675 of the week's 60,480, and R10[1] - R(64, 7) = 100,923 > a week.
+        assert_eq!(got,[1_143_018,1_118_191,1_111_038,1_086_437,1_068_549,1_043_948],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
@@ -387,7 +393,10 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     if cfg!(all(target_os="linux",target_arch="x86_64")){
         // C3: 4096 * 878624 = 3598843904 fewer modeled file bytes per stop (legacy receipt under-count).
         // FN-1 (C6): the child-context cache term, 185,920 model bytes: 4096 * 185920 = 761,528,320 fewer modeled file bytes per stop.
-        assert_eq!(got,[11_925_949_677_695,11_664_796_745_855,11_589_295_833_215,11_328_142_901_375,11_140_424_040_575,10_879_271_108_735],"the live chain's stop moved (record it in the PR)");
+        // FN-3a (C6): the member-record terms, 3,778,756 model bytes at this chain's M_max 64, and their history.redb
+        // payload: each stop 15,505,223,296 B (14.4 GiB of history.redb) earlier than the pins
+        // [11_925_949_677_695,11_664_796_745_855,11_589_295_833_215,11_328_142_901_375,11_140_424_040_575,10_879_271_108_735].
+        assert_eq!(got,[11_910_444_454_399,11_649_291_522_559,11_573_790_609_919,11_312_637_678_079,11_124_918_817_279,10_863_765_885_439],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and

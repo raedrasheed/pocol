@@ -1,6 +1,7 @@
 //! LP5 consensus tests: fresh-genesis production, replay determinism, D133 fork
 //! choice (heavier / tied / signed-first), per-item H-pre/H-full rejections,
 //! envelope-vs-block rejection, evidence, finality.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use pocold::{chain::{Chain,Reject,Spec},types::*,hashes,rlp};
 use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},txsign::{Key,Tx}};
@@ -9,6 +10,8 @@ use revm::primitives::{Address,B256,U256};
 #[path="support/hello.rs"] mod support;
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
 /// Gate-valid test profile (A02): about 2^12 hashes per block (target 2^244-1 at T_blk=4),
 /// c=8, and D_att=73 so that R7 holds with single-host timing: 73+5 >= 2(7+8*4).
 /// Genesis is in the past: honest single-host Φ=0 tolerates no future timestamps.
@@ -2037,10 +2040,18 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // before).
     let ctx_cache=d.items.iter().find(|x|x.0.starts_with("queues/child-context cache")).unwrap().1;
     assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(admitted(&cfg(&["a","b","c"])).cp()));
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_977_154,"the A13 model total changed");
+    // FN-3a (C6) adds the member-record terms (resources::member_cache_bytes, member_scratch_bytes, the records held on
+    // entries not offloaded, and the history.redb payload of member_payload): at this devnet's M_max 64, S_max 256 and
+    // CP schema v1 (DELTA_CAP ids a delta), +3,836,884 B with eviction on or off (3,397,977,154 and 3,388,515,533
+    // before): the owner memo 2,770,596, the reconstruction scratch 743,744, the assignments cache 168,784, the window's
+    // records 72,080, the sets cache 23,552, and 58,128 of history.redb allocator. An Entry's size is unchanged (1,088 B:
+    // `members` is one pointer, and `ranges` became a boxed slice).
+    let fn3:u128=d.items.iter().filter(|x|x.0.contains("(FN-3")).map(|x|x.1).sum();
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_401_814_038,"the A13 model total changed");
+        assert_eq!(fn3,3_778_756);assert_eq!(std::mem::size_of::<pocold::chain::Entry>(),1_088);
         assert_eq!(ctx_cache,185_920);
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_388_515_533,"eviction off includes the same receipt scratch");
+        assert_eq!(off.total,3_392_352_417,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -2052,7 +2063,8 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // (PR7: with eviction off, so that every height is resident.)
     let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),evict_depth:Some(0),..Default::default()},2).unwrap();
     // (C-1 E5: and the one empty state entries share, which each entry counted before.)
-    let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")).map(|x|x.1).sum();
+    // (FN-3a: and the member records the window's entries hold, a term that grows with the window: here every entry.)
+    let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")||x.0.starts_with("history/member records on entries not offloaded")).map(|x|x.1).sum();
     // The one term that differs: the logs, now also bounded per block (LOG_BLOCK_MAX, enforced by the USER
     // phase), which is tighter than LOG_CAP for H_END+1 devnet blocks.
     let logs=all.items.iter().find(|x|x.0=="history/resident window: logs").unwrap().1;let pre_logs=u128::from(pocol_lp4_execution::user_phase::caps::LOG_CAP)/32*33;
@@ -2530,7 +2542,7 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     // the reference; its receipts and index go into A's store as import writes them, and A stops there.
     let x=branch(&mut h,p,1,&[Body{txs:vec![pay(&alice,48,9)],evidence:vec![]}]).remove(0);let xt=format!("{}",revm::primitives::keccak256(&x.body.txs[0]));
     b.import(x.clone(),None).unwrap();let ex=b.chain.get(&x.hash()).unwrap().clone();
-    let r=open();r.history.put(&ex.hash,&ex.receipts,&ex.tx_hashes,&ex.ranges).unwrap();drop(r);
+    let r=open();r.history.put(&ex).unwrap();drop(r);
     let mut r=open();assert_eq!(r.chain.head,p,"the block was never journaled");assert!(r.history.has(&x.hash()).unwrap(),"positive control: the orphan entry is there");
     assert!(rpc_local(&mut r,"eth_getTransactionByHash",json!([xt])).is_null()&&rpc_local(&mut r,"eth_getTransactionReceipt",json!([xt])).is_null(),"an orphan entry is never read");
     assert_eq!(views(&mut r,&txs),want,"after the crash");
@@ -2947,7 +2959,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let slims=|n:&Node|n.chain.blocks.values().filter(|e|e.slim).count();
     let exact=|a:&Node,b:&Node|{let mut k=0;for e in a.chain.blocks.values().filter(|e|e.slim){
         let r=a.restored_entry(&e.hash).unwrap();let f=b.chain.get(&e.hash).unwrap();let mut fh=f.header.clone();if r.offloaded{fh.encoded=Vec::new();}
-        assert_eq!((&r.header,&r.result,&r.ranges),(&fh,&f.result,&f.ranges),"h={}: restored exactly",e.height);assert!(!r.ranges.is_empty()&&r.result.is_some());k+=1;}k};
+        // FN-3: and its member record (the persisted one: a slimmed entry is offloaded and holds none in memory).
+        assert_eq!((&r.header,&r.result,&r.ranges,a.chain.member_rec_of(&r).unwrap()),(&fh,&f.result,&f.ranges,b.chain.member_rec_of(f).unwrap()),"h={}: restored exactly",e.height);assert!(!r.ranges.is_empty()&&r.result.is_some());k+=1;}k};
     assert!(slims(&a)>80&&slims(&b)==0,"positive control: {} slimmed entries, the reference {}",slims(&a),slims(&b));
     let top=a.chain.head().height;let slim_h:Vec<u64>=(1..=top).filter(|h|a.chain.canonical_at(*h).unwrap().slim).collect();
     assert_eq!(slim_h,(1..top-8).collect::<Vec<_>>(),"exactly the canonical entries deeper than 8 are slimmed");
@@ -2971,8 +2984,10 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     a.import(side2.clone(),None).unwrap();b.import(side2.clone(),None).unwrap();
     assert!(a.chain.rebuilds>rb,"positive control: a TrieRebuild through slimmed entries");assert!(a.chain.get(&side2.hash()).is_some());
     assert_eq!(views(&mut a),views(&mut b),"after the fork below the cut");
+    // FN-3a: the cold sweep, each slimmed entry's recomputed assignment compared with history.redb's ranges.
+    let (_,_,s)=members_sweep::sweep_node(&a);assert!(s>80,"positive control: {s} slimmed entries compared");members_sweep::sweep_node(&b);
     drop(a);let mut r=Node::open(ca(),admitted(&cfg(&["a","b","c"]))).unwrap();
-    assert!(slims(&r)>80);assert_eq!(exact(&r,&b),slims(&r));assert_eq!(views(&mut r),views(&mut b),"after reopen");drop(r);
+    assert!(slims(&r)>80);assert_eq!(exact(&r,&b),slims(&r));assert_eq!(views(&mut r),views(&mut b),"after reopen");assert!(members_sweep::sweep_node(&r).2>80);drop(r);
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
 
@@ -2982,14 +2997,21 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
 #[test] fn s4_evidence_against_a_slimmed_ancestor_restores_it_first(){
     let (seq,winner,b4)=s4_evidence_chain();
     let (mut a,da)=s4_node("slim",3);let (mut b,db)=s4_node("ref",u64::MAX);
-    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    for x in &seq[..seq.len()-2]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    // FN-3a: the oracle checks an import without evidence makes (the import's own), to tell the shadow's apart below.
+    let c0=a.chain.member_counters().oracle_checks;let x=seq[seq.len()-2].clone();a.import(x.clone(),None).unwrap();b.import(x,None).unwrap();
+    let plain=a.chain.member_counters().oracle_checks-c0;assert!(plain>=1,"positive control: the import oracle compared");
     assert!(a.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
-    let before=a.stats.unslims;let last=seq.last().unwrap().clone();
+    let before=a.stats.unslims;let last=seq.last().unwrap().clone();let c1=a.chain.member_counters().oracle_checks;
     a.import(last.clone(),None).unwrap();b.import(last.clone(),None).unwrap();
     assert!(a.stats.unslims>before,"the slimmed ancestor was restored for the evidence walk");
     assert_eq!(a.chain.head,b.chain.head);assert_eq!(a.chain.head,last.hash());
     let r=apply::miner_record(&a.chain.head().state,winner).unwrap();assert!(r.tomb,"the equivocating winner is tombstoned");
     assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
+    // FN-3a: the walk against the restored ancestor compared its recomputed owner and assignment (the shadow: two checks
+    // beyond the import's own), and the cold sweep holds.
+    let got=a.chain.member_counters().oracle_checks-c1;assert!(got>=plain+2,"the shadow compared at the restored ancestor: {got} checks, an import alone {plain}");
+    members_sweep::sweep_node(&a);members_sweep::sweep_node(&b);
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
 /// A node slimming at `depth` (u64::MAX: never), for the S4 evidence chain.
@@ -3779,7 +3801,9 @@ fn e44_same(x:&mut pocold::node::Node,y:&mut pocold::node::Node,what:&str){
     let dbg=|n:&pocold::node::Node|{let mut v:Vec<([u8;32],String)>=n.chain.blocks.values().map(|e|(e.hash,format!("{:?}",(
         (e.hash,&e.header,&e.body,e.height,e.parent,e.total_work,e.import_seq,e.signed,e.ts,e.target,e.base_fee,e.gas_used),
         (e.seal,e.state.accounts.len(),e.is_final,&e.result,&e.receipts,&e.tx_hashes,e.cum_txs,e.cum_tx_bytes,e.cum_log_bytes,e.pruned,e.full,e.diff.is_some()),
-        (e.slim,e.drawn,&e.ranges,e.body_off,e.offloaded,e.trie.is_some(),&e.summary,e.stored.as_ref().map(|p|(p.trie.world,{let mut h:Vec<_>=p.hashes.iter().collect();h.sort();format!("{h:?}")}))))))).collect();v.sort();v};
+        (e.slim,e.drawn,&e.ranges,e.body_off,e.offloaded,e.trie.is_some(),&e.summary,e.stored.as_ref().map(|p|(p.trie.world,{let mut h:Vec<_>=p.hashes.iter().collect();h.sort();format!("{h:?}")}))),
+        // FN-3: the member record (held or persisted: residency follows the entry's offloading, the record does not).
+        (e.height>0).then(||n.chain.member_rec_of(e).ok()))))).collect();v.sort();v};
     for (a,b) in dbg(x).iter().zip(dbg(y).iter()){if a!=b{let i=a.1.bytes().zip(b.1.bytes()).position(|(p,q)|p!=q).unwrap_or(a.1.len().min(b.1.len()));let lo=i.saturating_sub(300);
         panic!("{what}: entry {} differs at byte {i}:\n{}\n{}",B256::from(a.0),&a.1[lo..a.1.len().min(i+300)],&b.1[lo..b.1.len().min(i+300)]);}}
     assert_eq!(chain_view(x),chain_view(y),"{what}: blocks and receipts");
@@ -3798,6 +3822,8 @@ fn e44_same(x:&mut pocold::node::Node,y:&mut pocold::node::Node,what:&str){
     for n in [&*x,&*y]{let stored=n.chain.blocks.values().filter(|e|e.stored.is_some()).count();
         assert_eq!(n.chain.trie_store.as_ref().unwrap().pinned().unwrap() as usize,stored,"{what}: the entries' pins are their stored versions");
         n.state_store().unwrap().recount().unwrap_or_else(|e|panic!("{what}: {e}"));}
+    // FN-3a: after each restart, the cold sweep of both chains.
+    members_sweep::sweep_node(x);members_sweep::sweep_node(y);
 }
 /// Opens `dir` as a reference: a copy replayed from genesis (checkpoints off, so the store starts empty).
 fn e44_reference(dir:&std::path::Path,tag:&str)->(pocold::node::Node,std::path::PathBuf){

@@ -23,8 +23,8 @@ impl chain::BlockBytes for Journal{
         self.read_at(off).map_err(|e|Reject::Local(format!("journal read_at {off}: {e:?}")))
     }
 }
-/// The node's block source: journal records, (C-1 S4) the nonce ranges in history.redb and (C-1 S5) the canonical
-/// entries below the window in the canonical index.
+/// The node's block source: journal records, (C-1 S4) the nonce ranges and (FN-3) member records in history.redb and
+/// (C-1 S5) the canonical entries below the window in the canonical index.
 struct Src<'a>{journal:&'a Journal,history:&'a crate::history::History,canon:&'a canon::Index}
 impl chain::BlockBytes for Src<'_>{
     fn record_at(&self,off:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8>),Reject>{chain::BlockBytes::record_at(self.journal,off)}
@@ -39,8 +39,12 @@ impl chain::BlockBytes for Src<'_>{
         let payload=self.journal.payload_at(off).map_err(|e|Reject::Local(format!("journal read at {off}: {e:?}")))?;
         let ranges=if slim{None}else{Some(match self.history.ranges(&r.hash){Ok(Some(x))=>x,Ok(None)=>return Err(Reject::Local(self.history.mark_damaged("nonce ranges missing for a journaled block").0)),
             Err(e)=>return Err(Reject::Local(format!("history: {}",e.0)))})};
+        // FN-3: the member record of an entry that is not offloaded (one small history.redb read; a row of the index below
+        // the window is offloaded, so none is read and a member walk reads the record when it needs it).
+        let members=if r.flags&crate::checkpoint::flags::OFFLOADED!=0{None}else{Some(match self.history.members(&r.hash){Ok(Some(x))=>x,
+            Ok(None)=>return Err(Reject::Local(self.history.mark_damaged("member record missing for a journaled block").0)),Err(e)=>return Err(Reject::Local(format!("history: {}",e.0)))})};
         let why=|m:&str|format!("the row at height {h}: {m}");
-        let (e,body)=crate::checkpoint::entry_of(&r,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(ranges.clone()),store::MAX_RECORD,slim,&why).map_err(|m|Reject::Local(self.canon.mark_damaged(&m)))?;
+        let (e,body)=crate::checkpoint::entry_of(&r,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(ranges.clone()),Some(&||Ok(members.clone())),store::MAX_RECORD,slim,&why).map_err(|m|Reject::Local(self.canon.mark_damaged(&m)))?;
         if e.height!=h{return Err(Reject::Local(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height))))}
         Ok(Some((e,body)))
     }
@@ -238,6 +242,8 @@ pub const MEM_BUDGET:u64=6<<30;
 /// Blocks waiting for their timestamp, buffered templates, equivocation observations,
 /// status rejects and evidence awaiting inclusion (A13 accounting).
 pub const FUTURE_MAX:usize=64;pub const TEMPLATES_MAX:usize=64;pub const SEEN_MAX:usize=4096;pub const REJECTS_MAX:usize=256;pub const EVIDENCE_POOL_MAX:usize=64;
+// FN-3: the chain's owner memo is sized for this pool (chain::owners_cap).
+const _:()=assert!(EVIDENCE_POOL_MAX==crate::members::EVIDENCE_POOL_ASSUMED);
 /// V3-04 (v3 profiles only, A13 `history/first-import template first-seen times`): per signed-template slot (the
 /// seen_templates key: parent and signer, height), the TemplateID this node first LOCKED there and when, kept for
 /// classifying its solved block. At most TEMPLATE_SEEN_MAX slots; each is TEMPLATE_SEEN_ENTRY_BYTES of a HashMap
@@ -669,7 +675,8 @@ pub struct Node{
     pub chain:Chain,
     journal:Journal,
     /// C-1 S1: receipts and the transaction index of every validated block (derived; rebuilt by replay).
-    pub history:crate::history::History,
+    /// Shared with the chain, which reads member records from it (FN-3, `Chain::set_member_source`).
+    pub history:Arc<crate::history::History>,
     /// C-1 S5 (PR7): the canonical entries below the in-memory window (derived; rebuilt by replay).
     canon:canon::Index,
     peers:HashMap<PeerId,Peer>,
@@ -793,6 +800,8 @@ pub struct Stats{
     pub relayed_templates:u64,pub relayed_shares:u64,pub peer_shares:u64,
     /// V3-02: kind-3 late-share items this node put in its templates.
     pub late_items:u64,
+    /// FN-3: evidence items `includable_evidence` kept although their check failed locally (`Reject::Local`).
+    pub evidence_kept_local:u64,
     /// Inbound eviction's protection (`Node::credit`, net::Useful order): a peer's first delivery of a new block, a
     /// template that locked, a transaction that entered the pool at once and a valid new share.
     pub credits:[u64;4],
@@ -991,7 +1000,10 @@ impl Node{
         // C-1 S1: canonical history below the resident window lives off the heap (journal + history.redb).
         // C-1 E4.4: a history.redb created now holds nothing a checkpoint's entries need (replay refills it).
         let history_kept=cfg.dir.join(crate::history::FILE).exists();
-        let t=Instant::now();let history=crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?;timing.history_open_ms=ms(t);
+        let t=Instant::now();let history=Arc::new(crate::history::History::open(&cfg.dir).map_err(|e|format!("history: {}",e.0))?);timing.history_open_ms=ms(t);
+        // FN-3: the chain reads member records and snapshot sets from history.redb from now on, before a checkpoint
+        // restore or replay fills it (both read them).
+        chain.set_member_source(history.clone());
         // C-1 S5: an index created now holds nothing a snapshot based above height 1 needs (replay refills it).
         let canon_kept=cfg.dir.join(canon::FILE).exists();let mut canon=canon::Index::open(&cfg.dir,&chain.spec.genesis_hash())?;
         // C-1 S5 (PR7 §2.4): in store mode a rebuild anchor every R_keep heights below the K_hist cut.
@@ -1180,7 +1192,7 @@ impl Node{
                     // Replay refills a store that was lost or damaged (I1): a stored block is left as it is.
                     // Writes are made durable every HISTORY_SYNC blocks (redb frees pages only then) and at the end.
                     let t=Instant::now();
-                    if history.put_with(&entry.hash,&entry.receipts,&entry.tx_hashes,&entry.ranges,false).map_err(|e|format!("replay {i}: history {}",e.0))?{refilled+=1;
+                    if history.put_entry(&entry,false).map_err(|e|format!("replay {i}: history {}",e.0))?{refilled+=1;
                         if refilled%HISTORY_SYNC==0{history.sync().map_err(|e|format!("replay {i}: history {}",e.0))?;}}
                     timing.replay_history_ms+=ms(t);
                     chain.insert(entry);
@@ -1544,7 +1556,7 @@ impl Node{
         // C-1 S1 (invariant I3): the receipts and transaction index are durable before the journal record.
         // A write that fails (a disk error, or a store marked damaged) stops the node as a failed journal
         // append does; the next open sets a damaged store aside and replay rebuilds it.
-        if let Err(e)=self.history.put(&entry.hash,&entry.receipts,&entry.tx_hashes,&entry.ranges){self.log(&format!("FATAL history write: {}",e.0));std::process::exit(70);}
+        if let Err(e)=self.history.put(&entry){self.log(&format!("FATAL history write: {}",e.0));std::process::exit(70);}
         crate::crash_point("history");
         let record=store::encode_record_with_import(&b.header.encoded,&b.body.encode(),&result_bytes(&entry.result),first_import);
         // D-REORG-REDB: record the journal frame offset so this block's body can be read back off-heap.
@@ -3125,14 +3137,15 @@ impl Node{
     /// The canonical index's row at height `h` below the window: one must be there (a row missing marks the index damaged).
     fn indexed(&self,h:u64)->Result<crate::checkpoint::Rec,String>{self.canon.at(h)?.ok_or_else(||self.canon.mark_damaged(&format!("no row at height {h} below the window")))}
     /// A canonical block below the window as RPC reads it: one index read and one journal read (header, body and
-    /// ParentResult), receipts from history.redb only when asked, no nonce ranges (`checkpoint::entry_of`, so the
+    /// ParentResult), receipts from history.redb only when asked, no nonce ranges and (FN-3) no member record
+    /// (`checkpoint::entry_of`, so the
     /// answer is the one the entry gave while it was held). The record must hash to the row's block.
     fn indexed_view(&self,h:u64,want:Want)->Result<Entry,String>{
         let r=self.indexed(h)?;let off=r.body_off.ok_or_else(||self.canon.mark_damaged(&format!("the row at height {h} names no journal record")))?;
         let payload=self.journal.payload_at(off).map_err(|e|{let m=format!("journal read at {off}: {e:?}");self.log(&m);m})?;
         let mut q=r.clone();q.flags&=!(crate::checkpoint::flags::OFFLOADED|crate::checkpoint::flags::SLIM);
         let why=|m:&str|format!("the row at height {h}: {m}");
-        let (mut e,_)=crate::checkpoint::entry_of(&q,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(Some(Vec::new())),self.chain.spec.cp().BODY_MAX as usize,false,&why)
+        let (mut e,_)=crate::checkpoint::entry_of(&q,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(Some(Vec::new())),None,self.chain.spec.cp().BODY_MAX as usize,false,&why)
             .map_err(|m|self.canon.mark_damaged(&m))?;
         if e.height!=h{return Err(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height)))}
         if want.receipts{e.receipts=match self.history.receipts(&e.hash){Ok(Some(x))=>x,
@@ -3287,6 +3300,12 @@ impl Node{
         crate::readiness::annotate(&mut status,&crate::readiness::of_admitted(self.chain.spec.admission()));
         // Gossip and inbound grouping (net::Limits::per_group_max).
         status["stats"]["relayedTemplates"]=serde_json::json!(self.stats.relayed_templates);
+        // FN-3 (C6): member records, their caches and the shadow oracle (node-local).
+        {let m=self.chain.member_counters();
+            status["members"]=serde_json::json!({"setHits":m.set_hits,"setMisses":m.set_misses,"diskSetReads":m.disk_set_reads,"recordReads":m.record_reads,
+                "assignmentHits":m.assign_hits,"assignmentMisses":m.assign_misses,"ownerHits":m.owner_hits,"reconstructions":m.reconstructions,"reconstructUsMax":m.reconstruct_us_max,
+                "reconstructUsP99":m.reconstruct_us_p99,"snapshotsWritten":m.snapshots_written,"deltaMax":m.delta_max,"oracle":self.chain.member_oracle,"oracleChecks":m.oracle_checks,
+                "oracleMismatch":m.oracle_mismatch,"faults":m.faults,"held":[m.held.0,m.held.1,m.held.2],"caps":[m.caps.0,m.caps.1,m.caps.2],"evidenceKeptLocal":self.stats.evidence_kept_local});}
         // PR6: the builder (gas used) and the pool's sender quota and parking.
         status["stats"]["templateGasFallbacks"]=serde_json::json!(self.stats.template_gas_fallbacks);
         status["stats"]["templateGasRecoveries"]=serde_json::json!(self.stats.template_gas_recoveries);
@@ -3544,6 +3563,9 @@ impl Node{
             match self.chain.evidence_effects(p,&one,p.height+1){
                 Ok(_)=>{let mut trial=out.clone();trial.push(ev.clone());
                     if out.len()<e_max&&self.chain.evidence_effects(p,&Body{txs:vec![],evidence:trial},p.height+1).is_ok(){out.push(ev.clone());}keep.push(ev);}
+                // FN-3: the node's own storage failed recomputing an old block's owner: not a verdict on the item, which is
+                // kept (the store is marked damaged; the next open rebuilds it).
+                Err(Reject::Local(w))=>{self.stats.evidence_kept_local+=1;if self.stats.evidence_kept_local.is_power_of_two(){self.log(&format!("evidence kept after a local failure ({}): {w}",self.stats.evidence_kept_local));}keep.push(ev);}
                 Err(_)=>{} // already applied on this branch (accused tomb) or no longer provable: drop
             }
         }
