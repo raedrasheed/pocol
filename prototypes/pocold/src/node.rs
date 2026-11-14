@@ -419,6 +419,14 @@ pub struct Pool{pub txs:Vec<(B256,Vec<u8>)>,pending:pocol_lp4_execution::view::L
     parked:Vec<Parked>,parked_bytes:usize,park_seq:u64,parked_max:usize,
     /// PR6 second review: the transactions relayed when parked since the last head (at most `parked_max`).
     parked_relays:usize}
+impl Pool{
+    /// The raw bytes of `sender`'s pooled and parked transactions (the wallet's V3-08 pending top-up check), read from the
+    /// entries' recorded senders, so only that sender's transactions are decoded.
+    pub fn sender_raw(&self,sender:Address)->impl Iterator<Item=&[u8]>+'_{
+        self.txs.iter().zip(&self.meta).filter(move|(_,m)|m.sender==sender).map(|((_,raw),_)|raw.as_slice())
+            .chain(self.parked.iter().filter(move|p|p.sender==sender).map(|p|p.raw.as_slice()))
+    }
+}
 /// A parked transaction (PR6 P2): its declared gas, nonce, arrival, its sender's run (the declared gas and arrival
 /// of the sender's first parked one, which orders the run at the next head), sender, hash, its cost at its fee cap
 /// (gas_limit × fee cap + value), how it is relayed once admitted, and its bytes. PR6 third review: `ahead`, the

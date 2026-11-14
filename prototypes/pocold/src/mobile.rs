@@ -121,6 +121,54 @@ pub unsafe extern "C" fn pocol_mobile_import_key(home: *const c_char, file: *con
         Home::open(home)?.import_key_backup(file, pass, (!replace.is_empty()).then_some(replace))
     }).unwrap_or_else(|_| Err("key restore failed".into())))
 }
+/// What one pass of the mobile engine loop drives: the wallet engine (`crate::wallet::Wallet`), as the desktop stdio loop
+/// drives it.
+pub(crate) trait Engine<N> {
+    fn handle(&mut self, n: &mut N, raw: &str) -> serde_json::Value;
+    fn status(&self, n: &N) -> serde_json::Value;
+    fn advance(&mut self, n: &mut N) -> Option<serde_json::Value>;
+}
+impl Engine<crate::node::Node> for crate::wallet::Wallet<'_> {
+    fn handle(&mut self, n: &mut crate::node::Node, raw: &str) -> serde_json::Value { crate::wallet::Wallet::handle(self, n, raw) }
+    fn status(&self, n: &crate::node::Node) -> serde_json::Value { crate::wallet::Wallet::status(self, n) }
+    fn advance(&mut self, n: &mut crate::node::Node) -> Option<serde_json::Value> { crate::wallet::Wallet::advance(self, n) }
+}
+/// The Android engine loop (`pocol_mobile_run`). A command's answer is published at once as `response` (with
+/// `responseId`); every 2 s, as in the desktop stdio loop, `advance` moves a confirmed rejoin forward (it signs the
+/// reactivation when the window opens) and its event, if any, is published as `event` (with `eventId`), apart from the
+/// command answers so neither hides the other.
+#[derive(Default)]
+pub(crate) struct MobileLoop {
+    response: serde_json::Value,
+    response_id: u64,
+    event: serde_json::Value,
+    event_id: u64,
+    next: Option<Instant>,
+}
+impl MobileLoop {
+    /// One pass with the queued `command`, if any; the status text to publish when one is due.
+    pub(crate) fn tick<N>(&mut self, wallet: &mut impl Engine<N>, node: &mut N, command: Option<String>, now: Instant) -> Option<String> {
+        if let Some(command) = command {
+            self.response = wallet.handle(node, &command);
+            self.response_id += 1;
+            self.next = Some(now);
+        }
+        if self.next.is_some_and(|t| now < t) {
+            return None;
+        }
+        if let Some(event) = wallet.advance(node) {
+            self.event = event;
+            self.event_id += 1;
+        }
+        let mut v = wallet.status(node);
+        v["response"] = self.response.clone();
+        v["responseId"] = serde_json::json!(self.response_id);
+        v["event"] = self.event.clone();
+        v["eventId"] = serde_json::json!(self.event_id);
+        self.next = Some(now + Duration::from_secs(2));
+        Some(v.to_string())
+    }
+}
 #[no_mangle]
 pub unsafe extern "C" fn pocol_mobile_run(home: *const c_char) -> *mut c_char {
     let result = std::panic::catch_unwind(|| {
@@ -128,16 +176,11 @@ pub unsafe extern "C" fn pocol_mobile_run(home: *const c_char) -> *mut c_char {
         let handle = threads::spawn("consensus", threads::CONSENSUS_STACK, move || {
             let home = Home::open(Path::new(&path))?;
             let mut wallet=crate::wallet::Wallet::new(&home)?;
-            let mut response=serde_json::Value::Null;let mut response_id=0u64;
-            let mut next = Instant::now();
+            let mut engine=MobileLoop::default();
             home.run_mode(None, None, &[], false, |node| {
                 let command=COMMANDS.lock().ok().and_then(|mut q|q.pop_front());
-                if let Some(command)=command{response=wallet.handle(node,&command);response_id+=1;next=Instant::now();}
-                if Instant::now() >= next {
-                    if let Ok(mut status) = STATUS.lock() {
-                        let mut v=wallet.status(node);v["response"]=response.clone();v["responseId"]=serde_json::json!(response_id);*status=v.to_string();
-                    }
-                    next = Instant::now() + Duration::from_secs(2);
+                if let Some(text)=engine.tick(&mut wallet,node,command,Instant::now()){
+                    if let Ok(mut status) = STATUS.lock() {*status=text;}
                 }
                 STOP.load(Ordering::Relaxed)||wallet.stopped
             })?;
@@ -322,6 +365,32 @@ mod tests {
             assert!(null["error"].is_string());
         }
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+    /// The Android engine loop advances a confirmed rejoin on its 2 s tick, as the desktop stdio loop does (review: Rejoin
+    /// signed the exit but never the reactivation on Android), and publishes the event apart from the command answers.
+    #[test]
+    fn the_mobile_loop_advances_a_rejoin_and_publishes_its_events() {
+        #[derive(Default)]
+        struct Fake { advances: u32, events: std::collections::VecDeque<serde_json::Value>, handled: Vec<String> }
+        impl Engine<()> for Fake {
+            fn handle(&mut self, _: &mut (), raw: &str) -> serde_json::Value { self.handled.push(raw.to_owned()); serde_json::json!({"type":"answer","to":raw}) }
+            fn status(&self, _: &()) -> serde_json::Value { serde_json::json!({"type":"status","address":"0x01"}) }
+            fn advance(&mut self, _: &mut ()) -> Option<serde_json::Value> { self.advances += 1; self.events.pop_front() }
+        }
+        let parse = |t: Option<String>| serde_json::from_str::<serde_json::Value>(&t.expect("a status is due")).unwrap();
+        let (mut engine, mut wallet, t0) = (MobileLoop::default(), Fake::default(), Instant::now());
+        wallet.events.push_back(serde_json::json!({"type":"rejoin","state":"Reactivating","message":"submitted"}));
+        let first = parse(engine.tick(&mut wallet, &mut (), None, t0));
+        assert_eq!((wallet.advances, &first["event"]["state"], &first["eventId"], &first["responseId"]), (1, &serde_json::json!("Reactivating"), &serde_json::json!(1), &serde_json::json!(0)));
+        assert!(engine.tick(&mut wallet, &mut (), None, t0 + Duration::from_millis(500)).is_none(), "nothing due before 2 s");
+        assert_eq!(wallet.advances, 1);
+        let second = parse(engine.tick(&mut wallet, &mut (), None, t0 + Duration::from_secs(2)));
+        assert_eq!((wallet.advances, &second["eventId"]), (2, &serde_json::json!(1)), "advance runs on every tick; the last event stays published");
+        // A command is answered at once; an event in the same pass does not hide the answer.
+        wallet.events.push_back(serde_json::json!({"type":"rejoin","state":"Stopped","message":"window passed"}));
+        let third = parse(engine.tick(&mut wallet, &mut (), Some("{\"method\":\"status\"}".into()), t0 + Duration::from_secs(3)));
+        assert_eq!((&third["response"]["type"], &third["responseId"], &third["event"]["state"], &third["eventId"]), (&serde_json::json!("answer"), &serde_json::json!(1), &serde_json::json!("Stopped"), &serde_json::json!(2)));
+        assert_eq!((wallet.advances, wallet.handled.len()), (3, 1));
     }
     #[test]
     fn network_preview_rejects_missing_input_without_side_effects() {

@@ -79,6 +79,27 @@ internal static class WalletUiTests {
    state["topUpAvailable"]=true;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Visible,"Top-up action missing during probation.");
    state["topUpAvailable"]=false;Response(state);Check(Control<Button>("TopUp").Visibility==Visibility.Collapsed,"Top-up stayed visible after probation.");
    Response(Snapshot(new object[]{Entry(Transfer,"topup","Included")}));Check(CardText(0,0)=="Bond top-up","Top-up history row missing.");
+   // V3 on the FN-2b rules (G3b'): the bond still to earn from mining, the reactivation clock, and the full set (a newcomer
+   // registers by replacement; a member out of the set waits for its refund). The engine decides; the UI shows its fields.
+   state["type"]="status";state["bondHeld"]="5";state["bondRemaining"]="15";state["reactivation"]=D("lastAt",120,"cooldownBlocks",200,"allowedFrom",320);Response(state);
+   Check(Control<TextBlock>("Mined").Text.Contains("Bond held: 5 PCOL · still to earn from mining: 15 PCOL")&&Control<TextBlock>("Mined").Text.Contains("next one allowed from block 320"),"Bond to earn or reactivation clock missing.");
+   state["reactivation"]=D("lastAt",120,"cooldownBlocks",200,"allowedFrom",null);Response(state);
+   Check(Control<TextBlock>("Mined").Text.Contains("Last reactivation: block 120")&&!Control<TextBlock>("Mined").Text.Contains("next one allowed"),"A passed reactivation height was shown as still ahead.");
+   state.Remove("bondRemaining");state.Remove("reactivation");state.Remove("bondHeld");Response(state);Check(!Control<TextBlock>("Mined").Text.Contains("still to earn"),"Bond line shown without an accruing record.");
+   state["registered"]=false;state["seatsFull"]=true;state["removableSeats"]=3;state["registerReplaces"]=true;Response(state);
+   Check(Control<TextBlock>("Mined").Text.EndsWith("All seats are taken: a registration replaces an inactive member (3 can be replaced now). That member's bond is refunded and it may return."),"Full-set replacement line missing: "+Control<TextBlock>("Mined").Text);
+   state["removableSeats"]=0;state["registerReplaces"]=false;Response(state);Check(Control<TextBlock>("Mined").Text.Contains("none can be replaced yet"),"Full set without a removable member not explained.");
+   state["registered"]=true;state["rejoin"]=D("step","full","refundAt",140);Response(state);
+   Check(Control<TextBlock>("Mined").Text.EndsWith("Replaced or exited while every seat is taken: wait for the bond refund at block 140, then register again."),"Replaced member's refund wait missing.");
+   state["seatsFull"]=false;state["rejoin"]=D("step","active");Response(state);Check(!Control<TextBlock>("Mined").Text.Contains("seat"),"Seat line shown below a full set.");
+   state.Remove("seatsFull");state.Remove("removableSeats");state.Remove("registerReplaces");state.Remove("rejoin");state.Remove("registered");
+   const BindingFlags Static=BindingFlags.Static|BindingFlags.NonPublic;
+   Func<string,object[],object> call=(name,a)=>typeof(Wallet).GetMethod(name,Static).Invoke(null,a);
+   var replacing=Json.Deserialize<Dictionary<string,object>>("{\"type\":\"quote\",\"kind\":\"registration\",\"amount\":\"0\",\"replacing\":{\"victim\":\"0x02\",\"removable\":2,\"refundAfterBlocks\":40},\"steps\":[\"a\",\"b\"],\"note\":\"n\"}");
+   var replaceLines=(List<string>)call("ReplaceLines",new object[]{replacing});
+   Check(replaceLines.Count==4&&replaceLines[0]=="Registration by replacement of 0x02"&&replaceLines[1]=="1. a"&&replaceLines[3]=="n","Replacement review lines wrong: "+string.Join(" | ",replaceLines));
+   Check(((List<string>)call("ReplaceLines",new object[]{D("kind","registration","amount","20")})).Count==0,"Replacement lines shown for an ordinary registration.");
+   Check((string)call("KindLabel",new object[]{"contest"})=="Sent PCOL"&&(string)call("KindLabel",new object[]{"registration"})=="Mining registration","Activity kinds wrong.");
    // T34, network upgrades (plan §5): the dry run's change picks the text; only an activation waits for a coordinated release.
    var outcome=typeof(Wallet).GetMethod("UpgradeOutcome",BindingFlags.Static|BindingFlags.NonPublic);Check(outcome!=null,"Network upgrade texts are missing.");
    Check((string)outcome.Invoke(null,new object[]{"rebind"})=="Release update: consensus rules and schedule unchanged — saved; you can connect now","Rebind text missing.");
@@ -99,7 +120,7 @@ internal static class WalletUiTests {
     var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var file=File.Create(args[0]))png.Save(file);
    }
    window.Close();app.Shutdown();Check(Directory.Exists(home)==homeExisted,"UI test unexpectedly created a wallet home.");
-   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin, probation top-up, network upgrade texts and peer diagnostics");return 0;
+   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin, bond top-up, bond to earn, reactivation clock, full-set replacement texts, network upgrade texts and peer diagnostics");return 0;
   }catch(Exception e){Console.WriteLine("FAIL "+e.GetBaseException().Message);return 1;}
  }
 }

@@ -91,7 +91,25 @@ public final class JniBoundaryTest {
                 equal(WalletText.outcome("rebind"),"Release update: consensus rules and schedule unchanged \u2014 saved; you can connect now");
                 if(!WalletText.outcome("activation").contains("coordinated release"))throw new AssertionError("activation text");
                 equal(WalletText.restored(true,"0x01"),"Key restored. This wallet now uses account 0x01.");
-                equal(WalletText.restored(false,"0x01"),"This backup holds the account this wallet already uses.");break;
+                equal(WalletText.restored(false,"0x01"),"This backup holds the account this wallet already uses.");
+                // Mining texts (G3b' on the FN-2b rules): activity kinds, the bond still to earn and the reactivation clock,
+                // the full set (registration by replacement, a member out of the set waiting for its refund) and rejoin notices.
+                equal(WalletText.kindLabel("registration"),"Mining registration");equal(WalletText.kindLabel("topup"),"Bond top-up");equal(WalletText.kindLabel("transfer"),"Sent PCOL");
+                equal(WalletText.kindLabel("rejoin"),"Mining rejoin \u00b7 exit");equal(WalletText.kindLabel("reactivation"),"Mining reactivation");equal(WalletText.kindLabel("contest"),"Sent PCOL");
+                equal(WalletText.minedText("5","20","","","",""),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL");
+                equal(WalletText.minedText("5","20","4","16","120","320"),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL\nBond held: 4 PCOL \u00b7 still to earn from mining: 16 PCOL\nLast reactivation: block 120 \u00b7 next one allowed from block 320");
+                equal(WalletText.minedText("5","20","","","120",""),"Accepted blocks this session: 5\nRegistration bond: 20 PCOL\nLast reactivation: block 120");
+                equal(WalletText.seatText(false,0,false,false,""),"");equal(WalletText.seatText(true,0,false,true,""),"");
+                equal(WalletText.seatText(true,3,true,false,""),"All seats are taken: a registration replaces an inactive member (3 can be replaced now). That member's bond is refunded and it may return.");
+                if(!WalletText.seatText(true,0,false,false,"").contains("none can be replaced yet"))throw new AssertionError("full set without a removable member");
+                equal(WalletText.seatText(true,0,false,true,"140"),"Replaced or exited while every seat is taken: wait for the bond refund at block 140, then register again.");
+                equal(String.join("|",WalletText.amountRow("rejoin","0")),"Amount|0 PCOL \u00b7 the bond stays locked");equal(String.join("|",WalletText.amountRow("reactivation","0")),"Amount|0 PCOL \u00b7 the bond stays locked");
+                equal(String.join("|",WalletText.amountRow("registration","20")),"Bond|20 PCOL");equal(String.join("|",WalletText.amountRow("topup","5")),"Top-up|5 PCOL");equal(String.join("|",WalletText.amountRow("transfer","1")),"Amount|1 PCOL");
+                equal(WalletText.rejoinNotice("rejoin","Stopped","The reactivation window passed."),"Mining rejoin \u00b7 Stopped: The reactivation window passed.");
+                equal(WalletText.REGISTRY_LABEL,"Registry");equal(WalletText.rejoinTransactions("4"),"Transactions signed by this wallet: up to 4");
+                equal(WalletText.rejoinNotice("rejoin","","x"),"x");equal(WalletText.rejoinNotice("status","Stopped","x"),"");
+                equal(String.join("|",WalletText.replaceLines("0x02",new String[]{"a","b"},"n")),"Registration by replacement of 0x02|1. a|2. b|n");
+                equal(String.join("|",WalletText.replaceLines("0x03",new String[0],"")),"Registration by replacement of 0x03");break;
             case "key-backup":
                 // Passphrases cross as standard UTF-8 bytes built from char[] (never a String), files as raw bytes.
                 char[] typed="p\u00e4ss \uD83D\uDE80 phrase".toCharArray();

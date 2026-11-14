@@ -10,6 +10,18 @@ The release APK is unsigned. The release operator signs it locally with the rele
 repository and CI artifacts), checks the signer with `apksigner verify --print-certs` and the application ID and
 versionCode with `aapt dump badging`, and recomputes the checksums before publishing it as installable.
 
+## Mining actions
+
+The Mining tab shows **Review mining registration**, and, when the engine offers them, **Rejoin mining** and **Top up
+bond**. Each opens a review from the engine (`quote_*` commands of `pocold/src/wallet.rs`); nothing is signed before
+**Confirm & sign**. After a confirmed rejoin the engine loop (`pocold/src/mobile.rs`, every 2 s as on the desktop) signs
+`reactivate()` when the window opens; its steps appear as notices (the status's `event`, apart from the command answers
+in `response`). On the v3 network the card shows the bond still to earn from mining and the reactivation clock; when
+every seat is taken it says whether a registration replaces an inactive member (the review then names the member), or,
+for a member out of the full set, that it waits for its bond refund and registers again
+(`deploy/standalone/README.md`, "On the v3 network"). The texts are the Windows wallet's (`WalletText.java`, checked by
+`deploy/standalone/test_android_jni.py`).
+
 ## Key backup and restore
 
 **Settings → Key backup** has two actions:
