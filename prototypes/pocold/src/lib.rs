@@ -209,7 +209,29 @@ pub fn configured_forks(info:&serde_json::Value)->Result<Vec<(u16,u64)>,String>{
     if forks.iter().enumerate().any(|(i,&(v,_))|v as usize!=i+1){
         return Err("runtime schedule must list versions 1, 2, … in order, each once".into());
     }
+    // FN-5: version 3 is the cap raise, whose values `capRaise` carries beside the schedule (`configured_cap_raise`).
+    let fork3=forks.iter().any(|&(v,_)|v==pocol_lp4_execution::profile::CAP_RAISE_VERSION);
+    if fork3!=info.get("capRaise").is_some(){
+        return Err(if fork3{"consensus fork schedule: version 3 is a cap raise and needs capRaise"}else{"consensus fork schedule: capRaise needs a fork version 3 activation"}.into());
+    }
     Ok(forks)
+}
+/// FN-5 (C10): the cap raise of the network metadata, beside its fork schedule: `"capRaise": {"ACCT_CAP": n,
+/// "SLOT_CAP": n, "CODE_CAP": n, "SYS_SLOT_MAX": n}` (JSON integers, all four, no other field), activated at the
+/// schedule's fork-3 height. None without one. Whether it raises (never lowers) the genesis caps, and the R-rules at the
+/// raised CP, are the admission's (`admission::admit_with`); this checks only its form and its fork-3 entry.
+pub fn configured_cap_raise(info:&serde_json::Value)->Result<Option<pocol_lp4_execution::profile::CapRaise>,String>{
+    configured_forks(info)?;
+    let Some(v)=info.get("capRaise") else {return Ok(None)};
+    let bad=||"invalid capRaise: an object of the integers ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX".to_string();
+    let o=v.as_object().filter(|o|o.len()==4).ok_or_else(bad)?;
+    let n=|k:&str|o.get(k).and_then(|x|x.as_u64()).ok_or_else(bad);
+    Ok(Some(pocol_lp4_execution::profile::CapRaise{acct_cap:n("ACCT_CAP")?,slot_cap:n("SLOT_CAP")?,code_cap:n("CODE_CAP")?,
+        sys_slot_max:u32::try_from(n("SYS_SLOT_MAX")?).map_err(|_|bad())?}))
+}
+/// The `capRaise` value of network metadata for `raise` (the inverse of `configured_cap_raise`).
+pub fn cap_raise_json(raise:&pocol_lp4_execution::profile::CapRaise)->serde_json::Value{
+    serde_json::json!({"ACCT_CAP":raise.acct_cap,"SLOT_CAP":raise.slot_cap,"CODE_CAP":raise.code_cap,"SYS_SLOT_MAX":raise.sys_slot_max})
 }
 /// The scratch state store of a store-mode boot's R14/R19 measurement, in the node's data directory.
 pub const CALIBRATION_STORE:&str="calibration.store";
@@ -239,12 +261,12 @@ pub fn load_spec_calibrated(dir:&std::path::Path,local:&NodeLocal,mut measure:im
         Err(e) if e.kind()==std::io::ErrorKind::NotFound=>serde_json::json!({}),
         Err(e)=>return Err(format!("devnet.json: {e}")),
     };
-    let forks=configured_forks(&info)?;
+    let forks=configured_forks(&info)?;let raise=configured_cap_raise(&info)?;
     let calibration=info["calibration"]["hashesPerSecond"].as_u64().map(|r|(r,FactClass::SyntheticFixture));
     for attempt in 0..2{
         let measured=measure(&spec_bytes,&alloc);
         let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&forks,kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,calibration,timing:measured.as_ref().ok(),scope:admission::Scope::ExperimentalDevnet};
-        match admission::admit(&req){
+        match admission::admit_with(&req,raise.as_ref()){
             Ok(a)=>return Ok(chain::Spec::new(a)),
             Err(e)=>{
                 // Only a timing refusal warrants another calibration; other invalid facts fail immediately.

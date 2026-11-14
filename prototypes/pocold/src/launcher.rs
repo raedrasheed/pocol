@@ -126,8 +126,9 @@ impl Invitation {
     fn published_identity(&self) -> Option<String> {
         let info = self.info().ok()?;
         let forks = crate::configured_forks(&info).ok()?;
+        let raise = crate::configured_cap_raise(&info).ok()?;
         let genesis: [u8; 32] = types::unhex(info["genesisHash"].as_str()?).ok()?.try_into().ok()?;
-        Some(identity::Consensus::new(info["chainId"].as_u64()?, genesis, &forks, self.consensus_rules_version, 0, None).hex())
+        Some(identity::Consensus::raised(info["chainId"].as_u64()?, genesis, &forks, raise, self.consensus_rules_version, 0, None).hex())
     }
     pub fn describe(&self) -> serde_json::Value {
         let info = self.info().unwrap_or_default();
@@ -218,8 +219,17 @@ fn upgrade_transition(before: &Invitation, after: &Invitation) -> Result<Vec<(u1
     let mut old = before.info()?;
     let mut new = after.info()?;
     let appended = schedule_transition(&crate::configured_forks(&old)?, &crate::configured_forks(&new)?)?;
-    old.as_object_mut().ok_or("invalid network metadata")?.remove("forks");
-    new.as_object_mut().ok_or("invalid network metadata")?.remove("forks");
+    // FN-5: a cap raise comes with its fork-3 entry (`configured_forks`), so appending that entry adds it; once
+    // scheduled it never changes (the entry itself can never be changed or removed).
+    let (old_raise, new_raise) = (crate::configured_cap_raise(&old)?, crate::configured_cap_raise(&new)?);
+    if old_raise.is_some() && old_raise != new_raise {
+        return Err("upgrade may not change a scheduled cap raise".into());
+    }
+    for info in [&mut old, &mut new] {
+        let o = info.as_object_mut().ok_or("invalid network metadata")?;
+        o.remove("forks");
+        o.remove("capRaise");
+    }
     if old != new {
         return Err("upgrade may change only the fork schedule".into());
     }
@@ -817,12 +827,13 @@ impl Home {
         let info = after.info()?;
         let genesis: [u8; 32] = types::unhex(info["genesisHash"].as_str().ok_or("missing genesis hash")?)?
             .try_into().map_err(|_| "invalid genesis hash")?;
-        pocol_lp4_execution::profile::ProfileIdentity::validate(
+        pocol_lp4_execution::profile::ProfileIdentity::validate_with_raise(
             &types::unhex(after.files["genesis.spec.hex"].trim())?, &genesis,
             info["chainId"].as_u64().ok_or("missing chain ID")?,
             pocol_lp4_execution::profile::ProfileKind::Simnet,
             pocol_lp4_execution::profile::NodeKind::Simnet,
             &crate::configured_forks(&info)?,
+            crate::configured_cap_raise(&info)?.as_ref(),
         ).map_err(|e| format!("upgraded network profile: {e:?}"))?;
         self.network_files(before, resuming.then_some(after))?;
         let (height, lock) = stored_max_height(&self.path, before)?;
@@ -1380,6 +1391,31 @@ mod upgrade_tests {
         assert_eq!(home.inspect_upgrade(&at(serde_json::json!([[1, 0], [2, 21]]))).unwrap()["appended"], serde_json::json!([[2, 21]]));
         // A running wallet holds the home's lock.
         assert!(Home::open(&home.path).is_err());
+    }
+    /// FN-5: a cap raise (`capRaise` beside the schedule) is added only with its appended fork-3 entry and never changes
+    /// once scheduled; the published identity commits to it.
+    #[test]
+    fn an_upgrade_adds_a_cap_raise_only_with_its_fork_3_entry_and_never_changes_it() {
+        let raise = |acct: u64| serde_json::json!({"ACCT_CAP":acct,"SLOT_CAP":50000,"CODE_CAP":2097152,"SYS_SLOT_MAX":65536});
+        let with = |forks: serde_json::Value, r: Option<serde_json::Value>| {
+            let mut i = generated(forks);
+            if let Some(r) = r { let mut info = i.info().unwrap(); info["capRaise"] = r; i.files.insert("devnet.json".into(), info.to_string()); }
+            i
+        };
+        let before = with(serde_json::json!([[1, 0], [2, 100]]), None);
+        let after = with(serde_json::json!([[1, 0], [2, 100], [3, 200]]), Some(raise(30_000)));
+        assert_eq!(upgrade_transition(&before, &after), Ok(vec![(3, 200)]));
+        assert_eq!(upgrade_transition(&after, &after), Ok(vec![]), "a rebind keeps the raise");
+        assert!(upgrade_transition(&after, &with(serde_json::json!([[1, 0], [2, 100], [3, 200]]), Some(raise(30_001)))).unwrap_err().contains("may not change a scheduled cap raise"));
+        assert!(upgrade_transition(&after, &before).unwrap_err().contains("forbidden"), "the fork-3 entry and its raise cannot be removed");
+        assert!(with(serde_json::json!([[1, 0], [2, 100]]), Some(raise(30_000))).validate().unwrap_err().contains("capRaise needs a fork version 3"));
+        assert!(with(serde_json::json!([[1, 0], [2, 100], [3, 200]]), None).validate().unwrap_err().contains("needs capRaise"));
+        let (chain_id, genesis) = computed(&after);
+        let r = crate::configured_cap_raise(&after.info().unwrap()).unwrap();
+        assert_eq!(after.published_identity().unwrap(), identity::Consensus::raised(chain_id, types::unhex(&genesis).unwrap().try_into().unwrap(),
+            &[(1, 0), (2, 100), (3, 200)], r, identity::CONSENSUS_RULES_VERSION, 0, None).hex());
+        assert_ne!(after.published_identity(), with(serde_json::json!([[1, 0], [2, 100], [3, 200]]), Some(raise(30_001))).published_identity());
+        assert_eq!(before.published_identity().unwrap(), identity_on(&before, &[(1, 0), (2, 100)]), "without a raise the identity is unchanged");
     }
     #[test]
     fn the_dry_run_of_an_interrupted_upgrade_offers_to_resume_it_with_the_same_file() {

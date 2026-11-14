@@ -307,8 +307,8 @@ fn history_lines_are_append_only_numbered_and_labelled() {
     bad.history[0].note = String::new();
     refused(check(&bad, &t, &K), "needs a non-empty ref and note");
     let mut bad = lock.clone();
-    bad.history[0].max_fork = 3;
-    refused(check(&bad, &t, &K), "MAX_FORK_VERSION=2");
+    bad.history[0].max_fork = K.max_fork + 1;
+    refused(check(&bad, &t, &K), &format!("MAX_FORK_VERSION={}", K.max_fork));
     assert!(repin(Some(&lock), &t, &K, "neutral", "PR9", "x", None).unwrap_err().contains("nothing to re-pin"));
     // base regenerates a lock with no appended lines (PR5 only: the lock is new); it never rewrites history.
     append(&r, "lp4-execution/src/fees.rs", " ");

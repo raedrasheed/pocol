@@ -372,25 +372,27 @@ struct Production{parent:[u8;32],height:u64,attempt:u32,mode:Mode,shares:BTreeSe
 /// the head state (pending state), so several nonces per sender are allowed. The pending
 /// state is normalized after every transaction and follows the block caps (`PoolMeter`), so
 /// it is bounded like a snapshot (A13).
-/// The code total of a state that passes the profile's code limits, or None (then every submission runs
+/// The code total of a state that passes the code limits of the block at `h`, or None (then every submission runs
 /// the full checks, as before).
-fn checked_code_total(state:&InMemoryDB,spec:&Spec)->Option<u64>{
-    let cp=spec.cp();pocol_lp4_execution::code_caps::checked_total(state,pocol_lp4_execution::code_caps::CodeLimits{runtime:cp.B_code_max,logical:cp.CODE_CAP}).ok()
+fn checked_code_total(state:&InMemoryDB,spec:&Spec,h:u64)->Option<u64>{
+    pocol_lp4_execution::code_caps::checked_total(state,pocol_lp4_execution::code_caps::CodeLimits::at(spec.profile(),h)).ok()
 }
-/// C-1 E2/E3: a full entry's code total once its state passes the code limits, from its summary (a
-/// whole-state check without one).
+/// C-1 E2/E3: a full entry's code total once its state passes the code limits of its child (FN-5: CODE_CAP at
+/// `e.height + 1`, `Spec::cp_at`), from its summary (a whole-state check without one).
 fn summary_code_total(e:&Entry,spec:&Spec)->Option<u64>{
-    let cp=spec.cp();let lim=pocol_lp4_execution::code_caps::CodeLimits{runtime:cp.B_code_max,logical:cp.CODE_CAP};
+    let h=e.height.saturating_add(1);let lim=pocol_lp4_execution::code_caps::CodeLimits::at(spec.profile(),h);
     match &e.summary{Some(s)=>s.code_check(lim).ok().map(|_|s.inventory()),
         // C-1 E4: a stored state without its summary is summarized in place.
-        None if e.stored.is_some()=>{let s=pocol_lp4_execution::state_summary::Summary::scan_view(&chain::StateHandle::of(e),cp.B_code_max);s.code_check(lim).ok().map(|_|s.inventory())}
-        None=>checked_code_total(&e.state,spec)}
+        None if e.stored.is_some()=>{let s=pocol_lp4_execution::state_summary::Summary::scan_view(&chain::StateHandle::of(e),spec.cp().B_code_max);s.code_check(lim).ok().map(|_|s.inventory())}
+        None=>checked_code_total(&e.state,spec,h)}
 }
-/// The pool's meter and code total for a new pending state over `head`: from its summary, or counted.
+/// The pool's meter and code total for a new pending state over `head`: from its summary, or counted. The caps are
+/// those of the block the pool builds, at `head.height + 1` (FN-5, `Spec::cp_at`).
 fn pool_start(head:&Entry,spec:&Spec)->(PoolMeter,Option<u64>){
-    let meter=match &head.summary{Some(s)=>PoolMeter::from_counts(s.user_slots,s.user_accounts,s.sys_slots,spec.profile()),
-        None if head.stored.is_some()=>{let s=pocol_lp4_execution::state_summary::Summary::scan_view(&chain::StateHandle::of(head),spec.cp().B_code_max);PoolMeter::from_counts(s.user_slots,s.user_accounts,s.sys_slots,spec.profile())}
-        None=>PoolMeter::of(&head.state,spec.profile())};
+    let h=head.height.saturating_add(1);
+    let meter=match &head.summary{Some(s)=>PoolMeter::from_counts_at(s.user_slots,s.user_accounts,s.sys_slots,spec.profile(),h),
+        None if head.stored.is_some()=>{let s=pocol_lp4_execution::state_summary::Summary::scan_view(&chain::StateHandle::of(head),spec.cp().B_code_max);PoolMeter::from_counts_at(s.user_slots,s.user_accounts,s.sys_slots,spec.profile(),h)}
+        None=>PoolMeter::of_at(&head.state,spec.profile(),h)};
     (meter,summary_code_total(head,spec))
 }
 /// `code_total`: the pending state's logical code total once it is known to pass the code limits (the head
@@ -950,7 +952,7 @@ impl Node{
         std::fs::create_dir_all(&cfg.dir).map_err(|e|format!("data directory: {e}"))?;
         let rk_replay=retention_rkeep(&cfg.dir,cfg.limits.r_keep).map_err(|e|format!("retention.rkeep: {e}"))?;
         // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
-        let evict=crate::resources::evict_depth_of(spec.cp(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
+        let evict=crate::resources::evict_depth_of(spec.cp_max(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
         cfg.limits.first_imports=imports::enabled(&spec);
         // C3-2: in the same v3 domain one receipt can exceed LIGHT_RESP_MAX, so it is served heavy.
         cfg.limits.rpc.heavy_receipts=cfg.limits.first_imports;
@@ -961,7 +963,7 @@ impl Node{
         if let Some(s)=cfg.limits.discovery.seeds.iter().find(|s|!cfg.peers.contains(s)){return Err(format!("seed {s}: every seed must also be a configured peer"))}
         // PR7 §6.2 (A1-6): the files are observed before the first check (a missing one counts 0).
         cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
-        crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
+        crate::resources::check(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         let binding=spec.genesis_hash();
         // PR7 §7 (G5, review 2026-11): the replay tables are checked before the pass builds them, at the committed count.
         // A journal they do not fit stops here with the LOCAL CAPACITY message, not out of memory during the pass (the
@@ -969,7 +971,7 @@ impl Node{
         // check after it counts; at the committed count this refuses only a journal that check refuses (both grow with
         // the count, and the pass changes none of the observed files).
         if let Some(n)=committed_records(&cfg.dir,&binding){let mut l=cfg.limits.clone();if spec.cp().H_END==0||l.first_imports{l.continuous_history=Some(n);}
-            crate::resources::check_open(spec.cp(),spec.local().k_hist,spec.local().side_max,&l,cfg.peers.len(),n)?;}
+            crate::resources::check_open(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&l,cfg.peers.len(),n)?;}
         // One pass over the journal (2026-10-28: its payloads are not held, condition `open-replay-transient`):
         // each verified record's replay events (its block and its parent) and the rolling hash of the journal prefix
         // (C-1 E4.4 binding), sampled every ROLL_SAMPLE records (C-1 S5, PR7 §7: the frame offsets are the journal's
@@ -990,9 +992,9 @@ impl Node{
         if let Some(e)=bad{return Err(e)}
         evs.sort_unstable();
         cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
-        if spec.cp().H_END==0||cfg.limits.first_imports{cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;}
+        if spec.cp().H_END==0||cfg.limits.first_imports{cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;}
         // PR7 §7: the replay's own tables must fit beside the bound (they grow with the journal, not the window).
-        crate::resources::check_open(spec.cp(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len(),rec.journal.records)?;
+        crate::resources::check_open(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len(),rec.journal.records)?;
         let mut chain=Chain::new(spec);chain.r_keep=rk_replay;chain.side_cap=cfg.limits.side_cap;chain.replaying=true;
         // C-1 S1: canonical history below the resident window lives off the heap (journal + history.redb).
         // C-1 E4.4: a history.redb created now holds nothing a checkpoint's entries need (replay refills it).
@@ -1075,7 +1077,7 @@ impl Node{
                                 // C-1 S5: a window based above height 1 needs the index rows below it; a format-1 snapshot needs
                                 // none, but restores every entry of the chain at once (the migration), which must fit.
                                 else if !s.v1&&s.canon_base>1&&(canon.rebuilt||!canon_kept){Err("the canonical index does not reach the snapshot's window (it was rebuilt or is new)".to_string())}
-                                else if let Some(e)=s.v1.then(||crate::resources::migration_fits(chain.spec.cp(),chain.spec.local().k_hist,chain.spec.local().side_max,&cfg.limits,cfg.peers.len(),s.entries.len() as u64,n_rec as u64).err()).flatten(){Err(e)}
+                                else if let Some(e)=s.v1.then(||crate::resources::migration_fits(chain.spec.cp_max(),chain.spec.local().k_hist,chain.spec.local().side_max,&cfg.limits,cfg.peers.len(),s.entries.len() as u64,n_rec as u64).err()).flatten(){Err(e)}
                                 else if s.protect.as_ref().map_or(false,|p|p.len()!=protect.len()||p.iter().any(|h|!protect.contains(h))){Err("its protect set is not the one replay had after its last record".to_string())}
                                 else{crate::checkpoint::restore(&mut chain,&s,&crate::checkpoint::JournalSource{offsets:&rec.offsets,journal:&rec.journal,records:k,history:&history,canon:&canon},&dyn_st)};
                             // 2026-10-28 (independent review F1, F2): a restore that failed because the journal or
@@ -1458,7 +1460,7 @@ impl Node{
     fn capacity_recheck(&mut self)->Result<(),Reject>{
         self.cfg.limits.continuous_history=Some(self.journal.records);
         self.cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&self.cfg.dir));
-        let (cp,local)=(self.chain.spec.cp(),self.chain.spec.local());
+        let (cp,local)=(self.chain.spec.cp_max(),self.chain.spec.local());
         match crate::resources::check(cp,local.k_hist,local.side_max,&self.cfg.limits,self.cfg.peers.len()){
             Err(e)=>{let e=format!("{e}; raise --memory-budget-bytes or POCOL_MEMORY_BUDGET_BYTES");self.log(&format!("LOCAL CAPACITY: {e}"));self.stopped=true;Err(Reject::Local(e))}
             Ok(b)=>{
@@ -3280,7 +3282,7 @@ impl Node{
             "peers":self.peers.values().map(|p|p.addr.clone()).collect::<Vec<_>>(),"production":mode,"miner":self.cfg.miner.as_ref().map(|k|format!("{:#x}",k.address())),
             "stateStore":self.cfg.limits.state_store,"pool":self.pool.txs.len(),"poolGas":self.pool.gas,"poolGasMax":self.pool.gas_max,"poolSenderGasMax":self.pool.sender_gas_max,"poolParked":self.pool.parked.len(),"poolParkedMax":self.pool.parked_max,"journalRecords":self.journal_records(),"blocksKnown":self.chain.blocks.len(),"invalidKnown":self.chain.invalid.len(),
             "admission":crate::admission_json(self.chain.spec.admission()),
-            "a13":crate::resources::derive(self.chain.spec.cp(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&limits,self.cfg.peers.len()).map(|b|serde_json::json!({
+            "a13":crate::resources::derive(self.chain.spec.cp_max(),self.chain.spec.local().k_hist,self.chain.spec.local().side_max,&limits,self.cfg.peers.len()).map(|b|serde_json::json!({
                 "boundBytes":b.total.to_string(),"budgetBytes":self.cfg.limits.mem_budget,"conditions":crate::resources::CONDITIONS.iter().map(|(id,d)|serde_json::json!({"id":id,"detail":d})).collect::<Vec<_>>()})),
             "stats":{"imported":self.stats.imported,"mined":self.stats.mined,"signedTemplates":self.stats.signed_templates,"fallbackTemplates":self.stats.fallback_templates,"sharesSeen":self.stats.shares_seen,"hashesInExhaustedRanges":self.stats.hashes,"reorgs":self.stats.reorgs,
                 "syncSessions":self.stats.sync_sessions,"syncRounds":self.stats.sync_rounds,"refetched":self.stats.refetched,"restored":self.stats.restored,"replaySkipped":self.stats.replay_skipped,"templatePenalties":self.stats.template_penalties,"poolSlices":self.stats.pool_slices,"poolSliceMaxMs":self.stats.pool_slice_max_ms,"reinsertedOffered":self.stats.reinserted_offered,"reinsertedUnoffered":self.stats.reinserted_unoffered,"poolBacklog":self.pool.backlog.len(),"historyRefilled":self.stats.history_refilled,"historyRebuilt":self.history.rebuilt,"historyDamaged":self.history.is_damaged()},
