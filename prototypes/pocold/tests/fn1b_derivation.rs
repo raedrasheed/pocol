@@ -13,6 +13,8 @@
 //!   rolling re-execution; after a reopen from a checkpoint (restore) the first context reads its inputs whole, after a
 //!   replay it derives (the replay re-validated every block), and every import after either derives; every context
 //!   equals the reference's one-pass reading.
+//! - Inputs held wrong (`Chain::damage_member_base`) are caught by the next context's comparison: the one-pass result is
+//!   returned, the mismatch and a member fault are counted, every held input is dropped, the next context reads whole.
 //! The oracle (on in every test) also compares, on every block executed, the inputs derived through its writes with the
 //! ones read whole from its state; the cold sweep asserts no mismatch and no fault.
 #[path="support/members.rs"] mod members_sweep;
@@ -321,4 +323,27 @@ fn copy_dir(from:&Path,to:&Path){std::fs::create_dir_all(to).unwrap();for e in s
     let one=pocold::resources::member_base_bytes(&cp).unwrap();let all=pocold::resources::member_bases_bytes(&cp).unwrap();
     println!("FN1B-A13 member_base_bytes(10,000)={one} member_bases_bytes(10,000)={all}");
     assert!(all>(pocold::chain::CTX_BASES_MAX as u128+1)*one,"the term counts CTX_BASES_MAX + 1 inputs and the write sets");
+}
+/// The oracle's negative control: inputs held wrong (as a faulty derivation would leave them) are caught by the
+/// comparison with the one-pass reading on the next context; the one-pass result is the one returned (no verdict follows
+/// the derivation), the difference is counted as a derivation and an oracle mismatch and a member fault, and every held
+/// input and write set is dropped, so the next context reads its inputs whole. On a replayed chain (no end-of-test sweep:
+/// the mismatch is wanted here).
+#[test] fn a_wrong_derivation_is_caught_and_the_one_pass_reading_wins(){
+    let mut n=net(config(2,8));for _ in 0..6{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
+    let r=Chain::new(spec_of(&n.cfg));let mut r=r;assert!(r.member_oracle,"the oracle is on in tests");
+    for b in &n.blocks{let (e,_)=r.validate(b,None,0).unwrap();r.insert(e);}
+    let p=r.full_entry(&r.head).unwrap();let k=p.height+1;
+    let right=r.child_ctx(&p,0).unwrap().membership.clone();assert_eq!(*right,r.membership_one_pass(&p,k).unwrap());
+    let c0=r.member_counters();assert_eq!((c0.base_mismatch,c0.oracle_mismatch,c0.faults),(0,0,0));
+    r.clear_ctx_cache();assert!(r.damage_member_base(&p),"positive control: the head's inputs were held");
+    let ctx=r.child_ctx(&p,0).unwrap();
+    assert_eq!(*ctx.membership,*right,"the one-pass reading wins over the damaged inputs");
+    assert_eq!(*ctx.membership,r.membership_one_pass(&p,k).unwrap());
+    let c1=r.member_counters();
+    assert_eq!((c1.base_mismatch,c1.oracle_mismatch,c1.faults,c1.base_hits-c0.base_hits),(1,1,1,1),"counted once, from the held (damaged) inputs ({c1:?})");
+    assert_eq!(r.member_bases_held(),(0,0),"every held input and write set was dropped");
+    // The next cold context reads its inputs whole, agrees, and is not a new mismatch.
+    r.clear_ctx_cache();let again=r.child_ctx(&p,0).unwrap();let c2=r.member_counters();
+    assert_eq!(*again.membership,*right);assert_eq!((c2.base_read-c1.base_read,c2.base_mismatch),(1,1),"read whole after the drop ({c2:?})");
 }

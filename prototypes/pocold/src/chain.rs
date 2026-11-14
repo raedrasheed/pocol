@@ -978,6 +978,15 @@ impl Chain{
     /// FN-1b: forgets the membership inputs held for `e`'s state only, keeping its block's write set and its parent's
     /// inputs, so that the next context of `e` derives them again (tests: the cold path of a new parent, timed).
     pub fn forget_member_base(&self,e:&Entry){self.ctx_cache().bases.retain(|b|!(b.hash==e.hash&&b.state.is(e)));}
+    /// FN-1b (tests: the oracle's negative control): replaces the inputs held for `e`'s state with a copy whose ActList
+    /// holds its first id twice, as a wrong derivation might leave it (an id that left kept beside the one that moved in).
+    /// False when none is held or the list is empty.
+    #[doc(hidden)]
+    pub fn damage_member_base(&self,e:&Entry)->bool{
+        let mut c=self.ctx_cache();
+        let Some(row)=c.bases.iter_mut().find(|b|b.hash==e.hash&&b.state.is(e)) else{return false};
+        let mut b=(*row.base).clone();let Some(first)=b.list.first().copied() else{return false};b.list.push(first);row.base=std::sync::Arc::new(b);true
+    }
     pub fn set_member_oracle(&mut self,on:bool){self.member_oracle=on;}
     /// FN-3: the member counters and the caches' sizes.
     pub fn member_counters(&self)->MemberCounters{
