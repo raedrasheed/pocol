@@ -1,13 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE} from '../dist/lib/publisher.js';
 import {nextBaseFee,feeSchedule,capFor,GAS_LIMIT,BASE_FEE_FLOOR,ABSOLUTE_CEILING} from '../dist/lib/fees.js';
 import {KeyLease,JOB_DEADLINE_MAX_MS} from '../dist/lib/lease.js';
 import {isForeignJob,blocksAccount,archiveForeignJobs,archivedJobs,jobNetwork,archiveJob} from '../dist/lib/jobs.js';
+import {denyReason,globRegex,selectFiles,parseIncludeList} from '../dist/lib/publish-input.js';
 import {readFileSync} from 'node:fs';
 import {WEBSITE_INITCODE,WEBSITE_RUNTIME} from '../dist/lib/website-bytecode.js';
 import {concat,toHex,fromHex} from '../dist/lib/hex.js';
-import {decodeManifest,chunkAddress,decodeCurrent} from '../dist/lib/site.js';
+import {decodeManifest,chunkAddress,decodeCurrent,MIME} from '../dist/lib/site.js';
 import {keccak,addressOfSecret} from '../dist/lib/crypto.js';
 import {signTx} from '../dist/lib/wallet.js';
 import * as rlp from '../dist/lib/rlp.js';
@@ -457,3 +458,34 @@ test('W4: a foreign-network checkpoint is refused by the publisher before any si
   const n=mock();await publishSite(n.options());const st=structuredClone(n.state);st.network.chainId='777';await assert.rejects(publishSite(n.options(undefined,{state:st})),/another network/);
 });
 
+// ---------------- Sites W5: publish input (shared vectors), MIME ids 12 and 13 ----------------
+const W5=JSON.parse(readFileSync(new URL('./data/publish-input-vectors.json',import.meta.url),'utf8'));
+test('W5: the hard-deny list and the exclusion globs follow the shared vectors',()=>{
+  for(const[path,reason]of W5.deny)assert.equal(denyReason(path),reason,path);
+  for(const[pattern,path,match]of W5.exclude)assert.equal(globRegex(pattern).test(path.slice(1)),match,pattern+' '+path);
+  const s=selectFiles(W5.select.paths,{exclude:W5.select.exclude});
+  assert.deepEqual(s.kept,W5.select.kept);assert.deepEqual(s.denied,W5.select.denied.map(([path,reason])=>({path,reason})));assert.deepEqual(s.excluded,W5.select.excluded);
+  const inc=selectFiles(W5.include.paths,{include:parseIncludeList(W5.include.text)});
+  assert.deepEqual(inc.kept,W5.include.kept);assert.deepEqual(inc.denied,W5.include.denied.map(([path,reason])=>({path,reason})));assert.deepEqual(inc.excluded,W5.include.excluded);assert.deepEqual(inc.missing,W5.include.missing);
+  assert.throws(()=>parseIncludeList('# only\n'),/empty/);assert.throws(()=>parseIncludeList('a\n/a'),/Duplicate/);assert.throws(()=>globRegex(''),/pattern/);
+});
+test('W5: the publisher refuses a hard-denied file loudly, whatever its extension, and still refuses unsupported ones',()=>{
+  for(const path of['/.htaccess.txt','/api/data.json','/config.js','/SHA256SUMS.txt','/old.bak.html','/.git/x.txt'])
+    assert.throws(()=>prepareSite([{path:'/index.html',data:enc.encode('x')},{path,data:enc.encode('y')}]),e=>/Refused file/.test(e.message)&&e.message.includes(path),path);
+  assert.throws(()=>prepareSite([{path:'/index.html',data:enc.encode('x')},{path:'/x.php',data:enc.encode('y')}]),/Unsupported file extension: \/x\.php/);
+});
+test('W5: favicon.ico (12, image/x-icon) and site.webmanifest (13, application/manifest+json) are published and decoded; 11 stays unknown',()=>{
+  for(const[path,id,mime]of W5.mime){assert.equal(mimeIdFor(path),id,path);if(id!==null)assert.equal(MIME.get(id),mime);}
+  const p=prepareSite([{path:'/index.html',data:enc.encode('<link rel="icon" href="favicon.ico">')},{path:'/favicon.ico',data:new Uint8Array([0,0,1,0])},{path:'/site.webmanifest',data:enc.encode('{"name":"x"}')}]);
+  const d=decodeManifest(p.manifest);assert.deepEqual(d.files.map(f=>[f.path,f.mime]),[['/favicon.ico',12],['/index.html',1],['/site.webmanifest',13]]);
+  for(const id of W5.unknownMimeIds)assert.equal(MIME.has(id),false,'mime '+id);
+});
+test('W5: the S1 explorer include list publishes 12 files from the tracked snapshot, with the expected unique chunks',()=>{
+  const root=new URL('../../../deploy/websites/explorer.pocol.net/',import.meta.url);
+  const include=parseIncludeList(readFileSync(new URL('../tools/explorer-s1-include.txt',root),'utf8'));
+  assert.equal(include.length,12);assert.ok(include.every(path=>denyReason(path)===null&&mimeIdFor(path)!==null),'nothing denied or unsupported is listed');
+  const files=include.map(path=>({path,data:new Uint8Array(readFileSync(new URL(path.slice(1),root)))}));
+  const p=prepareSite(files);const fileChunks=p.files.reduce((n,f)=>n+f.chunks.length,0);
+  // icon-512.png and pocol-icon.png are byte-identical, so their 7 chunks are stored once.
+  assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,75);assert.equal(p.chunks.length,69,"68 unique file chunks and the manifest");assert.equal(planTransactions(p).length,73,"69 chunks, deploy, createVersion, publish, setCurrent");
+});

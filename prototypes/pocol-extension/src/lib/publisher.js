@@ -9,6 +9,7 @@ import { unsignedTx } from './wallet.js';
 import { validPath, chunkAddress, chunkPayload, decodeManifest, decodeCurrent, fetchSite, CHUNK_MAX, FILE_MAX, FILES_MAX, SITE_MAX } from './site.js';
 import { WEBSITE_INITCODE, WEBSITE_RUNTIME } from './website-bytecode.js';
 import { feeSchedule, capFor, nextBaseFee, chunkGasUsed, ABSOLUTE_CEILING, TIP_CAP, BASE_FEE_FLOOR, MARGIN_PER_MILLE } from './fees.js';
+import { denyReason, DENY_REASONS } from './publish-input.js';
 export { readNetworkFees } from './fees.js';
 
 export const FACTORY = '0x0000000000000000000000000000000000c0c005';
@@ -16,8 +17,9 @@ export const FACTORY = '0x0000000000000000000000000000000000c0c005';
 export const LEGACY_MAX_FEE = '200000000000';
 export const LEGACY_PRIORITY_FEE = '1000000000';
 const enc = new TextEncoder();
-// Manifest MIME ids (site.js MIME, pocold site.rs MIME).
-const EXT_MIME = {html:1,htm:1,css:2,js:3,mjs:3,json:4,png:5,jpg:6,jpeg:6,webp:7,svg:8,woff2:9,txt:10};
+// Manifest MIME ids (site.js MIME, pocold site.rs MIME). Id 11 stays unassigned: the M1 manifest vectors use it as the
+// unknown MIME. Sites W5 (owner answer Q3): 12 favicon.ico, 13 site.webmanifest.
+const EXT_MIME = {html:1,htm:1,css:2,js:3,mjs:3,json:4,png:5,jpg:6,jpeg:6,webp:7,svg:8,woff2:9,txt:10,ico:12,webmanifest:13};
 export const mimeIdFor = (path) => EXT_MIME[String(path).split('.').pop().toLowerCase()] ?? null;
 const addressRx = /^0x[0-9a-fA-F]{40}$/;
 const hexRx = /^0x(?:[0-9a-fA-F]{2})*$/;
@@ -48,6 +50,7 @@ export function prepareSite(input, {entry = '/index.html'} = {}) {
   const files = input.map((f) => {
     assert(f && validPath(f.path), 'Invalid site file path');
     assert(!seen.has(f.path), 'Duplicate path: ' + f.path); seen.add(f.path);
+    const denied = denyReason(f.path); assert(!denied, 'Refused file ' + f.path + ': ' + (DENY_REASONS[denied] || denied));
     assert(f.data instanceof Uint8Array, 'File data must be Uint8Array');
     assert(f.data.length <= FILE_MAX, 'File exceeds 1 MiB: ' + f.path);
     totalBytes += f.data.length; assert(totalBytes <= SITE_MAX, 'Site exceeds 4 MiB');

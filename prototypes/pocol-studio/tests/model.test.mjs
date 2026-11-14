@@ -48,7 +48,7 @@ test('the app runs the pre-check before opening the publisher and has every caps
   for(const key of['capsRefused','capsTight','capsAlarm','capsSkipped'])assert.equal(keys(key),2,key);
   // The extension publisher's progress phases Studio shows (renderJob: t('phase_'+phase)), its FN-1 'warning' and
   // 'capsAlarm' included, each in both languages: never a raw key.
-  for(const phase of['upload','broadcast','confirmed','complete','warning','capsAlarm'])assert.equal(keys('phase_'+phase),2,'phase_'+phase);
+  for(const phase of['upload','broadcast','confirmed','complete','warning','capsAlarm','sweep','restore'])assert.equal(keys('phase_'+phase),2,'phase_'+phase);
   const{createHash}=await import('node:crypto');const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
   assert.ok(html.includes('app.js?v='+createHash('sha256').update(app).digest('hex').slice(0,12)),'index.html loads this app.js content version');
 });
@@ -63,4 +63,31 @@ test('a continuous chain (cumulative false) checks each transaction against one 
   const none=capsVerdict({...capsOf({txCount:0}),cumulative:false},least,most);assert.deepEqual(none.refuse.map(r=>r.name),['txCount']);
   assert.equal(capNeed(most,'accounts',true),BigInt(most.accounts),'the state rows count the whole publication either way');
   assert.throws(()=>capsVerdict({...capsOf(),cumulative:'no'},least,most),/capsInvalid/);
+});
+// Sites W5: the hard-deny list (shared vectors with the extension and pocol-site), the folder import order, MIME 12/13.
+import {readFileSync} from 'node:fs';
+import {denyReason,planImport,importReport,mimeFor as mimeOf,validateFiles as validate,validateProject as checkProject} from '../dist/model.js';
+const W5=JSON.parse(readFileSync(new URL('../../pocol-extension/tests/data/publish-input-vectors.json',import.meta.url),'utf8'));
+test('W5: the hard-deny list follows the shared vectors, and validateFiles refuses a denied file loudly',()=>{
+  for(const[path,reason]of W5.deny)assert.equal(denyReason(path),reason,path);
+  for(const[path]of W5.deny.filter(([p,r])=>r!==null&&/\.(html|txt|json|js|css)$/i.test(p)))assert.throws(()=>validate([{path:'/index.html',data:new Uint8Array(1)},{path,data:new Uint8Array(1)}]),/fileDenied/,path);
+});
+test('W5: favicon.ico and site.webmanifest have MIME types; the rest of the table is unchanged',()=>{
+  for(const[path,,mime]of W5.mime)assert.equal(mimeOf(path),mime,path);
+  assert.doesNotThrow(()=>validate([{path:'/index.html',data:new Uint8Array(1)},{path:'/favicon.ico',data:new Uint8Array(4)},{path:'/site.webmanifest',data:new Uint8Array(2)}]));
+});
+test('W5: a folder with .git/ and 300 files under it imports once filtered: the filter runs before the limits',()=>{
+  const entries=[{path:'/index.html',size:100},{path:'/app.js',size:200},{path:'/.env',size:10},{path:'/api/rpc.php',size:10},{path:'/SHA256SUMS.txt',size:10},...Array.from({length:300},(_,i)=>({path:`/.git/objects/${i}`,size:4096}))];
+  assert.ok(entries.length>256);const plan=planImport(entries);
+  assert.equal(plan.error,null);assert.deepEqual(plan.kept.map(e=>e.path),['/index.html','/app.js']);assert.equal(plan.denied.length,303);
+  assert.deepEqual(plan.denied.slice(0,3),[{path:'/.env',reason:'dotfile'},{path:'/api/rpc.php',reason:'server-api'},{path:'/SHA256SUMS.txt',reason:'checksums'}]);
+  const big=planImport([{path:'/index.html',size:1},...Array.from({length:300},(_,i)=>({path:`/f${i}.txt`,size:1}))]);assert.equal(big.error,'fileCount','300 publishable files still exceed the limit');
+  const huge=planImport([{path:'/index.html',size:1},{path:'/.git/pack',size:50*1048576}]);assert.equal(huge.error,null,'a denied file never counts against the size limits');
+});
+test('W5: an unsupported file is refused loudly until the user excludes it, and the exclusion is reported',()=>{
+  const entries=[{path:'/index.html',size:1},{path:'/server.php',size:1},{path:'/notes.md',size:1},{path:'/.htaccess',size:1}];
+  const refused=planImport(entries);assert.equal(refused.error,'filePath');assert.deepEqual(refused.unsupported,['/server.php','/notes.md']);
+  const ok=planImport(entries,{exclude:['/server.php','/notes.md']});assert.equal(ok.error,null);assert.deepEqual(ok.excluded,['/server.php','/notes.md']);
+  const report=importReport(ok);assert.deepEqual(report,{denied:[{path:'/.htaccess',reason:'dotfile'}],excluded:['/server.php','/notes.md'],more:0});
+  const p=checkProject({mode:'files',files:[{path:'/index.html',base64:'eA=='}],entry:'/index.html',importReport:report});assert.deepEqual(p.importReport,report,'the report survives a project round trip');
 });

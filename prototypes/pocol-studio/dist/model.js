@@ -3,14 +3,43 @@ export const encoder=new TextEncoder();
 export function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 export function uid(){if(crypto.randomUUID)return crypto.randomUUID();const b=crypto.getRandomValues(new Uint8Array(16));b[6]=(b[6]&15)|64;b[8]=(b[8]&63)|128;const x=[...b].map(n=>n.toString(16).padStart(2,'0')).join('');return x.slice(0,8)+'-'+x.slice(8,12)+'-'+x.slice(12,16)+'-'+x.slice(16,20)+'-'+x.slice(20);}
 export function validPath(p){return typeof p==='string'&&p.length<=256&&/^\/[A-Za-z0-9._~/-]+$/.test(p)&&p.slice(1).split('/').every(s=>s&&s!=='.'&&s!=='..');}
-const EXT={html:'text/html',htm:'text/html',css:'text/css',js:'application/javascript',mjs:'application/javascript',json:'application/json',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',svg:'image/svg+xml',woff2:'font/woff2',txt:'text/plain'};
+// Manifest MIME types (the extension's lib/site.js MIME and pocold site.rs): Sites W5 (owner answer Q3) adds favicon.ico
+// (id 12) and site.webmanifest (id 13).
+const EXT={html:'text/html',htm:'text/html',css:'text/css',js:'application/javascript',mjs:'application/javascript',json:'application/json',png:'image/png',jpg:'image/jpeg',jpeg:'image/jpeg',webp:'image/webp',svg:'image/svg+xml',woff2:'font/woff2',txt:'text/plain',ico:'image/x-icon',webmanifest:'application/manifest+json'};
 export function mimeFor(path){return EXT[path.split('.').pop().toLowerCase()]||null;}
 export function encode64(bytes){let s='';for(let i=0;i<bytes.length;i+=8192)s+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(s);}
 export function decode64(s){if(typeof s!=='string'||s.length>Math.ceil(LIMITS.file/3)*4+4||!/^([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(s))throw Error('Invalid file encoding');const raw=atob(s);return Uint8Array.from(raw,c=>c.charCodeAt(0));}
+// Sites W5: the hard-deny list, applied whatever the user selects (the extension's lib/publish-input.js and pocold
+// site.rs apply the same rules; tests/model.test.mjs checks the shared vectors). Publishing is permanent, so a folder
+// import drops these with their reason listed, and validateFiles refuses them loudly.
+export const DENY_REASONS=['dotfile','config','secret-key','database','backup','server-api','checksums'];
+export function denyReason(path){
+ const segs=String(path).replace(/^\/+/,'').split('/'),base=segs[segs.length-1].toLowerCase();
+ if(segs.some(s=>s.startsWith('.')))return'dotfile';
+ if(segs[0].toLowerCase()==='api'&&segs.length>1)return'server-api';
+ if(base.startsWith('config.'))return'config';
+ if(/\.(key|pem)$/.test(base))return'secret-key';
+ if(/\.sql$/.test(base))return'database';
+ if(/\.bak[^/]*$/.test(base))return'backup';
+ if(base.startsWith('sha256sums'))return'checksums';
+ return null;
+}
+/// A folder import, in this order: the hard-deny filter, then the user's explicit exclusions, then the PoCol limits.
+/// `entries` are [{path,size}]. Returns {kept, denied:[{path,reason}], excluded:[path], unsupported:[path], error}: an
+/// unsupported file is refused loudly (error 'filePath') until the user excludes it.
+export function planImport(entries,{exclude=[]}={}){
+ const skip=new Set(exclude),kept=[],denied=[],excluded=[];
+ for(const e of entries){const reason=denyReason(e.path);if(reason){denied.push({path:e.path,reason});continue;}if(skip.has(e.path)){excluded.push(e.path);continue;}kept.push(e);}
+ const unsupported=kept.filter(e=>!validPath(e.path)||!mimeFor(e.path)).map(e=>e.path),total=kept.reduce((n,e)=>n+e.size,0);
+ const error=!kept.length||kept.length>LIMITS.files?'fileCount':unsupported.length?'filePath':kept.some(e=>e.size>LIMITS.file)?'fileSize':total>LIMITS.total?'totalSize':null;
+ return{kept,denied,excluded,unsupported,error};
+}
+/// What a folder import left out, kept with the project so the publish review lists it (bounded).
+export function importReport(plan){return{denied:plan.denied.slice(0,500).map(d=>({path:String(d.path).slice(0,300),reason:DENY_REASONS.includes(d.reason)?d.reason:'dotfile'})),excluded:plan.excluded.slice(0,500).map(p=>String(p).slice(0,300)),more:Math.max(0,plan.denied.length-500)+Math.max(0,plan.excluded.length-500)};}
 export function validateFiles(files,entry='/index.html'){
  if(!Array.isArray(files)||files.length<1||files.length>LIMITS.files)throw Error('fileCount');
  const seen=new Set();let total=0;
- for(const f of files){if(!validPath(f.path)||!mimeFor(f.path))throw Error('filePath');if(seen.has(f.path))throw Error('duplicatePath');seen.add(f.path);if(!(f.data instanceof Uint8Array)||f.data.length>LIMITS.file)throw Error('fileSize');total+=f.data.length;}
+ for(const f of files){if(denyReason(f.path))throw Error('fileDenied');if(!validPath(f.path)||!mimeFor(f.path))throw Error('filePath');if(seen.has(f.path))throw Error('duplicatePath');seen.add(f.path);if(!(f.data instanceof Uint8Array)||f.data.length>LIMITS.file)throw Error('fileSize');total+=f.data.length;}
  if(total>LIMITS.total)throw Error('totalSize');if(!files.some(f=>f.path===entry&&mimeFor(f.path)==='text/html'))throw Error('entryMissing');return{count:files.length,total};
 }
 export const TEMPLATE_IDS=['personal','business','product'];
@@ -36,7 +65,7 @@ export function validateProject(p){
  if(!p||typeof p!=='object'||!['visual','files'].includes(p.mode))throw Error('projectInvalid');
  const o={id:typeof p.id==='string'&&p.id.length<100?p.id:uid(),mode:p.mode,name:String(p.name||'Untitled').slice(0,100),lang:p.lang==='en'?'en':'ar',created:Number(p.created)||Date.now(),updated:Date.now(),published:null};
  if(p.published&&/^0x[0-9a-f]{40}$/i.test(p.published.site))o.published={site:p.published.site,version:p.published.version==null?null:String(p.published.version).slice(0,30),publishedBlock:p.published.publishedBlock??null,attached:p.published.attached===true};
- if(p.mode==='files'){if(!Array.isArray(p.files)||p.files.length>256)throw Error('fileCount');o.files=p.files.map(f=>({path:f.path,base64:f.base64}));o.entry=typeof p.entry==='string'?p.entry:'/index.html';validateFiles(o.files.map(f=>({path:f.path,data:decode64(f.base64)})),o.entry);return o;}
+ if(p.mode==='files'){if(!Array.isArray(p.files)||p.files.length>256)throw Error('fileCount');o.files=p.files.map(f=>({path:f.path,base64:f.base64}));o.entry=typeof p.entry==='string'?p.entry:'/index.html';validateFiles(o.files.map(f=>({path:f.path,data:decode64(f.base64)})),o.entry);if(p.importReport&&typeof p.importReport==='object')o.importReport=importReport({denied:Array.isArray(p.importReport.denied)?p.importReport.denied.filter(d=>d&&typeof d.path==='string'):[],excluded:Array.isArray(p.importReport.excluded)?p.importReport.excluded.filter(x=>typeof x==='string'):[]});return o;}
  o.template=TEMPLATE_IDS.includes(p.template)?p.template:'personal';for(const k of ['brand','eyebrow','title','description','button'])o[k]=String(p[k]||'').slice(0,k==='description'?5000:500);o.color=safeColor(p.color,'#187b68');o.surface=safeColor(p.surface,'#f7f5ef');
  o.logo=null;if(p.logo){const d=decode64(p.logo.base64);if(d.length>200*1024||!['image/png','image/jpeg','image/webp'].includes(p.logo.mime))throw Error('logoSize');o.logo={base64:p.logo.base64,mime:p.logo.mime};}
  if(!Array.isArray(p.sections)||p.sections.length>20)throw Error('sectionsLimit');o.sections=p.sections.map(s=>({id:uid(),type:['text','features','contact'].includes(s.type)?s.type:'text',title:String(s.title||'').slice(0,500),body:String(s.body||'').slice(0,12000)}));return o;

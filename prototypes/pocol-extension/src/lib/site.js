@@ -3,7 +3,9 @@ import * as rlp from './rlp.js';
 import { keccak } from './crypto.js';
 import { concat, eq, toHex, fromHex } from './hex.js';
 export const CHUNK_MAX = 24575, FILE_MAX = 1 << 20, SITE_MAX = 4 << 20, FILES_MAX = 256, MANIFEST_MAX = 65536;
-export const MIME = new Map([[1, 'text/html'], [2, 'text/css'], [3, 'application/javascript'], [4, 'application/json'], [5, 'image/png'], [6, 'image/jpeg'], [7, 'image/webp'], [8, 'image/svg+xml'], [9, 'font/woff2'], [10, 'text/plain']]);
+export const MIME = new Map([[1, 'text/html'], [2, 'text/css'], [3, 'application/javascript'], [4, 'application/json'], [5, 'image/png'], [6, 'image/jpeg'], [7, 'image/webp'], [8, 'image/svg+xml'], [9, 'font/woff2'], [10, 'text/plain'],
+  // Sites W5 (owner answer Q3). Id 11 stays unassigned: the M1 manifest vectors use it as the unknown MIME.
+  [12, 'image/x-icon'], [13, 'application/manifest+json']]);
 const FACTORY = fromHex('0x0000000000000000000000000000000000c0c005');
 const SEG = /^[A-Za-z0-9._~-]+$/;
 export function validPath(p) {
