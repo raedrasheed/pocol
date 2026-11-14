@@ -47,7 +47,12 @@ read methods the extension's bridge exposes to site scripts:
 `eth_maxPriorityFeePerGas`, `eth_feeHistory` (at most 128 blocks and 16
 percentiles), `eth_getStorageAt`, `eth_getBlockByHash` (without transactions)
 and `pocol_getLogs` (one `blockHash`, or a numeric range of at most 1024
-blocks). `net_version` and `web3_clientVersion` are answered by the relay itself,
+blocks). Node errors are relayed with their code and message only, except that
+a -32020 `pocol_getLogs` limit keeps its resume data from pocold: the `reason`
+(`deadline`, `scanBytes`, `scratch`, `resultBytes` or `resultCount`) and, when
+they are consistent with each other and with the requested range, `fromBlock`,
+`lastCompleteBlock` and `nextFromBlock` as canonical quantities, so a site can
+resume the query. `net_version` and `web3_clientVersion` are answered by the relay itself,
 so the node's version is never exposed. The tags `safe` and `finalized` are
 accepted wherever a block tag is.
 

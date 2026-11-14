@@ -281,13 +281,15 @@ LOW160 = (1 << 160) - 1
 NET = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
 
 class Registry:
-    """A mock v3 node: blocks, MinerRegistry lengths/activeSlice/recordWords/recordClocks/removalStatus and Caps.get(16).
-    Records hold the stored words; recordWords masks w1 to the reward address and recordClocks returns its clocks, as
-    PoColSystemV3.sol does."""
-    def __init__(self, members, records=None, removal=None, height=40):
+    """A mock v3 node: blocks, MinerRegistry lengths/activeSlice/recordWords/recordClocks/removalStatus and Caps.get
+    (B_reg 16, nonceMode 4, W_act 24). Records hold the stored words; recordWords masks w1 to the reward address and
+    recordClocks returns its clocks, as PoColSystemV3.sol does; lengths' fourth word is heldTotal (slot 4)."""
+    def __init__(self, members, records=None, removal=None, height=40, caps=None, held=0):
         self.members = members                  # [(id int, w0)]
         self.records = records or {}            # address -> (w0, w1, w2, w3)
         self.removal = removal or {}
+        self.caps = {16: B_REG, 4: 1, 24: 720, **(caps or {})}
+        self.held = held
         self.height, self.hashes = height, {}
         self.calls = []
     def head_hash(self, h):
@@ -303,11 +305,10 @@ class Registry:
             assert params[1] == hex(self.height), 'every read at the head height'
             sel, args = data[:10], data[10:]
             if to == gateway.CAPS and sel == selector('get(uint256)'):
-                assert int(args, 16) == 16
-                return ok('0x' + B_REG.to_bytes(32, 'big').hex())
+                return ok('0x' + self.caps[int(args, 16)].to_bytes(32, 'big').hex())
             assert to == gateway.REGISTRY
             if sel == selector('lengths()'):
-                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in (len(self.members) + 3, len(self.members), 0, 0)).hex())
+                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in (len(self.members) + 3, len(self.members), 0, self.held)).hex())
             if sel == selector('activeSlice(uint256,uint256)'):
                 start, count = int(args[:64], 16), int(args[64:], 16)
                 page = self.members[start:start + count]
@@ -324,8 +325,8 @@ class Registry:
     def reads(self, method):
         return [c for c in self.calls if c[0] == method]
 
-def v3_service(node):
-    service = gateway.Gateway(network=NET)
+def v3_service(node, fork_schedule=gateway.DEFAULT_FORK_SCHEDULE):
+    service = gateway.Gateway(network=NET, fork_schedule=fork_schedule)
     service.query = node.query
     return service
 
@@ -437,7 +438,8 @@ class GatewayMembershipTests(unittest.TestCase):
                           'lastReactHeight': 17, 'lastMaintHeightMod32': 0xfffffff0, 'bondWei': str(B_REG), 'bondTargetWei': str(B_REG),
                           'exitHeight': 30, 'dueHeight': 750, 'burnHeight': 0, 'graceStart': 12, 'removal': 4,
                           'removalLabel': 'RECENTLY_ACTIVE', 'proposerEligible': True, 'height': 40})
-        self.assertEqual([c[1][0]['to'] for c in node.reads('eth_call')], [gateway.REGISTRY] * 3 + [gateway.CAPS])
+        # B_reg, then nonceMode (fork version 1 at the next height): a HELD record needs no other member.
+        self.assertEqual([c[1][0]['to'] for c in node.reads('eth_call')], [gateway.REGISTRY] * 3 + [gateway.CAPS] * 2)
         self.assertEqual([c[1][0]['data'][:10] for c in node.reads('eth_call')][:3],
                          [selector('recordWords(address)'), selector('recordClocks(address)'), selector('removalStatus(address)')])
         self.assertEqual(len(node.reads('eth_getBlockByNumber')), 2, 'the head and its re-check')
@@ -466,13 +468,76 @@ class GatewayMembershipTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertEqual(service.call(request('pocol_getMember', [self.A]))['error']['code'], -32000)
 
+    def draw(self, records, held=None, caps=None, schedule=gateway.DEFAULT_FORK_SCHEDULE, extra=()):
+        """proposerEligible of every record in `records` (address -> (w0, bond, graceStart), all on the ActList in that
+        order, `extra` too) at head 40, from one gateway, and the node."""
+        everything = {**records, **dict(extra)}
+        node = Registry([(int(a, 16), r[0]) for a, r in everything.items()],
+                        {a: (w0, 0, bond, grace << 192) for a, (w0, bond, grace) in everything.items()},
+                        caps=caps, held=sum(r[1] for r in everything.values()) if held is None else held)
+        service = v3_service(node, schedule)
+        return {a: service.call(request('pocol_getMember', [a]))['result']['proposerEligible'] for a in records}, node
+
     def test_accruing_proposer_eligibility_follows_the_quarter_bond_rule(self):
+        # Mixed membership: a HELD member is a candidate, so the draw excludes an ACCRUING one below B_reg/4.
+        B = '0x' + '22' * 20
         for bond, eligible in ((B_REG // 4, True), (B_REG // 4 - 1, False), (B_REG - 1, True), (0, False)):
-            record, _ = self.member(w0_word(bond_state=4), w2=bond)
             with self.subTest(bond=bond):
-                self.assertEqual((record['bondStateLabel'], record['proposerEligible']), ('ACCRUING', eligible))
-        record, _ = self.member(w0_word(bond_state=4, tomb=1), w2=B_REG)
+                answer, _ = self.draw({self.A: (w0_word(bond_state=4), bond, 0), B: (w0_word(bond_state=1), B_REG, 0)})
+                self.assertEqual(answer, {self.A: eligible, B: True})
+        record, _ = self.member(w0_word(bond_state=4), w2=B_REG // 4)
+        self.assertEqual((record['bondStateLabel'], record['proposerEligible']), ('ACCRUING', True))
+        record, node = self.member(w0_word(bond_state=4, tomb=1), w2=B_REG)
         self.assertFalse(record['proposerEligible'], 'a tomb is never drawn')
+        self.assertEqual(node.reads('eth_call')[4:], [], 'nothing read past the record and B_reg for a tomb')
+        # bondState NONE, BURNED or PAID on a live active record is not a probationer: the draw keeps it a candidate.
+        for state in (0, 2, 3):
+            with self.subTest(state=state):
+                answer, _ = self.draw({self.A: (w0_word(bond_state=4), 0, 0), B: (w0_word(bond_state=state), 0, 0)})
+                self.assertEqual(answer, {self.A: False, B: True})
+
+    def test_all_probationers_below_the_quarter_bond_keep_the_draw_exception(self):
+        # DrawWeights::new: with every member of A_h* ACCRUING below B_reg/4, every member is a candidate
+        # (pocold tests/v3_membership.rs all_probationers_below_the_quarter_bond_retain_the_owner_approved_draw_exception).
+        B, C = '0x' + '22' * 20, '0x' + '33' * 20
+        quarter = B_REG // 4
+        records = {self.A: (w0_word(bond_state=4), 0, 0), B: (w0_word(bond_state=4), quarter - 1, 0), C: (w0_word(bond_state=4), 5, 0)}
+        answer, node = self.draw(records)
+        self.assertEqual(answer, {self.A: True, B: True, C: True})
+        slices = [c for c in node.reads('eth_call') if c[1][0]['data'].startswith(selector('activeSlice(uint256,uint256)'))]
+        self.assertEqual(len(slices), 1, 'the ActList is read once per head for all three')
+        # heldTotal below the quarter bounds every bond: no other record is read.
+        answer, node = self.draw({self.A: (w0_word(bond_state=4), 0, 0), B: (w0_word(bond_state=4), 1, 0)})
+        self.assertEqual(answer, {self.A: True, B: True})
+        self.assertEqual(len([c for c in node.reads('eth_call') if c[1][0]['data'].startswith(selector('recordWords(address)'))]), 2)
+        # One member reaching the quarter (still ACCRUING) ends the exception for the others.
+        answer, _ = self.draw({**records, C: (w0_word(bond_state=4), quarter, 0)})
+        self.assertEqual(answer, {self.A: False, B: False, C: True})
+        # A tomb is not in A_h*: a tombed HELD member does not end it.
+        answer, _ = self.draw(records, extra={'0x' + '44' * 20: (w0_word(bond_state=1, tomb=1), B_REG, 0)})
+        self.assertEqual(answer, {self.A: True, B: True, C: True})
+        # More unknown bonds than DRAW_RECORDS_MAX: not decided, reported as null rather than guessed.
+        many = {'0x' + format(0x1000 + i, '040x'): (w0_word(bond_state=4), 0, 0) for i in range(gateway.DRAW_RECORDS_MAX + 1)}
+        answer, node = self.draw({self.A: (w0_word(bond_state=4), 0, 0)}, held=B_REG, extra=many)
+        self.assertEqual(answer, {self.A: None})
+        self.assertLessEqual(len(node.calls), gateway.MEMBER_READS_MAX + gateway.DRAW_READS_MAX)
+
+    def test_a_bounded_nonce_domain_draws_from_the_recently_active_members(self):
+        # nonceMode 0 at fork version 1: A_h* is the members with lastShare or graceStart >= 41 - W_act unless none is.
+        B = '0x' + '22' * 20
+        bounded = {4: 0, 24: 10}
+        probationer = (w0_word(bond_state=4, last_share=35), 0, 0)
+        answer, _ = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 30)}, caps=bounded)
+        self.assertEqual(answer, {self.A: True, B: False}, 'B is outside A_h*, so A is the only (probationer) member')
+        answer, _ = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 31)}, caps=bounded)
+        self.assertEqual(answer, {self.A: False, B: True}, 'graceStart 31 keeps B in A_h*')
+        answer, _ = self.draw({self.A: (w0_word(bond_state=4, last_share=5), 0, 0), B: (w0_word(bond_state=1, last_share=5), B_REG, 0)}, caps=bounded)
+        self.assertEqual(answer, {self.A: False, B: True}, 'nobody active: every live member')
+        # The full nonce domain from fork version 2 at the next height: every live member, whatever nonceMode says.
+        answer, node = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 0)}, caps=bounded,
+                                 schedule=[[1, 0], [2, 41]])
+        self.assertEqual(answer, {self.A: False, B: True})
+        self.assertNotIn(4, [int(c[1][0]['data'][10:], 16) for c in node.reads('eth_call') if c[1][0]['to'] == gateway.CAPS])
 
     def test_exited_victims_burned_paid_and_absent_records(self):
         record, _ = self.member(w0_word(status=2, bond_state=1), w2=B_REG, w3=50 | 770 << 64)
