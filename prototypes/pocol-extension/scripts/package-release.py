@@ -3,6 +3,7 @@
 from pathlib import Path
 import hashlib
 import json
+import re
 import sys
 import zipfile
 
@@ -20,6 +21,29 @@ for name in required:
 # The release decodes the v3 GenesisSpec (spec 2) by default; a stale dist/ built before that (SPEC_VERSION 1) is refused.
 if 'export const SPEC_VERSION = 2,' not in (dist / 'lib/refdec.js').read_text(encoding='utf-8'):
     raise SystemExit('Refusing a stale build that does not decode spec 2: rebuild the release with npm run build')
+# D1: until the identity switch the built-in profile is a placeholder of no network (NETWORK_PLACEHOLDER in
+# lib/studio-network.js, written by deploy/mainnet/set_network_identity.py --placeholder); no release carries it,
+# neither by its mark nor by its identity (a build whose mark was dropped by hand or by a merge still pins it).
+network = (dist / 'lib/studio-network.js').read_text(encoding='utf-8')
+if 'NETWORK_PLACEHOLDER' in network:
+    raise SystemExit('Refusing a build whose built-in profile is the network placeholder (NETWORK_PLACEHOLDER): '
+                     'a release is packaged only after the identity switch pins the real network')
+# The placeholder identity (deploy/mainnet/placeholder-network.pocol.json: the decoder corpus's v3 devnet GenesisSpec
+# under chain ID 1234567891, which no network uses), written here so the refusal holds outside the repository too; the
+# repository's placeholder file, when present, is refused as well (a re-placed placeholder).
+placeholders = {(1234567891, '3130bfed4d9f4b4f6df657220d94035c21bfe7cc445df9d5572979dc4767f74f')}
+placeholder_file = root.parents[1] / 'deploy' / 'mainnet' / 'placeholder-network.pocol.json'
+if placeholder_file.is_file():
+    try:
+        info = json.loads(json.loads(placeholder_file.read_text(encoding='utf-8'))['files']['devnet.json'])
+        placeholders.add((int(info['chainId']), str(info['genesisHash']).lower().removeprefix('0x')))
+    except (KeyError, TypeError, ValueError) as e:
+        raise SystemExit(f'Refusing to package: {placeholder_file} names no placeholder identity ({e})')
+for chain_id, genesis in sorted(placeholders):
+    if re.search(rf'(?<![0-9A-Za-z_]){chain_id}(?![0-9])|(?<![0-9A-Za-z_])0x{chain_id:x}(?![0-9A-Fa-f])', network, re.IGNORECASE) \
+            or re.search(rf'(?<![0-9A-Fa-f]){genesis}(?![0-9A-Fa-f])', network, re.IGNORECASE):
+        raise SystemExit(f'Refusing a build whose built-in profile pins the network placeholder identity (chain {chain_id}, '
+                         f'genesis 0x{genesis}) without its mark: run the identity switch before packaging a release')
 output.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for path in sorted(dist.rglob('*')):

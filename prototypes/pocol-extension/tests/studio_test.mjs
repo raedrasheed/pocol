@@ -13,7 +13,18 @@ let count=0; const test=async(name,fn)=>{await fn();count++;console.log('PASS '+
 const secret=new Uint8Array(32);secret[31]=1;
 const password='correct horse battery staple';
 const text=(v)=>new TextEncoder().encode(JSON.stringify(v));
-await test('pinned genesis preimage proves chain and genesis hash',()=>{const spec=RP.decodeSpec(H.fromHex(N.NETWORK.genesisPre));assert.equal(spec.chainId,1599846715n);assert.equal(H.toHex(spec.genesisHash),N.NETWORK.genesisHash);});
+await test('pinned genesis preimage proves chain and genesis hash',()=>{const spec=RP.decodeSpec(H.fromHex(N.NETWORK.genesisPre));assert.equal(spec.chainId,BigInt(N.NETWORK.chainId));assert.equal(H.toHex(spec.genesisHash),N.NETWORK.genesisHash);});
+// D1: until the identity switch the built-in profile is the marked placeholder (deploy/mainnet/placeholder-network.pocol.json,
+// a spec-2 genesis of no network); either way it is a spec-2 genesis of a network that is not retired.
+await test('built-in profile is the marked spec-2 placeholder until the identity switch, never a retired network',()=>{
+  const spec=RP.decodeSpec(H.fromHex(N.NETWORK.genesisPre));assert.equal(spec.specVersion,2);
+  const retired=JSON.parse(readFileSync(new URL('../../../deploy/mainnet/retired-networks.json',import.meta.url),'utf8')).retired;
+  assert.ok(retired.every(r=>r.chainId!==N.NETWORK.chainId&&r.genesisHash!==N.NETWORK.genesisHash),'the built-in profile pins a retired network');
+  const placeholder=JSON.parse(readFileSync(new URL('../../../deploy/mainnet/placeholder-network.pocol.json',import.meta.url),'utf8'));
+  const pinned=N.NETWORK.genesisPre===placeholder.files['genesis.spec.hex'];
+  assert.equal(N.NETWORK_PLACEHOLDER===true,pinned,'the placeholder mark goes with the placeholder identity, and only with it');
+  assert.equal(N.NETWORK.name,'pocol-public');assert.equal(N.NETWORK.trustLevel,'RN');assert.equal(N.NETWORK.endpoint,'https://gateway.pocol.net/studio/rpc');
+});
 await test('HTTPS only exact pinned RN endpoint',()=>{assert.equal(N.validateEndpoint(N.NETWORK.endpoint,'RN'),N.NETWORK.endpoint);for(const u of ['http://gateway.pocol.net/studio/rpc','https://gateway.pocol.net/studio/rpc?x=1','https://gateway.pocol.net.evil/studio/rpc','https://user@gateway.pocol.net/studio/rpc','https://example.org/'])assert.throws(()=>N.validateEndpoint(u,'RN'));});
 await test('remote endpoint cannot claim local verification or unsupported RP',()=>{assert.throws(()=>N.validateEndpoint(N.NETWORK.endpoint,'LN'));assert.throws(()=>N.validateEndpoint(N.NETWORK.endpoint,'RP'));assert.match(N.trustMessage('RN'),/remote/);});
 await test('loopback preserved and RN rejected on loopback',()=>{assert.equal(N.validateEndpoint('http://127.0.0.1:8540','LN'),'http://127.0.0.1:8540');assert.throws(()=>N.validateEndpoint('http://127.0.0.1:8540','RN'));});
@@ -45,7 +56,7 @@ await test('manifest grants only fixed origins, publisher in package, unlimited 
 const mock=installChromeMock();await loadWorker(dist,'studio-regressions');
 const sender={id:chrome.runtime.id,url:'https://studio.pocol.net/',frameId:0,tab:{id:17}};
 const call=(type,payload={},who=sender)=>new Promise(resolve=>{const keep=mock.listeners.message[0]({type,payload},who,resolve);if(keep!==true)resolve(undefined);});
-await test('public bridge status exposes capability and network without wallet',async()=>{const r=await call('studio.status');assert.equal(r.ok,true);assert.equal(r.result.network.chainId,1599846715);assert.equal(r.result.wallet,undefined);});
+await test('public bridge status exposes capability and network without wallet',async()=>{const r=await call('studio.status');assert.equal(r.ok,true);assert.equal(r.result.network.chainId,N.NETWORK.chainId);assert.equal(r.result.wallet,undefined);});
 await test('built-in public profile cannot be shadowed by an imported custom profile',async()=>{const r=await mock.send({type:'profiles.add',profile:{...N.NETWORK,endpoint:'http://127.0.0.1:8540',trustLevel:'LN'}});assert.equal(r.ok,false);const list=(await mock.send({type:'profiles.list'})).profiles;assert.equal(list.find(p=>p.name===N.NETWORK.name).endpoint,N.NETWORK.endpoint);});
 await test('content script cannot call generic wallet/profile operations',async()=>{for(const type of ['wallet.create','wallet.unlock','wallet.address','profiles.add','profiles.publicSchedule'])assert.equal((await call(type)).ok,false);assert.equal(mock.storage.data.has('wallet'),false);});
 await test('lookalike origin and iframe cannot call broker',async()=>{assert.equal((await call('studio.status',{}, {...sender,url:'https://studio.pocol.net.evil/'})).ok,false);assert.equal((await call('studio.status',{}, {...sender,frameId:1})).ok,false);});
@@ -116,7 +127,7 @@ await test('aligning a trusted public schedule clears custom-profile conflicts w
 });
 await test('changing the built-in schedule revokes its Viewer session and pending approval; RPC metadata cannot override it',async()=>{
   const fx=await siteFixture(dist);
-  const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x5f5bb93b',pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']]})});
+  const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x'+N.NETWORK.chainId.toString(16),pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']]})});
   await mock.send({type:'wallet.create',password:'studio-test-pw',seedHex:'0x'+'42'.repeat(32)});
   const oldAddress=(await mock.send({type:'wallet.address',name:N.NETWORK.name})).address;
   const opened=await mock.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true);
