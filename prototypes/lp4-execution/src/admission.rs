@@ -413,8 +413,17 @@ fn digest(tag:&str,parts:&[&[u8]])->[u8;32]{
     let mut b=tag.as_bytes().to_vec();for p in parts{b.extend_from_slice(&(p.len() as u64).to_be_bytes());b.extend_from_slice(p);}sha256(&b)
 }
 
-/// Runs the full gate on the actual artifacts and, only if it accepts, builds the genesis.
-pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
+/// Runs the full gate on the actual artifacts and, only if it accepts, builds the genesis. No cap raise: a schedule
+/// naming fork version 3 is refused (R24) unless its raise comes with it (`admit_with`).
+pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{admit_with(r,None)}
+/// FN-5 (C10): `admit` with the cap raise carried beside the schedule (fork version 3, `ProfileIdentity::cp_at`). With
+/// `None` this is exactly `admit`. With a raise, every rule R1-R26 is evaluated at the genesis CP and again at the
+/// raised CP (the genesis CP with ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX replaced), whose resource facts
+/// (R18's SYS slots, R21's retained state) are derived at the raised caps; a rule failing at either is a violation.
+/// R24's comparison of the GenesisSpec's CP with the evaluated CP applies to the genesis CP only (the raised CP is
+/// not the genesis CP by construction); a raise that lowers a cap, raises none, has no fork-3 entry or is on a
+/// spec-1 genesis is refused as R24.
+pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Result<Admitted,Rejection>{
     // validation.md:2065: the caps-test build constants are simnet only.
     if cfg!(feature="caps-test")&&(r.kind!=ProfileKind::Simnet||r.node!=NodeKind::Simnet){
         return Err(terminal("caps-test","the caps-test build (validation.md:2065) admits only a simnet profile on a simnet node".into()))}
@@ -438,15 +447,22 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
 
     let l=r.local;let big_phi=l.capital_phi();
     let m=crate::timing::metrics(u64::from(l.delta),u64::from(big_phi),u64::from(l.t_exec),u64::from(l.delta_rel),u64::from(cp.dFbWait));
-    let gp=GateProfile{id:"pocold-admission-v1".into(),cp:cp.clone(),genesis_pre:r.spec_bytes.to_vec(),genesis_hash:hash,chain_id:spec.chain_id,kind:r.kind,forks:r.forks.to_vec(),
+    let gate_profile=|cp:&ConsensusParams|GateProfile{id:"pocold-admission-v1".into(),cp:cp.clone(),genesis_pre:r.spec_bytes.to_vec(),genesis_hash:hash,chain_id:spec.chain_id,kind:r.kind,forks:r.forks.to_vec(),
         local:LocalParams{delta:l.delta,phi:l.phi,capital_phi:big_phi,t_exec:l.t_exec,delta_rel:l.delta_rel,gamma:l.gamma,x_h:sat_u64(m.x_h),x_w:sat_u64(m.x_w),
             r_keep:R_KEEP,k_hist:l.k_hist,k_final:K_FINAL,k_view:K_VIEW,hist_trie_budget:HIST_TRIE_BUDGET,gossip:l.gossip,retention_stress:l.retention_stress},
         rpc:l.rpc.values().clone()};
+    let gp=gate_profile(&cp);
     v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;
     let binding=gp.binding();
     let model=gate::RESOURCE_MODEL.to_string();
+    // FN-5: the raised CP, refused (R24) before any fact is derived when the raise lowers a cap or raises none.
+    // A fork-3 entry and its raise come together, on a spec-2 genesis only (`ProfileIdentity::validate_with_raise`).
+    if r.forks.iter().any(|(v,_)|*v==crate::profile::CAP_RAISE_VERSION)!=raise.is_some(){
+        return Err(terminal("R24",if raise.is_some(){"cap raise without a fork version 3 activation".into()}else{"fork version 3 is a cap raise and needs its values".into()}))}
+    if raise.is_some()&&spec.spec_version<2{return Err(terminal("R24","a cap raise needs a v3 genesis (spec version 2)".into()))}
+    let raised=match raise{None=>None,Some(x)=>Some(x.apply(&cp).map_err(|e|terminal("R24",format!("cap raise: {e:?}")))?)};
 
-    let identity=root.map(|root|{
+    let identity_for=|binding:[u8;32]|root.map(|root|{
         let mut balances:Vec<(Address,U256)>=r.alloc.accounts.iter().filter_map(|(a,x)|x.info().map(|i|(*a,i.balance))).collect();balances.sort();
         let flat:Vec<u8>=balances.iter().flat_map(|(a,b)|[a.as_slice(),&b.to_be_bytes::<32>()].concat()).collect();
         IdentityFacts{profile_binding:binding,model:model.clone(),class:FactClass::Measurement,artifact:digest("PoColIdentityFacts",&[&root.0,&programs.sys_code_hash().0,&flat]),
@@ -455,29 +471,50 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
             // V3-19: R23 takes the M3 term only for the v3 program set, as genesis_builder.rs does.
             m3_issuance:set==ProgramSet::V3}
     });
+    let identity=identity_for(binding);
 
     let timing=r.timing.filter(|t|t.genesis_hash==hash);
     if r.timing.is_none(){notes.push("timing: no measurement recorded (R14/R19)".into())}
     else if timing.is_none(){notes.push("timing: measurement recorded for another genesis (R14/R19)".into())}
-    let b=resources::derive(&cp);
-    let live=sat_u32(b.slot_min.max(genesis_slots.unwrap_or(0)));
     if !in_gas_domain(&cp,set){notes.push(format!("SYS gas: CP outside the measured domain {:?}{} (R18)",GAS_DOMAIN,if set==ProgramSet::V3{format!(" without its M_max term, S_max + 3 <= {GAS_DOMAIN_V3_PAYEES}, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M}")}else{String::new()}))}
-    let phase=|class:u8,p:Phase,keys:u64,accts:u64|PhaseFacts{phase:p,system_keys:sat_u32(keys),user_keys:if class==0{cp.SYS_KEYS_USER_MAX}else{0},
-        system_accounts:sat_u32(accts),user_accounts:if class==0{USER_SYS_ACCOUNTS}else{0},live_slots:live,
-        call_gas:phase_gas(&cp,class,set).unwrap_or_default(),duration_ms:timing.map_or(u64::MAX,|t|t.phase_ms[class as usize]),
-        retired_records:if class==1&&cp.RET<=GAS_DOMAIN.ret{cp.RET}else{0}};
-    let phases=vec![phase(0,Phase::Ordinary,b.keys_normal,b.accts_normal),phase(1,Phase::Closing,b.keys_closing,b.accts_closing),phase(2,Phase::Final,b.keys_final,b.accts_final)];
-    let hist=historical_bytes(&cp,l);
     let measured=timing.map(|t|t.phase_ms).unwrap_or([u64::MAX;3]);
-    let resource=ResourceFacts{profile_binding:binding,model:model.clone(),class:FactClass::Measurement,
-        artifact:digest("PoColResourceFacts",&[&binding,format!("{phases:?}").as_bytes(),&hist.to_be_bytes(),&measured.iter().flat_map(|v|v.to_be_bytes()).collect::<Vec<u8>>()]),
-        validate_p99_ms:measured.into_iter().max().unwrap_or(u64::MAX),historical_trie_bytes:hist,retained_blocks:u64::from(l.k_hist),phases};
+    // The resource facts (R18 SYS slots/keys, R21 retained state) of the CP `cp`, bound to `binding`.
+    let resource_for=|cp:&ConsensusParams,binding:[u8;32]|{
+        let b=resources::derive(cp);
+        let live=sat_u32(b.slot_min.max(genesis_slots.unwrap_or(0)));
+        let phase=|class:u8,p:Phase,keys:u64,accts:u64|PhaseFacts{phase:p,system_keys:sat_u32(keys),user_keys:if class==0{cp.SYS_KEYS_USER_MAX}else{0},
+            system_accounts:sat_u32(accts),user_accounts:if class==0{USER_SYS_ACCOUNTS}else{0},live_slots:live,
+            call_gas:phase_gas(cp,class,set).unwrap_or_default(),duration_ms:timing.map_or(u64::MAX,|t|t.phase_ms[class as usize]),
+            retired_records:if class==1&&cp.RET<=GAS_DOMAIN.ret{cp.RET}else{0}};
+        let phases=vec![phase(0,Phase::Ordinary,b.keys_normal,b.accts_normal),phase(1,Phase::Closing,b.keys_closing,b.accts_closing),phase(2,Phase::Final,b.keys_final,b.accts_final)];
+        let hist=historical_bytes(cp,l);
+        ResourceFacts{profile_binding:binding,model:model.clone(),class:FactClass::Measurement,
+            artifact:digest("PoColResourceFacts",&[&binding,format!("{phases:?}").as_bytes(),&hist.to_be_bytes(),&measured.iter().flat_map(|v|v.to_be_bytes()).collect::<Vec<u8>>()]),
+            validate_p99_ms:measured.into_iter().max().unwrap_or(u64::MAX),historical_trie_bytes:hist,retained_blocks:u64::from(l.k_hist),phases}
+    };
+    let resource=resource_for(&cp,binding);let hist=resource.historical_trie_bytes;
 
-    let calibration=r.calibration.map(|(rate,class)|Calibration{profile_binding:binding,model:model.clone(),class,hashes_per_second:rate,duration_seconds:1,
+    let calibration_for=|binding:[u8;32]|r.calibration.map(|(rate,class)|Calibration{profile_binding:binding,model:model.clone(),class,hashes_per_second:rate,duration_seconds:1,
         artifact:digest("PoColCalibration",&[&rate.to_be_bytes(),&cp.T_blk.to_be_bytes()])});
+    let calibration=calibration_for(binding);
     if r.calibration.is_none(){notes.push("calibration: no H_cal recorded (R25d)".into())}
 
     let mut report=gate::check(&gp,Some(&resource),identity.as_ref(),calibration.as_ref(),r.node);
+    // FN-5: the same rules at the raised CP, with its own facts. R24's CP comparison is the genesis CP's alone.
+    let mut raised_hist=0;
+    if let Some(rcp)=&raised{
+        let rgp=gate_profile(rcp);let rb=rgp.binding();let rres=resource_for(rcp,rb);raised_hist=rres.historical_trie_bytes;
+        let at_raised=gate::check(&rgp,Some(&rres),identity_for(rb).as_ref(),calibration_for(rb).as_ref(),r.node);
+        // The rules that fail only at the raised CP are named; the scope's waivers then apply to the union as before.
+        let extra:Vec<String>=at_raised.violations.into_iter().filter(|v|v!="R24"&&!report.violations.contains(v)).collect();
+        if !extra.is_empty(){notes.push(format!("cap raise: the raised CP violates [{}]",extra.join(", ")))}
+        report.violations.extend(extra);
+        report.violations.sort_by_key(|x|x[1..].parse::<u32>().unwrap_or(u32::MAX));report.violations.dedup();
+        for m in at_raised.missing{if !report.missing.contains(&m){report.missing.push(m)}}
+        notes.push(format!("cap raise at fork 3: ACCT_CAP {} -> {}, SLOT_CAP {} -> {}, CODE_CAP {} -> {}, SYS_SLOT_MAX {} -> {}; R1-R26 evaluated at both CPs",
+            cp.ACCT_CAP,rcp.ACCT_CAP,cp.SLOT_CAP,rcp.SLOT_CAP,cp.CODE_CAP,rcp.CODE_CAP,cp.SYS_SLOT_MAX,rcp.SYS_SLOT_MAX));
+    }
+    let hist=hist.max(raised_hist);
     let hist_exception=hist>HIST_TRIE_BUDGET;
     let conditions=conditions(&cp,set,r,l,timing,hist_exception,&report.deferred);
     let mut waivers=Vec::new();
@@ -509,7 +546,7 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
         return Err(Rejection{rules:report.violations,missing:report.missing.iter().map(|s|s.to_string()).collect(),notes})}
 
     // Accepted: the identity and genesis that boot uses.
-    let profile=ProfileIdentity::validate(r.spec_bytes,&hash,spec.chain_id,r.kind,r.node,r.forks).map_err(|e|terminal(match e{crate::profile::ProfileError::R22=>"R22",_=>"R24"},format!("{e:?}")))?;
+    let profile=ProfileIdentity::validate_with_raise(r.spec_bytes,&hash,spec.chain_id,r.kind,r.node,r.forks,raise).map_err(|e|terminal(match e{crate::profile::ProfileError::R22=>"R22",_=>"R24"},format!("{e:?}")))?;
     let genesis=Genesis::build(r.alloc,&profile,&programs).map_err(|e|terminal("R24",format!("genesis: {e:?}")))?;
     let r21_exception=hist_exception;
     if r21_exception{notes.push(format!("R21: retained-state bound {hist} B exceeds {HIST_TRIE_BUDGET} B; admitted by the simnet retentionStress exception"))}

@@ -195,11 +195,17 @@ fn sys_slots(db:&InMemoryDB)->u64{
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct PoolMeter{live_slots:u64,live_accts:u64,sys_slots:u64,slot_cap:u64,acct_cap:u64,sys_slot_max:u64}
 impl PoolMeter{
- /// C-1 E3: from counts already known (a state summary's user slots, user accounts and system slots).
- pub fn from_counts(live_slots:u64,live_accts:u64,sys_slots:u64,profile:&crate::profile::ProfileIdentity)->Self{let cp=profile.cp();
+ /// C-1 E3: from counts already known (a state summary's user slots, user accounts and system slots), with the caps of
+ /// the genesis CP. A pool or estimate for a block at a known height uses `from_counts_at` (FN-5).
+ pub fn from_counts(live_slots:u64,live_accts:u64,sys_slots:u64,profile:&crate::profile::ProfileIdentity)->Self{Self::from_counts_at(live_slots,live_accts,sys_slots,profile,0)}
+ /// FN-5 (C10): `from_counts` with the caps of the block at `height` (`ProfileIdentity::cp_at`).
+ pub fn from_counts_at(live_slots:u64,live_accts:u64,sys_slots:u64,profile:&crate::profile::ProfileIdentity,height:u64)->Self{let cp=profile.cp_at(height);
   Self{live_slots,live_accts,sys_slots,slot_cap:cp.SLOT_CAP,acct_cap:cp.ACCT_CAP,sys_slot_max:u64::from(cp.SYS_SLOT_MAX)}}
- pub fn of(db:&InMemoryDB,profile:&crate::profile::ProfileIdentity)->Self{
-  let (live_slots,live_accts)=live_counts(db);let cp=profile.cp();
+ /// The meter of a state, with the caps of the genesis CP (`of_at` for a block at a known height).
+ pub fn of(db:&InMemoryDB,profile:&crate::profile::ProfileIdentity)->Self{Self::of_at(db,profile,0)}
+ /// FN-5 (C10): `of` with the caps of the block at `height` (`ProfileIdentity::cp_at`).
+ pub fn of_at(db:&InMemoryDB,profile:&crate::profile::ProfileIdentity,height:u64)->Self{
+  let (live_slots,live_accts)=live_counts(db);let cp=profile.cp_at(height);
   Self{live_slots,live_accts,sys_slots:sys_slots(db),slot_cap:cp.SLOT_CAP,acct_cap:cp.ACCT_CAP,sys_slot_max:u64::from(cp.SYS_SLOT_MAX)}
  }
  /// Admits the state diff of one transaction executed on `pre`, or names the cap it would pass.
@@ -288,7 +294,7 @@ pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),know
  let mut used=0u64;let mut tips=U256::ZERO;let mut encoded=Vec::new();let mut bloom=[0u8;256];
  let (live_slots,live_accts)=live;
  let mut meter=BlockMeter{log_bytes:0,log_count:0,cum_log:if profile.is_some_and(|p|p.cp().H_END==0){0}else{ctx.cum_log_bytes},dirty_keys:HashSet::new(),dirty_accts:HashSet::new(),sys_keys:HashSet::new(),sys_accts:HashSet::new(),
-  live_slots,live_accts,closing:ctx.closing,logs:log_caps(profile.is_some_and(|p|p.v3_active(block.height.try_into().unwrap_or(u64::MAX)))),caps:profile.map(|p|(p.cp().SLOT_CAP,p.cp().ACCT_CAP,u64::from(p.cp().SYS_KEYS_USER_MAX)))};
+  live_slots,live_accts,closing:ctx.closing,logs:log_caps(profile.is_some_and(|p|p.v3_active(block.height.try_into().unwrap_or(u64::MAX)))),caps:profile.map(|p|{let cp=p.cp_at(block.height_u64());(cp.SLOT_CAP,cp.ACCT_CAP,u64::from(cp.SYS_KEYS_USER_MAX))})};
  let mut halts=Vec::new();
  // C-2 item 2: the state's logical code total, set at the first transaction and kept by each commit.
  let mut code_total=0u64;
@@ -305,7 +311,7 @@ pub(crate) fn execute_user_phase_on<S:WorkState>(mut state:S,live:(u64,u64),know
    match known_total{
     Some(t)=>code_total=t,
     None=>{
-     let limits=crate::code_caps::CodeLimits{runtime:p.cp().B_code_max,logical:p.cp().CODE_CAP};
+     let limits=crate::code_caps::CodeLimits::at(p,block.height_u64());
      let custom=|e|UserError::Execution(0,format!("{:?}",revm::primitives::EVMError::<core::convert::Infallible>::Custom(e)));
      crate::code_caps::validate_snapshot(state.as_view(),limits).map_err(custom)?;
      code_total=crate::code_caps::inventory(state.as_view()).map_err(custom)?;

@@ -89,6 +89,9 @@ pub struct Devnet{
     pub programs:SystemPrograms,
     pub miners:Vec<MinerIdentity>,
     pub forks:Vec<(u16,u64)>,
+    /// FN-5: the cap raise scheduled beside `forks` (fork version 3), admitted with `admission::admit_with`. None by
+    /// default: a devnet raises no cap unless a test schedules one.
+    pub cap_raise:Option<crate::profile::CapRaise>,
     /// Recorded H_cal (synthetic for a devnet), the R25d calibration of target_g.
     pub hash_rate:u64,
 }
@@ -102,9 +105,9 @@ impl Devnet{
     /// candidate: nothing can boot from it except through the returned `Admitted`.
     pub fn admit(&self,local:&NodeLocal)->Result<(Admitted,Timing),String>{
         match crate::admission::measure(&self.spec_bytes,&self.alloc,1){
-            Ok(timing)=>crate::admission::admit(&self.request(local,Some(&timing))).map(|a|(a,timing)).map_err(|e|e.to_string()),
+            Ok(timing)=>crate::admission::admit_with(&self.request(local,Some(&timing)),self.cap_raise.as_ref()).map(|a|(a,timing)).map_err(|e|e.to_string()),
             // Unmeasurable (its blocks cannot be applied): the gate still names every rule.
-            Err(why)=>Err(match crate::admission::admit(&self.request(local,None)){Err(e)=>format!("{e}; {why}"),Ok(_)=>why}),
+            Err(why)=>Err(match crate::admission::admit_with(&self.request(local,None),self.cap_raise.as_ref()){Err(e)=>format!("{e}; {why}"),Ok(_)=>why}),
         }
     }
 }
@@ -138,7 +141,7 @@ pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     let profile=identity(&spec,&forks)?;
     let genesis=Genesis::build(&alloc,&profile,&programs).map_err(|e|format!("{e:?}"))?;
     let spec_bytes=gs::encode(&spec);
-    Ok(Devnet{genesis_hash:B256::from(profile.genesis_hash()),spec_bytes,profile,alloc,genesis,programs,miners,forks,hash_rate:cfg.hash_rate})
+    Ok(Devnet{genesis_hash:B256::from(profile.genesis_hash()),spec_bytes,profile,alloc,genesis,programs,miners,forks,cap_raise:None,hash_rate:cfg.hash_rate})
 }
 fn identity(spec:&GenesisSpec,forks:&[(u16,u64)])->Result<ProfileIdentity,String>{
     let bytes=gs::encode(spec);let hash=gs::genesis_hash(&bytes);

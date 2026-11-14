@@ -24,11 +24,16 @@ pub fn execute_at_time(snapshot:&InMemoryDB, tx:TxEnv, height:U256, timestamp:U2
 /// P5 must derive these fields and the complete ancestor cache from stored headers.
 /// In particular prevrandao must eventually be SHA256('PoColRandao' || seal_p).
 pub struct NativeBlockContext {
+    /// The block height; the cap reads take it through `height_u64` (FN-5, `ProfileIdentity::cp_at`).
     pub height:U256,
     pub timestamp:U256,
     pub gas_limit:U256,
     pub base_fee:U256,
     pub prevrandao:B256,
+}
+impl NativeBlockContext {
+    /// The height as u64, saturating (as the log caps read it): the height whose `cp_at` caps govern this context.
+    pub fn height_u64(&self)->u64{self.height.try_into().unwrap_or(u64::MAX)}
 }
 
 /// Execute against an immutable snapshot, including its BLOCKHASH ancestor cache.
@@ -42,7 +47,7 @@ pub fn execute_in_context(snapshot:&dyn crate::view::View, tx:TxEnv, block:&Nati
 /// Bound to the same accepted LP3 identity used by signed decoding. P5 still
 /// must supply validated parent/header context; no schema check authorizes boot.
 pub fn execute_for_profile(snapshot:&dyn crate::view::View,tx:TxEnv,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity)->Result<ResultAndState,EVMError<core::convert::Infallible>>{
-    let limits=crate::code_caps::CodeLimits{runtime:profile.cp().B_code_max,logical:profile.cp().CODE_CAP};
+    let limits=crate::code_caps::CodeLimits::at(profile,block.height_u64());
     crate::code_caps::validate_snapshot(snapshot,limits).map_err(EVMError::Custom)?;
     execute_on_chain(snapshot,tx,block,profile.spec().chain_id,Some(limits),None)
 }
@@ -57,7 +62,7 @@ pub fn execute_for_profile(snapshot:&dyn crate::view::View,tx:TxEnv,block:&Nativ
 /// Also the transaction pool's path (pocold): its pending state is the head state, checked once per
 /// new head, changed only by `user_phase::commit_tx` of this engine's results.
 pub fn execute_on_validated(state:&dyn crate::view::View,code_total:u64,tx:TxEnv,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity)->Result<ResultAndState,EVMError<core::convert::Infallible>>{
-    let limits=crate::code_caps::CodeLimits{runtime:profile.cp().B_code_max,logical:profile.cp().CODE_CAP};
+    let limits=crate::code_caps::CodeLimits::at(profile,block.height_u64());
     debug_assert_eq!(crate::code_caps::validate_snapshot(state,limits),Ok(()),"USER-phase state left the code limits");
     debug_assert_eq!(crate::code_caps::inventory(state),Ok(code_total),"USER-phase running code total");
     execute_on_chain(state,tx,block,profile.spec().chain_id,Some(limits),Some(code_total))
@@ -76,7 +81,7 @@ pub const STOP_GAS:u64=1_000_000;
 /// the cancellation gap is not bounded by STOP_GAS there. When `stop` returns true the execution ends
 /// with EVMError::Custom(SIMULATION_STOPPED). Block validation, SYSTEM and USER never use it.
 pub fn simulate_for_profile(snapshot:&dyn crate::view::View,tx:TxEnv,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity,stop:std::rc::Rc<dyn Fn()->bool>)->Result<ResultAndState,EVMError<core::convert::Infallible>>{
-    let limits=crate::code_caps::CodeLimits{runtime:profile.cp().B_code_max,logical:profile.cp().CODE_CAP};
+    let limits=crate::code_caps::CodeLimits::at(profile,block.height_u64());
     crate::code_caps::validate_snapshot(snapshot,limits).map_err(EVMError::Custom)?;
     validate_nonce(snapshot,tx.caller,tx.nonce)?;
     build_engine(snapshot,None,tx,block,profile.spec().chain_id,Some(limits)).modify()
@@ -88,7 +93,7 @@ pub fn simulate_for_profile(snapshot:&dyn crate::view::View,tx:TxEnv,block:&Nati
 /// the clock and calls the next instruction, so while `stop` returns false the result is the same.
 /// Its result is never a block's: blocks are validated with `execute_on_validated` or the USER phase.
 pub fn admit_for_profile(state:&dyn crate::view::View,code_total:Option<u64>,tx:TxEnv,block:&NativeBlockContext,profile:&crate::profile::ProfileIdentity,stop:std::rc::Rc<dyn Fn()->bool>)->Result<ResultAndState,EVMError<core::convert::Infallible>>{
-    let limits=crate::code_caps::CodeLimits{runtime:profile.cp().B_code_max,logical:profile.cp().CODE_CAP};
+    let limits=crate::code_caps::CodeLimits::at(profile,block.height_u64());
     match code_total{
         Some(t)=>{debug_assert_eq!(crate::code_caps::validate_snapshot(state,limits),Ok(()),"pool state left the code limits");
             debug_assert_eq!(crate::code_caps::inventory(state),Ok(t),"pool running code total");}

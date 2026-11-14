@@ -10,12 +10,19 @@ impl GenesisImage{
  pub(crate) fn root(&self)->B256{self.root}
  pub(crate) fn initial_supply(&self)->U256{self.alloc_sum+self.bonds}
  /// C-1 E2: `verify_candidate` with the whole-state counts read from `s`, the summary of `db`
- /// (state_summary): the same outcome. The fixed accounts are read from `db` as before.
- pub(crate) fn verify_summary(&self,db:&dyn crate::view::View,s:&crate::state_summary::Summary,p:&ProfileIdentity)->Result<(),GenesisError>{
+ /// (state_summary): the same outcome. The fixed accounts are read from `db` as before. At the genesis CP's caps;
+ /// a block's parent and candidate are checked with `verify_summary_at` (FN-5).
+ #[cfg_attr(not(test),allow(dead_code))]
+ pub(crate) fn verify_summary(&self,db:&dyn crate::view::View,s:&crate::state_summary::Summary,p:&ProfileIdentity)->Result<(),GenesisError>{self.verify_summary_at(db,s,p,0)}
+ /// FN-5 (C10): `verify_summary` against the caps of the block at `height` (`ProfileIdentity::cp_at`): ACCT_CAP,
+ /// SLOT_CAP, CODE_CAP and SYS_SLOT_MAX may be raised there. A parent is checked at its child's height: a raise never
+ /// lowers a cap, so a parent within its own height's caps is within its child's.
+ pub(crate) fn verify_summary_at(&self,db:&dyn crate::view::View,s:&crate::state_summary::Summary,p:&ProfileIdentity,height:u64)->Result<(),GenesisError>{
   if B256::from(p.genesis_hash())!=self.profile{return Err(GenesisError::Profile)}
-  s.code_check(CodeLimits{runtime:p.cp().B_code_max,logical:p.cp().CODE_CAP}).map_err(|_|GenesisError::Code)?;
-  if s.user_accounts>p.cp().ACCT_CAP||s.user_slots>p.cp().SLOT_CAP{return Err(GenesisError::Capacity)}
-  if s.sys_slots>u64::from(p.cp().SYS_SLOT_MAX){return Err(GenesisError::Capacity)}
+  let cp=p.cp_at(height);
+  s.code_check(CodeLimits::at(p,height)).map_err(|_|GenesisError::Code)?;
+  if s.user_accounts>cp.ACCT_CAP||s.user_slots>cp.SLOT_CAP{return Err(GenesisError::Capacity)}
+  if s.sys_slots>u64::from(cp.SYS_SLOT_MAX){return Err(GenesisError::Capacity)}
   if s.balance>revm::primitives::alloy_primitives::U512::from(self.supply_bound){return Err(GenesisError::Supply)}
   self.fixed_accounts(db,p)
  }
@@ -25,14 +32,18 @@ impl GenesisImage{
   for (i,value) in p.spec().cp.iter().enumerate(){db.account(&system(3)).ok_or(GenesisError::Code)?;if db.slot(&system(3),&U256::from(i))!=number(*value){return Err(GenesisError::Profile)}}
   Ok(())
  }
- pub(crate) fn verify_candidate(&self,db:&InMemoryDB,p:&ProfileIdentity)->Result<(),GenesisError>{
+ /// The candidate checks at the genesis CP's caps; a block's states are checked with `verify_candidate_at` (FN-5).
+ #[cfg_attr(not(test),allow(dead_code))]
+ pub(crate) fn verify_candidate(&self,db:&InMemoryDB,p:&ProfileIdentity)->Result<(),GenesisError>{self.verify_candidate_at(db,p,0)}
+ /// FN-5 (C10): `verify_candidate` against the caps of the block at `height` (`ProfileIdentity::cp_at`).
+ pub(crate) fn verify_candidate_at(&self,db:&InMemoryDB,p:&ProfileIdentity,height:u64)->Result<(),GenesisError>{
   if B256::from(p.genesis_hash())!=self.profile{return Err(GenesisError::Profile)}
-  check_caps(db,p)?;
+  check_caps(db,p,height)?;
   // System storage is bounded by SYS_SLOT_MAX (R18, D-A03-CAPS); only SYSTEM calls write
   // it, so exceeding it cannot be a transaction halt and invalidates the candidate. The
   // admission gate derives SYS_SLOT_MAX >= every reachable footprint (resources::derive).
   let sys:u64=(0..5).filter_map(|i|db.accounts.get(&system(i))).map(|a|a.storage.values().filter(|v|**v!=U256::ZERO).count() as u64).sum();
-  if sys>u64::from(p.cp().SYS_SLOT_MAX){return Err(GenesisError::Capacity)}
+  if sys>u64::from(p.cp_at(height).SYS_SLOT_MAX){return Err(GenesisError::Capacity)}
   if sum_balances(db)?>self.supply_bound{return Err(GenesisError::Supply)}
   self.fixed_accounts(db,p)
  }
@@ -48,8 +59,9 @@ pub(crate) fn code_hash(programs:&[Bytes;5])->B256{
  let mut payload=Vec::new();for p in programs{crate::rlp::encode_bytes(p,&mut payload)}crate::rlp::encode_bytes(&[],&mut payload);
  let mut encoded=Vec::new();crate::rlp::encode_list_payload(&payload,&mut encoded);keccak256(encoded)
 }
-fn check_caps(db:&InMemoryDB,p:&ProfileIdentity)->Result<(),GenesisError>{
- code_caps::validate_snapshot(db,CodeLimits{runtime:p.cp().B_code_max,logical:p.cp().CODE_CAP}).map_err(|_|GenesisError::Code)?;
+/// The user-state and code caps of the block at `height` (`cp_at`, FN-5); the genesis itself is checked at height 0.
+fn check_caps(db:&InMemoryDB,p:&ProfileIdentity,height:u64)->Result<(),GenesisError>{
+ code_caps::validate_snapshot(db,CodeLimits::at(p,height)).map_err(|_|GenesisError::Code)?;
  // D-A03-CAPS: SLOT_CAP/ACCT_CAP bound the user state; the five system programs are
  // bounded by SYS_SLOT_MAX (R18). USER transactions halt before exceeding a cap (A03).
  let mut accounts=0u64;let mut slots=0u64;
@@ -57,14 +69,14 @@ fn check_caps(db:&InMemoryDB,p:&ProfileIdentity)->Result<(),GenesisError>{
   accounts=accounts.checked_add(1).ok_or(GenesisError::Capacity)?;
   slots=slots.checked_add(u64::try_from(a.storage.values().filter(|v|**v!=U256::ZERO).count()).map_err(|_|GenesisError::Capacity)?).ok_or(GenesisError::Capacity)?;
  }
- if accounts>p.cp().ACCT_CAP || slots>p.cp().SLOT_CAP{return Err(GenesisError::Capacity)}Ok(())
+ let cp=p.cp_at(height);if accounts>cp.ACCT_CAP || slots>cp.SLOT_CAP{return Err(GenesisError::Capacity)}Ok(())
 }
 /// Pure owned construction used by the verifier; not an admitted profile or root.
 /// Existing alloc nonce/balance/storage are preserved except mandated writes.
 fn construct(alloc:&InMemoryDB,p:&ProfileIdentity,programs:&[Bytes;5])->Result<GenesisImage,GenesisError>{
  let n=p.spec().m0_list.len();if n<usize::from(p.cp().M_min)||n>usize::from(p.cp().M_max)||n>p.cp().REG_RECORDS_MAX as usize{return Err(GenesisError::Profile)}
  if programs.iter().any(|p|p.is_empty())||code_hash(programs).0!=p.spec().sys_code_hash{return Err(GenesisError::Code)}
- check_caps(alloc,p)?;
+ check_caps(alloc,p,0)?;
  if let Some(a)=alloc.accounts.get(&crate::pay_address()).and_then(|a|a.info()){if a.code_hash!=revm::primitives::KECCAK_EMPTY{return Err(GenesisError::Code)}}
  let alloc_sum=sum_balances(alloc)?;let bond=number(p.spec().cp[16]);let bonds=bond.checked_mul(U256::from(n)).ok_or(GenesisError::Supply)?;
  let future=future_issuance(p)?;
@@ -82,7 +94,7 @@ fn construct(alloc:&InMemoryDB,p:&ProfileIdentity,programs:&[Bytes;5])->Result<G
   put(&mut db,registry,base(5)+U256::from(i),U256::from_be_slice(id.as_slice()));put(&mut db,registry,base(6)+U256::from(i),U256::from_be_slice(id.as_slice()));
  }
  let a=db.accounts.get_mut(&pay::escrow_address()).ok_or(GenesisError::Code)?;a.info.balance=add(a.info.balance,bonds)?;
- check_caps(&db,p)?;let root=world_root(&db)?;
+ check_caps(&db,p,0)?;let root=world_root(&db)?;
  Ok(GenesisImage{state:db,profile:B256::from(p.genesis_hash()),codes:hashes,root,alloc_sum,bonds,supply_bound})
 }
 /// The issuance term of the supply bound. Spec-1 program sets credit CP 15 every block up to H_END (u64::MAX blocks on a
