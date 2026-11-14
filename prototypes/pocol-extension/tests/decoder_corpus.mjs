@@ -130,27 +130,27 @@ export async function generate() {
   { const t = parse(unhex(headers[0])); const m = at(at(at(t, [0, 0, 9], () => bytes(31)), [0, 0, 12], () => new Uint8Array(0)), [0, 0, 13], () => [Uint8Array.of(1)]); add('header', 'audit-a08/combined', encode(m)); }
 
   // ---------------- GenesisSpec version 2 (CP schema v2, V3-PR-B) ----------------
-  // The devnet spec as a v3 genesis: specVersion 2, nonceMode 1 (testnet.rs Config.v3) and the fifteen appended CP
+  // The devnet spec as a v3 genesis: specVersion 2, nonceMode 1 (testnet.rs Config.v3) and the twelve appended CP
   // v2 fields at the lp4 devnet defaults (devnet.rs DevnetConfig). The release verdicts (decoder-verdicts.json) refuse
   // every version-2 item with gsVersion until activation (V3-PR-I); decoder-verdicts-preview.json holds the v3-preview
   // decoder's verdicts (decode_bounded at ceiling 2) for the whole corpus.
-  const V2_DEVNET = [31557600n, 62500000000000000n, 16n, 648000n, 1000000000000000n, 0n, 0n, 5000n, 10000000n, 4n, 40n, 21600n, 1250n, 3n, 2500n];
+  const V2_DEVNET = [31557600n, 62500000000000000n, 16n, 648000n, 5000n, 10000000n, 4n, 40n, 21600n, 1250n, 3n, 2500n];
   if (V2_DEVNET.length !== REFDEC.CP_V2_EXTRA.length) throw new Error('CP v2 defaults');
   const v1t = parse(devnet);
   const v2t = [Uint8Array.of(2), v1t[1], [...v1t[2].map((x, k) => (k === 4 ? Uint8Array.of(1) : x)), ...V2_DEVNET.map(be)], v1t[3], v1t[4], v1t[5]];
   const devnetV2 = encode(v2t);
   specMutations('devnet-v2', devnetV2, {
     schema: REFDEC.CP_SCHEMA_V2,
-    // 1 with 67 CP items is gsCount; 3 has no schema (a future version never inherits v2's layout). The v1 bases'
+    // 1 with 64 CP items is gsCount; 3 has no schema (a future version never inherits v2's layout). The v1 bases'
     // version-2 items are the converse: 52 CP items under version 2 (gsCount in the preview decoder).
     versions: [['0', new Uint8Array(0)], ['1', Uint8Array.of(1)], ['3', Uint8Array.of(3)], ['wrapped-2', { raw: Uint8Array.of(0x81, 0x02) }], ['leading-zero-2', Uint8Array.of(0, 2)], ['255', Uint8Array.of(0xff)], ['256', Uint8Array.of(1, 0)], ['258', Uint8Array.of(1, 2)]],
-    cpCounts: (t) => [['cp-66', del(t, [2, 66])], ['cp-68', at(t, [2], (c) => [...c, Uint8Array.of(1)])], ['cp-52', at(t, [2], (c) => c.slice(0, 52))], ['cp-0', at(t, [2], () => [])]],
+    cpCounts: (t) => [['cp-63', del(t, [2, 63])], ['cp-65', at(t, [2], (c) => [...c, Uint8Array.of(1)])], ['cp-52', at(t, [2], (c) => c.slice(0, 52))], ['cp-0', at(t, [2], () => [])]],
   });
   // Every extra field at its widest value, and the upper bounds together: the longest CP v2 values still decode.
   add('spec', 'devnet-v2/cp-v2-extra-all-max', encode(at(v2t, [2], (c) => [...c.slice(0, 52), ...REFDEC.CP_V2_EXTRA.map(([, w, , hi]) => (typeof hi === 'number' ? be(hi) : be((1n << BigInt(w)) - 1n)))])));
   add('spec', 'devnet-v2/cp-v2-extra-all-lo', encode(at(v2t, [2], (c) => [...c.slice(0, 52), ...REFDEC.CP_V2_EXTRA.map(([, , lo]) => be(lo))])));
   // Stage order on a v2 spec: a version-2 item whose CP v2 field is out of range and whose M_0List is empty is gsCount.
-  add('spec', 'devnet-v2/empty-m0-and-bad-rho', encode(at(at(v2t, [4], () => []), [2, 66], () => be(10001))));
+  add('spec', 'devnet-v2/empty-m0-and-bad-rho', encode(at(at(v2t, [4], () => []), [2, REFDEC.cpIndexFor(2, 'rho_bp')], () => be(10001))));
   return items;
 }
 

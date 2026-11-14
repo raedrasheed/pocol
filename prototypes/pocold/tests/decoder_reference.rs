@@ -54,5 +54,5 @@ fn spec_verdict(r:Result<gs::GenesisSpec,gs::GsError>)->String{match r{Ok(_)=>"o
 /// The extension's size bound (refdec.js MAX_SPEC_BYTES / maxSpecBytes) is computed term by term from its own
 /// schema copies; forks_test.mjs pins the same two numbers, so a drift on either side fails a test.
 #[test] fn max_spec_bytes_matches_the_extension_bound(){
-    assert_eq!(gs::MAX_SPEC_BYTES,if cfg!(feature="v3-preview"){2_818_680}else{2_818_474});
+    assert_eq!(gs::MAX_SPEC_BYTES,if cfg!(feature="v3-preview"){2_818_581}else{2_818_474});
 }

@@ -303,7 +303,7 @@ P-live has full u64 nonce range at version>=2 and a continuous horizon. It remai
 
 **Dormant implementation and activation.** Preserve rules=1, maxFork=2 and spec=1 during implementation. New v3 rules use the single predicate `active_version(h)>=3 || genesis.spec_version>=2`. Use neutral gate=spec:2 for dormant host changes, neutral-vector with a spec:2-dormant note for artifacts, and distinct simnet-only preview identities. Only the final activation PR after all implementation/verifier/resource/simulation gates passes raises SPEC_VERSION to 2 and spends spec:2. See the full [lock strategy](../../decisions/V3-DECISIONS.md). Never bump CONSENSUS_RULES_VERSION while H15000 compatibility is required.
 
-**Candidate v3 profile, not frozen or measured.** The following table records the approved options and working profile. Finalization depends on measured WAN timing, exact system programs, A13 and ParamGate. F0_slot and F0_code are still unresolved calibration values; no evidence is invented here.
+**Candidate v3 profile, not frozen or measured.** The following table records the approved options and working profile. Finalization depends on measured WAN timing, exact system programs, A13 and ParamGate. The F0_* creation-fee coefficients are deleted (owner decision 10d, FN-2a); no evidence is invented here.
 
 | Field | Value | Source |
 |---|---|---|
@@ -321,7 +321,7 @@ P-live has full u64 nonce range at version>=2 and a continuous horizon. It remai
 | ρ_bp | 2500 | O-17=b |
 | E_epoch / θ_bp / k_sigma | 2,880 blocks (1 day) / 1250 / 3 | O-10=b |
 | ACCT_CAP / SLOT_CAP / CODE_CAP | 200,000 / 500,000 / 32 MiB (A13-verified in F) | O-21=b |
-| F0_acct / F0_slot / F0_code | 10^15 wei (0.001 PCOL) / TBD / TBD (F) | O-21=b |
+| F0_acct / F0_slot / F0_code | deleted (FN-2a, owner decision 10d of 2026-11-13: no creation fee) | O-21 superseded |
 | LOG_BLOCK_MAX / LOG_COUNT_MAX (host constants) | 256 KiB / 4,368 | V3-24 |
 
 Use T_blk=30 s only with measured WAN Delta<=2 s and phi<=2 s and all gate inequalities. Otherwise use the approved 60 s fallback and recompute every time-derived block count. Log caps remain checked cumulatively, and RESP_MAX>=2*LOG_BLOCK_MAX. The profile/resource PR must establish all gas/write ceilings, memory terms and execution bounds before activation.

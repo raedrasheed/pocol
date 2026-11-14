@@ -206,7 +206,7 @@ mod tests{
             (|b,_|b.spec_version=1,&["spec-version"]),
             (|b,_|b.consensus_pinned=false,&["consensus-unpinned"]),
             (|b,_|b.test_features=vec!["caps-test","io-fault"],&["test-features"]),
-            (|b,_|b.v3_launch_blockers=vec!["D-V3-21 creation-burn user bound"],&["v3-launch-blocker"]),
+            (|b,_|b.v3_launch_blockers=vec!["D-V3-99 a later pre-launch item"],&["v3-launch-blocker"]),
             (|b,_|b.plan_gates_open=vec![("Q1","release review")],&["plan-gate-Q1"]),
             (|_,n|n.v3_active=false,&["v3-inactive"]),
             (|b,_|b.network_profiles.clear(),&["network-not-release-pinned"]),

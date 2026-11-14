@@ -1,7 +1,7 @@
 // Reference-equivalent decoders (A07, A08): ports of the accepted Rust decoders
 // lp1-node/src/genesis_spec.rs (GenesisSpec: framing L0, then gsStructure, gsVersion,
 // gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each stage over the whole input; CP schema v1,
-// and v2 = v1 + 15 appended fields, accepted only below an explicit version ceiling) and
+// and v2 = v1 + 12 appended fields, accepted only below an explicit version ceiling) and
 // lp1-node/src/header.rs (size, strict RLP, then every header field). Error codes and details
 // equal the reference's; tests/decoder_diff.mjs checks this against verdicts produced by the
 // Rust decoders on the same corpus (pocold/tests/decoder_reference.rs).
@@ -24,11 +24,11 @@ export const CP_SCHEMA = [
   ['SYS_KEYS_USER_MAX', 32, 0, N], ['SYS_ACCT_BLOCK_MAX', 32, 0, N], ['G_SYS', 64, 0, N], ['H_END', 64, 0, N], ['T_END', 64, 0, N], ['H_CLOSE', 64, 0, N],
   ['T_CLOSE', 64, 0, N], ['Z_close', 32, 0, N], ['RET', 32, 1, N], ['P2', 32, 0, N],
 ];
-/** CP schema v2 (genesis_spec.rs CP_V2_EXTRA): the complete v1 prefix, then these fields in immutable wire order
- * (V3-DECISIONS.md D-V3-34). */
+/** CP schema v2 (genesis_spec.rs CP_V2_EXTRA): the complete v1 prefix, then these fields in wire order
+ * (V3-DECISIONS.md D-V3-34; FN-2a deleted F0_acct/F0_slot/F0_code, owner decision 10d). */
 export const CP_V2_EXTRA = [
-  ['H_half', 64, 1, N], ['S_tail', 256, 0, N], ['P_MAX', 16, 0, N], ['T_PROB', 32, 1, N], ['F0_acct', 256, 0, N], ['F0_slot', 256, 0, N],
-  ['F0_code', 256, 0, N], ['gamma_tip_bp', 16, 0, 10000], ['baseFeeMin', 256, 0, N], ['R_react', 8, 0, N], ['C_react', 32, 0, N],
+  ['H_half', 64, 1, N], ['S_tail', 256, 0, N], ['P_MAX', 16, 0, N], ['T_PROB', 32, 1, N],
+  ['gamma_tip_bp', 16, 0, 10000], ['baseFeeMin', 256, 0, N], ['R_react', 8, 0, N], ['C_react', 32, 0, N],
   ['E_epoch', 32, 1, N], ['theta_bp', 16, 0, 10000], ['k_sigma', 16, 0, N], ['rho_bp', 16, 0, 10000],
 ];
 export const CP_SCHEMA_V2 = [...CP_SCHEMA, ...CP_V2_EXTRA], CP_V2_LEN = CP_SCHEMA_V2.length;

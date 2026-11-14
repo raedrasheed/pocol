@@ -85,8 +85,8 @@ Revert = em.Revert
 
 # The CP the contract harness installs (tests/v3_contracts.rs, as earnin_contracts.rs) by schema name.
 CP_INDEX = {'D': 11, 'R_max': 17, 'M_max': 18, 'M_min': 19, 'SWEEP_MAX': 21, 'SWEEP_SCAN': 22, 'REG_OPS': 23,
-            'W_act': 24, 'Theta_inact': 25, 'E_win': 26, 'U': 27, 'P_MAX': 54, 'T_PROB': 55, 'R_react': 61,
-            'C_react': 62, 'E_epoch': 63, 'theta_bp': 64, 'k_sigma': 65}
+            'W_act': 24, 'Theta_inact': 25, 'E_win': 26, 'U': 27, 'P_MAX': 54, 'T_PROB': 55, 'R_react': 58,
+            'C_react': 59, 'E_epoch': 60, 'theta_bp': 61, 'k_sigma': 62}
 # V3-10 (O-10 = b): E_epoch one day at T_blk 30 s, theta = 1/8, k_sigma = 3 (V3-ROADMAP §5); scenarios override them.
 DEFAULT_CP = {'D': 4, 'R_max': 16, 'M_max': 64, 'M_min': 1, 'SWEEP_MAX': 16, 'SWEEP_SCAN': 64, 'REG_OPS': 64,
               'W_act': 32, 'Theta_inact': 64, 'E_win': 16, 'U': 40, 'P_MAX': 8, 'T_PROB': 60_480, 'R_react': 16,
@@ -715,7 +715,7 @@ def earnin_on_v3():
 # ---------------- V3-16 / V3-17: evidence penalties (V3-PR-E2b)
 # Settlement CP fields the contract harness installs for the chain scenarios (CP schema v2 indices as CP_INDEX).
 CHAIN_CP_INDEX = {'m': 8, 'kappa': 9, 'S_max': 10, 'W_w': 12, 'alpha_bp': 13, 'gamma_bp': 14, 'S0': 15, 'H_half': 52,
-                  'S_tail': 53, 'gamma_tip_bp': 59, 'rho_bp': 66}
+                  'S_tail': 53, 'gamma_tip_bp': 56, 'rho_bp': 63}
 # V3-19/V3-20 (O-19 = M3, O-20 = b): H_half 4,207,680 blocks (four years at 30 s), S_tail = S0/32, gamma_tip 50%.
 CHAIN_DEFAULT = {'m': 32, 'kappa': 2, 'S_max': 256, 'W_w': 8, 'alpha_bp': 1000, 'gamma_bp': 500, 'S0': 2 * PCOL,
                  'H_half': 4_207_680, 'S_tail': 2 * PCOL // 32, 'gamma_tip_bp': 5000, 'rho_bp': 2500}

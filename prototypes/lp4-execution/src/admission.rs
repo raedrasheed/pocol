@@ -356,10 +356,10 @@ fn terminal(rule:&str,note:String)->Rejection{Rejection{rules:vec![rule.into()],
 /// profile that can activate v3 is admitted only as a simnet profile on a simnet node, whatever the
 /// build: removing the v3-preview restriction or raising SPEC_VERSION (V3-PR-I) does not admit it.
 /// Remove an entry only with the owner decision and the change that resolve it; add one for any
-/// newly found pre-launch item. Closed: `D-V3-21 creation-burn user bound` (owner decision
-/// 2026-11-12, option A: the burn is charged only within max_fee*gas_limit, `user_phase::SignedFee`;
-/// V3-D21-burn-bound). The list is empty, but the gate and its `admit` call stay, so a blocker added
-/// before V3-PR-I is enforced again without other changes.
+/// newly found pre-launch item. Gone: `D-V3-21 creation-burn user bound` (closed 2026-11-12 by option
+/// A; the creation burn itself was then deleted by owner decision 10d of 2026-11-13, no creation fee,
+/// FN-2a). The list is empty, but the gate and its `admit` call stay, so a blocker added before
+/// V3-PR-I is enforced again without other changes.
 pub const V3_LAUNCH_BLOCKERS:&[&str]=&[];
 /// V3_LAUNCH_BLOCKERS as an admission rule. Spec-1 profiles (v3 never active) never reach it.
 pub fn v3_launch_gate(v3:bool,kind:ProfileKind,node:NodeKind)->Result<(),Rejection>{v3_launch_gate_with(V3_LAUNCH_BLOCKERS,v3,kind,node)}

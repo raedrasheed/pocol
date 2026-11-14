@@ -107,15 +107,17 @@ fn sequential_future_forks_never_narrow_the_nonce_domain(){
 fn schema2_roundtrips_full_width_fields_and_respects_the_release_ceiling(){
     let cfg=devnet::DevnetConfig::new(777932,1_700_000_000,&["one"]);
     let net=devnet::build(&cfg).unwrap();let mut spec=gs::decode(&net.spec_bytes).unwrap();
-    let old=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(old.H_half,0);assert_eq!(old.F0_code,pocol_lp4_execution::fixed::U256::ZERO);
+    let old=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(old.H_half,0);assert_eq!(old.baseFeeMin,pocol_lp4_execution::fixed::U256::ZERO);
     spec.spec_version=2;spec.cp.extend(gs::CP_SCHEMA_V2[52..].iter().map(|f|pocol_lp4_execution::fixed::U256::from_u64(f.lo)));
-    for name in ["S_tail","F0_acct","F0_slot","F0_code","baseFeeMin"]{let i=gs::cp_index_for(2,name).unwrap();spec.cp[i]=pocol_lp4_execution::fixed::U256::MAX;}
+    for name in ["S_tail","baseFeeMin"]{let i=gs::cp_index_for(2,name).unwrap();spec.cp[i]=pocol_lp4_execution::fixed::U256::MAX;}
     let bytes=gs::encode(&spec);assert_eq!(gs::decode_bounded(&bytes,2).unwrap(),spec);
     assert_eq!(pocold::genesis_spec::encode(&pocold::genesis_spec::decode_bounded(&bytes,2).unwrap()),bytes);
     assert_eq!(gs::decode_bounded(&bytes,1).unwrap_err().code,"gsVersion");
     if pocol_lp4_execution::V3_PREVIEW{assert_eq!(gs::decode(&bytes).unwrap(),spec);}
     else{assert_eq!(gs::decode(&bytes).unwrap_err().code,"gsVersion");}
-    let typed=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(typed.F0_code,pocol_lp4_execution::fixed::U256::MAX);assert_eq!(typed.to_values(),spec.cp);
+    let typed=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(typed.baseFeeMin,pocol_lp4_execution::fixed::U256::MAX);
+    // FN-2a (owner decision 10d): the three F0_* creation-fee fields are gone from CP schema v2.
+    assert_eq!(spec.cp.len(),64);for gone in ["F0_acct","F0_slot","F0_code"]{assert_eq!(gs::cp_index_for(2,gone),None);}assert_eq!(typed.to_values(),spec.cp);
     for (name,bad) in [("gamma_tip_bp",10001),("theta_bp",10001),("rho_bp",10001),("R_react",256),("P_MAX",65536),("H_half",0),("T_PROB",0),("E_epoch",0)]{
         let mut invalid=spec.clone();invalid.cp[gs::cp_index_for(2,name).unwrap()]=pocol_lp4_execution::fixed::U256::from_u64(bad);
         let err=gs::decode_bounded(&gs::encode(&invalid),2).unwrap_err();assert_eq!((err.code,err.detail.as_str()),("gsRange",name));
@@ -152,7 +154,7 @@ fn v3_config_implies_the_new_schema_and_full_nonce_only_in_preview(){
     input["cp"]=serde_json::json!({"T_blk":30,"D_att":150,"dFbWait":10,"M_max":256,"P_MAX":64});
     let result=prepare(&input,&out.0);
     if pocol_lp4_execution::V3_PREVIEW{
-        result.unwrap();let spec=read_spec(&out.0);assert_eq!(spec.spec_version,2);assert_eq!(spec.cp.len(),67);
+        result.unwrap();let spec=read_spec(&out.0);assert_eq!(spec.spec_version,2);assert_eq!(spec.cp.len(),64);
         let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!((cp.nonceMode,cp.H_END,cp.M_max,cp.P_MAX,cp.T_PROB,cp.E_epoch),(1,0,256,64,86400,2880));
         let local=pocold::testnet::local_for_network(&out.0).unwrap();let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert!(admitted.v3_active(0));assert!(admitted.v3_active(u64::MAX));
         // V3-PR-E0: a v3 config selects the compiled v3 set, whose probation pool is the CP's P_MAX/T_PROB.

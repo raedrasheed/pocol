@@ -307,7 +307,7 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
    - Give the `testnet.rs` Config (currently `deny_unknown_fields`, `:19`) explicit CP overrides.
    - Make `cutover.rs:120` read cp[16].
    - Add CP schema version 2 (specVersion 2), appending: H_half, S_tail, P_MAX, T_PROB, F0_acct, F0_slot,
-     F0_code, γ_tip_bp, baseFeeMin, R_react, the contest parameters, and ρ_bp (`p1_genesis_spec.rs:35`, `:67-121`;
+     F0_code (deleted by FN-2a), γ_tip_bp, baseFeeMin, R_react, the contest parameters, and ρ_bp (`p1_genesis_spec.rs:35`, `:67-121`;
      both profile files).
 4. **PR-3 Host rules.**
    - V3-01 membership, V3-04 fork choice, V3-24 log caps and the V3-21 creation fee, all gated by `v3_active`.
@@ -326,10 +326,8 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
    - ParamGate R1–R26 at the v3 CP and the WAN locals (V3-06).
 8. **PR-7 Off-node verifiers** (V3-PR-G, off-node verifiers and clients).
    - `pocol_rewards.py:272-281` (V3-01 membership, late shares, issuance), `rp.js:41-61`, `refdec.js:18`.
-   - V3-21 creation-burn user bound (D-V3-21; owner option A, 2026-11-12, implemented in V3-D21-burn-bound, the
-     launch blocker removed): the consensus bound keeps gas plus burn within the signed max_fee·gas_limit, and
-     eth_estimateGas sizes gas_limit to carry the burn, so unmodified wallets stay bounded. Clients may show the
-     burn separately from the gas fee with `pocol_quoteCreationBurn` (network.md, "Creation burn quote").
+   - V3-21 creation burn: deleted by owner decision 10d (2026-11-13, FN-2a). New accounts, slots and code pay
+     ordinary gas only, so wallets need no burn allowance and `pocol_quoteCreationBurn` is gone (network.md).
    - V3 receipt polling (V3-PR-C3 review C3-2): a v3 node serves eth_getTransactionReceipt on the heavy lane
      (heavy queue, RESP_MAX reservation, heavy deadline), so wallets and clients treat receipt polling as heavy-class
      and back off on −32021 {busy, retryAfterMs}; expose the lane in `pocol_getParams.rpcLimits` if clients need it.
@@ -943,7 +941,11 @@ never lowered, across it (`genesis_builder.rs:60`).
 - A13 boot in store mode at the new caps.
 - The raised caps survive `transform` → `genesis_builder`.
 
-**User bound (D-V3-21, owner option A, 2026-11-12; implemented dormant, v3 only).**
+**Superseded (FN-2a, owner decision 10d of 2026-11-13).** The creation fee above and the user bound below are
+deleted, with the CP fields F0_acct, F0_slot and F0_code. The raised caps stay, as A03 halts charging the declared
+gas; the cap-fill risk is accepted (Q1 option a) and disclosed in threat.md. The text is kept as the record.
+
+**User bound (D-V3-21, owner option A, 2026-11-12; implemented dormant, v3 only; deleted by FN-2a).**
 - A nonzero burn is charged only if `gas_used·effective_price + burn ≤ max_fee·gas_limit` (types 0/1: the gas
   price; the value stays separate, as in the Ethereum balance pre-check); otherwise `Halt::CreationFee`.
 - That halt charges the spent gas (before refunds), not the declared gas, so a builder order that raises the

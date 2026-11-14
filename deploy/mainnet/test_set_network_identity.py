@@ -73,14 +73,14 @@ def parts(spec):
 _version, _cur_chain, _rest = parts(CUR_SPEC)
 _cp_is_list, _cp_start, _cp_end = ni.rlp_item(_rest, 0)   # CP, the list after chainId
 assert _cp_is_list
-# The CP items of version 1: the current CP's first 52 (the v2 schema is the v1 schema plus fifteen fields).
+# The CP items of version 1: the current CP's first 52 (the v2 schema is the v1 schema plus twelve fields).
 _cp_v1 = b''
 _j = _cp_start
 for _ in range(ni.CP_ITEMS[1]):
     _e = ni.rlp_item(_rest, _j)[2]; _cp_v1 += _rest[_j:_e]; _j = _e
 _tail = _rest[_cp_end:]
-# The fifteen CP v2 fields (the lp4 devnet defaults, as pocol-extension/tests/decoder_corpus.mjs uses).
-CP_V2_EXTRA = [31557600, 62500000000000000, 16, 648000, 10**15, 0, 0, 5000, 10000000, 4, 40, 21600, 1250, 3, 2500]
+# The twelve CP v2 fields (the lp4 devnet defaults, as pocol-extension/tests/decoder_corpus.mjs uses; FN-2a deleted F0_*).
+CP_V2_EXTRA = [31557600, 62500000000000000, 16, 648000, 5000, 10000000, 4, 40, 21600, 1250, 3, 2500]
 
 def make_spec(chain=NEW_CHAIN, version=1, flip=0, extra=None):
     """A GenesisSpec of `version` for `chain` built from the current one's items, its last byte changed by `flip`."""

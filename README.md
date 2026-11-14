@@ -392,7 +392,6 @@ It also serves `net_*`, `web3_clientVersion`, and PoCol-specific methods:
 | `pocol_getHeaders`, `pocol_getBlockRlp`, `pocol_getLogs`                                        | Headers for light clients, raw blocks, branch-bound logs     |
 | `pocol_getParams`, `pocol_getCaps`, `pocol_getTiming`, `pocol_getClosing`, `pocol_getRetention` | Parameters, caps, timing, closing, retention                 |
 | `pocol_getRejects`, `pocol_getRpcStats`, `pocol_templateLatency`                                | Diagnostics (template latency: network.md)                   |
-| `pocol_quoteCreationBurn`                                                                       | v3 creation-burn quote, split from gas (network.md)          |
 | `pocol_finality`                                                                                | Local finality: safe, finalized, kSafe, kAlarm, reorg alarm  |
 | `pocol_getWork`, `pocol_submitWork`                                                             | Local work for external miners, own range only, on the loopback work port `--work-rpc ADDR` only |
 

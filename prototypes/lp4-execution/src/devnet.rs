@@ -32,7 +32,7 @@ pub struct DevnetConfig{
     pub earnin:bool,
     /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately.
     pub h_half:u64,pub s_tail:U256,pub p_max:u16,pub t_prob:u32,
-    pub f0_acct:U256,pub f0_slot:U256,pub f0_code:U256,pub gamma_tip_bp:u16,pub base_fee_min:U256,
+    pub gamma_tip_bp:u16,pub base_fee_min:U256,
     pub r_react:u8,pub c_react:u32,pub e_epoch:u32,pub theta_bp:u16,pub k_sigma:u16,pub rho_bp:u16,
 }
 impl DevnetConfig{
@@ -50,7 +50,7 @@ impl DevnetConfig{
             miners:miners.iter().map(|s|s.to_string()).collect(),
             accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false,nonce_mode:0,
             h_half:31_557_600,s_tail:U256::from(62_500_000_000_000_000u64),p_max:16,t_prob:648_000,
-            f0_acct:U256::from(1_000_000_000_000_000u64),f0_slot:U256::ZERO,f0_code:U256::ZERO,gamma_tip_bp:5000,base_fee_min:U256::from(10_000_000),
+            gamma_tip_bp:5000,base_fee_min:U256::from(10_000_000),
             r_react:4,c_react:40,e_epoch:21_600,theta_bp:1250,k_sigma:3,rho_bp:2500}
     }
     pub fn cp(&self)->Vec<fixed::U256>{
@@ -67,7 +67,7 @@ impl DevnetConfig{
          n(self.h_end),n(if self.h_end==0{0}else{self.g_ts+self.t_end_offset}),n(if self.h_end==0{0}else{self.h_close}),n(if self.h_end==0{0}else{self.g_ts+self.t_close_offset}),n(self.z_close.into()),n(self.ret.into()),n(self.p2.into())];
         if self.spec_version==2{cp.extend([
             n(self.h_half),to_fixed(self.s_tail),n(self.p_max.into()),n(self.t_prob.into()),
-            to_fixed(self.f0_acct),to_fixed(self.f0_slot),to_fixed(self.f0_code),n(self.gamma_tip_bp.into()),to_fixed(self.base_fee_min),
+            n(self.gamma_tip_bp.into()),to_fixed(self.base_fee_min),
             n(self.r_react.into()),n(self.c_react.into()),n(self.e_epoch.into()),n(self.theta_bp.into()),n(self.k_sigma.into()),n(self.rho_bp.into())]);}
         cp
     }
