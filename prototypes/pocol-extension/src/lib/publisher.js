@@ -113,6 +113,61 @@ export class PublishPendingError extends Error {
 export class PublishRevertedError extends Error {
   constructor(hash) { super('Publication transaction reverted: ' + hash); this.name = 'PublishRevertedError'; this.code = 'PUBLISH_REVERTED'; this.transactionHash = hash; }
 }
+// FN-1 (C9): pocol_getCaps pre-check. What a publication adds to the chain caps, at most, given which chunks the chain
+// already holds: each missing chunk a ChunkFactory account with its 0x00-prefixed runtime, a new site the Website
+// account with its runtime and its constructor's three slots (owner, publishers[sender], publisherCount) plus the
+// version counter, and the version record's manifestHash, meta, chunk-array length and one slot per manifest chunk
+// (Website.sol; publish and setCurrent rewrite existing slots). A raw transaction is counted at its calldata plus
+// TX_ENVELOPE_MAX bytes; Website and ChunkFactory emit no logs.
+export const CAPS_ALARM_PERCENT = 80;
+export const TX_ENVELOPE_MAX = 160;
+const CAP_FIELDS = [['accounts','accountsCap','accounts (ACCT_CAP)'],['storageSlots','storageSlotsCap','storage slots (SLOT_CAP)'],['codeBytes','codeBytesCap','code bytes (CODE_CAP)'],
+  ['txCount','txCap','transactions (TX_CAP)'],['txBytes','txBytesCap','transaction bytes (TXBYTES_CAP)'],['logBytes','logCap','log bytes (LOG_CAP)']];
+const hexLen = (h) => (h.length - 2) / 2;
+export function publishNeeds(plan, {newSite, missing}) {
+  const p = snapshot(plan); const absent = p.chunks.filter((c) => missing.has(c.address));
+  const storeData = (n) => 4 + 64 + Math.ceil(n / 32) * 32;
+  const versionData = 4 + 96 + 32 + 32 * p.manifestChunks.length;
+  const txs = absent.length + (newSite ? 1 : 0) + 3;
+  return {
+    accounts: absent.length + (newSite ? 1 : 0),
+    storageSlots: (newSite ? 4 : 0) + 3 + p.manifestChunks.length,
+    codeBytes: absent.reduce((n, c) => n + 1 + c.data.length, 0) + (newSite ? hexLen(WEBSITE_RUNTIME) : 0),
+    txCount: txs,
+    txBytes: absent.reduce((n, c) => n + storeData(c.data.length), 0) + (newSite ? hexLen(WEBSITE_INITCODE) : 0) + versionData + 36 + 36 + txs * TX_ENVELOPE_MAX,
+    logBytes: 0,
+  };
+}
+export class PublishCapsError extends Error {
+  constructor(shortfalls) {
+    super('This site cannot fit on the network: ' + shortfalls.map((x) => `it needs ${x.need} ${x.label} and ${x.remaining} remain`).join('; ') + '. Nothing was signed.');
+    this.name = 'PublishCapsError'; this.code = 'PUBLISH_CAPS'; this.shortfalls = shortfalls;
+  }
+}
+/// Reads pocol_getCaps and compares a publication's needs with each cap's room. Returns {checked:false, warning} when the
+/// node predates the method (-32601: the pre-check is skipped), else {checked:true, caps, alarms}; throws
+/// PublishCapsError when a cap cannot hold the site.
+export async function capsPrecheck(rpc, needs) {
+  let caps;
+  try { caps = await rpc('pocol_getCaps', []); }
+  catch (e) {
+    // An older node (-32601), or a relay that does not forward the method (an older Studio gateway refuses it with an
+    // HTTP error, a transport failure here): the pre-check is skipped. Every later request still checks the network.
+    if (e?.rpc?.code === -32601) return {checked:false, warning:'This node does not report its chain caps (pocol_getCaps): the capacity pre-check was skipped.'};
+    if (e?.transport) return {checked:false, warning:'The network endpoint did not answer pocol_getCaps (' + e.transport + '): the capacity pre-check was skipped.'};
+    throw e;
+  }
+  assert(caps && typeof caps === 'object' && caps.occupancy && typeof caps.occupancy === 'object', 'Invalid pocol_getCaps response');
+  const shortfalls = [], alarms = [];
+  for (const [name, capName, label] of CAP_FIELDS) {
+    const count = uint(caps[name], 'pocol_getCaps ' + name), cap = uint(caps[capName], 'pocol_getCaps ' + capName);
+    const remaining = cap > count ? cap - count : 0n, need = BigInt(needs[name] ?? 0);
+    if (need > remaining) shortfalls.push({name, label, need:need.toString(), remaining:remaining.toString()});
+    if (count * 100n >= cap * BigInt(CAPS_ALARM_PERCENT)) alarms.push(name);
+  }
+  if (shortfalls.length) throw new PublishCapsError(shortfalls);
+  return {checked:true, caps, alarms};
+}
 const running = new Set();
 export async function publishSite(options) {
   const {rpc, sign, onCheckpoint, onProgress = () => {}, signal} = options;
@@ -215,6 +270,15 @@ export async function publishSite(options) {
       if (!canonical) state.complete = false;
     }
     if (state.site) await authorize(address(state.site));
+    // FN-1 (C9): before the first signature of a publication, refuse a site the chain caps cannot hold. A resumed
+    // publication with signed transactions is not re-checked: those are committed and are reconciled as they are.
+    if (!Object.keys(state.transactions).length) {
+      const missing = new Set();
+      for (const c of plan.chunks) { checkAbort(); if (await rpc('eth_getCode',[c.address,'latest']) === '0x') missing.add(c.address); }
+      const pre = await capsPrecheck(rpc, publishNeeds(plan, {newSite:!state.site, missing}));
+      if (!pre.checked) { try { options.onWarning?.(pre.warning); } catch {} progress({phase:'warning', message:pre.warning}); }
+      else if (pre.alarms.length) progress({phase:'capsAlarm', alarms:pre.alarms});
+    }
     await save();
     let completed = 0;
     for (const c of plan.chunks) {

@@ -50,3 +50,42 @@ export function generateHTML(p){
 export function projectFiles(p){if(p.mode==='files'){const f=p.files.map(f=>({path:f.path,data:decode64(f.base64)}));validateFiles(f,p.entry);return f;}const files=[{path:'/index.html',data:encoder.encode(generateHTML(p))}];validateFiles(files);return files;}
 export function publicProject(p){return JSON.stringify({format:'pocol-studio-v1',project:p},null,2);}
 export function parseProject(text){const v=JSON.parse(text);if(v.format!=='pocol-studio-v1')throw Error('projectInvalid');return validateProject(v.project);}
+// FN-1 (C9): the network capacity pre-check before the publisher opens. Studio does not know which chunks the chain
+// already holds, so it refuses only a site that cannot fit at its least (`siteNeedsAtLeast`: no chunk stored, only the
+// site account and its Website slots and the three version transactions) and reports a site that may not fit at its
+// most (`siteNeedsAtMost`: every chunk new). The extension publisher checks exactly, with the chain's chunks, before it
+// signs. Website.sol: the constructor's 3 slots and the version counter; a version's manifestHash, meta, chunk-array
+// length and one slot per manifest chunk (1 to 3).
+export const CHUNK_MAX=24575,MANIFEST_CHUNKS_MAX=3,CAPS_ALARM_PERCENT=80,TX_ENVELOPE_MAX=160,WEBSITE_RUNTIME_MAX=24576;
+export const CAP_FIELDS=[['accounts','accountsCap','ACCT_CAP'],['storageSlots','storageSlotsCap','SLOT_CAP'],['codeBytes','codeBytesCap','CODE_CAP'],['txCount','txCap','TX_CAP'],['txBytes','txBytesCap','TXBYTES_CAP'],['logBytes','logCap','LOG_CAP']];
+export function siteNeedsAtLeast(files,{newSite}){const txs=3+(newSite?1:0);return{accounts:newSite?1:0,storageSlots:(newSite?4:0)+4,codeBytes:0,txCount:txs,txBytes:txs*36,logBytes:0};}
+export function siteNeedsAtMost(files,{newSite}){
+  const chunks=files.reduce((n,f)=>n+Math.ceil(f.data.length/CHUNK_MAX),0)+MANIFEST_CHUNKS_MAX,bytes=files.reduce((n,f)=>n+f.data.length,0)+MANIFEST_CHUNKS_MAX*CHUNK_MAX;
+  const txs=chunks+3+(newSite?1:0);
+  return{accounts:chunks+(newSite?1:0),storageSlots:(newSite?4:0)+3+MANIFEST_CHUNKS_MAX,codeBytes:bytes+chunks+(newSite?WEBSITE_RUNTIME_MAX:0),txCount:txs,txBytes:bytes+chunks*100+(newSite?2*WEBSITE_RUNTIME_MAX:0)+txs*(TX_ENVELOPE_MAX+200),logBytes:0};
+}
+const capQty=(v,name)=>{if(typeof v!=='string'||!/^0x[0-9a-fA-F]{1,64}$/.test(v))throw Error('capsInvalid:'+name);return BigInt(v);};
+/// The verdict on a pocol_getCaps answer: `refuse` lists the caps the site cannot fit even at its least, `tight` those it
+/// may not fit at its most, `alarms` those at or above 80 %. Each row names the cap, the need and the room.
+export function capsVerdict(caps,least,most){
+  if(!caps||typeof caps!=='object')throw Error('capsInvalid');
+  const refuse=[],tight=[],alarms=[];
+  for(const [name,capName,label] of CAP_FIELDS){
+    const count=capQty(caps[name],name),cap=capQty(caps[capName],capName),room=cap>count?cap-count:0n;
+    if(BigInt(least[name])>room)refuse.push({name,label,need:String(least[name]),remaining:room.toString()});
+    else if(BigInt(most[name])>room)tight.push({name,label,need:String(most[name]),remaining:room.toString()});
+    if(count*100n>=cap*BigInt(CAPS_ALARM_PERCENT))alarms.push(name);
+  }
+  return{checked:true,refuse,tight,alarms};
+}
+/// pocol_getCaps through the Studio gateway (`post(body)` resolves to {ok, json()}), then the verdict. A node or gateway
+/// without the method (-32601, or an HTTP refusal) or no answer gives {checked:false}: the pre-check is skipped with a
+/// warning, and the extension's own checks still run before signing.
+export async function capsPrecheck(post,files,{newSite}){
+  let v;
+  try{const r=await post(JSON.stringify({jsonrpc:'2.0',id:1,method:'pocol_getCaps',params:[]}));if(!r.ok)return{checked:false,reason:'http'};v=await r.json();}
+  catch{return{checked:false,reason:'unreachable'};}
+  if(v?.error)return{checked:false,reason:v.error.code===-32601?'method':'error',code:v.error.code};
+  return capsVerdict(v?.result,siteNeedsAtLeast(files,{newSite}),siteNeedsAtMost(files,{newSite}));
+}
+export function capsDetails(rows){return rows.map(r=>`${r.label}: ${r.need} / ${r.remaining}`).join(' · ');}

@@ -9,3 +9,40 @@ test('project roundtrip retains publication identity and layout but validates by
 test('binary files roundtrip exactly through bridge base64',()=>{const bytes=Uint8Array.from({length:65536},(_,i)=>i%256);assert.deepEqual(decode64(encode64(bytes)),bytes);});
 test('project import rejects injected logo MIME and invalid section data',()=>{const p=newProject();p.logo={mime:'image/svg+xml',base64:'PHN2Zz4='};assert.throws(()=>validateProject(p),/logoSize/);p.logo=null;p.sections=Array(21).fill({});assert.throws(()=>validateProject(p),/sectionsLimit/);});
 test('ZIP records contain exact filenames, lengths, CRC and terminal directory',async()=>{const payload=new TextEncoder().encode('مرحبا PoCol'),files=[{path:'/index.html',data:payload},{path:'/assets/app.js',data:new Uint8Array([1,2,255])}];const zip=new Uint8Array(await zipFiles(files).arrayBuffer()),v=new DataView(zip.buffer);assert.equal(v.getUint32(0,true),0x04034b50);assert.equal(v.getUint32(14,true),crc32(payload));assert.equal(v.getUint32(18,true),payload.length);assert.equal(new TextDecoder().decode(zip.slice(30,40)),'index.html');assert.deepEqual(zip.slice(40,40+payload.length),payload);assert.equal(v.getUint32(zip.length-22,true),0x06054b50);assert.equal(v.getUint16(zip.length-12,true),2);const centralOffset=v.getUint32(zip.length-6,true);assert.equal(v.getUint32(centralOffset,true),0x02014b50);});
+import{capsPrecheck,capsVerdict,siteNeedsAtLeast,siteNeedsAtMost,capsDetails,CAP_FIELDS}from'../dist/model.js';
+// FN-1 (C9): the pocol_getCaps pre-check before the publisher opens.
+const capsOf=(room={},count={})=>{const out={number:'0x1',hash:'0x'+'ab'.repeat(32),cumulative:true,alarmPercent:80,occupancy:{}};for(const[name,capName]of CAP_FIELDS){const cap=10n**9n,c=count[name]!==undefined?BigInt(count[name]):room[name]!==undefined?cap-BigInt(room[name]):5n;out[name]='0x'+c.toString(16);out[capName]='0x'+cap.toString(16);}return out;};
+const answer=(v,ok=true)=>async()=>({ok,json:async()=>v});
+const site=[{path:'/index.html',data:new Uint8Array(60000)},{path:'/a.css',data:new Uint8Array(10)}];
+test('capacity needs: at least the site account, its slots and three version transactions; at most every chunk new',()=>{
+  const least=siteNeedsAtLeast(site,{newSite:true}),most=siteNeedsAtMost(site,{newSite:true});
+  assert.deepEqual([least.accounts,least.storageSlots,least.txCount],[1,8,4]);
+  assert.equal(siteNeedsAtLeast(site,{newSite:false}).accounts,0);
+  assert.equal(most.accounts,3+1+3+1,'three chunks of the 60,000-byte file, one of the stylesheet, three manifest chunks and the site');
+  for(const[name]of CAP_FIELDS)assert.ok(most[name]>=least[name],name);
+});
+test('a site that cannot fit even at its least is refused before the publisher opens, naming the cap',async()=>{
+  const v=await capsPrecheck(answer({jsonrpc:'2.0',id:1,result:capsOf({accounts:0})}),site,{newSite:true});
+  assert.equal(v.checked,true);assert.deepEqual(v.refuse.map(r=>r.name),['accounts']);assert.match(capsDetails(v.refuse),/ACCT_CAP: 1 \/ 0/);
+  const update=await capsPrecheck(answer({jsonrpc:'2.0',id:1,result:capsOf({accounts:0})}),site,{newSite:false});
+  assert.deepEqual(update.refuse,[],'an update of an existing site may reuse stored chunks and needs no new account at least');
+  assert.deepEqual(update.tight.map(r=>r.name),['accounts'],'but it may not fit if every chunk is new');
+});
+test('room for the least but not the most is reported, not refused; 80 % raises the alarm',async()=>{
+  const most=siteNeedsAtMost(site,{newSite:true});
+  const v=await capsPrecheck(answer({jsonrpc:'2.0',id:1,result:capsOf({codeBytes:most.codeBytes-1})}),site,{newSite:true});
+  assert.deepEqual(v.refuse,[]);assert.deepEqual(v.tight.map(r=>r.name),['codeBytes']);assert.deepEqual(v.alarms,['codeBytes']);
+  const calm=capsVerdict(capsOf({},{accounts:8n*10n**8n-1n}),siteNeedsAtLeast(site,{newSite:true}),siteNeedsAtMost(site,{newSite:true}));assert.deepEqual(calm.alarms,[]);
+  const loud=capsVerdict(capsOf({},{accounts:8n*10n**8n}),siteNeedsAtLeast(site,{newSite:true}),siteNeedsAtMost(site,{newSite:true}));assert.deepEqual(loud.alarms,['accounts']);
+});
+test('an older node (-32601), a gateway refusal or no answer skips the pre-check; a malformed answer is refused',async()=>{
+  assert.deepEqual(await capsPrecheck(answer({jsonrpc:'2.0',id:1,error:{code:-32601,message:'Method not found'}}),site,{newSite:true}),{checked:false,reason:'method',code:-32601});
+  assert.deepEqual(await capsPrecheck(answer({error:'Unsupported or invalid Studio RPC request'},false),site,{newSite:true}),{checked:false,reason:'http'});
+  assert.deepEqual(await capsPrecheck(async()=>{throw new TypeError('Failed to fetch')},site,{newSite:true}),{checked:false,reason:'unreachable'});
+  await assert.rejects(capsPrecheck(answer({jsonrpc:'2.0',id:1,result:{accounts:'12'}}),site,{newSite:true}),/capsInvalid/);
+});
+test('the app runs the pre-check before opening the publisher and has every caps message in both languages',async()=>{
+  const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const at=app.indexOf("capsPrecheck(gatewayPost"),open=app.indexOf("bridge('openPublisher'");assert.ok(at>0&&at<open,'the pre-check comes first');
+  for(const key of['capsRefused','capsTight','capsAlarm','capsSkipped'])assert.equal(app.split(key+":'").length-1,2,key);
+});

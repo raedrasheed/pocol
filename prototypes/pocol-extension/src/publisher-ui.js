@@ -114,7 +114,8 @@ async function runPublication() {
       onCheckpoint:async(checkpoint)=>setJob({checkpoint}),
       onProgress:(event)=> {
         setJob({progress:event}).catch(()=>controller?.abort());
-        const descriptions={upload:'Storing website chunks',broadcast:'Broadcasting transaction',confirmed:'Transaction confirmed',complete:'Publication complete'};
+        const descriptions={upload:'Storing website chunks',broadcast:'Broadcasting transaction',confirmed:'Transaction confirmed',complete:'Publication complete',
+          warning:event.message,capsAlarm:'The network is above 80 % of a capacity cap ('+(event.alarms||[]).join(', ')+'); this site still fits'};
         $('status').textContent=descriptions[event.phase] || event.phase;
         if(event.transactionHash) $('status').textContent+='\n'+event.transactionHash;
         if(event.total){$('progress').max=event.total;$('progress').value=event.completed || 0;}

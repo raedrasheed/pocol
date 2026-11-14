@@ -22,7 +22,11 @@ MAX_REQUEST = 131072
 MAX_RESPONSE = 2 * 1024 * 1024
 MAX_RAW_BYTES = 60000
 MAX_BATCH = 10
-NO_PARAMS = {'eth_chainId', 'pocol_status', 'pocol_getParams', 'eth_blockNumber', 'eth_gasPrice'}
+# pocol_getCaps (FN-1, C9): the chain caps' occupancy, read by Studio and the extension before a publication is signed.
+NO_PARAMS = {'eth_chainId', 'pocol_status', 'pocol_getParams', 'eth_blockNumber', 'eth_gasPrice', 'pocol_getCaps'}
+CAPS_FIELDS = ('number', 'hash', 'v3', 'cumulative', 'alarmPercent', 'alarm', 'occupancy',
+               'accounts', 'accountsCap', 'storageSlots', 'storageSlotsCap', 'codeBytes', 'codeBytesCap',
+               'txCount', 'txCap', 'txBytes', 'txBytesCap', 'logBytes', 'logCap')
 HASH_METHODS = {'eth_getTransactionByHash', 'eth_getTransactionReceipt'}
 ACCOUNT_METHODS = {'eth_getBalance', 'eth_getTransactionCount', 'eth_getCode'}
 
@@ -129,6 +133,7 @@ def valid_payload(value):
 
 
 def sanitize(method, value):
+    if method == 'pocol_getCaps' and isinstance(value, dict): return {k: value[k] for k in CAPS_FIELDS if k in value}
     if method not in ('pocol_status', 'pocol_getParams') or not isinstance(value, dict): return value
     keys = ('chainId', 'genesisHash', 'head', 'pool', 'protocolVersion', 'compatibilitySha256',
             'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'activeVersion',

@@ -78,12 +78,24 @@ class ValidationTests(unittest.TestCase):
                 self.assertEqual(g.sanitize(method, {**fields, 'peers': ['private'], 'lastIncompatibleReason': 'peer x'}), fields)
 
     def test_metadata_fields_do_not_expand_methods_or_accept_remote_activation(self):
-        self.assertEqual(g.NO_PARAMS, {'eth_chainId', 'pocol_status', 'pocol_getParams', 'eth_blockNumber', 'eth_gasPrice'})
+        # FN-1 (C9) adds pocol_getCaps, read-only and parameterless; nothing else.
+        self.assertEqual(g.NO_PARAMS, {'eth_chainId', 'pocol_status', 'pocol_getParams', 'eth_blockNumber', 'eth_gasPrice', 'pocol_getCaps'})
         for method in ('pocol_setForkSchedule', 'pocol_setNetworkEnvironment', 'admin_setFork', 'miner_start'):
             self.assertFalse(g.valid_call(request(method, [[[1, 0], [2, 100]]])))
         for method in ('pocol_getParams', 'pocol_status'):
             self.assertTrue(g.valid_call(request(method)))
             self.assertFalse(g.valid_call(request(method, [{'forkSchedule': [[1, 0], [2, 100]]}])))
+
+
+    def test_caps_are_relayed_without_params_and_only_their_documented_fields(self):
+        self.assertTrue(g.valid_call(request('pocol_getCaps')))
+        self.assertFalse(g.valid_call(request('pocol_getCaps', ['latest'])))
+        self.assertTrue(g.valid_payload([request('pocol_getCaps'), request('eth_chainId', ident=2)]))
+        caps = {'number': '0x2a', 'hash': '0x' + 'ab' * 32, 'v3': True, 'cumulative': False, 'alarmPercent': 80, 'alarm': False,
+                'occupancy': {'accounts': {'percent': 1.5, 'remaining': '0x10', 'alarm': False}},
+                'accounts': '0x1', 'accountsCap': '0x11', 'storageSlots': '0x2', 'storageSlotsCap': '0x22', 'codeBytes': '0x3', 'codeBytesCap': '0x33',
+                'txCount': '0x0', 'txCap': '0x44', 'txBytes': '0x0', 'txBytesCap': '0x55', 'logBytes': '0x0', 'logCap': '0x66'}
+        self.assertEqual(g.sanitize('pocol_getCaps', {**caps, 'peers': ['private'], 'rpcAddr': 'secret'}), caps)
 
 
 class GatewayTests(unittest.TestCase):

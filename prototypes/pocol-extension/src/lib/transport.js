@@ -10,7 +10,7 @@ import { parseStrict } from './bridge.js';
 const KiB = 1024, MiB = 1024 * 1024;
 // RECV_LIMIT per method (D100). exact: >= WorstLegit from pocold; capped: deliberately narrower.
 export const RECV_LIMIT = Object.freeze(new Map([
-  ...['eth_chainId', 'net_version', 'web3_clientVersion', 'eth_blockNumber', 'eth_gasPrice', 'eth_maxPriorityFeePerGas', 'eth_getBalance', 'eth_getStorageAt', 'eth_getTransactionCount', 'eth_sendRawTransaction'].map((m) => [m, 4096]),
+  ...['eth_chainId', 'net_version', 'web3_clientVersion', 'eth_blockNumber', 'eth_gasPrice', 'eth_maxPriorityFeePerGas', 'eth_getBalance', 'eth_getStorageAt', 'eth_getTransactionCount', 'eth_sendRawTransaction', 'pocol_getCaps'].map((m) => [m, 4096]),
   ['eth_getCode', 68 * KiB], ['pocol_getHeaders', 96 * KiB], ['pocol_status', 96 * KiB],
   ['eth_getBlockByNumber', 164 * KiB], ['eth_getBlockByHash', 164 * KiB], ['eth_feeHistory', 176 * KiB],
   ['eth_getTransactionByHash', 260 * KiB], ['eth_getTransactionReceipt', 340 * KiB],

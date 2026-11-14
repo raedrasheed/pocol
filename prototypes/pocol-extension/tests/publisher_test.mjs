@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,PublishPendingError,PublishRevertedError,FACTORY} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,PublishPendingError,PublishRevertedError,PublishCapsError,publishNeeds,capsPrecheck,FACTORY} from '../dist/lib/publisher.js';
 import {WEBSITE_INITCODE,WEBSITE_RUNTIME} from '../dist/lib/website-bytecode.js';
 import {concat,toHex,fromHex} from '../dist/lib/hex.js';
 import {decodeManifest,chunkAddress,decodeCurrent} from '../dist/lib/site.js';
@@ -18,13 +18,29 @@ const dynamic=(items)=>concat(word(items.length),...items.map(a=>concat(new Uint
 function mock() {
   const codes=new Map(),receipts=new Map(),versions=[];let nonce=0n,current=null,site=null;
   const logs={signed:[],sent:[],calls:[]};
-  const control={allow:true,wrongNetwork:false,failAfterSend:null,unknownBeforeSend:false,noReceipt:false,failSave:false,wrongHash:false,revert:false,publishAfterCreate:false,wrongVersionChunks:false,orphanBlock:false};
+  const control={allow:true,wrongNetwork:false,failAfterSend:null,unknownBeforeSend:false,noReceipt:false,failSave:false,wrongHash:false,revert:false,publishAfterCreate:false,wrongVersionChunks:false,orphanBlock:false,
+    // FN-1: pocol_getCaps. `room` overrides a cap's remaining room (count = cap - room); `caps` 'missing' answers -32601, 'transport' a relay refusal.
+    caps:'ok',room:{},capCount:{}};
+  const CAPS=['accounts','storageSlots','codeBytes','txCount','txBytes','logBytes'];
+  function capsAnswer(){
+    const out={number:'0x2a',hash:blockHash,v3:true,cumulative:true,alarmPercent:80,occupancy:{},alarm:false};
+    for(const name of CAPS){const cap=10n**9n,count=control.capCount[name]!==undefined?BigInt(control.capCount[name]):control.room[name]!==undefined?cap-BigInt(control.room[name]):1000n;
+      out[name]='0x'+count.toString(16);out[name==='accounts'?'accountsCap':name==='storageSlots'?'storageSlotsCap':name==='codeBytes'?'codeBytesCap':name==='txCount'?'txCap':name==='txBytes'?'txBytesCap':'logCap']='0x'+cap.toString(16);
+      out.occupancy[name]={percent:Number(count*10000n/cap)/100,remaining:'0x'+(cap-count).toString(16),alarm:count*100n>=cap*80n};}
+    return out;
+  }
   const n=(b)=>b.length?BigInt(toHex(b)):0n;
   function versionOut(v){const x=versions[Number(v)];if(!x) throw new Error('BadVersion');return toHex(concat(fromHex(x.hash),word(x.length),word(x.status),word(42),word(160),dynamic(x.chunks)));}
   async function rpc(method,params) {
     logs.calls.push([method,params]);
     if(method==='eth_chainId')return '0x'+(control.wrongNetwork?1:chainId).toString(16);
     if(method==='pocol_status')return {genesisHash:genesis};
+    if(method==='pocol_getCaps'){
+      if(control.caps==='missing')throw Object.assign(new Error('the method pocol_getCaps does not exist'),{rpc:{code:-32601,message:'the method pocol_getCaps does not exist'}});
+      if(control.caps==='transport')throw Object.assign(new Error('transport'),{transport:'transport'});
+      if(control.caps==='invalid')return {accounts:'zz'};
+      return capsAnswer();
+    }
     if(method==='eth_getBalance')return '0x'+(10n**30n).toString(16);
     if(method==='eth_getTransactionCount')return '0x'+nonce.toString(16);
     if(method==='eth_getCode')return codes.get(params[0])||'0x';
@@ -115,4 +131,64 @@ test('concurrently stored chunk still reconciles its unresolved signed transacti
   assert.equal(m.state.transactions['chunk:'+chunk.address].receipt.status,'0x1');
   assert.equal(m.logs.signed.length,7);
   assert.equal(new Set(m.logs.signed.map(tx=>tx.nonce)).size,7);
+});
+
+// FN-1 (C9): the pocol_getCaps pre-check refuses, before any signature, a site the chain caps cannot hold.
+const capsCalls=(m)=>m.logs.calls.filter(c=>c[0]==='pocol_getCaps').length;
+test('a site that cannot fit is refused before signing, with each short cap named',async()=>{
+  const m=mock(),p=sample(),need=publishNeeds(p,{newSite:true,missing:new Set(p.chunks.map(c=>c.address))});
+  m.control.room={accounts:need.accounts-1,codeBytes:need.codeBytes-1};
+  await assert.rejects(publishSite(m.options(p)),e=>e instanceof PublishCapsError&&e.code==='PUBLISH_CAPS'&&/cannot fit/.test(e.message)
+    &&/accounts \(ACCT_CAP\)/.test(e.message)&&/code bytes \(CODE_CAP\)/.test(e.message)&&e.shortfalls.length===2&&e.shortfalls[0].need===String(need.accounts)&&e.shortfalls[0].remaining===String(need.accounts-1));
+  assert.equal(m.logs.signed.length,0);assert.equal(m.logs.sent.length,0);assert.equal(m.state,undefined,'no checkpoint with a transaction');
+});
+test('a site that exactly fits every cap is published',async()=>{
+  const m=mock(),p=sample(),need=publishNeeds(p,{newSite:true,missing:new Set(p.chunks.map(c=>c.address))});
+  m.control.room=Object.fromEntries(Object.entries(need).map(([k,v])=>[k,v]));
+  const r=await publishSite(m.options(p));assert.equal(r.site,m.site);assert.equal(capsCalls(m),1);assert.equal(m.logs.signed.length,7);
+});
+test('the needs are what the publication adds: accounts, code, transactions, and bytes bounded',async()=>{
+  const m=mock(),p=sample(),need=publishNeeds(p,{newSite:true,missing:new Set(p.chunks.map(c=>c.address))});
+  await publishSite(m.options(p));
+  assert.equal(need.accounts,m.codes.size,'one account per stored chunk and the site');
+  assert.equal(need.codeBytes,[...m.codes.values()].reduce((n,c)=>n+(c.length-2)/2,0),'every new runtime byte');
+  assert.equal(need.txCount,m.logs.sent.length,'every transaction sent');
+  assert.ok(need.txBytes>=m.logs.sent.reduce((n,r)=>n+(r.length-2)/2,0),'raw transaction bytes are bounded');
+  assert.equal(need.storageSlots,4+3+p.manifestChunks.length);assert.equal(need.logBytes,0);
+});
+test('chunks already on chain are not counted against the caps',async()=>{
+  const m=mock(),p=sample();for(const c of p.chunks)m.codes.set(c.address,toHex(concat(Uint8Array.of(0),c.data)));
+  const need=publishNeeds(p,{newSite:true,missing:new Set()});assert.equal(need.accounts,1);assert.equal(need.txCount,4);
+  m.control.room={accounts:1};await publishSite(m.options(p));assert.equal(m.logs.sent.length,4);
+});
+test('an update of an existing site needs no new site account',async()=>{
+  const m=mock(),r=await publishSite(m.options()),p=prepareSite([{path:'/index.html',data:enc.encode('Second')}]);
+  const need=publishNeeds(p,{newSite:false,missing:new Set(p.chunks.map(c=>c.address))});assert.equal(need.accounts,p.chunks.length);assert.equal(need.storageSlots,3+p.manifestChunks.length);
+  m.control.room={accounts:need.accounts};const r2=await publishSite(m.options(p,{site:r.site}));assert.equal(r2.version,1);
+  m.control.room={accounts:0};const p3=prepareSite([{path:'/index.html',data:enc.encode('Third')}]);const before=m.logs.signed.length;
+  await assert.rejects(publishSite(m.options(p3,{site:r.site})),PublishCapsError);assert.equal(m.logs.signed.length,before);
+});
+test('an older node without pocol_getCaps (-32601) is published after a warning',async()=>{
+  const m=mock();m.control.caps='missing';const warnings=[],phases=[];
+  const r=await publishSite(m.options(undefined,{onWarning:w=>warnings.push(w),onProgress:e=>phases.push(e)}));
+  assert.equal(r.site,m.site);assert.equal(warnings.length,1);assert.match(warnings[0],/pre-check was skipped/);
+  assert.ok(phases.some(e=>e.phase==='warning'&&/pocol_getCaps/.test(e.message)));assert.equal(m.logs.signed.length,7);
+});
+test('a relay that does not forward pocol_getCaps is tolerated with a warning; other RPC failures are not',async()=>{
+  const m=mock();m.control.caps='transport';const warnings=[];
+  await publishSite(m.options(undefined,{onWarning:w=>warnings.push(w)}));assert.match(warnings[0],/did not answer pocol_getCaps/);
+  const bad=mock();bad.control.caps='invalid';await assert.rejects(publishSite(bad.options()),/pocol_getCaps/);assert.equal(bad.logs.signed.length,0);
+  await assert.rejects(capsPrecheck(async()=>{throw new Error('boom')},{}),/boom/);
+});
+test('a cap at or above 80 % is reported, and the site still fits',async()=>{
+  const m=mock();m.control.capCount={accounts:8n*10n**8n};const phases=[];
+  await publishSite(m.options(undefined,{onProgress:e=>phases.push(e)}));
+  assert.deepEqual(phases.find(e=>e.phase==='capsAlarm').alarms,['accounts']);
+  const quiet=mock();quiet.control.capCount={accounts:8n*10n**8n-1n};const none=[];await publishSite(quiet.options(undefined,{onProgress:e=>none.push(e)}));
+  assert.equal(none.some(e=>e.phase==='capsAlarm'),false,'79.99... % raises no alarm');
+});
+test('a resumed publication with signed transactions is not re-checked',async()=>{
+  const m=mock();m.control.unknownBeforeSend=true;await assert.rejects(publishSite(m.options()),PublishPendingError);
+  assert.equal(capsCalls(m),1);const saved=m.state;m.control.unknownBeforeSend=false;m.control.room={accounts:0};
+  await publishSite(m.options(undefined,{state:saved}));assert.equal(capsCalls(m),1,'the committed publication finishes');assert.equal(m.logs.signed.length,7);
 });
