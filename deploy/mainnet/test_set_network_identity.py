@@ -28,16 +28,19 @@ def _free_chain():
             return chain
     raise AssertionError('no free fixture chain ID')
 NEW_CHAIN = _free_chain()
-def anywhere(identities):
+def anywhere(identities, keep_chain=None):
     """An independent detector of identities: each chain ID with or without digit groups, its hex digits, and the
-    start of each genesis hash, in any case; None for no identity."""
-    alts = [a for chain, genesis in identities for a in (re.escape(f'{chain}'), re.escape(f'{chain:_}'), f'{chain:x}', genesis[:8])]
+    start of each genesis hash, in any case; None for no identity. keep_chain is a chain ID that still belongs to the
+    current network: an identity on it (a redo with another genesis for the same chain, a postponed launch) is detected
+    by its genesis hash only, as the tool switches it, so the current network's chain ID pins are not taken for it."""
+    alts = [a for chain, genesis in identities
+            for a in ((() if chain == keep_chain else (re.escape(f'{chain}'), re.escape(f'{chain:_}'), f'{chain:x}')) + (genesis[:8],))]
     return re.compile('(?i)' + '|'.join(alts)) if alts else None
 CUR_ANYWHERE = anywhere([(CUR_CHAIN, CUR_GENESIS)])
 # The retired identities (read independently of the tool), and those the tree no longer pins: no tracked file outside
 # the kept ones may hold one of those, FILES included, so no copy of an earlier network outlives its switch.
 RETIRED = [(e['chainId'], e['genesisHash'][2:]) for e in json.loads((ni.ROOT / ni.RETIRED).read_text(encoding='utf-8'))['retired']]
-GONE_ANYWHERE = anywhere([r for r in RETIRED if r != (CUR_CHAIN, CUR_GENESIS)])
+GONE_ANYWHERE = anywhere([r for r in RETIRED if r != (CUR_CHAIN, CUR_GENESIS)], keep_chain=CUR_CHAIN)
 # The tree pins a network that is not retired: the identity switch has happened.
 SWITCHED = (CUR_CHAIN, CUR_GENESIS) not in RETIRED
 
@@ -590,6 +593,28 @@ class SetNetworkIdentity(unittest.TestCase):
         exempt = [('development/x.md', str(gone_chain)), ('deploy/websites/x.js', str(gone_chain)), (ni.RETIRED, str(gone_chain)),
                   ('prototypes/pocold/tests/data/wire-golden.json', str(gone_chain)), ('e.md', 'no identity')]
         self.assertEqual(unaccounted(exempt, gone=gone), [])
+        # A retired genesis of the current chain (a redo with another genesis for the same chain): its hash is flagged,
+        # the current network's chain ID is not.
+        gone = anywhere([(CUR_CHAIN, gone_genesis)], keep_chain=CUR_CHAIN)
+        planted = [('d.md', f'genesis {gone_genesis[:8]}...'), (list(ni.FILES)[0], f'genesis 0x{gone_genesis.upper()}')]
+        self.assertEqual(unaccounted(planted, gone=gone), [rel for rel, _ in planted])
+        exempt = [(list(ni.FILES)[0], f'chain {CUR_CHAIN} = 0x{CUR_CHAIN:x} = {CUR_CHAIN:_}')]
+        self.assertEqual(unaccounted(exempt, gone=gone), [])
+
+    def test_a_same_chain_redo_leaves_no_pin_the_guard_flags(self):
+        """A postponed launch keeps the chain ID and replaces the genesis: the switch retires the old genesis, and the
+        switched tree passes the guard (its chain ID pins are the current network's, not the retired one's)."""
+        root = self.copy()
+        (root / 'same.json').write_text(invitation(make_spec(chain=CUR_CHAIN, flip=1)), encoding='utf-8')
+        self.assertEqual(self.run_tool(root, target='same.json'), 0)
+        chain, genesis, _ = ni.current_identity(root)
+        self.assertEqual(chain, CUR_CHAIN)
+        retired = ni.read_retired((root / ni.RETIRED).read_bytes())   # (chain ID, genesis hex without 0x)
+        self.assertIn((CUR_CHAIN, CUR_GENESIS), retired)
+        gone = anywhere([r for r in retired if r != (chain, genesis)], keep_chain=chain)
+        files = [(rel, (root / rel).read_text(encoding='utf-8')) for rel in TRACKED]
+        self.assertEqual(unaccounted(files, current=anywhere([(chain, genesis)]), gone=gone), [])
+        self.assertEqual(self.run_tool(root, '--check', target='same.json'), 0)
 
     def test_every_tracked_file_that_pins_the_current_identity_is_listed_or_kept(self):
         try:
