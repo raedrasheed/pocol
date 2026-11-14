@@ -1,6 +1,6 @@
 // Runs only at the exact Studio origins, in Chrome's isolated content-script world.
 (() => {
-  const allowed = ['https://studio.pocol.net', 'https://pocol-studio.mystic-gecko-9511.chatgpt.site'];
+  const allowed = ['https://studio.pocol.net'];
   if (window.top !== window || !allowed.includes(location.origin)) return;
   const methods = new Set(['status', 'openPublisher', 'jobStatus', 'openSite']);
   const pending = new Set();
