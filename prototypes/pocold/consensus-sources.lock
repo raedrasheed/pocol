@@ -27,30 +27,31 @@ history n=24 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sour
 history n=25 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=041a5f2d489e09495873c72b613045687ddeef3a3adb3c56ac652cb2bb441271 vectors=93a356d8ba9faf6db7d7608a77ccff322855443d4e19dceebcd575047f96eaa4 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-phase2 note="Fresh network phase 2: old-network transition code removed (cutover and verify-export, the V3-33 user-tx freeze, the 0.4.0 legacy build table and legacy Hello handling); spec-1 verdicts, roots, persisted bytes and the consensus identity unchanged (re-pinned on main after N3 and N2)"
 history n=26 kind=neutral rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=b500228d279c1fb551cc3c844607234465eddec4ba0e70df5c575cad2fe6b6de vectors=93a356d8ba9faf6db7d7608a77ccff322855443d4e19dceebcd575047f96eaa4 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-phase3 note="Fresh network phase 3: old-network identity fixtures (H15000, the old invitation and golden identity) replaced by generated fixtures; spec-1 verdicts, roots, persisted bytes and the consensus identity unchanged"
 history n=27 kind=neutral-vector rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=99d19e22fb24f73beee9b869e694158b819bb07728d450235fe465b1f889a7df vectors=9693ba047f83c270252b0c897d6a0f121f360f303f9d58ec1d5639a2b24170c1 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-2a note="spec:2-dormant (the guard refuses a gate on neutral-vector): fresh network C1, owner decision 10d: the D-V3-21 creation burn and the F0 CP fields removed from the v3 rules (CP schema v2 renumbered), caps stay A03 halts; reachable only via the v3 sysCodeHash on a specVersion-2 genesis, which SPEC_VERSION=1 builds refuse; every spec-1 verdict, root and persisted byte unchanged"
+history n=28 kind=neutral-vector rules=1 maxFork=2 spec=1 protocol=2 protocolMin=2 sources=77253c3d53488e6b64f9125c7e26d7f4b12843707be90ec73598170dee6512a0 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-2b note="spec:2-dormant (the guard refuses a gate on neutral-vector): fresh network C2-C5, owner decisions 10b/10c/Q2a: the v3 seat contest, the probation pool and T_PROB removed, inactivity removal only at a full set through an atomic registerReplacing, activeSlice view, M_max 10,000 gas domain (payees <= S_max+3), CP schema v2 renumbered; reachable only via the v3 sysCodeHash on a specVersion-2 genesis, which SPEC_VERSION=1 builds refuse; every spec-1 verdict, root and persisted byte unchanged"
 file f0df8f047b5797cec691129c3863f48981cde5debc345d0011ab62afe9d90c2f lp1-node/Cargo.toml
 file 8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502 lp1-node/src/asert.rs
 file 39cb326abf9bb24ce152f53de8da7fafd9e406550090c44f50db549f30c617d1 lp1-node/src/assignment.rs
 file 3ce9f7f85e0b59fe3cbcac91d53ca8c5ac2ed263ce5d379940c5a4d87143f519 lp1-node/src/decimal.rs
 file 6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3 lp1-node/src/fixed.rs
 file 5936a950c2224fad7a5dd1eb49dc92088396a1f7e51bf1c9f0c93198462e0389 lp1-node/src/genesis.rs
-file d4faea10e18a6a15affb654f2fb13fc8bfb8b960131b85d2265e1453e97b9944 lp1-node/src/genesis_spec.rs
+file 2fcc7e4ef2cfe0e25f2de966d1e4e0be42a4774d7276809324920fc08ad46049 lp1-node/src/genesis_spec.rs
 file afddb441713dfddf2c82fedf41a7be3d420fbf646e6d13e3e4de666abb43647e lp1-node/src/hashes.rs
 file a09453b770796abbe4624c2d3c4d4739f55dad51b61872d4642ff477d39c2314 lp1-node/src/header.rs
 file e65feef9efe5b60ee1b79316b2f19dd670ef3b43f5d6f75f18378006d4ac3171 lp1-node/src/hex.rs
 file 7ff965a553ef89cd061f4dd195ac9306404c2cdd16a3cc0343084cf102c34764 lp1-node/src/json.rs
-file b901f54d723a6d0378087d43222f7d0e80df201812843178bd1ee46fa6a56d72 lp1-node/src/profile.rs
+file 7ab040dfbc72ca6c3498026eb345fa4e20eea3ce330a969833dac9e6be5171c9 lp1-node/src/profile.rs
 file d800b3cb2e9d235b5db23556637947f9c140af919c7fed057881cd380d0826af lp1-node/src/rlp.rs
 file 3d4e1387808ce0ad35172553a09f5b7e6544b174d19b6eb4826bddda111ef4e5 lp1-node/src/timing.rs
 file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp1-node/src/trie.rs
 file d7a3c3fcbae35e06f916e7e147252b0234d650f48ceae07387912fc00576a61d lp1-node/tests/data/lp4-trie-vectors.json
 file 3c4a5310831bae732c1b31cd5de1d82e2a4b905f28e7b23581c0eb855c3eee61 lp4-execution/Cargo.toml
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 lp4-execution/rust-toolchain.toml
-file 688b1cf017bb84cfdfc5e8f54117a0d9745e289f06f87c8ae79c7900ed0a24eb lp4-execution/src/admission.rs
+file 79246cf86d4d1db6cbfca9d1e6aeaeeae9dd3c543822e48e09217020dec37c9d lp4-execution/src/admission.rs
 file 1b66ef4171f62d14e2976c4396bb8919e47dd8acf78c9f8ccb33becd632443ee lp4-execution/src/admission/scope.rs
-file 7ba1491fd5523ffd748529dd09c23632c14d4e0b4ed89490da50344c2fb3143f lp4-execution/src/apply.rs
+file 1fd4fd68ce4fc64ecf7c69366612288aea6e2712a5aab6ba32b730c30f4f2267 lp4-execution/src/apply.rs
 file d5369a58f2905aad2092c9b63cfef04f401636be74adf48481628e2343dbb4b3 lp4-execution/src/code_caps.rs
 file 49b3fba10a3421ed48d0766416df4ef5424a0ff71013a702d1ffb99b3ac14de9 lp4-execution/src/collision.rs
-file cca0eed3367789c853c00d5b317d8052a9adfdbfaa96e585a2b344b8e438622d lp4-execution/src/devnet.rs
+file 8deab05658e9e9bb996b422f738e16017541cd33d5d446e255bc96402c7095bc lp4-execution/src/devnet.rs
 file ed4d0b34f4be5bb98ea2ff0025a1cc6d9a0c64b704c46daf53a818b1504558f7 lp4-execution/src/fees.rs
 file 2edb8407a51b71fb25a67d9d918795db5fcc1b1462c4aedc04458fe108280472 lp4-execution/src/finality_core.rs
 file dd7c99bb356b9e06fea6734e290655c98530b139b337fef398dd85b10b907255 lp4-execution/src/genesis_builder.rs
@@ -62,10 +63,10 @@ file cee32d5ff893ba21ff2e9dc9fdbbd319db2918f9b425906b25f53e19a1f605bd lp4-execut
 file 3ce9f7f85e0b59fe3cbcac91d53ca8c5ac2ed263ce5d379940c5a4d87143f519 lp4-execution/src/p1_decimal.rs
 file 6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3 lp4-execution/src/p1_fixed.rs
 file 5936a950c2224fad7a5dd1eb49dc92088396a1f7e51bf1c9f0c93198462e0389 lp4-execution/src/p1_genesis.rs
-file d4faea10e18a6a15affb654f2fb13fc8bfb8b960131b85d2265e1453e97b9944 lp4-execution/src/p1_genesis_spec.rs
+file 2fcc7e4ef2cfe0e25f2de966d1e4e0be42a4774d7276809324920fc08ad46049 lp4-execution/src/p1_genesis_spec.rs
 file e65feef9efe5b60ee1b79316b2f19dd670ef3b43f5d6f75f18378006d4ac3171 lp4-execution/src/p1_hex.rs
 file 7ff965a553ef89cd061f4dd195ac9306404c2cdd16a3cc0343084cf102c34764 lp4-execution/src/p1_json.rs
-file b901f54d723a6d0378087d43222f7d0e80df201812843178bd1ee46fa6a56d72 lp4-execution/src/p1_profile.rs
+file 7ab040dfbc72ca6c3498026eb345fa4e20eea3ce330a969833dac9e6be5171c9 lp4-execution/src/p1_profile.rs
 file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp4-execution/src/p1_trie.rs
 file 11f42a408d8a7493f3c5432f40407860277295d78023680ad4d2c572870ba2b5 lp4-execution/src/pay.rs
 file 2d31ccbfe9e4719a68b91ae00cc87d8f550fd6ef50280372d17f90404aceaad1 lp4-execution/src/receipts.rs
@@ -100,7 +101,7 @@ file 148f0a5895bab4ec70c2f4fd9b6c5625718c2f0c8097c5657f846a36a1da331e lp4-execut
 file a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df lp4-execution/tests/data/system-epoch-witness.json
 file b6e317bad9edbfa51e7333054ef968fbebfff873511a7b5a6d73adc8d73b8192 lp4-execution/tests/data/system-registry-pre.json
 file 931086b0598354ddd07700b429c3ebec580e567ca1775e6e02980e9bed0c3ab0 lp4-execution/tests/data/system-v1.json
-file 0d3d3571d99e5ae66260b5100b731e2807de4c2131c207176b71225226b7b912 lp4-execution/tests/data/system-v3.json
+file 641ed392945719553812a40dfd29c0eae3e9cf2805bf2624e6b6f1caa05a93a6 lp4-execution/tests/data/system-v3.json
 file 553a45c9e8f334b1a82326a87e0350c33bba4529ab8d22f01f2b265193f3fb89 lp4-execution/tests/data/user-phase.json
 file 67cedea610a77f5205a98264e638e4801cf7e2798106496513d0420c061f4c02 lp4-execution/tests/data/wire-envelopes.json
 file bfae403b6ab41544cba18e3df33f1572c12ca91f283e3d781b76778794b12db1 pocold/Cargo.toml
@@ -108,7 +109,7 @@ file dc234b44c12833294d559d1df85a9081dd1de0ce57d45dc04be86df27dbfd984 pocold/bui
 file ca81b7274ddea725f73bcd8c3f1e847273d42287e98d8fe8be0516085221f060 pocold/consensus-boundary.txt
 file d738791f204eb705c4a9b86c991e0e6124d61595a55709b77255dfa0244bbc43 pocold/consensus_boundary.rs
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 pocold/rust-toolchain.toml
-file d854275fc6e94e4c536b5eb801095d117902466a9c43e3790c013c19e01cf736 pocold/src/chain.rs
+file eb884149c092d46c53beae6d7c2dfd0a4dbcf1a8cd0d19c627f497536777c3c6 pocold/src/chain.rs
 file 6f9b8b205db3331b905a861cc1aaa03d36a80c4a852769fddb2723ddcf1e3455 pocold/src/checkpoint.rs
 file bd5d0cd1c97b740221927592f61c0b1286a77d8cf319decec9204bd6c246b209 pocold/src/history.rs
 file 1d448e8ddd93c83fc05786ea884fc2fc5e5d58c308ac28b65fef658faa28f3c7 pocold/src/identity.rs
