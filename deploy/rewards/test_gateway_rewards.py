@@ -266,6 +266,321 @@ class GatewayV3NetworkTests(unittest.TestCase):
             self.assertIn('spec-2', result.stderr)
             self.assertNotIn('ConnectionRefusedError', result.stderr)
 
+def w0_word(status=1, tomb=0, bond_state=1, rec_pos=0, act_pos=0, last_share=0, registered_at=0):
+    return status | tomb << 8 | bond_state << 16 | rec_pos << 24 | act_pos << 56 | last_share << 88 | registered_at << 152
+
+def abi_two_arrays(ids, words):
+    n = len(ids); word = lambda v: v.to_bytes(32, 'big')
+    return '0x' + (word(64) + word(64 + 32 * (n + 1)) + word(n) + b''.join(map(word, ids)) + word(n) + b''.join(map(word, words))).hex()
+
+def selector(signature):
+    return '0x' + gateway.keccak256(signature.encode())[:4].hex()
+
+B_REG = 20 * 10**18
+LOW160 = (1 << 160) - 1
+NET = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
+
+class Registry:
+    """A mock v3 node: blocks, MinerRegistry lengths/activeSlice/recordWords/recordClocks/removalStatus and Caps.get
+    (B_reg 16, nonceMode 4, W_act 24). Records hold the stored words; recordWords masks w1 to the reward address and
+    recordClocks returns its clocks, as PoColSystemV3.sol does; lengths' fourth word is heldTotal (slot 4)."""
+    def __init__(self, members, records=None, removal=None, height=40, caps=None, held=0):
+        self.members = members                  # [(id int, w0)]
+        self.records = records or {}            # address -> (w0, w1, w2, w3)
+        self.removal = removal or {}
+        self.caps = {16: B_REG, 4: 1, 24: 720, **(caps or {})}
+        self.held = held
+        self.height, self.hashes = height, {}
+        self.calls = []
+    def head_hash(self, h):
+        return self.hashes.get(h, '0x' + format(h, '064x'))
+    def query(self, method, params):
+        self.calls.append((method, params))
+        ok = lambda v: {'jsonrpc': '2.0', 'id': 1, 'result': v}
+        if method == 'eth_getBlockByNumber':
+            h = self.height if params[0] == 'latest' else int(params[0], 16)
+            return ok({'number': hex(h), 'hash': self.head_hash(h)})
+        if method == 'eth_call':
+            to, data = params[0]['to'], params[0]['data']
+            assert params[1] == hex(self.height), 'every read at the head height'
+            sel, args = data[:10], data[10:]
+            if to == gateway.CAPS and sel == selector('get(uint256)'):
+                return ok('0x' + self.caps[int(args, 16)].to_bytes(32, 'big').hex())
+            assert to == gateway.REGISTRY
+            if sel == selector('lengths()'):
+                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in (len(self.members) + 3, len(self.members), 0, self.held)).hex())
+            if sel == selector('activeSlice(uint256,uint256)'):
+                start, count = int(args[:64], 16), int(args[64:], 16)
+                page = self.members[start:start + count]
+                return ok(abi_two_arrays([i for i, _ in page], [w for _, w in page]))
+            member = '0x' + args[-40:]
+            w0, w1, w2, w3 = self.records.get(member, (0, 0, 0, 0))
+            if sel == selector('recordWords(address)'):
+                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in (w0, w1 & LOW160, w2, w3)).hex())
+            if sel == selector('recordClocks(address)'):
+                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in (w1 >> 224, (w1 >> 160) & (1 << 64) - 1)).hex())
+            if sel == selector('removalStatus(address)'):
+                return ok('0x' + self.removal.get(member, 1).to_bytes(32, 'big').hex())
+        raise AssertionError(method)
+    def reads(self, method):
+        return [c for c in self.calls if c[0] == method]
+
+def v3_service(node, fork_schedule=gateway.DEFAULT_FORK_SCHEDULE):
+    service = gateway.Gateway(network=NET, fork_schedule=fork_schedule)
+    service.query = node.query
+    return service
+
+class GatewayMembershipTests(unittest.TestCase):
+    A = '0x' + '11' * 20
+
+    def test_membership_methods_and_their_bounds(self):
+        for params in ([0, 1], [0, 256], [9999, 256]):
+            self.assertTrue(gateway.valid_call(request('pocol_getMembers', params)))
+        for params in ([0, 257], [0, 0], [-1, 1], [10000, 1], [True, 1], [0, True], [0, 1.0], ['0x0', 1], [0], [0, 1, 2], [None, 1]):
+            with self.subTest(params=params): self.assertFalse(gateway.valid_call(request('pocol_getMembers', params)))
+        self.assertTrue(gateway.valid_call(request('pocol_getMember', [self.A])))
+        for params in ([], [self.A, 'latest'], ['0x11'], [self.A + '00'], [1]):
+            with self.subTest(params=params): self.assertFalse(gateway.valid_call(request('pocol_getMember', params)))
+        for method in ('pocol_getRemovable', 'pocol_finality'):
+            self.assertTrue(gateway.valid_call(request(method)))
+            self.assertFalse(gateway.valid_call(request(method, ['latest'])))
+        self.assertEqual(gateway.COSTS['pocol_getMember'], gateway.COSTS['pocol_getBlockReward'])
+        self.assertFalse(gateway.valid_call(request('eth_call', [{'to': gateway.REGISTRY, 'data': selector('lengths()')}, 'latest'])))
+
+    def test_every_bond_state_and_status_is_labelled(self):
+        expected = {0: 'NONE', 1: 'HELD', 2: 'BURNED', 3: 'PAID', 4: 'ACCRUING'}
+        for state, name in expected.items():
+            self.assertEqual(gateway.member_w0(w0_word(bond_state=state))['bondStateLabel'], name)
+        self.assertEqual([gateway.member_w0(w0_word(status=s))['statusLabel'] for s in (0, 1, 2)], ['NONE', 'ACTIVE', 'EXITED'])
+        for word in (w0_word(bond_state=5), w0_word(status=3)):
+            with self.assertRaises(RuntimeError): gateway.member_w0(word)
+
+    def test_members_page_carries_w0_fields_only_at_one_height(self):
+        members = [(0x11, w0_word(bond_state=1, last_share=39, registered_at=2, rec_pos=0, act_pos=0)),
+                   (0x22, w0_word(bond_state=4, last_share=30, registered_at=7, rec_pos=1, act_pos=1)),
+                   (0x33, w0_word(tomb=1, bond_state=2, last_share=5, registered_at=3, rec_pos=2, act_pos=2))]
+        node = Registry(members); service = v3_service(node)
+        answer = service.call(request('pocol_getMembers', [0, 256], ident=7))
+        self.assertEqual(answer['id'], 7)
+        result = answer['result']
+        self.assertEqual({k: result[k] for k in ('height', 'blockHash', 'active', 'start', 'count')},
+                         {'height': 40, 'blockHash': node.head_hash(40), 'active': 3, 'start': 0, 'count': 3})
+        self.assertEqual(result['members'][1], {'id': '0x' + format(0x22, '040x'), 'status': 1, 'statusLabel': 'ACTIVE', 'tomb': False,
+                                                'bondState': 4, 'bondStateLabel': 'ACCRUING', 'lastShare': 30, 'registeredAt': 7})
+        self.assertEqual([m['bondStateLabel'] for m in result['members']], ['HELD', 'ACCRUING', 'BURNED'])
+        self.assertTrue(result['members'][2]['tomb'])
+        for record in result['members']:
+            self.assertFalse({'bond', 'bondWei', 'rewardAddress', 'exitHeight'} & set(record))
+        self.assertEqual(len(node.reads('eth_call')), 2)
+
+    def test_paging_reads_only_the_requested_slice(self):
+        members = [(i + 1, w0_word(act_pos=i, rec_pos=i)) for i in range(300)]
+        node = Registry(members); service = v3_service(node)
+        first = service.call(request('pocol_getMembers', [0, 256]))['result']
+        self.assertEqual(first['count'], 256)
+        self.assertLess(len(json.dumps(first)), 64 * 1024, 'a full page stays far below the 4 MiB limits')
+        second = service.call(request('pocol_getMembers', [256, 256]))['result']
+        self.assertEqual((second['count'], second['members'][0]['id']), (44, '0x' + format(257, '040x')))
+        node.calls.clear()
+        empty = service.call(request('pocol_getMembers', [300, 10]))['result']
+        self.assertEqual((empty['count'], empty['members']), (0, []))
+        self.assertEqual([c[1][0]['data'][:10] for c in node.reads('eth_call')], [selector('lengths()')], 'no slice past the end')
+
+    def test_members_are_cached_per_head(self):
+        node = Registry([(0x11, w0_word())]); service = v3_service(node)
+        first = service.call(request('pocol_getMembers', [0, 1]))
+        node.calls.clear()
+        self.assertEqual(service.call(request('pocol_getMembers', [0, 1], ident=2))['result'], first['result'])
+        self.assertEqual(node.calls, [('eth_getBlockByNumber', ['latest', False])], 'one head read on a hit')
+        node.height = 41; node.members = [(0x11, w0_word(last_share=41))]
+        self.assertEqual(service.call(request('pocol_getMembers', [0, 1]))['result']['members'][0]['lastShare'], 41)
+
+    def test_a_block_replaced_while_reading_is_refused(self):
+        node = Registry([(0x11, w0_word())]); service = v3_service(node)
+        query = node.query
+        def moving(method, params):
+            answer = query(method, params)
+            if method == 'eth_call': node.hashes[40] = '0x' + 'ee' * 32
+            return answer
+        service.query = moving
+        answer = service.call(request('pocol_getMembers', [0, 1]))
+        self.assertEqual(answer['error']['code'], -32022)
+        self.assertEqual(service.member_cache, {})
+
+    def test_malformed_active_slices_are_refused(self):
+        for members in ([(0, w0_word())], [(0x11, w0_word(status=2))], [(0x11, w0_word(bond_state=9))]):
+            node = Registry(members); service = v3_service(node)
+            with self.subTest(members=members):
+                self.assertEqual(service.call(request('pocol_getMembers', [0, 1]))['error']['code'], -32000)
+        node = Registry([(0x11, w0_word())]); service = v3_service(node)
+        query = node.query
+        service.query = lambda m, p: ({'jsonrpc': '2.0', 'id': 1, 'result': '0x' + '00' * 64}
+                                      if m == 'eth_call' and p[0]['data'].startswith(selector('activeSlice(uint256,uint256)')) else query(m, p))
+        self.assertEqual(service.call(request('pocol_getMembers', [0, 1]))['error']['code'], -32000)
+
+    def member(self, w0, w1=0, w2=0, w3=0, removal=1):
+        node = Registry([], {self.A: (w0, w1, w2, w3)}, {self.A: removal}); service = v3_service(node)
+        answer = service.call(request('pocol_getMember', [self.A.upper().replace('0X', '0x')]))
+        return answer.get('result', answer), node
+
+    def test_member_decodes_all_four_words_and_the_removal_verdict(self):
+        reward = 0x99 * (1 << 152) + 0x1234
+        w1 = reward | 17 << 160 | 0xfffffff0 << 224
+        w3 = 30 | 30 + 720 << 64 | 0 << 128 | 12 << 192
+        record, node = self.member(w0_word(status=1, bond_state=1, rec_pos=4, act_pos=3, last_share=39, registered_at=2),
+                                   w1, B_REG, w3, removal=4)
+        self.assertEqual({k: record[k] for k in ('address', 'exists', 'status', 'statusLabel', 'bondStateLabel', 'recPos', 'actPos',
+                                                 'lastShare', 'registeredAt', 'rewardAddress', 'lastReactHeight', 'lastMaintHeightMod32',
+                                                 'bondWei', 'bondTargetWei', 'exitHeight', 'dueHeight', 'burnHeight', 'graceStart',
+                                                 'removal', 'removalLabel', 'proposerEligible', 'height')},
+                         {'address': self.A, 'exists': True, 'status': 1, 'statusLabel': 'ACTIVE', 'bondStateLabel': 'HELD', 'recPos': 4,
+                          'actPos': 3, 'lastShare': 39, 'registeredAt': 2, 'rewardAddress': '0x' + reward.to_bytes(20, 'big').hex(),
+                          'lastReactHeight': 17, 'lastMaintHeightMod32': 0xfffffff0, 'bondWei': str(B_REG), 'bondTargetWei': str(B_REG),
+                          'exitHeight': 30, 'dueHeight': 750, 'burnHeight': 0, 'graceStart': 12, 'removal': 4,
+                          'removalLabel': 'RECENTLY_ACTIVE', 'proposerEligible': True, 'height': 40})
+        # B_reg, then nonceMode (fork version 1 at the next height): a HELD record needs no other member.
+        self.assertEqual([c[1][0]['to'] for c in node.reads('eth_call')], [gateway.REGISTRY] * 3 + [gateway.CAPS] * 2)
+        self.assertEqual([c[1][0]['data'][:10] for c in node.reads('eth_call')][:3],
+                         [selector('recordWords(address)'), selector('recordClocks(address)'), selector('removalStatus(address)')])
+        self.assertEqual(len(node.reads('eth_getBlockByNumber')), 2, 'the head and its re-check')
+        self.assertLessEqual(len(node.calls), gateway.MEMBER_READS_MAX)
+
+    def test_member_clocks_come_from_record_clocks_not_the_masked_reward_word(self):
+        reward = 0x42 * (1 << 152) + 7
+        record, node = self.member(w0_word(), reward | 123456789 << 160 | 99 << 224)
+        self.assertEqual((record['rewardAddress'], record['lastReactHeight'], record['lastMaintHeightMod32']),
+                         ('0x' + reward.to_bytes(20, 'big').hex(), 123456789, 99))
+        self.assertEqual(self.member(w0_word(), reward)[0]['lastReactHeight'], 0, 'a record never reactivated')
+        # A node answering recordWords with an unmasked w1, or recordClocks out of range, is not the v3 registry.
+        node = Registry([], {self.A: (w0_word(), reward, 0, 0)}, {self.A: 1}); service = v3_service(node)
+        query = node.query
+        def wide(field):
+            def answer(m, p):
+                if m == 'eth_call' and p[0]['data'].startswith(selector('recordWords(address)')) and field == 'w1':
+                    return {'jsonrpc': '2.0', 'id': 1, 'result': '0x' + b''.join(v.to_bytes(32, 'big') for v in (w0_word(), reward | 1 << 160, 0, 0)).hex()}
+                if m == 'eth_call' and p[0]['data'].startswith(selector('recordClocks(address)')) and field != 'w1':
+                    values = (1 << 32, 0) if field == 'maint' else (0, 1 << 64)
+                    return {'jsonrpc': '2.0', 'id': 1, 'result': '0x' + b''.join(v.to_bytes(32, 'big') for v in values).hex()}
+                return query(m, p)
+            return answer
+        for field in ('w1', 'maint', 'react'):
+            service.query = wide(field); service.member_cache.clear()
+            with self.subTest(field=field):
+                self.assertEqual(service.call(request('pocol_getMember', [self.A]))['error']['code'], -32000)
+
+    def draw(self, records, held=None, caps=None, schedule=gateway.DEFAULT_FORK_SCHEDULE, extra=()):
+        """proposerEligible of every record in `records` (address -> (w0, bond, graceStart), all on the ActList in that
+        order, `extra` too) at head 40, from one gateway, and the node."""
+        everything = {**records, **dict(extra)}
+        node = Registry([(int(a, 16), r[0]) for a, r in everything.items()],
+                        {a: (w0, 0, bond, grace << 192) for a, (w0, bond, grace) in everything.items()},
+                        caps=caps, held=sum(r[1] for r in everything.values()) if held is None else held)
+        service = v3_service(node, schedule)
+        return {a: service.call(request('pocol_getMember', [a]))['result']['proposerEligible'] for a in records}, node
+
+    def test_accruing_proposer_eligibility_follows_the_quarter_bond_rule(self):
+        # Mixed membership: a HELD member is a candidate, so the draw excludes an ACCRUING one below B_reg/4.
+        B = '0x' + '22' * 20
+        for bond, eligible in ((B_REG // 4, True), (B_REG // 4 - 1, False), (B_REG - 1, True), (0, False)):
+            with self.subTest(bond=bond):
+                answer, _ = self.draw({self.A: (w0_word(bond_state=4), bond, 0), B: (w0_word(bond_state=1), B_REG, 0)})
+                self.assertEqual(answer, {self.A: eligible, B: True})
+        record, _ = self.member(w0_word(bond_state=4), w2=B_REG // 4)
+        self.assertEqual((record['bondStateLabel'], record['proposerEligible']), ('ACCRUING', True))
+        record, node = self.member(w0_word(bond_state=4, tomb=1), w2=B_REG)
+        self.assertFalse(record['proposerEligible'], 'a tomb is never drawn')
+        self.assertEqual(node.reads('eth_call')[4:], [], 'nothing read past the record and B_reg for a tomb')
+        # bondState NONE, BURNED or PAID on a live active record is not a probationer: the draw keeps it a candidate.
+        for state in (0, 2, 3):
+            with self.subTest(state=state):
+                answer, _ = self.draw({self.A: (w0_word(bond_state=4), 0, 0), B: (w0_word(bond_state=state), 0, 0)})
+                self.assertEqual(answer, {self.A: False, B: True})
+
+    def test_all_probationers_below_the_quarter_bond_keep_the_draw_exception(self):
+        # DrawWeights::new: with every member of A_h* ACCRUING below B_reg/4, every member is a candidate
+        # (pocold tests/v3_membership.rs all_probationers_below_the_quarter_bond_retain_the_owner_approved_draw_exception).
+        B, C = '0x' + '22' * 20, '0x' + '33' * 20
+        quarter = B_REG // 4
+        records = {self.A: (w0_word(bond_state=4), 0, 0), B: (w0_word(bond_state=4), quarter - 1, 0), C: (w0_word(bond_state=4), 5, 0)}
+        answer, node = self.draw(records)
+        self.assertEqual(answer, {self.A: True, B: True, C: True})
+        slices = [c for c in node.reads('eth_call') if c[1][0]['data'].startswith(selector('activeSlice(uint256,uint256)'))]
+        self.assertEqual(len(slices), 1, 'the ActList is read once per head for all three')
+        # heldTotal below the quarter bounds every bond: no other record is read.
+        answer, node = self.draw({self.A: (w0_word(bond_state=4), 0, 0), B: (w0_word(bond_state=4), 1, 0)})
+        self.assertEqual(answer, {self.A: True, B: True})
+        self.assertEqual(len([c for c in node.reads('eth_call') if c[1][0]['data'].startswith(selector('recordWords(address)'))]), 2)
+        # One member reaching the quarter (still ACCRUING) ends the exception for the others.
+        answer, _ = self.draw({**records, C: (w0_word(bond_state=4), quarter, 0)})
+        self.assertEqual(answer, {self.A: False, B: False, C: True})
+        # A tomb is not in A_h*: a tombed HELD member does not end it.
+        answer, _ = self.draw(records, extra={'0x' + '44' * 20: (w0_word(bond_state=1, tomb=1), B_REG, 0)})
+        self.assertEqual(answer, {self.A: True, B: True, C: True})
+        # More unknown bonds than DRAW_RECORDS_MAX: not decided, reported as null rather than guessed.
+        many = {'0x' + format(0x1000 + i, '040x'): (w0_word(bond_state=4), 0, 0) for i in range(gateway.DRAW_RECORDS_MAX + 1)}
+        answer, node = self.draw({self.A: (w0_word(bond_state=4), 0, 0)}, held=B_REG, extra=many)
+        self.assertEqual(answer, {self.A: None})
+        self.assertLessEqual(len(node.calls), gateway.MEMBER_READS_MAX + gateway.DRAW_READS_MAX)
+
+    def test_a_bounded_nonce_domain_draws_from_the_recently_active_members(self):
+        # nonceMode 0 at fork version 1: A_h* is the members with lastShare or graceStart >= 41 - W_act unless none is.
+        B = '0x' + '22' * 20
+        bounded = {4: 0, 24: 10}
+        probationer = (w0_word(bond_state=4, last_share=35), 0, 0)
+        answer, _ = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 30)}, caps=bounded)
+        self.assertEqual(answer, {self.A: True, B: False}, 'B is outside A_h*, so A is the only (probationer) member')
+        answer, _ = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 31)}, caps=bounded)
+        self.assertEqual(answer, {self.A: False, B: True}, 'graceStart 31 keeps B in A_h*')
+        answer, _ = self.draw({self.A: (w0_word(bond_state=4, last_share=5), 0, 0), B: (w0_word(bond_state=1, last_share=5), B_REG, 0)}, caps=bounded)
+        self.assertEqual(answer, {self.A: False, B: True}, 'nobody active: every live member')
+        # The full nonce domain from fork version 2 at the next height: every live member, whatever nonceMode says.
+        answer, node = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 0)}, caps=bounded,
+                                 schedule=[[1, 0], [2, 41]])
+        self.assertEqual(answer, {self.A: False, B: True})
+        self.assertNotIn(4, [int(c[1][0]['data'][10:], 16) for c in node.reads('eth_call') if c[1][0]['to'] == gateway.CAPS])
+
+    def test_exited_victims_burned_paid_and_absent_records(self):
+        record, _ = self.member(w0_word(status=2, bond_state=1), w2=B_REG, w3=50 | 770 << 64)
+        self.assertEqual((record['statusLabel'], record['exitHeight'], record['dueHeight'], record['proposerEligible'], record['removalLabel']),
+                         ('EXITED', 50, 770, False, 'NOT_LIVE_ACTIVE'))
+        self.assertEqual(self.member(w0_word(status=2, tomb=1, bond_state=2), w3=9 << 128)[0]['bondStateLabel'], 'BURNED')
+        self.assertEqual(self.member(w0_word(status=2, bond_state=3))[0]['bondStateLabel'], 'PAID')
+        record, _ = self.member(0)
+        self.assertEqual((record['exists'], record['statusLabel'], record['bondStateLabel'], record['bondWei']), (False, 'NONE', 'NONE', '0'))
+        for code, name in gateway.REMOVAL_LABELS.items():
+            self.assertEqual(self.member(w0_word(), removal=code)[0]['removalLabel'], name)
+        self.assertEqual(self.member(w0_word(), removal=5)[0]['error']['code'], -32000)
+
+    def test_membership_needs_a_configured_v3_network(self):
+        service = gateway.Gateway()
+        service.query = lambda m, p: (_ for _ in ()).throw(AssertionError('no node read'))
+        for r in (request('pocol_getMembers', [0, 1]), request('pocol_getMember', [self.A])):
+            self.assertEqual(service.call(r)['error']['code'], -32000)
+
+    def test_removable_and_finality_are_forwarded(self):
+        seen = []
+        service = gateway.Gateway(network=NET)
+        service.query = lambda m, p: seen.append((m, p)) or {'jsonrpc': '2.0', 'id': 1, 'result': {'method': m}}
+        for method in ('pocol_getRemovable', 'pocol_finality'):
+            self.assertEqual(service.call(request(method))['result'], {'method': method})
+        self.assertEqual(seen, [('pocol_getRemovable', []), ('pocol_finality', [])])
+
+    def test_requests_are_charged_by_method_cost(self):
+        service = gateway.Gateway(network=NET); costs = []
+        service.charge = lambda cost: costs.append(cost) or False
+        server = gateway.Server(('127.0.0.1', 0), service)
+        thread = threading.Thread(target=server.serve_forever, daemon=True); thread.start()
+        try:
+            import http.client
+            body = json.dumps([request('pocol_getMember', [self.A], 1), request('pocol_getMembers', [0, 256], 2),
+                               request('pocol_getRemovable', ident=3), request('pocol_finality', ident=4)])
+            conn = http.client.HTTPConnection('127.0.0.1', server.server_port, timeout=3)
+            conn.request('POST', '/rpc', body, {'Content-Type': 'application/json'})
+            self.assertEqual(conn.getresponse().status, 429); conn.close()
+        finally:
+            server.shutdown(); server.server_close(); thread.join()
+        self.assertEqual(costs, [20 + 5 + 10 + 1])
+
 
 if __name__ == '__main__':
     unittest.main()

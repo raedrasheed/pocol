@@ -16,8 +16,9 @@ The Python tests (`test_site_identity.py`) switch a temporary copy of the snapsh
 every `--check` refusal, and guard `config.php`: none is tracked, `.gitignore` ignores it, the tool never reads one,
 and `explorer.pocol.net/api/.htaccess` keeps its deny rule.
 
-The PHP test needs PHP 8, curl and POSIX functions on Linux. Its 41 checks exercise
-the actual request/response validators, pinned summary identity/branch consistency,
+The PHP test needs PHP 8, curl and POSIX functions on Linux. Its 67 checks exercise
+the actual request/response validators (including the v3 membership and finality
+reads and their bounds), pinned summary identity/branch consistency,
 exact reward arithmetic and private cache/lock handling with injectable transports.
 It does not start a PHP web server or validate the production host configuration.
 
