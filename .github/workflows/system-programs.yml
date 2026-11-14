@@ -11,7 +11,7 @@ name: System programs reproduction
 # (tests/v3/late-share-vectors.json) replayed on the bytecode with five planted MinerRegistry/ShareLedger mutants, the
 # kind-3 validity vectors (tests/v3/late-share-validity-vectors.json, 17 planted model mutants each failing one) replayed
 # through pocold's chain.rs rules, and under v3-preview real v3 chains (pocold/tests/v3_late_shares.rs: omission,
-# negative cases on a branch, reorg, restart and checkpoint, cutover rebuild, the proposer's cache) and recordLate's SYS
+# negative cases on a branch, reorg, restart and checkpoint, a rebuild through slimmed entries, the proposer's cache) and recordLate's SYS
 # gas against GAS_ENVELOPE_V3. V3-PR-E2a adds issuance M3, the carry and the tip split (V3-19, V3-15, V3-20): the
 # model's issuance-carry scenarios (tests/v3/issuance-carry-vectors.json, eight planted model mutants; the carry lagged
 # by one block, so the last carrier of a template gains nothing by omitting its late shares) replayed on the

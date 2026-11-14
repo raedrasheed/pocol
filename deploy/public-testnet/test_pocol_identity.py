@@ -2,14 +2,12 @@
 import hashlib
 import json
 from pathlib import Path
-import re
 import struct
 import unittest
 
 import pocol_identity as ident
 
 H15000 = Path(__file__).resolve().parents[1] / 'mainnet' / 'h15000' / 'network.pocol.json'
-LAUNCHER = Path(__file__).resolve().parents[2] / 'prototypes' / 'pocold' / 'src' / 'launcher.rs'
 GENESIS = 'be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 # Pinned also by pocold identity::tests::the_h15000_identity_is_pinned.
 GOLDEN = 'bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110'
@@ -118,38 +116,6 @@ class ConsensusIdentity(unittest.TestCase):
                     [[1, 0]] * 17, [[1, 0], [2, 1 << 64]]):
             with self.assertRaises(ValueError, msg=bad):
                 ident.validated_schedule(bad)
-
-
-    def test_the_legacy_mirror_equals_the_launcher_table(self):
-        # Lexical: every Legacy { .. } literal in LEGACY_BUILDS, so the Python tools certify exactly what pocol does.
-        source = LAUNCHER.read_text(encoding='utf-8')
-        table = re.search(r'pub const LEGACY_BUILDS: &\[Legacy\] = &\[(.*?)\];', source, re.S)
-        self.assertIsNotNone(table, 'LEGACY_BUILDS not found in launcher.rs')
-        def value(text):
-            text = text.strip()
-            if text == 'None': return None
-            some = re.fullmatch(r'Some\("([^"]*)"\)', text)
-            if some: return some[1]
-            return text[1:-1] if text.startswith('"') else int(text)
-        names = {'digest': 'digest', 'rules': 'rules', 'chain_id': 'chainId', 'genesis_hash': 'genesisHash',
-                 'sources': 'sources', 'certified': 'certified'}
-        entries = []
-        for body in re.findall(r'Legacy \{(.*?)\}', table[1], re.S):
-            fields = dict(re.findall(r'(\w+):\s*((?:Some\("[^"]*"\))|None|"[^"]*"|[0-9]+)', body))
-            self.assertEqual(set(fields), set(names), body)
-            entries.append({names[k]: value(v) for k, v in fields.items()})
-        self.assertEqual(tuple(entries), ident.LEGACY_BUILDS)
-
-    def test_a_legacy_build_has_rules_only_when_certified_and_on_its_own_chain(self):
-        entry = dict(ident.LEGACY_BUILDS[0])
-        args = (entry['digest'], entry['chainId'], entry['genesisHash'])
-        self.assertIsNone(ident.legacy_rules(*args), 'shipped uncertified (owner decision D1)')
-        certified = (dict(entry, certified='evidence'),)
-        self.assertEqual(ident.legacy_rules(*args, table=certified), 1)
-        self.assertEqual(ident.legacy_rules(entry['digest'].upper(), entry['chainId'], entry['genesisHash'].upper(), table=certified), 1)
-        for other in ((('f' * 64),) + args[1:], (args[0], 7, args[2]), (args[0], args[1], '0x' + '00' * 32),
-                      (None, args[1], args[2]), (args[0], True, args[2])):
-            self.assertIsNone(ident.legacy_rules(*other, table=certified), other)
 
 
 if __name__ == '__main__':

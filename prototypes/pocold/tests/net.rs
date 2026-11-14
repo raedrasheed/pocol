@@ -153,19 +153,15 @@ fn second_implementation_id(chain_id:u64,genesis:&[u8;32],rules:u32,flags:u8,for
     assert_eq!((st["consensusRulesVersion"].as_u64(),st["protocolVersionMin"].as_u64(),st["consensusPinned"].as_bool()),(Some(1),Some(2),Some(true)));
     assert_eq!(live(&r),1,"and stays connected");
 }
-/// T16 (attack A2-4): a first frame that is PoCol 0.4.0's 9-item Hello is still refused by arity, and counted in
-/// status (legacyHellos), so seeds can tell 0.4.0 nodes are still trying.
-#[test] fn a_legacy_hello_is_counted(){let _g=serial();
-    let r=start("legacy-hello",small());
+/// T16 (attack A2-4): a first frame that is the previous 9-item Hello (no listenPort and nonce) is refused by arity.
+#[test] fn the_previous_nine_item_hello_is_refused(){let _g=serial();
+    let r=start("nine-item-hello",small());
     let mut p=Vec::new();let int=|v:u64,o:&mut Vec<u8>|{let b=v.to_be_bytes();let f=b.iter().position(|x|*x!=0).unwrap_or(8);pocold::rlp::encode_bytes(&b[f..],o)};
     int(0,&mut p);int(r.chain_id,&mut p);pocold::rlp::encode_bytes(&r.genesis,&mut p);pocold::rlp::encode_bytes(&r.genesis,&mut p);int(0,&mut p);
     pocold::rlp::encode_bytes(&[0;32],&mut p);pocold::rlp::encode_bytes(b"old",&mut p);int(2,&mut p);pocold::rlp::encode_bytes(&[7;32],&mut p);
-    let mut o=Vec::new();pocold::rlp::encode_list_payload(&p,&mut o);assert!(net::legacy_hello(&o));
+    let mut o=Vec::new();pocold::rlp::encode_list_payload(&p,&mut o);assert_eq!(Msg::decode(&o),Err("arity".into()));
     let mut f=(o.len() as u32).to_be_bytes().to_vec();f.extend(o);
     let mut s=connect(&r);s.write_all(&f).unwrap();assert!(closed(&mut s),"refused by arity");
-    assert!(wait_until(1500,||status_of(&r)["legacyHellos"]==1),"counted: {}",status_of(&r)["legacyHellos"]);
-    let mut s=connect(&r);s.write_all(&frame(&Msg::GetAddr)).unwrap();assert!(closed(&mut s));
-    std::thread::sleep(Duration::from_millis(200));assert_eq!(status_of(&r)["legacyHellos"],1,"another bad first frame is not a legacy Hello");
     assert_eq!(status_of(&r)["compatiblePeers"],0);
 }
 

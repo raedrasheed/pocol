@@ -302,8 +302,8 @@ mod preview{
         }
     }
 
-    #[test]fn old_preview_journal_without_timing_refuses_to_invent_history(){
-        let n=net(true);let g=n.chain.head;let b=block(&n,g,true,0,0);let d=dir("old-preview");let src=dir("timed-source");
+    #[test]fn a_journal_record_without_timing_refuses_to_invent_history(){
+        let n=net(true);let g=n.chain.head;let b=block(&n,g,true,0,0);let d=dir("untimed");let src=dir("timed-source");
         {let mut node=Node::open(config(&src,false),spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);at(&mut node,&b,tj);}
         let legacy={let r=store::open(&src,&g).unwrap();let p=r.payload(0).unwrap();let rec=store::decode_record_ref(&p).unwrap();store::encode_record(rec.header,rec.body,rec.result)};
         std::fs::remove_dir_all(src).unwrap();

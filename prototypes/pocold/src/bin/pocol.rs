@@ -53,11 +53,9 @@ fn command() -> Result<(), String> {
         // Passphrase-encrypted key backup (CRY-02): the passphrase is read from stdin, never from an argument.
         "export-key" => &["--home", "--out"], "inspect-key-backup" => &["--home", "--backup"],
         "import-key" => &["--home", "--backup", "--replace"],
-        // V3-33 re-genesis conduct: this node's freeze of user transactions after height S (saved in the home).
-        "freeze-user-txs" => &["--home", "--after"],
         "network" => &["--from", "--seed", "--bootstrap", "--seeds-retired", "--out"], "inspect" => &["--network"],
         "build-info" => { println!("{}", pocold::readiness::build_info()); return Ok(()); }
-        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE | export-key [--home DIR] --out FILE | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] | freeze-user-txs [--home DIR] [--after HEIGHT|off] (key backup passphrases are read from stdin: export-key reads it twice)".into()),
+        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE | export-key [--home DIR] --out FILE | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice)".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();
     if rest.len() % 2 != 0 {
@@ -121,17 +119,6 @@ fn command() -> Result<(), String> {
         let (file, address) = home.export_key_backup(&pass)?;
         write_new_private(out, &file)?;
         println!("{}", serde_json::json!({"address": address, "backup": out}));
-        return Ok(());
-    }
-    if command == "freeze-user-txs" {
-        // Without --after: the saved setting and whether it applies to this home's network. With it: saved (a height, for
-        // the network the home is bound to) or removed (off); used from the next start.
-        let home = Home::open_existing(&home_path, command)?;
-        let out = match get("--after") {
-            None => home.describe_user_tx_freeze()?,
-            Some(v) => home.set_user_tx_freeze(pocold::node::parse_freeze(v).map_err(|e| format!("--after {v}: {e}"))?)?,
-        };
-        println!("{out}");
         return Ok(());
     }
     if command == "inspect-key-backup" || command == "import-key" {

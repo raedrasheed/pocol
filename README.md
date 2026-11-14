@@ -197,7 +197,7 @@ flowchart TD
 
 | File                                   | Responsibility                                                                    |
 | -------------------------------------- | --------------------------------------------------------------------------------- |
-| `src/main.rs`                          | Command line: `init-devnet`, `init-testnet`, `cutover`, `run`, `status`, `build-info`, `help`; no or an unknown command exits 2 |
+| `src/main.rs`                          | Command line: `init-devnet`, `init-testnet`, `run`, `status`, `build-info`, `help`; no or an unknown command exits 2 |
 | `src/node.rs`                          | Event loop: import, validation, mempool, templates, recovery at open              |
 | `src/chain.rs`                         | Block tree, work-based fork choice, reorganization, retention, side blocks        |
 | `src/miner.rs`                         | Mining inside the assigned range, shares                                          |

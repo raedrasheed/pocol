@@ -183,17 +183,6 @@ class ReleasePackageTests(unittest.TestCase):
                     self.assertEqual({p.name for p in (self.root / 'dist').iterdir()}, {'build-info.json'})
                     shutil.rmtree(self.root / 'dist')
 
-    def test_a_certified_legacy_entry_must_name_the_packaged_consensus_sources(self):
-        self.native_fixture()
-        text = self.identity.read_text(encoding='utf-8')
-        certified = text.replace("'sources': None, 'certified': None", "'sources': '%s', 'certified': 'evidence'")
-        self.assertNotEqual(certified, text, 'the shipped mirror is uncertified')
-        self.identity.write_text(certified % ('f' * 64), encoding='utf-8')
-        with self.assertRaisesRegex(SystemExit, 'rerun the replay'): self.package('Linux')
-        shutil.rmtree(self.root / 'dist')
-        self.identity.write_text(certified % self.build['consensusSourcesSha256'], encoding='utf-8')
-        self.metadata(self.expanded(self.package('Linux')))
-
     def test_release_info_names_the_consensus_identity_only_of_a_matching_v2_invitation(self):
         self.native_fixture()
         # The network package.py names (switched with it at the cutover), so no identity is pinned here.

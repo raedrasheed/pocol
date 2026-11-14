@@ -1127,6 +1127,8 @@ fork; a restart test. **Effort:** S. **Risk:** low.
   block after S, whoever proposed it. A saved launcher or inventory setting names its network and is not applied
   to the new one. The cutover can write the export in the same run (`--export-chain`), rebuilding the state at S
   once. The Android export build is the existing key-backup work. Nothing was run on a real network.
+  The freeze, the export and the cutover were removed in fresh-network phase 2a after the owner's 2026-11-13
+  decision to launch a brand-new network (no re-genesis of the old chain); read them at commit `d24843d`.
 - **NODE-LOCAL parts:**
   - a builder flag that includes no user transactions after S, so nothing is voided;
   - publish old-chain data and rebuild instructions;

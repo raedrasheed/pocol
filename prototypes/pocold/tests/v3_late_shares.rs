@@ -407,15 +407,17 @@ mod preview{
         }
     }
 
-    /// The cutover's rebuild (cutover::rebuild_at) re-executes carriers whose kind-3 evidence reads slimmed ancestors (the
-    /// template and an earlier carrier): it restores them as it does for type 2 and reaches the same state as a node
-    /// that never slims.
+    /// A pruned state's rebuild (`Node::rebuild_state`, the node's own re-execution path) re-executes carriers whose
+    /// kind-3 evidence reads slimmed ancestors (the template and an earlier carrier): the evidence walk restores them
+    /// as it does for type 2 (a walk that still meets a slimmed entry answers NeedsRebuild, which the test's `rebuild`
+    /// answers by restoring that entry and the slimmed canonical entries in the E_win heights below it; import instead
+    /// restores only the named entry per try), and the rebuild reaches the same state as a node that never slims.
     #[test]
-    fn a_cutover_style_rebuild_through_slimmed_entries_with_late_shares(){
+    fn a_rebuild_through_slimmed_entries_with_late_shares(){
         let mut n=net(2);let one=n.ids[0];
         let (mut blocks,m4)=omitted_chain(&mut n);let o=m4.omitted.clone();
         for items in [vec![late_encode(4,&o[..2])],vec![late_encode(4,&o[2..3])]]{let m=mine(&n,n.chain.head,items,true,one,&[],8,0);accept(&mut n,&m.block);blocks.push(m.block);}
-        let s=n.chain.head().height;let at_s=n.chain.head;
+        let at_s=n.chain.head;
         for _ in 0..40{let m=mine(&n,n.chain.head,vec![],true,one,&[],8,0);accept(&mut n,&m.block);blocks.push(m.block);}
         let mut roots=Vec::new();
         for (tag,depth) in [("rb-slim",3u64),("rb-full",u64::MAX)]{
@@ -424,12 +426,32 @@ mod preview{
             let mut node=Node::open(node_config(&d,limits()),spec_of(&n.cfg)).unwrap();
             assert!(node.chain.view_of(&at_s).is_none(),"the state at S is pruned before the rebuild");
             if depth==3{for h in [m4.block.hash(),blocks[4].hash()]{assert!(node.chain.get(&h).unwrap().slim,"positive control: the template and the first carrier are slimmed");}}
-            let rounds=pocold::cutover::rebuild_at(&mut node,&at_s,s).unwrap();assert!(rounds>=1);
+            let rounds=rebuild(&mut node,&at_s);assert!(rounds>=1);
             let st=node.chain.view_of(&at_s).unwrap();
             assert_eq!(apply::share_count(st.v(),4,n.ids[1]),3,"both carriers' credits");
             roots.push((rounds,pocold::chain::whole_state(st.v()).accounts.len()));
             drop(st);drop(node);let _=std::fs::remove_dir_all(&d);
         }
         assert_eq!(roots[0].1,roots[1].1);
+    }
+    /// The state of `hash` rebuilt through `Node::rebuild_state`, restoring (`Node::unslim`) a slimmed entry that a walk
+    /// meets and the slimmed canonical entries in the E_win heights below it, then trying again. Every round but the
+    /// last restores a slimmed entry, so the bound only turns a fault into a failure. Returns the rounds used.
+    fn rebuild(node:&mut Node,hash:&[u8;32])->u32{
+        let rounds=1+node.chain.blocks.values().filter(|e|e.slim).count() as u32;
+        let e_win=u64::from(node.chain.spec.cp().E_win);
+        for round in 1..=rounds{
+            match node.rebuild_state(hash){
+                Ok(())=>return round,
+                Err(Reject::NeedsRebuild(p)) if node.chain.get(&p).is_some_and(|e|e.slim)=>{
+                    let ph=node.chain.get(&p).map_or(0,|e|e.height);
+                    let mut restore=vec![p];
+                    restore.extend((ph.saturating_sub(e_win)..ph).filter_map(|h|node.chain.canonical_at(h)).filter(|e|e.slim).map(|e|e.hash));
+                    for x in restore{node.unslim(&x).unwrap();}
+                }
+                r=>panic!("rebuild: {r:?}"),
+            }
+        }
+        panic!("rebuild: no state after {rounds} rounds")
     }
 }

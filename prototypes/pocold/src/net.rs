@@ -496,15 +496,8 @@ impl Msg{
 
 pub type PeerId=u64;
 #[derive(Debug)]
-/// `Legacy`: the connection's first frame was PoCol 0.4.0's 9-item Hello (`legacy_hello`); its Closed follows.
 /// `DialFailed`: an automatic outbound slot's dial failed or its connection was not handed over (`slot`).
-pub enum NetEvent{Connected(PeerId,Peer),Message(PeerId,Msg),Closed(PeerId),Legacy(PeerId),DialFailed(u8,SocketAddr,DialError)}
-/// Whether `b` is a list whose first item is type 0 (Hello) with the nine items of the PoCol 0.4.0 Hello (no listenPort
-/// and nonce, VA-SPEC §1a.1). It is only counted and logged: such a peer is refused by arity as before.
-pub fn legacy_hello(b:&[u8])->bool{
-    let Ok(it)=rlp::decode(b) else{return false};let Some(f)=it.list() else{return false};
-    f.len()==9&&f.first().and_then(|x|x.bytes()).is_some_and(|t|t.is_empty())
-}
+pub enum NetEvent{Connected(PeerId,Peer),Message(PeerId,Msg),Closed(PeerId),DialFailed(u8,SocketAddr,DialError)}
 /// How a connection came about: accepted by the listener, or dialed by this node for a configured peer (`dial`)
 /// or by an automatic outbound slot (VA-SPEC §1a.7). A dialed connection keeps the address it was dialed at, and
 /// the node's outbound bookkeeping is keyed by that address, never by the one the socket reports (H2).
@@ -656,8 +649,7 @@ fn spawn_peer(stream:TcpStream,origin:Origin,events:SyncSender<NetEvent>,net:Net
             // Before the Hello the whole handshake frame must also meet the Hello deadline.
             let frame_by=Instant::now()+l.frame_deadline;let frame_by=if hello{frame_by}else{frame_by.min(wait)};
             let mut buf=vec![0u8;n];if !read_by(&mut r,&mut buf,frame_by,&rpeer.out.closed){break}
-            // A first frame that is PoCol 0.4.0's 9-item Hello is named, so a node still meeting 0.4.0 peers can tell.
-            let Ok(m)=Msg::decode(&buf) else{if !hello&&legacy_hello(&buf){let _=events.send(NetEvent::Legacy(id));}break};
+            let Ok(m)=Msg::decode(&buf) else{break};
             if !hello{
                 // Nothing but a Hello is accepted before the handshake.
                 if !matches!(m,Msg::Hello{..}){break}
@@ -841,7 +833,6 @@ mod tests{
         assert_eq!(Msg::decode(&raw(&[bin(&[0,1]),bin(&[5;8])])),Err("int".into()),"a port with a leading zero");
         for len in [0,7,9]{assert_eq!(Msg::decode(&raw(&[int(1),bin(&vec![5;len])])),Err("nonce".into()),"a {len}-byte nonce");}
         assert_eq!(Msg::decode(&raw(&[])),Err("arity".into()),"the previous 9-item Hello");
-        assert!(legacy_hello(&raw(&[]))&&!legacy_hello(&raw(&[int(1),bin(&[5;8])])),"named only for the 9 items (NetEvent::Legacy)");
         assert_eq!(Msg::decode(&raw(&[int(1),bin(&[5;8]),int(1)])),Err("arity".into()),"a 12-item Hello");
         let largest=Msg::Hello{chain_id:u64::MAX,genesis:[0xff;32],head:[0xff;32],height:u64::MAX,work:[0xff;32],node:"n".repeat(NODE_NAME_MAX),protocol:u64::MAX,compatibility:[0xff;32],listen_port:u16::MAX,nonce:u64::MAX};
         assert!(largest.encode().len()<=HELLO_MAX,"the largest Hello is {} B",largest.encode().len());assert_eq!(Msg::decode(&largest.encode()),Ok(largest));

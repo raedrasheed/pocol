@@ -342,7 +342,7 @@ impl<'a> Wallet<'a>{
             "contestAvailable":contest_open,"seatsFull":seats_full,"probationSeatsFull":pool_full,
             "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true,
             // Why peers were refused (VA-SPEC §2.5, attack A2-6), so the wallet can tell a lagging node what to do.
-            "incompatiblePeers":diag["incompatiblePeers"],"legacyHellos":diag["legacyHellos"],"lastIncompatibleReason":diag["lastIncompatibleReason"]}))
+            "incompatiblePeers":diag["incompatiblePeers"],"lastIncompatibleReason":diag["lastIncompatibleReason"]}))
     }
     pub fn handle(&mut self,n:&mut Node,raw:&str)->Value{
         let result=(||{
