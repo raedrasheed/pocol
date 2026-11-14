@@ -137,6 +137,63 @@ class GatewayTests(unittest.TestCase):
         gateway.call(request()); gateway.call(request('eth_sendRawTransaction', [tx()]))
         self.assertEqual(checks, [{'force': False}, {'force': True}])
 
+    def test_log_limit_errors_keep_their_bounded_resume_data(self):
+        # The exact -32020 shapes pocold rpc.rs emits for pocol_getLogs: `logs` stop(reason, x) with
+        # lastCompleteBlock x-1 (or null at fromBlock), deadline_fail (no progress) and {reason} alone.
+        H = '0x' + 'ab' * 32
+        def relayed(upstream, log_filter):
+            gateway = g.Gateway(); gateway.verify_network = lambda **kw: 0
+            gateway.query = lambda m, p: {'jsonrpc': '2.0', 'id': 1, 'error': upstream}
+            return gateway.call(request('pocol_getLogs', [log_filter], ident=9))['error']
+        def stop(reason, start, x):
+            return {'code': -32020, 'message': f'log query limit ({reason})',
+                    'data': {'reason': reason, 'fromBlock': hex(start), 'lastCompleteBlock': hex(x - 1) if x > start else None, 'nextFromBlock': hex(x)}}
+        span = {'fromBlock': '0x10', 'toBlock': '0x40f'}
+        for reason in g.LOG_LIMIT_REASONS:
+            for x in (0x10, 0x11, 0x200, 0x40f):
+                with self.subTest(reason=reason, x=x):
+                    upstream = stop(reason, 0x10, x)
+                    self.assertEqual(relayed(upstream, span), upstream)
+        deadline = {'code': -32020, 'message': 'compute deadline',
+                    'data': {'reason': 'deadline', 'fromBlock': '0x7', 'lastCompleteBlock': None, 'nextFromBlock': '0x7'}}
+        self.assertEqual(relayed(deadline, {'blockHash': H}), deadline, 'blockHash form: fromBlock is the canonical height')
+        # The blockHash form scans one block (rpc.rs sets fromBlock = toBlock = its height): no progress past it.
+        for wide in ({**deadline['data'], 'lastCompleteBlock': '0xb', 'nextFromBlock': '0xc'},
+                     {**deadline['data'], 'lastCompleteBlock': '0x7', 'nextFromBlock': '0x8'}):
+            with self.subTest(wide=wide):
+                self.assertEqual(relayed({**deadline, 'data': wide}, {'blockHash': H}),
+                                 {'code': -32020, 'message': 'compute deadline', 'data': {'reason': 'deadline'}})
+        # Data rides only on the integer -32020 that is relayed: a float or boolean code becomes -32000 without data.
+        for odd in (-32020.0, True, '-32020'):
+            with self.subTest(code=odd):
+                self.assertEqual(relayed({**deadline, 'code': odd}, {'blockHash': H}), {'code': -32000, 'message': 'compute deadline'})
+        self.assertIsNone(g.log_error_data(-32020.0, {'reason': 'deadline'}, None))
+        for bare in ({'code': -32020, 'message': 'response too large', 'data': {'reason': 'resultBytes'}},
+                     {'code': -32020, 'message': 'compute deadline', 'data': {'reason': 'deadline'}}):
+            self.assertEqual(relayed(bare, span), bare)
+        # Anything else keeps code and message only, or the reason without boundaries that do not hold.
+        plain = {'code': -32020, 'message': 'range > 1024 blocks'}
+        self.assertEqual(relayed({**plain, 'data': {'reason': 'range', 'limit': 1024}}, span), plain)
+        self.assertEqual(relayed({**plain, 'data': ['resultCount']}, span), plain)
+        self.assertEqual(relayed({'code': -32000, 'message': 'x', 'data': {'reason': 'deadline'}}, span), {'code': -32000, 'message': 'x'})
+        good = stop('resultCount', 0x10, 0x20)['data']
+        for broken in ({**good, 'nextFromBlock': '0x0f'}, {**good, 'fromBlock': '0x11'}, {**good, 'nextFromBlock': '0x410'},
+                       {**good, 'lastCompleteBlock': '0x1e'}, {**good, 'lastCompleteBlock': None}, {**good, 'nextFromBlock': 32},
+                       {**good, 'fromBlock': '0x' + '1' * 17}, {**good, 'nextFromBlock': '0x10', 'lastCompleteBlock': '0xf'},
+                       {**good, 'extra': 'x' * 4096}, {k: v for k, v in good.items() if k != 'lastCompleteBlock'}):
+            with self.subTest(broken=broken):
+                self.assertEqual(relayed({'code': -32020, 'message': 'log query limit (resultCount)', 'data': broken}, span),
+                                 {'code': -32020, 'message': 'log query limit (resultCount)', 'data': {'reason': 'resultCount'}})
+        # Quantities are re-encoded canonically and the data stays small.
+        upper = relayed({'code': -32020, 'message': 'm', 'data': {**good, 'fromBlock': '0x10', 'nextFromBlock': '0x2A', 'lastCompleteBlock': '0x29'}},
+                        {'fromBlock': '0x10', 'toBlock': '0x40f'})
+        self.assertEqual(upper['data'], {'reason': 'resultCount', 'fromBlock': '0x10', 'lastCompleteBlock': '0x29', 'nextFromBlock': '0x2a'})
+        self.assertLess(len(json.dumps(stop('resultBytes', 0, (1 << 64) - 1)['data'])), 160)
+        # Other methods never carry upstream data.
+        gateway = g.Gateway(); gateway.verify_network = lambda **kw: 0
+        gateway.query = lambda m, p: {'jsonrpc': '2.0', 'id': 1, 'error': deadline}
+        self.assertNotIn('data', gateway.call(request('eth_blockNumber'))['error'])
+
     def test_read_and_write_rate_limits_are_bounded(self):
         gateway = g.Gateway()
         with patch('pocol_studio_gateway.time.monotonic', return_value=100):

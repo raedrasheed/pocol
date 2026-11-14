@@ -28,7 +28,8 @@ Derived files move with their sources:
   out of Git).
 
 --check also refuses: any retired identity (deploy/mainnet/retired-networks.json) other than the declared one, so the
-check turns on by itself once the snapshots pin a network that is not retired; any `chatgpt.site` origin; a download
+check turns on by itself once the snapshots pin a network that is not retired (a retired identity on the declared chain
+ID, a postponed launch with a new genesis, is refused by its genesis hash only); any `chatgpt.site` origin; a download
 link whose version is not the extension's package.json version; an index.html script or stylesheet that does not
 exist; a hashed bundle whose name is not its content version; any config.php in a snapshot (never read) and the
 explorer api/.htaccess without its config/lib deny rule.
@@ -211,9 +212,12 @@ def tokens(values):
         out.append((f'seed {host}', rf'(?<![0-9A-Za-z.-]){re.escape(host)}(?![0-9A-Za-z-]|\.[0-9A-Za-z])'))
     return out
 
-def identity_regex(chain, genesis):
-    """Any spelling of one identity (chain ID decimal, digit groups, hex; genesis hash with or without 0x)."""
-    parts = [ni.token(t) for t in (str(chain), f'{chain:_}', hex(chain))] + [ni.hexrun(genesis.removeprefix('0x'))]
+def identity_regex(chain, genesis, keep_chain=None):
+    """Any spelling of one identity (chain ID decimal, digit groups, hex; genesis hash with or without 0x). keep_chain
+    is the declared chain ID: a retired identity on it (a postponed launch that replaces the genesis and keeps the
+    chain ID) is matched by its genesis hash only, so the declared chain ID's own pins are not taken for it."""
+    parts = ([] if chain == keep_chain else [ni.token(t) for t in (str(chain), f'{chain:_}', hex(chain))]) + \
+        [ni.hexrun(genesis.removeprefix('0x'))]
     return re.compile('|'.join(f'(?:{p})' for p in parts), re.IGNORECASE)
 
 # ---------------- the tree ----------------
@@ -412,7 +416,7 @@ def tree_checks(tree, doc, retired, problems):
     values = fields(doc)
     anchored = {anchor_file(tree, f) for f, _, _ in ANCHORS}
     own = re.compile('|'.join(f'(?:{rx})' for _, rx in tokens(values)), re.IGNORECASE)
-    gone = [identity_regex(c, g) for c, g in retired if (c, g) != (doc['chainId'], doc['genesisHash'][2:])]
+    gone = [identity_regex(c, g, keep_chain=doc['chainId']) for c, g in retired if (c, g) != (doc['chainId'], doc['genesisHash'][2:])]
     version = json.loads((tree.root / EXTENSION_PACKAGE).read_text(encoding='utf-8'))['version']
     for site in list(SITES) + ['deploy/websites/tests']:
         for rel in tree.files(site):

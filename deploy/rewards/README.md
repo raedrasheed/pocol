@@ -131,9 +131,15 @@ With `--v3-network`, the gateway also serves the explorer's membership reads, ea
 - `pocol_getMember(address)` (token cost 20, like `pocol_getBlockReward`): `recordWords` (all four words: w0 fields,
   the reward address, `bondWei`, exitHeight, dueHeight, burnHeight, graceStart), `recordClocks` (`lastReactHeight`
   and `lastMaintHeightMod32`; `recordWords` returns w1 as the reward address alone, so the clocks are read only
-  here) and `removalStatus` (the removal verdict, labelled), plus `proposerEligible` (a live HELD record, or a live ACCRUING one with a bond of at
-  least B_reg/4, read from Caps). It also answers for records outside the active list, such as `registerReplacing`
-  victims (status 2).
+  here) and `removalStatus` (the removal verdict, labelled), plus `proposerEligible`: whether the next block's draw
+  (pocold `membership_one_pass`, `Membership::from_parent`, `DrawWeights::new`) counts the record as a candidate. A
+  live member of the proposer membership A_h* is one unless it is ACCRUING with a bond below B_reg/4 (Caps), and when
+  every member of A_h* is such a probationer all of them are (the all-probationer exception); on a bounded nonce
+  domain (fork version 1 at the next height and CP nonceMode 0) A_h* is the members with lastShare or graceStart
+  within W_act unless none is. When the answer depends on other members the gateway reads the ActList at the same
+  height (`lengths`, whose heldTotal bounds every bond, and `activeSlice` pages, cached per head) and at most 32 other
+  records; past that bound `proposerEligible` is `null`, never guessed. It also answers for records outside the
+  active list, such as `registerReplacing` victims (status 2).
 - `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for
   compatibility.
 
