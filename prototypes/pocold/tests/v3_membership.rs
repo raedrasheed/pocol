@@ -65,8 +65,8 @@ fn try_solve_template(n:&Net,miner:Address,txs:Vec<Vec<u8>>,fallback:bool,attemp
 fn accept(n:&mut Net,b:Block) {
     let (entry,ctx)=n.chain.validate(&b,None,0).unwrap();
     assert_eq!(entry.drawn,ctx.proposer,"type-1 evidence keeps this branch's actual draw");
-    let ranges:Vec<_>=ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect();
-    assert_eq!(&entry.ranges[..],&ranges[..],"historical ownership retains the actual ranges");
+    // FN-3b: historical ownership is recomputed from the member records: the actual ranges.
+    assert!(n.chain.assignment_of(&entry).unwrap().ranges()==ctx.assignment.ranges(),"historical ownership recomputes the actual ranges");
     assert!(n.chain.insert(entry));
 }
 fn next(n:&mut Net,miner:Address,txs:Vec<Vec<u8>>) {let b=solve(n,miner,txs);accept(n,b);}
@@ -358,7 +358,7 @@ fn historical_v3_draws_and_ranges_still_authenticate_type1_evidence() {
     let mut payload=Vec::new();rlp::encode_bytes(&[1],&mut payload);payload.extend(signed(&a));payload.extend(signed(&b));
     let mut evidence=Vec::new();rlp::encode_list_payload(&payload,&mut evidence);
     next(&mut n,y,vec![]);
-    let p=n.chain.full_entry(&n.chain.head).unwrap();assert_eq!(p.drawn,ctx.proposer);assert_eq!(p.ranges.len(),3);
+    let p=n.chain.full_entry(&n.chain.head).unwrap();assert_eq!(p.drawn,ctx.proposer);assert_eq!(n.chain.assignment_of(&p).unwrap().ranges().len(),3);
     let effects=n.chain.evidence_effects(&p,&Body{txs:vec![],evidence:vec![evidence]},p.height+1).unwrap();
     assert_eq!(effects,vec![apply::EvidenceEffect::Punish{accused:ctx.proposer}]);
 }

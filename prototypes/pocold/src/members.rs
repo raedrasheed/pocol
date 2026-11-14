@@ -7,9 +7,10 @@
 //!
 //! Nothing here is a validity input. A record is a pure function of (S_parent, S_b, h), so live import, replay and a
 //! restore write the same bytes; a record or set that is missing, malformed or does not add up (its count and its
-//! order-free digest) is the node's own storage failing (`Reject::Local`), never a verdict on a block. FN-3a keeps the
-//! nonce ranges beside the records and takes every verdict from the ranges; the reconstruction is compared with them at
-//! each reader (the shadow), and a mismatch is local.
+//! order-free digest) is the node's own storage failing (`Reject::Local`), never a verdict on a block. FN-3a kept the
+//! nonce ranges beside the records and took every verdict from them (the reconstruction compared at each reader, the
+//! shadow); FN-3b takes the verdicts from the reconstruction (`chain::CheckedOwners`) and removed the ranges, and the
+//! oracle (off by default) compares it with a cold recomputation and with the capture below.
 use std::collections::{BTreeMap,HashMap,VecDeque};
 use std::sync::{Arc,Mutex};
 use revm::primitives::{keccak256,Address,U256};
@@ -245,10 +246,10 @@ impl MemberSets for MemSets{
     fn damaged(&self,_why:&str){self.damaged.fetch_add(1,std::sync::atomic::Ordering::Relaxed);}
 }
 
-/// owner(nonce) of one stored block: from its stored ranges (the slice), or recomputed from its member record
-/// (`chain::LazyOwners`). An Err is the node's own storage (`Reject::Local`), never a verdict.
+/// owner(nonce) of one stored block: recomputed from its member record (`chain::LazyOwners`, `chain::CheckedOwners`), or
+/// from a slice of ranges (the test vectors). An Err is the node's own storage (`Reject::Local`), never a verdict.
 pub trait NonceOwners{fn owner(&self,n:u64)->Result<Option<Address>,Reject>;}
-/// Stored ranges (id, start, end exclusive), as the test vectors and FN-3a's verdicts read them; never Err.
+/// Ranges (id, start, end exclusive), as the test vectors give them (and FN-3a's verdicts read the stored ones); never Err.
 pub struct StoredRanges<'a>(pub &'a [(Address,u128,u128)]);
 impl NonceOwners for StoredRanges<'_>{fn owner(&self,n:u64)->Result<Option<Address>,Reject>{Ok(crate::chain::range_owner(self.0,u128::from(n)))}}
 impl NonceOwners for Vec<(Address,u128,u128)>{fn owner(&self,n:u64)->Result<Option<Address>,Reject>{StoredRanges(self).owner(n)}}
@@ -283,7 +284,7 @@ pub fn capture(chain:&[u8;32],block:&[u8;32],digest:[u8;32])->Option<bool>{
 /// The captured assignment of block `block` on the chain with spec id `chain`.
 pub fn captured(chain:&[u8;32],block:&[u8;32])->Option<[u8;32]>{capture_map().as_ref()?.get(&(*chain,*block)).copied()}
 /// keccak over an assignment's nonce ranges in order, each owner (20 B), start and end exclusive (16 B each, big-endian):
-/// what FN-3a stored as `Entry.ranges` and as history.redb's ranges rows.
+/// what FN-3a stored as `Entry.ranges` and as history.redb's ranges rows, which FN-3b removed.
 pub fn ranges_digest(a:&crate::assignment::Assignment)->[u8;32]{
     let mut b=Vec::with_capacity(52*a.ranges().len());
     for r in a.ranges(){b.extend_from_slice(&r.id());b.extend_from_slice(&r.start().to_be_bytes());b.extend_from_slice(&r.end_exclusive().to_be_bytes());}

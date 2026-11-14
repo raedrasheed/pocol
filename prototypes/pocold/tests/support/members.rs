@@ -33,8 +33,7 @@ pub fn sweep_node(node:&Node)->(usize,usize,usize){
         let r=node.restored_entry(&e.hash).unwrap_or_else(||panic!("FN-3: the slimmed entry at height {} restores",e.height));
         assert!(!r.slim&&r.result.is_some(),"FN-3: the slimmed entry at height {} restores whole",e.height);
         let a=c.assignment_of(e).unwrap_or_else(|x|panic!("FN-3: the slimmed entry at height {}: {x:?}",e.height));
-        // FN-3b step 1: and history.redb's ranges.
-        assert!(pocold::chain::ranges_equal(&r.ranges,&a),"FN-3: the slimmed entry at height {}: the recomputed assignment differs from history.redb's ranges",e.height);s+=1;
+        assert_eq!(c.captured(e),Some(pocold::members::ranges_digest(&a)),"FN-3: the slimmed entry at height {}",e.height);s+=1;
     }
     c.clear_member_caches();
     (n,k,s)

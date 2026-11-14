@@ -23,28 +23,25 @@ impl chain::BlockBytes for Journal{
         self.read_at(off).map_err(|e|Reject::Local(format!("journal read_at {off}: {e:?}")))
     }
 }
-/// The node's block source: journal records, (C-1 S4) the nonce ranges and (FN-3) member records in history.redb and
+/// The node's block source: journal records, (FN-3) member records in history.redb and
 /// (C-1 S5) the canonical entries below the window in the canonical index.
 struct Src<'a>{journal:&'a Journal,history:&'a crate::history::History,canon:&'a canon::Index}
 impl chain::BlockBytes for Src<'_>{
     fn record_at(&self,off:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8>),Reject>{chain::BlockBytes::record_at(self.journal,off)}
-    /// A history.redb read that fails is a local failure (review F3), not "ranges unavailable".
-    fn ranges_of(&self,hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,Reject>{self.history.ranges(hash).map_err(|e|Reject::Local(format!("history: {}",e.0)))}
-    /// One index read and one journal read (header, body and ParentResult), and the nonce ranges when the entry is
-    /// wanted whole (`checkpoint::entry_of`, which checks that the record hashes to the row's block). A row that
-    /// does not check marks the index damaged; every failure is the node's own storage (exit 70; the next open rebuilds).
+    /// One index read and one journal read (header, body and ParentResult; FN-3b: no nonce ranges, slimmed or whole),
+    /// `checkpoint::entry_of` checking that the record hashes to the row's block. A row that does not check marks the
+    /// index damaged; every failure is the node's own storage (a history.redb read that fails is local, review F3; exit
+    /// 70; the next open rebuilds).
     fn canonical_entry(&self,h:u64,slim:bool)->Result<Option<(Entry,Body)>,Reject>{
         let r=self.canon.at(h).map_err(Reject::Local)?.ok_or_else(||Reject::Local(self.canon.mark_damaged(&format!("no row at height {h} below the window"))))?;
         let off=r.body_off.ok_or_else(||Reject::Local(self.canon.mark_damaged(&format!("the row at height {h} names no journal record"))))?;
         let payload=self.journal.payload_at(off).map_err(|e|Reject::Local(format!("journal read at {off}: {e:?}")))?;
-        let ranges=if slim{None}else{Some(match self.history.ranges(&r.hash){Ok(Some(x))=>x,Ok(None)=>return Err(Reject::Local(self.history.mark_damaged("nonce ranges missing for a journaled block").0)),
-            Err(e)=>return Err(Reject::Local(format!("history: {}",e.0)))})};
         // FN-3: the member record of an entry that is not offloaded (one small history.redb read; a row of the index below
         // the window is offloaded, so none is read and a member walk reads the record when it needs it).
         let members=if r.flags&crate::checkpoint::flags::OFFLOADED!=0{None}else{Some(match self.history.members(&r.hash){Ok(Some(x))=>x,
             Ok(None)=>return Err(Reject::Local(self.history.mark_damaged("member record missing for a journaled block").0)),Err(e)=>return Err(Reject::Local(format!("history: {}",e.0)))})};
         let why=|m:&str|format!("the row at height {h}: {m}");
-        let (e,body)=crate::checkpoint::entry_of(&r,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(ranges.clone()),Some(&||Ok(members.clone())),store::MAX_RECORD,slim,&why).map_err(|m|Reject::Local(self.canon.mark_damaged(&m)))?;
+        let (e,body)=crate::checkpoint::entry_of(&r,&payload,|_|Ok(()),||Ok(Some(Vec::new())),Some(&||Ok(members.clone())),store::MAX_RECORD,slim,&why).map_err(|m|Reject::Local(self.canon.mark_damaged(&m)))?;
         if e.height!=h{return Err(Reject::Local(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height))))}
         Ok(Some((e,body)))
     }
@@ -78,7 +75,7 @@ fn flush_evicted(chain:&mut Chain,canon:&canon::Index)->Result<(),String>{
 /// turn (only after the head fell back more than R_keep). Beyond them the block is refused, never accepted.
 const REBUILD_TRIES:usize=17;
 /// PR4 (I-5): deep TrieRebuilds (import_with's NeedsRebuild path for a missing parent state; a C-1 S4 slim
-/// restore, header and ranges only, is not charged) an unsolicited flood may drive. Token bucket:
+/// restore, header and ParentResult only, is not charged) an unsolicited flood may drive. Token bucket:
 /// capacity REBUILD_BURST, one token back every REBUILD_REFILL_MS. The seal cache (chain::COSTLY_MAX) only
 /// reduces cost: COSTLY_MAX+1 PoW-valid seals cycled evict each other (PR4 plan §7 finding B). A real heavier
 /// branch dropped here is re-fetched by the sync session its peer's Status starts (network.md D38), so no
@@ -1485,8 +1482,8 @@ impl Node{
         let mut tries=0;
         let on_branch=solicited&&self.session.as_ref().is_some_and(|s|self.on_session_branch(s,&b.header.parent_hash));
         while let Err(Reject::NeedsRebuild(p))=&res{let p=*p;if tries==REBUILD_TRIES{break}
-            // C-1 S4: a slimmed entry (the parent, or an ancestor the evidence walk reads) gets its header,
-            // ParentResult and nonce ranges back from the journal and history.redb: two record reads, no state
+            // C-1 S4: a slimmed entry (the parent, or an ancestor the evidence walk reads) gets its header and
+            // ParentResult back from the journal (FN-3b: no nonce ranges from history.redb): one record read, no state
             // work, at most REBUILD_TRIES per block (each one clears a slim flag), so neither budget below is
             // charged for it. A pruned parent still needs its state: it goes on, in the same try, to the deep
             // rebuild below, which is charged.
@@ -3137,7 +3134,7 @@ impl Node{
     /// The canonical index's row at height `h` below the window: one must be there (a row missing marks the index damaged).
     fn indexed(&self,h:u64)->Result<crate::checkpoint::Rec,String>{self.canon.at(h)?.ok_or_else(||self.canon.mark_damaged(&format!("no row at height {h} below the window")))}
     /// A canonical block below the window as RPC reads it: one index read and one journal read (header, body and
-    /// ParentResult), receipts from history.redb only when asked, no nonce ranges and (FN-3) no member record
+    /// ParentResult), receipts from history.redb only when asked, and (FN-3) no member record
     /// (`checkpoint::entry_of`, so the
     /// answer is the one the entry gave while it was held). The record must hash to the row's block.
     fn indexed_view(&self,h:u64,want:Want)->Result<Entry,String>{
@@ -3145,7 +3142,7 @@ impl Node{
         let payload=self.journal.payload_at(off).map_err(|e|{let m=format!("journal read at {off}: {e:?}");self.log(&m);m})?;
         let mut q=r.clone();q.flags&=!(crate::checkpoint::flags::OFFLOADED|crate::checkpoint::flags::SLIM);
         let why=|m:&str|format!("the row at height {h}: {m}");
-        let (mut e,_)=crate::checkpoint::entry_of(&q,&payload,|_|Ok(()),||Ok(Some(Vec::new())),||Ok(Some(Vec::new())),None,self.chain.spec.cp().BODY_MAX as usize,false,&why)
+        let (mut e,_)=crate::checkpoint::entry_of(&q,&payload,|_|Ok(()),||Ok(Some(Vec::new())),None,self.chain.spec.cp().BODY_MAX as usize,false,&why)
             .map_err(|m|self.canon.mark_damaged(&m))?;
         if e.height!=h{return Err(self.canon.mark_damaged(&format!("the row at height {h} names a block at height {}",e.height)))}
         if want.receipts{e.receipts=match self.history.receipts(&e.hash){Ok(Some(x))=>x,
@@ -3186,16 +3183,15 @@ impl Node{
         if let Err(e)=self.chain.ensure_state_with(h,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon})){if let Reject::Local(w)=&e{self.fatal(w)}self.log(&format!("state for {}: {e:?}",&hex(h)[..14]));return None}
         self.chain.get(h).cloned()
     }
-    /// C-1 S4: a stored block with its slimmed fields restored (header, ParentResult, nonce ranges) from
-    /// the journal and history.redb; itself when not slimmed. For inspection and tests.
+    /// C-1 S4: a stored block with its slimmed fields restored (header, ParentResult) from the journal; itself when
+    /// not slimmed. For inspection and tests.
     pub fn restored_entry(&self,h:&[u8;32])->Option<Entry>{
         let e=self.chain.get(h)?;self.chain.restored(e,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon})).ok().map(|x|x.into_owned())
     }
     /// TrieRebuild of a stored block's state through the journal (offloaded bodies read back). Test and inspection
     /// API: no production path calls it (import re-executes through `ensure_state_with` itself).
     pub fn rebuild_state(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.ensure_state_with(hash,Some(&Src{journal:&self.journal,history:&self.history,canon:&self.canon}))}
-    /// C-1 S4: restores a slimmed entry's fields in place (header, ParentResult, nonce ranges) from the
-    /// journal and history.redb, for a walk that reads the chain's own entries (the evidence walk). Test and
+    /// C-1 S4: restores a slimmed entry's fields in place (header, ParentResult) from the journal, for a walk that reads the chain's own entries (the evidence walk). Test and
     /// inspection API: import restores slimmed entries itself.
     pub fn unslim(&mut self,hash:&[u8;32])->Result<(),Reject>{self.chain.unslim(hash,&Src{journal:&self.journal,history:&self.history,canon:&self.canon})}
     /// A stored block's committed body (resident or from the journal).

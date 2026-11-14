@@ -1,8 +1,10 @@
-//! FN-3a (C6, node-local; development plan FN-3 §5): each block's member record (its member set as a delta from its
-//! parent's, or a snapshot every 256 heights), from which a stored block's nonce assignment is recomputed. FN-3a keeps
-//! the stored ranges and takes every verdict from them; the recomputation is compared at each reader (the shadow), at
-//! import (the oracle) and by the end-of-test cold sweep. Nothing here changes a verdict: every comparison below is
-//! against the verdict or the ranges the chain had before FN-3.
+//! FN-3 (C6, node-local; development plan FN-3 §5): each block's member record (its member set as a delta from its
+//! parent's, or a snapshot every 256 heights), from which a stored block's nonce assignment is recomputed. FN-3a kept
+//! the stored ranges and took every verdict from them; FN-3b takes the verdicts from the recomputation and removed the
+//! ranges. The oracle (on in every test: `members_sweep::oracle`) compares each reader's owners and assignment with a
+//! cold recomputation, the import with the assignment the block was validated under, and the end-of-test cold sweep
+//! every held entry with the capture of that assignment (the ranges FN-3a stored). Nothing here changes a verdict:
+//! every comparison below is against the verdict or the ranges the chain had before FN-3.
 #[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use redb::ReadableTable;
@@ -85,6 +87,13 @@ fn effects(c:&Chain,evidence:&[Vec<u8>])->Result<Vec<EvidenceEffect>,Reject>{
 }
 fn entry_at(c:&Chain,h:u64)->&Entry{c.canonical_at(h).unwrap()}
 fn rec(c:&Chain,h:u64)->MemberRec{c.member_rec_of(entry_at(c,h)).unwrap()}
+/// FN-3b: the nonce ranges block `e` was validated under, from the live path (its parent's child context, which
+/// `Chain::h_full` read and FN-3a stored as `Entry.ranges`), checked against the capture of them.
+fn live_ranges(c:&Chain,e:&Entry)->Vec<(Address,u128,u128)>{
+    let p=c.full_entry(&e.parent.unwrap()).unwrap();let ctx=c.child_ctx(&p,e.header.a).unwrap();
+    assert_eq!(c.captured(e),Some(members::ranges_digest(&ctx.assignment)),"the live assignment of the block at {} is the one captured at its import",e.height);
+    ctx.assignment.ranges().iter().map(|r|(Address::from(r.id()),r.start(),r.end_exclusive())).collect()
+}
 
 /// A member source a test controls: every record and set of a chain, and a fault switch (a record whose digest is off,
 /// or none at all), counting reads and the faults reported to it.
@@ -181,14 +190,14 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
         let mut x=0x9e3779b97f4a7c15u64;let mut nonces=vec![0,1,u64::MAX,u64::MAX-1];
         for _ in 0..200{x^=x<<13;x^=x>>7;x^=x<<17;nonces.push(x);nonces.push(x%4096);}
         for h in 1..=12u64{
-            let e=entry_at(&n.chain,h);let mut edges=nonces.clone();for r in e.ranges.iter(){for v in [r.1,r.2]{edges.extend([v.saturating_sub(1) as u64,v.min(u128::from(u64::MAX)) as u64]);}}
-            let lazy=LazyOwners::new(&n.chain,e);
-            for v in &edges{assert_eq!(lazy.owner(*v).unwrap(),e.ranges.to_vec().owner(*v).unwrap(),"spec {spec} h={h} nonce {v}");}
-            if spec==1{assert!(e.ranges.last().unwrap().2<u128::from(u64::MAX),"positive control: a bounded domain")}
+            let e=entry_at(&n.chain,h);let ranges=live_ranges(&n.chain,e);let mut edges=nonces.clone();for r in ranges.iter(){for v in [r.1,r.2]{edges.extend([v.saturating_sub(1) as u64,v.min(u128::from(u64::MAX)) as u64]);}}
+            n.chain.clear_member_caches();let lazy=LazyOwners::new(&n.chain,e);
+            for v in &edges{assert_eq!(lazy.owner(*v).unwrap(),ranges.owner(*v).unwrap(),"spec {spec} h={h} nonce {v}");}
+            if spec==1{assert!(ranges.last().unwrap().2<u128::from(u64::MAX),"positive control: a bounded domain")}
         }
         // The cap: C_header(j) + C_late(j) + k > κm refuses before the first owner lookup (none recomputed or read).
         let cp=n.chain.spec.cp();let rules=LateRules{h:13,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
-        let ranges=entry_at(&n.chain,12).ranges.to_vec();let probe=Counting(&ranges,AtomicU64::new(0));let credited:std::collections::BTreeSet<u64>=Default::default();
+        let ranges=live_ranges(&n.chain,entry_at(&n.chain,12));let probe=Counting(&ranges,AtomicU64::new(0));let credited:std::collections::BTreeSet<u64>=Default::default();
         let base=LateBase{j:12,tid:[0;32],nonce:0,t_share:Fixed::from_u64(1),owners:&probe,header:&[],credited:&credited,total:rules.kappa_m};
         assert_eq!(late_check(&rules,&base,&[5],&mut LateBlock::default()),Err(Reject::Block("15 ls cap".into())));
         assert_eq!(probe.1.load(Ordering::SeqCst),0,"no owner was looked up");
@@ -535,8 +544,8 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     a.chain.clear_member_caches();let m0=a.chain.member_counters();
     let e=a.chain.get(&entry_at(&r.chain,lo).hash).unwrap().clone();
     assert_eq!(a.chain.member_set(&e).unwrap(),r.chain.member_set(entry_at(&r.chain,lo)).unwrap(),"the set walked below the window");
-    let got=a.chain.assignment_of(&e).unwrap();let restored=a.restored_entry(&e.hash).unwrap();
-    assert!(pocold::chain::ranges_equal(&restored.ranges,&got)&&pocold::chain::ranges_equal(&entry_at(&r.chain,lo).ranges,&got),"the assignment recomputed across canon_base");
+    let got=a.chain.assignment_of(&e).unwrap();
+    assert!(got.ranges()==r.chain.assignment_of(entry_at(&r.chain,lo)).unwrap().ranges()&&a.chain.captured(&e)==Some(members::ranges_digest(&got)),"the assignment recomputed across canon_base");
     let m1=a.chain.member_counters();
     assert!(m1.record_reads-m0.record_reads>=lo-257&&m1.disk_set_reads>m0.disk_set_reads,"the walk read {} records and {} sets from history.redb",m1.record_reads-m0.record_reads,m1.disk_set_reads-m0.disk_set_reads);
     // (b) The anchor rebuild.

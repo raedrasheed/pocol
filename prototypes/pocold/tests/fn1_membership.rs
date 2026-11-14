@@ -266,9 +266,11 @@ fn stored_linear(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{ranges.i
         let mut n=net(config(false,full,3));next(&mut n,vec![]);
         for h in n.chain.blocks.keys().copied().collect::<Vec<_>>(){
             let e=n.chain.full_entry(&h).unwrap();if e.height==0{continue}
-            assert!(!e.ranges.is_empty(),"a validated block keeps its ranges");
-            let mut probes=vec![0u128,u128::from(u64::MAX)];for r in &e.ranges{for x in [r.1,r.2]{probes.extend([x.saturating_sub(1),x]);}}
-            for x in probes{assert_eq!(pocold::chain::range_owner(&e.ranges,x),stored_linear(&e.ranges,x),"full={full} n={x}");}
+            // FN-3b: a block's ranges as its assignment (recomputed from its member records) holds them.
+            let ranges:Vec<(Address,u128,u128)>=n.chain.assignment_of(&e).unwrap().ranges().iter().map(|r|(Address::from(r.id()),r.start(),r.end_exclusive())).collect();
+            assert!(!ranges.is_empty(),"a validated block has its ranges");
+            let mut probes=vec![0u128,u128::from(u64::MAX)];for r in &ranges{for x in [r.1,r.2]{probes.extend([x.saturating_sub(1),x]);}}
+            for x in probes{assert_eq!(pocold::chain::range_owner(&ranges,x),stored_linear(&ranges,x),"full={full} n={x}");}
         }
     }
 }

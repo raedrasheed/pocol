@@ -2046,12 +2046,19 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // before): the owner memo 2,770,596, the reconstruction scratch 743,744, the assignments cache 168,784, the window's
     // records 72,080, the sets cache 23,552, and 58,128 of history.redb allocator. An Entry's size is unchanged (1,088 B:
     // `members` is one pointer, and `ranges` became a boxed slice).
+    // FN-3b (C6) removes the nonce ranges: the per-block 64·M_max term (4,096 B at M_max 64, in every entry-equivalent:
+    // the offloaded and slimmed metadata, the window, the shadow, the reload, the views, the side blocks and the
+    // eviction batch), history.redb's ranges row (32 + 32 + 52·M_max a block, its allocator share), and the ranges'
+    // boxed slice from the Entry (1,088 -> 1,072 B): -44,594,987 B with eviction on (side metadata -25,264,128,
+    // offloaded canonical metadata -17,833,744, shadow -1,056,784, history.redb allocator -132,507, window -131,584,
+    // eviction batch -98,336, slimmed metadata -32,800, reload -32,768, views -8,224, the full side block -4,112), to
+    // 3,357,219,051 B; eviction off -43,616,187 B, to 3,348,736,230 B. The member terms are unchanged (3,778,756 B).
     let fn3:u128=d.items.iter().filter(|x|x.0.contains("(FN-3")).map(|x|x.1).sum();
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_401_814_038,"the A13 model total changed");
-        assert_eq!(fn3,3_778_756);assert_eq!(std::mem::size_of::<pocold::chain::Entry>(),1_088);
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_357_219_051,"the A13 model total changed");
+        assert_eq!(fn3,3_778_756);assert_eq!(std::mem::size_of::<pocold::chain::Entry>(),1_072);
         assert_eq!(ctx_cache,185_920);
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_392_352_417,"eviction off includes the same receipt scratch");
+        assert_eq!(off.total,3_348_736_230,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -2959,12 +2966,14 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let slims=|n:&Node|n.chain.blocks.values().filter(|e|e.slim).count();
     let exact=|a:&Node,b:&Node|{let mut k=0;for e in a.chain.blocks.values().filter(|e|e.slim){
         let r=a.restored_entry(&e.hash).unwrap();let f=b.chain.get(&e.hash).unwrap();let mut fh=f.header.clone();if r.offloaded{fh.encoded=Vec::new();}
-        // FN-3: and its member record (the persisted one: a slimmed entry is offloaded and holds none in memory).
-        assert_eq!((&r.header,&r.result,&r.ranges,a.chain.member_rec_of(&r).unwrap()),(&fh,&f.result,&f.ranges,b.chain.member_rec_of(f).unwrap()),"h={}: restored exactly",e.height);assert!(!r.ranges.is_empty()&&r.result.is_some());k+=1;}k};
+        // FN-3: and its member record (the persisted one: a slimmed entry is offloaded and holds none in memory) and the
+        // assignment recomputed from it (FN-3b: no nonce ranges are stored or restored).
+        assert_eq!((&r.header,&r.result,a.chain.member_rec_of(&r).unwrap()),(&fh,&f.result,b.chain.member_rec_of(f).unwrap()),"h={}: restored exactly",e.height);assert!(r.result.is_some());
+        assert!(a.chain.assignment_of(&r).unwrap().ranges()==b.chain.assignment_of(f).unwrap().ranges(),"h={}: the recomputed assignment",e.height);k+=1;}k};
     assert!(slims(&a)>80&&slims(&b)==0,"positive control: {} slimmed entries, the reference {}",slims(&a),slims(&b));
     let top=a.chain.head().height;let slim_h:Vec<u64>=(1..=top).filter(|h|a.chain.canonical_at(*h).unwrap().slim).collect();
     assert_eq!(slim_h,(1..top-8).collect::<Vec<_>>(),"exactly the canonical entries deeper than 8 are slimmed");
-    let small=a.chain.blocks.values().filter(|e|e.slim).map(|e|e.header.ut_raw.len()+e.ranges.len()+e.result.as_ref().map_or(0,|r|r.shares.len())).sum::<usize>();assert_eq!(small,0);
+    let small=a.chain.blocks.values().filter(|e|e.slim).map(|e|e.header.ut_raw.len()+e.result.as_ref().map_or(0,|r|r.shares.len())).sum::<usize>();assert_eq!(small,0);
     assert_eq!(exact(&a,&b),slims(&a));
     let want=views(&mut b);assert_eq!(views(&mut a),want,"slimmed entries answer as full ones");
     // A fork on a slimmed parent 20 blocks deep (allowed by R_keep, refused by the default depth): A
@@ -3801,7 +3810,7 @@ fn e44_same(x:&mut pocold::node::Node,y:&mut pocold::node::Node,what:&str){
     let dbg=|n:&pocold::node::Node|{let mut v:Vec<([u8;32],String)>=n.chain.blocks.values().map(|e|(e.hash,format!("{:?}",(
         (e.hash,&e.header,&e.body,e.height,e.parent,e.total_work,e.import_seq,e.signed,e.ts,e.target,e.base_fee,e.gas_used),
         (e.seal,e.state.accounts.len(),e.is_final,&e.result,&e.receipts,&e.tx_hashes,e.cum_txs,e.cum_tx_bytes,e.cum_log_bytes,e.pruned,e.full,e.diff.is_some()),
-        (e.slim,e.drawn,&e.ranges,e.body_off,e.offloaded,e.trie.is_some(),&e.summary,e.stored.as_ref().map(|p|(p.trie.world,{let mut h:Vec<_>=p.hashes.iter().collect();h.sort();format!("{h:?}")}))),
+        (e.slim,e.drawn,e.body_off,e.offloaded,e.trie.is_some(),&e.summary,e.stored.as_ref().map(|p|(p.trie.world,{let mut h:Vec<_>=p.hashes.iter().collect();h.sort();format!("{h:?}")}))),
         // FN-3: the member record (held or persisted: residency follows the entry's offloading, the record does not).
         (e.height>0).then(||n.chain.member_rec_of(e).ok()))))).collect();v.sort();v};
     for (a,b) in dbg(x).iter().zip(dbg(y).iter()){if a!=b{let i=a.1.bytes().zip(b.1.bytes()).position(|(p,q)|p!=q).unwrap_or(a.1.len().min(b.1.len()));let lo=i.saturating_sub(300);
@@ -4378,14 +4387,14 @@ fn e4_checkpoint_kill_child(){
     // blocks the node replayed from genesis counts.
     assert!(side_matches(&n.chain)&&side_matches(&r0.chain),"side sets: resumed {:?}, replayed {:?}",n.chain.side_counts(),r0.chain.side_counts());
     // A history.redb that lost the records of one old block whose entry is offloaded and slimmed (restore
-    // reads neither its receipts nor its ranges): neither checkpoint is used, and replay from genesis
+    // reads neither its receipts nor, FN-3, its member record): neither checkpoint is used, and replay from genesis
     // refills the records (C-1 E4.4 retest K11b).
     let newest=pocold::checkpoint::decode(&n.state_store().unwrap().checkpoints().unwrap().last().unwrap().1).unwrap();drop(n);
     let both=pocold::checkpoint::flags::SLIM|pocold::checkpoint::flags::OFFLOADED;
     let old=blocks.iter().find(|b|!b.body.txs.is_empty()&&newest.entries.iter().any(|e|e.hash==b.hash()&&e.flags&both==both)).expect("an offloaded, slimmed block with transactions").hash();
     let h=e44_dir("kinds-history");copy_dir(&c,&h);
     {let db=redb::Database::open(h.join(pocold::history::FILE)).unwrap();let w=db.begin_write().unwrap();
-     for t in ["receipts","ranges"]{let d:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new(t);assert!(w.open_table(d).unwrap().remove(&old).unwrap().is_some());}
+     for t in ["receipts","members"]{let d:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new(t);assert!(w.open_table(d).unwrap().remove(&old).unwrap().is_some());}
      w.commit().unwrap();}
     let mut n=reopen(&e44_conf_with(&h,every,lim));assert_eq!(n.stats.resumed_from,None,"no checkpoint naming a block history.redb lost is used");assert!(n.stats.checkpoints_refused>=1);
     e44_same(&mut n,&mut r0,"after history.redb lost an offloaded block's records");

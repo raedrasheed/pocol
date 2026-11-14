@@ -3,13 +3,15 @@
 //! (invariant I1): they are written for every validated block before its journal record (I3), can
 //! always be rebuilt by re-execution, and a damaged store is rebuilt by replay. An I/O failure stops open and preserves the store.
 //! Bodies and encoded headers stay in the journal, which is never compacted (storage.md:70).
-//! C-1 S4 adds a third table: each block's nonce ranges, so that an entry slimmed in memory is restored
-//! exactly (its header and ParentResult come back from its journal record).
-//! FN-3 (C6, `crate::members`) adds each block's member record (`members`: its member set as a change from its
-//! parent's, or a snapshot) and each snapshot's set (`member_sets`), from which a stored block's assignment is
-//! recomputed; FN-3a writes them beside the nonce ranges, which FN-3b removes. All of a block's rows are written in one
+//! C-1 S4 added a third table, each block's nonce ranges (64 B per member and block in memory, 52 B in the file), so
+//! that an entry slimmed in memory was restored exactly (its header and ParentResult come back from its journal record).
+//! FN-3 (C6, `crate::members`) replaced it with each block's member record (`members`: its member set as a change from
+//! its parent's, or a snapshot) and each snapshot's set (`member_sets`), from which a stored block's assignment is
+//! recomputed: FN-3a wrote them beside the nonce ranges, and FN-3b removed the ranges (the table of a store written
+//! before FN-3b is deleted at open, in the open's own write transaction). All of a block's rows are written in one
 //! commit (I3). A store written before FN-3 holds no member rows: `has` is false for its blocks, so a checkpoint
-//! restore falls back to replay, whose puts refill them (the S4 path; the file is not set aside).
+//! restore falls back to replay, whose puts refill them (the S4 path; the file is not set aside). A store written by
+//! FN-3a holds every member row: it loses its ranges table at open and nothing is rebuilt.
 //!
 //! The store is never trusted past what it can prove. Each receipts record carries keccak(block hash ++
 //! record), a transaction index entry is checked by its reader against the block's transaction hashes,
@@ -27,9 +29,10 @@ const RECEIPTS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("receipts");
 /// (tx hash ++ block hash) -> the transaction's index in that block (u32 big-endian). One key per block
 /// that holds the transaction; a reader takes the canonical one.
 const TXIDX:TableDefinition<&[u8;64],u32>=TableDefinition::new("txidx");
-/// C-1 S4: block hash -> keccak(block hash ++ record) ++ record; the record is the block's nonce ranges
-/// (Entry::ranges), each owner (20 bytes), start and end (16 bytes each, big-endian).
-const RANGES:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("ranges");
+/// C-1 S4 to FN-3a: block hash -> keccak(block hash ++ record) ++ record, the block's nonce ranges (each owner 20 bytes,
+/// start and end 16 bytes each, big-endian). FN-3b removed them: the table, which a store written before FN-3b holds,
+/// is deleted at open (`open`; never read or written otherwise).
+const RANGES_REMOVED:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("ranges");
 /// FN-3: block hash -> keccak(block hash ++ record) ++ record; the record is the block's member record with its parent's
 /// hash and its height (`members::encode_rec`).
 const MEMBERS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("members");
@@ -37,15 +40,15 @@ const MEMBERS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("members");
 const MEMBER_SETS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("member_sets");
 /// FN-3: what `put_with` stores of a block's member record: its parent, its height, the record and a snapshot's ids.
 pub struct Members<'a>{pub parent:[u8;32],pub height:u64,pub rec:&'a crate::members::MemberRec,pub set:Option<&'a [crate::members::Id]>}
-/// A block's nonce ranges: (owner, start, end exclusive).
-pub type Ranges=Vec<(revm::primitives::Address,u128,u128)>;
 /// The redb page cache (A13: resources.rs counts it). Reads past it go to the file.
 pub const HISTORY_CACHE:usize=16<<20;
 pub const FILE:&str="history.redb";
 /// Written when the store was found damaged while running; the next open rebuilds the store.
 pub const DAMAGED:&str="history.redb.damaged";
 
-pub struct History{db:Database,path:PathBuf,dir:PathBuf,pub rebuilt:bool,damaged:AtomicBool}
+pub struct History{db:Database,path:PathBuf,dir:PathBuf,pub rebuilt:bool,
+    /// FN-3b: this open deleted the ranges table of a store written before FN-3b.
+    pub dropped_ranges:bool,damaged:AtomicBool}
 #[derive(Debug)]
 pub struct HistoryError(pub String);
 fn err(e:impl std::fmt::Display)->HistoryError{HistoryError(e.to_string())}
@@ -62,28 +65,33 @@ impl History{
     /// byte in an index key is caught only there), or one marked damaged, is moved aside (as
     /// `history.redb.aside`, replacing an older one) and a new store is created: replay refills it (I1).
     /// `rebuilt` tells the caller. The check reads the whole file: about 1–1.4 s per GiB measured
-    /// (evidence/c1-s1/), against the replay from genesis that open does anyway.
+    /// (evidence/c1-s1/), against the replay from genesis that open does anyway. FN-3b: the write transaction that opens
+    /// the tables also deletes the nonce ranges table a store written before FN-3b holds (`dropped_ranges`); an I/O
+    /// failure there keeps the file and fails the open, as any other (a failed write leaves the table; a failed fsync
+    /// may leave its deletion committed, and no reader reads the table either way). redb does not shrink the file.
     pub fn open(dir:&Path)->Result<Self,HistoryError>{
         let path=dir.join(FILE);let marker=dir.join(DAMAGED);
-        let create=|p:&Path|->Result<Database,HistoryError>{
+        let create=|p:&Path|->Result<(Database,bool),HistoryError>{
             let mut db=catch_unwind(AssertUnwindSafe(||{let mut b=Database::builder();b.set_cache_size(HISTORY_CACHE);
                 #[cfg(feature="io-fault")] {crate::io_fault::create(&b,p)}
                 #[cfg(not(feature="io-fault"))] {b.create(p)}})).map_err(|_|HistoryError("redb panicked at open".into()))?.map_err(rerr)?;
             // Ok(false): redb found damage and repaired what it could; the store is not trusted.
             match catch_unwind(AssertUnwindSafe(||db.check_integrity())){Ok(Ok(true))=>{}Ok(Err(e))=>{let e=rerr(e);if e.is_io(){return Err(e)}return Err(HistoryError("integrity check failed".into()))}_=>return Err(HistoryError("integrity check failed".into()))}
             crate::io_point(p,"history-open-tables");
-            catch_unwind(AssertUnwindSafe(||->Result<(),HistoryError>{let w=db.begin_write().map_err(rerr)?;{w.open_table(RECEIPTS).map_err(rerr)?;w.open_table(TXIDX).map_err(rerr)?;w.open_table(RANGES).map_err(rerr)?;w.open_table(MEMBERS).map_err(rerr)?;w.open_table(MEMBER_SETS).map_err(rerr)?;}w.commit().map_err(rerr)}))
+            let dropped=catch_unwind(AssertUnwindSafe(||->Result<bool,HistoryError>{let w=db.begin_write().map_err(rerr)?;
+                {w.open_table(RECEIPTS).map_err(rerr)?;w.open_table(TXIDX).map_err(rerr)?;w.open_table(MEMBERS).map_err(rerr)?;w.open_table(MEMBER_SETS).map_err(rerr)?;}
+                let dropped=w.delete_table(RANGES_REMOVED).map_err(rerr)?;w.commit().map_err(rerr)?;Ok(dropped)}))
                 .map_err(|_|HistoryError("redb panicked at open".into()))??;
-            Ok(db)};
+            Ok((db,dropped))};
         let first=if marker.exists(){Err(HistoryError("marked damaged".into()))}else{create(&path)};
         // An I/O failure keeps the file and fails the open (review 2026-10-28, F-A); only a damaged store is set aside.
         if let Err(e)=&first{if e.is_io(){return Err(HistoryError(e.0.clone()))}}
-        let (db,rebuilt)=match first{
-            Ok(db)=>(db,false),
+        let ((db,dropped_ranges),rebuilt)=match first{
+            Ok(x)=>(x,false),
             Err(_)=>{let aside=dir.join(format!("{FILE}.aside"));let _=std::fs::remove_file(&aside);let _=std::fs::rename(&path,&aside);
-                let db=create(&path)?;let _=std::fs::remove_file(&marker);(db,true)}
+                let x=create(&path)?;let _=std::fs::remove_file(&marker);(x,true)}
         };
-        Ok(Self{db,path,dir:dir.to_path_buf(),rebuilt,damaged:AtomicBool::new(false)})
+        Ok(Self{db,path,dir:dir.to_path_buf(),rebuilt,dropped_ranges,damaged:AtomicBool::new(false)})
     }
     pub fn path(&self)->&Path{&self.path}
     /// redb's full check: every page checksum and the allocator state (`Database::check_integrity`). True
@@ -103,14 +111,14 @@ impl History{
         if self.is_damaged(){return Err(HistoryError("history store damaged".into()))}
         catch_unwind(AssertUnwindSafe(f)).unwrap_or_else(|_|Err(self.mark_damaged("redb panicked")))
     }
-    /// Whether the block's receipts, ranges and (FN-3) member record are stored (a store written before S4 has no ranges,
-    /// one written before FN-3 no member rows: the next put of the block adds them). A snapshot's set is committed with
-    /// its record, so it is there whenever the record is.
+    /// Whether the block's receipts and (FN-3) member record are stored (a store written before FN-3 has no member rows:
+    /// the next put of the block adds them). A snapshot's set is committed with its record, so it is there whenever the
+    /// record is.
     pub fn has(&self,block:&[u8;32])->Result<bool,HistoryError>{
-        self.guard(||{let r=self.db.begin_read().map_err(err)?;let t=r.open_table(RECEIPTS).map_err(err)?;let g=r.open_table(RANGES).map_err(err)?;let m=r.open_table(MEMBERS).map_err(err)?;
-            Ok(t.get(block).map_err(err)?.is_some()&&g.get(block).map_err(err)?.is_some()&&m.get(block).map_err(err)?.is_some())})
+        self.guard(||{let r=self.db.begin_read().map_err(err)?;let t=r.open_table(RECEIPTS).map_err(err)?;let m=r.open_table(MEMBERS).map_err(err)?;
+            Ok(t.get(block).map_err(err)?.is_some()&&m.get(block).map_err(err)?.is_some())})
     }
-    /// Stores a validated block's receipts, transaction index, nonce ranges and (FN-3) member record, with a snapshot's
+    /// Stores a validated block's receipts, transaction index and (FN-3) member record, with a snapshot's
     /// set, in one durable commit (live import: invariant I3). Idempotent: a block already stored is left as it is (each
     /// row is a function of the block and its parent). An entry without its member record (an offloaded one) or a
     /// snapshot without its ids is refused (nothing is written).
@@ -122,10 +130,10 @@ impl History{
         let parent=e.parent.ok_or_else(||HistoryError("genesis is not stored".into()))?;
         let em=e.members.as_deref().ok_or_else(||HistoryError("an entry without its member record".into()))?;
         let m=Members{parent,height:e.height,rec:&em.rec,set:em.ids.as_deref()};
-        self.put_with(&e.hash,&e.receipts,&e.tx_hashes,&e.ranges,&m,durable)
+        self.put_with(&e.hash,&e.receipts,&e.tx_hashes,&m,durable)
     }
     /// The rows of one block as `put_entry` writes them.
-    pub fn put_with(&self,block:&[u8;32],receipts:&[Vec<u8>],tx_hashes:&[B256],ranges:&[(revm::primitives::Address,u128,u128)],members:&Members<'_>,durable:bool)->Result<bool,HistoryError>{
+    pub fn put_with(&self,block:&[u8;32],receipts:&[Vec<u8>],tx_hashes:&[B256],members:&Members<'_>,durable:bool)->Result<bool,HistoryError>{
         if self.has(block)?{return Ok(false)}
         let mrec=crate::members::encode_rec(&members.parent,members.height,members.rec);
         let set=match (members.rec.is_snapshot(),members.set){(false,_)=>None,(true,Some(ids)) if ids.len()==usize::from(members.rec.n)=>Some(crate::members::encode_set(ids)),
@@ -135,14 +143,11 @@ impl History{
         let mut rec=Vec::with_capacity(receipts.iter().map(|r|r.len()+4).sum());
         for r in receipts{rec.extend_from_slice(&(r.len() as u32).to_be_bytes());rec.extend_from_slice(r);}
         let mut val=seal(block,&rec).to_vec();val.extend_from_slice(&rec);
-        let mut rg=Vec::with_capacity(ranges.len()*52);for (a,s0,e0) in ranges{rg.extend_from_slice(a.as_slice());rg.extend_from_slice(&s0.to_be_bytes());rg.extend_from_slice(&e0.to_be_bytes());}
-        let mut rval=seal(block,&rg).to_vec();rval.extend_from_slice(&rg);
         self.guard(||{
             let mut w=self.db.begin_write().map_err(err)?;if !durable{w.set_durability(Durability::None);}
             {let mut t=w.open_table(RECEIPTS).map_err(err)?;t.insert(block,val.as_slice()).map_err(err)?;
              let mut x=w.open_table(TXIDX).map_err(err)?;
              for (i,h) in tx_hashes.iter().enumerate(){let mut k=[0u8;64];k[..32].copy_from_slice(h.as_slice());k[32..].copy_from_slice(block);x.insert(&k,i as u32).map_err(err)?;}
-             let mut g=w.open_table(RANGES).map_err(err)?;g.insert(block,rval.as_slice()).map_err(err)?;
              let mut m=w.open_table(MEMBERS).map_err(err)?;m.insert(block,mval.as_slice()).map_err(err)?;
              if let Some(v)=&sval{let mut q=w.open_table(MEMBER_SETS).map_err(err)?;q.insert(block,v.as_slice()).map_err(err)?;}}
             w.commit().map_err(err)?;Ok(true)})
@@ -163,14 +168,6 @@ impl History{
             out.push(b[i..i+n].to_vec());i+=n;
         }
         Ok(Some(out))
-    }
-    /// C-1 S4: a block's nonce ranges, or None if not stored. A record that fails its seal or does not
-    /// parse marks the store damaged.
-    pub fn ranges(&self,block:&[u8;32])->Result<Option<Ranges>,HistoryError>{
-        let v=self.guard(||{let r=self.db.begin_read().map_err(err)?;let t=r.open_table(RANGES).map_err(err)?;Ok(t.get(block).map_err(err)?.map(|v|v.value().to_vec()))})?;
-        let Some(v)=v else{return Ok(None)};
-        if v.len()<32||v[..32]!=seal(block,&v[32..])[..]||(v.len()-32)%52!=0{return Err(self.mark_damaged("ranges record fails its seal"))}
-        Ok(Some(v[32..].chunks(52).map(|c|(revm::primitives::Address::from_slice(&c[..20]),u128::from_be_bytes(c[20..36].try_into().unwrap()),u128::from_be_bytes(c[36..52].try_into().unwrap()))).collect()))
     }
     /// FN-3: a block's (parent, height, member record), or None if not stored. A row that fails its seal or its shape
     /// (`members::decode_rec`) marks the store damaged.
