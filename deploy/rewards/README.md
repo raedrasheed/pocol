@@ -86,7 +86,9 @@ The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For
   carry, and the tip share. ACCRUING records, including a registerReplacing victim that stays exited until its due
   height (FN-2b C4), fill their bond before their reward address is paid. Registrations, exits and replacements change
   the ActList and so the nonce owners of later blocks. The ActList is read in pages of 512 through
-  MinerRegistry.activeSlice (FN-2b C5; up to MAX_MEMBERS_V3 = 10,000 members) and reused for the next height when a
+  MinerRegistry.activeSlice (FN-2b C5; up to MAX_MEMBERS_V3 = 10,000 members), each page sent with ACTIVE_SLICE_GAS =
+  30,000,000 (pocold's eth_call maximum; a page of 512 reads two cold slots per member, about 2.74M gas, more than the
+  2,000,000 CALL_GAS of the other reads), and reused for the next height when a
   block has no kind-1/2 evidence and its registry counters show no registration, exit, replacement or reactivation. Once closing starts (H_CLOSE or T_CLOSE), `markClose` runs after the evidence
   and before `settle(h-D)`: it refunds up to CP 50 live records per block (`bondRefunds`), and each refunded record is
   PAID from then on, so that block's settlement and tip share pay its reward address directly instead of its bond.

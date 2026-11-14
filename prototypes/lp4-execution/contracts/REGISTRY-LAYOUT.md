@@ -152,8 +152,9 @@ is GAS_ENVELOPE_EARNIN's (PoColSystemV3.sol is built on the earn-in programs, wh
 above GAS_ENVELOPE; the same test measures v3 beginBlock 573,516 and markClose 30,889 within it). markClose took the
 earn-in entry until V3-PR-E4 gave it a v3 entry (2,735,000, its closing-phase refunds; see the V3-PR-E4 section below);
 beginBlock still takes the earn-in entry. Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes. FN-2b
-re-measured every entry without the probation pool (section "v3 removal at a full set" below): settle 11,939,301 with
-every payee ACCRUING, recordResult 36,149, invalidate 8,537, punish 98,654.
+re-measured every entry without the probation pool (section "v3 removal at a full set" below): settle 11,956,401 with
+every payee ACCRUING and held_total 0 at the first accrue (11,939,301 with a bond held), recordResult 36,149, invalidate
+8,537, punish 98,654.
 
 The independent model is tests/v3_model.py (class Chain; vectors tests/v3/evidence-penalty-vectors.json, whole blocks
 with settlement); five planted mutants (reporter-paid-on-fallback, whole-pot-for-bonded-accused,
@@ -328,10 +329,14 @@ SYS gas (admission.rs GAS_ENVELOPE_V3, tests/v3_contracts.rs v3-preview): with u
 of a pot may fill and promote its bond in settlement. Pot j's payees are at most S_max + 3 (its distinct share owners,
 its winner and block j's proposer), none counted by M_max, so the v3 gas domain drops the M_max term and requires
 S_max + 3 <= 259 (`in_gas_domain`); no v3 SYSTEM call iterates the members. settle with 258 payees all ACCRUING at
-bond 0, promoted in one call as the chain's first burn: 11,939,301 (`v3_settle_gas_with_every_payee_accruing`, M_max
-1,000); the carry path (C < kappa*m, 64 payees promoted) 3,022,717; recordShares with 257 owners without a record
-14,199,448; markClose's closing refunds 2,683,610 (no v3 entry: within the earn-in entry). SYS footprint
-(resources::derive): Registry fixed slots 6, recordShares 3·O + 2 keys, the tip share's payTo 4 keys.
+bond 0, promoted in one call as the chain's first burn with held_total 0 at the first accrue: 11,956,401
+(`v3_settle_gas_with_every_payee_accruing`, M_max 1,000; 11,939,301 with a bond held); the carry path (C < kappa*m, 64
+payees promoted) 3,022,717; recordShares with 257 owners without a record 14,199,448; markClose's closing refunds
+2,683,610 (no v3 entry: within the earn-in entry). SYS footprint (resources::derive): Registry fixed slots 6,
+recordShares 3·O + 2 keys, the tip share's payTo 4 keys, settle and each settleFinal 4 + 2·(O + 2) + 1 keys (each
+payee's bond and state word through accrue, and held_total); a profile that never closes counts only the ordinary
+class. activeSlice reads two cold slots per element: a page of 512 measures 2,741,170 gas at 10,000 members, so the
+reward gateway sends each page with 30,000,000 gas (pocold's CALL_GAS_MAX), not its ordinary 2,000,000.
 
 The independent model is tests/v3_model.py (Registry.removal_check, register_replacing, remove_inactive; Chain with
 shares and late credit; check_payee_bound asserts at most S_max + 3 payees per settlement of every host chain); its
@@ -341,8 +346,9 @@ victim, a removeInactive freeing a seat a plain register takes, the victims refu
 both returning, one with B_reg as HELD and one with nothing as ACCRUING), the budgets, M_min, whole chains where header
 and late shares keep a member (and the same chain without the late credit), and a victim payable and punishable until
 its refund; tests/v3/earnin-on-v3-vectors.json re-runs the earn-in model's scenarios (its probation-seats and deadline
-scenarios differ on v3: no pool, no deadline). Eight planted MinerRegistry mutants (removal-below-full-set,
+scenarios differ on v3: no pool, no deadline). Nine planted MinerRegistry mutants (removal-below-full-set,
 removal-theta-off-by-one, removal-ignores-grace, removal-at-m-min, replacing-one-reg-ops-unit, replacing-no-r-max-entry,
-replacing-victim-erased-at-once, replacing-any-victim) are in tests/v3/system-v3-mutants.json, each failing its scenario
+replacing-victim-erased-at-once, replacing-any-victim, replacing-sender-with-record: without registerReplacing's own
+"sender has no record" check, enroll(..., w = 0) would write over the sender's record) are in tests/v3/system-v3-mutants.json, each failing its scenario
 (tests/v3_contracts.rs the_removal_mutants_fail_the_v3_vectors). The V3-PR-E4 vectors (contest-vectors.json) and the
 earn-in model at P_MAX 64 (earnin-vectors-p64.json, tests/v3_model_vectors.py) were deleted with the rules they tested.

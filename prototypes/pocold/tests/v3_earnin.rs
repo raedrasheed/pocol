@@ -298,6 +298,12 @@ mod preview {
         assert_eq!((d["replacing"]["removable"].as_u64(), d["replacing"]["refundAfterBlocks"].as_u64()), (Some(2), Some(u64::from(net.chain.spec.cp().U))));
         assert!(d["steps"][1].as_str().unwrap().contains("refunded after") && d["steps"][2].as_str().unwrap().contains("filled from your rewards"), "{d}");
         assert!(wallet::replace_plan(&net.chain, one, U256::ZERO, |_| 0).unwrap_err().contains("already has a registry record"));
+        // A replacement already pending in the node's pool takes its victim out of the next quote's draw.
+        let pending = vec![replacing_tx(&net, &bob, alice.address(), B), tx(&net, &carol, vec![1, 2, 3], U256::ZERO)];
+        assert_eq!(wallet::pending_victims(&net.chain, pending.iter().map(|r| r.as_slice())), vec![alice.address()]);
+        let other = wallet::replace_plan_excluding(&net.chain, carol.address(), U256::ZERO, &[alice.address()], |n| { assert_eq!(n, 1); 0 }).unwrap().unwrap();
+        assert_eq!(other.victim, two, "alice is named by the pending replacement: the draw is among the others");
+        assert!(wallet::replace_plan_excluding(&net.chain, carol.address(), U256::ZERO, &[alice.address(), two], |_| 0).unwrap_err().contains("pending replacement"));
         let mut reg = keccak256("register(address)")[..4].to_vec(); reg.extend_from_slice(bob.address().into_word().as_slice());
         let txs = vec![replacing_tx(&net, &bob, one, B), tx(&net, &carol, wallet::replacing_calldata(carol.address(), plan.victim).to_vec(), U256::ZERO),
             tx_at(&net, &bob, reg, U256::from(B), 1)];
@@ -309,6 +315,17 @@ mod preview {
         assert_eq!((record(&net, carol.address()).status, apply::active_list(&net.chain.head().state).len()), (1, 3), "carol takes the seat; the set stays full");
         assert!(apply::miner_record(&net.chain.head().state, bob.address()).is_none(), "bob's refused calls registered nothing");
         listing_matches_the_registry(&net);
+        // The replaced member's wallet: the set is still full, so reactivate() would revert (Capacity). Its step is Full
+        // until the refund at its due height, and Rejoin mining is refused with that reason; reactivation itself reverts.
+        let step = wallet::chain_rejoin_step(&net.chain, alice.address());
+        assert_eq!(step, RejoinStep::Full { refund: a.due_height }, "no rejoin while every seat is taken");
+        assert!(wallet::rejoin_refusal(step).unwrap().contains("All seats are taken"));
+        while net.chain.head().height + 1 < a.exit_height + u64::from(net.chain.spec.cp().W_act) { let _ = next(&mut net, one, vec![]); }
+        assert_eq!(wallet::chain_rejoin_step(&net.chain, alice.address()), RejoinStep::Full { refund: a.due_height }, "inside its reactivation window, still full");
+        let t = tx(&net, &alice, wallet::reactivate_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!(receipts_status(&net), vec![Vec::<u8>::new()], "reactivate at a full set reverts, as the wallet says");
+        assert_eq!(record(&net, alice.address()).status, 2);
         while net.chain.head().height < a.due_height { let _ = next(&mut net, one, vec![]); }
         assert!(apply::miner_record(&net.chain.head().state, alice.address()).is_none(), "the sweep refunded and erased alice at her due height");
         // alice returns with the full bond into the seat of two (carol, joined at h, is past grace too; pick two).

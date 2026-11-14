@@ -81,6 +81,9 @@ const MUTANTS=[
   ['replacing-victim-erased-at-once','exitAt(vr,vw,get(vr+3),height);\n        enroll(','{uint256 w=removeActive(vr,vw);if(!refund(address(uint160(v)),vr))revert PaymentFailed();erase(address(uint160(v)),vr,w);}\n        enroll('],
   // An exited (or tombed) victim accepted: the newcomer takes a seat nobody freed.
   ['replacing-any-victim','if(!live(vw)||(vw&255)!=1)return 1;','if(!live(vw))return 1;'],
+  // A sender with a record (live or exited) accepted: enroll(..., w = 0) writes a new record over it, resetting its bond,
+  // state and positions (enroll's own w != 0 check is not reached with the literal 0).
+  ['replacing-sender-with-record','uint256 r=rec(msg.sender);if(get(r)!=0)revert BadState();\n        uint256 vr=rec(address(uint160(v)));','uint256 r=rec(msg.sender);\n        uint256 vr=rec(address(uint160(v)));'],
 ];
 const args=process.argv.slice(2);const mutants=args[0]==='--mutants';const out=mutants?args[1]:args[0];
 if(!out)throw Error('usage: compile_system_v3.cjs [--mutants] OUT.json');

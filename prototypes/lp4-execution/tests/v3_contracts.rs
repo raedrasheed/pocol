@@ -81,9 +81,9 @@ const LATE_MUTANTS:[&str;5]=["late-last-share-reverts","late-last-share-overwrit
 /// The eight V3-19/V3-15/V3-20 issuance, carry and tip split mutants (RewardEscrow), in fixture order.
 const ECON_MUTANTS:[&str;8]=["carry-not-added","tip-share-to-pot","base-burn-still-burned","issued-ignored-flat-s0","carry-kept-at-final","base-burn-into-closed-pot",
     "carry-not-lagged","lagged-carry-kept-at-final"];
-/// The eight FN-2b C4 removal mutants (MinerRegistry), in fixture order.
-const REPLACE_MUTANTS:[&str;8]=["removal-below-full-set","removal-theta-off-by-one","removal-ignores-grace","removal-at-m-min",
-    "replacing-one-reg-ops-unit","replacing-no-r-max-entry","replacing-victim-erased-at-once","replacing-any-victim"];
+/// The nine FN-2b C4 removal mutants (MinerRegistry), in fixture order.
+const REPLACE_MUTANTS:[&str;9]=["removal-below-full-set","removal-theta-off-by-one","removal-ignores-grace","removal-at-m-min",
+    "replacing-one-reg-ops-unit","replacing-no-r-max-entry","replacing-victim-erased-at-once","replacing-any-victim","replacing-sender-with-record"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
 const V3_SYS_CODE_HASH:&str="a1d91673b4b4a2c88ff75d4828dc1932dbaa2831284a66f4b1ea77b4c5e666a2";
 
@@ -1770,7 +1770,7 @@ fn v3_close_block_call_shapes(){
 
 // ---------------- FN-2b C4/C5: removal at a full set (registerReplacing, removeInactive's gate) and activeSlice
 
-/// The eight planted FN-2b C4 mutants each fail the registry-budget vectors (the removal scenarios of tests/v3_model.py),
+/// The nine planted FN-2b C4 mutants each fail the registry-budget vectors (the removal scenarios of tests/v3_model.py),
 /// each in the scenario written for its rule.
 #[test]
 fn the_removal_mutants_fail_the_v3_vectors(){
@@ -1780,7 +1780,7 @@ fn the_removal_mutants_fail_the_v3_vectors(){
     let expect=[("removal-below-full-set","removal-only-at-a-full-set"),("removal-theta-off-by-one","replacing-chain-shares-keep-a-member"),
         ("removal-ignores-grace","removal-only-at-a-full-set"),("removal-at-m-min","removal-at-m-min"),("replacing-one-reg-ops-unit","replacing-budget"),
         ("replacing-no-r-max-entry","replacing-budget"),("replacing-victim-erased-at-once","replacing-chain-victim-payable-and-punishable"),
-        ("replacing-any-victim","removal-only-at-a-full-set")];
+        ("replacing-any-victim","removal-only-at-a-full-set"),("replacing-sender-with-record","replacing-budget")];
     for ((n,code),(want,killer)) in removal.iter().zip(expect){
         assert_eq!(n,want);assert_ne!(code,&original,"{n} changes the bytecode");
         let killed:Vec<String>=budget_replay(&Setup::v3().with_registry(code.clone())).into_iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
@@ -1908,6 +1908,41 @@ fn active_slice_pages_the_active_list(){
     let mut all=Vec::new();let mut start=0;
     loop{let (ids,_)=slice(&mut h,U256::from(start),U256::from(4));if ids.is_empty(){break}start+=ids.len();all.extend(ids);}
     assert_eq!(all,active);
+}
+
+/// FN-2b C5, the gateway's real read: deploy/rewards/pocol_rewards.py reads the ActList in activeSlice pages of
+/// ACTIVE_PAGE, each eth_call sent with ACTIVE_SLICE_GAS (its constants, read from the source here). An ActList of
+/// M_max = 10,000 members (MAX_MEMBERS_V3; written into the bytecode registry's storage: ActLen, the ActList elements and
+/// each member's record word w0) is read page by page in fresh transactions with exactly that gas, so every slot is cold
+/// as on a node's eth_call. Every page succeeds, uses at most a quarter of the gas sent (and of pocold's CALL_GAS_MAX,
+/// 30,000,000, which caps it), and the pages give back the whole list with each w0; a page of ACTIVE_PAGE needs more than
+/// the gateway's ordinary CALL_GAS of 2,000,000 (two cold slots per element), which is why it is sent with more.
+#[test]
+fn active_slice_reads_m_max_members_in_gateway_pages(){
+    const GATEWAY:&str=include_str!("../../../deploy/rewards/pocol_rewards.py");
+    let constant=|n:&str|->u64{GATEWAY.lines().find_map(|l|l.strip_prefix(&format!("{n} = "))).unwrap_or_else(||panic!("{n} in pocol_rewards.py")).trim().parse().unwrap()};
+    let (page,gas,call_gas,m)=(constant("ACTIVE_PAGE"),constant("ACTIVE_SLICE_GAS"),constant("CALL_GAS"),constant("MAX_MEMBERS_V3"));
+    assert_eq!((m,call_gas),(10_000,2_000_000));assert!(gas<=30_000_000&&gas<=pocol_lp4_execution::apply::PER_CALL_GAS,"ACTIVE_SLICE_GAS {gas} above CALL_GAS_MAX");
+    let mut h=Harness::new(&[],&Setup::v3());
+    let ids:Vec<Address>=(0..m).map(|i|name(&format!("member{i}"))).collect();
+    let w0=|i:u64|U256::from(1)|(U256::from(i%5)<<16u32)|(U256::from(i)<<64u32);
+    put(&mut h.db,registry_address(),U256::from(1),U256::from(m));
+    for (i,id) in ids.iter().enumerate(){put(&mut h.db,registry_address(),base(6)+U256::from(i),U256::from_be_slice(id.as_slice()));put(&mut h.db,registry_address(),slot(*id),w0(i as u64));}
+    let (mut all,mut words,mut most)=(Vec::new(),Vec::new(),0u64);
+    for start in (0..m).step_by(page as usize){
+        let mut d=selector("activeSlice(uint256,uint256)");d.extend(U256::from(start).to_be_bytes::<32>());d.extend(U256::from(page).to_be_bytes::<32>());
+        let tx=TxEnv{caller:name("gateway"),transact_to:TxKind::Call(registry_address()),data:Bytes::from(d),value:U256::ZERO,gas_limit:gas,gas_price:U256::ZERO,
+            nonce:None,chain_id:Some(CHAIN_ID),..Default::default()};
+        let r=native::execute_at(&mut h.db,tx,U256::from(2)).unwrap();
+        assert!(r.result.is_success(),"activeSlice({start}, {page}) with gas {gas}: {:?}",r.result);
+        let used=r.result.gas_used();most=most.max(used);
+        let (ids_,w0s)=decode_slice(output(&r.result));assert_eq!(ids_.len() as u64,page.min(m-start));
+        all.extend(ids_);words.extend(w0s);
+    }
+    eprintln!("ACTIVE-SLICE {m} members in pages of {page}: most gas per page {most} (sent {gas}, CALL_GAS {call_gas})");
+    assert_eq!(all,ids);assert!(words.iter().enumerate().all(|(i,w)|*w==w0(i as u64)));
+    assert!(most<=gas/4,"a page of {page} uses {most} of {gas}");
+    assert!(most>call_gas,"a page of {page} fits CALL_GAS ({most}): ACTIVE_SLICE_GAS is not needed");
 }
 
 #[cfg(feature="v3-preview")]
@@ -2039,41 +2074,95 @@ mod preview{
         (cfg,q)
     }
     /// FN-2b C2, the re-measured settle (GAS_ENVELOPE_V3): settle's worst path with every payee ACCRUING. A v3 chain of four
-    /// HELD genesis members and 258 zero-bond registrants q0..q257 (16 per block in blocks 1..17, REG_OPS 16; M_max 1,000).
-    /// Pot 18, raised by a large tip, names q0..q255 as its 256 share owners (C = 257 with the winner's share), q256 as its
-    /// winner and q257 as its signed proposer: 258 distinct payees, all ACCRUING at bond 0, so settle(18) in block 34 fills
-    /// and promotes 258 bonds from 0 to B_reg in one call, as the chain's first burn (pots 1..17 have one HELD owner each
-    /// and burn nothing). That is S_max + 2 of the S_max + 3 payees GAS_DOMAIN_V3_PAYEES bounds (the winner is one of the
-    /// owners). The call stays within GAS_ENVELOPE_V3 settle and settleFinal (the same settleOne) and below the 30M per-call
-    /// cap; the blocks within resources::derive.
-    #[test]
-    fn v3_settle_gas_with_every_payee_accruing(){
-        let (cfg,q)=accruing_config(&["g0","g1","g2","g3"],258);
+    /// genesis members and 258 zero-bond registrants q0..q257 (at most 16 REG_OPS units per block in blocks 1..17; M_max
+    /// 1,000). Pot 18, raised by a large tip, names q0..q255 as its 256 share owners (C = 257 with the winner's share), q256
+    /// as its winner and q257 as its signed proposer: 258 distinct payees, all ACCRUING at bond 0, so settle(18) in block
+    /// 34 fills and promotes 258 bonds from 0 to B_reg in one call, as the chain's first burn (pots 1..17 have one genesis
+    /// owner each and burn nothing). That is S_max + 2 of the S_max + 3 payees GAS_DOMAIN_V3_PAYEES bounds (the winner is
+    /// one of the owners). Run twice: with the genesis bonds held (held_total nonzero at the first accrue), and with
+    /// held_total 0 at settle(18), which also pays accrue's first held_total write from zero: the genesis members
+    /// deregister in block 1 (funded by bob for the fee; U = E_win + D = 32, so due = 33), are paid their pots 1..17 while
+    /// exited (live until refunded), and claim their bonds in block 33 after settle(17) (or the sweep refunds them there),
+    /// so no bond is held and nothing has burned when settle(18) runs. The held-zero run is the dearer, and the envelope
+    /// entry is it rounded up to 1000.
+    /// Block 34 also records block 33's result naming 256 distinct share owners, 240 of them registrants r0..r239 with a
+    /// record (count, owner element and record word each) and 16 without, so its SYS keys combine a maximal recordShares
+    /// with the all-ACCRUING settle: they stay within resources::derive's keys_normal, which counts settle's accrual keys
+    /// (2 per payee and held_total, `settle_keys`). The call stays within GAS_ENVELOPE_V3 settle and settleFinal (the same
+    /// settleOne) and below the 30M per-call cap; every block within resources::derive.
+    fn settle_all_accruing(held_zero:bool)->(u64,u64,resources::SysBounds){
+        let (mut cfg,q)=accruing_config(&["g0","g1","g2","g3"],258);
+        if held_zero{cfg.e_win=16;cfg.u=32;}
+        let r_:Vec<String>=(0..240).map(|i|format!("r{i}")).collect();
+        for p in &r_{cfg.accounts.push((p.clone(),U256::from(PCOL)));}
         let mut a=Run::new(&cfg);let cp=a.net.profile.cp().clone();
         assert!(admission::in_gas_domain(&cp,ProgramSet::V3)&&!admission::in_gas_domain(&cp,ProgramSet::EarnIn),"M_max 1,000: inside the v3 domain only");
         let genesis:Vec<Address>=(0..4).map(|i|a.id(i)).collect();let qid:Vec<Address>=q.iter().map(|p|devnet::account_key(p).address()).collect();
         let one=|g:Address|->Vec<(u64,Address)>{(0..256u64).map(|i|(i+1,g)).collect()};
-        for k in 0..17usize{let j=joins(&a,&q[16*k..(16*k+16).min(258)],0);a.block(Proposer::Signed(genesis[k%4]),vec![],j,genesis[(k+1)%4],one(genesis[(k+1)%4]));}
+        let bob=devnet::account_key("bob");
+        let user=|a:&Run,key:&pocol_lp4_execution::txsign::Key,nonce:u64,to:Address,value:U256,data:Vec<u8>,gas:u64|Tx{chain_id:a.net.profile.spec().chain_id,nonce,max_priority:U256::ZERO,max_fee:a.base,gas,
+            to:Some(to),value,data:Bytes::from(data)}.sign_1559(key);
+        let mut next=0usize;
+        for k in 0..17usize{
+            let mut txs=Vec::new();let mut room=16;
+            if held_zero&&k==0{
+                for i in 0..4{txs.push(user(&a,&bob,i as u64,genesis[i],U256::from(PCOL),vec![],21_000));}
+                room-=4;
+            }
+            let take=room.min(258-next);txs.extend(joins(&a,&q[next..next+take],0));next+=take;
+            if held_zero&&k==0{for i in 0..4{txs.push(user(&a,&a.net.miners[i].key,0,registry_address(),U256::ZERO,selector("deregister()"),400_000));}}
+            a.block(Proposer::Signed(genesis[k%4]),vec![],txs,genesis[(k+1)%4],one(genesis[(k+1)%4]));
+        }
+        assert_eq!(next,258);
+        if held_zero{for g in &genesis{let x=apply::miner_record(&a.state,*g).unwrap();assert_eq!((x.status,x.due_height),(2,33),"deregistered at 1, due at 1 + U");}}
         for p in &qid{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((1,4,U256::ZERO)),"a zero-bond ACCRUING registrant");}
         let alice=devnet::account_key("alice");let tip=U256::from(400_000_000_000_000_000u128);
         let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:a.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
-        let o=a.block(Proposer::Signed(qid[257]),vec![],vec![big],qid[256],(0..256u64).map(|i|(i*3+1,qid[i as usize])).collect());
+        let mut txs=vec![big];txs.extend(joins(&a,&r_[0..16],0));
+        let o=a.block(Proposer::Signed(qid[257]),vec![],txs,qid[256],(0..256u64).map(|i|(i*3+1,qid[i as usize])).collect());
         assert!(o.tips>U256::from(8000*PCOL),"pot 18 tips {}",o.tips);
-        for k in 19..=33u64{a.block(Proposer::Signed(genesis[(k%4) as usize]),vec![],vec![],genesis[(k%4) as usize],one(genesis[(k%4) as usize]));}
+        // Block 33's result (recorded by block 34): 256 distinct owners, r0..r239 and 16 without a record.
+        let late_owners:Vec<Address>=r_.iter().map(|p|devnet::account_key(p).address()).chain((0..16).map(|i|name(&format!("stranger{i}")))).collect();
+        for k in 19..=33u64{
+            let g=genesis[(k%4) as usize];
+            let mut txs=if k<=32{joins(&a,&r_[16*(k as usize-18)..16*(k as usize-17)],0)}else{vec![]};
+            if held_zero&&k==33{for i in 0..4{txs.push(user(&a,&a.net.miners[i].key,1,registry_address(),U256::ZERO,selector("claimBond()"),400_000));}}
+            let shares=if k==33{late_owners.iter().enumerate().map(|(i,x)|(i as u64*3+1,*x)).collect()}else{one(g)};
+            a.block(Proposer::Signed(g),vec![],txs,g,shares);
+        }
+        for p in &r_{assert!(apply::miner_record(&a.state,devnet::account_key(p).address()).is_some(),"{p} registered");}
         assert_eq!(storage(&a.state,escrow_address(),U256::ZERO),U256::ZERO,"pots 1..17 burned nothing");
         assert_eq!(apply::share_total(&a.state,18),257);
-        let o=a.block(Proposer::Signed(genesis[2]),vec![],vec![],genesis[2],one(genesis[2]));
+        if held_zero{
+            for g in &genesis{assert!(apply::miner_record(&a.state,*g).is_none(),"the genesis bonds are refunded at 33");}
+            assert_eq!(reg(&a.state,4),U256::ZERO,"held_total is 0 when settle(18) runs");
+        }else{assert_eq!(reg(&a.state,4),U256::from(4)*b(),"the four genesis bonds are held");}
+        let o=a.block(Proposer::Fallback,vec![],vec![],genesis[2],one(genesis[2]));
         let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
         for p in &qid{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.bond_state,x.bond)),Some((1,b())),"filled from 0 to B and promoted by settle(18)");}
+        // The payees settle(18) paid on the host chain: its 258 promoted bonds are within the payee bound S_max + 3.
+        assert!(qid.len() as u32<=u32::from(cp.S_max)+3&&qid.len() as u32+3>u32::from(cp.S_max)+3,"258 payees near the bound");
         assert!(storage(&a.state,escrow_address(),U256::ZERO)>U256::ZERO,"settle(18) makes the chain's first burn");
-        let bound=admission::envelope(ProgramSet::V3,"settle").unwrap();let b=resources::derive(&cp);
-        eprintln!("V3-SETTLE-ALL-ACCRUING settle(18) promoting 258 ACCRUING payees: {g}; envelope {bound}; keys {} accounts {} (derive {} {})",a.keys,a.accounts,b.keys_normal,b.accts_normal);
-        assert!(g<=bound&&g<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settle {g} above GAS_ENVELOPE_V3 {bound}");
-        assert!(g<30_000_000,"the per-call cap");
-        assert!(g>admission::envelope(ProgramSet::EarnIn,"settle").unwrap()&&g>admission::envelope(ProgramSet::V1,"settle").unwrap(),"settle {g} fits an older envelope: drop its v3 entry");
+        let b=resources::derive(&cp);let keys=o.meter.keys.len() as u64;
+        eprintln!("V3-SETTLE-ALL-ACCRUING held_zero={held_zero} settle(18) promoting 258 ACCRUING payees: {g}; block 34 keys {keys}, run keys {} accounts {} (derive {} {})",a.keys,a.accounts,b.keys_normal,b.accts_normal);
+        assert!(keys<=b.keys_normal,"block 34: {keys} SYS keys above keys_normal {}",b.keys_normal);
+        assert!(keys>=2*258+3*240,"block 34 keys {keys}: the 258 accruals (bond and state word) and 240 recorded owners (3 keys each) are all in it");
         assert!(a.keys as u64<=b.keys_normal&&a.accounts as u64<=b.accts_normal,"keys {} accounts {} vs {b:?}",a.keys,a.accounts);
-        // The envelope entry is this measurement rounded up to 1000 (admission.rs GAS_ENVELOPE_V3).
-        assert_eq!(bound,g.div_ceil(1000)*1000,"GAS_ENVELOPE_V3 settle is the measured worst path");
+        (g,keys,b)
+    }
+    #[test]
+    fn v3_settle_gas_with_every_payee_accruing(){
+        let (held,keys_held,b)=settle_all_accruing(false);let (zero,keys_zero,_)=settle_all_accruing(true);
+        let bound=admission::envelope(ProgramSet::V3,"settle").unwrap();
+        eprintln!("V3-SETTLE-ALL-ACCRUING held_total nonzero {held}, from zero {zero}; envelope {bound}; block 34 keys {keys_held} {keys_zero} (keys_normal {})",b.keys_normal);
+        assert!(zero>held,"the first held_total write from zero costs more: {zero} vs {held}");
+        for g in [held,zero]{
+            assert!(g<=bound&&g<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settle {g} above GAS_ENVELOPE_V3 {bound}");
+            assert!(g<30_000_000,"the per-call cap");
+            assert!(g>admission::envelope(ProgramSet::EarnIn,"settle").unwrap()&&g>admission::envelope(ProgramSet::V1,"settle").unwrap(),"settle {g} fits an older envelope: drop its v3 entry");
+        }
+        // The envelope entry is the dearer measurement rounded up to 1000 (admission.rs GAS_ENVELOPE_V3).
+        assert_eq!(bound,zero.max(held).div_ceil(1000)*1000,"GAS_ENVELOPE_V3 settle is the measured worst path");
     }
     /// FN-2b C2, the carry path of the same rule: a pot with C < kappa*m (62 share owners and the winner: C = 63) leaves a
     /// base burn to the carry into pot h+1 (V3-15) while it fills and promotes every one of its 64 payees (the 63 owners and
@@ -2334,6 +2423,50 @@ mod preview{
         let o=apply::apply_block(net.genesis.state(),&net.genesis,&net.profile,&input(1,txs)).expect("the deploy block applies");
         assert!(miner_record(&o.state,x).is_none(),"a self-destructing contract registered a self reward");
         assert_eq!(record_list(&o.state).len(),3);check_escrow_invariant(&o.state,&net.profile,1,false).unwrap();
+    }
+    /// The rest of earnin_halt_proof.rs (the F1/F2/F3 constructor halt) on the v3 set through apply_block, every block a
+    /// real one (Run checks the supply after each): a contract deployed at H_REG = 5 whose constructor calls
+    /// register(reward) with 1 wei and then deregister(), and then (0) self-destructs with itself as the reward, (1) persists
+    /// with itself as the reward, or (2, the positive control) self-destructs with a durable distinct reward D (a genesis
+    /// member's reward address). (0) and (1) store no record (durability is judged at registration; the persistent
+    /// contract exists afterwards); (2) stores an exited record paying D, due at H_REG + U = 45. The blocks DUE - 1 ..
+    /// DUE + 2 all apply; in (2) the due-height sweep refunds D its bond once and erases the record.
+    #[test]
+    fn v3_keeps_the_earnin_halt_proof_cases(){
+        let h_reg=5u64;
+        let sel=|s:&str|{let h=keccak256(s.as_bytes());[h[0],h[1],h[2],h[3]]};
+        let store=|c:&mut Vec<u8>,s:[u8;4]|{c.push(0x63);c.extend_from_slice(&s);c.extend_from_slice(&[0x60,0xE0,0x1b,0x60,0x00,0x52]);};
+        let call_=|c:&mut Vec<u8>,value:u8,len:u8|c.extend_from_slice(&[0x60,0x00,0x60,0x00,0x60,len,0x60,0x00,0x60,value,0x62,0xC0,0xC0,0x01,0x5a,0xf1,0x50]);
+        let init=|reward:Option<Address>,destroy:bool|->Vec<u8>{
+            let mut c=Vec::new();store(&mut c,sel("register(address)"));
+            match reward{None=>c.extend_from_slice(&[0x30,0x60,0x04,0x52]),Some(a)=>{c.push(0x73);c.extend_from_slice(a.as_slice());c.extend_from_slice(&[0x60,0x04,0x52]);}}
+            call_(&mut c,1,0x24);store(&mut c,sel("deregister()"));call_(&mut c,0,0x04);
+            if destroy{c.extend_from_slice(&[0x33,0xff]);}else{c.extend_from_slice(&[0x60,0x00,0x60,0x00,0xf3]);}
+            c
+        };
+        for case in 0..3{
+            let mut r=Run::new(&config(2,&["a","b","c"]));let u=u64::from(r.net.profile.cp().U);let due=h_reg+u;
+            let (w,d)=(r.id(0),r.reward(1));
+            while r.h+1<h_reg{r.block(Proposer::Fallback,vec![],vec![],w,vec![(1,w)]);}
+            let attacker=devnet::account_key("alice");let x=attacker.address().create(0);
+            let reward=if case==2{Some(d)}else{None};
+            let tx=Tx{chain_id:r.net.profile.spec().chain_id,nonce:0,max_priority:U256::ZERO,max_fee:r.base,gas:3_000_000,to:None,value:U256::from(1u64),data:Bytes::from(init(reward,case!=1))}.sign_1559(&attacker);
+            let d0=r.bal(d);
+            r.block(Proposer::Fallback,vec![],vec![tx],w,vec![(1,w)]);assert_eq!(r.h,h_reg);
+            let rec=apply::miner_record(&r.state,x);
+            let code=r.state.accounts.get(&x).map(|a|(a.info.nonce,a.account_state!=revm::db::AccountState::NotExisting));
+            match case{
+                0=>{assert!(rec.is_none(),"a self-destructing constructor with a self reward stores no record");assert!(!code.is_some_and(|c|c.1&&c.0>0),"the account is deleted: {code:?}");}
+                1=>{assert!(rec.is_none(),"durability is judged at registration, not after the constructor");assert_eq!(code.map(|c|c.0),Some(1),"the persistent contract exists");}
+                _=>{let x_=rec.unwrap();assert_eq!((x_.status,x_.reward,x_.bond,x_.due_height),(2,d,U256::from(1),due),"the control registers, exits and is due at H_REG + U");}
+            }
+            while r.h<due+2{r.block(Proposer::Fallback,vec![],vec![],w,vec![(1,w)]);}
+            if case==2{
+                assert!(apply::miner_record(&r.state,x).is_none(),"the due-height sweep erased the control's record");
+                assert_eq!(r.bal(d)-d0,U256::from(1),"D is refunded the 1 wei bond once");
+            }
+            assert_eq!(apply::record_list(&r.state).len(),3,"case {case}: only the genesis records remain");
+        }
     }
 
     // ---------------- V3-PR-E2a through the host (V3-19, V3-15, V3-20)

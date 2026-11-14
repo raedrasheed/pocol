@@ -464,6 +464,12 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
         for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(!in_gas_domain(&wide,set),"M_max {m} is outside the spec-1 domain: {set:?}");}
         assert!(in_gas_domain(&wide,ProgramSet::V3),"M_max {m} is inside the v3 domain");assert!(phase_gas(&wide,0,ProgramSet::V3).is_some());
     }
+    // A13-DERIVATION's D limit for the v3 final class (finalize, settle and D - 1 settleFinal at the all-ACCRUING settle
+    // entry, with E_max 4 evidence items): within G_SYS 96M up to D = 5, above it from D = 6.
+    let mut fresh=cp.clone();fresh.E_max=4;fresh.S_max=256;
+    let final_at=|d:u16|{let mut c=fresh.clone();c.D=d;phase_gas(&c,2,ProgramSet::V3).unwrap().iter().sum::<u64>()};
+    eprintln!("V3-FINAL-CLASS D=4 {} D=5 {} D=6 {}",final_at(4),final_at(5),final_at(6));
+    assert!(final_at(4)<=96_000_000&&final_at(5)<=96_000_000&&final_at(6)>96_000_000,"D=4 {} D=5 {} D=6 {}",final_at(4),final_at(5),final_at(6));
     // The payee bound: S_max + 3 <= 259, i.e. S_max <= 256 (the same S_max term as the spec-1 domain).
     assert_eq!(GAS_DOMAIN_V3_PAYEES,u32::from(GAS_DOMAIN.s_max)+3);
     let mut wide=cp.clone();wide.S_max=GAS_DOMAIN.s_max+1;

@@ -77,7 +77,44 @@ pub enum RejoinStep {
     Reactivate { closes:u64 },
     /// Exited and past the window: the sweep refunds the bond and erases the record.
     Missed,
+    /// FN-2b C4 (the v3 program set, owner decision Q2(a)): exited while every seat is taken (active = M_max), as a member
+    /// replaced by registerReplacing is: reactivate() reverts (Capacity) while the set stays full, so the wallet offers no
+    /// rejoin; the bond is refunded at `refund` (dueHeight), after which the account registers again (by replacement while
+    /// the set is full).
+    Full { refund:u64 },
 }
+/// FN-2b C4: `step` at a full set (`seats_full`: the v3 program set with active = M_max at the head): an exited record
+/// waiting for or inside its reactivation window cannot reactivate, so it is `Full` until its refund at dueHeight.
+pub fn at_full_set(step:RejoinStep,seats_full:bool)->RejoinStep{
+    match step{
+        RejoinStep::Wait{closes,..}|RejoinStep::Reactivate{closes} if seats_full=>RejoinStep::Full{refund:closes},
+        other=>other,
+    }
+}
+/// The rejoin step of `id` at the head's next block on `chain` (what the wallet's status and Rejoin mining use): its
+/// record, its membership of A_{head+1}, the earn-in deadline, and the full-set rule.
+pub fn chain_rejoin_step(chain:&crate::chain::Chain,id:Address)->RejoinStep{
+    let head=chain.head();let Some(state)=chain.view_of(&head.hash) else{return RejoinStep::Unavailable};
+    let record=apply::miner_record(state.v(),id);
+    let Ok(m)=chain.membership(head,head.height+1) else{return RejoinStep::Unavailable};
+    let step=rejoin_step(record.as_ref(),head.height+1,m.ids().contains(&types::raw_addr(id)),u64::from(chain.spec.cp().W_act),chain.spec.probation().map(|p|p.blocks));
+    at_full_set(step,seats_full(chain,state.v()))
+}
+/// Whether every seat is taken: the v3 program set with active = M_max (FN-2b C4; other sets have no replacement).
+pub fn seats_full(chain:&crate::chain::Chain,v:&dyn View)->bool{
+    chain.spec.programs()==apply::ProgramSet::V3&&apply::active_list(v).len() as u64>=u64::from(chain.spec.cp().M_max)
+}
+/// Why Rejoin mining cannot be quoted at `step`, or None when it can (exit or reactivation).
+pub fn rejoin_refusal(step:RejoinStep)->Option<String>{
+    match step{
+        RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}=>None,
+        RejoinStep::Active=>Some("This account is already in the active mining set".into()),
+        RejoinStep::Missed=>Some("The reactivation window has passed. The bond is refunded when the record is removed; register again after that.".into()),
+        RejoinStep::Full{refund}=>Some(full_message(refund)),
+        RejoinStep::Unavailable=>Some("Rejoining needs a registry record with a held bond. Register first.".into()),
+    }
+}
+fn full_message(refund:u64)->String{format!("All seats are taken, so reactivation would be refused. The bond is refunded at block {refund}; register again after that.")}
 /// `t_prob`: the probation deadline in blocks of the genesis programs (`Spec::probation`): the earn-in set's; None on the
 /// v3 set (FN-2b C3: no deadline) and without earn-in.
 pub fn rejoin_step(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64,t_prob:Option<u64>)->RejoinStep{
@@ -103,6 +140,7 @@ fn step_json(step:RejoinStep)->Value{
         RejoinStep::Wait{opens,closes}=>json!({"step":"wait","opensAt":opens,"closesAt":closes}),
         RejoinStep::Reactivate{closes}=>json!({"step":"reactivate","closesAt":closes}),
         RejoinStep::Missed=>json!({"step":"missed"}),
+        RejoinStep::Full{refund}=>json!({"step":"full","refundAt":refund}),
     }
 }
 /// PAY-02 judges a reward address on the pre-transaction state: it must have sent a transaction
@@ -164,6 +202,20 @@ pub struct ReplacePlan{pub victim:Address,pub value:U256,pub full:U256,pub candi
 /// `pick(n)` (an index below n; the wallet draws it at random) among the members removable at the next block, confirmed by
 /// the registry's removalStatus view. None when the set is not full (an ordinary register lands).
 pub fn replace_plan(chain:&crate::chain::Chain,me:Address,value:U256,pick:impl FnOnce(usize)->usize)->Result<Option<ReplacePlan>,String>{
+    replace_plan_excluding(chain,me,value,&[],pick)
+}
+/// The victims named by registerReplacing transactions among `raw` (the node's pool): each a transaction to the registry
+/// with the registerReplacing selector and its 68-byte call shape, decoded for this network. A newcomer's quote leaves
+/// them out, so that it does not name a member another pending replacement already takes (that transaction would revert).
+pub fn pending_victims<'b>(chain:&crate::chain::Chain,raw:impl Iterator<Item=&'b [u8]>)->Vec<Address>{
+    let sel=&keccak256("registerReplacing(address,address)")[..4];
+    raw.filter_map(|r|pocol_lp4_execution::wire::decode_for_profile(r,chain.spec.profile()).ok()).filter_map(|e|{
+        let t=e.tx_env();
+        (t.transact_to==revm::primitives::TxKind::Call(apply::program_address(0))&&t.data.len()==68&&&t.data[..4]==sel).then(||Address::from_slice(&t.data[48..68]))
+    }).collect()
+}
+/// `replace_plan` with the members in `exclude` (victims of pending replacements, `pending_victims`) left out of the draw.
+pub fn replace_plan_excluding(chain:&crate::chain::Chain,me:Address,value:U256,exclude:&[Address],pick:impl FnOnce(usize)->usize)->Result<Option<ReplacePlan>,String>{
     if chain.spec.programs()!=apply::ProgramSet::V3{return Ok(None)}
     let head=chain.head();let cp=chain.spec.cp();
     let state=chain.view_of(&head.hash).ok_or("The head state is not available")?;
@@ -172,6 +224,8 @@ pub fn replace_plan(chain:&crate::chain::Chain,me:Address,value:U256,pick:impl F
     if apply::miner_record(state.v(),me).is_some(){return Err("This identity already has a registry record".into())}
     let list=removable_members(chain,state.v(),head.height+1,&head_credited(chain));
     if list.is_empty(){return Err(format!("All {} seats are taken and every member has mined or joined within the last {} blocks, so none can be replaced yet. Try again later.",cp.M_max,cp.Theta_inact))}
+    let list:Vec<Address>=list.into_iter().filter(|x|!exclude.contains(x)).collect();
+    if list.is_empty(){return Err("Every removable member is already named by a pending replacement. Try again after the next block.".into())}
     let victim=list[pick(list.len())%list.len()];
     let code=removal_view_on(state.v(),chain.spec.profile(),head.height+1,head.ts+1,me,victim)?;
     if code!=0{return Err(format!("The registry refused the replacement (code {code}). Try again."))}
@@ -190,9 +244,11 @@ impl ReplacePlan{
 }
 /// The status flags at a full set (v3 program set only): whether the seats are all taken, how many members are removable
 /// at the next block, and whether a newcomer would register by replacement.
+/// The count scans the active list (up to M_max records), so it is made only for an identity without a record, the one
+/// that could register (by replacement); a registered identity gets 0.
 pub fn seat_flags(chain:&crate::chain::Chain,v:&dyn View,next:u64,registered:bool)->(bool,usize,bool){
-    let seats_full=chain.spec.programs()==apply::ProgramSet::V3&&apply::active_list(v).len() as u64>=u64::from(chain.spec.cp().M_max);
-    let removable=if seats_full{removable_members(chain,v,next,&head_credited(chain)).len()}else{0};
+    let seats_full=seats_full(chain,v);
+    let removable=if seats_full&&!registered{removable_members(chain,v,next,&head_credited(chain)).len()}else{0};
     (seats_full,removable,seats_full&&!registered&&removable>0)
 }
 /// A uniform index below n from the system's secure randomness (the replacement victim).
@@ -226,6 +282,8 @@ fn decide(step:RejoinStep,plan:&Rejoin,head:u64,exit:Option<&str>,last:Option<&s
             else{Action::Reactivate}
         }
         RejoinStep::Missed=>Action::Stop("The reactivation window passed. The bond is refunded when the record is removed; register again after that.".into()),
+        // The set filled while the plan waited (or the member was replaced): reactivate() would revert, so stop.
+        RejoinStep::Full{refund}=>Action::Stop(full_message(refund)),
         RejoinStep::Unavailable=>Action::Stop(if has_record{"The registry record can no longer be reactivated."}else{"The registry record was removed and its bond refunded. Register again to mine."}.into()),
     }
 }
@@ -272,7 +330,8 @@ impl<'a> Wallet<'a>{
         let addr=self.key.address();let head=n.chain.head();
         let record=n.chain.view_of(&head.hash).and_then(|s|apply::miner_record(s.v(),addr));
         let member=n.chain.membership(head,head.height+1).ok().map(|m|m.ids().contains(&types::raw_addr(addr)));
-        let step=match member{Some(m)=>rejoin_step(record.as_ref(),head.height+1,m,u64::from(n.chain.spec.cp().W_act),n.chain.spec.probation().map(|p|p.blocks)),None=>RejoinStep::Unavailable};
+        let full=n.chain.view_of(&head.hash).is_some_and(|s|seats_full(&n.chain,s.v()));
+        let step=match member{Some(m)=>at_full_set(rejoin_step(record.as_ref(),head.height+1,m,u64::from(n.chain.spec.cp().W_act),n.chain.spec.probation().map(|p|p.blocks)),full),None=>RejoinStep::Unavailable};
         (record,member,step)
     }
     pub fn status(&self,n:&Node)->Value{
@@ -307,6 +366,7 @@ impl<'a> Wallet<'a>{
             (_,RejoinStep::Wait{opens,closes})=>format!("Exited — reactivate between blocks {opens} and {} with Rejoin mining",closes-1),
             (_,RejoinStep::Reactivate{closes})=>format!("Exited — reactivate before block {closes} with Rejoin mining"),
             (_,RejoinStep::Missed)=>"Exited — the bond is being refunded; register again to mine".to_owned(),
+            (_,RejoinStep::Full{refund})=>format!("Exited — all seats are taken, so this account cannot reactivate; the bond is refunded at block {refund}, then register again"),
             (true,_)=>"Enabled — awaiting eligible membership".to_owned(),
             (false,_)=>"Off — wallet keeps validating".to_owned(),
         }};
@@ -388,7 +448,8 @@ impl<'a> Wallet<'a>{
                     return Err("This identity has not sent a transaction yet, and the registry pays rewards only to an account that has. Send one transfer first (a small amount, even to your own address), wait for it to be included, then register.".into())
                 }
                 // FN-2b C4: at a full v3 set, registerReplacing into the seat of a removable member chosen at random.
-                if let Some(plan)=replace_plan(&n.chain,self.key.address(),value,random_index)?{
+                let pending=pending_victims(&n.chain,n.pool.txs.iter().map(|(_,raw)|raw.as_slice()));
+                if let Some(plan)=replace_plan_excluding(&n.chain,self.key.address(),value,&pending,random_index)?{
                     let mut q=self.quote(n,"registration",apply::program_address(0),value,replacing_calldata(self.key.address(),plan.victim),REPLACE_GAS)?;
                     if let Value::Object(fields)=plan.describe(){for (k,v) in fields{q[k]=v;}}
                     q["bondTarget"]=json!(coins(full));q["probation"]=json!(value<full);
@@ -455,9 +516,7 @@ impl<'a> Wallet<'a>{
                 ("rejoin",Some(exit_calldata()))
             }
             RejoinStep::Wait{..}|RejoinStep::Reactivate{..}=>("reactivation",None),
-            RejoinStep::Active=>return Err("This account is already in the active mining set".into()),
-            RejoinStep::Missed=>return Err("The reactivation window has passed. The bond is refunded when the record is removed; register again after that.".into()),
-            RejoinStep::Unavailable=>return Err("Rejoining needs a registry record with a held bond. Register first.".into()),
+            other=>return Err(rejoin_refusal(other).unwrap_or_default()),
         };
         let fee=self.fee(n)?;
         let count=u64::from(REACTIVATE_ATTEMPTS)+u64::from(tx_data.is_some());
@@ -617,6 +676,20 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         assert!(matches!(decide(reactivate,&Rejoin{tried_at:Some(135),attempts:REACTIVATE_ATTEMPTS,..plan()},136,None,Some("Reverted"),true),Action::Stop(_)));
         assert!(matches!(decide(RejoinStep::Missed,&plan(),140,None,None,true),Action::Stop(_)));
         assert!(matches!(decide(RejoinStep::Unavailable,&plan(),141,None,None,false),Action::Stop(m) if m.contains("refunded")));
+        // FN-2b C4: the set filled (or the member was replaced) while the plan waited: reactivate() would revert, stop.
+        assert!(matches!(decide(RejoinStep::Full{refund:140},&plan(),133,None,None,true),Action::Stop(m) if m.contains("seats are taken")&&m.contains("140")));
+    }
+    /// FN-2b C4: at a full set an exited record cannot reactivate (the registry's Capacity revert): its Wait and Reactivate
+    /// steps become Full until the refund at dueHeight, Rejoin mining is refused with that reason, and every other step
+    /// is unchanged; below a full set nothing changes.
+    #[test] fn an_exited_record_at_a_full_set_waits_for_its_refund(){
+        let (wait,react)=(RejoinStep::Wait{opens:132,closes:140},RejoinStep::Reactivate{closes:140});
+        assert_eq!((at_full_set(wait,true),at_full_set(react,true)),(RejoinStep::Full{refund:140},RejoinStep::Full{refund:140}));
+        for s in [wait,react,RejoinStep::Active,RejoinStep::Exit,RejoinStep::Missed,RejoinStep::Unavailable]{assert_eq!(at_full_set(s,false),s);}
+        for s in [RejoinStep::Active,RejoinStep::Exit,RejoinStep::Missed,RejoinStep::Unavailable]{assert_eq!(at_full_set(s,true),s);}
+        assert!(rejoin_refusal(RejoinStep::Full{refund:140}).is_some_and(|m|m.contains("All seats are taken")&&m.contains("140")));
+        for s in [wait,react,RejoinStep::Exit]{assert_eq!(rejoin_refusal(s),None);}
+        assert_eq!(step_json(RejoinStep::Full{refund:140}),json!({"step":"full","refundAt":140}));
     }
     #[test] fn registration_needs_a_prior_transaction(){
         assert!(!registration_reward_durable(None));

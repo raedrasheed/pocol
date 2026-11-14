@@ -207,10 +207,13 @@ fn phase_calls(cp:&ConsensusParams,class:u8,set:ProgramSet)->Vec<(&'static str,u
 /// payees are its distinct share owners (at most S_max + 1 header owners: late shares add owners only while the total is
 /// below kappa*m <= S_max / 4, R8), its winner (one of them) and block j's proposer, so at most S_max + 3 addresses, none
 /// counted by M_max. GAS_ENVELOPE_V3's settle is measured with every one of them ACCRUING at bond 0 and promoted in the
-/// one call (tests/v3_contracts.rs v3-preview `v3_sys_gas_and_caps_within_the_v3_envelope`: 256 share owners, the winner
-/// and the proposer; `v3_settle_gas_all_accruing_with_the_carry`: the carry path, C < kappa*m), at S_max 256, so the v3
-/// domain is S_max + 3 <= GAS_DOMAIN_V3_PAYEES in place of the M_max term (tests/v3_model.py check_payee_bound asserts the
-/// bound for every settlement of a host chain).
+/// one call (tests/v3_contracts.rs v3-preview `v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner
+/// among them, and the proposer, with held_total nonzero and from zero; `v3_settle_gas_all_accruing_with_the_carry`: the
+/// carry path, C < kappa*m), at S_max 256, so the v3 domain is S_max + 3 <= GAS_DOMAIN_V3_PAYEES in place of the M_max
+/// term. With GAS_DOMAIN's S_max <= 256 this term adds no further restriction (S_max + 3 <= 259 is S_max <= 256): it states
+/// that the measured payee path is the bound, so widening GAS_DOMAIN's S_max must re-measure settle as well
+/// (tests/v3_model.py check_payee_bound asserts the bound for every settlement of a model chain, and the 258-payee test
+/// asserts the host chain's promoted payees are within it).
 pub const GAS_DOMAIN_V3_PAYEES:u32=259;
 /// V3-02: recordLate credits at most kappa*m - 1 shares of one template in one call (the no-dilution cap, with the
 /// winner's share already counted); GAS_ENVELOPE_V3's recordLate was measured at kappa*m = 64 (S_max 256 >= 4*kappa*m, R8).
@@ -231,7 +234,9 @@ pub fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// probation pool, seat contest or epoch counters; registerReplacing and activeSlice), each on its worst path:
 /// - settle and settleFinal (the same settleOne): every payee ACCRUING at bond 0 and promoted in the one call, as the
 ///   chain's first burn (`v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner among them, and the
-///   signed proposer, 258 bond fills from 0 to B_reg, M_max 1,000): 11,939,301 (the test pins the entry to it). The carry
+///   signed proposer, 258 bond fills from 0 to B_reg, M_max 1,000), with held_total 0 at the first accrue (no bond held:
+///   the genesis bonds refunded, so accrue's first held_total write is from zero): 11,956,401; with a held bond
+///   11,939,301 (the test pins the entry to the dearer). The carry
 ///   path (C < kappa*m: 63 owners and the proposer promoted, the base burn written to the carry, V3-15) measures 3,022,717
 ///   (`v3_settle_gas_all_accruing_with_the_carry`), a settle writing the carry 134,224 and one accruing from held_total 0
 ///   162,182. Before FN-2b the pool bounded the fills at P_MAX = 64 and settle measured 6,316,532.
@@ -252,7 +257,7 @@ pub fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
 /// within the earn-in entry (2,716,000) the composition takes, so markClose has no v3 entry
 /// (`v3_closing_mark_close_gas_within_the_envelope`); beginBlock, pruneShares and the rest take the earn-in entries.
 pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",128_000),("finalize",62_000),("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),
-    ("recordResult",37_000),("recordShares",14_200_000),("settle",11_940_000),("settleFinal",11_940_000)];
+    ("recordResult",37_000),("recordShares",14_200_000),("settle",11_957_000),("settleFinal",11_957_000)];
 /// The envelope entry of a SYSTEM call for a program set (`gas_envelope`).
 pub fn envelope(set:ProgramSet,name:&str)->Option<u64>{gas_envelope(set).iter().find(|(n,_)|*n==name).map(|x|x.1)}
 fn phase_gas(cp:&ConsensusParams,class:u8,set:ProgramSet)->Option<Vec<u64>>{

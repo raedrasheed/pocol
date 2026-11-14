@@ -11,6 +11,11 @@ fn net(v3:bool,full:bool,earnin:bool,n:usize)->Net {
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=73;cfg.w_act=4;cfg.r_max=1;
     cfg.spec_version=if v3{2}else{1};cfg.nonce_mode=if full{1}else{0};cfg.earnin=earnin;
     cfg.m_max=cfg.m_max.max(n as u16);
+    // FN-2b: R18 counts settle's accrual keys (every payee may be ACCRUING; resources::settle_keys), so a v3 devnet of 256
+    // members with a closing schedule needs more SYS keys for its final block (settle and D - 1 settleFinal calls, 258
+    // payees each) than the devnet's v2 SYS_KEYS_BLOCK_MAX of 4096. The 256-member fixture reads storage views and never
+    // closes, so it is continuous (H_END 0, the fresh network's shape), where only ordinary blocks exist.
+    if v3&&n>=256 {cfg.h_end=0;}
     cfg.accounts.push(("carol".into(),U256::from(10u128.pow(24))));
     let candidate=devnet::build(&cfg).unwrap();
     let mut keys:HashMap<_,_>=candidate.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
@@ -131,9 +136,11 @@ mod preview {
     // behaviour assertion are unchanged). FN-2b (the CP schema v2 loses P_MAX, T_PROB, E_epoch, theta_bp and k_sigma, and
     // MinerRegistry loses the probation pool and the contest) changes the genesis and every state root again: the pins hold,
     // and in the bounded run one probationer, whose range held no fallback solution in time, left the activity window, so
-    // the recovery's members are the probationers with a recent share (asserted as such).
+    // the recovery's members are the probationers with a recent share (pinned: BOUNDED_RECOVERY_MEMBERS).
     const UNBOUNDED_PERIOD:usize=12;const UNBOUNDED_RECOVERY:u64=15;
     const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
+    /// The bounded run's recovery membership since FN-2b: the probationers with a share in the activity window.
+    const BOUNDED_RECOVERY_MEMBERS:&[&str]=&["bob"];
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {
         let mut n=net(true,true,true,3);let (x,y)=(n.miners[0],n.miners[1]);
@@ -212,10 +219,11 @@ mod preview {
                         assert!(r.bond>=quarter,"recovery needs the drawn probationer at B_reg/4");
                         assert!(!members.accruing().contains(&raw_addr(drawn)));
                     }else{
-                        // The activity rule keeps only probationers with a recent share (one or both, as the fixture's
-                        // draws fall: a probationer without a range at an attempt cannot mine it).
+                        // The activity rule keeps only probationers with a recent share: BOUNDED_RECOVERY_MEMBERS, pinned as
+                        // this fixture's draws fall (a probationer without a range at an attempt cannot mine it).
                         let ids=members.ids();
-                        assert!(!ids.is_empty()&&ids.iter().all(|i|[raw_addr(a),raw_addr(b)].contains(i)),"the activity rule removed the operators: {ids:?}");
+                        let want:Vec<_>={let mut v:Vec<_>=BOUNDED_RECOVERY_MEMBERS.iter().map(|l|raw_addr(devnet::account_key(l).address())).collect();v.sort();v};
+                        assert_eq!(ids,want.as_slice(),"the activity rule removed the operators and every probationer without a recent share");
                         assert_eq!(members.accruing().len(),ids.len(),"all members are sub-quarter probationers");
                         assert!(r.bond<quarter,"the all-probationer exception, not the bond, makes it drawable");
                     }

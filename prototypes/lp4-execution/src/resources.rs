@@ -17,6 +17,14 @@
 //!   evidence 9·E; markClose 1 (+RET+1 closing); prune 2·O+2; recordShares 3·O+2;
 //!   recordResult 1; settle 4; beginBlock 2+8·SW+1 (1 when closing); closeBlock 2;
 //!   final: finalize 2 + 4·(D-1)
+//!   FN-2b (CP schema v2, the v3 programs: no probation pool, owner decisions 10b/10c of 2026-11-13): every payee of a
+//!   pot can be ACCRUING, and settleOne's payTo/distribute fill its bond through MinerRegistry.accrue, which writes the
+//!   payee's bond word (r+2) and, on promotion, its state word (r), and held_total (Registry slot 4). Pot j's payees are
+//!   at most P = O + 2 (its distinct share owners, its winner and block j's proposer; admission's payee bound S_max + 3),
+//!   so settle and each settleFinal count 4 + 2·P + 1 keys (pending 3, burnedTotal, two per payee, held_total) instead
+//!   of 4. A profile with H_CLOSE = T_CLOSE = 0 never closes (markClose) and so never reaches a final block
+//!   (finality_core::final_predicate needs a closing parent): on CP schema v2 its closing and final classes are the
+//!   ordinary one (as admission's timing fills every phase slot with the ordinary measurement on a continuous chain).
 //! SYS accounts touched per block (R18 SYS_ACCT_BLOCK_MAX):
 //!   8 fixed (5 programs, PAY, SYSTEM, origin) + payees
 //!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET;
@@ -48,17 +56,30 @@ pub fn derive(cp:&ConsensusParams)->SysBounds{
     let carry_slot=u64::from(cp.schema_version()>=2);
     let slot_min=registry_fixed+5*rrm+m + k*(2*o+2) + 2+3*(d+1)+carry_slot + cp.cp_len() as u64;
     let v2=cp.schema_version()>=2;
-    let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2)+1+4;
+    let settle=settle_keys(cp);
+    let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2)+1+settle;
     let (carry,tip_share)=if v2{(2,4)}else{(0,0)};
     let keys_normal=common+1+(2+8*sw+1)+2+carry+tip_share;
     let keys_closing=common+(1+ret+1)+1+2+carry+tip_share;
-    let keys_final=common+(1+ret+1)+1+2+4*d.saturating_sub(1)+carry;
+    let keys_final=common+(1+ret+1)+1+2+settle*d.saturating_sub(1)+carry;
     // V3-17: on CP schema v2 (the v3 programs) punish pays the reporter's cut to the block proposer's reward address,
     // one more account in a block that carries evidence (one proposer per block).
     // V3-20: closeBlock (normal and closing blocks) pays the tip share to that same reward address, whatever E is.
     let reporter=u64::from(v2&&e>0);let proposer=u64::from(v2);
     let accts_normal=8+o+1+sw+proposer;let accts_closing=8+o+1+ret+proposer;let accts_final=8+(d*(o+1)).min(m+rmax*d+1)+ret+reporter;
+    if v2&&!closes(cp){return SysBounds{slot_min,keys_normal,keys_closing:keys_normal,keys_final:keys_normal,accts_normal,accts_closing:accts_normal,accts_final:accts_normal}}
     SysBounds{slot_min,keys_normal,keys_closing,keys_final,accts_normal,accts_closing,accts_final}
+}
+/// Whether the profile can close (markClose closes from H_CLOSE or T_CLOSE; with both 0 it never does, and without a
+/// closing parent no block is final).
+pub fn closes(cp:&ConsensusParams)->bool{cp.H_CLOSE!=0||cp.T_CLOSE!=0}
+/// The SYS keys one settle (or settleFinal) call can change: 4 on CP schema v1 (pending 3, burnedTotal); on CP schema v2
+/// (FN-2b) also the bond word and state word of each of its at most O + 2 payees, every one possibly ACCRUING (accrue,
+/// promote), and held_total.
+pub fn settle_keys(cp:&ConsensusParams)->u64{
+    if cp.schema_version()<2{return 4}
+    let o=(u64::from(cp.S_max)+1).min(u64::from(cp.M_max));
+    4+2*(o+2)+1
 }
 /// V3-02: the late-share keys 3·L a block can add on CP schema v2 (module doc); 0 on CP schema v1.
 pub fn late_keys(cp:&ConsensusParams)->u64{

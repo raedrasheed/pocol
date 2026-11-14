@@ -248,7 +248,7 @@ def _word(value):
 
 def _call(query, to, signature, args, height, words):
     data = keccak256(signature.encode())[:4] + b''.join(_word(x) for x in args)
-    raw = hex_bytes(_result(query, 'eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': '0x1e8480'}, hex(height)]), words*32)
+    raw = hex_bytes(_result(query, 'eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': hex(CALL_GAS)}, hex(height)]), words*32)
     return [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
 
 
@@ -469,6 +469,13 @@ LEDGER = '0x0000000000000000000000000000000000c0c003'
 # MinerRegistry.activeSlice (FN-2b C5) and reused for the next height when a block cannot have changed it.
 MAX_MEMBERS_V3 = 10000
 ACTIVE_PAGE = 512
+# eth_call gas of the gateway's contract reads (CALL_GAS), and of one activeSlice page (ACTIVE_SLICE_GAS): each element
+# reads two cold slots (its ActList element and its record word, at least 4,200 gas on Cancun), so a page of 512 needs
+# more than CALL_GAS. ACTIVE_SLICE_GAS is pocold's CALL_GAS_MAX (rpc.rs; the most a pocold eth_call runs);
+# lp4-execution tests/v3_contracts.rs active_slice_reads_m_max_members_in_gateway_pages runs MinerRegistry.activeSlice
+# on M_max members in pages of ACTIVE_PAGE with this gas and requires each page to use at most a quarter of it.
+CALL_GAS = 2000000
+ACTIVE_SLICE_GAS = 30000000
 MAX_CALLS_V3 = 8192
 MAX_SECONDS_V3 = 60
 MAX_SPEC_BYTES = 262144
@@ -860,9 +867,9 @@ class _V3Chain:
     def result(self, method, params):
         return _result(self.query, method, params)
 
-    def call(self, to, signature, args, height, words=None):
+    def call(self, to, signature, args, height, words=None, gas=CALL_GAS):
         data = keccak256(signature.encode())[:4] + b''.join(_word(x) for x in args)
-        raw = hex_bytes(self.result('eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': '0x1e8480'}, hex(height)]),
+        raw = hex_bytes(self.result('eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': hex(gas)}, hex(height)]),
                         None if words is None else words*32)
         return raw if words is None else [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
 
@@ -958,7 +965,7 @@ class _V3Chain:
             members, seen = [], set()
             for start in range(0, n, ACTIVE_PAGE):
                 count = min(ACTIVE_PAGE, n - start)
-                raw = self.call(REGISTRY, 'activeSlice(uint256,uint256)', [start, ACTIVE_PAGE], height)
+                raw = self.call(REGISTRY, 'activeSlice(uint256,uint256)', [start, ACTIVE_PAGE], height, gas=ACTIVE_SLICE_GAS)
                 ids, words = _abi_two_arrays(raw, count)
                 for value, w0 in zip(ids, words):
                     require(0 < value < 1 << 160 and value != (1 << 160)-2 and not 0xc0c001 <= value <= 0xc0c0ff, 'Invalid active miner')

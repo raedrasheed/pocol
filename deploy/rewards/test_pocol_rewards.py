@@ -724,13 +724,14 @@ class PagedActList(rewards._V3Chain):
     def __init__(self, n, moves=None):
         super().__init__(None, rewards.validated_network(V3_NETWORK), ((1, 0), (2, 0)), {18: rewards.MAX_MEMBERS_V3})
         self.members = [i + 1 for i in range(n)]
-        self.moves, self.calls = moves or {}, Counter()
+        self.moves, self.calls, self.gas = moves or {}, Counter(), Counter()
 
     def body(self, k):
         return [], [encode([bytes([kind]), b'']) for kind in self.moves.get(k, (0, 0, ()))[2]]
 
-    def call(self, to, signature, args, height, words=None):
+    def call(self, to, signature, args, height, words=None, gas=rewards.CALL_GAS):
         self.calls[signature] += 1
+        self.gas[(signature, gas)] += 1
         ops, reacts, _ = self.moves.get(height, (0, 0, ()))
         if signature == 'lengths()':
             return [len(self.members), len(self.members), 0, 0]
@@ -758,6 +759,36 @@ class V3PagedActListTests(unittest.TestCase):
         self.assertTrue(all(w == 1 | HELD for _, w in members))
         self.assertEqual(chain.calls['activeSlice(uint256,uint256)'], -(-10000 // rewards.ACTIVE_PAGE))
         self.assertEqual(rewards.MAX_MEMBERS_V3, 10000)
+        self.assertEqual(chain.gas[('activeSlice(uint256,uint256)', rewards.ACTIVE_SLICE_GAS)], -(-10000 // rewards.ACTIVE_PAGE),
+                         'every page is read with ACTIVE_SLICE_GAS')
+
+    def test_the_real_call_path_sends_the_page_gas(self):
+        """_V3Chain.call itself (not a fake call): each activeSlice page goes to eth_call with gas ACTIVE_SLICE_GAS (pocold's
+        CALL_GAS_MAX, which a page of ACTIVE_PAGE needs: two cold slots per element), every other read with CALL_GAS."""
+        n, seen = 1500, []
+        selector = lambda sig: '0x' + rewards.keccak256(sig.encode())[:4].hex()
+        word = lambda v: v.to_bytes(32, 'big')
+
+        def query(method, params):
+            self.assertEqual(method, 'eth_call')
+            call, data = params[0], bytes.fromhex(params[0]['data'][2:])
+            seen.append(('0x' + data[:4].hex(), int(call['gas'], 16)))
+            if '0x' + data[:4].hex() == selector('lengths()'):
+                out = word(n) * 2 + word(0) * 2
+            else:
+                self.assertEqual('0x' + data[:4].hex(), selector('activeSlice(uint256,uint256)'))
+                start, count = int.from_bytes(data[4:36], 'big'), int.from_bytes(data[36:68], 'big')
+                page = list(range(start + 1, min(n, start + count) + 1))
+                out = b''.join(word(w) for w in [64, 64 + 32 * (len(page) + 1), len(page), *page, len(page), *[1 | HELD] * len(page)])
+            return {'jsonrpc': '2.0', 'id': 1, 'result': '0x' + out.hex()}
+
+        chain = rewards._V3Chain(query, rewards.validated_network(V3_NETWORK), ((1, 0), (2, 0)), {18: rewards.MAX_MEMBERS_V3})
+        members = chain.active_list(5)
+        self.assertEqual([int(m, 16) for m, _ in members], list(range(1, n + 1)))
+        pages = [g for sel, g in seen if sel == selector('activeSlice(uint256,uint256)')]
+        self.assertEqual(pages, [rewards.ACTIVE_SLICE_GAS] * -(-n // rewards.ACTIVE_PAGE))
+        self.assertEqual([g for sel, g in seen if sel != selector('activeSlice(uint256,uint256)')], [rewards.CALL_GAS])
+        self.assertEqual((rewards.CALL_GAS, rewards.ACTIVE_SLICE_GAS), (2000000, 30000000))
 
     def test_a_quiet_block_reuses_the_list_and_a_moving_block_reads_it_again(self):
         chain = PagedActList(1500, moves={7: (1, 0, ()), 8: (0, 1, ()), 9: (0, 0, (2,)), 10: (0, 0, (3,))})
@@ -776,7 +807,7 @@ class V3PagedActListTests(unittest.TestCase):
     def test_a_malformed_page_is_refused(self):
         chain = PagedActList(3)
         good = chain.call
-        chain.call = lambda to, sig, args, h, words=None: good(to, sig, args, h, words)[:-32] if sig.startswith('activeSlice') else good(to, sig, args, h, words)
+        chain.call = lambda to, sig, args, h, words=None, gas=rewards.CALL_GAS: good(to, sig, args, h, words, gas)[:-32] if sig.startswith('activeSlice') else good(to, sig, args, h, words, gas)
         with self.assertRaisesRegex(rewards.RewardUnavailable, 'Malformed activeSlice answer'):
             chain.active_list(1)
         chain = PagedActList(3)
