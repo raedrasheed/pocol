@@ -6,15 +6,19 @@ copy of an identity value may sit outside the anchors.
 
     python3 deploy/websites/tools/site_identity.py --check                     # CI: the tree matches DECLARED
     python3 deploy/websites/tools/site_identity.py                             # finish the derived files only
-    python3 deploy/websites/tools/site_identity.py --to NEW.json [--commit SHA] [--rpc-url URL]   # switch
+    python3 deploy/websites/tools/site_identity.py --to NEW.json [--gateway-host HOST] [--commit SHA] [--rpc-url URL]
     python3 deploy/websites/tools/site_identity.py --edits EDITS.json           # anchored bundle edits (W7)
 
 DECLARED (deploy/websites/site-identity.json) names the identity the snapshots pin: chain ID, genesis hash and the
 GenesisSpec that proves both, the display name, the IDE's RPC URL, the explorer's seed list and the source links. --to
 takes a network invitation (network.pocol.json, as `pocol network` writes it), proven by its GenesisSpec through
-deploy/mainnet/set_network_identity.py's decoder; its `seeds` become the explorer's seed list. --commit points every
-source link at that commit; --rpc-url changes the IDE's RPC endpoint (default: unchanged), so a test can point a copy at
-a local gateway. The display name is not switched (owner question Q6 keeps "PoCol Mainnet").
+deploy/mainnet/set_network_identity.py's decoder; its `seeds` become the explorer's seed list. The explorer also names
+its gateway host (gatewayHost): --gateway-host sets it, and a --to run without it is refused unless the current host is
+one of the new seeds, so a switch never leaves an old server named. --commit points every source link at that commit;
+--rpc-url changes the IDE's RPC endpoint (default: unchanged), so a test can point a copy at a local gateway. The
+repository's own snapshots (--root is the repository) always name an https RPC endpoint; a loopback one is refused
+there, --check included, and is only for a test copy. The display name is not switched (owner question Q6 keeps
+"PoCol Mainnet").
 
 Derived files move with their sources:
 - a hashed bundle (BUNDLES) is named `<prefix>-<first 12 hex of its SHA-256>.js`; a changed bundle is renamed and the
@@ -30,7 +34,9 @@ exist; a hashed bundle whose name is not its content version; any config.php in 
 explorer api/.htaccess without its config/lib deny rule.
 
 Files are read and written as bytes decoded as UTF-8 (line endings are kept). Nothing is written unless every check
-passes: each new file is written beside its original first, then each original is replaced whole, DECLARED last.
+passes, and the tree a run would write is checked as --check checks it (every anchor at its count, no identity value
+outside the anchors, after the anchored edits too): each new file is written beside its original first, then each
+original is replaced whole, DECLARED last.
 `config.php` is never opened. Nothing is deployed.
 """
 import argparse, hashlib, json, os, posixpath, re, shutil, sys
@@ -486,10 +492,22 @@ def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=
     if gateway_host is not None:
         new['gatewayHost'] = check_host(gateway_host)
     new = validate(new)
+    if Path(root).resolve() == ROOT and not new['rpcUrl'].startswith('https://'):
+        raise Refused(f'{DECLARED}: rpcUrl {new["rpcUrl"]!r}: the repository\'s snapshots name an https RPC endpoint; '
+                      'a loopback URL is only for a test copy (--root)')
+    if target is not None and gateway_host is None and new['gatewayHost'] not in {check_seed(s)[0] for s in new['seeds']}:
+        raise Refused(f'--to: the explorer names {new["gatewayHost"]} as its gateway host, which is not a seed of the new '
+                      'network; pass --gateway-host')
     problems = []
     apply_anchors(tree, fields(cur), fields(new), problems)
     if edits is not None and not problems:
         apply_edits(tree, edits, problems)
+    if not problems:
+        # The tree as it would be written, checked as --check checks it: an edit that moves an anchor or adds a copy of
+        # an identity value inside an anchored file is refused here, not by the next check.
+        after = []
+        apply_anchors(tree, fields(new), fields(new), after)
+        problems += [f'after the {"edits" if edits is not None else "switch"}: {line}' for line in after]
     if problems:
         return problems, {}, new
     finish(tree, problems)

@@ -5,12 +5,43 @@ name: Websites
 on:
   pull_request:
     branches: [main]
-    paths: ['deploy/websites/**', 'prototypes/pocol-studio/**', 'prototypes/pocol-extension/src/**', 'deploy/studio/**',
-            'deploy/rewards/gateway.py', 'deploy/mainnet/retired-networks.json', '.gitignore', '.github/workflows/websites.yml']
+    paths:
+      - 'deploy/websites/**'
+      - 'prototypes/pocol-studio/**'
+      - 'prototypes/pocol-extension/src/**'
+      - 'deploy/studio/**'
+      - 'deploy/rewards/gateway.py'
+      # What site_identity.py --check and its tests read besides the snapshots: the identity tool it imports, its
+      # retired list and placeholder (deploy/mainnet), that tool's imports, the node's SPEC_VERSION, the extension
+      # version the download links must name, and the decoder corpus the tests take their spec-2 genesis from.
+      - 'deploy/mainnet/**'
+      - 'deploy/rewards/pocol_rewards.py'
+      - 'deploy/public-testnet/pocol_identity.py'
+      - 'prototypes/lp1-node/src/genesis_spec.rs'
+      - 'prototypes/pocol-extension/package.json'
+      - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      # A config.php anywhere (the .gitignore rule covers only api/ directories) runs the tracked-config.php guard.
+      - '**/config.php'
+      - '.gitignore'
+      - '.github/workflows/websites.yml'
   push:
     branches: [main]
-    paths: ['deploy/websites/**', 'prototypes/pocol-studio/**', 'prototypes/pocol-extension/src/**', 'deploy/studio/**',
-            'deploy/rewards/gateway.py', 'deploy/mainnet/retired-networks.json', '.gitignore', '.github/workflows/websites.yml']
+    # The same paths as pull_request.
+    paths:
+      - 'deploy/websites/**'
+      - 'prototypes/pocol-studio/**'
+      - 'prototypes/pocol-extension/src/**'
+      - 'deploy/studio/**'
+      - 'deploy/rewards/gateway.py'
+      - 'deploy/mainnet/**'
+      - 'deploy/rewards/pocol_rewards.py'
+      - 'deploy/public-testnet/pocol_identity.py'
+      - 'prototypes/lp1-node/src/genesis_spec.rs'
+      - 'prototypes/pocol-extension/package.json'
+      - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      - '**/config.php'
+      - '.gitignore'
+      - '.github/workflows/websites.yml'
   workflow_dispatch:
 permissions:
   contents: read

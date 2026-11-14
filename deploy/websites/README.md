@@ -27,11 +27,12 @@ bundles is an anchored edit made by `tools/site_identity.py`. `site-identity.jso
 pin (chain ID, genesis hash and the GenesisSpec that proves both, the display name, the IDE's RPC URL, the explorer's
 seed list and gateway host, and the source links). Each anchor is a literal text that must occur exactly its count of
 times, and no copy of an identity value may sit outside the anchors, so a moved anchor fails instead of leaving an old
-copy behind.
+copy behind. Every run checks the tree it would write the same way (after `--edits` too), so the tool never writes a
+tree that its own `--check` refuses.
 
 ```sh
 python3 -B deploy/websites/tools/site_identity.py --check            # what CI runs (.github/workflows/websites.yml)
-python3 -B deploy/websites/tools/site_identity.py --to NEW.json --commit SHA   # the identity switch (W15, W16)
+python3 -B deploy/websites/tools/site_identity.py --to NEW.json --gateway-host HOST --commit SHA   # the switch (W15, W16)
 python3 -B deploy/websites/tools/site_identity.py --edits EDITS.json  # anchored bundle edits (W7)
 ```
 
@@ -39,7 +40,9 @@ A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` a
 versions and every `SHA256SUMS.txt` are regenerated. `--check` also refuses a retired identity
 (`deploy/mainnet/retired-networks.json`, active once the snapshots pin a network that is not retired), any
 `chatgpt.site` origin, a download link whose version is not the extension's `package.json` version, a missing
-`index.html` script or stylesheet, and any `config.php` (never read). The explorer bundle was renamed to that scheme
+`index.html` script or stylesheet, and any `config.php` (never read). A `--to` run without `--gateway-host` is refused
+unless the explorer's current gateway host is one of the new seeds, and the repository's own snapshots must name an
+https RPC URL (a loopback `--rpc-url` is only for a test copy given with `--root`). The explorer bundle was renamed to that scheme
 (`assets/index-473b5bd9e7ec.js`, the same bytes as the deployed `assets/index-Cj8htKRO.js`), and the superseded IDE bundle
 `assets/index-CJbrNXr_.js` (it differed from `index-extension041-02af63944c2b.js` only in its download link) was
 deleted with its `SHA256SUMS.txt` line.

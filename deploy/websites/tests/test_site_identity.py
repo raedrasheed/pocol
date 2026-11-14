@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """deploy/websites/tools/site_identity.py: the snapshots carry exactly the declared identity at their anchors; a switch
 to a test identity and back is byte-identical; a moved, duplicated or stray anchor value fails and writes nothing;
-anchored edits rename the hashed bundle and regenerate SHA256SUMS.txt; --check refuses chatgpt.site origins, stale
+anchored edits rename the hashed bundle and regenerate SHA256SUMS.txt, and an edit that breaks an anchor or adds an
+identity copy writes nothing; a switch that would leave an old gateway host named, and a loopback RPC URL in the
+repository's own snapshots, are refused; --check refuses chatgpt.site origins, stale
 download links, missing index.html assets, misnamed bundles, stale checksums and content versions, retired identities
 and any config.php (which is never read); no config.php is tracked or committable, and the explorer's api/.htaccess
 keeps its deny rule (php -S ignores .htaccess, so nothing else checks it).
@@ -228,6 +230,39 @@ class SiteIdentity(unittest.TestCase):
             self.assertEqual(self.run_tool(root, *args), 2, args)
         self.assertEqual(snapshot(root), before)
 
+    def test_a_switch_names_the_new_gateway_host(self):
+        root = self.copy()
+        before = snapshot(root)
+        # The test network's seeds do not include the explorer's gateway host: without --gateway-host it is refused.
+        self.assertNotIn(DECLARED['gatewayHost'], [s.split(':')[0] for s in TEST_SEEDS])
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), '--rpc-url', TEST_RPC), 2)
+        self.assertIn('pass --gateway-host', self.last_errors)
+        self.assertEqual(snapshot(root), before)
+        # A network whose seeds still include the gateway host keeps it without --gateway-host.
+        (root / 'same-seeds.json').write_text(invitation(TEST_SPEC, DECLARED['seeds']), encoding='utf-8')
+        self.assertIn(DECLARED['gatewayHost'], [s.split(':')[0] for s in DECLARED['seeds']])
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'same-seeds.json'), '--rpc-url', TEST_RPC), 0, self.last_errors)
+        declared = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))
+        self.assertEqual((declared['chainId'], declared['gatewayHost']), (TEST_CHAIN, DECLARED['gatewayHost']))
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+
+    def test_the_repository_names_an_https_rpc_url(self):
+        # A loopback RPC URL is only for a test copy: on the repository it is refused, --check included.
+        self.assertEqual(self.run_tool(ROOT, '--rpc-url', TEST_RPC, '--check'), 2)
+        self.assertIn('https RPC endpoint', self.last_errors)
+        root = self.copy()
+        self.assertEqual(self.run_tool(root, '--rpc-url', TEST_RPC), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        # The same tree, taken as the repository: its declared loopback rpcUrl fails --check, and a run writes nothing.
+        before = snapshot(root)
+        with mock.patch.object(si, 'ROOT', root.resolve()):
+            self.assertEqual(self.run_tool(root, '--check'), 2)
+            self.assertIn('https RPC endpoint', self.last_errors)
+            self.assertEqual(self.run_tool(root, '--commit', TEST_COMMIT), 2)
+            self.assertEqual(snapshot(root), before)
+            self.assertEqual(self.run_tool(root, '--rpc-url', DECLARED['rpcUrl']), 0, self.last_errors)
+            self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+
     # ---------------- anchors ----------------
     def test_a_moved_duplicated_or_stray_anchor_value_fails_and_writes_nothing(self):
         chain, genesis = str(DECLARED['chainId']), DECLARED['genesisHash']
@@ -257,7 +292,8 @@ class SiteIdentity(unittest.TestCase):
                 before = snapshot(root)
                 self.assertEqual(self.run_tool(root, '--check'), 2)
                 self.assertIn(message, self.last_errors)
-                self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json')), 2)
+                self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), '--gateway-host', '192.0.2.10'), 2)
+                self.assertIn(message, self.last_errors)
                 self.assertEqual(self.run_tool(root), 2)
                 self.assertEqual(snapshot(root), before, 'nothing is written when an anchor fails')
 
@@ -283,10 +319,24 @@ class SiteIdentity(unittest.TestCase):
             (root / 'edits.json').write_text(json.dumps(bad, ensure_ascii=False), encoding='utf-8')
             self.assertEqual(self.run_tool(root, '--edits', str(root / 'edits.json')), 2, bad)
         self.assertEqual(snapshot(root), before)
-        # An edit that breaks an identity anchor is caught by the next check.
-        (root / 'edits.json').write_text(json.dumps([{'file': 'explorer-bundle', 'old': f'Ae={DECLARED["chainId"]}', 'new': f'Ae ={DECLARED["chainId"]}', 'count': 1}]), encoding='utf-8')
-        self.assertEqual(self.run_tool(root, '--edits', str(root / 'edits.json')), 0, self.last_errors)
-        self.assertEqual(self.run_tool(root, '--check'), 2)
+        # An edit that breaks an identity anchor, or adds a copy of an identity value inside an anchored file, is
+        # refused by the run itself and writes nothing (the tree stays one that --check accepts).
+        chain, genesis = DECLARED['chainId'], DECLARED['genesisHash']
+        for edit, message in (
+                ({'file': 'explorer-bundle', 'old': f'Ae={chain}', 'new': f'Ae ={chain}', 'count': 1}, 'holds 0 copies of the anchor'),
+                ({'file': 'explorer-bundle', 'old': 'Reading network data…', 'new': f'Reading network data of {chain}…', 'count': 1},
+                 'outside the anchors'),
+                ({'file': 'ide-bundle', 'old': 'var w9=Object.freeze({', 'new': f'var stray=`{genesis}`;var w9=Object.freeze({{', 'count': 1},
+                 'outside the anchors'),
+                ({'file': f'{si.IDE}/DEPLOY-README-AR.txt', 'old': f'\nChain ID: {chain}\n', 'new': f'\nChain ID:  {chain}\n', 'count': 1},
+                 'holds 0 copies of the anchor')):
+            with self.subTest(edit=edit['new']):
+                (root / 'edits.json').write_text(json.dumps([edit], ensure_ascii=False), encoding='utf-8')
+                self.assertEqual(self.run_tool(root, '--edits', str(root / 'edits.json')), 2, edit)
+                self.assertIn('after the edits: ', self.last_errors)
+                self.assertIn(message, self.last_errors)
+                self.assertEqual(snapshot(root), before, 'nothing is written when an edit breaks an anchor')
+                self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
 
     # ---------------- checks ----------------
     def test_check_refuses_what_must_not_be_served(self):
@@ -327,7 +377,7 @@ class SiteIdentity(unittest.TestCase):
 
     def test_a_retired_identity_left_after_a_switch_fails(self):
         root = self.copy()
-        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json')), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), '--gateway-host', '192.0.2.10'), 0, self.last_errors)
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
         # The old network is retired (deploy/mainnet/retired-networks.json): any copy of it now fails.
         self.assertIn((DECLARED['chainId'], DECLARED['genesisHash'][2:]),
