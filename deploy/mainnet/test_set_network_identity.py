@@ -83,12 +83,25 @@ _tail = _rest[_cp_end:]
 # FN-2b P_MAX, T_PROB, E_epoch, theta_bp and k_sigma).
 CP_V2_EXTRA = [31557600, 62500000000000000, 5000, 10000000, 4, 40, 2500]
 
-def make_spec(chain=NEW_CHAIN, version=1, flip=0, extra=None):
-    """A GenesisSpec of `version` for `chain` built from the current one's items, its last byte changed by `flip`."""
-    cp = _cp_v1 + (b''.join(int_item(v) for v in (CP_V2_EXTRA if extra is None else extra)) if version == 2 else b'')
-    spec = bytearray(rlp_list(int_item(version) + int_item(chain) + rlp_list(cp) + _tail))
-    spec[-1] ^= flip
-    return bytes(spec)
+# allocRoot, M_0List and sysCodeHash of the current GenesisSpec; a spec-2 one names the v3 program set's sysCodeHash
+# (the only set the deploy tools accept on a spec-2 genesis).
+_alloc, _members, _sys = _tail[:33], _tail[33:-33], _tail[-33:]
+assert _alloc[0] == _sys[0] == 0xa0
+V3_SYS = bytes.fromhex(ni.pocol_identity.V3_SYS_CODE_HASH)
+
+def make_spec(chain=NEW_CHAIN, version=1, flip=0, extra=None, sys=None, items=None):
+    """A GenesisSpec of `version` for `chain` built from the current one's items, with one byte changed by `flip`: the
+    last byte (sysCodeHash) of a version-1 spec, the last byte of allocRoot of a version-2 one, which names the v3
+    program set (or `sys`). `items` replaces the encoded CP v2 fields."""
+    if version != 2:
+        cp = _cp_v1
+        spec = bytearray(rlp_list(int_item(version) + int_item(chain) + rlp_list(cp) + _tail))
+        spec[-1] ^= flip
+        return bytes(spec)
+    extras = items if items is not None else b''.join(int_item(v) for v in (CP_V2_EXTRA if extra is None else extra))
+    alloc = _alloc[:-1] + bytes([_alloc[-1] ^ flip])
+    return rlp_list(int_item(version) + int_item(chain) + rlp_list(_cp_v1 + extras) + alloc + _members
+                    + b'\xa0' + (V3_SYS if sys is None else sys))
 
 SPEC_A, SPEC_B = make_spec(flip=1), make_spec(flip=2)
 HASH_A, HASH_B = ('0x' + ni.keccak256(s).hex() for s in (SPEC_A, SPEC_B))
@@ -560,6 +573,30 @@ class SetNetworkIdentity(unittest.TestCase):
             for allowed in ((1,), (2,), (1, 2)):
                 with self.subTest(spec=bad.hex()[:16], allowed=allowed), self.assertRaises(ValueError):
                     ni.spec_identity(bad, allowed)
+        # A spec-2 genesis must pass the whole v3-preview decoder on the final CP schema v2 and name the v3 program
+        # set, with or without the release version allowed beside it.
+        self.assertEqual(ni.CP_ITEMS, {1: len(ni.pocol_identity.CP_SCHEMA), 2: len(ni.pocol_identity.CP_SCHEMA_V2)})
+        k = {f[0]: i - 52 for i, f in enumerate(ni.pocol_identity.CP_SCHEMA_V2) if i >= 52}
+        def with_extra(name, value):
+            extra = list(CP_V2_EXTRA)
+            extra[k[name]] = value
+            return make_spec(version=2, extra=extra)
+        # rho_bp as 82 00 05, a canonical RLP string holding a leading-zero integer, so it reaches gsInt. (A wrapped
+        # single byte, 81 05, is refused earlier as non-canonical RLP: see 'a wrapped single byte inside CP'.)
+        leading_zero = b''.join(int_item(v) for v in CP_V2_EXTRA[:-1]) + b'\x82\x00\x05'
+        for bad, reason in ((make_spec(version=2, sys=_sys[1:]), 'v3 program set'), (make_spec(version=2, sys=b'\x00' * 32), 'v3 program set'),
+                            (with_extra('rho_bp', 10001), 'gsRange: rho_bp'), (with_extra('H_half', 0), 'gsRange: H_half'),
+                            (with_extra('gamma_tip_bp', 10001), 'gsRange: gamma_tip_bp'), (with_extra('R_react', 256), 'gsRange: R_react'),
+                            (with_extra('C_react', 1 << 32), 'gsRange: C_react'), (with_extra('S_tail', 1 << 256), 'gsRange: S_tail'),
+                            (make_spec(version=2, items=leading_zero), 'gsInt: rho_bp')):
+            for allowed in ((2,), (1, 2)):
+                with self.subTest(reason=reason, allowed=allowed), self.assertRaisesRegex(ValueError, reason):
+                    ni.spec_identity(bad, allowed)
+        # The reference decoder accepts SPEC_V3 at the preview ceiling only, as the Rust and JS decoders do.
+        decoded = ni.pocol_identity.decode_genesis_spec(SPEC_V3, 2)
+        self.assertEqual((decoded['specVersion'], len(decoded['cp']), decoded['sysCodeHash']), (2, 59, V3_SYS))
+        with self.assertRaisesRegex(ValueError, 'gsVersion:2'):
+            ni.pocol_identity.decode_genesis_spec(SPEC_V3)
         root = self.copy()
         node = root / ni.NODE_SPEC
         text = node.read_text(encoding='utf-8')
@@ -571,6 +608,15 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(before, self.snapshot(root), 'a refused switch writes nothing')
         # A tree whose release node decodes spec 2 switches to it, and a spec-2 tree is switched onward.
         node.write_text(re.sub(r'pub const SPEC_VERSION: u8 = [0-9]+;', 'pub const SPEC_VERSION: u8 = 2;', text), encoding='utf-8')
+        # Even then, a spec-2 genesis that names another program set or fails the v3-preview decoder is refused.
+        for name, bad in (('v3-other-set.json', make_spec(version=2, sys=b'\x00' * 32)),
+                          ('v3-bad-rho.json', make_spec(version=2, extra=CP_V2_EXTRA[:-1] + [10001]))):
+            (root / name).write_text(invitation(bad, {'chainId': NEW_CHAIN, 'genesisHash': '0x' + ni.keccak256(bad).hex()}), encoding='utf-8')
+            before = self.snapshot(root)
+            with self.subTest(name=name), self.assertRaises(SystemExit):
+                self.run_tool(root, target=name)
+            self.assertEqual(before, self.snapshot(root), 'a malformed v3 genesis writes nothing')
+            (root / name).unlink()
         self.assertEqual(self.run_tool(root, target='v3.json'), 0)
         self.assert_carries(root, HASH_V3, SPEC_V3)
         self.assertEqual(self.run_tool(root, '--check', target='v3.json'), 0)
