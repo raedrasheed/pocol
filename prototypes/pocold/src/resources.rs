@@ -83,6 +83,19 @@ pub fn selection_bytes(cp:&ConsensusParams)->Option<u128>{
     let set=add(&[mul(senders,memory::entry_bytes(20))?,memory::table_bytes(20)])?;
     add(&[mul(2,u128::from(cp.BODY_MAX))?,u128::from(cp.TX_MAX),mul(entries,per)?,mul(2,set)?,set.max(fee_order_bytes()?)])
 }
+/// FN-1: the bytes of the child-context cache (`chain::CtxCache`) at M_max members (see the queue term). Each row also
+/// holds a weak reference to the state it was computed from, which keeps that state's allocation (an InMemoryDB or a
+/// Pinned with its counts, not their contents) after the state is dropped.
+pub fn ctx_cache_bytes(cp:&ConsensusParams)->Option<u128>{
+    use crate::assignment::{Assignment,Membership,NonceRange};
+    let m=u128::from(cp.M_max);let arc=16u128;
+    let held=arc+(size_of::<revm::InMemoryDB>().max(size_of::<chain::Pinned>()) as u128);
+    let members=add(&[mul(2,mul(memory::VEC,mul(m,20)?)?)?,size_of::<Membership>() as u128,arc])?;
+    let assignment=add(&[mul(memory::VEC,mul(m,size_of::<NonceRange>() as u128)?)?,size_of::<Assignment>() as u128,arc])?;
+    let (pr,ar)=(size_of::<chain::CtxParent>() as u128,size_of::<chain::CtxAssignment>() as u128);
+    let p=chain::CTX_PARENTS_MAX as u128;let a=chain::CTX_ASSIGNMENTS_MAX as u128;
+    add(&[mul(p,add(&[members,mul(2,pr)?,held])?)?,mul(a,add(&[assignment,mul(2,ar)?,held])?)?,1024])
+}
 /// N4: the fee order's scratch (`Node::fee_order_and_big`): FEE_ORDER_ENTRY_BYTES per pooled and parked candidate.
 pub fn fee_order_bytes()->Option<u128>{mul((node::POOL_MAX_TXS+node::POOL_PARKED_MAX) as u128,node::FEE_ORDER_ENTRY_BYTES as u128)}
 /// D-7: the gas the pool's layer can hold: its bound (`node::pool_gas_bound`), and at most POOL_MAX_TXS
@@ -721,12 +734,19 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // reason's Box<str> (<= REASON_MAX) and its allocation (16 B); plus 1,024 B of slack.
     let ck=((32*(size_of::<([u8;32],chain::Costly)>() as u128+1)).div_ceil(7)).div_ceil(8)*8;
     let costly=add(&[mul(chain::COSTLY_MAX as u128+1,add(&[mul(2,ck)?,128,REASON_MAX,16])?)?,1024])?;
+    // FN-1 (C6): the child-context cache (chain::CtxCache), at most CTX_PARENTS_MAX memberships (the ids and the accruing
+    // marks, two Vecs of at most M_max addresses each, grown by doubling: memory::VEC each) with their Draw, and at most
+    // CTX_ASSIGNMENTS_MAX assignments (M_max NonceRanges each, memory::VEC), each value behind an Arc (16 B of counts) in
+    // a VecDeque of rows (two allocations at growth), each row with the allocation its weak state reference keeps, plus
+    // 1,024 B of slack. A context in use shares these values (the Arc), so they are counted once here.
+    let ctx_cache=ctx_cache_bytes(cp)?;
     let q=[("queues/transaction pool",pool),("queues/pool sender and declared gas (POOL_MAX_TXS, PR6)",pool_meta),("queues/parked transactions' entries (POOL_PARKED_MAX, PR6)",parked),
         ("queues/template selection: append-round candidates and skipped senders (BODY_MAX, PR6)",selection),("queues/an abandoned block's transactions being revalidated (one body, D-7)",abandoned),("queues/orphan blocks",orphans),("queues/future blocks",future),("queues/templates",templates),("queues/seen sets",seen),
         ("queues/rejection and evidence caches",caches),("queues/peer send queues and frames",peers),("queues/main event queue",main_events),("queues/network event forwarders",net_events),
         ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps),
         ("queues/inbound eviction: registry, selection scratch, per-connection activity and eviction ring",evict),
-        ("queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)",costly)];
+        ("queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)",costly),
+        ("queues/child-context cache (FN-1: CTX_PARENTS_MAX memberships and Draws, CTX_ASSIGNMENTS_MAX assignments, M_max members)",ctx_cache)];
     let mut queues=add(&q.map(|x|x.1))?;items.extend(q);
     // V3-02 (CP schema v2 only): the late-share cache (node::LateCache), at most D + LATE_PENDING_MAX + 1 templates of at most
     // SHARE_RELAY_PER_S_MAX·S_max nonces each, a Vec counted at memory::VEC times its length, in a VecDeque counted the same.
