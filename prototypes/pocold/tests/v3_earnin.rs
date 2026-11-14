@@ -7,6 +7,7 @@
 //! whole-pot burn of an ACCRUING winner, the E_win boundary and a self-report, against the spec-1 earn-in chain. FN-2b C4
 //! adds the removal at a full set on chain: registerReplacing through the wallet's quote decision (a removable member
 //! chosen at random, confirmed by the registry's removalStatus view) and the node's pocol_getRemovable listing.
+#[path="support/members.rs"] mod members_sweep;
 use pocol_lp4_execution::devnet::{self, DevnetConfig};
 
 const PCOL: u128 = 1_000_000_000_000_000_000;
@@ -43,6 +44,8 @@ mod on_chain {
     const B: u128 = 20 * PCOL;
 
     struct Net { chain: Chain, keys: HashMap<Address, Key>, one: Address }
+    /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+    impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
 
     fn net() -> Net {
         let net = net_with(config());
