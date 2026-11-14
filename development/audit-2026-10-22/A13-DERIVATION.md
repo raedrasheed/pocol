@@ -1692,6 +1692,46 @@ devnet's M_max 64: 185,920 B, so the spec-1 devnet total moves from 3,397,791,23
 production context shares its Arc values with the cache; a context evicted from the cache while held is the
 transient copy that existed before FN-1 (not a term then either).
 
+### FN-3a: member records (C6, node-local)
+
+FN-3a (FRESH-NETWORK-DESIGN.md C6, plan FN-3 §7) stores each block's member set S_b as a record (`pocold::members`): a
+delta of at most DELTA_CAP = 32 ids from the parent's set, or a snapshot every 256 heights and whenever the change is
+larger. A stored block's assignment is recomputed from it (`Chain::assignment_of`, `Assignment::from_ids`). FN-3a keeps
+the nonce ranges and takes every verdict from them; the 64·M_max per-block ranges term stays until FN-3b. New terms:
+- queues: the member sets cache (SETS_CAP = max(16, 2·E_max + D + 2) sets of M_max ids), the recomputed assignments
+  cache (ASSIGN_CAP = max(8, E_max + D + 1) assignments at memory::VEC), the owner memo (OWNERS_CAP = min(4096,
+  2·EVIDENCE_POOL_MAX·(S_max + 1)) keys at the hash-table churn rule) and one reconstruction in progress
+  (`resources::member_cache_bytes`, `member_scratch_bytes`);
+- history: the records held by entries not offloaded (the resident window, the full side block and the block being
+  validated; `offload` drops them, and an offloaded or slimmed entry holds one pointer), and history.redb's payload
+  (`member_payload`: a record per block, a snapshot row per snapshot block; every block may be a snapshot unless CP
+  schema v2 and delta_max(cp) = REG_OPS + R_react + E_max <= DELTA_CAP).
+`Entry.ranges` became a boxed slice, so the Entry stays 1,088 B on x86-64: an eviction-off projection, where slimmed
+entries are the bulk, is moved only by the new fixed terms and the payload. Pins moved:
+- the spec-1 devnet total (tests/consensus.rs `a13_bound_breakdown`, tests/v3_late_shares.rs): 3,397,977,154 to
+  3,401,814,038 B (+3,836,884: owner memo 2,770,596, scratch 743,744, assignments 168,784, the window's records 72,080,
+  sets 23,552, history.redb allocator 58,128); eviction off 3,388,515,533 to 3,392,352,417 B;
+- the live chain's halt (tests/network_budget.rs): 2,674 to 2,797 records earlier ([1,143,018, 1,118,191, 1,111,038,
+  1,086,437, 1,068,549, 1,043,948]); the seed rule's outcome is unchanged (R10[0] − R(32, 2) = 58,675 of the week's
+  60,480); its disk stops 15,505,223,296 B earlier.
+At the fresh-network CP (M_max 10,000, E_win 360, D 4, E_max 4, R_react 4, REG_RECORDS_MAX 24,576, SYS_SLOT_MAX 147,456,
+store mode, eviction on, disk observed) the model moves from 10,035,259,610 B (9.35 GiB) to 10,078,213,165 B (9.39 GiB,
++42,953,555 B) and is still refused against the 6 GiB budget: the 64·M_max ranges term (640,000 B an entry-equivalent)
+is what FN-3b removes. CONDITIONS `member-records-inventory` lists the caps, the snapshot rule and delta_max.
+
+The cadence-only snapshot count and the min(DELTA_CAP, delta_max) delta bound need a membership that is every live
+record at every height (`members::all_live_everywhere`: CP schema v2, so v3 is active from genesis, and nonceMode 1,
+so `chain::full_nonce_rule` holds under every fork version). A bounded-nonce schema-v2 CP (nonceMode 0, a devnet with
+the v3 programs) keeps the W_act activity set, which one block can change whole: it takes spec 1's branch (every block
+may be a snapshot, a delta holds DELTA_CAP ids). No pinned profile is such a CP, so no pin moves.
+
+The FN-3a oracle (`Chain::member_oracle`) is on by default, in release builds too: each import recomputes the new
+block's assignment cold (a walk to its snapshot, up to 255 records, read from history.redb below the resident window),
+each re-executed block's set is digested (M keccaks) and each type-2 or kind-3 read recomputes the whole assignment.
+That is O(M) CPU per import, re-execution and evidence read, a CPU cost (CONDITIONS `cpu-and-timing`), not a memory
+term. FN-3b must lower the default (the tests switch it on explicitly), and the FN-3c CPU and timing measurements
+(child_ctx p99, reconstruction, `h_full` overhead) are taken with it off.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:
