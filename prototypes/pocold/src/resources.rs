@@ -128,12 +128,13 @@ pub fn member_scratch_bytes(cp:&ConsensusParams)->Option<u128>{
 }
 /// FN-3: what `blocks` blocks add to history.redb: a member record per block (its key, seal and fixed part, and a delta's
 /// ids: at most min(DELTA_CAP, delta_max)) and a snapshot row per snapshot block (its key, seal and M_max ids; a snapshot's
-/// record holds no delta). Snapshots follow the cadence alone (⌈blocks/256⌉ + 1) on CP schema v2 (the v3 programs, whose
-/// membership is every live record, so a block changes at most delta_max ids) when delta_max(cp) <= DELTA_CAP;
-/// otherwise every block may be one.
+/// record holds no delta). Snapshots follow the cadence alone (⌈blocks/256⌉ + 1) when the membership is every live record
+/// at every height (`members::all_live_everywhere`: CP schema v2 and nonceMode 1, so a block changes at most delta_max
+/// ids) and delta_max(cp) <= DELTA_CAP; otherwise (spec 1, a bounded-nonce schema-v2 CP, whose activity window can flip
+/// any number of ids at once, or a larger delta_max) every block may be one.
 pub fn member_payload(cp:&ConsensusParams,blocks:u128)->Option<u128>{
     let (dm,m)=(crate::members::delta_bound(cp) as u128,u128::from(cp.M_max));let fixed=32+32+crate::members::REC_FIXED as u128;
-    if cp.schema_version()>=2&&crate::members::delta_max(cp)<=crate::members::DELTA_CAP{
+    if crate::members::all_live_everywhere(cp)&&crate::members::delta_max(cp)<=crate::members::DELTA_CAP{
         let snaps=blocks.div_ceil(u128::from(crate::members::SNAPSHOT_EVERY))+1;
         add(&[mul(blocks,add(&[fixed,mul(20,dm)?])?)?,mul(snaps,add(&[32+32,mul(20,m)?])?)?])
     }else{mul(blocks,add(&[fixed,mul(20,dm)?.max(add(&[32+32,mul(20,m)?])?)])?)}
@@ -416,7 +417,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("v3-execution-inventory","For the v3_active(MAX) profile domain derived at open, retained/per-block log terms use 256 KiB. There is no creation burn (owner decision 10d, FN-2a): no receipt annotation, burn field or burn arithmetic, so legacy BlockRun/BlockOutput layouts are unchanged; this inventory is by inspection, not a measured profile or higher live-state caps"),
     ("receipt-encoding-inventory","A legacy under-count corrected on every profile: count receipt RLP nesting/growth and the receipts-root clone at sixteen active charged log-byte copies, two per-block per-tx receipt buffers for the USER list and apply's report copy, and 64 KiB fixed bloom/short-list scratch. These are conservative inventories of the unchanged legacy receipts::encode, ordered_root and apply output copies, separate from native logs and retained history; the active log limit grows this peak under v3"),
     ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node, and a bounded template-slot map (TEMPLATE_SEEN_MAX slots of a locked TemplateID and its first lock time, not persisted) for classifying signed blocks by their template. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
-    ("member-records-inventory","FN-3 (C6): the member caches hold at most SETS_CAP = max(16, 2·E_max + D + 2) sets, ASSIGN_CAP = max(8, E_max + D + 1) assignments and OWNERS_CAP = min(4096, 2·EVIDENCE_POOL_MAX·(S_max + 1)) owners, from the CP at Chain::new (members::SmallLru, members::Memo); `offload` drops a snapshot's member ids (tests/memory_bounds.rs); a delta holds at most DELTA_CAP ids, which the snapshot rule enforces (members::is_snapshot), and on the v3 programs a block changes at most delta_max(cp) = REG_OPS + R_react + E_max ids of S_b (PoColSystemV3.sol checkBudgets, registerReplacing, punish); a reconstruction runs one at a time on the consensus thread; a bare chain's MemSets (no node) is pruned to the eviction floor − WALK_MAX; FN-3a keeps the nonce ranges beside the records (64·M_max a resident entry, the per-block term), which FN-3b removes; by inspection"),
+    ("member-records-inventory","FN-3 (C6): the member caches hold at most SETS_CAP = max(16, 2·E_max + D + 2) sets, ASSIGN_CAP = max(8, E_max + D + 1) assignments and OWNERS_CAP = min(4096, 2·EVIDENCE_POOL_MAX·(S_max + 1)) owners, from the CP at Chain::new (members::SmallLru, members::Memo); `offload` drops an entry's member record and a snapshot's ids, so an offloaded entry holds none and at most the resident window + 2 entries hold one (asserted by tests/support/members.rs `held_records`, in every cold sweep and in the store-mode tests of tests/fn3_members.rs); a delta holds at most DELTA_CAP ids, which the snapshot rule enforces (members::is_snapshot), and where the membership is every live record at every height (members::all_live_everywhere: CP schema v2 and nonceMode 1; not a bounded-nonce schema-v2 CP, which keeps the activity window) a block changes at most delta_max(cp) = REG_OPS + R_react + E_max ids of S_b (PoColSystemV3.sol checkBudgets, registerReplacing, punish), so snapshots follow the cadence alone; a reconstruction runs one at a time on the consensus thread; a bare chain's MemSets (no node) is pruned to the eviction floor − WALK_MAX; FN-3a keeps the nonce ranges beside the records (64·M_max a resident entry, the per-block term), which FN-3b removes; by inspection"),
     ("late-share-inventory","V3-02 (CP schema v2 only): an offloaded entry keeps its kind-3 evidence items, bounded per block by E_max items and the L = min(E_max·min(S_max, κm − 1), D·(κm − 1)) late shares one block can credit, and a slimmed one drops them; the late-share cache holds at most D + LATE_PENDING_MAX + 1 templates (one canonical template per height of the next carrier's window, LATE_PENDING_MAX of the production height, one more between a stash and its prune) of SHARE_RELAY_PER_S_MAX·S_max nonces; both by inspection of chain::offload/slim and node::LateCache, zero on CP schema v1"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
@@ -1013,6 +1014,31 @@ pub fn check(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:us
 #[cfg(test)]
 mod tests{
     use super::*;
+    /// FN-3a review: the member terms take the cadence-only snapshot count and the min(DELTA_CAP, delta_max) delta bound
+    /// only where the membership is every live record at every height (CP schema v2 and nonceMode 1). A schema-v2 CP with
+    /// bounded nonces (nonceMode 0) keeps the W_act activity set, so one block can change any number of ids: every block
+    /// may be a snapshot and a delta holds up to DELTA_CAP ids, as on spec 1.
+    #[test] fn member_terms_take_the_cadence_only_where_every_live_record_is_a_member(){
+        use crate::members::{all_live_everywhere,delta_bound,delta_max,DELTA_CAP,REC_FIXED,SNAPSHOT_EVERY};
+        let cp_of=|spec:u8,nonce:u8|{let mut c=pocol_lp4_execution::devnet::DevnetConfig::new(1,1_700_000_000,&["a"]);c.spec_version=spec;c.nonce_mode=nonce;
+            ConsensusParams::from_values(&c.cp()).unwrap()};
+        let blocks=2305u128;
+        let per_block=|dm:u128|32+32+REC_FIXED as u128+20*dm;let snap=|cp:&ConsensusParams|32+32+20*u128::from(cp.M_max);
+        let (full,bounded,spec1)=(cp_of(2,1),cp_of(2,0),cp_of(1,1));
+        assert!(full.schema_version()==2&&bounded.schema_version()==2&&spec1.schema_version()==1&&bounded.nonceMode==0);
+        let dm=delta_max(&full);assert!(dm<DELTA_CAP,"positive control: delta_max {dm} below DELTA_CAP");
+        // All live at every height: deltas of at most delta_max ids, snapshots at the cadence.
+        assert!(all_live_everywhere(&full));assert_eq!(delta_bound(&full),dm);
+        let snaps=blocks.div_ceil(u128::from(SNAPSHOT_EVERY))+1;
+        assert_eq!(member_payload(&full,blocks),Some(blocks*per_block(dm as u128)+snaps*snap(&full)));
+        // Bounded nonces on CP schema v2, and spec 1: the `snaps = blocks` branch with DELTA_CAP ids a delta.
+        for (cp,what) in [(&bounded,"schema v2, nonceMode 0"),(&spec1,"schema v1")]{
+            assert!(!all_live_everywhere(cp),"{what}");assert_eq!(delta_bound(cp),DELTA_CAP,"{what}");
+            assert_eq!(member_payload(cp,blocks),Some(blocks*(per_block(0)+(20*DELTA_CAP as u128).max(snap(cp)))),"{what}: every block may be a snapshot");
+            assert!(member_payload(cp,blocks)>member_payload(&full,blocks),"{what}");
+        }
+        assert!(member_record_heap(&bounded)>member_record_heap(&full),"the per-record delta heap counts DELTA_CAP ids");
+    }
     /// U11: only a numeric pids.max limits the node, and it must hold the whole inventory: "max", an empty or unreadable
     /// value is no limit; 127 against 128 refuses with the counts and the remedy; the defaults need 128 tasks.
     #[test] fn tasks_fit_reads_pids_max(){

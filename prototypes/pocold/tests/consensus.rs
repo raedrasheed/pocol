@@ -2984,9 +2984,10 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     a.import(side2.clone(),None).unwrap();b.import(side2.clone(),None).unwrap();
     assert!(a.chain.rebuilds>rb,"positive control: a TrieRebuild through slimmed entries");assert!(a.chain.get(&side2.hash()).is_some());
     assert_eq!(views(&mut a),views(&mut b),"after the fork below the cut");
-    members_sweep::sweep(&a.chain);members_sweep::sweep(&b.chain);
+    // FN-3a: the cold sweep, each slimmed entry's recomputed assignment compared with history.redb's ranges.
+    let (_,_,s)=members_sweep::sweep_node(&a);assert!(s>80,"positive control: {s} slimmed entries compared");members_sweep::sweep_node(&b);
     drop(a);let mut r=Node::open(ca(),admitted(&cfg(&["a","b","c"]))).unwrap();
-    assert!(slims(&r)>80);assert_eq!(exact(&r,&b),slims(&r));assert_eq!(views(&mut r),views(&mut b),"after reopen");members_sweep::sweep(&r.chain);drop(r);
+    assert!(slims(&r)>80);assert_eq!(exact(&r,&b),slims(&r));assert_eq!(views(&mut r),views(&mut b),"after reopen");assert!(members_sweep::sweep_node(&r).2>80);drop(r);
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
 
@@ -2996,16 +2997,21 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
 #[test] fn s4_evidence_against_a_slimmed_ancestor_restores_it_first(){
     let (seq,winner,b4)=s4_evidence_chain();
     let (mut a,da)=s4_node("slim",3);let (mut b,db)=s4_node("ref",u64::MAX);
-    for x in &seq[..seq.len()-1]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    for x in &seq[..seq.len()-2]{a.import(x.clone(),None).unwrap();b.import(x.clone(),None).unwrap();}
+    // FN-3a: the oracle checks an import without evidence makes (the import's own), to tell the shadow's apart below.
+    let c0=a.chain.member_counters().oracle_checks;let x=seq[seq.len()-2].clone();a.import(x.clone(),None).unwrap();b.import(x,None).unwrap();
+    let plain=a.chain.member_counters().oracle_checks-c0;assert!(plain>=1,"positive control: the import oracle compared");
     assert!(a.chain.get(&b4.hash()).unwrap().slim,"positive control: the evidence's ancestor is slimmed");
-    let before=a.stats.unslims;let last=seq.last().unwrap().clone();
+    let before=a.stats.unslims;let last=seq.last().unwrap().clone();let c1=a.chain.member_counters().oracle_checks;
     a.import(last.clone(),None).unwrap();b.import(last.clone(),None).unwrap();
     assert!(a.stats.unslims>before,"the slimmed ancestor was restored for the evidence walk");
     assert_eq!(a.chain.head,b.chain.head);assert_eq!(a.chain.head,last.hash());
     let r=apply::miner_record(&a.chain.head().state,winner).unwrap();assert!(r.tomb,"the equivocating winner is tombstoned");
     assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
-    // FN-3a: the walk against the slimmed ancestor compared its recomputed owner (the shadow), and the cold sweep holds.
-    assert!(a.chain.member_counters().oracle_checks>0);members_sweep::sweep(&a.chain);members_sweep::sweep(&b.chain);
+    // FN-3a: the walk against the restored ancestor compared its recomputed owner and assignment (the shadow: two checks
+    // beyond the import's own), and the cold sweep holds.
+    let got=a.chain.member_counters().oracle_checks-c1;assert!(got>=plain+2,"the shadow compared at the restored ancestor: {got} checks, an import alone {plain}");
+    members_sweep::sweep_node(&a);members_sweep::sweep_node(&b);
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
 /// A node slimming at `depth` (u64::MAX: never), for the S4 evidence chain.
@@ -3817,7 +3823,7 @@ fn e44_same(x:&mut pocold::node::Node,y:&mut pocold::node::Node,what:&str){
         assert_eq!(n.chain.trie_store.as_ref().unwrap().pinned().unwrap() as usize,stored,"{what}: the entries' pins are their stored versions");
         n.state_store().unwrap().recount().unwrap_or_else(|e|panic!("{what}: {e}"));}
     // FN-3a: after each restart, the cold sweep of both chains.
-    members_sweep::sweep(&x.chain);members_sweep::sweep(&y.chain);
+    members_sweep::sweep_node(x);members_sweep::sweep_node(y);
 }
 /// Opens `dir` as a reference: a copy replayed from genesis (checkpoints off, so the store starts empty).
 fn e44_reference(dir:&std::path::Path,tag:&str)->(pocold::node::Node,std::path::PathBuf){

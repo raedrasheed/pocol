@@ -1719,6 +1719,19 @@ store mode, eviction on, disk observed) the model moves from 10,035,259,610 B (9
 +42,953,555 B) and is still refused against the 6 GiB budget: the 64·M_max ranges term (640,000 B an entry-equivalent)
 is what FN-3b removes. CONDITIONS `member-records-inventory` lists the caps, the snapshot rule and delta_max.
 
+The cadence-only snapshot count and the min(DELTA_CAP, delta_max) delta bound need a membership that is every live
+record at every height (`members::all_live_everywhere`: CP schema v2, so v3 is active from genesis, and nonceMode 1,
+so `chain::full_nonce_rule` holds under every fork version). A bounded-nonce schema-v2 CP (nonceMode 0, a devnet with
+the v3 programs) keeps the W_act activity set, which one block can change whole: it takes spec 1's branch (every block
+may be a snapshot, a delta holds DELTA_CAP ids). No pinned profile is such a CP, so no pin moves.
+
+The FN-3a oracle (`Chain::member_oracle`) is on by default, in release builds too: each import recomputes the new
+block's assignment cold (a walk to its snapshot, up to 255 records, read from history.redb below the resident window),
+each re-executed block's set is digested (M keccaks) and each type-2 or kind-3 read recomputes the whole assignment.
+That is O(M) CPU per import, re-execution and evidence read, a CPU cost (CONDITIONS `cpu-and-timing`), not a memory
+term. FN-3b must lower the default (the tests switch it on explicitly), and the FN-3c CPU and timing measurements
+(child_ctx p99, reconstruction, `h_full` overhead) are taken with it off.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

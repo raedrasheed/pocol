@@ -235,7 +235,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     let want=r.chain.validate(&b,None,0).map(|x|x.0.hash);assert!(want.is_ok(),"{what}: the reference accepts the carrier");
     node.chain.clear_member_caches();
     assert_eq!(node.import(b.clone(),None).map(|x|{let _=x;b.hash()}),want.clone().map_err(|e|e),"{what}: the node judges the carrier as the reference");
-    accept(r,&b);members_sweep::sweep(&node.chain);
+    accept(r,&b);members_sweep::sweep_node(node);
 }
 
 /// §5.6: a node restarted three ways (checkpoint restore; replay; history.redb deleted and rebuilt) holds the same chain
@@ -248,7 +248,9 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     grow(&mut r,256);
     let blocks:Vec<Block>=(1..=256u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let d=dir("restart");
-    {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}members_sweep::sweep(&a.chain);}
+    {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}members_sweep::sweep_node(&a);
+        // The A13 term's premise: an offloaded entry holds no member record, at most the window + 2 entries hold one.
+        let (off,holding)=members_sweep::held_records(&a.chain);assert!(off>0&&holding>0,"positive control: {off} offloaded entries, {holding} holding a record");}
     // I3 at the snapshot height 257: its rows (record and set) go to history.redb, then the process stops before the
     // journal append.
     let b257=mine(&r,r.chain.head,vec![],vec![],None);let x=r.chain.validate(&b257,None,0).unwrap().0;assert!(x.members.as_ref().unwrap().rec.is_snapshot());
@@ -295,7 +297,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
         assert!(!a.history.rebuilt,"not set aside");assert!(a.stats.resumed_from.is_none(),"no checkpoint restores without member rows");
         assert!(a.stats.history_refilled>=70,"replay refilled every block ({})",a.stats.history_refilled);
         for b in &blocks{assert!(a.history.has(&b.hash()).unwrap());assert!(a.history.members(&b.hash()).unwrap().is_some());}
-        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep(&a.chain);}
+        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep_node(&a);}
     // A later open resumes from a checkpoint again.
     {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(a.stats.resumed_from.is_some());assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);}
     // A flipped byte in block 5's member record (an offloaded block: no restore holds it, a member walk reads it).
@@ -311,7 +313,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     }
     assert!(d.join(pocold::history::DAMAGED).exists(),"the store is marked damaged");
     {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(a.history.rebuilt,"the next open rebuilds it");assert_eq!(a.history.members(&h5).unwrap().unwrap().2,rec(&r.chain,5));
-        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep(&a.chain);}
+        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep_node(&a);}
     let _=std::fs::remove_dir_all(&d);
 }
 
@@ -363,6 +365,26 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
         }
         // A block on branch B judged the same.
         let next=mine(&r,r.chain.head,vec![],vec![],None);assert_eq!(n.chain.validate(&next,None,0).map(|x|x.0.hash),r.chain.validate(&next,None,0).map(|x|x.0.hash));
+        // Back to branch A, the registration's, extended until it is heavier: its member sets differ from B's from
+        // fork + 2. The caches hold what B's readers filled while B was canonical and nothing is cleared before the first
+        // pass, so the new branch's readers meet them; the second pass compares again from cleared caches.
+        let mut tip=a.last().unwrap().hash();let mut a_ext=vec![];
+        while n.chain.head!=tip{n.chain.ensure_state(&tip).unwrap();let b=mine(&n,tip,vec![],vec![],None);tip=b.hash();let (e,_)=n.chain.validate(&b,None,0).unwrap();n.chain.insert(e);a_ext.push(b);
+            assert!(a_ext.len()<=12,"fork {fork}: branch A takes the head back");}
+        n.chain.retain();
+        let mut r2=net(2);for h in 1..=fork{let e=entry_at(&n.chain,h);accept(&mut r2,&Block{header:e.header.clone(),body:e.body.clone()});}for b in a.iter().chain(&a_ext){accept(&mut r2,b);}
+        assert_eq!(r2.chain.head,n.chain.head);
+        assert!(n.chain.member_set(entry_at(&n.chain,fork+2)).unwrap().contains(&alice.0.0)&&!r.chain.member_set(entry_at(&r.chain,fork+2)).unwrap().contains(&alice.0.0),"positive control: the new head's member set differs from B's at fork + 2");
+        let top=n.chain.head().height;
+        for pass in ["with the caches filled under branch B","from cleared caches"]{
+            for j in [fork-20,fork-1,fork,fork+1,fork+2,fork+3,top-1,top]{
+                let x=entry_at(&n.chain,j);let blk=Block{header:x.header.clone(),body:x.body.clone()};let (ev,_)=type2(&n,&blk);
+                assert_eq!(effects(&n.chain,&[ev.clone()]),effects(&r2.chain,&[ev]),"fork {fork}, {pass}: evidence against {j} on branch A");
+            }
+            let next=mine(&r2,r2.chain.head,vec![],vec![],None);assert_eq!(n.chain.validate(&next,None,0).map(|x|x.0.hash),r2.chain.validate(&next,None,0).map(|x|x.0.hash),"fork {fork}, {pass}: a block on branch A");
+            n.chain.clear_member_caches();
+        }
+        let m=n.chain.member_counters();assert!(m.oracle_mismatch==0&&m.faults==0);
     }
 }
 
@@ -393,7 +415,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     assert!(d.join(pocold::history::DAMAGED).exists(),"the store is marked damaged");
     {let a=Node::open(conf(&d,Limits{state_store:true,checkpoint_every:0,..Default::default()},None),spec_of(&r.cfg)).unwrap();assert!(a.history.rebuilt,"rebuilt");
         assert_eq!(a.history.members(&h5).unwrap().unwrap().2,rec(&r.chain,5),"the true record again");
-        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep(&a.chain);}
+        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep_node(&a);}
     let _=std::fs::remove_dir_all(&d);
 }
 
@@ -432,5 +454,105 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
         let set=a.history.member_set(&e.hash).unwrap();assert_eq!(set.is_some(),m.is_snapshot());
         if let Some(s)=set{assert_eq!(s,r.chain.member_set(e).unwrap());}
         if let MemberStep::Delta{adds,..}=&m.step{if !adds.is_empty(){assert_eq!(&adds[..],&[alice.0.0][..]);}}}
-    members_sweep::sweep(&a.chain);drop(a);let _=std::fs::remove_dir_all(&d);
+    members_sweep::sweep_node(&a);drop(a);let _=std::fs::remove_dir_all(&d);
+}
+
+/// §5.4: a carrier at h whose kind-3 item is for template j = h − D and whose type-2 item is against an older block, on a
+/// node slimming at depth 2 (below D): both ancestors are slimmed, restored for the evidence walk, and the carrier is
+/// accepted with the effects and state root of a node that never slims; the shadow compared at the restored ancestors.
+#[test] fn kind3_at_h_minus_d_and_type2_against_slimmed_ancestors_restore_them_first(){
+    let mut r=net(2);let two=r.ids[1];let d=u64::from(r.chain.spec.cp().D);assert!(d>2,"positive control: D {d} above the slim depth 2");
+    grow(&mut r,20);let bj=mine(&r,r.chain.head,vec![],vec![],Some(two));accept(&mut r,&bj);let j=bj.header.h;
+    let late=omitted(&r,&bj,two);assert!(late.len()>=2,"two's shares were left out: {late:?}");
+    grow(&mut r,j+d-1);let h=j+d;
+    // A type-2 item against a block whose winner is not the carrier's proposer.
+    let p=r.chain.full_entry(&r.chain.head).unwrap();let proposer=r.chain.child_ctx(&p,0).unwrap().proposer;
+    let (ev2,j2)=(10..j).rev().find_map(|x|{let e=entry_at(&r.chain,x);let blk=Block{header:e.header.clone(),body:e.body.clone()};let (ev,acc)=type2(&r,&blk);(acc!=proposer).then_some((ev,x))}).expect("a winner other than the proposer");
+    let carrier=mine(&r,r.chain.head,vec![],vec![ev2,late_encode(j,&late[..2])],None);assert_eq!(carrier.header.h,h);
+    let want=r.chain.evidence_effects(&p,&carrier.body,h).unwrap();assert_eq!(want.len(),2,"both items have an effect: {want:?}");
+    let blocks:Vec<Block>=(1..h).map(|x|{let e=entry_at(&r.chain,x);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
+    let open=|tag:&str,depth:Option<u64>|{let dd=dir(tag);(Node::open(conf(&dd,Limits{slim_depth:depth,..Default::default()},None),spec_of(&r.cfg)).unwrap(),dd)};
+    let (mut a,da)=open("k3slim",Some(2));let (mut b,db)=open("k3ref",None);
+    for x in &blocks[..blocks.len()-1]{assert!(a.import(x.clone(),None).unwrap());assert!(b.import(x.clone(),None).unwrap());}
+    let c0=a.chain.member_counters().oracle_checks;let x=blocks.last().unwrap().clone();assert!(a.import(x.clone(),None).unwrap());assert!(b.import(x,None).unwrap());
+    let plain=a.chain.member_counters().oracle_checks-c0;assert!(plain>=1,"positive control: the import oracle compared");
+    for (x,what) in [(j,"the kind-3 template"),(j2,"the type-2 ancestor")]{assert!(a.chain.canonical_at(x).unwrap().slim,"positive control: {what} at {x} is slimmed");assert!(!b.chain.canonical_at(x).unwrap().slim);}
+    a.chain.clear_member_caches();let (u,c1)=(a.stats.unslims,a.chain.member_counters().oracle_checks);
+    assert!(a.import(carrier.clone(),None).unwrap());assert!(b.import(carrier.clone(),None).unwrap());
+    assert!(a.stats.unslims>u,"the slimmed ancestors were restored for the evidence walk");
+    assert_eq!((a.chain.head,b.chain.head),(carrier.hash(),carrier.hash()));
+    assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
+    // The shadow: kind-3's two owners and its template's assignment, type-2's owner and assignment, beyond the import's own.
+    let got=a.chain.member_counters().oracle_checks-c1;assert!(got>=plain+5,"the shadow compared at the restored ancestors: {got} checks, an import alone {plain}");
+    let (_,_,s)=members_sweep::sweep_node(&a);assert!(s>0,"positive control: slimmed entries compared");members_sweep::sweep_node(&b);
+    drop(a);drop(b);for dd in [da,db]{let _=std::fs::remove_dir_all(&dd);}
+}
+
+/// §5.5, risk 7 [C1-D7]: a store-mode node at exactly `evict_depth_of`'s minimum E, restarted from a checkpoint of a
+/// window based above a snapshot height.
+/// (a) After the restore, with the caches cleared, the walk of the lowest window entry whose parent is held crosses
+///     canon_base: it reads the records of evicted blocks and the evicted snapshot's set from history.redb
+///     (`member_src`), and its set and assignment are the reference's and history.redb's ranges.
+/// (b) A fork child 40 below the head (within R_keep, its parent's state pruned) is accepted after a rebuild from the
+///     newest anchor below it, which re-executes a block carrying type-2 evidence against an ancestor E_win − 1 below
+///     it: that ancestor's parent (its seal) is held, its walk reads offloaded records and its snapshot's set from
+///     history.redb, and the shadow compared. An anchor rebuild's evidence walks stay above the floor: the oldest block
+///     re-executed is above the newest anchor below the fork (at least head − 2·R_keep), its evidence reaches E_win
+///     below that, a walk 255 below that, and E_min ≥ 2·R_keep + E_win + 258. A walk below the floor is (a)'s, or a
+///     bare chain's (`a_bare_chain_judges_evidence_whose_snapshot_was_evicted`).
+/// (c) A following carrier with type-2 and kind-3 evidence is judged as the reference judges it.
+#[test] fn a_minimum_depth_store_node_walks_below_its_window_after_a_restore_and_rebuilds_from_an_anchor(){
+    let mut r=net(2);let two=r.ids[1];let rk=64u64;
+    let spec=spec_of(&r.cfg);let (e_win,k_hist)=(u64::from(spec.cp().E_win),spec.local().k_hist);
+    // The default slim depth (2·R_keep + E_win + 257): an evidence walk never meets a slimmed entry, and E_min is 2·R_keep +
+    // E_win + 258 (above the store-mode anchor term at K_hist 32).
+    let base_l=Limits{r_keep:rk,side_cap:rk as usize,state_store:true,checkpoint_every:7,..Default::default()};
+    // E_min: the least depth `evict_depth_of` accepts (the default, None, is the slim depth + R_keep, above it).
+    let e_min=2*rk+e_win+258;let depth=|n:u64|pocold::resources::evict_depth_of(spec.cp(),k_hist,&Limits{evict_depth:Some(n),..base_l.clone()},rk);
+    assert_eq!(depth(e_min),Ok(Some(e_min)));assert!(depth(e_min-1).is_err(),"positive control: {e_min} is the minimum at R_keep {rk}, E_win {e_win}");
+    let l=Limits{evict_depth:Some(e_min),..base_l};
+    // The carrier x of type-2 evidence against x − (E_win − 1), at the first height from 700 whose proposer is not the
+    // accused; the head 40 above it, so the snapshot at 257 is below the window.
+    grow(&mut r,699);
+    let x=loop{let p=r.chain.full_entry(&r.chain.head).unwrap();let ctx=r.chain.child_ctx(&p,0).unwrap();let h=p.height+1;
+        let e=entry_at(&r.chain,h-(e_win-1));let (ev,accused)=type2(&r,&Block{header:e.header.clone(),body:e.body.clone()});
+        if ctx.proposer!=accused{let b=mine(&r,r.chain.head,vec![],vec![ev],None);accept(&mut r,&b);break h}
+        assert!(h<720,"an eligible proposer");let b=mine(&r,r.chain.head,vec![],vec![],None);accept(&mut r,&b);};
+    let j=x-(e_win-1);let top=x+40;grow(&mut r,top-1);
+    let bt=mine(&r,r.chain.head,vec![],vec![],Some(two));accept(&mut r,&bt);let late=omitted(&r,&bt,two);assert!(late.len()>=2);
+    assert!(top-e_min>257&&(top-e_min+1)%256!=1,"positive control: the window's base {} is above the snapshot at 257",top-e_min);
+    let blocks:Vec<Block>=(1..=top).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
+    let d=dir("emin");
+    {let mut a=Node::open(conf(&d,l.clone(),None),spec_of(&r.cfg)).unwrap();assert_eq!(a.cfg.limits.evict_depth,Some(e_min));
+        for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}assert!(a.stats.checkpoints_written>0);}
+    let mut a=Node::open(conf(&d,l.clone(),None),spec_of(&r.cfg)).unwrap();
+    assert!(a.stats.resumed_from.is_some(),"positive control: resumed from a checkpoint");assert_eq!(a.chain.head().height,top);
+    let base=a.chain.canonical.base();assert!(base>257&&a.chain.get(&entry_at(&r.chain,257).hash).is_none(),"positive control: the window's base {base} is above the evicted snapshot at 257");
+    let (off,_)=members_sweep::held_records(&a.chain);assert!(off>0,"positive control: offloaded entries");
+    // (a) The lowest held canonical entry whose parent is held: its walk goes through its parent, then below canon_base.
+    let lo=(base..top).find(|h|{let x=entry_at(&r.chain,*h);a.chain.get(&x.hash).is_some()&&a.chain.get(&x.parent.unwrap()).is_some()}).unwrap();
+    assert!(a.chain.get(&entry_at(&r.chain,lo-1).parent.unwrap()).is_none(),"positive control: the walk from {lo} leaves the window");
+    a.chain.clear_member_caches();let m0=a.chain.member_counters();
+    let e=a.chain.get(&entry_at(&r.chain,lo).hash).unwrap().clone();
+    assert_eq!(a.chain.member_set(&e).unwrap(),r.chain.member_set(entry_at(&r.chain,lo)).unwrap(),"the set walked below the window");
+    let got=a.chain.assignment_of(&e).unwrap();let restored=a.restored_entry(&e.hash).unwrap();
+    assert!(pocold::chain::ranges_equal(&restored.ranges,&got)&&pocold::chain::ranges_equal(&entry_at(&r.chain,lo).ranges,&got),"the assignment recomputed across canon_base");
+    let m1=a.chain.member_counters();
+    assert!(m1.record_reads-m0.record_reads>=lo-257&&m1.disk_set_reads>m0.disk_set_reads,"the walk read {} records and {} sets from history.redb",m1.record_reads-m0.record_reads,m1.disk_set_reads-m0.disk_set_reads);
+    // (b) The anchor rebuild.
+    let canon=entry_at(&r.chain,x+1);let winner=canon.result.as_ref().unwrap().winner;let child=mine(&r,entry_at(&r.chain,x).hash,vec![],vec![],Some(winner));
+    assert_ne!(child.hash(),canon.hash);assert!(r.chain.validate(&child,None,0).is_ok(),"the reference accepts the fork child");
+    let root=a.chain.anchors().iter().map(|a|a.0).filter(|h|*h<x).max().expect("an anchor below the fork");
+    assert!(root<x&&x-root<=rk&&j>root.saturating_sub(e_win)&&j>base,"positive control: the rebuild from {root} re-executes the carrier at {x}, whose ancestor {j} is in the window");
+    assert!(a.chain.canonical_at(x).unwrap().pruned,"positive control: the fork point's state is pruned");
+    a.chain.clear_member_caches();let (m0,rb)=(a.chain.member_counters(),a.chain.rebuilds);
+    a.import(child.clone(),None).unwrap();assert!(a.chain.get(&child.hash()).is_some(),"the fork child is accepted");assert_eq!(a.chain.rebuilds-rb,x-root,"the rebuild starts at the newest anchor below the fork");
+    let m1=a.chain.member_counters();
+    assert!(m1.record_reads>m0.record_reads&&m1.disk_set_reads>m0.disk_set_reads,"the re-executed evidence's walk read history.redb: {m1:?}");
+    assert!(m1.oracle_checks>=m0.oracle_checks+3&&m1.oracle_mismatch==0&&m1.faults==0,"the shadow compared at the re-executed evidence: {m1:?}");
+    // (c) A following carrier of type-2 and kind-3 evidence.
+    let old=Block{header:entry_at(&r.chain,top-60).header.clone(),body:entry_at(&r.chain,top-60).body.clone()};
+    judge_next(&mut r,&mut a,&old,&late[..2],"after the restore and the anchor rebuild");
+    let (off,_)=members_sweep::held_records(&a.chain);assert!(off>0);
+    drop(a);let _=std::fs::remove_dir_all(&d);
 }

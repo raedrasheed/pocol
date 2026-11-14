@@ -567,7 +567,9 @@ pub struct Chain{
     /// bypassed and compares it with the one it was validated under, and each historical reader compares the whole
     /// recomputed ranges with the stored ones (each looked-up owner is compared whatever this says). A mismatch is a
     /// local fault (`Reject::Local`, the source marked damaged), never a verdict. On by default in FN-3a (the shadow
-    /// release); a runtime flag, not a feature, so it changes no dependency.
+    /// release); a runtime flag, not a feature, so it changes no dependency. Its cost is O(M) per import, per
+    /// re-executed block (`check_members`' digest) and per type-2 or kind-3 read, with no timing bound: FN-3b lowers the
+    /// default (the tests switch it on with `set_member_oracle`), and FN-3c measures CPU with it off (A13-DERIVATION).
     pub member_oracle:bool,
 }
 /// FN-3: the most member sets the chain caches (an evidence carrier's E_max ancestors and D late-share templates, their

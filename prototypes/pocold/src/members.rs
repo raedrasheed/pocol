@@ -65,14 +65,21 @@ impl MemberRec{
 }
 /// Whether block h's record is a snapshot: at the cadence, or when its change exceeds DELTA_CAP.
 pub fn is_snapshot(h:u64,delta_len:usize)->bool{h%SNAPSHOT_EVERY==1||delta_len>DELTA_CAP}
-/// The most ids one block can change in S_b on the v3 programs: REG_OPS (register, deregister, removeInactive and
+/// The most ids one block can change in S_b when the membership is every live record (`all_live_everywhere`): REG_OPS (register, deregister, removeInactive and
 /// claimBond share it; registerReplacing costs two for its two changes), R_react (reactivate) and E_max (punish's
 /// removeActive); the sweep and markClose do not touch S_b (PoColSystemV3.sol `checkBudgets`, `registerReplacing`,
 /// `punish`). A larger change (a spec-1 Bounded activity flip, the empty-active fallback) is written as a snapshot.
 pub fn delta_max(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{usize::from(cp.REG_OPS)+usize::from(cp.R_react)+usize::from(cp.E_max)}
-/// The ids a delta of this CP's chain holds at most: min(DELTA_CAP, delta_max) on CP schema v2 (the v3 programs), whose
-/// membership is every live record; DELTA_CAP otherwise (spec 1's activity window can flip any number of ids at once).
-pub fn delta_bound(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{if cp.schema_version()>=2{DELTA_CAP.min(delta_max(cp))}else{DELTA_CAP}}
+/// Whether this CP's membership is every live record at every height (`chain::Chain::membership`'s `all_live`: v3 active
+/// and the nonce mode Unbounded): CP schema v2, so v3 is active from genesis, and nonceMode 1, so `chain::full_nonce_rule`
+/// holds under every fork version. The A13 terms see no fork schedule, so a CP that reaches the full domain only through
+/// a fork, and a schema-v2 CP with bounded nonces (nonceMode 0, which keeps the W_act activity set: a bounded-nonce devnet
+/// with the v3 programs), are not.
+pub fn all_live_everywhere(cp:&pocol_lp4_execution::profile::ConsensusParams)->bool{cp.schema_version()>=2&&cp.nonceMode==1}
+/// The ids a delta of this CP's chain holds at most: min(DELTA_CAP, delta_max) when the membership is every live record
+/// at every height (`all_live_everywhere`); DELTA_CAP otherwise (the activity window, of spec 1 or of a bounded-nonce
+/// schema-v2 CP, can flip any number of ids at once).
+pub fn delta_bound(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{if all_live_everywhere(cp){DELTA_CAP.min(delta_max(cp))}else{DELTA_CAP}}
 
 fn word(id:&Id)->U256{U256::from_be_bytes(keccak256(id).0)}
 /// The digest of a set (M keccaks).
