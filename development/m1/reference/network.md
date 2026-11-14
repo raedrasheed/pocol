@@ -342,7 +342,14 @@ blockHash filter = one block.
 **Other custom interfaces**
 - pocol_getTemplate, pocol_submitShare (local mining interfaces, denied with Origin).
 - pocol_getAssignment(h, a) → {seed, nMax, nonceMode, members[{id, start, end}]}.
-- pocol_getMinerSet, pocol_getCaps, pocol_syncStatus.
+- pocol_getMinerSet, pocol_syncStatus.
+- pocol_getCaps → the head branch's live counts against the chain caps (FN-1, C9; CAPS-SUSTAINABILITY N6). No params. Light (≤ 4 KiB row of table (B): a fixed set of fields, under 2 KiB). Node-local reporting: what validity enforces (item 16, the USER-phase A03 halts, LOG_CAP) is unchanged. Result:
+  - `number`, `hash`: the head the counts are read at; `v3`: whether v3 is active for the head's child.
+  - `accounts`/`accountsCap` (user accounts, the five system programs excluded, against ACCT_CAP), `storageSlots`/`storageSlotsCap` (their nonzero slots, against SLOT_CAP), `codeBytes`/`codeBytesCap` (the logical code inventory of every account, against CODE_CAP): from the head's state.
+  - `txCount`/`txCap`, `txBytes`/`txBytesCap` (raw bytes, D49), `logBytes`/`logCap` (charged log bytes, LOG-ACCT-01, against LOG_CAP): the branch's counters when H_END > 0 (`cumulative` true). With H_END = 0 (`cumulative` false) item 16 and LOG_CAP count each block from zero, so these counts are 0.
+  - Every count and cap is a hex quantity. `occupancy` has one object per count name: `percent` (a number, count·100/cap rounded down to two decimals; a zero cap is 100), `remaining` (hex, cap − count; for txCount and txBytes it is the room item 16 leaves a child of the head) and `alarm` (count·100 ≥ alarmPercent·cap, exact). `alarmPercent` is 80; `alarm` is true when any cap's alarm is.
+  - Every spec-1 and v3 genesis carries these CP caps, so the answer is never null. An older node answers −32601 (method not found): clients skip their pre-check with a warning (the extension publisher, Studio).
+  - Clients compare a publication's needs with the room: the state rows with the whole publication; the txCount, txBytes and logBytes rows with the whole publication when `cumulative` is true, and with each transaction (one transaction, the largest one's bytes) when it is false, since each block's room starts from the whole cap. The extension publisher reads which chunks are stored first (paced on the client, below the Studio gateway's per-client limit) and skips the pre-check with a warning when that scan is refused.
 - pocol_getTiming → {L0, U0, Tj, bj, fsmState}.
 - pocol_getTarget(h) → {deltaT, e, s, f, F, target, work, saturated ∈ {none, high, low}}.
 - pocol_getParams → {profileKind, nodeKind, nonceMode, chainId, genesisHash, genesisPre, netKey, forkSchedule, activeVersion, rpcLimits}.

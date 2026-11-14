@@ -95,8 +95,9 @@ fn a13_counts_late_share_memory_on_cp_schema_v2_only(){
     let kept=item(&b,"history/late-share evidence kept on offloaded entries").unwrap();assert_eq!(kept%2_432,0);assert!(kept>0);
     assert!(b.total>a.total,"the v3 terms add to the bound");
     // The spec-1 pin of tests/consensus.rs: unchanged by V3-02. (Merging main moved that pin from 3,396,912,610 to
-    // 3,397,791,234 B: V3-PR-C3's receipt-encoding correction, +878,624 B on every profile; this test follows it.)
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(a.total,3_397_791_234,"the spec-1 A13 model total");}
+    // 3,397,791,234 B: V3-PR-C3's receipt-encoding correction, +878,624 B on every profile; this test follows it. FN-1's
+    // child-context cache term, +185,920 B on this profile, moved it to 3,397,977,154 B.)
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(a.total,3_397_977_154,"the spec-1 A13 model total");}
 }
 
 mod on_chain {

@@ -45,7 +45,65 @@ pub enum Costly{
 /// deep side branch, an old rebuild root) has its root computed from the whole state, as before E1: the
 /// derivation would cost more than that, and its distinct nodes are bounded by this many blocks' writes.
 pub const TRIE_PATH_MAX:usize=64;
-
+/// FN-1 (C6, node-local): the parents whose membership A_h* and Draw(h,0) the chain keeps (`CtxCache`), and the
+/// (parent, attempt) pairs whose nonce assignment it keeps. A cache only, never a validity input: each value is a
+/// pure function of what its key names (the parent's hash, height, seal and state, the child's height, and for an
+/// assignment the attempt and the child's target) under the immutable chain configuration, and a lookup must match
+/// all of it, the state by identity (`StateId`). A reorg, slim, unslim, offload, prune or rebuild changes no stored
+/// value of a block (a rebuilt or materialized state is another identity: a miss, never a stale hit), and a restart
+/// starts empty (memory only). A13: "queues/child-context cache (FN-1)".
+pub const CTX_PARENTS_MAX:usize=4;
+pub const CTX_ASSIGNMENTS_MAX:usize=8;
+/// FN-1: the identity of the state a context was computed from: the entry's stored version, else its whole state (what
+/// `view_or` reads). A weak reference keeps the allocation, so no other state can take its address while the row
+/// lives; it keeps neither the state's contents nor a store pin alive.
+#[derive(Clone)]
+enum StateId{Mem(std::sync::Weak<InMemoryDB>),Stored(std::sync::Weak<Pinned>)}
+impl StateId{
+    fn of(e:&Entry)->StateId{match &e.stored{Some(p)=>StateId::Stored(std::sync::Arc::downgrade(p)),None=>StateId::Mem(std::sync::Arc::downgrade(&e.state))}}
+    fn is(&self,e:&Entry)->bool{match (self,&e.stored){
+        (StateId::Stored(w),Some(p))=>std::ptr::eq(w.as_ptr(),std::sync::Arc::as_ptr(p)),
+        (StateId::Mem(w),None)=>std::ptr::eq(w.as_ptr(),std::sync::Arc::as_ptr(&e.state)),_=>false}}
+    /// The state is still held somewhere (a row of a dropped state, such as a materialized copy's, can never match again).
+    fn alive(&self)->bool{match self{StateId::Mem(w)=>w.strong_count()>0,StateId::Stored(w)=>w.strong_count()>0}}
+}
+/// The parent fields a child context reads besides its state (Membership::from_parent: height and seal) and the child height.
+#[derive(Clone,Copy,PartialEq,Eq)]
+struct ParentKey{hash:[u8;32],height:u64,seal:[u8;32],child:u64}
+impl ParentKey{fn of(p:&Entry,h:u64)->Self{ParentKey{hash:p.hash,height:p.height,seal:p.seal,child:h}}}
+pub struct CtxParent{key:ParentKey,state:StateId,members:std::sync::Arc<Membership>,drawn:Option<Address>}
+pub struct CtxAssignment{key:ParentKey,state:StateId,attempt:u32,target:[u8;32],assignment:std::sync::Arc<Assignment>}
+/// FN-1: the child-context cache (FIFO, `CTX_PARENTS_MAX` parents and `CTX_ASSIGNMENTS_MAX` assignments). Errors are
+/// never kept (recomputed).
+#[derive(Default)]
+pub struct CtxCache{
+    parents:std::collections::VecDeque<CtxParent>,
+    assignments:std::collections::VecDeque<CtxAssignment>,
+    /// Lookups answered from the cache and computed (membership, Draw and assignment lookups together).
+    pub hits:u64,pub misses:u64,
+}
+impl CtxCache{
+    pub fn len(&self)->(usize,usize){(self.parents.len(),self.assignments.len())}
+    fn parent(&self,k:&ParentKey,p:&Entry)->Option<&CtxParent>{self.parents.iter().find(|e|e.key==*k&&e.state.is(p))}
+    fn put_members(&mut self,k:ParentKey,p:&Entry,m:std::sync::Arc<Membership>){
+        if self.parent(&k,p).is_some(){return}
+        self.parents.retain(|e|e.state.alive());
+        if self.parents.len()>=CTX_PARENTS_MAX{self.parents.pop_front();}self.parents.push_back(CtxParent{key:k,state:StateId::of(p),members:m,drawn:None});
+    }
+    fn put_drawn(&mut self,k:&ParentKey,p:&Entry,m:&std::sync::Arc<Membership>,d:Address){
+        // Kept only beside the very membership it was drawn from (a row replaced meanwhile is not filled).
+        if let Some(e)=self.parents.iter_mut().find(|e|e.key==*k&&e.state.is(p)&&std::sync::Arc::ptr_eq(&e.members,m)){e.drawn=Some(d);}
+    }
+    fn assignment(&self,k:&ParentKey,p:&Entry,attempt:u32,target:&[u8;32])->Option<std::sync::Arc<Assignment>>{
+        self.assignments.iter().find(|e|e.key==*k&&e.attempt==attempt&&e.target==*target&&e.state.is(p)).map(|e|e.assignment.clone())
+    }
+    fn put_assignment(&mut self,k:ParentKey,p:&Entry,attempt:u32,target:[u8;32],a:std::sync::Arc<Assignment>){
+        if self.assignment(&k,p,attempt,&target).is_some(){return}
+        self.assignments.retain(|e|e.state.alive());
+        if self.assignments.len()>=CTX_ASSIGNMENTS_MAX{self.assignments.pop_front();}
+        self.assignments.push_back(CtxAssignment{key:k,state:StateId::of(p),attempt,target,assignment:a});
+    }
+}
 /// Immutable chain configuration: cfg = {chainId, genesisHash, ForkSchedule, CP, M_0}.
 /// Constructible only from a ParamGate admission (A02): nothing boots an unadmitted profile.
 pub struct Spec{admitted:Admitted}
@@ -294,8 +352,9 @@ pub struct ChildCtx{
     pub height:u64,
     pub attempt:u32,
     pub window:AttemptWindow,
-    pub membership:Membership,
-    pub assignment:Assignment,
+    /// FN-1: shared with the chain's child-context cache (`CtxCache`); never mutated.
+    pub membership:std::sync::Arc<Membership>,
+    pub assignment:std::sync::Arc<Assignment>,
     pub target:Fixed,
     pub t_share:Fixed,
     pub proposer:Address,
@@ -437,6 +496,10 @@ pub struct Chain{
     /// PR4: post-state verdicts per seal (COSTLY_MAX, FIFO). Interior-mutable because `validate` takes &self
     /// (as `materializations`); only the consensus thread uses it.
     costly:std::sync::Mutex<(HashMap<[u8;32],Costly>,std::collections::VecDeque<[u8;32]>)>,
+    /// FN-1: the child-context cache (membership, Draw, assignments); interior-mutable like `costly`.
+    ctx_cache:std::sync::Mutex<CtxCache>,
+    /// FN-1 off: every child context is computed from the parent's state (the behaviour before FN-1; a test reference).
+    pub ctx_cache_off:bool,
     /// tid -> (proposer, parent, h) for equivocation detection (evidence type 1).
     pub seen_templates:BTreeMap<(u64,[u8;32]),Vec<(Vec<u8>,Vec<u8>)>>,
     /// Side blocks removed by retention (EVICTED_MAX, FIFO) and how many were removed in all.
@@ -501,7 +564,7 @@ impl Chain{
             summary:Some(Box::new(pocol_lp4_execution::state_summary::Summary::scan(spec.genesis().state(),cp.B_code_max))),stored:None};
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
         let k_hist=u64::from(spec.local().k_hist);
-        Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
+        Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),ctx_cache:Default::default(),ctx_cache_off:false,seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
             r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,finalized_h:0,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new()}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
@@ -559,17 +622,72 @@ impl Chain{
         let cp=self.spec.cp();
         asert::asert(&self.spec.target_g(),cp.g_ts as i128,cp.T_blk as i128,cp.tau as i128,p.ts as i128,p.height as i128).map(|o|o.target).ok_or_else(||Reject::Block("asert".into()))
     }
-    pub fn membership(&self,p:&Entry,h:u64)->Result<Membership,Reject>{
+    /// A_h* of a child of `p` at height `h` (consensus.md §2), with the host's accruing marks: from the cache when it
+    /// holds a row of this very parent and state (`CtxCache`), else computed (`membership_one_pass`). The same value
+    /// either way.
+    pub fn membership(&self,p:&Entry,h:u64)->Result<Membership,Reject>{self.membership_shared(p,h).map(|m|Membership::clone(&m))}
+    /// FN-1: whether a context of `p` is looked up and kept: a stored version, or a whole state that is not pruned. A
+    /// copy of an entry with its state dropped or held as diffs (`full` false) reads an empty state, as before; it is
+    /// computed and not kept (the key's state identity would keep it apart anyway).
+    fn ctx_cacheable(&self,p:&Entry)->bool{!self.ctx_cache_off&&(p.stored.is_some()||(p.full&&!p.pruned))}
+    fn ctx_cache(&self)->std::sync::MutexGuard<'_,CtxCache>{self.ctx_cache.lock().unwrap_or_else(|e|e.into_inner())}
+    /// FN-1: the cache's (parents, assignments) held and its (hits, misses).
+    pub fn ctx_cache_stats(&self)->((usize,usize),(u64,u64)){let c=self.ctx_cache();(c.len(),(c.hits,c.misses))}
+    /// FN-1: forgets every cached child context (tests; the cache never needs it for correctness).
+    pub fn clear_ctx_cache(&self){let mut c=self.ctx_cache();c.parents.clear();c.assignments.clear();}
+    pub fn membership_shared(&self,p:&Entry,h:u64)->Result<std::sync::Arc<Membership>,Reject>{
+        let cache=self.ctx_cacheable(p);let k=ParentKey::of(p,h);
+        if cache{let mut c=self.ctx_cache();if let Some(m)=c.parent(&k,p).map(|e|e.members.clone()){c.hits+=1;return Ok(m)}c.misses+=1;}
+        let m=std::sync::Arc::new(self.membership_one_pass(p,h)?);
+        if cache{self.ctx_cache().put_members(k,p,m.clone());}
+        Ok(m)
+    }
+    /// FN-1: A_h* in one pass over the parent's ActList: the list is read once and each record once (the
+    /// two-pass algorithm read the list twice and each record twice). `membership_two_pass` is its oracle.
+    pub fn membership_one_pass(&self,p:&Entry,h:u64)->Result<Membership,Reject>{
+        let cp=self.spec.cp();
+        let st=self.view_or(p)?;let st=st.v();
+        let v3=self.spec.v3_active(h);let quarter=from_fixed_lp4(&cp.B_reg)/U256::from(4);
+        let list=apply::active_list(st);let mut act=Vec::with_capacity(list.len());let mut accruing=Vec::new();
+        for id in list{
+            let r=apply::miner_record(st,id);
+            // Legacy D1 excludes every ACCRUING record. V3-13 allows those at B_reg/4;
+            // DrawWeights retains the owner's all-probationer exception if all are excluded.
+            if r.as_ref().is_some_and(|r|r.bond_state==4&&(!v3||r.bond<quarter)){accruing.push(raw_addr(id));}
+            act.push(ParentMember{id:raw_addr(id),tomb:r.as_ref().map(|r|r.tomb).unwrap_or(false),last_share:r.as_ref().map(|r|r.last_share).unwrap_or(0),grace_start:r.as_ref().map(|r|r.grace_start).unwrap_or(0)});
+        }
+        let all_live=v3&&self.spec.effective_nonce_mode(h)==NonceMode::Unbounded;
+        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,all_live).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
+    }
+    /// The pre-FN-1 algorithm (two reads of the ActList, two of each record), kept unchanged as the oracle of
+    /// `membership_one_pass` and the cache (tests/fn1_membership.rs). Not used by the node.
+    #[doc(hidden)]
+    pub fn membership_two_pass(&self,p:&Entry,h:u64)->Result<Membership,Reject>{
         let cp=self.spec.cp();
         let st=self.view_or(p)?;let st=st.v();
         let act:Vec<ParentMember>=apply::active_list(st).into_iter().map(|id|{let r=apply::miner_record(st,id);
             ParentMember{id:raw_addr(id),tomb:r.map(|r|r.tomb).unwrap_or(false),last_share:r.map(|r|r.last_share).unwrap_or(0),grace_start:r.map(|r|r.grace_start).unwrap_or(0)}}).collect();
         let v3=self.spec.v3_active(h);let quarter=from_fixed_lp4(&cp.B_reg)/U256::from(4);
-        // Legacy D1 excludes every ACCRUING record. V3-13 allows those at B_reg/4;
-        // DrawWeights retains the owner's all-probationer exception if all are excluded.
         let accruing:Vec<_>=apply::active_list(st).into_iter().filter(|id|apply::miner_record(st,*id).is_some_and(|r|r.bond_state==4&&(!v3||r.bond<quarter))).map(raw_addr).collect();
         let all_live=v3&&self.spec.effective_nonce_mode(h)==NonceMode::Unbounded;
         Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,all_live).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
+    }
+    /// Draw(h,0) of a child of `p` from its membership `m` (the one `membership_shared` gave for p and h): cached
+    /// beside that membership when p's state is its committed one.
+    fn drawn_shared(&self,p:&Entry,m:&std::sync::Arc<Membership>,h:u64)->Result<Address,Reject>{
+        let cache=self.ctx_cacheable(p);let k=ParentKey::of(p,h);
+        if cache{let mut c=self.ctx_cache();if let Some(d)=c.parent(&k,p).filter(|e|std::sync::Arc::ptr_eq(&e.members,m)).and_then(|e|e.drawn){c.hits+=1;return Ok(d)}c.misses+=1;}
+        let d=self.draw(p,m,h)?;
+        if cache{self.ctx_cache().put_drawn(&k,p,m,d);}
+        Ok(d)
+    }
+    /// The nonce assignment of a child of `p` at `attempt` (consensus.md §5), cached per (parent, height, attempt).
+    fn assignment_shared(&self,p:&Entry,h:u64,attempt:u32,m:&Membership,target:&Fixed)->Result<std::sync::Arc<Assignment>,Reject>{
+        let cache=self.ctx_cacheable(p);let k=ParentKey::of(p,h);let t=target.to_be_bytes();
+        if cache{let mut c=self.ctx_cache();if let Some(a)=c.assignment(&k,p,attempt,&t){c.hits+=1;return Ok(a)}c.misses+=1;}
+        let a=std::sync::Arc::new(Assignment::new(m,attempt,target,self.spec.effective_nonce_mode(h),self.spec.cp().c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?);
+        if cache{self.ctx_cache().put_assignment(k,p,attempt,t,a.clone());}
+        Ok(a)
     }
     pub fn draw_weights(&self,p:&Entry,members:&Membership,h:u64)->Result<DrawWeights,Reject>{
         let cp=self.spec.cp();let lo=h.saturating_sub(1).saturating_sub(u64::from(cp.W_w)).max(1);let mut hist=Vec::new();
@@ -603,13 +721,14 @@ impl Chain{
     /// and E > 256 + R_keep): executing on it would read a substitute hash, so it is a local failure, never a verdict
     /// (review 2026-11: an old journal's deep side block was executed so and the open failed on a wrong root).
     pub fn child_ctx(&self,p:&Entry,attempt:u32)->Result<ChildCtx,Reject>{
-        let cp=self.spec.cp();let h=p.height+1;
+        let h=p.height+1;
         let ChildPre{window,target,t_share,base_fee,..}=self.child_pre(p,attempt)?;
         let ancestors=self.ancestors(p);
         if (ancestors.len() as u64)<h.min(256){return Err(Reject::Local(format!("the BLOCKHASH window of a child at height {h} reaches below the held entries ({} of {})",ancestors.len(),h.min(256))))}
-        let membership=self.membership(p,h)?;
-        let assignment=Assignment::new(&membership,attempt,&target,self.spec.effective_nonce_mode(h),cp.c).map_err(|e|Reject::Block(format!("assignment {e:?}")))?;
-        let proposer=self.draw(p,&membership,h)?;
+        // FN-1: the same order (membership, assignment, Draw), so a failing parent fails with the same reason.
+        let membership=self.membership_shared(p,h)?;
+        let assignment=self.assignment_shared(p,h,attempt,&membership,&target)?;
+        let proposer=self.drawn_shared(p,&membership,h)?;
         Ok(ChildCtx{height:h,attempt,window,membership,assignment,target,t_share,proposer,base_fee,prevrandao:prevrandao(&p.seal),
             parent_result:p.result.clone(),ancestors})
     }
@@ -956,7 +1075,7 @@ impl Chain{
         if u1.proposer[..]!=r1[..]||u2.proposer[..]!=r1[..]{return blk("ev1 proposer is not the signer")}
         if u1.h>h_incl{return blk("ev1 future height")}
         // DrawIndex[h mod E_win]: the proposer drawn for height u1.h on the carrying branch.
-        let drawn=if u1.h==p.height+1{let m=self.membership(p,u1.h)?;self.draw(p,&m,u1.h)?}
+        let drawn=if u1.h==p.height+1{let m=self.membership_shared(p,u1.h)?;self.drawn_shared(p,&m,u1.h)?}
             else{self.ancestor_at(p,u1.h).ok_or_else(||Reject::Block("ev1 height not on branch".into()))?.drawn};
         if drawn[..]!=r1[..]{return blk("ev1 signer not drawn")}
         Ok((addr(&r1),None))
@@ -978,7 +1097,7 @@ impl Chain{
             if e.slim{return Err(Reject::NeedsRebuild(e.hash))}
             if template_id(&e.header.ut_raw)==tid{
                 // owner(nonce) under that block's assignment (stored ranges, D142).
-                let owner=e.ranges.iter().find(|(_,s0,e0)|*s0<=nonce as u128&&(nonce as u128)<*e0).map(|r|r.0).ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
+                let owner=range_owner(&e.ranges,nonce as u128).ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
                 if owner.0.0!=a1{return blk("ev2 signer not owner(nonce)")}
                 return Ok((addr(&a1),Some(e.height)));
             }
@@ -1619,6 +1738,16 @@ impl Chain{
     /// Whether `hash` is on the current canonical chain.
     pub fn is_canonical(&self,hash:&[u8;32])->bool{self.blocks.get(hash).map(|e|self.canonical.get(e.height as usize)==Some(hash)).unwrap_or(false)}
 }
+/// FN-1 (C6): owner(n) over a block's stored nonce ranges (`Entry::ranges`, `LateBase::ranges`: (id, start, end), from
+/// `Assignment::ranges`, contiguous and sorted, so both bounds are non-decreasing and an empty range holds no nonce).
+/// The binary search for the first range ending above n finds the range the linear scan of the first range holding n
+/// found, as `Assignment::owner` does: O(log M) per nonce at M_max 10,000 for type-2 evidence's accused owner and each
+/// kind-3 nonce (`late_check`, also probed per candidate by `late_offer`). None when no range holds n (n >= nMax).
+/// tests/fn1_membership.rs keeps the linear scan as its oracle.
+pub fn range_owner(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{
+    let i=ranges.partition_point(|r|r.2<=n);
+    ranges.get(i).filter(|r|r.1<=n&&n<r.2).map(|r|r.0)
+}
 // ---------------- V3-02 late share credit (kind-3 evidence) ----------------
 /// The CP the kind-3 rules read for a carrying block at height `h`: D, S_max and kappa*m.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
@@ -1673,7 +1802,7 @@ pub fn late_check(r:&LateRules,b:&LateBase<'_>,nonces:&[u64],block:&mut LateBloc
     if b.total.saturating_add(seen.len() as u64).saturating_add(k)>r.kappa_m{return Err(ls("cap"))}
     let mut owners=Vec::with_capacity(nonces.len());
     for n in nonces{
-        let owner=b.ranges.iter().find(|(_,s0,e0)|*s0<=u128::from(*n)&&u128::from(*n)<*e0).map(|x|x.0).ok_or_else(||ls("nonce outside nMax"))?;
+        let owner=range_owner(b.ranges,u128::from(*n)).ok_or_else(||ls("nonce outside nMax"))?;
         if *n==b.nonce{return Err(ls("winning nonce"))}
         if b.header.contains(n){return Err(ls("header share"))}
         if b.credited.contains(n){return Err(ls("credited on the branch"))}

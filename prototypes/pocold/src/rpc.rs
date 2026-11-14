@@ -1102,6 +1102,7 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)});
             for (k,v) in n.identity_json(){params[k]=v;}
             Ok(crate::network_display::annotate(params))}
+        "pocol_getCaps"=>caps_json(n),
         "pocol_getRejects"=>Ok(json!(n.rejects.iter().map(|(h,w)|json!({"hash":h,"reason":w})).collect::<Vec<_>>())),
         "pocol_getHeaders"=>{let from=p.first().and_then(|x|x.as_u64().or_else(||parse_u64(x))).ok_or(bad("from"))?;let count=p.get(1).and_then(|x|x.as_u64().or_else(||parse_u64(x))).ok_or(bad("count"))?;
             if count==0||count>512{return Err(bad("count 1..512").into())}
@@ -1144,6 +1145,47 @@ pub fn net_key(chain_id:u64,genesis:&[u8;32])->[u8;32]{
     crate::rlp::encode_list_payload(&p,&mut o);keccak256(&o).0
 }
 fn ms(d:Duration)->u64{d.as_millis().min(u64::MAX as u128) as u64}
+/// FN-1 (C9, CAPS-SUSTAINABILITY N6): the occupancy at which pocol_getCaps raises a cap's alarm, in percent.
+pub const CAPS_ALARM_PERCENT:u64=80;
+/// FN-1 (C9): pocol_getCaps, the head branch's live counts against the chain caps (network.md "pocol_getCaps").
+/// Light: the head's state summary (C-1 E2) and its entry's counters, O(1); a head without a summary (none is
+/// expected: only a slimmed entry drops it) is scanned. The answer is a fixed set of fields, under 2 KiB.
+/// Node-local reporting only: what validity enforces is unchanged (item 16, the USER-phase A03 halts, LOG_CAP).
+fn caps_json(n:&Node)->R{
+    let cp=n.chain.spec.cp();let head=n.chain.head();
+    let sum=match head.summary.as_deref(){Some(s)=>*s,None=>{
+        let v=n.chain.view_of(&head.hash).ok_or_else(||Fail::from((-32001,"head state".to_string())))?;
+        pocol_lp4_execution::state_summary::Summary::scan_view(v.v(),cp.B_code_max)}};
+    // Item 16 and LOG_CAP count the branch from genesis when H_END > 0; with H_END = 0 each block starts from 0
+    // (`Chain::within_caps`, `caps_room`, user_phase's meter), so the count a child is measured against is 0. The
+    // remaining room of txCount and txBytes is what `caps_room` gives a child of the head.
+    let cumulative=cp.H_END!=0;let past=|x:u64|u128::from(if cumulative{x}else{0});
+    let log_cap=pocol_lp4_execution::user_phase::caps::LOG_CAP;
+    let rows:[(&str,&str,u128,u128);6]=[
+        ("accounts","accountsCap",u128::from(sum.user_accounts),u128::from(cp.ACCT_CAP)),
+        ("storageSlots","storageSlotsCap",u128::from(sum.user_slots),u128::from(cp.SLOT_CAP)),
+        ("codeBytes","codeBytesCap",sum.code_total,u128::from(cp.CODE_CAP)),
+        ("txCount","txCap",past(head.cum_txs),u128::from(cp.TX_CAP)),
+        ("txBytes","txBytesCap",past(head.cum_tx_bytes),u128::from(cp.TXBYTES_CAP)),
+        ("logBytes","logCap",past(head.cum_log_bytes),u128::from(log_cap))];
+    let mut out=json!({"number":qty(head.height),"hash":hex(&head.hash),"v3":n.chain.spec.v3_active(head.height.saturating_add(1)),
+        "cumulative":cumulative,"alarmPercent":CAPS_ALARM_PERCENT});
+    let mut occupancy=serde_json::Map::new();let mut any=false;
+    for (name,cap_name,count,cap) in rows{
+        let (percent,alarm)=occupancy_of(count,cap);any|=alarm;
+        out[name]=json!(format!("0x{count:x}"));out[cap_name]=json!(format!("0x{cap:x}"));
+        occupancy.insert(name.into(),json!({"percent":percent,"remaining":format!("0x{:x}",cap.saturating_sub(count)),"alarm":alarm}));
+    }
+    out["occupancy"]=Value::Object(occupancy);out["alarm"]=json!(any);
+    Ok(out)
+}
+/// A cap's occupancy in percent (two decimals, rounded down) and its alarm (count·100 ≥ CAPS_ALARM_PERCENT·cap,
+/// exact). A zero cap admits nothing: 100 % and the alarm.
+pub fn occupancy_of(count:u128,cap:u128)->(f64,bool){
+    if cap==0{return (100.0,true)}
+    let bp=count.saturating_mul(10_000)/cap;
+    ((bp.min(u128::from(u64::MAX)) as u64) as f64/100.0,count.saturating_mul(100)>=cap.saturating_mul(u128::from(CAPS_ALARM_PERCENT)))
+}
 /// pocol_getParams.rpcLimits: the running RpcGuard limits (network.md:184), byte and ms integers. A
 /// limit pocold does not enforce is null, never nominal (RPCGUARD.md): SCRATCH (only
 /// the log handlers are charged: logsScratch), CANCEL_MAX and RPC_MEM_TOTAL. CONN_BUF is pocold's

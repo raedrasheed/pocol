@@ -113,6 +113,86 @@ export class PublishPendingError extends Error {
 export class PublishRevertedError extends Error {
   constructor(hash) { super('Publication transaction reverted: ' + hash); this.name = 'PublishRevertedError'; this.code = 'PUBLISH_REVERTED'; this.transactionHash = hash; }
 }
+// FN-1 (C9): pocol_getCaps pre-check. What a publication adds to the chain caps, at most, given which chunks the chain
+// already holds: each missing chunk a ChunkFactory account with its 0x00-prefixed runtime, a new site the Website
+// account with its runtime and its constructor's three slots (owner, publishers[sender], publisherCount) plus the
+// version counter, and the version record's manifestHash, meta, chunk-array length and one slot per manifest chunk
+// (Website.sol; publish and setCurrent rewrite existing slots). A raw transaction is counted at its calldata plus
+// TX_ENVELOPE_MAX bytes; Website and ChunkFactory emit no logs. pocold tests/fn1_caps.rs
+// (a_website_publication_adds_what_the_publisher_pre_check_expects) executes a publication of the shipped Website
+// contract and checks these slot, account and code counts. `largestTxBytes` is the largest single transaction: on a
+// continuous chain (pocol_getCaps `cumulative` false, H_END = 0) item 16 counts each block from zero, and each of the
+// publication's transactions is confirmed before the next is sent, so each must fit one block's room on its own.
+export const CAPS_ALARM_PERCENT = 80;
+export const TX_ENVELOPE_MAX = 160;
+const CAP_FIELDS = [['accounts','accountsCap','accounts (ACCT_CAP)'],['storageSlots','storageSlotsCap','storage slots (SLOT_CAP)'],['codeBytes','codeBytesCap','code bytes (CODE_CAP)'],
+  ['txCount','txCap','transactions (TX_CAP)'],['txBytes','txBytesCap','transaction bytes (TXBYTES_CAP)'],['logBytes','logCap','log bytes (LOG_CAP)']];
+// Counted per block, not over the branch, when pocol_getCaps reports `cumulative` false.
+const PER_BLOCK = new Set(['txCount','txBytes','logBytes']);
+const hexLen = (h) => (h.length - 2) / 2;
+export function publishNeeds(plan, {newSite, missing}) {
+  const p = snapshot(plan); const absent = p.chunks.filter((c) => missing.has(c.address));
+  const storeData = (n) => 4 + 64 + Math.ceil(n / 32) * 32;
+  const versionData = 4 + 96 + 32 + 32 * p.manifestChunks.length;
+  const txs = absent.length + (newSite ? 1 : 0) + 3;
+  const largest = Math.max(versionData, 36, newSite ? hexLen(WEBSITE_INITCODE) : 0, ...absent.map((c) => storeData(c.data.length)));
+  return {
+    accounts: absent.length + (newSite ? 1 : 0),
+    storageSlots: (newSite ? 4 : 0) + 3 + p.manifestChunks.length,
+    codeBytes: absent.reduce((n, c) => n + 1 + c.data.length, 0) + (newSite ? hexLen(WEBSITE_RUNTIME) : 0),
+    txCount: txs,
+    txBytes: absent.reduce((n, c) => n + storeData(c.data.length), 0) + (newSite ? hexLen(WEBSITE_INITCODE) : 0) + versionData + 36 + 36 + txs * TX_ENVELOPE_MAX,
+    logBytes: 0,
+    largestTxBytes: largest + TX_ENVELOPE_MAX,
+  };
+}
+/// What a cap's room must hold: the whole publication, or (the per-block rows of a continuous chain) one transaction,
+/// its largest transaction's bytes, and the publication's log bytes (a bound on any one transaction's: 0 here).
+function needOf(needs, name, perBlock) {
+  if (!perBlock || !PER_BLOCK.has(name)) return BigInt(needs[name] ?? 0);
+  if (name === 'txCount') return BigInt(needs.txCount ?? 0) > 0n ? 1n : 0n;
+  if (name === 'txBytes') return BigInt(needs.largestTxBytes ?? needs.txBytes ?? 0);
+  return BigInt(needs.logBytes ?? 0);
+}
+export class PublishCapsError extends Error {
+  constructor(shortfalls) {
+    super('This site cannot fit on the network: ' + shortfalls.map((x) => `it needs ${x.need} ${x.label} and ${x.remaining} remain`).join('; ') + '. Nothing was signed.');
+    this.name = 'PublishCapsError'; this.code = 'PUBLISH_CAPS'; this.shortfalls = shortfalls;
+  }
+}
+/// Reads pocol_getCaps and compares a publication's needs with each cap's room. Returns {checked:false, warning} when the
+/// node predates the method (-32601: the pre-check is skipped), else {checked:true, caps, alarms}; throws
+/// PublishCapsError when a cap cannot hold the site. With `cumulative` false (H_END = 0) the txCount, txBytes and
+/// logBytes rows are a block's room, so each transaction is checked against it, not the whole publication; an answer
+/// without the field is read as cumulative (the stricter check).
+export async function capsPrecheck(rpc, needs) {
+  let caps;
+  try { caps = await rpc('pocol_getCaps', []); }
+  catch (e) {
+    // An older node (-32601), or a relay that does not forward the method (an older Studio gateway refuses it with an
+    // HTTP error, a transport failure here): the pre-check is skipped. Every later request still checks the network.
+    if (e?.rpc?.code === -32601) return {checked:false, warning:'This node does not report its chain caps (pocol_getCaps): the capacity pre-check was skipped.'};
+    if (e?.transport) return {checked:false, warning:'The network endpoint did not answer pocol_getCaps (' + e.transport + '): the capacity pre-check was skipped.'};
+    throw e;
+  }
+  assert(caps && typeof caps === 'object' && caps.occupancy && typeof caps.occupancy === 'object', 'Invalid pocol_getCaps response');
+  assert(caps.cumulative === undefined || typeof caps.cumulative === 'boolean', 'Invalid pocol_getCaps response');
+  const perBlock = caps.cumulative === false;
+  const shortfalls = [], alarms = [];
+  for (const [name, capName, label] of CAP_FIELDS) {
+    const count = uint(caps[name], 'pocol_getCaps ' + name), cap = uint(caps[capName], 'pocol_getCaps ' + capName);
+    const block = perBlock && PER_BLOCK.has(name);
+    const remaining = cap > count ? cap - count : 0n, need = needOf(needs, name, perBlock);
+    if (need > remaining) shortfalls.push({name, label:block ? label.replace(' (', ' in one block (') : label, need:need.toString(), remaining:remaining.toString()});
+    if (count * 100n >= cap * BigInt(CAPS_ALARM_PERCENT)) alarms.push(name);
+  }
+  if (shortfalls.length) throw new PublishCapsError(shortfalls);
+  return {checked:true, caps, alarms};
+}
+/// The chunk reads before and during the upload are paced on the client: a burst of READ_BURST, then READ_RATE per
+/// second. The Studio gateway allows each client a burst of 40 and 10 requests per second (pocol_studio_gateway.py) and
+/// answers 429 past that; the publication's other requests share that budget.
+export const READ_BURST = 16, READ_RATE = 8;
 const running = new Set();
 export async function publishSite(options) {
   const {rpc, sign, onCheckpoint, onProgress = () => {}, signal} = options;
@@ -134,6 +214,19 @@ export async function publishSite(options) {
     const recordedCost = Object.values(state.transactions).reduce((sum, rec) => sum + uint(rec.tx.gas) * uint(rec.tx.maxFee),0n);
     assert(recordedCost === uint(state.spentCapWei), 'Checkpoint fee accounting mismatch');
     const checkAbort = () => { if (signal?.aborted) throw Object.assign(new Error('Publication paused'),{code:'PUBLISH_PAUSED'}); };
+    const readBurst = options.readBurst ?? READ_BURST, readRate = options.readRate ?? READ_RATE;
+    assert(Number.isFinite(readBurst) && readBurst >= 1 && Number.isFinite(readRate) && readRate > 0, 'Invalid chunk read pacing');
+    // `clock` and `sleep` default to the wall clock and a timer; tests pass a virtual clock that only sleeping advances.
+    const clock = options.clock ?? Date.now, sleep = options.sleep ?? ((ms) => new Promise((resolve) => setTimeout(resolve, ms)));
+    let tokens = readBurst, refilled = clock();
+    const pace = async () => {
+      for (;;) {
+        const now = clock(); tokens = Math.min(readBurst, tokens + Math.max(0, now - refilled) * readRate / 1000); refilled = now;
+        if (tokens >= 1) { tokens -= 1; return; }
+        checkAbort(); await sleep(Math.ceil((1 - tokens) * 1000 / readRate));
+      }
+    };
+    const readCode = async (a) => { await pace(); checkAbort(); return rpc('eth_getCode',[a,'latest']); };
     const save = async () => { await onCheckpoint(jsonClone(state)); };
     const progress = (data) => { try { onProgress({...data, site:state.site, manifestHash:plan.manifestHash}); } catch {} };
     const network = async () => {
@@ -215,18 +308,37 @@ export async function publishSite(options) {
       if (!canonical) state.complete = false;
     }
     if (state.site) await authorize(address(state.site));
+    // FN-1 (C9): before the first signature of a publication, refuse a site the chain caps cannot hold. A resumed
+    // publication with signed transactions is not re-checked: those are committed and are reconciled as they are.
+    // The scan's stored chunks are reused by the upload below (a chunk's code never changes once stored), so each is
+    // read once; a chunk the scan found missing is read again, as another publisher may store it meanwhile. A scan
+    // read the network refuses (a 429 from the gateway is a transport failure here) or answers with an error skips the
+    // pre-check, as an unanswered pocol_getCaps does.
+    const scanned = new Map();
+    if (!Object.keys(state.transactions).length) {
+      const missing = new Set(); let pre = null;
+      try { for (const c of plan.chunks) { checkAbort(); const code = await readCode(c.address); scanned.set(c.address, code); if (code === '0x') missing.add(c.address); } }
+      catch (e) {
+        if (!e?.transport && !e?.rpc) throw e;
+        pre = {checked:false, warning:'The network endpoint did not answer the chunk scan (eth_getCode: ' + (e.transport || e.rpc?.message || 'error') + '): the capacity pre-check was skipped.'};
+      }
+      pre ??= await capsPrecheck(rpc, publishNeeds(plan, {newSite:!state.site, missing}));
+      if (!pre.checked) { try { options.onWarning?.(pre.warning); } catch {} progress({phase:'warning', message:pre.warning}); }
+      else if (pre.alarms.length) progress({phase:'capsAlarm', alarms:pre.alarms});
+    }
     await save();
     let completed = 0;
     for (const c of plan.chunks) {
       checkAbort();
-      const code = await rpc('eth_getCode',[c.address,'latest']);
+      const known = scanned.get(c.address);
+      const code = typeof known === 'string' && known !== '0x' ? known : await readCode(c.address);
       if (code !== '0x') chunkPayload(fromHex(c.address),fromHex(code),c.data.length);
       // Another publisher may store this chunk while our signed transaction is
       // unresolved. Reconcile that exact transaction before using another nonce;
       // content availability alone does not settle the account's pending work.
       if (code === '0x' || state.transactions['chunk:'+c.address]) {
         await transaction('chunk:'+c.address,FACTORY,abiBytes('store(bytes)',c.data),chunkGas(c.data.length));
-        chunkPayload(fromHex(c.address),fromHex(await rpc('eth_getCode',[c.address,'latest'])),c.data.length);
+        chunkPayload(fromHex(c.address),fromHex(await readCode(c.address)),c.data.length);
       }
       progress({phase:'upload',completed:++completed,total:plan.chunks.length});
     }
