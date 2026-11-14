@@ -2,6 +2,7 @@
 //! RewardEscrow. A zero-bond registration as an account's first transaction (R9) earns its 20 PCOL
 //! bond from its own wins and shares, then is promoted and paid normally; a top-up promotes at once and
 //! returns whatever exceeds the remainder.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -13,6 +14,8 @@ const PCOL: u128 = 1_000_000_000_000_000_000;
 const B: u128 = 20 * PCOL;
 
 struct Net { chain: Chain, keys: HashMap<Address, Key>, one: Address }
+/// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
 
 fn net() -> Net {
     let mut cfg = DevnetConfig::new(777916, 1_700_000_000, &["one", "two"]);
