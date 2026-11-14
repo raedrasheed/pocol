@@ -303,7 +303,7 @@ mod configuration {
         let other=identity::Consensus::raised(CHAIN,g,&forks,Some(CapRaise{acct_cap:11,..r}),2,0,None);
         let ours=identity::Consensus::raised(CHAIN,g,&forks,Some(r),2,0,None);assert_ne!(ours.id,other.id);
         assert_eq!(identity::explain(&ours,&identity::Consensus::new(CHAIN,g,&forks[..2],2,0,None).id),format!("peer has not scheduled activation (3,{H}): it must apply the published network upgrade"));
-        assert!(std::panic::catch_unwind(||identity::consensus_id_raised(CHAIN,&g,2,0,&forks,None,None)).is_err(),"fork 3 goes with its raise");
-        assert!(std::panic::catch_unwind(||identity::consensus_id_raised(CHAIN,&g,2,0,&forks[..2],Some(&r),None)).is_err());
+        assert_ne!(identity::consensus_id_raised(CHAIN,&g,2,0,&forks,None,None),want,"the same schedule without the raise is another identity");
+        assert!(std::panic::catch_unwind(||identity::consensus_id_raised(CHAIN,&g,2,0,&forks[..2],Some(&r),None)).is_err(),"a raise goes with its fork-3 entry");
     }
 }

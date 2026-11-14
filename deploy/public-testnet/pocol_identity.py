@@ -68,7 +68,8 @@ def consensus_id(chain_id, genesis, rules, flags, forks, sources=None, raise_=No
     """SHA-256(domain || chainId u64 || genesisHash || rules u32 || flags u8 || n u8 ||
     (version u16 || height u64) x n || ["cap-raise" || CODE_CAP u64 || SLOT_CAP u64 || ACCT_CAP u64 || SYS_SLOT_MAX u32,
     exactly with a fork-3 entry] || [sources, exactly with the unpinned bit]), big-endian.
-    genesis and sources are 32 bytes or 64 hex characters (an 0x prefix is allowed); `raise_` is a `cap_raise` value;
+    genesis and sources are 32 bytes or 64 hex characters (an 0x prefix is allowed); `raise_` is a `cap_raise` value
+    (for_network requires it with a fork-3 entry);
     returns lowercase hex without a prefix, as pocol_status consensusIdentity."""
     def raw(value):
         if isinstance(value, str):
@@ -82,7 +83,7 @@ def consensus_id(chain_id, genesis, rules, flags, forks, sources=None, raise_=No
         raise ValueError('the unpinned bit and the aggregate go together')
     data = DOMAIN + chain_id.to_bytes(8, 'big') + raw(genesis) + rules.to_bytes(4, 'big') + bytes([flags, len(forks)])
     data += b''.join(v.to_bytes(2, 'big') + h.to_bytes(8, 'big') for v, h in forks)
-    if any(v == CAP_RAISE_VERSION for v, _ in forks) != (raise_ is not None):
+    if raise_ is not None and not any(v == CAP_RAISE_VERSION for v, _ in forks):
         raise ValueError('a cap raise goes with its fork-3 entry')
     if raise_ is not None:
         data += CAP_RAISE_TAG + b''.join(raise_[k].to_bytes(8, 'big') for k in ('CODE_CAP', 'SLOT_CAP', 'ACCT_CAP'))

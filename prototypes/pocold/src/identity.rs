@@ -57,11 +57,12 @@ pub fn consensus_id(chain_id: u64, genesis: &[u8; 32], rules: u32, flags: u8, fo
 /// SLOT_CAP u64 ‖ ACCT_CAP u64 ‖ SYS_SLOT_MAX u32. The schedule names its activation height (fork version 3).
 pub const CAP_RAISE_TAG: &[u8] = b"cap-raise";
 /// `consensus_id` of a schedule with a cap raise (FN-5, C10): the raise's values follow the schedule, so two nodes that
-/// schedule fork 3 at the same height with other values do not peer. `raise` must be given exactly when the schedule
-/// names fork version 3 (`CAP_RAISE_VERSION`); with None this is `consensus_id`, byte for byte.
+/// schedule fork 3 at the same height with other values do not peer. `raise` may be given only when the schedule names
+/// fork version 3 (`CAP_RAISE_VERSION`); with None this is `consensus_id`, byte for byte (a node's own schedule always
+/// carries its raise with fork 3, `ProfileIdentity::validate_with_raise`; `explain` also forms other identities).
 pub fn consensus_id_raised(chain_id: u64, genesis: &[u8; 32], rules: u32, flags: u8, forks: &[(u16, u64)], raise: Option<&CapRaise>, sources: Option<[u8; 32]>) -> [u8; 32] {
     assert!((1..=FORKS_MAX).contains(&forks.len()), "a consensus identity covers a validated schedule");
-    assert_eq!(forks.iter().any(|(v, _)| *v == CAP_RAISE_VERSION), raise.is_some(), "a cap raise goes with its fork-3 entry");
+    assert!(raise.is_none() || forks.iter().any(|(v, _)| *v == CAP_RAISE_VERSION), "a cap raise goes with its fork-3 entry");
     assert_eq!(flags & FLAG_UNPINNED != 0, sources.is_some(), "the unpinned flag requires the aggregate");
     let mut h = Sha256::new();
     h.update(b"pocol-consensus-identity-v1\0");
