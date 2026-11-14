@@ -12,7 +12,7 @@ async function refresh() {
   $('profiles').replaceChildren(...(r.profiles || []).map((p) => {
     const li = document.createElement('li');
     // A stored profile that no longer validates is listed as invalid (removable, unusable).
-    li.textContent = p.invalid ? `${p.name} · Invalid: ${p.invalid} ` : `${p.name} · chainId ${p.chainId} · ${p.trustLevel} · ${p.endpoint} · ${p.forkSchedule.length === 2 ? 'Version 2 from block ' + p.forkSchedule[1][1] : 'Version 1'} · netKey ${p.netKey.slice(0, 18)}…${p.conflict ? ' · network or activation conflict (read-only)' : ''} `;
+    li.textContent = p.invalid ? `${p.name} · Invalid: ${p.invalid} ` : `${p.name} · chainId ${p.chainId} · ${p.trustLevel} · ${p.endpoint} · ${p.forkSchedule.length > 1 ? p.forkSchedule.slice(1).map(([v, h]) => 'Version ' + v + (v === 3 ? ' (cap raise)' : '') + ' from block ' + h).join(', ') : 'Version 1'} · netKey ${p.netKey.slice(0, 18)}…${p.conflict ? ' · network or activation conflict (read-only)' : ''} `;
     const rm = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Delete' });
     rm.onclick = async () => { await send({ type: 'profiles.remove', name: p.name }); refresh(); };
     if(p.name !== 'pocol-public')li.append(rm); return li;

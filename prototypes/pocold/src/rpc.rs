@@ -1101,7 +1101,8 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 "forkSchedule":sp.profile().forks().entries().iter().map(|(v,h)|json!([v,h])).collect::<Vec<_>>(),
                 "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)});
             for (k,v) in n.identity_json(){params[k]=v;}
-            // FN-5: a scheduled cap raise (absent without one, so a dormant node answers as before).
+            // FN-5: a scheduled cap raise, as devnet.json carries it (JSON numbers) plus its fork-3 `height` (a number, as
+            // in forkSchedule); absent without one, so a dormant node answers as before.
             if let Some((at,r))=sp.profile().cap_raise(){let mut raise=crate::cap_raise_json(&r);raise["height"]=json!(at);params["capRaise"]=raise;}
             Ok(crate::network_display::annotate(params))}
         "pocol_getCaps"=>caps_json(n),
@@ -1154,7 +1155,8 @@ pub const CAPS_ALARM_PERCENT:u64=80;
 /// expected: only a slimmed entry drops it) is scanned. The answer is a fixed set of fields, under 2 KiB.
 /// Node-local reporting only: what validity enforces is unchanged (item 16, the USER-phase A03 halts, LOG_CAP).
 /// FN-5: the caps are those of the head's child (`Spec::cp_at(head + 1)`), the block a transaction sent now enters;
-/// a scheduled cap raise is reported as `capRaise` (its height and values) and whether the child is past it.
+/// a scheduled cap raise is reported as `capRaise` (its height and values, hex quantities) and whether the child is at
+/// or past its height (`active`). Absent without one.
 fn caps_json(n:&Node)->R{
     let head=n.chain.head();let cp=n.chain.spec.cp_at(head.height.saturating_add(1));
     let sum=match head.summary.as_deref(){Some(s)=>*s,None=>{
@@ -1181,8 +1183,11 @@ fn caps_json(n:&Node)->R{
         occupancy.insert(name.into(),json!({"percent":percent,"remaining":format!("0x{:x}",cap.saturating_sub(count)),"alarm":alarm}));
     }
     out["occupancy"]=Value::Object(occupancy);out["alarm"]=json!(any);
+    // Hex quantities, as every count and cap of this answer (pocol_getParams `capRaise` carries JSON numbers, as its
+    // forkSchedule and devnet.json do).
     if let Some((at,r))=n.chain.spec.profile().cap_raise(){
-        let mut raise=crate::cap_raise_json(&r);raise["height"]=json!(qty(at));raise["active"]=json!(head.height.saturating_add(1)>=at);out["capRaise"]=raise;
+        out["capRaise"]=json!({"ACCT_CAP":qty(r.acct_cap),"SLOT_CAP":qty(r.slot_cap),"CODE_CAP":qty(r.code_cap),"SYS_SLOT_MAX":qty(r.sys_slot_max.into()),
+            "height":qty(at),"active":head.height.saturating_add(1)>=at});
     }
     Ok(out)
 }

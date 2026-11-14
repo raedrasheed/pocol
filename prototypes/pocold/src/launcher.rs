@@ -101,7 +101,9 @@ impl Invitation {
         if info["keyMode"] != "independent-key-files" {
             return Err("standalone networks require independently generated keys".into());
         }
-        crate::configured_forks(&info)?;
+        // FN-5: the schedule and its cap raise, with the node's messages (`configured_cap_raise` checks the schedule
+        // first), so a malformed or partial capRaise is refused at parse and import, not first at boot.
+        crate::configured_cap_raise(&info)?;
         Ok(())
     }
     fn info(&self) -> Result<serde_json::Value, String> {
@@ -137,6 +139,13 @@ impl Invitation {
         let mut out = serde_json::json!({"networkFingerprint":self.fingerprint(),"invitationSchema":self.schema,
             "consensusRulesVersion":self.consensus_rules_version,"consensusIdentity":self.published_identity(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],
             "forkSchedule":forks,"activations":activations,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"experimental-testnet"});
+        // FN-5: a scheduled cap raise, its four new caps and its fork-3 height (as pocol_getParams `capRaise`), so a
+        // dry run shows what the caps become, not only that fork 3 activates. Absent without one.
+        if let (Ok(Some(raise)), Some(&(_, at))) = (crate::configured_cap_raise(&info), forks.iter().find(|(v, _)| *v == pocol_lp4_execution::profile::CAP_RAISE_VERSION)) {
+            let mut value = crate::cap_raise_json(&raise);
+            value["height"] = at.into();
+            out["capRaise"] = value;
+        }
         crate::readiness::annotate(&mut out, &self.launch_blockers(&info, &forks));
         crate::network_display::annotate_genesis(out, &self.files["genesis.spec.hex"])
     }
@@ -1367,7 +1376,7 @@ mod upgrade_tests {
         let home = home_with(&t, &bytes(&before));
         let binding = fs::read(home.path.join("network.pocol.json")).unwrap();
         let at = |forks| bytes(&generated(forks));
-        assert!(home.upgrade(&at(serde_json::json!([[1, 0], [2, 100], [3, 200]]))).unwrap_err().contains("consensus fork schedule"), "v3 under MAX_FORK_VERSION = 2");
+        assert!(home.upgrade(&at(serde_json::json!([[1, 0], [2, 100], [3, 200]]))).unwrap_err().contains("version 3 is a cap raise and needs capRaise"), "fork 3 without capRaise is refused");
         let mut rules = generated(serde_json::json!([[1, 0], [2, 100]]));
         rules.consensus_rules_version = identity::CONSENSUS_RULES_VERSION + 1;
         assert!(home.upgrade(&bytes(&rules)).unwrap_err().contains("different PoCol consensus release"));
@@ -1410,6 +1419,17 @@ mod upgrade_tests {
         assert!(upgrade_transition(&after, &before).unwrap_err().contains("forbidden"), "the fork-3 entry and its raise cannot be removed");
         assert!(with(serde_json::json!([[1, 0], [2, 100]]), Some(raise(30_000))).validate().unwrap_err().contains("capRaise needs a fork version 3"));
         assert!(with(serde_json::json!([[1, 0], [2, 100], [3, 200]]), None).validate().unwrap_err().contains("needs capRaise"));
+        // A malformed or partial capRaise is refused at parse (and so at import) with the node's message, not first at boot.
+        for bad in [serde_json::json!({"ACCT_CAP":1}), serde_json::json!({"ACCT_CAP":"x","SLOT_CAP":50000,"CODE_CAP":2097152,"SYS_SLOT_MAX":65536}),
+                    serde_json::json!({"ACCT_CAP":30000,"SLOT_CAP":50000,"CODE_CAP":2097152,"SYS_SLOT_MAX":1u64 << 32}), serde_json::json!(null)] {
+            let i = with(serde_json::json!([[1, 0], [2, 100], [3, 200]]), Some(bad.clone()));
+            assert!(i.validate().unwrap_err().contains("invalid capRaise"), "{bad}");
+            assert!(Invitation::parse(&bytes(&i)).unwrap_err().contains("invalid capRaise"), "{bad}");
+        }
+        assert!(Invitation::parse(&bytes(&after)).is_ok());
+        // describe() (and so the inspect-upgrade dry run built on it) shows the four new caps and their height.
+        assert_eq!(after.describe()["capRaise"], serde_json::json!({"ACCT_CAP":30000,"SLOT_CAP":50000,"CODE_CAP":2097152,"SYS_SLOT_MAX":65536,"height":200}));
+        assert!(before.describe().get("capRaise").is_none(), "absent without a raise");
         let (chain_id, genesis) = computed(&after);
         let r = crate::configured_cap_raise(&after.info().unwrap()).unwrap();
         assert_eq!(after.published_identity().unwrap(), identity::Consensus::raised(chain_id, types::unhex(&genesis).unwrap().try_into().unwrap(),

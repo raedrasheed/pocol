@@ -267,6 +267,13 @@ the genesis CP only) and refuses, as R24, a raise that lowers a cap, raises none
 spec-1 genesis. The consensus identity appends the raise's values. A release activates it by appending (2,H')
 (a no-op under nonceMode 1) and (3,H) with the values (`pocol upgrade`; a scheduled raise never changes). A node without
 it agrees on every block below H and refuses block H (`netVersion`). Lock line: `neutral gate=fork:3`.
+The off-node verifiers take fork version 3 in the same release, so the activation release needs no client release of
+its own: the extension (`forks.js` MAX_FORK_VERSION 3), the reward gateway (`pocol_rewards.py` MAX_FORK_VERSION 3; it
+checks the advertised `capRaise` against the trusted schedule's fork-3 height and refuses fork 3 on the spec-1 path), the
+identity tool (`pocol_identity.py`, default bound 3, otherwise build-info's `maxForkVersion`) and the public gateways,
+which pass `capRaise` through. A client release with bound 2 fails closed from the moment its node advertises the new
+schedule, so no activation may be attempted with one in use. `pocol inspect-upgrade` shows the raise (`capRaise`), and
+development/public-network/OPERATIONS.md has the activation and rehearsal-S2 procedure.
 
 ### D-V3-24
 

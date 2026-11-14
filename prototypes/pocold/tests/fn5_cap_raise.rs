@@ -196,9 +196,10 @@ mod node {
             assert_eq!(rpc(&mut node,"eth_estimateGas",request.clone())["error"]["data"]["reason"],"AcctCap");
             let caps=rpc(&mut node,"pocol_getCaps",json!([]))["result"].clone();
             assert_eq!(caps["accountsCap"],format!("{:#x}",cfg.acct_cap));assert_eq!(caps["occupancy"]["accounts"]["remaining"],"0x0");
-            assert_eq!((caps["capRaise"]["ACCT_CAP"].as_u64(),caps["capRaise"]["height"].as_str(),caps["capRaise"]["active"].as_bool()),(Some(r.acct_cap),Some(format!("{H:#x}").as_str()),Some(false)));
+            assert_eq!(caps["capRaise"],json!({"ACCT_CAP":format!("{:#x}",r.acct_cap),"SLOT_CAP":format!("{:#x}",r.slot_cap),"CODE_CAP":format!("{:#x}",r.code_cap),
+                "SYS_SLOT_MAX":format!("{:#x}",r.sys_slot_max),"height":format!("{H:#x}"),"active":false}),"pocol_getCaps capRaise: hex quantities");
             let params=rpc(&mut node,"pocol_getParams",json!([]))["result"].clone();
-            assert_eq!(params["capRaise"]["height"],H);assert_eq!(params["maxForkVersion"],3);assert_eq!(params["forkSchedule"],json!([[1,0],[2,V2],[3,H]]));
+            assert_eq!(params["capRaise"],json!({"ACCT_CAP":r.acct_cap,"SLOT_CAP":r.slot_cap,"CODE_CAP":r.code_cap,"SYS_SLOT_MAX":r.sys_slot_max,"height":H}));assert_eq!(params["maxForkVersion"],3);assert_eq!(params["forkSchedule"],json!([[1,0],[2,V2],[3,H]]));
             mine(&mut node,vec![]);
             // The head is H-1: its child is H.
             let e=rpc(&mut node,"eth_estimateGas",request.clone());assert!(e.get("error").is_none(),"{e}");

@@ -13,8 +13,9 @@ FLAG_UNPINNED = 2
 # The flags that append the consensus-sources aggregate to the identity (identity.rs consensus_id): unpinned only. Bit 2
 # was the retired v3-preview build's flag; the v3 rules are the release rules (consensus rules 2), so no build sets it.
 FLAGS_WITH_SOURCES = FLAG_UNPINNED
-# The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION).
-MAX_FORK_VERSION = 2
+# The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION, 3 since FN-5: version 3 is the cap
+# raise, which needs capRaise). for_network takes the bound from the node's build-info `maxForkVersion` when it has one.
+MAX_FORK_VERSION = 3
 # The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION): spec 2, the v3 genesis on CP schema
 # v2, is the release version; spec 1 (CP schema v1) still decodes.
 SPEC_VERSION = 2

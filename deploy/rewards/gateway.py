@@ -116,7 +116,10 @@ def sanitize(method, value):
         return result
     if method == 'pocol_getParams':
         keys = ('chainId', 'genesisHash', 'profileKind', 'nodeKind', 'nonceMode', 'netKey', 'protocolVersion', 'compatibilitySha256', 'activeVersion', 'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256', 'networkName', 'networkEnvironment') + IDENTITY_FIELDS
-        return {k:value.get(k) for k in keys}
+        result = {k:value.get(k) for k in keys}
+        # FN-5: a scheduled cap raise (with its fork-3 height) beside forkSchedule; absent without one, as before.
+        if 'capRaise' in value: result['capRaise'] = value['capRaise']
+        return result
     return value
 
 class Gateway:
@@ -305,7 +308,7 @@ if __name__ == '__main__':
     parser.add_argument('--bind', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8088)
     parser.add_argument('--rpc-port', type=int, default=8545)
-    parser.add_argument('--fork-schedule', metavar='FILE', help='Trusted JSON [[1,0],[2,activation_height]] schedule; default is version 1 only')
+    parser.add_argument('--fork-schedule', metavar='FILE', help='Trusted JSON [[1,0],[2,activation_height]] schedule, or [[1,0],[2,h2],[3,raise_height]] with a cap raise; default is version 1 only')
     parser.add_argument('--v3-network', metavar='FILE', help='Trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true}: serve a v3 (spec-2) network instead of Mainnet')
     args = parser.parse_args()
     try:

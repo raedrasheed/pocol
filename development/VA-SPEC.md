@@ -223,7 +223,8 @@ for byte.
 Integers are big-endian; the schedule is the full configured fork schedule (`ForkSchedule::entries`). A node runs
 only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 3 (FN-5: version 3
 is the cap raise and needs `capRaise`; before FN-5 the bound was 2)
-(`configured_forks`; today exactly `[(1,0)]` or `[(1,0),(2,H)]`). The profile itself would accept a skipped version;
+(`configured_forks`; exactly `[(1,0)]`, `[(1,0),(2,H)]` or, on a spec-2 genesis with `capRaise`, `[(1,0),(2,H'),(3,H)]`;
+version 3 cannot be scheduled on a spec-1 genesis). The profile itself would accept a skipped version;
 the runtime keeps refusing one (owner decision D3, recorded in V3-DECISIONS.md). A later in-place fork on a v3
 chain appends (2,H) first, a nonce-rule no-op under nonceMode 1, then (3,Hprime).
 genesisHash

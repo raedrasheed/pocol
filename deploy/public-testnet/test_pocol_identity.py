@@ -121,12 +121,20 @@ class ConsensusIdentity(unittest.TestCase):
                 ident.for_network(bad, build)
         with self.assertRaises(ValueError):
             ident.for_network(info, dict(build, maxForkVersion=2))
+        # A build-info without maxForkVersion falls back to this tool's bound, 3.
+        self.assertEqual(ident.for_network(info, {k: v for k, v in build.items() if k != 'maxForkVersion'}),
+                         '1f28be8d438ea0b98309dab3710d20702e2410e027cba01d3067e492f720edb0')
 
     def test_the_schedule_rule_is_the_runtime_shape(self):
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9]]), ((1, 0), (2, 9)))
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9], [3, 20]], 3)[-1], (3, 20))
-        for bad in ([], [[2, 0]], [[1, 1]], [[1, 0], [1, 5]], [[1, 0], [3, 5]], [[1, 0], [2, 0]], [[1, 0], [2, 9], [3, 20]],
-                    [[1, 0]] * 17, [[1, 0], [2, 1 << 64]]):
+        # FN-5: the default bound is pocold's MAX_FORK_VERSION 3, so an activated cap raise's schedule is accepted.
+        self.assertEqual(ident.MAX_FORK_VERSION, 3)
+        self.assertEqual(ident.validated_schedule([[1, 0], [2, 9], [3, 20]]), ((1, 0), (2, 9), (3, 20)))
+        with self.assertRaises(ValueError):
+            ident.validated_schedule([[1, 0], [2, 9], [3, 20]], 2)
+        for bad in ([], [[2, 0]], [[1, 1]], [[1, 0], [1, 5]], [[1, 0], [3, 5]], [[1, 0], [2, 0]], [[1, 0], [2, 9], [3, 20], [4, 30]],
+                    [[1, 0], [2, 9], [3, 9]], [[1, 0]] * 17, [[1, 0], [2, 1 << 64]]):
             with self.assertRaises(ValueError, msg=bad):
                 ident.validated_schedule(bad)
 

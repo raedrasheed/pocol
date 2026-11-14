@@ -37,14 +37,15 @@ class GatewayRewardTests(unittest.TestCase):
         self.assertEqual(gateway.load_fork_schedule(), ((1, 0),))
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             filename = Path(directory) / 'forks.json'
-            for value in ([[1, 0]], [[1, 0], [2, 100]]):
+            # FN-5: [(1,0),(2,H'),(3,H)] is an activated cap raise's schedule (MAX_FORK_VERSION 3).
+            for value in ([[1, 0]], [[1, 0], [2, 100]], [[1, 0], [2, 100], [3, 200]]):
                 filename.write_text(json.dumps(value))
                 self.assertEqual(gateway.load_fork_schedule(filename), tuple(map(tuple, value)))
             invalid = ([], [[2, 0]], [[1, 1]], [[1, 0], [2, 0]],
                        [[1, 0], [3, 100]], [[1, 0], [2, 1 << 64]],
                        [[1, 0], [2, -1]], [[1, 0], [2, True]],
                        [[1, 0], [2, 1.0]], [[1, 0], [2, '100']],
-                       [[1, 0], [2, 100], [3, 200]], {'forkSchedule': [[1, 0]]})
+                       [[1, 0], [2, 100], [3, 200], [4, 300]], [[1, 0], [2, 100], [3, 100]], {'forkSchedule': [[1, 0]]})
             for value in invalid:
                 filename.write_text(json.dumps(value))
                 with self.subTest(value=value), self.assertRaises((ValueError, RuntimeError)):
@@ -116,8 +117,18 @@ class GatewayRewardTests(unittest.TestCase):
             self.assertNotIn('localPaths', result)
             self.assertNotIn('environment', result)
 
+    def test_a_scheduled_cap_raise_passes_the_params_sanitizer_and_is_absent_without_one(self):
+        # FN-5: pocol_getParams `capRaise` beside forkSchedule, so wallets and the reward check see the activated schedule.
+        raise_ = {'ACCT_CAP': 90000, 'SLOT_CAP': 90000, 'CODE_CAP': 4194304, 'SYS_SLOT_MAX': 70000, 'height': 200}
+        value = {'chainId': gateway.CHAIN_ID, 'forkSchedule': [[1, 0], [2, 100], [3, 200]], 'capRaise': raise_}
+        result = gateway.sanitize('pocol_getParams', value)
+        self.assertEqual((result['forkSchedule'], result['capRaise']), (value['forkSchedule'], raise_))
+        self.assertNotIn('capRaise', gateway.sanitize('pocol_getParams', {'chainId': gateway.CHAIN_ID, 'forkSchedule': [[1, 0]]}))
+        # The raise is node-advertised data: the trusted fork schedule file accepts the activated schedule.
+        self.assertEqual(gateway.trusted_fork_schedule([[1, 0], [2, 100], [3, 200]]), ((1, 0), (2, 100), (3, 200)))
+
     def test_the_consensus_identity_and_wire_range_pass_the_sanitizer(self):
-        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 2, 'protocolVersionMin': 2, 'maxForkVersion': 2}
+        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 2, 'protocolVersionMin': 2, 'maxForkVersion': 3}
         for method in ('pocol_getParams', 'pocol_status'):
             with self.subTest(method=method):
                 result = gateway.sanitize(method, {**fields, 'consensusSourcesSha256': 'private', 'peers': ['private']})

@@ -26,7 +26,9 @@ MAX_BATCH = 10
 NO_PARAMS = {'eth_chainId', 'pocol_status', 'pocol_getParams', 'eth_blockNumber', 'eth_gasPrice', 'pocol_getCaps'}
 CAPS_FIELDS = ('number', 'hash', 'v3', 'cumulative', 'alarmPercent', 'alarm', 'occupancy',
                'accounts', 'accountsCap', 'storageSlots', 'storageSlotsCap', 'codeBytes', 'codeBytesCap',
-               'txCount', 'txCap', 'txBytes', 'txBytesCap', 'logBytes', 'logCap')
+               'txCount', 'txCap', 'txBytes', 'txBytesCap', 'logBytes', 'logCap',
+               # FN-5: a scheduled cap raise (absent without one).
+               'capRaise')
 HASH_METHODS = {'eth_getTransactionByHash', 'eth_getTransactionReceipt'}
 ACCOUNT_METHODS = {'eth_getBalance', 'eth_getTransactionCount', 'eth_getCode'}
 
@@ -140,7 +142,9 @@ def sanitize(method, value):
             'forkSchedule', 'effectiveNonceMode', 'nextBlockNonceMode', 'consensusCompatibilitySha256',
             'networkName', 'networkEnvironment',
             # The public consensus identity and wire range (VA-SPEC §2; A2-10).
-            'consensusIdentity', 'consensusRulesVersion', 'protocolVersionMin', 'maxForkVersion')
+            'consensusIdentity', 'consensusRulesVersion', 'protocolVersionMin', 'maxForkVersion',
+            # FN-5: a scheduled cap raise beside forkSchedule (pocol_getParams only; absent without one).
+            'capRaise')
     return {k: value[k] for k in keys if k in value}
 
 
