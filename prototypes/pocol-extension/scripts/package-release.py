@@ -20,6 +20,11 @@ for name in required:
 # The release decodes the v3 GenesisSpec (spec 2) by default; a stale dist/ built before that (SPEC_VERSION 1) is refused.
 if 'export const SPEC_VERSION = 2,' not in (dist / 'lib/refdec.js').read_text(encoding='utf-8'):
     raise SystemExit('Refusing a stale build that does not decode spec 2: rebuild the release with npm run build')
+# D1: until the identity switch the built-in profile is a placeholder of no network (NETWORK_PLACEHOLDER in
+# lib/studio-network.js, written by deploy/mainnet/set_network_identity.py --placeholder); no release carries it.
+if 'NETWORK_PLACEHOLDER' in (dist / 'lib/studio-network.js').read_text(encoding='utf-8'):
+    raise SystemExit('Refusing a build whose built-in profile is the network placeholder (NETWORK_PLACEHOLDER): '
+                     'a release is packaged only after the identity switch pins the real network')
 output.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for path in sorted(dist.rglob('*')):

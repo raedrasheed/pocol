@@ -79,14 +79,29 @@ export async function v3DecoderChecks(rel) {
     mkdirSync(join(tmp, 'scripts'));
     cpSync(join(HERE, '..', 'scripts', 'package-release.py'), join(tmp, 'scripts', 'package-release.py'));
     writeFileSync(join(tmp, 'package.json'), readFileSync(join(HERE, '..', 'package.json')));
-    const pack = (edit = null) => {
+    // switched: the build as the identity switch leaves it (D1): no NETWORK_PLACEHOLDER mark in lib/studio-network.js.
+    const MARK = /\/\/ PLACEHOLDER \(decision D1\)[^]*?export const NETWORK_PLACEHOLDER = true;\n/;
+    const pack = (edit = null, { switched = true, network = null } = {}) => {
       rmSync(join(tmp, 'dist'), { recursive: true, force: true }); rmSync(join(tmp, 'out.zip'), { force: true });
       cpSync(rel, join(tmp, 'dist'), { recursive: true });
       if (edit) { const f = join(tmp, 'dist', 'lib', 'refdec.js'); writeFileSync(f, edit(readFileSync(f, 'utf8'))); }
+      const n = join(tmp, 'dist', 'lib', 'studio-network.js'); let t = readFileSync(n, 'utf8');
+      if (switched) t = t.replace(MARK, '');
+      if (network) t = network(t);
+      writeFileSync(n, t);
       return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip')], { encoding: 'utf8' });
     };
+    const marked = readFileSync(join(rel, 'lib', 'studio-network.js'), 'utf8');
+    const asBuilt = pack(null, { switched: false });
+    ok('the release packager refuses a build whose built-in profile is the placeholder (D1)', !MARK.test(marked)
+      || (asBuilt.status !== 0 && /network placeholder/.test(asBuilt.stderr) && !existsSync(join(tmp, 'out.zip'))), asBuilt.stderr);
+    for (const [name, switched, network] of [['the mark set to false', false, (t) => t.replace('NETWORK_PLACEHOLDER = true', 'NETWORK_PLACEHOLDER = false')],
+                                             ['only the mark line kept', true, (t) => t + 'export const NETWORK_PLACEHOLDER = true;\n']]) {
+      const r = pack(null, { switched, network });
+      ok('the release packager refuses a placeholder mark: ' + name, r.status !== 0 && /network placeholder/.test(r.stderr) && !existsSync(join(tmp, 'out.zip')), r.stderr);
+    }
     const packed = pack();
-    ok('the release packager packages the release build', packed.status === 0 && existsSync(join(tmp, 'out.zip')), packed.stderr);
+    ok('the release packager packages the release build once the placeholder is replaced', packed.status === 0 && existsSync(join(tmp, 'out.zip')), packed.stderr);
     const stale = pack((t) => t.replace('export const SPEC_VERSION = 2,', 'export const SPEC_VERSION = 1,'));
     ok('the release packager refuses a stale dist whose decoder does not decode spec 2', stale.status !== 0 && /does not decode spec 2/.test(stale.stderr) && !existsSync(join(tmp, 'out.zip')), stale.stderr);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
