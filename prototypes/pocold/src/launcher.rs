@@ -895,6 +895,7 @@ impl Home {
         }
         let (peers, seeds, is_seed) = invitation.launch_peers(listen, peers);
         let bootstrap = invitation.bootstrap().to_vec();
+        let (k_safe, k_alarm) = confirmation_from(|k| std::env::var(k).ok())?;
         let cfg = node::Config {
             dir: data,
             name: "pocol".into(),
@@ -907,6 +908,9 @@ impl Home {
             limits: node::Limits {
                 state_store: true,
                 mem_budget: std::env::var("POCOL_MEMORY_BUDGET_BYTES").ok().map(|s|s.parse::<u64>().map_err(|_|"Invalid POCOL_MEMORY_BUDGET_BYTES")).transpose()?.unwrap_or(node::MEM_BUDGET),
+                // V3-26: the depth of the RPC `safe` tag and the reorg alarm depth (node-local, never validity).
+                k_safe,
+                k_alarm,
                 // Local P2P policy (net::Limits::peers_max, per_group_max): the established inbound peers, and inbound
                 // peers per public address group. A13 counts every inbound place against POCOL_MEMORY_BUDGET_BYTES, so an
                 // operator who lowers the budget lowers POCOL_PEERS_MAX with it.
@@ -933,6 +937,45 @@ impl Home {
     }
 }
 
+/// V3-26 (owner decision 12; node-local, never validity): the confirmation settings `pocol start` passes to its node,
+/// read from POCOL_K_SAFE and POCOL_K_ALARM as `pocold run` reads them when its flags are absent (defaults node::K_SAFE
+/// and node::K_ALARM). A value that is not a number (an empty one included) is refused here; Node::open then refuses a
+/// pair outside 1 <= k_safe <= k_alarm with k_safe < K_hist (`node::check_confirmation`).
+fn confirmation_from(var: impl Fn(&str) -> Option<String>) -> Result<(u64, u64), String> {
+    let get = |name: &str, default: u64| -> Result<u64, String> {
+        var(name).map(|s| s.parse::<u64>().map_err(|_| format!("Invalid {name}"))).transpose().map(|v| v.unwrap_or(default))
+    };
+    Ok((get("POCOL_K_SAFE", node::K_SAFE)?, get("POCOL_K_ALARM", node::K_ALARM)?))
+}
+
+#[cfg(test)]
+mod confirmation_tests {
+    use super::*;
+    fn read(vars: &[(&str, &str)]) -> Result<(u64, u64), String> {
+        let m: std::collections::HashMap<String, String> = vars.iter().map(|(k, v)| (k.to_string(), v.to_string())).collect();
+        confirmation_from(|k| m.get(k).cloned())
+    }
+    /// Review N2 (owner decision 12): `pocol start` reads POCOL_K_SAFE and POCOL_K_ALARM, each on its own, and a pair
+    /// with POCOL_K_ALARM below POCOL_K_SAFE is refused by the open's check.
+    #[test]
+    fn pocol_start_reads_k_safe_and_k_alarm_from_the_environment() {
+        let k_hist = crate::single_host_local().k_hist as u64;
+        assert_eq!(read(&[]), Ok((node::K_SAFE, node::K_ALARM)), "the defaults when unset");
+        assert_eq!(read(&[("POCOL_K_SAFE", "7")]), Ok((7, node::K_ALARM)));
+        assert_eq!(read(&[("POCOL_K_ALARM", "90")]), Ok((node::K_SAFE, 90)));
+        let pair = read(&[("POCOL_K_SAFE", "8"), ("POCOL_K_ALARM", "7")]).unwrap();
+        assert_eq!(pair, (8, 7), "both variables are read");
+        assert!(node::check_confirmation(pair.0, pair.1, k_hist).unwrap_err().contains("k_safe 8 exceeds k_alarm 7"));
+        let pair = read(&[("POCOL_K_ALARM", "5")]).unwrap();
+        assert!(node::check_confirmation(pair.0, pair.1, k_hist).unwrap_err().contains("k_safe 6 exceeds k_alarm 5"));
+        let pair = read(&[("POCOL_K_SAFE", "40"), ("POCOL_K_ALARM", "60")]).unwrap();
+        assert!(node::check_confirmation(pair.0, pair.1, k_hist).unwrap_err().contains("k_safe 40 must be below K_hist 32"));
+        for bad in ["x", "", "-1", "6.0"] {
+            assert_eq!(read(&[("POCOL_K_SAFE", bad)]), Err("Invalid POCOL_K_SAFE".into()), "{bad:?}");
+            assert_eq!(read(&[("POCOL_K_ALARM", bad)]), Err("Invalid POCOL_K_ALARM".into()), "{bad:?}");
+        }
+    }
+}
 #[cfg(test)]
 mod upgrade_tests {
     use super::*;
