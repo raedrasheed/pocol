@@ -57,7 +57,10 @@ mod preview{
     fn solve_chain(chain:&pocold::chain::Chain,raw:Vec<Vec<u8>>,clock:u64)->pocold::types::Block{
         use pocold::types::*;let p=chain.full_entry(&chain.head).unwrap();let key=devnet::miner_identity("execution").key;let body=Body{txs:raw,evidence:vec![]};
         let (mut h,_,ctx)=chain.build_signed(&p,&key,clock,body.clone(),vec![]).unwrap();let tid=template_id(&h.ut_raw);
-        for nonce in 0..1_000_000{if le_target(&pow_hash(&tid,nonce),&ctx.target){h.nonce=nonce;reseal(&mut h);h.winner_sig=key.sign_hash(&B256::from(pocold::hashes::win_msg(&tid,nonce,&share_root(&h))));reseal(&mut h);return Block{header:h,body}}}
+        // Only a nonce in the signer's own range wins (rule 13): a wallet-registered member (a random key) also holds a
+        // range, so the search is the fixture miner's range, not every nonce from 0.
+        let (lo,hi)=pocold::chain::assignment_range(&ctx,key.address()).expect("the fixture miner holds a range");
+        for nonce in lo..=hi.min(lo.saturating_add(1_000_000)){if le_target(&pow_hash(&tid,nonce),&ctx.target){h.nonce=nonce;reseal(&mut h);h.winner_sig=key.sign_hash(&B256::from(pocold::hashes::win_msg(&tid,nonce,&share_root(&h))));reseal(&mut h);return Block{header:h,body}}}
         panic!("private fixture solution not found");
     }
 
