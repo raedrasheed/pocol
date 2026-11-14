@@ -703,7 +703,7 @@ fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
     assert_eq!((ProgramSet::V1.probation(&spec1),ProgramSet::Continuous.probation(&spec1)),(None,None));
 }
 
-/// The v3 contracts read CP fields 52..66 as 0 on a 52-field CP (P_MAX 0, T_PROB 0), so nothing in the programs
+/// The v3 contracts read CP fields 52..63 as 0 on a 52-field CP (P_MAX 0, T_PROB 0), so nothing in the programs
 /// themselves keeps them off a spec-1 genesis: the registry gate does. A spec-1 GenesisSpec that names the v3
 /// sysCodeHash, with the allocRoot the v3 programs would give it, is built here and refused by every path that
 /// turns a GenesisSpec into a genesis (admission's measurement and the gate itself), with the genesis code check.

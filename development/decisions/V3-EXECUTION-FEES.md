@@ -4,9 +4,10 @@
 > described below ("Creation pricing", "The signed maximum fee", the CreationFeeBurn receipt annotation, the burn
 > pricing of the pool, builder and eth_estimateGas, and `pocol_quoteCreationBurn`) is deleted, with the CP schema v2
 > fields F0_acct, F0_slot and F0_code (CP schema v2 now has 64 fields; later indices moved down by three). New
-> accounts, nonzero slots and code pay ordinary gas only. Kept: the base-fee floor, the v3 log caps, and ACCT_CAP,
-> SLOT_CAP and CODE_CAP as A03 exceptional halts that charge the declared gas (owner answer 11 of 2026-11-13), with
-> the pool's and builder's live-cap checks (`PoolMeter::admit`, `BlockMeter::check`). The burn sections are kept
+> accounts, nonzero slots and code pay ordinary gas only. Kept: the base-fee floor, the v3 log caps, and ACCT_CAP
+> and SLOT_CAP as A03 exceptional halts that charge the declared gas (owner answer 11 of 2026-11-13), with
+> the pool's and builder's live-cap checks (`PoolMeter::admit`, `BlockMeter::check`); CODE_CAP still fails the CREATE
+> (CreateContractSizeLimit, `code_caps.rs`). The burn sections are kept
 > below as the record of D-V3-21; they no longer describe the code. Cap-fill risk: threat.md (v3 amendment), C10.
 
 Implements D-V3-20/21/24. This is dormant host execution, selected only by

@@ -1123,7 +1123,7 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
         tx.gas_priority_fee=o.get("maxPriorityFeePerGas").and_then(parse_u256);
         tx.gas_limit=tx.gas_limit.min(parse_u64(&o["gas"]).unwrap_or(u64::MAX));
     }
-    // A priced estimate observes the real next block's GASLIMIT. The larger
+    // A v3 estimate observes the real next block's GASLIMIT. The larger
     // read-only call ceiling must not select a different state-creation branch.
     let context_gas=if estimate_v3{cp.GAS_LIMIT}else{cp.GAS_LIMIT.max(CALL_GAS_MAX)};
     let ctx=NativeBlockContext{height:U256::from(e.height+1),timestamp:U256::from(e.ts+1),gas_limit:U256::from(context_gas),base_fee,prevrandao:B256::ZERO};
@@ -1174,8 +1174,8 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
                 if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),n.chain.spec.v3_active(e.height.saturating_add(1))){
                     return Err(Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))}
             }
-            // Preserve the legacy search ceiling; only v3 introduces priced
-            // estimation with the request/funds-constrained upper bound.
+            // Preserve the legacy search ceiling; only the v3 estimate uses
+            // the request/funds-constrained upper bound.
             Ok(Simulated{result:r.result,gas_limit:if estimate_v3{gas_limit}else{gas.unwrap_or(gas_limit)}})
         },
         Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>deadline(),

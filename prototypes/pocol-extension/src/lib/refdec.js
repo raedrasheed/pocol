@@ -1,7 +1,7 @@
 // Reference-equivalent decoders (A07, A08): ports of the accepted Rust decoders
 // lp1-node/src/genesis_spec.rs (GenesisSpec: framing L0, then gsStructure, gsVersion,
 // gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each stage over the whole input; CP schema v1,
-// and v2 = v1 + 15 appended fields, accepted only below an explicit version ceiling) and
+// and v2 = v1 + 12 appended fields, accepted only below an explicit version ceiling) and
 // lp1-node/src/header.rs (size, strict RLP, then every header field). Error codes and details
 // equal the reference's; tests/decoder_diff.mjs checks this against verdicts produced by the
 // Rust decoders on the same corpus (pocold/tests/decoder_reference.rs).
