@@ -102,6 +102,26 @@ class ConsensusIdentity(unittest.TestCase):
         self.assertEqual(ident.spec_version(info), 1)
         self.assertEqual(ident.for_network(dict(info, specVersion=1), build), GOLDEN)
 
+    def test_a_cap_raise_is_committed_after_the_schedule(self):
+        # FN-5: pinned with pocold tests/fn5_cap_raise.rs (the_identity_commits_to_the_raise_and_is_unchanged_without_one).
+        raise_ = {'ACCT_CAP': 10, 'SLOT_CAP': 20, 'CODE_CAP': 30, 'SYS_SLOT_MAX': 40}
+        forks = [(1, 0), (2, 3), (3, 6)]
+        self.assertEqual(ident.consensus_id(777962, '03' * 32, 2, 0, forks, None, raise_),
+                         '1f28be8d438ea0b98309dab3710d20702e2410e027cba01d3067e492f720edb0')
+        build = {'consensusRulesVersion': 2, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '00' * 32, 'maxForkVersion': 3}
+        info = {'chainId': 777962, 'genesisHash': '03' * 32, 'forks': [list(f) for f in forks], 'capRaise': raise_}
+        self.assertEqual(ident.for_network(info, build), '1f28be8d438ea0b98309dab3710d20702e2410e027cba01d3067e492f720edb0')
+        self.assertNotEqual(ident.for_network(dict(info, capRaise=dict(raise_, ACCT_CAP=11)), build), ident.for_network(info, build))
+        plain = {'chainId': 777962, 'genesisHash': '03' * 32, 'forks': [[1, 0], [2, 3]]}
+        self.assertEqual(ident.for_network(plain, build), ident.consensus_id(777962, '03' * 32, 2, 0, [(1, 0), (2, 3)]))
+        for bad in (dict(info, capRaise=None), {k: v for k, v in info.items() if k != 'capRaise'}, dict(plain, capRaise=raise_),
+                    dict(info, capRaise=dict(raise_, TX_CAP=1)), dict(info, capRaise=dict(raise_, SYS_SLOT_MAX=1 << 32)),
+                    dict(info, capRaise=dict(raise_, ACCT_CAP=1.0))):
+            with self.assertRaises(ValueError, msg=bad):
+                ident.for_network(bad, build)
+        with self.assertRaises(ValueError):
+            ident.for_network(info, dict(build, maxForkVersion=2))
+
     def test_the_schedule_rule_is_the_runtime_shape(self):
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9]]), ((1, 0), (2, 9)))
         self.assertEqual(ident.validated_schedule([[1, 0], [2, 9], [3, 20]], 3)[-1], (3, 20))

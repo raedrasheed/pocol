@@ -43,10 +43,32 @@ def validated_schedule(value, max_version=MAX_FORK_VERSION):
     return tuple(entries)
 
 
-def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
+# The fork version that is the cap raise (pocold profile CAP_RAISE_VERSION, FN-5) and the tag of its identity bytes.
+CAP_RAISE_VERSION = 3
+CAP_RAISE_TAG = b'cap-raise'
+CAP_RAISE_FIELDS = ('ACCT_CAP', 'SLOT_CAP', 'CODE_CAP', 'SYS_SLOT_MAX')
+
+
+def cap_raise(info, forks):
+    """devnet.json `capRaise` (pocold configured_cap_raise): present exactly when the schedule names fork version 3; the
+    four integers ACCT_CAP, SLOT_CAP, CODE_CAP (u64) and SYS_SLOT_MAX (u32), no other field. None without one."""
+    fork3 = any(v == CAP_RAISE_VERSION for v, _ in forks)
+    if fork3 != ('capRaise' in info):
+        raise ValueError('a fork version 3 entry and capRaise go together')
+    if not fork3:
+        return None
+    value = info['capRaise']
+    if not isinstance(value, dict) or sorted(value) != sorted(CAP_RAISE_FIELDS) or any(
+            type(value[k]) is not int or not 0 <= value[k] < 1 << (32 if k == 'SYS_SLOT_MAX' else 64) for k in CAP_RAISE_FIELDS):
+        raise ValueError('invalid capRaise')
+    return dict(value)
+
+
+def consensus_id(chain_id, genesis, rules, flags, forks, sources=None, raise_=None):
     """SHA-256(domain || chainId u64 || genesisHash || rules u32 || flags u8 || n u8 ||
-    (version u16 || height u64) x n || [sources, exactly with the unpinned bit]), big-endian.
-    genesis and sources are 32 bytes or 64 hex characters (an 0x prefix is allowed);
+    (version u16 || height u64) x n || ["cap-raise" || CODE_CAP u64 || SLOT_CAP u64 || ACCT_CAP u64 || SYS_SLOT_MAX u32,
+    exactly with a fork-3 entry] || [sources, exactly with the unpinned bit]), big-endian.
+    genesis and sources are 32 bytes or 64 hex characters (an 0x prefix is allowed); `raise_` is a `cap_raise` value;
     returns lowercase hex without a prefix, as pocol_status consensusIdentity."""
     def raw(value):
         if isinstance(value, str):
@@ -60,6 +82,11 @@ def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
         raise ValueError('the unpinned bit and the aggregate go together')
     data = DOMAIN + chain_id.to_bytes(8, 'big') + raw(genesis) + rules.to_bytes(4, 'big') + bytes([flags, len(forks)])
     data += b''.join(v.to_bytes(2, 'big') + h.to_bytes(8, 'big') for v, h in forks)
+    if any(v == CAP_RAISE_VERSION for v, _ in forks) != (raise_ is not None):
+        raise ValueError('a cap raise goes with its fork-3 entry')
+    if raise_ is not None:
+        data += CAP_RAISE_TAG + b''.join(raise_[k].to_bytes(8, 'big') for k in ('CODE_CAP', 'SLOT_CAP', 'ACCT_CAP'))
+        data += raise_['SYS_SLOT_MAX'].to_bytes(4, 'big')
     if sources is not None:
         data += raw(sources)
     return hashlib.sha256(data).hexdigest()
@@ -86,9 +113,9 @@ def for_network(info, build):
     spec-1 genesis alike (SPEC_VERSION 2), and the declaration must be one of them."""
     flags = build_flags(build)
     spec_version(info)
-    return consensus_id(info['chainId'], info['genesisHash'], build['consensusRulesVersion'], flags,
-                        validated_schedule(info.get('forks', [[1, 0]]), build.get('maxForkVersion', MAX_FORK_VERSION)),
-                        build['consensusSourcesSha256'] if flags & FLAGS_WITH_SOURCES else None)
+    forks = validated_schedule(info.get('forks', [[1, 0]]), build.get('maxForkVersion', MAX_FORK_VERSION))
+    return consensus_id(info['chainId'], info['genesisHash'], build['consensusRulesVersion'], flags, forks,
+                        build['consensusSourcesSha256'] if flags & FLAGS_WITH_SOURCES else None, cap_raise(info, forks))
 
 
 # ---------------------------------------------------------------------------------------------------------------------

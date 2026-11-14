@@ -112,7 +112,8 @@ class Operations(unittest.TestCase):
         self.assertIn('lp4-execution/tests/data/system-v1.json', info['sourceSha256'])
         # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 2 (the v3
         # release rules).
-        self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (2, 2, 2))
+        # FN-5: fork version 3 is the cap raise (MAX_FORK_VERSION 3).
+        self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (2, 2, 3))
         self.assertIs(info['consensusPinned'], True, 're-pin the consensus lock (pocold/tests/consensus_guard.rs)')
 
     def bundle(self, name='bundle', digest='b'*64, forks=None, spec=SPEC1_HEX, declare=None):
