@@ -105,3 +105,17 @@ test('Sites W2b: the publish warnings reach the caller (computed or external imp
   const p=filesProject([mf('/index.html',''),mf('/a.js',"import(name);import('https://cdn.example/x.js');console.log(import.meta.url);")]);
   const w=publishFiles(validateProject(p)).warnings;assert.equal(w.length,3);assert.match(w.join('\n'),/computed specifier[\s\S]*blocked in a PoCol site[\s\S]*import\.meta\.url/);
 });
+import{tokenize as msTokenize,scanModule as msScan,rewriteModule as msRewrite,RUNTIME_IMPORT as MS_RUNTIME}from'../dist/modscan.js';
+test('Sites W2b: a `/` after an if/while/for/with head is a regular expression; after a call or a group it divides (the scanner Studio checks with)',()=>{
+  const dyn=src=>msScan(src).dynamics.map(d=>d.spec),classic=src=>msRewrite(src,'/main.js',()=>null,{statics:false});
+  for(const src of["if (true) /import(\"x\")/.test('x');","for(;;) /import('a')/g.exec(s);","while(x) /import('a')/.test(s);","with (o) /import('a')/.test(s);","for await (const x of y) /import('a')/.test(x);","if (f(a, (b))) /import('a')/.test(s);"]){
+    assert.deepEqual(dyn(src),[],src);assert.equal(classic(src),src,src);
+  }
+  for(const[src,spec]of[["(a)/b; import('./g.js'); c/d",'./g.js'],["f(a) / 2; import('./c.js'); y / 3",'./c.js'],["o.if(a) / 2; import('./m.js'); y / 3",'./m.js'],["x.default / 2; import('./p.js'); y / 3",'./p.js']]){
+    assert.deepEqual(dyn(src),[spec],src);assert.equal(classic(src),src.replace(`import('${spec}')`,`${MS_RUNTIME}("/main.js",'${spec}')`),src);
+  }
+  // The publish check sees the same: a regular expression after a statement head names no file; a missing file after a call's division is refused.
+  assert.deepEqual(checkIncomingFiles([mf('/index.html',''),mf('/a.js',"if (window.x) /import('.\\/gone.js')/.test('');")],'/index.html'),[]);
+  assert.throws(()=>checkIncomingFiles([mf('/index.html',''),mf('/a.js',"f(1) / 2; import('./gone.js'); y / 3;")],'/index.html'),e=>e.code==='MODULE_GRAPH'&&/\/gone\.js, which is not in the site/.test(e.message));
+  const big=1<<20;for(const src of[')/['.repeat(big/3),'if()/['.repeat(big/6),'for(;;)/[a'.repeat(big/10)]){const stats={regexSteps:0};msTokenize(src,stats);assert.ok(stats.regexSteps<=src.length,`${stats.regexSteps} steps for ${src.length} characters`);}
+});

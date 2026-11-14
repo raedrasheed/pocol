@@ -7,6 +7,7 @@ import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import vm from 'node:vm';
 import * as M from '../src/lib/modscan.js';
 import { inlineModscan } from '../build.mjs';
 
@@ -65,6 +66,31 @@ test('rewriting replaces static specifiers by their URL and import() by the runt
   assert.equal(classic, `var x = ${M.RUNTIME_IMPORT}("/c.js",'./a.js'); var y = 'import("./b.js")';`);
   // Every vector's rewrite of a valid module still parses.
   for (const v of vectors.filter((x) => x.module)) { const o = M.rewriteModule(v.src, '/v/m.js', () => 'blob:null/x'); const c = parsesAsModule(o); assert.equal(c.status, 0, v.name + ': ' + c.stderr + '\n' + o); }
+});
+test('a `/` after the head of if/while/for/with starts a regular expression; after a call or a group it divides', () => {
+  // The loader rewrites classic scripts too: a regular expression misread as a division had its import( rewritten into
+  // `/__pocol_import__("/main.js","x")/`, an invalid regular expression that broke a working site.
+  const classic = (src) => M.rewriteModule(src, '/main.js', () => { throw new Error('no statics for a classic script'); }, { statics: false });
+  const asScript = (src) => { try { new vm.Script(src); return true; } catch { return false; } };
+  for (const src of ["if (true) /import(\"x\")/.test('x');", "for(;;) /import('a')/g.exec(s);", "for (;;)/re/.test(s)", "while(x) /import('a')/.test(s);",
+                     "with (o) /import('a')/.test(s);", "for await (const x of y) /import('a')/.test(x);", "if (f(a, (b))) /import('a')/.test(s);",
+                     "if (a) b(); else if (c) /import('a')/.test(s);", "do x(); while (y) /import('a')/.test(s);"]) {
+    assert.equal(classic(src), src, src); assert.deepEqual(scan(src).dynamics, [], src);
+  }
+  assert.ok(asScript(classic("if (true) /import(\"x\")/.test('x');")));
+  // A `)` that closes a call, a group or a nested parenthesis of a statement head is followed by a division.
+  for (const [src, spec] of [["(a)/b; import('./g.js'); c/d", './g.js'], ["f(a) / 2; import('./c.js'); y / 3", './c.js'], ["if ((a)/b) import('./h.js'); c/d", './h.js'],
+                             ["o.if(a) / 2; import('./m.js'); y / 3", './m.js'], ["o?.for(a) / 2; import('./q.js'); y / 3", './q.js'], ["x.default / 2; import('./p.js'); y / 3", './p.js'],
+                             ["this.#while(a) / 2; import('./r.js'); y / 3", './r.js'], ["a = (b) / c, import('./d.js'), e / f", './d.js']]) {
+    assert.deepEqual(scan(src).dynamics, [spec], src);
+    assert.equal(classic(src), src.replace(`import('${spec}')`, `${M.RUNTIME_IMPORT}("/main.js",'${spec}')`), src);
+  }
+  // Unbalanced parentheses never throw, and the regular-expression scans still visit each character at most once.
+  const big = 1 << 20;
+  for (const src of [')/['.repeat(big / 3), 'if(/['.repeat(big / 5), 'if()/['.repeat(big / 6), 'for(;;)/[a'.repeat(big / 10), '('.repeat(big / 2) + ')/['.repeat(big / 6)]) {
+    const stats = { regexSteps: 0 }; assert.doesNotThrow(() => M.tokenize(src, stats));
+    assert.ok(stats.regexSteps <= src.length, `${JSON.stringify(src.slice(0, 8))}: ${stats.regexSteps} steps for ${src.length} characters`);
+  }
 });
 test('specifier resolution: site paths, bare names, URLs, blob:/data:', () => {
   assert.deepEqual(M.resolveSpecifier('./x.js', '/a/b.js'), { path: '/a/x.js' });
