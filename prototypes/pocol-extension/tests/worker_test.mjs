@@ -368,7 +368,7 @@ export async function workerChecks(dist) {
       ['error message not a string', '{"jsonrpc":"2.0","id":123,"error":{"code":1,"message":5}}', 'recvParse'],
       ['error not an object', '{"jsonrpc":"2.0","id":123,"error":"boom"}', 'recvParse'],
       ['batch array', '[{"jsonrpc":"2.0","id":123,"result":"0x1"}]', 'recvParse'],
-      ['HTTP 500 with a result', '{"jsonrpc":"2.0","id":123,"result":"0x1"}', 'transport', 500],
+      ['HTTP 500 with a result (a final status, never a result)', '{"jsonrpc":"2.0","id":123,"result":"0x1"}', 'status', 500],
     ];
     for (const [name, body, want, status] of cases) { const r = await run(body, status); ok(`A14 ${name} -> ${want}`, r.e === want, JSON.stringify(r)); }
     const good = await run('{"jsonrpc":"2.0","id":123,"result":"0x1"}'); ok('A14 exact response accepted', good.v === '0x1', JSON.stringify(good));

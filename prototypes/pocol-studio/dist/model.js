@@ -1,3 +1,4 @@
+import{checkModuleGraph}from'./modscan.js';
 export const LIMITS={files:256,file:1048576,total:4194304};
 export const encoder=new TextEncoder();
 export function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -13,6 +14,20 @@ export function validateFiles(files,entry='/index.html'){
  for(const f of files){if(!validPath(f.path)||!mimeFor(f.path))throw Error('filePath');if(seen.has(f.path))throw Error('duplicatePath');seen.add(f.path);if(!(f.data instanceof Uint8Array)||f.data.length>LIMITS.file)throw Error('fileSize');total+=f.data.length;}
  if(total>LIMITS.total)throw Error('totalSize');if(!files.some(f=>f.path===entry&&mimeFor(f.path)==='text/html'))throw Error('entryMissing');return{count:files.length,total};
 }
+// Sites W2b: module imports that cannot load in the PoCol viewer (a static cycle, a missing file, a bare or remote
+// specifier) are refused where files come in (a folder import, a file replaced) and before publishing. validateFiles and
+// validateProject stay structural, so a stored or imported project that has such an import (one saved before this check)
+// still loads, can be viewed, exported and fixed; only publishing it is refused. The warnings (a computed or external
+// import(), import.meta) never refuse anything and are shown to the user.
+export function moduleReport(files){const r=checkModuleGraph(files);return{errors:r.errors,warnings:r.warnings};}
+const moduleRefusal=errors=>Object.assign(Error(errors[0]+(errors.length>1?` (and ${errors.length-1} more)`:'')),{code:'MODULE_GRAPH',moduleErrors:errors});
+/// Files that come in (a folder import): refused for any module error; returns the warnings.
+export function checkIncomingFiles(files,entry){validateFiles(files,entry);const r=moduleReport(files);if(r.errors.length)throw moduleRefusal(r.errors);return r.warnings;}
+/// One file replaced (`next` is `before` with the edit): refused only for module errors the edit adds, so a project with
+/// an existing error can be fixed one file at a time; returns the warnings.
+export function checkReplacedFiles(before,next,entry){validateFiles(next,entry);const old=new Set(moduleReport(before).errors),r=moduleReport(next),added=r.errors.filter(e=>!old.has(e));if(added.length)throw moduleRefusal(added);return r.warnings;}
+/// The files to publish, right before the publisher opens: refused for any module error; returns them with the warnings.
+export function publishFiles(p){const files=projectFiles(p),r=moduleReport(files);if(r.errors.length)throw moduleRefusal(r.errors);return{files,warnings:r.warnings};}
 export const TEMPLATE_IDS=['personal','business','product'];
 const defaults={
  ar:{personal:{name:'مساحتي الأولى',brand:'اسمك هنا',eyebrow:'أفكار • تجارب • أثر',title:'مساحة لأفكار\nتستحق أن تُرى.',description:'أشارك هنا ما أتعلمه وما أبنيه. مرحبًا بك في مساحتي المستقلة على شبكة PoCol.',button:'تعرّف عليّ',sections:[{type:'text',title:'أهلًا بك في مساحتي.',body:'أؤمن أن الأفكار الجيدة تبدأ بالفضول، وتكبر بالمشاركة. هذه الصفحة بداية حكاية جديدة.'},{type:'features',title:'ما أعمل عليه',body:'تعلّم مستمر|أبحث عن أسئلة جديدة وأشارك ما أكتشفه.\nبناء مفيد|أحوّل الأفكار إلى تجارب بسيطة وقابلة للاستخدام.\nتعاون مفتوح|أصنع مساحة للمعرفة والعمل المشترك.'},{type:'contact',title:'لنصنع شيئًا معًا.',body:'كل فكرة تستحق محادثة. يسعدني التواصل ومشاركة التجارب.'}]},business:{name:'صفحة المؤسسة',brand:'أفق',eyebrow:'نحو أثر يدوم',title:'أفكار طموحة.\nحلول واضحة.',description:'نساعد المؤسسات على تحويل رؤيتها إلى تجارب رقمية مفيدة، من الفكرة الأولى إلى التفاصيل الأخيرة.',button:'اكتشف خدماتنا',sections:[{type:'features',title:'كيف نساعدك؟',body:'استراتيجية|خطة واضحة مبنية على احتياجاتك.\nتصميم|تجارب تجعل الاستخدام أسهل.\nتطوير|أدوات موثوقة تنمو معك.'},{type:'text',title:'نؤمن بقوة العمل المشترك.',body:'نبدأ بالاستماع، ونبني بالتعاون، ونقيس النجاح بالأثر الذي نتركه.'},{type:'contact',title:'ابدأ مشروعك القادم.',body:'أخبرنا عن فكرتك، ولنعمل على الخطوة الأولى.'}]},product:{name:'إطلاق منتج',brand:'مدار',eyebrow:'أقل تعقيدًا. أكثر تركيزًا.',title:'أفكارك تستحق\nمساحة أفضل.',description:'أداة بسيطة لتنظيم ما يهمّك، لتقضي وقتًا أقل في الترتيب ووقتًا أكثر في الإنجاز.',button:'اكتشف مدار',sections:[{type:'features',title:'مصمّم ليبقى بسيطًا.',body:'كل شيء في مكانه|اجمع أفكارك ومشاريعك في مساحة واضحة.\nإيقاعك الخاص|نظّم يومك بالطريقة التي تناسبك.\nبداية سهلة|ابدأ سريعًا وركّز على ما تحب.'},{type:'text',title:'من الفكرة إلى الخطوة التالية.',body:'لا تحتاج إلى نظام معقد لتبدأ. مساحة هادئة، فكرة واضحة، وخطوة صغيرة كل يوم.'},{type:'contact',title:'كن جزءًا من البداية.',body:'تابع تحديثاتنا واكتشف ما نبنيه قريبًا.'}]}},

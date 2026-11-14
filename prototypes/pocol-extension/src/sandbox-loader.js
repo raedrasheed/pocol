@@ -10,6 +10,8 @@
   const define = (o, k, v) => { try { Object.defineProperty(o, k, { value: v, writable: false, configurable: false }); } catch { /* already locked */ } };
   const stringify = JSON.stringify, MapC = Map, PromiseC = Promise, BlobC = Blob, ResponseC = Response, TE = TextEncoder, TD = TextDecoder;
   const createObjectURL = URL.createObjectURL.bind(URL), URLC = URL;
+  // lib/modscan.js (W2b), inlined by build.mjs: the module specifier scanner shared with the publish-time check.
+  const MS = /*@modscan*/null;
 
   // ---- Layer 3: RtcLockdown + removal of network/worker constructors ----
   /*@fault noRtc*/for (const k of ['RTCPeerConnection', 'webkitRTCPeerConnection', 'RTCDataChannel', 'RTCSessionDescription', 'RTCIceCandidate', 'RTCRtpSender', 'RTCRtpReceiver',
@@ -162,6 +164,60 @@
       text = text.replace(/@import\s+(?:url\(\s*)?(['"]?)([^'")\s;]+)\1\s*\)?/gi, (m, q, ref) => { const u = refUrl(ref, base, depth); return u ? `@import url("${u}")` : '/* PoCol: blocked @import */'; });
       return text.replace(/url\(\s*(['"]?)([^'")]*)\1\s*\)/gi, (m, q, ref) => { if (/^blob:/i.test(ref)) return m; const u = refUrl(ref, base, depth); return u ? `url("${u}")` : 'url("")'; });
     }
+    // ---- ES modules (W2b): relative specifiers rewritten to blob: URLs, built leaf-first ----
+    const JS = 'application/javascript'; const modBlobs = new MapC(), classicBlobs = new MapC(); let modCount = 0;
+    const warn = (msg) => { try { W.console.warn('PoCol: ' + msg); } catch { /* console replaced by the site */ } };
+    /** blob: URL of the module at `path`, its static imports first; `stack` holds the importers being built. */
+    function moduleUrl(path, stack = []) {
+      if (modBlobs.has(path)) return modBlobs.get(path);
+      const at = stack.indexOf(path);
+      if (at >= 0) throw new Error('module import cycle: ' + [...stack.slice(at), path].join(' -> ') + ' (blob: URLs cannot express a cycle of static imports)');
+      if (stack.length > MS.MODULE_DEPTH_MAX) throw new Error('module imports nest deeper than ' + MS.MODULE_DEPTH_MAX + ' at ' + path);
+      if (++modCount > MS.MODULE_COUNT_MAX) throw new Error('a site may load at most ' + MS.MODULE_COUNT_MAX + ' modules');
+      const next = [...stack, path];
+      const text = MS.rewriteModule(new TD().decode(files.get(path).data), path, (spec) => staticTarget(spec, path, next));
+      const u = blobOf(new TE().encode(text), JS); modBlobs.set(path, u); return u;
+    }
+    /** URL for a static specifier in the module at `base`, or null to leave it (bare/external: blocked by the CSP). */
+    function staticTarget(spec, base, stack) {
+      const r = MS.resolveSpecifier(spec, base); if (!r || !r.path) return null;
+      const f = files.get(r.path); if (!f) { warn(base + ': import of ' + stringify(spec) + ' names ' + r.path + ', which is not in this site version'); return null; }
+      return f.mime === JS ? moduleUrl(r.path, stack) : f.mime === JSON_MIME ? { url: jsonModuleUrl(r.path), dropAttributes: true } : urlFor(r.path);
+    }
+    // The CSP's connect-src 'none' also blocks JSON module fetches, so a JSON file is imported as a JavaScript module
+    // whose default export is JSON.parse of its text (its `with { type: 'json' }` is dropped). Parse only, no code.
+    const jsonBlobs = new MapC(), JSON_MIME = 'application/json';
+    function jsonModuleUrl(path) {
+      if (!jsonBlobs.has(path)) jsonBlobs.set(path, blobOf(new TE().encode('export default JSON.parse(' + stringify(new TD().decode(files.get(path).data)) + ');\n'), JS));
+      return jsonBlobs.get(path);
+    }
+    /** A classic script: only its import() calls are rewritten. */
+    function classicUrl(path) {
+      if (classicBlobs.has(path)) return classicBlobs.get(path);
+      const f = files.get(path), text = new TD().decode(f.data);
+      const u = text.includes('import') ? blobOf(new TE().encode(MS.rewriteModule(text, path, null, { statics: false })), JS) : blobOf(f.data, JS); classicBlobs.set(path, u); return u;
+    }
+    const inlineScript = (text, module) => blobOf(new TE().encode(module ? MS.rewriteModule(text, currentPath, (spec) => staticTarget(spec, currentPath, []))
+      : MS.rewriteModule(text, currentPath, null, { statics: false })), JS);
+    function scriptUrl(ref, base, el) {
+      const r = resolve(ref, base); const f = r && r.path ? files.get(r.path) : null;
+      if (!f || f.mime !== JS) return refUrl(ref, base, 0);
+      return (getAttr.call(el, 'type') || '').trim().toLowerCase() === 'module' ? moduleUrl(r.path) : classicUrl(r.path);
+    }
+    // Every import(...) of a site script calls this with the importing file's path: the specifier is resolved when the
+    // call runs (also a computed one), so a lazily loaded module may import back from the module that loaded it.
+    define(W, MS.RUNTIME_IMPORT, function pocolImport(base, spec, options) {
+      try {
+        const s = String(spec), r = MS.resolveSpecifier(s, String(base));
+        if (r && r.keep) return options === undefined ? import(s) : import(s, options);
+        if (!r || !r.path) return PromiseC.reject(new TypeError('PoCol site: import(' + stringify(s.slice(0, 120)) + ') is blocked: only files of this site can be imported'));
+        const f = files.get(r.path);
+        if (!f) return PromiseC.reject(new TypeError('PoCol site: module ' + r.path + ' is not in this site version'));
+        if (f.mime === JSON_MIME) return import(jsonModuleUrl(r.path));
+        const u = f.mime === JS ? moduleUrl(r.path) : urlFor(r.path);
+        return options === undefined ? import(u) : import(u, options);
+      } catch (e) { return PromiseC.reject(e); }
+    });
     function rewriteSrcset(v, base) { return v.split(',').map((part) => { const [u, ...d] = part.trim().split(/\s+/); const r = refUrl(u, base, 0); return r ? [r, ...d].join(' ') : null; }).filter(Boolean).join(', '); }
     const URL_ATTRS = ['src', 'poster', 'href', 'xlink:href', 'data'];
     function rewriteEl(e, base) {
@@ -171,7 +227,7 @@
         if (tag === 'a' || (tag === 'area')) continue; // links are intercepted, not loaded
         if (a === 'href' && tag === 'link' && !/(^|\s)(stylesheet|icon|preload|apple-touch-icon|manifest)(\s|$)/i.test(getAttr.call(e, 'rel') || '')) { rmAttr.call(e, a); continue; }
         if (/^blob:/i.test(v)) continue;
-        const u = refUrl(v, base, 0); if (u) setAttr.call(e, a, u); else { rmAttr.call(e, a); setAttr.call(e, 'data-pocol-blocked', v.slice(0, 256)); }
+        const u = tag === 'script' && a === 'src' ? scriptUrl(v, base, e) : refUrl(v, base, 0); if (u) setAttr.call(e, a, u); else { rmAttr.call(e, a); setAttr.call(e, 'data-pocol-blocked', v.slice(0, 256)); }
       }
       const ss = getAttr.call(e, 'srcset'); if (ss !== null && !/blob:/.test(ss)) setAttr.call(e, 'srcset', rewriteSrcset(ss, base));
       const st = getAttr.call(e, 'style'); if (st !== null && /url\(|@import/i.test(st) && !/blob:/.test(st)) setAttr.call(e, 'style', rewriteCss(st, base));
@@ -247,17 +303,17 @@
       const module = type === 'module'; if (!(module || type === '' || type === 'text/javascript' || type === 'application/javascript')) continue;
       if (getAttr.call(s, 'data-pocol-blocked') !== null) { s.remove(); continue; } // external script: never executed
       const src = getAttr.call(s, 'src'); let url = null;
-      if (src !== null) url = /^blob:/i.test(src) ? src : null; else url = blobOf(new TE().encode(s.textContent), 'application/javascript');
+      if (src !== null) url = /^blob:/i.test(src) ? src : null; else url = inlineScript(s.textContent, module);
       const mark = doc.createComment('pocol-script'); s.replaceWith(mark); if (url) scripts.push({ mark, url, module });
     }
     const root = D.adoptNode(doc.documentElement);
     O.replaceChild.call(D, root, D.documentElement);
     // Later DOM additions: sanitize and rewrite relative resources (CSP blocks them until rewritten).
     new MutationObserver((recs) => {
-      for (const r of recs) {
+      for (const r of recs) try {
         if (r.type === 'childList') for (const n of r.addedNodes) { if (n.nodeType === 1) { sanitize(n); if (n.isConnected) rewriteTree(n, currentPath); } }
         else if (r.type === 'attributes' && r.target.isConnected) { const v = getAttr.call(r.target, r.attributeName); if (v !== null && /^on/i.test(r.attributeName)) rmAttr.call(r.target, r.attributeName); else if (v !== null && !/blob:/.test(v)) rewriteEl(r.target, currentPath); }
-      }
+      } catch (e) { warn(e.message); }
     }).observe(D, { subtree: true, childList: true, attributes: true, attributeFilter: ['src', 'href', 'srcset', 'style', 'poster', 'data', 'onclick', 'onload', 'onerror'] });
     for (const s of scripts) {
       await new PromiseC((res) => {

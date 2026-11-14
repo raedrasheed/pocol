@@ -4,6 +4,9 @@ declare(strict_types=1);
 const POCOL_MAX_BODY = 16384;
 const POCOL_MAX_REPLY = 4194304;
 const POCOL_MAX_ID = 9007199254740991;
+// v3 membership pages (the gateway's pocol_getMembers bounds: start below M_max 10,000, at most 256 records).
+const POCOL_MEMBERS_START_MAX = 10000;
+const POCOL_MEMBERS_PAGE_MAX = 256;
 
 function pocol_json($value, int $status = 200): void {
     http_response_code($status);
@@ -30,7 +33,15 @@ function pocol_valid_call($r): bool {
     switch ($r->method) {
         case 'pocol_status': case 'pocol_getParams': case 'pocol_getMiners':
         case 'eth_blockNumber': case 'net_peerCount': case 'eth_gasPrice':
+        case 'pocol_getRemovable': case 'pocol_finality':
             return count($p) === 0;
+        case 'pocol_getMembers':
+            return count($p) === 2 && is_int($p[0]) && is_int($p[1])
+                && $p[0] >= 0 && $p[0] < POCOL_MEMBERS_START_MAX
+                && $p[1] >= 1 && $p[1] <= POCOL_MEMBERS_PAGE_MAX;
+        case 'pocol_getMember':
+            return count($p) === 1 && is_string($p[0])
+                && preg_match('/^0x[0-9a-fA-F]{40}$/D', $p[0]) === 1;
         case 'eth_getTransactionByHash': case 'eth_getTransactionReceipt':
             return count($p) === 1 && pocol_hash($p[0]);
         case 'eth_getBalance': case 'eth_getTransactionCount': case 'eth_getCode':

@@ -31,13 +31,22 @@ exactly its FILES counts of the identity and, after it, no copy of the --from id
 pinned to any other genesis. A redo with another genesis for the same chain (a postponed launch) is a switch from the
 current invitation to the new one.
 
+The extension's built-in profile may hold a placeholder instead (decision D1, so the tree ships no retired identity in
+it before the new genesis exists): a spec-2 GenesisSpec under a chain ID of no network, marked by PLACEHOLDER_MARK in the
+file (scripts/package-release.py refuses a build that carries it). `--placeholder P.json` writes P's identity and the
+mark into PLACEHOLDER_FILES only; the switch to the real network replaces the placeholder there with the --to identity
+and removes the mark, so the identity switch stays one --from/--to run.
+
+    python3 deploy/mainnet/set_network_identity.py --placeholder deploy/mainnet/placeholder-network.pocol.json
+
 Derived files move with their sources: a page that loads a listed file by a content version (`?v=` and the first 12
 hex digits of the file's SHA-256) gets the new version, and the Studio gateway installer is rebuilt from the switched
 gateway sources. Those hashed sources must have the LF line endings git stores, so a checkout that converts line
 endings (core.autocrlf) is refused. Files are read and written as bytes (line endings are kept), and nothing is
 written unless every file passes: every new file is written beside its original first, then each original is replaced
 whole, the node file last. Documents about the project's history (development/) and the website snapshots in
-deploy/websites (build output) are not changed. Nothing is deployed.
+deploy/websites (build output) are not changed; deploy/websites/tools/site_identity.py switches those. Nothing is
+deployed.
 """
 import argparse, hashlib, json, os, re, shutil, sys
 from pathlib import Path
@@ -68,10 +77,8 @@ FILES = {
     'prototypes/pocol-extension/src/lib/studio-network.js': (1, 1, 1),
     'prototypes/pocol-extension/src/contract.html': (1, 0, 0),
     'prototypes/pocol-extension/src/publisher.html': (1, 0, 0),
-    'prototypes/pocol-extension/tests/studio_test.mjs': (3, 0, 0),
     'prototypes/pocol-extension/tests/publisher_test.mjs': (1, 0, 0),
     'prototypes/pocol-extension/tests/contract_ui_test.mjs': (3, 0, 0),
-    'prototypes/pocol-extension/tests/contracts_test.mjs': (1, 0, 0),
     'prototypes/pocol-extension/README-AR.md': (1, 0, 0),
     'prototypes/pocol-extension/README-IDE.md': (1, 1, 0),
     'prototypes/pocol-extension/README-STUDIO.md': (1, 1, 0),
@@ -88,6 +95,16 @@ FILES = {
     'deploy/studio/README-AR.txt': (1, 0, 0),
     'README.md': (1, 1, 0),
 }
+# Listed files whose pin may be the built-in profile placeholder (D1) instead of the tree's identity; such a file
+# carries PLACEHOLDER_MARK right after its NETWORK object, and its FILES counts are then counts of the placeholder.
+PLACEHOLDER_FILES = {'prototypes/pocol-extension/src/lib/studio-network.js'}
+PLACEHOLDER_AFTER = '\n});\n'
+PLACEHOLDER_MARK = (
+    '// PLACEHOLDER (decision D1): not a network. The built-in profile above is a spec-2 GenesisSpec made from the\n'
+    '// devnet spec fixture under a chain ID of no network, so the extension pins no retired identity before the new\n'
+    '// genesis exists. deploy/mainnet/set_network_identity.py replaces it with the network at the identity switch, and\n'
+    '// scripts/package-release.py refuses a build that carries it.\n'
+    'export const NETWORK_PLACEHOLDER = true;\n')
 # (page, listed file): the page loads the file as `<name>?v=<first 12 hex of its SHA-256>`, as the
 # deployed Studio does, so a cache never serves the old content under the new version.
 VERSIONED = [
@@ -250,6 +267,33 @@ def invitation_identity(path, versions=tuple(CP_ITEMS)):
             raise ValueError(f"devnet.json genesisHash is not keccak256 of the GenesisSpec (0x{genesis})")
     return chain_id, genesis, spec, version
 
+def placeholder_identity(rel, text):
+    """(chain ID, genesis hash hex, GenesisSpec) of the placeholder a PLACEHOLDER_FILES file holds, or None if it
+    holds no PLACEHOLDER_MARK. The placeholder must be one spec-2 (v3) GenesisSpec that proves its chain ID and hash."""
+    if PLACEHOLDER_MARK not in text:
+        return None
+    chain = re.findall(r'"chainId": ([0-9]+),', text)
+    genesis = re.findall(r'"genesisHash": "0x([0-9a-fA-F]{64})",', text)
+    spec = re.findall(r'"genesisPre": "0x([0-9a-fA-F]+)",', text)
+    if text.count(PLACEHOLDER_MARK) != 1 or not (len(chain) == len(genesis) == len(spec) == 1):
+        raise ValueError(f'{rel}: the placeholder mark, chainId, genesisHash or genesisPre is not readable')
+    chain_id, genesis, spec = int(chain[0]), genesis[0].lower(), bytes.fromhex(spec[0])
+    try:
+        version, spec_chain = spec_identity(spec, (2,))
+    except ValueError as e:
+        raise ValueError(f'{rel}: the placeholder is not a valid spec-2 GenesisSpec ({e})') from None
+    if spec_chain != chain_id or keccak256(spec).hex() != genesis:
+        raise ValueError(f'{rel}: the placeholder GenesisSpec does not prove its chainId and genesisHash')
+    return chain_id, genesis, spec
+
+def with_placeholder_mark(rel, text):
+    if PLACEHOLDER_MARK in text:
+        return text
+    if text.count(PLACEHOLDER_AFTER) < 1:
+        raise ValueError(f'{rel}: no end of the NETWORK object to place the placeholder mark after')
+    i = text.index(PLACEHOLDER_AFTER) + len(PLACEHOLDER_AFTER)
+    return text[:i] + PLACEHOLDER_MARK + text[i:]
+
 def current_identity(root):
     """The tree's identity as ANCHOR names it, proven by the GenesisSpec it pins."""
     text = (root / ANCHOR).read_text(encoding='utf-8')
@@ -288,15 +332,24 @@ def with_retired(data, chain_id, genesis):
 
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument('--from', dest='source', required=True, type=Path,
+    p.add_argument('--from', dest='source', type=Path,
                    help='the invitation (network.pocol.json) of the network the tree pins today')
-    p.add_argument('--to', dest='target', required=True, type=Path,
+    p.add_argument('--to', dest='target', type=Path,
                    help='the invitation (network.pocol.json) of the network the clients are switched to')
+    p.add_argument('--placeholder', type=Path,
+                   help='write this spec-2 invitation as the built-in profile placeholder (decision D1) into '
+                        'PLACEHOLDER_FILES only; not with --from or --to')
     p.add_argument('--check', action='store_true', help='verify that the tree carries exactly the --to identity')
     p.add_argument('--allow-revert', action='store_true',
                    help=f'allow a --to identity listed in {RETIRED} (switch back to a retired network on purpose)')
     p.add_argument('--root', type=Path, default=ROOT)
     a = p.parse_args(argv)
+    if a.placeholder is not None:
+        if a.source is not None or a.target is not None or a.allow_revert:
+            p.error('--placeholder is used alone (with --check or --root)')
+        return place(a, p)
+    if a.source is None or a.target is None:
+        p.error('--from and --to are required')
     try:
         old_chain, old_genesis, old_spec, _ = invitation_identity(a.source)
     except ValueError as e:
@@ -332,12 +385,34 @@ def main(argv=None):
     for rel, expected in FILES.items():
         data[rel] = (a.root / rel).read_bytes()
         text = data[rel].decode('utf-8')
-        held = counts(text, cur, cur_spec.hex())
-        if held != expected:
-            stale = True
-            problems.append(f'{rel}: holds {held} copies of the current identity (chain ID, genesis hash, '
-                            f'GenesisSpec), expected {expected}')
-        after = text if same else rewrite(text, cur, new, cur_spec.hex(), spec.hex())
+        try:
+            ph = placeholder_identity(rel, text) if rel in PLACEHOLDER_FILES else None
+        except ValueError as e:
+            problems.append(str(e))
+            continue
+        if ph:
+            # The built-in profile placeholder (D1) moves to the --to identity, and its mark goes.
+            if ph[:2] == (chain_id, genesis):
+                problems.append(f'{rel}: --to is the built-in profile placeholder, which is not a network')
+                continue
+            ph_tokens = tokens(ph[0], ph[1])
+            held = counts(text, ph_tokens, ph[2].hex())
+            if held != expected:
+                stale = True
+                problems.append(f'{rel}: holds {held} copies of the placeholder identity (chain ID, genesis hash, '
+                                f'GenesisSpec), expected {expected}')
+            if any(counts(text, cur, cur_spec.hex())):
+                problems.append(f'{rel}: holds both the placeholder and the current identity')
+            after = rewrite(text, ph_tokens, new, ph[2].hex(), spec.hex()).replace(PLACEHOLDER_MARK, '')
+            if any(counts(after, ph_tokens, ph[2].hex())):
+                problems.append(f'{rel}: would still pin the placeholder')
+        else:
+            held = counts(text, cur, cur_spec.hex())
+            if held != expected:
+                stale = True
+                problems.append(f'{rel}: holds {held} copies of the current identity (chain ID, genesis hash, '
+                                f'GenesisSpec), expected {expected}')
+            after = text if same else rewrite(text, cur, new, cur_spec.hex(), spec.hex())
         got = counts(after, new, spec.hex())
         if got != expected:
             problems.append(f'{rel}: would hold {got} copies of the given identity, expected {expected}')
@@ -387,36 +462,104 @@ def main(argv=None):
     if not a.check and not same:
         print(f'switching from chain {cur_chain} genesis 0x{cur_genesis} to chain {chain_id} genesis 0x{genesis}')
     if not a.check:
-        # Every new file is written beside its original first, so an I/O error changes nothing. Then each
-        # original is replaced whole, the node file (which names the tree's identity) last, so the next run
-        # sees a run that stopped part way.
-        staged = []
-        try:
-            for rel in sorted(changed, key=lambda r: r == ANCHOR):
-                path = a.root / rel
-                tmp = path.with_name(path.name + '.network-identity.tmp')
-                staged.append((tmp, path))
-                tmp.write_bytes(out[rel])
-                shutil.copymode(path, tmp)
-        except OSError as e:
-            remove(tmp for tmp, _ in staged)
-            print(f'FAIL {e}; nothing was changed', file=sys.stderr)
-            return 2
-        for i, (tmp, path) in enumerate(staged):
-            try:
-                os.replace(tmp, path)
-            except OSError as e:
-                remove(tmp for tmp, _ in staged[i:])
-                replaced = [str(path.relative_to(a.root)) for _, path in staged[:i]]
-                if same or not replaced:
-                    # Only derived files changed (or none), so the next run finishes the job.
-                    print(f'FAIL {e}; {i} of {len(staged)} files were replaced; run the same command again', file=sys.stderr)
-                else:
-                    print(f'FAIL {e}; {i} of {len(staged)} files were replaced: restore them '
-                          f'(git checkout -- {" ".join(replaced)}) and run the same command again', file=sys.stderr)
-                return 2
+        rc = write_files(a.root, changed, out, same)
+        if rc:
+            return rc
     print(('verified' if a.check else 'updated'), len(FILES), 'files;', 'changed:', len(changed),
           f'chainId={chain_id} genesisHash=0x{genesis}')
+    return 0
+
+def place(a, p):
+    """--placeholder: writes the placeholder identity and its mark into PLACEHOLDER_FILES, from the tree's identity or
+    from an earlier placeholder; nothing else changes."""
+    try:
+        chain_id, genesis, spec, _ = invitation_identity(a.placeholder, (2,))
+    except ValueError as e:
+        hint = ' (a placeholder is a spec-2 GenesisSpec)' if 'version is not' in str(e) else ''
+        p.error(f'--placeholder: {e}{hint}')
+    if chain_id in (0, 777001) or not 0 < chain_id < 2**53:
+        p.error(f'--placeholder: chain ID {chain_id} is reserved or outside the JavaScript safe-integer range')
+    try:
+        retired = read_retired((a.root / RETIRED).read_bytes())
+    except OSError as e:
+        raise SystemExit(f'{RETIRED}: cannot read it: {e.strerror or e}')
+    except ValueError as e:
+        raise SystemExit(f'{RETIRED}: {e}')
+    if any(chain_id == c or genesis == g for c, g in retired):
+        p.error(f'--placeholder: chain {chain_id} or genesis 0x{genesis} is a retired network ({RETIRED})')
+    cur_chain, cur_genesis, cur_spec = current_identity(a.root)
+    if chain_id == cur_chain or genesis == cur_genesis:
+        p.error("--placeholder: the tree's own network is not a placeholder")
+    new = tokens(chain_id, genesis)
+    problems, data, out = [], {}, {}
+    for rel in sorted(PLACEHOLDER_FILES):
+        expected = FILES[rel]
+        data[rel] = (a.root / rel).read_bytes()
+        text = data[rel].decode('utf-8')
+        try:
+            ph = placeholder_identity(rel, text)
+        except ValueError as e:
+            problems.append(str(e))
+            continue
+        src, src_spec = (tokens(ph[0], ph[1]), ph[2].hex()) if ph else (tokens(cur_chain, cur_genesis), cur_spec.hex())
+        held = counts(text, src, src_spec)
+        if held != expected:
+            problems.append(f'{rel}: holds {held} copies of the {"placeholder" if ph else "current"} identity, expected {expected}')
+        after = text if ph and ph[:2] == (chain_id, genesis) else rewrite(text, src, new, src_spec, spec.hex())
+        try:
+            after = with_placeholder_mark(rel, after)
+        except ValueError as e:
+            problems.append(str(e))
+            continue
+        got = counts(after, new, spec.hex())
+        if got != expected:
+            problems.append(f'{rel}: would hold {got} copies of the placeholder identity, expected {expected}')
+        out[rel] = after.encode('utf-8')
+    changed = [rel for rel in out if out[rel] != data[rel]]
+    if a.check and changed:
+        problems += [f'{rel}: does not carry the --placeholder identity and its mark' for rel in changed]
+    for line in problems:
+        print('FAIL', line, file=sys.stderr)
+    if problems:
+        return 2
+    if not a.check:
+        rc = write_files(a.root, changed, out, True)
+        if rc:
+            return rc
+    print(('verified' if a.check else 'updated'), len(PLACEHOLDER_FILES), 'placeholder files;', 'changed:', len(changed),
+          f'chainId={chain_id} genesisHash=0x{genesis}')
+    return 0
+
+def write_files(root, changed, out, same):
+    """Writes out[rel] for each changed file; 0, or 2 after reporting a failure."""
+    # Every new file is written beside its original first, so an I/O error changes nothing. Then each
+    # original is replaced whole, the node file (which names the tree's identity) last, so the next run
+    # sees a run that stopped part way.
+    staged = []
+    try:
+        for rel in sorted(changed, key=lambda r: r == ANCHOR):
+            path = root / rel
+            tmp = path.with_name(path.name + '.network-identity.tmp')
+            staged.append((tmp, path))
+            tmp.write_bytes(out[rel])
+            shutil.copymode(path, tmp)
+    except OSError as e:
+        remove(tmp for tmp, _ in staged)
+        print(f'FAIL {e}; nothing was changed', file=sys.stderr)
+        return 2
+    for i, (tmp, path) in enumerate(staged):
+        try:
+            os.replace(tmp, path)
+        except OSError as e:
+            remove(tmp for tmp, _ in staged[i:])
+            replaced = [str(path.relative_to(root)) for _, path in staged[:i]]
+            if same or not replaced:
+                # Only derived files changed (or none), so the next run finishes the job.
+                print(f'FAIL {e}; {i} of {len(staged)} files were replaced; run the same command again', file=sys.stderr)
+            else:
+                print(f'FAIL {e}; {i} of {len(staged)} files were replaced: restore them '
+                      f'(git checkout -- {" ".join(replaced)}) and run the same command again', file=sys.stderr)
+            return 2
     return 0
 
 def remove(paths):
