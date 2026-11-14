@@ -2,8 +2,11 @@
 import * as rlp from './rlp.js';
 import { keccak } from './crypto.js';
 import { concat, eq, toHex, fromHex } from './hex.js';
+import { withRetry } from './retry.js';
 export const CHUNK_MAX = 24575, FILE_MAX = 1 << 20, SITE_MAX = 4 << 20, FILES_MAX = 256, MANIFEST_MAX = 65536;
-export const MIME = new Map([[1, 'text/html'], [2, 'text/css'], [3, 'application/javascript'], [4, 'application/json'], [5, 'image/png'], [6, 'image/jpeg'], [7, 'image/webp'], [8, 'image/svg+xml'], [9, 'font/woff2'], [10, 'text/plain']]);
+export const MIME = new Map([[1, 'text/html'], [2, 'text/css'], [3, 'application/javascript'], [4, 'application/json'], [5, 'image/png'], [6, 'image/jpeg'], [7, 'image/webp'], [8, 'image/svg+xml'], [9, 'font/woff2'], [10, 'text/plain'],
+  // Sites W5 (owner answer Q3). Id 11 stays unassigned: the M1 manifest vectors use it as the unknown MIME.
+  [12, 'image/x-icon'], [13, 'application/manifest+json']]);
 const FACTORY = fromHex('0x0000000000000000000000000000000000c0c005');
 const SEG = /^[A-Za-z0-9._~-]+$/;
 export function validPath(p) {
@@ -65,22 +68,49 @@ export function decodeCurrent(out) {
   const chunks = []; for (let i = 0; i < n; i++) chunks.push(out.subarray(off + 32 + 32 * i + 12, off + 64 + 32 * i));
   return { version: Number(w(0)), manifestHash: out.subarray(32, 64), manifestLen: Number(w(2)), publishedBlock: Number(w(3)), chunks };
 }
-/** Fetch + fully verify the current version through `rpc(method, params)`. */
-export async function fetchSite(rpc, site, limits = { parallel: 8 }) {
-  const cur = decodeCurrent(fromHex(await rpc('eth_call', [{ to: site, data: SELECTORS.current }, 'latest'])));
-  const code = async (a) => fromHex(await rpc('eth_getCode', [toHex(a), 'latest']));
+/** Chunk-level fetch width (W2): at most CHUNK_WIDTH_MAX eth_getCode reads in flight, which CONTENT_POOL
+ *  (8 x 68 KiB, transport.js) admits without queueing; 2 for an RN profile, whose gateway slots are shared by
+ *  every viewer, 8 for LN/DEV/RP (a node the user runs or chose). */
+export const CHUNK_WIDTH_MAX = 8, CHUNK_WIDTH_RN = 2;
+export const chunkWidth = (trustLevel) => (trustLevel === 'RN' ? CHUNK_WIDTH_RN : CHUNK_WIDTH_MAX);
+/** Run `tasks` (async thunks) with at most `width` in flight; the first failure stops new starts and is thrown. */
+async function pooled(tasks, width) {
+  let next = 0, failure = null;
+  const worker = async () => { while (failure === null && next < tasks.length) { const t = tasks[next++]; try { await t(); } catch (e) { if (failure === null) failure = e; } } };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(width, tasks.length)) }, worker));
+  if (failure !== null) throw failure;
+}
+/** Fetch + fully verify the current version through `rpc(method, params)`.
+ *  limits.parallel: chunk reads in flight (1..CHUNK_WIDTH_MAX, default CHUNK_WIDTH_MAX); limits.retry: options for
+ *  lib/retry.js withRetry (attempts, deadlineMs, attemptMs, shorten, clock, sleep, random). Each read is retried on
+ *  429, -32021, 502/503/504, a timeout or a dropped connection, never on another HTTP status; every chunk is verified
+ *  (factory address, length) and every file by keccak, so a retry can never let tampered content through. */
+export async function fetchSite(rpc, site, limits = {}) {
+  const width = Math.max(1, Math.min(CHUNK_WIDTH_MAX, Math.floor(limits.parallel ?? CHUNK_WIDTH_MAX)));
+  const read = withRetry(rpc, { retryBusy: true, ...(limits.retry || {}) });
+  const cur = decodeCurrent(fromHex(await read('eth_call', [{ to: site, data: SELECTORS.current }, 'latest'])));
+  const code = async (a) => {
+    try { return fromHex(await read('eth_getCode', [toHex(a), 'latest'])); }
+    catch (e) { throw Object.assign(new Error('chunk ' + toHex(a) + ' could not be read: ' + e.message), e.transport ? { transport: e.transport } : {}, e.rpc ? { rpc: e.rpc } : {}); }
+  };
+  const mcodes = new Array(cur.chunks.length);
+  await pooled(cur.chunks.map((a, i) => async () => { mcodes[i] = await code(a); }), width);
   let mb = new Uint8Array(0); let left = cur.manifestLen;
-  for (const a of cur.chunks) { const c = await code(a); const l = Math.min(c.length - 1, left); const d = chunkPayload(a, c, l); left -= d.length; mb = concat(mb, d); }
+  cur.chunks.forEach((a, i) => { const c = mcodes[i]; const l = Math.min(c.length - 1, left); const d = chunkPayload(a, c, l); left -= d.length; mb = concat(mb, d); });
   if (mb.length !== cur.manifestLen || !eq(keccak(mb), cur.manifestHash)) throw new Error('manifest hash/length mismatch');
   const m = decodeManifest(mb);
+  // Every distinct (address, length) is read once, whichever files share it.
+  const payloads = new Map(); const tasks = [];
+  for (const f of m.files) for (const [a, l] of f.chunks) {
+    const k = toHex(a) + ':' + l; if (payloads.has(k)) continue; payloads.set(k, null);
+    tasks.push(async () => { payloads.set(k, chunkPayload(a, await code(a), l)); });
+  }
+  await pooled(tasks, width);
   const files = new Map();
-  const jobs = m.files.map((f) => async () => {
-    const parts = [];
-    for (const [a, l] of f.chunks) parts.push(chunkPayload(a, await code(a), l));
-    const data = concat(...parts);
+  for (const f of m.files) {
+    const data = concat(...f.chunks.map(([a, l]) => payloads.get(toHex(a) + ':' + l)));
     if (!eq(keccak(data), f.hash)) throw new Error('content hash mismatch for ' + f.path);
     files.set(f.path, { mime: MIME.get(f.mime), data });
-  });
-  for (let i = 0; i < jobs.length; i += limits.parallel) await Promise.all(jobs.slice(i, i + limits.parallel).map((j) => j()));
+  }
   return { version: cur.version, publishedBlock: cur.publishedBlock, entry: m.files[m.entry].path, files };
 }

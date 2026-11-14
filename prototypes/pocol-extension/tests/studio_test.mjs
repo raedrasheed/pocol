@@ -3,7 +3,7 @@ import { createCipheriv, pbkdf2Sync, createHmac } from 'node:crypto';
 import { build } from '../build.mjs';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
 import { siteFixture } from './site_fixture.mjs';
-import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
@@ -13,7 +13,18 @@ let count=0; const test=async(name,fn)=>{await fn();count++;console.log('PASS '+
 const secret=new Uint8Array(32);secret[31]=1;
 const password='correct horse battery staple';
 const text=(v)=>new TextEncoder().encode(JSON.stringify(v));
-await test('pinned genesis preimage proves chain and genesis hash',()=>{const spec=RP.decodeSpec(H.fromHex(N.NETWORK.genesisPre));assert.equal(spec.chainId,1599846715n);assert.equal(H.toHex(spec.genesisHash),N.NETWORK.genesisHash);});
+await test('pinned genesis preimage proves chain and genesis hash',()=>{const spec=RP.decodeSpec(H.fromHex(N.NETWORK.genesisPre));assert.equal(spec.chainId,BigInt(N.NETWORK.chainId));assert.equal(H.toHex(spec.genesisHash),N.NETWORK.genesisHash);});
+// D1: until the identity switch the built-in profile is the marked placeholder (deploy/mainnet/placeholder-network.pocol.json,
+// a spec-2 genesis of no network); either way it is a spec-2 genesis of a network that is not retired.
+await test('built-in profile is the marked spec-2 placeholder until the identity switch, never a retired network',()=>{
+  const spec=RP.decodeSpec(H.fromHex(N.NETWORK.genesisPre));assert.equal(spec.specVersion,2);
+  const retired=JSON.parse(readFileSync(new URL('../../../deploy/mainnet/retired-networks.json',import.meta.url),'utf8')).retired;
+  assert.ok(retired.every(r=>r.chainId!==N.NETWORK.chainId&&r.genesisHash!==N.NETWORK.genesisHash),'the built-in profile pins a retired network');
+  const placeholder=JSON.parse(readFileSync(new URL('../../../deploy/mainnet/placeholder-network.pocol.json',import.meta.url),'utf8'));
+  const pinned=N.NETWORK.genesisPre===placeholder.files['genesis.spec.hex'];
+  assert.equal(N.NETWORK_PLACEHOLDER===true,pinned,'the placeholder mark goes with the placeholder identity, and only with it');
+  assert.equal(N.NETWORK.name,'pocol-public');assert.equal(N.NETWORK.trustLevel,'RN');assert.equal(N.NETWORK.endpoint,'https://gateway.pocol.net/studio/rpc');
+});
 await test('HTTPS only exact pinned RN endpoint',()=>{assert.equal(N.validateEndpoint(N.NETWORK.endpoint,'RN'),N.NETWORK.endpoint);for(const u of ['http://gateway.pocol.net/studio/rpc','https://gateway.pocol.net/studio/rpc?x=1','https://gateway.pocol.net.evil/studio/rpc','https://user@gateway.pocol.net/studio/rpc','https://example.org/'])assert.throws(()=>N.validateEndpoint(u,'RN'));});
 await test('remote endpoint cannot claim local verification or unsupported RP',()=>{assert.throws(()=>N.validateEndpoint(N.NETWORK.endpoint,'LN'));assert.throws(()=>N.validateEndpoint(N.NETWORK.endpoint,'RP'));assert.match(N.trustMessage('RN'),/remote/);});
 await test('loopback preserved and RN rejected on loopback',()=>{assert.equal(N.validateEndpoint('http://127.0.0.1:8540','LN'),'http://127.0.0.1:8540');assert.throws(()=>N.validateEndpoint('http://127.0.0.1:8540','RN'));});
@@ -40,20 +51,55 @@ await test('file broker accepts complete 4 MiB site, rejects overflow and per-fi
 });
 await test('duplicate, traversal, missing entry, malformed address and noncanonical base64 rejected',()=>{for(const input of [{files:[basic.files[0],basic.files[0]]},{files:[{path:'/../x.html',base64:''}]},{files:[{path:'/x.html',base64:''}]},{...basic,site:'0x123'},{files:[{path:'/index.html',base64:'eB=='}]}])assert.throws(()=>B.validatePublishRequest(input));});
 await test('open target forbids URL traversal and arbitrary links',()=>{assert.equal(B.validateSiteTarget({site:'0x'+'ab'.repeat(20)}).path,'/');for(const path of ['https://evil/','/../x','//evil','/%2e'])assert.throws(()=>B.validateSiteTarget({site:'0x'+'ab'.repeat(20),path}));});
+await test('W3: Studio and IDE content scripts match exactly the production origins; no retired preview origin is built',()=>{
+  assert.deepEqual(manifest.content_scripts.map(c=>c.matches),[['https://studio.pocol.net/*'],['https://ide.pocol.net/*']]);
+  assert.deepEqual(manifest.content_scripts.map(c=>c.js),[['studio-content.js'],['ide-content.js']]);
+  assert.deepEqual(N.STUDIO_ORIGINS,['https://studio.pocol.net']);
+  assert.equal(N.isStudioOrigin('https://studio.pocol.net/x'),true);
+  for(const u of ['https://pocol-studio.mystic-gecko-9511.chatgpt.site/','https://studio.pocol.net.evil/','http://studio.pocol.net/','https://ide.pocol.net/'])assert.equal(N.isStudioOrigin(u),false,u);
+  const walk=d=>readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(d,e.name)):[join(d,e.name)]);
+  const hits=walk(dist).filter(f=>readFileSync(f).includes('chatgpt.site'));assert.deepEqual(hits,[]);
+  for(const origin of ['https://studio.pocol.net','https://pocol-studio.mystic-gecko-9511.chatgpt.site']){let listener=null;const window={top:null,addEventListener:(_t,fn)=>{listener=fn;},postMessage(){}};window.top=window;
+    vm.runInNewContext(readFileSync(dist+'/studio-content.js','utf8'),{window,location:{origin},chrome:{runtime:{sendMessage:async()=>({ok:true})}}});
+    assert.equal(listener!==null,origin==='https://studio.pocol.net',origin);}
+});
 await test('manifest grants only fixed origins, publisher in package, unlimited checkpoint storage',()=>{assert.ok(manifest.permissions.includes('unlimitedStorage'));assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.optional_host_permissions,undefined);assert.equal(manifest.content_scripts[0].all_frames,false);assert.match(readFileSync(dist+'/publisher.html','utf8'),/publisher-ui.js/);});
 
 const mock=installChromeMock();await loadWorker(dist,'studio-regressions');
 const sender={id:chrome.runtime.id,url:'https://studio.pocol.net/',frameId:0,tab:{id:17}};
 const call=(type,payload={},who=sender)=>new Promise(resolve=>{const keep=mock.listeners.message[0]({type,payload},who,resolve);if(keep!==true)resolve(undefined);});
-await test('public bridge status exposes capability and network without wallet',async()=>{const r=await call('studio.status');assert.equal(r.ok,true);assert.equal(r.result.network.chainId,1599846715);assert.equal(r.result.wallet,undefined);});
+await test('public bridge status exposes capability and network without wallet',async()=>{const r=await call('studio.status');assert.equal(r.ok,true);assert.equal(r.result.network.chainId,N.NETWORK.chainId);assert.equal(r.result.wallet,undefined);});
 await test('built-in public profile cannot be shadowed by an imported custom profile',async()=>{const r=await mock.send({type:'profiles.add',profile:{...N.NETWORK,endpoint:'http://127.0.0.1:8540',trustLevel:'LN'}});assert.equal(r.ok,false);const list=(await mock.send({type:'profiles.list'})).profiles;assert.equal(list.find(p=>p.name===N.NETWORK.name).endpoint,N.NETWORK.endpoint);});
 await test('content script cannot call generic wallet/profile operations',async()=>{for(const type of ['wallet.create','wallet.unlock','wallet.address','profiles.add','profiles.publicSchedule'])assert.equal((await call(type)).ok,false);assert.equal(mock.storage.data.has('wallet'),false);});
 await test('lookalike origin and iframe cannot call broker',async()=>{assert.equal((await call('studio.status',{}, {...sender,url:'https://studio.pocol.net.evil/'})).ok,false);assert.equal((await call('studio.status',{}, {...sender,frameId:1})).ok,false);});
 let jobId;
 await test('publish request opens trusted page and stores only bounded public files, no signature',async()=>{const r=await call('studio.openPublisher',basic);assert.equal(r.ok,true);jobId=r.result.jobId;assert.match(mock.tabsCreated.at(-1).url,/chrome-extension:\/\/.*\/publisher.html#/);const j=mock.storage.data.get(B.JOB_PREFIX+jobId);assert.equal(j.status,'awaitingApproval');assert.equal(j.checkpoint,undefined);assert.equal(j.request.files.length,1);});
-await test('job results are origin and tab bound',async()=>{assert.equal((await call('studio.jobStatus',{jobId})).ok,true);assert.equal((await call('studio.jobStatus',{jobId},{...sender,tab:{id:18}})).ok,false);assert.equal((await call('studio.jobStatus',{jobId},{...sender,url:'https://pocol-studio.mystic-gecko-9511.chatgpt.site/'})).ok,false);});
+await test('job results are origin and tab bound',async()=>{assert.equal((await call('studio.jobStatus',{jobId})).ok,true);assert.equal((await call('studio.jobStatus',{jobId},{...sender,tab:{id:18}})).ok,false);for(const url of ['https://pocol-studio.example.org/','https://pocol-studio.mystic-gecko-9511.chatgpt.site/','http://studio.pocol.net/'])assert.equal((await call('studio.jobStatus',{jobId},{...sender,url})).ok,false);});
 await test('status history survives page reload and is scoped to original tab',async()=>{const a=await call('studio.status'),b=await call('studio.status',{}, {...sender,tab:{id:18}});assert.equal(a.result.jobs[0].jobId,jobId);assert.equal(b.result.jobs.length,0);});
 await test('old signed checkpoint survives cleanup, old unsigned draft removed',async()=>{await mock.storage.set({[B.JOB_PREFIX+'signed-old']:{id:'signed-old',createdAt:1,status:'paused',checkpoint:{transactions:{tx:{raw:'0x02'}}}},[B.JOB_PREFIX+'draft-old']:{id:'draft-old',createdAt:1,status:'awaitingApproval'}});const r=await call('studio.openPublisher',basic);assert.equal(r.ok,true);assert.ok(mock.storage.data.has(B.JOB_PREFIX+'signed-old'));assert.equal(mock.storage.data.has(B.JOB_PREFIX+'draft-old'),false);await mock.storage.remove(B.JOB_PREFIX+r.result.jobId);});
+// Sites W4: jobs carry their network; on install or update, jobs of another network move to the read-only archive.
+await test('W4: a new publish job records the network it was created for',async()=>{const j=mock.storage.data.get(B.JOB_PREFIX+jobId);assert.deepEqual(j.network,{chainId:String(N.NETWORK.chainId),genesisHash:N.NETWORK.genesisHash.toLowerCase()});});
+await test('W4: install or update archives jobs of another network, keeps this network\'s, and drops their side keys',async()=>{
+  const here={chainId:String(N.NETWORK.chainId),genesisHash:N.NETWORK.genesisHash},signed={transactions:{'chunk:x':{hash:'0x'+'aa'.repeat(32),tx:{chainId:'777'}}}};
+  await mock.storage.set({[B.JOB_PREFIX+'foreign-net']:{id:'foreign-net',createdAt:Date.now(),status:'paused',walletAddress:'0x'+'11'.repeat(20),network:{chainId:'777',genesisHash:'0x'+'cd'.repeat(32)},checkpoint:signed},
+    ['studio:files:foreign-net']:[{path:'/index.html',base64:'eA=='}],['studio:raw:foreign-net:0xaa']:'0x02',
+    ['ide:job:legacy-chain']:{id:'legacy-chain',kind:'contract',createdAt:Date.now(),status:'pending',checkpoint:{transactions:{contract:{hash:'0x'+'bb'.repeat(32),tx:{chainId:'777'}}}}},
+    [B.JOB_PREFIX+'same-net']:{id:'same-net',createdAt:Date.now(),status:'paused',network:here,checkpoint:{transactions:{'chunk:y':{tx:{chainId:String(N.NETWORK.chainId)}}}}}});
+  assert.equal(mock.listeners.installed.length,1);mock.listeners.installed[0]({reason:'update'});
+  for(let i=0;i<50&&mock.storage.data.has(B.JOB_PREFIX+'foreign-net');i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(mock.storage.data.has(B.JOB_PREFIX+'foreign-net'),false);assert.equal(mock.storage.data.get('archive:'+B.JOB_PREFIX+'foreign-net').archivedReason,'foreign-network');
+  for(let i=0;i<50&&mock.storage.data.has('ide:job:legacy-chain');i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(mock.storage.data.has('ide:job:legacy-chain'),false,'a pre-W4 job of another chain id');assert.ok(mock.storage.data.has('archive:ide:job:legacy-chain'));
+  assert.equal(mock.storage.data.has('studio:files:foreign-net'),false);assert.equal(mock.storage.data.has('studio:raw:foreign-net:0xaa'),false);
+  assert.ok(mock.storage.data.has(B.JOB_PREFIX+'same-net'),'this network\'s job is kept');await mock.storage.remove(B.JOB_PREFIX+'same-net');
+});
+await test('W4: a collected job takes its side keys with it',async()=>{
+  await mock.storage.set({[B.JOB_PREFIX+'draft-side']:{id:'draft-side',createdAt:1,status:'awaitingApproval'},['studio:files:draft-side']:[],['studio:raw:draft-side:0x01']:'0x02'});
+  // Another tab: the broker allows each tab six requests a minute, and the later tests use tab 17's.
+  const r=await call('studio.openPublisher',basic,{...sender,tab:{id:31}});assert.equal(r.ok,true);
+  for(const k of[B.JOB_PREFIX+'draft-side','studio:files:draft-side','studio:raw:draft-side:0x01'])assert.equal(mock.storage.data.has(k),false,k);
+  await mock.storage.remove(B.JOB_PREFIX+r.result.jobId);
+});
 await test('cleanup preserves an expired job while its publisher holds the job lock',async()=>{
   const id='active-old',key=B.JOB_PREFIX+id;
   await mock.storage.set({[key]:{id,createdAt:1,status:'publishing'}});
@@ -116,7 +162,7 @@ await test('aligning a trusted public schedule clears custom-profile conflicts w
 });
 await test('changing the built-in schedule revokes its Viewer session and pending approval; RPC metadata cannot override it',async()=>{
   const fx=await siteFixture(dist);
-  const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x5f5bb93b',pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']]})});
+  const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x'+N.NETWORK.chainId.toString(16),pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']]})});
   await mock.send({type:'wallet.create',password:'studio-test-pw',seedHex:'0x'+'42'.repeat(32)});
   const oldAddress=(await mock.send({type:'wallet.address',name:N.NETWORK.name})).address;
   const opened=await mock.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true);

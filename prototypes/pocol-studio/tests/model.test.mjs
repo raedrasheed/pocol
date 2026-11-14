@@ -48,7 +48,7 @@ test('the app runs the pre-check before opening the publisher and has every caps
   for(const key of['capsRefused','capsTight','capsAlarm','capsSkipped'])assert.equal(keys(key),2,key);
   // The extension publisher's progress phases Studio shows (renderJob: t('phase_'+phase)), its FN-1 'warning' and
   // 'capsAlarm' included, each in both languages: never a raw key.
-  for(const phase of['upload','broadcast','confirmed','complete','warning','capsAlarm'])assert.equal(keys('phase_'+phase),2,'phase_'+phase);
+  for(const phase of['upload','broadcast','confirmed','complete','warning','capsAlarm','sweep','restore'])assert.equal(keys('phase_'+phase),2,'phase_'+phase);
   const{createHash}=await import('node:crypto');const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
   assert.ok(html.includes('app.js?v='+createHash('sha256').update(app).digest('hex').slice(0,12)),'index.html loads this app.js content version');
 });
@@ -63,4 +63,96 @@ test('a continuous chain (cumulative false) checks each transaction against one 
   const none=capsVerdict({...capsOf({txCount:0}),cumulative:false},least,most);assert.deepEqual(none.refuse.map(r=>r.name),['txCount']);
   assert.equal(capNeed(most,'accounts',true),BigInt(most.accounts),'the state rows count the whole publication either way');
   assert.throws(()=>capsVerdict({...capsOf(),cumulative:'no'},least,most),/capsInvalid/);
+});
+// Sites W5: the hard-deny list (shared vectors with the extension and pocol-site), the folder import order, MIME 12/13.
+import {readFileSync} from 'node:fs';
+import {denyReason,planImport,importReport,folderEntries,IMPORT_SCAN_MAX,mimeFor as mimeOf,validateFiles as validate,validateProject as checkProject} from '../dist/model.js';
+const W5=JSON.parse(readFileSync(new URL('../../pocol-extension/tests/data/publish-input-vectors.json',import.meta.url),'utf8'));
+test('W5: the hard-deny list follows the shared vectors, and validateFiles refuses a denied file loudly',()=>{
+  for(const[path,reason]of W5.deny)assert.equal(denyReason(path),reason,path);
+  for(const[path]of W5.deny.filter(([p,r])=>r!==null&&/\.(html|txt|json|js|css)$/i.test(p)))assert.throws(()=>validate([{path:'/index.html',data:new Uint8Array(1)},{path,data:new Uint8Array(1)}]),/fileDenied/,path);
+});
+test('W5: favicon.ico and site.webmanifest have MIME types; the rest of the table is unchanged',()=>{
+  for(const[path,,mime]of W5.mime)assert.equal(mimeOf(path),mime,path);
+  assert.doesNotThrow(()=>validate([{path:'/index.html',data:new Uint8Array(1)},{path:'/favicon.ico',data:new Uint8Array(4)},{path:'/site.webmanifest',data:new Uint8Array(2)}]));
+});
+test('W5: a folder with .git/ and 300 files under it imports once filtered: the filter runs before the limits',()=>{
+  const entries=[{path:'/index.html',size:100},{path:'/app.js',size:200},{path:'/.env',size:10},{path:'/api/rpc.php',size:10},{path:'/SHA256SUMS.txt',size:10},...Array.from({length:300},(_,i)=>({path:`/.git/objects/${i}`,size:4096}))];
+  assert.ok(entries.length>256);const plan=planImport(entries);
+  assert.equal(plan.error,null);assert.deepEqual(plan.kept.map(e=>e.path),['/index.html','/app.js']);assert.equal(plan.denied.length,303);
+  assert.deepEqual(plan.denied.slice(0,3),[{path:'/.env',reason:'dotfile'},{path:'/api/rpc.php',reason:'server-api'},{path:'/SHA256SUMS.txt',reason:'checksums'}]);
+  const big=planImport([{path:'/index.html',size:1},...Array.from({length:300},(_,i)=>({path:`/f${i}.txt`,size:1}))]);assert.equal(big.error,'fileCount','300 publishable files still exceed the limit');
+  const huge=planImport([{path:'/index.html',size:1},{path:'/.git/pack',size:50*1048576}]);assert.equal(huge.error,null,'a denied file never counts against the size limits');
+});
+test('W5: the folder picker counts only files the hard-deny filter keeps against its 4096 bound: a .git/ of 5000 objects still imports',()=>{
+  const file=(rel,size=1)=>({webkitRelativePath:'site/'+rel,name:rel.split('/').pop(),size});
+  const list=[file('index.html',10),file('app.js',20),...Array.from({length:5000},(_,i)=>file(`.git/objects/${i}`,4096)),file('api/rpc.php')];
+  assert.ok(list.length>IMPORT_SCAN_MAX);const {entries,error}=folderEntries(list);assert.equal(error,null);assert.equal(entries.length,list.length);
+  assert.deepEqual(entries.slice(0,2).map(e=>[e.path,e.size]),[['/index.html',10],['/app.js',20]]);assert.equal(entries[0].file,list[0]);
+  const plan=planImport(entries);assert.equal(plan.error,null);assert.deepEqual(plan.kept.map(e=>e.path),['/index.html','/app.js']);assert.equal(plan.denied.length,5001);
+  assert.equal(folderEntries([{name:'index.html',size:3}]).entries[0].path,'/index.html','a single file without a folder keeps its name');
+  const many=Array.from({length:IMPORT_SCAN_MAX},(_,i)=>file(`f${i}.txt`));assert.equal(folderEntries(many).error,null);
+  assert.equal(folderEntries([...many,file('one-more.txt')]).error,'fileCount','4097 publishable files are refused before the review');
+});
+test('W5: an unsupported file is refused loudly until the user excludes it, and the exclusion is reported',()=>{
+  const entries=[{path:'/index.html',size:1},{path:'/server.php',size:1},{path:'/notes.md',size:1},{path:'/.htaccess',size:1}];
+  const refused=planImport(entries);assert.equal(refused.error,'filePath');assert.deepEqual(refused.unsupported,['/server.php','/notes.md']);
+  const ok=planImport(entries,{exclude:['/server.php','/notes.md']});assert.equal(ok.error,null);assert.deepEqual(ok.excluded,['/server.php','/notes.md']);
+  const report=importReport(ok);assert.deepEqual(report,{denied:[{path:'/.htaccess',reason:'dotfile'}],excluded:['/server.php','/notes.md'],more:0});
+  const p=checkProject({mode:'files',files:[{path:'/index.html',base64:'eA=='}],entry:'/index.html',importReport:report});assert.deepEqual(p.importReport,report,'the report survives a project round trip');
+});
+import{moduleReport,checkIncomingFiles,checkReplacedFiles,publishFiles}from'../dist/model.js';
+const mf=(path,text)=>({path,data:new TextEncoder().encode(text)});
+const filesProject=files=>({id:'stored-1',mode:'files',name:'Saved before W2b',lang:'en',entry:'/index.html',files:files.map(f=>({path:f.path,base64:encode64(f.data)})),created:1,published:null});
+test('Sites W2b: module imports are checked where files come in and before publishing (graph, cycle, missing file, bare specifier)',()=>{
+  const ok=checkIncomingFiles([mf('/index.html','<script type="module" src="main.js"></script>'),mf('/main.js',"import{a}from'./lib/a.js';import('./lazy.js');import(x);"),mf('/lib/a.js',"export const a=1;"),mf('/lazy.js',"import{a}from'./lib/a.js';export default a;")],'/index.html');
+  assert.equal(ok.length,1);assert.match(ok[0],/computed specifier/);
+  const refused=(files,re)=>assert.throws(()=>checkIncomingFiles(files,'/index.html'),e=>e.code==='MODULE_GRAPH'&&re.test(e.message));
+  refused([mf('/index.html',''),mf('/a.js',"import'./b.js';"),mf('/b.js',"import'./a.js';")],/module import cycle: \/a\.js -> \/b\.js -> \/a\.js/);
+  refused([mf('/index.html',''),mf('/a.js',"import'./gone.js';")],/\/gone\.js, which is not in the site/);
+  refused([mf('/index.html',''),mf('/a.js',"import React from'react';")],/"react" cannot load/);
+  // validateFiles itself stays structural.
+  assert.deepEqual(validateFiles([mf('/index.html',''),mf('/a.js',"import'./a.js';")]),{count:2,total:15});
+});
+test('Sites W2b: a stored project with a module error still loads, previews, exports and re-imports; only publishing it is refused',()=>{
+  const cyc=[mf('/index.html','<script type="module" src="a.js"></script>'),mf('/a.js',"import'./b.js';"),mf('/b.js',"import'./a.js';")];
+  const ext=[mf('/index.html','<script type="module" src="a.js"></script>'),mf('/a.js',"import x from 'https://esm.sh/preact';")];
+  for(const files of[cyc,ext]){
+    const stored=[filesProject(files),newProject('personal','en')];
+    // Studio loads storage as `projects=v.slice(0,25).map(validateProject)`: one bad project must not hide the others.
+    const loaded=JSON.parse(JSON.stringify(stored)).map(validateProject);
+    assert.equal(loaded.length,2);assert.equal(loaded[0].files.length,files.length);
+    assert.equal(projectFiles(loaded[0]).length,files.length,'its files can be listed, viewed, previewed and exported');
+    assert.equal(parseProject(publicProject(loaded[0])).files.length,files.length,'a backup of it can be imported again');
+    assert.ok(moduleReport(projectFiles(loaded[0])).errors.length>=1,'the files panel lists the errors');
+    assert.throws(()=>publishFiles(loaded[0]),e=>e.code==='MODULE_GRAPH'&&/module import cycle|cannot load in a PoCol site/.test(e.message));
+    assert.deepEqual(publishFiles(loaded[1]).warnings,[]);assert.equal(publishFiles(loaded[1]).files.length,1);
+  }
+});
+test('Sites W2b: replacing a file is refused only for module errors the edit adds, so a stored error can be fixed',()=>{
+  const before=[mf('/index.html',''),mf('/a.js',"import'./b.js';"),mf('/b.js',"import'./a.js';"),mf('/c.js','export{};')];
+  const edit=(files,path,text)=>files.map(f=>f.path===path?mf(path,text):f);
+  assert.deepEqual(checkReplacedFiles(before,edit(before,'/c.js','export const c=1;'),'/index.html'),[],'an unrelated edit keeps the old error and is saved');
+  assert.throws(()=>checkReplacedFiles(before,edit(before,'/c.js',"import'./nope.js';"),'/index.html'),e=>e.code==='MODULE_GRAPH'&&/nope\.js/.test(e.message)&&e.moduleErrors.length===1);
+  const fixed=edit(before,'/b.js','export const b=1;');
+  assert.deepEqual(checkReplacedFiles(before,fixed,'/index.html'),[]);assert.deepEqual(moduleReport(fixed).errors,[]);
+  assert.match(checkReplacedFiles(fixed,edit(fixed,'/c.js','import(name);'),'/index.html')[0],/computed specifier/,'a warning is returned, not refused');
+});
+test('Sites W2b: the publish warnings reach the caller (computed or external import(), import.meta)',()=>{
+  const p=filesProject([mf('/index.html',''),mf('/a.js',"import(name);import('https://cdn.example/x.js');console.log(import.meta.url);")]);
+  const w=publishFiles(validateProject(p)).warnings;assert.equal(w.length,3);assert.match(w.join('\n'),/computed specifier[\s\S]*blocked in a PoCol site[\s\S]*import\.meta\.url/);
+});
+import{tokenize as msTokenize,scanModule as msScan,rewriteModule as msRewrite,RUNTIME_IMPORT as MS_RUNTIME}from'../dist/modscan.js';
+test('Sites W2b: a `/` after an if/while/for/with head is a regular expression; after a call or a group it divides (the scanner Studio checks with)',()=>{
+  const dyn=src=>msScan(src).dynamics.map(d=>d.spec),classic=src=>msRewrite(src,'/main.js',()=>null,{statics:false});
+  for(const src of["if (true) /import(\"x\")/.test('x');","for(;;) /import('a')/g.exec(s);","while(x) /import('a')/.test(s);","with (o) /import('a')/.test(s);","for await (const x of y) /import('a')/.test(x);","if (f(a, (b))) /import('a')/.test(s);"]){
+    assert.deepEqual(dyn(src),[],src);assert.equal(classic(src),src,src);
+  }
+  for(const[src,spec]of[["(a)/b; import('./g.js'); c/d",'./g.js'],["f(a) / 2; import('./c.js'); y / 3",'./c.js'],["o.if(a) / 2; import('./m.js'); y / 3",'./m.js'],["x.default / 2; import('./p.js'); y / 3",'./p.js']]){
+    assert.deepEqual(dyn(src),[spec],src);assert.equal(classic(src),src.replace(`import('${spec}')`,`${MS_RUNTIME}("/main.js",'${spec}')`),src);
+  }
+  // The publish check sees the same: a regular expression after a statement head names no file; a missing file after a call's division is refused.
+  assert.deepEqual(checkIncomingFiles([mf('/index.html',''),mf('/a.js',"if (window.x) /import('.\\/gone.js')/.test('');")],'/index.html'),[]);
+  assert.throws(()=>checkIncomingFiles([mf('/index.html',''),mf('/a.js',"f(1) / 2; import('./gone.js'); y / 3;")],'/index.html'),e=>e.code==='MODULE_GRAPH'&&/\/gone\.js, which is not in the site/.test(e.message));
+  const big=1<<20;for(const src of[')/['.repeat(big/3),'if()/['.repeat(big/6),'for(;;)/[a'.repeat(big/10)]){const stats={regexSteps:0};msTokenize(src,stats);assert.ok(stats.regexSteps<=src.length,`${stats.regexSteps} steps for ${src.length} characters`);}
 });

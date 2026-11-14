@@ -2,7 +2,7 @@
 import { Interface, Fragment, Transaction, getAddress, getCreateAddress, keccak256, toUtf8Bytes } from '../vendor/ethers.js';
 import { NETWORK } from './studio-network.js';
 export const IDE_JOB_PREFIX = 'ide:job:';
-export const IDE_ORIGINS = Object.freeze(['https://ide.pocol.net', 'https://pocol-ide.mystic-gecko-9511.chatgpt.site']);
+export const IDE_ORIGINS = Object.freeze(['https://ide.pocol.net']);
 export const IDE_REQUEST_MAX = 262144;
 const MAX_INIT = 49152, MAX_DATA = 58000, MAX_GAS = 8000000n, MAX_FEE = 200000000000n, PRIORITY = 1000000000n;
 const HEX = /^0x(?:[a-f0-9]{2})*$/i, HASH = /^0x[a-f0-9]{64}$/i;

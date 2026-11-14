@@ -1,0 +1,17 @@
+# Sites W5: the explicit file list of the explorer's on-chain copy for rehearsal S1 (SITES-PLAN.md W5, W15).
+# Published only from the git-tracked snapshot (tools/site_snapshot.py reads the committed blobs), never from a host docroot.
+# Not listed, and refused whatever this list says: .htaccess, api/** (server code), SHA256SUMS.txt (names server files).
+# favicon.ico and site.webmanifest have manifest MIME ids 12 and 13 (owner answer Q3).
+# When a bundle file is renamed (W9 identity tool, W7), update its line here.
+index.html
+assets/index-473b5bd9e7ec.js
+assets/index-oGnBWUS-.css
+favicon.ico
+site.webmanifest
+apple-touch-icon.png
+icon-192.png
+icon-192-maskable.png
+icon-512.png
+icon-512-maskable.png
+pocol-icon.png
+pocol-logo.png

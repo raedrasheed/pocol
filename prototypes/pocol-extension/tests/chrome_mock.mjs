@@ -31,7 +31,7 @@ export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaa
     release() { const h = storage.held.shift(); if (h) h.release(); return !!h; },
     data,
   };
-  const listeners = { message: [], connect: [], removed: [], omnibox: [], action: [] };
+  const listeners = { message: [], connect: [], removed: [], omnibox: [], action: [], installed: [] };
   let rules = [];
   const tabsCreated = [];
   globalThis.chrome = {
@@ -40,6 +40,7 @@ export function installChromeMock({ extensionId = 'mockextensionidaaaaaaaaaaaaaa
       id: extensionId, getURL: (p) => `chrome-extension://${extensionId}/${p}`, openOptionsPage() {},
       onMessage: { addListener: (f) => listeners.message.push(f) },
       onConnect: { addListener: (f) => listeners.connect.push(f) },
+      onInstalled: { addListener: (f) => listeners.installed.push(f) },
     },
     declarativeNetRequest: {
       async updateSessionRules({ removeRuleIds = [], addRules = [] }) {
