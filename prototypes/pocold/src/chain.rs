@@ -5,6 +5,7 @@ use crate::{assignment::{self,Assignment,DrawWeights,Membership,NonceMode,Parent
 use pocol_lp4_execution::{admission::{Admitted,NodeLocal},apply::{self,BlockInput,BlockOutput,EvidenceEffect,Genesis,ParentResult,Proposer},fees,profile::ProfileIdentity,txsign::Key};
 use revm::{InMemoryDB,primitives::{Address,B256,U256}};
 use crate::types::*;
+use crate::members::{self,EntryMembers,MemberRec,MemberStep,MemberSets,NonceOwners,Set,Id};
 pub use pocol_lp4_execution::apply::ProgramSet;
 
 /// Longest stored rejection reason (A13 accounting).
@@ -185,8 +186,17 @@ pub struct Entry{
     pub slim:bool,
     /// Draw(h,0) for this block's height on its branch (evidence type 1 DrawIndex).
     pub drawn:Address,
-    /// This block's nonce ranges (owner lookup for evidence without old state).
-    pub ranges:Vec<(Address,u128,u128)>,
+    /// This block's nonce ranges (owner lookup for evidence without old state). FN-3a: every verdict still reads them;
+    /// the member records below are compared with them at each reader (the shadow), and FN-3b removes them. A boxed
+    /// slice (FN-3a; a Vec before): its spare capacity word pays for `members`' pointer, so an Entry's size is unchanged.
+    pub ranges:Box<[(Address,u128,u128)]>,
+    /// FN-3 (C6, node-local): this block's member record (its member set S_b as a change from its parent's, or a
+    /// snapshot, `crate::members`), from which its assignment is recomputed (`Chain::assignment_of`), and a snapshot
+    /// block's ids, while the entry is not offloaded: `h_full` sets it, `offload` drops it with the block's other bytes
+    /// (one pointer on an offloaded or slimmed entry; A13). The record itself is persisted (history.redb, or a bare
+    /// chain's `MemSets`) and is a function of (S_parent, S_b, h), so live, replayed and restored chains hold the same
+    /// records whatever their entries hold (`Chain::member_rec_of` reads either); the ids are a cache only.
+    pub members:Option<Box<EntryMembers>>,
     /// D-REORG-REDB off-heap block store: the journal frame offset of this block's record, set by
     /// the node after `journal.append` (and recomputed on replay). `None` for a bare chain with no
     /// journal and for genesis (never journaled). Only a block with `body_off = Some` may be offloaded.
@@ -303,7 +313,7 @@ pub trait BlockBytes{fn record_at(&self,off:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8
 /// nonce ranges. Fork choice, contexts and evidence read only the rest at these depths.
 /// V3-02: an offloaded entry's late-share evidence (kept by `offload`) goes too; `unslim` reads it back with the rest.
 pub(crate) fn slim(e:&mut Entry){let h=&mut e.header;h.logs_bloom=Vec::new();h.proposer=Vec::new();h.sig=Vec::new();h.shares=Vec::new();h.ut_raw=Vec::new();
-    h.share_list_raw=Vec::new();h.encoded=Vec::new();e.result=None;e.ranges=Vec::new();e.summary=None;e.slim=true;if e.offloaded{e.body.evidence=Vec::new();}}
+    h.share_list_raw=Vec::new();h.encoded=Vec::new();e.result=None;e.ranges=Box::default();e.summary=None;e.slim=true;if e.offloaded{e.body.evidence=Vec::new();}}
 /// The ParentResult of block `hash` from its journal record's result bytes (node::result_bytes).
 pub fn decode_result(rb:&[u8],hash:&[u8;32])->Result<Option<ParentResult>,Reject>{
     let bad=||Reject::Block("result bytes".into());
@@ -324,7 +334,8 @@ pub fn decode_result(rb:&[u8],hash:&[u8;32])->Result<Option<ParentResult>,Reject
 /// entry is offloaded to exactly what it was before. An entry slimmed first keeps none (as `slim` of an offloaded
 /// one): a slimmed and offloaded entry holds no evidence whichever ran first, so the live entry, a replayed one and a
 /// checkpoint-restored one (`checkpoint::entry_of`) are the same, and `unslim` reads the items back.
-pub(crate) fn offload(e:&mut Entry){e.body=if e.slim{Body::default()}else{offloaded_body(&e.body)};e.receipts=Vec::new();e.tx_hashes=Vec::new();e.header.encoded=Vec::new();e.offloaded=true;}
+/// FN-3: and its member record and ids (the member source holds them).
+pub(crate) fn offload(e:&mut Entry){e.body=if e.slim{Body::default()}else{offloaded_body(&e.body)};e.receipts=Vec::new();e.tx_hashes=Vec::new();e.header.encoded=Vec::new();e.members=None;e.offloaded=true;}
 /// What an offloaded entry keeps of its body: its late-share evidence items (V3-02), nothing else (an empty body
 /// without an allocation when there are none).
 pub(crate) fn offloaded_body(b:&Body)->Body{Body{txs:Vec::new(),evidence:late_items(&b.evidence)}}
@@ -343,7 +354,7 @@ impl Entry{
         Entry{hash:self.hash,header:self.header.clone(),body:self.body.clone(),height:self.height,parent:self.parent,total_work:self.total_work,import_seq:self.import_seq,
             signed:self.signed,timely:self.timely,ts:self.ts,target:self.target,base_fee:self.base_fee,gas_used:self.gas_used,seal:self.seal,state:empty_state(),is_final:self.is_final,
             result:self.result.clone(),receipts:self.receipts.clone(),tx_hashes:self.tx_hashes.clone(),cum_txs:self.cum_txs,cum_tx_bytes:self.cum_tx_bytes,
-            cum_log_bytes:self.cum_log_bytes,pruned:true,full:false,diff:self.diff.clone(),slim:self.slim,drawn:self.drawn,ranges:self.ranges.clone(),body_off:self.body_off,offloaded:self.offloaded,trie:self.trie.clone(),summary:self.summary.clone(),stored:None}
+            cum_log_bytes:self.cum_log_bytes,pruned:true,full:false,diff:self.diff.clone(),slim:self.slim,drawn:self.drawn,ranges:self.ranges.clone(),members:self.members.clone(),body_off:self.body_off,offloaded:self.offloaded,trie:self.trie.clone(),summary:self.summary.clone(),stored:None}
     }
 }
 
@@ -544,6 +555,86 @@ pub struct Chain{
     /// C-1 S5 (old journals): blocks a replay without eviction would have inserted and the same retain removed, counted
     /// by the next `retain_unsettled` as its own removals (`note_removed`).
     removed_pending:Vec<[u8;32]>,
+    /// FN-3 (C6, node-local): where member records and snapshot sets of blocks this chain does not hold whole are read:
+    /// history.redb on a node (`set_member_source`, right after the node opens it), else the chain's own `MemSets`.
+    member_src:std::sync::Arc<dyn MemberSets>,
+    /// FN-3: the member caches (sets by block hash, recomputed assignments by (parent, attempt), the owner memo by
+    /// (block hash, nonce)); interior-mutable like `costly`. Every key commits to S_b through a block hash, so no value
+    /// can be stale. A cache only: a miss recomputes.
+    member_cache:std::sync::Mutex<MemberCache>,
+    member_stats:MemberStats,
+    /// FN-3a: the oracle. Each import recomputes the new block's assignment from its member records with the caches
+    /// bypassed and compares it with the one it was validated under, and each historical reader compares the whole
+    /// recomputed ranges with the stored ones (each looked-up owner is compared whatever this says). A mismatch is a
+    /// local fault (`Reject::Local`, the source marked damaged), never a verdict. On by default in FN-3a (the shadow
+    /// release); a runtime flag, not a feature, so it changes no dependency.
+    pub member_oracle:bool,
+}
+/// FN-3: the most member sets the chain caches (an evidence carrier's E_max ancestors and D late-share templates, their
+/// parents, and the last two imports): max(16, 2·E_max + D + 2).
+pub fn sets_cap(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{16usize.max(2*usize::from(cp.E_max)+usize::from(cp.D)+2)}
+/// FN-3: the most recomputed assignments the chain caches: max(8, E_max + D + 1).
+pub fn assigns_cap(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{8usize.max(usize::from(cp.E_max)+usize::from(cp.D)+1)}
+/// FN-3: the owner memo's capacity: the proposer re-evaluates up to EVIDENCE_POOL_MAX items twice per template, each up
+/// to S_max + 1 nonces: min(OWNERS_MAX, 2·EVIDENCE_POOL_MAX·(S_max + 1)).
+pub fn owners_cap(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{members::OWNERS_MAX.min(2*members::EVIDENCE_POOL_ASSUMED*(usize::from(cp.S_max)+1))}
+/// FN-3: the chain's member caches (see `Chain::member_cache`).
+pub struct MemberCache{
+    sets:members::SmallLru<[u8;32],Set>,
+    assigns:members::SmallLru<([u8;32],u32),std::sync::Arc<Assignment>>,
+    owners:members::Memo<([u8;32],u64),Option<Id>>,
+    /// The last RECON_SAMPLES reconstruction times (µs), for the status's p99.
+    recon_us:std::collections::VecDeque<u64>,
+}
+const RECON_SAMPLES:usize=256;
+impl MemberCache{
+    fn new(cp:&pocol_lp4_execution::profile::ConsensusParams)->Self{
+        MemberCache{sets:members::SmallLru::new(sets_cap(cp)),assigns:members::SmallLru::new(assigns_cap(cp)),owners:members::Memo::new(owners_cap(cp)),recon_us:Default::default()}
+    }
+}
+#[derive(Default)]
+struct MemberStats{set_hits:AU,set_misses:AU,disk_set_reads:AU,record_reads:AU,assign_hits:AU,assign_misses:AU,owner_hits:AU,reconstructions:AU,reconstruct_us_max:AU,
+    snapshots_written:AU,delta_max:AU,oracle_checks:AU,oracle_mismatch:AU,faults:AU}
+type AU=std::sync::atomic::AtomicU64;
+fn bump(a:&AU){a.fetch_add(1,std::sync::atomic::Ordering::Relaxed);}
+fn load(a:&AU)->u64{a.load(std::sync::atomic::Ordering::Relaxed)}
+/// FN-3: the member counters (node status `members`, tests).
+#[derive(Clone,Debug,Default,PartialEq,Eq)]
+pub struct MemberCounters{
+    pub set_hits:u64,pub set_misses:u64,pub disk_set_reads:u64,pub record_reads:u64,pub assign_hits:u64,pub assign_misses:u64,pub owner_hits:u64,
+    /// Member sets recomputed by a walk, and the slowest and the p99 of the last RECON_SAMPLES (µs).
+    pub reconstructions:u64,pub reconstruct_us_max:u64,pub reconstruct_us_p99:u64,
+    /// Snapshot records written by `h_full`, and the largest delta it wrote (ids).
+    pub snapshots_written:u64,pub delta_max:u64,
+    /// Comparisons of a recomputation with the stored ranges or the validated assignment, and how many differed.
+    pub oracle_checks:u64,pub oracle_mismatch:u64,
+    /// Member data that did not add up or was missing (each a local fault, the source marked damaged).
+    pub faults:u64,
+    /// (sets, assignments, owners) held and their capacities.
+    pub held:(usize,usize,usize),pub caps:(usize,usize,usize),
+}
+/// FN-3: owner(nonce) of a stored block recomputed from its member records: the owner memo first, then the block's
+/// assignment, resolved on the first lookup that misses (so a check that runs before any lookup, kind-3's cap, runs
+/// before any reconstruction, as it ran before the stored ranges were read).
+pub struct LazyOwners<'a>{chain:&'a Chain,e:&'a Entry,cell:std::cell::OnceCell<std::sync::Arc<Assignment>>}
+impl<'a> LazyOwners<'a>{pub fn new(chain:&'a Chain,e:&'a Entry)->Self{LazyOwners{chain,e,cell:Default::default()}}}
+impl NonceOwners for LazyOwners<'_>{
+    fn owner(&self,n:u64)->Result<Option<Address>,Reject>{
+        let k=(self.e.hash,n);let hit=self.chain.mcache().owners.get(&k);
+        if let Some(o)=hit{bump(&self.chain.member_stats.owner_hits);return Ok(o.map(|x|addr(&x)))}
+        let a=match self.cell.get(){Some(a)=>a.clone(),None=>{let a=self.chain.assignment_of(self.e)?;let _=self.cell.set(a.clone());a}};
+        let o=a.owner(n);self.chain.mcache().owners.put(k,o);Ok(o.map(|x|addr(&x)))
+    }
+}
+/// FN-3a, the shadow: the verdict's owner from the stored ranges, after the recomputed one was compared with it (a
+/// mismatch or a failure to recompute is local: the source is marked damaged and the node stops, never a verdict).
+pub struct ShadowOwners<'a>{lazy:LazyOwners<'a>,ranges:&'a [(Address,u128,u128)],what:&'static str}
+impl<'a> ShadowOwners<'a>{pub fn new(chain:&'a Chain,e:&'a Entry,what:&'static str)->Self{ShadowOwners{lazy:LazyOwners::new(chain,e),ranges:&e.ranges,what}}}
+impl NonceOwners for ShadowOwners<'_>{
+    fn owner(&self,n:u64)->Result<Option<Address>,Reject>{
+        let want=range_owner(self.ranges,u128::from(n));let got=self.lazy.owner(n)?;
+        self.lazy.chain.oracle_verdict(self.lazy.e,got==want,self.what)?;Ok(want)
+    }
 }
 
 /// C-1 E5: the state of an entry that holds none (pruned, stored, or a metadata copy): one shared empty
@@ -559,13 +650,14 @@ impl Chain{
         let mut h=blank_header();h.chain_id=spec.chain_id();h.genesis_hash=gh;h.ts=cp.g_ts;h.target=spec.target_g();
         let genesis=Entry{hash:gh,header:h,body:Body::default(),height:0,parent:None,total_work:U256::ZERO,import_seq:0,signed:false,timely:true,ts:cp.g_ts,
             target:spec.target_g(),base_fee:U256::ZERO,gas_used:0,seal:seal_genesis(&gh),state:std::sync::Arc::new(spec.genesis().state().clone()),is_final:false,result:None,
-            receipts:vec![],tx_hashes:vec![],cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,pruned:false,full:true,diff:None,slim:false,drawn:Address::ZERO,ranges:vec![],body_off:None,offloaded:false,
+            receipts:vec![],tx_hashes:vec![],cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,pruned:false,full:true,diff:None,slim:false,drawn:Address::ZERO,ranges:Box::default(),members:Some(Box::new(EntryMembers{rec:MemberRec::genesis(),ids:None})),body_off:None,offloaded:false,
             trie:Some(pocol_lp4_execution::state_trie::StateTrie::build(spec.genesis().state())),
             summary:Some(Box::new(pocol_lp4_execution::state_summary::Summary::scan(spec.genesis().state(),cp.B_code_max))),stored:None};
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
-        let k_hist=u64::from(spec.local().k_hist);
+        let k_hist=u64::from(spec.local().k_hist);let member_cache=MemberCache::new(spec.cp());
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),ctx_cache:Default::default(),ctx_cache_off:false,seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
-            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,finalized_h:0,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new()}
+            r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,finalized_h:0,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new(),
+            member_src:std::sync::Arc::new(members::MemSets::default()),member_cache:std::sync::Mutex::new(member_cache),member_stats:Default::default(),member_oracle:true}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
     /// V3-26: the retention floor max(head − r_keep, finalized_h) (local retention, never validity). Journal replay
@@ -731,6 +823,167 @@ impl Chain{
         let proposer=self.drawn_shared(p,&membership,h)?;
         Ok(ChildCtx{height:h,attempt,window,membership,assignment,target,t_share,proposer,base_fee,prevrandao:prevrandao(&p.seal),
             parent_result:p.result.clone(),ancestors})
+    }
+
+    // ---------------- FN-3 member records (C6, node-local) ----------------
+    /// FN-3: reads member records and snapshot sets the chain does not hold from `src` from now on (a node: its
+    /// history.redb, set right after it is opened, before a checkpoint restore or replay fills the chain). The caches
+    /// start empty.
+    pub fn set_member_source(&mut self,src:std::sync::Arc<dyn MemberSets>){self.member_src=src;self.clear_member_caches();}
+    fn mcache(&self)->std::sync::MutexGuard<'_,MemberCache>{self.member_cache.lock().unwrap_or_else(|e|e.into_inner())}
+    /// FN-3: forgets every cached member set, recomputed assignment and owner, and (FN-1) every child context, so the
+    /// next lookups recompute from the records (tests: the cold sweep; never needed for correctness).
+    pub fn clear_member_caches(&self){{let mut c=self.mcache();c.sets.clear();c.assigns.clear();c.owners.clear();}self.clear_ctx_cache();}
+    pub fn set_member_oracle(&mut self,on:bool){self.member_oracle=on;}
+    /// FN-3: the member counters and the caches' sizes.
+    pub fn member_counters(&self)->MemberCounters{
+        let m=&self.member_stats;let c=self.mcache();
+        let mut v:Vec<u64>=c.recon_us.iter().copied().collect();v.sort_unstable();
+        let p99=if v.is_empty(){0}else{v[(v.len()*99/100).min(v.len()-1)]};
+        MemberCounters{set_hits:load(&m.set_hits),set_misses:load(&m.set_misses),disk_set_reads:load(&m.disk_set_reads),record_reads:load(&m.record_reads),assign_hits:load(&m.assign_hits),
+            assign_misses:load(&m.assign_misses),owner_hits:load(&m.owner_hits),reconstructions:load(&m.reconstructions),reconstruct_us_max:load(&m.reconstruct_us_max),reconstruct_us_p99:p99,
+            snapshots_written:load(&m.snapshots_written),delta_max:load(&m.delta_max),oracle_checks:load(&m.oracle_checks),oracle_mismatch:load(&m.oracle_mismatch),faults:load(&m.faults),
+            held:(c.sets.len(),c.assigns.len(),c.owners.len()),caps:(c.sets.cap(),c.assigns.cap(),c.owners.cap())}
+    }
+    /// A member fault: the data read did not add up or is missing. The source is marked damaged (a node's history.redb is
+    /// then rebuilt at the next open, I1) and the caller gets a local failure, never a verdict.
+    fn member_fault(&self,why:&str)->Reject{bump(&self.member_stats.faults);self.member_src.damaged(why);Reject::Local(format!("member records: {why}"))}
+    /// FN-3a: the outcome of one comparison of a recomputation with what the verdict reads (`ok`), counted; a mismatch
+    /// is a member fault (and a debug assertion).
+    fn oracle_verdict(&self,e:&Entry,ok:bool,what:&str)->Result<(),Reject>{
+        bump(&self.member_stats.oracle_checks);if ok{return Ok(())}
+        bump(&self.member_stats.oracle_mismatch);
+        let why=format!("the oracle: {what} of block {} at height {} recomputed from the member records differs",B256::from(e.hash),e.height);
+        eprintln!("FN-3 {why}");debug_assert!(false,"{why}");Err(self.member_fault(&why))
+    }
+    /// FN-3a: with the oracle on, the whole recomputed assignment of `e` against its stored ranges.
+    fn shadow_ranges(&self,e:&Entry,what:&str)->Result<(),Reject>{
+        if !self.member_oracle{return Ok(())}
+        let a=self.assignment_of(e)?;self.oracle_verdict(e,ranges_equal(&e.ranges,&a),what)
+    }
+    /// FN-3a: owner(nonce) of `e` recomputed, compared with the stored ranges' `want` (the verdict's).
+    fn shadow_owner(&self,e:&Entry,nonce:u64,want:Option<Address>,what:&str)->Result<(),Reject>{let got=self.owner_of(e,nonce)?;self.oracle_verdict(e,got==want,what)}
+    /// FN-3: block `e`'s member set S_b (sorted ids). From the cache, `e`'s own ids, or a walk from `e` to its nearest
+    /// anchor (a cached set, a held entry's ids, or a snapshot read from the member source) through the held entries and
+    /// then the source's records (which carry the parent's hash), each step checked: heights link, no delta at a
+    /// snapshot height, at most WALK_MAX steps, every count and digest adds up. The deltas are then applied oldest
+    /// first. Any failure is a member fault (local), never a verdict.
+    pub fn member_set(&self,e:&Entry)->Result<Set,Reject>{self.member_set_with(e,true)}
+    fn member_set_with(&self,e:&Entry,cached:bool)->Result<Set,Reject>{
+        if e.height==0{return Ok(std::sync::Arc::from(Vec::<Id>::new()))}
+        if cached{let hit=self.mcache().sets.get(&e.hash);if let Some(s)=hit{bump(&self.member_stats.set_hits);return Ok(s)}}
+        if let Some(s)=e.members.as_ref().and_then(|m|m.ids.clone()){if cached{bump(&self.member_stats.set_hits);self.mcache().sets.put(e.hash,s.clone());}return Ok(s)}
+        if cached{bump(&self.member_stats.set_misses);}
+        let t0=std::time::Instant::now();
+        let (top,_)=self.held_rec(e)?;
+        let (mut hash,mut h,mut rec,mut parent)=(e.hash,e.height,top.clone(),e.parent);
+        let mut steps:Vec<MemberRec>=Vec::new();
+        let anchor:Set=loop{
+            if h%members::SNAPSHOT_EVERY==1&&!rec.is_snapshot(){return Err(self.member_fault(&format!("a member delta at the snapshot height {h}")))}
+            if hash!=e.hash{
+                if cached{let hit=self.mcache().sets.get(&hash);if let Some(x)=hit{break x}}
+                if let Some(x)=self.get(&hash).and_then(|x|x.members.as_ref()).and_then(|m|m.ids.clone()){break x}
+            }
+            if rec.is_snapshot(){bump(&self.member_stats.disk_set_reads);
+                match self.member_src.set(&hash)?{Some(x)=>break x,None=>return Err(self.member_fault(&format!("the member set of the snapshot block {} at height {h} is not held",B256::from(hash))))}}
+            steps.push(rec);
+            if steps.len() as u64>members::WALK_MAX{return Err(self.member_fault(&format!("a member walk from height {} passed {} steps",e.height,members::WALK_MAX)))}
+            let Some(ph)=parent else{return Err(self.member_fault("a member walk reached genesis"))};
+            let (pp,phh,prec)=match self.get(&ph){Some(pe)=>{let (r,_)=self.held_rec(pe)?;(pe.parent,pe.height,r)}
+                None=>{bump(&self.member_stats.record_reads);match self.member_src.record(&ph)?{Some((pp,phh,r))=>(Some(pp),phh,r),
+                    None=>return Err(self.member_fault(&format!("the member record of block {} below height {h} is not held",B256::from(ph))))}}};
+            if phh.checked_add(1)!=Some(h){return Err(self.member_fault(&format!("the member record of the parent of height {h} is at height {phh}")))}
+            (hash,h,rec,parent)=(ph,phh,prec,pp);
+        };
+        // The anchor's count, then each step's count and digest from the anchor's (O(|Δ|) each).
+        if anchor.len()!=usize::from(rec.n)||!members::ascending(&anchor){return Err(self.member_fault(&format!("the anchor set at height {h} does not match its record")))}
+        let deltas:Vec<(&[Id],&[Id])>=steps.iter().rev().map(|r|match &r.step{MemberStep::Delta{adds,rems}=>(&adds[..],&rems[..]),MemberStep::Snapshot=>(&[][..],&[][..])}).collect();
+        let (mut d,mut n)=(rec.digest,anchor.len());
+        for (r,(a,x)) in steps.iter().rev().zip(&deltas){
+            d=members::digest_step(&d,a,x);n=(n+a.len()).checked_sub(x.len()).unwrap_or(usize::MAX);
+            if d!=r.digest||n!=usize::from(r.n){return Err(self.member_fault(&format!("a member delta below height {} does not add up to its record",e.height)))}
+        }
+        let out=if deltas.is_empty(){anchor}else{std::sync::Arc::from(members::apply(&anchor,&deltas).map_err(|w|self.member_fault(&format!("a member walk from height {}: {w}",e.height)))?)};
+        if out.len()!=usize::from(top.n){return Err(self.member_fault(&format!("the member set of height {} has {} ids, its record {}",e.height,out.len(),top.n)))}
+        self.note_reconstruction(t0);
+        if cached{self.mcache().sets.put(e.hash,out.clone());}
+        Ok(out)
+    }
+    /// FN-3: entry `e`'s member record: the one it holds (not offloaded), else the member source's (checked to name e's
+    /// parent and height); and whether it came from the source.
+    fn held_rec(&self,e:&Entry)->Result<(MemberRec,bool),Reject>{
+        if e.height==0{return Ok((MemberRec::genesis(),false))}
+        if let Some(m)=&e.members{return Ok((m.rec.clone(),false))}
+        bump(&self.member_stats.record_reads);
+        match self.member_src.record(&e.hash)?{
+            Some((p,h,r)) if Some(p)==e.parent&&h==e.height=>Ok((r,true)),
+            Some(_)=>Err(self.member_fault(&format!("the member record of block {} does not name its parent and height {}",B256::from(e.hash),e.height))),
+            None=>Err(self.member_fault(&format!("the member record of block {} at height {} is not held",B256::from(e.hash),e.height))),
+        }
+    }
+    /// FN-3a, the cold sweep (tests and inspection): every member cache (and FN-1's) is cleared, then every held entry but
+    /// genesis whose parent is held has its assignment recomputed from the member records and compared with its stored
+    /// ranges (a slimmed entry, which holds none, is only recomputed). Returns (recomputed, compared); Err names the first
+    /// entry that could not be recomputed or differed.
+    pub fn member_sweep(&self)->Result<(usize,usize),String>{
+        self.clear_member_caches();let (mut n,mut k)=(0,0);
+        let mut all:Vec<&Entry>=self.blocks.values().map(|b|&**b).filter(|e|e.height>0&&e.parent.is_some_and(|p|self.get(&p).is_some())).collect();all.sort_by_key(|e|(e.height,e.hash));
+        for e in all{
+            let a=self.assignment_of(e).map_err(|x|format!("block {} at height {}: {x:?}",B256::from(e.hash),e.height))?;n+=1;
+            if !e.slim{k+=1;if !ranges_equal(&e.ranges,&a){return Err(format!("block {} at height {}: the recomputed assignment differs from the stored ranges",B256::from(e.hash),e.height))}}
+        }
+        self.clear_member_caches();Ok((n,k))
+    }
+    /// FN-3: block `e`'s member record, held or from the member source (tests compare chains with it).
+    pub fn member_rec_of(&self,e:&Entry)->Result<MemberRec,Reject>{self.held_rec(e).map(|x|x.0)}
+    fn note_reconstruction(&self,t0:std::time::Instant){
+        let us=t0.elapsed().as_micros() as u64;bump(&self.member_stats.reconstructions);self.member_stats.reconstruct_us_max.fetch_max(us,std::sync::atomic::Ordering::Relaxed);
+        let mut c=self.mcache();if c.recon_us.len()>=RECON_SAMPLES{c.recon_us.pop_front();}c.recon_us.push_back(us);
+    }
+    /// FN-3: stored block `e`'s nonce assignment, recomputed from its member set, its parent's seal (the parent is held:
+    /// every block an assignment is asked for is within E_win + D of a held carrier, inside the window and the shadow),
+    /// its height, its attempt and its target (`Assignment::from_ids`, the code `Assignment::new` runs). From FN-1's
+    /// child-context cache (read only) or this cache when held. Every failure, an AssignmentError included, is local:
+    /// a stored block was valid, so its own assignment cannot fail.
+    pub fn assignment_of(&self,e:&Entry)->Result<std::sync::Arc<Assignment>,Reject>{self.assignment_of_with(e,true)}
+    fn assignment_of_with(&self,e:&Entry,cached:bool)->Result<std::sync::Arc<Assignment>,Reject>{
+        let Some(ph)=e.parent else{return Err(Reject::Local("member records: genesis has no nonce assignment".into()))};
+        let key=(ph,e.header.a);
+        if cached{let hit=self.mcache().assigns.get(&key);if let Some(a)=hit{bump(&self.member_stats.assign_hits);return Ok(a)}}
+        let Some(p)=self.get(&ph) else{debug_assert!(false,"the parent of a block whose assignment is recomputed is held");
+            return Err(Reject::Local(format!("member records: the parent of block {} at height {} is not held",B256::from(e.hash),e.height)))};
+        if cached&&self.ctx_cacheable(p){
+            let hit=self.ctx_cache().assignment(&ParentKey::of(p,e.height),p,e.header.a,&e.target.to_be_bytes());
+            if let Some(a)=hit{bump(&self.member_stats.assign_hits);self.mcache().assigns.put(key,a.clone());return Ok(a)}
+        }
+        if cached{bump(&self.member_stats.assign_misses);}
+        let set=self.member_set_with(e,cached)?;
+        let a=Assignment::from_ids(&set,&p.seal,e.height,e.header.a,&e.target,self.spec.effective_nonce_mode(e.height),self.spec.cp().c)
+            .map_err(|x|self.member_fault(&format!("the assignment of block {} at height {} could not be recomputed: {x:?}",B256::from(e.hash),e.height)))?;
+        let a=std::sync::Arc::new(a);
+        if cached{self.mcache().assigns.put(key,a.clone());}
+        Ok(a)
+    }
+    /// FN-3: owner(nonce) of stored block `e` recomputed (the owner memo, then `assignment_of`).
+    pub fn owner_of(&self,e:&Entry,n:u64)->Result<Option<Address>,Reject>{LazyOwners::new(self,e).owner(n)}
+    /// FN-3: block h's member record with parent `p` and set `s_b` (`members::record_for`): S_p from the cache, p's ids
+    /// or a walk. A snapshot also returns its ids (kept on the new entry until it is offloaded).
+    fn member_rec_for(&self,p:&Entry,h:u64,s_b:&Set)->Result<(MemberRec,Option<Set>),Reject>{
+        let s_p=if h%members::SNAPSHOT_EVERY==1{None}else{Some((self.member_set(p)?,self.held_rec(p)?.0.digest))};
+        let (rec,ids)=members::record_for(h,s_p.as_ref().map(|(x,d)|(&x[..],d)),s_b);
+        if rec.is_snapshot(){bump(&self.member_stats.snapshots_written);}
+        self.member_stats.delta_max.fetch_max(rec.delta_len() as u64,std::sync::atomic::Ordering::Relaxed);
+        Ok((rec,ids))
+    }
+    /// FN-3: the re-executed block `e`'s member record against the set its context computed: the count always, the
+    /// digest at a snapshot height or with the oracle on. A mismatch is a member fault (the next open rebuilds the store,
+    /// so a restored bad record cannot loop). The set is cached for the rebuild's later readers.
+    fn check_members(&self,e:&Entry,ctx:&ChildCtx)->Result<(),Reject>{
+        let ids=ctx.membership.ids();
+        let (rec,_)=self.held_rec(e)?;
+        let bad=usize::from(rec.n)!=ids.len()||((self.member_oracle||rec.is_snapshot())&&members::digest_of(ids)!=rec.digest);
+        if bad{return Err(self.member_fault(&format!("the member record of block {} at height {} does not describe its re-executed member set",B256::from(e.hash),e.height)))}
+        self.mcache().sets.put(e.hash,std::sync::Arc::from(ids));Ok(())
     }
 
     // ---------------- execution ----------------
@@ -927,12 +1180,19 @@ impl Chain{
         if out.receipts_root().0!=x.receipts_root||out.logs_bloom()[..]!=x.logs_bloom[..]||out.gas_used()!=x.gas_used{return blk("17 receipts/bloom/gasUsed")}
         let tx_hashes=b.body.txs.iter().map(|t|revm::primitives::keccak256(t)).collect();
         let (is_final,log_bytes)=(out.is_final(),out.log_bytes());
+        // FN-3: this block's member record (S_b is the membership its assignment was computed from).
+        let s_b:Set=std::sync::Arc::from(ctx.membership.ids());
+        let (members,member_ids)=self.member_rec_for(p,x.h,&s_b)?;
         let c=self.child_state(p,out)?;
         let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&x.target)),
             import_seq:0,signed,timely:true,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:sk,state:c.state,is_final,full:true,diff:c.diff,slim:false,
             result:Some(ParentResult{block_hash:B256::from(hash),winner:addr(&owner),shares}),receipts:c.receipts,tx_hashes,
             cum_txs:if self.spec.cp().H_END==0{b.body.txs.len() as u64}else{p.cum_txs+b.body.txs.len() as u64},cum_tx_bytes:if self.spec.cp().H_END==0{tx_bytes}else{p.cum_tx_bytes+tx_bytes},cum_log_bytes:if self.spec.cp().H_END==0{log_bytes}else{p.cum_log_bytes+log_bytes},pruned:false,drawn:ctx.proposer,
-            ranges:ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect(),body_off:None,offloaded:false,trie:c.trie,summary:Some(Box::new(c.summary)),stored:c.stored};
+            ranges:ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect(),members:Some(Box::new(EntryMembers{rec:members,ids:member_ids})),body_off:None,offloaded:false,trie:c.trie,summary:Some(Box::new(c.summary)),stored:c.stored};
+        self.mcache().sets.put(hash,s_b);
+        // FN-3a, the oracle at import: the assignment recomputed from the records with every cache bypassed is the one the
+        // block was validated under (and so its stored ranges).
+        if self.member_oracle{let cold=self.assignment_of_with(&entry,false)?;self.oracle_verdict(&entry,cold.ranges()==ctx.assignment.ranges()&&ranges_equal(&entry.ranges,&cold),"the import's assignment")?;}
         Ok((entry,ctx))
     }
     /// The state fields of a child entry from its execution: a whole state with its diff from the parent
@@ -1008,8 +1268,12 @@ impl Chain{
         let total=if j==p.height{p.result.as_ref().ok_or_else(||Reject::Block("15 ls parent result".into()))?.shares.len() as u64+1}
             else{apply::share_total(self.view_or(p)?.v(),j)};
         let t_share=to_fixed(from_fixed(&e.target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
-        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,header:&e.header.shares,credited:&credited,total};
+        // FN-3a: the verdict reads the stored ranges; each owner looked up is recomputed from the member records and
+        // compared (the shadow), lazily, after the cap check as before.
+        let shadow=ShadowOwners::new(self,e,"a kind-3 owner");
+        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,owners:&shadow,header:&e.header.shares,credited:&credited,total};
         let owners=late_check(&rules,&base,&nonces,block)?;
+        self.shadow_ranges(e,"a kind-3 template's assignment")?;
         Ok(EvidenceEffect::Late{j,owners})
     }
     /// V3-02, for a proposer (node-local; the block's evidence is validated as any other): the TemplateID of the
@@ -1027,7 +1291,9 @@ impl Chain{
         let credited=self.late_credited(p,j).ok()?;
         let total=if j==p.height{p.result.as_ref()?.shares.len() as u64+1}else{apply::share_total(self.view_or(p).ok()?.v(),j)};
         let t_share=to_fixed(from_fixed(&e.target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
-        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,header:&e.header.shares,credited:&credited,total};
+        // FN-3a: as `evidence_late` (a local failure offers nothing: node-local).
+        let shadow=ShadowOwners::new(self,e,"a kind-3 offer's owner");
+        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,owners:&shadow,header:&e.header.shares,credited:&credited,total};
         let used=block.seen.get(&j).map_or(0,|s|s.len() as u64);
         let room=rules.kappa_m.saturating_sub(total.saturating_add(used)).min(rules.s_max);
         let mut ok:Vec<u64>=Vec::new();let mut sorted=candidates.to_vec();sorted.sort_unstable();sorted.dedup();
@@ -1096,8 +1362,11 @@ impl Chain{
             // C-1 S4: an ancestor this walk needs is restored first (never inside the slim depth).
             if e.slim{return Err(Reject::NeedsRebuild(e.hash))}
             if template_id(&e.header.ut_raw)==tid{
-                // owner(nonce) under that block's assignment (stored ranges, D142).
-                let owner=range_owner(&e.ranges,nonce as u128).ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
+                // owner(nonce) under that block's assignment (stored ranges, D142). FN-3a: recomputed from the member
+                // records and compared first (the shadow; a mismatch is local), the verdict from the stored ranges.
+                let want=range_owner(&e.ranges,nonce as u128);
+                self.shadow_owner(e,nonce,want,"a type-2 accused owner")?;self.shadow_ranges(e,"a type-2 template's assignment")?;
+                let owner=want.ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
                 if owner.0.0!=a1{return blk("ev2 signer not owner(nonce)")}
                 return Ok((addr(&a1),Some(e.height)));
             }
@@ -1108,6 +1377,8 @@ impl Chain{
 
     // ---------------- import and D133 fork choice ----------------
     pub fn insert(&mut self,mut e:Entry)->bool{
+        // FN-3: a bare chain's MemSets keeps the record (a node's history.redb was written by its put).
+        self.member_src.note(&e);
         e.import_seq=self.next_seq;self.next_seq+=1;let hash=e.hash;if e.trie.is_some(){self.tried.push(hash);}self.blocks.insert(hash,Box::new(e));
         let better=self.better(&hash,&self.head.clone());
         if better{self.head=hash;self.rebuild_canonical();}else if !self.is_canonical(&hash){self.side.insert(hash);}
@@ -1178,6 +1449,7 @@ impl Chain{
             }
         }
         gone.extend(std::mem::take(&mut self.removed_pending));
+        self.member_src.forget(&gone);
         for h in gone{self.evicted_total+=1;if self.evicted.insert(h){self.evicted_order.push_back(h);}}
         while self.evicted_order.len()>EVICTED_MAX{if let Some(old)=self.evicted_order.pop_front(){self.evicted.remove(&old);}}
         // Live: protection is for non-canonical session blocks only (an adopted one no longer counts
@@ -1219,7 +1491,8 @@ impl Chain{
     ///    than R_keep < E), so they are still canonical;
     /// 2. the canonical entries from the base up to the floor, at most `evict_batch` of them, are taken out and
     ///    normalized (`normalize`) into `evicted_out`, which the node writes to its index.
-    /// No verdict reads an entry below the floor: validation reads the parent at or above head − R_keep (the node
+    /// No verdict reads an entry below the floor (FN-3: a member walk may read the records of blocks below it, from the
+    /// member source, `member_set`): validation reads the parent at or above head − R_keep (the node
     /// refuses lower ones before validating), 256 ancestors and E_win evidence heights, and fork choice walks only
     /// above head − R_keep; E >= 2·R_keep + E_win + 258 keeps all of them above the floor, and a fall within one
     /// import is reloaded by that import's call, before the next verdict.
@@ -1266,6 +1539,8 @@ impl Chain{
         if gone.is_empty(){return}
         self.unslimmed.retain(|h|!gone.contains(h));self.protect.retain(|h|!gone.contains(h));
         let b=self.canonical.base();self.prune_cursor=self.prune_cursor.max(b);self.slim_cursor=self.slim_cursor.max(b);self.history_cursor=self.history_cursor.max(b);
+        // FN-3: a walk from a block at or above the floor reaches at most WALK_MAX heights below it.
+        self.member_src.prune_below(floor.saturating_sub(members::WALK_MAX));
     }
     /// C-1 S5 (old journals, replay only): a record a replay without eviction inserts and the same retain removes (a
     /// block on a canonical parent below the window, at or below head − R_keep). Its import sequence is taken and the
@@ -1462,6 +1737,7 @@ impl Chain{
         let derived=ParentResult{block_hash:B256::from(e.hash),winner:owner(e.header.nonce).ok_or_else(||Reject::Block("rebuild owner".into()))?,
             shares:e.header.shares.iter().map(|n|owner(*n).map(|o|(*n,o))).collect::<Option<Vec<_>>>().ok_or_else(||Reject::Block("rebuild share owner".into()))?};
         if Some(&derived)!=e.result.as_ref(){return blk("parentResultMismatch")}
+        self.check_members(e,&ctx)?;
         Ok(out)
     }
     /// D-REORG-REDB restore: after an adoption (or at the end of replay) the canonical blocks above
@@ -1547,7 +1823,7 @@ impl Chain{
         if !e.slim{return Ok(std::borrow::Cow::Borrowed(e))}
         let (mut header,result,ranges,late)=self.restored_fields(e,src.ok_or_else(||Reject::Block("slim entry without a block source".into()))?)?;
         if e.offloaded{header.encoded=Vec::new();}
-        let mut x=e.meta_clone();x.state=empty_state();x.pruned=e.pruned;x.full=false;x.header=header;x.result=result;x.ranges=ranges;x.slim=false;
+        let mut x=e.meta_clone();x.state=empty_state();x.pruned=e.pruned;x.full=false;x.header=header;x.result=result;x.ranges=ranges.into();x.slim=false;
         if let Some(l)=late{x.body.evidence=l;}
         Ok(std::borrow::Cow::Owned(x))
     }
@@ -1562,7 +1838,7 @@ impl Chain{
         let (mut header,result,ranges,late)=self.restored_fields(e,src)?;
         let x=self.blocks.get_mut(h).unwrap();if x.offloaded{header.encoded=Vec::new();}
         if let Some(l)=late{x.body.evidence=l;}
-        x.header=header;x.result=result;x.ranges=ranges;x.slim=false;self.unslimmed.push(*h);Ok(())
+        x.header=header;x.result=result;x.ranges=ranges.into();x.slim=false;self.unslimmed.push(*h);Ok(())
     }
     /// TrieRebuild: re-executes from the nearest retained ancestor and checks
     /// every stateRoot against the committed header.
@@ -1744,6 +2020,8 @@ impl Chain{
 /// found, as `Assignment::owner` does: O(log M) per nonce at M_max 10,000 for type-2 evidence's accused owner and each
 /// kind-3 nonce (`late_check`, also probed per candidate by `late_offer`). None when no range holds n (n >= nMax).
 /// tests/fn1_membership.rs keeps the linear scan as its oracle.
+/// FN-3a: whether stored ranges are an assignment's ranges exactly.
+pub fn ranges_equal(r:&[(Address,u128,u128)],a:&Assignment)->bool{r.len()==a.ranges().len()&&r.iter().zip(a.ranges()).all(|(x,y)|x.0.0.0==y.id()&&x.1==y.start()&&x.2==y.end_exclusive())}
 pub fn range_owner(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{
     let i=ranges.partition_point(|r|r.2<=n);
     ranges.get(i).filter(|r|r.1<=n&&n<r.2).map(|r|r.0)
@@ -1755,7 +2033,9 @@ pub struct LateRules{pub h:u64,pub d:u64,pub s_max:u64,pub kappa_m:u64}
 /// What the kind-3 rules read about the ancestor template j on the carrying branch: its TemplateID, winning nonce,
 /// share target (target_j * m), stored nonce ranges and header shares, the nonces kind-3 evidence of the blocks above
 /// it already credited on the branch, and C_header(j) + C_late(j) so far (the winner's share included).
-pub struct LateBase<'a>{pub j:u64,pub tid:[u8;32],pub nonce:u64,pub t_share:Fixed,pub ranges:&'a [(Address,u128,u128)],pub header:&'a [u64],
+/// FN-3a: `owners` is owner(nonce) recomputed from the member records (the chain's `ShadowOwners`), or the stored ranges
+/// themselves (the vectors); the verdict reads `ranges` and a disagreement is local.
+pub struct LateBase<'a>{pub j:u64,pub tid:[u8;32],pub nonce:u64,pub t_share:Fixed,pub ranges:&'a [(Address,u128,u128)],pub owners:&'a dyn NonceOwners,pub header:&'a [u64],
     pub credited:&'a std::collections::BTreeSet<u64>,pub total:u64}
 /// Within one carrying block: the nonces credited to each j by its earlier kind-3 items, in body order.
 #[derive(Clone,Debug,Default)]
@@ -1802,7 +2082,9 @@ pub fn late_check(r:&LateRules,b:&LateBase<'_>,nonces:&[u64],block:&mut LateBloc
     if b.total.saturating_add(seen.len() as u64).saturating_add(k)>r.kappa_m{return Err(ls("cap"))}
     let mut owners=Vec::with_capacity(nonces.len());
     for n in nonces{
-        let owner=range_owner(b.ranges,u128::from(*n)).ok_or_else(||ls("nonce outside nMax"))?;
+        let owner=range_owner(b.ranges,u128::from(*n));
+        if b.owners.owner(*n)?!=owner{return Err(Reject::Local(format!("member records: the recomputed owner of nonce {n} of template {} differs from the stored ranges",b.j)))}
+        let owner=owner.ok_or_else(||ls("nonce outside nMax"))?;
         if *n==b.nonce{return Err(ls("winning nonce"))}
         if b.header.contains(n){return Err(ls("header share"))}
         if b.credited.contains(n){return Err(ls("credited on the branch"))}

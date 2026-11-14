@@ -36,7 +36,7 @@ fn verdict(case:&serde_json::Value)->serde_json::Value{
         let header:Vec<u64>=b["header"].as_array().unwrap().iter().map(|x|x.as_u64().unwrap()).collect();
         let credited:BTreeSet<u64>=b["credited"].as_array().unwrap().iter().map(|x|x.as_u64().unwrap()).collect();
         let base=LateBase{j,tid,nonce:b["nonce"].as_u64().unwrap(),t_share:Fixed::from_be_slice(&unhex(b["tShare"].as_str().unwrap())).unwrap(),
-            ranges:&ranges,header:&header,credited:&credited,total:b["total"].as_u64().unwrap()};
+            ranges:&ranges,owners:&ranges,header:&header,credited:&credited,total:b["total"].as_u64().unwrap()};
         match late_check(&rules,&base,&nonces,&mut block){
             Ok(owners)=>effects.push((j,owners)),
             Err(e)=>return no(i,e),

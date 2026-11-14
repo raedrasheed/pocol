@@ -62,7 +62,7 @@ fn accept(n:&mut Net,b:Block) {
     let (entry,ctx)=n.chain.validate(&b,None,0).unwrap();
     assert_eq!(entry.drawn,ctx.proposer,"type-1 evidence keeps this branch's actual draw");
     let ranges:Vec<_>=ctx.assignment.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect();
-    assert_eq!(entry.ranges,ranges,"historical ownership retains the actual ranges");
+    assert_eq!(&entry.ranges[..],&ranges[..],"historical ownership retains the actual ranges");
     assert!(n.chain.insert(entry));
 }
 fn next(n:&mut Net,miner:Address,txs:Vec<Vec<u8>>) {let b=solve(n,miner,txs);accept(n,b);}

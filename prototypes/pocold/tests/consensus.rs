@@ -2530,7 +2530,7 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     // the reference; its receipts and index go into A's store as import writes them, and A stops there.
     let x=branch(&mut h,p,1,&[Body{txs:vec![pay(&alice,48,9)],evidence:vec![]}]).remove(0);let xt=format!("{}",revm::primitives::keccak256(&x.body.txs[0]));
     b.import(x.clone(),None).unwrap();let ex=b.chain.get(&x.hash()).unwrap().clone();
-    let r=open();r.history.put(&ex.hash,&ex.receipts,&ex.tx_hashes,&ex.ranges).unwrap();drop(r);
+    let r=open();r.history.put(&ex).unwrap();drop(r);
     let mut r=open();assert_eq!(r.chain.head,p,"the block was never journaled");assert!(r.history.has(&x.hash()).unwrap(),"positive control: the orphan entry is there");
     assert!(rpc_local(&mut r,"eth_getTransactionByHash",json!([xt])).is_null()&&rpc_local(&mut r,"eth_getTransactionReceipt",json!([xt])).is_null(),"an orphan entry is never read");
     assert_eq!(views(&mut r,&txs),want,"after the crash");

@@ -996,7 +996,7 @@ fn history_integrity_check_cost(){
         for i in 0..blocks{let mut b=[0u8;32];b[..8].copy_from_slice(&i.to_be_bytes());b[8..16].copy_from_slice(&i.wrapping_mul(0x9e3779b97f4a7c15).to_be_bytes());
             let rec:Vec<Vec<u8>>=(0..4).map(|k|vec![(i as u8)^(k as u8);rec_b as usize]).collect();
             let txs:Vec<B256>=(0..4u64).map(|k|revm::primitives::keccak256((i*4+k).to_be_bytes())).collect();
-            h.put_with(&b,&rec,&txs,&[],durable).unwrap();if !durable&&i%256==255{h.sync().unwrap();}}
+            let snap=pocold::members::MemberRec::genesis();h.put_with(&b,&rec,&txs,&[],&pocold::history::Members{parent:[0;32],height:i+1,rec:&snap,set:Some(&[])},durable).unwrap();if !durable&&i%256==255{h.sync().unwrap();}}
         h.sync().unwrap();println!("JM-HIST-FILL {}",serde_json::json!({"blocks":blocks,"durableEach":durable,"ms":t.elapsed().as_millis()}));}
     let size=std::fs::metadata(dir.join(pocold::history::FILE)).unwrap().len();
     // Drop the page cache's effect as far as a user process can: a fresh open, timed separately.
