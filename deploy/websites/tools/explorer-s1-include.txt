@@ -4,7 +4,7 @@
 # favicon.ico and site.webmanifest have manifest MIME ids 12 and 13 (owner answer Q3).
 # When a bundle file is renamed (W9 identity tool, W7), update its line here.
 index.html
-assets/index-Cj8htKRO.js
+assets/index-473b5bd9e7ec.js
 assets/index-oGnBWUS-.css
 favicon.ico
 site.webmanifest

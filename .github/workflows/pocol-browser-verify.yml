@@ -2,10 +2,10 @@ name: PoCol browser and devnet verification
 on:
   push:
     branches: [main]
-    paths: ['prototypes/**', '.github/workflows/pocol-browser-verify.yml']
+    paths: ['prototypes/**', 'deploy/mainnet/**', '.github/workflows/pocol-browser-verify.yml']
   pull_request:
     branches: [main]
-    paths: ['prototypes/**', '.github/workflows/pocol-browser-verify.yml']
+    paths: ['prototypes/**', 'deploy/mainnet/**', '.github/workflows/pocol-browser-verify.yml']
 permissions:
   contents: read
 jobs:
@@ -65,7 +65,20 @@ jobs:
           npm run test:contracts --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-contracts.log
           npm run test:contract-ui --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-contract-ui.log
           (cd prototypes/pocol-extension && /usr/bin/python3 -m unittest tests/test_linux_export.py -v) 2>&1 | tee evidence/extension-linux-export.log
-          npm run package --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-package.log
+          if grep -q NETWORK_PLACEHOLDER prototypes/pocol-extension/src/lib/studio-network.js; then
+            # D1: the built-in profile is the network placeholder until the identity switch; the packager refuses it.
+            if python3 prototypes/pocol-extension/scripts/package-release.py "$RUNNER_TEMP/placeholder.zip" > evidence/extension-package.log 2>&1; then
+              echo 'the release packager must refuse the placeholder build' >&2; exit 1
+            fi
+            grep -F 'network placeholder' evidence/extension-package.log
+          else
+            npm run package --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-package.log
+          fi
+      - name: ES-module loader in Chromium (Sites W2b, no devnet)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          node prototypes/pocol-extension/tests/module_loader_browser.mjs 2>&1 | tee evidence/modules-browser.log
       - name: Browser with live devnet
         run: |
           set -o pipefail

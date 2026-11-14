@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
+import { withRetry } from '../src/lib/retry.js';
 
 const LEASE = await import('../dist/lib/lease.js'), JOBS = await import('../dist/lib/jobs.js');
 const SOURCE = readFileSync(new URL('../src/contract-ui.js', import.meta.url), 'utf8').replace(/^import .*;\n/gm, '').replace(/^init\(\)\.catch\(.*\);\n?$/m, '');
@@ -28,7 +29,7 @@ async function fixture(options = {}) {
     NETWORK:{chainId:1599846715,genesisHash:'0x'+'ab'.repeat(32),endpoint:'https://gateway.pocol.net/studio/rpc'},LOCK_MS:900000,
     extendLease:LEASE.extendLease,JOB_DEADLINE_DEFAULT_MS:LEASE.JOB_DEADLINE_DEFAULT_MS,isForeignJob:JOBS.isForeignJob,networkOf:JOBS.networkOf,
     addressOf:()=>ADDRESS, importKeyfile:async()=>{state.importEntered=true;const key = options.importGate ? await options.importGate : new Uint8Array(32).fill(7);state.generatedKeys.push(key);return key;}, exportKeyfile:async()=>({encrypted:true}),
-    signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},
+    signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,RESERVE_WAIT_MS:2000,withRetry,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},
     prepareContractReview:async()=>{state.prepared++;return baseReview},
     submitContractReview:async args=>{state.submitted++;state.submitArgs=args;return options.submit ? options.submit(args,state) : {state:'pending',hash:HASH,address:baseReview.predictedAddress,from:ADDRESS,receipt:null}},
     checkContractReceipt:async args=>{state.receiptChecks=(state.receiptChecks||0)+1;state.checkArgs=args;return options.checkReceipt?options.checkReceipt(args,state):{state:'pending',hash:HASH,address:baseReview.predictedAddress,from:ADDRESS,receipt:null}},

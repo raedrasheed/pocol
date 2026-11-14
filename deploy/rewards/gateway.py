@@ -35,13 +35,40 @@ try:
 except ImportError:
     validated_network = None
     MAX_CALLS_V3, MAX_SECONDS_V3 = 0, 0
+try:
+    from pocol_rewards import (keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS, ACTIVE_SLICE_GAS,
+                               MAX_MEMBERS_V3)
+except ImportError:
+    keccak256 = None
+    MAX_MEMBERS_V3 = 10000
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 CHAIN_ID = 1599846715
 GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 MAX_REQUEST = 16384
 MAX_RESPONSE = 4 * 1024 * 1024
-NO_PARAMS = {'pocol_status', 'pocol_getParams', 'pocol_getMiners', 'eth_blockNumber', 'net_peerCount', 'eth_gasPrice', 'pocol_getNetworkGeography', 'pocol_getBlockReward'}
+NO_PARAMS = {'pocol_status', 'pocol_getParams', 'pocol_getMiners', 'eth_blockNumber', 'net_peerCount', 'eth_gasPrice', 'pocol_getNetworkGeography', 'pocol_getBlockReward',
+             'pocol_getRemovable', 'pocol_finality'}
+# Sites W6: v3 membership read through MinerRegistry views (PoColSystemV3.sol): pages of the active list with each
+# member's record word w0 (activeSlice), and one record's four words, its clocks and the removal verdict
+# (recordWords + recordClocks + removalStatus) at one block. recordWords returns w1 as the reward address alone (V3-09),
+# so lastReactHeight and lastMaintHeight mod 2^32 come only from recordClocks. w1-w3 of every member would exceed the v3 read budget at M_max 10,000, so a page carries
+# w0 fields only; bond and reward address come from pocol_getMember.
+MEMBERS = {'pocol_getMembers', 'pocol_getMember'}
+MEMBER_PAGE_MAX = 256
+MEMBER_READS_MAX = 8
+MEMBER_CACHE_MAX = 64
+# Token cost per method (others cost 1): a reward snapshot and one member record (four calls and a fresh-block check).
+COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10}
+# MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
+# actPos 56..87, lastShare 88..151, registeredAt 152..215 (earn-in). Every value the v3 programs write is labelled.
+STATUS_LABELS = {0: 'NONE', 1: 'ACTIVE', 2: 'EXITED'}
+BOND_STATE_LABELS = {0: 'NONE', 1: 'HELD', 2: 'BURNED', 3: 'PAID', 4: 'ACCRUING'}
+# MinerRegistry.removal (FN-2b C4), in order: 0 removable; 1 not a live active record; 2 the set is not full; 3 no more
+# than M_min active; 4 a credited share or a (re)activation within Theta_inact.
+REMOVAL_LABELS = {0: 'REMOVABLE', 1: 'NOT_LIVE_ACTIVE', 2: 'SET_NOT_FULL', 3: 'AT_MINIMUM', 4: 'RECENTLY_ACTIVE'}
+CP_B_REG = 16
+U32, U64, U160 = (1 << 32) - 1, (1 << 64) - 1, (1 << 160) - 1
 HASH_METHODS = {'eth_getTransactionByHash', 'eth_getTransactionReceipt'}
 ACCOUNT_METHODS = {'eth_getBalance', 'eth_getTransactionCount', 'eth_getCode'}
 
@@ -92,6 +119,10 @@ def valid_call(request):
     hash_value = lambda v: matches(r'0x[0-9a-fA-F]{64}', v)
     if method in NO_PARAMS: return len(params) == 0
     if method == 'pocol_getTransactions': return len(params) == 1 and valid_options(params[0])
+    if method == 'pocol_getMembers':
+        return (len(params) == 2 and type(params[0]) is int and type(params[1]) is int
+                and 0 <= params[0] < MAX_MEMBERS_V3 and 1 <= params[1] <= MEMBER_PAGE_MAX)
+    if method == 'pocol_getMember': return len(params) == 1 and matches(r'0x[0-9a-fA-F]{40}', params[0])
     if method in HASH_METHODS: return len(params) == 1 and hash_value(params[0])
     if method in ACCOUNT_METHODS: return len(params) == 2 and matches(r'0x[0-9a-fA-F]{40}', params[0]) and tag(params[1])
     if method == 'eth_getBlockByNumber': return len(params) == 2 and tag(params[0]) and type(params[1]) is bool
@@ -119,6 +150,43 @@ def sanitize(method, value):
         return {k:value.get(k) for k in keys}
     return value
 
+class ChainMoved(RuntimeError):
+    """The block a membership answer was read at is no longer the canonical block at its height."""
+
+def _word_args(signature, *args):
+    return '0x' + (keccak256(signature.encode())[:4] + b''.join(a.to_bytes(32, 'big') for a in args)).hex()
+
+def label(table, value, what):
+    if value not in table: raise RuntimeError('Unknown ' + what)
+    return table[value]
+
+def member_w0(w0):
+    """The public fields of record word w0, every status and bondState labelled."""
+    status, bond_state = w0 & 255, (w0 >> 16) & 255
+    return {'status': status, 'statusLabel': label(STATUS_LABELS, status, 'record status'), 'tomb': bool((w0 >> 8) & 255),
+            'bondState': bond_state, 'bondStateLabel': label(BOND_STATE_LABELS, bond_state, 'bond state'),
+            'lastShare': (w0 >> 88) & U64, 'registeredAt': (w0 >> 152) & U64}
+
+def member_record(address, words, clocks, removal, b_reg):
+    """pocol_getMember: recordWords' four words decoded (w0 fields, w1 reward address, w2 bond, w3 exit clocks),
+    recordClocks (lastMaintHeight mod 2^32, lastReactHeight), the removal verdict and the ACCRUING proposer-eligibility
+    rule (chain.rs membership: an ACCRUING record is drawn only with bond >= B_reg/4)."""
+    w0, w1, w2, w3 = words
+    maint_mod32, last_react = clocks
+    # PoColSystemV3.recordWords masks w1 to 160 bits and recordClocks returns (x>>224, (x>>160)&LOW64): anything wider
+    # is not the v3 registry this gateway decodes.
+    if w1 > U160 or maint_mod32 > U32 or last_react > U64: raise RuntimeError('Malformed member record')
+    record = member_w0(w0)
+    live = record['status'] == 1 and not record['tomb']
+    record.update({
+        'address': address, 'exists': w0 != 0, 'recPos': (w0 >> 24) & U32, 'actPos': (w0 >> 56) & U32,
+        'rewardAddress': '0x' + w1.to_bytes(20, 'big').hex(), 'lastReactHeight': last_react,
+        'lastMaintHeightMod32': maint_mod32, 'bondWei': str(w2), 'bondTargetWei': str(b_reg),
+        'exitHeight': w3 & U64, 'dueHeight': (w3 >> 64) & U64, 'burnHeight': (w3 >> 128) & U64, 'graceStart': (w3 >> 192) & U64,
+        'removal': removal, 'removalLabel': label(REMOVAL_LABELS, removal, 'removal verdict'),
+        'proposerEligible': live and (record['bondState'] == 1 or (record['bondState'] == 4 and w2 >= b_reg // 4))})
+    return record
+
 class Gateway:
     def __init__(self, upstream_port=8545, geography=None, transactions=None, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
         self.fork_schedule = trusted_fork_schedule(fork_schedule)
@@ -137,6 +205,7 @@ class Gateway:
         self.reward_slot = threading.Lock()
         self.reward_failed_at = -float('inf')
         self.tokens, self.token_time = 80.0, time.monotonic()
+        self.member_cache = collections.OrderedDict()
     def charge(self, cost):
         with self.lock:
             now = time.monotonic()
@@ -163,12 +232,66 @@ class Gateway:
         chain_id, genesis = (CHAIN_ID, GENESIS) if self.network is None else (self.network.chain_id, self.network.genesis)
         if params.get('chainId') != chain_id or params.get('genesisHash', '').lower() != genesis:
             raise RuntimeError('The local RPC does not belong to the configured PoCol network')
+    def membership(self, method, params):
+        """pocol_getMembers / pocol_getMember at the head block, every read at that one height, cached per head (block
+        hash) and refused with ChainMoved when the block at that height changed while it was read."""
+        if self.network is None or keccak256 is None:
+            raise RuntimeError('v3 membership needs the reward module and a configured --v3-network')
+        remaining = MEMBER_READS_MAX
+        def read(read_method, read_params):
+            nonlocal remaining
+            if remaining <= 0: raise RuntimeError('Membership read budget exceeded')
+            remaining -= 1
+            answer = self.query(read_method, read_params)
+            if not isinstance(answer, dict) or 'result' not in answer or 'error' in answer: raise RuntimeError('Node read failed')
+            return answer['result']
+        def block(at):
+            value = read('eth_getBlockByNumber', [at, False])
+            if (not isinstance(value, dict) or not matches(r'0x[0-9a-fA-F]{64}', value.get('hash'))
+                    or not matches(r'0x(?:0|[1-9a-fA-F][0-9a-fA-F]{0,15})', value.get('number'))):
+                raise RuntimeError('Malformed block')
+            return int(value['number'], 16), value['hash'].lower()
+        height, head = block('latest')
+        key = (head, method, json.dumps(params, separators=(',', ':')))
+        with self.lock:
+            if key in self.member_cache:
+                self.member_cache.move_to_end(key); return json.loads(self.member_cache[key])
+        def call(to, data, gas, words=None):
+            raw = hex_bytes(read('eth_call', [{'to': to, 'data': data, 'gas': hex(gas)}, hex(height)]), None if words is None else 32 * words)
+            return raw if words is None else [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
+        if method == 'pocol_getMembers':
+            start, count = params
+            active = call(REGISTRY, _word_args('lengths()'), CALL_GAS, 4)[1]
+            if active > MAX_MEMBERS_V3: raise RuntimeError('Unsupported active membership size')
+            expected = max(0, min(count, active - start))
+            members = []
+            if expected:
+                ids, words = _abi_two_arrays(call(REGISTRY, _word_args('activeSlice(uint256,uint256)', start, count), ACTIVE_SLICE_GAS), expected)
+                for ident, w0 in zip(ids, words):
+                    record = member_w0(w0)
+                    if not 0 < ident <= U160 or record['status'] != 1: raise RuntimeError('Invalid active record')
+                    members.append({'id': '0x' + ident.to_bytes(20, 'big').hex(), **record})
+            result = {'height': height, 'blockHash': head, 'active': active, 'start': start, 'count': len(members), 'members': members}
+        else:
+            member = params[0].lower()
+            words = call(REGISTRY, _word_args('recordWords(address)', int(member, 16)), CALL_GAS, 4)
+            clocks = call(REGISTRY, _word_args('recordClocks(address)', int(member, 16)), CALL_GAS, 2)
+            removal = call(REGISTRY, _word_args('removalStatus(address)', int(member, 16)), CALL_GAS, 1)[0]
+            b_reg = call(CAPS, _word_args('get(uint256)', CP_B_REG), CALL_GAS, 1)[0]
+            result = {'height': height, 'blockHash': head, **member_record(member, words, clocks, removal, b_reg)}
+        if block(hex(height))[1] != head: raise ChainMoved('Chain changed while membership was read')
+        encoded = json.dumps(result, separators=(',', ':'))
+        with self.lock:
+            self.member_cache[key] = encoded
+            while len(self.member_cache) > MEMBER_CACHE_MAX: self.member_cache.popitem(last=False)
+        return result
     def call(self, request):
         method, params = request['method'], request['params']
         key = json.dumps([method, params], separators=(',', ':'))
         now = time.monotonic()
         with self.lock:
-            item = self.cache.get(key)
+            # Membership answers are cached per head block instead (Gateway.membership).
+            item = None if method in MEMBERS else self.cache.get(key)
             if item and item[0] > now:
                 self.cache.move_to_end(key)
                 answer = json.loads(item[1]); answer['id'] = request['id']; return answer
@@ -209,6 +332,8 @@ class Gateway:
             elif method == 'pocol_getTransactions':
                 if self.transactions is None: raise RuntimeError('Transaction index is not installed')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.transactions.page(params[0])}
+            elif method in MEMBERS:
+                answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params)}
             elif method == 'pocol_getNetworkGeography':
                 if self.geography is None: raise RuntimeError('Automatic GeoIP is not installed')
                 raw_status = self.query('pocol_status', []).get('result')
@@ -217,7 +342,7 @@ class Gateway:
                 answer = self.query(method, params)
             if 'result' in answer: answer['result'] = sanitize(method, answer['result'])
             answer['id'] = request['id']
-            if 'error' not in answer:
+            if 'error' not in answer and method not in MEMBERS:
                 encoded = json.dumps(answer, separators=(',', ':')).encode()
                 with self.lock:
                     previous = self.cache.pop(key, None)
@@ -227,6 +352,8 @@ class Gateway:
                     while len(self.cache)>256 or self.cache_size>16*1024*1024:
                         _, removed = self.cache.popitem(last=False); self.cache_size -= len(removed[1])
             return answer
+        except ChainMoved:
+            return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32022,'message':'Chain changed. Retry the membership read.'}}
         except SnapshotChanged:
             return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32022,'message':'Chain changed. Refresh transactions.'}}
         except (OSError, ValueError, RuntimeError, KeyError, sqlite3.Error, http.client.HTTPException):
@@ -276,7 +403,7 @@ class Handler(BaseHTTPRequestHandler):
             if not valid_payload(value): raise ValueError()
         except (ValueError, OSError): self.reply(400, {'error':'Unsupported explorer read'}); return
         items = value if isinstance(value, list) else [value]
-        if not self.server.gateway.charge(sum(20 if item['method'] == 'pocol_getBlockReward' else 1 for item in items)): self.reply(429, {'error':'Explorer request budget exceeded; retry shortly'}); return
+        if not self.server.gateway.charge(sum(COSTS.get(item['method'], 1) for item in items)): self.reply(429, {'error':'Explorer request budget exceeded; retry shortly'}); return
         answers, size = [], 2
         for item in items:
             answer = self.server.gateway.call(item)

@@ -1,6 +1,6 @@
 // Public intent bridge only. It cannot connect, unlock, export or sign a wallet.
 (() => {
-  const origins=['https://ide.pocol.net','https://pocol-ide.mystic-gecko-9511.chatgpt.site'];
+  const origins=['https://ide.pocol.net'];
   if(window.top!==window || !origins.includes(location.origin))return;
   const methods=new Set(['status','openContract','jobStatus']),pending=new Set();
   window.addEventListener('message',async event=>{
