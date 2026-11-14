@@ -281,21 +281,19 @@ admission or a production-profile selection; cross-field bounds and measured val
 |---|---|---:|---|
 | 52 | H_half | 64 | 1..2^64-1 |
 | 53 | S_tail | 256 | 0..2^256-1 |
-| 54 | P_MAX | 16 | 0..65535 |
-| 55 | T_PROB | 32 | 1..2^32-1 |
-| 56 | gamma_tip_bp | 16 | 0..10000 |
-| 57 | baseFeeMin | 256 | 0..2^256-1 |
-| 58 | R_react | 8 | 0..255 |
-| 59 | C_react | 32 | 0..2^32-1 |
-| 60 | E_epoch | 32 | 1..2^32-1 |
-| 61 | theta_bp | 16 | 0..10000 |
-| 62 | k_sigma | 16 | 0..65535 |
-| 63 | rho_bp | 16 | 0..10000 |
+| 54 | gamma_tip_bp | 16 | 0..10000 |
+| 55 | baseFeeMin | 256 | 0..2^256-1 |
+| 56 | R_react | 8 | 0..255 |
+| 57 | C_react | 32 | 0..2^32-1 |
+| 58 | rho_bp | 16 | 0..10000 |
 
 FN-2a (owner decision 10d of 2026-11-13, no account-creation fee) deleted the three creation-fee coefficients
 F0_acct, F0_slot and F0_code (formerly 56..58), so CP schema v2 has 64 fields and every later field moved down by
 three (gamma_tip_bp 59 → 56, baseFeeMin 60 → 57, R_react 61 → 58, C_react 62 → 59, E_epoch 63 → 60, theta_bp 64 → 61,
-k_sigma 65 → 62, rho_bp 66 → 63). No chain runs CP schema v2, so the deletion binds nothing persisted.
+k_sigma 65 → 62, rho_bp 66 → 63). FN-2b (owner decisions 10b/10c of 2026-11-13: no seat contest, no probation pool or
+deadline) deleted P_MAX and T_PROB (formerly 54..55) and E_epoch, theta_bp and k_sigma (formerly 60..62), so CP schema v2
+has 59 fields: gamma_tip_bp 56 → 54, baseFeeMin 57 → 55, R_react 58 → 56, C_react 59 → 57, rho_bp 63 → 58. No chain runs
+CP schema v2, so neither deletion binds anything persisted.
 
 ### 2.4 Boundary, lock and enforcement
 `pocold/consensus-boundary.txt` lists the consensus sources (paths relative to `prototypes/`): `+` includes (all of

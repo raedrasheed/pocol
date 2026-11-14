@@ -7,6 +7,10 @@ Status: design, approved by the owner on 2026-11-08 (see V3-OWNER-DECISIONS-2026
 earn-in rollout records) was removed after the owner's 2026-11-13 decision to launch a brand-new network
 ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)); read it in git history, for example at commit `d24843d`.
 Thesis citations are "T p<PDF page>/<printed page>" of `WT/PhD-thesis-Raed-Rasheed-120211566-61.pdf`.
+Superseded in part (owner decisions 10b, 10c and Q2(a) of 2026-11-13; FN-2b): V3-10 (contestable seats) and V3-14 (the
+probation pool, its contest and T_PROB) are not built. There is no seat contest and no separate probation pool or deadline;
+an inactive member is removed only at a full set, atomically with registerReplacing. See V3-DECISIONS.md D-V3-10 and
+D-V3-14 and prototypes/lp4-execution/contracts/REGISTRY-LAYOUT.md "v3 removal at a full set".
 
 **The owner's rule (verbatim):** «أوافق على تعديل التي لا تغيير خوارزمية الاجماع بدون اي تحفظ. أما التي تحتاج
 تغيير في خوارزمية الاجماع فأوافق على التغيير الذي لا يغيير فكرة الاجماع بالتعاون ولا يغير فكرة الكتلة النموذج أو

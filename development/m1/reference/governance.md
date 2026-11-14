@@ -312,14 +312,14 @@ P-live has full u64 nonce range at version>=2 and a continuous horizon. It remai
 | M_max / R_max / REG_OPS | 256 / 4 / 16 | V3-07, V3-09 |
 | R_react / C_react | 4 / ≥ U (e.g. 160) | V3-09 |
 | B_reg | 20 PCOL | O-12=a |
-| P_MAX / T_PROB | 64 / 86,400 blocks (30 days) | O-14=b |
+| P_MAX / T_PROB | deleted (FN-2b, owner decisions 10b/10c of 2026-11-13: no probation pool or deadline; ACCRUING members count within M_max) | O-14 superseded |
 | Θ_inact | 120 blocks (1 h) | O-11=b |
 | E_win / U | 120 / 140 (= E_win + D + 16) | O-18=b; R7, U ≥ W_act+2 |
 | W_act / D / W_w | 32 / 4 / 8 (unchanged unless SimNet says otherwise) | — |
 | S0 (cp[15]) / H_half / S_tail | 1 PCOL / 4,207,680 blocks (4 y) / S0/32 = 0.03125 PCOL | O-19=M3 |
 | γ_tip_bp / baseFeeMin | 5000 / 10^7 wei (0.01 gwei) | O-20=b |
 | ρ_bp | 2500 | O-17=b |
-| E_epoch / θ_bp / k_sigma | 2,880 blocks (1 day) / 1250 / 3 | O-10=b |
+| E_epoch / θ_bp / k_sigma | deleted (FN-2b, owner decision 10b: no seat contest; removal of inactive members only at a full set, registerReplacing, Q2(a)) | O-10 superseded |
 | ACCT_CAP / SLOT_CAP / CODE_CAP | 200,000 / 500,000 / 32 MiB (A13-verified in F) | O-21=b |
 | F0_acct / F0_slot / F0_code | deleted (FN-2a, owner decision 10d of 2026-11-13: no creation fee) | O-21 superseded |
 | LOG_BLOCK_MAX / LOG_COUNT_MAX (host constants) | 256 KiB / 4,368 | V3-24 |
