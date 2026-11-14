@@ -1,15 +1,14 @@
 //! The v3 twin of tests/earnin.rs (V3-PR-E0): the same full-chain earn-in flow on a specVersion-2 devnet, which
 //! selects the v3 programs (system-v3.json), without a probation pool or deadline since FN-2b (owner decisions 10b/10c of
 //! 2026-11-13: ACCRUING records count within M_max and never exit by time). Real
-//! blocks, real settlement through RewardEscrow, the escrow invariant after every block. A spec-2 genesis decodes
-//! only in a v3-preview build, so the chain tests need `--features v3-preview`; a release build must refuse it.
+//! blocks, real settlement through RewardEscrow, the escrow invariant after every block. A spec-2 genesis is the release
+//! GenesisSpec (SPEC_VERSION 2), so these are default tests.
 //! V3-PR-E2b adds the evidence penalties on chain (V3-16, V3-17): real type-2 evidence, the reporter's cut, the
 //! whole-pot burn of an ACCRUING winner, the E_win boundary and a self-report, against the spec-1 earn-in chain. FN-2b C4
 //! adds the removal at a full set on chain: registerReplacing through the wallet's quote decision (a removable member
 //! chosen at random, confirmed by the registry's removalStatus view) and the node's pocol_getRemovable listing.
 use pocol_lp4_execution::devnet::{self, DevnetConfig};
 
-#[cfg_attr(not(feature = "v3-preview"), allow(dead_code))]
 const PCOL: u128 = 1_000_000_000_000_000_000;
 
 fn config() -> DevnetConfig {
@@ -24,14 +23,9 @@ fn config() -> DevnetConfig {
 }
 
 #[test]
-fn a_v3_earnin_genesis_is_dormant_outside_a_preview_build() {
-    let built = devnet::build(&config());
-    if pocol_lp4_execution::V3_PREVIEW {
-        let net = built.unwrap();
-        assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash(), "spec 2 + earn-in selects the v3 set");
-    } else {
-        assert!(built.err().unwrap().contains("gsVersion"), "a release build cannot decode a specVersion-2 genesis, so the v3 set is unreachable");
-    }
+fn a_v3_earnin_genesis_selects_the_v3_program_set() {
+    let net = devnet::build(&config()).unwrap();
+    assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash(), "spec 2 + earn-in selects the v3 set");
     // The spec-1 earn-in devnet keeps the earn-in set and its constants.
     let mut legacy = config();
     legacy.spec_version = 1;
@@ -39,8 +33,7 @@ fn a_v3_earnin_genesis_is_dormant_outside_a_preview_build() {
     assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::earnin().sys_code_hash());
 }
 
-#[cfg(feature = "v3-preview")]
-mod preview {
+mod on_chain {
     use super::*;
     use std::collections::HashMap;
     use pocol_lp4_execution::{admission, apply::{self, ProgramSet}, txsign::{Key, Tx}};

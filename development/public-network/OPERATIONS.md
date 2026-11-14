@@ -225,7 +225,7 @@ first; the shipped legacy entry is uncertified and every H15000 home is refused.
   the minimum; `consensus` another identity (both hold the address);
 - `lastIncompatibleReason`: the last refusal, `peer <name>: <reason>`, at most 160
   characters, for example "peer has not scheduled activation (2,H): it must apply the
-  published network upgrade" or "peer runs consensus rules 2; this node runs rules 1";
+  published network upgrade" or "peer runs consensus rules 3; this node runs rules 2";
 - `publicLaunchReady` and `launchBlockers` [{id, detail}] (V3-28 H1,
   `prototypes/pocold/src/readiness.rs`): computed from this build and the admission the
   node booted with, true only with no blocker. Today it is false, for example

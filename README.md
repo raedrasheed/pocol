@@ -21,7 +21,9 @@ genesis; nothing of the retired network is kept
 repository pin chain ID `1599846715` and genesis hash
 `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`. Until the new genesis exists, that pin is the
 retired network's; the clients are switched to the new identity in one reviewed step (see
-[deploy/mainnet](deploy/mainnet/README.md)).
+[deploy/mainnet](deploy/mainnet/README.md)). The release rule set is the v3 rule set: consensus rules 2, and nodes
+and clients decode a version-2 `GenesisSpec` (CP schema v2) by default; a release of rules 1, or a network
+invitation for them, is refused at import.
 
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and
@@ -77,7 +79,8 @@ This is an outline. The normative rules are in [development/m1/reference/](devel
 ### Network identity
 
 - A network is defined by a `GenesisSpec`: a strict RLP encoding of the spec version, chainId, consensus parameters
-  (`CP`), the initial allocation root, the initial miner list `M_0` and the system-contract code hash.
+  (`CP`), the initial allocation root, the initial miner list `M_0` and the system-contract code hash. Version 2 (CP
+  schema v2, 59 fields, the v3 rules) is the release version; version 1 still decodes.
 - `genesisHash = keccak256(GenesisSpec)`. Nodes and the extension check the network identity before accepting its data.
 - Before boot, **ParamGate** evaluates rules R1–R26 over the consensus and local parameters. A profile that violates a
   rule is refused, and the refusal lists the rules it violates.

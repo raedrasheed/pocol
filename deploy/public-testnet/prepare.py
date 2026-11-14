@@ -201,6 +201,9 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
     info = read_json(network / 'devnet.json')
     if info.get('keyMode') != 'independent-key-files' or info['admission']['scope'] != 'experimental-devnet':
         raise ValueError('Generate independent genesis with init-testnet, not label-based init-devnet')
+    # The public GenesisSpec itself, not the devnet.json declaration alone: its version and chain ID must match the
+    # declaration, and a spec-2 (v3) genesis must name the v3 program set (pocol_identity.public_spec).
+    pocol_identity.public_spec_hex(info, (network / 'genesis.spec.hex').read_text(encoding='ascii'))
     build = json.loads(subprocess.check_output([str(bin_dir / 'pocold'), 'build-info'], text=True, timeout=10))
     if build['features'] or build['protocolVersion'] != 2: raise ValueError('Use the feature-free wire-v2 release build')
     # A tree whose consensus sources are not pinned peers with no released node (VA-SPEC §2.4).

@@ -17,11 +17,9 @@ required = ['lib/forks.js', 'lib/rp.js', 'lib/refdec.js', 'icons/pocol-16.png', 
 for name in required:
     if not (dist / name).is_file():
         raise SystemExit(f'Missing built release file: {name}. Run npm run build first.')
-# A v3-preview build (build.mjs --v3-preview, dist-v3-preview/) decodes a spec-2 genesis at its entry points; the release
-# keeps the SPEC_VERSION ceiling until activation, so a preview dist (or one of its files) copied over dist/ is refused.
-if 'export const DECODE_CEILING = SPEC_VERSION;' not in (dist / 'lib/refdec.js').read_text(encoding='utf-8') \
-        or 'PREVIEW' in json.loads((dist / 'manifest.json').read_text(encoding='utf-8'))['name']:
-    raise SystemExit('Refusing a v3-preview build: rebuild the release with npm run build')
+# The release decodes the v3 GenesisSpec (spec 2) by default; a stale dist/ built before that (SPEC_VERSION 1) is refused.
+if 'export const SPEC_VERSION = 2,' not in (dist / 'lib/refdec.js').read_text(encoding='utf-8'):
+    raise SystemExit('Refusing a stale build that does not decode spec 2: rebuild the release with npm run build')
 output.parent.mkdir(parents=True, exist_ok=True)
 with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
     for path in sorted(dist.rglob('*')):

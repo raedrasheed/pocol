@@ -72,7 +72,7 @@ class ValidationTests(unittest.TestCase):
                 self.assertEqual(g.sanitize(method, {**fields, **private}), fields)
 
     def test_the_consensus_identity_and_wire_range_pass_the_sanitizer(self):
-        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 1, 'protocolVersionMin': 2, 'maxForkVersion': 2}
+        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 2, 'protocolVersionMin': 2, 'maxForkVersion': 2}
         for method in ('pocol_status', 'pocol_getParams'):
             with self.subTest(method=method):
                 self.assertEqual(g.sanitize(method, {**fields, 'peers': ['private'], 'lastIncompatibleReason': 'peer x'}), fields)

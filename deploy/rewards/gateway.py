@@ -66,7 +66,7 @@ def load_fork_schedule(filename=None):
 
 
 def load_v3_network(filename=None):
-    """Read the operator's v3 network configuration once at startup (V3-PR-G; dormant until V3-PR-I): a JSON object
+    """Read the operator's v3 network configuration once at startup (V3-PR-G; no v3 network identity is pinned yet): a JSON object
     {"chainId": N, "genesisHash": "0x...", "specVersion": 2, "v3": true}. Without a file the gateway serves only the
     pinned spec-1 Mainnet; a v3 genesis is never enabled by an RPC answer."""
     if filename is None:
@@ -306,7 +306,7 @@ if __name__ == '__main__':
     parser.add_argument('--port', type=int, default=8088)
     parser.add_argument('--rpc-port', type=int, default=8545)
     parser.add_argument('--fork-schedule', metavar='FILE', help='Trusted JSON [[1,0],[2,activation_height]] schedule; default is version 1 only')
-    parser.add_argument('--v3-network', metavar='FILE', help='Trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true}: serve a v3 (spec-2) network instead of Mainnet; dormant until activation')
+    parser.add_argument('--v3-network', metavar='FILE', help='Trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true}: serve a v3 (spec-2) network instead of Mainnet')
     args = parser.parse_args()
     try:
         fork_schedule = load_fork_schedule(args.fork_schedule)

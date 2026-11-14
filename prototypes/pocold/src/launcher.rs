@@ -1023,10 +1023,10 @@ mod upgrade_tests {
         assert_eq!(description["publicLaunchReady"], false);
         let blockers = description["launchBlockers"].as_array().unwrap();
         let ids: Vec<&str> = blockers.iter().map(|b| b["id"].as_str().unwrap()).collect();
-        for id in ["spec-version", "plan-gate-Q1", "v3-inactive", "network-not-release-pinned", "profile-kind"] {
+        for id in ["plan-gate-Q1", "v3-inactive", "network-not-release-pinned", "profile-kind"] {
             assert!(ids.contains(&id), "{id}: {ids:?}");
         }
-        assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable"), "{ids:?}");
+        assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable") && !ids.contains(&"spec-version"), "{ids:?}");
         let info = invitation.info().unwrap();
         let (chain_id, genesis) = computed(&invitation);
         let pinned = blockers.iter().find(|b| b["id"] == "network-not-release-pinned").unwrap()["detail"].as_str().unwrap().to_string();
@@ -1048,7 +1048,7 @@ mod upgrade_tests {
         let honest = generated(serde_json::Value::Null);
         let (chain_id, genesis) = computed(&honest);
         let genesis: [u8; 32] = types::unhex(&genesis).unwrap().try_into().unwrap();
-        let pinned = Build { v3_preview: false, spec_version: 2, consensus_pinned: true, test_features: vec![], v3_launch_blockers: vec![],
+        let pinned = Build { spec_version: 2, consensus_pinned: true, test_features: vec![], v3_launch_blockers: vec![],
             plan_gates_open: vec![], network_profiles: vec![(chain_id, genesis)] };
         let ids = |i: &Invitation| -> Vec<String> {
             let info = i.info().unwrap();
@@ -1234,7 +1234,7 @@ mod upgrade_tests {
         // and imports it unchanged.
         let packed = generated(serde_json::Value::Null);
         let text = String::from_utf8(bytes(&packed)).unwrap();
-        assert!(text.contains("\"schema\": \"pocol-network-v2\"") && text.contains("\"consensusRulesVersion\": 1"), "{text}");
+        assert!(text.contains("\"schema\": \"pocol-network-v2\"") && text.contains("\"consensusRulesVersion\": 2"), "{text}");
         assert!(!text.contains("compatibilitySha256") && !text.contains(identity::COMPATIBILITY_HEX));
         Invitation::parse(&bytes(&packed)).unwrap();
         let t = Scratch::new();
@@ -1263,6 +1263,11 @@ mod upgrade_tests {
         let mut other = packed.clone();
         other.consensus_rules_version = identity::CONSENSUS_RULES_VERSION + 1;
         assert!(Invitation::parse(&bytes(&other)).unwrap_err().contains("different PoCol consensus release"));
+        // An invitation of the old network's rules (1) is refused at import, not only at peering.
+        other.consensus_rules_version = 1;
+        let old = Invitation::parse(&bytes(&other)).unwrap_err();
+        assert!(old.contains("different PoCol consensus release (rules 1; this release runs rules 2)"), "{old}");
+        assert!(home.import(&bytes(&other)).unwrap_err().contains("rules 1"));
     }
     /// D17, D23: the bootstrap list and the seeds' retirement are v2 fields outside the network's identity: an empty
     /// list and `false` are not written (a file without them keeps its bytes and fingerprint), the content key ignores
@@ -1353,9 +1358,9 @@ mod upgrade_tests {
         let at = |forks| bytes(&generated(forks));
         assert!(home.upgrade(&at(serde_json::json!([[1, 0], [2, 100], [3, 200]]))).unwrap_err().contains("consensus fork schedule"), "v3 under MAX_FORK_VERSION = 2");
         let mut rules = generated(serde_json::json!([[1, 0], [2, 100]]));
-        rules.consensus_rules_version = 2;
+        rules.consensus_rules_version = identity::CONSENSUS_RULES_VERSION + 1;
         assert!(home.upgrade(&bytes(&rules)).unwrap_err().contains("different PoCol consensus release"));
-        assert!(upgrade_transition(&before, &rules).unwrap_err().contains("runs consensus rules 2"));
+        assert!(upgrade_transition(&before, &rules).unwrap_err().contains(&format!("runs consensus rules {}", identity::CONSENSUS_RULES_VERSION + 1)));
         let changed = |edit: &dyn Fn(&mut Invitation)| { let mut i = generated(serde_json::json!([[1, 0], [2, 100]])); edit(&mut i); i };
         for (what, i) in [
             ("seeds", changed(&|i| i.seeds = vec!["127.0.0.1:30301".parse().unwrap()])),

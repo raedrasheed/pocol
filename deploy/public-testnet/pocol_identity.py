@@ -10,16 +10,14 @@ import hashlib
 DOMAIN = b'pocol-consensus-identity-v1\0'
 FLAG_CAPS_TEST = 1
 FLAG_UNPINNED = 2
-# Test-only spec-2 preview (pocold identity::FLAG_V3_PREVIEW): isolated even when its sources are pinned.
-FLAG_V3_PREVIEW = 4
-# The flags that append the consensus-sources aggregate to the identity (identity.rs consensus_id).
-FLAGS_WITH_SOURCES = FLAG_UNPINNED | FLAG_V3_PREVIEW
+# The flags that append the consensus-sources aggregate to the identity (identity.rs consensus_id): unpinned only. Bit 2
+# was the retired v3-preview build's flag; the v3 rules are the release rules (consensus rules 2), so no build sets it.
+FLAGS_WITH_SOURCES = FLAG_UNPINNED
 # The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION).
 MAX_FORK_VERSION = 2
-# The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION). A v3-preview build also decodes
-# spec 2 (the v3 genesis, CP schema v2); a release build refuses it until activation (V3-PR-I).
-SPEC_VERSION = 1
-PREVIEW_SPEC_VERSION = 2
+# The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION): spec 2, the v3 genesis on CP schema
+# v2, is the release version; spec 1 (CP schema v1) still decodes.
+SPEC_VERSION = 2
 # The lowest wire version a peer may send (pocold identity::PROTOCOL_VERSION_MIN).
 PROTOCOL_VERSION_MIN = 2
 
@@ -47,7 +45,7 @@ def validated_schedule(value, max_version=MAX_FORK_VERSION):
 
 def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
     """SHA-256(domain || chainId u64 || genesisHash || rules u32 || flags u8 || n u8 ||
-    (version u16 || height u64) x n || [sources, exactly with the unpinned or preview bit]), big-endian.
+    (version u16 || height u64) x n || [sources, exactly with the unpinned bit]), big-endian.
     genesis and sources are 32 bytes or 64 hex characters (an 0x prefix is allowed);
     returns lowercase hex without a prefix, as pocol_status consensusIdentity."""
     def raw(value):
@@ -59,7 +57,7 @@ def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
     if not 1 <= len(forks) <= 16:
         raise ValueError('a consensus identity covers a validated schedule')
     if bool(flags & FLAGS_WITH_SOURCES) != (sources is not None):
-        raise ValueError('the unpinned or preview bit and the aggregate go together')
+        raise ValueError('the unpinned bit and the aggregate go together')
     data = DOMAIN + chain_id.to_bytes(8, 'big') + raw(genesis) + rules.to_bytes(4, 'big') + bytes([flags, len(forks)])
     data += b''.join(v.to_bytes(2, 'big') + h.to_bytes(8, 'big') for v, h in forks)
     if sources is not None:
@@ -68,29 +66,26 @@ def consensus_id(chain_id, genesis, rules, flags, forks, sources=None):
 
 
 def build_flags(build):
-    """The flags a build reports through `pocold build-info` (identity.rs flags(): bit0 caps-test, bit1 unpinned,
-    bit2 v3-preview)."""
+    """The flags a build reports through `pocold build-info` (identity.rs flags(): bit0 caps-test, bit1 unpinned)."""
     features = build.get('features', [])
-    return ((FLAG_CAPS_TEST if 'caps-test' in features else 0) | (0 if build['consensusPinned'] else FLAG_UNPINNED)
-            | (FLAG_V3_PREVIEW if build.get('v3Preview') is True or 'v3-preview' in features else 0))
+    return (FLAG_CAPS_TEST if 'caps-test' in features else 0) | (0 if build['consensusPinned'] else FLAG_UNPINNED)
 
 
 def spec_version(info):
     """The GenesisSpec version devnet.json `info` declares (pocold testnet writes `specVersion: 2` and `v3: true`
     together for a v3 genesis and neither for spec 1). Anything else is refused."""
     version = info.get('specVersion', 1)
-    if type(version) is not int or version not in (1, PREVIEW_SPEC_VERSION) or info.get('v3', False) is not (version == 2):
+    if type(version) is not int or version not in (1, SPEC_VERSION) or info.get('v3', False) is not (version == 2):
         raise ValueError('unsupported or inconsistent GenesisSpec version')
     return version
 
 
 def for_network(info, build):
     """The identity a node of build-info `build` sends on the network of devnet.json `info`. The spec version is not
-    an identity input (genesisHash already commits the whole GenesisSpec), but a node opens a spec-2 (v3) genesis only
-    when its build decodes it: a v3-preview build, never a release build before activation."""
+    an identity input (genesisHash already commits the whole GenesisSpec); a release build decodes a spec-2 (v3) and a
+    spec-1 genesis alike (SPEC_VERSION 2), and the declaration must be one of them."""
     flags = build_flags(build)
-    if spec_version(info) > SPEC_VERSION and not flags & FLAG_V3_PREVIEW:
-        raise ValueError('a release build refuses a spec-2 (v3) genesis until activation; only a v3-preview build opens it')
+    spec_version(info)
     return consensus_id(info['chainId'], info['genesisHash'], build['consensusRulesVersion'], flags,
                         validated_schedule(info.get('forks', [[1, 0]]), build.get('maxForkVersion', MAX_FORK_VERSION)),
                         build['consensusSourcesSha256'] if flags & FLAGS_WITH_SOURCES else None)
@@ -100,8 +95,8 @@ def for_network(info, build):
 # GenesisSpec reference decoder: a port of lp1-node/src/genesis_spec.rs decode_bounded (framing L0, then gsStructure,
 # gsVersion, gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each over the whole input) with the reference's error codes
 # and details, for CP schema v1 (52 fields) and v2 (59 fields). test_pocol_identity checks it against the Rust verdicts of
-# the whole decoder corpus (prototypes/pocol-extension/tests/data: the release and v3-preview verdict files of
-# decoder-corpus.json, and decoder-verdicts-v3.json of its spec-2 supplement), as refdec.js is checked.
+# the whole decoder corpus (prototypes/pocol-extension/tests/data: decoder-verdicts.json of decoder-corpus.json, and
+# decoder-verdicts-v3.json of its spec-2 supplement, the release decoder's verdicts), as refdec.js is checked.
 # - GenesisSpecError: a refusal with `code` (L0, gsStructure, gsVersion, ...) and `detail`, exactly as genesis_spec.rs
 #   GsError.
 # - CP_SCHEMA: CP schema v1 in order: name, width in bits, lower bound, upper bound (None: none; GAMMA: 10^4 - alpha_bp).
@@ -118,8 +113,8 @@ def for_network(info, build):
 #   as the spec. Items past 1024 bytes are split in halves and recombined in exact Decimal arithmetic (libmpdec's fast
 #   multiplication), so a MAX_SPEC_BYTES-long item takes seconds, not the quadratic int conversion's minutes.
 # - decode_genesis_spec(b, max_version): genesis_spec.rs decode_bounded: a GenesisSpec of version 1..max_version, or
-#   GenesisSpecError with the reference's code and detail. The default ceiling is the release decoder (SPEC_VERSION 1,
-#   which refuses spec 2 with gsVersion until activation); 2 is the v3-preview decoder (CP schema v2). Returns
+#   GenesisSpecError with the reference's code and detail. The default ceiling is the release decoder (SPEC_VERSION 2:
+#   CP schema v1 under spec 1, CP schema v2 under spec 2); 1 is a spec-1-only decoder, for tests. Returns
 #   {specVersion, chainId, cp, allocRoot, m0 [(id, reward)], sysCodeHash} with byte values.
 # ---- BEGIN GenesisSpec reference decoder ----
 class GenesisSpecError(ValueError):
@@ -325,7 +320,7 @@ def decode_genesis_spec(b, max_version=SPEC_VERSION):
 
 def public_spec(info, spec, max_version=SPEC_VERSION):
     """The decoded public GenesisSpec `spec` (bytes) of the network devnet.json `info` declares: the reference decoder at
-    `max_version` (a release build's SPEC_VERSION by default; PREVIEW_SPEC_VERSION only for a v3-preview build), whose
+    `max_version` (a release build's SPEC_VERSION, 2, by default), whose
     version must equal the declaration (spec_version) and whose chainId must be the network's. A spec-2 genesis must name
     the v3 program set (V3_SYS_CODE_HASH). The node itself runs any bundled set whose hash a CP-v2 genesis names
     (apply.rs SystemPrograms::program_set), but the deploy tools, like the reward gateway, accept a spec-2 genesis only
@@ -337,6 +332,19 @@ def public_spec(info, spec, max_version=SPEC_VERSION):
         raise ValueError('GenesisSpec version differs from the network metadata')
     if decoded['chainId'] != info.get('chainId'):
         raise ValueError('GenesisSpec chain ID differs from the network metadata')
-    if declared == PREVIEW_SPEC_VERSION and decoded['sysCodeHash'].hex() != V3_SYS_CODE_HASH:
+    if declared == 2 and decoded['sysCodeHash'].hex() != V3_SYS_CODE_HASH:
         raise ValueError('a spec-2 (v3) GenesisSpec must name the v3 program set (sysCodeHash)')
     return decoded
+
+
+def public_spec_hex(info, text, max_version=SPEC_VERSION):
+    """public_spec of the text of a network's genesis.spec.hex: hex digits with an optional 0x prefix and surrounding
+    whitespace, as the node reads it (launcher.rs: trimmed, types.rs unhex). The release bundle tools (prepare.py,
+    node_operator.py verify) check a network's public spec with this, not its devnet.json declaration alone."""
+    if not isinstance(text, str):
+        raise ValueError('genesis.spec.hex is not text')
+    text = text.strip()
+    digits = text[2:] if text.startswith('0x') else text
+    if len(digits) % 2 or any(c not in '0123456789abcdefABCDEF' for c in digits):
+        raise ValueError('genesis.spec.hex is not hex')
+    return public_spec(info, bytes.fromhex(digits), max_version)

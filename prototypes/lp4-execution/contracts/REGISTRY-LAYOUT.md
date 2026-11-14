@@ -141,7 +141,7 @@ block h-1, before any evidence of block h can tomb it. Every SYSTEM call keeps t
 
 SYS footprint (resources::derive on CP schema v2): pending pots keep three words, so slots and keys are unchanged;
 a block with evidence touches one more account (the proposer's reward address receiving the cut). SYS gas, measured
-at the GAS_DOMAIN maxima with P_MAX 64 (tests/v3_contracts.rs v3-preview `v3_sys_gas_and_caps_within_the_v3_envelope`):
+at the GAS_DOMAIN maxima with P_MAX 64 (tests/v3_contracts.rs `v3_sys_gas_and_caps_within_the_v3_envelope`):
 recordResult 36,135, invalidate 8,515, punish 98,677 (a genesis member's never-written clock word, a middle active
 record, the reporter's PAY and the chain's first burn; an ACCRUING accused with a bond and the first burn measures
 86,701, since register writes its clock word), settle 6,313,113 (all P_MAX = 64 probationers live and at bond 0 filled
@@ -189,7 +189,7 @@ SYS footprint (resources::derive on CP schema v2): owners per height stay within
 applies only while total[j] < kappa*m <= S_max/4), so the slots are unchanged and pruneShares deletes late owners as
 before; a kind-3 item writes at most 3k + 2 keys for k shares, and a block credits at most L = min(E_max * min(S_max,
 kappa*m - 1), D * (kappa*m - 1)) late shares, so the evidence keys are at most 9 * E_max + 3 * L; no account is added (recordLate pays
-nobody). SYS gas (tests/v3_contracts.rs v3-preview `v3_sys_gas_and_caps_within_the_v3_envelope`, chain C): one call
+nobody). SYS gas (tests/v3_contracts.rs `v3_sys_gas_and_caps_within_the_v3_envelope`, chain C): one call
 crediting kappa*m - 1 = 63 shares to distinct owners new to owners[j], as the block's first call: 3,457,157 with owners
 without a record (four cold words read each), 3,228,593 with recorded owners whose lastShare it writes. Admission
 composes GAS_ENVELOPE_V3 recordLate 3,458,000 for a genesis running the v3 set (the one v3-only call name, appended to
@@ -249,7 +249,7 @@ the last carrier gains nothing in its own pot (tests/v3_model.py `check_last_car
 Escrow invariant (apply.rs `check_escrow_invariant`, v3 set): balance >= Σpending + held + burnedTotal + both carries;
 after phase 2 of a non-final block h the carry into pot h is zero and the carry into pot h + 1 is zero while h <= D (no
 settlement ran yet); after a final block both are zero ("carry left after phase 2" otherwise). The model and the contract
-harness check the equality after every SYSTEM step, and the v3-preview host test after every block.
+harness check the equality after every SYSTEM step, and the host test on real blocks after every block.
 
 Supply bound (genesis_builder.rs and lp1-node gate.rs R23, for a genesis running the v3 set; admission.rs sets the
 gate's `m3_issuance` from the sysCodeHash): allocations + genesis bonds + 2·S0·H_half + S_tail·2^64 < 2^127, the M3
@@ -260,7 +260,7 @@ SYS footprint (resources::derive on CP schema v2): one more Escrow slot (the car
 and two keys for the carry in every phase class (settle writes the carry into pot h + 1, closeBlock or finalize zeroes
 the carry into pot h); on normal and closing blocks four keys for the tip share's payTo (bond, state word, held_total,
 burnedTotal; five with ACC_COUNT until FN-2b) and the proposer's reward address as an account even without evidence. SYS gas
-(tests/v3_contracts.rs v3-preview): closeBlock at its worst 132,825 (a nonzero carry into pot h zeroed and a 21 PCOL tip
+(tests/v3_contracts.rs): closeBlock at its worst 132,825 (a nonzero carry into pot h zeroed and a 21 PCOL tip
 share to an ACCRUING proposer at bond 0: accrue fills and promotes it, the excess PAID, while held_total is zero, so its
 store goes from zero to nonzero; the same promotion with held_total nonzero 115,725, a partial fill 82,620, a HELD
 proposer 76,871, a tomb 73,923, a fallback block 52,951); finalize 61,932 (both carries nonzero, burned with the tips as
@@ -325,7 +325,7 @@ zero-bond newcomer 11 (186,725), victim at the tail with a full bond 11 (206,815
 REPLACE_GAS 500,000 and SYS_KEYS_USER_MAX 256. Runtime size: MinerRegistry 11,580 bytes (EIP-170: 24,576;
 tests/v3_contracts.rs the_v3_programs_fit_eip_170 and the CI size check).
 
-SYS gas (admission.rs GAS_ENVELOPE_V3, tests/v3_contracts.rs v3-preview): with up to M_max members ACCRUING, every payee
+SYS gas (admission.rs GAS_ENVELOPE_V3, tests/v3_contracts.rs): with up to M_max members ACCRUING, every payee
 of a pot may fill and promote its bond in settlement. Pot j's payees are at most S_max + 3 (its distinct share owners,
 its winner and block j's proposer), none counted by M_max, so the v3 gas domain drops the M_max term and requires
 S_max + 3 <= 259 (`in_gas_domain`); no v3 SYSTEM call iterates the members. settle with 258 payees all ACCRUING at

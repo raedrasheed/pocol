@@ -74,7 +74,7 @@ impl SystemPrograms{
     pub const EARNIN_ACCRUING:u8=4;
     pub fn earnin()->Self{Self::from_compiled_json(include_str!("../tests/data/system-earnin.json")).expect("bundled earn-in system programs")}
     /// V3 network programs (PoColSystemV3.sol: the earn-in programs without the probation pool and deadline, with
-    /// removal at a full set and ChainCaps over all 59 CP schema v2 fields), compile_system_v3.cjs. Dormant: only a specVersion-2 genesis selects it.
+    /// removal at a full set and ChainCaps over all 59 CP schema v2 fields), compile_system_v3.cjs. Only a specVersion-2 genesis selects it.
     pub fn v3()->Self{Self::from_compiled_json(include_str!("../tests/data/system-v3.json")).expect("bundled v3 system programs")}
     fn of(kind:ProgramSet)->Self{
         match kind{ProgramSet::V1=>Self::v1(),ProgramSet::Continuous=>Self::continuous(),ProgramSet::EarnIn=>Self::earnin(),ProgramSet::V3=>Self::v3()}

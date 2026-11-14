@@ -14,7 +14,6 @@
 // lp4's caps-test changes LOG_CAP; enabling it without pocold's own feature would make build-info's `features` (and the
 // identity's caps-test flag) misreport the constants, so that configuration does not compile.
 const _: () = assert!(pocol_lp4_execution::CAPS_TEST == cfg!(feature = "caps-test"), "enable caps-test through pocold's feature");
-const _: () = assert!(pocol_lp4_execution::V3_PREVIEW == cfg!(feature = "v3-preview"), "enable v3-preview through pocold's feature");
 pub mod site;
 pub mod keyfile;
 pub mod launcher;

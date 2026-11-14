@@ -20,8 +20,6 @@ sha2 = "=0.10.9"
 secp256k1 = { version = "=0.29.1", features = ["recovery"] }
 
 [features]
-# Test-only spec-2 acceptance, isolated from release peers and packages.
-v3-preview = []
 # validation.md:2065: the caps-test build constant LOG_CAP=2^24 (simnet only, absent from the release).
 # Never a default. The same line's HIST_TRIE_BUDGET=64 MiB is not set: pocold has no historical trie or
 # K_eff (T18b L12/L13), so it would only change the R21 admission arithmetic.

@@ -236,7 +236,7 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
 #[test] fn identity_rules_r22_to_r26(){
     let (n,t)=base();let tt=rebound(&t,&n.spec_bytes);
     // Test builds refuse non-simnet requests at their build-policy guard before R22.
-    let r22=if cfg!(feature="caps-test"){"caps-test"}else if crate::V3_PREVIEW{"v3-preview"}else{"R22"};
+    let r22=if cfg!(feature="caps-test"){"caps-test"}else{"R22"};
     assert_eq!(rules(admit(&Request{node:NodeKind::Node,..n.request(&sh(),Some(&tt))})),v(&[r22]),"simnet profile on a node: [R22] (governance.md)");
     // R24 accepts the implemented full-range v2 while preserving the original
     // genesis identity and applying the new version only at its scheduled height.
@@ -308,17 +308,16 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
         let simnet=k==ProfileKind::Simnet&&n==NodeKind::Simnet;
         match v3_launch_gate_with(&open,true,k,n){
             Err(e)=>{assert!(!simnet);assert_eq!(e.rules,v(&["v3-launch-blocker"]));assert!(e.notes[0].contains("D-V3-99"),"{e}");}
-            Ok(())=>assert!(simnet,"the simnet preview stays admissible"),
+            Ok(())=>assert!(simnet,"a simnet profile on a simnet node stays admissible"),
         }
         assert!(v3_launch_gate_with(&open,false,k,n).is_ok(),"spec-1 profiles never reach the v3 blockers");
         assert_eq!(v3_launch_gate(true,k,n),v3_launch_gate_with(V3_LAUNCH_BLOCKERS,true,k,n),"the admission gate applies the recorded list");
-        assert!(v3_launch_gate(true,k,n).is_ok(),"with no open blocker the gate admits; the preview and SPEC_VERSION restrictions still apply");
+        assert!(v3_launch_gate(true,k,n).is_ok(),"with no open blocker the gate admits");
     }
 }
-/// No current build reaches the gate through `admit` with v3 on a non-simnet profile (preview builds
-/// refuse those first; release builds cannot decode spec 2), so this source check keeps `admit` calling
-/// it, with whatever V3_LAUNCH_BLOCKERS holds (empty today), until V3-PR-I makes that path reachable
-/// and replaces this check with an `admit`-level test.
+/// Release builds decode spec 2 (SPEC_VERSION 2), so `admit` reaches the gate with v3 on a non-simnet profile, but
+/// V3_LAUNCH_BLOCKERS is empty and no admission can show a refusal; this source check keeps `admit` calling it, with
+/// whatever the list holds, before any fact is built.
 #[test] fn admit_calls_the_v3_launch_gate_before_any_fact_is_built(){
     let src=include_str!("../admission.rs");
     let start=src.find("\npub fn admit(").expect("admit");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];
@@ -333,7 +332,6 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     }
 }
 
-#[cfg(feature="v3-preview")]
 #[test] fn v3_boot_admission_keeps_enforced_log_predicates_at_the_active_limits(){
     let mut c=cfg();c.spec_version=2;c.nonce_mode=1;c.earnin=true;c.r_max=1;c.d_att=91;
     let n=net(&c);let (_,timing)=n.admit(&sh()).unwrap();
@@ -397,7 +395,7 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     // Fixture values are evaluated in full and reported as a fixture.
     let a=admit(&n.request(&sh(),Some(&tt))).unwrap();assert!(a.report().waivers.is_empty());assert!(a.report().conditions.iter().any(|c|c.id=="rpc-fixture"));
     // The scope is restricted to a simnet profile on a simnet node.
-    let r22=if cfg!(feature="caps-test"){"caps-test"}else if crate::V3_PREVIEW{"v3-preview"}else{"R22"};
+    let r22=if cfg!(feature="caps-test"){"caps-test"}else{"R22"};
     let e=admit(&Request{node:NodeKind::Node,..n.request(&NodeLocal{rpc:pocold_like(),..sh()},Some(&tt))}).err().unwrap();assert_eq!(e.rules,v(&[r22]));
     // Review F5: a Synthetic (or Network) profile on a simnet node does not get the waiver.
     for kind in [ProfileKind::Synthetic,ProfileKind::Network]{

@@ -436,8 +436,7 @@ fn exact_supply_calibration_and_timing_boundaries() {
 }
 
 /// The network-synthetic profile on CP schema v2 (the v3 registry programs), with the given W_act, U and C_react, its
-/// genesis a specVersion-2 GenesisSpec. Release builds cannot decode that genesis (SPEC_VERSION 1), so the profile
-/// also violates the genesis rules there; the R8 premises below are evaluated from the CP either way.
+/// genesis a specVersion-2 GenesisSpec (SPEC_VERSION 2 decodes it); the R8 premises below are evaluated from the CP.
 fn profile_v2(w_act: u32, u: u32, c_react: u32) -> GateProfile {
     let mut p = profile(false);
     p.cp.W_act = w_act;

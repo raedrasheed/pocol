@@ -1,4 +1,5 @@
-//! GenesisSpec decoding, canonical encoding and genesisHash binding; v1 release and isolated v2 preview.
+//! GenesisSpec decoding, canonical encoding and genesisHash binding; spec 2 (CP schema v2, the v3 rules) is the
+//! release version, and spec 1 (CP schema v1) still decodes.
 //!
 //! Sources: consensus.md:7-34 (six fields, CP widths and bounds, M_0List rules, decode errors and
 //! their evaluation order), D79, validation.md:59-77 (K1-K3, GSV1, L4n), and the accepted M1
@@ -31,7 +32,7 @@ use crate::hashes::{keccak256, H256};
 use crate::hex;
 use crate::rlp;
 
-pub const SPEC_VERSION: u8 = 1;
+pub const SPEC_VERSION: u8 = 2;
 pub const CP_LEN: usize = 52;
 /// CP schema v2 keeps the complete v1 prefix and appends seven fields. Deleted before any chain ran it: the three
 /// F0_* creation-fee coefficients (FN-2a, owner decision 10d of 2026-11-13: no creation fee), and P_MAX, T_PROB,
@@ -180,11 +181,12 @@ const fn list_len(payload: usize) -> usize {
     }
 }
 
-const fn max_cp_payload(v2: bool) -> usize {
+/// The widest CP payload: CP schema v2, the largest schema SPEC_VERSION accepts (v1 is its prefix).
+const fn max_cp_payload() -> usize {
     let mut sum = 0;
     let mut k = 0;
-    while k < if v2 { CP_V2_LEN } else { CP_LEN } {
-        let f = if v2 { CP_SCHEMA_V2[k] } else { CP_SCHEMA[k] };
+    while k < CP_V2_LEN {
+        let f = CP_SCHEMA_V2[k];
         sum += match f.hi {
             Upper::None => 1 + (f.width / 8) as usize,
             Upper::Value(h) => uint_item_len(h),
@@ -198,7 +200,7 @@ const fn max_cp_payload(v2: bool) -> usize {
 /// Largest encoding that can pass this build decoder and ParamGate R12: chainId and every CP
 /// value at their widest, both roots, and MAX_MEMBERS entries of 43 bytes. Any longer input fails
 /// R12 even if it decodes. Used to bound tools that read untrusted input; not a decode rule.
-pub const MAX_SPEC_BYTES: usize = list_len(1 + 9 + list_len(max_cp_payload(cfg!(feature = "v3-preview"))) + 33 + list_len(MAX_MEMBERS * list_len(21 + 21)) + 33);
+pub const MAX_SPEC_BYTES: usize = list_len(1 + 9 + list_len(max_cp_payload()) + 33 + list_len(MAX_MEMBERS * list_len(21 + 21)) + 33);
 
 pub fn cp_index(name: &str) -> Option<usize> {
     CP_SCHEMA.iter().position(|x| x.name == name)
@@ -414,7 +416,7 @@ fn arr<const N: usize>(v: &[u8]) -> [u8; N] {
 
 /// GenesisSpec.decode. Rejections are values, never panics, at any input length or depth.
 pub fn decode(b: &[u8]) -> Result<GenesisSpec, GsError> {
-    decode_bounded(b, if cfg!(feature = "v3-preview") { 2 } else { SPEC_VERSION })
+    decode_bounded(b, SPEC_VERSION)
 }
 /// Explicit acceptance ceiling for schema tests; never an admission or boot API.
 #[doc(hidden)]
@@ -662,14 +664,13 @@ mod tests {
     }
 
     #[test]
-    fn preview_ceiling_does_not_accept_unknown_future_schemas() {
+    fn the_release_ceiling_does_not_accept_unknown_future_schemas() {
         let mut spec=GenesisSpec{spec_version:2,chain_id:7,cp:CP_SCHEMA_V2.iter().map(|f|U256::from_u64(f.lo)).collect(),
             alloc_root:[0;32],m0_list:vec![Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]};
         let bytes=encode(&spec);
         assert_eq!(decode_bounded(&bytes,1).unwrap_err().code,"gsVersion");
         assert_eq!(decode_bounded(&bytes,2).unwrap(),spec);
-        if cfg!(feature="v3-preview"){assert_eq!(decode(&bytes).unwrap(),spec);}
-        else{assert_eq!(decode(&bytes).unwrap_err().code,"gsVersion");}
+        assert_eq!(decode(&bytes).unwrap(),spec);
         spec.spec_version=3;
         assert_eq!(decode_bounded(&encode(&spec),u8::MAX).unwrap_err(),GsError{code:"gsVersion",detail:"3".into()});
         spec.spec_version=1;

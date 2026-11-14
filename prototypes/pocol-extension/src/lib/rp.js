@@ -20,9 +20,8 @@ export const VIEW_SLACK_S = 4n, PHI_VIEW = 10;
 const MAX = (1n << 256n) - 1n;
 /** GenesisSpec (A07): the full accepted schema and evaluation order (refdec.js, a port of the
  * reference decoder checked differentially), after the MAX_SPEC_BYTES input bound. The result carries its
- * specVersion. The default ceiling is the build's DECODE_CEILING: the release decoder's SPEC_VERSION, so a spec-2 (v3)
- * genesis is refused with gsVersion until activation, and 2 only in the test-only v3-preview build; an explicit
- * `maxVersion` is for tests and explicit preview callers only. */
+ * specVersion. The default ceiling is DECODE_CEILING, the release decoder's SPEC_VERSION (2): a spec-2 (v3) genesis
+ * decodes with CP schema v2 and a spec-1 genesis with CP schema v1; an explicit `maxVersion` is for tests only. */
 export function decodeSpec(b, maxVersion = DECODE_CEILING) {
   if (b.length > maxSpecBytes(maxVersion)) throw Object.assign(new Error('InputTooLarge'), { gs: 'InputTooLarge', detail: String(b.length) });
   return decodeGenesisSpec(b, maxVersion);

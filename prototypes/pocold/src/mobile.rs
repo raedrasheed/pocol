@@ -259,7 +259,7 @@ mod tests {
     }
     #[test]
     fn inspect_upgrade_reports_none_rebind_activation_and_an_interrupted_upgrade_to_resume() {
-        // T33: a generated continuous spec-1 network (`pocold init-testnet`) under pocol-network-v2 (rules 1), as
+        // T33: a generated continuous spec-1 network (`pocold init-testnet`) under pocol-network-v2 (this release's rules), as
         // `pocol network` packs it from R1 on.
         let dir = std::env::temp_dir().join(format!("pocol-mobile-inspect-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);

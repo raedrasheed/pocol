@@ -183,7 +183,7 @@ The review shows the maximum fee for all four signatures. No PCOL is transferred
   opens), and shows each step (scheduled, reactivating, retrying, rejoined, stopped) as a notice; keep the app
   running until the account is back in the active set.
 
-**On the v3 network (the fresh network's rules: a specVersion-2 genesis, decoded only by preview builds).** The engine
+**On the v3 network (the fresh network's rules: a specVersion-2 genesis, the release GenesisSpec).** The engine
 adds, only there (every answer on today's networks is unchanged):
 - *Bond:* a registration can lock 0 to 20 PCOL; the rest is earned from mining rewards, with no deadline (owner
   decision 10c). The status carries `bondRemaining` for an active record (an exited record earns nothing more: its bond

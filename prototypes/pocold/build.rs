@@ -147,7 +147,6 @@ fn main() {
         ("CARGO_FEATURE_CAPS_TEST", "caps-test"),
         ("CARGO_FEATURE_CRASH_TEST", "crash-test"),
         ("CARGO_FEATURE_IO_FAULT", "io-fault"),
-        ("CARGO_FEATURE_V3_PREVIEW", "v3-preview"),
     ] {
         println!("cargo:rerun-if-env-changed={var}");
         if env::var_os(var).is_some() {
@@ -160,7 +159,6 @@ fn main() {
     println!("cargo:rustc-env=POCOL_COMPATIBILITY_SHA256={digest}");
     let mut info = serde_json::json!({"schema":"pocol-testnet-build-v1", "protocolVersion":2,
         "compatibilitySha256":digest,"features":features,"sourceSha256":manifest,
-        "v3Preview":env::var_os("CARGO_FEATURE_V3_PREVIEW").is_some(),
         "scope":"experimental-testnet"});
     // publicLaunchReady and launchBlockers are computed at run time from this build's facts (pocold::readiness).
     for (key, value) in consensus(root).as_object().unwrap() {

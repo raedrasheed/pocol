@@ -28,13 +28,13 @@
 //!   equality and the supply conserved after every step; type-2 evidence before settle(j) pays the contributors and
 //!   burns only the offender's parts (fails on the earn-in set, which burns the whole pot); an ACCRUING accused winner
 //!   burns the whole pot; the settlement boundary; a self-report loses (1 - rho) * B; five planted mutants each fail;
-//!   with v3-preview, real blocks through apply_block (the host's v3 phase 0) and the SYS gas of the changed calls
+//!   on real blocks through apply_block (the host's v3 phase 0) and the SYS gas of the changed calls
 //!   within admission's GAS_ENVELOPE_V3, keys and accounts within resources::derive.
 //! - V3-PR-E3, late share credit (V3-02): every scenario of tests/v3/late-share-vectors.json (recordLate in phase 0
 //!   after recordResult and before settle(h-D), the no-dilution cap, the window, lastShare = max(lastShare, j), owners
 //!   without a record, tombed or ACCRUING) reproduces on the v3 bytecode step by step, the ShareLedger counts and totals
 //!   included, with the Escrow invariant and the supply after every step; the omitted contributor is paid at settle(j)
-//!   (fails on the earn-in set, which has no recordLate); five planted mutants each fail; with v3-preview, real blocks
+//!   (fails on the earn-in set, which has no recordLate); five planted mutants each fail; on real blocks
 //!   with Late effects through apply_block and recordLate's SYS gas at the worst path within GAS_ENVELOPE_V3.
 //! - V3-PR-E2a, issuance M3, carry and tip split (V3-19, V3-15, V3-20): the host's issuance(h) reproduces the model's
 //!   schedule table (h = 1, H_half - 1, H_half, 256·H_half and more); every scenario of tests/v3/issuance-carry-vectors.json
@@ -44,12 +44,12 @@
 //!   blocks credit late; the carry is lagged by one block (D-V3-15): the last carrier of template j (block j + D) gains
 //!   nothing in its own pot by omitting LS(j), the omission's base burn reaching pot j + D + 1 (fails on the previous,
 //!   unlagged rule, the planted carry-not-lagged); the earn-in set records CP 15 + tips (fails on the original); eight
-//!   planted RewardEscrow mutants each fail; with v3-preview, real blocks: host credit = recorded pot every block over
+//!   planted RewardEscrow mutants each fail; on real blocks: host credit = recorded pot every block over
 //!   3·H_half (H_half 8) with the carry of settle(h-D) in pot h+1, and CP 15 on the spec-1 earn-in devnet, a final block
 //!   burning every outstanding carry (its own settle's included), the invariant's carry terms, the supply bound at
 //!   genesis, and closeBlock/finalize's SYS gas on their worst paths within GAS_ENVELOPE_V3.
 //! - FN-2b C4/C5: registerReplacing's call shape, write ceilings, gas and user SYS keys, the removalStatus and activeSlice
-//!   views; with v3-preview, settle's worst path with every payee ACCRUING at bond 0 and promoted in one call (256 share
+//!   views; settle's worst path with every payee ACCRUING at bond 0 and promoted in one call (256 share
 //!   owners, the winner and the proposer; and the carry path), M_max above the spec-1 domain, and the earn-in refund
 //!   regressions (earnin_refund_fix.rs) on the v3 set.
 use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,genesis_spec,
@@ -1945,8 +1945,7 @@ fn active_slice_reads_m_max_members_in_gateway_pages(){
     assert!(most>call_gas,"a page of {page} fits CALL_GAS ({most}): ACTIVE_SLICE_GAS is not needed");
 }
 
-#[cfg(feature="v3-preview")]
-mod preview{
+mod on_chain {
     //! Real blocks through apply_block on a specVersion-2 devnet (the v3 program set), so through the host's v3 phase 0
     //! (apply.rs): the parent's result recorded first, invalidate(j, accused), punish(accused, reporter = the signed
     //! proposer). The spec-1 earn-in devnet runs the same blocks for the fails-on-original comparison.

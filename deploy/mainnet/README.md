@@ -58,15 +58,16 @@ unchanged" notes) must be gone by then, so the version bump (removal plan Phase 
 
 ## A spec-2 (v3) genesis
 
-The v3 consensus bundle is dormant until its activation release: release nodes and
-clients decode only GenesisSpec version 1. `set_network_identity.py` switches the clients
-to a spec-2 genesis only when the tree's node decodes it (`SPEC_VERSION` 2 in
-`genesis_spec.rs`), and only after the whole v3-preview decoder
-(`deploy/public-testnet/pocol_identity.decode_genesis_spec` at ceiling 2, checked against
-the Rust verdicts of the decoder corpus: framing, structure, counts, canonical integers,
-widths and bounds of every field of the final CP schema v2 of 59 fields, roots, M_0List
-order and reserved ids) accepts it and its `sysCodeHash` names the v3 program set. A
-refused `--to` writes nothing. Spec-1 switches are unchanged.
+Since phase 4 of the fresh network the v3 rules are the release rules (consensus rules 2):
+release nodes and clients decode GenesisSpec version 2 (CP schema v2) by default, and
+version 1 still decodes. `set_network_identity.py` switches the clients to a spec-2
+genesis because the tree's node decodes it (`SPEC_VERSION` 2 in `genesis_spec.rs`), and
+only after the whole release decoder
+(`deploy/public-testnet/pocol_identity.decode_genesis_spec` at `SPEC_VERSION` 2, checked
+against the Rust verdicts of the decoder corpus: framing, structure, counts, canonical
+integers, widths and bounds of every field of the final CP schema v2 of 59 fields, roots,
+M_0List order and reserved ids) accepts it and its `sysCodeHash` names the v3 program
+set. A refused `--to` writes nothing. Spec-1 switches are unchanged.
 
 ## Local checks
 

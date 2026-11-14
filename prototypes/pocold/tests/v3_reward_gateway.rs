@@ -1,4 +1,4 @@
-//! V3-PR-G (the reward gateway): a short v3 devnet chain produced by the preview build and served by pocold's own
+//! V3-PR-G (the reward gateway): a short v3 devnet chain produced by pocold and served by pocold's own
 //! JSON-RPC server, against which deploy/rewards/test_pocol_rewards.py (`V3DevnetDifferential`) compares the gateway's
 //! per-block owners and payouts (deploy/rewards/pocol_rewards.py `snapshot_v3`) with the node's state: reward-address
 //! balances, record bonds, RewardEscrow's burned total, pending pots and carry, and the ShareLedger.
@@ -15,9 +15,8 @@
 //! winner, late shares carried by the block that settles their pot, a fallback block, the drawn proposer's own registry
 //! call in the block it proposes, closing (markClose refunds every live record, an ACCRUING payee included, before the
 //! block's settlement) and the final block (finalize burns the tips and carries, settleFinal settles its last pots).
-//! Test-only: no consensus source is touched. Needs `--features v3-preview` and python3.
-#[cfg(feature = "v3-preview")]
-mod preview {
+//! Test-only: no consensus source is touched. Needs python3.
+mod on_chain {
     use std::collections::HashMap;
     use std::path::PathBuf;
     use std::time::{Duration, Instant};

@@ -6,7 +6,7 @@ Four builds of one network:
   B  a copy that differs from A only in a comment appended to pocold/src/rpc.rs (a node-local file): another build
      digest (compatibilitySha256), the same consensus identity. A and B must peer (compatiblePeers 1 on both) and
      reach one head, with blocks mined by both in it. HEAD (whose Hello carried the build digest) fails here (T35);
-  C  a copy with CONSENSUS_RULES_VERSION incremented and the lock re-pinned as kind=bump: pinned, rules 2. A and C
+  C  a copy with CONSENSUS_RULES_VERSION incremented (2 -> 3) and the lock re-pinned as kind=bump: pinned, rules 3. A and C
      never peer, C stays at genesis, and each logs and reports "peer runs consensus rules N";
   D  a copy with one byte appended to lp4-execution/src/fees.rs and no re-pin (T10): it builds, reports
      consensusPinned false and another consensusIdentity, is refused by A, and says why itself ("this node runs an
@@ -32,7 +32,8 @@ IDX = {l: i for i, l in enumerate("abcd")}
 CARGO = os.environ.get("CARGO", "cargo")
 RPC_FILE, RULES_FILE, FEES_FILE = "pocold/src/rpc.rs", "pocold/src/identity.rs", "lp4-execution/src/fees.rs"
 LOCK_FILE = "pocold/consensus-sources.lock"
-RULES_LINE = "pub const CONSENSUS_RULES_VERSION: u32 = 1;"
+RULES, NEXT = 2, 3
+RULES_LINE = f"pub const CONSENSUS_RULES_VERSION: u32 = {RULES};"
 
 def waited(pred, timeout, what):
     t = time.time(); met = False
@@ -127,13 +128,13 @@ def main():
            f"A {a['compatibilitySha256'][:16]} B {b['compatibilitySha256'][:16]}")
         text = pristine[RULES_FILE].decode()
         if text.count(RULES_LINE) != 1: raise AssertionError(f"{RULES_FILE} must define {RULES_LINE!r} once")
-        open(path(RULES_FILE), "w").write(text.replace(RULES_LINE, RULES_LINE.replace("= 1;", "= 2;")))
+        open(path(RULES_FILE), "w").write(text.replace(RULES_LINE, RULES_LINE.replace(f"= {RULES};", f"= {NEXT};")))
         r = cargo(tree, target, ["test", "--test", "consensus_guard", "the_tree_matches_the_consensus_lock"],
-                  {"POCOL_REPIN_CONSENSUS": "bump", "POCOL_REPIN_REF": "e2e", "POCOL_REPIN_NOTE": "e2e_mixed_release: rules 2 with the same genesis (a test only)"})
+                  {"POCOL_REPIN_CONSENSUS": "bump", "POCOL_REPIN_REF": "e2e", "POCOL_REPIN_NOTE": f"e2e_mixed_release: rules {NEXT} with the same genesis (a test only)"})
         if r.returncode: raise AssertionError(f"re-pin kind=bump failed:\n{r.stdout[-2000:]}{r.stderr[-4000:]}")
         c_bin = build(tree, target, os.path.join(bins, "pocold-c"), release=True); restore()
         c = build_info(c_bin)
-        ok("C (rules 2, re-pinned kind=bump) is pinned at rules 2", c["consensusPinned"] is True and c["consensusRulesVersion"] == 2, c["consensusSourcesSha256"])
+        ok(f"C (rules {NEXT}, re-pinned kind=bump) is pinned at rules {NEXT}", c["consensusPinned"] is True and c["consensusRulesVersion"] == NEXT, c["consensusSourcesSha256"])
         open(path(FEES_FILE), "ab").write(b"\n")
         d_bin = build(tree, target, os.path.join(bins, "pocold-d"), release=False)
         d = build_info(d_bin)
@@ -173,10 +174,10 @@ def main():
         ok("A and C never peer and C stays at genesis",
            sc["compatiblePeers"] == 0 and sc["head"]["height"] == 0 and sa["compatiblePeers"] == 1 and sc["consensusIdentity"] != sa["consensusIdentity"],
            f"a peers {sa['compatiblePeers']}, c head {sc['head']['height']}")
-        ok("A logs and reports 'peer runs consensus rules 2'", "peer c: peer runs consensus rules 2; this node runs rules 1" in log_of("a")
-           and sa["lastIncompatibleReason"] == "peer c: peer runs consensus rules 2; this node runs rules 1", sa["lastIncompatibleReason"])
-        ok("C logs and reports 'peer runs consensus rules 1'", "peer a: peer runs consensus rules 1; this node runs rules 2" in log_of("c")
-           and sc["lastIncompatibleReason"] == "peer a: peer runs consensus rules 1; this node runs rules 2", sc["lastIncompatibleReason"])
+        ok(f"A logs and reports 'peer runs consensus rules {NEXT}'", f"peer c: peer runs consensus rules {NEXT}; this node runs rules {RULES}" in log_of("a")
+           and sa["lastIncompatibleReason"] == f"peer c: peer runs consensus rules {NEXT}; this node runs rules {RULES}", sa["lastIncompatibleReason"])
+        ok(f"C logs and reports 'peer runs consensus rules {RULES}'", f"peer a: peer runs consensus rules {RULES}; this node runs rules {NEXT}" in log_of("c")
+           and sc["lastIncompatibleReason"] == f"peer a: peer runs consensus rules {RULES}; this node runs rules {NEXT}", sc["lastIncompatibleReason"])
 
         # D: an unpinned consensus edit isolates itself.
         a1 = refused("a")

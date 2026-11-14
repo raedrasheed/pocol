@@ -143,14 +143,14 @@ fn second_implementation_id(chain_id:u64,genesis:&[u8;32],rules:u32,flags:u8,for
     if !pocold::identity::PINNED{eprintln!("SKIPPED: this tree is unpinned (consensus-sources.lock differs); re-pin it (tests/consensus_guard.rs) to run this test");return}
     let r=start("second-impl",small());
     let flags=u8::from(pocol_lp4_execution::CAPS_TEST);
-    let id=second_implementation_id(r.chain_id,&r.genesis,1,flags,&r.forks);
+    let id=second_implementation_id(r.chain_id,&r.genesis,2,flags,&r.forks);
     let mut s=connect(&r);
     s.write_all(&frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:"second".into(),protocol:2,compatibility:id,listen_port:0,nonce:0})).unwrap();
     assert!(wait_until(1500,||status_of(&r)["compatiblePeers"]==1),"the second implementation is a compatible peer");
     let st=status_of(&r);
     assert_eq!(st["compatibilitySha256"],pocold::identity::COMPATIBILITY_HEX,"the build digest stays informational status");
     assert_eq!(st["consensusIdentity"],id.iter().map(|b|format!("{b:02x}")).collect::<String>());
-    assert_eq!((st["consensusRulesVersion"].as_u64(),st["protocolVersionMin"].as_u64(),st["consensusPinned"].as_bool()),(Some(1),Some(2),Some(true)));
+    assert_eq!((st["consensusRulesVersion"].as_u64(),st["protocolVersionMin"].as_u64(),st["consensusPinned"].as_bool()),(Some(2),Some(2),Some(true)));
     assert_eq!(live(&r),1,"and stays connected");
 }
 /// T16 (attack A2-4): a first frame that is the previous 9-item Hello (no listenPort and nonce) is refused by arity.

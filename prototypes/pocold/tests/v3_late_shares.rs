@@ -4,7 +4,7 @@
 //!   tests/v3/late-share-validity-vectors.json) replay through chain.rs `late_parse`, `late_window` and `late_check`:
 //!   every case gives the model's verdict (the same reason at the same item, or the same owners per template). The model
 //!   also plants 17 mutants of these rules, each of which fails some vector (`v3_model.py --check`).
-//! - With `--features v3-preview`, real v3 chains (a specVersion-2 devnet, the v3 program set): the omitted share of a
+//! - Real v3 chains (a specVersion-2 devnet, the v3 program set): the omitted share of a
 //!   contributor is credited by LS(j) in block j+1 and paid at settle(j), which a spec-1 chain refuses as an evidence
 //!   form; the negative cases on real branches (a fallback carrier, a sibling template's share, a duplicate across
 //!   carriers, the cap read from the parent state); a reorg across a carrier rolls the credit and its deduplication
@@ -99,8 +99,7 @@ fn a13_counts_late_share_memory_on_cp_schema_v2_only(){
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(a.total,3_397_791_234,"the spec-1 A13 model total");}
 }
 
-#[cfg(feature="v3-preview")]
-mod preview{
+mod on_chain {
     use std::collections::HashMap;
     use std::path::{Path,PathBuf};
     use pocol_lp4_execution::{apply::{self,EvidenceEffect,ProgramSet},devnet::{self,DevnetConfig},txsign::Key};

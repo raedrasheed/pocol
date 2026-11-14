@@ -9,13 +9,21 @@ The oracle is loaded read-only from the accepted M1 tree and checked by SHA-256 
   m1-draft-0.2/tools/keccak.py, rlp_strict.py  loaded by netprofile_ref
 Corpus: GSV1, the 32 GSV1 negatives, the 13 C30 cases (deep and shallow), seeded structured edits
 of the GSV1 item tree, seeded byte mutations, and a size ladder: gsVersion values of 17 bytes to
-256 KiB, the largest valid spec (65535 members, MAX_SPEC_BYTES), and framing / structure inputs of
-that size (`--max-version` adds a gsVersion item of that size, slow in a debug build). For every
-input both sides must agree on the code and the detail string of a rejection, or, for an accepted
-input, on genesisHash, chainId, member count and exact re-encoding. Every detail is compared as a
-string with no exception, gsVersion included (round 1 masked values >= 2^128). Python >= 3.11
-refuses str() of integers above 4300 digits by default; the reference reports the integer itself,
-so that conversion limit is lifted here. No input exceeds MAX_SPEC_BYTES, so none may be refused.
+256 KiB, the largest valid spec-1 spec (65535 members, SPEC1_MAX_BYTES), and framing / structure
+inputs of the decoder's size bound MAX_SPEC_BYTES (`--max-version` adds a gsVersion item of that
+size, slow in a debug build). For every input both sides must agree on the code and the detail
+string of a rejection, or, for an accepted input, on genesisHash, chainId, member count and exact
+re-encoding. Every detail is compared as a string with no exception, gsVersion included (round 1
+masked values >= 2^128). Python >= 3.11 refuses str() of integers above 4300 digits by default; the
+reference reports the integer itself, so that conversion limit is lifted here. No input exceeds
+MAX_SPEC_BYTES, so none may be refused.
+
+The M1 reference is a spec-1 decoder and stays the spec-1 oracle. `genesis-decode` runs the release
+decoder (genesis_spec.rs SPEC_VERSION 2: CP schema v1 under spec 1, CP schema v2 under spec 2), so
+the comparison follows tests/genesis_spec.rs `outcome()`: where the reference refuses an input with
+gsVersion "2", the release decoder must give any verdict other than gsVersion (it judges a
+specVersion-2 item under CP schema v2); on every other input the two must agree exactly. The size
+bound is the release one (CP schema v2, 2818562 bytes), which the Rust summary row must report.
 
 Prints one JSON summary line (also written to --out if given); exit 0 only if every input agrees.
 """
@@ -253,10 +261,22 @@ def agrees(ref, got):
         return False
     if ref['ok']:
         return all(ref[k] == got.get(k) for k in ('genesisHash', 'chainId', 'm0', 'reencodeEqual')) and got.get('bootable') is False
-    return 'refused' not in got and ref['code'] == got.get('code') and str(ref['detail']) == got.get('detail')
+    if 'refused' in got:
+        return False
+    if spec2(ref):
+        return got.get('code') is not None and got.get('code') != 'gsVersion'
+    return ref['code'] == got.get('code') and str(ref['detail']) == got.get('detail')
 
 
-MAX_SPEC_BYTES = 2818474          # genesis_spec::MAX_SPEC_BYTES; the Rust summary row must agree
+def spec2(ref):
+    """The spec-1 reference refuses a specVersion-2 item, which the release decoder judges under CP schema v2. The
+    reference's gsVersion detail is the integer itself; it is compared as one, never converted here (str() of a
+    MAX_SPEC_BYTES-long value is quadratic in Python < 3.12)."""
+    return not ref['ok'] and ref['code'] == 'gsVersion' and ref['detail'] in (2, '2')
+
+
+MAX_SPEC_BYTES = 2818562          # genesis_spec::MAX_SPEC_BYTES (CP schema v2); the Rust summary row must agree
+SPEC1_MAX_BYTES = 2818474         # the largest valid spec-1 encoding (CP schema v1), the M1 reference's maximum
 
 
 def rlp_item(raw):
@@ -285,7 +305,7 @@ def ladder(NP, gtree, rng, max_version):
     cp['alpha_bp'] = 5000
     spec.update({'chainId': 2 ** 64 - 1, 'CP': cp, 'M_0List': [[b'\x10' * 16 + i.to_bytes(4, 'big'), b'\xb1' * 20] for i in range(1, 65536)]})
     big = NP.encode_genesis(spec)
-    assert len(big) == MAX_SPEC_BYTES, len(big)
+    assert len(big) == SPEC1_MAX_BYTES, len(big)
     out.append(('ladder.maxValid', big))
     out.append(('ladder.maxValidUnordered', big[:-33 - 86] + big[-33 - 43:-33] + big[-33 - 86:-33 - 43] + big[-33:]))
     depth, n = 0, 1
@@ -346,11 +366,12 @@ def main():
         rows = [json.loads(x) for x in Path(outp).read_text(encoding='utf-8').splitlines()] if os.path.exists(outp) else []
     summary_row = rows[-1] if rows else {}
     rows = rows[:-1]
-    mismatches, ref_codes, label_codes = [], {}, {}
+    mismatches, ref_codes, label_codes, spec2_items = [], {}, {}, 0
     for idx, (label, b) in enumerate(corpus):
         ref = reference(NP, b)
         got = rows[idx] if idx < len(rows) else {}
         code = 'ok' if ref['ok'] else ref['code']
+        spec2_items += spec2(ref)
         ref_codes[code] = ref_codes.get(code, 0) + 1
         group = label.split('.')[0]
         label_codes.setdefault(group, {})
@@ -366,6 +387,7 @@ def main():
         'inputs': len(corpus),
         'agree': len(corpus) - len(mismatches),
         'mismatches': len(mismatches),
+        'spec2Items': spec2_items,
         'firstMismatches': mismatches[:10],
         'rustExit': proc.returncode,
         'rustSummary': summary_row,

@@ -249,7 +249,6 @@ fn resolve(config: &[u8]) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4
     let mut input: Config = serde_json::from_slice(config).map_err(|_| "invalid public genesis config schema")?;
     if input.local_timing.is_some() && !input.v3 { return Err("localTiming is a v3 profile input; a spec-1 network keeps its fixed local timing".into()); }
     if input.v3 {
-        if gs::SPEC_VERSION < 2 && !pocol_lp4_execution::V3_PREVIEW { return Err("v3 config requires a v3-preview build".into()); }
         input.earnin = true; input.continuous = true; input.full_nonce = true;
     }
     if input.chain_id == 777001 || input.chain_id == 0 || input.chain_id >= (1u64 << 53)

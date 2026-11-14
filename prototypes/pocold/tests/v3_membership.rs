@@ -84,7 +84,6 @@ fn assert_draw_parity(n:&Net) {
     assert_eq!(n.chain.draw(&p,&m,h).unwrap(),addr(&old.draw().unwrap().0));
 }
 /// The shares `id` holds in the draw window of height h (heights max(1, h-1-W_w)..=h-2).
-#[cfg_attr(not(feature="v3-preview"),allow(dead_code))]
 fn window_shares(n:&Net,p:&Entry,h:u64,id:Address)->u64 {
     let lo=h.saturating_sub(1).saturating_sub(u64::from(n.chain.spec.cp().W_w)).max(1);
     if h<2 {return 0}(lo..=h-2).map(|j|apply::share_count(p.state.as_ref(),j,id)).sum()
@@ -118,8 +117,7 @@ fn legacy_bounded_full_nonce_and_earnin_membership_and_draw_stay_unchanged() {
     }
 }
 
-#[cfg(feature="v3-preview")]
-mod preview {
+mod on_chain {
     use super::*;
     // pr15-2 pins (deterministic fixture): fallback blocks mined after the operators went idle, and the first height
     // whose drawn proposer can sign. The fixture chain runs the v3 program set (V3-PR-E0), whose bytes enter
@@ -287,8 +285,7 @@ fn ledger_rows(db:&mut revm::InMemoryDB,j:u64,rows:&[(Address,u64)]) {
 }
 #[test]
 fn streamed_owner_weights_match_the_original_member_scan_over_randomized_ledgers() {
-    let mut cases=vec![(false,false,false,3),(false,true,false,16),(false,true,true,16)];
-    if pocol_lp4_execution::V3_PREVIEW {cases.extend([(true,false,false,3),(true,true,true,16),(true,true,true,256)]);}
+    let cases=[(false,false,false,3),(false,true,false,16),(false,true,true,16),(true,false,false,3),(true,true,true,16),(true,true,true,256)];
     let mut rng=Random(0xc120261111);
     for (v3,full,earnin,count) in cases {
         let n=net(v3,full,earnin,count);let genesis=n.chain.full_entry(&n.chain.head).unwrap();
@@ -342,7 +339,6 @@ fn streamed_owner_weights_match_the_original_member_scan_over_randomized_ledgers
     }
 }
 
-#[cfg(feature="v3-preview")]
 #[test]
 fn historical_v3_draws_and_ranges_still_authenticate_type1_evidence() {
     use pocold::rlp;
@@ -387,8 +383,7 @@ fn mixed_owner_block(n:&Net,winner:Address)->Block {
 }
 #[test]
 fn multiple_owners_written_by_the_vm_keep_the_original_draw_weights() {
-    let mut profiles=vec![(false,false,false),(false,true,true)];
-    if pocol_lp4_execution::V3_PREVIEW {profiles.push((true,true,true));}
+    let profiles=[(false,false,false),(false,true,true),(true,true,true)];
     for (v3,full,earnin) in profiles {
         let mut n=net(v3,full,earnin,3);let x=n.miners[0];
         let b=mixed_owner_block(&n,x);accept(&mut n,b);next(&mut n,x,vec![]);

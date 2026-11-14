@@ -28,7 +28,7 @@ class ReleasePackageTests(unittest.TestCase):
         self.identity = self.root / 'deploy/public-testnet/pocol_identity.py'
         self.identity.parent.mkdir(parents=True)
         shutil.copyfile(HERE.parent / 'public-testnet/pocol_identity.py', self.identity)
-        self.build = {'compatibilitySha256': 'c' * 64, 'consensusPinned': True, 'consensusRulesVersion': 1,
+        self.build = {'compatibilitySha256': 'c' * 64, 'consensusPinned': True, 'consensusRulesVersion': 2,
                       'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': []}
         self.commit = 'd' * 40
         for name in ('README.md', 'install-linux.sh',
@@ -66,7 +66,7 @@ class ReleasePackageTests(unittest.TestCase):
                          b'public crypto license fixture\n')
         release = json.loads((folder / 'release-info.json').read_text(encoding='utf-8'))
         self.assertEqual(release['compatibilitySha256'], self.build['compatibilitySha256'])
-        self.assertEqual((release['consensusRulesVersion'], release['protocolVersionMin']), (1, 2))
+        self.assertEqual((release['consensusRulesVersion'], release['protocolVersionMin']), (2, 2))
         self.assertEqual(release['sourceCommit'], self.commit)
         self.assertEqual(release['networkName'], 'PoCol Mainnet')
         self.assertTrue(release['requiresCoordinatedUpgrade'])
@@ -169,19 +169,27 @@ class ReleasePackageTests(unittest.TestCase):
                 self.assertEqual({p.name for p in (self.root / 'dist').iterdir()}, {'build-info.json'}, 'nothing else is staged')
                 shutil.rmtree(self.root / 'dist')
 
-    def test_preview_artifacts_are_refused_even_when_consensus_is_pinned(self):
+    def test_a_pinned_rules_2_build_packages_on_every_platform_with_its_build_info(self):
+        # The v3 rules are the release rules (consensus rules 2, GenesisSpec version 2 by default): pocold's build-info
+        # has no v3Preview field and there is no preview build to refuse, so a pinned build packages on every platform
+        # and its release-info carries the build's rules as reported.
         self.native_fixture()
         self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk')
         android_info = self.fixture('prototypes/pocold/target/aarch64-linux-android/release/build/pocold-fixture/out/build-info.json')
+        self.assertNotIn('v3Preview', self.build)
+        script = self.script.read_text(encoding='utf-8')
+        self.assertNotIn('v3Preview', script); self.assertNotIn('v3-preview', script)
         for platform in ('Linux', 'Android'):
-            for change in ({'v3Preview': True}, {'v3Preview': False, 'features': ['v3-preview']}):
-                with self.subTest(platform=platform, change=change):
-                    self.build = {**self.build, 'v3Preview': False, 'features': [], **change}
-                    android_info.write_text(json.dumps(self.build), encoding='utf-8')
-                    with self.assertRaisesRegex(SystemExit, 'v3-preview build'):
-                        self.package(platform)
-                    self.assertEqual({p.name for p in (self.root / 'dist').iterdir()}, {'build-info.json'})
-                    shutil.rmtree(self.root / 'dist')
+            with self.subTest(platform=platform):
+                android_info.write_text(json.dumps(self.build), encoding='utf-8')
+                out = self.package(platform)
+                try:
+                    folder = self.expanded(out) if platform == 'Linux' else out
+                    release = json.loads((folder / 'release-info.json').read_text(encoding='utf-8'))
+                    self.assertEqual((release['consensusRulesVersion'], release['protocolVersionMin']), (2, 2))
+                    self.assertEqual(json.loads((folder / 'build-info.json').read_text(encoding='utf-8'))['consensusRulesVersion'], 2)
+                finally:
+                    shutil.rmtree(out); shutil.rmtree(self.root / 'expanded', ignore_errors=True)
 
     def test_release_info_names_the_consensus_identity_only_of_a_matching_v2_invitation(self):
         self.native_fixture()
@@ -189,15 +197,16 @@ class ReleasePackageTests(unittest.TestCase):
         chain, genesis = re.search(r"chain,genesis=([0-9]+),'(0x[0-9a-f]{64})'", self.script.read_text(encoding='utf-8')).groups()
         info = {'chainId': int(chain), 'genesisHash': genesis, 'forks': [[1, 0], [2, 1000]]}
         network = self.root / 'next.pocol.json'
-        network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 1, 'seeds': [],
+        network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 2, 'seeds': [],
                                        'files': {'devnet.json': json.dumps(info)}}), encoding='utf-8')
         release = self.metadata(self.expanded(self.package('Linux', '--network', str(network))))
         reference = runpy.run_path(str(self.identity))['consensus_id']
-        self.assertEqual(release['consensusIdentity'], reference(int(chain), genesis, 1, 0, [(1, 0), (2, 1000)]))
+        self.assertEqual(release['consensusIdentity'], reference(int(chain), genesis, 2, 0, [(1, 0), (2, 1000)]))
         shutil.rmtree(self.root / 'dist'); shutil.rmtree(self.root / 'expanded')
         self.assertIsNone(self.metadata(self.expanded(self.package('Linux')))['consensusIdentity'], 'no invitation, no claim')
         shutil.rmtree(self.root / 'dist')
-        network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 2, 'seeds': [],
+        # An invitation of the old network's rules (1) binds other consensus rules.
+        network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 1, 'seeds': [],
                                        'files': {'devnet.json': json.dumps(info)}}), encoding='utf-8')
         with self.assertRaisesRegex(SystemExit, 'other consensus rules'): self.package('Linux', '--network', str(network))
 

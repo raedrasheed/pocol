@@ -2,10 +2,8 @@
 // builds for tests only; browser.md BR-neg: "fault builds are absent from the release").
 //   node build.mjs                 -> dist/
 //   node build.mjs --fault=noDnr   -> dist-fault-noDnr/
-//   node build.mjs --v3-preview    -> dist-v3-preview/ (test-only: the shipped entry points decode a spec-2 (v3)
-//                                     genesis, as pocold --features v3-preview does; never packaged)
-// Fault regions in sources: /*@fault NAME*/release code/*@else*/fault code/*@end*/; the v3-preview build takes the
-// regions named v3Preview.
+// Fault regions in sources: /*@fault NAME*/release code/*@else*/fault code/*@end*/. The release decodes a spec-2 (v3)
+// genesis by default (refdec.js SPEC_VERSION 2), as pocold does; there is no separate preview build.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { join, dirname } from 'node:path';
@@ -21,12 +19,9 @@ const SANDBOX_CSP = (hash, open) => open
   ? `sandbox allow-scripts allow-forms; script-src 'sha256-${hash}' blob:; style-src * blob: 'unsafe-inline'; img-src * blob: data:; font-src * blob:; media-src * blob:; connect-src *; frame-src *`
   : `sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-${hash}' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 
-export const V3_PREVIEW = 'v3Preview';
-export function build({ fault = null, v3Preview = false, out } = {}) {
+export function build({ fault = null, out } = {}) {
   if (fault && !FAULTS.includes(fault)) throw new Error('unknown fault ' + fault);
-  if (fault && v3Preview) throw new Error('a fault build is a release build with one fault; it is never a v3-preview build');
-  const dist = out || join(HERE, fault ? `dist-fault-${fault}` : v3Preview ? 'dist-v3-preview' : 'dist');
-  if (v3Preview) fault = V3_PREVIEW;
+  const dist = out || join(HERE, fault ? `dist-fault-${fault}` : 'dist');
   rmSync(dist, { recursive: true, force: true }); mkdirSync(join(dist, 'lib'), { recursive: true });
   const src = join(HERE, 'src');
   const emit = (rel, text) => { const p = join(dist, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
@@ -54,7 +49,7 @@ export function build({ fault = null, v3Preview = false, out } = {}) {
   emit('sandbox.html', `<!doctype html>\n<html><head><meta charset="utf-8"><script>${loader}</script></head><body></body></html>\n`);
   const manifest = {
     manifest_version: 3,
-    name: 'PoCol Studio, IDE & Viewer' + (v3Preview ? ' [V3 PREVIEW, NOT FOR RELEASE]' : fault ? ` [TEST FAULT ${fault}]` : ''),
+    name: 'PoCol Studio, IDE & Viewer' + (fault ? ` [TEST FAULT ${fault}]` : ''),
     version: JSON.parse(readFileSync(join(HERE, 'package.json'), 'utf8')).version,
     description: 'Publish websites and smart contracts with your PoCol wallet. Local approval, verified files and isolated viewing.',
     minimum_chrome_version: '130', // chrome.storage.local.getKeys (D103 recovery)
@@ -82,7 +77,7 @@ export function build({ fault = null, v3Preview = false, out } = {}) {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const fa = process.argv.find((a) => a.startsWith('--fault='));
-  const r = build({ fault: fa ? fa.slice(8) : null, v3Preview: process.argv.includes('--v3-preview') });
+  const r = build({ fault: fa ? fa.slice(8) : null });
   console.log(JSON.stringify({ dist: r.dist, loaderSha256: r.loaderHash, csp: r.manifest.content_security_policy.sandbox }, null, 1));
   if (!existsSync(join(r.dist, 'vendor', 'hashes', 'sha3.js'))) process.exit(1);
 }
