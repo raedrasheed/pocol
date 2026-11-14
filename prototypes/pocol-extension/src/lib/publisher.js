@@ -254,6 +254,8 @@ export async function capsPrecheck(rpc, needs) {
 /// second. The Studio gateway allows each client a burst of 40 and 10 requests per second (pocol_studio_gateway.py) and
 /// answers 429 past that; the publication's other requests share that budget.
 export const READ_BURST = 16, READ_RATE = 8;
+/** The node's answer to a state query at a height whose state it does not hold (pocold rpc.rs `state_for`). */
+export const STATE_NOT_HELD = -32017;
 /// The checkpoint (schema 2) binds the manifest, the publishing account, the target site and the network (chain id and
 /// genesis). The fees are bound by the approvals: each records the budget, the ceiling, the tip and the pacing the user
 /// approved, and each signed record names the approval it was signed under, so a resume after a re-approval keeps the
@@ -519,14 +521,22 @@ export async function publishSite(options) {
       // Sites W4: the safe sweep. Before createVersion references them, every chunk must exist at the `safe` tag: a
       // chunk seen at `latest` (stored by another publisher, or served from a cache) may still be reorged out. A chunk
       // missing at both `safe` and `latest` is stored (again); the sweep waits, bounded, for the rest to reach `safe`.
+      // Sites W45: every pass reads the `safe` tag afresh. A node that does not hold the state at its safe height
+      // (-32017 STATE_NOT_HELD: a whole-state node can lack the state of a canonical block inside its trie window, such
+      // as one adopted in a reorganization) has not shown the chunk there: it counts as not yet at `safe` and is read
+      // again on the next pass, never as present.
       const sweepEnd = clock() + (options.sweepTimeoutMs ?? 180000);
       for (;;) {
-        checkAbort(); const missing = [];
-        for (const c of plan.chunks) { const code = await readCode(c.address, 'safe'); if (code === '0x') missing.push(c); else chunkPayload(fromHex(c.address),fromHex(code),c.data.length); }
-        progress({phase:'sweep', missing:missing.length, total:plan.chunks.length});
+        checkAbort(); const missing = []; let unheld = 0;
+        for (const c of plan.chunks) {
+          let code;
+          try { code = await readCode(c.address, 'safe'); } catch (e) { if (e?.rpc?.code !== STATE_NOT_HELD) throw e; unheld++; code = '0x'; }
+          if (code === '0x') missing.push(c); else chunkPayload(fromHex(c.address),fromHex(code),c.data.length);
+        }
+        progress({phase:'sweep', missing:missing.length, total:plan.chunks.length, ...(unheld ? {stateNotHeld:unheld} : {})});
         if (!missing.length) break;
         for (const c of missing) if (await readCode(c.address) === '0x') { progress({phase:'restore', chunk:c.address}); await storeChunk(c); }
-        if (clock() >= sweepEnd) throw new PublishPendingError(null, 'Some chunks have not reached the safe height yet. Resume this publication to check again.');
+        if (clock() >= sweepEnd) throw new PublishPendingError(null, unheld ? 'Some chunks have not reached the safe height yet: the node does not hold the state at its safe height. Resume this publication to check again.' : 'Some chunks have not reached the safe height yet. Resume this publication to check again.');
         await sleep(Math.max(1, pollMs));
       }
     }

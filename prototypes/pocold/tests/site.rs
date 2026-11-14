@@ -109,9 +109,12 @@ fn pairs(v:&serde_json::Value)->Vec<(String,&'static str)>{v.as_array().unwrap()
 /// A local JSON-RPC stand-in for one publish: every chunk already exists at `latest`, transactions are mined at once
 /// (the deploy answers contractAddress 0x4242..), and `eth_getCode` at `safe` is refused, so the publish stops at the
 /// safe sweep, after the Website deploy. Loopback only.
-fn stand_in()->String{
+fn stand_in()->String{stand_in_with(|_|serde_json::json!({"error":{"code":-32000,"message":"safe state unavailable"}})).0}
+/// The stand-in with `safe(n)` answering the n-th (from 0) `eth_getCode` at `safe`; it also records every method called.
+fn stand_in_with(safe:impl Fn(usize)->serde_json::Value+Send+'static)->(String,std::sync::Arc<std::sync::Mutex<Vec<String>>>){
     use std::io::{Read,Write};
     let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();let addr=l.local_addr().unwrap().to_string();
+    let seen=std::sync::Arc::new(std::sync::Mutex::new(Vec::<String>::new()));let log=seen.clone();let mut safe_reads=0;
     std::thread::spawn(move||for s in l.incoming(){
         let Ok(mut s)=s else{continue};let mut buf=Vec::new();let mut b=[0u8;4096];
         let body=loop{let n=s.read(&mut b).unwrap_or(0);if n==0{break None}buf.extend(&b[..n]);
@@ -120,9 +123,9 @@ fn stand_in()->String{
                 let len:usize=head.lines().find_map(|x|x.strip_prefix("content-length:")).map(|v|v.trim().parse().unwrap()).unwrap_or(0);
                 if buf.len()>=i+4+len{break Some(buf[i+4..i+4+len].to_vec())}}};
         let Some(body)=body else{continue};let req:serde_json::Value=serde_json::from_slice(&body).unwrap();
-        let p=&req["params"];
+        let p=&req["params"];log.lock().unwrap().push(format!("{} {}",req["method"].as_str().unwrap(),p[1].as_str().unwrap_or("")));
         let out=match req["method"].as_str().unwrap(){
-            "eth_getCode" if p[1]=="safe"=>serde_json::json!({"error":{"code":-32000,"message":"safe state unavailable"}}),
+            "eth_getCode" if p[1]=="safe"=>{safe_reads+=1;safe(safe_reads-1)}
             "eth_getCode"=>serde_json::json!({"result":"0x0001"}),
             "eth_gasPrice"=>serde_json::json!({"result":"0x3c336080"}),
             "eth_maxPriorityFeePerGas"=>serde_json::json!({"result":"0x3b9aca00"}),
@@ -135,7 +138,7 @@ fn stand_in()->String{
         let text=serde_json::Value::Object(text).to_string();
         let _=write!(s,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",text.len());
     });
-    addr
+    (addr,seen)
 }
 #[test] fn w4_a_refusal_after_the_website_deploy_names_the_new_site_to_resume_with(){
     let rpc=site::Rpc{addr:stand_in()};let key=pocol_lp4_execution::txsign::Key::devnet("alice");
@@ -147,4 +150,33 @@ fn stand_in()->String{
     // With --site given there is nothing new to name.
     let given:Address=new.parse().unwrap();let e=p.publish(Some(given),&files,"/index.html").unwrap_err();
     assert!(e.contains("safe state unavailable")&&!e.contains("--site"),"{e}");
+}
+/// Sites W45 (CI browser (memory) on be7ce6b: the v3 publish after the partition heal failed with `eth_getCode:
+/// {"code":-32017,...}`): a node that does not hold the state at its `safe` height answers -32017 there. The sweep reads
+/// `safe` afresh on the next pass and counts such a chunk as not yet at `safe`, never as present; it never stores a
+/// chunk that `latest` still holds, and a node that keeps answering -32017 ends the sweep with "run publish again",
+/// before createVersion. Any other error still stops it at once (`w4_a_refusal_after_the_website_deploy...`).
+#[test] fn w45_the_safe_sweep_reads_safe_again_when_the_node_does_not_hold_the_state_there(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let chunks:[&[u8];2]=[b"<p>",b"body{}"];
+    let not_held=||serde_json::json!({"error":{"code":site::STATE_NOT_HELD,"message":"state outside the retained trie window (K_hist)"}});
+    // The first three reads at `safe` (the whole first pass and one of the second) are not held; then both chunks are there.
+    let (addr,seen)=stand_in_with(move|n|if n<3{not_held()}else{serde_json::json!({"result":"0x0001"})});
+    let rpc=site::Rpc{addr};let mut p=site::Publisher::new(&rpc,&key,7,false,site::FeePolicy::default());p.sweep_poll=std::time::Duration::from_millis(10);
+    p.safe_sweep(&chunks).unwrap();
+    let seen=seen.lock().unwrap().clone();
+    assert_eq!(seen.iter().filter(|m|*m=="eth_getCode safe").count(),6,"three passes of two chunks at safe: {seen:?}");
+    assert_eq!(seen.iter().filter(|m|*m=="eth_getCode latest").count(),3,"each chunk not shown at safe is looked for at latest: {seen:?}");
+    assert!(!seen.iter().any(|m|m.starts_with("eth_sendRawTransaction")),"a chunk latest holds is not stored again: {seen:?}");
+    // A node that never holds the state at its safe height: bounded, refused with the reason, nothing signed.
+    let (addr,seen)=stand_in_with(move|_|not_held());
+    let rpc=site::Rpc{addr};let mut p=site::Publisher::new(&rpc,&key,7,false,site::FeePolicy::default());
+    (p.sweep_poll,p.sweep_timeout)=(std::time::Duration::from_millis(10),std::time::Duration::from_millis(100));
+    let e=p.safe_sweep(&chunks).unwrap_err();
+    assert!(e.contains("2 chunks have not reached the safe height")&&e.contains("does not hold the state at its safe height")&&e.contains("run publish again"),"{e}");
+    let seen=seen.lock().unwrap().clone();assert!(seen.iter().filter(|m|*m=="eth_getCode safe").count()>=4,"read again on every pass: {seen:?}");
+    assert!(!seen.iter().any(|m|m.starts_with("eth_sendRawTransaction")),"{seen:?}");
+    // Rpc::code_held: -32017 is None, any other error object is an error, code is Some.
+    let (addr,_)=stand_in_with(|n|if n==0{serde_json::json!({"error":{"code":-32000,"message":"other"}})}else{serde_json::json!({"result":"0x"})});
+    let rpc=site::Rpc{addr};let a=site::chunk_address(b"x");
+    assert!(rpc.code_held(a,"safe").unwrap_err().contains("-32000"));assert_eq!(rpc.code_held(a,"safe").unwrap(),Some(vec![]));
 }

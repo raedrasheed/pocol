@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE,MAX_APPROVALS} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE,MAX_APPROVALS,STATE_NOT_HELD} from '../dist/lib/publisher.js';
 import {nextBaseFee,feeSchedule,capFor,GAS_LIMIT,BASE_FEE_FLOOR,ABSOLUTE_CEILING} from '../dist/lib/fees.js';
 import {KeyLease,JOB_DEADLINE_MAX_MS} from '../dist/lib/lease.js';
 import {isForeignJob,blocksAccount,archiveForeignJobs,archivedJobs,jobNetwork,archiveJob} from '../dist/lib/jobs.js';
@@ -471,6 +471,30 @@ test('W4: the sweep waits, bounded, for chunks to reach safe',async()=>{
   const stuck=mock();stuck.chain.unsafe.add(p.chunks[0].address);stuck.codes.set(p.chunks[0].address,toHex(concat(Uint8Array.of(0),p.chunks[0].data)));const w=virtual();
   await assert.rejects(publishSite(stuck.options(p,{clock:w.clock,sleep:w.sleep,sweepTimeoutMs:5000,pollIntervalMs:1000})),e=>e instanceof PublishPendingError&&/safe height/.test(e.message));
   assert.equal(stuck.logs.signed.some(tx=>tx.data.startsWith(selector('createVersion(bytes32,uint32,address[])'))),false,'no createVersion over a chunk that is not at safe');
+});
+// Sites W45 (CI browser (memory) on be7ce6b: the v3 publish after the partition heal stopped at the sweep with eth_getCode
+// -32017): a node that does not hold the state at its safe height has not shown the chunk there. The sweep reads `safe`
+// again on the next pass, never counts the chunk as present, and never stores a chunk `latest` holds; a node that keeps
+// answering -32017 pauses the publication before createVersion. Any other error still stops it.
+test('W45: the sweep reads safe again when the node does not hold the state there (-32017), and never counts it as present',async()=>{
+  const p=sample(),notHeld=()=>Object.assign(new Error('state outside the retained trie window (K_hist)'),{rpc:{code:STATE_NOT_HELD,message:'state outside the retained trie window (K_hist)'}});
+  const m=mock(),v=virtual();let safeReads=0;const o=m.options(p,{clock:v.clock,sleep:v.sleep,sweepTimeoutMs:5000,pollIntervalMs:1000});const inner=o.rpc;
+  // The whole first pass is not held; then every chunk is at safe.
+  o.rpc=async(method,params)=>{if(method==='eth_getCode'&&params[1]==='safe'&&++safeReads<=p.chunks.length)throw notHeld();return inner(method,params);};
+  const phases=[];o.onProgress=e=>phases.push(e);
+  assert.equal((await publishSite(o)).verified,true);assert.equal(safeReads,2*p.chunks.length,'one pass not held, one pass at safe');
+  const sweeps=phases.filter(e=>e.phase==='sweep');assert.deepEqual(sweeps.map(e=>[e.missing,e.stateNotHeld]),[[p.chunks.length,p.chunks.length],[0,undefined]]);
+  assert.equal(phases.some(e=>e.phase==='restore'),false,'a chunk that latest holds is not stored again');
+  assert.equal(m.logs.signed.filter(tx=>tx.to===FACTORY).length,p.chunks.length,'each chunk stored once');
+  const stuck=mock(),w=virtual(),so=stuck.options(p,{clock:w.clock,sleep:w.sleep,sweepTimeoutMs:5000,pollIntervalMs:1000}),sin=so.rpc;let reads=0;
+  so.rpc=async(method,params)=>{if(method==='eth_getCode'&&params[1]==='safe'){reads++;throw notHeld();}return sin(method,params);};
+  await assert.rejects(publishSite(so),e=>e instanceof PublishPendingError&&/safe height/.test(e.message)&&/does not hold the state/.test(e.message));
+  assert.ok(reads>=2*p.chunks.length,'read again on every pass');
+  assert.equal(stuck.logs.signed.some(tx=>tx.data.startsWith(selector('createVersion(bytes32,uint32,address[])'))),false,'no createVersion over a chunk not shown at safe');
+  const other=mock(),oo=other.options(p),oin=oo.rpc;
+  oo.rpc=async(method,params)=>{if(method==='eth_getCode'&&params[1]==='safe')throw Object.assign(new Error('limited'),{rpc:{code:-32005,message:'limit exceeded'}});return oin(method,params);};
+  await assert.rejects(publishSite(oo),e=>e?.rpc?.code===-32005);
+  assert.equal(other.logs.signed.some(tx=>tx.data.startsWith(selector('createVersion(bytes32,uint32,address[])'))),false);
 });
 test('W4: economy pacing signs one publication transaction every second block and keeps the base fee at the floor',async()=>{
   const m=mock(),p=mibSite(),v=virtual();m.control.emptyBlockOnPoll=true;const q=quotePublish(p,{fees:FLOOR_FEES,economy:true});

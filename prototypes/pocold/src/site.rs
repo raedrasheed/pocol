@@ -193,18 +193,35 @@ pub fn decode_version(out:&[u8])->Result<(B256,u32,u8,Vec<Address>),String>{
 }
 
 // ---------------- RPC client ----------------
+/// The node's answer to a state query at a height whose state it does not hold (rpc.rs `state_for`: "state outside the
+/// retained trie window (K_hist)").
+pub const STATE_NOT_HELD:i64=-32017;
 pub struct Rpc{pub addr:String}
 impl Rpc{
-    pub fn call(&self,method:&str,params:Value)->Result<Value,String>{
+    pub fn call(&self,method:&str,params:Value)->Result<Value,String>{self.call_raw(method,params)?.map_err(|e|format!("{method}: {e}"))}
+    /// One JSON-RPC call: Err for a transport or framing failure, Ok(Err(error object)) for the node's own error answer.
+    pub fn call_raw(&self,method:&str,params:Value)->Result<Result<Value,Value>,String>{
         let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();
         let mut s=TcpStream::connect(&self.addr).map_err(|e|format!("connect {}: {e}",self.addr))?;s.set_read_timeout(Some(Duration::from_secs(30))).ok();
         write!(s,"POST / HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",self.addr,body.len()).map_err(|e|e.to_string())?;
         let mut r=Vec::new();s.read_to_end(&mut r).map_err(|e|e.to_string())?;
         let i=r.windows(4).position(|w|w==b"\r\n\r\n").ok_or("http")?;let v:Value=serde_json::from_slice(&r[i+4..]).map_err(|e|format!("json {e}"))?;
-        if let Some(e)=v.get("error"){return Err(format!("{method}: {e}"))}Ok(v["result"].clone())
+        if let Some(e)=v.get("error"){return Ok(Err(e.clone()))}Ok(Ok(v["result"].clone()))
     }
     pub fn code(&self,a:Address)->Result<Vec<u8>,String>{self.code_at(a,"latest")}
     pub fn code_at(&self,a:Address,tag:&str)->Result<Vec<u8>,String>{unhex(self.call("eth_getCode",json!([format!("{a:#x}"),tag]))?.as_str().unwrap_or("0x"))}
+    /// Sites W45: eth_getCode at `tag`, or None when the node does not hold the state there (STATE_NOT_HELD). `safe` can
+    /// name such a height on a node that is otherwise healthy: a whole-state (memory-mode) node can lack the state of a
+    /// canonical block inside its trie window (one adopted in a reorganization without a kept state; seen on the LP10
+    /// devnet also for single heights), and `safe` = finalized_h can lie below the window (node.rs `check_confirmation`).
+    /// `safe` moves past such a height as the head grows. Every other error is returned as `code_at` returns it.
+    pub fn code_held(&self,a:Address,tag:&str)->Result<Option<Vec<u8>>,String>{
+        match self.call_raw("eth_getCode",json!([format!("{a:#x}"),tag]))?{
+            Ok(v)=>unhex(v.as_str().unwrap_or("0x")).map(Some),
+            Err(e) if e["code"].as_i64()==Some(STATE_NOT_HELD)=>Ok(None),
+            Err(e)=>Err(format!("eth_getCode: {e}")),
+        }
+    }
     fn quantity(&self,method:&str,params:Value)->Result<U256,String>{let v=self.call(method,params)?;let s=v.as_str().ok_or(format!("{method}: not a quantity"))?;U256::from_str_radix(s.trim_start_matches("0x"),16).map_err(|e|format!("{method}: {e}"))}
     /// The next block's base fee: eth_gasPrice minus the node's tip (pocold answers next base + eth_maxPriorityFeePerGas).
     pub fn base_next(&self)->Result<U256,String>{let price=self.quantity("eth_gasPrice",json!([]))?;let tip=self.quantity("eth_maxPriorityFeePerGas",json!([])).unwrap_or(U256::from(GWEI));Ok(price.saturating_sub(tip))}
@@ -253,9 +270,11 @@ pub fn derive_fee(base_next:U256,policy:&FeePolicy,spent:U256,gas:u64)->Result<U
     if let Some(b)=policy.budget{if spent.saturating_add(cost)>b{return Err(format!("fee rose: the budget ({b} wei, --max-total-pcol) does not cover the next transaction ({spent} committed, {cost} more); stored chunks are kept, run publish again to continue"))}}
     Ok(max_fee)
 }
-pub struct Publisher<'a>{pub rpc:&'a Rpc,pub key:&'a pocol_lp4_execution::txsign::Key,pub chain_id:u64,pub log:bool,pub fees:FeePolicy,spent:std::cell::Cell<U256>,last_block:std::cell::Cell<Option<u64>>}
+pub struct Publisher<'a>{pub rpc:&'a Rpc,pub key:&'a pocol_lp4_execution::txsign::Key,pub chain_id:u64,pub log:bool,pub fees:FeePolicy,
+    /// The safe sweep's bound (3 minutes) and the wait between its passes (1 s); tests shorten them.
+    pub sweep_timeout:Duration,pub sweep_poll:Duration,spent:std::cell::Cell<U256>,last_block:std::cell::Cell<Option<u64>>}
 impl<'a> Publisher<'a>{
-    pub fn new(rpc:&'a Rpc,key:&'a pocol_lp4_execution::txsign::Key,chain_id:u64,log:bool,fees:FeePolicy)->Self{Self{rpc,key,chain_id,log,fees,spent:std::cell::Cell::new(U256::ZERO),last_block:std::cell::Cell::new(None)}}
+    pub fn new(rpc:&'a Rpc,key:&'a pocol_lp4_execution::txsign::Key,chain_id:u64,log:bool,fees:FeePolicy)->Self{Self{rpc,key,chain_id,log,fees,sweep_timeout:Duration::from_secs(180),sweep_poll:Duration::from_millis(1000),spent:std::cell::Cell::new(U256::ZERO),last_block:std::cell::Cell::new(None)}}
     /// The committed cost so far: the sum of gas * maxFee of the signed transactions.
     pub fn committed(&self)->U256{self.spent.get()}
     fn tx(&self,to:Option<Address>,data:Vec<u8>,gas:u64)->Result<Value,String>{
@@ -271,15 +290,22 @@ impl<'a> Publisher<'a>{
         if r["status"]!="0x1"{return Err(format!("transaction failed: {r}"))}Ok(r)
     }
     /// Sites W4 safe sweep: before createVersion references them, every chunk must exist at the `safe` tag. A chunk
-    /// missing at both `safe` and `latest` (reorged out) is stored again; the rest is waited for, at most 3 minutes.
+    /// missing at both `safe` and `latest` (reorged out) is stored again; the rest is waited for, at most
+    /// `sweep_timeout` (3 minutes). Sites W45: every pass reads the `safe` tag afresh (never a height kept from an
+    /// earlier pass), and a node that does not hold the state at its safe height (-32017, `Rpc::code_held`) has not
+    /// shown the chunk there: it counts as not yet at `safe` and is read again on the next pass, never as present.
     pub fn safe_sweep(&self,chunks:&[&[u8]])->Result<(),String>{
         let t=Instant::now();
         loop{
-            let mut missing=0;
-            for c in chunks{let a=chunk_address(c);if self.rpc.code_at(a,"safe")?.is_empty(){missing+=1;if self.rpc.code(a)?.is_empty(){if self.log{eprintln!("storing again {a:#x} (no longer on the chain)");}self.store_chunk(c)?;}}}
+            let (mut missing,mut unheld)=(0,0);
+            for c in chunks{let a=chunk_address(c);
+                let at_safe=self.rpc.code_held(a,"safe")?;
+                if at_safe.as_ref().map_or(true,|x|x.is_empty()){missing+=1;if at_safe.is_none(){unheld+=1;}
+                    if self.rpc.code(a)?.is_empty(){if self.log{eprintln!("storing again {a:#x} (no longer on the chain)");}self.store_chunk(c)?;}}}
             if missing==0{return Ok(())}
-            if t.elapsed()>Duration::from_secs(180){return Err(format!("{missing} chunks have not reached the safe height; run publish again to continue"))}
-            std::thread::sleep(Duration::from_millis(1000));
+            if t.elapsed()>self.sweep_timeout{return Err(if unheld>0{format!("{missing} chunks have not reached the safe height ({unheld} read where the node does not hold the state at its safe height); run publish again to continue")}else{format!("{missing} chunks have not reached the safe height; run publish again to continue")})}
+            if self.log&&unheld>0{eprintln!("the node does not hold the state at its safe height: reading safe again");}
+            std::thread::sleep(self.sweep_poll);
         }
     }
     /// Stores one chunk (idempotent: skipped when the CREATE2 address has code).
