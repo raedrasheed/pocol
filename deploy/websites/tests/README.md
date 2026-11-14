@@ -9,8 +9,9 @@ PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/browser_security.mjs
 ```
 
-The PHP test needs PHP 8, curl and POSIX functions on Linux. Its 41 checks exercise
-the actual request/response validators, pinned summary identity/branch consistency,
+The PHP test needs PHP 8, curl and POSIX functions on Linux. Its 67 checks exercise
+the actual request/response validators (including the v3 membership and finality
+reads and their bounds), pinned summary identity/branch consistency,
 exact reward arithmetic and private cache/lock handling with injectable transports.
 It does not start a PHP web server or validate the production host configuration.
 
