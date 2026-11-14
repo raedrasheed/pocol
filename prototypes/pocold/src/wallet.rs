@@ -11,13 +11,14 @@
 //! 3. mining on once the account is in A_{h+1} again.
 //! If the window passes, the Registry sweep refunds the bond and erases the record at `due`.
 //!
-//! Contest (V3-10/V3-14, the v3 program set only). `quote_contest` names a victim and a bond. The registry's own view,
-//! contestStatus(victim, probation), is run on the head state at the next height, so the wallet's checks are the program's:
-//! every refusal is explained before anything is signed, with the measured count and threshold, and the quote states what
-//! the confirmed registerContest(reward, victim) does: both exit the victim (its bond is refunded after U, no penalty), and
-//! a pool contest also frees the probationer's probation seat at once (its part of pots not yet settled still fills its
-//! accrued bond; owner decision 2026-11-13); both need all seats taken; this account then registers as with
-//! quote_register. The registry decides again at inclusion (its phase 0 may credit shares or start an epoch first).
+//! Registration at a full set (FN-2b C4, owner decision Q2(a) of 2026-11-13; the v3 program set only). There is no
+//! seat contest and no probation pool: a newcomer that finds all M_max seats taken registers with
+//! registerReplacing(reward, victim) into the seat of a member the registry could remove as inactive at the next block
+//! (no credited share and no (re)activation within Theta_inact). `quote_register` does it: it lists the removable
+//! members of the head state (`removable_members`, also served by the node's pocol_getRemovable RPC), picks one at
+//! random (two newcomers in one block then rarely name the same victim, which would refuse the second), asks the
+//! registry's own removalStatus view on the head state at the next height, and quotes the call. The victim exits as by
+//! deregister (its bond refunded after U, no penalty) and may return; the registry decides again at inclusion.
 use crate::{launcher::Home,node::Node,types};
 use pocol_lp4_execution::{apply,txsign::{Key,Tx},view::View};
 use revm::primitives::{Address,B256,Bytes,U256,keccak256};
@@ -38,9 +39,6 @@ pub enum Command {
     QuoteRejoin,
     /// Earn-in: fill an ACCRUING bond (default: the whole remainder).
     QuoteTopUp { #[serde(default)] amount:Option<String> },
-    /// V3-10/V3-14: register by displacing `victim` (a 0x address) from a full set or probation pool; `bond` as in
-    /// QuoteRegister (default 0 on these networks: a probation bond).
-    QuoteContest { victim:String, #[serde(default)] bond:Option<String> },
     Confirm { quote_id:String },
     Cancel,
     Stop,
@@ -53,11 +51,11 @@ const REGISTRY_GAS:u64=1_000_000;
 /// Earn-in registration: about 2x the 194,143 gas a zero-bond first registration measures
 /// (lp4-execution tests/earnin_contracts.rs), so the fee faucet's 0.002 PCOL covers its maximum fee.
 const EARNIN_REGISTER_GAS:u64=400_000;
-/// V3-10/V3-14 registerContest: about 2x the largest contest measured (232,489 gas, a seat contest with the victim in the
-/// middle of the active list; lp4-execution tests/v3_contracts.rs contest_write_ceilings_gas_and_user_sys_keys), so that a
-/// zero-bond newcomer's fee faucet (0.002 PCOL) covers its maximum fee while the base fee stays below 1.5 gwei
+/// FN-2b C4 registerReplacing: about 2x the largest replacement measured (217,381 gas, the victim in the middle of the
+/// active list with a full-bond newcomer; lp4-execution tests/v3_contracts.rs replacing_write_ceilings_gas_and_user_sys_keys),
+/// so that a zero-bond newcomer's fee faucet (0.002 PCOL) covers its maximum fee while the base fee stays below 1.5 gwei
 /// (deploy/faucet/README.md).
-pub const CONTEST_GAS:u64=500_000;
+pub const REPLACE_GAS:u64=500_000;
 /// Heads the exit may stay unincluded before the plan stops (nothing changed on chain then).
 pub const EXIT_WAIT_BLOCKS:u64=30;
 struct Rejoin { exit:Option<(B256,u64)>, max_fee:U256, priority:U256, attempts:u8, last:Option<B256>, tried_at:Option<u64> }
@@ -80,12 +78,13 @@ pub enum RejoinStep {
     /// Exited and past the window: the sweep refunds the bond and erases the record.
     Missed,
 }
-/// `t_prob`: the probation deadline in blocks of the genesis programs (`Spec::probation`), None without earn-in.
+/// `t_prob`: the probation deadline in blocks of the genesis programs (`Spec::probation`): the earn-in set's; None on the
+/// v3 set (FN-2b C3: no deadline) and without earn-in.
 pub fn rejoin_step(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64,t_prob:Option<u64>)->RejoinStep{
     let Some(r)=record else{return RejoinStep::Unavailable};
     if r.tomb||!matches!(r.bond_state,1|4){return RejoinStep::Unavailable}
-    // Earn-in (EARN-IN-SPEC U4): a probation record reactivates only before registeredAt + T_PROB
-    // (60,480 on the earn-in programs, CP T_PROB on the v3 programs, V3-14).
+    // Earn-in (EARN-IN-SPEC U4): a probation record reactivates only before registeredAt + T_PROB (60,480 on the earn-in
+    // programs; the v3 programs have no deadline).
     let deadline=t_prob.filter(|_|r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).map(|t|r.registered_at.saturating_add(t));
     match r.status{
         1 if member=>RejoinStep::Active,
@@ -110,101 +109,94 @@ fn step_json(step:RejoinStep)->Value{
 /// (or hold code). The wallet registers with itself as the reward address, so the included nonce decides.
 fn registration_reward_durable(included_nonce:Option<u64>)->bool{included_nonce.is_some_and(|n|n>0)}
 fn selector(signature:&str)->Bytes{keccak256(signature)[..4].to_vec().into()}
-/// registerContest(reward, victim): the account registers with itself as the reward address, as quote_register does.
-pub fn contest_calldata(reward:Address,victim:Address)->Bytes{
-    let mut d=keccak256("registerContest(address,address)")[..4].to_vec();d.extend_from_slice(reward.into_word().as_slice());d.extend_from_slice(victim.into_word().as_slice());d.into()
+/// FN-2b C4 registerReplacing(reward, victim): the account registers with itself as the reward address, as
+/// quote_register does.
+pub fn replacing_calldata(reward:Address,victim:Address)->Bytes{
+    let mut d=keccak256("registerReplacing(address,address)")[..4].to_vec();d.extend_from_slice(reward.into_word().as_slice());d.extend_from_slice(victim.into_word().as_slice());d.into()
 }
-/// What the registry's contestStatus view returned, with the network values the explanation needs.
-#[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct ContestView{pub code:u64,pub count:u64,pub threshold:U256}
-/// The CP values a contest explanation quotes.
-#[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct ContestParams{pub next:u64,pub e_epoch:u64,pub d:u64,pub theta_inact:u64,pub u:u64,pub m_max:u64,pub p_max:u64,pub grace_start:u64}
-/// The first height at which the late window of the epoch before `h`'s has closed (contests are judged from there).
-fn contest_opens(p:&ContestParams)->u64{
-    let start=(p.next/p.e_epoch).max(1)*p.e_epoch;let open=start+p.d.saturating_sub(1);
-    if p.e_epoch<p.d.max(1){u64::MAX}else if p.next>=open{p.next}else{open}
+/// FN-2b C4: the members the registry could remove as inactive at height `next` on `v` (the state of block next - 1), in
+/// ActList order: none unless the program set is v3 and the set is full (active = M_max) with more than M_min active;
+/// otherwise each live active record whose last credited share and (re)activation are both at least Theta_inact blocks
+/// before `next` (next >= max(lastShare, graceStart) + Theta_inact), where `credited` are the owners of template next - 1
+/// (block next - 1's header shares and winner), whose lastShare block next's phase 0 raises to next - 1 before any
+/// transaction runs. Late shares carried by block next can credit more; the registry judges again at inclusion. A
+/// restatement of PoColSystemV3.sol `removal` for listing; the wallet's quote asks the registry's own removalStatus view
+/// for the member it picks.
+pub fn removable_members(chain:&crate::chain::Chain,v:&dyn View,next:u64,credited:&[Address])->Vec<Address>{
+    if chain.spec.programs()!=apply::ProgramSet::V3{return vec![]}
+    let cp=chain.spec.cp();let active=apply::active_list(v);let n=active.len() as u64;
+    if n<u64::from(cp.M_max)||n<=u64::from(cp.M_min){return vec![]}
+    active.into_iter().filter(|id|apply::miner_record(v,*id).is_some_and(|r|{
+        let last=if credited.contains(id){r.last_share.max(next.saturating_sub(1))}else{r.last_share};
+        r.status==1&&!r.tomb&&matches!(r.bond_state,1|4)&&next>=last.max(r.grace_start).saturating_add(u64::from(cp.Theta_inact))})).collect()
 }
-/// V3-10/V3-14: the registry's contestStatus(victim, probation) view, run on `state` (a head state) at height `next` with
-/// timestamp `ts`, as an eth_call would run it: the program's own rule, never a copy of it.
-pub fn contest_view_on(state:&dyn View,profile:&pocol_lp4_execution::profile::ProfileIdentity,next:u64,ts:u64,caller:Address,victim:Address,probation:bool)->Result<ContestView,String>{
+/// The owners of the head's template (its header shares and winner), which the next block's phase 0 credits.
+pub fn head_credited(chain:&crate::chain::Chain)->Vec<Address>{chain.head().result.as_ref().map(|r|r.owner_sequence()).unwrap_or_default()}
+/// The node's pocol_getRemovable answer for the head: the next height, whether the set is full, and the removable members.
+pub fn removable_json(chain:&crate::chain::Chain)->Result<Value,String>{
+    let head=chain.head();let state=chain.view_of(&head.hash).ok_or("The head state is not available")?;
+    let active=apply::active_list(state.v()).len() as u64;
+    let list=removable_members(chain,state.v(),head.height+1,&head_credited(chain));
+    Ok(json!({"height":head.height+1,"active":active,"seats":chain.spec.cp().M_max,"full":chain.spec.programs()==apply::ProgramSet::V3&&active>=u64::from(chain.spec.cp().M_max),
+        "removable":list.iter().map(|a|format!("{a:#x}")).collect::<Vec<_>>()}))
+}
+/// FN-2b C4: the registry's removalStatus(victim) view, run on `state` (a head state) at height `next` with timestamp `ts`,
+/// as an eth_call would run it: the program's own rule (0 removable; 1 not a live active record; 2 the set not full; 3 no
+/// more than M_min active; 4 a share or (re)activation within Theta_inact).
+pub fn removal_view_on(state:&dyn View,profile:&pocol_lp4_execution::profile::ProfileIdentity,next:u64,ts:u64,caller:Address,victim:Address)->Result<u64,String>{
     let cp=profile.cp();
-    let mut data=keccak256("contestStatus(address,bool)")[..4].to_vec();data.extend_from_slice(victim.into_word().as_slice());data.extend_from_slice(&U256::from(probation as u8).to_be_bytes::<32>());
+    let mut data=keccak256("removalStatus(address)")[..4].to_vec();data.extend_from_slice(victim.into_word().as_slice());
     let tx=revm::primitives::TxEnv{caller,transact_to:revm::primitives::TxKind::Call(apply::program_address(0)),gas_limit:cp.GAS_LIMIT.clamp(1_000_000,30_000_000),gas_price:U256::ZERO,
         value:U256::ZERO,data:data.into(),nonce:None,chain_id:Some(profile.spec().chain_id),..Default::default()};
     let ctx=pocol_lp4_execution::native::NativeBlockContext{height:U256::from(next),timestamp:U256::from(ts),gas_limit:U256::from(cp.GAS_LIMIT.clamp(1_000_000,30_000_000)),base_fee:U256::ZERO,prevrandao:B256::ZERO};
     let st=pocol_lp4_execution::view::Overlay::new(state);
     let r=pocol_lp4_execution::native::simulate_for_profile(&st,tx,&ctx,profile,std::rc::Rc::new(||false)).map_err(|e|format!("The registry could not be read: {e:?}"))?;
     match r.result{
-        revm::primitives::ExecutionResult::Success{output,..} if output.data().len()==96=>{let o=output.data();
-            Ok(ContestView{code:U256::from_be_slice(&o[0..32]).to::<u64>(),count:U256::from_be_slice(&o[32..64]).to::<u64>(),threshold:U256::from_be_slice(&o[64..96])})}
-        other=>Err(format!("The registry could not judge the contest: {other:?}")),
+        revm::primitives::ExecutionResult::Success{output,..} if output.data().len()==32=>Ok(U256::from_be_slice(output.data()).to::<u64>()),
+        other=>Err(format!("The registry could not judge the member: {other:?}")),
     }
 }
-/// The registry's refusal codes (PoColSystemV3.sol contestCheck) as the wallet says them; Ok(true) for a pool contest.
-pub fn contest_check(v:&ContestView,p:&ContestParams,probation:bool,pool_full:bool)->Result<bool,String>{
-    match v.code{
-        0=>Ok(probation&&pool_full),
-        1=>Err("That address has no active registry record, so there is nothing to contest.".into()),
-        // A pool contest needs the full set as well (O-10=b: contests only when all seats are full).
-        2=>Err(format!("Contests open only when all {} seats are taken. Register normally instead.",p.m_max)),
-        3=>Err(format!("All {} probation seats are taken, so a probation bond can contest only another probationer. Pick a probationer, or contest with the full bond while all seats are taken.",p.p_max)),
-        4=>Err(match contest_opens(p){u64::MAX=>"This network's epoch is shorter than its late-share window, so no member can ever be contested.".into(),
-            b=>format!("No full epoch can be judged yet: the previous epoch's late shares are still being credited. Contests open at block {b}.")}),
-        5=>Err(format!("The member is still in its grace period, until block {}.",p.grace_start.saturating_add(p.theta_inact))),
-        6=>{let first=p.grace_start.div_ceil(p.e_epoch)*p.e_epoch;
-            Err(format!("The member joined or rejoined during the epoch being measured. It can be judged on its first full epoch, from block {} at the earliest.",(first+p.e_epoch).saturating_add(p.d.saturating_sub(1))))}
-        7=>Err(format!("The member credited {} shares in the last full epoch, not below the threshold of {}. It cannot be contested.",v.count,v.threshold)),
-        c=>Err(format!("The registry refused the contest (code {c}).")),
-    }
-}
-/// What a contest quote signs and states, decided from the head state alone (no fee, no peers), so that tests can drive
-/// the whole quote decision on a real chain: the guards, the bond, the registry's verdict and the seat or pool routing.
+/// What a registration by replacement signs and states, decided from the head state alone (no fee, no peers), so that
+/// tests can drive the whole quote decision on a real chain.
 #[derive(Clone,Debug)]
-pub struct ContestPlan{pub victim:Address,pub value:U256,pub full:U256,pub probation:bool,pub pool:bool,pub view:ContestView,pub params:ContestParams}
-/// V3-10/V3-14: the contest `me` would send against `victim` with `bond` (a decimal PCOL amount; default 0) at the head.
-pub fn contest_plan(chain:&crate::chain::Chain,me:Address,victim:&str,bond:Option<&str>)->Result<ContestPlan,String>{
-    if chain.spec.programs()!=apply::ProgramSet::V3{return Err("Contests exist only on the v3 network".into())}
+pub struct ReplacePlan{pub victim:Address,pub value:U256,pub full:U256,pub candidates:usize,pub theta_inact:u64,pub u:u64,pub m_max:u64}
+/// FN-2b C4: the registration `me` would send at a full set with `value` (its bond, at most B_reg): a victim chosen by
+/// `pick(n)` (an index below n; the wallet draws it at random) among the members removable at the next block, confirmed by
+/// the registry's removalStatus view. None when the set is not full (an ordinary register lands).
+pub fn replace_plan(chain:&crate::chain::Chain,me:Address,value:U256,pick:impl FnOnce(usize)->usize)->Result<Option<ReplacePlan>,String>{
+    if chain.spec.programs()!=apply::ProgramSet::V3{return Ok(None)}
     let head=chain.head();let cp=chain.spec.cp();
     let state=chain.view_of(&head.hash).ok_or("The head state is not available")?;
+    let active=apply::active_list(state.v()).len() as u64;
+    if active<u64::from(cp.M_max){return Ok(None)}
     if apply::miner_record(state.v(),me).is_some(){return Err("This identity already has a registry record".into())}
-    if victim.len()!=42||!victim.starts_with("0x"){return Err("Enter the member's full 0x address (42 characters)".into())}
-    let victim:Address=victim.parse().map_err(|_|"Invalid member address")?;
-    if victim==me{return Err("An identity cannot contest itself".into())}
-    let full=crate::chain::from_fixed_lp4(&cp.B_reg);
-    let value=match bond{None|Some("0")=>U256::ZERO,Some(text)=>amount(text)?};
-    if value>full{return Err(format!("The bond is at most {} PCOL",coins(full)))}
-    let probation=value<full;
-    let taken=state.v().slot(&apply::program_address(0),&U256::from(8));let seats=chain.spec.probation().map_or(0,|p|p.seats);
-    let record=apply::miner_record(state.v(),victim);
-    let params=ContestParams{next:head.height+1,e_epoch:u64::from(cp.E_epoch).max(1),d:u64::from(cp.D),theta_inact:u64::from(cp.Theta_inact),u:u64::from(cp.U),
-        m_max:u64::from(cp.M_max),p_max:seats,grace_start:record.map_or(0,|r|r.grace_start)};
-    let view=contest_view_on(state.v(),chain.spec.profile(),head.height+1,head.ts+1,me,victim,probation)?;
-    let pool=contest_check(&view,&params,probation,taken>=U256::from(seats))?;
-    Ok(ContestPlan{victim,value,full,probation,pool,view,params})
+    let list=removable_members(chain,state.v(),head.height+1,&head_credited(chain));
+    if list.is_empty(){return Err(format!("All {} seats are taken and every member has mined or joined within the last {} blocks, so none can be replaced yet. Try again later.",cp.M_max,cp.Theta_inact))}
+    let victim=list[pick(list.len())%list.len()];
+    let code=removal_view_on(state.v(),chain.spec.profile(),head.height+1,head.ts+1,me,victim)?;
+    if code!=0{return Err(format!("The registry refused the replacement (code {code}). Try again."))}
+    Ok(Some(ReplacePlan{victim,value,full:crate::chain::from_fixed_lp4(&cp.B_reg),candidates:list.len(),theta_inact:u64::from(cp.Theta_inact),u:u64::from(cp.U),m_max:u64::from(cp.M_max)}))
 }
-impl ContestPlan{
-    /// The quote's contest fields: what the confirmed registerContest does, in the wallet's words.
+impl ReplacePlan{
+    /// The quote's fields: what the confirmed registerReplacing does, in the wallet's words.
     pub fn describe(&self)->Value{
-        let (victim,v,p,epoch)=(self.victim,&self.view,&self.params,self.params.next/self.params.e_epoch-1);
-        let steps=if self.pool{vec![format!("The probationer {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",v.count,v.threshold),
-            format!("It leaves the active set and its probation seat now; its accrued bond, with its part of the pots of the last {} blocks not yet settled, is refunded after {} blocks (no penalty). You take its probation seat.",p.d,p.u),
-            format!("You register with a {} PCOL bond, filled from your rewards up to {} PCOL.",coins(self.value),coins(self.full))]}
-        else{vec![format!("The member {victim:#x} credited {} shares in epoch {epoch}, below the threshold of {}.",v.count,v.threshold),
-            format!("It leaves the active set; its bond is refunded after {} blocks (no penalty).",p.u),
-            format!("You take its seat with a {} PCOL bond{}.",coins(self.value),if self.probation{format!(", filled from your rewards up to {} PCOL",coins(self.full))}else{String::new()})]};
-        json!({"victim":format!("{victim:#x}"),"contest":{"kind":if self.pool{"pool"}else{"seat"},"count":v.count,"threshold":v.threshold.to_string(),"epoch":epoch,
-            "refundAfterBlocks":p.u},"steps":steps,"bondTarget":coins(self.full),"probation":self.probation,
-            "note":"Checked against the current head. The registry judges the contest again when the transaction is included; if a share or a new epoch changes the result first, it reverts and only the fee is spent."})
+        let v=self.victim;
+        json!({"replacing":{"victim":format!("{v:#x}"),"removable":self.candidates,"refundAfterBlocks":self.u},
+            "steps":[format!("All {} seats are taken. The member {v:#x} has no credited share in the last {} blocks, so the registry can remove it (chosen at random among {} such members).",self.m_max,self.theta_inact,self.candidates),
+                format!("It leaves the active set; its bond is refunded after {} blocks (no penalty), and it may register again.",self.u),
+                format!("You take its seat with a {} PCOL bond{}.",coins(self.value),if self.value<self.full{format!(", filled from your rewards up to {} PCOL",coins(self.full))}else{String::new()})],
+            "note":"Checked against the current head. The registry judges the member again when the transaction is included; if it has mined or another newcomer replaced it first, the transaction reverts and only the fee is spent."})
     }
 }
-/// The status flags of a contest (v3 program set only): whether a newcomer would need quote_contest (all seats taken;
-/// a pool contest needs them too), and whether the seats and the probation seats are all taken.
-pub fn contest_flags(chain:&crate::chain::Chain,v:&dyn View,registered:bool)->(bool,bool,bool){
-    let a=apply::active_list(v).len() as u64;let taken=v.slot(&apply::program_address(0),&U256::from(8));
-    let seats_full=a>=u64::from(chain.spec.cp().M_max);let pool_full=chain.spec.probation().is_some_and(|p|taken>=U256::from(p.seats));
-    (chain.spec.programs()==apply::ProgramSet::V3&&!registered&&seats_full,seats_full,pool_full)
+/// The status flags at a full set (v3 program set only): whether the seats are all taken, how many members are removable
+/// at the next block, and whether a newcomer would register by replacement.
+pub fn seat_flags(chain:&crate::chain::Chain,v:&dyn View,next:u64,registered:bool)->(bool,usize,bool){
+    let seats_full=chain.spec.programs()==apply::ProgramSet::V3&&apply::active_list(v).len() as u64>=u64::from(chain.spec.cp().M_max);
+    let removable=if seats_full{removable_members(chain,v,next,&head_credited(chain)).len()}else{0};
+    (seats_full,removable,seats_full&&!registered&&removable>0)
 }
+/// A uniform index below n from the system's secure randomness (the replacement victim).
+fn random_index(n:usize)->usize{let mut b=[0u8;8];if getrandom::getrandom(&mut b).is_err(){return 0}(u64::from_le_bytes(b)%(n.max(1) as u64)) as usize}
 /// Registry calls of a rejoin, sent by the member itself to `apply::program_address(0)` with value 0.
 pub fn exit_calldata()->Bytes{selector("deregister()")}
 pub fn reactivate_calldata()->Bytes{selector("reactivate()")}
@@ -322,12 +314,14 @@ impl<'a> Wallet<'a>{
         rejoin["inProgress"]=json!(self.rejoin.is_some());rejoin["attempts"]=json!(self.rejoin.as_ref().map(|p|p.attempts).unwrap_or(0));
         let registry=match &record{None=>"none",Some(r) if r.tomb=>"removed",Some(r) if !matches!(r.bond_state,1|4)=>"closed",
             Some(r) if r.status==1&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING=>"probation",Some(r) if r.status==1=>"member",Some(r) if r.status==2=>"exited",Some(_)=>"closed"};
+        // The earn-in set's deadline; the v3 set has none (FN-2b C3), so its bond fills from rewards without one.
         let ends=probation.zip(n.chain.spec.probation()).map(|(r,p)|r.registered_at+p.blocks);
         let mining_state=match (probation,ends){
             (Some(r),Some(end)) if self.rejoin.is_none()=>format!("{mining_state} · Probation: bond {} of {} PCOL, filled from your rewards (by block {end})",coins(r.bond),coins(target)),
+            (Some(r),None) if self.rejoin.is_none()=>format!("{mining_state} · Bond {} of {} PCOL, filled from your rewards",coins(r.bond),coins(target)),
             _=>mining_state,
         };
-        let (contest_open,seats_full,pool_full)=state.as_ref().map(|s|contest_flags(&n.chain,s.v(),record.is_some())).unwrap_or((false,false,false));
+        let (seats_full,removable,replacing)=state.as_ref().map(|s|seat_flags(&n.chain,s.v(),head.height+1,record.is_some())).unwrap_or((false,0,false));
         let diag=n.incompatible_json();
         crate::network_display::annotate(json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
@@ -337,9 +331,10 @@ impl<'a> Wallet<'a>{
             "miningState":mining_state,
             "blocksMined":n.stats.mined,"bond":coins(target),
             "earnIn":earn,"bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),"probationEndsAt":ends,
-            "topUpAvailable":earn&&probation.is_some()&&ends.is_some_and(|e|head.height+1<e),
-            // V3-10/V3-14: whether a newcomer would need quote_contest (the v3 program set only).
-            "contestAvailable":contest_open,"seatsFull":seats_full,"probationSeatsFull":pool_full,
+            "topUpAvailable":earn&&probation.is_some()&&ends.map_or(true,|e|head.height+1<e),
+            // FN-2b C4 (the v3 program set only): all seats taken, the members removable at the next block, and whether
+            // quote_register would register this identity by replacing one of them.
+            "seatsFull":seats_full,"removableSeats":removable,"registerReplaces":replacing,
             "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true,
             // Why peers were refused (VA-SPEC §2.5, attack A2-6), so the wallet can tell a lagging node what to do.
             "incompatiblePeers":diag["incompatiblePeers"],"lastIncompatibleReason":diag["lastIncompatibleReason"]}))
@@ -380,17 +375,24 @@ impl<'a> Wallet<'a>{
                 };
                 if value>full{return Err(format!("The bond is at most {} PCOL",coins(full)))}
                 if !earn&&value!=full{return Err(format!("This network takes the full {} PCOL bond",coins(full)))}
-                if earn&&value<full{
+                // The earn-in set's probation pool (EARN-IN-SPEC U3); the v3 set has none (FN-2b C2).
+                if let (true,Some(p))=(earn&&value<full,n.chain.spec.probation()){
                     let head=n.chain.head();
                     let taken=n.chain.view_of(&head.hash).map(|s|s.v().slot(&apply::program_address(0),&U256::from(8))).unwrap_or_default();
-                    let seats=n.chain.spec.probation().map_or(0,|p|p.seats);
-                    if taken>=U256::from(seats){return Err(format!("All {seats} probation seats are taken. Register with the full {} PCOL bond, or try again later.",coins(full)))}
+                    if taken>=U256::from(p.seats){return Err(format!("All {} probation seats are taken. Register with the full {} PCOL bond, or try again later.",p.seats,coins(full)))}
                 }
                 // PAY-02: the reward address (this identity) must have nonce > 0 in the state before the
                 // registration, or register(address) reverts with RewardNotDurable and only costs the fee.
                 // The earn-in Registry accepts a self reward without that probe (R9).
                 if !earn&&!registration_reward_durable(n.chain.view_of(&n.chain.head().hash).and_then(|s|s.v().account(&self.key.address())).map(|a|a.info.nonce)){
                     return Err("This identity has not sent a transaction yet, and the registry pays rewards only to an account that has. Send one transfer first (a small amount, even to your own address), wait for it to be included, then register.".into())
+                }
+                // FN-2b C4: at a full v3 set, registerReplacing into the seat of a removable member chosen at random.
+                if let Some(plan)=replace_plan(&n.chain,self.key.address(),value,random_index)?{
+                    let mut q=self.quote(n,"registration",apply::program_address(0),value,replacing_calldata(self.key.address(),plan.victim),REPLACE_GAS)?;
+                    if let Value::Object(fields)=plan.describe(){for (k,v) in fields{q[k]=v;}}
+                    q["bondTarget"]=json!(coins(full));q["probation"]=json!(value<full);
+                    return Ok(q)
                 }
                 let mut data=keccak256("register(address)")[..4].to_vec();data.extend_from_slice(self.key.address().into_word().as_slice());
                 let mut q=self.quote(n,"registration",apply::program_address(0),value,data.into(),if earn{EARNIN_REGISTER_GAS}else{REGISTRY_GAS})?;
@@ -401,8 +403,8 @@ impl<'a> Wallet<'a>{
                 if !n.chain.spec.earnin_rules(){return Err("Bond top-up exists only on the earn-in network".into())}
                 let (record,_,_)=self.rejoin_view(n);let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
                 let r=record.filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::EARNIN_ACCRUING).ok_or("Top-up needs an active probation record")?;
-                let t_prob=n.chain.spec.probation().ok_or("Bond top-up exists only on the earn-in network")?.blocks;
-                if n.chain.head().height+1>=r.registered_at+t_prob{return Err("The probation period has ended".into())}
+                // The earn-in deadline; none on the v3 set (FN-2b C3).
+                if let Some(p)=n.chain.spec.probation(){if n.chain.head().height+1>=r.registered_at+p.blocks{return Err("The probation period has ended".into())}}
                 let remaining=full-r.bond;
                 let value=match requested.as_deref(){None=>remaining,Some(text)=>amount(text)?};
                 if value>remaining{return Err(format!("At most {} PCOL remains to fill the bond",coins(remaining)))}
@@ -411,7 +413,6 @@ impl<'a> Wallet<'a>{
                 Ok(q)
             },
             Command::QuoteRejoin=>self.quote_rejoin(n),
-            Command::QuoteContest{victim,bond}=>self.quote_contest(n,&victim,bond.as_deref()),
             Command::Confirm{quote_id}=>{
                 let q=self.quote.take().ok_or("Review a transaction first")?;
                 if q.id!=quote_id||Instant::now()>q.deadline{return Err("Review expired or changed. Review the transaction again.".into())}
@@ -440,12 +441,6 @@ impl<'a> Wallet<'a>{
         self.activity.truncate(100);
         let file=self.home.path.join("wallet-activity.json");
         serde_json::to_vec(&self.activity).ok().is_some_and(|bytes|save_activity(&file,&bytes).is_ok())
-    }
-    fn quote_contest(&mut self,n:&Node,victim:&str,bond:Option<&str>)->Result<Value,String>{
-        let plan=contest_plan(&n.chain,self.key.address(),victim,bond)?;
-        let mut q=self.quote(n,"contest",apply::program_address(0),plan.value,contest_calldata(self.key.address(),plan.victim),CONTEST_GAS)?;
-        if let Value::Object(fields)=plan.describe(){for (k,v) in fields{q[k]=v;}}
-        Ok(q)
     }
     fn quote_rejoin(&mut self,n:&Node)->Result<Value,String>{
         if self.rejoin.is_some(){return Err("Rejoining is already in progress".into())}
@@ -633,57 +628,38 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         assert_eq!(reactivate_calldata().as_ref(),&keccak256("reactivate()")[..4]);
     }
     #[test] fn probation_rejoin_ends_at_the_deadline(){
-        // The earn-in programs' constant T_PROB and a v3 CP T_PROB (V3-14: 30 days at 30 s) give the same windows.
-        for t in [apply::Probation::EARNIN.blocks,86_400]{
-            // Heights offset by T_PROB so registeredAt stays positive.
-            let p=Some(t);
-            let mut r=record(2,t+100,t+140);r.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;r.registered_at=t;
-            assert_eq!(rejoin_step(Some(&r),t+132,false,32,p),RejoinStep::Reactivate{closes:t+140},"before the deadline the usual window applies");
-            r.registered_at=135;
-            assert_eq!(rejoin_step(Some(&r),t+132,false,32,p),RejoinStep::Reactivate{closes:t+135},"the deadline closes the window early");
-            assert_eq!(rejoin_step(Some(&r),t+135,false,32,p),RejoinStep::Missed);
-            let mut active=record(1,0,0);active.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;active.registered_at=200;
-            assert_eq!(rejoin_step(Some(&active),t+168,false,32,p),RejoinStep::Missed,"an exit at T+168 would reopen at the deadline");
-            assert_eq!(rejoin_step(Some(&active),t+167,false,32,p),RejoinStep::Exit);
-            assert_eq!(rejoin_step(Some(&active),t+500,true,32,p),RejoinStep::Active);
-        }
+        // The earn-in programs' constant T_PROB. Heights offset by T_PROB so registeredAt stays positive.
+        let t=apply::Probation::EARNIN.blocks;let p=Some(t);
+        let mut r=record(2,t+100,t+140);r.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;r.registered_at=t;
+        assert_eq!(rejoin_step(Some(&r),t+132,false,32,p),RejoinStep::Reactivate{closes:t+140},"before the deadline the usual window applies");
+        r.registered_at=135;
+        assert_eq!(rejoin_step(Some(&r),t+132,false,32,p),RejoinStep::Reactivate{closes:t+135},"the deadline closes the window early");
+        assert_eq!(rejoin_step(Some(&r),t+135,false,32,p),RejoinStep::Missed);
+        let mut active=record(1,0,0);active.bond_state=apply::SystemPrograms::EARNIN_ACCRUING;active.registered_at=200;
+        assert_eq!(rejoin_step(Some(&active),t+168,false,32,p),RejoinStep::Missed,"an exit at T+168 would reopen at the deadline");
+        assert_eq!(rejoin_step(Some(&active),t+167,false,32,p),RejoinStep::Exit);
+        assert_eq!(rejoin_step(Some(&active),t+500,true,32,p),RejoinStep::Active);
+        // FN-2b C3: the v3 set has no deadline (Spec::probation is None), so an ACCRUING record keeps the usual window.
+        assert_eq!(rejoin_step(Some(&r),t+139,false,32,None),RejoinStep::Reactivate{closes:t+140},"no deadline on the v3 set");
+        assert_eq!(rejoin_step(Some(&active),t+10_000_000,false,32,None),RejoinStep::Exit);
         assert_eq!(apply::Probation::EARNIN,apply::Probation{seats:8,blocks:60_480},"PoColSystemEarnIn.sol P_MAX and T_PROB");
     }
-    /// V3-10/V3-14: the contest action explains each refusal code of the registry's contestCheck and calls the selector the
-    /// v3 MinerRegistry dispatches.
-    #[test] fn contest_checks_explain_every_registry_refusal(){
-        let p=ContestParams{next:100,e_epoch:8,d:4,theta_inact:16,u:140,m_max:256,p_max:64,grace_start:90};
-        let v=|code:u64|ContestView{code,count:3,threshold:U256::from(25u64)};
-        assert_eq!(contest_check(&v(0),&p,false,false),Ok(false),"a seat contest");
-        assert_eq!(contest_check(&v(0),&p,true,true),Ok(true),"a probation bond against a full pool: the pool contest");
-        assert_eq!(contest_check(&v(0),&p,true,false),Ok(false),"a probation bond with pool room: a seat contest");
-        let msg=|code:u64,probation:bool|contest_check(&v(code),&p,probation,false).unwrap_err();
-        assert!(msg(1,false).contains("no active registry record"));
-        assert!(msg(2,false).contains("all 256 seats")&&msg(2,true).contains("all 256 seats")&&!msg(2,true).contains("probation seats"),"a pool contest needs every seat taken too");
-        assert!(msg(3,true).contains("only another probationer"));
-        // Epoch 12 starts at 96 and its predecessor's late window closes at 96 + D - 1 = 99; in epoch 0 nothing is measured
-        // until 8 + 3 = 11.
-        let early=ContestParams{next:97,..p};assert!(contest_check(&v(4),&early,false,false).unwrap_err().contains("block 99"));
-        let first=ContestParams{next:3,..p};assert!(contest_check(&v(4),&first,false,false).unwrap_err().contains("block 11"));
-        let tiny=ContestParams{e_epoch:2,..p};assert!(contest_check(&v(4),&tiny,false,false).unwrap_err().contains("can ever be contested"));
-        assert!(msg(5,false).contains("until block 106"));
-        // graceStart 90 lies in epoch 11 (88..95): the first full epoch is 12 (96..103), judged from 104 + 3 = 107; a
-        // graceStart of exactly 96, the first block of epoch 12, is allowed for it too.
-        assert!(msg(6,false).contains("block 107"),"{}",msg(6,false));
-        let on=ContestParams{grace_start:96,..p};assert!(contest_check(&v(6),&on,false,false).unwrap_err().contains("block 107"));
-        assert!(msg(7,false).contains("3 shares")&&msg(7,false).contains("threshold of 25"));
-        let d=contest_calldata(Address::repeat_byte(1),Address::repeat_byte(2));
-        assert_eq!(&d[..4],&keccak256("registerContest(address,address)")[..4]);assert_eq!(d.len(),68);
+    /// FN-2b C4: the replacement calls the selector the v3 MinerRegistry dispatches, with the reward and the victim words,
+    /// and the random index stays below its bound.
+    #[test] fn replacing_calls_the_registry_selector(){
+        let d=replacing_calldata(Address::repeat_byte(1),Address::repeat_byte(2));
+        assert_eq!(&d[..4],&keccak256("registerReplacing(address,address)")[..4]);assert_eq!(d.len(),68);
         assert_eq!(&d[16..36],Address::repeat_byte(1).as_slice());assert_eq!(&d[48..68],Address::repeat_byte(2).as_slice());
+        let seen:std::collections::BTreeSet<usize>=(0..200).map(|_|random_index(3)).collect();
+        assert!(seen.iter().all(|i|*i<3)&&seen.len()>1,"{seen:?}");assert_eq!(random_index(1),0);
     }
     #[test] fn command_surface_is_closed(){
         assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_rejoin"}"#),Ok(Command::QuoteRejoin)));
         assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_register"}"#),Ok(Command::QuoteRegister{bond:None})));
         assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_register","bond":"0"}"#),Ok(Command::QuoteRegister{bond:Some(b)}) if b=="0"));
         assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_top_up"}"#),Ok(Command::QuoteTopUp{amount:None})));
-        assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"quote_contest","victim":"0x01"}"#),Ok(Command::QuoteContest{bond:None,..})));
-        assert!(serde_json::from_str::<Command>(r#"{"method":"quote_contest"}"#).is_err(),"a contest names its victim");
-        assert!(serde_json::from_str::<Command>(r#"{"method":"quote_contest","victim":"0x01","bond":20}"#).is_err(),"amounts are decimal strings");
+        // FN-2b: no contest command (quote_register replaces a removable member at a full set).
+        assert!(serde_json::from_str::<Command>(r#"{"method":"quote_contest","victim":"0x01"}"#).is_err(),"the contest is gone");
         assert!(serde_json::from_str::<Command>(r#"{"method":"quote_register","bond":20}"#).is_err(),"amounts are decimal strings");
         assert!(serde_json::from_str::<Command>(r#"{"method":"quote_top_up","value":"1"}"#).is_err());
         assert!(serde_json::from_str::<Command>(r#"{"method":"reactivate"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"mining","enabled":true,"secret":"x"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"send","amount":1}"#).is_err());}

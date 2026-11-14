@@ -388,6 +388,7 @@ It also serves `net_*`, `web3_clientVersion`, and PoCol-specific methods:
 | `pocol_status`, `pocol_syncStatus`                                                              | Node and sync status                                         |
 | `pocol_getTemplate`, `pocol_getAssignment`, `pocol_getTarget`, `pocol_submitShare`              | Template, nonce range, target, share submission (local only) |
 | `pocol_getMiners`, `pocol_getMinerSet`                                                          | Miners and the active set                                    |
+| `pocol_getRemovable`                                                                            | v3: members removable at the next block (full set only)      |
 | `pocol_getSettlement`, `pocol_getEscrow`, `pocol_getPot`, `pocol_getBurnTotals`                 | Rewards, settlement, burns                                   |
 | `pocol_getHeaders`, `pocol_getBlockRlp`, `pocol_getLogs`                                        | Headers for light clients, raw blocks, branch-bound logs     |
 | `pocol_getParams`, `pocol_getCaps`, `pocol_getTiming`, `pocol_getClosing`, `pocol_getRetention` | Parameters, caps, timing, closing, retention                 |
