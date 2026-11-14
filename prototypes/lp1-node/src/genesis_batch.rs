@@ -1,5 +1,7 @@
-//! `lp1-node genesis-decode`: GenesisSpec v1 decode of one hex input per line, for differential
-//! checks. The input is read as a stream; it is never loaded whole.
+//! `lp1-node genesis-decode`: GenesisSpec decode of one hex input per line, for differential
+//! checks, with the release decoder (`genesis_spec::decode`, SPEC_VERSION 2: a spec-1 genesis under
+//! CP schema v1, a spec-2 genesis under CP schema v2). The input is read as a stream; it is never
+//! loaded whole.
 //!
 //! Line format: optional `0x`, hex digits, optional `\r`, then `\n` (the last line may omit it). An
 //! empty line is the empty input. Output, one JSON row per line and one summary row:

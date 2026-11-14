@@ -6,10 +6,11 @@
 //! written), 2 usage / I/O / busy / bound / metadata / mismatch / corrupt error, 3 recovery
 //! required. There are no fault-injection options.
 //!
-//! LP3 `genesis-decode` runs the GenesisSpec v1 decoder over hex lines for differential checks; it
-//! streams the file it is given with fixed buffers (limits in `genesis_batch`). Exit status 0: every
-//! line decoded or rejected by the decoder and every accepted input re-encoded exactly; 1: some line
-//! refused (too large or not hex); 2: I/O or buffer reservation error.
+//! LP3 `genesis-decode` runs the release GenesisSpec decoder (`genesis_spec::decode`, SPEC_VERSION 2:
+//! spec 1 and spec 2) over hex lines for differential checks; it streams the file it is given with
+//! fixed buffers (limits in `genesis_batch`). Exit status 0: every line decoded or rejected by the
+//! decoder and every accepted input re-encoded exactly; 1: some line refused (too large or not hex);
+//! 2: I/O or buffer reservation error.
 
 use std::fs::File;
 use std::io::{self, BufReader, BufWriter, Write};
@@ -27,8 +28,8 @@ commands:
   window            run the RP window cases [--case ID] [--no-cache]
   hash              K1-K3, hash-oracle digests and derivations from fixture headers
   asert-batch       differential ASERT rows as JSON lines [--in FILE] [--out FILE]
-  genesis-decode    GenesisSpec v1 decode of one hex input per line, JSON lines --in FILE [--out FILE]
-                    (streamed; a line above the largest valid GenesisSpec is refused, not decoded)
+  genesis-decode    GenesisSpec decode of one hex input per line, JSON lines --in FILE [--out FILE]
+                    (spec 1 and 2; streamed; a line above the largest valid GenesisSpec is refused, not decoded)
   serve             read-only JSON-RPC on 127.0.0.1 [--bind 127.0.0.1] [--port N] [--empty-chain]
                     [--max-requests N] [--max-runtime-ms N] [--conn-timeout-ms N]
   store init        --store DIR                      create a NEW candidate journal (never overwrites)

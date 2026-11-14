@@ -335,3 +335,16 @@ def public_spec(info, spec, max_version=SPEC_VERSION):
     if declared == 2 and decoded['sysCodeHash'].hex() != V3_SYS_CODE_HASH:
         raise ValueError('a spec-2 (v3) GenesisSpec must name the v3 program set (sysCodeHash)')
     return decoded
+
+
+def public_spec_hex(info, text, max_version=SPEC_VERSION):
+    """public_spec of the text of a network's genesis.spec.hex: hex digits with an optional 0x prefix and surrounding
+    whitespace, as the node reads it (launcher.rs: trimmed, types.rs unhex). The release bundle tools (prepare.py,
+    node_operator.py verify) check a network's public spec with this, not its devnet.json declaration alone."""
+    if not isinstance(text, str):
+        raise ValueError('genesis.spec.hex is not text')
+    text = text.strip()
+    digits = text[2:] if text.startswith('0x') else text
+    if len(digits) % 2 or any(c not in '0123456789abcdefABCDEF' for c in digits):
+        raise ValueError('genesis.spec.hex is not hex')
+    return public_spec(info, bytes.fromhex(digits), max_version)

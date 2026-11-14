@@ -180,10 +180,12 @@ a CP-v2 genesis names, but the deploy tools, like the reward gateway, accept onl
 on spec 2. The gsVersion detail is the exact decimal of the version item at any length, as
 the node reports it. `test_pocol_identity.py` checks the decoder against the Rust verdicts
 of the whole decoder corpus and its spec-2 supplement
-(`prototypes/pocol-extension/tests/data`). A release bundle (`prepare.py`,
-`node_operator.py`) still refuses a spec-2 network from its `devnet.json` declaration
-alone (`for_network` with a release build); wiring `public_spec` into them is left for the
-release that opens spec 2.
+(`prototypes/pocol-extension/tests/data`). The release bundle tools accept a spec-1 and a
+spec-2 network, never on the `devnet.json` declaration alone: `prepare.py` (before it reads
+the build or writes a release) and `node_operator.py` (`verify`: the `verify` command, every
+launch and every restore of a bundle) decode the network's `genesis.spec.hex` with
+`public_spec_hex`, which applies `public_spec`'s version, chain ID and v3 program-set
+checks; `for_network` then gives the consensus identity.
 
 ## Lifetime and unresolved work
 
