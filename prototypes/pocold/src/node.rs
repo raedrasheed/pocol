@@ -3301,7 +3301,11 @@ impl Node{
             status["members"]=serde_json::json!({"setHits":m.set_hits,"setMisses":m.set_misses,"diskSetReads":m.disk_set_reads,"recordReads":m.record_reads,
                 "assignmentHits":m.assign_hits,"assignmentMisses":m.assign_misses,"ownerHits":m.owner_hits,"reconstructions":m.reconstructions,"reconstructUsMax":m.reconstruct_us_max,
                 "reconstructUsP99":m.reconstruct_us_p99,"snapshotsWritten":m.snapshots_written,"deltaMax":m.delta_max,"oracle":self.chain.member_oracle,"oracleChecks":m.oracle_checks,
-                "oracleMismatch":m.oracle_mismatch,"faults":m.faults,"held":[m.held.0,m.held.1,m.held.2],"caps":[m.caps.0,m.caps.1,m.caps.2],"evidenceKeptLocal":self.stats.evidence_kept_local});}
+                "oracleMismatch":m.oracle_mismatch,"faults":m.faults,"held":[m.held.0,m.held.1,m.held.2],"caps":[m.caps.0,m.caps.1,m.caps.2],"evidenceKeptLocal":self.stats.evidence_kept_local});
+            // FN-1b: the membership inputs of new parents' contexts (held, derived from a parent's and the block's writes, read whole).
+            let (bases,writes)=self.chain.member_bases_held();
+            status["membership"]=serde_json::json!({"inputHits":m.base_hits,"inputsDerived":m.base_derived,"inputsRead":m.base_read,"derivedListReads":m.derive_list_reads,
+                "derivedRecordReads":m.derive_record_reads,"oracleChecks":m.base_checks,"oracleMismatch":m.base_mismatch,"held":[bases,writes]});}
         // PR6: the builder (gas used) and the pool's sender quota and parking.
         status["stats"]["templateGasFallbacks"]=serde_json::json!(self.stats.template_gas_fallbacks);
         status["stats"]["templateGasRecoveries"]=serde_json::json!(self.stats.template_gas_recoveries);

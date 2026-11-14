@@ -291,6 +291,90 @@ pub fn ranges_digest(a:&crate::assignment::Assignment)->[u8;32]{
     keccak256(&b).0
 }
 
+// ---------------- FN-1b: what membership() reads of a parent state (node-local) ----------------
+/// FN-1b: the fields of one MinerRecord that `chain::Chain::membership_one_pass` reads (`apply::miner_record`): tomb,
+/// last_share and grace_start for the ParentMember, bond_state and whether the bond is below B_reg/4 for the accruing
+/// mark. None where the record is absent (its word 0 is zero), as `miner_record` gives it.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct BaseRec{pub tomb:bool,pub bond_state:u8,pub last_share:u64,pub grace_start:u64,pub below_quarter:bool}
+/// FN-1b (C6, node-local): everything `chain::Chain::membership_one_pass` reads of a state, read once: the ActList in
+/// order and, for each distinct id on it, the record fields it reads (`BaseRec`), and the record's base slot
+/// (`apply::record_slot`) of each. `chain::Chain::membership_from_base` computes A_h* from it with the same code the one pass
+/// runs, so a base equal to the one read from the state gives the same membership, the same error and the same order.
+/// A child's base is derived from its parent's (`derive`) by re-reading exactly what the block wrote: every registry
+/// slot of the block's write set (a superset of the slots whose value differs, and in store mode the very slots its
+/// stored version was updated with) that is the list's length, one of its elements, or one of the four words of the
+/// record of an id on the parent's list. A cache value only (keyed by the state's identity, `chain::CtxCache`), never a
+/// validity input; the one-pass reading stays the oracle (`Chain::member_oracle`).
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct MemberBase{
+    /// The ActList in order: registry slot 1 is its length, keccak(6) + i its element i.
+    pub list:Vec<Id>,
+    /// Each distinct id of `list`: the record fields read (None: no record).
+    recs:HashMap<Id,Option<BaseRec>>,
+    /// The record base slot (`apply::record_slot`) of each id of `recs`.
+    slots:HashMap<U256,Id>,
+}
+/// FN-1b: what a derivation read (the counters of `chain::MemberCounters`).
+#[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
+pub struct DeriveReads{pub list:u64,pub records:u64}
+/// The ActList's element base, keccak256(6) (`apply::active_list`'s array_slot(6)).
+fn act_base()->U256{static B:std::sync::OnceLock<U256>=std::sync::OnceLock::new();*B.get_or_init(||U256::from_be_bytes(keccak256(U256::from(6).to_be_bytes::<32>()).0))}
+fn act_len(st:&dyn pocol_lp4_execution::view::View)->u64{st.slot(&pocol_lp4_execution::apply::registry(),&U256::from(1)).as_limbs()[0]}
+fn act_at(st:&dyn pocol_lp4_execution::view::View,i:u64)->Id{
+    Address::from_word(revm::primitives::B256::from(st.slot(&pocol_lp4_execution::apply::registry(),&(act_base()+U256::from(i))))).0.0
+}
+fn base_rec(st:&dyn pocol_lp4_execution::view::View,id:&Id,quarter:U256)->Option<BaseRec>{
+    pocol_lp4_execution::apply::miner_record(st,Address::from(*id)).map(|r|BaseRec{tomb:r.tomb,bond_state:r.bond_state,last_share:r.last_share,grace_start:r.grace_start,below_quarter:r.bond<quarter})
+}
+impl MemberBase{
+    /// The whole read: the ActList (`apply::active_list`) and each distinct id's record (`apply::miner_record`), what
+    /// the one pass reads. `quarter` is B_reg/4.
+    pub fn read(st:&dyn pocol_lp4_execution::view::View,quarter:U256)->MemberBase{
+        let list:Vec<Id>=pocol_lp4_execution::apply::active_list(st).into_iter().map(|a|a.0.0).collect();
+        let (mut recs,mut slots)=(HashMap::with_capacity(list.len()),HashMap::with_capacity(list.len()));
+        for id in &list{if !recs.contains_key(id){recs.insert(*id,base_rec(st,id,quarter));slots.insert(pocol_lp4_execution::apply::record_slot(Address::from(*id)),*id);}}
+        MemberBase{list,recs,slots}
+    }
+    /// The record fields of an id of the list.
+    pub fn rec(&self,id:&Id)->Option<BaseRec>{self.recs.get(id).copied().flatten()}
+    /// The ids whose record is held (the distinct ids of the list).
+    pub fn held(&self)->usize{self.recs.len()}
+    /// The base of a child state `st` from this one (its parent's), given the registry slots the block wrote
+    /// (`written`: every slot whose value can differ between the two states). Re-read from `st`: the length when slot 1
+    /// was written, each written element below the new length and every element past the old one; the record of each id
+    /// one of whose four words was written, and of each id new to the list. An id that left the list is dropped. Every
+    /// other value is the parent's, which the child holds unchanged.
+    pub fn derive(&self,st:&dyn pocol_lp4_execution::view::View,written:&[U256],quarter:U256)->(MemberBase,DeriveReads){
+        let (base,one)=(act_base(),U256::from(1));let mut reads=DeriveReads::default();
+        let mut len_written=false;let mut at:Vec<u64>=Vec::new();let mut dirty:Vec<Id>=Vec::new();
+        for s in written{
+            if *s==one{len_written=true;}
+            if *s>=base{let d=*s-base;if d<=U256::from(u64::MAX){at.push(d.as_limbs()[0]);}}
+            for k in 0..4u64{if let Some(id)=self.slots.get(&s.wrapping_sub(U256::from(k))){dirty.push(*id);}}
+        }
+        let old=self.list.len();
+        let n=if len_written{reads.list+=1;act_len(st)}else{old as u64};
+        let keep=(n.min(old as u64)) as usize;
+        let mut list=self.list[..keep].to_vec();let mut left:Vec<Id>=self.list[keep..].to_vec();
+        for i in &at{if *i<keep as u64{let i=*i as usize;let x=act_at(st,i as u64);reads.list+=1;if x!=list[i]{left.push(list[i]);list[i]=x;}}}
+        for i in keep as u64..n{list.push(act_at(st,i));reads.list+=1;}
+        let (mut recs,mut slots)=(self.recs.clone(),self.slots.clone());
+        left.sort_unstable();left.dedup();
+        if !left.is_empty(){
+            // An id that left one position may hold another (a swap-remove moves the last id): only one the new list does
+            // not hold is dropped.
+            let set:Option<std::collections::HashSet<Id>>=(left.len()>64).then(||list.iter().copied().collect());
+            let on=|id:&Id|set.as_ref().map_or_else(||list.contains(id),|s|s.contains(id));
+            for id in &left{if !on(id)&&recs.remove(id).is_some(){slots.remove(&pocol_lp4_execution::apply::record_slot(Address::from(*id)));}}
+        }
+        dirty.sort_unstable();dirty.dedup();
+        for id in &dirty{if let Some(x)=recs.get_mut(id){*x=base_rec(st,id,quarter);reads.records+=1;}}
+        for id in &list{if !recs.contains_key(id){recs.insert(*id,base_rec(st,id,quarter));slots.insert(pocol_lp4_execution::apply::record_slot(Address::from(*id)),*id);reads.records+=1;}}
+        (MemberBase{list,recs,slots},reads)
+    }
+}
+
 #[cfg(test)]
 mod tests{
     use super::*;
