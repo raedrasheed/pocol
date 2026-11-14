@@ -1769,6 +1769,50 @@ entry-equivalents (7,181,440,000 B) plus the ranges rows' allocator share and th
 against the 6 GiB budget with its 1/8 reserve. FN-3c records this in its own 10k A13 test, with the growth and CPU
 measurements (taken with the oracle off).
 
+### FN-3c: A13 and the growth and CPU evidence at 10,000 members (C6, node-local)
+
+FN-3c (plan FN-3 §5.13, §5.14) adds evidence only. No term changed, so no pin moved. `tests/fn3_scale.rs`
+`a13_admits_the_fresh_network_cp_at_ten_thousand_members` derives A13 in store mode, with eviction on and the files
+observed (`Limits::disk`, empty: a new node), at two hand-built CPs. No committed fresh-network profile (FN-4) is on this
+base.
+- **The C6-row CP**, at which FN-3a and FN-3b recorded their figures: the generated continuous network's CP (CP schema
+  v1, nonceMode 0, devnet caps, so the member terms take the every-block-a-snapshot branch) with M_max 10,000, E_win
+  360, D 4, E_max 4, R_react 4, REG_OPS 16, REG_RECORDS_MAX 24,576 and SYS_SLOT_MAX 147,456.
+  - **2,894,088,421 B (2.70 GiB), admitted.** That is FN-3b's figure. It needs 3,307,529,624 B of the 6 GiB with the
+    reserve.
+- **The fresh-network CP of FRESH-NETWORK-DESIGN.md §1a** (`tests/support/ten_thousand.rs` `fresh_config`): CP schema
+  v2, nonceMode 1, CODE_CAP 2^30, SLOT_CAP 4,000,000, ACCT_CAP 1,000,000, Z_close 256, C_react 380 and the rest of the
+  table. Only S0 and target_g differ, and neither is an A13 input.
+  - **5,461,945,293 B (5.09 GiB), admitted** with 175,199,283 B (167 MiB) to spare under the usable 5,637,144,576 B.
+    It needs 6,242,223,192 B with the reserve.
+  - Its largest terms are the store-mode code set read by the execution at CODE_CAP 2^30 (1,207,959,552), the
+    execution's memory classes (1,051,240,244), a block's new trie nodes before commit (1,039,183,100), the state.redb
+    allocator (449,936,640) and NODE_CACHE (268,435,456).
+  - The member and context terms total 69.7 MB: the records on held entries 6,823,120, FN-1's child-context cache
+    27,847,744, the sets 3,203,072, the assignments 25,922,896, the owner memo 2,770,596 and the scratch 3,155,072.
+  - `a13_fresh_network_headroom_against_the_observed_files` (printed only) finds that the node stays admitted until
+    state.redb reaches 1,414,813,188,096 B (1,317.6 GiB, with history.redb empty), or history.redb reaches
+    717,616,054,272 B (668.3 GiB, with state.redb empty).
+
+The test's sibling assertion covers the term FN-3b removed. That term was 64·M_max = 640,000 B in each of the 11,221
+entry-equivalents: the window 32, slim_depth − window = 4,681, the shadow max(257, E_win + 1) = 361, side_cap + 2·R_keep =
+6,144, one full side block and two views. It came to 7,181,440,000 B (6.69 GiB). That alone exceeds the usable
+5.25 GiB, so the pre-FN-3 model was at least 10,075,528,421 B at the C6-row CP (FN-3a recorded 10,078,213,165 B with
+the ranges rows' allocator share and the Entry's 16 B) and at least 12,643,385,293 B at the §1a CP. Both totals are
+pinned on Linux x86-64, and `check` admits both on every platform.
+
+The `#[ignore]` harness (`growth_and_cpu_at_ten_thousand_members`) runs a store-mode node at 10,000 genesis members for
+600 blocks, with the oracle off. One run is idle; one churns S_b up to |Δ| = 24, delta_max of the CP. It measured:
+- the membership tables of history.redb at 144 B a record idle (+20 B an id changed) and 200,064 B a snapshot. That is
+  7,996,320 B a day idle and 12,143,520 B a day with every block at |Δ| = 24, against C6's 100 MB;
+- peak RSS of 191-197 MiB against the model's 5,461,945,681 B;
+- reconstruction cold p99 of 11.4-16.3 ms;
+- child_ctx cold (FN-1 cache cleared) p50 of about 110 ms and p99 of 184-235 ms, almost all of it the one-pass
+  membership read of 10,000 records through state.redb, and 0.2 ms warm.
+
+The figures, M1's reading and what is deferred are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md.
+Design risk 1's figure is corrected there: 6.69 GiB of ranges in the A13 worst case, not 2.8 GiB at the slim depth.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:
