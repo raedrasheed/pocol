@@ -19,6 +19,10 @@ UNIT = Path('/etc/systemd/system') / SERVICE
 CADDYFILE = Path('/etc/caddy/Caddyfile')
 BACKUPS = Path('/var/backups/pocol-studio-gateway')
 MARKER = '# BEGIN POCOL STUDIO GATEWAY v1'
+# Every per-client bucket of the gateway (read, write and chunk) keys on this header, so the only route to the relay
+# port must overwrite it with the connecting address; the relay itself listens on loopback only (--bind 127.0.0.1).
+CLIENT_IP_HEADER = 'header_up X-Pocol-Client-IP {http.request.remote.host}'
+RELAY = '127.0.0.1:8089'
 ROUTE = '''
     # BEGIN POCOL STUDIO GATEWAY v1
     @pocol_studio {
@@ -43,7 +47,7 @@ After=network.target
 [Service]
 Type=simple
 DynamicUser=yes
-ExecStart=/usr/bin/python3 /opt/pocol-studio-gateway/pocol_studio_gateway.py
+ExecStart=/usr/bin/python3 /opt/pocol-studio-gateway/pocol_studio_gateway.py --bind 127.0.0.1 --port 8089 --rpc-port 8545
 WorkingDirectory=/opt/pocol-studio-gateway
 Restart=on-failure
 RestartSec=3
@@ -59,13 +63,34 @@ RestrictRealtime=yes
 RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
 IPAddressDeny=any
 IPAddressAllow=localhost
-MemoryMax=128M
+MemoryMax=256M
 TasksMax=32
 UMask=0077
 
 [Install]
 WantedBy=multi-user.target
 '''
+# The unit text earlier installers wrote (no explicit loopback arguments, MemoryMax=128M before the chunk cache): an
+# update replaces exactly that text; any other edit is refused for review.
+PRIOR_UNIT_TEXTS = (UNIT_TEXT.replace(' --bind 127.0.0.1 --port 8089 --rpc-port 8545', '').replace('MemoryMax=256M', 'MemoryMax=128M'),)
+
+
+def check_forced_loopback():
+    """The route this installer writes sets the client-IP header and proxies only to the loopback relay, and the unit
+    starts the relay on loopback; refused otherwise (a guard against an edit of this file)."""
+    if ROUTE.count(CLIENT_IP_HEADER) != 1 or ROUTE.count('reverse_proxy ' + RELAY + ' {') != 1 or ROUTE.count('8089') != 1:
+        raise RuntimeError('The Studio route must set X-Pocol-Client-IP and proxy only to the loopback relay')
+    if UNIT_TEXT.count(' --bind 127.0.0.1 ') != 1 or 'IPAddressAllow=localhost' not in UNIT_TEXT:
+        raise RuntimeError('The Studio service must bind the relay to 127.0.0.1')
+
+
+def same_identity(value, chain_id, genesis):
+    """An answer's chainId is the integer chain_id (not a bool or a string) and its genesisHash is genesis in any
+    letter case."""
+    if not isinstance(value, dict): return False
+    chain, found = value.get('chainId'), value.get('genesisHash')
+    return (type(chain) is int and chain == chain_id and isinstance(found, str) and len(found) == 66
+            and found[:2] == '0x' and all(c in '0123456789abcdefABCDEF' for c in found[2:]) and found.lower() == genesis.lower())
 
 
 def command(*args, check=True):
@@ -73,10 +98,14 @@ def command(*args, check=True):
 
 
 def patch_caddy(text):
-    """Add one bounded route, preserving the Explorer's explicit 16 KiB guard."""
+    """Add one bounded route, preserving the Explorer's explicit 16 KiB guard. The relay port may be reached only
+    through this route, which overwrites X-Pocol-Client-IP."""
+    check_forced_loopback()
     if MARKER in text:
         if text.count(ROUTE) != 1: raise RuntimeError('The existing Studio Caddy route has custom edits; review it first')
+        if '8089' in text.replace(ROUTE, ''): raise RuntimeError('Another Caddy route reaches the Studio relay port; review it first')
         return text
+    if '8089' in text: raise RuntimeError('Another Caddy route reaches the Studio relay port; review it first')
     host = 'gateway.pocol.net {'
     if text.count(host) != 1: raise RuntimeError('Expected one dedicated gateway.pocol.net Caddy block')
     if text.count('max_size 16384') != 1: raise RuntimeError('Unexpected Caddy request-body configuration')
@@ -110,8 +139,7 @@ def local_json(port, path, payload=None):
 
 def verify_health():
     value = local_json(8089, '/studio/health')
-    if (value.get('ready') is not True or value.get('chainId') != 1599846715
-            or value.get('genesisHash') != '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'):
+    if value.get('ready') is not True or not same_identity(value, 1599846715, '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'):
         raise RuntimeError('Studio gateway identity verification failed')
 
 
@@ -144,13 +172,12 @@ def verify_https_routes():
     expected_genesis = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
     health = tls_json('/studio/health')
     if (health.get('service') != 'pocol-studio-gateway' or health.get('ready') is not True
-            or health.get('chainId') != 1599846715 or health.get('genesisHash') != expected_genesis):
+            or not same_identity(health, 1599846715, expected_genesis)):
         raise RuntimeError('Studio HTTPS route or network identity verification failed')
     answer = tls_json('/rpc', {'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getParams', 'params': []})
     params = answer.get('result')
     if (answer.get('jsonrpc') != '2.0' or answer.get('id') != 1 or 'error' in answer
-            or not isinstance(params, dict) or params.get('chainId') != 1599846715
-            or params.get('genesisHash') != expected_genesis):
+            or not same_identity(params, 1599846715, expected_genesis)):
         raise RuntimeError('Existing Explorer HTTPS route or network identity verification failed')
 
 
@@ -197,7 +224,7 @@ def main():
         raise RuntimeError('The existing Caddy HTTPS gateway must be running')
     if BASE.exists() and not (BASE / 'managed-by-studio-v1').is_file():
         raise RuntimeError('Unrecognized Studio directory; no changes made')
-    if UNIT.exists() and UNIT.read_text() != UNIT_TEXT:
+    if UNIT.exists() and UNIT.read_text() not in (UNIT_TEXT, *PRIOR_UNIT_TEXTS):
         raise RuntimeError('Studio service has custom edits; review before updating')
     from pocol_studio_gateway import Gateway
     Gateway().verify_network(force=True)
