@@ -9,7 +9,7 @@ test('project roundtrip retains publication identity and layout but validates by
 test('binary files roundtrip exactly through bridge base64',()=>{const bytes=Uint8Array.from({length:65536},(_,i)=>i%256);assert.deepEqual(decode64(encode64(bytes)),bytes);});
 test('project import rejects injected logo MIME and invalid section data',()=>{const p=newProject();p.logo={mime:'image/svg+xml',base64:'PHN2Zz4='};assert.throws(()=>validateProject(p),/logoSize/);p.logo=null;p.sections=Array(21).fill({});assert.throws(()=>validateProject(p),/sectionsLimit/);});
 test('ZIP records contain exact filenames, lengths, CRC and terminal directory',async()=>{const payload=new TextEncoder().encode('مرحبا PoCol'),files=[{path:'/index.html',data:payload},{path:'/assets/app.js',data:new Uint8Array([1,2,255])}];const zip=new Uint8Array(await zipFiles(files).arrayBuffer()),v=new DataView(zip.buffer);assert.equal(v.getUint32(0,true),0x04034b50);assert.equal(v.getUint32(14,true),crc32(payload));assert.equal(v.getUint32(18,true),payload.length);assert.equal(new TextDecoder().decode(zip.slice(30,40)),'index.html');assert.deepEqual(zip.slice(40,40+payload.length),payload);assert.equal(v.getUint32(zip.length-22,true),0x06054b50);assert.equal(v.getUint16(zip.length-12,true),2);const centralOffset=v.getUint32(zip.length-6,true);assert.equal(v.getUint32(centralOffset,true),0x02014b50);});
-import{capsPrecheck,capsVerdict,siteNeedsAtLeast,siteNeedsAtMost,capsDetails,CAP_FIELDS}from'../dist/model.js';
+import{capsPrecheck,capsVerdict,siteNeedsAtLeast,siteNeedsAtMost,capsDetails,capNeed,CAP_FIELDS}from'../dist/model.js';
 // FN-1 (C9): the pocol_getCaps pre-check before the publisher opens.
 const capsOf=(room={},count={})=>{const out={number:'0x1',hash:'0x'+'ab'.repeat(32),cumulative:true,alarmPercent:80,occupancy:{}};for(const[name,capName]of CAP_FIELDS){const cap=10n**9n,c=count[name]!==undefined?BigInt(count[name]):room[name]!==undefined?cap-BigInt(room[name]):5n;out[name]='0x'+c.toString(16);out[capName]='0x'+cap.toString(16);}return out;};
 const answer=(v,ok=true)=>async()=>({ok,json:async()=>v});
@@ -44,5 +44,23 @@ test('an older node (-32601), a gateway refusal or no answer skips the pre-check
 test('the app runs the pre-check before opening the publisher and has every caps message in both languages',async()=>{
   const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
   const at=app.indexOf("capsPrecheck(gatewayPost"),open=app.indexOf("bridge('openPublisher'");assert.ok(at>0&&at<open,'the pre-check comes first');
-  for(const key of['capsRefused','capsTight','capsAlarm','capsSkipped'])assert.equal(app.split(key+":'").length-1,2,key);
+  const keys=(key)=>(app.match(new RegExp('[{,]'+key+":'",'g'))||[]).length;
+  for(const key of['capsRefused','capsTight','capsAlarm','capsSkipped'])assert.equal(keys(key),2,key);
+  // The extension publisher's progress phases Studio shows (renderJob: t('phase_'+phase)), its FN-1 'warning' and
+  // 'capsAlarm' included, each in both languages: never a raw key.
+  for(const phase of['upload','broadcast','confirmed','complete','warning','capsAlarm'])assert.equal(keys('phase_'+phase),2,'phase_'+phase);
+  const{createHash}=await import('node:crypto');const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
+  assert.ok(html.includes('app.js?v='+createHash('sha256').update(app).digest('hex').slice(0,12)),'index.html loads this app.js content version');
+});
+test('a continuous chain (cumulative false) checks each transaction against one block\'s room',()=>{
+  const least=siteNeedsAtLeast(site,{newSite:true}),most=siteNeedsAtMost(site,{newSite:true});
+  assert.ok(most.txCount>1&&most.largestTxBytes<most.txBytes);
+  const block={...capsOf({txCount:1,txBytes:most.largestTxBytes}),cumulative:false};
+  const v=capsVerdict(block,least,most);assert.deepEqual([v.refuse,v.tight],[[],[]],'one block holds each transaction');
+  const summed=capsVerdict(capsOf({txCount:1,txBytes:most.largestTxBytes}),least,most);assert.deepEqual([summed.refuse.map(r=>r.name),summed.tight.map(r=>r.name)],[['txCount'],['txBytes']],'a cumulative chain counts the whole publication');
+  const tight=capsVerdict({...capsOf({txBytes:most.largestTxBytes-1}),cumulative:false},least,most);
+  assert.deepEqual(tight.tight.map(r=>r.name),['txBytes']);assert.match(capsDetails(tight.tight),/TXBYTES_CAP per block: /);
+  const none=capsVerdict({...capsOf({txCount:0}),cumulative:false},least,most);assert.deepEqual(none.refuse.map(r=>r.name),['txCount']);
+  assert.equal(capNeed(most,'accounts',true),BigInt(most.accounts),'the state rows count the whole publication either way');
+  assert.throws(()=>capsVerdict({...capsOf(),cumulative:'no'},least,most),/capsInvalid/);
 });

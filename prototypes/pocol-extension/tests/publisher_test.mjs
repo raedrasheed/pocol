@@ -17,13 +17,15 @@ const sample=()=>prepareSite([{path:'/index.html',data:enc.encode('<h1>Hello</h1
 const dynamic=(items)=>concat(word(items.length),...items.map(a=>concat(new Uint8Array(12),fromHex(a))));
 function mock() {
   const codes=new Map(),receipts=new Map(),versions=[];let nonce=0n,current=null,site=null;
-  const logs={signed:[],sent:[],calls:[]};
+  const logs={signed:[],sent:[],calls:[],codeReads:[]};
   const control={allow:true,wrongNetwork:false,failAfterSend:null,unknownBeforeSend:false,noReceipt:false,failSave:false,wrongHash:false,revert:false,publishAfterCreate:false,wrongVersionChunks:false,orphanBlock:false,
     // FN-1: pocol_getCaps. `room` overrides a cap's remaining room (count = cap - room); `caps` 'missing' answers -32601, 'transport' a relay refusal.
-    caps:'ok',room:{},capCount:{}};
+    caps:'ok',room:{},capCount:{},cumulative:true,
+    // FN-1: the first eth_getCode (the chunk scan of a new site) fails: 'transport' as a gateway 429 does, 'rpc' an error object, 'error' anything else.
+    scanFail:null};
   const CAPS=['accounts','storageSlots','codeBytes','txCount','txBytes','logBytes'];
   function capsAnswer(){
-    const out={number:'0x2a',hash:blockHash,v3:true,cumulative:true,alarmPercent:80,occupancy:{},alarm:false};
+    const out={number:'0x2a',hash:blockHash,v3:true,cumulative:control.cumulative,alarmPercent:80,occupancy:{},alarm:false};
     for(const name of CAPS){const cap=10n**9n,count=control.capCount[name]!==undefined?BigInt(control.capCount[name]):control.room[name]!==undefined?cap-BigInt(control.room[name]):1000n;
       out[name]='0x'+count.toString(16);out[name==='accounts'?'accountsCap':name==='storageSlots'?'storageSlotsCap':name==='codeBytes'?'codeBytesCap':name==='txCount'?'txCap':name==='txBytes'?'txBytesCap':'logCap']='0x'+cap.toString(16);
       out.occupancy[name]={percent:Number(count*10000n/cap)/100,remaining:'0x'+(cap-count).toString(16),alarm:count*100n>=cap*80n};}
@@ -43,7 +45,14 @@ function mock() {
     }
     if(method==='eth_getBalance')return '0x'+(10n**30n).toString(16);
     if(method==='eth_getTransactionCount')return '0x'+nonce.toString(16);
-    if(method==='eth_getCode')return codes.get(params[0])||'0x';
+    if(method==='eth_getCode'){
+      logs.codeReads.push(params[0]);
+      if(control.scanFail){const kind=control.scanFail;control.scanFail=null;
+        if(kind==='transport')throw Object.assign(new Error('transport'),{transport:'transport'});
+        if(kind==='rpc')throw Object.assign(new Error('limited'),{rpc:{code:-32005,message:'limit exceeded'}});
+        throw new Error('boom');}
+      return codes.get(params[0])||'0x';
+    }
     if(method==='eth_getTransactionReceipt')return control.noReceipt?null:(receipts.get(params[0])||null);
     if(method==='eth_getBlockByNumber')return {hash:control.orphanBlock?'0x'+'dd'.repeat(32):blockHash,number:'0x2a'};
     if(method==='eth_call') {
@@ -154,6 +163,8 @@ test('the needs are what the publication adds: accounts, code, transactions, and
   assert.equal(need.codeBytes,[...m.codes.values()].reduce((n,c)=>n+(c.length-2)/2,0),'every new runtime byte');
   assert.equal(need.txCount,m.logs.sent.length,'every transaction sent');
   assert.ok(need.txBytes>=m.logs.sent.reduce((n,r)=>n+(r.length-2)/2,0),'raw transaction bytes are bounded');
+  // The mock does not execute Website.sol: pocold tests/fn1_caps.rs (a_website_publication_adds_what_the_publisher_pre_check_expects)
+  // executes a publication and checks these slot counts (4 + 3 + n new, 3 + n update) against the chain.
   assert.equal(need.storageSlots,4+3+p.manifestChunks.length);assert.equal(need.logBytes,0);
 });
 test('chunks already on chain are not counted against the caps',async()=>{
@@ -191,4 +202,55 @@ test('a resumed publication with signed transactions is not re-checked',async()=
   const m=mock();m.control.unknownBeforeSend=true;await assert.rejects(publishSite(m.options()),PublishPendingError);
   assert.equal(capsCalls(m),1);const saved=m.state;m.control.unknownBeforeSend=false;m.control.room={accounts:0};
   await publishSite(m.options(undefined,{state:saved}));assert.equal(capsCalls(m),1,'the committed publication finishes');assert.equal(m.logs.signed.length,7);
+});
+
+// FN-1 review: the chunk scan is paced, its answers are reused by the upload, a refused scan read skips the pre-check,
+// and a continuous chain's per-block rows are checked per transaction.
+const many=()=>prepareSite([{path:'/index.html',data:enc.encode('<h1>many</h1>')},...Array.from({length:9},(_,i)=>({path:`/f${i}.txt`,data:enc.encode('file '+i)}))]);
+for(const kind of['transport','rpc'])test(`a scan read the network refuses (${kind}) skips the pre-check with a warning and the site is published`,async()=>{
+  const m=mock();m.control.scanFail=kind;const warnings=[],phases=[];
+  const r=await publishSite(m.options(undefined,{onWarning:w=>warnings.push(w),onProgress:e=>phases.push(e)}));
+  assert.equal(r.site,m.site);assert.equal(m.state.complete,true);assert.equal(m.logs.signed.length,7);
+  assert.equal(warnings.length,1);assert.match(warnings[0],/chunk scan .*pre-check was skipped/);assert.ok(phases.some(e=>e.phase==='warning'));
+  assert.equal(capsCalls(m),0,'no needs to check without the scan');
+});
+test('any other scan failure still stops the publication before signing',async()=>{
+  const m=mock();m.control.scanFail='error';await assert.rejects(publishSite(m.options()),/boom/);assert.equal(m.logs.signed.length,0);
+});
+test('the upload reuses the scan: a stored chunk is read once, a missing one again before its transaction',async()=>{
+  const m=mock(),p=sample(),stored=p.chunks[0];m.codes.set(stored.address,toHex(concat(Uint8Array.of(0),stored.data)));
+  await publishSite(m.options(p));
+  const reads=(a)=>m.logs.codeReads.filter(x=>x===a).length;
+  assert.equal(reads(stored.address),1,'the scan answer is reused');
+  for(const c of p.chunks.slice(1))assert.equal(reads(c.address),3,'scan, re-read before storing, verification after');
+});
+test('the chunk reads are paced: a burst, then the read rate',async()=>{
+  // A virtual clock that only the publisher's sleeps advance: no wall-clock timing is asserted.
+  const m=mock(),p=many();assert.ok(p.chunks.length>=10);let t=0;const at=[],sleeps=[];
+  const o=m.options(p,{readBurst:2,readRate:50,clock:()=>t,sleep:async ms=>{sleeps.push(ms);t+=ms;}});
+  const chunks=new Set(p.chunks.map(c=>c.address)),inner=o.rpc;o.rpc=async(method,params)=>{if(method==='eth_getCode'&&chunks.has(params[0]))at.push(t);return inner(method,params);};
+  await publishSite(o);assert.equal(m.state.complete,true);
+  assert.equal(at.length,3*p.chunks.length,'every chunk read (the scan, the re-read before storing, the check after) goes through the pacer');
+  assert.deepEqual(at.slice(0,3),[0,0,20],'a burst of 2, then one read per 20 ms at 50 per second');
+  // The token bucket: by the k-th read (from 0) at most burst + rate·t reads were allowed.
+  at.forEach((x,k)=>assert.ok(k+1<=2+x*50/1000+1e-9,`read ${k} at ${x} ms`));
+  assert.ok(sleeps.every(ms=>ms>0&&ms<=20),'each wait is at most one token');
+  await assert.rejects(publishSite(mock().options(p,{readRate:0})),/pacing/);
+});
+test('a continuous chain (cumulative false) checks each transaction against one block\'s room',async()=>{
+  const p=sample(),need=publishNeeds(p,{newSite:true,missing:new Set(p.chunks.map(c=>c.address))});
+  assert.ok(need.txCount>1&&need.largestTxBytes<need.txBytes&&need.largestTxBytes>0);
+  const fits=mock();fits.control.cumulative=false;fits.control.room={txCount:1,txBytes:need.largestTxBytes};
+  const r=await publishSite(fits.options(p));assert.equal(r.site,fits.site,'one block holds each transaction');
+  const cumulative=mock();cumulative.control.room={txCount:1,txBytes:need.largestTxBytes};
+  await assert.rejects(publishSite(cumulative.options(p)),e=>e instanceof PublishCapsError&&e.shortfalls.map(x=>x.name).join()==='txCount,txBytes','a cumulative chain counts the whole publication');
+  const short=mock();short.control.cumulative=false;short.control.room={txBytes:need.largestTxBytes-1};
+  await assert.rejects(publishSite(short.options(p)),e=>e instanceof PublishCapsError&&/transaction bytes in one block \(TXBYTES_CAP\)/.test(e.message)&&e.shortfalls[0].need===String(need.largestTxBytes));
+  assert.equal(short.logs.signed.length,0);
+  const none=mock();none.control.cumulative=false;none.control.room={txCount:0};await assert.rejects(publishSite(none.options(p)),/transactions in one block/);
+  await assert.rejects(capsPrecheck(async()=>({...Object.fromEntries(['accounts','accountsCap','storageSlots','storageSlotsCap','codeBytes','codeBytesCap','txCount','txCap','txBytes','txBytesCap','logBytes','logCap'].map(k=>[k,'0x1'])),occupancy:{},cumulative:'no'}),need),/Invalid pocol_getCaps/);
+});
+test('the largest transaction is bounded by the raw transactions sent',async()=>{
+  const m=mock(),p=many(),need=publishNeeds(p,{newSite:true,missing:new Set(p.chunks.map(c=>c.address))});
+  await publishSite(m.options(p));assert.ok(need.largestTxBytes>=Math.max(...m.logs.sent.map(r=>(r.length-2)/2)));
 });

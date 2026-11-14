@@ -1097,7 +1097,7 @@ impl Chain{
             if e.slim{return Err(Reject::NeedsRebuild(e.hash))}
             if template_id(&e.header.ut_raw)==tid{
                 // owner(nonce) under that block's assignment (stored ranges, D142).
-                let owner=e.ranges.iter().find(|(_,s0,e0)|*s0<=nonce as u128&&(nonce as u128)<*e0).map(|r|r.0).ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
+                let owner=range_owner(&e.ranges,nonce as u128).ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
                 if owner.0.0!=a1{return blk("ev2 signer not owner(nonce)")}
                 return Ok((addr(&a1),Some(e.height)));
             }
@@ -1738,6 +1738,16 @@ impl Chain{
     /// Whether `hash` is on the current canonical chain.
     pub fn is_canonical(&self,hash:&[u8;32])->bool{self.blocks.get(hash).map(|e|self.canonical.get(e.height as usize)==Some(hash)).unwrap_or(false)}
 }
+/// FN-1 (C6): owner(n) over a block's stored nonce ranges (`Entry::ranges`, `LateBase::ranges`: (id, start, end), from
+/// `Assignment::ranges`, contiguous and sorted, so both bounds are non-decreasing and an empty range holds no nonce).
+/// The binary search for the first range ending above n finds the range the linear scan of the first range holding n
+/// found, as `Assignment::owner` does: O(log M) per nonce at M_max 10,000 for type-2 evidence's accused owner and each
+/// kind-3 nonce (`late_check`, also probed per candidate by `late_offer`). None when no range holds n (n >= nMax).
+/// tests/fn1_membership.rs keeps the linear scan as its oracle.
+pub fn range_owner(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{
+    let i=ranges.partition_point(|r|r.2<=n);
+    ranges.get(i).filter(|r|r.1<=n&&n<r.2).map(|r|r.0)
+}
 // ---------------- V3-02 late share credit (kind-3 evidence) ----------------
 /// The CP the kind-3 rules read for a carrying block at height `h`: D, S_max and kappa*m.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
@@ -1792,7 +1802,7 @@ pub fn late_check(r:&LateRules,b:&LateBase<'_>,nonces:&[u64],block:&mut LateBloc
     if b.total.saturating_add(seen.len() as u64).saturating_add(k)>r.kappa_m{return Err(ls("cap"))}
     let mut owners=Vec::with_capacity(nonces.len());
     for n in nonces{
-        let owner=b.ranges.iter().find(|(_,s0,e0)|*s0<=u128::from(*n)&&u128::from(*n)<*e0).map(|x|x.0).ok_or_else(||ls("nonce outside nMax"))?;
+        let owner=range_owner(b.ranges,u128::from(*n)).ok_or_else(||ls("nonce outside nMax"))?;
         if *n==b.nonce{return Err(ls("winning nonce"))}
         if b.header.contains(n){return Err(ls("header share"))}
         if b.credited.contains(n){return Err(ls("credited on the branch"))}
