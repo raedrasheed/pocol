@@ -66,7 +66,7 @@ def load_fork_schedule(filename=None):
 
 
 def load_v3_network(filename=None):
-    """Read the operator's v3 network configuration once at startup (V3-PR-G; dormant until V3-PR-I): a JSON object
+    """Read the operator's v3 network configuration once at startup (V3-PR-G; no v3 network identity is pinned yet): a JSON object
     {"chainId": N, "genesisHash": "0x...", "specVersion": 2, "v3": true}. Without a file the gateway serves only the
     pinned spec-1 Mainnet; a v3 genesis is never enabled by an RPC answer."""
     if filename is None:

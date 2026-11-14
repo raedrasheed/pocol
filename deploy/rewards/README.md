@@ -47,9 +47,10 @@ blocks)**. The earlier adapter used CP7 (`dFbWait`, seconds), which could exclud
 valid members when their last activity was older than 6 but within 32 blocks
 under the current network configuration.
 
-## v3 (spec-2) networks: dormant until activation
+## v3 (spec-2) networks
 
-The v3 rules (V3-DESIGN.md, V3-DECISIONS.md) are dormant until V3-PR-I. The adapter reads a v3 genesis only when the
+The v3 rules (V3-DESIGN.md, V3-DECISIONS.md) are the release rules (consensus rules 2, GenesisSpec version 2), but no
+v3 network identity is pinned yet (removal plan Phase 10). The adapter reads a v3 genesis only when the
 operator configures it explicitly, in the same trusted way as a fork schedule; without it every call is the pinned
 spec-1 Mainnet projection above, byte for byte, and a node on another genesis is refused:
 
@@ -146,7 +147,7 @@ or an ancestor its header does not commit, a receipt or transaction list of anot
 burned total, closing cursor or record that differs from the reconstruction, a forged late-share window, winner or
 fallback body, a changed anchor, and every answer field replaced by a value of another JSON type) fails closed.
 `V3DevnetDifferential` runs only with `POCOL_V3_DEVNET` set. `prototypes/pocold/tests/v3_reward_gateway.rs`
-(`--features v3-preview`) sets it: it builds a 50-block v3 devnet chain with tips, late shares (one carried by the
+(a default pocold test since the v3 rules became the release rules) sets it: it builds a 50-block v3 devnet chain with tips, late shares (one carried by the
 block that settles their pot), two registerReplacing calls at the full set (a HELD and an ACCRUING victim, the second
 payable and punishable after its exit), type-2 evidence against an ACCRUING and a HELD winner,
 against a share owner who is not the winner, against the parent block's ACCRUING winner and against pot h-D's
@@ -155,7 +156,7 @@ refunds and the final block, serves it over pocold's JSON-RPC, and compares ever
 bonds, burns, pots, carry and owners with the node's state (and the recorded tape with the chain's answers):
 
 ```sh
-cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features v3-preview --test v3_reward_gateway
+cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test v3_reward_gateway
 ```
 
 The node remains the source of truth for canonical execution. This adapter is

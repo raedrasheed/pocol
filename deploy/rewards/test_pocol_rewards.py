@@ -475,7 +475,7 @@ class RewardTests(unittest.TestCase):
 
 # ---------------------------------------------------------------------------------------------------------------------
 # v3 (spec-2) networks, V3-PR-G. The model vectors are the independent model's (prototypes/lp4-execution/tests/v3_model.py,
-# tests/v3/*.json); the differential runs against a v3 devnet chain from the preview build (pocold tests/v3_reward_gateway.rs).
+# tests/v3/*.json); the differential runs against a v3 devnet chain from pocold (tests/v3_reward_gateway.rs).
 REPO = Path(__file__).resolve().parents[2]
 V3_VECTORS = REPO / 'prototypes' / 'lp4-execution' / 'tests' / 'v3'
 V3_NETWORK = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
@@ -1422,9 +1422,9 @@ def _devnet():
     return json.loads(raw) if raw else None
 
 
-@unittest.skipUnless(_devnet(), 'needs POCOL_V3_DEVNET: run pocold tests/v3_reward_gateway.rs (--features v3-preview)')
+@unittest.skipUnless(_devnet(), 'needs POCOL_V3_DEVNET: run pocold tests/v3_reward_gateway.rs')
 class V3DevnetDifferential(unittest.TestCase):
-    """snapshot_v3 of every block of a v3 devnet chain from the preview build (pocold tests/v3_reward_gateway.rs), over
+    """snapshot_v3 of every block of a v3 devnet chain from pocold (tests/v3_reward_gateway.rs), over
     the node's JSON-RPC, against the node's own state: what each reward address and bond gained in the block, the
     Escrow burned total, the pending pot and carry, and the ShareLedger's owners."""
 

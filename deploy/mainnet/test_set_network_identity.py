@@ -133,7 +133,7 @@ def invitation(spec, info='derived'):
     files = {'genesis.spec.hex': '0x' + spec.hex(), 'alloc.json': '{}'}
     if info is not None:
         files['devnet.json'] = json.dumps(info)
-    return json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 1, 'seeds': ['127.0.0.1:30300'], 'files': files})
+    return json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 2, 'seeds': ['127.0.0.1:30300'], 'files': files})
 
 def held(text, chain_id, genesis, spec_hex):
     """(chain ID tokens, hash copies, GenesisSpec copies), counted independently of the tool."""
@@ -573,7 +573,7 @@ class SetNetworkIdentity(unittest.TestCase):
             for allowed in ((1,), (2,), (1, 2)):
                 with self.subTest(spec=bad.hex()[:16], allowed=allowed), self.assertRaises(ValueError):
                     ni.spec_identity(bad, allowed)
-        # A spec-2 genesis must pass the whole v3-preview decoder on the final CP schema v2 and name the v3 program
+        # A spec-2 genesis must pass the whole release decoder on the final CP schema v2 and name the v3 program
         # set, with or without the release version allowed beside it.
         self.assertEqual(ni.CP_ITEMS, {1: len(ni.pocol_identity.CP_SCHEMA), 2: len(ni.pocol_identity.CP_SCHEMA_V2)})
         k = {f[0]: i - 52 for i, f in enumerate(ni.pocol_identity.CP_SCHEMA_V2) if i >= 52}
@@ -592,11 +592,14 @@ class SetNetworkIdentity(unittest.TestCase):
             for allowed in ((2,), (1, 2)):
                 with self.subTest(reason=reason, allowed=allowed), self.assertRaisesRegex(ValueError, reason):
                     ni.spec_identity(bad, allowed)
-        # The reference decoder accepts SPEC_V3 at the preview ceiling only, as the Rust and JS decoders do.
-        decoded = ni.pocol_identity.decode_genesis_spec(SPEC_V3, 2)
+        # The reference decoder accepts SPEC_V3 at its default (release) ceiling, as the Rust and JS decoders do; only a
+        # spec-1-only ceiling refuses it. The tree's release node decodes spec 2.
+        decoded = ni.pocol_identity.decode_genesis_spec(SPEC_V3)
         self.assertEqual((decoded['specVersion'], len(decoded['cp']), decoded['sysCodeHash']), (2, 59, V3_SYS))
+        self.assertEqual(decoded, ni.pocol_identity.decode_genesis_spec(SPEC_V3, 2))
         with self.assertRaisesRegex(ValueError, 'gsVersion:2'):
-            ni.pocol_identity.decode_genesis_spec(SPEC_V3)
+            ni.pocol_identity.decode_genesis_spec(SPEC_V3, 1)
+        self.assertEqual(RELEASE, 2)
         root = self.copy()
         node = root / ni.NODE_SPEC
         text = node.read_text(encoding='utf-8')
@@ -606,9 +609,9 @@ class SetNetworkIdentity(unittest.TestCase):
             with self.subTest(args=args), self.assertRaises(SystemExit):
                 self.run_tool(root, *args, target='v3.json')
         self.assertEqual(before, self.snapshot(root), 'a refused switch writes nothing')
-        # A tree whose release node decodes spec 2 switches to it, and a spec-2 tree is switched onward.
+        # A tree whose release node decodes spec 2 (the tree's own) switches to it, and a spec-2 tree is switched onward.
         node.write_text(re.sub(r'pub const SPEC_VERSION: u8 = [0-9]+;', 'pub const SPEC_VERSION: u8 = 2;', text), encoding='utf-8')
-        # Even then, a spec-2 genesis that names another program set or fails the v3-preview decoder is refused.
+        # Even then, a spec-2 genesis that names another program set or fails the release decoder is refused.
         for name, bad in (('v3-other-set.json', make_spec(version=2, sys=b'\x00' * 32)),
                           ('v3-bad-rho.json', make_spec(version=2, extra=CP_V2_EXTRA[:-1] + [10001]))):
             (root / name).write_text(invitation(bad, {'chainId': NEW_CHAIN, 'genesisHash': '0x' + ni.keccak256(bad).hex()}), encoding='utf-8')

@@ -57,68 +57,44 @@ class ConsensusIdentity(unittest.TestCase):
         with self.assertRaises(ValueError):
             ident.consensus_id(7, info['genesisHash'], 1, ident.FLAG_UNPINNED, [(1, 0)])
 
-    def test_a_pinned_preview_still_commits_its_source_aggregate(self):
-        # Mirrors pocold identity::tests::pinned_preview_still_commits_its_source_aggregate and identity.rs flags()/
-        # sources(): bit2 (v3-preview) appends the aggregate even on a pinned tree. The Rust test pins no hex value, so
-        # the expected bytes are built here with struct, independently of consensus_id's own encoding.
-        self.assertEqual(ident.FLAG_V3_PREVIEW, 4)
+    def test_the_retired_preview_bit_is_no_flag(self):
+        # Mirrors pocold identity::tests::the_retired_preview_bit_is_not_a_flag_and_never_takes_an_aggregate: bit 2 was
+        # the v3-preview build's flag. The v3 rules are the release rules (consensus rules 2), so a pinned identity
+        # never carries the aggregate, and only the unpinned bit takes it.
+        self.assertFalse(hasattr(ident, 'FLAG_V3_PREVIEW'))
+        self.assertEqual(ident.FLAGS_WITH_SOURCES, ident.FLAG_UNPINNED)
         genesis = '01' * 32
-        def documented(flags, sources=None):
-            data = b'pocol-consensus-identity-v1\0' + struct.pack('>Q', 7) + bytes.fromhex(genesis)
-            data += struct.pack('>IBB', 1, flags, 1) + struct.pack('>HQ', 1, 0) + (bytes.fromhex(sources) if sources else b'')
-            return hashlib.sha256(data).hexdigest()
-        ordinary = ident.consensus_id(7, genesis, 1, 0, [(1, 0)])
-        a = ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW, [(1, 0)], '08' * 32)
-        b = ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW, [(1, 0)], '09' * 32)
-        unpinned = ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW | ident.FLAG_UNPINNED, [(1, 0)], '08' * 32)
-        self.assertEqual(a, documented(4, '08' * 32))
-        self.assertEqual(unpinned, documented(6, '08' * 32))
-        self.assertEqual(len({ordinary, a, b, unpinned}), 4)
-        # The aggregate goes exactly with bit1 or bit2 (identity.rs asserts the same).
-        with self.assertRaises(ValueError):
-            ident.consensus_id(7, genesis, 1, ident.FLAG_V3_PREVIEW, [(1, 0)])
-        with self.assertRaises(ValueError):
-            ident.consensus_id(7, genesis, 1, 0, [(1, 0)], '08' * 32)
-        # build-info: a pinned preview build reports v3Preview true and 'v3-preview' in features (pocold build.rs);
-        # either one sets bit2, and its consensusSourcesSha256 (the actual aggregate) is appended.
-        info = {'chainId': 7, 'genesisHash': '0x' + genesis, 'forks': [[1, 0]]}
-        pinned = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '08' * 32}
-        self.assertEqual(ident.for_network(info, pinned), ordinary)
-        self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=False)), ordinary)
-        for preview in (dict(pinned, v3Preview=True, features=['v3-preview']), dict(pinned, v3Preview=True),
-                        dict(pinned, features=['v3-preview'])):
-            self.assertEqual(ident.build_flags(preview), ident.FLAG_V3_PREVIEW, preview)
-            self.assertEqual(ident.for_network(info, preview), a, preview)
-        self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=True, consensusSourcesSha256='09' * 32)), b)
-        self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=True, consensusPinned=False)), unpinned)
-        # The ordinary pinned identity is unchanged.
-        scheduled = {'chainId': CHAIN_ID, 'genesisHash': '0x' + GENESIS, 'forks': [list(f) for f in FORKS]}
-        self.assertEqual(ident.for_network(scheduled, dict(pinned, v3Preview=False)), GOLDEN)
+        for flags in (4, 0, ident.FLAG_CAPS_TEST):
+            with self.assertRaises(ValueError, msg=flags):
+                ident.consensus_id(7, genesis, 2, flags, [(1, 0)], '08' * 32)
+        # build-info carries no v3Preview field, and the flags are bit0 and bit1 only.
+        pinned = {'consensusRulesVersion': 2, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '08' * 32}
+        self.assertEqual(ident.build_flags(pinned), 0)
+        self.assertEqual(ident.build_flags(dict(pinned, consensusPinned=False, features=['caps-test'])), ident.FLAG_CAPS_TEST | ident.FLAG_UNPINNED)
 
-    def test_a_spec_2_genesis_needs_a_preview_build_and_keeps_the_identity_formula(self):
+    def test_a_spec_2_genesis_opens_on_a_release_build_and_keeps_the_identity_formula(self):
         # A v3 genesis (pocold testnet --v3 writes specVersion 2 and v3 true): the spec version is no identity input,
-        # so a preview build's identity is the documented byte string with bit2 and the aggregate, built here with
-        # struct. A release build refuses it (genesis_spec.rs SPEC_VERSION is 1 until V3-PR-I).
-        self.assertEqual((ident.SPEC_VERSION, ident.PREVIEW_SPEC_VERSION), (1, 2))
+        # so a release build's identity on it is the documented byte string with rules 2, no flag and no aggregate,
+        # built here with struct (genesis_spec.rs SPEC_VERSION is 2).
+        self.assertEqual(ident.SPEC_VERSION, 2)
         genesis = '02' * 32
         v3 = {'chainId': 7, 'genesisHash': '0x' + genesis, 'forks': [[1, 0]], 'specVersion': 2, 'v3': True}
-        pinned = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '08' * 32}
-        preview = dict(pinned, v3Preview=True, features=['v3-preview'])
+        release = {'consensusRulesVersion': 2, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '08' * 32}
         data = b'pocol-consensus-identity-v1\0' + struct.pack('>Q', 7) + bytes.fromhex(genesis)
-        data += struct.pack('>IBB', 1, 4, 1) + struct.pack('>HQ', 1, 0) + bytes.fromhex('08' * 32)
-        self.assertEqual(ident.for_network(v3, preview), hashlib.sha256(data).hexdigest())
-        self.assertEqual(ident.for_network(v3, preview), ident.for_network({k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, preview))
-        self.assertEqual(ident.for_network(dict(v3, forks=[[1, 0], [2, 1]]), preview),
-                         ident.consensus_id(7, genesis, 1, 4, [(1, 0), (2, 1)], '08' * 32))
-        for release in (pinned, dict(pinned, v3Preview=False), dict(pinned, consensusPinned=False), dict(pinned, features=['caps-test'])):
-            with self.assertRaisesRegex(ValueError, 'release build refuses a spec-2', msg=release):
-                ident.for_network(v3, release)
-        # A preview build still opens a spec-1 network (with its own isolated identity).
-        self.assertEqual(ident.for_network(dict(v3, specVersion=1, v3=False), preview), ident.for_network({k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, preview))
+        data += struct.pack('>IBB', 2, 0, 1) + struct.pack('>HQ', 1, 0)
+        self.assertEqual(ident.for_network(v3, release), hashlib.sha256(data).hexdigest())
+        self.assertEqual(ident.for_network(v3, release), ident.for_network({k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, release))
+        self.assertEqual(ident.for_network(dict(v3, forks=[[1, 0], [2, 1]]), release),
+                         ident.consensus_id(7, genesis, 2, 0, [(1, 0), (2, 1)]))
+        # An unpinned or caps-test build opens it too, with its own flags (and the aggregate when unpinned).
+        self.assertEqual(ident.for_network(v3, dict(release, consensusPinned=False)), ident.consensus_id(7, genesis, 2, ident.FLAG_UNPINNED, [(1, 0)], '08' * 32))
+        self.assertEqual(ident.for_network(v3, dict(release, features=['caps-test'])), ident.consensus_id(7, genesis, 2, ident.FLAG_CAPS_TEST, [(1, 0)]))
+        # A spec-1 network still opens, with the same formula.
+        self.assertEqual(ident.for_network(dict(v3, specVersion=1, v3=False), release), ident.for_network({k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, release))
         for bad in ({'specVersion': 3, 'v3': True}, {'specVersion': 0}, {'specVersion': True}, {'specVersion': '2', 'v3': True},
                     {'specVersion': 2}, {'specVersion': 2, 'v3': 1}, {'v3': True}, {'specVersion': 1, 'v3': True}, {'v3': False, 'specVersion': 2}):
             with self.assertRaisesRegex(ValueError, 'GenesisSpec version', msg=bad):
-                ident.for_network({**{k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, **bad}, preview)
+                ident.for_network({**{k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, **bad}, release)
         # Published spec-1 files give the pinned identity, with or without an explicit specVersion 1.
         info = published_devnet_json()
         build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '00' * 32}
@@ -149,32 +125,33 @@ def verdict(b, max_version):
 
 class GenesisSpecReference(unittest.TestCase):
     """The Python port of genesis_spec.rs decode_bounded gives the Rust verdicts (pocold/tests/decoder_reference.rs
-    writes them) on every GenesisSpec item of the decoder corpus and of its spec-2 supplement, at the release ceiling
-    and at the v3-preview ceiling, as refdec.js does (pocol-extension/tests/decoder_diff.mjs)."""
+    writes them) on every GenesisSpec item of the decoder corpus and of its spec-2 supplement at the release ceiling
+    (SPEC_VERSION 2), as refdec.js does (pocol-extension/tests/decoder_diff.mjs): one verdict file per corpus."""
 
     def test_the_corpus_verdicts_equal_the_rust_reference(self):
-        release = json.loads((CORPUS / 'decoder-verdicts.json').read_text())
-        preview = json.loads((CORPUS / 'decoder-verdicts-preview.json').read_text())
-        v3 = json.loads((CORPUS / 'decoder-verdicts-v3.json').read_text())
-        checked, accepted, spec2 = 0, {1: 0, 2: 0}, 0
-        for items, want in ((corpus('decoder-corpus.json'), {1: release, 2: preview}),
-                            (corpus('decoder-corpus-v3.json'), {1: v3['release'], 2: v3['preview']})):
+        checked, accepted, spec2 = 0, 0, 0
+        for items, want in ((corpus('decoder-corpus.json'), json.loads((CORPUS / 'decoder-verdicts.json').read_text())),
+                            (corpus('decoder-corpus-v3.json'), json.loads((CORPUS / 'decoder-verdicts-v3.json').read_text()))):
+            self.assertEqual(set(want), {item['label'] for item in items})
             for item in items:
                 if item['kind'] != 'spec':
                     continue
                 b = bytes.fromhex(item['hex'])
-                for ceiling in (1, 2):
-                    got = verdict(b, ceiling)
-                    self.assertEqual(got, want[ceiling][item['label']], (item['label'], ceiling))
-                    accepted[ceiling] += got == 'ok'
-                # The default ceiling is the release decoder, which accepts no spec-2 genesis.
-                self.assertEqual(verdict(b, ident.SPEC_VERSION), verdict(b, 1))
-                if verdict(b, 2) == 'ok' and ident.decode_genesis_spec(b, 2)['specVersion'] == 2:
+                got = verdict(b, ident.SPEC_VERSION)
+                self.assertEqual(got, want[item['label']], item['label'])
+                # The default ceiling is the release decoder.
+                self.assertEqual(ident.decode_genesis_spec.__defaults__, (ident.SPEC_VERSION,))
+                accepted += got == 'ok'
+                # A spec-1-only ceiling agrees off specVersion 2, which it refuses with gsVersion.
+                one = verdict(b, 1)
+                if one != 'gsVersion:2':
+                    self.assertEqual(one, got, item['label'])
+                if got == 'ok' and ident.decode_genesis_spec(b)['specVersion'] == 2:
                     spec2 += 1
-                    self.assertTrue(verdict(b, 1).startswith('gsVersion:'), item['label'])
+                    self.assertEqual(one, 'gsVersion:2', item['label'])
                 checked += 1
         self.assertGreater(checked, 1100)
-        self.assertGreater(accepted[2], accepted[1])
+        self.assertGreater(accepted, spec2)
         self.assertGreaterEqual(spec2, 10)
 
     def test_the_version_detail_is_the_exact_decimal_at_any_length(self):
@@ -234,7 +211,7 @@ class GenesisSpecReference(unittest.TestCase):
 
     def test_the_reward_gateway_reads_every_accepted_v3_genesis_as_the_reference_does(self):
         # deploy/rewards/pocol_rewards keeps its own minimal v3 reader (a trusted genesis hash binds the spec there);
-        # on every spec-2 item the v3-preview reference accepts it gives the same version, chain, CP and sysCodeHash.
+        # on every spec-2 item the release reference accepts it gives the same version, chain, CP and sysCodeHash.
         sys.path.insert(0, str(REPO / 'deploy' / 'rewards'))
         import pocol_rewards
         accepted = 0
@@ -252,12 +229,13 @@ class GenesisSpecReference(unittest.TestCase):
         v3 = items['v3/base']
         chain = ident.decode_genesis_spec(v3, 2)['chainId']
         info = {'chainId': chain, 'specVersion': 2, 'v3': True}
-        spec = ident.public_spec(info, v3, ident.PREVIEW_SPEC_VERSION)
+        spec = ident.public_spec(info, v3)
+        self.assertEqual(spec, ident.public_spec(info, v3, ident.SPEC_VERSION))
         rho = [f[0] for f in ident.CP_SCHEMA_V2].index('rho_bp')
         self.assertEqual((spec['specVersion'], len(spec['cp']), spec['sysCodeHash'].hex(), rho, spec['cp'][rho]),
                          (2, 59, ident.V3_SYS_CODE_HASH, 58, 2500))
         self.assertEqual(ident.public_spec(info, items['v3/m0-256'], 2)['m0'][255][0], bytes([0x31] * 18 + [0, 255]))
-        # A release ceiling refuses it with the reference's gsVersion; a malformed spec-2 genesis with its reference
+        # A spec-1-only ceiling refuses it with the reference's gsVersion; a malformed spec-2 genesis with its reference
         # verdict; a declaration, chain or program set that differs, with what differs.
         cases = [((info, v3, 1), 'gsVersion:2'), ((info, items['v3/order/len-before-range'], 2), 'gsLen:root'),
                  ((info, items['v3/m0-256-last-system'], 2), 'gsSys:0xff'), ((info, items['v3/gamma-past-bound'], 2), 'gsRange:gamma_bp'),

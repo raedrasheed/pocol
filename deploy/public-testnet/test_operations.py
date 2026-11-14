@@ -96,8 +96,9 @@ class Operations(unittest.TestCase):
         self.assertEqual(h.hexdigest(), info['compatibilitySha256'])
         self.assertEqual(info['features'], []); self.assertEqual(info['protocolVersion'], 2)
         self.assertIn('lp4-execution/tests/data/system-v1.json', info['sourceSha256'])
-        # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 1.
-        self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (1, 2, 2))
+        # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 2 (the v3
+        # release rules).
+        self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (2, 2, 2))
         self.assertIs(info['consensusPinned'], True, 're-pin the consensus lock (pocold/tests/consensus_guard.rs)')
 
     def bundle(self, name='bundle', digest='b'*64, forks=None):
@@ -105,7 +106,7 @@ class Operations(unittest.TestCase):
         config = {'name':'n1', 'minerAddress':None, 'listen':'0.0.0.0:30300', 'rpc':'127.0.0.1:8545', 'peers':[]}
         info = {'chainId':777915, 'genesisHash':'0x'+'a'*64, 'admission':{'scope':'experimental-devnet'}}
         if forks is not None: info['forks'] = forks
-        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':digest, 'consensusRulesVersion':1,
+        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':digest, 'consensusRulesVersion':2,
                  'consensusPinned':True, 'consensusSourcesSha256':'c'*64}
         op.write_json(bundle / 'node.json', config); op.write_json(bundle / 'net/devnet.json', info)
         op.write_json(bundle / 'build-info.json', build)
@@ -205,11 +206,11 @@ class Operations(unittest.TestCase):
             with self.subTest(lifetime=lifetime), self.assertRaises(ValueError): observe(lifetime=lifetime)
 
     def test_prepared_release_names_the_consensus_identity_of_its_network(self):
-        build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': 'aa' * 32}
+        build = {'consensusRulesVersion': 2, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': 'aa' * 32}
         info = {'chainId': 777915, 'genesisHash': '0x' + '01' * 32, 'forks': [[1, 0], [2, 50]]}
         manifest = op.identity({'name': 'n1', 'minerAddress': None}, info, build | {'protocolVersion': 2, 'compatibilitySha256': 'b' * 64})
-        self.assertEqual(manifest['consensusIdentity'], prepare.pocol_identity.consensus_id(777915, info['genesisHash'], 1, 0, [(1, 0), (2, 50)]))
-        self.assertEqual(manifest['consensusRulesVersion'], 1)
+        self.assertEqual(manifest['consensusIdentity'], prepare.pocol_identity.consensus_id(777915, info['genesisHash'], 2, 0, [(1, 0), (2, 50)]))
+        self.assertEqual(manifest['consensusRulesVersion'], 2)
         self.assertTrue(op.bound(dict(manifest), manifest))
         # A marker without a consensus identity (an older state binding) never binds a node.
         self.assertFalse(op.bound({k: v for k, v in manifest.items() if k not in ('consensusIdentity', 'consensusRulesVersion')}, manifest))
