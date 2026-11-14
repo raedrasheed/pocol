@@ -1,7 +1,7 @@
 // Synthetic RP header windows: consecutive fallback headers (a=0) built from a GenesisSpec with
 // exact timing (L(0)+dFbWait), ASERT targets, real PoW nonces below nMax and a recoverable winnerSig.
-// `mutate(h, ut)` may alter UT fields of height h (as RLP items) before sealing. `maxVersion` is the decoder
-// ceiling for the spec (2 for a v3 genesis, the v3-preview decoder).
+// `mutate(h, ut)` may alter UT fields of height h (as RLP items) before sealing. `maxVersion` is an explicit decoder
+// ceiling for the spec (by default the release ceiling, SPEC_VERSION 2, which decodes a v3 genesis).
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 
