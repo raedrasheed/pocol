@@ -74,21 +74,67 @@ export async function v3DecoderChecks(rel) {
   ok('release: RP.decodeSpec gives the Rust verdicts on the v3 corpus', bad.length === 0, bad.slice(0, 5).join(', '));
 
   // ---- the release packager packages the release and refuses a stale dist that does not decode spec 2 ----
+  // The packager runs in a copy of the repository layout (prototypes/pocol-extension beside deploy/mainnet), so it also
+  // reads the placeholder file there.
   const tmp = mkdtempSync(join(tmpdir(), 'pocol-pkg-'));
   try {
-    mkdirSync(join(tmp, 'scripts'));
-    cpSync(join(HERE, '..', 'scripts', 'package-release.py'), join(tmp, 'scripts', 'package-release.py'));
-    writeFileSync(join(tmp, 'package.json'), readFileSync(join(HERE, '..', 'package.json')));
-    const pack = (edit = null) => {
-      rmSync(join(tmp, 'dist'), { recursive: true, force: true }); rmSync(join(tmp, 'out.zip'), { force: true });
-      cpSync(rel, join(tmp, 'dist'), { recursive: true });
-      if (edit) { const f = join(tmp, 'dist', 'lib', 'refdec.js'); writeFileSync(f, edit(readFileSync(f, 'utf8'))); }
-      return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip')], { encoding: 'utf8' });
+    const ext = join(tmp, 'prototypes', 'pocol-extension'), phFile = join(tmp, 'deploy', 'mainnet', 'placeholder-network.pocol.json');
+    mkdirSync(join(ext, 'scripts'), { recursive: true }); mkdirSync(dirname(phFile), { recursive: true });
+    cpSync(join(HERE, '..', 'scripts', 'package-release.py'), join(ext, 'scripts', 'package-release.py'));
+    writeFileSync(join(ext, 'package.json'), readFileSync(join(HERE, '..', 'package.json')));
+    const phText = readFileSync(join(HERE, '..', '..', '..', 'deploy', 'mainnet', 'placeholder-network.pocol.json'), 'utf8');
+    const ph = JSON.parse(phText), phInfo = JSON.parse(ph.files['devnet.json']);
+    // The identity switch (D1) leaves no NETWORK_PLACEHOLDER mark and a real spec-2 identity in place of the
+    // placeholder's: here the corpus's v3 devnet genesis under its own chain ID.
+    const MARK = /\/\/ PLACEHOLDER \(decision D1\)[^]*?export const NETWORK_PLACEHOLDER = true;\n/;
+    const hexOf = (b) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
+    const real = { chainId: String(spec2.chainId), genesisHash: '0x' + hexOf(C.keccak(v3Base)), genesisPre: '0x' + hexOf(v3Base) };
+    const chainLine = (id) => `"chainId": ${id},`;
+    const swap = (t) => t.replace(chainLine(phInfo.chainId), chainLine(real.chainId)).replace(phInfo.genesisHash, real.genesisHash)
+      .replace(ph.files['genesis.spec.hex'], real.genesisPre);
+    const marked = readFileSync(join(rel, 'lib', 'studio-network.js'), 'utf8');
+    const swapped = swap(marked.replace(MARK, ''));
+    ok('the switched test build pins a real spec-2 identity, not the placeholder', real.chainId !== String(phInfo.chainId)
+      && real.genesisHash !== phInfo.genesisHash && swapped.includes(chainLine(real.chainId)) && swapped.includes(real.genesisHash)
+      && swapped.includes(real.genesisPre) && !swapped.includes(String(phInfo.chainId)) && !swapped.includes(phInfo.genesisHash.slice(2))
+      && !swapped.includes('NETWORK_PLACEHOLDER') && spec2.specVersion === 2);
+    // switched: the mark removed and the identity replaced; identity: false keeps the placeholder identity.
+    const pack = (edit = null, { switched = true, identity = true, network = null, placeholder = phText } = {}) => {
+      rmSync(join(ext, 'dist'), { recursive: true, force: true }); rmSync(join(tmp, 'out.zip'), { force: true });
+      cpSync(rel, join(ext, 'dist'), { recursive: true });
+      writeFileSync(phFile, placeholder);
+      if (edit) { const f = join(ext, 'dist', 'lib', 'refdec.js'); writeFileSync(f, edit(readFileSync(f, 'utf8'))); }
+      const n = join(ext, 'dist', 'lib', 'studio-network.js'); let t = readFileSync(n, 'utf8');
+      if (switched) { t = t.replace(MARK, ''); if (identity) t = swap(t); }
+      if (network) t = network(t);
+      writeFileSync(n, t);
+      return spawnSync('python3', ['-B', join(ext, 'scripts', 'package-release.py'), join(tmp, 'out.zip')], { encoding: 'utf8' });
     };
+    const refused = (r, rx) => r.status !== 0 && rx.test(r.stderr) && !existsSync(join(tmp, 'out.zip'));
+    const asBuilt = pack(null, { switched: false });
+    ok('the release packager refuses a build whose built-in profile is the placeholder (D1)', !MARK.test(marked)
+      || refused(asBuilt, /network placeholder/), asBuilt.stderr);
+    for (const [name, switched, network] of [['the mark set to false', false, (t) => t.replace('NETWORK_PLACEHOLDER = true', 'NETWORK_PLACEHOLDER = false')],
+                                             ['only the mark line kept', true, (t) => t + 'export const NETWORK_PLACEHOLDER = true;\n']]) {
+      const r = pack(null, { switched, network });
+      ok('the release packager refuses a placeholder mark: ' + name, refused(r, /network placeholder/), r.stderr);
+    }
+    // The mark dropped by hand or by a merge while the placeholder identity stays: refused by the identity itself.
+    for (const [name, opts] of [['the mark removed, the placeholder identity kept', { identity: false }],
+                                ['the placeholder chain ID kept', { network: (t) => t.replace(chainLine(real.chainId), chainLine(phInfo.chainId)) }],
+                                ['the placeholder chain ID kept in hex', { network: (t) => t.replace(chainLine(real.chainId), `"chainId": 0x${phInfo.chainId.toString(16).toUpperCase()},`) }],
+                                ['the placeholder genesis hash kept', { network: (t) => t.replace(real.genesisHash, phInfo.genesisHash.toUpperCase().replace('0X', '0x')) }],
+                                ['a re-placed placeholder that deploy/mainnet/placeholder-network.pocol.json names',
+                                 { placeholder: JSON.stringify({ ...ph, files: { ...ph.files, 'devnet.json': JSON.stringify({ chainId: Number(real.chainId), genesisHash: real.genesisHash }) } }) }]]) {
+      const r = pack(null, opts);
+      ok('the release packager refuses the placeholder identity: ' + name, refused(r, /network placeholder identity/), r.stderr);
+    }
+    const unreadable = pack(null, { placeholder: '{"files": {}}' });
+    ok('the release packager refuses to package when the placeholder file names no identity', refused(unreadable, /names no placeholder identity/), unreadable.stderr);
     const packed = pack();
-    ok('the release packager packages the release build', packed.status === 0 && existsSync(join(tmp, 'out.zip')), packed.stderr);
+    ok('the release packager packages the release build once the placeholder is replaced', packed.status === 0 && existsSync(join(tmp, 'out.zip')), packed.stderr);
     const stale = pack((t) => t.replace('export const SPEC_VERSION = 2,', 'export const SPEC_VERSION = 1,'));
-    ok('the release packager refuses a stale dist whose decoder does not decode spec 2', stale.status !== 0 && /does not decode spec 2/.test(stale.stderr) && !existsSync(join(tmp, 'out.zip')), stale.stderr);
+    ok('the release packager refuses a stale dist whose decoder does not decode spec 2', refused(stale, /does not decode spec 2/), stale.stderr);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
   return checks;
 }
