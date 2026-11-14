@@ -387,4 +387,10 @@ All other points of both critiques were verified against the code and adopted as
 | Q3 — add favicon.ico and site.webmanifest MIME types before genesis | «نعم، أضفهما (موصى به)» | W5 adds both MIME ids (manifest table in the extension, Website.sol consumers, tests). |
 | Q7 — extension 0.5.0, fixed manifest key, release signing by an owner-held key | «نعم: 0.5.0 ومفتاح ثابت وتوقيع (موصى به)» | W14 sets version 0.5.0, a fixed `key`, and release signing with an owner-held key (zip distribution; Chrome Web Store out of scope). |
 
-Q4, Q5/Q5b, Q6, Q8 and Q9 are still open; the plan's recommendations apply until the owner answers.
+| Q4 — the on-chain copy of the explorer: storage/display only, or a working explorer inside the viewer | «للعرض فقط (موصى به)» | Display/storage reference only; no new `pocol_*` methods in the bridge `ALLOW`; the working explorer stays explorer.pocol.net. |
+| Q5/Q5b — rehearsal gateway, Studio and IDE origins; who gets the rehearsal extension | «نفس العناوين، والإضافة لي وحدي (موصى به)» | The rehearsal runs on gateway.pocol.net, studio.pocol.net and ide.pocol.net after the old network is stopped; the rehearsal extension build goes to the owner only. |
+| Q6 — display name | «نبقي PoCol Mainnet (موصى به)» | Keep "PoCol Mainnet" everywhere. |
+| Q8 — opening a 4 MiB site / simultaneous viewers | «نحو 10 ثوانٍ و50 زائرًا (موصى به)» | W1/W2 budgets sized for about 10 s for a 4 MiB site and 50 simultaneous viewers. |
+| Q9 — economy publishing mode | «خيار، والافتراضي النشر العادي (موصى به)» | Economy pacing stays an option, off by default (as implemented in W4). |
+
+All plan questions are answered (2026-11-14).
