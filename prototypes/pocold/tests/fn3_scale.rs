@@ -9,7 +9,10 @@
 //!   h_full's member record and reconstruction timings with the oracle off, the member counters of the import phase
 //!   apart from the reconstruction loop's, the proposer's full evidence pool (FN-3 §5.12) at the head, and the process
 //!   RSS against A13 (the three runs share one process, so each run's peak includes what earlier runs left resident; the
-//!   RSS at the node's open is printed with it). Measurements are printed, never asserted;
+//!   RSS at the node's open is printed with it). FN-1b: the cold child_ctx is a new parent's (FN-1's rows cleared and the
+//!   parent's own membership inputs forgotten, so they are derived from its parent's and the block's writes, which is
+//!   asserted by count), and the same context with the inputs read whole (FN-1b's fallback) is timed too. Measurements
+//!   are printed, never asserted;
 //!   the one bound asserted is C6's (the membership part of history.redb below 100 MB a day), which is generous and
 //!   deterministic (it counts bytes, not time). Run it in release on Linux:
 //!     cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test fn3_scale -- --ignored --nocapture --test-threads=1
@@ -154,14 +157,15 @@ fn table_bytes(path:&Path)->serde_json::Value{
     w.abort().unwrap();out
 }
 /// What one run of the harness measured.
-struct Run{blocks:u64,history_file:Vec<(u64,u64)>,tables:serde_json::Value,deltas:Vec<usize>,snapshots:Vec<u64>,ctx_cold:Vec<f64>,ctx_warm:Vec<f64>,membership:Vec<f64>,validate:Vec<f64>,import:Vec<f64>,
+struct Run{blocks:u64,history_file:Vec<(u64,u64)>,tables:serde_json::Value,deltas:Vec<usize>,snapshots:Vec<u64>,ctx_cold:Vec<f64>,ctx_warm:Vec<f64>,ctx_read:Vec<f64>,membership:Vec<f64>,validate:Vec<f64>,import:Vec<f64>,
     record:Vec<f64>,record_snap:Vec<f64>,encode:Vec<f64>,recon_cold:Vec<f64>,recon_warm:Vec<f64>,counters_import:serde_json::Value,counters_recon:serde_json::Value,counters:String,
     pool:serde_json::Value,evidence:Vec<usize>,members_end:usize,a13:u128,rss_open_kb:Option<u64>,hwm_kb:Option<u64>,rss_kb:Option<u64>}
 /// The member counters that tell where member data came from, as `b` less `a` (a phase's own counts).
 fn counter_delta(a:&pocold::chain::MemberCounters,b:&pocold::chain::MemberCounters)->serde_json::Value{
     serde_json::json!({"setHits":b.set_hits-a.set_hits,"setMisses":b.set_misses-a.set_misses,"diskSetReads":b.disk_set_reads-a.disk_set_reads,"recordReads":b.record_reads-a.record_reads,
         "assignHits":b.assign_hits-a.assign_hits,"assignMisses":b.assign_misses-a.assign_misses,"ownerHits":b.owner_hits-a.owner_hits,"reconstructions":b.reconstructions-a.reconstructions,
-        "faults":b.faults-a.faults})
+        "faults":b.faults-a.faults,"inputHits":b.base_hits-a.base_hits,"inputsDerived":b.base_derived-a.base_derived,"inputsRead":b.base_read-a.base_read,
+        "derivedListReads":b.derive_list_reads-a.derive_list_reads,"derivedRecordReads":b.derive_record_reads-a.derive_record_reads})
 }
 /// A store-mode node (eviction on, the default window, the oracle off: `Chain::member_oracle`'s default) importing
 /// `blocks` blocks of the genesis `g`. With `churn`, 64 blocks (201..=264, or 4..=67 on a run shorter than 300 blocks)
@@ -169,7 +173,8 @@ fn counter_delta(a:&pocold::chain::MemberCounters,b:&pocold::chain::MemberCounte
 /// (REG_OPS 16 in all) of members alice funded at blocks 1..=3, from the 33rd on 4 reactivations of those (R_react, after
 /// the W_act cooldown) and up to 4 type-2 punishments (E_max) of earlier winners still active. Each block is
 /// imported with the child-context cache cleared (as a node that did not build it), after its parent's child_ctx was
-/// timed cold (the FN-1 cache cleared) and warm. Without churn, the proposer's pool case of FN-3 §5.12 follows at the
+/// timed cold (the FN-1 cache cleared: FN-1b derives the parent's membership inputs from its own parent's and the block's
+/// writes), warm, and with the inputs read whole (FN-1b's fallback: a restart, a checkpoint restore, a deep reorg). Without churn, the proposer's pool case of FN-3 §5.12 follows at the
 /// head: 64 type-2 items against distinct ancestors, most of them offloaded below the window.
 fn run(g:&ten_thousand::Genesis,spec:pocold::chain::Spec,blocks:u64,churn:bool,label:&str)->Run{
     let d=dir(label);let limits=Limits{state_store:true,..Default::default()};
@@ -189,7 +194,7 @@ fn run(g:&ten_thousand::Genesis,spec:pocold::chain::Spec,blocks:u64,churn:bool,l
     // The churn's 64 blocks: from 201 (a backlog of earlier winners to punish 4 a block, and the snapshot at 257 among
     // them), or from 4 on a short run.
     let c0:u64=if blocks>=300{201}else{4};
-    let mut r=Run{blocks,history_file:vec![],tables:serde_json::Value::Null,deltas:vec![],snapshots:vec![],ctx_cold:vec![],ctx_warm:vec![],membership:vec![],validate:vec![],import:vec![],
+    let mut r=Run{blocks,history_file:vec![],tables:serde_json::Value::Null,deltas:vec![],snapshots:vec![],ctx_cold:vec![],ctx_warm:vec![],ctx_read:vec![],membership:vec![],validate:vec![],import:vec![],
         record:vec![],record_snap:vec![],encode:vec![],recon_cold:vec![],recon_warm:vec![],counters_import:serde_json::Value::Null,counters_recon:serde_json::Value::Null,counters:String::new(),
         pool:serde_json::Value::Null,evidence:vec![],members_end:0,a13:0,rss_open_kb:rss_open,hwm_kb:None,rss_kb:None};
     r.history_file.push((0,DiskBytes::observe(&d).history));
@@ -198,8 +203,18 @@ fn run(g:&ten_thousand::Genesis,spec:pocold::chain::Spec,blocks:u64,churn:bool,l
     let mut prev_set:Option<Set>=None;
     for h in 1..=blocks{
         let head=node.chain.head;let p=node.chain.full_entry(&head).unwrap();
-        node.chain.clear_ctx_cache();let t=Instant::now();let ctx=node.chain.child_ctx(&p,0).unwrap();r.ctx_cold.push(ms(t));
+        let m0=node.chain.member_counters();
+        // The cold path of a new parent: FN-1's rows cleared and the parent's own inputs forgotten (the node may have
+        // derived them after the import), its block's write set and its parent's inputs kept.
+        node.chain.clear_ctx_cache();node.chain.forget_member_base(&p);let t=Instant::now();let ctx=node.chain.child_ctx(&p,0).unwrap();r.ctx_cold.push(ms(t));
+        // FN-1b positive control (counts, not times): from the second block on, the cold context derived its parent's
+        // membership inputs, reading none whole.
+        let m1=node.chain.member_counters();
+        if h>=2{assert_eq!((m1.base_derived-m0.base_derived,m1.base_read-m0.base_read),(1,0),"{label} h={h}: the cold context derives its parent's inputs");}
         let t=Instant::now();let _=node.chain.child_ctx(&p,0).unwrap();r.ctx_warm.push(ms(t));
+        // FN-1b's fallback: the inputs read whole from the parent's state (kept again for the next block's derivation).
+        node.chain.clear_ctx_cache();node.chain.clear_member_bases();let t=Instant::now();let again=node.chain.child_ctx(&p,0).unwrap();r.ctx_read.push(ms(t));
+        assert_eq!(*again.membership,*ctx.membership,"{label} h={h}: the derived and the whole reading agree");
         // The part of a cold child_ctx that reads the parent's ActList and every record (FN-1's one pass, uncached).
         let t=Instant::now();let _=node.chain.membership_one_pass(&p,h).unwrap();r.membership.push(ms(t));
         // h_full's member record (FN-3 §1.4), built here as h_full builds it from the same inputs: S_b (the context's
@@ -289,7 +304,7 @@ fn report(label:&str,g:&ten_thousand::Genesis,r:&Run){
     println!("FN3C-RUN {label} {}",serde_json::json!({"genesisMembers":g.ids.len(),"blocks":r.blocks,"membersAtEnd":r.members_end,"snapshotsAt":r.snapshots,
         "churnBlocksEvidence":{"total":r.evidence.iter().sum::<usize>(),"perBlockHistogram":r.evidence.iter().fold(std::collections::BTreeMap::<usize,usize>::new(),|mut m,n|{*m.entry(*n).or_default()+=1;m})},
         "deltaLenHistogram":dist,"historyFile":r.history_file,"historyFileEnd":file(r.blocks),"tables":r.tables,
-        "childCtxColdMs":stats(&r.ctx_cold),"childCtxWarmMs":stats(&r.ctx_warm),"membershipOnePassMs":stats(&r.membership),"validateMs":stats(&r.validate),"importMs":stats(&r.import),
+        "childCtxColdMs":stats(&r.ctx_cold),"childCtxWarmMs":stats(&r.ctx_warm),"childCtxInputsReadMs":stats(&r.ctx_read),"membershipOnePassMs":stats(&r.membership),"validateMs":stats(&r.validate),"importMs":stats(&r.import),
         "hFullRecordMs":{"delta":stats(&r.record),"snapshot":stats(&r.record_snap)},"recordEncodeMs":stats(&r.encode),
         "reconstructionColdMs":stats(&r.recon_cold),"reconstructionWarmMs":stats(&r.recon_warm),"memberCountersImportPhase":r.counters_import,"memberCountersReconstructionLoop":r.counters_recon,"memberCounters":r.counters,
         "proposerPool":r.pool,"a13ModelAtEnd":r.a13.to_string(),
@@ -339,6 +354,8 @@ fn report(label:&str,g:&ten_thousand::Genesis,r:&Run){
         "membershipOnePassP99Ms":{"idle":pct(&idle.membership,99),"churn":pct(&churn.membership,99)},
         "validateP99Ms":{"idle":pct(&idle.validate,99),"churn":pct(&churn.validate,99),"base4":pct(&base.validate,99)},
         "childCtxColdP99Ms":{"idle":pct(&idle.ctx_cold,99),"churn":pct(&churn.ctx_cold,99),"base4":pct(&base.ctx_cold,99)},
+        "childCtxColdP50Ms":{"idle":pct(&idle.ctx_cold,50),"churn":pct(&churn.ctx_cold,50),"base4":pct(&base.ctx_cold,50)},
+        "childCtxInputsReadP99Ms":{"idle":pct(&idle.ctx_read,99),"churn":pct(&churn.ctx_read,99),"base4":pct(&base.ctx_read,99)},
         "importP99Ms":{"idle":pct(&idle.import,99),"churn":pct(&churn.import,99)},
         "reconstructionColdP99Ms":{"idle":pct(&idle.recon_cold,99),"churn":pct(&churn.recon_cold,99)}}));
     let max_delta=churn.deltas.iter().copied().max().unwrap_or(0);
