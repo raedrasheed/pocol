@@ -2,10 +2,10 @@ name: PoCol browser and devnet verification
 on:
   push:
     branches: [main]
-    paths: ['prototypes/**', '.github/workflows/pocol-browser-verify.yml']
+    paths: ['prototypes/**', 'deploy/mainnet/**', '.github/workflows/pocol-browser-verify.yml']
   pull_request:
     branches: [main]
-    paths: ['prototypes/**', '.github/workflows/pocol-browser-verify.yml']
+    paths: ['prototypes/**', 'deploy/mainnet/**', '.github/workflows/pocol-browser-verify.yml']
 permissions:
   contents: read
 jobs:
