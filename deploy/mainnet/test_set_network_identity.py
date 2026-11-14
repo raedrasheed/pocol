@@ -581,12 +581,14 @@ class SetNetworkIdentity(unittest.TestCase):
             extra = list(CP_V2_EXTRA)
             extra[k[name]] = value
             return make_spec(version=2, extra=extra)
-        wrapped = b''.join(int_item(v) for v in CP_V2_EXTRA[:-1]) + b'\x82\x00\x05'
+        # rho_bp as 82 00 05, a canonical RLP string holding a leading-zero integer, so it reaches gsInt. (A wrapped
+        # single byte, 81 05, is refused earlier as non-canonical RLP: see 'a wrapped single byte inside CP'.)
+        leading_zero = b''.join(int_item(v) for v in CP_V2_EXTRA[:-1]) + b'\x82\x00\x05'
         for bad, reason in ((make_spec(version=2, sys=_sys[1:]), 'v3 program set'), (make_spec(version=2, sys=b'\x00' * 32), 'v3 program set'),
                             (with_extra('rho_bp', 10001), 'gsRange: rho_bp'), (with_extra('H_half', 0), 'gsRange: H_half'),
                             (with_extra('gamma_tip_bp', 10001), 'gsRange: gamma_tip_bp'), (with_extra('R_react', 256), 'gsRange: R_react'),
                             (with_extra('C_react', 1 << 32), 'gsRange: C_react'), (with_extra('S_tail', 1 << 256), 'gsRange: S_tail'),
-                            (make_spec(version=2, items=wrapped), 'gsInt: rho_bp')):
+                            (make_spec(version=2, items=leading_zero), 'gsInt: rho_bp')):
             for allowed in ((2,), (1, 2)):
                 with self.subTest(reason=reason, allowed=allowed), self.assertRaisesRegex(ValueError, reason):
                     ni.spec_identity(bad, allowed)
