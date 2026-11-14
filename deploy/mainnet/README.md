@@ -69,6 +69,24 @@ integers, widths and bounds of every field of the final CP schema v2 of 59 field
 M_0List order and reserved ids) accepts it and its `sysCodeHash` names the v3 program
 set. A refused `--to` writes nothing. Spec-1 switches are unchanged.
 
+## The extension's built-in profile placeholder (decision D1)
+
+Until the new genesis exists, the extension's built-in profile (`prototypes/pocol-extension/src/lib/studio-network.js`)
+pins no retired network: it holds a placeholder, the spec-2 (v3) devnet GenesisSpec of the decoder corpus
+(`tests/data/decoder-corpus-v3.json`, item `v3/base`) under a chain ID of no network, whose invitation is
+`placeholder-network.pocol.json`. The file carries the `NETWORK_PLACEHOLDER` mark, its `FILES` counts are then counts
+of the placeholder, and `prototypes/pocol-extension/scripts/package-release.py` refuses a build that carries the mark,
+so no release ships it (CI checks the refusal instead of packaging).
+
+```sh
+python3 deploy/mainnet/set_network_identity.py --placeholder deploy/mainnet/placeholder-network.pocol.json [--check]
+```
+
+`--placeholder` writes a spec-2 placeholder (never a retired network or the tree's own) into `PLACEHOLDER_FILES` only.
+The identity switch (`--from`/`--to`) replaces the placeholder there with the `--to` identity and removes the mark, so
+the switch stays one run. The extension pages (`publisher.html`, `contract.html`) and READMEs keep the tree's identity
+until that switch.
+
 ## Local checks
 
 ```sh

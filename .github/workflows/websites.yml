@@ -1,0 +1,95 @@
+name: Websites
+# The website snapshots (explorer.pocol.net, ide.pocol.net, pocol.net), the Studio site and the gateways behind them:
+# the PHP and browser security checks, the website identity tool's --check, and the guards that keep host credentials
+# (config.php) out of the repository. Local only: nothing here contacts a pocol.net host or deploys anything.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'deploy/websites/**'
+      - 'prototypes/pocol-studio/**'
+      - 'prototypes/pocol-extension/src/**'
+      - 'deploy/studio/**'
+      - 'deploy/rewards/gateway.py'
+      # What site_identity.py --check and its tests read besides the snapshots: the identity tool it imports, its
+      # retired list and placeholder (deploy/mainnet), that tool's imports, the node's SPEC_VERSION, the extension
+      # version the download links must name, and the decoder corpus the tests take their spec-2 genesis from.
+      - 'deploy/mainnet/**'
+      - 'deploy/rewards/pocol_rewards.py'
+      - 'deploy/public-testnet/pocol_identity.py'
+      - 'prototypes/lp1-node/src/genesis_spec.rs'
+      - 'prototypes/pocol-extension/package.json'
+      - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      # A config.php anywhere (the .gitignore rule covers only api/ directories) runs the tracked-config.php guard.
+      - '**/config.php'
+      - '.gitignore'
+      - '.github/workflows/websites.yml'
+  push:
+    branches: [main]
+    # The same paths as pull_request.
+    paths:
+      - 'deploy/websites/**'
+      - 'prototypes/pocol-studio/**'
+      - 'prototypes/pocol-extension/src/**'
+      - 'deploy/studio/**'
+      - 'deploy/rewards/gateway.py'
+      - 'deploy/mainnet/**'
+      - 'deploy/rewards/pocol_rewards.py'
+      - 'deploy/public-testnet/pocol_identity.py'
+      - 'prototypes/lp1-node/src/genesis_spec.rs'
+      - 'prototypes/pocol-extension/package.json'
+      - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      - '**/config.php'
+      - '.gitignore'
+      - '.github/workflows/websites.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  websites:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: No config.php is tracked
+        run: |
+          set -euo pipefail
+          # Host credentials (explorer.pocol.net/api/config.php) stay on the host; the file is never read here.
+          if git ls-files | grep -iE '(^|/)config\.php$'; then
+            echo 'a config.php is tracked: remove it from the repository (it holds host credentials)' >&2
+            exit 1
+          fi
+          git check-ignore -q --no-index deploy/websites/explorer.pocol.net/api/config.php
+      - name: Website identity, derived files, retired identities, origins and download links
+        run: python3 -B deploy/websites/tools/site_identity.py --check
+      - name: Website tool tests, the explorer api/.htaccess deny rule and the config.php guards
+        run: python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
+      - name: Use the official Ubuntu archive
+        run: printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
+      - name: PHP request, response and cache checks
+        run: |
+          set -euo pipefail
+          sudo apt-get update
+          sudo apt-get install -y php-cli php-curl
+          php deploy/websites/tests/api_security.php
+      - name: Studio gateway
+        run: python3 -B -m unittest discover -s deploy/studio -v
+      - name: Studio site
+        run: |
+          npm test
+          npm run check
+        working-directory: prototypes/pocol-studio
+      - name: Install the browser
+        run: |
+          set -euo pipefail
+          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "POCOL_CHROMIUM=$(node --input-type=module -e "const {chromium}=await import('$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs');console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
+      - name: Browser checks of the four sites (all requests outside each local origin aborted)
+        run: node deploy/websites/tests/browser_security.mjs
