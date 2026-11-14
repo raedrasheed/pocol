@@ -7,7 +7,7 @@
   "description": "PoCol Studio, IDE contract wallet and verified on-chain viewer",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node tests/unit.mjs && node --test tests/wallet_lifecycle_test.mjs",
+    "test": "node tests/unit.mjs && node --test tests/wallet_lifecycle_test.mjs tests/site_fetch_test.mjs",
     "test:studio": "node tests/studio_test.mjs",
     "test:publisher": "node --test tests/publisher_test.mjs",
     "test:contracts": "node --test tests/contracts_test.mjs",

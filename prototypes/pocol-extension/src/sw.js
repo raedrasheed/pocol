@@ -2,7 +2,8 @@
 // (RP window or LN trust), BridgeAuth for site messages, DNR isolation, wallet.
 import { decodeSpec, verifyWindow } from './lib/rp.js';
 import { normalizeForkSchedule } from './lib/forks.js';
-import { fetchSite, normalize } from './lib/site.js';
+import { fetchSite, normalize, chunkWidth } from './lib/site.js';
+import { withRetry } from './lib/retry.js';
 import * as bridge from './lib/bridge.js';
 import { StoreAdmission, qbytes } from './lib/sitestore.js';
 import { RecordStore } from './lib/records.js';
@@ -73,11 +74,14 @@ function validateProfile(p) {
 // HttpTransport pools (D98): trust checks never starve behind sites; chunk fetches have their own pool.
 const pools = { site: new http.Pool(http.SITE_POOL), trust: new http.Pool(http.TRUST_POOL), content: new http.Pool(http.CONTENT_POOL) };
 let reqId = 0;
-/** rpc for one pool; session (optional) carries the per-session SESSION_RECV_MAX account. */
-function rpcFor(profile, pool, session = null, shared = http.inflight) {
-  return (method, params, timeoutMs = RPC_TIMEOUT_MS, stages = {}) => http.request(profile.endpoint, method, params, { ...stages, pool, session, deadline: timeoutMs, id: ++reqId, shared: pool === pools.trust ? null : shared });
+/** rpc for one pool; session (optional) carries the per-session SESSION_RECV_MAX account. Idempotent reads are
+ *  retried on 429, -32021, timeouts and dropped connections (W2, lib/retry.js); eth_sendRawTransaction never is. */
+function rpcFor(profile, pool, session = null, shared = http.inflight, retry = true) {
+  const once = (method, params, timeoutMs = RPC_TIMEOUT_MS, stages = {}) => http.request(profile.endpoint, method, params, { ...stages, pool, session, deadline: timeoutMs, id: ++reqId, shared: pool === pools.trust ? null : shared });
+  return retry ? withRetry(once) : once;
 }
-const contentRpc = (profile) => { const c = rpcFor(profile, pools.content), s = rpcFor(profile, pools.site); return (m, p) => (m === 'eth_getCode' ? c(m, p) : s(m, p)); };
+// The verified site fetch retries its own reads (fetchSite, with the chunk-level pool), so it gets them unwrapped.
+const contentRpc = (profile) => { const c = rpcFor(profile, pools.content, null, http.inflight, false), s = rpcFor(profile, pools.site, null, http.inflight, false); return (m, p) => (m === 'eth_getCode' ? c(m, p) : s(m, p)); };
 /** netKey check against the endpoint: chainId and genesisHash must equal the profile. */
 async function checkNetwork(profile, rpc) {
   const cid = BigInt(await rpc('eth_chainId', []));
@@ -206,7 +210,7 @@ async function openVerified(profile, site, path, tabId, ep0) {
     catch (e) { return { ok: false, error: { code: 4901, message: 'RP window rejected: ' + (e.flag || e.message) } }; }
     if (!trust.ok) return { ok: false, error: { code: 4901, message: trust.message } };
   }
-  const s = await fetchSite(contentRpc(profile), site);
+  const s = await fetchSite(contentRpc(profile), site, { parallel: chunkWidth(profile.trustLevel) });
   const files = {}; for (const [p, f] of s.files) files[p] = { mime: f.mime, b64: b64(f.data) };
   const sessionId = crypto.randomUUID(); const now = Math.floor(performance.now());
   const recv = { recv: 0 };
@@ -233,6 +237,7 @@ const E = (code, message, data) => ({ error: data === undefined ? { code, messag
 function transportError(e) {
   if (e.rpc) return { error: e.rpc };
   if (e.transport === 'busy') return E(-32005, 'busy', { reason: 'busy' });
+  if (e.transport === 'rate') return E(-32005, 'rate', { reason: 'rate' });
   const reason = ['recvLimit', 'recvDepth', 'recvParse'].includes(e.transport) ? e.transport : 'transport';
   return E(-32603, reason, { reason });
 }

@@ -48,12 +48,16 @@ export class Pool {
 export const inflight = { free: Infinity, slots: RECV_INFLIGHT_MAX };
 
 const fail = (reason) => Object.assign(new Error(reason), { transport: reason });
+export const RETRY_AFTER_MAX_MS = 10000;
+/** Retry-After as delta-seconds (RFC 9110), in ms and capped; 0 when absent or not delta-seconds. */
+export function retryAfter(v) { return typeof v === 'string' && /^\s*\d{1,9}\s*$/.test(v) ? Math.min(Number(v) * 1000, RETRY_AFTER_MAX_MS) : 0; }
 const clip = (s, n) => (typeof s === 'string' ? s.slice(0, n) : '');
 
 /**
  * request(endpoint, method, params, {pool, session, deadline, fetchImpl, signal, beforeSend, onState}) -> result
  * Throws {rpc:{code,message,data?}} for a remote error object, {transport: reason}
- * for transport/recvLimit/recvParse/recvDepth/busy/unsupported/cancelled.
+ * for transport/rate/recvLimit/recvParse/recvDepth/busy/unsupported/cancelled ('rate' is HTTP 429 and,
+ * like 'transport' from 502/503/504, carries retryAfterMs; lib/retry.js retries idempotent reads).
  * Submission stages (A06 round 2): onState('queued') before the reservation, onState('initiated')
  * immediately before fetch. `signal` aborts the request while it is queued; `beforeSend` runs
  * synchronously after the reservation and immediately before fetch (no await in between) and
@@ -82,6 +86,11 @@ export async function request(endpoint, method, params, opts) {
     let res;
     try { res = await fetchImpl(endpoint, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id, method, params }), signal: ctl.signal, credentials: 'omit', cache: 'no-store', redirect: 'error' }); }
     catch { throw fail('transport'); }
+    // W2: HTTP 429 is the gateway's rate limit ('rate', retryable); 502/503/504 a proxy that cannot reach it
+    // ('transport'). Both are classified before the body is read, with Retry-After (delta-seconds) up to a cap.
+    if (res.status === 429 || res.status === 502 || res.status === 503 || res.status === 504) {
+      ctl.abort(); throw Object.assign(fail(res.status === 429 ? 'rate' : 'transport'), { status: res.status, retryAfterMs: retryAfter(res.headers.get('retry-after')) });
+    }
     const cl = res.headers.get('content-length');
     if (cl !== null && Number(cl) > limit) { ctl.abort(); throw fail('recvLimit'); }
     const chunks = []; let total = 0;
