@@ -419,7 +419,7 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
 /// V3-PR-E2b: the v3 program set composes GAS_ENVELOPE_V3 where it has an entry and, since PoColSystemV3.sol is built
 /// on the earn-in programs, GAS_ENVELOPE_EARNIN elsewhere (main's admission.rs asked for that fallback to be decided
 /// when the v3 stack was rebased; it was GAS_ENVELOPE before). Spec-1 sets compose their own tables alone, as before.
-/// The v3 domain also bounds P_MAX (settlement accrual).
+/// FN-2b: the v3 domain drops the M_max term and bounds the payees per pot (S_max + 3, all ACCRUING) instead.
 #[test] fn v3_envelope_entries_apply_only_to_the_v3_set(){
     for (n,g) in GAS_ENVELOPE{assert_eq!(envelope(ProgramSet::V1,n),Some(*g),"spec-1 {n}");assert_eq!(envelope(ProgramSet::Continuous,n),Some(*g),"spec-1 {n}");}
     for (n,g) in GAS_ENVELOPE_EARNIN{assert_eq!(envelope(ProgramSet::EarnIn,n),Some(*g),"earn-in {n}");}
@@ -446,7 +446,7 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     // V3-PR-E3 adds the kappa*m domain bound (recordLate's owners per call) to the text. V3-PR-E2a measures finalize on
     // v3 (tests/v3_contracts.rs v3_final_block_burns_the_carry_on_real_blocks: GAS_ENVELOPE_V3 gains a finalize entry), so
     // the text no longer says finalize takes the earn-in entry; settleFinal still takes the measured settle.
-    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, P_MAX <= 64, kappa*m <= 64; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle)"));
+    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, any M_max, S_max + 3 <= 259 payees per pot all ACCRUING, kappa*m <= 64; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle)"));
     assert!(envelope(ProgramSet::V3,"finalize")>envelope(ProgramSet::EarnIn,"finalize"),"V3-PR-E2a: finalize takes its v3 measurement, not the earn-in entry");
     let c=net(&cfg());let cp=c.profile.cp().clone();
     let spec1=phase_gas(&cp,0,ProgramSet::V1).unwrap();let earnin=phase_gas(&cp,0,ProgramSet::EarnIn).unwrap();let v3=phase_gas(&cp,0,ProgramSet::V3).unwrap();
@@ -458,9 +458,22 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     assert_eq!(v3.iter().filter(|g|**g==late).count(),usize::from(cp.E_max));
     assert!(v3.iter().sum::<u64>()>earnin.iter().sum::<u64>()&&earnin.iter().sum::<u64>()>spec1.iter().sum::<u64>());
     for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{for class in 0..3{assert!(phase_calls(&cp,class,set).iter().all(|(n,_)|*n!="recordLate"),"spec 1 never composes recordLate: {set:?}");}}
-    let mut wide=cp.clone();wide.P_MAX=GAS_DOMAIN_V3_P_MAX+1;
-    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(in_gas_domain(&wide,set),"P_MAX bounds the v3 domain only: {set:?}");}
-    assert!(!in_gas_domain(&wide,ProgramSet::V3),"P_MAX bounds the v3 domain");
+    // M_max bounds the spec-1 domain only: the v3 set admits M_max 10,000 (owner decision 2026-11-13) and any u16 value.
+    for m in [GAS_DOMAIN.m_max+1,10_000,u16::MAX]{
+        let mut wide=cp.clone();wide.M_max=m;
+        for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(!in_gas_domain(&wide,set),"M_max {m} is outside the spec-1 domain: {set:?}");}
+        assert!(in_gas_domain(&wide,ProgramSet::V3),"M_max {m} is inside the v3 domain");assert!(phase_gas(&wide,0,ProgramSet::V3).is_some());
+    }
+    // A13-DERIVATION's D limit for the v3 final class (finalize, settle and D - 1 settleFinal at the all-ACCRUING settle
+    // entry, with E_max 4 evidence items): within G_SYS 96M up to D = 5, above it from D = 6.
+    let mut fresh=cp.clone();fresh.E_max=4;fresh.S_max=256;
+    let final_at=|d:u16|{let mut c=fresh.clone();c.D=d;phase_gas(&c,2,ProgramSet::V3).unwrap().iter().sum::<u64>()};
+    eprintln!("V3-FINAL-CLASS D=4 {} D=5 {} D=6 {}",final_at(4),final_at(5),final_at(6));
+    assert!(final_at(4)<=96_000_000&&final_at(5)<=96_000_000&&final_at(6)>96_000_000,"D=4 {} D=5 {} D=6 {}",final_at(4),final_at(5),final_at(6));
+    // The payee bound: S_max + 3 <= 259, i.e. S_max <= 256 (the same S_max term as the spec-1 domain).
+    assert_eq!(GAS_DOMAIN_V3_PAYEES,u32::from(GAS_DOMAIN.s_max)+3);
+    let mut wide=cp.clone();wide.S_max=GAS_DOMAIN.s_max+1;
+    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn,ProgramSet::V3]{assert!(!in_gas_domain(&wide,set),"S_max 257: {set:?}");}
     assert_eq!(phase_gas(&wide,0,ProgramSet::V3),None);
     // kappa*m bounds recordLate's owners per call (the no-dilution cap): the v3 domain only.
     let mut wide=cp.clone();wide.m=(GAS_DOMAIN_V3_KAPPA_M/u32::from(wide.kappa)+1) as u16;

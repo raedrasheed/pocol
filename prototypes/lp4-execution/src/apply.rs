@@ -30,8 +30,9 @@ pub fn chunk_factory()->Address{program_address(4)}
 /// registered only for a CP schema v2 (specVersion 2) genesis; elsewhere its hash names nothing.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub enum ProgramSet{V1,Continuous,EarnIn,V3}
-/// The probation pool of an earn-in-rules program set (EARN-IN-SPEC U3/U4, V3-14): the ACCRUING seats and
-/// the deadline in blocks after registeredAt.
+/// The probation pool of the earn-in program set (EARN-IN-SPEC U3/U4): the ACCRUING seats and the deadline in
+/// blocks after registeredAt. The v3 set has neither (FN-2b, owner decisions 10b/10c of 2026-11-13): its ACCRUING
+/// records count within M_max and never exit by time.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct Probation{pub seats:u64,pub blocks:u64}
 impl Probation{
@@ -39,13 +40,11 @@ impl Probation{
     pub const EARNIN:Probation=Probation{seats:8,blocks:60_480};
 }
 impl ProgramSet{
-    /// Earn-in: `Probation::EARNIN`. V3: what PoColSystemV3.sol reads through cfg(), CP schema v2 fields
-    /// P_MAX and T_PROB. Other sets have no probation.
-    pub fn probation(self,cp:&crate::profile::ConsensusParams)->Option<Probation>{
+    /// Earn-in: `Probation::EARNIN`. Every other set, the v3 set included (FN-2b), has no probation pool.
+    pub fn probation(self)->Option<Probation>{
         match self{
             ProgramSet::EarnIn=>Some(Probation::EARNIN),
-            ProgramSet::V3=>Some(Probation{seats:cp.P_MAX.into(),blocks:cp.T_PROB.into()}),
-            ProgramSet::V1|ProgramSet::Continuous=>None,
+            ProgramSet::V3|ProgramSet::V1|ProgramSet::Continuous=>None,
         }
     }
 }
@@ -71,11 +70,11 @@ impl SystemPrograms{
     pub fn continuous()->Self{Self::from_compiled_json(include_str!("../tests/data/system-continuous.json")).expect("bundled continuous system programs")}
     pub fn for_params(cp:&crate::profile::ConsensusParams)->Self{if cp.H_END==0{Self::continuous()}else{Self::v1()}}
     /// Earn-in network programs (development/decisions/EARN-IN-SPEC.md), compile_system_earnin.cjs.
-    /// bondState ACCRUING of the earn-in and v3 programs; their probation pool is `ProgramSet::probation`.
+    /// bondState ACCRUING of the earn-in and v3 programs; the earn-in set's probation pool is `ProgramSet::probation`.
     pub const EARNIN_ACCRUING:u8=4;
     pub fn earnin()->Self{Self::from_compiled_json(include_str!("../tests/data/system-earnin.json")).expect("bundled earn-in system programs")}
-    /// V3 network programs (PoColSystemV3.sol: the earn-in programs with P_MAX/T_PROB read from CP schema v2
-    /// and ChainCaps over all 64 fields), compile_system_v3.cjs. Dormant: only a specVersion-2 genesis selects it.
+    /// V3 network programs (PoColSystemV3.sol: the earn-in programs without the probation pool and deadline, with
+    /// removal at a full set and ChainCaps over all 59 CP schema v2 fields), compile_system_v3.cjs. Dormant: only a specVersion-2 genesis selects it.
     pub fn v3()->Self{Self::from_compiled_json(include_str!("../tests/data/system-v3.json")).expect("bundled v3 system programs")}
     fn of(kind:ProgramSet)->Self{
         match kind{ProgramSet::V1=>Self::v1(),ProgramSet::Continuous=>Self::continuous(),ProgramSet::EarnIn=>Self::earnin(),ProgramSet::V3=>Self::v3()}

@@ -24,31 +24,60 @@ fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
     println!("R18-DERIVED {}",serde_json::json!({"slotMin":b.slot_min,"keys":[b.keys_normal,b.keys_closing,b.keys_final],"accounts":[b.accts_normal,b.accts_closing,b.accts_final]}));
 }
 
-/// CP schema v2 runs the v3 registry: three more fixed Registry slots (ACC_COUNT, the V3-08/V3-09 budget slot and the V3-10
-/// epoch totals, which recordShares writes: one more key in every phase) and the
-/// 12 appended CP slots (FN-2a deleted F0_*); record words are unchanged (REGISTRY-LAYOUT.md); a block with evidence touches one more
+/// CP schema v2 runs the v3 registry: one more fixed Registry slot (the V3-08/V3-09 budget slot; FN-2b deleted the
+/// accruing count and the epoch totals) and the 7 appended CP slots (FN-2a deleted F0_*, FN-2b P_MAX, T_PROB, E_epoch,
+/// theta_bp, k_sigma); record words are unchanged (REGISTRY-LAYOUT.md); a block with evidence touches one more
 /// account, the proposer's reward address that receives the V3-17 reporter cut (none without evidence, E_max 0). V3-02:
 /// each phase's keys add 3·L for the late shares a block can credit, L = min(E_max·min(S_max, kappa*m - 1), D·(kappa*m - 1)).
 /// V3-15/V3-20: the two carry keys in every phase (the lagged carry: settle writes the carry into pot h+1, closeBlock or
 /// finalize zeroes the carry into pot h) and one Escrow slot for the carry into the next pot, which outlives the block; on
-/// normal and closing blocks the five keys closeBlock's tip share can write through payTo and the proposer's reward
-/// address, which it pays even without evidence.
+/// normal and closing blocks the four keys closeBlock's tip share can write through payTo and the proposer's reward
+/// address, which it pays even without evidence. FN-2b: settle and each settleFinal also count the accrual keys of
+/// their at most O + 2 payees (bond word and state word each) and held_total, 2·(O + 2) + 1 more (`settle_keys`). A
+/// profile that never closes (H_CLOSE = T_CLOSE = 0, the continuous fresh network) has only ordinary blocks: on CP
+/// schema v2 its closing and final classes are the ordinary one; CP schema v1 is unchanged either way.
 #[test] fn r18_cp_schema_v2_counts_the_v3_registry_slots(){
-    let mut c=network_like(4,1000,2000);c.h_end=0;c.earnin=true;
+    let mut c=network_like(4,1000,2000);c.earnin=true;
     let v1=ConsensusParams::from_values(&c.cp()).unwrap();c.spec_version=2;let v2=ConsensusParams::from_values(&c.cp()).unwrap();
-    assert_eq!((v1.schema_version(),v2.schema_version()),(1,2));
+    assert_eq!((v1.schema_version(),v2.schema_version()),(1,2));assert!(closes(&v2));
     let (a,b)=(derive(&v1),derive(&v2));
-    assert_eq!(b.slot_min,a.slot_min+3+12+1);
+    assert_eq!(b.slot_min,a.slot_min+1+7+1);
     let per=u64::from(v2.kappa)*u64::from(v2.m)-1;let l=(u64::from(v2.E_max)*per.min(u64::from(v2.S_max))).min(u64::from(v2.D)*per);
     // A wider window does not add late shares beyond E_max items of at most kappa*m - 1 each.
     let mut wide=v2.clone();wide.D=16;assert_eq!(late_shares_max(&wide),u64::from(v2.E_max)*per.min(u64::from(v2.S_max)));
     assert_eq!((late_shares_max(&v2),late_keys(&v2),late_keys(&v1),late_shares_max(&v1)),(l,3*l,0,0));
-    assert_eq!((b.keys_normal,b.keys_closing,b.keys_final),(a.keys_normal+3*l+8,a.keys_closing+3*l+8,a.keys_final+3*l+3));
+    // S_max 256, M_max 256: O = 256 owners, 258 payees.
+    let o=(u64::from(v2.S_max)+1).min(u64::from(v2.M_max));let accrual=2*(o+2)+1;let d=u64::from(v2.D);
+    assert_eq!((settle_keys(&v1),settle_keys(&v2),o),(4,4+accrual,256));
+    assert_eq!((b.keys_normal,b.keys_closing,b.keys_final),(a.keys_normal+3*l+6+accrual,a.keys_closing+3*l+6+accrual,a.keys_final+3*l+2+accrual*d));
     let mut none=v2.clone();none.E_max=0;assert_eq!(late_keys(&none),0,"no evidence item, no late share");
     assert_eq!((b.accts_normal,b.accts_closing,b.accts_final),(a.accts_normal+1,a.accts_closing+1,a.accts_final+1));
     let mut quiet=v2.clone();quiet.E_max=0;let mut quiet1=v1.clone();quiet1.E_max=0;
     let (q2,q1)=(derive(&quiet),derive(&quiet1));assert_eq!((q2.accts_normal,q2.accts_closing,q2.accts_final),(q1.accts_normal+1,q1.accts_closing+1,q1.accts_final),
         "without evidence the tip share's account remains on normal and closing blocks; a final block pays no tip share");
+    // The same profiles continuous (H_END 0, so H_CLOSE = T_CLOSE = 0): v2 has only the ordinary class, v1 is unchanged.
+    c.h_end=0;let cont2=ConsensusParams::from_values(&c.cp()).unwrap();c.spec_version=1;let cont1=ConsensusParams::from_values(&c.cp()).unwrap();
+    assert!(!closes(&cont2)&&!closes(&cont1));
+    let (k1,k2)=(derive(&cont1),derive(&cont2));assert_eq!(k1,a,"CP schema v1: no class folds");
+    assert_eq!((k2.keys_normal,k2.keys_closing,k2.keys_final,k2.accts_normal,k2.accts_closing,k2.accts_final),
+        (b.keys_normal,b.keys_normal,b.keys_normal,b.accts_normal,b.accts_normal,b.accts_normal));
+}
+
+/// FN-2b, the fresh network's profile shape (S_max 256, M_max 10,000, E_max 4, kappa*m 64, D 4, SWEEP_MAX 16, RET 128,
+/// continuous): with the accrual keys every ordinary block stays within the devnet's v2 SYS_KEYS_BLOCK_MAX 4096 and passes
+/// R18; the same profile with a closing schedule would need more for its final block (settle and three settleFinal calls
+/// each accruing into 258 payees), which a continuous profile never runs.
+#[test] fn r18_fresh_profile_shape_with_the_accrual_keys(){
+    let mut c=network_like(4,0,0);c.earnin=true;c.spec_version=2;c.d=4;c.m_max=10_000;c.reg_records_max=24_576;c.sys_slot_max=400_000;
+    let cp=ConsensusParams::from_values(&c.cp()).unwrap();assert!(!closes(&cp));assert_eq!(u64::from(cp.kappa)*u64::from(cp.m),64);
+    let b=r18(&cp).unwrap_or_else(|e|panic!("{e:?}"));
+    // O = 257 share owners, 259 payees: settle 4 + 518 + 1.
+    assert_eq!(settle_keys(&cp),523);
+    assert!(b.keys_max()==b.keys_normal&&b.keys_normal<=4096&&b.keys_normal>2048,"{b:?}");
+    let mut closing=c.clone();closing.h_end=2000;closing.h_close=1000;let cl=ConsensusParams::from_values(&closing.cp()).unwrap();
+    let f=derive(&cl);assert!(f.keys_final>4096&&f.keys_final==f.keys_max(),"{f:?}");
+    assert!(r18(&cl).unwrap_err().iter().any(|e|e.starts_with("SYS_KEYS_BLOCK_MAX")));
+    println!("R18-FRESH keys {} (with a closing schedule: final {})",b.keys_normal,f.keys_final);
 }
 
 /// Worst-case stress: 256 identities (M_max), every height carries S_max shares

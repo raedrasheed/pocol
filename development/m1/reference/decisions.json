@@ -761,7 +761,7 @@
   },
   {
     "id": "D-V3-10",
-    "decision": "Contestable seats when the set is full: displace (with refund) a member whose credited work in the last full epoch is statistically below threshold. O-10=b: contest only a full set, with previous full-day epoch count below E-3*sqrt(E), E=(1/8)*Tprev/active, with deterministic integer rounding. Victim must be live, active, past grace and active throughout the previous epoch. Refund after U; V3-02 is mandatory first. Validate honest-member eviction rates by simulation.",
+    "decision": "SUPERSEDED by owner decisions 10b/10c and Q2(a) (2026-11-13, OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md): no seat contest; an inactive member (no credited share or (re)activation within Theta_inact) is removed only when the set is full, atomically by a newcomer via registerReplacing(reward, victim) (2 REG_OPS units + 1 R_max entry; the victim exits via exitAt and is refunded after U, no burn, punishable until then), and removeInactive reverts below a full set. FN-2b deleted registerContest, the epoch counters and E_epoch/theta_bp/k_sigma (CP schema v2: 59 fields). Superseded text: Contestable seats when the set is full: displace (with refund) a member whose credited work in the last full epoch is statistically below threshold. O-10=b: contest only a full set, with previous full-day epoch count below E-3*sqrt(E), E=(1/8)*Tprev/active, with deterministic integer rounding. Victim must be live, active, past grace and active throughout the previous epoch. Refund after U; V3-02 is mandatory first. Validate honest-member eviction rates by simulation.",
     "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: touches P8 (new removal reason) and P7; preserved only with V3-02 and the statistical margin. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
   },
   {
@@ -781,7 +781,7 @@
   },
   {
     "id": "D-V3-14",
-    "decision": "Probation pool size and in-pool contest; P_MAX and T_PROB become CP fields set in time. O-14=b: P_MAX=M_max/4 (64 at M_max=256), T_PROB=30 days as CP fields. Use the same work statistic for contests within the ACCRUING pool, refund accrued bond and conserve ACC_COUNT. V3-09 precedes expansion.",
+    "decision": "SUPERSEDED by owner decisions 10b/10c (2026-11-13, OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md): no separate probation pool and no probation deadline; ACCRUING newcomers count within M_max (10,000) and fill the earned 20 PCOL bond from rewards (the B_reg/4 draw exclusion stays). FN-2b deleted P_MAX, T_PROB, the ACC_COUNT slot and the in-pool contest. Superseded text: Probation pool size and in-pool contest; P_MAX and T_PROB become CP fields set in time. O-14=b: P_MAX=M_max/4 (64 at M_max=256), T_PROB=30 days as CP fields. Use the same work statistic for contests within the ACCRUING pool, refund accrued bond and conserve ACC_COUNT. V3-09 precedes expansion.",
     "rationale": "Approved within the owner rule; OWNER-CHOICE. Principle check: Ch9; P8. Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized."
   },
   {

@@ -1,3139 +1,6 @@
 {
- "earnin-p64/accrual": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [
-   "ra",
-   "rb"
-  ],
-  "final": {
-   "accruing": 0,
-   "active": [
-    "a",
-    "b",
-    "m0"
-   ],
-   "burned": "0",
-   "counters": {
-    "maint": 0,
-    "ops": 1,
-    "react": 0,
-    "regs": 1
-   },
-   "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "60000000000000000000",
-   "order": [
-    "m0",
-    "a",
-    "b"
-   ],
-   "paid": {
-    "ra": "3000000000000000000",
-    "rb": "3000000000000000000"
-   },
-   "records": {
-    "a": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "ra",
-     "status": 1,
-     "tomb": false
-    },
-    "b": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 2,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 2,
-     "reward": "rb",
-     "status": 1,
-     "tomb": false
-    },
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "a": "0",
-    "b": "19000000000000000000"
-   }
-  },
-  "steps": [
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "a",
-     "ra",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "settle_to",
-     "a",
-     "7000000000000000000"
-    ],
-    "result": "0"
-   },
-   {
-    "ok": true,
-    "op": [
-     "settle_to",
-     "a",
-     "13000000000000000000"
-    ],
-    "result": "0"
-   },
-   {
-    "ok": true,
-    "op": [
-     "settle_to",
-     "a",
-     "3000000000000000000"
-    ],
-    "result": "0"
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "b",
-     "rb",
-     "19000000000000000000",
-     "2"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "settle_to",
-     "b",
-     "4000000000000000000"
-    ],
-    "result": "0"
-   }
-  ]
- },
- "earnin-p64/deadline": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [
-   "ra",
-   "rz"
-  ],
-  "final": {
-   "accruing": 0,
-   "active": [
-    "m0"
-   ],
-   "burned": "0",
-   "counters": {
-    "maint": 0,
-    "ops": 0,
-    "react": 0,
-    "regs": 0
-   },
-   "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "20000000000000000000",
-   "order": [
-    "m0"
-   ],
-   "paid": {
-    "ra": "2000000000000000000"
-   },
-   "records": {
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "a": "2000000000000000000",
-    "z": "0"
-   }
-  },
-  "steps": [
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "a",
-     "ra",
-     "2000000000000000000",
-     "10"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "sweep",
-     "86409"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "sweep",
-     "86410"
-    ],
-    "result": null
-   },
-   {
-    "ok": false,
-    "op": [
-     "reactivate",
-     "a",
-     "86442"
-    ],
-    "revert": "BadState"
-   },
-   {
-    "ok": true,
-    "op": [
-     "sweep",
-     "86450"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "z",
-     "rz",
-     "0",
-     "86451"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "sweep",
-     "172851"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "sweep",
-     "172891"
-    ],
-    "result": null
-   }
-  ]
- },
- "earnin-p64/durable-reward": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [
-   "y"
-  ],
-  "final": {
-   "accruing": 2,
-   "active": [
-    "b",
-    "c",
-    "m0"
-   ],
-   "burned": "0",
-   "counters": {
-    "maint": 0,
-    "ops": 2,
-    "react": 0,
-    "regs": 2
-   },
-   "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "20000000000000000000",
-   "order": [
-    "m0",
-    "b",
-    "c"
-   ],
-   "paid": {},
-   "records": {
-    "b": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "y",
-     "status": 1,
-     "tomb": false
-    },
-    "c": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "c",
-     "status": 1,
-     "tomb": false
-    },
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "b": "0",
-    "c": "0"
-   }
-  },
-  "steps": [
-   {
-    "ok": false,
-    "op": [
-     "register",
-     "a",
-     "x",
-     "0",
-     "1"
-    ],
-    "revert": "RewardNotDurable"
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "b",
-     "y",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "c",
-     "c",
-     "0",
-     "1"
-    ],
-    "result": null
-   }
-  ]
- },
- "earnin-p64/exit-and-reactivate-in-probation": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [],
-  "final": {
-   "accruing": 1,
-   "active": [
-    "a",
-    "m0"
-   ],
-   "burned": "0",
-   "counters": {
-    "maint": 0,
-    "ops": 0,
-    "react": 1,
-    "regs": 0
-   },
-   "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "20000000000000000000",
-   "order": [
-    "m0",
-    "a"
-   ],
-   "paid": {},
-   "records": {
-    "a": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 132,
-     "last_maint": 0,
-     "last_react": 132,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "a",
-     "status": 1,
-     "tomb": false
-    },
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "a": "0"
-   }
-  },
-  "steps": [
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "a",
-     "a",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "deregister",
-     "a",
-     "100"
-    ],
-    "result": null
-   },
-   {
-    "ok": false,
-    "op": [
-     "reactivate",
-     "a",
-     "131"
-    ],
-    "revert": "BadState"
-   },
-   {
-    "ok": true,
-    "op": [
-     "reactivate",
-     "a",
-     "132"
-    ],
-    "result": null
-   }
-  ]
- },
- "earnin-p64/probation-seats": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [],
-  "final": {
-   "accruing": 64,
-   "active": [
-    "full",
-    "m0",
-    "p0",
-    "p1",
-    "p10",
-    "p11",
-    "p12",
-    "p13",
-    "p14",
-    "p15",
-    "p16",
-    "p17",
-    "p18",
-    "p19",
-    "p2",
-    "p20",
-    "p21",
-    "p22",
-    "p23",
-    "p24",
-    "p25",
-    "p26",
-    "p27",
-    "p28",
-    "p29",
-    "p3",
-    "p30",
-    "p31",
-    "p32",
-    "p33",
-    "p34",
-    "p35",
-    "p36",
-    "p37",
-    "p38",
-    "p39",
-    "p4",
-    "p40",
-    "p41",
-    "p42",
-    "p43",
-    "p44",
-    "p45",
-    "p46",
-    "p47",
-    "p48",
-    "p49",
-    "p5",
-    "p50",
-    "p51",
-    "p52",
-    "p53",
-    "p54",
-    "p55",
-    "p56",
-    "p57",
-    "p58",
-    "p59",
-    "p6",
-    "p60",
-    "p61",
-    "p62",
-    "p63",
-    "p7",
-    "p8",
-    "p9"
-   ],
-   "burned": "0",
-   "counters": {
-    "maint": 0,
-    "ops": 1,
-    "react": 0,
-    "regs": 1
-   },
-   "cursor": 64,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "40000000000000000000",
-   "order": [
-    "m0",
-    "p0",
-    "p1",
-    "p2",
-    "p3",
-    "p4",
-    "p5",
-    "p6",
-    "p7",
-    "p8",
-    "p9",
-    "p10",
-    "p11",
-    "p12",
-    "p13",
-    "p14",
-    "p15",
-    "p16",
-    "p17",
-    "p18",
-    "p19",
-    "p20",
-    "p21",
-    "p22",
-    "p23",
-    "p24",
-    "p25",
-    "p26",
-    "p27",
-    "p28",
-    "p29",
-    "p30",
-    "p31",
-    "p32",
-    "p33",
-    "p34",
-    "p35",
-    "p36",
-    "p37",
-    "p38",
-    "p39",
-    "p40",
-    "p41",
-    "p42",
-    "p43",
-    "p44",
-    "p45",
-    "p46",
-    "p47",
-    "p48",
-    "p49",
-    "p50",
-    "p51",
-    "p52",
-    "p53",
-    "p54",
-    "p55",
-    "p56",
-    "p57",
-    "p58",
-    "p59",
-    "p60",
-    "p61",
-    "p62",
-    "p63",
-    "full"
-   ],
-   "paid": {},
-   "records": {
-    "full": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 2,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 2,
-     "reward": "full",
-     "status": 1,
-     "tomb": false
-    },
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    },
-    "p0": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p0",
-     "status": 1,
-     "tomb": false
-    },
-    "p1": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p1",
-     "status": 1,
-     "tomb": false
-    },
-    "p10": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p10",
-     "status": 1,
-     "tomb": false
-    },
-    "p11": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p11",
-     "status": 1,
-     "tomb": false
-    },
-    "p12": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p12",
-     "status": 1,
-     "tomb": false
-    },
-    "p13": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p13",
-     "status": 1,
-     "tomb": false
-    },
-    "p14": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p14",
-     "status": 1,
-     "tomb": false
-    },
-    "p15": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p15",
-     "status": 1,
-     "tomb": false
-    },
-    "p16": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p16",
-     "status": 1,
-     "tomb": false
-    },
-    "p17": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p17",
-     "status": 1,
-     "tomb": false
-    },
-    "p18": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p18",
-     "status": 1,
-     "tomb": false
-    },
-    "p19": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p19",
-     "status": 1,
-     "tomb": false
-    },
-    "p2": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p2",
-     "status": 1,
-     "tomb": false
-    },
-    "p20": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p20",
-     "status": 1,
-     "tomb": false
-    },
-    "p21": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p21",
-     "status": 1,
-     "tomb": false
-    },
-    "p22": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p22",
-     "status": 1,
-     "tomb": false
-    },
-    "p23": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p23",
-     "status": 1,
-     "tomb": false
-    },
-    "p24": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p24",
-     "status": 1,
-     "tomb": false
-    },
-    "p25": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p25",
-     "status": 1,
-     "tomb": false
-    },
-    "p26": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p26",
-     "status": 1,
-     "tomb": false
-    },
-    "p27": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p27",
-     "status": 1,
-     "tomb": false
-    },
-    "p28": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p28",
-     "status": 1,
-     "tomb": false
-    },
-    "p29": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p29",
-     "status": 1,
-     "tomb": false
-    },
-    "p3": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p3",
-     "status": 1,
-     "tomb": false
-    },
-    "p30": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p30",
-     "status": 1,
-     "tomb": false
-    },
-    "p31": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p31",
-     "status": 1,
-     "tomb": false
-    },
-    "p32": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p32",
-     "status": 1,
-     "tomb": false
-    },
-    "p33": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p33",
-     "status": 1,
-     "tomb": false
-    },
-    "p34": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p34",
-     "status": 1,
-     "tomb": false
-    },
-    "p35": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p35",
-     "status": 1,
-     "tomb": false
-    },
-    "p36": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p36",
-     "status": 1,
-     "tomb": false
-    },
-    "p37": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p37",
-     "status": 1,
-     "tomb": false
-    },
-    "p38": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p38",
-     "status": 1,
-     "tomb": false
-    },
-    "p39": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p39",
-     "status": 1,
-     "tomb": false
-    },
-    "p4": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p4",
-     "status": 1,
-     "tomb": false
-    },
-    "p40": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p40",
-     "status": 1,
-     "tomb": false
-    },
-    "p41": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p41",
-     "status": 1,
-     "tomb": false
-    },
-    "p42": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p42",
-     "status": 1,
-     "tomb": false
-    },
-    "p43": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p43",
-     "status": 1,
-     "tomb": false
-    },
-    "p44": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p44",
-     "status": 1,
-     "tomb": false
-    },
-    "p45": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p45",
-     "status": 1,
-     "tomb": false
-    },
-    "p46": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p46",
-     "status": 1,
-     "tomb": false
-    },
-    "p47": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p47",
-     "status": 1,
-     "tomb": false
-    },
-    "p48": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p48",
-     "status": 1,
-     "tomb": false
-    },
-    "p49": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p49",
-     "status": 1,
-     "tomb": false
-    },
-    "p5": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p5",
-     "status": 1,
-     "tomb": false
-    },
-    "p50": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p50",
-     "status": 1,
-     "tomb": false
-    },
-    "p51": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p51",
-     "status": 1,
-     "tomb": false
-    },
-    "p52": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p52",
-     "status": 1,
-     "tomb": false
-    },
-    "p53": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p53",
-     "status": 1,
-     "tomb": false
-    },
-    "p54": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p54",
-     "status": 1,
-     "tomb": false
-    },
-    "p55": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p55",
-     "status": 1,
-     "tomb": false
-    },
-    "p56": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p56",
-     "status": 1,
-     "tomb": false
-    },
-    "p57": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p57",
-     "status": 1,
-     "tomb": false
-    },
-    "p58": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p58",
-     "status": 1,
-     "tomb": false
-    },
-    "p59": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p59",
-     "status": 1,
-     "tomb": false
-    },
-    "p6": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p6",
-     "status": 1,
-     "tomb": false
-    },
-    "p60": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p60",
-     "status": 1,
-     "tomb": false
-    },
-    "p61": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p61",
-     "status": 1,
-     "tomb": false
-    },
-    "p62": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p62",
-     "status": 1,
-     "tomb": false
-    },
-    "p63": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p63",
-     "status": 1,
-     "tomb": false
-    },
-    "p7": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p7",
-     "status": 1,
-     "tomb": false
-    },
-    "p8": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p8",
-     "status": 1,
-     "tomb": false
-    },
-    "p9": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "p9",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "full": "20000000000000000000",
-    "p0": "0",
-    "p1": "0",
-    "p10": "0",
-    "p11": "0",
-    "p12": "0",
-    "p13": "0",
-    "p14": "0",
-    "p15": "0",
-    "p16": "0",
-    "p17": "0",
-    "p18": "0",
-    "p19": "0",
-    "p2": "0",
-    "p20": "0",
-    "p21": "0",
-    "p22": "0",
-    "p23": "0",
-    "p24": "0",
-    "p25": "0",
-    "p26": "0",
-    "p27": "0",
-    "p28": "0",
-    "p29": "0",
-    "p3": "0",
-    "p30": "0",
-    "p31": "0",
-    "p32": "0",
-    "p33": "0",
-    "p34": "0",
-    "p35": "0",
-    "p36": "0",
-    "p37": "0",
-    "p38": "0",
-    "p39": "0",
-    "p4": "0",
-    "p40": "0",
-    "p41": "0",
-    "p42": "0",
-    "p43": "0",
-    "p44": "0",
-    "p45": "0",
-    "p46": "0",
-    "p47": "0",
-    "p48": "0",
-    "p49": "0",
-    "p5": "0",
-    "p50": "0",
-    "p51": "0",
-    "p52": "0",
-    "p53": "0",
-    "p54": "0",
-    "p55": "0",
-    "p56": "0",
-    "p57": "0",
-    "p58": "0",
-    "p59": "0",
-    "p6": "0",
-    "p60": "0",
-    "p61": "0",
-    "p62": "0",
-    "p63": "0",
-    "p7": "0",
-    "p8": "0",
-    "p9": "0"
-   }
-  },
-  "steps": [
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p0",
-     "p0",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p1",
-     "p1",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p2",
-     "p2",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p3",
-     "p3",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p4",
-     "p4",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p5",
-     "p5",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p6",
-     "p6",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p7",
-     "p7",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p8",
-     "p8",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p9",
-     "p9",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p10",
-     "p10",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p11",
-     "p11",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p12",
-     "p12",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p13",
-     "p13",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p14",
-     "p14",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p15",
-     "p15",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p16",
-     "p16",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p17",
-     "p17",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p18",
-     "p18",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p19",
-     "p19",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p20",
-     "p20",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p21",
-     "p21",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p22",
-     "p22",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p23",
-     "p23",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p24",
-     "p24",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p25",
-     "p25",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p26",
-     "p26",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p27",
-     "p27",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p28",
-     "p28",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p29",
-     "p29",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p30",
-     "p30",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p31",
-     "p31",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p32",
-     "p32",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p33",
-     "p33",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p34",
-     "p34",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p35",
-     "p35",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p36",
-     "p36",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p37",
-     "p37",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p38",
-     "p38",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p39",
-     "p39",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p40",
-     "p40",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p41",
-     "p41",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p42",
-     "p42",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p43",
-     "p43",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p44",
-     "p44",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p45",
-     "p45",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p46",
-     "p46",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p47",
-     "p47",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p48",
-     "p48",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p49",
-     "p49",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p50",
-     "p50",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p51",
-     "p51",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p52",
-     "p52",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p53",
-     "p53",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p54",
-     "p54",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p55",
-     "p55",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p56",
-     "p56",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p57",
-     "p57",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p58",
-     "p58",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p59",
-     "p59",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p60",
-     "p60",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p61",
-     "p61",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p62",
-     "p62",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "p63",
-     "p63",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": false,
-    "op": [
-     "register",
-     "p64",
-     "p64",
-     "0",
-     "1"
-    ],
-    "revert": "Capacity"
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "full",
-     "full",
-     "20000000000000000000",
-     "2"
-    ],
-    "result": null
-   }
-  ]
- },
- "earnin-p64/punish": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [],
-  "final": {
-   "accruing": 0,
-   "active": [
-    "m0"
-   ],
-   "burned": "6000000000000000000",
-   "counters": {
-    "maint": 0,
-    "ops": 1,
-    "react": 0,
-    "regs": 1
-   },
-   "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "20000000000000000000",
-   "order": [
-    "m0",
-    "a"
-   ],
-   "paid": {},
-   "records": {
-    "a": {
-     "bond": "5000000000000000000",
-     "bond_state": 2,
-     "burn": 1,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 1,
-     "exit": 1,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "a",
-     "status": 2,
-     "tomb": true
-    },
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "a": "3000000000000000000"
-   }
-  },
-  "steps": [
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "a",
-     "a",
-     "3000000000000000000",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "settle_to",
-     "a",
-     "2000000000000000000"
-    ],
-    "result": "0"
-   },
-   {
-    "ok": true,
-    "op": [
-     "punish",
-     "a",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "settle_to",
-     "a",
-     "1000000000000000000"
-    ],
-    "result": "1000000000000000000"
-   }
-  ]
- },
- "earnin-p64/register-values": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [],
-  "final": {
-   "accruing": 2,
-   "active": [
-    "a",
-    "b",
-    "c",
-    "m0"
-   ],
-   "burned": "0",
-   "counters": {
-    "maint": 0,
-    "ops": 3,
-    "react": 0,
-    "regs": 3
-   },
-   "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "45000000000000000000",
-   "order": [
-    "m0",
-    "a",
-    "b",
-    "c"
-   ],
-   "paid": {},
-   "records": {
-    "a": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "a",
-     "status": 1,
-     "tomb": false
-    },
-    "b": {
-     "bond": "5000000000000000000",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "b",
-     "status": 1,
-     "tomb": false
-    },
-    "c": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "c",
-     "status": 1,
-     "tomb": false
-    },
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "a": "0",
-    "b": "5000000000000000000",
-    "c": "20000000000000000000"
-   }
-  },
-  "steps": [
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "a",
-     "a",
-     "0",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "b",
-     "b",
-     "5000000000000000000",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "c",
-     "c",
-     "20000000000000000000",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": false,
-    "op": [
-     "register",
-     "d",
-     "d",
-     "20000000000000000001",
-     "1"
-    ],
-    "revert": "BadValue"
-   }
-  ]
- },
- "earnin-p64/top-up": {
-  "cp": {
-   "M_max": 256,
-   "P_MAX": 64,
-   "REG_OPS": 1024,
-   "R_max": 255,
-   "T_PROB": 86400
-  },
-  "durable": [],
-  "final": {
-   "accruing": 1,
-   "active": [
-    "a",
-    "b",
-    "c",
-    "m0"
-   ],
-   "burned": "0",
-   "counters": {
-    "maint": 0,
-    "ops": 0,
-    "react": 0,
-    "regs": 0
-   },
-   "cursor": 1,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "60000000000000000000",
-   "order": [
-    "m0",
-    "a",
-    "b",
-    "c"
-   ],
-   "paid": {},
-   "records": {
-    "a": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 1,
-     "last_maint": 2,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 1,
-     "reward": "a",
-     "status": 1,
-     "tomb": false
-    },
-    "b": {
-     "bond": "0",
-     "bond_state": 4,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 4,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 4,
-     "reward": "b",
-     "status": 1,
-     "tomb": false
-    },
-    "c": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 5,
-     "last_maint": 7,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 5,
-     "reward": "c",
-     "status": 1,
-     "tomb": false
-    },
-    "m0": {
-     "bond": "20000000000000000000",
-     "bond_state": 1,
-     "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
-     "due": 0,
-     "exit": 0,
-     "grace": 0,
-     "last_maint": 0,
-     "last_react": 0,
-     "last_share": 0,
-     "registered_at": 0,
-     "reward": "m0",
-     "status": 1,
-     "tomb": false
-    }
-   },
-   "spent": {
-    "a": "20000000000000000000",
-    "b": "0",
-    "c": "10000000000000000000"
-   }
-  },
-  "steps": [
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "a",
-     "a",
-     "15000000000000000000",
-     "1"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "top_up",
-     "a",
-     "6000000000000000000",
-     "2"
-    ],
-    "result": "1000000000000000000"
-   },
-   {
-    "ok": false,
-    "op": [
-     "top_up",
-     "a",
-     "5000000000000000000",
-     "2"
-    ],
-    "revert": "RegOpsLimit"
-   },
-   {
-    "ok": false,
-    "op": [
-     "top_up",
-     "a",
-     "1",
-     "3"
-    ],
-    "revert": "BadState"
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "b",
-     "b",
-     "0",
-     "4"
-    ],
-    "result": null
-   },
-   {
-    "ok": false,
-    "op": [
-     "top_up",
-     "b",
-     "0",
-     "5"
-    ],
-    "revert": "BadValue"
-   },
-   {
-    "ok": true,
-    "op": [
-     "register",
-     "c",
-     "c",
-     "0",
-     "5"
-    ],
-    "result": null
-   },
-   {
-    "ok": true,
-    "op": [
-     "top_up",
-     "c",
-     "7000000000000000000",
-     "6"
-    ],
-    "result": "0"
-   },
-   {
-    "ok": true,
-    "op": [
-     "settle_to",
-     "c",
-     "10000000000000000000"
-    ],
-    "result": "0"
-   },
-   {
-    "ok": true,
-    "op": [
-     "top_up",
-     "c",
-     "13000000000000000000",
-     "7"
-    ],
-    "result": "10000000000000000000"
-   },
-   {
-    "ok": false,
-    "op": [
-     "top_up",
-     "c",
-     "1",
-     "8"
-    ],
-    "revert": "BadState"
-   }
-  ]
- },
  "earnin/accrual": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [
    "ra",
    "rb"
@@ -3153,11 +20,6 @@
     "regs": 1
    },
    "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
    "heldTotal": "60000000000000000000",
    "order": [
     "m0",
@@ -3173,8 +35,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3190,8 +50,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 2,
@@ -3207,8 +65,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,
@@ -3288,10 +144,7 @@
   ]
  },
  "earnin/deadline": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [
    "ra",
    "rz"
@@ -3299,7 +152,9 @@
   "final": {
    "accruing": 0,
    "active": [
-    "m0"
+    "a",
+    "m0",
+    "z"
    ],
    "burned": "0",
    "counters": {
@@ -3308,26 +163,34 @@
     "react": 0,
     "regs": 0
    },
-   "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
-   "heldTotal": "20000000000000000000",
+   "cursor": 2,
+   "heldTotal": "22000000000000000000",
    "order": [
-    "m0"
+    "m0",
+    "a",
+    "z"
    ],
-   "paid": {
-    "ra": "2000000000000000000"
-   },
+   "paid": {},
    "records": {
+    "a": {
+     "bond": "2000000000000000000",
+     "bond_state": 4,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 10,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 10,
+     "reward": "ra",
+     "status": 1,
+     "tomb": false
+    },
     "m0": {
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,
@@ -3336,6 +199,21 @@
      "last_share": 0,
      "registered_at": 0,
      "reward": "m0",
+     "status": 1,
+     "tomb": false
+    },
+    "z": {
+     "bond": "0",
+     "bond_state": 4,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 60531,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 60531,
+     "reward": "rz",
      "status": 1,
      "tomb": false
     }
@@ -3420,15 +298,12 @@
   ]
  },
  "earnin/durable-reward": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [
    "y"
   ],
   "final": {
-   "accruing": 2,
+   "accruing": 0,
    "active": [
     "b",
     "c",
@@ -3442,11 +317,6 @@
     "regs": 2
    },
    "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
    "heldTotal": "20000000000000000000",
    "order": [
     "m0",
@@ -3459,8 +329,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3476,8 +344,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3493,8 +359,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,
@@ -3549,13 +413,10 @@
   ]
  },
  "earnin/exit-and-reactivate-in-probation": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [],
   "final": {
-   "accruing": 1,
+   "accruing": 0,
    "active": [
     "a",
     "m0"
@@ -3568,11 +429,6 @@
     "regs": 0
    },
    "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
    "heldTotal": "20000000000000000000",
    "order": [
     "m0",
@@ -3584,8 +440,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 132,
@@ -3601,8 +455,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,
@@ -3661,13 +513,10 @@
   ]
  },
  "earnin/probation-seats": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [],
   "final": {
-   "accruing": 8,
+   "accruing": 0,
    "active": [
     "full",
     "m0",
@@ -3678,7 +527,8 @@
     "p4",
     "p5",
     "p6",
-    "p7"
+    "p7",
+    "p8"
    ],
    "burned": "0",
    "counters": {
@@ -3687,12 +537,7 @@
     "react": 0,
     "regs": 1
    },
-   "cursor": 1,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
+   "cursor": 4,
    "heldTotal": "40000000000000000000",
    "order": [
     "m0",
@@ -3704,6 +549,7 @@
     "p5",
     "p6",
     "p7",
+    "p8",
     "full"
    ],
    "paid": {},
@@ -3712,8 +558,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 2,
@@ -3729,8 +573,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,
@@ -3746,8 +588,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3763,8 +603,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3780,8 +618,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3797,8 +633,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3814,8 +648,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3831,8 +663,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3848,8 +678,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3865,8 +693,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -3875,6 +701,21 @@
      "last_share": 0,
      "registered_at": 1,
      "reward": "p7",
+     "status": 1,
+     "tomb": false
+    },
+    "p8": {
+     "bond": "0",
+     "bond_state": 4,
+     "burn": 0,
+     "due": 0,
+     "exit": 0,
+     "grace": 1,
+     "last_maint": 0,
+     "last_react": 0,
+     "last_share": 0,
+     "registered_at": 1,
+     "reward": "p8",
      "status": 1,
      "tomb": false
     }
@@ -3888,7 +729,8 @@
     "p4": "0",
     "p5": "0",
     "p6": "0",
-    "p7": "0"
+    "p7": "0",
+    "p8": "0"
    }
   },
   "steps": [
@@ -3981,7 +823,7 @@
     "result": null
    },
    {
-    "ok": false,
+    "ok": true,
     "op": [
      "register",
      "p8",
@@ -3989,7 +831,7 @@
      "0",
      "1"
     ],
-    "revert": "Capacity"
+    "result": null
    },
    {
     "ok": true,
@@ -4005,10 +847,7 @@
   ]
  },
  "earnin/punish": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [],
   "final": {
    "accruing": 0,
@@ -4023,11 +862,6 @@
     "regs": 1
    },
    "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
    "heldTotal": "20000000000000000000",
    "order": [
     "m0",
@@ -4039,8 +873,6 @@
      "bond": "5000000000000000000",
      "bond_state": 2,
      "burn": 1,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 1,
      "exit": 1,
      "grace": 1,
@@ -4056,8 +888,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,
@@ -4116,13 +946,10 @@
   ]
  },
  "earnin/register-values": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [],
   "final": {
-   "accruing": 2,
+   "accruing": 0,
    "active": [
     "a",
     "b",
@@ -4137,11 +964,6 @@
     "regs": 3
    },
    "cursor": 0,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
    "heldTotal": "45000000000000000000",
    "order": [
     "m0",
@@ -4155,8 +977,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -4172,8 +992,6 @@
      "bond": "5000000000000000000",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -4189,8 +1007,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -4206,8 +1022,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,
@@ -4274,13 +1088,10 @@
   ]
  },
  "earnin/top-up": {
-  "cp": {
-   "P_MAX": 8,
-   "T_PROB": 60480
-  },
+  "cp": {},
   "durable": [],
   "final": {
-   "accruing": 1,
+   "accruing": 0,
    "active": [
     "a",
     "b",
@@ -4295,11 +1106,6 @@
     "regs": 0
    },
    "cursor": 1,
-   "epochTotals": {
-    "cur": 0,
-    "epoch": 0,
-    "prev": 0
-   },
    "heldTotal": "60000000000000000000",
    "order": [
     "m0",
@@ -4313,8 +1119,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 1,
@@ -4330,8 +1134,6 @@
      "bond": "0",
      "bond_state": 4,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 4,
@@ -4347,8 +1149,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 5,
@@ -4364,8 +1164,6 @@
      "bond": "20000000000000000000",
      "bond_state": 1,
      "burn": 0,
-     "cnt_cur": 0,
-     "cnt_prev": 0,
      "due": 0,
      "exit": 0,
      "grace": 0,

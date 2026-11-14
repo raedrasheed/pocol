@@ -248,7 +248,7 @@ def _word(value):
 
 def _call(query, to, signature, args, height, words):
     data = keccak256(signature.encode())[:4] + b''.join(_word(x) for x in args)
-    raw = hex_bytes(_result(query, 'eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': '0x1e8480'}, hex(height)]), words*32)
+    raw = hex_bytes(_result(query, 'eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': hex(CALL_GAS)}, hex(height)]), words*32)
     return [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
 
 
@@ -442,8 +442,9 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
 # v3 (spec-2) networks: V3-PR-G. Dormant until V3-PR-I: a v3 genesis is read only with a trusted operator configuration
 # (validated_network), exactly as a fork schedule is. Sources: PoColSystemV3.sol (RewardEscrow closeBlock/settleOne/
 # distribute/payTo/burnBond/invalidate, MinerRegistry punish/payee, ShareLedger), lp4-execution apply.rs (phase order)
-# and issuance.rs (M3), pocold chain.rs (membership, evidence_effects, late shares), V3-DECISIONS.md D-V3-01/02/10/14/
-# 15/16/17/19/20, and the independent model prototypes/lp4-execution/tests/v3_model.py.
+# and issuance.rs (M3), pocold chain.rs (membership, evidence_effects, late shares), V3-DECISIONS.md D-V3-01/02/15/16/
+# 17/19/20 (FN-2b, owner decisions 10b/10c/Q2(a) of 2026-11-13: no seat contest or probation pool; registerReplacing at a
+# full set), and the independent model prototypes/lp4-execution/tests/v3_model.py.
 #
 # The phase order of a v3 block h (apply.rs): phase 0 recordShares/recordResult(h-1), the body's evidence in order
 # (kind 3 recordLate; kind 1/2 invalidate then punish with the block's signed proposer as reporter), markClose,
@@ -452,15 +453,29 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
 from collections import namedtuple
 
 # The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION); 2 is the v3 genesis (CP schema v2),
-# decoded only by a v3-preview build until activation. CP item count of each version's schema.
+# decoded only by a v3-preview build until activation. CP item count of each version's schema (CP schema v2: 52 v1 fields
+# and H_half 52, S_tail 53, gamma_tip_bp 54, baseFeeMin 55, R_react 56, C_react 57, rho_bp 58; FN-2a and FN-2b deleted
+# F0_*, P_MAX, T_PROB, E_epoch, theta_bp and k_sigma).
 SPEC_VERSION = 1
 V3_SPEC_VERSION = 2
-CP_ITEMS = {1: 52, 2: 64}
+CP_ITEMS = {1: 52, 2: 59}
+CP_GAMMA_TIP_BP = 54
+CP_RHO_BP = 58
 # sysCodeHash of the v3 program set: keccak256(RLP([C0C001..C0C005 runtimes of lp4-execution/tests/data/system-v3.json,
 # 0x80 for PAY])) (apply.rs SystemPrograms::sys_code_hash); test_pocol_rewards recomputes it from that file.
-V3_SYS_CODE_HASH = '0x70d4a3fd1b3ea222cef3e952b05f57c20c04cd2a2014f09472d14ccb0c0da5d7'
+V3_SYS_CODE_HASH = '0xa1d91673b4b4a2c88ff75d4828dc1932dbaa2831284a66f4b1ea77b4c5e666a2'
 LEDGER = '0x0000000000000000000000000000000000c0c003'
-MAX_MEMBERS_V3 = 256
+# M_max of the fresh network (owner decision of 2026-11-13); the ActList is read in pages of ACTIVE_PAGE through
+# MinerRegistry.activeSlice (FN-2b C5) and reused for the next height when a block cannot have changed it.
+MAX_MEMBERS_V3 = 10000
+ACTIVE_PAGE = 512
+# eth_call gas of the gateway's contract reads (CALL_GAS), and of one activeSlice page (ACTIVE_SLICE_GAS): each element
+# reads two cold slots (its ActList element and its record word, at least 4,200 gas on Cancun), so a page of 512 needs
+# more than CALL_GAS. ACTIVE_SLICE_GAS is pocold's CALL_GAS_MAX (rpc.rs; the most a pocold eth_call runs);
+# lp4-execution tests/v3_contracts.rs active_slice_reads_m_max_members_in_gateway_pages runs MinerRegistry.activeSlice
+# on M_max members in pages of ACTIVE_PAGE with this gas and requires each page to use at most a quarter of it.
+CALL_GAS = 2000000
+ACTIVE_SLICE_GAS = 30000000
 MAX_CALLS_V3 = 8192
 MAX_SECONDS_V3 = 60
 MAX_SPEC_BYTES = 262144
@@ -772,6 +787,15 @@ def earliest_final_height(close_height, h, d, h_end, t_end):
 TOP_UP = keccak256(b'topUp()')[:4]
 
 
+def _abi_two_arrays(raw, count):
+    """(address[] ids, uint256[] w0) of MinerRegistry.activeSlice, each of `count` words, in canonical ABI encoding."""
+    require(len(raw) == 64 + 2 * 32 * (count + 1), 'Malformed activeSlice answer')
+    word = lambda i: int.from_bytes(raw[i:i+32], 'big')
+    a, b = word(0), word(32)
+    require(a == 64 and b == 64 + 32 * (count + 1) and word(a) == count and word(b) == count, 'Malformed activeSlice answer')
+    return [word(a + 32 + 32*i) for i in range(count)], [word(b + 32 + 32*i) for i in range(count)]
+
+
 def _tx_call(raw):
     """(to, input) of a committed transaction, as lp4-execution wire.rs decodes the three accepted forms: legacy RLP
     (9 fields), EIP-2930 0x01 (11) and EIP-1559 0x02 (12). `to` is None for a contract creation."""
@@ -788,7 +812,7 @@ def _tip_share_record(chain, flows, proposer, share, h, calls):
     """The proposer's record as closeBlock(h) reads it, after the user phase. Phase 0 is reproduced in `flows`; the user
     phase changes the payment fields of `proposer`'s record (reward address, bond state, bond) only by its own successful
     transactions to MinerRegistry (setRewardAddress, topUp, deregister, claimBond, reactivate are keyed by msg.sender;
-    another sender's removeInactive or registerContest only exits it), and the record after closeBlock (state h) differs
+    another sender's removeInactive or registerReplacing only exits it), and the record after closeBlock (state h) differs
     from the one closeBlock read only by the tip share's accrual. `calls` are the block's transactions (tips()): sender,
     destination, receipt status and selector. Without a successful registry call of its own the reproduced record is
     used. With one, the record before closeBlock is recovered from state h: its reward address, and its bond state and
@@ -838,13 +862,14 @@ class _V3Chain:
         self.query, self.network, self.schedule, self.cp = query, network, fork_schedule, cp
         self.anchor = None
         self.headers, self.bodies, self.assignments, self.record_cache = {}, {}, {}, {}
+        self.active_cache = {}
 
     def result(self, method, params):
         return _result(self.query, method, params)
 
-    def call(self, to, signature, args, height, words=None):
+    def call(self, to, signature, args, height, words=None, gas=CALL_GAS):
         data = keccak256(signature.encode())[:4] + b''.join(_word(x) for x in args)
-        raw = hex_bytes(self.result('eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': '0x1e8480'}, hex(height)]),
+        raw = hex_bytes(self.result('eth_call', [{'to': to, 'data': '0x'+data.hex(), 'gas': hex(gas)}, hex(height)]),
                         None if words is None else words*32)
         return raw if words is None else [int.from_bytes(raw[i:i+32], 'big') for i in range(0, len(raw), 32)]
 
@@ -901,25 +926,19 @@ class _V3Chain:
         header, parent = self.header(k), self.header(k - 1)
         require(k > 0, 'Genesis has no assignment')
         cp = self.cp
-        n = self.call(REGISTRY, 'lengths()', [], k - 1, 4)[1]
-        require(0 < n <= cp[18] <= MAX_MEMBERS_V3, 'Unsupported active membership size')
         full = full_nonce_rule(header['protocolVersion'], cp[4])
         all_live = v3_active(k, self.schedule, self.network.spec_version) and full
         cutoff = max(0, k - cp[24])
-        live, active, seen = [], [], set()
-        for i in range(n):
-            value = self.call(REGISTRY, 'activeAt(uint256)', [i], k - 1, 1)[0]
-            require(0 < value < 1 << 160 and value != (1 << 160)-2 and not 0xc0c001 <= value <= 0xc0c0ff, 'Invalid active miner')
-            miner = _ident(value)
-            require(miner not in seen, 'Duplicate active miner')
-            seen.add(miner)
-            record = self.record(miner, k - 1)
-            require(record[0] != 0 and record[0] & 255 == 1, 'Invalid active record')
-            if (record[0] >> 8) & 255:
+        live, active = [], []
+        for miner, w0 in self.active_list(k - 1):
+            require(w0 != 0 and w0 & 255 == 1, 'Invalid active record')
+            if (w0 >> 8) & 255:
                 continue
             live.append(miner)
-            if ((record[0] >> 88) & LOW64) >= cutoff or record[3] >> 192 >= cutoff:
-                active.append(miner)
+            if not all_live:
+                record = self.record(miner, k - 1)
+                if ((record[0] >> 88) & LOW64) >= cutoff or record[3] >> 192 >= cutoff:
+                    active.append(miner)
         members = live if all_live or not active else active
         require(bool(members), 'No nonce owners')
         seed = hashlib.sha256(b'PoColNonce' + parent['seal'] + k.to_bytes(8, 'big') + header['attempt'].to_bytes(4, 'big')).digest()
@@ -930,6 +949,47 @@ class _V3Chain:
         ranges = [(i*maximum//len(tickets), (i+1)*maximum//len(tickets), m) for i, (_, m) in enumerate(tickets)]
         self.assignments[k] = (maximum, ranges)
         return self.assignments[k]
+
+    def active_list(self, height):
+        """The ActList of state `height` with each member's record word w0, as MinerRegistry.activeSlice pages it (FN-2b
+        C5: ACTIVE_PAGE members per call at M_max 10,000). Reused from state height - 1 (the delta cache) when block
+        `height` left it unchanged (`_same_members`); w0 may differ then (lastShare, the bond state), but the assignment
+        reads only status and tomb from it, and a bounded chain's activity reads the record itself."""
+        if height in self.active_cache:
+            return self.active_cache[height]
+        if height > 0 and height - 1 in self.active_cache and self._same_members(height):
+            members = self.active_cache[height - 1]
+        else:
+            n = self.call(REGISTRY, 'lengths()', [], height, 4)[1]
+            require(0 < n <= self.cp[18] <= MAX_MEMBERS_V3, 'Unsupported active membership size')
+            members, seen = [], set()
+            for start in range(0, n, ACTIVE_PAGE):
+                count = min(ACTIVE_PAGE, n - start)
+                raw = self.call(REGISTRY, 'activeSlice(uint256,uint256)', [start, ACTIVE_PAGE], height, gas=ACTIVE_SLICE_GAS)
+                ids, words = _abi_two_arrays(raw, count)
+                for value, w0 in zip(ids, words):
+                    require(0 < value < 1 << 160 and value != (1 << 160)-2 and not 0xc0c001 <= value <= 0xc0c0ff, 'Invalid active miner')
+                    miner = _ident(value)
+                    require(miner not in seen, 'Duplicate active miner')
+                    seen.add(miner)
+                    members.append((miner, w0))
+        self.active_cache[height] = members
+        return members
+
+    def _same_members(self, height):
+        """Block `height` left the ActList and its members' tombs as state height - 1 had them: no kind-1/2 evidence (punish
+        is the only SYSTEM path that removes an active member or tombs one) and, in MinerRegistry's per-block counters at
+        state `height`, no REG_OPS user operation (register, registerReplacing, deregister, removeInactive, claimBond:
+        slot 3 bits 0..15) and no reactivation (slot 9 bits 8..15 for this height). The counters count successful calls,
+        from a contract caller too; maintenance (setRewardAddress, topUp) moves nobody."""
+        for raw in self.body(height)[1]:
+            item = rlp_decode(raw, 65536)
+            if not (isinstance(item, list) and item and item[0] == b'\x03'):
+                return False
+        ops = self.call(REGISTRY, 'counters()', [], height, 1)[0] & 0xffff
+        budgets = self.call(REGISTRY, 'budgets()', [], height, 1)[0]
+        reacts = (budgets >> 8) & 255 if (budgets >> 16) & LOW64 == height else 0
+        return ops == 0 and reacts == 0
 
     def owner(self, k, nonce):
         maximum, ranges = self.assignment(k)
@@ -1039,7 +1099,7 @@ def _v3_cp(params, network):
             'Invalid reward configuration')
     require(cp[13] + cp[14] <= 10000 and 0 < cp[15] <= MAX_U256 and 0 < cp[16] <= MAX_U256 and 0 < cp[18] <= MAX_MEMBERS_V3,
             'Invalid reward caps')
-    require(0 < cp[52] < 1 << 64 and cp[53] <= MAX_U256 and cp[56] <= 10000 and cp[63] <= 10000, 'Invalid v3 reward fields')
+    require(0 < cp[52] < 1 << 64 and cp[53] <= MAX_U256 and cp[CP_GAMMA_TIP_BP] <= 10000 and cp[CP_RHO_BP] <= 10000, 'Invalid v3 reward fields')
     return cp
 
 
@@ -1075,7 +1135,7 @@ def _evidence_flows(chain, flows, h, proposer):
             invalid = _ident(word & LOW160) == accused and bool(word & WIN_ACCRUING)
             if invalid:
                 invalidated.add(j)
-        bond, reward, cut = _punish(flows, accused, proposer, cp[63])
+        bond, reward, cut = _punish(flows, accused, proposer, cp[CP_RHO_BP])
         evidence.append({'kind': effect['kind'], 'accused': accused, 'potHeight': j, 'potInvalidated': invalid,
                          'bondBurnedWei': str(bond), 'reporter': proposer,
                          'reporterRewardAddress': reward if reward != ZERO else None, 'reporterCutWei': str(cut)})
@@ -1186,8 +1246,8 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
       carry (cross-checked with RewardEscrow.carry), and the tip share; every burn is cross-checked with burnedTotal.
     - at the final block F (`final`): no pot F; settle(F-D), then finalize burns the tips and both outstanding carries,
       and settleFinal settles every pot in [F-D+1, F-1] with its base burn burned (`block.finalize`).
-    ACCRUING records, a pool-contest victim exited until its due height included, fill their bond before their
-    reward address is paid (EARN-IN P1; V3-14 owner decision 2026-11-13). Not reported: the sweep's and claimBond's
+    ACCRUING records, a registerReplacing victim exited until its due height included, fill their bond before their
+    reward address is paid (EARN-IN P1; FN-2b C4). Not reported: the sweep's and claimBond's
     bond refunds and user-transaction transfers. The tip share uses the proposer's record before closeBlock, recovered
     from state h when the proposer itself called MinerRegistry in that block (_tip_share_record)."""
     fork_schedule = validated_fork_schedule(fork_schedule)
@@ -1264,7 +1324,7 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
                 all(chain.pending(j, h)[1] == 0 for j in range(max(1, h - d + 1), h + 1)), 'Pending pots or carry after the final block')
     else:
         require(chain.call(ESCROW, 'carry()', [], h, 1)[0] == carry_out, 'Carry differs from the reconstructed base burn')
-        share = tip_share(tips, cp[56], header['signed'])
+        share = tip_share(tips, cp[CP_GAMMA_TIP_BP], header['signed'])
         if proposer is not None:
             after = _tip_share_record(chain, flows, proposer, share, h, user_calls)
             delta = _Delta(flows)

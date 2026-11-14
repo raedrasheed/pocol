@@ -62,7 +62,7 @@ result = snapshot(node_query, fork_schedule=trusted_schedule, network=network)
 
 `chain_id`, `genesis_hash` and `trusted_schedule` come from the operator's deployment configuration, never from RPC.
 The adapter requires the node's `pocol_getParams` to name that chain and genesis, its `genesisPre` to hash (keccak256)
-to the configured genesis and to decode as a version-2 GenesisSpec with the 64 CP items of CP schema v2 and the v3
+to the configured genesis and to decode as a version-2 GenesisSpec with the 59 CP items of CP schema v2 and the v3
 program set's sysCodeHash (`V3_SYS_CODE_HASH`, recomputed by the tests from `system-v3.json`), and the node's
 advertised fork schedule to equal the configured one. `v3_active(h)` is `active_version(h) >= 3 || specVersion >= 2`.
 
@@ -83,9 +83,13 @@ The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For
   only the offender's bond (and its parts of pots settled later) with `rho_bp` of that bond paid to the reward address
   of the block's signed proposer (V3-17); the whole pot burning only for an accused winner recorded ACCRUING
   (V3-16). They also include `settle(h-D)`, with its header and late owners (checked against the ShareLedger) and its
-  carry, and the tip share. ACCRUING records, including a pool-contest victim that stays exited until its due height
-  (owner decision 2026-11-13), fill their bond before their reward address is paid. Contests change the ActList and
-  so the nonce owners of later blocks. Once closing starts (H_CLOSE or T_CLOSE), `markClose` runs after the evidence
+  carry, and the tip share. ACCRUING records, including a registerReplacing victim that stays exited until its due
+  height (FN-2b C4), fill their bond before their reward address is paid. Registrations, exits and replacements change
+  the ActList and so the nonce owners of later blocks. The ActList is read in pages of 512 through
+  MinerRegistry.activeSlice (FN-2b C5; up to MAX_MEMBERS_V3 = 10,000 members), each page sent with ACTIVE_SLICE_GAS =
+  30,000,000 (pocold's eth_call maximum; a page of 512 reads two cold slots per member, about 2.74M gas, more than the
+  2,000,000 CALL_GAS of the other reads), and reused for the next height when a
+  block has no kind-1/2 evidence and its registry counters show no registration, exit, replacement or reactivation. Once closing starts (H_CLOSE or T_CLOSE), `markClose` runs after the evidence
   and before `settle(h-D)`: it refunds up to CP 50 live records per block (`bondRefunds`), and each refunded record is
   PAID from then on, so that block's settlement and tip share pay its reward address directly instead of its bond.
 - **the final block F** (`final: true`): no pot F and no issuance. `settle(F-D)` runs as in any block, then `finalize`
@@ -143,7 +147,8 @@ burned total, closing cursor or record that differs from the reconstruction, a f
 fallback body, a changed anchor, and every answer field replaced by a value of another JSON type) fails closed.
 `V3DevnetDifferential` runs only with `POCOL_V3_DEVNET` set. `prototypes/pocold/tests/v3_reward_gateway.rs`
 (`--features v3-preview`) sets it: it builds a 50-block v3 devnet chain with tips, late shares (one carried by the
-block that settles their pot), a seat and a pool contest, type-2 evidence against an ACCRUING and a HELD winner,
+block that settles their pot), two registerReplacing calls at the full set (a HELD and an ACCRUING victim, the second
+payable and punishable after its exit), type-2 evidence against an ACCRUING and a HELD winner,
 against a share owner who is not the winner, against the parent block's ACCRUING winner and against pot h-D's
 ACCRUING winner in block h, a fallback block, the proposer's own registry call in its block, closing with its bond
 refunds and the final block, serves it over pocold's JSON-RPC, and compares every block's reproduced payments, refunds,

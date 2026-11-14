@@ -1114,6 +1114,9 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             Ok(json!({"header":hex(&e.header.encoded),"body":hex(&e.body.encode())}))}
         "pocol_getMiners"=>{let head=n.chain.head;let s=n.chain.view_of(&head).ok_or((-32001,"head state".to_string()))?;let s=s.v();Ok(json!(apply::record_list(s).iter().map(|id|{let r=apply::miner_record(s,*id).unwrap();
             json!({"id":format!("{id:#x}"),"status":r.status,"tomb":r.tomb,"bondState":r.bond_state,"lastShare":r.last_share,"bond":qty256(r.bond),"registeredAt":r.registered_at,"reward":format!("{:#x}",r.reward),"rewardBalance":qty256(s.account(&r.reward).map(|a|a.info.balance).unwrap_or_default())})}).collect::<Vec<_>>()))}
+        // FN-2b C4: the members the registry could remove as inactive at the next block (v3 program set, full set only),
+        // which a newcomer's registerReplacing names (wallet.rs removable_members); heavy lane (one entry per removable member).
+        "pocol_getRemovable"=>crate::wallet::removable_json(&n.chain).map_err(|e|Fail::from((-32001,e))),
         "pocol_getTemplate"=>Ok(n.template_json()),
         // V3-30 S2: the local work interface, only with a work port (otherwise as an unknown method); ORIGIN_DENY and
         // `handle_from` keep sites and the main port out before this runs.

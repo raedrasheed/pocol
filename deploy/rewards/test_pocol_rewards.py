@@ -484,7 +484,7 @@ MODEL_DEFAULT = {'D': 4, 'm': 32, 'kappa': 2, 'alpha_bp': 1000, 'gamma_bp': 500,
                  'S_tail': 2 * 10**18 // 32, 'gamma_tip_bp': 5000}
 
 
-def v3_spec(chain_id=777963, version=2, items=64, sys_hash=None):
+def v3_spec(chain_id=777963, version=2, items=59, sys_hash=None):
     """A canonical GenesisSpec [version, chainId, CP, allocRoot, M_0List, sysCodeHash] for the refusal tests."""
     cp = [uint(1) for _ in range(items)]
     sys_hash = bytes.fromhex((sys_hash or rewards.V3_SYS_CODE_HASH)[2:])
@@ -579,7 +579,7 @@ class V3ModelVectorTests(unittest.TestCase):
         into pot h is the base burn R - A of settle(h-1-D) (Q = max(C, kappa*m), C the header and late shares of
         h-1-D). A pot that evidence names is skipped for the carry (its settlement may burn whole)."""
         checked, carried, tipped = 0, 0, 0
-        for name in ('issuance-carry-vectors.json', 'evidence-penalty-vectors.json', 'late-share-vectors.json', 'contest-vectors.json'):
+        for name in ('issuance-carry-vectors.json', 'evidence-penalty-vectors.json', 'late-share-vectors.json', 'registry-budget-vectors.json'):
             for label, vector in json.loads((V3_VECTORS / name).read_text()).items():
                 if not isinstance(vector, dict) or 'steps' not in vector or not any(s['op'][0] == 'begin' for s in vector['steps']):
                     continue
@@ -629,7 +629,7 @@ class V3ModelVectorTests(unittest.TestCase):
         finalize (the tips and both outstanding carries burn) then settleFinal for every pot in [F-D+1, F-1] with its
         base burn burned. Each owner's total payment and the burned total equal the model's final state."""
         checked = 0
-        for name in ('issuance-carry-vectors.json', 'evidence-penalty-vectors.json', 'late-share-vectors.json', 'contest-vectors.json'):
+        for name in ('issuance-carry-vectors.json', 'evidence-penalty-vectors.json', 'late-share-vectors.json', 'registry-budget-vectors.json'):
             for label, vector in json.loads((V3_VECTORS / name).read_text()).items():
                 if not isinstance(vector, dict) or not any(s['op'][0] == 'final' for s in vector.get('steps', [])):
                     continue
@@ -697,7 +697,7 @@ class FakeV3Chain:
     words by (to, signature, args, height). Anything else is an unexpected read."""
 
     def __init__(self, cp=None):
-        self.cp = {8: 32, 9: 2, 11: 4, 13: 1000, 14: 500, 16: B_REG, 45: 0, 46: 0, 47: 0, 48: 0, 50: 128, 63: 2500}
+        self.cp = {8: 32, 9: 2, 11: 4, 13: 1000, 14: 500, 16: B_REG, 45: 0, 46: 0, 47: 0, 48: 0, 50: 128, rewards.CP_RHO_BP: 2500}
         self.cp.update(cp or {})
         self.records, self.accounts, self.words = {}, {}, {}
 
@@ -715,6 +715,105 @@ class FakeV3Chain:
 
 def ident(n):
     return '0x' + n.to_bytes(20, 'big').hex()
+
+
+class PagedActList(rewards._V3Chain):
+    """A _V3Chain whose MinerRegistry has `n` active members (ids 1..n, HELD), served page by page through activeSlice,
+    and whose blocks carry `moves[h]` = (REG_OPS users, reactivations, evidence kinds) in their per-block counters."""
+
+    def __init__(self, n, moves=None):
+        super().__init__(None, rewards.validated_network(V3_NETWORK), ((1, 0), (2, 0)), {18: rewards.MAX_MEMBERS_V3})
+        self.members = [i + 1 for i in range(n)]
+        self.moves, self.calls, self.gas = moves or {}, Counter(), Counter()
+
+    def body(self, k):
+        return [], [encode([bytes([kind]), b'']) for kind in self.moves.get(k, (0, 0, ()))[2]]
+
+    def call(self, to, signature, args, height, words=None, gas=rewards.CALL_GAS):
+        self.calls[signature] += 1
+        self.gas[(signature, gas)] += 1
+        ops, reacts, _ = self.moves.get(height, (0, 0, ()))
+        if signature == 'lengths()':
+            return [len(self.members), len(self.members), 0, 0]
+        if signature == 'counters()':
+            return [ops]
+        if signature == 'budgets()':
+            return [(reacts << 8) | (height << 16)]
+        if signature == 'activeSlice(uint256,uint256)':
+            start, count = args
+            page = self.members[start:start + count]
+            n = len(page)
+            words_ = [64, 64 + 32 * (n + 1), n, *page, n, *[1 | HELD] * n]
+            return b''.join(w.to_bytes(32, 'big') for w in words_)
+        raise AssertionError('Unexpected contract read: ' + signature)
+
+
+class V3PagedActListTests(unittest.TestCase):
+    """FN-2b C5: the gateway reads the ActList of M_max 10,000 members in activeSlice pages and reuses it for the next
+    height when the block cannot have moved a member (the delta cache)."""
+
+    def test_ten_thousand_members_are_read_in_pages(self):
+        chain = PagedActList(10000)
+        members = chain.active_list(5)
+        self.assertEqual([int(m, 16) for m, _ in members], list(range(1, 10001)))
+        self.assertTrue(all(w == 1 | HELD for _, w in members))
+        self.assertEqual(chain.calls['activeSlice(uint256,uint256)'], -(-10000 // rewards.ACTIVE_PAGE))
+        self.assertEqual(rewards.MAX_MEMBERS_V3, 10000)
+        self.assertEqual(chain.gas[('activeSlice(uint256,uint256)', rewards.ACTIVE_SLICE_GAS)], -(-10000 // rewards.ACTIVE_PAGE),
+                         'every page is read with ACTIVE_SLICE_GAS')
+
+    def test_the_real_call_path_sends_the_page_gas(self):
+        """_V3Chain.call itself (not a fake call): each activeSlice page goes to eth_call with gas ACTIVE_SLICE_GAS (pocold's
+        CALL_GAS_MAX, which a page of ACTIVE_PAGE needs: two cold slots per element), every other read with CALL_GAS."""
+        n, seen = 1500, []
+        selector = lambda sig: '0x' + rewards.keccak256(sig.encode())[:4].hex()
+        word = lambda v: v.to_bytes(32, 'big')
+
+        def query(method, params):
+            self.assertEqual(method, 'eth_call')
+            call, data = params[0], bytes.fromhex(params[0]['data'][2:])
+            seen.append(('0x' + data[:4].hex(), int(call['gas'], 16)))
+            if '0x' + data[:4].hex() == selector('lengths()'):
+                out = word(n) * 2 + word(0) * 2
+            else:
+                self.assertEqual('0x' + data[:4].hex(), selector('activeSlice(uint256,uint256)'))
+                start, count = int.from_bytes(data[4:36], 'big'), int.from_bytes(data[36:68], 'big')
+                page = list(range(start + 1, min(n, start + count) + 1))
+                out = b''.join(word(w) for w in [64, 64 + 32 * (len(page) + 1), len(page), *page, len(page), *[1 | HELD] * len(page)])
+            return {'jsonrpc': '2.0', 'id': 1, 'result': '0x' + out.hex()}
+
+        chain = rewards._V3Chain(query, rewards.validated_network(V3_NETWORK), ((1, 0), (2, 0)), {18: rewards.MAX_MEMBERS_V3})
+        members = chain.active_list(5)
+        self.assertEqual([int(m, 16) for m, _ in members], list(range(1, n + 1)))
+        pages = [g for sel, g in seen if sel == selector('activeSlice(uint256,uint256)')]
+        self.assertEqual(pages, [rewards.ACTIVE_SLICE_GAS] * -(-n // rewards.ACTIVE_PAGE))
+        self.assertEqual([g for sel, g in seen if sel != selector('activeSlice(uint256,uint256)')], [rewards.CALL_GAS])
+        self.assertEqual((rewards.CALL_GAS, rewards.ACTIVE_SLICE_GAS), (2000000, 30000000))
+
+    def test_a_quiet_block_reuses_the_list_and_a_moving_block_reads_it_again(self):
+        chain = PagedActList(1500, moves={7: (1, 0, ()), 8: (0, 1, ()), 9: (0, 0, (2,)), 10: (0, 0, (3,))})
+        chain.active_list(5)
+        pages = -(-1500 // rewards.ACTIVE_PAGE)
+        self.assertEqual(chain.calls['activeSlice(uint256,uint256)'], pages)
+        chain.active_list(6)
+        self.assertEqual(chain.calls['activeSlice(uint256,uint256)'], pages, 'a quiet block: the delta cache')
+        for h, reread in ((7, True), (8, True), (9, True), (10, False)):
+            before = chain.calls['activeSlice(uint256,uint256)']
+            chain.active_list(h)
+            with self.subTest(h=h):
+                self.assertEqual(chain.calls['activeSlice(uint256,uint256)'] - before, pages if reread else 0,
+                                 'a REG_OPS user, a reactivation or kind-1/2 evidence moves members; late shares (kind 3) do not')
+
+    def test_a_malformed_page_is_refused(self):
+        chain = PagedActList(3)
+        good = chain.call
+        chain.call = lambda to, sig, args, h, words=None, gas=rewards.CALL_GAS: good(to, sig, args, h, words, gas)[:-32] if sig.startswith('activeSlice') else good(to, sig, args, h, words, gas)
+        with self.assertRaisesRegex(rewards.RewardUnavailable, 'Malformed activeSlice answer'):
+            chain.active_list(1)
+        chain = PagedActList(3)
+        chain.members = [1, 1, 2]
+        with self.assertRaisesRegex(rewards.RewardUnavailable, 'Duplicate active miner'):
+            chain.active_list(1)
 
 
 class V3FlowTests(unittest.TestCase):
@@ -1492,14 +1591,15 @@ class V3DevnetDifferential(unittest.TestCase):
         settled = self.snaps[8]['block']['settlement']
         self.assertEqual((settled['potHeight'], settled['lateShareCount']), (4, 2))
         self.assertIn(m['two'], {b['minerId'] for b in settled['beneficiaries']})
-        # Contests (V3-10/V3-14): three exited at the seat contest; alice exited, still ACCRUING, POOL_OUT (w0 bit 87).
-        three = self.records(fx['seatContest'])[m['three']]
+        # registerReplacing at the full set (FN-2b C4): three exited as by deregister; alice exited, still ACCRUING (no
+        # POOL_OUT, w0 bit 87, since FN-2b), out of the next block's owners.
+        three = self.records(fx['replacingHeld'])[m['three']]
         self.assertEqual((three[0] & 255, (three[0] >> 8) & 255), (2, 0))
-        alice = self.records(fx['poolContest'])[m['alice']]
-        self.assertEqual((alice[0] & 255, (alice[0] >> 16) & 255, (alice[0] >> 87) & 1), (2, 4, 1))
-        self.assertNotIn(m['alice'], {o['minerId'] for o in self.snaps[fx['poolContest'] + 1]['owners']})
-        # The exited pool victim is payable: its share of a pending pot fills its accrued bond.
-        paid = {b['minerId']: b for b in self.snaps[fx['poolVictimPaid']]['block']['settlement']['beneficiaries']}
+        alice = self.records(fx['replacingAccruing'])[m['alice']]
+        self.assertEqual((alice[0] & 255, (alice[0] >> 16) & 255, (alice[0] >> 87) & 1), (2, 4, 0))
+        self.assertNotIn(m['alice'], {o['minerId'] for o in self.snaps[fx['replacingAccruing'] + 1]['owners']})
+        # The exited victim is payable: its share of a pending pot fills its accrued bond.
+        paid = {b['minerId']: b for b in self.snaps[fx['victimPaid']]['block']['settlement']['beneficiaries']}
         self.assertGreater(int(paid[m['alice']]['bondAccruedWei']), 0)
         # And punishable: type-2 evidence against it (pot 18, recorded ACCRUING) burns its bond less rho to the reporter
         # and pot 18 whole (V3-16/V3-17).

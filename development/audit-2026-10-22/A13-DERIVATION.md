@@ -1114,10 +1114,15 @@ beyond the anchors. `open-replay-transient` is restated: the tables are counted 
   `gas_envelope(ProgramSet::V3)` composes `GAS_ENVELOPE_V3` over `GAS_ENVELOPE_EARNIN`: the v3 entries
   (invalidate, punish, recordResult, settle, settleFinal), measured by tests/v3_contracts.rs
   `v3_sys_gas_and_caps_within_the_v3_envelope`, where it has one, the earn-in entry otherwise. The v3 domain
-  also bounds P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual: at most P_MAX fills per pot, whose payees the host
-  draws from the ActList of its parent, every ACCRUING member of which holds a pool seat; exited pool-contest victims,
-  live ACCRUING records outside ACC_COUNT since the owner decision of 2026-11-13, do not raise it). V1, Continuous and
-  EarnIn are unchanged.
+  bounded P_MAX ≤ 64 (`GAS_DOMAIN_V3_P_MAX`, settlement accrual) until FN-2b; since FN-2b (no probation pool, owner
+  decisions 10b/10c of 2026-11-13) it drops the M_max term and requires the payee bound S_max + 3 ≤ 259
+  (`GAS_DOMAIN_V3_PAYEES`: a pot's share owners, winner and proposer, every one possibly ACCRUING), and settle and
+  settleFinal are re-measured with 258 payees all ACCRUING at bond 0 promoted in one call, with held_total 0 at the
+  first accrue (11,956,401; 11,939,301 with a bond held; GAS_ENVELOPE_V3 11,957,000). At D = 4 the final phase class
+  composes 82.4M ≤ G_SYS 96M and at D = 5 94.4M; the final class exceeds G_SYS from D = 6 (106.3M; pinned by
+  admission's `v3_envelope_entries_apply_only_to_the_v3_set`). R18 (resources::derive) counts settle's accrual keys on
+  CP schema v2: 2 per payee (bond and state word) for at most O + 2 payees, and held_total.
+  V1, Continuous and EarnIn are unchanged.
   V3-PR-E3 (V3-02) adds recordLate (3,458,000; the one v3-only call name, measured by the same test crediting
   κm − 1 = 63 late shares to owners new to the template, the stranger path asserted as the maximum) and bounds the
   v3 domain by κ·m ≤ 64 (`GAS_DOMAIN_V3_KAPPA_M`) as well; each evidence item is counted as the dearer of recordLate

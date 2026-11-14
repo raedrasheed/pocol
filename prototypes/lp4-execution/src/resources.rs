@@ -6,18 +6,25 @@
 //!
 //! SYS slots (state footprint, R18 SYS_SLOT_MAX):
 //!   Registry 5 + 5·RRM + M   (fixed, RecArr, Rec 4 words, ActList); on CP schema v2 (the v3 registry) the fixed
-//!                            part is 8: slots 0..4, ACC_COUNT (slot 8), the V3-08/V3-09 budget slot 9 and the V3-10
-//!                            epoch totals (slot 10); its records keep four words (the clocks and the V3-10 epoch
-//!                            counters use spare bits, REGISTRY-LAYOUT.md)
+//!                            part is 6: slots 0..4 and the V3-08/V3-09 budget slot 9 (FN-2b deleted the accruing count,
+//!                            slot 8, and the epoch totals, slot 10); its records keep four words (the clocks use spare
+//!                            bits, REGISTRY-LAYOUT.md)
 //!   Ledger   K·(2·O + 2)       (K retained heights: count+owner per owner, len, total)
 //!   Escrow   2 + 3·(D+1)       (burnedTotal, final marker, pending); + 1 on CP schema v2 (the v3 programs: the carry
 //!                            into the next pot, the one carry slot that can be nonzero between blocks, V3-15)
-//!   Caps     schema length (52 on v1; 64 on v2)
+//!   Caps     schema length (52 on v1; 59 on v2)
 //! SYS keys changed per block (R18 SYS_KEYS_BLOCK_MAX):
-//!   evidence 9·E; markClose 1 (+RET+1 closing); prune 2·O+2; recordShares 3·O+2 (3·O+3 on CP schema v2: the V3-10
-//!   epoch totals, slot 10; the counters share each owner's w0);
+//!   evidence 9·E; markClose 1 (+RET+1 closing); prune 2·O+2; recordShares 3·O+2;
 //!   recordResult 1; settle 4; beginBlock 2+8·SW+1 (1 when closing); closeBlock 2;
 //!   final: finalize 2 + 4·(D-1)
+//!   FN-2b (CP schema v2, the v3 programs: no probation pool, owner decisions 10b/10c of 2026-11-13): every payee of a
+//!   pot can be ACCRUING, and settleOne's payTo/distribute fill its bond through MinerRegistry.accrue, which writes the
+//!   payee's bond word (r+2) and, on promotion, its state word (r), and held_total (Registry slot 4). Pot j's payees are
+//!   at most P = O + 2 (its distinct share owners, its winner and block j's proposer; admission's payee bound S_max + 3),
+//!   so settle and each settleFinal count 4 + 2·P + 1 keys (pending 3, burnedTotal, two per payee, held_total) instead
+//!   of 4. A profile with H_CLOSE = T_CLOSE = 0 never closes (markClose) and so never reaches a final block
+//!   (finality_core::final_predicate needs a closing parent): on CP schema v2 its closing and final classes are the
+//!   ordinary one (as admission's timing fills every phase slot with the ordinary measurement on a continuous chain).
 //! SYS accounts touched per block (R18 SYS_ACCT_BLOCK_MAX):
 //!   8 fixed (5 programs, PAY, SYSTEM, origin) + payees
 //!   normal O+1+SW; closing O+1+RET; final min(D·(O+1), M+R_max·D+1)+RET;
@@ -27,13 +34,13 @@
 //! V3-15/V3-20 (CP schema v2, the v3 programs): the carry is lagged by one block, so block h's settle writes the carry into
 //!   pot h+1 (Escrow slot 4 + ((h+1)&1)) and closeBlock(h) zeroes the carry into pot h (the other slot): 2 keys; a final
 //!   block's settle writes one and finalize zeroes both, also 2; closeBlock's tip share goes through payTo, which can write
-//!   the proposer's bond, state word, ACC_COUNT and held_total (accrue) and burnedTotal: 2 + 5 keys on a normal or closing
-//!   block, 2 on a final one.
+//!   the proposer's bond, state word and held_total (accrue) and burnedTotal: 2 + 4 keys on a normal or closing block, 2 on
+//!   a final one.
 //! V3-02 late share credit (CP schema v2, the v3 programs): a kind-3 item's recordLate writes per share at most its
 //!   owner's count, owner-list element and record word, and per item the list length and the total: 3k + 2 keys for
 //!   k shares. Each template j takes at most κm − C_header(j) <= κm − 1 late shares (the no-dilution cap), so one item
 //!   carries at most min(S, κm − 1) and a block at most L = min(E·min(S, κm − 1), D·(κm − 1)); the evidence keys are at
-//!   most 9·E + 3·L (V3-10: recordLate also writes the epoch totals, slot 10, one key of an item's fixed nine). No account
+//!   most 9·E + 3·L. No account
 //!   and no SYS slot bound changes: the owners of a height stay within O (κm <= S/4 when late credit applies), and
 //!   recordLate pays nobody.
 use crate::profile::ConsensusParams;
@@ -45,21 +52,34 @@ impl SysBounds{pub fn keys_max(&self)->u64{self.keys_normal.max(self.keys_closin
 pub fn derive(cp:&ConsensusParams)->SysBounds{
     let s=u64::from(cp.S_max);let d=u64::from(cp.D);let k=d.max(u64::from(cp.W_w));let rrm=u64::from(cp.REG_RECORDS_MAX);let m=u64::from(cp.M_max);
     let e=u64::from(cp.E_max);let ret=u64::from(cp.RET);let sw=u64::from(cp.SWEEP_MAX).min(16);let o=(s+1).min(m);let rmax=u64::from(cp.R_max);
-    let registry_fixed=if cp.schema_version()>=2{8}else{5};
+    let registry_fixed=if cp.schema_version()>=2{6}else{5};
     let carry_slot=u64::from(cp.schema_version()>=2);
     let slot_min=registry_fixed+5*rrm+m + k*(2*o+2) + 2+3*(d+1)+carry_slot + cp.cp_len() as u64;
     let v2=cp.schema_version()>=2;
-    let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2+u64::from(v2))+1+4;
-    let (carry,tip_share)=if v2{(2,5)}else{(0,0)};
+    let settle=settle_keys(cp);
+    let common=9*e+late_keys(cp)+(2*o+2)+(3*o+2)+1+settle;
+    let (carry,tip_share)=if v2{(2,4)}else{(0,0)};
     let keys_normal=common+1+(2+8*sw+1)+2+carry+tip_share;
     let keys_closing=common+(1+ret+1)+1+2+carry+tip_share;
-    let keys_final=common+(1+ret+1)+1+2+4*d.saturating_sub(1)+carry;
+    let keys_final=common+(1+ret+1)+1+2+settle*d.saturating_sub(1)+carry;
     // V3-17: on CP schema v2 (the v3 programs) punish pays the reporter's cut to the block proposer's reward address,
     // one more account in a block that carries evidence (one proposer per block).
     // V3-20: closeBlock (normal and closing blocks) pays the tip share to that same reward address, whatever E is.
     let reporter=u64::from(v2&&e>0);let proposer=u64::from(v2);
     let accts_normal=8+o+1+sw+proposer;let accts_closing=8+o+1+ret+proposer;let accts_final=8+(d*(o+1)).min(m+rmax*d+1)+ret+reporter;
+    if v2&&!closes(cp){return SysBounds{slot_min,keys_normal,keys_closing:keys_normal,keys_final:keys_normal,accts_normal,accts_closing:accts_normal,accts_final:accts_normal}}
     SysBounds{slot_min,keys_normal,keys_closing,keys_final,accts_normal,accts_closing,accts_final}
+}
+/// Whether the profile can close (markClose closes from H_CLOSE or T_CLOSE; with both 0 it never does, and without a
+/// closing parent no block is final).
+pub fn closes(cp:&ConsensusParams)->bool{cp.H_CLOSE!=0||cp.T_CLOSE!=0}
+/// The SYS keys one settle (or settleFinal) call can change: 4 on CP schema v1 (pending 3, burnedTotal); on CP schema v2
+/// (FN-2b) also the bond word and state word of each of its at most O + 2 payees, every one possibly ACCRUING (accrue,
+/// promote), and held_total.
+pub fn settle_keys(cp:&ConsensusParams)->u64{
+    if cp.schema_version()<2{return 4}
+    let o=(u64::from(cp.S_max)+1).min(u64::from(cp.M_max));
+    4+2*(o+2)+1
 }
 /// V3-02: the late-share keys 3·L a block can add on CP schema v2 (module doc); 0 on CP schema v1.
 pub fn late_keys(cp:&ConsensusParams)->u64{
