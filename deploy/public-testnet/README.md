@@ -161,7 +161,7 @@ make an upgrade appear compatible.
 **TODO (tracked, open): there is no seed fork migration tool.** The seed-side tool that
 rewrote a stopped seed's binding for a new fork schedule (`nonce_upgrade.py` and its tests)
 was removed with the old-network transition tooling. Before the first fork of the new chain,
-restore it from commit d24843d without the 0.4.0 parts (`LEGACY_BACKUP`, legacy rules) and
+restore it from commit d24843d without the old network's compatibility parts (`LEGACY_BACKUP`, legacy rules) and
 its tests. Until then a seed can take only a release with the same rules and schedule. The
 launcher side (`pocol upgrade`) is unaffected. For a failed same-release deployment, stop the service and restore its
 matching prior snapshot and binaries. Never run two copies of one miner key at once.

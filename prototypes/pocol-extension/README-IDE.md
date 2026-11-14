@@ -1,6 +1,6 @@
 # PoCol Studio, IDE & Viewer 0.4.1
 
-Version 0.4.1 combines Studio website publication, IDE contract deployment, the supplied PoCol artwork, and support for an explicitly configured full 64-bit mining range. Network labels use PoCol Mainnet. Existing wallet storage, addresses, chain ID and genesis remain unchanged. Studio confirmation defaults to English, with Arabic available from the language control.
+Version 0.4.1 combines Studio website publication, IDE contract deployment, the supplied PoCol artwork, and support for an explicitly configured full 64-bit mining range. Network labels use PoCol Mainnet. Existing wallet storage is kept, and the chain ID and genesis remain unchanged in this release; the Viewer wallet address follows the network (see the release note in `README-STUDIO.md`). Studio confirmation defaults to English, with Arabic available from the language control.
 
 The 0.3 series adds contract deployment and contract writes from PoCol IDE using the **same PoCol wallet address** as Studio and the native Windows/Linux wallet. No MetaMask account is needed. Websites send public contract intents; private keys and passwords are accepted only in the extension's trusted confirmation tab.
 
@@ -24,7 +24,7 @@ A new unpacked folder can have a different extension ID/storage. In that case im
 5. Click **Prepare transaction review**. Check the signing address, target or expected deployment address, bytecode/calldata fingerprints, value, and maximum PCOL fee.
 6. Select the consent checkbox and click **Confirm & sign transaction**. Keep the confirmation tab open while it checks the receipt.
 
-The original imported key is used directly. The older Viewer seed-derived wallet is a separate mechanism and is not used for IDE or Studio publication.
+The original imported key is used directly. The older Viewer seed-derived wallet is a separate mechanism and is not used for IDE or Studio publication. The Viewer wallet now keys the built-in profile by its network key too, so its address changes with the network (see the release note in `README-STUDIO.md`).
 
 ## Linux encrypted export
 

@@ -1,30 +1,40 @@
-"""The consensus identity reference (VA-SPEC §2.1) against the pinned H15000 value and the schedule rule."""
+"""The consensus identity reference (VA-SPEC §2.1) against a pinned golden value and the schedule rule."""
 import hashlib
 import json
-from pathlib import Path
 import struct
 import unittest
 
 import pocol_identity as ident
 
-H15000 = Path(__file__).resolve().parents[1] / 'mainnet' / 'h15000' / 'network.pocol.json'
-GENESIS = 'be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
-# Pinned also by pocold identity::tests::the_h15000_identity_is_pinned.
-GOLDEN = 'bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110'
+# A synthetic network with one scheduled activation; the new network's golden identity is pinned once its genesis
+# exists. Pinned also by pocold identity::tests::a_scheduled_upgrade_identity_is_pinned.
+CHAIN_ID = 777915
+GENESIS = '5a' * 32
+FORKS = [(1, 0), (2, 1000)]
+GOLDEN = '633afe4beab508ba5ab174300e3961d6ebb72235b68b994d597c508c5abd3021'
+
+
+def published_devnet_json():
+    """devnet.json as `pocold init-testnet` writes it for a spec-1 continuous network (no specVersion field), with
+    the activation scheduled."""
+    return json.loads(json.dumps({
+        'chainId': CHAIN_ID, 'genesisHash': '0x' + GENESIS, 'genesisTime': 1800000000, 'profileKind': 'simnet',
+        'keyMode': 'independent-key-files', 'forks': [list(f) for f in FORKS], 'registrationPerBlock': 1,
+        'continuous': True, 'miners': [], 'calibration': {'hashesPerSecond': 26214, 'class': 'synthetic-fixture'}}))
 
 
 class ConsensusIdentity(unittest.TestCase):
-    def test_the_h15000_identity_equals_the_pinned_value(self):
-        self.assertEqual(ident.consensus_id(1599846715, GENESIS, 1, 0, [(1, 0), (2, 15000)]), GOLDEN)
+    def test_the_scheduled_upgrade_identity_equals_the_pinned_value(self):
+        self.assertEqual(ident.consensus_id(CHAIN_ID, GENESIS, 1, 0, FORKS), GOLDEN)
 
     def test_the_identity_is_the_documented_byte_string(self):
         # Built here with struct, independently of consensus_id's own encoding.
-        data = b'pocol-consensus-identity-v1\0' + struct.pack('>Q', 1599846715) + bytes.fromhex(GENESIS)
-        data += struct.pack('>IBB', 1, 0, 2) + struct.pack('>HQHQ', 1, 0, 2, 15000)
+        data = b'pocol-consensus-identity-v1\0' + struct.pack('>Q', CHAIN_ID) + bytes.fromhex(GENESIS)
+        data += struct.pack('>IBB', 1, 0, 2) + struct.pack('>HQHQ', 1, 0, 2, 1000)
         self.assertEqual(hashlib.sha256(data).hexdigest(), GOLDEN)
 
-    def test_the_published_h15000_network_files_give_the_pinned_identity(self):
-        info = json.loads(json.loads(H15000.read_text())['files']['devnet.json'])
+    def test_published_network_files_give_the_pinned_identity(self):
+        info = published_devnet_json()
         build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '00' * 32}
         self.assertEqual(ident.for_network(info, build), GOLDEN)
 
@@ -74,9 +84,9 @@ class ConsensusIdentity(unittest.TestCase):
             self.assertEqual(ident.for_network(info, preview), a, preview)
         self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=True, consensusSourcesSha256='09' * 32)), b)
         self.assertEqual(ident.for_network(info, dict(pinned, v3Preview=True, consensusPinned=False)), unpinned)
-        # The ordinary pinned H15000 identity is unchanged.
-        h15000 = {'chainId': 1599846715, 'genesisHash': '0x' + GENESIS, 'forks': [[1, 0], [2, 15000]]}
-        self.assertEqual(ident.for_network(h15000, dict(pinned, v3Preview=False)), GOLDEN)
+        # The ordinary pinned identity is unchanged.
+        scheduled = {'chainId': CHAIN_ID, 'genesisHash': '0x' + GENESIS, 'forks': [list(f) for f in FORKS]}
+        self.assertEqual(ident.for_network(scheduled, dict(pinned, v3Preview=False)), GOLDEN)
 
     def test_a_spec_2_genesis_needs_a_preview_build_and_keeps_the_identity_formula(self):
         # A v3 genesis (pocold testnet --v3 writes specVersion 2 and v3 true): the spec version is no identity input,
@@ -102,8 +112,8 @@ class ConsensusIdentity(unittest.TestCase):
                     {'specVersion': 2}, {'specVersion': 2, 'v3': 1}, {'v3': True}, {'specVersion': 1, 'v3': True}, {'v3': False, 'specVersion': 2}):
             with self.assertRaisesRegex(ValueError, 'GenesisSpec version', msg=bad):
                 ident.for_network({**{k: v3[k] for k in ('chainId', 'genesisHash', 'forks')}, **bad}, preview)
-        # The published spec-1 H15000 files give the pinned identity, with or without an explicit specVersion 1.
-        info = json.loads(json.loads(H15000.read_text())['files']['devnet.json'])
+        # Published spec-1 files give the pinned identity, with or without an explicit specVersion 1.
+        info = published_devnet_json()
         build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': '00' * 32}
         self.assertNotIn('specVersion', info)
         self.assertEqual(ident.spec_version(info), 1)

@@ -7,7 +7,7 @@ import * as bridge from './lib/bridge.js';
 import { StoreAdmission, qbytes } from './lib/sitestore.js';
 import { RecordStore } from './lib/records.js';
 import * as http from './lib/transport.js';
-import { encryptSeed, decryptSeed, networkKey, addressOf, unsignedTx, signUnsigned, LOCK_MS, PUBLIC_WALLET_SALT } from './lib/wallet.js';
+import { encryptSeed, decryptSeed, networkKey, addressOf, unsignedTx, signUnsigned, LOCK_MS } from './lib/wallet.js';
 import { keccak } from './lib/crypto.js';
 import * as rlp from './lib/rlp.js';
 import { toHex, fromHex, eq } from './lib/hex.js';
@@ -38,10 +38,9 @@ const REVOKE_DNR_GRACE_MS = 2000;
 export function netKeyOf(chainId, genesisHash) {
   return toHex(keccak(rlp.encode([new TextEncoder().encode('PoCol-net-v1'), rlp.encUint(BigInt(chainId)), genesisHash])));
 }
-/** The salt of a profile's wallet key (D14): its netKey, except for the built-in profile, whose wallet keeps one
- *  address when its pinned identity changes (PUBLIC_WALLET_SALT). A custom profile always keeps its own netKey,
- *  so no extension update moves its address; no custom profile can take the built-in name. */
-export const walletSalt = (p) => (p.name === NETWORK.name ? PUBLIC_WALLET_SALT : p.netKey);
+/** The salt of a profile's wallet key (D14): its netKey, for the built-in profile too, so a wallet's address
+ *  belongs to one network. A custom profile always keeps its own netKey, so no extension update moves its address. */
+export const walletSalt = (p) => p.netKey;
 // An operator supplies the schedule through this extension's settings page. It is
 // separate from the immutable public network identity and never populated by RPC.
 const PUBLIC_FORKS_KEY = 'pocol:publicForkSchedule';

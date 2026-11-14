@@ -76,7 +76,7 @@ pub fn local() -> NodeLocal {
 
 /// Synthetic P11 local assumptions, with wait/attempt slack derived from the final CP.
 /// This does not measure WAN latency or select the production v3 profile. Spec-1 profiles (every committed
-/// network, the live H15000 chain included) keep exactly this derivation: Δ_rel = dFbWait + Δ + t_exec (8 at
+/// network, continuous chains included) keep exactly this derivation: Δ_rel = dFbWait + Δ + t_exec (8 at
 /// dFbWait 6) and Γ the R6 slack (5). V3-05 changes only spec-2 (v3) profiles (`local_for_v3`).
 pub fn local_for(cp: &ConsensusParams) -> Result<NodeLocal, String> {
     let mut local = local();
@@ -482,10 +482,18 @@ pub fn init(args: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    /// The live H15000 chain's CP (deploy/mainnet/h15000), a spec-1 genesis.
-    fn h15000() -> ConsensusParams {
-        let bundle: serde_json::Value = serde_json::from_slice(&std::fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
-        let spec = gs::decode(&crate::types::unhex(bundle["files"]["genesis.spec.hex"].as_str().unwrap().trim()).unwrap()).unwrap();
+    /// The CP of a continuous spec-1 network this builder generates at its defaults (`continuous`, no CP overrides),
+    /// read back from its genesis.spec.hex.
+    fn continuous() -> ConsensusParams {
+        let out = std::env::temp_dir().join(format!("pocold-testnet-continuous-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&out);
+        let miner = devnet::miner_identity("testnet-continuous");
+        let config = serde_json::json!({"continuous":true,"chainId":777917,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+            "miners":[{"id":miner.id,"reward":miner.reward}],
+            "accounts":[{"address":devnet::account_key("testnet-continuous").address(),"wei":"1000000000000000000000000"}]});
+        prepare(config.to_string().as_bytes(), &out).unwrap();
+        let spec = genesis_spec_in(&out).unwrap();
+        let _ = std::fs::remove_dir_all(&out);
         assert_eq!(spec.spec_version, 1);
         ConsensusParams::from_values(&spec.cp).unwrap()
     }
@@ -504,10 +512,10 @@ mod tests {
 
     #[test]
     fn spec1_local_timing_is_unchanged_and_refuses_declared_assumptions() {
-        let live = h15000();
-        assert_eq!((live.T_blk, live.D_att, live.dFbWait), (10, 60, 6));
+        let live = continuous();
+        assert_eq!((live.T_blk, live.D_att, live.dFbWait, live.H_END), (10, 60, 6, 0));
         let l = local_for(&live).unwrap();
-        assert_eq!((l.delta, l.phi, l.t_exec, l.delta_rel, l.gamma), (1, 1, 1, 8, 5), "the live H15000 local timing");
+        assert_eq!((l.delta, l.phi, l.t_exec, l.delta_rel, l.gamma), (1, 1, 1, 8, 5), "a continuous chain's local timing");
         let s = local_for_spec(&live, 1, None).unwrap();
         assert_eq!((s.delta, s.phi, s.t_exec, s.delta_rel, s.gamma), (1, 1, 1, 8, 5));
         assert!(local_for_spec(&live, 1, Some(TimingAssumptions::V3_WAN)).unwrap_err().contains("v3 profile input"));

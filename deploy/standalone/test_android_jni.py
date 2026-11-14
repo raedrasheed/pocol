@@ -86,7 +86,7 @@ public final class JniBoundaryTest {
                 equal(WalletText.peerNote(0,""),WalletText.LOOKING);equal(WalletText.peerNote(0,null),WalletText.LOOKING);
                 equal(WalletText.peerNote(1,"peer seed-1: peer runs consensus rules 2"),WalletText.CONSENSUS_REFUSED+"\npeer seed-1: peer runs consensus rules 2");
                 equal(WalletText.peerNote(2,""),WalletText.CONSENSUS_REFUSED);
-                equal(WalletText.activation("2","15000"),"Consensus version 2 at block 15000");equal(WalletText.activation("3","20000"),"Consensus version 3 at block 20000");
+                equal(WalletText.activation("2","1000"),"Consensus version 2 at block 1000");equal(WalletText.activation("3","20000"),"Consensus version 3 at block 20000");
                 equal(WalletText.outcome("none"),"Already applied");
                 equal(WalletText.outcome("rebind"),"Release update: consensus rules and schedule unchanged \u2014 saved; you can connect now");
                 if(!WalletText.outcome("activation").contains("coordinated release"))throw new AssertionError("activation text");

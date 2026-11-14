@@ -2,6 +2,7 @@
 //! 6 GiB gate checks, itemized, for the decision package. pocold refuses to boot this profile; this
 //! test records by how much and which terms carry it. It asserts nothing about admission.
 use pocol_lp4_execution::devnet::{self,DevnetConfig};
+#[path="support/continuous.rs"] mod continuous;
 
 fn network()->DevnetConfig{
     let labels:Vec<String>=(0..4).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
@@ -278,20 +279,20 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,144),"the type sizes the pinned total was derived with");}
 }
 
-/// R1 (PR3): the live continuous chain (deploy/mainnet/h15000, T_blk 10 s) has no finite lifetime, so A13 projects
+/// R1 (PR3): a continuous chain (a generated continuous genesis at the builder's defaults, T_blk 10 s; the
+/// continuous chain this evidence was first produced on had the same CP) has no finite lifetime, so A13 projects
 /// from its journal and the node stops once the journal holds more records than the budget admits (node.rs re-runs
 /// `resources::check` every 256 records). The largest admitted record count R, found by binary search for each
 /// (peers_max, dials), as the seeds boot: store mode with checkpoints every 128 records, discovery on, node_operator.py's
-/// LOCAL_ARGS. The bundle's files are written out and loaded with `load_spec_for` (`Invitation::parse` refuses another
-/// build's digest). Pinned for the target the evidence is produced on, so a term that moves the halt is seen.
+/// LOCAL_ARGS. The network's files are generated (support/continuous.rs) and loaded with `load_spec_for`. Pinned for
+/// the target the evidence is produced on, so a term that moves the halt is seen.
 #[test] fn a13_live_chain_halt_records(){
     use pocold::{net,node::Limits};
-    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
-    let dir=std::env::temp_dir().join(format!("pocold-live-halt-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);std::fs::create_dir_all(&dir).unwrap();
-    for (name,text) in bundle["files"].as_object().unwrap(){std::fs::write(dir.join(name),text.as_str().unwrap()).unwrap();}
+    let dir=std::env::temp_dir().join(format!("pocold-live-halt-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    continuous::continuous_network(&dir);
     let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
-    let spec=pocold::load_spec_for(&dir,&local,None).expect("the live bundle loads");let _=std::fs::remove_dir_all(&dir);
-    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the live chain is continuous");
+    let spec=pocold::load_spec_for(&dir,&local,None).expect("the generated continuous network loads");let _=std::fs::remove_dir_all(&dir);
+    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the chain is continuous");
     // C-1 S5 (PR7 §6.5): with eviction off (`evict_depth` Some(0)), the model before PR7.
     let passes=|peers_max:usize,dials:usize,r:u64|pocold::resources::check(cp,k,side,&Limits{state_store:true,checkpoint_every:128,continuous_history:Some(r),evict_depth:Some(0),
         net:net::Limits{peers_max,..Default::default()},..Default::default()},dials).is_ok();
@@ -348,12 +349,11 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// 10^9 records. Pinned for the target the evidence is produced on.
 #[test] fn a13_live_chain_halt_disk_bytes(){
     use pocold::{net,node::Limits,resources::DiskBytes};
-    let bundle:serde_json::Value=serde_json::from_slice(&std::fs::read(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../deploy/mainnet/h15000/network.pocol.json")).unwrap()).unwrap();
-    let dir=std::env::temp_dir().join(format!("pocold-live-halt-disk-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);std::fs::create_dir_all(&dir).unwrap();
-    for (name,text) in bundle["files"].as_object().unwrap(){std::fs::write(dir.join(name),text.as_str().unwrap()).unwrap();}
+    let dir=std::env::temp_dir().join(format!("pocold-live-halt-disk-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+    continuous::continuous_network(&dir);
     let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
-    let spec=pocold::load_spec_for(&dir,&local,None).expect("the live bundle loads");let _=std::fs::remove_dir_all(&dir);
-    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the live chain is continuous");
+    let spec=pocold::load_spec_for(&dir,&local,None).expect("the generated continuous network loads");let _=std::fs::remove_dir_all(&dir);
+    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the chain is continuous");
     let lim=|peers_max:usize,records:u64,history:u64|Limits{state_store:true,checkpoint_every:128,continuous_history:Some(records),disk:Some(DiskBytes{history,..Default::default()}),
         net:net::Limits{peers_max,..Default::default()},..Default::default()};
     let passes=|peers_max:usize,dials:usize,x:u64|pocold::resources::check(cp,k,side,&lim(peers_max,0,x),dials).is_ok();

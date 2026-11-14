@@ -130,7 +130,7 @@ const CONTINUOUS_BLOCKS:u64=40;
     let mut c2=c.clone();c2.e_win=16;c2.u=40;
     let (sweep,fewest)=gas_scenario(&c2,&|h,ids|if (2..=20).contains(&h){(0..4).map(|i|EvidenceEffect::Punish{accused:ids[100+4*(h as usize-2)+i]}).collect()}else{vec![]},100,&mut seen);
     assert!(fewest<=256-76,"the sweep scenario must delete the 76 tombstoned records, fewest={fewest}");
-    // Scenario 3: the Continuous program set (H_END 0, the spec-1 H15000 chain's set), which shares the
+    // Scenario 3: the Continuous program set (H_END 0, a spec-1 continuous chain's set), which shares the
     // table: scenario 1's evidence on ordinary blocks.
     let mut c3=c.clone();c3.h_end=0;c3.h_close=0;
     let (continuous,_)=gas_scenario(&c3,&|h,ids|match h{30=>(0..4).map(|i|EvidenceEffect::Punish{accused:ids[200+i]}).collect(),

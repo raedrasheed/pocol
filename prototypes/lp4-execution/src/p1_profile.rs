@@ -396,8 +396,8 @@ mod v3_tests {
     #[test]
     fn v3_predicate_keeps_v1_and_earnin_dormant_at_every_height_boundary(){
         for nonce_mode in [0,1]{
-            let p=identity(1,nonce_mode,&[(1,0),(2,15000)],2);
-            for h in [0,1,14999,15000,15001,u64::MAX]{assert!(!p.v3_active(h));}
+            let p=identity(1,nonce_mode,&[(1,0),(2,1000)],2);
+            for h in [0,1,999,1000,1001,u64::MAX]{assert!(!p.v3_active(h));}
             assert_eq!(p.spec_version(),1);assert_eq!(p.cp().cp_len(),52);
             assert_eq!((p.cp().H_half,p.cp().P_MAX,p.cp().T_PROB,p.cp().rho_bp),(0,0,0,0));
             assert_eq!(p.cp().F0_acct,U256::ZERO);assert!(!p.bootable());

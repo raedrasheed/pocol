@@ -1210,7 +1210,7 @@ mod upgrade_tests {
     fn every_upgrade_keeps_its_own_backup() {
         // T22: a backup is named by the replaced binding's fingerprint, so a second upgrade never collides with the first.
         let t = Scratch::new();
-        let (before, after) = (generated(serde_json::json!([[1, 0]])), generated(serde_json::json!([[1, 0], [2, 15000]])));
+        let (before, after) = (generated(serde_json::json!([[1, 0]])), generated(serde_json::json!([[1, 0], [2, 1000]])));
         let home = home_with(&t, &bytes(&before));
         assert_eq!(home.inspect_upgrade(&bytes(&after)).unwrap()["change"], "activation");
         home.upgrade(&bytes(&after)).unwrap();
@@ -1339,7 +1339,7 @@ mod upgrade_tests {
         assert_ne!(newer.fingerprint(), saved.fingerprint());
         home.import(&bytes(&newer)).unwrap();
         assert_eq!(snapshot(&home.path), before);
-        let other = generated(serde_json::json!([[1, 0], [2, 15001]]));
+        let other = generated(serde_json::json!([[1, 0], [2, 1001]]));
         assert!(home.import(&bytes(&other)).unwrap_err().contains("bound to another invitation; if this is the same network in a newer form run `pocol upgrade`"));
         assert_eq!(snapshot(&home.path), before);
     }
@@ -1381,7 +1381,7 @@ mod upgrade_tests {
         // The wallets run the dry run before every upgrade, so refusing the interrupted upgrade's own file left them no
         // way to resume it (and an Android home no way out but clearing the key). Both crash windows: before and after
         // the binding is written.
-        let (before, after) = (generated(serde_json::json!([[1, 0]])), generated(serde_json::json!([[1, 0], [2, 15000]])));
+        let (before, after) = (generated(serde_json::json!([[1, 0]])), generated(serde_json::json!([[1, 0], [2, 1000]])));
         for bound in [&before, &after] {
             let t = Scratch::new();
             let home = home_with(&t, &bytes(&before));
@@ -1392,8 +1392,8 @@ mod upgrade_tests {
             fs::write(home.path.join("network.pocol.json"), bytes(bound)).unwrap();
             let interrupted = snapshot(&home.path);
             let dry = home.inspect_upgrade(&bytes(&after)).unwrap();
-            assert_eq!((dry["change"].as_str(), &dry["appended"], &dry["resuming"]), (Some("activation"), &serde_json::json!([[2, 15000]]), &serde_json::json!(true)), "{dry}");
-            let other = generated(serde_json::json!([[1, 0], [2, 15001]]));
+            assert_eq!((dry["change"].as_str(), &dry["appended"], &dry["resuming"]), (Some("activation"), &serde_json::json!([[2, 1000]]), &serde_json::json!(true)), "{dry}");
+            let other = generated(serde_json::json!([[1, 0], [2, 1001]]));
             assert_eq!(home.inspect_upgrade(&bytes(&other)).unwrap_err(), "resume the interrupted upgrade with the same network invitation");
             assert_eq!(home.upgrade(&bytes(&other)).unwrap_err(), "resume the interrupted upgrade with the same network invitation");
             assert_eq!(snapshot(&home.path), interrupted, "neither the dry run nor a refused file writes");
@@ -1410,7 +1410,7 @@ mod upgrade_tests {
         let saved = generated(serde_json::json!([[1, 0]]));
         let home = home_with(&t, &bytes(&saved));
         let mut before = saved.clone(); before.consensus_rules_version = identity::CONSENSUS_RULES_VERSION + 1;
-        let after = generated(serde_json::json!([[1, 0], [2, 15001]]));
+        let after = generated(serde_json::json!([[1, 0], [2, 1001]]));
         fs::write(home.path.join(UPGRADE_PENDING), serde_json::to_vec(&UpgradeIntent { before, after: after.clone() }).unwrap()).unwrap();
         let interrupted = snapshot(&home.path);
         for e in [home.upgrade(&bytes(&after)).map(|_| ()), home.import(&bytes(&saved)).map(|_| ()), home.inspect_upgrade(&bytes(&after)).map(|_| ())] {

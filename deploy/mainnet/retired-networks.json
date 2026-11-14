@@ -1,0 +1,9 @@
+{
+  "about": "The network identities the clients were switched away from, append-only. set_network_identity.py adds the --from network at every switch and refuses a listed --to unless --allow-revert is given; test_set_network_identity.py checks that no tracked file outside development/ and deploy/websites/ (and the kept wire golden frame) still pins one the tree no longer pins. The first entry is the network retired on 2026-11-13 (development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md), which the clients pin until the new genesis exists.",
+  "retired": [
+    {
+      "chainId": 1599846715,
+      "genesisHash": "0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca"
+    }
+  ]
+}

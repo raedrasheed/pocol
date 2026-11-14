@@ -89,7 +89,7 @@ impl NodeLocal{
 /// silently go stale. The earn-in programs have their own table (`GAS_ENVELOPE_EARNIN`);
 /// `gas_envelope` selects by the program set the GenesisSpec's sysCodeHash names.
 ///
-/// Known gap, left open for the owner (this table is kept unchanged so the spec-1 H15000 admission
+/// Known gap, left open for the owner (this table is kept unchanged so spec-1 continuous admission
 /// facts stay byte-identical): the fixture's final blocks all carry tombs, and a tomb-free final block
 /// on the V1 programs measures settleFinal 4,291,596, or 4,306,697 when every earlier pot burned
 /// nothing so that the first settleFinal writes escrow slot 0 (burnedTotal) from zero; both exceed the
@@ -146,8 +146,8 @@ pub const GAS_ENVELOPE:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_0
 /// (at most P_MAX = 8 such exits per sweep).
 pub const GAS_ENVELOPE_EARNIN:&[(&str,u64)]=&[("beginBlock",944_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_716_000),
     ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_685_000),("settleFinal",4_424_000)];
-/// The envelope of a program set. V1 and Continuous use `GAS_ENVELOPE` (the spec-1 H15000 chain
-/// runs Continuous, so its admission facts are unchanged); EarnIn uses `GAS_ENVELOPE_EARNIN`.
+/// The envelope of a program set. V1 and Continuous use `GAS_ENVELOPE` (spec-1 continuous chains
+/// run Continuous, so their admission facts are unchanged); EarnIn uses `GAS_ENVELOPE_EARNIN`.
 /// V3 (reachable only via the v3 sysCodeHash on a specVersion-2 genesis, which SPEC_VERSION=1 builds
 /// refuse): its fallback is decided explicitly. PoColSystemV3.sol is built on the earn-in programs, which
 /// measure markClose and beginBlock above `GAS_ENVELOPE` (2,715,144 and 943,609), so the v3 table is

@@ -75,7 +75,7 @@ class FaucetRules(unittest.TestCase):
         self.assertEqual(f.status()['remainingToday'], 0)
 
     def test_wrong_chain_or_empty_faucet_stops(self):
-        f = self.faucet(); self.node.chain = 1599846715
+        f = self.faucet(); self.node.chain = CHAIN + 1
         self.refused(f, NEW, 503, 'different network')
         self.node.chain = CHAIN; self.node.balances[OP] = 2 * 10**15
         self.refused(f, NEW, 503, 'empty')
