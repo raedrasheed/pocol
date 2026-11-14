@@ -1678,6 +1678,20 @@ Three terms exist only for a CP schema v2 (v3) profile; on CP schema v1 each is 
 `late-share-inventory` records these as inventories by inspection. `pocold/tests/v3_late_shares.rs`
 (`a13_counts_late_share_memory_on_cp_schema_v2_only`) checks the terms and the unchanged spec-1 pin.
 
+### FN-1: child-context cache (C6 part, node-local)
+
+`chain::CtxCache` keeps the membership and Draw(h,0) of at most `CTX_PARENTS_MAX` (4) parents and the nonce
+assignment of at most `CTX_ASSIGNMENTS_MAX` (8) (parent, attempt) pairs, shared by Arc with the contexts in use.
+New queue term "child-context cache (FN-1)" (`resources::ctx_cache_bytes`): per parent row two Vecs of at most M_max
+addresses (ids, accruing marks) at memory::VEC, the Membership and its Arc counts; per assignment row M_max
+`NonceRange`s at memory::VEC, the Assignment and its Arc counts; each row twice (VecDeque growth) and the allocation
+its weak state reference keeps (an InMemoryDB or Pinned with its counts, not their contents); plus 1,024 B. At the
+devnet's M_max 64: 185,920 B, so the spec-1 devnet total moves from 3,397,791,234 to 3,397,977,154 B (eviction off
+3,388,329,613 to 3,388,515,533), and the live chain's halt and disk stops move 79 records / 761,528,320 B earlier
+(tests/network_budget.rs). At M_max 10,000 the term is about 28 MB as modeled (memory::VEC = 3 over exact Vec bytes of about 9.3 MB; NonceRange is 96 B on x86-64). The `Locked`
+production context shares its Arc values with the cache; a context evicted from the cache while held is the
+transient copy that existed before FN-1 (not a term then either).
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

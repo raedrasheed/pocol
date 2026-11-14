@@ -2032,9 +2032,15 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // the fee market reads nonces and fee caps from the raw bytes, and the replacement count fits the padding), and
     // the fee order's scratch ((4,096 + 1,024) x 12 = 61,440 B) takes the place of the selection's first-seen sender
     // set (885,052 B), which the fee order's pass by sender replaces (resources::selection_bytes).
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_791_234,"the A13 model total changed");
+    // FN-1 (C6) adds the child-context cache (resources::ctx_cache_bytes): 4 memberships and 8 assignments at this
+    // devnet's M_max 64 with their rows, 185,920 B, identically with eviction on/off (3,397,791,234 and 3,388,329,613
+    // before).
+    let ctx_cache=d.items.iter().find(|x|x.0.starts_with("queues/child-context cache")).unwrap().1;
+    assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(admitted(&cfg(&["a","b","c"])).cp()));
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_977_154,"the A13 model total changed");
+        assert_eq!(ctx_cache,185_920);
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_388_329_613,"eviction off includes the same receipt scratch");
+        assert_eq!(off.total,3_388_515_533,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);

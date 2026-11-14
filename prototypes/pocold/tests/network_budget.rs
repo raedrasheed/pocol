@@ -333,7 +333,9 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // Keep the original R10 baseline and owner seed guards below.
         // N4 (V3-20 node-local pool) moves no stop: the pool's entries keep their sizes and the fee order's scratch takes
         // the place of the selection's first-seen sender set (consensus.rs a13_bound_breakdown).
-        assert_eq!(got,[1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701],"the live chain's halt moved (record it in the PR)");
+        // FN-1 (C6): the child-context cache term (resources::ctx_cache_bytes, 185,920 B at this chain's M_max) moves each
+        // stop 79 records earlier than the pins [1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701].
+        assert_eq!(got,[1_145_815,1_120_957,1_113_795,1_089_164,1_071_253,1_046_622],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
@@ -384,7 +386,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     // 4,096 × 11,815,110 = 48,394,690,560 history bytes. No budget or reserve changes.
     if cfg!(all(target_os="linux",target_arch="x86_64")){
         // C3: 4096 * 878624 = 3598843904 fewer modeled file bytes per stop (legacy receipt under-count).
-        assert_eq!(got,[11_926_711_206_015,11_665_558_274_175,11_590_057_361_535,11_328_904_429_695,11_141_185_568_895,10_880_032_637_055],"the live chain's stop moved (record it in the PR)");
+        // FN-1 (C6): the child-context cache term, 185,920 model bytes: 4096 * 185920 = 761,528,320 fewer modeled file bytes per stop.
+        assert_eq!(got,[11_925_949_677_695,11_664_796_745_855,11_589_295_833_215,11_328_142_901_375,11_140_424_040_575,10_879_271_108_735],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and
