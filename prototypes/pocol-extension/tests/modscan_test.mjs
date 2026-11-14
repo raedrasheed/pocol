@@ -32,6 +32,20 @@ test('the scanner never throws and stays linear on adversarial input', () => {
   }
   for (const src of ['', 'import', 'import(', 'import("', 'export * from', '`${', '}', ')))', '/[/', 'import x from', 'import.meta', '\\u0069mport("./a.js")']) assert.doesNotThrow(() => M.rewriteModule(src, '/a.js', () => 'blob:x'));
 });
+test('the regular-expression scans visit each character at most once (an operation bound, not a timing)', () => {
+  // A `/` that may start a regular expression scans to its line end; with an unclosed class after it ('(/[') the scan
+  // used to find nothing and restart at the next `/` of the same line, so a 1 MiB line cost O(n^2) steps.
+  const big = 1 << 20;
+  for (const src of ['(/['.repeat(big / 3), '(/\\['.repeat(big / 4), '=/[a'.repeat(big / 4), ('(/['.repeat(4096) + '\n').repeat(big / 12289), '(/[' .repeat(big / 6) + '/x/'.repeat(big / 6)]) {
+    const stats = { regexSteps: 0 }; M.tokenize(src, stats);
+    assert.ok(stats.regexSteps <= src.length, `${JSON.stringify(src.slice(0, 8))}: ${stats.regexSteps} steps for ${src.length} characters`);
+    assert.doesNotThrow(() => M.scanModule(src));
+  }
+  // A failed scan marks only its own line: a regular expression on the next line is still one, and an import after a
+  // division on the same line is still found.
+  assert.deepEqual(scan("x = (/[\n/import'.no'/.test(s); import './a.js';"), { statics: ['./a.js'], dynamics: [], meta: 0 });
+  assert.deepEqual(scan("a = (/[ ; import('./b.js'); import './c.js'"), { statics: ['./c.js'], dynamics: ['./b.js'], meta: 0 });
+});
 test('rewriting replaces static specifiers by their URL and import() by the runtime call; the result still parses', () => {
   const src = `import a, { b as c } from './a.js';\nimport * as ns from "../lib/b.mjs";\nimport './side.js';\nexport * from './c.js';\nexport { d } from '/d.js';\nexport { c };\nconst re = /import\\('\\.\\/x.js'\\)/g, s = "import './no.js'";\n// import './comment.js'\nconst t = \`import('./tpl.js') \${await import('./inner.js')}\`;\nexport const lazy = () => import('./lazy.js');\nexport const computed = (n) => import(n, { with: { type: 'json' } });\nconst o = { import(x) { return x; } };\nconsole.log(import.meta.url, o, re, s, t, ns, a);\n`;
   const seen = [];

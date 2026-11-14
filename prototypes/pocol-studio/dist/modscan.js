@@ -13,7 +13,12 @@
 // clear error, at publish and at view. A JSON file is imported as a JavaScript module whose default export is its
 // parsed value (the sandbox CSP's connect-src 'none' blocks JSON module fetches). Bare specifiers and absolute URLs are left as they are: the sandbox CSP blocks
 // them. The tokenizer skips strings, comments, template literals (nested ${...} expressions are scanned as code) and
-// regular expression literals; it runs in linear time and never throws on malformed input.
+// regular expression literals; it runs in linear time and never throws on malformed input. (A `/` where a regular
+// expression may start is scanned to the end of its line for the closing `/`; when there is none, the rest of that line
+// is marked as division only, so no character is scanned twice for a regular expression. That differs from scanning
+// again at each later `/` only on a line where a `/` opened no regular expression although one could start there, which
+// is malformed or misread code; the result only steers which specifiers are rewritten, and the sandbox CSP blocks any
+// that are not. `stats.regexSteps`, when given, counts the characters these scans visit.)
 export const MODULE_DEPTH_MAX = 8; // like CSS @import nesting in the loader
 export const MODULE_COUNT_MAX = 256; // FILES_MAX: every file of a site may be a module
 export const RUNTIME_IMPORT = '__pocol_import__';
@@ -50,9 +55,11 @@ function unescape(body) {
 }
 
 /** Tokens of `src`: {t: 'id'|'str'|'tpl'|'num'|'re'|'p', v, s, e}; 'str' has v = decoded value (null if invalid),
- *  'tpl' is one whole template with `plain` (no substitutions) and v its raw text when plain. */
-export function tokenize(src) {
+ *  'tpl' is one whole template with `plain` (no substitutions) and v its raw text when plain. `stats` (optional):
+ *  {regexSteps: 0}, incremented for every character a regular-expression scan visits (tests bound it). */
+export function tokenize(src, stats = null) {
   const toks = []; const n = src.length; let i = 0; const braces = []; // '{' or '`' (a ${ ... } inside a template)
+  let noRegexBefore = 0; // a failed regular-expression scan reached this line end: no `/` before it starts one
   const prevSig = () => toks[toks.length - 1];
   const regexAllowed = () => {
     const p = prevSig(); if (!p) return true;
@@ -94,16 +101,17 @@ export function tokenize(src) {
     }
     if (isIdStart(c) || c === '\\') { i++; while (i < n && (isIdPart(src[i]) || src[i] === '\\')) i++; toks.push({ t: 'id', s, e: i, v: src.slice(s, i) }); continue; }
     if (isDigit(c) || (c === '.' && isDigit(src[i + 1] || ''))) { i++; while (i < n && (isIdPart(src[i]) || src[i] === '.' || ((src[i] === '+' || src[i] === '-') && /[eE]/.test(src[i - 1]) && !/^0[xX]/.test(src.slice(s, i))))) i++; toks.push({ t: 'num', s, e: i }); continue; }
-    if (c === '/' && regexAllowed()) {
+    if (c === '/' && i >= noRegexBefore && regexAllowed()) {
       let j = i + 1, cls = false, ok = false;
       while (j < n && !isLineEnd(src[j])) {
-        const d = src[j];
+        const d = src[j]; if (stats) stats.regexSteps++;
         if (d === '\\') { j += 2; continue; }
         if (d === '[') cls = true; else if (d === ']') cls = false; else if (d === '/' && !cls) { ok = true; break; }
         j++;
       }
       if (ok) { j++; while (j < n && isIdPart(src[j])) j++; i = j; toks.push({ t: 're', s, e: i }); continue; }
-      // No closing / on this line: it was a division after all.
+      // No closing / on this line: it was a division after all, and so is every later / on this line.
+      noRegexBefore = j;
     }
     let v = c;
     for (const p of PUNCT3) if (src.startsWith(p, i)) { v = p; break; }

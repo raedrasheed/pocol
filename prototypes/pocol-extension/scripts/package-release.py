@@ -6,10 +6,15 @@
 The packager refuses anything that is not the release build (Sites W3), independently of the tests on dist/:
   - the manifest name is exactly RELEASE_NAME (so "[TEST FAULT ...]" and "[REHEARSAL]" builds are refused), MV3, and
     its version is package.json's;
-  - host_permissions, content_scripts and the extension-page CSP are exactly the release values;
+  - the manifest has only the release's top-level keys (no optional_permissions, optional_host_permissions,
+    web_accessible_resources, externally_connectable or anything new), and permissions, host_permissions,
+    content_scripts, background, sandbox.pages and the extension-page CSP are exactly the release values;
   - the sandbox CSP is the release (closed) policy for the sha256 of the loader actually inlined in sandbox.html;
   - the built-in profile (lib/studio-network.js NETWORK) uses the pinned RN endpoint;
   - no file mentions the retired chatgpt.site preview origins;
+  - no file shows a retired network: a chain ID of deploy/mainnet/retired-networks.json as a decimal word, or its
+    genesis hash (so a tree whose NETWORK was repinned but whose pages, e.g. publisher.html and contract.html, were
+    not is refused too);
   - the decoder decodes spec 2;
   - the built-in profile is a release identity: not the placeholder (a NETWORK name containing "placeholder", or an
     @placeholder marker in studio-network.js) and its chain ID and genesis hash are not in
@@ -28,6 +33,14 @@ import zipfile
 
 RELEASE_NAME = 'PoCol Studio, IDE & Viewer'
 HOST_PERMISSIONS = ['http://127.0.0.1/*', 'https://gateway.pocol.net/*']
+PERMISSIONS = ['storage', 'unlimitedStorage', 'declarativeNetRequest']
+BACKGROUND = {'service_worker': 'sw.js', 'type': 'module'}
+SANDBOX = {'pages': ['sandbox.html']}
+# Every top-level key the release manifest may have (build.mjs). Anything else, e.g. optional_permissions,
+# web_accessible_resources or externally_connectable, is refused; W14 adds the fixed `key` (Q7) here with its value.
+MANIFEST_KEYS = {'manifest_version', 'name', 'version', 'description', 'minimum_chrome_version', 'background', 'permissions',
+                 'host_permissions', 'content_scripts', 'omnibox', 'options_page', 'icons', 'action', 'sandbox',
+                 'content_security_policy'}
 CONTENT_SCRIPTS = [
     {'matches': ['https://studio.pocol.net/*'], 'js': ['studio-content.js'], 'run_at': 'document_start', 'all_frames': False},
     {'matches': ['https://ide.pocol.net/*'], 'js': ['ide-content.js'], 'run_at': 'document_start', 'all_frames': False},
@@ -60,6 +73,19 @@ def built_network(dist):
         refuse('lib/studio-network.js NETWORK is not plain JSON')
 
 
+def retired_patterns(retired):
+    """(label, bytes regex) for each retired chain ID (a decimal word: no letter or digit on either side) and genesis
+    hash (hex, any case, with or without 0x)."""
+    out = []
+    for r in retired:
+        cid, genesis = r['chainId'], str(r['genesisHash']).lower()
+        if not isinstance(cid, int) or isinstance(cid, bool) or cid < 0 or not re.fullmatch(r'0x[0-9a-f]{64}', genesis):
+            raise ValueError('retired entry')
+        out.append((f'chain ID {cid}', re.compile(rb'(?<![0-9A-Za-z])' + str(cid).encode() + rb'(?![0-9A-Za-z])')))
+        out.append((f'genesis {genesis}', re.compile(re.escape(genesis[2:].encode()), re.I)))
+    return out
+
+
 def check_release(root, dist, version, retired_file, unreleased):
     manifest = json.loads((dist / 'manifest.json').read_text(encoding='utf-8'))
     if manifest.get('name') != RELEASE_NAME:
@@ -72,6 +98,17 @@ def check_release(root, dist, version, retired_file, unreleased):
         refuse('content_scripts do not match exactly https://studio.pocol.net/* and https://ide.pocol.net/*')
     if 'externally_connectable' in manifest:
         refuse('the release manifest must not be externally_connectable')
+    if manifest.get('permissions') != PERMISSIONS or 'optional_permissions' in manifest:
+        refuse(f'permissions are {manifest.get("permissions")}, not exactly {PERMISSIONS} (and no optional_permissions)')
+    if 'web_accessible_resources' in manifest:
+        refuse('the release manifest must not expose web_accessible_resources')
+    if manifest.get('sandbox') != SANDBOX:
+        refuse(f'the sandbox pages are {manifest.get("sandbox")}, not exactly {SANDBOX}')
+    if manifest.get('background') != BACKGROUND:
+        refuse(f'the background is {manifest.get("background")}, not exactly {BACKGROUND}')
+    extra = sorted(set(manifest) - MANIFEST_KEYS)
+    if extra:
+        refuse('the manifest has keys the release does not: ' + ', '.join(extra))
     page = (dist / 'sandbox.html').read_text(encoding='utf-8')
     if not (page.startswith(SANDBOX_PREFIX) and page.endswith(SANDBOX_SUFFIX)):
         refuse('sandbox.html is not the built sandbox page')
@@ -85,25 +122,34 @@ def check_release(root, dist, version, retired_file, unreleased):
     network, network_text = built_network(dist)
     if network.get('endpoint') != RELEASE_ENDPOINT or network.get('trustLevel') != 'RN':
         refuse(f'the built-in profile must use {RELEASE_ENDPOINT} at trust level RN')
+    try:
+        retired = json.loads(retired_file.read_text(encoding='utf-8'))['retired']
+        shown = retired_patterns(retired)
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        if not unreleased:
+            refuse(f'cannot read the retired network identities from {retired_file}')
+        retired, shown = [], []
+    shown_in = []
     for path in sorted(dist.rglob('*')):
-        if path.is_file() and b'chatgpt.site' in path.read_bytes():
-            refuse(f'{path.relative_to(dist).as_posix()} names a retired chatgpt.site preview origin')
+        if not path.is_file():
+            continue
+        data, name = path.read_bytes(), path.relative_to(dist).as_posix()
+        if b'chatgpt.site' in data:
+            refuse(f'{name} names a retired chatgpt.site preview origin')
+        hits = sorted({label for label, pattern in shown if pattern.search(data)})
+        if hits:
+            shown_in.append(f'{name} shows the retired network ' + ', '.join(hits))
     # The release decodes the v3 GenesisSpec (spec 2) by default; a stale dist/ built before that (SPEC_VERSION 1) is refused.
     if 'export const SPEC_VERSION = 2,' not in (dist / 'lib/refdec.js').read_text(encoding='utf-8'):
         refuse('a stale build that does not decode spec 2: rebuild the release with npm run build')
     identity = []
     if 'placeholder' in str(network.get('name', '')).lower() or '@placeholder' in network_text:
         identity.append('the built-in profile is the placeholder identity')
-    try:
-        retired = json.loads(retired_file.read_text(encoding='utf-8'))['retired']
-    except (OSError, ValueError, KeyError, TypeError):
-        if not unreleased:
-            refuse(f'cannot read the retired network identities from {retired_file}')
-        retired = []
     genesis = str(network.get('genesisHash', '')).lower()
     for r in retired:
         if r.get('chainId') == network.get('chainId') or str(r.get('genesisHash', '')).lower() == genesis:
             identity.append(f'the built-in profile pins the retired network {r.get("chainId")} ({r.get("genesisHash")})')
+    identity += shown_in
     if identity and not unreleased:
         refuse('; '.join(identity) + '. A release needs the mainnet identity (Phase 10); use --unreleased for a CI artifact')
     return identity

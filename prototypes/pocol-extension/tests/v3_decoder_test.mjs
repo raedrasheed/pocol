@@ -2,7 +2,7 @@
 // fresh network the release build decodes it at every shipped entry point (refdec.js SPEC_VERSION 2, as pocold's
 // genesis_spec.rs), and RP verifies its window with the one v3 predicate (rp.js v3Active), whose rules RP cannot
 // evaluate and therefore names. A spec-1 genesis still decodes (CP schema v1).
-import { readFileSync, mkdtempSync, mkdirSync, cpSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, cpSync, writeFileSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -83,10 +83,18 @@ export async function v3DecoderChecks(rel) {
       rmSync(join(tmp, 'dist'), { recursive: true, force: true }); rmSync(join(tmp, 'out.zip'), { force: true });
       cpSync(rel, join(tmp, 'dist'), { recursive: true });
       if (edit) { const f = join(tmp, 'dist', 'lib', 'refdec.js'); writeFileSync(f, edit(readFileSync(f, 'utf8'))); }
-      // Sites W3: the packager refuses the retired network the tree still pins; a release identity stands in for it here.
+      // Sites W3: the packager refuses the retired network the tree still pins (in NETWORK and in every page or README
+      // that shows it); a release identity stands in for it here, as deploy/mainnet/set_network_identity.py would pin it.
+      const retiredFile = join(HERE, '..', '..', '..', 'deploy', 'mainnet', 'retired-networks.json');
+      const old = JSON.parse(readFileSync(retiredFile, 'utf8')).retired[0];
       const n = join(tmp, 'dist', 'lib', 'studio-network.js');
       writeFileSync(n, readFileSync(n, 'utf8').replace(/"chainId": \d+/, '"chainId": 4242').replace(/"genesisHash": "0x[0-9a-f]{64}"/, `"genesisHash": "0x${'42'.repeat(32)}"`));
-      return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip'), '--retired', join(HERE, '..', '..', '..', 'deploy', 'mainnet', 'retired-networks.json')], { encoding: 'utf8' });
+      const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
+      for (const f of walk(join(tmp, 'dist')).filter((f) => /\.(js|html|md|json|txt)$/.test(f))) {
+        const t = readFileSync(f, 'utf8'), u = t.replaceAll(String(old.chainId), '4242').replaceAll(old.genesisHash.slice(2), '42'.repeat(32));
+        if (u !== t) writeFileSync(f, u);
+      }
+      return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip'), '--retired', retiredFile], { encoding: 'utf8' });
     };
     const packed = pack();
     ok('the release packager packages the release build', packed.status === 0 && existsSync(join(tmp, 'out.zip')), packed.stderr);

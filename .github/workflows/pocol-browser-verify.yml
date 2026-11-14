@@ -65,6 +65,11 @@ jobs:
           npm run test:contract-ui --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-contract-ui.log
           (cd prototypes/pocol-extension && /usr/bin/python3 -m unittest tests/test_linux_export.py -v) 2>&1 | tee evidence/extension-linux-export.log
           npm run package:unreleased --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-package.log
+      - name: ES-module loader in Chromium (Sites W2b, no devnet)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          node prototypes/pocol-extension/tests/module_loader_browser.mjs 2>&1 | tee evidence/modules-browser.log
       - name: Browser with live devnet
         run: |
           set -o pipefail

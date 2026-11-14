@@ -3,7 +3,7 @@
 import { decodeSpec, verifyWindow } from './lib/rp.js';
 import { normalizeForkSchedule } from './lib/forks.js';
 import { fetchSite, normalize, chunkWidth } from './lib/site.js';
-import { withRetry } from './lib/retry.js';
+import { withRetry, IDEMPOTENT_READS } from './lib/retry.js';
 import * as bridge from './lib/bridge.js';
 import { StoreAdmission, qbytes } from './lib/sitestore.js';
 import { RecordStore } from './lib/records.js';
@@ -74,14 +74,31 @@ function validateProfile(p) {
 // HttpTransport pools (D98): trust checks never starve behind sites; chunk fetches have their own pool.
 const pools = { site: new http.Pool(http.SITE_POOL), trust: new http.Pool(http.TRUST_POOL), content: new http.Pool(http.CONTENT_POOL) };
 let reqId = 0;
+// One attempt of rpcFor's `once(method, params, timeoutMs, stages)` takes at most the pool reservation wait plus its
+// timeout; the retry deadline counts that, and an attempt that would end past it is shortened (lib/retry.js).
+const RETRY_BUDGET = Object.freeze({
+  attemptMs: (method, params, timeoutMs = RPC_TIMEOUT_MS) => http.RESERVE_WAIT_MS + timeoutMs,
+  shorten: ([, stages], ms) => [ms - http.RESERVE_WAIT_MS, stages],
+  minAttemptMs: http.RESERVE_WAIT_MS + 1000,
+});
+// Reads a site asks for (rpc_read, and the reads of its wallet requests) have a tighter budget than the extension's
+// own, so a busy gateway cannot let one tab hold the global pending-read slots for long (bridge.js
+// GLOBAL_PENDING_READS_MAX), and they stop when the session is closed or revoked (`aborted`).
+const SITE_READ_RETRY = Object.freeze({ attempts: 4, deadlineMs: 20000 });
 /** rpc for one pool; session (optional) carries the per-session SESSION_RECV_MAX account. Idempotent reads are
- *  retried on 429, -32021, timeouts and dropped connections (W2, lib/retry.js); eth_sendRawTransaction never is. */
+ *  retried on 429, -32021, 502/503/504, timeouts and dropped connections (W2, lib/retry.js); eth_sendRawTransaction
+ *  never is. `retry`: true (RETRY), false (no retry) or withRetry options; an `aborted()` among them also cancels a
+ *  read still waiting for its pool reservation, so nothing is sent once it is true. */
 function rpcFor(profile, pool, session = null, shared = http.inflight, retry = true) {
-  const once = (method, params, timeoutMs = RPC_TIMEOUT_MS, stages = {}) => http.request(profile.endpoint, method, params, { ...stages, pool, session, deadline: timeoutMs, id: ++reqId, shared: pool === pools.trust ? null : shared });
-  return retry ? withRetry(once) : once;
+  const opts = retry && typeof retry === 'object' ? retry : {}, aborted = opts.aborted || null;
+  const once = (method, params, timeoutMs = RPC_TIMEOUT_MS, stages = {}) => {
+    const cancel = aborted && IDEMPOTENT_READS.has(method) ? { beforeSend: () => aborted() || !!(stages.beforeSend && stages.beforeSend()) } : {};
+    return http.request(profile.endpoint, method, params, { ...stages, ...cancel, pool, session, deadline: timeoutMs, id: ++reqId, shared: pool === pools.trust ? null : shared });
+  };
+  return retry ? withRetry(once, { ...RETRY_BUDGET, ...opts }) : once;
 }
 // The verified site fetch retries its own reads (fetchSite, with the chunk-level pool), so it gets them unwrapped.
-const contentRpc = (profile) => { const c = rpcFor(profile, pools.content, null, http.inflight, false), s = rpcFor(profile, pools.site, null, http.inflight, false); return (m, p) => (m === 'eth_getCode' ? c(m, p) : s(m, p)); };
+const contentRpc = (profile) => { const c = rpcFor(profile, pools.content, null, http.inflight, false), s = rpcFor(profile, pools.site, null, http.inflight, false); return (m, p, ...r) => (m === 'eth_getCode' ? c(m, p, ...r) : s(m, p, ...r)); };
 /** netKey check against the endpoint: chainId and genesisHash must equal the profile. */
 async function checkNetwork(profile, rpc) {
   const cid = BigInt(await rpc('eth_chainId', []));
@@ -210,7 +227,7 @@ async function openVerified(profile, site, path, tabId, ep0) {
     catch (e) { return { ok: false, error: { code: 4901, message: 'RP window rejected: ' + (e.flag || e.message) } }; }
     if (!trust.ok) return { ok: false, error: { code: 4901, message: trust.message } };
   }
-  const s = await fetchSite(contentRpc(profile), site, { parallel: chunkWidth(profile.trustLevel) });
+  const s = await fetchSite(contentRpc(profile), site, { parallel: chunkWidth(profile.trustLevel), retry: RETRY_BUDGET });
   const files = {}; for (const [p, f] of s.files) files[p] = { mime: f.mime, b64: b64(f.data) };
   const sessionId = crypto.randomUUID(); const now = Math.floor(performance.now());
   const recv = { recv: 0 };
@@ -219,7 +236,7 @@ async function openVerified(profile, site, path, tabId, ep0) {
   if (eligibilityEpoch !== ep0) return { ok: false, error: { code: 4901, message: 'network profiles changed while the site was opening; open it again' } };
   // The session freezes its profile (without the recomputed conflict flag) for signEligible.
   const frozen = Object.freeze(Object.fromEntries(PROFILE_FIELDS.map((k) => [k, profile[k]])));
-  const sess = { profile: frozen, site: site.toLowerCase(), netKey: profile.netKey, bucket: bridge.newSession(now), approved: null, rpc: rpcFor(profile, pools.site, recv), tabId, trust,
+  const sess = { profile: frozen, site: site.toLowerCase(), netKey: profile.netKey, bucket: bridge.newSession(now), approved: null, rpc: rpcFor(profile, pools.site, recv, http.inflight, { ...SITE_READ_RETRY, aborted: () => sess.closed }), tabId, trust,
     confirmPending: false, walletPending: false, walletTimes: [], storeQ: admission.session(), closed: false };
   // Until the viewer connects, ending the session only drops it (the port handler replaces this).
   sess.revoke = () => { sess.closed = true; sessions.delete(sessionId); removeDnr(tabId).catch(() => {}); };
@@ -238,6 +255,7 @@ function transportError(e) {
   if (e.rpc) return { error: e.rpc };
   if (e.transport === 'busy') return E(-32005, 'busy', { reason: 'busy' });
   if (e.transport === 'rate') return E(-32005, 'rate', { reason: 'rate' });
+  if (e.transport === 'status') return E(-32603, 'status', Number.isInteger(e.status) ? { reason: 'status', status: e.status } : { reason: 'status' });
   const reason = ['recvLimit', 'recvDepth', 'recvParse'].includes(e.transport) ? e.transport : 'transport';
   return E(-32603, reason, { reason });
 }

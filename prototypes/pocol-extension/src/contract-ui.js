@@ -2,7 +2,7 @@ import { NETWORK } from './lib/studio-network.js';
 import { importKeyfile, exportKeyfile } from './lib/studio-keyfile.js';
 import { addressOf, signTx, LOCK_MS } from './lib/wallet.js';
 import { prepareContractReview, submitContractReview, checkContractReceipt } from './lib/contracts.js';
-import { request as transportRequest, Pool, TRUST_POOL } from './lib/transport.js';
+import { request as transportRequest, Pool, TRUST_POOL, RESERVE_WAIT_MS } from './lib/transport.js';
 import { withRetry } from './lib/retry.js';
 
 const $ = id => document.getElementById(id);
@@ -11,8 +11,12 @@ const jobId = location.hash.slice(1), storageKey = JOB_PREFIX + jobId;
 const allowedOrigins = new Set(['https://ide.pocol.net']);
 const pool = new Pool(TRUST_POOL); let rpcId = 0;
 let job = null, review = null, secret = null, until = 0, busy = false, walletBusy = false, walletEpoch = 0, controller = null, writes = Promise.resolve(), storageFailure = false, checkingReceipt = false, nextReceiptCheck = 0;
-// W2: idempotent reads are retried on 429, -32021, timeouts and dropped connections; eth_sendRawTransaction is sent once.
-const rpc = withRetry((method, params) => transportRequest(NETWORK.endpoint, method, params, {pool, deadline: 30000, id: ++rpcId, signal: controller?.signal || null}), {aborted: () => !!controller?.signal?.aborted});
+// W2: idempotent reads are retried on 429, -32021, 502/503/504, timeouts and dropped connections; eth_sendRawTransaction
+// is sent once. An attempt takes at most the pool wait plus its deadline, which the 60 s retry deadline counts.
+const RPC_DEADLINE_MS = 30000;
+const rpc = withRetry((method, params, deadline = RPC_DEADLINE_MS) => transportRequest(NETWORK.endpoint, method, params, {pool, deadline, id: ++rpcId, signal: controller?.signal || null}), {
+  aborted: () => !!controller?.signal?.aborted, attemptMs: RESERVE_WAIT_MS + RPC_DEADLINE_MS, shorten: (rest, ms) => [ms - RESERVE_WAIT_MS], minAttemptMs: RESERVE_WAIT_MS + 1000,
+});
 const stringify = value => JSON.stringify(value, (_, item) => typeof item === 'bigint' ? item.toString() : item, 2);
 const errorMessage = error => String(error?.rpc?.message || error?.message || error).slice(0, 600);
 const signedRecord = current => current?.checkpoint?.transactions?.contract || null;

@@ -27,7 +27,7 @@ async function fixture(options = {}) {
     window:{addEventListener:(name,callback)=>listeners.set(name,callback)},setInterval:fn=>{tick=fn},
     NETWORK:{chainId:1599846715,endpoint:'https://gateway.pocol.net/studio/rpc'},LOCK_MS:900000,
     addressOf:()=>ADDRESS, importKeyfile:async()=>{state.importEntered=true;const key = options.importGate ? await options.importGate : new Uint8Array(32).fill(7);state.generatedKeys.push(key);return key;}, exportKeyfile:async()=>({encrypted:true}),
-    signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,withRetry,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},
+    signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,RESERVE_WAIT_MS:2000,withRetry,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},
     prepareContractReview:async()=>{state.prepared++;return baseReview},
     submitContractReview:async args=>{state.submitted++;state.submitArgs=args;return options.submit ? options.submit(args,state) : {state:'pending',hash:HASH,address:baseReview.predictedAddress,from:ADDRESS,receipt:null}},
     checkContractReceipt:async args=>{state.receiptChecks=(state.receiptChecks||0)+1;state.checkArgs=args;return options.checkReceipt?options.checkReceipt(args,state):{state:'pending',hash:HASH,address:baseReview.predictedAddress,from:ADDRESS,receipt:null}},

@@ -80,9 +80,9 @@ async function pooled(tasks, width) {
 }
 /** Fetch + fully verify the current version through `rpc(method, params)`.
  *  limits.parallel: chunk reads in flight (1..CHUNK_WIDTH_MAX, default CHUNK_WIDTH_MAX); limits.retry: options for
- *  lib/retry.js withRetry (attempts, deadlineMs, clock, sleep, random). Each read is retried on 429, -32021, a
- *  timeout or a dropped connection; every chunk is verified (factory address, length) and every file by keccak,
- *  so a retry can never let tampered content through. */
+ *  lib/retry.js withRetry (attempts, deadlineMs, attemptMs, shorten, clock, sleep, random). Each read is retried on
+ *  429, -32021, 502/503/504, a timeout or a dropped connection, never on another HTTP status; every chunk is verified
+ *  (factory address, length) and every file by keccak, so a retry can never let tampered content through. */
 export async function fetchSite(rpc, site, limits = {}) {
   const width = Math.max(1, Math.min(CHUNK_WIDTH_MAX, Math.floor(limits.parallel ?? CHUNK_WIDTH_MAX)));
   const read = withRetry(rpc, { retryBusy: true, ...(limits.retry || {}) });

@@ -64,4 +64,44 @@ test('a continuous chain (cumulative false) checks each transaction against one 
   assert.equal(capNeed(most,'accounts',true),BigInt(most.accounts),'the state rows count the whole publication either way');
   assert.throws(()=>capsVerdict({...capsOf(),cumulative:'no'},least,most),/capsInvalid/);
 });
-test('Sites W2b: module imports are checked before publishing (graph, cycle, missing file, bare specifier)',()=>{const f=(path,text)=>({path,data:new TextEncoder().encode(text)});const ok=validateFiles([f('/index.html','<script type="module" src="main.js"></script>'),f('/main.js',"import{a}from'./lib/a.js';import('./lazy.js');import(x);"),f('/lib/a.js',"export const a=1;"),f('/lazy.js',"import{a}from'./lib/a.js';export default a;")]);assert.equal(ok.count,4);assert.deepEqual(ok.moduleWarnings.length,1);assert.match(ok.moduleWarnings[0],/computed specifier/);assert.throws(()=>validateFiles([f('/index.html',''),f('/a.js',"import'./b.js';"),f('/b.js',"import'./a.js';")]),/module import cycle: \/a\.js -> \/b\.js -> \/a\.js/);assert.throws(()=>validateFiles([f('/index.html',''),f('/a.js',"import'./gone.js';")]),/\/gone\.js, which is not in the site/);assert.throws(()=>validateFiles([f('/index.html',''),f('/a.js',"import React from'react';")]),/"react" cannot load/);});
+import{moduleReport,checkIncomingFiles,checkReplacedFiles,publishFiles}from'../dist/model.js';
+const mf=(path,text)=>({path,data:new TextEncoder().encode(text)});
+const filesProject=files=>({id:'stored-1',mode:'files',name:'Saved before W2b',lang:'en',entry:'/index.html',files:files.map(f=>({path:f.path,base64:encode64(f.data)})),created:1,published:null});
+test('Sites W2b: module imports are checked where files come in and before publishing (graph, cycle, missing file, bare specifier)',()=>{
+  const ok=checkIncomingFiles([mf('/index.html','<script type="module" src="main.js"></script>'),mf('/main.js',"import{a}from'./lib/a.js';import('./lazy.js');import(x);"),mf('/lib/a.js',"export const a=1;"),mf('/lazy.js',"import{a}from'./lib/a.js';export default a;")],'/index.html');
+  assert.equal(ok.length,1);assert.match(ok[0],/computed specifier/);
+  const refused=(files,re)=>assert.throws(()=>checkIncomingFiles(files,'/index.html'),e=>e.code==='MODULE_GRAPH'&&re.test(e.message));
+  refused([mf('/index.html',''),mf('/a.js',"import'./b.js';"),mf('/b.js',"import'./a.js';")],/module import cycle: \/a\.js -> \/b\.js -> \/a\.js/);
+  refused([mf('/index.html',''),mf('/a.js',"import'./gone.js';")],/\/gone\.js, which is not in the site/);
+  refused([mf('/index.html',''),mf('/a.js',"import React from'react';")],/"react" cannot load/);
+  // validateFiles itself stays structural.
+  assert.deepEqual(validateFiles([mf('/index.html',''),mf('/a.js',"import'./a.js';")]),{count:2,total:15});
+});
+test('Sites W2b: a stored project with a module error still loads, previews, exports and re-imports; only publishing it is refused',()=>{
+  const cyc=[mf('/index.html','<script type="module" src="a.js"></script>'),mf('/a.js',"import'./b.js';"),mf('/b.js',"import'./a.js';")];
+  const ext=[mf('/index.html','<script type="module" src="a.js"></script>'),mf('/a.js',"import x from 'https://esm.sh/preact';")];
+  for(const files of[cyc,ext]){
+    const stored=[filesProject(files),newProject('personal','en')];
+    // Studio loads storage as `projects=v.slice(0,25).map(validateProject)`: one bad project must not hide the others.
+    const loaded=JSON.parse(JSON.stringify(stored)).map(validateProject);
+    assert.equal(loaded.length,2);assert.equal(loaded[0].files.length,files.length);
+    assert.equal(projectFiles(loaded[0]).length,files.length,'its files can be listed, viewed, previewed and exported');
+    assert.equal(parseProject(publicProject(loaded[0])).files.length,files.length,'a backup of it can be imported again');
+    assert.ok(moduleReport(projectFiles(loaded[0])).errors.length>=1,'the files panel lists the errors');
+    assert.throws(()=>publishFiles(loaded[0]),e=>e.code==='MODULE_GRAPH'&&/module import cycle|cannot load in a PoCol site/.test(e.message));
+    assert.deepEqual(publishFiles(loaded[1]).warnings,[]);assert.equal(publishFiles(loaded[1]).files.length,1);
+  }
+});
+test('Sites W2b: replacing a file is refused only for module errors the edit adds, so a stored error can be fixed',()=>{
+  const before=[mf('/index.html',''),mf('/a.js',"import'./b.js';"),mf('/b.js',"import'./a.js';"),mf('/c.js','export{};')];
+  const edit=(files,path,text)=>files.map(f=>f.path===path?mf(path,text):f);
+  assert.deepEqual(checkReplacedFiles(before,edit(before,'/c.js','export const c=1;'),'/index.html'),[],'an unrelated edit keeps the old error and is saved');
+  assert.throws(()=>checkReplacedFiles(before,edit(before,'/c.js',"import'./nope.js';"),'/index.html'),e=>e.code==='MODULE_GRAPH'&&/nope\.js/.test(e.message)&&e.moduleErrors.length===1);
+  const fixed=edit(before,'/b.js','export const b=1;');
+  assert.deepEqual(checkReplacedFiles(before,fixed,'/index.html'),[]);assert.deepEqual(moduleReport(fixed).errors,[]);
+  assert.match(checkReplacedFiles(fixed,edit(fixed,'/c.js','import(name);'),'/index.html')[0],/computed specifier/,'a warning is returned, not refused');
+});
+test('Sites W2b: the publish warnings reach the caller (computed or external import(), import.meta)',()=>{
+  const p=filesProject([mf('/index.html',''),mf('/a.js',"import(name);import('https://cdn.example/x.js');console.log(import.meta.url);")]);
+  const w=publishFiles(validateProject(p)).warnings;assert.equal(w.length,3);assert.match(w.join('\n'),/computed specifier[\s\S]*blocked in a PoCol site[\s\S]*import\.meta\.url/);
+});

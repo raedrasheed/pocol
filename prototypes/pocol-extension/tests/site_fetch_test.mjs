@@ -174,16 +174,58 @@ test('wrapping a retrying function again does not multiply attempts', async () =
   assert.equal(R.withRetry(once), once);
   await assert.rejects(R.withRetry(once)('eth_call', [])); assert.equal(n, R.RETRY.attempts);
 });
-test('transport classifies 429 as rate with Retry-After (delta-seconds, capped), 502/503/504 as transport, other statuses unchanged', async () => {
+test('transport classifies 429 as rate with Retry-After (delta-seconds, capped), 502/503/504 as transport, any other status as status', async () => {
   const pool = new T.Pool(T.TRUST_POOL); const run = (res) => T.request('http://x/', 'eth_blockNumber', [], { pool, id: 1, fetchImpl: async () => res }).then((v) => ({ v }), (e) => e);
   let e = await run(busy429('2')); assert.equal(e.transport, 'rate'); assert.equal(e.retryAfterMs, 2000); assert.equal(e.status, 429);
   e = await run(busy429('3600')); assert.equal(e.retryAfterMs, T.RETRY_AFTER_MAX_MS);
   e = await run(busy429('Wed, 21 Oct 2015 07:28:00 GMT')); assert.equal(e.transport, 'rate'); assert.equal(e.retryAfterMs, 0);
   e = await run(new Response('', { status: 429 })); assert.equal(e.retryAfterMs, 0);
   for (const s of [502, 503, 504]) { e = await run(new Response('<html></html>', { status: s })); assert.equal(e.transport, 'transport'); }
-  e = await run(new Response('{"jsonrpc":"2.0","id":1,"result":"0x1"}', { status: 500 })); assert.equal(e.transport, 'transport');
+  for (const s of [201, 204, 301, 400, 403, 404, 413, 415, 500]) {
+    e = await run(new Response(s === 204 ? null : '{"jsonrpc":"2.0","id":1,"result":"0x1"}', { status: s })); assert.equal(e.transport, 'status', String(s)); assert.equal(e.status, s);
+  }
+  e = await run(new Response('<html>not json</html>', { status: 404 })); assert.equal(e.transport, 'status'); // classified before the body is read
+  assert.equal(R.retryHint({ transport: 'status', status: 400 }), null); assert.equal(R.retryHint({ transport: 'transport', status: 500 }), null);
+  assert.equal(R.retryHint({ transport: 'transport', status: 503, retryAfterMs: 5 }), 5); assert.equal(R.retryHint({ transport: 'transport' }), 0);
   assert.equal(R.retryHint({ transport: 'rate', retryAfterMs: 2000 }), 2000); assert.equal(R.retryHint({ transport: 'recvLimit' }), null);
   assert.equal(pool.free, pool.cap);
+});
+// The Studio gateway answers 400 for a request it refuses, 404/415 for a wrong path or content type, and 413
+// 'Response limit exceeded' only after it charged the client's budget and ran the call: a retry would only spend
+// that budget again, so every status other than 429 and 502/503/504 is final.
+test('HTTP 400, 403, 404, 413, 415 and 500 answers are final: exactly one attempt, through every retrying wrapper', async () => {
+  for (const status of [400, 403, 404, 413, 415, 500]) {
+    let n = 0; const c = virtualClock(); const pool = new T.Pool(T.SITE_POOL);
+    const fetchImpl = async () => { n++; return new Response(JSON.stringify({ error: 'refused' }), { status, headers: { 'content-type': 'application/json' } }); };
+    const rpc = R.withRetry((m, p) => T.request('http://gateway.test/studio/rpc', m, p, { pool, id: 1, fetchImpl }), { clock: c.clock, sleep: c.sleep });
+    await assert.rejects(rpc('eth_call', [{}, 'latest']), (e) => e.transport === 'status' && e.status === status && !/gave up/.test(e.message));
+    assert.equal(n, 1, String(status)); assert.deepEqual(c.slept, []); assert.equal(pool.free, pool.cap);
+    // The verified site fetch (which also retries local back-pressure) gives up at once as well.
+    const fx = await fixture(), st = endpoint(fx, (k, m) => (m === 'eth_getCode' ? new Response('{"error":"Response limit exceeded"}', { status }) : null));
+    await assert.rejects(open(st, fx, 2, c), (e) => e.transport === 'status' && /could not be read/.test(e.message));
+    assert.ok(st.getCode <= 2, `${status}: ${st.getCode}`); // at most one read per worker, none repeated
+  }
+});
+test('the total deadline bounds the attempts too: a retry starts only if it can end, its own timeout included, by the deadline', async () => {
+  // Each attempt runs to its timeout (10 s unless shortened) and then fails as a timeout ('transport').
+  const slow = (c, seen) => async (m, p, timeoutMs) => { seen.push(timeoutMs ?? 'default'); c.now += timeoutMs ?? 10000; throw Object.assign(new Error('transport'), { transport: 'transport' }); };
+  const budget = { attemptMs: (m, p, t = 10000) => 2000 + t, minAttemptMs: 3000 };
+  // Without a budget, the check sees only the wait, and the last attempt ends past the deadline (the reported 67,750 ms).
+  let c = virtualClock(), seen = [];
+  await assert.rejects(R.withRetry(slow(c, seen), { clock: c.clock, sleep: c.sleep, random: () => 1 })('eth_call', []), /gave up after 6 attempts/);
+  assert.equal(c.now, 67750);
+  // With attemptMs, no retry starts that could end past 60 s.
+  c = virtualClock(); seen = [];
+  await assert.rejects(R.withRetry(slow(c, seen), { ...budget, clock: c.clock, sleep: c.sleep, random: () => 1 })('eth_call', []), /gave up after 5 attempts/);
+  assert.equal(c.now, 53750); assert.ok(c.now <= R.RETRY.deadlineMs); assert.equal(seen.length, 5);
+  // With shorten, the last attempt is bounded to the time left (6,125 ms minus the 2 s pool wait).
+  c = virtualClock(); seen = [];
+  await assert.rejects(R.withRetry(slow(c, seen), { ...budget, shorten: ([, stages], ms) => [ms - 2000, stages], clock: c.clock, sleep: c.sleep, random: () => 0 })('eth_call', []), /gave up after 6 attempts/);
+  assert.deepEqual(seen, ['default', 'default', 'default', 'default', 'default', 4125]); assert.equal(c.now, 58000); assert.ok(c.now + 2000 <= R.RETRY.deadlineMs);
+  // Too little left for even a shortened attempt (minAttemptMs): the loop gives up instead.
+  c = virtualClock(); seen = [];
+  await assert.rejects(R.withRetry(slow(c, seen), { ...budget, minAttemptMs: 7000, shorten: ([, stages], ms) => [ms - 2000, stages], clock: c.clock, sleep: c.sleep, random: () => 0 })('eth_call', []), /gave up after 5 attempts/);
+  assert.equal(seen.length, 5);
 });
 test('the site fetch keeps the manifest checks: a wrong manifest hash is refused after retries', async () => {
   const fx = await fixture(), c = virtualClock();
@@ -220,4 +262,63 @@ test('the service worker opens a site whose chunk reads are first refused (-3202
   port.post({ seq: 1, frame: 1, text: JSON.stringify({ id: 1, kind: 'rpc_read', payload: { method: 'eth_blockNumber', params: [] } }) });
   const r = (await port.next((m) => m.seq === 1)).reply;
   assert.equal(r.result, '0x2a', JSON.stringify(r)); assert.equal(refusedRead, 2);
+});
+test('a closed or revoked site session stops retrying at once: no further read is sent and its pending-read slots return', async () => {
+  const { installChromeMock, installFetchMock, loadWorker } = await import('./chrome_mock.mjs');
+  const { readFileSync } = await import('node:fs');
+  const C = await L('crypto.js'), RP = await L('rp.js'), B = await L('bridge.js');
+  const pre = '0x' + readFileSync(new URL('./data/devnet-spec.hex', import.meta.url), 'utf8').trim().replace(/^0x/, '');
+  const spec = RP.decodeSpec(H.fromHex(pre)), hash = H.toHex(C.keccak(H.fromHex(pre)));
+  const fx = await fixture(); let busy = true;
+  // The retry sleeps (the -32021 hint, HINT ms) are captured, not scheduled: the test decides when each one ends.
+  // The 30 s identity checks are captured and long timers unref'd, as in the test above, so the suite can exit.
+  const HINT = 4321, sleeps = [];
+  const prevSI = globalThis.setInterval, prevST = globalThis.setTimeout;
+  globalThis.setInterval = (f, ms, ...a) => (ms === 30000 ? { captured: f } : prevSI(f, ms, ...a));
+  globalThis.setTimeout = (f, ms, ...a) => { if (ms === HINT) { sleeps.push(f); return { captured: f }; } const t = prevST(f, ms, ...a); if (ms >= 30000 && t.unref) t.unref(); return t; };
+  try {
+    const mock = installChromeMock();
+    const log = installFetchMock({ ...fx.handlers,
+      eth_blockNumber: () => (busy ? { __error: { code: -32021, message: 'busy', data: { reason: 'busy', retryAfterMs: HINT } } } : '0x2a'),
+      eth_chainId: () => '0x' + spec.chainId.toString(16), pocol_status: () => ({ genesisHash: hash }) });
+    await loadWorker(dist, 'site-session-abort');
+    const EP = { p1: 'http://127.0.0.1:8597', p2: 'http://127.0.0.1:8596' };
+    for (const name of ['p1', 'p2']) {
+      const added = await mock.send({ type: 'profiles.add', profile: { name, chainId: Number(spec.chainId), genesisPre: pre, genesisHash: hash, endpoint: EP[name], trustLevel: 'LN' } });
+      assert.equal(added.ok, true, JSON.stringify(added));
+    }
+    const sessions = [];
+    for (let i = 0; i < 8; i++) {
+      const tab = 40 + i, op = await mock.send({ type: 'open', name: i < 4 ? 'p1' : 'p2', site: fx.site, path: '/' }, tab);
+      assert.equal(op.ok, true, JSON.stringify(op));
+      sessions.push({ tab, port: mock.connect('bridge:' + op.sessionId, tab), seq: 0 });
+    }
+    const read = (s) => { const seq = ++s.seq; s.port.post({ seq, frame: 1, text: JSON.stringify({ id: seq, kind: 'rpc_read', payload: { method: 'eth_blockNumber', params: [] } }) }); return seq; };
+    const reads = (url) => log.filter((x) => x.method === 'eth_blockNumber' && x.url === url).length;
+    const settle = async (pred) => { for (let i = 0; i < 1000 && !pred(); i++) await new Promise((r) => setImmediate(r)); assert.ok(pred()); };
+    // Sessions 1-4 (profile p1) each fill their PENDING_READS_MAX; together they hold every global slot.
+    assert.equal(4 * B.PENDING_READS_MAX, B.GLOBAL_PENDING_READS_MAX);
+    for (const s of sessions.slice(0, 4)) for (let k = 0; k < B.PENDING_READS_MAX; k++) read(s);
+    await settle(() => sleeps.length === 16);
+    assert.equal(reads(EP.p1), 16);
+    const refused = read(sessions[4]);
+    assert.equal((await sessions[4].port.next((m) => m.seq === refused)).reply.error.data.reason, 'pending');
+    // Two tabs close; the profile of the other two is removed (they are revoked with 4901). All of it during the sleeps.
+    sessions[0].port.close(); sessions[1].port.close();
+    assert.equal((await mock.send({ type: 'profiles.remove', name: 'p1' })).ok, true);
+    await sessions[2].port.next((m) => m.revoked && m.revoked.code === 4901); await sessions[3].port.next((m) => m.revoked && m.revoked.code === 4901);
+    // The sleeps end: every one of the 16 loops stops without sending, and releases its slots.
+    for (const f of sleeps.splice(0)) f();
+    await settle(() => true); for (let i = 0; i < 20; i++) await new Promise((r) => setImmediate(r));
+    assert.equal(reads(EP.p1), 16, 'nothing more is sent to the closed or revoked sessions\' endpoint');
+    assert.equal(sleeps.length, 0);
+    // The counters are back at 0: sessions 5-8 (profile p2) are again admitted for all 16 global slots.
+    const later = sessions.slice(4).map((s) => Array.from({ length: B.PENDING_READS_MAX }, () => read(s)));
+    await settle(() => sleeps.length === 16);
+    assert.ok(sessions.slice(4).every((s) => !s.port.inbox.some((m) => m.reply && m.reply.error)), 'no read was refused as pending');
+    // The gateway recovers: the retried reads of the live sessions now succeed.
+    busy = false; for (const f of sleeps.splice(0)) f();
+    for (const [i, s] of sessions.slice(4).entries()) for (const seq of later[i]) assert.equal((await s.port.next((m) => m.seq === seq)).reply.result, '0x2a');
+    assert.equal(reads(EP.p2), 32);
+  } finally { globalThis.setInterval = prevSI; globalThis.setTimeout = prevST; }
 });
