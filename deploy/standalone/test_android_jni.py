@@ -106,6 +106,7 @@ public final class JniBoundaryTest {
                 equal(String.join("|",WalletText.amountRow("rejoin","0")),"Amount|0 PCOL \u00b7 the bond stays locked");equal(String.join("|",WalletText.amountRow("reactivation","0")),"Amount|0 PCOL \u00b7 the bond stays locked");
                 equal(String.join("|",WalletText.amountRow("registration","20")),"Bond|20 PCOL");equal(String.join("|",WalletText.amountRow("topup","5")),"Top-up|5 PCOL");equal(String.join("|",WalletText.amountRow("transfer","1")),"Amount|1 PCOL");
                 equal(WalletText.rejoinNotice("rejoin","Stopped","The reactivation window passed."),"Mining rejoin \u00b7 Stopped: The reactivation window passed.");
+                equal(WalletText.REGISTRY_LABEL,"Registry");equal(WalletText.rejoinTransactions("4"),"Transactions signed by this wallet: up to 4");
                 equal(WalletText.rejoinNotice("rejoin","","x"),"x");equal(WalletText.rejoinNotice("status","Stopped","x"),"");
                 equal(String.join("|",WalletText.replaceLines("0x02",new String[]{"a","b"},"n")),"Registration by replacement of 0x02|1. a|2. b|n");
                 equal(String.join("|",WalletText.replaceLines("0x03",new String[0],"")),"Registration by replacement of 0x03");break;

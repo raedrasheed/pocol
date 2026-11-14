@@ -147,8 +147,8 @@ public final class MainActivity extends Activity {
         // FN-2b C4: at a full set the registration replaces an inactive member (registerReplacing); the engine names it.
         JSONObject replacing=registration?q.optJSONObject("replacing"):null;
         if(replacing!=null){for(String line:WalletText.replaceLines(replacing.optString("victim"),strings(q.optJSONArray("steps")),q.optString("note")))body.addView(text(line,14,INK,false));divider(body);}
-        if(rejoin){String[] steps=strings(q.optJSONArray("steps"));for(int i=0;i<steps.length;i++)body.addView(text((i+1)+". "+steps[i],14,INK,false));divider(body);}
-        reviewRow(body,"Network",String.valueOf(q.optLong("chainId")),false);reviewRow(body,"To",q.optString("to"),true);divider(body);
+        if(rejoin){String[] steps=strings(q.optJSONArray("steps"));for(int i=0;i<steps.length;i++)body.addView(text((i+1)+". "+steps[i],14,INK,false));body.addView(text(WalletText.rejoinTransactions(q.optString("transactions")),14,INK,false));divider(body);}
+        reviewRow(body,"Network",String.valueOf(q.optLong("chainId")),false);reviewRow(body,rejoin?WalletText.REGISTRY_LABEL:"To",q.optString("to"),true);divider(body);
         String[] row=WalletText.amountRow(kind,q.optString("amount"));reviewRow(body,row[0],row[1],false);
         if(top)body.addView(text("Bond held now: "+q.optString("bondHeld")+" of "+q.optString("bondTarget")+" PCOL. If rewards fill part of it first, the extra top-up returns to you.",13,MUTED,false));
         if(top&&!q.optString("note").isEmpty())body.addView(text(q.optString("note"),13,MUTED,false));

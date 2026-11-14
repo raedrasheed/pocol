@@ -74,6 +74,11 @@ final class WalletText {
             default:return new String[]{"Amount",amount+" PCOL"};
         }
     }
+    /** The rejoin review's address label and transaction line (the Windows wallet's ReviewRejoin): the Registry receives
+     *  the calls, and the quote's `transactions` is the most this wallet signs for it (the exit, if any, and the
+     *  reactivation attempts). */
+    static final String REGISTRY_LABEL="Registry";
+    static String rejoinTransactions(String count){return "Transactions signed by this wallet: up to "+count;}
     /** A rejoin engine message (type "rejoin": the Scheduled answer to Confirm, and the Reactivating, Retrying, Rejoined and
      *  Stopped events of a running rejoin) as one notice; empty for any other message. */
     static String rejoinNotice(String type,String state,String message){
