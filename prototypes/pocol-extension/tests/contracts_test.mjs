@@ -10,7 +10,7 @@ const SECRET=new Uint8Array(32);SECRET[31]=1;const ADDRESS=W.addressOf(SECRET),O
 const REQUEST={schema:1,action:'deploy',title:'Counter',abi:['constructor(uint256 initial)'],bytecode:'0x60006000',args:['7'],valueWei:'0'};
 const BLOCKHASH='0x'+'ab'.repeat(32);
 function harness(overrides={}) {
-  const state={chain:'0x5f5bb93b',genesis:N.NETWORK.genesisHash,nonce:'0x2',balance:'0x3635c9adc5dea00000',receipt:null,checkpoint:null,...overrides},calls=[],events=[];
+  const state={chain:'0x'+N.NETWORK.chainId.toString(16),genesis:N.NETWORK.genesisHash,nonce:'0x2',balance:'0x3635c9adc5dea00000',receipt:null,checkpoint:null,...overrides},calls=[],events=[];
   const rpc=async(method,params)=>{calls.push({method,params});
     switch(method){
       case 'eth_chainId':return state.chain;
