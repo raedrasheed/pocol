@@ -320,6 +320,11 @@ mod preview {
         let step = wallet::chain_rejoin_step(&net.chain, alice.address());
         assert_eq!(step, RejoinStep::Full { refund: a.due_height }, "no rejoin while every seat is taken");
         assert!(wallet::rejoin_refusal(step).unwrap().contains("All seats are taken"));
+        // The replaced member's status (G3b'): the bond it still earns (it registered with 0 PCOL and never mined) and no
+        // reactivation yet; a top-up is refused because the record has exited.
+        let st = { let head = net.chain.head(); wallet::v3_status(&net.chain, &head.state, alice.address(), Some(&a), head.height + 1).unwrap() };
+        assert_eq!((&st["bondRemaining"], &st["reactivation"]["lastAt"]), (&serde_json::json!("20"), &serde_json::Value::Null), "{st}");
+        assert!(wallet::v3_top_up_refusal(Some(&a), U256::from(B)).unwrap().contains("has exited"));
         while net.chain.head().height + 1 < a.exit_height + u64::from(net.chain.spec.cp().W_act) { let _ = next(&mut net, one, vec![]); }
         assert_eq!(wallet::chain_rejoin_step(&net.chain, alice.address()), RejoinStep::Full { refund: a.due_height }, "inside its reactivation window, still full");
         let t = tx(&net, &alice, wallet::reactivate_calldata().to_vec(), U256::ZERO);
@@ -374,6 +379,71 @@ mod preview {
         let t = reward(&net, &alice, bob.address(), 0);
         let _ = next(&mut net, one, vec![t]);
         assert_eq!(record(&net, alice.address()).reward, bob.address(), "accepted in the next block");
+    }
+
+    /// V3-09 on chain, the wallet's rejoin step (G3b'): genesis member two exits and reactivates at L, which starts its
+    /// C_react 200 clock (U 40, W_act 32). Exiting again at L + 1, the clock-free rule would offer [L + 33, L + 41); the v3
+    /// clock opens only at L + 200, past the refund sweep, so the wallet's step (chain_rejoin_step, what the status and
+    /// Rejoin mining use) is Missed at once, and a reactivation in that window is indeed a status-0 receipt. The status
+    /// fields show the clock while its next allowed height is ahead.
+    #[test]
+    fn the_wallet_rejoin_reads_the_reactivation_clock_on_chain() {
+        let mut cfg = config();
+        cfg.c_react = 200;
+        let mut net = net_with(cfg);
+        let one = net.one;
+        let two = net.chain.spec.profile().spec().m0_list.iter().map(|m| Address::from(m.id)).find(|m| *m != one).unwrap();
+        let (w_act, u) = (u64::from(net.chain.spec.cp().W_act), u64::from(net.chain.spec.cp().U));
+        assert_eq!((w_act, u, net.chain.spec.cp().C_react), (32, 40, 200));
+        let step = |net: &Net| {
+            let head = net.chain.head();
+            let r = apply::miner_record(&head.state, two);
+            let member = net.chain.membership(head, head.height + 1).unwrap().ids().contains(&raw_addr(two));
+            (wallet::rejoin_step(r.as_ref(), head.height + 1, member, w_act, None), wallet::chain_rejoin_step(&net.chain, two))
+        };
+        let status = |net: &Net| {
+            let head = net.chain.head();
+            wallet::v3_status(&net.chain, &head.state, two, apply::miner_record(&head.state, two).as_ref(), head.height + 1).unwrap()
+        };
+        assert_eq!(status(&net), serde_json::json!({"bondRemaining": null, "reactivation": {"lastAt": null, "cooldownBlocks": 200, "allowedFrom": null}}), "a HELD genesis member that never reactivated");
+        // two pays its own fees (FN-2a: an ordinary transfer, no creation fee).
+        let alice = devnet::account_key("alice");
+        let fund = {
+            let head = net.chain.full_entry(&net.chain.head).unwrap();
+            let base = net.chain.child_ctx(&head, 0).unwrap().base_fee;
+            let priority = U256::from(1_000_000_000u64);
+            Tx { chain_id: net.chain.spec.chain_id(), nonce: nonce(&net, alice.address()), max_priority: priority, max_fee: base * U256::from(2) + priority,
+                 gas: 21_000, to: Some(two), value: U256::from(PCOL), data: Bytes::new() }.sign_1559(&alice)
+        };
+        let _ = next(&mut net, one, vec![fund]);
+        assert_eq!(balance(&net, two), U256::from(PCOL));
+        let t = tx(&net, &net.keys[&two], wallet::exit_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        let e1 = net.chain.head().height;
+        assert_eq!(record(&net, two).status, 2);
+        assert_eq!(step(&net), (RejoinStep::Wait { opens: e1 + w_act, closes: e1 + u }, RejoinStep::Wait { opens: e1 + w_act, closes: e1 + u }), "no reactivation yet: the same window");
+        while net.chain.head().height + 1 < e1 + w_act { let _ = next(&mut net, one, vec![]); }
+        assert_eq!(step(&net).1, RejoinStep::Reactivate { closes: e1 + u });
+        let t = tx(&net, &net.keys[&two], wallet::reactivate_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        let l = net.chain.head().height;
+        assert_eq!((receipts_status(&net), record(&net, two).status), (vec![vec![1u8]], 1), "reactivated at {l}");
+        assert_eq!(wallet::react_clock(&net.chain.head().state, two), l, "the clock is the reactivation height");
+        assert_eq!(step(&net).1, RejoinStep::Active);
+        let st = status(&net);
+        assert_eq!((&st["reactivation"]["lastAt"], &st["reactivation"]["allowedFrom"], &st["reactivation"]["cooldownBlocks"], &st["bondRemaining"]),
+            (&serde_json::json!(l), &serde_json::json!(l + 200), &serde_json::json!(200), &serde_json::Value::Null), "{st}");
+        let t = tx(&net, &net.keys[&two], wallet::exit_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        let e2 = net.chain.head().height;
+        assert_eq!((e2, record(&net, two).status), (l + 1, 2));
+        assert_eq!(step(&net), (RejoinStep::Wait { opens: e2 + w_act, closes: e2 + u }, RejoinStep::Missed), "the clock-free rule waits; the v3 clock says missed");
+        assert!(wallet::rejoin_refusal(RejoinStep::Missed).is_some(), "Rejoin mining is refused");
+        while net.chain.head().height + 1 < e2 + w_act { let _ = next(&mut net, one, vec![]); }
+        let t = tx(&net, &net.keys[&two], wallet::reactivate_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!((receipts_status(&net), record(&net, two).status), (vec![Vec::<u8>::new()], 2), "the registry refuses it inside C_react, as the wallet said");
+        assert_eq!(step(&net).1, RejoinStep::Missed);
     }
 
     /// V3-09 ParamGate (lp1-node gate.rs R8 on CP schema v2): admission refuses a v3 devnet whose reactivation window

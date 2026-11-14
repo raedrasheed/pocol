@@ -378,6 +378,51 @@ mod preview{
         }
     }
 
+    /// The wallet engine on a v3 node, through Wallet::handle (G3b'): the status carries the v3 fields (bondRemaining, the
+    /// reactivation clock) and the FN-2b seat fields, and no creation-burn field (FN-2a); a transfer quote signs the plain
+    /// 21000 gas at the wallet's max fee, the confirmed transaction is exactly the reviewed one and lands; fee_bound is no
+    /// longer a field; top-up and Rejoin mining without a record are refused with the reason. On a spec-1 node no v3 field
+    /// is shown.
+    #[test]
+    fn the_wallet_engine_on_a_v3_node_shows_the_v3_fields_and_signs_plain_transfers(){
+        let dir=Temp::new();let cfg=node_cfg(|_|{});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        let home_dir=Temp::new();let home=pocold::launcher::Home::open(&home_dir.0).unwrap();let key=home.key().unwrap();let me=key.address();
+        let fund=priced_tx(&alice,0,me,U256::from(10u128.pow(18)),21_000,next_base(&node)*U256::from(2)+U256::from(7));node.submit_tx(fund.clone(),false).unwrap();
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,cfg.g_ts+4);assert_eq!(selection.txs,vec![fund]);
+        let b=solve(&node,selection.txs,cfg.g_ts+4);assert!(node.import(b,None).unwrap());assert_eq!(balance(&node,me),U256::from(10u128.pow(18)));
+        let mut wallet=pocold::wallet::Wallet::new(&home).unwrap().without_network_checks();
+        let status=wallet.status(&node);
+        assert_eq!((&status["bondRemaining"],&status["registryStatus"],&status["seatsFull"],&status["removableSeats"],&status["registerReplaces"]),
+            (&serde_json::Value::Null,&serde_json::json!("none"),&serde_json::json!(false),&serde_json::json!(0),&serde_json::json!(false)),"{status}");
+        assert_eq!(status["reactivation"],serde_json::json!({"lastAt":null,"cooldownBlocks":node.chain.spec.cp().C_react,"allowedFrom":null}),"{status}");
+        for k in ["creationBurn","poolContested","reactivationBlocked","contestAvailable","probationSeatsFull"]{assert!(status.get(k).is_none(),"{k}: {status}");}
+        let to=new_address(172);
+        let send=serde_json::json!({"method":"quote_send","to":format!("{to:#x}"),"amount":"0.001"}).to_string();
+        let q=wallet.handle(&mut node,&send);
+        assert_eq!(q["type"],"quote","{q}");
+        for k in ["creationBurn","feeBound","gasLimit"]{assert!(q.get(k).is_none(),"{k}: {q}");}
+        let refused=wallet.handle(&mut node,&serde_json::json!({"method":"quote_send","to":format!("{to:#x}"),"amount":"0.001","fee_bound":"0.01"}).to_string());
+        assert_eq!((refused["type"].as_str(),refused["message"].as_str()),(Some("error"),Some("Invalid wallet command")),"{refused}");
+        let top=wallet.handle(&mut node,r#"{"method":"quote_top_up"}"#);
+        assert!(top["type"]=="error"&&top["message"].as_str().unwrap().contains("Register first"),"{top}");
+        let rejoin=wallet.handle(&mut node,r#"{"method":"quote_rejoin"}"#);
+        assert!(rejoin["type"]=="error"&&rejoin["message"].as_str().unwrap().contains("Register first"),"{rejoin}");
+        // Confirm a fresh quote: the pooled transaction is exactly the reviewed one (21000 gas) and lands.
+        let q=wallet.handle(&mut node,&send);let max_fee=pocold::wallet::amount(q["maximumFee"].as_str().unwrap()).unwrap()/U256::from(21_000u64);
+        let done=wallet.handle(&mut node,&serde_json::json!({"method":"confirm","quote_id":q["quoteId"]}).to_string());assert_eq!(done["type"],"submitted","{done}");
+        let expected=Tx{chain_id:777938,nonce:0,max_priority:U256::from(1_000_000_000u64),max_fee,gas:21_000,to:Some(to),value:U256::from(10u128.pow(15)),data:Default::default()}.sign_1559(&key);
+        let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,cfg.g_ts+8);assert_eq!(selection.txs,vec![expected],"the signed transaction is the reviewed one");
+        let before=balance(&node,me);let b=solve(&node,selection.txs,cfg.g_ts+8);assert!(node.import(b,None).unwrap());
+        let lost=before-balance(&node,me);assert!(lost<=pocold::wallet::amount(q["maximumTotal"].as_str().unwrap()).unwrap()&&lost>U256::from(10u128.pow(15)),"{lost} {q}");
+        assert_eq!(balance(&node,to),U256::from(10u128.pow(15)),"a new account receives the value; no creation fee");
+        // A spec-1 node: no v3 field.
+        let dir1=Temp::new();let cfg1=node_cfg(|c|c.spec_version=1);let spec1=pocold::node::Node::open(node_config(&dir1,false),node_spec(&cfg1)).unwrap();
+        let s1=wallet.status(&spec1);
+        for k in ["bondRemaining","reactivation","creationBurn"]{assert!(s1.get(k).is_none(),"{k}: {s1}");}
+        assert_eq!(s1["seatsFull"],false);
+    }
+
     /// Deploys each runtime from bob (nonces 0, 1, ...) in one imported block at `clock`; their addresses.
     fn deploy(node:&mut pocold::node::Node,runtimes:&[Vec<u8>],clock:u64)->Vec<Address>{
         let bob=devnet::account_key("bob");
