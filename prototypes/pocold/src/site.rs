@@ -17,8 +17,11 @@ pub const FILES_MAX:usize=256;
 pub const MANIFEST_MAX:usize=65536;
 pub fn factory()->Address{Address::from_word(U256::from(FACTORY).into())}
 
-pub const MIME:[(u8,&str,&str);10]=[(1,"text/html","html"),(2,"text/css","css"),(3,"application/javascript","js"),(4,"application/json","json"),(5,"image/png","png"),
-    (6,"image/jpeg","jpg"),(7,"image/webp","webp"),(8,"image/svg+xml","svg"),(9,"font/woff2","woff2"),(10,"text/plain","txt")];
+/// Manifest MIME ids (the extension's lib/site.js MIME). Sites W5 (owner answer Q3) adds 12 favicon.ico and
+/// 13 site.webmanifest. Id 11 stays unassigned: the M1 manifest vectors use it as the unknown MIME.
+pub const MIME:[(u8,&str,&str);12]=[(1,"text/html","html"),(2,"text/css","css"),(3,"application/javascript","js"),(4,"application/json","json"),(5,"image/png","png"),
+    (6,"image/jpeg","jpg"),(7,"image/webp","webp"),(8,"image/svg+xml","svg"),(9,"font/woff2","woff2"),(10,"text/plain","txt"),
+    (12,"image/x-icon","ico"),(13,"application/manifest+json","webmanifest")];
 pub fn mime_for_path(p:&str)->Option<u8>{let ext=p.rsplit('.').next()?.to_ascii_lowercase();let ext=if ext=="htm"{"html".into()}else if ext=="jpeg"{"jpg".into()}else if ext=="mjs"{"js".into()}else{ext};MIME.iter().find(|m|m.2==ext).map(|m|m.0)}
 pub fn mime_name(id:u8)->Option<&'static str>{MIME.iter().find(|m|m.0==id).map(|m|m.1)}
 
@@ -35,6 +38,64 @@ pub fn normalize(raw:&str)->Option<Option<String>>{
     let p=if p.ends_with('/'){format!("{p}index.html")}else{p.to_string()};
     if !valid_path(&p){return None}
     Some(Some(p))
+}
+
+// ---------------- publish input (Sites W5) ----------------
+// Publishing is permanent, so nothing is dropped silently: an unknown extension is refused loudly (`publish`), the
+// hard-deny list is applied whatever the flags (each refusal names its reason), and only an explicit exclusion
+// (--exclude globs or --include-list) leaves a file out. The same rules are the extension's lib/publish-input.js,
+// Studio's model.js and deploy/websites/tools/site_snapshot.py; pocol-extension/tests/data/publish-input-vectors.json
+// is their shared vector file (tests/site.rs).
+pub const DENY_REASONS:[&str;7]=["dotfile","config","secret-key","database","backup","server-api","checksums"];
+/// The hard-deny reason for a site path ("/a/b.txt"), or None. Case-insensitive.
+pub fn deny_reason(path:&str)->Option<&'static str>{
+    let segs:Vec<&str>=path.trim_start_matches('/').split('/').collect();
+    let base=segs.last().copied().unwrap_or("").to_ascii_lowercase();
+    if segs.iter().any(|s|s.starts_with('.')){return Some("dotfile")}
+    if segs.len()>1&&segs[0].eq_ignore_ascii_case("api"){return Some("server-api")}
+    if base.starts_with("config."){return Some("config")}
+    if base.ends_with(".key")||base.ends_with(".pem"){return Some("secret-key")}
+    if base.ends_with(".sql"){return Some("database")}
+    if base.contains(".bak"){return Some("backup")}
+    if base.starts_with("sha256sums"){return Some("checksums")}
+    None
+}
+/// A glob over site paths without the leading '/': `*` and `?` stay inside a segment, `**` spans segments (`**/` is
+/// any directory prefix, also none), and a pattern ending in '/' matches everything below that directory.
+pub fn glob_match(pattern:&str,path:&str)->bool{
+    fn m(p:&[u8],s:&[u8])->bool{
+        if p.is_empty(){return s.is_empty()}
+        if p.starts_with(b"**/"){return m(&p[3..],s)||(0..s.len()).any(|i|s[i]==b'/'&&m(&p[3..],&s[i+1..]))}
+        if p.starts_with(b"**"){return (0..=s.len()).any(|i|m(&p[2..],&s[i..]))}
+        match p[0]{
+            b'*'=>{for i in 0..=s.len(){if m(&p[1..],&s[i..]){return true}if i<s.len()&&s[i]==b'/'{break}}false}
+            b'?'=>!s.is_empty()&&s[0]!=b'/'&&m(&p[1..],&s[1..]),
+            c=>!s.is_empty()&&s[0]==c&&m(&p[1..],&s[1..]),
+        }
+    }
+    let mut p=pattern.trim().trim_start_matches('/').to_string();if p.ends_with('/'){p.push_str("**")}
+    !p.is_empty()&&m(p.as_bytes(),path.trim_start_matches('/').as_bytes())
+}
+/// Parses an include list: one site path per line; blank lines and lines starting with '#' are ignored.
+pub fn parse_include_list(text:&str)->Result<Vec<String>,String>{
+    let mut out:Vec<String>=Vec::new();
+    for line in text.lines().map(str::trim).filter(|l|!l.is_empty()&&!l.starts_with('#')){
+        let p=format!("/{}",line.trim_start_matches('/'));if out.contains(&p){return Err(format!("duplicate include-list path {p}"))}out.push(p);
+    }
+    if out.is_empty(){return Err("the include list is empty".into())}Ok(out)
+}
+/// What a publish input keeps: the hard-deny list first, then the exclusions or the include list.
+#[derive(Clone,Debug,Default,PartialEq,Eq)]
+pub struct Selection{pub kept:Vec<String>,pub denied:Vec<(String,&'static str)>,pub excluded:Vec<String>,pub missing:Vec<String>}
+pub fn select_paths(paths:&[String],exclude:&[String],include:Option<&[String]>)->Selection{
+    let mut s=Selection::default();
+    for p in paths{
+        if let Some(r)=deny_reason(p){s.denied.push((p.clone(),r));continue}
+        if include.map(|w|!w.contains(p)).unwrap_or(false)||exclude.iter().any(|g|glob_match(g,p)){s.excluded.push(p.clone());continue}
+        s.kept.push(p.clone());
+    }
+    if let Some(w)=include{s.missing=w.iter().filter(|p|!paths.contains(p)).cloned().collect()}
+    s
 }
 
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -142,7 +203,12 @@ impl Rpc{
         let i=r.windows(4).position(|w|w==b"\r\n\r\n").ok_or("http")?;let v:Value=serde_json::from_slice(&r[i+4..]).map_err(|e|format!("json {e}"))?;
         if let Some(e)=v.get("error"){return Err(format!("{method}: {e}"))}Ok(v["result"].clone())
     }
-    pub fn code(&self,a:Address)->Result<Vec<u8>,String>{unhex(self.call("eth_getCode",json!([format!("{a:#x}"),"latest"]))?.as_str().unwrap_or("0x"))}
+    pub fn code(&self,a:Address)->Result<Vec<u8>,String>{self.code_at(a,"latest")}
+    pub fn code_at(&self,a:Address,tag:&str)->Result<Vec<u8>,String>{unhex(self.call("eth_getCode",json!([format!("{a:#x}"),tag]))?.as_str().unwrap_or("0x"))}
+    fn quantity(&self,method:&str,params:Value)->Result<U256,String>{let v=self.call(method,params)?;let s=v.as_str().ok_or(format!("{method}: not a quantity"))?;U256::from_str_radix(s.trim_start_matches("0x"),16).map_err(|e|format!("{method}: {e}"))}
+    /// The next block's base fee: eth_gasPrice minus the node's tip (pocold answers next base + eth_maxPriorityFeePerGas).
+    pub fn base_next(&self)->Result<U256,String>{let price=self.quantity("eth_gasPrice",json!([]))?;let tip=self.quantity("eth_maxPriorityFeePerGas",json!([])).unwrap_or(U256::from(GWEI));Ok(price.saturating_sub(tip))}
+    pub fn block_number(&self)->Result<u64,String>{Ok(self.quantity("eth_blockNumber",json!([]))?.saturating_to::<u64>())}
     pub fn eth_call(&self,to:Address,data:&[u8])->Result<Vec<u8>,String>{unhex(self.call("eth_call",json!([{"to":format!("{to:#x}"),"data":hex(data)},"latest"]))?.as_str().unwrap_or("0x"))}
     pub fn nonce(&self,a:Address)->Result<u64,String>{let v=self.call("eth_getTransactionCount",json!([format!("{a:#x}"),"pending"]))?;u64::from_str_radix(v.as_str().unwrap_or("0x0").trim_start_matches("0x"),16).map_err(|e|e.to_string())}
     pub fn send(&self,raw:&[u8])->Result<B256,String>{self.call("eth_sendRawTransaction",json!([hex(raw)]))?.as_str().ok_or("hash".to_string())?.parse().map_err(|_|"hash".to_string())}
@@ -152,13 +218,69 @@ impl Rpc{
 }
 
 // ---------------- publisher ----------------
-pub struct Publisher<'a>{pub rpc:&'a Rpc,pub key:&'a pocol_lp4_execution::txsign::Key,pub chain_id:u64,pub log:bool}
-impl Publisher<'_>{
+pub const GWEI:u64=1_000_000_000;
+/// Sites W4 fees for pocol-site: each transaction is signed just in time with maxFee = 2 * base_next + tip, refused (before
+/// signing) above the per-gas ceiling (--max-fee-gwei, 200 gwei at most) or when the running committed cost (gas *
+/// maxFee) would exceed the budget (--max-total-pcol). `economy` sends one publication transaction every second block.
+#[derive(Clone,Debug,PartialEq,Eq)]
+pub struct FeePolicy{pub budget:Option<U256>,pub ceiling:U256,pub tip:U256,pub economy:bool}
+impl Default for FeePolicy{fn default()->Self{Self{budget:None,ceiling:U256::from(200*GWEI),tip:U256::from(GWEI),economy:false}}}
+impl FeePolicy{
+    /// From the CLI values: --max-total-pcol (decimal PCOL), --max-fee-gwei, --priority-gwei (decimal gwei), --economy.
+    pub fn from_cli(budget_pcol:Option<&str>,ceiling_gwei:Option<&str>,priority_gwei:Option<&str>,economy:bool)->Result<Self,String>{
+        let d=Self::default();
+        let ceiling=ceiling_gwei.map(|v|decimal_units(v,9)).transpose()?.unwrap_or(d.ceiling);
+        if ceiling.is_zero()||ceiling>U256::from(200*GWEI){return Err("--max-fee-gwei must be above 0 and at most 200".into())}
+        let tip=priority_gwei.map(|v|decimal_units(v,9)).transpose()?.unwrap_or(d.tip);
+        if tip>U256::from(2*GWEI)||tip>ceiling{return Err("--priority-gwei must be at most 2 and at most the ceiling".into())}
+        let budget=budget_pcol.map(|v|decimal_units(v,18)).transpose()?;
+        if budget==Some(U256::ZERO){return Err("--max-total-pcol must be above 0".into())}
+        Ok(Self{budget,ceiling,tip,economy})
+    }
+}
+/// A non-negative decimal ("1.5") in units of 10^-decimals ("1.5" PCOL -> 1.5e18 wei).
+pub fn decimal_units(v:&str,decimals:u32)->Result<U256,String>{
+    let (w,f)=v.trim().split_once('.').unwrap_or((v.trim(),""));
+    if w.is_empty()&&f.is_empty()||!w.bytes().all(|c|c.is_ascii_digit())||!f.bytes().all(|c|c.is_ascii_digit())||f.len()>decimals as usize||w.len()>40{return Err(format!("invalid amount {v:?}"))}
+    let frac=format!("{f:0<width$}",width=decimals as usize);
+    U256::from_str_radix(&format!("{}{frac}",if w.is_empty(){"0"}else{w}),10).map_err(|e|e.to_string())
+}
+/// The fee cap of the next transaction (gas `gas`, already committed `spent`), or the reason it may not be signed.
+pub fn derive_fee(base_next:U256,policy:&FeePolicy,spent:U256,gas:u64)->Result<U256,String>{
+    let max_fee=base_next.saturating_mul(U256::from(2)).saturating_add(policy.tip);
+    if max_fee>policy.ceiling{return Err(format!("fee rose: the next transaction needs {max_fee} wei per gas, above the ceiling of {} (--max-fee-gwei); stored chunks are kept, run publish again to continue",policy.ceiling))}
+    let cost=max_fee.saturating_mul(U256::from(gas));
+    if let Some(b)=policy.budget{if spent.saturating_add(cost)>b{return Err(format!("fee rose: the budget ({b} wei, --max-total-pcol) does not cover the next transaction ({spent} committed, {cost} more); stored chunks are kept, run publish again to continue"))}}
+    Ok(max_fee)
+}
+pub struct Publisher<'a>{pub rpc:&'a Rpc,pub key:&'a pocol_lp4_execution::txsign::Key,pub chain_id:u64,pub log:bool,pub fees:FeePolicy,spent:std::cell::Cell<U256>,last_block:std::cell::Cell<Option<u64>>}
+impl<'a> Publisher<'a>{
+    pub fn new(rpc:&'a Rpc,key:&'a pocol_lp4_execution::txsign::Key,chain_id:u64,log:bool,fees:FeePolicy)->Self{Self{rpc,key,chain_id,log,fees,spent:std::cell::Cell::new(U256::ZERO),last_block:std::cell::Cell::new(None)}}
+    /// The committed cost so far: the sum of gas * maxFee of the signed transactions.
+    pub fn committed(&self)->U256{self.spent.get()}
     fn tx(&self,to:Option<Address>,data:Vec<u8>,gas:u64)->Result<Value,String>{
+        if self.fees.economy{if let Some(last)=self.last_block.get(){
+            let t=Instant::now();while self.rpc.block_number()?<=last{if t.elapsed()>Duration::from_secs(600){return Err("economy pacing: no new block for 10 minutes".into())}std::thread::sleep(Duration::from_millis(500));}
+        }}
+        let max_fee=derive_fee(self.rpc.base_next()?,&self.fees,self.spent.get(),gas)?;
         let nonce=self.rpc.nonce(self.key.address())?;
-        let raw=pocol_lp4_execution::txsign::Tx{chain_id:self.chain_id,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(200_000_000_000u64),gas,to,value:U256::ZERO,data:data.into()}.sign_1559(self.key);
+        let raw=pocol_lp4_execution::txsign::Tx{chain_id:self.chain_id,nonce,max_priority:self.fees.tip,max_fee,gas,to,value:U256::ZERO,data:data.into()}.sign_1559(self.key);
+        self.spent.set(self.spent.get().saturating_add(max_fee.saturating_mul(U256::from(gas))));
         let h=self.rpc.send(&raw)?;let r=self.rpc.wait_receipt(h,Duration::from_secs(300))?;
+        if let Some(b)=r["blockNumber"].as_str().and_then(|b|u64::from_str_radix(b.trim_start_matches("0x"),16).ok()){self.last_block.set(Some(b))}
         if r["status"]!="0x1"{return Err(format!("transaction failed: {r}"))}Ok(r)
+    }
+    /// Sites W4 safe sweep: before createVersion references them, every chunk must exist at the `safe` tag. A chunk
+    /// missing at both `safe` and `latest` (reorged out) is stored again; the rest is waited for, at most 3 minutes.
+    pub fn safe_sweep(&self,chunks:&[&[u8]])->Result<(),String>{
+        let t=Instant::now();
+        loop{
+            let mut missing=0;
+            for c in chunks{let a=chunk_address(c);if self.rpc.code_at(a,"safe")?.is_empty(){missing+=1;if self.rpc.code(a)?.is_empty(){if self.log{eprintln!("storing again {a:#x} (no longer on the chain)");}self.store_chunk(c)?;}}}
+            if missing==0{return Ok(())}
+            if t.elapsed()>Duration::from_secs(180){return Err(format!("{missing} chunks have not reached the safe height; run publish again to continue"))}
+            std::thread::sleep(Duration::from_millis(1000));
+        }
     }
     /// Stores one chunk (idempotent: skipped when the CREATE2 address has code).
     pub fn store_chunk(&self,data:&[u8])->Result<Address,String>{
@@ -192,6 +314,7 @@ impl Publisher<'_>{
         }
         for c in mb.chunks(CHUNK_MAX){self.store_chunk(c)?;}
         let site=match site{Some(s)=>s,None=>self.deploy_website()?};
+        let all:Vec<&[u8]>=files.values().flat_map(|d|d.chunks(CHUNK_MAX)).chain(mb.chunks(CHUNK_MAX)).collect();self.safe_sweep(&all)?;
         let count_before=U256::from_be_slice(&self.rpc.eth_call(site,&sel("versionCount()"))?).to::<u64>();
         let mhash=keccak256(&mb);
         self.tx(Some(site),abi_create_version(mhash,mb.len() as u32,&mpred.iter().map(|c|c.0).collect::<Vec<_>>()),600_000)?;

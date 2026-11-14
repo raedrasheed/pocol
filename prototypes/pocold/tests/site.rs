@@ -57,3 +57,51 @@ fn vectors(name:&str)->Vec<serde_json::Value>{
     let mut out=vec![0u8;32*7];out[4*32+31]=0xa0;out[5*32+31]=9;assert!(decode_current(&out).is_err());  // 9 chunks
     for n in 0..300{assert!(decode_current(&vec![0x41u8;n]).is_err()||n>=32*6);}
 }
+
+// ---------------- Sites W5: publish input (shared vectors with the extension, Studio and the S1 helper) ----------------
+fn w5()->serde_json::Value{
+    let p=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../pocol-extension/tests/data/publish-input-vectors.json");
+    serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap()
+}
+fn strings(v:&serde_json::Value)->Vec<String>{v.as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect()}
+fn pairs(v:&serde_json::Value)->Vec<(String,&'static str)>{v.as_array().unwrap().iter().map(|x|(x[0].as_str().unwrap().to_string(),*site::DENY_REASONS.iter().find(|r|**r==x[1].as_str().unwrap()).unwrap())).collect()}
+#[test] fn w5_hard_deny_and_exclusion_follow_the_shared_vectors(){
+    let v=w5();
+    for d in v["deny"].as_array().unwrap(){assert_eq!(site::deny_reason(d[0].as_str().unwrap()),d[1].as_str(),"{}",d[0]);}
+    for e in v["exclude"].as_array().unwrap(){assert_eq!(site::glob_match(e[0].as_str().unwrap(),e[1].as_str().unwrap()),e[2].as_bool().unwrap(),"{} {}",e[0],e[1]);}
+    let sel=&v["select"];let s=site::select_paths(&strings(&sel["paths"]),&strings(&sel["exclude"]),None);
+    assert_eq!(s.kept,strings(&sel["kept"]));assert_eq!(s.denied,pairs(&sel["denied"]));assert_eq!(s.excluded,strings(&sel["excluded"]));assert!(s.missing.is_empty());
+    let inc=&v["include"];let list=site::parse_include_list(inc["text"].as_str().unwrap()).unwrap();let s=site::select_paths(&strings(&inc["paths"]),&[],Some(&list));
+    assert_eq!(s.kept,strings(&inc["kept"]));assert_eq!(s.denied,pairs(&inc["denied"]));assert_eq!(s.excluded,strings(&inc["excluded"]));assert_eq!(s.missing,strings(&inc["missing"]));
+    assert!(site::parse_include_list("# only a comment\n").is_err());assert!(site::parse_include_list("a\n/a").is_err());assert!(!site::glob_match("","/a"));
+}
+#[test] fn w5_mime_ids_12_and_13_are_added_and_11_stays_unknown(){
+    let v=w5();
+    for m in v["mime"].as_array().unwrap(){
+        let id=site::mime_for_path(m[0].as_str().unwrap());assert_eq!(id.map(|x|x as u64),m[1].as_u64(),"{}",m[0]);
+        if let Some(id)=id{assert_eq!(site::mime_name(id),m[2].as_str());}
+    }
+    for id in v["unknownMimeIds"].as_array().unwrap(){assert!(site::mime_name(id.as_u64().unwrap() as u8).is_none());}
+    // A manifest carrying a favicon and a web manifest round-trips; the T16 unknown-MIME vector (11) is still refused.
+    let f=|p:&str,mime:u8,data:&[u8]|FileEntry{path:p.into(),mime,size:data.len() as u32,content_hash:keccak256(data),chunks:vec![(site::chunk_address(data),data.len() as u32)]};
+    let m=Manifest{entry:1,files:vec![f("/favicon.ico",12,&[0,0,1,0]),f("/index.html",1,b"<p>"),f("/site.webmanifest",13,b"{}")]};
+    assert_eq!(Manifest::decode(&m.encode()).unwrap(),m);
+    let mut bad=m.clone();bad.files[0].mime=11;rejects(&bad,"unknown mime");let mut bad=m;bad.files[2].mime=14;rejects(&bad,"unknown mime");
+}
+
+// ---------------- Sites W4: pocol-site fees (just in time, one budget, one ceiling) ----------------
+#[test] fn w4_cli_fee_is_twice_the_base_plus_tip_and_the_ceiling_and_budget_refuse_before_signing(){
+    use revm::primitives::U256;let g=U256::from(site::GWEI);
+    let p=site::FeePolicy::default();assert_eq!((p.ceiling,p.tip,p.budget,p.economy),(U256::from(200)*g,g,None,false));
+    assert_eq!(site::derive_fee(U256::from(10_000_000u64),&p,U256::ZERO,6_589_500).unwrap(),U256::from(1_020_000_000u64));
+    assert!(site::derive_fee(U256::from(100)*g,&p,U256::ZERO,1).unwrap_err().contains("--max-fee-gwei"),"2*100 + 1 gwei is above 200");
+    assert_eq!(site::derive_fee(U256::from(99)*g+U256::from(500_000_000u64),&p,U256::ZERO,1).unwrap(),U256::from(200)*g,"exactly the ceiling is allowed");
+    let b=site::FeePolicy{budget:Some(U256::from(1_020_000_000u64*21_000)),..site::FeePolicy::default()};
+    assert!(site::derive_fee(U256::from(10_000_000u64),&b,U256::ZERO,21_000).is_ok());
+    assert!(site::derive_fee(U256::from(10_000_000u64),&b,U256::from(1),21_000).unwrap_err().contains("--max-total-pcol"));
+    let c=site::FeePolicy::from_cli(Some("2.5"),Some("30"),Some("0.25"),true).unwrap();
+    assert_eq!(c,site::FeePolicy{budget:Some(U256::from(2_500_000_000_000_000_000u128)),ceiling:U256::from(30)*g,tip:U256::from(250_000_000u64),economy:true});
+    for (b,ce,t) in [(Some("0"),None,None),(None,Some("201"),None),(None,Some("0"),None),(None,None,Some("3")),(None,Some("1"),Some("2")),(Some("1.0000000000000000001"),None,None),(Some("-1"),None,None),(Some("x"),None,None),(Some("."),None,None)]{
+        assert!(site::FeePolicy::from_cli(b,ce,t,false).is_err(),"{b:?} {ce:?} {t:?}");}
+    assert_eq!(site::decimal_units(".5",9).unwrap(),U256::from(500_000_000u64));assert_eq!(site::decimal_units("7",0).unwrap(),U256::from(7));
+}
