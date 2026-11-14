@@ -293,8 +293,9 @@ declared gas; see "Residual: other cap halts"). This closes the open pre-launch 
 the `D-V3-21 creation-burn user bound` entry has left `V3_LAUNCH_BLOCKERS`
 (`lp4-execution/src/admission.rs`), which is now empty. The gate and its call in
 `admit` stay so that a later blocker is enforced again. Admission of a v3
-profile outside simnet is still refused by the v3-preview build restriction,
-and a release build cannot decode spec 2 (V3-PR-I).
+profile outside simnet was refused by the v3-preview build restriction, and a
+release build could not decode spec 2, until the fresh network's phase 4 made
+spec 2 the release GenesisSpec and removed the preview feature.
 
 ParamGate does not yet check the new CP fields (F0_acct, F0_slot, F0_code > 0;
 an upper bound on baseFeeMin). Zero coefficients are a tested fixture domain
@@ -347,7 +348,8 @@ and checkpoint bytes are unchanged.
 
 Tests live in `pocold/tests/v3_execution.rs`, LP4 fee/creation-fee and admission
 tests, and LP1 param-gate tests. Original London and USER vector files remain
-byte-identical. The preview CI job runs the new execution suite explicitly.
+byte-identical. The consensus CI workflow runs the new execution suite explicitly
+(a default test since phase 4; it ran in the preview job before).
 
 The RPC deadline regression also tests ordering directly: for a single request
 and a batch, hold admitted backend work and its body until the real HTTP client

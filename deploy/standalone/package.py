@@ -35,8 +35,6 @@ else:
     info=subprocess.check_output([str(files['pocol'+suffix]),'build-info'])
     (args.out/'build-info.json').write_bytes(info)
 build=json.loads((args.out/'build-info.json').read_text(encoding='utf-8'))
-if build.get('v3Preview') is True or 'v3-preview' in build.get('features', []):
-    raise SystemExit('refusing to package a v3-preview build')
 # Release builds are compiled with POCOL_RELEASE=1, so build.rs refuses an unpinned tree; refuse its build-info too
 # (VA-SPEC §2.4).
 if build.get('consensusPinned') is not True: raise SystemExit('refusing to package an unpinned consensus build (consensusPinned is not true)')

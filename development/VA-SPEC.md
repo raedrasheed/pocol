@@ -212,7 +212,7 @@ handshake is self-declared, not remote attestation, and block validation stays a
 ### 2.1 Consensus identity
 ```
 id = SHA-256( "pocol-consensus-identity-v1\0" ‖ chainId u64 ‖ genesisHash 32 B ‖ CONSENSUS_RULES_VERSION u32
-            ‖ flags u8 ‖ n u8 (1..=16) ‖ (version u16 ‖ height u64) × n ‖ [sourcesAggregate 32 B, if bit1 or bit2] )
+            ‖ flags u8 ‖ n u8 (1..=16) ‖ (version u16 ‖ height u64) × n ‖ [sourcesAggregate 32 B, if bit1] )
 ```
 Integers are big-endian; the schedule is the full configured fork schedule (`ForkSchedule::entries`). A node runs
 only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 2
@@ -223,10 +223,9 @@ genesisHash
 commits CP, sysCodeHash and the alloc. Flags: bit0 caps-test, taken from `pocol_lp4_execution::CAPS_TEST` (the
 crate whose LOG_CAP it changes; a build enabling lp4's feature without pocold's does not compile); bit1 unpinned,
 set when the build's consensus-boundary aggregate differs from the lock (§2.4), in which case the 32-byte aggregate
-is appended, so an unpinned tree peers only with byte-identical unpinned trees. Bit2 is `v3-preview`, taken from
-`pocol_lp4_execution::V3_PREVIEW` with the same feature-forwarding compile check. Preview builds append the actual
-boundary aggregate even when pinned, accept spec 2 only for simnet admission, and are refused by release packaging.
-Other bits are 0. Left out: the build digest, the crash-test and io-fault features, `r_keep`, admission and other
+is appended, so an unpinned tree peers only with byte-identical unpinned trees. Bit2 was the retired `v3-preview`
+build's flag: since the fresh network's phase 4 the v3 rules are the release rules (CONSENSUS_RULES_VERSION 2, spec 2
+decoded by default), the feature is gone and no build sets the bit. Other bits are 0. Left out: the build digest, the crash-test and io-fault features, `r_keep`, admission and other
 boot policy. A pinned ordinary release build's identity
 is computable by anyone from public data (devnet.json and `consensusRulesVersion`): `identity.rs`
 and `deploy/public-testnet/pocol_identity.py` compute it, and the
@@ -264,12 +263,14 @@ Every change to a consensus-boundary file (§2.4) needs one appended history lin
 
 "Released" means merged to main. Gate freshness is determined by the version constants recorded on earlier
 history lines: `maxFork` (MAX_FORK_VERSION) and `spec` (genesis_spec::SPEC_VERSION). A dormant `neutral gate=spec:2`
-line still records `spec=1`, so it does not spend the gate; later dormant v3 PRs can use the same gate. Preview
-acceptance is isolated as in §2.1 and never raises the ordinary release ceiling. Keep CONSENSUS_RULES_VERSION=1,
-SPEC_VERSION=1 and MAX_FORK_VERSION=2 until the reviewed activation PR raises both SPEC_VERSION copies to 2. Its
-line records `spec=2` and spends spec:2. Later corrections require a new spec:3 genesis/gate, or a separately
-authorized rules bump only after H15000 retirement. The future in-place fork:3 route remains dormant while
-MAX_FORK_VERSION=2. See development/decisions/V3-DECISIONS.md; no live activation is authorized here.
+line still records `spec=1`, so it does not spend the gate. The fresh network's phase 4 (owner decisions of
+2026-11-13: the old network is retired and a new v3 genesis is launched) made the v3 rules the release rules: both
+SPEC_VERSION copies are 2, CONSENSUS_RULES_VERSION is 2 (a `kind=bump` line, with the new genesis) and
+MAX_FORK_VERSION stays 2. That line records `spec=2` and spends spec:2; invitations and releases of rules 1 are refused
+at import. Spec-1 genesis files still decode (`gsVersion <= 2`) until the spec-1 rule set is removed (removal plan
+Phase 6). Later corrections require a new spec:3 genesis/gate or a fork version. The future in-place fork:3 route
+remains dormant while MAX_FORK_VERSION=2. See development/decisions/V3-DECISIONS.md and
+development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md.
 
 The schema-v2 CP wire list contains all 52 unchanged v1 fields followed by the fields below, in this exact order.
 All are unsigned canonical RLP integers; omitted v2 fields are not allowed. On v1, the named v2 fields are zero

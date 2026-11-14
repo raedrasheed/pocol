@@ -17,9 +17,10 @@ chainId or genesisHash must agree).
 
 Each GenesisSpec must be canonical RLP throughout, with six top items and the CP item count of its version's CP schema
 (52 items for version 1, 59 for version 2). --to must be a version the tree's node decodes (SPEC_VERSION in
-prototypes/lp1-node/src/genesis_spec.rs), so the clients are never switched to a genesis their release refuses. A
-spec-2 (v3) GenesisSpec must also pass the whole v3-preview decoder (the reference port
-deploy/public-testnet/pocol_identity.decode_genesis_spec at ceiling 2, checked against the Rust verdicts of the decoder
+prototypes/lp1-node/src/genesis_spec.rs; 2 since phase 4 of the fresh network, so a spec-2 genesis is the default
+target), so the clients are never switched to a genesis their release refuses. A spec-2 (v3) GenesisSpec must also pass
+the whole release decoder (the reference port
+deploy/public-testnet/pocol_identity.decode_genesis_spec at SPEC_VERSION 2, checked against the Rust verdicts of the decoder
 corpus: every width and bound of the final CP schema v2, the roots, M_0List order and reserved ids) and name the v3
 program set (sysCodeHash): the deploy tools, like the reward gateway, accept a spec-2 genesis only with the v3 set
 (pocold itself would run any bundled set a CP-v2 genesis names).
@@ -170,7 +171,7 @@ def spec_identity(b, versions=tuple(CP_ITEMS)):
     """(specVersion, chainId) of a GenesisSpec [version, chainId, CP, allocRoot, M_0List, sysCodeHash], after
     checking that the whole spec is one canonical RLP list of six items, that the version is one of `versions`, that
     CP is a list of that version's CP item count, and that the chainId integer has no leading zero. A spec-2 (v3)
-    GenesisSpec must also pass the whole v3-preview decoder and name the v3 program set."""
+    GenesisSpec must also pass the whole release decoder and name the v3 program set."""
     try:
         is_list, start, end = rlp_item(b, 0)
         if not is_list or end != len(b):
@@ -199,10 +200,10 @@ def spec_identity(b, versions=tuple(CP_ITEMS)):
             raise ValueError(f'CP of version {version} has {CP_ITEMS[version]} items')
     except IndexError:
         raise ValueError('truncated RLP') from None
-    if version == pocol_identity.PREVIEW_SPEC_VERSION:
-        # The whole v3-preview decoder, then the v3 program set, the only one the deploy tools accept on spec 2.
+    if version == 2:
+        # The whole release decoder, then the v3 program set, the only one the deploy tools accept on spec 2.
         try:
-            decoded = pocol_identity.decode_genesis_spec(b, pocol_identity.PREVIEW_SPEC_VERSION)
+            decoded = pocol_identity.decode_genesis_spec(b, 2)
         except pocol_identity.GenesisSpecError as error:
             raise ValueError(f'not a valid spec-2 (v3) GenesisSpec ({error.code}: {error.detail})') from None
         if decoded['sysCodeHash'].hex() != pocol_identity.V3_SYS_CODE_HASH:

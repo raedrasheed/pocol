@@ -117,7 +117,7 @@ class GatewayRewardTests(unittest.TestCase):
             self.assertNotIn('environment', result)
 
     def test_the_consensus_identity_and_wire_range_pass_the_sanitizer(self):
-        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 1, 'protocolVersionMin': 2, 'maxForkVersion': 2}
+        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 2, 'protocolVersionMin': 2, 'maxForkVersion': 2}
         for method in ('pocol_getParams', 'pocol_status'):
             with self.subTest(method=method):
                 result = gateway.sanitize(method, {**fields, 'consensusSourcesSha256': 'private', 'peers': ['private']})

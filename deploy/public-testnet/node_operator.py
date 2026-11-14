@@ -100,6 +100,9 @@ def verify(bundle, expected=None):
         raise ValueError('Unpinned consensus build; use a release build')
     if info['admission']['scope'] != 'experimental-devnet' or info['chainId'] == 777001:
         raise ValueError('Only the experimental testnet profile is supported')
+    # The bundle's public GenesisSpec must be the network devnet.json declares (version, chain ID, and the v3 program
+    # set on spec 2), as prepare.py checked it; the manifest digests above fix its bytes.
+    pocol_identity.public_spec_hex(info, (bundle / 'net/genesis.spec.hex').read_text(encoding='ascii'))
     if manifest['identity'] != identity(config, info, build): raise ValueError('Bundle identity mismatch')
     return manifest, config
 

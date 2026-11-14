@@ -15,6 +15,20 @@ import prepare
 import monitor
 
 
+CORPUS = Path(__file__).resolve().parents[2] / 'prototypes/pocol-extension/tests/data'
+# The pocold devnet GenesisSpec of the decoder corpus: a spec-1 genesis of chain 777960.
+SPEC1_HEX = (CORPUS / 'devnet-spec.hex').read_text().strip()
+SPEC1_CHAIN = 777960
+
+
+def corpus_spec(label):
+    """A GenesisSpec of the decoder corpora (decoder-corpus.json and its spec-2 supplement) by label, as hex."""
+    for name in ('decoder-corpus-v3.json', 'decoder-corpus.json'):
+        for item in json.loads((CORPUS / name).read_text())['items']:
+            if item['label'] == label: return item['hex']
+    raise KeyError(label)
+
+
 def inventory():
     return {'name': 'test', 'nodes': [{'name': f'n{i}', 'ip': f'127.0.0.{i+2}', 'p2pPort': 30300,
         'rpcPort': 8540+i, 'rpcHost': f'rpc{i}.example.test', 'minerAddress': '0x' + f'{i+1:040x}', 'seeds': []} for i in range(3)]}
@@ -96,20 +110,23 @@ class Operations(unittest.TestCase):
         self.assertEqual(h.hexdigest(), info['compatibilitySha256'])
         self.assertEqual(info['features'], []); self.assertEqual(info['protocolVersion'], 2)
         self.assertIn('lp4-execution/tests/data/system-v1.json', info['sourceSha256'])
-        # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 1.
-        self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (1, 2, 2))
+        # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 2 (the v3
+        # release rules).
+        self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (2, 2, 2))
         self.assertIs(info['consensusPinned'], True, 're-pin the consensus lock (pocold/tests/consensus_guard.rs)')
 
-    def bundle(self, name='bundle', digest='b'*64, forks=None):
+    def bundle(self, name='bundle', digest='b'*64, forks=None, spec=SPEC1_HEX, declare=None):
         bundle = self.root / name; bundle.mkdir(); (bundle / 'net').mkdir(); (bundle / 'bin').mkdir()
         config = {'name':'n1', 'minerAddress':None, 'listen':'0.0.0.0:30300', 'rpc':'127.0.0.1:8545', 'peers':[]}
-        info = {'chainId':777915, 'genesisHash':'0x'+'a'*64, 'admission':{'scope':'experimental-devnet'}}
+        info = {'chainId':SPEC1_CHAIN, 'genesisHash':'0x'+'a'*64, 'admission':{'scope':'experimental-devnet'}}
         if forks is not None: info['forks'] = forks
-        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':digest, 'consensusRulesVersion':1,
+        info.update(declare or {})
+        build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':digest, 'consensusRulesVersion':2,
                  'consensusPinned':True, 'consensusSourcesSha256':'c'*64}
         op.write_json(bundle / 'node.json', config); op.write_json(bundle / 'net/devnet.json', info)
         op.write_json(bundle / 'build-info.json', build)
-        for name in ['net/genesis.spec.hex','net/alloc.json','node_operator.py','pocol_identity.py','pocol-testnet.service'] + ['bin/'+n for n in op.BINARIES]:
+        (bundle / 'net/genesis.spec.hex').write_text(spec + '\n')
+        for name in ['net/alloc.json','node_operator.py','pocol_identity.py','pocol-testnet.service'] + ['bin/'+n for n in op.BINARIES]:
             (bundle / name).write_bytes(b'public fixture')
         binding = op.identity(config, info, build)
         op.write_json(bundle / 'manifest.json', {'schema':op.SCHEMA, 'identity':binding,
@@ -205,14 +222,47 @@ class Operations(unittest.TestCase):
             with self.subTest(lifetime=lifetime), self.assertRaises(ValueError): observe(lifetime=lifetime)
 
     def test_prepared_release_names_the_consensus_identity_of_its_network(self):
-        build = {'consensusRulesVersion': 1, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': 'aa' * 32}
+        build = {'consensusRulesVersion': 2, 'consensusPinned': True, 'features': [], 'consensusSourcesSha256': 'aa' * 32}
         info = {'chainId': 777915, 'genesisHash': '0x' + '01' * 32, 'forks': [[1, 0], [2, 50]]}
         manifest = op.identity({'name': 'n1', 'minerAddress': None}, info, build | {'protocolVersion': 2, 'compatibilitySha256': 'b' * 64})
-        self.assertEqual(manifest['consensusIdentity'], prepare.pocol_identity.consensus_id(777915, info['genesisHash'], 1, 0, [(1, 0), (2, 50)]))
-        self.assertEqual(manifest['consensusRulesVersion'], 1)
+        self.assertEqual(manifest['consensusIdentity'], prepare.pocol_identity.consensus_id(777915, info['genesisHash'], 2, 0, [(1, 0), (2, 50)]))
+        self.assertEqual(manifest['consensusRulesVersion'], 2)
         self.assertTrue(op.bound(dict(manifest), manifest))
         # A marker without a consensus identity (an older state binding) never binds a node.
         self.assertFalse(op.bound({k: v for k, v in manifest.items() if k not in ('consensusIdentity', 'consensusRulesVersion')}, manifest))
+
+    def test_bundles_and_releases_check_the_public_genesis_spec_not_only_its_declaration(self):
+        bundle, _ = self.bundle()
+        self.assertEqual(op.verify(bundle)[1]['name'], 'n1')
+        # A spec-2 (v3) network: its v3 genesis on CP schema v2 with the v3 program set verifies.
+        v3 = corpus_spec('v3/base'); chain = prepare.pocol_identity.decode_genesis_spec(bytes.fromhex(v3))['chainId']
+        v3_bundle, _ = self.bundle('v3', spec='0x' + v3, declare={'chainId': chain, 'specVersion': 2, 'v3': True})
+        op.verify(v3_bundle)
+        # The declaration alone is not enough: a spec that differs in version, chain or (on spec 2) program set, or is
+        # not hex, is refused although the checksums match.
+        bad = [('spec2-declared', SPEC1_HEX, {'specVersion': 2, 'v3': True}, 'version differs'),
+               ('spec1-declared', v3, {'chainId': chain}, 'version differs'),
+               ('chain', SPEC1_HEX, {'chainId': SPEC1_CHAIN + 1}, 'chain ID differs'),
+               ('program-set', corpus_spec('devnet-v2/base'), None, 'v3 program set'),
+               ('malformed', corpus_spec('v3/gamma-past-bound'), {'chainId': chain, 'specVersion': 2, 'v3': True}, 'gsRange:gamma_bp'),
+               ('not-hex', 'zz' + SPEC1_HEX, None, 'not hex')]
+        for name, spec, declare, message in bad:
+            if name == 'program-set':
+                other = prepare.pocol_identity.decode_genesis_spec(bytes.fromhex(spec))
+                declare = {'chainId': other['chainId'], 'specVersion': other['specVersion'], 'v3': other['specVersion'] == 2}
+            with self.subTest(name), self.assertRaisesRegex(ValueError, message):
+                op.verify(self.bundle(name, spec=spec, declare=declare)[0])
+        # prepare.py refuses such a network before it reads the build or writes anything.
+        network = self.root / 'network'; network.mkdir()
+        (network / 'genesis.spec.hex').write_text(SPEC1_HEX + '\n'); (network / 'alloc.json').write_text('{}')
+        op.write_json(network / 'devnet.json', {'chainId': SPEC1_CHAIN, 'genesisHash': '0x' + 'a' * 64, 'specVersion': 2, 'v3': True,
+                                                'keyMode': 'independent-key-files', 'admission': {'scope': 'experimental-devnet'}})
+        out = self.root / 'release'
+        with unittest.mock.patch.object(prepare.subprocess, 'check_output') as build_info:
+            with self.assertRaisesRegex(ValueError, 'version differs'):
+                prepare.prepare(inventory(), network, self.root / 'no-bin', out, rehearsal=True)
+            build_info.assert_not_called()
+        self.assertFalse(out.exists())
 
     def test_duplicate_json_keys_are_refused(self):
         path = self.root / 'bad.json'; path.write_text('{"chainId":1,"chainId":2}')

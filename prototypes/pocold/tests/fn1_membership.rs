@@ -160,9 +160,7 @@ fn scenario(v3:bool,full:bool){
 }
 #[test] fn legacy_one_pass_membership_and_cache_equal_the_two_pass_oracle_bounded(){scenario(false,false)}
 #[test] fn legacy_one_pass_membership_and_cache_equal_the_two_pass_oracle_full_nonce(){scenario(false,true)}
-#[cfg(feature="v3-preview")]
 #[test] fn v3_one_pass_membership_and_cache_equal_the_two_pass_oracle(){scenario(true,true)}
-#[cfg(feature="v3-preview")]
 #[test] fn v3_bounded_one_pass_membership_and_cache_equal_the_two_pass_oracle(){scenario(true,false)}
 
 /// A storage-view fixture whose hash, height and seal stay the genesis' while its state changes (as
@@ -316,7 +314,6 @@ fn full_set(cfg:DevnetConfig,m:usize,label:&str){
     let mut cfg=config(false,true,3);cfg.m_max=256;full_set(cfg,256,"spec1-256");
 }
 /// M_max 10,000 (owner decision 2026-11-13), the v3 set (no M_max term in its gas domain, FN-2b), continuous.
-#[cfg(feature="v3-preview")]
 #[test] fn v3_full_set_of_ten_thousand_members_agrees_and_is_timed(){
     let mut cfg=config(true,true,3);cfg.m_max=10_000;cfg.reg_records_max=24_576;cfg.sys_slot_max=147_456;cfg.h_end=0;
     // R20: Z_close >= ceil(REG_RECORDS_MAX/RET) + P2 + D + 1 = 192 + 2 + 4 + 1.

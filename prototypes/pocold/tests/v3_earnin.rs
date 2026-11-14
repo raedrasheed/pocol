@@ -1,15 +1,14 @@
 //! The v3 twin of tests/earnin.rs (V3-PR-E0): the same full-chain earn-in flow on a specVersion-2 devnet, which
 //! selects the v3 programs (system-v3.json), without a probation pool or deadline since FN-2b (owner decisions 10b/10c of
 //! 2026-11-13: ACCRUING records count within M_max and never exit by time). Real
-//! blocks, real settlement through RewardEscrow, the escrow invariant after every block. A spec-2 genesis decodes
-//! only in a v3-preview build, so the chain tests need `--features v3-preview`; a release build must refuse it.
+//! blocks, real settlement through RewardEscrow, the escrow invariant after every block. A spec-2 genesis is the release
+//! GenesisSpec (SPEC_VERSION 2), so these are default tests.
 //! V3-PR-E2b adds the evidence penalties on chain (V3-16, V3-17): real type-2 evidence, the reporter's cut, the
 //! whole-pot burn of an ACCRUING winner, the E_win boundary and a self-report, against the spec-1 earn-in chain. FN-2b C4
 //! adds the removal at a full set on chain: registerReplacing through the wallet's quote decision (a removable member
 //! chosen at random, confirmed by the registry's removalStatus view) and the node's pocol_getRemovable listing.
 use pocol_lp4_execution::devnet::{self, DevnetConfig};
 
-#[cfg_attr(not(feature = "v3-preview"), allow(dead_code))]
 const PCOL: u128 = 1_000_000_000_000_000_000;
 
 fn config() -> DevnetConfig {
@@ -24,14 +23,9 @@ fn config() -> DevnetConfig {
 }
 
 #[test]
-fn a_v3_earnin_genesis_is_dormant_outside_a_preview_build() {
-    let built = devnet::build(&config());
-    if pocol_lp4_execution::V3_PREVIEW {
-        let net = built.unwrap();
-        assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash(), "spec 2 + earn-in selects the v3 set");
-    } else {
-        assert!(built.err().unwrap().contains("gsVersion"), "a release build cannot decode a specVersion-2 genesis, so the v3 set is unreachable");
-    }
+fn a_v3_earnin_genesis_selects_the_v3_program_set() {
+    let net = devnet::build(&config()).unwrap();
+    assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash(), "spec 2 + earn-in selects the v3 set");
     // The spec-1 earn-in devnet keeps the earn-in set and its constants.
     let mut legacy = config();
     legacy.spec_version = 1;
@@ -39,8 +33,7 @@ fn a_v3_earnin_genesis_is_dormant_outside_a_preview_build() {
     assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::earnin().sys_code_hash());
 }
 
-#[cfg(feature = "v3-preview")]
-mod preview {
+mod on_chain {
     use super::*;
     use std::collections::HashMap;
     use pocol_lp4_execution::{admission, apply::{self, ProgramSet}, txsign::{Key, Tx}};
@@ -320,6 +313,12 @@ mod preview {
         let step = wallet::chain_rejoin_step(&net.chain, alice.address());
         assert_eq!(step, RejoinStep::Full { refund: a.due_height }, "no rejoin while every seat is taken");
         assert!(wallet::rejoin_refusal(step).unwrap().contains("All seats are taken"));
+        // The replaced member's status (G3b'): no bond still to earn (it registered with 0 PCOL, but an exited record earns
+        // nothing more: its bond is refunded at its due height) and no reactivation yet; a top-up is refused because the
+        // record has exited.
+        let st = { let head = net.chain.head(); wallet::v3_status(&net.chain, &head.state, alice.address(), Some(&a), head.height + 1).unwrap() };
+        assert_eq!((&st["bondRemaining"], &st["reactivation"]["lastAt"]), (&serde_json::Value::Null, &serde_json::Value::Null), "{st}");
+        assert!(wallet::v3_top_up_refusal(Some(&a), U256::from(B)).unwrap().contains("has exited"));
         while net.chain.head().height + 1 < a.exit_height + u64::from(net.chain.spec.cp().W_act) { let _ = next(&mut net, one, vec![]); }
         assert_eq!(wallet::chain_rejoin_step(&net.chain, alice.address()), RejoinStep::Full { refund: a.due_height }, "inside its reactivation window, still full");
         let t = tx(&net, &alice, wallet::reactivate_calldata().to_vec(), U256::ZERO);
@@ -374,6 +373,84 @@ mod preview {
         let t = reward(&net, &alice, bob.address(), 0);
         let _ = next(&mut net, one, vec![t]);
         assert_eq!(record(&net, alice.address()).reward, bob.address(), "accepted in the next block");
+    }
+
+    /// V3-09 on chain, the wallet's rejoin step (G3b'), under the v3 network's membership rule (nonceMode 1, as the network
+    /// builder sets it for every v3 network): genesis member two never shares, yet past W_act it is still in A_next and its
+    /// step stays Active (D-V3-01: every live member keeps a nonce range), so rejoin only follows a voluntary exit. two
+    /// exits and reactivates at L, which starts its C_react 200 clock (U 40, W_act 32). Exiting again at L + 1, the
+    /// clock-free rule would offer [L + 33, L + 41); the v3 clock opens only at L + 200, past the refund sweep, so the
+    /// wallet's step (chain_rejoin_step, what the status and Rejoin mining use) is ClockMissed at once, naming the clock and
+    /// the refund height, and a reactivation in that window is indeed a status-0 receipt. The status fields show the clock
+    /// while its next allowed height is ahead.
+    #[test]
+    fn the_wallet_rejoin_reads_the_reactivation_clock_on_chain() {
+        let mut cfg = config();
+        cfg.c_react = 200;
+        cfg.nonce_mode = 1;
+        let mut net = net_with(cfg);
+        assert_eq!(net.chain.spec.effective_nonce_mode(1), pocold::assignment::NonceMode::Unbounded, "the v3 network's nonce domain from genesis");
+        let one = net.one;
+        let two = net.chain.spec.profile().spec().m0_list.iter().map(|m| Address::from(m.id)).find(|m| *m != one).unwrap();
+        let (w_act, u) = (u64::from(net.chain.spec.cp().W_act), u64::from(net.chain.spec.cp().U));
+        assert_eq!((w_act, u, net.chain.spec.cp().C_react), (32, 40, 200));
+        let step = |net: &Net| {
+            let head = net.chain.head();
+            let r = apply::miner_record(&head.state, two);
+            let member = net.chain.membership(head, head.height + 1).unwrap().ids().contains(&raw_addr(two));
+            (wallet::rejoin_step(r.as_ref(), head.height + 1, member, w_act, None), wallet::chain_rejoin_step(&net.chain, two))
+        };
+        let status = |net: &Net| {
+            let head = net.chain.head();
+            wallet::v3_status(&net.chain, &head.state, two, apply::miner_record(&head.state, two).as_ref(), head.height + 1).unwrap()
+        };
+        assert_eq!(status(&net), serde_json::json!({"bondRemaining": null, "reactivation": {"lastAt": null, "cooldownBlocks": 200, "allowedFrom": null}}), "a HELD genesis member that never reactivated");
+        // two never shares: past W_act it stays in A_next (D-V3-01), so its step is Active, never Exit or Cooldown.
+        while net.chain.head().height < w_act + 2 { let _ = next(&mut net, one, vec![]); }
+        let r = record(&net, two);
+        assert!(r.status == 1 && net.chain.head().height + 1 >= r.last_share.max(r.grace_start) + w_act, "two has no share within W_act: {r:?}");
+        assert_eq!(step(&net).1, RejoinStep::Active, "a status-1 member that stops sharing stays in the active set on v3");
+        assert_eq!(wallet::rejoin_step(Some(&r), net.chain.head().height + 1, false, w_act, None), RejoinStep::Exit, "only a bounded-nonce membership would leave it out");
+        // two pays its own fees (FN-2a: an ordinary transfer, no creation fee).
+        let alice = devnet::account_key("alice");
+        let fund = {
+            let head = net.chain.full_entry(&net.chain.head).unwrap();
+            let base = net.chain.child_ctx(&head, 0).unwrap().base_fee;
+            let priority = U256::from(1_000_000_000u64);
+            Tx { chain_id: net.chain.spec.chain_id(), nonce: nonce(&net, alice.address()), max_priority: priority, max_fee: base * U256::from(2) + priority,
+                 gas: 21_000, to: Some(two), value: U256::from(PCOL), data: Bytes::new() }.sign_1559(&alice)
+        };
+        let _ = next(&mut net, one, vec![fund]);
+        assert_eq!(balance(&net, two), U256::from(PCOL));
+        let t = tx(&net, &net.keys[&two], wallet::exit_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        let e1 = net.chain.head().height;
+        assert_eq!(record(&net, two).status, 2);
+        assert_eq!(step(&net), (RejoinStep::Wait { opens: e1 + w_act, closes: e1 + u }, RejoinStep::Wait { opens: e1 + w_act, closes: e1 + u }), "no reactivation yet: the same window");
+        while net.chain.head().height + 1 < e1 + w_act { let _ = next(&mut net, one, vec![]); }
+        assert_eq!(step(&net).1, RejoinStep::Reactivate { closes: e1 + u });
+        let t = tx(&net, &net.keys[&two], wallet::reactivate_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        let l = net.chain.head().height;
+        assert_eq!((receipts_status(&net), record(&net, two).status), (vec![vec![1u8]], 1), "reactivated at {l}");
+        assert_eq!(wallet::react_clock(&net.chain.head().state, two), l, "the clock is the reactivation height");
+        assert_eq!(step(&net).1, RejoinStep::Active);
+        let st = status(&net);
+        assert_eq!((&st["reactivation"]["lastAt"], &st["reactivation"]["allowedFrom"], &st["reactivation"]["cooldownBlocks"], &st["bondRemaining"]),
+            (&serde_json::json!(l), &serde_json::json!(l + 200), &serde_json::json!(200), &serde_json::Value::Null), "{st}");
+        let t = tx(&net, &net.keys[&two], wallet::exit_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        let e2 = net.chain.head().height;
+        assert_eq!((e2, record(&net, two).status), (l + 1, 2));
+        let shut = RejoinStep::ClockMissed { refund: e2 + u, allowed_from: l + 200 };
+        assert_eq!(step(&net), (RejoinStep::Wait { opens: e2 + w_act, closes: e2 + u }, shut), "the clock-free rule waits; the v3 clock says the window never opens");
+        let why = wallet::rejoin_refusal(shut).unwrap();
+        assert!(why.contains("reactivated recently") && why.contains(&format!("block {}", l + 200)) && why.contains(&format!("block {}", e2 + u)), "Rejoin mining is refused, naming the clock: {why}");
+        while net.chain.head().height + 1 < e2 + w_act { let _ = next(&mut net, one, vec![]); }
+        let t = tx(&net, &net.keys[&two], wallet::reactivate_calldata().to_vec(), U256::ZERO);
+        let _ = next(&mut net, one, vec![t]);
+        assert_eq!((receipts_status(&net), record(&net, two).status), (vec![Vec::<u8>::new()], 2), "the registry refuses it inside C_react, as the wallet said");
+        assert_eq!(step(&net).1, shut);
     }
 
     /// V3-09 ParamGate (lp1-node gate.rs R8 on CP schema v2): admission refuses a v3 devnet whose reactivation window

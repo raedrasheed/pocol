@@ -42,8 +42,6 @@ sha2 = "=0.9.9"
 serde_json = "=1.0.145"
 
 [features]
-# Test-only spec-2 acceptance, isolated from release peers and packages.
-v3-preview = ["pocol-lp4-execution/v3-preview"]
 # validation.md:2065 caps-test build constants (simnet only, absent from the release); see lp4-execution.
 caps-test = ["pocol-lp4-execution/caps-test"]
 # C-1 E4.4 crash tests: the process aborts at a named step of a block's commit or a checkpoint's write

@@ -178,7 +178,40 @@ The review shows the maximum fee for all four signatures. No PCOL is transferred
 - Keep mining running afterwards: an identity that stops sharing leaves the
   active set again after `W_act` blocks.
 - Nothing about consensus, the Registry, keys or balances changes.
-- The Android app does not offer this action.
+- The Android app offers the same action (**Rejoin mining** on its Mining tab), and **Top up bond**. Its engine
+  loop advances a confirmed rejoin every 2 seconds, as the desktop wallet does (it signs `reactivate()` when the window
+  opens), and shows each step (scheduled, reactivating, retrying, rejoined, stopped) as a notice; keep the app
+  running until the account is back in the active set.
+
+**On the v3 network (the fresh network's rules: a specVersion-2 genesis, the release GenesisSpec).** The engine
+adds, only there (every answer on today's networks is unchanged):
+- *Bond:* a registration can lock 0 to 20 PCOL; the rest is earned from mining rewards, with no deadline (owner
+  decision 10c). The status carries `bondRemaining` for an active record (an exited record earns nothing more: its bond
+  is refunded at its due height), and both wallets show it next to the bond held. **Top up bond** fills it at once
+  while the record is active; otherwise the review says why (the bond is already held in full, the record has exited,
+  or there is no record) before anything is signed. The Registry takes one bond top-up or reward-address change per
+  identity per block, and eight such operations per block across the network (V3-08): while a top-up or reward-address
+  change of this account is still pending, the wallet hides **Top up bond** and refuses a second top-up, which would
+  revert and cost its fee.
+- *Rejoin:* on the v3 network every live member keeps a nonce range whether or not it has shared recently (D-V3-01;
+  the network builder always sets nonceMode 1), so an active member is never shut out for idling and the
+  "leaves the active set after `W_act` blocks" rule above does not apply. **Rejoin mining** applies only after a
+  voluntary exit (`deregister`); a member replaced at a full set waits for its refund (below). The Registry allows one
+  reactivation per `C_react` blocks per identity (V3-09). The engine reads the record's own clock: after an exit the
+  window opens at `max(exit + W_act, lastReactivation + C_react)`, and if the clock keeps it shut until the refund at
+  `exit + U`, the wallet says so at once (rejoin step `missed` with `cause: "cooldown"`, the refund height and the
+  next allowed height) instead of trying. The rejoin review states that window in block heights. The mining card shows
+  the last reactivation, and the next allowed height while it is still ahead. (The engine's `cooldown` step, for a
+  member outside the active set that reactivated recently, arises only on bounded-nonce test devnets, never on the v3
+  network.)
+- *Full set* (owner decisions 10b and Q2(a)): when all `M_max` seats are taken, **Review mining registration** registers
+  by replacement (`registerReplacing`): the engine picks at random a member with no credited share and no
+  (re)activation in the last `Theta_inact` blocks (`pocol_getRemovable`), and the review names it and says that its bond
+  is refunded after `U` blocks and that it may register again. The status fields `seatsFull`, `removableSeats` and
+  `registerReplaces` drive the mining card's line; with no removable member the registration is refused until one is.
+  A member out of the active set while the set is full (replaced, or exited) cannot reactivate (the Registry refuses
+  it): the wallet shows "wait for the bond refund at block `dueHeight`, then register again" and offers no rejoin.
+- There is no creation fee (FN-2a): a transfer to a new address is an ordinary 21,000-gas transfer.
 
 ## Keys and updates
 

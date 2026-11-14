@@ -3,7 +3,7 @@
 //! build alone), `pocold status` and `pocol_status` (the network this node admitted at boot), `init-testnet` (the
 //! profile it just admitted) and the launcher's network description (the invitation's files). It is true only when
 //! every blocker below has cleared:
-//! - build: not a v3-preview build, SPEC_VERSION at least 2 (V3-PR-I), consensus sources pinned, no test-only
+//! - build: SPEC_VERSION at least 2 (the v3 release rule set), consensus sources pinned, no test-only
 //!   feature, `V3_LAUNCH_BLOCKERS` empty, and every gate of the public-network acceptance ledger closed
 //!   (`PLAN_GATES_OPEN`, development/public-network/PLAN.md);
 //! - network: v3 active on the genesis, (chainId, genesisHash) one of this release's pinned launch networks
@@ -45,14 +45,14 @@ pub const NETWORK_PROFILES:&[(u64,[u8;32])]=&[];
 /// The build's facts. `this()` reads this binary's; tests change one at a time.
 #[derive(Clone,Debug)]
 pub struct Build{
-    pub v3_preview:bool,pub spec_version:u64,pub consensus_pinned:bool,pub test_features:Vec<&'static str>,
+    pub spec_version:u64,pub consensus_pinned:bool,pub test_features:Vec<&'static str>,
     pub v3_launch_blockers:Vec<&'static str>,pub plan_gates_open:Vec<(&'static str,&'static str)>,pub network_profiles:Vec<(u64,[u8;32])>,
 }
 impl Build{
     pub fn this()->Self{
         let test_features=[(pocol_lp4_execution::CAPS_TEST,"caps-test"),(cfg!(feature="crash-test"),"crash-test"),(cfg!(feature="io-fault"),"io-fault")]
             .into_iter().filter(|(on,_)|*on).map(|(_,n)|n).collect();
-        Self{v3_preview:pocol_lp4_execution::V3_PREVIEW,spec_version:u64::from(crate::genesis_spec::SPEC_VERSION),consensus_pinned:crate::identity::PINNED,
+        Self{spec_version:u64::from(crate::genesis_spec::SPEC_VERSION),consensus_pinned:crate::identity::PINNED,
             test_features,v3_launch_blockers:admission::V3_LAUNCH_BLOCKERS.to_vec(),plan_gates_open:PLAN_GATES_OPEN.to_vec(),network_profiles:NETWORK_PROFILES.to_vec()}
     }
 }
@@ -122,8 +122,7 @@ pub enum Subject<'a>{Build,Network(&'a Network),Unreadable(String)}
 /// Every blocker, build facts first. Empty exactly when a public launch is ready.
 pub fn blockers(b:&Build,subject:Subject)->Vec<Blocker>{
     let mut out=Vec::new();
-    if b.v3_preview{out.push(blocker("v3-preview-build","this is a v3-preview build: the dormant v3 rules run for simnet tests only and peer only with byte-identical trees"))}
-    if b.spec_version<2{out.push(blocker("spec-version",format!("SPEC_VERSION is {}: this release has not activated the v3 rules (V3-PR-I raises it to 2)",b.spec_version)))}
+    if b.spec_version<2{out.push(blocker("spec-version",format!("SPEC_VERSION is {}: this release does not decode the v3 genesis (spec 2)",b.spec_version)))}
     if !b.consensus_pinned{out.push(blocker("consensus-unpinned","the consensus boundary sources differ from consensus-sources.lock; a release build refuses such a tree"))}
     if !b.test_features.is_empty(){out.push(blocker("test-features",format!("built with test-only features: {}",b.test_features.join(", "))))}
     out.extend(b.v3_launch_blockers.iter().map(|x|blocker("v3-launch-blocker",format!("{x} (V3_LAUNCH_BLOCKERS)"))));
@@ -177,7 +176,7 @@ mod tests{
     /// A build and a network with every blocker cleared.
     fn ready()->(Build,Network){
         let n=Network{chain_id:777001,genesis_hash:[9;32],v3_active:true,admission:Admission::Booted(cleared())};
-        (Build{v3_preview:false,spec_version:2,consensus_pinned:true,test_features:vec![],v3_launch_blockers:vec![],plan_gates_open:vec![],network_profiles:vec![(777001,[9;32])]},n)
+        (Build{spec_version:2,consensus_pinned:true,test_features:vec![],v3_launch_blockers:vec![],plan_gates_open:vec![],network_profiles:vec![(777001,[9;32])]},n)
     }
     fn cleared()->AdmissionFacts{AdmissionFacts{scope:"specification".into(),conditions:vec![],waivers:vec![],network_profile:true}}
     fn ids(b:&[Blocker])->Vec<&str>{b.iter().map(|x|x.id.as_str()).collect()}
@@ -186,8 +185,7 @@ mod tests{
     #[test]
     fn this_build_is_not_ready_today_with_honest_reasons(){
         let b=blockers(&Build::this(),Subject::Build);let got=ids(&b);
-        assert!(got.contains(&"spec-version"),"{got:?}");assert!(got.contains(&"no-network"));
-        assert_eq!(got.contains(&"v3-preview-build"),cfg!(feature="v3-preview"));
+        assert!(!got.contains(&"spec-version"),"SPEC_VERSION 2 is the release: {got:?}");assert!(got.contains(&"no-network"));
         assert_eq!(got.contains(&"consensus-unpinned"),!crate::identity::PINNED);
         for (g,_) in PLAN_GATES_OPEN{assert!(got.contains(&format!("plan-gate-{g}").as_str()),"{g}")}
         assert!(admission::V3_LAUNCH_BLOCKERS.is_empty()&&!got.contains(&"v3-launch-blocker"),"V3_LAUNCH_BLOCKERS is empty today");
@@ -202,7 +200,6 @@ mod tests{
         assert_eq!(ids(&blockers(&b,Subject::Unreadable("bad".into()))),["genesis-unreadable"]);
         type Edit=fn(&mut Build,&mut Network);
         let cases:&[(Edit,&[&str])]=&[
-            (|b,_|b.v3_preview=true,&["v3-preview-build"]),
             (|b,_|b.spec_version=1,&["spec-version"]),
             (|b,_|b.consensus_pinned=false,&["consensus-unpinned"]),
             (|b,_|b.test_features=vec!["caps-test","io-fault"],&["test-features"]),

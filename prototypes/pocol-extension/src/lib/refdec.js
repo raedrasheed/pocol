@@ -1,7 +1,7 @@
 // Reference-equivalent decoders (A07, A08): ports of the accepted Rust decoders
 // lp1-node/src/genesis_spec.rs (GenesisSpec: framing L0, then gsStructure, gsVersion,
-// gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each stage over the whole input; CP schema v1,
-// and v2 = v1 + 7 appended fields, accepted only below an explicit version ceiling) and
+// gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each stage over the whole input; CP schema v1 under spec 1,
+// and v2 = v1 + 7 appended fields under spec 2, the release version) and
 // lp1-node/src/header.rs (size, strict RLP, then every header field). Error codes and details
 // equal the reference's; tests/decoder_diff.mjs checks this against verdicts produced by the
 // Rust decoders on the same corpus (pocold/tests/decoder_reference.rs).
@@ -10,11 +10,11 @@ import { concat, toBig } from './hex.js';
 
 // ------------------------------------------------------------------ GenesisSpec
 const gsErr = (gs, detail) => Object.assign(new Error(gs + ' ' + detail), { gs, detail });
-export const SPEC_VERSION = 1, CP_LEN = 52;
-/** The ceiling of the shipped entry points (rp.js decodeSpec, as genesis_spec.rs decode()): SPEC_VERSION in the release
- * build, 2 only in the test-only v3-preview build (`node build.mjs --v3-preview` -> dist-v3-preview/, never packaged),
- * which mirrors pocold's `--features v3-preview`. decodeGenesisSpec itself keeps the explicit ceiling (decode_bounded). */
-export const DECODE_CEILING = /*@fault v3Preview*/SPEC_VERSION;/*@else*/2;/*@end*/
+/** genesis_spec.rs SPEC_VERSION: spec 2 (CP schema v2, the v3 rules) is the release GenesisSpec; spec 1 still decodes. */
+export const SPEC_VERSION = 2, CP_LEN = 52;
+/** The ceiling of the shipped entry points (rp.js decodeSpec, as genesis_spec.rs decode()): SPEC_VERSION, in every
+ * build. decodeGenesisSpec itself keeps the explicit ceiling (decode_bounded). */
+export const DECODE_CEILING = SPEC_VERSION;
 const N = null;
 /** CP version 1: name, width in bits, lower bound, upper bound (null: none; 'gamma': 10^4 - alpha_bp). */
 export const CP_SCHEMA = [
@@ -47,10 +47,9 @@ const uintItemLen = (v) => (v < 0x80 ? 1 : 1 + beLen(v));
 const listLen = (p) => (p < 56 ? 1 + p : 1 + beLen(p) + p);
 const maxCpPayload = (schema) => schema.reduce((a, [, w, , hi]) => a + (hi === N ? 1 + w / 8 : uintItemLen(hi === 'gamma' ? 10000 : hi)), 0);
 const maxSpec = (schema) => listLen(1 + 9 + listLen(maxCpPayload(schema)) + 33 + listLen(MAX_MEMBERS * listLen(21 + 21)) + 33);
-/** Largest encoding that can pass the release decoder and R12 (genesis_spec.rs MAX_SPEC_BYTES of a build without
- * v3-preview). */
-export const MAX_SPEC_BYTES = maxSpec(CP_SCHEMA);
-/** The same bound for a decoder whose version ceiling is `maxVersion` (the v3-preview MAX_SPEC_BYTES at 2). */
+/** Largest encoding that can pass the release decoder and R12 (genesis_spec.rs MAX_SPEC_BYTES: CP schema v2). */
+export const MAX_SPEC_BYTES = maxSpec(CP_SCHEMA_V2);
+/** The same bound for a decoder whose version ceiling is `maxVersion` (spec 1 alone: CP schema v1). */
 export const maxSpecBytes = (maxVersion = SPEC_VERSION) => maxSpec(maxVersion >= 2 ? CP_SCHEMA_V2 : CP_SCHEMA);
 
 function longLen(b, i, ll, short) {
@@ -106,8 +105,8 @@ function isReserved(id) {
   return id.subarray(0, 17).every((x) => x === 0) && low >= 0xc0c001 && low <= 0xc0c0ff;
 }
 /** GenesisSpec.decode; throws {gs, detail} exactly as the reference does. `maxVersion` is genesis_spec.rs
- * decode_bounded's acceptance ceiling: the default SPEC_VERSION is the release decoder (spec 2 is refused with
- * gsVersion until activation, V3-PR-I); 2 is the v3-preview decoder, for tests and explicit preview tools only. */
+ * decode_bounded's acceptance ceiling: the default SPEC_VERSION (2) is the release decoder; 1 is a spec-1-only
+ * decoder, for tests only. */
 export function decodeGenesisSpec(b, maxVersion = SPEC_VERSION) {
   checkFraming(b);
   const top = itemAt(b, 0);

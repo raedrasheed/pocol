@@ -4,8 +4,9 @@ Uses existing node RPC only. No transaction, node change or contract mutation.
 The result is a projection from the captured block's state, not a settlement
 receipt: evidence, registry changes or PAY eligibility can change before H+D.
 Sources: PoColSystemV1.sol, apply.rs, lp1-node/{assignment,header,hashes}.rs.
-A v3 (spec-2) network is read only with a trusted configuration (snapshot_v3, validated_network; V3-PR-G, dormant
-until V3-PR-I); without one every function keeps the spec-1 Mainnet behaviour.
+A v3 (spec-2) network is read only with a trusted configuration (snapshot_v3, validated_network; V3-PR-G; the v3 rules
+are the release rules, but no v3 network identity is pinned yet); without one every function keeps the spec-1 Mainnet
+behaviour.
 """
 from collections import Counter
 from datetime import datetime, timezone
@@ -439,10 +440,10 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
 
 
 # ---------------------------------------------------------------------------------------------------------------------
-# v3 (spec-2) networks: V3-PR-G. Dormant until V3-PR-I: a v3 genesis is read only with a trusted operator configuration
-# (validated_network), exactly as a fork schedule is. Sources: PoColSystemV3.sol (RewardEscrow closeBlock/settleOne/
-# distribute/payTo/burnBond/invalidate, MinerRegistry punish/payee, ShareLedger), lp4-execution apply.rs (phase order)
-# and issuance.rs (M3), pocold chain.rs (membership, evidence_effects, late shares), V3-DECISIONS.md D-V3-01/02/15/16/
+# v3 (spec-2) networks: V3-PR-G. Until a v3 network identity is pinned, a v3 genesis is read only with a trusted
+# operator configuration (validated_network), exactly as a fork schedule is. Sources: PoColSystemV3.sol (RewardEscrow
+# closeBlock/settleOne/distribute/payTo/burnBond/invalidate, MinerRegistry punish/payee, ShareLedger), lp4-execution
+# apply.rs (phase order) and issuance.rs (M3), pocold chain.rs (membership, evidence_effects, late shares), V3-DECISIONS.md D-V3-01/02/15/16/
 # 17/19/20 (FN-2b, owner decisions 10b/10c/Q2(a) of 2026-11-13: no seat contest or probation pool; registerReplacing at a
 # full set), and the independent model prototypes/lp4-execution/tests/v3_model.py.
 #
@@ -452,11 +453,11 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
 # ---------------------------------------------------------------------------------------------------------------------
 from collections import namedtuple
 
-# The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION); 2 is the v3 genesis (CP schema v2),
-# decoded only by a v3-preview build until activation. CP item count of each version's schema (CP schema v2: 52 v1 fields
+# The GenesisSpec version a release build decodes (genesis_spec.rs SPEC_VERSION): 2, the v3 genesis (CP schema v2), the
+# only version the gateway reads (V3_SPEC_VERSION). CP item count of each version's schema (CP schema v2: 52 v1 fields
 # and H_half 52, S_tail 53, gamma_tip_bp 54, baseFeeMin 55, R_react 56, C_react 57, rho_bp 58; FN-2a and FN-2b deleted
 # F0_*, P_MAX, T_PROB, E_epoch, theta_bp and k_sigma).
-SPEC_VERSION = 1
+SPEC_VERSION = 2
 V3_SPEC_VERSION = 2
 CP_ITEMS = {1: 52, 2: 59}
 CP_GAMMA_TIP_BP = 54
@@ -492,8 +493,8 @@ Network = namedtuple('Network', 'chain_id genesis spec_version source')
 
 def validated_network(value):
     """Operator configuration of a v3 network, never learned from RPC: {"chainId": int, "genesisHash": "0x<64 hex>",
-    "specVersion": 2, "v3": true} and optionally "source" (an https URL echoed in the answer). The v3 rules are dormant
-    until V3-PR-I, so a spec-2 genesis is accepted only through this explicit configuration; the default (None) is the
+    "specVersion": 2, "v3": true} and optionally "source" (an https URL echoed in the answer). No v3 network identity
+    is pinned yet, so a spec-2 genesis is accepted only through this explicit configuration; the default (None) is the
     pinned spec-1 Mainnet. A Network value is validated again."""
     if isinstance(value, Network):
         value = {'chainId': value.chain_id, 'genesisHash': value.genesis, 'specVersion': value.spec_version, 'v3': True,

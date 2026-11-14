@@ -19,7 +19,7 @@ Why 0.002 PCOL is enough: the wallet's earn-in registration reserves a maximum f
 fee of 1 gwei the reservation is 0.0012 PCOL and the actual fee about 0.0004 PCOL. The amount still
 covers the reservation while the base fee stays below 2 gwei.
 
-On the v3 network (dormant until activation) a zero-bond newcomer facing a full set registers into the seat of an
+On the v3 network (the release rules; no v3 network identity is pinned yet) a zero-bond newcomer facing a full set registers into the seat of an
 inactive member instead (FN-2b; `quote_register` sends registerReplacing): the wallet reserves REPLACE_GAS = 500,000
 gas, about twice the largest replacement measured (217,381 gas, `prototypes/lp4-execution/tests/v3_contracts.rs`,
 `replacing_write_ceilings_gas_and_user_sys_keys`). With the maximum fee at 2 x base fee + 1 gwei, 0.002 PCOL covers

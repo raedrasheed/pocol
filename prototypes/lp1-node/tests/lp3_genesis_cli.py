@@ -12,6 +12,9 @@ changing the inputs (round-2 Windows portability fix, see development/lp3/s1-gen
 author-r3-windows-ci/README.md). The large
 one-line file reproduces the round-1 failure mode (whole-file read, then abort under a limit) with
 this script's own sizes; it is not the reviewer's input, which is not available here.
+The size bound is the release decoder's (genesis_spec.rs MAX_SPEC_BYTES of CP schema v2, SPEC_VERSION 2):
+a line one byte above it is refused. The largest valid input built here is the largest spec-1 spec
+(SPEC1_MAX_BYTES, from the M1 reference encoder), which the release decoder accepts.
 Prints one JSON object; exit 0 only if no check FAILED.
 """
 
@@ -38,7 +41,8 @@ except ImportError:
     resource = None
     HAVE_RLIMIT = False
 
-MAX_SPEC_BYTES = 2818474
+MAX_SPEC_BYTES = 2818562          # genesis_spec::MAX_SPEC_BYTES (CP schema v2), the release decoder's input bound
+SPEC1_MAX_BYTES = 2818474         # the largest valid spec-1 encoding (CP schema v1), built with the M1 reference
 MIB = 1 << 20
 
 
@@ -129,7 +133,7 @@ def main():
     cp['alpha_bp'] = 5000
     s.update({'chainId': 2 ** 64 - 1, 'CP': cp, 'M_0List': [[b'\x10' * 16 + i.to_bytes(4, 'big'), b'\xb1' * 20] for i in range(1, 65536)]})
     max_valid = NP.encode_genesis(s)
-    assert len(max_valid) == MAX_SPEC_BYTES
+    assert len(max_valid) == SPEC1_MAX_BYTES <= MAX_SPEC_BYTES
 
     results = []
     limit = a.limit_mib * MIB
@@ -177,7 +181,7 @@ def main():
               expect_rows(1, [{'refused': 'inputTooLarge', 'lineBytes': line_bytes, 'maxSpecBytes': MAX_SPEC_BYTES},
                               (-1, {'check': 'genesis-decode', 'inputs': 1, 'refused': 1})]))
     os.remove(big)
-    # 2. One byte above the limit, then the largest valid spec, then a decoder rejection.
+    # 2. One byte above the limit, then the largest valid spec-1 spec, then a decoder rejection.
     over = write('limit-plus-one.txt', [(b'\x01' * (MAX_SPEC_BYTES + 1)).hex(), '\n', max_valid.hex(), '\n', 'c0\n'])
     check('limitPlusOneThenMaxValid', over, limit,
           expect_rows(1, [{'refused': 'inputTooLarge', 'lineBytes': 2 * MAX_SPEC_BYTES + 2},

@@ -409,7 +409,7 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
 /// V3-28 H1: `publicLaunchReady` is computed and reported beside `launchBlockers`, every reason it is false: by
 /// `pocold build-info` and `pocol build-info` (the build alone), by `init-testnet` (the profile it admitted), by a
 /// running node's pocol_status and by `pocold status` (the admission the node booted with). Today it is false for
-/// the build's reasons (SPEC_VERSION 1, the open PLAN.md gates) and the network's (experimental-devnet admission with
+/// the build's reasons (the open PLAN.md gates; SPEC_VERSION 2 is the release, so not spec-version) and the network's (experimental-devnet admission with
 /// its conditions, a simnet profile, v3 never active, no release-pinned launch network).
 #[test] fn launch_readiness_is_computed_and_reported_with_its_blockers(){
     let ids=|v:&serde_json::Value|->Vec<String>{
@@ -418,13 +418,13 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
         assert!(!b.is_empty()&&b.iter().all(|x|x["id"].is_string()&&x["detail"].as_str().is_some_and(|d|!d.is_empty())),"{v}");
         b.iter().map(|x|x["id"].as_str().unwrap().to_string()).collect()};
     let has=|got:&[String],want:&[&str]|for w in want{assert!(got.iter().any(|g|g==w),"{w}: {got:?}")};
-    let build=["spec-version","plan-gate-A1","plan-gate-Q1"];
+    let build=["plan-gate-A1","plan-gate-Q1"];
     for bin in [env!("CARGO_BIN_EXE_pocold"),env!("CARGO_BIN_EXE_pocol")]{
         let o=Command::new(bin).arg("build-info").output().unwrap();assert!(o.status.success(),"{}",text(&o.stderr));
         let info:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
         let got=ids(&info);has(&got,&build);has(&got,&["no-network"]);
         assert!(!got.iter().any(|g|g=="v3-inactive"||g.starts_with("admission-")),"the build alone has no network facts: {got:?}");
-        assert_eq!(info["v3Preview"],cfg!(feature="v3-preview"));assert_eq!(got.iter().any(|g|g=="v3-preview-build"),cfg!(feature="v3-preview"));
+        assert!(info.get("v3Preview").is_none()&&!got.iter().any(|g|g=="spec-version"||g=="v3-preview-build"),"no preview build, spec 2 is the release: {got:?}");
     }
     let network=["v3-inactive","network-not-release-pinned","admission-scope","admission-condition-calibration-synthetic","profile-kind"];
     let d=tmp("launch-ready");std::fs::create_dir_all(&d).unwrap();

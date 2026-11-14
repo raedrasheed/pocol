@@ -1,5 +1,5 @@
 //! FN-1 (C9, CAPS-SUSTAINABILITY N6): pocol_getCaps, the head branch's live counts against the chain caps, in process
-//! and over the RPC socket, on a spec-1 genesis and (v3-preview) a v3 one. Every count is recomputed here from the head
+//! and over the RPC socket, on a spec-1 genesis and a v3 one. Every count is recomputed here from the head
 //! state, the canonical bodies and their receipts (the charged log bytes), not read from the node's incremental summary
 //! or counters. And a publication of the shipped Website contract adds what the extension publisher's pre-check expects.
 //! Private fixture chains.
@@ -147,7 +147,6 @@ fn counts_follow_the_head_branch(v3:bool){
     std::fs::remove_dir_all(d).unwrap();
 }
 #[test] fn pocol_get_caps_counts_the_head_branch_on_a_spec1_genesis(){counts_follow_the_head_branch(false)}
-#[cfg(feature="v3-preview")]
 #[test] fn pocol_get_caps_counts_the_head_branch_on_a_v3_genesis(){counts_follow_the_head_branch(true)}
 
 /// A reorg to a branch without the activity: the answer is the new head branch's, not a running total.
@@ -204,7 +203,6 @@ fn counts_follow_the_head_branch(v3:bool){
 
 /// A continuous v3 network (H_END 0, the fresh network's shape): item 16 and LOG_CAP count each block from zero, so the
 /// transaction and log counts are 0 and their room is the whole cap; the state caps still count the branch.
-#[cfg(feature="v3-preview")]
 #[test] fn pocol_get_caps_on_a_continuous_v3_genesis_counts_state_only(){
     let mut c=cfg(true);c.h_end=0;let mut h=net(&c);let (mut n,d)=node(&c,"v3-continuous",None);let g=in_process(&mut n);
     activity(&mut h,&mut n);let r=in_process(&mut n);check(&mut n,&r);

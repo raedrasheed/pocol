@@ -695,20 +695,21 @@ mod tests{
     /// (this node is behind: the generic text with the instruction), a caps-test peer and an unpinned peer with its
     /// aggregate. Another chain id forgets the address. The reason reaches node and wallet status, bounded.
     #[test] fn consensus_mismatch_refused(){
-        use crate::identity::{Consensus,FLAG_CAPS_TEST,FLAG_UNPINNED,FLAG_V3_PREVIEW};
+        use crate::identity::{Consensus,FLAG_CAPS_TEST,FLAG_UNPINNED};
         let (mut n,dir)=open("consensus-mismatch");
         // This node's schedule is the devnet's [(1,0)]: rebuild its identity on a v2 schedule so prefixes can be told,
-        // as an ordinary pinned build (identity::tests separately cover unpinned and preview source isolation).
-        let h=1_000;let ours=Consensus::new(n.consensus.chain_id,n.consensus.genesis,&[(1,0),(2,h)],n.consensus.rules,n.consensus.flags&!(FLAG_UNPINNED|FLAG_V3_PREVIEW),None);
+        // as an ordinary pinned build (identity::tests separately cover unpinned source isolation).
+        let h=1_000;let ours=Consensus::new(n.consensus.chain_id,n.consensus.genesis,&[(1,0),(2,h)],n.consensus.rules,n.consensus.flags&!FLAG_UNPINNED,None);
         n.consensus=ours.clone();
         let other=|forks:&[(u16,u64)],rules,flags,sources|Consensus::new(ours.chain_id,ours.genesis,forks,rules,flags,sources).id;
+        let r=ours.rules;let newer=format!("peer runs consensus rules {}; this node runs rules {r}",r+1);
         let cases:[([u8;32],&str);6]=[
-            (other(&ours.forks,2,ours.flags,ours.sources),"peer runs consensus rules 2; this node runs rules 1"),
-            (other(&[(1,0),(2,h+1)],1,ours.flags,ours.sources),"different consensus rules, fork schedule or test build"),
-            (other(&[(1,0)],1,ours.flags,ours.sources),"peer has not scheduled activation (2,1000): it must apply the published network upgrade"),
-            (other(&[(1,0),(2,h)],1,ours.flags^FLAG_CAPS_TEST,ours.sources),if ours.flags&FLAG_CAPS_TEST==0{"peer runs a caps-test build"}else{"this node runs a caps-test build"}),
-            (other(&[(1,0),(2,h)],1,ours.flags|FLAG_UNPINNED,Some([0x5a;32])),"different consensus rules, fork schedule or test build"),
-            (other(&[(1,0),(2,h),(3,h+5)],1,ours.flags,ours.sources),"different consensus rules, fork schedule or test build"),
+            (other(&ours.forks,r+1,ours.flags,ours.sources),&newer),
+            (other(&[(1,0),(2,h+1)],r,ours.flags,ours.sources),"different consensus rules, fork schedule or test build"),
+            (other(&[(1,0)],r,ours.flags,ours.sources),"peer has not scheduled activation (2,1000): it must apply the published network upgrade"),
+            (other(&[(1,0),(2,h)],r,ours.flags^FLAG_CAPS_TEST,ours.sources),if ours.flags&FLAG_CAPS_TEST==0{"peer runs a caps-test build"}else{"this node runs a caps-test build"}),
+            (other(&[(1,0),(2,h)],r,ours.flags|FLAG_UNPINNED,Some([0x5a;32])),"different consensus rules, fork schedule or test build"),
+            (other(&[(1,0),(2,h),(3,h+5)],r,ours.flags,ours.sources),"different consensus rules, fork schedule or test build"),
         ];
         let a=sa("81.2.69.9:30300");let mut holds=0;
         let _v=connect(&mut n,9,Origin::Configured(a),Some(a));greet(&mut n,9,30300,0);n.handle(Event::Net(NetEvent::Closed(9)));
@@ -724,7 +725,7 @@ mod tests{
         let generic=n.status_json()["lastIncompatibleReason"].as_str().unwrap().to_string();
         assert!(generic.contains("ours ")&&generic.contains("theirs "),"the generic text names both identities: {generic}");
         // The reverse of a missing activation: this node lacks the peer's (2,h), so it is told to apply the upgrade.
-        let behind=Consensus::new(ours.chain_id,ours.genesis,&[(1,0)],1,ours.flags,ours.sources);
+        let behind=Consensus::new(ours.chain_id,ours.genesis,&[(1,0)],r,ours.flags,ours.sources);
         let reverse=crate::identity::explain(&behind,&ours.id);
         assert!(reverse.contains("apply it (Settings → Upgrade or `pocol upgrade`) or update PoCol"),"{reverse}");
         let _c=connect(&mut n,30,Origin::Configured(a),Some(a));let mut m=hello(&n,30300,0);if let Msg::Hello{chain_id,..}=&mut m{*chain_id+=1}msg(&mut n,30,m);

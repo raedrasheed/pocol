@@ -3,8 +3,8 @@
 // `node tests/decoder_corpus.mjs` writes tests/data/decoder-corpus.json and the spec-2 supplement
 // tests/data/decoder-corpus-v3.json (G3a: a v3 genesis naming the v3 program set, 256 members, the stage order
 // across the final CP v2 fields, headers of a v3 chain); the Rust reference decoders give the verdicts
-// (pocold/tests/decoder_reference.rs, REFERENCE_WRITE=1 writes tests/data/decoder-verdicts.json,
-// decoder-verdicts-preview.json and decoder-verdicts-v3.json) and tests/decoder_diff.mjs checks the extension
+// (pocold/tests/decoder_reference.rs, REFERENCE_WRITE=1 writes tests/data/decoder-verdicts.json and
+// decoder-verdicts-v3.json, one verdict file per corpus) and tests/decoder_diff.mjs checks the extension
 // against them. The supplement is a file of its own so that the verdict files of the original corpus are unchanged
 // by it.
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
@@ -138,9 +138,8 @@ export async function generate({ v3 = false } = {}) {
   // ---------------- GenesisSpec version 2 (CP schema v2, V3-PR-B) ----------------
   // The devnet spec as a v3 genesis: specVersion 2, nonceMode 1 (testnet.rs Config.v3) and the seven appended CP
   // v2 fields at the lp4 devnet defaults (devnet.rs DevnetConfig; FN-2a and FN-2b deleted F0_*, P_MAX, T_PROB, E_epoch,
-  // theta_bp and k_sigma). The release verdicts (decoder-verdicts.json) refuse
-  // every version-2 item with gsVersion until activation (V3-PR-I); decoder-verdicts-preview.json holds the v3-preview
-  // decoder's verdicts (decode_bounded at ceiling 2) for the whole corpus.
+  // theta_bp and k_sigma). The release verdicts (decoder-verdicts.json, decode at SPEC_VERSION 2) judge every
+  // version-2 item under CP schema v2.
   const V2_DEVNET = [31557600n, 62500000000000000n, 5000n, 10000000n, 4n, 40n, 2500n];
   if (V2_DEVNET.length !== REFDEC.CP_V2_EXTRA.length) throw new Error('CP v2 defaults');
   const v1t = parse(devnet);

@@ -1456,7 +1456,7 @@ def lag_mutant_killed():
 def issuance_vectors():
     v = {'schedule': {'cases': schedule_cases()}}
     # Compressed fixture (H_half = 4, S_tail = S0/32): blocks over 6·H_half reach the tail; host credit = recorded pot
-    # every block (tests/v3_contracts.rs replays the chain and the preview test the real host).
+    # every block (tests/v3_contracts.rs replays the chain and its chain tests the real host).
     cp = {'H_half': 4}
     sc = Script().block(1, ops=joined(('w', B), ('c', B)))
     for h in range(2, 27):
