@@ -5,7 +5,7 @@ anchored edits rename the hashed bundle and regenerate SHA256SUMS.txt, and an ed
 identity copy writes nothing; a switch that would leave an old gateway host named, and a loopback RPC URL in the
 repository's own snapshots, are refused; --check refuses chatgpt.site origins, stale
 download links, missing index.html assets, misnamed bundles, stale checksums and content versions, retired identities
-and any config.php (which is never read); no config.php is tracked or committable, and the explorer's api/.htaccess
+(one on the declared chain ID, a postponed launch, by its genesis hash only) and any config.php (which is never read); no config.php is tracked or committable, and the explorer's api/.htaccess
 keeps its deny rule (php -S ignores .htaccess, so nothing else checks it).
 
     python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
@@ -391,6 +391,48 @@ class SiteIdentity(unittest.TestCase):
                 self.assertIn('retired network', self.last_errors)
                 p.write_bytes(original)
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+
+    def test_a_redo_on_the_declared_chain_id_is_checked_by_its_genesis_hash(self):
+        # A postponed launch replaces the genesis and keeps the chain ID: set_network_identity.py retires the old
+        # (chainId, genesisHash) pair, and the switched snapshots, which pin that chain ID at their anchors, pass; a
+        # copy of the old genesis hash still fails.
+        root = self.copy()
+        chain, old_genesis = DECLARED['chainId'], DECLARED['genesisHash'][2:]
+        (root / si.RETIRED).write_bytes(ni.with_retired((root / si.RETIRED).read_bytes(), chain, old_genesis))
+        spec = with_chain(_V3_BASE, chain)
+        genesis = '0x' + ni.keccak256(spec).hex()
+        self.assertNotEqual(genesis, DECLARED['genesisHash'])
+        (root / 'redo.json').write_text(invitation(spec, DECLARED['seeds']), encoding='utf-8')
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'redo.json')), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        self.assert_consistent(root)
+        declared = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))
+        self.assertEqual((declared['chainId'], declared['genesisHash']), (chain, genesis))
+        explorer = self.bundle(root, 'explorer-bundle').read_text(encoding='utf-8')
+        self.assertEqual(len(re.findall(rf'(?<![0-9]){chain}(?![0-9])', explorer)), 8)
+        self.assertEqual(explorer.count(genesis), 7)
+        gone = si.identity_regex(chain, old_genesis, keep_chain=chain)
+        for rel in snapshot(root):
+            path = root / rel
+            if path.suffix in si.BINARY or rel in ni.FILES:
+                continue
+            try:
+                text = path.read_text(encoding='utf-8')
+            except UnicodeDecodeError:
+                continue
+            self.assertIsNone(gone.search(text), rel)
+        for leftover in (DECLARED['genesisHash'], old_genesis.upper()):
+            with self.subTest(leftover=leftover):
+                p = root / si.MAIN / 'about.css'
+                original = p.read_bytes()
+                p.write_text(original.decode('utf-8') + f'/* {leftover} */', encoding='utf-8')
+                self.assertEqual(self.run_tool(root, '--check'), 2)
+                self.assertIn('retired network', self.last_errors)
+                p.write_bytes(original)
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        # The detector still finds the chain ID of a retired identity on another chain.
+        self.assertIsNotNone(si.identity_regex(chain, old_genesis, keep_chain=TEST_CHAIN).search(f'id {chain};'))
+        self.assertIsNone(si.identity_regex(chain, old_genesis, keep_chain=chain).search(f'id {chain};'))
 
 if __name__ == '__main__':
     unittest.main()
