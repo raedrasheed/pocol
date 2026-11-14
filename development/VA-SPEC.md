@@ -239,8 +239,8 @@ maximum; a peer is accepted iff its maximum >= MIN, and the session runs at min(
 Hello layout is frozen across every accepted range: changing it requires raising MIN. A sender never emits a message
 type or field above the negotiated version, and decoders stay strict (§1). Item 8 was redefined from the build digest
 to the consensus identity while keeping wire 2: deployed 0.4.0 sends 9 items and fails on arity, and earlier main
-builds send a build digest, which fails the 32-byte comparison. A first frame that fails to decode and is a type-0
-list of 9 items is counted as a 0.4.0 handshake (`legacyHellos`, §2.5).
+builds send a build digest, which fails the 32-byte comparison. (The fresh-network Phase 2 removed the count of
+0.4.0 handshakes, status `legacyHellos`: such a first frame is refused like any other that fails to decode.)
 
 Wire golden vectors (`pocold/tests/data/wire-golden.json`): one canonical frame per message type 0..9 and a
 `v2/limits` entry (MAX_FRAME, the Hello arity and the field bounds), each keyed `v<version>/<name>`. The unit test
@@ -321,8 +321,8 @@ closure, `bump` without the incremented constant, and a spent gate. Enforcement:
   `protocolVersionMin` and `maxForkVersion`; `deploy/standalone/package.py` refuses a build whose `consensusPinned`
   is not true.
 - The guard (`pocold/tests/consensus_guard.rs`, CI) checks the manifest, the aggregate build.rs saw, history
-  consistency, the constants, module classification, the reference closure, `*tests.rs` declarations, the wire rules
-  and the legacy launcher table (`launcher::LEGACY_BUILDS`: every entry names the H15000 chain, genesis and rules 1).
+  consistency, the constants, module classification, the reference closure, `*tests.rs` declarations and the wire
+  rules. (The legacy launcher table `launcher::LEGACY_BUILDS` and its check were removed in the fresh-network Phase 2.)
 - `deploy/ci/check_lock_append_only.py` requires main's history lines to be a prefix of the branch's, and main's wire
   keys to obey §2.2.
 
@@ -333,7 +333,7 @@ outside what the guard can see; `chain.rs` validates everything it imports.
 ### 2.5 Diagnostics
 A refusal is logged as `peer <name>: <reason>; closing` and counted in status `incompatiblePeers{network, wire,
 consensus}`; `lastIncompatibleReason` holds the last `peer <name>: <reason>`, at most 160 characters (null when there
-has been none), and `legacyHellos` counts 0.4.0 handshakes. The reasons: "another network (chain id or genesis)",
+has been none). The reasons: "another network (chain id or genesis)",
 "wire protocol v < MIN", or for a consensus mismatch (`identity::explain`, at most FORKS_MAX + RULES + 3 hashes, close
 path only): "peer has not scheduled activation (v,H): it must apply the published network upgrade" (the peer's
 identity is a prefix of our schedule); "peer runs consensus rules r; this node runs rules R"; "peer runs a caps-test
@@ -342,7 +342,7 @@ pinned rules: re-pin consensus-sources.lock or use a released build" or "... whi
 trees"; otherwise "different consensus rules, fork schedule or test build (ours X…, theirs Y…). If this node has not
 applied a published network upgrade, apply it (Settings → Upgrade or `pocol upgrade`) or update PoCol". A pinned node
 cannot recognise an unpinned peer (it does not know the peer's aggregate), so it reports the generic text.
-These three fields are in `pocol_status` and wallet status. `pocol_status` and `pocol_getParams` also report
+These two fields are in `pocol_status` and wallet status. `pocol_status` and `pocol_getParams` also report
 `protocolVersion`, `protocolVersionMin`, `consensusRulesVersion`, `maxForkVersion`, `consensusIdentity` and
 `consensusPinned` beside the informational `compatibilitySha256`; `consensusCompatibilitySha256` (pocol_getParams)
 is a deprecated alias of `consensusIdentity`.

@@ -14,7 +14,7 @@
 - SYS [CP]: SYS_SLOT_MAX=131072, SYS_KEYS_BLOCK_MAX=2048, SYS_KEYS_USER_MAX=256, SYS_ACCT_BLOCK_MAX=512, G_SYS=96·10^6.
 - Retention (local): K_hist=32, HIST_TRIE_BUDGET=1717986918, R_keep=2048.
 - End [CP]: H_END=129600, T_END=g_ts+10368000, H_CLOSE=129440, T_CLOSE=T_END−9600, Z_close=160, RET=128, P2=2.
-- Confirmation (local): k_safe=6, k_final=60, k_view=12.
+- Confirmation (local): k_safe=6 (V3-26, D-V3-26, owner decision 12 of 2026-11-13: the RPC `safe` tag is max(head − k_safe, finalized_h); node-local, `--k-safe N` or POCOL_K_SAFE), k_alarm=60 (owner decision 12: reorganizations of k_alarm blocks or more are counted in pocol_finality.reorgsGeKAlarm; node-local, `--k-alarm N` or POCOL_K_ALARM), k_final=60 (the ParamGate R11 input), k_view=12. A node opens only with 1 ≤ k_safe ≤ k_alarm and k_safe < K_hist, so a state query at `safe` is answered while safe = head − k_safe (when a heavier, shorter branch makes safe = finalized_h, it answers −32017 as at `finalized`). RPC `finalized` is the persisted local irreversibility floor finalized_h ≥ head − R_keep. All are local and probabilistic (network.md, "Local finality").
 - Extension (local):
   - VIEW_SLACK_S=4, Φ_view=10s.
   - fetchAll: 4 MiB per attempt, 30s, maxRequests=4096, 3 restarts.
@@ -197,7 +197,7 @@ Others: sv-fix-v2 (ForkSchedule=[(1,0),(2,50)], chainId=777904, node returns [R2
 2. Cap reached: freeze and alert.
 3. Emergency: signed announcement at height ≥ 1440.
 4. Halt: signed restart statement (disclosed centralization).
-5. Rollback deeper than R_keep: manual checkpoint.
+5. Rollback deeper than R_keep: manual checkpoint. (V3-26: to follow a heavier branch that forks between head − R_keep and the local floor finalized_h, stop the node and remove `<data>/retention.finalized`; the next open uses head − R_keep. network.md, "Local finality".)
 6. Network revocation: update networks.json.
 7. K_eff < k_view: alert.
 8. RecLen > 0.9·REG_RECORDS_MAX: alert.

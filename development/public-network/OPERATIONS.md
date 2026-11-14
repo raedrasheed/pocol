@@ -226,8 +226,6 @@ first; the shipped legacy entry is uncertified and every H15000 home is refused.
 - `lastIncompatibleReason`: the last refusal, `peer <name>: <reason>`, at most 160
   characters, for example "peer has not scheduled activation (2,H): it must apply the
   published network upgrade" or "peer runs consensus rules 2; this node runs rules 1";
-- `legacyHellos`: first frames that were a 0.4.0 handshake. During the switch this is
-  the progress metric: it falls to 0 once no 0.4.0 node dials in;
 - `publicLaunchReady` and `launchBlockers` [{id, detail}] (V3-28 H1,
   `prototypes/pocold/src/readiness.rs`): computed from this build and the admission the
   node booted with, true only with no blocker. Today it is false, for example
@@ -245,7 +243,8 @@ first; the shipped legacy entry is uncertified and every H15000 home is refused.
 **Owner decisions (PR5).** D1–D5 are pending; the code implements their recommended
 defaults and keeps every consensus-relevant path fail-closed:
 - D1, Option B: `launcher::SWITCH = B` selects the refusal text above, and the H15000
-  `LEGACY_BUILDS` entry (with its Python mirror) ships uncertified;
+  `LEGACY_BUILDS` entry (with its Python mirror) ships uncertified (the switch and the
+  table were removed in the fresh-network Phase 2);
 - D2, "merged to main counts as released": gate values are spent on merge (VA-SPEC §2.3);
 - D3, the runtime schedule shape still refuses a skipped version;
 - D4, no further legacy build is certified;
@@ -321,8 +320,13 @@ within its own group.
 |---|---|---|
 | Established inbound peers (default 32, 1..128) | `--peers-max N`; `POCOL_PEERS_MAX` | `POCOL_PEERS_MAX` |
 | Inbound peers per public /16 or /32 (default 4, 0 off) | `--per-group-max N`; `POCOL_PER_GROUP_MAX` | `POCOL_PER_GROUP_MAX` |
+| RPC `safe` depth k_safe (V3-26, default 6; 1 ≤ k_safe ≤ k_alarm, below K_hist = 32) | `--k-safe N`; `POCOL_K_SAFE` | `POCOL_K_SAFE` |
+| Reorg alarm depth k_alarm (V3-26, default 60; `pocol_finality.reorgsGeKAlarm`) | `--k-alarm N`; `POCOL_K_ALARM` | `POCOL_K_ALARM` |
 
-A flag wins over its variable, and an empty value counts as unset. For `pocold run`, a
+A flag wins over its variable, and an empty value counts as unset (except for
+`POCOL_K_SAFE` and `POCOL_K_ALARM`, where an empty or non-numeric value is refused:
+`run` names the variable, the launcher answers "Invalid POCOL_K_SAFE" or "Invalid
+POCOL_K_ALARM"; a pair outside the k_safe bounds stops the node at open, naming it). For `pocold run`, a
 value outside 1..128 (0 included) stops the command before the node starts (status
 1), naming the flag or variable; the launcher refuses it as "Invalid
 POCOL_PEERS_MAX". The seed and join units that `deploy/public-testnet/prepare.py`
