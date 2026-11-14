@@ -79,7 +79,7 @@ fn fresh_cp()->(ConsensusParams,u32,u32){
     let l=store_limits();
     // The C6-row CP keeps the continuous builder's CP schema v1 and bounded nonces (so its member terms take the
     // every-block-a-snapshot branch); the fresh-network CP is schema v2 with the full nonce domain (the cadence branch).
-    for (tag,(cp,k,side),pin,modes) in [("c6-row",c6_row_cp(),2_894_088_421u128,(0,1)),("fresh-1a",fresh_cp(),5_461_945_293u128,(1,2))]{
+    for (tag,(cp,k,side),pin,modes) in [("c6-row",c6_row_cp(),2_917_910_217u128,(0,1)),("fresh-1a",fresh_cp(),5_485_767_089u128,(1,2))]{
         assert_eq!((cp.M_max,cp.E_win,cp.D,cp.E_max,cp.R_react,cp.REG_OPS,cp.REG_RECORDS_MAX,cp.SYS_SLOT_MAX,cp.H_END,cp.nonceMode,cp.schema_version()),
             (10_000,360,4,4,4,16,24_576,147_456,0,modes.0,modes.1),"{tag}: the C6 row's values");
         assert_eq!(pocold::members::all_live_everywhere(&cp),modes.1==2,"{tag}");
@@ -87,7 +87,7 @@ fn fresh_cp()->(ConsensusParams,u32,u32){
         show(tag,&cp,&b,&l);
         assert!(resources::budget_required(b.total).unwrap()<=u128::from(l.mem_budget)&&b.total<usable(&l),"{tag}: within the budget with its reserve");
         // The member terms are all present and small: none is M_max per block any more.
-        for name in ["member records on entries not offloaded","member sets cache","recomputed assignments cache","member reconstruction scratch","child-context cache"]{
+        for name in ["member records on entries not offloaded","member sets cache","recomputed assignments cache","member reconstruction scratch","child-context cache","membership inputs and write sets"]{
             let v=b.items.iter().find(|(n,_)|n.contains(name)).unwrap_or_else(||panic!("{tag}: the term {name}")).1;
             assert!(v<64<<20,"{tag}: {name} is {v} B");
         }

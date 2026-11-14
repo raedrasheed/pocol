@@ -1830,6 +1830,38 @@ set read (the import phase's counters, apart from the reconstruction loop's 120 
 The figures, M1's reading and what is deferred are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md.
 Design risk 1's figure is corrected there: 6.69 GiB of ranges in the A13 worst case, not 2.8 GiB at the slim depth.
 
+### FN-1b: membership inputs derived across blocks (C6, node-local)
+
+FN-1b keeps, beside FN-1's child-context rows, what membership() reads of a state (`members::MemberBase`: the ActList
+in order and, for each id on it, the record fields the one pass reads, with the reverse map from each record's base slot
+to its id) for at most `CTX_BASES_MAX` (3) states, and each executed block's registry write set (the slots of the
+registry the block's execution wrote; in store mode the very slots its stored version was updated with) for at most
+`CTX_WRITES_MAX` (8) blocks, each of at most `CTX_WRITE_SLOTS_MAX` (4,096) slots (a larger set is not kept). A new
+parent's inputs are derived from its own parent's and its block's write set, re-reading only the written list elements,
+the length, and the records of the ids whose words were written or that are new to the list; with neither held they are
+read whole (a restart, a checkpoint restore, a rebuilt or materialized state, an evicted row). Both are keyed, like
+FN-1's rows, by the block hash and the state's identity. New queue term "membership inputs and write sets (FN-1b)"
+(`resources::member_bases_bytes`): per input the ActList (M_max ids at memory::VEC), the records' table (M_max
+(id, record fields) entries) and the slots' table (M_max (slot, id) entries), each entry at memory::entry_bytes and each
+table with its own bytes (`member_base_bytes`), behind an Arc, in a VecDeque row twice, with the allocation its weak state
+reference keeps; one more input being derived (the parent's copied, and the set of the new list a derivation builds when
+more than 64 ids left it); the write sets (CTX_WRITE_SLOTS_MAX · 32 B behind an Arc, each row twice with two weak state
+references); plus 1,024 B. With the oracle on (tests only) a check holds two more inputs; a node runs it off.
+- At the devnet's M_max 64: 1,207,460 B (the write sets' 1,048,576 B are most of it). The spec-1 devnet total
+  (tests/consensus.rs `a13_bound_breakdown`, tests/v3_late_shares.rs) moves from 3,357,219,051 to 3,358,426,511 B (eviction
+  off 3,348,736,230 to 3,349,943,690 B). The live chain's halt (tests/network_budget.rs) moves 518 records earlier
+  ([1,169,619, 1,144,551, 1,137,329, 1,112,489, 1,094,427, 1,069,587]); the seed rule's outcome is unchanged (R10[0] −
+  R(32, 2) = 32,384 of the week's 60,480; R10[1] − R(64, 7) = 75,284 > a week). Its disk stops move 4,096 × 1,207,460 =
+  4,945,756,160 B (4.6 GiB of history.redb) earlier.
+- At M_max 10,000: 23,821,796 B (one input is 5,451,520 B as modeled, and four are counted: the three held and the one
+  being derived). The C6-row CP's total moves from 2,894,088,421 to 2,917,910,217 B (2.72 GiB) and the §1a CP's from
+  5,461,945,293 to 5,485,767,089 B (5.11 GiB),
+  still admitted, with 151,377,487 B (144 MiB) to spare under the usable 5,637,144,576 B (175,199,283 B before). To keep
+  the term small the records' table holds no slot (an id that leaves the list has its slot recomputed, one keccak), and
+  three inputs are kept, not four (36,625,548 B at 10,000 with four and the slot held).
+The derivation is a CPU change, not a memory one, elsewhere: a context still holds the membership FN-1 counts. Its cost
+and the cold child_ctx it gives are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md ("FN-1b").
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:
