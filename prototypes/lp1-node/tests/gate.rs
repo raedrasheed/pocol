@@ -445,8 +445,6 @@ fn profile_v2(w_act: u32, u: u32, c_react: u32) -> GateProfile {
     let mut values = p.cp.to_values();
     for f in &gs::CP_SCHEMA_V2[gs::CP_LEN..] {
         values.push(U256::from_u64(match f.name {
-            "P_MAX" => 64,
-            "T_PROB" => 86_400,
             "R_react" => 4,
             "C_react" => c_react as u64,
             _ => f.lo,

@@ -16,7 +16,7 @@ genesis.spec.hex proves it (the chain ID is the GenesisSpec's own, the genesis h
 chainId or genesisHash must agree).
 
 Each GenesisSpec must be canonical RLP throughout, with six top items and the CP item count of its version's CP schema
-(52 items for version 1, 64 for version 2). --to must be a version the tree's node decodes (SPEC_VERSION in
+(52 items for version 1, 59 for version 2). --to must be a version the tree's node decodes (SPEC_VERSION in
 prototypes/lp1-node/src/genesis_spec.rs), so the clients are never switched to a genesis their release refuses.
 
 The tree's current identity is the one the node file ANCHOR names, proven by its own GenesisSpec; it must be --from
@@ -43,7 +43,7 @@ from pocol_rewards import keccak256  # noqa: E402  (the keccak256 the reward acc
 import build_installer  # noqa: E402
 
 # The CP item count of each GenesisSpec version's CP schema (genesis_spec.rs CP_LEN, CP_V2_LEN).
-CP_ITEMS = {1: 52, 2: 64}
+CP_ITEMS = {1: 52, 2: 59}
 # The node's GenesisSpec codec: its SPEC_VERSION is the highest version a release node decodes.
 NODE_SPEC = 'prototypes/lp1-node/src/genesis_spec.rs'
 # The identities the clients were switched away from (append-only): {"retired": [{"chainId", "genesisHash"}]}.

@@ -33,9 +33,10 @@ use crate::rlp;
 
 pub const SPEC_VERSION: u8 = 1;
 pub const CP_LEN: usize = 52;
-/// CP schema v2 keeps the complete v1 prefix and appends twelve fields (the three F0_* creation-fee
-/// coefficients are deleted: owner decision 10d of 2026-11-13, no creation fee).
-pub const CP_V2_LEN: usize = 64;
+/// CP schema v2 keeps the complete v1 prefix and appends seven fields. Deleted before any chain ran it: the three
+/// F0_* creation-fee coefficients (FN-2a, owner decision 10d of 2026-11-13: no creation fee), and P_MAX, T_PROB,
+/// E_epoch, theta_bp and k_sigma (FN-2b, owner decisions 10b/10c: no probation pool, deadline or seat contest).
+pub const CP_V2_LEN: usize = 59;
 /// Index of alpha_bp in CP; gamma_bp (the next field) is bounded by it.
 const ALPHA_BP: usize = 13;
 /// FINAL_DESIGN.md:787.
@@ -127,15 +128,10 @@ pub const CP_SCHEMA: [CpField; CP_LEN] = [
 const CP_V2_EXTRA: [CpField; CP_V2_LEN - CP_LEN] = [
     f("H_half", 64, 1, Upper::None),
     f("S_tail", 256, 0, Upper::None),
-    f("P_MAX", 16, 0, Upper::None),
-    f("T_PROB", 32, 1, Upper::None),
     f("gamma_tip_bp", 16, 0, Upper::Value(10_000)),
     f("baseFeeMin", 256, 0, Upper::None),
     f("R_react", 8, 0, Upper::None),
     f("C_react", 32, 0, Upper::None),
-    f("E_epoch", 32, 1, Upper::None),
-    f("theta_bp", 16, 0, Upper::Value(10_000)),
-    f("k_sigma", 16, 0, Upper::None),
     f("rho_bp", 16, 0, Upper::Value(10_000)),
 ];
 const fn schema_v2() -> [CpField; CP_V2_LEN] {
@@ -656,12 +652,12 @@ mod tests {
     fn v2_schema_preserves_the_entire_v1_prefix() {
         assert_eq!(&CP_SCHEMA_V2[..CP_LEN], &CP_SCHEMA);
         assert_eq!(CP_SCHEMA_V2[CP_LEN..].iter().map(|f|f.name).collect::<Vec<_>>(), [
-            "H_half","S_tail","P_MAX","T_PROB","gamma_tip_bp",
-            "baseFeeMin","R_react","C_react","E_epoch","theta_bp","k_sigma","rho_bp"]);
+            "H_half","S_tail","gamma_tip_bp","baseFeeMin","R_react","C_react","rho_bp"]);
         assert_eq!(cp_index_for(1,"H_half"),None);
-        assert_eq!(cp_index_for(2,"rho_bp"),Some(63));
-        assert_eq!(cp_index_for(2,"gamma_tip_bp"),Some(56));
-        for gone in ["F0_acct","F0_slot","F0_code"]{assert_eq!(cp_index_for(2,gone),None);}
+        assert_eq!(cp_index_for(2,"rho_bp"),Some(58));
+        assert_eq!(cp_index_for(2,"gamma_tip_bp"),Some(54));
+        assert_eq!((cp_index_for(2,"baseFeeMin"),cp_index_for(2,"R_react"),cp_index_for(2,"C_react")),(Some(55),Some(56),Some(57)));
+        for gone in ["F0_acct","F0_slot","F0_code","P_MAX","T_PROB","E_epoch","theta_bp","k_sigma"]{assert_eq!(cp_index_for(2,gone),None);}
         assert!(cp_schema(3).is_none());
     }
 
@@ -677,7 +673,7 @@ mod tests {
         spec.spec_version=3;
         assert_eq!(decode_bounded(&encode(&spec),u8::MAX).unwrap_err(),GsError{code:"gsVersion",detail:"3".into()});
         spec.spec_version=1;
-        assert_eq!(decode(&encode(&spec)).unwrap_err(),GsError{code:"gsCount",detail:"CP 64".into()});
+        assert_eq!(decode(&encode(&spec)).unwrap_err(),GsError{code:"gsCount",detail:"CP 59".into()});
     }
 
     #[test]

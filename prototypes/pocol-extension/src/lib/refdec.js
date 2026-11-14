@@ -25,11 +25,11 @@ export const CP_SCHEMA = [
   ['T_CLOSE', 64, 0, N], ['Z_close', 32, 0, N], ['RET', 32, 1, N], ['P2', 32, 0, N],
 ];
 /** CP schema v2 (genesis_spec.rs CP_V2_EXTRA): the complete v1 prefix, then these fields in wire order
- * (V3-DECISIONS.md D-V3-34; FN-2a deleted F0_acct/F0_slot/F0_code, owner decision 10d). */
+ * (V3-DECISIONS.md D-V3-34; FN-2a deleted F0_acct/F0_slot/F0_code, owner decision 10d; FN-2b deleted P_MAX, T_PROB,
+ * E_epoch, theta_bp and k_sigma, owner decisions 10b/10c: 59 fields). */
 export const CP_V2_EXTRA = [
-  ['H_half', 64, 1, N], ['S_tail', 256, 0, N], ['P_MAX', 16, 0, N], ['T_PROB', 32, 1, N],
-  ['gamma_tip_bp', 16, 0, 10000], ['baseFeeMin', 256, 0, N], ['R_react', 8, 0, N], ['C_react', 32, 0, N],
-  ['E_epoch', 32, 1, N], ['theta_bp', 16, 0, 10000], ['k_sigma', 16, 0, N], ['rho_bp', 16, 0, 10000],
+  ['H_half', 64, 1, N], ['S_tail', 256, 0, N], ['gamma_tip_bp', 16, 0, 10000], ['baseFeeMin', 256, 0, N],
+  ['R_react', 8, 0, N], ['C_react', 32, 0, N], ['rho_bp', 16, 0, 10000],
 ];
 export const CP_SCHEMA_V2 = [...CP_SCHEMA, ...CP_V2_EXTRA], CP_V2_LEN = CP_SCHEMA_V2.length;
 /** Known schemas only (genesis_spec.rs cp_schema); a future wire version never inherits v2's layout. */

@@ -116,9 +116,10 @@ fn schema2_roundtrips_full_width_fields_and_respects_the_release_ceiling(){
     if pocol_lp4_execution::V3_PREVIEW{assert_eq!(gs::decode(&bytes).unwrap(),spec);}
     else{assert_eq!(gs::decode(&bytes).unwrap_err().code,"gsVersion");}
     let typed=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(typed.baseFeeMin,pocol_lp4_execution::fixed::U256::MAX);
-    // FN-2a (owner decision 10d): the three F0_* creation-fee fields are gone from CP schema v2.
-    assert_eq!(spec.cp.len(),64);for gone in ["F0_acct","F0_slot","F0_code"]{assert_eq!(gs::cp_index_for(2,gone),None);}assert_eq!(typed.to_values(),spec.cp);
-    for (name,bad) in [("gamma_tip_bp",10001),("theta_bp",10001),("rho_bp",10001),("R_react",256),("P_MAX",65536),("H_half",0),("T_PROB",0),("E_epoch",0)]{
+    // FN-2a (owner decision 10d) deleted the three F0_* creation-fee fields from CP schema v2, FN-2b (owner decisions
+    // 10b/10c) P_MAX, T_PROB, E_epoch, theta_bp and k_sigma: 59 fields.
+    assert_eq!(spec.cp.len(),59);for gone in ["F0_acct","F0_slot","F0_code","P_MAX","T_PROB","E_epoch","theta_bp","k_sigma"]{assert_eq!(gs::cp_index_for(2,gone),None);}assert_eq!(typed.to_values(),spec.cp);
+    for (name,bad) in [("gamma_tip_bp",10001),("rho_bp",10001),("R_react",256),("C_react",1u64<<32),("H_half",0)]{
         let mut invalid=spec.clone();invalid.cp[gs::cp_index_for(2,name).unwrap()]=pocol_lp4_execution::fixed::U256::from_u64(bad);
         let err=gs::decode_bounded(&gs::encode(&invalid),2).unwrap_err();assert_eq!((err.code,err.detail.as_str()),("gsRange",name));
     }
@@ -151,19 +152,24 @@ fn resolved_cp_drives_bond_target_timing_and_the_actual_program_registry(){
 #[test]
 fn v3_config_implies_the_new_schema_and_full_nonce_only_in_preview(){
     let out=Temp::new("preview-config");let mut input=config();input.as_object_mut().unwrap().remove("earnin");input.as_object_mut().unwrap().remove("continuous");input["v3"]=serde_json::json!(true);
-    input["cp"]=serde_json::json!({"T_blk":30,"D_att":150,"dFbWait":10,"M_max":256,"P_MAX":64});
+    input["cp"]=serde_json::json!({"T_blk":30,"D_att":150,"dFbWait":10,"M_max":256});
     let result=prepare(&input,&out.0);
     if pocol_lp4_execution::V3_PREVIEW{
-        result.unwrap();let spec=read_spec(&out.0);assert_eq!(spec.spec_version,2);assert_eq!(spec.cp.len(),64);
-        let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!((cp.nonceMode,cp.H_END,cp.M_max,cp.P_MAX,cp.T_PROB,cp.E_epoch),(1,0,256,64,86400,2880));
+        result.unwrap();let spec=read_spec(&out.0);assert_eq!(spec.spec_version,2);assert_eq!(spec.cp.len(),59);
+        let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!((cp.nonceMode,cp.H_END,cp.M_max),(1,0,256));
         let local=pocold::testnet::local_for_network(&out.0).unwrap();let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert!(admitted.v3_active(0));assert!(admitted.v3_active(u64::MAX));
-        // V3-PR-E0: a v3 config selects the compiled v3 set, whose probation pool is the CP's P_MAX/T_PROB.
+        // V3-PR-E0: a v3 config selects the compiled v3 set, which has no probation pool or deadline since FN-2b.
         assert_eq!(admitted.programs(),ProgramSet::V3);assert!(admitted.earnin_rules());
-        assert_eq!(admitted.probation(),Some(apply::Probation{seats:64,blocks:86_400}));
+        assert_eq!(admitted.probation(),None);
         assert_eq!(spec.sys_code_hash,apply::SystemPrograms::v3().sys_code_hash().0);
-        for (field,value) in [("rho_bp",10001),("T_PROB",0),("E_epoch",0)]{
+        for (field,value) in [("rho_bp",10001),("H_half",0)]{
             let invalid=Temp::new(field);let mut config=input.clone();config["cp"][field]=serde_json::json!(value);
             assert!(prepare(&config,&invalid.0).unwrap_err().contains("gsRange"));assert!(!invalid.0.exists());
+        }
+        // The deleted fields are unknown CP fields of a v3 config (FN-2b).
+        for gone in ["P_MAX","T_PROB","E_epoch","theta_bp","k_sigma"]{
+            let invalid=Temp::new(gone);let mut config=input.clone();config["cp"][gone]=serde_json::json!(1);
+            assert!(prepare(&config,&invalid.0).unwrap_err().contains("unknown CP field"),"{gone}");assert!(!invalid.0.exists());
         }
     }else{assert!(result.unwrap_err().contains("requires a v3-preview build"));assert!(!out.0.exists());}
 }

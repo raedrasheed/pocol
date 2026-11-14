@@ -283,8 +283,6 @@ fn resolve(config: &[u8]) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4
     if input.v3 {
         // Time-based synthetic defaults. Explicit CP overrides below take precedence.
         cfg.h_half = 126_230_400u64.div_ceil(u64::from(cfg.t_blk));
-        cfg.t_prob = u32::try_from(2_592_000u64.div_ceil(u64::from(cfg.t_blk))).unwrap();
-        cfg.e_epoch = u32::try_from(86_400u64.div_ceil(u64::from(cfg.t_blk))).unwrap();
     }
     let mut cp = cfg.cp();
     if input.continuous { for value in &mut cp[45..=48] { *value = pocol_lp4_execution::fixed::U256::ZERO; } }

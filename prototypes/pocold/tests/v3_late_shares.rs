@@ -75,7 +75,7 @@ fn a13_counts_late_share_memory_on_cp_schema_v2_only(){
     let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
     let v1=pocold::chain::Spec::new(devnet::build(&c).unwrap().admit(&pocold::single_host_local()).unwrap().0).cp().clone();
     let mut values=v1.to_values();
-    for f in &gs::CP_SCHEMA_V2[gs::CP_LEN..]{values.push(F::from_u64(match f.name{"P_MAX"=>64,"T_PROB"=>86_400,"R_react"=>4,"C_react"=>v1.U as u64,_=>f.lo}));}
+    for f in &gs::CP_SCHEMA_V2[gs::CP_LEN..]{values.push(F::from_u64(match f.name{"R_react"=>4,"C_react"=>v1.U as u64,_=>f.lo}));}
     let v2=ConsensusParams::from_values(&values).unwrap();assert_eq!((v1.schema_version(),v2.schema_version()),(1,2));
     let limits=pocold::node::Limits::default();let l=pocold::single_host_local();
     let at=|cp:&ConsensusParams|pocold::resources::derive(cp,l.k_hist,l.side_max,&limits,2).unwrap();
