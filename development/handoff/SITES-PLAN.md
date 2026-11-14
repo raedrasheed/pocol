@@ -377,3 +377,14 @@ All other points of both critiques were verified against the code and adopted as
 - **A10. Critique 2 D3 hard-deny of `*.sql`, `*.pem`, `*.key`:** these extensions already have no MIME id and are refused today. They stay in the hard-deny list so that a future MIME addition or an `--include-list` cannot publish them.
 - **A11. Critique 2 D9 "RN per-viewer limit 2": adopted as the default, pending Q8.**
 - **A12. Critique 1 G1 "W2's 4 matches rpc_slots" and the "fetchSite :189-205" reference:** both are correct criticisms; fixed (chunk-level pool, default 2 for RN; `site.js` has 86 lines, `fetchSite` is `:69-85`). The `setInterval` lock check is at `publisher-ui.js:141`, not `:157`.
+
+## Owner answers, 2026-11-14 (verbatim, from the session's question dialog)
+
+| Question | Answer (verbatim) | Effect on this plan |
+|---|---|---|
+| Q1 — sources of explorer.pocol.net and ide.pocol.net | «ليس لدي المصدر» | W7 and the IDE patches are anchored edits to the built bundles, guarded by W9's patcher and the websites CI. |
+| Q2 — copy the host-only explorer files (redacted on the server, never pasted in chat; never config.php) before the wipe | «سأنسخها قبل المسح» | W8 waits for the owner's redacted copy; the ceremony precondition stays. |
+| Q3 — add favicon.ico and site.webmanifest MIME types before genesis | «نعم، أضفهما (موصى به)» | W5 adds both MIME ids (manifest table in the extension, Website.sol consumers, tests). |
+| Q7 — extension 0.5.0, fixed manifest key, release signing by an owner-held key | «نعم: 0.5.0 ومفتاح ثابت وتوقيع (موصى به)» | W14 sets version 0.5.0, a fixed `key`, and release signing with an owner-held key (zip distribution; Chrome Web Store out of scope). |
+
+Q4, Q5/Q5b, Q6, Q8 and Q9 are still open; the plan's recommendations apply until the owner answers.
