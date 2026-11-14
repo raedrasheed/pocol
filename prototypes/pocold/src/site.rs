@@ -313,11 +313,20 @@ impl<'a> Publisher<'a>{
             for c in data.chunks(CHUNK_MAX){self.store_chunk(c)?;}
         }
         for c in mb.chunks(CHUNK_MAX){self.store_chunk(c)?;}
-        let site=match site{Some(s)=>s,None=>self.deploy_website()?};
+        // A Website deployed by this run is reported at once, and every later refusal names it: publishing again
+        // without --site would deploy a second Website (about 1.5M gas) and orphan this one.
+        let deployed=site.is_none();
+        let site=match site{Some(s)=>s,None=>{let s=self.deploy_website()?;eprintln!("deployed website {s:#x}; if this publication stops, pass --site {s:#x} to resume it");s}};
+        let resume=|e:String|if deployed{format!("{e} (the new Website is at {site:#x}: run publish again with --site {site:#x})")}else{e};
+        let v=self.publish_version(site,files,&mb,mpred.iter().map(|c|c.0).collect()).map_err(resume)?;
+        Ok((site,v,m))
+    }
+    /// The safe sweep, createVersion, publish and setCurrent of `publish` for the encoded manifest `mb`.
+    fn publish_version(&self,site:Address,files:&BTreeMap<String,Vec<u8>>,mb:&[u8],manifest_chunks:Vec<Address>)->Result<u64,String>{
         let all:Vec<&[u8]>=files.values().flat_map(|d|d.chunks(CHUNK_MAX)).chain(mb.chunks(CHUNK_MAX)).collect();self.safe_sweep(&all)?;
         let count_before=U256::from_be_slice(&self.rpc.eth_call(site,&sel("versionCount()"))?).to::<u64>();
-        let mhash=keccak256(&mb);
-        self.tx(Some(site),abi_create_version(mhash,mb.len() as u32,&mpred.iter().map(|c|c.0).collect::<Vec<_>>()),600_000)?;
+        let mhash=keccak256(mb);
+        self.tx(Some(site),abi_create_version(mhash,mb.len() as u32,&manifest_chunks),600_000)?;
         // Another publisher may have created a version concurrently: find the draft with this exact manifest.
         let count_after=U256::from_be_slice(&self.rpc.eth_call(site,&sel("versionCount()"))?).to::<u64>();
         let mut mine=None;
@@ -328,7 +337,7 @@ impl<'a> Publisher<'a>{
         let v=mine.ok_or("created version not found (concurrent publisher?)")?;
         self.tx(Some(site),abi_u256_call("publish(uint256)",v),200_000)?;
         self.tx(Some(site),abi_u256_call("setCurrent(uint256)",v),200_000)?;
-        Ok((site,v,m))
+        Ok(v)
     }
 }
 pub fn website_initcode()->Vec<u8>{

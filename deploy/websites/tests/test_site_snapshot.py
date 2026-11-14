@@ -1,4 +1,5 @@
 """Sites W5: the S1 snapshot helper (deploy/websites/tools/site_snapshot.py). Local only: git and temp directories."""
+import hashlib
 import json
 import pathlib
 import subprocess
@@ -44,7 +45,7 @@ class TrackedSnapshot(unittest.TestCase):
         (site / 'api').mkdir(parents=True)
         (site / 'assets').mkdir()
         for rel, data in {'index.html': '<p>', 'assets/app.js': '1', '.htaccess': 'deny', 'api/rpc.php': '<?php',
-                          'SHA256SUMS.txt': 'x', 'extra.txt': 'e'}.items():
+                          'SHA256SUMS.txt': hashlib.sha256(b'<p>').hexdigest() + '  index.html\n', 'extra.txt': 'e'}.items():
             (site / rel).write_text(data)
         git(repo, 'init', '-q')
         git(repo, 'add', '-A')
@@ -66,6 +67,63 @@ class TrackedSnapshot(unittest.TestCase):
             self.assertEqual(r['excluded'], ['/extra.txt'])
             with self.assertRaisesRegex(ValueError, 'not empty'):
                 S.build(out, 'site', inc, repo=repo)
+
+    def test_the_committed_bytes_are_published_even_with_core_autocrlf_true(self):
+        # Git for Windows sets core.autocrlf=true: `git archive` would then write CRLF text that matches neither the
+        # commit nor SHA256SUMS.txt. The snapshot reads the blobs, so the bytes are the committed LF ones.
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp) / 'repo'
+            (repo / 'site').mkdir(parents=True)
+            files = {'index.html': b'<p>\na\nb\n', 'site.webmanifest': b'{\n"name": "x"\n}\n', 'app.js': b'let a = 1;\r\nlet b = 2;\n'}
+            for rel, data in files.items():
+                (repo / 'site' / rel).write_bytes(data)
+            (repo / 'site' / 'SHA256SUMS.txt').write_bytes(''.join(f'{hashlib.sha256(d).hexdigest()}  {r}\n' for r, d in sorted(files.items())).encode())
+            git(repo, 'init', '-q')
+            git(repo, 'config', 'core.autocrlf', 'false')
+            git(repo, 'add', '-A')
+            git(repo, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'site')
+            git(repo, 'config', 'core.autocrlf', 'true')
+            git(repo, 'config', 'core.eol', 'crlf')
+            archived = subprocess.run(['git', '-C', str(repo), 'archive', '--format=tar', 'HEAD', '--', 'site/index.html'], check=True, capture_output=True).stdout
+            self.assertIn(b'<p>\r\na', archived, 'this git converts on archive with these settings (the case the snapshot avoids)')
+            inc = pathlib.Path(tmp) / 'inc.txt'
+            inc.write_text('index.html\nsite.webmanifest\napp.js\n')
+            out = pathlib.Path(tmp) / 'out'
+            r = S.build(out, 'site', inc, repo=repo)
+            for rel, data in files.items():
+                self.assertEqual((out / rel).read_bytes(), data, rel)
+            self.assertEqual({f['path']: f['sha256'] for f in r['files']}, {'/' + k: hashlib.sha256(v).hexdigest() for k, v in files.items()})
+
+    def test_a_file_that_differs_from_the_snapshot_sha256sums_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp) / 'repo'
+            (repo / 'site').mkdir(parents=True)
+            (repo / 'site' / 'index.html').write_bytes(b'<p>')
+            (repo / 'site' / 'SHA256SUMS.txt').write_text('0' * 64 + '  index.html\n')
+            git(repo, 'init', '-q')
+            git(repo, 'add', '-A')
+            git(repo, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'site')
+            inc = pathlib.Path(tmp) / 'inc.txt'
+            inc.write_text('index.html\n')
+            with self.assertRaisesRegex(ValueError, 'SHA256SUMS'):
+                S.build(pathlib.Path(tmp) / 'out', 'site', inc, repo=repo)
+            self.assertFalse((pathlib.Path(tmp) / 'out').exists(), 'nothing is written')
+            (repo / 'site' / 'SHA256SUMS.txt').write_text('x\n')
+            git(repo, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qam', 'malformed')
+            with self.assertRaisesRegex(ValueError, 'malformed'):
+                S.build(pathlib.Path(tmp) / 'out2', 'site', inc, repo=repo)
+
+    def test_a_tracked_symlink_is_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            repo = pathlib.Path(tmp) / 'repo'
+            (repo / 'site').mkdir(parents=True)
+            (repo / 'site' / 'index.html').write_bytes(b'<p>')
+            (repo / 'site' / 'link.html').symlink_to('index.html')
+            git(repo, 'init', '-q')
+            git(repo, 'add', '-A')
+            git(repo, '-c', 'user.name=t', '-c', 'user.email=t@example.invalid', 'commit', '-qm', 'site')
+            with self.assertRaisesRegex(ValueError, 'not a regular file'):
+                S.tracked_snapshot(repo, 'HEAD', 'site')
 
     def test_a_listed_file_that_is_untracked_or_refused_fails(self):
         with tempfile.TemporaryDirectory() as tmp:

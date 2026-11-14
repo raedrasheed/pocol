@@ -77,7 +77,7 @@ export async function readNetworkFees(rpc, {floor = BASE_FEE_FLOOR} = {}) {
   const readings = [];
   const attempt = async (f) => { try { readings.push(await f()); } catch (e) { if (!e?.rpc && !e?.transport && !/fee quantity|baseFee/.test(e?.message || '')) throw e; } };
   await attempt(async () => { const p = quantity(await rpc('eth_gasPrice', [])); return p > nodeTip ? p - nodeTip : 0n; });
-  await attempt(async () => { const h = await rpc('eth_feeHistory', [1, 'latest', []]); const fees = h?.baseFeePerGas; if (!Array.isArray(fees) || !fees.length) throw new Error('baseFee history'); return quantity(fees[fees.length - 1]); });
+  await attempt(async () => { const h = await rpc('eth_feeHistory', ['0x1', 'latest', []]); const fees = h?.baseFeePerGas; if (!Array.isArray(fees) || !fees.length) throw new Error('baseFee history'); return quantity(fees[fees.length - 1]); });
   await attempt(async () => {
     const b = await rpc('eth_getBlockByNumber', ['latest', false]);
     if (!b || b.baseFeePerGas === undefined) throw new Error('baseFee missing');

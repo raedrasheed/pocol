@@ -92,6 +92,7 @@ jobs:
           npm test
           npm run test:studio
           npm run test:publisher
+          npm run test:publisher-ui
           npm run test:contracts
           npm run test:contract-ui
           /usr/bin/python3 -m unittest tests/test_linux_export.py -v

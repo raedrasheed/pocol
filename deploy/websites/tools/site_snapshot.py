@@ -4,8 +4,9 @@
     python3 deploy/websites/tools/site_snapshot.py --out DIR \\
         [--site deploy/websites/explorer.pocol.net] [--include deploy/websites/tools/explorer-s1-include.txt] [--rev HEAD]
 
-The files come from `git archive REV -- SITE` (what is committed, never a host docroot or a test copy). Only the paths
-of the include list are written to DIR, which must be new or empty. The hard-deny list (hidden files, config.*, *.key,
+The files are the committed blobs of SITE at REV, read with `git ls-tree` and `git cat-file` so that no autocrlf, eol
+or export filter changes a byte (never a host docroot or a test copy), and each file the snapshot's SHA256SUMS.txt lists
+must match its entry. Only the paths of the include list are written to DIR, which must be new or empty. The hard-deny list (hidden files, config.*, *.key,
 *.pem, *.sql, *.bak*, api/**, SHA256SUMS*) is applied whatever the list says, and every refused or left-out path is
 reported. The rules are those of the extension (lib/publish-input.js), Studio (model.js) and pocol-site (site.rs);
 pocol-extension/tests/data/publish-input-vectors.json is their shared vector file. Publish DIR afterwards with
@@ -13,12 +14,10 @@ pocol-extension/tests/data/publish-input-vectors.json is their shared vector fil
 """
 import argparse
 import hashlib
-import io
 import json
 import pathlib
 import subprocess
 import sys
-import tarfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
 DENY_REASONS = ('dotfile', 'config', 'secret-key', 'database', 'backup', 'server-api', 'checksums')
@@ -75,24 +74,60 @@ def select(paths, include):
     return {'kept': kept, 'denied': denied, 'excluded': excluded, 'missing': [p for p in include if p not in present]}
 
 
+def git_bytes(repo, *args, stdin=None):
+    """A git command's raw stdout. Line-ending and export settings never apply: the blobs are read, not checked out or
+    archived, and core.autocrlf/core.eol are pinned off anyway (Git for Windows defaults core.autocrlf to true)."""
+    return subprocess.run(['git', '-c', 'core.autocrlf=false', '-c', 'core.eol=lf', '-C', str(repo), *args],
+                          check=True, capture_output=True, input=stdin).stdout
+
+
 def tracked_snapshot(repo, rev, site):
-    """{site path: bytes} of the regular files of `site` at `rev`, read from `git archive`. Links are refused."""
-    prefix = site.strip('/') + '/'
-    data = subprocess.run(['git', '-C', str(repo), 'archive', '--format=tar', rev, '--', site.strip('/')],
-                          check=True, capture_output=True).stdout
-    files = {}
-    with tarfile.open(fileobj=io.BytesIO(data)) as tar:
-        for member in tar.getmembers():
-            if member.isdir() or member.name == 'pax_global_header':
-                continue
-            if not member.isfile():
-                raise ValueError(f'{member.name}: not a regular file in the tracked snapshot')
-            if not member.name.startswith(prefix):
-                raise ValueError(f'{member.name}: outside {site}')
-            files['/' + member.name[len(prefix):]] = tar.extractfile(member).read()
-    if not files:
+    """{site path: bytes} of the regular files of `site` at `rev`: the committed blobs exactly, read with `git ls-tree`
+    and `git cat-file --batch` (no working-tree, autocrlf, eol or export filter). Links and submodules are refused."""
+    site = site.strip('/')
+    prefix = site + '/'
+    listing = git_bytes(repo, 'ls-tree', '-r', '-z', '--full-tree', rev, '--', site)
+    entries = []
+    for record in listing.split(b'\0'):
+        if not record:
+            continue
+        meta, name = record.split(b'\t', 1)
+        mode, kind, oid = meta.decode('ascii').split(' ')
+        name = name.decode('utf-8')
+        if kind != 'blob' or mode not in ('100644', '100755'):
+            raise ValueError(f'{name}: not a regular file in the tracked snapshot')
+        if not name.startswith(prefix):
+            raise ValueError(f'{name}: outside {site}')
+        entries.append(('/' + name[len(prefix):], oid))
+    if not entries:
         raise ValueError(f'{site} has no tracked files at {rev}')
+    batch = git_bytes(repo, 'cat-file', '--batch', stdin=''.join(oid + '\n' for _, oid in entries).encode('ascii'))
+    files, at = {}, 0
+    for path, oid in entries:
+        header_end = batch.index(b'\n', at)
+        got, kind, size = batch[at:header_end].decode('ascii').split(' ')
+        if got != oid or kind != 'blob':
+            raise ValueError(f'{path}: git cat-file answered {got} {kind}')
+        start = header_end + 1
+        files[path] = batch[start:start + int(size)]
+        at = start + int(size) + 1
     return files
+
+
+def checksum_entries(files):
+    """{site path: sha256 hex} from the snapshot's own SHA256SUMS.txt ('<hex>  <path>' lines), if it has one."""
+    text = files.get('/SHA256SUMS.txt')
+    if text is None:
+        return {}
+    sums = {}
+    for line in text.decode('utf-8').splitlines():
+        if not line.strip():
+            continue
+        parts = line.split(None, 1)
+        if len(parts) != 2 or len(parts[0]) != 64 or any(c not in '0123456789abcdefABCDEF' for c in parts[0]):
+            raise ValueError(f'SHA256SUMS.txt: malformed line {line!r}')
+        sums['/' + parts[1].strip().lstrip('*').lstrip('/')] = parts[0].lower()
+    return sums
 
 
 def build(out, site, include_file, rev='HEAD', repo=ROOT):
@@ -102,6 +137,10 @@ def build(out, site, include_file, rev='HEAD', repo=ROOT):
     refused = [p for p, _ in sel['denied'] if p in include]
     if sel['missing'] or refused:
         raise ValueError(f'the include list names files that are not tracked ({sel["missing"]}) or are always refused ({refused})')
+    sums = checksum_entries(files)
+    wrong = [p for p in sel['kept'] if p in sums and hashlib.sha256(files[p]).hexdigest() != sums[p]]
+    if wrong:
+        raise ValueError(f'these files differ from the snapshot\'s SHA256SUMS.txt: {wrong}')
     out = pathlib.Path(out)
     if out.exists() and any(out.iterdir()):
         raise ValueError(f'{out} is not empty')

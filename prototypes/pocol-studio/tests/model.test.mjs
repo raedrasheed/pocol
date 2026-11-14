@@ -66,7 +66,7 @@ test('a continuous chain (cumulative false) checks each transaction against one 
 });
 // Sites W5: the hard-deny list (shared vectors with the extension and pocol-site), the folder import order, MIME 12/13.
 import {readFileSync} from 'node:fs';
-import {denyReason,planImport,importReport,mimeFor as mimeOf,validateFiles as validate,validateProject as checkProject} from '../dist/model.js';
+import {denyReason,planImport,importReport,folderEntries,IMPORT_SCAN_MAX,mimeFor as mimeOf,validateFiles as validate,validateProject as checkProject} from '../dist/model.js';
 const W5=JSON.parse(readFileSync(new URL('../../pocol-extension/tests/data/publish-input-vectors.json',import.meta.url),'utf8'));
 test('W5: the hard-deny list follows the shared vectors, and validateFiles refuses a denied file loudly',()=>{
   for(const[path,reason]of W5.deny)assert.equal(denyReason(path),reason,path);
@@ -83,6 +83,16 @@ test('W5: a folder with .git/ and 300 files under it imports once filtered: the 
   assert.deepEqual(plan.denied.slice(0,3),[{path:'/.env',reason:'dotfile'},{path:'/api/rpc.php',reason:'server-api'},{path:'/SHA256SUMS.txt',reason:'checksums'}]);
   const big=planImport([{path:'/index.html',size:1},...Array.from({length:300},(_,i)=>({path:`/f${i}.txt`,size:1}))]);assert.equal(big.error,'fileCount','300 publishable files still exceed the limit');
   const huge=planImport([{path:'/index.html',size:1},{path:'/.git/pack',size:50*1048576}]);assert.equal(huge.error,null,'a denied file never counts against the size limits');
+});
+test('W5: the folder picker counts only files the hard-deny filter keeps against its 4096 bound: a .git/ of 5000 objects still imports',()=>{
+  const file=(rel,size=1)=>({webkitRelativePath:'site/'+rel,name:rel.split('/').pop(),size});
+  const list=[file('index.html',10),file('app.js',20),...Array.from({length:5000},(_,i)=>file(`.git/objects/${i}`,4096)),file('api/rpc.php')];
+  assert.ok(list.length>IMPORT_SCAN_MAX);const {entries,error}=folderEntries(list);assert.equal(error,null);assert.equal(entries.length,list.length);
+  assert.deepEqual(entries.slice(0,2).map(e=>[e.path,e.size]),[['/index.html',10],['/app.js',20]]);assert.equal(entries[0].file,list[0]);
+  const plan=planImport(entries);assert.equal(plan.error,null);assert.deepEqual(plan.kept.map(e=>e.path),['/index.html','/app.js']);assert.equal(plan.denied.length,5001);
+  assert.equal(folderEntries([{name:'index.html',size:3}]).entries[0].path,'/index.html','a single file without a folder keeps its name');
+  const many=Array.from({length:IMPORT_SCAN_MAX},(_,i)=>file(`f${i}.txt`));assert.equal(folderEntries(many).error,null);
+  assert.equal(folderEntries([...many,file('one-more.txt')]).error,'fileCount','4097 publishable files are refused before the review');
 });
 test('W5: an unsupported file is refused loudly until the user excludes it, and the exclusion is reported',()=>{
   const entries=[{path:'/index.html',size:1},{path:'/server.php',size:1},{path:'/notes.md',size:1},{path:'/.htaccess',size:1}];

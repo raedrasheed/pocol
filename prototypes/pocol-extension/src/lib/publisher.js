@@ -277,6 +277,8 @@ export function migrateCheckpoint(state, {plan, address: from, chainId, genesisH
     approvals:[{budgetWei:budget, ceilingWei:String(maxFee), tipWei:String(priority), economy:false, spentBeforeWei:'0', digest:'legacy-schema-1'}]};
 }
 const running = new Set();
+/** The most fee approvals one checkpoint keeps (each one signed at least one transaction). */
+export const MAX_APPROVALS = 64;
 const pauseError = () => Object.assign(new Error('Publication paused'), {code:'PUBLISH_PAUSED'});
 /**
  * Publishes `options.plan` (prepareSite) and returns {site, version, manifestHash, publishedBlock, transactions,
@@ -305,12 +307,19 @@ export async function publishSite(options) {
     const approvalRecord = (spentBefore) => ({budgetWei:approval.budget.toString(), ceilingWei:approval.ceiling.toString(), tipWei:approval.tip.toString(), economy:approval.economy, spentBeforeWei:spentBefore, digest:approval.digest});
     let state = options.state ? jsonClone(options.state) : {schema:2,binding,network:{chainId:chain.toString(),genesisHash:genesis},site:initialSite,version:null,versionCountBefore:null,transactions:{},spentCapWei:'0',approvals:[approvalRecord('0')]};
     if (state.schema === 1) state = migrateCheckpoint(state, {plan, address:from, chainId:chain, genesisHash:genesis, site:initialSite});
-    assert(state.schema === 2 && state.transactions && typeof state.transactions === 'object' && Array.isArray(state.approvals) && state.approvals.length > 0 && state.approvals.length <= 64, 'Checkpoint belongs to another publication or approval');
+    assert(state.schema === 2 && state.transactions && typeof state.transactions === 'object' && Array.isArray(state.approvals) && state.approvals.length > 0 && state.approvals.length <= MAX_APPROVALS, 'Checkpoint belongs to another publication or approval');
     assert(state.network?.chainId === chain.toString() && state.network?.genesisHash === genesis, 'This saved publication belongs to another network. Archive it; it cannot be resumed here.');
     assert(state.binding === binding, 'Checkpoint belongs to another publication or approval');
     if (state.approvals[state.approvals.length - 1].digest !== approval.digest) {
       assert(options.reapprove === true, 'Checkpoint belongs to another publication or approval');
-      state.approvals.push(approvalRecord(String(state.spentCapWei)));
+      // A new approval replaces the last one when nothing was signed under it (a resume that paused before its first
+      // signature), so pauses alone never grow the list; only approvals that signed something are kept.
+      const last = state.approvals.length - 1;
+      if (!Object.values(state.transactions).some((rec) => rec.approval === last)) state.approvals[last] = approvalRecord(state.approvals[last].spentBeforeWei);
+      else {
+        assert(state.approvals.length < MAX_APPROVALS, 'This publication has reached the limit of ' + MAX_APPROVALS + ' fee approvals. Cancel it and publish again; the chunks already stored are reused.');
+        state.approvals.push(approvalRecord(String(state.spentCapWei)));
+      }
     }
     // Fee ledger: every record within its own approval's ceiling and the approval's budget, and the total exact.
     const spentBy = state.approvals.map(() => 0n); let recordedCost = 0n;
@@ -369,7 +378,7 @@ export async function publishSite(options) {
     // Just-in-time fees: the next block's base fee (the node's own eth_feeHistory figure, else the London step from the
     // latest block), read before each signature.
     const baseNext = async () => {
-      try { const h = await rpc('eth_feeHistory',[1,'latest',[]]); const fees = h?.baseFeePerGas; assert(Array.isArray(fees) && fees.length > 0, 'Invalid fee history'); return quantityOf(fees[fees.length - 1], 'base fee'); }
+      try { const h = await rpc('eth_feeHistory',['0x1','latest',[]]); const fees = h?.baseFeePerGas; assert(Array.isArray(fees) && fees.length > 0, 'Invalid fee history'); return quantityOf(fees[fees.length - 1], 'base fee'); }
       catch (e) { if (!e?.rpc && !e?.transport && !/fee history|base fee/.test(e?.message || '')) throw e; }
       const b = await rpc('eth_getBlockByNumber',['latest',false]);
       assert(b && b.baseFeePerGas !== undefined, 'The network did not report its base fee');

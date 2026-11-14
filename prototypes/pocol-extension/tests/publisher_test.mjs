@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE,MAX_APPROVALS} from '../dist/lib/publisher.js';
 import {nextBaseFee,feeSchedule,capFor,GAS_LIMIT,BASE_FEE_FLOOR,ABSOLUTE_CEILING} from '../dist/lib/fees.js';
 import {KeyLease,JOB_DEADLINE_MAX_MS} from '../dist/lib/lease.js';
 import {isForeignJob,blocksAccount,archiveForeignJobs,archivedJobs,jobNetwork,archiveJob} from '../dist/lib/jobs.js';
 import {denyReason,globRegex,selectFiles,parseIncludeList} from '../dist/lib/publish-input.js';
 import {readFileSync} from 'node:fs';
+import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {WEBSITE_INITCODE,WEBSITE_RUNTIME} from '../dist/lib/website-bytecode.js';
 import {concat,toHex,fromHex} from '../dist/lib/hex.js';
 import {decodeManifest,chunkAddress,decodeCurrent,MIME} from '../dist/lib/site.js';
@@ -25,6 +27,35 @@ function refNext(parent,used,limit,floor){
   const target=limit/2n;if(target===0n||used>limit)throw new Error('ParentGas');
   let fee;if(used===target)fee=parent;else if(used>target){const d=parent*(used-target)/target/8n;fee=parent+(d<1n?1n:d);}else fee=parent-parent*(target-used)/target/8n;
   return fee<floor?floor:fee;
+}
+// Sites W4 needs W1's Studio gateway (claude/sites-w1-w6-gateways): the publisher's only endpoint on RN is
+// https://gateway.pocol.net/studio/rpc (deploy/studio/pocol_studio_gateway.py), and the safe sweep, the safe wait,
+// eth_feeHistory and eth_maxPriorityFeePerGas exist there only from W1 on. The mock below refuses, as a test failure
+// (never as a silent transport fallback), every call that W1's valid_call would answer with HTTP 400; and the last
+// test of this file runs every call the mocks saw through the repository's own gateway validator.
+const TAGS=new Set(['latest','pending','earliest','safe','finalized']);
+const isQuantity=(v)=>typeof v==='string'&&/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]{0,63})$/.test(v);
+const isTag=(v)=>typeof v==='string'&&(v.startsWith('0x')?isQuantity(v):TAGS.has(v));
+const isAddress=(v)=>typeof v==='string'&&/^0x[0-9a-fA-F]{40}$/.test(v),isHash=(v)=>typeof v==='string'&&/^0x[0-9a-fA-F]{64}$/.test(v);
+const isHexData=(v)=>typeof v==='string'&&/^0x(?:[0-9a-fA-F]{2})*$/.test(v);
+const NO_PARAMS=new Set(['eth_chainId','pocol_status','pocol_getParams','eth_blockNumber','eth_gasPrice','pocol_getCaps','eth_maxPriorityFeePerGas']);
+function gatewayAccepts(method,params){
+  if(!Array.isArray(params))return false;
+  if(NO_PARAMS.has(method))return params.length===0;
+  if(method==='eth_getTransactionByHash'||method==='eth_getTransactionReceipt')return params.length===1&&isHash(params[0]);
+  if(['eth_getBalance','eth_getTransactionCount','eth_getCode'].includes(method))return params.length===2&&isAddress(params[0])&&isTag(params[1]);
+  if(method==='eth_getBlockByNumber')return params.length===2&&isTag(params[0])&&params[1]===false;
+  if(method==='eth_feeHistory')return params.length===3&&typeof params[0]==='string'&&/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]{0,15})$/.test(params[0])&&BigInt(params[0])<=128n&&isTag(params[1])&&Array.isArray(params[2])&&params[2].length<=16;
+  if(method==='eth_call'){const t=params[0];return params.length===2&&t&&typeof t==='object'&&isAddress(t.to)&&Object.keys(t).every(k=>['to','from','data','value','gas','gasPrice','maxFeePerGas','maxPriorityFeePerGas'].includes(k))&&(t.data===undefined||isHexData(t.data))&&isTag(params[1]);}
+  if(method==='eth_sendRawTransaction')return params.length===1&&isHexData(params[0])&&params[0].startsWith('0x02');
+  return false;
+}
+const GATEWAY={refused:[],calls:new Map(),raws:0};
+function gatewayCheck(method,params){
+  if(!gatewayAccepts(method,params)){GATEWAY.refused.push([method,params]);throw new Error(`the Studio gateway (W1) would refuse ${method} ${JSON.stringify(params)}`);}
+  // One call per shape (addresses folded), and the first 24 raw transactions (chunk stores, deploy and the Website calls).
+  if(method==='eth_sendRawTransaction'){if(GATEWAY.raws<24)GATEWAY.calls.set('raw:'+GATEWAY.raws++,[method,params]);return;}
+  const key=JSON.stringify([method,params.map(v=>isAddress(v)?'addr':v)]);if(!GATEWAY.calls.has(key))GATEWAY.calls.set(key,[method,params]);
 }
 const FLOOR_FEES={baseNext:BASE_FEE_FLOOR.toString(),tip:(10n**9n).toString()};
 const approve=(plan,more={})=>quotePublish(plan,{fees:FLOOR_FEES,...more}).approval;
@@ -51,7 +82,7 @@ function mock() {
   const n=(b)=>b.length?BigInt(toHex(b)):0n;
   function versionOut(v){const x=versions[Number(v)];if(!x) throw new Error('BadVersion');return toHex(concat(fromHex(x.hash),word(x.length),word(x.status),word(42),word(160),dynamic(x.chunks)));}
   async function rpc(method,params) {
-    logs.calls.push([method,params]);
+    logs.calls.push([method,params]);gatewayCheck(method,params);
     if(method==='eth_chainId')return '0x'+(control.wrongNetwork?1:chainId).toString(16);
     if(method==='pocol_status')return {genesisHash:genesis};
     if(method==='pocol_getCaps'){
@@ -368,6 +399,20 @@ test('W4: an external fee spike pauses before signing, keeps the confirmed chunk
   // Resume of the finished publication under the second approval: records with different caps pass the ceiling check.
   const again=await publishSite(m.options(p,{state:m.state,approval:q2.approval}));assert.equal(again.site,r.site);
 });
+test('W4: a resume that signs nothing replaces its approval instead of adding one; the 64-approval limit is reported plainly',async()=>{
+  const m=mock(),p=many();let allow=1;const sign=async tx=>{if(allow--<=0)throw new Error('Wallet locked');m.logs.signed.push(tx);return signTx(secret,tx);};
+  await assert.rejects(publishSite(m.options(p,{sign})),/Wallet locked/);assert.equal(Object.keys(m.state.transactions).length,1);assert.equal(m.state.approvals.length,1);
+  const quote=(i,state=m.state)=>quotePublish(p,{fees:{baseNext:BASE_FEE_FLOOR.toString(),tip:(GWEI+BigInt(i)).toString()},txs:remainingTransactions(p,state)}).approval;
+  for(let i=1;i<=70;i++){allow=0;await assert.rejects(publishSite(m.options(p,{state:m.state,approval:quote(i),reapprove:true,sign})),/Wallet locked/);}
+  assert.equal(m.state.approvals.length,2,'70 resumes that signed nothing keep one pending approval');assert.equal(m.state.approvals[1].tipWei,(GWEI+70n).toString(),'the latest approval is the one kept');
+  allow=1;await assert.rejects(publishSite(m.options(p,{state:m.state,approval:quote(71),reapprove:true,sign})),/Wallet locked/);
+  assert.equal(m.state.approvals.length,2,'a resume that signs under a replaced approval keeps it');
+  const r=await publishSite(m.options(p,{state:m.state,approval:quote(72),reapprove:true}));assert.equal(r.verified,true);assert.equal(m.state.approvals.length,3);
+  // A checkpoint whose 64 approvals each signed something cannot take a 65th: the message says so.
+  const n=mock();allow=1;await assert.rejects(publishSite(n.options(p,{sign})),/Wallet locked/);const full=structuredClone(n.state);
+  full.approvals=Array.from({length:MAX_APPROVALS},()=>structuredClone(full.approvals[0]));for(const rec of Object.values(full.transactions))rec.approval=MAX_APPROVALS-1;
+  await assert.rejects(publishSite(n.options(p,{state:full,approval:quote(1,full),reapprove:true})),/limit of 64 fee approvals/);
+});
 test('W4: the ceiling and the budget are enforced; a record above its approval ceiling is refused',async()=>{
   const p=sample(),q=quotePublish(p,{fees:FLOOR_FEES});
   const low=mock();low.chain.base=GWEI;await assert.rejects(publishSite(low.options(p,{approval:q.approval})),e=>e instanceof PublishFeeRoseError&&e.reason==='ceiling');assert.equal(low.logs.signed.length,0);
@@ -488,4 +533,28 @@ test('W5: the S1 explorer include list publishes 12 files from the tracked snaps
   const p=prepareSite(files);const fileChunks=p.files.reduce((n,f)=>n+f.chunks.length,0);
   // icon-512.png and pocol-icon.png are byte-identical, so their 7 chunks are stored once.
   assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,75);assert.equal(p.chunks.length,69,"68 unique file chunks and the manifest");assert.equal(planTransactions(p).length,73,"69 chunks, deploy, createVersion, publish, setCurrent");
+});
+
+// ---------------- Sites W4 needs W1: the publisher's calls against the Studio gateway ----------------
+test('W4 needs W1: no call of this file was refused by the W1 gateway rules, and eth_feeHistory sends a hex block count',async()=>{
+  assert.deepEqual(GATEWAY.refused,[]);
+  const m=mock();await readNetworkFees(m.rpc);const p=sample();await publishSite(m.options(p));
+  const history=m.logs.calls.filter(([method])=>method==='eth_feeHistory');assert.ok(history.length>0);assert.ok(history.every(([,params])=>params[0]==='0x1'),'eth_feeHistory block count 0x1');
+  for(const t of['safe','finalized','latest','pending','earliest','0x2a'])assert.equal(gatewayAccepts('eth_getCode',[owner,t]),true,t);
+  for(const t of['Safe','unsafe','0x02a',42])assert.equal(gatewayAccepts('eth_getCode',[owner,t]),false,String(t));
+  assert.equal(gatewayAccepts('eth_feeHistory',[1,'latest',[]]),false,'an integer block count is refused');assert.equal(gatewayAccepts('eth_feeHistory',['0x81','latest',[]]),false);
+  await assert.rejects(m.rpc('eth_feeHistory',[1,'latest',[]]),/would refuse/);GATEWAY.refused.length=0;
+  assert.ok([...GATEWAY.calls.values()].some(([method,params])=>method==='eth_getCode'&&params[1]==='safe'),'the safe sweep was seen');
+  assert.ok([...GATEWAY.calls.values()].some(([method,params])=>method==='eth_getBlockByNumber'&&params[0]==='safe'),'the safe wait was seen');
+});
+test('W4 needs W1: every RPC call the publisher made passes the repository Studio gateway validator (fails until W1 is merged)',()=>{
+  // POCOL_STUDIO_GATEWAY may name another copy of the gateway (to check a branch's gateway before it is merged).
+  const gateway=process.env.POCOL_STUDIO_GATEWAY||fileURLToPath(new URL('../../../deploy/studio/pocol_studio_gateway.py',import.meta.url));
+  const calls=[...GATEWAY.calls.values()];assert.ok(calls.length>20,'the publisher scenarios above recorded their calls');
+  const script=['import importlib.util,inspect,json,sys','spec=importlib.util.spec_from_file_location("studio_gateway",sys.argv[1]);g=importlib.util.module_from_spec(spec);spec.loader.exec_module(g)',
+    'calls=json.load(sys.stdin);chain=int(sys.argv[2]);takes=\'chain_id\' in inspect.signature(g.valid_payload).parameters',
+    'bad=[c for c in calls if not (g.valid_payload({"jsonrpc":"2.0","id":1,"method":c[0],"params":c[1]},chain) if takes else g.valid_payload({"jsonrpc":"2.0","id":1,"method":c[0],"params":c[1]}))]',
+    'print(json.dumps([[c[0],c[1] if c[0]!="eth_sendRawTransaction" else ["<raw>"]] for c in bad]))'].join('\n');
+  const out=execFileSync('python3',['-I','-c',script,gateway,String(chainId)],{input:JSON.stringify(calls),encoding:'utf8',maxBuffer:1<<26});
+  assert.deepEqual(JSON.parse(out),[],'the Studio gateway refuses these publisher calls: W4 must merge after W1 (claude/sites-w1-w6-gateways)');
 });

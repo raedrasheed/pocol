@@ -105,3 +105,46 @@ fn pairs(v:&serde_json::Value)->Vec<(String,&'static str)>{v.as_array().unwrap()
         assert!(site::FeePolicy::from_cli(b,ce,t,false).is_err(),"{b:?} {ce:?} {t:?}");}
     assert_eq!(site::decimal_units(".5",9).unwrap(),U256::from(500_000_000u64));assert_eq!(site::decimal_units("7",0).unwrap(),U256::from(7));
 }
+
+/// A local JSON-RPC stand-in for one publish: every chunk already exists at `latest`, transactions are mined at once
+/// (the deploy answers contractAddress 0x4242..), and `eth_getCode` at `safe` is refused, so the publish stops at the
+/// safe sweep, after the Website deploy. Loopback only.
+fn stand_in()->String{
+    use std::io::{Read,Write};
+    let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();let addr=l.local_addr().unwrap().to_string();
+    std::thread::spawn(move||for s in l.incoming(){
+        let Ok(mut s)=s else{continue};let mut buf=Vec::new();let mut b=[0u8;4096];
+        let body=loop{let n=s.read(&mut b).unwrap_or(0);if n==0{break None}buf.extend(&b[..n]);
+            if let Some(i)=buf.windows(4).position(|w|w==b"\r\n\r\n"){
+                let head=String::from_utf8_lossy(&buf[..i]).to_ascii_lowercase();
+                let len:usize=head.lines().find_map(|x|x.strip_prefix("content-length:")).map(|v|v.trim().parse().unwrap()).unwrap_or(0);
+                if buf.len()>=i+4+len{break Some(buf[i+4..i+4+len].to_vec())}}};
+        let Some(body)=body else{continue};let req:serde_json::Value=serde_json::from_slice(&body).unwrap();
+        let p=&req["params"];
+        let out=match req["method"].as_str().unwrap(){
+            "eth_getCode" if p[1]=="safe"=>serde_json::json!({"error":{"code":-32000,"message":"safe state unavailable"}}),
+            "eth_getCode"=>serde_json::json!({"result":"0x0001"}),
+            "eth_gasPrice"=>serde_json::json!({"result":"0x3c336080"}),
+            "eth_maxPriorityFeePerGas"=>serde_json::json!({"result":"0x3b9aca00"}),
+            "eth_getTransactionCount"=>serde_json::json!({"result":"0x0"}),
+            "eth_sendRawTransaction"=>serde_json::json!({"result":format!("0x{}","11".repeat(32))}),
+            "eth_getTransactionReceipt"=>serde_json::json!({"result":{"status":"0x1","blockNumber":"0x5","contractAddress":format!("0x{}","42".repeat(20))}}),
+            m=>panic!("unexpected {m}"),
+        };
+        let text=serde_json::json!({"jsonrpc":"2.0","id":1}).as_object().unwrap().clone().into_iter().chain(out.as_object().unwrap().clone()).collect::<serde_json::Map<_,_>>();
+        let text=serde_json::Value::Object(text).to_string();
+        let _=write!(s,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",text.len());
+    });
+    addr
+}
+#[test] fn w4_a_refusal_after_the_website_deploy_names_the_new_site_to_resume_with(){
+    let rpc=site::Rpc{addr:stand_in()};let key=pocol_lp4_execution::txsign::Key::devnet("alice");
+    let files:std::collections::BTreeMap<String,Vec<u8>>=[("/index.html".to_string(),b"<p>".to_vec())].into();
+    let p=site::Publisher::new(&rpc,&key,7,false,site::FeePolicy::default());
+    let e=p.publish(None,&files,"/index.html").unwrap_err();
+    let new=format!("0x{}","42".repeat(20));
+    assert!(e.contains("safe state unavailable")&&e.contains(&format!("run publish again with --site {new}")),"{e}");
+    // With --site given there is nothing new to name.
+    let given:Address=new.parse().unwrap();let e=p.publish(Some(given),&files,"/index.html").unwrap_err();
+    assert!(e.contains("safe state unavailable")&&!e.contains("--site"),"{e}");
+}

@@ -34,6 +34,15 @@ export function planImport(entries,{exclude=[]}={}){
  const error=!kept.length||kept.length>LIMITS.files?'fileCount':unsupported.length?'filePath':kept.some(e=>e.size>LIMITS.file)?'fileSize':total>LIMITS.total?'totalSize':null;
  return{kept,denied,excluded,unsupported,error};
 }
+/// The folder picker's file list as import entries [{file,path,size}] (the top folder's name dropped). Only the
+/// entries the hard-deny filter keeps count against IMPORT_SCAN_MAX (a bound on the review list, far above the 256-file
+/// limit), so a site folder with a large .git/ still reaches the review; more publishable files give {error:'fileCount'}.
+export const IMPORT_SCAN_MAX=4096;
+export function folderEntries(list){
+ const entries=[];let counted=0;
+ for(const f of list){const raw=f.webkitRelativePath||f.name,path='/'+(f.webkitRelativePath?raw.split('/').slice(1).join('/'):raw);if(!denyReason(path)&&++counted>IMPORT_SCAN_MAX)return{entries:[],error:'fileCount'};entries.push({file:f,path,size:f.size});}
+ return{entries,error:null};
+}
 /// What a folder import left out, kept with the project so the publish review lists it (bounded).
 export function importReport(plan){return{denied:plan.denied.slice(0,500).map(d=>({path:String(d.path).slice(0,300),reason:DENY_REASONS.includes(d.reason)?d.reason:'dotfile'})),excluded:plan.excluded.slice(0,500).map(p=>String(p).slice(0,300)),more:Math.max(0,plan.denied.length-500)+Math.max(0,plan.excluded.length-500)};}
 export function validateFiles(files,entry='/index.html'){
