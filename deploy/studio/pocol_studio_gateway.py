@@ -290,9 +290,11 @@ LOG_RESUME_FIELDS = {'reason', 'fromBlock', 'lastCompleteBlock', 'nextFromBlock'
 
 def log_error_data(code, data, log_filter):
     """The bounded resume data of a pocol_getLogs error, or None. The reason is one of LOG_LIMIT_REASONS; the three
-    boundaries pass only all together, as strict 64-bit quantities that agree with each other and, for a numeric
-    range, with the request (fromBlock equal to its fromBlock, nextFromBlock within it); otherwise only the reason."""
-    if code != -32020 or not isinstance(data, dict) or data.get('reason') not in LOG_LIMIT_REASONS: return None
+    boundaries pass only all together, as strict 64-bit quantities that agree with each other and with the request:
+    for a numeric range fromBlock equals its fromBlock and nextFromBlock is within it; for the blockHash form (rpc.rs
+    scans that one block) nextFromBlock equals fromBlock. Otherwise only the reason. The code is the relayed one: an
+    integer -32020 exactly."""
+    if type(code) is not int or code != -32020 or not isinstance(data, dict) or data.get('reason') not in LOG_LIMIT_REASONS: return None
     reason = data['reason']
     if set(data) != LOG_RESUME_FIELDS: return {'reason': reason}
     start, done, resume = data['fromBlock'], data['lastCompleteBlock'], data['nextFromBlock']
@@ -300,9 +302,9 @@ def log_error_data(code, data, log_filter):
     first, after = int(start, 16), int(resume, 16)
     if after < first or (done is None) != (after == first) or (done is not None and int(done, 16) != after - 1):
         return {'reason': reason}
-    if isinstance(log_filter, dict) and 'fromBlock' in log_filter and (
-            first != int(log_filter['fromBlock'], 16) or after > int(log_filter['toBlock'], 16)):
-        return {'reason': reason}
+    if isinstance(log_filter, dict) and 'fromBlock' in log_filter:
+        if first != int(log_filter['fromBlock'], 16) or after > int(log_filter['toBlock'], 16): return {'reason': reason}
+    elif after != first: return {'reason': reason}
     return {'reason': reason, 'fromBlock': hex(first), 'lastCompleteBlock': None if done is None else hex(after - 1),
             'nextFromBlock': hex(after)}
 
@@ -498,8 +500,9 @@ class Gateway:
         if 'error' in answer:
             upstream = answer['error']
             code = upstream.get('code', -32000) if isinstance(upstream, dict) else -32000
+            if type(code) is not int: code = -32000
             message = upstream.get('message', 'Node rejected request') if isinstance(upstream, dict) else 'Node rejected request'
-            answer['error'] = {'code': code if type(code) is int else -32000, 'message': str(message)[:300]}
+            answer['error'] = {'code': code, 'message': str(message)[:300]}
             if method == 'pocol_getLogs' and isinstance(upstream, dict):
                 data = log_error_data(code, upstream.get('data'), (params or [None])[0])
                 if data is not None: answer['error']['data'] = data

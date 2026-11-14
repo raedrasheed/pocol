@@ -157,6 +157,17 @@ class GatewayTests(unittest.TestCase):
         deadline = {'code': -32020, 'message': 'compute deadline',
                     'data': {'reason': 'deadline', 'fromBlock': '0x7', 'lastCompleteBlock': None, 'nextFromBlock': '0x7'}}
         self.assertEqual(relayed(deadline, {'blockHash': H}), deadline, 'blockHash form: fromBlock is the canonical height')
+        # The blockHash form scans one block (rpc.rs sets fromBlock = toBlock = its height): no progress past it.
+        for wide in ({**deadline['data'], 'lastCompleteBlock': '0xb', 'nextFromBlock': '0xc'},
+                     {**deadline['data'], 'lastCompleteBlock': '0x7', 'nextFromBlock': '0x8'}):
+            with self.subTest(wide=wide):
+                self.assertEqual(relayed({**deadline, 'data': wide}, {'blockHash': H}),
+                                 {'code': -32020, 'message': 'compute deadline', 'data': {'reason': 'deadline'}})
+        # Data rides only on the integer -32020 that is relayed: a float or boolean code becomes -32000 without data.
+        for odd in (-32020.0, True, '-32020'):
+            with self.subTest(code=odd):
+                self.assertEqual(relayed({**deadline, 'code': odd}, {'blockHash': H}), {'code': -32000, 'message': 'compute deadline'})
+        self.assertIsNone(g.log_error_data(-32020.0, {'reason': 'deadline'}, None))
         for bare in ({'code': -32020, 'message': 'response too large', 'data': {'reason': 'resultBytes'}},
                      {'code': -32020, 'message': 'compute deadline', 'data': {'reason': 'deadline'}}):
             self.assertEqual(relayed(bare, span), bare)
