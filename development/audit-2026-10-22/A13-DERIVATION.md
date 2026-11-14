@@ -1797,18 +1797,35 @@ base.
 The test's sibling assertion covers the term FN-3b removed. That term was 64·M_max = 640,000 B in each of the 11,221
 entry-equivalents: the window 32, slim_depth − window = 4,681, the shadow max(257, E_win + 1) = 361, side_cap + 2·R_keep =
 6,144, one full side block and two views. It came to 7,181,440,000 B (6.69 GiB). That alone exceeds the usable
-5.25 GiB, so the pre-FN-3 model was at least 10,075,528,421 B at the C6-row CP (FN-3a recorded 10,078,213,165 B with
-the ranges rows' allocator share and the Entry's 16 B) and at least 12,643,385,293 B at the §1a CP. Both totals are
-pinned on Linux x86-64, and `check` admits both on every platform.
+5.25 GiB, which is what the test asserts, so the pre-FN-3 model was refused at both CPs. At the C6-row CP FN-3a recorded
+that model as 10,035,259,610 B before FN-3 and 10,078,213,165 B after FN-3a, before FN-3b (FN-3a's member terms added
+42,953,555 B). The test prints today's total plus the ranges term (`fn3aModelAtLeast`): a lower bound on the
+FN-3a model only (10,075,528,421 B at the C6-row CP, 12,643,385,293 B at the §1a CP), since today's total holds FN-3's
+member terms (records, sets, assignments, owner memo, scratch: 42,052,228 B and 41,874,756 B). Less those terms it
+estimates the pre-FN-3 model (`preFn3Estimate`, not a bound: it leaves out the ranges rows' allocator share and the
+Entry's 16 B and keeps the member payload's allocator share): 10,033,476,193 B at the C6-row CP, against FN-3a's
+recorded 10,035,259,610 B, and 12,601,510,537 B (11.74 GiB) at the §1a CP. Both totals are pinned on Linux x86-64,
+and `check` admits both on every platform.
 
 The `#[ignore]` harness (`growth_and_cpu_at_ten_thousand_members`) runs a store-mode node at 10,000 genesis members for
 600 blocks, with the oracle off. One run is idle; one churns S_b up to |Δ| = 24, delta_max of the CP. It measured:
-- the membership tables of history.redb at 144 B a record idle (+20 B an id changed) and 200,064 B a snapshot. That is
-  7,996,320 B a day idle and 12,143,520 B a day with every block at |Δ| = 24, against C6's 100 MB;
-- peak RSS of 191-197 MiB against the model's 5,461,945,681 B;
-- reconstruction cold p99 of 11.4-16.3 ms;
-- child_ctx cold (FN-1 cache cleared) p50 of about 110 ms and p99 of 184-235 ms, almost all of it the one-pass
-  membership read of 10,000 records through state.redb, and 0.2 ms warm.
+- the membership tables of history.redb at 144 B a record idle (+20 B an id changed) and 200,064 B a snapshot. That
+  projects to 7,996,320 B a day idle and 12,143,520 B a day with every block at |Δ| = 24 (9,886,925 B a day as measured
+  over 600 blocks, which overweights snapshots), against C6's 100 MB;
+- a process peak RSS of 191-194 MiB in the 10k runs against the model's 5,461,945,681 B. That is the test process's
+  RSS, with the genesis and what the admission and earlier runs left resident; the first run rose 80 MiB above the
+  process's RSS at its node's open;
+- reconstruction cold p99 of 9.4-9.5 ms (11.4-16.3 ms in the previous run);
+- child_ctx cold (FN-1 cache cleared) p50 of about 105 ms and p99 of 171-188 ms (184-235 ms in the previous run),
+  almost all of it the one-pass membership read of 10,000 records through state.redb, and 0.2 ms warm;
+- `h_full` overhead: the member record takes 0.1 ms at p50 and 0.16 ms at p99 on a delta block and about 4 ms on a
+  snapshot block, against a 0.40-0.43 s import at p50;
+- the proposer's pool (FN-3 §5.12) full, 64 type-2 items against distinct ancestors (58 offloaded): +472 ms on a
+  signed template with every member cache cleared (64 reconstructions, each ending at a snapshot set read from
+  history.redb, 0 faults), +18 ms warm (the owner memo).
+
+The churn run's 242 type-2 punishments recomputed their owners with 236 reconstructions, 415 record reads and 1 disk
+set read (the import phase's counters, apart from the reconstruction loop's 120 disk set reads), 0 faults.
 
 The figures, M1's reading and what is deferred are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md.
 Design risk 1's figure is corrected there: 6.69 GiB of ranges in the A13 worst case, not 2.8 GiB at the slim depth.
