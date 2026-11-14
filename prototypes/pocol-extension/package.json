@@ -7,12 +7,13 @@
   "description": "PoCol Studio, IDE contract wallet and verified on-chain viewer",
   "scripts": {
     "build": "node build.mjs",
-    "test": "node tests/unit.mjs && node --test tests/wallet_lifecycle_test.mjs tests/site_fetch_test.mjs tests/modscan_test.mjs",
+    "test": "node tests/unit.mjs && node --test tests/wallet_lifecycle_test.mjs tests/site_fetch_test.mjs tests/modscan_test.mjs tests/package_release_test.mjs",
     "test:studio": "node tests/studio_test.mjs",
     "test:publisher": "node --test tests/publisher_test.mjs",
     "test:contracts": "node --test tests/contracts_test.mjs",
     "test:contract-ui": "node --test tests/contract_ui_test.mjs",
     "package": "node build.mjs && python3 scripts/package-release.py",
+    "package:unreleased": "node build.mjs && python3 scripts/package-release.py --unreleased",
     "test:modules-browser": "node tests/module_loader_browser.mjs"
   },
   "dependencies": {

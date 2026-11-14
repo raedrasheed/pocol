@@ -66,7 +66,7 @@ export function build({ fault = null, out } = {}) {
     background: { service_worker: 'sw.js', type: 'module' },
     permissions: ['storage', 'unlimitedStorage', 'declarativeNetRequest'],
     host_permissions: ['http://127.0.0.1/*', 'https://gateway.pocol.net/*'],
-    content_scripts: [{matches:['https://studio.pocol.net/*', 'https://pocol-studio.mystic-gecko-9511.chatgpt.site/*'],js:['studio-content.js'],run_at:'document_start',all_frames:false},{matches:['https://ide.pocol.net/*','https://pocol-ide.mystic-gecko-9511.chatgpt.site/*'],js:['ide-content.js'],run_at:'document_start',all_frames:false}],
+    content_scripts: [{matches:['https://studio.pocol.net/*'],js:['studio-content.js'],run_at:'document_start',all_frames:false},{matches:['https://ide.pocol.net/*'],js:['ide-content.js'],run_at:'document_start',all_frames:false}],
     omnibox: { keyword: 'pocol' },
     options_page: 'options.html',
     icons,

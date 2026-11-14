@@ -103,7 +103,7 @@ test('service worker validates top-frame IDE origin/tab binding and exposes no w
  for(const method of ['wallet.unlock','wallet.address','profiles.add','ide.eth_sendRawTransaction'])assert.equal((await call(method)).ok,false);
  const opened=await call('ide.openContract',REQUEST);assert.equal(opened.ok,true);assert.match(mock.tabsCreated.at(-1).url,/contract.html#/);const id=opened.result.jobId;
  const job=mock.storage.data.get(C.IDE_JOB_PREFIX+id);assert.equal(job.status,'awaitingApproval');assert.equal(job.checkpoint,undefined);assert.equal(job.origin,'https://ide.pocol.net');assert.equal(job.sourceTabId,73);
- assert.equal((await call('ide.jobStatus',{jobId:id})).ok,true);assert.equal((await call('ide.jobStatus',{jobId:id},{...sender,tab:{id:74}})).ok,false);assert.equal((await call('ide.jobStatus',{jobId:id},{...sender,url:'https://pocol-ide.mystic-gecko-9511.chatgpt.site/'})).ok,false);
+ assert.equal((await call('ide.jobStatus',{jobId:id})).ok,true);assert.equal((await call('ide.jobStatus',{jobId:id},{...sender,tab:{id:74}})).ok,false);for(const url of ['https://pocol-ide.example.org/','https://pocol-ide.mystic-gecko-9511.chatgpt.site/','http://ide.pocol.net/'])assert.equal((await call('ide.jobStatus',{jobId:id},{...sender,url})).ok,false);
  const oldId='00000000-0000-0000-0000-000000000000';await mock.storage.set({[C.IDE_JOB_PREFIX+oldId]:{id:oldId,origin:sender.url,createdAt:1,status:'pending',checkpoint:{transactions:{contract:{raw:'0x02'}}}}});await call('ide.openContract',REQUEST);assert.ok(mock.storage.data.has(C.IDE_JOB_PREFIX+oldId));
 });
 test('content script filters same window/origin, exposes only three intent methods',async()=>{
@@ -113,4 +113,11 @@ test('content script filters same window/origin, exposes only three intent metho
  await listener({source:{},origin:'https://ide.pocol.net',data:payload});await listener({source:window,origin:'https://evil',data:payload});await listener({source:window,origin:'https://ide.pocol.net',data:{...payload,method:'wallet.unlock'}});assert.equal(calls.length,0);
  await listener({source:window,origin:'https://ide.pocol.net',data:payload});assert.deepEqual(JSON.parse(JSON.stringify(calls[0])),{type:'ide.status',payload:{}});assert.equal(replies[0][0].source,'pocol-ide-extension');assert.equal(replies[0][1],'https://ide.pocol.net');
  assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.content_scripts[1].all_frames,false);assert.equal(manifest.externally_connectable,undefined);
+});
+test('W3: the IDE origin list is exactly https://ide.pocol.net in the library, the content script and the confirmation page',()=>{
+ assert.deepEqual(C.IDE_ORIGINS,['https://ide.pocol.net']);assert.equal(C.isIdeOrigin('https://ide.pocol.net/'),true);
+ for(const url of ['https://pocol-ide.mystic-gecko-9511.chatgpt.site/','https://ide.pocol.net.evil/','http://ide.pocol.net/','https://studio.pocol.net/'])assert.equal(C.isIdeOrigin(url),false,url);
+ for(const origin of ['https://ide.pocol.net','https://pocol-ide.mystic-gecko-9511.chatgpt.site']){let listener=null;const window={top:null,addEventListener:(_t,fn)=>{listener=fn;},postMessage(){}};window.top=window;
+  vm.runInNewContext(readFileSync(dist+'/ide-content.js','utf8'),{window,location:{origin},chrome:{runtime:{sendMessage:async()=>({ok:true})}}});assert.equal(listener!==null,origin==='https://ide.pocol.net',origin);}
+ assert.match(readFileSync(dist+'/contract-ui.js','utf8'),/const allowedOrigins = new Set\(\['https:\/\/ide\.pocol\.net'\]\);/);
 });

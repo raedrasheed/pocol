@@ -8,7 +8,7 @@ import { withRetry } from './lib/retry.js';
 const $ = id => document.getElementById(id);
 const JOB_PREFIX = 'ide:job:', STUDIO_PREFIX = 'studio:job:', VAULT_KEY = 'studio:wallet';
 const jobId = location.hash.slice(1), storageKey = JOB_PREFIX + jobId;
-const allowedOrigins = new Set(['https://ide.pocol.net', 'https://pocol-ide.mystic-gecko-9511.chatgpt.site']);
+const allowedOrigins = new Set(['https://ide.pocol.net']);
 const pool = new Pool(TRUST_POOL); let rpcId = 0;
 let job = null, review = null, secret = null, until = 0, busy = false, walletBusy = false, walletEpoch = 0, controller = null, writes = Promise.resolve(), storageFailure = false, checkingReceipt = false, nextReceiptCheck = 0;
 // W2: idempotent reads are retried on 429, -32021, timeouts and dropped connections; eth_sendRawTransaction is sent once.

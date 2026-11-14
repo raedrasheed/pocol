@@ -3,7 +3,7 @@ import { createCipheriv, pbkdf2Sync, createHmac } from 'node:crypto';
 import { build } from '../build.mjs';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
 import { siteFixture } from './site_fixture.mjs';
-import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
@@ -40,6 +40,18 @@ await test('file broker accepts complete 4 MiB site, rejects overflow and per-fi
 });
 await test('duplicate, traversal, missing entry, malformed address and noncanonical base64 rejected',()=>{for(const input of [{files:[basic.files[0],basic.files[0]]},{files:[{path:'/../x.html',base64:''}]},{files:[{path:'/x.html',base64:''}]},{...basic,site:'0x123'},{files:[{path:'/index.html',base64:'eB=='}]}])assert.throws(()=>B.validatePublishRequest(input));});
 await test('open target forbids URL traversal and arbitrary links',()=>{assert.equal(B.validateSiteTarget({site:'0x'+'ab'.repeat(20)}).path,'/');for(const path of ['https://evil/','/../x','//evil','/%2e'])assert.throws(()=>B.validateSiteTarget({site:'0x'+'ab'.repeat(20),path}));});
+await test('W3: Studio and IDE content scripts match exactly the production origins; no retired preview origin is built',()=>{
+  assert.deepEqual(manifest.content_scripts.map(c=>c.matches),[['https://studio.pocol.net/*'],['https://ide.pocol.net/*']]);
+  assert.deepEqual(manifest.content_scripts.map(c=>c.js),[['studio-content.js'],['ide-content.js']]);
+  assert.deepEqual(N.STUDIO_ORIGINS,['https://studio.pocol.net']);
+  assert.equal(N.isStudioOrigin('https://studio.pocol.net/x'),true);
+  for(const u of ['https://pocol-studio.mystic-gecko-9511.chatgpt.site/','https://studio.pocol.net.evil/','http://studio.pocol.net/','https://ide.pocol.net/'])assert.equal(N.isStudioOrigin(u),false,u);
+  const walk=d=>readdirSync(d,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(join(d,e.name)):[join(d,e.name)]);
+  const hits=walk(dist).filter(f=>readFileSync(f).includes('chatgpt.site'));assert.deepEqual(hits,[]);
+  for(const origin of ['https://studio.pocol.net','https://pocol-studio.mystic-gecko-9511.chatgpt.site']){let listener=null;const window={top:null,addEventListener:(_t,fn)=>{listener=fn;},postMessage(){}};window.top=window;
+    vm.runInNewContext(readFileSync(dist+'/studio-content.js','utf8'),{window,location:{origin},chrome:{runtime:{sendMessage:async()=>({ok:true})}}});
+    assert.equal(listener!==null,origin==='https://studio.pocol.net',origin);}
+});
 await test('manifest grants only fixed origins, publisher in package, unlimited checkpoint storage',()=>{assert.ok(manifest.permissions.includes('unlimitedStorage'));assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.optional_host_permissions,undefined);assert.equal(manifest.content_scripts[0].all_frames,false);assert.match(readFileSync(dist+'/publisher.html','utf8'),/publisher-ui.js/);});
 
 const mock=installChromeMock();await loadWorker(dist,'studio-regressions');
@@ -51,7 +63,7 @@ await test('content script cannot call generic wallet/profile operations',async(
 await test('lookalike origin and iframe cannot call broker',async()=>{assert.equal((await call('studio.status',{}, {...sender,url:'https://studio.pocol.net.evil/'})).ok,false);assert.equal((await call('studio.status',{}, {...sender,frameId:1})).ok,false);});
 let jobId;
 await test('publish request opens trusted page and stores only bounded public files, no signature',async()=>{const r=await call('studio.openPublisher',basic);assert.equal(r.ok,true);jobId=r.result.jobId;assert.match(mock.tabsCreated.at(-1).url,/chrome-extension:\/\/.*\/publisher.html#/);const j=mock.storage.data.get(B.JOB_PREFIX+jobId);assert.equal(j.status,'awaitingApproval');assert.equal(j.checkpoint,undefined);assert.equal(j.request.files.length,1);});
-await test('job results are origin and tab bound',async()=>{assert.equal((await call('studio.jobStatus',{jobId})).ok,true);assert.equal((await call('studio.jobStatus',{jobId},{...sender,tab:{id:18}})).ok,false);assert.equal((await call('studio.jobStatus',{jobId},{...sender,url:'https://pocol-studio.mystic-gecko-9511.chatgpt.site/'})).ok,false);});
+await test('job results are origin and tab bound',async()=>{assert.equal((await call('studio.jobStatus',{jobId})).ok,true);assert.equal((await call('studio.jobStatus',{jobId},{...sender,tab:{id:18}})).ok,false);for(const url of ['https://pocol-studio.example.org/','https://pocol-studio.mystic-gecko-9511.chatgpt.site/','http://studio.pocol.net/'])assert.equal((await call('studio.jobStatus',{jobId},{...sender,url})).ok,false);});
 await test('status history survives page reload and is scoped to original tab',async()=>{const a=await call('studio.status'),b=await call('studio.status',{}, {...sender,tab:{id:18}});assert.equal(a.result.jobs[0].jobId,jobId);assert.equal(b.result.jobs.length,0);});
 await test('old signed checkpoint survives cleanup, old unsigned draft removed',async()=>{await mock.storage.set({[B.JOB_PREFIX+'signed-old']:{id:'signed-old',createdAt:1,status:'paused',checkpoint:{transactions:{tx:{raw:'0x02'}}}},[B.JOB_PREFIX+'draft-old']:{id:'draft-old',createdAt:1,status:'awaitingApproval'}});const r=await call('studio.openPublisher',basic);assert.equal(r.ok,true);assert.ok(mock.storage.data.has(B.JOB_PREFIX+'signed-old'));assert.equal(mock.storage.data.has(B.JOB_PREFIX+'draft-old'),false);await mock.storage.remove(B.JOB_PREFIX+r.result.jobId);});
 await test('cleanup preserves an expired job while its publisher holds the job lock',async()=>{

@@ -1,5 +1,5 @@
 // Pinned identity of the existing PoCol Mainnet. Public data only.
-export const STUDIO_ORIGINS = Object.freeze(['https://studio.pocol.net', 'https://pocol-studio.mystic-gecko-9511.chatgpt.site']);
+export const STUDIO_ORIGINS = Object.freeze(['https://studio.pocol.net']);
 export const NETWORK = Object.freeze({
   "name": "pocol-public",
   "chainId": 1599846715,

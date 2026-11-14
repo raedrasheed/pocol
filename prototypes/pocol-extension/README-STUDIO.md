@@ -45,7 +45,7 @@ The export's PBKDF2-SHA256 + AES-256-CBC + HMAC-SHA256 format is tested against 
 
 ## Web page bridge
 
-Allowed origins are exactly `https://studio.pocol.net` and the private preview `https://pocol-studio.mystic-gecko-9511.chatgpt.site`. Only top-level documents may request these operations:
+The only allowed origin is exactly `https://studio.pocol.net`. Only top-level documents may request these operations:
 
 ```js
 window.postMessage({

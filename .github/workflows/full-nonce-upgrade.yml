@@ -95,7 +95,8 @@ jobs:
           npm run test:contracts
           npm run test:contract-ui
           /usr/bin/python3 -m unittest tests/test_linux_export.py -v
-          npm run package
+          # Sites W3: the packager refuses the retired identity the tree pins until Phase 10; CI keeps an UNRELEASED artifact.
+          npm run package:unreleased
         working-directory: prototypes/pocol-extension
       - name: Verify Studio
         run: |

@@ -83,7 +83,10 @@ export async function v3DecoderChecks(rel) {
       rmSync(join(tmp, 'dist'), { recursive: true, force: true }); rmSync(join(tmp, 'out.zip'), { force: true });
       cpSync(rel, join(tmp, 'dist'), { recursive: true });
       if (edit) { const f = join(tmp, 'dist', 'lib', 'refdec.js'); writeFileSync(f, edit(readFileSync(f, 'utf8'))); }
-      return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip')], { encoding: 'utf8' });
+      // Sites W3: the packager refuses the retired network the tree still pins; a release identity stands in for it here.
+      const n = join(tmp, 'dist', 'lib', 'studio-network.js');
+      writeFileSync(n, readFileSync(n, 'utf8').replace(/"chainId": \d+/, '"chainId": 4242').replace(/"genesisHash": "0x[0-9a-f]{64}"/, `"genesisHash": "0x${'42'.repeat(32)}"`));
+      return spawnSync('python3', ['-B', join(tmp, 'scripts', 'package-release.py'), join(tmp, 'out.zip'), '--retired', join(HERE, '..', '..', '..', 'deploy', 'mainnet', 'retired-networks.json')], { encoding: 'utf8' });
     };
     const packed = pack();
     ok('the release packager packages the release build', packed.status === 0 && existsSync(join(tmp, 'out.zip')), packed.stderr);
