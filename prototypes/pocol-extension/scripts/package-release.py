@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Package only the built extension with reproducible archive metadata.
 
-    python3 scripts/package-release.py [OUTPUT.zip] [--retired FILE] [--unreleased]
+    python3 scripts/package-release.py [OUTPUT.zip] [--retired FILE]
 
 The packager refuses anything that is not the release build (Sites W3), independently of the tests on dist/:
   - the manifest name is exactly RELEASE_NAME (so "[TEST FAULT ...]" and "[REHEARSAL]" builds are refused), MV3, and
@@ -11,16 +11,16 @@ The packager refuses anything that is not the release build (Sites W3), independ
     content_scripts, background, sandbox.pages and the extension-page CSP are exactly the release values;
   - the sandbox CSP is the release (closed) policy for the sha256 of the loader actually inlined in sandbox.html;
   - the built-in profile (lib/studio-network.js NETWORK) uses the pinned RN endpoint;
+  - the built-in profile is not the network placeholder (D1, Sites W9): neither by its NETWORK_PLACEHOLDER mark nor by
+    the placeholder identity (deploy/mainnet/placeholder-network.pocol.json, and the one written here);
   - no file mentions the retired chatgpt.site preview origins;
   - no file shows a retired network: a chain ID of deploy/mainnet/retired-networks.json as a decimal word, or its
     genesis hash (so a tree whose NETWORK was repinned but whose pages, e.g. publisher.html and contract.html, were
     not is refused too);
   - the decoder decodes spec 2;
-  - the built-in profile is a release identity: not the placeholder (a NETWORK name containing "placeholder", or an
-    @placeholder marker in studio-network.js) and its chain ID and genesis hash are not in
-    deploy/mainnet/retired-networks.json (or --retired FILE).
---unreleased packages a CI artifact of a tree whose built-in identity is not a release identity yet (until the Phase 10
-pin): every other refusal applies, the archive name must contain UNRELEASED, and it must never be published.
+  - the built-in profile's chain ID and genesis hash are not in deploy/mainnet/retired-networks.json (or --retired FILE).
+Until the identity switch the tree carries the placeholder, so no release is packaged: CI checks that this packager
+refuses the build with "network placeholder" instead (.github/workflows).
 """
 from pathlib import Path
 import argparse
@@ -62,13 +62,12 @@ def refuse(message):
     raise SystemExit('Refusing to package: ' + message)
 
 
-def built_network(dist):
-    text = (dist / 'lib/studio-network.js').read_text(encoding='utf-8')
+def built_network(text):
     m = re.search(r'export const NETWORK = Object\.freeze\((\{.*?\})\);', text, re.S)
     if not m:
         refuse('lib/studio-network.js has no NETWORK = Object.freeze({...}) object')
     try:
-        return json.loads(m.group(1)), text
+        return json.loads(m.group(1))
     except ValueError:
         refuse('lib/studio-network.js NETWORK is not plain JSON')
 
@@ -86,7 +85,32 @@ def retired_patterns(retired):
     return out
 
 
-def check_release(root, dist, version, retired_file, unreleased):
+def refuse_placeholder(root, network):
+    """D1 (Sites W9): until the identity switch the built-in profile is a placeholder of no network (NETWORK_PLACEHOLDER
+    in lib/studio-network.js, written by deploy/mainnet/set_network_identity.py --placeholder); no release carries it,
+    neither by its mark nor by its identity (a build whose mark was dropped by hand or by a merge still pins it)."""
+    if 'NETWORK_PLACEHOLDER' in network:
+        raise SystemExit('Refusing a build whose built-in profile is the network placeholder (NETWORK_PLACEHOLDER): '
+                         'a release is packaged only after the identity switch pins the real network')
+    # The placeholder identity (deploy/mainnet/placeholder-network.pocol.json: the decoder corpus's v3 devnet GenesisSpec
+    # under chain ID 1234567891, which no network uses), written here so the refusal holds outside the repository too; the
+    # repository's placeholder file, when present, is refused as well (a re-placed placeholder).
+    placeholders = {(1234567891, '3130bfed4d9f4b4f6df657220d94035c21bfe7cc445df9d5572979dc4767f74f')}
+    placeholder_file = root.parents[1] / 'deploy' / 'mainnet' / 'placeholder-network.pocol.json'
+    if placeholder_file.is_file():
+        try:
+            info = json.loads(json.loads(placeholder_file.read_text(encoding='utf-8'))['files']['devnet.json'])
+            placeholders.add((int(info['chainId']), str(info['genesisHash']).lower().removeprefix('0x')))
+        except (KeyError, TypeError, ValueError) as e:
+            raise SystemExit(f'Refusing to package: {placeholder_file} names no placeholder identity ({e})')
+    for chain_id, genesis in sorted(placeholders):
+        if re.search(rf'(?<![0-9A-Za-z_]){chain_id}(?![0-9])|(?<![0-9A-Za-z_])0x{chain_id:x}(?![0-9A-Fa-f])', network, re.IGNORECASE) \
+                or re.search(rf'(?<![0-9A-Fa-f]){genesis}(?![0-9A-Fa-f])', network, re.IGNORECASE):
+            raise SystemExit(f'Refusing a build whose built-in profile pins the network placeholder identity (chain {chain_id}, '
+                             f'genesis 0x{genesis}) without its mark: run the identity switch before packaging a release')
+
+
+def check_release(root, dist, version, retired_file):
     manifest = json.loads((dist / 'manifest.json').read_text(encoding='utf-8'))
     if manifest.get('name') != RELEASE_NAME:
         refuse(f'manifest name {manifest.get("name")!r} is not the release name {RELEASE_NAME!r} (fault or rehearsal build)')
@@ -119,16 +143,18 @@ def check_release(root, dist, version, retired_file, unreleased):
         refuse('the sandbox CSP is not the release policy for the loader in sandbox.html')
     if csp.get('extension_pages') != EXTENSION_PAGES_CSP:
         refuse('the extension-page CSP is not the release policy')
-    network, network_text = built_network(dist)
+    network_text = (dist / 'lib/studio-network.js').read_text(encoding='utf-8')
+    # D1 is refused before NETWORK is parsed and before the retired identities, which the placeholder tree's pages still
+    # show: a placeholder build fails as the placeholder (the refusal CI expects), whatever else it holds.
+    refuse_placeholder(root, network_text)
+    network = built_network(network_text)
     if network.get('endpoint') != RELEASE_ENDPOINT or network.get('trustLevel') != 'RN':
         refuse(f'the built-in profile must use {RELEASE_ENDPOINT} at trust level RN')
     try:
         retired = json.loads(retired_file.read_text(encoding='utf-8'))['retired']
         shown = retired_patterns(retired)
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
-        if not unreleased:
-            refuse(f'cannot read the retired network identities from {retired_file}')
-        retired, shown = [], []
+        refuse(f'cannot read the retired network identities from {retired_file}')
     shown_in = []
     for path in sorted(dist.rglob('*')):
         if not path.is_file():
@@ -143,16 +169,13 @@ def check_release(root, dist, version, retired_file, unreleased):
     if 'export const SPEC_VERSION = 2,' not in (dist / 'lib/refdec.js').read_text(encoding='utf-8'):
         refuse('a stale build that does not decode spec 2: rebuild the release with npm run build')
     identity = []
-    if 'placeholder' in str(network.get('name', '')).lower() or '@placeholder' in network_text:
-        identity.append('the built-in profile is the placeholder identity')
     genesis = str(network.get('genesisHash', '')).lower()
     for r in retired:
         if r.get('chainId') == network.get('chainId') or str(r.get('genesisHash', '')).lower() == genesis:
             identity.append(f'the built-in profile pins the retired network {r.get("chainId")} ({r.get("genesisHash")})')
     identity += shown_in
-    if identity and not unreleased:
-        refuse('; '.join(identity) + '. A release needs the mainnet identity (Phase 10); use --unreleased for a CI artifact')
-    return identity
+    if identity:
+        refuse('; '.join(identity) + '. A release needs the mainnet identity (Phase 10)')
 
 
 def main(argv):
@@ -160,14 +183,10 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('output', nargs='?', type=Path)
     parser.add_argument('--retired', type=Path, default=root.parents[1] / 'deploy' / 'mainnet' / 'retired-networks.json')
-    parser.add_argument('--unreleased', action='store_true')
     args = parser.parse_args(argv)
     dist = root / 'dist'
     version = json.loads((root / 'package.json').read_text())['version']
-    suffix = '-UNRELEASED' if args.unreleased else ''
-    output = args.output or root / 'releases' / f'PoCol-Studio-IDE-Viewer-{version}{suffix}.zip'
-    if args.unreleased and 'UNRELEASED' not in output.name:
-        refuse('an --unreleased archive must have UNRELEASED in its name')
+    output = args.output or root / 'releases' / f'PoCol-Studio-IDE-Viewer-{version}.zip'
     required = ['lib/forks.js', 'lib/rp.js', 'lib/refdec.js', 'lib/studio-network.js', 'sandbox.html', 'icons/pocol-16.png', 'icons/pocol-32.png', 'icons/pocol-48.png', 'icons/pocol-128.png', 'manifest.json', 'contract.html', 'contract-ui.js', 'lib/contracts.js',
                 'tools/Export-Studio-Wallet.ps1', 'tools/export-studio-wallet.py', 'README-EN.md', 'README-AR.md',
                 'LICENSE', 'NOTICE', 'vendor/hashes/LICENSE', 'vendor/secp256k1/LICENSE',
@@ -175,7 +194,7 @@ def main(argv):
     for name in required:
         if not (dist / name).is_file():
             raise SystemExit(f'Missing built release file: {name}. Run npm run build first.')
-    identity = check_release(root, dist, version, args.retired, args.unreleased)
+    check_release(root, dist, version, args.retired)
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in sorted(dist.rglob('*')):
@@ -192,8 +211,6 @@ def main(argv):
             archive.writestr(entry, path.read_bytes())
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix(output.suffix + '.sha256').write_text(f'{digest}  {output.name}\n')
-    if identity:
-        print('UNRELEASED (never publish): ' + '; '.join(identity), file=sys.stderr)
     print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes')
 
 

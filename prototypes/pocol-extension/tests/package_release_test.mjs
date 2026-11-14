@@ -1,8 +1,8 @@
 // Sites W3: scripts/package-release.py refuses every build that is not the release, independently of the tests on
 // dist/: fault and rehearsal names, widened permissions or content scripts, a manifest key the release does not have,
 // another sandbox page or background, an open or stale sandbox CSP, another endpoint or trust level, a chatgpt.site
-// origin, the placeholder or a retired identity (in the built-in profile or shown by any file). --unreleased packages a CI
-// artifact of the current tree (retired identity) under an UNRELEASED name, with every other refusal kept.
+// origin, the D1 placeholder (Sites W9: its mark or its identity) or a retired identity (in the built-in profile or shown
+// by any file). The tree as it is carries the placeholder until the identity switch, so it is never packaged.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
@@ -24,16 +24,19 @@ cpSync(join(EXT, 'scripts', 'package-release.py'), join(tree, 'scripts', 'packag
 writeFileSync(join(tree, 'package.json'), readFileSync(join(EXT, 'package.json')));
 const edit = (file, f) => { const p = join(tree, 'dist', file); writeFileSync(p, f(readFileSync(p, 'utf8'))); };
 const RETIRED_ID = JSON.parse(readFileSync(RETIRED, 'utf8')).retired[0];
-const releaseIdentity = (t) => t.replace(/"chainId": \d+/, '"chainId": 4242').replace(/"genesisHash": "0x[0-9a-f]{64}"/, `"genesisHash": "0x${'42'.repeat(32)}"`);
+// The identity switch (D1) removes the NETWORK_PLACEHOLDER mark and pins the network in place of the placeholder.
+const MARK = /\/\/ PLACEHOLDER \(decision D1\)[^]*?export const NETWORK_PLACEHOLDER = true;\n/;
+const dropMark = (t) => t.replace(MARK, '');
+const releaseIdentity = (t) => dropMark(t).replace(/"chainId": \d+/, '"chainId": 4242').replace(/"genesisHash": "0x[0-9a-f]{64}"/, `"genesisHash": "0x${'42'.repeat(32)}"`);
 // As deploy/mainnet/set_network_identity.py does, every page and README that shows the network is repinned too.
 const shownIdentity = (t) => t.replaceAll(String(RETIRED_ID.chainId), '4242').replaceAll(RETIRED_ID.genesisHash.slice(2), '42'.repeat(32));
 const TEXT = /\.(js|html|md|json|txt)$/;
 const files = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? files(join(d, f)) : [join(d, f)]));
-/** Packages a copy of `from` after `edits`, with a release identity unless `retired` keeps the tree's own. */
-function pack({ from = rel, edits = [], retired = false, args = [], out = 'out.zip' } = {}) {
+/** Packages a copy of `from` after `edits`, with a release identity unless `asBuilt` keeps the tree's own. */
+function pack({ from = rel, edits = [], asBuilt = false, args = [], out = 'out.zip' } = {}) {
   rmSync(join(tree, 'dist'), { recursive: true, force: true }); rmSync(join(tree, out), { force: true });
   cpSync(from, join(tree, 'dist'), { recursive: true });
-  if (!retired) {
+  if (!asBuilt) {
     edit('lib/studio-network.js', releaseIdentity);
     for (const f of files(join(tree, 'dist')).filter((f) => TEXT.test(f))) { const t = readFileSync(f, 'utf8'), u = shownIdentity(t); if (u !== t) writeFileSync(f, u); }
   }
@@ -51,15 +54,22 @@ test('the packager\'s sandbox CSP is build.mjs SANDBOX_CSP(hash, false)', () => 
   const py = spawnSync('python3', ['-B', '-c', `import importlib.util,sys;s=importlib.util.spec_from_file_location('p',sys.argv[1]);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);print(m.sandbox_csp(sys.argv[2]),end='')`, join(EXT, 'scripts', 'package-release.py'), hash], { encoding: 'utf8' });
   assert.equal(py.stdout, SANDBOX_CSP(hash, false)); assert.equal(JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).content_security_policy.sandbox, py.stdout);
 });
-test('the tree as it is (pinned to the retired network) is refused as a release', () => refused(pack({ retired: true }), new RegExp(`pins the retired network ${RETIRED_ID.chainId}`)));
-test('--unreleased packages the current tree under an UNRELEASED name only', () => {
-  const r = pack({ retired: true, args: ['--unreleased'], out: 'PoCol-x-UNRELEASED.zip' }); assert.equal(r.status, 0, r.stderr); assert.equal(r.zip, true); assert.match(r.stderr, /UNRELEASED \(never publish\)/);
-  refused(pack({ retired: true, args: ['--unreleased'], out: 'release.zip' }), /must have UNRELEASED in its name/);
-  refused(pack({ retired: true, args: ['--unreleased'], out: 'x-UNRELEASED.zip', edits: [manifest((m) => ({ ...m, host_permissions: [...m.host_permissions, '<all_urls>'] }))] }), /host_permissions/);
+test('the tree as it is (the D1 network placeholder) is refused as a release', () => {
+  assert.match(readFileSync(join(rel, 'lib', 'studio-network.js'), 'utf8'), MARK);
+  refused(pack({ asBuilt: true }), /network placeholder \(NETWORK_PLACEHOLDER\)/);
+  // Every other refusal still applies to the tree as it is; the placeholder refusal does not hide them.
+  refused(pack({ asBuilt: true, edits: [manifest((m) => ({ ...m, host_permissions: [...m.host_permissions, '<all_urls>'] }))] }), /host_permissions/);
+  refused(pack({ asBuilt: true, edits: [manifest((m) => ({ ...m, name: '[REHEARSAL] ' + m.name }))] }), /not the release name/);
 });
-test('the placeholder identity is refused', () => {
-  refused(pack({ edits: [['lib/studio-network.js', (t) => t.replace('"name": "pocol-public"', '"name": "pocol-placeholder"')]] }), /placeholder identity/);
-  refused(pack({ edits: [['lib/studio-network.js', (t) => '// @placeholder\n' + t]] }), /placeholder identity/);
+test('the placeholder identity without its mark is refused', () => {
+  refused(pack({ asBuilt: true, edits: [['lib/studio-network.js', dropMark]] }), /network placeholder identity/);
+});
+test('a build repinned to a retired network is refused, with every file that shows it', () => {
+  const back = (t) => t.replaceAll('42'.repeat(32), RETIRED_ID.genesisHash.slice(2)).replace('"chainId": 4242', `"chainId": ${RETIRED_ID.chainId}`)
+    .replace('>4242<', `>${RETIRED_ID.chainId}<`);
+  const r = pack({ edits: [['lib/studio-network.js', back], ['publisher.html', back], ['contract.html', back]] });
+  refused(r, new RegExp(`pins the retired network ${RETIRED_ID.chainId}`));
+  for (const f of ['publisher.html', 'contract.html', 'lib/studio-network.js']) assert.ok(r.stderr.includes(f + ' shows the retired network'), r.stderr);
 });
 test('a fault build and a rehearsal build are refused by name', () => {
   refused(pack({ from: faultCsp }), /TEST FAULT cspOpen.*not the release name/);
@@ -82,9 +92,6 @@ test('a page that still shows a retired network is refused, even with NETWORK re
   refused(pack({ edits: [['README-EN.md', (t) => t + '\ngenesis ' + RETIRED_ID.genesisHash.toUpperCase().replace('0X', '0x') + '\n']] }), new RegExp(`README-EN\\.md shows the retired network genesis ${RETIRED_ID.genesisHash.toLowerCase()}`));
   // A decimal word only: the digits inside a longer number or a hex string are not the chain ID.
   const r = pack({ edits: [['README-EN.md', (t) => t + `\nid 9${RETIRED_ID.chainId} hash a${RETIRED_ID.chainId}f\n`]] }); assert.equal(r.status, 0, r.stderr);
-  // --unreleased reports every file that shows it and still packages the CI artifact.
-  const u = pack({ retired: true, args: ['--unreleased'], out: 'y-UNRELEASED.zip' }); assert.equal(u.status, 0, u.stderr);
-  for (const f of ['publisher.html', 'contract.html', 'lib/studio-network.js']) assert.ok(u.stderr.includes(f + ' shows the retired network'), u.stderr);
 });
 test('widened permissions and content scripts are refused', () => {
   refused(pack({ edits: [manifest((m) => ({ ...m, host_permissions: [...m.host_permissions, 'https://*/*'] }))] }), /host_permissions/);

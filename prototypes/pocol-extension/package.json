@@ -13,7 +13,6 @@
     "test:contracts": "node --test tests/contracts_test.mjs",
     "test:contract-ui": "node --test tests/contract_ui_test.mjs",
     "package": "node build.mjs && python3 scripts/package-release.py",
-    "package:unreleased": "node build.mjs && python3 scripts/package-release.py --unreleased",
     "test:modules-browser": "node tests/module_loader_browser.mjs"
   },
   "dependencies": {

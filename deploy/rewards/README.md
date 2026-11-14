@@ -118,6 +118,28 @@ The gateway enables it with `--v3-network FILE` (a JSON object as above, at most
 the public `pocol_getBlockReward` method stays a parameterless read. A v3 reward read may also call
 `eth_getTransactionReceipt`, and it has a larger read budget (`MAX_CALLS_V3`, `MAX_SECONDS_V3`).
 
+### v3 membership reads (Sites W6)
+
+With `--v3-network`, the gateway also serves the explorer's membership reads, each at one head block (every
+`eth_call` at that height, then a re-read of the block; a changed block is error -32022) and cached per head block:
+
+- `pocol_getMembers(start, count)` (integers, `0 <= start < 10000`, `1 <= count <= 256`, token cost 5): one
+  `MinerRegistry.activeSlice` page of the active list with the record word w0 only, as `id`, `status`, `tomb`,
+  `bondState`, `lastShare` and `registeredAt`, each status and bond state labelled (`HELD` 1, `BURNED` 2, `PAID` 3,
+  `ACCRUING` 4). Bond and reward address are not in a page: reading w1-w3 for 10,000 members would exceed the v3
+  read budget.
+- `pocol_getMember(address)` (token cost 20, like `pocol_getBlockReward`): `recordWords` (all four words: w0 fields,
+  the reward address, `bondWei`, exitHeight, dueHeight, burnHeight, graceStart), `recordClocks` (`lastReactHeight`
+  and `lastMaintHeightMod32`; `recordWords` returns w1 as the reward address alone, so the clocks are read only
+  here) and `removalStatus` (the removal verdict, labelled), plus `proposerEligible` (a live HELD record, or a live ACCRUING one with a bond of at
+  least B_reg/4, read from Caps). It also answers for records outside the active list, such as `registerReplacing`
+  victims (status 2).
+- `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for
+  compatibility.
+
+The explorer's PHP allowlist (`deploy/websites/explorer.pocol.net/api/lib.php`) accepts the same four methods with
+the same bounds.
+
 ## Integration boundary
 
 The gateway installer and running service are not changed by adding this

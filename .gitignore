@@ -4,6 +4,8 @@
 **/__pycache__/
 **/.venv/
 **/.env*
+# Host credentials of the PHP sites (explorer.pocol.net/api/config.php): kept on the host, never in the repository.
+**/api/config.php
 **/.claude/
 **/.codex/
 *.jsonl

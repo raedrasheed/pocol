@@ -40,6 +40,44 @@ service state if validation fails. Backups are kept under
 `/var/backups/pocol-studio-gateway/`. Unsupported Caddy layouts are refused
 instead of being overwritten. The raw node RPC and relay ports remain local.
 
+## Methods, chunk cache and budgets
+
+Besides the publisher's reads and `eth_sendRawTransaction`, the relay serves the
+read methods the extension's bridge exposes to site scripts:
+`eth_maxPriorityFeePerGas`, `eth_feeHistory` (at most 128 blocks and 16
+percentiles), `eth_getStorageAt`, `eth_getBlockByHash` (without transactions)
+and `pocol_getLogs` (one `blockHash`, or a numeric range of at most 1024
+blocks). `net_version` and `web3_clientVersion` are answered by the relay itself,
+so the node's version is never exposed. The tags `safe` and `finalized` are
+accepted wherever a block tag is.
+
+`eth_getCode` at `latest` or `safe` is the site viewer's chunk read. The relay
+asks the node for the code at `safe` first; code that is chunk-shaped there
+(first byte `0x00`, at most 24,576 bytes) is kept in an in-memory LRU of raw
+bytes (24 MiB, flushed whenever the node's identity check fails) and answered
+from it afterwards. Code that is not at `safe` yet is forwarded and not cached,
+and empty code is never cached. Chunk reads have their own per-client and global
+budget and two reserved upstream slots, so a site open does not use the general
+read budget and cache hits are served while the general slots are busy. The
+reserved slots are a floor, not a cap: a miss that finds both busy takes a free
+general slot, and only a miss that finds every slot busy is answered -32021.
+A miss also reserves the read tokens a non-chunk answer would cost (one per
+node call: one for `safe`, two for `latest`) and gets them back when the code
+at `safe` is chunk-shaped; so lookups of accounts, random addresses or ordinary
+contracts stay within the read budget's upstream rate, and a client whose read
+budget is empty gets -32005 on a miss (hits are still served). The extension
+retries -32021 and -32005 from W2 on; CHUNK_SLOTS is sized with W2's per-viewer
+width under owner question Q8. The systemd unit allows 256 MiB.
+
+Every per-client budget keys on `X-Pocol-Client-IP`, which the installer's Caddy
+route overwrites with the connecting address; the installer refuses a Caddy file
+with another route to the relay port, and the unit starts the relay with
+`--bind 127.0.0.1` (no other address is accepted).
+
+For a test or rehearsal network, `--network FILE` takes the explorer gateway's
+`--v3-network` format, `{"chainId": N, "genesisHash": "0x...", "specVersion": 2,
+"v3": true}`, validated strictly; without it the pinned identity applies.
+
 ## Studio and extension
 
 Host the editor on a separate `studio.pocol.net` cPanel document root with HTTPS.
