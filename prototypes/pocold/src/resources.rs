@@ -1039,6 +1039,21 @@ mod tests{
         }
         assert!(member_record_heap(&bounded)>member_record_heap(&full),"the per-record delta heap counts DELTA_CAP ids");
     }
+    /// FN-3 §5.8: a CP whose membership is every live record but whose delta_max(cp) = REG_OPS + R_react + E_max exceeds
+    /// DELTA_CAP can change more ids in one block than a delta holds, so such a block's record is a snapshot: the member
+    /// terms take the `snaps = blocks` branch, with DELTA_CAP ids a delta.
+    #[test] fn member_terms_count_every_block_a_snapshot_when_delta_max_exceeds_delta_cap(){
+        use crate::members::{all_live_everywhere,delta_bound,delta_max,DELTA_CAP,REC_FIXED};
+        let mut c=pocol_lp4_execution::devnet::DevnetConfig::new(1,1_700_000_000,&["a"]);c.spec_version=2;c.nonce_mode=1;c.r_react=40;
+        let cp=ConsensusParams::from_values(&c.cp()).unwrap();
+        assert!(all_live_everywhere(&cp),"positive control: every live record is a member");
+        assert!(delta_max(&cp)>DELTA_CAP,"positive control: delta_max {} above DELTA_CAP",delta_max(&cp));
+        assert_eq!(delta_bound(&cp),DELTA_CAP);assert_eq!(member_record_heap(&cp),64+20*DELTA_CAP as u128);
+        let blocks=2305u128;let fixed=32+32+REC_FIXED as u128;let snap=32+32+20*u128::from(cp.M_max);
+        assert_eq!(member_payload(&cp,blocks),Some(blocks*(fixed+(20*DELTA_CAP as u128).max(snap))),"every block may be a snapshot");
+        let mut d=c.clone();d.r_react=4;let small=ConsensusParams::from_values(&d.cp()).unwrap();assert!(delta_max(&small)<=DELTA_CAP);
+        assert!(member_payload(&small,blocks)<member_payload(&cp,blocks),"the cadence-only count is the smaller one");
+    }
     /// U11: only a numeric pids.max limits the node, and it must hold the whole inventory: "max", an empty or unreadable
     /// value is no limit; 127 against 128 refuses with the counts and the remedy; the defaults need 128 tasks.
     #[test] fn tasks_fit_reads_pids_max(){

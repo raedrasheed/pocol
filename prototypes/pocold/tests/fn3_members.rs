@@ -27,8 +27,9 @@ fn config(spec:u8)->DevnetConfig{
     c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.earnin=true;c.spec_version=spec;c.e_win=80;c.u=96;c.c_react=96;c
 }
 fn spec_of(c:&DevnetConfig)->Spec{members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
-fn net(spec:u8)->Net{
-    let cfg=config(spec);let d=devnet::build(&cfg).unwrap();
+fn net(spec:u8)->Net{net_of(config(spec))}
+fn net_of(cfg:DevnetConfig)->Net{
+    let d=devnet::build(&cfg).unwrap();
     let mut keys:HashMap<Address,Key>=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
     for label in ["alice","bob"]{let k=devnet::account_key(label);keys.insert(k.address(),k);}
     let ids=d.miners.iter().map(|m|m.id).collect();
@@ -39,14 +40,16 @@ const SCAN:u128=1<<12;
 fn scan(ctx:&pocold::chain::ChildCtx)->impl Iterator<Item=u64>+'_{ctx.assignment.ranges().iter().flat_map(|r|(r.start()..r.end_exclusive().min(r.start()+SCAN)).map(|x|x as u64))}
 /// A signed block on `parent` by Draw(h,0), carrying `txs` and `evidence` (effects applied), won by the first solution
 /// scanned outside `omit`'s range; its header shares: up to 8 shares scanned outside `omit`'s range.
-fn mine(n:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,evidence:Vec<Vec<u8>>,omit:Option<Address>)->Block{
+fn mine(n:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,evidence:Vec<Vec<u8>>,omit:Option<Address>)->Block{mine_where(n,parent,txs,evidence,&|o|omit!=Some(o))}
+/// As `mine`, the winning nonce and the header shares only among those owned by a member `keep` accepts.
+fn mine_where(n:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,evidence:Vec<Vec<u8>>,keep:&dyn Fn(Address)->bool)->Block{
     let p=n.chain.full_entry(&parent).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
     let body=Body{txs,evidence};let effects=n.chain.evidence_effects(&p,&body,p.height+1).unwrap();
     for ts in p.ts+u64::from(n.chain.spec.cp().T_blk)..=ctx.window.upper(){
         let (mut h,_,_)=n.chain.build_signed(&p,&n.keys[&ctx.proposer],ts,body.clone(),effects.clone()).unwrap();
         let tid=template_id(&h.ut_raw);let (mut shares,mut win)=(vec![],None);
         for nonce in scan(&ctx){
-            let ph=pow_hash(&tid,nonce);let owner=addr(&ctx.assignment.owner(nonce).unwrap());if omit==Some(owner){continue}
+            let ph=pow_hash(&tid,nonce);let owner=addr(&ctx.assignment.owner(nonce).unwrap());if !keep(owner){continue}
             if le_target(&ph,&ctx.target){if win.is_none(){win=Some((nonce,owner));}}else if le_target(&ph,&ctx.t_share)&&shares.len()<8{shares.push(nonce);}
         }
         let Some((nonce,owner))=win else{continue};
@@ -564,4 +567,137 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     judge_next(&mut r,&mut a,&old,&late[..2],"after the restore and the anchor rebuild");
     let (off,_)=members_sweep::held_records(&a.chain);assert!(off>0);
     drop(a);let _=std::fs::remove_dir_all(&d);
+}
+
+// ---------------- FN-3b: the ranges removed ----------------
+/// FN-3b: a store as FN-3a wrote it: its nonce ranges table, a sealed row per block (`live_ranges`, encoded as FN-3a's
+/// history.rs did), beside the member tables. Returns the rows written.
+fn write_3a_ranges(file:&Path,r:&Net,blocks:&[Block])->usize{
+    let db=redb::Database::open(file).unwrap();let w=db.begin_write().unwrap();
+    {let def:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new("ranges");let mut t=w.open_table(def).unwrap();
+     for b in blocks{let h=b.hash();let mut rg=Vec::new();for (a,s0,e0) in live_ranges(&r.chain,r.chain.get(&h).unwrap()){rg.extend_from_slice(a.as_slice());rg.extend_from_slice(&s0.to_be_bytes());rg.extend_from_slice(&e0.to_be_bytes());}
+         let mut sb=h.to_vec();sb.extend_from_slice(&rg);let mut v=keccak256(&sb).to_vec();v.extend_from_slice(&rg);t.insert(&h,v.as_slice()).unwrap();}}
+    w.commit().unwrap();blocks.len()
+}
+/// FN-3b: the rows of history.redb's nonce ranges table, None when the file has no such table.
+fn ranges_rows(file:&Path)->Option<u64>{
+    let db=redb::Database::open(file).unwrap();let r=db.begin_read().unwrap();let def:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new("ranges");
+    match r.open_table(def){Ok(t)=>Some(redb::ReadableTableMetadata::len(&t).unwrap()),Err(redb::TableError::TableDoesNotExist(_))=>None,Err(e)=>panic!("{e}")}
+}
+
+/// §5.9, 3a → 3b: a data directory written by FN-3a (its history.redb holding the nonce ranges table beside the member
+/// tables) opens on FN-3b: the open deletes the ranges table in its own write transaction (the file is not set aside,
+/// nothing is refilled, the checkpoint restores since every member row is there), the chain is the one the directory
+/// held, and the node keeps working: it imports more blocks and judges a carrier of type-2 and kind-3 evidence as the
+/// reference does. A later open finds no table to delete.
+#[test] fn a_3a_data_dir_opens_on_3b_drops_its_ranges_and_keeps_working(){
+    let mut r=net(2);let two=r.ids[1];grow(&mut r,70);
+    let blocks:Vec<Block>=(1..=70u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
+    let d=dir("3a3b");let hist=d.join(pocold::history::FILE);
+    let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}
+        assert!(!a.history.dropped_ranges,"a fresh store has no ranges table");assert!(a.stats.checkpoints_written>0);pocold::checkpoint::fingerprint(&a.chain).unwrap()};
+    assert_eq!(ranges_rows(&hist),None,"FN-3b writes no ranges");
+    assert_eq!(write_3a_ranges(&hist,&r,&blocks),70);assert_eq!(ranges_rows(&hist),Some(70),"positive control: FN-3a's table");
+    {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();
+        assert!(a.history.dropped_ranges,"the open deleted the ranges table");assert!(!a.history.rebuilt,"not set aside");
+        assert!(a.stats.resumed_from.is_some(),"the checkpoint restores: every member row is there");assert_eq!(a.stats.history_refilled,0,"nothing refilled");
+        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live,"the chain the directory held");
+        for b in &blocks{assert!(a.history.has(&b.hash()).unwrap());}
+        members_sweep::sweep_node(&a);
+        // It keeps working: more blocks, then a carrier judged as the reference judges it.
+        grow(&mut r,90);for h in 71..=90u64{let e=entry_at(&r.chain,h);assert!(a.import(Block{header:e.header.clone(),body:e.body.clone()},None).unwrap());}
+        let bt=mine(&r,r.chain.head,vec![],vec![],Some(two));accept(&mut r,&bt);assert!(a.import(bt.clone(),None).unwrap());let late=omitted(&r,&bt,two);assert!(late.len()>=2);
+        let old=Block{header:entry_at(&r.chain,40).header.clone(),body:entry_at(&r.chain,40).body.clone()};
+        judge_next(&mut r,&mut a,&old,&late[..2],"after the 3a store's ranges were dropped");}
+    assert_eq!(ranges_rows(&hist),None,"the table is gone from the file");
+    {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(!a.history.dropped_ranges&&!a.history.rebuilt);assert_eq!(a.chain.head,r.chain.head);members_sweep::sweep_node(&a);}
+    let _=std::fs::remove_dir_all(&d);
+}
+
+/// §5.9 (io-fault), 3a → 3b: an I/O error in the open's write transaction, which deletes FN-3a's ranges table, fails the
+/// open and keeps the file (nothing set aside, nothing rebuilt). A failed write leaves the ranges as they were; a failed
+/// fsync comes after the commit's pages were written, so the file holds the store either as it was or with the table
+/// deleted (both are a valid store: no reader reads the table). The next open deletes what is left and restores.
+#[cfg(feature="io-fault")]
+#[test] fn an_io_fault_deleting_the_3a_ranges_keeps_the_file_and_its_ranges(){
+    use pocold::io_fault::{self,Op};
+    let mut r=net(2);grow(&mut r,20);
+    let d=dir("iof3b");let blocks:Vec<Block>=(1..=20u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
+    let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{a.import(b.clone(),None).unwrap();}pocold::checkpoint::fingerprint(&a.chain).unwrap()};
+    let hist=d.join(pocold::history::FILE);
+    for op in [Op::Write,Op::Sync]{
+        if ranges_rows(&hist).is_none(){write_3a_ranges(&hist,&r,&blocks);}let size=std::fs::metadata(&hist).unwrap().len();
+        io_fault::arm(&hist,"history-open-tables",op);
+        let e=match Node::open(conf(&d,store(),None),spec_of(&r.cfg)){Err(e)=>e,Ok(_)=>panic!("the open succeeded")};
+        let fired=io_fault::fired(&hist);io_fault::disarm(&hist);assert!(!fired.is_empty(),"positive control: the fault fired");
+        assert!(e.contains("I/O failure"),"{e}");assert!(hist.exists()&&std::fs::metadata(&hist).unwrap().len()>=size,"the file is kept");
+        assert!(!d.join(format!("{}.aside",pocold::history::FILE)).exists(),"not set aside");
+        let left=ranges_rows(&hist);
+        if op==Op::Write{assert_eq!(left,Some(20),"a failed write: the ranges are still there");}else{assert!(matches!(left,Some(20)|None),"a failed fsync: as it was, or deleted whole: {left:?}");}
+    }
+    if ranges_rows(&hist).is_none(){write_3a_ranges(&hist,&r,&blocks);}
+    let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(a.history.dropped_ranges&&!a.history.rebuilt);
+    // 20 blocks, no checkpoint yet (every 64): the open replays, and every block's rows are there (nothing refilled).
+    assert_eq!(a.stats.history_refilled,0,"nothing refilled");assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep_node(&a);
+    drop(a);assert_eq!(ranges_rows(&hist),None);let _=std::fs::remove_dir_all(&d);
+}
+
+/// §5.8: a snapshot by overflow. Spec 1 (bounded nonces, the W_act activity set) with 40 members of which only 5 share:
+/// at h = W_act + 1 the 35 others leave the active set at once, a change beyond DELTA_CAP, so that block's record is a
+/// snapshot off the cadence (h % 256 != 1). Type-2 evidence against a block above it, judged from the member source
+/// alone (the held records dropped, the caches cleared), walks to that snapshot (a few records, not to the cadence
+/// snapshot at 1) and accuses the block's validated winner; the cold sweep compares every entry with its capture.
+#[test] fn a_change_beyond_delta_cap_writes_an_off_cadence_snapshot(){
+    let mut cfg=config(1);cfg.miners=(0..40).map(|i|format!("flip-{i}")).collect();
+    let mut n=net_of(cfg);let workers:Vec<Address>=n.ids[..5].to_vec();let w_act=u64::from(n.chain.spec.cp().W_act);
+    let only=|o:Address|workers.contains(&o);
+    while n.chain.head().height<w_act+12{let b=mine_where(&n,n.chain.head,vec![],vec![],&only);accept(&mut n,&b);}
+    let c=&n.chain;let top=c.head().height;
+    let flips:Vec<u64>=(2..=top).filter(|h|h%members::SNAPSHOT_EVERY!=1&&rec(c,*h).is_snapshot()).collect();
+    assert_eq!(flips.len(),1,"one off-cadence snapshot: {flips:?}");let f=flips[0];
+    let (before,after)=(rec(c,f-1).n,rec(c,f).n);
+    assert!(usize::from(before-after)>members::DELTA_CAP&&after==5,"the active set fell from {before} to {after} at {f}");
+    for h in (2..=top).filter(|h|*h!=f){assert!(!rec(c,h).is_snapshot(),"h={h}: a delta");}
+    assert_eq!(c.member_counters().snapshots_written,2,"the cadence's at 1 and the overflow's at {f}");
+    let j=f+4;let x=entry_at(c,j);let blk=Block{header:x.header.clone(),body:x.body.clone()};let (ev,accused)=type2(&n,&blk);
+    assert!(workers.contains(&accused));
+    let want=effects(&n.chain,&[ev.clone()]).unwrap();assert_eq!(want,vec![EvidenceEffect::PunishAndInvalidate{accused,j}]);
+    let src=TestSets::of(&n.chain);n.chain.set_member_source(src.clone());drop_held_records(&mut n.chain,top+1);
+    let m0=n.chain.member_counters();
+    assert_eq!(effects(&n.chain,&[ev]).unwrap(),want,"the verdict from the source");
+    let m1=n.chain.member_counters();assert!(m1.disk_set_reads>m0.disk_set_reads&&m1.oracle_checks>m0.oracle_checks,"the set read from the source, the oracle compared: {m1:?}");
+    assert!(m1.oracle_mismatch==0&&m1.faults==0);
+    // One walk, alone (the oracle's cold recomputations walk again): the records of j down to f, then f's set.
+    n.chain.clear_member_caches();let k0=n.chain.member_counters();
+    let a=n.chain.assignment_of(entry_at(&n.chain,j)).unwrap();let k1=n.chain.member_counters();
+    assert_eq!((k1.record_reads-k0.record_reads,k1.disk_set_reads-k0.disk_set_reads),(j-f+1,1),"the walk stopped at the off-cadence snapshot at {f}");
+    assert_eq!(n.chain.captured(entry_at(&n.chain,j)),Some(members::ranges_digest(&a)),"the assignment block {j} was validated under");
+}
+
+/// §5.11: the memory the member records hold, against the A13 terms: on a store-mode node across a snapshot height, a
+/// registration and a restart, an offloaded entry holds no record or ids and at most the window + 2 entries hold one
+/// (`held_records`); no entry's record holds more heap than `member_record_heap` (a delta's ids) plus
+/// `member_set_bytes` (a snapshot's ids); the member caches never exceed their caps; and an entry is the type the A13
+/// Entry term reads (`resources::entry_bytes`), without the nonce ranges (FN-3b: FN-3a's 1,088 B less their boxed slice).
+#[test] fn the_member_records_stay_within_their_a13_terms(){
+    let mut r=net(2);let alice=devnet::account_key("alice").address();grow(&mut r,3);let t=register(&r,alice);let b=mine(&r,r.chain.head,vec![t],vec![],None);accept(&mut r,&b);
+    grow(&mut r,270);
+    let blocks:Vec<Block>=(1..=270u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
+    let cp=r.chain.spec.cp().clone();let bound=pocold::resources::member_record_heap(&cp)+pocold::resources::member_set_bytes(&cp).unwrap();
+    let check=|c:&Chain,what:&str|{
+        let (off,holding)=members_sweep::held_records(c);assert!(off>0&&holding>0,"{what}: positive control: {off} offloaded, {holding} holding");
+        let mut snaps=0;
+        for e in c.blocks.values(){let Some(m)=e.members.as_deref() else{continue};
+            let heap=m.rec.heap_bytes()+m.ids.as_ref().map_or(0,|s|20*s.len()+32);snaps+=usize::from(m.ids.is_some());
+            assert!((heap as u128)<=bound,"{what}: the record at {} holds {heap} B, above the term {bound}",e.height);}
+        let k=c.member_counters();assert!(k.held.0<=k.caps.0&&k.held.1<=k.caps.1&&k.held.2<=k.caps.2,"{what}: the caches keep their caps: {k:?}");snaps};
+    let d=dir("bounds");
+    {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}
+        assert!(check(&a.chain,"after the imports")>0,"positive control: the snapshot at 257 is held with its ids");
+        // Evidence reads fill the caches: still within their caps.
+        for j in [200u64,230,260,265]{let (ev,_)=type2(&r,&blocks[j as usize-1]);let _=effects(&a.chain,&[ev]);}check(&a.chain,"after evidence reads");}
+    {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();check(&a.chain,"after a restart");members_sweep::sweep_node(&a);}
+    assert_eq!(pocold::resources::entry_bytes(),Some(4*(std::mem::size_of::<([u8;32],Box<Entry>)>() as u128+1)+std::mem::size_of::<Entry>() as u128+32));
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(std::mem::size_of::<Entry>(),1_072,"FN-3a's 1,088 B less the ranges' boxed slice");}
+    let _=std::fs::remove_dir_all(&d);
 }
