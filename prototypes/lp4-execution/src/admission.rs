@@ -149,8 +149,8 @@ pub const GAS_ENVELOPE_EARNIN:&[(&str,u64)]=&[("beginBlock",944_000),("closeBloc
     ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_685_000),("settleFinal",4_424_000)];
 /// The envelope of a program set. V1 and Continuous use `GAS_ENVELOPE` (spec-1 continuous chains
 /// run Continuous, so their admission facts are unchanged); EarnIn uses `GAS_ENVELOPE_EARNIN`.
-/// V3 (reachable only via the v3 sysCodeHash on a specVersion-2 genesis, which SPEC_VERSION=1 builds
-/// refuse): its fallback is decided explicitly. PoColSystemV3.sol is built on the earn-in programs, which
+/// V3 (reachable only via the v3 sysCodeHash on a specVersion-2 genesis, which spec-1 releases refused):
+/// its fallback is decided explicitly. PoColSystemV3.sol is built on the earn-in programs, which
 /// measure markClose and beginBlock above `GAS_ENVELOPE` (2,715,144 and 943,609), so the v3 table is
 /// `GAS_ENVELOPE_V3`'s entries where it has one and `GAS_ENVELOPE_EARNIN`'s otherwise, not `GAS_ENVELOPE`'s.
 pub fn gas_envelope(set:ProgramSet)->&'static [(&'static str,u64)]{
@@ -207,7 +207,7 @@ fn phase_calls(cp:&ConsensusParams,class:u8,set:ProgramSet)->Vec<(&'static str,u
 /// payees are its distinct share owners (at most S_max + 1 header owners: late shares add owners only while the total is
 /// below kappa*m <= S_max / 4, R8), its winner (one of them) and block j's proposer, so at most S_max + 3 addresses, none
 /// counted by M_max. GAS_ENVELOPE_V3's settle is measured with every one of them ACCRUING at bond 0 and promoted in the
-/// one call (tests/v3_contracts.rs v3-preview `v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner
+/// one call (tests/v3_contracts.rs `v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner
 /// among them, and the proposer, with held_total nonzero and from zero; `v3_settle_gas_all_accruing_with_the_carry`: the
 /// carry path, C < kappa*m), at S_max 256, so the v3 domain is S_max + 3 <= GAS_DOMAIN_V3_PAYEES in place of the M_max
 /// term. With GAS_DOMAIN's S_max <= 256 this term adds no further restriction (S_max + 3 <= 259 is S_max <= 256): it states
@@ -227,7 +227,7 @@ pub fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
     if set==ProgramSet::V3{common&&u32::from(cp.S_max)+3<=GAS_DOMAIN_V3_PAYEES&&u32::from(cp.kappa)*u32::from(cp.m)<=GAS_DOMAIN_V3_KAPPA_M}
     else{common&&cp.M_max<=d.m_max}
 }
-/// Entries for a genesis running the v3 program set, measured (rounded up to 1000) by tests/v3_contracts.rs (v3-preview)
+/// Entries for a genesis running the v3 program set, measured (rounded up to 1000) by tests/v3_contracts.rs
 /// on real blocks through apply_block at the GAS_DOMAIN maxima. PoColSystemV3.sol is built on the earn-in programs, so
 /// every call without an entry here takes `GAS_ENVELOPE_EARNIN`'s; `gas_envelope(ProgramSet::V3)` is that composition,
 /// and spec-1 sets compose their own tables alone. Re-measured for FN-2b (owner decisions 10b/10c of 2026-11-13: no
@@ -342,14 +342,14 @@ impl std::fmt::Display for Rejection{
 impl std::error::Error for Rejection{}
 fn terminal(rule:&str,note:String)->Rejection{Rejection{rules:vec![rule.into()],missing:vec![],notes:vec![note]}}
 
-/// Open pre-launch blockers of the dormant v3 rules (V3-28 `launchBlockers`). While any is open, a
+/// Open pre-launch blockers of the v3 rules (V3-28 `launchBlockers`). While any is open, a
 /// profile that can activate v3 is admitted only as a simnet profile on a simnet node, whatever the
-/// build: removing the v3-preview restriction or raising SPEC_VERSION (V3-PR-I) does not admit it.
+/// build: SPEC_VERSION 2 (Phase 4 of the fresh network) does not admit it on its own.
 /// Remove an entry only with the owner decision and the change that resolve it; add one for any
 /// newly found pre-launch item. Gone: `D-V3-21 creation-burn user bound` (closed 2026-11-12 by option
 /// A; the creation burn itself was then deleted by owner decision 10d of 2026-11-13, no creation fee,
-/// FN-2a). The list is empty, but the gate and its `admit` call stay, so a blocker added before
-/// V3-PR-I is enforced again without other changes.
+/// FN-2a). The list is empty, but the gate and its `admit` call stay, so a blocker added before the
+/// launch is enforced again without other changes.
 pub const V3_LAUNCH_BLOCKERS:&[&str]=&[];
 /// V3_LAUNCH_BLOCKERS as an admission rule. Spec-1 profiles (v3 never active) never reach it.
 pub fn v3_launch_gate(v3:bool,kind:ProfileKind,node:NodeKind)->Result<(),Rejection>{v3_launch_gate_with(V3_LAUNCH_BLOCKERS,v3,kind,node)}
@@ -418,8 +418,6 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{
     // validation.md:2065: the caps-test build constants are simnet only.
     if cfg!(feature="caps-test")&&(r.kind!=ProfileKind::Simnet||r.node!=NodeKind::Simnet){
         return Err(terminal("caps-test","the caps-test build (validation.md:2065) admits only a simnet profile on a simnet node".into()))}
-    if crate::V3_PREVIEW && (r.kind!=ProfileKind::Simnet || r.node!=NodeKind::Simnet){
-        return Err(terminal("v3-preview","the v3-preview build admits only a simnet profile on a simnet node".into()))}
     // Decode, hash binding and CP schema (R24a/e). Without them nothing else is evaluable.
     if r.spec_bytes.len()>gs::MAX_SPEC_BYTES{return Err(terminal("R24","GenesisSpec exceeds MAX_SPEC_BYTES".into()))}
     let hash=gs::genesis_hash(r.spec_bytes);

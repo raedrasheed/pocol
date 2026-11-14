@@ -20,10 +20,8 @@ fn net(v3:bool)->Net{
     Net{chain:Chain::new(spec(&cfg,0)),keys,cfg}
 }
 /// The drawn proposer's signed attempt-0 template on `parent`: what it gossips before anyone mines.
-#[cfg_attr(not(feature="v3-preview"),allow(dead_code))]
 fn template(n:&Net,parent:[u8;32])->pocold::header::Header{template_at(n,parent,0)}
 /// The same, with its timestamp `back` seconds before the fallback timestamp: a second, distinct template.
-#[cfg_attr(not(feature="v3-preview"),allow(dead_code))]
 fn template_at(n:&Net,parent:[u8;32],back:u64)->pocold::header::Header{
     let p=n.chain.full_entry(&parent).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
     let ts=ctx.window.fallback_timestamp(n.chain.spec.cp().dFbWait).unwrap()-back;assert!(ctx.window.contains(ts));
@@ -56,7 +54,6 @@ fn dir(label:&str)->PathBuf{
 }
 fn config(d:&Path,store:bool)->Config{Config{name:"fork-test".into(),dir:d.to_path_buf(),listen:None,peers:vec![],miner:None,stop_at:None,log:false,rpc:None,
     limits:Limits{r_keep:4,side_cap:2,state_store:store,checkpoint_every:2,slim_depth:Some(4),history_window:Some(2),..Default::default()}}}
-#[cfg(feature="v3-preview")]
 fn deadline(n:&Node,parent:[u8;32])->u128{
     let p=n.chain.get(&parent).unwrap();let local=n.chain.spec.local();
     pocold::timing::AttemptWindow::new(p.ts,0,n.chain.spec.cp().D_att).unwrap().deadline_ms(n.first_import(&parent).unwrap().unwrap().received_ms,u64::from(local.delta_rel),n.chain.spec.cp().dFbWait).unwrap()
@@ -105,11 +102,9 @@ fn twenty_orders(v3:bool){
     let node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();assert_eq!(node.chain.head,sg.hash());drop(node);std::fs::remove_dir_all(d).unwrap();
 }
 
-#[cfg(feature="v3-preview")]
 #[path="support/auth_peer.rs"] mod auth_peer;
 
-#[cfg(feature="v3-preview")]
-mod preview{
+mod on_chain {
     use super::*;
     use pocold::{net::{Msg,NetEvent},node::Event};
     /// A peer gossips `shell` (a signed template, unsolved) with its body at the simulated time `ms`. The node, producing

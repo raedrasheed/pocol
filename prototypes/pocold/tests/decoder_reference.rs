@@ -3,13 +3,9 @@
 //! pocol-extension/tests/decoder_corpus.mjs. REFERENCE_WRITE=1 writes the verdict files; otherwise
 //! the verdicts are checked against them, so the committed files are exactly the reference's output.
 //!
-//! Two verdict sets, the same from either build: `decoder-verdicts.json` is the release decoder
-//! (`decode_bounded` at `SPEC_VERSION`, which refuses every gsVersion-2 spec until activation, V3-PR-I), and
-//! `decoder-verdicts-preview.json` the v3-preview decoder (`decode_bounded` at 2, which also accepts the
-//! CP v2 schema). The build's own `decode` entry point gives the release verdicts in a release build and the
-//! preview verdicts under `--features v3-preview`.
-//!
-//! A third file, `decoder-verdicts-v3.json`, holds both sets for the spec-2 supplement `decoder-corpus-v3.json` (G3a).
+//! One verdict file per corpus, the release decoder's: `decode` (`decode_bounded` at `SPEC_VERSION` 2, which accepts
+//! CP schema v1 under spec 1 and CP schema v2 under spec 2). `decoder-verdicts.json` holds the verdicts of
+//! `decoder-corpus.json`, and `decoder-verdicts-v3.json` those of the spec-2 supplement `decoder-corpus-v3.json` (G3a).
 use std::path::PathBuf;
 use pocold::genesis_spec as gs;
 fn data(f:&str)->PathBuf{PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../pocol-extension/tests/data").join(f)}
@@ -17,86 +13,79 @@ fn unhex(s:&str)->Vec<u8>{(0..s.len()/2).map(|i|u8::from_str_radix(&s[2*i..2*i+2
 fn spec_verdict(r:Result<gs::GenesisSpec,gs::GsError>)->String{match r{Ok(_)=>"ok".to_string(),Err(e)=>format!("{}:{}",e.code,e.detail)}}
 #[test] fn reference_verdicts_for_the_decoder_corpus(){
     let corpus:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(data("decoder-corpus.json")).unwrap()).unwrap();
-    let (mut release,mut preview)=(serde_json::Map::new(),serde_json::Map::new());
-    let (mut spec2_items,mut spec2_preview_ok)=(0usize,0usize);
+    let mut verdicts=serde_json::Map::new();
+    let (mut spec2_items,mut spec2_ok)=(0usize,0usize);
     for it in corpus["items"].as_array().unwrap(){
         let b=unhex(it["hex"].as_str().unwrap());
-        let (r,p)=match it["kind"].as_str().unwrap(){
+        let v=match it["kind"].as_str().unwrap(){
             "spec"=>{
-                let (r,p)=(spec_verdict(gs::decode_bounded(&b,gs::SPEC_VERSION)),spec_verdict(gs::decode_bounded(&b,2)));
-                // The build's entry point is exactly one of the two ceilings.
-                assert_eq!(spec_verdict(gs::decode(&b)),if cfg!(feature="v3-preview"){p.clone()}else{r.clone()},"decode() of {}",it["label"]);
-                if let Ok(s)=gs::decode_bounded(&b,2){
+                let v=spec_verdict(gs::decode(&b));
+                // The entry point is the release ceiling, SPEC_VERSION 2.
+                assert_eq!(v,spec_verdict(gs::decode_bounded(&b,gs::SPEC_VERSION)),"decode() of {}",it["label"]);
+                if let Ok(s)=gs::decode(&b){
                     assert_eq!(gs::encode(&s),b,"canonical round trip of {}",it["label"]);
-                    if s.spec_version==2{spec2_preview_ok+=1;assert!(r.starts_with("gsVersion:"),"release accepted spec 2: {}",it["label"]);}
+                    if s.spec_version==2{spec2_ok+=1;}
                 }
                 if it["label"].as_str().unwrap().starts_with("devnet-v2/"){spec2_items+=1;}
-                (r,p)
+                v
             }
-            "header"=>{let v=match pocold::header::decode(&b){Ok(_)=>"ok".to_string(),Err(e)=>format!("1:{}",e.detail)};(v.clone(),v)}
+            "header"=>match pocold::header::decode(&b){Ok(_)=>"ok".to_string(),Err(e)=>format!("1:{}",e.detail)},
             k=>panic!("kind {k}"),
         };
-        let label=it["label"].as_str().unwrap().to_string();
-        release.insert(label.clone(),serde_json::Value::String(r));
-        preview.insert(label,serde_json::Value::String(p));
+        verdicts.insert(it["label"].as_str().unwrap().to_string(),serde_json::Value::String(v));
     }
     // The spec-2 part of the corpus exists and holds accepted v2 genesis files.
-    assert!(spec2_items>400&&spec2_preview_ok>=3,"spec-2 corpus items {spec2_items}, accepted {spec2_preview_ok}");
-    let (release,preview)=(serde_json::Value::Object(release),serde_json::Value::Object(preview));
+    assert!(spec2_items>400&&spec2_ok>=3,"spec-2 corpus items {spec2_items}, accepted {spec2_ok}");
+    let got=serde_json::Value::Object(verdicts);
     if std::env::var("REFERENCE_WRITE").is_ok(){
-        std::fs::write(data("decoder-verdicts.json"),serde_json::to_string_pretty(&release).unwrap()+"\n").unwrap();
-        std::fs::write(data("decoder-verdicts-preview.json"),serde_json::to_string_pretty(&preview).unwrap()+"\n").unwrap();
+        std::fs::write(data("decoder-verdicts.json"),serde_json::to_string_pretty(&got).unwrap()+"\n").unwrap();
         return
     }
-    for (name,got) in [("decoder-verdicts.json",&release),("decoder-verdicts-preview.json",&preview)]{
-        let want:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(data(name)).unwrap()).unwrap();
-        assert_eq!(*got,want,"the committed {name} is not the reference decoders' output");
-    }
+    let want:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(data("decoder-verdicts.json")).unwrap()).unwrap();
+    assert_eq!(got,want,"the committed decoder-verdicts.json is not the reference decoder's output");
 }
-/// The spec-2 supplement (G3a; decoder-corpus-v3.json, a file of its own so that the original corpus and its verdict
-/// files stay as they are): a v3 genesis naming the v3 program set, 256 members, the stage order across the final CP v2
-/// fields (59) and headers of a v3 chain. `decoder-verdicts-v3.json` holds both ceilings' verdicts,
-/// {"release": .., "preview": ..}; the extension (decoder_diff.mjs, v3_preview_test.mjs) and the Python reference
-/// (deploy/public-testnet/test_pocol_identity.py) are checked against the same file.
+/// The spec-2 supplement (G3a; decoder-corpus-v3.json, a file of its own so that the original corpus stays as it is): a
+/// v3 genesis naming the v3 program set, 256 members, the stage order across the final CP v2 fields (59) and headers of
+/// a v3 chain. `decoder-verdicts-v3.json` holds the release decoder's verdicts; the extension (decoder_diff.mjs,
+/// v3_decoder_test.mjs) and the Python reference (deploy/public-testnet/test_pocol_identity.py) are checked against the
+/// same file.
 #[test] fn reference_verdicts_for_the_v3_corpus(){
     let corpus:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(data("decoder-corpus-v3.json")).unwrap()).unwrap();
-    let (mut release,mut preview)=(serde_json::Map::new(),serde_json::Map::new());
+    let mut verdicts=serde_json::Map::new();
     let v3_hash=pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash().0;
     let mut v3_programs=0usize;
     for it in corpus["items"].as_array().unwrap(){
         let (label,b)=(it["label"].as_str().unwrap().to_string(),unhex(it["hex"].as_str().unwrap()));
-        let (r,p)=match it["kind"].as_str().unwrap(){
+        let v=match it["kind"].as_str().unwrap(){
             "spec"=>{
-                let (r,p)=(spec_verdict(gs::decode_bounded(&b,gs::SPEC_VERSION)),spec_verdict(gs::decode_bounded(&b,2)));
-                assert_eq!(spec_verdict(gs::decode(&b)),if cfg!(feature="v3-preview"){p.clone()}else{r.clone()},"decode() of {label}");
-                if let Ok(s)=gs::decode_bounded(&b,2){
+                let v=spec_verdict(gs::decode(&b));
+                assert_eq!(v,spec_verdict(gs::decode_bounded(&b,gs::SPEC_VERSION)),"decode() of {label}");
+                if let Ok(s)=gs::decode(&b){
                     assert_eq!(gs::encode(&s),b,"canonical round trip of {label}");
                     if s.spec_version==2{
-                        assert!(r.starts_with("gsVersion:"),"release accepted spec 2: {label}");
                         assert_eq!(s.cp.len(),gs::CP_V2_LEN,"{label}");
                         // The accepted v3 genesis files name the v3 program set (the set testnet.rs pairs with spec 2).
                         if s.sys_code_hash==v3_hash{v3_programs+=1;}
                     }
                 }
-                (r,p)
+                v
             }
-            "header"=>{let v=match pocold::header::decode(&b){Ok(_)=>"ok".to_string(),Err(e)=>format!("1:{}",e.detail)};(v.clone(),v)}
+            "header"=>match pocold::header::decode(&b){Ok(_)=>"ok".to_string(),Err(e)=>format!("1:{}",e.detail)},
             k=>panic!("kind {k}"),
         };
-        release.insert(label.clone(),serde_json::Value::String(r));
-        preview.insert(label,serde_json::Value::String(p));
+        verdicts.insert(label,serde_json::Value::String(v));
     }
-    assert!(v3_programs>=3&&preview.get("v3/base")==Some(&serde_json::Value::String("ok".into())),"v3 program set items {v3_programs}");
-    let got=serde_json::json!({"release":serde_json::Value::Object(release),"preview":serde_json::Value::Object(preview)});
+    assert!(v3_programs>=3&&verdicts.get("v3/base")==Some(&serde_json::Value::String("ok".into())),"v3 program set items {v3_programs}");
+    let got=serde_json::Value::Object(verdicts);
     if std::env::var("REFERENCE_WRITE").is_ok(){
         std::fs::write(data("decoder-verdicts-v3.json"),serde_json::to_string_pretty(&got).unwrap()+"\n").unwrap();
         return
     }
     let want:serde_json::Value=serde_json::from_str(&std::fs::read_to_string(data("decoder-verdicts-v3.json")).unwrap()).unwrap();
-    assert_eq!(got,want,"the committed decoder-verdicts-v3.json is not the reference decoders' output");
+    assert_eq!(got,want,"the committed decoder-verdicts-v3.json is not the reference decoder's output");
 }
 /// The extension's size bound (refdec.js MAX_SPEC_BYTES / maxSpecBytes) is computed term by term from its own
-/// schema copies; forks_test.mjs pins the same two numbers, so a drift on either side fails a test.
+/// schema copies; forks_test.mjs pins the same number, so a drift on either side fails a test.
 #[test] fn max_spec_bytes_matches_the_extension_bound(){
-    assert_eq!(gs::MAX_SPEC_BYTES,if cfg!(feature="v3-preview"){2_818_562}else{2_818_474});
+    assert_eq!(gs::MAX_SPEC_BYTES,2_818_562);
 }

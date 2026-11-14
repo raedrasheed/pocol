@@ -177,11 +177,25 @@ fn with_cp_alone(k: usize, item_hex: &str) -> Vec<u8> {
     apply_edits(&gsv1_doc()["tree"], edit.as_array().unwrap())
 }
 
-fn outcome(b: &[u8]) -> (String, String) {
-    match gs::decode(b) {
+fn verdict(r: Result<GenesisSpec, GsError>) -> (String, String) {
+    match r {
         Ok(_) => ("ok".into(), String::new()),
         Err(GsError { code, detail }) => (code.into(), detail),
     }
+}
+
+/// The accepted M1 reference is a spec-1 decoder, so its vectors are judged at the spec-1 ceiling
+/// (`decode_bounded(b, 1)`). The release decoder (`decode`, SPEC_VERSION 2) must give the same verdict on every one of
+/// them, except a specVersion-2 item, which it judges under CP schema v2 instead of refusing with gsVersion.
+fn outcome(b: &[u8]) -> (String, String) {
+    let m1 = verdict(gs::decode_bounded(b, 1));
+    let release = verdict(gs::decode(b));
+    if m1 == ("gsVersion".to_string(), "2".to_string()) {
+        assert_ne!(release.0, "gsVersion", "the release decoder accepts specVersion 2");
+    } else {
+        assert_eq!(release, m1, "the release decoder agrees with the spec-1 reference off specVersion 2");
+    }
+    m1
 }
 
 fn code(b: &[u8]) -> String {
@@ -456,6 +470,8 @@ fn version_chain_id_and_root_fields() {
     {
         assert_eq!(outcome(&set_top(0, item)), (want.0.to_string(), want.1.to_string()), "version {item}");
     }
+    // The release decoder (SPEC_VERSION 2) reads version 02 with CP schema v2, which has 59 fields, not GSV1's 52.
+    assert_eq!(verdict(gs::decode(&set_top(0, "02"))), ("gsCount".to_string(), "CP 52".to_string()));
     let chain = [
         ("01", "ok"),
         ("88ffffffffffffffff", "ok"),
@@ -714,18 +730,21 @@ fn gs_version_detail_is_the_exact_decimal_at_every_length() {
     assert_eq!(slow_decimal(&[0xff; 32]), "115792089237316195423570985008687907853269984665640564039457584007913129639935");
 }
 
-/// The largest spec that can pass decode and R12: every field at its widest and 65535 members.
-fn max_spec() -> Vec<u8> {
+/// The largest spec of `version` that can pass decode and R12: every field at its widest and 65535 members.
+fn max_spec_of(version: u8) -> Vec<u8> {
     let mut s = gs::decode(&gsv1()).unwrap();
+    s.spec_version = version;
     s.chain_id = u64::MAX;
-    for (k, f) in CP_SCHEMA.iter().enumerate() {
-        s.cp[k] = match f.hi {
+    let schema = gs::cp_schema(version).unwrap();
+    s.cp = schema
+        .iter()
+        .map(|f| match f.hi {
             Upper::None if f.width == 256 => U256::MAX,
             Upper::None => U256::pow2(f.width).unwrap().checked_sub(&U256::ONE).unwrap(),
             Upper::Value(h) => U256::from_u64(h),
             Upper::Gamma => U256::from_u64(5000),
-        };
-    }
+        })
+        .collect();
     s.cp[13] = U256::from_u64(5000); // alpha_bp: 3 bytes, leaves gamma_bp 5000 in range
     s.m0_list = (1..=gs::MAX_MEMBERS as u32)
         .map(|i| {
@@ -740,8 +759,11 @@ fn max_spec() -> Vec<u8> {
 #[test]
 fn max_spec_bytes_is_the_largest_valid_encoding() {
     assert_eq!(gs::MAX_MEMBERS, 65_535);
-    assert_eq!(gs::MAX_SPEC_BYTES, 2_818_474);
-    let b = max_spec();
+    // The bound is the release ceiling's, CP schema v2 (spec 2); the largest spec-1 encoding is 88 bytes shorter.
+    assert_eq!(gs::MAX_SPEC_BYTES, 2_818_562);
+    assert_eq!(max_spec_of(1).len(), 2_818_474);
+    assert!(gs::decode(&max_spec_of(1)).is_ok());
+    let b = max_spec_of(2);
     assert_eq!(b.len(), gs::MAX_SPEC_BYTES);
     let s = gs::decode(&b).unwrap();
     assert_eq!(s.m0_list.len(), gs::MAX_MEMBERS);

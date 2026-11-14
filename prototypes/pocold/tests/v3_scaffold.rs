@@ -1,4 +1,4 @@
-//! V3 scaffold regressions: old encodings, isolated preview and public genesis tooling.
+//! V3 scaffold regressions: old encodings, the spec-2 release decoder and public genesis tooling.
 use pocol_lp4_execution::{admission::NodeLocal,apply::{self,ProgramSet},devnet,genesis_spec as gs,
     profile::{ConsensusParams,ForkSchedule,NodeKind,ProfileIdentity,ProfileKind}};
 use revm::primitives::U256;
@@ -100,8 +100,8 @@ fn sequential_future_forks_never_narrow_the_nonce_domain(){
     let forks=ForkSchedule::new_bounded(&[(1,0),(2,10),(3,20)],3).unwrap();
     assert!(!pocold::chain::full_nonce_rule(forks.active_version(9),0));
     for h in [10,19,20,21,u64::MAX]{assert!(pocold::chain::full_nonce_rule(forks.active_version(h),0));}
-    assert_eq!(gs::SPEC_VERSION,1);assert_eq!(pocol_lp4_execution::profile::MAX_FORK_VERSION,2);
-    assert_eq!(pocold::identity::CONSENSUS_RULES_VERSION,1);
+    assert_eq!(gs::SPEC_VERSION,2);assert_eq!(pocol_lp4_execution::profile::MAX_FORK_VERSION,2);
+    assert_eq!(pocold::identity::CONSENSUS_RULES_VERSION,2);
 }
 #[test]
 fn schema2_roundtrips_full_width_fields_and_respects_the_release_ceiling(){
@@ -113,8 +113,7 @@ fn schema2_roundtrips_full_width_fields_and_respects_the_release_ceiling(){
     let bytes=gs::encode(&spec);assert_eq!(gs::decode_bounded(&bytes,2).unwrap(),spec);
     assert_eq!(pocold::genesis_spec::encode(&pocold::genesis_spec::decode_bounded(&bytes,2).unwrap()),bytes);
     assert_eq!(gs::decode_bounded(&bytes,1).unwrap_err().code,"gsVersion");
-    if pocol_lp4_execution::V3_PREVIEW{assert_eq!(gs::decode(&bytes).unwrap(),spec);}
-    else{assert_eq!(gs::decode(&bytes).unwrap_err().code,"gsVersion");}
+    assert_eq!(gs::decode(&bytes).unwrap(),spec);
     let typed=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(typed.baseFeeMin,pocol_lp4_execution::fixed::U256::MAX);
     // FN-2a (owner decision 10d) deleted the three F0_* creation-fee fields from CP schema v2, FN-2b (owner decisions
     // 10b/10c) P_MAX, T_PROB, E_epoch, theta_bp and k_sigma: 59 fields.
@@ -150,28 +149,26 @@ fn resolved_cp_drives_bond_target_timing_and_the_actual_program_registry(){
     let miner=devnet::miner_identity("v3-scaffold");assert_eq!(apply::miner_record(admitted.genesis().state(),miner.id).unwrap().bond,U256::from(25_000_000_000_000_000_000u128));
 }
 #[test]
-fn v3_config_implies_the_new_schema_and_full_nonce_only_in_preview(){
-    let out=Temp::new("preview-config");let mut input=config();input.as_object_mut().unwrap().remove("earnin");input.as_object_mut().unwrap().remove("continuous");input["v3"]=serde_json::json!(true);
+fn v3_config_implies_the_new_schema_and_full_nonce(){
+    let out=Temp::new("v3-config");let mut input=config();input.as_object_mut().unwrap().remove("earnin");input.as_object_mut().unwrap().remove("continuous");input["v3"]=serde_json::json!(true);
     input["cp"]=serde_json::json!({"T_blk":30,"D_att":150,"dFbWait":10,"M_max":256});
-    let result=prepare(&input,&out.0);
-    if pocol_lp4_execution::V3_PREVIEW{
-        result.unwrap();let spec=read_spec(&out.0);assert_eq!(spec.spec_version,2);assert_eq!(spec.cp.len(),59);
-        let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!((cp.nonceMode,cp.H_END,cp.M_max),(1,0,256));
-        let local=pocold::testnet::local_for_network(&out.0).unwrap();let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert!(admitted.v3_active(0));assert!(admitted.v3_active(u64::MAX));
-        // V3-PR-E0: a v3 config selects the compiled v3 set, which has no probation pool or deadline since FN-2b.
-        assert_eq!(admitted.programs(),ProgramSet::V3);assert!(admitted.earnin_rules());
-        assert_eq!(admitted.probation(),None);
-        assert_eq!(spec.sys_code_hash,apply::SystemPrograms::v3().sys_code_hash().0);
-        for (field,value) in [("rho_bp",10001),("H_half",0)]{
-            let invalid=Temp::new(field);let mut config=input.clone();config["cp"][field]=serde_json::json!(value);
-            assert!(prepare(&config,&invalid.0).unwrap_err().contains("gsRange"));assert!(!invalid.0.exists());
-        }
-        // The deleted fields are unknown CP fields of a v3 config (FN-2b).
-        for gone in ["P_MAX","T_PROB","E_epoch","theta_bp","k_sigma"]{
-            let invalid=Temp::new(gone);let mut config=input.clone();config["cp"][gone]=serde_json::json!(1);
-            assert!(prepare(&config,&invalid.0).unwrap_err().contains("unknown CP field"),"{gone}");assert!(!invalid.0.exists());
-        }
-    }else{assert!(result.unwrap_err().contains("requires a v3-preview build"));assert!(!out.0.exists());}
+    prepare(&input,&out.0).unwrap();
+    let spec=read_spec(&out.0);assert_eq!(spec.spec_version,2);assert_eq!(spec.cp.len(),59);
+    let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!((cp.nonceMode,cp.H_END,cp.M_max),(1,0,256));
+    let local=pocold::testnet::local_for_network(&out.0).unwrap();let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert!(admitted.v3_active(0));assert!(admitted.v3_active(u64::MAX));
+    // V3-PR-E0: a v3 config selects the compiled v3 set, which has no probation pool or deadline since FN-2b.
+    assert_eq!(admitted.programs(),ProgramSet::V3);assert!(admitted.earnin_rules());
+    assert_eq!(admitted.probation(),None);
+    assert_eq!(spec.sys_code_hash,apply::SystemPrograms::v3().sys_code_hash().0);
+    for (field,value) in [("rho_bp",10001),("H_half",0)]{
+        let invalid=Temp::new(field);let mut config=input.clone();config["cp"][field]=serde_json::json!(value);
+        assert!(prepare(&config,&invalid.0).unwrap_err().contains("gsRange"));assert!(!invalid.0.exists());
+    }
+    // The deleted fields are unknown CP fields of a v3 config (FN-2b).
+    for gone in ["P_MAX","T_PROB","E_epoch","theta_bp","k_sigma"]{
+        let invalid=Temp::new(gone);let mut config=input.clone();config["cp"][gone]=serde_json::json!(1);
+        assert!(prepare(&config,&invalid.0).unwrap_err().contains("unknown CP field"),"{gone}");assert!(!invalid.0.exists());
+    }
 }
 /// V3-05: the launcher's local timing for a continuous spec-1 network's files (T_blk 10, D_att 60, dFbWait 6) is
 /// unchanged (Δ_rel 8, Γ 5), and a spec-1 config cannot declare local timing.
@@ -196,7 +193,7 @@ fn v3_05_keeps_spec1_local_timing_and_refuses_declared_timing_on_spec1(){
     let st:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();let s=pocold::single_host_local();
     assert_eq!(st["templateLatency"]["local"],serde_json::json!({"delta":s.delta,"phi":s.phi,"tExec":s.t_exec,"deltaRel":s.delta_rel,"gamma":s.gamma,"dFbWait":st["templateLatency"]["local"]["dFbWait"]}));
 }
-/// V3-05 on a v3 genesis (preview builds): Δ_rel = σ + Δ + 2·t_exec from the declared assumptions, V3_WAN (13) by
+/// V3-05 on a v3 genesis: Δ_rel = σ + Δ + 2·t_exec from the declared assumptions, V3_WAN (13) by
 /// default at the O-6=b CP; devnet.json records them and the launcher derives the same; assumptions the CP cannot
 /// carry (R3) are refused by admission before any output.
 #[test]
@@ -204,11 +201,6 @@ fn v3_05_derives_delta_rel_for_v3_profiles_from_declared_timing(){
     let v3=|cp:serde_json::Value,timing:Option<serde_json::Value>|{let mut input=config();let o=input.as_object_mut().unwrap();o.remove("earnin");o.remove("continuous");
         input["v3"]=serde_json::json!(true);input["cp"]=cp;if let Some(t)=timing{input["localTiming"]=t;}input};
     let ob=serde_json::json!({"T_blk":30,"D_att":150,"dFbWait":10});
-    if !pocol_lp4_execution::V3_PREVIEW{
-        // A release build has no v3 profile: the declaration is refused with the config, before any output.
-        let out=Temp::new("v3-release");let err=prepare(&v3(ob,Some(serde_json::json!({"delta":2,"phi":2,"tExec":2}))),&out.0).unwrap_err();
-        assert!(err.contains("requires a v3-preview build"),"{err}");assert!(!out.0.exists());return;
-    }
     let out=Temp::new("v3-default");prepare(&v3(ob.clone(),None),&out.0).unwrap();
     let info:serde_json::Value=serde_json::from_slice(&std::fs::read(out.0.join("devnet.json")).unwrap()).unwrap();
     assert_eq!(info["localTiming"],serde_json::json!({"delta":2,"phi":2,"tExec":2,"deltaRel":13,"gamma":8,"source":"v3-wan-default"}));
@@ -258,13 +250,14 @@ fn v3_05_derives_delta_rel_for_v3_profiles_from_declared_timing(){
     }
 }
 #[test]
-fn preview_admission_rejects_every_non_simnet_context(){
+fn a_simnet_devnet_is_refused_in_every_non_simnet_context(){
     let cfg=devnet::DevnetConfig::new(777933,1_700_000_000,&["one"]);let net=devnet::build(&cfg).unwrap();
     let local=NodeLocal::single_host();let (admitted,timing)=net.admit(&local).unwrap();assert!(!admitted.profile().v3_active(0));
     for (kind,node) in [(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Network,NodeKind::Node),(ProfileKind::Simnet,NodeKind::Node)]{
         let mut request=net.request(&local,Some(&timing));request.kind=kind;request.node=node;
         let result=pocol_lp4_execution::admission::admit(&request);
-        if pocol_lp4_execution::V3_PREVIEW{assert_eq!(result.err().unwrap().rules,["v3-preview"]);}
-        else if kind==ProfileKind::Simnet&&node==NodeKind::Node{assert!(result.is_err());}
+        // No build-policy guard precedes R22 any more (the v3-preview guard is gone with the feature), except caps-test's.
+        let want=if pocol_lp4_execution::CAPS_TEST{"caps-test"}else{"R22"};
+        assert_eq!(result.err().expect("a simnet profile outside a simnet node is refused").rules,[want],"{kind:?} on {node:?}");
     }
 }
