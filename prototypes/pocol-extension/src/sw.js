@@ -14,6 +14,7 @@ import { toHex, fromHex, eq } from './lib/hex.js';
 import { NETWORK, isStudioOrigin, validateEndpoint, trustMessage } from './lib/studio-network.js';
 import { JOB_PREFIX, JOB_TTL_MS, validatePublishRequest, validateSiteTarget, publicJob } from './lib/studio-bridge.js';
 import { IDE_JOB_PREFIX, isIdeOrigin, validateContractRequest, publicContractJob } from './lib/contracts.js';
+import { networkOf, blocksAccount, archiveForeignJobs, removeSideKeys } from './lib/jobs.js';
 
 const store = chrome.storage.local;
 // F11: minimum seed-encryption password length, enforced in the worker (the security boundary), to
@@ -324,7 +325,8 @@ async function wallet(sess, m, ask) {
   return navigator.locks.request(`pocol:publish:${sess.profile.chainId}:${address}`, {mode:'exclusive',ifAvailable:true}, async (lease) => {
   if (!lease) return E(-32005, 'Another tab is publishing from this wallet');
   const allJobs = await store.get(null);
-  if (Object.entries(allJobs).some(([k,j]) => (k.startsWith(JOB_PREFIX)||k.startsWith(IDE_JOB_PREFIX)) && j?.walletAddress === address && !['complete','cancelled'].includes(j.status) && Object.keys(j.checkpoint?.transactions || {}).length)) return E(-32005, 'Resume the unfinished PoCol operation before sending another transaction');
+  // Sites W4: a job of another network (lib/jobs.js) never blocks this wallet.
+  if (Object.entries(allJobs).some(([k,j]) => (k.startsWith(JOB_PREFIX)||k.startsWith(IDE_JOB_PREFIX)) && blocksAccount(j, address, NETWORK))) return E(-32005, 'Resume the unfinished PoCol operation before sending another transaction');
   try {
     const nonce = o.nonce ? BigInt(o.nonce) : qty(await step(sess.rpc('eth_getTransactionCount', [address, 'pending'])));
     const blk = await step(sess.rpc('eth_getBlockByNumber', ['latest', false])); const base = qty(blk && blk.baseFeePerGas);
@@ -435,7 +437,7 @@ async function collectStudioJob(key, previous, eligible) {
   return navigator.locks.request(`pocol:job:${key.slice(JOB_PREFIX.length)}`, {mode:'exclusive',ifAvailable:true}, async (lease) => {
     if (!lease) return previous;
     const current = (await store.get(key))[key];
-    if (!current || eligible(current)) { await store.remove(key); return null; }
+    if (!current || eligible(current)) { await store.remove(key); await removeSideKeys(store, key); return null; }
     return current;
   });
 }
@@ -481,7 +483,7 @@ async function studioRequest(msg, sender) {
       await collectStudioJob(key, previous, (job) => ['complete', 'cancelled'].includes(job.status));
     }
     const id = crypto.randomUUID();
-    const job = { id, origin, sourceTabId: sender.tab.id, createdAt: Date.now(), status: 'awaitingApproval', request };
+    const job = { id, origin, sourceTabId: sender.tab.id, createdAt: Date.now(), status: 'awaitingApproval', network: networkOf(NETWORK), request };
     await store.set({ [JOB_PREFIX + id]: job });
     try { await chrome.tabs.create({ url: chrome.runtime.getURL('publisher.html') + '#' + id }); }
     catch (e) { await store.remove(JOB_PREFIX + id); throw e; }
@@ -518,13 +520,16 @@ async function ideRequest(msg,sender) {
       });if(current)active.push(current);
     }
     if(active.filter(job=>!['complete','cancelled'].includes(job.status)).length>=5)throw new Error('Finish or cancel existing contract requests before opening another');
-    const id=crypto.randomUUID(),job={id,kind:'contract',origin,sourceTabId:sender.tab.id,createdAt:Date.now(),status:'awaitingApproval',request};
+    const id=crypto.randomUUID(),job={id,kind:'contract',origin,sourceTabId:sender.tab.id,createdAt:Date.now(),status:'awaitingApproval',network:networkOf(NETWORK),request};
     await store.set({[IDE_JOB_PREFIX+id]:job});
     try{await chrome.tabs.create({url:chrome.runtime.getURL('contract.html')+'#'+id});}
     catch(error){await store.remove(IDE_JOB_PREFIX+id);throw error;}
     return {jobId:id};
   });
 }
+// Sites W4: on install or update, jobs of another network (a retired chain, or an identity change) move to the read-only
+// archive, so they never block the wallet and need no receipts from this network.
+chrome.runtime.onInstalled?.addListener(() => { archiveForeignJobs(store, NETWORK).catch(() => {}); });
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (sender.id !== chrome.runtime.id) return false;
   // Content scripts have our extension ID too. They must never reach wallet/profile APIs.

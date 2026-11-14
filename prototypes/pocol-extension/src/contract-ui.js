@@ -3,13 +3,15 @@ import { importKeyfile, exportKeyfile } from './lib/studio-keyfile.js';
 import { addressOf, signTx, LOCK_MS } from './lib/wallet.js';
 import { prepareContractReview, submitContractReview, checkContractReceipt } from './lib/contracts.js';
 import { request as transportRequest, Pool, TRUST_POOL } from './lib/transport.js';
+import { extendLease, JOB_DEADLINE_DEFAULT_MS } from './lib/lease.js';
+import { isForeignJob, networkOf } from './lib/jobs.js';
 
 const $ = id => document.getElementById(id);
 const JOB_PREFIX = 'ide:job:', STUDIO_PREFIX = 'studio:job:', VAULT_KEY = 'studio:wallet';
 const jobId = location.hash.slice(1), storageKey = JOB_PREFIX + jobId;
 const allowedOrigins = new Set(['https://ide.pocol.net', 'https://pocol-ide.mystic-gecko-9511.chatgpt.site']);
 const pool = new Pool(TRUST_POOL); let rpcId = 0;
-let job = null, review = null, secret = null, until = 0, busy = false, walletBusy = false, walletEpoch = 0, controller = null, writes = Promise.resolve(), storageFailure = false, checkingReceipt = false, nextReceiptCheck = 0;
+let job = null, review = null, secret = null, until = 0, jobDeadline = 0, busy = false, walletBusy = false, walletEpoch = 0, controller = null, writes = Promise.resolve(), storageFailure = false, checkingReceipt = false, nextReceiptCheck = 0;
 const rpc = (method, params) => transportRequest(NETWORK.endpoint, method, params, {pool, deadline: 30000, id: ++rpcId, signal: controller?.signal || null});
 const stringify = value => JSON.stringify(value, (_, item) => typeof item === 'bigint' ? item.toString() : item, 2);
 const errorMessage = error => String(error?.rpc?.message || error?.message || error).slice(0, 600);
@@ -146,7 +148,8 @@ function showEarlierJob(key, other) {
   $('earlierJob').replaceChildren(link); $('earlierJob').hidden = false;
 }
 async function ensureAccountAvailable(address) {
-  const unresolvedForAccount = ([key, other]) => (key.startsWith(STUDIO_PREFIX) || key.startsWith(JOB_PREFIX)) && key !== storageKey && other?.walletAddress?.toLowerCase() === address.toLowerCase() && !terminal(other) && hasSigned(other);
+  // Sites W4: a job of another network (lib/jobs.js) never blocks this wallet.
+  const unresolvedForAccount = ([key, other]) => (key.startsWith(STUDIO_PREFIX) || key.startsWith(JOB_PREFIX)) && key !== storageKey && other?.walletAddress?.toLowerCase() === address.toLowerCase() && !terminal(other) && hasSigned(other) && !isForeignJob(other, NETWORK);
   const all = await chrome.storage.local.get(null);
   for (const [key, other] of Object.entries(all).filter(unresolvedForAccount)) {
     if (!key.startsWith(JOB_PREFIX) || !signedRecord(other)) continue;
@@ -223,20 +226,21 @@ $('confirm').onclick = async () => {
   if (busy || walletBusy || checkingReceipt || storageFailure || !secret || Date.now() >= until || !review || terminal(job) || !$('consent').checked) return;
   if (!signedRecord(job) && Date.now() >= review.expiresAt) { render(); return; }
   const address = currentAddress(), epoch = walletEpoch;
-  busy = true; until = Date.now() + LOCK_MS; controller = new AbortController(); $('earlierJob').hidden = true; render();
+  // Sites W4 key lease: the approved job's signature extends the lock by LOCK_MS, at most to its deadline.
+  busy = true; until = Date.now() + LOCK_MS; jobDeadline = Date.now() + JOB_DEADLINE_DEFAULT_MS; controller = new AbortController(); $('earlierJob').hidden = true; render();
   status(signedRecord(job) ? 'Checking the saved transaction on PoCol…' : 'Verifying your approved transaction…');
   try {
     await underJobLock(async () => underAccountLock(address, async () => {
       checkEpoch(epoch);
       if (signedRecord(job)) review = job.checkpoint.review;
       if (!review || review.from.toLowerCase() !== address.toLowerCase()) throw new Error('The signing wallet changed. Prepare a new review with the correct wallet.');
-      await setJob({status: 'submitting', walletAddress: address, error: null});
+      await setJob({status: 'submitting', walletAddress: address, network: networkOf(NETWORK), error: null});
       const result = await submitContractReview({
         request: job.request, review, rpc, address, signal: controller.signal,
         sign: async tx => {
           checkEpoch(epoch);
           if (!secret || Date.now() >= until || controller.signal.aborted) throw new Error('Wallet locked or transaction paused before signing.');
-          return signTx(secret, tx);
+          const signed = signTx(secret, tx); until = extendLease(until, Date.now(), LOCK_MS, jobDeadline); return signed;
         },
         loadCheckpoint: async () => job.checkpoint || null,
         saveCheckpoint: async checkpoint => {

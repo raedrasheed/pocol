@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
+const LEASE = await import('../dist/lib/lease.js'), JOBS = await import('../dist/lib/jobs.js');
 const SOURCE = readFileSync(new URL('../src/contract-ui.js', import.meta.url), 'utf8').replace(/^import .*;\n/gm, '').replace(/^init\(\)\.catch\(.*\);\n?$/m, '');
 const HTML = readFileSync(new URL('../src/contract.html', import.meta.url), 'utf8');
 const JOB_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee';
@@ -24,7 +25,8 @@ async function fixture(options = {}) {
     Date:Clock, Uint8Array, TextEncoder, structuredClone, AbortController, console,
     location:{hash:'#'+JOB_ID}, document:{getElementById:id=>{assert.ok(elements.has(id),id);return elements.get(id)},createElement:tag=>makeElement(tag)},
     window:{addEventListener:(name,callback)=>listeners.set(name,callback)},setInterval:fn=>{tick=fn},
-    NETWORK:{chainId:1599846715,endpoint:'https://gateway.pocol.net/studio/rpc'},LOCK_MS:900000,
+    NETWORK:{chainId:1599846715,genesisHash:'0x'+'ab'.repeat(32),endpoint:'https://gateway.pocol.net/studio/rpc'},LOCK_MS:900000,
+    extendLease:LEASE.extendLease,JOB_DEADLINE_DEFAULT_MS:LEASE.JOB_DEADLINE_DEFAULT_MS,isForeignJob:JOBS.isForeignJob,networkOf:JOBS.networkOf,
     addressOf:()=>ADDRESS, importKeyfile:async()=>{state.importEntered=true;const key = options.importGate ? await options.importGate : new Uint8Array(32).fill(7);state.generatedKeys.push(key);return key;}, exportKeyfile:async()=>({encrypted:true}),
     signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},
     prepareContractReview:async()=>{state.prepared++;return baseReview},
@@ -159,4 +161,16 @@ test('a prior canonical IDE receipt is reconciled before checking account availa
   assert.equal(f.storage.get('ide:job:previous').status,'complete');
   assert.deepEqual(f.storage.get('ide:job:previous').checkpoint.transactions.contract.receipt,receipt);
   assert.ok(f.state.locks.includes('pocol:job:previous'));
+});
+// Sites W4: jobs of another network never block, and the contract job's signature extends the key lease.
+test('W4: an unresolved job of another network does not block the wallet',async()=>{
+  const f=await fixture({otherJob:['studio:job:old',{id:'old',walletAddress:ADDRESS,status:'paused',network:{chainId:'777',genesisHash:'0x'+'cd'.repeat(32)},checkpoint:{transactions:{upload:{raw:'0x02',tx:{chainId:'777'}}}}}]});
+  await f.unlock();await f.click('prepare');assert.equal(f.state.prepared,1);assert.equal(f.elements.get('earlierJob').hidden,true);
+});
+test('W4: the approved contract job extends the key lease by LOCK_MS at its signature, and records its network',async()=>{
+  const f=await fixture({submit:async(args,state)=>{f.setNow(601000);await args.sign({chainId:'1599846715'});return {state:'pending',hash:HASH,address:null,from:ADDRESS,receipt:null};}});
+  await f.unlock();await f.click('prepare');f.consent();await f.click('confirm');
+  assert.equal(f.state.signed,1);assert.equal(vm.runInContext('until',f.context),601000+900000,'extended from the signature');
+  assert.deepEqual(f.storage.get(KEY).network,{chainId:'1599846715',genesisHash:'0x'+'ab'.repeat(32)});
+  assert.equal(vm.runInContext('extendLease(2000,1500,900000,5000)',f.context),5000,'never past the job deadline');
 });

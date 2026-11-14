@@ -10,6 +10,7 @@
     "test": "node tests/unit.mjs && node --test tests/wallet_lifecycle_test.mjs",
     "test:studio": "node tests/studio_test.mjs",
     "test:publisher": "node --test tests/publisher_test.mjs",
+    "test:publisher-ui": "node --test tests/publisher_ui_test.mjs",
     "test:contracts": "node --test tests/contracts_test.mjs",
     "test:contract-ui": "node --test tests/contract_ui_test.mjs",
     "package": "node build.mjs && python3 scripts/package-release.py"

@@ -5,6 +5,10 @@ async function refresh() {
   const jobs = Object.entries(await chrome.storage.local.get(null)).filter(([k]) => k.startsWith('studio:job:')||k.startsWith('ide:job:')).map(([, v]) => v).sort((a,b) => b.createdAt-a.createdAt);
   $('studioJobs').replaceChildren(...jobs.map((job) => { const li=document.createElement('li'), link=document.createElement('a'); link.href=chrome.runtime.getURL(job.kind==='contract'?'contract.html':'publisher.html')+'#'+job.id; link.textContent=(job.request?.title || 'PoCol operation')+' · '+job.status; li.append(link); return li; }));
   if (!jobs.length) $('studioJobs').textContent = 'No publications yet';
+  // Sites W4: jobs of another network, archived on install or update (lib/jobs.js), listed read-only.
+  const archived = Object.entries(await chrome.storage.local.get(null)).filter(([k]) => k.startsWith('archive:studio:job:') || k.startsWith('archive:ide:job:')).map(([, v]) => v).sort((a, b) => (b.archivedAt || 0) - (a.archivedAt || 0));
+  $('archivedJobs').replaceChildren(...archived.map((job) => { const li = document.createElement('li'); li.textContent = `${job.request?.title || 'PoCol operation'} · ${job.status} · chain ${job.network?.chainId ?? 'unknown'} · ${Object.keys(job.checkpoint?.transactions || {}).length} signed transaction(s) · archived ${new Date(job.archivedAt || 0).toISOString().slice(0, 10)}`; return li; }));
+  if (!archived.length) $('archivedJobs').textContent = 'None';
   const r = await send({ type: 'profiles.list' });
   const publicProfile = (r.profiles || []).find((p) => p.name === 'pocol-public');
   if (publicProfile && !publicProfile.invalid) $('publicForkSchedule').value = JSON.stringify(publicProfile.forkSchedule);

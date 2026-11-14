@@ -54,6 +54,29 @@ await test('publish request opens trusted page and stores only bounded public fi
 await test('job results are origin and tab bound',async()=>{assert.equal((await call('studio.jobStatus',{jobId})).ok,true);assert.equal((await call('studio.jobStatus',{jobId},{...sender,tab:{id:18}})).ok,false);assert.equal((await call('studio.jobStatus',{jobId},{...sender,url:'https://pocol-studio.mystic-gecko-9511.chatgpt.site/'})).ok,false);});
 await test('status history survives page reload and is scoped to original tab',async()=>{const a=await call('studio.status'),b=await call('studio.status',{}, {...sender,tab:{id:18}});assert.equal(a.result.jobs[0].jobId,jobId);assert.equal(b.result.jobs.length,0);});
 await test('old signed checkpoint survives cleanup, old unsigned draft removed',async()=>{await mock.storage.set({[B.JOB_PREFIX+'signed-old']:{id:'signed-old',createdAt:1,status:'paused',checkpoint:{transactions:{tx:{raw:'0x02'}}}},[B.JOB_PREFIX+'draft-old']:{id:'draft-old',createdAt:1,status:'awaitingApproval'}});const r=await call('studio.openPublisher',basic);assert.equal(r.ok,true);assert.ok(mock.storage.data.has(B.JOB_PREFIX+'signed-old'));assert.equal(mock.storage.data.has(B.JOB_PREFIX+'draft-old'),false);await mock.storage.remove(B.JOB_PREFIX+r.result.jobId);});
+// Sites W4: jobs carry their network; on install or update, jobs of another network move to the read-only archive.
+await test('W4: a new publish job records the network it was created for',async()=>{const j=mock.storage.data.get(B.JOB_PREFIX+jobId);assert.deepEqual(j.network,{chainId:String(N.NETWORK.chainId),genesisHash:N.NETWORK.genesisHash.toLowerCase()});});
+await test('W4: install or update archives jobs of another network, keeps this network\'s, and drops their side keys',async()=>{
+  const here={chainId:String(N.NETWORK.chainId),genesisHash:N.NETWORK.genesisHash},signed={transactions:{'chunk:x':{hash:'0x'+'aa'.repeat(32),tx:{chainId:'777'}}}};
+  await mock.storage.set({[B.JOB_PREFIX+'foreign-net']:{id:'foreign-net',createdAt:Date.now(),status:'paused',walletAddress:'0x'+'11'.repeat(20),network:{chainId:'777',genesisHash:'0x'+'cd'.repeat(32)},checkpoint:signed},
+    ['studio:files:foreign-net']:[{path:'/index.html',base64:'eA=='}],['studio:raw:foreign-net:0xaa']:'0x02',
+    ['ide:job:legacy-chain']:{id:'legacy-chain',kind:'contract',createdAt:Date.now(),status:'pending',checkpoint:{transactions:{contract:{hash:'0x'+'bb'.repeat(32),tx:{chainId:'777'}}}}},
+    [B.JOB_PREFIX+'same-net']:{id:'same-net',createdAt:Date.now(),status:'paused',network:here,checkpoint:{transactions:{'chunk:y':{tx:{chainId:String(N.NETWORK.chainId)}}}}}});
+  assert.equal(mock.listeners.installed.length,1);mock.listeners.installed[0]({reason:'update'});
+  for(let i=0;i<50&&mock.storage.data.has(B.JOB_PREFIX+'foreign-net');i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(mock.storage.data.has(B.JOB_PREFIX+'foreign-net'),false);assert.equal(mock.storage.data.get('archive:'+B.JOB_PREFIX+'foreign-net').archivedReason,'foreign-network');
+  for(let i=0;i<50&&mock.storage.data.has('ide:job:legacy-chain');i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(mock.storage.data.has('ide:job:legacy-chain'),false,'a pre-W4 job of another chain id');assert.ok(mock.storage.data.has('archive:ide:job:legacy-chain'));
+  assert.equal(mock.storage.data.has('studio:files:foreign-net'),false);assert.equal(mock.storage.data.has('studio:raw:foreign-net:0xaa'),false);
+  assert.ok(mock.storage.data.has(B.JOB_PREFIX+'same-net'),'this network\'s job is kept');await mock.storage.remove(B.JOB_PREFIX+'same-net');
+});
+await test('W4: a collected job takes its side keys with it',async()=>{
+  await mock.storage.set({[B.JOB_PREFIX+'draft-side']:{id:'draft-side',createdAt:1,status:'awaitingApproval'},['studio:files:draft-side']:[],['studio:raw:draft-side:0x01']:'0x02'});
+  // Another tab: the broker allows each tab six requests a minute, and the later tests use tab 17's.
+  const r=await call('studio.openPublisher',basic,{...sender,tab:{id:31}});assert.equal(r.ok,true);
+  for(const k of[B.JOB_PREFIX+'draft-side','studio:files:draft-side','studio:raw:draft-side:0x01'])assert.equal(mock.storage.data.has(k),false,k);
+  await mock.storage.remove(B.JOB_PREFIX+r.result.jobId);
+});
 await test('cleanup preserves an expired job while its publisher holds the job lock',async()=>{
   const id='active-old',key=B.JOB_PREFIX+id;
   await mock.storage.set({[key]:{id,createdAt:1,status:'publishing'}});
