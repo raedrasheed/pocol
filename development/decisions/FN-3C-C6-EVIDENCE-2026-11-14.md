@@ -1,7 +1,8 @@
 # FN-3c (2026-11-14): C6 evidence at 10,000 members, and design risk 1 corrected
 
 Status: **evidence record, node-local.** No consensus rule, consensus source or pinned vector changed in FN-3c; it adds
-tests, a test-support genesis helper, one CI line and documents. It is the FN-3c step of the FN-3 plan (§5.13, §5.14,
+tests, a test-support genesis helper, one CI line and documents. FN-1b (§6, added the same day) derives a new parent's
+membership inputs across blocks; it is node-local too, and §6 records its before/after run of the same harness. It is the FN-3c step of the FN-3 plan (§5.13, §5.14,
 §7) for the fresh network's C6 row (FRESH-NETWORK-DESIGN.md, which is kept outside this repository; the corrected risk-1
 text is recorded below so that the repository holds it).
 
@@ -9,6 +10,7 @@ Sources:
 - `prototypes/pocold/tests/fn3_scale.rs`: the A13 test, the genesis test and the `#[ignore]` growth and CPU harness.
 - `prototypes/pocold/tests/support/ten_thousand.rs`: the fresh-network CP and the 10,000-identity genesis helper.
 - `development/audit-2026-10-22/evidence/fn3c/`: the printed `FN3C-*` lines of the runs recorded here.
+- `development/audit-2026-10-22/evidence/fn1b/`: the same harness's lines before and after FN-1b (§6).
 - `development/audit-2026-10-22/A13-DERIVATION.md`, section "FN-3c".
 
 ## 1. Design risk 1, corrected
@@ -34,8 +36,11 @@ ranges term in every entry-equivalent it holds, so the real figure was more than
 > (2.70 GiB) at the C6-row CP and 5,461,945,293 B (5.09 GiB) at the §1a CP, 175,199,283 B (167 MiB) inside the usable
 > 5.25 GiB. The membership part of history.redb projects to 8.0 MB a day idle (9.9 MB a day as measured over 600
 > blocks, which overweights snapshots) and 12.1 MB a day if every block changed 24 ids. Memory and history are no
-> longer launch blockers. Two items remain for M1: the §1a CP's A13 margin is thin, and a cold child_ctx takes about
-> 105-115 ms at p50 at 10,000 members in store mode (see §3).
+> longer launch blockers. Two items remained for M1: the §1a CP's A13 margin is thin, and a cold child_ctx took about
+> 105-115 ms at p50 at 10,000 members in store mode (see §3). FN-1b closed the second: a new parent's membership is
+> now derived from its own parent's and the block's registry writes, and the cold child_ctx takes about 5 ms at p50 and
+> 9-11 ms at p99 (§6). FN-1b's cache adds 23,821,796 B to A13 at 10,000 members: 2,917,910,217 B at the C6-row CP and
+> 5,485,767,089 B at the §1a CP, 151,377,487 B (144 MiB) inside the usable 5.25 GiB.
 
 "C6-row CP": the generated continuous network's CP (builder defaults: CP schema v1, nonceMode 0, devnet caps) with the C6
 row's fields set (M_max 10,000, E_win 360, D 4, E_max 4, R_react 4, REG_OPS 16, REG_RECORDS_MAX 24,576, SYS_SLOT_MAX
@@ -121,7 +126,7 @@ Against M1's criteria:
   600 blocks), against 4.49 GB before FN-3.
 - **RSS within the A13 bound: met.** The process peaked at about 0.2 GB against a 5.46 GB bound, residue included. A13
   is a worst-case model; the harness has no peers and no RPC, and its pool case holds 64 items only at the end.
-- **child_ctx p99 < 100 ms: met warm, not met cold.** A cold child_ctx (one per new parent, the FN-1 cache's miss) at
+- **child_ctx p99 < 100 ms: met warm, not met cold (before FN-1b; met cold after it, §6).** A cold child_ctx (one per new parent, the FN-1 cache's miss) at
   10,000 members in store mode takes about 105 ms at p50 and 171-188 ms at p99 on this VM (up to 235 ms at p99 in the
   previous run). Almost all of it is the one-pass membership read of the parent's ActList and 10,000 records through
   state.redb. FN-1's in-memory benchmark (tests/fn1_membership.rs) did not see this cost. A node takes the miss once
@@ -130,7 +135,7 @@ Against M1's criteria:
     for the cold one.
   - If it is the cold one, a node-local fix would keep the membership across blocks: derive the child's membership from
     the parent's cached one and the block's ActList changes, instead of re-reading every record. That is not FN-3c's
-    scope.
+    scope. FN-1b did it (§6): the cold p99 is now 8.9 ms idle and 10.6 ms churning.
 - **h_full's overhead (FN-3 §5.14): negligible.** The member record FN-3 added to h_full takes 0.1 ms at p50 and
   0.16 ms at p99 on a delta block, and about 4 ms on a snapshot block (one in 256: the digest of 10,000 ids), against a
   402-427 ms import at p50. Its encoding for history.redb takes under 0.002 ms at p99. h_full's other FN-3 steps, the
@@ -174,11 +179,14 @@ The suites were run with `cargo +1.99.1 test --release --locked`, on Linux.
   Registration cost at a full set belongs to M2 and M3 (gas and the capacity path) on the rehearsal network.
 - **Gateway reward computation, T4, T5:** these need the reward gateway and live multi-host mining, which this harness
   does not run (Phase 5 / rehearsal).
-- **Cold child_ctx above 100 ms:** §3. This needs an owner reading of M1, and possibly a node-local incremental
-  membership (an FN-1 follow-up).
+- **Cold child_ctx above 100 ms:** §3. Closed by FN-1b (§6) for every new parent whose own parent's inputs the node
+  holds. What stays at about 115 ms (p99 187-211 ms) is the fallback that reads the inputs whole: the first context
+  after a restart or a checkpoint restore, a parent reached by a deep reorg whose inputs were evicted, a block whose
+  registry write set exceeded 4,096 slots. These are one block each, not the per-block path.
 - **The M-dependent validation cost** beyond child_ctx: §3, for T3.
-- **The §1a CP's A13 margin** (167 MiB at empty files): it is admitted while state.redb stays below 1,317.6 GiB (with
-  history.redb empty) or history.redb below 668.3 GiB (with state.redb empty). The largest terms are the CODE_CAP 2^30
+- **The §1a CP's A13 margin** (167 MiB at empty files; 144 MiB after FN-1b): it is admitted while state.redb stays
+  below 1,317.6 GiB (with history.redb empty) or history.redb below 668.3 GiB (with state.redb empty); after FN-1b
+  below 1,137.6 GiB and 577.5 GiB (`evidence/fn1b/a13-and-genesis.log`). The largest terms are the CODE_CAP 2^30
   code set (1.21 GB) and the execution's memory classes (1.05 GB). The design's own fallback (CODE_CAP 2^29) remains
   available if FN-4's profile adds terms.
 - **A node's own RSS apart from the test process:** the three runs share one process, so their RSS figures include
@@ -187,3 +195,85 @@ The suites were run with `cargo +1.99.1 test --release --locked`, on Linux.
 - **A dedicated CI job for the harness:** not added. At about 25 minutes and a 100-second admission measurement it is
   not cheap. It is documented with the command above. The three default tests (about 2 s) run in
   `full-nonce-upgrade.yml` and in the Windows verification's pocold group.
+
+## 6. FN-1b: the cold child_ctx with membership inputs derived across blocks
+
+FN-1b (node-local; `chain::Chain::member_base`, `members::MemberBase`) keeps what membership() reads of a state (the
+ActList in order and, per id on it, the record fields the one pass reads: tomb, last_share, grace_start, bond_state and
+whether the bond is below B_reg/4) for at most 3 states, and each executed block's registry write set (the overlay's
+complete write set; in store mode the slots its stored version was updated with) for at most 8 blocks of at most 4,096
+slots, keyed by block hash and state identity like FN-1's rows. A new parent's inputs are derived from its own parent's
+and its block's write set: the list length and each written list element are re-read, and the records of ids one of whose
+four words was written or that are new to the list; an id that left is dropped. Anything not held (a restart, a
+checkpoint restore, a rebuilt or materialized state, an evicted row, a larger write set) reads the inputs whole, as before.
+The membership is then computed from the inputs by the same code as the one pass (`membership_from_base`), so equal inputs
+give the same set, order and error. With the member oracle on (every test) each derived or cached membership is compared
+with the one-pass reading, and each executed block's derived inputs with those read whole from its state. A difference
+is counted as an oracle mismatch and a member fault, every held input is dropped, and the one-pass result is the one
+returned, so no verdict follows the derivation. No verdict, root, persisted byte or identity changes.
+
+The run: the harness of §3, same command, same VM, oracle off. "Before" is the pre-FN-1b library: its counters have no
+FN-1b fields and its A13 model at the end is FN-3c's. "After" is this branch's. Both ran one after the other on an idle
+machine: after in 1,023 s, before in 1,423 s. The harness now times the cold context of a new parent the way a node meets
+it. FN-1's rows are cleared, and the parent's own inputs are forgotten (its block's write set and its parent's inputs are
+kept), so the context derives them. From the second block on, the harness asserts by count that it derived one input and
+read none whole. The same context with every input cleared (the fallback) is timed too, and asserted equal. Printed lines:
+`development/audit-2026-10-22/evidence/fn1b/growth-and-cpu-600-{before,after}.log`.
+
+| Measure (ms) | 10k-idle before | 10k-idle after | 10k-churn before | 10k-churn after | 4-idle before / after |
+|---|---|---|---|---|---|
+| child_ctx cold p50 / p99 / max | 103.9 / 163.0 / 290.4 | **4.8 / 8.9** / 262.3 | 102.0 / 167.1 / 270.0 | **5.4 / 10.6** / 262.4 | 0.11 / 0.23; 0.08 / 0.18 |
+| child_ctx with the inputs read whole (the fallback) p50 / p99 | — | 116.0 / 210.9 | — | 113.8 / 187.4 | — ; 0.10 / 0.22 |
+| child_ctx warm (FN-1 hit) p50 / p99 | 0.104 / 0.156 | 0.060 / 0.127 | 0.106 / 0.174 | 0.064 / 0.149 | 0.012 / 0.052; 0.012 / 0.056 |
+| the one-pass membership alone p50 / p99 | 102.3 / 157.7 | 101.2 / 175.7 | 101.8 / 159.5 | 98.9 / 157.5 | 0.03 / 0.09; 0.03 / 0.08 |
+| validate (FN-1 rows cleared) p50 / p99 | 275.9 / 395.9 | 166.9 / 232.5 | 288.9 / 482.0 | 183.9 / 336.4 | 10.6 / 15.9; 9.9 / 22.9 |
+| import p50 / p99 | 398.6 / 561.3 | 179.8 / 281.9 | 411.4 / 618.1 | 199.6 / 365.5 | 12.7 / 19.0; 11.7 / 31.1 |
+| reconstruction cold p50 / p99 | 6.3 / 9.8 | 6.5 / 7.6 | 6.4 / 13.3 | 6.6 / 12.4 | 0.22 / 0.54; 0.16 / 0.38 |
+| proposer's pool, signed template cold empty / full | 260 / 790 | 236 / 723 | | | 5.7 / 46.3; 7.6 / 44.8 |
+| A13 model at the end (B) | 5,461,945,681 | 5,485,767,477 | 5,461,946,195 | 5,485,767,991 | |
+| process peak RSS (VmHWM) | 197.8 MiB | 203.2 MiB | 191.6 MiB | 199.5 MiB | |
+
+The cold max of the after runs (262 ms) is block 1: genesis has no parent inputs held, so its inputs are read whole
+once. Validation and import fell by about 110-220 ms at p50. They take the same cold path: each import is validated
+with FN-1's rows cleared, and before FN-1b every validation and every import re-read all 10,000 records.
+
+What a derivation read (the import phase's FN-1b counters, 600 blocks): idle, 1,199 derivations, 0 list elements and
+2,044 records, about 3.4 records a block (the records one of whose words the block wrote). Churning, 1,199 derivations, 2,340 list elements and 4,287 records. 1,200 hits; 601 whole reads (block 1
+and the harness's 600 fallback timings). The pool case's cold template read the inputs whole once (its caches were
+cleared).
+
+Against M1's **child_ctx p99 < 100 ms**: met cold as well as warm, for every new parent whose own parent's inputs the
+node holds. That is the per-block path of a synced node, including the side blocks of a shallow fork. It is not met by
+the fallback (about 115 ms at p50, 187-211 ms at p99 here), which a node meets once: the first context after a restart
+or a checkpoint restore, or a parent of a reorg deeper than the 3 inputs kept. That is no worse than before FN-1b.
+
+Memory (A13, `resources::member_bases_bytes`; A13-DERIVATION.md "FN-1b"): 23,821,796 B at M_max 10,000 (3 held inputs
+and one being derived, at 5,451,520 B each as modeled, and 8 write sets of 4,096 slots). The C6-row CP's total is now
+2,917,910,217 B. The §1a CP's is 5,485,767,089 B, admitted with 151,377,487 B (144 MiB) to spare (175,199,283 B
+before). The file headroom shrinks with it: state.redb below 1,137.6 GiB (1,317.6 before) with history.redb empty, or
+history.redb below 577.5 GiB (668.3 before) with state.redb empty (`evidence/fn1b/a13-and-genesis.log`). At the
+devnet's M_max 64 the term is 1,207,460 B.
+
+Tests (FN-1b, `tests/fn1b_derivation.rs`, and the oracle in every chain-running suite):
+- The derivation over 400 steps of synthetic registry changes (v3 and spec 1) equals the whole reading, and the membership
+  computed from it (or its error) equals the one-pass reading at several parent heights. Leaving a written slot out
+  makes it differ (the negative control).
+- v3 and spec-1 chains, at every new head: registrations, an unbonded probationer's bond through B_reg/4 to HELD,
+  registerReplacing, a type-2 punishment, an exit, the snapshot height 257, a reorg across the membership change and
+  back, and a restart. Each derives (counted) and equals the one-pass and two-pass readings.
+- A store-mode node: every import derives, and a rebuild derives along its re-execution. The first context after a
+  checkpoint restore reads whole, after a replay it derives, and every later import derives.
+- The cache stays within its bounds.
+- Inputs damaged on purpose are caught. The one-pass result is returned, the mismatch is counted, and the inputs are
+  dropped.
+- In every other suite the oracle compares each executed block's derived inputs with those read whole, and the
+  end-of-test sweep asserts that it compared and found no mismatch.
+
+Results on this branch (`cargo +1.99.1 test --release --locked`, Linux; the counts of §4 unless named):
+- `--lib` (266) and every other pocold test target pass.
+  - The new `fn1b_derivation` target passes 7.
+  - `fn3_scale` passes 3, with the harness ignored.
+  - `consensus` (165, 10 ignored) and `caps` (11) pass on one thread.
+- `consensus_guard` passes 20 of 21. The one failure is `the_tree_matches_the_consensus_lock`, as expected: FN-1b changes
+  `pocold/src/chain.rs` and `pocold/src/members.rs`, which are consensus sources. The change is node-local (kind=neutral):
+  no verdict, root, vector or persisted byte changes. The lock is left for the owner to re-pin.

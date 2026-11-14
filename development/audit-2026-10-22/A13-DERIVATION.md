@@ -1860,7 +1860,7 @@ references); plus 1,024 B. With the oracle on (tests only) a check holds two mor
   the term small the records' table holds no slot (an id that leaves the list has its slot recomputed, one keccak), and
   three inputs are kept, not four (36,625,548 B at 10,000 with four and the slot held).
 The derivation is a CPU change, not a memory one, elsewhere: a context still holds the membership FN-1 counts. Its cost
-and the cold child_ctx it gives are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md ("FN-1b").
+and the cold child_ctx it gives are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md (§6, "FN-1b").
 
 ## 4. Assumptions, one by one (round 2)
 
