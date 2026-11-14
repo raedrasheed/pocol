@@ -280,6 +280,35 @@ def error(ident, code, message):
     return {'jsonrpc': '2.0', 'id': ident, 'error': {'code': code, 'message': message}}
 
 
+# pocold rpc.rs `logs` and `deadline_fail`: a -32020 pocol_getLogs answer stopped by a limit carries
+# {reason, fromBlock, lastCompleteBlock, nextFromBlock} (the client resumes from nextFromBlock; lastCompleteBlock is
+# nextFromBlock - 1, or null when no block was completed), or {reason} alone (the deadline before a fromBlock is known,
+# `capped` resultBytes). Only these reasons and these boundaries pass; every other error keeps code and message only.
+LOG_LIMIT_REASONS = ('deadline', 'scanBytes', 'scratch', 'resultBytes', 'resultCount')
+LOG_RESUME_FIELDS = {'reason', 'fromBlock', 'lastCompleteBlock', 'nextFromBlock'}
+
+
+def log_error_data(code, data, log_filter):
+    """The bounded resume data of a pocol_getLogs error, or None. The reason is one of LOG_LIMIT_REASONS; the three
+    boundaries pass only all together, as strict 64-bit quantities that agree with each other and with the request:
+    for a numeric range fromBlock equals its fromBlock and nextFromBlock is within it; for the blockHash form (rpc.rs
+    scans that one block) nextFromBlock equals fromBlock. Otherwise only the reason. The code is the relayed one: an
+    integer -32020 exactly."""
+    if type(code) is not int or code != -32020 or not isinstance(data, dict) or data.get('reason') not in LOG_LIMIT_REASONS: return None
+    reason = data['reason']
+    if set(data) != LOG_RESUME_FIELDS: return {'reason': reason}
+    start, done, resume = data['fromBlock'], data['lastCompleteBlock'], data['nextFromBlock']
+    if not (block_number(start) and block_number(resume) and (done is None or block_number(done))): return {'reason': reason}
+    first, after = int(start, 16), int(resume, 16)
+    if after < first or (done is None) != (after == first) or (done is not None and int(done, 16) != after - 1):
+        return {'reason': reason}
+    if isinstance(log_filter, dict) and 'fromBlock' in log_filter:
+        if first != int(log_filter['fromBlock'], 16) or after > int(log_filter['toBlock'], 16): return {'reason': reason}
+    elif after != first: return {'reason': reason}
+    return {'reason': reason, 'fromBlock': hex(first), 'lastCompleteBlock': None if done is None else hex(after - 1),
+            'nextFromBlock': hex(after)}
+
+
 def _no_duplicates(pairs):
     keys = [k for k, _ in pairs]
     if len(keys) != len(set(keys)): raise ValueError('Duplicate key')
@@ -466,13 +495,17 @@ class Gateway:
             self.last_identity = self.now()
             return epoch
 
-    def relay(self, ident, method, answer):
+    def relay(self, ident, method, answer, params=None):
         if 'result' in answer: answer['result'] = sanitize(method, answer['result'])
         if 'error' in answer:
             upstream = answer['error']
             code = upstream.get('code', -32000) if isinstance(upstream, dict) else -32000
+            if type(code) is not int: code = -32000
             message = upstream.get('message', 'Node rejected request') if isinstance(upstream, dict) else 'Node rejected request'
-            answer['error'] = {'code': code if type(code) is int else -32000, 'message': str(message)[:300]}
+            answer['error'] = {'code': code, 'message': str(message)[:300]}
+            if method == 'pocol_getLogs' and isinstance(upstream, dict):
+                data = log_error_data(code, upstream.get('data'), (params or [None])[0])
+                if data is not None: answer['error']['data'] = data
         answer['id'] = ident
         return answer
 
@@ -527,7 +560,7 @@ class Gateway:
             # Clamp default execution gas even if the caller omits the field.
             if method in ('eth_call', 'eth_estimateGas'):
                 params = [{**params[0], 'gas': params[0].get('gas', '0x7a1200')}, *params[1:]]
-            return self.relay(ident, method, self.query(method, params))
+            return self.relay(ident, method, self.query(method, params), params)
         except (OSError, ValueError, RuntimeError, RecursionError, http.client.HTTPException):
             # Never retry writes here: a timed-out broadcast may have reached the node.
             return error(ident, -32000, 'Node unavailable or network identity mismatch; check transaction hash before resubmitting')

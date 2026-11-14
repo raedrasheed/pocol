@@ -37,10 +37,10 @@ except ImportError:
     MAX_CALLS_V3, MAX_SECONDS_V3 = 0, 0
 try:
     from pocol_rewards import (keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS, ACTIVE_SLICE_GAS,
-                               MAX_MEMBERS_V3)
+                               MAX_MEMBERS_V3, ACTIVE_PAGE, active_version, full_nonce_rule)
 except ImportError:
     keccak256 = None
-    MAX_MEMBERS_V3 = 10000
+    MAX_MEMBERS_V3, ACTIVE_PAGE = 10000, 512
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 CHAIN_ID = 1599846715
@@ -58,6 +58,17 @@ MEMBERS = {'pocol_getMembers', 'pocol_getMember'}
 MEMBER_PAGE_MAX = 256
 MEMBER_READS_MAX = 8
 MEMBER_CACHE_MAX = 64
+# pocol_getMember's proposerEligible is the draw's candidate rule for the next block (chain.rs membership_one_pass and
+# assignment.rs Membership::from_parent / DrawWeights::new), which can depend on the whole proposer membership A_h*: an
+# ACCRUING record below B_reg/4 is excluded unless every member of A_h* is (the owner-approved all-probationer
+# exception), and on a bounded nonce domain A_h* is the members active within W_act unless none is. Deciding that reads
+# the ActList (lengths and at most DRAW_PAGES_MAX activeSlice pages, cached per head) and, on demand, the bond and
+# graceStart of other members (at most DRAW_RECORDS_MAX recordWords calls); past that bound proposerEligible is null.
+DRAW_PAGES_MAX = -(-MAX_MEMBERS_V3 // ACTIVE_PAGE)
+DRAW_RECORDS_MAX = 32
+DRAW_READS_MAX = 3 + DRAW_PAGES_MAX + DRAW_RECORDS_MAX
+DRAW_CACHE_MAX = 2
+CP_NONCE_MODE, CP_W_ACT = 4, 24
 # Token cost per method (others cost 1): a reward snapshot and one member record (four calls and a fresh-block check).
 COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10}
 # MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
@@ -167,24 +178,69 @@ def member_w0(w0):
             'bondState': bond_state, 'bondStateLabel': label(BOND_STATE_LABELS, bond_state, 'bond state'),
             'lastShare': (w0 >> 88) & U64, 'registeredAt': (w0 >> 152) & U64}
 
+class DrawUndecided(Exception):
+    """The candidate rule needs more member records than DRAW_RECORDS_MAX."""
+
+def draw_candidate(target, t_words, quarter, all_live, cutoff, scan, words):
+    """Whether `target` is a proposer candidate of the next block h = H + 1 drawn from state H, exactly as pocold
+    decides it (chain.rs membership_one_pass, assignment.rs Membership::from_parent and DrawWeights::new on v3):
+    A_h* is the live (non-tomb) ActList members, or on a bounded nonce domain (all_live() false) those with lastShare or
+    graceStart >= cutoff() = max(0, h - W_act) unless none is; a member of A_h* is a candidate unless it is ACCRUING with
+    a bond below B_reg/4 (`quarter`), and when every member of A_h* is such a probationer all of them are candidates.
+    t_words: the target's (w0, bond, graceStart). scan(): (the ActList at H as [(address, w0)], heldTotal), read only
+    when the answer depends on other members; words(address): (bond, graceStart) of another member, read on demand
+    (DrawUndecided past its bound). heldTotal (MinerRegistry slot 4) is the sum of the held bonds, so below `quarter`
+    every ACCRUING member is below it without reading the bonds."""
+    t_w0, t_bond, t_grace = t_words
+    if t_w0 & 255 != 1 or (t_w0 >> 8) & 255:
+        return False
+    all_live = all_live()
+    cutoff = 0 if all_live else cutoff()
+    share = lambda w0: (w0 >> 88) & U64
+    accruing = lambda w0: (w0 >> 16) & 255 == 4
+    def live():
+        members, held = scan()
+        if not any(a == target for a, _ in members): raise RuntimeError('Active record missing from the active list')
+        return [(a, w0) for a, w0 in members if not (w0 >> 8) & 255], held
+    known = lambda a: (t_bond, t_grace) if a == target else words(a)
+    active = lambda a, w0: share(w0) >= cutoff or known(a)[1] >= cutoff
+    # pool_active: A_h* is the active subset (bounded domain with an active member); otherwise every live member.
+    pool_active = False
+    if not all_live:
+        if share(t_w0) >= cutoff or t_grace >= cutoff:
+            pool_active = True
+        else:
+            members, _ = live()
+            if any(share(w0) >= cutoff for _, w0 in members) or any(active(a, w0) for a, w0 in members):
+                return False
+    if not (accruing(t_w0) and t_bond < quarter):
+        return True
+    members, held = live()
+    in_pool = lambda a, w0: not pool_active or active(a, w0)
+    cheap = lambda w0: not pool_active or share(w0) >= cutoff
+    # Any member of A_h* that is not a probationer ends the exception: first those decided by w0 alone.
+    if any(not accruing(w0) and cheap(w0) for _, w0 in members) or any(not accruing(w0) and in_pool(a, w0) for a, w0 in members):
+        return False
+    if held < quarter:
+        return True
+    return not any(in_pool(a, w0) and known(a)[0] >= quarter for a, w0 in members)
+
 def member_record(address, words, clocks, removal, b_reg):
     """pocol_getMember: recordWords' four words decoded (w0 fields, w1 reward address, w2 bond, w3 exit clocks),
-    recordClocks (lastMaintHeight mod 2^32, lastReactHeight), the removal verdict and the ACCRUING proposer-eligibility
-    rule (chain.rs membership: an ACCRUING record is drawn only with bond >= B_reg/4)."""
+    recordClocks (lastMaintHeight mod 2^32, lastReactHeight) and the removal verdict; proposerEligible is added by
+    Gateway.membership (draw_candidate)."""
     w0, w1, w2, w3 = words
     maint_mod32, last_react = clocks
     # PoColSystemV3.recordWords masks w1 to 160 bits and recordClocks returns (x>>224, (x>>160)&LOW64): anything wider
     # is not the v3 registry this gateway decodes.
     if w1 > U160 or maint_mod32 > U32 or last_react > U64: raise RuntimeError('Malformed member record')
     record = member_w0(w0)
-    live = record['status'] == 1 and not record['tomb']
     record.update({
         'address': address, 'exists': w0 != 0, 'recPos': (w0 >> 24) & U32, 'actPos': (w0 >> 56) & U32,
         'rewardAddress': '0x' + w1.to_bytes(20, 'big').hex(), 'lastReactHeight': last_react,
         'lastMaintHeightMod32': maint_mod32, 'bondWei': str(w2), 'bondTargetWei': str(b_reg),
         'exitHeight': w3 & U64, 'dueHeight': (w3 >> 64) & U64, 'burnHeight': (w3 >> 128) & U64, 'graceStart': (w3 >> 192) & U64,
-        'removal': removal, 'removalLabel': label(REMOVAL_LABELS, removal, 'removal verdict'),
-        'proposerEligible': live and (record['bondState'] == 1 or (record['bondState'] == 4 and w2 >= b_reg // 4))})
+        'removal': removal, 'removalLabel': label(REMOVAL_LABELS, removal, 'removal verdict')})
     return record
 
 class Gateway:
@@ -206,6 +262,7 @@ class Gateway:
         self.reward_failed_at = -float('inf')
         self.tokens, self.token_time = 80.0, time.monotonic()
         self.member_cache = collections.OrderedDict()
+        self.draw_cache = collections.OrderedDict()
     def charge(self, cost):
         with self.lock:
             now = time.monotonic()
@@ -237,7 +294,7 @@ class Gateway:
         hash) and refused with ChainMoved when the block at that height changed while it was read."""
         if self.network is None or keccak256 is None:
             raise RuntimeError('v3 membership needs the reward module and a configured --v3-network')
-        remaining = MEMBER_READS_MAX
+        remaining = MEMBER_READS_MAX + (DRAW_READS_MAX if method == 'pocol_getMember' else 0)
         def read(read_method, read_params):
             nonlocal remaining
             if remaining <= 0: raise RuntimeError('Membership read budget exceeded')
@@ -279,12 +336,68 @@ class Gateway:
             removal = call(REGISTRY, _word_args('removalStatus(address)', int(member, 16)), CALL_GAS, 1)[0]
             b_reg = call(CAPS, _word_args('get(uint256)', CP_B_REG), CALL_GAS, 1)[0]
             result = {'height': height, 'blockHash': head, **member_record(member, words, clocks, removal, b_reg)}
+            draw = self.draw_state(head, height, call)
+            try:
+                result['proposerEligible'] = draw_candidate(member, (words[0], words[2], (words[3] >> 192) & U64), b_reg // 4,
+                                                            draw['allLive'], draw['cutoff'], draw['scan'], draw['words'])
+            except DrawUndecided:
+                result['proposerEligible'] = None
         if block(hex(height))[1] != head: raise ChainMoved('Chain changed while membership was read')
+        if method == 'pocol_getMember':
+            with self.lock:
+                self.draw_cache[head] = draw['cached']
+                while len(self.draw_cache) > DRAW_CACHE_MAX: self.draw_cache.popitem(last=False)
         encoded = json.dumps(result, separators=(',', ':'))
         with self.lock:
             self.member_cache[key] = encoded
             while len(self.member_cache) > MEMBER_CACHE_MAX: self.member_cache.popitem(last=False)
         return result
+    def draw_state(self, head, height, call):
+        """The inputs of draw_candidate at state `height` (block `head`), each read once and only when needed:
+        all_live (v3 with the full nonce domain at the next height: the operator's fork schedule, else CP nonceMode),
+        the W_act cutoff, the ActList with heldTotal (lengths and activeSlice pages) and other members' (bond,
+        graceStart). Values from a previous request at the same head are reused; `cached` is stored only after the
+        caller's final block check."""
+        with self.lock:
+            cached = dict(self.draw_cache.get(head, {}))
+        cached['words'] = dict(cached.get('words', {}))
+        record_reads = 0
+        def cap(index):
+            return call(CAPS, _word_args('get(uint256)', index), CALL_GAS, 1)[0]
+        def all_live():
+            if 'allLive' not in cached:
+                version = active_version(height + 1, self.fork_schedule)
+                cached['allLive'] = full_nonce_rule(version, None if version >= 2 else cap(CP_NONCE_MODE))
+            return cached['allLive']
+        def cutoff():
+            if 'wAct' not in cached: cached['wAct'] = cap(CP_W_ACT)
+            return max(0, height + 1 - cached['wAct'])
+        def scan():
+            if 'members' not in cached:
+                lengths = call(REGISTRY, _word_args('lengths()'), CALL_GAS, 4)
+                active, held = lengths[1], lengths[3]
+                if active > MAX_MEMBERS_V3: raise RuntimeError('Unsupported active membership size')
+                members, seen = [], set()
+                for start in range(0, active, ACTIVE_PAGE):
+                    count = min(ACTIVE_PAGE, active - start)
+                    ids, w0s = _abi_two_arrays(call(REGISTRY, _word_args('activeSlice(uint256,uint256)', start, ACTIVE_PAGE), ACTIVE_SLICE_GAS), count)
+                    for ident, w0 in zip(ids, w0s):
+                        address = '0x' + ident.to_bytes(20, 'big').hex()
+                        if not 0 < ident <= U160 or address in seen: raise RuntimeError('Invalid active record')
+                        member_w0(w0)
+                        if w0 & 255 != 1: raise RuntimeError('Invalid active record')
+                        seen.add(address); members.append((address, w0))
+                cached['members'] = (members, held)
+            return cached['members']
+        def words(address):
+            nonlocal record_reads
+            if address not in cached['words']:
+                if record_reads >= DRAW_RECORDS_MAX: raise DrawUndecided()
+                record_reads += 1
+                w = call(REGISTRY, _word_args('recordWords(address)', int(address, 16)), CALL_GAS, 4)
+                cached['words'][address] = (w[2], (w[3] >> 192) & U64)
+            return cached['words'][address]
+        return {'allLive': all_live, 'cutoff': cutoff, 'scan': scan, 'words': words, 'cached': cached}
     def call(self, request):
         method, params = request['method'], request['params']
         key = json.dumps([method, params], separators=(',', ':'))

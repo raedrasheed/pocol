@@ -493,5 +493,93 @@
   ],
   "dynamics": [],
   "meta": 0
+ },
+ {
+  "name": "regex after an if head",
+  "module": true,
+  "src": "let s = 'x'; if (true) /import(\"x\")/.test(s);",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "regex after a for(;;) head",
+  "module": true,
+  "src": "for (;;) { break; }\nfor (;;) /import('no')/g.exec('') || import('./yes.js'); ",
+  "statics": [],
+  "dynamics": [
+   "./yes.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "regex after a while head",
+  "module": true,
+  "src": "let x = 0; while (x) /import('no')/.test(''); import('./w.js');",
+  "statics": [],
+  "dynamics": [
+   "./w.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "regex after a for await head",
+  "module": true,
+  "src": "for await (const x of []) /import('no')/.test(x); import('./fa.js');",
+  "statics": [],
+  "dynamics": [
+   "./fa.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "regex after an if head with nested parentheses",
+  "module": true,
+  "src": "const f = (a) => a; if (f((1))) /import('no')/.test(''); import('./n.js');",
+  "statics": [],
+  "dynamics": [
+   "./n.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "division after a grouping parenthesis",
+  "module": true,
+  "src": "const a = 4, b = 2, c = 1, d = 1; (a)/b; import('./g.js'); c/d;",
+  "statics": [],
+  "dynamics": [
+   "./g.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "division after a call",
+  "module": true,
+  "src": "const f = () => 4, y = 1; f(1) / 2; import('./call.js'); y / 3;",
+  "statics": [],
+  "dynamics": [
+   "./call.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "division after a method named like a keyword",
+  "module": true,
+  "src": "const o = { if: () => 4 }, y = 1; o.if(1) / 2; import('./m.js'); y / 3;",
+  "statics": [],
+  "dynamics": [
+   "./m.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "division after a property named like a keyword",
+  "module": true,
+  "src": "const x = { default: 4 }, y = 1; x.default / 2; import('./p.js'); y / 3;",
+  "statics": [],
+  "dynamics": [
+   "./p.js"
+  ],
+  "meta": 0
  }
 ]

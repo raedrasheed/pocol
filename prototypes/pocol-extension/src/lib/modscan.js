@@ -13,8 +13,11 @@
 // clear error, at publish and at view. A JSON file is imported as a JavaScript module whose default export is its
 // parsed value (the sandbox CSP's connect-src 'none' blocks JSON module fetches). Bare specifiers and absolute URLs are left as they are: the sandbox CSP blocks
 // them. The tokenizer skips strings, comments, template literals (nested ${...} expressions are scanned as code) and
-// regular expression literals; it runs in linear time and never throws on malformed input. (A `/` where a regular
-// expression may start is scanned to the end of its line for the closing `/`; when there is none, the rest of that line
+// regular expression literals; it runs in linear time and never throws on malformed input. A `/` starts a regular
+// expression after an operator, a keyword that precedes an expression, a `}`, and the `)` that closes the head of an
+// if, while, for or with statement (`if (a) /re/.test(s)`); after a name, a literal, `]` or any other `)` (a call, a
+// group) it is a division. A keyword used as a property name (`o.default / 2`, `o.if(x) / 2`) counts as a name. (A
+// `/` where a regular expression may start is scanned to the end of its line for the closing `/`; when there is none, the rest of that line
 // is marked as division only, so no character is scanned twice for a regular expression. That differs from scanning
 // again at each later `/` only on a line where a `/` opened no regular expression although one could start there, which
 // is malformed or misread code; the result only steers which specifiers are rewritten, and the sandbox CSP blocks any
@@ -29,6 +32,9 @@ const isDigit = (c) => c >= '0' && c <= '9';
 const isLineEnd = (c) => c === '\n' || c === '\r' || c === ' ' || c === ' ';
 // After these words an expression starts, so `/` begins a regular expression literal.
 const BEFORE_EXPR = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw', 'case', 'do', 'else', 'yield', 'await', 'extends', 'default']);
+// The `)` closing the parenthesized head of these statements is followed by a statement, so `/` there starts a regular
+// expression (`for await (...)` too).
+const CONTROL_HEAD = new Set(['if', 'while', 'for', 'with']);
 const PUNCT3 = ['>>>=', '...', '===', '!==', '**=', '<<=', '>>=', '>>>', '&&=', '||=', '??='];
 const PUNCT2 = ['=>', '==', '!=', '<=', '>=', '&&', '||', '??', '?.', '++', '--', '+=', '-=', '*=', '/=', '%=', '&=', '|=', '^=', '<<', '>>', '**'];
 
@@ -61,11 +67,18 @@ export function tokenize(src, stats = null) {
   const toks = []; const n = src.length; let i = 0; const braces = []; // '{' or '`' (a ${ ... } inside a template)
   let noRegexBefore = 0; // a failed regular-expression scan reached this line end: no `/` before it starts one
   const prevSig = () => toks[toks.length - 1];
+  // A name after `.`, `?.` or `#` is a property name, never a keyword.
+  const isKeyword = (k, set) => {
+    const p = toks[k]; if (!p || p.t !== 'id' || !set.has(p.v)) return false;
+    const q = toks[k - 1]; return !(q && q.t === 'p' && (q.v === '.' || q.v === '?.' || q.v === '#'));
+  };
+  const parens = []; // for each open `(`: whether it opens the head of an if/while/for/with statement
   const regexAllowed = () => {
     const p = prevSig(); if (!p) return true;
     if (p.t === 'num' || p.t === 'str' || p.t === 'tpl' || p.t === 're') return false;
-    if (p.t === 'id') return BEFORE_EXPR.has(p.v);
-    return !(p.v === ')' || p.v === ']' || p.v === '++' || p.v === '--');
+    if (p.t === 'id') return isKeyword(toks.length - 1, BEFORE_EXPR);
+    if (p.v === ')') return p.ctl === true;
+    return !(p.v === ']' || p.v === '++' || p.v === '--');
   };
   // Scans template characters from i (just after ` or after the } closing a ${...}); returns true at a ${.
   let tplStart = -1, tplPlain = true;
@@ -119,7 +132,12 @@ export function tokenize(src, stats = null) {
     if (v === '?.' && isDigit(src[i + 2] || '')) v = '?';
     i += v.length;
     if (v === '{') braces.push('{'); else if (v === '}' && braces.length) braces.pop();
-    toks.push({ t: 'p', s, e: i, v });
+    const tk = { t: 'p', s, e: i, v };
+    if (v === '(') {
+      const k = toks.length - 1; // `for await (`: the keyword is the token before `await`
+      parens.push(isKeyword(k, CONTROL_HEAD) || (isId(toks[k], 'await') && isKeyword(k - 1, CONTROL_HEAD)));
+    } else if (v === ')') tk.ctl = parens.length ? parens.pop() : false;
+    toks.push(tk);
   }
   return toks;
 }
