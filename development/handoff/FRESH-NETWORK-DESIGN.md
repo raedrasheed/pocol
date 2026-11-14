@@ -130,8 +130,8 @@ Unchanged and verified:
 ## 3. Implementation order, merged with the removal phases
 
 ```
-Ph0 ─ Ph1 ─ [in-flight: N5, N2', N3, G2, G3a] ─ Ph2 ─ Ph3 ─ FN-2a ─ FN-2b ─ G3b' ─ Ph4 ─ FN-3 ─ FN-4 ─ FN-5 ─ Ph5(a,b,c) ─ Ph6a ─ Ph6b ─ Ph7+FN-6 ─ FN-7 ─ Ph8 ─ rehearsal ─ ceremony ─ Ph10
-FN-0 with Ph0;  FN-1 any time after Ph2;  Ph9 docs in parallel, finished before Ph10
+Ph0 ─ Ph1 ─ [in-flight: N5, N2', N3, G2, G3a] ─ Ph2 ─ Ph3 ─ FN-2a ─ FN-2b ─ G3b' ─ Ph4 ─ FN-6a ─ FN-3 ─ FN-4 ─ FN-5 ─ Ph5(a,b,c) ─ Ph6a ─ Ph6b ─ Ph7+FN-6b ─ FN-7 ─ Ph8 ─ rehearsal ─ ceremony ─ Ph10
+FN-0 with Ph0;  FN-1 any time after Ph2;  FN-6a right after Ph4 (outside the boundary, may overlap FN-3..Ph6);  Ph9 docs in parallel, finished before Ph10
 ```
 
 | PR | Content | Placement and reason | Lock line (pre-reset) |
@@ -148,7 +148,7 @@ FN-0 with Ph0;  FN-1 any time after Ph2;  Ph9 docs in parallel, finished before 
 | **FN-5** | C10 cap-raise path. | After Phase 4, before Phase 5c, so Phase 5 tests it. | `neutral gate=fork:V`, with V above the spent maxFork |
 | Phase 5 | devnets v3 by default, test migration. **Add:** <br>• a CI full-set test: a host-level test genesis with 10,000 records, bypassing the 256-miner limit of `testnet.rs:257`, measuring child_ctx, RSS, A13 and history growth, with the CI runtime budgeted; <br>• `init-devnet --v3`; <br>• `e2e_site.py` ported and **added to CI**. | — | `neutral`/`neutral-vector` |
 | Phase 6a/6b | Drop spec-1 (which removes the spec-1 `m_max` gas-domain term), collapse the branches, re-measure the envelope. | — | `neutral-vector` |
-| **FN-6** with Phase 7 | Clients: <br>• gateway `activeSlice`; <br>• extension: `SPEC_VERSION` 2, built-in profile placeholder, publisher fees from the node, chatgpt.site origins removed; <br>• Studio and gateway: canonical chain-id compare; an `eth_getCode` cache or a separate budget for immutable chunks; <br>• IDE and explorer constant patches; <br>• wallets' `registerReplacing` path. | — | none or `neutral` |
+| **FN-6** (split, see SITES-PLAN.md: **FN-6a** right after Phase 4 = W1-W6, W9 and the built-in profile placeholder; **FN-6b** with Phase 7 = W14) | Clients: <br>• gateway `activeSlice`; <br>• extension: `SPEC_VERSION` 2, built-in profile placeholder, publisher fees from the node, chatgpt.site origins removed; <br>• Studio and gateway: canonical chain-id compare; an `eth_getCode` cache or a separate budget for immutable chunks; <br>• IDE and explorer constant patches; <br>• wallets' `registerReplacing` path. | — | none or `neutral` |
 | **FN-7** | C8: the `Initialize-PoColNetwork.ps1` v3 config and the readiness disclosure text. No R22 change. | Last code PR before Phase 8. | `neutral` |
 | Phase 8 | Lock reset to one `base` line; release candidate. | — | `base` |
 | Rehearsal | §4b on the RC: 3 US servers (wiped by the owner) plus the home PC, at the final CP with the rehearsal chain id. | A failed T-threshold changes only profile values (D_att, dFbWait, T_blk 20-30 s as a last resort). | — |

@@ -220,6 +220,7 @@ If Phase 2 is too large, split it into 2a (cutover, export and freeze) and 2b (0
 - Then build with `POCOL_RELEASE=1`, run the full CI, and tag the release.
 
 ### Genesis ceremony (operations, not a PR)
+- **Precondition (blocking, SITES-PLAN W8):** the host-only explorer pieces (`pocol_transactions.py`, `pocol_geoip.py`, `geoip-config.json`, systemd units, Caddyfile, `Install-PoCol-Explorer.sh`, the IDE host `api/` if any, the web-server security headers) are copied and redacted by the owner on the server before any wipe, or their rewrite is merged. Record which host runs `/opt/pocol-explorer-gateway` and the `gateway.pocol.net` Caddy (owner answer Q2c). Never copy `explorer.pocol.net/api/config.php` or any credential.
 - Wipe the old installs so no old key is reused: `/opt/pocol-standalone`, `/opt/pocol-testnet` and service state on the 3 US servers; `%LOCALAPPDATA%\PoCol` on the PC; the `org.pocol.node` app on the phone.
 - Generate fresh keys on each device with the independent-key flow.
 - Run `pocold init-testnet` with the v3 config: 4 founding miners, `accounts` of 10^24 wei each, `F0_*` per decision, `P_MAX`/`M_max`/`T_blk` per decision, and the new chain id.
