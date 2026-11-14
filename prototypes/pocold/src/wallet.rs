@@ -330,9 +330,9 @@ impl<'a> Wallet<'a>{
         let addr=self.key.address();let head=n.chain.head();
         let record=n.chain.view_of(&head.hash).and_then(|s|apply::miner_record(s.v(),addr));
         let member=n.chain.membership(head,head.height+1).ok().map(|m|m.ids().contains(&types::raw_addr(addr)));
-        let full=n.chain.view_of(&head.hash).is_some_and(|s|seats_full(&n.chain,s.v()));
-        let step=match member{Some(m)=>at_full_set(rejoin_step(record.as_ref(),head.height+1,m,u64::from(n.chain.spec.cp().W_act),n.chain.spec.probation().map(|p|p.blocks)),full),None=>RejoinStep::Unavailable};
-        (record,member,step)
+        // The step is chain_rejoin_step's, the function the on-chain tests check, so status and Rejoin mining cannot drift
+        // from it (Unavailable without the head state or the membership).
+        (record,member,chain_rejoin_step(&n.chain,addr))
     }
     pub fn status(&self,n:&Node)->Value{
         let addr=self.key.address();let head=n.chain.head();let state=n.chain.view_of(&head.hash);

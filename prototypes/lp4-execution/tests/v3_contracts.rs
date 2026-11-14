@@ -2137,11 +2137,20 @@ mod preview{
             for g in &genesis{assert!(apply::miner_record(&a.state,*g).is_none(),"the genesis bonds are refunded at 33");}
             assert_eq!(reg(&a.state,4),U256::ZERO,"held_total is 0 when settle(18) runs");
         }else{assert_eq!(reg(&a.state,4),U256::from(4)*b(),"the four genesis bonds are held");}
+        // Every record's (bond state, bond) before block 34, so the payees settle(18) accrued into are measured from state.
+        let bonds=|s:&InMemoryDB|->BTreeMap<Address,(u8,U256)>{apply::record_list(s).into_iter()
+            .filter_map(|id|apply::miner_record(s,id).map(|x|(id,(x.bond_state,x.bond)))).collect()};
+        let before=bonds(&a.state);
         let o=a.block(Proposer::Fallback,vec![],vec![],genesis[2],one(genesis[2]));
+        let after=bonds(&a.state);
         let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
         for p in &qid{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.bond_state,x.bond)),Some((1,b())),"filled from 0 to B and promoted by settle(18)");}
-        // The payees settle(18) paid on the host chain: its 258 promoted bonds are within the payee bound S_max + 3.
-        assert!(qid.len() as u32<=u32::from(cp.S_max)+3&&qid.len() as u32+3>u32::from(cp.S_max)+3,"258 payees near the bound");
+        // The payees settle(18) accrued into on the host chain, measured from state: the records whose bond word changed in
+        // block 34 are exactly the 258 registrants, and their number is within the payee bound S_max + 3 (and near it).
+        let accrued:BTreeSet<Address>=after.iter().filter(|(id,v)|before.get(*id)!=Some(*v)).map(|(id,_)|*id).collect();
+        assert_eq!(accrued,qid.iter().copied().collect::<BTreeSet<_>>(),"settle(18) accrued into the 258 registrants and no other record");
+        assert!(before.keys().all(|id|after.contains_key(id)),"no record disappears in block 34");
+        assert!(accrued.len() as u32<=u32::from(cp.S_max)+3&&accrued.len() as u32+3>u32::from(cp.S_max)+3,"{} payees: within S_max + 3 and near it",accrued.len());
         assert!(storage(&a.state,escrow_address(),U256::ZERO)>U256::ZERO,"settle(18) makes the chain's first burn");
         let b=resources::derive(&cp);let keys=o.meter.keys.len() as u64;
         eprintln!("V3-SETTLE-ALL-ACCRUING held_zero={held_zero} settle(18) promoting 258 ACCRUING payees: {g}; block 34 keys {keys}, run keys {} accounts {} (derive {} {})",a.keys,a.accounts,b.keys_normal,b.accts_normal);
