@@ -1,7 +1,7 @@
 // Reference-equivalent decoders (A07, A08): ports of the accepted Rust decoders
 // lp1-node/src/genesis_spec.rs (GenesisSpec: framing L0, then gsStructure, gsVersion,
 // gsCount, gsInt, gsLen, gsRange, gsOrder, gsSys, each stage over the whole input; CP schema v1,
-// and v2 = v1 + 12 appended fields, accepted only below an explicit version ceiling) and
+// and v2 = v1 + 7 appended fields, accepted only below an explicit version ceiling) and
 // lp1-node/src/header.rs (size, strict RLP, then every header field). Error codes and details
 // equal the reference's; tests/decoder_diff.mjs checks this against verdicts produced by the
 // Rust decoders on the same corpus (pocold/tests/decoder_reference.rs).
@@ -11,6 +11,10 @@ import { concat, toBig } from './hex.js';
 // ------------------------------------------------------------------ GenesisSpec
 const gsErr = (gs, detail) => Object.assign(new Error(gs + ' ' + detail), { gs, detail });
 export const SPEC_VERSION = 1, CP_LEN = 52;
+/** The ceiling of the shipped entry points (rp.js decodeSpec, as genesis_spec.rs decode()): SPEC_VERSION in the release
+ * build, 2 only in the test-only v3-preview build (`node build.mjs --v3-preview` -> dist-v3-preview/, never packaged),
+ * which mirrors pocold's `--features v3-preview`. decodeGenesisSpec itself keeps the explicit ceiling (decode_bounded). */
+export const DECODE_CEILING = /*@fault v3Preview*/SPEC_VERSION;/*@else*/2;/*@end*/
 const N = null;
 /** CP version 1: name, width in bits, lower bound, upper bound (null: none; 'gamma': 10^4 - alpha_bp). */
 export const CP_SCHEMA = [
