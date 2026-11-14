@@ -49,12 +49,13 @@ Re-measure all of those with complete CP/profile/model identities before merge.
 
 Applies to the v3 program set (system-v3.json), reachable only through its sysCodeHash on a specVersion-2
 genesis (CP schema v2). PoColSystemV1.sol and PoColSystemEarnIn.sol, their JSONs and every layout above are
-unchanged. Earn-in already uses w0 bits 152..215 (registeredAt) and slot 8 (ACC_COUNT).
+unchanged. Earn-in already uses w0 bits 152..215 (registeredAt) and slot 8 (ACC_COUNT); the v3 programs record
+registeredAt only and, since FN-2b (no probation pool), never write slot 8.
 
 | Location | Bit ranges, low first |
 |---|---|
 | slot9 (budgets) | maintenance used 0..7, reactivations used 8..15, budgetHeight 16..79; remaining zero |
-| w0 | earn-in layout (bits 216..255 hold the V3-10 epoch counters since V3-PR-E4, below) |
+| w0 | earn-in layout; bits 216..255 unused (they held the V3-10 epoch counters from V3-PR-E4 until FN-2b deleted them) |
 | w1 | reward address 0..159, lastReactHeight 160..223, lastMaintHeight mod 2^32 224..255 (moved from w0 bits 216..255, mod 2^40, by V3-PR-E4) |
 | slot3 | as above, but userOps0..15 counts register/deregister/claimBond/removeInactive only and 16..23 register only |
 
@@ -64,9 +65,9 @@ Budgets per block (the user-path prefix, after BadValue and Closing, before BadP
   operation per identity per block). They no longer touch slot3.
 - register, deregister, claimBond, removeInactive: RegOpsLimit when userOps + maintenance used >= REG_OPS (CP 23);
   register also when its counter >= R_max (CP 17).
-- reactivate: RegOpsLimit when reactivations used >= R_react (CP 58); it no longer touches slot3 or R_max. Valid
+- reactivate: RegOpsLimit when reactivations used >= R_react (CP 56; 58 before FN-2b renumbered CP schema v2); it no longer touches slot3 or R_max. Valid
   only when exitHeight + W_act <= height < dueHeight (strictly before the refund sweep at dueHeight = exitHeight + U),
-  and, when lastReactHeight != 0, height >= lastReactHeight + C_react (CP 59); otherwise BadState.
+  and, when lastReactHeight != 0, height >= lastReactHeight + C_react (CP 57); otherwise BadState.
 
 The three budgets are independent: maintenance and reactivate are not bounded by REG_OPS, so once the REG_OPS users
 have used it up, setRewardAddress/topUp and reactivate still succeed in the same block, while maintenance used first
@@ -88,9 +89,9 @@ address alone and recordClocks(id) returns (lastMaintHeight mod 2^32, lastReactH
 miner_record, Escrow via bondRecord/payInfos), so the clocks change no host reading. ParamGate R8 on CP schema v2
 requires U >= W_act + 2 (the window holds at least two blocks) and C_react >= U (lp1-node/src/gate.rs).
 
-SYS footprint (R18, resources::derive on CP schema v2): Registry fixed slots 7 (0..4, 8, 9), four words per record
-as before (no fifth word; erase clears the clocks with w0/w1), so SYS_SLOT_MAX grows by two slots plus the 15
-appended CP slots. A fifth record word was measured and rejected: zeroing it on erase put the worst beginBlock sweep
+SYS footprint (R18, resources::derive on CP schema v2): Registry fixed slots 6 (0..4 and 9; 8 and the V3-10 slot 10 until
+FN-2b), four words per record as before (no fifth word; erase clears the clocks with w0/w1), so SYS_SLOT_MAX grows by one
+slot plus the 7 appended CP slots of the 59-field schema. A fifth record word was measured and rejected: zeroing it on erase put the worst beginBlock sweep
 (64 scans, 16 refunds of ACCRUING records) at 930,080 gas, above admission's GAS_ENVELOPE beginBlock 926,000; with
 the spare bits it is 864,902, as before the change (tests/v3_contracts.rs v3_sweep_deletions_keep_the_sys_envelope).
 
@@ -98,9 +99,10 @@ Changed Registry slots of successful user calls, earn-in -> v3 (tests/v3_contrac
 wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set): register10 -> 10; reward2 -> 2 (w1 with its clock,
 slot9; 3 before V3-PR-E4 moved the clock out of w0); deactivate middle7/tail5 -> 7/5; reactivate5 -> 6 (w1 clock; slot9
 for slot3); claim middle10/tail8 -> 10/8; topUp 3 -> 4 (w1 clock; slot9 for slot3); topUp with promotion 5 -> 6 (w1
-clock and w0 promotion; 5 before V3-PR-E4); partial register 11 -> 11; accrue 2/4 -> 2/4.
-The beginBlock sweep changes the same slots per deletion as earn-in. Gas: register +5,225 (cfg(P_MAX) and the cold
-slot9 read), within the wallet's EARNIN_REGISTER_GAS 400,000; every other user path below 200,000 (REGISTRY_GAS
+clock and w0 promotion; FN-2b: 5, no ACC_COUNT write); partial register 11 -> 10 (FN-2b: no ACC_COUNT); accrue 2/4 ->
+2/3 (FN-2b: a promotion writes no ACC_COUNT).
+The beginBlock sweep changes the same slots per deletion as earn-in. Gas: a zero-bond register 174,447 against earn-in's
+194,172 (FN-2b removed the probation-pool check; the cold slot9 read remains), within the wallet's EARNIN_REGISTER_GAS 400,000; every other user path below 200,000 (REGISTRY_GAS
 1,000,000). The independent model is tests/v3_model.py (vectors tests/v3/registry-budget-vectors.json and
 tests/v3/earnin-on-v3-vectors.json); seven planted budget mutants are in tests/v3/system-v3-mutants.json.
 
@@ -130,8 +132,9 @@ block h-1, before any evidence of block h can tomb it. Every SYSTEM call keeps t
 - punish(id, reporter), 68 bytes: BadCalldata unless reporter == tx.origin. The bond branch calls
   Escrow.burnBond(bond, reward), where reward is the reporter record's reward address (w1 bits 0..159, tomb or not, so
   a self-report is paid) or zero (no reporter, or no record). The PAID branch is unchanged (tomb only, no bond).
-- Escrow.burnBond(amount, reward), Registry-only, 68 bytes: cut = amount * rho_bp / 10^4 (CP 63) when reward is
-  nonzero, paid by PAY directly to the reward address (not into an ACCRUING reporter's bond); a failed PAY burns it;
+- Escrow.burnBond(amount, reward), Registry-only, 68 bytes: cut = amount * rho_bp / 10^4 when reward is
+  nonzero (CP 58 since FN-2b; 63 before), paid by PAY directly to the reward address (not into an ACCRUING reporter's
+  bond); a failed PAY burns it;
   burnedTotal += amount - cut. The Escrow invariant holds with the same terms: held_total falls by the bond, burnedTotal
   rises by the bond less the cut that leaves Escrow.
 - The spec-1 selectors punish(address), invalidate(uint256) and burnBond(uint256) do not exist in the v3 programs.
@@ -148,7 +151,9 @@ also for settleFinal) for a genesis running the v3 set, whose gas domain also re
 is GAS_ENVELOPE_EARNIN's (PoColSystemV3.sol is built on the earn-in programs, whose markClose and beginBlock measure
 above GAS_ENVELOPE; the same test measures v3 beginBlock 573,516 and markClose 30,889 within it). markClose took the
 earn-in entry until V3-PR-E4 gave it a v3 entry (2,735,000, its closing-phase refunds; see the V3-PR-E4 section below);
-beginBlock still takes the earn-in entry. Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes.
+beginBlock still takes the earn-in entry. Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes. FN-2b
+re-measured every entry without the probation pool (section "v3 removal at a full set" below): settle 11,939,301 with
+every payee ACCRUING, recordResult 36,149, invalidate 8,537, punish 98,654.
 
 The independent model is tests/v3_model.py (class Chain; vectors tests/v3/evidence-penalty-vectors.json, whole blocks
 with settlement); five planted mutants (reporter-paid-on-fallback, whole-pot-for-bonded-accused,
@@ -252,8 +257,8 @@ when continuous) on either CP schema.
 
 SYS footprint (resources::derive on CP schema v2): one more Escrow slot (the carry into the next pot outlives the block)
 and two keys for the carry in every phase class (settle writes the carry into pot h + 1, closeBlock or finalize zeroes
-the carry into pot h); on normal and closing blocks five keys for the tip share's payTo (bond, state word, ACC_COUNT,
-held_total, burnedTotal) and the proposer's reward address as an account even without evidence. SYS gas
+the carry into pot h); on normal and closing blocks four keys for the tip share's payTo (bond, state word, held_total,
+burnedTotal; five with ACC_COUNT until FN-2b) and the proposer's reward address as an account even without evidence. SYS gas
 (tests/v3_contracts.rs v3-preview): closeBlock at its worst 132,825 (a nonzero carry into pot h zeroed and a 21 PCOL tip
 share to an ACCRUING proposer at bond 0: accrue fills and promotes it, the excess PAID, while held_total is zero, so its
 store goes from zero to nonzero; the same promotion with held_total nonzero 115,725, a partial fill 82,620, a HELD
@@ -271,158 +276,73 @@ eight planted RewardEscrow mutants (carry-not-added, tip-share-to-pot, base-burn
 carry-kept-at-final, base-burn-into-closed-pot, carry-not-lagged, lagged-carry-kept-at-final) are in
 tests/v3/system-v3-mutants.json.
 
-## v3 contestable seats and the probation-pool contest (PoColSystemV3.sol only; V3-10, V3-14, V3-PR-E4)
+## v3 removal at a full set (PoColSystemV3.sol only; FN-2b, FRESH-NETWORK design C2-C5)
 
-Applies to the v3 program set only, as above; the spec-1 programs, host calls and phase order are unchanged. O-10 = b and
-O-14 = b (V3-DESIGN.md, V3-DECISIONS.md D-V3-10/D-V3-14): E_epoch, theta_bp and k_sigma are CP schema v2 fields 60..62
-(one day, 1250, 3 in the draft v3 CP). No host code changes: registerContest is a user transaction, and the host reads
-only the bits it masks (apply.rs miner_record).
+Owner decisions 10b, 10c and Q2(a) of 2026-11-13 (development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)
+supersede V3-10 (contestable seats), V3-14 (the probation pool and its contest) and the T_PROB deadline. FN-2b deletes:
+registerContest, contestStatus, contestThreshold, epochTotals, accruingCount; the epoch counters (w0 bits 216..255) and
+totals (slot 10); POOL_OUT (w0 bit 87); ACC_COUNT (slot 8, never written); the probation deadline (the beginBlock
+sweep's probation exit, topUp's and reactivate's deadline checks); and the CP schema v2 fields P_MAX, T_PROB, E_epoch,
+theta_bp and k_sigma (with FN-2a's F0_*, the schema has 59 fields: H_half 52, S_tail 53, gamma_tip_bp 54, baseFeeMin
+55, R_react 56, C_react 57, rho_bp 58; ChainCaps reads n < 59). ACCRUING records count within M_max like any other,
+keep the earned bond (EARN-IN P1: settlement fills it before paying) and the B_reg/4 draw rule, and never exit by time;
+recordShares is one pass again (lastShare = j per distinct owner) and recordLate keeps lastShare = max(lastShare, j).
 
-| Location | Bit ranges, low first |
+Removal rule (internal `removal(vr, vw, height)`, codes in order):
+
+| Code | Meaning |
 |---|---|
-| w0 | earn-in layout, plus countCur 216..235 and countPrev 236..255 (V3-10); lastMaintHeight moved to w1; POOL_OUT bit 87 (V3-14, owner decision 2026-11-13) |
-| w1 | reward address 0..159, lastReactHeight 160..223, lastMaintHeight mod 2^32 224..255 |
-| slot10 (epoch totals) | epoch 0..63, its total 64..159, the previous epoch's total 160..255 |
+| 0 | removable |
+| 1 | the victim is not a live active record (absent, tomb, closing or exited) |
+| 2 | the set is not full: active < M_max (below a full set nobody is removed) |
+| 3 | no more than M_min active |
+| 4 | a credited share or a (re)activation within Theta_inact: height < max(lastShare, graceStart) + Theta_inact (CP 25) |
 
-Epoch counters. A credited share counts in the epoch of its template j, j / E_epoch (a late share of j counts where a
-header share of j would). A record's counters describe the epoch of its lastShare (w0 88..151), so no epoch index is
-stored: countCur is the shares credited in epoch lastShare / E_epoch and countPrev those of the epoch before. Crediting n
-shares of j (recordShares per distinct owner with its count, from Ledger.entriesOf; recordLate per share) sets lastShare
-= max(lastShare, j) and: j in the record's epoch, countCur += n; a later epoch, countPrev = countCur when it is the next
-one (else 0) and countCur = n; the epoch before (a late share older than lastShare's epoch), countPrev += n; older (only
-when E_epoch < D), nothing. Each count saturates at 2^20 - 1 (at T_blk 30 s and S_max 256 a member credits at most
-2,880 * 257 = 740,160 shares a day, below it); a saturated count is never contestable. slot10 rolls the same way over
-every credited share (header and late, owners with a record or not); its totals cannot overflow 96 bits (at most S_max
-+ 1 + E_max * S_max shares per block). The counters live in the w0 word recordShares and recordLate already write, so
-they add no SYS key per owner; erase clears them with w0 and register writes them as zero, so a record never inherits a
-previous incarnation's counts. recordShares reverts on lastShare > j as before; recordLate never reverts on it.
+- removeInactive(victim): as before (BadState unless the victim is active and more than M_min are active), and now
+  BadState unless the code is 0, so it reverts below a full set.
+- registerReplacing(reward, victim), payable 0..B_reg like register, exactly 68 bytes with two clean address words
+  (BadCalldata), BadValue above B_reg, Closing, then RegOpsLimit with two REG_OPS units (a removal and a registration,
+  less the maintenance used) and one R_max entry, BadPhase before the block's beginBlock, BadState when the sender has a
+  record, then the removal code of the victim (1: BadState; 2..4: NotRemovable). The victim exits through exitAt as by
+  deregister: status 2, exitHeight = h, dueHeight = h + U, its record and bond kept, so its parts of pots not yet
+  settled still pay it (or fill its bond) and evidence can still punish it until the refund (sweep or claimBond at
+  dueHeight, no burn). The sender then registers exactly as register(reward) into the freed seat (capacity, R9 / PAY-02,
+  the bond into Escrow; below B_reg an ACCRUING record). slot3 gains two userOps and one R_max entry. This is not a
+  contest: no performance measure, no threshold; it makes atomic two operations anyone may already do in one block.
+  register alone still reverts Capacity at a full set; a victim another sender already removed reads code 1.
+- The removed member may return: it reactivates only while a seat is free (Capacity at a full set), or registers
+  again after its refund (with B_reg: HELD at once), into another removable seat when the set is full.
 
-registerContest(address reward, address victim), payable 0..B_reg, 68 bytes, dispatched first in the fallback. Prefix as
-the other user paths: BadCalldata (length, dirty address words), BadValue (> B_reg), Closing, RegOpsLimit (REG_OPS less the
-maintenance used must hold two units, a removal and a registration, and R_max one entry), BadPhase. Then BadState if the
-sender has a record, then the rule (contestCheck, codes in order; code 1 or 3 reverts BadState, 2 and 4..7 NotContestable):
+Views: removalStatus(victim) returns the code at block.number (pocold's wallet and its RPC run it on the head state at
+the next height); activeSlice(start, count) returns (ids, w0): ActList[start, min(start + count, active)) and each one's
+record word w0, empty when start >= active, safe for any count (C5: the reward gateway's paged reads at M_max 10,000).
+Neither writes anything.
 
-| Code | Refusal |
-|---|---|
-| 1 | the victim is not a live active record (no record, a tomb, a PAID or BURNED bond, or exited) |
-| 2 | nothing to contest: the set is not full, active < M_max, for a pool contest too (O-10=b: contests only when all seats are full) |
-| 3 | the pool contest's victim is not ACCRUING |
-| 4 | no measured epoch yet (height < E_epoch), or the late window of its last template still open (height mod E_epoch < D - 1) |
-| 5 | the victim is in grace: height < graceStart + Theta_inact (graceStart = registration or last reactivation, w3 192..255) |
-| 6 | the victim registered or reactivated after the first block of the measured epoch: graceStart > p * E_epoch |
-| 7 | count >= threshold, or the count is saturated |
+Write ceilings and gas (tests/v3_contracts.rs replacing_write_ceilings_gas_and_user_sys_keys; a slot written back to its
+value is unchanged): victim in the middle of the active list with a full-bond newcomer 13 slots (217,381 gas), with a
+zero-bond newcomer 11 (186,725), victim at the tail with a full bond 11 (206,815); each within half the wallet's
+REPLACE_GAS 500,000 and SYS_KEYS_USER_MAX 256. Runtime size: MinerRegistry 11,580 bytes (EIP-170: 24,576;
+tests/v3_contracts.rs the_v3_programs_fit_eip_170 and the CI size check).
 
-The measured epoch p is the previous one, height / E_epoch - 1. The count is countCur when the victim's epoch
-(lastShare / E_epoch) is p, countPrev when it is p + 1, else 0; Tprev likewise from slot10. The threshold decides
-count < E - k_sigma * sqrt(E), E = theta * Tprev / active (theta = theta_bp / 10^4, active = the active count now, which
-code 2 has required to be M_max: exits just before a contest cannot raise E, nor bonded joins lower it), exactly
-over the reals: with N = theta_bp * Tprev, Dn = 10^4 * active and s = isqrt(k_sigma^2 * N * Dn) (floor; the
-initial estimate 2^(floor(log2 x) / 2), seven Newton steps, then min(y, x / y), OpenZeppelin's Math.sqrt method), the
-real threshold is (N - sqrt(k^2 N Dn)) / Dn, and since ceil(N - x) = N - floor(x) the integer threshold is ceil((N - s) /
-Dn), 0 when N <= s. An integer count is below the real threshold iff it is below the integer one, so there is no rounding
-error in either direction (tests/v3_model.py `threshold` and `below_exact`, the threshold table). At the owner's values,
-E = 45 (active 256): threshold 25.
+SYS gas (admission.rs GAS_ENVELOPE_V3, tests/v3_contracts.rs v3-preview): with up to M_max members ACCRUING, every payee
+of a pot may fill and promote its bond in settlement. Pot j's payees are at most S_max + 3 (its distinct share owners,
+its winner and block j's proposer), none counted by M_max, so the v3 gas domain drops the M_max term and requires
+S_max + 3 <= 259 (`in_gas_domain`); no v3 SYSTEM call iterates the members. settle with 258 payees all ACCRUING at
+bond 0, promoted in one call as the chain's first burn: 11,939,301 (`v3_settle_gas_with_every_payee_accruing`, M_max
+1,000); the carry path (C < kappa*m, 64 payees promoted) 3,022,717; recordShares with 257 owners without a record
+14,199,448; markClose's closing refunds 2,683,610 (no v3 entry: within the earn-in entry). SYS footprint
+(resources::derive): Registry fixed slots 6, recordShares 3·O + 2 keys, the tip share's payTo 4 keys.
 
-Code 4's late-window condition keeps the statistic final when it is judged: every late share of the measured epoch is
-credited by height (p + 1) * E_epoch + D - 1 (block j + D is the last carrier of j), so omission followed by a contest
-before the carriers ran cannot manufacture a victim (V3-02 is the prerequisite of V3-10). It requires E_epoch >= D for any
-contest to be possible.
-
-Effects (owner decision 2026-11-13, option a; V3-OWNER-DECISIONS-2026-11-12.md, third decision). Either contest exits
-the victim as by deregister (status 2, exitHeight = h, dueHeight = h + U, no M_min check: the newcomer takes the seat at
-once). The victim keeps its record, its bond and its evidence exposure until dueHeight. It stays payable, so its parts
-of pending pots and of later late credit reach it as for any exited record. For an ACCRUING victim they fill its accrued
-bond first (accrue; a bond reaching B_reg promotes it to HELD). It may reactivate inside the usual window. The sweep or
-claimBond refunds it at dueHeight, with no burn. Pool contest (the set full, a probationer newcomer and ACC_COUNT >=
-P_MAX, the victim ACCRUING): the victim also gives up its probation seat in the same call, so the newcomer takes it.
-- POOL_OUT, w0 bit 87, marks the victim. It is the top bit of the ActList position field 56..87. Every exit clears
-  that field (removeActive), and no position below M_max <= 65535 sets it.
-- ACC_COUNT (slot 8) counts the ACCRUING records that hold a pool seat: pooled(w) = ACCRUING without POOL_OUT. The
-  contest lowers it by one. Later, refund and punish lower it only for a pooled record, and promote only without
-  POOL_OUT, so the victim's refund, punishment or promotion never lowers it a second time.
-- reactivate of a POOL_OUT record that is still ACCRUING takes a pool seat again: Capacity when ACC_COUNT >= P_MAX,
-  else ACC_COUNT + 1. Its write of the position field clears the bit. A promoted (HELD) victim reactivates as any
-  HELD record: it keeps POOL_OUT until then, but takes no pool seat and leaves ACC_COUNT (vector
-  pool-victim-promoted-then-reactivates, with the pool full). Reactivation follows from "exits as by deregister"; the
-  owner did not decide it separately (open points below).
-- held_total is unchanged by the contest. It falls at the refund or the punishment, by the bond the pots filled.
-- The settle bound. Before the decision every live ACCRUING record was counted in ACC_COUNT (<= P_MAX). An exited pool
-  victim is a live ACCRUING record outside it, so the number of live ACCRUING records can exceed P_MAX (2 pooled plus
-  the victim in pool-newcomer-seated-at-once, with P_MAX 2). The fills of one settlement stay bounded by P_MAX all the
-  same. Pot j's ACCRUING payees are its owners (late ones included), its winner and block j's proposer, which the host
-  draws from the ActList of block j's parent (the nonce assignment and the draw, admission.rs GAS_ENVELOPE). Every
-  ACCRUING member of that ActList holds a pool seat, since POOL_OUT is only on exited records and reactivate clears it,
-  so they number at most ACC_COUNT <= P_MAX at that parent. A victim displaced after the parent is still one of them,
-  and its promotion skips ACC_COUNT's write. tests/v3_model.py check_payee_bound asserts this for every settlement of a
-  host chain (a chain naming an owner outside its parent's ActList with a record is counted apart), and
-  tests/v3_contracts.rs v3-preview `v3_settle_gas_with_pool_victims_among_the_payees` measures the worst such pot at the
-  GAS_DOMAIN maxima: 64 exited victims filled from 0 to B and promoted with 128 live ACCRUING records, 6,274,600, within
-  GAS_ENVELOPE_V3 settle 6,317,000.
-The first draft refunded and erased the pool victim in the contest call. Its parts of pending pots then settled to an
-id without a record and burned, and evidence carried later found no record. The mutant pool-contest-erased-at-once
-restores that draft and fails the vectors below.
-Then the sender registers exactly as register(reward) (capacity, R9 / PAY-02, P_MAX, the bond into Escrow). slot3 gains
-two userOps and one R_max entry.
-
-Views: contestStatus(victim, probation) returns (code, count, threshold) at block.number, the rule registerContest
-applies; contestThreshold(tprev, active) returns (threshold, s) for the CP's theta_bp and k_sigma (active 0 reverts);
-epochTotals() returns slot10's three fields. pocold's wallet (quote_contest) runs contestStatus on the head state at the
-next height and explains each code before anything is signed.
-
-Write ceilings and gas (tests/v3_contracts.rs contest_write_ceilings_gas_and_user_sys_keys; a slot written back to its value
-is unchanged): seat contest, victim in the middle of the active list 13 slots (232,489 gas), at the tail 11 (221,909);
-pool contest (the same exit with POOL_OUT and ACC_COUNT down; owner decision 2026-11-13), victim at bond 0 in the middle
-of the active list 11 (209,115; the first draft's refund and erase wrote 12), a 5 PCOL victim at the tail 9 (198,537); the
-user-context SYS keys equal these counts (Registry only), within the devnet SYS_KEYS_USER_MAX 256. The wallet quotes
-CONTEST_GAS 500,000. Other user paths: register 205,207 gas (the internal enroll it now shares with registerContest),
-every other path below 85,000.
-
-SYS footprint and gas (resources::derive on CP schema v2): the fixed Registry slots grow to 8 (slot10); recordShares writes
-one more key (slot10), recordLate one more per item (within an evidence item's nine). SYS gas (tests/v3_contracts.rs
-v3-preview `v3_record_shares_gas_with_the_epoch_counters`, `v3_sys_gas_and_caps_within_the_v3_envelope`): recordShares
-naming 257 distinct owners without a record as the chain's first call 14,388,687 (256 recorded owners 13,628,815, an epoch
-roll 13,626,629), above the earn-in entry 13,216,000 (spec-1's is the same), so admission composes GAS_ENVELOPE_V3 recordShares 14,389,000 for a
-genesis running the v3 set; recordLate 3,465,613 on its stranger path (GAS_ENVELOPE_V3 3,466,000); the larger Registry
-dispatch adds a few gas to every nested Registry call: settle 6,314,420 on its 64-fill path (GAS_ENVELOPE_V3 settle and
-settleFinal 6,315,000), punish 98,699, closeBlock 132,869 (entries unchanged). The beginBlock sweep is unchanged (865,273
-at the program caps). With the owner decision of 2026-11-13 promote tests POOL_OUT before lowering ACC_COUNT, which the
-64-fill path pays on each of its 64 promotions: settle 6,316,532, so GAS_ENVELOPE_V3 settle and settleFinal 6,317,000;
-re-measured on the same paths, punish 98,705, closeBlock 132,902, the sweep 865,081 and markClose's closing phase
-2,732,250 (entries unchanged). markClose's closing phase (`v3_closing_mark_close_gas_within_the_envelope`: RET 128 refunds a call,
-each through Escrow.releaseBond and the larger dispatch, an ACCRUING one also writing ACC_COUNT) measures 2,734,171 for 64
-HELD and 64 ACCRUING refunds (128 HELD 2,711,375), above the earn-in entry 2,716,000 the GAS_ENVELOPE_V3-over-GAS_ENVELOPE_EARNIN
-composition would otherwise take (spec-1's is 2,655,000): GAS_ENVELOPE_V3 markClose 2,735,000.
-Runtime sizes: MinerRegistry 14,085 bytes (13,969 before the owner decision of 2026-11-13; from 10,734; below 24,576), RewardEscrow 5,591,
-ShareLedger 3,478.
-
-The independent model is tests/v3_model.py (Registry.credit, credit_total, contest_check, register_contest; vectors
-tests/v3/contest-vectors.json: the seat contest with the refund after U; refusals above the threshold, by a registered
-sender, of an exited victim, with the set not full; the threshold off by one; grace; joined or reactivated after the
-start of the measured epoch; the budgets; the pool contest and its refusals (the set not full included); exits in the
-contest block that cannot turn a refused pool contest into one that lands, and the same chain without them; a pool
-victim with pending pots (they fill its accrued bond: no burn beyond the same chain without the contest), its refund at
-dueHeight (ACC_COUNT not lowered again), its promotion to HELD by those pots, its punishment by type-2 evidence carried
-after the contest (tomb, bond and whole pot burned), its reactivation only into a free pool seat, its reactivation as a
-HELD record once its pots promoted it (no pool seat taken, with the pool full), and the newcomer seated at once; both full; a probationer newcomer's seat
-contest of an ACCRUING victim; seat victims (HELD and ACCRUING) punished between the contest and their due height, before
-and after the sweep; a rotation race in the pool; ACC_COUNT through promote, exit, displace and punish; late credit
-counted, and the same chain without it; the counters rolling at epoch boundaries; an epoch shorter than D; the threshold
-table). Eighteen planted MinerRegistry mutants (contest-threshold-off-by-one, contest-grace-ignored,
-contest-joined-in-epoch-allowed, contest-set-not-full-allowed, pool-contest-set-not-full-allowed (the first draft's pool
-contest on a set that is not full), contest-late-window-open, pool-contest-erased-at-once (the first draft's immediate
-refund and erase), pool-contest-seat-kept, pool-victim-refund-counted-again, pool-victim-punish-counted-again,
-pool-victim-promote-counted-again, pool-victim-reactivates-without-a-pool-seat,
-pool-victim-held-reactivation-takes-a-pool-seat (a promoted victim taking a pool seat at its reactivation), pool-contest-held-victim,
-counters-not-rolled, late-not-counted, isqrt-not-floored, contest-one-reg-ops-unit; the owner decision's seven (six with the decision, the held-reactivation one from its review) replace the
-first draft's pool-contest-refund-skipped and pool-contest-exits-instead, whose patched lines are gone) are in tests/v3/system-v3-mutants.json; the E1 mutant maint-twice-per-block and the E3 mutants
-late-last-share-reverts/-overwrites are re-patched onto the moved clock and the credit call.
-
-Decided by the owner on 2026-11-13 (option a): the pool-contest victim is no longer erased at once; it stays exited,
-payable and punishable until dueHeight (Effects above). Open points the design leaves to the owner (not decided here): a pool contest is allowed only with the set
-full, the literal reading of O-10=b and of the roadmap ("registerContest only when active == M_max"), so a full pool
-with free seats admits no contest (the owner may instead want pool contests on a set that is not full, which needs a
-denominator the contestant cannot move: M_max, or the active count recorded for the measured epoch); and a member that exits
-and reactivates (or rotates claimBond + register) once per epoch restarts its eligibility each time, as the design's
-"registration or last reactivation" rule says, so it is never contestable. The pool victim's reactivation (above) is
-derived from "exits as by deregister", not separately decided; it keeps registeredAt (the T_PROB deadline still runs) but
-resets graceStart, so it meets this point too, and the owner may confirm it or forbid it for pool victims.
+The independent model is tests/v3_model.py (Registry.removal_check, register_replacing, remove_inactive; Chain with
+shares and late credit; check_payee_bound asserts at most S_max + 3 payees per settlement of every host chain); its
+scenarios are in tests/v3/registry-budget-vectors.json: removal only at a full set (code 2 and removeInactive's BadState
+below it, Capacity at it, code 4 in grace, two newcomers on distinct victims in one block, a third naming an exited
+victim, a removeInactive freeing a seat a plain register takes, the victims refunded after U, one punished while exited,
+both returning, one with B_reg as HELD and one with nothing as ACCRUING), the budgets, M_min, whole chains where header
+and late shares keep a member (and the same chain without the late credit), and a victim payable and punishable until
+its refund; tests/v3/earnin-on-v3-vectors.json re-runs the earn-in model's scenarios (its probation-seats and deadline
+scenarios differ on v3: no pool, no deadline). Eight planted MinerRegistry mutants (removal-below-full-set,
+removal-theta-off-by-one, removal-ignores-grace, removal-at-m-min, replacing-one-reg-ops-unit, replacing-no-r-max-entry,
+replacing-victim-erased-at-once, replacing-any-victim) are in tests/v3/system-v3-mutants.json, each failing its scenario
+(tests/v3_contracts.rs the_removal_mutants_fail_the_v3_vectors). The V3-PR-E4 vectors (contest-vectors.json) and the
+earn-in model at P_MAX 64 (earnin-vectors-p64.json, tests/v3_model_vectors.py) were deleted with the rules they tested.

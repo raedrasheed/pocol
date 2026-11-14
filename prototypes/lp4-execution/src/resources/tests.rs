@@ -24,26 +24,26 @@ fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
     println!("R18-DERIVED {}",serde_json::json!({"slotMin":b.slot_min,"keys":[b.keys_normal,b.keys_closing,b.keys_final],"accounts":[b.accts_normal,b.accts_closing,b.accts_final]}));
 }
 
-/// CP schema v2 runs the v3 registry: three more fixed Registry slots (ACC_COUNT, the V3-08/V3-09 budget slot and the V3-10
-/// epoch totals, which recordShares writes: one more key in every phase) and the
-/// 12 appended CP slots (FN-2a deleted F0_*); record words are unchanged (REGISTRY-LAYOUT.md); a block with evidence touches one more
+/// CP schema v2 runs the v3 registry: one more fixed Registry slot (the V3-08/V3-09 budget slot; FN-2b deleted the
+/// accruing count and the epoch totals) and the 7 appended CP slots (FN-2a deleted F0_*, FN-2b P_MAX, T_PROB, E_epoch,
+/// theta_bp, k_sigma); record words are unchanged (REGISTRY-LAYOUT.md); a block with evidence touches one more
 /// account, the proposer's reward address that receives the V3-17 reporter cut (none without evidence, E_max 0). V3-02:
 /// each phase's keys add 3·L for the late shares a block can credit, L = min(E_max·min(S_max, kappa*m - 1), D·(kappa*m - 1)).
 /// V3-15/V3-20: the two carry keys in every phase (the lagged carry: settle writes the carry into pot h+1, closeBlock or
 /// finalize zeroes the carry into pot h) and one Escrow slot for the carry into the next pot, which outlives the block; on
-/// normal and closing blocks the five keys closeBlock's tip share can write through payTo and the proposer's reward
+/// normal and closing blocks the four keys closeBlock's tip share can write through payTo and the proposer's reward
 /// address, which it pays even without evidence.
 #[test] fn r18_cp_schema_v2_counts_the_v3_registry_slots(){
     let mut c=network_like(4,1000,2000);c.h_end=0;c.earnin=true;
     let v1=ConsensusParams::from_values(&c.cp()).unwrap();c.spec_version=2;let v2=ConsensusParams::from_values(&c.cp()).unwrap();
     assert_eq!((v1.schema_version(),v2.schema_version()),(1,2));
     let (a,b)=(derive(&v1),derive(&v2));
-    assert_eq!(b.slot_min,a.slot_min+3+12+1);
+    assert_eq!(b.slot_min,a.slot_min+1+7+1);
     let per=u64::from(v2.kappa)*u64::from(v2.m)-1;let l=(u64::from(v2.E_max)*per.min(u64::from(v2.S_max))).min(u64::from(v2.D)*per);
     // A wider window does not add late shares beyond E_max items of at most kappa*m - 1 each.
     let mut wide=v2.clone();wide.D=16;assert_eq!(late_shares_max(&wide),u64::from(v2.E_max)*per.min(u64::from(v2.S_max)));
     assert_eq!((late_shares_max(&v2),late_keys(&v2),late_keys(&v1),late_shares_max(&v1)),(l,3*l,0,0));
-    assert_eq!((b.keys_normal,b.keys_closing,b.keys_final),(a.keys_normal+3*l+8,a.keys_closing+3*l+8,a.keys_final+3*l+3));
+    assert_eq!((b.keys_normal,b.keys_closing,b.keys_final),(a.keys_normal+3*l+6,a.keys_closing+3*l+6,a.keys_final+3*l+2));
     let mut none=v2.clone();none.E_max=0;assert_eq!(late_keys(&none),0,"no evidence item, no late share");
     assert_eq!((b.accts_normal,b.accts_closing,b.accts_final),(a.accts_normal+1,a.accts_closing+1,a.accts_final+1));
     let mut quiet=v2.clone();quiet.E_max=0;let mut quiet1=v1.clone();quiet1.E_max=0;

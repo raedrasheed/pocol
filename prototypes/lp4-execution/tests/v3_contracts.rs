@@ -1,29 +1,26 @@
-//! V3 system programs (system-v3.json, PoColSystemV3.sol; V3-PR-E0, V3-14 cfg part, V3-34 registry; V3-PR-E1,
-//! V3-08/V3-09 registry budgets; V3-PR-E2b, V3-16/V3-17 evidence penalties; V3-PR-E3 late shares; V3-PR-E2a issuance, carry, tips).
-//!
-//! The v3 source is PoColSystemEarnIn.sol with P_MAX/T_PROB read through cfg() (CP schema v2 fields 54/55),
-//! ChainCaps bounded by the v2 CP length, and the registry budgets of V3-08/V3-09 (a maintenance budget
-//! REG_MAINT_MAX = 8 with one maintenance operation per identity per block; reactivate on its own R_react budget,
-//! CP 58, with a per-record C_react clock, CP 59, and a window that closes strictly before dueHeight). This file
-//! proves:
-//! - behaviour-equal outside the budgets: with P_MAX=8/T_PROB=60480 in the CP, every model scenario of
-//!   tests/data/earnin-vectors.json replays on the v3 set exactly as the v3 model runs it
-//!   (tests/v3/earnin-on-v3-vectors.json); all but "top-up" (whose second topUp in one block from one identity V3-08
-//!   refuses) give the earn-in model's own reverts, records, totals and payments and leave the identical Escrow
-//!   storage and the identical Registry storage except for the V3-08/V3-09 state alone (the budget slot 9, the clocks
-//!   in w1 bits 160..255, and slot 3's per-block counters);
-//! - the registry budgets: every scenario of the independent model tests/v3_model.py
-//!   (tests/v3/registry-budget-vectors.json) reproduces on the v3 bytecode step by step, with ACC_COUNT and
-//!   held_total conserved after every step; the fails-on-original attacks of V3-DESIGN.md V3-08/V3-09 freeze the
-//!   earn-in registry and not the v3 one; seven planted budget mutants each fail;
-//! - the CP is really read: at P_MAX=64/T_PROB=86400 (O-14=b) the v3 set reproduces the model at those values
-//!   (tests/v3/earnin-vectors-p64.json, tests/v3_model_vectors.py; "top-up" as the v3 model runs it), which the
-//!   earn-in set does not;
-//! - the six planted earn-in mutants (EARN-IN-SPEC.md §9), restated on the v3 source
-//!   (tests/v3/system-v3-mutants.json, compile_system_v3.cjs --mutants), each fail both replays (the earn-in
-//!   scenarios as the v3 model runs them, at both value sets);
-//! - the write ceilings and gas the wallet's bond quotes are sized from: unchanged except for the measured V3-08/09
-//!   additions (REGISTRY-LAYOUT.md), and the beginBlock sweep within admission's GAS_ENVELOPE;
+//! V3 system programs (system-v3.json, PoColSystemV3.sol; V3-PR-E0, V3-34 registry; V3-PR-E1, V3-08/V3-09 registry budgets;
+//! V3-PR-E2b, V3-16/V3-17 evidence penalties; V3-PR-E3 late shares; V3-PR-E2a issuance, carry, tips; FN-2b removal at a full
+//! set, registerReplacing and activeSlice).
+//! The v3 source is PoColSystemEarnIn.sol without the probation pool and its deadline (FN-2b, owner decisions 10b/10c of
+//! 2026-11-13: ACCRUING records count within M_max and never exit by time), ChainCaps bounded by the 59-field CP schema
+//! v2, and the registry budgets of V3-08/V3-09 (a maintenance budget REG_MAINT_MAX = 8 with one maintenance operation per
+//! identity per block; reactivate on its own R_react budget, CP 56, with a per-record C_react clock, CP 57, and a window
+//! that closes strictly before dueHeight). This file proves:
+//! - the earn-in scenarios (tests/data/earnin-vectors.json) as the v3 model runs them replay on the v3 set
+//!   (tests/v3/earnin-on-v3-vectors.json); outside "top-up" (V3-08), "probation-seats" (no pool) and "deadline" (no
+//!   deadline) they give the earn-in model's own reverts, records, totals and payments and leave the identical Escrow
+//!   storage and the identical Registry storage except for the V3-08/V3-09 state alone;
+//! - the registry budgets and FN-2b's removal at a full set: every scenario of the independent model tests/v3_model.py
+//!   (tests/v3/registry-budget-vectors.json, registry and chain scenarios: removeInactive and registerReplacing only at a
+//!   full set, two REG_OPS units and one R_max entry, victims refunded after U and punishable until then, lastShare from
+//!   header and late shares) reproduces on the v3 bytecode step by step, with held_total conserved and the accruing count
+//!   (slot 8) never written; the fails-on-original attacks of V3-DESIGN.md V3-08/V3-09 freeze the earn-in registry and not
+//!   the v3 one; seven planted budget mutants and eight planted removal mutants each fail;
+//! - the four planted earn-in mutants that outlive FN-2b (EARN-IN-SPEC.md §9, restated on the v3 source:
+//!   tests/v3/system-v3-mutants.json, compile_system_v3.cjs --mutants) each fail the earn-in scenarios as the v3 model runs them;
+//! - every named and literal CP index of PoColSystemV3.sol is the schema's (a missed renumbering would make every v3 block
+//!   invalid), and every program stays EIP-170-sized;
+//! - the write ceilings and gas the wallet's quotes are sized from, and the beginBlock sweep within admission's GAS_ENVELOPE;
 //! - sysCodeHash pins and the registry: the v3 set is selected only on a CP schema v2 (specVersion 2) genesis;
 //! - V3-PR-E2b, the evidence penalties (V3-16, V3-17): every scenario of the independent chain model of tests/v3_model.py
 //!   (tests/v3/evidence-penalty-vectors.json: whole blocks with phase 0 in the v3 order, user transactions, phase 2,
@@ -51,20 +48,11 @@
 //!   3·H_half (H_half 8) with the carry of settle(h-D) in pot h+1, and CP 15 on the spec-1 earn-in devnet, a final block
 //!   burning every outstanding carry (its own settle's included), the invariant's carry terms, the supply bound at
 //!   genesis, and closeBlock/finalize's SYS gas on their worst paths within GAS_ENVELOPE_V3.
-//! - V3-PR-E4, contestable seats and the probation-pool contest (V3-10, V3-14): every scenario of
-//!   tests/v3/contest-vectors.json (the epoch counters of recordShares/recordLate, registerContest's seat and pool contests,
-//!   every refusal: above the threshold, in grace, the set not full (for a pool contest too, so exits cannot raise E),
-//!   joined after the start of the measured epoch, the late window open, the budgets; seat victims punished before their
-//!   due height; the pool victim kept exited, payable and punishable until dueHeight (owner decision 2026-11-13, option a):
-//!   its pending pots fill its bond, it is refunded at dueHeight, promoted by its pots, punished by evidence carried after
-//!   the contest, reactivates only into a free pool seat, or as any HELD record once its pots promoted it, and the newcomer
-//!   is seated at once) reproduces on the bytecode
-//!   step by step, with every contestStatus view, the counters, the POOL_OUT bit
-//!   and epoch totals compared and the Escrow invariant and supply after every step; the threshold table reproduces through
-//!   contestThreshold (threshold and integer square root); eighteen planted mutants each fail; the counters saturate and a
-//!   saturated count is never contestable; the contest's write ceilings, gas and user SYS keys; with v3-preview the worst
-//!   recordShares/recordLate gas with the counters within admission's envelope.
-use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,
+//! - FN-2b C4/C5: registerReplacing's call shape, write ceilings, gas and user SYS keys, the removalStatus and activeSlice
+//!   views; with v3-preview, settle's worst path with every payee ACCRUING at bond 0 and promoted in one call (256 share
+//!   owners, the winner and the proposer; and the carry path), M_max above the spec-1 domain, and the earn-in refund
+//!   regressions (earnin_refund_fix.rs) on the v3 set.
+use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,genesis_spec,
     pay::{registry_address,escrow_address}};
 use revm::{DatabaseCommit,InMemoryDB,primitives::{Address,AccountInfo,Bytecode,Bytes,TxEnv,TxKind,U256,keccak256,ResultAndState}};
 use std::collections::{BTreeMap,BTreeSet};
@@ -74,16 +62,16 @@ const EARNIN:&str=include_str!("data/system-earnin.json");
 const V3:&str=include_str!("data/system-v3.json");
 const MUTANTS:&str=include_str!("v3/system-v3-mutants.json");
 const VECTORS:&str=include_str!("data/earnin-vectors.json");
-const VECTORS_P64:&str=include_str!("v3/earnin-vectors-p64.json");
 const BUDGET_VECTORS:&str=include_str!("v3/registry-budget-vectors.json");
 const EVIDENCE_VECTORS:&str=include_str!("v3/evidence-penalty-vectors.json");
 const LATE_VECTORS:&str=include_str!("v3/late-share-vectors.json");
 const ISSUANCE_VECTORS:&str=include_str!("v3/issuance-carry-vectors.json");
-const CONTEST_VECTORS:&str=include_str!("v3/contest-vectors.json");
+const V3_SOURCE:&str=include_str!("../contracts/system/PoColSystemV3.sol");
 /// The earn-in model's scenarios (both value sets) re-run through the v3 model (tests/v3_model.py earnin_on_v3).
 const EARNIN_ON_V3:&str=include_str!("v3/earnin-on-v3-vectors.json");
-/// The six planted earn-in mutants (EARN-IN-SPEC.md §9) and the seven V3-08/V3-09 budget mutants, in fixture order.
-const EARNIN_MUTANTS:[&str;6]=["p-max-plus-one","r9-removed","no-promotion-at-b","t-prob-plus-one","over-fill-bad-value","excess-kept"];
+/// The four planted earn-in mutants that outlive FN-2b (EARN-IN-SPEC.md §9; its P_MAX and T_PROB mutants went with the
+/// pool and the deadline) and the seven V3-08/V3-09 budget mutants, in fixture order.
+const EARNIN_MUTANTS:[&str;4]=["r9-removed","no-promotion-at-b","over-fill-bad-value","excess-kept"];
 const BUDGET_MUTANTS:[&str;7]=["maint-counter-shared","maint-twice-per-block","react-budget-ignored","react-cooldown-off-by-one","react-window-at-sweep-height",
     "maint-bounded-by-reg-ops","react-counts-reg-ops"];
 /// The five V3-16/V3-17 evidence-penalty mutants (MinerRegistry or RewardEscrow), in fixture order.
@@ -93,14 +81,11 @@ const LATE_MUTANTS:[&str;5]=["late-last-share-reverts","late-last-share-overwrit
 /// The eight V3-19/V3-15/V3-20 issuance, carry and tip split mutants (RewardEscrow), in fixture order.
 const ECON_MUTANTS:[&str;8]=["carry-not-added","tip-share-to-pot","base-burn-still-burned","issued-ignored-flat-s0","carry-kept-at-final","base-burn-into-closed-pot",
     "carry-not-lagged","lagged-carry-kept-at-final"];
-/// The eighteen V3-10/V3-14 contest mutants (MinerRegistry), in fixture order.
-const CONTEST_MUTANTS:[&str;18]=["contest-threshold-off-by-one","contest-grace-ignored","contest-joined-in-epoch-allowed","contest-set-not-full-allowed",
-    "pool-contest-set-not-full-allowed","contest-late-window-open","pool-contest-erased-at-once","pool-contest-seat-kept","pool-victim-refund-counted-again",
-    "pool-victim-punish-counted-again","pool-victim-promote-counted-again","pool-victim-reactivates-without-a-pool-seat",
-    "pool-victim-held-reactivation-takes-a-pool-seat","pool-contest-held-victim",
-    "counters-not-rolled","late-not-counted","isqrt-not-floored","contest-one-reg-ops-unit"];
+/// The eight FN-2b C4 removal mutants (MinerRegistry), in fixture order.
+const REPLACE_MUTANTS:[&str;8]=["removal-below-full-set","removal-theta-off-by-one","removal-ignores-grace","removal-at-m-min",
+    "replacing-one-reg-ops-unit","replacing-no-r-max-entry","replacing-victim-erased-at-once","replacing-any-victim"];
 /// The v3 set's sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80])) of system-v3.json.
-const V3_SYS_CODE_HASH:&str="70d4a3fd1b3ea222cef3e952b05f57c20c04cd2a2014f09472d14ccb0c0da5d7";
+const V3_SYS_CODE_HASH:&str="a1d91673b4b4a2c88ff75d4828dc1932dbaa2831284a66f4b1ea77b4c5e666a2";
 
 fn b()->U256{U256::from(20*PCOL)}
 fn system()->Address{Address::from_word((U256::from(1)<<160u32).wrapping_sub(U256::from(2)).into())}
@@ -141,23 +126,22 @@ macro_rules! ensure{($c:expr,$($m:tt)*)=>{if !$c{return Err(format!($($m)*))}}}
 macro_rules! ensure_eq{($a:expr,$b:expr,$($m:tt)*)=>{{let (a,b)=(&$a,&$b);if a!=b{return Err(format!("{}: {:?} != {:?}",format!($($m)*),a,b))}}}}
 
 /// The program set the harness runs, and its CP: the earn-in harness CP (earnin_contracts.rs), plus, for a v3
-/// set, the 15 schema-v2 slots with P_MAX/T_PROB, and per-run overrides.
+/// set, the 7 schema-v2 slots, and per-run overrides.
 /// `v3`: the host conventions of the v3 program set (V3-16/V3-17: phase 0 records the parent's result before the
 /// evidence, invalidate(j, accused), punish(accused, reporter)); otherwise the spec-1 host's.
 #[derive(Clone)]
 struct Setup{registry:Bytes,escrow:Bytes,ledger:Bytes,caps:Bytes,cp_len:u64,cp:Vec<(u64,u128)>,v3:bool}
 impl Setup{
     fn earnin()->Self{Self{registry:runtime(EARNIN,"MinerRegistry"),escrow:runtime(EARNIN,"RewardEscrow"),ledger:runtime(EARNIN,"ShareLedger"),caps:runtime(EARNIN,"ChainCaps"),cp_len:52,cp:vec![],v3:false}}
-    /// R_react 16 (as the harness's R_max) and C_react 40 (= U, the least ParamGate admits) in CP 58/59; V3-10 (O-10 = b)
-    /// E_epoch 2880, theta_bp 1250 and k_sigma 3 in CP 60..62 (tests/v3_model.py DEFAULT_CP; scenarios override them).
-    fn v3(p_max:u64,t_prob:u64)->Self{
-        Self{registry:runtime(V3,"MinerRegistry"),escrow:runtime(V3,"RewardEscrow"),ledger:runtime(V3,"ShareLedger"),caps:runtime(V3,"ChainCaps"),cp_len:64,
-            cp:vec![(54,p_max.into()),(55,t_prob.into()),(58,16),(59,40),(60,2880),(61,1250),(62,3)],v3:true}
+    /// R_react 16 (as the harness's R_max) and C_react 40 (= U, the least ParamGate admits) in CP 56/57 (tests/v3_model.py
+    /// DEFAULT_CP; scenarios override them).
+    fn v3()->Self{
+        Self{registry:runtime(V3,"MinerRegistry"),escrow:runtime(V3,"RewardEscrow"),ledger:runtime(V3,"ShareLedger"),caps:runtime(V3,"ChainCaps"),cp_len:59,
+            cp:vec![(56,16),(57,40)],v3:true}
     }
     /// A planted mutant in place of the program it names.
     fn with_program(mut self,program:&str,code:Bytes)->Self{match program{"MinerRegistry"=>self.registry=code,"RewardEscrow"=>self.escrow=code,"ShareLedger"=>self.ledger=code,o=>panic!("no mutant of {o}")}self}
-    /// The model at P_MAX 64 runs M_MAX 256 and registers 65 probationers in one block (v3_model_vectors.py):
-    /// M_max, R_max and REG_OPS wide enough that only P_MAX refuses a seat.
+    /// M_max, R_max and REG_OPS wide enough for many registrations in one block.
     fn wide(mut self)->Self{self.cp.extend([(17,255),(18,256),(23,1024)]);self}
     fn with_registry(mut self,code:Bytes)->Self{self.registry=code;self}
 }
@@ -167,7 +151,7 @@ impl Setup{
 /// closeBlock, the pot closeBlock recorded) (V3-PR-E2a); `distributed`: per settled height, pot j's amount just before
 /// settle(j) or settleFinal(j) distributed it; `final_carry`: at a final block F, the carries into pots F and F+1 just
 /// before finalize (V3-15, lagged: block F-1's and F's own settle's).
-/// `view`: the result of the last contest_status step, "code,count,threshold" (V3-PR-E4).
+/// `view`: the result of the last removal_status step, the removal code (FN-2b C4).
 struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>,v3:bool,origin:Address,issued:U256,
     closed:BTreeMap<u64,(U256,U256,U256,U256)>,distributed:BTreeMap<u64,U256>,final_carry:Option<(U256,U256)>,view:Option<String>}
 /// V3-15 (lagged by one block): RewardEscrow slot 4 + (t & 1) of the v3 programs holds the carry into pot t.
@@ -367,12 +351,12 @@ impl Harness{
             "claim_bond"=>{let s=self.sender(&op[1]);self.at(num(2) as u64)?;call(&mut self.db,s,selector("claimBond()"),U256::ZERO,self.height)}
             "set_reward"=>{let s=self.sender(&op[1]);self.at(num(3) as u64)?;call(&mut self.db,s,with_arg("setRewardAddress(address)",Some(name(&op[2]))),U256::ZERO,self.height)}
             "remove_inactive"=>{let s=self.sender(&op[1]);self.at(num(3) as u64)?;call(&mut self.db,s,with_arg("removeInactive(address)",Some(name(&op[2]))),U256::ZERO,self.height)}
-            // V3-10/V3-14: registerContest(reward, victim) with the bond as value.
-            "register_contest"=>{let s=self.sender(&op[1]);self.at(num(5) as u64)?;let mut d=with_arg("registerContest(address,address)",Some(name(&op[2])));d.extend(name(&op[3]).into_word());
+            // FN-2b C4: registerReplacing(reward, victim) with the bond as value.
+            "register_replacing"=>{let s=self.sender(&op[1]);self.at(num(5) as u64)?;let mut d=with_arg("registerReplacing(address,address)",Some(name(&op[2])));d.extend(name(&op[3]).into_word());
                 call(&mut self.db,s,d,U256::from(num(4)),self.height)}
-            // V3-10: the contestStatus(victim, probation) view at the current block, kept for the caller to compare.
-            "contest_status"=>{self.at(num(3) as u64)?;
-                self.view=Some(self.try_contest_status(name(&op[1]),op[2]=="true").map_or_else(|e|e,|(c,n,t)|format!("{c},{n},{t}")));return Ok(None)}
+            // FN-2b C4: the removalStatus(victim) view at the current block, kept for the caller to compare.
+            "removal_status"=>{self.at(num(2) as u64)?;
+                self.view=Some(self.try_removal_status(name(&op[1])).map_or_else(|e|e,|c|c.to_string()));return Ok(None)}
             "sweep"=>{self.at(num(1) as u64)?;return Ok(None)}
             // A registry scenario's punish runs outside any block's evidence: no reporter (the whole bond burns, as the
             // registry model's punish), so on v3 with tx.origin zero.
@@ -382,16 +366,15 @@ impl Harness{
         };
         if res.result.is_success(){return Ok(None)}
         let out=output(&res.result);
-        let known=["BadValue","BadState","Capacity","RewardNotDurable","PaymentFailed","BadCalldata","RegOpsLimit","NotContestable","Closing","BadPhase"];
+        let known=["BadValue","BadState","Capacity","RewardNotDurable","PaymentFailed","BadCalldata","RegOpsLimit","NotRemovable","Closing","BadPhase"];
         Ok(Some(known.iter().find(|k|selector(&format!("{k}()"))==out).map(|k|k.to_string()).unwrap_or(format!("{out:?}"))))
     }
-    /// V3-10: contestStatus(victim, probation) at the current height: (code, count, threshold).
-    fn try_contest_status(&mut self,victim:Address,probation:bool)->Result<(u64,u64,U256),String>{
-        let mut d=with_arg("contestStatus(address,bool)",Some(victim));d.extend(U256::from(probation as u8).to_be_bytes::<32>());
-        let r=call(&mut self.db,name("viewer"),d,U256::ZERO,self.height);if !r.result.is_success(){return Err(format!("contestStatus reverted: {:?}",output(&r.result)))}
-        let o=output(&r.result);Ok((U256::from_be_slice(&o[0..32]).to::<u64>(),U256::from_be_slice(&o[32..64]).to::<u64>(),U256::from_be_slice(&o[64..96])))
+    /// FN-2b C4: removalStatus(victim) at the current height: the removal code.
+    fn try_removal_status(&mut self,victim:Address)->Result<u64,String>{
+        let r=call(&mut self.db,name("viewer"),with_arg("removalStatus(address)",Some(victim)),U256::ZERO,self.height);
+        if !r.result.is_success(){return Err(format!("removalStatus reverted: {:?}",output(&r.result)))}
+        Ok(U256::from_be_slice(output(&r.result)).to::<u64>())
     }
-    fn contest_status(&mut self,victim:Address,probation:bool)->(u64,u64,U256){self.try_contest_status(victim,probation).unwrap()}
     /// Escrow payTo/distribute for one owner: an ACCRUING record goes through the real accrue();
     /// HELD is paid, absent/tomb burned (unchanged v1 behaviour, modelled here).
     fn settle(&mut self,id:Address,amount:U256)->Result<(),String>{
@@ -437,7 +420,8 @@ fn scenario(name_:&str,body:&serde_json::Value,s:&Setup)->Result<Outcome,String>
     }
     let fin=&body["final"];
     ensure_eq!(reg(&h.db,4).to_string(),fin["heldTotal"].as_str().unwrap(),"{name_} heldTotal");
-    ensure_eq!(reg(&h.db,8).to::<u64>(),fin["accruing"].as_u64().unwrap(),"{name_} accruing");
+    // The earn-in model's accruing count (slot 8); FN-2b: the v3 set writes none.
+    ensure_eq!(reg(&h.db,8).to::<u64>(),if s.v3{0}else{fin["accruing"].as_u64().unwrap()},"{name_} accruing");
     let burned=storage(&h.db,escrow_address(),U256::ZERO)+h.burned;
     ensure_eq!(burned.to_string(),fin["burned"].as_str().unwrap(),"{name_} burned");
     let active:BTreeSet<Address>=(0..reg(&h.db,1).to::<u64>()).map(|i|Address::from_word(storage(&h.db,registry_address(),base(6)+U256::from(i)).into())).collect();
@@ -496,37 +480,81 @@ fn v3_model_differs(vectors:&str,label:&str)->BTreeSet<String>{
     }).map(|(n,_)|n.clone()).collect()
 }
 
+/// The earn-in scenarios whose results differ on v3 (tests/v3_model.py EARNIN_ON_V3_DIFFER): "top-up" (V3-08: a second
+/// topUp from one identity in one block), "probation-seats" (FN-2b: no probation pool, so the ninth probationer registers)
+/// and "deadline" (FN-2b C3: no probation deadline, so nothing exits at registeredAt + T_PROB; its steps agree and its final
+/// records differ).
+const EARNIN_DIFFER_ON_V3:[&str;3]=["deadline","probation-seats","top-up"];
 #[test]
-fn v3_set_at_the_earnin_values_is_behaviour_equal_to_the_earnin_set(){
+fn v3_set_is_behaviour_equal_to_the_earnin_set_outside_v3_08_and_fn_2b(){
     let earnin=replay(VECTORS,&Setup::earnin()).unwrap();
-    let v3_setup=Setup::v3(Probation::EARNIN.seats,Probation::EARNIN.blocks);
-    // The v3 set reproduces every earn-in scenario as the v3 model runs it. The two models give the same step results
-    // everywhere except "top-up", whose second topUp from one identity in one block is the maintenance operation
-    // V3-08 refuses (tests/v3_model.py earnin_on_v3 asserts that the first difference is that RegOpsLimit).
+    let v3_setup=Setup::v3();
+    // The v3 set reproduces every earn-in scenario as the v3 model runs it; the step results differ only in "top-up"
+    // (RegOpsLimit, V3-08) and "probation-seats" (the ninth probation registration lands: no pool).
     assert_eq!(earnin_on_v3("earnin",&v3_setup),Ok(8),"every model scenario replayed");
-    assert_eq!(v3_model_differs(VECTORS,"earnin"),BTreeSet::from(["top-up".to_string()]));
-    // Every other scenario: the earn-in model's own results, and the same storage and balances as on the earn-in set.
+    assert_eq!(v3_model_differs(VECTORS,"earnin"),BTreeSet::from(["probation-seats".to_string(),"top-up".to_string()]));
+    // Every other scenario but "deadline": the earn-in model's own results, and the same storage and balances as on the
+    // earn-in set. "deadline" (and "probation-seats") fail the earn-in model's own vectors on v3: no deadline exit, no pool.
     let v:serde_json::Value=serde_json::from_str(VECTORS).unwrap();
-    let mut v3=BTreeMap::new();
-    for (n,body) in v.as_object().unwrap(){if body.get("steps").is_some()&&n!="top-up"{v3.insert(n.clone(),scenario(n,body,&v3_setup).unwrap());}}
-    assert_eq!(v3.len(),7);
+    let mut v3=BTreeMap::new();let mut differ=BTreeSet::new();
+    for (n,body) in v.as_object().unwrap(){
+        if body.get("steps").is_none(){continue}
+        match scenario(n,body,&v3_setup){Ok(o)=>{v3.insert(n.clone(),o);}Err(e)=>{eprintln!("{n} differs on v3: {e}");differ.insert(n.as_str());}}
+    }
+    assert_eq!(differ,BTreeSet::from(EARNIN_DIFFER_ON_V3),"the earn-in scenarios v3 runs differently");
+    assert_eq!(v3.len(),5);
     let mut e1_keys=0;
     for (name_,got) in &v3{
         let want=&earnin[name_];
         assert_eq!(got.steps,want.steps,"{name_}: every step's result");
-        // V3-08/V3-09 state, and only it, differs: the budget slot 9, the clocks in w1 bits 160..255 (and the V3-10
-        // epoch counters in w0 bits 216..255, which these scenarios never write: no recordShares runs) of every identity
-        // and slot 3's per-block counters (bits 0..23, which every beginBlock clears). The earn-in set has none of the
-        // first two.
+        // V3-08/V3-09 state, and only it, differs: the budget slot 9, the clocks in w1 bits 160..255 of every identity and
+        // slot 3's per-block counters (bits 0..23, which every beginBlock clears). The earn-in set has none of the first two.
         let (g,extra)=without_budget_state(&got.registry,&got.ids);let (w,none)=without_budget_state(&want.registry,&want.ids);
         assert!(none.is_empty(),"{name_}: the earn-in registry holds no V3-08/V3-09 state: {none:?}");
         e1_keys+=extra.len();
-        assert_eq!(g,w,"{name_}: identical MinerRegistry storage outside the V3-08/V3-09 state");
+        // The v3 set keeps no accruing count: the earn-in set's slot 8 is the only other difference.
+        let (mut g,mut w)=(g,w);let acc=w.remove(&U256::from(8));g.remove(&U256::from(8));
+        assert!(!got.registry.contains_key(&U256::from(8)),"{name_}: the v3 registry never writes slot 8");
+        if let Some(a)=acc{assert!(!a.is_zero());}
+        assert_eq!(g,w,"{name_}: identical MinerRegistry storage outside the V3-08/V3-09 state and the accruing count");
         assert_eq!(got.escrow,want.escrow,"{name_}: identical RewardEscrow storage");
         assert_eq!(got.balances,want.balances,"{name_}: identical balances");
     }
-    // The model scenarios top up and reactivate, so the v3 set did keep budget state (the projection is not vacuous).
+    // The model scenarios reactivate, so the v3 set did keep budget state (the projection is not vacuous).
     assert!(e1_keys>0,"no V3-08/V3-09 state was written");
+}
+
+/// FN-2b C3 (owner 10c): no probation deadline on the v3 set. A zero-bond record registered at 10 tops up, exits and
+/// reactivates far past the earn-in deadline (60,480 blocks) and is never swept out; the earn-in set exits it at
+/// registeredAt + 60,480 and refuses the top-up there. ACCRUING newcomers have no pool of their own: at M_max 4 three
+/// zero-bond registrations fill the set and a fourth (or a full bond) is refused only by M_max (Capacity).
+#[test]
+fn v3_set_has_no_probation_pool_and_no_deadline(){
+    for (v3,s) in [(false,Setup::earnin()),(true,Setup::v3())]{
+        let mut h=Harness::new(&["rd".to_string()],&s);let a=name("d");
+        assert_eq!(h.step(&strs(&["register","d","rd",&PCOL.to_string(),"10"])).unwrap(),None);
+        assert_eq!(h.step(&strs(&["top_up","d","1","60489"])).unwrap(),None,"the last earn-in probation block");
+        let at=h.step(&strs(&["top_up","d","1","60490"])).unwrap();
+        if v3{
+            assert_eq!(at,None,"no deadline: a top-up at registeredAt + 60,480");
+            assert_eq!((bits(h.record(a).0,0,8),bits(h.record(a).0,16,8)),(1,4),"still an active ACCRUING record");
+            assert_eq!(h.step(&strs(&["top_up","d","1","1000000"])).unwrap(),None);
+            assert_eq!(h.step(&strs(&["deregister","d","1000001"])).unwrap(),None);
+            assert_eq!(h.step(&strs(&["reactivate","d","1000033"])).unwrap(),None,"an ACCRUING record reactivates without a deadline");
+            assert_eq!(bits(h.record(a).0,0,8),1);
+        }else{
+            assert_eq!(at.as_deref(),Some("BadState"),"the earn-in deadline");
+            assert_eq!(bits(h.record(a).0,0,8),2,"the earn-in sweep exited it at the deadline");
+        }
+    }
+    let mut s=Setup::v3();s.cp.push((18,4));
+    let mut h=Harness::new(&[],&s);
+    for x in ["p1","p2","p3"]{assert_eq!(h.step(&strs(&["register",x,x,"0","1"])).unwrap(),None,"{x}: zero bond, ACCRUING within M_max");}
+    assert_eq!(h.step(&strs(&["register","p4","p4","0","1"])).unwrap().as_deref(),Some("Capacity"),"M_max, not a pool");
+    assert_eq!(h.step(&strs(&["register","p5","p5",&b().to_string(),"1"])).unwrap().as_deref(),Some("Capacity"));
+    assert_eq!(reg(&h.db,8),U256::ZERO,"no accruing count");
+    let r=call(&mut h.db,name("viewer"),selector("accruingCount()"),U256::ZERO,1);
+    assert!(!r.result.is_success(),"the accruingCount view is gone");
 }
 
 /// Splits the V3-08/V3-09 state out of a Registry storage map: slot 9 and the clock bits (w1 160..255; w0 216..255, the
@@ -545,89 +573,87 @@ fn without_budget_state(m:&BTreeMap<U256,U256>,ids:&BTreeSet<Address>)->(BTreeMa
 }
 
 #[test]
-fn v3_set_reads_p_max_and_t_prob_from_the_cp(){
-    let p64=Setup::v3(64,86_400).wide();
-    let v:serde_json::Value=serde_json::from_str(VECTORS_P64).unwrap();
-    assert_eq!(v["params"],serde_json::json!({"P_MAX":64,"T_PROB":86400,"M_MAX":256}));
-    // Every model scenario at P_MAX 64 / T_PROB 86400, as the v3 model runs them; outside "top-up" (V3-08, above) also
-    // with the earn-in model's own results.
-    assert_eq!(earnin_on_v3("earnin-p64",&p64),Ok(8),"every model scenario at P_MAX 64 / T_PROB 86400");
-    assert_eq!(v3_model_differs(VECTORS_P64,"earnin-p64"),BTreeSet::from(["top-up".to_string()]));
-    for (n,body) in v.as_object().unwrap(){if body.get("steps").is_some()&&n!="top-up"{scenario(n,body,&p64).unwrap();}}
-    // The earn-in set keeps its constants 8 and 60480 whatever the CP says: it fails the same vectors at the
-    // 9th probation seat. (The model's deadline scenario checks only final states, which both deadlines reach;
-    // the deadline itself is probed block by block below.)
-    let mut fails=BTreeSet::new();
-    for (scenario_,body) in v.as_object().unwrap(){
-        if body.get("steps").is_none(){continue}
-        if scenario(scenario_,body,&Setup::earnin().wide()).is_err(){fails.insert(scenario_.as_str());}
-    }
-    assert_eq!(fails,BTreeSet::from(["probation-seats"]));
-    // And the v3 set at the O-14=b values fails the earn-in vectors at the 9th seat and at their deadline (whose
-    // last sweep, 2·60480+90, still precedes a deadline of 86400 blocks after the second registration). "top-up"
-    // differs on any v3 CP (V3-08), so it is no evidence of CP reads and is left out here.
-    let v:serde_json::Value=serde_json::from_str(VECTORS).unwrap();let mut fails=BTreeSet::new();
-    for (scenario_,body) in v.as_object().unwrap(){
-        if body.get("steps").is_none()||scenario_=="top-up"{continue}
-        if scenario(scenario_,body,&p64).is_err(){fails.insert(scenario_.as_str());}
-    }
-    assert_eq!(fails,BTreeSet::from(["deadline","probation-seats"]));
-    // The deadline, block by block: a probation record registered at 10 tops up at 10+T_PROB-1, is swept out by
-    // markClose at 10+T_PROB, and cannot top up there. T_PROB is the earn-in constant on the earn-in set
-    // whatever the CP holds, and the CP value on the v3 set.
-    for (s,t) in [(Setup::earnin(),60_480u64),(Setup::v3(8,60_480),60_480),(Setup::v3(64,86_400),86_400),(Setup::v3(64,1_000),1_000)]{
-        let mut h=Harness::new(&["rd".to_string()],&s);let a=name("d");
-        assert_eq!(h.step(&["register".into(),"d".into(),"rd".into(),PCOL.to_string(),"10".into()]).unwrap(),None);
-        assert_eq!(h.step(&["top_up".into(),"d".into(),"1".into(),(10+t-1).to_string()]).unwrap(),None,"T_PROB {t}: last probation block");
-        assert_eq!((bits(h.record(a).0,0,8),bits(h.record(a).0,16,8)),(1,4),"T_PROB {t}: still an active probation record");
-        assert_eq!(h.step(&["top_up".into(),"d".into(),"1".into(),(10+t).to_string()]).unwrap().as_deref(),Some("BadState"),"T_PROB {t}: deadline");
-        assert_eq!(bits(h.record(a).0,0,8),2,"T_PROB {t}: the sweep exited it at the deadline");
-    }
-    // Edges: P_MAX 0 refuses every probation seat (the full bond still registers); T_PROB 1 ends probation in the
-    // block after registration, so a top-up there is BadState.
-    let mut h=Harness::new(&[],&Setup::v3(0,60_480));h.at(1).unwrap();
-    let a=h.sender("edge-a");assert_eq!(h.step(&["register".into(),"edge-a".into(),"edge-a".into(),"0".into(),"1".into()]).unwrap().as_deref(),Some("Capacity"));
-    assert_eq!(h.step(&["register".into(),"edge-a".into(),"edge-a".into(),b().to_string(),"1".into()]).unwrap(),None);
-    assert_eq!(bits(h.record(a).0,16,8),1,"HELD");
-    let mut h=Harness::new(&[],&Setup::v3(8,1));
-    assert_eq!(h.step(&["register".into(),"edge-b".into(),"edge-b".into(),"0".into(),"5".into()]).unwrap(),None);
-    assert_eq!(h.step(&["top_up".into(),"edge-b".into(),"1".into(),"5".into()]).unwrap(),None,"inside the probation block");
-    assert_eq!(h.step(&["top_up".into(),"edge-b".into(),"1".into(),"6".into()]).unwrap().as_deref(),Some("BadState"),"registeredAt + T_PROB");
-}
-
-#[test]
 fn chain_caps_serves_exactly_the_v2_cp(){
     let read=|s:&Setup,n:u64|{let mut h=Harness::new(&[],s);let mut d=selector("get(uint256)");d.extend(U256::from(n).to_be_bytes::<32>());
         let r=call_to(&mut h.db,name("reader"),caps(),d,U256::ZERO,1);r.result.is_success().then(||U256::from_be_slice(output(&r.result)))};
-    let v3=Setup::v3(64,86_400);
-    assert_eq!(read(&v3,54),Some(U256::from(64)));assert_eq!(read(&v3,55),Some(U256::from(86_400)));
-    assert_eq!(read(&v3,63),Some(U256::ZERO));assert_eq!(read(&v3,64),None,"slot 64 is outside CP schema v2 (FN-2a: F0_* deleted)");
+    let v3=Setup::v3();
+    assert_eq!(read(&v3,56),Some(U256::from(16)));assert_eq!(read(&v3,57),Some(U256::from(40)));
+    assert_eq!(read(&v3,58),Some(U256::ZERO));assert_eq!(read(&v3,59),None,"slot 59 is outside CP schema v2 (FN-2a, FN-2b deletions)");
     assert_eq!(read(&Setup::earnin(),51),Some(U256::ZERO));assert_eq!(read(&Setup::earnin(),52),None,"the earn-in ChainCaps keeps its 52-field bound");
-    assert_eq!(pocol_lp4_execution::genesis_spec::CP_SCHEMA_V2.len(),64);
-    assert_eq!((pocol_lp4_execution::genesis_spec::cp_index_for(2,"P_MAX"),pocol_lp4_execution::genesis_spec::cp_index_for(2,"T_PROB")),(Some(54),Some(55)));
+    assert_eq!(genesis_spec::CP_SCHEMA_V2.len(),59);
+    for gone in ["P_MAX","T_PROB","E_epoch","theta_bp","k_sigma","F0_acct","F0_slot","F0_code"]{assert_eq!(genesis_spec::cp_index_for(2,gone),None,"{gone}");}
     // The harness's (and tests/v3_model.py's) named indices are the schema's own: a renumbering missed here would
     // install every scenario's field in the wrong ChainCaps slot.
-    for f in ["D","R_max","M_max","M_min","SWEEP_MAX","SWEEP_SCAN","REG_OPS","W_act","Theta_inact","E_win","U","P_MAX","T_PROB","R_react","C_react",
-        "E_epoch","theta_bp","k_sigma","m","kappa","S_max","W_w","alpha_bp","gamma_bp","H_half","S_tail","gamma_tip_bp","rho_bp"]{
+    for f in ["D","R_max","M_max","M_min","SWEEP_MAX","SWEEP_SCAN","REG_OPS","W_act","Theta_inact","E_win","U","R_react","C_react",
+        "m","kappa","S_max","W_w","alpha_bp","gamma_bp","H_half","S_tail","gamma_tip_bp","rho_bp"]{
         assert_eq!(Some(cp_index(f) as usize),pocol_lp4_execution::genesis_spec::cp_index_for(2,f),"{f}");}
     assert_eq!(Some(cp_index("S0") as usize),pocol_lp4_execution::genesis_spec::cp_index_for(2,"subsidy"));
 }
 
+/// FN-2b (the CP renumbering): every CP index PoColSystemV3.sol names is the schema's. A missed index would make
+/// closeBlock, burnBond or a registry path read the wrong field (or revert in ChainCaps), and so make every v3 block
+/// invalid. Checked on the source text the committed bytecode is compiled from (compile_system_v3.cjs, byte-for-byte in
+/// CI): ChainCaps' bound is the schema length; each named constant CP_<FIELD>=n is that field's index; every literal
+/// cfg(n) above the v1 prefix is one of the two v3 fields the programs read by number, at its use; and every literal
+/// cfg(n) below it is a v1 field the programs read (the v1 prefix is unchanged by CP schema v2).
 #[test]
-fn the_six_planted_mutants_fail_on_the_v3_set(){
+fn every_cp_index_of_the_v3_source_matches_the_schema(){
+    let idx=|f:&str|genesis_spec::cp_index_for(2,f).unwrap_or_else(||panic!("{f} not in CP schema v2"));
+    // ChainCaps: require(n<59), the CP schema v2 length.
+    assert!(V3_SOURCE.contains(&format!("require(n<{});",genesis_spec::CP_V2_LEN)),"ChainCaps' bound is not CP_V2_LEN {}",genesis_spec::CP_V2_LEN);
+    assert_eq!(V3_SOURCE.matches("require(n<").count(),1);
+    // Named constants.
+    let named=[("CP_R_REACT","R_react"),("CP_C_REACT","C_react")];
+    let mut seen=BTreeSet::new();
+    for line in V3_SOURCE.lines(){
+        let t=line.trim();
+        if let Some(rest)=t.strip_prefix("uint256 constant CP_"){
+            let (n,v)=rest.split_once('=').unwrap();let v:usize=v.trim_end_matches(';').parse().unwrap();
+            let (_,field)=named.iter().find(|(c,_)|c[3..]==*n).unwrap_or_else(||panic!("an unchecked named CP index CP_{n}"));
+            assert_eq!(v,idx(field),"CP_{n}");seen.insert(n.to_string());
+        }
+    }
+    assert_eq!(seen.len(),named.len(),"every named CP index found: {seen:?}");
+    // Literal indices: each cfg(n) / Sys.cfg(n).
+    let mut literals=BTreeMap::<usize,usize>::new();
+    for (i,_) in V3_SOURCE.match_indices("cfg("){
+        let rest=&V3_SOURCE[i+4..];let end=rest.find(')').unwrap();
+        if let Ok(n)=rest[..end].parse::<usize>(){*literals.entry(n).or_default()+=1;}
+    }
+    let v2:BTreeMap<usize,usize>=literals.iter().filter(|(n,_)|**n>=genesis_spec::CP_LEN).map(|(n,c)|(*n,*c)).collect();
+    assert_eq!(v2,BTreeMap::from([(idx("gamma_tip_bp"),1),(idx("rho_bp"),1)]),"the literal CP v2 indices");
+    assert!(V3_SOURCE.contains(&format!("tips*Sys.cfg({})/10000",idx("gamma_tip_bp"))),"closeBlock's tip share reads gamma_tip_bp");
+    assert!(V3_SOURCE.contains(&format!("amount*Sys.cfg({})/10000",idx("rho_bp"))),"burnBond's reporter cut reads rho_bp");
+    let v1=["m","kappa","S_max","D","W_w","alpha_bp","gamma_bp","B_reg","R_max","M_max","M_min","REG_RECORDS_MAX","SWEEP_MAX","SWEEP_SCAN",
+        "REG_OPS","W_act","Theta_inact","E_win","U","H_CLOSE","T_CLOSE","RET"].map(|f|genesis_spec::cp_index_for(1,f).unwrap_or_else(||panic!("{f}")));
+    for n in literals.keys().filter(|n|**n<genesis_spec::CP_LEN){assert!(v1.contains(n),"cfg({n}) is not a v1 field the programs read");}
+}
+
+/// EIP-170: every v3 runtime, MinerRegistry in particular (the largest), stays within 24,576 bytes (tooling and the
+/// CREATE rule other EVM clients apply), with room to spare after FN-2b.
+#[test]
+fn the_v3_programs_fit_eip_170(){
+    let j:serde_json::Value=serde_json::from_str(V3).unwrap();
+    for p in j["programs"].as_array().unwrap(){
+        let n=(p["runtime"].as_str().unwrap().len()-2)/2;eprintln!("EIP-170 {} {n} bytes",p["name"]);
+        assert!(n<=24_576,"{} is {n} bytes",p["name"]);
+    }
+    assert!(runtime(V3,"MinerRegistry").len()<=24_576);
+}
+
+#[test]
+fn the_planted_earnin_mutants_fail_on_the_v3_set(){
     let list=mutants();
-    assert_eq!(list.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..1],&LATE_MUTANTS[..2],&CONTEST_MUTANTS[..]].concat(),"the MinerRegistry mutants");
+    assert_eq!(list.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..1],&LATE_MUTANTS[..2],&REPLACE_MUTANTS[..]].concat(),"the MinerRegistry mutants");
     let list=&list[..EARNIN_MUTANTS.len()];
     let j:serde_json::Value=serde_json::from_str(MUTANTS).unwrap();let v3:serde_json::Value=serde_json::from_str(V3).unwrap();
     assert_eq!((&j["compiler"],&j["settings"]),(&v3["compiler"],&v3["settings"]),"mutants built by the same compiler and settings");
     let original=runtime(V3,"MinerRegistry");
     for (n,code) in list{
         assert_ne!(code,&original,"{n} changes the bytecode");
-        let base=earnin_on_v3("earnin",&Setup::v3(8,60_480).with_registry(code.clone()));
-        let p64=earnin_on_v3("earnin-p64",&Setup::v3(64,86_400).wide().with_registry(code.clone()));
-        assert!(base.is_err(),"mutant {n} survives the earn-in vectors at P_MAX 8 / T_PROB 60480");
-        assert!(p64.is_err(),"mutant {n} survives the vectors at P_MAX 64 / T_PROB 86400");
-        eprintln!("mutant {n}: killed ({}; {})",base.err().unwrap(),p64.err().unwrap());
+        let base=earnin_on_v3("earnin",&Setup::v3().with_registry(code.clone()));
+        assert!(base.is_err(),"mutant {n} survives the earn-in vectors as the v3 model runs them");
+        eprintln!("mutant {n}: killed ({})",base.err().unwrap());
     }
 }
 
@@ -653,22 +679,24 @@ fn ceilings(s:&Setup)->((usize,usize,usize,usize,usize),u64,u64){
 #[test]
 fn wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set(){
     let (earn_writes,earn_reg,earn_top)=ceilings(&Setup::earnin());
-    for s in [Setup::v3(8,60_480),Setup::v3(64,86_400)]{
+    for s in [Setup::v3()]{
         let (writes,reg_gas,top_gas)=ceilings(&s);
         eprintln!("v3 CEILINGS {writes:?} (earn-in {earn_writes:?}) gas: register-zero={reg_gas} (earn-in {earn_reg}) topUp-promote-with-return={top_gas} (earn-in {earn_top})");
         assert_eq!(earn_writes,(11,3,5,2,4));
         // V3-08: a topUp is maintenance, so it also writes lastMaintHeight (w1 bits 224..255 since V3-PR-E4) and the
-        // budget slot 9 where the earn-in set writes slot 3: one slot more for a plain topUp, and for a promoting topUp
-        // (which writes w0 for the promotion anyway); registration and accrual are unchanged.
-        assert_eq!(writes,(11,4,6,2,4));
+        // budget slot 9 where the earn-in set writes slot 3: one slot more for a plain topUp. FN-2b: no accruing count
+        // (slot 8), so an ACCRUING registration and a promotion (by topUp or accrual) each write one slot less; a
+        // promoting topUp's two V3-08 slots and its missing count write net out.
+        assert_eq!(writes,(10,4,5,2,3));
         // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for an earn-in/v3 registration and
         // REGISTRY_GAS (1,000,000) for a top-up; 200,000 is the tighter top-up bound kept from
         // earnin_contracts.rs, so both quotes keep their margin. The cfg() reads add only a few
         // thousand gas.
         assert!(reg_gas<=400_000&&top_gas<=200_000,"register {reg_gas}, topUp {top_gas}");
-        // The difference is the cfg(P_MAX) read (V3-14) and the cold read of the budget slot 9 (2,100 gas, V3-08), which
-        // a registration needs for REG_OPS less the maintenance used.
-        assert!(reg_gas>=earn_reg&&reg_gas-earn_reg<=7_500,"register gas {reg_gas} vs earn-in {earn_reg}");
+        // A zero-bond registration costs less than on the earn-in set: FN-2b removed the probation-pool check (the
+        // cfg(P_MAX) read and the accruing count's read and write), more than the cold read of the V3-08 budget slot 9
+        // (2,100 gas) it adds for REG_OPS less the maintenance used.
+        assert!(reg_gas<earn_reg&&earn_reg-reg_gas<=25_000,"register gas {reg_gas} vs earn-in {earn_reg}");
     }
 }
 
@@ -698,12 +726,12 @@ fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
     for (kind,h) in [(ProgramSet::V1,v1),(ProgramSet::Continuous,continuous),(ProgramSet::EarnIn,earnin)]{
         for cp in [&spec1,&spec2]{assert_eq!(SystemPrograms::program_set(cp,&h.0),kind);assert_eq!(SystemPrograms::for_spec(cp,&h.0).sys_code_hash(),h);}
     }
-    assert_eq!(ProgramSet::EarnIn.probation(&spec2),Some(Probation{seats:8,blocks:60_480}));
-    assert_eq!(ProgramSet::V3.probation(&spec2),Some(Probation{seats:u64::from(spec2.P_MAX),blocks:u64::from(spec2.T_PROB)}));
-    assert_eq!((ProgramSet::V1.probation(&spec1),ProgramSet::Continuous.probation(&spec1)),(None,None));
+    // FN-2b: the probation pool is the earn-in set's alone.
+    assert_eq!(ProgramSet::EarnIn.probation(),Some(Probation{seats:8,blocks:60_480}));
+    assert_eq!((ProgramSet::V3.probation(),ProgramSet::V1.probation(),ProgramSet::Continuous.probation()),(None,None,None));
 }
 
-/// The v3 contracts read CP fields 52..63 as 0 on a 52-field CP (P_MAX 0, T_PROB 0), so nothing in the programs
+/// The v3 contracts read CP fields 52..58 as 0 on a 52-field CP (H_half 0, R_react 0, rho_bp 0), so nothing in the programs
 /// themselves keeps them off a spec-1 genesis: the registry gate does. A spec-1 GenesisSpec that names the v3
 /// sysCodeHash, with the allocRoot the v3 programs would give it, is built here and refused by every path that
 /// turns a GenesisSpec into a genesis (admission's measurement and the gate itself), with the genesis code check.
@@ -738,25 +766,25 @@ fn a_spec1_genesis_naming_the_v3_set_is_refused_by_admission(){
 /// CP schema names of tests/v3_model.py's CP_INDEX and CHAIN_CP_INDEX.
 fn cp_index(n:&str)->u64{
     match n{"D"=>11,"R_max"=>17,"M_max"=>18,"M_min"=>19,"SWEEP_MAX"=>21,"SWEEP_SCAN"=>22,"REG_OPS"=>23,"W_act"=>24,"Theta_inact"=>25,
-        "E_win"=>26,"U"=>27,"P_MAX"=>54,"T_PROB"=>55,"R_react"=>58,"C_react"=>59,"E_epoch"=>60,"theta_bp"=>61,"k_sigma"=>62,
-        "m"=>8,"kappa"=>9,"S_max"=>10,"W_w"=>12,"alpha_bp"=>13,"gamma_bp"=>14,"S0"=>15,"H_half"=>52,"S_tail"=>53,"gamma_tip_bp"=>56,"rho_bp"=>63,
+        "E_win"=>26,"U"=>27,"R_react"=>56,"C_react"=>57,
+        "m"=>8,"kappa"=>9,"S_max"=>10,"W_w"=>12,"alpha_bp"=>13,"gamma_bp"=>14,"S0"=>15,"H_half"=>52,"S_tail"=>53,"gamma_tip_bp"=>54,"rho_bp"=>58,
         o=>panic!("unknown CP field {o}")}
 }
 fn strs(v:&[&str])->Vec<String>{v.iter().map(|x|x.to_string()).collect()}
 fn ids_of(db:&InMemoryDB,base_slot:u64,len_slot:u64)->Vec<Address>{
     (0..reg(db,len_slot).to::<u64>()).map(|i|Address::from_word(storage(db,registry_address(),base(base_slot)+U256::from(i)).into())).collect()
 }
-/// Bytecode-only conservation, independent of any model: ACC_COUNT (slot 8) is the number of live ACCRUING records
-/// that hold a pool seat (V3-14: without POOL_OUT, w0 bit 87, which only an exited pool-contest victim carries) and
-/// held_total (slot 4) the sum of live bonds, over the record array.
+/// Bytecode-only conservation, independent of any model: held_total (slot 4) is the sum of live bonds over the record
+/// array; FN-2b writes no accruing count (slot 8) and no epoch totals (slot 10), and no record uses w0 bits 216..255.
 fn conserved(h:&Harness)->Result<(),String>{
-    let (mut accruing,mut held)=(0u64,U256::ZERO);
+    let mut held=U256::ZERO;
     for id in ids_of(&h.db,5,0){
         let (w0,_,w2,_)=h.record(id);let st=bits(w0,16,8);
-        ensure!(bits(w0,87,1)==0||bits(w0,0,8)==2,"POOL_OUT on a record that is not exited");
-        if bits(w0,0,8)!=0&&bits(w0,8,8)==0&&(st==1||st==4){held+=w2;if st==4&&bits(w0,87,1)==0{accruing+=1}}
+        ensure!(w0>>216u32==U256::ZERO,"w0 bits 216..255 written");
+        if bits(w0,0,8)!=0&&bits(w0,8,8)==0&&(st==1||st==4){held+=w2;}
     }
-    ensure_eq!(reg(&h.db,8).to::<u64>(),accruing,"ACC_COUNT");ensure_eq!(reg(&h.db,4),held,"held_total");
+    if h.v3{ensure_eq!(reg(&h.db,8),U256::ZERO,"the accruing count");ensure_eq!(reg(&h.db,10),U256::ZERO,"slot 10");}
+    ensure_eq!(reg(&h.db,4),held,"held_total");
     Ok(())
 }
 /// One scenario of registry-budget-vectors.json or evidence-penalty-vectors.json on a program set; Err names the first
@@ -780,7 +808,7 @@ fn budget_run(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<Harn
             (Some(e),false)=>ensure_eq!(e.as_str(),step["revert"].as_str().unwrap(),"{name_} {op:?}"),
             _=>return Err(format!("{name_} {op:?}: contract {got:?}, model {step}")),
         }
-        if op[0]=="contest_status"{let got=h.view.take();ensure_eq!(got.as_deref(),step["result"].as_str(),"{name_} {op:?}: contestStatus (code, count, threshold)");}
+        if op[0]=="removal_status"{let got=h.view.take();ensure_eq!(got.as_deref(),step["result"].as_str(),"{name_} {op:?}: removalStatus (the removal code)");}
         conserved(&h).map_err(|e|format!("{name_} after {op:?}: {e}"))?;
         if chain{h.chain_conserved().map_err(|e|format!("{name_} after {op:?}: {e}"))?;}
     }
@@ -800,18 +828,15 @@ fn budget_run(name_:&str,body:&serde_json::Value,base_setup:&Setup)->Result<Harn
     let got=(bits(c,0,16),bits(c,16,8),if current{bits(b,0,8)}else{0},if current{bits(b,8,8)}else{0});
     let k=&fin["counters"];
     ensure_eq!(got,(k["ops"].as_u64().unwrap(),k["regs"].as_u64().unwrap(),k["maint"].as_u64().unwrap(),k["react"].as_u64().unwrap()),"{name_} counters");
-    // V3-10: the epoch totals (slot 10: epoch 0..63, its total 64..159, the previous epoch's 160..255).
-    let t=reg(&h.db,10);let tw=&fin["epochTotals"];
-    ensure_eq!((bits(t,0,64),bits(t,64,96),bits(t,160,96)),(tw["epoch"].as_u64().unwrap(),tw["cur"].as_u64().unwrap(),tw["prev"].as_u64().unwrap()),"{name_} epoch totals");
     let records=fin["records"].as_object().unwrap();
     for (n,r) in records{
         let (w0,w1,w2,w3)=h.record(name(n));
         let got=(bits(w0,0,8),bits(w0,16,8),w2.to_string(),bits(w0,8,8)!=0,bits(w0,152,64),Address::from_word(w1.into()),
-            (bits(w3,0,64),bits(w3,64,64),bits(w3,128,64),bits(w3,192,64)),bits(w0,88,64),(bits(w1,224,32),bits(w1,160,64)),(bits(w0,216,20),bits(w0,236,20)),bits(w0,87,1)!=0);
+            (bits(w3,0,64),bits(w3,64,64),bits(w3,128,64),bits(w3,192,64)),bits(w0,88,64),(bits(w1,224,32),bits(w1,160,64)),w0>>216u32,bits(w0,87,1));
         let u=|k:&str|r[k].as_u64().unwrap();
-        // V3-14: the vectors name pool_out only when it is set (POOL_OUT, w0 bit 87).
+        // FN-2b: w0 bits 216..255 (the deleted epoch counters) and bit 87 (the deleted POOL_OUT) are never written.
         let want=(u("status"),u("bond_state"),r["bond"].as_str().unwrap().to_string(),r["tomb"].as_bool().unwrap(),u("registered_at"),name(r["reward"].as_str().unwrap()),
-            (u("exit"),u("due"),u("burn"),u("grace")),u("last_share"),(u("last_maint"),u("last_react")),(u("cnt_cur"),u("cnt_prev")),r.get("pool_out").is_some_and(|x|x.as_bool().unwrap()));
+            (u("exit"),u("due"),u("burn"),u("grace")),u("last_share"),(u("last_maint"),u("last_react")),U256::ZERO,0);
         ensure_eq!(got,want,"{name_} record {n}");
         // w1 is exactly the reward address, lastReactHeight (160..223) and lastMaintHeight mod 2^32 (224..255).
         let w1_want=U256::from_be_slice(name(r["reward"].as_str().unwrap()).as_slice())|(U256::from(u("last_react"))<<160u32)|(U256::from(u("last_maint"))<<224u32);
@@ -887,31 +912,37 @@ fn budget_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
     let v:serde_json::Value=serde_json::from_str(BUDGET_VECTORS).unwrap();
     v.as_object().unwrap().iter().map(|(n,body)|(n.clone(),budget_scenario(n,body,s))).collect()
 }
-const BUDGET_SCENARIOS:[&str;12]=["acc-count-paths","attacker-cycle","maintenance-budget-many-identities","maintenance-clock-per-record",
+const BUDGET_SCENARIOS:[&str;19]=["accruing-paths","attacker-cycle","maintenance-budget-many-identities","maintenance-clock-per-record",
     "maintenance-spam-one-identity","maintenance-top-up","random-1","random-2","random-3","react-budget-and-cooldown","react-window-unswept",
-    "reg-ops-exhausted-maint-and-react"];
-
+    "reg-ops-exhausted-maint-and-react","removal-at-m-min","removal-only-at-a-full-set","replacing-budget","replacing-chain-late-credit-keeps-a-member",
+    "replacing-chain-shares-keep-a-member","replacing-chain-victim-payable-and-punishable","replacing-chain-without-the-late-credit"];
 /// Model-vs-bytecode differential: every scenario of the independent model reproduces on the v3 programs, step by
-/// step, with ACC_COUNT and held_total conserved after every step.
+/// step, with held_total conserved after every step (FN-2b: and no accruing count written).
 #[test]
 fn v3_registry_budgets_reproduce_the_independent_model(){
-    let out=budget_replay(&Setup::v3(8,60_480));
+    let out=budget_replay(&Setup::v3());
     assert_eq!(out.keys().map(|k|k.as_str()).collect::<Vec<_>>(),BUDGET_SCENARIOS);
     for (n,r) in &out{if let Err(e)=r{panic!("{n}: {e}")}}
-    // The vectors exercise what they claim: every budget refusal, the cooldown and the window.
+    // The vectors exercise what they claim: every budget refusal, the cooldown and the window, and every removal code.
     let v:serde_json::Value=serde_json::from_str(BUDGET_VECTORS).unwrap();
-    let mut seen=BTreeMap::<(String,String),usize>::new();
+    let mut seen=BTreeMap::<(String,String),usize>::new();let mut codes=BTreeSet::new();
     for body in v.as_object().unwrap().values(){for st in body["steps"].as_array().unwrap(){
         let key=(st["op"][0].as_str().unwrap().to_string(),st.get("revert").and_then(|x|x.as_str()).unwrap_or("ok").to_string());*seen.entry(key).or_default()+=1;
+        if st["op"][0]=="removal_status"{codes.insert(st["result"].as_str().unwrap().to_string());}
     }}
+    assert_eq!(codes,BTreeSet::from(["0","1","2","3","4"].map(String::from)),"every removal code");
     for (op,res) in [("set_reward","RegOpsLimit"),("top_up","RegOpsLimit"),("register","RegOpsLimit"),("deregister","RegOpsLimit"),("reactivate","RegOpsLimit"),
-        ("reactivate","BadState"),("reactivate","ok"),("claim_bond","ok"),("remove_inactive","ok"),("punish","ok"),("top_up","ok"),("set_reward","ok"),("settle_to","ok")]{
+        ("reactivate","BadState"),("reactivate","ok"),("claim_bond","ok"),("remove_inactive","ok"),("punish","ok"),("top_up","ok"),("set_reward","ok"),("settle_to","ok"),
+        // FN-2b C4: removal below a full set, registerReplacing landing and each way it is refused.
+        ("remove_inactive","BadState"),("register_replacing","ok"),("register_replacing","NotRemovable"),("register_replacing","BadState"),
+        ("register_replacing","RegOpsLimit"),("register","Capacity"),("removal_status","ok")]{
         assert!(seen.get(&(op.to_string(),res.to_string())).is_some_and(|n|*n>0),"no {op} -> {res} in the vectors");
     }
 }
 
 /// The same vectors on the earn-in set: each budget scenario differs from the v3 model there (the CP schema v2
-/// fields do not exist on its 52-field ChainCaps, so P_MAX/T_PROB/R_react/C_react scenarios run at its constants).
+/// fields do not exist on its 52-field ChainCaps, so R_react/C_react scenarios run at its constants; it has no
+/// registerReplacing and removes below a full set).
 #[test]
 fn registry_budget_vectors_fail_on_the_earnin_set(){
     let mut earnin=Setup::earnin();earnin.cp_len=52;
@@ -931,8 +962,9 @@ fn registry_budget_vectors_fail_on_the_earnin_set(){
 /// spammer is still evictable in the same block.
 #[test]
 fn one_identity_spamming_set_reward_address_freezes_earnin_joins_but_not_v3(){
-    for (v3,mut s) in [(false,Setup::earnin()),(true,Setup::v3(8,60_480))]{
-        s.cp.extend([(23,16),(17,1)]);
+    for (v3,mut s) in [(false,Setup::earnin()),(true,Setup::v3())]{
+        // M_max 3: m0, s and the newcomer fill the set, where v3 removes an inactive member (FN-2b C4).
+        s.cp.extend([(23,16),(17,1),(18,3)]);
         let mut h=Harness::new(&strs(&["x"]),&s);
         assert_eq!(h.step(&strs(&["register","s","s",&b().to_string(),"1"])).unwrap(),None);
         let spam:Vec<Option<String>>=(0..16).map(|_|h.step(&strs(&["set_reward","s","x","100"])).unwrap()).collect();
@@ -958,7 +990,7 @@ fn one_identity_spamming_set_reward_address_freezes_earnin_joins_but_not_v3(){
 #[test]
 fn deregister_reactivate_cycle_holds_the_entry_slot_on_earnin_but_not_v3(){
     let (records,start,attack)=(33u64,40u64,40u64);let first=start+records-1;
-    for (v3,mut s) in [(false,Setup::earnin()),(true,Setup::v3(8,60_480))]{
+    for (v3,mut s) in [(false,Setup::earnin()),(true,Setup::v3())]{
         s.cp.extend([(23,16),(17,1),(18,128)]);
         let mut h=Harness::new(&[],&s);
         for i in 0..records{assert_eq!(h.step(&strs(&["register",&format!("a{i}"),&format!("a{i}"),&b().to_string(),&(1+i).to_string()])).unwrap(),None);}
@@ -996,7 +1028,7 @@ fn the_registry_budget_mutants_fail_the_v3_vectors(){
     assert_eq!(budget.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),BUDGET_MUTANTS);
     for (n,code) in budget{
         assert_ne!(code,&original,"{n} changes the bytecode");
-        let out=budget_replay(&Setup::v3(8,60_480).with_registry(code.clone()));
+        let out=budget_replay(&Setup::v3().with_registry(code.clone()));
         let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
         eprintln!("mutant {n}: killed by {killed:?}");
         assert!(!killed.is_empty(),"mutant {n} survives the registry-budget vectors");
@@ -1038,6 +1070,8 @@ fn user_path_writes(s:&Setup)->([usize;8],u64,u64){
     h.at(34).unwrap();
     let react=go(&mut h,ids[1],selector("reactivate()"),U256::ZERO,"reactivate");
     h.at(100).unwrap();
+    // FN-2b C4: removeInactive needs a full set: M_max = the six active records (the earn-in set does not read it).
+    let full=U256::from(apply_active(&h).len());put(&mut h.db,caps(),U256::from(18),full);
     let last=*apply_active(&h).last().unwrap();
     let remove_tail=go(&mut h,ids[0],with_arg("removeInactive(address)",Some(last)),U256::ZERO,"removeInactive tail");
     // claimBond needs a record the sweep has not refunded at its due height: a harness whose beginBlock deletes
@@ -1062,7 +1096,7 @@ fn apply_active(h:&Harness)->Vec<Address>{ids_of(&h.db,6,1)}
 /// reactivation; setRewardAddress's clock shares w1 with the reward address), and nothing elsewhere.
 #[test]
 fn v3_registry_write_ceilings(){
-    let (earn,earn_reg,earn_gas)=user_path_writes(&Setup::earnin());let (v3,v3_reg,v3_gas)=user_path_writes(&Setup::v3(8,60_480));
+    let (earn,earn_reg,earn_gas)=user_path_writes(&Setup::earnin());let (v3,v3_reg,v3_gas)=user_path_writes(&Setup::v3());
     eprintln!("WRITE-CEILINGS register,reward,deregister-middle,deregister-tail,reactivate,removeInactive-tail,claim-middle,claim-tail earn-in {earn:?} v3 {v3:?}; gas register earn-in {earn_reg} v3 {v3_reg}, other paths earn-in {earn_gas} v3 {v3_gas}");
     // The earn-in counts are REGISTRY-LAYOUT.md's register10, reward2, deactivate middle7/tail5, reactivate5,
     // claim middle10/tail8.
@@ -1086,7 +1120,7 @@ fn v3_registry_write_ceilings(){
 fn v3_sweep_deletions_keep_the_sys_envelope(){
     let envelope=pocol_lp4_execution::admission::GAS_ENVELOPE.iter().find(|(n,_)|*n=="beginBlock").unwrap().1;
     let mut out=Vec::new();
-    for s in [Setup::earnin().wide(),Setup::v3(8,60_480).wide()]{
+    for s in [Setup::earnin().wide(),Setup::v3().wide()]{
         let mut h=Harness::new(&[],&s);
         let n=80u64;let ids:Vec<Address>=(0..n).map(|i|h.sender(&format!("sw{i}"))).collect();
         h.at(1).unwrap();
@@ -1106,10 +1140,9 @@ fn v3_sweep_deletions_keep_the_sys_envelope(){
     eprintln!("SWEEP 16 deletions: earn-in {:?} v3 {:?}; GAS_ENVELOPE beginBlock {envelope}",out[0],out[1]);
     assert_eq!(out[1].0,out[0].0,"the same changed slots per deletion");
     assert!(out[1].1<=envelope,"v3 beginBlock {} gas above the admission envelope {envelope}",out[1].1);
-    // The v3 worst case at the program caps: all 64 scans and 16 deletions, the first 48 scans over active probation
-    // records (each reads T_PROB through cfg), then 16 refunds of ACCRUING records with clocks (each also lowers
-    // ACC_COUNT).
-    let mut h=Harness::new(&[],&Setup::v3(64,86_400).wide());h.at(1).unwrap();
+    // The v3 worst case at the program caps: all 64 scans and 16 deletions, the first 48 scans over active ACCRUING
+    // records (FN-2b: no deadline to read), then 16 refunds of ACCRUING records with clocks.
+    let mut h=Harness::new(&[],&Setup::v3().wide());h.at(1).unwrap();
     let probation:Vec<Address>=(0..47).map(|i|h.sender(&format!("pp{i}"))).collect();
     let held:Vec<Address>=(0..16).map(|i|h.sender(&format!("ph{i}"))).collect();
     for a in &probation{let r=call(&mut h.db,*a,with_arg("register(address)",Some(*a)),U256::ZERO,1);changed(&r,"register probation");}
@@ -1135,13 +1168,13 @@ fn v3_sweep_deletions_keep_the_sys_envelope(){
 #[test]
 fn record_clocks_layout_and_views(){
     let wrap=1u64<<32;
-    let mut h=Harness::new(&strs(&["x"]),&Setup::v3(8,60_480));
+    let mut h=Harness::new(&strs(&["x"]),&Setup::v3());
     for (op,want) in [(vec!["register","s","s",&b().to_string(),"1"],None),(vec!["set_reward","s","x","5"],None),
         (vec!["deregister","s","6"],None),(vec!["reactivate","s","38"],None)]{
         assert_eq!(h.step(&strs(&op)).unwrap(),want,"{op:?}");
     }
     let s=name("s");let (w0,w1,_,_)=h.record(s);
-    assert_eq!((bits(w1,224,32),bits(w1,160,64),w0>>216),(5,38,U256::ZERO),"the clocks in w1; w0's counters bits untouched by maintenance");
+    assert_eq!((bits(w1,224,32),bits(w1,160,64),w0>>216),(5,38,U256::ZERO),"the clocks in w1; w0 bits 216..255 untouched by maintenance");
     assert_eq!(Address::from_word(w1.into()),name("x"),"the reward address keeps its bits");
     let view=|h:&mut Harness,sig:&str|{let r=call(&mut h.db,name("viewer"),with_arg(sig,Some(s)),U256::ZERO,h.height);assert!(r.result.is_success());output(&r.result).to_vec()};
     let words=view(&mut h,"recordWords(address)");
@@ -1202,11 +1235,11 @@ fn gain(h:&Harness,n:&str)->U256{
 }
 
 /// Model-vs-bytecode differential: every chain scenario of the independent model reproduces on the v3 programs step by
-/// step (each block's phase 0 in the v3 order, its user transactions and phase 2), with ACC_COUNT, held_total, the Escrow
+/// step (each block's phase 0 in the v3 order, its user transactions and phase 2), with held_total (and no accruing count), the Escrow
 /// invariant (with equality) and the supply conserved after every step, and every pot, record and payment at the end.
 #[test]
 fn v3_evidence_penalties_reproduce_the_independent_model(){
-    let out=evidence_replay(&Setup::v3(8,60_480));
+    let out=evidence_replay(&Setup::v3());
     assert_eq!(out.keys().map(|k|k.as_str()).collect::<Vec<_>>(),EVIDENCE_SCENARIOS);
     for (n,r) in &out{if let Err(e)=r{panic!("{n}: {e}")}}
     // The vectors exercise what they claim: whole-pot burns and normal settlements of pots with type-2 evidence, both
@@ -1230,7 +1263,7 @@ fn v3_evidence_penalties_reproduce_the_independent_model(){
 #[test]
 fn type2_evidence_before_settlement_pays_contributors_on_v3_but_burns_the_pot_on_earnin(){
     let body=evidence_body("type2-held-winner-pays-contributors");
-    let earnin=chain_exec(&body,&Setup::earnin());let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    let earnin=chain_exec(&body,&Setup::earnin());let v3=chain_exec(&body,&Setup::v3());
     let pcol=|x:u128|U256::from(x);
     // Pot j: winner part 10%, proposer part 5%, R = the rest over Q = max(C, 64) = 64. Pots 3 and 5 are 2 PCOL: the carry
     // is lagged by one block (V3-15), so the first settlement, settle(1) in block 5, carries into pot 6, not pot 5 (the
@@ -1244,7 +1277,7 @@ fn type2_evidence_before_settlement_pays_contributors_on_v3_but_burns_the_pot_on
     // The reporters: r (block 4) and m0 (block 7) receive 25% of the 20 PCOL bond on v3, nothing on the earn-in set, in the
     // phase 0 that carries the evidence (neither is paid by that block's settlement).
     for (who,at) in [("r",4u64),("m0",7)]{
-        assert_eq!((begin_gain(&body,&Setup::v3(8,60_480),at,who),begin_gain(&body,&Setup::earnin(),at,who)),(pcol(5*PCOL),U256::ZERO),"{who} reports in block {at}");
+        assert_eq!((begin_gain(&body,&Setup::v3(),at,who),begin_gain(&body,&Setup::earnin(),at,who)),(pcol(5*PCOL),U256::ZERO),"{who} reports in block {at}");
     }
     assert_eq!((gain(&v3,"w"),gain(&v3,"v")),(U256::ZERO,U256::ZERO),"the tombed winners receive nothing");
     // Earn-in burns both bonds and both pots; v3 burns 75% of each bond and only what of each pot it does not pay, and
@@ -1277,7 +1310,7 @@ fn evidence_penalty_vectors_fail_on_the_earnin_set(){
 #[test]
 fn a_self_report_loses_three_quarters_of_the_bond(){
     let body=evidence_body("self-report-loses-three-quarters");
-    let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    let v3=chain_exec(&body,&Setup::v3());
     let rec=v3.record(name("r"));
     assert_eq!((bits(rec.0,8,8),bits(rec.0,16,8)),(1,2),"r is a tomb with its bond burned");
     let own=b()*U256::from(2500)/U256::from(10_000);
@@ -1286,7 +1319,7 @@ fn a_self_report_loses_three_quarters_of_the_bond(){
     // The fallback block of the same evidence has no reporter: the whole bond burns.
     // The fallback block of the same evidence has no reporter (the whole bond burns); the refused blocks that named r
     // as the reporter paid it nothing.
-    let body=evidence_body("fallback-has-no-reporter");let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    let body=evidence_body("fallback-has-no-reporter");let v3=chain_exec(&body,&Setup::v3());
     assert_eq!(gain(&v3,"r"),U256::ZERO,"the refused blocks paid no reporter");
     assert!(storage(&v3.db,escrow_address(),U256::ZERO)>=b(),"w's whole bond burned");
 }
@@ -1296,7 +1329,7 @@ fn a_self_report_loses_three_quarters_of_the_bond(){
 #[test]
 fn the_evidence_penalty_mutants_fail_the_v3_vectors(){
     let list=mutant_programs();
-    assert_eq!(list.iter().map(|m|m.0.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..],&LATE_MUTANTS[..],&ECON_MUTANTS[..],&CONTEST_MUTANTS[..]].concat());
+    assert_eq!(list.iter().map(|m|m.0.as_str()).collect::<Vec<_>>(),[&EARNIN_MUTANTS[..],&BUDGET_MUTANTS[..],&EVIDENCE_MUTANTS[..],&LATE_MUTANTS[..],&ECON_MUTANTS[..],&REPLACE_MUTANTS[..]].concat());
     let evidence=&list[EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()..EARNIN_MUTANTS.len()+BUDGET_MUTANTS.len()+EVIDENCE_MUTANTS.len()];
     let expect=[("reporter-paid-on-fallback","fallback-has-no-reporter"),("whole-pot-for-bonded-accused","type2-held-winner-pays-contributors"),
         ("accruing-read-at-evidence","accruing-fact-committed-at-record-result"),("accruing-read-at-settle","type2-accruing-winner-burns-whole-pot"),
@@ -1304,7 +1337,7 @@ fn the_evidence_penalty_mutants_fail_the_v3_vectors(){
     for ((n,program,code),(want_name,killer)) in evidence.iter().zip(expect){
         assert_eq!(n,want_name);
         let original=runtime(V3,program);assert_ne!(code,&original,"{n} changes the bytecode");
-        let out=evidence_replay(&Setup::v3(8,60_480).with_program(program,code.clone()));
+        let out=evidence_replay(&Setup::v3().with_program(program,code.clone()));
         let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
         eprintln!("mutant {n} ({program}): killed by {killed:?}");
         assert!(killed.iter().any(|k|k.as_str()==killer),"mutant {n} survives {killer}: {killed:?}");
@@ -1317,7 +1350,7 @@ fn the_evidence_penalty_mutants_fail_the_v3_vectors(){
 #[test]
 fn v3_punish_and_invalidate_call_shapes(){
     let body=evidence_body("type2-held-winner-pays-contributors");
-    let mut h=chain_exec(&body,&Setup::v3(8,60_480));
+    let mut h=chain_exec(&body,&Setup::v3());
     let next=h.height+1;let step=serde_json::json!({"op":["begin",next.to_string(),"c"],"winner":"m0","shares":[],"evidence":[]});
     assert_eq!(h.begin(&step).unwrap(),None);
     let c=name("c");
@@ -1353,12 +1386,12 @@ fn without_late(body:&serde_json::Value)->serde_json::Value{
 }
 
 /// Model-vs-bytecode differential: every late-share scenario of the independent model reproduces on the v3 programs
-/// step by step (recordLate in phase 0 after recordResult and before settle(h-D)), with ACC_COUNT, held_total, the
+/// step by step (recordLate in phase 0 after recordResult and before settle(h-D)), with held_total (and no accruing count), the
 /// Escrow invariant with equality and the supply after every step, and every pot, record (lastShare included), payment
 /// and retained ShareLedger height (counts and totals) at the end.
 #[test]
 fn v3_late_shares_reproduce_the_independent_model(){
-    let out=late_replay(&Setup::v3(8,60_480));
+    let out=late_replay(&Setup::v3());
     assert_eq!(out.keys().map(|k|k.as_str()).collect::<Vec<_>>(),LATE_SCENARIOS);
     for (n,r) in &out{if let Err(e)=r{panic!("{n}: {e}")}}
     // The vectors exercise what they claim: accepted late credits, both refusals (the window: BadPhase; the cap and an
@@ -1385,11 +1418,11 @@ fn v3_late_shares_reproduce_the_independent_model(){
 #[test]
 fn late_share_pays_the_omitted_contributor_on_v3_not_on_earnin(){
     let body=late_body("late-share-pays-the-omitted-contributor");
-    let v3=chain_exec(&body,&Setup::v3(8,60_480));
+    let v3=chain_exec(&body,&Setup::v3());
     let r=U256::from(17*PCOL/10);
     assert_eq!(gain(&v3,"b"),r/U256::from(64),"b's late share is paid at settle(4)");
     assert_eq!(bits(v3.record(name("b")).0,88,64),4,"b's lastShare");
-    let original=chain_exec(&without_late(&body),&Setup::v3(8,60_480));
+    let original=chain_exec(&without_late(&body),&Setup::v3());
     assert_eq!(gain(&original,"b"),U256::ZERO,"without V3-02 the winner's omission removes b's pay");
     assert_eq!(gain(&original,"c"),gain(&v3,"c"),"no header share loses value (no dilution: Q is unchanged)");
     assert_eq!(bits(original.record(name("b")).0,88,64),0);
@@ -1429,7 +1462,7 @@ fn the_late_share_mutants_fail_the_v3_vectors(){
     for ((n,program,code),(want_name,killer)) in late.iter().zip(expect){
         assert_eq!(n,want_name);
         let original=runtime(V3,program);assert_ne!(code,&original,"{n} changes the bytecode");
-        let out=late_replay(&Setup::v3(8,60_480).with_program(program,code.clone()));
+        let out=late_replay(&Setup::v3().with_program(program,code.clone()));
         let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
         eprintln!("mutant {n} ({program}): killed by {killed:?}");
         assert!(killed.iter().any(|k|k.as_str()==killer),"mutant {n} survives {killer}: {killed:?}");
@@ -1441,7 +1474,7 @@ fn the_late_share_mutants_fail_the_v3_vectors(){
 #[test]
 fn v3_record_late_call_shapes(){
     let body=late_body("late-share-pays-the-omitted-contributor");
-    let mut h=chain_exec(&body,&Setup::v3(8,60_480));
+    let mut h=chain_exec(&body,&Setup::v3());
     let next=h.height+1;let step=serde_json::json!({"op":["begin",next.to_string(),"m0"],"winner":"m0","shares":[],"evidence":[]});
     assert_eq!(h.begin(&step).unwrap(),None);
     let call=|j:u64,owners:&[U256],off:u64,count:Option<u64>|->Vec<u8>{
@@ -1501,7 +1534,7 @@ fn issuance_schedule_vectors_reproduce_on_the_host(){
 /// ledger height and the carry at the end.
 #[test]
 fn v3_issuance_carry_and_tips_reproduce_the_independent_model(){
-    let out=issuance_replay(&Setup::v3(8,60_480));
+    let out=issuance_replay(&Setup::v3());
     assert_eq!(out.keys().map(|k|k.as_str()).collect::<Vec<_>>(),ISSUANCE_SCENARIOS);
     let mut carried=0;let mut cs=BTreeSet::new();let (mut signed_tips,mut fallback_tips)=(0,0);
     for (n,r) in &out{
@@ -1529,7 +1562,7 @@ fn v3_issuance_carry_and_tips_reproduce_the_independent_model(){
 /// ACCRUING record's bond takes it first (the rest paid), a tomb's share burns. Nothing else moves at closeBlock.
 #[test]
 fn host_credit_equals_the_recorded_pot_and_the_tip_split_conserves_value(){
-    let s=Setup::v3(8,60_480);
+    let s=Setup::v3();
     let (mut held,mut accruing,mut tomb,mut fallback)=(0,0,0,0);
     for n in ISSUANCE_SCENARIOS{
         let body=issuance_body(n);
@@ -1582,7 +1615,7 @@ fn pot_j_plus_1_is_fixed_by_block_j_plus_1(){
     assert_ne!(a["steps"],b["steps"],"the late credits differ");
     let fixed=differ[0]-1;
     assert!(fixed>=8,"blocks up to {fixed} are the same in both");
-    let s=Setup::v3(8,60_480);
+    let s=Setup::v3();
     let (ha,hb)=(budget_run("base",&a,&s).unwrap(),budget_run("variant",&b,&s).unwrap());
     let later=pots_fixed_by_their_blocks(&ha,&hb,fixed).unwrap();
     eprintln!("blocks whose late credits differ: {differ:?}; pots that differ after block {fixed}: {later:?}");
@@ -1590,7 +1623,7 @@ fn pot_j_plus_1_is_fixed_by_block_j_plus_1(){
     // The property check itself fails on the planted mutant (the bytecode run without the model's per-step comparison).
     let list=mutant_programs();
     let (_,program,code)=list.iter().find(|m|m.0=="base-burn-into-closed-pot").unwrap();
-    let m=Setup::v3(8,60_480).with_program(program,code.clone());
+    let m=Setup::v3().with_program(program,code.clone());
     let e=pots_fixed_by_their_blocks(&chain_exec(&a,&m),&chain_exec(&b,&m),fixed).err().expect("base-burn-into-closed-pot survives the fixedness check");
     eprintln!("base-burn-into-closed-pot: {e}");
     assert!(e.contains("as settle distributed it"),"{e}");
@@ -1616,7 +1649,7 @@ fn issuance_carry_and_tip_split_fail_on_the_earnin_set(){
     let s0=U256::from(2*PCOL);
     for n in ["issuance-halving-compressed","tip-split-signed-fallback-accruing-tomb"]{
         let body=issuance_body(n);let e=chain_exec(&body,&Setup::earnin());
-        let v3=budget_run(n,&body,&Setup::v3(8,60_480)).unwrap();
+        let v3=budget_run(n,&body,&Setup::v3()).unwrap();
         for (j,c) in &e.closed{assert_eq!(c.3,s0+c.1,"{n}: earn-in pot {j} = CP 15 + tips");}
         let differ=e.closed.iter().filter(|(j,c)|c.3!=v3.closed[j].3).count();
         assert!(differ*2>e.closed.len(),"{n}: only {differ} of {} pots differ",e.closed.len());
@@ -1635,14 +1668,14 @@ fn issuance_carry_and_tip_split_fail_on_the_earnin_set(){
 #[test]
 fn the_issuance_carry_mutants_fail_the_v3_vectors(){
     let list=mutant_programs();
-    let at=list.len()-CONTEST_MUTANTS.len()-ECON_MUTANTS.len();let econ=&list[at..at+ECON_MUTANTS.len()];
+    let at=list.len()-REPLACE_MUTANTS.len()-ECON_MUTANTS.len();let econ=&list[at..at+ECON_MUTANTS.len()];
     let expect=[("carry-not-added","issuance-halving-compressed"),("tip-share-to-pot","tip-split-signed-fallback-accruing-tomb"),
         ("base-burn-still-burned","carry-fuzz-c-1-to-smax-plus-1"),("issued-ignored-flat-s0","issuance-halving-compressed"),("carry-kept-at-final","final-block-burns-the-carry"),
         ("base-burn-into-closed-pot","late-inclusion-base"),("carry-not-lagged","last-carrier-omits-late"),("lagged-carry-kept-at-final","final-block-burns-the-carry")];
     for ((n,program,code),(want_name,killer)) in econ.iter().zip(expect){
         assert_eq!(n,want_name);assert_eq!(program,"RewardEscrow");
         let original=runtime(V3,program);assert_ne!(code,&original,"{n} changes the bytecode");
-        let out=issuance_replay(&Setup::v3(8,60_480).with_program(program,code.clone()));
+        let out=issuance_replay(&Setup::v3().with_program(program,code.clone()));
         let killed:Vec<&String>=out.iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
         eprintln!("mutant {n} ({program}): killed by {killed:?}");
         assert!(killed.iter().any(|k|k.as_str()==killer),"mutant {n} survives {killer}: {killed:?}");
@@ -1659,13 +1692,13 @@ fn the_issuance_carry_mutants_fail_the_v3_vectors(){
 #[test]
 fn last_carrier_gains_nothing_by_omitting_late_shares(){
     let (inc,omit)=(issuance_body("last-carrier-includes-late"),issuance_body("last-carrier-omits-late"));
-    let s=Setup::v3(8,60_480);
+    let s=Setup::v3();
     let (hi,ho)=(budget_run("includes",&inc,&s).unwrap(),budget_run("omits",&omit,&s).unwrap());
     let r=last_carrier_compare(&hi,&ho).unwrap();
     eprintln!("lagged carry: {r}");
     let list=mutant_programs();
     let (_,program,code)=list.iter().find(|m|m.0=="carry-not-lagged").unwrap();
-    let m=Setup::v3(8,60_480).with_program(program,code.clone());
+    let m=Setup::v3().with_program(program,code.clone());
     let e=last_carrier_compare(&chain_exec(&inc,&m),&chain_exec(&omit,&m)).err().expect("carry-not-lagged survives the last-carrier check");
     let (mi,mo)=(chain_exec(&inc,&m),chain_exec(&omit,&m));
     assert!(gain(&mo,"a")>gain(&mi,"a"),"under the unlagged rule the omitting proposer gains");
@@ -1703,7 +1736,7 @@ fn last_carrier_compare(hi:&Harness,ho:&Harness)->Result<String,String>{
 #[test]
 fn the_final_block_burns_every_outstanding_carry(){
     let body=issuance_body("final-block-burns-the-carry");
-    let h=budget_run("final",&body,&Setup::v3(8,60_480)).unwrap();
+    let h=budget_run("final",&body,&Setup::v3()).unwrap();
     let (into_f,own)=h.final_carry.expect("a final block ran");
     assert!(!into_f.is_zero()&&!own.is_zero(),"both carries outstanding at finalize: into pot F {into_f}, of F's own settle {own}");
     assert!(carry_into(&h.db,h.height).is_zero()&&carry_into(&h.db,h.height+1).is_zero(),"no carry after F");
@@ -1716,7 +1749,7 @@ fn the_final_block_burns_every_outstanding_carry(){
 #[test]
 fn v3_close_block_call_shapes(){
     let body=issuance_body("issuance-halving-compressed");
-    let mut h=chain_exec(&body,&Setup::v3(8,60_480));
+    let mut h=chain_exec(&body,&Setup::v3());
     let next=h.height+1;let step=serde_json::json!({"op":["begin",next.to_string(),"m0"],"winner":"m0","shares":[],"evidence":[]});
     assert_eq!(h.begin(&step).unwrap(),None);
     let mut d=selector("closeBlock(uint256)");d.extend(U256::ZERO.to_be_bytes::<32>());
@@ -1735,228 +1768,146 @@ fn v3_close_block_call_shapes(){
     assert_eq!(h.sys("closeBlock",escrow_address(),d),Err("BadPending".into()),"pot h exists");
 }
 
-// ---------------- V3-PR-E4: contestable seats and the probation-pool contest (V3-10, V3-14)
+// ---------------- FN-2b C4/C5: removal at a full set (registerReplacing, removeInactive's gate) and activeSlice
 
-const CONTEST_SCENARIOS:[&str;29]=["acc-count-promote-exit-displace-punish","contest-budget","contest-in-grace","contest-joined-after-the-measured-epoch-start",
-    "counters-roll-at-the-epoch-boundary","late-credit-counts-in-the-statistic","omitted-shares-without-late-credit","pool-and-seats-full","pool-contest",
-    "pool-contest-above-the-threshold-at-the-full-set","pool-contest-exits-cannot-raise-the-threshold","pool-newcomer-seated-at-once","pool-rotation-race",
-    "pool-victim-pending-pots-fill-its-bond","pool-victim-pending-pots-without-a-contest","pool-victim-promoted-by-its-pending-pots",
-    "pool-victim-promoted-then-reactivates",
-    "pool-victim-punished-after-the-contest","pool-victim-reactivates-into-a-free-pool-seat","pool-victim-refunded-at-due",
-    "seat-contest-below-threshold-refund-after-u","seat-contest-probation-newcomer-accruing-victim",
-    "seat-contest-refusals","seat-victims-punished-before-due","seat-victims-punished-then-swept","threshold-boundary-6-shares","threshold-boundary-7-shares",
-    "tiny-epoch-never-contestable","threshold-table"];
-fn contest_body(n:&str)->serde_json::Value{let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();v[n].clone()}
-fn contest_replay(s:&Setup)->BTreeMap<String,Result<(),String>>{
-    let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();
-    v.as_object().unwrap().iter().filter(|(_,b)|b.get("steps").is_some()).map(|(n,body)|(n.clone(),budget_scenario(n,body,s))).collect()
-}
-/// contestThreshold(tprev, active) with theta_bp and k_sigma in CP 61/62: (threshold, isqrt(k^2*N*Dn)).
-fn contest_threshold(h:&mut Harness,tprev:U256,active:u64,theta_bp:u64,k_sigma:u64)->Result<(U256,U256),String>{
-    put(&mut h.db,caps(),U256::from(cp_index("theta_bp")),U256::from(theta_bp));put(&mut h.db,caps(),U256::from(cp_index("k_sigma")),U256::from(k_sigma));
-    let mut d=selector("contestThreshold(uint256,uint256)");d.extend(tprev.to_be_bytes::<32>());d.extend(U256::from(active).to_be_bytes::<32>());
-    let r=call(&mut h.db,name("viewer"),d,U256::ZERO,h.height.max(1));
-    if !r.result.is_success(){return Err(format!("contestThreshold reverted: {:?}",output(&r.result)))}
-    let o=output(&r.result);Ok((U256::from_be_slice(&o[0..32]),U256::from_be_slice(&o[32..64])))
-}
-/// Every row of the model's threshold table (tests/v3/contest-vectors.json) through contestThreshold on a registry.
-fn threshold_table_on(registry:Bytes)->Result<usize,String>{
-    let t=contest_body("threshold-table");let mut h=Harness::new(&[],&Setup::v3(8,60_480).with_registry(registry));
-    let rows=t["rows"].as_array().unwrap();
-    for row in rows{
-        let num=|k:&str|row[k].as_u64().unwrap();let big=|k:&str|row[k].as_str().unwrap().parse::<U256>().unwrap();
-        let got=contest_threshold(&mut h,big("tprev"),num("active"),num("theta_bp"),num("k_sigma"))?;
-        ensure_eq!(got,(big("threshold"),big("root")),"threshold row {}",row["label"]);
-    }
-    Ok(rows.len())
-}
-
-/// Model-vs-bytecode differential of V3-10/V3-14: every scenario of tests/v3/contest-vectors.json reproduces on the v3
-/// programs step by step (each contestStatus view's code, count and threshold included), with the records' epoch counters,
-/// the epoch totals, ACC_COUNT, held_total, the Escrow invariant and the supply after every step.
+/// The eight planted FN-2b C4 mutants each fail the registry-budget vectors (the removal scenarios of tests/v3_model.py),
+/// each in the scenario written for its rule.
 #[test]
-fn v3_contests_reproduce_the_independent_model(){
-    let out=contest_replay(&Setup::v3(8,60_480));
-    let mut names:Vec<&str>=out.keys().map(|k|k.as_str()).collect();names.push("threshold-table");
-    assert_eq!(names,CONTEST_SCENARIOS);
-    for (n,r) in &out{if let Err(e)=r{panic!("{n}: {e}")}}
-    // The vectors exercise what they claim: a contest landing and each way it is refused, every view code but 3 (the pool
-    // contest's HELD victim, a BadState revert), and the epoch counters of a record.
-    let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();
-    let (mut seen,mut codes,mut counted)=(BTreeSet::new(),BTreeSet::new(),0usize);
-    for body in v.as_object().unwrap().values(){
-        let Some(steps)=body.get("steps") else{continue};
-        for st in steps.as_array().unwrap(){
-            let op=st["op"][0].as_str().unwrap();
-            if op=="register_contest"{seen.insert(st.get("revert").and_then(|x|x.as_str()).unwrap_or("ok").to_string());}
-            if op=="contest_status"{codes.insert(st["result"].as_str().unwrap().split(',').next().unwrap().to_string());}
-        }
-        counted+=body["final"]["records"].as_object().unwrap().values().filter(|r|r["cnt_cur"].as_u64().unwrap()>0&&r["cnt_prev"].as_u64().unwrap()>0).count();
-    }
-    assert_eq!(seen,BTreeSet::from(["ok","NotContestable","BadState","RegOpsLimit"].map(String::from)));
-    assert_eq!(codes,BTreeSet::from(["0","1","2","4","5","6","7"].map(String::from)));
-    assert!(counted>0,"no record holds both epoch counters");
-}
-
-/// The same vectors on the earn-in set, which has no registerContest and keeps no epoch counters: every scenario differs.
-#[test]
-fn contest_vectors_fail_on_the_earnin_set(){
-    let v:serde_json::Value=serde_json::from_str(CONTEST_VECTORS).unwrap();
-    for (n,body) in v.as_object().unwrap(){
-        if body.get("steps").is_none(){continue}
-        let mut b=body.clone();b["cp"].as_object_mut().unwrap().retain(|k,_|cp_index(k)<52);
-        let r=budget_scenario(n,&b,&Setup::earnin());
-        eprintln!("earn-in {n}: {}",r.as_ref().err().map_or("reproduces",|e|e.as_str()));
-        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-10/V3-14");
-    }
-}
-
-/// The threshold table: contestThreshold returns the model's threshold and integer square root for every row (the owner's
-/// values, k_sigma 0, theta 0, one seat, k^2*N*Dn a perfect square, one below a square where an unfloored Newton estimate
-/// is the root plus one, and huge values); active 0 reverts.
-#[test]
-fn the_threshold_table_reproduces_on_the_bytecode(){
-    assert_eq!(threshold_table_on(runtime(V3,"MinerRegistry")),Ok(27));
-    let t=contest_body("threshold-table");
-    assert!(!t["sensitive"].as_array().unwrap().is_empty(),"rows where an isqrt one off moves the threshold");
-    let owner=t["rows"].as_array().unwrap().iter().find(|r|r["label"]=="owner-e45-256-seats").unwrap();
-    assert_eq!(owner["threshold"],"25","V3-DESIGN.md: E = 45 at 256 seats, threshold about 25 shares per day");
-    let mut h=Harness::new(&[],&Setup::v3(8,60_480));
-    assert!(contest_threshold(&mut h,U256::from(100),0,1250,3).is_err(),"active 0");
-}
-
-/// The eighteen planted V3-10/V3-14 mutants each fail tests/v3/contest-vectors.json (a chain scenario or the threshold
-/// table), each in the scenario written for it.
-#[test]
-fn the_contest_mutants_fail_the_contest_vectors(){
-    let list=mutants();
-    let contest=&list[list.len()-CONTEST_MUTANTS.len()..];
-    let expect=[("contest-threshold-off-by-one","threshold-boundary-7-shares"),("contest-grace-ignored","contest-in-grace"),
-        ("contest-joined-in-epoch-allowed","contest-joined-after-the-measured-epoch-start"),("contest-set-not-full-allowed","seat-contest-refusals"),
-        ("pool-contest-set-not-full-allowed","pool-contest-exits-cannot-raise-the-threshold"),("contest-late-window-open","seat-contest-below-threshold-refund-after-u"),
-        ("pool-contest-erased-at-once","pool-victim-pending-pots-fill-its-bond"),("pool-contest-seat-kept","pool-contest"),
-        ("pool-victim-refund-counted-again","pool-victim-refunded-at-due"),("pool-victim-punish-counted-again","pool-victim-punished-after-the-contest"),
-        ("pool-victim-promote-counted-again","pool-victim-promoted-by-its-pending-pots"),
-        ("pool-victim-reactivates-without-a-pool-seat","pool-victim-reactivates-into-a-free-pool-seat"),
-        ("pool-victim-held-reactivation-takes-a-pool-seat","pool-victim-promoted-then-reactivates"),("pool-contest-held-victim","pool-contest"),("counters-not-rolled","counters-roll-at-the-epoch-boundary"),
-        ("late-not-counted","late-credit-counts-in-the-statistic"),("isqrt-not-floored","threshold-table"),("contest-one-reg-ops-unit","contest-budget")];
-    let original=runtime(V3,"MinerRegistry");
-    for ((n,code),(want,killer)) in contest.iter().zip(expect){
+fn the_removal_mutants_fail_the_v3_vectors(){
+    let list=mutants();let original=runtime(V3,"MinerRegistry");
+    let removal=&list[list.len()-REPLACE_MUTANTS.len()..];
+    assert_eq!(removal.iter().map(|(n,_)|n.as_str()).collect::<Vec<_>>(),REPLACE_MUTANTS);
+    let expect=[("removal-below-full-set","removal-only-at-a-full-set"),("removal-theta-off-by-one","replacing-chain-shares-keep-a-member"),
+        ("removal-ignores-grace","removal-only-at-a-full-set"),("removal-at-m-min","removal-at-m-min"),("replacing-one-reg-ops-unit","replacing-budget"),
+        ("replacing-no-r-max-entry","replacing-budget"),("replacing-victim-erased-at-once","replacing-chain-victim-payable-and-punishable"),
+        ("replacing-any-victim","removal-only-at-a-full-set")];
+    for ((n,code),(want,killer)) in removal.iter().zip(expect){
         assert_eq!(n,want);assert_ne!(code,&original,"{n} changes the bytecode");
-        let mut killed:Vec<String>=contest_replay(&Setup::v3(8,60_480).with_registry(code.clone())).into_iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
-        if threshold_table_on(code.clone()).is_err(){killed.push("threshold-table".into());}
+        let killed:Vec<String>=budget_replay(&Setup::v3().with_registry(code.clone())).into_iter().filter(|(_,r)|r.is_err()).map(|(k,_)|k).collect();
         eprintln!("mutant {n}: killed by {killed:?}");
         assert!(killed.iter().any(|k|k==killer),"mutant {n} survives {killer}: {killed:?}");
     }
 }
 
-/// Runs a contest scenario's steps until the first step matching `stop` (not run), for measurements at that point.
-fn contest_until(name_:&str,stop:impl Fn(&[String])->bool)->Harness{
-    let body=contest_body(name_);let mut s=Setup::v3(8,60_480);
-    for (k,v) in body["cp"].as_object().unwrap(){s.cp.push((cp_index(k),v.as_str().map_or_else(||v.as_u64().unwrap().into(),|x|x.parse::<u128>().unwrap())));}
-    let durable:Vec<String>=body["durable"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-    let mut h=Harness::new(&durable,&s);
-    for step in body["steps"].as_array().unwrap(){
-        let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        if stop(&op){return h}
-        match op[0].as_str(){"begin"=>{h.begin(step).unwrap();},"close"|"final"=>h.phase2(step).unwrap(),_=>{h.step(&op).unwrap();}}
-    }
-    panic!("{name_}: no step to stop at")
+/// A v3 registry at a full set for the C4 measurements: M_max 4 (m0 and a, b, c with the full bond, registered at 1),
+/// Theta_inact 8, REG_OPS 16, R_max 4, at height 20 (every member past its grace, none with a credited share).
+fn full_set()->Harness{
+    let mut s=Setup::v3();s.cp.extend([(18,4),(25,8),(23,16),(17,4)]);
+    let mut h=Harness::new(&[],&s);
+    for x in ["a","b","c"]{assert_eq!(h.step(&strs(&["register",x,x,&b().to_string(),"1"])).unwrap(),None);}
+    h.at(20).unwrap();h
 }
+fn replacing_data(reward:Address,victim:Address)->Vec<u8>{let mut d=with_arg("registerReplacing(address,address)",Some(reward));d.extend(victim.into_word());d}
 /// Changed storage slots of the system programs (the user context's SYS keys, user_phase.rs) in one call.
 fn sys_keys(r:&ResultAndState)->usize{
     (0..5).map(|i|r.state.get(&pocol_lp4_execution::apply::program_address(i)).map(|a|a.storage.values().filter(|s|s.is_changed()).count()).unwrap_or(0)).sum()
 }
 
-/// registerContest's write ceilings, gas and user-context SYS keys: the seat contest with the victim in the middle of the
-/// active list (as deregister middle, plus a registration) and at its tail, and the pool contest (the same exit with
-/// POOL_OUT, ACC_COUNT down, then register; owner decision 2026-11-13) with the victim in the middle and with a bonded
-/// victim at the tail. Each stays within half the wallet's CONTEST_GAS
-/// quote and the devnet's SYS_KEYS_USER_MAX (256): one contest leaves room for the block's other user operations.
+/// registerReplacing's write ceilings, gas and user-context SYS keys at a full set (M_max 4): the victim in the middle of
+/// the active list with a full-bond newcomer (as deregister middle, plus a registration), in the middle with a zero-bond
+/// newcomer, and at the tail with a full-bond newcomer. Each stays within half the wallet's REPLACE_GAS quote (500,000)
+/// and the devnet's SYS_KEYS_USER_MAX (256), so one replacement leaves room for the block's other user operations.
 #[test]
-fn contest_write_ceilings_gas_and_user_sys_keys(){
+fn replacing_write_ceilings_gas_and_user_sys_keys(){
     let mut out=Vec::new();
-    for (scenario_,sender,victim,value) in [("contest-joined-after-the-measured-epoch-start","n1","c",b()),("seat-contest-below-threshold-refund-after-u","n","c",b()),
-        ("pool-and-seats-full","q","p2",U256::ZERO),("pool-victim-pending-pots-fill-its-bond","q","p2",U256::ZERO)]{
-        let mut h=contest_until(scenario_,|op|op[0]=="register_contest"&&op[1]==sender&&op[3]==victim&&op[5]=="19");
-        let s=h.sender(sender);let mut d=with_arg("registerContest(address,address)",Some(s));d.extend(name(victim).into_word());
-        let r=call(&mut h.db,s,d,value,h.height);
-        assert!(r.result.is_success(),"{scenario_}: {:?} {:?}",r.result,output(&r.result));
-        out.push((scenario_,writes(&r),sys_keys(&r),r.result.gas_used()));
-        conserved(&h).unwrap();h.chain_conserved().unwrap();
+    let mut h=full_set();
+    // ActList m0, a, b, c: a is in the middle (c moves into its place).
+    for (n,victim,value) in [("n1","a",b()),("n2","b",U256::ZERO)]{
+        let s=h.sender(n);let r=call(&mut h.db,s,replacing_data(s,name(victim)),value,20);
+        assert!(r.result.is_success(),"{n}: {:?} {:?}",r.result,output(&r.result));
+        out.push((n,writes(&r),sys_keys(&r),r.result.gas_used()));conserved(&h).unwrap();
+        assert_eq!(bits(h.record(name(victim)).0,0,8),2,"{victim} exited");
     }
-    eprintln!("CONTEST-CEILINGS (scenario, registry slots, user SYS keys, gas) {out:?}");
-    // Changed slots (a slot written back to its value is unchanged). Seat contest, victim in the middle: the victim's w0
-    // and w3, the moved record's w0, the two ActList elements (the newcomer takes the freed last one; ActLen nets out),
-    // the newcomer's four words, its RecArr element, RecLen, held_total and slot 3: 13; at the tail 11 (no moved record).
-    // Pool contest (the victim exits, keeping its record and bond until dueHeight), victim and newcomer at bond 0, victim in
-    // the middle of the active list: the victim's w0 (status, POOL_OUT) and w3, the moved record's w0, the two ActList
-    // elements (ActLen and ACC_COUNT net out, held_total unchanged), the newcomer's w0, w1 and w3, its RecArr element,
-    // RecLen and slot 3: 11; a 5 PCOL victim at the tail: no moved record and one ActList element: 9 (its bond and
-    // held_total stay until its refund).
-    assert_eq!(out.iter().map(|x|x.1).collect::<Vec<_>>(),[13,11,11,9]);
-    // pocold's wallet quotes CONTEST_GAS (500,000) for registerContest: at least twice every contest measured here.
+    let mut h=full_set();let s=h.sender("n3");
+    let r=call(&mut h.db,s,replacing_data(s,name("c")),b(),20);assert!(r.result.is_success(),"tail: {:?}",output(&r.result));
+    out.push(("n3",writes(&r),sys_keys(&r),r.result.gas_used()));conserved(&h).unwrap();
+    eprintln!("REPLACING-CEILINGS (newcomer, registry slots, user SYS keys, gas) {out:?}");
+    // Changed slots (a slot written back to its value is unchanged). Victim in the middle, full bond: the victim's w0 and
+    // w3, the moved record's w0, the two ActList elements (the newcomer takes the freed last one; ActLen nets out), the
+    // newcomer's four words, its RecArr element, RecLen, held_total and slot 3: 13. A zero-bond newcomer writes no bond
+    // word and leaves held_total: 11. The victim at the tail: no moved record and one ActList element: 11.
+    assert_eq!(out.iter().map(|x|x.1).collect::<Vec<_>>(),[13,11,11]);
+    // pocold's wallet quotes REPLACE_GAS (500,000) for registerReplacing: at least twice every replacement measured here.
     for (n,_,keys,gas) in &out{assert!(*keys<=256&&*gas<=250_000,"{n}: {keys} SYS keys, {gas} gas");}
 }
 
-/// V3-10 counters at their bounds, on the bytecode alone: a record's count saturates at 2^20 - 1 (a credit past it), rolls
-/// into countPrev at the next epoch, and a saturated measured count is never contestable even below the threshold, while
-/// one below saturation is.
+/// registerReplacing's call shape and refusals: exactly 68 bytes with two clean address words (BadCalldata), at most B_reg
+/// (BadValue), only after the block's beginBlock (BadPhase), a sender without a record and a live active victim (BadState),
+/// a victim removeInactive could remove now (NotRemovable: below a full set, within Theta_inact of its graceStart). At the
+/// full set register alone is Capacity; removeInactive below it reverts; the victim exits as by deregister (due = h + U,
+/// its record and bond kept) and the sender is a new record in its seat; the removalStatus view gives the codes.
 #[test]
-fn epoch_counters_saturate_and_a_saturated_count_is_never_contestable(){
-    let sat=(1u64<<20)-1;
-    let mut s=Setup::v3(8,60_480);s.cp.extend([(10,256),(60,8),(61,10_000),(62,1),(18,4),(25,4)]);
-    let mut h=Harness::new(&[],&s);
-    for x in ["a","b","c"]{assert_eq!(h.step(&strs(&["register",x,x,&b().to_string(),"1"])).unwrap(),None);}
-    let c=name("c");let r=slot(c);
-    let record=|h:&mut Harness,j:u64,seq:&[Address]|{
-        let mut data=selector("recordShares(uint64,address[])");data.extend(U256::from(j).to_be_bytes::<32>());data.extend(U256::from(64).to_be_bytes::<32>());
-        data.extend(U256::from(seq.len()).to_be_bytes::<32>());for a in seq{data.extend(a.into_word());}h.sys("recordShares",registry_address(),data).unwrap();
-    };
-    // c's record in epoch 1 (lastShare 8) with countCur 2^20 - 3: five shares of template 9 saturate it.
-    h.at(10).unwrap();let w0=storage(&h.db,registry_address(),r);
-    put(&mut h.db,registry_address(),r,(w0&!(U256::MAX<<88u32))|(U256::from(8)<<88u32)|(U256::from(sat-2)<<216u32));
-    record(&mut h,9,&[c,c,c,c,c]);
-    let w0=storage(&h.db,registry_address(),r);assert_eq!((bits(w0,88,64),bits(w0,216,20),bits(w0,236,20)),(9,sat,0),"saturated at 2^20 - 1");
-    // Template 16 (epoch 2) rolls it into countPrev.
-    h.at(17).unwrap();record(&mut h,16,&[c]);
-    let w0=storage(&h.db,registry_address(),r);assert_eq!((bits(w0,88,64),bits(w0,216,20),bits(w0,236,20)),(16,1,sat),"rolled into countPrev");
-    // At 19 epoch 1 is measured: c's count is countPrev = 2^20 - 1. With Tprev = 2^24 the threshold (about 2^22) is far
-    // above it, yet a saturated count may hide any larger one: code 7. One below saturation is contestable.
-    h.at(19).unwrap();
-    let t=U256::from(2)|(U256::from(1)<<64u32)|(U256::from(1u64<<24)<<160u32);put(&mut h.db,registry_address(),U256::from(10),t);
-    let (code,count,thr)=h.contest_status(c,false);
-    assert_eq!((code,count),(7,sat));assert!(thr>U256::from(sat),"threshold {thr}");
-    let w0=storage(&h.db,registry_address(),r);put(&mut h.db,registry_address(),r,(w0&!(U256::from(sat)<<236u32))|(U256::from(sat-1)<<236u32));
-    assert_eq!(h.contest_status(c,false),(0,sat-1,thr));
-    let mut d=with_arg("registerContest(address,address)",Some(name("n")));d.extend(c.into_word());let n=h.sender("n");
-    let r=call(&mut h.db,n,d,b(),19);assert!(r.result.is_success(),"{:?}",output(&r.result));
-    assert_eq!(bits(storage(&h.db,registry_address(),slot(c)),0,8),2,"c exits");
-}
-
-/// registerContest's call shape: exactly 68 bytes with two clean address words (BadCalldata), at most B_reg (BadValue), only
-/// after the block's beginBlock (BadPhase), a sender without a record and a recorded victim (BadState); contestStatus and
-/// contestThreshold are views.
-#[test]
-fn v3_register_contest_call_shapes(){
-    let mut h=contest_until("seat-contest-below-threshold-refund-after-u",|op|op[0]=="register_contest"&&op[5]=="19");
-    let n=h.sender("n");let c=name("c");
+fn v3_register_replacing_call_shapes(){
+    let mut h=full_set();let n=h.sender("n");let a=name("a");
     let call_=|h:&mut Harness,data:Vec<u8>,value:U256|->Option<String>{
         let r=call(&mut h.db,n,data,value,h.height);if r.result.is_success(){return None}
-        let out=output(&r.result).to_vec();Some(["BadCalldata","BadValue","BadPhase","BadState","NotContestable","Capacity"].iter().find(|k|selector(&format!("{k}()"))==out).map(|k|k.to_string()).unwrap_or(format!("{out:?}")))
+        let out=output(&r.result).to_vec();Some(["BadCalldata","BadValue","BadPhase","BadState","NotRemovable","Capacity","RegOpsLimit"].iter().find(|k|selector(&format!("{k}()"))==out).map(|k|k.to_string()).unwrap_or(format!("{out:?}")))
     };
-    let mut d=with_arg("registerContest(address,address)",Some(n));d.extend(c.into_word());
+    let d=replacing_data(n,a);
     assert_eq!(call_(&mut h,d[..36].to_vec(),b()).as_deref(),Some("BadCalldata"),"36 bytes");
     let mut long=d.clone();long.extend([0u8;32]);assert_eq!(call_(&mut h,long,b()).as_deref(),Some("BadCalldata"),"100 bytes");
     let mut dirty=d.clone();dirty[4]=1;assert_eq!(call_(&mut h,dirty,b()).as_deref(),Some("BadCalldata"),"reward word upper bits");
     let mut dirty=d.clone();dirty[36]=1;assert_eq!(call_(&mut h,dirty,b()).as_deref(),Some("BadCalldata"),"victim word upper bits");
     assert_eq!(call_(&mut h,d.clone(),b()+U256::from(1)).as_deref(),Some("BadValue"),"above B_reg");
-    let mut stranger=with_arg("registerContest(address,address)",Some(n));stranger.extend(name("nobody").into_word());
-    assert_eq!(call_(&mut h,stranger,b()).as_deref(),Some("BadState"),"a victim without a record");
-    // A later height whose beginBlock has not run.
+    assert_eq!(call_(&mut h,replacing_data(n,name("nobody")),b()).as_deref(),Some("BadState"),"a victim without a record");
+    assert_eq!(h.try_removal_status(name("nobody")),Ok(1));
     let r=call(&mut h.db,n,d.clone(),b(),h.height+1);assert_eq!(output(&r.result),selector("BadPhase()").as_slice(),"before beginBlock");
+    assert_eq!(h.step(&strs(&["register","n","n",&b().to_string(),"20"])).unwrap().as_deref(),Some("Capacity"),"register alone at a full set");
+    assert_eq!(h.try_removal_status(a),Ok(0));
     assert_eq!(call_(&mut h,d.clone(),b()),None,"the shape the wallet sends");
-    assert_eq!(call_(&mut h,d,b()).as_deref(),Some("BadState"),"the sender now has a record");
+    let (w0,_,w2,w3)=h.record(a);
+    assert_eq!((bits(w0,0,8),bits(w0,16,8),w2,bits(w3,0,64),bits(w3,64,64)),(2,1,b(),20,60),"the victim exits as by deregister (due = h + U), bond kept");
+    let (w0,_,w2,w3)=h.record(n);assert_eq!((bits(w0,0,8),bits(w0,16,8),w2,bits(w3,192,64)),(1,1,b(),20),"the sender is a HELD active record in grace");
+    assert_eq!((reg(&h.db,0).to::<u64>(),reg(&h.db,1).to::<u64>()),(5,4),"one more record, the set still full");
+    assert_eq!(call_(&mut h,replacing_data(n,name("b")),b()).as_deref(),Some("BadState"),"the sender now has a record");
+    assert_eq!(h.try_removal_status(n),Ok(4),"a newcomer is in grace");
+    let m=h.sender("m");let r=call(&mut h.db,m,replacing_data(m,n),U256::ZERO,20);assert_eq!(output(&r.result),selector("NotRemovable()").as_slice(),"within Theta_inact");
+    let r=call(&mut h.db,m,replacing_data(m,a),U256::ZERO,20);assert_eq!(output(&r.result),selector("BadState()").as_slice(),"an exited victim");
+    // Below a full set (b deregisters): code 2, NotRemovable and a removeInactive BadState.
+    assert_eq!(h.step(&strs(&["deregister","b","20"])).unwrap(),None);
+    assert_eq!(h.try_removal_status(name("c")),Ok(2));
+    let r=call(&mut h.db,m,replacing_data(m,name("c")),U256::ZERO,20);assert_eq!(output(&r.result),selector("NotRemovable()").as_slice(),"below a full set");
+    assert_eq!(h.step(&strs(&["remove_inactive","m","c","20"])).unwrap().as_deref(),Some("BadState"),"removeInactive below a full set");
+    // A user call cannot reach the view's internals: removalStatus is a view (nothing written).
+    let r=call(&mut h.db,m,with_arg("removalStatus(address)",Some(name("c"))),U256::ZERO,20);assert!(r.result.is_success());assert_eq!(writes(&r),0);
+}
+
+/// ABI-decodes activeSlice's (address[] ids, uint256[] w0).
+fn decode_slice(out:&[u8])->(Vec<Address>,Vec<U256>){
+    let word=|i:usize|U256::from_be_slice(&out[i..i+32]);
+    let arr=|off:usize|{let n=word(off).to::<usize>();(0..n).map(|k|word(off+32+32*k)).collect::<Vec<U256>>()};
+    let (a,b)=(word(0).to::<usize>(),word(32).to::<usize>());
+    (arr(a).into_iter().map(|x|Address::from_word(x.into())).collect(),arr(b))
+}
+/// FN-2b C5: activeSlice(start, count) pages the ActList for paged readers (the reward gateway at M_max 10,000):
+/// ActList[start, min(start + count, active)) with each one's record word w0, empty from start >= active, for any count
+/// (no overflow at count = 2^256 - 1) and any start; a view (nothing written). Checked against activeAt and recordWords
+/// after exits reorder the list.
+#[test]
+fn active_slice_pages_the_active_list(){
+    let mut h=Harness::new(&[],&Setup::v3().wide());
+    for i in 0..12{assert_eq!(h.step(&strs(&["register",&format!("s{i}"),&format!("s{i}"),&(if i%3==0{0}else{20*PCOL}).to_string(),"1"])).unwrap(),None);}
+    for i in [2,7]{assert_eq!(h.step(&strs(&["deregister",&format!("s{i}"),"2"])).unwrap(),None);}
+    let active=apply_active(&h);assert_eq!(active.len(),11);
+    let slice=|h:&mut Harness,start:U256,count:U256|{
+        let mut d=selector("activeSlice(uint256,uint256)");d.extend(start.to_be_bytes::<32>());d.extend(count.to_be_bytes::<32>());
+        let r=call(&mut h.db,name("viewer"),d,U256::ZERO,2);assert!(r.result.is_success(),"{:?}",r.result);assert_eq!(writes(&r),0,"a view");decode_slice(output(&r.result))
+    };
+    let at=|h:&mut Harness,i:usize|{let mut d=selector("activeAt(uint256)");d.extend(U256::from(i).to_be_bytes::<32>());
+        let r=call(&mut h.db,name("viewer"),d,U256::ZERO,2);Address::from_word(U256::from_be_slice(output(&r.result)).into())};
+    for (start,count) in [(0usize,0usize),(0,1),(0,4),(3,4),(8,3),(8,4),(9,100),(10,1),(11,1),(11,0),(12,5),(0,11),(0,12)]{
+        let (ids,w0)=slice(&mut h,U256::from(start),U256::from(count));
+        let end=(start+count).min(active.len()).max(start.min(active.len()));
+        let want:Vec<Address>=if start>=active.len(){vec![]}else{active[start..end].to_vec()};
+        assert_eq!(ids,want,"activeSlice({start}, {count})");
+        for (k,id) in ids.iter().enumerate(){assert_eq!(*id,at(&mut h,start+k));assert_eq!(w0[k],h.record(*id).0,"w0 of {id}");}
+    }
+    let (ids,_)=slice(&mut h,U256::from(5),U256::MAX);assert_eq!(ids,active[5..].to_vec(),"count 2^256 - 1");
+    let (ids,w0)=slice(&mut h,U256::MAX,U256::MAX);assert!(ids.is_empty()&&w0.is_empty(),"start 2^256 - 1");
+    // The full list in pages of 4 is the ActList.
+    let mut all=Vec::new();let mut start=0;
+    loop{let (ids,_)=slice(&mut h,U256::from(start),U256::from(4));if ids.is_empty(){break}start+=ids.len();all.extend(ids);}
+    assert_eq!(all,active);
 }
 
 #[cfg(feature="v3-preview")]
@@ -2076,80 +2027,117 @@ mod preview{
         assert_eq!(gains[1]-gains[0],share*U256::from(2),"a's two late shares of pot 2, on v3 only");
     }
 
-    /// SYS gas and caps of the v3 calls at the GAS_DOMAIN maxima (S_max 256, M_max 256, D 16, E_max 4) with the v3
-    /// probation pool full (P_MAX 64): chains of 192 genesis members and 64 probationers p0..p63 joining in blocks 1..4
-    /// (M_max records), every block from 5 on naming all 256 owners in its shares. The worst cases of the calls
-    /// V3-PR-E2b changes, and of settlement on the v3 set:
-    /// - settle (chain A, run twice): pot 5, raised by a large tip and won by p63, settles in block 21 while all 64
-    ///   probationers are live, ACCRUING and at bond 0, as the chain's first burn: exactly 64 bonds go from 0 to B and are
-    ///   promoted in that one call, besides 192 HELD payees; pot 5's proposer is HELD on one run, ACCRUING on the other;
-    /// - recordResult reads an ACCRUING winner's record (pot 5 on chain A, pots 5..8 on chain B);
-    /// - invalidate (chain B, run twice, probationers with half a bond, 0 < B/2 < B): four type-2 items name p0..p3, the
+    /// One zero-bond (or `bond`) registration of a funded devnet account with itself as the reward address.
+    fn joins(r:&Run,labels:&[String],bond:u128)->Vec<Vec<u8>>{labels.iter().map(|p|r.register(p,bond,0)).collect()}
+    /// FN-2b: a v3 devnet with `n` ACCRUING registrants q0..q{n-1} (each funded with 1 PCOL for its fee), M_max 1,000 (above
+    /// the spec-1 domain's 256: the v3 domain has no M_max term) and the GAS_DOMAIN maxima otherwise (S_max 256, D 16).
+    fn accruing_config(genesis:&[&str],n:usize)->(DevnetConfig,Vec<String>){
+        let mut cfg=config(2,genesis);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=1000;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
+        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.r_max=16;cfg.gamma_tip_bp=0;
+        let q:Vec<String>=(0..n).map(|i|format!("q{i}")).collect();
+        for p in &q{cfg.accounts.push((p.clone(),U256::from(PCOL)));}
+        (cfg,q)
+    }
+    /// FN-2b C2, the re-measured settle (GAS_ENVELOPE_V3): settle's worst path with every payee ACCRUING. A v3 chain of four
+    /// HELD genesis members and 258 zero-bond registrants q0..q257 (16 per block in blocks 1..17, REG_OPS 16; M_max 1,000).
+    /// Pot 18, raised by a large tip, names q0..q255 as its 256 share owners (C = 257 with the winner's share), q256 as its
+    /// winner and q257 as its signed proposer: 258 distinct payees, all ACCRUING at bond 0, so settle(18) in block 34 fills
+    /// and promotes 258 bonds from 0 to B_reg in one call, as the chain's first burn (pots 1..17 have one HELD owner each
+    /// and burn nothing). That is S_max + 2 of the S_max + 3 payees GAS_DOMAIN_V3_PAYEES bounds (the winner is one of the
+    /// owners). The call stays within GAS_ENVELOPE_V3 settle and settleFinal (the same settleOne) and below the 30M per-call
+    /// cap; the blocks within resources::derive.
+    #[test]
+    fn v3_settle_gas_with_every_payee_accruing(){
+        let (cfg,q)=accruing_config(&["g0","g1","g2","g3"],258);
+        let mut a=Run::new(&cfg);let cp=a.net.profile.cp().clone();
+        assert!(admission::in_gas_domain(&cp,ProgramSet::V3)&&!admission::in_gas_domain(&cp,ProgramSet::EarnIn),"M_max 1,000: inside the v3 domain only");
+        let genesis:Vec<Address>=(0..4).map(|i|a.id(i)).collect();let qid:Vec<Address>=q.iter().map(|p|devnet::account_key(p).address()).collect();
+        let one=|g:Address|->Vec<(u64,Address)>{(0..256u64).map(|i|(i+1,g)).collect()};
+        for k in 0..17usize{let j=joins(&a,&q[16*k..(16*k+16).min(258)],0);a.block(Proposer::Signed(genesis[k%4]),vec![],j,genesis[(k+1)%4],one(genesis[(k+1)%4]));}
+        for p in &qid{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((1,4,U256::ZERO)),"a zero-bond ACCRUING registrant");}
+        let alice=devnet::account_key("alice");let tip=U256::from(400_000_000_000_000_000u128);
+        let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:a.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
+        let o=a.block(Proposer::Signed(qid[257]),vec![],vec![big],qid[256],(0..256u64).map(|i|(i*3+1,qid[i as usize])).collect());
+        assert!(o.tips>U256::from(8000*PCOL),"pot 18 tips {}",o.tips);
+        for k in 19..=33u64{a.block(Proposer::Signed(genesis[(k%4) as usize]),vec![],vec![],genesis[(k%4) as usize],one(genesis[(k%4) as usize]));}
+        assert_eq!(storage(&a.state,escrow_address(),U256::ZERO),U256::ZERO,"pots 1..17 burned nothing");
+        assert_eq!(apply::share_total(&a.state,18),257);
+        let o=a.block(Proposer::Signed(genesis[2]),vec![],vec![],genesis[2],one(genesis[2]));
+        let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
+        for p in &qid{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.bond_state,x.bond)),Some((1,b())),"filled from 0 to B and promoted by settle(18)");}
+        assert!(storage(&a.state,escrow_address(),U256::ZERO)>U256::ZERO,"settle(18) makes the chain's first burn");
+        let bound=admission::envelope(ProgramSet::V3,"settle").unwrap();let b=resources::derive(&cp);
+        eprintln!("V3-SETTLE-ALL-ACCRUING settle(18) promoting 258 ACCRUING payees: {g}; envelope {bound}; keys {} accounts {} (derive {} {})",a.keys,a.accounts,b.keys_normal,b.accts_normal);
+        assert!(g<=bound&&g<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settle {g} above GAS_ENVELOPE_V3 {bound}");
+        assert!(g<30_000_000,"the per-call cap");
+        assert!(g>admission::envelope(ProgramSet::EarnIn,"settle").unwrap()&&g>admission::envelope(ProgramSet::V1,"settle").unwrap(),"settle {g} fits an older envelope: drop its v3 entry");
+        assert!(a.keys as u64<=b.keys_normal&&a.accounts as u64<=b.accts_normal,"keys {} accounts {} vs {b:?}",a.keys,a.accounts);
+        // The envelope entry is this measurement rounded up to 1000 (admission.rs GAS_ENVELOPE_V3).
+        assert_eq!(bound,g.div_ceil(1000)*1000,"GAS_ENVELOPE_V3 settle is the measured worst path");
+    }
+    /// FN-2b C2, the carry path of the same rule: a pot with C < kappa*m (62 share owners and the winner: C = 63) leaves a
+    /// base burn to the carry into pot h+1 (V3-15) while it fills and promotes every one of its 64 payees (the 63 owners and
+    /// the signed proposer, all ACCRUING at bond 0). Within GAS_ENVELOPE_V3 settle, far below the all-ACCRUING worst path.
+    #[test]
+    fn v3_settle_gas_all_accruing_with_the_carry(){
+        let (cfg,q)=accruing_config(&["g0","g1","g2","g3"],64);
+        let mut a=Run::new(&cfg);let genesis:Vec<Address>=(0..4).map(|i|a.id(i)).collect();let qid:Vec<Address>=q.iter().map(|p|devnet::account_key(p).address()).collect();
+        let one=|g:Address|->Vec<(u64,Address)>{(0..256u64).map(|i|(i+1,g)).collect()};
+        for k in 0..4usize{let j=joins(&a,&q[16*k..16*k+16],0);a.block(Proposer::Signed(genesis[k]),vec![],j,genesis[k],one(genesis[k]));}
+        let alice=devnet::account_key("alice");let tip=U256::from(100_000_000_000_000_000u128);
+        let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:a.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
+        a.block(Proposer::Signed(qid[63]),vec![],vec![big],qid[62],(0..62u64).map(|i|(i+1,qid[i as usize])).collect());
+        for k in 6..=20u64{a.block(Proposer::Signed(genesis[(k%4) as usize]),vec![],vec![],genesis[(k%4) as usize],one(genesis[(k%4) as usize]));}
+        let parent=a.state.clone();assert_eq!(apply::share_total(&parent,5),63);
+        let o=a.block(Proposer::Signed(genesis[1]),vec![],vec![],genesis[1],one(genesis[1]));
+        let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
+        for p in &qid{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.bond_state,x.bond)),Some((1,b())),"promoted by settle(5)");}
+        assert!(!apply::escrow_carry_into(&o.state,22).is_zero(),"C < kappa*m: settle(5) carries into pot 22");
+        let bound=admission::envelope(ProgramSet::V3,"settle").unwrap();
+        eprintln!("V3-SETTLE-CARRY settle(5) promoting 64 ACCRUING payees with a carry write: {g}; envelope {bound}");
+        assert!(g<=bound,"settle {g} above GAS_ENVELOPE_V3 {bound}");
+    }
+
+    /// SYS gas and caps of the v3 calls at the GAS_DOMAIN maxima (S_max 256, M_max 256, D 16, E_max 4): chains of 192
+    /// genesis members and 64 ACCRUING registrants p0..p63 joining in blocks 1..4 (M_max records), every block from 5 on
+    /// naming all 256 owners in its shares. The worst cases of the calls V3-PR-E2b and V3-PR-E3 change (settle's is
+    /// v3_settle_gas_with_every_payee_accruing):
+    /// - recordResult reads an ACCRUING winner's record (pots 5..8 on chain B);
+    /// - invalidate (chain B, run twice, registrants with half a bond, 0 < B/2 < B): four type-2 items name p0..p3, the
     ///   ACCRUING winners of pots 5..8, each writing INVALID;
-    /// - punish: the same items punish an ACCRUING accused with a nonzero bond in the middle of the active list (the
-    ///   ACC_COUNT write, removeActive, the bond burn and the reporter's PAY to the signed proposer's reward address);
-    ///   four type-1 items punish HELD genesis members (never-written clock word, middle of the active list, the
-    ///   reporter's PAY). Each kind comes first on one run of chain B, so each also pays the chain's first burn.
+    /// - punish: the same items punish an ACCRUING accused with a nonzero bond in the middle of the active list
+    ///   (removeActive, the bond burn and the reporter's PAY to the signed proposer's reward address); four type-1 items
+    ///   punish HELD genesis members (never-written clock word, middle of the active list, the reporter's PAY). Each kind
+    ///   comes first on one run of chain B, so each also pays the chain's first burn;
+    /// - recordLate (chain C).
     /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry, GAS_ENVELOPE_EARNIN
     /// otherwise: `gas_envelope(ProgramSet::V3)`), every call name measured has an entry there, and the blocks
-    /// within resources::derive; the test asserts that the settle and punish maxima are taken on these paths.
+    /// within resources::derive; the test asserts that the punish maximum is taken on these paths.
     #[test]
     fn v3_sys_gas_and_caps_within_the_v3_envelope(){
         let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
         let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
-        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.p_max=64;cfg.r_max=16;
+        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.r_max=16;
         let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();
         for p in &probation{cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
         let pids:Vec<Address>=probation.iter().map(|p|devnet::account_key(p).address()).collect();
-        // Chain B starts with its 64 probationers joining in blocks 1..4 with `bond` each (the shares of blocks 1..4 name
-        // only the 192 genesis members, so pots 1..4 pay no probationer).
         let net=Run::new(&cfg);let cp=net.net.profile.cp().clone();
         let genesis:Vec<Address>=(0..192).map(|i|net.id(i)).collect();
         let ids:Vec<Address>=genesis.iter().copied().chain(pids.iter().copied()).collect();
         let start=|bond:u128|->Run{
             let mut r=Run::new(&cfg);
             for k in 0..4usize{
-                let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|r.register(p,bond,0)).collect();
+                let j=joins(&r,&probation[16*k..16*k+16],bond);
                 let sh=(0..256u64).map(|i|(i*3+1,ids[((k as u64+i) as usize)%192])).collect();
-                r.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],sh);
+                r.block(Proposer::Signed(genesis[100+k]),vec![],j,genesis[k],sh);
             }
-            for p in &pids{assert_eq!(apply::miner_record(&r.state,*p).map(|x|(x.status,x.bond_state,x.bond,x.tomb)),Some((1,4,U256::from(bond),false)),"an ACCRUING probationer");}
+            for p in &pids{assert_eq!(apply::miner_record(&r.state,*p).map(|x|(x.status,x.bond_state,x.bond,x.tomb)),Some((1,4,U256::from(bond),false)),"an ACCRUING registrant");}
             r
         };
         let shares=|ids:&[Address],h:u64|->Vec<(u64,Address)>{(0..256u64).map(|i|(i*3+1,ids[((h+i) as usize)%256])).collect()};
 
         let mut gas:BTreeMap<&'static str,u64>=BTreeMap::new();let (mut keys,mut accounts)=(0usize,0usize);
         let mut fold=|r:&Run|{for (n,g) in &r.gas{let e=gas.entry(*n).or_default();*e=(*e).max(*g);}keys=keys.max(r.keys);accounts=accounts.max(r.accounts);};
-        // Chain A: the worst settlement. Pots 1..4 burn nothing (one owner, the HELD winner, holds every share, and
-        // C = 256 >= kappa*m), so pot 5, raised by a large tip and won by p63, settles in block 21 as the chain's first
-        // burn (Escrow's burnedTotal from 0 to nonzero). All 64 probationers are then live, ACCRUING and at bond 0 (no
-        // evidence names them on this chain), and pot 5 pays each more than B: exactly 64 bonds go from 0 to B and are
-        // promoted in that one call (p63 through its winner part, p0..p62 through their shares), besides 192 HELD payees.
-        // Pot 5's proposer is a HELD genesis member or the ACCRUING p62 (whose proposer part then fills its bond through
-        // payTo before distribute).
-        // The tip split (V3-20) is off on chain A (gamma_tip_bp 0): a tip share would fill the ACCRUING proposer p62's bond
-        // at closeBlock(5); closeBlock's own worst path is measured in v3_close_and_finalize_gas_within_the_v3_envelope.
-        let mut settle5=0u64;let mut cfg_a=cfg.clone();cfg_a.gamma_tip_bp=0;
-        for proposer in [genesis[110],pids[62]]{
-            let mut a=Run::new(&cfg_a);
-            for k in 0..4usize{
-                let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|a.register(p,0,0)).collect();
-                a.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],(0..256u64).map(|i|(i+1,genesis[k])).collect());
-            }
-            let alice=devnet::account_key("alice");let tip=U256::from(400_000_000_000_000_000u128);
-            let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:a.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
-            let o=a.block(Proposer::Signed(proposer),vec![],vec![big],pids[63],shares(&ids,5));
-            assert!(o.tips>U256::from(8000*PCOL),"pot 5 tips {}",o.tips);
-            for k in 6..=20u64{a.block(Proposer::Signed(genesis[(114+k) as usize]),vec![],vec![],genesis[k as usize],shares(&ids,k));}
-            for p in &pids{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.status,x.bond_state,x.bond,x.tomb)),Some((1,4,U256::ZERO,false)),"zero-bond ACCRUING until pot 5 settles");}
-            assert_eq!(storage(&a.state,escrow_address(),U256::ZERO),U256::ZERO,"pots 1..4 burned nothing");
-            let o=a.block(Proposer::Signed(genesis[140]),vec![],vec![],genesis[21],shares(&ids,21));
-            let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
-            for p in &pids{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.bond_state,x.bond,x.tomb)),Some((1,b(),false)),"filled from 0 to B and promoted by pot 5's settlement");}
-            assert!(storage(&a.state,escrow_address(),U256::ZERO)>U256::ZERO,"pot 5's settlement burns");
-            eprintln!("settle(5) with proposer {proposer}: {g}");settle5=settle5.max(g);fold(&a);
-        }
-
         // Chain B: type-2 evidence against ACCRUING winners with a nonzero bond (block 9 or 10) and type-1 evidence against
         // HELD genesis members (the other block). Each order once, so that each path also pays the first burn of the
         // chain (Escrow's burnedTotal from 0 to nonzero), which only the first punish of a chain does.
@@ -2196,144 +2184,86 @@ mod preview{
         }
 
         let b=resources::derive(&cp);
-        eprintln!("V3-GAS {gas:?}; settle(5) {settle5}, punish ACCRUING {punish_acc} HELD {punish_held}, recordLate recorded {} strangers {}; keys {keys} (derive {}), accounts {accounts} (derive {})",late_rec.0,late_rec.1,b.keys_normal,b.accts_normal);
+        eprintln!("V3-GAS {gas:?}; punish ACCRUING {punish_acc} HELD {punish_held}, recordLate recorded {} strangers {}; keys {keys} (derive {}), accounts {accounts} (derive {})",late_rec.0,late_rec.1,b.keys_normal,b.accts_normal);
         assert_eq!(gas["recordLate"],late_rec.0.max(late_rec.1));
         assert!(late_rec.1>late_rec.0,"recordLate: owners without a record {} vs recorded owners {}",late_rec.1,late_rec.0);
-        // The maxima are taken on the paths named above.
-        assert_eq!(gas["settle"],settle5,"the worst settle is pot 5's 64 bond fills");
         assert_eq!(gas["punish"],punish_acc.max(punish_held));
         // A genesis member's clock word was never written (punish writes it from zero), while register writes every
-        // probationer's (graceStart), which outweighs the ACCRUING path's ACC_COUNT write: the HELD path is the worst.
+        // registrant's (graceStart): the HELD path is the worst.
         assert!(punish_held>punish_acc,"punish HELD {punish_held} vs ACCRUING with a bond {punish_acc}");
         for (n,g) in &gas{
             let bound=admission::envelope(ProgramSet::V3,n).unwrap_or_else(||panic!("no envelope entry for {n}"));
             assert!(*g<=bound,"v3 {n} = {g} above its composed envelope {bound}");
         }
         // Every other name of the composed table was measured here (recordLate, the v3-only name, included), so no
-        // ordinary or closing entry is unchecked. These chains are continuous (h_end 0), so the final phase is not
-        // reached here: finalize is measured on v3 by v3_final_block_burns_the_carry_on_real_blocks (V3-PR-E2a, against
-        // the same composed entry), and settleFinal runs the same settleOne as settle, so its entry is the settle maximum
-        // measured here.
-        for (n,_) in admission::gas_envelope(ProgramSet::V3){if !["finalize","settleFinal"].contains(n){assert!(gas.contains_key(n),"the v3 envelope names {n}, which no run measured");}}
+        // ordinary or closing entry is unchecked. These chains end before their first settlement (D 16), whose worst path
+        // v3_settle_gas_with_every_payee_accruing measures against the settle and settleFinal entries (the same settleOne),
+        // and they are continuous (h_end 0), so the final phase is not reached here: finalize is measured on v3 by
+        // v3_final_block_burns_the_carry_on_real_blocks (V3-PR-E2a, against the same composed entry).
+        for (n,_) in admission::gas_envelope(ProgramSet::V3){if !["finalize","settleFinal","settle"].contains(n){assert!(gas.contains_key(n),"the v3 envelope names {n}, which no run measured");}}
         assert!(admission::gas_envelope(ProgramSet::V3).iter().any(|x|x.0=="recordLate"),"the composed v3 envelope names recordLate");
-        assert!(gas["settle"]<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settleFinal covers the measured settle");
         // The v3 table is needed: each of its measured entries exceeds the earn-in entry it replaces in the composition,
         // and the spec-1 entry of the same name.
-        for n in ["invalidate","punish","recordResult","settle"]{
+        for n in ["invalidate","punish","recordResult"]{
             assert!(gas[n]>admission::envelope(ProgramSet::EarnIn,n).unwrap(),"{n} {} fits the earn-in envelope: drop its v3 entry",gas[n]);
             assert!(gas[n]>admission::envelope(ProgramSet::V1,n).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
         for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert_eq!(admission::envelope(set,"recordLate"),None,"recordLate exists on the v3 set only: {set:?}");}
         assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
     }
 
-    /// V3-14 review (owner decision 2026-11-13, option a): settle with exited pool-contest victims among a pot's payees, at
-    /// the GAS_DOMAIN maxima (S_max 256, M_max 256, D 16, P_MAX 64). An exited victim is a live ACCRUING record outside
-    /// ACC_COUNT, so more than P_MAX live ACCRUING records can exist; settle(j)'s fills stay bounded by P_MAX because pot j's
-    /// payees are drawn by the host from the ActList of j's parent, whose ACCRUING members all hold a pool seat. The worst
-    /// such pot: 192 HELD genesis members and 64 probationers p0..p63 (bond 0, joined in blocks 1..4, no share before
-    /// template 78) are pot 78's owners (p63 its winner, a large tip in block 78); in blocks 79..86 (E_epoch 32: epoch 2,
-    /// past the late window of epoch 1, which named only genesis members, k_sigma 0) 64 newcomers n0..n63 displace all 64
-    /// by pool contests (eight per block, REG_OPS 16), so the pool holds the newcomers (ACC_COUNT 64) and settle(78) in block
-    /// 94 fills and promotes the 64 exited victims (POOL_OUT, none counted in ACC_COUNT) with 128 live ACCRUING records.
-    /// The call stays within GAS_ENVELOPE_V3 settle (measured with 64 pooled fills, each promotion also writing ACC_COUNT).
-    #[test]
-    fn v3_settle_gas_with_pool_victims_among_the_payees(){
-        let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-        let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=64;cfg.c_react=2200;
-        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.p_max=64;cfg.r_max=16;cfg.gamma_tip_bp=0;cfg.e_epoch=32;cfg.k_sigma=0;
-        let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();let newcomers:Vec<String>=(0..64).map(|i|format!("n{i}")).collect();
-        for p in probation.iter().chain(&newcomers){cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
-        let pids:Vec<Address>=probation.iter().map(|p|devnet::account_key(p).address()).collect();
-        let nids:Vec<Address>=newcomers.iter().map(|p|devnet::account_key(p).address()).collect();
-        let mut a=Run::new(&cfg);let genesis:Vec<Address>=(0..192).map(|i|a.id(i)).collect();
-        let ids:Vec<Address>=genesis.iter().copied().chain(pids.iter().copied()).collect();
-        let held=|h:u64|->Vec<(u64,Address)>{(0..256u64).map(|i|(i*3+1,genesis[((h+i) as usize)%192])).collect()};
-        let contest=|r:&Run,k:usize|->Vec<u8>{
-            let key=devnet::account_key(&newcomers[k]);let mut d=selector("registerContest(address,address)");d.extend(key.address().into_word());d.extend(pids[k].into_word());
-            Tx{chain_id:r.net.profile.spec().chain_id,nonce:0,max_priority:U256::ZERO,max_fee:r.base,gas:400_000,to:Some(registry_address()),value:U256::ZERO,data:Bytes::from(d)}.sign_1559(&key)
-        };
-        for k in 0..4usize{
-            let joins:Vec<Vec<u8>>=probation[16*k..16*k+16].iter().map(|p|a.register(p,0,0)).collect();
-            a.block(Proposer::Signed(genesis[100+k]),vec![],joins,genesis[k],held(k as u64+1));
-        }
-        for h in 5..=77u64{a.block(Proposer::Signed(genesis[(h%192) as usize]),vec![],vec![],genesis[((h+7)%192) as usize],held(h));}
-        let alice=devnet::account_key("alice");let tip=U256::from(400_000_000_000_000_000u128);
-        let big=Tx{chain_id:777943,nonce:0,max_priority:tip,max_fee:a.base+tip,gas:21_000,to:Some(devnet::account_key("bob").address()),value:U256::ZERO,data:Bytes::new()}.sign_1559(&alice);
-        let o=a.block(Proposer::Signed(genesis[110]),vec![],vec![big],pids[63],(0..256u64).map(|i|(i*3+1,ids[((78+i) as usize)%256])).collect());
-        assert!(o.tips>U256::from(8000*PCOL),"pot 78 tips {}",o.tips);
-        let pool_out=|r:&Run,id:Address|storage(&r.state,registry_address(),apply::record_slot(id)).bit(87);
-        for b8 in 0..8usize{
-            let txs:Vec<Vec<u8>>=(8*b8..8*b8+8).map(|k|contest(&a,k)).collect();
-            a.block(Proposer::Signed(genesis[120+b8]),vec![],txs,genesis[b8],held(79+b8 as u64));
-            assert_eq!(pids.iter().filter(|p|pool_out(&a,**p)).count(),8*b8+8,"block {}: eight pool contests land",79+b8);
-        }
-        for (p,n) in pids.iter().zip(&nids){
-            assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((2,4,U256::ZERO)),"an exited zero-bond pool victim");
-            assert!(pool_out(&a,*p),"POOL_OUT on the victim");
-            assert_eq!(apply::miner_record(&a.state,*n).map(|x|(x.status,x.bond_state)),Some((1,4)),"the newcomer holds the pool seat");
-        }
-        assert_eq!(storage(&a.state,registry_address(),U256::from(8)),U256::from(64),"ACC_COUNT counts the 64 newcomers");
-        for h in 87..=93u64{a.block(Proposer::Signed(genesis[(h%192) as usize]),vec![],vec![],genesis[((h+7)%192) as usize],held(h));}
-        let o=a.block(Proposer::Signed(genesis[140]),vec![],vec![],genesis[21],held(94));
-        let g=o.meter.call_gas.iter().find(|(n,_)|*n=="settle").unwrap().1;
-        for p in &pids{assert_eq!(apply::miner_record(&a.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((2,1,b())),"filled from 0 to B and promoted while exited");}
-        assert_eq!(storage(&a.state,registry_address(),U256::from(8)),U256::from(64),"the victims' promotions leave ACC_COUNT");
-        let bound=admission::envelope(ProgramSet::V3,"settle").unwrap();
-        eprintln!("POOL-VICTIMS settle(78) filling and promoting 64 exited pool victims (128 live ACCRUING records): {g}; envelope {bound}");
-        assert!(g<=bound,"settle {g} with pool victims among the payees above GAS_ENVELOPE_V3 settle {bound}");
-    }
-
-    /// markClose's closing phase on the v3 set at the GAS_DOMAIN maxima (review of V3-PR-E4: the larger registry dispatch
-    /// adds gas to every nested Registry call, and each refund's Escrow.releaseBond calls back into bondRecord): 192 HELD
-    /// genesis members and 64 ACCRUING probationers p0..p63 with half a bond (M_max records, P_MAX 64), RET 128, closing
-    /// from H_CLOSE 8. The first closing markClose refunds 128 HELD records, the second 64 HELD and the 64 ACCRUING ones
-    /// (each refund pays a bond and the ACCRUING ones also write ACC_COUNT). Both stay within admission's envelope for the
-    /// v3 set (GAS_ENVELOPE_V3 markClose in the composed v3 table, above the earn-in and spec-1 entries), every record ends PAID and ACC_COUNT 0.
+    /// markClose's closing phase on the v3 set at the GAS_DOMAIN maxima (each refund's Escrow.releaseBond calls back into
+    /// the registry's bondRecord): 192 HELD genesis members and 64 ACCRUING registrants p0..p63 with half a bond (M_max
+    /// records), RET 128, closing from H_CLOSE 8. The first closing markClose refunds 128 HELD records, the second 64 HELD
+    /// and the 64 ACCRUING ones (FN-2b: no accruing count to write). Both stay within admission's envelope for the v3 set
+    /// (markClose in the composed v3 table), and every record ends PAID.
     #[test]
     fn v3_closing_mark_close_gas_within_the_envelope(){
         let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
         let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
-        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.p_max=64;cfg.r_max=16;cfg.ret=128;cfg.h_close=8;cfg.h_end=30;
+        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.r_max=16;cfg.ret=128;cfg.h_close=8;cfg.h_end=30;
         let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();
         for p in &probation{cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
         let pids:Vec<Address>=probation.iter().map(|p|devnet::account_key(p).address()).collect();
         let mut r=Run::new(&cfg);let genesis:Vec<Address>=(0..192).map(|i|r.id(i)).collect();let half=10*PCOL;
         let mut closing=Vec::new();
         for h in 1..=10u64{
-            let joins:Vec<Vec<u8>>=if h<=4{probation[16*(h as usize-1)..16*h as usize].iter().map(|p|r.register(p,half,0)).collect()}else{vec![]};
-            let o=r.block(Proposer::Signed(genesis[100+h as usize]),vec![],joins,genesis[h as usize],vec![(1,genesis[h as usize])]);
-            if h==4{for p in &pids{assert_eq!(apply::miner_record(&o.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((1,4,U256::from(half))),"an ACCRUING probationer with half a bond");}}
-            if o.facts.closing{closing.push((h,o.meter.call_gas.iter().find(|(n,_)|*n=="markClose").unwrap().1,storage(&o.state,registry_address(),U256::from(8))));}
+            let j=if h<=4{joins(&r,&probation[16*(h as usize-1)..16*h as usize],half)}else{vec![]};
+            let o=r.block(Proposer::Signed(genesis[100+h as usize]),vec![],j,genesis[h as usize],vec![(1,genesis[h as usize])]);
+            if h==4{for p in &pids{assert_eq!(apply::miner_record(&o.state,*p).map(|x|(x.status,x.bond_state,x.bond)),Some((1,4,U256::from(half))),"an ACCRUING registrant with half a bond");}}
+            if o.facts.closing{
+                let paid=genesis.iter().chain(&pids).filter(|id|apply::miner_record(&o.state,**id).is_some_and(|x|x.bond_state==3)).count();
+                closing.push((h,o.meter.call_gas.iter().find(|(n,_)|*n=="markClose").unwrap().1,paid,storage(&o.state,registry_address(),U256::from(8))));
+            }
         }
-        eprintln!("MARK-CLOSE closing (height, gas, ACC_COUNT after): {closing:?}");
+        eprintln!("MARK-CLOSE closing (height, gas, PAID records, slot 8): {closing:?}");
         assert!(closing.len()>=2&&closing[0].0==8,"closing from H_CLOSE: {closing:?}");
-        assert_eq!((closing[0].2,closing[1].2),(U256::from(64),U256::ZERO),"128 HELD refunds, then 64 HELD and 64 ACCRUING");
+        assert_eq!((closing[0].2,closing[1].2),(128,256),"128 HELD refunds, then 64 HELD and 64 ACCRUING");
+        assert!(closing.iter().all(|c|c.3.is_zero()),"no accruing count");
         for id in genesis.iter().chain(&pids){assert_eq!(apply::miner_record(&r.state,*id).map(|x|x.bond_state),Some(3),"every record PAID");}
         let worst=closing.iter().map(|c|c.1).max().unwrap();let bound=admission::envelope(ProgramSet::V3,"markClose").unwrap();
         assert!(worst<=bound,"v3 markClose {worst} above its envelope {bound}");
-        assert_eq!(worst,closing[1].1,"the worst refunds the 64 ACCRUING records");
-        // The v3 entry is needed: the worst exceeds the earn-in entry it replaces in the composed v3 table (PoColSystemV3.sol
-        // is built on the earn-in programs) and the spec-1 entry of the same name.
-        assert!(worst>admission::envelope(ProgramSet::EarnIn,"markClose").unwrap(),"markClose {worst} fits the earn-in envelope: drop its v3 entry");
-        assert!(worst>admission::envelope(ProgramSet::V1,"markClose").unwrap(),"markClose {worst} fits the spec-1 envelope: drop its v3 entry");
+        // FN-2b: within the earn-in entry, which the composed v3 table takes (GAS_ENVELOPE_V3 has no markClose entry), but
+        // above spec-1's (the earn-in programs' refunds cost more).
+        assert!(!admission::GAS_ENVELOPE_V3.iter().any(|x|x.0=="markClose"),"markClose fits the earn-in entry: no v3 entry");
+        assert_eq!(bound,admission::envelope(ProgramSet::EarnIn,"markClose").unwrap());
+        assert!(worst>admission::envelope(ProgramSet::V1,"markClose").unwrap(),"markClose {worst} fits the spec-1 envelope");
+        eprintln!("markClose worst {worst}; composed v3 {bound}, earn-in {}, spec-1 {}",admission::envelope(ProgramSet::EarnIn,"markClose").unwrap(),admission::envelope(ProgramSet::V1,"markClose").unwrap());
     }
 
-    /// V3-PR-E4 (V3-10): recordShares at its worst with the epoch counters, through apply_block at the GAS_DOMAIN maxima
-    /// (S_max 256, M_max 256 genesis members): one call naming 256 distinct recorded owners (O = min(S_max + 1, M_max)),
-    /// each record's w0 written with lastShare and its counters, as the chain's first call (every record cold, the epoch
-    /// totals' slot 10 from zero to nonzero), and the next call rolling every record's counters into a new epoch
-    /// (E_epoch 2); and the same with 257 distinct owners without a record (each read as four words). The maximum stays
-    /// within admission's envelope for the v3 set (GAS_ENVELOPE_V3 recordShares), which the earn-in and spec-1 entries no longer hold.
+    /// recordShares at its worst through apply_block at the GAS_DOMAIN maxima (S_max 256, M_max 256 genesis members): one
+    /// call naming 256 distinct recorded owners (O = min(S_max + 1, M_max)), each record's w0 written with lastShare, as the
+    /// chain's first call (every record cold) and the next; and the same with 257 distinct owners without a record (each
+    /// read as four words). FN-2b: one pass over ownersOf, no epoch counters or totals. The maximum stays within admission's
+    /// envelope for the v3 set (recordShares in the composed v3 table).
     #[test]
-    fn v3_record_shares_gas_with_the_epoch_counters(){
+    fn v3_record_shares_gas_at_the_domain_maxima(){
         let labels:Vec<String>=(0..256).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
         let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
-        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.p_max=64;cfg.e_epoch=2;
+        cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;
         let mut out=BTreeMap::new();
         for strangers in [false,true]{
             let mut r=Run::new(&cfg);let ids:Vec<Address>=(0..256).map(|i|r.id(i)).collect();
             let owner=|i:usize|if strangers{Address::from_word(keccak256(format!("share-owner-{i}")).into())}else{ids[i%256]};
-            // Template 1 (recorded in block 2's phase 0, the chain's first recordShares) and template 2 (block 3: epoch 1).
             let mut g=Vec::new();
             for h in 1..=3u64{
                 let shares:Vec<(u64,Address)>=(0..256u64).map(|i|(i+1,owner(i as usize+usize::from(strangers)))).collect();
@@ -2343,17 +2273,67 @@ mod preview{
             }
             let w=apply::miner_record(&r.state,ids[5]).unwrap();
             if !strangers{assert_eq!(w.last_share,2,"recorded owners: lastShare = j");}
-            let t=storage(&r.state,registry_address(),U256::from(10));assert_eq!((bits(t,0,64),bits(t,64,96),bits(t,160,96)),(1,257,257),"epoch totals rolled at template 2");
+            assert!(storage(&r.state,registry_address(),U256::from(10)).is_zero(),"no epoch totals");
             out.insert(strangers,g);
         }
         let worst=out.values().flatten().copied().max().unwrap();
         let bound=admission::envelope(ProgramSet::V3,"recordShares").unwrap();
-        eprintln!("RECORD-SHARES gas (first call, epoch roll): recorded owners {:?}, owners without a record {:?}; composed v3 {bound}, earn-in {}, spec-1 {}",
+        eprintln!("RECORD-SHARES gas (first call, second): recorded owners {:?}, owners without a record {:?}; composed v3 {bound}, earn-in {}, spec-1 {}",
             out[&false],out[&true],admission::envelope(ProgramSet::EarnIn,"recordShares").unwrap(),admission::envelope(ProgramSet::V1,"recordShares").unwrap());
         assert!(worst<=bound,"recordShares {worst} above its envelope {bound}");
-        // As for markClose: the worst exceeds the earn-in entry it replaces in the composition and the spec-1 entry.
+        // The v3 entry is needed: the stranger path exceeds the earn-in entry it replaces in the composition and the spec-1
+        // entry of the same name; the entry is this measurement rounded up to 1000.
         assert!(worst>admission::envelope(ProgramSet::EarnIn,"recordShares").unwrap(),"recordShares {worst} fits the earn-in envelope: drop its v3 entry");
         assert!(worst>admission::envelope(ProgramSet::V1,"recordShares").unwrap(),"recordShares {worst} fits the spec-1 envelope: drop its v3 entry");
+        assert_eq!(bound,worst.div_ceil(1000)*1000);
+    }
+
+    /// The earn-in refund regressions (earnin_refund_fix.rs, F1-F3) on the v3 set through apply_block: two exited records
+    /// come due in one sweep, one with a durable reward and one with a reward that never sent a transaction; the block
+    /// applies, the durable reward is paid its bond once, the undeliverable bond stays held and claimable, and Escrow's
+    /// invariant holds; a contract that registers itself and self-destructs in one transaction stores no record.
+    #[test]
+    fn v3_keeps_the_earnin_refund_and_self_reward_fixes(){
+        use pocol_lp4_execution::apply::{chain_facts,check_escrow_invariant,miner_record,record_list,registry,escrow};
+        let mut cfg=config(2,&["a","b","c"]);cfg.r_max=16;
+        let net=devnet::build(&cfg).unwrap();
+        let arr=|slot:u64|U256::from_be_bytes(keccak256(U256::from(slot).to_be_bytes::<32>()).0);
+        let plant=|db:&mut InMemoryDB,id:Address,reward:Address,bond:U256,due:u64|{
+            let n=storage(db,registry(),U256::ZERO);let r=apply::record_slot(id);
+            for (k,v) in [(r,U256::from(2u64)|(U256::from(1u64)<<16)|(n<<24)),(r+U256::from(1),U256::from_be_slice(reward.as_slice())),(r+U256::from(2),bond),(r+U256::from(3),U256::from(due)<<64),
+                (arr(5)+n,U256::from_be_slice(id.as_slice())),(U256::ZERO,n+U256::from(1)),(U256::from(4),storage(db,registry(),U256::from(4))+bond)]{db.insert_account_storage(registry(),k,v).unwrap();}
+            let e=escrow();let mut info=db.accounts.get(&e).unwrap().info.clone();info.balance+=bond;db.insert_account_info(e,info);
+        };
+        let input=|h:u64,txs:&'static [Vec<u8>]|BlockInput{height:h,timestamp:1_700_000_000+4*h,base_fee:U256::from(1_000_000_000u64),gas_limit:8_000_000,prevrandao:B256::ZERO,
+            proposer:Proposer::Fallback,parent_result:None,evidence:vec![],evidence_raw:&[],transactions:txs,ancestors:vec![(0,net.genesis_hash)],cum_log_bytes:0};
+        let (durable,ghost)=(name("durable-reward"),name("ghost-reward"));let (good,bad)=(name("good-id"),name("bad-id"));
+        let (bg,bb)=(U256::from(5_000_000u64),U256::from(7_000_000u64));
+        let mut parent=net.genesis.state().clone();
+        parent.insert_account_info(durable,AccountInfo{nonce:1,balance:U256::ZERO,..Default::default()});
+        plant(&mut parent,good,durable,bg,1);plant(&mut parent,bad,ghost,bb,1);
+        let held0=chain_facts(&parent).held_total;
+        let o=apply::apply_block(&parent,&net.genesis,&net.profile,&input(1,&[])).expect("the sweep never halts the block");
+        assert!(miner_record(&o.state,good).is_none(),"the durable payee's record is erased");
+        assert_eq!(balance(&o.state,durable),bg,"paid exactly its bond");
+        assert_eq!(miner_record(&o.state,bad).map(|r|(r.status,r.bond)),Some((2,bb)),"the undeliverable bond stays claimable");
+        assert_eq!(chain_facts(&o.state).held_total,held0-bg);
+        check_escrow_invariant(&o.state,&net.profile,1,false).unwrap();
+        let pr=ParentResult{block_hash:B256::from(U256::from(1)),winner:net.miners[0].id,shares:vec![]};
+        let input2=BlockInput{parent_result:Some(pr),..input(2,&[])};
+        let o2=apply::apply_block(&o.state,&net.genesis,&net.profile,&input2).unwrap();
+        assert_eq!(balance(&o2.state,durable),bg,"not paid twice");assert_eq!(miner_record(&o2.state,bad).map(|r|r.bond),Some(bb));
+        // The source fix: register(self) from a constructor that self-destructs stores nothing.
+        let sel=|s:&str|{let h=keccak256(s.as_bytes());[h[0],h[1],h[2],h[3]]};
+        let store=|c:&mut Vec<u8>,s:[u8;4]|{c.push(0x63);c.extend_from_slice(&s);c.extend_from_slice(&[0x60,0xE0,0x1b,0x60,0x00,0x52]);};
+        let call_=|c:&mut Vec<u8>,value:u8,len:u8|c.extend_from_slice(&[0x60,0x00,0x60,0x00,0x60,len,0x60,0x00,0x60,value,0x62,0xC0,0xC0,0x01,0x5a,0xf1,0x50]);
+        let mut init=Vec::new();store(&mut init,sel("register(address)"));init.extend_from_slice(&[0x30,0x60,0x04,0x52]);call_(&mut init,1,0x24);
+        store(&mut init,sel("deregister()"));call_(&mut init,0,0x04);init.extend_from_slice(&[0x33,0xff]);
+        let attacker=devnet::account_key("alice");let x=attacker.address().create(0);
+        let tx=Tx{chain_id:777943,nonce:0,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas:3_000_000,to:None,value:U256::from(1u64),data:Bytes::from(init)}.sign_1559(&attacker);
+        let txs:&'static [Vec<u8>]=Box::leak(vec![tx].into_boxed_slice());
+        let o=apply::apply_block(net.genesis.state(),&net.genesis,&net.profile,&input(1,txs)).expect("the deploy block applies");
+        assert!(miner_record(&o.state,x).is_none(),"a self-destructing contract registered a self reward");
+        assert_eq!(record_list(&o.state).len(),3);check_escrow_invariant(&o.state,&net.profile,1,false).unwrap();
     }
 
     // ---------------- V3-PR-E2a through the host (V3-19, V3-15, V3-20)
@@ -2497,7 +2477,7 @@ mod preview{
     /// closeBlock's worst path on the v3 set (V3-15/V3-20): the carry into pot h is nonzero (block h-1's settle(h-1-D) left
     /// a base burn; the carry is lagged by one block, so the measured blocks start at h = D + 2) and the
     /// tip share goes to an ACCRUING proposer at bond 0 whose share exceeds B_reg: accrue fills the bond, promotes it
-    /// (state word, ACC_COUNT, held_total) and the excess is PAID, while held_total is zero (no bond held anywhere: the
+    /// (state word, held_total) and the excess is PAID, while held_total is zero (no bond held anywhere: the
     /// genesis members' bonds were burned by evidence and the probationers are at bond 0), so accrue's held_total store
     /// goes from zero to nonzero (EIP-2200: 20,000 instead of 2,900). Measured against the same promotion with
     /// held_total nonzero, a partial fill, a HELD proposer (PAY only), a proposer that reports itself in its own block (a
