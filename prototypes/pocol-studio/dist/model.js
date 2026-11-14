@@ -1,3 +1,4 @@
+import{checkModuleGraph}from'./modscan.js';
 export const LIMITS={files:256,file:1048576,total:4194304};
 export const encoder=new TextEncoder();
 export function escapeHTML(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
@@ -11,7 +12,9 @@ export function validateFiles(files,entry='/index.html'){
  if(!Array.isArray(files)||files.length<1||files.length>LIMITS.files)throw Error('fileCount');
  const seen=new Set();let total=0;
  for(const f of files){if(!validPath(f.path)||!mimeFor(f.path))throw Error('filePath');if(seen.has(f.path))throw Error('duplicatePath');seen.add(f.path);if(!(f.data instanceof Uint8Array)||f.data.length>LIMITS.file)throw Error('fileSize');total+=f.data.length;}
- if(total>LIMITS.total)throw Error('totalSize');if(!files.some(f=>f.path===entry&&mimeFor(f.path)==='text/html'))throw Error('entryMissing');return{count:files.length,total};
+ if(total>LIMITS.total)throw Error('totalSize');if(!files.some(f=>f.path===entry&&mimeFor(f.path)==='text/html'))throw Error('entryMissing');
+ // Sites W2b: module imports that cannot load in the PoCol viewer (a static cycle, a missing file, a bare or remote specifier) are refused before publishing.
+ const modules=checkModuleGraph(files);if(modules.errors.length)throw Error(modules.errors[0]+(modules.errors.length>1?` (and ${modules.errors.length-1} more)`:''));return{count:files.length,total,moduleWarnings:modules.warnings};
 }
 export const TEMPLATE_IDS=['personal','business','product'];
 const defaults={

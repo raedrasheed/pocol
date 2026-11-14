@@ -15,7 +15,17 @@ const MARK = /\/\*@fault (\w+)\*\/([\s\S]*?)\/\*@else\*\/([\s\S]*?)\/\*@end\*\//
 export function applyFaults(text, fault) {
   return text.replace(MARK, (m, name, rel, alt) => (name === fault || (fault === 'cspOpenNoDnr' && name === 'noDnr') ? alt : rel));
 }
-const SANDBOX_CSP = (hash, open) => open
+// The sandbox loader with lib/modscan.js inlined at its single @modscan placeholder (W2b): the module's top-level
+// `export` keywords are dropped and its exports returned, frozen, from an IIFE.
+export function inlineModscan(loader, modscan) {
+  const at = loader.split('/*@modscan*/null').length - 1;
+  if (at !== 1) throw new Error('sandbox-loader.js must contain /*@modscan*/null exactly once, found ' + at);
+  if (/^\s*import\b/m.test(modscan)) throw new Error('lib/modscan.js must be self-contained (no imports)');
+  const names = [...modscan.matchAll(/^export (?:const|function|class) ([A-Za-z_$][\w$]*)/gm)].map((m) => m[1]);
+  const body = modscan.replace(/^export (?=const |function |class )/gm, '');
+  return loader.replace('/*@modscan*/null', () => `(() => {\n${body}\nreturn Object.freeze({ ${names.join(', ')} });\n})()`);
+}
+export const SANDBOX_CSP = (hash, open) => open
   ? `sandbox allow-scripts allow-forms; script-src 'sha256-${hash}' blob:; style-src * blob: 'unsafe-inline'; img-src * blob: data:; font-src * blob:; media-src * blob:; connect-src *; frame-src *`
   : `sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-${hash}' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 
@@ -44,7 +54,7 @@ export function build({ fault = null, out } = {}) {
   emit(join('vendor', 'ethers.js'), readFileSync(join(HERE, 'node_modules/ethers/dist/ethers.min.js'), 'utf8'));
   emit(join('vendor', 'ethers-LICENSE.md'), readFileSync(join(HERE, 'node_modules/ethers/LICENSE.md'), 'utf8'));
   // Sandbox page: the loader is the only inline script; its hash is the only script hash in the CSP.
-  const loader = applyFaults(readFileSync(join(src, 'sandbox-loader.js'), 'utf8'), fault);
+  const loader = inlineModscan(applyFaults(readFileSync(join(src, 'sandbox-loader.js'), 'utf8'), fault), readFileSync(join(src, 'lib', 'modscan.js'), 'utf8'));
   const hash = createHash('sha256').update(loader, 'utf8').digest('base64');
   emit('sandbox.html', `<!doctype html>\n<html><head><meta charset="utf-8"><script>${loader}</script></head><body></body></html>\n`);
   const manifest = {

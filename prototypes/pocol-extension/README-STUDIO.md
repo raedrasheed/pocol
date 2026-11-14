@@ -84,3 +84,7 @@ The extension requests `unlimitedStorage` because a maximum-size publication plu
 These are component tests with mocked Chrome/RPC where stated. No real on-chain signing, production RPC deployment or store review was performed by these tests.
 
 Primary protocol source: https://github.com/palcertcom/pocol/tree/50c2f27ee67961dec7aaf0eb735c0b641810e0ea
+
+## JavaScript modules in published sites
+
+The viewer runs every script of a site from a `blob:` URL under a CSP that allows no network, so it resolves module imports itself. A static `import … from './x.js'` or `export … from '../y.mjs'` (a `./`, `../` or `/` path to a file of the site) is rewritten to that file's `blob:` URL, leaf modules first; JSON files load as modules (`with { type: 'json' }`) and CSS files as CSS module scripts. Every `import(…)`, also with a computed specifier, resolves when it runs, so a lazily loaded chunk may import back from the module that loaded it (the default code-split output of Vite and Rollup). A cycle of static imports cannot be expressed with `blob:` URLs and is refused, as are static imports nested more than 8 deep; bare names (`'react'`) and absolute URLs never load. Studio checks the module graph before publishing (`checkModuleGraph` in `src/lib/modscan.js`, copied byte for byte to Studio's `dist/modscan.js`). `import.meta.url` is the module's `blob:` URL, so URLs relative to it do not resolve.

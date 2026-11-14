@@ -1,0 +1,497 @@
+[
+ {
+  "name": "side-effect import",
+  "module": true,
+  "src": "import './a.js';",
+  "statics": [
+   "./a.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "default import",
+  "module": true,
+  "src": "import a from './a.js'; a();",
+  "statics": [
+   "./a.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "named imports with alias",
+  "module": true,
+  "src": "import { a, b as c } from \"../b.mjs\"; c(a);",
+  "statics": [
+   "../b.mjs"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "namespace import",
+  "module": true,
+  "src": "import * as ns from '/lib/ns.js'; ns.x();",
+  "statics": [
+   "/lib/ns.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "default and named",
+  "module": true,
+  "src": "import d, { e } from './d.js'; d(e);",
+  "statics": [
+   "./d.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "default and namespace",
+  "module": true,
+  "src": "import d, * as all from './d.js'; d(all);",
+  "statics": [
+   "./d.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "multi-line named import",
+  "module": true,
+  "src": "import {\n  a,\n  b,\n} from\n  './multi.js';\nconsole.log(a, b);",
+  "statics": [
+   "./multi.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "string export names",
+  "module": true,
+  "src": "import { \"a-b\" as ab } from './s.js'; console.log(ab);",
+  "statics": [
+   "./s.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "binding named from",
+  "module": true,
+  "src": "import from from './f.js'; console.log(from);",
+  "statics": [
+   "./f.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "import attributes json",
+  "module": true,
+  "src": "import data from './d.json' with { type: 'json' }; console.log(data);",
+  "statics": [
+   "./d.json"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "export star",
+  "module": true,
+  "src": "export * from './star.js';",
+  "statics": [
+   "./star.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "export star as",
+  "module": true,
+  "src": "export * as ns from './star.js';",
+  "statics": [
+   "./star.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "export named from",
+  "module": true,
+  "src": "export { a, b as c } from './named.js';",
+  "statics": [
+   "./named.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "export default from via named",
+  "module": true,
+  "src": "export { default } from './def.js';",
+  "statics": [
+   "./def.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "local export has no specifier",
+  "module": true,
+  "src": "const a = 1; export { a };",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "export declarations have no specifier",
+  "module": true,
+  "src": "export const from = 'x'; export function f() {} export default 1;",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "bare and URL specifiers are found too",
+  "module": true,
+  "src": "import 'react'; import x from 'https://cdn.example/x.js'; console.log(x);",
+  "statics": [
+   "react",
+   "https://cdn.example/x.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "escaped specifier",
+  "module": true,
+  "src": "import './\\u0061.js';",
+  "statics": [
+   "./a.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "dynamic literal",
+  "module": true,
+  "src": "const m = import('./lazy.js');",
+  "statics": [],
+  "dynamics": [
+   "./lazy.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "dynamic double-quoted with options",
+  "module": true,
+  "src": "const m = import(\"./d.json\", { with: { type: 'json' } });",
+  "statics": [],
+  "dynamics": [
+   "./d.json"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "dynamic plain template",
+  "module": true,
+  "src": "const m = import(`./t.js`);",
+  "statics": [],
+  "dynamics": [
+   "./t.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "dynamic computed",
+  "module": true,
+  "src": "const f = (n) => import('./pages/' + n + '.js');",
+  "statics": [],
+  "dynamics": [
+   null
+  ],
+  "meta": 0
+ },
+ {
+  "name": "dynamic template with substitution",
+  "module": true,
+  "src": "const f = (n) => import(`./pages/${n}.js`);",
+  "statics": [],
+  "dynamics": [
+   null
+  ],
+  "meta": 0
+ },
+ {
+  "name": "dynamic identifier",
+  "module": true,
+  "src": "const f = (n) => import(n);",
+  "statics": [],
+  "dynamics": [
+   null
+  ],
+  "meta": 0
+ },
+ {
+  "name": "await dynamic",
+  "module": true,
+  "src": "const { x } = await import('./top.js'); console.log(x);",
+  "statics": [],
+  "dynamics": [
+   "./top.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "spread of dynamic",
+  "module": true,
+  "src": "const xs = [...(await import('./s.js')).default];",
+  "statics": [],
+  "dynamics": [
+   "./s.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "property named import is not an import",
+  "module": true,
+  "src": "const o = { import: 1 }; o.import('./no.js'); o?.import('./no2.js');",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "method named import",
+  "module": true,
+  "src": "const o = { import(x) { return x; } }; class C { static import(y) { return y; } } console.log(o, C);",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "import.meta",
+  "module": true,
+  "src": "console.log(import.meta.url, import.meta);",
+  "statics": [],
+  "dynamics": [],
+  "meta": 2
+ },
+ {
+  "name": "in a double-quoted string",
+  "module": true,
+  "src": "const s = \"import x from './no.js'\";",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "in a single-quoted string",
+  "module": true,
+  "src": "const s = 'import(\"./no.js\")';",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "in a template",
+  "module": true,
+  "src": "const s = `import x from './no.js' and import('./no2.js')`;",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "inside a template substitution",
+  "module": true,
+  "src": "const s = `${await import('./yes.js')} and ${`${import('./nested.js')}`}`;",
+  "statics": [],
+  "dynamics": [
+   "./yes.js",
+   "./nested.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "in a line comment",
+  "module": true,
+  "src": "// import './no.js'\nexport {};",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "in a block comment",
+  "module": true,
+  "src": "/* import('./no.js')\n import './no2.js' */ export {};",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "regex with quote",
+  "module": true,
+  "src": "const r = /['\"`]/g; import('./after-regex.js');",
+  "statics": [],
+  "dynamics": [
+   "./after-regex.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "regex with slash in class",
+  "module": true,
+  "src": "const r = /[/]import('.\\/no.js')/; import('./yes.js');",
+  "statics": [],
+  "dynamics": [
+   "./yes.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "regex after return",
+  "module": true,
+  "src": "function f(s) { return /'/.test(s); } import('./yes.js');",
+  "statics": [],
+  "dynamics": [
+   "./yes.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "division is not a regex",
+  "module": true,
+  "src": "const a = 4, b = 2, c = a / b; import('./div.js'); const d = c / 2;",
+  "statics": [],
+  "dynamics": [
+   "./div.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "division after call",
+  "module": true,
+  "src": "const f = () => 1; const q = f() / 2 / import('./x.js').then(() => 1);",
+  "statics": [],
+  "dynamics": [
+   "./x.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "regex after paren-less keyword typeof",
+  "module": true,
+  "src": "const t = typeof /x/; import('./k.js');",
+  "statics": [],
+  "dynamics": [
+   "./k.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "slash in a regex at line end is a division",
+  "module": true,
+  "src": "let a = 1, b = 1, g = 1; const x = a\n/ b / g; import('./nl.js');",
+  "statics": [],
+  "dynamics": [
+   "./nl.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "nested parens in arguments",
+  "module": true,
+  "src": "import(('./p.js'));",
+  "statics": [],
+  "dynamics": [
+   null
+  ],
+  "meta": 0
+ },
+ {
+  "name": "string escapes with quotes",
+  "module": true,
+  "src": "const s = 'it\\'s import(\"./no.js\")'; import('./yes.js');",
+  "statics": [],
+  "dynamics": [
+   "./yes.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "hashbang",
+  "module": true,
+  "src": "#!/usr/bin/env node\nimport './h.js';",
+  "statics": [
+   "./h.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "classic script dynamic import",
+  "module": false,
+  "src": "var p = import('./c.js'); p.then(function (m) { m.go(); });",
+  "statics": [],
+  "dynamics": [
+   "./c.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "vite code-split entry",
+  "module": true,
+  "src": "import{v as e}from\"./vendor-c3.js\";const n=e();document.body.onclick=()=>import(\"./page-b2.js\").then(t=>t.show(n));export{n as s};",
+  "statics": [
+   "./vendor-c3.js"
+  ],
+  "dynamics": [
+   "./page-b2.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "vite code-split chunk",
+  "module": true,
+  "src": "import{s as o}from\"./index-a1.js\";import{v as r}from\"./vendor-c3.js\";const c=()=>console.log(o,r);export{c as show};",
+  "statics": [
+   "./index-a1.js",
+   "./vendor-c3.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "unicode identifier before regex-like division",
+  "module": true,
+  "src": "const café = 6 / 3; import('./u.js');",
+  "statics": [],
+  "dynamics": [
+   "./u.js"
+  ],
+  "meta": 0
+ },
+ {
+  "name": "object literal then division-looking regex",
+  "module": false,
+  "src": "const o = {}\n/import('.\\/no.js')/.test('');",
+  "statics": [],
+  "dynamics": [],
+  "meta": 0
+ },
+ {
+  "name": "import attributes then more imports",
+  "module": true,
+  "src": "import d from './d.json' with { type: 'json' };\nimport e from './e.json' with { type: 'json' };\nimport './f.js';",
+  "statics": [
+   "./d.json",
+   "./e.json",
+   "./f.js"
+  ],
+  "dynamics": [],
+  "meta": 0
+ }
+]
