@@ -50,14 +50,15 @@ MAX_RESPONSE = 4 * 1024 * 1024
 NO_PARAMS = {'pocol_status', 'pocol_getParams', 'pocol_getMiners', 'eth_blockNumber', 'net_peerCount', 'eth_gasPrice', 'pocol_getNetworkGeography', 'pocol_getBlockReward',
              'pocol_getRemovable', 'pocol_finality'}
 # Sites W6: v3 membership read through MinerRegistry views (PoColSystemV3.sol): pages of the active list with each
-# member's record word w0 (activeSlice), and one record's four words with the removal verdict (recordWords +
-# removalStatus) at one block. w1-w3 of every member would exceed the v3 read budget at M_max 10,000, so a page carries
+# member's record word w0 (activeSlice), and one record's four words, its clocks and the removal verdict
+# (recordWords + recordClocks + removalStatus) at one block. recordWords returns w1 as the reward address alone (V3-09),
+# so lastReactHeight and lastMaintHeight mod 2^32 come only from recordClocks. w1-w3 of every member would exceed the v3 read budget at M_max 10,000, so a page carries
 # w0 fields only; bond and reward address come from pocol_getMember.
 MEMBERS = {'pocol_getMembers', 'pocol_getMember'}
 MEMBER_PAGE_MAX = 256
 MEMBER_READS_MAX = 8
 MEMBER_CACHE_MAX = 64
-# Token cost per method (others cost 1): a reward snapshot and one member record (four reads and a fresh-block check).
+# Token cost per method (others cost 1): a reward snapshot and one member record (four calls and a fresh-block check).
 COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10}
 # MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
 # actPos 56..87, lastShare 88..151, registeredAt 152..215 (earn-in). Every value the v3 programs write is labelled.
@@ -166,17 +167,21 @@ def member_w0(w0):
             'bondState': bond_state, 'bondStateLabel': label(BOND_STATE_LABELS, bond_state, 'bond state'),
             'lastShare': (w0 >> 88) & U64, 'registeredAt': (w0 >> 152) & U64}
 
-def member_record(address, words, removal, b_reg):
-    """pocol_getMember: recordWords' four words decoded (w0 fields, w1 reward address and clocks, w2 bond, w3 exit
-    clocks), the removal verdict and the ACCRUING proposer-eligibility rule (chain.rs membership: an ACCRUING record
-    is drawn only with bond >= B_reg/4)."""
+def member_record(address, words, clocks, removal, b_reg):
+    """pocol_getMember: recordWords' four words decoded (w0 fields, w1 reward address, w2 bond, w3 exit clocks),
+    recordClocks (lastMaintHeight mod 2^32, lastReactHeight), the removal verdict and the ACCRUING proposer-eligibility
+    rule (chain.rs membership: an ACCRUING record is drawn only with bond >= B_reg/4)."""
     w0, w1, w2, w3 = words
+    maint_mod32, last_react = clocks
+    # PoColSystemV3.recordWords masks w1 to 160 bits and recordClocks returns (x>>224, (x>>160)&LOW64): anything wider
+    # is not the v3 registry this gateway decodes.
+    if w1 > U160 or maint_mod32 > U32 or last_react > U64: raise RuntimeError('Malformed member record')
     record = member_w0(w0)
     live = record['status'] == 1 and not record['tomb']
     record.update({
         'address': address, 'exists': w0 != 0, 'recPos': (w0 >> 24) & U32, 'actPos': (w0 >> 56) & U32,
-        'rewardAddress': '0x' + (w1 & U160).to_bytes(20, 'big').hex(), 'lastReactHeight': (w1 >> 160) & U64,
-        'lastMaintHeightMod32': (w1 >> 224) & U32, 'bondWei': str(w2), 'bondTargetWei': str(b_reg),
+        'rewardAddress': '0x' + w1.to_bytes(20, 'big').hex(), 'lastReactHeight': last_react,
+        'lastMaintHeightMod32': maint_mod32, 'bondWei': str(w2), 'bondTargetWei': str(b_reg),
         'exitHeight': w3 & U64, 'dueHeight': (w3 >> 64) & U64, 'burnHeight': (w3 >> 128) & U64, 'graceStart': (w3 >> 192) & U64,
         'removal': removal, 'removalLabel': label(REMOVAL_LABELS, removal, 'removal verdict'),
         'proposerEligible': live and (record['bondState'] == 1 or (record['bondState'] == 4 and w2 >= b_reg // 4))})
@@ -270,9 +275,10 @@ class Gateway:
         else:
             member = params[0].lower()
             words = call(REGISTRY, _word_args('recordWords(address)', int(member, 16)), CALL_GAS, 4)
+            clocks = call(REGISTRY, _word_args('recordClocks(address)', int(member, 16)), CALL_GAS, 2)
             removal = call(REGISTRY, _word_args('removalStatus(address)', int(member, 16)), CALL_GAS, 1)[0]
             b_reg = call(CAPS, _word_args('get(uint256)', CP_B_REG), CALL_GAS, 1)[0]
-            result = {'height': height, 'blockHash': head, **member_record(member, words, removal, b_reg)}
+            result = {'height': height, 'blockHash': head, **member_record(member, words, clocks, removal, b_reg)}
         if block(hex(height))[1] != head: raise ChainMoved('Chain changed while membership was read')
         encoded = json.dumps(result, separators=(',', ':'))
         with self.lock:

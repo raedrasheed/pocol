@@ -1,3 +1,4 @@
+import collections
 import hashlib
 import http.client
 import json
@@ -451,6 +452,28 @@ class ChunkCacheTests(unittest.TestCase):
         finally:
             for _ in range(g.GENERAL_SLOTS): gateway.rpc_slots.release()
 
+    def test_reserved_chunk_slots_are_a_floor_not_a_cap(self):
+        gateway, node = gateway_with()
+        for i in range(3): node.put('0x' + format(0xd0 + i, '02x') * 20, CHUNK, 'safe')
+        for _ in range(g.CHUNK_SLOTS): gateway.chunk_slots.acquire()
+        try:
+            # Both reserved slots are busy: a miss takes a free general slot and gives it back.
+            self.assertEqual(gateway.call(code('latest', '0x' + 'd0' * 20))['result'], '0x' + CHUNK.hex())
+            for _ in range(g.GENERAL_SLOTS - 1): gateway.rpc_slots.acquire()
+            try:
+                self.assertEqual(gateway.call(code('latest', '0x' + 'd1' * 20))['result'], '0x' + CHUNK.hex(), 'the last free slot')
+                gateway.rpc_slots.acquire()
+                try:
+                    self.assertEqual(gateway.call(code('latest', '0x' + 'd2' * 20))['error']['code'], -32021, 'every slot busy')
+                finally: gateway.rpc_slots.release()
+            finally:
+                for _ in range(g.GENERAL_SLOTS - 1): gateway.rpc_slots.release()
+        finally:
+            for _ in range(g.CHUNK_SLOTS): gateway.chunk_slots.release()
+        held = [s.acquire(blocking=False) for s in [gateway.rpc_slots] * g.GENERAL_SLOTS + [gateway.chunk_slots] * g.CHUNK_SLOTS]
+        self.assertTrue(all(held), 'every slot was released')
+        self.assertEqual(node.code_calls(), [('eth_getCode', 'safe')] * 2)
+
     def test_a_hit_after_the_identity_ttl_rechecks_the_identity_first(self):
         clock = Clock(); gateway, node = gateway_with(clock=clock); node.put(ADDR, CHUNK, 'safe')
         gateway.call(code()); clock.t += g.IDENTITY_TTL
@@ -497,6 +520,49 @@ class BudgetTests(unittest.TestCase):
         clock.t += 1   # exact in binary floating point: one second refills `rate` tokens
         for _ in range(rate): self.assertTrue(gateway.charge('viewer', 0, chunks=1))
         self.assertFalse(gateway.charge('viewer', 0, chunks=1))
+
+    def test_chunk_shaped_misses_give_their_reserved_read_tokens_back(self):
+        clock = Clock(); gateway, node = gateway_with(clock=clock)
+        addresses = ['0x' + format(i, '040x') for i in range(1, 101)]
+        for a in addresses: node.put(a, CHUNK, 'safe')
+        read_capacity = dict((k, c) for k, c, _ in g.READ_BUCKETS)
+        for a in addresses: self.assertEqual(gateway.call(code('latest', a), 'viewer')['result'], '0x' + CHUNK.hex())
+        self.assertEqual(gateway.buckets[('client', 'viewer')][0], read_capacity['client'])
+        self.assertEqual(gateway.buckets['global-read'][0], read_capacity['global-read'])
+        self.assertEqual(len(node.code_calls()), 100, 'more chunk misses than the read burst, one node call each')
+
+    def test_non_chunk_lookups_draw_the_read_bucket_and_stay_within_the_old_read_rate_upstream(self):
+        # Before W1 every eth_getCode was a read: per client (40, 10/s), globally (100, 30/s), one node call each.
+        (_, gcap, grate), (_, ccap, crate) = g.READ_BUCKETS
+        clock = Clock(); gateway, node = gateway_with(clock=clock)   # no code anywhere: every address is an EOA
+        seconds, step = 20, 0.01
+        answers = collections.Counter()
+        for n in range(int(seconds / step)):
+            for tag_ in ('latest', 'safe'):
+                answer = gateway.call(code(tag_, '0x' + format(2 * n + (tag_ == 'safe') + 1, '040x')), 'scanner')
+                answers[answer.get('result', answer.get('error', {}).get('code'))] += 1
+            clock.t += step
+        self.assertEqual(set(answers), {'0x', -32005})
+        self.assertLessEqual(len(node.code_calls()), ccap + crate * seconds)
+        self.assertGreaterEqual(len(node.code_calls()), crate * seconds, 'the read rate is still served')
+        self.assertEqual(len(gateway.cache.entries), 0)
+        # Many clients together stay within the old global read rate.
+        clock = Clock(); gateway, node = gateway_with(clock=clock)
+        for n in range(int(seconds / step)):
+            for c in range(8): gateway.call(code('latest', '0x' + format(8 * n + c + 1, '040x')), f'198.51.100.{c}')
+            clock.t += step
+        self.assertLessEqual(len(node.code_calls()), gcap + grate * seconds)
+
+    def test_a_client_with_an_empty_read_bucket_still_gets_hits(self):
+        gateway, node = gateway_with(); node.put(ADDR, CHUNK, 'safe')
+        gateway.call(code(), 'viewer')
+        capacity = dict((k, c) for k, c, _ in g.READ_BUCKETS)['client']
+        self.assertTrue(gateway.charge('viewer', capacity))
+        before = len(node.code_calls())
+        self.assertEqual(gateway.call(code(), 'viewer')['result'], '0x' + CHUNK.hex())
+        self.assertEqual(gateway.call(code('latest', '0x' + 'e1' * 20), 'viewer')['error']['code'], -32005)
+        self.assertEqual(len(node.code_calls()), before, 'a refused miss makes no node call')
+        self.assertEqual(gateway.call(code('latest', '0x' + 'e1' * 20), 'other')['result'], '0x')
 
     def test_one_four_mib_site_fits_one_clients_chunk_burst(self):
         # About 171 chunks plus the manifest (SITES-PLAN W1 sizing; Q8 tunes it).

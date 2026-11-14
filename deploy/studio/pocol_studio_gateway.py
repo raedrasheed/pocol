@@ -48,7 +48,10 @@ CHUNK_CODE_MAX = 24576
 CHUNK_TAGS = ('latest', 'safe')
 CHUNK_CACHE_BYTES = 24 * 1024 * 1024
 CHUNK_ENTRY_OVERHEAD = 256   # counted per entry so tiny chunks cannot grow the entry count without bound
-CHUNK_SLOTS = 2              # upstream slots reserved for chunk misses, separate from the 4 general ones
+# Upstream slots reserved for chunk misses. They are a floor, not a cap: a miss that finds both busy takes a free general
+# slot, so a cold site open (the extension's fetchSite reads up to 8 files at once) is refused with -32021 only when
+# every slot is busy. Owner question Q8 sizes CHUNK_SLOTS with W2's per-viewer width.
+CHUNK_SLOTS = 2
 GENERAL_SLOTS = 4
 IDENTITY_TTL = 10
 # Token buckets (capacity, refill per second). A 4 MiB site is about 175 chunk reads: one client opens one within the
@@ -59,6 +62,10 @@ WRITE_BUCKETS = (('global-write', 12, 2), ('write', 6, 1))
 CHUNK_BUCKETS = (('global-chunk', 1200, 300), ('chunk', 240, 60))
 GLOBAL_BUCKETS = ('global-read', 'global-write', 'global-chunk')
 LOGS_COST = 4
+# A chunk miss reserves the read tokens a non-chunk answer costs, one per upstream eth_getCode (`safe`, then `latest`
+# when the request asked for `latest`), and gets them back when the code at `safe` is chunk-shaped. So EOA, random and
+# ordinary contract lookups stay within the read budget's upstream rate although they are charged as chunk reads.
+CODE_MISS_READS = {'safe': 1, 'latest': 2}
 NETWORK_FILE_MAX = 4096
 
 
@@ -377,16 +384,36 @@ class Gateway:
     def now(self):
         return self.clock() if self.clock is not None else time.monotonic()
 
-    def charge(self, client, cost=1, write=False, chunks=0):
-        """Take `cost` read tokens, `chunks` chunk tokens and (for a write) one write token from the global and the
-        per-client buckets, all or nothing."""
-        now = self.now()
+    @staticmethod
+    def bucket_checks(client, cost=0, write=False, chunks=0):
         # All callers share global budgets; per-IP buckets bound a single visitor.
         checks = []
         for buckets, amount in ((READ_BUCKETS, cost), (CHUNK_BUCKETS, chunks), (WRITE_BUCKETS, 1 if write else 0)):
             if amount <= 0: continue
             (glob, gcap, grate), (name, ccap, crate) = buckets
             checks += [(glob, gcap, grate, amount), ((name, client), ccap, crate, amount)]
+        return checks
+
+    def charge(self, client, cost=1, write=False, chunks=0):
+        """Take `cost` read tokens, `chunks` chunk tokens and (for a write) one write token from the global and the
+        per-client buckets, all or nothing."""
+        return self.take(self.bucket_checks(client, cost, write, chunks))
+
+    def reserve_reads(self, client, amount):
+        """Take `amount` read tokens (global and per client) for a chunk miss, all or nothing (CODE_MISS_READS)."""
+        return self.take(self.bucket_checks(client, amount))
+
+    def refund_reads(self, client, amount):
+        """Give back read tokens reserved for a chunk miss whose code was chunk-shaped, capped at each capacity."""
+        now = self.now()
+        with self.lock:
+            for key, capacity, rate, value in self.bucket_checks(client, amount):
+                if key not in self.buckets: continue   # an absent bucket is full
+                old, at = self.buckets[key]
+                self.buckets[key] = (min(capacity, old + max(0, now-at)*rate + value), now)
+
+    def take(self, checks):
+        now = self.now()
         with self.lock:
             updated = []
             for key, capacity, rate, amount in checks:
@@ -457,35 +484,43 @@ class Gateway:
         code = self.cache.get(self.genesis, key)
         return None if code is None else {'jsonrpc': '2.0', 'id': ident, 'result': '0x' + code.hex()}
 
-    def code(self, request):
+    def code(self, request, client='unknown'):
         """eth_getCode at latest or safe. A hit (code cached from `safe` under the verified genesis) needs no upstream
-        call and no slot. A miss takes a reserved chunk slot and asks the node for the code at `safe`: chunk-shaped
-        code there is cached and answered; otherwise a `latest` request is forwarded as asked and nothing is cached."""
+        call, no slot and no read token. A miss takes a reserved chunk slot (or a free general one when both are busy),
+        reserves the read tokens a non-chunk answer costs (CODE_MISS_READS; -32005 when the read budget is empty) and
+        asks the node for the code at `safe`: chunk-shaped code there is cached and answered and the reserved tokens
+        are given back; otherwise a `latest` request is forwarded as asked, nothing is cached and the tokens are kept."""
         ident, (addr, at) = request['id'], request['params']
         key = addr.lower()
         if self.identity_fresh():
             answer = self.hit(ident, key)
             if answer is not None: return answer
-        if not self.chunk_slots.acquire(blocking=False): return error(ident, -32021, 'Studio gateway busy; retry shortly')
+        slots = next((s for s in (self.chunk_slots, self.rpc_slots) if s.acquire(blocking=False)), None)
+        if slots is None: return error(ident, -32021, 'Studio gateway busy; retry shortly')
+        refund = 0
         try:
             epoch = self.verify_network()
             answer = self.hit(ident, key)
             if answer is not None: return answer
+            if not self.reserve_reads(client, CODE_MISS_READS[at]): return error(ident, -32005, 'Request budget exceeded; retry shortly')
             safe = self.query('eth_getCode', [addr, 'safe'])
             code = chunk_code(safe.get('result'))
             if code is not None:
+                refund = CODE_MISS_READS[at]
                 self.cache.put(epoch, key, code)
                 return {'jsonrpc': '2.0', 'id': ident, 'result': '0x' + code.hex()}
             return self.relay(ident, 'eth_getCode', safe if at == 'safe' else self.query('eth_getCode', [addr, at]))
         except (OSError, ValueError, RuntimeError, RecursionError, http.client.HTTPException):
             return error(ident, -32000, 'Node unavailable or network identity mismatch')
-        finally: self.chunk_slots.release()
+        finally:
+            if refund: self.refund_reads(client, refund)
+            slots.release()
 
-    def call(self, request):
+    def call(self, request, client='unknown'):
         ident, method, params = request['id'], request['method'], request['params']
         kind = classify(request)
         if kind == 'local': return self.local(request)
-        if kind == 'chunk': return self.code(request)
+        if kind == 'chunk': return self.code(request, client)
         if not self.rpc_slots.acquire(blocking=False): return error(ident, -32021, 'Studio gateway busy; retry shortly')
         try:
             self.verify_network(force=method == 'eth_sendRawTransaction')
@@ -580,11 +615,12 @@ class Handler(BaseHTTPRequestHandler):
         kinds = [classify(item) for item in items]
         reads = sum(read_cost(item) for item, kind in zip(items, kinds) if kind != 'chunk')
         chunks = kinds.count('chunk')
-        if not gateway.charge(self.client_key(), reads, write=kinds == ['write'], chunks=chunks):
+        client = self.client_key()
+        if not gateway.charge(client, reads, write=kinds == ['write'], chunks=chunks):
             return self.reply(429, {'error': 'Request budget exceeded; retry shortly'})
         parts, size = [], 2
         for item in items:
-            part = encode(gateway.call(item)); size += len(part) + 1
+            part = encode(gateway.call(item, client)); size += len(part) + 1
             if size > MAX_RESPONSE: return self.reply(413, {'error': 'Response limit exceeded'})
             parts.append(part)
         # Each answer is encoded once; the batch body is joined from those bytes.

@@ -129,8 +129,9 @@ With `--v3-network`, the gateway also serves the explorer's membership reads, ea
   `ACCRUING` 4). Bond and reward address are not in a page: reading w1-w3 for 10,000 members would exceed the v3
   read budget.
 - `pocol_getMember(address)` (token cost 20, like `pocol_getBlockReward`): `recordWords` (all four words: w0 fields,
-  reward address and clocks, `bondWei`, exitHeight, dueHeight, burnHeight, graceStart) and `removalStatus` (the
-  removal verdict, labelled), plus `proposerEligible` (a live HELD record, or a live ACCRUING one with a bond of at
+  the reward address, `bondWei`, exitHeight, dueHeight, burnHeight, graceStart), `recordClocks` (`lastReactHeight`
+  and `lastMaintHeightMod32`; `recordWords` returns w1 as the reward address alone, so the clocks are read only
+  here) and `removalStatus` (the removal verdict, labelled), plus `proposerEligible` (a live HELD record, or a live ACCRUING one with a bond of at
   least B_reg/4, read from Caps). It also answers for records outside the active list, such as `registerReplacing`
   victims (status 2).
 - `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for

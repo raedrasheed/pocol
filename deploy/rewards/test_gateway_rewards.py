@@ -277,10 +277,13 @@ def selector(signature):
     return '0x' + gateway.keccak256(signature.encode())[:4].hex()
 
 B_REG = 20 * 10**18
+LOW160 = (1 << 160) - 1
 NET = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
 
 class Registry:
-    """A mock v3 node: blocks, MinerRegistry lengths/activeSlice/recordWords/removalStatus and Caps.get(16)."""
+    """A mock v3 node: blocks, MinerRegistry lengths/activeSlice/recordWords/recordClocks/removalStatus and Caps.get(16).
+    Records hold the stored words; recordWords masks w1 to the reward address and recordClocks returns its clocks, as
+    PoColSystemV3.sol does."""
     def __init__(self, members, records=None, removal=None, height=40):
         self.members = members                  # [(id int, w0)]
         self.records = records or {}            # address -> (w0, w1, w2, w3)
@@ -310,8 +313,11 @@ class Registry:
                 page = self.members[start:start + count]
                 return ok(abi_two_arrays([i for i, _ in page], [w for _, w in page]))
             member = '0x' + args[-40:]
+            w0, w1, w2, w3 = self.records.get(member, (0, 0, 0, 0))
             if sel == selector('recordWords(address)'):
-                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in self.records.get(member, (0, 0, 0, 0))).hex())
+                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in (w0, w1 & LOW160, w2, w3)).hex())
+            if sel == selector('recordClocks(address)'):
+                return ok('0x' + b''.join(v.to_bytes(32, 'big') for v in (w1 >> 224, (w1 >> 160) & (1 << 64) - 1)).hex())
             if sel == selector('removalStatus(address)'):
                 return ok('0x' + self.removal.get(member, 1).to_bytes(32, 'big').hex())
         raise AssertionError(method)
@@ -431,8 +437,34 @@ class GatewayMembershipTests(unittest.TestCase):
                           'lastReactHeight': 17, 'lastMaintHeightMod32': 0xfffffff0, 'bondWei': str(B_REG), 'bondTargetWei': str(B_REG),
                           'exitHeight': 30, 'dueHeight': 750, 'burnHeight': 0, 'graceStart': 12, 'removal': 4,
                           'removalLabel': 'RECENTLY_ACTIVE', 'proposerEligible': True, 'height': 40})
-        self.assertEqual([c[1][0]['to'] for c in node.reads('eth_call')], [gateway.REGISTRY, gateway.REGISTRY, gateway.CAPS])
+        self.assertEqual([c[1][0]['to'] for c in node.reads('eth_call')], [gateway.REGISTRY] * 3 + [gateway.CAPS])
+        self.assertEqual([c[1][0]['data'][:10] for c in node.reads('eth_call')][:3],
+                         [selector('recordWords(address)'), selector('recordClocks(address)'), selector('removalStatus(address)')])
         self.assertEqual(len(node.reads('eth_getBlockByNumber')), 2, 'the head and its re-check')
+        self.assertLessEqual(len(node.calls), gateway.MEMBER_READS_MAX)
+
+    def test_member_clocks_come_from_record_clocks_not_the_masked_reward_word(self):
+        reward = 0x42 * (1 << 152) + 7
+        record, node = self.member(w0_word(), reward | 123456789 << 160 | 99 << 224)
+        self.assertEqual((record['rewardAddress'], record['lastReactHeight'], record['lastMaintHeightMod32']),
+                         ('0x' + reward.to_bytes(20, 'big').hex(), 123456789, 99))
+        self.assertEqual(self.member(w0_word(), reward)[0]['lastReactHeight'], 0, 'a record never reactivated')
+        # A node answering recordWords with an unmasked w1, or recordClocks out of range, is not the v3 registry.
+        node = Registry([], {self.A: (w0_word(), reward, 0, 0)}, {self.A: 1}); service = v3_service(node)
+        query = node.query
+        def wide(field):
+            def answer(m, p):
+                if m == 'eth_call' and p[0]['data'].startswith(selector('recordWords(address)')) and field == 'w1':
+                    return {'jsonrpc': '2.0', 'id': 1, 'result': '0x' + b''.join(v.to_bytes(32, 'big') for v in (w0_word(), reward | 1 << 160, 0, 0)).hex()}
+                if m == 'eth_call' and p[0]['data'].startswith(selector('recordClocks(address)')) and field != 'w1':
+                    values = (1 << 32, 0) if field == 'maint' else (0, 1 << 64)
+                    return {'jsonrpc': '2.0', 'id': 1, 'result': '0x' + b''.join(v.to_bytes(32, 'big') for v in values).hex()}
+                return query(m, p)
+            return answer
+        for field in ('w1', 'maint', 'react'):
+            service.query = wide(field); service.member_cache.clear()
+            with self.subTest(field=field):
+                self.assertEqual(service.call(request('pocol_getMember', [self.A]))['error']['code'], -32000)
 
     def test_accruing_proposer_eligibility_follows_the_quarter_bond_rule(self):
         for bond, eligible in ((B_REG // 4, True), (B_REG // 4 - 1, False), (B_REG - 1, True), (0, False)):
