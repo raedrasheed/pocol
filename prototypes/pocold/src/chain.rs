@@ -563,14 +563,19 @@ pub struct Chain{
     /// can be stale. A cache only: a miss recomputes.
     member_cache:std::sync::Mutex<MemberCache>,
     member_stats:MemberStats,
-    /// FN-3a: the oracle. Each import recomputes the new block's assignment from its member records with the caches
-    /// bypassed and compares it with the one it was validated under, and each historical reader compares the whole
-    /// recomputed ranges with the stored ones (each looked-up owner is compared whatever this says). A mismatch is a
-    /// local fault (`Reject::Local`, the source marked damaged), never a verdict. On by default in FN-3a (the shadow
-    /// release); a runtime flag, not a feature, so it changes no dependency. Its cost is O(M) per import, per
-    /// re-executed block (`check_members`' digest) and per type-2 or kind-3 read, with no timing bound: FN-3b lowers the
-    /// default (the tests switch it on with `set_member_oracle`), and FN-3c measures CPU with it off (A13-DERIVATION).
+    /// FN-3: the oracle. Each import recomputes the new block's assignment from its member records with the caches
+    /// bypassed and compares it with the one it was validated under (and, while the capture is on, records it:
+    /// `members::capture`); each re-executed block's set is digested and its assignment compared with the capture; and
+    /// each historical reader compares every owner it looks up, and the whole assignment, with a recomputation that
+    /// bypasses the caches (and the capture). A mismatch is a local fault (`Reject::Local`, the source marked damaged),
+    /// never a verdict. A runtime flag, not a feature, so it changes no dependency. Its cost is O(M) per import, per
+    /// re-executed block and per type-2 or kind-3 read, with no timing bound, so FN-3b turned the default off
+    /// (`members::oracle_default`; FN-3a's shadow release ran it on): the tests switch it on (`members::test_oracle`,
+    /// `set_member_oracle`), and FN-3c measures CPU with it off (A13-DERIVATION).
     pub member_oracle:bool,
+    /// FN-3b: the key of this chain's captured assignments (`members::capture`): keccak of the admitted spec bytes, so
+    /// chains of different profiles in one process never share a row.
+    spec_id:[u8;32],
 }
 /// FN-3: the most member sets the chain caches (an evidence carrier's E_max ancestors and D late-share templates, their
 /// parents, and the last two imports): max(16, 2·E_max + D + 2).
@@ -628,14 +633,21 @@ impl NonceOwners for LazyOwners<'_>{
         let o=a.owner(n);self.chain.mcache().owners.put(k,o);Ok(o.map(|x|addr(&x)))
     }
 }
-/// FN-3a, the shadow: the verdict's owner from the stored ranges, after the recomputed one was compared with it (a
-/// mismatch or a failure to recompute is local: the source is marked damaged and the node stops, never a verdict).
-pub struct ShadowOwners<'a>{lazy:LazyOwners<'a>,ranges:&'a [(Address,u128,u128)],what:&'static str}
-impl<'a> ShadowOwners<'a>{pub fn new(chain:&'a Chain,e:&'a Entry,what:&'static str)->Self{ShadowOwners{lazy:LazyOwners::new(chain,e),ranges:&e.ranges,what}}}
-impl NonceOwners for ShadowOwners<'_>{
+/// FN-3b: what a historical reader (type-2, kind-3 `evidence_late` and `late_offer`) looks owners up through: the verdict's
+/// owner is `LazyOwners`' (the owner memo, else the block's assignment recomputed from its member records). With the
+/// oracle on, each owner is also compared with the one of a recomputation that bypasses every cache (made once, on the
+/// first lookup), so a cache cannot decide a verdict unnoticed; a mismatch, or a failure to recompute, is local (the
+/// source marked damaged), never a verdict.
+pub struct CheckedOwners<'a>{lazy:LazyOwners<'a>,cold:std::cell::OnceCell<std::sync::Arc<Assignment>>,what:&'static str}
+impl<'a> CheckedOwners<'a>{pub fn new(chain:&'a Chain,e:&'a Entry,what:&'static str)->Self{CheckedOwners{lazy:LazyOwners::new(chain,e),cold:Default::default(),what}}}
+impl NonceOwners for CheckedOwners<'_>{
     fn owner(&self,n:u64)->Result<Option<Address>,Reject>{
-        let want=range_owner(self.ranges,u128::from(n));let got=self.lazy.owner(n)?;
-        self.lazy.chain.oracle_verdict(self.lazy.e,got==want,self.what)?;Ok(want)
+        let got=self.lazy.owner(n)?;let (c,e)=(self.lazy.chain,self.lazy.e);
+        // FN-3b step 1: the stored ranges are still held and agree, whatever the oracle says.
+        if range_owner(&e.ranges,u128::from(n))!=got{return Err(c.member_fault(&format!("{} of nonce {n} at height {} differs from the stored ranges",self.what,e.height)))}
+        if !c.member_oracle{return Ok(got)}
+        let cold=match self.cold.get(){Some(a)=>a.clone(),None=>{let a=c.assignment_of_with(e,false)?;let _=self.cold.set(a.clone());a}};
+        c.oracle_verdict(e,cold.owner(n).map(|x|addr(&x))==got,self.what)?;Ok(got)
     }
 }
 
@@ -656,10 +668,10 @@ impl Chain{
             trie:Some(pocol_lp4_execution::state_trie::StateTrie::build(spec.genesis().state())),
             summary:Some(Box::new(pocol_lp4_execution::state_summary::Summary::scan(spec.genesis().state(),cp.B_code_max))),stored:None};
         let mut blocks=HashMap::new();blocks.insert(gh,Box::new(genesis));
-        let k_hist=u64::from(spec.local().k_hist);let member_cache=MemberCache::new(spec.cp());
+        let k_hist=u64::from(spec.local().k_hist);let member_cache=MemberCache::new(spec.cp());let spec_id=revm::primitives::keccak256(spec.spec_bytes()).0;
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),ctx_cache:Default::default(),ctx_cache_off:false,seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
             r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,finalized_h:0,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new(),
-            member_src:std::sync::Arc::new(members::MemSets::default()),member_cache:std::sync::Mutex::new(member_cache),member_stats:Default::default(),member_oracle:true}
+            member_src:std::sync::Arc::new(members::MemSets::default()),member_cache:std::sync::Mutex::new(member_cache),member_stats:Default::default(),member_oracle:members::oracle_default(),spec_id}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
     /// V3-26: the retention floor max(head − r_keep, finalized_h) (local retention, never validity). Journal replay
@@ -858,13 +870,21 @@ impl Chain{
         let why=format!("the oracle: {what} of block {} at height {} recomputed from the member records differs",B256::from(e.hash),e.height);
         eprintln!("FN-3 {why}");debug_assert!(false,"{why}");Err(self.member_fault(&why))
     }
-    /// FN-3a: with the oracle on, the whole recomputed assignment of `e` against its stored ranges.
-    fn shadow_ranges(&self,e:&Entry,what:&str)->Result<(),Reject>{
+    /// FN-3b: with the oracle on, a historical reader's whole assignment of `e` (the cached one its verdict read) against a
+    /// recomputation that bypasses every cache, and against the captured one (`members::captured`) when there is one.
+    fn oracle_assignment(&self,e:&Entry,what:&str)->Result<(),Reject>{
         if !self.member_oracle{return Ok(())}
-        let a=self.assignment_of(e)?;self.oracle_verdict(e,ranges_equal(&e.ranges,&a),what)
+        let (warm,cold)=(self.assignment_of(e)?,self.assignment_of_with(e,false)?);
+        let ok=warm.ranges()==cold.ranges()&&members::captured(&self.spec_id,&e.hash).map_or(true,|d|d==members::ranges_digest(&cold));
+        // FN-3b step 1: and the stored ranges.
+        self.oracle_verdict(e,ok&&ranges_equal(&e.ranges,&cold),what)
     }
-    /// FN-3a: owner(nonce) of `e` recomputed, compared with the stored ranges' `want` (the verdict's).
-    fn shadow_owner(&self,e:&Entry,nonce:u64,want:Option<Address>,what:&str)->Result<(),Reject>{let got=self.owner_of(e,nonce)?;self.oracle_verdict(e,got==want,what)}
+    /// FN-3b: with the oracle on, block `e`'s assignment `a` as it was just validated or re-executed, recorded in the capture
+    /// (or compared with what was captured for it before).
+    fn oracle_capture(&self,e:&Entry,a:&Assignment,what:&str)->Result<(),Reject>{
+        if !self.member_oracle{return Ok(())}
+        match members::capture(&self.spec_id,&e.hash,members::ranges_digest(a)){None=>Ok(()),Some(ok)=>self.oracle_verdict(e,ok,what)}
+    }
     /// FN-3: block `e`'s member set S_b (sorted ids). From the cache, `e`'s own ids, or a walk from `e` to its nearest
     /// anchor (a cached set, a held entry's ids, or a snapshot read from the member source) through the held entries and
     /// then the source's records (which carry the parent's hash), each step checked: heights link, no delta at a
@@ -923,16 +943,20 @@ impl Chain{
             None=>Err(self.member_fault(&format!("the member record of block {} at height {} is not held",B256::from(e.hash),e.height))),
         }
     }
-    /// FN-3a, the cold sweep (tests and inspection): every member cache (and FN-1's) is cleared, then every held entry but
-    /// genesis whose parent is held has its assignment recomputed from the member records and compared with its stored
-    /// ranges (a slimmed entry, which holds none, is only recomputed). Returns (recomputed, compared); Err names the first
-    /// entry that could not be recomputed or differed.
+    /// FN-3, the cold sweep (tests and inspection): every member cache (and FN-1's) is cleared, then every held entry but
+    /// genesis whose parent is held has its assignment recomputed from the member records and compared with the
+    /// assignment it was validated under, as the capture holds it (`members::captured`: FN-3b's stand-in for the stored
+    /// ranges, slimmed entries included). Returns (recomputed, compared with the capture); Err names the first entry that
+    /// could not be recomputed or differed.
     pub fn member_sweep(&self)->Result<(usize,usize),String>{
         self.clear_member_caches();let (mut n,mut k)=(0,0);
         let mut all:Vec<&Entry>=self.blocks.values().map(|b|&**b).filter(|e|e.height>0&&e.parent.is_some_and(|p|self.get(&p).is_some())).collect();all.sort_by_key(|e|(e.height,e.hash));
         for e in all{
             let a=self.assignment_of(e).map_err(|x|format!("block {} at height {}: {x:?}",B256::from(e.hash),e.height))?;n+=1;
-            if !e.slim{k+=1;if !ranges_equal(&e.ranges,&a){return Err(format!("block {} at height {}: the recomputed assignment differs from the stored ranges",B256::from(e.hash),e.height))}}
+            if let Some(d)=members::captured(&self.spec_id,&e.hash){k+=1;
+                if d!=members::ranges_digest(&a){return Err(format!("block {} at height {}: the recomputed assignment differs from the one it was validated under",B256::from(e.hash),e.height))}}
+            // FN-3b step 1: and the stored ranges of an unslimmed entry.
+            if !e.slim&&!ranges_equal(&e.ranges,&a){return Err(format!("block {} at height {}: the recomputed assignment differs from the stored ranges",B256::from(e.hash),e.height))}
         }
         self.clear_member_caches();Ok((n,k))
     }
@@ -985,6 +1009,7 @@ impl Chain{
         let (rec,_)=self.held_rec(e)?;
         let bad=usize::from(rec.n)!=ids.len()||((self.member_oracle||rec.is_snapshot())&&members::digest_of(ids)!=rec.digest);
         if bad{return Err(self.member_fault(&format!("the member record of block {} at height {} does not describe its re-executed member set",B256::from(e.hash),e.height)))}
+        self.oracle_capture(e,&ctx.assignment,"a re-executed block's assignment")?;
         self.mcache().sets.put(e.hash,std::sync::Arc::from(ids));Ok(())
     }
 
@@ -1194,7 +1219,8 @@ impl Chain{
         self.mcache().sets.put(hash,s_b);
         // FN-3a, the oracle at import: the assignment recomputed from the records with every cache bypassed is the one the
         // block was validated under (and so its stored ranges).
-        if self.member_oracle{let cold=self.assignment_of_with(&entry,false)?;self.oracle_verdict(&entry,cold.ranges()==ctx.assignment.ranges()&&ranges_equal(&entry.ranges,&cold),"the import's assignment")?;}
+        if self.member_oracle{let cold=self.assignment_of_with(&entry,false)?;self.oracle_verdict(&entry,cold.ranges()==ctx.assignment.ranges()&&ranges_equal(&entry.ranges,&cold),"the import's assignment")?;
+            self.oracle_capture(&entry,&ctx.assignment,"the import's captured assignment")?;}
         Ok((entry,ctx))
     }
     /// The state fields of a child entry from its execution: a whole state with its diff from the parent
@@ -1270,12 +1296,12 @@ impl Chain{
         let total=if j==p.height{p.result.as_ref().ok_or_else(||Reject::Block("15 ls parent result".into()))?.shares.len() as u64+1}
             else{apply::share_total(self.view_or(p)?.v(),j)};
         let t_share=to_fixed(from_fixed(&e.target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
-        // FN-3a: the verdict reads the stored ranges; each owner looked up is recomputed from the member records and
-        // compared (the shadow), lazily, after the cap check as before.
-        let shadow=ShadowOwners::new(self,e,"a kind-3 owner");
-        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,owners:&shadow,header:&e.header.shares,credited:&credited,total};
+        // FN-3b: each owner is recomputed from the member records (`CheckedOwners`), lazily, after the cap check as the
+        // stored ranges were read before.
+        let owners_j=CheckedOwners::new(self,e,"a kind-3 owner");
+        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,owners:&owners_j,header:&e.header.shares,credited:&credited,total};
         let owners=late_check(&rules,&base,&nonces,block)?;
-        self.shadow_ranges(e,"a kind-3 template's assignment")?;
+        self.oracle_assignment(e,"a kind-3 template's assignment")?;
         Ok(EvidenceEffect::Late{j,owners})
     }
     /// V3-02, for a proposer (node-local; the block's evidence is validated as any other): the TemplateID of the
@@ -1293,9 +1319,9 @@ impl Chain{
         let credited=self.late_credited(p,j).ok()?;
         let total=if j==p.height{p.result.as_ref()?.shares.len() as u64+1}else{apply::share_total(self.view_or(p).ok()?.v(),j)};
         let t_share=to_fixed(from_fixed(&e.target).checked_mul(U256::from(cp.m)).unwrap_or(U256::MAX));
-        // FN-3a: as `evidence_late` (a local failure offers nothing: node-local).
-        let shadow=ShadowOwners::new(self,e,"a kind-3 offer's owner");
-        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,ranges:&e.ranges,owners:&shadow,header:&e.header.shares,credited:&credited,total};
+        // FN-3b: as `evidence_late` (a local failure offers nothing: node-local).
+        let owners_j=CheckedOwners::new(self,e,"a kind-3 offer's owner");
+        let base=LateBase{j,tid:template_id(&e.header.ut_raw),nonce:e.header.nonce,t_share,owners:&owners_j,header:&e.header.shares,credited:&credited,total};
         let used=block.seen.get(&j).map_or(0,|s|s.len() as u64);
         let room=rules.kappa_m.saturating_sub(total.saturating_add(used)).min(rules.s_max);
         let mut ok:Vec<u64>=Vec::new();let mut sorted=candidates.to_vec();sorted.sort_unstable();sorted.dedup();
@@ -1364,11 +1390,10 @@ impl Chain{
             // C-1 S4: an ancestor this walk needs is restored first (never inside the slim depth).
             if e.slim{return Err(Reject::NeedsRebuild(e.hash))}
             if template_id(&e.header.ut_raw)==tid{
-                // owner(nonce) under that block's assignment (stored ranges, D142). FN-3a: recomputed from the member
-                // records and compared first (the shadow; a mismatch is local), the verdict from the stored ranges.
-                let want=range_owner(&e.ranges,nonce as u128);
-                self.shadow_owner(e,nonce,want,"a type-2 accused owner")?;self.shadow_ranges(e,"a type-2 template's assignment")?;
-                let owner=want.ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
+                // owner(nonce) under that block's assignment (D142), FN-3b: recomputed from its member records (a local
+                // failure, never a verdict, when they cannot be read or do not add up), where the stored ranges were read.
+                let owner=CheckedOwners::new(self,e,"a type-2 accused owner").owner(nonce)?;self.oracle_assignment(e,"a type-2 template's assignment")?;
+                let owner=owner.ok_or_else(||Reject::Block("ev2 nonce outside nMax".into()))?;
                 if owner.0.0!=a1{return blk("ev2 signer not owner(nonce)")}
                 return Ok((addr(&a1),Some(e.height)));
             }
@@ -2035,9 +2060,9 @@ pub struct LateRules{pub h:u64,pub d:u64,pub s_max:u64,pub kappa_m:u64}
 /// What the kind-3 rules read about the ancestor template j on the carrying branch: its TemplateID, winning nonce,
 /// share target (target_j * m), stored nonce ranges and header shares, the nonces kind-3 evidence of the blocks above
 /// it already credited on the branch, and C_header(j) + C_late(j) so far (the winner's share included).
-/// FN-3a: `owners` is owner(nonce) recomputed from the member records (the chain's `ShadowOwners`), or the stored ranges
-/// themselves (the vectors); the verdict reads `ranges` and a disagreement is local.
-pub struct LateBase<'a>{pub j:u64,pub tid:[u8;32],pub nonce:u64,pub t_share:Fixed,pub ranges:&'a [(Address,u128,u128)],pub owners:&'a dyn NonceOwners,pub header:&'a [u64],
+/// FN-3b: `owners` is owner(nonce) of template j: recomputed from its member records on a chain (`CheckedOwners`), or
+/// the test vectors' ranges (a slice); an Err is local, never a verdict.
+pub struct LateBase<'a>{pub j:u64,pub tid:[u8;32],pub nonce:u64,pub t_share:Fixed,pub owners:&'a dyn NonceOwners,pub header:&'a [u64],
     pub credited:&'a std::collections::BTreeSet<u64>,pub total:u64}
 /// Within one carrying block: the nonces credited to each j by its earlier kind-3 items, in body order.
 #[derive(Clone,Debug,Default)]
@@ -2084,9 +2109,7 @@ pub fn late_check(r:&LateRules,b:&LateBase<'_>,nonces:&[u64],block:&mut LateBloc
     if b.total.saturating_add(seen.len() as u64).saturating_add(k)>r.kappa_m{return Err(ls("cap"))}
     let mut owners=Vec::with_capacity(nonces.len());
     for n in nonces{
-        let owner=range_owner(b.ranges,u128::from(*n));
-        if b.owners.owner(*n)?!=owner{return Err(Reject::Local(format!("member records: the recomputed owner of nonce {n} of template {} differs from the stored ranges",b.j)))}
-        let owner=owner.ok_or_else(||ls("nonce outside nMax"))?;
+        let owner=b.owners.owner(*n)?.ok_or_else(||ls("nonce outside nMax"))?;
         if *n==b.nonce{return Err(ls("winning nonce"))}
         if b.header.contains(n){return Err(ls("header share"))}
         if b.credited.contains(n){return Err(ls("credited on the branch"))}

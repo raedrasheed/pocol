@@ -11,10 +11,12 @@ use revm::primitives::{Address,B256,U256};
 
 const CHAIN:u64=777912;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 /// The consensus.rs test profile (gate-valid with single-host timing: D_att=73, c=8), small caps.
 fn cfg(tx_cap:u64,txbytes_cap:u64)->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c.tx_cap=tx_cap;c.txbytes_cap=txbytes_cap;c}
 fn spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
-fn net(c:&DevnetConfig)->Net{let d=devnet::build(c).unwrap();Net{chain:Chain::new(spec(c)),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()}}
+fn net(c:&DevnetConfig)->Net{let d=devnet::build(c).unwrap();Net{chain:oracle_on(Chain::new(spec(c))),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()}}
 fn node(c:&DevnetConfig,tag:&str,miner:Option<Key>,stop_at:Option<u64>)->(Node,std::path::PathBuf){
     let dir=std::env::temp_dir().join(format!("pocold-caps-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     (Node::open(Config{dir:dir.clone(),name:tag.into(),miner,listen:None,peers:vec![],rpc:None,stop_at,log:false,limits:Default::default()},spec(c)).unwrap(),dir)

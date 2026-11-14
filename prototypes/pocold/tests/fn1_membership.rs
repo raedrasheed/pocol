@@ -11,6 +11,8 @@ use pocold::{chain::{Chain,ChildCtx,Entry,Reject,Spec},node::{Config,Limits,Node
 use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,blocks:Vec<Block>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn config(v3:bool,full:bool,n:usize)->DevnetConfig{
     let mut cfg=DevnetConfig::new(777952,1_700_000_000,&[]);
     cfg.miners=(0..n).map(|i|format!("fn1-{i}")).collect();
@@ -25,7 +27,7 @@ fn net(cfg:DevnetConfig)->Net{
     let candidate=devnet::build(&cfg).unwrap();
     let mut keys:HashMap<_,_>=candidate.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
     for label in ["alice","bob","carol"]{let key=devnet::account_key(label);keys.insert(key.address(),key);}
-    Net{chain:Chain::new(spec(&cfg)),keys,cfg,blocks:Vec::new()}
+    Net{chain:oracle_on(Chain::new(spec(&cfg))),keys,cfg,blocks:Vec::new()}
 }
 /// A block on `parent`: signed by Draw(h,0) (every fixture key is held), its winner the first member with a held key
 /// whose range holds a solution.

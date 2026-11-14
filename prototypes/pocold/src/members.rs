@@ -253,6 +253,43 @@ pub struct StoredRanges<'a>(pub &'a [(Address,u128,u128)]);
 impl NonceOwners for StoredRanges<'_>{fn owner(&self,n:u64)->Result<Option<Address>,Reject>{Ok(crate::chain::range_owner(self.0,u128::from(n)))}}
 impl NonceOwners for Vec<(Address,u128,u128)>{fn owner(&self,n:u64)->Result<Option<Address>,Reject>{StoredRanges(self).owner(n)}}
 
+// ---------------- FN-3b: the oracle's default and its capture (tests) ----------------
+/// Whether chains created from now on run the oracle (`chain::Chain::member_oracle`). Off: the oracle costs O(M) CPU per
+/// import, re-execution and evidence read with no timing bound (A13-DERIVATION, CONDITIONS `cpu-and-timing`), so a node
+/// never runs it; a test switches it on (`test_oracle`, or `Chain::set_member_oracle` for one chain).
+static ORACLE_DEFAULT:std::sync::atomic::AtomicBool=std::sync::atomic::AtomicBool::new(false);
+/// The capture: each validated block's assignment (keccak of its nonce ranges, `ranges_digest`) by (the chain's spec id,
+/// the block hash), as `Chain::h_full` validated it. None: not capturing.
+static CAPTURE:Mutex<Option<HashMap<([u8;32],[u8;32]),[u8;32]>>>=Mutex::new(None);
+fn capture_map()->std::sync::MutexGuard<'static,Option<HashMap<([u8;32],[u8;32]),[u8;32]>>>{CAPTURE.lock().unwrap_or_else(|e|e.into_inner())}
+/// The oracle's default for chains created from now on (`Chain::new`).
+pub fn oracle_default()->bool{ORACLE_DEFAULT.load(std::sync::atomic::Ordering::SeqCst)}
+/// Tests: switches the oracle on for every chain created from now on in this process (bare chains, and a node's chain at
+/// its open, so its replay and its checkpoint restore run under it too), and starts the capture: from now on each block
+/// a chain with the oracle on validates (`Chain::h_full`, and a re-execution, `Chain::reexec`) records its assignment,
+/// the nonce ranges FN-3a stored on the entry, so that the cold sweep (`Chain::member_sweep`) can compare a
+/// recomputation with what the block was validated under after the ranges are gone, across restarts and between the
+/// chains of one test. Never switched off again: it only adds checks. The capture grows by one row a validated block,
+/// a test instrument outside A13 (a node never captures: the oracle is off).
+pub fn test_oracle(){ORACLE_DEFAULT.store(true,std::sync::atomic::Ordering::SeqCst);let mut c=capture_map();if c.is_none(){*c=Some(HashMap::new());}}
+/// Whether the capture is on.
+pub fn capturing()->bool{capture_map().is_some()}
+/// Records `digest` as block `block`'s assignment on the chain with spec id `chain`: None when not capturing; Some(true)
+/// when new or equal to what was captured before (a block's assignment is a function of the block, so every chain and
+/// every re-execution must agree); Some(false) when it differs.
+pub fn capture(chain:&[u8;32],block:&[u8;32],digest:[u8;32])->Option<bool>{
+    let mut c=capture_map();let m=c.as_mut()?;Some(*m.entry((*chain,*block)).or_insert(digest)==digest)
+}
+/// The captured assignment of block `block` on the chain with spec id `chain`.
+pub fn captured(chain:&[u8;32],block:&[u8;32])->Option<[u8;32]>{capture_map().as_ref()?.get(&(*chain,*block)).copied()}
+/// keccak over an assignment's nonce ranges in order, each owner (20 B), start and end exclusive (16 B each, big-endian):
+/// what FN-3a stored as `Entry.ranges` and as history.redb's ranges rows.
+pub fn ranges_digest(a:&crate::assignment::Assignment)->[u8;32]{
+    let mut b=Vec::with_capacity(52*a.ranges().len());
+    for r in a.ranges(){b.extend_from_slice(&r.id());b.extend_from_slice(&r.start().to_be_bytes());b.extend_from_slice(&r.end_exclusive().to_be_bytes());}
+    keccak256(&b).0
+}
+
 #[cfg(test)]
 mod tests{
     use super::*;

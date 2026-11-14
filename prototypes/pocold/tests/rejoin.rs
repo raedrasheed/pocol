@@ -41,6 +41,7 @@ fn net() -> Net {
     let timing = TIMING.get_or_init(|| admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap());
     let local = pocold::single_host_local();
     let admitted = admission::admit(&candidate.request(&local, Some(timing))).unwrap();
+    crate::members_sweep::oracle();
     Net { chain: Chain::new(Spec::new(admitted)), keys, one, two }
 }
 

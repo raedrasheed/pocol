@@ -24,7 +24,7 @@ fn config(spec:u8)->DevnetConfig{
     let mut c=DevnetConfig::new(777953,1_700_000_000,&["one","two","three"]);
     c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.earnin=true;c.spec_version=spec;c.e_win=80;c.u=96;c.c_react=96;c
 }
-fn spec_of(c:&DevnetConfig)->Spec{Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
+fn spec_of(c:&DevnetConfig)->Spec{members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn net(spec:u8)->Net{
     let cfg=config(spec);let d=devnet::build(&cfg).unwrap();
     let mut keys:HashMap<Address,Key>=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
@@ -189,7 +189,7 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
         // The cap: C_header(j) + C_late(j) + k > κm refuses before the first owner lookup (none recomputed or read).
         let cp=n.chain.spec.cp();let rules=LateRules{h:13,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
         let ranges=entry_at(&n.chain,12).ranges.to_vec();let probe=Counting(&ranges,AtomicU64::new(0));let credited:std::collections::BTreeSet<u64>=Default::default();
-        let base=LateBase{j:12,tid:[0;32],nonce:0,t_share:Fixed::from_u64(1),ranges:&ranges,owners:&probe,header:&[],credited:&credited,total:rules.kappa_m};
+        let base=LateBase{j:12,tid:[0;32],nonce:0,t_share:Fixed::from_u64(1),owners:&probe,header:&[],credited:&credited,total:rules.kappa_m};
         assert_eq!(late_check(&rules,&base,&[5],&mut LateBlock::default()),Err(Reject::Block("15 ls cap".into())));
         assert_eq!(probe.1.load(Ordering::SeqCst),0,"no owner was looked up");
         let base=LateBase{total:0,..base};let _=late_check(&rules,&base,&[5],&mut LateBlock::default());assert_eq!(probe.1.load(Ordering::SeqCst),1,"positive control");

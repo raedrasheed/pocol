@@ -36,6 +36,7 @@ fn fixture(activation: Option<u64>) -> (Spec, HashMap<Address, Key>) {
     let timing = TIMING.get_or_init(|| admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap());
     let local = pocold::single_host_local();
     let admitted = admission::admit(&candidate.request(&local, Some(timing))).unwrap();
+    crate::members_sweep::oracle();
     (Spec::new(admitted), keys)
 }
 

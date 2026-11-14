@@ -17,7 +17,7 @@ impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.c
 /// Genesis is in the past: honest single-host Φ=0 tolerates no future timestamps.
 fn cfg(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,miners);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 /// The admitted spec (full ParamGate with measured timing); a Devnet alone cannot boot.
-fn admitted(c:&DevnetConfig)->Spec{let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
+fn admitted(c:&DevnetConfig)->Spec{members_sweep::oracle();let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn net_with(c:&DevnetConfig)->Net{
     let d=devnet::build(c).unwrap();let mut keys=HashMap::new();
     for m in &d.miners{keys.insert(m.id,Key::from_secret(&m.key.secret()).unwrap());}
@@ -1604,7 +1604,7 @@ fn a11_deep_reorg_restores_the_oldest_detached_transaction(){
 }
 
 // ---------------- audit A13 regressions: enforced resource assumptions ----------------
-fn admitted_with(c:&DevnetConfig,local:pocol_lp4_execution::admission::NodeLocal)->Spec{Spec::new(devnet::build(c).unwrap().admit(&local).unwrap_or_else(|e|panic!("{e}")).0)}
+fn admitted_with(c:&DevnetConfig,local:pocol_lp4_execution::admission::NodeLocal)->Spec{members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&local).unwrap_or_else(|e|panic!("{e}")).0)}
 #[test] fn a13_side_branch_states_are_capped_and_rebuilt_on_demand(){
     let local=pocol_lp4_execution::admission::NodeLocal{side_max:2,..pocold::single_host_local()};
     let c=cfg(&["a","b","c"]);let d=devnet::build(&c).unwrap();let mut keys=HashMap::new();

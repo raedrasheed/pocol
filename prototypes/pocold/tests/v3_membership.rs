@@ -25,6 +25,7 @@ fn net(v3:bool,full:bool,earnin:bool,n:usize)->Net {
     for label in ["alice","bob","carol"] {let key=devnet::account_key(label);keys.insert(key.address(),key);}
     let miners=candidate.miners.iter().map(|m|m.id).collect();
     let (admitted,_)=candidate.admit(&pocold::single_host_local()).unwrap();
+    crate::members_sweep::oracle();
     Net{chain:Chain::new(Spec::new(admitted)),keys,miners}
 }
 fn solve(n:&Net,miner:Address,txs:Vec<Vec<u8>>)->Block {
