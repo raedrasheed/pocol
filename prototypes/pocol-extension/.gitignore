@@ -1,4 +1,5 @@
 dist/
 dist-fault-*/
+dist-v3-preview/
 tests/*.last.json
 releases/
