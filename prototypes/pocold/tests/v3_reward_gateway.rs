@@ -16,6 +16,7 @@
 //! call in the block it proposes, closing (markClose refunds every live record, an ACCRUING payee included, before the
 //! block's settlement) and the final block (finalize burns the tips and carries, settleFinal settles its last pots).
 //! Test-only: no consensus source is touched. Needs python3.
+#[path="support/members.rs"] mod members_sweep;
 mod on_chain {
     use std::collections::HashMap;
     use std::path::PathBuf;
@@ -33,6 +34,8 @@ mod on_chain {
     const T_END_OFFSET: u64 = 190;
 
     struct Net { node: Node, keys: HashMap<Address, Key>, nonces: HashMap<Address, u64> }
+    /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+    impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.node.chain);}}
     impl Net {
         /// The members removable at the next block (the node's pocol_getRemovable list).
         fn removable(&self) -> Vec<Address> {

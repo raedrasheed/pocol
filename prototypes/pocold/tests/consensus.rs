@@ -1,6 +1,7 @@
 //! LP5 consensus tests: fresh-genesis production, replay determinism, D133 fork
 //! choice (heavier / tied / signed-first), per-item H-pre/H-full rejections,
 //! envelope-vs-block rejection, evidence, finality.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use pocold::{chain::{Chain,Reject,Spec},types::*,hashes,rlp};
 use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},txsign::{Key,Tx}};
@@ -9,6 +10,8 @@ use revm::primitives::{Address,B256,U256};
 #[path="support/hello.rs"] mod support;
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
 /// Gate-valid test profile (A02): about 2^12 hashes per block (target 2^244-1 at T_blk=4),
 /// c=8, and D_att=73 so that R7 holds with single-host timing: 73+5 >= 2(7+8*4).
 /// Genesis is in the past: honest single-host Φ=0 tolerates no future timestamps.
@@ -2956,7 +2959,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     let slims=|n:&Node|n.chain.blocks.values().filter(|e|e.slim).count();
     let exact=|a:&Node,b:&Node|{let mut k=0;for e in a.chain.blocks.values().filter(|e|e.slim){
         let r=a.restored_entry(&e.hash).unwrap();let f=b.chain.get(&e.hash).unwrap();let mut fh=f.header.clone();if r.offloaded{fh.encoded=Vec::new();}
-        assert_eq!((&r.header,&r.result,&r.ranges),(&fh,&f.result,&f.ranges),"h={}: restored exactly",e.height);assert!(!r.ranges.is_empty()&&r.result.is_some());k+=1;}k};
+        // FN-3: and its member record (the persisted one: a slimmed entry is offloaded and holds none in memory).
+        assert_eq!((&r.header,&r.result,&r.ranges,a.chain.member_rec_of(&r).unwrap()),(&fh,&f.result,&f.ranges,b.chain.member_rec_of(f).unwrap()),"h={}: restored exactly",e.height);assert!(!r.ranges.is_empty()&&r.result.is_some());k+=1;}k};
     assert!(slims(&a)>80&&slims(&b)==0,"positive control: {} slimmed entries, the reference {}",slims(&a),slims(&b));
     let top=a.chain.head().height;let slim_h:Vec<u64>=(1..=top).filter(|h|a.chain.canonical_at(*h).unwrap().slim).collect();
     assert_eq!(slim_h,(1..top-8).collect::<Vec<_>>(),"exactly the canonical entries deeper than 8 are slimmed");
@@ -2980,8 +2984,9 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     a.import(side2.clone(),None).unwrap();b.import(side2.clone(),None).unwrap();
     assert!(a.chain.rebuilds>rb,"positive control: a TrieRebuild through slimmed entries");assert!(a.chain.get(&side2.hash()).is_some());
     assert_eq!(views(&mut a),views(&mut b),"after the fork below the cut");
+    members_sweep::sweep(&a.chain);members_sweep::sweep(&b.chain);
     drop(a);let mut r=Node::open(ca(),admitted(&cfg(&["a","b","c"]))).unwrap();
-    assert!(slims(&r)>80);assert_eq!(exact(&r,&b),slims(&r));assert_eq!(views(&mut r),views(&mut b),"after reopen");drop(r);
+    assert!(slims(&r)>80);assert_eq!(exact(&r,&b),slims(&r));assert_eq!(views(&mut r),views(&mut b),"after reopen");members_sweep::sweep(&r.chain);drop(r);
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
 
@@ -2999,6 +3004,8 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     assert_eq!(a.chain.head,b.chain.head);assert_eq!(a.chain.head,last.hash());
     let r=apply::miner_record(&a.chain.head().state,winner).unwrap();assert!(r.tomb,"the equivocating winner is tombstoned");
     assert_eq!(apply::state_root(&a.chain.head().state).unwrap(),apply::state_root(&b.chain.head().state).unwrap());
+    // FN-3a: the walk against the slimmed ancestor compared its recomputed owner (the shadow), and the cold sweep holds.
+    assert!(a.chain.member_counters().oracle_checks>0);members_sweep::sweep(&a.chain);members_sweep::sweep(&b.chain);
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
 /// A node slimming at `depth` (u64::MAX: never), for the S4 evidence chain.
@@ -3788,7 +3795,9 @@ fn e44_same(x:&mut pocold::node::Node,y:&mut pocold::node::Node,what:&str){
     let dbg=|n:&pocold::node::Node|{let mut v:Vec<([u8;32],String)>=n.chain.blocks.values().map(|e|(e.hash,format!("{:?}",(
         (e.hash,&e.header,&e.body,e.height,e.parent,e.total_work,e.import_seq,e.signed,e.ts,e.target,e.base_fee,e.gas_used),
         (e.seal,e.state.accounts.len(),e.is_final,&e.result,&e.receipts,&e.tx_hashes,e.cum_txs,e.cum_tx_bytes,e.cum_log_bytes,e.pruned,e.full,e.diff.is_some()),
-        (e.slim,e.drawn,&e.ranges,e.body_off,e.offloaded,e.trie.is_some(),&e.summary,e.stored.as_ref().map(|p|(p.trie.world,{let mut h:Vec<_>=p.hashes.iter().collect();h.sort();format!("{h:?}")}))))))).collect();v.sort();v};
+        (e.slim,e.drawn,&e.ranges,e.body_off,e.offloaded,e.trie.is_some(),&e.summary,e.stored.as_ref().map(|p|(p.trie.world,{let mut h:Vec<_>=p.hashes.iter().collect();h.sort();format!("{h:?}")}))),
+        // FN-3: the member record (held or persisted: residency follows the entry's offloading, the record does not).
+        (e.height>0).then(||n.chain.member_rec_of(e).ok()))))).collect();v.sort();v};
     for (a,b) in dbg(x).iter().zip(dbg(y).iter()){if a!=b{let i=a.1.bytes().zip(b.1.bytes()).position(|(p,q)|p!=q).unwrap_or(a.1.len().min(b.1.len()));let lo=i.saturating_sub(300);
         panic!("{what}: entry {} differs at byte {i}:\n{}\n{}",B256::from(a.0),&a.1[lo..a.1.len().min(i+300)],&b.1[lo..b.1.len().min(i+300)]);}}
     assert_eq!(chain_view(x),chain_view(y),"{what}: blocks and receipts");
@@ -3807,6 +3816,8 @@ fn e44_same(x:&mut pocold::node::Node,y:&mut pocold::node::Node,what:&str){
     for n in [&*x,&*y]{let stored=n.chain.blocks.values().filter(|e|e.stored.is_some()).count();
         assert_eq!(n.chain.trie_store.as_ref().unwrap().pinned().unwrap() as usize,stored,"{what}: the entries' pins are their stored versions");
         n.state_store().unwrap().recount().unwrap_or_else(|e|panic!("{what}: {e}"));}
+    // FN-3a: after each restart, the cold sweep of both chains.
+    members_sweep::sweep(&x.chain);members_sweep::sweep(&y.chain);
 }
 /// Opens `dir` as a reference: a copy replayed from genesis (checkpoints off, so the store starts empty).
 fn e44_reference(dir:&std::path::Path,tag:&str)->(pocold::node::Node,std::path::PathBuf){

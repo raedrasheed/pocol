@@ -1,10 +1,13 @@
 //! V3-01/13 and the neutral ledger-owner iteration, on private fixture chains.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},txsign::{Key,Tx}};
 use pocold::{assignment::{DrawWeights,Membership,ShareCount},chain::{Chain,Entry,Spec},hashes,types::*};
 use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 
 struct Net { chain:Chain, keys:HashMap<Address,Key>, miners:Vec<Address> }
+/// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
 fn net(v3:bool,full:bool,earnin:bool,n:usize)->Net {
     let mut cfg=DevnetConfig::new(777936,1_700_000_000,&[]);
     cfg.miners=(0..n).map(|i|format!("membership-{i}")).collect();

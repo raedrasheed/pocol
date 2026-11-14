@@ -9,6 +9,7 @@
 //!   form; the negative cases on real branches (a fallback carrier, a sibling template's share, a duplicate across
 //!   carriers, the cap read from the parent state); a reorg across a carrier rolls the credit and its deduplication
 //!   back; replay determinism; the Escrow invariant on every block.
+#[path="support/members.rs"] mod members_sweep;
 use pocold::chain::{late_check,late_parse,late_window,LateBase,LateBlock,LateRules};
 use pocold::types::Fixed;
 use revm::primitives::{keccak256,Address};
@@ -110,6 +111,8 @@ mod on_chain {
 
     const PCOL:u128=1_000_000_000_000_000_000;
     struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Address>}
+    /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+    impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
     fn config(spec:u8)->DevnetConfig{
         let mut c=DevnetConfig::new(777952,1_700_000_000,&["one","two","three"]);
         c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.earnin=true;c.spec_version=spec;c
@@ -341,7 +344,7 @@ mod on_chain {
         hh.winner_sig=n.keys[&owner].sign_hash(&B256::from(hashes::win_msg(&tid,nonce,&share_root(&hh))));reseal(&mut hh);
         let h5=accept(&mut n,&Block{header:hh,body});
         assert_eq!((count(&n,&h5,4,n.ids[1]),total(&n,&h5,4)),(room as u64,64),"filled to kappa*m");
-        drop(node);let _=std::fs::remove_dir_all(&d);
+        crate::members_sweep::sweep(&node.chain);drop(node);let _=std::fs::remove_dir_all(&d);
         // The cache's own bounds (review E3: it keeps the canonical templates of the carrier window, never the last D
         // locked ones). Head at height 8, D = 4: the window of the next carrier is [5, 8]; heights 5..8 each have a
         // canonical template ([h;32]) and dead ones (an attempt, an equivocation's other template: [h+100;32]),
@@ -404,6 +407,8 @@ mod on_chain {
             let fresh=mine(&n,n.chain.head,vec![late_encode(4,&o[2..3])],true,one,&[],8,0);
             assert!(node.import(fresh.block.clone(),None).unwrap());accept(&mut n,&fresh.block);
             assert_eq!(apply::share_count(node.chain.view_of(&node.chain.head.clone()).unwrap().v(),4,n.ids[1]),3);
+            // FN-3a: after the restart (replay or checkpoint restore), the cold sweep.
+            crate::members_sweep::sweep(&node.chain);
             drop(node);let _=std::fs::remove_dir_all(&d);
         }
     }
@@ -431,7 +436,7 @@ mod on_chain {
             let st=node.chain.view_of(&at_s).unwrap();
             assert_eq!(apply::share_count(st.v(),4,n.ids[1]),3,"both carriers' credits");
             roots.push((rounds,pocold::chain::whole_state(st.v()).accounts.len()));
-            drop(st);drop(node);let _=std::fs::remove_dir_all(&d);
+            drop(st);crate::members_sweep::sweep(&node.chain);drop(node);let _=std::fs::remove_dir_all(&d);
         }
         assert_eq!(roots[0].1,roots[1].1);
     }
