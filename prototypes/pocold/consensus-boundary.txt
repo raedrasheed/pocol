@@ -35,7 +35,7 @@ vector lp1-node/tests/data/
 # pocold consensus: validation, state, restored state and history that feed validation, signature recovery
 # behind hashes.rs, the crate root (configured_forks, load_spec_for, #[path] wiring, io/crash hooks) and the
 # identity that decides who peers.
-+pocold/src/{chain,types,statediff,state_store,checkpoint,history,store,secp_backend,lib,identity}.rs
++pocold/src/{chain,types,statediff,state_store,checkpoint,history,store,secp_backend,lib,identity,members}.rs
 
 # The enforcement point and its inputs.
 +pocold/build.rs

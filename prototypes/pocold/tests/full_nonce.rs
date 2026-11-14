@@ -1,5 +1,6 @@
 //! Consensus v2 expands the nonce domain without changing genesis or replaying v1
 //! blocks under new ownership rules. All activation heights here are test fixtures.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{mpsc, OnceLock};
 use std::time::Duration;
@@ -15,6 +16,8 @@ struct Net {
     chain: Chain,
     keys: HashMap<Address, Key>,
 }
+/// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+impl Drop for Net { fn drop(&mut self) { crate::members_sweep::sweep_on_drop(&self.chain); } }
 
 fn fixture(activation: Option<u64>) -> (Spec, HashMap<Address, Key>) {
     let mut cfg = DevnetConfig::new(777914, 1_700_000_000, &LABELS);
@@ -280,6 +283,8 @@ fn persisted_checkpoint_reopens_across_activation_and_refuses_rewriting_history(
     // Refused configurations did not erase or reinterpret the stored chain.
     let node = Node::open(config(), fixture(Some(ACTIVATION)).0).unwrap();
     assert_eq!(node.chain.head, head);
+    // FN-3a: after the restart, the cold sweep.
+    crate::members_sweep::sweep(&node.chain);
     drop(node);
     std::fs::remove_dir_all(dir).unwrap();
 }
