@@ -30,7 +30,10 @@ pub struct DevnetConfig{
     pub accounts:Vec<(String,U256)>,
     /// Earn-in rules (EARN-IN-SPEC.md): the earn-in system programs and B_reg = 20 PCOL.
     pub earnin:bool,
-    /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately.
+    /// CP 15, the block subsidy S0 in wei (2 PCOL by default; the fresh network's profile states its own, FN-4).
+    pub subsidy:U256,
+    /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately. A specVersion-2 build
+    /// requires S_tail = S0/32 (the tail of the M3 schedule from era 5, FRESH-NETWORK-DESIGN §1a), see `build`.
     pub h_half:u64,pub s_tail:U256,
     pub gamma_tip_bp:u16,pub base_fee_min:U256,
     pub r_react:u8,pub c_react:u32,pub rho_bp:u16,
@@ -49,7 +52,7 @@ impl DevnetConfig{
             code_cap:1<<21,txbytes_cap:1<<24,tx_cap:20_000,alpha_bp:1000,gamma_bp:500,c:2,
             miners:miners.iter().map(|s|s.to_string()).collect(),
             accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false,nonce_mode:0,
-            h_half:31_557_600,s_tail:U256::from(62_500_000_000_000_000u64),
+            subsidy:U256::from(2_000_000_000_000_000_000u128),h_half:31_557_600,s_tail:U256::from(62_500_000_000_000_000u64),
             gamma_tip_bp:5000,base_fee_min:U256::from(10_000_000),
             r_react:4,c_react:40,rho_bp:2500}
     }
@@ -58,7 +61,7 @@ impl DevnetConfig{
         let big=|v:u128|fixed::U256::from_be_slice(&v.to_be_bytes()).unwrap();
         let mut cp=vec![n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(self.nonce_mode.into()),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
          n(self.m.into()),n(self.kappa.into()),n(self.s_max.into()),n(self.d.into()),n(self.w_w.into()),n(self.alpha_bp.into()),n(self.gamma_bp.into()),
-         big(2_000_000_000_000_000_000),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
+         to_fixed(self.subsidy),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
          n(self.gas_limit),n(1_000_000_000),n(131072),n(196608),n(32768),n(self.code_cap),n(self.txbytes_cap),n(self.tx_cap),n(self.slot_cap),n(self.acct_cap),
          // V3-02: a CP schema v2 (v3) devnet doubles SYS_KEYS_BLOCK_MAX (2048 -> 4096): R18 counts the 3·L keys a block's
@@ -119,6 +122,7 @@ pub fn account_key(label:&str)->Key{Key::devnet(&format!("account:{label}"))}
 /// is a candidate, not an admitted profile (see `Devnet::admit`).
 pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     if cfg.chain_id==777001{return Err("network chainId is not a devnet".into())}
+    if cfg.spec_version>=2{tail_is_s0_over_32(cfg.subsidy,cfg.s_tail)?;}
     // V3-34: an earn-in devnet on CP schema v2 (specVersion 2) runs the v3 programs, which read their v3 fields from it.
     let programs=if cfg.earnin{if cfg.spec_version>=2{SystemPrograms::v3()}else{SystemPrograms::earnin()}}else if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
     let mut miners:Vec<MinerIdentity>=cfg.miners.iter().map(|l|miner_identity(l)).collect();
@@ -139,6 +143,13 @@ pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     let genesis=Genesis::build(&alloc,&profile,&programs).map_err(|e|format!("{e:?}"))?;
     let spec_bytes=gs::encode(&spec);
     Ok(Devnet{genesis_hash:B256::from(profile.genesis_hash()),spec_bytes,profile,alloc,genesis,programs,miners,forks,hash_rate:cfg.hash_rate})
+}
+/// FN-4 (FRESH-NETWORK-DESIGN §1a, rows 15 and 53): a CP schema v2 genesis built by the tooling carries S_tail = S0/32, so
+/// the M3 schedule reaches its tail exactly at era 5 (S0 >> 5). A builder check, not a consensus rule: the decoder accepts
+/// any S_tail (genesis_spec.rs).
+pub fn tail_is_s0_over_32(subsidy:U256,s_tail:U256)->Result<(),String>{
+    if s_tail!=subsidy/U256::from(32){return Err(format!("S_tail {s_tail} is not S0/32 = {} (S0 {subsidy})",subsidy/U256::from(32)))}
+    Ok(())
 }
 fn identity(spec:&GenesisSpec,forks:&[(u16,u64)])->Result<ProfileIdentity,String>{
     let bytes=gs::encode(spec);let hash=gs::genesis_hash(&bytes);
