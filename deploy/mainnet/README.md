@@ -23,7 +23,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    second, the founders' measured aggregate hash rate, and each founder's public miner ID and reward address. Then
    run `pocold init-testnet --config PROFILE.json --out NEW_DIR` once, and record the printed chain ID and genesis
    hash. While any placeholder remains, the builder refuses. `--test-placeholders` fills them with public test keys
-   for a local test genesis only; that genesis is marked `testPlaceholders` and is never a launch genesis.
+   for a local test genesis only; that genesis runs on the local test chain ID 777990 (the profile's ID is recorded
+   as `profileChainId`), is marked `testPlaceholders` and is never a launch genesis.
 5. **Invitation.** Pack the genesis files with the three seed addresses into the network invitation
    (`pocol network`), and check its fingerprint on every founding device.
 6. **Closed rehearsal.** Run the network on the three US servers only, then wipe and repeat from step 4 for

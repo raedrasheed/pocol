@@ -2,10 +2,10 @@
 //! `v3-rehearsal-profile.json`, through the genesis builder (`pocold init-testnet`, testnet.rs) and the full ParamGate.
 //! The CP is the design's §1a table (development/decisions/FRESH-NETWORK-CP.md); the chain ids are the FN-0 draws. The
 //! founders are placeholders until the genesis ceremony: the builder refuses them unless the explicit test flag fills
-//! them with the public test keys of `testnet::test_founder` (never a launch genesis), so every genesis built here is a
-//! local test genesis.
-use pocol_lp4_execution::{admission::{self,NodeLocal,Request,Scope},apply::{self,ProgramSet},devnet,gate::FactClass,
-    genesis_spec as gs,issuance,param_gate::registry_metrics,profile::{ConsensusParams,NodeKind,ProfileKind}};
+//! them with the public test keys of `testnet::test_founder` and the local `testnet::TEST_CHAIN_ID` (never a launch
+//! genesis), so every genesis built here is a local test genesis. Only `ceremony_filled` (no flag) keeps a profile's id.
+use pocol_lp4_execution::{admission::{NodeLocal,Scope},apply::{self,ProgramSet},devnet,gate::FactClass,
+    genesis_spec as gs,issuance,param_gate::registry_metrics,profile::ConsensusParams};
 use pocold::testnet::{self,TestPlaceholders,TimingAssumptions};
 use revm::primitives::U256;
 use std::{path::{Path,PathBuf},sync::atomic::{AtomicU64,Ordering}};
@@ -44,18 +44,10 @@ fn ceremony_filled(profile:&serde_json::Value,hash_rate:u64)->serde_json::Value{
     }
     p
 }
-/// The genesis in `dir` admitted by the full ParamGate (R1-R26) at `local`, as `pocold run` admits it (Simnet profile,
-/// Simnet node, ExperimentalDevnet scope, FRESH-NETWORK-DESIGN §0 "Launch admission"), with the calibration devnet.json
-/// records.
-fn admit(dir:&Path,local:&NodeLocal)->Result<admission::Admitted,admission::Rejection>{
-    let bytes=pocold::types::unhex(std::fs::read_to_string(dir.join("genesis.spec.hex")).unwrap().trim()).unwrap();
-    let alloc=devnet::alloc_from_json(&json(&std::fs::read_to_string(dir.join("alloc.json")).unwrap())).unwrap();
-    let info=info_in(dir);
-    let class=if info["calibration"]["class"]=="measurement"{FactClass::Measurement}else{FactClass::SyntheticFixture};
-    let timing=admission::measure(&bytes,&alloc,1).unwrap();
-    admission::admit(&Request{spec_bytes:&bytes,alloc:&alloc,forks:&[(1,0)],kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,
-        calibration:Some((info["calibration"]["hashesPerSecond"].as_u64().unwrap(),class)),timing:Some(&timing),scope:Scope::ExperimentalDevnet})
-}
+/// The genesis in `dir` booted by the launcher (`pocold::load_spec_for`, the path `pocold run` takes): the full ParamGate
+/// (R1-R26) at `local`, Simnet profile, Simnet node, ExperimentalDevnet scope (FRESH-NETWORK-DESIGN §0 "Launch
+/// admission"), with the calibration class the launcher reads from devnet.json. Its admission is `spec.admission()`.
+fn boot(dir:&Path,local:&NodeLocal)->Result<pocold::chain::Spec,String>{pocold::load_spec_for(dir,local,None)}
 
 #[test]
 fn the_two_chain_ids_differ_are_in_range_and_avoid_the_excluded_set(){
@@ -68,7 +60,7 @@ fn the_two_chain_ids_differ_are_in_range_and_avoid_the_excluded_set(){
     for id in [MAINNET_CHAIN_ID,REHEARSAL_CHAIN_ID]{
         assert!((1u64<<24..1u64<<32).contains(&id),"{id}: drawn in [2^24, 2^32)");
         assert!(![777001,261597237,1234567891].contains(&id)&&!retired.contains(&id),"{id}: R22's id, the earlier public testnet, the extension placeholder and the retired network are excluded");
-        assert!(!(777900..=777999).contains(&id),"{id}: 7779xx are the local devnet ids");
+        assert!(!(777900..=777999).contains(&id),"{id}: 7779xx are the local devnet ids");assert_ne!(id,testnet::TEST_CHAIN_ID);
         assert!(RECORD.contains(&id.to_string()),"{id}: recorded in FN-0's record");
     }
 }
@@ -118,7 +110,13 @@ fn the_builder_refuses_ceremony_placeholders_without_the_test_flag(){
         let err=testnet::prepare_with(other.to_string().as_bytes(),&out.0,Some(&TEST)).unwrap_err();assert!(err.contains("/cp/D_att"),"{err}");
         assert!(!out.0.exists());
     }
-    // With the flag: a test genesis, marked as one, with the public test founders and a synthetic calibration.
+    // With the flag: a test genesis, marked as one, with the public test founders, a synthetic calibration and the local
+    // test chain id (design §1b: never the profile's own id, which is recorded as profileChainId).
+    for (label,p,id) in [("flagged-rehearsal",REHEARSAL,REHEARSAL_CHAIN_ID),("flagged-mainnet",MAINNET,MAINNET_CHAIN_ID)]{
+        let out=built(label,&json(p));let info=info_in(&out.0);
+        assert_eq!((info["chainId"].as_u64(),info["profileChainId"].as_u64()),(Some(testnet::TEST_CHAIN_ID),Some(id)),"{label}");
+        assert_eq!(spec_in(&out.0).chain_id,testnet::TEST_CHAIN_ID,"{label}: the genesis itself carries the test id");
+    }
     let out=built("flagged",&json(MAINNET));let info=info_in(&out.0);
     assert_eq!(info["testPlaceholders"],true);assert!(info["note"].as_str().unwrap().starts_with("TEST GENESIS"));
     assert_eq!(info["calibration"],serde_json::json!({"hashesPerSecond":TEST.hash_rate,"class":"synthetic-fixture"}));
@@ -129,7 +127,8 @@ fn the_builder_refuses_ceremony_placeholders_without_the_test_flag(){
     let run=|extra:&[&str],out:&Path|std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["init-testnet","--config",config.to_str().unwrap(),"--out",out.to_str().unwrap()]).args(extra).output().unwrap();
     let o=run(&[],&d.0.join("refused"));assert!(!o.status.success());assert!(String::from_utf8_lossy(&o.stderr).contains("placeholders"));assert!(!d.0.join("refused").exists());
     let o=run(&["--test-placeholders"],&d.0.join("test"));assert!(o.status.success(),"{}",String::from_utf8_lossy(&o.stderr));
-    let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();assert_eq!(summary["testPlaceholders"],true);assert_eq!(summary["chainId"],MAINNET_CHAIN_ID);
+    let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();assert_eq!(summary["testPlaceholders"],true);
+    assert_eq!((summary["chainId"].as_u64(),summary["profileChainId"].as_u64()),(Some(testnet::TEST_CHAIN_ID),Some(MAINNET_CHAIN_ID)));
     assert_eq!(info_in(&d.0.join("test"))["calibration"]["hashesPerSecond"],(1<<18)/10);
     let o=run(&["--test-placeholders","--test-placeholders"],&d.0.join("twice"));assert!(!o.status.success());
 }
@@ -139,15 +138,23 @@ fn a_ceremony_filled_profile_builds_without_the_flag_with_a_measured_calibration
     let out=Temp::new("ceremony");let p=ceremony_filled(&json(MAINNET),1_000_000);
     testnet::prepare(p.to_string().as_bytes(),&out.0).unwrap();
     let info=info_in(&out.0);
-    assert!(info.get("testPlaceholders").is_none());
+    assert!(info.get("testPlaceholders").is_none()&&info.get("profileChainId").is_none());
     assert_eq!(info["calibration"],serde_json::json!({"hashesPerSecond":1_000_000,"class":"measurement"}));
     assert_eq!((info["profile"].as_str(),info["record"].as_str()),(Some("pocol-v3-fresh-network"),Some("development/decisions/FRESH-NETWORK-CP.md")));
-    let a=admit(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();
+    // The ceremony path keeps the profile's own chain id, for both profiles.
+    assert_eq!((info["chainId"].as_u64(),spec_in(&out.0).chain_id),(Some(MAINNET_CHAIN_ID),MAINNET_CHAIN_ID));
+    let o3=Temp::new("ceremony-rehearsal");testnet::prepare(ceremony_filled(&json(REHEARSAL),1_000_000).to_string().as_bytes(),&o3.0).unwrap();
+    assert_eq!(spec_in(&o3.0).chain_id,REHEARSAL_CHAIN_ID);
+    // The launcher (pocold/src/lib.rs) boots it with the measured class devnet.json records.
+    let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
+    assert_eq!(spec.chain_id(),MAINNET_CHAIN_ID);
     assert_eq!(a.report().calibration_class,Some(FactClass::Measurement),"R25 with a measured class (design §1a row 1)");
     assert!(!a.report().conditions.iter().any(|c|c.id=="calibration-synthetic"));
     assert_eq!(a.profile().cp().target_g,pocol_lp4_execution::gate::calibration_target(1_000_000,10).unwrap(),"target_g = calibration_target(H_measured, 10)");
-    // The launcher boots it the same way (pocold/src/lib.rs reads the class devnet.json records).
-    pocold::load_spec_for(&out.0,&testnet::local_for_network(&out.0).unwrap(),None).unwrap();
+    // The converse: the launcher boots a --test-placeholders genesis with its synthetic class.
+    let t=built("ceremony-converse",&json(MAINNET));let spec=boot(&t.0,&testnet::local_for_network(&t.0).unwrap()).unwrap();
+    assert_eq!(spec.admission().report().calibration_class,Some(FactClass::SyntheticFixture));
+    assert!(spec.admission().report().conditions.iter().any(|c|c.id=="calibration-synthetic"));
     // A measured class on a profile is required: a synthetic one is refused.
     let mut synthetic=p.clone();synthetic["hashRate"]["class"]=serde_json::json!("synthetic-fixture");
     let o2=Temp::new("ceremony-synthetic");assert!(testnet::prepare(synthetic.to_string().as_bytes(),&o2.0).unwrap_err().contains("measurement"));
@@ -159,7 +166,7 @@ fn the_founder_allocation_check(){
     // Positive: the genesis holds each founder as a live HELD record with the 20 PCOL bond minted into Escrow, its reward
     // account durable (nonce >= 1, PAY-02) with 999,980 PCOL, and exactly 4,000,000 PCOL in all.
     let out=Temp::new("alloc");testnet::prepare(base.to_string().as_bytes(),&out.0).unwrap();
-    let a=admit(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let g=a.genesis();let state=g.state();
+    let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let g=spec.genesis();let state=g.state();
     for i in 0..testnet::FOUNDERS{
         let t=testnet::test_founder(i);let r=apply::miner_record(state,t.id).unwrap();
         assert_eq!((r.status,r.tomb,r.bond_state,r.bond,r.reward),(1,false,1,U256::from(20*PCOL),t.reward),"founder {i}: HELD");
@@ -190,7 +197,8 @@ fn paramgate_r1_r26_admits_the_final_and_rehearsal_cp_at_both_declared_locals(){
     for (label,profile) in [("mainnet",MAINNET),("rehearsal",REHEARSAL)]{
         let out=built(label,&json(profile));let c=cp_in(&out.0);
         assert_eq!(spec_in(&out.0).spec_version,2);assert_eq!(spec_in(&out.0).cp.len(),59);
-        assert_eq!(spec_in(&out.0).chain_id,json(profile)["chainId"].as_u64().unwrap());
+        // A test genesis runs on the local test id; the profile's own id is checked on the ceremony path (above).
+        assert_eq!(spec_in(&out.0).chain_id,testnet::TEST_CHAIN_ID);assert_eq!(info_in(&out.0)["profileChainId"],json(profile)["chainId"]);
         // R20: Z_close >= ceil(REG_RECORDS_MAX / RET) + P2 + D + 1 = 192 + 2 + 4 + 1 = 199 <= 256; R16: 21,092 <= 24,576.
         let reg=registry_metrics(c.U,c.E_win,c.D,c.M_max,c.R_max,c.REG_RECORDS_MAX,c.RET,c.P2).unwrap();
         assert_eq!(reg.close_blocks_required,199);assert!(reg.close_blocks_required<=u128::from(c.Z_close));assert_eq!(c.Z_close,256);
@@ -204,7 +212,7 @@ fn paramgate_r1_r26_admits_the_final_and_rehearsal_cp_at_both_declared_locals(){
             assert!(u128::from(local.delta_rel)>=m.sigma+d+2*t,"R2");assert!(u128::from(c.dFbWait)>=big_phi+d+2*t,"R3");
             assert!(3*c.dFbWait<=c.D_att,"R5");
             assert!(u128::from(c.D_att)+u128::from(local.gamma)>=2*(m.x_w+u128::from(c.c)*u128::from(c.T_blk))+big_phi,"R7");
-            let a=admit(&out.0,&local).unwrap_or_else(|e|panic!("{label} ({delta},{phi},{t_exec}): ParamGate refused {:?} {:?} {:?}",e.rules,e.missing,e.notes));
+            let spec=boot(&out.0,&local).unwrap_or_else(|e|panic!("{label} ({delta},{phi},{t_exec}): ParamGate refused: {e}"));let a=spec.admission();
             assert_eq!(a.scope(),Scope::ExperimentalDevnet);assert!(a.report().r21_exception,"R21 through the simnet retentionStress exception (design §1c)");
             println!("FN4-ADMIT {}",serde_json::json!({"profile":label,"local":[delta,phi,t_exec],"deltaRel":rel,"gamma":gamma,
                 "conditions":a.report().conditions.iter().map(|c|c.id).collect::<Vec<_>>(),"historicalBytes":a.report().historical_bytes}));
@@ -221,8 +229,11 @@ fn issuance_at_the_era_boundaries_and_the_supply_bound_at_the_final_cp(){
     let (s0,h)=(devnet::from_fixed(&c.subsidy),c.H_half);
     assert_eq!((s0,h,devnet::from_fixed(&c.S_tail)),(U256::from(4*PCOL),12_623_040,U256::from(PCOL/8)));
     // The builder check: S_tail = S0/32, so the S0 term meets the tail exactly at era 5.
-    devnet::tail_is_s0_over_32(s0,devnet::from_fixed(&c.S_tail)).unwrap();
-    assert!(devnet::tail_is_s0_over_32(s0,U256::from(PCOL/8+1)).is_err());
+    testnet::tail_is_s0_over_32(s0,devnet::from_fixed(&c.S_tail)).unwrap();
+    assert!(testnet::tail_is_s0_over_32(s0,U256::from(PCOL/8+1)).is_err());
+    // The profile builder refuses any other tail.
+    let mut off=json(MAINNET);off["cp"]["S_tail"]=serde_json::json!((PCOL/8+1).to_string());
+    let o=Temp::new("tail");let e=testnet::prepare_with(off.to_string().as_bytes(),&o.0,Some(&TEST)).unwrap_err();assert!(e.contains("is not S0/32"),"{e}");assert!(!o.0.exists());
     let at=|n:u64|issuance::for_cp(&c,n);
     for (n,want) in [(0,0),(1,4*PCOL),(h-1,4*PCOL),(h,2*PCOL),(2*h,PCOL),(5*h-1,PCOL/4),(5*h,PCOL/8),(6*h,PCOL/8),(255*h,PCOL/8),(u64::MAX,PCOL/8)]{
         assert_eq!(at(n),U256::from(want),"issuance({n})");
@@ -250,7 +261,7 @@ fn a_devnet_booted_from_the_final_profile_mines_v3_blocks(){
     let local=testnet::local_for_network(&out.0).unwrap();assert_eq!((local.delta,local.phi,local.t_exec,local.delta_rel),(1,1,1,7));
     let spec=pocold::load_spec_for(&out.0,&local,None).unwrap();
     assert_eq!(spec.programs(),ProgramSet::V3);assert!(spec.v3_active(0)&&spec.earnin_rules());
-    assert_eq!(spec.profile().spec().spec_version,2);assert_eq!(spec.chain_id(),MAINNET_CHAIN_ID);
+    assert_eq!(spec.profile().spec().spec_version,2);assert_eq!(spec.chain_id(),testnet::TEST_CHAIN_ID);
     assert_eq!(spec.probation(),None,"no probation pool or deadline (FN-2b)");
     let mut chain=Chain::new(spec);
     let keys:Vec<_>=(0..testnet::FOUNDERS).map(testnet::test_founder).collect();

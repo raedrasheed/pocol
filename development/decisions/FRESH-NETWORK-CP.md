@@ -121,8 +121,10 @@ write a genesis while any remains. The single exception is the explicit test fla
 - a synthetic hash rate, whose class is set to `synthetic-fixture`;
 - public deterministic test keys.
 
-A genesis built with the flag is marked `testPlaceholders: true` and "TEST GENESIS" in its devnet.json and summary.
-It is never a launch genesis.
+The flag also replaces the profile's chain id with the local test id 777990 (`TEST_CHAIN_ID`, a 7779xx devnet id that
+the FN-0 draws exclude) and records the profile's id as `profileChainId`. A test chain therefore never signs under the
+mainnet or rehearsal id, which keeps the §1b separation (EIP-155 binds only the chain id). A genesis built with the flag
+is marked `testPlaceholders: true` and "TEST GENESIS" in its devnet.json and summary. It is never a launch genesis.
 
 ## 4. Node-local values and admission (outside genesisHash; design §1c)
 

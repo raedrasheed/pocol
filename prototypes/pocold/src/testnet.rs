@@ -6,7 +6,9 @@
 //! (`genesisTime` and the measured `hashRate`), its local timing and its founders (`founders`, the only allocation).
 //! Values the genesis ceremony supplies are strings starting with `PLACEHOLDER`; the builder refuses any such value
 //! anywhere in a config unless `TestPlaceholders` (the `--test-placeholders` flag) fills them with public test values,
-//! and such a genesis is marked as a test genesis in its devnet.json.
+//! and such a genesis is marked as a test genesis in its devnet.json. A test genesis also runs on the local
+//! `TEST_CHAIN_ID`, never the profile's own id (recorded as `profileChainId`): design §1b keeps network ids distinct so
+//! that transactions signed on one chain cannot replay on another (EIP-155 binds only the chain id).
 use pocol_lp4_execution::{
     admission::{self, NodeLocal, Request},
     apply::{Genesis, SystemPrograms},
@@ -88,10 +90,22 @@ pub const FOUNDERS: usize = 4;
 pub const FOUNDER_TOTAL_WEI: u128 = 1_000_000_000_000_000_000_000_000;
 /// The prefix of a value the genesis ceremony fills (module doc).
 pub const PLACEHOLDER: &str = "PLACEHOLDER";
+/// FN-4: the chain id of every genesis the test flag fills, a local devnet id (7779xx, which the FN-0 draws exclude), in
+/// place of the profile's mainnet or rehearsal id, so a test chain never signs under a public network's id.
+pub const TEST_CHAIN_ID: u64 = 777_990;
+
+/// FN-4 (FRESH-NETWORK-DESIGN §1a, rows 15 and 53): a CP schema v2 genesis built here carries S_tail = S0/32, so the M3
+/// schedule reaches its tail exactly at era 5 (S0 >> 5). A builder check, not a consensus rule: the decoder accepts any
+/// S_tail (genesis_spec.rs), and lp4's generic `devnet::build` builds any tail (the V3-19 supply-bound tests probe them).
+pub fn tail_is_s0_over_32(subsidy: U256, s_tail: U256) -> Result<(), String> {
+    let want = subsidy / U256::from(32);
+    if s_tail != want { return Err(format!("S_tail {s_tail} is not S0/32 = {want} (S0 {subsidy})")); }
+    Ok(())
+}
 
 /// FN-4: the explicit test flag that lets the builder fill a profile's ceremony placeholders. Never a launch input:
 /// the founders become the public deterministic keys of `test_founder`, the calibration class `synthetic-fixture`,
-/// and devnet.json records `testPlaceholders`.
+/// the chain id `TEST_CHAIN_ID` (the profile's id is kept as `profileChainId`), and devnet.json records `testPlaceholders`.
 #[derive(Clone, Copy, Debug)]
 pub struct TestPlaceholders {
     pub genesis_time: u64,
@@ -111,14 +125,15 @@ fn placeholders(value: &serde_json::Value, path: &str, out: &mut Vec<String>) {
         _ => {}
     }
 }
-/// The config with its placeholders filled by `test`, and whether any was filled. Without `test` a placeholder is refused
-/// (before any output); with it, only the ceremony inputs a profile has (genesisTime, hashRate.hashesPerSecond, each
-/// founder's id and reward) are filled, and any other placeholder is still refused.
-fn fill(config: &[u8], test: Option<&TestPlaceholders>) -> Result<(serde_json::Value, bool), String> {
+/// The config with its placeholders filled by `test`, and, when any was filled, the config's own chainId (replaced by
+/// `TEST_CHAIN_ID`). Without `test` a placeholder is refused (before any output); with it, only the ceremony inputs a
+/// profile has (genesisTime, hashRate.hashesPerSecond, each founder's id and reward) are filled, and any other
+/// placeholder is still refused.
+fn fill(config: &[u8], test: Option<&TestPlaceholders>) -> Result<(serde_json::Value, Option<serde_json::Value>), String> {
     let mut value: serde_json::Value = serde_json::from_slice(config).map_err(|_| "invalid public genesis config schema")?;
     let mut found = Vec::new();
     placeholders(&value, "", &mut found);
-    if found.is_empty() { return Ok((value, false)); }
+    if found.is_empty() { return Ok((value, None)); }
     let Some(test) = test else {
         return Err(format!("the config has genesis-ceremony placeholders at {}: fill them (FRESH-NETWORK-CP.md), \
             or pass --test-placeholders for a local test genesis", found.join(", ")));
@@ -142,7 +157,10 @@ fn fill(config: &[u8], test: Option<&TestPlaceholders>) -> Result<(serde_json::V
         // A filled rate is not a measurement.
         value["hashRate"]["class"] = serde_json::json!("synthetic-fixture");
     }
-    Ok((value, true))
+    // Design §1b: a test chain never runs under the profile's (public network's) chain id.
+    let object = value.as_object_mut().ok_or("invalid public genesis config schema")?;
+    let profile_chain_id = object.insert("chainId".into(), serde_json::json!(TEST_CHAIN_ID)).unwrap_or(serde_json::Value::Null);
+    Ok((value, Some(profile_chain_id)))
 }
 #[derive(Deserialize, Clone, Copy)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -487,7 +505,7 @@ fn resolve(config: serde_json::Value, test_filled: bool) -> Result<(Config, devn
     if (input.earnin || input.full_nonce) && params.nonceMode != 1 { return Err("nonceMode contradicts earnin/fullNonce/v3".into()); }
     if input.v3 {
         // FN-4: the tail of the M3 schedule is S0/32 (FRESH-NETWORK-DESIGN §1a row 53).
-        devnet::tail_is_s0_over_32(devnet::from_fixed(&params.subsidy), devnet::from_fixed(&params.S_tail))?;
+        tail_is_s0_over_32(devnet::from_fixed(&params.subsidy), devnet::from_fixed(&params.S_tail))?;
     }
     if input.profile.is_some() {
         if params.R_max != input.registration_per_block {
@@ -519,7 +537,8 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
         return Err("output must be a new directory; genesis is never overwritten".into());
     }
     if config.len() > 262144 { return Err("testnet config exceeds 256 KiB".into()); }
-    let (value, test_filled) = fill(config, test)?;
+    let (value, profile_chain_id) = fill(config, test)?;
+    let test_filled = profile_chain_id.is_some();
     let (input, cfg, cp) = resolve(value, test_filled)?;
     let params = ConsensusParams::from_values(&cp).map_err(|e| format!("CP: {e:?}"))?;
     let mut alloc = InMemoryDB::default();
@@ -647,7 +666,8 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
     }
     if test_filled {
         info["testPlaceholders"] = serde_json::json!(true);
-        info["note"] = serde_json::json!("TEST GENESIS: ceremony placeholders filled with public test keys and a synthetic hash rate; never a launch genesis.");
+        info["profileChainId"] = profile_chain_id.clone().unwrap_or_default();
+        info["note"] = serde_json::json!("TEST GENESIS: ceremony placeholders filled with public test keys and a synthetic hash rate, on the local test chain id; never a launch genesis.");
     }
     // Admission must succeed before any output. Partial I/O failures remain visible and are not overwritten.
     std::fs::create_dir(out).map_err(|e| format!("output directory: {e}"))?;
@@ -663,7 +683,10 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
     }
     let mut summary = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),
         "scope":admitted.scope().name()});
-    if test_filled { summary["testPlaceholders"] = serde_json::json!(true); }
+    if test_filled {
+        summary["testPlaceholders"] = serde_json::json!(true);
+        summary["profileChainId"] = profile_chain_id.unwrap_or_default();
+    }
     // V3-28 H1: computed from this build and the admission above (readiness.rs).
     crate::readiness::annotate(&mut summary, &crate::readiness::of_admitted(&admitted));
     println!("{summary}");

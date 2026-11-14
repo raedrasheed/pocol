@@ -32,8 +32,8 @@ pub struct DevnetConfig{
     pub earnin:bool,
     /// CP 15, the block subsidy S0 in wei (2 PCOL by default; the fresh network's profile states its own, FN-4).
     pub subsidy:U256,
-    /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately. A specVersion-2 build
-    /// requires S_tail = S0/32 (the tail of the M3 schedule from era 5, FRESH-NETWORK-DESIGN §1a), see `build`.
+    /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately. Any S_tail builds here (the
+    /// V3-19 supply-bound tests probe large tails); the network-profile builder (pocold testnet.rs) requires S0/32.
     pub h_half:u64,pub s_tail:U256,
     pub gamma_tip_bp:u16,pub base_fee_min:U256,
     pub r_react:u8,pub c_react:u32,pub rho_bp:u16,
@@ -122,7 +122,6 @@ pub fn account_key(label:&str)->Key{Key::devnet(&format!("account:{label}"))}
 /// is a candidate, not an admitted profile (see `Devnet::admit`).
 pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     if cfg.chain_id==777001{return Err("network chainId is not a devnet".into())}
-    if cfg.spec_version>=2{tail_is_s0_over_32(cfg.subsidy,cfg.s_tail)?;}
     // V3-34: an earn-in devnet on CP schema v2 (specVersion 2) runs the v3 programs, which read their v3 fields from it.
     let programs=if cfg.earnin{if cfg.spec_version>=2{SystemPrograms::v3()}else{SystemPrograms::earnin()}}else if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
     let mut miners:Vec<MinerIdentity>=cfg.miners.iter().map(|l|miner_identity(l)).collect();
@@ -143,13 +142,6 @@ pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     let genesis=Genesis::build(&alloc,&profile,&programs).map_err(|e|format!("{e:?}"))?;
     let spec_bytes=gs::encode(&spec);
     Ok(Devnet{genesis_hash:B256::from(profile.genesis_hash()),spec_bytes,profile,alloc,genesis,programs,miners,forks,hash_rate:cfg.hash_rate})
-}
-/// FN-4 (FRESH-NETWORK-DESIGN §1a, rows 15 and 53): a CP schema v2 genesis built by the tooling carries S_tail = S0/32, so
-/// the M3 schedule reaches its tail exactly at era 5 (S0 >> 5). A builder check, not a consensus rule: the decoder accepts
-/// any S_tail (genesis_spec.rs).
-pub fn tail_is_s0_over_32(subsidy:U256,s_tail:U256)->Result<(),String>{
-    if s_tail!=subsidy/U256::from(32){return Err(format!("S_tail {s_tail} is not S0/32 = {} (S0 {subsidy})",subsidy/U256::from(32)))}
-    Ok(())
 }
 fn identity(spec:&GenesisSpec,forks:&[(u16,u64)])->Result<ProfileIdentity,String>{
     let bytes=gs::encode(spec);let hash=gs::genesis_hash(&bytes);
