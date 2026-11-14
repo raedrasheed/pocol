@@ -7,7 +7,8 @@ contradictory invitations are refused, as is a --to genesis the tree's release n
 the --from network in the retired list and a retired --to needs --allow-revert; every tracked file that pins the
 tree's current identity is listed in FILES or kept on purpose, and none (FILES included) pins a retired identity the
 tree no longer pins; and the shipped release texts that are true only on the retired network are gone once the tree
-pins a network that is not retired.
+pins a network that is not retired; the extension's built-in profile placeholder (D1) is proven, placed only into the
+placeholder files, and replaced (with its mark) by the switch.
 
 The tests name no network: the --from fixture is the tree's current identity (the GenesisSpec the node file pins)
 and the --to fixtures are derived from it, so they pass whatever network the tree pins."""
@@ -20,6 +21,9 @@ import build_installer
 CUR_CHAIN, CUR_GENESIS, CUR_SPEC = ni.current_identity(ni.ROOT)
 CUR_VERSION = ni.spec_identity(CUR_SPEC)[0]
 RELEASE = ni.node_spec_version(ni.ROOT)
+# The built-in profile placeholder (decision D1): a spec-2 GenesisSpec of no network, from its committed invitation.
+PLACEHOLDER = ni.ROOT / 'deploy' / 'mainnet' / 'placeholder-network.pocol.json'
+PH_CHAIN, PH_GENESIS, PH_SPEC, PH_VERSION = ni.invitation_identity(PLACEHOLDER, (2,))
 def _free_chain():
     """The chain ID of the --to fixtures: a valid chain ID that no listed file mentions in any spelling."""
     texts = [(ni.ROOT / rel).read_text(encoding='utf-8').lower() for rel in ni.FILES]
@@ -201,6 +205,7 @@ class SetNetworkIdentity(unittest.TestCase):
         for rel in TRACKED:
             (tmp / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy(ni.ROOT / rel, tmp / rel)
+        shutil.copy(PLACEHOLDER, tmp / 'ph.json')
         for name, spec in (('cur.json', CUR_SPEC), ('a.json', SPEC_A), ('b.json', SPEC_B), ('v3.json', SPEC_V3)):
             (tmp / name).write_text(invitation(spec), encoding='utf-8')
         for i, spec in enumerate(NON_CANONICAL.values()):
@@ -240,7 +245,95 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_every_listed_file_holds_its_counts_of_the_current_identity(self):
         for rel, expected in ni.FILES.items():
-            self.assertEqual(held((ni.ROOT / rel).read_text(encoding='utf-8'), CUR_CHAIN, CUR_GENESIS, CUR_SPEC.hex()), expected, rel)
+            text = (ni.ROOT / rel).read_text(encoding='utf-8')
+            if rel in ni.PLACEHOLDER_FILES and ni.PLACEHOLDER_MARK in text:
+                # The built-in profile placeholder (D1): its counts are of the placeholder, and it holds no current pin.
+                self.assertEqual(held(text, PH_CHAIN, PH_GENESIS, PH_SPEC.hex()), expected, rel)
+                self.assertEqual(held(text, CUR_CHAIN, CUR_GENESIS, CUR_SPEC.hex()), (0, 0, 0), rel)
+            else:
+                self.assertEqual(held(text, CUR_CHAIN, CUR_GENESIS, CUR_SPEC.hex()), expected, rel)
+
+    def test_the_placeholder_is_proven_and_names_no_network(self):
+        self.assertEqual((PH_VERSION, ni.spec_identity(PH_SPEC, (2,))), (2, (2, PH_CHAIN)))
+        self.assertNotIn(PH_CHAIN, [chain for chain, _ in RETIRED] + [CUR_CHAIN, 0, 777001])
+        self.assertNotIn(PH_GENESIS, [genesis for _, genesis in RETIRED] + [CUR_GENESIS])
+        doc = json.loads(PLACEHOLDER.read_text(encoding='utf-8'))
+        self.assertEqual(doc['seeds'], [], 'a placeholder has no seeds')
+        self.assertIn('NOT A NETWORK', doc['about'])
+        for rel in ni.PLACEHOLDER_FILES:
+            self.assertIn(rel, ni.FILES)
+            text = (ni.ROOT / rel).read_text(encoding='utf-8')
+            if ni.PLACEHOLDER_MARK in text:
+                self.assertEqual(ni.placeholder_identity(rel, text), (PH_CHAIN, PH_GENESIS, PH_SPEC))
+                # The mark sits right after the NETWORK object.
+                self.assertIn(ni.PLACEHOLDER_AFTER + ni.PLACEHOLDER_MARK, text)
+            else:
+                self.assertIsNone(ni.placeholder_identity(rel, text))
+        self.assertIsNone(ni.placeholder_identity('x', 'no mark'))
+
+    def test_placing_the_placeholder_and_switching_it_away(self):
+        root = self.copy()
+        rel = next(iter(ni.PLACEHOLDER_FILES))
+        def place(*extra, placeholder='ph.json'):
+            return ni.main(['--placeholder', str(root / placeholder), '--root', str(root), *extra])
+        before = self.snapshot(root)
+        if ni.PLACEHOLDER_MARK in (ni.ROOT / rel).read_text(encoding='utf-8'):
+            self.assertEqual(place('--check'), 0, 'the tree carries the placeholder')
+            self.assertEqual(place(), 0)
+            self.assertEqual(before, self.snapshot(root), 'placing it again changes nothing')
+        # Another placeholder replaces it in the placeholder files only.
+        ph2 = make_spec(chain=NEW_CHAIN + 7, version=2, flip=3)
+        (root / 'ph2.json').write_text(invitation(ph2), encoding='utf-8')
+        self.assertEqual(place(placeholder='ph2.json'), 0)
+        after = self.snapshot(root)
+        self.assertEqual({k for k in after if after[k] != before[k]}, set(ni.PLACEHOLDER_FILES), 'only the placeholder files change')
+        text = (root / rel).read_text(encoding='utf-8')
+        self.assertEqual(ni.placeholder_identity(rel, text), (NEW_CHAIN + 7, ni.keccak256(ph2).hex(), ph2))
+        self.assertEqual(text.count(ni.PLACEHOLDER_MARK), 1)
+        self.assertEqual(held(text, NEW_CHAIN + 7, ni.keccak256(ph2).hex(), ph2.hex()), ni.FILES[rel])
+        # Refused, writing nothing: a spec-1 placeholder, a retired or the current network, with --from or --to, and a
+        # --to that is the placeholder.
+        before = self.snapshot(root)
+        for args in (['--placeholder', str(root / 'a.json')], ['--placeholder', str(root / 'cur.json')],
+                     ['--placeholder', str(root / 'ph.json'), '--from', str(root / 'cur.json')],
+                     ['--placeholder', str(root / 'ph.json'), '--to', str(root / 'a.json')]):
+            with self.assertRaises(SystemExit, msg=args):
+                ni.main([*args, '--root', str(root)])
+        self.assertEqual(self.run_tool(root, target='ph2.json'), 2, '--to is the placeholder')
+        self.assertEqual(before, self.snapshot(root))
+        # The switch to a real network replaces the placeholder and removes its mark.
+        self.assertEqual(self.run_tool(root), 0)
+        self.assert_carries(root, HASH_A, SPEC_A)
+        text = (root / rel).read_text(encoding='utf-8')
+        self.assertNotIn('NETWORK_PLACEHOLDER', text)
+        self.assertEqual(held(text, NEW_CHAIN + 7, ni.keccak256(ph2).hex(), ph2.hex()), (0, 0, 0))
+        # A placeholder placed over the tree's identity (A now), then switched to B with the rest of the tree.
+        self.assertEqual(place(), 0)
+        text = (root / rel).read_text(encoding='utf-8')
+        self.assertEqual(ni.placeholder_identity(rel, text), (PH_CHAIN, PH_GENESIS, PH_SPEC))
+        self.assertEqual(held(text, NEW_CHAIN, HASH_A[2:], SPEC_A.hex()), (0, 0, 0))
+        self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 0)
+        self.assert_carries(root, HASH_B, SPEC_B)
+        self.assertNotIn('NETWORK_PLACEHOLDER', (root / rel).read_text(encoding='utf-8'))
+
+    def test_a_placeholder_that_does_not_prove_itself_is_refused(self):
+        root = self.copy()
+        rel = next(iter(ni.PLACEHOLDER_FILES))
+        self.assertEqual(ni.main(['--placeholder', str(root / 'ph.json'), '--root', str(root)]), 0)
+        text = (root / rel).read_text(encoding='utf-8')
+        for bad in (text.replace(f'"chainId": {PH_CHAIN},', f'"chainId": {PH_CHAIN + 1},'),
+                    text.replace(PH_GENESIS, PH_GENESIS[:-1] + ('0' if PH_GENESIS[-1] != '0' else '1')),
+                    text.replace(ni.PLACEHOLDER_MARK, ni.PLACEHOLDER_MARK * 2)):
+            self.assertNotEqual(bad, text)
+            (root / rel).write_text(bad, encoding='utf-8')
+            before = self.snapshot(root)
+            self.assertEqual(self.run_tool(root), 2)
+            self.assertEqual(ni.main(['--placeholder', str(root / 'ph.json'), '--root', str(root)]), 2)
+            self.assertEqual(before, self.snapshot(root))
+        # An upper-case placeholder hash and GenesisSpec still count, and are switched.
+        (root / rel).write_text(text.replace(PH_GENESIS, PH_GENESIS.upper()).replace(PH_SPEC.hex(), PH_SPEC.hex().upper()), encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0)
+        self.assert_carries(root, HASH_A, SPEC_A)
 
     def test_derived_files_follow_their_sources_today(self):
         sources = {name: (ni.ROOT / rel).read_bytes() for name, rel in ni.INSTALLER_SOURCES.items()}
@@ -265,10 +358,11 @@ class SetNetworkIdentity(unittest.TestCase):
         network = (root / 'prototypes/pocol-extension/src/lib/studio-network.js').read_text()
         for line in (f'"chainId": {NEW_CHAIN}', f'"genesisHash": "{HASH_A}"', f'"genesisPre": "0x{SPEC_A.hex()}"'):
             self.assertIn(line, network)
+        # The switch replaces the built-in profile placeholder (D1) too, and its mark goes.
+        self.assertNotIn('NETWORK_PLACEHOLDER', network)
+        self.assertEqual(held(network, PH_CHAIN, PH_GENESIS, PH_SPEC.hex()), (0, 0, 0))
         self.assertIn(f'<span class="network-id">{NEW_CHAIN}</span>', (root / 'prototypes/pocol-extension/src/contract.html').read_text())
         self.assertIn(f'>{NEW_CHAIN}</span>', (root / 'prototypes/pocol-extension/src/publisher.html').read_text())
-        self.assertIn(f"chain:'{hex(NEW_CHAIN)}'", (root / 'prototypes/pocol-extension/tests/contracts_test.mjs').read_text())
-        self.assertIn(f'assert.equal(spec.chainId,{NEW_CHAIN}n)', (root / 'prototypes/pocol-extension/tests/studio_test.mjs').read_text())
         self.assertEqual(self.run_tool(root, '--check'), 0)
         self.assertEqual(list(root.rglob('*.network-identity.tmp')), [], 'every new file replaced its original')
         before = self.snapshot(root)
@@ -293,8 +387,14 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(before, self.snapshot(root), 'a refused revert writes nothing')
         self.assertEqual(self.run_tool(root, '--allow-revert', source='b.json', target='cur.json'), 0)
         after, original = self.snapshot(root), self.snapshot(ni.ROOT)
-        self.assertEqual({k: v for k, v in after.items() if k != ni.RETIRED}, {k: v for k, v in original.items() if k != ni.RETIRED},
+        # The built-in profile placeholder (D1) is replaced for good: switching back pins the original network there.
+        kept = {ni.RETIRED} | {rel for rel in ni.PLACEHOLDER_FILES if ni.PLACEHOLDER_MARK in (ni.ROOT / rel).read_text(encoding='utf-8')}
+        self.assertEqual({k: v for k, v in after.items() if k not in kept}, {k: v for k, v in original.items() if k not in kept},
                          'switching back restores the original bytes of every pin')
+        for rel in kept - {ni.RETIRED}:
+            text = (root / rel).read_text(encoding='utf-8')
+            self.assertEqual(held(text, CUR_CHAIN, CUR_GENESIS, CUR_SPEC.hex()), ni.FILES[rel], rel)
+            self.assertNotIn(ni.PLACEHOLDER_MARK, text)
         expected = RETIRED + [r for r in [(CUR_CHAIN, CUR_GENESIS)] if r not in RETIRED] + [(NEW_CHAIN, HASH_A[2:]), (NEW_CHAIN, HASH_B[2:])]
         self.assertEqual(ni.read_retired((root / ni.RETIRED).read_bytes()), expected, 'the list is append-only')
 
@@ -475,11 +575,12 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_any_case_of_the_hex_chain_id_is_switched(self):
         root = self.copy()
-        rel = 'prototypes/pocol-extension/tests/contracts_test.mjs'
+        # The extension test's chain ID, spelled as upper-case hex (one chain ID token either way).
+        rel = 'prototypes/pocol-extension/tests/publisher_test.mjs'
         text = (root / rel).read_text(encoding='utf-8')
         upper = '0x' + hex(CUR_CHAIN)[2:].upper()
-        self.assertIn(hex(CUR_CHAIN), text)
-        (root / rel).write_text(text.replace(hex(CUR_CHAIN), upper), encoding='utf-8')
+        self.assertIn(f'chainId={CUR_CHAIN};', text)
+        (root / rel).write_text(text.replace(f'chainId={CUR_CHAIN};', f'chainId={upper};'), encoding='utf-8')
         self.assertEqual(self.run_tool(root), 0)
         self.assert_carries(root, HASH_A, SPEC_A)
 
@@ -506,8 +607,7 @@ class SetNetworkIdentity(unittest.TestCase):
     def test_upper_case_copies_and_inputs_are_switched(self):
         root = self.copy()
         # A copy of the hash and of the GenesisSpec in upper case still counts, and is switched.
-        for rel, old in (('deploy/rewards/gateway.py', CUR_GENESIS),
-                         ('prototypes/pocol-extension/src/lib/studio-network.js', CUR_SPEC.hex())):
+        for rel, old in (('deploy/rewards/gateway.py', CUR_GENESIS), (ni.ANCHOR, CUR_SPEC.hex())):
             text = (root / rel).read_text(encoding='utf-8')
             self.assertIn(old, text)
             (root / rel).write_text(text.replace(old, old.upper()), encoding='utf-8')
