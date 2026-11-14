@@ -3,6 +3,7 @@
 //! `reactivate()` included in [exit+W_act, exit+U) puts it back with a range. If the window passes,
 //! the sweep refunds the bond and erases the record. No consensus rule is involved beyond the
 //! existing Registry: this is the client path the wallet automates.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use std::sync::OnceLock;
 
@@ -21,6 +22,8 @@ struct Net {
     one: Address,
     two: Address,
 }
+/// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
+impl Drop for Net { fn drop(&mut self) { crate::members_sweep::sweep_on_drop(&self.chain); } }
 
 fn net() -> Net {
     let mut cfg = DevnetConfig::new(777915, 1_700_000_000, &LABELS);
