@@ -2940,12 +2940,14 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
 
-/// C-1 S4 acceptance: canonical entries deeper than `slim_depth` drop the header's heap fields, the
-/// ParentResult and the nonce ranges, and are restored exactly from the journal record and history.redb.
+/// C-1 S4 acceptance: canonical entries deeper than `slim_depth` drop the header's heap fields and the
+/// ParentResult, and are restored exactly from the journal record (FN-3b: an entry stores no nonce ranges; its
+/// assignment is recomputed from the member records).
 /// A node slimming at depth 8 answers every block, transaction, receipt, log, header and block-bytes
 /// query, and serves every P2P block, as a reference that never slims. Every slimmed entry restores to the
-/// reference's header, ParentResult and ranges. A side block on a slimmed parent (a fork the depth would
-/// not allow by default) is validated after the parent is restored, and the parent is slimmed again later.
+/// reference's header and ParentResult, with the reference's member record and assignment. A side block on a
+/// slimmed parent (a fork the depth would not allow by default) is validated after the parent is restored, and the
+/// parent is slimmed again later.
 /// The same holds after reopen.
 #[test] fn s4_slimmed_entries_answer_as_full_ones_and_restore_exactly(){
     use pocold::node::{Config,Limits,Node};
@@ -2993,7 +2995,7 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     a.import(side2.clone(),None).unwrap();b.import(side2.clone(),None).unwrap();
     assert!(a.chain.rebuilds>rb,"positive control: a TrieRebuild through slimmed entries");assert!(a.chain.get(&side2.hash()).is_some());
     assert_eq!(views(&mut a),views(&mut b),"after the fork below the cut");
-    // FN-3a: the cold sweep, each slimmed entry's recomputed assignment compared with history.redb's ranges.
+    // FN-3b: the cold sweep, each slimmed entry's recomputed assignment compared with the one it was validated under (the capture).
     let (_,_,s)=members_sweep::sweep_node(&a);assert!(s>80,"positive control: {s} slimmed entries compared");members_sweep::sweep_node(&b);
     drop(a);let mut r=Node::open(ca(),admitted(&cfg(&["a","b","c"]))).unwrap();
     assert!(slims(&r)>80);assert_eq!(exact(&r,&b),slims(&r));assert_eq!(views(&mut r),views(&mut b),"after reopen");assert!(members_sweep::sweep_node(&r).2>80);drop(r);

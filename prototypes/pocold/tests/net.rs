@@ -1,5 +1,6 @@
 //! A05 resource bounds (P2P and RPC, separately) and A10 ORIGIN_DENY per batch member,
 //! on a real node over loopback sockets. Limits are shrunk so every case stays small.
+#[path="support/members.rs"] mod members_sweep;
 use std::io::{Read,Write};
 use std::net::{TcpListener,TcpStream};
 use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
@@ -17,6 +18,7 @@ fn free_port()->u16{TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwra
 /// earlier tests leave running would saturate the CPU), and its timing is measured once
 /// (R14/R19 are measured on this host and fail closed under CPU contention).
 fn spec()->Spec{
+    crate::members_sweep::oracle();
     static GENESIS:std::sync::OnceLock<u64>=std::sync::OnceLock::new();
     static TIMING:std::sync::OnceLock<pocol_lp4_execution::admission::Timing>=std::sync::OnceLock::new();
     let n=devnet::build(&DevnetConfig::new(777940,*GENESIS.get_or_init(pocold::node::now_s),&["a","b","c"])).unwrap();

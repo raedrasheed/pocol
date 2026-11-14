@@ -249,7 +249,8 @@ fn synthetic_members(db:&mut revm::InMemoryDB,m:usize,b_reg:U256,height:u64){
         put(db,slot+U256::from(3),if i%11==0{U256::from(height)<<192}else{U256::ZERO});
     }
 }
-/// A block's stored nonce ranges, as `Entry::ranges` keeps them (chain.rs, the entry a validated block makes).
+/// A block's nonce ranges from its assignment (`Assignment::ranges`), in the form the pre-FN-1 lookup read them
+/// (FN-3b: no entry stores them).
 fn stored_ranges(a:&pocold::assignment::Assignment)->Vec<(Address,u128,u128)>{a.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect()}
 /// The pre-FN-1 lookup over stored ranges (type-2 evidence, `late_check`), kept as the oracle of `range_owner`.
 fn stored_linear(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{ranges.iter().find(|(_,s0,e0)|*s0<=n&&n<*e0).map(|r|r.0)}

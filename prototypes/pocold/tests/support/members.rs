@@ -24,8 +24,8 @@ pub fn sweep(c:&Chain)->(usize,usize){
     held_records(c);
     (n,k)
 }
-/// `sweep` on a node's chain, and each slimmed entry restored whole from the journal and history.redb
-/// (`Node::restored_entry`). Returns (recomputed, compared, slimmed compared).
+/// `sweep` on a node's chain, and each slimmed entry restored whole (header and ParentResult) from the journal
+/// (`Node::restored_entry`), its assignment recomputed from the member records and compared with the capture. Returns (recomputed, compared, slimmed compared).
 pub fn sweep_node(node:&Node)->(usize,usize,usize){
     let (n,k)=sweep(&node.chain);let c=&node.chain;let mut s=0;
     let mut slim:Vec<&pocold::chain::Entry>=swept(c).filter(|e|e.slim).collect();slim.sort_by_key(|e|(e.height,e.hash));

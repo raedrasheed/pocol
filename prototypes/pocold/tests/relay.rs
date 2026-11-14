@@ -8,6 +8,7 @@
 //! fresh genesis, so attempt 0 at height 1 is open: window [g+1, g+D_att], and B waits for the signed
 //! template until max(start + Δrel, L(0) + dFbWait) (single-host Δrel = 5 s, Φ = 0). B delivers frames to
 //! one peer in order, so "the next gossip y receives is X" also shows that nothing sent before X reached y.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use std::io::{Read,Write};
 use std::net::{TcpListener,TcpStream};
@@ -35,7 +36,7 @@ fn fixture_full(tag:&str,chain_id:u64,local:admission::NodeLocal,tune:impl FnOnc
     let mut c=DevnetConfig::new(chain_id,now_s(),&["a","b","c"]);tune(&mut c);
     let d=devnet::build(&c).unwrap();
     let (admitted,timing)=d.admit(&local).unwrap_or_else(|e|panic!("{e}"));
-    let spec_b=Spec::new(admitted);
+    crate::members_sweep::oracle();let spec_b=Spec::new(admitted);
     let spec_local=Spec::new(admission::admit(&d.request(&local,Some(&timing))).unwrap_or_else(|e|panic!("{e}")));
     let mut keys=HashMap::new();for m in &d.miners{keys.insert(m.id,Key::from_secret(&m.key.secret()).unwrap());}
     // The ports stay held by listeners until B binds them, so no other socket can take them in between.
@@ -310,7 +311,7 @@ fn wait_for(ms:u64,mut f:impl FnMut()->bool)->bool{let t=Instant::now();while t.
     struct Root(std::path::PathBuf);impl Drop for Root{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     let root=Root(std::env::temp_dir().join(format!("pocold-latency-live-{}",std::process::id())));let _=std::fs::remove_dir_all(&root.0);
     let nodes:Vec<Live>=d.miners.iter().enumerate().map(|(i,m)|{
-        let spec=first.take().map(Spec::new).unwrap_or_else(||Spec::new(admission::admit(&d.request(&local,Some(&timing))).unwrap_or_else(|e|panic!("{e}"))));
+        crate::members_sweep::oracle();let spec=first.take().map(Spec::new).unwrap_or_else(||Spec::new(admission::admit(&d.request(&local,Some(&timing))).unwrap_or_else(|e|panic!("{e}"))));
         let peers=ports[..i].iter().map(|(p,_)|format!("127.0.0.1:{p}").parse().unwrap()).collect();
         let cfg=Config{dir:root.0.join(i.to_string()),name:format!("n{i}"),miner:Some(Key::from_secret(&m.key.secret()).unwrap()),listen:Some(format!("127.0.0.1:{}",ports[i].0).parse().unwrap()),
             peers,rpc:Some(format!("127.0.0.1:{}",ports[i].1).parse().unwrap()),stop_at:None,log:false,limits:Limits::default()};

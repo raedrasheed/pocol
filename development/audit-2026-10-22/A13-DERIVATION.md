@@ -1743,10 +1743,16 @@ FN-3b takes the type-2, kind-3 and `late_offer` owners from the member records (
   side blocks and the eviction batch);
 - history.redb's ranges row, `32 + 32 + 52·M_max` a block, in the payload behind the allocator terms;
 - the ranges' boxed slice in `Entry` (16 B): an Entry is 1,072 B on x86-64 (1,088 before).
-The member terms are unchanged. The oracle (`Chain::member_oracle`) is off by default (`members::oracle_default`);
-every test chain switches it on (`members::test_oracle`, `Chain::set_member_oracle`), and with it the tests' capture of
-each validated assignment (`members::capture`, a test instrument: a node never captures) stands in for the stored
-ranges in the cold sweep. Pins moved:
+The member terms are unchanged. The oracle (`Chain::member_oracle`) is off by default (`members::oracle_default`).
+The suites that run chains switch it on: `members::test_oracle` (tests/support/members.rs `oracle`, where a suite
+builds its spec, which also starts the tests' capture of each validated assignment, `members::capture`, a test
+instrument: a node never captures) in admission, consensus, discovery, earnin, eviction_credit, fn3_members,
+full_nonce, mining_work, net, outbound_threads, relay, rejoin, unhex_fix, v3_earnin, v3_execution, v3_late_shares,
+v3_membership and v3_reward_gateway; `Chain::set_member_oracle` on each chain (no capture) in caps, fee_pool, fn1_caps,
+fn1_membership, journal_measure, log_cap, log_cap_scope, memory_bounds and v3_fork_choice (log_cap and log_cap_scope
+build only with `--features caps-test`). memory_window and open_transient
+leave it off: their heap assertions would count the oracle's cold recomputations and the capture's row per block. The
+capture stands in for the stored ranges in the cold sweep. Pins moved:
 - the spec-1 devnet total (tests/consensus.rs `a13_bound_breakdown`, tests/v3_late_shares.rs): 3,401,814,038 to
   3,357,219,051 B (−44,594,987: side metadata −25,264,128, offloaded canonical metadata −17,833,744, shadow −1,056,784,
   history.redb allocator −132,507, window −131,584, eviction batch −98,336, slimmed metadata −32,800, reload −32,768,

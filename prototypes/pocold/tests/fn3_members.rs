@@ -183,9 +183,10 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
     let m=n.chain.member_counters();assert!(m.record_reads>0&&m.disk_set_reads>0,"the walk read below the window: {m:?}");
 }
 
-/// §5.3: owner(nonce) from the records equals the stored ranges' on random nonces, the domain's edges and beyond nMax,
-/// bounded (spec 1) and full (spec 2); kind-3's cap check runs before any lookup, so a capped item recomputes nothing.
-#[test] fn recomputed_owners_equal_the_stored_ranges_and_the_cap_check_comes_first(){
+/// §5.3: owner(nonce) from the records equals the live assignment's (`live_ranges`, checked against the capture) on
+/// random nonces, the domain's edges and beyond nMax, bounded (spec 1) and full (spec 2); kind-3's cap check runs before
+/// any lookup, so a capped item recomputes nothing.
+#[test] fn recomputed_owners_equal_the_live_assignment_and_the_cap_check_comes_first(){
     struct Counting<'a>(&'a Vec<(Address,u128,u128)>,AtomicU64);
     impl NonceOwners for Counting<'_>{fn owner(&self,n:u64)->Result<Option<Address>,Reject>{self.1.fetch_add(1,Ordering::SeqCst);self.0.owner(n)}}
     for spec in [1u8,2]{
@@ -294,9 +295,10 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     let _=std::fs::remove_dir_all(&d);
 }
 
-/// §5.9: a history.redb written before FN-3 (its receipts, transaction index and ranges, no member tables) is not set
-/// aside: a checkpoint restore finds no member rows (`has`), falls back to replay, and replay refills them. A flipped
-/// byte in a member row marks the store damaged when it is read, and the next open rebuilds it.
+/// §5.9: a history.redb written before FN-3 (the C-1 S4 format: its receipts, transaction index and nonce ranges, no
+/// member tables) is not set aside: the open deletes the ranges table, a checkpoint restore finds no member rows (`has`),
+/// falls back to replay, and replay refills them. A flipped byte in a member row marks the store damaged when it is
+/// read, and the next open rebuilds it.
 #[test] fn a_pre_fn3_history_is_refilled_by_replay_and_a_damaged_member_row_rebuilds(){
     let mut r=net(2);grow(&mut r,70);
     let blocks:Vec<Block>=(1..=70u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
@@ -305,11 +307,15 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     // The S4 format: the member tables removed (an older build never made them).
     {let db=redb::Database::open(d.join(pocold::history::FILE)).unwrap();let w=db.begin_write().unwrap();
         for t in ["members","member_sets"]{let def:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new(t);assert!(w.delete_table(def).unwrap(),"{t} existed");}w.commit().unwrap();}
+    // and its nonce ranges table (S4 wrote it as FN-3a did).
+    let hist=d.join(pocold::history::FILE);assert_eq!(ranges_rows(&hist),None);
+    assert_eq!(write_3a_ranges(&hist,&r,&blocks),70);assert_eq!(ranges_rows(&hist),Some(70),"positive control: the S4 table");
     {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();
-        assert!(!a.history.rebuilt,"not set aside");assert!(a.stats.resumed_from.is_none(),"no checkpoint restores without member rows");
+        assert!(a.history.dropped_ranges,"the open deleted the ranges table");assert!(!a.history.rebuilt,"not set aside");assert!(a.stats.resumed_from.is_none(),"no checkpoint restores without member rows");
         assert!(a.stats.history_refilled>=70,"replay refilled every block ({})",a.stats.history_refilled);
         for b in &blocks{assert!(a.history.has(&b.hash()).unwrap());assert!(a.history.members(&b.hash()).unwrap().is_some());}
         assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep_node(&a);}
+    assert_eq!(ranges_rows(&hist),None,"the table is gone from the file");
     // A later open resumes from a checkpoint again.
     {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(a.stats.resumed_from.is_some());assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);}
     // A flipped byte in block 5's member record (an offloaded block: no restore holds it, a member walk reads it).
@@ -570,8 +576,8 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 }
 
 // ---------------- FN-3b: the ranges removed ----------------
-/// FN-3b: a store as FN-3a wrote it: its nonce ranges table, a sealed row per block (`live_ranges`, encoded as FN-3a's
-/// history.rs did), beside the member tables. Returns the rows written.
+/// FN-3b: the nonce ranges table of a store as FN-3a (beside the member tables) or C-1 S4 (without them) wrote it: a
+/// sealed row per block (`live_ranges`, encoded as their history.rs did). Returns the rows written.
 fn write_3a_ranges(file:&Path,r:&Net,blocks:&[Block])->usize{
     let db=redb::Database::open(file).unwrap();let w=db.begin_write().unwrap();
     {let def:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new("ranges");let mut t=w.open_table(def).unwrap();
@@ -694,8 +700,14 @@ fn ranges_rows(file:&Path)->Option<u64>{
     let d=dir("bounds");
     {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}
         assert!(check(&a.chain,"after the imports")>0,"positive control: the snapshot at 257 is held with its ids");
-        // Evidence reads fill the caches: still within their caps.
-        for j in [200u64,230,260,265]{let (ev,_)=type2(&r,&blocks[j as usize-1]);let _=effects(&a.chain,&[ev]);}check(&a.chain,"after evidence reads");}
+        // Evidence reads fill the caches: still within their caps. Each read judges its carrier (the verdict, not an
+        // early failure) and runs the oracle, and the caches hold what the reads put there.
+        let m0=a.chain.member_counters();
+        for j in [200u64,230,260,265]{let (ev,accused)=type2(&r,&blocks[j as usize-1]);
+            assert_eq!(effects(&a.chain,&[ev]).unwrap(),vec![EvidenceEffect::PunishAndInvalidate{accused,j}],"the evidence against {j}");}
+        let m1=a.chain.member_counters();
+        assert!(m1.oracle_checks>m0.oracle_checks&&m1.held.0+m1.held.1+m1.held.2>0,"positive control: the reads ran and filled the caches: {m0:?} -> {m1:?}");
+        check(&a.chain,"after evidence reads");}
     {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();check(&a.chain,"after a restart");members_sweep::sweep_node(&a);}
     assert_eq!(pocold::resources::entry_bytes(),Some(4*(std::mem::size_of::<([u8;32],Box<Entry>)>() as u128+1)+std::mem::size_of::<Entry>() as u128+32));
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(std::mem::size_of::<Entry>(),1_072,"FN-3a's 1,088 B less the ranges' boxed slice");}
