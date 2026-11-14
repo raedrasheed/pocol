@@ -56,6 +56,18 @@ outside `development/` and `deploy/websites/` may hold a retired identity (`FILE
 release texts that are true only on the retired network (`STEP3`: the 0.4.x versions and "chain ID and genesis
 unchanged" notes) must be gone by then, so the version bump (removal plan Phase 7) lands before the switch.
 
+## A spec-2 (v3) genesis
+
+The v3 consensus bundle is dormant until its activation release: release nodes and
+clients decode only GenesisSpec version 1. `set_network_identity.py` switches the clients
+to a spec-2 genesis only when the tree's node decodes it (`SPEC_VERSION` 2 in
+`genesis_spec.rs`), and only after the whole v3-preview decoder
+(`deploy/public-testnet/pocol_identity.decode_genesis_spec` at ceiling 2, checked against
+the Rust verdicts of the decoder corpus: framing, structure, counts, canonical integers,
+widths and bounds of every field of the final CP schema v2 of 59 fields, roots, M_0List
+order and reserved ids) accepts it and its `sysCodeHash` names the v3 program set. A
+refused `--to` writes nothing. Spec-1 switches are unchanged.
+
 ## Local checks
 
 ```sh
