@@ -1,18 +1,18 @@
 // Invoke with NODE_PATH pointing to the isolated, locked solc@0.8.28 installation.
 // Compiles the five v3 system programs (C0C001..C0C005) with the v1/earn-in settings.
 //   node compile_system_v3.cjs OUT.json            the v3 program set (tests/data/system-v3.json)
-//   node compile_system_v3.cjs --mutants OUT.json  planted mutants (tests/v3/system-v3-mutants.json): the six of
-//     EARN-IN-SPEC.md §9 and seven of the V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17
-//     evidence penalties (V3-PR-E2b), MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3),
-//     MinerRegistry or ShareLedger; eight of the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow;
-//     eighteen of the V3-10/V3-14 contestable seats and probation-pool contest (V3-PR-E4, with the owner decision of
-//     2026-11-13 on the pool-contest victim), MinerRegistry.
+//   node compile_system_v3.cjs --mutants OUT.json  planted mutants (tests/v3/system-v3-mutants.json): four of
+//     EARN-IN-SPEC.md §9 (its P_MAX and T_PROB mutants went with the probation pool and deadline, FN-2b) and seven of the
+//     V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17 evidence penalties (V3-PR-E2b),
+//     MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3), MinerRegistry or ShareLedger; eight of
+//     the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow; eight of the FN-2b removal at a full
+//     set (C4: removeInactive's gate and registerReplacing), MinerRegistry.
 //     Each entry names the program it replaces.
 const fs=require('fs'),path=require('path'),solc=require('solc');
 if(solc.version()!=='0.8.28+commit.7893614a.Emscripten.clang')throw Error('compiler mismatch');
 const read=f=>fs.readFileSync(path.join(__dirname,'../contracts',f),'utf8');
-// The v3 source is PoColSystemEarnIn.sol with the V3-xx changes (P_MAX/T_PROB from CP schema v2; registry budgets;
-// evidence penalties; late share credit; issuance, carry and tip split; contestable seats and the probation-pool contest).
+// The v3 source is PoColSystemEarnIn.sol with the V3-xx changes (registry budgets; evidence penalties; late share credit;
+// issuance, carry and tip split) and FN-2b's (no probation pool or deadline; removal only at a full set, registerReplacing).
 const source=read('system/PoColSystemV3.sol');
 const settings={optimizer:{enabled:true,runs:200},evmVersion:'cancun',metadata:{bytecodeHash:'none',appendCBOR:false},
   outputSelection:{'*':{'*':['abi','evm.deployedBytecode.object','storageLayout']}}};
@@ -26,12 +26,10 @@ function compile(registry){
 }
 const pick=(o,f,c)=>o.contracts[f][c].evm.deployedBytecode.object;
 const names=[['MinerRegistry','system/PoColSystemV3.sol'],['RewardEscrow','system/PoColSystemV3.sol'],['ShareLedger','system/PoColSystemV3.sol'],['ChainCaps','system/PoColSystemV3.sol'],['ChunkFactory','ChunkFactory.sol']];
-// EARN-IN-SPEC.md §9's six planted mutants, restated on the v3 source: each must fail tests/v3_contracts.rs.
+// EARN-IN-SPEC.md §9's planted mutants that outlive FN-2b, restated on the v3 source: each must fail tests/v3_contracts.rs.
 const MUTANTS=[
-  ['p-max-plus-one','if(probation && get(ACC_COUNT)>=cfg(CP_P_MAX))revert Capacity();','if(probation && get(ACC_COUNT)>cfg(CP_P_MAX))revert Capacity();'],
   ['r9-removed','if(!(arg==msg.sender && msg.sender==tx.origin) && !Sys.pay(arg,0))revert RewardNotDurable();','if(!Sys.pay(arg,0))revert RewardNotDurable();'],
-  ['no-promotion-at-b','if(bond==cfg(16)){put(r,(w&~STATE_MASK)|(uint256(1)<<16));','if(bond>cfg(16)){put(r,(w&~STATE_MASK)|(uint256(1)<<16));'],
-  ['t-prob-plus-one','return height>=registeredAt(w)+cfg(CP_T_PROB);','return height>=registeredAt(w)+cfg(CP_T_PROB)+1;'],
+  ['no-promotion-at-b','if(bond==cfg(16))put(r,(w&~STATE_MASK)|(uint256(1)<<16));','if(bond>cfg(16))put(r,(w&~STATE_MASK)|(uint256(1)<<16));'],
   ['over-fill-bad-value','uint256 add=cfg(16)-bond;if(msg.value<add)add=msg.value;','uint256 add=cfg(16)-bond;if(msg.value>add)revert BadValue();if(msg.value<add)add=msg.value;'],
   ['excess-kept','if(msg.value>add && !Sys.pay(msg.sender,msg.value-add))revert PaymentFailed();',''],
   // V3-PR-E1 (V3-08, V3-09): each must fail tests/v3_contracts.rs on tests/v3/registry-budget-vectors.json.
@@ -48,16 +46,16 @@ const MUTANTS=[
   ['whole-pot-for-bonded-accused','if(address(uint160(w))==accused && w&WIN_ACCRUING!=0) put(b+1,meta|INVALID);','if(address(uint160(w))==accused) put(b+1,meta|INVALID);','RewardEscrow'],
   ['accruing-read-at-evidence','if(address(uint160(w))==accused && w&WIN_ACCRUING!=0)','if(address(uint160(w))==accused && accruingNow(accused))','RewardEscrow'],
   ['accruing-read-at-settle','if(meta&INVALID!=0){ burned=amount; }','if(meta&INVALID!=0&&accruingNow(winner)){ burned=amount; }','RewardEscrow'],
-  ['rho-on-pot-not-bond','uint256 cut=reward==address(0)?0:amount*Sys.cfg(63)/10000;','uint256 cut=reward==address(0)?0:Sys.cfg(15)*Sys.cfg(63)/10000;','RewardEscrow'],
+  ['rho-on-pot-not-bond','uint256 cut=reward==address(0)?0:amount*Sys.cfg(58)/10000;','uint256 cut=reward==address(0)?0:Sys.cfg(15)*Sys.cfg(58)/10000;','RewardEscrow'],
   // V3-PR-E3 (V3-02): each must fail tests/v3_contracts.rs on tests/v3/late-share-vectors.json.
-  ['late-last-share-reverts','put(r,credit(w,j,1,e)); // V3-02','if(((w>>88)&LOW64)>uint256(j)) revert BadState(); put(r,credit(w,j,1,e)); // V3-02','MinerRegistry'],
-  ['late-last-share-overwrites','put(r,credit(w,j,1,e)); // V3-02','put(r,(credit(w,j,1,e)&~LAST_MASK)|(uint256(j)<<88)); // V3-02','MinerRegistry'],
+  ['late-last-share-reverts','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88)); // V3-02 lastShare = max(lastShare, j)','if(((w>>88)&LOW64)>uint256(j)) revert BadState(); put(r,(w&~LAST_MASK)|(uint256(j)<<88));','MinerRegistry'],
+  ['late-last-share-overwrites','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88)); // V3-02 lastShare = max(lastShare, j)','put(r,(w&~LAST_MASK)|(uint256(j)<<88));','MinerRegistry'],
   ['late-cap-removed','if(t==0 || t+n>Sys.cfg(8)*Sys.cfg(9)) revert BadState();','if(t==0) revert BadState();','ShareLedger'],
   ['late-window-one-wider','uint256(j)>=height || uint256(j)+Sys.cfg(11)<height','uint256(j)>=height || uint256(j)+Sys.cfg(11)+1<height','ShareLedger'],
   ['late-total-not-raised','        total[j]=t+n;\n','','ShareLedger'],
   // V3-PR-E2a (V3-19, V3-15, V3-20): each must fail tests/v3_contracts.rs on tests/v3/issuance-carry-vectors.json.
   ['carry-not-added','uint256 amount=issued+(tips-share)+c;','uint256 amount=issued+(tips-share);','RewardEscrow'],
-  ['tip-share-to-pot','uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(56)/10000;','uint256 share=0;','RewardEscrow'],
+  ['tip-share-to-pot','uint256 share=tx.origin==address(0)?0:tips*Sys.cfg(54)/10000;','uint256 share=0;','RewardEscrow'],
   ['base-burn-still-burned','if(r!=a){ if(get(1)!=0) burned+=r-a; else {uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));} } // V3-15','burned+=r-a;','RewardEscrow'],
   ['issued-ignored-flat-s0','uint256 amount=issued+(tips-share)+c;','uint256 amount=Sys.cfg(15)+(tips-share)+c;','RewardEscrow'],
   // The final block keeps the carry of its own settle(F-D) instead of burning it.
@@ -70,34 +68,19 @@ const MUTANTS=[
   ['carry-not-lagged','uint256 k=carrySlot(block.number+1); put(k,get(k)+(r-a));','uint256 k=carrySlot(block.number); put(k,get(k)+(r-a));','RewardEscrow'],
   // The final block burns only the carry of its own settle(F-D) and keeps the carry into pot F that block F-1 left.
   ['lagged-carry-kept-at-final','        if(c!=0) put(4,0);\n        if(n!=0) put(5,0);\n        put(0,get(0)+tips+c+n); put(1,h);','        uint256 f=get(carrySlot(h+1)); if(f!=0) put(carrySlot(h+1),0); put(0,get(0)+tips+f); put(1,h);','RewardEscrow'],
-  // V3-PR-E4 (V3-10, V3-14): each must fail tests/v3_contracts.rs on tests/v3/contest-vectors.json.
-  ['contest-threshold-off-by-one','if(count>=thr||count>=CNT_SAT)return(7,count,thr);','if(count>thr||count>=CNT_SAT)return(7,count,thr);'],
-  ['contest-grace-ignored','if(height<grace+cfg(25))return(5,0,0);',''],
-  ['contest-joined-in-epoch-allowed','if(grace>(cur-1)*e)return(6,0,0);','if(grace>cur*e)return(6,0,0);'],
-  ['contest-set-not-full-allowed','if(get(1)<cfg(18))return(2,0,0);',''],
-  // The pool contest without a full set (the first draft): E's denominator is then the active count at the contest,
-  // which a contestant lowers by exiting its own members in the contest block.
-  ['pool-contest-set-not-full-allowed','if(get(1)<cfg(18))return(2,0,0);','if(!pool&&get(1)<cfg(18))return(2,0,0);'],
-  ['contest-late-window-open','if(cur==0||height%e+1<cfg(11))return(4,0,0);','if(cur==0)return(4,0,0);'],
-  // V3-14, owner decision 2026-11-13 (option a). The first draft's pool contest: the victim refunded and erased at once,
-  // so its parts of pending pots burn and later evidence finds no record.
-  ['pool-contest-erased-at-once','exitAt(vr,vw,get(vr+3),height,pool?POOL_OUT:0);\n        if(pool)put(ACC_COUNT,get(ACC_COUNT)-1);','if(pool){uint256 w=removeActive(vr,vw);if(!refund(victim,vr))revert PaymentFailed();erase(victim,vr,w);}else exitAt(vr,vw,get(vr+3),height,0);'],
-  // The pool contest's victim exits like a seat contest's but keeps its pool seat, so the newcomer finds the pool full.
-  ['pool-contest-seat-kept','exitAt(vr,vw,get(vr+3),height,pool?POOL_OUT:0);\n        if(pool)put(ACC_COUNT,get(ACC_COUNT)-1);','exitAt(vr,vw,get(vr+3),height,0);'],
-  // The victim's refund, punish or promotion lowers ACC_COUNT a second time.
-  ['pool-victim-refund-counted-again','if(pooled(get(r)))put(ACC_COUNT,get(ACC_COUNT)-1);','if(accruingState(get(r)))put(ACC_COUNT,get(ACC_COUNT)-1);'],
-  ['pool-victim-punish-counted-again','if(pooled(w))put(ACC_COUNT,get(ACC_COUNT)-1);','if(st==ACCRUING)put(ACC_COUNT,get(ACC_COUNT)-1);'],
-  ['pool-victim-promote-counted-again','if(w&POOL_OUT==0)put(ACC_COUNT,get(ACC_COUNT)-1);','put(ACC_COUNT,get(ACC_COUNT)-1);'],
-  // The victim reactivates without a free pool seat (and without retaking one).
-  ['pool-victim-reactivates-without-a-pool-seat','if(accruingState(w)&&w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);if(a>=cfg(CP_P_MAX))revert Capacity();put(ACC_COUNT,a+1);}',''],
-  // A victim promoted to HELD while exited (it keeps POOL_OUT) takes a pool seat at its reactivation, as an ACCRUING one.
-  ['pool-victim-held-reactivation-takes-a-pool-seat','if(accruingState(w)&&w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);','if(w&POOL_OUT!=0){uint256 a=get(ACC_COUNT);'],
-  ['pool-contest-held-victim','if(pool&&!accruingState(vw))return(3,0,0);',''],
-  ['counters-not-rolled','else if(ej>el){prev=ej==el+1?cur:0;cur=n;}','else if(ej>el){cur+=n;}'],
-  // recordLate keeps the E3 rule (lastShare only): late credit is not counted in the victim's counters.
-  ['late-not-counted','put(r,credit(w,j,1,e)); // V3-02','if(((w>>88)&LOW64)<uint256(j)) put(r,(w&~LAST_MASK)|(uint256(j)<<88)); // V3-02'],
-  ['isqrt-not-floored','uint256 q=x/y;if(q<y)y=q;',''],
-  ['contest-one-reg-ops-unit','checkBudgets(c,true,false,false,1);','checkBudgets(c,true,false,false,0);'],
+  // FN-2b C4 (owner 10b, Q2(a)): each must fail tests/v3_contracts.rs on tests/v3/registry-budget-vectors.json (the
+  // removal scenarios of tests/v3_model.py).
+  // removeInactive (and registerReplacing) below a full set: the ungated v1 rule.
+  ['removal-below-full-set','if(active<cfg(18))return 2;',''],
+  ['removal-theta-off-by-one','if(height<(last>grace?last:grace)+cfg(25))return 4;','if(height<=(last>grace?last:grace)+cfg(25))return 4;'],
+  ['removal-ignores-grace','if(height<(last>grace?last:grace)+cfg(25))return 4;','if(height<last+cfg(25))return 4;'],
+  ['removal-at-m-min','if(active<=cfg(19))return 3;','if(active<cfg(19))return 3;'],
+  ['replacing-one-reg-ops-unit','checkBudgets(c,true,false,false,1);','checkBudgets(c,true,false,false,0);'],
+  ['replacing-no-r-max-entry','put(3,c+2+(uint256(1)<<16));','put(3,c+2);'],
+  // The victim refunded and erased at once: its parts of pending pots burn and later evidence finds no record.
+  ['replacing-victim-erased-at-once','exitAt(vr,vw,get(vr+3),height);\n        enroll(','{uint256 w=removeActive(vr,vw);if(!refund(address(uint160(v)),vr))revert PaymentFailed();erase(address(uint160(v)),vr,w);}\n        enroll('],
+  // An exited (or tombed) victim accepted: the newcomer takes a seat nobody freed.
+  ['replacing-any-victim','if(!live(vw)||(vw&255)!=1)return 1;','if(!live(vw))return 1;'],
 ];
 const args=process.argv.slice(2);const mutants=args[0]==='--mutants';const out=mutants?args[1]:args[0];
 if(!out)throw Error('usage: compile_system_v3.cjs [--mutants] OUT.json');
