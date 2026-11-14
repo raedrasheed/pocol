@@ -2037,10 +2037,18 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // before).
     let ctx_cache=d.items.iter().find(|x|x.0.starts_with("queues/child-context cache")).unwrap().1;
     assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(admitted(&cfg(&["a","b","c"])).cp()));
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_397_977_154,"the A13 model total changed");
+    // FN-3a (C6) adds the member-record terms (resources::member_cache_bytes, member_scratch_bytes, the records held on
+    // entries not offloaded, and the history.redb payload of member_payload): at this devnet's M_max 64, S_max 256 and
+    // CP schema v1 (DELTA_CAP ids a delta), +3,836,884 B with eviction on or off (3,397,977,154 and 3,388,515,533
+    // before): the owner memo 2,770,596, the reconstruction scratch 743,744, the assignments cache 168,784, the window's
+    // records 72,080, the sets cache 23,552, and 58,128 of history.redb allocator. An Entry's size is unchanged (1,088 B:
+    // `members` is one pointer, and `ranges` became a boxed slice).
+    let fn3:u128=d.items.iter().filter(|x|x.0.contains("(FN-3")).map(|x|x.1).sum();
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_401_814_038,"the A13 model total changed");
+        assert_eq!(fn3,3_778_756);assert_eq!(std::mem::size_of::<pocold::chain::Entry>(),1_088);
         assert_eq!(ctx_cache,185_920);
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_388_515_533,"eviction off includes the same receipt scratch");
+        assert_eq!(off.total,3_392_352_417,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
@@ -2052,7 +2060,8 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // (PR7: with eviction off, so that every height is resident.)
     let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),evict_depth:Some(0),..Default::default()},2).unwrap();
     // (C-1 E5: and the one empty state entries share, which each entry counted before.)
-    let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")).map(|x|x.1).sum();
+    // (FN-3a: and the member records the window's entries hold, a term that grows with the window: here every entry.)
+    let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")||x.0.starts_with("history/member records on entries not offloaded")).map(|x|x.1).sum();
     // The one term that differs: the logs, now also bounded per block (LOG_BLOCK_MAX, enforced by the USER
     // phase), which is tighter than LOG_CAP for H_END+1 devnet blocks.
     let logs=all.items.iter().find(|x|x.0=="history/resident window: logs").unwrap().1;let pre_logs=u128::from(pocol_lp4_execution::user_phase::caps::LOG_CAP)/32*33;

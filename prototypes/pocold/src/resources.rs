@@ -96,6 +96,48 @@ pub fn ctx_cache_bytes(cp:&ConsensusParams)->Option<u128>{
     let p=chain::CTX_PARENTS_MAX as u128;let a=chain::CTX_ASSIGNMENTS_MAX as u128;
     add(&[mul(p,add(&[members,mul(2,pr)?,held])?)?,mul(a,add(&[assignment,mul(2,ar)?,held])?)?,1024])
 }
+/// FN-3 (C6): the heap of one member record beyond its inline size: a delta's two boxed id lists, at most
+/// min(DELTA_CAP, delta_max(cp)) ids of 20 B (`members::delta_bound`), with two allocation headers (32 B each); a
+/// snapshot record holds none.
+pub fn member_record_heap(cp:&ConsensusParams)->u128{64+20*crate::members::delta_bound(cp) as u128}
+/// FN-3: one member set of M_max ids behind its Arc (16 B of counts, 16 B of allocation header).
+pub fn member_set_bytes(cp:&ConsensusParams)->Option<u128>{add(&[mul(20,u128::from(cp.M_max))?,32])}
+/// FN-3: the chain's member caches (`chain::MemberCache`): SETS_CAP sets (each M_max ids and its row), ASSIGN_CAP
+/// recomputed assignments (M_max NonceRanges each, memory::VEC, the Assignment and its Arc, and its row), and the owner
+/// memo (OWNERS_CAP (block hash, nonce) keys with an Option<id>, a HashMap at the churn rule of `hash32_churn_bytes`, <
+/// 32/7 buckets per entry, two allocations, and its FIFO VecDeque of keys, two allocations), plus 1,024 B of slack each.
+pub fn member_cache_bytes(cp:&ConsensusParams)->Option<(u128,u128,u128)>{
+    use crate::assignment::{Assignment,NonceRange};
+    let m=u128::from(cp.M_max);
+    let sets=add(&[mul(chain::sets_cap(cp) as u128,add(&[member_set_bytes(cp)?,mul(2,size_of::<([u8;32],crate::members::Set)>() as u128)?])?)?,1024])?;
+    let one=add(&[mul(memory::VEC,mul(m,size_of::<NonceRange>() as u128)?)?,size_of::<Assignment>() as u128,32,mul(2,size_of::<(([u8;32],u32),std::sync::Arc<Assignment>)>() as u128)?])?;
+    let assigns=add(&[mul(chain::assigns_cap(cp) as u128,one)?,1024])?;
+    let kv=size_of::<(([u8;32],u64),Option<crate::members::Id>)>() as u128;let key=size_of::<([u8;32],u64)>() as u128;
+    let owners=add(&[mul(chain::owners_cap(cp) as u128+1,add(&[mul(2,(32*(kv+1)).div_ceil(7))?,mul(2,key)?])?)?,1024])?;
+    Some((sets,assigns,owners))
+}
+/// FN-3: one member reconstruction in progress (one at a time, on the consensus thread; CONDITIONS
+/// `member-records-inventory`): the anchor set and the merged set (20 B an id each), the assignment's tickets (52 B an
+/// id) and their sort's scratch (as many), the NonceRanges built, a snapshot row read from history.redb (its 20 B ids
+/// and its seal), the walk's WALK_MAX record copies with their deltas, its overlay (a BTreeMap node per changed id,
+/// counted at 64 B), and 4,096 B of slack.
+pub fn member_scratch_bytes(cp:&ConsensusParams)->Option<u128>{
+    use crate::assignment::NonceRange;
+    let m=u128::from(cp.M_max);let dm=crate::members::delta_bound(cp) as u128;let walk=u128::from(crate::members::WALK_MAX);
+    add(&[mul(m,20+20+52+52+20+size_of::<NonceRange>() as u128)?,64,mul(walk,size_of::<crate::members::MemberRec>() as u128+member_record_heap(cp))?,mul(mul(walk,dm)?,64)?,4096])
+}
+/// FN-3: what `blocks` blocks add to history.redb: a member record per block (its key, seal and fixed part, and a delta's
+/// ids: at most min(DELTA_CAP, delta_max)) and a snapshot row per snapshot block (its key, seal and M_max ids; a snapshot's
+/// record holds no delta). Snapshots follow the cadence alone (⌈blocks/256⌉ + 1) on CP schema v2 (the v3 programs, whose
+/// membership is every live record, so a block changes at most delta_max ids) when delta_max(cp) <= DELTA_CAP;
+/// otherwise every block may be one.
+pub fn member_payload(cp:&ConsensusParams,blocks:u128)->Option<u128>{
+    let (dm,m)=(crate::members::delta_bound(cp) as u128,u128::from(cp.M_max));let fixed=32+32+crate::members::REC_FIXED as u128;
+    if cp.schema_version()>=2&&crate::members::delta_max(cp)<=crate::members::DELTA_CAP{
+        let snaps=blocks.div_ceil(u128::from(crate::members::SNAPSHOT_EVERY))+1;
+        add(&[mul(blocks,add(&[fixed,mul(20,dm)?])?)?,mul(snaps,add(&[32+32,mul(20,m)?])?)?])
+    }else{mul(blocks,add(&[fixed,mul(20,dm)?.max(add(&[32+32,mul(20,m)?])?)])?)}
+}
 /// N4: the fee order's scratch (`Node::fee_order_and_big`): FEE_ORDER_ENTRY_BYTES per pooled and parked candidate.
 pub fn fee_order_bytes()->Option<u128>{mul((node::POOL_MAX_TXS+node::POOL_PARKED_MAX) as u128,node::FEE_ORDER_ENTRY_BYTES as u128)}
 /// D-7: the gas the pool's layer can hold: its bound (`node::pool_gas_bound`), and at most POOL_MAX_TXS
@@ -374,6 +416,7 @@ pub const CONDITIONS:&[(&str,&str)]=&[
     ("v3-execution-inventory","For the v3_active(MAX) profile domain derived at open, retained/per-block log terms use 256 KiB. There is no creation burn (owner decision 10d, FN-2a): no receipt annotation, burn field or burn arithmetic, so legacy BlockRun/BlockOutput layouts are unchanged; this inventory is by inspection, not a measured profile or higher live-state caps"),
     ("receipt-encoding-inventory","A legacy under-count corrected on every profile: count receipt RLP nesting/growth and the receipts-root clone at sixteen active charged log-byte copies, two per-block per-tx receipt buffers for the USER list and apply's report copy, and 64 KiB fixed bloom/short-list scratch. These are conservative inventories of the unchanged legacy receipts::encode, ordered_root and apply output copies, separate from native logs and retained history; the active log limit grows this peak under v3"),
     ("first-import-inventory","V3-04: only a timely bit is resident in Entry and existing checkpoint flags; original timestamps stay in the journal, not a lifetime RAM map. Legacy Entry/Rec type sizes and REC_MIN/REC_MAX stay unchanged on the pinned target. A profile that can activate v3 counts canon.redb's cache and allocator even without canonical eviction, over the observed file plus (journal records + DISK_HEADROOM) hash/offset rows at HISTORY_FILE_FACTOR. This deliberately counts some allocator/cache bytes twice with eviction on, covers rebuilding a lost index before checkpoints, and requires observed records/files and the 256-record recheck on bounded chains too. Lookup/open scratch allows two MAX_RECORD payloads and eight maximum headers (borrowed RLP/body fields); one genesis receipt scalar is kept by Node, and a bounded template-slot map (TEMPLATE_SEEN_MAX slots of a locked TemplateID and its first lock time, not persisted) for classifying signed blocks by their template. Eviction batch uses actual inline Entry/Rec types, vector capacity and serialized row copies. These are inventories by inspection, not allocator RSS guarantees"),
+    ("member-records-inventory","FN-3 (C6): the member caches hold at most SETS_CAP = max(16, 2·E_max + D + 2) sets, ASSIGN_CAP = max(8, E_max + D + 1) assignments and OWNERS_CAP = min(4096, 2·EVIDENCE_POOL_MAX·(S_max + 1)) owners, from the CP at Chain::new (members::SmallLru, members::Memo); `offload` drops a snapshot's member ids (tests/memory_bounds.rs); a delta holds at most DELTA_CAP ids, which the snapshot rule enforces (members::is_snapshot), and on the v3 programs a block changes at most delta_max(cp) = REG_OPS + R_react + E_max ids of S_b (PoColSystemV3.sol checkBudgets, registerReplacing, punish); a reconstruction runs one at a time on the consensus thread; a bare chain's MemSets (no node) is pruned to the eviction floor − WALK_MAX; FN-3a keeps the nonce ranges beside the records (64·M_max a resident entry, the per-block term), which FN-3b removes; by inspection"),
     ("late-share-inventory","V3-02 (CP schema v2 only): an offloaded entry keeps its kind-3 evidence items, bounded per block by E_max items and the L = min(E_max·min(S_max, κm − 1), D·(κm − 1)) late shares one block can credit, and a slimmed one drops them; the late-share cache holds at most D + LATE_PENDING_MAX + 1 templates (one canonical template per height of the next carrier's window, LATE_PENDING_MAX of the production height, one more between a stash and its prune) of SHARE_RELAY_PER_S_MAX·S_max nonces; both by inspection of chain::offload/slim and node::LateCache, zero on CP schema v1"),
 ];
 /// The model total and its parts. `items` itemizes every group term ("group/item", bytes); the
@@ -601,7 +644,8 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // transaction an index entry, at most HISTORY_FILE_FACTOR times their bytes (measured below 4.2,
     // evidence/c1-s1/).
     // C-1 S4: each block's nonce ranges too (owner 20 + start 16 + end 16 bytes per member, a seal).
-    let payload=add(&[mul(blocks,32+32+64)?,mul(blocks,32+32+52*m)?,mul(u128::from(cp.TX_CAP),RECEIPT_BASE+4+64+4)?,log_cap/32*33])?;
+    // FN-3: each block's member record and each snapshot's set too (`member_payload`).
+    let payload=add(&[mul(blocks,32+32+64)?,mul(blocks,32+32+52*m)?,mul(u128::from(cp.TX_CAP),RECEIPT_BASE+4+64+4)?,log_cap/32*33,member_payload(cp,blocks)?])?;
     // C-1 S4: canonical journaled entries deeper than slim_depth (default 2·R_keep + E_win + 257) keep only
     // the entry, its map slot and canonical index, and an empty state; the header's heap fields, the
     // ParentResult and the nonce ranges are restored from the journal and history.redb on demand.
@@ -662,6 +706,11 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         hist.push(("history/late-share evidence kept on offloaded entries (V3-02: offloaded canonical, side and shadow entries)",
             mul(add(&[full_old,limits.side_cap as u128,mul(2,u128::from(limits.r_keep))?,shadow])?,late)?));
     }
+    // FN-3 (C6): an entry that is not offloaded holds its member record (`Entry::members`, boxed: the record, a delta's ids
+    // on the heap and a snapshot's ids) until `chain::offload` drops it with its other bytes: the resident window, the
+    // full side block and the block being validated. Every other entry holds the box's pointer only (in its Entry).
+    hist.push(("history/member records on entries not offloaded (FN-3: the resident window, one full side block and one being validated)",
+        mul(window.checked_add(2)?,add(&[size_of::<crate::members::EntryMembers>() as u128+16,member_record_heap(cp),member_set_bytes(cp)?])?)?));
     let history=add(&hist.iter().map(|x|x.1).collect::<Vec<_>>())?;items.extend(hist);
     // Side blocks (D-REORG-REDB): every journaled non-canonical block is offloaded to metadata at the
     // retain() that follows its import (Chain::retain): its encoded header and body (evidence included),
@@ -746,7 +795,12 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         ("queues/relayed TemplateIDs, inbound address groups and configured peers",gossip),("queues/node peer and status maps (churn)",maps),
         ("queues/inbound eviction: registry, selection scratch, per-connection activity and eviction ring",evict),
         ("queues/post-state verdicts per TemplateID and nonce (chain::COSTLY_MAX)",costly),
-        ("queues/child-context cache (FN-1: CTX_PARENTS_MAX memberships and Draws, CTX_ASSIGNMENTS_MAX assignments, M_max members)",ctx_cache)];
+        ("queues/child-context cache (FN-1: CTX_PARENTS_MAX memberships and Draws, CTX_ASSIGNMENTS_MAX assignments, M_max members)",ctx_cache),
+        // FN-3 (C6): the member caches (chain::MemberCache) and one reconstruction in progress.
+        ("queues/member sets cache (FN-3: SETS_CAP sets of M_max ids)",member_cache_bytes(cp)?.0),
+        ("queues/recomputed assignments cache (FN-3: ASSIGN_CAP assignments of M_max members)",member_cache_bytes(cp)?.1),
+        ("queues/owner memo (FN-3: OWNERS_CAP block and nonce keys)",member_cache_bytes(cp)?.2),
+        ("queues/member reconstruction scratch (FN-3: one at a time)",member_scratch_bytes(cp)?)];
     let mut queues=add(&q.map(|x|x.1))?;items.extend(q);
     // V3-02 (CP schema v2 only): the late-share cache (node::LateCache), at most D + LATE_PENDING_MAX + 1 templates of at most
     // SHARE_RELAY_PER_S_MAX·S_max nonces each, a Vec counted at memory::VEC times its length, in a VecDeque counted the same.
@@ -871,7 +925,9 @@ pub fn slim_entry_bytes()->Option<u128>{add(&[entry_bytes()?,64])}
 /// 2·R_keep + E_win + 258 and, in store mode (rebuild anchors every R_keep heights at or below the K_hist cut, the
 /// newest one at least lag = 2·R_keep + 2 below the head kept: `Chain::retain_anchors`), max(lag, K_hist) + R_keep +
 /// max(257, E_win + 1), so that newest anchor's BLOCKHASH and evidence windows stay above the floor. The default is
-/// max(slim depth + R_keep, E_min); a configured depth below E_min is refused, naming the term it fails.
+/// max(slim depth + R_keep, E_min); a configured depth below E_min is refused, naming the term it fails. FN-3: a member
+/// walk from an entry above the floor may read the records of up to WALK_MAX blocks below it, from the member source
+/// (history.redb, or a bare chain's MemSets kept down to the floor − WALK_MAX), never from the evicted entries.
 pub fn evict_depth_of(cp:&ConsensusParams,k_hist:u32,limits:&Limits,rk_replay:u64)->Result<Option<u64>,String>{
     let rk=rk_replay.max(limits.r_keep);let e_win=u64::from(cp.E_win);
     let depth=limits.slim_depth.unwrap_or(rk.saturating_mul(2).saturating_add(e_win).saturating_add(257));
