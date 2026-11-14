@@ -294,7 +294,8 @@ is never ready: blocker `no-network`), `pocold status` and `pocol_status` (the a
 `init-testnet` (the profile it admitted) and the launcher's network description (`pocol network`/`import`/
 `upgrade`, from what genesis.spec.hex commits to; the launcher admits nothing, so it is never ready). Each blocker
 has a stable `id` and a `detail`:
-- build: `v3-preview-build`; `spec-version` (SPEC_VERSION < 2, cleared by V3-PR-I); `consensus-unpinned`;
+- build: `spec-version` (SPEC_VERSION < 2; cleared since the fresh network's phase 4, which also removed the
+  `v3-preview-build` blocker with the feature); `consensus-unpinned`;
   `test-features` (caps-test, crash-test, io-fault); `v3-launch-blocker` (each `V3_LAUNCH_BLOCKERS` entry, none
   today); `plan-gate-<id>` (each acceptance-ledger gate of `development/public-network/PLAN.md` not marked
   closed, all nine today; a test keeps `PLAN_GATES_OPEN` equal to the ledger);
@@ -367,6 +368,8 @@ Keep `CONSENSUS_RULES_VERSION=1`, `SPEC_VERSION=1` and `MAX_FORK_VERSION=2` thro
 For the dormant sequence, this qualifies VA-SPEC §2.3: gate freshness comes from the constants recorded on earlier merged history lines, not the mere presence of an earlier `gate=spec:2` label. A line recording spec=1 does not spend spec:2.
 
 `v3-preview` is test-only acceptance of spec-2 genesis files: identity bit 2 and the sources aggregate isolate preview builds with different consensus sources, admission allows only simnet, and packaging refuses preview artifacts. All restrictions must land together. The ordinary release decoder continues refusing spec 2 until activation.
+
+**Superseded 2026-11-14 (fresh network, phase 4; OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md):** the old network is retired and a new v3 genesis is launched, so the v3 rules became the release rules in one PR: both `SPEC_VERSION` copies are 2, `CONSENSUS_RULES_VERSION` is 2 (a `kind=bump` line, the new-genesis case), the `v3-preview` feature, identity bit 2 and the preview admission and packaging restrictions are removed, and the preview-gated tests are default tests. The two paragraphs above and the rest of this paragraph record the dormant-sequence policy that applied until then.
 
 Only the activation PR after implementation, verifiers, resource proofs and simulations are green raises both `SPEC_VERSION` copies to 2 and removes preview-only acceptance. Its `neutral gate=spec:2` line records `spec=2` and spends the gate. Subsequent v3 corrections need a new spec:3 genesis/gate, or a separately authorized rules-version bump only after H15000 retirement. In-place replacement machinery stays behind unspent `fork:3` with `MAX_FORK_VERSION=2` until its own future activation.
 
