@@ -64,7 +64,6 @@ https://ide.pocol.net/downloads/PoCol-Studio-IDE-Viewer-0.4.1.zip
 
 استخدم النسخة المطابقة لهذا الإصدار من IDE. تدعم الإضافة أصلي الموقع التاليين:
 https://ide.pocol.net
-https://pocol-ide.mystic-gecko-9511.chatgpt.site
 
 النطاقات الأخرى تحتاج إضافتها إلى إعداد الإضافة قبل الاتصال منها.
 
