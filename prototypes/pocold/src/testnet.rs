@@ -125,11 +125,44 @@ fn placeholders(value: &serde_json::Value, path: &str, out: &mut Vec<String>) {
         _ => {}
     }
 }
+/// Any JSON value, refused when an object at any depth repeats a key (checked only; the value is discarded).
+struct NoDuplicateKeys;
+impl<'de> Deserialize<'de> for NoDuplicateKeys {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visit;
+        impl<'de> serde::de::Visitor<'de> for Visit {
+            type Value = NoDuplicateKeys;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { f.write_str("JSON without duplicate keys") }
+            fn visit_bool<E>(self, _: bool) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_str<E>(self, _: &str) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_unit<E>(self) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                while seq.next_element::<NoDuplicateKeys>()?.is_some() {}
+                Ok(NoDuplicateKeys)
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut keys = HashSet::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if !keys.insert(key) { return Err(serde::de::Error::custom("duplicate key")); }
+                    map.next_value::<NoDuplicateKeys>()?;
+                }
+                Ok(NoDuplicateKeys)
+            }
+        }
+        deserializer.deserialize_any(Visit)
+    }
+}
 /// The config with its placeholders filled by `test`, and, when any was filled, the config's own chainId (replaced by
 /// `TEST_CHAIN_ID`). Without `test` a placeholder is refused (before any output); with it, only the ceremony inputs a
 /// profile has (genesisTime, hashRate.hashesPerSecond, each founder's id and reward) are filled, and any other
 /// placeholder is still refused.
 fn fill(config: &[u8], test: Option<&TestPlaceholders>) -> Result<(serde_json::Value, Option<serde_json::Value>), String> {
+    // `serde_json::Value` silently keeps the last of duplicate keys, while the typed `Config` refused them before the
+    // config was first read as a Value, so the refusal is made here, for every object at any depth (cp included).
+    serde_json::from_slice::<NoDuplicateKeys>(config).map_err(|_| "invalid public genesis config schema")?;
     let mut value: serde_json::Value = serde_json::from_slice(config).map_err(|_| "invalid public genesis config schema")?;
     let mut found = Vec::new();
     placeholders(&value, "", &mut found);

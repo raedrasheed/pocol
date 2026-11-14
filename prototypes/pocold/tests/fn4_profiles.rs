@@ -97,6 +97,23 @@ fn the_profiles_state_the_final_cp_and_differ_only_in_chain_id_and_genesis_time(
 }
 
 #[test]
+fn a_repeated_key_at_any_depth_is_refused_with_or_without_the_test_flag(){
+    // JSON with a repeated key must be refused, not read as its last value (independent_keys.py checks the same for a
+    // plain config): at the top, in cp and in a founder, for a ceremony-filled profile and for one the flag fills.
+    for (label,p) in [("mainnet",MAINNET),("rehearsal",REHEARSAL)]{
+        let filled=ceremony_filled(&json(p),1_000_000).to_string();let raw=json(p).to_string();
+        for (at,from,to) in [("top","\"chainId\":","\"chainId\":1,\"chainId\":"),("cp","\"T_blk\":","\"T_blk\":10,\"T_blk\":"),("founder","\"reward\":","\"reward\":\"1\",\"reward\":")]{
+            for (flag,text) in [(None,&filled),(Some(&TEST),&filled),(Some(&TEST),&raw)]{
+                let dup=text.replacen(from,to,1);assert_ne!(&dup,text,"{label} {at}");
+                let out=Temp::new("dup");let err=testnet::prepare_with(dup.as_bytes(),&out.0,flag).unwrap_err();
+                assert!(err.contains("schema"),"{label} {at}: {err}");assert!(!out.0.exists(),"{label} {at}: nothing is written");
+            }
+        }
+        // The same texts without the repeat build (the refusal is the repeat's).
+        let out=Temp::new("nodup");testnet::prepare(filled.as_bytes(),&out.0).unwrap();
+    }
+}
+#[test]
 fn the_builder_refuses_ceremony_placeholders_without_the_test_flag(){
     for (label,p) in [("mainnet",MAINNET),("rehearsal",REHEARSAL)]{
         let out=Temp::new(label);let err=testnet::prepare(p.as_bytes(),&out.0).unwrap_err();
