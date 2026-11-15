@@ -11,6 +11,8 @@ use revm::primitives::{Address,B256,Bytes,U256};
 
 const CHAIN:u64=777913;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 fn spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn try_seal(n:&Net,mut h:pocold::header::Header,body:Body,attempt:u32)->Option<Block>{
@@ -43,7 +45,7 @@ fn deploy(code:&[u8])->Vec<u8>{let n=code.len();let mut v=vec![0x5f+n as u8];v.e
 #[test] fn the_caps_test_build_sets_log_cap_to_2_pow_24(){assert_eq!(caps::LOG_CAP,1<<24)}
 
 #[test] fn log_cap_exhaustion_halts_logging_only_and_the_chain_keeps_producing(){
-    let c=cfg();let d=devnet::build(&c).unwrap();let mut n=Net{chain:Chain::new(spec(&c)),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()};
+    let c=cfg();let d=devnet::build(&c).unwrap();let mut n=Net{chain:oracle_on(Chain::new(spec(&c))),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()};
     let (alice,bob)=(devnet::account_key("alice"),devnet::account_key("bob"));let mut blocks=vec![];
     // h=1: deploy LOGN. Then one LOGN(1, 32732) per block: 36+32732 = 32768 charged bytes, so 512 blocks reach 2^24.
     let logn=alice.address().create(0);let b=signed(&n,n.chain.head,vec![tx(&alice,0,None,deploy(LOGN),200_000,0)]);let mut e=import(&mut n,&b);blocks.push(b);

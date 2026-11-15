@@ -11,6 +11,8 @@ use revm::primitives::{Address,B256,Bytes,U256};
 
 const CHAIN:u64=777913;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 fn spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn try_seal(n:&Net,mut h:pocold::header::Header,body:Body,attempt:u32)->Option<Block>{
@@ -36,7 +38,7 @@ const LOGN:&[u8]=&[0x5f,0x35,0x5b,0x80,0x15,0x61,0x00,0x15,0x57,0x60,0x20,0x35,0
 fn deploy(code:&[u8])->Vec<u8>{let n=code.len();let mut v=vec![0x5f+n as u8];v.extend_from_slice(code);v.extend([0x5f,0x52,0x60,n as u8,0x60,(32-n) as u8,0xf3]);v}
 
 #[test] fn log_cap_accumulates_in_a_block_follows_the_branch_and_survives_a_rebuild(){
-    let c=cfg();let d=devnet::build(&c).unwrap();let mut n=Net{chain:Chain::new(spec(&c)),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()};
+    let c=cfg();let d=devnet::build(&c).unwrap();let mut n=Net{chain:oracle_on(Chain::new(spec(&c))),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()};
     let (alice,bob)=(devnet::account_key("alice"),devnet::account_key("bob"));let logn=alice.address().create(0);
     let b=signed(&n,n.chain.head,vec![tx(&alice,0,None,deploy(LOGN),200_000)]);import(&mut n,&b);
     // charge c = 36 + d for one LOG0 of d bytes.

@@ -8,6 +8,7 @@
 //! These tests encode the FIXED behavior, so each FAILS on the audited db24d9a `unhex` (it panics,
 //! which libtest reports as a failed test) and PASSES once the `is_ascii` guard is compiled in.
 //! All inputs are synthetic; nothing here touches a live network.
+#[path="support/members.rs"] mod members_sweep;
 
 use pocold::chain::Spec;
 use pocold::node::{Config, Node};
@@ -25,6 +26,7 @@ fn devnet() -> devnet::Devnet {
     devnet::build(&DevnetConfig::new(777951, pocold::node::now_s(), &["a", "b", "c"])).expect("devnet")
 }
 fn spec_of(n: &devnet::Devnet) -> Spec {
+    crate::members_sweep::oracle();
     let t = pocol_lp4_execution::admission::measure(&n.spec_bytes, &n.alloc, 1).expect("measure");
     Spec::new(pocol_lp4_execution::admission::admit(&n.request(&pocold::single_host_local(), Some(&t))).expect("admit"))
 }

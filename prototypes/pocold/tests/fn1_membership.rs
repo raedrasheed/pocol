@@ -11,6 +11,8 @@ use pocold::{chain::{Chain,ChildCtx,Entry,Reject,Spec},node::{Config,Limits,Node
 use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,blocks:Vec<Block>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn config(v3:bool,full:bool,n:usize)->DevnetConfig{
     let mut cfg=DevnetConfig::new(777952,1_700_000_000,&[]);
     cfg.miners=(0..n).map(|i|format!("fn1-{i}")).collect();
@@ -25,7 +27,7 @@ fn net(cfg:DevnetConfig)->Net{
     let candidate=devnet::build(&cfg).unwrap();
     let mut keys:HashMap<_,_>=candidate.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
     for label in ["alice","bob","carol"]{let key=devnet::account_key(label);keys.insert(key.address(),key);}
-    Net{chain:Chain::new(spec(&cfg)),keys,cfg,blocks:Vec::new()}
+    Net{chain:oracle_on(Chain::new(spec(&cfg))),keys,cfg,blocks:Vec::new()}
 }
 /// A block on `parent`: signed by Draw(h,0) (every fixture key is held), its winner the first member with a held key
 /// whose range holds a solution.
@@ -247,7 +249,8 @@ fn synthetic_members(db:&mut revm::InMemoryDB,m:usize,b_reg:U256,height:u64){
         put(db,slot+U256::from(3),if i%11==0{U256::from(height)<<192}else{U256::ZERO});
     }
 }
-/// A block's stored nonce ranges, as `Entry::ranges` keeps them (chain.rs, the entry a validated block makes).
+/// A block's nonce ranges from its assignment (`Assignment::ranges`), in the form the pre-FN-1 lookup read them
+/// (FN-3b: no entry stores them).
 fn stored_ranges(a:&pocold::assignment::Assignment)->Vec<(Address,u128,u128)>{a.ranges().iter().map(|r|(addr(&r.id()),r.start(),r.end_exclusive())).collect()}
 /// The pre-FN-1 lookup over stored ranges (type-2 evidence, `late_check`), kept as the oracle of `range_owner`.
 fn stored_linear(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{ranges.iter().find(|(_,s0,e0)|*s0<=n&&n<*e0).map(|r|r.0)}
@@ -264,9 +267,11 @@ fn stored_linear(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{ranges.i
         let mut n=net(config(false,full,3));next(&mut n,vec![]);
         for h in n.chain.blocks.keys().copied().collect::<Vec<_>>(){
             let e=n.chain.full_entry(&h).unwrap();if e.height==0{continue}
-            assert!(!e.ranges.is_empty(),"a validated block keeps its ranges");
-            let mut probes=vec![0u128,u128::from(u64::MAX)];for r in &e.ranges{for x in [r.1,r.2]{probes.extend([x.saturating_sub(1),x]);}}
-            for x in probes{assert_eq!(pocold::chain::range_owner(&e.ranges,x),stored_linear(&e.ranges,x),"full={full} n={x}");}
+            // FN-3b: a block's ranges as its assignment (recomputed from its member records) holds them.
+            let ranges:Vec<(Address,u128,u128)>=n.chain.assignment_of(&e).unwrap().ranges().iter().map(|r|(Address::from(r.id()),r.start(),r.end_exclusive())).collect();
+            assert!(!ranges.is_empty(),"a validated block has its ranges");
+            let mut probes=vec![0u128,u128::from(u64::MAX)];for r in &ranges{for x in [r.1,r.2]{probes.extend([x.saturating_sub(1),x]);}}
+            for x in probes{assert_eq!(pocold::chain::range_owner(&ranges,x),stored_linear(&ranges,x),"full={full} n={x}");}
         }
     }
 }
