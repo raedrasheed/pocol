@@ -68,7 +68,10 @@ function studioRoute(info) {
 async function openBrowser(testNetwork, relayPort, tag, { headless = !HEADED } = {}) {
   const dist = build({ fault: 'testGateway', out: join(work, 'dist-' + tag), lockMs: LOCK_MS, testNetwork: { ...testNetwork, endpoint: `http://127.0.0.1:${relayPort}/studio/rpc` } }).dist;
   const userDir = mkdtempSync(join(work, 'chrome-' + tag + '-'));
-  const ctx = await chromium.launchPersistentContext(userDir, { channel: 'chromium', headless, acceptDownloads: true, args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`] });
+  // Headed (the nightly background-tab measurement): Playwright's default flags that turn Chrome's background timer
+  // throttling and renderer backgrounding off are dropped, so a tab behind another one is throttled as in Chrome.
+  const ignoreDefaultArgs = headless ? [] : ['--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows'];
+  const ctx = await chromium.launchPersistentContext(userDir, { channel: 'chromium', headless, acceptDownloads: true, ignoreDefaultArgs, args: [`--disable-extensions-except=${dist}`, `--load-extension=${dist}`] });
   contexts.push(ctx);
   let [sw] = ctx.serviceWorkers(); if (!sw) sw = await ctx.waitForEvent('serviceworker', { timeout: 20000 });
   const id = new URL(sw.url()).host;
@@ -316,6 +319,9 @@ async function main() {
       await pubB.waitForFunction(() => /^0x/.test(document.getElementById('walletAddress').textContent), null, { timeout: 60000 });
       const s0 = relays[0].log.length; await approveAndPublish(pubB);
       const front = await b.ctx.newPage(); await front.goto('about:blank'); await front.bringToFront();
+      // Whether Chrome really treats the publisher tab as hidden: Playwright keeps its pages focused (focus emulation), and
+      // under xvfb without a window manager the tab has been seen to stay 'visible'; the record says which it was.
+      await pubB.waitForFunction(() => document.visibilityState === 'hidden', null, { timeout: 5000 }).catch(() => {});
       const hidden = await pubB.evaluate(() => document.visibilityState);
       await follow(pubB, (p) => p.isVisible('#success'), 3600000, 'background publish');
       const sends = relays[0].log.slice(s0).filter((x) => x.method === 'eth_sendRawTransaction').map((x) => x.t);
@@ -323,7 +329,7 @@ async function main() {
       const m = { headed: HEADED, visibility: hidden, transactions: sends.length, medianGapMs: gaps[gaps.length >> 1], maxGapMs: gaps[gaps.length - 1] };
       writeFileSync(join(work, 'background-tab.json'), JSON.stringify(m, null, 1));
       console.log('MEASURE background tab', JSON.stringify(m));
-      ok(`a publication in a background tab completes (measured: ${JSON.stringify(m)})`, sends.length > 10, JSON.stringify(m));
+      ok(`a publication with another tab in front completes; per-transaction gaps recorded (tab ${hidden}: ${JSON.stringify(m)})`, sends.length > 10, JSON.stringify(m));
       await front.close();
     }
   } finally {
