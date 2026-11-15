@@ -1577,7 +1577,8 @@ class V3DevnetDifferential(unittest.TestCase):
         # Tips and the tip share (V3-20), issuance M3 (V3-19), the lagged carry (V3-15).
         self.assertTrue(any(int(s['tipShareWei']) > 0 and int(s['tipShareWei']) * 2 == int(s['tipsWei']) for s in self.snaps.values()))
         self.assertTrue(any(int(s['carryInWei']) > 0 for s in self.snaps.values()))
-        self.assertTrue(all(s['issuedWei'] == ('0' if s['final'] else '2000000000000000000') for s in self.snaps.values()))
+        # The v3 devnet's S0, 4 PCOL (FRESH-NETWORK-CP.md), on every block but the final one.
+        self.assertTrue(all(s['issuedWei'] == ('0' if s['final'] else '4000000000000000000') for s in self.snaps.values()))
         # All-live membership (D-V3-01): the idle three owns a range in a block past W_act (its nonces are assigned).
         chain = rewards._V3Chain(self.rpc, rewards.validated_network(self.network), self.schedule,
                                  rewards._v3_cp(self.read('pocol_getParams', []), rewards.validated_network(self.network)))

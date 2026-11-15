@@ -18,12 +18,13 @@ struct Net { chain: Chain, keys: HashMap<Address, Key>, one: Address }
 impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
 
 fn net() -> Net {
-    let mut cfg = DevnetConfig::new(777916, 1_700_000_000, &["one", "two"]);
+    // The retired spec-1 earn-in set (system-earnin.json), pinned until Phase 6a deletes it with this file; the v3 rules
+    // have v3_earnin.rs.
+    let mut cfg = DevnetConfig::spec1(777916, 1_700_000_000, &["one", "two"], devnet::Spec1Programs::EarnIn);
     cfg.hash_rate = 16;
     cfg.c = 8;
     cfg.d_att = 73;
     cfg.r_max = 1;
-    cfg.earnin = true;
     let mut candidate = devnet::build(&cfg).unwrap();
     candidate.forks.push((2, 2));
     let mut keys: HashMap<Address, Key> = candidate.miners.iter()

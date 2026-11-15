@@ -22,9 +22,10 @@ struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Addres
 impl Drop for Net{fn drop(&mut self){members_sweep::sweep_on_drop(&self.chain);}}
 /// The v3 earn-in devnet (CP schema v2: the v3 program set, all-live membership, the full nonce domain) or its spec-1
 /// twin (bounded nonce ranges, the activity window). E_win 80, so type-2 evidence reaches far back.
+/// Phase 6a deletes the spec-1 twin with the spec-1 rule set.
 fn config(spec:u8)->DevnetConfig{
-    let mut c=DevnetConfig::new(777953,1_700_000_000,&["one","two","three"]);
-    c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.earnin=true;c.spec_version=spec;c.e_win=80;c.u=96;c.c_react=96;c
+    let mut c=match spec{1=>DevnetConfig::spec1(777953,1_700_000_000,&["one","two","three"],devnet::Spec1Programs::EarnIn),_=>DevnetConfig::new(777953,1_700_000_000,&["one","two","three"])};
+    c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.e_win=80;c.u=96;c.c_react=96;c
 }
 fn spec_of(c:&DevnetConfig)->Spec{members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn net(spec:u8)->Net{net_of(config(spec))}
@@ -569,7 +570,10 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     assert!(m1.record_reads>m0.record_reads&&m1.disk_set_reads>m0.disk_set_reads,"the re-executed evidence's walk read history.redb: {m1:?}");
     assert!(m1.oracle_checks>=m0.oracle_checks+3&&m1.oracle_mismatch==0&&m1.faults==0,"the shadow compared at the re-executed evidence: {m1:?}");
     // (c) A following carrier of type-2 and kind-3 evidence.
-    let old=Block{header:entry_at(&r.chain,top-60).header.clone(),body:entry_at(&r.chain,top-60).body.clone()};
+    // Against a block from top-60 down whose winner is still live (the accused of x is tombed).
+    let head=r.chain.full_entry(&r.chain.head).unwrap();
+    let o=(top-75..=top-60).rev().find(|h|apply::miner_record(head.state.as_ref(),entry_at(&r.chain,*h).result.as_ref().unwrap().winner).is_some_and(|m|!m.tomb)).expect("a block won by a live member");drop(head);
+    let old=Block{header:entry_at(&r.chain,o).header.clone(),body:entry_at(&r.chain,o).body.clone()};
     judge_next(&mut r,&mut a,&old,&late[..2],"after the restore and the anchor rebuild");
     let (off,_)=members_sweep::held_records(&a.chain);assert!(off>0);
     drop(a);let _=std::fs::remove_dir_all(&d);

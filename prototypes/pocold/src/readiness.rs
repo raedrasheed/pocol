@@ -280,13 +280,20 @@ mod tests{
         want.extend(facts.conditions.iter().map(|c|format!("admission-condition-{c}")));
         want.extend(facts.waivers.iter().map(|w|format!("admission-waiver-{w}")));
         want.push("profile-kind".into());
+        // The v3 devnet activates v3 from genesis: no v3-inactive blocker.
         let network:Vec<&str>=got.iter().copied().skip_while(|id|*id!="v3-inactive"&&*id!="network-not-release-pinned").collect();
-        let mut expect=vec!["v3-inactive","network-not-release-pinned"];expect.extend(want.iter().map(String::as_str));
+        let mut expect=vec!["network-not-release-pinned"];expect.extend(want.iter().map(String::as_str));
         assert_eq!(network,expect,"the network blockers of a booted devnet admission");
         assert!(!got.contains(&"admission-not-booted")&&!got.contains(&"admission-unrecorded"));
+        assert!(n.v3_active);
         // A spec-1 genesis with the schedule [(1,0)] never activates v3. No admissible schedule activates it later
-        // (ForkSchedule's bound MAX_FORK_VERSION is 2), so the height Network::admitted asks at is not observable.
-        assert!(!n.v3_active);
+        // (ForkSchedule's bound MAX_FORK_VERSION is 2), so the height Network::admitted asks at is not observable. The
+        // retired spec-1 devnet; Phase 6a deletes the spec-1 rule set and this check.
+        let mut c=DevnetConfig::spec1(777942,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
+        let (a,_)=devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap();
+        let n=Network::admitted(&a);assert!(!n.v3_active);
+        let got=of_admitted(&a);let got=ids(&got);
+        assert_eq!(got.iter().copied().skip_while(|id|*id!="v3-inactive").take(2).collect::<Vec<_>>(),["v3-inactive","network-not-release-pinned"],"{got:?}");
     }
     /// PLAN_GATES_OPEN lists exactly the acceptance-ledger gates whose status is not "Closed".
     #[test]

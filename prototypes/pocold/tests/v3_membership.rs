@@ -8,17 +8,22 @@ use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 struct Net { chain:Chain, keys:HashMap<Address,Key>, miners:Vec<Address> }
 /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
 impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
+/// `v3`: the v3 devnet (the V3 programs; `full` false keeps CP field 4's bounded nonce ranges, `earnin` names no program
+/// set there). Otherwise the retired spec-1 devnet, bonded or earn-in: the spec-1 twins the neutrality checks compare
+/// against, which Phase 6a deletes with the spec-1 rule set.
 fn net(v3:bool,full:bool,earnin:bool,n:usize)->Net {
-    let mut cfg=DevnetConfig::new(777936,1_700_000_000,&[]);
+    use devnet::Spec1Programs::{Bonded,EarnIn};
+    let mut cfg=if v3{DevnetConfig::new(777936,1_700_000_000,&[])}else{DevnetConfig::spec1(777936,1_700_000_000,&[],if earnin{EarnIn}else{Bonded})};
     cfg.miners=(0..n).map(|i|format!("membership-{i}")).collect();
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=73;cfg.w_act=4;cfg.r_max=1;
-    cfg.spec_version=if v3{2}else{1};cfg.nonce_mode=if full{1}else{0};cfg.earnin=earnin;
+    cfg.nonce_mode=if full{1}else{0};
+    // The recovery fixtures' accrual periods and pinned draws are calibrated at the spec-1 devnet's S0 of 2 PCOL (tail S0/32).
+    cfg.subsidy=U256::from(2*10u128.pow(18));cfg.s_tail=cfg.subsidy/U256::from(32);
     cfg.m_max=cfg.m_max.max(n as u16);
     // FN-2b: R18 counts settle's accrual keys (every payee may be ACCRUING; resources::settle_keys), so a v3 devnet of 256
-    // members with a closing schedule needs more SYS keys for its final block (settle and D - 1 settleFinal calls, 258
-    // payees each) than the devnet's v2 SYS_KEYS_BLOCK_MAX of 4096. The 256-member fixture reads storage views and never
-    // closes, so it is continuous (H_END 0, the fresh network's shape), where only ordinary blocks exist.
-    if v3&&n>=256 {cfg.h_end=0;}
+    // members with a closing schedule would need more SYS keys for its final block (settle and D - 1 settleFinal calls,
+    // 258 payees each) than the devnet's v2 SYS_KEYS_BLOCK_MAX of 4096. The v3 devnet is continuous (H_END 0, the fresh
+    // network's shape), where only ordinary blocks exist.
     cfg.accounts.push(("carol".into(),U256::from(10u128.pow(24))));
     let candidate=devnet::build(&cfg).unwrap();
     let mut keys:HashMap<_,_>=candidate.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
@@ -139,10 +144,12 @@ mod on_chain {
     // MinerRegistry loses the probation pool and the contest) changes the genesis and every state root again: the pins hold,
     // and in the bounded run one probationer, whose range held no fallback solution in time, left the activity window, so
     // the recovery's members are the probationers with a recent share (pinned: BOUNDED_RECOVERY_MEMBERS).
-    const UNBOUNDED_PERIOD:usize=12;const UNBOUNDED_RECOVERY:u64=15;
+    // Phase 5a (the v3 devnet default is continuous, H_END 0) changes the genesis CP and so every draw again: 11/14.
+    const UNBOUNDED_PERIOD:usize=11;const UNBOUNDED_RECOVERY:u64=14;
     const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
     /// The bounded run's recovery membership since FN-2b: the probationers with a share in the activity window.
-    const BOUNDED_RECOVERY_MEMBERS:&[&str]=&["bob"];
+    /// Phase 5a: on the new genesis both probationers have a recent share at the recovery.
+    const BOUNDED_RECOVERY_MEMBERS:&[&str]=&["alice","bob"];
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {
         let mut n=net(true,true,true,3);let (x,y)=(n.miners[0],n.miners[1]);

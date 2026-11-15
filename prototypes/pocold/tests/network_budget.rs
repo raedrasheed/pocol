@@ -4,9 +4,15 @@
 use pocol_lp4_execution::devnet::{self,DevnetConfig};
 #[path="support/continuous.rs"] mod continuous;
 
+/// Phase 5a: this file's profiles are pinned to the retired spec-1 devnet (DevnetConfig::spec1, the devnet default before
+/// Phase 5a) for Phase 5b/5c: the governance.md network profile is a spec-1 CP (its R8 re-derivation is the spec-1 rule),
+/// and the devnet-profile A13 models are those of a finite chain without first imports; on the continuous v3 devnet the
+/// model needs the observed history terms (`Limits::continuous_history`) and the v3 R8 (C_react >= U).
+fn spec1(chain_id:u64,g_ts:u64,miners:&[&str])->DevnetConfig{DevnetConfig::spec1(chain_id,g_ts,miners,devnet::Spec1Programs::Bonded)}
+
 fn network()->DevnetConfig{
     let labels:Vec<String>=(0..4).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-    let mut c=DevnetConfig::new(777920,1_800_000_000,&refs);
+    let mut c=spec1(777920,1_800_000_000,&refs);
     // chainId 777920: devnet::build refuses the network chainId 777001; chainId does not enter any A13 term.
     // governance.md: T_blk 60, tau 3600, c 2, D_att 300, dFbWait 25; m 32, kappa 2, S_max 256, D 16, W_w 64;
     // R_max 2, M_max 256, REG_RECORDS_MAX 16384; W_act 128, Theta_inact 1024; E_win 2048, U 2200;
@@ -45,7 +51,7 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 #[test] fn d7_a13_pool_terms_follow_the_gas_bound(){
     use pocold::{node::{Limits,POOL_MAX_TXS},resources::{self as r,derive}};use pocol_lp4_execution::resources::memory::code_bytes;
     let net=devnet::build(&network()).unwrap().profile.cp().clone();
-    let dev=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let dev=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     let item=|b:&r::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
     assert_eq!(r::layer_writes(32_000_000),Some((3*1523+13333+32,11034+320000)),"the counts at 4 × GAS_LIMIT");
     for cp in [&net,&dev]{
@@ -100,7 +106,7 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 /// the boot gate. Store mode is not the smaller bound here: the devnet's states are small, and its fixed
 /// caches and worst-case batch and file terms outweigh them.
 #[test] fn a13_store_model_at_the_devnet_profile(){
-    let c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);let d=devnet::build(&c).unwrap();let cp=d.profile.cp().clone();let l=pocold::single_host_local();
+    let c=spec1(777910,1_700_000_000,&["a","b","c"]);let d=devnet::build(&c).unwrap();let cp=d.profile.cp().clone();let l=pocold::single_host_local();
     let (m,s)=(pocold::node::Limits::default(),pocold::node::Limits{state_store:true,..Default::default()});
     let bm=pocold::resources::check(&cp,l.k_hist,l.side_max,&m,0).expect("whole-state mode boots");let bs=pocold::resources::check(&cp,l.k_hist,l.side_max,&s,0).expect("store mode boots");
     print("A13-DEVNET-MEM",&bm);print("A13-DEVNET-STORE",&bs);
@@ -134,7 +140,7 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 #[test] fn a13_store_file_and_batch_terms_follow_the_node_trie_bounds(){
     use pocol_lp4_execution::node_trie::{batch_nodes,block_bytes,version_bytes,Id,Node,BRANCH_ENC,ROW};use pocold::resources as r;
     let net=devnet::build(&network()).unwrap().profile.cp().clone();
-    let dev=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let dev=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     for cp in [&net,&dev]{
         let (ka,ks)=(u128::from(cp.ACCT_CAP)+5,u128::from(cp.SLOT_CAP)+u128::from(cp.SYS_SLOT_MAX));assert_eq!(r::state_keys(cp),Some((ka,ks)));
         let (wa,ws)=r::block_writes(cp).unwrap();let (whole,add)=(version_bytes(ka,ks).unwrap(),block_bytes(wa,ws,ka,ks).unwrap());
@@ -256,7 +262,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// nothing.
 #[test] fn a13_discovery_terms_are_counted_only_when_enabled(){
     use pocold::{addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX},node::{self,Discovery,Limits,Outbound},net,resources::derive};use std::mem::size_of;
-    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let cp=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     let disc=|b:&pocold::resources::Bound|b.items.iter().filter(|x|x.0.starts_with("queues/discovery")).cloned().collect::<Vec<_>>();
     let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);
     for (peers_max,dials) in [(net::Limits::default().peers_max,2usize),(16,5),(1,0)]{for outbound in [Discovery::default().outbound,Outbound::Count(0),Outbound::Count(8)]{
@@ -419,7 +425,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// costs 3,424,620 B of model (PR2b: 3,424,474 before the link's automatic-outbound fields, 2·73 B a link).
 #[test] fn a13_inbound_terms_count_every_inbound_place_and_the_eviction_registry(){
     use pocold::{net,node::{self,Limits},resources::derive,threads::IO_STACK};
-    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let cp=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
     let at=|peers_max:usize,handshaking_max:usize,dials:usize|derive(&cp,32,l.side_max,&Limits{net:net::Limits{peers_max,handshaking_max,..Default::default()},..Default::default()},dials).unwrap();
     let conn_max=Limits::default().rpc.conn_max as u128;assert_eq!(conn_max,32,"the RPC connections the io and exiting terms were derived with");
@@ -445,7 +451,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// outbound state. Discovery off counts none of it, whatever the setting.
 #[test] fn a13_outbound_slots_cost_exactly_their_terms(){
     use pocold::{net,node::{self,Limits,Discovery,Outbound},resources::derive,threads::IO_STACK};
-    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let cp=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     let at=|o:Outbound,on:bool|derive(&cp,32,l.side_max,&Limits{discovery:Discovery{enabled:on,outbound:o,..Default::default()},..Default::default()},2).unwrap();
     let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
     let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);let (q,fr)=(net::Limits::default().queue_bytes_max as u128,net::MAX_FRAME as u128);
@@ -470,7 +476,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// PR3 A2: the devnet profile pocold boots passes the A13 gate at a seed's settings (64 established, 8 waiting for a
 /// Hello, 7 configured peers) and at the largest established count (128), in both modes.
 #[test] fn a13_admits_seed_inbound_settings_at_the_devnet_profile(){
-    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let cp=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     for peers_max in [64usize,128]{for state_store in [false,true]{
         let lim=pocold::node::Limits{state_store,net:pocold::net::Limits{peers_max,handshaking_max:8,..Default::default()},..Default::default()};
         let b=pocold::resources::check(&cp,l.k_hist,l.side_max,&lim,7).unwrap_or_else(|e|panic!("peers_max {peers_max}, store {state_store}: {e}"));
@@ -481,7 +487,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// inventory; the default (one thread) is the bound and inventory of before V3-30, so the pinned totals are unchanged.
 #[test] fn a13_counts_every_miner_thread(){
     use pocold::{node::Limits,resources::{derive,tasks_needed},threads::IO_STACK};
-    let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
+    let cp=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
     let at=|n:usize|derive(&cp,32,l.side_max,&Limits{mine_threads:n,..Default::default()},2).unwrap();
     let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0==k).unwrap_or_else(||panic!("{k}")).1;
     let io=IO_STACK as u128+4096;

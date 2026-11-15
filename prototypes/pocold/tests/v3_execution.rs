@@ -17,9 +17,10 @@ mod on_chain {
     use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},native::{self,NativeBlockContext},receipts,state_summary::Summary,txsign::Tx,user_phase::{self,Halt,PoolMeter},view::View,wire};
     use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,alloy_primitives::U512}};
 
+    /// `v3`: the v3 devnet; otherwise its retired spec-1 earn-in twin with the full nonce domain (Phase 6a deletes it).
     fn net(v3:bool,tune:impl FnOnce(&mut DevnetConfig))->devnet::Devnet{
-        let mut c=DevnetConfig::new(777938,1_800_000_000,&["execution"]);
-        c.spec_version=if v3{2}else{1};c.earnin=true;c.nonce_mode=1;
+        let mut c=if v3{DevnetConfig::new(777938,1_800_000_000,&["execution"])}else{DevnetConfig::spec1(777938,1_800_000_000,&["execution"],devnet::Spec1Programs::EarnIn)};
+        c.nonce_mode=1;
         tune(&mut c);devnet::build(&c).unwrap()
     }
     fn ctx(n:&devnet::Devnet)->NativeBlockContext{NativeBlockContext{height:U256::from(1),timestamp:U256::from(1_800_000_004u64),gas_limit:U256::from(n.profile.cp().GAS_LIMIT),base_fee:U256::from(100),prevrandao:B256::ZERO}}
@@ -39,8 +40,11 @@ mod on_chain {
     impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     fn node_config(dir:&Temp,store:bool)->pocold::node::Config{pocold::node::Config{dir:dir.0.clone(),name:"execution-test".into(),miner:None,listen:None,rpc:None,peers:vec![],stop_at:None,log:false,
         limits:pocold::node::Limits{r_keep:4,side_cap:2,state_store:store,history_window:Some(2),slim_depth:Some(4),pool_sender_gas_max:Some(8_000_000),..Default::default()}}}
-    fn node_cfg(tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{
-        let mut c=DevnetConfig::new(777938,1_700_000_000,&["execution"]);c.spec_version=2;c.earnin=true;c.nonce_mode=1;c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;
+    fn node_cfg(tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{node_cfg_spec(2,tune)}
+    /// Spec 2: the v3 devnet. Spec 1: its retired spec-1 earn-in twin with the full nonce domain (Phase 6a deletes it).
+    fn node_cfg_spec(spec:u8,tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{
+        let mut c=match spec{1=>DevnetConfig::spec1(777938,1_700_000_000,&["execution"],devnet::Spec1Programs::EarnIn),_=>DevnetConfig::new(777938,1_700_000_000,&["execution"])};
+        c.nonce_mode=1;c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;
         tune(&mut c);c
     }
     fn node_spec(c:&DevnetConfig)->pocold::chain::Spec{crate::members_sweep::oracle();pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap().0)}
@@ -422,7 +426,7 @@ mod on_chain {
         let lost=before-balance(&node,me);assert!(lost<=pocold::wallet::amount(q["maximumTotal"].as_str().unwrap()).unwrap()&&lost>U256::from(10u128.pow(15)),"{lost} {q}");
         assert_eq!(balance(&node,to),U256::from(10u128.pow(15)),"a new account receives the value; no creation fee");
         // A spec-1 node: no v3 field.
-        let dir1=Temp::new();let cfg1=node_cfg(|c|c.spec_version=1);let spec1=pocold::node::Node::open(node_config(&dir1,false),node_spec(&cfg1)).unwrap();
+        let dir1=Temp::new();let cfg1=node_cfg_spec(1,|_|{});let spec1=pocold::node::Node::open(node_config(&dir1,false),node_spec(&cfg1)).unwrap();
         let s1=wallet.status(&spec1);
         for k in ["bondRemaining","reactivation","creationBurn"]{assert!(s1.get(k).is_none(),"{k}: {s1}");}
         assert_eq!(s1["seatsFull"],false);
@@ -513,7 +517,7 @@ mod on_chain {
     #[test]
     fn the_creation_burn_quote_is_unknown_to_every_node(){
         for spec in [2u8,1]{
-            let mut c=node_cfg(|_|{});c.spec_version=spec;let dir=Temp::new();let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&c)).unwrap();
+            let c=node_cfg_spec(spec,|_|{});let dir=Temp::new();let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&c)).unwrap();
             assert_eq!(node.chain.spec.v3_active(u64::MAX),spec==2);
             let call=serde_json::json!([{"to":new_address(162)}]);
             let quote=rpc(&mut node,"pocol_quoteCreationBurn",call.clone());let unknown=rpc(&mut node,"pocol_quoteCreationBurx",call);
@@ -610,7 +614,7 @@ mod on_chain {
 
     #[test]
     fn a_thousand_validated_empty_blocks_keep_the_v3_floor_and_legacy_london_decay(){
-        for v3 in [false,true]{let mut cfg=node_cfg(|_|{});cfg.spec_version=if v3{2}else{1};let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
+        for v3 in [false,true]{let cfg=node_cfg_spec(if v3{2}else{1},|_|{});let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
             for height in 1..=1000{let clock=cfg.g_ts+height*u64::from(cfg.t_blk);let block=solve_chain(&chain,vec![],clock);
                 let (entry,_)=chain.validate(&block,None,0).unwrap();assert_eq!(entry.gas_used,0);if v3{assert!(entry.base_fee>=cfg.base_fee_min,"height {height}");}
                 assert!(chain.insert(entry));assert_eq!(chain.head().height,height);
@@ -649,7 +653,7 @@ mod on_chain {
         let forced=ask(&mut node,true);assert!(forced.contains("resultBytes")&&!forced.contains("\"result\""),"{forced}");
         // The in-process handler applies the same v3 answer limit.
         assert_eq!(rpc(&mut node,"eth_getTransactionReceipt",serde_json::json!([hash]))["result"]["logs"].as_array().unwrap().len() as u64,count);
-        let mut legacy=node_cfg(|_|{});legacy.spec_version=1;let dir=Temp::new();let old=pocold::node::Node::open(node_config(&dir,false),node_spec(&legacy)).unwrap();
+        let legacy=node_cfg_spec(1,|_|{});let dir=Temp::new();let old=pocold::node::Node::open(node_config(&dir,false),node_spec(&legacy)).unwrap();
         assert!(!old.cfg.limits.rpc.heavy_receipts,"spec-1 keeps the light receipt row");
     }
 
