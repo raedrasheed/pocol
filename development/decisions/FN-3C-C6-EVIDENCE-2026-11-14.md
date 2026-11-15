@@ -209,8 +209,10 @@ checkpoint restore, a rebuilt or materialized state, an evicted row, a larger wr
 The membership is then computed from the inputs by the same code as the one pass (`membership_from_base`), so equal inputs
 give the same set, order and error. With the member oracle on (every test) each derived or cached membership is compared
 with the one-pass reading, and each executed block's derived inputs with those read whole from its state. A difference
-is counted as an oracle mismatch and a member fault, every held input is dropped, and the one-pass result is the one
-returned, so no verdict follows the derivation. No verdict, root, persisted byte or identity changes.
+is counted as an oracle mismatch and a member fault and then panics, so a test fails on it. Only a chain that opts in
+(`Chain::tolerate_base_mismatch`, the negative controls) goes on: every held input is dropped and the one-pass result is
+the one returned, so no verdict follows the derivation. With the oracle off (the node default) no comparison is made. No
+verdict, root, persisted byte or identity changes.
 
 The run: the harness of §3, same command, same VM, oracle off. "Before" is the pre-FN-1b library: its counters have no
 FN-1b fields and its A13 model at the end is FN-3c's. "After" is this branch's. Both ran one after the other on an idle
@@ -288,6 +290,6 @@ Results on this branch (`cargo +1.99.1 test --release --locked`, Linux; the coun
     tolerated, a write set above the cap is not kept, a write set missing its slots is caught at import).
   - `fn3_scale` passes 3, with the harness ignored.
   - `consensus` (165, 10 ignored) and `caps` (11) pass on one thread.
-- `consensus_guard` passes 20 of 21. The one failure is `the_tree_matches_the_consensus_lock`, as expected: FN-1b changes
-  `pocold/src/chain.rs` and `pocold/src/members.rs`, which are consensus sources. The change is node-local (kind=neutral):
-  no verdict, root, vector or persisted byte changes. The lock is left for the owner to re-pin.
+- `consensus_guard` passes 21 of 21. FN-1b changes `pocold/src/chain.rs` and `pocold/src/members.rs`, which are
+  consensus sources, so the lock is re-pinned on this branch as history n=33 (kind=neutral, ref=FN-1b): the change is
+  node-local, and no verdict, root, vector or persisted byte changes.
