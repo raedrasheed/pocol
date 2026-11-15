@@ -2389,10 +2389,14 @@ mod on_chain {
         assert_eq!(bound,worst.div_ceil(1000)*1000);
     }
 
-    /// The earn-in refund regressions (earnin_refund_fix.rs, F1-F3) on the v3 set through apply_block: two exited records
-    /// come due in one sweep, one with a durable reward and one with a reward that never sent a transaction; the block
-    /// applies, the durable reward is paid its bond once, the undeliverable bond stays held and claimable, and Escrow's
-    /// invariant holds; a contract that registers itself and self-destructs in one transaction stores no record.
+    /// The F1-F3 refund regressions (formerly tests/earnin_refund_fix.rs on the earn-in set, ported to the v3 set and
+    /// deleted with that set in phase 6a) through apply_block: two exited records come due in one sweep, one with a
+    /// durable reward and one with a reward that never sent a transaction; the block applies (the mandatory sweep never
+    /// halts it), the durable reward is paid its bond once, the undeliverable bond stays held and claimable, Escrow's
+    /// invariant holds and the supply is conserved (the refund moves value from Escrow to the payee, so the whole-chain
+    /// balance grows by the block's issuance alone, and a second block pays nobody twice); a contract that registers itself
+    /// and self-destructs in one transaction stores no record (the PAY-02 source fix: only an EOA's self reward skips the
+    /// durability probe).
     #[test]
     fn v3_keeps_the_earnin_refund_and_self_reward_fixes(){
         use pocol_lp4_execution::apply::{chain_facts,check_escrow_invariant,miner_record,record_list,registry,escrow};
@@ -2414,6 +2418,7 @@ mod on_chain {
         plant(&mut parent,good,durable,bg,1);plant(&mut parent,bad,ghost,bb,1);
         let held0=chain_facts(&parent).held_total;
         let o=apply::apply_block(&parent,&net.genesis,&net.profile,&input(1,&[])).expect("the sweep never halts the block");
+        assert_eq!(total(&o.state),total(&parent)+o.issued,"the refund neither burns nor duplicates value: only the issuance is new");
         assert!(miner_record(&o.state,good).is_none(),"the durable payee's record is erased");
         assert_eq!(balance(&o.state,durable),bg,"paid exactly its bond");
         assert_eq!(miner_record(&o.state,bad).map(|r|(r.status,r.bond)),Some((2,bb)),"the undeliverable bond stays claimable");
@@ -2422,6 +2427,8 @@ mod on_chain {
         let pr=ParentResult{block_hash:B256::from(U256::from(1)),winner:net.miners[0].id,shares:vec![]};
         let input2=BlockInput{parent_result:Some(pr),..input(2,&[])};
         let o2=apply::apply_block(&o.state,&net.genesis,&net.profile,&input2).unwrap();
+        assert_eq!(total(&o2.state),total(&o.state)+o2.issued,"the second sweep conserves value too");
+        check_escrow_invariant(&o2.state,&net.profile,2,false).unwrap();
         assert_eq!(balance(&o2.state,durable),bg,"not paid twice");assert_eq!(miner_record(&o2.state,bad).map(|r|r.bond),Some(bb));
         // The source fix: register(self) from a constructor that self-destructs stores nothing.
         let sel=|s:&str|{let h=keccak256(s.as_bytes());[h[0],h[1],h[2],h[3]]};
@@ -2436,7 +2443,8 @@ mod on_chain {
         assert!(miner_record(&o.state,x).is_none(),"a self-destructing contract registered a self reward");
         assert_eq!(record_list(&o.state).len(),3);check_escrow_invariant(&o.state,&net.profile,1,false).unwrap();
     }
-    /// The rest of earnin_halt_proof.rs (the F1/F2/F3 constructor halt) on the v3 set through apply_block, every block a
+    /// The F1/F2/F3 constructor halt (formerly tests/earnin_halt_proof.rs on the earn-in set, ported to the v3 set and
+    /// deleted with that set in phase 6a) on the v3 set through apply_block, every block a
     /// real one (Run checks the supply after each): a contract deployed at H_REG = 5 whose constructor calls
     /// register(reward) with 1 wei and then deregister(), and then (0) self-destructs with itself as the reward, (1) persists
     /// with itself as the reward, or (2, the positive control) self-destructs with a durable distinct reward D (a genesis
