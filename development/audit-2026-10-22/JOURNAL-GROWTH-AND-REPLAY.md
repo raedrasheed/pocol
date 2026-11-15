@@ -1324,14 +1324,17 @@ records), so compare a v3 row with its spec-1 row of the same run, not with §3.
 
 | block kind | txs | PoW shares | header B | body B | parentResult B | **record B** | receipts B (NOT stored) | charged log B (NOT stored) | gasUsed |
 |---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
-| empty (fallback, a=1) | 0 | 1 | 621 | 3 | 54 | **727** | 0 | 0 | 0 |
-| full-gas transfers | 380 | 64 | 1,279 | 44,838 | 2,011 | **48,181** | 102,217 | 0 | 7,980,000 |
-| log-heavy (4,368×LOG0, the v3 cap) | 1 | 80 | 1,423 | 115 | 2,507 | **4,097** | 105,105 | 157,248 | 1,822,289 |
-| full-BODY_MAX (2 big calls) | 2 | 53 | 1,180 | 196,587 | 1,670 | **199,492** | 538 | 0 | 827,344 |
-| full-gas compute (1 OOG jump loop) | 1 | 62 | 1,261 | 103 | 1,949 | **3,365** | 269 | 0 | 7,950,000 |
-| full-gas log-heavy (4,368 logs + filler) | 2 | 10 | 792 | 213 | 337 | **1,394** | 105,374 | 157,248 | 7,921,409 |
+| empty (fallback, a=1) | 0 | 1 | 621 | 3 | 54 | **762** | 0 | 0 | 0 |
+| full-gas transfers | 380 | 64 | 1,279 | 44,838 | 2,011 | **48,216** | 102,217 | 0 | 7,980,000 |
+| log-heavy (4,368×LOG0, the v3 cap) | 1 | 80 | 1,423 | 115 | 2,507 | **4,132** | 105,105 | 157,248 | 1,822,289 |
+| full-BODY_MAX (2 big calls) | 2 | 53 | 1,180 | 196,587 | 1,670 | **199,527** | 538 | 0 | 827,344 |
+| full-gas compute (1 OOG jump loop) | 1 | 62 | 1,261 | 103 | 1,949 | **3,400** | 269 | 0 | 7,950,000 |
+| full-gas log-heavy (4,368 logs + filler) | 2 | 10 | 792 | 213 | 337 | **1,429** | 105,374 | 157,248 | 7,921,409 |
 
-The spec-1 twin on the same run reproduces §1.1's empty row exactly (105 shares, 1,559 + 3 + 3,282 → 4,895 B). Readings:
+Every v3 record carries its first-import field (node.rs `encode_record_with_import`: a version byte and 33 B, 35 B
+with its RLP header), which v3 replay requires (V3-04) and a spec-1 record does not have; the record column includes it
+(an earlier draft of this table left it out). The spec-1 twin on the same run reproduces §1.1's empty row exactly (105
+shares, 1,559 + 3 + 3,282 → 4,895 B). Readings:
 
 - **The structure of §1 holds on v3.** A record is its header, its body and the share-derived parentResult. Receipts
   and logs are not journaled: the v3 log-heavy block makes 8× the spec-1 logs (157,248 charged log bytes, 105,105 B of
@@ -1339,7 +1342,7 @@ The spec-1 twin on the same run reproduces §1.1's empty row exactly (105 shares
 - **Per-share slopes** (least squares over the six samples): parentResult ≈ 31.0 B/share + 25 B, as on spec 1 (31.0 +
   26 on the same run); header ≈ 9.8 B/share + 652 B (spec-1, same run: 8.3 + 718). The header fit depends on which
   nonces the six blocks' shares happen to be (their RLP length grows with the nonce), so it is a description of these
-  samples, not a bound: the header's bound is still `header_max`. A record is still driven by its share count: 727 B at
+  samples, not a bound: the header's bound is still `header_max`. A record is still driven by its share count: 762 B at
   1 share, about 4 KB at 80.
 - **What differs is the gas a log-heavy block can spend on logs** (1,822,289 gas for 4,368 logs against 274,379 for
   546). That is receipts and replay CPU (§14.3), not journal bytes.

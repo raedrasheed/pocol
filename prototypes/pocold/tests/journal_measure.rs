@@ -297,7 +297,10 @@ fn disk_bytes(dir:&std::path::Path)->u64{std::fs::read(dir.join("blocks.journal"
 fn record_bytes(chain:&Chain,b:&Block)->usize{
     let (e,_)=chain.validate(b,None,0).unwrap();
     let rb=result_bytes(&e);
-    store::encode_frame(&store::encode_record(&b.header.encoded,&b.body.encode(),&rb)).len()
+    // A v3 record carries its first-import field (node.rs `encode_record_with_import`: version byte + 33 B), which
+    // v3 replay requires (V3-04); a spec-1 record has none. Its size does not depend on the values.
+    let first=chain.spec.v3_active(b.header.h).then_some(store::FirstImport{received_ms:0,parent_received_ms:0,timely:true});
+    store::encode_frame(&store::encode_record_with_import(&b.header.encoded,&b.body.encode(),&rb,first)).len()
 }
 /// Re-derive the stored parentResult bytes (node.rs result_bytes), via the public Entry.result.
 fn result_bytes(e:&pocold::chain::Entry)->Vec<u8>{
