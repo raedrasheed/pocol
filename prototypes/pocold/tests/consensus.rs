@@ -1616,7 +1616,9 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     use pocold::{node::{Config,Limits,Node},rpc::{answer,Request}};use std::time::{Duration,Instant};
     let dir=std::env::temp_dir().join(format!("pocold-busy-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     // PR6: alice pools 31.6M of declared gas (the sender quota is raised to the pool's bound).
-    let mut l=Limits{pool_slice:Duration::ZERO,pool_sender_gas_max:Some(32_000_000),..Default::default()};l.rpc.compute_light=Duration::from_millis(100);
+    let mut l=Limits{pool_slice:Duration::ZERO,pool_sender_gas_max:Some(32_000_000),..Default::default()};// A deadline well under one heavy transaction (about 100 ms on an unloaded 4-core host, 94-116 ms seen), so the
+    // count below holds by a margin: at 100 ms a transaction as fast as the deadline let a second one start before it.
+    l.rpc.compute_light=Duration::from_millis(30);
     let mut n=Node::open(Config{dir:dir.clone(),name:"busy".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:l},admitted(&cfg(&["a","b","c"]))).unwrap();
     let alice=devnet::account_key("alice");
     let input=pocold::types::unhex(&format!("{:08x}{}01",7_800_000u32,"00".repeat(64+128+16))).unwrap();
@@ -1645,7 +1647,7 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     assert!(took<bound,"held about its deadline plus one transaction: {took:?}, over {bound:?} (deadline {deadline:?}, one transaction {one_tx:?})");
     // The same property counted, not timed, so that load cannot loosen it: a backlog transaction starts only
     // before the deadline and each takes at least min_tx, so at most 1+deadline/min_tx run during the hold
-    // (1 here, unloaded or loaded: one transaction takes longer than the 100 ms deadline). One more run past
+    // (1 here, unloaded or loaded: one transaction takes about three times the 30 ms deadline). One more run past
     // the deadline would still fit the wall-clock bound above, but not this count.
     let ran=backlog-left;let most=1+(deadline.as_nanos()/min_tx.as_nanos().max(1)) as u64;
     assert!(ran<=most,"only the transaction running at the deadline finishes after it: {ran} ran during the hold, over {most} (deadline {deadline:?}, shortest transaction {min_tx:?})");
