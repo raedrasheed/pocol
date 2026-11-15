@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           cargo +1.99.1 test --locked --manifest-path prototypes/lp1-node/Cargo.toml --test profile --test gate --test assignment
           cargo +1.99.1 test --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test profile_execution
-          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test full_nonce --test fork_configuration --test consensus_guard --test decoder_reference --test fn1_membership --test fn1_caps --test fn3_members
+          cargo +1.99.1 test --locked --release --manifest-path prototypes/pocold/Cargo.toml --lib --test full_nonce --test fork_configuration --test consensus_guard --test decoder_reference --test fn1_membership --test fn1_caps --test fn3_members --test fn3_scale
           cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml
           python deploy/standalone/test_launcher.py -v
           python deploy/standalone/test_upgrade.py -v
@@ -75,6 +75,26 @@ jobs:
           python3 -B -m unittest discover -s deploy/mainnet -p 'test_*.py' -v
           python3 -B -m unittest discover -s deploy/studio -v
           python3 -B -m unittest discover -s deploy/faucet -v
+  caps-test:
+    # validation.md:2065 caps-test build (LOG_CAP = 2^24, simnet only): the targets gated on the feature
+    # (log_cap, log_cap_scope) and the ones whose expectations follow it, so they cannot rot unnoticed.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CARGO_BUILD_JOBS: '2'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - name: Install pinned Rust
+        run: rustup toolchain install 1.99.1 --profile minimal
+      - name: Test the caps-test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features caps-test --lib --test caps_identity -- --test-threads=1
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features caps-test --lib --test log_cap --test log_cap_scope --test caps --test fn1_caps --test consensus_guard --test v3_scaffold --test net -- --test-threads=1
   browser:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
@@ -94,6 +114,7 @@ jobs:
           npm test
           npm run test:studio
           npm run test:publisher
+          npm run test:publisher-ui
           npm run test:contracts
           npm run test:contract-ui
           /usr/bin/python3 -m unittest tests/test_linux_export.py -v

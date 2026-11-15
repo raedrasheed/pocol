@@ -85,15 +85,31 @@ fn deploy(code:&[u8])->Vec<u8>{let n=code.len();let mut v=vec![0x5f+n as u8];v.e
         if i%2==0{assert_eq!(receipts(&x)[0],(false,400_000,0),"logging halts after exhaustion");assert_eq!(x.cum_log_bytes,caps::LOG_CAP);}
         apply::check_escrow_invariant(&x.state,n.chain.spec.profile(),x.height,x.is_final).expect("T17");
     }
+    // A contract that logs only when PREVRANDAO is not zero (admission runs with PREVRANDAO zero, a block with
+    // SHA256('PoColRandao' || seal_p)): PREVRANDAO ISZERO PUSH1 9 JUMPI; LOG0(0,0) STOP; 9: JUMPDEST STOP. Its
+    // CREATE writes no logs, so it deploys after exhaustion.
+    let randao_logger=alice.address().create(nonce);
+    let b=signed(&n,n.chain.head,vec![tx(&alice,nonce,None,deploy(&[0x44,0x15,0x60,0x09,0x57,0x5f,0x5f,0xa0,0x00,0x5b,0x00]),200_000,0)]);nonce+=1;
+    let x=import(&mut n,&b);blocks.push(b);assert!(receipts(&x)[0].0,"a CREATE without logs deploys after exhaustion");assert_eq!(x.cum_log_bytes,caps::LOG_CAP);
+    assert!(x.state.accounts.get(&randao_logger).and_then(|a|a.info()).map_or(false,|i|i.code_hash!=revm::primitives::KECCAK_EMPTY),"deployed");
     let head=n.chain.head().clone();assert!(rewards(&head.state)>before,"settlement keeps paying the miners");
-    // Block production through a node: the whole chain replays into a node, and its builder offers a
-    // logging transaction, which the block carries as a halt (a valid block).
+    // Block production through a node: the whole chain replays into a node. Its pool refuses a logging
+    // transaction (11cc694: its own logs pass LOG_CAP on this head, so it would halt in every block and never
+    // pay for its place in the pool). One whose logs follow the block's context passes admission (no logs with
+    // PREVRANDAO zero) and the builder offers it; the block carries it as a halt (a valid block), charged its
+    // whole gas limit.
     let dir=std::env::temp_dir().join(format!("pocold-logcap-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     let mut node=Node::open(Config{dir:dir.clone(),name:"logcap".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},spec(&c)).unwrap();
     for b in &blocks{node.import(b.clone(),None).unwrap();}assert_eq!(node.chain.head,head.hash);
-    node.submit_tx(fill(nonce),false).unwrap();let p=node.chain.head().meta_clone();let txs=node.template_txs(&p);assert_eq!(txs.len(),1,"the builder includes it");
-    let b=signed(&n,head.hash,txs);assert!(node.import(b,None).unwrap());let x=node.chain.head();
-    assert_eq!((receipts(x)[0].0,x.cum_log_bytes),(false,caps::LOG_CAP));assert!(node.pool.txs.is_empty());
+    assert_eq!(node.submit_tx(fill(nonce),false).err().as_deref(),Some("-32000 logs would exceed a block cap (LogCap)"),"the pool refuses a logging call");
+    assert!(node.pool.txs.is_empty());node.pool_audit().unwrap();
+    let ctx_call=tx(&alice,nonce,Some(randao_logger),vec![],60_000,0);node.submit_tx(ctx_call.clone(),false).expect("no logs at admission: pooled");
+    let p=node.chain.head().meta_clone();let txs=node.template_txs(&p);assert_eq!(txs,vec![ctx_call],"the builder includes it");
+    let b=signed(&n,head.hash,txs);assert!(node.import(b,None).unwrap());node.pool_settle();let x=node.chain.head();
+    assert_eq!(receipts(x)[0],(false,60_000,0),"it halts on LOG_CAP in the block, charged its whole gas limit, with no logs");
+    assert_eq!(x.cum_log_bytes,caps::LOG_CAP);assert_eq!(x.header.logs_bloom,vec![0u8;256]);
+    assert_eq!(x.state.accounts[&alice.address()].info.nonce,nonce+1,"the halt keeps the nonce increment");
+    assert!(node.pool.txs.is_empty(),"the halt leaves the pool");node.pool_audit().unwrap();
     println!("LOGCAP {}",serde_json::json!({"head":x.height,"exhaustedAt":exhausted_at,"blocksAfterExhaustion":x.height-exhausted_at,"rewardsBefore":before.to_string(),"rewardsAfter":rewards(&head.state).to_string()}));
     let _=std::fs::remove_dir_all(&dir);
 }
