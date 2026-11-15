@@ -262,3 +262,19 @@ fn common(m:&str)->Option<serde_json::Value>{
     assert_eq!(seen.iter().filter(|m|m.starts_with("eth_sendRawTransaction")).count(),1,"stored again exactly once: {seen:?}");
     assert!(seen.iter().rposition(|m|m=="eth_getCode safe")>seen.iter().position(|m|m.starts_with("eth_sendRawTransaction")),"the sweep reads safe again after storing: {seen:?}");
 }
+
+/// Sites W10 (the nightly 4 MiB run stopped at `eth_getTransactionReceipt: -32021 busy`): a read the node answers -32021
+/// busy is asked again after retryAfterMs; eth_sendRawTransaction is sent once and its busy answer is returned.
+#[test] fn w10_a_read_answered_busy_is_asked_again_and_a_broadcast_is_not(){
+    let busy=||serde_json::json!({"error":{"code":site::BUSY,"message":"busy","data":{"reason":"busy","retryAfterMs":60}}});
+    let (addr,seen)=stand_in_rpc(move|m,_,n|match m{
+        "eth_getTransactionReceipt" if n<2=>busy(),
+        "eth_getTransactionReceipt"=>serde_json::json!({"result":{"status":"0x1","blockNumber":"0x9"}}),
+        "eth_sendRawTransaction"=>busy(),m=>panic!("unexpected {m}")});
+    let rpc=site::Rpc{addr};
+    let r=rpc.wait_receipt(revm::primitives::B256::ZERO,std::time::Duration::from_secs(10)).unwrap();assert_eq!(r["status"],"0x1");
+    assert!(rpc.send(&[2u8]).unwrap_err().contains("-32021"));
+    let seen=seen.lock().unwrap().clone();
+    assert_eq!(seen.iter().filter(|m|m.starts_with("eth_getTransactionReceipt")).count(),3,"two busy answers, then the receipt: {seen:?}");
+    assert_eq!(seen.iter().filter(|m|m.starts_with("eth_sendRawTransaction")).count(),1,"a broadcast is sent once: {seen:?}");
+}

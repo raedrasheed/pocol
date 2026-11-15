@@ -196,9 +196,25 @@ pub fn decode_version(out:&[u8])->Result<(B256,u32,u8,Vec<Address>),String>{
 /// The node's answer to a state query at a height whose state it does not hold (rpc.rs `state_for`: "state outside the
 /// retained trie window (K_hist)").
 pub const STATE_NOT_HELD:i64=-32017;
+/// The node's answer when its RPC lanes are full (rpc.rs: -32021 {reason, retryAfterMs}); a read is retried.
+pub const BUSY:i64=-32021;
+pub const BUSY_RETRIES:u32=20;
 pub struct Rpc{pub addr:String}
 impl Rpc{
-    pub fn call(&self,method:&str,params:Value)->Result<Value,String>{self.call_raw(method,params)?.map_err(|e|format!("{method}: {e}"))}
+    /// One call; a node that answers -32021 busy (its RPC lanes are full, e.g. the v3 receipt lane) to a read is asked
+    /// again after its retryAfterMs (at most 2 s), up to BUSY_RETRIES times (Sites W10: a 4 MiB publication met it on
+    /// eth_getTransactionReceipt). eth_sendRawTransaction is never repeated here: its caller reconciles from the receipt.
+    pub fn call(&self,method:&str,params:Value)->Result<Value,String>{
+        for attempt in 0..=BUSY_RETRIES{
+            match self.call_raw(method,params.clone())?{
+                Ok(v)=>return Ok(v),
+                Err(e) if e["code"].as_i64()==Some(BUSY)&&method!="eth_sendRawTransaction"&&attempt<BUSY_RETRIES=>{
+                    std::thread::sleep(Duration::from_millis(e["data"]["retryAfterMs"].as_u64().unwrap_or(250).clamp(50,2000)));}
+                Err(e)=>return Err(format!("{method}: {e}")),
+            }
+        }
+        unreachable!()
+    }
     /// One JSON-RPC call: Err for a transport or framing failure, Ok(Err(error object)) for the node's own error answer.
     pub fn call_raw(&self,method:&str,params:Value)->Result<Result<Value,Value>,String>{
         let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();
