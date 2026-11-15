@@ -1,6 +1,6 @@
 // Pinned identity of the existing PoCol Mainnet. Public data only.
 export const STUDIO_ORIGINS = Object.freeze(['https://studio.pocol.net']);
-export const NETWORK = Object.freeze({
+/*@fault testGateway*/export const NETWORK/*@else*/const PINNED_NETWORK/*@end*/ = Object.freeze({
   "name": "pocol-public",
   "chainId": 1234567891,
   "genesisHash": "0x3130bfed4d9f4b4f6df657220d94035c21bfe7cc445df9d5572979dc4767f74f",
@@ -13,7 +13,12 @@ export const NETWORK = Object.freeze({
 // genesis exists. deploy/mainnet/set_network_identity.py replaces it with the network at the identity switch, and
 // scripts/package-release.py refuses a build that carries it.
 export const NETWORK_PLACEHOLDER = true;
-export function validateEndpoint(endpoint, trustLevel) {
+// Sites W11 test build only (build.mjs `testGateway`, a "[TEST FAULT testGateway]" build in dist-fault-testGateway/,
+// refused by scripts/package-release.py): the built-in RN profile is the devnet given to the build, served by a local
+// Studio gateway at http://127.0.0.1:<port>/studio/rpc, so the release RN path (validateEndpoint's exact endpoint
+// match) runs against a devnet. The release keeps the pinned NETWORK above.
+/*@fault testGateway*//*@else*/export const NETWORK = Object.freeze({ ...PINNED_NETWORK, .../*@testGatewayNetwork*/null });
+/*@end*/export function validateEndpoint(endpoint, trustLevel) {
   if (typeof endpoint !== 'string') throw new Error('endpoint');
   if (/^http:\/\/127\.0\.0\.1:\d{1,5}\/?$/.test(endpoint)) {
     const u = new URL(endpoint); if (Number(u.port || 80) < 1) throw new Error('endpoint port');

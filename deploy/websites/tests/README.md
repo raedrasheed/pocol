@@ -34,3 +34,26 @@ Chromium path `/usr/bin/chromium`.
 These 20 browser checks use no browser extension. They do not establish extension
 viewer isolation, signing authorization, production HTTP headers, compatibility on
 other browsers or equivalence between this local EVM and PoCol consensus.
+
+## Explorer smoke on a v3 devnet (Sites W11)
+
+```bash
+node deploy/websites/tests/explorer_smoke.mjs   # needs php, python3, Playwright/Chromium and the pocold release binaries
+```
+
+It starts a local v3 devnet, switches a temporary copy of the snapshots (under `$RUNNER_TEMP`, else the system temp
+directory) to the devnet's identity with `tools/site_identity.py --to`, writes that copy's `api/config.php` from
+`deploy/websites/explorer-config.example.php` (the host's `config.php` is never read; the example lives outside the
+document root, so it is neither in `SHA256SUMS.txt` nor uploaded), and serves the explorer with `php -S` against a
+local `deploy/rewards/gateway.py --v3-network`. It checks that `api/rpc.php` relays to the devnet, that
+`api/health.php` answers HTTP 200 with `networkMatch: true` and `PASS` (the gateway's chain ID and genesis hash equal the
+generated `config.php`'s), that the bundle shows the devnet's live head, that no relay answer reaches 4 MiB and that no request leaves the
+page's origin. `php -S` ignores `.htaccess`; its deny rule is checked by `test_site_identity.py`. The explorer's v3
+membership semantics (W7: "Earning bond" for an ACCRUING member, a decoded `registerReplacing`) are not checked: the
+bundle has no `pocol_getMembers` yet. A failed run keeps its work directory's logs and inputs (`php.log`,
+`explorer-gateway.log`, the generated `config.php` with the explorer's `api/`, the devnet's node logs) in
+`$POCOL_E2E_KEEP` (CI: `evidence/kept`, uploaded) or `prototypes/pocol-extension/tests/failures/`.
+
+The IDE smoke (a contract compiled with the IDE's own compiler and deployed through the extension and a local Studio
+gateway, then loaded and read in the IDE's own UI through its switched `rpcUrl`) is in
+`prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs`. Both run in `.github/workflows/sites-e2e.yml`.

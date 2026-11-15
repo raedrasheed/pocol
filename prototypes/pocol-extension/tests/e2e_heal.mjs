@@ -43,6 +43,8 @@ async function scenario(winner) {
   try {
     devnet(['init', work, '--miners', LABELS.join(','), '--t-blk', '2', '--tau', '20', '--c', '8', '--d-att', '41', '--fb-wait', '3', '--work-bits', '15']);
     run.devnet = JSON.parse(readFileSync(join(work, 'net', 'devnet.json'), 'utf8'));
+    // Sites W11: `devnet.py init` builds a v3 devnet since Phase 5a; the heal runs under the v3 fork choice.
+    ok(`${winner}: the devnet is v3 (specVersion 2, the V3 programs, nonceMode 1, continuous)`, run.devnet.specVersion === 2 && run.devnet.v3 === true && run.devnet.fullNonce === true, JSON.stringify({ specVersion: run.devnet.specVersion, v3: run.devnet.v3 }));
     // The common prefix, meshed.
     phase('prefix');
     for (const i of [0, 1, 2]) ps.push(startNode(work, i, { miner: true, peers: [0, 1, 2].filter((j) => j < i), phase: 'prefix' }));
