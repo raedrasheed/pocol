@@ -348,7 +348,12 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // R(32, 2) = 31,866 of the week's 60,480: a rise can never fail it), and the seed-at-64 gap narrows but stays
         // above a week (R10[1] - R(64, 7) = 74,766 > 60,480), so the rule's outcome is unchanged (the seeds stay at the
         // default 32).
-        assert_eq!(got,[1_170_137,1_145_069,1_137_847,1_113_007,1_094_945,1_070_105],"the live chain's halt moved (record it in the PR)");
+        // FN-1b (C6): the membership inputs and write sets of the child-context cache (resources::member_bases_bytes,
+        // 1,207,460 B at this chain's M_max 64: CTX_BASES_MAX + 1 inputs and CTX_WRITES_MAX write sets of
+        // CTX_WRITE_SLOTS_MAX slots) move each stop 518 records earlier than the pins [1_170_137,1_145_069,1_137_847,
+        // 1_113_007,1_094_945,1_070_105]. The seed rule's outcome is unchanged: R10[0] - R(32, 2) = 32,384 of the week's
+        // 60,480, and R10[1] - R(64, 7) = 75,284 > a week.
+        assert_eq!(got,[1_169_619,1_144_551,1_137_329,1_112_489,1_094_427,1_069_587],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
         // Signed (FN-3b): a halt may now rise above R10's.
@@ -408,7 +413,10 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // entry-equivalents' 64·M_max, the Entry's boxed slice, history.redb's ranges rows): each stop 182,180,866,560 B
         // (169.7 GiB of history.redb) later than the pins [11_910_444_454_399,11_649_291_522_559,11_573_790_609_919,
         // 11_312_637_678_079,11_124_918_817_279,10_863_765_885_439].
-        assert_eq!(got,[12_092_625_320_959,11_831_472_389_119,11_755_971_476_479,11_494_818_544_639,11_307_099_683_839,11_045_946_751_999],"the live chain's stop moved (record it in the PR)");
+        // FN-1b (C6): the membership inputs and write sets, 1,207,460 model bytes at this chain's M_max 64: each stop
+        // 4,096 × 1,207,460 = 4,945,756,160 B (4.6 GiB of history.redb) earlier than the pins [12_092_625_320_959,
+        // 11_831_472_389_119,11_755_971_476_479,11_494_818_544_639,11_307_099_683_839,11_045_946_751_999].
+        assert_eq!(got,[12_087_679_564_799,11_826_526_632_959,11_751_025_720_319,11_489_872_788_479,11_302_153_927_679,11_041_000_995_839],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and

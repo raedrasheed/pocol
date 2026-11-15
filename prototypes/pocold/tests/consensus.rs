@@ -2053,12 +2053,17 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // offloaded canonical metadata -17,833,744, shadow -1,056,784, history.redb allocator -132,507, window -131,584,
     // eviction batch -98,336, slimmed metadata -32,800, reload -32,768, views -8,224, the full side block -4,112), to
     // 3,357,219,051 B; eviction off -43,616,187 B, to 3,348,736,230 B. The member terms are unchanged (3,778,756 B).
+    // FN-1b (C6): the child-context cache's membership inputs and write sets (resources::member_bases_bytes: CTX_BASES_MAX
+    // + 1 inputs of M_max records and CTX_WRITES_MAX write sets of CTX_WRITE_SLOTS_MAX slots), +1,207,460 B at this
+    // profile's M_max 64, to 3,358,426,511 B; eviction off, the same, to 3,349,943,690 B.
     let fn3:u128=d.items.iter().filter(|x|x.0.contains("(FN-3")).map(|x|x.1).sum();
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_357_219_051,"the A13 model total changed");
+    let bases=d.items.iter().find(|x|x.0.starts_with("queues/membership inputs and write sets")).unwrap().1;
+    assert_eq!(Some(bases),pocold::resources::member_bases_bytes(admitted(&cfg(&["a","b","c"])).cp()));
+    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_358_426_511,"the A13 model total changed");
         assert_eq!(fn3,3_778_756);assert_eq!(std::mem::size_of::<pocold::chain::Entry>(),1_072);
-        assert_eq!(ctx_cache,185_920);
+        assert_eq!(ctx_cache,185_920);assert_eq!(bases,1_207_460);
         let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_348_736_230,"eviction off includes the same receipt scratch");
+        assert_eq!(off.total,3_349_943_690,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
         assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
