@@ -1789,6 +1789,17 @@ below the adoption's fork point are not rebuilt after a heavier, shorter branch 
 `Limits::k_safe`); the replay's last restore at open re-executes the resident window as before, and now keeps those
 states, within the same window run.
 
+One verdict changes with it (store mode with anchors, node-local; no A13 term). An anchor dropped by `retain_anchors`
+while it holds a version but is no longer canonical inside the window is now pruned with that version released. The
+base (220001c) released only the version. It un-pruned an anchor in one place, a rebuild whose target it is (its version
+the root), e.g. for a child that arrives after a heavier, shorter branch lifted it above the cut. Dropped later as a side
+block, that anchor was left unpruned without a state, and a valid child that arrived before `settle` pruned it was run on
+an empty state, refused (assignment EmptyMembership) and recorded invalid; it is now rebuilt and imported
+(tests/consensus.rs `r21_an_anchor_rebuilt_above_the_cut_and_then_dropped_keeps_its_valid_children_valid`, which fails on
+the base's chain.rs). The base's verdict there was not a function of the chain either: the rebuild that left the entry so
+is charged to the wall-clock deep-rebuild bucket, and without a token its block is dropped as Evicted and the later child
+is valid on the base too. Matching it would need the base's pruned flags for every entry (its side_max ranking).
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

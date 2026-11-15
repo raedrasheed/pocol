@@ -5918,10 +5918,11 @@ fn pool_txs(n:&pocold::node::Node)->Vec<Vec<u8>>{n.pool.txs.iter().map(|(_,r)|r.
 /// R21 review (store mode, anchors): a heavier, shorter branch forked at an anchor lowers the cut below it, and the
 /// restore re-executes the anchor above the cut and keeps its version (its state in the window). A later heavier fork
 /// below it makes it a side block, and `retain_anchors` drops it as an anchor: it is pruned with its version released,
-/// the entry the base (220001c) left, so a child of it rebuilds its state and is judged as the base judges it (valid,
-/// as the builder that holds every state finds). Before, only its version was released and the block was left
-/// unpruned with an empty state, and a valid child of it was refused (assignment EmptyMembership) and recorded invalid.
-/// side_max 64 (a legal setting) keeps the stripped entry through `settle`.
+/// the entry the base (220001c) left on this chain (it never rebuilt the anchor), so a child of it rebuilds its state and
+/// is judged as the base judges it (valid, as the builder that holds every state finds). Before, only its version was
+/// released and the block was left unpruned with an empty state, and a valid child of it was refused (assignment
+/// EmptyMembership) and recorded invalid. side_max 64 (a legal setting) keeps the stripped entry through `settle`.
+/// (With a child of the anchor imported while it is above the cut, the base itself leaves it so: the next test.)
 #[test] fn r21_an_anchor_re_executed_above_the_cut_is_pruned_again_when_it_leaves_the_canonical_chain(){
     let rk=64u64;let l=pr7_limits(rk,true,0,None);let e=pr7_depth(&l);
     let f=((e+60)/64+1)*64;let prefix=pr7_chain(f as usize);
@@ -5955,5 +5956,51 @@ fn pool_txs(n:&pocold::node::Node)->Vec<Vec<u8>>{n.pool.txs.iter().map(|(_,r)|r.
     assert!(h.chain.validate(&child,None,0).is_ok(),"positive control: the child is valid on its parent's state (the builder holds it)");
     a.import(child.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: a valid child of the former anchor: {e:?}"));
     assert!(!a.chain.invalid.contains_key(&child.hash())&&a.chain.get(&child.hash()).is_some(),"the child is held, not invalid");
+    drop(a);let _=std::fs::remove_dir_all(&d);
+}
+
+/// R21 review (store mode, anchors), a verdict the base (220001c) got wrong: the previous test with a valid child c1 of
+/// the anchor imported while a heavier, shorter branch holds the head below it (the anchor above the cut). The base held
+/// the anchor pruned there, so c1 rebuilt it as its target (its version the root, an empty path), which left it unpruned
+/// with only its version; the deeper fork then made it a side block, `retain_anchors` released that version and left the
+/// entry unpruned without a state (side_max 64 keeps it through `settle`), and a second valid child c2 was run on an empty
+/// state, refused (assignment EmptyMembership) and recorded invalid. Here the anchor holds its version in the window (no
+/// rebuild for c1), the drop prunes it, and c2 is rebuilt and imported, as the builder that holds every state judges it.
+/// FAIL-ON-BASE (src/chain.rs of 220001c): c2 Err(Block("assignment EmptyMembership")), recorded invalid. A node-local
+/// verdict change on the base's own path, documented at `retain_anchors` (the base's verdict there also depends on the
+/// wall-clock deep-rebuild bucket: without a token c1 is dropped as Evicted and c2 is valid on the base too).
+#[test] fn r21_an_anchor_rebuilt_above_the_cut_and_then_dropped_keeps_its_valid_children_valid(){
+    let rk=64u64;let l=pr7_limits(rk,true,0,None);let e=pr7_depth(&l);
+    let f=((e+60)/64+1)*64;let prefix=pr7_chain(f as usize);
+    let mut h=pr7_builder(&prefix);let fh=h.chain.head;assert_eq!(h.chain.head().height,f);
+    let mut ours=vec![];let mut p=fh;for _ in 0..32{let x=fallback(&h,p,1);import(&mut h,&x);h.chain.retain();p=x.hash();ours.push(x);}
+    h.chain.ensure_state(&fh).unwrap();
+    let w=h.chain.get(&p).unwrap().total_work;let theirs=heavier(&mut h,fh,w,0);let m=theirs.len();
+    let d=e44_dir("r21-anchor-c1");
+    let spec=admitted_with(&cfg(&["a","b","c"]),pocol_lp4_execution::admission::NodeLocal{side_max:64,..pocol_lp4_execution::admission::NodeLocal::single_host()});
+    let mut a=pocold::node::Node::open(pr7_conf(&d,l.clone())(),spec).expect("open");let k=a.chain.k_hist;
+    for x in prefix.iter().chain(&ours){a.import(x.clone(),None).unwrap();}
+    {let ae=a.chain.get(&fh).unwrap();assert_eq!(a.chain.head().height-k,f,"positive control: the cut is at the anchor");
+        assert!(a.chain.anchors().iter().any(|x|x.1==fh)&&ae.pruned&&ae.stored.is_some(),"positive control: an anchor at {f}");}
+    for x in &theirs{a.import(x.clone(),None).unwrap();}
+    assert_eq!(a.chain.head,theirs[m-1].hash());
+    assert!(a.chain.head().height-k<f,"positive control: the cut fell below the anchor");
+    h.chain.ensure_state(&fh).unwrap();let c1=fallback(&h,fh,2);
+    assert!(h.chain.validate(&c1,None,0).is_ok(),"positive control: c1 is valid on its parent's state (the builder holds it)");
+    a.import(c1.clone(),None).unwrap_or_else(|e|panic!("c1, a valid child of the anchor above the cut: {e:?}"));
+    assert!(a.chain.get(&c1.hash()).is_some()&&a.chain.head==theirs[m-1].hash(),"c1 is held as a side block");
+    {let ae=a.chain.get(&fh).unwrap();assert!(!ae.pruned&&ae.stored.is_some(),"the anchor above the cut holds its version");}
+    let fm1=prefix[f as usize-2].hash();let mut h2=pr7_builder(&prefix[..f as usize-1]);
+    let first=signed(&h2,fm1,Body::default(),0);import(&mut h2,&first);h2.chain.retain();
+    let w2=a.chain.head().total_work;let mut deep=vec![first.clone()];deep.extend(heavier(&mut h2,first.hash(),w2,0));
+    for x in &deep{a.import(x.clone(),None).unwrap_or_else(|e|panic!("deep h={}: {e:?}",x.header.h));}
+    assert_eq!(a.chain.head,deep.last().unwrap().hash());
+    {let ae=a.chain.get(&fh).unwrap();assert!(!a.chain.is_canonical(&fh)&&!a.chain.anchors().iter().any(|x|x.1==fh),"positive control: no longer canonical, no longer an anchor");
+        assert!(ae.pruned||ae.stored.is_some(),"FAIL-ON-BASE: the former anchor is unpruned without its version (full {})",ae.full);}
+    h.chain.ensure_state(&fh).unwrap();let c2=fallback(&h,fh,9);assert_ne!(c2.hash(),c1.hash());
+    assert!(h.chain.validate(&c2,None,0).is_ok(),"positive control: c2 is valid on its parent's state (the builder holds it)");
+    a.import(c2.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-BASE: c2, a valid child of the former anchor: {e:?}"));
+    assert!(!a.chain.invalid.contains_key(&c2.hash())&&a.chain.get(&c2.hash()).is_some(),"c2 is held, not invalid");
+    assert_eq!(a.chain.head,deep.last().unwrap().hash(),"fork choice: the deeper branch stays the head");
     drop(a);let _=std::fs::remove_dir_all(&d);
 }

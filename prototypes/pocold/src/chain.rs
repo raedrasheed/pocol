@@ -1615,10 +1615,20 @@ impl Chain{
         // version its state (`restore_canonical`, `rebuild_with`). Dropped while it is still canonical above the cut, it
         // keeps that version as any other block of the window does (`prune_window` releases it when the cut passes it);
         // otherwise (no longer canonical, or at or below the cut) it is pruned with its version released, as an anchor
-        // that was never re-executed is: the entry the base left. Before, only its version was released and the block was
-        // left unpruned without a state, and a valid child of it was run on an empty state, refused (assignment
-        // EmptyMembership) and recorded invalid. A side state is not kept instead: R21 is the canonical window's, and a
-        // kept one would displace another side state from `settle`'s side_max.
+        // that was never re-executed is. Before, only its version was released and the block was left unpruned without a
+        // state, and a valid child of it was run on an empty state, refused (assignment EmptyMembership) and recorded
+        // invalid. A side state is not kept instead: R21 is the canonical window's, and a kept one would displace another
+        // side state from `settle`'s side_max.
+        // Verdict change (store mode with anchors, node-local): the base (220001c) had the same defect on its own path.
+        // There an anchor is pruned from the pass that takes it, and the one place that un-prunes it is a rebuild whose
+        // target it is (`rebuild_with`, its version the root, an empty path), e.g. for a child that arrives after a
+        // heavier, shorter branch lifted it above the cut; dropped later as a side block, it kept that unpruned entry
+        // without a state, and a valid child that arrived before `settle` pruned it was refused and recorded invalid
+        // (tests/consensus.rs r21_an_anchor_rebuilt_above_the_cut_and_then_dropped_keeps_its_valid_children_valid). Here
+        // that child is rebuilt and imported. Reproducing the base's verdict would need the base's pruned flags for
+        // every entry (its side_max ranking), and it is not a function of the chain on the base either: the rebuild
+        // that leaves the entry so is charged to the wall-clock deep-rebuild bucket (node.rs `rebuild_token`), and
+        // without a token its block is dropped as Evicted, the anchor stays pruned and the later child is valid.
         let cut=head_h.saturating_sub(self.k_hist);
         for (_,h) in drop{let window=self.is_canonical(&h);if let Some(e)=self.blocks.get_mut(&h){
             if !e.pruned&&window&&e.height>cut&&e.stored.is_some(){continue}
