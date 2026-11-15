@@ -2,7 +2,7 @@
 // fresh network the release build decodes it at every shipped entry point (refdec.js SPEC_VERSION 2, as pocold's
 // genesis_spec.rs), and RP verifies its window with the one v3 predicate (rp.js v3Active), whose rules RP cannot
 // evaluate and therefore names. A spec-1 genesis still decodes (CP schema v1).
-import { readFileSync, mkdtempSync, mkdirSync, cpSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, cpSync, writeFileSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
@@ -116,6 +116,12 @@ function packagerChecks(rel, root, { spec2, v3Base, C }) {
   try {
     const ext = join(tmp, 'prototypes', 'pocol-extension'), phFile = join(tmp, 'deploy', 'mainnet', 'placeholder-network.pocol.json');
     mkdirSync(join(ext, 'scripts'), { recursive: true }); mkdirSync(dirname(phFile), { recursive: true });
+    // Sites W3: the packager also refuses a retired network that any page or README of the build still shows; it reads
+    // the retired list beside the placeholder file (deploy/mainnet/retired-networks.json).
+    const retiredText = readFileSync(join(HERE, '..', '..', '..', 'deploy', 'mainnet', 'retired-networks.json'), 'utf8');
+    writeFileSync(join(tmp, 'deploy', 'mainnet', 'retired-networks.json'), retiredText);
+    const old = JSON.parse(retiredText).retired[0];
+    const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
     cpSync(join(HERE, '..', 'scripts', 'package-release.py'), join(ext, 'scripts', 'package-release.py'));
     writeFileSync(join(ext, 'package.json'), readFileSync(join(HERE, '..', 'package.json')));
     const phText = readFileSync(PLACEHOLDER_FILE, 'utf8'), ph = PLACEHOLDER, phInfo = JSON.parse(ph.files['devnet.json']);
@@ -147,7 +153,14 @@ function packagerChecks(rel, root, { spec2, v3Base, C }) {
       cpSync(rel, join(ext, 'dist'), { recursive: true });
       writeFileSync(phFile, placeholder);
       if (edit) { const f = join(ext, 'dist', 'lib', 'refdec.js'); writeFileSync(f, edit(readFileSync(f, 'utf8'))); }
-      let t = marked;
+      // As deploy/mainnet/set_network_identity.py does at the switch, every page and README that shows the retired network
+      // is repinned too (here to the switched chain ID and genesis hash), the marked build's lib/studio-network.js with them.
+      const repin = (s) => s.replaceAll(String(old.chainId), real.chainId).replaceAll(old.genesisHash.slice(2), real.genesisHash.slice(2));
+      for (const f of walk(join(ext, 'dist')).filter((f) => /\.(js|html|md|json|txt)$/.test(f))) {
+        const s = readFileSync(f, 'utf8'), u = repin(s);
+        if (u !== s) writeFileSync(f, u);
+      }
+      let t = repin(marked);
       if (switched) { t = t.replace(MARK, ''); if (identity) t = swap(t); }
       if (network) t = network(t);
       writeFileSync(join(ext, 'dist', 'lib', 'studio-network.js'), t);
