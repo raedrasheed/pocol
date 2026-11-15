@@ -123,9 +123,17 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// V3-26 (local confirmation depth, never validity; owner decision 12, 2026-11-13): the RPC `safe` tag is
     /// max(head − k_safe, finalized_h). K_SAFE; `--k-safe N`, or POCOL_K_SAFE for `run` and `pocol start`. Node::open
     /// refuses k_safe = 0, k_safe > k_alarm, and k_safe >= K_hist (the trie window of the network's local profile), so a
-    /// state query at `safe` is answered while safe = head − k_safe (`check_confirmation`). When a heavier, shorter branch
-    /// lowers the head to within k_safe of finalized_h, safe = finalized_h, and with R_keep >= K_hist (production) its
-    /// state was pruned at the old head: a state query there answers −32017, as at `finalized` (block queries answer).
+    /// state query at `safe` is answered while safe = head − k_safe (`check_confirmation`): every canonical height of the
+    /// window (head − K_hist, head] holds its state, a block adopted after its state was pruned as a side block included
+    /// (`Chain::restore_canonical`, `Chain::reach_window`; tests/memory_retention.rs). Live, the window's floor never
+    /// moves down: when a heavier, shorter branch lowers the head by d blocks, the heights up to the old head − K_hist
+    /// that the adoption does not re-execute (below its fork point) were pruned at the old head and are not rebuilt
+    /// (that re-executes from below the window), so up to min(d, K_hist) of the window's lowest heights answer −32017
+    /// until the head passes the old one, and `safe` is answered while d < K_hist − k_safe (26 at the defaults); after
+    /// a restart the replay's last restore re-executes the resident window, and they are answered. When a heavier,
+    /// shorter branch lowers the head to within k_safe of finalized_h, safe = finalized_h, and with R_keep >= K_hist
+    /// (production) its state was pruned at the old head: a state query there answers −32017, as at `finalized` (block
+    /// queries answer), until a restart (above).
     pub k_safe:u64,
     /// V3-26 (local reorg alarm, never validity; owner decision 12): a reorganization abandoning k_alarm or more canonical
     /// blocks is counted (`pocol_finality.reorgsGeKAlarm`). K_ALARM; `--k-alarm N`, or POCOL_K_ALARM for `run` and
@@ -181,10 +189,13 @@ pub const K_SAFE:u64=6;
 /// (`Limits::k_alarm`): 60 blocks, ten minutes at 10 s blocks.
 pub const K_ALARM:u64=60;
 /// V3-26 (owner decision 12; local, never validity): the confirmation settings a node may run with:
-/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so the state at head − k_safe is inside the retained trie window (heights
-/// head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node flag). This
-/// does not bound the other branch of `safe` = max(head − k_safe, finalized_h): after a heavier, shorter branch,
-/// safe = finalized_h can be a pruned height, whose state answers −32017 as at `finalized`.
+/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so head − k_safe is a height of the retained trie window (head − K_hist,
+/// head] (heights head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node
+/// flag). That alone does not make its state answered (`Limits::k_safe`): live, after a heavier, shorter branch lowers
+/// the head by d blocks, the window's lowest min(d, K_hist) heights that the adoption does not re-execute stay pruned
+/// until the head passes the old one (or a restart), so `safe` = head − k_safe is answered while d < K_hist − k_safe;
+/// and the other branch of `safe` = max(head − k_safe, finalized_h), safe = finalized_h, can be a pruned height, whose
+/// state answers −32017 as at `finalized`.
 pub fn check_confirmation(k_safe:u64,k_alarm:u64,k_hist:u64)->Result<(),String>{
     if k_safe==0{return Err("k_safe 0: the RPC safe depth must be at least 1 (--k-safe, POCOL_K_SAFE)".into())}
     if k_safe>k_alarm{return Err(format!("k_safe {k_safe} exceeds k_alarm {k_alarm}: the RPC safe depth must not exceed the reorg alarm depth (--k-safe/POCOL_K_SAFE, --k-alarm/POCOL_K_ALARM)"))}

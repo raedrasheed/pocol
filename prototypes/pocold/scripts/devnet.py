@@ -54,16 +54,29 @@ def start(work, stop_at=None, log=False, only=None):
     old.update(procs); json.dump(old, open(pidfile, "w"))
     return procs
 
-def stop(work, only=None, sig=signal.SIGTERM):
+def _alive(pid):
+    try: os.kill(pid, 0)
+    except (ProcessLookupError, PermissionError, OSError): return False
+    try:  # an exited child of another process stays a zombie until it is reaped: it holds no port
+        with open(f"/proc/{pid}/stat") as f: return f.read().rsplit(")", 1)[1].split()[0] != "Z"
+    except OSError: return True
+
+def stop(work, only=None, sig=signal.SIGTERM, wait_s=30):
+    """Signals the nodes and waits (at most `wait_s`) until they have exited, so their P2P and RPC ports are free
+    when this returns: a suite started right after another one checks those ports (a node still flushing after
+    SIGTERM held 30301 and the next e2e refused to start)."""
     pidfile = os.path.join(work, "pids.json")
     if not os.path.exists(pidfile): return
     pids = json.load(open(pidfile))
+    sent = []
     for l, pid in list(pids.items()):
         if only and l not in only: continue
-        try: os.kill(pid, sig)
+        try: os.kill(pid, sig); sent.append(pid)
         except ProcessLookupError: pass
         pids.pop(l)
     json.dump(pids, open(pidfile, "w"))
+    deadline = time.time() + wait_s
+    while any(_alive(p) for p in sent) and time.time() < deadline: time.sleep(0.05)
 
 def keep_on_failure(suite, work, extra=None):
     """A failed run's evidence (2026-10-28), kept before anything cleans the work directory: every node log and

@@ -244,9 +244,13 @@ Model totals, each dated to the code it was computed on (the heading "Final code
 PR4 note (the assumptions the existing terms rest on, made to hold; no new line): a block refused after a
 TrieRebuild or restore now drops the rebuilt state at once (`Chain::reprune`), so `MATERIALIZED` holds
 against refused rebuilds, where before each one kept a whole state (or stored pin) and the re-executed
-blocks' diffs until the next import's retain; a rebuild attaches a diff only to a side block or a
-canonical block above the K_hist cut, so the rebuild's peak stays within `diffs_held` (a rebuild from
-genesis held one per re-executed canonical block, O(height), a pre-existing undercount); and a gossiped
+blocks' diffs until the next import's retain; a rebuild attaches a diff only to a canonical block above
+the K_hist cut or a side block within K_hist of its target's child (above target height + 1 − K_hist: the
+window that child sets if it adopts the branch), and the next `settle` drops the diff of every side block
+left pruned, so the rebuild's peak stays within `diffs_held` (K_hist canonical, at most K_hist − 1 side
+blocks and the target, the side states and the block imported; a rebuild from genesis held one per
+re-executed canonical block, O(height), and one through L pruned side blocks held L, up to R_keep, until
+R_keep or side_cap removed them: pre-existing undercounts, fixed by the K_hist state-retention PR's review); and a gossiped
 template, or the template of an imported block, no longer materializes its parent's state in place. The
 deep-rebuild budget (`node::REBUILD_BURST`, `SESSION_REBUILD_MAX`) is five fixed scalars (the bucket's tokens, refill
 time and test clock, and the session's count and locator height), not a term.
@@ -1865,6 +1869,33 @@ exists in flight. With the oracle on (tests only) a check holds two more inputs;
 A derivation reads O(writes) values from the state but copies the parent's inputs in memory, O(M_max) work and
 transient allocation (the copy is the "one more input being derived" above). The derivation is a CPU change, not a memory one, elsewhere: a context still holds the membership FN-1 counts. Its cost
 and the cold child_ctx it gives are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md (§6, "FN-1b").
+
+### R21 window: adopted blocks hold their state again (node-local, no term changes)
+
+A canonical block pruned while it was a side block (settle's side_max) stayed pruned once adopted, so state queries at
+adopted heights inside the K_hist window, and `safe` with them, answered −32017 (3-node devnet, a partition and a heal;
+tests/memory_retention.rs). Now, in whole-state mode `Chain::reach_window` marks every canonical block above the cut that
+the head reaches through the diffs above it as diff-held (no state is built: the diffs are those the restore or a
+rebuild already gave back, inside `diffs_held`'s K_hist canonical diffs, and an RPC tag's state is the one
+`MATERIALIZED` counts); in store mode `restore_canonical` and a rebuild's walk keep the version they re-execute for a
+canonical block above the cut that holds none, one of the K_hist + 1 window versions `held_runs` lists, while the
+abandoned window's K_hist stay counted until `settle` (every other version of the walk is still dropped as it rolls on).
+The full-state reference (`full_states`, a test reference outside the model) holds the same window whole. Every A13
+term, total and test pin is unchanged. Live, the window's floor still never moves down: heights a higher old head pruned
+below the adoption's fork point are not rebuilt after a heavier, shorter branch lowers the head (node.rs
+`Limits::k_safe`); the replay's last restore at open re-executes the resident window as before, and now keeps those
+states, within the same window run.
+
+One verdict changes with it (store mode with anchors, node-local; no A13 term). An anchor dropped by `retain_anchors`
+while it holds a version but is no longer canonical inside the window is now pruned with that version released. The
+base (220001c) released only the version. It un-pruned an anchor in one place, a rebuild whose target it is (its version
+the root), e.g. for a child that arrives after a heavier, shorter branch lifted it above the cut. Dropped later as a side
+block, that anchor was left unpruned without a state, and a valid child that arrived before `settle` pruned it was run on
+an empty state, refused (assignment EmptyMembership) and recorded invalid; it is now rebuilt and imported
+(tests/consensus.rs `r21_an_anchor_rebuilt_above_the_cut_and_then_dropped_keeps_its_valid_children_valid`, which fails on
+the base's chain.rs). The base's verdict there was not a function of the chain either: the rebuild that left the entry so
+is charged to the wall-clock deep-rebuild bucket, and without a token its block is dropped as Evicted and the later child
+is valid on the base too. Matching it would need the base's pruned flags for every entry (its side_max ranking).
 
 ## 4. Assumptions, one by one (round 2)
 
