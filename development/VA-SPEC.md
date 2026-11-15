@@ -212,11 +212,19 @@ handshake is self-declared, not remote attestation, and block validation stays a
 ### 2.1 Consensus identity
 ```
 id = SHA-256( "pocol-consensus-identity-v1\0" ‖ chainId u64 ‖ genesisHash 32 B ‖ CONSENSUS_RULES_VERSION u32
-            ‖ flags u8 ‖ n u8 (1..=16) ‖ (version u16 ‖ height u64) × n ‖ [sourcesAggregate 32 B, if bit1] )
+            ‖ flags u8 ‖ n u8 (1..=16) ‖ (version u16 ‖ height u64) × n
+            ‖ ["cap-raise" ‖ CODE_CAP u64 ‖ SLOT_CAP u64 ‖ ACCT_CAP u64 ‖ SYS_SLOT_MAX u32, if the schedule has fork 3]
+            ‖ [sourcesAggregate 32 B, if bit1] )
 ```
+The cap-raise bytes (FN-5, C10) are present exactly when the schedule names fork version 3, whose activation height
+switches the four cap fields to the `capRaise` values devnet.json carries beside `forks` (`configured_cap_raise`); two
+nodes with the same schedule and other raise values do not peer. Without a fork-3 entry the identity is unchanged byte
+for byte.
 Integers are big-endian; the schedule is the full configured fork schedule (`ForkSchedule::entries`). A node runs
-only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 2
-(`configured_forks`; today exactly `[(1,0)]` or `[(1,0),(2,H)]`). The profile itself would accept a skipped version;
+only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 3 (FN-5: version 3
+is the cap raise and needs `capRaise`; before FN-5 the bound was 2)
+(`configured_forks`; exactly `[(1,0)]`, `[(1,0),(2,H)]` or, on a spec-2 genesis with `capRaise`, `[(1,0),(2,H'),(3,H)]`;
+version 3 cannot be scheduled on a spec-1 genesis). The profile itself would accept a skipped version;
 the runtime keeps refusing one (owner decision D3, recorded in V3-DECISIONS.md). A later in-place fork on a v3
 chain appends (2,H) first, a nonce-rule no-op under nonceMode 1, then (3,Hprime).
 genesisHash
@@ -268,8 +276,11 @@ line still records `spec=1`, so it does not spend the gate. The fresh network's 
 SPEC_VERSION copies are 2, CONSENSUS_RULES_VERSION is 2 (a `kind=bump` line, with the new genesis) and
 MAX_FORK_VERSION stays 2. That line records `spec=2` and spends spec:2; invitations and releases of rules 1 are refused
 at import. Spec-1 genesis files still decode (`gsVersion <= 2`) until the spec-1 rule set is removed (removal plan
-Phase 6). Later corrections require a new spec:3 genesis/gate or a fork version. The future in-place fork:3 route
-remains dormant while MAX_FORK_VERSION=2. See development/decisions/V3-DECISIONS.md and
+Phase 6). Later corrections require a new spec:3 genesis/gate or a fork version. FN-5 (C10, D-V3-23 restricted to the
+cap fields) spends fork:3 as the cap raise and raises MAX_FORK_VERSION to 3 (`neutral gate=fork:3`): a schedule's fork-3
+entry with its `capRaise` values switches ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX at that height
+(`ProfileIdentity::cp_at`) on a v3 genesis only; it is dormant on every chain whose schedule does not name it, and a
+spec-1 genesis cannot schedule it, so the spec-1 fork:3 route of `v3_active` stays unreachable. See development/decisions/V3-DECISIONS.md and
 development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md.
 
 The schema-v2 CP wire list contains all 52 unchanged v1 fields followed by the fields below, in this exact order.

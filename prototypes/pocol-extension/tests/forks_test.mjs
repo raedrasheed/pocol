@@ -19,9 +19,14 @@ export async function forkChecks(dist) {
   ok('full nonce range holds from v2 onwards and under genesis nonceMode 1', RP.fullRange(3n, 0n) && RP.fullRange(2n, 0n) && RP.fullRange(1n, 1n) && !RP.fullRange(1n, 0n));
   const three = F.normalizeForkSchedule([[1, 0], [2, '10'], [3, '20']], 3);
   ok('a later version activates at its own height under a higher test bound', F.activeVersion(three, 9n) === 1n && F.activeVersion(three, 10n) === 2n && F.activeVersion(three, 19n) === 2n && F.activeVersion(three, 20n) === 3n);
-  for (const bad of [[[1, 0], [2, '10'], [3, '20']], [[1, 0], [3, '20']]]) {
+  // FN-5: version 3 is the cap raise; the release bound is pocold's MAX_FORK_VERSION 3, so an activated network's
+  // schedule [(1,0),(2,H'),(3,H)] is accepted by default (a wallet can save it), and version 4 is not.
+  const raised = F.normalizeForkSchedule([[1, '0'], [2, '3'], [3, '6']]);
+  ok('the default bound accepts the cap-raise schedule [(1,0),(2,H\'),(3,H)]', F.MAX_FORK_VERSION === 3 && JSON.stringify(raised) === '[[1,"0"],[2,"3"],[3,"6"]]'
+    && F.activeVersion(raised, 5n) === 2n && F.activeVersion(raised, 6n) === 3n);
+  for (const bad of [[[1, 0], [2, '10'], [3, '20'], [4, '30']], [[1, 0], [3, '20']]]) {
     let rejected = false; try { F.normalizeForkSchedule(bad); } catch { rejected = true; }
-    ok('a version above MAX_FORK_VERSION is rejected by default: ' + JSON.stringify(bad), rejected && F.MAX_FORK_VERSION === 2);
+    ok('a version above MAX_FORK_VERSION or a skipped version is rejected by default: ' + JSON.stringify(bad), rejected);
   }
   for (const bad of [[[1, 0], [2, '10'], [3, '10']], [[1, 0], [2, '10'], [3, '9']], [[1, 0], [3, '20']]]) {
     let rejected = false; try { F.normalizeForkSchedule(bad, 3); } catch { rejected = true; }
@@ -93,6 +98,12 @@ export async function forkChecks(dist) {
     ['high share rejected under v1 at H-1', chain({ spec: spec2, head: 2, shares: { 2: [maxNonce - 1n] } }), '9'],
     ['premature v2 header rejected', chain({ spec: spec2, head: 2, versions: { 2: 2 } }), 'netVersion'],
   ]) ok('spec 2 keeps the nMax rule: ' + name, await verdict(c, normalized) === want);
+  // FN-5: a window across the cap raise's height H = 5 on a spec-2 chain verifies under the activated local schedule; a
+  // version-3 header before H, or at H under the old schedule, is refused.
+  const raisedForks = F.normalizeForkSchedule([[1, '0'], [2, '3'], [3, '5']]);
+  ok('spec 2: a window across the cap-raise height verifies under [(1,0),(2,H\'),(3,H)]', await verdict(chain({ spec: spec2, head: 6, versions: { 5: 3, 6: 3 } }), raisedForks) === 'accepted');
+  ok('spec 2: a version-3 header before the cap-raise height is rejected', await verdict(chain({ spec: spec2, head: 6, versions: { 4: 3, 5: 3, 6: 3 } }), raisedForks) === 'netVersion');
+  ok('spec 2: a wallet left on the old schedule refuses the cap-raise height', await verdict(chain({ spec: spec2, head: 6, versions: { 5: 3, 6: 3 } }), normalized) === 'netVersion');
   const fullSpec2 = { ...spec2, cp: spec2.cp.map((x, i) => (i === 4 ? 1n : x)) };
   ok('spec 2 with nonceMode 1 takes the full nonce range under v1, as spec 1 does', await verdict({ ...chain({ spec: spec2, head: 2, nonces: { 2: maxNonce } }), spec: fullSpec2 }, normalized) === 'accepted'
     && await verdict({ ...chain({ head: 2, nonces: { 2: maxNonce } }), spec: { ...spec, cp: spec.cp.map((x, i) => (i === 4 ? 1n : x)) } }, normalized) === 'accepted');

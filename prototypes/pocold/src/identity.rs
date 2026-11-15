@@ -3,6 +3,7 @@
 //! revision, the caps-test and unpinned flags and the full fork schedule, so two nodes peer only when they run the same
 //! rules on the same chain with the same schedule, whatever their build digest. It is self-declared, not remote
 //! attestation; block validation stays authoritative. The build digest (`COMPATIBILITY_HEX`) is informational status.
+use pocol_lp4_execution::profile::{CapRaise, CAP_RAISE_VERSION};
 use sha2::{Digest, Sha256};
 /// The highest wire version this build speaks; Hello item 7 carries the sender's maximum (VA-SPEC §2.2).
 pub const PROTOCOL_VERSION: u64 = 2;
@@ -50,7 +51,18 @@ fn hex(b: &[u8]) -> String { b.iter().map(|x| format!("{x:02x}")).collect() }
 /// (version u16 ‖ height u64)×n ‖ [sources, with bit1]), integers big-endian. `sources` must be given exactly
 /// when unpinned is set and `forks` must hold 1..=16 entries (a validated schedule); anything else is a caller bug.
 pub fn consensus_id(chain_id: u64, genesis: &[u8; 32], rules: u32, flags: u8, forks: &[(u16, u64)], sources: Option<[u8; 32]>) -> [u8; 32] {
+    consensus_id_raised(chain_id, genesis, rules, flags, forks, None, sources)
+}
+/// The bytes a scheduled cap raise adds to the identity, after the schedule (FN-5): "cap-raise" ‖ CODE_CAP u64 ‖
+/// SLOT_CAP u64 ‖ ACCT_CAP u64 ‖ SYS_SLOT_MAX u32. The schedule names its activation height (fork version 3).
+pub const CAP_RAISE_TAG: &[u8] = b"cap-raise";
+/// `consensus_id` of a schedule with a cap raise (FN-5, C10): the raise's values follow the schedule, so two nodes that
+/// schedule fork 3 at the same height with other values do not peer. `raise` may be given only when the schedule names
+/// fork version 3 (`CAP_RAISE_VERSION`); with None this is `consensus_id`, byte for byte (a node's own schedule always
+/// carries its raise with fork 3, `ProfileIdentity::validate_with_raise`; `explain` also forms other identities).
+pub fn consensus_id_raised(chain_id: u64, genesis: &[u8; 32], rules: u32, flags: u8, forks: &[(u16, u64)], raise: Option<&CapRaise>, sources: Option<[u8; 32]>) -> [u8; 32] {
     assert!((1..=FORKS_MAX).contains(&forks.len()), "a consensus identity covers a validated schedule");
+    assert!(raise.is_none() || forks.iter().any(|(v, _)| *v == CAP_RAISE_VERSION), "a cap raise goes with its fork-3 entry");
     assert_eq!(flags & FLAG_UNPINNED != 0, sources.is_some(), "the unpinned flag requires the aggregate");
     let mut h = Sha256::new();
     h.update(b"pocol-consensus-identity-v1\0");
@@ -59,6 +71,10 @@ pub fn consensus_id(chain_id: u64, genesis: &[u8; 32], rules: u32, flags: u8, fo
     h.update(rules.to_be_bytes());
     h.update([flags, forks.len() as u8]);
     for (v, height) in forks { h.update(v.to_be_bytes()); h.update(height.to_be_bytes()); }
+    if let Some(r) = raise {
+        h.update(CAP_RAISE_TAG);
+        h.update(r.code_cap.to_be_bytes()); h.update(r.slot_cap.to_be_bytes()); h.update(r.acct_cap.to_be_bytes()); h.update(r.sys_slot_max.to_be_bytes());
+    }
     if let Some(s) = sources { h.update(s); }
     h.finalize().into()
 }
@@ -66,18 +82,26 @@ pub fn consensus_id(chain_id: u64, genesis: &[u8; 32], rules: u32, flags: u8, fo
 /// What this node peers on, set once from its spec (`Consensus::of`). The inputs are kept so that `explain` can name
 /// what a refused peer differs in.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Consensus { pub chain_id: u64, pub genesis: [u8; 32], pub forks: Vec<(u16, u64)>, pub rules: u32, pub flags: u8, pub sources: Option<[u8; 32]>, pub id: [u8; 32] }
+pub struct Consensus { pub chain_id: u64, pub genesis: [u8; 32], pub forks: Vec<(u16, u64)>, pub rules: u32, pub flags: u8, pub sources: Option<[u8; 32]>,
+    /// FN-5: the cap raise the schedule's fork-3 entry activates, if any.
+    pub raise: Option<CapRaise>, pub id: [u8; 32] }
 impl Consensus {
     pub fn new(chain_id: u64, genesis: [u8; 32], forks: &[(u16, u64)], rules: u32, flags: u8, sources: Option<[u8; 32]>) -> Self {
-        Self { chain_id, genesis, forks: forks.to_vec(), rules, flags, sources, id: consensus_id(chain_id, &genesis, rules, flags, forks, sources) }
+        Self::raised(chain_id, genesis, forks, None, rules, flags, sources)
     }
-    /// This build's identity on `spec`'s chain and configured schedule.
+    /// `new` for a schedule with a cap raise (`consensus_id_raised`).
+    pub fn raised(chain_id: u64, genesis: [u8; 32], forks: &[(u16, u64)], raise: Option<CapRaise>, rules: u32, flags: u8, sources: Option<[u8; 32]>) -> Self {
+        Self { chain_id, genesis, forks: forks.to_vec(), rules, flags, sources, raise, id: consensus_id_raised(chain_id, &genesis, rules, flags, forks, raise.as_ref(), sources) }
+    }
+    /// This build's identity on `spec`'s chain, configured schedule and cap raise.
     pub fn of(spec: &crate::chain::Spec) -> Self {
-        Self::new(spec.chain_id(), spec.genesis_hash(), spec.profile().forks().entries(), CONSENSUS_RULES_VERSION, flags(), sources())
+        Self::raised(spec.chain_id(), spec.genesis_hash(), spec.profile().forks().entries(), spec.profile().cap_raise().map(|(_, r)| r), CONSENSUS_RULES_VERSION, flags(), sources())
     }
     pub fn hex(&self) -> String { hex(&self.id) }
+    /// The identity of `forks` (a prefix of ours, or ours) with the other inputs given; our raise goes with a fork-3 entry.
     fn with(&self, forks: &[(u16, u64)], rules: u32, flags: u8, sources: Option<[u8; 32]>) -> [u8; 32] {
-        consensus_id(self.chain_id, &self.genesis, rules, flags, forks, sources)
+        let raise = self.raise.as_ref().filter(|_| forks.iter().any(|(v, _)| *v == CAP_RAISE_VERSION));
+        consensus_id_raised(self.chain_id, &self.genesis, rules, flags, forks, raise, sources)
     }
 }
 

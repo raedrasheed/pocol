@@ -247,11 +247,46 @@ pub enum ProfileError {
     ForkHeight,
     ForkVersionOrder,
     UnsupportedVersion(u16),
+    /// A cap raise (fork version CAP_RAISE_VERSION) that is missing, unscheduled or invalid; the text names why.
+    CapRaise(&'static str),
 }
 
 /// The highest fork version this build implements. Raised only by the PR that adds that version's rules
-/// (V3-DESIGN.md §3.4); everything else about a schedule is checked generically below.
-pub const MAX_FORK_VERSION: u16 = 2;
+/// (V3-DESIGN.md §3.4); everything else about a schedule is checked generically below. Version 3 is the cap raise
+/// (FN-5, C10, D-V3-23 restricted to the cap fields): dormant unless a schedule names it together with a `CapRaise`.
+pub const MAX_FORK_VERSION: u16 = 3;
+/// The fork version whose activation height switches the four cap fields to a scheduled `CapRaise` (FN-5, C10).
+pub const CAP_RAISE_VERSION: u16 = 3;
+
+/// FN-5 (C10, D-V3-23 restricted to the cap fields): the new values of ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX
+/// from the activation height of fork version CAP_RAISE_VERSION on. It is carried beside the fork schedule (outside the
+/// genesis, like the schedule) and changes nothing else: every other CP field, the genesis, its hash and the system
+/// programs' ChainCaps copy of the CP stay as they are (no program reads these four fields; the host enforces them).
+/// A raise never lowers a cap, raises at least one, and exists only on a v3 genesis (spec version 2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct CapRaise {
+    pub code_cap: u64,
+    pub slot_cap: u64,
+    pub acct_cap: u64,
+    pub sys_slot_max: u32,
+}
+impl CapRaise {
+    /// The CP with the four cap fields replaced, or why the raise is refused (it lowers a cap or raises none).
+    pub fn apply(&self, base: &ConsensusParams) -> Result<ConsensusParams, ProfileError> {
+        if self.code_cap < base.CODE_CAP || self.slot_cap < base.SLOT_CAP || self.acct_cap < base.ACCT_CAP || self.sys_slot_max < base.SYS_SLOT_MAX {
+            return Err(ProfileError::CapRaise("a cap raise may not lower a cap"));
+        }
+        if (self.code_cap, self.slot_cap, self.acct_cap, self.sys_slot_max) == (base.CODE_CAP, base.SLOT_CAP, base.ACCT_CAP, base.SYS_SLOT_MAX) {
+            return Err(ProfileError::CapRaise("a cap raise must raise at least one cap"));
+        }
+        let mut cp = base.clone();
+        cp.CODE_CAP = self.code_cap;
+        cp.SLOT_CAP = self.slot_cap;
+        cp.ACCT_CAP = self.acct_cap;
+        cp.SYS_SLOT_MAX = self.sys_slot_max;
+        Ok(cp)
+    }
+}
 
 /// Optional v2 activation enables the full nonce domain; v1 remains the default.
 /// Private entries ensure active_version is called only on a validated schedule.
@@ -302,6 +337,8 @@ pub struct ProfileIdentity {
     forks: ForkSchedule,
     kind: ProfileKind,
     node_kind: NodeKind,
+    /// FN-5: the activation height of fork CAP_RAISE_VERSION, the raise and the CP it gives (`cp_at`). None: no raise.
+    raised: Option<(u64, CapRaise, ConsensusParams)>,
 }
 impl ProfileIdentity {
     /// Bounded bytes, full decode/hash binding, advertised chainId, R22, then R24 schedule.
@@ -313,6 +350,20 @@ impl ProfileIdentity {
         kind: ProfileKind,
         node_kind: NodeKind,
         forks: &[(u16, u64)],
+    ) -> Result<Self, ProfileError> {
+        Self::validate_with_raise(bytes, expected_hash, chain_id, kind, node_kind, forks, None)
+    }
+    /// `validate` with the cap raise carried beside the schedule (FN-5). A schedule naming CAP_RAISE_VERSION needs
+    /// `raise`, `raise` needs that entry, and both need a v3 genesis (spec version 2); the raise is checked by
+    /// `CapRaise::apply`. With no version-3 entry and no raise this is exactly `validate`.
+    pub fn validate_with_raise(
+        bytes: &[u8],
+        expected_hash: &H256,
+        chain_id: u64,
+        kind: ProfileKind,
+        node_kind: NodeKind,
+        forks: &[(u16, u64)],
+        raise: Option<&CapRaise>,
     ) -> Result<Self, ProfileError> {
         if bytes.len() > genesis_spec::MAX_SPEC_BYTES {
             return Err(ProfileError::InputTooLarge);
@@ -326,18 +377,41 @@ impl ProfileIdentity {
         }
         let forks = ForkSchedule::new(forks)?;
         let cp = ConsensusParams::from_values(&spec.cp).map_err(ProfileError::Genesis)?;
-        Ok(Self { spec, cp, hash: *expected_hash, forks, kind, node_kind })
+        let at = forks.entries().iter().find(|(v, _)| *v == CAP_RAISE_VERSION).map(|(_, h)| *h);
+        let raised = match (at, raise) {
+            (None, None) => None,
+            (Some(_), None) => return Err(ProfileError::CapRaise("fork version 3 is a cap raise and needs its values")),
+            (None, Some(_)) => return Err(ProfileError::CapRaise("a cap raise needs a fork version 3 activation")),
+            (Some(_), Some(_)) if spec.spec_version < 2 => return Err(ProfileError::CapRaise("a cap raise needs a v3 genesis (spec version 2)")),
+            (Some(h), Some(r)) => Some((h, *r, r.apply(&cp)?)),
+        };
+        Ok(Self { spec, cp, hash: *expected_hash, forks, kind, node_kind, raised })
     }
     pub fn spec_version(&self) -> u8 { self.spec.spec_version }
-    /// The sole host-rule predicate: the genesis route and the future scheduled-fork route.
+    /// The sole host-rule predicate: the genesis route and the future scheduled-fork route. Since FN-5 version 3 is the
+    /// cap raise, which `validate_with_raise` admits only on a spec-2 genesis, so the fork route stays unreachable.
     pub fn v3_active(&self, height: u64) -> bool {
         self.spec_version() >= 2 || self.forks.active_version(height) >= 3
     }
     pub fn spec(&self) -> &GenesisSpec {
         &self.spec
     }
+    /// The genesis CP (immutable). Readers of ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX use `cp_at`.
     pub fn cp(&self) -> &ConsensusParams {
         &self.cp
+    }
+    /// FN-5 (C10): the CP that governs the block at `height`: the genesis CP, except that from the activation height
+    /// of a scheduled cap raise on, ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX take the raised values. Without a
+    /// raise it is `cp()` at every height. `cp_at(u64::MAX)` holds the largest caps the schedule reaches.
+    pub fn cp_at(&self, height: u64) -> &ConsensusParams {
+        match &self.raised {
+            Some((at, _, raised)) if height >= *at => raised,
+            _ => &self.cp,
+        }
+    }
+    /// The scheduled cap raise and its activation height, if any.
+    pub fn cap_raise(&self) -> Option<(u64, CapRaise)> {
+        self.raised.as_ref().map(|(h, r, _)| (*h, *r))
     }
     pub fn genesis_hash(&self) -> H256 {
         self.hash
@@ -367,7 +441,7 @@ mod v3_tests {
         // Schema-only test identity. This never constructs an Admitted or bootable profile.
         let spec=genesis_spec::decode_bounded(&raw,2).unwrap();
         ProfileIdentity{cp:ConsensusParams::from_values(&spec.cp).unwrap(),spec,hash:genesis_spec::genesis_hash(&raw),
-            forks:ForkSchedule::new_bounded(forks,max_fork).unwrap(),kind:ProfileKind::Simnet,node_kind:NodeKind::Simnet}
+            forks:ForkSchedule::new_bounded(forks,max_fork).unwrap(),kind:ProfileKind::Simnet,node_kind:NodeKind::Simnet,raised:None}
     }
     #[test]
     fn v3_predicate_keeps_v1_and_earnin_dormant_at_every_height_boundary(){
@@ -389,5 +463,46 @@ mod v3_tests {
         for h in [0,1,u64::MAX]{assert!(p.v3_active(h));}
         assert_eq!(p.spec_version(),2);assert_eq!(p.cp().cp_len(),59);
         assert_eq!(p.cp().to_values(),p.spec().cp);assert!(!p.bootable());
+    }
+    /// FN-5 (C10): a genesis with CODE_CAP 100, SLOT_CAP 200, ACCT_CAP 300 and SYS_SLOT_MAX 400.
+    fn capped(version:u8)->Vec<u8>{
+        let mut values:Vec<U256>=genesis_spec::cp_schema(version).unwrap().iter().map(|f|U256::from_u64(f.lo)).collect();
+        for (i,n) in [(35,100),(38,200),(39,300),(40,400)]{values[i]=U256::from_u64(n);}
+        genesis_spec::encode(&GenesisSpec{spec_version:version,chain_id:7,cp:values,alloc_root:[0;32],
+            m0_list:vec![genesis_spec::Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]})
+    }
+    fn raised(bytes:&[u8],forks:&[(u16,u64)],raise:Option<&CapRaise>)->Result<ProfileIdentity,ProfileError>{
+        ProfileIdentity::validate_with_raise(bytes,&genesis_spec::genesis_hash(bytes),7,ProfileKind::Simnet,NodeKind::Simnet,forks,raise)
+    }
+    #[test]
+    fn a_cap_raise_switches_only_the_four_caps_at_its_fork_3_height(){
+        let bytes=capped(2);let r=CapRaise{code_cap:150,slot_cap:200,acct_cap:600,sys_slot_max:401};
+        let p=raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&r)).unwrap();
+        for h in [0,1,10,19]{assert_eq!(p.cp_at(h),p.cp());}
+        for h in [20,21,u64::MAX]{
+            let (base,up)=(p.cp().to_values(),p.cp_at(h).to_values());
+            for i in 0..base.len(){if ![35,38,39,40].contains(&i){assert_eq!(base[i],up[i],"field {i}");}}
+            assert_eq!((p.cp_at(h).CODE_CAP,p.cp_at(h).SLOT_CAP,p.cp_at(h).ACCT_CAP,p.cp_at(h).SYS_SLOT_MAX),(150,200,600,401));
+        }
+        assert_eq!(p.cap_raise(),Some((20,r)));assert_eq!(p.cp().to_values(),p.spec().cp,"the genesis CP is unchanged");
+        assert_eq!(p.genesis_hash(),genesis_spec::genesis_hash(&bytes));assert!(p.v3_active(0));assert!(!p.bootable());
+        // Dormant: without a fork-3 entry and a raise the profile is `validate`'s, at every height.
+        let d=raised(&bytes,&[(1,0),(2,10)],None).unwrap();
+        assert_eq!(d,ProfileIdentity::validate(&bytes,&genesis_spec::genesis_hash(&bytes),7,ProfileKind::Simnet,NodeKind::Simnet,&[(1,0),(2,10)]).unwrap());
+        for h in [0,20,u64::MAX]{assert_eq!(d.cp_at(h),d.cp());}assert_eq!(d.cap_raise(),None);
+    }
+    #[test]
+    fn a_cap_raise_is_refused_when_unscheduled_lowering_empty_or_on_a_spec_1_genesis(){
+        let bytes=capped(2);let ok=CapRaise{code_cap:100,slot_cap:200,acct_cap:301,sys_slot_max:400};
+        let e=|m:&'static str|Err(ProfileError::CapRaise(m));
+        assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20)],None),e("fork version 3 is a cap raise and needs its values"));
+        assert_eq!(raised(&bytes,&[(1,0),(2,10)],Some(&ok)),e("a cap raise needs a fork version 3 activation"));
+        assert_eq!(raised(&capped(1),&[(1,0),(2,10),(3,20)],Some(&ok)),e("a cap raise needs a v3 genesis (spec version 2)"));
+        for low in [CapRaise{acct_cap:299,..ok},CapRaise{code_cap:99,..ok},CapRaise{slot_cap:199,..ok},CapRaise{sys_slot_max:399,..ok}]{
+            assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&low)),e("a cap raise may not lower a cap"));
+        }
+        assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&CapRaise{acct_cap:300,..ok})),e("a cap raise must raise at least one cap"));
+        assert!(raised(&bytes,&[(1,0),(2,10),(3,20)],Some(&ok)).is_ok());
+        assert_eq!(raised(&bytes,&[(1,0),(2,10),(3,20),(4,30)],Some(&ok)),Err(ProfileError::UnsupportedVersion(4)));
     }
 }

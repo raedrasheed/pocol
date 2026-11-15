@@ -50,7 +50,7 @@ impl<'a> Candidate<'a> {
     pub(crate) fn new(snapshot:&InMemoryDB,profile:&'a ProfileIdentity,block:&'a NativeBlockContext,proposer:Proposer)->Result<Self,SystemError>{
         proposer.origin()?;
         if block.height==U256::ZERO || block.gas_limit!=U256::from(profile.cp().GAS_LIMIT){return Err(SystemError::Context)}
-        let limits=crate::code_caps::CodeLimits{runtime:profile.cp().B_code_max,logical:profile.cp().CODE_CAP};
+        let limits=crate::code_caps::CodeLimits::at(profile,block.height_u64());
         crate::code_caps::validate_snapshot(snapshot,limits).map_err(SystemError::Execution)?;
         let code_total=Some(crate::code_caps::inventory(snapshot).map_err(SystemError::Execution)?);
         Ok(Self{state:snapshot.clone(),profile,block,proposer,used:0,failed:false,image:None,stage:Stage::System,tips:U256::ZERO,user:None,final_block:false,issued:U256::ZERO,code_total})
@@ -66,7 +66,7 @@ impl<'a> Candidate<'a> {
     /// Actual genesis/root/code/CP proof required. Still crate-private: complete
     /// current UT/stored-header phase validation remains mandatory in P5.
     pub(crate) fn from_genesis(snapshot:&InMemoryDB,image:&'a crate::genesis_builder::GenesisImage,profile:&'a ProfileIdentity,block:&'a NativeBlockContext,proposer:Proposer)->Result<Self,SystemError>{
-        image.verify_candidate(snapshot,profile).map_err(|_|SystemError::Genesis)?;
+        image.verify_candidate_at(snapshot,profile,block.height_u64()).map_err(|_|SystemError::Genesis)?;
         let height:u64=block.height.try_into().map_err(|_|SystemError::Context)?;
         let time:u64=block.timestamp.try_into().map_err(|_|SystemError::Context)?;
         if height==0||(profile.cp().H_END!=0&&height>profile.cp().H_END){return Err(SystemError::Context)}
@@ -98,7 +98,7 @@ impl<'a> Candidate<'a> {
         let result=(||{
             if self.stage!=Stage::Ready{return Err(SystemError::Phase)}
             let image=self.image.ok_or(SystemError::Genesis)?;
-            image.verify_candidate(&self.state,self.profile).map_err(|_|SystemError::Genesis)?;
+            image.verify_candidate_at(&self.state,self.profile,self.block.height_u64()).map_err(|_|SystemError::Genesis)?;
             if !self.final_block{
                 let amount=U256::from_be_bytes(self.profile.spec().cp[15].to_be_bytes());
                 self.tips.checked_add(amount).ok_or(SystemError::Supply)?;
@@ -106,12 +106,12 @@ impl<'a> Candidate<'a> {
                 escrow.info.balance=escrow.info.balance.checked_add(amount).ok_or(SystemError::Supply)?;
                 self.issued=amount;
             }
-            image.verify_candidate(&self.state,self.profile).map_err(|_|SystemError::Genesis)?;
+            image.verify_candidate_at(&self.state,self.profile,self.block.height_u64()).map_err(|_|SystemError::Genesis)?;
             self.stage=Stage::Running;
             let selector=if self.final_block{"finalize(uint256)"}else{"closeBlock(uint256)"};
             let mut input=revm::primitives::keccak256(selector.as_bytes())[..4].to_vec();input.extend(self.tips.to_be_bytes::<32>());
             let observation=self.call(crate::pay::escrow_address(),Bytes::from(input))?;
-            image.verify_candidate(&self.state,self.profile).map_err(|_|SystemError::Genesis)?;
+            image.verify_candidate_at(&self.state,self.profile,self.block.height_u64()).map_err(|_|SystemError::Genesis)?;
             self.stage=Stage::Complete;Ok(observation)
         })();if result.is_err(){self.poison();}result
     }
@@ -127,7 +127,7 @@ impl<'a> Candidate<'a> {
         let allocation=remaining.min(PER_CALL_GAS);
         if allocation==0{return Err(SystemError::Budget)}
         let origin=self.proposer.origin()?;
-        let limits=crate::code_caps::CodeLimits{runtime:self.profile.cp().B_code_max,logical:self.profile.cp().CODE_CAP};
+        let limits=crate::code_caps::CodeLimits::at(self.profile,self.block.height_u64());
         let tx=TxEnv{caller:origin,transact_to:TxKind::Call(to),gas_limit:allocation,
             gas_price:U256::ZERO,value:U256::ZERO,data,chain_id:Some(self.profile.spec().chain_id),..Default::default()};
         let mut evm=native::build_engine(&self.state,self.code_total,tx,self.block,self.profile.spec().chain_id,Some(limits));

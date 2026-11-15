@@ -22,7 +22,9 @@ fn full_nonce_profile_keeps_genesis_and_requires_an_explicit_valid_schedule() {
     assert!(!upgraded.bootable());
     assert_eq!(ForkSchedule::new(&[(1, 0), (2, 50), (1, 51)]), Err(ProfileError::ForkVersionOrder));
     assert_eq!(ForkSchedule::new(&[(1, 0), (2, 50), (2, 51)]), Err(ProfileError::ForkVersionOrder));
-    assert_eq!(ForkSchedule::new(&[(1, 0), (3, 50)]), Err(ProfileError::UnsupportedVersion(3)));
+    assert_eq!(ForkSchedule::new(&[(1, 0), (4, 50)]), Err(ProfileError::UnsupportedVersion(4)));
+    // FN-5: a version-3 entry is a cap raise, which the profile refuses without its values.
+    assert_eq!(ProfileIdentity::validate(&bytes, &hash, chain, kind, node, &[(1, 0), (2, 50), (3, 60)]), Err(ProfileError::CapRaise("fork version 3 is a cap raise and needs its values")));
 }
 
 #[test] fn nine_profile_signed_executions_match_independent_full_roots_receipts_and_gas(){
@@ -63,7 +65,8 @@ fn generic_schedule_rule_gives_the_historical_verdict_for_every_small_schedule()
     let (mut checked, mut accepted) = (0, 0);
     let mut entries = Vec::new();
     fn walk(cells: &[(u16, u64)], entries: &mut Vec<(u16, u64)>, checked: &mut u32, accepted: &mut u32) {
-        let got = ForkSchedule::new(entries).map(|f| assert_eq!(f.entries(), &entries[..]));
+        // The historical verdict is that of the versions 1 and 2 (bound 2); FN-5 raised MAX_FORK_VERSION to 3.
+        let got = ForkSchedule::new_bounded(entries, 2).map(|f| assert_eq!(f.entries(), &entries[..]));
         assert_eq!(got, head_verdict(entries), "{entries:?}");
         *checked += 1;
         *accepted += got.is_ok() as u32;
@@ -84,8 +87,11 @@ fn generic_schedule_rule_gives_the_historical_verdict_for_every_small_schedule()
 fn a_higher_bound_accepts_later_versions_without_changing_the_default() {
     let f = ForkSchedule::new_bounded(&[(1, 0), (2, 10), (3, 20)], 3).unwrap();
     assert_eq!([f.active_version(9), f.active_version(10), f.active_version(19), f.active_version(25)], [1, 2, 2, 3]);
-    assert_eq!(ForkSchedule::new(&[(1, 0), (2, 10), (3, 20)]), Err(ProfileError::UnsupportedVersion(3)));
-    assert_eq!(MAX_FORK_VERSION, 2);
+    assert_eq!(ForkSchedule::new_bounded(&[(1, 0), (2, 10), (3, 20)], 2), Err(ProfileError::UnsupportedVersion(3)));
+    // FN-5: version 3 is the cap raise, so the default bound accepts it and refuses version 4.
+    assert_eq!(MAX_FORK_VERSION, 3);
+    assert_eq!(ForkSchedule::new(&[(1, 0), (2, 10), (3, 20)]).unwrap(), f);
+    assert_eq!(ForkSchedule::new(&[(1, 0), (2, 10), (3, 20), (4, 30)]), Err(ProfileError::UnsupportedVersion(4)));
     // Skipping a version is a profile-level question left to the v3 PR (D3); the runtime shape refuses it.
     assert_eq!(ForkSchedule::new_bounded(&[(1, 0), (3, 5)], 3).unwrap().active_version(5), 3);
     assert_eq!(ForkSchedule::new_bounded(&[(1, 0), (3, 5), (2, 9)], 3), Err(ProfileError::ForkVersionOrder));
