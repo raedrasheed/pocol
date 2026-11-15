@@ -254,6 +254,8 @@ export async function capsPrecheck(rpc, needs) {
 /// second. The Studio gateway allows each client a burst of 40 and 10 requests per second (pocol_studio_gateway.py) and
 /// answers 429 past that; the publication's other requests share that budget.
 export const READ_BURST = 16, READ_RATE = 8;
+// Sites W11: how many times a broadcast refused with HTTP 429 (never forwarded) is sent again before the publication pauses.
+export const RATE_RESENDS = 5;
 /** The node's answer to a state query at a height whose state it does not hold (pocold rpc.rs `state_for`). */
 export const STATE_NOT_HELD = -32017;
 /// The checkpoint (schema 2) binds the manifest, the publishing account, the target site and the network (chain id and
@@ -406,6 +408,20 @@ export async function publishSite(options) {
         await sleep(Math.max(1, pollMs));
       }
     };
+    // Sites W11 (found publishing through the Studio gateway): a broadcast refused with HTTP 429 (transport 'rate') was
+    // refused before it was forwarded (the gateway charges its budgets, all or nothing, before it calls the node), so the
+    // same signed bytes, the same hash, are sent again after the server's Retry-After (at most 10 s), at most
+    // RATE_RESENDS times: exactly what Resume does. A timeout, a dropped connection, -32021 busy or any other answer is
+    // ambiguous or final and is never resent here; it pauses as before.
+    const sendRefusedAgain = async (raw) => {
+      for (let attempt = 0; ; attempt++) {
+        try { return await rpc('eth_sendRawTransaction',[raw]); }
+        catch (error) {
+          if (error?.transport !== 'rate' || attempt >= RATE_RESENDS) throw error;
+          checkAbort(); await sleep(Math.min(10000, Math.max(1000, Number(error.retryAfterMs) || 2000))); checkAbort();
+        }
+      }
+    };
     async function transaction(id, to, data, gas) {
       checkAbort();
       let rec = state.transactions[id];
@@ -441,7 +457,7 @@ export async function publishSite(options) {
       let receipt = await canonicalReceipt(rec.hash);
       if (!receipt) {
         checkAbort(); progress({phase:'broadcast',step:id,transactionHash:rec.hash});
-        try { const h = await rpc('eth_sendRawTransaction',[await rawOf(rec)]); assert(typeof h === 'string' && h.toLowerCase() === rec.hash,'RPC returned a different transaction hash'); }
+        try { const h = await sendRefusedAgain(await rawOf(rec)); assert(typeof h === 'string' && h.toLowerCase() === rec.hash,'RPC returned a different transaction hash'); }
         catch (error) {
           receipt = await canonicalReceipt(rec.hash);
           if (!receipt) throw new PublishPendingError(rec.hash,'Submission could not be confirmed. Resume to check or retransmit the same signed transaction.');

@@ -5,7 +5,8 @@ import { addressOf, signTx, LOCK_MS } from './lib/wallet.js';
 import { prepareSite, quotePublish, publishSite, readNetworkFees, remainingTransactions } from './lib/publisher.js';
 import { KeyLease, JOB_DEADLINE_DEFAULT_MS, JOB_DEADLINE_MAX_MS } from './lib/lease.js';
 import { isForeignJob, blocksAccount, archiveJob, networkOf, filesKey, rawKey, removeSideKeys } from './lib/jobs.js';
-import { request, Pool, TRUST_POOL } from './lib/transport.js';
+import { request, Pool, TRUST_POOL, RESERVE_WAIT_MS } from './lib/transport.js';
+import { withRetry } from './lib/retry.js';
 
 const $ = (id) => document.getElementById(id);
 const vaultKey = 'studio:wallet';
@@ -14,7 +15,14 @@ const lease = new KeyLease({lockMs:LOCK_MS});
 let job = null, plan = null, quote = null, secret = null, busy = false, controller = null, writes = Promise.resolve(), walletBusy = false, walletEpoch = 0, foreign = false;
 const jobId = location.hash.slice(1), storageKey = JOB_PREFIX + jobId;
 const pool = new Pool(TRUST_POOL); let rpcId = 0;
-const rpc = (method, values) => request(NETWORK.endpoint, method, values, {pool, deadline:30000, id:++rpcId});
+// W2 (found by the W11 publish through the Studio gateway: a 1.6 MB publication stopped at once with 'rate'): idempotent
+// reads are retried on 429, -32021, 502/503/504, timeouts and dropped connections, as contract-ui.js does;
+// eth_sendRawTransaction is sent once (publishSite reconciles a lost answer from the receipt). An attempt takes at most
+// the pool wait plus its deadline, which the 60 s retry deadline counts; Pause stops the retries.
+const RPC_DEADLINE_MS = 30000;
+const rpc = withRetry((method, values, deadline = RPC_DEADLINE_MS) => request(NETWORK.endpoint, method, values, {pool, deadline, id:++rpcId}), {
+  aborted: () => !!controller?.signal?.aborted, attemptMs: RESERVE_WAIT_MS + RPC_DEADLINE_MS, shorten: (rest, ms) => [ms - RESERVE_WAIT_MS], minAttemptMs: RESERVE_WAIT_MS + 1000,
+});
 const errorMessage = (e) => (e?.rpc?.message || e?.message || String(e)).slice(0, 500);
 function setJob(patch) {
   Object.assign(job, patch); const snapshot = structuredClone(job);

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE,MAX_APPROVALS,STATE_NOT_HELD} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE,MAX_APPROVALS,STATE_NOT_HELD,RATE_RESENDS} from '../dist/lib/publisher.js';
 import {nextBaseFee,feeSchedule,capFor,GAS_LIMIT,BASE_FEE_FLOOR,ABSOLUTE_CEILING} from '../dist/lib/fees.js';
 import {KeyLease,JOB_DEADLINE_MAX_MS} from '../dist/lib/lease.js';
 import {isForeignJob,blocksAccount,archiveForeignJobs,archivedJobs,jobNetwork,archiveJob} from '../dist/lib/jobs.js';
@@ -66,7 +66,7 @@ function mock() {
   // fee by the reference London rule below (`chain.base` is the next block's base fee). `unsafe` chunks are absent at
   // the `safe` tag; `reorgOut` chunks disappear from `latest` too when the sweep first reads them at `safe`.
   const chain={head:42n,base:BASE_FEE_FLOOR,unsafe:new Set(),reorgOut:new Set(),spikeAfter:null,spike:1n,gasUsedPercent:100n,clockOnSend:null};
-  const control={allow:true,wrongNetwork:false,failAfterSend:null,unknownBeforeSend:false,noReceipt:false,failSave:false,wrongHash:false,revert:false,publishAfterCreate:false,wrongVersionChunks:false,orphanBlock:false,
+  const control={allow:true,wrongNetwork:false,failAfterSend:null,unknownBeforeSend:false,rateBeforeSend:0,busyBeforeSend:false,noReceipt:false,failSave:false,wrongHash:false,revert:false,publishAfterCreate:false,wrongVersionChunks:false,orphanBlock:false,
     // FN-1: pocol_getCaps. `room` overrides a cap's remaining room (count = cap - room); `caps` 'missing' answers -32601, 'transport' a relay refusal.
     caps:'ok',room:{},capCount:{},cumulative:true,
     // FN-1: the first eth_getCode (the chunk scan of a new site) fails: 'transport' as a gateway 429 does, 'rpc' an error object, 'error' anything else.
@@ -125,6 +125,8 @@ function mock() {
     if(method==='eth_sendRawTransaction') {
       const raw=fromHex(params[0]),hash=toHex(keccak(raw));logs.sent.push(params[0]);
       if(control.unknownBeforeSend) throw new Error('Network unavailable');
+      if(control.rateBeforeSend>0){control.rateBeforeSend--;throw Object.assign(new Error('rate'),{transport:'rate',status:429,retryAfterMs:2000});}
+      if(control.busyBeforeSend) throw Object.assign(new Error('busy'),{rpc:{code:-32021,message:'busy',data:{reason:'busy',retryAfterMs:1000}}});
       if(receipts.has(hash)) return hash;
       const f=rlp.decode(raw.subarray(1));const txNonce=n(f[1]);assert.equal(txNonce,nonce);
       const to=f[5].length?toHex(f[5]):null,data=f[7],sel=toHex(data.subarray(0,4));nonce++;
@@ -177,6 +179,13 @@ test('checkpoint failure after signing still prevents broadcast',async()=>{const
 test('signer cannot substitute another transaction',async()=>{const m=mock();await assert.rejects(publishSite(m.options(undefined,{sign:async tx=>signTx(secret,{...tx,to:owner,value:'1'})})),/changed transaction/);assert.equal(m.logs.sent.length,0);});
 test('wrong signing key is rejected',async()=>{const m=mock();await assert.rejects(publishSite(m.options(undefined,{sign:async tx=>signTx(fromHex('0x'+'22'.repeat(32)),tx)})),/publishing account/);assert.equal(m.logs.sent.length,0);});
 test('ambiguous submission resumes the SAME raw without another signature',async()=>{const m=mock();m.control.unknownBeforeSend=true;await assert.rejects(publishSite(m.options()),PublishPendingError);const saved=m.state,raw=m.logs.sent[0];m.control.unknownBeforeSend=false;await publishSite(m.options(undefined,{state:saved}));assert.equal(m.logs.sent[1],raw);assert.equal(m.logs.signed.length,7);});
+// Sites W11: a broadcast the gateway refused with HTTP 429 was never forwarded: the same signed bytes are sent again.
+test('a broadcast refused with HTTP 429 is sent again (same raw, no new signature); -32021 busy still pauses',async()=>{
+  const m=mock();m.control.rateBeforeSend=3;const slept=[];const r=await publishSite(m.options(undefined,{sleep:async(ms)=>{slept.push(ms);}}));
+  assert.equal(r.site,m.site);assert.equal(m.logs.signed.length,7,'one signature per transaction');assert.ok(slept.includes(2000),'waited the Retry-After');assert.equal(new Set(m.logs.sent.slice(0,4)).size,1,'the same signed bytes four times');
+  const b=mock();b.control.rateBeforeSend=RATE_RESENDS+1;await assert.rejects(publishSite(b.options(undefined,{sleep:async()=>{}})),PublishPendingError);assert.equal(b.logs.sent.length,RATE_RESENDS+1,'bounded: the first send and RATE_RESENDS more');
+  const c=mock();c.control.busyBeforeSend=true;await assert.rejects(publishSite(c.options(undefined,{sleep:async()=>{}})),PublishPendingError);assert.equal(c.logs.sent.length,1,'busy: sent once, not again');
+});
 test('lost submit response reconciles chain receipt without duplicate signing',async()=>{const m=mock();m.control.failAfterSend='all';await publishSite(m.options());assert.equal(m.logs.signed.length,7);assert.equal(m.logs.sent.length,7);});
 test('receipt timeout preserves pending transaction and resumes without re-signing',async()=>{const m=mock();m.control.noReceipt=true;await assert.rejects(publishSite(m.options()),PublishPendingError);const saved=m.state;m.control.noReceipt=false;await publishSite(m.options(undefined,{state:saved}));assert.equal(m.logs.signed.length,7);assert.equal(m.logs.sent.length,7);});
 test('completed checkpoint is idempotent',async()=>{const m=mock();const first=await publishSite(m.options());const r=await publishSite(m.options(undefined,{state:m.state}));assert.equal(r.site,first.site);assert.equal(m.logs.signed.length,7);});

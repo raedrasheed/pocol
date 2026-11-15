@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { readFileSync } from 'node:fs';
 
-const P = await import('../dist/lib/publisher.js'), L = await import('../dist/lib/lease.js'), J = await import('../dist/lib/jobs.js'), B = await import('../dist/lib/studio-bridge.js');
+const R = await import('../dist/lib/retry.js'), P = await import('../dist/lib/publisher.js'), L = await import('../dist/lib/lease.js'), J = await import('../dist/lib/jobs.js'), B = await import('../dist/lib/studio-bridge.js');
 const SOURCE = readFileSync(new URL('../src/publisher-ui.js', import.meta.url), 'utf8').replace(/^import [^;]*;\n/gm, '');
 const HTML = readFileSync(new URL('../src/publisher.html', import.meta.url), 'utf8');
 const JOB_ID = 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', KEY = 'studio:job:' + JOB_ID, ADDRESS = '0x1111111111111111111111111111111111111111';
@@ -33,8 +33,8 @@ async function fixture({job = {}, publish, base = FLOOR, now = 1000} = {}) {
     publishSite: async (o) => { state.publishes.push(o); return publish ? publish(o, state, (v) => { clock = v; }) : {site: '0x' + '22'.repeat(20), version: 0, transactions: []}; },
     KeyLease: class extends L.KeyLease { constructor(o) { super({...o, clock: () => clock}); } }, JOB_DEADLINE_DEFAULT_MS: L.JOB_DEADLINE_DEFAULT_MS, JOB_DEADLINE_MAX_MS: L.JOB_DEADLINE_MAX_MS,
     isForeignJob: J.isForeignJob, blocksAccount: J.blocksAccount, archiveJob: J.archiveJob, networkOf: J.networkOf, filesKey: J.filesKey, rawKey: J.rawKey, removeSideKeys: J.removeSideKeys,
-    request: async (_url, method, params) => { state.calls.push(method); const a = rpcAnswers[method]; if (a === undefined) throw Object.assign(new Error('no ' + method), {rpc: {code: -32601}}); return typeof a === 'function' ? a(params) : a; },
-    Pool: class {}, TRUST_POOL: 1,
+    request: async (_url, method, params) => { state.calls.push(method); if (state.busy && state.busy[method] > 0) { state.busy[method]--; throw Object.assign(new Error('rate'), {transport: 'rate', status: 429, retryAfterMs: 2000}); } const a = rpcAnswers[method]; if (a === undefined) throw Object.assign(new Error('no ' + method), {rpc: {code: -32601}}); return typeof a === 'function' ? a(params) : a; },
+    Pool: class {}, TRUST_POOL: 1, RESERVE_WAIT_MS: 2000, withRetry: (fn, o) => R.withRetry(fn, {...o, sleep: async () => {}}),
     navigator: {locks: {request: async (_n, _o, fn) => fn({})}},
     chrome: {runtime: {getURL: (p) => 'chrome-extension://x/' + p}, tabs: {create() {}}, storage: {local: {
       get: async (k) => k === null ? Object.fromEntries([...storage].map(([a, b]) => [a, structuredClone(b)])) : (storage.has(k) ? {[k]: structuredClone(storage.get(k))} : {}),
@@ -95,4 +95,14 @@ test('W4 page: a job of another network is read-only, never blocks, and Cancel a
   await g.unlock(); g.consent(); await g.click('publish'); assert.equal(g.state.publishes.length, 1, 'the foreign job does not block this wallet');
   const h = await fixture(); h.storage.set('studio:job:other', {id: 'other', status: 'paused', walletAddress: ADDRESS, network: {chainId: String(NETWORK.chainId), genesisHash: NETWORK.genesisHash}, checkpoint: {transactions: {x: {}}}});
   await h.unlock(); h.consent(); await h.click('publish'); assert.equal(h.state.publishes.length, 0, 'this network\'s unresolved job still blocks'); assert.match(h.elements.get('status').textContent, /earlier publication/);
+});
+
+// W2/W11: the page's reads go through withRetry (a gateway's 429 is retried), a broadcast is never retried.
+test('W2 page: a read answered 429 by the gateway is retried, eth_sendRawTransaction is sent once', async () => {
+  const f = await fixture();
+  f.state.busy = {eth_gasPrice: 2}; f.state.calls.length = 0;
+  await f.click('refreshFees');
+  assert.equal(f.state.calls.filter((m) => m === 'eth_gasPrice').length, 3, 'two 429 answers, then the read'); assert.match(f.elements.get('fee').textContent, /PCOL/);
+  const rpc = vm.runInContext('rpc', f.context); f.state.busy = {eth_sendRawTransaction: 1}; f.state.calls.length = 0;
+  await assert.rejects(rpc('eth_sendRawTransaction', ['0x02']), /rate/); assert.equal(f.state.calls.filter((m) => m === 'eth_sendRawTransaction').length, 1);
 });
