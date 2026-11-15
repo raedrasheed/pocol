@@ -805,6 +805,100 @@ fn diff_held_net()->(Net,[u8;32]){
     assert_eq!(root(&n,&w),n.chain.blocks[&w].header.state_root,"the window's diff-held state still materializes");
     n.chain.retain();assert!(n.chain.prune_holds()&&held(&n)<=bound);
 }
+/// PR4 (A13 diffs_held), review of the state-retention fix: a rebuild through pruned side blocks gives a diff only to
+/// the blocks on its path within K_hist of its target's child, and only its target a state; the next retain drops the
+/// diffs of the side blocks left pruned. Before, the rebuild gave every block on its path one (18 here, past
+/// diffs_held at its peak), and neither `settle` (it counts the side blocks holding a state) nor `shed_full_states`
+/// (the canonical window) saw them, so they stayed until R_keep or side_cap removed the blocks. The rebuilt state, a
+/// child's verdict and the side states kept are what they were.
+#[test] fn pr4_a_rebuild_through_pruned_side_blocks_holds_at_most_diffs_held_diffs(){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let bound=pocold::resources::diffs_held(4,n.chain.spec.local().side_max) as usize+1;
+    let held=|n:&Net|n.chain.blocks.values().filter(|e|e.diff.is_some()).count();
+    let stale=|n:&Net|n.chain.blocks.values().filter(|e|e.pruned&&e.diff.is_some()&&!n.chain.is_canonical(&e.hash)).count();
+    // A lighter side branch of 20 blocks from height 4 (attempt 1: another block than the canonical one at 5).
+    let mut m=net();for h in &hashes[1..=4]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let mut side=vec![fallback(&m,hashes[4],1)];import(&mut m,&side[0]);
+    for _ in 1..20{let p=side.last().unwrap().hash();let b=fallback(&m,p,0);import(&mut m,&b);side.push(b);}
+    n.chain.ensure_state(&hashes[4]).unwrap();
+    for b in &side{import(&mut n,b);n.chain.retain();}
+    assert_eq!(n.chain.head,hashes[40],"positive control: the side branch is lighter");
+    assert!(held(&n)<=bound&&stale(&n)==0,"positive control: within the bound before the rebuild");
+    let s18=side[17].hash();assert!(n.chain.blocks[&s18].pruned&&n.chain.blocks[&side[0].hash()].pruned,"positive control: pruned side blocks (side_max)");
+    let rb=n.chain.rebuilds;n.chain.ensure_state(&s18).unwrap();
+    assert!(n.chain.rebuilds-rb>=18,"positive control: the rebuild walked the pruned side blocks");
+    // Only the side blocks above s18's height + 1 − K_hist (the window its child sets if it adopts the branch) get one.
+    assert!(stale(&n)>=1&&stale(&n)<4,"FAIL-ON-ORIGINAL: the rebuild gave {} pruned side blocks on its path a diff (K_hist 4)",stale(&n));
+    assert!(held(&n)<=bound,"FAIL-ON-ORIGINAL: the rebuild's peak held {} diffs (diffs_held+1 = {bound})",held(&n));
+    let root=|n:&Net,h:&[u8;32]|apply::state_root(&n.chain.full_entry(h).unwrap().state).unwrap().0;
+    assert_eq!(root(&n,&s18),n.chain.blocks[&s18].header.state_root,"the rebuilt state");
+    n.chain.retain();
+    assert_eq!(stale(&n),0,"FAIL-ON-ORIGINAL: the retain after the rebuild drops the diffs of the side blocks it left pruned");
+    assert!(held(&n)<=bound,"FAIL-ON-ORIGINAL: {} diffs held after a rebuild through pruned side blocks (diffs_held+1 = {bound})",held(&n));
+    let (_,with_state)=n.chain.side_counts();assert!(with_state<=n.chain.spec.local().side_max as usize);
+    let kept:Vec<[u8;32]>=n.chain.blocks.values().filter(|e|!e.pruned&&e.height>0&&!n.chain.is_canonical(&e.hash)).map(|e|e.hash).collect();
+    for h in &kept{assert!(n.chain.blocks[h].full,"a kept side state is full");assert_eq!(root(&n,h),n.chain.blocks[h].header.state_root,"a kept side state");}
+    // A child of a pruned side block on that path still rebuilds its parent and imports; so does one of the target.
+    for p in [side[9].hash(),s18]{let c=fallback(&m,p,1);
+        if let Err(r)=n.chain.validate(&c,None,0){assert!(matches!(r,Reject::NeedsRebuild(x) if x==p),"{r:?}");n.chain.ensure_state(&p).unwrap();}
+        import(&mut n,&c);n.chain.retain();assert!(stale(&n)==0&&held(&n)<=bound,"after a child of a pruned side block");}
+    for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();}
+    assert!(stale(&n)==0&&held(&n)<=bound&&n.chain.prune_holds());
+    let w=n.chain.head;assert_eq!(root(&n,&w),n.chain.blocks[&w].header.state_root,"the head's state");
+}
+
+/// PR4 (A13 diffs_held) with R21: a child that adopts a side branch after a rebuild through its pruned blocks. The rebuild
+/// gives a diff only to the side blocks above the cut that child sets (target height + 1 − K_hist), so its peak stays
+/// within diffs_held (before, every block on the path got one), and after the adoption the head still reaches
+/// every canonical block above the cut through them (`reach_window`): each answers its own state, as the full-state
+/// reference holding every block's state does, and the next blocks import.
+#[test] fn pr4_r21_an_adopting_child_of_a_rebuild_through_pruned_side_blocks_reaches_the_window(){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let bound=pocold::resources::diffs_held(4,n.chain.spec.local().side_max) as usize+1;
+    let held=|n:&Net|n.chain.blocks.values().filter(|e|e.diff.is_some()).count();
+    let stale=|n:&Net|n.chain.blocks.values().filter(|e|e.pruned&&e.diff.is_some()&&!n.chain.is_canonical(&e.hash)).count();
+    // A side branch from height 28 (attempt 1 first: another block than the canonical one at 29), built on a mirror
+    // `m`, as long as it stays lighter than the head; `child` is its next block, the first heavier one.
+    let w=n.chain.head().total_work;
+    let mut m=net();for h in &hashes[1..=28]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let (mut side,mut child)=(vec![],fallback(&m,hashes[28],1));
+    while{import(&mut m,&child);m.chain.blocks[&child.hash()].total_work<=w}{
+        assert!(side.len()<400,"the side branch outweighs the head");let p=child.hash();side.push(child);child=fallback(&m,p,0);}
+    let tip=side.last().unwrap().hash();let t=m.chain.blocks[&tip].height;
+    assert!(side.len()>=12&&t>=40,"positive control: a side branch of {} blocks up to height {t}",side.len());
+    n.chain.ensure_state(&hashes[28]).unwrap();
+    for b in &side{import(&mut n,b);n.chain.retain();}
+    assert_eq!(n.chain.head,hashes[40],"positive control: the side branch is lighter");
+    // Two siblings of the head (the same work as the tip, imported later) take side_max's two states: the tip's is pruned.
+    for a in [1,2]{let b=fallback(&n,hashes[39],a);import(&mut n,&b);n.chain.retain();}
+    assert_eq!(n.chain.head,hashes[40]);assert_eq!(n.chain.spec.local().side_max,2,"positive control: side_max");
+    assert!(n.chain.blocks[&tip].pruned&&side.iter().all(|b|n.chain.blocks[&b.hash()].pruned),"positive control: the whole side branch is pruned");
+    assert!(held(&n)<=bound&&stale(&n)==0,"positive control: within the bound before the rebuild");
+    assert!(matches!(n.chain.validate(&child,None,0),Err(Reject::NeedsRebuild(x)) if x==tip),"positive control: the child needs a rebuild");
+    let rb=n.chain.rebuilds;n.chain.ensure_state(&tip).unwrap();
+    assert!(n.chain.rebuilds-rb>=side.len() as u64,"positive control: the rebuild walked the pruned side blocks");
+    assert_eq!(stale(&n),2,"FAIL-ON-ORIGINAL: only the side blocks at {} and {} get a diff besides the target (got {})",t-2,t-1,stale(&n));
+    assert!(held(&n)<=bound,"FAIL-ON-ORIGINAL: the rebuild's peak held {} diffs (diffs_held+1 = {bound})",held(&n));
+    import(&mut n,&child);
+    assert_eq!(n.chain.head,child.hash(),"positive control: the child adopts the side branch");
+    assert!(held(&n)<=bound,"the adopting import holds {} diffs (diffs_held+1 = {bound})",held(&n));
+    n.chain.retain();
+    assert!(stale(&n)==0&&held(&n)<=bound&&n.chain.prune_holds());
+    // The reference: every block, every state (the same blocks: verdicts and roots are not this test's to change).
+    let mut r=net();r.chain.keep_full_states=true;r.chain.k_hist=u64::MAX;
+    for h in &hashes[1..=28]{let e=n.chain.blocks[h].clone();import(&mut r,&Block{header:e.header,body:e.body});}
+    for b in side.iter().chain([&child]){import(&mut r,b);}
+    assert_eq!(r.chain.head,child.hash());
+    let root=|n:&Net,h:&[u8;32]|apply::state_root(&n.chain.full_entry(h).unwrap().state).unwrap().0;
+    let cut=n.chain.head().height-4;
+    for x in cut+1..=n.chain.head().height{let h=*n.chain.canonical.get(x as usize).unwrap();
+        assert!(!n.chain.blocks[&h].pruned,"R21: the canonical block at {x} above the cut {cut} holds its state");
+        assert_eq!(root(&n,&h),n.chain.blocks[&h].header.state_root,"its state at {x}");assert_eq!(root(&n,&h),root(&r,&h),"the reference's at {x}");}
+    for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();import(&mut r,&b);}
+    assert!(stale(&n)==0&&held(&n)<=bound&&n.chain.prune_holds());assert_eq!(n.chain.head,r.chain.head);
+}
 
 /// The k_hist_retention_and_trie_rebuild_for_deep_fork fixture of the Step 5 tests: k_hist=4, 12 fallbacks
 /// retained, P=hashes[3] pruned, and a mirror `m` holding hashes[1..=3] (P its head).
@@ -3268,9 +3362,9 @@ fn wait_for(secs:u64,f:&dyn Fn()->bool)->bool{let t=std::time::Instant::now();wh
     assert!(wait_for(300,&||head(rc)==target),"C syncs from A");assert_eq!(view(rc),pv,"C, served by A, answers the same chain");
     println!("REFETCH-NET {}",json!({"ourBlocks":ours.len(),"theirBlocks":theirs.len(),"sideCap":lim.side_cap,"stats":st["stats"],"retention":st["retention"]}));
 }
-/// eth_call / eth_estimateGas on a block whose state is pruned (outside the K_hist window, or a block
-/// adopted after its state was pruned as a side block) answer -32017 like the state reads (consensus.md
-/// §10), never a simulation on an empty state.
+/// eth_call / eth_estimateGas on a block whose state is pruned (outside the K_hist window; a block adopted after its
+/// state was pruned as a side block holds it again inside the window, tests/memory_retention.rs) answer -32017 like
+/// the state reads (consensus.md §10), never a simulation on an empty state.
 #[test] fn a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation(){
     let mut h=net();let g=h.chain.head;let blocks=grow(&mut h,g,40,&|n,p|fallback(n,p,0));
     let (mut n,dir,_)=rnode("call",64,16);for x in &blocks{n.import(x.clone(),None).unwrap();}
@@ -3628,25 +3722,40 @@ fn heavier_shorter_then_deep(store:bool,tag:&str){
         assert!(at_safe.get("error").is_none(),"state at safe = finalized_h 36 is inside the window: {at_safe}");
         assert_eq!(at_safe["result"],rpc_local(&mut r,"eth_getBalance",json!([who,"0x24"])));}
     // Review N2-R1: with r_keep at or above K_hist (production: R_keep 2048, K_hist 32) finalized_h is at or below the
-    // old head − K_hist, so its state was pruned before the heavier, shorter branch lowered the head, and it is not
-    // restored. When safe falls back to finalized_h (k_safe 31 here), a block query at `safe` is answered and a state
-    // query answers -32017, as at `finalized`, live and after a restart. With the default k_safe 6, safe = head − 6 is
-    // inside the window and its state is answered.
+    // old head − K_hist, so its state was pruned before the heavier, shorter branch lowered the head, and the adoption
+    // (which re-executes from its fork point, above finalized_h) does not restore it: live, when safe falls back to
+    // finalized_h (k_safe 31 here), a block query at `safe` is answered and a state query answers -32017, as at
+    // `finalized` (the window's floor never moves down: node.rs `Limits::k_safe`). After a restart the replay's last
+    // restore re-executes every offloaded canonical block of the resident window, now inside (head − K_hist, head], each
+    // checked against its committed roots, and (R21, tests/memory_retention.rs) each keeps its state: the state query at
+    // safe = finalized_h is then answered. With the default k_safe 6, safe = head − 6 is inside the window and its state
+    // is answered, live and after a restart.
+    // The reward balances in each canonical block's state, from a chain that holds every state (its builder's): the
+    // state answered at `safe` after a restart must be that block's (alice's balance is the same at every height).
+    let rewards:Vec<Address>=devnet::build(&cfg(&["a","b","c"])).unwrap().miners.iter().map(|m|m.reward).collect();
+    let mut rf=net();for x in ours[..44].iter().chain(theirs.iter()){import(&mut rf,x);}assert_eq!(rf.chain.head,theirs_tip);
+    let want=|h:u64|->Vec<U256>{let e=rf.chain.full_entry(&rf.chain.canonical_at(h).unwrap().hash).unwrap();rewards.iter().map(|a|e.state.accounts.get(a).map_or(U256::ZERO,|x|x.info.balance)).collect()};
     for rk2 in [32u64,34]{
         let (mut m,dm,mconf)=fnode(&format!("{tag}-rk{rk2}"),rk2,(31,K_ALARM),store);
         for x in ours.iter().chain(theirs.iter()){m.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
         assert_eq!((m.chain.head,m.chain.finalized_h),(theirs_tip,60-rk2),"r_keep {rk2}: the branch is adopted, the floor stays");
-        let fin=m.chain.canonical_at(60-rk2).unwrap().hash;drop(m);
+        let fin=m.chain.canonical_at(60-rk2).unwrap().hash;
         let who=format!("{:#x}",devnet::account_key("alice").address());
-        for (ks,state_answered) in [(31,false),(K_SAFE,true)]{
+        assert_eq!(m.safe_height(),60-rk2,"live, k_safe 31: safe = finalized_h");
+        let at_safe=rpc_local_raw(&mut m,"eth_getBalance",json!([who,"safe"]));
+        assert_eq!(at_safe["error"]["code"],json!(-32017),"r_keep {rk2}, live: safe = finalized_h was pruned at the old head: {at_safe}");
+        assert_eq!(rpc_local_raw(&mut m,"eth_getBalance",json!([who,"finalized"]))["error"]["code"],json!(-32017),"as at finalized");
+        drop(m);
+        for ks in [31,K_SAFE]{
             let mut c=mconf();c.limits.k_safe=ks;let mut r=pocold::node::Node::open(c,admitted(&cfg(&["a","b","c"]))).unwrap();
             let safe=(theirs_h-ks).max(60-rk2);assert_eq!(r.safe_height(),safe);
             let sb=rpc_local(&mut r,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&r.chain.canonical_at(safe).unwrap().hash[..]),"r_keep {rk2}, k_safe {ks}: a block query at safe is answered");
             if ks==31{assert_eq!(sb["hash"],hex(&fin[..]),"safe = finalized_h");}
             let at_safe=rpc_local_raw(&mut r,"eth_getBalance",json!([who,"safe"]));
-            if state_answered{assert!(at_safe.get("error").is_none()&&at_safe["result"].is_string(),"r_keep {rk2}, k_safe {ks}: {at_safe}");}
-            else{assert_eq!(at_safe["error"]["code"],json!(-32017),"r_keep {rk2}, k_safe {ks}: safe = finalized_h was pruned: {at_safe}");
-                assert_eq!(rpc_local_raw(&mut r,"eth_getBalance",json!([who,"finalized"]))["error"]["code"],json!(-32017),"as at finalized");}
+            assert!(at_safe.get("error").is_none()&&at_safe["result"].is_string(),"r_keep {rk2}, k_safe {ks}, after a restart: {at_safe}");
+            assert_ne!(want(safe),want(safe-1),"positive control: the reward balances tell the block at safe from its parent");
+            let got:Vec<U256>=rewards.iter().map(|a|{let v=rpc_local(&mut r,"eth_getBalance",json!([format!("{a:#x}"),"safe"]));U256::from_str_radix(v.as_str().unwrap().trim_start_matches("0x"),16).unwrap()}).collect();
+            assert_eq!(got,want(safe),"r_keep {rk2}, k_safe {ks}, after a restart: the state at safe is the block's own");
             drop(r);}
         let _=std::fs::remove_dir_all(&dm);}
     let mut r=reopen(&conf);assert_eq!((r.chain.head,r.chain.finalized_h),(theirs_tip,36),"restart keeps finalized_h");assert_eq!(r.stats.replay_skipped,0);
@@ -5814,3 +5923,93 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 fn pool_txs(n:&pocold::node::Node)->Vec<Vec<u8>>{n.pool.txs.iter().map(|(_,r)|r.clone()).collect()}
+
+/// R21 review (store mode, anchors): a heavier, shorter branch forked at an anchor lowers the cut below it, and the
+/// restore re-executes the anchor above the cut and keeps its version (its state in the window). A later heavier fork
+/// below it makes it a side block, and `retain_anchors` drops it as an anchor: it is pruned with its version released,
+/// the entry the base (220001c) left on this chain (it never rebuilt the anchor), so a child of it rebuilds its state and
+/// is judged as the base judges it (valid, as the builder that holds every state finds). Before, only its version was
+/// released and the block was left unpruned with an empty state, and a valid child of it was refused (assignment
+/// EmptyMembership) and recorded invalid. side_max 64 (a legal setting) keeps the stripped entry through `settle`.
+/// (With a child of the anchor imported while it is above the cut, the base itself leaves it so: the next test.)
+#[test] fn r21_an_anchor_re_executed_above_the_cut_is_pruned_again_when_it_leaves_the_canonical_chain(){
+    let rk=64u64;let l=pr7_limits(rk,true,0,None);let e=pr7_depth(&l);
+    let f=((e+60)/64+1)*64;let prefix=pr7_chain(f as usize);
+    let mut h=pr7_builder(&prefix);let fh=h.chain.head;assert_eq!(h.chain.head().height,f);
+    let mut ours=vec![];let mut p=fh;for _ in 0..32{let x=fallback(&h,p,1);import(&mut h,&x);h.chain.retain();p=x.hash();ours.push(x);}
+    h.chain.ensure_state(&fh).unwrap();
+    let w=h.chain.get(&p).unwrap().total_work;let theirs=heavier(&mut h,fh,w,0);let m=theirs.len();
+    let d=e44_dir("r21-anchor");
+    let spec=admitted_with(&cfg(&["a","b","c"]),pocol_lp4_execution::admission::NodeLocal{side_max:64,..pocol_lp4_execution::admission::NodeLocal::single_host()});
+    let mut a=pocold::node::Node::open(pr7_conf(&d,l.clone())(),spec).expect("open");let k=a.chain.k_hist;
+    let versions=|a:&pocold::node::Node|a.chain.blocks.values().filter(|e|!e.pruned&&e.stored.is_none()).map(|e|e.height).collect::<Vec<_>>();
+    for x in prefix.iter().chain(&ours){a.import(x.clone(),None).unwrap();}
+    {let ae=a.chain.get(&fh).unwrap();assert_eq!(a.chain.head().height-k,f,"positive control: the cut is at the anchor");
+        assert!(a.chain.anchors().iter().any(|x|x.1==fh)&&ae.pruned&&ae.stored.is_some(),"positive control: an anchor at {f}");}
+    for x in &theirs{a.import(x.clone(),None).unwrap();}
+    assert_eq!(a.chain.head,theirs[m-1].hash());
+    {let ae=a.chain.get(&fh).unwrap();assert!(a.chain.head().height-k<f,"positive control: the cut fell below the anchor");
+        assert!(!ae.pruned&&ae.stored.is_some(),"positive control (R21): the anchor above the cut holds its version");}
+    assert!(versions(&a).is_empty(),"store mode: every state held is a stored version: {:?}",versions(&a));
+    let fm1=prefix[f as usize-2].hash();let mut h2=pr7_builder(&prefix[..f as usize-1]);
+    let first=signed(&h2,fm1,Body::default(),0);import(&mut h2,&first);h2.chain.retain();
+    let w2=a.chain.head().total_work;let mut deep=vec![first.clone()];deep.extend(heavier(&mut h2,first.hash(),w2,0));
+    for x in &deep{a.import(x.clone(),None).unwrap_or_else(|e|panic!("deep h={}: {e:?}",x.header.h));}
+    assert_eq!(a.chain.head,deep.last().unwrap().hash());
+    {let ae=a.chain.get(&fh).unwrap();assert!(!a.chain.is_canonical(&fh)&&!a.chain.anchors().iter().any(|x|x.1==fh),"positive control: no longer canonical, no longer an anchor");
+        assert!(ae.pruned||ae.stored.is_some(),"FAIL-ON-ORIGINAL: the former anchor is unpruned without its version (full {})",ae.full);
+        assert!(ae.pruned&&!ae.full&&ae.stored.is_none(),"as the base: the former anchor is pruned, its version released");}
+    assert!(versions(&a).is_empty(),"FAIL-ON-ORIGINAL: unpruned entries without a stored version at {:?}",versions(&a));
+    let (_,with_state)=a.chain.side_counts();assert!(with_state<=64);
+    h.chain.ensure_state(&fh).unwrap();let child=fallback(&h,fh,2);
+    assert!(h.chain.validate(&child,None,0).is_ok(),"positive control: the child is valid on its parent's state (the builder holds it)");
+    a.import(child.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: a valid child of the former anchor: {e:?}"));
+    assert!(!a.chain.invalid.contains_key(&child.hash())&&a.chain.get(&child.hash()).is_some(),"the child is held, not invalid");
+    drop(a);let _=std::fs::remove_dir_all(&d);
+}
+
+/// R21 review (store mode, anchors), a verdict the base (220001c) got wrong: the previous test with a valid child c1 of
+/// the anchor imported while a heavier, shorter branch holds the head below it (the anchor above the cut). The base held
+/// the anchor pruned there, so c1 rebuilt it as its target (its version the root, an empty path), which left it unpruned
+/// with only its version; the deeper fork then made it a side block, `retain_anchors` released that version and left the
+/// entry unpruned without a state (side_max 64 keeps it through `settle`), and a second valid child c2 was run on an empty
+/// state, refused (assignment EmptyMembership) and recorded invalid. Here the anchor holds its version in the window (no
+/// rebuild for c1), the drop prunes it, and c2 is rebuilt and imported, as the builder that holds every state judges it.
+/// FAIL-ON-BASE (src/chain.rs of 220001c): c2 Err(Block("assignment EmptyMembership")), recorded invalid. A node-local
+/// verdict change on the base's own path, documented at `retain_anchors` (the base's verdict there also depends on the
+/// wall-clock deep-rebuild bucket: without a token c1 is dropped as Evicted and c2 is valid on the base too).
+#[test] fn r21_an_anchor_rebuilt_above_the_cut_and_then_dropped_keeps_its_valid_children_valid(){
+    let rk=64u64;let l=pr7_limits(rk,true,0,None);let e=pr7_depth(&l);
+    let f=((e+60)/64+1)*64;let prefix=pr7_chain(f as usize);
+    let mut h=pr7_builder(&prefix);let fh=h.chain.head;assert_eq!(h.chain.head().height,f);
+    let mut ours=vec![];let mut p=fh;for _ in 0..32{let x=fallback(&h,p,1);import(&mut h,&x);h.chain.retain();p=x.hash();ours.push(x);}
+    h.chain.ensure_state(&fh).unwrap();
+    let w=h.chain.get(&p).unwrap().total_work;let theirs=heavier(&mut h,fh,w,0);let m=theirs.len();
+    let d=e44_dir("r21-anchor-c1");
+    let spec=admitted_with(&cfg(&["a","b","c"]),pocol_lp4_execution::admission::NodeLocal{side_max:64,..pocol_lp4_execution::admission::NodeLocal::single_host()});
+    let mut a=pocold::node::Node::open(pr7_conf(&d,l.clone())(),spec).expect("open");let k=a.chain.k_hist;
+    for x in prefix.iter().chain(&ours){a.import(x.clone(),None).unwrap();}
+    {let ae=a.chain.get(&fh).unwrap();assert_eq!(a.chain.head().height-k,f,"positive control: the cut is at the anchor");
+        assert!(a.chain.anchors().iter().any(|x|x.1==fh)&&ae.pruned&&ae.stored.is_some(),"positive control: an anchor at {f}");}
+    for x in &theirs{a.import(x.clone(),None).unwrap();}
+    assert_eq!(a.chain.head,theirs[m-1].hash());
+    assert!(a.chain.head().height-k<f,"positive control: the cut fell below the anchor");
+    h.chain.ensure_state(&fh).unwrap();let c1=fallback(&h,fh,2);
+    assert!(h.chain.validate(&c1,None,0).is_ok(),"positive control: c1 is valid on its parent's state (the builder holds it)");
+    a.import(c1.clone(),None).unwrap_or_else(|e|panic!("c1, a valid child of the anchor above the cut: {e:?}"));
+    assert!(a.chain.get(&c1.hash()).is_some()&&a.chain.head==theirs[m-1].hash(),"c1 is held as a side block");
+    {let ae=a.chain.get(&fh).unwrap();assert!(!ae.pruned&&ae.stored.is_some(),"the anchor above the cut holds its version");}
+    let fm1=prefix[f as usize-2].hash();let mut h2=pr7_builder(&prefix[..f as usize-1]);
+    let first=signed(&h2,fm1,Body::default(),0);import(&mut h2,&first);h2.chain.retain();
+    let w2=a.chain.head().total_work;let mut deep=vec![first.clone()];deep.extend(heavier(&mut h2,first.hash(),w2,0));
+    for x in &deep{a.import(x.clone(),None).unwrap_or_else(|e|panic!("deep h={}: {e:?}",x.header.h));}
+    assert_eq!(a.chain.head,deep.last().unwrap().hash());
+    {let ae=a.chain.get(&fh).unwrap();assert!(!a.chain.is_canonical(&fh)&&!a.chain.anchors().iter().any(|x|x.1==fh),"positive control: no longer canonical, no longer an anchor");
+        assert!(ae.pruned||ae.stored.is_some(),"FAIL-ON-BASE: the former anchor is unpruned without its version (full {})",ae.full);}
+    h.chain.ensure_state(&fh).unwrap();let c2=fallback(&h,fh,9);assert_ne!(c2.hash(),c1.hash());
+    assert!(h.chain.validate(&c2,None,0).is_ok(),"positive control: c2 is valid on its parent's state (the builder holds it)");
+    a.import(c2.clone(),None).unwrap_or_else(|e|panic!("FAIL-ON-BASE: c2, a valid child of the former anchor: {e:?}"));
+    assert!(!a.chain.invalid.contains_key(&c2.hash())&&a.chain.get(&c2.hash()).is_some(),"c2 is held, not invalid");
+    assert_eq!(a.chain.head,deep.last().unwrap().hash(),"fork choice: the deeper branch stays the head");
+    drop(a);let _=std::fs::remove_dir_all(&d);
+}
