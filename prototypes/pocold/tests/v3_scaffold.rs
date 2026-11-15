@@ -193,9 +193,9 @@ fn v3_05_keeps_spec1_local_timing_and_refuses_declared_timing_on_spec1(){
     let st:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();let s=pocold::single_host_local();
     assert_eq!(st["templateLatency"]["local"],serde_json::json!({"delta":s.delta,"phi":s.phi,"tExec":s.t_exec,"deltaRel":s.delta_rel,"gamma":s.gamma,"dFbWait":st["templateLatency"]["local"]["dFbWait"]}));
 }
-/// V3-05 on a v3 genesis: Δ_rel = σ + Δ + 2·t_exec from the declared assumptions, V3_WAN (13) by
-/// default at the O-6=b CP; devnet.json records them and the launcher derives the same; assumptions the CP cannot
-/// carry (R3) are refused by admission before any output.
+/// V3-05 on a v3 genesis: Δ_rel = σ + Δ + 2·t_exec from the declared assumptions, V3_DEFAULT (1,1,1: 7) by default
+/// since FN-4 (FRESH-NETWORK-DESIGN §1c; V3_WAN, 13, before); devnet.json records them and the launcher derives the same;
+/// assumptions the CP cannot carry (R3) are refused by admission before any output.
 #[test]
 fn v3_05_derives_delta_rel_for_v3_profiles_from_declared_timing(){
     let v3=|cp:serde_json::Value,timing:Option<serde_json::Value>|{let mut input=config();let o=input.as_object_mut().unwrap();o.remove("earnin");o.remove("continuous");
@@ -203,16 +203,25 @@ fn v3_05_derives_delta_rel_for_v3_profiles_from_declared_timing(){
     let ob=serde_json::json!({"T_blk":30,"D_att":150,"dFbWait":10});
     let out=Temp::new("v3-default");prepare(&v3(ob.clone(),None),&out.0).unwrap();
     let info:serde_json::Value=serde_json::from_slice(&std::fs::read(out.0.join("devnet.json")).unwrap()).unwrap();
-    assert_eq!(info["localTiming"],serde_json::json!({"delta":2,"phi":2,"tExec":2,"deltaRel":13,"gamma":8,"source":"v3-wan-default"}));
+    assert_eq!(info["localTiming"],serde_json::json!({"delta":1,"phi":1,"tExec":1,"deltaRel":7,"gamma":5,"source":"v3-default"}));
+    let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta,l.phi,l.t_exec,l.delta_rel,l.gamma),(1,1,1,7,5));
+    pocold::load_spec_for(&out.0,&l,None).unwrap();
+    // The O-6=b WAN assumptions declared (the pre-FN-4 default): Δ_rel 13, Γ 8.
+    let wan=serde_json::json!({"delta":2,"phi":2,"tExec":2});
+    let out=Temp::new("v3-wan");prepare(&v3(ob.clone(),Some(wan.clone())),&out.0).unwrap();
+    let info:serde_json::Value=serde_json::from_slice(&std::fs::read(out.0.join("devnet.json")).unwrap()).unwrap();
+    assert_eq!(info["localTiming"],serde_json::json!({"delta":2,"phi":2,"tExec":2,"deltaRel":13,"gamma":8,"source":"declared"}));
     let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta,l.phi,l.t_exec,l.delta_rel,l.gamma),(2,2,2,13,8));
     pocold::load_spec_for(&out.0,&l,None).unwrap();
+    // Without devnet.json the launcher falls back to the V3_DEFAULT assumptions.
+    std::fs::remove_file(out.0.join("devnet.json")).unwrap();let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(7,5));
     // Declared single-host assumptions: Δ_rel 7 (the R2 minimum), Γ 5; the launcher reads them back.
     let out=Temp::new("v3-declared");prepare(&v3(ob.clone(),Some(serde_json::json!({"delta":1,"phi":1,"tExec":1}))),&out.0).unwrap();
     let info:serde_json::Value=serde_json::from_slice(&std::fs::read(out.0.join("devnet.json")).unwrap()).unwrap();
     assert_eq!((info["localTiming"]["deltaRel"].as_u64(),info["localTiming"]["gamma"].as_u64(),info["localTiming"]["source"].as_str()),(Some(7),Some(5),Some("declared")));
     let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(7,5));pocold::load_spec_for(&out.0,&l,None).unwrap();
-    // Without devnet.json the launcher falls back to the V3_WAN default.
-    std::fs::remove_file(out.0.join("devnet.json")).unwrap();let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(13,8));
+    // Without devnet.json the launcher falls back to the V3_DEFAULT assumptions, the ones declared here.
+    std::fs::remove_file(out.0.join("devnet.json")).unwrap();let l=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((l.delta_rel,l.gamma),(7,5));
     // The governance WAN locals need dFbWait ≥ Φ + Δ + 2·t_exec = 21 (R3): refused at the O-6=b CP, admitted at (c).
     let gov=serde_json::json!({"delta":5,"phi":5,"tExec":3});
     let out=Temp::new("v3-r3");let err=prepare(&v3(ob.clone(),Some(gov.clone())),&out.0).unwrap_err();assert!(err.contains("R3"),"{err}");assert!(!out.0.exists());
@@ -234,8 +243,8 @@ fn v3_05_derives_delta_rel_for_v3_profiles_from_declared_timing(){
         }
     }
     // `pocold status` (and `run`) on a v3 network take the network's V3-05 timing, as the launcher does, with the
-    // command-line overrides on top.
-    let out=Temp::new("v3-cli");prepare(&v3(ob.clone(),None),&out.0).unwrap();
+    // command-line overrides on top (declared WAN assumptions, distinct from the single-host locals).
+    let out=Temp::new("v3-cli");prepare(&v3(ob.clone(),Some(wan)),&out.0).unwrap();
     let local=|extra:&[&str]|{let data=Temp::new("v3-cli-data");
         let o=std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["status","--network",out.0.to_str().unwrap(),"--data",data.0.to_str().unwrap()]).args(extra).output().unwrap();
         assert!(o.status.success(),"{}",String::from_utf8_lossy(&o.stderr));

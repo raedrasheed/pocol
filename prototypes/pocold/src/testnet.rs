@@ -1,5 +1,14 @@
 //! Public-information-only genesis preparation for independently held test keys.
 //! Still ExperimentalDevnet admission; does not enable the production network profile.
+//!
+//! FN-4 (FRESH-NETWORK-DESIGN.md row C7): a config with `profile` is a complete network profile, such as the committed
+//! `deploy/mainnet/v3-profile.json` and `v3-rehearsal-profile.json`. It states every CP field but g_ts and target_g
+//! (`genesisTime` and the measured `hashRate`), its local timing and its founders (`founders`, the only allocation).
+//! Values the genesis ceremony supplies are strings starting with `PLACEHOLDER`; the builder refuses any such value
+//! anywhere in a config unless `TestPlaceholders` (the `--test-placeholders` flag) fills them with public test values,
+//! and such a genesis is marked as a test genesis in its devnet.json. A test genesis also runs on the local
+//! `TEST_CHAIN_ID`, never the profile's own id (recorded as `profileChainId`): design §1b keeps network ids distinct so
+//! that transactions signed on one chain cannot replay on another (EIP-155 binds only the chain id).
 use pocol_lp4_execution::{
     admission::{self, NodeLocal, Request},
     apply::{Genesis, SystemPrograms},
@@ -18,6 +27,12 @@ use std::{collections::{BTreeMap, HashSet}, path::Path};
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Config {
+    /// FN-4: a complete network profile (module doc): the name it is recorded under. Requires `v3`.
+    #[serde(default)]
+    profile: Option<String>,
+    /// Where the profile's values are decided (a decision record path); recorded, not interpreted.
+    #[serde(default)]
+    record: Option<String>,
     #[serde(default)]
     v3: bool,
     #[serde(default)]
@@ -33,15 +48,152 @@ struct Config {
     #[serde(default)]
     full_nonce: bool,
     /// V3-05: the declared (or measured, V3-06 soak) WAN timing assumptions a v3 profile's local Δ_rel and Γ are
-    /// derived from (`local_for_v3`). Absent: `TimingAssumptions::V3_WAN`. Refused without `v3`: spec-1 local
+    /// derived from (`local_for_v3`). Absent: `TimingAssumptions::V3_DEFAULT` (FN-4). Refused without `v3`: spec-1 local
     /// timing stays the fixed `local_for` derivation.
     #[serde(default)]
     local_timing: Option<DeclaredTiming>,
+    /// FN-4: the R25d calibration input H_cal of a v3 config, with its class: `measurement` (the founders' aggregate
+    /// hash rate, measured) or `synthetic-fixture`. Absent: the synthetic (1<<18)/10 of every earlier testnet.
+    #[serde(default)]
+    hash_rate: Option<HashRate>,
     chain_id: u64,
     genesis_time: u64,
     registration_per_block: u8,
+    #[serde(default)]
     miners: Vec<Miner>,
+    #[serde(default)]
     accounts: Vec<Account>,
+    /// FN-4: a profile's founding miners (owner decisions 8 and 9: four founders, 1,000,000 PCOL each including the
+    /// 20 PCOL bond). Only a profile has founders; it has no `miners` or `accounts`.
+    #[serde(default)]
+    founders: Vec<Founder>,
+}
+#[derive(Deserialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct HashRate {
+    hashes_per_second: u64,
+    class: String,
+}
+#[derive(Deserialize, Clone)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct Founder {
+    id: Address,
+    reward: Address,
+    /// The reward account's genesis balance in wei (decimal); with the HELD bond B_reg it is FOUNDER_TOTAL_WEI.
+    allocation_wei: String,
+}
+
+/// Owner decision 9 (2026-11-13): four founding miners.
+pub const FOUNDERS: usize = 4;
+/// Owner decision 8: 1,000,000 PCOL per founder, of which B_reg (20 PCOL) is the founder's HELD bond in Escrow
+/// (FRESH-NETWORK-DESIGN §1b), so allocation + B_reg = 10^24 wei.
+pub const FOUNDER_TOTAL_WEI: u128 = 1_000_000_000_000_000_000_000_000;
+/// The prefix of a value the genesis ceremony fills (module doc).
+pub const PLACEHOLDER: &str = "PLACEHOLDER";
+/// FN-4: the chain id of every genesis the test flag fills, a local devnet id (7779xx, which the FN-0 draws exclude), in
+/// place of the profile's mainnet or rehearsal id, so a test chain never signs under a public network's id.
+pub const TEST_CHAIN_ID: u64 = 777_990;
+
+/// FN-4 (FRESH-NETWORK-DESIGN §1a, rows 15 and 53): a CP schema v2 genesis built here carries S_tail = S0/32, so the M3
+/// schedule reaches its tail exactly at era 5 (S0 >> 5). A builder check, not a consensus rule: the decoder accepts any
+/// S_tail (genesis_spec.rs), and lp4's generic `devnet::build` builds any tail (the V3-19 supply-bound tests probe them).
+pub fn tail_is_s0_over_32(subsidy: U256, s_tail: U256) -> Result<(), String> {
+    let want = subsidy / U256::from(32);
+    if s_tail != want { return Err(format!("S_tail {s_tail} is not S0/32 = {want} (S0 {subsidy})")); }
+    Ok(())
+}
+
+/// FN-4: the explicit test flag that lets the builder fill a profile's ceremony placeholders. Never a launch input:
+/// the founders become the public deterministic keys of `test_founder`, the calibration class `synthetic-fixture`,
+/// the chain id `TEST_CHAIN_ID` (the profile's id is kept as `profileChainId`), and devnet.json records `testPlaceholders`.
+#[derive(Clone, Copy, Debug)]
+pub struct TestPlaceholders {
+    pub genesis_time: u64,
+    pub hash_rate: u64,
+}
+/// The public test identity that fills founder `i`'s placeholders (keys derived from a public label).
+pub fn test_founder(i: usize) -> devnet::MinerIdentity {
+    devnet::miner_identity(&format!("fn4-test-founder-{i}"))
+}
+
+/// Every string value starting with PLACEHOLDER, by JSON pointer.
+fn placeholders(value: &serde_json::Value, path: &str, out: &mut Vec<String>) {
+    match value {
+        serde_json::Value::String(s) if s.starts_with(PLACEHOLDER) => out.push(if path.is_empty() { "/".into() } else { path.to_string() }),
+        serde_json::Value::Array(a) => for (i, v) in a.iter().enumerate() { placeholders(v, &format!("{path}/{i}"), out) },
+        serde_json::Value::Object(o) => for (k, v) in o { placeholders(v, &format!("{path}/{k}"), out) },
+        _ => {}
+    }
+}
+/// Any JSON value, refused when an object at any depth repeats a key (checked only; the value is discarded).
+struct NoDuplicateKeys;
+impl<'de> Deserialize<'de> for NoDuplicateKeys {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visit;
+        impl<'de> serde::de::Visitor<'de> for Visit {
+            type Value = NoDuplicateKeys;
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result { f.write_str("JSON without duplicate keys") }
+            fn visit_bool<E>(self, _: bool) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_i64<E>(self, _: i64) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_u64<E>(self, _: u64) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_f64<E>(self, _: f64) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_str<E>(self, _: &str) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_unit<E>(self) -> Result<Self::Value, E> { Ok(NoDuplicateKeys) }
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(self, mut seq: A) -> Result<Self::Value, A::Error> {
+                while seq.next_element::<NoDuplicateKeys>()?.is_some() {}
+                Ok(NoDuplicateKeys)
+            }
+            fn visit_map<A: serde::de::MapAccess<'de>>(self, mut map: A) -> Result<Self::Value, A::Error> {
+                let mut keys = HashSet::new();
+                while let Some(key) = map.next_key::<String>()? {
+                    if !keys.insert(key) { return Err(serde::de::Error::custom("duplicate key")); }
+                    map.next_value::<NoDuplicateKeys>()?;
+                }
+                Ok(NoDuplicateKeys)
+            }
+        }
+        deserializer.deserialize_any(Visit)
+    }
+}
+/// The config with its placeholders filled by `test`, and, when any was filled, the config's own chainId (replaced by
+/// `TEST_CHAIN_ID`). Without `test` a placeholder is refused (before any output); with it, only the ceremony inputs a
+/// profile has (genesisTime, hashRate.hashesPerSecond, each founder's id and reward) are filled, and any other
+/// placeholder is still refused.
+fn fill(config: &[u8], test: Option<&TestPlaceholders>) -> Result<(serde_json::Value, Option<serde_json::Value>), String> {
+    // `serde_json::Value` silently keeps the last of duplicate keys, while the typed `Config` refused them before the
+    // config was first read as a Value, so the refusal is made here, for every object at any depth (cp included).
+    serde_json::from_slice::<NoDuplicateKeys>(config).map_err(|_| "invalid public genesis config schema")?;
+    let mut value: serde_json::Value = serde_json::from_slice(config).map_err(|_| "invalid public genesis config schema")?;
+    let mut found = Vec::new();
+    placeholders(&value, "", &mut found);
+    if found.is_empty() { return Ok((value, None)); }
+    let Some(test) = test else {
+        return Err(format!("the config has genesis-ceremony placeholders at {}: fill them (FRESH-NETWORK-CP.md), \
+            or pass --test-placeholders for a local test genesis", found.join(", ")));
+    };
+    for path in &found {
+        let filled = match path.as_str() {
+            "/genesisTime" => serde_json::json!(test.genesis_time),
+            "/hashRate/hashesPerSecond" => serde_json::json!(test.hash_rate),
+            p => match p.strip_prefix("/founders/").and_then(|r| r.split_once('/')) {
+                Some((i, field @ ("id" | "reward"))) => {
+                    let i: usize = i.parse().map_err(|_| format!("placeholder at {p}"))?;
+                    let f = test_founder(i);
+                    serde_json::json!(if field == "id" { f.id } else { f.reward })
+                }
+                _ => return Err(format!("no test value for the placeholder at {p}")),
+            },
+        };
+        *value.pointer_mut(path).expect("found above") = filled;
+    }
+    if value.pointer("/hashRate").is_some() {
+        // A filled rate is not a measurement.
+        value["hashRate"]["class"] = serde_json::json!("synthetic-fixture");
+    }
+    // Design §1b: a test chain never runs under the profile's (public network's) chain id.
+    let object = value.as_object_mut().ok_or("invalid public genesis config schema")?;
+    let profile_chain_id = object.insert("chainId".into(), serde_json::json!(TEST_CHAIN_ID)).unwrap_or(serde_json::Value::Null);
+    Ok((value, Some(profile_chain_id)))
 }
 #[derive(Deserialize, Clone, Copy)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -111,6 +263,9 @@ impl TimingAssumptions {
     /// The WAN bounds the owner's O-6=b timing holds under (D-V3-06): measured Δ ≤ 2 s, φ ≤ 2 s, t_exec 2 s,
     /// so Δ_rel = 13 (V3-06 (b): σ = 7, R2 13, R3 dFbWait ≥ 10). The default for a v3 profile.
     pub const V3_WAN: Self = Self { delta: 2, phi: 2, t_exec: 2 };
+    /// FN-4 (FRESH-NETWORK-DESIGN §1c): the default of a v3 profile, Δ = φ = t_exec = 1 s (Δ_rel 7). The fresh network's
+    /// CP (dFbWait 8) also admits the measured fallback (2,1,1), Δ_rel 8, declared as `localTiming`.
+    pub const V3_DEFAULT: Self = Self::SINGLE_HOST;
     /// The largest value of each assumption accepted, in seconds (one hour): beyond it no block-time
     /// profile is meaningful, and the arithmetic stays far inside u32.
     pub const MAX_SECONDS: u32 = 3600;
@@ -148,7 +303,7 @@ pub fn local_for_v3(cp: &ConsensusParams, a: TimingAssumptions) -> Result<NodeLo
 
 /// The local timing for a genesis of `spec_version`: spec 1 is exactly `local_for` (declared assumptions are
 /// refused, so every spec-1 network keeps its timing); spec 2 (v3) is `local_for_v3` at the declared
-/// assumptions, `TimingAssumptions::V3_WAN` by default.
+/// assumptions, `TimingAssumptions::V3_DEFAULT` (1,1,1) by default (FN-4).
 pub fn local_for_spec(cp: &ConsensusParams, spec_version: u8, declared: Option<TimingAssumptions>) -> Result<NodeLocal, String> {
     if spec_version < 2 {
         if declared.is_some() {
@@ -156,7 +311,7 @@ pub fn local_for_spec(cp: &ConsensusParams, spec_version: u8, declared: Option<T
         }
         return local_for(cp);
     }
-    local_for_v3(cp, declared.unwrap_or(TimingAssumptions::V3_WAN))
+    local_for_v3(cp, declared.unwrap_or(TimingAssumptions::V3_DEFAULT))
 }
 
 /// devnet.json's `localTiming`: the declared assumptions (`delta`, `phi`, `tExec`) and the `deltaRel` and `gamma`
@@ -210,7 +365,7 @@ pub fn spec_version_of(dir: &Path) -> Result<u8, String> {
 }
 
 /// The launcher uses the same final CP-derived local timing as the genesis builder: spec 1 `local_for`; a v3
-/// genesis `local_for_v3` at the assumptions its devnet.json declares (`TimingAssumptions::V3_WAN` without one).
+/// genesis `local_for_v3` at the assumptions its devnet.json declares (`TimingAssumptions::V3_DEFAULT` without one).
 /// A v3 devnet.json whose recorded `deltaRel` or `gamma` differs from what V3-05 derives from its assumptions (a
 /// file written before V3-05, or one edited by hand) is refused, so a node never runs a T_j other than the one the
 /// file states.
@@ -243,11 +398,102 @@ fn cp_number(value: &serde_json::Value) -> Result<pocol_lp4_execution::fixed::U2
     Ok(devnet::to_fixed(number))
 }
 
+/// The CP fields a profile does not state: g_ts is `genesisTime`, target_g the R25d calibration of `hashRate`.
+const PROFILE_DERIVED: [&str; 2] = ["g_ts", "target_g"];
+
+/// FN-4: a profile's own shape (module doc), checked before anything is derived from it. Its founders become the
+/// miners and the only allocation: each founder's reward account gets `allocationWei`.
+fn profile_input(input: &mut Config, test_filled: bool) -> Result<(), String> {
+    let name = input.profile.as_deref().unwrap_or_default();
+    if name.is_empty() || name.len() > 64 { return Err("profile: the name is 1 to 64 characters".into()); }
+    if !input.v3 { return Err("profile: a network profile is a v3 profile (\"v3\": true)".into()); }
+    if !input.miners.is_empty() || !input.accounts.is_empty() {
+        return Err("profile: the founders are the only members and the only allocation (no miners or accounts)".into());
+    }
+    if input.founders.len() != FOUNDERS { return Err(format!("profile: {FOUNDERS} founders are required, not {}", input.founders.len())); }
+    if input.local_timing.is_none() { return Err("profile: localTiming is required".into()); }
+    match &input.hash_rate {
+        Some(r) if r.class == "measurement" => {}
+        // `fill` marks the test value it put in place of the measured rate.
+        Some(r) if test_filled && r.class == "synthetic-fixture" => {}
+        Some(_) => return Err("profile: hashRate.class must be \"measurement\" (a measured H_cal, R25d)".into()),
+        None => return Err("profile: hashRate is required".into()),
+    }
+    let schema = gs::cp_schema(2).unwrap();
+    let missing: Vec<&str> = schema.iter().map(|f| f.name).filter(|n| !PROFILE_DERIVED.contains(n) && !input.cp.contains_key(*n)).collect();
+    if !missing.is_empty() { return Err(format!("profile: the CP must state every field; missing {}", missing.join(", "))); }
+    for f in &input.founders {
+        input.miners.push(Miner { id: f.id, reward: f.reward });
+        input.accounts.push(Account { address: f.reward, wei: f.allocation_wei.clone() });
+    }
+    let distinct = |v: Vec<Address>| v.iter().collect::<HashSet<_>>().len() == v.len();
+    if !distinct(input.founders.iter().map(|f| f.id).collect()) || !distinct(input.founders.iter().map(|f| f.reward).collect()) {
+        return Err("profile: founder ids and reward addresses must each be distinct".into());
+    }
+    Ok(())
+}
+
+/// FN-4 founder allocation check, before the genesis is built: each founder's allocation plus the HELD bond B_reg is
+/// exactly FOUNDER_TOTAL_WEI (owner decision 8).
+fn check_allocation(input: &Config, b_reg: U256) -> Result<(), String> {
+    for (i, f) in input.founders.iter().enumerate() {
+        let allocation = Some(f.allocation_wei.as_str()).filter(|w| !w.is_empty() && w.bytes().all(|b| b.is_ascii_digit()))
+            .and_then(|w| w.parse::<U256>().ok()).ok_or_else(|| format!("founder {i}: allocationWei must be a decimal wei amount"))?;
+        if allocation.checked_add(b_reg) != Some(U256::from(FOUNDER_TOTAL_WEI)) {
+            return Err(format!("founder {i}: allocation {allocation} + B_reg {b_reg} is not {FOUNDER_TOTAL_WEI} wei"));
+        }
+    }
+    Ok(())
+}
+
+/// FN-4: the founders as the admitted genesis holds them: each a live HELD record (status 1, bond state 1) with its
+/// B_reg bond and its reward address, the reward account durable (nonce >= 1, PAY-02) with its allocation; Escrow
+/// holds the founders' bonds; the initial supply is FOUNDERS x FOUNDER_TOTAL_WEI.
+fn check_founders(input: &Config, genesis: &pocol_lp4_execution::apply::Genesis, b_reg: U256) -> Result<(), String> {
+    use pocol_lp4_execution::apply;
+    let state = genesis.state();
+    for (i, f) in input.founders.iter().enumerate() {
+        let r = apply::miner_record(state, f.id).ok_or_else(|| format!("founder {i}: no registry record"))?;
+        if r.status != 1 || r.tomb || r.bond_state != 1 || r.bond != b_reg || r.reward != f.reward {
+            return Err(format!("founder {i}: the genesis record is not a live HELD record with bond {b_reg} and its reward address"));
+        }
+        let account = state.accounts.get(&f.reward).map(|a| &a.info).ok_or_else(|| format!("founder {i}: no reward account"))?;
+        if account.nonce < 1 || account.balance.checked_add(b_reg) != Some(U256::from(FOUNDER_TOTAL_WEI)) {
+            return Err(format!("founder {i}: the reward account needs nonce >= 1 (PAY-02) and its allocation"));
+        }
+    }
+    let n = U256::from(input.founders.len());
+    let escrow = state.accounts.get(&pocol_lp4_execution::pay::escrow_address()).map_or(U256::ZERO, |a| a.info.balance);
+    if escrow != b_reg * n { return Err(format!("Escrow holds {escrow} wei, not the founders' bonds {}", b_reg * n)); }
+    if genesis.initial_supply() != U256::from(FOUNDER_TOTAL_WEI) * n {
+        return Err(format!("initial supply {} is not {} founders x {FOUNDER_TOTAL_WEI} wei", genesis.initial_supply(), input.founders.len()));
+    }
+    Ok(())
+}
+
+/// FN-4: the genesis supply bound the builder (genesis_builder.rs) and ParamGate R23 hold below 2^127: the initial
+/// supply plus the v3 issuance bound 2·S0·H_half + S_tail·2^64 (issuance.rs). About 2.3058·10^36 wei, 121 bits, on the
+/// fresh network's profile (FRESH-NETWORK-DESIGN §1b).
+pub fn supply_bound(initial: U256, cp: &ConsensusParams) -> Result<U256, String> {
+    let future = pocol_lp4_execution::issuance::future_bound(devnet::from_fixed(&cp.subsidy), cp.H_half, devnet::from_fixed(&cp.S_tail))
+        .ok_or("supply bound overflows uint256")?;
+    let bound = initial.checked_add(future).ok_or("supply bound overflows uint256")?;
+    if bound >= U256::from(1) << 127 { return Err(format!("supply bound {bound} is not below 2^127")); }
+    Ok(bound)
+}
+
 /// Resolve once from typed public input.
-fn resolve(config: &[u8]) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4_execution::fixed::U256>), String> {
-    if config.len() > 262144 { return Err("testnet config exceeds 256 KiB".into()); }
-    let mut input: Config = serde_json::from_slice(config).map_err(|_| "invalid public genesis config schema")?;
+fn resolve(config: serde_json::Value, test_filled: bool) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4_execution::fixed::U256>), String> {
+    let mut input: Config = serde_json::from_value(config).map_err(|_| "invalid public genesis config schema")?;
     if input.local_timing.is_some() && !input.v3 { return Err("localTiming is a v3 profile input; a spec-1 network keeps its fixed local timing".into()); }
+    if input.hash_rate.is_some() && !input.v3 { return Err("hashRate is a v3 profile input".into()); }
+    if let Some(r) = &input.hash_rate {
+        if r.hashes_per_second == 0 || !["measurement", "synthetic-fixture"].contains(&r.class.as_str()) {
+            return Err("hashRate: hashesPerSecond is at least 1 and class is measurement or synthetic-fixture".into());
+        }
+    }
+    if input.profile.is_some() { profile_input(&mut input, test_filled)?; }
+    else if !input.founders.is_empty() { return Err("founders belong to a network profile (\"profile\")".into()); }
     if input.v3 {
         input.earnin = true; input.continuous = true; input.full_nonce = true;
     }
@@ -261,17 +507,19 @@ fn resolve(config: &[u8]) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4
     let mut cfg = devnet::DevnetConfig::new(input.chain_id, input.genesis_time, &[]);
     cfg.spec_version = if input.v3 { 2 } else { 1 };
     cfg.t_blk = 10; cfg.tau = 600; cfg.d_att = 60; cfg.d_fb_wait = 6;
-    cfg.hash_rate = (1 << 18) / 10; cfg.r_max = input.registration_per_block;
+    cfg.hash_rate = input.hash_rate.as_ref().map_or((1 << 18) / 10, |r| r.hashes_per_second); cfg.r_max = input.registration_per_block;
     cfg.earnin = input.earnin;
     if input.earnin || input.full_nonce { cfg.nonce_mode = 1; }
     let schema = gs::cp_schema(cfg.spec_version).unwrap();
     let mut overrides = BTreeMap::new();
     for (name, raw) in &input.cp {
         let index = schema.iter().position(|f| f.name == name).ok_or_else(|| format!("unknown CP field {name}"))?;
-        if ["g_ts", "target_g", "H_END", "H_CLOSE", "T_END", "T_CLOSE"].contains(&name.as_str()) {
+        let value = cp_number(raw).map_err(|e| format!("CP {name}: {e}"))?;
+        // A v3 chain is continuous: it may state H_END/H_CLOSE/T_END/T_CLOSE as the 0 the builder derives (a profile does).
+        let stated_zero = input.v3 && value.is_zero() && ["H_END", "H_CLOSE", "T_END", "T_CLOSE"].contains(&name.as_str());
+        if ["g_ts", "target_g", "H_END", "H_CLOSE", "T_END", "T_CLOSE"].contains(&name.as_str()) && !stated_zero {
             return Err(format!("CP field {name} is derived by the builder"));
         }
-        let value = cp_number(raw).map_err(|e| format!("CP {name}: {e}"))?;
         let field = &schema[index];
         if value.bits() > field.width || value < pocol_lp4_execution::fixed::U256::from_u64(field.lo) {
             return Err(format!("CP {name}: gsRange"));
@@ -288,6 +536,16 @@ fn resolve(config: &[u8]) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4
     for (index, value) in overrides { cp[index] = value; }
     let params = ConsensusParams::from_values(&cp).map_err(|e| format!("CP {}: {}", e.detail, e.code))?;
     if (input.earnin || input.full_nonce) && params.nonceMode != 1 { return Err("nonceMode contradicts earnin/fullNonce/v3".into()); }
+    if input.v3 {
+        // FN-4: the tail of the M3 schedule is S0/32 (FRESH-NETWORK-DESIGN §1a row 53).
+        tail_is_s0_over_32(devnet::from_fixed(&params.subsidy), devnet::from_fixed(&params.S_tail))?;
+    }
+    if input.profile.is_some() {
+        if params.R_max != input.registration_per_block {
+            return Err(format!("profile: registrationPerBlock {} is not the CP's R_max {}", input.registration_per_block, params.R_max));
+        }
+        check_allocation(&input, devnet::from_fixed(&params.B_reg))?;
+    }
     Ok((input, cfg, cp))
 }
 
@@ -300,13 +558,21 @@ pub(crate) fn allowed(address: Address) -> bool {
 }
 
 pub fn prepare(config: &[u8], out: &Path) -> Result<(), String> {
-    build(config, out)
+    build(config, out, None)
 }
-fn build(config: &[u8], out: &Path) -> Result<(), String> {
+/// `prepare` with the explicit test flag (module doc): `Some` fills a profile's ceremony placeholders with public test
+/// values; `None` is `prepare`, which refuses every placeholder.
+pub fn prepare_with(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(), String> {
+    build(config, out, test)
+}
+fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(), String> {
     if out.exists() {
         return Err("output must be a new directory; genesis is never overwritten".into());
     }
-    let (input, cfg, cp) = resolve(config)?;
+    if config.len() > 262144 { return Err("testnet config exceeds 256 KiB".into()); }
+    let (value, profile_chain_id) = fill(config, test)?;
+    let test_filled = profile_chain_id.is_some();
+    let (input, cfg, cp) = resolve(value, test_filled)?;
     let params = ConsensusParams::from_values(&cp).map_err(|e| format!("CP: {e:?}"))?;
     let mut alloc = InMemoryDB::default();
     let mut seen = HashSet::new();
@@ -382,6 +648,7 @@ fn build(config: &[u8], out: &Path) -> Result<(), String> {
     let timing = admission::measure(&bytes, &alloc, 1)?;
     let declared = input.local_timing.map(|t| TimingAssumptions { delta: t.delta, phi: t.phi, t_exec: t.t_exec });
     let local = local_for_spec(&params, cfg.spec_version, declared)?;
+    let measured = input.hash_rate.as_ref().is_some_and(|r| r.class == "measurement");
     let request = Request {
         spec_bytes: &bytes,
         alloc: &alloc,
@@ -389,17 +656,19 @@ fn build(config: &[u8], out: &Path) -> Result<(), String> {
         kind: ProfileKind::Simnet,
         node: NodeKind::Simnet,
         local: &local,
-        calibration: Some((cfg.hash_rate, FactClass::SyntheticFixture)),
+        calibration: Some((cfg.hash_rate, if measured { FactClass::Measurement } else { FactClass::SyntheticFixture })),
         timing: Some(&timing),
         scope: admission::Scope::ExperimentalDevnet,
     };
     let admitted = admission::admit(&request).map_err(|e| e.to_string())?;
+    if input.profile.is_some() { check_founders(&input, admitted.genesis(), devnet::from_fixed(&params.B_reg))?; }
+    let bound = if input.v3 { Some(supply_bound(admitted.genesis().initial_supply(), &params)?) } else { None };
     let info = serde_json::json!({"chainId":cfg.chain_id, "genesisHash":crate::types::hex(&profile.genesis_hash()),
         "genesisTime":cfg.g_ts, "profileKind":"simnet", "keyMode":"independent-key-files", "forks":[[1,0]],
         "note":"Experimental candidate only; independent keys do not establish public-network readiness.",
         "registrationPerBlock":params.R_max,"continuous":input.continuous,
         "miners":input.miners.iter().map(|m|serde_json::json!({"id":m.id,"reward":m.reward})).collect::<Vec<_>>(),
-        "calibration":{"hashesPerSecond":cfg.hash_rate,"class":"synthetic-fixture"},
+        "calibration":{"hashesPerSecond":cfg.hash_rate,"class":if measured {"measurement"} else {"synthetic-fixture"}},
         "timing":timing.to_json(),"admission":crate::admission_json(&admitted)});
     let mut info = info;
     if input.earnin {
@@ -417,7 +686,21 @@ fn build(config: &[u8], out: &Path) -> Result<(), String> {
     }
     if input.v3 {
         // V3-05: where the assumptions came from; deltaRel = sigma + delta + 2 tExec, recomputed by the launcher.
-        info["localTiming"]["source"] = serde_json::json!(if declared.is_some() { "declared" } else { "v3-wan-default" });
+        info["localTiming"]["source"] = serde_json::json!(if declared.is_some() { "declared" } else { "v3-default" });
+    }
+    if let Some(bound) = bound {
+        info["supply"] = serde_json::json!({"initialWei":admitted.genesis().initial_supply().to_string(),"boundWei":bound.to_string(),"boundBits":bound.bit_len()});
+    }
+    if let Some(name) = &input.profile {
+        info["profile"] = serde_json::json!(name);
+        if let Some(record) = &input.record { info["record"] = serde_json::json!(record); }
+        info["founders"] = input.founders.iter().map(|f| serde_json::json!({"id":f.id,"reward":f.reward,"allocationWei":f.allocation_wei,
+            "bondWei":devnet::from_fixed(&params.B_reg).to_string()})).collect();
+    }
+    if test_filled {
+        info["testPlaceholders"] = serde_json::json!(true);
+        info["profileChainId"] = profile_chain_id.clone().unwrap_or_default();
+        info["note"] = serde_json::json!("TEST GENESIS: ceremony placeholders filled with public test keys and a synthetic hash rate, on the local test chain id; never a launch genesis.");
     }
     // Admission must succeed before any output. Partial I/O failures remain visible and are not overwritten.
     std::fs::create_dir(out).map_err(|e| format!("output directory: {e}"))?;
@@ -433,6 +716,10 @@ fn build(config: &[u8], out: &Path) -> Result<(), String> {
     }
     let mut summary = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),
         "scope":admitted.scope().name()});
+    if test_filled {
+        summary["testPlaceholders"] = serde_json::json!(true);
+        summary["profileChainId"] = profile_chain_id.unwrap_or_default();
+    }
     // V3-28 H1: computed from this build and the admission above (readiness.rs).
     crate::readiness::annotate(&mut summary, &crate::readiness::of_admitted(&admitted));
     println!("{summary}");
@@ -440,8 +727,11 @@ fn build(config: &[u8], out: &Path) -> Result<(), String> {
 }
 
 pub fn init(args: &[String]) -> Result<(), String> {
-    if args.len() != 6 {
-        return Err("usage: pocold init-testnet --config PUBLIC.json --out NEW_DIR".into());
+    // FN-4: `--test-placeholders` is the explicit test flag (module doc): genesis time now, the synthetic hash rate.
+    let test_flag = args.iter().filter(|a| a.as_str() == "--test-placeholders").count();
+    let args: Vec<String> = args.iter().filter(|a| a.as_str() != "--test-placeholders").cloned().collect();
+    if args.len() != 6 || test_flag > 1 {
+        return Err("usage: pocold init-testnet --config PUBLIC.json --out NEW_DIR [--test-placeholders]".into());
     }
     let value = |flag: &str| -> Result<&str, String> {
         let at: Vec<_> = args
@@ -473,7 +763,8 @@ pub fn init(args: &[String]) -> Result<(), String> {
         .take(262145)
         .read_to_end(&mut input)
         .map_err(|_| "cannot read public config")?;
-    prepare(&input, Path::new(value("--out")?))
+    let test = (test_flag == 1).then(|| TestPlaceholders { genesis_time: crate::node::now_s(), hash_rate: (1 << 18) / 10 });
+    prepare_with(&input, Path::new(value("--out")?), test.as_ref())
 }
 
 #[cfg(test)]
@@ -552,10 +843,14 @@ mod tests {
 
     #[test]
     fn the_v3_default_satisfies_r2_r3_and_r6_for_each_locals_profile() {
-        // O-6=b (D-V3-06): T_blk 30, D_att 150, dFbWait 10 at the V3_WAN default.
+        // O-6=b (D-V3-06): T_blk 30, D_att 150, dFbWait 10 at the V3_WAN assumptions (the default before FN-4).
         let ob = cp(30, 150, 10);
-        let l = local_for_spec(&ob, 2, None).unwrap();
+        let l = local_for_spec(&ob, 2, Some(TimingAssumptions::V3_WAN)).unwrap();
         assert_eq!((l.delta, l.phi, l.t_exec, l.delta_rel, l.gamma), (2, 2, 2, 13, 8));
+        assert_eq!(r2_r3_r6(&ob, &l), (true, true, true));
+        // FN-4: the v3 default is V3_DEFAULT (1,1,1), Δ_rel 7 (FRESH-NETWORK-DESIGN §1c).
+        let l = local_for_spec(&ob, 2, None).unwrap();
+        assert_eq!((l.delta, l.phi, l.t_exec, l.delta_rel, l.gamma), (1, 1, 1, 7, 5));
         assert_eq!(r2_r3_r6(&ob, &l), (true, true, true));
         // The 60 s fallback with the governance WAN locals (V3-06 (c)): Δ_rel 25 by derivation.
         let oc = cp(60, 300, 25);

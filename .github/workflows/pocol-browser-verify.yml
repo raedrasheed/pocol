@@ -73,6 +73,11 @@ jobs:
           else
             npm run package --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-package.log
           fi
+      - name: ES-module loader in Chromium (Sites W2b, no devnet)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          node prototypes/pocol-extension/tests/module_loader_browser.mjs 2>&1 | tee evidence/modules-browser.log
       - name: Browser with live devnet
         run: |
           set -o pipefail
