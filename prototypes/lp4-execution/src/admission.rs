@@ -89,18 +89,33 @@ impl NodeLocal{
 /// to 1000, on real blocks through apply_block at the GAS_DOMAIN maxima. Self-contained since phase 6a of the fresh
 /// network, which deleted the spec-1 program sets and their tables (GAS_ENVELOPE for V1 and Continuous, GAS_ENVELOPE_EARNIN
 /// for the earn-in set): before it the v3 table took the earn-in entry of every call it had not measured (beginBlock,
-/// markClose and pruneShares). The measuring tests fail if a measurement ever exceeds its entry, so no entry can silently go
-/// stale. Each entry, on its worst path:
+/// markClose and pruneShares). The measuring tests fail if a measurement ever exceeds its entry, so an entry cannot go stale
+/// on a path they run; an entry bounds the real cost only if they run the call's worst path, which the list below names
+/// with the argument that it is the worst. Each entry, on its worst path:
 /// - beginBlock, markClose and pruneShares (phase 6a, `resources::tests::sys_gas_envelope_fixture_v3`: the scenarios of the
 ///   retired spec-1 and earn-in fixtures run on the v3 programs, ACCRUING registrants included, plus the pruning of a pot
-///   of S_max + 1 = 257 distinct owners, which the v3 domain reaches because it has no M_max term; and tests/v3_contracts.rs
-///   `v3_sweep_deletions_keep_the_sys_envelope` (the sweep at its program caps, 64 scans and 16 deletions) and
-///   `v3_closing_mark_close_gas_within_the_envelope` (closing refunds at RET 128, 64 of them ACCRUING)): beginBlock 928,947 (the sweep deleting 76 tombstones with
-///   short E_win, ACCRUING records moved into the erased positions; the program-cap sweep measures 806,559), markClose
-///   2,683,810 (the first closing markClose refunding RET records after that sweep; the RET-128 closing with 64 ACCRUING
-///   records measures 2,683,610), pruneShares 2,790,996 (the prune of a pot of 257 distinct owners). The earn-in entries
-///   the v3 table took before (944,000, 2,716,000 and 2,781,000) bounded the first two; the third was below the 257-owner
-///   prune, which the earn-in fixture never ran (its M_max stopped at 256 distinct owners).
+///   of S_max + 1 = 257 distinct owners, which the v3 domain reaches because it has no M_max term, and the sweep's worst
+///   path `sweep_worst_scenario`; and tests/v3_contracts.rs `v3_sweep_deletions_keep_the_sys_envelope` (the sweep at its
+///   program caps over live records) and `v3_closing_mark_close_gas_within_the_envelope` (closing refunds at RET 128, 64
+///   of them ACCRUING)):
+///   - beginBlock 1,092,822: the sweep at its program caps, SWEEP_SCAN 64 scans and SWEEP_MAX 16 erasures, with the 48
+///     records it does not erase the dearest scans and the 16 it erases the dearest erasures. A scan that does not erase
+///     costs most on a tomb that is not yet erasable (sweepOne reads both clocks and then E_win and D from ChainCaps, two
+///     STATICCALLs, before it refuses; a live record fails both branches before any ChainCaps read). An erasure costs most
+///     on an exited record past its due height: the refund (Escrow.releaseBond, its bondRecord callback and a PAY of the
+///     bond, then held_total) before the erase, which moves the last record into the erased position. No scan of a live
+///     exited record past due refuses: register and setRewardAddress admit only a durable reward (the PAY probe), so its
+///     refund never fails. Measured on real blocks: 48 tombs burned in the 12 blocks before the sweep, then 16 refunds of
+///     exited registrants chained from the list end. The same path with tomb erasures measures 977,314, the 76-tombstone
+///     sweep (live records scanned between the erasures) 928,947, the program-cap sweep over live ACCRUING records 806,559.
+///     Phase 6a lowered this entry to 929,000 from the earn-in table's 944,000 on the 76-tombstone sweep, and its review
+///     found both below the worst path, which no measurement had run.
+///   - markClose 2,683,810: the first closing markClose refunding RET records after that sweep; the RET-128 closing with 64
+///     ACCRUING records measures 2,683,610.
+///   - pruneShares 2,790,996: the prune of a pot of 257 distinct owners.
+///   The earn-in entries the v3 table took before phase 6a (944,000, 2,716,000 and 2,781,000) bounded only markClose:
+///   beginBlock's worst path and the 257-owner prune (the earn-in fixture's M_max stopped at 256 distinct owners) were
+///   never run.
 /// - settle and settleFinal (the same settleOne): every payee ACCRUING at bond 0 and promoted in the one call, as the
 ///   chain's first burn (`v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner among them, and the
 ///   signed proposer, 258 bond fills from 0 to B_reg, M_max 1,000), with held_total 0 at the first accrue (no bond held:
@@ -140,7 +155,7 @@ impl NodeLocal{
 /// Checked on blocks: `resources::tests::sys_gas_envelope_fixture_v3` takes its owners from the parent's ActList as the host
 /// does and asserts each is a record before and after the block, and pocold's tests/v3_earnin.rs asserts it for the result
 /// of every real (mined and validated) block.
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("beginBlock",929_000),("closeBlock",128_000),("finalize",62_000),("invalidate",9_000),("markClose",2_684_000),
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("beginBlock",1_093_000),("closeBlock",128_000),("finalize",62_000),("invalidate",9_000),("markClose",2_684_000),
     ("pruneShares",2_791_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),("recordShares",14_200_000),("settle",11_957_000),("settleFinal",11_957_000)];
 /// The envelope of a program set: `GAS_ENVELOPE_V3` for the one bundled set.
 pub fn gas_envelope(set:ProgramSet)->&'static [(&'static str,u64)]{match set{ProgramSet::V3=>GAS_ENVELOPE_V3}}

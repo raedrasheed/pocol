@@ -282,9 +282,88 @@ fn prune_scenario(c:&DevnetConfig,seen:&mut std::collections::BTreeMap<&'static 
     }
     assert!(prune>0,"pruneShares measured");prune
 }
+/// The beginBlock sweep's worst path on real blocks: all SWEEP_SCAN 64 scans and SWEEP_MAX 16 erasures, the 48 records that
+/// are not erased being the dearest scans (tombs not yet erasable: sweepOne reads both clocks and then E_win and D from
+/// ChainCaps, two STATICCALLs, before it refuses) and the 16 erased records the dearest erasures. A network of
+/// `SWEEP_WORST_MEMBERS` genesis members and 17 registrants (register(self) with a full bond, USER transactions in blocks
+/// 1..3), so that the registrants hold the last 17 list positions N-17..N-1 (N = 325) and the 48 genesis members before them
+/// (N-65..N-18) are punished in the 12 blocks before H (4 per block, so not erasable before H + 21). H is the first height
+/// from 60 at which the sweep cursor (which no earlier block moves by an erasure: asserted) starts at N-65: the sweep scans the
+/// 48 tombs and reaches N-17, where each erasure moves the last record into the erased position, the next erasable record.
+/// - `refunds` (the dearest erasure, a refund's releaseBond callback and PAY plus the erase): the registrants deregister at
+///   H-41 (one) and H-40 (sixteen), so they are due at H-1 and H (U 40), and the window of block H-1 does not reach them;
+///   each erasure refunds a 20 PCOL bond to the registrant (asserted).
+/// - otherwise (tomb erasures): the registrants are punished at H-37..H-33, erasable from H-4 (E_win + D + 1 = 33), and the
+///   windows of blocks H-4..H-1 do not reach them.
+/// Returns block H's beginBlock gas. Before phase 6a's review no measurement ran this path: the 76-tombstone sweep scans
+/// live records between its erasures, and tests/v3_contracts.rs's program-cap sweep scans live ACCRUING records.
+const SWEEP_WORST_MEMBERS:usize=308;
+fn sweep_worst_scenario(refunds:bool,seen:&mut std::collections::BTreeMap<&'static str,u64>)->u64{
+    use crate::txsign::Tx;use revm::primitives::{Bytes,keccak256};
+    let n0=SWEEP_WORST_MEMBERS;let regs=17usize;let n=n0+regs;
+    let mut c=network_like(n0,200,220);c.reg_records_max=16384;c.m_max=400;c.r_max=8;c.e_win=16;c.u=40;
+    c.accounts.extend((0..regs).map(|i|(format!("sw{i}"),U256::from(100*PCOL))));
+    let net=devnet::build(&c).unwrap();let cp=net.profile.cp().clone();
+    assert_eq!((cp.SWEEP_SCAN,cp.SWEEP_MAX,u64::from(cp.E_win)+u64::from(cp.D)+1,u64::from(cp.U)),(64,16,33,40),"the program caps and the windows");
+    let ids:Vec<Address>=net.miners.iter().map(|m|m.id).collect();
+    let keys:Vec<crate::txsign::Key>=(0..regs).map(|i|devnet::account_key(&format!("sw{i}"))).collect();
+    let acc:Vec<Address>=keys.iter().map(|k|k.address()).collect();
+    let b_reg=devnet::from_fixed(&net.profile.spec().cp[16]);
+    // Registrations: 8, 8 and 1 in blocks 1..3, so beginBlock(h) sees n0, n0+8, n0+16 and from h = 4 on N records.
+    let reg_block=|i:usize|1+(i/8) as u64;
+    let records_at=|h:u64|if h<=1{n0}else if h==2{n0+8}else if h==3{n0+16}else{n};
+    // The sweep cursor at each beginBlock while nothing is erased: 64 scans from the cursor, wrapping at the list end.
+    let mut cursor=vec![0usize;2];for h in 1..400u64{let cur=cursor[h as usize];cursor.push((cur+64)%records_at(h));}
+    let w0=n-65;let big_h=(60..400u64).find(|h|cursor[*h as usize]==w0).expect("a height at which the sweep starts at N-65");
+    let window=|h:u64|->std::ops::Range<usize>{let s=cursor[h as usize];s..s+64};
+    let reaches_registrants=|h:u64|window(h).end>n0;
+    if refunds{assert!(!reaches_registrants(big_h-1),"block H-1 does not scan the registrants");}
+    else{for h in big_h-4..big_h{assert!(!reaches_registrants(h),"block {h} does not scan the erasable registrant tombs");}}
+    let mut state=net.genesis.state().clone();let mut prev:Option<ParentResult>=None;let mut base=U256::from(1_000_000_000u64);
+    let balance=|st:&revm::InMemoryDB,id:&Address|st.accounts.get(id).map(|x|x.info.balance).unwrap_or_default();
+    let mut nonce=vec![0u64;regs];
+    for h in 1..=big_h{
+        let tx=|key:&crate::txsign::Key,nonce:u64,gas:u64,value:U256,data:Vec<u8>|Tx{chain_id:net.profile.spec().chain_id,nonce,max_priority:U256::ZERO,
+            max_fee:base*U256::from(2),gas,to:Some(apply::registry()),value,data:Bytes::from(data)}.sign_1559(key);
+        let mut txs=Vec::new();
+        for i in 0..regs{
+            let call=if reg_block(i)==h{let mut d=keccak256("register(address)")[..4].to_vec();d.extend_from_slice(acc[i].into_word().as_slice());Some((b_reg,d))}
+                else if refunds&&h==if i==0{big_h-41}else{big_h-40}{Some((U256::ZERO,keccak256("deregister()")[..4].to_vec()))}else{None};
+            if let Some((value,d))=call{txs.push(tx(&keys[i],nonce[i],1_000_000,value,d));nonce[i]+=1;}
+        }
+        let mut evidence:Vec<EvidenceEffect>=Vec::new();
+        if (big_h-12..big_h).contains(&h){evidence.extend((0..4).map(|i|EvidenceEffect::Punish{accused:ids[w0+4*(h-(big_h-12)) as usize+i]}));}
+        if !refunds&&(big_h-37..=big_h-33).contains(&h){evidence.extend((0..4).map(|i|4*(h-(big_h-37)) as usize+i).filter(|i|*i<regs).map(|i|EvidenceEffect::Punish{accused:acc[i]}));}
+        let input=BlockInput{height:h,timestamp:1_800_000_000+60*h,base_fee:base,gas_limit:8_000_000,prevrandao:B256::ZERO,
+            proposer:if h%2==0{Proposer::Signed(ids[(h as usize*7)%100])}else{Proposer::Fallback},parent_result:prev.clone(),evidence,evidence_raw:&[],transactions:&txs,ancestors:vec![],cum_log_bytes:0};
+        let cur=state.accounts[&apply::registry()].storage.get(&U256::from(2)).copied().unwrap_or_default();
+        assert_eq!(cur,U256::from(cursor[h as usize]),"h={h}: the sweep cursor");
+        let o=apply::apply_block(&state,&net.genesis,&net.profile,&input).unwrap_or_else(|e|panic!("refunds={refunds} h={h} {e:?}"));
+        for i in 0..regs{let r=apply::miner_record(&o.state,acc[i]);
+            if h==reg_block(i){assert_eq!(r.map(|r|(r.status,r.bond_state,r.bond)),Some((1,1,b_reg)),"h={h}: registrant {i} registered HELD");}
+            if refunds&&h==if i==0{big_h-41}else{big_h-40}{assert_eq!(r.map(|r|(r.status,r.due_height)),Some((2,h+40)),"h={h}: registrant {i} exited");}}
+        apply::check_escrow_invariant(&o.state,&net.profile,h,false).unwrap();
+        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000,U256::ZERO).unwrap();
+        for (name,g) in &o.meter.call_gas{let e=seen.entry(*name).or_default();*e=(*e).max(*g);}
+        let len=apply::record_list(&o.state).len();
+        if h<big_h{assert_eq!(len,records_at(h+1),"h={h}: nothing is erased before H");}
+        else{
+            assert_eq!(len,n-16,"block H erases SWEEP_MAX records");
+            let erased:Vec<&Address>=acc.iter().filter(|id|apply::miner_record(&o.state,**id).is_none()).collect();assert_eq!(erased.len(),16,"the 16 erased are registrants");
+            for id in &ids[w0..n0]{assert!(apply::miner_record(&o.state,*id).is_some_and(|r|r.tomb),"the 48 scanned tombs stay");}
+            if refunds{for id in erased{assert_eq!(balance(&o.state,id),balance(&state,id)+b_reg,"each erasure refunds the bond");}}
+            let g=o.meter.call_gas.iter().find(|(nm,_)|*nm=="beginBlock").map(|x|x.1).unwrap();
+            return g;
+        }
+        state=o.state.clone();
+        let shares:Vec<(u64,Address)>=(0..256u64).map(|i|(i*3+1,ids[((h+i) as usize)%100])).collect();
+        prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner:ids[h as usize%100],shares});
+    }
+    unreachable!()
+}
 /// Phase 6a: the SYS gas envelope fixture of the v3 program set. The scenarios of the retired spec-1 fixtures, run on the
 /// v3 programs (PoColSystemV3.sol, the only bundled set): the P7 worst case with evidence, the beginBlock sweep deleting
-/// 76 tombstones, a continuous chain, tomb-free final blocks and a first burn at settleFinal; the runs with eight
+/// 76 tombstones, the sweep's worst path (`sweep_worst_scenario`, refund and tomb erasures), a continuous chain, tomb-free final blocks and a first burn at settleFinal; the runs with eight
 /// ACCRUING payees (`Accruing`, the earn-in fixture's); and the pruning of a pot of 257 distinct owners
 /// (`prune_scenario`). `admission::GAS_ENVELOPE_V3` must dominate every value, and its beginBlock, markClose and
 /// pruneShares entries are this fixture's measurements (with tests/v3_contracts.rs's sweep and closing worst cases),
@@ -361,9 +440,12 @@ const V3_FIXTURE_ENTRIES:&[(&str,bool)]=&[("beginBlock",true),("markClose",true)
         // 257 distinct owners per pot (no M_max term on v3): 300 members, M_max 300.
         let prune=s.spawn(||{let mut seen=BTreeMap::new();let mut cp=network_like(300,60,80);cp.m_max=300;cp.reg_records_max=16384;
             let g=prune_scenario(&cp,&mut seen);(format!("257 distinct owners per pot, pruneShares {g}"),seen,[0u64;3])});
+        // The sweep's worst path (64 scans, 16 erasures, the 48 others tombs not yet erasable): refund erasures and tomb erasures.
+        let sweep_worst:Vec<_>=[true,false].into_iter().map(|refunds|s.spawn(move||{let mut seen=BTreeMap::new();let g=sweep_worst_scenario(refunds,&mut seen);
+            (format!("sweep worst path, {} erasures, beginBlock {g}",if refunds{"refund"}else{"tomb"}),seen,[0u64;3])})).collect();
         let first_burn_final=s.spawn(||{let mut seen=BTreeMap::new();let (m,_)=gas_scenario_from(&c,&|_,_|vec![],256,c.h_end-u64::from(c.d)+1,&mut seen);
             ("no ACCRUING, no evidence, first burn at settleFinal".to_string(),seen,m)});
-        let mut all=vec![worst.join().unwrap(),sweep_v1.join().unwrap(),tomb_free.join().unwrap(),first_burn_final.join().unwrap(),continuous_v.join().unwrap(),prune.join().unwrap()];all.extend(handles.into_iter().map(|h|h.join().unwrap()));
+        let mut all=vec![worst.join().unwrap(),sweep_v1.join().unwrap(),tomb_free.join().unwrap(),first_burn_final.join().unwrap(),continuous_v.join().unwrap(),prune.join().unwrap()];all.extend(sweep_worst.into_iter().map(|h|h.join().unwrap()));all.extend(handles.into_iter().map(|h|h.join().unwrap()));
         for (label,m,block) in all{for (n,g) in &m{let e=seen.entry(*n).or_default();*e=(*e).max(*g);}report.push(serde_json::json!({"run":label,"settle":m.get("settle"),"settleFinal":m.get("settleFinal"),"markClose":m.get("markClose"),"beginBlock":m.get("beginBlock"),"blockMax":block}));}
     });
     println!("GAS-ENVELOPE-V3 {}",serde_json::json!({"perCall":seen,"runs":report,"G_SYS":c.cp()[44].to_u64()}));

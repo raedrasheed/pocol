@@ -112,7 +112,8 @@ def spec_version(info):
 def for_network(info, build):
     """The identity a node of build-info `build` sends on the network of devnet.json `info`. The spec version is not
     an identity input (genesisHash already commits the whole GenesisSpec); a release build decodes a spec-2 (v3) and a
-    spec-1 genesis alike (SPEC_VERSION 2), and the declaration must be one of them."""
+    spec-1 genesis alike (SPEC_VERSION 2), and the declaration must be one of them. (Its admission refuses a spec-1
+    genesis since phase 6a, as public_spec does; the identity is still computed for either.)"""
     flags = build_flags(build)
     spec_version(info)
     forks = validated_schedule(info.get('forks', [[1, 0]]), build.get('maxForkVersion', MAX_FORK_VERSION))
@@ -347,22 +348,35 @@ def decode_genesis_spec(b, max_version=SPEC_VERSION):
 # ---- END GenesisSpec reference decoder ----
 
 
+# CP index of nonceMode (CP schema v1 and v2 alike).
+_NONCE_MODE = [field[0] for field in CP_SCHEMA].index('nonceMode')
+
+
 def public_spec(info, spec, max_version=SPEC_VERSION):
     """The decoded public GenesisSpec `spec` (bytes) of the network devnet.json `info` declares: the reference decoder at
     `max_version` (a release build's SPEC_VERSION, 2, by default), whose
-    version must equal the declaration (spec_version) and whose chainId must be the network's. A spec-2 genesis must name
-    the v3 program set (V3_SYS_CODE_HASH). The node itself runs any bundled set whose hash a CP-v2 genesis names
-    (apply.rs SystemPrograms::program_set), but the deploy tools, like the reward gateway, accept a spec-2 genesis only
-    with the v3 set, the one testnet.rs pairs with spec 2: stricter than the node, never looser. The genesis hash
-    (keccak256 of the spec) is not recomputed here (standard library only); the node checks it against the profile."""
+    version must equal the declaration (spec_version) and whose chainId must be the network's. The genesis must then be
+    one a release node admits (lp4-execution admission.rs, phase 6a of the fresh network): specVersion 2, the v3 program
+    set (V3_SYS_CODE_HASH) and nonceMode 1. A spec-1 genesis still decodes (the decoder parses CP schema v1 so that the
+    node can refuse it by name) but is refused here as the node refuses it, with its reason, so a bundle of a retired
+    network fails at packaging and at verify, not at every node's boot. The node runs only the bundled v3 set, whose hash
+    a CP-v2 genesis must name (apply.rs SystemPrograms::program_set): the tools are as strict as the node, never looser.
+    The genesis hash (keccak256 of the spec) is not recomputed here (standard library only); the node checks it against
+    the profile."""
     declared = spec_version(info)
     decoded = decode_genesis_spec(spec, max_version)
     if decoded['specVersion'] != declared:
         raise ValueError('GenesisSpec version differs from the network metadata')
     if decoded['chainId'] != info.get('chainId'):
         raise ValueError('GenesisSpec chain ID differs from the network metadata')
-    if declared == 2 and decoded['sysCodeHash'].hex() != V3_SYS_CODE_HASH:
+    if declared != 2:
+        raise ValueError(f'GenesisSpec version {declared}: the spec-1 rule set is retired; this release admits only a '
+                         'specVersion-2 (v3) genesis')
+    if decoded['sysCodeHash'].hex() != V3_SYS_CODE_HASH:
         raise ValueError('a spec-2 (v3) GenesisSpec must name the v3 program set (sysCodeHash)')
+    if decoded['cp'][_NONCE_MODE] != 1:
+        raise ValueError(f"nonceMode {decoded['cp'][_NONCE_MODE]}: bounded nonce ranges are a retired spec-1 rule; a v3 "
+                         'genesis has nonceMode 1, the full 64-bit nonce domain')
     return decoded
 
 

@@ -171,7 +171,7 @@ impl Harness{
         for (a,code) in [(registry_address(),&s.registry),(escrow_address(),&s.escrow),(ledger(),&s.ledger),(caps(),&s.caps)]{insert(&mut db,a,U256::ZERO,1,Bytecode::new_raw(code.clone()));}
         for n in 0..s.cp_len{put(&mut db,caps(),U256::from(n),U256::ZERO);}
         // CP of a continuous network (47/48 zero), with per-block limits wide enough for the vectors'
-        // many same-block registrations; consensus values otherwise as Mainnet (as earnin_contracts.rs).
+        // many same-block registrations; consensus values otherwise as Mainnet (as the deleted earnin_contracts.rs).
         for (n,v) in [(11,4u128),(16,20*PCOL),(17,16),(18,64),(19,1),(20,8192),(21,16),(22,64),(23,64),(24,32),(25,64),(26,16),(27,40),(50,64)].into_iter().chain(s.cp.iter().copied()){
             assert!(n<s.cp_len,"CP slot {n} outside the program's ChainCaps");put(&mut db,caps(),U256::from(n),U256::from(v));
         }
@@ -556,7 +556,7 @@ fn wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set(){
         assert_eq!(writes,(10,4,5,2,3));
         // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for an earn-in/v3 registration and
         // REGISTRY_GAS (1,000,000) for a top-up; 200,000 is the tighter top-up bound kept from
-        // earnin_contracts.rs, so both quotes keep their margin. The cfg() reads add only a few
+        // the deleted earnin_contracts.rs, so both quotes keep their margin. The cfg() reads add only a few
         // thousand gas.
         assert!(reg_gas<=400_000&&top_gas<=200_000,"register {reg_gas}, topUp {top_gas}");
         // A zero-bond registration costs less than on the earn-in set: FN-2b removed the probation-pool check (the
@@ -944,8 +944,9 @@ fn v3_sweep_deletions_keep_the_sys_envelope(){
     eprintln!("SWEEP 16 deletions: v3 {:?}; spec-1 beginBlock bound {envelope}, GAS_ENVELOPE_V3 beginBlock {v3_entry}",out[0]);
     assert_eq!(out[0].0,earnin_writes,"the same changed slots per deletion");
     assert!(out[0].1<=envelope&&out[0].1<=v3_entry,"v3 beginBlock {} gas above the bound {envelope} or the envelope {v3_entry}",out[0].1);
-    // The v3 worst case at the program caps: all 64 scans and 16 deletions, the first 48 scans over active ACCRUING
-    // records (FN-2b: no deadline to read), then 16 refunds of ACCRUING records with clocks.
+    // The program caps over live records: all 64 scans and 16 deletions, the first 48 scans over active ACCRUING records
+    // (FN-2b: no deadline to read), then 16 refunds of ACCRUING records with clocks. (The worst path scans tombs that are not
+    // yet erasable instead, on real blocks: resources::tests::sweep_worst_scenario, which GAS_ENVELOPE_V3's entry is.)
     let mut h=Harness::new(&[],&Setup::v3().wide());h.at(1).unwrap();
     let probation:Vec<Address>=(0..47).map(|i|h.sender(&format!("pp{i}"))).collect();
     let held:Vec<Address>=(0..16).map(|i|h.sender(&format!("ph{i}"))).collect();
@@ -961,8 +962,8 @@ fn v3_sweep_deletions_keep_the_sys_envelope(){
     assert_eq!(reg(&h.db,0).to::<u64>(),48,"16 deletions after 48 scans of live records");
     conserved(&h).unwrap();
     let worst=r.result.gas_used();
-    eprintln!("SWEEP worst case (64 scans, 16 deletions) v3 {worst} gas; spec-1 beginBlock bound {envelope}, GAS_ENVELOPE_V3 beginBlock {v3_entry}");
-    assert!(worst<=envelope&&worst<=v3_entry,"v3 beginBlock worst case {worst} gas above the bound {envelope} or the envelope {v3_entry}");
+    eprintln!("SWEEP program caps over live records (64 scans, 16 deletions) v3 {worst} gas; spec-1 beginBlock bound {envelope}, GAS_ENVELOPE_V3 beginBlock {v3_entry}");
+    assert!(worst<=envelope&&worst<=v3_entry,"v3 beginBlock at the program caps over live records {worst} gas above the bound {envelope} or the envelope {v3_entry}");
 }
 
 /// The clocks sit in spare record bits: lastMaintHeight modulo 2^32 (w1 bits 224..255, moved from w0 bits 216..255 by

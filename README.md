@@ -502,7 +502,7 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
   decision. Write a proposal in `development/audit-2026-10-22/proposals/` with the alternatives and their effects, and
   do not implement it before it is approved.
 - **Local limits.** Resource limits are not raised without a decision. Every new data structure in the node must be
-  counted in the A13 model (`src/resources.rs`). The `a13_bound_breakdown` test pins the total.
+  counted in the A13 model (`src/resources.rs`). The `v3_a13_bound_breakdown` test (`prototypes/pocold/tests/consensus.rs`) pins the total.
 - **Test before you claim.** Add a test that fails without the fix, and record the command, the version and the
   result. Keep failures in the evidence. An ignored or cancelled test does not count as a pass.
 - **Style.**

@@ -147,12 +147,14 @@ recordResult 36,135, invalidate 8,515, punish 98,677 (a genesis member's never-w
 record, the reporter's PAY and the chain's first burn; an ACCRUING accused with a bond and the first burn measures
 86,701, since register writes its clock word), settle 6,313,113 (all P_MAX = 64 probationers live and at bond 0 filled
 to B_reg and promoted in one settlement, the chain's first burn, 192 HELD payees: the earn-in accrual, first measured
-here). Admission composes them from GAS_ENVELOPE_V3 (37,000; 9,000; 99,000; 6,314,000,
-also for settleFinal) for a genesis running the v3 set, whose gas domain also requires P_MAX <= 64; every other entry
-is GAS_ENVELOPE_EARNIN's (PoColSystemV3.sol is built on the earn-in programs, whose markClose and beginBlock measure
-above GAS_ENVELOPE; the same test measures v3 beginBlock 573,516 and markClose 30,889 within it). markClose took the
-earn-in entry until V3-PR-E4 gave it a v3 entry (2,735,000, its closing-phase refunds; see the V3-PR-E4 section below);
-beginBlock still takes the earn-in entry. Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes. FN-2b
+here). At that time admission composed them from GAS_ENVELOPE_V3 (37,000; 9,000; 99,000; 6,314,000,
+also for settleFinal) for a genesis running the v3 set, whose gas domain also required P_MAX <= 64, and took every other
+entry from GAS_ENVELOPE_EARNIN (PoColSystemV3.sol is built on the earn-in programs, whose markClose and beginBlock
+measure above GAS_ENVELOPE; the same test measured v3 beginBlock 573,516 and markClose 30,889 within it). markClose took
+the earn-in entry until V3-PR-E4 gave it a v3 entry (2,735,000, its closing-phase refunds; see the V3-PR-E4 section
+below), beginBlock and pruneShares until phase 6a of the fresh network, which deleted GAS_ENVELOPE_EARNIN with the
+spec-1 rule set and made GAS_ENVELOPE_V3 self-contained (every entry measured on the v3 programs; admission.rs lists
+each entry's worst path and measurement). Runtime sizes: MinerRegistry 10,209 bytes, RewardEscrow 5,218 bytes. FN-2b
 re-measured every entry without the probation pool (section "v3 removal at a full set" below): settle 11,956,401 with
 every payee ACCRUING and held_total 0 at the first accrue (11,939,301 with a bond held), recordResult 36,149, invalidate
 8,537, punish 98,654.
@@ -193,8 +195,9 @@ kappa*m - 1), D * (kappa*m - 1)) late shares, so the evidence keys are at most 9
 nobody). SYS gas (tests/v3_contracts.rs `v3_sys_gas_and_caps_within_the_v3_envelope`, chain C): one call
 crediting kappa*m - 1 = 63 shares to distinct owners new to owners[j], as the block's first call: 3,457,157 with owners
 without a record (four cold words read each), 3,228,593 with recorded owners whose lastShare it writes. Admission
-composes GAS_ENVELOPE_V3 recordLate 3,458,000 for a genesis running the v3 set (the one v3-only call name, appended to
-the GAS_ENVELOPE_V3-over-GAS_ENVELOPE_EARNIN composition), counting each of the E_max evidence
+composes GAS_ENVELOPE_V3 recordLate 3,458,000 for a genesis running the v3 set (the one v3-only call name; at the time
+appended to the GAS_ENVELOPE_V3-over-GAS_ENVELOPE_EARNIN composition, which phase 6a replaced by the self-contained
+GAS_ENVELOPE_V3), counting each of the E_max evidence
 items as the dearer of recordLate and invalidate + punish; the v3 gas domain also requires kappa*m <= 64. Runtime
 sizes: MinerRegistry 10,734 bytes, ShareLedger 3,478 bytes (RewardEscrow unchanged, 5,218).
 

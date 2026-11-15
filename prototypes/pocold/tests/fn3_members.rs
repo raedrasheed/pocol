@@ -654,6 +654,54 @@ fn ranges_rows(file:&Path)->Option<u64>{
 }
 
 
+/// §5.8: a snapshot by overflow, on a v3 genesis whose delta_max (REG_OPS 16 + R_react + E_max 4) exceeds DELTA_CAP: R_react
+/// 40 (no gate rule bounds the sum). Forty genesis members; alice funds 36 of them (block 2), which deregister in blocks 3..5
+/// (16, 16 and 4: REG_OPS), and reactivate together in block 40 (inside every one's window [exit + W_act, exit + U), within
+/// R_react). S_b of block h is the membership of its parent's state, so S_b grows by 36 ids at once at h = 41, a change
+/// beyond DELTA_CAP, and block 41's record is a snapshot off the cadence (41 % 256 != 1); the exits are the deltas of
+/// blocks 4..6. Type-2 evidence against a block above it, judged from the member source alone (the held records dropped,
+/// the caches cleared), walks to that snapshot (records of j down to 41, then its set, not to the cadence snapshot at 1)
+/// and accuses the block's validated winner; the cold sweep compares every entry with its capture. (Phase 6a rebuilt
+/// it on v3: its spec-1 original reached the overflow through the W_act activity window.)
+#[test] fn a_change_beyond_delta_cap_writes_an_off_cadence_snapshot(){
+    let mut cfg=config(2);cfg.miners=(0..40).map(|i|format!("flip-{i}")).collect();cfg.r_react=40;
+    let mut n=net_of(cfg);let cp=n.chain.spec.cp().clone();
+    assert!(members::all_live_everywhere(&cp)&&members::delta_max(&cp)>members::DELTA_CAP,"delta_max {} above DELTA_CAP",members::delta_max(&cp));
+    let alice=devnet::account_key("alice").address();let movers:Vec<Address>=n.ids[..36].to_vec();
+    let send=|n:&Net,nonce:u64,to:Address|{let p=n.chain.full_entry(&n.chain.head).unwrap();let base=n.chain.child_ctx(&p,0).unwrap().base_fee;let prio=U256::from(1_000_000_000u64);
+        Tx{chain_id:n.chain.spec.chain_id(),nonce,max_priority:prio,max_fee:base*U256::from(2)+prio,gas:21_000,to:Some(to),value:U256::from(10u128.pow(18)),data:Bytes::new()}.sign_1559(&n.keys[&alice])};
+    grow(&mut n,1);
+    let first=n.chain.full_entry(&n.chain.head).unwrap().state.accounts.get(&alice).map_or(0,|a|a.info.nonce);
+    let txs:Vec<Vec<u8>>=movers.iter().enumerate().map(|(i,id)|send(&n,first+i as u64,*id)).collect();
+    let b=mine(&n,n.chain.head,txs,vec![],None);accept(&mut n,&b);
+    for chunk in movers.chunks(16){let txs=chunk.iter().map(|id|deregister(&n,*id)).collect();let b=mine(&n,n.chain.head,txs,vec![],None);accept(&mut n,&b);}
+    let react=40u64;let f=react+1;grow(&mut n,react-1);
+    let txs=movers.iter().map(|id|tx(&n,*id,keccak256("reactivate()")[..4].to_vec(),U256::ZERO)).collect();
+    let b=mine(&n,n.chain.head,txs,vec![],None);accept(&mut n,&b);grow(&mut n,f+12);
+    let c=&n.chain;let top=c.head().height;
+    let active=|h:u64|apply::active_list(&c.full_entry(&entry_at(c,h).hash).unwrap().state).len();
+    assert_eq!((active(2),active(5),active(react-1),active(react)),(40,4,4,40),"the 36 exit in blocks 3..5 and come back in block {react}");
+    let flips:Vec<u64>=(2..=top).filter(|h|h%members::SNAPSHOT_EVERY!=1&&rec(c,*h).is_snapshot()).collect();
+    assert_eq!(flips,vec![f],"one off-cadence snapshot");
+    assert_eq!((rec(c,f-1).n,rec(c,f).n),(4,40),"S_b grew from 4 to 40 at {f}");
+    for h in (2..=top).filter(|h|*h!=f){let r=rec(c,h);assert!(!r.is_snapshot(),"h={h}: a delta");assert!(r.delta_len()<=members::DELTA_CAP,"h={h}");}
+    assert_eq!((rec(c,4).delta_len(),rec(c,5).delta_len(),rec(c,6).delta_len()),(16,16,4),"the exits are deltas");
+    assert_eq!(c.member_counters().snapshots_written,2,"the cadence's at 1 and the overflow's at {f}");
+    let j=f+4;let x=entry_at(c,j);let blk=Block{header:x.header.clone(),body:x.body.clone()};let (ev,accused)=type2(&n,&blk);
+    assert!(n.ids.contains(&accused));
+    let want=effects(&n.chain,&[ev.clone()]).unwrap();assert_eq!(want,vec![EvidenceEffect::PunishAndInvalidate{accused,j}]);
+    let src=TestSets::of(&n.chain);n.chain.set_member_source(src.clone());drop_held_records(&mut n.chain,top+1);
+    let m0=n.chain.member_counters();
+    assert_eq!(effects(&n.chain,&[ev]).unwrap(),want,"the verdict from the source");
+    let m1=n.chain.member_counters();assert!(m1.disk_set_reads>m0.disk_set_reads&&m1.oracle_checks>m0.oracle_checks,"the set read from the source, the oracle compared: {m1:?}");
+    assert!(m1.oracle_mismatch==0&&m1.faults==0);
+    // One walk, alone (the oracle's cold recomputations walk again): the records of j down to f, then f's set.
+    n.chain.clear_member_caches();let k0=n.chain.member_counters();
+    let a=n.chain.assignment_of(entry_at(&n.chain,j)).unwrap();let k1=n.chain.member_counters();
+    assert_eq!((k1.record_reads-k0.record_reads,k1.disk_set_reads-k0.disk_set_reads),(j-f+1,1),"the walk stopped at the off-cadence snapshot at {f}");
+    assert_eq!(n.chain.captured(entry_at(&n.chain,j)),Some(members::ranges_digest(&a)),"the assignment block {j} was validated under");
+}
+
 /// §5.11: the memory the member records hold, against the A13 terms: on a store-mode node across a snapshot height, a
 /// registration and a restart, an offloaded entry holds no record or ids and at most the window + 2 entries hold one
 /// (`held_records`); no entry's record holds more heap than `member_record_heap` (a delta's ids) plus

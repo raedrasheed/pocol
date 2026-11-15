@@ -175,17 +175,18 @@ matching prior snapshot and binaries. Never run two copies of one miner key at o
 `SPEC_VERSION` 2: a spec-2 (v3) genesis decodes with CP schema v2 and a spec-1 genesis with
 CP schema v1. `public_spec(info, spec, ceiling)` decodes a network's
 public `genesis.spec.hex`, checks its version and chain ID against `devnet.json`, and
-requires a spec-2 genesis to name the v3 program set: the node runs any bundled program set
-a CP-v2 genesis names, but the deploy tools, like the reward gateway, accept only the v3 set
-on spec 2. The gsVersion detail is the exact decimal of the version item at any length, as
+requires the genesis a release node admits: specVersion 2, the v3 program set and nonceMode 1.
+A spec-1 genesis still decodes, so that the node can refuse it by name, but since phase 6a of
+the fresh network the node's admission refuses it (and any other program set, and nonceMode 0)
+and so do the tools, with the node's reason. The gsVersion detail is the exact decimal of the version item at any length, as
 the node reports it. `test_pocol_identity.py` checks the decoder against the Rust verdicts
 of the whole decoder corpus and its spec-2 supplement
-(`prototypes/pocol-extension/tests/data`). The release bundle tools accept a spec-1 and a
-spec-2 network, never on the `devnet.json` declaration alone: `prepare.py` (before it reads
+(`prototypes/pocol-extension/tests/data`). The release bundle tools accept only a v3
+(spec-2) network, never on the `devnet.json` declaration alone: `prepare.py` (before it reads
 the build or writes a release) and `node_operator.py` (`verify`: the `verify` command, every
 launch and every restore of a bundle) decode the network's `genesis.spec.hex` with
-`public_spec_hex`, which applies `public_spec`'s version, chain ID and v3 program-set
-checks; `for_network` then gives the consensus identity.
+`public_spec_hex`, which applies `public_spec`'s version, chain ID, v3 program-set and
+nonceMode checks, so a bundle of a retired spec-1 network fails there and not at every node's boot; `for_network` then gives the consensus identity.
 
 ## Lifetime and unresolved work
 

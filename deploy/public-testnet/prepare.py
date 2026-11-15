@@ -82,8 +82,9 @@ def service(node):
     # TasksMax holds pocold's A13 thread inventory, 2*(peers_max + 8) + 4*peers + 3*S + 1 + 40 tasks with S = 5 automatic
     # outbound slots (PR2b; 164 at the default 32 established inbound and 7 peers, 368 at --peers-max 128 with S = 9);
     # pocold refuses to boot past it. Seeds and joining
-    # nodes run with the default 32 established inbound: 64 at seeds would move the live chain's A13 halt by more
-    # than a week of records (PR3 seed rule, tests/network_budget.rs a13_live_chain_halt_records), so no
+    # nodes run with the default 32 established inbound: at 64 a seed's A13 stop falls from 0.47 TiB to 58.8 GiB of
+    # history.redb, and with 7 dials a new node does not open with eviction on (PR3 seed rule; the fresh network's
+    # figures: tests/network_budget.rs v3_a13_live_chain_halts_at_the_mainnet_profile, V3_LIVE_HALTS), so no
     # POCOL_PEERS_MAX or POCOL_PER_GROUP_MAX line is written.
     # systemd credentials are readable by the service but their filesystem metadata
     # need not satisfy pocol-key's single-owner/single-link checks. Materialize a
@@ -202,7 +203,8 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
     if info.get('keyMode') != 'independent-key-files' or info['admission']['scope'] != 'experimental-devnet':
         raise ValueError('Generate independent genesis with init-testnet, not label-based init-devnet')
     # The public GenesisSpec itself, not the devnet.json declaration alone: its version and chain ID must match the
-    # declaration, and a spec-2 (v3) genesis must name the v3 program set (pocol_identity.public_spec).
+    # declaration, and it must be a genesis the node admits: spec 2 (v3), the v3 program set and nonceMode 1; a retired
+    # spec-1 network is refused here, not at every node's boot (pocol_identity.public_spec).
     pocol_identity.public_spec_hex(info, (network / 'genesis.spec.hex').read_text(encoding='ascii'))
     build = json.loads(subprocess.check_output([str(bin_dir / 'pocold'), 'build-info'], text=True, timeout=10))
     if build['features'] or build['protocolVersion'] != 2: raise ValueError('Use the feature-free wire-v2 release build')

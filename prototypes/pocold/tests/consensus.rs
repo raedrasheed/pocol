@@ -2113,14 +2113,14 @@ fn a13_boot_refuses(c:&DevnetConfig){
 
 // ---------------- A13: the itemized model bound of the default devnet ----------------
 
-/// The v3 counterpart of a13_bound_breakdown: the itemized A13 model bound of the v3 devnet (DevnetConfig::new: CP
+/// The itemized A13 model bound of the v3 devnet (DevnetConfig::new: CP
 /// schema v2, continuous, the first-import index) as Node::open derives it on a new data directory (`open_limits`:
 /// default limits, two configured peers, no listener, the eviction depth from R_keep, 0 journal records, no files).
 /// The items sum to the total, the FN-1/FN-1b cache terms are their formulas at this CP, the bound boots within the
 /// budget with its reserve, the small-answer term is 32 · SMALL_REPLY_PEAK, and with eviction on only the first-import
 /// index grows with the journal (every other term is equal at 0 and 10^9 records; a year of records still boots). The
-/// totals are pinned (eviction on and off) for the target the evidence is produced on, as a13_bound_breakdown pins the
-/// spec-1 ones.
+/// totals are pinned (eviction on and off) for the target the evidence is produced on. (Its spec-1 twin,
+/// a13_bound_breakdown, went with the spec-1 rule set in phase 6a.)
 #[test] fn v3_a13_bound_breakdown(){
     use pocold::node::Limits;
     let spec=admitted(&cfg(&["a","b","c"]));let cp=spec.cp_max();assert_eq!((cp.schema_version(),cp.H_END,cp.nonceMode),(2,0,1));

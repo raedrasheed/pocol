@@ -2,10 +2,12 @@
 import base64
 import copy
 from contextlib import redirect_stderr, redirect_stdout
+import functools
 import hashlib
 import io
 import json
 from pathlib import Path
+import subprocess
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -20,6 +22,38 @@ LOCATION = {'path': 'tests/public.rs', 'start_line': 4, 'end_line': 4,
 ROW = {'rule': 'rust/hard-coded-cryptographic-value', 'location': LOCATION,
        'source_sha256': hashlib.sha256(CONTENT).hexdigest(),
        'reason': 'false positive', 'comment': 'Reviewed public EVM account counter.'}
+
+
+ROOT = Path(tool.__file__).resolve().parents[2]
+
+
+@functools.lru_cache(maxsize=None)
+def review_commit():
+    """This checkout's commit for the plan's reviewed_source_commit (1355b12 of palcertcom/pocol).
+
+    The reviewed rows are a closed record: their sources are the reviewed Git blobs, not working-tree
+    files that later work changes (phase 6a of the fresh network deleted earnin_halt_proof.rs with
+    the spec-1 rule set). The migration rewrote every commit and recorded the old id in an
+    `Original-Commit: palcertcom/pocol@<id>` line; a clone of the original history resolves it as
+    it is. Needs the full history (fetch-depth: 0), never a working-tree fallback.
+    """
+    original = json.loads((Path(tool.__file__).resolve().parent / 'reviewed-pr29-codeql.json')
+                          .read_text())['reviewed_source_commit']
+    def git(*args):
+        return subprocess.run(['git', '-C', str(ROOT), *args], capture_output=True, text=True)
+    if git('cat-file', '-e', original + '^{commit}').returncode == 0:
+        return original
+    found = git('log', '--format=%H', f'--grep=^Original-Commit: palcertcom/pocol@{original}$',
+                'HEAD').stdout.split()
+    if len(found) != 1:
+        raise AssertionError(f'{original} is not in this checkout\'s history (needs fetch-depth: 0)')
+    return found[0]
+
+
+@functools.lru_cache(maxsize=None)
+def reviewed_source(path):
+    return subprocess.run(['git', '-C', str(ROOT), 'show', f'{review_commit()}:{path}'],
+                          capture_output=True, check=True).stdout
 
 
 class Fake:
@@ -96,7 +130,7 @@ class ReviewedOlderSourceFake(DynamicHeadFake):
                           'commit_sha': self.older_commit,
                           'location': {**self.reviewed['location'], 'start_line': 51, 'end_line': 51}})
         self.older_content = evidence['content'].encode()
-        self.content = (folder.parents[1] / self.reviewed['location']['path']).read_bytes()
+        self.content = reviewed_source(self.reviewed['location']['path'])
 
     def request(self, endpoint, payload=None):
         if '/contents/' in endpoint and payload is None:
@@ -119,7 +153,7 @@ class ObservedNullStateFake(DynamicHeadFake):
         self.alert['tool'] = {'name': 'CodeQL'}
         self.rows = copy.deepcopy(fixture['instances_243'])
         self.pr['head']['sha'] = self.rows[0]['commit_sha']
-        self.content = (folder.parents[1] / self.reviewed['location']['path']).read_bytes()
+        self.content = reviewed_source(self.reviewed['location']['path'])
         self.response_state = None
         self.confirm_after_patch = True
         self.instance_reads = 0
@@ -191,8 +225,8 @@ class ObservedBatchFake(BatchFake):
             instance = {**copy.deepcopy(captured['instances_243'][0]),
                         'location': copy.deepcopy(row['location'])}
             self.all_instances[number] = [instance]
-            self.sources[(self.pr['head']['sha'], row['location']['path'])] = (
-                folder.parents[1] / row['location']['path']).read_bytes()
+            self.sources[(self.pr['head']['sha'], row['location']['path'])] = reviewed_source(
+                row['location']['path'])
             if number in history and history[number]['location']['path'] == row['location']['path']:
                 self.all_instances[number].append({**copy.deepcopy(instance), 'ref': 'refs/heads/main',
                     'commit_sha': self.main, 'location': copy.deepcopy(history[number]['location'])})
@@ -498,12 +532,11 @@ class ApplyPRTests(unittest.TestCase):
 
     def test_pinned_review_matches_all_11_actual_source_locations(self):
         rows = tool.load_plan()
-        root = Path(__file__).resolve().parents[2]
         self.assertEqual(len(rows), 11)
         for row in rows:
-            source = root / row['location']['path']
-            self.assertEqual(hashlib.sha256(source.read_bytes()).hexdigest(), row['source_sha256'])
-            self.assertEqual(source.read_text().splitlines()[row['location']['start_line'] - 1],
+            source = reviewed_source(row['location']['path'])
+            self.assertEqual(hashlib.sha256(source).hexdigest(), row['source_sha256'])
+            self.assertEqual(source.decode().splitlines()[row['location']['start_line'] - 1],
                              row['source_line'])
 
 

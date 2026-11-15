@@ -6,6 +6,7 @@ on:
       - 'development/security-codeql-main-2026-11-06/**'
       - 'development/security-codeql-remaining-2026-11-07/**'
       - 'development/security-evm-crypto-2026-11-05/apply*codeql.py'
+      - 'development/security-evm-crypto-2026-11-05/test_apply*codeql.py'
       - 'development/security-evm-crypto-2026-11-05/reviewed*codeql*.json'
       # The JNI boundary and the wallet texts it shares with the Windows wallet (deploy/standalone/test_android_jni.py).
       - 'deploy/standalone/test_android_jni.py'

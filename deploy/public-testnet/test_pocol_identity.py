@@ -275,14 +275,28 @@ class GenesisSpecReference(unittest.TestCase):
         for args, message in cases:
             with self.subTest(message=message), self.assertRaisesRegex(ValueError, message):
                 ident.public_spec(*args)
-        # A spec-1 genesis (the pocold devnet spec of the corpus) under a spec-1 declaration, at either ceiling.
+        # A spec-1 genesis (the pocold devnet spec of the corpus) still decodes at either ceiling (CP schema v1, so that
+        # the node can refuse it by name), and under a spec-1 declaration the tools refuse it as the node's admission
+        # does (phase 6a: the spec-1 rule set is retired), at packaging and verify rather than at every node's boot.
         spec1 = bytes.fromhex((CORPUS / 'devnet-spec.hex').read_text().strip().removeprefix('0x'))
         info1 = {'chainId': ident.decode_genesis_spec(spec1)['chainId']}
         for ceiling in (1, 2):
-            decoded = ident.public_spec(info1, spec1, ceiling)
+            decoded = ident.decode_genesis_spec(spec1, ceiling)
             self.assertEqual((decoded['specVersion'], decoded['chainId'], len(decoded['cp'])), (1, info1['chainId'], 52))
+            with self.subTest(ceiling=ceiling), self.assertRaisesRegex(ValueError, 'GenesisSpec version 1: the spec-1 rule set is retired'):
+                ident.public_spec(info1, spec1, ceiling)
         with self.assertRaisesRegex(ValueError, 'version differs'):
             ident.public_spec({**info1, 'specVersion': 2, 'v3': True}, spec1, 2)
+        # A spec-2 genesis naming the v3 programs with nonceMode 0 (bounded nonce ranges, a spec-1 rule): the node refuses
+        # it, and so do the tools. v3/base with its nonceMode item (CP index 4, the single byte 0x01) set to 0 (0x80).
+        cp_item = ident._children(v3, ident._item(v3, 0))[2]
+        nonce_item = ident._children(v3, cp_item)[4]
+        self.assertEqual(v3[nonce_item[1]:nonce_item[1] + nonce_item[2]], b'\x01')
+        bounded = bytearray(v3)
+        bounded[nonce_item[1]] = 0x80
+        self.assertEqual(ident.decode_genesis_spec(bytes(bounded), 2)['cp'][4], 0)
+        with self.assertRaisesRegex(ValueError, 'nonceMode 0: bounded nonce ranges are a retired spec-1 rule'):
+            ident.public_spec(info, bytes(bounded))
 
 
 if __name__ == '__main__':
