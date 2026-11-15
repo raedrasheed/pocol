@@ -459,3 +459,19 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     assert_eq!(offline["publicLaunchReady"],false);assert_eq!(offline["launchBlockers"],status["launchBlockers"]);
     let _=std::fs::remove_dir_all(&d);
 }
+/// Phase 5a: init-devnet derives H_half from the chosen T_blk (four years of blocks, FRESH-NETWORK-CP row 52), as
+/// init-testnet does; at the default T_blk 4 the genesis keeps its bytes.
+#[test] fn init_devnet_scales_h_half_with_t_blk(){
+    use pocol_lp4_execution::devnet::DevnetConfig;
+    let h_half_at=|cfg:&DevnetConfig|{let mut b=cfg.clone();b.h_half^=1;cfg.cp().iter().zip(b.cp()).position(|(x,y)|*x!=y).unwrap()};
+    let i=h_half_at(&DevnetConfig::new(1,1,&["a"]));
+    let read=|tblk:Option<&str>|{let d=tmp(&format!("hhalf-{}",tblk.unwrap_or("default")));
+        let mut a=vec!["init-devnet","--out",d.to_str().unwrap(),"--miners","a,b,c","--genesis-time","1700000000"];
+        if let Some(t)=tblk{a.extend(["--t-blk",t]);}
+        let o=pocold(&a);assert!(o.status.success(),"{}",text(&o.stderr));
+        let hex=std::fs::read_to_string(d.join("genesis.spec.hex")).unwrap();
+        let spec=pocold::genesis_spec::decode(&pocold::types::unhex(hex.trim()).unwrap()).unwrap();
+        let _=std::fs::remove_dir_all(&d);spec.cp[i].to_u64().unwrap()};
+    assert_eq!(read(None),31_557_600,"T_blk 4: four years of blocks, the earlier default");
+    assert_eq!(read(Some("10")),12_623_040,"T_blk 10: four years of blocks, as FRESH-NETWORK-CP row 52");
+}

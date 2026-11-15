@@ -136,7 +136,10 @@ fn init(args:&[String])->Result<(),String>{
     let refs:Vec<&str>=miners.iter().map(|s|s.as_str()).collect();
     let g_ts=num(args,"--genesis-time",node::now_s());
     let mut cfg=devnet::DevnetConfig::new(num(args,"--chain-id",777900u64),g_ts,&refs);
-    cfg.t_blk=num(args,"--t-blk",cfg.t_blk);cfg.tau=num(args,"--tau",cfg.tau);cfg.d_att=num(args,"--d-att",cfg.d_att);cfg.d_fb_wait=num(args,"--fb-wait",cfg.d_fb_wait);cfg.c=num(args,"--c",cfg.c);
+    cfg.t_blk=num(args,"--t-blk",cfg.t_blk);
+    // H_half is four years of blocks at the chosen T_blk (FRESH-NETWORK-CP row 52), as init-testnet derives it.
+    cfg.h_half=126_230_400u64.div_ceil(u64::from(cfg.t_blk.max(1)));
+    cfg.tau=num(args,"--tau",cfg.tau);cfg.d_att=num(args,"--d-att",cfg.d_att);cfg.d_fb_wait=num(args,"--fb-wait",cfg.d_fb_wait);cfg.c=num(args,"--c",cfg.c);
     cfg.h_end=num(args,"--h-end",cfg.h_end);cfg.h_close=num(args,"--h-close",cfg.h_close);cfg.d=num(args,"--d",cfg.d);cfg.w_w=num(args,"--w-w",cfg.w_w);
     // About 2^bits hashes per block: H_cal = 2^bits / T_blk (R25d calibration, synthetic for a devnet).
     // A devnet is v3 (Phase 5a: the rules the fresh network runs): nonceMode 1, the full 64-bit nonce domain from
