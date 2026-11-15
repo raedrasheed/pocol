@@ -115,10 +115,15 @@ The two profiles referenced throughout (governance.md:5–16; `prototypes/lp4-ex
 
 | | GAS_LIMIT | BODY_MAX | TX_MAX | TXBYTES_CAP (cum.) | TX_CAP (cum.) | SLOT_CAP / ACCT_CAP | H_END | T_blk | D_att | R_keep | K_hist | side_max | S_max |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-| devnet (`DevnetConfig::new`) | 8,000,000 | 196,608 | 131,072 | 2^24 = 16 MiB | 20,000 | 50,000 / 20,000 | 20,000 | 4 s | 25 s | 2048 | 32 | 8 | 256 |
+| spec-1 devnet (`DevnetConfig::new` before Phase 5a; `DevnetConfig::spec1` since) | 8,000,000 | 196,608 | 131,072 | 2^24 = 16 MiB | 20,000 | 50,000 / 20,000 | 20,000 | 4 s | 25 s | 2048 | 32 | 8 | 256 |
 | network (governance.md:12–16) | 8,000,000 | 196,608 | 131,072 | 2^33 = 8 GiB | 10^7 | 4·10^6 / 10^6 | 129,600 | 60 s | 300 s | 2048 | 32 | 8 | 256 |
 
-**Measured profile (J2-m7).** The harness (`journal_measure.rs` `cfg()`) is `DevnetConfig::new` with
+**Spec-1 rows (Phase 5c).** Every figure in §1-§13 was measured on the retired spec-1 devnet (CP schema v1, bounded
+nonce ranges, the spec-1 log caps, a finite chain with lifetime TXBYTES_CAP and TX_CAP). Phase 5a made
+`DevnetConfig::new` the v3 devnet; the harness now runs it by default, and `JM_SPEC=1` reproduces the spec-1 rows. The
+v3 rows, on the rules the fresh network runs, are in §14.
+
+**Measured profile (J2-m7).** The harness (`journal_measure.rs` `cfg()`) was `DevnetConfig::new` (spec-1) with
 `hash_rate` 1024, `d_att` 73 and `c` 8 (`tau` 40 as the default): the devnet caps, GAS_LIMIT, BODY_MAX and H_END, with an
 easier PoW and a 73 s attempt window so blocks seal quickly. The timing comparisons below use the devnet
 profile's own D_att = 25 s and T_blk = 4 s; the re-execution costs do not depend on these four values.
@@ -156,7 +161,7 @@ This is the single most important structural fact for both obligations:
 > parentResult. It is independent of receipts, logs, code, state and trie — which instead drive
 > replay CPU and resident memory.**
 
-### 1.1 Measured bytes per record (devnet, release; `JM-BYTES`, round 2 on the committed test)
+### 1.1 Measured bytes per record (spec-1 devnet, release; `JM-BYTES`, round 2 on the committed test; v3 rows in §14.1)
 
 One block of each kind, built on a real parent (`jm_journal_bytes_per_record`). **Record size depends on
 the PoW share count, which varies between runs** (the nonce search finds a run-dependent number of
@@ -257,7 +262,7 @@ checkpoint. Open time is the sum, over every record, of the block's re-execution
 the block's kind (§3.2a) **and on the size of the live state** (§3.2b) — plus a per-record
 retention/index term that grows with the height (§3.1) and a fixed cost (JM-OPEN0, 61.6 ms, J2-m7).
 
-### 3.1 Measured replay (empty blocks, devnet profile, release; `JM-REPLAY`)
+### 3.1 Measured replay (empty blocks, spec-1 devnet profile, release; `JM-REPLAY`; v3 rows in §14.2)
 
 Empty (fallback a=0) blocks built into one journal, snapshotted at checkpoints; each snapshot reopened
 and the open timed. Stage A (one run, 3 checkpoints) and round 3 (one run on `7f587bb`, 6 checkpoints;
@@ -302,7 +307,7 @@ fits between adjacent round-3 checkpoints give b = 2.70, 3.53, 4.25, 4.22 and 4.
 is not confirmed and an extrapolation from it is not an upper bound. The network projection is therefore
 a range (§3.3), not one figure.
 
-### 3.2 Measured per-record replay by block kind (devnet profile, release; `JM-KIND`)
+### 3.2 Measured per-record replay by block kind (spec-1 devnet profile, release; `JM-KIND`; v3 rows in §14.3)
 
 40 blocks of each kind (building 20,000 full blocks of each kind is infeasible). Per-record replay
 includes the fixed open cost (`JM-OPEN0`, the open of an empty journal: 61.6 ms, J2-m7) amortised over
@@ -1289,3 +1294,91 @@ What stays open from §8: the journal still has no compaction (its disk growth i
 every record once (the journal pass and history.redb's integrity check are O(height) I/O). Whole-state mode still
 replays from genesis on every open (O(height) CPU). The open-time memory obligation is now bounded and checked at
 open, not unbounded.
+
+---
+
+## 14. Phase 5c: the v3 rows (the rules the fresh network runs, 2026-11)
+
+Phase 5c (`claude/fresh-net-phase5bc-tests`, base main `daabfbd`) moved `journal_measure.rs` to the v3 devnet
+(`DevnetConfig::new`: CP schema v2, the V3 programs, nonceMode 1, a continuous chain, B_reg 20 PCOL, S0 4 PCOL), with the
+same harness values (`hash_rate` 1024, `d_att` 73, `tau` 40, `c` 8). The harness's stop conditions follow the v3 rules:
+
+- **No H_END.** A run's height is its own parameter (`JM_HEIGHT`, `JM_HEND_TOP`, default 129,600, the spec-1 network's
+  H_END, so the figures compare), never the chain's end.
+- **No lifetime TXBYTES_CAP.** On a continuous chain TXBYTES_CAP and TX_CAP bind each block (`txbytes_fit`). A run
+  that filled the spec-1 devnet's lifetime cap (`jm_open_memory`'s full-BODY_MAX journal) stops at the same 2^24
+  transaction bytes instead. `scale_cfg` keeps the network's state caps and stays continuous, with the per-block
+  TXBYTES_CAP 2^24 and TX_CAP 20,000.
+- **The v3 log caps** (`user_phase::log_caps(true)`: 4,368 logs and 256 KiB a block, against 546 and 32 KiB). The
+  log-heavy kinds carry the profile's cap (`log_max`; JM kind `log_heavy_max`; `log_heavy_546` stays available).
+- **The full nonce domain** (nonceMode 1, nMax = 2^64). A seal scans from nonce 0, inside the first member's range,
+  and never reaches nMax.
+
+The spec-1 rows above are unchanged and labelled; `JM_SPEC=1` reproduces them (`jm_journal_bytes_per_record_spec1` and
+`retained_states_of_one_lineage_share_their_code_buffers_spec1` are their default-test twins, kept until Phase 6a
+deletes the spec-1 rule set). The pairs below are on one host (Linux 6.18.44, 4 CPUs, release), one after the other.
+This host runs the spec-1 replay about twice as slowly as the round-3 host of §3.1 (5.05 s against 2.54 s at 1,000
+records), so compare a v3 row with its spec-1 row of the same run, not with §3. Logs: `evidence/journal-v3/`.
+
+### 14.1 Bytes per record (`JM-BYTES`, v3 devnet; default test `jm_journal_bytes_per_record`)
+
+| block kind | txs | PoW shares | header B | body B | parentResult B | **record B** | receipts B (NOT stored) | charged log B (NOT stored) | gasUsed |
+|---|--:|--:|--:|--:|--:|--:|--:|--:|--:|
+| empty (fallback, a=1) | 0 | 1 | 621 | 3 | 54 | **727** | 0 | 0 | 0 |
+| full-gas transfers | 380 | 64 | 1,279 | 44,838 | 2,011 | **48,181** | 102,217 | 0 | 7,980,000 |
+| log-heavy (4,368×LOG0, the v3 cap) | 1 | 80 | 1,423 | 115 | 2,507 | **4,097** | 105,105 | 157,248 | 1,822,289 |
+| full-BODY_MAX (2 big calls) | 2 | 53 | 1,180 | 196,587 | 1,670 | **199,492** | 538 | 0 | 827,344 |
+| full-gas compute (1 OOG jump loop) | 1 | 62 | 1,261 | 103 | 1,949 | **3,365** | 269 | 0 | 7,950,000 |
+| full-gas log-heavy (4,368 logs + filler) | 2 | 10 | 792 | 213 | 337 | **1,394** | 105,374 | 157,248 | 7,921,409 |
+
+The spec-1 twin on the same run reproduces §1.1's empty row exactly (105 shares, 1,559 + 3 + 3,282 → 4,895 B). Readings:
+
+- **The structure of §1 holds on v3.** A record is its header, its body and the share-derived parentResult. Receipts
+  and logs are not journaled: the v3 log-heavy block makes 8× the spec-1 logs (157,248 charged log bytes, 105,105 B of
+  receipts) and still journals about 4 KB.
+- **Per-share slopes** (least squares over the six samples): parentResult ≈ 31.0 B/share + 25 B, as on spec 1 (31.0 +
+  26 on the same run); header ≈ 9.8 B/share + 652 B (spec-1, same run: 8.3 + 718). The header fit depends on which
+  nonces the six blocks' shares happen to be (their RLP length grows with the nonce), so it is a description of these
+  samples, not a bound: the header's bound is still `header_max`. A record is still driven by its share count: 727 B at
+  1 share, about 4 KB at 80.
+- **What differs is the gas a log-heavy block can spend on logs** (1,822,289 gas for 4,368 logs against 274,379 for
+  546). That is receipts and replay CPU (§14.3), not journal bytes.
+
+### 14.2 Replay at open, empty blocks (`JM-REPLAY`; `jm_replay_empty_blocks`, JM_HEIGHT 5,000)
+
+| height | **v3 open** | v3 journal disk | v3 per-record | spec-1 open (same host) | spec-1 journal disk | spec-1 per-record |
+|--:|--:|--:|--:|--:|--:|--:|
+| 1000 | **6.61 s** | 1.98 MB | 6.61 ms | 5.05 s | 1.91 MB | 5.05 ms |
+| 2500 | **16.24 s** | 4.93 MB | 6.49 ms | 14.21 s | 4.81 MB | 5.69 ms |
+| 5000 | **34.16 s** | 9.92 MB | 6.83 ms | 28.98 s | 9.59 MB | 5.80 ms |
+
+Build: 5,000 blocks in 119.6 s on v3 (1,984.8 B/record) and 95.5 s on spec 1 (1,917.8 B/record). The v3 open is about
+18 % slower per record at 5,000 records, and still close to linear in the height over this range (PR7's window, §13).
+The 5,000-record run is the small-scale run Phase 5c asked for; §3.1's 20,000-record projections are not re-measured on
+v3.
+
+### 14.3 Replay by block kind (`JM-KIND`; `jm_replay_by_kind`, JM_KIND_COUNT 20)
+
+`JM-OPEN0` (the open of an empty journal, median of 5, `admitted()` inside the timer): **343.8 ms on v3**, 181.8 ms
+on spec 1. "Steady" is (openSeconds − JM-OPEN0) / 20.
+
+| kind | v3 bytes/record | **v3 steady** | spec-1 kind | spec-1 bytes/record | spec-1 steady (same host) |
+|---|--:|--:|---|--:|--:|
+| empty | 2,284.6 | **2.5 ms** | empty | 2,245.8 | 3.7 ms |
+| full_gas_transfers | 47,043.8 | **92.7 ms** | full_gas_transfers | 46,942.0 | 68.7 ms |
+| log_heavy_max (4,368 logs) | 2,002.5 | **13.6 ms** | log_heavy_546 | 1,863.0 | 5.4 ms |
+| full_body_max | 198,323.3 | **8.2 ms** | full_body_max | 198,406.5 | 9.9 ms |
+| full_gas_compute | 1,742.2 | **11.7 ms** | full_gas_compute | 2,091.7 | 13.5 ms |
+
+Twenty blocks a kind give single-digit-millisecond resolution only. The two rows that move beyond it: the v3
+log-heavy block re-executes 8× the logs of the spec-1 one (13.6 ms against 5.4 ms), and the 380-transfer block costs
+about a third more on v3 (92.7 ms against 68.7 ms, for the same 380 transfers; the cause was not isolated here). Neither changes §3.2's conclusion: replay time tracks re-execution work, not record
+size. The MODEXP, pairing and KZG kinds of §3.2a were not re-measured on v3 here (`JM_KINDS` runs them).
+
+### 14.4 What stays open
+
+The v3 chain has no H_END, so §2's disk bound at H_END and §3.3's open-time bound at H_END have no v3 counterpart: a
+continuous chain's journal grows without a lifetime cap (one record a block, 8,640 a day at T_blk 10), and its open is
+bounded by the checkpoint and window machinery of §13 in store mode, by the replay from genesis in whole-state mode.
+The fresh network's A13 stops for a store-mode node (history.redb's size, the journal's records) are pinned in
+`tests/network_budget.rs` `v3_a13_live_chain_halts_at_the_mainnet_profile`. §8's three obligations stay open.

@@ -1,0 +1,7 @@
+JM-OPEN0 {"openSecondsMedian":0.1817949,"openSecondsMin":0.162621468,"records":0,"runs":5}
+JM-KIND {"blocks":20,"buildSeconds":0.32409246,"bytesPerRecord":2245.8,"journalDiskBytes":44916,"kind":"empty","openSeconds":0.255248759,"perRecordMillis":12.762437949999999,"records":20}
+JM-KIND {"blocks":20,"buildSeconds":5.357593395,"bytesPerRecord":46942.0,"journalDiskBytes":938840,"kind":"full_gas_transfers","openSeconds":1.5553767440000001,"perRecordMillis":77.76883720000001,"records":20}
+JM-KIND {"blocks":20,"buildSeconds":0.54750766,"bytesPerRecord":1863.0,"journalDiskBytes":37260,"kind":"log_heavy_546","openSeconds":0.289265582,"perRecordMillis":14.4632791,"records":20}
+JM-KIND {"blocks":20,"buildSeconds":0.776250886,"bytesPerRecord":198406.5,"journalDiskBytes":3968130,"kind":"full_body_max","openSeconds":0.379313122,"perRecordMillis":18.9656561,"records":20}
+JM-KIND {"blocks":20,"buildSeconds":0.965339405,"bytesPerRecord":2091.7,"journalDiskBytes":41834,"kind":"full_gas_compute","openSeconds":0.452419698,"perRecordMillis":22.6209849,"records":20}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 15.00s

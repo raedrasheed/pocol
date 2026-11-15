@@ -3,13 +3,17 @@
 //! and per block by block kind and state size, and the open memory. This test only MEASURES the
 //! existing code (store::encode_record/encode_frame, Node::open replay, Chain::validate,
 //! Chain::ensure_state, Chain::restore_canonical); it does not change behaviour and does not attack.
-//! The harness profile is the spec-1 devnet (DevnetConfig::spec1, Bonded) with hash_rate 1024, d_att 73, tau 40, c 8
-//! (cfg()): the devnet caps, GAS_LIMIT, BODY_MAX and H_END, with an easier PoW and a wider attempt window.
-//! Phase 5a: pinned to the retired spec-1 devnet (the DevnetConfig::new default before Phase 5a) for Phase 5b/5c, so
-//! that the JM-* figures stay comparable with those recorded in JOURNAL-GROWTH-AND-REPLAY.md: the harness hard-codes
-//! the finite chain (H_END, lifetime TXBYTES_CAP), the spec-1 log caps (546 logs) and the bounded nonce range (seals
-//! scanned from nonce 0). The continuous v3 devnet bounds each block instead, so those measurements need new stop
-//! conditions there.
+//! The harness profile (cfg()) is the v3 devnet (DevnetConfig::new: CP schema v2, the V3 programs, nonceMode 1, a
+//! continuous chain) with hash_rate 1024, d_att 73, tau 40, c 8: the devnet caps, GAS_LIMIT and BODY_MAX, with an
+//! easier PoW and a wider attempt window. Phase 5c gave the harness the v3 stop conditions:
+//! - no H_END: a run's height is its own parameter (JM_HEIGHT, JM_HEND_TOP, ...), never the chain's end;
+//! - no lifetime TXBYTES_CAP: on a continuous chain TXBYTES_CAP and TX_CAP bind each block (`txbytes_fit`), so a run
+//!   that filled the spec-1 devnet's lifetime cap takes as many blocks as that cap held instead;
+//! - the v3 log caps (user_phase::log_caps(true): 4,368 logs and 256 KiB a block; `log_max`);
+//! - the full nonce domain (nonceMode 1): a seal scans from nonce 0 within the first member's range, never up to nMax.
+//! JM_SPEC=1 (and `on_spec1` in the default tests) selects the retired spec-1 devnet (DevnetConfig::spec1, Bonded) that
+//! the spec-1 rows of JOURNAL-GROWTH-AND-REPLAY.md were measured on: the finite chain (H_END 20,000, the lifetime
+//! TXBYTES_CAP), the spec-1 log caps (546 logs) and bounded nonce ranges. Phase 6a deletes it with the spec-1 rule set.
 //! It prints machine-readable `JM-*` lines consumed by development/audit-2026-10-22/JOURNAL-GROWTH-
 //! AND-REPLAY.md. The heavy variants are `#[ignore]` and run in release:
 //!   flock <cpu.lock> cargo test --release --test journal_measure -- --ignored --nocapture
@@ -26,7 +30,25 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 // ---- harness (self-contained; test files are separate crates, nothing imports consensus.rs) ----
-fn cfg()->DevnetConfig{let mut c=DevnetConfig::spec1(777910,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+thread_local!{static SPEC1:std::cell::Cell<Option<bool>>=const{std::cell::Cell::new(None)};}
+/// Whether this test runs on the retired spec-1 devnet: `on_spec1`, or JM_SPEC=1 for the measurement harnesses.
+fn spec1()->bool{SPEC1.with(|c|c.get()).unwrap_or_else(||std::env::var("JM_SPEC").is_ok_and(|v|v=="1"))}
+/// Runs `f` on the spec-1 devnet in this thread (a default test's pinned spec-1 twin; Phase 6a deletes it).
+fn on_spec1<R>(f:impl FnOnce()->R)->R{SPEC1.with(|c|c.set(Some(true)));let r=f();SPEC1.with(|c|c.set(None));r}
+fn profile()->&'static str{if spec1(){"spec1"}else{"v3"}}
+fn cfg()->DevnetConfig{
+    let mut c=if spec1(){DevnetConfig::spec1(777910,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded)}else{DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])};
+    c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+/// The most logs one block's logs reach: the v3 log caps (4,368), or the spec-1 LOG_COUNT_MAX (546).
+fn log_max()->u16{pocol_lp4_execution::user_phase::log_caps(!spec1()).count as u16}
+/// The gas a log_deploy of `n` LOG0s is given: about 405 gas a log beside the creation's own (274,379 gas used at 546),
+/// and never below the 300,000 the spec-1 rows used.
+fn log_gas(n:u16)->u64{(60_000+410*u64::from(n)).max(300_000)}
+/// Whether `bytes` more transaction bytes on `parent` fit the transaction-byte cap: a finite (spec-1) chain's lifetime
+/// TXBYTES_CAP over the branch; on a continuous (v3) chain TXBYTES_CAP binds each block (and a body is at most BODY_MAX),
+/// so nothing accumulates.
+fn txbytes_fit(chain:&Chain,parent:&pocold::chain::Entry,bytes:u64)->bool{
+    let cp=chain.spec.cp();if cp.H_END==0{bytes<=cp.TXBYTES_CAP}else{parent.cum_tx_bytes+bytes<=cp.TXBYTES_CAP}}
 fn admitted()->Spec{let c=cfg();let d=devnet::build(&c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
@@ -74,7 +96,8 @@ fn pack_transfers(n:&Net,head:[u8;32],alice:&Key)->Vec<Vec<u8>>{
     (0..lo as u64).map(|i|pay(alice,i)).collect()
 }
 /// Init code: a loop of LOG0(0 bytes) `n` times then STOP (same shape as the eth_getLogs test). At
-/// n=546 it hits LOG_COUNT_MAX; a log-heavy block's receipts are large but its JOURNAL record is not.
+/// n=546 it hits the spec-1 LOG_COUNT_MAX, at 4,368 the v3 one (`log_max`); a log-heavy block's receipts are large but
+/// its JOURNAL record is not.
 /// `gas` is the tx gas limit (so a log-heavy tx can be packed beside a compute filler in one block).
 fn log_deploy_gas(key:&Key,nonce:u64,n:u16,gas:u64)->Vec<u8>{
     let mut init=vec![0x61,(n>>8) as u8,(n&0xff) as u8,0x5b];// PUSH2 n; JUMPDEST(3)
@@ -137,7 +160,8 @@ fn cold_call_loop(base:u64)->Vec<u8>{let mut c=vec![0x67];c.extend(base.to_be_by
 /// (2600 gas) with no copy, no state change.
 fn extcodecopy_loop(base:u64)->Vec<u8>{let mut c=vec![0x67];c.extend(base.to_be_bytes());
     c.extend([0x5b,0x61,0x0b,0xb8,0x5a,0x10,0x60,0x20,0x57,0x60,0x00,0x60,0x00,0x60,0x00,0x83,0x3c,0x60,0x01,0x01,0x60,0x09,0x56,0x5b,0x00]);c}
-/// LOG0(0,0) in a tight loop with no gas guard: the block meter halts the tx at LOG_COUNT_MAX (546) logs
+/// LOG0(0,0) in a tight loop with no gas guard: the block meter halts the tx at the log count cap (546 logs on spec 1,
+/// 4,368 on v3)
 /// (exceptional halt, all gas charged, status 0, logs discarded), so LOG is NOT a per-gas worst case.
 fn log0_loop()->Vec<u8>{vec![0x5b,0x60,0x00,0x60,0x00,0xa0,0x60,0x00,0x56]}
 /// CREATE2 of the empty-returning child (PUSH1 0 DUP1 RETURN) with a rising salt while gas >= 40000, then
@@ -235,6 +259,8 @@ fn kind_body(kind:&str,alice:&Key,nonce:&mut u64,transfers_k:u64,bodymax_len:usi
         "empty"=>vec![],
         "full_gas_transfers"=>(0..transfers_k).map(|i|pay(alice,*nonce+i)).collect(),
         "log_heavy_546"=>vec![log_deploy(alice,*nonce,546)],
+        // Phase 5c: the most logs a block holds on the profile (4,368 on v3, 546 on spec 1).
+        "log_heavy_max"=>vec![log_deploy(alice,*nonce,log_max())],
         "full_body_max"=>vec![big_call(alice,*nonce,bodymax_len),big_call(alice,*nonce+1,bodymax_len)],
         k=>vec![deploy(alice,*nonce,FULL_GAS,0,compute_init(k).unwrap_or_else(||panic!("unknown kind {k}")))],
     };*nonce+=txs.len() as u64;Body{txs,evidence:vec![]}
@@ -289,16 +315,22 @@ fn mnode(tag:&str)->(Node,PathBuf,impl Fn()->Config){
 }
 
 // ============================ (a1) journal bytes per record ============================
-/// Bytes a single journal record occupies for each block kind. Fast; runs in all builds.
+/// Bytes a single journal record occupies for each block kind. Fast; runs in all builds. On the v3 devnet (Phase 5c):
+/// the log-heavy kinds carry the v3 log cap's 4,368 logs.
 #[test]
-fn jm_journal_bytes_per_record(){
+fn jm_journal_bytes_per_record(){journal_bytes_per_record()}
+/// The same on the retired spec-1 devnet (546 logs, bounded nonces), whose figures JOURNAL-GROWTH-AND-REPLAY.md §1.1
+/// records; pinned until Phase 6a.
+#[test]
+fn jm_journal_bytes_per_record_spec1(){on_spec1(journal_bytes_per_record)}
+fn journal_bytes_per_record(){
     let mut n=net();let g=n.chain.head;let alice=devnet::account_key("alice");
     // one real parent so signed templates have a drawn proposer and base fee
     let p0=fallback(&n,g,0);import(&mut n,&p0);let head=n.chain.head;
     let empty=fallback(&n,head,1);
     let transfers=pack_transfers(&n,head,&alice); // the most 21000-gas transfers a block holds (~full gas)
     let full_gas=signed(&n,head,Body{txs:transfers,evidence:vec![]});
-    let logheavy=signed(&n,head,Body{txs:vec![log_deploy(&alice,0,546)],evidence:vec![]});
+    let logs=log_max();let logheavy=signed(&n,head,Body{txs:vec![log_deploy(&alice,0,logs)],evidence:vec![]});
     // Pack body to just under BODY_MAX with two big zero-calldata calls.
     let max=n.chain.spec.cp().BODY_MAX as usize;let mut len=max/2-200;
     loop{let body=Body{txs:vec![big_call(&alice,0,len),big_call(&alice,1,len)],evidence:vec![]};
@@ -306,10 +338,11 @@ fn jm_journal_bytes_per_record(){
     let body_max=signed(&n,head,Body{txs:vec![big_call(&alice,0,len),big_call(&alice,1,len)],evidence:vec![]});
     // Full-gas compute block (1 tx, ~8M gas OOG loop): the open-time worst case, bounded by no cap.
     let fg_compute=signed(&n,head,Body{txs:vec![compute_oog(&alice,0,7_950_000)],evidence:vec![]});
-    // Full-gas LOG-heavy block (546 logs then a compute filler to ~8M gas): the task's "8M gas of a
+    // Full-gas LOG-heavy block (the most logs a block holds, then a compute filler to ~8M gas): the task's "8M gas of a
     // log-heavy contract". Shows the journal record stays small while receipts/logs are large.
-    let fg_logs=signed(&n,head,Body{txs:vec![log_deploy_gas(&alice,0,546,300_000),compute_oog(&alice,1,7_650_000)],evidence:vec![]});
-    let kinds=[("empty",&empty),("full_gas_transfers",&full_gas),("log_heavy_546",&logheavy),("full_body_max",&body_max),("full_gas_compute",&fg_compute),("full_gas_logs",&fg_logs)];
+    let fg_logs=signed(&n,head,Body{txs:vec![log_deploy_gas(&alice,0,logs,log_gas(logs)),compute_oog(&alice,1,7_950_000-log_gas(logs))],evidence:vec![]});
+    let log_kind=format!("log_heavy_{logs}");
+    let kinds=[("empty",&empty),("full_gas_transfers",&full_gas),(log_kind.as_str(),&logheavy),("full_body_max",&body_max),("full_gas_compute",&fg_compute),("full_gas_logs",&fg_logs)];
     let mut out=serde_json::Map::new();
     for (k,b) in kinds{
         let rec=record_bytes(&n.chain,b);
@@ -317,9 +350,13 @@ fn jm_journal_bytes_per_record(){
         let (e,_)=n.chain.validate(b,None,0).unwrap();let receipts:usize=e.receipts.iter().map(|r|r.len()).sum();
         let result=result_bytes(&e).len();let shares=b.header.shares.len();
         out.insert(k.into(),serde_json::json!({"recordBytes":rec,"headerBytes":hdr,"bodyBytes":body,"resultBytes":result,"powShares":shares,"txs":txs,"receiptBytesNotStored":receipts,"gasUsed":e.gas_used,"cumLogBytes":e.cum_log_bytes}));
+        // Every kind is valid and journaled; the log-heavy ones keep their logs (no halt at the log cap).
+        assert!(rec>=b.header.encoded.len()&&rec<=store::MAX_RECORD,"{k}: {rec} B");
+        if k.starts_with("log_heavy")||k=="full_gas_logs"{assert_eq!(e.cum_log_bytes-n.chain.full_entry(&head).unwrap().cum_log_bytes,u64::from(logs)*36,"{k}: {logs} logs of 36 charged bytes");}
     }
+    out.insert("profile".into(),serde_json::json!(profile()));
     println!("JM-BYTES {}",serde_json::Value::Object(out));
-    println!("JM-CONST {}",serde_json::json!({"OVERHEAD":store::OVERHEAD,"MAX_RECORD":store::MAX_RECORD,"BODY_MAX":n.chain.spec.cp().BODY_MAX,"TX_MAX":n.chain.spec.cp().TX_MAX,"GAS_LIMIT":n.chain.spec.cp().GAS_LIMIT}));
+    println!("JM-CONST {}",serde_json::json!({"profile":profile(),"OVERHEAD":store::OVERHEAD,"MAX_RECORD":store::MAX_RECORD,"BODY_MAX":n.chain.spec.cp().BODY_MAX,"TX_MAX":n.chain.spec.cp().TX_MAX,"GAS_LIMIT":n.chain.spec.cp().GAS_LIMIT,"logCountMax":logs,"nonceMax":n.chain.child_ctx(n.chain.head(),0).unwrap().assignment.nonce_max().to_string(),"hEnd":n.chain.spec.cp().H_END}));
 }
 
 // ============================ (a2) replay-at-open + RSS, empty blocks ============================
@@ -380,7 +417,7 @@ fn jm_replay_empty_blocks(){
 fn jm_replay_by_kind(){
     let count:u64=std::env::var("JM_KIND_COUNT").ok().and_then(|s|s.parse().ok()).unwrap_or(40);
     let kinds:Vec<String>=std::env::var("JM_KINDS").map(|s|s.split(',').map(str::to_string).collect())
-        .unwrap_or_else(|_|["empty","full_gas_transfers","log_heavy_546","full_body_max","full_gas_compute"].map(str::to_string).to_vec());
+        .unwrap_or_else(|_|["empty","full_gas_transfers",if spec1(){"log_heavy_546"}else{"log_heavy_max"},"full_body_max","full_gas_compute"].map(str::to_string).to_vec());
     {let (n,dir,conf)=mnode("kind-open0");drop(n);let mut ts=vec![];
         for _ in 0..5{let t=Instant::now();let r=Node::open(conf(),admitted()).unwrap();ts.push(t.elapsed().as_secs_f64());drop(r);}
         println!("JM-OPEN0 {}",serde_json::json!({"records":0,"openSecondsMedian":median(ts.clone()),"openSecondsMin":ts.iter().cloned().fold(f64::MAX,f64::min),"runs":5}));
@@ -525,8 +562,9 @@ fn trim_heap(){}
 /// node alive and freed heap trimmed (the post-open resident chain, which the A13 history terms already
 /// count); transient = peak - steady (the open-only working set the A13 bound excludes). Both ratios
 /// depend on the block kind (an empty-block journal is mostly headers and parentResult, a body-max one
-/// mostly bodies). Absent, it builds a journal of JM_MEM_KIND (default full_body_max, up to the devnet
-/// TXBYTES_CAP; other kinds JM_MEM_N blocks, default 3000 empty / 40 otherwise) into JM_MEM_DIR (kept
+/// mostly bodies). Absent, it builds a journal of JM_MEM_KIND (default full_body_max, up to the spec-1 devnet's lifetime
+/// TXBYTES_CAP, or on the continuous v3 devnet as many blocks as that cap held, 2^24 transaction bytes, or JM_MEM_N;
+/// other kinds JM_MEM_N blocks, default 3000 empty / 40 otherwise) into JM_MEM_DIR (kept
 /// for a fresh-process open) or a temp dir, and reopens it in-process with VmHWM reset (which
 /// UNDER-counts: the allocator reuses the build's freed memory). Linux only (procfs). Release only.
 #[test]
@@ -556,9 +594,12 @@ fn jm_open_memory(){
     let len=bodymax_len(&harness,&alice);
     let (mut nonce,mut blocks)=(0u64,0u64);
     if kind=="full_body_max"{
+        // Phase 5c: a continuous chain has no lifetime cap, so the run stops at the transaction bytes the spec-1 cap held.
+        let (continuous,mut sent)=(harness.chain.spec.cp().H_END==0,0u64);
+        let limit:u64=std::env::var("JM_MEM_N").ok().and_then(|s|s.parse().ok()).unwrap_or(u64::MAX);
         loop{let body=Body{txs:vec![big_call(&alice,nonce,len),big_call(&alice,nonce+1,len)],evidence:vec![]};
-            let pe=harness.chain.full_entry(&parent).unwrap();
-            if pe.cum_tx_bytes+body.txs.iter().map(|t|t.len() as u64).sum::<u64>()>harness.chain.spec.cp().TXBYTES_CAP{break}
+            let pe=harness.chain.full_entry(&parent).unwrap();let bytes=body.txs.iter().map(|t|t.len() as u64).sum::<u64>();
+            if !txbytes_fit(&harness.chain,&pe,bytes)||blocks>=limit||(continuous&&sent+bytes>1<<24){break}sent+=bytes;
             let b=signed(&harness,parent,body);import(&mut harness,&b);parent=b.hash();n.import(b,None).unwrap();nonce+=2;blocks+=1;}
     }else{
         let count:u64=std::env::var("JM_MEM_N").ok().and_then(|s|s.parse().ok()).unwrap_or(if kind=="empty"{3000}else{40});
@@ -965,8 +1006,11 @@ fn jm_tx_state_term(){
 /// Decision package C-1 S2: a state copy shares its code buffers with the state it was copied from.
 /// Every state the chain holds along one canonical lineage (each block's state is its parent's copy
 /// plus that block's changes) points at the same code bytes for a code hash, so that lineage holds each
-/// runtime once. Not a measurement: it runs by default. The A13 code term (resources.rs) relies on it.
-#[test] fn retained_states_of_one_lineage_share_their_code_buffers(){
+/// runtime once. Not a measurement: it runs by default. The A13 code term (resources.rs) relies on it. On the v3 devnet;
+/// its spec-1 twin is pinned until Phase 6a.
+#[test] fn retained_states_of_one_lineage_share_their_code_buffers(){code_buffers_shared()}
+#[test] fn retained_states_of_one_lineage_share_their_code_buffers_spec1(){on_spec1(code_buffers_shared)}
+fn code_buffers_shared(){
     let mut n=net();let alice=devnet::account_key("alice");
     for k in 0..3u64{let b=signed(&n,n.chain.head,Body{txs:vec![deploy(&alice,k,7_900_000,0,zero_code_init(32768-k as u16))],evidence:vec![]});import(&mut n,&b);}
     for _ in 0..3{let b=signed(&n,n.chain.head,Body::default());import(&mut n,&b);}
@@ -1216,11 +1260,20 @@ fn jm_r14_workload_gap(){
 }
 
 // ============================ R3-4: a store-mode node at the network's state caps ============================
-/// The journal_measure profile with the network's state caps (governance.md: ACCT_CAP 10^6, SLOT_CAP 4·10^6), its
-/// code, transaction and transaction-bytes caps, and its H_END and closing window (so that the ~30,000 blocks
-/// that fill those caps fit); every other parameter is the devnet's.
-fn scale_cfg()->DevnetConfig{let mut c=cfg();c.acct_cap=1_000_000;c.slot_cap=4_000_000;c.code_cap=1<<30;c.txbytes_cap=1<<33;c.tx_cap=10_000_000;
-    c.h_end=129_600;c.h_close=129_440;c.t_end_offset=10_368_000;c.t_close_offset=10_368_000-9_600;c.z_close=160;c}
+/// The journal_measure profile with the network's state caps (ACCT_CAP 10^6, SLOT_CAP 4·10^6, CODE_CAP 2^30: the fresh
+/// network's, FRESH-NETWORK-CP.md, as governance.md's); every other parameter is the devnet's. On the v3 devnet it stays
+/// continuous, with the fresh network's per-block TXBYTES_CAP 2^24 and TX_CAP 20,000 (the devnet's). On the spec-1
+/// devnet (JM_SPEC=1) it takes governance.md's lifetime transaction caps and its H_END and closing window (so that the
+/// ~30,000 blocks that fill those caps fit), as the spec-1 rows were measured.
+/// The limits a new store-mode node checks A13 with at open (node.rs open): on a continuous v3 chain the eviction depth
+/// from R_keep, the first-import index, no journal records and empty files observed; unchanged on the spec-1 devnet.
+fn a13_at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,k_hist:u32,mut l:Limits)->Limits{
+    if spec1()&&cp.H_END!=0{return l}
+    l.evict_depth=Some(pocold::resources::evict_depth_of(cp,k_hist,&l,l.r_keep).unwrap().unwrap_or(0));
+    l.first_imports=!spec1();l.continuous_history=Some(0);l.disk=Some(Default::default());l
+}
+fn scale_cfg()->DevnetConfig{let mut c=cfg();c.acct_cap=1_000_000;c.slot_cap=4_000_000;c.code_cap=1<<30;
+    if spec1(){c.txbytes_cap=1<<33;c.tx_cap=10_000_000;c.h_end=129_600;c.h_close=129_440;c.t_end_offset=10_368_000;c.t_close_offset=10_368_000-9_600;c.z_close=160;}c}
 /// R3-4 (2026-10-27): a store-mode node grown to the network's state caps, measured beside what A13 computes for
 /// it. Separate processes on one directory, JM_SCALE_DIR, chosen by JM_SCALE_PHASE:
 /// - "grow" (the directory must not exist): a store-mode node of scale_cfg() builds and imports full-gas blocks of
@@ -1261,7 +1314,7 @@ fn jm_store_scale(){
     let open=||{let t=Instant::now();let n=Node::open(Config{dir:dir.clone(),name:"jm".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,
         limits:Limits{state_store:true,checkpoint_every:env_n("JM_SCALE_CKPT",pocold::checkpoint::EVERY),..Default::default()}},spec()).unwrap();(n,t.elapsed().as_secs_f64())};
     let size=|f:&str|std::fs::metadata(dir.join(f)).map(|m|m.len()).unwrap_or(0);
-    {   let l=pocold::single_host_local();let lim=Limits{state_store:true,..Default::default()};let cp=spec().cp().clone();
+    {   let l=pocold::single_host_local();let cp=spec().cp().clone();let lim=a13_at_open(&cp,l.k_hist,Limits{state_store:true,..Default::default()});
         let b=pocold::resources::check(&cp,l.k_hist,l.side_max,&lim,2).expect("the scale profile boots in store mode");
         let f:u128=pocold::resources::state_file_parts(&cp,l.k_hist,l.side_max,&lim).unwrap().iter().sum();
         println!("JM-SCALE-A13 {}",serde_json::json!({"phase":phase,"boundBytes":b.total.to_string(),"budgetRequiredBytes":pocold::resources::budget_required(b.total).unwrap().to_string(),
@@ -1353,7 +1406,7 @@ fn jm_store_scale(){
         "load"=>{
             // R4-4 (2026-10-28): the heaviest local loads this test can drive, at the store's size. Each step prints the
             // figures and VmHWM; the A13 items for the terms it reaches are printed beside them.
-            let l=pocold::single_host_local();let lim=Limits{state_store:true,..Default::default()};
+            let l=pocold::single_host_local();let lim=a13_at_open(spec().cp(),l.k_hist,Limits{state_store:true,..Default::default()});
             let b=pocold::resources::derive(spec().cp(),l.k_hist,l.side_max,&lim,2).unwrap();
             println!("JM-SCALE-A13-ITEMS {}",serde_json::json!(b.items.iter().map(|(k,v)|serde_json::json!([k,v.to_string()])).collect::<Vec<_>>()));
             let (mut n,open_s)=open();figures(&n,"opened for the load",serde_json::json!({"openSeconds":open_s,"resumedFrom":n.stats.resumed_from}));
@@ -1421,7 +1474,9 @@ fn jm_journal_to_hend(){
     let open=||{let t=Instant::now();let n=Node::open(Config{dir:dir.clone(),name:"hend".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:std::env::var("JM_HEND_LOG").is_ok(),
         limits:Limits{state_store:true,..Default::default()}},spec()).unwrap();(n,t.elapsed().as_secs_f64())};
     let size=|f:&str|std::fs::metadata(dir.join(f)).map(|m|m.len()).unwrap_or(0);
-    let h_end=spec().cp().H_END;let top=env_n("JM_HEND_TOP",h_end).min(h_end);
+    // Phase 5c: a continuous chain has no H_END; the run's top is JM_HEND_TOP, by default 129,600 (the spec-1 network's
+    // H_END, which the spec-1 rows ran to), so the figures compare.
+    let h_end=spec().cp().H_END;let top=if h_end==0{env_n("JM_HEND_TOP",129_600)}else{env_n("JM_HEND_TOP",h_end).min(h_end)};
     let figures=|n:&Node,what:&str,extra:serde_json::Value|{
         println!("JM-HEND {}",serde_json::json!({"phase":what,"height":n.chain.head().height,"hEnd":h_end,"records":n.journal_records(),"journalBytes":size("blocks.journal"),
             "bytesPerRecord":size("blocks.journal") as f64/n.journal_records().max(1) as f64,"historyBytes":size("history.redb"),"stateFileBytes":size("state.redb"),
