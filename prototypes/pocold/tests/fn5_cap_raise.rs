@@ -19,7 +19,7 @@ const V2:u64=3;const H:u64=6;
 const ROOM:u64=2;const SPIN:u64=4;
 
 fn base()->DevnetConfig{
-    let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["execution"]);c.spec_version=2;c.earnin=true;c.nonce_mode=1;c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;c
+    let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["execution"]);c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;c
 }
 fn genesis_counts()->Summary{static S:OnceLock<Summary>=OnceLock::new();*S.get_or_init(||{let d=devnet::build(&base()).unwrap();Summary::scan(d.genesis.state(),32768)})}
 /// ACCT_CAP with only the timing workload's headroom above the genesis accounts.
