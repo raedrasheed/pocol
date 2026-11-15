@@ -80,7 +80,7 @@ class ValidationTests(unittest.TestCase):
                 self.assertEqual(g.sanitize(method, {**fields, **private}), fields)
 
     def test_the_consensus_identity_and_wire_range_pass_the_sanitizer(self):
-        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 2, 'protocolVersionMin': 2, 'maxForkVersion': 2}
+        fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 2, 'protocolVersionMin': 2, 'maxForkVersion': 3}
         for method in ('pocol_status', 'pocol_getParams'):
             with self.subTest(method=method):
                 self.assertEqual(g.sanitize(method, {**fields, 'peers': ['private'], 'lastIncompatibleReason': 'peer x'}), fields)
@@ -107,6 +107,13 @@ class ValidationTests(unittest.TestCase):
                 'accounts': '0x1', 'accountsCap': '0x11', 'storageSlots': '0x2', 'storageSlotsCap': '0x22', 'codeBytes': '0x3', 'codeBytesCap': '0x33',
                 'txCount': '0x0', 'txCap': '0x44', 'txBytes': '0x0', 'txBytesCap': '0x55', 'logBytes': '0x0', 'logCap': '0x66'}
         self.assertEqual(g.sanitize('pocol_getCaps', {**caps, 'peers': ['private'], 'rpcAddr': 'secret'}), caps)
+        # FN-5: a scheduled cap raise is relayed by both methods (hex in getCaps, numbers in getParams), absent without one.
+        raised = {**caps, 'capRaise': {'ACCT_CAP': '0x15f90', 'SLOT_CAP': '0x15f90', 'CODE_CAP': '0x400000', 'SYS_SLOT_MAX': '0x11170',
+                                       'height': '0xc8', 'active': False}}
+        self.assertEqual(g.sanitize('pocol_getCaps', {**raised, 'peers': ['private']}), raised)
+        params = {'chainId': 777963, 'forkSchedule': [[1, 0], [2, 100], [3, 200]],
+                  'capRaise': {'ACCT_CAP': 90000, 'SLOT_CAP': 90000, 'CODE_CAP': 4194304, 'SYS_SLOT_MAX': 70000, 'height': 200}}
+        self.assertEqual(g.sanitize('pocol_getParams', {**params, 'peers': ['private']}), params)
 
 
 class GatewayTests(unittest.TestCase):

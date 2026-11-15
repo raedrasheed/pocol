@@ -32,7 +32,9 @@ history n=29 kind=bump rules=2 maxFork=2 spec=2 protocol=2 protocolMin=2 sources
 history n=30 kind=neutral rules=2 maxFork=2 spec=2 protocol=2 protocolMin=2 sources=2fc8cc441441bfdf69daab541a9547d60d1b55b8c9eb514fd7e31b7442fa9f72 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-1 note="Fresh network FN-1 (C9 + part of C6), node-local: lp1 Assignment::owner and chain.rs range_owner are binary searches over the cumulative ranges (same answer for every nonce, linear scan kept as a test oracle); membership() reads the ActList in one pass, with a bounded child-context cache keyed by parent hash, height, seal, child height, attempt, target and the parent state's identity (errors never cached); pocol_getCaps served (RPC only); block validity, fork choice, verdicts, roots, persisted bytes and the consensus identity unchanged"
 history n=31 kind=neutral rules=2 maxFork=2 spec=2 protocol=2 protocolMin=2 sources=594383576f42eb89cde99e811e2f5dd506671aed8d3e3e41e6b083f2900e6ea6 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-3a note="Fresh network FN-3a (C6, node-local): per-entry member-set records (members.rs: a delta per block with a snapshot every 256 heights or when the delta exceeds its bound) persisted in history.redb beside the nonce ranges and kept in a bare chain's MemSets; Assignment::from_ids is the one code path for live and recomputed assignments; every owner reader (type-2, kind-3, late_offer, late_check) still takes its verdict from Entry.ranges and compares the recomputation in shadow, a mismatch or failure being Reject::Local and damaged, never a verdict; block validity, fork choice, verdicts, roots, persisted consensus bytes and the consensus identity unchanged"
 history n=32 kind=neutral rules=2 maxFork=2 spec=2 protocol=2 protocolMin=2 sources=e0c04d55138f32a4513ba69beaac477fe01d06209004cabcbc3e6abe14a11d04 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-3b note="Fresh network FN-3b (C6, node-local): the owner readers (type-2, kind-3, late_offer, late_check) take owner(nonce) from the assignment recomputed from the member records (Assignment::from_ids over members.rs records), Entry.ranges and the history.redb RANGES table are removed (the table is deleted at open), history has() = receipts && members; the recomputation is proven equal to the pre-switch ranges by the capture oracle in every test chain; block validity, fork choice, verdicts and their order and texts, roots, persisted consensus bytes and the consensus identity unchanged"
-history n=33 kind=neutral rules=2 maxFork=2 spec=2 protocol=2 protocolMin=2 sources=a5deecdc3ffa8e0270232a48692b50395bb54b1fc55ee49ce0117f9fcb3a24c3 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=state-retention note="Node-local state retention (K_hist window): pocold chain.rs clears the pruned mark on adopted canonical blocks whose state the head reaches through held diffs (memory mode, reach_window) and keeps the re-executed version of canonical blocks above the cut (store mode, restore_canonical and rebuild_with), so state queries at heights inside the window and at safe are answered after a reorg; which block states are held changes, the states themselves do not, so block validity, fork choice, verdicts, roots, persisted bytes, A13 terms and the consensus identity unchanged"
+history n=33 kind=neutral rules=2 maxFork=2 spec=2 protocol=2 protocolMin=2 sources=5293669e7fa75696c447e3cb864ee5026a99470788f9ca33fe1bfbf3cd06b984 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-4 note="Fresh network FN-4 (C7, tooling): lp4 devnet.rs gains a subsidy field (default 2 PCOL, so every existing devnet genesis keeps its bytes) and an S_tail = S0/32 build-time check; pocold lib.rs boot admission reads the calibration class recorded in devnet.json (admission labels only); committed v3 mainnet and rehearsal profiles and the network-profile builder live outside the lock; block validity, fork choice, verdicts, roots, persisted bytes and the consensus identity unchanged"
+history n=34 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=748aa708fe9bafcbaff4545c1f9d8e435effe80b76948e3142f017764158bc10 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 gate=fork:3 ref=FN-5 note="Fresh network FN-5 (C10, D-V3-23 restricted to the cap fields): fork version 3 (MAX_FORK_VERSION 2 -> 3) carries a cap raise of ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX only, admitted only with its raise values on a spec-2 genesis; every reader of those four caps goes through cp_at(h) and ParamGate evaluates the R-rules at both CPs and refuses a lowering; compiled in and dormant: without a fork-3 entry every verdict, root, persisted byte and the consensus identity are unchanged"
+history n=35 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=fdd4b51910c815a99a53a584b52d6aa8897929910f4da7ccf7c0d6e9945a8eb9 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-1b note="Fresh network FN-1b (node-local performance): pocold chain.rs derives a child's membership inputs from its parent's held inputs plus the block's registry write set (bounded caches CTX_BASES_MAX=3, CTX_WRITES_MAX=8, CTX_WRITE_SLOTS_MAX=4096, whole-read fallback, test-only oracle), and members.rs gains MemberBase; the membership it yields is the same one-pass reading, so block validity, fork choice, verdicts, roots, persisted bytes and the consensus identity unchanged"
 file 9ed951416e93352d66d0c783c7fb09d5485fd79594efd6bef7aeb0466fd749b3 lp1-node/Cargo.toml
 file 8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502 lp1-node/src/asert.rs
 file e8f2a49a2774dfffcb7921025a6bf85cea9a76f5cb92cabfe74c3362a24420b5 lp1-node/src/assignment.rs
@@ -44,26 +46,26 @@ file afddb441713dfddf2c82fedf41a7be3d420fbf646e6d13e3e4de666abb43647e lp1-node/s
 file a09453b770796abbe4624c2d3c4d4739f55dad51b61872d4642ff477d39c2314 lp1-node/src/header.rs
 file e65feef9efe5b60ee1b79316b2f19dd670ef3b43f5d6f75f18378006d4ac3171 lp1-node/src/hex.rs
 file 7ff965a553ef89cd061f4dd195ac9306404c2cdd16a3cc0343084cf102c34764 lp1-node/src/json.rs
-file 7ab040dfbc72ca6c3498026eb345fa4e20eea3ce330a969833dac9e6be5171c9 lp1-node/src/profile.rs
+file 8e191b1dc45a5a24799d6cfeddf641239161cece0aa8a8c8da713e68dcb4f7fa lp1-node/src/profile.rs
 file d800b3cb2e9d235b5db23556637947f9c140af919c7fed057881cd380d0826af lp1-node/src/rlp.rs
 file 3d4e1387808ce0ad35172553a09f5b7e6544b174d19b6eb4826bddda111ef4e5 lp1-node/src/timing.rs
 file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp1-node/src/trie.rs
 file d7a3c3fcbae35e06f916e7e147252b0234d650f48ceae07387912fc00576a61d lp1-node/tests/data/lp4-trie-vectors.json
 file 12a99a38e144bad0b3448a7edcfc627c88acf6665e6a1e4c1fbead0b390f28c1 lp4-execution/Cargo.toml
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 lp4-execution/rust-toolchain.toml
-file e351521eb9498dad001d7810d67f29a43684c598cb0ee2558f3892653052b85d lp4-execution/src/admission.rs
+file 8cb00b9ee2db6876cf3574ef7a7e31247521365c6e28a4f1def357ee6ef72204 lp4-execution/src/admission.rs
 file 1b66ef4171f62d14e2976c4396bb8919e47dd8acf78c9f8ccb33becd632443ee lp4-execution/src/admission/scope.rs
-file 2b8b519467e851e5a3314a932ea5fd4608c859f2c9061c39b46820379f44f159 lp4-execution/src/apply.rs
-file d5369a58f2905aad2092c9b63cfef04f401636be74adf48481628e2343dbb4b3 lp4-execution/src/code_caps.rs
+file 129048418a80d9cff02d50714637acc6777535e34e9b50cdf1b5b0b08928f416 lp4-execution/src/apply.rs
+file 47da5a2cb193ff6f907b5ce039f00d7c5e55f0e2ba1c90b1c22b120b2dd524d2 lp4-execution/src/code_caps.rs
 file 49b3fba10a3421ed48d0766416df4ef5424a0ff71013a702d1ffb99b3ac14de9 lp4-execution/src/collision.rs
-file 8deab05658e9e9bb996b422f738e16017541cd33d5d446e255bc96402c7095bc lp4-execution/src/devnet.rs
+file 7f9d07dae9f9ce53f22adb460e273acfea46134761a9c12861020c93c24e8f41 lp4-execution/src/devnet.rs
 file ed4d0b34f4be5bb98ea2ff0025a1cc6d9a0c64b704c46daf53a818b1504558f7 lp4-execution/src/fees.rs
 file 2edb8407a51b71fb25a67d9d918795db5fcc1b1462c4aedc04458fe108280472 lp4-execution/src/finality_core.rs
-file dd7c99bb356b9e06fea6734e290655c98530b139b337fef398dd85b10b907255 lp4-execution/src/genesis_builder.rs
+file 91f8723baef5c1e30616d936018c55c50685d1a1ab7b1ecae0d2770b709f1340 lp4-execution/src/genesis_builder.rs
 file fbb3759ea285f5cfa58c24207362c3c14f772e1fe769f45eb269902019638c53 lp4-execution/src/issuance.rs
 file 88190c3eb9c40a33bb763f19a03c19cc3f4d138c5cf21249e0ebff9f70389ae3 lp4-execution/src/lib.rs
 file 362a0cf67078deb861a162de1ac06358904b7d59c795a6017586e3726e3c5cdd lp4-execution/src/modexp.rs
-file 92aab757998173110e749bc604c822545138bb4bac6fa6f9736e3a920ef7a21c lp4-execution/src/native.rs
+file d9f6197ab065fc04ef689a059a78531ba600148fb180c00bc8913afbc12837e2 lp4-execution/src/native.rs
 file cee32d5ff893ba21ff2e9dc9fdbbd319db2918f9b425906b25f53e19a1f605bd lp4-execution/src/node_trie.rs
 file 3ce9f7f85e0b59fe3cbcac91d53ca8c5ac2ed263ce5d379940c5a4d87143f519 lp4-execution/src/p1_decimal.rs
 file 6164497f6a75fa0ea4cf4192d3ad377beea45f767e6e7b9db54b72b4daef9be3 lp4-execution/src/p1_fixed.rs
@@ -71,16 +73,16 @@ file 5936a950c2224fad7a5dd1eb49dc92088396a1f7e51bf1c9f0c93198462e0389 lp4-execut
 file f4fc8473fce19a8effbfbed69f1f73ed9b444ecd2cf7dd1ab6f714524cbd2eff lp4-execution/src/p1_genesis_spec.rs
 file e65feef9efe5b60ee1b79316b2f19dd670ef3b43f5d6f75f18378006d4ac3171 lp4-execution/src/p1_hex.rs
 file 7ff965a553ef89cd061f4dd195ac9306404c2cdd16a3cc0343084cf102c34764 lp4-execution/src/p1_json.rs
-file 7ab040dfbc72ca6c3498026eb345fa4e20eea3ce330a969833dac9e6be5171c9 lp4-execution/src/p1_profile.rs
+file 8e191b1dc45a5a24799d6cfeddf641239161cece0aa8a8c8da713e68dcb4f7fa lp4-execution/src/p1_profile.rs
 file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp4-execution/src/p1_trie.rs
 file 11f42a408d8a7493f3c5432f40407860277295d78023680ad4d2c572870ba2b5 lp4-execution/src/pay.rs
 file 2d31ccbfe9e4719a68b91ae00cc87d8f550fd6ef50280372d17f90404aceaad1 lp4-execution/src/receipts.rs
 file d2ad319b9ebd8132aedefa92f5c9dd8ab6b95392c5ff76b168f8af132b73f83b lp4-execution/src/state_summary.rs
 file 806c72ed340a1826c3d3ad11a4f18cf8ce290a1d48b72a505a4494932767b7f1 lp4-execution/src/state_trie.rs
 file 6391eafaddd35fed87a2ab9251821612b12fcd0ca4ac5f7e9a3d89edc30b99aa lp4-execution/src/state_view.rs
-file 484ef135799b92105c712217518cec094c6ecab160b0b6eaacb9de3400384ea2 lp4-execution/src/system.rs
+file 891164a0e78c2db2a94e90899f5361725a248bc0e1e41fbe4fb5a43b0e2c84f6 lp4-execution/src/system.rs
 file 027798a614299c63efdd338c91b657dbb79a88212fc67b70bc54416c3a6709eb lp4-execution/src/txsign.rs
-file 27178314571d8fce3e3c9848be3417ffb1966a2770898fee6679572668c2e063 lp4-execution/src/user_phase.rs
+file 93995199dd8484efc533a87e2c5b3e4ce6a5b157810fe3d96eec27374bbd8808 lp4-execution/src/user_phase.rs
 file ddaeeb73f6387a11150028c76c9a0df5d467104ff815614f26eb70c3b61fa8ab lp4-execution/src/view.rs
 file c688ea63767d52468c9fd9eecb0fdfae664ad19f3f70e5f075e9a816136bf593 lp4-execution/src/wire.rs
 file d800b3cb2e9d235b5db23556637947f9c140af919c7fed057881cd380d0826af lp4-execution/src/wire_rlp.rs
@@ -114,12 +116,12 @@ file 2922a7cc59a9b629fb9ced9580182c8b7cad9ac400e8cd12cbc65f9863ec44ea pocold/bui
 file 314937e0f5d849999095b6d843657ce05e4aaf9c501a1ac298e5184eeb15b8bb pocold/consensus-boundary.txt
 file d738791f204eb705c4a9b86c991e0e6124d61595a55709b77255dfa0244bbc43 pocold/consensus_boundary.rs
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 pocold/rust-toolchain.toml
-file d730cbfd3297b3117007cba123140456ac0fc6715a29dc179d5e61878bb62cc6 pocold/src/chain.rs
+file 9458189e07b5d622ad9f9e3b5fc55d29413445f6490542399fcf45825f13e402 pocold/src/chain.rs
 file 0631bce9331eef3d687410d09a8d089b742b136219e84e74d19ee9427972be61 pocold/src/checkpoint.rs
 file d1d33352da3c556fb095709241c51877909fc70a6b8e2d938a61190bf0902e2c pocold/src/history.rs
-file 6c5af4693afd5bf5f4a687a8852b9b98821a29b2a2b53fb700e985ca0d309bcc pocold/src/identity.rs
-file 214c8ecf02b2612b17e8adbb6b2ca893bdc19c8e4f6075a7321defdb5ab20e47 pocold/src/lib.rs
-file 5fca385090157ec3882b9a3945a5a013050929a997898abcd37f28e9063c9108 pocold/src/members.rs
+file b6970559b5facb366d57ff66fe94cac60d438ff92f2a9e9e46eef452a5a7738d pocold/src/identity.rs
+file d1100e20b037bbc8be0b2c02c23732bf261156515f3ec835f0ee607ee9286761 pocold/src/lib.rs
+file bb9dec61752aeda387d544628ac13067196bff625d6b07d6e29916f8e497e4a6 pocold/src/members.rs
 file 8be7eec8c6742dc07402d471d0cfeac31474057615ab61866b81511abfb0b5ab pocold/src/secp_backend.rs
 file b5f41a4940f124d930219026adb7de167d6be6ee362861b65b6eb6967da85158 pocold/src/state_store.rs
 file 42a27dd7c881adf9c200e6dfb4ab51278146323ceee2703561120b8d14e52b72 pocold/src/statediff.rs

@@ -1773,6 +1773,103 @@ entry-equivalents (7,181,440,000 B) plus the ranges rows' allocator share and th
 against the 6 GiB budget with its 1/8 reserve. FN-3c records this in its own 10k A13 test, with the growth and CPU
 measurements (taken with the oracle off).
 
+### FN-3c: A13 and the growth and CPU evidence at 10,000 members (C6, node-local)
+
+FN-3c (plan FN-3 §5.13, §5.14) adds evidence only. No term changed, so no pin moved. `tests/fn3_scale.rs`
+`a13_admits_the_fresh_network_cp_at_ten_thousand_members` derives A13 in store mode, with eviction on and the files
+observed (`Limits::disk`, empty: a new node), at two hand-built CPs. No committed fresh-network profile (FN-4) is on this
+base.
+- **The C6-row CP**, at which FN-3a and FN-3b recorded their figures: the generated continuous network's CP (CP schema
+  v1, nonceMode 0, devnet caps, so the member terms take the every-block-a-snapshot branch) with M_max 10,000, E_win
+  360, D 4, E_max 4, R_react 4, REG_OPS 16, REG_RECORDS_MAX 24,576 and SYS_SLOT_MAX 147,456.
+  - **2,894,088,421 B (2.70 GiB), admitted.** That is FN-3b's figure. It needs 3,307,529,624 B of the 6 GiB with the
+    reserve.
+- **The fresh-network CP of FRESH-NETWORK-DESIGN.md §1a** (`tests/support/ten_thousand.rs` `fresh_config`): CP schema
+  v2, nonceMode 1, CODE_CAP 2^30, SLOT_CAP 4,000,000, ACCT_CAP 1,000,000, Z_close 256, C_react 380 and the rest of the
+  table. Only S0 and target_g differ, and neither is an A13 input.
+  - **5,461,945,293 B (5.09 GiB), admitted** with 175,199,283 B (167 MiB) to spare under the usable 5,637,144,576 B.
+    It needs 6,242,223,192 B with the reserve.
+  - Its largest terms are the store-mode code set read by the execution at CODE_CAP 2^30 (1,207,959,552), the
+    execution's memory classes (1,051,240,244), a block's new trie nodes before commit (1,039,183,100), the state.redb
+    allocator (449,936,640) and NODE_CACHE (268,435,456).
+  - The member and context terms total 69.7 MB: the records on held entries 6,823,120, FN-1's child-context cache
+    27,847,744, the sets 3,203,072, the assignments 25,922,896, the owner memo 2,770,596 and the scratch 3,155,072.
+  - `a13_fresh_network_headroom_against_the_observed_files` (printed only) finds that the node stays admitted until
+    state.redb reaches 1,414,813,188,096 B (1,317.6 GiB, with history.redb empty), or history.redb reaches
+    717,616,054,272 B (668.3 GiB, with state.redb empty).
+
+The test's sibling assertion covers the term FN-3b removed. That term was 64·M_max = 640,000 B in each of the 11,221
+entry-equivalents: the window 32, slim_depth − window = 4,681, the shadow max(257, E_win + 1) = 361, side_cap + 2·R_keep =
+6,144, one full side block and two views. It came to 7,181,440,000 B (6.69 GiB). That alone exceeds the usable
+5.25 GiB, which is what the test asserts, so the pre-FN-3 model was refused at both CPs. At the C6-row CP FN-3a recorded
+that model as 10,035,259,610 B before FN-3 and 10,078,213,165 B after FN-3a, before FN-3b (FN-3a's member terms added
+42,953,555 B). The test prints today's total plus the ranges term (`fn3aModelAtLeast`): a lower bound on the
+FN-3a model only (10,075,528,421 B at the C6-row CP, 12,643,385,293 B at the §1a CP), since today's total holds FN-3's
+member terms (records, sets, assignments, owner memo, scratch: 42,052,228 B and 41,874,756 B). Less those terms it
+estimates the pre-FN-3 model (`preFn3Estimate`, not a bound: it leaves out the ranges rows' allocator share and the
+Entry's 16 B and keeps the member payload's allocator share): 10,033,476,193 B at the C6-row CP, against FN-3a's
+recorded 10,035,259,610 B, and 12,601,510,537 B (11.74 GiB) at the §1a CP. Both totals are pinned on Linux x86-64,
+and `check` admits both on every platform.
+
+The `#[ignore]` harness (`growth_and_cpu_at_ten_thousand_members`) runs a store-mode node at 10,000 genesis members for
+600 blocks, with the oracle off. One run is idle; one churns S_b up to |Δ| = 24, delta_max of the CP. It measured:
+- the membership tables of history.redb at 144 B a record idle (+20 B an id changed) and 200,064 B a snapshot. That
+  projects to 7,996,320 B a day idle and 12,143,520 B a day with every block at |Δ| = 24 (9,886,925 B a day as measured
+  over 600 blocks, which overweights snapshots), against C6's 100 MB;
+- a process peak RSS of 191-194 MiB in the 10k runs against the model's 5,461,945,681 B. That is the test process's
+  RSS, with the genesis and what the admission and earlier runs left resident; the first run rose 80 MiB above the
+  process's RSS at its node's open;
+- reconstruction cold p99 of 9.4-9.5 ms (11.4-16.3 ms in the previous run);
+- child_ctx cold (FN-1 cache cleared) p50 of about 105 ms and p99 of 171-188 ms (184-235 ms in the previous run),
+  almost all of it the one-pass membership read of 10,000 records through state.redb, and 0.2 ms warm;
+- `h_full` overhead: the member record takes 0.1 ms at p50 and 0.16 ms at p99 on a delta block and about 4 ms on a
+  snapshot block, against a 0.40-0.43 s import at p50;
+- the proposer's pool (FN-3 §5.12) full, 64 type-2 items against distinct ancestors (58 offloaded): +472 ms on a
+  signed template with every member cache cleared (64 reconstructions, each ending at a snapshot set read from
+  history.redb, 0 faults), +18 ms warm (the owner memo).
+
+The churn run's 242 type-2 punishments recomputed their owners with 236 reconstructions, 415 record reads and 1 disk
+set read (the import phase's counters, apart from the reconstruction loop's 120 disk set reads), 0 faults.
+
+The figures, M1's reading and what is deferred are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md.
+Design risk 1's figure is corrected there: 6.69 GiB of ranges in the A13 worst case, not 2.8 GiB at the slim depth.
+
+### FN-1b: membership inputs derived across blocks (C6, node-local)
+
+FN-1b keeps, beside FN-1's child-context rows, what membership() reads of a state (`members::MemberBase`: the ActList
+in order and, for each id on it, the record fields the one pass reads, with the reverse map from each record's base slot
+to its id) for at most `CTX_BASES_MAX` (3) states, and each executed block's registry write set (the slots of the
+registry the block's execution wrote; in store mode the very slots its stored version was updated with) for at most
+`CTX_WRITES_MAX` (8) blocks, each of at most `CTX_WRITE_SLOTS_MAX` (4,096) slots (a larger set is not kept). A new
+parent's inputs are derived from its own parent's and its block's write set, re-reading only the written list elements,
+the length, and the records of the ids whose words were written or that are new to the list; with neither held they are
+read whole (a restart, a checkpoint restore, a rebuilt or materialized state, an evicted row). Both are keyed, like
+FN-1's rows, by the block hash and the state's identity. New queue term "membership inputs and write sets (FN-1b)"
+(`resources::member_bases_bytes`): per input the ActList (M_max ids at memory::VEC), the records' table (M_max
+(id, record fields) entries) and the slots' table (M_max (slot, id) entries), each entry at memory::entry_bytes and each
+table with its own bytes (`member_base_bytes`), behind an Arc, in a VecDeque row twice, with the allocation its weak state
+reference keeps; one more input being derived (the parent's copied, and the set of the new list a derivation builds when
+more than 64 ids left it); the write sets (CTX_WRITE_SLOTS_MAX · 32 B behind an Arc, each row twice with two weak state
+references); plus 1,024 B. A write set is copied once (`Chain::note_writes`), from the block's own write set after its
+store commit (the write set `batch_max` counts lives until then, one block at a time), only when it is at most
+CTX_WRITE_SLOTS_MAX slots (a larger one is neither kept nor copied), and after the oldest row made room, so no ninth set
+exists in flight. With the oracle on (tests only) a check holds two more inputs; a node runs it off.
+- At the devnet's M_max 64: 1,207,460 B (the write sets' 1,048,576 B are most of it). The spec-1 devnet total
+  (tests/consensus.rs `a13_bound_breakdown`, tests/v3_late_shares.rs) moves from 3,357,219,051 to 3,358,426,511 B (eviction
+  off 3,348,736,230 to 3,349,943,690 B). The live chain's halt (tests/network_budget.rs) moves 518 records earlier
+  ([1,169,619, 1,144,551, 1,137,329, 1,112,489, 1,094,427, 1,069,587]); the seed rule's outcome is unchanged (R10[0] −
+  R(32, 2) = 32,384 of the week's 60,480; R10[1] − R(64, 7) = 75,284 > a week). Its disk stops move 4,096 × 1,207,460 =
+  4,945,756,160 B (4.6 GiB of history.redb) earlier.
+- At M_max 10,000: 23,821,796 B (one input is 5,451,520 B as modeled, and four are counted: the three held and the one
+  being derived). The C6-row CP's total moves from 2,894,088,421 to 2,917,910,217 B (2.72 GiB) and the §1a CP's from
+  5,461,945,293 to 5,485,767,089 B (5.11 GiB),
+  still admitted, with 151,377,487 B (144 MiB) to spare under the usable 5,637,144,576 B (175,199,283 B before). To keep
+  the term small the records' table holds no slot (an id that leaves the list has its slot recomputed, one keccak), and
+  three inputs are kept, not four (36,625,548 B at 10,000 with four and the slot held).
+A derivation reads O(writes) values from the state but copies the parent's inputs in memory, O(M_max) work and
+transient allocation (the copy is the "one more input being derived" above). The derivation is a CPU change, not a memory one, elsewhere: a context still holds the membership FN-1 counts. Its cost
+and the cold child_ctx it gives are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md (§6, "FN-1b").
+
 ### R21 window: adopted blocks hold their state again (node-local, no term changes)
 
 A canonical block pruned while it was a side block (settle's side_max) stayed pruned once adopted, so state queries at

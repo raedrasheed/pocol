@@ -255,6 +255,26 @@ Height-gated system-code and CP replacement machinery (`cp_at(h)`, irregular sta
 
 Approved within the owner rule; CONSENSUS-COMPLIANT (build now, use for later forks). Principle check: kept (code compiled in, selected by height). Authority: V3-DESIGN.md, V3-OWNER-DECISIONS-2026-11-08.md. Applies to v3 rules where relevant. Preserve consensus verdicts for all spec-1 inputs accepted by the dormant builds; no live deployment is authorized.
 
+**Implementation note (FN-5, fresh-network C10).** The machinery is built restricted to the cap fields, compiled in and
+dormant. Fork version 3 is the cap raise (`CAP_RAISE_VERSION`, MAX_FORK_VERSION 3): a schedule's (3,H) entry comes with
+`capRaise` {ACCT_CAP, SLOT_CAP, CODE_CAP, SYS_SLOT_MAX} beside `forks` in devnet.json, and from H on
+`ProfileIdentity::cp_at(h)` (`Spec::cp_at`) returns the genesis CP with those four fields replaced; every reader of them
+(the USER-phase A03 halts, the per-block parent and candidate cap checks with SYS_SLOT_MAX, CODE_CAP in every engine
+path, the pool and eth_estimateGas meters, pocol_getCaps) takes the block's height, and A13 is computed at
+`cp_at(u64::MAX)`. No state changes at H: the genesis, its hash, the system programs and their ChainCaps copy of the CP
+(none reads these fields) stay. ParamGate evaluates R1-R26 at both CPs (`admission::admit_with`; R24's CP comparison at
+the genesis CP only) and refuses, as R24, a raise that lowers a cap, raises none, lacks its fork-3 entry or is on a
+spec-1 genesis. The consensus identity appends the raise's values. A release activates it by appending (2,H')
+(a no-op under nonceMode 1) and (3,H) with the values (`pocol upgrade`; a scheduled raise never changes). A node without
+it agrees on every block below H and refuses block H (`netVersion`). Lock line: `neutral gate=fork:3`.
+The off-node verifiers take fork version 3 in the same release, so the activation release needs no client release of
+its own: the extension (`forks.js` MAX_FORK_VERSION 3), the reward gateway (`pocol_rewards.py` MAX_FORK_VERSION 3; it
+checks the advertised `capRaise` against the trusted schedule's fork-3 height and refuses fork 3 on the spec-1 path), the
+identity tool (`pocol_identity.py`, default bound 3, otherwise build-info's `maxForkVersion`) and the public gateways,
+which pass `capRaise` through. A client release with bound 2 fails closed from the moment its node advertises the new
+schedule, so no activation may be attempted with one in use. `pocol inspect-upgrade` shows the raise (`capRaise`), and
+development/public-network/OPERATIONS.md has the activation and rehearsal-S2 procedure.
+
 ### D-V3-24
 
 Per-block log caps 32 KiB/546 → 256 KiB/4,368; builder and pool model log caps. On v3 use 256 KiB/4368 block log caps and require RESP_MAX>=2*LOG_BLOCK_MAX. Model caps in builder and gas estimation. Keep old-chain caps unchanged.

@@ -45,8 +45,12 @@ def _lower(value):
     return value.lower() if isinstance(value, str) else None
 
 
-# The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION).
-MAX_FORK_VERSION = 2
+# The highest consensus version these tools verify (pocold profile MAX_FORK_VERSION). Version 3 is the cap raise
+# (pocold CAP_RAISE_VERSION, FN-5 C10): it switches ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX at its height, which
+# no reward projection reads, and pocold admits it only on a v3 (spec-2) genesis.
+MAX_FORK_VERSION = 3
+CAP_RAISE_VERSION = 3
+CAP_RAISE_FIELDS = ('ACCT_CAP', 'SLOT_CAP', 'CODE_CAP', 'SYS_SLOT_MAX')
 
 
 def validated_fork_schedule(value, max_version=MAX_FORK_VERSION):
@@ -70,6 +74,24 @@ def validated_fork_schedule(value, max_version=MAX_FORK_VERSION):
             all(a[1] < b[1] for a, b in zip(entries, entries[1:])),
             'Unsupported trusted fork schedule')
     return tuple(entries)
+
+
+def checked_cap_raise(params, fork_schedule):
+    """The node's advertised pocol_getParams `capRaise` against the trusted schedule (FN-5): present exactly when the
+    trusted schedule names fork version 3, at that entry's height, with the four caps as integers (SYS_SLOT_MAX within
+    u32). The height comes from the trusted schedule, never from RPC. The values are not compared with configuration:
+    no projection reads these caps, and the node's consensusIdentity commits to them. Returns the value or None."""
+    at = next((h for v, h in fork_schedule if v == CAP_RAISE_VERSION), None)
+    value = params.get('capRaise')
+    if at is None:
+        require(value is None, 'Node advertised a cap raise the trusted fork schedule does not name')
+        return None
+    require(value is not None, 'Node did not advertise the cap raise of the trusted fork schedule')
+    require(isinstance(value, dict) and set(value) == set(CAP_RAISE_FIELDS) | {'height'} and
+            all(type(value[k]) is int and 0 <= value[k] < 1 << (32 if k == 'SYS_SLOT_MAX' else 64) for k in CAP_RAISE_FIELDS),
+            'Invalid advertised cap raise')
+    require(value['height'] == at, 'Node cap raise height differs from trusted fork schedule')
+    return value
 
 
 def full_nonce_rule(version, nonce_mode):
@@ -322,6 +344,8 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
     if network is not None:
         return snapshot_v3(query, fork_schedule=fork_schedule, network=network)
     fork_schedule = validated_fork_schedule(fork_schedule)
+    # pocold admits fork version 3 (the cap raise) only on a spec-2 genesis, so the pinned spec-1 Mainnet never runs it.
+    require(all(v < CAP_RAISE_VERSION for v, _ in fork_schedule), 'A cap raise (fork version 3) needs a v3 network')
     started = time.monotonic()
     calls = 0
     raw_query = query
@@ -347,6 +371,7 @@ def snapshot(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
     else:
         require(validated_fork_schedule(advertised) == fork_schedule,
                 'Node fork schedule differs from trusted configuration')
+    checked_cap_raise(params, fork_schedule)
     block = _result(query, 'eth_getBlockByNumber', ['latest', False])
     require(isinstance(block, dict), 'No latest block')
     h = quantity(block.get('number'))
@@ -1273,6 +1298,7 @@ def snapshot_v3(query, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network, height=N
     advertised = params.get('forkSchedule')
     require(advertised is not None, 'Node did not advertise the configured fork schedule')
     require(validated_fork_schedule(advertised) == fork_schedule, 'Node fork schedule differs from trusted configuration')
+    checked_cap_raise(params, fork_schedule)
     cp = _v3_cp(params, network)
     chain = _V3Chain(query, network, fork_schedule, cp)
     block = _result(query, 'eth_getBlockByNumber', ['latest' if height is None else hex(height), False])

@@ -25,7 +25,7 @@ RLP([1, entryIndex, files]), where file = [path, mimeId u8, size u32, contentHas
 - 1 ≤ len ≤ 24575, Σlen = size ≤ 1 MiB.
 - entry is html; files are strictly bytewise ordered.
 - Path: ('/' seg)+, where seg = [A-Za-z0-9._~-]+, neither '.' nor '..', length ≤ 256, case-sensitive.
-- MIME: 1 html, 2 css, 3 js, 4 json, 5 png, 6 jpeg, 7 webp, 8 svg, 9 woff2, 10 text.
+- MIME: 1 html, 2 css, 3 js, 4 json, 5 png, 6 jpeg, 7 webp, 8 svg, 9 woff2, 10 text. Sites W5 (owner answer Q3, 2026-11-14) adds 12 ico (image/x-icon, favicon.ico) and 13 webmanifest (application/manifest+json, site.webmanifest); 11 stays unassigned because the M1 manifest vectors use it as the unknown MIME (neg-unknown-mime). Client tables: pocold site.rs, extension lib/site.js and lib/publisher.js, Studio model.js; Website.sol stores no MIME.
 - Normalization (used by the viewer and site_navigate, D96): query and fragment excluded from lookup. '%', '//', '.' and '..' give 404. Empty path or '/' = entry; '/x/' = '/x/index.html'.
 
 **Website contract**

@@ -1,0 +1,98 @@
+{
+  "profile": "pocol-v3-fresh-network",
+  "record": "development/decisions/FRESH-NETWORK-CP.md",
+  "v3": true,
+  "chainId": 2656089850,
+  "genesisTime": "PLACEHOLDER: the mainnet's synchronized launch second (unix time), set at the genesis ceremony",
+  "hashRate": {
+    "hashesPerSecond": "PLACEHOLDER: the founders' aggregate hash rate in H/s, measured before the genesis (R25d)",
+    "class": "measurement"
+  },
+  "localTiming": {
+    "delta": 1,
+    "phi": 1,
+    "tExec": 1
+  },
+  "registrationPerBlock": 4,
+  "cp": {
+    "T_blk": 10,
+    "tau": 600,
+    "nonceMode": 1,
+    "c": 2,
+    "D_att": 90,
+    "dFbWait": 8,
+    "m": 32,
+    "kappa": 2,
+    "S_max": 256,
+    "D": 4,
+    "W_w": 8,
+    "alpha_bp": 1000,
+    "gamma_bp": 500,
+    "subsidy": "4000000000000000000",
+    "B_reg": "20000000000000000000",
+    "R_max": 4,
+    "M_max": 10000,
+    "M_min": 1,
+    "REG_RECORDS_MAX": 24576,
+    "SWEEP_MAX": 16,
+    "SWEEP_SCAN": 64,
+    "REG_OPS": 16,
+    "W_act": 32,
+    "Theta_inact": 360,
+    "E_win": 360,
+    "U": 380,
+    "E_max": 4,
+    "EVID_BYTES_MAX": 8192,
+    "GAS_LIMIT": 8000000,
+    "baseFee0": "1000000000",
+    "TX_MAX": 131072,
+    "BODY_MAX": 196608,
+    "B_code_max": 32768,
+    "CODE_CAP": 1073741824,
+    "TXBYTES_CAP": 16777216,
+    "TX_CAP": 20000,
+    "SLOT_CAP": 4000000,
+    "ACCT_CAP": 1000000,
+    "SYS_SLOT_MAX": 147456,
+    "SYS_KEYS_BLOCK_MAX": 4096,
+    "SYS_KEYS_USER_MAX": 256,
+    "SYS_ACCT_BLOCK_MAX": 512,
+    "G_SYS": 96000000,
+    "H_END": 0,
+    "T_END": 0,
+    "H_CLOSE": 0,
+    "T_CLOSE": 0,
+    "Z_close": 256,
+    "RET": 128,
+    "P2": 2,
+    "H_half": 12623040,
+    "S_tail": "125000000000000000",
+    "gamma_tip_bp": 5000,
+    "baseFeeMin": "10000000",
+    "R_react": 4,
+    "C_react": 380,
+    "rho_bp": 2500
+  },
+  "founders": [
+    {
+      "id": "PLACEHOLDER: founder 1 (US server 1) miner id, from its fresh independent key at the ceremony",
+      "reward": "PLACEHOLDER: founder 1 (US server 1) reward address, from its fresh independent key at the ceremony",
+      "allocationWei": "999980000000000000000000"
+    },
+    {
+      "id": "PLACEHOLDER: founder 2 (US server 2) miner id, from its fresh independent key at the ceremony",
+      "reward": "PLACEHOLDER: founder 2 (US server 2) reward address, from its fresh independent key at the ceremony",
+      "allocationWei": "999980000000000000000000"
+    },
+    {
+      "id": "PLACEHOLDER: founder 3 (US server 3) miner id, from its fresh independent key at the ceremony",
+      "reward": "PLACEHOLDER: founder 3 (US server 3) reward address, from its fresh independent key at the ceremony",
+      "allocationWei": "999980000000000000000000"
+    },
+    {
+      "id": "PLACEHOLDER: founder 4 (the owner's PC) miner id, from its fresh independent key at the ceremony",
+      "reward": "PLACEHOLDER: founder 4 (the owner's PC) reward address, from its fresh independent key at the ceremony",
+      "allocationWei": "999980000000000000000000"
+    }
+  ]
+}

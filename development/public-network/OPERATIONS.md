@@ -200,6 +200,40 @@ removed with the old-network transition tooling (fresh network, Phase 1), and
 of the new chain, restore the tool from commit d24843d without its 0.4.0 parts, together
 with its tests (`deploy/public-testnet/README.md`).
 
+**Activating the cap raise (FN-5, C10; rehearsal S2).** The raise of ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX is
+compiled into every release from FN-5 on (MAX_FORK_VERSION 3) and dormant until a schedule names fork version 3. It
+exists only on a v3 (spec-2) genesis. To activate it:
+1. **Build.** Any release with `maxForkVersion` 3 in `pocold build-info` (rehearsal S2: the `caps-test` build, whose
+   lowered caps let the fixture fill ACCT_CAP quickly). The off-node verifiers must be releases that accept fork
+   version 3 too, before the schedule is published: the extension (`forks.js` MAX_FORK_VERSION 3), the reward gateway
+   (`pocol_rewards.py` MAX_FORK_VERSION 3) and the identity tool (`pocol_identity.py`, which takes the bound from
+   build-info). A verifier with bound 2 fails closed as soon as the node advertises the new schedule, not only from H.
+2. **devnet.json.** Append two entries to `forks` and add `capRaise` beside it, nothing else:
+   `"forks": [[1,0],[2,H2],[3,H]]`, `"capRaise": {"ACCT_CAP": a, "SLOT_CAP": s, "CODE_CAP": c, "SYS_SLOT_MAX": m}`
+   (JSON integers, all four; SYS_SLOT_MAX within u32). (2,H2) comes first because versions are never skipped; under
+   nonceMode 1 it is a no-op. Choose H2 < H, both above every home's stored head when the invitation is published,
+   and H far enough ahead (at least the announcement window plus a day of blocks) for every seed, home and gateway to
+   update. Each value must be at least the genesis value and at least one must be higher; ParamGate (R1-R26 at the
+   raised CP) refuses anything else at boot, and `pocol network --from` refuses it before it writes.
+3. **Publish.** `pocol network --from <network dir> --seed … [--bootstrap …] --out network.pocol.json`, then publish
+   the file and its fingerprint through the same trusted channel as the genesis, with H2, H and the four values.
+4. **Homes.** `pocol inspect-upgrade --network …` and compare with the published values: `change` "activation",
+   `appended` `[[2,H2],[3,H]]`, `capRaise` (the four caps and `height` H), `forkSchedule`, `consensusIdentity` and
+   `fingerprintAfter`. Then `pocol upgrade --network …`. A scheduled raise can never be changed or removed afterwards.
+5. **Seeds and gateways.** Replace each seed's devnet.json with the published one and restart it on the release
+   (seeds have no migration tool yet, see the TODO above). Set the reward gateway's trusted `--fork-schedule` file to
+   `[[1,0],[2,H2],[3,H]]` when its node is upgraded (until both match it answers "differs from trusted
+   configuration"). Wallets add the same schedule to their local profile (`[[1,"0"],[2,"H2"],[3,"H"]]`) before H;
+   one left on the old schedule refuses headers from H on (`netVersion`).
+6. **Check.** Before H, `pocol_getCaps` reports `capRaise` with `active` false and the genesis caps; from the block
+   whose child is H (head H-1) it reports `active` true and `accountsCap`, `storageSlotsCap` and `codeBytesCap` equal
+   to the raised values; `pocol_getParams` reports `capRaise` and `maxForkVersion` 3, and every node reports the same
+   `consensusIdentity`. A node left without the raise agrees on every block below H and is refused from H.
+7. **Rehearsal S2.** On the cap-test build: fill ACCT_CAP; a transfer that creates an account fails (the pool refuses
+   it with `AcctCap`), so a newcomer cannot be funded to `register`; activate as above; from H both succeed; restart a node and
+   reorg across H (`pocold/tests/fn5_cap_raise.rs` is the in-process version of these checks) and compare the heads,
+   state roots and `consensusIdentity` on every node.
+
 **The last coordinated switch** (superseded: on 2026-11-13 the owner decided to launch a
 brand-new network from a fresh genesis instead, so there is no switch and no 0.4.0 node
 to reach; `development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md`; the text

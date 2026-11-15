@@ -1,17 +1,21 @@
 //! SECURITY PROOF (defensive audit, in-session, synthetic only) for the late-launch ASERT concern.
 //! A late start is not guarded at boot (no wall-clock vs g_ts check in node.rs). This test uses the
 //! REAL consensus code compiled into pocold: asert::asert (lp1-node), timing::AttemptWindow, the PoW
-//! rule types::le_target / pow_hash, and the real calibration gate::calibration_target (lp4). All
-//! numbers are the earn-in testnet's (testnet.rs: t_blk=10, tau=600, d_att=60, hash_rate=(1<<18)/10,
-//! m=32; target_g = R25d calibration of that hash rate). A simulated clock drives block timestamps
-//! through the real AttemptWindow rule. Nothing here touches a live network.
+//! rule types::le_target / pow_hash, and the real calibration gate::calibration_target (lp4). FN-4: the
+//! timing numbers are the fresh network's final CP (deploy/mainnet/v3-profile.json, FRESH-NETWORK-CP.md:
+//! t_blk=10, tau=600, d_att=90, m=32; `final_cp_constants_are_the_committed_profile` checks them against
+//! the profile). The profile's hash rate is measured at the genesis ceremony; until then H_cal is the
+//! synthetic (1<<18)/10 that `init-testnet --test-placeholders` fills in, and target_g is its R25d
+//! calibration (a measured rate moves target_g, not the lateness thresholds below, which depend on tau and
+//! d_att). A simulated clock drives block timestamps through the real AttemptWindow rule. Nothing here
+//! touches a live network.
 //!
 //! Proven facts:
 //!  * on-time launch -> target stays at target_g (full difficulty) for the first blocks
 //!  * target ~ target_g * 2^(dt/tau); it saturates to U256::MAX once the tip timestamp runs a
 //!    computed amount ahead of schedule (the exact "~X hours late" number for these params)
 //!  * block 1 is ALWAYS full difficulty (parent = genesis, dt = 0), whatever the wall clock
-//!  * a start more than d_att=60 s late makes the signed attempt-0 proposer_timestamp() fail
+//!  * a start more than d_att=90 s late makes the signed attempt-0 proposer_timestamp() fail
 //!    (OutsideWindow) -> the chain can only advance by fallback (empty-body) blocks
 //!  * the PoW rule le_target(hash,target): at target_g a nonce passes with prob ~ target_g/2^256;
 //!    at target=U256::MAX EVERY nonce passes (no work) -> and the share target target*m collapses too
@@ -25,9 +29,21 @@ use revm::primitives::U256 as RU256;
 const G_TS: i128 = 1_795_000_000; // synthetic launch time
 const T_BLK: i128 = 10;
 const TAU: i128 = 600;
-const D_ATT: u32 = 60;
+const D_ATT: u32 = 90;
 const M: u64 = 32;
-const HASH_RATE: u64 = (1 << 18) / 10; // 26214, as testnet.rs sets it
+const HASH_RATE: u64 = (1 << 18) / 10; // 26214, the test flag's synthetic H_cal (testnet.rs init)
+
+/// FN-4: the constants above are the committed final profile's (T_blk, tau, D_att, m), and the profile's
+/// hash rate is still the ceremony placeholder this test stands in for.
+#[test]
+fn final_cp_constants_are_the_committed_profile() {
+    let p: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/v3-profile.json")).unwrap();
+    let cp = &p["cp"];
+    assert_eq!((cp["T_blk"].as_i64(), cp["tau"].as_i64(), cp["D_att"].as_u64(), cp["m"].as_u64()), (Some(T_BLK as i64), Some(TAU as i64), Some(u64::from(D_ATT)), Some(M)));
+    assert!(p["hashRate"]["hashesPerSecond"].as_str().is_some_and(|s| s.starts_with("PLACEHOLDER")), "measured at the ceremony");
+    let r: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/v3-rehearsal-profile.json")).unwrap();
+    assert_eq!(r["cp"], p["cp"], "the rehearsal runs the same CP");
+}
 
 fn target_g() -> F {
     let cal = pocol_lp4_execution::gate::calibration_target(HASH_RATE, T_BLK as u32).unwrap();
@@ -96,8 +112,10 @@ fn first_block_always_full_difficulty_and_window_clamp() {
     let late = w.proposer_timestamp((G_TS + 3 * 3600) as u64);
     eprintln!("  proposer_timestamp(clock=g_ts+30s)  = {:?}", on_time);
     eprintln!("  proposer_timestamp(clock=g_ts+3h)   = {:?}", late);
-    assert_eq!(on_time, Ok((G_TS + 30) as u64), "a <=60s-late start can still sign block 1");
-    assert_eq!(late, Err(TimingError::OutsideWindow), "a >60s-late start cannot sign at attempt 0");
+    assert_eq!(on_time, Ok((G_TS + 30) as u64), "a <=d_att-late start can still sign block 1");
+    assert_eq!(w.proposer_timestamp((G_TS + i128::from(D_ATT)) as u64), Ok((G_TS + i128::from(D_ATT)) as u64), "the last second of the window");
+    assert_eq!(w.proposer_timestamp((G_TS + i128::from(D_ATT) + 1) as u64), Err(TimingError::OutsideWindow), "one second past d_att");
+    assert_eq!(late, Err(TimingError::OutsideWindow), "a >d_att-late start cannot sign at attempt 0");
     eprintln!("RESULT: block 1 keeps full difficulty; a start >d_att={D_ATT}s late forces fallback (no signed block 1).");
 }
 
