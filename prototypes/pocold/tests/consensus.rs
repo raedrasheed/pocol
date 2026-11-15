@@ -3259,9 +3259,9 @@ fn wait_for(secs:u64,f:&dyn Fn()->bool)->bool{let t=std::time::Instant::now();wh
     assert!(wait_for(300,&||head(rc)==target),"C syncs from A");assert_eq!(view(rc),pv,"C, served by A, answers the same chain");
     println!("REFETCH-NET {}",json!({"ourBlocks":ours.len(),"theirBlocks":theirs.len(),"sideCap":lim.side_cap,"stats":st["stats"],"retention":st["retention"]}));
 }
-/// eth_call / eth_estimateGas on a block whose state is pruned (outside the K_hist window, or a block
-/// adopted after its state was pruned as a side block) answer -32017 like the state reads (consensus.md
-/// §10), never a simulation on an empty state.
+/// eth_call / eth_estimateGas on a block whose state is pruned (outside the K_hist window; a block adopted after its
+/// state was pruned as a side block holds it again inside the window, tests/memory_retention.rs) answer -32017 like
+/// the state reads (consensus.md §10), never a simulation on an empty state.
 #[test] fn a_call_on_a_pruned_state_is_32017_not_an_empty_state_simulation(){
     let mut h=net();let g=h.chain.head;let blocks=grow(&mut h,g,40,&|n,p|fallback(n,p,0));
     let (mut n,dir,_)=rnode("call",64,16);for x in &blocks{n.import(x.clone(),None).unwrap();}
@@ -3619,25 +3619,33 @@ fn heavier_shorter_then_deep(store:bool,tag:&str){
         assert!(at_safe.get("error").is_none(),"state at safe = finalized_h 36 is inside the window: {at_safe}");
         assert_eq!(at_safe["result"],rpc_local(&mut r,"eth_getBalance",json!([who,"0x24"])));}
     // Review N2-R1: with r_keep at or above K_hist (production: R_keep 2048, K_hist 32) finalized_h is at or below the
-    // old head − K_hist, so its state was pruned before the heavier, shorter branch lowered the head, and it is not
-    // restored. When safe falls back to finalized_h (k_safe 31 here), a block query at `safe` is answered and a state
-    // query answers -32017, as at `finalized`, live and after a restart. With the default k_safe 6, safe = head − 6 is
-    // inside the window and its state is answered.
+    // old head − K_hist, so its state was pruned before the heavier, shorter branch lowered the head, and the adoption
+    // (which re-executes from its fork point, above finalized_h) does not restore it: live, when safe falls back to
+    // finalized_h (k_safe 31 here), a block query at `safe` is answered and a state query answers -32017, as at
+    // `finalized` (the window's floor never moves down: node.rs `Limits::k_safe`). After a restart the replay's last
+    // restore re-executes every offloaded canonical block of the resident window, now inside (head − K_hist, head], each
+    // checked against its committed roots, and (R21, tests/memory_retention.rs) each keeps its state: the state query at
+    // safe = finalized_h is then answered. With the default k_safe 6, safe = head − 6 is inside the window and its state
+    // is answered, live and after a restart.
     for rk2 in [32u64,34]{
         let (mut m,dm,mconf)=fnode(&format!("{tag}-rk{rk2}"),rk2,(31,K_ALARM),store);
         for x in ours.iter().chain(theirs.iter()){m.import(x.clone(),None).unwrap_or_else(|e|panic!("h={}: {e:?}",x.header.h));}
         assert_eq!((m.chain.head,m.chain.finalized_h),(theirs_tip,60-rk2),"r_keep {rk2}: the branch is adopted, the floor stays");
-        let fin=m.chain.canonical_at(60-rk2).unwrap().hash;drop(m);
+        let fin=m.chain.canonical_at(60-rk2).unwrap().hash;
         let who=format!("{:#x}",devnet::account_key("alice").address());
-        for (ks,state_answered) in [(31,false),(K_SAFE,true)]{
+        assert_eq!(m.safe_height(),60-rk2,"live, k_safe 31: safe = finalized_h");
+        let at_safe=rpc_local_raw(&mut m,"eth_getBalance",json!([who,"safe"]));
+        assert_eq!(at_safe["error"]["code"],json!(-32017),"r_keep {rk2}, live: safe = finalized_h was pruned at the old head: {at_safe}");
+        assert_eq!(rpc_local_raw(&mut m,"eth_getBalance",json!([who,"finalized"]))["error"]["code"],json!(-32017),"as at finalized");
+        drop(m);
+        for ks in [31,K_SAFE]{
             let mut c=mconf();c.limits.k_safe=ks;let mut r=pocold::node::Node::open(c,admitted(&cfg(&["a","b","c"]))).unwrap();
             let safe=(theirs_h-ks).max(60-rk2);assert_eq!(r.safe_height(),safe);
             let sb=rpc_local(&mut r,"eth_getBlockByNumber",json!(["safe",false]));assert_eq!(sb["hash"],hex(&r.chain.canonical_at(safe).unwrap().hash[..]),"r_keep {rk2}, k_safe {ks}: a block query at safe is answered");
             if ks==31{assert_eq!(sb["hash"],hex(&fin[..]),"safe = finalized_h");}
             let at_safe=rpc_local_raw(&mut r,"eth_getBalance",json!([who,"safe"]));
-            if state_answered{assert!(at_safe.get("error").is_none()&&at_safe["result"].is_string(),"r_keep {rk2}, k_safe {ks}: {at_safe}");}
-            else{assert_eq!(at_safe["error"]["code"],json!(-32017),"r_keep {rk2}, k_safe {ks}: safe = finalized_h was pruned: {at_safe}");
-                assert_eq!(rpc_local_raw(&mut r,"eth_getBalance",json!([who,"finalized"]))["error"]["code"],json!(-32017),"as at finalized");}
+            assert!(at_safe.get("error").is_none()&&at_safe["result"].is_string(),"r_keep {rk2}, k_safe {ks}, after a restart: {at_safe}");
+            assert_eq!(at_safe["result"],rpc_local(&mut r,"eth_getBalance",json!([who,format!("{safe:#x}")])),"the state at safe is the state at its number");
             drop(r);}
         let _=std::fs::remove_dir_all(&dm);}
     let mut r=reopen(&conf);assert_eq!((r.chain.head,r.chain.finalized_h),(theirs_tip,36),"restart keeps finalized_h");assert_eq!(r.stats.replay_skipped,0);
