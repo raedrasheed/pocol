@@ -2,20 +2,28 @@ use super::*;
 use crate::{apply::{self,BlockInput,EvidenceEffect,ParentResult,Proposer},devnet::{self,DevnetConfig}};
 use revm::primitives::{Address,B256,U256};
 
-fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
+fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{network_like_from(miners,h_close,h_end,None)}
+/// `network_like` on a retired spec-1 devnet, for the spec-1 program sets' own envelopes (GAS_ENVELOPE, GAS_ENVELOPE_EARNIN).
+/// Phase 6a deletes it with the spec-1 rule set.
+fn network_like_spec1(miners:usize,h_close:u64,h_end:u64,p:devnet::Spec1Programs)->DevnetConfig{network_like_from(miners,h_close,h_end,Some(p))}
+fn network_like_from(miners:usize,h_close:u64,h_end:u64,spec1:Option<devnet::Spec1Programs>)->DevnetConfig{
     let labels:Vec<String>=(0..miners).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-    let mut c=DevnetConfig::new(777920,1_800_000_000,&refs);
+    let mut c=match spec1{None=>DevnetConfig::new(777920,1_800_000_000,&refs),Some(p)=>DevnetConfig::spec1(777920,1_800_000_000,&refs,p)};
     c.d=16;c.w_w=64;c.s_max=256;c.m_max=256;c.h_close=h_close;c.h_end=h_end;c.ret=128;c.e_win=2048;c.u=2200;c.w_act=128;c.theta_inact=1024;
     // Network-scale caps (governance.md), independent of the single-host devnet defaults.
     c.r_max=2;c.sys_slot_max=131072;c.slot_cap=4_000_000;c.acct_cap=1_000_000;c.code_cap=1<<30;c.txbytes_cap=1<<33;c.tx_cap=10_000_000;c
 }
 
 #[test] fn r18_network_values_and_caps64_minimum_boundary(){
-    let net=devnet::build(&network_like(4,1000,2000)).unwrap();let cp=net.profile.cp().clone();
-    let b=r18(&cp).unwrap();
-    // Network-like CP: S=256, M=256, RRM=8192 (devnet), K=64, D=16, E=4, RET=128.
-    assert_eq!(b.slot_min,5+5*8192+256+64*(2*256+2)+2+3*17+52);
-    assert!(b.keys_max()<=2048&&b.accts_max()<=512,"{b:?}");
+    // The v3 devnet at network-like values, continuous as the fresh network (with a closing schedule a v3 profile at
+    // D 16 needs more SYS keys for its final block: r18_fresh_profile_shape_with_the_accrual_keys).
+    let net=devnet::build(&network_like(4,0,0)).unwrap();let cp=net.profile.cp().clone();
+    assert_eq!((cp.schema_version(),cp.H_END),(2,0));
+    let b=r18(&cp).unwrap_or_else(|e|panic!("{e:?}"));
+    // Network-like CP: S=256, M=256, RRM=8192 (devnet), K=64, D=16, E=4, RET=128. CP schema v2: the v3 registry's budget
+    // slot, the Escrow carry slot and the 59 CP slots (r18_cp_schema_v2_counts_the_v3_registry_slots).
+    assert_eq!(b.slot_min,6+5*8192+256+64*(2*256+2)+2+3*17+1+59);
+    assert!(b.keys_max()<=4096&&b.accts_max()<=512,"{b:?}");
     // caps64 minimum: SYS_SLOT_MAX = slot_min passes, slot_min-1 fails R18.
     let mut m=cp.clone();m.SYS_SLOT_MAX=b.slot_min as u32;assert!(r18(&m).is_ok());
     m.SYS_SLOT_MAX=b.slot_min as u32-1;assert!(r18(&m).unwrap_err()[0].starts_with("SYS_SLOT_MAX"));
@@ -37,7 +45,7 @@ fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
 /// profile that never closes (H_CLOSE = T_CLOSE = 0, the continuous fresh network) has only ordinary blocks: on CP
 /// schema v2 its closing and final classes are the ordinary one; CP schema v1 is unchanged either way.
 #[test] fn r18_cp_schema_v2_counts_the_v3_registry_slots(){
-    let mut c=network_like(4,1000,2000);c.earnin=true;
+    let mut c=network_like(4,1000,2000);c.spec_version=1;
     let v1=ConsensusParams::from_values(&c.cp()).unwrap();c.spec_version=2;let v2=ConsensusParams::from_values(&c.cp()).unwrap();
     assert_eq!((v1.schema_version(),v2.schema_version()),(1,2));assert!(closes(&v2));
     let (a,b)=(derive(&v1),derive(&v2));
@@ -68,7 +76,7 @@ fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
 /// R18; the same profile with a closing schedule would need more for its final block (settle and three settleFinal calls
 /// each accruing into 258 payees), which a continuous profile never runs.
 #[test] fn r18_fresh_profile_shape_with_the_accrual_keys(){
-    let mut c=network_like(4,0,0);c.earnin=true;c.spec_version=2;c.d=4;c.m_max=10_000;c.reg_records_max=24_576;c.sys_slot_max=400_000;
+    let mut c=network_like(4,0,0);c.d=4;c.m_max=10_000;c.reg_records_max=24_576;c.sys_slot_max=400_000;
     let cp=ConsensusParams::from_values(&c.cp()).unwrap();assert!(!closes(&cp));assert_eq!(u64::from(cp.kappa)*u64::from(cp.m),64);
     let b=r18(&cp).unwrap_or_else(|e|panic!("{e:?}"));
     // O = 257 share owners, 259 payees: settle 4 + 518 + 1.
@@ -153,7 +161,7 @@ fn gas_scenario_from(c:&DevnetConfig,evidence_at:&dyn Fn(u64,&[Address])->Vec<Ev
 const CONTINUOUS_BLOCKS:u64=40;
 #[test] fn sys_gas_envelope_fixture(){
     let mut seen:std::collections::BTreeMap<&'static str,u64>=Default::default();
-    let mut c=network_like(256,60,80);c.reg_records_max=16384;
+    let mut c=network_like_spec1(256,60,80,devnet::Spec1Programs::Bonded);c.reg_records_max=16384;
     let (worst,_)=gas_scenario(&c,&|h,ids|match h{30=>(0..4).map(|i|EvidenceEffect::Punish{accused:ids[200+i]}).collect(),
         31=>(0..4u64).map(|i|EvidenceEffect::PunishAndInvalidate{accused:ids[100+i as usize],j:30-i}).collect(),_=>vec![]},256,&mut seen);
     let mut c2=c.clone();c2.e_win=16;c2.u=40;
@@ -279,7 +287,7 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
 /// must dominate every value and name no call the runs did not measure.
 #[test] fn sys_gas_envelope_fixture_earnin(){
     use std::collections::BTreeMap;
-    let mut c=network_like(256,60,80);c.reg_records_max=16384;c.earnin=true;
+    let mut c=network_like_spec1(256,60,80,devnet::Spec1Programs::EarnIn);c.reg_records_max=16384;
     let worst_evidence=|h:u64,ids:&[Address]|->Vec<EvidenceEffect>{match h{30=>(0..4).map(|i|EvidenceEffect::Punish{accused:ids[200+i]}).collect(),
         31=>(0..4u64).map(|i|EvidenceEffect::PunishAndInvalidate{accused:ids[100+i as usize],j:30-i}).collect(),_=>vec![]}};
     // 248 genesis members and eight registrants (P_MAX), each with funds for B_reg and gas.

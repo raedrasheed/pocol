@@ -305,7 +305,10 @@ After startup, block heights should increase. Repeat `status` if the processes a
 | Per-node data               | `$POCOL_WORK/data/<label>/`                  |
 | Logs                        | `$POCOL_WORK/a.log`, `b.log`, `c.log`        |
 
-Use the current timing defaults in [`DevnetConfig`](prototypes/lp4-execution/src/devnet.rs): **`T_blk=4`, `dFbWait=3`**.
+The devnet runs the rules of the fresh network ([`DevnetConfig::new`](prototypes/lp4-execution/src/devnet.rs)): specVersion 2,
+the V3 system programs, nonceMode 1, a continuous chain, the 20 PCOL bond and a 4 PCOL block subsidy. Its timing, membership
+and caps are devnet-scale: use the current timing defaults, **`T_blk=4`, `dFbWait=3`**, on one host (`init-devnet` records
+the single-host `localTiming` Δ 1, φ 0, t_exec 1 in `devnet.json`, and `run` derives its local timing from it).
 Some historical LP10 examples use older values. Do not copy `--t-blk 2` into the current profile by itself; timing must satisfy
 admission and fallback rules. The devnet builder deliberately refuses the network chainId **777001**.
 

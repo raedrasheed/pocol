@@ -1,5 +1,5 @@
 //! N4 (V3-20 node-local pool, V3-24 RPC): the fee-ordered selection, replace-by-fee, lowest-fee eviction and the
-//! estimate's log caps, on the spec-1 devnet. Pool policy only: the blocks built from it are validated by the
+//! estimate's log caps, on the v3 devnet (the estimate's spec-1 caps also on the retired spec-1 devnet). Pool policy only: the blocks built from it are validated by the
 //! unchanged consensus code (`Chain::validate`) and imported.
 use std::collections::HashMap;
 use pocold::{chain::{Chain,Spec},types::*,hashes,node::{self,TxFields,Limits,Node}};
@@ -11,8 +11,11 @@ struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
 fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 /// The consensus suite's gate-valid test profile (consensus.rs `cfg`) with more funded senders.
-fn cfg(extra:&[&str])->DevnetConfig{
-    let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
+fn cfg(extra:&[&str])->DevnetConfig{tuned(DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]),extra)}
+/// The same on the retired spec-1 devnet (Phase 6 removes the spec-1 log caps it pins).
+fn cfg_spec1()->DevnetConfig{tuned(DevnetConfig::spec1(CHAIN,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded),&[])}
+fn tuned(mut c:DevnetConfig,extra:&[&str])->DevnetConfig{
+    c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
     for l in extra{c.accounts.push(((*l).into(),U256::from(10u128.pow(24))));}c
 }
 fn admitted(c:&DevnetConfig)->Spec{let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
@@ -297,25 +300,29 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
 /// whose one LOG0 carries 32 KiB of data (36 + 32,768 charged bytes) halts in every block, so it gets no estimate
 /// (-32000, LogBytes) while one of 1 KiB does; eth_call is not an estimate and still runs it. The pool refuses the
 /// former the same way.
-#[test] fn estimate_gas_models_the_spec1_log_caps(){
-    let c=cfg(&[]);let (mut n,_d)=node_with("estimate",Limits::default(),&c);let mut h=net_with(&c);let alice=key("alice");
+#[test] fn estimate_gas_models_the_spec1_log_caps(){estimate_gas_models_the_log_caps(&cfg_spec1(),"estimate",32768,400_000)}
+/// The same on v3 (256 KiB / 4368 per block): a LOG0 of 256 KiB of data halts in every block.
+#[test] fn estimate_gas_models_the_v3_log_caps(){estimate_gas_models_the_log_caps(&cfg(&[]),"estimate-v3",256*1024,3_000_000)}
+fn estimate_gas_models_the_log_caps(c:&DevnetConfig,tag:&str,block_bytes:u32,call_gas:u64){
+    let (mut n,_d)=node_with(tag,Limits::default(),c);let mut h=net_with(c);let alice=key("alice");
+    assert_eq!(u64::from(block_bytes),pocol_lp4_execution::user_phase::log_caps(h.chain.spec.v3_active(1)).bytes);
     // PUSH3 size; PUSH1 0; LOG0; STOP, deployed by a plain init code.
     let runtime=|size:u32|vec![0x62,(size>>16) as u8,(size>>8) as u8,size as u8,0x60,0,0xa0,0];
     let init=|r:&[u8]|{let len=r.len() as u8;let mut b=vec![0x60,len,0x60,12,0x60,0,0x39,0x60,len,0x60,0,0xf3];b.extend_from_slice(r);b};
     let deploy=|nonce:u64,size:u32|Tx{chain_id:CHAIN,nonce,max_priority:U256::from(GWEI),max_fee:U256::from(100*GWEI),gas:300_000,to:None,value:U256::ZERO,data:init(&runtime(size)).into()}.sign_1559(&alice);
-    let (big,small)=(deploy(0,32768),deploy(1,1024));for t in [&big,&small]{n.submit_tx(t.clone(),false).unwrap();}
+    let (big,small)=(deploy(0,block_bytes),deploy(1,1024));for t in [&big,&small]{n.submit_tx(t.clone(),false).unwrap();}
     let blk=signed(&h,h.chain.head,vec![big,small]);import(&mut h,&blk);assert!(n.import(blk,None).unwrap());n.pool_settle();
     let (to_big,to_small)=(alice.address().create(0),alice.address().create(1));
     let est=|n:&mut Node,to:Address|rpc(n,"eth_estimateGas",serde_json::json!([{"from":alice.address(),"to":to},"latest"]));
     let r=est(&mut n,to_big);assert_eq!(r["error"]["code"],-32000,"{r}");assert!(r["error"]["message"].as_str().unwrap().contains("LogBytes"),"{r}");assert_eq!(r["error"]["data"]["reason"],"LogBytes");
     let r=est(&mut n,to_small);assert!(r.get("error").is_none(),"{r}");
     let call=rpc(&mut n,"eth_call",serde_json::json!([{"from":alice.address(),"to":to_big},"latest"]));assert!(call.get("error").is_none(),"{call}");
-    let e=n.submit_tx(Tx{chain_id:CHAIN,nonce:2,max_priority:U256::from(GWEI),max_fee:U256::from(100*GWEI),gas:400_000,to:Some(to_big),value:U256::ZERO,data:Default::default()}.sign_1559(&alice),false).unwrap_err();
+    let e=n.submit_tx(Tx{chain_id:CHAIN,nonce:2,max_priority:U256::from(GWEI),max_fee:U256::from(100*GWEI),gas:call_gas,to:Some(to_big),value:U256::ZERO,data:Default::default()}.sign_1559(&alice),false).unwrap_err();
     assert!(e.contains("LogBytes"),"{e}");
     // N4 review: a pooled replacement passes the same execution checks (run on the head, not committed). A plain
     // transfer at nonce 2 is pooled; replacing it with the call that halts on its own logs is refused, nothing changes.
     let plain=pay(&alice,2,GWEI);n.submit_tx(plain.clone(),false).unwrap();
-    let e=n.submit_tx(Tx{chain_id:CHAIN,nonce:2,max_priority:U256::from(2*GWEI),max_fee:U256::from(110*GWEI),gas:400_000,to:Some(to_big),value:U256::ZERO,data:Default::default()}.sign_1559(&alice),false).unwrap_err();
+    let e=n.submit_tx(Tx{chain_id:CHAIN,nonce:2,max_priority:U256::from(2*GWEI),max_fee:U256::from(110*GWEI),gas:call_gas,to:Some(to_big),value:U256::ZERO,data:Default::default()}.sign_1559(&alice),false).unwrap_err();
     assert!(e.contains("LogBytes"),"{e}");assert_eq!((n.pool.txs[0].1.clone(),n.stats.pool_replaced),(plain,0));n.pool_audit().unwrap();
 }
 

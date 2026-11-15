@@ -3712,8 +3712,8 @@ mod f5f6_tests{
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
     fn open_node()->(Node,std::path::PathBuf){open_node_at("f5f6")}
     /// Each test of this module opens its own directory: they run in parallel.
-    fn open_node_at(tag:&str)->(Node,std::path::PathBuf){
-        let c=DevnetConfig::new(777915,1_700_000_000,&["a","b","c"]);
+    fn open_node_at(tag:&str)->(Node,std::path::PathBuf){open_node_with(tag,DevnetConfig::new(777915,1_700_000_000,&["a","b","c"]))}
+    fn open_node_with(tag:&str,c:DevnetConfig)->(Node,std::path::PathBuf){
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
         let dir=std::env::temp_dir().join(format!("pocold-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let cfg=Config{dir:dir.clone(),name:"f5f6".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
@@ -3760,8 +3760,11 @@ mod f5f6_tests{
         let signed=|parent:[u8;32],h:u64,key:&Key,salt:u16|{let mut t=selfsigned(parent,h,key,0);t.ut_raw=salt.to_be_bytes().repeat(4);
             t.sig=key.sign_hash(&B256::from(hashes::sig_msg(&template_id(&t.ut_raw)))).to_vec();t};
         let t=signed(gh,1,&drawn_key,20);let tid=template_id(&t.ut_raw);let slot=Node::seen_key(&t);
-        assert!(!n.cfg.limits.first_imports,"a spec-1 profile");n.note_template_seen(&t);n.template_equivocated(slot);assert!(n.template_seen.is_empty(),"spec 1 keeps no map");
-        n.cfg.limits.first_imports=true;
+        // The retired spec-1 devnet cannot activate v3 (Phase 6a deletes this check with the spec-1 rule set).
+        let (mut s1,d1)=open_node_with("template-seen-spec1",DevnetConfig::spec1(777915,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded));
+        assert!(!s1.cfg.limits.first_imports,"a spec-1 profile");s1.note_template_seen(&t);s1.template_equivocated(slot);assert!(s1.template_seen.is_empty(),"spec 1 keeps no map");
+        drop(s1);let _=std::fs::remove_dir_all(&d1);
+        assert!(n.cfg.limits.first_imports,"the v3 devnet keeps first-seen times");
         // Gossip alone never counts: a drawn signer's shell may carry a body nobody can rebuild (a withheld template).
         n.import_clock=Some(3);n.observe_template(&t);assert!(n.template_seen.is_empty(),"received, not locked: not recorded");
         n.import_clock=Some(9);n.note_template_seen(&t);n.import_clock=Some(5);n.note_template_seen(&t);n.import_clock=Some(8);n.note_template_seen(&t);
@@ -3962,10 +3965,14 @@ mod late_cache_tests{
     //! (The handler and the cache do not depend on the program set; a v3 node fills the cache, `stash_late`.)
     use super::*;
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
-    #[test] fn a_template_locked_again_takes_its_shares_back_and_its_peer_shares_are_relayed(){
-        let c=DevnetConfig::new(777918,1_700_000_000,&["a","b","c"]);
+    #[test] fn a_template_locked_again_takes_its_shares_back_and_its_peer_shares_are_relayed(){locked_again(1,"full")}
+    /// The same on a bounded nonce range (CP field 4 = 0, a valid v3 CP until Phase 6a requires nonceMode 1), where a share
+    /// past nMax exists.
+    #[test] fn a_template_locked_again_on_a_bounded_nonce_range(){locked_again(0,"bounded")}
+    fn locked_again(nonce_mode:u8,tag:&str){
+        let mut c=DevnetConfig::new(777918,1_700_000_000,&["a","b","c"]);c.nonce_mode=nonce_mode;
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
-        let dir=std::env::temp_dir().join(format!("pocold-latecache-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let dir=std::env::temp_dir().join(format!("pocold-latecache-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let cfg=Config{dir:dir.clone(),name:"latecache".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
         let mut n=Node::open(cfg,spec).unwrap();
         let (_p7,_o7)=net::test_peer(7,1<<16);let (p8,_o8)=net::test_peer(8,1<<16);n.peers.insert(7,_p7.clone());n.peers.insert(8,p8.clone());
@@ -3973,7 +3980,8 @@ mod late_cache_tests{
         for id in [7,8]{n.peer_status.insert(id,PeerStatus{work:U256::ZERO,head:gh,height:0,stale:false});}
         let (fb,_,ctx)=n.chain.build_fallback(&par,0).unwrap();let tid=template_id(&fb.ut_raw);drop(par);
         let nmax=ctx.assignment.nonce_max();let cap=SHARE_RELAY_PER_S_MAX*usize::from(n.chain.spec.cp().S_max);
-        let on:Vec<u64>=(0..nmax as u64).filter(|x|le_target(&pow_hash(&tid,*x),&ctx.t_share)).take(4).collect();assert_eq!(on.len(),4);
+        // nonceMode 1 (the v3 devnet): the fallback's domain is the full 2^64, so the scan stops at u64::MAX.
+        let on:Vec<u64>=(0..u64::try_from(nmax).unwrap_or(u64::MAX)).filter(|x|le_target(&pow_hash(&tid,*x),&ctx.t_share)).take(4).collect();assert_eq!(on.len(),4);
         // The template was mined and left (stashed) with one share; the head is back on its parent and it is locked again.
         n.late_cache.stash(LateTemplate{tid,height:1,nonce_max:nmax,t_share:ctx.t_share,shares:vec![on[0]]},cap);
         n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms(),own_shares:0,exhausted:false});
@@ -3994,8 +4002,10 @@ mod late_cache_tests{
         assert!(p8.queued_bytes()>q,"FAIL-ON-ORIGINAL: a new late share is relayed");let q=p8.queued_bytes();
         n.on_msg(7,Msg::Share{tid,nonce:on[2]});
         assert_eq!(p8.queued_bytes(),q,"a duplicate is not relayed");
-        let off=(0..nmax as u64).find(|x|!le_target(&pow_hash(&tid,*x),&ctx.t_share)).unwrap();
-        n.on_msg(7,Msg::Share{tid,nonce:off});n.on_msg(7,Msg::Share{tid,nonce:nmax as u64});
+        let off=(0..u64::try_from(nmax).unwrap_or(u64::MAX)).find(|x|!le_target(&pow_hash(&tid,*x),&ctx.t_share)).unwrap();
+        n.on_msg(7,Msg::Share{tid,nonce:off});
+        // A nonce past nMax exists only on a bounded range (nonceMode 1: nMax = 2^64 holds every u64 nonce).
+        assert_eq!(u64::try_from(nmax).is_ok(),nonce_mode==0);if let Ok(past)=u64::try_from(nmax){n.on_msg(7,Msg::Share{tid,nonce:past});}
         assert_eq!((p8.queued_bytes(),n.late_cache.get(&tid).unwrap().shares.len()),(q,3),"off target or past nMax: neither kept nor relayed");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }

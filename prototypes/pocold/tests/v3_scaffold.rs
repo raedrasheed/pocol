@@ -20,7 +20,8 @@ const GENESIS: &[(&str,&str)] = &[
 ];
 /// The genesis.spec.hex bytes of the generated network `name` (GENESIS).
 fn generated_genesis(name:&str)->Vec<u8>{
-    let built=|t_blk:u32,tau:u32,d_att:u32,fb:u32|{let mut c=devnet::DevnetConfig::new(777900,1_700_000_000,&["a","b","c"]);
+    // The retired spec-1 devnet (DevnetConfig::spec1: the devnet default before Phase 5a), pinned until Phase 6.
+    let built=|t_blk:u32,tau:u32,d_att:u32,fb:u32|{let mut c=devnet::DevnetConfig::spec1(777900,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);
         c.t_blk=t_blk;c.tau=tau;c.d_att=d_att;c.d_fb_wait=fb;devnet::build(&c).unwrap().spec_bytes};
     let prepared=|extra:serde_json::Value|{let out=Temp::new(name);
         let miners:Vec<serde_json::Value>=["a","b","c"].iter().map(|l|{let m=devnet::miner_identity(&format!("v3-scaffold-{l}"));serde_json::json!({"id":m.id,"reward":m.reward})}).collect();
@@ -79,7 +80,8 @@ fn every_generated_spec1_genesis_keeps_its_pinned_bytes_and_hash(){
 }
 #[test]
 fn v1_genesis_preserves_opaque_allocation_slots_beyond_its_cp_prefix(){
-    let cfg=devnet::DevnetConfig::new(777934,1_700_000_000,&["one"]);
+    // A spec-1 (CP schema v1) genesis: the retired spec-1 devnet, until Phase 6a refuses CP schema v1.
+    let cfg=devnet::DevnetConfig::spec1(777934,1_700_000_000,&["one"],devnet::Spec1Programs::Bonded);
     let net=devnet::build(&cfg).unwrap();let mut alloc=net.alloc.clone();
     let slot=U256::from(52);let value=U256::from(0x42);
     alloc.insert_account_info(apply::caps(),revm::primitives::AccountInfo{nonce:1,..Default::default()});
@@ -105,7 +107,8 @@ fn sequential_future_forks_never_narrow_the_nonce_domain(){
 }
 #[test]
 fn schema2_roundtrips_full_width_fields_and_respects_the_release_ceiling(){
-    let cfg=devnet::DevnetConfig::new(777932,1_700_000_000,&["one"]);
+    // From a 52-field (spec-1) genesis extended to schema v2 by hand: the retired spec-1 devnet, until Phase 6a.
+    let cfg=devnet::DevnetConfig::spec1(777932,1_700_000_000,&["one"],devnet::Spec1Programs::Bonded);
     let net=devnet::build(&cfg).unwrap();let mut spec=gs::decode(&net.spec_bytes).unwrap();
     let old=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(old.H_half,0);assert_eq!(old.baseFeeMin,pocol_lp4_execution::fixed::U256::ZERO);
     spec.spec_version=2;spec.cp.extend(gs::CP_SCHEMA_V2[52..].iter().map(|f|pocol_lp4_execution::fixed::U256::from_u64(f.lo)));
@@ -261,7 +264,7 @@ fn v3_05_derives_delta_rel_for_v3_profiles_from_declared_timing(){
 #[test]
 fn a_simnet_devnet_is_refused_in_every_non_simnet_context(){
     let cfg=devnet::DevnetConfig::new(777933,1_700_000_000,&["one"]);let net=devnet::build(&cfg).unwrap();
-    let local=NodeLocal::single_host();let (admitted,timing)=net.admit(&local).unwrap();assert!(!admitted.profile().v3_active(0));
+    let local=NodeLocal::single_host();let (admitted,timing)=net.admit(&local).unwrap();assert!(admitted.profile().v3_active(0),"the v3 devnet");
     for (kind,node) in [(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Network,NodeKind::Node),(ProfileKind::Simnet,NodeKind::Node)]{
         let mut request=net.request(&local,Some(&timing));request.kind=kind;request.node=node;
         let result=pocol_lp4_execution::admission::admit(&request);

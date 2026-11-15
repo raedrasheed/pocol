@@ -73,7 +73,8 @@ fn late_share_validity_reproduces_the_independent_model(){
 #[test]
 fn a13_counts_late_share_memory_on_cp_schema_v2_only(){
     use pocol_lp4_execution::{devnet::{self,DevnetConfig},genesis_spec as gs,profile::ConsensusParams,fixed::U256 as F};
-    let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
+    // The CP schema v1 baseline: the retired spec-1 devnet (Phase 6a deletes the spec-1 rule set and this comparison).
+    let mut c=DevnetConfig::spec1(777910,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
     let v1=pocold::chain::Spec::new(devnet::build(&c).unwrap().admit(&pocold::single_host_local()).unwrap().0).cp().clone();
     let mut values=v1.to_values();
     for f in &gs::CP_SCHEMA_V2[gs::CP_LEN..]{values.push(F::from_u64(match f.name{"R_react"=>4,"C_react"=>v1.U as u64,_=>f.lo}));}
@@ -114,9 +115,13 @@ mod on_chain {
     struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Address>}
     /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
     impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
+    /// Spec 2: the v3 devnet. Spec 1: its retired spec-1 earn-in twin (Phase 6a deletes it with the spec-1 rule set).
+    /// Both on bounded nonce ranges (CP field 4 = 0, still a valid v3 CP until Phase 6a requires nonceMode 1): the
+    /// late-share rules these fixtures exercise include the nMax bound ("ls nonce outside nMax"), which a full 2^64
+    /// domain cannot reach, and they scan from nonce 0. Phase 5b/5c moves them to the full domain.
     fn config(spec:u8)->DevnetConfig{
-        let mut c=DevnetConfig::new(777952,1_700_000_000,&["one","two","three"]);
-        c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.earnin=true;c.spec_version=spec;c
+        let mut c=match spec{1=>DevnetConfig::spec1(777952,1_700_000_000,&["one","two","three"],devnet::Spec1Programs::EarnIn),_=>DevnetConfig::new(777952,1_700_000_000,&["one","two","three"])};
+        c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.nonce_mode=0;c
     }
     fn spec_of(c:&DevnetConfig)->Spec{crate::members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap().0)}
     fn net(spec:u8)->Net{
@@ -220,7 +225,9 @@ mod on_chain {
             let m8=mine(&n,n.chain.head,vec![],true,one,&[],8,0);let h8=accept(&mut n,&m8.block);
             let gain=balance(&n,&h8,reward(&n,1))-before;
             let pot4_proposer=Address::from_slice(&m4.block.header.proposer);
-            let amount=U256::from(2*PCOL);let r=amount-amount/U256::from(10)-amount/U256::from(20);
+            // Pot 4: S0 (4 PCOL on the v3 devnet, 2 PCOL on its spec-1 twin; no tips, no carry before the first settle).
+            let amount=devnet::from_fixed(&n.cfg.cp()[15]);assert_eq!(amount,U256::from(if n.chain.spec.v3_active(4){4}else{2}*PCOL));
+            let r=amount-amount/U256::from(10)-amount/U256::from(20);
             let q=U256::from(header.max(64));
             let want=r*U256::from(2)/q+if pot4_proposer==two{amount/U256::from(20)}else{U256::ZERO};
             assert_eq!(gain,want,"two is paid its late shares at settle(4)");

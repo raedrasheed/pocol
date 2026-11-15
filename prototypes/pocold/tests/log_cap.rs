@@ -13,7 +13,9 @@ const CHAIN:u64=777913;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
 fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
-fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+/// A finite chain (the v3 devnet with H_END 20,000): LOG_CAP is a total over the branch only where H_END > 0 (a
+/// continuous chain has no aggregate log cap, chain.rs).
+fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.h_end=20_000;c.h_close=19_000;c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 fn spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn try_seal(n:&Net,mut h:pocold::header::Header,body:Body,attempt:u32)->Option<Block>{
     let p=n.chain.full_entry(&h.parent_hash).unwrap();let ctx=n.chain.child_ctx(&p,attempt).unwrap();

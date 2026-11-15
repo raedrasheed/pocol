@@ -29,7 +29,7 @@ pub const CHAIN_ID:u64=777_960;
 pub fn fresh_config(n:usize,hash_rate:u64)->DevnetConfig{
     let mut c=DevnetConfig::new(CHAIN_ID,1_700_000_000,&[]);
     c.miners=labels(n);
-    c.spec_version=2;c.earnin=true;c.nonce_mode=1;c.hash_rate=hash_rate;
+    c.hash_rate=hash_rate;
     c.t_blk=10;c.tau=600;c.c=2;c.d_att=90;c.d_fb_wait=8;c.m=32;c.kappa=2;c.s_max=256;c.d=4;c.w_w=8;c.alpha_bp=1000;c.gamma_bp=500;
     c.r_max=4;c.m_max=M_MAX;c.reg_records_max=24_576;c.w_act=32;c.theta_inact=360;c.e_win=360;c.u=380;
     c.gas_limit=8_000_000;c.code_cap=1<<30;c.txbytes_cap=1<<24;c.tx_cap=20_000;c.slot_cap=4_000_000;c.acct_cap=1_000_000;c.sys_slot_max=147_456;

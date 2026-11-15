@@ -23,10 +23,10 @@ use revm::primitives::{keccak256, Address, AccountInfo, Bytes, U256, B256};
 use revm::InMemoryDB;
 
 fn earnin_net() -> devnet::Devnet {
-    let mut cfg = DevnetConfig::new(777903, 1_800_000_000, &["a", "b", "c"]);
-    cfg.earnin = true;
+    // The spec-1 earn-in set (system-earnin.json). Phase 6a ports F1-F3 to system-v3.json before it deletes this set.
+    let mut cfg = DevnetConfig::spec1(777903, 1_800_000_000, &["a", "b", "c"], devnet::Spec1Programs::EarnIn);
     // Earn-in enables miner registration: cfg(17) r_max > 0 (matches earnin_halt_proof.rs's genesis,
-    // which sets reg-ops=16). The DevnetConfig default r_max=0 is the pre-earn-in profile that
+    // which sets reg-ops=16). The spec-1 devnet default r_max=0 is the pre-earn-in profile that
     // implements no registration at all; leaving it 0 would make every register() revert RegOpsLimit
     // before the reward-durability check, so the source-fix test could not observe that check.
     cfg.r_max = 16;

@@ -46,7 +46,7 @@ mod on_chain {
 
     fn config() -> DevnetConfig {
         let mut c = DevnetConfig::new(CHAIN_ID, 1_700_000_000, &["one", "two", "three"]);
-        c.hash_rate = 16; c.c = 8; c.d_att = 73; c.r_max = 1; c.earnin = true; c.spec_version = 2;
+        c.hash_rate = 16; c.c = 8; c.d_att = 73; c.r_max = 1;
         // Theta_inact 1 (below D 4): a member idle for one block is removable at the full set, so the pot of its last share
         // can still be pending when it is replaced (the victim stays payable).
         c.m_max = 4; c.theta_inact = 1;
