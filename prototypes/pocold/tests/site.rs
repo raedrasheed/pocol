@@ -180,3 +180,85 @@ fn stand_in_with(safe:impl Fn(usize)->serde_json::Value+Send+'static)->(String,s
     let rpc=site::Rpc{addr};let a=site::chunk_address(b"x");
     assert!(rpc.code_held(a,"safe").unwrap_err().contains("-32000"));assert_eq!(rpc.code_held(a,"safe").unwrap(),Some(vec![]));
 }
+
+/// Sites W10: a JSON-RPC stand-in answering each request with `answer(method, params, n)` (n: how many times that method
+/// was called before); it records every call as "method tag". Loopback only.
+type Calls=std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+fn stand_in_rpc(answer:impl Fn(&str,&serde_json::Value,usize)->serde_json::Value+Send+'static)->(String,Calls){
+    use std::io::{Read,Write};
+    let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();let addr=l.local_addr().unwrap().to_string();
+    let seen:Calls=Default::default();let log=seen.clone();let mut counts=std::collections::HashMap::<String,usize>::new();
+    std::thread::spawn(move||for s in l.incoming(){
+        let Ok(mut s)=s else{continue};let mut buf=Vec::new();let mut b=[0u8;65536];
+        let body=loop{let n=s.read(&mut b).unwrap_or(0);if n==0{break None}buf.extend(&b[..n]);
+            if let Some(i)=buf.windows(4).position(|w|w==b"\r\n\r\n"){
+                let head=String::from_utf8_lossy(&buf[..i]).to_ascii_lowercase();
+                let len:usize=head.lines().find_map(|x|x.strip_prefix("content-length:")).map(|v|v.trim().parse().unwrap()).unwrap_or(0);
+                if buf.len()>=i+4+len{break Some(buf[i+4..i+4+len].to_vec())}}};
+        let Some(body)=body else{continue};let req:serde_json::Value=serde_json::from_slice(&body).unwrap();
+        let m=req["method"].as_str().unwrap().to_string();let p=req["params"].clone();
+        log.lock().unwrap().push(format!("{m} {}",p[1].as_str().unwrap_or("")));
+        let n=*counts.entry(m.clone()).and_modify(|c|*c+=1).or_insert(0);
+        let mut out=serde_json::json!({"jsonrpc":"2.0","id":1});
+        for (k,v) in answer(&m,&p,n).as_object().unwrap(){out[k]=v.clone();}
+        let text=out.to_string();
+        let _=write!(s,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{text}",text.len());
+    });
+    (addr,seen)
+}
+fn common(m:&str)->Option<serde_json::Value>{
+    Some(match m{
+        "eth_gasPrice"=>serde_json::json!({"result":"0x3c336080"}),"eth_maxPriorityFeePerGas"=>serde_json::json!({"result":"0x3b9aca00"}),
+        "eth_getTransactionCount"=>serde_json::json!({"result":"0x0"}),"eth_blockNumber"=>serde_json::json!({"result":"0x5"}),
+        "eth_sendRawTransaction"=>serde_json::json!({"result":format!("0x{}","11".repeat(32))}),_=>return None})
+}
+/// Sites W10: a chunk store that fails because a chain cap is reached is reported with the cap's name and counts from
+/// pocol_getCaps (CODE_CAP: the code left is smaller than the chunk's code; ACCT_CAP: no account left); without
+/// pocol_getCaps, or when neither cap explains it, the failed receipt is reported as before.
+#[test] fn w10_a_chunk_store_refused_at_a_chain_cap_names_the_cap(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let data=vec![7u8;24_575];
+    let run=|caps:serde_json::Value|{
+        let (addr,_)=stand_in_rpc(move|m,_,_|common(m).unwrap_or_else(||match m{
+            "eth_getCode"=>serde_json::json!({"result":"0x"}),
+            "eth_getTransactionReceipt"=>serde_json::json!({"result":{"status":"0x0","blockNumber":"0x6","gasUsed":"0x631768"}}),
+            "pocol_getCaps"=>caps.clone(),m=>panic!("unexpected {m}")}));
+        let rpc=site::Rpc{addr};site::Publisher::new(&rpc,&key,7,false,site::FeePolicy::default()).store_chunk(&data).unwrap_err()
+    };
+    let caps=|code:u64,code_cap:u64,acct:u64,acct_cap:u64|serde_json::json!({"result":{"codeBytes":format!("0x{code:x}"),"codeBytesCap":format!("0x{code_cap:x}"),"accounts":format!("0x{acct:x}"),"accountsCap":format!("0x{acct_cap:x}")}});
+    let e=run(caps(190_000,200_000,10,40));
+    assert!(e.contains("code-size cap is reached (CODE_CAP): 190000 of 200000 code bytes")&&e.contains("creates 24576 more")&&e.contains("stored chunks are kept"),"{e}");
+    let e=run(caps(21_525,200_000,40,40));assert!(e.contains("account cap is reached (ACCT_CAP): 40 of 40 accounts"),"{e}");
+    let e=run(caps(21_525,200_000,10,40));assert!(e.starts_with("transaction failed")&&!e.contains("CAP"),"{e}");
+    let e=run(serde_json::json!({"error":{"code":-32601,"message":"method not found"}}));assert!(e.starts_with("transaction failed"),"{e}");
+    // The node's pool refuses a transaction whose pending state would pass a cap (AcctCap, seen on a small-cap devnet).
+    let (addr,seen)=stand_in_rpc(move|m,_,_|match m{
+        "eth_sendRawTransaction"=>serde_json::json!({"error":{"code":-32000,"message":"-32000 pending state would exceed a cap (AcctCap)"}}),
+        "eth_getCode"=>serde_json::json!({"result":"0x"}),"pocol_getCaps"=>caps(101_931,2_097_152,8,8),m=>common(m).unwrap_or_else(||panic!("unexpected {m}"))});
+    let rpc=site::Rpc{addr};let e=site::Publisher::new(&rpc,&key,7,false,site::FeePolicy::default()).store_chunk(b"<p>").unwrap_err();
+    assert!(e.contains("account cap is reached (ACCT_CAP): 8 of 8 accounts")&&e.contains("would exceed a cap (AcctCap)"),"{e}");
+    assert!(!seen.lock().unwrap().iter().any(|m|m.starts_with("eth_getTransactionReceipt")),"nothing was sent");
+}
+/// Sites W10 (the plan's reorg-before-safe case, with a mocked upstream; e2e_site.py runs it on a partitioned devnet):
+/// a chunk another account stored is present at `latest`, so the publisher does not store it; then a reorganization
+/// removes it before it reaches `safe`. The safe sweep finds it missing at both `safe` and `latest`, stores it again
+/// (one signed store), and passes once it is at `safe`.
+#[test] fn w10_a_chunk_seen_at_latest_and_reorged_out_before_safe_is_stored_again_by_the_sweep(){
+    use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let data=b"<p>stored by bob".to_vec();
+    let reorged=Arc::new(AtomicBool::new(false));let restored=Arc::new(AtomicBool::new(false));
+    let (r,s)=(reorged.clone(),restored.clone());
+    let (addr,seen)=stand_in_rpc(move|m,p,_|common(m).unwrap_or_else(||match m{
+        // Before the reorganization the chunk is at latest only; after it, nowhere until it is stored again.
+        "eth_getCode"=>{let present=if r.load(Ordering::SeqCst){s.load(Ordering::SeqCst)}else{p[1]=="latest"};
+            serde_json::json!({"result":if present{"0x003c703e73746f72656420627920626f62"}else{"0x"}})}
+        "eth_getTransactionReceipt"=>{s.store(true,Ordering::SeqCst);serde_json::json!({"result":{"status":"0x1","blockNumber":"0x7"}})}
+        m=>panic!("unexpected {m}")}));
+    let rpc=site::Rpc{addr};let mut p=site::Publisher::new(&rpc,&key,7,false,site::FeePolicy::default());p.sweep_poll=std::time::Duration::from_millis(10);
+    p.store_chunk(&data).unwrap();
+    assert!(!seen.lock().unwrap().iter().any(|m|m.starts_with("eth_sendRawTransaction")),"present at latest: not stored");
+    reorged.store(true,Ordering::SeqCst);
+    p.safe_sweep(&[&data]).unwrap();
+    let seen=seen.lock().unwrap().clone();
+    assert_eq!(seen.iter().filter(|m|m.starts_with("eth_sendRawTransaction")).count(),1,"stored again exactly once: {seen:?}");
+    assert!(seen.iter().rposition(|m|m=="eth_getCode safe")>seen.iter().position(|m|m.starts_with("eth_sendRawTransaction")),"the sweep reads safe again after storing: {seen:?}");
+}
