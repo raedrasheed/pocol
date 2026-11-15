@@ -1611,7 +1611,18 @@ impl Chain{
         let gone=|c:&Chain,a:&(u64,[u8;32])|c.canonical.get(a.0 as usize)!=Some(&a.1)||low.is_some_and(|l|a.0<l);
         let newest=all.iter().filter(|a|!gone(self,a)&&a.0.saturating_add(lag)<=head_h).map(|a|a.0).max();
         let (keep,drop):(Vec<_>,Vec<_>)=all.drain(..).partition(|a|!gone(self,a)&&newest.map_or(true,|n|a.0>=n));
-        for (_,h) in drop{if let Some(e)=self.blocks.get_mut(&h){e.stored=None;}}
+        // R21 (node.rs `Limits::k_safe`): a restore or rebuild that re-executes an anchor above the cut un-prunes it, its
+        // version its state (`restore_canonical`, `rebuild_with`). Dropped while it is still canonical above the cut, it
+        // keeps that version as any other block of the window does (`prune_window` releases it when the cut passes it);
+        // otherwise (no longer canonical, or at or below the cut) it is pruned with its version released, as an anchor
+        // that was never re-executed is: the entry the base left. Before, only its version was released and the block was
+        // left unpruned without a state, and a valid child of it was run on an empty state, refused (assignment
+        // EmptyMembership) and recorded invalid. A side state is not kept instead: R21 is the canonical window's, and a
+        // kept one would displace another side state from `settle`'s side_max.
+        let cut=head_h.saturating_sub(self.k_hist);
+        for (_,h) in drop{let window=self.is_canonical(&h);if let Some(e)=self.blocks.get_mut(&h){
+            if !e.pruned&&window&&e.height>cut&&e.stored.is_some(){continue}
+            e.stored=None;if !e.pruned{e.state=empty_state();e.pruned=true;e.full=false;}}}
         self.anchors=keep;
     }
     /// The rebuild anchors held, (height, hash) in height order (status and tests).
@@ -1645,6 +1656,13 @@ impl Chain{
             match self.materialize(h){Some(st)=>{let e=self.blocks.get_mut(h).unwrap();e.state=st.into();e.full=true;self.materializations.fetch_add(1,std::sync::atomic::Ordering::Relaxed);}
                 None=>{self.blocks.get_mut(h).unwrap().pruned=true;}}}}}
         for h in &drop{if let Some(e)=self.blocks.get_mut(h){e.diff=None;}}
+        // PR4 (A13 diffs_held): and so does every other pruned side block's diff. A rebuild through pruned side blocks
+        // gives each one on its path a diff (`rebuild_with`) and makes only its target a state: the others stay pruned,
+        // so they are in neither list above, and before, they held their diffs until R_keep or side_cap removed them
+        // (up to SIDE_BLOCKS_MAX diffs, past diffs_held). Nothing reads one: a pruned block is never a materialize
+        // target or a rebuild root, the side states kept are full (above), and the canonical window is reached from
+        // the head through canonical diffs (`shed_full_states`); one adopted later is re-executed by its restore.
+        {let blocks=&mut self.blocks;for h in self.side.iter(){if let Some(e)=blocks.get_mut(h){if e.pruned&&e.diff.is_some(){e.diff=None;}}}}
         self.shed_full_states();
         // C-1 E1: only the head keeps its trie; any other parent's is derived from it when needed.
         let head=self.head;let tried=std::mem::take(&mut self.tried);

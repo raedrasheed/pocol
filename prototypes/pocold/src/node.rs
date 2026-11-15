@@ -189,10 +189,13 @@ pub const K_SAFE:u64=6;
 /// (`Limits::k_alarm`): 60 blocks, ten minutes at 10 s blocks.
 pub const K_ALARM:u64=60;
 /// V3-26 (owner decision 12; local, never validity): the confirmation settings a node may run with:
-/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so the state at head − k_safe is inside the retained trie window (heights
-/// head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node flag). This
-/// does not bound the other branch of `safe` = max(head − k_safe, finalized_h): after a heavier, shorter branch,
-/// safe = finalized_h can be a pruned height, whose state answers −32017 as at `finalized`.
+/// 1 <= k_safe <= k_alarm, and k_safe < K_hist so head − k_safe is a height of the retained trie window (head − K_hist,
+/// head] (heights head − K_hist and below hold no state; K_hist comes from the network's local profile, not from a node
+/// flag). That alone does not make its state answered (`Limits::k_safe`): live, after a heavier, shorter branch lowers
+/// the head by d blocks, the window's lowest min(d, K_hist) heights that the adoption does not re-execute stay pruned
+/// until the head passes the old one (or a restart), so `safe` = head − k_safe is answered while d < K_hist − k_safe;
+/// and the other branch of `safe` = max(head − k_safe, finalized_h), safe = finalized_h, can be a pruned height, whose
+/// state answers −32017 as at `finalized`.
 pub fn check_confirmation(k_safe:u64,k_alarm:u64,k_hist:u64)->Result<(),String>{
     if k_safe==0{return Err("k_safe 0: the RPC safe depth must be at least 1 (--k-safe, POCOL_K_SAFE)".into())}
     if k_safe>k_alarm{return Err(format!("k_safe {k_safe} exceeds k_alarm {k_alarm}: the RPC safe depth must not exceed the reorg alarm depth (--k-safe/POCOL_K_SAFE, --k-alarm/POCOL_K_ALARM)"))}
