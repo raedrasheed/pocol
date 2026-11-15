@@ -1732,6 +1732,43 @@ That is O(M) CPU per import, re-execution and evidence read, a CPU cost (CONDITI
 term. FN-3b must lower the default (the tests switch it on explicitly), and the FN-3c CPU and timing measurements
 (child_ctx p99, reconstruction, `h_full` overhead) are taken with it off.
 
+### FN-3b: the nonce ranges removed (C6, node-local)
+
+FN-3b takes the type-2, kind-3 and `late_offer` owners from the member records (`chain::CheckedOwners` over
+`LazyOwners`: the owner memo, else `Chain::assignment_of`) and removes `Entry.ranges`, `BlockBytes::ranges_of`,
+`checkpoint::Source::ranges`, history.redb's ranges table (deleted at open, in the open's own write transaction) and
+`History::ranges`. Removed terms:
+- the per-block `64·M_max` of the nonce ranges (4,096 B at the devnet's M_max 64, 640,000 B at 10,000), in every
+  entry-equivalent the model counts (offloaded and slimmed metadata, the window, the shadow, the reload, the views, the
+  side blocks and the eviction batch);
+- history.redb's ranges row, `32 + 32 + 52·M_max` a block, in the payload behind the allocator terms;
+- the ranges' boxed slice in `Entry` (16 B): an Entry is 1,072 B on x86-64 (1,088 before).
+The member terms are unchanged. The oracle (`Chain::member_oracle`) is off by default (`members::oracle_default`).
+The suites that run chains switch it on: `members::test_oracle` (tests/support/members.rs `oracle`, where a suite
+builds its spec, which also starts the tests' capture of each validated assignment, `members::capture`, a test
+instrument: a node never captures) in admission, consensus, discovery, earnin, eviction_credit, fn3_members,
+full_nonce, mining_work, net, outbound_threads, relay, rejoin, unhex_fix, v3_earnin, v3_execution, v3_late_shares,
+v3_membership and v3_reward_gateway; `Chain::set_member_oracle` on each chain (no capture) in caps, fee_pool, fn1_caps,
+fn1_membership, journal_measure, log_cap, log_cap_scope, memory_bounds and v3_fork_choice (log_cap and log_cap_scope
+build only with `--features caps-test`). memory_window and open_transient
+leave it off: their heap assertions would count the oracle's cold recomputations and the capture's row per block. The
+capture stands in for the stored ranges in the cold sweep. Pins moved:
+- the spec-1 devnet total (tests/consensus.rs `a13_bound_breakdown`, tests/v3_late_shares.rs): 3,401,814,038 to
+  3,357,219,051 B (−44,594,987: side metadata −25,264,128, offloaded canonical metadata −17,833,744, shadow −1,056,784,
+  history.redb allocator −132,507, window −131,584, eviction batch −98,336, slimmed metadata −32,800, reload −32,768,
+  views −8,224, the full side block −4,112); eviction off 3,392,352,417 to 3,348,736,230 B (−43,616,187);
+- the live chain's halt (tests/network_budget.rs): 26,157 to 27,119 records later ([1,170,137, 1,145,069, 1,137,847,
+  1,113,007, 1,094,945, 1,070,105]). R(8, 2) is now 424 records above R10's own, so the seed rule's differences are
+  signed (i128). Its outcome is unchanged: R10[0] − R(32, 2) = 31,866 of the week's 60,480 (a rise only widens this
+  margin), and R10[1] − R(64, 7) = 74,766 stays above a week, so the seeds keep the default 32;
+- its disk stops: 182,180,866,560 B (169.7 GiB of history.redb) later (44,477,750 model bytes with eviction on).
+At the fresh-network CP (as in FN-3a: M_max 10,000, E_win 360, D 4, E_max 4, R_react 4, REG_RECORDS_MAX 24,576,
+SYS_SLOT_MAX 147,456, store mode, eviction on, disk observed) the model falls from 10,078,213,165 B (9.39 GiB, refused)
+to 2,894,088,421 B (2.70 GiB): −7,184,124,744 B (6.69 GiB), the 640,000 B ranges term over the 11,221
+entry-equivalents (7,181,440,000 B) plus the ranges rows' allocator share and the Entry's 16 B. `check` now admits it
+against the 6 GiB budget with its 1/8 reserve. FN-3c records this in its own 10k A13 test, with the growth and CPU
+measurements (taken with the oracle off).
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

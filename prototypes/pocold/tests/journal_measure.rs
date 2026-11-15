@@ -24,9 +24,11 @@ use std::time::Instant;
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 fn admitted()->Spec{let c=cfg();let d=devnet::build(&c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn net()->Net{let c=cfg();let d=devnet::build(&c).unwrap();let mut keys=HashMap::new();
     for m in &d.miners{keys.insert(m.id,Key::from_secret(&m.key.secret()).unwrap());}
-    Net{chain:Chain::new(admitted()),keys}}
+    Net{chain:oracle_on(Chain::new(admitted())),keys}}
 fn try_seal_on(chain:&Chain,keys:&HashMap<Address,Key>,mut h:Header,body:Body,attempt:u32,start:u64)->Option<Block>{
     let p=chain.full_entry(&h.parent_hash).unwrap();let ctx=chain.child_ctx(&p,attempt).unwrap();
     let tid=template_id(&h.ut_raw);let mut shares=vec![];let mut x=start;
@@ -996,7 +998,7 @@ fn history_integrity_check_cost(){
         for i in 0..blocks{let mut b=[0u8;32];b[..8].copy_from_slice(&i.to_be_bytes());b[8..16].copy_from_slice(&i.wrapping_mul(0x9e3779b97f4a7c15).to_be_bytes());
             let rec:Vec<Vec<u8>>=(0..4).map(|k|vec![(i as u8)^(k as u8);rec_b as usize]).collect();
             let txs:Vec<B256>=(0..4u64).map(|k|revm::primitives::keccak256((i*4+k).to_be_bytes())).collect();
-            let snap=pocold::members::MemberRec::genesis();h.put_with(&b,&rec,&txs,&[],&pocold::history::Members{parent:[0;32],height:i+1,rec:&snap,set:Some(&[])},durable).unwrap();if !durable&&i%256==255{h.sync().unwrap();}}
+            let snap=pocold::members::MemberRec::genesis();h.put_with(&b,&rec,&txs,&pocold::history::Members{parent:[0;32],height:i+1,rec:&snap,set:Some(&[])},durable).unwrap();if !durable&&i%256==255{h.sync().unwrap();}}
         h.sync().unwrap();println!("JM-HIST-FILL {}",serde_json::json!({"blocks":blocks,"durableEach":durable,"ms":t.elapsed().as_millis()}));}
     let size=std::fs::metadata(dir.join(pocold::history::FILE)).unwrap().len();
     // Drop the page cache's effect as far as a user process can: a fresh open, timed separately.

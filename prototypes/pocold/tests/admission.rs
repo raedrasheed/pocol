@@ -1,6 +1,7 @@
 //! A02 boot path: `init-devnet` and `load_spec` (used by `run` and `status`) run the full
 //! ParamGate on the real files and refuse every violation with its rules (-32018). Timing
 //! facts are measured on the booting machine.
+#[path="support/members.rs"] mod members_sweep;
 use pocol_lp4_execution::devnet::{self,DevnetConfig};
 use std::path::{Path,PathBuf};
 #[path="support/continuous.rs"] mod continuous;
@@ -121,7 +122,7 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
     let whole=pocold::load_spec(&dir,&pocold::single_host_local()).unwrap_or_else(|e|{let n=devnet::build(&base()).unwrap();
         panic!("{e}; a calibration run right after it: {:?}",pocol_lp4_execution::admission::measure(&n.spec_bytes,&n.alloc,1).map(|t|t.phase_ms))});
     assert!(!detail(&whole).contains("node store"),"{}",detail(&whole));
-    let n=Node::open(Config{dir:data.clone(),name:"st".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{state_store:true,..Default::default()}},spec).unwrap();
+    crate::members_sweep::oracle();let n=Node::open(Config{dir:data.clone(),name:"st".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{state_store:true,..Default::default()}},spec).unwrap();
     assert!(n.state_store().is_some()&&n.status_json()["stateStore"]==true);
     drop(n);let _=std::fs::remove_dir_all(&d);
 }

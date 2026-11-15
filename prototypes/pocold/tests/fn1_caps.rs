@@ -12,12 +12,14 @@ use serde_json::{json,Value};
 
 const CHAIN:u64=777951;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn cfg(v3:bool)->DevnetConfig{
     let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
     if v3{c.spec_version=2;c.nonce_mode=1;c.r_max=1;}c
 }
 fn spec(c:&DevnetConfig)->Spec{Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
-fn net(c:&DevnetConfig)->Net{let d=devnet::build(c).unwrap();Net{chain:Chain::new(spec(c)),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()}}
+fn net(c:&DevnetConfig)->Net{let d=devnet::build(c).unwrap();Net{chain:oracle_on(Chain::new(spec(c))),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()}}
 fn dir(tag:&str)->std::path::PathBuf{let d=std::env::temp_dir().join(format!("pocold-fn1-caps-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
 fn node(c:&DevnetConfig,tag:&str,rpc:Option<u16>)->(Node,std::path::PathBuf){
     let d=dir(tag);

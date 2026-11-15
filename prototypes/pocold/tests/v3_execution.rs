@@ -1,6 +1,7 @@
 //! V3-20/24 on disposable fixtures, and FN-2a (owner decision 10d, 2026-11-13): no creation fee. New accounts,
 //! nonzero slots and code pay ordinary gas only; ACCT_CAP and SLOT_CAP stay A03 halts that charge the declared gas
 //! (owner answer 11), and CODE_CAP still fails the CREATE. No production profile or coefficients.
+#[path="support/members.rs"] mod members_sweep;
 use pocol_lp4_execution::fees;
 use revm::primitives::U256;
 
@@ -42,7 +43,7 @@ mod on_chain {
         let mut c=DevnetConfig::new(777938,1_700_000_000,&["execution"]);c.spec_version=2;c.earnin=true;c.nonce_mode=1;c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;
         tune(&mut c);c
     }
-    fn node_spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap().0)}
+    fn node_spec(c:&DevnetConfig)->pocold::chain::Spec{crate::members_sweep::oracle();pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap().0)}
     fn node_tx(node:&pocold::node::Node,key:&pocol_lp4_execution::txsign::Key,nonce:u64,to:Address,gas:u64)->Vec<u8>{
         let head=node.chain.full_entry(&node.chain.head).unwrap();let base=node.chain.child_ctx(&head,0).unwrap().base_fee;
         Tx{chain_id:777938,nonce,max_priority:U256::from(7),max_fee:base*U256::from(2)+U256::from(7),gas,to:Some(to),value:U256::from(1),data:Default::default()}.sign_1559(key)
@@ -269,6 +270,8 @@ mod on_chain {
             let raw=node_tx(&node,&alice,0,to,21000);let hash=node.submit_tx(raw.clone(),false).unwrap();
             let head=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&head,cfg.g_ts+4);assert_eq!(selection.txs,vec![raw.clone()]);assert_eq!(selection.counted,21000);
             let b=solve(&node,selection.txs,cfg.g_ts+4);assert!(node.import(b,None).unwrap());
+            // FN-3b positive control: the import ran the member oracle (switched on in `node_spec`).
+            assert!(node.chain.member_oracle&&node.chain.member_counters().oracle_checks>0,"FN-3: the import ran the member oracle");
             let receipt=rpc(&mut node,"eth_getTransactionReceipt",serde_json::json!([hash]));assert!(receipt.get("error").is_none(),"{receipt}");assert_eq!(receipt["result"]["status"],"0x1");
             assert_eq!(receipt["result"]["gasUsed"],"0x5208");assert_eq!(receipt["result"]["logs"],serde_json::json!([]),"no creation-fee annotation");
             assert_eq!(balance(&node,to),U256::from(1));

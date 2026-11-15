@@ -1,6 +1,7 @@
 //! Inbound eviction's credits (VA-SPEC §1b, net::Net::establish): the node credits a peer for its first delivery of a
 //! new block, a template that locked, a transaction that entered the pool and a valid new share, and never for a
 //! duplicate. In-process: a real handshake (support/auth_peer.rs), then handler events; read through the status.
+#[path="support/members.rs"] mod members_sweep;
 use std::collections::HashMap;
 use pocold::{chain::Chain,node::{Config,Event,Node},net::{Msg,NetEvent},types::*,hashes};
 use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::{Key,Tx}};
@@ -10,7 +11,7 @@ use revm::primitives::{Address,B256,U256};
 const CHAIN:u64=777913;
 /// The caps.rs test profile (gate-valid with single-host timing: D_att=73, c=8).
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
-fn spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
+fn spec(c:&DevnetConfig)->pocold::chain::Spec{crate::members_sweep::oracle();pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 /// The block producer's chain and every miner's key, apart from the node under test (tests/caps.rs).
 struct Producer{chain:Chain,keys:HashMap<Address,Key>}
 fn producer(c:&DevnetConfig)->Producer{let d=devnet::build(c).unwrap();Producer{chain:Chain::new(spec(c)),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()}}
