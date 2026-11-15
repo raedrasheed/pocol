@@ -33,6 +33,7 @@ fn net() -> Net {
     static TIMING: OnceLock<Timing> = OnceLock::new();
     let timing = TIMING.get_or_init(|| admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap());
     let admitted = admission::admit(&candidate.request(&pocold::single_host_local(), Some(timing))).unwrap();
+    crate::members_sweep::oracle();
     Net { chain: Chain::new(Spec::new(admitted)), keys, one }
 }
 

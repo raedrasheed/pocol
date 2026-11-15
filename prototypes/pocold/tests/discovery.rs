@@ -1,5 +1,6 @@
 //! Peer discovery between real sockets (VA-SPEC §1a): a node over loopback with raw peers. Loopback addresses are
 //! learned only in local mode (`Discovery::allow_local`); in public mode the same exchange stores nothing.
+#[path="support/members.rs"] mod members_sweep;
 use std::io::{Read,Write};
 use std::net::{SocketAddr,TcpListener,TcpStream};
 use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
@@ -10,6 +11,7 @@ use pocol_lp4_execution::devnet::{self,DevnetConfig};
 
 /// One devnet per test binary: its genesis is now and its timing is measured once (as in tests/net.rs).
 fn spec()->Spec{
+    crate::members_sweep::oracle();
     static GENESIS:std::sync::OnceLock<u64>=std::sync::OnceLock::new();
     static TIMING:std::sync::OnceLock<pocol_lp4_execution::admission::Timing>=std::sync::OnceLock::new();
     let mut cfg=DevnetConfig::new(777941,*GENESIS.get_or_init(pocold::node::now_s),&["a","b","c"]);

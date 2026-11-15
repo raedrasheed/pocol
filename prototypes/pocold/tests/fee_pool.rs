@@ -8,6 +8,8 @@ use revm::primitives::{Address,B256,U256};
 
 const CHAIN:u64=777910;const GWEI:u64=1_000_000_000;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 /// The consensus suite's gate-valid test profile (consensus.rs `cfg`) with more funded senders.
 fn cfg(extra:&[&str])->DevnetConfig{
     let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
@@ -17,7 +19,7 @@ fn admitted(c:&DevnetConfig)->Spec{let d=devnet::build(c).unwrap();Spec::new(d.a
 fn net_with(c:&DevnetConfig)->Net{
     let d=devnet::build(c).unwrap();let mut keys=HashMap::new();
     for m in &d.miners{keys.insert(m.id,Key::from_secret(&m.key.secret()).unwrap());}
-    Net{chain:Chain::new(admitted(c)),keys}
+    Net{chain:oracle_on(Chain::new(admitted(c))),keys}
 }
 fn try_seal(n:&Net,mut h:pocold::header::Header,body:Body,attempt:u32)->Option<Block>{
     let p=n.chain.full_entry(&h.parent_hash).unwrap();let ctx=n.chain.child_ctx(&p,attempt).unwrap();

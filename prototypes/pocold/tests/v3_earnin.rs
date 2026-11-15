@@ -61,6 +61,7 @@ mod on_chain {
         let one = candidate.miners[0].id;
         let timing = admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap();
         let admitted = admission::admit(&candidate.request(&pocold::single_host_local(), Some(&timing))).unwrap();
+        crate::members_sweep::oracle();
         let chain = Chain::new(Spec::new(admitted));
         assert_eq!(chain.spec.programs(), ProgramSet::V3);
         assert!(chain.spec.earnin_rules() && chain.spec.v3_active(0));
@@ -487,6 +488,7 @@ mod on_chain {
         let one = candidate.miners[0].id;
         let timing = admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap();
         let admitted = admission::admit(&candidate.request(&pocold::single_host_local(), Some(&timing))).unwrap();
+        crate::members_sweep::oracle();
         let chain = Chain::new(Spec::new(admitted));
         assert_eq!(chain.spec.programs(), if spec == 2 { ProgramSet::V3 } else { ProgramSet::EarnIn });
         Net { chain, keys, one }

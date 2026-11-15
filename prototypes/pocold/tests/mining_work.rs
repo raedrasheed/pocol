@@ -1,5 +1,6 @@
 //! V3-30 (D-V3-30, node-local): `--mine-threads N` (disjoint slices of the own range), the localhost work interface
 //! (pocol_getWork / pocol_submitWork, off by default, own range only) and networkHashrateEst.
+#[path="support/members.rs"] mod members_sweep;
 use pocold::{chain::{self,Chain,Spec},node::{Config,Limits,Node},rpc,types::*};
 use pocol_lp4_execution::{devnet::{self,DevnetConfig},txsign::Key};
 use serde_json::{json,Value};
@@ -37,7 +38,7 @@ fn share_solution_miss(tid:&[u8;32],w:&Value)->Option<(u64,u64,u64)>{
     }
     Some((share?,solution?,miss?))
 }
-fn admitted(c:&DevnetConfig)->Spec{let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
+fn admitted(c:&DevnetConfig)->Spec{crate::members_sweep::oracle();let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn dir(tag:&str)->std::path::PathBuf{let d=std::env::temp_dir().join(format!("pocold-work-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
 /// The drawn proposer of height 1's key, and the other members' keys.
 fn keys(c:&DevnetConfig)->(Key,Vec<Key>){
