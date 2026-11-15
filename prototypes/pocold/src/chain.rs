@@ -172,14 +172,12 @@ impl Spec{
     /// resource bound of a node of this chain is computed at.
     pub fn cp_max(&self)->&pocol_lp4_execution::profile::ConsensusParams{self.profile().cp_at(u64::MAX)}
     pub fn chain_id(&self)->u64{self.profile().spec().chain_id}
-    /// The actual compiled program set committed by this genesis.
-    pub fn programs(&self)->ProgramSet{
-        apply::SystemPrograms::program_set(self.cp(),&self.profile().spec().sys_code_hash)
-    }
-    pub fn earnin_rules(&self)->bool{matches!(self.programs(),ProgramSet::EarnIn|ProgramSet::V3)}
-    /// The probation pool the genesis programs enforce: the earn-in constants on the earn-in set, none otherwise (the
-    /// v3 set has none since FN-2b). Read-only (wallet quotes and displays).
-    pub fn probation(&self)->Option<apply::Probation>{self.programs().probation()}
+    /// The compiled program set committed by this genesis: the V3 set, the only bundled one since phase 6a of the fresh
+    /// network. A `Spec` exists only from an admission (`new`), which refuses every GenesisSpec naming another sysCodeHash
+    /// or CP schema (`SystemPrograms::for_spec`).
+    pub fn programs(&self)->ProgramSet{ProgramSet::V3}
+    /// The earned-bond registration rules (zero-bond ACCRUING records that fill B_reg from their rewards): the V3 set's.
+    pub fn earnin_rules(&self)->bool{matches!(self.programs(),ProgramSet::V3)}
     pub fn v3_active(&self,h:u64)->bool{self.profile().v3_active(h)}
     pub fn base_fee_floor(&self,h:u64)->U256{if self.v3_active(h){from_fixed_lp4(&self.cp().baseFeeMin)}else{U256::ZERO}}
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}

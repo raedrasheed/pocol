@@ -16,7 +16,6 @@
 //!   the one bound asserted is C6's (the membership part of history.redb below 100 MB a day), which is generous and
 //!   deterministic (it counts bytes, not time). Run it in release on Linux:
 //!     cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test fn3_scale -- --ignored --nocapture --test-threads=1
-#[path="support/continuous.rs"] mod continuous;
 #[path="support/ten_thousand.rs"] mod ten_thousand;
 use std::collections::{HashMap,HashSet};
 use std::path::{Path,PathBuf};
@@ -54,18 +53,20 @@ fn show(tag:&str,cp:&ConsensusParams,b:&resources::Bound,l:&Limits){
         "memberAndContextTerms":members,"termsOver100MB":large}));
 }
 
-/// The CP FN-3a and FN-3b recorded A13 at (A13-DERIVATION.md FN-3a, FN-3b): the generated continuous network's CP (the
-/// builder's defaults, tests/support/continuous.rs: CP schema v1, nonceMode 0, devnet caps) with the C6 row's fields set: M_max 10,000, E_win 360, D 4, E_max 4,
-/// R_react 4, REG_OPS 16, REG_RECORDS_MAX 24,576, SYS_SLOT_MAX 147,456. Built by hand: no committed fresh-network profile
-/// (deploy/mainnet/v3-profile.json, FN-4) is on this base. Not a ParamGate-admitted CP (A13 reads the values only).
+/// The CP FN-3a and FN-3b recorded A13 at (A13-DERIVATION.md FN-3a, FN-3b): the CP of the continuous network init-testnet
+/// generated from `"continuous": true` before phase 6a (the builder's defaults: CP schema v1, nonceMode 0, T_blk 10, tau
+/// 600, D_att 60, dFbWait 6, R_max 1, devnet caps) with the C6 row's fields set: M_max 10,000, E_win 360, D 4, E_max 4,
+/// R_react 4, REG_OPS 16, REG_RECORDS_MAX 24,576, SYS_SLOT_MAX 147,456. Built by hand (and, since phase 6a, encoded here
+/// from the devnet builder's values, because no builder makes a spec-1 genesis any more): not a ParamGate-admitted CP
+/// (A13 reads the values only), at the local timing (1, 1, 1, 8, 5) that network booted with.
 fn c6_row_cp()->(ConsensusParams,u32,u32){
-    let dir=std::env::temp_dir().join(format!("pocold-fn3c-c6-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    continuous::continuous_network(&dir);
+    let mut c=pocol_lp4_execution::devnet::DevnetConfig::new(777917,1_800_000_000,&[]);
+    c.spec_version=1;c.nonce_mode=0;c.r_max=1;c.t_blk=10;c.tau=600;c.d_att=60;c.d_fb_wait=6;c.hash_rate=(1<<18)/10;
+    c.b_reg=U256::from(100u128*10u128.pow(18));c.subsidy=U256::from(2u128*10u128.pow(18));
+    let mut cp=ConsensusParams::from_values(&c.cp()).expect("a CP schema v1 encoding");assert_eq!((cp.schema_version(),cp.H_END,cp.nonceMode),(1,0,0));
     let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
-    let spec=pocold::load_spec_for(&dir,&local,None).expect("the continuous network loads");let _=std::fs::remove_dir_all(&dir);
-    let mut cp=spec.cp().clone();
     cp.M_max=10_000;cp.E_win=360;cp.D=4;cp.E_max=4;cp.R_react=4;cp.REG_OPS=16;cp.REG_RECORDS_MAX=24_576;cp.SYS_SLOT_MAX=147_456;
-    (cp,spec.local().k_hist,spec.local().side_max)
+    (cp,local.k_hist,local.side_max)
 }
 /// The fresh-network CP of FRESH-NETWORK-DESIGN.md §1a (`ten_thousand::fresh_config`: every A13 input at the network's
 /// value, CODE_CAP 2^30, SLOT_CAP 4,000,000 and ACCT_CAP 1,000,000 among them), from the devnet builder with one genesis

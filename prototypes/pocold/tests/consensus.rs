@@ -16,14 +16,9 @@ impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.c
 /// c=8, and D_att=73 so that R7 holds with single-host timing: 73+5 >= 2(7+8*4).
 /// Genesis is in the past: honest single-host Φ=0 tolerates no future timestamps.
 /// Phase 5b: the v3 devnet (DevnetConfig::new: spec 2, the V3 programs, nonceMode 1 with the full nonce domain, a
-/// continuous chain, B_reg 20 PCOL, S0 4 PCOL, the base-fee floor and the v3 log caps). The tests of a spec-1-only rule
-/// use `cfg_spec1` instead (Phase 6a deletes them with the spec-1 rule set).
+/// continuous chain, B_reg 20 PCOL, S0 4 PCOL, the base-fee floor and the v3 log caps). Phase 6a deleted the tests of
+/// spec-1-only rules (`cfg_spec1`, the retired spec-1 devnet) with the spec-1 rule set; each v3 counterpart stays.
 fn cfg(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,miners);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
-/// Phase 6a deletes this: the retired spec-1 devnet (DevnetConfig::spec1, Bonded: specVersion 1, nonceMode 0 with the
-/// bounded nonce range, H_END 20,000 with the finite chain's lifetime caps, B_reg 100 PCOL, S0 2 PCOL, the activity
-/// window, no base-fee floor and the spec-1 log caps) with the same timing as `cfg`, for the tests whose subject is a
-/// spec-1-only rule.
-fn cfg_spec1(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::spec1(777910,1_700_000_000,miners,pocol_lp4_execution::devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 /// The admitted spec (full ParamGate with measured timing); a Devnet alone cannot boot.
 fn admitted(c:&DevnetConfig)->Spec{members_sweep::oracle();let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn net_with(c:&DevnetConfig)->Net{
@@ -150,10 +145,6 @@ fn best_of(chain:&Chain)->[u8;32]{
     assert!(checked>=28&&distinct.len()>=2,"positive control: {checked} blocks, {} distinct targets (a parent-target mutant differs)",distinct.len());
 }
 #[test] fn every_validity_item_rejects_its_mutation(){every_validity_item(&cfg(&["a","b","c"]))}
-/// Phase 6a deletes this: every_validity_item_rejects_its_mutation on the spec-1 devnet, whose bounded nonce range
-/// (nonceMode 0) has item 6 (nonce >= nMax). On the v3 full domain (nonceMode 1, nMax = 2^64) no u64 nonce is out of
-/// range: the same mutation (nonce u64::MAX) is judged on its PoW (item 7), as the v3 test checks.
-#[test] fn every_validity_item_rejects_its_mutation_spec1(){every_validity_item(&cfg_spec1(&["a","b","c"]))}
 fn every_validity_item(c:&DevnetConfig){
     let mut n=net_with(c);let v3=n.chain.spec.effective_nonce_mode(1)==pocold::assignment::NonceMode::Unbounded;for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);}
     let head=n.chain.head;
@@ -1220,31 +1211,9 @@ fn a01_node(tag:&str)->(pocold::node::Node,std::path::PathBuf){
 }
 
 // ---------------- audit A03 regression: an over-limit log is an exceptional halt ----------------
-/// Phase 6a deletes this: pinned to the spec-1 devnet, whose per-block log cap is LOG_BLOCK_MAX 32,768 B and whose
-/// finite chain accumulates the charged log bytes (LOG_CAP). The v3 counterpart, at V3_LOG_BLOCK_MAX on a continuous
-/// chain: v3_a03_over_limit_log_halts_the_transaction_and_the_block_is_valid.
-#[test] fn a03_over_limit_log_halts_the_transaction_and_the_block_is_valid(){
-    // The audited case: CREATE whose initcode emits LOG0 with 32769 data bytes (36+32769 > 32768).
-    let mut n=net_with(&cfg_spec1(&["a","b","c"]));let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);
-    let alice=devnet::account_key("alice");let before=n.chain.head().state.accounts[&alice.address()].info.clone();
-    let init=vec![0x61,0x80,0x01,0x5f,0xa0,0x00];
-    let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:2_000_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
-    let head=n.chain.head;let blk=signed(&n,head,Body{txs:vec![tx],evidence:vec![]},0);
-    let (e,_)=n.chain.validate(&blk,None,0).expect("the block stays valid");
-    let it=rlp::decode(&e.receipts[0][1..]).unwrap();let l=it.list().unwrap();
-    assert_eq!(l[0].bytes().unwrap(),&[] as &[u8],"status 0");assert_eq!(l[3].list().unwrap().len(),0,"no logs");
-    assert_eq!(e.gas_used,2_000_000,"all gas charged");assert_eq!(e.cum_log_bytes,0,"a halted transaction charges no log bytes");
-    let a=&e.state.accounts[&alice.address()].info;assert_eq!(a.nonce,before.nonce+1);assert!(a.balance<before.balance);
-    assert!(n.chain.insert(e),"becomes head");
-    // Within the limit the same pattern succeeds and the chain accumulates its log bytes.
-    let init=vec![0x61,0x7f,0xdc,0x5f,0xa0,0x00];// LOG0 with 32732 bytes: 36+32732 = 32768
-    let tx=Tx{chain_id:777910,nonce:1,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:2_000_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
-    let head=n.chain.head;let blk=signed(&n,head,Body{txs:vec![tx],evidence:vec![]},0);
-    let (e,_)=n.chain.validate(&blk,None,0).unwrap();let it=rlp::decode(&e.receipts[0][1..]).unwrap();
-    assert_eq!(it.list().unwrap()[0].bytes().unwrap(),&[1u8]);assert_eq!(e.cum_log_bytes,32768);
-}
 
-/// The v3 counterpart of a03_over_limit_log_halts_the_transaction_and_the_block_is_valid: on the v3 devnet the per-block
+/// The v3 counterpart of the spec-1 a03_over_limit_log_halts_the_transaction_and_the_block_is_valid (deleted in phase 6a,
+/// with the spec-1 LOG_BLOCK_MAX of 32,768 B and the finite chain's LOG_CAP): on the v3 devnet the per-block
 /// log cap is V3_LOG_BLOCK_MAX (256 KiB) and the chain is continuous, so a block's charged log bytes are its own. A CREATE
 /// whose initcode emits LOG0 with V3_LOG_BLOCK_MAX - 35 data bytes (36 + that > the cap) halts exceptionally: status 0,
 /// no logs, all its gas charged, the nonce used, and the block is valid and becomes head. LOG0 with V3_LOG_BLOCK_MAX - 36
@@ -1847,7 +1816,7 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
 /// resolved (`listen`, `peers`), the eviction depth from R_keep (an explicit Some(0) keeps eviction off), and on a
 /// continuous chain or a v3 profile (the first-import index, `Spec::v3_active(MAX)`) the continuous projection at 0
 /// journal records and the observed files (none exist yet: Node::open observes history.redb, state.redb and canon.redb).
-/// A spec-1 finite chain (Phase 6a deletes that case) keeps the limits as the spec-1 pins derived them: `auto` resolved only.
+/// (A spec-1 finite chain kept `auto` resolved only; phase 6a deleted that case.)
 fn open_limits(spec:&Spec,mut l:pocold::node::Limits,listen:bool,peers:usize)->pocold::node::Limits{
     l.discovery.resolve(listen,peers).unwrap();
     l.first_imports=spec.v3_active(u64::MAX);
@@ -1858,14 +1827,10 @@ fn open_limits(spec:&Spec,mut l:pocold::node::Limits,listen:bool,peers:usize)->p
     l
 }
 #[test] fn a13_boot_refuses_a_bound_above_the_memory_budget(){a13_boot_refuses(&cfg(&["a","b","c"]))}
-/// Phase 6a deletes this: a13_boot_refuses_a_bound_above_the_memory_budget on the spec-1 devnet (a finite chain, whose
-/// bound counts its lifetime caps and no journal or files).
-#[test] fn a13_boot_refuses_a_bound_above_the_memory_budget_spec1(){a13_boot_refuses(&cfg_spec1(&["a","b","c"]))}
 fn a13_boot_refuses(c:&DevnetConfig){
     use pocold::node::{Config,Limits,Node};
     let l=pocold::single_host_local();let default=admitted(c);
-    // One directory per profile: the v3 test and its _spec1 twin run side by side under a parallel harness.
-    let tag=if default.v3_active(u64::MAX){"v3"}else{"spec1"};
+    let tag="v3";assert!(default.v3_active(u64::MAX));
     let dir=std::env::temp_dir().join(format!("pocold-a13-{tag}-{}",std::process::id()));
     let conf=|limits:Limits,peers:usize|Config{dir:dir.clone(),name:"a13".into(),miner:None,listen:None,peers:(0..peers).map(|i|format!("127.0.0.1:{}",1+i).parse().unwrap()).collect(),rpc:None,stop_at:None,log:false,limits};
     // The devnet's own configuration: default limits, two configured peers, no listener; `auto` resolved as
@@ -2147,128 +2112,6 @@ fn a13_boot_refuses(c:&DevnetConfig){
 }
 
 // ---------------- A13: the itemized model bound of the default devnet ----------------
-/// Phase 6a deletes this: the pins below are the spec-1 devnet's (DevnetConfig::spec1), a finite chain of H_END 20,000
-/// whose history group is its lifetime caps (the pre-S1 formula below reads H_END, TXBYTES_CAP, TX_CAP and LOG_CAP).
-/// The v3 counterpart, the itemized bound of the v3 devnet as Node::open derives it (continuous, the first-import
-/// index, the journal projection and the observed files): v3_a13_bound_breakdown.
-#[test] fn a13_bound_breakdown(){
-    use pocold::node::Limits;
-    // The values pocold boots with: its node-local parameters, default limits, two configured peers.
-    let l=pocold::single_host_local();
-    let d=pocold::resources::derive(admitted(&cfg_spec1(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits::default(),2).unwrap();
-    assert_eq!(d.items.iter().map(|x|x.1).sum::<u128>(),d.total);
-    // RpcGuard review 2 (m2): the total is pinned, so a term cannot change unnoticed (round 3: the
-    // small-answer term counts SMALL_REPLY_PEAK per connection, +4,082,688 B; C-1 S1: canonical history
-    // below the resident window is off the heap, 5,487,223,178 -> 4,323,240,949 B; C-1 S3a: retained
-    // canonical states as diffs, -> 3,601,500,638 B; C-1 S4: old canonical entries slimmed,
-    // -> 3,322,680,105 B; C-1 E1: the head's state trie, one derived or built trie and a block's changed
-    // paths, and the entry's trie handle, -> 3,486,909,657 B; C-1 E2: each entry's boxed state summary,
-    // -> 3,489,051,177 B; C-1 E3: blocks, production, the pool and RPC on overlays, 10 transient working
-    // copies -> 2, plus the pool's layer and the applied block's overlay, -> 3,186,963,844 B; C-1 E4.3: each entry's handle to a
-    // stored version, 8 B, -> 3,187,591,348 B; C-1 E5: entries without a state share one empty state,
-    // -> 3,154,465,633 B; D-7: the pool's layer from its gas bound in place of a whole state, its code from its
-    // creations, the block overlay with the slots a created account keeps, one abandoned body in revalidation,
-    // -> 3,287,955,262 B; 2026-10-27: the chain's entries boxed in their map, each counted as its slot at the
-    // table's growth peak and the Entry once, -> 3,233,597,728 B; 2026-10-28: each side entry's slot in the chain's
-    // side set, 32 + 16 B, -> 3,233,892,640 B; the independent review's F-C, the set as its own term: (side entries
-    // + r_keep) × 76 B, -> 3,234,220,320 B; the R6 churn correction below, +7,720,160 B, -> 3,241,940,480 B;
-    // P2P gossip: the relayed TemplateIDs (RELAYED_MAX + 1 at 304 B, + 512), the inbound address groups
-    // (peers_max + 1 at 160 B) and the configured peers (dials + 1 at 96 B), + 1,024 B of slack,
-    // +81,392 B, -> 3,242,021,872 B; PR2a discovery: the address book (BOOK_MAX entries at 152 B, + 512), the
-    // per-connection links (the live and stale-link high-water, 237, at 2 × 590 B, + 512), the transient
-    // scratch (2·BOOK_MAX at 76 B, 2·CACHE_MAX addresses, 25 × 64 B, + 1,024) and the file buffers (the 1 MiB
-    // read + 1 and FILE_LINE_MAX × 1,029 lines), +1,914,797 B, -> 3,243,936,669 B; PR4: post-state verdicts
-    // per TemplateID and nonce (COSTLY_MAX + 1 at 928 B, + 1,024), +239,520 B, -> 3,244,176,189 B; PR3 R10: the
-    // node's per-connection maps, peers and peer_status at the churn rule and each peer's address text (high 237 ×
-    // 2,718 B, + 1,024), +645,190 B, -> 3,244,821,379 B; PR3 inbound eviction: every physical inbound place,
-    // inbound_max = peers_max + handshaking_max (8 more places at 3,421,500 B: queue and frames, two threads, an
-    // exiting one, links and a group entry), the maps' 8 more high entries, and the eviction registry (16 × 192 +
-    // 245 × 64 + 2,048 + 1,024), +27,415,568 B, -> 3,272,236,947 B; PR3 commit 5: 32 established inbound by default,
-    // 24 more places at 3,421,500 B, the maps' 24 more high entries at 2,718 B and the registry's at 192 + 64 B,
-    // +82,187,376 B, -> 3,354,424,323 B; PR6: the pool's meta, the parked entries, the template selection and the block
-    // overlay's BLOCKHASH window, +4,692,588 B, -> 3,359,116,911 B (this pin was not moved with them); PR6 review: the
-    // selection's tail after a gas failure joins the candidates (GAS_LIMIT/TX_GAS_MIN more entries, BODY_MAX more raw
-    // bytes), +383,948 B, -> 3,359,500,859 B; PR6 review: parked runs (PARKED_ENTRY_BYTES 160) and the parked senders
-    // in the selection's skipped sets, +393,216 B, -> 3,359,894,075 B; PR7 (C-1 S5): canonical entries below head − E (E = 6,417) leave memory, so
-    // 6,419 entries are resident of the devnet's 20,001 (slimmed entries -18,308,536 B), and the window's own terms
-    // are counted: the Canon deque 410,880, the eviction batch 1,413,580, a head drop's reload 2,760,704, the rebuild
-    // shadow 5,783,785, two views below the window 859,954, canon.redb's cache 4,194,304 and allocator 531,840 B;
-    // -2,353,489 B, -> 3,357,540,586 B; with eviction off, `evict_depth` Some(0), the total is the one before); PR2b
-    // automatic outbound state per connection (the link's mismatch, self-connection, usefulness and closed-by-us
-    // fields): LINK_BYTES 128 -> 144 at the old high 269, +39,274 B, -> 3,357,579,860 B; PR2b automatic outbound on by
-    // default (auto: S = 5 slot places, the spare's included, at 3,690,508 B, one forwarder at 9,065,100 B with the
-    // 4,096-B outbound state), +27,517,640 B, -> 3,385,097,500 B (merged with PR7: PR2b's terms are the same with
-    // eviction on or off, so eviction off is 3,359,894,075 + 27,556,914 = 3,387,450,989 B, PR2b's own total before
-    // the merge). Some terms are type sizes (Entry, Block), so the exact value is pinned for the target the evidence
-    // is produced on; every target checks that it boots within the budget with its reserve.
-    // V3-04: timestamps stay in the journal; the timely bit fits the existing
-    // Entry layout and checkpoint flags. The eviction batch now counts actual
-    // normalized Entry boxes and Rec slots, rather than encoded REC_MIN.
-    // C3 corrects a legacy under-count on every profile, spec-1 included: the
-    // unchanged receipts::encode nesting, the receipts-root clone and apply's
-    // USER receipt report copy (+878624 B, identically with eviction on/off).
-    // No block report carries a creation-burn field (ChainFacts is unchanged).
-    // N4 (V3-20 node-local pool) moves nothing: the pool's meta and parked entries keep their PR6 sizes (32 and 160 B:
-    // the fee market reads nonces and fee caps from the raw bytes, and the replacement count fits the padding), and
-    // the fee order's scratch ((4,096 + 1,024) x 12 = 61,440 B) takes the place of the selection's first-seen sender
-    // set (885,052 B), which the fee order's pass by sender replaces (resources::selection_bytes).
-    // FN-1 (C6) adds the child-context cache (resources::ctx_cache_bytes): 4 memberships and 8 assignments at this
-    // devnet's M_max 64 with their rows, 185,920 B, identically with eviction on/off (3,397,791,234 and 3,388,329,613
-    // before).
-    let ctx_cache=d.items.iter().find(|x|x.0.starts_with("queues/child-context cache")).unwrap().1;
-    assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(admitted(&cfg_spec1(&["a","b","c"])).cp()));
-    // FN-3a (C6) adds the member-record terms (resources::member_cache_bytes, member_scratch_bytes, the records held on
-    // entries not offloaded, and the history.redb payload of member_payload): at this devnet's M_max 64, S_max 256 and
-    // CP schema v1 (DELTA_CAP ids a delta), +3,836,884 B with eviction on or off (3,397,977,154 and 3,388,515,533
-    // before): the owner memo 2,770,596, the reconstruction scratch 743,744, the assignments cache 168,784, the window's
-    // records 72,080, the sets cache 23,552, and 58,128 of history.redb allocator. An Entry's size is unchanged (1,088 B:
-    // `members` is one pointer, and `ranges` became a boxed slice).
-    // FN-3b (C6) removes the nonce ranges: the per-block 64·M_max term (4,096 B at M_max 64, in every entry-equivalent:
-    // the offloaded and slimmed metadata, the window, the shadow, the reload, the views, the side blocks and the
-    // eviction batch), history.redb's ranges row (32 + 32 + 52·M_max a block, its allocator share), and the ranges'
-    // boxed slice from the Entry (1,088 -> 1,072 B): -44,594,987 B with eviction on (side metadata -25,264,128,
-    // offloaded canonical metadata -17,833,744, shadow -1,056,784, history.redb allocator -132,507, window -131,584,
-    // eviction batch -98,336, slimmed metadata -32,800, reload -32,768, views -8,224, the full side block -4,112), to
-    // 3,357,219,051 B; eviction off -43,616,187 B, to 3,348,736,230 B. The member terms are unchanged (3,778,756 B).
-    // FN-1b (C6): the child-context cache's membership inputs and write sets (resources::member_bases_bytes: CTX_BASES_MAX
-    // + 1 inputs of M_max records and CTX_WRITES_MAX write sets of CTX_WRITE_SLOTS_MAX slots), +1,207,460 B at this
-    // profile's M_max 64, to 3,358,426,511 B; eviction off, the same, to 3,349,943,690 B.
-    let fn3:u128=d.items.iter().filter(|x|x.0.contains("(FN-3")).map(|x|x.1).sum();
-    let bases=d.items.iter().find(|x|x.0.starts_with("queues/membership inputs and write sets")).unwrap().1;
-    assert_eq!(Some(bases),pocold::resources::member_bases_bytes(admitted(&cfg_spec1(&["a","b","c"])).cp()));
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_358_426_511,"the A13 model total changed");
-        assert_eq!(fn3,3_778_756);assert_eq!(std::mem::size_of::<pocold::chain::Entry>(),1_072);
-        assert_eq!(ctx_cache,185_920);assert_eq!(bases,1_207_460);
-        let off=pocold::resources::derive(admitted(&cfg_spec1(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
-        assert_eq!(off.total,3_349_943_690,"eviction off includes the same receipt scratch");
-        // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
-        // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
-        assert_eq!(std::mem::size_of::<([u8;32],pocold::chain::Costly)>(),56);
-        assert_eq!(d.items.iter().find(|x|x.0.starts_with("queues/post-state verdicts")).unwrap().1,239_520);}
-    // R6 churn correction: eviction=3982768, protect delta=1967104,
-    // side-set delta=1868592. Total increase from R5 = 7720160 bytes.
-    assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
-    // C-1 S1: a window of the whole chain is the model before S1, plus history.redb's cache and allocator.
-    // (PR7: with eviction off, so that every height is resident.)
-    let all=pocold::resources::derive(admitted(&cfg_spec1(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),evict_depth:Some(0),..Default::default()},2).unwrap();
-    // (C-1 E5: and the one empty state entries share, which each entry counted before.)
-    // (FN-3a: and the member records the window's entries hold, a term that grows with the window: here every entry.)
-    let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")||x.0.starts_with("history/member records on entries not offloaded")).map(|x|x.1).sum();
-    // The one term that differs: the logs, now also bounded per block (LOG_BLOCK_MAX, enforced by the USER
-    // phase), which is tighter than LOG_CAP for H_END+1 devnet blocks.
-    let logs=all.items.iter().find(|x|x.0=="history/resident window: logs").unwrap().1;let pre_logs=u128::from(pocol_lp4_execution::user_phase::caps::LOG_CAP)/32*33;
-    assert!(logs<pre_logs);
-    // The pre-S1 history group, by its formula: (H_END+1) entries, TXBYTES_CAP, TX_CAP receipts and index
-    // (380 B each), LOG_CAP·33/32 and the evidence identities (EVID_BYTES_MAX+24 each).
-    let cp=admitted(&cfg_spec1(&["a","b","c"])).cp().clone();let entries=all.items.iter().find(|x|x.0=="history/resident window: block entries").unwrap().1;
-    let identities=u128::from(cp.M_max)+u128::from(cp.R_max)*u128::from(cp.H_END);
-    let pre_s1=entries+u128::from(cp.TXBYTES_CAP)+u128::from(cp.TX_CAP)*380+pre_logs+identities*(u128::from(cp.EVID_BYTES_MAX)+24);
-    assert_eq!(entries%(u128::from(cp.H_END)+1),0);assert_eq!(all.history-redb+(pre_logs-logs),pre_s1,"the whole-chain window reproduces the pre-S1 history group");
-    assert!(all.items.iter().any(|x|x.0.starts_with("history/offloaded")&&x.1==0));
-    assert!(pocold::resources::budget_required(d.total).unwrap()<=u128::from(pocold::node::MEM_BUDGET));
-    assert_eq!(d.items.iter().find(|x|x.0.starts_with("rpc/small answers")).map(|x|x.1),Some(32*pocold::rpc::SMALL_REPLY_PEAK as u128));
-    println!("A13-BREAKDOWN {}",serde_json::json!({"total":d.total.to_string(),"items":d.items.iter().map(|(k,v)|serde_json::json!([k,v.to_string()])).collect::<Vec<_>>()}));
-}
 
 /// The v3 counterpart of a13_bound_breakdown: the itemized A13 model bound of the v3 devnet (DevnetConfig::new: CP
 /// schema v2, continuous, the first-import index) as Node::open derives it on a new data directory (`open_limits`:
@@ -2310,7 +2153,7 @@ fn a13_boot_refuses(c:&DevnetConfig){
 /// The v3 devnet's A13 totals (v3_a13_bound_breakdown) on linux x86_64, as a new node boots them: eviction on
 /// 3,447,088,104 B (budget required 3,939,529,262 B of 6 GiB), eviction off 3,375,514,880 B; the child-context cache
 /// 185,920 B and the membership inputs 1,207,460 B, as on the spec-1 devnet (the same M_max 64).
-/// The spec-1 devnet boots at 3,351,045,495 B (a13_boot_refuses_a_bound_above_the_memory_budget_spec1, the same
+/// The retired spec-1 devnet booted at 3,351,045,495 B (measured before phase 6a deleted it, with the same
 /// open_limits: a finite chain, auto resolved only). The v3 total is 96,042,609 B more, item by item (the term names
 /// as `resources::derive` gives them; the deltas sum to the whole difference):
 /// - diffs/retained and side states as diffs +30,736,384; trie/the changed paths of the block executed on it
@@ -4772,11 +4615,6 @@ fn e4_checkpoint_kill_child(){
 /// 10^9 records (v3_a13_bound_breakdown checks the same at the devnet's open limits).
 #[test]
 fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){continuous_admission(&cfg(&["a","b","c"]))}
-/// Phase 6a deletes this: continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling on the spec-1 devnet made
-/// continuous (H_END 0), as before Phase 5b: no first-import index (first_imports off, as Node::open sets it on spec 1),
-/// so with eviction on the whole bound is equal at 0 and 10^9 records.
-#[test]
-fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling_spec1(){continuous_admission(&cfg_spec1(&["a","b","c"]))}
 fn continuous_admission(c:&DevnetConfig){
     let mut c=c.clone();c.h_end=0;c.h_close=0;c.tx_cap=1;c.txbytes_cap=1024;
     let mut n=net_with(&c);
@@ -5313,11 +5151,8 @@ fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
 /// block is not journaled: the next open is at the block before, and the block imported again gives the answers of a
 /// node never damaged. A spec-1 node has no first-import index: the block is journaled and the window's write stops it.
 #[test] fn a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt(){canonical_index_damaged(&cfg(&["a","b","c"]))}
-/// Phase 6a deletes this: a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt on the spec-1 devnet,
-/// which has no first-import index (the block is journaled before the stop).
-#[test] fn a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt_spec1(){canonical_index_damaged(&cfg_spec1(&["a","b","c"]))}
 fn canonical_index_damaged(c:&DevnetConfig){
-    let v3=c.spec1.is_none();
+    let v3=c.spec_version>=2;
     let blocks=if v3{pr7_chain(421)}else{let mut h=net_with(c);let g=h.chain.head;grow(&mut h,g,421,&|n,p|fallback(n,p,0))};
     let a=e44_dir(if v3{"pr7-t13-run"}else{"pr7-t13-run-spec1"});let l=pr7_limits(8,false,0,None);
     let reopen=|conf:&dyn Fn()->pocold::node::Config|pocold::node::Node::open(conf(),admitted(c)).expect("reopen");
@@ -5340,7 +5175,7 @@ fn canonical_index_damaged(c:&DevnetConfig){
 fn pr7_damage_child(){
     use std::io::Write;
     let (Ok(dir),Ok(file))=(std::env::var("POCOLD_PR7_DAMAGE"),std::env::var("POCOLD_PR7_BLOCK")) else{return};
-    let c=if std::env::var("POCOLD_PR7_SPEC1").as_deref()==Ok("1"){cfg_spec1(&["a","b","c"])}else{cfg(&["a","b","c"])};
+    let c=cfg(&["a","b","c"]);
     let mut n=pocold::node::Node::open(pr7_conf(std::path::Path::new(&dir),pr7_limits(8,false,0,None))(),admitted(&c)).expect("reopen");let bytes=std::fs::read(file).unwrap();
     let k=u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize;let header=decode_header(&bytes[4..4+k]).unwrap();let body=Body::decode(&bytes[4+k..],1<<24).unwrap();
     // The row at height 5 is replaced by height 6's: it names another block.
@@ -5549,8 +5384,6 @@ fn key(label:&str)->Key{devnet::account_key(label)}
 /// The test profile with four more funded senders (carol, erin, frank, gina); the node and the block-building
 /// `Net` use the same config, hence the same genesis.
 fn cfg_funded()->DevnetConfig{funded(cfg(&["a","b","c"]))}
-/// Phase 6a deletes this: `cfg_funded` on the spec-1 devnet (`cfg_spec1`).
-fn cfg_funded_spec1()->DevnetConfig{funded(cfg_spec1(&["a","b","c"]))}
 fn funded(mut c:DevnetConfig)->DevnetConfig{for l in ["carol","erin","frank","gina"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}c}
 /// `cfg_funded` with a genesis a few seconds ago, so a signed template built now is inside its window (the
 /// production path builds at the wall clock).
@@ -5834,9 +5667,6 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 /// LOG_COUNT_MAX (547 LOG0) are refused at submission, with nothing pooled, so their follow-ups have a nonce gap
 /// and nothing holds the bound; 546 LOG0 (the limit) is pooled, and bob's transfer goes into the template.
 /// Before the fix each CREATE was pooled (4 × 2 × GAS_LIMIT/2 filled the default bound).
-/// Phase 6a deletes this: pinned to the spec-1 devnet and its log caps (LOG_BLOCK_MAX 32,768 B, LOG_COUNT_MAX 546).
-/// The v3 counterpart at V3_LOG_BLOCK_MAX and V3_LOG_COUNT_MAX: v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool.
-#[test] fn a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded_spec1(),false)}
 /// The v3 counterpart of a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool on the v3 devnet: one LOG0
 /// of V3_LOG_BLOCK_MAX - 35 bytes or V3_LOG_COUNT_MAX + 1 = 4,369 LOG0 is refused at submission, and 4,368 LOG0 is pooled.
 #[test] fn v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded(),true)}
@@ -5868,9 +5698,6 @@ fn own_logs_refused(c:DevnetConfig,v3:bool){
 /// of charged gas), and bob's transfer, held behind them, is mined once they are gone. Before the fix the
 /// selection skipped them on every build: the templates stayed empty, the calls stayed pooled unpaid and bob's
 /// transfer was never taken.
-/// Phase 6a deletes this: pinned to the spec-1 devnet and LOG_COUNT_MAX 546. The v3 counterpart, 4,369 LOG0 past
-/// V3_LOG_COUNT_MAX: v3_a_transaction_halting_on_its_own_logs_is_included_and_charged.
-#[test] fn a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded_spec1(),false)}
 /// The v3 counterpart of a_transaction_halting_on_its_own_logs_is_included_and_charged on the v3 devnet: each call runs
 /// V3_LOG_COUNT_MAX + 1 = 4,369 LOG0 when PREVRANDAO is not zero.
 #[test] fn v3_a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded(),true)}
@@ -5953,8 +5780,6 @@ fn own_logs_halt(c:DevnetConfig,v3:bool){
 /// append round.
 /// Phase 5b: on the v3 devnet the logger emits V3_LOG_COUNT_MAX = 4,368 LOG0 (the v3 limit).
 #[test] fn the_template_selection_executes_a_bounded_amount_of_gas(){selection_exec_budget(cfg_funded(),true)}
-/// Phase 6a deletes this: the_template_selection_executes_a_bounded_amount_of_gas on the spec-1 devnet (LOG_COUNT_MAX 546).
-#[test] fn the_template_selection_executes_a_bounded_amount_of_gas_spec1(){selection_exec_budget(cfg_funded_spec1(),false)}
 fn selection_exec_budget(mut c:DevnetConfig,v3:bool){
     use pocold::node::POOL_PARKED;let burners:Vec<String>=(0..24).map(|i|format!("burner{i}")).collect();
     for l in &burners{c.accounts.push((l.clone(),U256::from(10u128.pow(24))));}

@@ -20,11 +20,12 @@ use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Address>}
 impl Drop for Net{fn drop(&mut self){members_sweep::sweep_on_drop(&self.chain);}}
-/// The v3 earn-in devnet (CP schema v2: the v3 program set, all-live membership, the full nonce domain) or its spec-1
-/// twin (bounded nonce ranges, the activity window). E_win 80, so type-2 evidence reaches far back.
-/// Phase 6a deletes the spec-1 twin with the spec-1 rule set.
+/// The v3 earn-in devnet (CP schema v2: the v3 program set, all-live membership, the full nonce domain). E_win 80, so
+/// type-2 evidence reaches far back. (Its spec-1 twin, bounded nonce ranges and the activity window, was deleted with the
+/// spec-1 rule set in phase 6a; `spec` is always 2.)
 fn config(spec:u8)->DevnetConfig{
-    let mut c=match spec{1=>DevnetConfig::spec1(777953,1_700_000_000,&["one","two","three"],devnet::Spec1Programs::EarnIn),_=>DevnetConfig::new(777953,1_700_000_000,&["one","two","three"])};
+    assert_eq!(spec,2,"the spec-1 twin is retired (phase 6a)");
+    let mut c=DevnetConfig::new(777953,1_700_000_000,&["one","two","three"]);
     c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.e_win=80;c.u=96;c.c_react=96;c
 }
 fn spec_of(c:&DevnetConfig)->Spec{members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
@@ -185,12 +186,12 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
 }
 
 /// §5.3: owner(nonce) from the records equals the live assignment's (`live_ranges`, checked against the capture) on
-/// random nonces, the domain's edges and beyond nMax, bounded (spec 1) and full (spec 2); kind-3's cap check runs before
+/// random nonces and the domain's edges, on the full domain (its bounded spec-1 twin was deleted in phase 6a); kind-3's cap check runs before
 /// any lookup, so a capped item recomputes nothing.
 #[test] fn recomputed_owners_equal_the_live_assignment_and_the_cap_check_comes_first(){
     struct Counting<'a>(&'a Vec<(Address,u128,u128)>,AtomicU64);
     impl NonceOwners for Counting<'_>{fn owner(&self,n:u64)->Result<Option<Address>,Reject>{self.1.fetch_add(1,Ordering::SeqCst);self.0.owner(n)}}
-    for spec in [1u8,2]{
+    for spec in [2u8]{
         let mut n=net(spec);grow(&mut n,12);n.chain.clear_member_caches();
         let mut x=0x9e3779b97f4a7c15u64;let mut nonces=vec![0,1,u64::MAX,u64::MAX-1];
         for _ in 0..200{x^=x<<13;x^=x>>7;x^=x<<17;nonces.push(x);nonces.push(x%4096);}
@@ -198,7 +199,7 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
             let e=entry_at(&n.chain,h);let ranges=live_ranges(&n.chain,e);let mut edges=nonces.clone();for r in ranges.iter(){for v in [r.1,r.2]{edges.extend([v.saturating_sub(1) as u64,v.min(u128::from(u64::MAX)) as u64]);}}
             n.chain.clear_member_caches();let lazy=LazyOwners::new(&n.chain,e);
             for v in &edges{assert_eq!(lazy.owner(*v).unwrap(),ranges.owner(*v).unwrap(),"spec {spec} h={h} nonce {v}");}
-            if spec==1{assert!(ranges.last().unwrap().2<u128::from(u64::MAX),"positive control: a bounded domain")}
+            assert_eq!(ranges.last().unwrap().2,u128::from(u64::MAX)+1,"the full domain");
         }
         // The cap: C_header(j) + C_late(j) + k > κm refuses before the first owner lookup (none recomputed or read).
         let cp=n.chain.spec.cp();let rules=LateRules{h:13,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
@@ -652,37 +653,6 @@ fn ranges_rows(file:&Path)->Option<u64>{
     drop(a);assert_eq!(ranges_rows(&hist),None);let _=std::fs::remove_dir_all(&d);
 }
 
-/// §5.8: a snapshot by overflow. Spec 1 (bounded nonces, the W_act activity set) with 40 members of which only 5 share:
-/// at h = W_act + 1 the 35 others leave the active set at once, a change beyond DELTA_CAP, so that block's record is a
-/// snapshot off the cadence (h % 256 != 1). Type-2 evidence against a block above it, judged from the member source
-/// alone (the held records dropped, the caches cleared), walks to that snapshot (a few records, not to the cadence
-/// snapshot at 1) and accuses the block's validated winner; the cold sweep compares every entry with its capture.
-#[test] fn a_change_beyond_delta_cap_writes_an_off_cadence_snapshot(){
-    let mut cfg=config(1);cfg.miners=(0..40).map(|i|format!("flip-{i}")).collect();
-    let mut n=net_of(cfg);let workers:Vec<Address>=n.ids[..5].to_vec();let w_act=u64::from(n.chain.spec.cp().W_act);
-    let only=|o:Address|workers.contains(&o);
-    while n.chain.head().height<w_act+12{let b=mine_where(&n,n.chain.head,vec![],vec![],&only);accept(&mut n,&b);}
-    let c=&n.chain;let top=c.head().height;
-    let flips:Vec<u64>=(2..=top).filter(|h|h%members::SNAPSHOT_EVERY!=1&&rec(c,*h).is_snapshot()).collect();
-    assert_eq!(flips.len(),1,"one off-cadence snapshot: {flips:?}");let f=flips[0];
-    let (before,after)=(rec(c,f-1).n,rec(c,f).n);
-    assert!(usize::from(before-after)>members::DELTA_CAP&&after==5,"the active set fell from {before} to {after} at {f}");
-    for h in (2..=top).filter(|h|*h!=f){assert!(!rec(c,h).is_snapshot(),"h={h}: a delta");}
-    assert_eq!(c.member_counters().snapshots_written,2,"the cadence's at 1 and the overflow's at {f}");
-    let j=f+4;let x=entry_at(c,j);let blk=Block{header:x.header.clone(),body:x.body.clone()};let (ev,accused)=type2(&n,&blk);
-    assert!(workers.contains(&accused));
-    let want=effects(&n.chain,&[ev.clone()]).unwrap();assert_eq!(want,vec![EvidenceEffect::PunishAndInvalidate{accused,j}]);
-    let src=TestSets::of(&n.chain);n.chain.set_member_source(src.clone());drop_held_records(&mut n.chain,top+1);
-    let m0=n.chain.member_counters();
-    assert_eq!(effects(&n.chain,&[ev]).unwrap(),want,"the verdict from the source");
-    let m1=n.chain.member_counters();assert!(m1.disk_set_reads>m0.disk_set_reads&&m1.oracle_checks>m0.oracle_checks,"the set read from the source, the oracle compared: {m1:?}");
-    assert!(m1.oracle_mismatch==0&&m1.faults==0);
-    // One walk, alone (the oracle's cold recomputations walk again): the records of j down to f, then f's set.
-    n.chain.clear_member_caches();let k0=n.chain.member_counters();
-    let a=n.chain.assignment_of(entry_at(&n.chain,j)).unwrap();let k1=n.chain.member_counters();
-    assert_eq!((k1.record_reads-k0.record_reads,k1.disk_set_reads-k0.disk_set_reads),(j-f+1,1),"the walk stopped at the off-cadence snapshot at {f}");
-    assert_eq!(n.chain.captured(entry_at(&n.chain,j)),Some(members::ranges_digest(&a)),"the assignment block {j} was validated under");
-}
 
 /// §5.11: the memory the member records hold, against the A13 terms: on a store-mode node across a snapshot height, a
 /// registration and a restart, an offloaded entry holds no record or ids and at most the window + 2 entries hold one

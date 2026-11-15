@@ -1,5 +1,5 @@
 //! FN-1 (C9, CAPS-SUSTAINABILITY N6): pocol_getCaps, the head branch's live counts against the chain caps, in process
-//! and over the RPC socket, on a spec-1 genesis and a v3 one. Every count is recomputed here from the head
+//! and over the RPC socket, on a finite and a continuous v3 genesis. Every count is recomputed here from the head
 //! state, the canonical bodies and their receipts (the charged log bytes), not read from the node's incremental summary
 //! or counters. And a publication of the shipped Website contract adds what the extension publisher's pre-check expects.
 //! Private fixture chains.
@@ -14,10 +14,10 @@ const CHAIN:u64=777951;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
 fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
-/// `v3`: the v3 devnet; otherwise the retired spec-1 devnet (Phase 6a deletes it with the spec-1 rule set).
-fn cfg(v3:bool)->DevnetConfig{
-    let mut c=if v3{DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"])}else{DevnetConfig::spec1(CHAIN,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded)};
-    // A finite chain on both (H_END > 0): the counts are lifetime totals (a continuous chain caps per block).
+/// The v3 devnet (the spec-1 twin these tests also ran on went with the spec-1 rule set in Phase 6a).
+fn cfg()->DevnetConfig{
+    let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);
+    // A finite chain (H_END > 0): the counts are lifetime totals (a continuous chain caps per block).
     c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c.h_end=20_000;c.h_close=19_000;c
 }
 fn spec(c:&DevnetConfig)->Spec{Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
@@ -135,8 +135,8 @@ fn rpc_tcp(port:u16,body:&str)->Value{
 }
 fn free_port()->u16{std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()}
 
-fn counts_follow_the_head_branch(v3:bool){
-    let c=cfg(v3);let mut h=net(&c);let (mut n,d)=node(&c,if v3{"v3"}else{"spec1"},None);
+#[test] fn pocol_get_caps_counts_the_head_branch_on_a_v3_genesis(){
+    let c=cfg();let mut h=net(&c);let (mut n,d)=node(&c,"v3",None);
     let g=in_process(&mut n);check(&mut n,&g);
     assert_eq!(q(&g["txCount"]),0);assert_eq!(q(&g["txBytes"]),0);
     activity(&mut h,&mut n);
@@ -150,12 +150,10 @@ fn counts_follow_the_head_branch(v3:bool){
     assert_eq!(r["alarm"],json!(false),"the devnet caps are far from full");
     std::fs::remove_dir_all(d).unwrap();
 }
-#[test] fn pocol_get_caps_counts_the_head_branch_on_a_spec1_genesis(){counts_follow_the_head_branch(false)}
-#[test] fn pocol_get_caps_counts_the_head_branch_on_a_v3_genesis(){counts_follow_the_head_branch(true)}
 
 /// A reorg to a branch without the activity: the answer is the new head branch's, not a running total.
 #[test] fn pocol_get_caps_follows_a_reorg(){
-    let c=cfg(false);let mut h=net(&c);let (mut n,d)=node(&c,"reorg",None);let g=in_process(&mut n);
+    let c=cfg();let mut h=net(&c);let (mut n,d)=node(&c,"reorg",None);let g=in_process(&mut n);
     let alice=devnet::account_key("alice");
     let a1=signed(&h,vec![tx(&h,&alice,0,Some(fresh(9)),vec![],21_000)]);
     // The other branch: three empty blocks from genesis (more work than the one block with the transfer).
@@ -170,8 +168,8 @@ fn counts_follow_the_head_branch(v3:bool){
 
 /// The alarm at >= 80 % (exact): an account cap sized so that genesis is below it and the activity reaches it.
 #[test] fn pocol_get_caps_raises_the_alarm_at_eighty_percent(){
-    let probe={let c=cfg(false);let (mut n,d)=node(&c,"alarm-probe",None);let g=q(&in_process(&mut n)["accounts"]);std::fs::remove_dir_all(d).unwrap();g};
-    let mut c=cfg(false);c.acct_cap=u64::try_from((probe+3)*100/80).unwrap();
+    let probe={let c=cfg();let (mut n,d)=node(&c,"alarm-probe",None);let g=q(&in_process(&mut n)["accounts"]);std::fs::remove_dir_all(d).unwrap();g};
+    let mut c=cfg();c.acct_cap=u64::try_from((probe+3)*100/80).unwrap();
     assert!(probe*100<u128::from(c.acct_cap)*80&&(probe+3)*100>=u128::from(c.acct_cap)*80,"the fixture straddles 80 %");
     let mut h=net(&c);let (mut n,d)=node(&c,"alarm",None);
     let g=in_process(&mut n);check(&mut n,&g);assert_eq!(g["occupancy"]["accounts"]["alarm"],json!(false));assert_eq!(g["alarm"],json!(false));
@@ -194,7 +192,7 @@ fn counts_follow_the_head_branch(v3:bool){
 #[test] fn pocol_get_caps_over_the_socket_equals_the_in_process_answer(){
     assert!(pocold::rpc::LIGHT_METHODS.contains(&"pocol_getCaps"));
     assert!(pocold::rpc::is_light(br#"{"jsonrpc":"2.0","id":1,"method":"pocol_getCaps","params":[]}"#));
-    let c=cfg(false);let mut h=net(&c);let port=free_port();let (mut n,d)=node(&c,"socket",Some(port));
+    let c=cfg();let mut h=net(&c);let port=free_port();let (mut n,d)=node(&c,"socket",Some(port));
     activity(&mut h,&mut n);let want=in_process(&mut n);check(&mut n,&want);
     n.start_network().unwrap();std::thread::spawn(move||n.run());
     let got=rpc_tcp(port,r#"{"jsonrpc":"2.0","id":3,"method":"pocol_getCaps","params":[]}"#);
@@ -208,7 +206,7 @@ fn counts_follow_the_head_branch(v3:bool){
 /// A continuous v3 network (H_END 0, the fresh network's shape): item 16 and LOG_CAP count each block from zero, so the
 /// transaction and log counts are 0 and their room is the whole cap; the state caps still count the branch.
 #[test] fn pocol_get_caps_on_a_continuous_v3_genesis_counts_state_only(){
-    let mut c=cfg(true);c.h_end=0;let mut h=net(&c);let (mut n,d)=node(&c,"v3-continuous",None);let g=in_process(&mut n);
+    let mut c=cfg();c.h_end=0;let mut h=net(&c);let (mut n,d)=node(&c,"v3-continuous",None);let g=in_process(&mut n);
     activity(&mut h,&mut n);let r=in_process(&mut n);check(&mut n,&r);
     assert_eq!(r["cumulative"],json!(false));assert_eq!(q(&r["txCount"]),0);
     assert_eq!(charged_logs(&mut n),DEPLOY_LOG_BYTES,"block 1 charged its log");assert_eq!(q(&r["logBytes"]),0,"H_END = 0: each block counts its logs from zero");
@@ -225,7 +223,7 @@ fn counts_follow_the_head_branch(v3:bool){
 /// no log. publish and setCurrent only rewrite slots that are already nonzero. If Website.sol's layout changes, this
 /// test and publishNeeds change together.
 #[test] fn a_website_publication_adds_what_the_publisher_pre_check_expects(){
-    let c=cfg(false);let mut h=net(&c);let (mut n,d)=node(&c,"website",None);let mut p=Publisher{key:devnet::account_key("alice"),nonce:0};
+    let c=cfg();let mut h=net(&c);let (mut n,d)=node(&c,"website",None);let mut p=Publisher{key:devnet::account_key("alice"),nonce:0};
     let delta=|a:&Value,b:&Value,name:&str|q(&b[name])-q(&a[name]);
     // A new site with a two-chunk manifest.
     let (a,b)=(vec![0x41u8;100],vec![0x42u8;50]);

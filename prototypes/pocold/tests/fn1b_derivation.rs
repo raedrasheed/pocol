@@ -5,7 +5,7 @@
 //! - A derivation over synthetic registry storage (appends, swap-removes, shrinks, record changes and deletions, tombs,
 //!   bond and clock changes, duplicates and reserved ids, unrelated and unchanged writes) equals the whole reading, and
 //!   omitting a written slot makes it differ (the negative control).
-//! - On chains (v3 all-live and the spec-1 activity window): registrations (bonded and an unbonded probationer, its bond
+//! - On v3 chains (all-live membership): registrations (bonded and an unbonded probationer, its bond
 //!   filled by its wins: ACCRUING below and above B_reg/4, then HELD), an exit, a type-2 punishment, a registerReplacing at
 //!   the full set, across the snapshot height 257, a reorg to a branch whose member set differs and back, and a restart:
 //!   every new head's cold context derives its inputs, and equals the one-pass and two-pass readings.
@@ -33,12 +33,10 @@ use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Address>,blocks:Vec<Block>}
 impl Drop for Net{fn drop(&mut self){members_sweep::sweep_on_drop(&self.chain);}}
-/// The earn-in devnet, v3 (CP schema v2: all-live membership, full nonce domain) or spec 1 (bounded nonces, the W_act
-/// activity window). M_max `m_max`; E_win 80.
-fn config(spec:u8,m_max:u16)->DevnetConfig{
-    // Phase 5a: spec 2 is the v3 devnet default; spec 1 its retired earn-in twin (Phase 6a deletes the spec-1 rule set).
-    let mut c=if spec>=2{DevnetConfig::new(777954,1_700_000_000,&["one","two","three"])}
-        else{DevnetConfig::spec1(777954,1_700_000_000,&["one","two","three"],devnet::Spec1Programs::EarnIn)};
+/// The v3 devnet (CP schema v2: all-live membership, full nonce domain; its spec-1 earn-in twin, on bounded nonces and
+/// the W_act activity window, went with the spec-1 rule set in Phase 6a). M_max `m_max`; E_win 80.
+fn config(m_max:u16)->DevnetConfig{
+    let mut c=DevnetConfig::new(777954,1_700_000_000,&["one","two","three"]);
     c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.e_win=80;c.u=96;c.c_react=96;c.w_act=4;c.m_max=m_max;
     c.accounts.push(("carol".into(),U256::from(10u128.pow(24))));c
 }
@@ -138,8 +136,8 @@ fn record(db:&mut revm::InMemoryDB,w:&mut Vec<U256>,r:&mut Rng,id:Address,b_reg:
 /// After each step the inputs derived from the previous ones equal the whole reading, and the membership from them the
 /// one-pass reading (or the same error), at several heights; dropping a changed slot from the write set gives inputs
 /// that differ (the negative control).
-fn synthetic(spec:u8,seed:u64){
-    let n=net(config(spec,64));let c=&n.chain;let g=c.full_entry(&c.head).unwrap();let b_reg=pocold::chain::from_fixed_lp4(&c.spec.cp().B_reg);let q=quarter(c);
+fn synthetic(seed:u64){
+    let spec="v3";let n=net(config(64));let c=&n.chain;let g=c.full_entry(&c.head).unwrap();let b_reg=pocold::chain::from_fixed_lp4(&c.spec.cp().B_reg);let q=quarter(c);
     let mut db=(*g.state).clone();let mut r=Rng(seed);let (base,one)=(act_base(),U256::from(1));
     let mut prev=MemberBase::read(&db,q);let (mut negatives,mut steps,mut errors)=(0,0,0);let mut longest=0;let mut next_id=1u64;
     for step in 0..400u64{
@@ -166,7 +164,7 @@ fn synthetic(spec:u8,seed:u64){
         let (derived,_)=prev.derive(&db,&w,q);
         assert_eq!(derived,whole,"spec {spec} step {step}: the derived inputs are the whole reading");
         let mut p=g.clone();p.state=std::sync::Arc::new(db.clone());p.hash=[0xb1;32];p.trie=None;p.summary=None;
-        // Parents at several heights: the activity window's cutoff moves (spec 1).
+        // Parents at several heights.
         for ph in [height.saturating_sub(1),height+3,height+40]{
             p.height=ph;let h=ph+1;
             let (a,b)=(c.membership_from_base(&p,h,&derived),c.membership_one_pass(&p,h));
@@ -180,8 +178,7 @@ fn synthetic(spec:u8,seed:u64){
     assert!(steps==400&&negatives>100&&errors>0,"spec {spec}: positive controls ({negatives} steps whose write set was needed, {errors} error readings)");
     assert!(longest>8,"spec {spec}: the list grew ({longest} ids at most)");
 }
-#[test] fn derived_inputs_equal_the_whole_reading_on_synthetic_registry_changes_v3(){synthetic(2,0x9e37_79b9_7f4a_7c15)}
-#[test] fn derived_inputs_equal_the_whole_reading_on_synthetic_registry_changes_spec1(){synthetic(1,0x2545_f491_4f6c_dd1d)}
+#[test] fn derived_inputs_equal_the_whole_reading_on_synthetic_registry_changes_v3(){synthetic(0x9e37_79b9_7f4a_7c15)}
 
 // ---------------- chains ----------------
 /// The bond state and whether the bond is below B_reg/4 of `who` on the head (None: no record or not on the list).
@@ -193,8 +190,8 @@ fn grow(n:&mut Net,to:u64,what:&str){while n.chain.head().height<to{let b=mine(n
 /// block validated on its own parent) growing heavier (a reorg across the membership change) and the main branch heavier
 /// again (the reorg back); a restart. Every new head's cold context
 /// derives its inputs and equals the one-pass and two-pass readings.
-fn scenario(spec:u8){
-    let tag=format!("spec {spec}");let mut cfg=config(spec,5);cfg.theta_inact=16;
+#[test] fn v3_contexts_derive_through_registrations_bonds_punishment_exit_replacement_reorg_and_restart(){
+    let tag="v3".to_string();let mut cfg=config(5);cfg.theta_inact=16;
     let mut n=net(cfg);let b_reg=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
     let (alice,bob,carol)=(devnet::account_key("alice").address(),devnet::account_key("bob").address(),devnet::account_key("carol").address());
     grow(&mut n,3,&tag);let fork=n.chain.head;
@@ -209,7 +206,7 @@ fn scenario(spec:u8){
         let s=bond_of(&n,bob).unwrap();if seen.last()!=Some(&s){seen.push(s);}if s.0==1&&n.chain.head().height>30{break}
     }
     assert!(seen.contains(&(4,false))&&seen.last().map(|s|s.0)==Some(1),"{tag}: bob crossed B_reg/4 and became HELD ({seen:?})");
-    if spec==2{
+    {
         let t=vec![replacing(&n,carol,victim)];let b=mine_where(&n,n.chain.head,t,vec![],&|o|o!=victim).unwrap();accept(&mut n,b,&tag);
         all_succeeded(&n,"carol's registerReplacing");
         let act=apply::active_list(&*n.chain.full_entry(&n.chain.head).unwrap().state);assert!(act.contains(&carol)&&!act.contains(&victim),"{tag}: carol replaced the victim");
@@ -251,8 +248,6 @@ fn scenario(spec:u8){
 }
 /// A side block: imported, and its cold context derived as a head's (its parent is a side state the chain keeps whole).
 fn accept_side(n:&mut Net,b:Block,what:&str){let (e,_)=n.chain.validate(&b,None,0).unwrap_or_else(|x|panic!("{what}: {x:?}"));let h=e.hash;n.chain.insert(e);n.blocks.push(b);cold_derives(&n.chain,&h,what);}
-#[test] fn v3_contexts_derive_through_registrations_bonds_punishment_exit_replacement_reorg_and_restart(){scenario(2)}
-#[test] fn spec1_contexts_derive_through_registrations_bonds_punishment_exit_replacement_reorg_and_restart(){scenario(1)}
 
 // ---------------- a store-mode node ----------------
 fn dir(label:&str)->PathBuf{let d=std::env::temp_dir().join(format!("pocol-fn1b-{label}-{}",std::process::id()));let _=std::fs::remove_dir_all(&d);d}
@@ -274,7 +269,7 @@ fn node_head(node:&Node,r:&Net,what:&str)->bool{
 /// old block derives along its rolling re-execution; after a reopen from a checkpoint the first inputs are read whole, after
 /// a replay (state.redb deleted) they are derived, and every later import derives; every context equals the reference's.
 #[test] fn a_store_mode_node_derives_on_import_rebuild_and_after_a_checkpoint_restore_or_replay(){
-    let cfg=config(2,8);let mut r=net(cfg);let b_reg=pocold::chain::from_fixed_lp4(&r.chain.spec.cp().B_reg);
+    let cfg=config(8);let mut r=net(cfg);let b_reg=pocold::chain::from_fixed_lp4(&r.chain.spec.cp().B_reg);
     let (alice,bob,carol)=(devnet::account_key("alice").address(),devnet::account_key("bob").address(),devnet::account_key("carol").address());
     for i in 0..40u64{
         let txs=match i{5=>vec![register(&r,alice,b_reg)],6=>vec![register(&r,bob,U256::ZERO)],12=>vec![register(&r,carol,b_reg/U256::from(2))],20=>vec![deregister(&r,alice)],_=>vec![]};
@@ -322,7 +317,7 @@ fn copy_dir(from:&Path,to:&Path){std::fs::create_dir_all(to).unwrap();for e in s
 /// The A13 term: the inputs and write sets held stay within CTX_BASES_MAX and CTX_WRITES_MAX, and the term at M_max
 /// 10,000 is what `member_bases_bytes` counts.
 #[test] fn the_inputs_cache_stays_within_its_a13_term(){
-    let mut n=net(config(2,8));for _ in 0..12{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"bounded");
+    let mut n=net(config(8));for _ in 0..12{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"bounded");
         let (b,w)=n.chain.member_bases_held();assert!(b<=pocold::chain::CTX_BASES_MAX&&w<=pocold::chain::CTX_WRITES_MAX,"{b} {w}");}
     let (b,w)=n.chain.member_bases_held();assert!(b>0&&w>0,"positive control: {b} inputs, {w} write sets held");
     let mut cp=n.chain.spec.cp().clone();cp.M_max=10_000;
@@ -336,7 +331,7 @@ fn copy_dir(from:&Path,to:&Path){std::fs::create_dir_all(to).unwrap();for e in s
 /// input and write set is dropped, so the next context reads its inputs whole. On a replayed chain (no end-of-test sweep:
 /// the mismatch is wanted here).
 #[test] fn a_wrong_derivation_is_caught_and_the_one_pass_reading_wins(){
-    let mut n=net(config(2,8));for _ in 0..6{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
+    let mut n=net(config(8));for _ in 0..6{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
     let r=Chain::new(spec_of(&n.cfg));let mut r=r;assert!(r.member_oracle,"the oracle is on in tests");r.tolerate_base_mismatch();
     for b in &n.blocks{let (e,_)=r.validate(b,None,0).unwrap();r.insert(e);}
     let p=r.full_entry(&r.head).unwrap();let k=p.height+1;
@@ -358,7 +353,7 @@ fn copy_dir(from:&Path,to:&Path){std::fs::create_dir_all(to).unwrap();for e in s
 /// from it).
 #[test] #[should_panic(expected="FN-1b the oracle: a parent's membership from its derived inputs")]
 fn a_wrong_derivation_panics_on_a_chain_that_does_not_tolerate_it(){
-    let mut n=net(config(2,8));for _ in 0..3{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
+    let mut n=net(config(8));for _ in 0..3{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
     let mut r=Chain::new(spec_of(&n.cfg));for b in &n.blocks{let (e,_)=r.validate(b,None,0).unwrap();r.insert(e);}
     let p=r.full_entry(&r.head).unwrap();r.child_ctx(&p,0).unwrap();
     r.clear_ctx_cache();assert!(r.damage_member_base(&p),"positive control: the head's inputs were held");
@@ -378,7 +373,7 @@ fn cold(c:&Chain,h:&[u8;32],what:&str)->(u64,u64){
 }
 /// Four blocks, a registration (it writes registry slots: the list, its length and the new record) and one more block.
 fn with_registration()->Net{
-    let mut n=net(config(2,8));for _ in 0..4{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
+    let mut n=net(config(8));for _ in 0..4{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
     let alice=devnet::account_key("alice").address();let b_reg=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
     let t=vec![register(&n,alice,b_reg)];let b=mine(&n,n.chain.head,t,vec![]);accept(&mut n,b,"register");all_succeeded(&n,"alice registers");
     let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"after");n

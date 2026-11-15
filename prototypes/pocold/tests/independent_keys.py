@@ -121,19 +121,24 @@ class IndependentKeys(unittest.TestCase):
         self.assertNotEqual(self.init(config).returncode, 0)
         self.assertEqual(original, (self.root / 'net/genesis.spec.hex').read_bytes())
 
-    def test_full_nonce_option_only_changes_the_nonce_mode(self):
+    def test_every_genesis_is_v3_and_the_retired_options_are_refused(self):
+        # Phase 6a: init-testnet builds only v3 genesis files (nonceMode 1, the full 64-bit nonce domain, from genesis);
+        # "v3": true builds the same bytes, and the retired spec-1 options (fullNonce, continuous, earnin) and "v3": false
+        # are refused before any output.
         config = self.config()
         self.assertEqual(self.init(config, 'plain').returncode, 0)
-        self.assertEqual(self.init({**config, 'fullNonce': False}, 'false').returncode, 0)
-        self.assertEqual(self.init({**config, 'fullNonce': True}, 'full').returncode, 0)
+        self.assertEqual(self.init({**config, 'v3': True}, 'stated').returncode, 0)
         for name in ('genesis.spec.hex', 'alloc.json'):
-            self.assertEqual((self.root / 'plain' / name).read_bytes(), (self.root / 'false' / name).read_bytes(), name)
-        self.assertEqual(nonce_mode(self.root / 'plain'), 0, 'the default keeps the v1 bounded nonce range')
-        self.assertEqual(nonce_mode(self.root / 'full'), 1, 'fullNonce gives the full 64-bit nonce domain')
-        self.assertNotIn('fullNonce', json.loads((self.root / 'plain/devnet.json').read_text()))
-        self.assertIs(json.loads((self.root / 'full/devnet.json').read_text())['fullNonce'], True)
-        self.assertEqual((self.root / 'plain/alloc.json').read_bytes(), (self.root / 'full/alloc.json').read_bytes())
-        self.assertNotEqual(self.init({**config, 'fullNonce': 1}, 'typed').returncode, 0, 'fullNonce is a boolean')
+            self.assertEqual((self.root / 'plain' / name).read_bytes(), (self.root / 'stated' / name).read_bytes(), name)
+        self.assertEqual(nonce_mode(self.root / 'plain'), 1, 'the full 64-bit nonce domain from genesis')
+        info = json.loads((self.root / 'plain/devnet.json').read_text())
+        self.assertIs(info['fullNonce'], True)
+        self.assertEqual((info['specVersion'], info['v3']), (2, True))
+        for name, extra in (('full', {'fullNonce': True}), ('bounded', {'fullNonce': False}), ('cont', {'continuous': True}),
+                            ('earn', {'earnin': True}), ('spec1', {'v3': False})):
+            result = self.init({**config, **extra}, name)
+            self.assertNotEqual(result.returncode, 0, name)
+            self.assertFalse((self.root / name).exists(), name)
         devnet = ['init-devnet', '--miners', 'a,b,c', '--chain-id', '777912', '--genesis-time', '1793275000']
         self.assertEqual(self.call('pocold', *devnet, '--out', self.root / 'dev').returncode, 0)
         self.assertEqual(self.call('pocold', *devnet, '--full-nonce', '--out', self.root / 'dev-full').returncode, 0)

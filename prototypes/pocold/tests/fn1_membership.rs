@@ -18,12 +18,13 @@ fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 /// happens, `Chain::base_verdict`): the positive control.
 fn derivations_checked(c:&Chain,what:&str){let m=c.member_counters();assert!(m.base_checks>0,"{what}: the derivation oracle compared ({m:?})");
     assert_eq!((m.base_mismatch,m.oracle_mismatch,m.faults),(0,0,0),"{what}: no derivation differed ({m:?})");}
-/// `v3`: the v3 devnet; otherwise its retired spec-1 earn-in twin (Phase 6a deletes the spec-1 rule set and these twins).
-fn config(v3:bool,full:bool,n:usize)->DevnetConfig{
-    let mut cfg=if v3{DevnetConfig::new(777952,1_700_000_000,&[])}else{DevnetConfig::spec1(777952,1_700_000_000,&[],devnet::Spec1Programs::EarnIn)};
+/// The v3 devnet on the full nonce domain (nonceMode 1). (Its spec-1 earn-in twins and the bounded nonce ranges went
+/// with the spec-1 rule set in Phase 6a.)
+fn config(n:usize)->DevnetConfig{
+    let mut cfg=DevnetConfig::new(777952,1_700_000_000,&[]);
     cfg.miners=(0..n).map(|i|format!("fn1-{i}")).collect();
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=73;cfg.w_act=4;cfg.r_max=1;
-    cfg.nonce_mode=if full{1}else{0};
+    assert_eq!(cfg.nonce_mode,1);
     cfg.m_max=cfg.m_max.max(n as u16);
     cfg.accounts.push(("carol".into(),U256::from(10u128.pow(24))));
     cfg
@@ -125,8 +126,8 @@ fn ids(c:&Chain,h:[u8;32])->Vec<[u8;20]>{let e=c.full_entry(&h).unwrap();c.membe
 
 /// Registration (a bonded member and an unbonded probationer, accruing), exit, a reorg across the membership change and
 /// back, and a restart, each block checked at its boundary.
-fn scenario(v3:bool,full:bool){
-    let mut n=net(config(v3,full,3));let tag=format!("v3={v3} full={full}");
+#[test] fn v3_one_pass_membership_and_cache_equal_the_two_pass_oracle(){
+    let mut n=net(config(3));let tag="v3".to_string();
     let (alice,bob)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
     let b_reg=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
     for _ in 0..2{next(&mut n,vec![]);check(&mut n.chain,&tag);}
@@ -167,16 +168,12 @@ fn scenario(v3:bool,full:bool){
     check(&mut r,&format!("{tag} restarted"));
     derivations_checked(&n.chain,&tag);
 }
-#[test] fn legacy_one_pass_membership_and_cache_equal_the_two_pass_oracle_bounded(){scenario(false,false)}
-#[test] fn legacy_one_pass_membership_and_cache_equal_the_two_pass_oracle_full_nonce(){scenario(false,true)}
-#[test] fn v3_one_pass_membership_and_cache_equal_the_two_pass_oracle(){scenario(true,true)}
-#[test] fn v3_bounded_one_pass_membership_and_cache_equal_the_two_pass_oracle(){scenario(true,false)}
 
 /// A storage-view fixture whose hash, height and seal stay the genesis' while its state changes (as
 /// tests/v3_membership.rs builds them): the cache keys the state by identity, so a changed state is never answered
 /// with the context of another.
 #[test] fn a_changed_state_under_the_same_hash_is_never_answered_from_the_cache(){
-    let mut n=net(config(false,true,3));let g=n.chain.full_entry(&n.chain.head).unwrap();
+    let mut n=net(config(3));let g=n.chain.full_entry(&n.chain.head).unwrap();
     assert!(cacheable(&n.chain,&g),"the genesis context is one the cache keeps");
     let (first,cold)=counted(&n.chain,||n.chain.child_ctx(&g,0).unwrap());assert_eq!(first.membership.ids().len(),3);
     assert_eq!(cold,(0,3),"the first context is computed");
@@ -198,7 +195,7 @@ fn scenario(v3:bool,full:bool){
 /// A node with slim, offload, checkpoints and the stored state (both modes), then reopened: every canonical block's
 /// context, its state restored (`ensure_state`: unslim, rebuild), equals the one a bare reference chain computes.
 fn node_scenario(store:bool){
-    let mut n=net(config(false,true,3));let (alice,bob)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
+    let mut n=net(config(3));let (alice,bob)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
     let b_reg=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
     for i in 0..14{
         let txs=match i{3=>vec![registration(&n,alice,b_reg)],4=>vec![registration(&n,bob,U256::ZERO)],8=>vec![exit(&n,alice)],_=>vec![]};
@@ -264,22 +261,22 @@ fn stored_ranges(a:&pocold::assignment::Assignment)->Vec<(Address,u128,u128)>{a.
 fn stored_linear(ranges:&[(Address,u128,u128)],n:u128)->Option<Address>{ranges.iter().find(|(_,s0,e0)|*s0<=n&&n<*e0).map(|r|r.0)}
 /// `range_owner` against the linear scan on contiguous sorted ranges [i·nMax/m, (i+1)·nMax/m): empty ranges (nMax < m),
 /// one member, every range bound and its neighbours, and nonces at and past nMax; and on the ranges real assignments
-/// keep (bounded and full nonce modes).
+/// keep (the full nonce domain).
 #[test] fn range_owner_over_stored_ranges_equals_the_linear_scan(){
     for (m,n_max) in [(1u128,1u128),(1,7),(3,2),(5,3),(10,1),(7,1000),(64,63),(64,65),(256,1u128<<40),(1000,999)]{
         let ranges:Vec<(Address,u128,u128)>=(0..m).map(|i|{let mut a=[0u8;20];a[18]=(i>>8) as u8;a[19]=i as u8;(Address::from(a),i*n_max/m,(i+1)*n_max/m)}).collect();
         let mut probes=vec![0,n_max,n_max+1,u128::MAX];for r in &ranges{for x in [r.1,r.2]{probes.extend([x.saturating_sub(1),x,x+1]);}}
         for x in probes{assert_eq!(pocold::chain::range_owner(&ranges,x),stored_linear(&ranges,x),"m={m} nMax={n_max} n={x}");}
     }
-    for full in [false,true]{
-        let mut n=net(config(false,full,3));next(&mut n,vec![]);
+    {
+        let mut n=net(config(3));next(&mut n,vec![]);
         for h in n.chain.blocks.keys().copied().collect::<Vec<_>>(){
             let e=n.chain.full_entry(&h).unwrap();if e.height==0{continue}
             // FN-3b: a block's ranges as its assignment (recomputed from its member records) holds them.
             let ranges:Vec<(Address,u128,u128)>=n.chain.assignment_of(&e).unwrap().ranges().iter().map(|r|(Address::from(r.id()),r.start(),r.end_exclusive())).collect();
             assert!(!ranges.is_empty(),"a validated block has its ranges");
             let mut probes=vec![0u128,u128::from(u64::MAX)];for r in &ranges{for x in [r.1,r.2]{probes.extend([x.saturating_sub(1),x]);}}
-            for x in probes{assert_eq!(pocold::chain::range_owner(&ranges,x),stored_linear(&ranges,x),"full={full} n={x}");}
+            for x in probes{assert_eq!(pocold::chain::range_owner(&ranges,x),stored_linear(&ranges,x),"n={x}");}
         }
     }
 }
@@ -322,13 +319,9 @@ fn full_set(cfg:DevnetConfig,m:usize,label:&str){
     println!("FN1-BENCH {label} members={} two_pass_membership_ms={two_ms:.2} one_pass_membership_ms={one_ms:.2} pre_fn1_members_assignment_draw_ms={pre_ms:.2} child_ctx_uncached_ms={cold_ms:.2} child_ctx_first_ms={first_ms:.2} child_ctx_cached_ms={warm_ms:.3} owner_linear_ns={:.0} owner_binary_ns={:.0} stored_linear_ns={:.0} stored_binary_ns={:.0} lookups={}",
         two.ids().len(),per(lin_ms),per(bin_ms),per(stored_lin_ms),per(stored_ms),nonces.len());
 }
-/// Spec-1 admission keeps M_max <= 256 (admission.rs GAS_DOMAIN): the legacy set at its full 256.
-#[test] fn legacy_full_set_of_256_members_agrees_and_is_timed(){
-    let mut cfg=config(false,true,3);cfg.m_max=256;full_set(cfg,256,"spec1-256");
-}
 /// M_max 10,000 (owner decision 2026-11-13), the v3 set (no M_max term in its gas domain, FN-2b), continuous.
 #[test] fn v3_full_set_of_ten_thousand_members_agrees_and_is_timed(){
-    let mut cfg=config(true,true,3);cfg.m_max=10_000;cfg.reg_records_max=24_576;cfg.sys_slot_max=147_456;cfg.h_end=0;
+    let mut cfg=config(3);cfg.m_max=10_000;cfg.reg_records_max=24_576;cfg.sys_slot_max=147_456;cfg.h_end=0;
     // R20: Z_close >= ceil(REG_RECORDS_MAX/RET) + P2 + D + 1 = 192 + 2 + 4 + 1.
     cfg.z_close=199;
     full_set(cfg,10_000,"v3-10000");

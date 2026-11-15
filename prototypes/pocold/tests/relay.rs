@@ -112,9 +112,6 @@ fn status(f:&Fixture)->serde_json::Value{
 fn stats(f:&Fixture,keys:&[&str])->Vec<Option<u64>>{let s=status(f);keys.iter().map(|k|s["stats"][*k].as_u64()).collect()}
 
 #[test] fn a_locked_template_and_a_valid_share_are_relayed_once_and_never_back(){relayed_once_and_never_back("relay",778101,|_|{})}
-/// The same on a bounded nonce range (CP field 4 = 0, still a valid v3 CP until Phase 6a requires nonceMode 1), where a
-/// share at or above nMax exists and is dropped.
-#[test] fn a_locked_template_and_a_valid_share_are_relayed_once_and_never_back_on_a_bounded_nonce_range(){relayed_once_and_never_back("relay-bounded",778109,|c|c.nonce_mode=0)}
 fn relayed_once_and_never_back(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig)){let _g=serial();
     let f=fixture(tag,chain_id,tune);
     let [mut x,mut y]=peers(&f,["x","y"]);

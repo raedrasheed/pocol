@@ -83,10 +83,8 @@ fn main() {
     let mut files = vec![
         here.join("build.rs"),
         here.join("Cargo.lock"),
-        root.join("lp4-execution/tests/data/system-v1.json"),
-        root.join("lp4-execution/tests/data/system-continuous.json"),
-        root.join("lp4-execution/tests/data/system-earnin.json"),
-        // Informational build digest only: the consensus identity never includes it (identity.rs).
+        // Informational build digest only: the consensus identity never includes it (identity.rs). The one bundled
+        // program set since phase 6a (the spec-1 sets system-{v1,continuous,earnin}.json are deleted).
         root.join("lp4-execution/tests/data/system-v3.json"),
         root.join("lp4-execution/tests/data/website.json"),
     ];

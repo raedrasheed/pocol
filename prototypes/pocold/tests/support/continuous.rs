@@ -1,8 +1,9 @@
-//! A generated continuous spec-1 network, as `pocold init-testnet` writes one with `"continuous": true`: the
-//! builder's defaults (T_blk 10 s, D_att 60, dFbWait 6), the Continuous program set, no H_END, R_max 1, three miners
-//! and one funded account. Tests that need a long-lived public-style chain build it here instead of reading any
-//! published network's files; its consensus parameters are the builder's, so only g_ts, the chain id and the
-//! members differ from any other default continuous network.
+//! A generated network, as `pocold init-testnet` writes one from a minimal config: a v3 genesis (since phase 6a the
+//! builder makes only v3 genesis files: specVersion 2, the V3 programs, nonceMode 1, a continuous chain), with the
+//! builder's defaults (T_blk 10 s, D_att 60, dFbWait 6, S0 2 PCOL), R_max 1, three miners and one funded account. Tests
+//! that need a long-lived public-style chain build it here instead of reading any published network's files; its
+//! consensus parameters are the builder's, so only g_ts, the chain id and the members differ from any other default
+//! network. (Before phase 6a this was the spec-1 continuous network the builder wrote with `"continuous": true`.)
 use std::path::Path;
 
 #[allow(dead_code)]
@@ -14,8 +15,8 @@ pub fn continuous_network(out: &Path) {
     let miners: Vec<serde_json::Value> = ["a", "b", "c"].iter()
         .map(|l| { let m = devnet::miner_identity(&format!("continuous-{l}")); serde_json::json!({"id": m.id, "reward": m.reward}) })
         .collect();
-    let config = serde_json::json!({"continuous": true, "chainId": CHAIN_ID, "genesisTime": 1_800_000_000u64,
+    let config = serde_json::json!({"chainId": CHAIN_ID, "genesisTime": 1_800_000_000u64,
         "registrationPerBlock": 1, "miners": miners,
         "accounts": [{"address": devnet::account_key("continuous-funder").address(), "wei": "1000000000000000000000000"}]});
-    pocold::testnet::prepare(config.to_string().as_bytes(), out).expect("the generated continuous network");
+    pocold::testnet::prepare(config.to_string().as_bytes(), out).expect("the generated network");
 }

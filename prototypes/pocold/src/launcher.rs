@@ -1043,10 +1043,11 @@ mod upgrade_tests {
         assert_eq!(description["publicLaunchReady"], false);
         let blockers = description["launchBlockers"].as_array().unwrap();
         let ids: Vec<&str> = blockers.iter().map(|b| b["id"].as_str().unwrap()).collect();
-        for id in ["plan-gate-Q1", "v3-inactive", "network-not-release-pinned", "profile-kind"] {
+        for id in ["plan-gate-Q1", "network-not-release-pinned", "profile-kind"] {
             assert!(ids.contains(&id), "{id}: {ids:?}");
         }
-        assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable") && !ids.contains(&"spec-version"), "{ids:?}");
+        // Phase 6a: the generated network is v3 from genesis (specVersion 2), so v3-inactive is not among them.
+        assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable") && !ids.contains(&"spec-version") && !ids.contains(&"v3-inactive"), "{ids:?}");
         let info = invitation.info().unwrap();
         let (chain_id, genesis) = computed(&invitation);
         let pinned = blockers.iter().find(|b| b["id"] == "network-not-release-pinned").unwrap()["detail"].as_str().unwrap().to_string();
@@ -1054,7 +1055,7 @@ mod upgrade_tests {
         // Exactly the computed list: build facts, then the network's (devnet.json's recorded admission).
         let forks = crate::configured_forks(&info).unwrap();
         assert_eq!(description["launchBlockers"], crate::readiness::json(&invitation.launch_blockers(&info, &forks))["launchBlockers"]);
-        // A pinned v3 schedule entry would make the rules active; the schedule here has none.
+        // The v3 rules are active by the genesis' specVersion 2; the schedule here has no cap raise (fork 3).
         assert!(forks.iter().all(|&(v, _)| v < 3));
         assert!(ids.contains(&"admission-not-booted"), "{ids:?}");
         assert!(description.get("fullNonceActivationHeight").is_none());
@@ -1081,9 +1082,9 @@ mod upgrade_tests {
         info["admission"] = serde_json::json!({"scope":"specification","conditions":[],"waivers":[]});
         info["profileKind"] = "Network".into();
         forged.files.insert("devnet.json".into(), info.to_string());
-        // Only what genesis.spec.hex commits to (spec 1: v3 never active) and the launcher's own blocker remain, and
+        // Only the launcher's own blocker remains (genesis.spec.hex commits to a v3 genesis: no v3-inactive), and
         // profile-kind, since R22 allows the network profile only on chain 777001.
-        assert_eq!(ids(&forged), ["v3-inactive", "admission-not-booted", "profile-kind"]);
+        assert_eq!(ids(&forged), ["admission-not-booted", "profile-kind"]);
         assert_ne!(chain_id, crate::readiness::R22_NETWORK_CHAIN_ID);
         // The public description of the forged file says the same, and is false.
         let description = forged.describe();

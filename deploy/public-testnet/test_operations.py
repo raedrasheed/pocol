@@ -109,7 +109,7 @@ class Operations(unittest.TestCase):
         h.update(','.join(info['features']).encode())
         self.assertEqual(h.hexdigest(), info['compatibilitySha256'])
         self.assertEqual(info['features'], []); self.assertEqual(info['protocolVersion'], 2)
-        self.assertIn('lp4-execution/tests/data/system-v1.json', info['sourceSha256'])
+        self.assertIn('lp4-execution/tests/data/system-v3.json', info['sourceSha256'])
         # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 2 (the v3
         # release rules).
         # FN-5: fork version 3 is the cap raise (MAX_FORK_VERSION 3).

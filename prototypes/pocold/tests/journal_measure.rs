@@ -11,9 +11,9 @@
 //!   that filled the spec-1 devnet's lifetime cap takes as many blocks as that cap held instead;
 //! - the v3 log caps (user_phase::log_caps(true): 4,368 logs and 256 KiB a block; `log_max`);
 //! - the full nonce domain (nonceMode 1): a seal scans from nonce 0 within the first member's range, never up to nMax.
-//! JM_SPEC=1 (and `on_spec1` in the default tests) selects the retired spec-1 devnet (DevnetConfig::spec1, Bonded) that
-//! the spec-1 rows of JOURNAL-GROWTH-AND-REPLAY.md were measured on: the finite chain (H_END 20,000, the lifetime
-//! TXBYTES_CAP), the spec-1 log caps (546 logs) and bounded nonce ranges. Phase 6a deletes it with the spec-1 rule set.
+//! The spec-1 rows of JOURNAL-GROWTH-AND-REPLAY.md were measured on the retired spec-1 devnet (the finite chain of H_END
+//! 20,000 with the lifetime TXBYTES_CAP, the spec-1 log caps of 546 logs and bounded nonce ranges), which JM_SPEC=1
+//! selected; phase 6a deleted it with the spec-1 rule set, and JM_SPEC=1 is refused.
 //! It prints machine-readable `JM-*` lines consumed by development/audit-2026-10-22/JOURNAL-GROWTH-
 //! AND-REPLAY.md. The heavy variants are `#[ignore]` and run in release:
 //!   flock <cpu.lock> cargo test --release --test journal_measure -- --ignored --nocapture
@@ -30,14 +30,12 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 // ---- harness (self-contained; test files are separate crates, nothing imports consensus.rs) ----
-thread_local!{static SPEC1:std::cell::Cell<Option<bool>>=const{std::cell::Cell::new(None)};}
-/// Whether this test runs on the retired spec-1 devnet: `on_spec1`, or JM_SPEC=1 for the measurement harnesses.
-fn spec1()->bool{SPEC1.with(|c|c.get()).unwrap_or_else(||std::env::var("JM_SPEC").is_ok_and(|v|v=="1"))}
-/// Runs `f` on the spec-1 devnet in this thread (a default test's pinned spec-1 twin; Phase 6a deletes it).
-fn on_spec1<R>(f:impl FnOnce()->R)->R{SPEC1.with(|c|c.set(Some(true)));let r=f();SPEC1.with(|c|c.set(None));r}
+/// Whether this run is on the retired spec-1 devnet: never since phase 6a (JM_SPEC=1, which selected it, is refused).
+/// The spec-1 branches of the harness below go with the dead spec-1 code paths in phase 6b.
+fn spec1()->bool{assert!(std::env::var("JM_SPEC").map_or(true,|v|v!="1"),"JM_SPEC=1: the spec-1 devnet is retired (phase 6a)");false}
 fn profile()->&'static str{if spec1(){"spec1"}else{"v3"}}
 fn cfg()->DevnetConfig{
-    let mut c=if spec1(){DevnetConfig::spec1(777910,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded)}else{DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])};
+    let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);
     c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 /// The most logs one block's logs reach: the v3 log caps (4,368), or the spec-1 LOG_COUNT_MAX (546).
 fn log_max()->u16{pocol_lp4_execution::user_phase::log_caps(!spec1()).count as u16}
@@ -319,10 +317,6 @@ fn mnode(tag:&str)->(Node,PathBuf,impl Fn()->Config){
 /// the log-heavy kinds carry the v3 log cap's 4,368 logs.
 #[test]
 fn jm_journal_bytes_per_record(){journal_bytes_per_record()}
-/// The same on the retired spec-1 devnet (546 logs, bounded nonces), whose figures JOURNAL-GROWTH-AND-REPLAY.md §1.1
-/// records; pinned until Phase 6a.
-#[test]
-fn jm_journal_bytes_per_record_spec1(){on_spec1(journal_bytes_per_record)}
 fn journal_bytes_per_record(){
     let mut n=net();let g=n.chain.head;let alice=devnet::account_key("alice");
     // one real parent so signed templates have a drawn proposer and base fee
@@ -1006,10 +1000,8 @@ fn jm_tx_state_term(){
 /// Decision package C-1 S2: a state copy shares its code buffers with the state it was copied from.
 /// Every state the chain holds along one canonical lineage (each block's state is its parent's copy
 /// plus that block's changes) points at the same code bytes for a code hash, so that lineage holds each
-/// runtime once. Not a measurement: it runs by default. The A13 code term (resources.rs) relies on it. On the v3 devnet;
-/// its spec-1 twin is pinned until Phase 6a.
+/// runtime once. Not a measurement: it runs by default. The A13 code term (resources.rs) relies on it. On the v3 devnet.
 #[test] fn retained_states_of_one_lineage_share_their_code_buffers(){code_buffers_shared()}
-#[test] fn retained_states_of_one_lineage_share_their_code_buffers_spec1(){on_spec1(code_buffers_shared)}
 fn code_buffers_shared(){
     let mut n=net();let alice=devnet::account_key("alice");
     for k in 0..3u64{let b=signed(&n,n.chain.head,Body{txs:vec![deploy(&alice,k,7_900_000,0,zero_code_init(32768-k as u16))],evidence:vec![]});import(&mut n,&b);}
