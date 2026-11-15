@@ -127,3 +127,20 @@ export async function openSite(b, name, site, path = '/') {
 export const raw = (fr, text) => fr.evaluate((t) => pocol.raw(t), text);
 export const req = (fr, kind, method, params) => fr.evaluate(async ([k, m, p]) => { try { return { result: await pocol.request(k, m, p) }; } catch (e) { return { error: { code: e.code, message: e.message, data: e.data } }; } }, [kind, method, params]);
 export const msg = (id, kind, method, params) => JSON.stringify({ id, kind, payload: { method, params } });
+/** Sites W10/W11: what the W10 test site (tests/w10_site.mjs) shows once it has run in the viewer frame `fr`: CSS
+ *  applied, the classic script, the ES module graph (main.mjs -> lib.mjs -> util.mjs, the literal import()), the woff2
+ *  font, fetch of a site file, PNG and SVG; then a fetch to `blockedUrl` (refused by the sandbox) and two rpc_read
+ *  calls through window.pocol: eth_blockNumber, and eth_call of the site's own Website current() (`site`). `w10Ok(v, version)` is the check the suites share. */
+export async function w10Probe(fr, blockedUrl, site) {
+  return fr.evaluate(async ([blocked, to]) => {
+    const until = Date.now() + 10000; while (Date.now() < until && !(document.body.dataset.dyn && document.body.dataset.font && document.body.dataset.rows)) await new Promise((r) => setTimeout(r, 100));
+    const h = document.getElementById('t'); const out = { h1: h.textContent, color: getComputedStyle(h).color, bg: getComputedStyle(document.body).backgroundColor, loaded: h.dataset.loaded,
+      mod: document.body.dataset.mod, dyn: document.body.dataset.dyn, font: document.body.dataset.font, fontFamily: getComputedStyle(document.getElementById('font')).fontFamily,
+      fontWidth: Math.round(document.getElementById('font').getBoundingClientRect().width), rows: document.body.dataset.rows, png: document.getElementById('png').naturalWidth, svg: document.getElementById('svg').naturalWidth };
+    try { out.fetch = String((await fetch(blocked)).status); } catch (e) { out.fetch = 'blocked:' + e.name; }
+    try { out.block = await pocol.request('rpc_read', 'eth_blockNumber', []); out.call = await pocol.request('rpc_read', 'eth_call', [{ to, data: '0x9fa6a6e3' }, 'latest']); } catch (e) { out.rpc = e.code + ' ' + e.message; }
+    return out;
+  }, [blockedUrl, site]);
+}
+export const w10Ok = (v, version) => v.h1 === `PoCol W10 site v${version}` && v.color === 'rgb(17, 170, 85)' && v.bg === 'rgb(244, 246, 248)' && v.loaded === 'yes' && v.mod === `lib>util v${version}` && v.dyn === 'dynamic'
+  && v.font === '1' && /PoColW10/.test(v.fontFamily) && v.rows === '1400' && v.png === 2 && v.svg === 4 && v.fetch.startsWith('blocked:') && /^0x[0-9a-f]+$/.test(v.block || '') && /^0x[0-9a-f]{384,}$/.test(v.call || '');

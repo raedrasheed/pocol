@@ -196,9 +196,25 @@ pub fn decode_version(out:&[u8])->Result<(B256,u32,u8,Vec<Address>),String>{
 /// The node's answer to a state query at a height whose state it does not hold (rpc.rs `state_for`: "state outside the
 /// retained trie window (K_hist)").
 pub const STATE_NOT_HELD:i64=-32017;
+/// The node's answer when its RPC lanes are full (rpc.rs: -32021 {reason, retryAfterMs}); a read is retried.
+pub const BUSY:i64=-32021;
+pub const BUSY_RETRIES:u32=20;
 pub struct Rpc{pub addr:String}
 impl Rpc{
-    pub fn call(&self,method:&str,params:Value)->Result<Value,String>{self.call_raw(method,params)?.map_err(|e|format!("{method}: {e}"))}
+    /// One call; a node that answers -32021 busy (its RPC lanes are full, e.g. the v3 receipt lane) to a read is asked
+    /// again after its retryAfterMs (at most 2 s), up to BUSY_RETRIES times (Sites W10: a 4 MiB publication met it on
+    /// eth_getTransactionReceipt). eth_sendRawTransaction is never repeated here: its caller reconciles from the receipt.
+    pub fn call(&self,method:&str,params:Value)->Result<Value,String>{
+        for attempt in 0..=BUSY_RETRIES{
+            match self.call_raw(method,params.clone())?{
+                Ok(v)=>return Ok(v),
+                Err(e) if e["code"].as_i64()==Some(BUSY)&&method!="eth_sendRawTransaction"&&attempt<BUSY_RETRIES=>{
+                    std::thread::sleep(Duration::from_millis(e["data"]["retryAfterMs"].as_u64().unwrap_or(250).clamp(50,2000)));}
+                Err(e)=>return Err(format!("{method}: {e}")),
+            }
+        }
+        unreachable!()
+    }
     /// One JSON-RPC call: Err for a transport or framing failure, Ok(Err(error object)) for the node's own error answer.
     pub fn call_raw(&self,method:&str,params:Value)->Result<Result<Value,Value>,String>{
         let body=json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string();
@@ -311,11 +327,29 @@ impl<'a> Publisher<'a>{
     /// Stores one chunk (idempotent: skipped when the CREATE2 address has code).
     pub fn store_chunk(&self,data:&[u8])->Result<Address,String>{
         let a=chunk_address(data);if !self.rpc.code(a)?.is_empty(){return Ok(a)}
-        let gas=200_000+data.len() as u64*260;self.tx(Some(factory()),abi_bytes_call("store(bytes)",data),gas.min(7_900_000))?;
-        if self.rpc.code(a)?.is_empty(){return Err("chunk not deployed".into())}Ok(a)
+        let gas=200_000+data.len() as u64*260;
+        self.tx(Some(factory()),abi_bytes_call("store(bytes)",data),gas.min(7_900_000)).map_err(|e|self.explain(e,1+data.len() as u128))?;
+        if self.rpc.code(a)?.is_empty(){return Err(self.explain("chunk not deployed".into(),1+data.len() as u128))}Ok(a)
     }
     pub fn deploy_website(&self)->Result<Address,String>{
-        let init=website_initcode();let r=self.tx(None,init,1_500_000)?;r["contractAddress"].as_str().ok_or("no contractAddress".to_string())?.parse().map_err(|_|"addr".to_string())
+        let init=website_initcode();let r=self.tx(None,init,1_500_000).map_err(|e|self.explain(e,website_runtime_len()))?;
+        r["contractAddress"].as_str().ok_or("no contractAddress".to_string())?.parse().map_err(|_|"addr".to_string())
+    }
+    /// Sites W10: a failed or refused code-creating transaction (a chunk store or the Website deploy, `code` runtime
+    /// bytes and one new account) is explained from pocol_getCaps when a chain cap is the reason: CODE_CAP (the code bytes left are
+    /// fewer than the code it creates) or ACCT_CAP (no account left). Best effort: without pocol_getCaps the error is
+    /// returned as it was. Stored chunks are kept either way.
+    fn explain(&self,e:String,code:u128)->String{
+        // A failed receipt (CODE_CAP is met in execution), or the node's pool refusing the transaction because its
+        // pending state would pass a cap ("... would exceed a cap (AcctCap)").
+        if !e.starts_with("transaction failed")&&e!="chunk not deployed"&&!e.contains("would exceed a cap"){return e}
+        let Ok(caps)=self.rpc.call("pocol_getCaps",json!([]))else{return e};
+        let q=|k:&str|caps[k].as_str().and_then(|s|u128::from_str_radix(s.trim_start_matches("0x"),16).ok());
+        let (Some(code_bytes),Some(code_cap),Some(accounts),Some(acct_cap))=(q("codeBytes"),q("codeBytesCap"),q("accounts"),q("accountsCap"))else{return e};
+        let short=|s:&str|s.chars().take(160).collect::<String>();
+        if code_bytes.saturating_add(code)>code_cap{return format!("the network's code-size cap is reached (CODE_CAP): {code_bytes} of {code_cap} code bytes are used and this transaction creates {code} more; nothing more can be published until the cap is raised; stored chunks are kept ({})",short(&e))}
+        if accounts>=acct_cap{return format!("the network's account cap is reached (ACCT_CAP): {accounts} of {acct_cap} accounts exist and every chunk or Website is a new account; nothing more can be published until the cap is raised; stored chunks are kept ({})",short(&e))}
+        e
     }
     /// Publishes `files` (path -> bytes) as a new version and makes it current. Every rule (paths,
     /// MIME, sizes, entry, manifest T16 and limits) is checked on the predicted manifest before the
@@ -365,6 +399,11 @@ impl<'a> Publisher<'a>{
         self.tx(Some(site),abi_u256_call("setCurrent(uint256)",v),200_000)?;
         Ok(v)
     }
+}
+/// The Website runtime code size (website.json `runtime`), the code bytes a deploy creates.
+pub fn website_runtime_len()->u128{
+    let v:Value=serde_json::from_str(include_str!("../../lp4-execution/tests/data/website.json")).unwrap();
+    v["runtime"].as_str().and_then(|s|unhex(s).ok()).map_or(0,|b|b.len() as u128)
 }
 pub fn website_initcode()->Vec<u8>{
     let v:Value=serde_json::from_str(include_str!("../../lp4-execution/tests/data/website.json")).unwrap();unhex(v["initcode"].as_str().unwrap()).unwrap()

@@ -30,3 +30,5 @@ prototypes/pocol-android/app/src/main/jniLibs/
 prototypes/pocol-android/local.properties
 *.jks
 *.keystore
+# Sites W11: the last explorer smoke run (deploy/websites/tests/explorer_smoke.mjs), uploaded as CI evidence.
+deploy/websites/tests/*.last.json

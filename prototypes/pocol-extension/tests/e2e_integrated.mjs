@@ -9,7 +9,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { build } from '../build.mjs';
-import { EXT, BIN, sleep, wait, checker, devnet, rpc, portFree, png2x2, writeSite, publish, openBrowser, siteFrame, openSite, keepOnFailure } from './harness.mjs';
+import { EXT, BIN, sleep, wait, checker, devnet, rpc, portFree, png2x2, writeSite, publish, openBrowser, siteFrame, openSite, keepOnFailure, w10Probe, w10Ok, startCanary } from './harness.mjs';
+import { w10Site } from './w10_site.mjs';
 
 const { ok, results, failed } = checker();
 const work = mkdtempSync(join(tmpdir(), 'pocol-lp10-'));
@@ -17,6 +18,9 @@ const H = (n) => Number(n);
 const height = async (i) => H(await rpc(8540 + i, 'eth_blockNumber'));
 const heights = () => Promise.all([0, 1, 2].map(height));
 const CURRENT = '0x9fa6a6e3';
+// The W10 site's fetch probe goes to a live HTTP canary that answers 200 with CORS open: a fetch that is not blocked
+// by the viewer reaches it (and is counted), so 'fetch blocked' fails if the sandbox or its CSP lets the request out.
+const CANARY = 8621, CANARY_UDP = 8622;
 const currentVersion = async (i, site) => Number(BigInt('0x' + (await rpc(8540 + i, 'eth_call', [{ to: site, data: CURRENT }, 'latest'])).slice(2, 66)));
 const post = (port, body, origin) => new Promise((res, rej) => {
   const h = { 'content-type': 'application/json', 'content-length': Buffer.byteLength(body) }; if (origin) h.origin = origin;
@@ -54,7 +58,8 @@ async function chromeView(b, profile, s) {
 }
 
 async function main() {
-  for (const p of [30300, 30301, 30302, 8540, 8541, 8542]) if (!(await portFree(p))) throw new Error('port busy ' + p);
+  for (const p of [30300, 30301, 30302, 8540, 8541, 8542, CANARY]) if (!(await portFree(p))) throw new Error('port busy ' + p);
+  const canary = await startCanary(CANARY, CANARY_UDP);
   const t0 = Date.now();
   devnet(['init', work, '--miners', 'a,b,c', '--t-blk', '2', '--tau', '20', '--c', '8', '--d-att', '41', '--fb-wait', '3', '--work-bits', '15']);
   const info = JSON.parse(readFileSync(join(work, 'net', 'devnet.json'), 'utf8')); const cid = String(info.chainId);
@@ -65,6 +70,8 @@ async function main() {
     // The state mode every node reports (POCOLD_RUN_ARGS=--state-store runs the suite in store mode).
     const modes = await Promise.all([0, 1, 2].map(async (i) => (await rpc(8540 + i, 'pocol_status')).stateStore));
     ok('every node runs in the requested state mode', modes.every((m) => m === (process.env.POCOLD_RUN_ARGS || '').split(/\s+/).includes('--state-store')), `stateStore=${modes}`);
+    // Sites W11: the suite runs on the v3 devnet (`devnet.py init`, Phase 5a).
+    ok('the devnet is v3: specVersion 2, the V3 programs, nonceMode 1, continuous', info.specVersion === 2 && info.v3 === true && (await rpc(8540, 'pocol_getCaps')).v3 === true && (await rpc(8540, 'pocol_getCaps')).cumulative === false && (await rpc(8540, 'pocol_getParams')).nonceMode === 1, JSON.stringify({ specVersion: info.specVersion, v3: info.v3 }));
     ok('fresh-directory launch: 3 pocold processes produce and agree', (await Promise.all([0, 1, 2].map((i) => rpc(8540 + i, 'eth_getBlockByNumber', ['0x8', false])))).every((x, _, a) => x.hash === a[0].hash), `t=${((Date.now() - t0) / 1000).toFixed(0)}s`);
     // BR15 (governance ORIGIN_DENY): mining interfaces refuse any request carrying an Origin; without Origin they are served.
     const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'pocol_getTemplate', params: [] });
@@ -81,6 +88,13 @@ async function main() {
     const v1 = await Promise.all(['a', 'b', 'c'].map((l) => chromeView(b, 'node-' + l, S)));
     ok('Chrome renders v1 identically through each node (HTML/CSS/JS/PNG from verified chunks)', v1.every((x) => x.h1 === 'LP10 site v1' && x.v === '1' && x.color === 'rgb(17, 170, 85)' && x.img === 2 && x.errors === 0), JSON.stringify(v1[0]));
     const rp = await chromeView(b, 'rp-a', S); ok('Chrome RP profile accepts the live window and renders v1', rp.trust === 'RP' && rp.h1 === 'LP10 site v1', rp.trust);
+    // Sites W11: the W10 site (ES modules, a woff2 font, JSON, SVG) published through node b, read in Chrome through every node.
+    const dW = join(work, 'w10'); writeSite(dW, w10Site({ version: 1 })); const SW = publish(dW, 8541, cid).site;
+    await wait(async () => (await Promise.all([0, 1, 2].map((i) => currentVersion(i, SW).catch(() => -1)))).every((v) => v === 0), 180000, 'W10 site everywhere');
+    const w10 = []; canary.reset();
+    for (const l of ['a', 'b', 'c']) { const o = await openSite(b, 'node-' + l, SW); const f = (await siteFrame(o.page)).fr; w10.push({ ...(await w10Probe(f, `http://127.0.0.1:${CANARY}/w10-fetch-${l}`, SW)), errors: o.errors.length }); await o.page.close(); }
+    await sleep(500);
+    ok('Chrome renders the W10 site identically through each node: CSS, JS, module graph, woff2 font, JSON/PNG/SVG, fetch to a live canary blocked (canary zero), rpc_read', w10.every((v) => w10Ok(v, 1) && v.errors === 0) && canary.http.length === 0, JSON.stringify(w10[0]) + ' canary=' + canary.http.join(','));
 
     // ---- partition: c isolated, v2 published on the minority branch through c ----
     devnet(['stop', work]); await sleep(1500); // stop all, then restart a+b meshed and c alone
@@ -197,6 +211,7 @@ async function main() {
     writeFileSync(join(work, 'resources.json'), JSON.stringify(res, null, 1));
   } finally {
     await stopIsolatedC().catch(() => {}); try { devnet(['stop', work]); } catch {}
+    canary.close();
     for (const p of partition.splice(0)) { try { process.kill(-p.pid, 'SIGTERM'); } catch {} }
   }
 }
