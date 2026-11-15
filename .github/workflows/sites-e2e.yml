@@ -1,0 +1,193 @@
+name: Sites end to end on a v3 devnet
+# Sites W10/W11: websites published into PoCol state and served back on a local v3 devnet (`devnet.py init`: specVersion
+# 2, the V3 programs, nonceMode 1, continuous). Per PR (`sites-e2e`): the about 1 MiB cases with the Rust CLI
+# (prototypes/pocold/tests/e2e_site.py --profile pr), Studio -> publisher.html -> the local Studio gateway -> the
+# viewer with the extension's testGateway build, the IDE smoke and the multi-viewer open
+# (prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs), the explorer under php -S against a local explorer
+# gateway (deploy/websites/tests/explorer_smoke.mjs) and browser_security.mjs. Nightly and on dispatch
+# (`sites-e2e-nightly`): the 4 MiB - 4 KiB site (about 171 chunks), a 4 MiB site opened by three viewers at once and a
+# publication in a background tab of a headed Chromium (xvfb), recorded. Local devnets and loopback only: nothing here
+# contacts a pocol.net host or deploys anything. The browser suites on v3 (e2e_browser, e2e_integrated) run in
+# pocol-browser-verify.yml.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'prototypes/pocold/**'
+      - 'prototypes/lp4-execution/**'
+      - 'prototypes/lp1-node/**'
+      - 'prototypes/pocol-extension/**'
+      - 'prototypes/pocol-studio/**'
+      - 'deploy/studio/**'
+      - 'deploy/rewards/**'
+      - 'deploy/websites/**'
+      - 'deploy/mainnet/**'
+      - '.github/workflows/sites-e2e.yml'
+  push:
+    branches: [main]
+    # The same paths as pull_request.
+    paths:
+      - 'prototypes/pocold/**'
+      - 'prototypes/lp4-execution/**'
+      - 'prototypes/lp1-node/**'
+      - 'prototypes/pocol-extension/**'
+      - 'prototypes/pocol-studio/**'
+      - 'deploy/studio/**'
+      - 'deploy/rewards/**'
+      - 'deploy/websites/**'
+      - 'deploy/mainnet/**'
+      - '.github/workflows/sites-e2e.yml'
+  schedule:
+    - cron: '17 3 * * *'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  sites-e2e:
+    if: github.event_name == 'push' || (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Record exact checkout
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/commit.txt
+          uname -a > evidence/platform.txt
+      - name: Use the official Ubuntu archive
+        run: printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
+      - name: Install tools, PHP and the browser
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.99.1 --profile minimal
+          sudo apt-get update
+          sudo apt-get install -y php-cli php-curl
+          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "POCOL_CHROMIUM=$(node --input-type=module -e "const {chromium}=await import('$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs');console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
+          node --version > evidence/node-version.txt; php -v > evidence/php-version.txt
+      - name: Build the node and the extension
+        id: build
+        run: |
+          set -o pipefail
+          cargo +1.99.1 build --release --locked --manifest-path prototypes/pocold/Cargo.toml --bins 2>&1 | tee evidence/build.log
+          sha256sum prototypes/pocold/target/release/pocold prototypes/pocold/target/release/pocol-site > evidence/binary.sha256
+          npm ci --ignore-scripts --prefix prototypes/pocol-extension
+          npm run build --prefix prototypes/pocol-extension
+      - name: CLI site tests (fees, caps, the safe sweep after a reorganization, mocked upstream)
+        run: |
+          set -o pipefail
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test site 2>&1 | tee evidence/site-tests.log
+      - name: W10 publish -> serve with the Rust CLI on a v3 devnet (about 1 MiB)
+        if: always() && steps.build.outcome == 'success'
+        env:
+          POCOL_E2E_KEEP: ${{ github.workspace }}/evidence/kept
+        run: |
+          set -o pipefail
+          python3 -B prototypes/pocold/tests/e2e_site.py --profile pr 2>&1 | tee evidence/e2e-site.log
+      - name: W11 Studio -> publisher -> Studio gateway -> viewer, IDE smoke, multi-viewer
+        if: always() && steps.build.outcome == 'success'
+        env:
+          E2E_PROFILE: pr
+          POCOL_E2E_KEEP: ${{ github.workspace }}/evidence/kept
+        run: |
+          set -o pipefail
+          node prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs 2>&1 | tee evidence/e2e-publisher-gateway.log
+      - name: W11 explorer under php -S against a local explorer gateway
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          node deploy/websites/tests/explorer_smoke.mjs 2>&1 | tee evidence/explorer-smoke.log
+      - name: Website browser security checks
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          node deploy/websites/tests/browser_security.mjs 2>&1 | tee evidence/browser-security.log
+      - name: Upload evidence including failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: sites-e2e-${{ env.EXPECTED_COMMIT }}
+          path: |
+            evidence/
+            prototypes/pocol-extension/tests/*.last.json
+            deploy/websites/tests/*.last.json
+          if-no-files-found: error
+          retention-days: 14
+  sites-e2e-nightly:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+    env:
+      CARGO_INCREMENTAL: '0'
+      CARGO_BUILD_JOBS: '2'
+      EXPECTED_COMMIT: ${{ github.sha }}
+    steps:
+      - name: Preserve source bytes
+        run: git config --global core.autocrlf false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - name: Record exact checkout
+        run: |
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          mkdir -p evidence
+          git rev-parse HEAD > evidence/commit.txt
+          uname -a > evidence/platform.txt
+      - name: Use the official Ubuntu archive
+        run: printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
+      - name: Install tools, PHP, xvfb and the browser
+        run: |
+          set -euo pipefail
+          rustup toolchain install 1.99.1 --profile minimal
+          sudo apt-get update
+          sudo apt-get install -y php-cli php-curl xvfb
+          npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund playwright@1.62.1
+          node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
+          echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
+          echo "POCOL_CHROMIUM=$(node --input-type=module -e "const {chromium}=await import('$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs');console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
+      - name: Build the node and the extension
+        id: build
+        run: |
+          set -o pipefail
+          cargo +1.99.1 build --release --locked --manifest-path prototypes/pocold/Cargo.toml --bins 2>&1 | tee evidence/build.log
+          sha256sum prototypes/pocold/target/release/pocold prototypes/pocold/target/release/pocol-site > evidence/binary.sha256
+          npm ci --ignore-scripts --prefix prototypes/pocol-extension
+          npm run build --prefix prototypes/pocol-extension
+      - name: W10 with the 4 MiB - 4 KiB site (about 171 chunks) and its whole fee trajectory
+        env:
+          POCOL_E2E_KEEP: ${{ github.workspace }}/evidence/kept
+        run: |
+          set -o pipefail
+          python3 -B prototypes/pocold/tests/e2e_site.py --profile nightly 2>&1 | tee evidence/e2e-site-nightly.log
+      - name: W11 nightly (4 MiB site with three viewers, background-tab publication in headed Chromium)
+        if: always() && steps.build.outcome == 'success'
+        env:
+          E2E_PROFILE: nightly
+          E2E_HEADED: '1'
+          POCOL_E2E_KEEP: ${{ github.workspace }}/evidence/kept
+        run: |
+          set -o pipefail
+          xvfb-run -a node prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs 2>&1 | tee evidence/e2e-publisher-gateway-nightly.log
+      - name: Upload evidence including failures
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: sites-e2e-nightly-${{ env.EXPECTED_COMMIT }}
+          path: |
+            evidence/
+            prototypes/pocol-extension/tests/*.last.json
+          if-no-files-found: error
+          retention-days: 30
