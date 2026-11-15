@@ -48,8 +48,9 @@ Re-measure all of those with complete CP/profile/model identities before merge.
 ## v3 registry budgets (PoColSystemV3.sol only; V3-08, V3-09, V3-PR-E1)
 
 Applies to the v3 program set (system-v3.json), reachable only through its sysCodeHash on a specVersion-2
-genesis (CP schema v2). PoColSystemV1.sol and PoColSystemEarnIn.sol, their JSONs and every layout above are
-unchanged. Earn-in already uses w0 bits 152..215 (registeredAt) and slot 8 (ACC_COUNT); the v3 programs record
+genesis (CP schema v2). The layouts above are the ones PoColSystemV1.sol and PoColSystemEarnIn.sol used; phase 6a of
+the fresh network deleted those sources and their JSONs with the spec-1 rule set, and the v3 programs keep every
+layout above except where this section says. Earn-in already uses w0 bits 152..215 (registeredAt) and slot 8 (ACC_COUNT); the v3 programs record
 registeredAt only and, since FN-2b (no probation pool), never write slot 8.
 
 | Location | Bit ranges, low first |

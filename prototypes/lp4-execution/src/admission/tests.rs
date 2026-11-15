@@ -5,9 +5,6 @@ use super::*;
 use crate::{devnet::{self,Devnet,DevnetConfig},fixed};
 
 fn cfg()->DevnetConfig{DevnetConfig::new(777920,1_800_000_000,&["a","b","c"])}
-/// The retired spec-1 devnet of the same miners, for the spec-1 program sets' own facts (GAS_ENVELOPE, GAS_ENVELOPE_EARNIN).
-/// Phase 6a deletes it with the spec-1 rule set.
-fn spec1_cfg(p:devnet::Spec1Programs)->DevnetConfig{DevnetConfig::spec1(777920,1_800_000_000,&["a","b","c"],p)}
 /// The v3 devnet on a finite chain, for the end rules (R13) a continuous chain (the default, H_END = 0) does not have.
 fn finite()->DevnetConfig{let mut c=cfg();c.h_end=20_000;c.h_close=19_000;c}
 fn net(c:&DevnetConfig)->Devnet{devnet::build(c).expect("candidate")}
@@ -175,12 +172,9 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let (_,t)=base();
     let mut c=cfg();c.s_max=1;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R9"]),"A02-R9 S_max=1");
     let mut c=finite();c.h_close=c.h_end;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R13"]),"A02-R13 H_CLOSE=H_END");
-    // As audited: R_max=2 (the audited devnet default), so the spec-1 genesis holds 69 system slots (the V1 programs).
-    let mut c=spec1_cfg(devnet::Spec1Programs::Bonded);c.r_max=2;c.sys_slot_max=1;let n=net(&c);
-    let e=run(&n,&t,&sh()).err().expect("SYS_SLOT_MAX=1 must be rejected");assert_eq!(e.rules,v(&["R18"]));
-    let g=Genesis::build(&n.alloc,&n.profile,&SystemPrograms::v1()).unwrap();assert_eq!(resources::sys_slots(g.state()),69,"genesis needs 69 system slots");
-    // The same on the continuous v3 devnet: its genesis holds 73 system slots, the registry's 18 and ChainCaps' 55
-    // nonzero words of the 59 CP fields (the 69 above are 18 and 51 of 52).
+    // As audited, at R_max=2 (the audited devnet default), on the continuous v3 devnet: its genesis holds 73 system slots,
+    // the registry's 18 and ChainCaps' 55 nonzero words of the 59 CP fields (the audited spec-1 genesis, deleted with the
+    // spec-1 rule set in phase 6a, held 69: 18 and 51 of 52).
     let mut c=cfg();c.r_max=2;c.sys_slot_max=1;let n=net(&c);
     let e=run(&n,&t,&sh()).err().expect("SYS_SLOT_MAX=1 must be rejected");assert_eq!(e.rules,v(&["R18"]));
     assert_eq!(resources::sys_slots(n.genesis.state()),73,"the v3 genesis needs 73 system slots");
@@ -435,53 +429,32 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     }
 }
 
-/// V3-PR-E2b: the v3 program set composes GAS_ENVELOPE_V3 where it has an entry and, since PoColSystemV3.sol is built
-/// on the earn-in programs, GAS_ENVELOPE_EARNIN elsewhere (main's admission.rs asked for that fallback to be decided
-/// when the v3 stack was rebased; it was GAS_ENVELOPE before). Spec-1 sets compose their own tables alone, as before.
-/// FN-2b: the v3 domain drops the M_max term and bounds the payees per pot (S_max + 3, all ACCRUING) instead.
-#[test] fn v3_envelope_entries_apply_only_to_the_v3_set(){
-    for (n,g) in GAS_ENVELOPE{assert_eq!(envelope(ProgramSet::V1,n),Some(*g),"spec-1 {n}");assert_eq!(envelope(ProgramSet::Continuous,n),Some(*g),"spec-1 {n}");}
-    for (n,g) in GAS_ENVELOPE_EARNIN{assert_eq!(envelope(ProgramSet::EarnIn,n),Some(*g),"earn-in {n}");}
-    // V3-PR-E3 (V3-02): recordLate is the one v3-only call name; it has no earn-in (or spec-1) entry to replace.
-    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope(ProgramSet::V3,n),Some(*g));
-        match envelope(ProgramSet::EarnIn,n){Some(e)=>assert!(*g>e,"{n}: the v3 entry exceeds the earn-in one it replaces"),None=>assert_eq!(*n,"recordLate","{n}: only recordLate is v3-only")}}
-    // The composed table: every earn-in call name, in order, the v3 entry where one exists and the earn-in one
-    // otherwise, then the v3-only names. Merging V3-PR-E3 (recordLate) into the composition: the names are the earn-in
-    // names followed by recordLate, where before E3 they were the earn-in names alone.
-    let mut names=GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>();names.push("recordLate");
-    assert_eq!(gas_envelope(ProgramSet::V3).iter().map(|x|x.0).collect::<Vec<_>>(),names,"the earn-in call names, then recordLate");
-    for (n,_) in GAS_ENVELOPE_V3{assert!(*n=="recordLate"||GAS_ENVELOPE_EARNIN.iter().any(|x|x.0==*n),"{n} is an earn-in call name");}
-    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert_eq!(envelope(set,"recordLate"),None,"recordLate exists on the v3 set only: {set:?}");}
-    assert!(std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE_V3_COMPOSED));
-    for (n,g) in GAS_ENVELOPE_EARNIN{if !GAS_ENVELOPE_V3.iter().any(|x|x.0==*n){assert_eq!(envelope(ProgramSet::V3,n),Some(*g),"{n}: entries without a v3 measurement take the earn-in entry");}}
-    assert_eq!(envelope(ProgramSet::V3,"beginBlock"),envelope(ProgramSet::EarnIn,"beginBlock"),"entries without a v3 measurement apply unchanged");
-    // Reworded on review of V3-PR-E4: markClose now takes its own v3 entry (GAS_ENVELOPE_V3 2,735,000), no longer the
-    // earn-in fallback, so the message says so; the fallback stays covered by the loop above and by pruneShares below,
-    // which still has no v3 entry.
-    assert!(envelope(ProgramSet::V3,"markClose")>envelope(ProgramSet::V1,"markClose"),"markClose takes its v3 entry (V3-PR-E4), above GAS_ENVELOPE's");
-    assert_eq!(envelope(ProgramSet::V3,"pruneShares"),envelope(ProgramSet::EarnIn,"pruneShares"),"pruneShares has no v3 entry: it falls back to the earn-in entry");
-    // Reworded on review: the text names which entries the v3 measurement covers and that the final phase is not
-    // measured on v3 (finalize takes the earn-in entry), instead of claiming the whole table holds at the v3 maxima.
-    // V3-PR-E3 adds the kappa*m domain bound (recordLate's owners per call) to the text. V3-PR-E2a measures finalize on
-    // v3 (tests/v3_contracts.rs v3_final_block_burns_the_carry_on_real_blocks: GAS_ENVELOPE_V3 gains a finalize entry), so
-    // the text no longer says finalize takes the earn-in entry; settleFinal still takes the measured settle.
-    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, any M_max, S_max + 3 <= 259 payees per pot all ACCRUING, kappa*m <= 64; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle)"));
-    assert!(envelope(ProgramSet::V3,"finalize")>envelope(ProgramSet::EarnIn,"finalize"),"V3-PR-E2a: finalize takes its v3 measurement, not the earn-in entry");
+/// Phase 6a: GAS_ENVELOPE_V3 is self-contained: an entry for every SYSTEM call the v3 phases compose (no fallback to a
+/// spec-1 table, which phase 6a deleted with GAS_ENVELOPE and GAS_ENVELOPE_EARNIN), recordLate counted as the dearer
+/// evidence item, and the measured domain without an M_max term (FN-2b; the spec-1 term went with the spec-1 sets).
+#[test] fn the_v3_envelope_is_self_contained_and_bounds_the_v3_domain(){
+    assert!(std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE_V3));
+    let names:Vec<&str>=GAS_ENVELOPE_V3.iter().map(|x|x.0).collect();
+    assert_eq!(names,["beginBlock","closeBlock","finalize","invalidate","markClose","pruneShares","punish","recordLate","recordResult","recordShares","settle","settleFinal"],
+        "every SYSTEM call of the v3 phases, once, in name order");
+    for (n,g) in GAS_ENVELOPE_V3{assert_eq!(envelope(ProgramSet::V3,n),Some(*g));assert!(*g>0&&*g<apply::PER_CALL_GAS,"{n}");}
+    // Every call any phase class composes has its entry, so phase_gas is total inside the domain.
     let c=net(&cfg());let cp=c.profile.cp().clone();
-    let spec1=phase_gas(&cp,0,ProgramSet::V1).unwrap();let earnin=phase_gas(&cp,0,ProgramSet::EarnIn).unwrap();let v3=phase_gas(&cp,0,ProgramSet::V3).unwrap();
+    for class in 0..3{for (n,_) in phase_calls(&cp,class,ProgramSet::V3){assert!(envelope(ProgramSet::V3,n).is_some(),"{n}");}assert!(phase_gas(&cp,class,ProgramSet::V3).is_some());}
+    assert!(gas_condition(ProgramSet::V3).starts_with("SYS gas: GAS_ENVELOPE_V3 holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, any M_max, S_max + 3 <= 259 payees per pot all ACCRUING, kappa*m <= 64; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle)"));
+    assert!(envelope(ProgramSet::V3,"finalize")<envelope(ProgramSet::V3,"settleFinal"),"settleFinal takes the measured settle");
+    assert_eq!(envelope(ProgramSet::V3,"settle"),envelope(ProgramSet::V3,"settleFinal"),"the same settleOne");
+    let v3=phase_gas(&cp,0,ProgramSet::V3).unwrap();
     // V3-02: each evidence item of a v3 block is counted as the dearer of a type 1/2 item (invalidate and punish) and a
     // kind-3 item (recordLate), so the v3 sequence has one recordLate in place of each pair.
     let (late,pair)=(envelope(ProgramSet::V3,"recordLate").unwrap(),envelope(ProgramSet::V3,"invalidate").unwrap()+envelope(ProgramSet::V3,"punish").unwrap());
     assert!(late>pair,"recordLate {late} is the dearer evidence item");
-    assert_eq!(spec1.len(),v3.len()+usize::from(cp.E_max),"one recordLate in place of each invalidate and punish pair");assert_eq!(earnin.len(),spec1.len());
+    assert_eq!(v3.len(),usize::from(cp.E_max)+7,"E_max recordLate, six calls and closeBlock");
     assert_eq!(v3.iter().filter(|g|**g==late).count(),usize::from(cp.E_max));
-    assert!(v3.iter().sum::<u64>()>earnin.iter().sum::<u64>()&&earnin.iter().sum::<u64>()>spec1.iter().sum::<u64>());
-    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{for class in 0..3{assert!(phase_calls(&cp,class,set).iter().all(|(n,_)|*n!="recordLate"),"spec 1 never composes recordLate: {set:?}");}}
-    // M_max bounds the spec-1 domain only: the v3 set admits M_max 10,000 (owner decision 2026-11-13) and any u16 value.
-    for m in [GAS_DOMAIN.m_max+1,10_000,u16::MAX]{
+    // No M_max term: the v3 set admits M_max 10,000 (owner decision 2026-11-13) and any u16 value.
+    for m in [257,10_000,u16::MAX]{
         let mut wide=cp.clone();wide.M_max=m;
-        for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(!in_gas_domain(&wide,set),"M_max {m} is outside the spec-1 domain: {set:?}");}
-        assert!(in_gas_domain(&wide,ProgramSet::V3),"M_max {m} is inside the v3 domain");assert!(phase_gas(&wide,0,ProgramSet::V3).is_some());
+        assert!(in_gas_domain(&wide,ProgramSet::V3),"M_max {m} is inside the v3 domain");assert_eq!(phase_gas(&wide,0,ProgramSet::V3),phase_gas(&cp,0,ProgramSet::V3));
     }
     // A13-DERIVATION's D limit for the v3 final class (finalize, settle and D - 1 settleFinal at the all-ACCRUING settle
     // entry, with E_max 4 evidence items): within G_SYS 96M up to D = 5, above it from D = 6.
@@ -489,67 +462,54 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     let final_at=|d:u16|{let mut c=fresh.clone();c.D=d;phase_gas(&c,2,ProgramSet::V3).unwrap().iter().sum::<u64>()};
     eprintln!("V3-FINAL-CLASS D=4 {} D=5 {} D=6 {}",final_at(4),final_at(5),final_at(6));
     assert!(final_at(4)<=96_000_000&&final_at(5)<=96_000_000&&final_at(6)>96_000_000,"D=4 {} D=5 {} D=6 {}",final_at(4),final_at(5),final_at(6));
-    // The payee bound: S_max + 3 <= 259, i.e. S_max <= 256 (the same S_max term as the spec-1 domain).
+    // The payee bound: S_max + 3 <= 259, i.e. S_max <= 256 (GAS_DOMAIN's S_max term).
     assert_eq!(GAS_DOMAIN_V3_PAYEES,u32::from(GAS_DOMAIN.s_max)+3);
     let mut wide=cp.clone();wide.S_max=GAS_DOMAIN.s_max+1;
-    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn,ProgramSet::V3]{assert!(!in_gas_domain(&wide,set),"S_max 257: {set:?}");}
+    assert!(!in_gas_domain(&wide,ProgramSet::V3),"S_max 257");
     assert_eq!(phase_gas(&wide,0,ProgramSet::V3),None);
-    // kappa*m bounds recordLate's owners per call (the no-dilution cap): the v3 domain only.
+    // kappa*m bounds recordLate's owners per call (the no-dilution cap).
     let mut wide=cp.clone();wide.m=(GAS_DOMAIN_V3_KAPPA_M/u32::from(wide.kappa)+1) as u16;
-    for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert!(in_gas_domain(&wide,set),"kappa*m bounds the v3 domain only: {set:?}");}
     assert!(!in_gas_domain(&wide,ProgramSet::V3),"kappa*m bounds the v3 domain");
     assert_eq!(phase_gas(&wide,0,ProgramSet::V3),None);
 }
 
-/// R18 SYS gas follows the program set the GenesisSpec's sysCodeHash names. V1 and Continuous keep the
-/// legacy table and composition exactly, so a spec-1 continuous chain's admission (Continuous) has the same
-/// PhaseFacts call_gas, hence the same ResourceFacts digest, and the same condition text; EarnIn gets
-/// GAS_ENVELOPE_EARNIN and a condition naming it.
-#[test] fn the_gas_envelope_follows_the_program_set_and_v1_continuous_facts_are_unchanged(){
-    // The table and composition as they were before the earn-in table, written out.
-    const LEGACY:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_655_000),
-        ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_305_000),("settleFinal",4_230_000)];
-    const LEGACY_TEXT:&str="SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)";
-    let g=|n:&str|LEGACY.iter().find(|x|x.0==n).unwrap().1;
-    let legacy=|cp:&ConsensusParams,class:u8|->Vec<u64>{
-        let mut v=Vec::new();for _ in 0..cp.E_max{v.push(g("invalidate"));v.push(g("punish"));}
-        for n in ["markClose","pruneShares","recordShares","recordResult","settle","beginBlock"]{v.push(g(n))}
-        if class==2{v.push(g("finalize"));for _ in 1..cp.D{v.push(g("settleFinal"))}}else{v.push(g("closeBlock"))}
-        v};
-    assert_eq!(GAS_ENVELOPE,LEGACY);
-    // V3 was listed here while main's program_set could not return it; the rebased v3 stack composes GAS_ENVELOPE_V3
-    // over GAS_ENVELOPE_EARNIN for it (v3_envelope_entries_apply_only_to_the_v3_set), as main's gas_envelope note asked.
-    for set in [ProgramSet::V1,ProgramSet::Continuous]{assert!(std::ptr::eq(gas_envelope(set),GAS_ENVELOPE),"{set:?}");assert_eq!(gas_condition(set),LEGACY_TEXT);}
-    assert!(!std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE));assert_ne!(gas_condition(ProgramSet::V3),LEGACY_TEXT);
-    assert!(std::ptr::eq(gas_envelope(ProgramSet::EarnIn),GAS_ENVELOPE_EARNIN));
-    assert_eq!(GAS_ENVELOPE_EARNIN.iter().map(|x|x.0).collect::<Vec<_>>(),LEGACY.iter().map(|x|x.0).collect::<Vec<_>>(),"the same call names");
-    assert!(gas_condition(ProgramSet::EarnIn).starts_with("SYS gas: GAS_ENVELOPE_EARNIN holds at the earn-in fixture's maxima (earn-in program set)"));
+/// R18 SYS gas on an admitted v3 devnet: the condition names GAS_ENVELOPE_V3, and the facts are the composed sequence.
+#[test] fn an_admitted_v3_devnet_reports_its_gas_envelope(){
+    let (n,t)=base();let a=admit(&n.request(&sh(),Some(&t))).unwrap_or_else(|e|panic!("{e}"));
+    let gas=a.report().conditions.iter().find(|c|c.id=="gas-monotonicity-assumed").unwrap();assert_eq!(gas.detail,gas_condition(ProgramSet::V3));
+    let cp=n.profile.cp();let p=phase_gas(cp,0,ProgramSet::V3).unwrap();
+    let want:Vec<u64>=phase_calls(cp,0,ProgramSet::V3).iter().flat_map(|(name,k)|std::iter::repeat(envelope(ProgramSet::V3,name).unwrap()).take(*k as usize)).collect();
+    assert_eq!(p,want);
+}
 
-    // A continuous spec-1 chain as `pocold init-testnet` generates one at its defaults (T_blk 10, tau 600, D_att 60,
-    // dFbWait 6, R_max 1, no H_END): it runs the Continuous set inside GAS_DOMAIN, and its admission records the
-    // legacy R18 condition.
-    let mut c=spec1_cfg(devnet::Spec1Programs::Bonded);c.t_blk=10;c.tau=600;c.d_att=60;c.d_fb_wait=6;c.hash_rate=(1<<18)/10;c.r_max=1;c.h_end=0;c.h_close=0;
-    let n=net(&c);let spec=gs::verify_hash(&n.spec_bytes,&gs::genesis_hash(&n.spec_bytes)).unwrap();let cp=ConsensusParams::from_values(&spec.cp).unwrap();
-    assert_eq!((cp.T_blk,cp.D_att,cp.dFbWait,cp.R_max,cp.H_END,cp.H_CLOSE),(10,60,6,1,0,0));
-    let set=SystemPrograms::program_set(&cp,&spec.sys_code_hash);
-    assert_eq!(set,ProgramSet::Continuous);assert!(in_gas_domain(&cp,set));
-    for class in 0..3{assert_eq!(phase_gas(&cp,class,set),Some(legacy(&cp,class)),"continuous class {class}");}
-    let local=NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..sh()};
-    let t=measure(&n.spec_bytes,&n.alloc,1).expect("measure");
-    let a=admit(&n.request(&local,Some(&t))).unwrap_or_else(|e|panic!("continuous: {e}"));
-    let recorded=a.report().conditions.iter().find(|c|c.id=="gas-monotonicity-assumed").unwrap();
-    assert_eq!(recorded.detail,gas_condition(set),"the continuous chain's R18 condition");
-    assert_eq!(recorded.detail,LEGACY_TEXT);
-
-    // Admitted devnets of each set report their envelope.
-    use devnet::Spec1Programs::{Bonded,EarnIn};
-    for (programs,h_end,want) in [(Bonded,20_000,ProgramSet::V1),(Bonded,0,ProgramSet::Continuous),(EarnIn,0,ProgramSet::EarnIn)]{
-        let mut c=spec1_cfg(programs);c.h_end=h_end;if h_end==0{c.h_close=0}
-        let n=net(&c);let t=measure(&n.spec_bytes,&n.alloc,1).expect("measure");
-        let a=admit(&n.request(&sh(),Some(&t))).unwrap_or_else(|e|panic!("{want:?}: {e}"));
-        let spec=gs::decode(&n.spec_bytes).unwrap();assert_eq!(SystemPrograms::program_set(n.profile.cp(),&spec.sys_code_hash),want);
-        let gas=a.report().conditions.iter().find(|c|c.id=="gas-monotonicity-assumed").unwrap();assert_eq!(gas.detail,gas_condition(want),"{want:?}");
-        let p=phase_gas(n.profile.cp(),0,want).unwrap();
-        if want==ProgramSet::EarnIn{assert!(p.iter().sum::<u64>()>legacy(n.profile.cp(),0).iter().sum::<u64>())}else{assert_eq!(p,legacy(n.profile.cp(),0))}
-    }
+/// Phase 6a: only the v3 rules are admitted. A spec-1 GenesisSpec (CP schema v1), a spec-2 one naming any other
+/// sysCodeHash, and a spec-2 one with nonceMode 0 (bounded nonce ranges) are each refused as R24 with the reason, before
+/// any fact is derived; the measurement refuses them too. The spec-1 encoding still decodes, so the reason is given.
+#[test] fn admission_refuses_every_genesis_but_the_v3_rules_with_its_reason(){
+    let (n,t)=base();
+    let refused=|bytes:&[u8],alloc:&InMemoryDB|->Rejection{let t=rebound(&t,bytes);admit(&Request{spec_bytes:bytes,alloc,..n.request(&sh(),Some(&t))}).err().expect("refused")};
+    // A CP schema v1 GenesisSpec (the devnet's CP encoded at specVersion 1), naming the v3 programs with the allocRoot they
+    // would give it, so that nothing but the rule set stands in the way.
+    let mut c=cfg();c.spec_version=1;
+    let mut spec=gs::decode(&n.spec_bytes).unwrap();spec.spec_version=1;spec.cp=c.cp();assert_eq!(spec.cp.len(),52);
+    let id=fact_identity(&gs::encode(&spec),&gs::genesis_hash(&gs::encode(&spec)),spec.chain_id).unwrap();
+    spec.alloc_root=Genesis::derive_root(&n.alloc,&id,&SystemPrograms::v3()).unwrap().0;
+    let bytes=gs::encode(&spec);assert_eq!(gs::decode(&bytes).unwrap().spec_version,1,"a spec-1 genesis still decodes");
+    let e=refused(&bytes,&n.alloc);assert_eq!(e.rules,v(&["R24"]));
+    assert!(e.notes[0].contains("GenesisSpec version 1: the spec-1 rule set is retired"),"{e}");
+    assert!(measure(&bytes,&n.alloc,1).unwrap_err().contains("CP schema v1"),"the measurement refuses it too");
+    // A spec-2 GenesisSpec naming another program set (here the v3 set's ChainCaps replaced, so its hash differs).
+    let mut other=SystemPrograms::v3();other.codes[3]=other.codes[4].clone();
+    let mut spec=gs::decode(&n.spec_bytes).unwrap();spec.sys_code_hash=other.sys_code_hash().0;
+    let bytes=gs::encode(&spec);let e=refused(&bytes,&n.alloc);assert_eq!(e.rules,v(&["R24"]));
+    assert!(e.notes[0].contains("names no bundled program set: this release runs only the V3 programs"),"{e}");
+    assert_eq!(SystemPrograms::program_set(n.profile.cp(),&spec.sys_code_hash),None);
+    // A spec-2 GenesisSpec with nonceMode 0 (CP field 4), its allocRoot re-derived for the edit.
+    let bytes=edited(&n,&[(4,0)]);assert_eq!(gs::decode(&bytes).unwrap().cp[4],fixed::U256::ZERO);
+    let e=refused(&bytes,&n.alloc);assert_eq!(e.rules,v(&["R24"]));
+    assert!(e.notes[0].contains("nonceMode 0: bounded nonce ranges are a retired spec-1 rule"),"{e}");
+    // The v3 genesis itself, with its programs: admitted.
+    assert!(run(&n,&t,&sh()).is_ok());
+    assert_eq!(SystemPrograms::program_set(n.profile.cp(),&n.programs.sys_code_hash().0),Some(ProgramSet::V3));
+    assert_eq!(SystemPrograms::for_spec(n.profile.cp(),&n.programs.sys_code_hash().0).unwrap().sys_code_hash(),SystemPrograms::v3().sys_code_hash());
 }

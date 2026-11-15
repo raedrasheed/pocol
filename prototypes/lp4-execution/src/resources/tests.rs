@@ -2,13 +2,9 @@ use super::*;
 use crate::{apply::{self,BlockInput,EvidenceEffect,ParentResult,Proposer},devnet::{self,DevnetConfig}};
 use revm::primitives::{Address,B256,U256};
 
-fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{network_like_from(miners,h_close,h_end,None)}
-/// `network_like` on a retired spec-1 devnet, for the spec-1 program sets' own envelopes (GAS_ENVELOPE, GAS_ENVELOPE_EARNIN).
-/// Phase 6a deletes it with the spec-1 rule set.
-fn network_like_spec1(miners:usize,h_close:u64,h_end:u64,p:devnet::Spec1Programs)->DevnetConfig{network_like_from(miners,h_close,h_end,Some(p))}
-fn network_like_from(miners:usize,h_close:u64,h_end:u64,spec1:Option<devnet::Spec1Programs>)->DevnetConfig{
+fn network_like(miners:usize,h_close:u64,h_end:u64)->DevnetConfig{
     let labels:Vec<String>=(0..miners).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-    let mut c=match spec1{None=>DevnetConfig::new(777920,1_800_000_000,&refs),Some(p)=>DevnetConfig::spec1(777920,1_800_000_000,&refs,p)};
+    let mut c=DevnetConfig::new(777920,1_800_000_000,&refs);
     c.d=16;c.w_w=64;c.s_max=256;c.m_max=256;c.h_close=h_close;c.h_end=h_end;c.ret=128;c.e_win=2048;c.u=2200;c.w_act=128;c.theta_inact=1024;
     // Network-scale caps (governance.md), independent of the single-host devnet defaults.
     c.r_max=2;c.sys_slot_max=131072;c.slot_cap=4_000_000;c.acct_cap=1_000_000;c.code_cap=1<<30;c.txbytes_cap=1<<33;c.tx_cap=10_000_000;c
@@ -120,11 +116,10 @@ fn network_like_from(miners:usize,h_close:u64,h_end:u64,spec1:Option<devnet::Spe
 
 #[test] fn r21_retention_formula(){assert_eq!(r21_retained_bytes(32,2,100,1000),34*(100*ACCOUNT_BYTES+1000*SLOT_BYTES));}
 
-/// A02/A13 SYS gas envelope fixture at a gate-valid REG_RECORDS_MAX (R16). Scenario 1 is
-/// the P7 worst case plus evidence that invalidates pending pots. Scenario 2 makes the
-/// beginBlock sweep delete records (76 tombstones, short E_win) before closing.
-/// Records the largest gas of every SYSTEM call name in any phase class;
-/// `admission::GAS_ENVELOPE` must dominate every value.
+/// A02/A13 SYS gas scenarios at a gate-valid REG_RECORDS_MAX (R16), on the v3 programs (`sys_gas_envelope_fixture_v3`).
+/// Scenario 1 is the P7 worst case plus evidence that invalidates pending pots. Scenario 2 makes the beginBlock sweep
+/// delete records (76 tombstones, short E_win) before closing. Records the largest gas of every SYSTEM call name in any
+/// phase class. (Before phase 6a they measured the spec-1 GAS_ENVELOPE on the V1 and Continuous programs.)
 fn gas_scenario(c:&DevnetConfig,evidence_at:&dyn Fn(u64,&[Address])->Vec<EvidenceEffect>,owners:usize,seen:&mut std::collections::BTreeMap<&'static str,u64>)->([u64;3],usize){
     gas_scenario_from(c,evidence_at,owners,0,seen)
 }
@@ -159,29 +154,10 @@ fn gas_scenario_from(c:&DevnetConfig,evidence_at:&dyn Fn(u64,&[Address])->Vec<Ev
 }
 /// Ordinary blocks of a continuous scenario: past the first settle (h > D) and the evidence heights.
 const CONTINUOUS_BLOCKS:u64=40;
-#[test] fn sys_gas_envelope_fixture(){
-    let mut seen:std::collections::BTreeMap<&'static str,u64>=Default::default();
-    let mut c=network_like_spec1(256,60,80,devnet::Spec1Programs::Bonded);c.reg_records_max=16384;
-    let (worst,_)=gas_scenario(&c,&|h,ids|match h{30=>(0..4).map(|i|EvidenceEffect::Punish{accused:ids[200+i]}).collect(),
-        31=>(0..4u64).map(|i|EvidenceEffect::PunishAndInvalidate{accused:ids[100+i as usize],j:30-i}).collect(),_=>vec![]},256,&mut seen);
-    let mut c2=c.clone();c2.e_win=16;c2.u=40;
-    let (sweep,fewest)=gas_scenario(&c2,&|h,ids|if (2..=20).contains(&h){(0..4).map(|i|EvidenceEffect::Punish{accused:ids[100+4*(h as usize-2)+i]}).collect()}else{vec![]},100,&mut seen);
-    assert!(fewest<=256-76,"the sweep scenario must delete the 76 tombstoned records, fewest={fewest}");
-    // Scenario 3: the Continuous program set (H_END 0, a spec-1 continuous chain's set), which shares the
-    // table: scenario 1's evidence on ordinary blocks.
-    let mut c3=c.clone();c3.h_end=0;c3.h_close=0;
-    let (continuous,_)=gas_scenario(&c3,&|h,ids|match h{30=>(0..4).map(|i|EvidenceEffect::Punish{accused:ids[200+i]}).collect(),
-        31=>(0..4u64).map(|i|EvidenceEffect::PunishAndInvalidate{accused:ids[100+i as usize],j:30-i}).collect(),_=>vec![]},256,&mut seen);
-    assert_eq!(devnet::build(&c3).unwrap().programs.sys_code_hash(),apply::SystemPrograms::continuous().sys_code_hash(),"scenario 3 runs the Continuous programs");
-    println!("GAS-ENVELOPE {}",serde_json::json!({"perCall":seen,"blockMax":{"worst":worst,"sweep":sweep,"continuous":continuous},"G_SYS":c.cp()[44].to_u64()}));
-    for (name,g) in &seen{
-        let bound=crate::admission::GAS_ENVELOPE.iter().find(|(n,_)|n==name).map(|x|x.1);
-        assert!(bound.map_or(false,|b|*g<=b),"envelope misses {name}={g} bound={bound:?}");
-    }
-}
 
 
-/// An earn-in run with P_MAX = 8 ACCRUING records, registered by real USER transactions (register(self),
+/// A v3 run with eight ACCRUING records (the earn-in fixture's P_MAX before phase 6a moved it to the v3 programs, which
+/// have no probation pool), registered by real USER transactions (register(self),
 /// each account's first transaction) in block `reg_at` of a network of 248 genesis members, so that
 /// M_max = 256 records are active from then on. Each block's S_max shares and its winner are owned by
 /// the non-tomb members of the parent state's ActList, as the host assigns them, so the ACCRUING
@@ -199,7 +175,8 @@ struct Accruing{
     /// The winner and the (signed) proposer of the first-fill pot are ACCRUING records.
     winner_proposer:bool,
     /// USER tips of the first-fill block, in PCOL: a pot whose shares fill a zero bond to B_reg,
-    /// promote it and PAY the rest.
+    /// promote it and PAY the rest (20,000 on the v3 programs, whose tip split leaves the pot half of a signed
+    /// block's tips: 10,000, the earn-in fixture's, would fill 257 shares to about 16.5 PCOL each).
     tip_pcol:u128,
     reg_at:u64,
     /// Share owners: the ACCRUING records and the genesis members among the first `owners` miners
@@ -213,7 +190,7 @@ const PCOL:u128=1_000_000_000_000_000_000;
 fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Address],&[Address])->Vec<EvidenceEffect>,seen:&mut std::collections::BTreeMap<&'static str,u64>)->[u64;3]{
     use crate::txsign::Tx;use revm::primitives::{Bytes,keccak256};
     let net=devnet::build(c).unwrap();let cp=net.profile.cp().clone();
-    assert_eq!(net.programs.sys_code_hash(),apply::SystemPrograms::earnin().sys_code_hash(),"earn-in programs");
+    assert_eq!(net.programs.sys_code_hash(),apply::SystemPrograms::v3().sys_code_hash(),"the v3 programs");
     let ids:Vec<Address>=net.miners.iter().map(|m|m.id).collect();
     let keys:Vec<crate::txsign::Key>=(0..8).map(|i|devnet::account_key(&format!("acc{i}"))).collect();
     let acc:Vec<Address>=keys.iter().map(|k|k.address()).collect();
@@ -282,12 +259,42 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
     if c.h_end!=0{assert!(paid_at_final,"{a:?}: settleFinal paid the former ACCRUING records");}
     block_max
 }
-/// A02/A13 SYS gas envelope fixture of the earn-in program set: the V1 fixture's two scenarios on the
-/// earn-in programs, then runs with eight ACCRUING payees (`Accruing`). `admission::GAS_ENVELOPE_EARNIN`
-/// must dominate every value and name no call the runs did not measure.
-#[test] fn sys_gas_envelope_fixture_earnin(){
+/// Phase 6a: pruneShares on a pot of S_max + 1 = 257 distinct owners (256 share owners and a winner among none of them),
+/// which a v3 chain reaches because its domain has no M_max term (the spec-1 fixtures, at M_max 256, pruned at most 256):
+/// a finite chain of 300 members, each block's 256 shares and its winner owned by 257 distinct members, so every
+/// pruneShares from h = max(D, W_w) + 2 on deletes 257 owners' counts.
+fn prune_scenario(c:&DevnetConfig,seen:&mut std::collections::BTreeMap<&'static str,u64>)->u64{
+    let net=devnet::build(c).unwrap();let ids:Vec<Address>=net.miners.iter().map(|m|m.id).collect();let n=ids.len();assert!(n>=257);
+    let (mut state,mut prev,mut base,mut prune)=(net.genesis.state().clone(),None::<ParentResult>,U256::from(1_000_000_000u64),0u64);
+    let k=u64::from(c.d.max(c.w_w));
+    for h in 1..=c.h_end{
+        let input=BlockInput{height:h,timestamp:1_800_000_000+60*h,base_fee:base,gas_limit:8_000_000,prevrandao:B256::ZERO,
+            proposer:if h%2==0{Proposer::Signed(ids[(h as usize*7)%n])}else{Proposer::Fallback},parent_result:prev.clone(),evidence:vec![],evidence_raw:&[],transactions:&[],ancestors:vec![],cum_log_bytes:0};
+        let o=apply::apply_block(&state,&net.genesis,&net.profile,&input).unwrap_or_else(|e|panic!("h={h} {e:?}"));
+        base=crate::fees::next_base_fee(base,o.gas_used,8_000_000,U256::ZERO).unwrap();
+        for (name,g) in &o.meter.call_gas{let e=seen.entry(*name).or_default();*e=(*e).max(*g);if *name=="pruneShares"&&h>k+1{prune=prune.max(*g);}}
+        if h>k+1{let j=h-k-1;assert!(apply::share_total(&o.state,j)==0,"h={h}: pot {j} pruned");}
+        state=o.state.clone();
+        let shares:Vec<(u64,Address)>=(0..256u64).map(|i|(i*3+1,ids[((h+i) as usize)%n])).collect();
+        prev=Some(ParentResult{block_hash:B256::from(U256::from(h)),winner:ids[((h+256) as usize)%n],shares});
+        if h>=2{assert_eq!(apply::share_owners(&state,h-1).count(),257,"pot {}: 257 distinct owners",h-1);}
+        if o.is_final{break}
+    }
+    assert!(prune>0,"pruneShares measured");prune
+}
+/// Phase 6a: the SYS gas envelope fixture of the v3 program set. The scenarios of the retired spec-1 fixtures, run on the
+/// v3 programs (PoColSystemV3.sol, the only bundled set): the P7 worst case with evidence, the beginBlock sweep deleting
+/// 76 tombstones, a continuous chain, tomb-free final blocks and a first burn at settleFinal; the runs with eight
+/// ACCRUING payees (`Accruing`, the earn-in fixture's); and the pruning of a pot of 257 distinct owners
+/// (`prune_scenario`). `admission::GAS_ENVELOPE_V3` must dominate every value, and its beginBlock, markClose and
+/// pruneShares entries are this fixture's measurements (with tests/v3_contracts.rs's sweep and closing worst cases),
+/// rounded up to 1000.
+/// The GAS_ENVELOPE_V3 entries `sys_gas_envelope_fixture_v3` measures, and whether the entry is this fixture's maximum
+/// (true) or a dearer worst case of tests/v3_contracts.rs (false, the fixture's maximum only bounded by it).
+const V3_FIXTURE_ENTRIES:&[(&str,bool)]=&[("beginBlock",true),("markClose",true),("pruneShares",true)];
+#[test] fn sys_gas_envelope_fixture_v3(){
     use std::collections::BTreeMap;
-    let mut c=network_like_spec1(256,60,80,devnet::Spec1Programs::EarnIn);c.reg_records_max=16384;
+    let mut c=network_like(256,60,80);c.reg_records_max=16384;
     let worst_evidence=|h:u64,ids:&[Address]|->Vec<EvidenceEffect>{match h{30=>(0..4).map(|i|EvidenceEffect::Punish{accused:ids[200+i]}).collect(),
         31=>(0..4u64).map(|i|EvidenceEffect::PunishAndInvalidate{accused:ids[100+i as usize],j:30-i}).collect(),_=>vec![]}};
     // 248 genesis members and eight registrants (P_MAX), each with funds for B_reg and gas.
@@ -321,23 +328,23 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
     let fresh=Accruing{bond_short_by_one:false,winner_proposer:false,tip_pcol:0,reg_at:2,owners:usize::MAX,single_owner_before:0};
     let runs:Vec<(Accruing,&DevnetConfig,Evidence)>=vec![(fresh,&e,&evidence),(Accruing{winner_proposer:true,..fresh},&e,&evidence),
         (Accruing{bond_short_by_one:true,..fresh},&e,&evidence),(Accruing{bond_short_by_one:true,winner_proposer:true,..fresh},&e,&evidence),
-        (Accruing{tip_pcol:10_000,..fresh},&e,&evidence),(Accruing{tip_pcol:10_000,winner_proposer:true,..fresh},&e,&evidence),
-        (fresh,&continuous,&evidence),(Accruing{tip_pcol:10_000,..fresh},&continuous,&evidence),
+        (Accruing{tip_pcol:20_000,..fresh},&e,&evidence),(Accruing{tip_pcol:20_000,winner_proposer:true,..fresh},&e,&evidence),
+        (fresh,&continuous,&evidence),(Accruing{tip_pcol:20_000,..fresh},&continuous,&evidence),
         (Accruing{reg_at:63,winner_proposer:true,..fresh},&survivors,&unpunished),
         (Accruing{owners:100,..fresh},&sweep,&sweep_evidence),(Accruing{owners:100,winner_proposer:true,..fresh},&sweep,&sweep_evidence),
         (Accruing{reg_at:44,..fresh},&boundary,&unpunished),(Accruing{reg_at:44,winner_proposer:true,..fresh},&boundary,&unpunished),
-        (Accruing{reg_at:44,tip_pcol:10_000,..fresh},&boundary,&unpunished),(Accruing{reg_at:44,tip_pcol:10_000,winner_proposer:true,..fresh},&boundary,&unpunished),
+        (Accruing{reg_at:44,tip_pcol:20_000,..fresh},&boundary,&unpunished),(Accruing{reg_at:44,tip_pcol:20_000,winner_proposer:true,..fresh},&boundary,&unpunished),
         // Tomb-free: the closing boundary (held_total zero before the first fill), the final block, and
         // the first burn: pot 1 has one owner, so settle(2), the first fill (and with the tip, the
         // promote-and-PAY path), writes escrow slot 0 from zero.
-        (Accruing{reg_at:44,..fresh},&boundary,&no_evidence),(Accruing{reg_at:44,tip_pcol:10_000,..fresh},&boundary,&no_evidence),
-        (Accruing{reg_at:44,tip_pcol:10_000,winner_proposer:true,..fresh},&boundary,&no_evidence),
+        (Accruing{reg_at:44,..fresh},&boundary,&no_evidence),(Accruing{reg_at:44,tip_pcol:20_000,..fresh},&boundary,&no_evidence),
+        (Accruing{reg_at:44,tip_pcol:20_000,winner_proposer:true,..fresh},&boundary,&no_evidence),
         (fresh,&e,&no_evidence),(Accruing{reg_at:63,winner_proposer:true,..fresh},&survivors,&no_evidence),
-        (Accruing{reg_at:1,single_owner_before:2,..fresh},&e,&no_evidence),(Accruing{reg_at:1,single_owner_before:2,tip_pcol:10_000,..fresh},&e,&no_evidence),
-        (Accruing{reg_at:1,single_owner_before:2,tip_pcol:10_000,winner_proposer:true,..fresh},&e,&no_evidence),
+        (Accruing{reg_at:1,single_owner_before:2,..fresh},&e,&no_evidence),(Accruing{reg_at:1,single_owner_before:2,tip_pcol:20_000,..fresh},&e,&no_evidence),
+        (Accruing{reg_at:1,single_owner_before:2,tip_pcol:20_000,winner_proposer:true,..fresh},&e,&no_evidence),
         (Accruing{reg_at:1,single_owner_before:2,bond_short_by_one:true,..fresh},&e,&no_evidence),
         // Both at once: the boundary first fill is also the first burn (pots 1..44 of one owner).
-        (Accruing{reg_at:44,single_owner_before:45,..fresh},&boundary,&no_evidence),(Accruing{reg_at:44,single_owner_before:45,tip_pcol:10_000,..fresh},&boundary,&no_evidence)];
+        (Accruing{reg_at:44,single_owner_before:45,..fresh},&boundary,&no_evidence),(Accruing{reg_at:44,single_owner_before:45,tip_pcol:20_000,..fresh},&boundary,&no_evidence)];
     let mut seen:BTreeMap<&'static str,u64>=Default::default();let mut report=Vec::new();
     std::thread::scope(|s|{
         let worst=s.spawn(||{let mut seen=BTreeMap::new();let (m,_)=gas_scenario(&c,&|h,ids|worst_evidence(h,ids),256,&mut seen);("no ACCRUING, scenario 1".to_string(),seen,m)});
@@ -348,19 +355,31 @@ fn accruing_scenario(c:&DevnetConfig,a:Accruing,evidence_at:&dyn Fn(u64,&[Addres
         // Tomb-free final blocks without ACCRUING records: every pot of 256 owners, and pots 1..H_END-D of
         // one owner, so that the final block's first settleFinal makes the first burn.
         let tomb_free=s.spawn(||{let mut seen=BTreeMap::new();let (m,_)=gas_scenario(&c,&|_,_|vec![],256,&mut seen);("no ACCRUING, no evidence".to_string(),seen,m)});
+        // The continuous chain (H_END 0): scenario 1's evidence on ordinary blocks.
+        let continuous_v=s.spawn(||{let mut seen=BTreeMap::new();let mut c3=c.clone();c3.h_end=0;c3.h_close=0;
+            let (m,_)=gas_scenario(&c3,&|h,ids|worst_evidence(h,ids),256,&mut seen);("no ACCRUING, continuous".to_string(),seen,m)});
+        // 257 distinct owners per pot (no M_max term on v3): 300 members, M_max 300.
+        let prune=s.spawn(||{let mut seen=BTreeMap::new();let mut cp=network_like(300,60,80);cp.m_max=300;cp.reg_records_max=16384;
+            let g=prune_scenario(&cp,&mut seen);(format!("257 distinct owners per pot, pruneShares {g}"),seen,[0u64;3])});
         let first_burn_final=s.spawn(||{let mut seen=BTreeMap::new();let (m,_)=gas_scenario_from(&c,&|_,_|vec![],256,c.h_end-u64::from(c.d)+1,&mut seen);
             ("no ACCRUING, no evidence, first burn at settleFinal".to_string(),seen,m)});
-        let mut all=vec![worst.join().unwrap(),sweep_v1.join().unwrap(),tomb_free.join().unwrap(),first_burn_final.join().unwrap()];all.extend(handles.into_iter().map(|h|h.join().unwrap()));
+        let mut all=vec![worst.join().unwrap(),sweep_v1.join().unwrap(),tomb_free.join().unwrap(),first_burn_final.join().unwrap(),continuous_v.join().unwrap(),prune.join().unwrap()];all.extend(handles.into_iter().map(|h|h.join().unwrap()));
         for (label,m,block) in all{for (n,g) in &m{let e=seen.entry(*n).or_default();*e=(*e).max(*g);}report.push(serde_json::json!({"run":label,"settle":m.get("settle"),"settleFinal":m.get("settleFinal"),"markClose":m.get("markClose"),"beginBlock":m.get("beginBlock"),"blockMax":block}));}
     });
-    println!("GAS-ENVELOPE-EARNIN {}",serde_json::json!({"perCall":seen,"runs":report,"G_SYS":c.cp()[44].to_u64()}));
-    let table=crate::admission::GAS_ENVELOPE_EARNIN;
+    println!("GAS-ENVELOPE-V3 {}",serde_json::json!({"perCall":seen,"runs":report,"G_SYS":c.cp()[44].to_u64()}));
+    let table=crate::admission::GAS_ENVELOPE_V3;
     for (name,g) in &seen{
         let bound=table.iter().find(|(n,_)|n==name).map(|x|x.1);
         assert!(bound.map_or(false,|b|*g<=b),"envelope misses {name}={g} bound={bound:?}");
     }
-    for (name,_) in table{assert!(seen.contains_key(name),"GAS_ENVELOPE_EARNIN names {name}, which no run measured");}
-    assert!(std::ptr::eq(crate::admission::gas_envelope(apply::ProgramSet::EarnIn),table));
+    // Every name but recordLate (no late shares here: tests/v3_contracts.rs measures it) was measured here.
+    for (name,_) in table{assert!(*name=="recordLate"||seen.contains_key(name),"GAS_ENVELOPE_V3 names {name}, which no run measured");}
+    assert!(std::ptr::eq(crate::admission::gas_envelope(apply::ProgramSet::V3),table));
+    // The entries this fixture is the measurement of: rounded up to 1000 (BEGIN_MARK_PRUNE: the fixture's maxima, and the
+    // dearer v3_contracts.rs worst case where it has one, recorded in admission.rs).
+    for (name,from_fixture) in V3_FIXTURE_ENTRIES{let e=crate::admission::envelope(apply::ProgramSet::V3,name).unwrap();
+        if *from_fixture{assert_eq!(e,seen[name].div_ceil(1000)*1000,"GAS_ENVELOPE_V3 {name} is this fixture's measurement rounded up");}
+        else{assert!(e>=seen[name],"{name}");}}
 }
 
 /// Thread-local allocation meter (only allocations of the measuring thread are counted,

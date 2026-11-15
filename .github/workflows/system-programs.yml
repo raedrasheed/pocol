@@ -1,7 +1,8 @@
 name: System programs reproduction
-# V3-PR-E0: every committed system program set (system-{v1,continuous,earnin,v3}.json) is rebuilt from source
-# with the locked solc 0.8.28 and must match byte for byte; the earn-in and v3 contract and chain suites run on
-# main (lp4-execution/tests/{earnin,v3}_contracts.rs, pocold/tests/{earnin,v3_earnin}.rs). V3-PR-E1 adds the
+# V3-PR-E0: the committed system program set is rebuilt from source with the locked solc 0.8.28 and must match byte
+# for byte. Since phase 6a of the fresh network that is system-v3.json and its planted mutants alone (the spec-1 sets
+# system-{v1,continuous,earnin}.json, their sources and the earn-in replay suites are deleted); the v3 contract and
+# chain suites run on main (lp4-execution/tests/v3_contracts.rs, pocold/tests/v3_earnin.rs). V3-PR-E1 adds the
 # registry-budget model (lp4-execution/tests/v3_model.py), its seven planted mutants (in the mutant fixture) and
 # the CP schema v2 ParamGate R8 premises (lp1-node/tests/gate.rs). V3-PR-E2b adds the evidence-penalty chain model
 # (v3_model.py class Chain, tests/v3/evidence-penalty-vectors.json), five planted RewardEscrow/MinerRegistry mutants
@@ -56,36 +57,31 @@ jobs:
           npm ci --prefix prototypes/lp4-execution/tools --ignore-scripts --no-audit --no-fund
           # The soljson recorded by the compiler comparison (development/security-dependency-followup-2026-11-05).
           echo '9ef37cc1d2597ed6d2f706a960f449e33eb9eee920936cea77b11e6f43861970  prototypes/lp4-execution/tools/node_modules/solc/soljson.js' | sha256sum -c -
-      - name: Recompile all four system program sets and compare byte for byte
+      - name: Recompile the v3 system program set and its mutants and compare byte for byte
         run: |
           set -euo pipefail
           out="$RUNNER_TEMP/system-programs"
           mkdir -p "$out"
           export NODE_PATH="$PWD/prototypes/lp4-execution/tools/node_modules"
           t=prototypes/lp4-execution/tests
-          node "$t/compile_system_v1.cjs" "$out/system-v1.json"
-          node "$t/compile_system_v1.cjs" "$out/system-continuous.json" --continuous
-          node "$t/compile_system_earnin.cjs" "$out/system-earnin.json"
           node "$t/compile_system_v3.cjs" "$out/system-v3.json"
           node "$t/compile_system_v3.cjs" --mutants "$out/system-v3-mutants.json"
-          for set in v1 continuous earnin v3; do
-            cmp "$t/data/system-$set.json" "$out/system-$set.json"
-          done
+          cmp "$t/data/system-v3.json" "$out/system-v3.json"
           cmp "$t/v3/system-v3-mutants.json" "$out/system-v3-mutants.json"
           # Every runtime stays EIP-170-sized for tooling (V3 roadmap risk 10).
           node -e 'for (const f of process.argv.slice(1)) for (const p of require(f).programs) { const n = (p.runtime.length - 2) / 2; console.log(f.split("/").pop(), p.name, n); if (n > 24576) { console.error(`${p.name} in ${f} is ${n} bytes, above 24576`); process.exit(1); } }' \
-            "$PWD/$t/data/system-v1.json" "$PWD/$t/data/system-continuous.json" "$PWD/$t/data/system-earnin.json" "$PWD/$t/data/system-v3.json"
-          # The independent models the contract tests replay (v3_model.py: V3-08/V3-09 registry budgets, V3-16/V3-17
-          # evidence penalties, V3-02 late shares, V3-19/V3-15/V3-20 issuance and carry, FN-2b removal at a full set).
-          python3 -B "$t/earnin_model.py"
+            "$PWD/$t/data/system-v3.json"
+          # The independent model the contract tests replay (v3_model.py, which extends earnin_model.py: V3-08/V3-09
+          # registry budgets, V3-16/V3-17 evidence penalties, V3-02 late shares, V3-19/V3-15/V3-20 issuance and carry,
+          # FN-2b removal at a full set, and the earn-in scenarios as the v3 rules run them).
           python3 -B "$t/v3_model.py"
           # V3-19: the M3 schedule written a second time (standard library only) against the vectors' issuances.
           python3 -B "$t/issuance_oracle.py" --v3 "$t/v3/issuance-carry-vectors.json" "$t/v3/evidence-penalty-vectors.json" "$t/v3/late-share-vectors.json" "$t/v3/registry-budget-vectors.json"
-      - name: Earn-in and v3 contract and chain tests (spec-2 genesis, the release GenesisSpec)
+      - name: V3 contract and chain tests (spec-2 genesis, the release GenesisSpec)
         run: |
           set -euo pipefail
-          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test earnin_contracts --test v3_contracts
-          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test earnin --test v3_earnin --test v3_late_shares
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --test v3_contracts
+          cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test v3_earnin --test v3_late_shares
       - name: ParamGate v3 premises (R8, R10 and R23 on CP schema v2)
         run: |
           set -euo pipefail

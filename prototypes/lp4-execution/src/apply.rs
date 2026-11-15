@@ -26,34 +26,19 @@ pub fn ledger()->Address{program_address(2)}
 pub fn caps()->Address{program_address(3)}
 pub fn chunk_factory()->Address{program_address(4)}
 
-/// Program-set identity: the bundled set a GenesisSpec's sysCodeHash names. V3 (system-v3.json) is
-/// registered only for a CP schema v2 (specVersion 2) genesis; elsewhere its hash names nothing.
+/// Program-set identity: the bundled set a GenesisSpec's sysCodeHash names. Since phase 6a of the fresh network
+/// (FRESH-NETWORK-REMOVAL-PLAN) one set is bundled, V3 (system-v3.json, PoColSystemV3.sol), and it is named only by a CP
+/// schema v2 (specVersion 2) genesis whose sysCodeHash is its own: any other GenesisSpec names no program set and is
+/// refused (`SystemPrograms::for_spec`; boot admission refuses it first, admission.rs). The retired spec-1 sets (V1,
+/// Continuous and EarnIn: system-{v1,continuous,earnin}.json) are deleted with the spec-1 rule set.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub enum ProgramSet{V1,Continuous,EarnIn,V3}
-/// The probation pool of the earn-in program set (EARN-IN-SPEC U3/U4): the ACCRUING seats and the deadline in
-/// blocks after registeredAt. The v3 set has neither (FN-2b, owner decisions 10b/10c of 2026-11-13): its ACCRUING
-/// records count within M_max and never exit by time.
-#[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct Probation{pub seats:u64,pub blocks:u64}
-impl Probation{
-    /// The constants of PoColSystemEarnIn.sol (P_MAX 8, T_PROB 60,480), which no CP can change.
-    pub const EARNIN:Probation=Probation{seats:8,blocks:60_480};
-}
-impl ProgramSet{
-    /// Earn-in: `Probation::EARNIN`. Every other set, the v3 set included (FN-2b), has no probation pool.
-    pub fn probation(self)->Option<Probation>{
-        match self{
-            ProgramSet::EarnIn=>Some(Probation::EARNIN),
-            ProgramSet::V3|ProgramSet::V1|ProgramSet::Continuous=>None,
-        }
-    }
-}
+pub enum ProgramSet{V3}
 
 /// The five compiled runtime programs C0C001..C0C005, in order.
 #[derive(Clone,Debug)]
 pub struct SystemPrograms{pub codes:[Bytes;5]}
 impl SystemPrograms{
-    /// Loads `tests/data/system-v1.json` style output (compile_system_v1.cjs).
+    /// Loads `tests/data/system-v3.json` style output (compile_system_v3.cjs).
     pub fn from_compiled_json(text:&str)->Result<Self,String>{
         let v:serde_json::Value=serde_json::from_str(text).map_err(|e|e.to_string())?;
         let list=v["programs"].as_array().ok_or("programs")?;
@@ -66,31 +51,30 @@ impl SystemPrograms{
         }
         Ok(Self{codes})
     }
-    pub fn v1()->Self{Self::from_compiled_json(include_str!("../tests/data/system-v1.json")).expect("bundled system-v1.json")}
-    pub fn continuous()->Self{Self::from_compiled_json(include_str!("../tests/data/system-continuous.json")).expect("bundled continuous system programs")}
-    pub fn for_params(cp:&crate::profile::ConsensusParams)->Self{if cp.H_END==0{Self::continuous()}else{Self::v1()}}
-    /// Earn-in network programs (development/decisions/EARN-IN-SPEC.md), compile_system_earnin.cjs.
-    /// bondState ACCRUING of the earn-in and v3 programs; the earn-in set's probation pool is `ProgramSet::probation`.
-    pub const EARNIN_ACCRUING:u8=4;
-    pub fn earnin()->Self{Self::from_compiled_json(include_str!("../tests/data/system-earnin.json")).expect("bundled earn-in system programs")}
-    /// V3 network programs (PoColSystemV3.sol: the earn-in programs without the probation pool and deadline, with
-    /// removal at a full set and ChainCaps over all 59 CP schema v2 fields), compile_system_v3.cjs. Only a specVersion-2 genesis selects it.
+    /// bondState ACCRUING of the v3 programs (a record below B_reg that fills its bond from its rewards).
+    pub const ACCRUING:u8=4;
+    /// V3 network programs (PoColSystemV3.sol: registration with an earned bond, no probation pool or deadline, removal at
+    /// a full set and ChainCaps over all 59 CP schema v2 fields), compile_system_v3.cjs. The only bundled set.
     pub fn v3()->Self{Self::from_compiled_json(include_str!("../tests/data/system-v3.json")).expect("bundled v3 system programs")}
-    fn of(kind:ProgramSet)->Self{
-        match kind{ProgramSet::V1=>Self::v1(),ProgramSet::Continuous=>Self::continuous(),ProgramSet::EarnIn=>Self::earnin(),ProgramSet::V3=>Self::v3()}
+    /// sysCodeHash of the bundled V3 programs.
+    pub fn v3_hash()->[u8;32]{
+        static HASH:std::sync::OnceLock<[u8;32]>=std::sync::OnceLock::new();
+        *HASH.get_or_init(||Self::v3().sys_code_hash().0)
     }
-    /// V3-34 registry. A set is selectable only on a genesis whose CP it reads: V3 needs CP schema v2.
-    fn selectable(kind:ProgramSet,cp:&crate::profile::ConsensusParams)->bool{kind!=ProgramSet::V3||cp.schema_version()>=2}
-    /// The bundled program set whose sysCodeHash a GenesisSpec names (and whose CP schema it has); otherwise
-    /// the CP default, which then fails the genesis code check exactly as before. On a spec-1 genesis the v3
-    /// hash names nothing, so every spec-1 verdict is the one before the v3 set existed.
-    pub fn program_set(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->ProgramSet{
-        static HASHES:std::sync::OnceLock<[(ProgramSet,[u8;32]);4]>=std::sync::OnceLock::new();
-        HASHES.get_or_init(||[ProgramSet::Continuous,ProgramSet::V1,ProgramSet::EarnIn,ProgramSet::V3].map(|kind|(kind,Self::of(kind).sys_code_hash().0)))
-            .iter().find(|(kind,hash)|hash==sys_code_hash&&Self::selectable(*kind,cp)).map(|(kind,_)|*kind)
-            .unwrap_or(if cp.H_END==0{ProgramSet::Continuous}else{ProgramSet::V1})
+    /// The bundled program set a GenesisSpec names: V3 for a CP schema v2 genesis whose sysCodeHash is the V3 programs',
+    /// none for any other (a CP schema v1 genesis, or any other sysCodeHash).
+    pub fn program_set(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->Option<ProgramSet>{
+        (cp.schema_version()>=2&&*sys_code_hash==Self::v3_hash()).then_some(ProgramSet::V3)
     }
-    pub fn for_spec(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->Self{Self::of(Self::program_set(cp,sys_code_hash))}
+    /// The programs a GenesisSpec names (`program_set`), or why it names none: this release runs the V3 programs only.
+    pub fn for_spec(cp:&crate::profile::ConsensusParams,sys_code_hash:&[u8;32])->Result<Self,String>{
+        match Self::program_set(cp,sys_code_hash){
+            Some(ProgramSet::V3)=>Ok(Self::v3()),
+            None if cp.schema_version()<2=>Err("a CP schema v1 (spec-1) genesis names no bundled program set: this release runs only the V3 programs, on a specVersion-2 genesis".into()),
+            None=>Err(format!("sysCodeHash {} names no bundled program set: this release runs only the V3 programs (system-v3.json, sysCodeHash {})",
+                crate::hex::encode(sys_code_hash),crate::hex::encode(&Self::v3_hash()))),
+        }
+    }
     /// sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])).
     pub fn sys_code_hash(&self)->B256{crate::genesis_builder::code_hash(&self.codes)}
 }
@@ -408,7 +392,7 @@ fn job<'a>(parent:&'a dyn crate::view::View,parent_summary:Option<&'a crate::sta
     let origin=match input.proposer{Proposer::Signed(a) if a!=Address::ZERO=>a,Proposer::Signed(_)=>return Err(ApplyError::Context("proposer")),Proposer::Fallback=>Address::ZERO};
     let block=NativeBlockContext{height:U256::from(h),timestamp:U256::from(input.timestamp),gas_limit:U256::from(input.gas_limit),base_fee:input.base_fee,prevrandao:input.prevrandao};
     // V3-16/V3-17: the v3 phase-0 order and calls, only on the v3 program set (a CP schema v2 genesis naming it).
-    let v3=SystemPrograms::program_set(cp,&profile.spec().sys_code_hash)==ProgramSet::V3;
+    let v3=SystemPrograms::program_set(cp,&profile.spec().sys_code_hash)==Some(ProgramSet::V3);
     Ok(Job{parent,parent_summary,profile,input,block,origin,limits,is_final,check,v3})
 }
 /// C-1 E4: `apply_block_with` on a parent read through any view (a stored trie version), given the
@@ -629,7 +613,7 @@ pub fn check_escrow_invariant(db:&dyn crate::view::View,profile:&ProfileIdentity
     }
     let f=chain_facts(db);
     let balance=db.account(&escrow()).map(|a|a.info.balance).unwrap_or_default();
-    let v3=SystemPrograms::program_set(profile.cp(),&profile.spec().sys_code_hash)==ProgramSet::V3;
+    let v3=SystemPrograms::program_set(profile.cp(),&profile.spec().sys_code_hash)==Some(ProgramSet::V3);
     let (now,next)=if v3{(escrow_carry_into(db,h),escrow_carry_into(db,h.wrapping_add(1)))}else{(U256::ZERO,U256::ZERO)};
     let need=sum.checked_add(f.held_total).and_then(|v|v.checked_add(f.burned_total)).and_then(|v|v.checked_add(now)).and_then(|v|v.checked_add(next))
         .ok_or(ApplyError::Supply("need"))?;

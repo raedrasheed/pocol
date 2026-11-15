@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Independent domain model of the earn-in rules (development/decisions/EARN-IN-SPEC.md).
 
-No bytecode, no Rust and no storage encoding: plain records and integers. P2 and P3 must reproduce the
-results this model writes to tests/data/earnin-vectors.json. Run with --check to compare against the
-committed file, or --write to regenerate it.
+No bytecode, no Rust and no storage encoding: plain records and integers. Since phase 6a of the fresh network the
+earn-in program set and its replay vectors (tests/data/earnin-vectors.json) are deleted with the spec-1 rule set; this
+model stays as the base tests/v3_model.py extends (its earnin_on_v3 re-runs these scenarios through the v3 rules,
+tests/v3/earnin-on-v3-vectors.json). Run directly, it computes every scenario and checks that they run.
 """
 import json, sys
 from dataclasses import dataclass, field, asdict
@@ -275,11 +276,6 @@ def vectors():
     return v
 
 if __name__ == '__main__':
-    path = Path(__file__).with_name('data') / 'earnin-vectors.json'
-    data = json.dumps(vectors(), indent=1, sort_keys=True) + '\n'
-    if sys.argv[1:] == ['--write']:
-        path.write_text(data)
-        print('wrote', path)
-    else:
-        assert path.read_text() == data, 'earnin-vectors.json differs from the model; run --write and review'
-        print('PASS earn-in model matches', path.name)
+    v = vectors()
+    assert v and all(isinstance(k, str) for k in v), 'the earn-in scenarios'
+    print('PASS earn-in model:', len(v), 'scenarios (the base of tests/v3_model.py; no vectors file since phase 6a)')
