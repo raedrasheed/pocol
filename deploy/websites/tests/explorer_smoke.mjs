@@ -68,7 +68,9 @@ async function main() {
     ok('the test config.php is generated from the committed example (every key replaced)', [`'http://127.0.0.1:${EXPLORER_GW}/rpc'`, `'http://127.0.0.1:${PHP_PORT}'`, `'chain_id' => ${info.chainId},`, `'genesis_hash' => '${genesisHash}'`].every((s) => config.includes(s)));
     writeFileSync(join(explorer, 'api', 'config.php'), config);
     // Several PHP workers: the bundle sends its reads in parallel (php -S serves one request at a time otherwise).
-    spawnLogged('php', 'php', ['-S', `127.0.0.1:${PHP_PORT}`, '-t', explorer], { env: { ...process.env, PHP_CLI_SERVER_WORKERS: '4' } });
+    // api/lib.php keeps its request-slot lock files in the temp directory: the run's own (TMPDIR), removed with it.
+    mkdirSync(join(work, 'php-tmp'));
+    spawnLogged('php', 'php', ['-S', `127.0.0.1:${PHP_PORT}`, '-t', explorer], { env: { ...process.env, PHP_CLI_SERVER_WORKERS: '4', TMPDIR: join(work, 'php-tmp') } });
     await wait(async () => (await fetch(`http://127.0.0.1:${PHP_PORT}/index.html`)).ok, 20000, 'php -S');
     const relayed = await rpc(PHP_PORT, 'eth_blockNumber', [], '/api/rpc.php');
     ok('api/rpc.php relays a read to the explorer gateway on the devnet', /^0x[0-9a-f]+$/.test(relayed), relayed);
