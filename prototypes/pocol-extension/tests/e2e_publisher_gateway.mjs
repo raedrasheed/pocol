@@ -13,8 +13,10 @@
 // Checks: the folder import and the handoff to publisher.html; fees read from the node through the gateway (W4), no
 // "fee rose" pause, the spend within the approved budget; the publication outlasts the build's shortened LOCK_MS
 // (the key lease, W4) and Lock aborts a running one; the site opens through the gateway (CSS, JS, ES modules, font, JSON,
-// rpc_read); three viewers with distinct client addresses open it at once and the gateway's chunk cache answers some of
-// their reads (fewer eth_getCode reach the node than the viewers sent).
+// rpc_read); the IDE copy (W9 tool, rpcUrl at its own relay) loads the deployed contract and reads it in its own UI;
+// three viewers with distinct client addresses open it at once within the owner's Q8 target (OPEN_TARGET_MS) and
+// without an HTTP 429 from the gateway, and the gateway's chunk cache answers some of their reads (fewer eth_getCode
+// reach the node than the viewers sent).
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer, request as httpRequest } from 'node:http';
 import { mkdtempSync, mkdirSync, cpSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
@@ -26,24 +28,30 @@ import { w10Site, writeSiteFiles, SITE_MAX } from './w10_site.mjs';
 
 const PROFILE = process.env.E2E_PROFILE || 'pr'; if (!['pr', 'nightly'].includes(PROFILE)) throw new Error('E2E_PROFILE is pr or nightly');
 const HEADED = process.env.E2E_HEADED === '1';
-const GW = 8650, NODE_TAP = 8654, RELAYS = [8651, 8652, 8653], LOCK_MS = 30000;
+const GW = 8650, NODE_TAP = 8654, RELAYS = [8651, 8652, 8653], IDE_RELAY = 8655, LOCK_MS = 30000;
+// The owner's Q8 answer (SITES-PLAN.md): a 4 MiB site opens in about 10 s with the gateway's budgets (W1/W2). The
+// concurrent open below must stay within it, and within the gateway's request budget (no HTTP 429 to any viewer).
+const OPEN_TARGET_MS = 10000;
 const { ok, results, failed } = checker();
 const work = mkdtempSync(join(tmpdir(), 'pocol-pubgw-'));
 const REPO = join(EXT, '..', '..'), STUDIO = join(EXT, '..', 'pocol-studio', 'dist');
 const procs = []; const servers = []; const contexts = [];
 const q = (v) => BigInt(v);
 
-/** A relay in front of the gateway for one viewer: sets X-Pocol-Client-IP (the gateway's per-client key) and records
- *  every JSON-RPC method with its time. GET /studio/health is relayed too (Studio's connection check). */
+/** A relay in front of the gateway for one client: sets X-Pocol-Client-IP (the gateway's per-client key) and records
+ *  every JSON-RPC method with its time, the request's Origin (which page sent it) and the gateway's HTTP status (429:
+ *  the client's request budget was exceeded). GET /studio/health is relayed too (Studio's connection check). */
 function startRelay(port, clientIp) {
   const relay = { log: [], clientIp };
   const server = createServer((req, res) => {
     const parts = []; req.on('data', (c) => parts.push(c)); req.on('end', () => {
       const body = Buffer.concat(parts); let m = null; try { m = JSON.parse(body); } catch {}
-      for (const x of (Array.isArray(m) ? m : [m])) if (x && x.method) relay.log.push({ method: x.method, tag: Array.isArray(x.params) ? x.params[1] : null, t: Date.now() });
+      const entries = [];
+      for (const x of (Array.isArray(m) ? m : [m])) if (x && x.method) entries.push({ method: x.method, tag: Array.isArray(x.params) ? x.params[1] : null, t: Date.now(), origin: req.headers.origin || null, status: null });
+      relay.log.push(...entries);
       const headers = { 'X-Pocol-Client-IP': clientIp }; if (req.headers['content-type']) headers['content-type'] = req.headers['content-type']; if (body.length) headers['content-length'] = body.length;
-      const up = httpRequest({ host: '127.0.0.1', port: GW, method: req.method, path: req.url, headers }, (r) => { res.writeHead(r.statusCode, { ...r.headers, 'access-control-allow-origin': '*' }); r.pipe(res); });
-      up.on('error', () => { res.writeHead(502, { 'access-control-allow-origin': '*' }); res.end(); }); up.end(body);
+      const up = httpRequest({ host: '127.0.0.1', port: GW, method: req.method, path: req.url, headers }, (r) => { for (const e of entries) e.status = r.statusCode; res.writeHead(r.statusCode, { ...r.headers, 'access-control-allow-origin': '*' }); r.pipe(res); });
+      up.on('error', () => { for (const e of entries) e.status = 502; res.writeHead(502, { 'access-control-allow-origin': '*' }); res.end(); }); up.end(body);
     });
   });
   relay.count = (mm, tag) => relay.log.filter((x) => x.method === mm && (tag === undefined || x.tag === tag)).length;
@@ -128,7 +136,7 @@ async function viewSite(b, site, name) {
 }
 
 async function main() {
-  for (const p of [30300, 30301, 30302, 8540, 8541, 8542, GW, NODE_TAP, ...RELAYS]) if (!(await portFree(p))) throw new Error('port busy ' + p);
+  for (const p of [30300, 30301, 30302, 8540, 8541, 8542, GW, NODE_TAP, ...RELAYS, IDE_RELAY]) if (!(await portFree(p))) throw new Error('port busy ' + p);
   // A devnet's CODE_CAP is 2 MiB (caps/64): the nightly 4 MiB site after the 1.6 MB project needs a larger one.
   devnet(['init', work, '--miners', 'a,b,c', '--t-blk', '2', '--tau', '20', '--c', '8', '--d-att', '41', '--fb-wait', '3', '--work-bits', '15', ...(PROFILE === 'nightly' ? ['--code-cap', String(16 << 20)] : [])]);
   const info = JSON.parse(readFileSync(join(work, 'net', 'devnet.json'), 'utf8')); const cid = String(info.chainId);
@@ -144,6 +152,8 @@ async function main() {
     procs.push(gw); let gwOut = ''; gw.stdout.on('data', (c) => { gwOut += c; }); gw.stderr.on('data', (c) => { gwOut += c; });
     await wait(() => /ready on loopback/.test(gwOut), 30000, 'gateway ready');
     const relays = await Promise.all(RELAYS.map((p, i) => startRelay(p, `198.51.100.${i + 1}`)));
+    // The IDE copy's rpcUrl (W9 tool --rpc-url) gets a relay of its own: only the IDE page's own reads reach it.
+    const ideRelay = await startRelay(IDE_RELAY, '198.51.100.9');
     const health = await (await fetch(`http://127.0.0.1:${RELAYS[0]}/studio/health`)).json();
     ok('the Studio gateway serves the devnet identity (--network)', health.ready === true && health.chainId === info.chainId && health.genesisHash === info.genesisHash.toLowerCase(), JSON.stringify(health));
     const testNetwork = { name: 'devnet-gw', chainId: info.chainId, genesisHash: info.genesisHash.toLowerCase(), genesisPre: profile.genesisPre };
@@ -216,7 +226,8 @@ async function main() {
     await v1.page.close();
 
     // ---- IDE smoke: the IDE snapshot switched to the devnet (W9 tool: frozen network, rpcUrl at this gateway), a
-    // contract compiled with the IDE's bundled compiler and deployed through ide-content.js -> contract.html ----
+    // contract compiled with the IDE's bundled compiler and deployed through ide-content.js -> contract.html, then
+    // loaded and read in the IDE's own UI through its rpcUrl (its own relay, IDE_RELAY) ----
     {
       const tree = join(work, 'ide-tree');
       for (const top of ['deploy/websites', 'prototypes/pocol-studio/dist']) cpSync(join(REPO, top), join(tree, top), { recursive: true, filter: (s) => !/__pycache__|[\\/]config\.php$/.test(s) });
@@ -225,19 +236,24 @@ async function main() {
       writeFileSync(join(work, 'network.pocol.json'), JSON.stringify({ schema: 'pocol-network-v2', consensusRulesVersion: 2, seeds: ['192.0.2.10:30300'],
         files: { 'genesis.spec.hex': spec.startsWith('0x') ? spec : '0x' + spec, 'devnet.json': JSON.stringify({ chainId: info.chainId, genesisHash: info.genesisHash.toLowerCase() }) } }));
       // TEST-NET seeds and gateway host (RFC 5737): the explorer bundle already holds 127.0.0.1 outside its anchors.
-      const sw = spawnSync('python3', ['-B', join(REPO, 'deploy', 'websites', 'tools', 'site_identity.py'), '--root', tree, '--to', join(work, 'network.pocol.json'), '--gateway-host', '192.0.2.10', '--rpc-url', `http://127.0.0.1:${RELAYS[0]}/studio/rpc`], { encoding: 'utf8' });
+      const sw = spawnSync('python3', ['-B', join(REPO, 'deploy', 'websites', 'tools', 'site_identity.py'), '--root', tree, '--to', join(work, 'network.pocol.json'), '--gateway-host', '192.0.2.10', '--rpc-url', `http://127.0.0.1:${IDE_RELAY}/studio/rpc`], { encoding: 'utf8' });
       ok('IDE: the W9 tool switches a copy of the IDE to the devnet (frozen network object, rpcUrl at the local Studio gateway)', sw.status === 0, (sw.stderr || sw.stdout).slice(-300));
       const ide = join(tree, 'deploy', 'websites', 'ide.pocol.net');
       const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ico': 'image/x-icon', '.json': 'application/json', '.wasm': 'application/wasm', '.ttf': 'font/ttf', '.webmanifest': 'application/manifest+json', '.txt': 'text/plain' };
       await b.ctx.route('https://ide.pocol.net/**', (route) => { const u = new URL(route.request().url()); const p = u.pathname === '/' ? '/index.html' : decodeURIComponent(u.pathname); const f = join(ide, p);
         if (p.includes('..') || !existsSync(f)) return route.fulfill({ status: 404, body: 'not found' }); return route.fulfill({ status: 200, contentType: types[extname(f)] || 'application/octet-stream', body: readFileSync(f) }); });
+      // The test's gateway is on loopback, which Chrome's Local Network Access shields from a public https page until the
+      // user allows it; the IDE's origin is allowed here (the release rpcUrl is the public https gateway).
+      await b.ctx.grantPermissions(['local-network-access'], { origin: 'https://ide.pocol.net' });
       const idePage = await b.ctx.newPage(); const ideErrors = []; idePage.on('pageerror', (e) => ideErrors.push(e.message));
-      const r0 = relays[0].log.length;
+      // The context routes https://gateway.pocol.net (the release rpcUrl) to relay 0 for Studio; the IDE page may not
+      // reach it: an IDE copy left on the release rpcUrl is caught here, not served.
+      const ideToRelease = []; await idePage.route('https://gateway.pocol.net/**', (route) => { ideToRelease.push(route.request().url()); return route.abort(); });
       await idePage.goto('https://ide.pocol.net/', { waitUntil: 'load' }); await sleep(4000);
       const compiled = await idePage.evaluate(async () => {
         const worker = new Worker('/compiler/worker.js');
         try {
-          const input = { language: 'Solidity', sources: { 'W11.sol': { content: 'pragma solidity ^0.8.38; contract W11 { uint256 public n = 7; function inc() external { n += 1; } }' } }, settings: { evmVersion: 'cancun', outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object'] } } } };
+          const input = { language: 'Solidity', sources: { 'W11.sol': { content: 'pragma solidity ^0.8.38; contract W11 { uint256 public count = 7; function increment() external { count += 1; } }' } }, settings: { evmVersion: 'cancun', outputSelection: { '*': { '*': ['abi', 'evm.bytecode.object'] } } } };
           const out = await new Promise((resolve, reject) => { const t = setTimeout(() => reject(new Error('compiler deadline')), 60000); worker.onmessage = (e) => { clearTimeout(t); resolve(e.data); }; worker.postMessage({ id: 1, input }); });
           const c = out.result && out.result.contracts && out.result.contracts.find((x) => x.name === 'W11');
           return { compiler: out.result && out.result.compiler, abi: c && c.abi, bytecode: c && c.bytecode, error: out.error && out.error.message };
@@ -258,10 +274,26 @@ async function main() {
       await cpage.check('#consent'); await cpage.click('#confirm');
       await waitStatus(cpage, () => /^0x[0-9a-fA-F]{40}$/.test(document.getElementById('resultAddress').textContent.trim()) && /included/i.test(document.getElementById('status').textContent), 180000, 'IDE deploy');
       const caddr = (await cpage.textContent('#resultAddress')).trim();
-      const n = await rpc(8541, 'eth_call', [{ to: caddr, data: '0x2e52d606' }, 'latest']);
-      ok('IDE: the contract is deployed on the devnet through the extension and the gateway (code on node b, n() = 7)', (await rpc(8541, 'eth_getCode', [caddr, 'latest'])).length > 4 && BigInt(n) === 7n, `${caddr} n=${n}`);
-      ok('IDE: the IDE page read the network through its rpcUrl (the gateway relay) and raised no uncaught error', relays[0].log.slice(r0).length > 0 && ideErrors.length === 0, ideErrors.join(' | '));
-      await cpage.close(); await idePage.close();
+      const n = await rpc(8541, 'eth_call', [{ to: caddr, data: '0x06661abd' }, 'latest']);
+      ok('IDE: the contract is deployed on the devnet through the extension and the gateway (code on node b, count() = 7)', (await rpc(8541, 'eth_getCode', [caddr, 'latest'])).length > 4 && BigInt(n) === 7n, `${caddr} count=${n}`);
+      await cpage.close();
+      // The IDE's own reads: compile its starter Counter (count() has the same selector), choose the public network
+      // (the IDE checks eth_chainId and pocol_status against its frozen network), load the deployed contract at its
+      // address (eth_getCode) and read count (eth_call). All of it must go through the switched rpcUrl.
+      const ide0 = ideRelay.log.length;
+      await idePage.click('button:has-text("Compile project")');
+      await idePage.waitForFunction(() => /Compilation complete/.test(document.body.innerText), null, { timeout: 60000 });
+      await idePage.click('button:has-text("02Deploy")'); await idePage.click('button:has-text("Public network")');
+      await idePage.click('button:has-text("03Interact")'); await idePage.click('button:has-text("Load contract at address")');
+      await idePage.fill('input[placeholder="0x…"]', caddr); await idePage.click('button:has-text("Load contract"):not(:has-text("at address"))');
+      await idePage.click('button:has-text("READcount")', { timeout: 30000 }); await idePage.click('button:has-text("Read value")');
+      const shown = await idePage.waitForFunction(() => { const m = /"values":\s*\[\s*"(\d+)"\s*\]/.exec(document.body.innerText); return m && m[1]; }, null, { timeout: 30000 }).then((h) => h.jsonValue()).catch(() => null);
+      const ideLog = ideRelay.log.slice(ide0); const ideMethods = [...new Set(ideLog.map((x) => x.method))];
+      ok('IDE: the IDE page reads the devnet through its switched rpcUrl (own relay, Origin https://ide.pocol.net): network check, the loaded contract\'s code and count() = 7 shown',
+        shown === '7' && ['eth_chainId', 'pocol_status', 'eth_getCode', 'eth_call'].every((m) => ideMethods.includes(m)) && ideLog.every((x) => x.origin === 'https://ide.pocol.net' && x.status === 200) && /connected/i.test(await idePage.textContent('body')),
+        `shown=${shown}; ${ideLog.map((x) => x.method + ':' + x.status + ':' + x.origin).join(' ').slice(0, 240)}`);
+      ok('IDE: nothing from the IDE page went to the release rpcUrl (https://gateway.pocol.net) and it raised no uncaught error', ideToRelease.length === 0 && ideErrors.length === 0, [...ideToRelease, ...ideErrors].join(' | '));
+      await idePage.close();
     }
 
     // ---- Lock aborts a running publication ----
@@ -299,14 +331,18 @@ async function main() {
       viewSiteAddr = JSON.parse(r.stdout).site;
     }
     const viewers = [b, await openBrowser(testNetwork, RELAYS[1], 'v2', { headless: true }), await openBrowser(testNetwork, RELAYS[2], 'v3', { headless: true })];
-    const inBefore = relays.map((r) => r.count('eth_getCode')), upBefore = nodeTap.count('eth_getCode');
+    const inBefore = relays.map((r) => r.count('eth_getCode')), upBefore = nodeTap.count('eth_getCode'), logBefore = relays.map((r) => r.log.length);
     const opened = await Promise.all(viewers.map((x) => viewSite(x, viewSiteAddr, 'devnet-gw')));
+    const openLogs = relays.map((r, i) => r.log.slice(logBefore[i])), refused = openLogs.map((l) => l.filter((x) => x.status === 429).length);
     const sentIn = relays.reduce((a, r, i) => a + r.count('eth_getCode') - inBefore[i], 0), upstream = nodeTap.count('eth_getCode') - upBefore;
     ok(`${viewers.length} viewers with distinct client addresses open the ${(viewBytes / 1e6).toFixed(2)} MB site through the gateway at once (${opened.map((o) => (o.openMs / 1000).toFixed(1) + ' s').join(', ')})`,
       opened.every((o) => o.v.h1.startsWith('PoCol W10 site') && o.v.mod && o.v.mod.startsWith('lib>util') && o.trust === 'RN'), JSON.stringify(opened.map((o) => o.v.h1)));
+    const slowest = Math.max(...opened.map((o) => o.openMs));
+    ok(`the concurrent open stays within the Q8 target: the slowest of ${viewers.length} viewers opened the ${(viewBytes / 1e6).toFixed(2)} MB site in ${(slowest / 1000).toFixed(1)} s (target ${OPEN_TARGET_MS / 1000} s)`, slowest <= OPEN_TARGET_MS, opened.map((o) => o.openMs).join(' ms, ') + ' ms');
+    ok(`the concurrent open stays within the gateway's request budget: no viewer was answered HTTP 429 (${openLogs.reduce((a, l) => a + l.length, 0)} requests)`, refused.every((n) => n === 0) && openLogs.every((l) => l.every((x) => x.status !== null)), relays.map((r, i) => `${r.clientIp}: ${openLogs[i].length} requests, ${refused[i]} refused`).join('; '));
     ok(`the gateway's chunk cache answered viewers' reads: ${sentIn} eth_getCode from the viewers, ${upstream} reached the node`, sentIn > 0 && upstream < sentIn, `${sentIn} in, ${upstream} upstream`);
     ok('each viewer reached the gateway under its own client address (relays)', relays.every((r, i) => r.count('eth_getCode') - inBefore[i] > 0), relays.map((r, i) => r.clientIp + ':' + (r.count('eth_getCode') - inBefore[i])).join(' '));
-    writeFileSync(join(work, 'viewers.json'), JSON.stringify({ profile: PROFILE, bytes: viewBytes, openMs: opened.map((o) => o.openMs), sentIn, upstream }, null, 1));
+    writeFileSync(join(work, 'viewers.json'), JSON.stringify({ profile: PROFILE, bytes: viewBytes, openMs: opened.map((o) => o.openMs), targetMs: OPEN_TARGET_MS, refused429: refused, sentIn, upstream }, null, 1));
     console.log('MEASURE concurrent open', JSON.stringify({ bytes: viewBytes, openMs: opened.map((o) => o.openMs), sentIn, upstream }));
     for (const o of opened) await o.page.close();
 

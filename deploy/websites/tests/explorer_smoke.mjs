@@ -16,6 +16,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { connect } from 'node:net';
+import { keepOnFailure } from '../../../prototypes/pocol-extension/tests/harness.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), ROOT = join(HERE, '..', '..', '..');
 const POCOLD = join(ROOT, 'prototypes', 'pocold'), BIN = process.env.POCOLD_BIN_DIR || join(POCOLD, 'target', 'release');
@@ -74,8 +75,11 @@ async function main() {
     await wait(async () => (await fetch(`http://127.0.0.1:${PHP_PORT}/index.html`)).ok, 20000, 'php -S');
     const relayed = await rpc(PHP_PORT, 'eth_blockNumber', [], '/api/rpc.php');
     ok('api/rpc.php relays a read to the explorer gateway on the devnet', /^0x[0-9a-f]+$/.test(relayed), relayed);
-    const health = await (await fetch(`http://127.0.0.1:${PHP_PORT}/api/health.php`)).text();
-    ok('api/health.php reports the devnet identity matched (config chain_id / genesis_hash)', /true/.test(health), health.slice(0, 200));
+    // health.php compares the gateway's pocol_getParams with config.php's chain_id and genesis_hash: HTTP 200 with
+    // networkMatch and PASS only when both match (503 NOT_CONNECTED otherwise, also for an unreachable gateway).
+    const hres = await fetch(`http://127.0.0.1:${PHP_PORT}/api/health.php`); const health = await hres.text();
+    let hv = null; try { hv = JSON.parse(health); } catch {}
+    ok('api/health.php reports the devnet identity matched (config chain_id / genesis_hash against the gateway)', hres.status === 200 && hv && hv.gatewayReachable === true && hv.networkMatch === true && hv.result === 'PASS', `HTTP ${hres.status} ${health.slice(0, 200)}`);
 
     const browser = await chromium.launch({ executablePath: EXE, headless: true });
     try {
@@ -113,6 +117,14 @@ async function main() {
 try { await main(); } catch (e) { ok('explorer/IDE smoke completed', false, e.stack || e.message); }
 await sleep(1500);
 const summary = { result: failed ? 'FAIL' : 'PASS', checks: results.length, failed, work };
+// A failed run keeps its evidence (POCOL_E2E_KEEP in CI, uploaded with evidence/): php.log, explorer-gateway.log,
+// explorer-text.txt, the generated config.php, the devnet's node logs and inputs (dn/). The switched copy of the
+// sites is left out except the explorer's api/ (the rest is the repository's files with the W9 tool's edits).
+if (failed) {
+  const tree = join(work, 'tree'), api = join(tree, 'deploy', 'websites', 'explorer.pocol.net', 'api');
+  try { if (existsSync(api)) cpSync(api, join(work, 'explorer-api'), { recursive: true }); rmSync(tree, { recursive: true, force: true }); } catch {}
+  summary.kept = keepOnFailure('explorer_smoke', work, { results });
+}
 writeFileSync(join(HERE, 'explorer_smoke.last.json'), JSON.stringify({ ...summary, results }, null, 1) + '\n');
 if (!failed && process.env.E2E_KEEP !== '1') rmSync(work, { recursive: true, force: true });
 console.log(JSON.stringify(summary));

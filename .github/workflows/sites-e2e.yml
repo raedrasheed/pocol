@@ -106,6 +106,8 @@ jobs:
           node prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs 2>&1 | tee evidence/e2e-publisher-gateway.log
       - name: W11 explorer under php -S against a local explorer gateway
         if: always() && steps.build.outcome == 'success'
+        env:
+          POCOL_E2E_KEEP: ${{ github.workspace }}/evidence/kept
         run: |
           set -o pipefail
           node deploy/websites/tests/explorer_smoke.mjs 2>&1 | tee evidence/explorer-smoke.log
