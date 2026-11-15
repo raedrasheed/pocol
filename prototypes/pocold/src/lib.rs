@@ -240,7 +240,10 @@ pub fn load_spec_calibrated(dir:&std::path::Path,local:&NodeLocal,mut measure:im
         Err(e)=>return Err(format!("devnet.json: {e}")),
     };
     let forks=configured_forks(&info)?;
-    let calibration=info["calibration"]["hashesPerSecond"].as_u64().map(|r|(r,FactClass::SyntheticFixture));
+    // FN-4: the class devnet.json records with H_cal (init-testnet: `measurement` for a profile's measured hashRate,
+    // `synthetic-fixture` otherwise); anything else stays a synthetic fixture.
+    let class=if info["calibration"]["class"]=="measurement"{FactClass::Measurement}else{FactClass::SyntheticFixture};
+    let calibration=info["calibration"]["hashesPerSecond"].as_u64().map(|r|(r,class));
     for attempt in 0..2{
         let measured=measure(&spec_bytes,&alloc);
         let req=Request{spec_bytes:&spec_bytes,alloc:&alloc,forks:&forks,kind:ProfileKind::Simnet,node:NodeKind::Simnet,local,calibration,timing:measured.as_ref().ok(),scope:admission::Scope::ExperimentalDevnet};

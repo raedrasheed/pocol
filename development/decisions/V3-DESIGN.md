@@ -559,6 +559,9 @@ first-lock times are lost on a restart; a block first imported after it is judge
     default is `TimingAssumptions::V3_WAN` (Δ = φ = t_exec = 2 s, the O-6=b bounds): Δ_rel 13, Γ 8 at
     T_blk 30 / D_att 150 / dFbWait 10. The governance WAN locals (5, 5, 3) derive 25 and need dFbWait ≥ 21 (R3),
     which admission enforces. The production values stay V3-PR-F's.
+    **FN-4 (2026-11-14):** the default is now `TimingAssumptions::V3_DEFAULT` = (1, 1, 1), Δ_rel 7, `source`
+    `v3-default` (FRESH-NETWORK-DESIGN §1c); the fresh network's profiles declare (1, 1, 1), and (2, 1, 1), Δ_rel 8,
+    is the measured fallback the same CP admits. `V3_WAN` stays as a declarable value.
   - Telemetry (`pocold/src/node/latency.rs`): per drawn proposer, the arrival of its signed a=0 template relative to
     b_j (sinceParentMs: what Δ_rel must cover) and, signed, relative to the template's own timestamp, the proposer's
     clock at the build (sinceStampMs / beforeStampMs: delivery + build + the receiver's clock offset, the φ-bearing
