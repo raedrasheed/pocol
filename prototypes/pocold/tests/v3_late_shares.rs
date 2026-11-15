@@ -115,17 +115,32 @@ mod on_chain {
     struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Address>}
     /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
     impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
-    /// Spec 2: the v3 devnet. Spec 1: its retired spec-1 earn-in twin (Phase 6a deletes it with the spec-1 rule set).
-    /// Both on bounded nonce ranges (CP field 4 = 0, still a valid v3 CP until Phase 6a requires nonceMode 1): the
-    /// late-share rules these fixtures exercise include the nMax bound ("ls nonce outside nMax"), which a full 2^64
-    /// domain cannot reach, and they scan from nonce 0. Phase 5b/5c moves them to the full domain.
+    /// Spec 2: the v3 devnet, on the full 64-bit nonce domain the fresh network runs (CP field 4 = 1, nonceMode 1: the
+    /// DevnetConfig::new default; Phase 5c). Spec 1: its retired spec-1 earn-in twin, on bounded ranges (Phase 6a deletes it
+    /// with the spec-1 rule set).
     fn config(spec:u8)->DevnetConfig{
         let mut c=match spec{1=>DevnetConfig::spec1(777952,1_700_000_000,&["one","two","three"],devnet::Spec1Programs::EarnIn),_=>DevnetConfig::new(777952,1_700_000_000,&["one","two","three"])};
-        c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.nonce_mode=0;c
+        c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;
+        assert_eq!(c.nonce_mode,if spec==1{0}else{1});c
+    }
+    /// The v3 devnet on bounded nonce ranges (CP field 4 = 0), the only place the nMax bound of a late share ("15 ls nonce
+    /// outside nMax") is reachable: on the full domain every u64 nonce is inside it. Pinned until Phase 6a, whose
+    /// admission requires nonceMode 1 and so removes this CP.
+    fn config_bounded()->DevnetConfig{let mut c=config(2);c.nonce_mode=0;c}
+    /// The largest nonce of the context's domain, as a u64 (the full domain's 2^64 is u64::MAX + 1).
+    fn top(ctx:&pocold::chain::ChildCtx)->u64{u64::try_from(ctx.assignment.nonce_max()).unwrap_or(u64::MAX)}
+    /// The nonces a block search scans: the whole bounded domain from 0 (at most 2^16), or, on the full domain (whose
+    /// ranges each span about 2^64 / |members| nonces), the first SCAN nonces of every member's range, in ascending order.
+    const SCAN:u64=512;
+    fn scan(ctx:&pocold::chain::ChildCtx)->Vec<u64>{
+        if ctx.assignment.nonce_max()<=1<<16{return (0..top(ctx)).collect()}
+        let mut starts:Vec<u64>=ctx.assignment.ranges().iter().map(|r|r.start() as u64).collect();starts.sort_unstable();
+        starts.iter().flat_map(|s|*s..s.saturating_add(SCAN)).collect()
     }
     fn spec_of(c:&DevnetConfig)->Spec{crate::members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap().0)}
-    fn net(spec:u8)->Net{
-        let cfg=config(spec);let d=devnet::build(&cfg).unwrap();
+    fn net(spec:u8)->Net{net_with(spec,config(spec))}
+    fn net_with(spec:u8,cfg:DevnetConfig)->Net{
+        let d=devnet::build(&cfg).unwrap();
         let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
         let ids=d.miners.iter().map(|m|m.id).collect();
         let chain=Chain::new(spec_of(&cfg));
@@ -147,9 +162,8 @@ mod on_chain {
         for ts in p.ts+u64::from(n.chain.spec.cp().T_blk)..=ctx.window.upper(){
             let (mut h,_,_)=n.chain.build_signed(&p,&n.keys[&ctx.proposer],ts,body.clone(),effects.clone()).unwrap();
             let tid=template_id(&h.ut_raw);
-            let top=ctx.assignment.nonce_max().min(1<<16) as u64;
             let mut shares:Vec<(u64,Address)>=Vec::new();let mut win=None;
-            for nonce in 0..top{
+            for nonce in scan(&ctx){
                 let ph=pow_hash(&tid,nonce);let owner=addr(&ctx.assignment.owner(nonce).unwrap());
                 if win.is_none()&&owner==winner&&le_target(&ph,&ctx.target){win=Some(nonce);continue}
                 if le_target(&ph,&ctx.t_share){shares.push((nonce,owner));}
@@ -234,10 +248,16 @@ mod on_chain {
         }
     }
 
-    /// The design's negative cases on real branches (V3-DESIGN.md V3-02 Tests), each refused with its rule.
+    /// The design's negative cases on real branches (V3-DESIGN.md V3-02 Tests), each refused with its rule, on the full
+    /// nonce domain: a nonce at the top of the u64 domain is judged on its share target, never on an nMax bound.
     #[test]
-    fn late_shares_refused_on_a_real_branch(){
-        let mut n=net(2);let (one,two,three)=(n.ids[0],n.ids[1],n.ids[2]);
+    fn late_shares_refused_on_a_real_branch(){refused_cases(net(2),false)}
+    /// The same cases on bounded nonce ranges, where "15 ls nonce outside nMax" is reachable: pinned until Phase 6a
+    /// (`config_bounded`); its full-domain counterpart is late_shares_refused_on_a_real_branch.
+    #[test]
+    fn late_shares_refused_on_a_real_branch_on_bounded_nonces(){refused_cases(net_with(2,config_bounded()),true)}
+    fn refused_cases(mut n:Net,bounded:bool){
+        let (one,two,three)=(n.ids[0],n.ids[1],n.ids[2]);
         let (_,m4)=omitted_chain(&mut n);let h4=n.chain.head;let b4=&m4.block.header;
         let reason=|n:&Net,parent:[u8;32],items:Vec<Vec<u8>>|refused(n,&mine(n,parent,items,false,one,&[],8,0).block);
         let o=&m4.omitted;
@@ -255,10 +275,15 @@ mod on_chain {
         }
         match n.chain.evidence_effects(&p4,&pocold::types::Body{txs:vec![],evidence:vec![late_encode(4,&o[..1])]},p4.height+1){Ok(e)=>assert_eq!(e.len(),1),r=>panic!("positive control: {r:?}")}
         let ctx4=n.chain.child_ctx(&n.chain.full_entry(&p4.parent.unwrap()).unwrap(),0).unwrap();
-        let nmax=ctx4.assignment.nonce_max() as u64;
+        let nmax=top(&ctx4);
         let miss=(0..nmax).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
         assert_eq!(reason(&n,h4,vec![late_encode(4,&[miss])]),"15 ls share target");
-        assert_eq!(reason(&n,h4,vec![late_encode(4,&[nmax])]),"15 ls nonce outside nMax");
+        if bounded{assert_eq!(reason(&n,h4,vec![late_encode(4,&[nmax])]),"15 ls nonce outside nMax");}
+        else{
+            assert_eq!(ctx4.assignment.nonce_max(),1u128<<64,"the full domain");
+            let far=(0..u64::MAX).map(|i|u64::MAX-i).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
+            assert_eq!(reason(&n,h4,vec![late_encode(4,&[far])]),"15 ls share target","no nMax bound inside the u64 domain");
+        }
         // A share mined on a sibling template of height 4 (another timestamp of the same parent; not an ancestor of
         // this branch) is checked against the branch's template j and misses it.
         let sib=mine(&n,p4.parent.unwrap(),vec![],true,one,&[],8,1);let tid_sib=template_id(&sib.block.header.ut_raw);assert_ne!(tid_sib,tid4);
@@ -327,18 +352,24 @@ mod on_chain {
     /// the omitted shares (smallest first, within the cap), the block validates and credits them. The cache keeps at
     /// most D templates of at most 4·S_max shares, and takes a later share only below nMax and on target.
     #[test]
-    fn a_proposer_carries_the_uncredited_shares_it_saw(){
+    fn a_proposer_carries_the_uncredited_shares_it_saw(){proposer_carries(net(2),false)}
+    /// The same on bounded nonce ranges, where the cache's stash also meets a share at nMax: pinned until Phase 6a
+    /// (`config_bounded`); its full-domain counterpart is a_proposer_carries_the_uncredited_shares_it_saw.
+    #[test]
+    fn a_proposer_carries_the_uncredited_shares_it_saw_on_bounded_nonces(){proposer_carries(net_with(2,config_bounded()),true)}
+    fn proposer_carries(mut n:Net,bounded:bool){
         use pocold::node::{LateCache,LateTemplate,Selection};
-        let mut n=net(2);let one=n.ids[0];
+        let one=n.ids[0];
         let (blocks,m4)=omitted_chain(&mut n);let h4=n.chain.head;let b4=m4.block.header.clone();
         let p=n.chain.full_entry(&h4).unwrap();let proposer=n.chain.child_ctx(&p,0).unwrap().proposer;
         let ctx4=n.chain.child_ctx(&n.chain.full_entry(&p.parent.unwrap()).unwrap(),0).unwrap();let tid4=template_id(&b4.ut_raw);
         let nmax=ctx4.assignment.nonce_max();
-        let miss=(0..nmax as u64).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
-        let d=dir("proposer");let key=Key::from_secret(&n.keys[&proposer].secret()).unwrap();
+        let miss=(0..top(&ctx4)).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
+        let d=dir(if bounded{"proposer-bounded"}else{"proposer"});let key=Key::from_secret(&n.keys[&proposer].secret()).unwrap();
         let mut node=Node::open(Config{miner:Some(key),..node_config(&d,Limits::default())},spec_of(&n.cfg)).unwrap();
         for b in &blocks{assert!(node.import(b.clone(),None).unwrap());}
-        let mut shares=m4.omitted.clone();shares.extend([b4.shares[0],b4.nonce,miss,nmax as u64,m4.omitted[0]]);
+        // A header share, the winning nonce, a target miss, (on bounded ranges) nMax, and a duplicate.
+        let mut shares=m4.omitted.clone();shares.extend([b4.shares[0],b4.nonce,miss]);if bounded{shares.push(nmax as u64);}shares.push(m4.omitted[0]);
         node.late_cache.stash(LateTemplate{tid:tid4,height:4,nonce_max:nmax,t_share:ctx4.t_share,shares},4*256);
         let (h,body)=node.build_template_unrecorded(&p,Selection::default(),p.ts+4).expect("a template");
         // The no-dilution cap leaves kappa*m - C_header(4) of them (two found more than that).
@@ -347,7 +378,7 @@ mod on_chain {
         assert_eq!(node.stats.late_items,1);
         // The template is valid: mined, it credits two's omitted shares.
         let pe=n.chain.full_entry(&h4).unwrap();let ctx=n.chain.child_ctx(&pe,0).unwrap();let tid=template_id(&h.ut_raw);
-        let nonce=(0..ctx.assignment.nonce_max() as u64).find(|x|le_target(&pow_hash(&tid,*x),&ctx.target)).unwrap();
+        let nonce=(0..top(&ctx)).find(|x|le_target(&pow_hash(&tid,*x),&ctx.target)).unwrap();
         let mut hh=h.clone();hh.nonce=nonce;hh.shares=vec![];reseal(&mut hh);let owner=addr(&ctx.assignment.owner(nonce).unwrap());
         hh.winner_sig=n.keys[&owner].sign_hash(&B256::from(hashes::win_msg(&tid,nonce,&share_root(&hh))));reseal(&mut hh);
         let h5=accept(&mut n,&Block{header:hh,body});

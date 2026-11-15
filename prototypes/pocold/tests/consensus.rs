@@ -15,11 +15,15 @@ impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.c
 /// Gate-valid test profile (A02): about 2^12 hashes per block (target 2^244-1 at T_blk=4),
 /// c=8, and D_att=73 so that R7 holds with single-host timing: 73+5 >= 2(7+8*4).
 /// Genesis is in the past: honest single-host Φ=0 tolerates no future timestamps.
-/// Phase 5a: pinned to the retired spec-1 devnet (DevnetConfig::spec1, the devnet default before Phase 5a) for Phase
-/// 5b/5c. This suite hard-codes spec-1 rules throughout: the bounded nonce range (rule 6, nonce >= nMax; seals scanned
-/// from nonce 0), the 100 PCOL bond and 2 PCOL subsidy, the activity window, no base-fee floor, the spec-1 log caps and
-/// the finite chain's lifetime caps.
-fn cfg(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::spec1(777910,1_700_000_000,miners,pocol_lp4_execution::devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+/// Phase 5b: the v3 devnet (DevnetConfig::new: spec 2, the V3 programs, nonceMode 1 with the full nonce domain, a
+/// continuous chain, B_reg 20 PCOL, S0 4 PCOL, the base-fee floor and the v3 log caps). The tests of a spec-1-only rule
+/// use `cfg_spec1` instead (Phase 6a deletes them with the spec-1 rule set).
+fn cfg(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,miners);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+/// Phase 6a deletes this: the retired spec-1 devnet (DevnetConfig::spec1, Bonded: specVersion 1, nonceMode 0 with the
+/// bounded nonce range, H_END 20,000 with the finite chain's lifetime caps, B_reg 100 PCOL, S0 2 PCOL, the activity
+/// window, no base-fee floor and the spec-1 log caps) with the same timing as `cfg`, for the tests whose subject is a
+/// spec-1-only rule.
+fn cfg_spec1(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::spec1(777910,1_700_000_000,miners,pocol_lp4_execution::devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 /// The admitted spec (full ParamGate with measured timing); a Devnet alone cannot boot.
 fn admitted(c:&DevnetConfig)->Spec{members_sweep::oracle();let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn net_with(c:&DevnetConfig)->Net{
@@ -31,12 +35,19 @@ fn net()->Net{net_with(&cfg(&["a","b","c"]))}
 
 /// Mines a nonce for the header's template; fills shares (<= T_share) and winnerSig.
 fn seal_block(n:&Net,h:lp1hdr::Header,body:Body,attempt:u32,start:u64)->Block{try_seal(n,h,body,attempt,start).expect("no solution in nonce space")}
-/// None when the bounded nonce space holds no solution (probability ~e^-c).
+/// Searches from nonce `start` up through the ranges of the members whose keys `n` holds, in range order (rule 13: only
+/// owner(nonce) can sign the win, so a range whose owner's key is not held is skipped): on the v3 full nonce domain
+/// (nonceMode 1) each range is 2^64/n nonces, so the first held range at or above `start` holds the solution. None when
+/// the nonce space holds no solution (only on a bounded spec-1 range, probability ~e^-c).
 fn try_seal(n:&Net,mut h:lp1hdr::Header,body:Body,attempt:u32,start:u64)->Option<Block>{
     let p=n.chain.full_entry(&h.parent_hash).unwrap();let ctx=n.chain.child_ctx(&p,attempt).unwrap();
-    let tid=template_id(&h.ut_raw);let mut shares=vec![];let mut x=start;
-    loop{if (x as u128)>=ctx.assignment.nonce_max(){return None}let ph=pow_hash(&tid,x);if le_target(&ph,&ctx.t_share){if le_target(&ph,&ctx.target){break}shares.push(x);}x+=1;}
-    let owner=addr(&ctx.assignment.owner(x).unwrap());
+    let tid=template_id(&h.ut_raw);let mut shares=vec![];let mut found=None;
+    'ranges:for r in ctx.assignment.ranges(){
+        if !n.keys.contains_key(&addr(&r.id())){continue}
+        let lo=r.start().max(u128::from(start));let mut x=lo;
+        while x<r.end_exclusive(){let ph=pow_hash(&tid,x as u64);if le_target(&ph,&ctx.t_share){if le_target(&ph,&ctx.target){found=Some(x as u64);break 'ranges}shares.push(x as u64);}x+=1;}
+    }
+    let x=found?;let owner=addr(&ctx.assignment.owner(x).unwrap());
     h.nonce=x;shares.truncate(256);h.shares=shares;reseal(&mut h);
     h.winner_sig=n.keys[&owner].sign_hash(&B256::from(hashes::win_msg(&tid,x,&share_root(&h))));reseal(&mut h);
     Some(Block{header:h,body})
@@ -138,8 +149,13 @@ fn best_of(chain:&Chain)->[u8;32]{
     }
     assert!(checked>=28&&distinct.len()>=2,"positive control: {checked} blocks, {} distinct targets (a parent-target mutant differs)",distinct.len());
 }
-#[test] fn every_validity_item_rejects_its_mutation(){
-    let mut n=net();for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);}
+#[test] fn every_validity_item_rejects_its_mutation(){every_validity_item(&cfg(&["a","b","c"]))}
+/// Phase 6a deletes this: every_validity_item_rejects_its_mutation on the spec-1 devnet, whose bounded nonce range
+/// (nonceMode 0) has item 6 (nonce >= nMax). On the v3 full domain (nonceMode 1, nMax = 2^64) no u64 nonce is out of
+/// range: the same mutation (nonce u64::MAX) is judged on its PoW (item 7), as the v3 test checks.
+#[test] fn every_validity_item_rejects_its_mutation_spec1(){every_validity_item(&cfg_spec1(&["a","b","c"]))}
+fn every_validity_item(c:&DevnetConfig){
+    let mut n=net_with(c);let v3=n.chain.spec.effective_nonce_mode(1)==pocold::assignment::NonceMode::Unbounded;for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);}
     let head=n.chain.head;
     let good=signed(&n,head,Body::default(),0);
     let block=|why:&str,r:Reject|match r{Reject::Block(s)=>assert!(s.contains(why),"expected {why}, got {s}"),o=>panic!("expected Block({why}), got {o:?}")};
@@ -151,8 +167,11 @@ fn best_of(chain:&Chain)->[u8;32]{
     // 5 target (unsigned fallback copy so item 3 does not fire first).
     let fbg=fallback(&n,head,0);
     let mut h=fbg.header.clone();h.target=Fixed::from_be_slice(&(from_fixed(&h.target)>>1u32).to_be_bytes::<32>()).unwrap();reseal(&mut h);block("5 target",reject(&n,&Block{header:h,body:Body::default()}));
-    // 6 nonce >= nMax, 7 PoW.
-    let mut h=fbg.header.clone();h.nonce=u64::MAX;reseal(&mut h);block("6",reject(&n,&Block{header:h,body:Body::default()}));
+    // 6 nonce >= nMax (spec 1: a bounded range), 7 PoW. On the v3 full domain u64::MAX is inside nMax = 2^64.
+    let mut h=fbg.header.clone();h.nonce=u64::MAX;reseal(&mut h);
+    if v3{assert_eq!(n.chain.child_ctx(&n.chain.full_entry(&head).unwrap(),0).unwrap().assignment.nonce_max(),1u128<<64);
+        assert!(!le_target(&pow_hash(&template_id(&h.ut_raw),u64::MAX),&h.target),"positive control: no PoW at u64::MAX");block("7 pow",reject(&n,&Block{header:h,body:Body::default()}));}
+    else{block("6",reject(&n,&Block{header:h,body:Body::default()}));}
     let ftid=template_id(&fbg.header.ut_raw);let target=fbg.header.target;
     let bad=(0..).find(|x|!le_target(&pow_hash(&ftid,*x),&target)).unwrap();
     let mut h=fbg.header.clone();h.nonce=bad;reseal(&mut h);block("7 pow",reject(&n,&Block{header:h,body:Body::default()}));
@@ -427,7 +446,8 @@ fn send_template(node:&mut pocold::node::Node,peer:pocold::net::PeerId,t:&lp1hdr
 /// (E_win is raised above K_hist here, as on the network, so a pruned canonical parent is inside the window).
 #[test] fn pr4_a_template_for_a_pruned_parent_makes_no_state(){
     use pocold::node::{Config,Node};use std::sync::atomic::Ordering::Relaxed;
-    let mut c=cfg(&["a","b","c"]);c.e_win=48;c.u=56;
+    // Phase 5b: the v3 R8 also needs C_react >= U, so C_react follows U.
+    let mut c=cfg(&["a","b","c"]);c.e_win=48;c.u=56;c.c_react=56;
     let dir=std::env::temp_dir().join(format!("pocold-pr4-pruned-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     let mut node=Node::open(Config{dir:dir.clone(),name:"t".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Default::default()},admitted(&c)).unwrap();
     let mut n=net_with(&c);let mut hashes=vec![n.chain.head];
@@ -1200,9 +1220,12 @@ fn a01_node(tag:&str)->(pocold::node::Node,std::path::PathBuf){
 }
 
 // ---------------- audit A03 regression: an over-limit log is an exceptional halt ----------------
+/// Phase 6a deletes this: pinned to the spec-1 devnet, whose per-block log cap is LOG_BLOCK_MAX 32,768 B and whose
+/// finite chain accumulates the charged log bytes (LOG_CAP). The v3 counterpart, at V3_LOG_BLOCK_MAX on a continuous
+/// chain: v3_a03_over_limit_log_halts_the_transaction_and_the_block_is_valid.
 #[test] fn a03_over_limit_log_halts_the_transaction_and_the_block_is_valid(){
     // The audited case: CREATE whose initcode emits LOG0 with 32769 data bytes (36+32769 > 32768).
-    let mut n=net();let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);
+    let mut n=net_with(&cfg_spec1(&["a","b","c"]));let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);
     let alice=devnet::account_key("alice");let before=n.chain.head().state.accounts[&alice.address()].info.clone();
     let init=vec![0x61,0x80,0x01,0x5f,0xa0,0x00];
     let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:2_000_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
@@ -1219,6 +1242,35 @@ fn a01_node(tag:&str)->(pocold::node::Node,std::path::PathBuf){
     let head=n.chain.head;let blk=signed(&n,head,Body{txs:vec![tx],evidence:vec![]},0);
     let (e,_)=n.chain.validate(&blk,None,0).unwrap();let it=rlp::decode(&e.receipts[0][1..]).unwrap();
     assert_eq!(it.list().unwrap()[0].bytes().unwrap(),&[1u8]);assert_eq!(e.cum_log_bytes,32768);
+}
+
+/// The v3 counterpart of a03_over_limit_log_halts_the_transaction_and_the_block_is_valid: on the v3 devnet the per-block
+/// log cap is V3_LOG_BLOCK_MAX (256 KiB) and the chain is continuous, so a block's charged log bytes are its own. A CREATE
+/// whose initcode emits LOG0 with V3_LOG_BLOCK_MAX - 35 data bytes (36 + that > the cap) halts exceptionally: status 0,
+/// no logs, all its gas charged, the nonce used, and the block is valid and becomes head. LOG0 with V3_LOG_BLOCK_MAX - 36
+/// bytes (exactly the cap) succeeds, and the block charges exactly V3_LOG_BLOCK_MAX log bytes.
+#[test] fn v3_a03_over_limit_log_halts_the_transaction_and_the_block_is_valid(){
+    let cap=pocol_lp4_execution::user_phase::caps::V3_LOG_BLOCK_MAX;assert_eq!(cap,256*1024);
+    let mut n=net();assert!(n.chain.spec.v3_active(1)&&n.chain.spec.cp().H_END==0,"the v3 devnet");
+    let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);
+    let alice=devnet::account_key("alice");let before=n.chain.head().state.accounts[&alice.address()].info.clone();
+    // PUSH3 len PUSH0 LOG0 STOP: LOG0 of `len` zero bytes from memory offset 0.
+    let log0=|len:u64|vec![0x62,(len>>16) as u8,(len>>8) as u8,len as u8,0x5f,0xa0,0x00];
+    let gas=4_000_000u64;
+    let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:log0(cap-35).into()}.sign_1559(&alice);
+    let head=n.chain.head;let blk=signed(&n,head,Body{txs:vec![tx],evidence:vec![]},0);
+    let (e,_)=n.chain.validate(&blk,None,0).expect("the block stays valid");
+    let it=rlp::decode(&e.receipts[0][1..]).unwrap();let l=it.list().unwrap();
+    assert_eq!(l[0].bytes().unwrap(),&[] as &[u8],"status 0");assert_eq!(l[3].list().unwrap().len(),0,"no logs");
+    assert_eq!(e.gas_used,gas,"all gas charged");assert_eq!(e.cum_log_bytes,0,"a halted transaction charges no log bytes");
+    let a=&e.state.accounts[&alice.address()].info;assert_eq!(a.nonce,before.nonce+1);assert!(a.balance<before.balance);
+    assert!(n.chain.insert(e),"becomes head");
+    // Within the limit the same pattern succeeds; the continuous chain charges the block its own log bytes.
+    let tx=Tx{chain_id:777910,nonce:1,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:log0(cap-36).into()}.sign_1559(&alice);
+    let head=n.chain.head;let blk=signed(&n,head,Body{txs:vec![tx],evidence:vec![]},0);
+    let (e,_)=n.chain.validate(&blk,None,0).unwrap();let it=rlp::decode(&e.receipts[0][1..]).unwrap();
+    assert_eq!(it.list().unwrap()[0].bytes().unwrap(),&[1u8]);assert_eq!(e.cum_log_bytes,cap);
+    assert!(e.gas_used<gas,"the successful one is charged the gas it used");
 }
 
 // ---------------- audit A11 regressions: detached transactions return to the pool ----------------
@@ -1564,7 +1616,9 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     use pocold::{node::{Config,Limits,Node},rpc::{answer,Request}};use std::time::{Duration,Instant};
     let dir=std::env::temp_dir().join(format!("pocold-busy-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
     // PR6: alice pools 31.6M of declared gas (the sender quota is raised to the pool's bound).
-    let mut l=Limits{pool_slice:Duration::ZERO,pool_sender_gas_max:Some(32_000_000),..Default::default()};l.rpc.compute_light=Duration::from_millis(100);
+    let mut l=Limits{pool_slice:Duration::ZERO,pool_sender_gas_max:Some(32_000_000),..Default::default()};// A deadline well under one heavy transaction (about 100 ms on an unloaded 4-core host, 94-116 ms seen), so the
+    // count below holds by a margin: at 100 ms a transaction as fast as the deadline let a second one start before it.
+    l.rpc.compute_light=Duration::from_millis(30);
     let mut n=Node::open(Config{dir:dir.clone(),name:"busy".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:l},admitted(&cfg(&["a","b","c"]))).unwrap();
     let alice=devnet::account_key("alice");
     let input=pocold::types::unhex(&format!("{:08x}{}01",7_800_000u32,"00".repeat(64+128+16))).unwrap();
@@ -1593,7 +1647,7 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     assert!(took<bound,"held about its deadline plus one transaction: {took:?}, over {bound:?} (deadline {deadline:?}, one transaction {one_tx:?})");
     // The same property counted, not timed, so that load cannot loosen it: a backlog transaction starts only
     // before the deadline and each takes at least min_tx, so at most 1+deadline/min_tx run during the hold
-    // (1 here, unloaded or loaded: one transaction takes longer than the 100 ms deadline). One more run past
+    // (1 here, unloaded or loaded: one transaction takes about three times the 30 ms deadline). One more run past
     // the deadline would still fit the wall-clock bound above, but not this count.
     let ran=backlog-left;let most=1+(deadline.as_nanos()/min_tx.as_nanos().max(1)) as u64;
     assert!(ran<=most,"only the transaction running at the deadline finishes after it: {ran} ran during the hold, over {most} (deadline {deadline:?}, shortest transaction {min_tx:?})");
@@ -1789,15 +1843,36 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     assert!(!n.chain.blocks[&target].pruned,"target rebuilt");
     for h in &hashes[1..6]{assert!(n.chain.blocks[h].pruned,"intermediate states are not kept (rolling rebuild)");}
 }
-#[test] fn a13_boot_refuses_a_bound_above_the_memory_budget(){
+/// `l` as Node::open sets it before its first A13 check on a new data directory (node.rs open): `auto` discovery
+/// resolved (`listen`, `peers`), the eviction depth from R_keep (an explicit Some(0) keeps eviction off), and on a
+/// continuous chain or a v3 profile (the first-import index, `Spec::v3_active(MAX)`) the continuous projection at 0
+/// journal records and the observed files (none exist yet: Node::open observes history.redb, state.redb and canon.redb).
+/// A spec-1 finite chain (Phase 6a deletes that case) keeps the limits as the spec-1 pins derived them: `auto` resolved only.
+fn open_limits(spec:&Spec,mut l:pocold::node::Limits,listen:bool,peers:usize)->pocold::node::Limits{
+    l.discovery.resolve(listen,peers).unwrap();
+    l.first_imports=spec.v3_active(u64::MAX);
+    if spec.cp().H_END==0||l.first_imports{
+        l.evict_depth=Some(pocold::resources::evict_depth_of(spec.cp_max(),spec.local().k_hist,&l,l.r_keep).unwrap().unwrap_or(0));
+        l.continuous_history=Some(0);l.disk=Some(Default::default());
+    }
+    l
+}
+#[test] fn a13_boot_refuses_a_bound_above_the_memory_budget(){a13_boot_refuses(&cfg(&["a","b","c"]))}
+/// Phase 6a deletes this: a13_boot_refuses_a_bound_above_the_memory_budget on the spec-1 devnet (a finite chain, whose
+/// bound counts its lifetime caps and no journal or files).
+#[test] fn a13_boot_refuses_a_bound_above_the_memory_budget_spec1(){a13_boot_refuses(&cfg_spec1(&["a","b","c"]))}
+fn a13_boot_refuses(c:&DevnetConfig){
     use pocold::node::{Config,Limits,Node};
-    let dir=std::env::temp_dir().join(format!("pocold-a13-{}",std::process::id()));
+    let l=pocold::single_host_local();let default=admitted(c);
+    // One directory per profile: the v3 test and its _spec1 twin run side by side under a parallel harness.
+    let tag=if default.v3_active(u64::MAX){"v3"}else{"spec1"};
+    let dir=std::env::temp_dir().join(format!("pocold-a13-{tag}-{}",std::process::id()));
     let conf=|limits:Limits,peers:usize|Config{dir:dir.clone(),name:"a13".into(),miner:None,listen:None,peers:(0..peers).map(|i|format!("127.0.0.1:{}",1+i).parse().unwrap()).collect(),rpc:None,stop_at:None,log:false,limits};
-    let l=pocold::single_host_local();let default=admitted(&cfg(&["a","b","c"]));
     // The devnet's own configuration: default limits, two configured peers, no listener; `auto` resolved as
-    // `Node::open` resolves it before its A13 check (2 automatic slots without a listener, not 4).
-    let mut resolved=Limits::default();resolved.discovery.resolve(false,2).unwrap();
-    let d=pocold::resources::derive(default.cp(),l.k_hist,l.side_max,&resolved,2).unwrap();
+    // `Node::open` resolves it before its A13 check (2 automatic slots without a listener, not 4), with the
+    // eviction depth, the journal projection and the files Node::open sets on a v3 (continuous) profile.
+    let resolved=open_limits(&default,Limits::default(),false,2);
+    let d=pocold::resources::derive(default.cp_max(),l.k_hist,l.side_max,&resolved,2).unwrap();
     let need=pocold::resources::budget_required(d.total).unwrap();
     // 1. The approved default boots, with its 1/8 reserve inside the 6 GiB budget.
     assert!(need<=u128::from(pocold::node::MEM_BUDGET),"the default needs {need} B: {d:?}");
@@ -1805,13 +1880,13 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     Node::open(conf(Limits::default(),2),default).expect("the approved default devnet boots");
     // 2. A budget one byte below what that bound requires is refused.
     let _=std::fs::remove_dir_all(&dir);
-    let err=Node::open(conf(Limits{mem_budget:(need-1) as u64,..Default::default()},2),admitted(&cfg(&["a","b","c"]))).err().expect("a budget below the requirement is refused");
+    let err=Node::open(conf(Limits{mem_budget:(need-1) as u64,..Default::default()},2),admitted(c)).err().expect("a budget below the requirement is refused");
     assert!(err.starts_with("A13 memory bound")&&err.contains("exceeds the node memory budget"),"{err}");
     // 3. The requirement itself boots (the boundary is exact).
     let _=std::fs::remove_dir_all(&dir);
-    Node::open(conf(Limits{mem_budget:need as u64,..Default::default()},2),admitted(&cfg(&["a","b","c"]))).expect("exactly the required budget boots");
+    Node::open(conf(Limits{mem_budget:need as u64,..Default::default()},2),admitted(c)).expect("exactly the required budget boots");
     // 4. Network-scale caps cannot be held by a full-snapshot node within the default budget.
-    let mut big=cfg(&["a","b","c"]);big.slot_cap=4_000_000;big.acct_cap=1_000_000;
+    let mut big=c.clone();big.slot_cap=4_000_000;big.acct_cap=1_000_000;
     let _=std::fs::remove_dir_all(&dir);
     let err=Node::open(conf(Limits::default(),2),admitted(&big)).err().expect("network-scale caps exceed the budget");assert!(err.contains("exceeds the node memory budget"),"{err}");
     let mib=|x:u128|format!("{:.1}",x as f64/1048576.0);
@@ -2072,11 +2147,15 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
 }
 
 // ---------------- A13: the itemized model bound of the default devnet ----------------
+/// Phase 6a deletes this: the pins below are the spec-1 devnet's (DevnetConfig::spec1), a finite chain of H_END 20,000
+/// whose history group is its lifetime caps (the pre-S1 formula below reads H_END, TXBYTES_CAP, TX_CAP and LOG_CAP).
+/// The v3 counterpart, the itemized bound of the v3 devnet as Node::open derives it (continuous, the first-import
+/// index, the journal projection and the observed files): v3_a13_bound_breakdown.
 #[test] fn a13_bound_breakdown(){
     use pocold::node::Limits;
     // The values pocold boots with: its node-local parameters, default limits, two configured peers.
     let l=pocold::single_host_local();
-    let d=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits::default(),2).unwrap();
+    let d=pocold::resources::derive(admitted(&cfg_spec1(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits::default(),2).unwrap();
     assert_eq!(d.items.iter().map(|x|x.1).sum::<u128>(),d.total);
     // RpcGuard review 2 (m2): the total is pinned, so a term cannot change unnoticed (round 3: the
     // small-answer term counts SMALL_REPLY_PEAK per connection, +4,082,688 B; C-1 S1: canonical history
@@ -2137,7 +2216,7 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // devnet's M_max 64 with their rows, 185,920 B, identically with eviction on/off (3,397,791,234 and 3,388,329,613
     // before).
     let ctx_cache=d.items.iter().find(|x|x.0.starts_with("queues/child-context cache")).unwrap().1;
-    assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(admitted(&cfg(&["a","b","c"])).cp()));
+    assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(admitted(&cfg_spec1(&["a","b","c"])).cp()));
     // FN-3a (C6) adds the member-record terms (resources::member_cache_bytes, member_scratch_bytes, the records held on
     // entries not offloaded, and the history.redb payload of member_payload): at this devnet's M_max 64, S_max 256 and
     // CP schema v1 (DELTA_CAP ids a delta), +3,836,884 B with eviction on or off (3,397,977,154 and 3,388,515,533
@@ -2156,11 +2235,11 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     // profile's M_max 64, to 3,358,426,511 B; eviction off, the same, to 3,349,943,690 B.
     let fn3:u128=d.items.iter().filter(|x|x.0.contains("(FN-3")).map(|x|x.1).sum();
     let bases=d.items.iter().find(|x|x.0.starts_with("queues/membership inputs and write sets")).unwrap().1;
-    assert_eq!(Some(bases),pocold::resources::member_bases_bytes(admitted(&cfg(&["a","b","c"])).cp()));
+    assert_eq!(Some(bases),pocold::resources::member_bases_bytes(admitted(&cfg_spec1(&["a","b","c"])).cp()));
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(d.total,3_358_426_511,"the A13 model total changed");
         assert_eq!(fn3,3_778_756);assert_eq!(std::mem::size_of::<pocold::chain::Entry>(),1_072);
         assert_eq!(ctx_cache,185_920);assert_eq!(bases,1_207_460);
-        let off=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
+        let off=pocold::resources::derive(admitted(&cfg_spec1(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{evict_depth:Some(0),..Default::default()},2).unwrap();
         assert_eq!(off.total,3_349_943_690,"eviction off includes the same receipt scratch");
         // PR4: ([u8;32],Costly) is 56 B (Costly: a 20-B payload and its tag, aligned to 8), so a key's buckets
         // round to 264 B and the term is 257 × (2·264 + 128 + 256 + 16) + 1,024.
@@ -2171,7 +2250,7 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("side/evicted hash")).unwrap().1,3_982_768);
     // C-1 S1: a window of the whole chain is the model before S1, plus history.redb's cache and allocator.
     // (PR7: with eviction off, so that every height is resident.)
-    let all=pocold::resources::derive(admitted(&cfg(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),evict_depth:Some(0),..Default::default()},2).unwrap();
+    let all=pocold::resources::derive(admitted(&cfg_spec1(&["a","b","c"])).cp(),l.k_hist,l.side_max,&Limits{history_window:Some(u64::MAX),evict_depth:Some(0),..Default::default()},2).unwrap();
     // (C-1 E5: and the one empty state entries share, which each entry counted before.)
     // (FN-3a: and the member records the window's entries hold, a term that grows with the window: here every entry.)
     let redb:u128=all.items.iter().filter(|x|x.0.starts_with("history/history.redb")||x.0.starts_with("history/the one empty state")||x.0.starts_with("history/member records on entries not offloaded")).map(|x|x.1).sum();
@@ -2181,7 +2260,7 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     assert!(logs<pre_logs);
     // The pre-S1 history group, by its formula: (H_END+1) entries, TXBYTES_CAP, TX_CAP receipts and index
     // (380 B each), LOG_CAP·33/32 and the evidence identities (EVID_BYTES_MAX+24 each).
-    let cp=admitted(&cfg(&["a","b","c"])).cp().clone();let entries=all.items.iter().find(|x|x.0=="history/resident window: block entries").unwrap().1;
+    let cp=admitted(&cfg_spec1(&["a","b","c"])).cp().clone();let entries=all.items.iter().find(|x|x.0=="history/resident window: block entries").unwrap().1;
     let identities=u128::from(cp.M_max)+u128::from(cp.R_max)*u128::from(cp.H_END);
     let pre_s1=entries+u128::from(cp.TXBYTES_CAP)+u128::from(cp.TX_CAP)*380+pre_logs+identities*(u128::from(cp.EVID_BYTES_MAX)+24);
     assert_eq!(entries%(u128::from(cp.H_END)+1),0);assert_eq!(all.history-redb+(pre_logs-logs),pre_s1,"the whole-chain window reproduces the pre-S1 history group");
@@ -2190,6 +2269,65 @@ fn fallback_on_pruned(n:&mut Net,parent:[u8;32])->Block{n.chain.ensure_state(&pa
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("rpc/small answers")).map(|x|x.1),Some(32*pocold::rpc::SMALL_REPLY_PEAK as u128));
     println!("A13-BREAKDOWN {}",serde_json::json!({"total":d.total.to_string(),"items":d.items.iter().map(|(k,v)|serde_json::json!([k,v.to_string()])).collect::<Vec<_>>()}));
 }
+
+/// The v3 counterpart of a13_bound_breakdown: the itemized A13 model bound of the v3 devnet (DevnetConfig::new: CP
+/// schema v2, continuous, the first-import index) as Node::open derives it on a new data directory (`open_limits`:
+/// default limits, two configured peers, no listener, the eviction depth from R_keep, 0 journal records, no files).
+/// The items sum to the total, the FN-1/FN-1b cache terms are their formulas at this CP, the bound boots within the
+/// budget with its reserve, the small-answer term is 32 · SMALL_REPLY_PEAK, and with eviction on only the first-import
+/// index grows with the journal (every other term is equal at 0 and 10^9 records; a year of records still boots). The
+/// totals are pinned (eviction on and off) for the target the evidence is produced on, as a13_bound_breakdown pins the
+/// spec-1 ones.
+#[test] fn v3_a13_bound_breakdown(){
+    use pocold::node::Limits;
+    let spec=admitted(&cfg(&["a","b","c"]));let cp=spec.cp_max();assert_eq!((cp.schema_version(),cp.H_END,cp.nonceMode),(2,0,1));
+    let l=pocold::single_host_local();
+    let lim=open_limits(&spec,Limits::default(),false,2);assert!(lim.first_imports&&lim.evict_depth.is_some_and(|e|e>0),"{lim:?}");
+    let d=pocold::resources::derive(cp,l.k_hist,l.side_max,&lim,2).unwrap();
+    assert_eq!(d.items.iter().map(|x|x.1).sum::<u128>(),d.total);
+    let ctx_cache=d.items.iter().find(|x|x.0.starts_with("queues/child-context cache")).unwrap().1;
+    assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(cp));
+    let bases=d.items.iter().find(|x|x.0.starts_with("queues/membership inputs and write sets")).unwrap().1;
+    assert_eq!(Some(bases),pocold::resources::member_bases_bytes(cp));
+    assert!(pocold::resources::budget_required(d.total).unwrap()<=u128::from(pocold::node::MEM_BUDGET),"the v3 devnet boots within the budget");
+    assert_eq!(d.items.iter().find(|x|x.0.starts_with("rpc/small answers")).map(|x|x.1),Some(32*pocold::rpc::SMALL_REPLY_PEAK as u128));
+    // With eviction on, only the first-import index (V3-04: canon.redb's cache and allocator over (records +
+    // DISK_HEADROOM) hash/offset rows, counted even without eviction) grows with the journal; every other term is the
+    // same at 0 and 10^9 records, and a year of devnet records (T_blk 4: 7,889,400) still boots within the budget.
+    let at=|records:u64|pocold::resources::derive(cp,l.k_hist,l.side_max,&Limits{continuous_history:Some(records),..lim.clone()},2).unwrap();
+    assert_eq!(at(0).total,d.total);let (zero,many)=(at(0),at(1_000_000_000));let index="history/first-import index cache and allocator";
+    for ((k,v),(k2,v2)) in zero.items.iter().zip(&many.items){assert_eq!(k,k2);if *k!=index{assert_eq!(v,v2,"{k} does not grow with the journal");}}
+    let grows=|b:&pocold::resources::Bound|b.items.iter().find(|x|x.0==index).unwrap().1;assert!(grows(&many)>grows(&zero),"positive control: the first-import index is counted per record");
+    let year=at(7_889_400);assert!(pocold::resources::budget_required(year.total).unwrap()<=u128::from(pocold::node::MEM_BUDGET),"a year of devnet records boots: {}",year.total);
+    let off=pocold::resources::derive(cp,l.k_hist,l.side_max,&open_limits(&spec,Limits{evict_depth:Some(0),..Default::default()},false,2),2).unwrap();
+    assert!(off.total!=d.total);
+    println!("V3-A13-BREAKDOWN {}",serde_json::json!({"total":d.total.to_string(),"evictionOff":off.total.to_string(),"items":d.items.iter().map(|(k,v)|serde_json::json!([k,v.to_string()])).collect::<Vec<_>>()}));
+    if cfg!(all(target_os="linux",target_arch="x86_64")){
+        assert_eq!(d.total,V3_A13_TOTAL,"the v3 A13 model total changed");assert_eq!(off.total,V3_A13_TOTAL_EVICTION_OFF,"eviction off");
+        assert_eq!((ctx_cache,bases),V3_A13_CACHES);
+    }
+}
+/// The v3 devnet's A13 totals (v3_a13_bound_breakdown) on linux x86_64, as a new node boots them: eviction on
+/// 3,447,088,104 B (budget required 3,939,529,262 B of 6 GiB), eviction off 3,375,514,880 B; the child-context cache
+/// 185,920 B and the membership inputs 1,207,460 B, as on the spec-1 devnet (the same M_max 64).
+/// The spec-1 devnet boots at 3,351,045,495 B (a13_boot_refuses_a_bound_above_the_memory_budget_spec1, the same
+/// open_limits: a finite chain, auto resolved only). The v3 total is 96,042,609 B more, item by item (the term names
+/// as `resources::derive` gives them; the deltas sum to the whole difference):
+/// - diffs/retained and side states as diffs +30,736,384; trie/the changed paths of the block executed on it
+///   +12,779,520; diffs/the overlay of the block being applied +610,304; side/one full block before offload or
+///   during restore +236,544;
+/// - V3-02 late shares (0 on spec 1): history/late-share evidence kept on offloaded entries +26,114,816; queues/
+///   late-share cache +518,512;
+/// - the first-import index (V3-04, 0 on spec 1): its cache and allocator +4,726,144, the journal lookup scratch
+///   +8,417,362, the template first-seen times +228,728 (13,372,234 together);
+/// - the v3 per-block log and receipt caps: history/resident window: logs +7,569,408; execution/receipt RLP encoding
+///   and output-copy scratch +3,670,016; history/RPC and sync views below the window +473,088; history/resident
+///   window: evidence +522,752;
+/// - smaller on v3: history/history.redb allocator state -383,497; queues/member reconstruction scratch -172,032;
+///   history/member records on entries not offloaded -5,440.
+const V3_A13_TOTAL:u128=3_447_088_104;
+const V3_A13_TOTAL_EVICTION_OFF:u128=3_375_514_880;
+const V3_A13_CACHES:(u128,u128)=(185_920,1_207_460);
 
 // ---------------- second round-2 review: side-branch retention, eviction and replay ----------------
 fn retention_node(tag:&str)->(pocold::node::Node,std::path::PathBuf,impl Fn()->pocold::node::Config){
@@ -2246,7 +2384,14 @@ fn rnode(tag:&str,r_keep:u64,side_cap:usize)->(pocold::node::Node,std::path::Pat
     let conf=move||Config{dir:d.clone(),name:name.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{r_keep,side_cap,..Default::default()}};
     (Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap(),dir,conf)
 }
-fn reopen(conf:&dyn Fn()->pocold::node::Config)->pocold::node::Node{pocold::node::Node::open(conf(),admitted(&cfg(&["a","b","c"]))).expect("reopen")}
+/// A fixed first-import clock (`Node::import_clock`) for the nodes these tests compare with a reference. On v3 a
+/// block's first-import timeliness is node-local and read from the wall clock: on a slow or loaded runner the gap
+/// between two imports can pass a fallback block's deadline in one node and not the other, and the two disagree on
+/// F_LATE and on what they rebuild (Windows CI, parallel threads). With one fixed clock every node classifies a
+/// block as an unloaded one does: a signed block timely, an immediate fallback block not, on every run and restart.
+const TEST_IMPORT_CLOCK:u128=1_700_000_000_000;
+fn reopen(conf:&dyn Fn()->pocold::node::Config)->pocold::node::Node{
+    let mut n=pocold::node::Node::open(conf(),admitted(&cfg(&["a","b","c"]))).expect("reopen");n.import_clock=Some(TEST_IMPORT_CLOCK);n}
 /// A fallback branch from `parent` whose cumulative work strictly exceeds `than`, then `extra` more blocks.
 fn heavier(h:&mut Net,parent:[u8;32],than:U256,extra:usize)->Vec<Block>{
     let mut out=vec![];let mut p=parent;
@@ -2605,7 +2750,11 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     use pocold::node::{Config,Limits,Node};
     let alice=devnet::account_key("alice");
     let mk=|tag:&str,window:Option<u64>|{let dir=std::env::temp_dir().join(format!("pocold-s1-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-        let d=dir.clone();let t=tag.to_string();let conf=move||Config{dir:d.clone(),name:t.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{history_window:window,..Default::default()}};
+        // Phase 5b: the reference keeps every height resident (`window` u64::MAX), which on the continuous v3 chain has no
+        // lifetime cap to bound it, so its A13 bound passes the default budget: the oracle gets a 1 TiB budget (node-local;
+        // the offloading node under test keeps the default).
+        let mem_budget=if window==Some(u64::MAX){1<<40}else{pocold::node::MEM_BUDGET};
+        let d=dir.clone();let t=tag.to_string();let conf=move||Config{dir:d.clone(),name:t.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{history_window:window,mem_budget,..Default::default()}};
         (Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap(),dir,conf)};
     let (mut a,da,ca)=mk("off",None);let (mut b,db,_)=mk("ref",Some(u64::MAX));
     let (mut h,blocks,p)=s1_chain();
@@ -3006,7 +3155,7 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     use pocold::node::{Config,Limits,Node};
     let mk=|tag:&str,full:bool|{let dir=std::env::temp_dir().join(format!("pocold-s3a-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let d=dir.clone();let t=tag.to_string();let conf=move||Config{dir:d.clone(),name:t.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{full_states:full,..Default::default()}};
-        (Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap(),dir,conf)};
+        let mut n=Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap();n.import_clock=Some(TEST_IMPORT_CLOCK);(n,dir,conf)};
     let (mut a,da,ca)=mk("diff",false);let (mut b,db,cb)=mk("full",true);
     let (mut h,blocks,p)=s1_chain();
     // A 6-block reorg near the tip, then the old branch again: both import paths run.
@@ -3039,6 +3188,7 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     compare(&mut a,&mut b,"after the reorgs");
     assert_eq!((a.chain.rebuilds,a.chain.restore_reexecs,a.stats.restored),(b.chain.rebuilds,b.chain.restore_reexecs,b.stats.restored),"the same rebuild and restore work");
     drop(a);drop(b);let mut a=Node::open(ca(),admitted(&cfg(&["a","b","c"]))).unwrap();let mut b=Node::open(cb(),admitted(&cfg(&["a","b","c"]))).unwrap();
+    a.import_clock=Some(TEST_IMPORT_CLOCK);b.import_clock=Some(TEST_IMPORT_CLOCK);
     compare(&mut a,&mut b,"after reopen");
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
@@ -4623,9 +4773,20 @@ fn e4_checkpoint_kill_child(){
 }
 
 
+/// A continuous chain keeps the per-block admission caps and has no finite lifetime ceiling, and A13 never treats an
+/// unobserved continuous history or file as zero. On the v3 devnet A13 is checked with the limits Node::open sets there
+/// (`first_imports` from `Spec::v3_active(MAX)`: the v3 per-block log cap and the first-import index): with eviction on,
+/// only the first-import index (counted per journal record) grows with the records, every other term is equal at 0 and
+/// 10^9 records (v3_a13_bound_breakdown checks the same at the devnet's open limits).
 #[test]
-fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
-    let mut c=cfg(&["a","b","c"]);c.h_end=0;c.h_close=0;c.tx_cap=1;c.txbytes_cap=1024;
+fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){continuous_admission(&cfg(&["a","b","c"]))}
+/// Phase 6a deletes this: continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling on the spec-1 devnet made
+/// continuous (H_END 0), as before Phase 5b: no first-import index (first_imports off, as Node::open sets it on spec 1),
+/// so with eviction on the whole bound is equal at 0 and 10^9 records.
+#[test]
+fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling_spec1(){continuous_admission(&cfg_spec1(&["a","b","c"]))}
+fn continuous_admission(c:&DevnetConfig){
+    let mut c=c.clone();c.h_end=0;c.h_close=0;c.tx_cap=1;c.txbytes_cap=1024;
     let mut n=net_with(&c);
     assert_eq!(n.chain.spec.cp().H_END,0);assert_eq!(n.chain.spec.cp().T_END,0);
     let a=devnet::account_key("alice");let to=devnet::account_key("bob").address();
@@ -4636,16 +4797,29 @@ fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
         let b=signed(&n,n.chain.head,Body{txs:vec![raw],evidence:vec![]},0);import(&mut n,&b);
     }
     assert_eq!(n.chain.head().state.accounts[&to].info.balance,U256::from(10u128.pow(24))+U256::from(4));
-    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits{evict_depth:Some(0),..Default::default()};limits.state_store=true;
+    // The A13 limits as Node::open sets `first_imports` on this profile (node.rs open, imports::enabled).
+    let v3=n.chain.spec.v3_active(u64::MAX);assert_eq!(v3,c.spec_version!=1,"positive control: the profile under test");
+    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits{evict_depth:Some(0),first_imports:v3,..Default::default()};limits.state_store=true;
     assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unknown continuous history must not be treated as zero");
+    if v3{
+        // The first-import index is sized from the journal records and canon.redb, so it needs both, eviction off too.
+        limits.continuous_history=Some(0);assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"the first-import index: unobserved files must not be treated as empty");
+        assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),"A13: first-import index needs observed journal records and disk sizes");
+        limits.continuous_history=None;limits.disk=Some(Default::default());
+    }
     limits.continuous_history=Some(0);let small=pocold::resources::derive(cp,32,2,&limits,3).unwrap();
     limits.continuous_history=Some(50_000);let larger=pocold::resources::derive(cp,32,2,&limits,3).unwrap();assert!(larger.total>small.total);
     // PR7 (C-1 S5, §6.5): with eviction on, unknown file sizes are not zero either, and the bound does not grow with
-    // the records: equal at 0 and 10^9.
-    limits.evict_depth=None;assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unobserved files must not be treated as empty");
-    assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),"A13: disk sizes not observed");
-    limits.disk=Some(Default::default());let at=|r:u64|pocold::resources::derive(cp,32,2,&pocold::node::Limits{continuous_history:Some(r),..limits.clone()},3).unwrap().total;
-    assert_eq!(at(0),at(1_000_000_000));
+    // the records: equal at 0 and 10^9, except (v3) the first-import index, which is counted per record.
+    limits.evict_depth=None;limits.disk=None;assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unobserved files must not be treated as empty");
+    assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),if v3{"A13: first-import index needs observed journal records and disk sizes"}else{"A13: disk sizes not observed"});
+    limits.disk=Some(Default::default());let at=|r:u64|pocold::resources::derive(cp,32,2,&pocold::node::Limits{continuous_history:Some(r),..limits.clone()},3).unwrap();
+    let (zero,many)=(at(0),at(1_000_000_000));let index="history/first-import index cache and allocator";
+    assert_eq!(zero.items.iter().any(|x|x.0==index),v3,"the first-import index is counted exactly on v3");
+    assert_eq!(zero.items.len(),many.items.len());
+    for ((k,v),(k2,v2)) in zero.items.iter().zip(&many.items){assert_eq!(k,k2);if *k!=index{assert_eq!(v,v2,"{k} does not grow with the records");}}
+    if v3{let grows=|b:&pocold::resources::Bound|b.items.iter().find(|x|x.0==index).unwrap().1;assert!(grows(&many)>grows(&zero),"positive control: the first-import index is counted per record");}
+    else{assert_eq!(zero.total,many.total);}
 }
 
 // ---------------- PR7 (C-1 S5): canonical entries below the in-memory window ----------------
@@ -5059,6 +5233,9 @@ fn pr7_sync(a:&mut pocold::node::Node,j:&mut pocold::node::Node,s:&mut std::net:
     use pocold::resources as r;
     let spec=admitted(&cfg(&["a","b","c"]));let (cp,lo)=(spec.cp(),spec.local());let mut l=pr7_limits(8,true,50,None);l.evict_depth=Some(pr7_depth(&l));
     let n=1_000_000u64;let e=u128::from(n);
+    // Phase 5b: on the continuous v3 devnet the model reads what Node::open observed before the migration check: the
+    // first-import index, the journal's records and the files (none here).
+    assert!(cp.H_END==0&&spec.v3_active(u64::MAX));l.first_imports=true;l.continuous_history=Some(n);l.disk=Some(Default::default());
     let base=r::derive(cp,lo.k_hist,lo.side_max,&l,0).unwrap().total+r::open_transient(cp,&l,n).unwrap()+e*(r::slim_entry_bytes().unwrap()+80);
     let snaps=pocold::checkpoint::KEPT as u128*r::snapshot_raw_bytes(e).unwrap()+r::snapshot_decoded_bytes(e).unwrap();
     assert!(snaps>e*pocold::checkpoint::REC_MAX as u128*2,"positive control: KEPT checkpoints of every entry, {snaps} B");
@@ -5139,17 +5316,31 @@ fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
 /// answer for that height is -32603 (never a wrong block), the index is marked damaged, so the next import, whose
 /// window writes to it, stops the node (exit 70); the next open sets the index aside and rebuilds it, and answers
 /// as a node that was never damaged.
-#[test] fn a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt(){
-    let blocks=pr7_chain(421);let a=e44_dir("pr7-t13-run");let l=pr7_limits(8,false,0,None);
+/// Phase 5b: on the v3 devnet the node keeps the first-import index (V3-04) in canon.redb and reads it for the block
+/// before its journal append (node.rs import: `imports::first`), so the damaged index stops the node there and the
+/// block is not journaled: the next open is at the block before, and the block imported again gives the answers of a
+/// node never damaged. A spec-1 node has no first-import index: the block is journaled and the window's write stops it.
+#[test] fn a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt(){canonical_index_damaged(&cfg(&["a","b","c"]))}
+/// Phase 6a deletes this: a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt on the spec-1 devnet,
+/// which has no first-import index (the block is journaled before the stop).
+#[test] fn a_canonical_index_damaged_while_running_stops_the_node_and_is_rebuilt_spec1(){canonical_index_damaged(&cfg_spec1(&["a","b","c"]))}
+fn canonical_index_damaged(c:&DevnetConfig){
+    let v3=c.spec1.is_none();
+    let blocks=if v3{pr7_chain(421)}else{let mut h=net_with(c);let g=h.chain.head;grow(&mut h,g,421,&|n,p|fallback(n,p,0))};
+    let a=e44_dir(if v3{"pr7-t13-run"}else{"pr7-t13-run-spec1"});let l=pr7_limits(8,false,0,None);
+    let reopen=|conf:&dyn Fn()->pocold::node::Config|pocold::node::Node::open(conf(),admitted(c)).expect("reopen");
     {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks[..420]{n.import(b.clone(),None).unwrap();}}
     let file=a.with_extension("block");std::fs::write(&file,[(blocks[420].header.encoded.len() as u32).to_be_bytes().to_vec(),blocks[420].header.encoded.clone(),blocks[420].body.encode()].concat()).unwrap();
     let exe=std::env::current_exe().unwrap();
-    let out=std::process::Command::new(&exe).args(["pr7_damage_child","--exact","--ignored","--nocapture","--test-threads=1"]).env("POCOLD_PR7_DAMAGE",&a).env("POCOLD_PR7_BLOCK",&file).output().unwrap();
+    let out=std::process::Command::new(&exe).args(["pr7_damage_child","--exact","--ignored","--nocapture","--test-threads=1"]).env("POCOLD_PR7_DAMAGE",&a).env("POCOLD_PR7_BLOCK",&file).env("POCOLD_PR7_SPEC1",if v3{"0"}else{"1"}).output().unwrap();
     let text=format!("{}{}",String::from_utf8_lossy(&out.stdout),String::from_utf8_lossy(&out.stderr));
     assert!(text.contains("PR7-CHILD -32603"),"the RPC answer for the damaged height is -32603: {text}");
     assert_eq!(out.status.code(),Some(70),"the next import stops the node: {text}");assert!(text.contains("FATAL local storage")&&text.contains("canonical index"),"{text}");
-    let mut x=reopen(&pr7_conf(&a,l.clone()));assert!(x.canon().rebuilt,"the next open sets the index aside");assert_eq!(x.chain.head,blocks[420].hash(),"the journaled block is replayed");
-    let r=e44_dir("pr7-t13-run-ref");let mut y=reopen(&pr7_conf(&r,l));for b in &blocks{y.import(b.clone(),None).unwrap();}
+    let mut x=reopen(&pr7_conf(&a,l.clone()));assert!(x.canon().rebuilt,"the next open sets the index aside");
+    if v3{assert_eq!(x.chain.head,blocks[419].hash(),"the block was not journaled: the first-import lookup stopped the node before the append");
+        assert!(x.import(blocks[420].clone(),None).unwrap(),"imported again after the rebuild");}
+    assert_eq!(x.chain.head,blocks[420].hash(),"the journaled block is replayed");
+    let r=e44_dir(if v3{"pr7-t13-run-ref"}else{"pr7-t13-run-ref-spec1"});let mut y=reopen(&pr7_conf(&r,l));for b in &blocks{y.import(b.clone(),None).unwrap();}
     assert_eq!(chain_view(&mut x),chain_view(&mut y),"the answers of a node that was never damaged");
     drop(x);drop(y);let _=std::fs::remove_file(&file);for p in [a,r]{let _=std::fs::remove_dir_all(&p);}
 }
@@ -5157,7 +5348,8 @@ fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
 fn pr7_damage_child(){
     use std::io::Write;
     let (Ok(dir),Ok(file))=(std::env::var("POCOLD_PR7_DAMAGE"),std::env::var("POCOLD_PR7_BLOCK")) else{return};
-    let mut n=reopen(&pr7_conf(std::path::Path::new(&dir),pr7_limits(8,false,0,None)));let bytes=std::fs::read(file).unwrap();
+    let c=if std::env::var("POCOLD_PR7_SPEC1").as_deref()==Ok("1"){cfg_spec1(&["a","b","c"])}else{cfg(&["a","b","c"])};
+    let mut n=pocold::node::Node::open(pr7_conf(std::path::Path::new(&dir),pr7_limits(8,false,0,None))(),admitted(&c)).expect("reopen");let bytes=std::fs::read(file).unwrap();
     let k=u32::from_be_bytes(bytes[..4].try_into().unwrap()) as usize;let header=decode_header(&bytes[4..4+k]).unwrap();let body=Body::decode(&bytes[4+k..],1<<24).unwrap();
     // The row at height 5 is replaced by height 6's: it names another block.
     let six=n.canon().at(6).unwrap().unwrap();n.canon().put(&[(5,six)]).unwrap();
@@ -5170,6 +5362,14 @@ fn rpc_local_raw(n:&mut pocold::node::Node,method:&str,params:serde_json::Value)
     rpc_unhurried(n,json!({"jsonrpc":"2.0","id":1,"method":method,"params":params}).to_string())
 }
 
+/// A journal record of `b` as a node writes it (node.rs import): on a v3 profile its first-import timing `first`
+/// (V3-04: replay refuses a v3 record without one), on a spec-1 profile none.
+fn pr7_record(b:&Block,result:&[u8],first:Option<pocold::store::FirstImport>)->Vec<u8>{pocold::store::encode_record_with_import(&b.header.encoded,&b.body.encode(),result,first)}
+/// The first-import timing a node gives a new block `b` whose parent it imported (node.rs import): received after its
+/// parent, and not timely (a late side block); None on a spec-1 node.
+fn late_import(n:&pocold::node::Node,b:&Block)->Option<pocold::store::FirstImport>{
+    n.first_import(&b.header.parent_hash).unwrap().map(|p|pocold::store::FirstImport{received_ms:p.received_ms+1,parent_received_ms:p.received_ms,timely:false})
+}
 /// A block's ParentResult as its journal record keeps it (node::result_bytes).
 fn pr7_result_bytes(r:&Option<apply::ParentResult>)->Vec<u8>{
     let mut p=Vec::new();
@@ -5187,9 +5387,11 @@ fn pr7_result_bytes(r:&Option<apply::ParentResult>)->Vec<u8>{
     let x=&blocks[20];let xr=pr7_result_bytes(&h.chain.get(&x.hash()).unwrap().result);
     let p=blocks[30].hash();h.chain.ensure_state(&p).unwrap();let y=fallback(&h,p,1);let (ye,_)=h.chain.validate(&y,None,0).unwrap();
     let a=e44_dir("pr7-t14");let l=pr7_limits(8,true,0,None);
-    {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}}
+    // Phase 5b (v3): each record carries the first-import timing the node gives it: the duplicate its original one.
+    let firsts={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}[n.first_import(&x.hash()).unwrap(),late_import(&n,&y)]};
+    assert!(firsts.iter().all(|f|f.is_some()),"positive control: the v3 node keeps first-import timing");
     {let mut rec=pocold::store::open(&a,&gh).unwrap();
-        for (b,r) in [(x,xr),(&y,pr7_result_bytes(&ye.result))]{rec.journal.append(&pocold::store::encode_record(&b.header.encoded,&b.body.encode(),&r)).unwrap();}}
+        for ((b,r),f) in [(x,xr),(&y,pr7_result_bytes(&ye.result))].into_iter().zip(firsts){rec.journal.append(&pr7_record(b,&r,f)).unwrap();}}
     let g=e44_dir("pr7-t14-ref");copy_dir(&a,&g);
     let n=reopen(&pr7_conf(&a,l));let r=reopen(&pr7_conf(&g,pr7_limits(8,true,0,Some(u64::MAX))));
     assert!(n.chain.canonical.base()>40,"positive control: both records are below the window");
@@ -5213,7 +5415,8 @@ fn pr7_result_bytes(r:&Option<apply::ParentResult>)->Vec<u8>{
 #[test] fn an_old_side_block_reading_blockhash_below_the_window_replays_as_without_eviction(){
     let blocks=pr7_chain(420);let gh=net().chain.spec.genesis_hash();
     let a=e44_dir("pr7-t14-base");let l=pr7_limits(8,true,0,None);
-    let base={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}n.chain.canonical.base() as usize};
+    let (base,node_at)={let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}let base=n.chain.canonical.base() as usize;
+        (base,n.first_import(&blocks[base].hash()).unwrap())};
     assert!(base>2&&base+2+8<=420,"positive control: a window based at {base}, the side block deep below the head");
     let mut h=pr7_builder(&blocks);let p=blocks[base].hash();h.chain.ensure_state(&p).unwrap();
     let alice=devnet::account_key("alice");let at=(base-1) as u16;
@@ -5222,7 +5425,9 @@ fn pr7_result_bytes(r:&Option<apply::ParentResult>)->Vec<u8>{
     let y=signed(&h,p,Body{txs:vec![tx],evidence:vec![]},0);let (ye,_)=h.chain.validate(&y,None,0).unwrap();
     assert_eq!((ye.height as usize,ye.state.accounts[&alice.address().create(0)].storage[&U256::ZERO]),(base+2,U256::from_be_bytes(blocks[base-2].hash())),
         "positive control: the side block is at base + 2 and stores the hash of height base - 1");
-    {let mut rec=pocold::store::open(&a,&gh).unwrap();rec.journal.append(&pocold::store::encode_record(&y.header.encoded,&y.body.encode(),&pr7_result_bytes(&ye.result))).unwrap();}
+    // Phase 5b (v3): the record carries the first-import timing the node gives a late side block on its parent.
+    let first=node_at.map(|p|pocold::store::FirstImport{received_ms:p.received_ms+1,parent_received_ms:p.received_ms,timely:false});assert!(first.is_some(),"positive control: v3 timing");
+    {let mut rec=pocold::store::open(&a,&gh).unwrap();rec.journal.append(&pr7_record(&y,&pr7_result_bytes(&ye.result),first)).unwrap();}
     let g=e44_dir("pr7-t14-base-ref");copy_dir(&a,&g);
     let n=pocold::node::Node::open(pr7_conf(&a,l)(),admitted(&cfg(&["a","b","c"]))).unwrap_or_else(|e|panic!("FAIL-ON-ORIGINAL: the evicting node does not open: {e}"));
     let r=reopen(&pr7_conf(&g,pr7_limits(8,true,0,Some(u64::MAX))));
@@ -5351,7 +5556,10 @@ const GL:u64=8_000_000;
 fn key(label:&str)->Key{devnet::account_key(label)}
 /// The test profile with four more funded senders (carol, erin, frank, gina); the node and the block-building
 /// `Net` use the same config, hence the same genesis.
-fn cfg_funded()->DevnetConfig{let mut c=cfg(&["a","b","c"]);for l in ["carol","erin","frank","gina"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}c}
+fn cfg_funded()->DevnetConfig{funded(cfg(&["a","b","c"]))}
+/// Phase 6a deletes this: `cfg_funded` on the spec-1 devnet (`cfg_spec1`).
+fn cfg_funded_spec1()->DevnetConfig{funded(cfg_spec1(&["a","b","c"]))}
+fn funded(mut c:DevnetConfig)->DevnetConfig{for l in ["carol","erin","frank","gina"]{c.accounts.push((l.into(),U256::from(10u128.pow(24))));}c}
 /// `cfg_funded` with a genesis a few seconds ago, so a signed template built now is inside its window (the
 /// production path builds at the wall clock).
 fn cfg_now()->DevnetConfig{let mut c=cfg_funded();c.g_ts=pocold::node::now_s()-10;c}
@@ -5634,22 +5842,30 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 /// LOG_COUNT_MAX (547 LOG0) are refused at submission, with nothing pooled, so their follow-ups have a nonce gap
 /// and nothing holds the bound; 546 LOG0 (the limit) is pooled, and bob's transfer goes into the template.
 /// Before the fix each CREATE was pooled (4 × 2 × GAS_LIMIT/2 filled the default bound).
-#[test] fn a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){
-    let c=cfg_funded();let bob=key("bob");
-    let (mut n,dir)=gas_node_cfg("own-logs",Default::default(),&c,None);
-    let bytes=vec![0x61,0x80,0x01,0x5f,0xa0,0x00];// LOG0 with 32,769 bytes: 36 + 32,769 > LOG_BLOCK_MAX
+/// Phase 6a deletes this: pinned to the spec-1 devnet and its log caps (LOG_BLOCK_MAX 32,768 B, LOG_COUNT_MAX 546).
+/// The v3 counterpart at V3_LOG_BLOCK_MAX and V3_LOG_COUNT_MAX: v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool.
+#[test] fn a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded_spec1(),false)}
+/// The v3 counterpart of a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool on the v3 devnet: one LOG0
+/// of V3_LOG_BLOCK_MAX - 35 bytes or V3_LOG_COUNT_MAX + 1 = 4,369 LOG0 is refused at submission, and 4,368 LOG0 is pooled.
+#[test] fn v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded(),true)}
+fn own_logs_refused(c:DevnetConfig,v3:bool){
+    let caps=pocol_lp4_execution::user_phase::log_caps(v3);let bob=key("bob");
+    let (mut n,dir)=gas_node_cfg(if c.spec_version>=2{"own-logs"}else{"own-logs-spec1"},Default::default(),&c,None);
+    assert_eq!(n.chain.spec.v3_active(1),v3);
+    // LOG0 with 32,769 bytes (spec 1: 36 + 32,769 > LOG_BLOCK_MAX) or V3_LOG_BLOCK_MAX - 35 bytes (v3: one past the cap).
+    let bytes=if v3{let len=caps.bytes-35;vec![0x62,(len>>16) as u8,(len>>8) as u8,len as u8,0x5f,0xa0,0x00]}else{vec![0x61,0x80,0x01,0x5f,0xa0,0x00]};
     let loop_of=|k:u16|{let mut v=vec![0x61,(k>>8) as u8,k as u8,0x5b];v.extend([0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x03,0x57,0x00]);v};// k LOG0, then STOP
     let create=|l:&str,init:&Vec<u8>|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:GL/2,to:None,value:U256::ZERO,data:init.clone().into()}.sign_1559(&key(l));
-    let count=loop_of(547);
+    let limit=caps.count as u16;let count=loop_of(limit+1);
     for (l,init,why) in [("alice",&bytes,"LogBytes"),("carol",&count,"LogCount"),("erin",&bytes,"LogBytes"),("frank",&count,"LogCount")]{
         assert_eq!(n.submit_tx(create(l,init),false).err().as_deref(),Some(format!("-32000 logs would exceed a block cap ({why})").as_str()),"{l}");
         let e=n.submit_tx(pay_gas(&key(l),1,1,GL/2),false).unwrap_err();assert!(e.starts_with("-32000")&&e.contains("Nonce"),"{l}'s follow-up has a nonce gap: {e}");
     }
     assert_eq!((n.pool.txs.len(),n.pool.gas),(0,0),"nothing holds the gas bound");n.pool_audit().unwrap();
-    let g0=create("gina",&loop_of(546));n.submit_tx(g0.clone(),false).unwrap();
+    let g0=create("gina",&loop_of(limit));n.submit_tx(g0.clone(),false).unwrap();
     let b0=pay(&bob,0,1);n.submit_tx(b0.clone(),false).unwrap();n.pool_audit().unwrap();
     // N4 (V3-20): in fee order, bob's transfer (1 gwei tip) before gina's CREATE (1 wei).
-    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![b0,g0],"546 logs is the limit, and bob's transfer is taken");
+    let head=n.chain.head().clone();assert_eq!(n.template_txs(&head),vec![b0,g0],"{limit} logs is the limit, and bob's transfer is taken");
     drop(n);let _=std::fs::remove_dir_all(&dir);
 }
 /// PR6 review (log caps), the context: a transaction's logs can follow the block's context, which admission does
@@ -5660,11 +5876,18 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 /// of charged gas), and bob's transfer, held behind them, is mined once they are gone. Before the fix the
 /// selection skipped them on every build: the templates stayed empty, the calls stayed pooled unpaid and bob's
 /// transfer was never taken.
-#[test] fn a_transaction_halting_on_its_own_logs_is_included_and_charged(){
-    let c=cfg_funded();let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
-    let (mut n,dir)=gas_node_cfg("own-logs-ctx",Default::default(),&c,None);
-    // PREVRANDAO ISZERO PUSH1 21 JUMPI; PUSH2 547; loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 8 JUMPI; STOP; 21: JUMPDEST STOP
-    let rt=vec![0x44,0x15,0x60,0x15,0x57,0x61,0x02,0x23,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x08,0x57,0x00,0x5b,0x00];
+/// Phase 6a deletes this: pinned to the spec-1 devnet and LOG_COUNT_MAX 546. The v3 counterpart, 4,369 LOG0 past
+/// V3_LOG_COUNT_MAX: v3_a_transaction_halting_on_its_own_logs_is_included_and_charged.
+#[test] fn a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded_spec1(),false)}
+/// The v3 counterpart of a_transaction_halting_on_its_own_logs_is_included_and_charged on the v3 devnet: each call runs
+/// V3_LOG_COUNT_MAX + 1 = 4,369 LOG0 when PREVRANDAO is not zero.
+#[test] fn v3_a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded(),true)}
+fn own_logs_halt(c:DevnetConfig,v3:bool){
+    let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
+    let (mut n,dir)=gas_node_cfg(if c.spec_version>=2{"own-logs-ctx"}else{"own-logs-ctx-spec1"},Default::default(),&c,None);
+    assert_eq!(n.chain.spec.v3_active(1),v3);let k=pocol_lp4_execution::user_phase::log_caps(v3).count as u16+1;
+    // PREVRANDAO ISZERO PUSH1 21 JUMPI; PUSH2 k (547 on spec 1, 4,369 on v3); loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 8 JUMPI; STOP; 21: JUMPDEST STOP
+    let rt=vec![0x44,0x15,0x60,0x15,0x57,0x61,(k>>8) as u8,k as u8,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x08,0x57,0x00,0x5b,0x00];
     let mut init=vec![0x60,rt.len() as u8,0x80,0x60,0x0b,0x60,0x00,0x39,0x60,0x00,0xf3];init.extend(&rt);
     let deploy=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas:200_000,to:None,value:U256::ZERO,data:init.into()}.sign_1559(&alice);
     let x=branch(&mut h,g,1,&[Body{txs:vec![deploy],evidence:vec![]}]);n.import(x[0].clone(),None).unwrap();let ca=alice.address().create(0);
@@ -5736,14 +5959,19 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 /// one template, without bound: up to POOL_PARKED_MAX of them); now it executes at most
 /// `selection_exec_budget(GAS_LIMIT)` (GAS_LIMIT + 5/4 GAS_LIMIT) and keeps the others, unexecuted, for the
 /// append round.
-#[test] fn the_template_selection_executes_a_bounded_amount_of_gas(){
-    use pocold::node::POOL_PARKED;
-    let mut c=cfg_funded();let burners:Vec<String>=(0..24).map(|i|format!("burner{i}")).collect();
+/// Phase 5b: on the v3 devnet the logger emits V3_LOG_COUNT_MAX = 4,368 LOG0 (the v3 limit).
+#[test] fn the_template_selection_executes_a_bounded_amount_of_gas(){selection_exec_budget(cfg_funded(),true)}
+/// Phase 6a deletes this: the_template_selection_executes_a_bounded_amount_of_gas on the spec-1 devnet (LOG_COUNT_MAX 546).
+#[test] fn the_template_selection_executes_a_bounded_amount_of_gas_spec1(){selection_exec_budget(cfg_funded_spec1(),false)}
+fn selection_exec_budget(mut c:DevnetConfig,v3:bool){
+    use pocold::node::POOL_PARKED;let burners:Vec<String>=(0..24).map(|i|format!("burner{i}")).collect();
     for l in &burners{c.accounts.push((l.clone(),U256::from(10u128.pow(24))));}
-    let (mut n,dir)=gas_node_cfg("exec-budget",Default::default(),&c,None);
+    // One directory per profile: the twins run side by side under a parallel harness.
+    let (mut n,dir)=gas_node_cfg(if v3{"exec-budget"}else{"exec-budget-spec1"},Default::default(),&c,None);assert_eq!(n.chain.spec.v3_active(1),v3);
+    let k=pocol_lp4_execution::user_phase::log_caps(v3).count as u16;
     let create=|k:&Key,gas:u64,init:Vec<u8>|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:init.into()}.sign_1559(k);
-    // PUSH2 546; loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 3 JUMPI; STOP
-    let logger=create(&key("alice"),GL/2,vec![0x61,0x02,0x22,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x03,0x57,0x00]);
+    // PUSH2 k (546 on spec 1, 4,368 on v3: the log count limit); loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 3 JUMPI; STOP
+    let logger=create(&key("alice"),GL/2,vec![0x61,(k>>8) as u8,k as u8,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x03,0x57,0x00]);
     // PUSH3 50,000; loop: PUSH1 1 SWAP1 SUB DUP1 PUSH1 4 JUMPI; PUSH0 PUSH0 LOG0 STOP (26 gas a round)
     let burn=vec![0x62,0x00,0xc3,0x50,0x5b,0x60,0x01,0x90,0x03,0x80,0x60,0x04,0x57,0x5f,0x5f,0xa0,0x00];
     n.submit_tx(logger.clone(),false).unwrap();

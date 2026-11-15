@@ -1,0 +1,5 @@
+JM-REPLAY {"height":1000,"journalDiskBytes":1979178,"openSeconds":6.607001167,"perRecordMicros":6607.001167,"records":1000,"rssAfterBytes":68603904,"rssBeforeBytes":68603904,"vmHwmAfterBytes":77369344,"vmHwmBeforeBytes":77369344}
+JM-REPLAY {"height":2500,"journalDiskBytes":4928567,"openSeconds":16.235552262,"perRecordMicros":6494.2209047999995,"records":2500,"rssAfterBytes":68603904,"rssBeforeBytes":68603904,"vmHwmAfterBytes":77369344,"vmHwmBeforeBytes":77369344}
+JM-REPLAY {"height":5000,"journalDiskBytes":9924050,"openSeconds":34.160441524,"perRecordMicros":6832.0883048,"records":5000,"rssAfterBytes":70234112,"rssBeforeBytes":70135808,"vmHwmAfterBytes":77369344,"vmHwmBeforeBytes":77369344}
+JM-BUILD {"buildSeconds":119.588743916,"bytesPerRecordAvg":1984.81,"finalJournalDiskBytes":9924050,"finalRecords":5000,"hMax":5000}
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 25 filtered out; finished in 177.43s
