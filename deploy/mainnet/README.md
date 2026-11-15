@@ -16,9 +16,15 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    phone is a wallet.
 3. **Fresh keys.** Each founding miner generates its key on its own device with the independent-key flow
    (`pocol-key`); only the public miner ID and reward address leave the device.
-4. **Genesis.** Write the public genesis config (chain ID, genesis time, the four founders, their genesis
-   allocations and the consensus parameters the owner approved) and run
-   `pocold init-testnet --config PUBLIC.json --out NEW_DIR` once. Record the printed chain ID and genesis hash.
+4. **Genesis.** Start from the committed profile, `v3-profile.json` (for the rehearsal, `v3-rehearsal-profile.json`).
+   It holds the chain ID and the consensus parameters recorded in
+   [FRESH-NETWORK-CP.md](../../development/decisions/FRESH-NETWORK-CP.md), and the four founders' allocations
+   (999,980 PCOL each, plus the 20 PCOL HELD bond minted into Escrow). Fill its `PLACEHOLDER` values: the launch
+   second, the founders' measured aggregate hash rate, and each founder's public miner ID and reward address. Then
+   run `pocold init-testnet --config PROFILE.json --out NEW_DIR` once, and record the printed chain ID and genesis
+   hash. While any placeholder remains, the builder refuses. `--test-placeholders` fills them with public test keys
+   for a local test genesis only; that genesis runs on the local test chain ID 777990 (the profile's ID is recorded
+   as `profileChainId`), is marked `testPlaceholders` and is never a launch genesis.
 5. **Invitation.** Pack the genesis files with the three seed addresses into the network invitation
    (`pocol network`), and check its fingerprint on every founding device.
 6. **Closed rehearsal.** Run the network on the three US servers only, then wipe and repeat from step 4 for
@@ -44,6 +50,9 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
   `<commit>` is any commit before that file was deleted (`git log --diff-filter=D -- deploy/mainnet/h15000`
   names the deleting commit; use its parent). The tool prints the identity it switches from and to before it
   writes anything.
+- `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet and rehearsal profiles (FN-4). They
+  differ only in the chain ID and the launch second. `test_v3_profiles.py` checks them; `pocold`'s
+  `tests/fn4_profiles.rs` builds and admits them.
 - `retired-networks.json`: the identities the clients were switched away from, append-only. Every switch adds
   its `--from` network, and the tool refuses a listed network as `--to` (swapped `--from`/`--to` included):
   a rollback is a `git revert` of the switch commit, not a reversed run. `--allow-revert` switches back to a

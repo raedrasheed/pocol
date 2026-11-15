@@ -1101,6 +1101,9 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 "forkSchedule":sp.profile().forks().entries().iter().map(|(v,h)|json!([v,h])).collect::<Vec<_>>(),
                 "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)});
             for (k,v) in n.identity_json(){params[k]=v;}
+            // FN-5: a scheduled cap raise, as devnet.json carries it (JSON numbers) plus its fork-3 `height` (a number, as
+            // in forkSchedule); absent without one, so a dormant node answers as before.
+            if let Some((at,r))=sp.profile().cap_raise(){let mut raise=crate::cap_raise_json(&r);raise["height"]=json!(at);params["capRaise"]=raise;}
             Ok(crate::network_display::annotate(params))}
         "pocol_getCaps"=>caps_json(n),
         "pocol_getRejects"=>Ok(json!(n.rejects.iter().map(|(h,w)|json!({"hash":h,"reason":w})).collect::<Vec<_>>())),
@@ -1151,8 +1154,11 @@ pub const CAPS_ALARM_PERCENT:u64=80;
 /// Light: the head's state summary (C-1 E2) and its entry's counters, O(1); a head without a summary (none is
 /// expected: only a slimmed entry drops it) is scanned. The answer is a fixed set of fields, under 2 KiB.
 /// Node-local reporting only: what validity enforces is unchanged (item 16, the USER-phase A03 halts, LOG_CAP).
+/// FN-5: the caps are those of the head's child (`Spec::cp_at(head + 1)`), the block a transaction sent now enters;
+/// a scheduled cap raise is reported as `capRaise` (its height and values, hex quantities) and whether the child is at
+/// or past its height (`active`). Absent without one.
 fn caps_json(n:&Node)->R{
-    let cp=n.chain.spec.cp();let head=n.chain.head();
+    let head=n.chain.head();let cp=n.chain.spec.cp_at(head.height.saturating_add(1));
     let sum=match head.summary.as_deref(){Some(s)=>*s,None=>{
         let v=n.chain.view_of(&head.hash).ok_or_else(||Fail::from((-32001,"head state".to_string())))?;
         pocol_lp4_execution::state_summary::Summary::scan_view(v.v(),cp.B_code_max)}};
@@ -1177,6 +1183,12 @@ fn caps_json(n:&Node)->R{
         occupancy.insert(name.into(),json!({"percent":percent,"remaining":format!("0x{:x}",cap.saturating_sub(count)),"alarm":alarm}));
     }
     out["occupancy"]=Value::Object(occupancy);out["alarm"]=json!(any);
+    // Hex quantities, as every count and cap of this answer (pocol_getParams `capRaise` carries JSON numbers, as its
+    // forkSchedule and devnet.json do).
+    if let Some((at,r))=n.chain.spec.profile().cap_raise(){
+        out["capRaise"]=json!({"ACCT_CAP":qty(r.acct_cap),"SLOT_CAP":qty(r.slot_cap),"CODE_CAP":qty(r.code_cap),"SYS_SLOT_MAX":qty(r.sys_slot_max.into()),
+            "height":qty(at),"active":head.height.saturating_add(1)>=at});
+    }
     Ok(out)
 }
 /// A cap's occupancy in percent (two decimals, rounded down) and its alarm (count·100 ≥ CAPS_ALARM_PERCENT·cap,
@@ -1282,7 +1294,8 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
                 // The live caps (SLOT_CAP, ACCT_CAP, SYS_SLOT_MAX) stay A03 halts: an estimate refuses a call
                 // that would halt on them (PoolMeter::admit, as the pool does).
                 let summary=e.summary.as_deref().copied().unwrap_or_else(||pocol_lp4_execution::state_summary::Summary::scan_view(&base,cp.B_code_max));
-                let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile());
+                // FN-5: the caps of the next block, e.height + 1 (`Spec::cp_at`), as the pool's.
+                let mut meter=pocol_lp4_execution::user_phase::PoolMeter::from_counts_at(summary.user_slots,summary.user_accounts,summary.sys_slots,n.chain.spec.profile(),e.height.saturating_add(1));
                 meter.admit(&st,&r.state).map_err(|why|Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))?;
                 // The own-log caps are checked below for every estimate (N4, V3-24), with this same error object.
                 if b.expired(){return deadline()}

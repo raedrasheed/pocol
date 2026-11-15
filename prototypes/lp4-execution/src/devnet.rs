@@ -30,7 +30,10 @@ pub struct DevnetConfig{
     pub accounts:Vec<(String,U256)>,
     /// Earn-in rules (EARN-IN-SPEC.md): the earn-in system programs and B_reg = 20 PCOL.
     pub earnin:bool,
-    /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately.
+    /// CP 15, the block subsidy S0 in wei (2 PCOL by default; the fresh network's profile states its own, FN-4).
+    pub subsidy:U256,
+    /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately. Any S_tail builds here (the
+    /// V3-19 supply-bound tests probe large tails); the network-profile builder (pocold testnet.rs) requires S0/32.
     pub h_half:u64,pub s_tail:U256,
     pub gamma_tip_bp:u16,pub base_fee_min:U256,
     pub r_react:u8,pub c_react:u32,pub rho_bp:u16,
@@ -49,7 +52,7 @@ impl DevnetConfig{
             code_cap:1<<21,txbytes_cap:1<<24,tx_cap:20_000,alpha_bp:1000,gamma_bp:500,c:2,
             miners:miners.iter().map(|s|s.to_string()).collect(),
             accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false,nonce_mode:0,
-            h_half:31_557_600,s_tail:U256::from(62_500_000_000_000_000u64),
+            subsidy:U256::from(2_000_000_000_000_000_000u128),h_half:31_557_600,s_tail:U256::from(62_500_000_000_000_000u64),
             gamma_tip_bp:5000,base_fee_min:U256::from(10_000_000),
             r_react:4,c_react:40,rho_bp:2500}
     }
@@ -58,7 +61,7 @@ impl DevnetConfig{
         let big=|v:u128|fixed::U256::from_be_slice(&v.to_be_bytes()).unwrap();
         let mut cp=vec![n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(self.nonce_mode.into()),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
          n(self.m.into()),n(self.kappa.into()),n(self.s_max.into()),n(self.d.into()),n(self.w_w.into()),n(self.alpha_bp.into()),n(self.gamma_bp.into()),
-         big(2_000_000_000_000_000_000),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
+         to_fixed(self.subsidy),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
          n(self.gas_limit),n(1_000_000_000),n(131072),n(196608),n(32768),n(self.code_cap),n(self.txbytes_cap),n(self.tx_cap),n(self.slot_cap),n(self.acct_cap),
          // V3-02: a CP schema v2 (v3) devnet doubles SYS_KEYS_BLOCK_MAX (2048 -> 4096): R18 counts the 3·L keys a block's
@@ -89,6 +92,9 @@ pub struct Devnet{
     pub programs:SystemPrograms,
     pub miners:Vec<MinerIdentity>,
     pub forks:Vec<(u16,u64)>,
+    /// FN-5: the cap raise scheduled beside `forks` (fork version 3), admitted with `admission::admit_with`. None by
+    /// default: a devnet raises no cap unless a test schedules one.
+    pub cap_raise:Option<crate::profile::CapRaise>,
     /// Recorded H_cal (synthetic for a devnet), the R25d calibration of target_g.
     pub hash_rate:u64,
 }
@@ -102,9 +108,9 @@ impl Devnet{
     /// candidate: nothing can boot from it except through the returned `Admitted`.
     pub fn admit(&self,local:&NodeLocal)->Result<(Admitted,Timing),String>{
         match crate::admission::measure(&self.spec_bytes,&self.alloc,1){
-            Ok(timing)=>crate::admission::admit(&self.request(local,Some(&timing))).map(|a|(a,timing)).map_err(|e|e.to_string()),
+            Ok(timing)=>crate::admission::admit_with(&self.request(local,Some(&timing)),self.cap_raise.as_ref()).map(|a|(a,timing)).map_err(|e|e.to_string()),
             // Unmeasurable (its blocks cannot be applied): the gate still names every rule.
-            Err(why)=>Err(match crate::admission::admit(&self.request(local,None)){Err(e)=>format!("{e}; {why}"),Ok(_)=>why}),
+            Err(why)=>Err(match crate::admission::admit_with(&self.request(local,None),self.cap_raise.as_ref()){Err(e)=>format!("{e}; {why}"),Ok(_)=>why}),
         }
     }
 }
@@ -138,7 +144,7 @@ pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     let profile=identity(&spec,&forks)?;
     let genesis=Genesis::build(&alloc,&profile,&programs).map_err(|e|format!("{e:?}"))?;
     let spec_bytes=gs::encode(&spec);
-    Ok(Devnet{genesis_hash:B256::from(profile.genesis_hash()),spec_bytes,profile,alloc,genesis,programs,miners,forks,hash_rate:cfg.hash_rate})
+    Ok(Devnet{genesis_hash:B256::from(profile.genesis_hash()),spec_bytes,profile,alloc,genesis,programs,miners,forks,cap_raise:None,hash_rate:cfg.hash_rate})
 }
 fn identity(spec:&GenesisSpec,forks:&[(u16,u64)])->Result<ProfileIdentity,String>{
     let bytes=gs::encode(spec);let hash=gs::genesis_hash(&bytes);

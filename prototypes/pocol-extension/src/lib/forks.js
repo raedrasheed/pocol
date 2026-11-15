@@ -2,8 +2,9 @@
 // an RPC response: an endpoint must not choose the rules used to verify itself.
 const U64_MAX = (1n << 64n) - 1n;
 // The highest consensus version this wallet verifies (pocold profile MAX_FORK_VERSION). Raised only together
-// with the node release that implements the next version's rules.
-export const MAX_FORK_VERSION = 2;
+// with the node release that implements the next version's rules. Version 3 is the cap raise (FN-5, C10): it switches
+// four host caps at its height and changes nothing RP verifies but the header version, which activeVersion checks.
+export const MAX_FORK_VERSION = 3;
 const invalid = () => { throw new Error('forkSchedule must be [[1,"0"]] followed by later activations [[2,"<height>"], …] at increasing heights, up to version ' + MAX_FORK_VERSION); };
 /** `max` exists for tests of later versions; callers use the default. Versions are 1, 2, … in order. */
 export function normalizeForkSchedule(value = undefined, max = MAX_FORK_VERSION) {

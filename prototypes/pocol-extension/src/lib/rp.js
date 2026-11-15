@@ -47,7 +47,8 @@ export const work = (t) => (1n << 256n) / (t + 1n);
 export const fullRange = (v, m) => v >= 2n || m === 1n;
 /** The one v3 predicate (V3-DESIGN §3.3; pocold Spec::v3_active, lp1-node ProfileIdentity::v3_active,
  * pocol_rewards.v3_active): active_version(h) >= 3 || genesis specVersion >= 2. `forks` is a normalized local schedule
- * (forks.js; MAX_FORK_VERSION is still 2, so today only the spec-2 route can be true). */
+ * (forks.js). Fork version 3 is the cap raise (FN-5), which pocold admits only on a spec-2 genesis, so in practice only
+ * the spec-2 route is true. */
 export const v3Active = (spec, forks, h) => (spec.specVersion ?? 1) >= 2 || activeVersion(forks, h) >= 3n;
 /** Header (A08): every field, width and canonical encoding of the reference decoder before any
  * trust result (refdec.js). RP still does not establish execution or membership validity. */

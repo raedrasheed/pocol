@@ -285,7 +285,8 @@ mod tests{
         assert_eq!(network,expect,"the network blockers of a booted devnet admission");
         assert!(!got.contains(&"admission-not-booted")&&!got.contains(&"admission-unrecorded"));
         // A spec-1 genesis with the schedule [(1,0)] never activates v3. No admissible schedule activates it later
-        // (ForkSchedule's bound MAX_FORK_VERSION is 2), so the height Network::admitted asks at is not observable.
+        // (MAX_FORK_VERSION is 3, but version 3 is the cap raise, admitted only on a spec-2 genesis: FN-5), so the
+        // height Network::admitted asks at is not observable.
         assert!(!n.v3_active);
     }
     /// PLAN_GATES_OPEN lists exactly the acceptance-ledger gates whose status is not "Closed".

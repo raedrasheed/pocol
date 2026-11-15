@@ -8,6 +8,11 @@ use revm::interpreter::InstructionResult;
 
 #[derive(Clone, Copy, Debug)]
 pub struct CodeLimits { pub runtime: u32, pub logical: u64 }
+impl CodeLimits {
+    /// FN-5 (C10): the code limits of the block at `height`, B_code_max and CODE_CAP from `ProfileIdentity::cp_at`
+    /// (a scheduled cap raise can raise CODE_CAP there; without one this is the genesis CP's limits at every height).
+    pub fn at(profile:&crate::profile::ProfileIdentity,height:u64)->Self{let cp=profile.cp_at(height);Self{runtime:cp.B_code_max,logical:cp.CODE_CAP}}
+}
 
 /// Resolve actual runtime bytes and verify their content address. An unknown
 /// nonempty hash must never silently resolve to EmptyDB's empty-code fallback.
