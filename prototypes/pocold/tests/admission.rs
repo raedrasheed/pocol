@@ -14,6 +14,10 @@ fn publish(c:&DevnetConfig,dir:&Path,timing:bool){
     std::fs::write(dir.join("genesis.spec.hex"),pocold::types::hex(&n.spec_bytes)).unwrap();
     std::fs::write(dir.join("alloc.json"),devnet::alloc_to_json(&n.alloc).to_string()).unwrap();
     let mut info=serde_json::json!({"calibration":{"hashesPerSecond":n.hash_rate}});
+    // As init-devnet for a v3 devnet: the single-host localTiming that `run` derives its local timing from.
+    if n.profile.spec().spec_version>=2{
+        let local=pocold::testnet::local_for_v3(n.profile.cp(),pocold::testnet::TimingAssumptions::DEVNET).unwrap();info["localTiming"]=pocold::testnet::local_timing_json(&local);
+    }
     // As init-devnet: a profile whose blocks cannot be applied has no timing record.
     if timing{if let Ok(t)=pocol_lp4_execution::admission::measure(&n.spec_bytes,&n.alloc,1){info["timing"]=t.to_json();}}
     std::fs::write(dir.join("devnet.json"),info.to_string()).unwrap();
@@ -24,7 +28,7 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
 #[test] fn load_refuses_the_audited_profiles_and_admits_the_valid_one(){
     let d=tmp("load");
     for (name,edit,rule) in [("s_max",(|c:&mut DevnetConfig|c.s_max=1) as fn(&mut DevnetConfig),"[R9]"),
-        ("h_close",|c|c.h_close=c.h_end,"[R13]"),
+        ("h_close",|c|{c.h_end=20_000;c.h_close=c.h_end},"[R13]"),
         // Its genesis already exceeds SYS_SLOT_MAX, so no block applies and no timing exists.
         ("sys_slot_max",|c|c.sys_slot_max=1,"[R14, R18, R19]")]{
         let mut c=base();edit(&mut c);let dir=d.join(name);publish(&c,&dir,true);
@@ -42,10 +46,15 @@ fn base()->DevnetConfig{DevnetConfig::new(777930,1_700_000_000,&["a","b","c"])}
 }
 #[test] fn init_devnet_refuses_gate_invalid_timing_and_writes_nothing(){
     let d=tmp("init");let out=d.join("net");
-    let o=std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["init-devnet","--out",out.to_str().unwrap(),"--miners","a,b,c","--genesis-time","1700000000",
-        "--t-blk","1","--d-att","4","--fb-wait","1","--work-bits","15"]).output().unwrap();
-    // The old LP5-LP10 e2e flags: Δ_fb_wait=1 < Φ+Δ+2t_exec=3 (R3); 4+5 < 2(7+2·1) (R7).
-    let err=String::from_utf8_lossy(&o.stderr);
+    let init=|extra:&[&str]|{let mut a=vec!["init-devnet","--out",out.to_str().unwrap(),"--miners","a,b,c","--genesis-time","1700000000",
+        "--t-blk","1","--d-att","4","--fb-wait","1","--work-bits","15"];a.extend_from_slice(extra);std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(a).output().unwrap()};
+    // The old LP5-LP10 e2e flags: Δ_fb_wait=1 < Φ+Δ+2t_exec=3 (R3). A v3 devnet's Γ is the R6 slack V3-05 derives
+    // (testnet::local_for_v3, as `run` derives it), which covers D_att 4.
+    let o=init(&[]);let err=String::from_utf8_lossy(&o.stderr);
+    assert!(!o.status.success()&&err.contains("-32018 ParamGate rejected [R3]"),"{err}");
+    assert!(!out.exists(),"nothing is written for a rejected profile");
+    // At the single-host Γ 5 (--gamma 5): also 4+5 < 2(7+2·1) (R7).
+    let o=init(&["--gamma","5"]);let err=String::from_utf8_lossy(&o.stderr);
     assert!(!o.status.success()&&err.contains("-32018 ParamGate rejected [R3, R7]"),"{err}");
     assert!(!out.exists(),"nothing is written for a rejected profile");
     let o=std::process::Command::new(env!("CARGO_BIN_EXE_pocold")).args(["init-devnet","--out",out.to_str().unwrap(),"--miners","a,b,c","--genesis-time","1700000000"]).output().unwrap();

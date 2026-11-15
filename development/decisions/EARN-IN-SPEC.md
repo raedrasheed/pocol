@@ -199,7 +199,8 @@ unchanged. The old chain keeps validating with them, and the cutover tool reads 
 - `SystemPrograms::earnin()` loads the new programs.
 - `SystemPrograms::for_spec(cp, sysCodeHash)` picks the bundled program set that the GenesisSpec
   names. Admission uses it.
-- `DevnetConfig::earnin` builds a devnet with these programs and `B_reg` = 20 PCOL.
+- `DevnetConfig::spec1(.., Spec1Programs::EarnIn)` builds a spec-1 devnet with these programs and `B_reg` = 20 PCOL
+  (Phase 5a replaced the `earnin` flag; the default devnet, `DevnetConfig::new`, runs the V3 programs).
 
 **Tests**
 - `lp4-execution/tests/earnin_contracts.rs` replays all 8 model scenarios against the compiled

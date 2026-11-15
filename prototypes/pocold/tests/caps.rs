@@ -13,8 +13,11 @@ const CHAIN:u64=777912;
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
 fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
-/// The consensus.rs test profile (gate-valid with single-host timing: D_att=73, c=8), small caps.
-fn cfg(tx_cap:u64,txbytes_cap:u64)->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c.tx_cap=tx_cap;c.txbytes_cap=txbytes_cap;c}
+/// The consensus.rs test profile (gate-valid with single-host timing: D_att=73, c=8), small caps. A finite chain (the v3
+/// devnet with H_END 20,000): TX_CAP and TXBYTES_CAP are totals over the branch only where H_END > 0 (a continuous chain
+/// bounds each block, chain.rs).
+fn cfg(tx_cap:u64,txbytes_cap:u64)->DevnetConfig{let mut c=DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]);finite(&mut c);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c.tx_cap=tx_cap;c.txbytes_cap=txbytes_cap;c}
+fn finite(c:&mut DevnetConfig){c.h_end=20_000;c.h_close=19_000;}
 fn spec(c:&DevnetConfig)->pocold::chain::Spec{pocold::chain::Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn net(c:&DevnetConfig)->Net{let d=devnet::build(c).unwrap();Net{chain:oracle_on(Chain::new(spec(c))),keys:d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect()}}
 fn node(c:&DevnetConfig,tag:&str,miner:Option<Key>,stop_at:Option<u64>)->(Node,std::path::PathBuf){
@@ -241,7 +244,7 @@ fn boundary_matrix(bytes:bool){
 /// A single-miner devnet whose genesis is now, mined through the whole production path (pool,
 /// build_signed_template, miner, import) until `stop_at`, or for at most 240 s.
 fn live(tag:&str,tx_cap:u64,txbytes_cap:u64,pool:u64,stop_at:u64)->Node{
-    let g=pocold::node::now_s();let mut c=DevnetConfig::new(CHAIN,g,&["a"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c.tx_cap=tx_cap;c.txbytes_cap=txbytes_cap;
+    let g=pocold::node::now_s();let mut c=DevnetConfig::new(CHAIN,g,&["a"]);finite(&mut c);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c.tx_cap=tx_cap;c.txbytes_cap=txbytes_cap;
     // Own data directory: the tag is shared with an in-process test of the same binary (same PID).
     let (mut n,dir)=node(&c,&format!("live-{tag}"),Some(devnet::miner_identity("a").key),Some(stop_at));let alice=devnet::account_key("alice");
     n.cfg.log=true;// the production trace (locks, own-block rejections, attempt expiry) goes to stderr

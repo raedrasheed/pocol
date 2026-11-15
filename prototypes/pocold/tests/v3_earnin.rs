@@ -12,14 +12,18 @@ use pocol_lp4_execution::devnet::{self, DevnetConfig};
 
 const PCOL: u128 = 1_000_000_000_000_000_000;
 
-fn config() -> DevnetConfig {
-    let mut cfg = DevnetConfig::new(777941, 1_700_000_000, &["one", "two"]);
+fn config() -> DevnetConfig { config_spec(2) }
+/// Spec 2: the v3 devnet. Spec 1: its retired spec-1 earn-in twin, which the fails-on-original comparisons run; Phase 6a
+/// deletes it with the spec-1 rule set.
+fn config_spec(spec: u8) -> DevnetConfig {
+    let mut cfg = match spec {
+        1 => DevnetConfig::spec1(777941, 1_700_000_000, &["one", "two"], devnet::Spec1Programs::EarnIn),
+        _ => DevnetConfig::new(777941, 1_700_000_000, &["one", "two"]),
+    };
     cfg.hash_rate = 16;
     cfg.c = 8;
     cfg.d_att = 73;
     cfg.r_max = 1;
-    cfg.earnin = true;
-    cfg.spec_version = 2;
     cfg
 }
 
@@ -28,9 +32,7 @@ fn a_v3_earnin_genesis_selects_the_v3_program_set() {
     let net = devnet::build(&config()).unwrap();
     assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash(), "spec 2 + earn-in selects the v3 set");
     // The spec-1 earn-in devnet keeps the earn-in set and its constants.
-    let mut legacy = config();
-    legacy.spec_version = 1;
-    let net = devnet::build(&legacy).unwrap();
+    let net = devnet::build(&config_spec(1)).unwrap();
     assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::earnin().sys_code_hash());
 }
 
@@ -478,8 +480,7 @@ mod on_chain {
     /// D = 5, so that the evidence block (drawn deterministically) lands before settle(j). (FN-2b: R18 admits a v3 profile only
     /// up to D = 5 at G_SYS 96M, since its final class composes D - 1 settleFinal calls at the all-ACCRUING worst settle.)
     fn net_spec(spec: u8) -> Net {
-        let mut cfg = config();
-        cfg.spec_version = spec;
+        let mut cfg = config_spec(spec);
         cfg.d = 5;
         let mut candidate = devnet::build(&cfg).unwrap();
         candidate.forks.push((2, 2));
@@ -598,9 +599,12 @@ mod on_chain {
         assert_eq!((earnin.1, earnin.2, earnin.4, earnin.5), (U256::from(1), U256::from(1), U256::ZERO, U256::ZERO), "the earn-in chain burns both pots whole, no reporter");
         assert_eq!((v3.1, v3.2, v3.3), (U256::ZERO, U256::from(1), U256::from(1)), "v3: pot j normal, pot k whole-burn with its ACCRUING winner bit");
         assert_eq!(v3.4, U256::from(5 * PCOL), "25% of two's 20 PCOL bond to the reporter one");
-        // Pot j: 2 PCOL, header shares of one and two plus two's winner share; R = 1.7 PCOL over Q = max(3, 64).
-        let share = U256::from(17 * PCOL / 10) / U256::from(64);
-        assert_eq!(v3.5, share + if v3.6 { U256::from(PCOL / 10) } else { U256::ZERO }, "one's share of pot j (and its proposer part if it proposed j)");
+        // Pot j: S0 (4 PCOL on the v3 devnet; no tips, and no carry before the first settle), header shares of one and two
+        // plus two's winner share; R = 0.85 S0 over Q = max(3, 64), the proposer part 0.05 S0.
+        let s0 = devnet::from_fixed(&config().cp()[15]);
+        assert_eq!(s0, U256::from(4 * PCOL));
+        let share = s0 * U256::from(85) / U256::from(100) / U256::from(64);
+        assert_eq!(v3.5, share + if v3.6 { s0 / U256::from(20) } else { U256::ZERO }, "one's share of pot j (and its proposer part if it proposed j)");
     }
 
     /// The evidence window on the v3 chain, with a self-report: an equivocation by `one` (the only member left to propose

@@ -8,7 +8,9 @@ fn vectors()->serde_json::Value{serde_json::from_str(include_str!("../../../deve
 const DEVNET_HEX:&str=include_str!("../../../development/audit-2026-10-22/proposals/vectors/caps-devnet-spec.hex");
 fn hex(b:&[u8])->String{b.iter().map(|x|format!("{x:02x}")).collect()}
 fn unhex(s:&str)->Vec<u8>{let s=s.trim();let s=s.strip_prefix("0x").unwrap_or(s);(0..s.len()).step_by(2).map(|i|u8::from_str_radix(&s[i..i+2],16).unwrap()).collect()}
-fn devnet_cfg()->DevnetConfig{DevnetConfig::new(777900,1_700_000_000,&["a","b","c"])}
+/// The vectors are the audited spec-1 devnet's (52 CP fields, the V1 programs): the retired spec-1 devnet, pinned until
+/// Phase 6a rewrites this file on V3 or drops it.
+fn devnet_cfg()->DevnetConfig{DevnetConfig::spec1(777900,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded)}
 
 #[test] fn gsv1_and_the_cap_variants_match_the_model(){
     let v=vectors();let g=unhex(v["gsv1"]["bytes"].as_str().unwrap());assert_eq!(g.len(),341);

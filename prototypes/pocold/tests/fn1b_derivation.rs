@@ -36,8 +36,10 @@ impl Drop for Net{fn drop(&mut self){members_sweep::sweep_on_drop(&self.chain);}
 /// The earn-in devnet, v3 (CP schema v2: all-live membership, full nonce domain) or spec 1 (bounded nonces, the W_act
 /// activity window). M_max `m_max`; E_win 80.
 fn config(spec:u8,m_max:u16)->DevnetConfig{
-    let mut c=DevnetConfig::new(777954,1_700_000_000,&["one","two","three"]);
-    c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.earnin=true;c.spec_version=spec;c.e_win=80;c.u=96;c.c_react=96;c.w_act=4;c.m_max=m_max;
+    // Phase 5a: spec 2 is the v3 devnet default; spec 1 its retired earn-in twin (Phase 6a deletes the spec-1 rule set).
+    let mut c=if spec>=2{DevnetConfig::new(777954,1_700_000_000,&["one","two","three"])}
+        else{DevnetConfig::spec1(777954,1_700_000_000,&["one","two","three"],devnet::Spec1Programs::EarnIn)};
+    c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.e_win=80;c.u=96;c.c_react=96;c.w_act=4;c.m_max=m_max;
     c.accounts.push(("carol".into(),U256::from(10u128.pow(24))));c
 }
 fn spec_of(c:&DevnetConfig)->Spec{members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}

@@ -23,17 +23,19 @@ The example addresses are placeholders. The evidence below is a single-host rehe
   A random chainId or genesis hash does not change this. Individual secure key
   custody and authenticated membership are prerequisites for inviting untrusted parties.
 - The initial test accounts `alice` and `bob` each have 10^24 base units. There is no
-  real value, public faucet, exchange bridge, or token sale. R_max=0 means miner
-  registration/reactivation is disabled; the miner set starts from genesis.
+  real value, public faucet, exchange bridge, or token sale.
+- The genesis is a v3 devnet, the rules the fresh network runs (`init-devnet` since
+  Phase 5a): specVersion 2, the V3 system programs, nonceMode 1 and the 20 PCOL bond
+  earned from mining. R_max=1: one miner registration per block; the miner set starts
+  from genesis.
 - Timing uses the P11 values from `development/m1/reference/governance.md`: T_blk=10,
   tau=600, D_att=60, fallback wait=6 seconds; local delta=1, phi=1, t_exec=1,
   delta_rel=8, gamma=5. Other limits remain the existing small devnet defaults.
   This is **not** a claim that the complete P11 profile is implemented. `pocold`
   still inherits simnet retentionStress and its explicit admission waivers.
-- H_CLOSE=19,000 and H_END=20,000 remain unchanged. At a nominal ten seconds per block,
-  that is about 53/56 hours, not a perpetual chain or an observed deadline. Stop the
-  pilot before closing; preserve evidence and prepare a new release/new chainId for
-  a new experiment. Never silently rewrite genesis or delete data to restart it.
+- The chain is continuous (H_END=0, no closing schedule), as the fresh network. Stop
+  the pilot when its evidence is collected; prepare a new release/new chainId for a
+  new experiment. Never silently rewrite genesis or delete data to restart it.
 - `--state-store --checkpoint-every 128` is selected for this pilot. It does not
   change the application's default or prove production resource bounds.
 

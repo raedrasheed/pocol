@@ -52,7 +52,7 @@
 //!   views; settle's worst path with every payee ACCRUING at bond 0 and promoted in one call (256 share
 //!   owners, the winner and the proposer; and the carry path), M_max above the spec-1 domain, and the earn-in refund
 //!   regressions (earnin_refund_fix.rs) on the v3 set.
-use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,genesis_spec,
+use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::{DevnetConfig,Spec1Programs},profile::ConsensusParams,genesis_spec,
     pay::{registry_address,escrow_address}};
 use revm::{DatabaseCommit,InMemoryDB,primitives::{Address,AccountInfo,Bytecode,Bytes,TxEnv,TxKind,U256,keccak256,ResultAndState}};
 use std::collections::{BTreeMap,BTreeSet};
@@ -714,7 +714,7 @@ fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
     assert!(v3.codes[0]!=e.codes[0]&&v3.codes[1]!=e.codes[1]&&v3.codes[2]!=e.codes[2]&&v3.codes[3]!=e.codes[3]);
     // EIP-170-sized for tooling (roadmap risk 10).
     for (i,c) in v3.codes.iter().enumerate(){assert!(c.len()<=24_576,"program {i} is {} bytes",c.len());}
-    let mut cfg=DevnetConfig::new(777940,1_700_000_000,&["one"]);cfg.h_end=0;cfg.earnin=true;
+    let mut cfg=DevnetConfig::spec1(777940,1_700_000_000,&["one"],Spec1Programs::EarnIn);cfg.h_end=0;
     let spec1=ConsensusParams::from_values(&cfg.cp()).unwrap();cfg.spec_version=2;let spec2=ConsensusParams::from_values(&cfg.cp()).unwrap();
     assert_eq!((spec1.schema_version(),spec2.schema_version()),(1,2));
     let hash=v3.sys_code_hash().0;
@@ -738,7 +738,8 @@ fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
 #[test]
 fn a_spec1_genesis_naming_the_v3_set_is_refused_by_admission(){
     use pocol_lp4_execution::{admission::{self,NodeLocal},apply::Genesis,devnet,genesis_spec as gs,profile::{ProfileIdentity,ProfileKind,NodeKind}};
-    let mut cfg=DevnetConfig::new(777942,1_700_000_000,&["one"]);cfg.h_end=0;cfg.earnin=true;
+    // A spec-1 earn-in devnet (Phase 6a deletes the spec-1 rule set and this refusal with it).
+    let mut cfg=DevnetConfig::spec1(777942,1_700_000_000,&["one"],Spec1Programs::EarnIn);cfg.h_end=0;
     let honest=devnet::build(&cfg).unwrap();
     assert_eq!(honest.programs.sys_code_hash(),SystemPrograms::earnin().sys_code_hash(),"a spec-1 earn-in devnet runs the earn-in set");
     let local=NodeLocal::single_host();
@@ -1983,8 +1984,11 @@ mod on_chain {
         }
         fn bal(&self,a:Address)->U256{balance(&self.state,a)}
     }
+    /// Spec 2: the v3 devnet. Spec 1: the retired spec-1 earn-in devnet, kept for the fails-on-original comparisons until
+    /// Phase 6a deletes the earn-in set. Both run at the earn-in devnet's S0 of 2 PCOL (tail S0/32), so they run the same blocks.
     fn config(spec:u8,miners:&[&str])->DevnetConfig{
-        let mut cfg=DevnetConfig::new(777943,1_700_000_000,miners);cfg.h_end=0;cfg.earnin=true;cfg.spec_version=spec;cfg.r_max=8;cfg
+        let mut cfg=match spec{1=>DevnetConfig::spec1(777943,1_700_000_000,miners,Spec1Programs::EarnIn),_=>DevnetConfig::new(777943,1_700_000_000,miners)};
+        cfg.h_end=0;cfg.r_max=8;cfg.subsidy=U256::from(2*PCOL);cfg.s_tail=U256::from(2*PCOL/32);cfg
     }
 
     /// V3-16/V3-17 through the host: block 3 carries type-2 evidence against b, the HELD winner of pot 1, and against

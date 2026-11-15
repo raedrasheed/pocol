@@ -111,8 +111,12 @@ fn status(f:&Fixture)->serde_json::Value{
 }
 fn stats(f:&Fixture,keys:&[&str])->Vec<Option<u64>>{let s=status(f);keys.iter().map(|k|s["stats"][*k].as_u64()).collect()}
 
-#[test] fn a_locked_template_and_a_valid_share_are_relayed_once_and_never_back(){let _g=serial();
-    let f=fixture("relay",778101,|_|{});
+#[test] fn a_locked_template_and_a_valid_share_are_relayed_once_and_never_back(){relayed_once_and_never_back("relay",778101,|_|{})}
+/// The same on a bounded nonce range (CP field 4 = 0, still a valid v3 CP until Phase 6a requires nonceMode 1), where a
+/// share at or above nMax exists and is dropped.
+#[test] fn a_locked_template_and_a_valid_share_are_relayed_once_and_never_back_on_a_bounded_nonce_range(){relayed_once_and_never_back("relay-bounded",778109,|c|c.nonce_mode=0)}
+fn relayed_once_and_never_back(tag:&str,chain_id:u64,tune:impl FnOnce(&mut DevnetConfig)){let _g=serial();
+    let f=fixture(tag,chain_id,tune);
     let [mut x,mut y]=peers(&f,["x","y"]);
     let (tid,tmsg,ctx)=template(&f,Body::default());
     let s:Vec<u64>=valid_shares(&tid,&ctx,true).take(5).collect();let (early,s1,s2,s3,s4)=(s[0],s[1],s[2],s[3],s[4]);
@@ -128,10 +132,14 @@ fn stats(f:&Fixture,keys:&[&str])->Vec<Option<u64>>{let s=status(f);keys.iter().
     // reached it. y sends a second copy of the template, then s1: x must get s1 first.
     y.write_all(&frame(&tmsg)).unwrap();y.write_all(&frame(&share(s1))).unwrap();
     assert_eq!(next(&mut x),Some(share(s1)),"x got neither its own template back nor y's second copy, and y's new share once");
-    // Invalid PoW, nonce >= nMax and a foreign TemplateID are dropped; the next valid share goes to y only.
+    // Invalid PoW, nonce >= nMax and a foreign TemplateID are dropped; the next valid share goes to y only. With nonceMode 1
+    // (the v3 devnet) nMax is 2^64, so every u64 nonce is in range and there is no share at or above it.
     let mut other=tid;other[0]^=1;
-    for m in [share(invalid_share(&tid,&ctx)),share(valid_shares(&tid,&ctx,false).next().unwrap()),
-        Msg::Share{tid:other,nonce:valid_shares(&other,&ctx,true).next().unwrap()},share(s2)]{x.write_all(&frame(&m)).unwrap();}
+    let bounded=u64::try_from(ctx.assignment.nonce_max()).is_ok();assert_eq!(bounded,f.chain.spec.cp().nonceMode==0,"nMax {}",ctx.assignment.nonce_max());
+    let mut drops=vec![share(invalid_share(&tid,&ctx))];
+    if bounded{drops.push(share(valid_shares(&tid,&ctx,false).next().unwrap()));}
+    drops.extend([Msg::Share{tid:other,nonce:valid_shares(&other,&ctx,true).next().unwrap()},share(s2)]);
+    for m in drops{x.write_all(&frame(&m)).unwrap();}
     assert_eq!(next(&mut y),Some(share(s2)),"only the valid share reached y (and the early share was never applied)");
     y.write_all(&frame(&share(s3))).unwrap();
     assert_eq!(next(&mut x),Some(share(s3)),"x did not get its own share s2 back");

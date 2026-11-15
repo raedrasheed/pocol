@@ -20,7 +20,9 @@ struct Net {
 impl Drop for Net { fn drop(&mut self) { crate::members_sweep::sweep_on_drop(&self.chain); } }
 
 fn fixture(activation: Option<u64>) -> (Spec, HashMap<Address, Key>) {
-    let mut cfg = DevnetConfig::new(777914, 1_700_000_000, &LABELS);
+    // The fork-v2 activation of a bounded spec-1 chain: the retired spec-1 devnet, pinned until Phase 6a deletes this file
+    // with full-nonce and fork-v2 coverage (a v3 devnet has nonceMode 1 from genesis).
+    let mut cfg = DevnetConfig::spec1(777914, 1_700_000_000, &LABELS, devnet::Spec1Programs::Bonded);
     cfg.hash_rate = 16;
     cfg.c = 8;
     cfg.d_att = 73;

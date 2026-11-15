@@ -15,7 +15,11 @@ impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.c
 /// Gate-valid test profile (A02): about 2^12 hashes per block (target 2^244-1 at T_blk=4),
 /// c=8, and D_att=73 so that R7 holds with single-host timing: 73+5 >= 2(7+8*4).
 /// Genesis is in the past: honest single-host Φ=0 tolerates no future timestamps.
-fn cfg(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,miners);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+/// Phase 5a: pinned to the retired spec-1 devnet (DevnetConfig::spec1, the devnet default before Phase 5a) for Phase
+/// 5b/5c. This suite hard-codes spec-1 rules throughout: the bounded nonce range (rule 6, nonce >= nMax; seals scanned
+/// from nonce 0), the 100 PCOL bond and 2 PCOL subsidy, the activity window, no base-fee floor, the spec-1 log caps and
+/// the finite chain's lifetime caps.
+fn cfg(miners:&[&str])->DevnetConfig{let mut c=DevnetConfig::spec1(777910,1_700_000_000,miners,pocol_lp4_execution::devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 /// The admitted spec (full ParamGate with measured timing); a Devnet alone cannot boot.
 fn admitted(c:&DevnetConfig)->Spec{members_sweep::oracle();let d=devnet::build(c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 fn net_with(c:&DevnetConfig)->Net{

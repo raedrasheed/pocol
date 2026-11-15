@@ -17,12 +17,13 @@ fn spec(c:&DevnetConfig,extra_rel:u32)->Spec{
     let mut local=pocold::single_host_local();local.delta_rel+=extra_rel;
     Spec::new(devnet::build(c).unwrap().admit(&local).unwrap().0)
 }
+/// `v3`: the v3 devnet; otherwise its retired spec-1 twin, bonded with the full nonce domain (Phase 6a deletes it).
 fn net(v3:bool)->Net{
-    let mut cfg=DevnetConfig::new(777937,1_700_000_000,&["fork-miner"]);
+    let mut cfg=if v3{DevnetConfig::new(777937,1_700_000_000,&["fork-miner"])}else{DevnetConfig::spec1(777937,1_700_000_000,&["fork-miner"],devnet::Spec1Programs::Bonded)};
     // R7 has room for the restart test's alternate, still gate-valid local
     // deadline. The original 73-second fixture sat exactly on that gate.
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=91;cfg.r_max=1;
-    cfg.spec_version=if v3{2}else{1};cfg.nonce_mode=1;
+    cfg.nonce_mode=1;
     let d=devnet::build(&cfg).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
     Net{chain:oracle_on(Chain::new(spec(&cfg,0))),keys,cfg}
 }

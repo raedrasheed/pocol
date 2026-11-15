@@ -26,7 +26,9 @@ struct Net {
 impl Drop for Net { fn drop(&mut self) { crate::members_sweep::sweep_on_drop(&self.chain); } }
 
 fn net() -> Net {
-    let mut cfg = DevnetConfig::new(777915, 1_700_000_000, &LABELS);
+    // The spec-1 activity window (W_act, A_h) and its deregister/reactivate rejoin: the retired spec-1 devnet, pinned for
+    // Phase 5b/5c (a v3 chain keeps every live member in the nonce ranges, V3-01; its rejoin is a re-registration).
+    let mut cfg = DevnetConfig::spec1(777915, 1_700_000_000, &LABELS, devnet::Spec1Programs::Bonded);
     cfg.hash_rate = 16;
     cfg.c = 8;
     cfg.d_att = 73;

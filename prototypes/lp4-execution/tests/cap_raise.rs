@@ -12,7 +12,7 @@ const H:u64=10;
 /// The cap headroom the admission's timing workload needs; a test fills it in its own copy of the genesis state.
 const ROOM:u64=64;
 fn cfg(tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{
-    let mut c=DevnetConfig::new(CHAIN,1_800_000_000,&["a"]);c.spec_version=2;c.earnin=true;c.nonce_mode=1;tune(&mut c);c
+    let mut c=DevnetConfig::new(CHAIN,1_800_000_000,&["a"]);tune(&mut c);c
 }
 fn counts(d:&devnet::Devnet)->Summary{Summary::scan(d.genesis.state(),d.profile.cp().B_code_max)}
 fn timing(d:&devnet::Devnet)->Timing{admission::measure(&d.spec_bytes,&d.alloc,1).unwrap()}
@@ -65,7 +65,8 @@ fn admission_refuses_a_raise_that_is_unscheduled_lowering_empty_on_spec_1_or_bre
     }
     r24(admit(&mut d,&t,&local,Some(b)).err().unwrap(),"must raise at least one cap");
     // A spec-1 genesis has no cap raise.
-    let mut one=devnet::build(&cfg(|c|{c.spec_version=1;c.earnin=false;c.nonce_mode=0;})).unwrap();let t1=timing(&one);let b1=base_raise(&one);
+    // The retired spec-1 rule set (Phase 6a deletes it and this case).
+    let mut one=devnet::build(&DevnetConfig::spec1(CHAIN,1_800_000_000,&["a"],devnet::Spec1Programs::Bonded)).unwrap();let t1=timing(&one);let b1=base_raise(&one);
     r24(admit(&mut one,&t1,&local,Some(CapRaise{acct_cap:b1.acct_cap+1,..b1})).err().unwrap(),"needs a v3 genesis");
     // A rule broken only at the raised CP: without the simnet retentionStress exception, R21's retained state at an
     // ACCT_CAP of 2^40 is over HIST_TRIE_BUDGET while the genesis CP's is not.

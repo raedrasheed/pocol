@@ -18,11 +18,12 @@ fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 /// happens, `Chain::base_verdict`): the positive control.
 fn derivations_checked(c:&Chain,what:&str){let m=c.member_counters();assert!(m.base_checks>0,"{what}: the derivation oracle compared ({m:?})");
     assert_eq!((m.base_mismatch,m.oracle_mismatch,m.faults),(0,0,0),"{what}: no derivation differed ({m:?})");}
+/// `v3`: the v3 devnet; otherwise its retired spec-1 earn-in twin (Phase 6a deletes the spec-1 rule set and these twins).
 fn config(v3:bool,full:bool,n:usize)->DevnetConfig{
-    let mut cfg=DevnetConfig::new(777952,1_700_000_000,&[]);
+    let mut cfg=if v3{DevnetConfig::new(777952,1_700_000_000,&[])}else{DevnetConfig::spec1(777952,1_700_000_000,&[],devnet::Spec1Programs::EarnIn)};
     cfg.miners=(0..n).map(|i|format!("fn1-{i}")).collect();
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=73;cfg.w_act=4;cfg.r_max=1;
-    cfg.spec_version=if v3{2}else{1};cfg.nonce_mode=if full{1}else{0};cfg.earnin=true;
+    cfg.nonce_mode=if full{1}else{0};
     cfg.m_max=cfg.m_max.max(n as u16);
     cfg.accounts.push(("carol".into(),U256::from(10u128.pow(24))));
     cfg

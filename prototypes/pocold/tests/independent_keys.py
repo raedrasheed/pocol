@@ -137,8 +137,14 @@ class IndependentKeys(unittest.TestCase):
         devnet = ['init-devnet', '--miners', 'a,b,c', '--chain-id', '777912', '--genesis-time', '1793275000']
         self.assertEqual(self.call('pocold', *devnet, '--out', self.root / 'dev').returncode, 0)
         self.assertEqual(self.call('pocold', *devnet, '--full-nonce', '--out', self.root / 'dev-full').returncode, 0)
-        self.assertEqual((nonce_mode(self.root / 'dev'), nonce_mode(self.root / 'dev-full')), (0, 1))
-        self.assertIs(json.loads((self.root / 'dev-full/devnet.json').read_text())['fullNonce'], True)
+        # A devnet is v3 (Phase 5a): nonceMode 1 from genesis, so --full-nonce changes nothing.
+        self.assertEqual((nonce_mode(self.root / 'dev'), nonce_mode(self.root / 'dev-full')), (1, 1))
+        for name in ('genesis.spec.hex', 'alloc.json'):
+            self.assertEqual((self.root / 'dev' / name).read_bytes(), (self.root / 'dev-full' / name).read_bytes(), name)
+        for name in ('dev', 'dev-full'):
+            info = json.loads((self.root / name / 'devnet.json').read_text())
+            self.assertIs(info['fullNonce'], True, name)
+            self.assertEqual((info['specVersion'], info['v3']), (2, True), name)
 
     def test_bad_genesis_inputs_never_create_output(self):
         config = self.config()
