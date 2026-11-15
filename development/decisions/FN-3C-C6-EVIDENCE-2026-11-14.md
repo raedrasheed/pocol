@@ -234,10 +234,17 @@ read none whole. The same context with every input cleared (the fallback) is tim
 | process peak RSS (VmHWM) | 197.8 MiB | 203.2 MiB | 191.6 MiB | 199.5 MiB | |
 
 The cold max of the after runs (262 ms) is block 1: genesis has no parent inputs held, so its inputs are read whole
-once. Validation and import fell by about 110-220 ms at p50. They take the same cold path: each import is validated
-with FN-1's rows cleared, and before FN-1b every validation and every import re-read all 10,000 records.
+once. Validation and import fell by about 110-220 ms at p50. Before FN-1b every validation and every import re-read all
+10,000 records. After it, they do not take the cold child_ctx's path: FN-1's rows are cleared before each, but
+`clear_ctx_cache` keeps the inputs, so validation and import find the parent's inputs already held (here from the
+harness's own whole read in the fallback timing just before; in a node, from the context it derives of the new head right
+after the import). The counters show it: 1,200 input hits, two a block, and 601 whole reads, the harness's 600 plus
+genesis. The validate figures therefore contain no derivation; the derivation's ~5 ms is in the import figure (the
+post-import context of the new head, about 600 of the 1,199 derivations) and in the cold child_ctx row.
 
-What a derivation read (the import phase's FN-1b counters, 600 blocks): idle, 1,199 derivations, 0 list elements and
+What a derivation read (the import phase's FN-1b counters, 600 blocks; besides these O(writes) reads it does O(M_max)
+work in memory, copying the parent's inputs as `MemberBase::derive` builds the new ones, part of the ~5 ms with the
+membership computed from them): idle, 1,199 derivations, 0 list elements and
 2,044 records, about 3.4 records a block (the records one of whose words the block wrote). Churning, 1,199 derivations, 2,340 list elements and 4,287 records. 1,200 hits; 601 whole reads (block 1
 and the harness's 600 fallback timings). The pool case's cold template read the inputs whole once (its caches were
 cleared).
@@ -264,14 +271,21 @@ Tests (FN-1b, `tests/fn1b_derivation.rs`, and the oracle in every chain-running 
 - A store-mode node: every import derives, and a rebuild derives along its re-execution. The first context after a
   checkpoint restore reads whole, after a replay it derives, and every later import derives.
 - The cache stays within its bounds.
-- Inputs damaged on purpose are caught. The one-pass result is returned, the mismatch is counted, and the inputs are
-  dropped.
+- Inputs damaged on purpose are caught. On a chain that tolerates it (the negative controls) the one-pass result is
+  returned, the mismatch is counted, and the inputs are dropped; on any other chain with the oracle on a mismatch panics,
+  so a suite that reads no counter still fails.
+- A write set that leaves out the slots its block wrote is caught at import and not kept, and a write set above the cap
+  (lowered for the test) is not kept; either way the next context reads its inputs whole. The write set is copied once,
+  after the block's store commit, only within the cap and after the oldest row made room (no in-flight copy outside the
+  A13 term), and a registry replaced whole or an unknown write set is not kept (a unit test).
 - In every other suite the oracle compares each executed block's derived inputs with those read whole, and the
-  end-of-test sweep asserts that it compared and found no mismatch.
+  end-of-test sweep (or, in fn1_membership and v3_fork_choice, a counter check) asserts that it compared and found no
+  mismatch.
 
 Results on this branch (`cargo +1.99.1 test --release --locked`, Linux; the counts of §4 unless named):
-- `--lib` (266) and every other pocold test target pass.
-  - The new `fn1b_derivation` target passes 7.
+- `--lib` (267, with the review fixes' unit test of the kept write set) and every other pocold test target pass.
+  - The new `fn1b_derivation` target passes 10 (7, and the review fixes' three: a mismatch panics where it is not
+    tolerated, a write set above the cap is not kept, a write set missing its slots is caught at import).
   - `fn3_scale` passes 3, with the harness ignored.
   - `consensus` (165, 10 ignored) and `caps` (11) pass on one thread.
 - `consensus_guard` passes 20 of 21. The one failure is `the_tree_matches_the_consensus_lock`, as expected: FN-1b changes

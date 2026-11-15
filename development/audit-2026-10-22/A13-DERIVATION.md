@@ -1846,7 +1846,10 @@ FN-1's rows, by the block hash and the state's identity. New queue term "members
 table with its own bytes (`member_base_bytes`), behind an Arc, in a VecDeque row twice, with the allocation its weak state
 reference keeps; one more input being derived (the parent's copied, and the set of the new list a derivation builds when
 more than 64 ids left it); the write sets (CTX_WRITE_SLOTS_MAX · 32 B behind an Arc, each row twice with two weak state
-references); plus 1,024 B. With the oracle on (tests only) a check holds two more inputs; a node runs it off.
+references); plus 1,024 B. A write set is copied once (`Chain::note_writes`), from the block's own write set after its
+store commit (the write set `batch_max` counts lives until then, one block at a time), only when it is at most
+CTX_WRITE_SLOTS_MAX slots (a larger one is neither kept nor copied), and after the oldest row made room, so no ninth set
+exists in flight. With the oracle on (tests only) a check holds two more inputs; a node runs it off.
 - At the devnet's M_max 64: 1,207,460 B (the write sets' 1,048,576 B are most of it). The spec-1 devnet total
   (tests/consensus.rs `a13_bound_breakdown`, tests/v3_late_shares.rs) moves from 3,357,219,051 to 3,358,426,511 B (eviction
   off 3,348,736,230 to 3,349,943,690 B). The live chain's halt (tests/network_budget.rs) moves 518 records earlier
@@ -1859,7 +1862,8 @@ references); plus 1,024 B. With the oracle on (tests only) a check holds two mor
   still admitted, with 151,377,487 B (144 MiB) to spare under the usable 5,637,144,576 B (175,199,283 B before). To keep
   the term small the records' table holds no slot (an id that leaves the list has its slot recomputed, one keccak), and
   three inputs are kept, not four (36,625,548 B at 10,000 with four and the slot held).
-The derivation is a CPU change, not a memory one, elsewhere: a context still holds the membership FN-1 counts. Its cost
+A derivation reads O(writes) values from the state but copies the parent's inputs in memory, O(M_max) work and
+transient allocation (the copy is the "one more input being derived" above). The derivation is a CPU change, not a memory one, elsewhere: a context still holds the membership FN-1 counts. Its cost
 and the cold child_ctx it gives are in development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md (§6, "FN-1b").
 
 ## 4. Assumptions, one by one (round 2)

@@ -13,8 +13,12 @@
 //!   rolling re-execution; after a reopen from a checkpoint (restore) the first context reads its inputs whole, after a
 //!   replay it derives (the replay re-validated every block), and every import after either derives; every context
 //!   equals the reference's one-pass reading.
-//! - Inputs held wrong (`Chain::damage_member_base`) are caught by the next context's comparison: the one-pass result is
-//!   returned, the mismatch and a member fault are counted, every held input is dropped, the next context reads whole.
+//! - Inputs held wrong (`Chain::damage_member_base`) are caught by the next context's comparison: on a chain that tolerates
+//!   it (`Chain::tolerate_base_mismatch`) the one-pass result is returned, the mismatch and a member fault are counted,
+//!   every held input is dropped, the next context reads whole; on any other chain it panics, so no oracle-on test passes
+//!   over one. A write set that leaves out the slots its block wrote (`Chain::withhold_next_registry_writes`) is caught
+//!   at import and not kept; a write set above the cap (`Chain::set_ctx_write_slots_max`) is not kept; either way the
+//!   next context reads its inputs whole.
 //! The oracle (on in every test) also compares, on every block executed, the inputs derived through its writes with the
 //! ones read whole from its state; the cold sweep asserts no mismatch and no fault.
 #[path="support/members.rs"] mod members_sweep;
@@ -331,7 +335,7 @@ fn copy_dir(from:&Path,to:&Path){std::fs::create_dir_all(to).unwrap();for e in s
 /// the mismatch is wanted here).
 #[test] fn a_wrong_derivation_is_caught_and_the_one_pass_reading_wins(){
     let mut n=net(config(2,8));for _ in 0..6{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
-    let r=Chain::new(spec_of(&n.cfg));let mut r=r;assert!(r.member_oracle,"the oracle is on in tests");
+    let r=Chain::new(spec_of(&n.cfg));let mut r=r;assert!(r.member_oracle,"the oracle is on in tests");r.tolerate_base_mismatch();
     for b in &n.blocks{let (e,_)=r.validate(b,None,0).unwrap();r.insert(e);}
     let p=r.full_entry(&r.head).unwrap();let k=p.height+1;
     let right=r.child_ctx(&p,0).unwrap().membership.clone();assert_eq!(*right,r.membership_one_pass(&p,k).unwrap());
@@ -346,4 +350,65 @@ fn copy_dir(from:&Path,to:&Path){std::fs::create_dir_all(to).unwrap();for e in s
     // The next cold context reads its inputs whole, agrees, and is not a new mismatch.
     r.clear_ctx_cache();let again=r.child_ctx(&p,0).unwrap();let c2=r.member_counters();
     assert_eq!(*again.membership,*right);assert_eq!((c2.base_read-c1.base_read,c2.base_mismatch),(1,1),"read whole after the drop ({c2:?})");
+}
+/// Without `tolerate_base_mismatch`, the same damaged inputs make the next context panic where the comparison fails, so a
+/// test with the oracle on fails even when it reads no counter (the one-pass substitution cannot hide a wrong derivation
+/// from it).
+#[test] #[should_panic(expected="FN-1b the oracle: a parent's membership from its derived inputs")]
+fn a_wrong_derivation_panics_on_a_chain_that_does_not_tolerate_it(){
+    let mut n=net(config(2,8));for _ in 0..3{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
+    let mut r=Chain::new(spec_of(&n.cfg));for b in &n.blocks{let (e,_)=r.validate(b,None,0).unwrap();r.insert(e);}
+    let p=r.full_entry(&r.head).unwrap();r.child_ctx(&p,0).unwrap();
+    r.clear_ctx_cache();assert!(r.damage_member_base(&p),"positive control: the head's inputs were held");
+    let _=r.child_ctx(&p,0);
+}
+/// A chain of `n`'s blocks but the last `keep_back`, replayed (no end-of-test sweep: the hooks below change what it keeps).
+fn replay_but(n:&Net,keep_back:usize)->Chain{
+    let mut r=Chain::new(spec_of(&n.cfg));for b in &n.blocks[..n.blocks.len()-keep_back]{let (e,_)=r.validate(b,None,0).unwrap();r.insert(e);}r
+}
+/// The cold context of `h` on `c` (FN-1's rows cleared): the (derived, read whole) inputs it took, and its membership is
+/// the one-pass reading.
+fn cold(c:&Chain,h:&[u8;32],what:&str)->(u64,u64){
+    let p=c.full_entry(h).unwrap();let k=p.height+1;let c0=c.member_counters();c.clear_ctx_cache();
+    let ctx=c.child_ctx(&p,0).unwrap_or_else(|x|panic!("{what}: {x:?}"));let c1=c.member_counters();
+    assert_eq!(*ctx.membership,c.membership_one_pass(&p,k).unwrap(),"{what}: the one-pass reading");
+    (c1.base_derived-c0.base_derived,c1.base_read-c0.base_read)
+}
+/// Four blocks, a registration (it writes registry slots: the list, its length and the new record) and one more block.
+fn with_registration()->Net{
+    let mut n=net(config(2,8));for _ in 0..4{let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"grow");}
+    let alice=devnet::account_key("alice").address();let b_reg=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+    let t=vec![register(&n,alice,b_reg)];let b=mine(&n,n.chain.head,t,vec![]);accept(&mut n,b,"register");all_succeeded(&n,"alice registers");
+    let b=mine(&n,n.chain.head,vec![],vec![]);accept(&mut n,b,"after");n
+}
+fn import(c:&mut Chain,b:&Block)->[u8;32]{let (e,_)=c.validate(b,None,0).unwrap();let h=e.hash;c.insert(e);h}
+/// A registry write set above the cap is not kept (the cap lowered to 0 for the registration's block, which wrote registry
+/// slots): no write set is added, and the next context of that block reads its inputs whole; with the cap back, the next
+/// block's write set is kept and its context derives again.
+#[test] fn a_write_set_above_the_cap_is_not_kept_and_the_next_context_reads_whole(){
+    let n=with_registration();let mut r=replay_but(&n,2);let (reg,after)=(&n.blocks[n.blocks.len()-2],&n.blocks[n.blocks.len()-1]);
+    let head=r.head;assert_eq!(cold(&r,&head,"before"),(1,0),"positive control: the replayed head derives");
+    r.set_ctx_write_slots_max(0);let (_,w0)=r.member_bases_held();
+    let h=import(&mut r,reg);
+    assert_eq!(r.member_bases_held().1,w0,"the registration's write set (above the cap) is not kept");
+    assert_eq!(cold(&r,&h,"above the cap"),(0,1),"its context reads the inputs whole");
+    r.set_ctx_write_slots_max(pocold::chain::CTX_WRITE_SLOTS_MAX);
+    let h=import(&mut r,after);assert_eq!(cold(&r,&h,"within the cap"),(1,0),"within the cap again: the next context derives");
+    members_sweep::sweep(&r);
+}
+/// The oracle's negative control at import: a write set that leaves out every slot its block wrote (as one missing a
+/// changed slot would) gives derived inputs that differ from the block's state read whole. `note_writes` counts one
+/// mismatch, keeps no write set (every held one is dropped), and the next context of that block reads its inputs whole;
+/// the next block's write set is kept again and its context derives.
+#[test] fn a_write_set_missing_its_slots_is_caught_at_import_and_not_kept(){
+    let n=with_registration();let mut r=replay_but(&n,2);r.tolerate_base_mismatch();let (reg,after)=(&n.blocks[n.blocks.len()-2],&n.blocks[n.blocks.len()-1]);
+    let c0=r.member_counters();assert_eq!((c0.base_mismatch,c0.oracle_mismatch,c0.faults),(0,0,0));
+    let (_,w0)=r.member_bases_held();assert!(w0>0,"positive control: write sets were held");
+    r.withhold_next_registry_writes();let h=import(&mut r,reg);
+    let c1=r.member_counters();
+    assert_eq!((c1.base_mismatch,c1.oracle_mismatch,c1.faults),(1,1,1),"counted once, at the import ({c1:?})");
+    assert_eq!(r.member_bases_held().1,0,"the wrong write set is not kept, and the held ones were dropped");
+    assert_eq!(cold(&r,&h,"after the import mismatch"),(0,1),"its context reads the inputs whole");
+    let h=import(&mut r,after);assert_eq!(cold(&r,&h,"the next block"),(1,0),"the next block's write set is kept: its context derives");
+    let c2=r.member_counters();assert_eq!(c2.base_mismatch,1,"no new mismatch ({c2:?})");
 }

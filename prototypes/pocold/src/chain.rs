@@ -58,8 +58,11 @@ pub const CTX_ASSIGNMENTS_MAX:usize=8;
 /// FN-1b (C6, node-local): the states whose membership inputs (`members::MemberBase`: the ActList and the record fields
 /// membership() reads) the chain keeps, and the blocks whose registry write set it keeps beside the state they were
 /// executed on and the one they gave, so that a child context of a new parent derives the parent's inputs from its
-/// own parent's and the block's writes (O(writes)) instead of reading every record of the parent's state. A write set of
-/// more than CTX_WRITES_MAX registry slots is not kept (that parent's inputs are read whole). A cache only, keyed like
+/// own parent's and the block's writes instead of reading every record of the parent's state: a derivation reads O(writes)
+/// values from the state (the written list elements and length, and the records of the ids whose words were written or
+/// that are new to the list) and copies the parent's inputs in memory, O(M_max) (`MemberBase::derive`: about 5 ms at
+/// 10,000 members, FN-3C-C6-EVIDENCE §6). A write set of more than CTX_WRITE_SLOTS_MAX registry slots is not kept (that
+/// parent's inputs are read whole). CTX_WRITES_MAX is the number of write sets kept. A cache only, keyed like
 /// the rows above by the block hash and the state's identity (`StateId`): a restart, a checkpoint restore, a deep
 /// reorg's rebuilt or materialized state, or an evicted row is a miss, and the inputs are then read whole. Three inputs:
 /// the parent a new block extends, that block once it is imported, and one more for a sibling that arrives later.
@@ -140,10 +143,13 @@ impl CtxCache{
         self.bases.retain(|e|e.state.alive());
         if self.bases.len()>=CTX_BASES_MAX{self.bases.pop_front();}self.bases.push_back(CtxBase{hash:p.hash,state:StateId::of(p),base:b});
     }
-    fn put_writes(&mut self,w:CtxWrites){
-        self.writes.retain(|e|e.state.alive()&&e.parent_state.alive()&&!(e.child==w.child&&e.state.same(&w.state)));
-        if self.writes.len()>=CTX_WRITES_MAX{self.writes.pop_front();}self.writes.push_back(w);
+    /// FN-1b: drops the rows of dead states and any row of block `child` on `state`, then the oldest row when full, so that
+    /// a write set made after it is at most the CTX_WRITES_MAX-th (`note_writes` makes room before it copies one).
+    fn writes_room(&mut self,child:&[u8;32],state:&StateId){
+        self.writes.retain(|e|e.state.alive()&&e.parent_state.alive()&&!(e.child==*child&&e.state.same(state)));
+        if self.writes.len()>=CTX_WRITES_MAX{self.writes.pop_front();}
     }
+    fn put_writes(&mut self,w:CtxWrites){self.writes_room(&w.child,&w.state);self.writes.push_back(w);}
 }
 /// Immutable chain configuration: cfg = {chainId, genesisHash, ForkSchedule, CP, M_0}.
 /// Constructible only from a ParamGate admission (A02): nothing boots an unadmitted profile.
@@ -303,7 +309,10 @@ pub fn whole_state(v:&dyn pocol_lp4_execution::view::View)->InMemoryDB{
 pub struct StoredChild{pub trie:pocol_lp4_execution::node_trie::NodeTrie,pub batch:pocol_lp4_execution::node_trie::Batch,pub hashes:HashMap<U256,B256>}
 /// A child entry's state fields (`Chain::child_state`).
 pub struct ChildState{pub state:std::sync::Arc<InMemoryDB>,pub diff:Option<std::sync::Arc<crate::statediff::StateDiff>>,pub trie:Option<pocol_lp4_execution::state_trie::StateTrie>,
-    pub summary:pocol_lp4_execution::state_summary::Summary,pub receipts:Vec<Vec<u8>>,pub stored:Option<std::sync::Arc<Pinned>>}
+    pub summary:pocol_lp4_execution::state_summary::Summary,pub receipts:Vec<Vec<u8>>,pub stored:Option<std::sync::Arc<Pinned>>,
+    /// FN-1b: the execution's write set, moved out of it (not copied) and kept past the store commit for `note_writes`,
+    /// which copies the registry's slots from it once (None: not known).
+    pub writes:Option<pocol_lp4_execution::state_trie::Touched>}
 /// What executing a block gives: a whole child state (`BlockOutput`), or a stored one (C-1 E4).
 pub enum Executed{Mem(BlockOutput),Stored{run:Box<apply::BlockRun>,child:StoredChild,root:B256}}
 impl Executed{
@@ -608,6 +617,15 @@ pub struct Chain{
     /// (`members::oracle_default`; FN-3a's shadow release ran it on): the tests switch it on (`members::test_oracle`,
     /// `set_member_oracle`), and FN-3c measures CPU with it off (A13-DERIVATION).
     pub member_oracle:bool,
+    /// FN-1b: with the oracle on, a derivation that differs from the one-pass reading panics (`base_verdict`), so a test
+    /// that never reads the counters still fails; true only for the oracle's negative controls
+    /// (`tolerate_base_mismatch`), which see the one-pass result returned and the mismatch counted instead.
+    base_mismatch_tolerated:bool,
+    /// FN-1b: the largest registry write set kept (CTX_WRITE_SLOTS_MAX; lowered by a test, `set_ctx_write_slots_max`).
+    ctx_write_slots_max:usize,
+    /// FN-1b (tests: the oracle's negative control at import): the next write set `note_writes` sees leaves out every slot
+    /// the block wrote (`withhold_next_registry_writes`).
+    withhold_writes:std::sync::atomic::AtomicBool,
     /// FN-3b: the key of this chain's captured assignments (`members::capture`): keccak of the admitted spec bytes, so
     /// chains of different profiles in one process never share a row.
     spec_id:[u8;32],
@@ -709,7 +727,8 @@ impl Chain{
         let k_hist=u64::from(spec.local().k_hist);let member_cache=MemberCache::new(spec.cp());let spec_id=revm::primitives::keccak256(spec.spec_bytes()).0;
         Self{spec,blocks,head:gh,canonical:Canon::new(gh),next_seq:1,k_hist,rebuilds:0,materializations:Default::default(),keep_full_states:false,slim_depth:None,slim_cursor:1,unslimmed:Vec::new(),prune_cursor:1,orphan_check:true,incremental_root:true,trie_derived:Default::default(),trie_built:Default::default(),trie_refused:Default::default(),history_window:None,history_cursor:1,restore_reexecs:0,invalid:HashMap::new(),invalid_order:Default::default(),costly:Default::default(),ctx_cache:Default::default(),ctx_cache_off:false,seen_templates:BTreeMap::new(),evicted:Default::default(),evicted_order:Default::default(),evicted_total:0,
             r_keep:R_KEEP,side_cap:SIDE_BLOCKS_MAX,finalized_h:0,protect:Default::default(),replaying:false,trie_store:None,side:Default::default(),tried:vec![gh],shadow:HashMap::new(),shadow_order:Default::default(),evict_depth:None,anchor_step:None,anchor_cursor:0,anchors:Vec::new(),evict_batch:(SIDE_BLOCKS_MAX as u64)+2*R_KEEP+2,evicted_out:Vec::new(),evict_stalls:0,removed_pending:Vec::new(),
-            member_src:std::sync::Arc::new(members::MemSets::default()),member_cache:std::sync::Mutex::new(member_cache),member_stats:Default::default(),member_oracle:members::oracle_default(),spec_id}
+            member_src:std::sync::Arc::new(members::MemSets::default()),member_cache:std::sync::Mutex::new(member_cache),member_stats:Default::default(),member_oracle:members::oracle_default(),
+            base_mismatch_tolerated:false,ctx_write_slots_max:CTX_WRITE_SLOTS_MAX,withhold_writes:Default::default(),spec_id}
     }
     pub fn head(&self)->&Entry{&self.blocks[&self.head]}
     /// V3-26: the retention floor max(head − r_keep, finalized_h) (local retention, never validity). Journal replay
@@ -747,17 +766,17 @@ impl Chain{
     /// A re-executed block's state put on its rolling entry: whole with its trie, or (C-1 E4) committed to
     /// the store and pinned.
     fn rolled(&self,p:&Entry,mut next:Entry,out:Executed)->Result<Entry,Reject>{
-        let written=Self::registry_writes(&out);
-        match out{
-            Executed::Mem(o)=>{next.state=o.state.into();next.trie=Some(o.trie);next.summary=Some(Box::new(o.summary));}
+        let writes=match out{
+            Executed::Mem(o)=>{next.state=o.state.into();next.trie=Some(o.trie);next.summary=Some(Box::new(o.summary));o.writes}
             Executed::Stored{run,child,..}=>{
                 let store=self.trie_store.clone().ok_or_else(||Reject::Block("a stored child without a store".into()))?;
-                next.stored=Some(std::sync::Arc::new(Pinned::new(store,child)?));next.summary=Some(Box::new(run.summary));
+                next.stored=Some(std::sync::Arc::new(Pinned::new(store,child)?));next.summary=Some(Box::new(run.summary));Some(run.writes)
             }
-        }
+        };
         // FN-1b: the next re-execution's context derives this state's membership inputs from p's (store mode: a rolling
-        // entry with a stored version is one the cache keys; a whole-state rolling entry is not, and reads as before).
-        self.note_writes(p,&next,written);
+        // entry with a stored version is one the cache keys; a whole-state rolling entry is not, and reads as before). The
+        // registry's slots are copied after the commit, from the write set the execution gave (moved, not copied).
+        self.note_writes(p,&next,writes.as_ref());drop(writes);
         Ok(next)
     }
     /// A stored block's entry. While a rebuild runs, a restored copy of a slimmed one is read instead (`shadow`):
@@ -826,9 +845,10 @@ impl Chain{
         let all_live=v3&&self.spec.effective_nonce_mode(h)==NonceMode::Unbounded;
         Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,all_live).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
     }
-    /// FN-1b: the membership of a cacheable parent from its inputs (`member_base`). With the oracle on, compared with the
-    /// one-pass reading every time: a difference is an oracle mismatch and a member fault (counted, logged; the derived and
-    /// held inputs are dropped), and the one-pass result is the one returned, so no verdict can follow the derivation.
+    /// FN-1b: the membership of a cacheable parent from its inputs (`member_base`). With the oracle on (tests), compared
+    /// with the one-pass reading every time: a difference is an oracle mismatch and a member fault, and panics
+    /// (`base_verdict`); a negative control that tolerates it sees it counted and logged, the derived and held inputs
+    /// dropped, and the one-pass result returned, so no verdict can follow the derivation.
     fn membership_derived(&self,p:&Entry,h:u64)->Result<Membership,Reject>{
         let base=self.member_base(p)?;let m=self.membership_from_base(p,h,&base);
         if !self.member_oracle{return m}
@@ -836,30 +856,38 @@ impl Chain{
         if self.base_verdict(p,one==m,"a parent's membership from its derived inputs"){m}else{one}
     }
     /// FN-1b: the outcome of one comparison of the derivation with the one-pass reading, counted; a mismatch is an oracle
-    /// mismatch and a member fault (not a fault of the member source: the inputs come from the state) and drops every
-    /// held input and write set.
+    /// mismatch and a member fault (not a fault of the member source: the inputs come from the state). It panics (the
+    /// oracle runs in tests only, and a test that reads no counter must still fail), unless the chain tolerates it (the
+    /// negative controls, `tolerate_base_mismatch`): then it drops every held input and write set and the caller returns
+    /// the one-pass result.
     fn base_verdict(&self,e:&Entry,ok:bool,what:&str)->bool{
         bump(&self.member_stats.base_checks);bump(&self.member_stats.oracle_checks);if ok{return true}
         bump(&self.member_stats.base_mismatch);bump(&self.member_stats.oracle_mismatch);bump(&self.member_stats.faults);
-        eprintln!("FN-1b the oracle: {what} of block {} at height {} differs from the one-pass reading",B256::from(e.hash),e.height);
-        self.clear_member_bases();false
+        let why=format!("FN-1b the oracle: {what} of block {} at height {} differs from the one-pass reading",B256::from(e.hash),e.height);
+        if !self.base_mismatch_tolerated{panic!("{why}")}
+        eprintln!("{why}");self.clear_member_bases();false
     }
-    /// FN-1b: the registry slots an execution wrote (None: its write set is not known, or the registry's storage was
-    /// replaced whole: cleared, created or removed).
-    fn registry_writes(out:&Executed)->Option<Vec<U256>>{
-        let t=match out{Executed::Stored{run,..}=>&run.writes,Executed::Mem(o)=>o.writes.as_ref()?};
+    /// FN-1b: the registry slots an execution wrote, borrowed from its write set `t` (None: the write set is not known,
+    /// the registry's storage was replaced whole (cleared, created or removed), or it wrote more than `cap` slots: such a
+    /// set is not kept, and nothing is copied).
+    fn registry_writes(t:Option<&pocol_lp4_execution::state_trie::Touched>,cap:usize)->Option<&[U256]>{
         let r=apply::registry();
-        match t.iter().find(|(a,_)|**a==r){None=>Some(Vec::new()),Some((_,s))=>s.map(|s|s.to_vec())}
+        match t?.iter().find(|(a,_)|**a==r){None=>Some(&[]),Some((_,s))=>s.filter(|s|s.len()<=cap)}
     }
-    /// FN-1b: keeps block `child`'s registry writes beside the state it was executed on (its parent `p`'s) and the one it
-    /// gave, when both states are ones the cache keys (`ctx_cacheable`) and the set is at most CTX_WRITE_SLOTS_MAX slots.
-    /// With the oracle on, the child's inputs derived through them from `p`'s (held, or read whole) are compared with the
-    /// ones read whole from the child's state, and the membership of a child of `child` from them with the one pass, on
-    /// every block executed (`h_full`, a re-execution), whatever later reads them.
-    fn note_writes(&self,p:&Entry,child:&Entry,written:Option<Vec<U256>>){
-        let Some(w)=written else{return};
+    /// FN-1b: keeps block `child`'s registry writes (from its execution's write set `touched`) beside the state it was
+    /// executed on (its parent `p`'s) and the one it gave, when both states are ones the cache keys (`ctx_cacheable`) and
+    /// the set is at most CTX_WRITE_SLOTS_MAX slots. Called after the block's store commit; the slots are copied once,
+    /// after the oldest row made room, so at most CTX_WRITES_MAX write sets exist at once (A13). With the oracle on, the
+    /// child's inputs derived through them from `p`'s (held, or read whole) are compared with the ones read whole from the
+    /// child's state, and the membership of a child of `child` from them with the one pass, on every block executed
+    /// (`h_full`, a re-execution) whose set is kept, whatever later reads them.
+    fn note_writes(&self,p:&Entry,child:&Entry,touched:Option<&pocol_lp4_execution::state_trie::Touched>){
         if !self.ctx_cacheable(p)||!self.ctx_cacheable(child){return}
-        let w:std::sync::Arc<[U256]>=std::sync::Arc::from(w);
+        let Some(s)=Self::registry_writes(touched,self.ctx_write_slots_max) else{return};
+        let s=if self.withhold_writes.swap(false,std::sync::atomic::Ordering::Relaxed){&[][..]}else{s};
+        let state=StateId::of(child);
+        self.ctx_cache().writes_room(&child.hash,&state);
+        let w:std::sync::Arc<[U256]>=std::sync::Arc::from(s);
         if self.member_oracle{
             let parent=match self.ctx_cache().base(p){Some(b)=>b,None=>match self.view_or(p){Ok(v)=>std::sync::Arc::new(MemberBase::read(v.v(),self.quarter())),Err(_)=>return}};
             let Ok(st)=self.view_or(child) else{return};
@@ -868,8 +896,7 @@ impl Chain{
             let ok=derived==whole&&self.membership_from_base(child,k,&derived)==self.membership_one_pass(child,k);
             if !self.base_verdict(child,ok,"a block's membership inputs derived from its parent's and its writes"){return}
         }
-        if w.len()>CTX_WRITE_SLOTS_MAX{return}
-        self.ctx_cache().put_writes(CtxWrites{child:child.hash,state:StateId::of(child),parent:p.hash,parent_state:StateId::of(p),written:w});
+        self.ctx_cache().put_writes(CtxWrites{child:child.hash,state,parent:p.hash,parent_state:StateId::of(p),written:w});
     }
     /// FN-1: A_h* in one pass over the parent's ActList: the list is read once and each record once (the
     /// two-pass algorithm read the list twice and each record twice). `membership_two_pass` is its oracle.
@@ -988,6 +1015,17 @@ impl Chain{
         let mut b=(*row.base).clone();let Some(first)=b.list.first().copied() else{return false};b.list.push(first);row.base=std::sync::Arc::new(b);true
     }
     pub fn set_member_oracle(&mut self,on:bool){self.member_oracle=on;}
+    /// FN-1b (tests: the oracle's negative controls): a derivation that differs from the one-pass reading is counted and
+    /// the one-pass result returned, instead of a panic (`base_verdict`).
+    #[doc(hidden)]
+    pub fn tolerate_base_mismatch(&mut self){self.base_mismatch_tolerated=true;}
+    /// FN-1b (tests): the largest registry write set kept, CTX_WRITE_SLOTS_MAX by default; a larger one is not kept.
+    #[doc(hidden)]
+    pub fn set_ctx_write_slots_max(&mut self,n:usize){self.ctx_write_slots_max=n;}
+    /// FN-1b (tests: the oracle's negative control at import): the next block executed on a cached parent is noted with a
+    /// write set that leaves out every registry slot it wrote, as a write set missing a changed slot would.
+    #[doc(hidden)]
+    pub fn withhold_next_registry_writes(&self){self.withhold_writes.store(true,std::sync::atomic::Ordering::Relaxed);}
     /// FN-3: the member counters and the caches' sizes.
     pub fn member_counters(&self)->MemberCounters{
         let m=&self.member_stats;let c=self.mcache();
@@ -1351,7 +1389,6 @@ impl Chain{
         // FN-3: this block's member record (S_b is the membership its assignment was computed from).
         let s_b:Set=std::sync::Arc::from(ctx.membership.ids());
         let (members,member_ids)=self.member_rec_for(p,x.h,&s_b)?;
-        let written=Self::registry_writes(&out);
         let c=self.child_state(p,out)?;
         let entry=Entry{hash,header:x.clone(),body:b.body.clone(),height:x.h,parent:Some(p.hash),total_work:p.total_work.saturating_add(work(&x.target)),
             import_seq:0,signed,timely:true,ts:x.ts,target:x.target,base_fee:ctx.base_fee,gas_used:x.gas_used,seal:sk,state:c.state,is_final,full:true,diff:c.diff,slim:false,
@@ -1359,8 +1396,9 @@ impl Chain{
             cum_txs:if self.spec.cp().H_END==0{b.body.txs.len() as u64}else{p.cum_txs+b.body.txs.len() as u64},cum_tx_bytes:if self.spec.cp().H_END==0{tx_bytes}else{p.cum_tx_bytes+tx_bytes},cum_log_bytes:if self.spec.cp().H_END==0{log_bytes}else{p.cum_log_bytes+log_bytes},pruned:false,drawn:ctx.proposer,
             members:Some(Box::new(EntryMembers{rec:members,ids:member_ids})),body_off:None,offloaded:false,trie:c.trie,summary:Some(Box::new(c.summary)),stored:c.stored};
         self.mcache().sets.put(hash,s_b);
-        // FN-1b: this block's registry writes, from which a child context of it derives its membership inputs.
-        self.note_writes(p,&entry,written);
+        // FN-1b: this block's registry writes, from which a child context of it derives its membership inputs (copied after
+        // the store commit, from the write set the execution gave).
+        self.note_writes(p,&entry,c.writes.as_ref());drop(c.writes);
         // FN-3, the oracle at import: the assignment recomputed from the records with every cache bypassed is the one the
         // block was validated under (FN-3b: no ranges are stored; the capture records it for the cold sweep).
         if self.member_oracle{let cold=self.assignment_of_with(&entry,false)?;self.oracle_verdict(&entry,cold.ranges()==ctx.assignment.ranges(),"the import's assignment")?;
@@ -1374,12 +1412,12 @@ impl Chain{
         match out{
             Executed::Mem(o)=>{
                 let diff=Some(std::sync::Arc::new(crate::statediff::StateDiff::of_output(&p.state,&o)));
-                Ok(ChildState{state:std::sync::Arc::new(o.state),diff,trie:Some(o.trie),summary:o.summary,receipts:o.receipts,stored:None})
+                Ok(ChildState{state:std::sync::Arc::new(o.state),diff,trie:Some(o.trie),summary:o.summary,receipts:o.receipts,stored:None,writes:o.writes})
             }
             Executed::Stored{run,child,..}=>{
                 let store=self.trie_store.clone().ok_or_else(||Reject::Block("a stored child without a store".into()))?;
                 let pin=Pinned::new(store,child)?;
-                Ok(ChildState{state:empty_state(),diff:None,trie:None,summary:run.summary,receipts:run.receipts,stored:Some(std::sync::Arc::new(pin))})
+                Ok(ChildState{state:empty_state(),diff:None,trie:None,summary:run.summary,receipts:run.receipts,stored:Some(std::sync::Arc::new(pin)),writes:Some(run.writes)})
             }
         }
     }
@@ -2270,3 +2308,25 @@ pub fn assignment_range(ctx:&ChildCtx,id:Address)->Option<(u64,u64)>{
     ctx.assignment.ranges().iter().find(|r|r.id()[..]==id[..]).and_then(|r|r.inclusive_end().map(|end|(r.start() as u64,end)))
 }
 pub fn nonce_space()->u128{assignment::NONCE_SPACE}
+
+#[cfg(test)]
+mod fn1b_tests{
+    use super::*;
+    use pocol_lp4_execution::state_trie::Touched;
+    /// FN-1b: the registry write set note_writes keeps: none for an unknown write set, a registry whose storage was replaced
+    /// whole, or a set above the cap (nothing copied); empty when the block left the registry alone; else the very slots.
+    #[test] fn the_registry_write_set_is_kept_only_when_known_slot_by_slot_and_within_the_cap(){
+        let (r,other)=(apply::registry(),Address::repeat_byte(0x11));
+        assert_eq!(Chain::registry_writes(None,CTX_WRITE_SLOTS_MAX),None,"an unknown write set");
+        let mut t=Touched::default();t.slot(other,U256::from(5));
+        assert_eq!(Chain::registry_writes(Some(&t),CTX_WRITE_SLOTS_MAX),Some(&[][..]),"the registry not written");
+        let mut t=Touched::default();for s in 0..3u64{t.slot(r,U256::from(s));}
+        assert_eq!(Chain::registry_writes(Some(&t),CTX_WRITE_SLOTS_MAX),Some(&[U256::from(0),U256::from(1),U256::from(2)][..]));
+        assert_eq!(Chain::registry_writes(Some(&t),3).map(|s|s.len()),Some(3),"at the cap: kept");
+        assert_eq!(Chain::registry_writes(Some(&t),2),None,"above the cap: not kept");
+        let mut big=Touched::default();for s in 0..=CTX_WRITE_SLOTS_MAX as u64{big.slot(r,U256::from(s));}
+        assert_eq!(Chain::registry_writes(Some(&big),CTX_WRITE_SLOTS_MAX),None,"CTX_WRITE_SLOTS_MAX + 1 slots: not kept");
+        let mut w=Touched::default();w.slot(r,U256::from(1));w.whole_account(r);
+        assert_eq!(Chain::registry_writes(Some(&w),CTX_WRITE_SLOTS_MAX),None,"the registry's storage replaced whole");
+    }
+}
