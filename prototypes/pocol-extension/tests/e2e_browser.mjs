@@ -15,7 +15,8 @@ import { deflateSync } from 'node:zlib';
 import { connect } from 'node:net';
 import { build } from '../build.mjs';
 import { runLiveRp } from './live_rp.mjs';
-import { keepOnFailure } from './harness.mjs';
+import { keepOnFailure, w10Probe, w10Ok } from './harness.mjs';
+import { w10Site } from './w10_site.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), EXT = dirname(HERE), POCOLD = join(EXT, '..', 'pocold');
 const BIN = (n) => join(POCOLD, 'target', 'release', n);
@@ -198,15 +199,18 @@ async function main() {
     // The state mode every node reports (POCOLD_RUN_ARGS=--state-store runs the suite in store mode).
     const modes = await Promise.all([0, 1, 2].map(async (i) => (await rpc(8540 + i, 'pocol_status')).stateStore));
     ok('every node runs in the requested state mode', modes.every((m) => m === (process.env.POCOLD_RUN_ARGS || '').split(/\s+/).includes('--state-store')), `stateStore=${modes}`);
-    // Publish S_A (multi-file, multi-chunk) and S_B.
-    let S_A, S_B;
-    if (REUSE) ({ S_A, S_B } = JSON.parse(readFileSync(join(work, 'state.json'), 'utf8')));
+    // Sites W11: the suite runs on the v3 devnet (`devnet.py init`, Phase 5a): specVersion 2, the V3 programs, nonceMode 1, continuous.
+    ok('the devnet is v3: specVersion 2, the V3 programs, nonceMode 1, continuous', info.specVersion === 2 && info.v3 === true && (await rpc(8540, 'pocol_getCaps')).v3 === true && (await rpc(8540, 'pocol_getCaps')).cumulative === false && (await rpc(8540, 'pocol_getParams')).nonceMode === 1, JSON.stringify({ specVersion: info.specVersion, v3: info.v3 }));
+    // Publish S_A (multi-file, multi-chunk), S_B and S_W (the W10 site: CSS with a woff2 font, a classic script and an ES module graph).
+    let S_A, S_B, S_W;
+    if (REUSE) ({ S_A, S_B, S_W } = JSON.parse(readFileSync(join(work, 'state.json'), 'utf8')));
     else {
       const dA = join(work, 'siteA1'); writeSite(dA, siteA(1)); S_A = publish(dA, 8540, cid).site;
       const dB = join(work, 'siteB'); writeSite(dB, siteB); S_B = publish(dB, 8541, cid).site;
-      writeFileSync(join(work, 'state.json'), JSON.stringify({ S_A, S_B }));
+      const dW = join(work, 'siteW'); writeSite(dW, w10Site({ version: 1 })); S_W = publish(dW, 8542, cid).site;
+      writeFileSync(join(work, 'state.json'), JSON.stringify({ S_A, S_B, S_W }));
     }
-    await wait(async () => (await Promise.all([0, 1, 2].map((i) => rpc(8540 + i, 'eth_getCode', [S_B, 'latest'])))).every((c) => c.length > 100), 120000, 'sites on all nodes');
+    await wait(async () => (await Promise.all([0, 1, 2].flatMap((i) => [rpc(8540 + i, 'eth_getCode', [S_B, 'latest']), rpc(8540 + i, 'eth_getCode', [S_W, 'latest'])]))).every((c) => c.length > 100), 120000, 'sites on all nodes');
     ok('LP8 sites published into PoCol state through nodes a and b', S_A && S_B, `S_A=${S_A} S_B=${S_B}`);
     // Live RP window over Rust-produced headers, in Node with the same library the extension ships.
     const dist = build().dist;
@@ -237,6 +241,12 @@ async function main() {
     ok('sanitizer removed iframe/object/meta refresh/prefetch, on* handlers and javascript: URLs', view.iframes === 0 && !view.refresh && !view.prefetch && view.jsHref === null && view.title !== 'handler-ran', JSON.stringify(view));
     ok('RpcTap: site load used only read methods (pocol_status, pocol_getHeaders, eth_call, eth_getCode, eth_chainId, eth_blockNumber)', tapMethods().every((m) => ['eth_chainId', 'pocol_status', 'eth_blockNumber', 'pocol_getHeaders', 'eth_call', 'eth_getCode'].includes(m)), [...new Set(tapMethods())].join(','));
     ok('RpcTap: extension requests carry the extension Origin (ORIGIN_DENY applies)', tap.log.every((x) => x.origin === `chrome-extension://${b.id}`), tap.log[0] && tap.log[0].origin);
+    // --- Sites W11: the W10 site (HTML, CSS with a woff2 @font-face, a classic script, an ES module graph with a literal import(), JSON, PNG, SVG) ---
+    { canary.http.length = 0; const pw = await openSite(b, 'devnet', S_W); const fw = (await siteFrame(pw.page)).fr;
+      const w = await w10Probe(fw, `http://127.0.0.1:${CANARY}/w10-fetch`, S_W); await sleep(500);
+      ok('W10 site in Chrome on the v3 devnet: CSS applied, JS ran, module graph resolved, woff2 font loaded, JSON/PNG/SVG, fetch to the network blocked (canary zero), window.pocol rpc_read (eth_blockNumber, eth_call)',
+        w10Ok(w, 1) && canary.http.length === 0 && pw.errors.length === 0, JSON.stringify(w) + ' canary=' + canary.http.join(','));
+      await pw.page.close(); }
 
     // --- network isolation (layers 1-3): HTTP and UDP canaries stay at zero ---
     canary.http.length = 0; canary.udp = 0;
