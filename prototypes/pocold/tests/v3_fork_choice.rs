@@ -8,6 +8,11 @@ use revm::primitives::{Address,B256};
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
 fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
+/// FN-1b: the derivation oracle compared on this chain (each executed block's derived membership inputs, and each
+/// context's membership from them, against the one-pass reading) and found no mismatch (a mismatch also panics where it
+/// happens, `Chain::base_verdict`): the positive control.
+fn derivations_checked(c:&Chain,what:&str){let m=c.member_counters();assert!(m.base_checks>0,"{what}: the derivation oracle compared ({m:?})");
+    assert_eq!((m.base_mismatch,m.oracle_mismatch,m.faults),(0,0,0),"{what}: no derivation differed ({m:?})");}
 fn spec(c:&DevnetConfig,extra_rel:u32)->Spec{
     let mut local=pocold::single_host_local();local.delta_rel+=extra_rel;
     Spec::new(devnet::build(c).unwrap().admit(&local).unwrap().0)
@@ -92,7 +97,9 @@ fn twenty_orders(v3:bool){
             let (b,timely)=remaining.remove(ready[seed as usize%ready.len()]);accept(&mut n,&b,timely);
             assert_eq!(n.chain.head,best(&n.chain),"order {order}, height {}",b.header.h);
         }
+        derivations_checked(&n.chain,&format!("order {order}"));
     }
+    derivations_checked(&build.chain,"the built DAG");
 }
 #[test]fn twenty_import_orders_keep_the_legacy_d133_order(){twenty_orders(false)}
 

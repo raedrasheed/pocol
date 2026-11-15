@@ -18,6 +18,7 @@ pub fn sweep(c:&Chain)->(usize,usize){
     let (n,k)=c.member_sweep().unwrap_or_else(|e|panic!("FN-3 cold sweep: {e}"));
     let m=c.member_counters();
     assert_eq!(m.oracle_mismatch,0,"FN-3: the oracle found a mismatch");assert_eq!(m.faults,0,"FN-3: a member fault");
+    assert_eq!(m.base_mismatch,0,"FN-1b: a derived membership input differed from the one-pass reading");
     let all=swept(c).count();
     assert_eq!((n,k),(all,all),"FN-3: the sweep recomputed every held entry and compared each with its captured assignment");
     if c.head().height>0{assert!(k>0,"FN-3 positive control: the sweep compared an entry");}
@@ -53,5 +54,8 @@ pub fn held_records(c:&Chain)->(usize,usize){
 pub fn sweep_on_drop(c:&Chain){
     if std::thread::panicking(){return}
     sweep(c);
-    if c.head().height>0{let m=c.member_counters();assert!(m.oracle_checks>0,"FN-3 positive control: the oracle compared ({} checks)",m.oracle_checks);}
+    if c.head().height>0{let m=c.member_counters();assert!(m.oracle_checks>0,"FN-3 positive control: the oracle compared ({} checks)",m.oracle_checks);
+        // FN-1b: every block the chain executed on a parent it keeps a context of had its derived membership inputs compared
+        // with the one-pass reading (`Chain::note_writes`), and no comparison differed (also in oracle_mismatch above).
+        assert!(m.base_checks>0,"FN-1b positive control: the derivation oracle compared ({m:?})");assert_eq!(m.base_mismatch,0,"FN-1b: a derivation differed");}
 }

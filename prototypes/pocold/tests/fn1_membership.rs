@@ -13,6 +13,11 @@ use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,blocks:Vec<Block>}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
 fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
+/// FN-1b: the derivation oracle compared on this chain (each executed block's derived membership inputs, and each
+/// context's membership from them, against the one-pass reading) and found no mismatch (a mismatch also panics where it
+/// happens, `Chain::base_verdict`): the positive control.
+fn derivations_checked(c:&Chain,what:&str){let m=c.member_counters();assert!(m.base_checks>0,"{what}: the derivation oracle compared ({m:?})");
+    assert_eq!((m.base_mismatch,m.oracle_mismatch,m.faults),(0,0,0),"{what}: no derivation differed ({m:?})");}
 /// `v3`: the v3 devnet; otherwise its retired spec-1 earn-in twin (Phase 6a deletes the spec-1 rule set and these twins).
 fn config(v3:bool,full:bool,n:usize)->DevnetConfig{
     let mut cfg=if v3{DevnetConfig::new(777952,1_700_000_000,&[])}else{DevnetConfig::spec1(777952,1_700_000_000,&[],devnet::Spec1Programs::EarnIn)};
@@ -160,6 +165,7 @@ fn scenario(v3:bool,full:bool){
         for a in 0..2{same_ctx(&n.chain.child_ctx(&x,a),&r.child_ctx(&y,a),&format!("{tag} restart a={a}"));}
     }
     check(&mut r,&format!("{tag} restarted"));
+    derivations_checked(&n.chain,&tag);
 }
 #[test] fn legacy_one_pass_membership_and_cache_equal_the_two_pass_oracle_bounded(){scenario(false,false)}
 #[test] fn legacy_one_pass_membership_and_cache_equal_the_two_pass_oracle_full_nonce(){scenario(false,true)}
@@ -229,6 +235,7 @@ fn node_scenario(store:bool){
         compare(&mut node,&n,"live, again");}
     let mut node=Node::open(conf(),spec(&n.cfg)).unwrap();assert_eq!(node.chain.head,n.chain.head,"reopened");
     compare(&mut node,&n,"reopened");drop(node);let _=std::fs::remove_dir_all(&d);
+    derivations_checked(&n.chain,&format!("store={store}"));
 }
 #[test] fn contexts_survive_slim_unslim_offload_and_reopen(){node_scenario(false)}
 #[test] fn contexts_survive_slim_unslim_offload_and_reopen_in_store_mode(){node_scenario(true)}
