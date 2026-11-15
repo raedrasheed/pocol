@@ -1657,9 +1657,9 @@ impl Chain{
                 None=>{self.blocks.get_mut(h).unwrap().pruned=true;}}}}}
         for h in &drop{if let Some(e)=self.blocks.get_mut(h){e.diff=None;}}
         // PR4 (A13 diffs_held): and so does every other pruned side block's diff. A rebuild through pruned side blocks
-        // gives each one on its path a diff (`rebuild_with`) and makes only its target a state: the others stay pruned,
-        // so they are in neither list above, and before, they held their diffs until R_keep or side_cap removed them
-        // (up to SIDE_BLOCKS_MAX diffs, past diffs_held). Nothing reads one: a pruned block is never a materialize
+        // gives the ones on its path within K_hist of its target's child a diff (`rebuild_with`, `side_cut`) and makes
+        // only its target a state: the others stay pruned, so they are in neither list above, and before, they held
+        // their diffs until R_keep or side_cap removed them (up to SIDE_BLOCKS_MAX diffs, past diffs_held). Nothing reads one: a pruned block is never a materialize
         // target or a rebuild root, the side states kept are full (above), and the canonical window is reached from
         // the head through canonical diffs (`shed_full_states`); one adopted later is re-executed by its restore.
         {let blocks=&mut self.blocks;for h in self.side.iter(){if let Some(e)=blocks.get_mut(h){if e.pruned&&e.diff.is_some(){e.diff=None;}}}}
@@ -1998,6 +1998,7 @@ impl Chain{
         // states are dropped, so a rebuild of any depth keeps at most two snapshots alive.
         let mut p=root.meta_clone();p.state=root_state;p.stored=root_stored;
         let cut=self.head().height.saturating_sub(self.k_hist);
+        let side_cut=self.blocks[hash].height.saturating_add(1).saturating_sub(self.k_hist);
         for h in path.into_iter().rev(){
             // A slimmed block on the path is re-executed from its restored fields (not kept).
             let e=self.meta_restored(&h,src)?;
@@ -2006,14 +2007,18 @@ impl Chain{
             let out=self.reexec(&p,&e,&body)?;
             // C-1 S3a: the re-executed block gets its diff back (pruned blocks had none); C-1 E3: from the write
             // set when it ran on an overlay. PR4 (A13 diffs_held): only a block the next retain keeps one for — a
-            // side block, or a canonical block above the K_hist cut. A canonical diff below the cut is cleared by
-            // the very next `prune_window` (the import's retain, or `reprune` on a refusal) and nothing reads it
-            // before then: the rolling re-execution reads `p`, the validated child reads the target's whole
-            // state, and what a materialize or trie derivation reaches in between (the head's window, the side
-            // states) is reached from the head or a full state without one. A deep rebuild from genesis kept
-            // O(height) diffs at its peak, past diffs_held (PR4 plan §7 finding D). (Store mode: Executed::Stored,
-            // no diff.)
-            let keep_diff=!self.is_canonical(&h)||e.height>cut;
+            // canonical block above the K_hist cut, or a side block above the cut the target's child would set as
+            // the head (`side_cut`, target height + 1 − K_hist): if that child adopts the branch, those are the
+            // window's blocks the head reaches through their diffs (`reach_window`), and if it does not, `settle`
+            // drops the diff of every side block left pruned. Any other diff is cleared by the very next
+            // `prune_window` or `settle` (the import's retain, or `reprune` on a refusal) and nothing reads it before
+            // then: the rolling re-execution reads `p`, the validated child reads the target's whole state, and what
+            // a materialize or trie derivation reaches in between (the head's window, the side states) is reached
+            // from the head or a full state without one (a trie derivation that finds no path builds the root from
+            // the whole state: the same root). A deep rebuild from genesis kept O(height) diffs at its peak, past
+            // diffs_held (PR4 plan §7 finding D), and one through L pruned side blocks kept L of them (L up to
+            // R_keep). (Store mode: Executed::Stored, no diff.)
+            let keep_diff=if self.is_canonical(&h){e.height>cut}else{e.height>side_cut};
             if let Executed::Mem(o)=&out{if keep_diff&&self.blocks[&h].diff.is_none(){let d=std::sync::Arc::new(crate::statediff::StateDiff::of_output(&p.state,o));self.blocks.get_mut(&h).unwrap().diff=Some(d);}}
             if !self.blocks[&h].slim&&self.blocks[&h].summary.is_none(){self.blocks.get_mut(&h).unwrap().summary=Some(Box::new(out.summary()));}
             if self.blocks[&h].slim{self.shadow_push(e.meta_clone());}

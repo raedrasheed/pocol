@@ -801,11 +801,12 @@ fn diff_held_net()->(Net,[u8;32]){
     assert_eq!(root(&n,&w),n.chain.blocks[&w].header.state_root,"the window's diff-held state still materializes");
     n.chain.retain();assert!(n.chain.prune_holds()&&held(&n)<=bound);
 }
-/// PR4 (A13 diffs_held), review of the state-retention fix: a rebuild through pruned side blocks gives each block on its
-/// path a diff and only its target a state. The next retain drops the diffs of the side blocks left pruned: before,
-/// neither `settle` (it counts the side blocks holding a state) nor `shed_full_states` (the canonical window) saw them,
-/// and they stayed until R_keep or side_cap removed the blocks, past diffs_held. The rebuilt state, a child's verdict
-/// and the side states kept are what they were.
+/// PR4 (A13 diffs_held), review of the state-retention fix: a rebuild through pruned side blocks gives a diff only to
+/// the blocks on its path within K_hist of its target's child, and only its target a state; the next retain drops the
+/// diffs of the side blocks left pruned. Before, the rebuild gave every block on its path one (18 here, past
+/// diffs_held at its peak), and neither `settle` (it counts the side blocks holding a state) nor `shed_full_states`
+/// (the canonical window) saw them, so they stayed until R_keep or side_cap removed the blocks. The rebuilt state, a
+/// child's verdict and the side states kept are what they were.
 #[test] fn pr4_a_rebuild_through_pruned_side_blocks_holds_at_most_diffs_held_diffs(){
     let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
     for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
@@ -823,7 +824,9 @@ fn diff_held_net()->(Net,[u8;32]){
     let s18=side[17].hash();assert!(n.chain.blocks[&s18].pruned&&n.chain.blocks[&side[0].hash()].pruned,"positive control: pruned side blocks (side_max)");
     let rb=n.chain.rebuilds;n.chain.ensure_state(&s18).unwrap();
     assert!(n.chain.rebuilds-rb>=18,"positive control: the rebuild walked the pruned side blocks");
-    assert!(stale(&n)>=17,"positive control: the rebuild gave the pruned side blocks on its path a diff");
+    // Only the side blocks above s18's height + 1 − K_hist (the window its child sets if it adopts the branch) get one.
+    assert!(stale(&n)>=1&&stale(&n)<4,"FAIL-ON-ORIGINAL: the rebuild gave {} pruned side blocks on its path a diff (K_hist 4)",stale(&n));
+    assert!(held(&n)<=bound,"FAIL-ON-ORIGINAL: the rebuild's peak held {} diffs (diffs_held+1 = {bound})",held(&n));
     let root=|n:&Net,h:&[u8;32]|apply::state_root(&n.chain.full_entry(h).unwrap().state).unwrap().0;
     assert_eq!(root(&n,&s18),n.chain.blocks[&s18].header.state_root,"the rebuilt state");
     n.chain.retain();
@@ -839,6 +842,58 @@ fn diff_held_net()->(Net,[u8;32]){
     for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();}
     assert!(stale(&n)==0&&held(&n)<=bound&&n.chain.prune_holds());
     let w=n.chain.head;assert_eq!(root(&n,&w),n.chain.blocks[&w].header.state_root,"the head's state");
+}
+
+/// PR4 (A13 diffs_held) with R21: a child that adopts a side branch after a rebuild through its pruned blocks. The rebuild
+/// gives a diff only to the side blocks above the cut that child sets (target height + 1 − K_hist), so its peak stays
+/// within diffs_held (before, every block on the path got one), and after the adoption the head still reaches
+/// every canonical block above the cut through them (`reach_window`): each answers its own state, as the full-state
+/// reference holding every block's state does, and the next blocks import.
+#[test] fn pr4_r21_an_adopting_child_of_a_rebuild_through_pruned_side_blocks_reaches_the_window(){
+    let mut n=net();n.chain.k_hist=4;let mut hashes=vec![n.chain.head];
+    for _ in 0..40{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();hashes.push(n.chain.head);}
+    let bound=pocold::resources::diffs_held(4,n.chain.spec.local().side_max) as usize+1;
+    let held=|n:&Net|n.chain.blocks.values().filter(|e|e.diff.is_some()).count();
+    let stale=|n:&Net|n.chain.blocks.values().filter(|e|e.pruned&&e.diff.is_some()&&!n.chain.is_canonical(&e.hash)).count();
+    // A side branch from height 28 (attempt 1 first: another block than the canonical one at 29), built on a mirror
+    // `m`, as long as it stays lighter than the head; `child` is its next block, the first heavier one.
+    let w=n.chain.head().total_work;
+    let mut m=net();for h in &hashes[1..=28]{let e=n.chain.blocks[h].clone();import(&mut m,&Block{header:e.header,body:e.body});}
+    let (mut side,mut child)=(vec![],fallback(&m,hashes[28],1));
+    while{import(&mut m,&child);m.chain.blocks[&child.hash()].total_work<=w}{
+        assert!(side.len()<400,"the side branch outweighs the head");let p=child.hash();side.push(child);child=fallback(&m,p,0);}
+    let tip=side.last().unwrap().hash();let t=m.chain.blocks[&tip].height;
+    assert!(side.len()>=12&&t>=40,"positive control: a side branch of {} blocks up to height {t}",side.len());
+    n.chain.ensure_state(&hashes[28]).unwrap();
+    for b in &side{import(&mut n,b);n.chain.retain();}
+    assert_eq!(n.chain.head,hashes[40],"positive control: the side branch is lighter");
+    // Two siblings of the head (the same work as the tip, imported later) take side_max's two states: the tip's is pruned.
+    for a in [1,2]{let b=fallback(&n,hashes[39],a);import(&mut n,&b);n.chain.retain();}
+    assert_eq!(n.chain.head,hashes[40]);assert_eq!(n.chain.spec.local().side_max,2,"positive control: side_max");
+    assert!(n.chain.blocks[&tip].pruned&&side.iter().all(|b|n.chain.blocks[&b.hash()].pruned),"positive control: the whole side branch is pruned");
+    assert!(held(&n)<=bound&&stale(&n)==0,"positive control: within the bound before the rebuild");
+    assert!(matches!(n.chain.validate(&child,None,0),Err(Reject::NeedsRebuild(x)) if x==tip),"positive control: the child needs a rebuild");
+    let rb=n.chain.rebuilds;n.chain.ensure_state(&tip).unwrap();
+    assert!(n.chain.rebuilds-rb>=side.len() as u64,"positive control: the rebuild walked the pruned side blocks");
+    assert_eq!(stale(&n),2,"FAIL-ON-ORIGINAL: only the side blocks at {} and {} get a diff besides the target (got {})",t-2,t-1,stale(&n));
+    assert!(held(&n)<=bound,"FAIL-ON-ORIGINAL: the rebuild's peak held {} diffs (diffs_held+1 = {bound})",held(&n));
+    import(&mut n,&child);
+    assert_eq!(n.chain.head,child.hash(),"positive control: the child adopts the side branch");
+    assert!(held(&n)<=bound,"the adopting import holds {} diffs (diffs_held+1 = {bound})",held(&n));
+    n.chain.retain();
+    assert!(stale(&n)==0&&held(&n)<=bound&&n.chain.prune_holds());
+    // The reference: every block, every state (the same blocks: verdicts and roots are not this test's to change).
+    let mut r=net();r.chain.keep_full_states=true;r.chain.k_hist=u64::MAX;
+    for h in &hashes[1..=28]{let e=n.chain.blocks[h].clone();import(&mut r,&Block{header:e.header,body:e.body});}
+    for b in side.iter().chain([&child]){import(&mut r,b);}
+    assert_eq!(r.chain.head,child.hash());
+    let root=|n:&Net,h:&[u8;32]|apply::state_root(&n.chain.full_entry(h).unwrap().state).unwrap().0;
+    let cut=n.chain.head().height-4;
+    for x in cut+1..=n.chain.head().height{let h=*n.chain.canonical.get(x as usize).unwrap();
+        assert!(!n.chain.blocks[&h].pruned,"R21: the canonical block at {x} above the cut {cut} holds its state");
+        assert_eq!(root(&n,&h),n.chain.blocks[&h].header.state_root,"its state at {x}");assert_eq!(root(&n,&h),root(&r,&h),"the reference's at {x}");}
+    for _ in 0..3{let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);n.chain.retain();import(&mut r,&b);}
+    assert!(stale(&n)==0&&held(&n)<=bound&&n.chain.prune_holds());assert_eq!(n.chain.head,r.chain.head);
 }
 
 /// The k_hist_retention_and_trie_rebuild_for_deep_fork fixture of the Step 5 tests: k_hist=4, 12 fallbacks

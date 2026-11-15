@@ -244,9 +244,13 @@ Model totals, each dated to the code it was computed on (the heading "Final code
 PR4 note (the assumptions the existing terms rest on, made to hold; no new line): a block refused after a
 TrieRebuild or restore now drops the rebuilt state at once (`Chain::reprune`), so `MATERIALIZED` holds
 against refused rebuilds, where before each one kept a whole state (or stored pin) and the re-executed
-blocks' diffs until the next import's retain; a rebuild attaches a diff only to a side block or a
-canonical block above the K_hist cut, so the rebuild's peak stays within `diffs_held` (a rebuild from
-genesis held one per re-executed canonical block, O(height), a pre-existing undercount); and a gossiped
+blocks' diffs until the next import's retain; a rebuild attaches a diff only to a canonical block above
+the K_hist cut or a side block within K_hist of its target's child (above target height + 1 − K_hist: the
+window that child sets if it adopts the branch), and the next `settle` drops the diff of every side block
+left pruned, so the rebuild's peak stays within `diffs_held` (K_hist canonical, at most K_hist − 1 side
+blocks and the target, the side states and the block imported; a rebuild from genesis held one per
+re-executed canonical block, O(height), and one through L pruned side blocks held L, up to R_keep, until
+R_keep or side_cap removed them: pre-existing undercounts, fixed by the K_hist state-retention PR's review); and a gossiped
 template, or the template of an imported block, no longer materializes its parent's state in place. The
 deep-rebuild budget (`node::REBUILD_BURST`, `SESSION_REBUILD_MAX`) is five fixed scalars (the bucket's tokens, refill
 time and test clock, and the session's count and locator height), not a term.
