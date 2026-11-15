@@ -1861,9 +1861,11 @@ fn open_limits(spec:&Spec,mut l:pocold::node::Limits,listen:bool,peers:usize)->p
 #[test] fn a13_boot_refuses_a_bound_above_the_memory_budget_spec1(){a13_boot_refuses(&cfg_spec1(&["a","b","c"]))}
 fn a13_boot_refuses(c:&DevnetConfig){
     use pocold::node::{Config,Limits,Node};
-    let dir=std::env::temp_dir().join(format!("pocold-a13-{}",std::process::id()));
-    let conf=|limits:Limits,peers:usize|Config{dir:dir.clone(),name:"a13".into(),miner:None,listen:None,peers:(0..peers).map(|i|format!("127.0.0.1:{}",1+i).parse().unwrap()).collect(),rpc:None,stop_at:None,log:false,limits};
     let l=pocold::single_host_local();let default=admitted(c);
+    // One directory per profile: the v3 test and its _spec1 twin run side by side under a parallel harness.
+    let tag=if default.v3_active(u64::MAX){"v3"}else{"spec1"};
+    let dir=std::env::temp_dir().join(format!("pocold-a13-{tag}-{}",std::process::id()));
+    let conf=|limits:Limits,peers:usize|Config{dir:dir.clone(),name:"a13".into(),miner:None,listen:None,peers:(0..peers).map(|i|format!("127.0.0.1:{}",1+i).parse().unwrap()).collect(),rpc:None,stop_at:None,log:false,limits};
     // The devnet's own configuration: default limits, two configured peers, no listener; `auto` resolved as
     // `Node::open` resolves it before its A13 check (2 automatic slots without a listener, not 4), with the
     // eviction depth, the journal projection and the files Node::open sets on a v3 (continuous) profile.
@@ -2304,10 +2306,23 @@ fn a13_boot_refuses(c:&DevnetConfig){
     }
 }
 /// The v3 devnet's A13 totals (v3_a13_bound_breakdown) on linux x86_64, as a new node boots them: eviction on
-/// 3,447,088,104 B (budget required 3,939,529,262 B of 6 GiB; the spec-1 devnet boots at 3,351,045,495 B,
-/// a13_boot_refuses_a_bound_above_the_memory_budget_spec1: v3 adds the first-import index, its lookup scratch and the
-/// template first-seen times, 13,372,234 B, and the larger v3 log and receipt terms), eviction off 3,375,514,880 B;
-/// the child-context cache 185,920 B and the membership inputs 1,207,460 B, as on the spec-1 devnet (the same M_max 64).
+/// 3,447,088,104 B (budget required 3,939,529,262 B of 6 GiB), eviction off 3,375,514,880 B; the child-context cache
+/// 185,920 B and the membership inputs 1,207,460 B, as on the spec-1 devnet (the same M_max 64).
+/// The spec-1 devnet boots at 3,351,045,495 B (a13_boot_refuses_a_bound_above_the_memory_budget_spec1, the same
+/// open_limits: a finite chain, auto resolved only). The v3 total is 96,042,609 B more, item by item (the term names
+/// as `resources::derive` gives them; the deltas sum to the whole difference):
+/// - diffs/retained and side states as diffs +30,736,384; trie/the changed paths of the block executed on it
+///   +12,779,520; diffs/the overlay of the block being applied +610,304; side/one full block before offload or
+///   during restore +236,544;
+/// - V3-02 late shares (0 on spec 1): history/late-share evidence kept on offloaded entries +26,114,816; queues/
+///   late-share cache +518,512;
+/// - the first-import index (V3-04, 0 on spec 1): its cache and allocator +4,726,144, the journal lookup scratch
+///   +8,417,362, the template first-seen times +228,728 (13,372,234 together);
+/// - the v3 per-block log and receipt caps: history/resident window: logs +7,569,408; execution/receipt RLP encoding
+///   and output-copy scratch +3,670,016; history/RPC and sync views below the window +473,088; history/resident
+///   window: evidence +522,752;
+/// - smaller on v3: history/history.redb allocator state -383,497; queues/member reconstruction scratch -172,032;
+///   history/member records on entries not offloaded -5,440.
 const V3_A13_TOTAL:u128=3_447_088_104;
 const V3_A13_TOTAL_EVICTION_OFF:u128=3_375_514_880;
 const V3_A13_CACHES:(u128,u128)=(185_920,1_207_460);
@@ -4748,9 +4763,20 @@ fn e4_checkpoint_kill_child(){
 }
 
 
+/// A continuous chain keeps the per-block admission caps and has no finite lifetime ceiling, and A13 never treats an
+/// unobserved continuous history or file as zero. On the v3 devnet A13 is checked with the limits Node::open sets there
+/// (`first_imports` from `Spec::v3_active(MAX)`: the v3 per-block log cap and the first-import index): with eviction on,
+/// only the first-import index (counted per journal record) grows with the records, every other term is equal at 0 and
+/// 10^9 records (v3_a13_bound_breakdown checks the same at the devnet's open limits).
 #[test]
-fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
-    let mut c=cfg(&["a","b","c"]);c.h_end=0;c.h_close=0;c.tx_cap=1;c.txbytes_cap=1024;
+fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){continuous_admission(&cfg(&["a","b","c"]))}
+/// Phase 6a deletes this: continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling on the spec-1 devnet made
+/// continuous (H_END 0), as before Phase 5b: no first-import index (first_imports off, as Node::open sets it on spec 1),
+/// so with eviction on the whole bound is equal at 0 and 10^9 records.
+#[test]
+fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling_spec1(){continuous_admission(&cfg_spec1(&["a","b","c"]))}
+fn continuous_admission(c:&DevnetConfig){
+    let mut c=c.clone();c.h_end=0;c.h_close=0;c.tx_cap=1;c.txbytes_cap=1024;
     let mut n=net_with(&c);
     assert_eq!(n.chain.spec.cp().H_END,0);assert_eq!(n.chain.spec.cp().T_END,0);
     let a=devnet::account_key("alice");let to=devnet::account_key("bob").address();
@@ -4761,16 +4787,29 @@ fn continuous_admission_caps_and_finality_are_not_a_large_finite_ceiling(){
         let b=signed(&n,n.chain.head,Body{txs:vec![raw],evidence:vec![]},0);import(&mut n,&b);
     }
     assert_eq!(n.chain.head().state.accounts[&to].info.balance,U256::from(10u128.pow(24))+U256::from(4));
-    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits{evict_depth:Some(0),..Default::default()};limits.state_store=true;
+    // The A13 limits as Node::open sets `first_imports` on this profile (node.rs open, imports::enabled).
+    let v3=n.chain.spec.v3_active(u64::MAX);assert_eq!(v3,c.spec_version!=1,"positive control: the profile under test");
+    let cp=n.chain.spec.cp();let mut limits=pocold::node::Limits{evict_depth:Some(0),first_imports:v3,..Default::default()};limits.state_store=true;
     assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unknown continuous history must not be treated as zero");
+    if v3{
+        // The first-import index is sized from the journal records and canon.redb, so it needs both, eviction off too.
+        limits.continuous_history=Some(0);assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"the first-import index: unobserved files must not be treated as empty");
+        assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),"A13: first-import index needs observed journal records and disk sizes");
+        limits.continuous_history=None;limits.disk=Some(Default::default());
+    }
     limits.continuous_history=Some(0);let small=pocold::resources::derive(cp,32,2,&limits,3).unwrap();
     limits.continuous_history=Some(50_000);let larger=pocold::resources::derive(cp,32,2,&limits,3).unwrap();assert!(larger.total>small.total);
     // PR7 (C-1 S5, §6.5): with eviction on, unknown file sizes are not zero either, and the bound does not grow with
-    // the records: equal at 0 and 10^9.
-    limits.evict_depth=None;assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unobserved files must not be treated as empty");
-    assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),"A13: disk sizes not observed");
-    limits.disk=Some(Default::default());let at=|r:u64|pocold::resources::derive(cp,32,2,&pocold::node::Limits{continuous_history:Some(r),..limits.clone()},3).unwrap().total;
-    assert_eq!(at(0),at(1_000_000_000));
+    // the records: equal at 0 and 10^9, except (v3) the first-import index, which is counted per record.
+    limits.evict_depth=None;limits.disk=None;assert!(pocold::resources::derive(cp,32,2,&limits,3).is_none(),"unobserved files must not be treated as empty");
+    assert_eq!(pocold::resources::check(cp,32,2,&limits,3).unwrap_err(),if v3{"A13: first-import index needs observed journal records and disk sizes"}else{"A13: disk sizes not observed"});
+    limits.disk=Some(Default::default());let at=|r:u64|pocold::resources::derive(cp,32,2,&pocold::node::Limits{continuous_history:Some(r),..limits.clone()},3).unwrap();
+    let (zero,many)=(at(0),at(1_000_000_000));let index="history/first-import index cache and allocator";
+    assert_eq!(zero.items.iter().any(|x|x.0==index),v3,"the first-import index is counted exactly on v3");
+    assert_eq!(zero.items.len(),many.items.len());
+    for ((k,v),(k2,v2)) in zero.items.iter().zip(&many.items){assert_eq!(k,k2);if *k!=index{assert_eq!(v,v2,"{k} does not grow with the records");}}
+    if v3{let grows=|b:&pocold::resources::Bound|b.items.iter().find(|x|x.0==index).unwrap().1;assert!(grows(&many)>grows(&zero),"positive control: the first-import index is counted per record");}
+    else{assert_eq!(zero.total,many.total);}
 }
 
 // ---------------- PR7 (C-1 S5): canonical entries below the in-memory window ----------------
@@ -5917,7 +5956,8 @@ fn own_logs_halt(c:DevnetConfig,v3:bool){
 fn selection_exec_budget(mut c:DevnetConfig,v3:bool){
     use pocold::node::POOL_PARKED;let burners:Vec<String>=(0..24).map(|i|format!("burner{i}")).collect();
     for l in &burners{c.accounts.push((l.clone(),U256::from(10u128.pow(24))));}
-    let (mut n,dir)=gas_node_cfg("exec-budget",Default::default(),&c,None);assert_eq!(n.chain.spec.v3_active(1),v3);
+    // One directory per profile: the twins run side by side under a parallel harness.
+    let (mut n,dir)=gas_node_cfg(if v3{"exec-budget"}else{"exec-budget-spec1"},Default::default(),&c,None);assert_eq!(n.chain.spec.v3_active(1),v3);
     let k=pocol_lp4_execution::user_phase::log_caps(v3).count as u16;
     let create=|k:&Key,gas:u64,init:Vec<u8>|Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:init.into()}.sign_1559(k);
     // PUSH2 k (546 on spec 1, 4,368 on v3: the log count limit); loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 3 JUMPI; STOP

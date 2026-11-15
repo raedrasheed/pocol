@@ -1260,11 +1260,6 @@ fn jm_r14_workload_gap(){
 }
 
 // ============================ R3-4: a store-mode node at the network's state caps ============================
-/// The journal_measure profile with the network's state caps (ACCT_CAP 10^6, SLOT_CAP 4·10^6, CODE_CAP 2^30: the fresh
-/// network's, FRESH-NETWORK-CP.md, as governance.md's); every other parameter is the devnet's. On the v3 devnet it stays
-/// continuous, with the fresh network's per-block TXBYTES_CAP 2^24 and TX_CAP 20,000 (the devnet's). On the spec-1
-/// devnet (JM_SPEC=1) it takes governance.md's lifetime transaction caps and its H_END and closing window (so that the
-/// ~30,000 blocks that fill those caps fit), as the spec-1 rows were measured.
 /// The limits a new store-mode node checks A13 with at open (node.rs open): on a continuous v3 chain the eviction depth
 /// from R_keep, the first-import index, no journal records and empty files observed; unchanged on the spec-1 devnet.
 fn a13_at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,k_hist:u32,mut l:Limits)->Limits{
@@ -1272,6 +1267,11 @@ fn a13_at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,k_hist:u32,mut 
     l.evict_depth=Some(pocold::resources::evict_depth_of(cp,k_hist,&l,l.r_keep).unwrap().unwrap_or(0));
     l.first_imports=!spec1();l.continuous_history=Some(0);l.disk=Some(Default::default());l
 }
+/// The journal_measure profile with the network's state caps (ACCT_CAP 10^6, SLOT_CAP 4·10^6, CODE_CAP 2^30: the fresh
+/// network's, FRESH-NETWORK-CP.md, as governance.md's); every other parameter is the devnet's. On the v3 devnet it stays
+/// continuous, with the fresh network's per-block TXBYTES_CAP 2^24 and TX_CAP 20,000 (the devnet's). On the spec-1
+/// devnet (JM_SPEC=1) it takes governance.md's lifetime transaction caps and its H_END and closing window (so that the
+/// ~30,000 blocks that fill those caps fit), as the spec-1 rows were measured.
 fn scale_cfg()->DevnetConfig{let mut c=cfg();c.acct_cap=1_000_000;c.slot_cap=4_000_000;c.code_cap=1<<30;
     if spec1(){c.txbytes_cap=1<<33;c.tx_cap=10_000_000;c.h_end=129_600;c.h_close=129_440;c.t_end_offset=10_368_000;c.t_close_offset=10_368_000-9_600;c.z_close=160;}c}
 /// R3-4 (2026-10-27): a store-mode node grown to the network's state caps, measured beside what A13 computes for
