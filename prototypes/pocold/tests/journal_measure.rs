@@ -3,8 +3,13 @@
 //! and per block by block kind and state size, and the open memory. This test only MEASURES the
 //! existing code (store::encode_record/encode_frame, Node::open replay, Chain::validate,
 //! Chain::ensure_state, Chain::restore_canonical); it does not change behaviour and does not attack.
-//! The harness profile is DevnetConfig::new with hash_rate 1024, d_att 73, tau 40, c 8 (cfg()): the
-//! devnet caps, GAS_LIMIT, BODY_MAX and H_END, with an easier PoW and a wider attempt window.
+//! The harness profile is the spec-1 devnet (DevnetConfig::spec1, Bonded) with hash_rate 1024, d_att 73, tau 40, c 8
+//! (cfg()): the devnet caps, GAS_LIMIT, BODY_MAX and H_END, with an easier PoW and a wider attempt window.
+//! Phase 5a: pinned to the retired spec-1 devnet (the DevnetConfig::new default before Phase 5a) for Phase 5b/5c, so
+//! that the JM-* figures stay comparable with those recorded in JOURNAL-GROWTH-AND-REPLAY.md: the harness hard-codes
+//! the finite chain (H_END, lifetime TXBYTES_CAP), the spec-1 log caps (546 logs) and the bounded nonce range (seals
+//! scanned from nonce 0). The continuous v3 devnet bounds each block instead, so those measurements need new stop
+//! conditions there.
 //! It prints machine-readable `JM-*` lines consumed by development/audit-2026-10-22/JOURNAL-GROWTH-
 //! AND-REPLAY.md. The heavy variants are `#[ignore]` and run in release:
 //!   flock <cpu.lock> cargo test --release --test journal_measure -- --ignored --nocapture
@@ -21,7 +26,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 // ---- harness (self-contained; test files are separate crates, nothing imports consensus.rs) ----
-fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
+fn cfg()->DevnetConfig{let mut c=DevnetConfig::spec1(777910,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 fn admitted()->Spec{let c=cfg();let d=devnet::build(&c).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
 /// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
