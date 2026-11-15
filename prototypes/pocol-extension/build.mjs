@@ -10,7 +10,22 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const FAULTS = ['noDnr', 'cspOpen', 'cspOpenNoDnr', 'noRtc', 'allowAll', 'noRefill', 'quotaNoSubtract'];
+export const FAULTS = ['noDnr', 'cspOpen', 'cspOpenNoDnr', 'noRtc', 'allowAll', 'noRefill', 'quotaNoSubtract', 'testGateway'];
+// Sites W11: the `testGateway` fault build pins `testNetwork` (a devnet served by a local Studio gateway at
+// http://127.0.0.1:<port>/studio/rpc, trust level RN) as the built-in profile and sets LOCK_MS to `lockMs` (default the
+// release's 15 minutes), so the release RN path and the publication key lease run against a devnet. Only that build
+// fills the /*@testGatewayNetwork*/ and /*@testGatewayLockMs*/ slots of its fault regions.
+export function testGatewayValues(testNetwork, lockMs = 15 * 60 * 1000) {
+  const n = testNetwork || {};
+  const keys = ['name', 'chainId', 'genesisHash', 'genesisPre', 'endpoint'];
+  if (Object.keys(n).sort().join() !== [...keys].sort().join()) throw new Error('testGateway needs exactly ' + keys.join(', '));
+  if (typeof n.name !== 'string' || !/^[a-z0-9-]{1,32}$/.test(n.name)) throw new Error('testGateway name');
+  if (!Number.isSafeInteger(n.chainId) || n.chainId <= 0) throw new Error('testGateway chainId');
+  if (!/^0x[0-9a-f]{64}$/.test(n.genesisHash) || !/^0x([0-9a-f]{2})+$/.test(n.genesisPre)) throw new Error('testGateway genesis');
+  if (!/^http:\/\/127\.0\.0\.1:\d{1,5}\/studio\/rpc$/.test(n.endpoint)) throw new Error('testGateway endpoint must be http://127.0.0.1:<port>/studio/rpc');
+  if (!Number.isSafeInteger(lockMs) || lockMs < 1000 || lockMs > 15 * 60 * 1000) throw new Error('testGateway lockMs');
+  return { network: JSON.stringify({ ...n, trustLevel: 'RN' }), lockMs: String(lockMs) };
+}
 const MARK = /\/\*@fault (\w+)\*\/([\s\S]*?)\/\*@else\*\/([\s\S]*?)\/\*@end\*\//g;
 export function applyFaults(text, fault) {
   return text.replace(MARK, (m, name, rel, alt) => (name === fault || (fault === 'cspOpenNoDnr' && name === 'noDnr') ? alt : rel));
@@ -29,13 +44,16 @@ export const SANDBOX_CSP = (hash, open) => open
   ? `sandbox allow-scripts allow-forms; script-src 'sha256-${hash}' blob:; style-src * blob: 'unsafe-inline'; img-src * blob: data:; font-src * blob:; media-src * blob:; connect-src *; frame-src *`
   : `sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-${hash}' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 
-export function build({ fault = null, out } = {}) {
+export function build({ fault = null, out, testNetwork, lockMs } = {}) {
   if (fault && !FAULTS.includes(fault)) throw new Error('unknown fault ' + fault);
+  if ((testNetwork || lockMs) && fault !== 'testGateway') throw new Error('testNetwork and lockMs are for the testGateway build only');
+  const tg = fault === 'testGateway' ? testGatewayValues(testNetwork, lockMs) : null;
+  const fill = (text) => (tg ? text.replace(/\/\*@testGatewayNetwork\*\/null/g, () => tg.network).replace(/\/\*@testGatewayLockMs\*\/null/g, () => tg.lockMs) : text);
   const dist = out || join(HERE, fault ? `dist-fault-${fault}` : 'dist');
   rmSync(dist, { recursive: true, force: true }); mkdirSync(join(dist, 'lib'), { recursive: true });
   const src = join(HERE, 'src');
   const emit = (rel, text) => { const p = join(dist, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
-  for (const f of readdirSync(join(src, 'lib'))) emit(join('lib', f), applyFaults(readFileSync(join(src, 'lib', f), 'utf8'), fault));
+  for (const f of readdirSync(join(src, 'lib'))) emit(join('lib', f), fill(applyFaults(readFileSync(join(src, 'lib', f), 'utf8'), fault)));
   for (const f of ['sw.js', 'viewer.html', 'viewer.js', 'viewer.css', 'options.html', 'options.js', 'studio-content.js', 'publisher.html', 'publisher-ui.js', 'publisher.css', 'ide-content.js', 'contract.html', 'contract-ui.js', 'contract.css']) emit(f, applyFaults(readFileSync(join(src, f), 'utf8'), fault));
   // Ship the supplied PoCol artwork at Chrome's native icon sizes.
   const icons = Object.fromEntries([16, 32, 48, 128].map(size => [size, `icons/pocol-${size}.png`]));
@@ -79,7 +97,7 @@ export function build({ fault = null, out } = {}) {
   const walk = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? walk(join(d, f)) : [join(d, f)]));
   for (const f of walk(dist).filter((f) => f.endsWith('.js') || f.endsWith('.html'))) {
     const t = readFileSync(f, 'utf8');
-    if (/\/\*@(fault|else|end)/.test(t)) throw new Error('fault marker left in ' + f);
+    if (/\/\*@(fault|else|end|testGateway)/.test(t)) throw new Error('fault marker left in ' + f);
     if (/^\s*(import|export)\b[^\n]*\bfrom\s+['"](?![./])/m.test(t) || /^\s*import\s+['"](?![./])/m.test(t)) throw new Error('bare module specifier in ' + f);
   }
   return { dist, loaderHash: hash, manifest };

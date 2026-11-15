@@ -4,7 +4,8 @@
 import { sign, addressOfSecret, keccak } from './crypto.js';
 import * as rlp from './rlp.js';
 import { toHex, fromHex, concat, eq } from './hex.js';
-export const PBKDF2_ITER = 600000, LOCK_MS = 15 * 60 * 1000;
+// LOCK_MS: a Sites W11 test build (build.mjs `testGateway`) shortens it to time-scale the publication key lease.
+export const PBKDF2_ITER = 600000, LOCK_MS = /*@fault testGateway*/15 * 60 * 1000/*@else*//*@testGatewayLockMs*/null/*@end*/;
 const enc = new TextEncoder();
 const b64 = (b) => btoa(String.fromCharCode(...b)); const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
 async function aesKey(password, salt) {

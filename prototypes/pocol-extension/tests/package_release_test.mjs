@@ -105,6 +105,18 @@ test('an open or stale sandbox CSP and a widened extension-page CSP are refused'
   refused(pack({ edits: [manifest((m) => ({ ...m, content_security_policy: { ...m.content_security_policy, sandbox: m.content_security_policy.sandbox.replace("connect-src 'none'", 'connect-src *') } }))] }), /sandbox CSP/);
   refused(pack({ edits: [manifest((m) => ({ ...m, content_security_policy: { ...m.content_security_policy, extension_pages: "script-src 'self' 'unsafe-eval'; object-src 'self'" } }))] }), /extension-page CSP/);
 });
+// Sites W11: the testGateway build (a devnet behind a loopback Studio gateway as the built-in RN profile) is a fault build:
+// refused by its name, and, renamed to the release name, still refused by its built-in profile.
+test('the testGateway build is refused, also under the release name', () => {
+  const tg = build({ fault: 'testGateway', out: join(root, 'testGateway'), lockMs: 20000,
+    testNetwork: { name: 'devnet-gw', chainId: 4242, genesisHash: '0x' + '42'.repeat(32), genesisPre: '0x01', endpoint: 'http://127.0.0.1:8650/studio/rpc' } }).dist;
+  assert.match(JSON.parse(readFileSync(join(tg, 'manifest.json'), 'utf8')).name, /\[TEST FAULT testGateway\]$/);
+  assert.match(readFileSync(join(tg, 'lib', 'wallet.js'), 'utf8'), /LOCK_MS = 20000;/);
+  refused(pack({ from: tg }), /fault or rehearsal build/);
+  refused(pack({ from: tg, edits: [manifest((m) => ({ ...m, name: 'PoCol Studio, IDE & Viewer' }))] }), /NETWORK is not plain JSON|built-in profile must use/);
+  assert.throws(() => build({ fault: 'testGateway', out: join(root, 'tg2'), testNetwork: { name: 'x', chainId: 1, genesisHash: '0x' + '42'.repeat(32), genesisPre: '0x01', endpoint: 'http://10.0.0.1:8650/studio/rpc' } }), /endpoint must be/);
+  assert.throws(() => build({ out: join(root, 'tg3'), lockMs: 1000 }), /testGateway build only/);
+});
 test('another endpoint or trust level for the built-in profile is refused', () => {
   refused(pack({ edits: [['lib/studio-network.js', (t) => t.replace('"endpoint": "https://gateway.pocol.net/studio/rpc"', '"endpoint": "http://127.0.0.1:8540/studio/rpc"')]] }), /built-in profile must use/);
   refused(pack({ edits: [['lib/studio-network.js', (t) => t.replace('"trustLevel": "RN"', '"trustLevel": "LN"')]] }), /built-in profile must use/);
