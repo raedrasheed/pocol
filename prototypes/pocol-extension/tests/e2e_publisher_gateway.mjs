@@ -126,7 +126,8 @@ async function viewSite(b, site, name) {
 
 async function main() {
   for (const p of [30300, 30301, 30302, 8540, 8541, 8542, GW, NODE_TAP, ...RELAYS]) if (!(await portFree(p))) throw new Error('port busy ' + p);
-  devnet(['init', work, '--miners', 'a,b,c', '--t-blk', '2', '--tau', '20', '--c', '8', '--d-att', '41', '--fb-wait', '3', '--work-bits', '15']);
+  // A devnet's CODE_CAP is 2 MiB (caps/64): the nightly 4 MiB site after the 1.6 MB project needs a larger one.
+  devnet(['init', work, '--miners', 'a,b,c', '--t-blk', '2', '--tau', '20', '--c', '8', '--d-att', '41', '--fb-wait', '3', '--work-bits', '15', ...(PROFILE === 'nightly' ? ['--code-cap', String(16 << 20)] : [])]);
   const info = JSON.parse(readFileSync(join(work, 'net', 'devnet.json'), 'utf8')); const cid = String(info.chainId);
   const profile = JSON.parse(readFileSync(join(work, 'net', 'profile.json'), 'utf8'));
   devnet(['start', work, '--log']);

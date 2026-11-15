@@ -244,7 +244,9 @@ def main():
         return out, mine, bl
 
     try:
-        dn.init(work, "a,b,c", DEVNET_ARGS)
+        # A devnet's CODE_CAP is 2 MiB (D-A13-PROFILE caps/64): the nightly 4 MiB site, after the pr cases, needs a larger
+        # one (the network profile's own cap is not a devnet's). The pr profile keeps the default.
+        dn.init(work, "a,b,c", DEVNET_ARGS + (["--code-cap", str(16 << 20)] if profile == "nightly" else []))
         info = json.load(open(os.path.join(work, "net", "devnet.json"))); cid = str(info["chainId"])
         dn.start(work, log=True); wait(lambda: min(head(i) for i in range(3)) >= 3, 120, "nodes up")
         caps = rpc(0, "pocol_getCaps")
