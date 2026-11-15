@@ -229,6 +229,11 @@ class RewardTests(unittest.TestCase):
         del node.params['forkSchedule']
         with self.assertRaisesRegex(rewards.RewardUnavailable, 'did not advertise'):
             rewards.snapshot(node, fork_schedule=((1, 0), (2, 70)))
+        # FN-5: nor can it add a cap raise the trusted schedule does not name.
+        node = Node(height=70, activation=70)
+        node.params['capRaise'] = {'ACCT_CAP': 1, 'SLOT_CAP': 1, 'CODE_CAP': 1, 'SYS_SLOT_MAX': 1, 'height': 80}
+        with self.assertRaisesRegex(rewards.RewardUnavailable, 'does not name'):
+            rewards.snapshot(node, fork_schedule=((1, 0), (2, 70)))
 
     def test_legacy_rpc_without_schedule_remains_v1_only(self):
         node = Node()
@@ -243,7 +248,8 @@ class RewardTests(unittest.TestCase):
                 self.assertEqual(rewards.snapshot(node, fork_schedule=((1, 0), (2, 70)))['blockHeight'], height)
 
     def test_unsupported_or_ambiguous_trusted_schedules_fail_before_rpc(self):
-        invalid = ([], [(2, 0)], [(1, 0), (2, 0)], [(1, 0), (3, 70)],
+        # [(1,0),(2,70),(3,80)]: a cap raise exists only on a v3 network, never on the pinned spec-1 Mainnet.
+        invalid = ([], [(2, 0)], [(1, 0), (2, 0)], [(1, 0), (3, 70)], [(1, 0), (2, 70), (3, 80)],
                    [(1, 0), (2, 70), (1, 80)], [(1, 0), (2, 1 << 64)],
                    [(1, False)], [(True, 0)], [(1, 0), (2, '70')])
         for schedule in invalid:
@@ -263,8 +269,10 @@ class RewardTests(unittest.TestCase):
         self.assertEqual(rewards.validated_fork_schedule(three, 3), three)
         self.assertEqual(rewards.active_version(25, three), 3)
         self.assertEqual(rewards.active_version(19, three), 2)
-        self.assertEqual(rewards.MAX_FORK_VERSION, 2)
-        for schedule, bound in ((three, 2), ([(1, 0), (3, 20)], 3), ([(1, 0), (2, 10), (3, 10)], 3),
+        # FN-5: version 3 (the cap raise) is the release bound, as pocold's MAX_FORK_VERSION.
+        self.assertEqual(rewards.MAX_FORK_VERSION, 3)
+        self.assertEqual(rewards.validated_fork_schedule(three), three)
+        for schedule, bound in ((three, 2), (three + ((4, 30),), 3), (three + ((4, 30),), rewards.MAX_FORK_VERSION), ([(1, 0), (3, 20)], 3), ([(1, 0), (2, 10), (3, 10)], 3),
                                 ([(1, 0), (2, 10), (3, 9)], 3), ([(1, 0)] * 17, 3)):
             with self.subTest(schedule=schedule, bound=bound):
                 with self.assertRaises(rewards.RewardUnavailable):
@@ -1216,6 +1224,38 @@ class V3RecordedTapeTests(unittest.TestCase):
         for h, expected in self.data['snapshots'].items():
             with self.subTest(h=h):
                 self.assertEqual(self.snap(int(h)), expected)
+
+    def test_an_activated_cap_raise_schedule_is_accepted_from_the_upgrade_on(self):
+        # FN-5 (C10): a network that schedules the cap raise advertises [(1,0),(2,H'),(3,H)] and capRaise as soon as its
+        # nodes run the upgrade, before H. The same trusted schedule, at the default bound, reproduces every recorded
+        # snapshot (no projection reads the four caps); the advertised raise must match the trusted fork-3 height.
+        raised = self.schedule + ((3, 1000),)
+        caps = {'ACCT_CAP': 90000, 'SLOT_CAP': 90000, 'CODE_CAP': 1 << 22, 'SYS_SLOT_MAX': 70000}
+        def params(forks, raise_):
+            def change(result):
+                result['forkSchedule'] = [list(f) for f in forks]
+                result.pop('capRaise', None)
+                if raise_ is not None:
+                    result['capRaise'] = raise_
+                return result
+            return self.on('pocol_getParams', lambda p: True, change)
+        good = params(raised, dict(caps, height=1000))
+        self.assertEqual(rewards.validated_fork_schedule(raised), raised)
+        for h in (31, 50):
+            out = rewards.snapshot_v3(Tape(self.data, good), fork_schedule=raised, network=self.network, height=h)
+            out.pop('fetchedAt')
+            self.assertEqual(out, self.data['snapshots'][str(h)])
+        def refused(edit, message, schedule=raised):
+            with self.assertRaisesRegex(rewards.RewardUnavailable, message):
+                rewards.snapshot_v3(Tape(self.data, edit), fork_schedule=schedule, network=self.network, height=31)
+        refused(params(raised, None), 'did not advertise the cap raise')
+        refused(params(raised, dict(caps, height=999)), 'cap raise height differs')
+        refused(params(raised, dict(caps, height=1000, TX_CAP=1)), 'Invalid advertised cap raise')
+        refused(params(raised, dict(caps, height=1000, SYS_SLOT_MAX=1 << 32)), 'Invalid advertised cap raise')
+        refused(params(raised, dict(caps, height=1000, ACCT_CAP='0x1')), 'Invalid advertised cap raise')
+        refused(params(self.schedule, dict(caps, height=1000)), 'does not name', self.schedule)
+        refused(params(raised, dict(caps, height=1000)), 'differs from trusted configuration', self.schedule)
+        refused(good, 'differs from trusted configuration', self.schedule[:1] + ((2, 2), (3, 1001)))
 
     def test_a_body_that_its_header_does_not_commit_is_refused(self):
         def drop_evidence(result):

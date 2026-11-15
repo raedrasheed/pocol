@@ -118,6 +118,13 @@ impl Spec{
     pub fn local(&self)->&NodeLocal{self.admitted.local()}
     pub fn admission(&self)->&Admitted{&self.admitted}
     pub fn cp(&self)->&pocol_lp4_execution::profile::ConsensusParams{self.profile().cp()}
+    /// FN-5 (C10): the CP of the block at height `h` (`ProfileIdentity::cp_at`): ACCT_CAP, SLOT_CAP, CODE_CAP and
+    /// SYS_SLOT_MAX take a scheduled cap raise's values from its fork-3 height on; every other field is `cp()`'s.
+    /// Without a raise it is `cp()` at every height.
+    pub fn cp_at(&self,h:u64)->&pocol_lp4_execution::profile::ConsensusParams{self.profile().cp_at(h)}
+    /// The CP with the largest caps the schedule reaches (`cp_at(u64::MAX)`; a raise never lowers a cap): what the A13
+    /// resource bound of a node of this chain is computed at.
+    pub fn cp_max(&self)->&pocol_lp4_execution::profile::ConsensusParams{self.profile().cp_at(u64::MAX)}
     pub fn chain_id(&self)->u64{self.profile().spec().chain_id}
     /// The actual compiled program set committed by this genesis.
     pub fn programs(&self)->ProgramSet{

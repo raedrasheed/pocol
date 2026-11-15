@@ -287,7 +287,8 @@ mod tests{
         assert!(!got.contains(&"admission-not-booted")&&!got.contains(&"admission-unrecorded"));
         assert!(n.v3_active);
         // A spec-1 genesis with the schedule [(1,0)] never activates v3. No admissible schedule activates it later
-        // (ForkSchedule's bound MAX_FORK_VERSION is 2), so the height Network::admitted asks at is not observable. The
+        // (MAX_FORK_VERSION is 3, but version 3 is the cap raise, admitted only on a spec-2 genesis: FN-5), so the height
+        // Network::admitted asks at is not observable. The
         // retired spec-1 devnet; Phase 6a deletes the spec-1 rule set and this check.
         let mut c=DevnetConfig::spec1(777942,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
         let (a,_)=devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap();

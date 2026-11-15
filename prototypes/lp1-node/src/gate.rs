@@ -367,8 +367,12 @@ pub fn check(
         add512(&mut total, &future_issuance(c, continuous, i.m3_issuance));
         total.bits() > 127
     });
+    // D3 (owner decision, V3-DECISIONS.md): fork versions are sequential, so a version v >= 3 needs v - 1 before it. Before
+    // FN-5 no accepted schedule could skip one (MAX_FORK_VERSION 2); with version 3 (the cap raise) this keeps refusing
+    // [(1,0),(3,H)] here as `configured_forks` does at run time. The schedule itself (`ForkSchedule`) allows the skip.
+    let skips = p.forks.iter().enumerate().any(|(i, &(v, _))| v >= 3 && !p.forks[..i].iter().any(|&(w, _)| w == v - 1));
     bad[23] = spec.as_ref().map_or(true,|s|s.chain_id!=p.chain_id || s.cp!=c.to_values() || id.map_or(true,|i|s.alloc_root!=i.alloc_root || s.sys_code_hash!=i.sys_code_hash))
-        || ForkSchedule::new(&p.forks).is_err() || p.chain_id==0;
+        || ForkSchedule::new(&p.forks).is_err() || skips || p.chain_id==0;
     let cal = calibration.filter(|r| r.profile_binding == binding && r.model == RESOURCE_MODEL && r.artifact != [0; 32]);
     if cal.is_none() {
         missing.push("calibrationFacts:missing-or-binding-model-artifact-mismatch");

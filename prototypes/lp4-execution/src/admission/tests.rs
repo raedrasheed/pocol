@@ -330,10 +330,11 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
 }
 /// Release builds decode spec 2 (SPEC_VERSION 2), so `admit` reaches the gate with v3 on a non-simnet profile, but
 /// V3_LAUNCH_BLOCKERS is empty and no admission can show a refusal; this source check keeps `admit` calling it, with
-/// whatever the list holds, before any fact is built.
+/// whatever the list holds, before any fact is built. FN-5: `admit` is `admit_with(r, None)`, whose body this checks.
 #[test] fn admit_calls_the_v3_launch_gate_before_any_fact_is_built(){
     let src=include_str!("../admission.rs");
-    let start=src.find("\npub fn admit(").expect("admit");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];
+    assert!(src.contains("pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{admit_with(r,None)}"),"admit is admit_with without a raise");
+    let start=src.find("\npub fn admit_with(").expect("admit_with");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];
     let gate=body.find("v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;").expect("admit must call v3_launch_gate on the v3 domain of the profile");
     assert!(gate<body.find("let binding=gp.binding();").expect("binding"),"the launch gate runs before the gate facts are built");
 }

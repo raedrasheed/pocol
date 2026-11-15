@@ -28,7 +28,7 @@ export async function v3DecoderChecks(rel) {
 
   // ---- the release build: spec 2 is the release GenesisSpec ----
   const RP = await L(rel, 'rp.js'), D = await L(rel, 'refdec.js'), F = await L(rel, 'forks.js');
-  ok('release: SPEC_VERSION and the shipped entry-point ceiling are 2; MAX_FORK_VERSION is unchanged', D.DECODE_CEILING === 2 && D.SPEC_VERSION === 2 && F.MAX_FORK_VERSION === 2);
+  ok('release: SPEC_VERSION and the shipped entry-point ceiling are 2; MAX_FORK_VERSION is 3 (FN-5: version 3 is the cap raise)', D.DECODE_CEILING === 2 && D.SPEC_VERSION === 2 && F.MAX_FORK_VERSION === 3);
   ok('release: RP.decodeSpec and the decoder default decode a v3 genesis; only an explicit spec-1 ceiling refuses it with gsVersion',
     gs(() => RP.decodeSpec(v3Base)) === 'ok' && gs(() => D.decodeGenesisSpec(v3Base)) === 'ok' && gs(() => RP.decodeSpec(v3Base, 1)) === 'gsVersion:2');
   ok('release: the manifest is the release one', JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).name === 'PoCol Studio, IDE & Viewer');
@@ -38,10 +38,10 @@ export async function v3DecoderChecks(rel) {
   const spec1 = RP.decodeSpec(spec1Bytes);
   const spec2 = RP.decodeSpec(v3Base);
   ok('release: a spec-1 genesis still decodes, with CP schema v1', spec1.specVersion === 1 && spec1.cp.length === 52);
-  const v1 = F.normalizeForkSchedule(), v2 = F.normalizeForkSchedule([[1, 0], [2, '5']]), v3 = F.normalizeForkSchedule([[1, 0], [2, '5'], [3, '9']], 3);
+  const v1 = F.normalizeForkSchedule(), v2 = F.normalizeForkSchedule([[1, 0], [2, '5']]), v3 = F.normalizeForkSchedule([[1, 0], [2, '5'], [3, '9']]);
   ok('v3Active: a spec-2 genesis is v3 from height 0 under any schedule', [0n, 1n, 1n << 63n].every((h) => RP.v3Active(spec2, v1, h) && RP.v3Active(spec2, v2, h)));
   ok('v3Active: a spec-1 genesis is not v3 under v1 or v2', [0n, 4n, 5n, 1n << 63n].every((h) => !RP.v3Active(spec1, v1, h) && !RP.v3Active(spec1, v2, h)));
-  ok('v3Active: a spec-1 genesis becomes v3 at a fork-3 activation (test bound only; MAX_FORK_VERSION stays 2)', !RP.v3Active(spec1, v3, 8n) && RP.v3Active(spec1, v3, 9n) && RP.v3Active(spec1, v3, 10n));
+  ok('v3Active: the predicate keeps its fork-3 route (pocold admits fork 3, the cap raise, only on a spec-2 genesis)', !RP.v3Active(spec1, v3, 8n) && RP.v3Active(spec1, v3, 9n) && RP.v3Active(spec1, v3, 10n));
 
   // ---- RP over a v3 chain's window (the corpus's v3 headers come from the same fixture) ----
   const win2 = await rpWindow(rel, v3Base, 14);

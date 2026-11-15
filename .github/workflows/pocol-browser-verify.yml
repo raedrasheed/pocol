@@ -61,6 +61,7 @@ jobs:
           sudo apt-get install -y python3-cryptography
           npm run test:studio --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-studio.log
           npm run test:publisher --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-publisher.log
+          npm run test:publisher-ui --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-publisher-ui.log
           npm run test:contracts --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-contracts.log
           npm run test:contract-ui --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-contract-ui.log
           (cd prototypes/pocol-extension && /usr/bin/python3 -m unittest tests/test_linux_export.py -v) 2>&1 | tee evidence/extension-linux-export.log

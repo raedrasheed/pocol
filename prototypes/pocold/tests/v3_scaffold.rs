@@ -102,7 +102,7 @@ fn sequential_future_forks_never_narrow_the_nonce_domain(){
     let forks=ForkSchedule::new_bounded(&[(1,0),(2,10),(3,20)],3).unwrap();
     assert!(!pocold::chain::full_nonce_rule(forks.active_version(9),0));
     for h in [10,19,20,21,u64::MAX]{assert!(pocold::chain::full_nonce_rule(forks.active_version(h),0));}
-    assert_eq!(gs::SPEC_VERSION,2);assert_eq!(pocol_lp4_execution::profile::MAX_FORK_VERSION,2);
+    assert_eq!(gs::SPEC_VERSION,2);assert_eq!(pocol_lp4_execution::profile::MAX_FORK_VERSION,3);
     assert_eq!(pocold::identity::CONSENSUS_RULES_VERSION,2);
 }
 #[test]
