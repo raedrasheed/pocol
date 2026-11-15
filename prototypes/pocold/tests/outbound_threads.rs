@@ -4,6 +4,7 @@
 //! process-wide thread counts are this node's alone. Linux only: the counts are read from /proc/self/task (on other
 //! systems the binary is empty, as the audit's THREADS-NOT-MEASURED notes for Windows).
 #![cfg(target_os="linux")]
+#[path="support/members.rs"] mod members_sweep;
 use std::io::{Read,Write};
 use std::net::{TcpListener,TcpStream};
 use std::sync::{Arc,Mutex,atomic::{AtomicBool,Ordering}};
@@ -13,6 +14,7 @@ use pocol_lp4_execution::devnet::{self,DevnetConfig};
 #[path="support/hello.rs"] mod support;
 
 fn spec()->Spec{
+    crate::members_sweep::oracle();
     let n=devnet::build(&DevnetConfig::new(777942,pocold::node::now_s(),&["a","b","c"])).unwrap();
     let t=pocol_lp4_execution::admission::measure(&n.spec_bytes,&n.alloc,1).unwrap();
     Spec::new(pocol_lp4_execution::admission::admit(&n.request(&pocold::single_host_local(),Some(&t))).unwrap_or_else(|e|panic!("{e}")))

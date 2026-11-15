@@ -341,10 +341,18 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // 1_071_253,1_046_622]. An Entry's size is unchanged (its `members` pointer is paid for by `ranges` as a boxed
         // slice), so a slimmed entry, the bulk of this eviction-off projection, costs what it did. The seed rule's
         // outcome is unchanged: R10[0] - R(32, 2) = 58,675 of the week's 60,480, and R10[1] - R(64, 7) = 100,923 > a week.
-        assert_eq!(got,[1_143_018,1_118_191,1_111_038,1_086_437,1_068_549,1_043_948],"the live chain's halt moved (record it in the PR)");
+        // FN-3b (C6): the nonce ranges removed (4,096 B a slimmed entry at this chain's M_max 64, and the ranges' boxed
+        // slice, 16 B, from every Entry; history.redb's ranges rows) move each stop 27,119/26,878/26,809/26,570/26,396/
+        // 26,157 records later than the pins [1_143_018,1_118_191,1_111_038,1_086_437,1_068_549,1_043_948]; R(8, 2) is now
+        // above R10's own (by 424 records), so the differences below are signed. The default's margin widens (R10[0] -
+        // R(32, 2) = 31,866 of the week's 60,480: a rise can never fail it), and the seed-at-64 gap narrows but stays
+        // above a week (R10[1] - R(64, 7) = 74,766 > 60,480), so the rule's outcome is unchanged (the seeds stay at the
+        // default 32).
+        assert_eq!(got,[1_170_137,1_145_069,1_137_847,1_113_007,1_094_945,1_070_105],"the live chain's halt moved (record it in the PR)");
         // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
         // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
-        const WEEK:u64=7*8640;const R10:[u64;2]=[1_169_713,1_144_871];
+        // Signed (FN-3b): a halt may now rise above R10's.
+        const WEEK:i128=7*8640;const R10:[i128;2]=[1_169_713,1_144_871];let got:Vec<i128>=got.iter().map(|x|i128::from(*x)).collect();
         assert!(R10[0]-got[2]<=WEEK,"the default of 32 moves the halt by more than a week: ask the owner");
         assert!(R10[1]-got[5]>WEEK,"a seed at 64 now moves the halt by at most a week: the seeds may take POCOL_PEERS_MAX=64 (deploy/public-testnet/prepare.py)");
     }
@@ -396,7 +404,11 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
         // FN-3a (C6): the member-record terms, 3,778,756 model bytes at this chain's M_max 64, and their history.redb
         // payload: each stop 15,505,223,296 B (14.4 GiB of history.redb) earlier than the pins
         // [11_925_949_677_695,11_664_796_745_855,11_589_295_833_215,11_328_142_901_375,11_140_424_040_575,10_879_271_108_735].
-        assert_eq!(got,[11_910_444_454_399,11_649_291_522_559,11_573_790_609_919,11_312_637_678_079,11_124_918_817_279,10_863_765_885_439],"the live chain's stop moved (record it in the PR)");
+        // FN-3b (C6): the nonce ranges removed, 44,477,750 model bytes at this chain's M_max 64 with eviction on (the
+        // entry-equivalents' 64·M_max, the Entry's boxed slice, history.redb's ranges rows): each stop 182,180,866,560 B
+        // (169.7 GiB of history.redb) later than the pins [11_910_444_454_399,11_649_291_522_559,11_573_790_609_919,
+        // 11_312_637_678_079,11_124_918_817_279,10_863_765_885_439].
+        assert_eq!(got,[12_092_625_320_959,11_831_472_389_119,11_755_971_476_479,11_494_818_544_639,11_307_099_683_839,11_045_946_751_999],"the live chain's stop moved (record it in the PR)");
     }
 }
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and

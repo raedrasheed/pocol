@@ -209,7 +209,7 @@ pub type MemberRow=([u8;32],u64,crate::members::MemberRec);
 /// refuses the entry); `None` (an RPC view) reads none.
 pub type MemberRead<'a>=Option<&'a dyn Fn()->Result<Option<MemberRow>,String>>;
 /// What `restore` reads besides the snapshot: a journal record's payload by its frame offset (only records
-/// of the bound prefix), and history.redb's receipts, nonce ranges and (FN-3) member records.
+/// of the bound prefix), and history.redb's receipts and (FN-3) member records (FN-3b: no nonce ranges).
 /// What marks a restore error that is the node's own storage failing, not the checkpoint (2026-10-28).
 pub const LOCAL:&str="local storage failure: ";
 pub trait Source{
@@ -217,10 +217,9 @@ pub trait Source{
     /// open verified no longer verifies (a local failure, never a refusal: `LOCAL`).
     fn payload_at(&self,off:u64)->Result<Option<Vec<u8>>,String>;
     fn receipts(&self,hash:&[u8;32])->Result<Option<Vec<Vec<u8>>>,String>;
-    fn ranges(&self,hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,String>;
     /// FN-3: the block's (parent, height, member record) in history.redb.
     fn members(&self,hash:&[u8;32])->Result<Option<MemberRow>,String>;
-    /// Whether history.redb holds the block's receipts, nonce ranges and (FN-3) member record.
+    /// Whether history.redb holds the block's receipts and (FN-3) member record (`History::has`).
     fn has(&self,hash:&[u8;32])->Result<bool,String>;
     /// C-1 S5: the hash and total work of the canonical block at height `h` in the node's canonical index (None: no
     /// row there). Err: the index could not be read (`LOCAL` when its file failed, a local failure), or a row failed
@@ -273,7 +272,7 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
             g
         }else{
             let off=r.body_off.ok_or_else(||why("no journal record"))?;
-            // Every journaled block's receipts and ranges are in history.redb (written before its record,
+            // Every journaled block's receipts and member record are in history.redb (written before its record,
             // I3; replay makes them durable before it checkpoints): one an old entry would read on demand
             // must be there too.
             if !src.has(&r.hash)?{return Err(why("not in history.redb"))}
@@ -285,7 +284,7 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
                     let p=blocks.get(&h.parent_hash).ok_or_else(||why("parent not restored"))?;(p.height,p.total_work)};
                 if h.h!=ph+1{return Err(why("height"))}
                 if r.total_work!=pw.saturating_add(crate::chain::work(&h.target)){return Err(why("total work does not follow from the parent"))}Ok(())};
-            let (mut e,_)=entry_of(r,&payload,parent,||src.receipts(&r.hash),||src.ranges(&r.hash),Some(&||src.members(&r.hash)),body_max,true,&why)?;
+            let (mut e,_)=entry_of(r,&payload,parent,||src.receipts(&r.hash),Some(&||src.members(&r.hash)),body_max,true,&why)?;
             if let Some(root)=r.root{
                 let p=blocks.get(&e.header.parent_hash).map(|b|&**b).ok_or_else(||why("parent not restored"))?;
                 // The version's state root, from its stored root node (checked against its id as it is read).
@@ -346,19 +345,19 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
     Ok(read)
 }
 /// The entry a record describes, from its journal record's payload (header, body and ParentResult bytes) and
-/// history.redb's receipts and nonce ranges, asked only when the entry keeps them: the one way an entry is
+/// history.redb's receipts and (FN-3) member record, asked only when the entry keeps them: the one way an entry is
 /// built back from what a snapshot or the node's canonical index keeps (C-1 S5). The checks, in order: the
 /// record decodes, the header hashes to the record's block, `parent` accepts the header (a restore checks the
-/// parent it restored, its height and the total work), then the body, the ParentResult, the receipts and the
-/// ranges. The entry is offloaded and slimmed as the record's flags say, except that `slim: false` keeps a
-/// slimmed record whole (its ranges are then read: a rebuild re-executes it). Refusals are worded by `why`;
-/// an error of `receipts` or `ranges` is passed on as it is (a local failure). Returns the entry and the
+/// parent it restored, its height and the total work), then the body, the ParentResult, the receipts and (FN-3) the
+/// member record. The entry is offloaded and slimmed as the record's flags say, except that `slim: false` keeps a
+/// slimmed record whole (a rebuild re-executes it; FN-3b: no nonce ranges are read for it). Refusals are worded by
+/// `why`; an error of `receipts` or `members` is passed on as it is (a local failure). Returns the entry and the
 /// block's body, which an offloaded entry does not hold (but for its V3-02 late-share evidence items, `chain::offload`).
 /// FN-3: `members`, when given, is read for an entry that is not offloaded (an offloaded one holds none, as live): a
 /// missing one, or one that does not name the record's parent and height, refuses the entry. The entry never holds
 /// member ids (a reader reads a snapshot's set from the member source). Not given (an RPC view): none is read or held.
 pub fn entry_of(r:&Rec,payload:&[u8],parent:impl FnOnce(&crate::header::Header)->Result<(),String>,receipts:impl FnOnce()->Result<Option<Vec<Vec<u8>>>,String>,
-    ranges:impl FnOnce()->Result<Option<Vec<(Address,u128,u128)>>,String>,members:MemberRead<'_>,body_max:usize,slim:bool,why:&dyn Fn(&str)->String)->Result<(Entry,Body),String>{
+    members:MemberRead<'_>,body_max:usize,slim:bool,why:&dyn Fn(&str)->String)->Result<(Entry,Body),String>{
     let record=crate::store::decode_record_ref(payload).map_err(|e|why(&format!("record: {e}")))?;
     let timely=record.first_import.map_or(true,|m|m.timely);
     if timely!=(r.flags&F_LATE==0){return Err(why("first-import flag differs from the journal"))}
@@ -369,7 +368,6 @@ pub fn entry_of(r:&Rec,payload:&[u8],parent:impl FnOnce(&crate::header::Header)-
     let result=crate::chain::decode_result(record.result,&r.hash).map_err(|e|why(&format!("result: {e:?}")))?;
     let (offloaded,slimmed)=(r.flags&F_OFFLOADED!=0,slim&&r.flags&F_SLIM!=0);
     let receipts=if offloaded{Vec::new()}else{receipts()?.ok_or_else(||why("receipts not in history.redb"))?};
-    let ranges=if slimmed{Vec::new()}else{ranges()?.ok_or_else(||why("nonce ranges not in history.redb"))?};
     let members=match members{Some(f) if !offloaded=>{
         let (mp,mh,m)=f()?.ok_or_else(||why("member record not in history.redb"))?;
         if mp!=header.parent_hash||mh!=header.h{return Err(why("the member record does not name the block's parent and height"))}
@@ -379,7 +377,7 @@ pub fn entry_of(r:&Rec,payload:&[u8],parent:impl FnOnce(&crate::header::Header)-
     let mut e=Entry{hash:r.hash,height:header.h,parent:Some(header.parent_hash),total_work:r.total_work,import_seq:r.import_seq,signed:!header.proposer.is_empty(),timely,ts:header.ts,
         target:header.target,base_fee:from_fixed(&header.base_fee),gas_used:header.gas_used,seal:seal(&template_id(&header.ut_raw),header.nonce),state:crate::chain::empty_state(),
         is_final:r.flags&F_FINAL!=0,result,receipts,tx_hashes,cum_txs:r.cum_txs,cum_tx_bytes:r.cum_tx_bytes,cum_log_bytes:r.cum_log_bytes,pruned:r.flags&F_PRUNED!=0,full:r.flags&F_FULL!=0,diff:None,
-        slim:false,drawn:r.drawn,ranges:ranges.into(),members,body_off:r.body_off,offloaded:false,trie:None,summary:r.summary.map(Box::new),stored:None,header,body:if offloaded{crate::chain::offloaded_body(&body)}else{body.clone()}};
+        slim:false,drawn:r.drawn,members,body_off:r.body_off,offloaded:false,trie:None,summary:r.summary.map(Box::new),stored:None,header,body:if offloaded{crate::chain::offloaded_body(&body)}else{body.clone()}};
     if offloaded{crate::chain::offload(&mut e);}
     if slimmed{crate::chain::slim(&mut e);}
     if e.summary.as_deref()!=r.summary.as_ref(){return Err(why("a slimmed entry with a summary"))}
@@ -402,7 +400,6 @@ impl Source for JournalSource<'_>{
         match self.journal.payload_at(off){Ok(p)=>Ok(Some(p)),Err(e)=>Err(format!("{LOCAL}the journal at offset {off}: {e:?}"))}}
     // history.redb that cannot be read is a local failure (review F2), never a refusal of the checkpoint.
     fn receipts(&self,hash:&[u8;32])->Result<Option<Vec<Vec<u8>>>,String>{self.history.receipts(hash).map_err(|e|format!("{LOCAL}history: {}",e.0))}
-    fn ranges(&self,hash:&[u8;32])->Result<Option<Vec<(Address,u128,u128)>>,String>{self.history.ranges(hash).map_err(|e|format!("{LOCAL}history: {}",e.0))}
     fn members(&self,hash:&[u8;32])->Result<Option<MemberRow>,String>{self.history.members(hash).map_err(|e|format!("{LOCAL}history: {}",e.0))}
     fn has(&self,hash:&[u8;32])->Result<bool,String>{self.history.has(hash).map_err(|e|format!("{LOCAL}history: {}",e.0))}
     /// A row that fails its check refuses the snapshot (the index marks itself damaged and the next open rebuilds it).

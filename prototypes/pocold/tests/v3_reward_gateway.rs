@@ -204,6 +204,7 @@ mod on_chain {
         for label in ["alice", "bob", "carol", "dave", "hank"] { let k = account(label); keys.insert(k.address(), k); }
         let timing = admission::measure(&candidate.spec_bytes, &candidate.alloc, 1).unwrap();
         let admitted = admission::admit(&candidate.request(&pocold::single_host_local(), Some(&timing))).unwrap();
+        crate::members_sweep::oracle();
         let spec = Spec::new(admitted);
         assert_eq!(spec.programs(), apply::ProgramSet::V3);
         let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();

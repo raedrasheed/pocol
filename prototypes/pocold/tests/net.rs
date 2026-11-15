@@ -1,5 +1,6 @@
 //! A05 resource bounds (P2P and RPC, separately) and A10 ORIGIN_DENY per batch member,
 //! on a real node over loopback sockets. Limits are shrunk so every case stays small.
+#[path="support/members.rs"] mod members_sweep;
 use std::io::{Read,Write};
 use std::net::{TcpListener,TcpStream};
 use std::sync::{Arc,atomic::{AtomicBool,Ordering}};
@@ -17,6 +18,7 @@ fn free_port()->u16{TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwra
 /// earlier tests leave running would saturate the CPU), and its timing is measured once
 /// (R14/R19 are measured on this host and fail closed under CPU contention).
 fn spec()->Spec{
+    crate::members_sweep::oracle();
     static GENESIS:std::sync::OnceLock<u64>=std::sync::OnceLock::new();
     static TIMING:std::sync::OnceLock<pocol_lp4_execution::admission::Timing>=std::sync::OnceLock::new();
     let n=devnet::build(&DevnetConfig::new(777940,*GENESIS.get_or_init(pocold::node::now_s),&["a","b","c"])).unwrap();
@@ -25,14 +27,23 @@ fn spec()->Spec{
 }
 struct Running{p2p:u16,rpc:u16,net:net::Net,chain_id:u64,genesis:[u8;32],forks:Vec<(u16,u64)>,id:[u8;32]}
 fn start(tag:&str,limits:Limits)->Running{start_with(tag,limits,vec![])}
+/// `free_port` only reserves a port until its probe listener is dropped, so another process (or a
+/// parallel test binary) can take it before the node binds: an "Address already in use" bind is retried
+/// on fresh ports, any other start failure still fails the test.
 fn start_with(tag:&str,limits:Limits,peers:Vec<std::net::SocketAddr>)->Running{
-    let (p2p,rpc)=(free_port(),free_port());let spec=spec();let (chain_id,genesis,forks)=(spec.chain_id(),spec.genesis_hash(),spec.profile().forks().entries().to_vec());
-    let dir=std::env::temp_dir().join(format!("pocold-net-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    let cfg=Config{dir,name:tag.into(),miner:None,listen:Some(format!("127.0.0.1:{p2p}").parse().unwrap()),peers,rpc:Some(format!("127.0.0.1:{rpc}").parse().unwrap()),stop_at:None,log:false,limits};
-    let mut node=Node::open(cfg,spec).unwrap();let (net,id)=(node.net.clone(),node.consensus.id);
-    node.start_network().unwrap();std::thread::spawn(move||node.run());
-    std::thread::sleep(Duration::from_millis(100));
-    Running{p2p,rpc,net,chain_id,genesis,forks,id}
+    for attempt in 0..8{
+        let spec=spec();let (chain_id,genesis,forks)=(spec.chain_id(),spec.genesis_hash(),spec.profile().forks().entries().to_vec());
+        let (p2p,rpc)=(free_port(),free_port());
+        let dir=std::env::temp_dir().join(format!("pocold-net-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let cfg=Config{dir,name:tag.into(),miner:None,listen:Some(format!("127.0.0.1:{p2p}").parse().unwrap()),peers:peers.clone(),rpc:Some(format!("127.0.0.1:{rpc}").parse().unwrap()),stop_at:None,log:false,limits:limits.clone()};
+        let mut node=Node::open(cfg,spec).unwrap();let (net,id)=(node.net.clone(),node.consensus.id);
+        match node.start_network(){
+            Ok(())=>{std::thread::spawn(move||node.run());std::thread::sleep(Duration::from_millis(100));return Running{p2p,rpc,net,chain_id,genesis,forks,id}}
+            Err(e) if e.to_string().contains("Address already in use")&&attempt<7=>{eprintln!("PORT-RETRY {tag}: {e}");drop(node);continue}
+            Err(e)=>panic!("{tag}: {e}"),
+        }
+    }
+    unreachable!()
 }
 fn frame(m:&Msg)->Vec<u8>{let b=m.encode();let mut f=(b.len() as u32).to_be_bytes().to_vec();f.extend(b);f}
 fn hello(r:&Running,name:&str)->Vec<u8>{frame(&Msg::Hello{chain_id:r.chain_id,genesis:r.genesis,head:r.genesis,height:0,work:[0;32],node:name.into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:r.id,listen_port:0,nonce:0})}

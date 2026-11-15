@@ -22,6 +22,8 @@ use std::collections::HashMap;
 
 // ---------------- chain helpers (as tests/consensus.rs) ----------------
 struct Net{chain:Chain,keys:HashMap<Address,Key>}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn cfg()->DevnetConfig{let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
 fn admitted()->Spec{let d=devnet::build(&cfg()).unwrap();Spec::new(d.admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
 #[test]fn v3_logs_are_counted_and_no_burn_report_grows_the_legacy_model_or_reserve(){
@@ -39,7 +41,7 @@ fn admitted()->Spec{let d=devnet::build(&cfg()).unwrap();Spec::new(d.admit(&poco
     for b in [&old,&active]{assert!(!b.items.iter().any(|x|x.0.contains("creation-fee")||x.0.contains("creation-burn")),"no creation-fee term: {:?}",b.items.iter().map(|x|x.0).collect::<Vec<_>>());}
     assert_eq!(item(&active,"history/resident window: logs").unwrap(),8*item(&old,"history/resident window: logs").unwrap());assert!(active.total>old.total);
 }
-fn net()->Net{let d=devnet::build(&cfg()).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();Net{chain:Chain::new(admitted()),keys}}
+fn net()->Net{let d=devnet::build(&cfg()).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();Net{chain:oracle_on(Chain::new(admitted())),keys}}
 fn try_seal(n:&Net,mut h:pocold::header::Header,body:Body,attempt:u32)->Option<Block>{
     let p=n.chain.full_entry(&h.parent_hash).unwrap();let ctx=n.chain.child_ctx(&p,attempt).unwrap();
     let tid=template_id(&h.ut_raw);let mut shares=vec![];let mut x=0u64;

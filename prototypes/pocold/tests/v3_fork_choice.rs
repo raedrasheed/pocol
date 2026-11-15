@@ -6,6 +6,8 @@ use pocold::{chain::{Chain,Spec},node::{Config,Limits,Node},store,types::*};
 use revm::primitives::{Address,B256};
 
 struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig}
+/// FN-3b: the member oracle on in every test chain (`Chain::member_oracle`, off by default).
+fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 fn spec(c:&DevnetConfig,extra_rel:u32)->Spec{
     let mut local=pocold::single_host_local();local.delta_rel+=extra_rel;
     Spec::new(devnet::build(c).unwrap().admit(&local).unwrap().0)
@@ -17,7 +19,7 @@ fn net(v3:bool)->Net{
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=91;cfg.r_max=1;
     cfg.spec_version=if v3{2}else{1};cfg.nonce_mode=1;
     let d=devnet::build(&cfg).unwrap();let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
-    Net{chain:Chain::new(spec(&cfg,0)),keys,cfg}
+    Net{chain:oracle_on(Chain::new(spec(&cfg,0))),keys,cfg}
 }
 /// The drawn proposer's signed attempt-0 template on `parent`: what it gossips before anyone mines.
 fn template(n:&Net,parent:[u8;32])->pocold::header::Header{template_at(n,parent,0)}
