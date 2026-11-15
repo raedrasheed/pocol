@@ -3,7 +3,8 @@
 Uses existing node RPC only. No transaction, node change or contract mutation.
 The result is a projection from the captured block's state, not a settlement
 receipt: evidence, registry changes or PAY eligibility can change before H+D.
-Sources: PoColSystemV1.sol, apply.rs, lp1-node/{assignment,header,hashes}.rs.
+Sources: PoColSystemV1.sol (deleted with the spec-1 rule set in phase 6a; its layout is recorded in
+lp4-execution/contracts/REGISTRY-LAYOUT.md's history), apply.rs, lp1-node/{assignment,header,hashes}.rs.
 A v3 (spec-2) network is read only with a trusted configuration (snapshot_v3, validated_network; V3-PR-G; the v3 rules
 are the release rules, but no v3 network identity is pinned yet); without one every function keeps the spec-1 Mainnet
 behaviour.

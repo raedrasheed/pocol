@@ -297,10 +297,11 @@ cargo test --locked --release --lib continuous_executes --manifest-path prototyp
 Android: SDK35 / NDK27.2.12479018 / JDK17 / Gradle8.11.1,
 `bash deploy/standalone/build-android.sh`. Windows wallet:
 `powershell -File deploy/standalone/build-windows-wallet.ps1`.
-Reproduce continuous contracts with solc **0.8.28** and
-`node prototypes/lp4-execution/tests/compile_system_v1.cjs prototypes/lp4-execution/tests/data/system-continuous.json --continuous`.
-The script applies a checked, explicit continuous-mode branch to the original
-registry source; its original v1 artifact is unchanged.
+Reproduce the system contracts (the V3 programs, the only bundled set since
+phase 6a of the fresh network) with solc **0.8.28** and
+`node prototypes/lp4-execution/tests/compile_system_v3.cjs out/system-v3.json`,
+then compare it byte for byte with `prototypes/lp4-execution/tests/data/system-v3.json`
+(as `.github/workflows/system-programs.yml` does).
 
 Platform references:
 - https://learn.microsoft.com/en-us/dotnet/desktop/wpf/overview/
