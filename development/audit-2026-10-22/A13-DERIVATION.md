@@ -1769,6 +1769,22 @@ entry-equivalents (7,181,440,000 B) plus the ranges rows' allocator share and th
 against the 6 GiB budget with its 1/8 reserve. FN-3c records this in its own 10k A13 test, with the growth and CPU
 measurements (taken with the oracle off).
 
+### R21 window: adopted blocks hold their state again (node-local, no term changes)
+
+A canonical block pruned while it was a side block (settle's side_max) stayed pruned once adopted, so state queries at
+adopted heights inside the K_hist window, and `safe` with them, answered −32017 (3-node devnet, a partition and a heal;
+tests/memory_retention.rs). Now, in whole-state mode `Chain::reach_window` marks every canonical block above the cut that
+the head reaches through the diffs above it as diff-held (no state is built: the diffs are those the restore or a
+rebuild already gave back, inside `diffs_held`'s K_hist canonical diffs, and an RPC tag's state is the one
+`MATERIALIZED` counts); in store mode `restore_canonical` and a rebuild's walk keep the version they re-execute for a
+canonical block above the cut that holds none, one of the K_hist + 1 window versions `held_runs` lists, while the
+abandoned window's K_hist stay counted until `settle` (every other version of the walk is still dropped as it rolls on).
+The full-state reference (`full_states`, a test reference outside the model) holds the same window whole. Every A13
+term, total and test pin is unchanged. Live, the window's floor still never moves down: heights a higher old head pruned
+below the adoption's fork point are not rebuilt after a heavier, shorter branch lowers the head (node.rs
+`Limits::k_safe`); the replay's last restore at open re-executes the resident window as before, and now keeps those
+states, within the same window run.
+
 ## 4. Assumptions, one by one (round 2)
 
 Each assumption of the bound and of the R14/R18/R19/R21/R25/R26 facts, with what was done:

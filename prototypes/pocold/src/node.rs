@@ -123,9 +123,17 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     /// V3-26 (local confirmation depth, never validity; owner decision 12, 2026-11-13): the RPC `safe` tag is
     /// max(head − k_safe, finalized_h). K_SAFE; `--k-safe N`, or POCOL_K_SAFE for `run` and `pocol start`. Node::open
     /// refuses k_safe = 0, k_safe > k_alarm, and k_safe >= K_hist (the trie window of the network's local profile), so a
-    /// state query at `safe` is answered while safe = head − k_safe (`check_confirmation`). When a heavier, shorter branch
-    /// lowers the head to within k_safe of finalized_h, safe = finalized_h, and with R_keep >= K_hist (production) its
-    /// state was pruned at the old head: a state query there answers −32017, as at `finalized` (block queries answer).
+    /// state query at `safe` is answered while safe = head − k_safe (`check_confirmation`): every canonical height of the
+    /// window (head − K_hist, head] holds its state, a block adopted after its state was pruned as a side block included
+    /// (`Chain::restore_canonical`, `Chain::reach_window`; tests/memory_retention.rs). Live, the window's floor never
+    /// moves down: when a heavier, shorter branch lowers the head by d blocks, the heights up to the old head − K_hist
+    /// that the adoption does not re-execute (below its fork point) were pruned at the old head and are not rebuilt
+    /// (that re-executes from below the window), so up to min(d, K_hist) of the window's lowest heights answer −32017
+    /// until the head passes the old one, and `safe` is answered while d < K_hist − k_safe (26 at the defaults); after
+    /// a restart the replay's last restore re-executes the resident window, and they are answered. When a heavier,
+    /// shorter branch lowers the head to within k_safe of finalized_h, safe = finalized_h, and with R_keep >= K_hist
+    /// (production) its state was pruned at the old head: a state query there answers −32017, as at `finalized` (block
+    /// queries answer), until a restart (above).
     pub k_safe:u64,
     /// V3-26 (local reorg alarm, never validity; owner decision 12): a reorganization abandoning k_alarm or more canonical
     /// blocks is counted (`pocol_finality.reorgsGeKAlarm`). K_ALARM; `--k-alarm N`, or POCOL_K_ALARM for `run` and

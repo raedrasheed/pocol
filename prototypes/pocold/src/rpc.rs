@@ -1227,8 +1227,8 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
     let deadline=||{b.late();Err(Fail(-32020,"compute deadline".into(),Some(json!({"reason":"deadline"}))))};
     if b.expired(){return deadline()}
     let cp=n.chain.spec.cp();let e=meta_by_tag(n,tag)?.ok_or(Fail::from((-32001,"unknown block".to_string())))?;
-    // As state_for: a pruned state (outside the trie window, or a block adopted after its state was
-    // pruned as a side block) is -32017 (consensus.md §10), never a simulation on an empty state.
+    // As state_for: a pruned state (outside the trie window: node.rs `Limits::k_safe`) is -32017 (consensus.md
+    // §10), never a simulation on an empty state.
     if e.pruned{return Err(Fail::from((-32017,"state outside the retained trie window (K_hist)".into())))}
     let to=o["to"].as_str().and_then(|s|s.parse::<Address>().ok());
     let data=o.get("data").or_else(||o.get("input")).and_then(|x|x.as_str()).map(|s|unhex(s)).transpose().map_err(|_|Fail::from(bad("data")))?.unwrap_or_default();
