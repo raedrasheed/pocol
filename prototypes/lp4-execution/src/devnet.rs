@@ -4,8 +4,10 @@
 use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,U256}};
 use crate::{admission::{Admitted,NodeLocal,Request,Timing},apply::{Genesis,SystemPrograms},fixed,gate::FactClass,genesis_spec::{self as gs,GenesisSpec,Member},profile::{ProfileIdentity,ProfileKind,NodeKind},txsign::Key};
 
-/// CP values in schema order. Defaults follow governance.md (network) except the
-/// timing/membership/end parameters, which are scaled for a local devnet.
+/// CP values in schema order. `DevnetConfig::new` is a v3 devnet: the rules the fresh network runs (CP schema v2,
+/// specVersion 2, the V3 system programs, nonceMode 1, a continuous chain and the values of
+/// development/decisions/FRESH-NETWORK-CP.md), with the timing, membership and caps scaled for a local devnet.
+/// `DevnetConfig::spec1` is the retired spec-1 devnet, kept only until Phase 6a removes the spec-1 rule set.
 #[derive(Clone,Debug)]
 pub struct DevnetConfig{
     pub spec_version:u8,
@@ -28,9 +30,12 @@ pub struct DevnetConfig{
     pub miners:Vec<String>,
     /// Extra funded devnet accounts (label, wei).
     pub accounts:Vec<(String,U256)>,
-    /// Earn-in rules (EARN-IN-SPEC.md): the earn-in system programs and B_reg = 20 PCOL.
-    pub earnin:bool,
-    /// CP 15, the block subsidy S0 in wei (2 PCOL by default; the fresh network's profile states its own, FN-4).
+    /// CP 16, the registration bond B_reg in wei: 20 PCOL, the bond the V3 programs earn from mining (FN-0, owner 10c).
+    pub b_reg:U256,
+    /// `None` for a v3 devnet (the V3 programs). `Some` only through `DevnetConfig::spec1`: the programs of a retired
+    /// spec-1 devnet. Phase 6a deletes it with the spec-1 rule set.
+    pub spec1:Option<Spec1Programs>,
+    /// CP 15, the block subsidy S0 in wei: 4 PCOL, the fresh network's S0 (FN-0); a spec-1 devnet keeps 2 PCOL.
     pub subsidy:U256,
     /// Synthetic CP-v2 fixtures; the measured v3 network profile is selected separately. Any S_tail builds here (the
     /// V3-19 supply-bound tests probe large tails); the network-profile builder (pocold testnet.rs) requires S0/32.
@@ -38,8 +43,33 @@ pub struct DevnetConfig{
     pub gamma_tip_bp:u16,pub base_fee_min:U256,
     pub r_react:u8,pub c_react:u32,pub rho_bp:u16,
 }
+/// The system programs of a retired spec-1 devnet (`DevnetConfig::spec1`). Phase 6a deletes them with the spec-1 rule set.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub enum Spec1Programs{
+    /// The bonded spec-1 rules (B_reg 100 PCOL): PoColSystemV1 on a finite chain, the Continuous set at H_END = 0.
+    Bonded,
+    /// The spec-1 earn-in set (EARN-IN-SPEC.md, B_reg 20 PCOL), the retired cutover target.
+    EarnIn,
+}
 impl DevnetConfig{
+    /// A v3 devnet: specVersion 2 (CP schema v2), the V3 programs, nonceMode 1, a continuous chain (H_END = 0),
+    /// B_reg 20 PCOL, S0 4 PCOL with S_tail = S0/32 and the v3 fee and reaction values of FRESH-NETWORK-CP.md.
+    /// The timing, membership and caps stay devnet-scale: D-A02-PROFILE single-host timing (admission::NodeLocal::single_host,
+    /// about 2^18 hashes per block), D-A13-PROFILE caps/64 limits (validation.md T18b), M_max 64, SYS_SLOT_MAX above
+    /// the derived footprint and R_max 1 (R16: the fresh network's 4 would need REG_RECORDS_MAX 8,416 at these windows,
+    /// above the devnet's 8,192). A test that needs a finite chain sets `h_end` and `h_close` (the end times follow).
     pub fn new(chain_id:u64,g_ts:u64,miners:&[&str])->Self{
+        Self{spec_version:2,nonce_mode:1,h_end:0,h_close:0,r_max:1,b_reg:U256::from(PCOL*20),spec1:None,
+            subsidy:U256::from(PCOL*4),s_tail:U256::from(PCOL*4/32),..Self::spec1_values(chain_id,g_ts,miners)}
+    }
+    /// A retired spec-1 devnet: specVersion 1 (CP schema v1), nonceMode 0, H_END 20,000, R_max 0 and S0 2 PCOL, with
+    /// `programs` (B_reg 100 PCOL bonded, 20 PCOL earn-in). Exactly the devnet `new` built before Phase 5a. Only tests
+    /// that pin spec-1 behaviour use it; Phase 6a deletes it with the spec-1 rule set.
+    pub fn spec1(chain_id:u64,g_ts:u64,miners:&[&str],programs:Spec1Programs)->Self{
+        let b_reg=match programs{Spec1Programs::Bonded=>PCOL*100,Spec1Programs::EarnIn=>PCOL*20};
+        Self{spec1:Some(programs),b_reg:U256::from(b_reg),..Self::spec1_values(chain_id,g_ts,miners)}
+    }
+    fn spec1_values(chain_id:u64,g_ts:u64,miners:&[&str])->Self{
         // D-A02-PROFILE: gate-valid single-host timing (admission::NodeLocal::single_host);
         // about 2^18 hashes per block. D-A13-PROFILE: the approved caps/64 limits
         // (validation.md T18b), SYS_SLOT_MAX above the derived footprint, R_max=0 (the v1
@@ -51,17 +81,16 @@ impl DevnetConfig{
             r_max:0,reg_records_max:8192,sys_slot_max:65536,z_close:160,gas_limit:8_000_000,slot_cap:50_000,acct_cap:20_000,
             code_cap:1<<21,txbytes_cap:1<<24,tx_cap:20_000,alpha_bp:1000,gamma_bp:500,c:2,
             miners:miners.iter().map(|s|s.to_string()).collect(),
-            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],earnin:false,nonce_mode:0,
+            accounts:vec![("alice".into(),U256::from(10u128.pow(24))),("bob".into(),U256::from(10u128.pow(24)))],b_reg:U256::from(PCOL*100),spec1:Some(Spec1Programs::Bonded),nonce_mode:0,
             subsidy:U256::from(2_000_000_000_000_000_000u128),h_half:31_557_600,s_tail:U256::from(62_500_000_000_000_000u64),
             gamma_tip_bp:5000,base_fee_min:U256::from(10_000_000),
             r_react:4,c_react:40,rho_bp:2500}
     }
     pub fn cp(&self)->Vec<fixed::U256>{
         let n=|v:u64|fixed::U256::from_u64(v);
-        let big=|v:u128|fixed::U256::from_be_slice(&v.to_be_bytes()).unwrap();
         let mut cp=vec![n(self.g_ts),self.target_g(),n(self.t_blk.into()),n(self.tau.into()),n(self.nonce_mode.into()),n(self.c.into()),n(self.d_att.into()),n(self.d_fb_wait.into()),
          n(self.m.into()),n(self.kappa.into()),n(self.s_max.into()),n(self.d.into()),n(self.w_w.into()),n(self.alpha_bp.into()),n(self.gamma_bp.into()),
-         to_fixed(self.subsidy),big(if self.earnin{20_000_000_000_000_000_000}else{100_000_000_000_000_000_000}),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
+         to_fixed(self.subsidy),to_fixed(self.b_reg),n(self.r_max.into()),n(self.m_max.into()),n(1),n(self.reg_records_max.into()),n(16),n(64),n(16),
          n(self.w_act.into()),n(self.theta_inact.into()),n(self.e_win.into()),n(self.u.into()),n(4),n(8192),
          n(self.gas_limit),n(1_000_000_000),n(131072),n(196608),n(32768),n(self.code_cap),n(self.txbytes_cap),n(self.tx_cap),n(self.slot_cap),n(self.acct_cap),
          // V3-02: a CP schema v2 (v3) devnet doubles SYS_KEYS_BLOCK_MAX (2048 -> 4096): R18 counts the 3·L keys a block's
@@ -79,6 +108,7 @@ impl DevnetConfig{
     /// R25d calibration formula; a zero rate or T_blk yields the invalid target 0 (rejected by R25).
     pub fn target_g(&self)->fixed::U256{crate::gate::calibration_target(self.hash_rate,self.t_blk).unwrap_or(fixed::U256::ZERO)}
 }
+const PCOL:u128=1_000_000_000_000_000_000;
 pub fn to_fixed(v:U256)->fixed::U256{fixed::U256::from_be_slice(&v.to_be_bytes::<32>()).unwrap()}
 pub fn from_fixed(v:&fixed::U256)->U256{U256::from_be_bytes(v.to_be_bytes())}
 
@@ -122,8 +152,14 @@ pub fn account_key(label:&str)->Key{Key::devnet(&format!("account:{label}"))}
 /// is a candidate, not an admitted profile (see `Devnet::admit`).
 pub fn build(cfg:&DevnetConfig)->Result<Devnet,String>{
     if cfg.chain_id==777001{return Err("network chainId is not a devnet".into())}
-    // V3-34: an earn-in devnet on CP schema v2 (specVersion 2) runs the v3 programs, which read their v3 fields from it.
-    let programs=if cfg.earnin{if cfg.spec_version>=2{SystemPrograms::v3()}else{SystemPrograms::earnin()}}else if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()};
+    // V3-34: a specVersion-2 (CP schema v2) devnet runs the V3 programs, which read their v3 fields from it; only an
+    // explicit spec-1 devnet (`DevnetConfig::spec1`, Phase 6a) runs a spec-1 set.
+    let programs=match (cfg.spec_version,cfg.spec1){
+        (2,None)=>SystemPrograms::v3(),
+        (1,Some(Spec1Programs::EarnIn))=>SystemPrograms::earnin(),
+        (1,Some(Spec1Programs::Bonded))=>if cfg.h_end==0{SystemPrograms::continuous()}else{SystemPrograms::v1()},
+        (v,p)=>return Err(format!("specVersion {v} with spec-1 programs {p:?}: a v3 devnet is DevnetConfig::new, a spec-1 one DevnetConfig::spec1")),
+    };
     let mut miners:Vec<MinerIdentity>=cfg.miners.iter().map(|l|miner_identity(l)).collect();
     miners.sort_by_key(|m|m.id);
     let mut alloc=InMemoryDB::default();

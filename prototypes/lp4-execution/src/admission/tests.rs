@@ -5,6 +5,11 @@ use super::*;
 use crate::{devnet::{self,Devnet,DevnetConfig},fixed};
 
 fn cfg()->DevnetConfig{DevnetConfig::new(777920,1_800_000_000,&["a","b","c"])}
+/// The retired spec-1 devnet of the same miners, for the spec-1 program sets' own facts (GAS_ENVELOPE, GAS_ENVELOPE_EARNIN).
+/// Phase 6a deletes it with the spec-1 rule set.
+fn spec1_cfg(p:devnet::Spec1Programs)->DevnetConfig{DevnetConfig::spec1(777920,1_800_000_000,&["a","b","c"],p)}
+/// The v3 devnet on a finite chain, for the end rules (R13) a continuous chain (the default, H_END = 0) does not have.
+fn finite()->DevnetConfig{let mut c=cfg();c.h_end=20_000;c.h_close=19_000;c}
 fn net(c:&DevnetConfig)->Devnet{devnet::build(c).expect("candidate")}
 /// Timing measured once for the base profile, rebound to `bytes` so that rule
 /// attribution tests isolate the rule under test (R14/R19 have their own tests).
@@ -18,7 +23,7 @@ fn v(x:&[&str])->Vec<String>{x.iter().map(|s|s.to_string()).collect()}
 fn edited(n:&Devnet,edits:&[(usize,u64)])->Vec<u8>{
     let mut spec=gs::decode(&n.spec_bytes).unwrap();for (i,x) in edits{spec.cp[*i]=fixed::U256::from_u64(*x)}
     let b=gs::encode(&spec);
-    if let Ok(p)=fact_identity(&b,&gs::genesis_hash(&b),spec.chain_id){if let Ok(r)=Genesis::derive_root(&n.alloc,&p,&SystemPrograms::v1()){spec.alloc_root=r.0}}
+    if let Ok(p)=fact_identity(&b,&gs::genesis_hash(&b),spec.chain_id){if let Ok(r)=Genesis::derive_root(&n.alloc,&p,&n.programs){spec.alloc_root=r.0}}
     gs::encode(&spec)
 }
 fn run_bytes(n:&Devnet,t:&Timing,bytes:&[u8],local:&NodeLocal)->Vec<String>{let t=rebound(t,bytes);rules(admit(&Request{spec_bytes:bytes,..n.request(local,Some(&t))}))}
@@ -169,11 +174,16 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
 #[test] fn audit_reproductions_are_rejected_with_their_rules(){
     let (_,t)=base();
     let mut c=cfg();c.s_max=1;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R9"]),"A02-R9 S_max=1");
-    let mut c=cfg();c.h_close=c.h_end;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R13"]),"A02-R13 H_CLOSE=H_END");
-    // As audited: R_max=2 (the audited devnet default), so the genesis holds 69 system slots.
-    let mut c=cfg();c.r_max=2;c.sys_slot_max=1;let n=net(&c);
+    let mut c=finite();c.h_close=c.h_end;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R13"]),"A02-R13 H_CLOSE=H_END");
+    // As audited: R_max=2 (the audited devnet default), so the spec-1 genesis holds 69 system slots (the V1 programs).
+    let mut c=spec1_cfg(devnet::Spec1Programs::Bonded);c.r_max=2;c.sys_slot_max=1;let n=net(&c);
     let e=run(&n,&t,&sh()).err().expect("SYS_SLOT_MAX=1 must be rejected");assert_eq!(e.rules,v(&["R18"]));
     let g=Genesis::build(&n.alloc,&n.profile,&SystemPrograms::v1()).unwrap();assert_eq!(resources::sys_slots(g.state()),69,"genesis needs 69 system slots");
+    // The same on the continuous v3 devnet: its genesis holds 73 system slots, the registry's 18 and ChainCaps' 55
+    // nonzero words of the 59 CP fields (the 69 above are 18 and 51 of 52).
+    let mut c=cfg();c.r_max=2;c.sys_slot_max=1;let n=net(&c);
+    let e=run(&n,&t,&sh()).err().expect("SYS_SLOT_MAX=1 must be rejected");assert_eq!(e.rules,v(&["R18"]));
+    assert_eq!(resources::sys_slots(n.genesis.state()),73,"the v3 genesis needs 73 system slots");
 }
 #[test] fn timing_rules_r1_to_r7_at_their_boundaries(){
     let (n,t)=base();
@@ -198,8 +208,8 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     assert!(run_bytes(&n,&t,&edited(&n,&[(32,196608-16384)]),&sh()).is_empty());
     assert_eq!(rules(run(&n,&t,&NodeLocal{k_hist:12,..sh()})),v(&["R11"]),"k_view < K_hist");
     let r=run_bytes(&n,&t,&edited(&n,&[(18,2)]),&sh());assert_eq!(r.first().map(|s|s.as_str()),Some("R12"),"M_max < |M_0|: {r:?}");
-    let mut c=cfg();c.t_close_offset=c.t_end_offset+1;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R13"]),"T_CLOSE > T_END");
-    let mut c=cfg();c.h_close=c.h_end-160;assert!(run(&net(&c),&t,&sh()).is_ok(),"H_CLOSE+Z_close = H_END");
+    let mut c=finite();c.t_close_offset=c.t_end_offset+1;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R13"]),"T_CLOSE > T_END");
+    let mut c=finite();c.h_close=c.h_end-160;assert!(run(&net(&c),&t,&sh()).is_ok(),"H_CLOSE+Z_close = H_END");
 }
 #[test] fn resource_rules_r14_to_r21(){
     let (n,t)=base();
@@ -211,10 +221,13 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     // R16 with R_max=2: M_max + R_max*(Lmax+LAG) = 64 + 2*(max(40, 2*16+4+1)+2048) = 4240.
     let mut c=cfg();c.r_max=2;c.reg_records_max=4239;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R16"]));
     let mut c=cfg();c.r_max=2;c.reg_records_max=4240;assert!(run(&net(&c),&t,&sh()).is_ok());
-    // R16 with the devnet's R_max=0: REG_RECORDS_MAX >= M_max = 64.
-    let mut c=cfg();c.reg_records_max=63;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R16"]));
-    assert_eq!(run_bytes(&n,&t,&edited(&n,&[(21,3)]),&sh()),v(&["R17"]),"SWEEP_MAX < R_max+E_max = 4");
-    assert!(run_bytes(&n,&t,&edited(&n,&[(21,4)]),&sh()).is_empty());
+    // R16 with the v3 devnet's R_max=1: REG_RECORDS_MAX >= 64 + 1*(40+2048) = 2152.
+    let mut c=cfg();c.reg_records_max=2151;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R16"]));
+    let mut c=cfg();c.reg_records_max=2152;assert!(run(&net(&c),&t,&sh()).is_ok());
+    // R16 with R_max=0: REG_RECORDS_MAX >= M_max = 64.
+    let mut c=cfg();c.r_max=0;c.reg_records_max=63;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R16"]));
+    assert_eq!(run_bytes(&n,&t,&edited(&n,&[(21,4)]),&sh()),v(&["R17"]),"SWEEP_MAX < R_max+E_max = 5");
+    assert!(run_bytes(&n,&t,&edited(&n,&[(21,5)]),&sh()).is_empty());
     let b=resources::derive(n.profile.cp());
     let mut c=cfg();c.sys_slot_max=b.slot_min as u32-1;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R18"]));
     let mut c=cfg();c.sys_slot_max=b.slot_min as u32;assert!(run(&net(&c),&t,&sh()).is_ok());
@@ -231,7 +244,7 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     assert_eq!(rules(run(&big,&t,&NodeLocal{retention_stress:false,..sh()})),v(&["R21"]));
     let a=run(&big,&t,&sh()).unwrap();assert!(a.report().r21_exception&&a.report().notes.iter().any(|x|x.contains("retentionStress")));
     // Outside the measured SYS gas domain the gas facts are absent: R18, never assumed.
-    let mut c=cfg();c.d=17;c.u=41;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R18"]),"D=17 outside the gas domain");
+    let mut c=cfg();c.d=17;c.u=41;c.c_react=41;assert_eq!(rules(run(&net(&c),&t,&sh())),v(&["R18"]),"D=17 outside the gas domain");
 }
 #[test] fn identity_rules_r22_to_r26(){
     let (n,t)=base();let tt=rebound(&t,&n.spec_bytes);
@@ -258,7 +271,7 @@ fn sh()->NodeLocal{NodeLocal::single_host()}
     let mut bytes=n.spec_bytes.clone();bytes.pop();assert_eq!(rules(admit(&Request{spec_bytes:&bytes,..n.request(&sh(),Some(&tt))})),v(&["R24"]),"undecodable GenesisSpec");
 }
 #[test] fn rejections_are_deterministic_and_name_their_causes(){
-    let (_,t)=base();let mut c=cfg();c.s_max=1;c.h_close=c.h_end;c.d_att=8;let n=net(&c);
+    let (_,t)=base();let mut c=finite();c.s_max=1;c.h_close=c.h_end;c.d_att=8;let n=net(&c);
     let a=run(&n,&t,&sh()).err().unwrap();let b=run(&n,&t,&sh()).err().unwrap();
     assert_eq!(a,b);assert_eq!(a.rules,v(&["R5","R7","R9","R13"]));
     assert!(a.to_string().starts_with("-32018 ParamGate rejected [R5, R7, R9, R13]"),"{a}");
@@ -333,7 +346,7 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
 }
 
 #[test] fn v3_boot_admission_keeps_enforced_log_predicates_at_the_active_limits(){
-    let mut c=cfg();c.spec_version=2;c.nonce_mode=1;c.earnin=true;c.r_max=1;c.d_att=91;
+    let mut c=cfg();c.r_max=1;c.d_att=91;
     let n=net(&c);let (_,timing)=n.admit(&sh()).unwrap();
     let original=pocold_like();let mut values=original.values().clone();values.resp_max=2*32768+546*512;
     let present:Vec<(&str,u64)>=RPC_FIELDS.iter().filter(|f|!original.absent().contains(f)).map(|f|(*f,*scope_slot(&mut values,f))).collect();
@@ -363,9 +376,16 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     let (n,t)=base();let tt=rebound(&t,&n.spec_bytes);
     // The lp4 fixture: complete RpcGuard values, synthetic calibration, a measured timing sample.
     let e=admit(&Request{scope:Scope::Specification,..n.request(&sh(),Some(&tt))}).err().expect("not specification evidence");
-    assert_eq!(e.rules,v(&["R14","R18","R19","R21","R25","R26"]),"{e}");
-    for id in ["rpc-fixture","calibration-synthetic","timing-not-a-bound","gas-monotonicity-assumed","gate-deferred-general-R18","gate-deferred-general-R21","gate-deferred-caps64"]{
+    // The continuous chain (the v3 devnet default) adds its own open conditions (R13 continuous-protocol, R23 the supply
+    // bound over the height domain) to those of a finite chain.
+    assert_eq!(e.rules,v(&["R13","R14","R18","R19","R21","R23","R25","R26"]),"{e}");
+    for id in ["rpc-fixture","calibration-synthetic","continuous-protocol","timing-not-a-bound","gas-monotonicity-assumed","gate-deferred-general-R18","gate-deferred-general-R21","gate-deferred-caps64"]{
         assert!(e.missing.contains(&format!("specification:{id}")),"{id}: {:?}",e.missing)}
+    let f=net(&finite());let ft=measure(&f.spec_bytes,&f.alloc,1).unwrap();
+    let e=admit(&Request{scope:Scope::Specification,..f.request(&sh(),Some(&ft))}).err().expect("not specification evidence");
+    assert_eq!(e.rules,v(&["R14","R18","R19","R21","R25","R26"]),"finite: {e}");assert!(!e.missing.contains(&"specification:continuous-protocol".to_string()));
+    for id in ["rpc-fixture","calibration-synthetic","timing-not-a-bound","gas-monotonicity-assumed","gate-deferred-general-R18","gate-deferred-general-R21","gate-deferred-caps64"]{
+        assert!(e.missing.contains(&format!("specification:{id}")),"finite {id}: {:?}",e.missing)}
     // pocold's facts: the absent mechanisms are named.
     let local=NodeLocal{rpc:pocold_like(),..sh()};
     let e=admit(&Request{scope:Scope::Specification,..n.request(&local,Some(&tt))}).err().unwrap();
@@ -382,7 +402,7 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     // 14 predicates read only enforced/equivalent fields; the 4 reading mem_total, timer_eps_ms or
     // send_sock_buf are waived.
     assert_eq!(w[0].checked,vec!["derive","heavyRespMem>=respMax","lightRespMem>=connMax*lightRespMax","batchRespMax>=respMax","lightQueue>=connMax",
-        "batchMax*errItemMax+64<=connBuf","respMax>=2*32768+546*512","logsCountMax>=546","logsScanBytes>=32768","lightRespMax>=385KiB","batchWallMin<=batchWallMs",
+        "batchMax*errItemMax+64<=connBuf","respMax>=2*262144+4368*512+2048","logsCountMax>=4368","logsScanBytes>=262144","lightRespMax>=385KiB","batchWallMin<=batchWallMs",
         "rate>=1","bucketCap>=batchMax","enforceSlack<=500"]);
     assert_eq!(w[0].waived,vec!["memoryRequired<=memTotal","timerEps>0","timerEps<enforceSlack","sendSockBuf<=64KiB"]);
     assert_eq!(w[0].waived.len()+w[0].checked.len(),R26_PREDICATES.len());
@@ -390,8 +410,8 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     assert!(ids.contains(&"rpc-absent")&&ids.contains(&"calibration-synthetic")&&ids.contains(&"timing-not-a-bound"),"{ids:?}");
     // An enforced field below its R26 bound is not waivable.
     let bad=RpcFacts::enforced(&[("resp_max",1000),("batch_resp_max",16<<20)]).unwrap();
-    let e=admit(&n.request(&NodeLocal{rpc:bad,..sh()},Some(&tt))).err().unwrap();assert_eq!(e.rules,v(&["R26"]));assert!(e.notes.iter().any(|x|x.contains("respMax>=2*32768+546*512")));
-    let bad=RpcFacts::enforced(&[("logs_count_max",545)]).unwrap();assert_eq!(rules(admit(&n.request(&NodeLocal{rpc:bad,..sh()},Some(&tt)))),v(&["R26"]));
+    let e=admit(&n.request(&NodeLocal{rpc:bad,..sh()},Some(&tt))).err().unwrap();assert_eq!(e.rules,v(&["R26"]));assert!(e.notes.iter().any(|x|x.contains("respMax>=2*262144+4368*512+2048")));
+    let bad=RpcFacts::enforced(&[("logs_count_max",4367)]).unwrap();assert_eq!(rules(admit(&n.request(&NodeLocal{rpc:bad,..sh()},Some(&tt)))),v(&["R26"]));
     // Fixture values are evaluated in full and reported as a fixture.
     let a=admit(&n.request(&sh(),Some(&tt))).unwrap();assert!(a.report().waivers.is_empty());assert!(a.report().conditions.iter().any(|c|c.id=="rpc-fixture"));
     // The scope is restricted to a simnet profile on a simnet node.
@@ -507,7 +527,7 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     // A continuous spec-1 chain as `pocold init-testnet` generates one at its defaults (T_blk 10, tau 600, D_att 60,
     // dFbWait 6, R_max 1, no H_END): it runs the Continuous set inside GAS_DOMAIN, and its admission records the
     // legacy R18 condition.
-    let mut c=cfg();c.t_blk=10;c.tau=600;c.d_att=60;c.d_fb_wait=6;c.hash_rate=(1<<18)/10;c.r_max=1;c.h_end=0;c.h_close=0;
+    let mut c=spec1_cfg(devnet::Spec1Programs::Bonded);c.t_blk=10;c.tau=600;c.d_att=60;c.d_fb_wait=6;c.hash_rate=(1<<18)/10;c.r_max=1;c.h_end=0;c.h_close=0;
     let n=net(&c);let spec=gs::verify_hash(&n.spec_bytes,&gs::genesis_hash(&n.spec_bytes)).unwrap();let cp=ConsensusParams::from_values(&spec.cp).unwrap();
     assert_eq!((cp.T_blk,cp.D_att,cp.dFbWait,cp.R_max,cp.H_END,cp.H_CLOSE),(10,60,6,1,0,0));
     let set=SystemPrograms::program_set(&cp,&spec.sys_code_hash);
@@ -521,8 +541,9 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     assert_eq!(recorded.detail,LEGACY_TEXT);
 
     // Admitted devnets of each set report their envelope.
-    for (earnin,h_end,want) in [(false,20_000,ProgramSet::V1),(false,0,ProgramSet::Continuous),(true,0,ProgramSet::EarnIn)]{
-        let mut c=cfg();c.earnin=earnin;c.h_end=h_end;if h_end==0{c.h_close=0}
+    use devnet::Spec1Programs::{Bonded,EarnIn};
+    for (programs,h_end,want) in [(Bonded,20_000,ProgramSet::V1),(Bonded,0,ProgramSet::Continuous),(EarnIn,0,ProgramSet::EarnIn)]{
+        let mut c=spec1_cfg(programs);c.h_end=h_end;if h_end==0{c.h_close=0}
         let n=net(&c);let t=measure(&n.spec_bytes,&n.alloc,1).expect("measure");
         let a=admit(&n.request(&sh(),Some(&t))).unwrap_or_else(|e|panic!("{want:?}: {e}"));
         let spec=gs::decode(&n.spec_bytes).unwrap();assert_eq!(SystemPrograms::program_set(n.profile.cp(),&spec.sys_code_hash),want);
