@@ -1244,6 +1244,35 @@ fn a01_node(tag:&str)->(pocold::node::Node,std::path::PathBuf){
     assert_eq!(it.list().unwrap()[0].bytes().unwrap(),&[1u8]);assert_eq!(e.cum_log_bytes,32768);
 }
 
+/// The v3 counterpart of a03_over_limit_log_halts_the_transaction_and_the_block_is_valid: on the v3 devnet the per-block
+/// log cap is V3_LOG_BLOCK_MAX (256 KiB) and the chain is continuous, so a block's charged log bytes are its own. A CREATE
+/// whose initcode emits LOG0 with V3_LOG_BLOCK_MAX - 35 data bytes (36 + that > the cap) halts exceptionally: status 0,
+/// no logs, all its gas charged, the nonce used, and the block is valid and becomes head. LOG0 with V3_LOG_BLOCK_MAX - 36
+/// bytes (exactly the cap) succeeds, and the block charges exactly V3_LOG_BLOCK_MAX log bytes.
+#[test] fn v3_a03_over_limit_log_halts_the_transaction_and_the_block_is_valid(){
+    let cap=pocol_lp4_execution::user_phase::caps::V3_LOG_BLOCK_MAX;assert_eq!(cap,256*1024);
+    let mut n=net();assert!(n.chain.spec.v3_active(1)&&n.chain.spec.cp().H_END==0,"the v3 devnet");
+    let h=n.chain.head;let b=fallback(&n,h,0);import(&mut n,&b);
+    let alice=devnet::account_key("alice");let before=n.chain.head().state.accounts[&alice.address()].info.clone();
+    // PUSH3 len PUSH0 LOG0 STOP: LOG0 of `len` zero bytes from memory offset 0.
+    let log0=|len:u64|vec![0x62,(len>>16) as u8,(len>>8) as u8,len as u8,0x5f,0xa0,0x00];
+    let gas=4_000_000u64;
+    let tx=Tx{chain_id:777910,nonce:0,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:log0(cap-35).into()}.sign_1559(&alice);
+    let head=n.chain.head;let blk=signed(&n,head,Body{txs:vec![tx],evidence:vec![]},0);
+    let (e,_)=n.chain.validate(&blk,None,0).expect("the block stays valid");
+    let it=rlp::decode(&e.receipts[0][1..]).unwrap();let l=it.list().unwrap();
+    assert_eq!(l[0].bytes().unwrap(),&[] as &[u8],"status 0");assert_eq!(l[3].list().unwrap().len(),0,"no logs");
+    assert_eq!(e.gas_used,gas,"all gas charged");assert_eq!(e.cum_log_bytes,0,"a halted transaction charges no log bytes");
+    let a=&e.state.accounts[&alice.address()].info;assert_eq!(a.nonce,before.nonce+1);assert!(a.balance<before.balance);
+    assert!(n.chain.insert(e),"becomes head");
+    // Within the limit the same pattern succeeds; the continuous chain charges the block its own log bytes.
+    let tx=Tx{chain_id:777910,nonce:1,max_priority:U256::from(1u64),max_fee:U256::from(100_000_000_000u64),gas,to:None,value:U256::ZERO,data:log0(cap-36).into()}.sign_1559(&alice);
+    let head=n.chain.head;let blk=signed(&n,head,Body{txs:vec![tx],evidence:vec![]},0);
+    let (e,_)=n.chain.validate(&blk,None,0).unwrap();let it=rlp::decode(&e.receipts[0][1..]).unwrap();
+    assert_eq!(it.list().unwrap()[0].bytes().unwrap(),&[1u8]);assert_eq!(e.cum_log_bytes,cap);
+    assert!(e.gas_used<gas,"the successful one is charged the gas it used");
+}
+
 // ---------------- audit A11 regressions: detached transactions return to the pool ----------------
 fn a11_node(tag:&str)->(pocold::node::Node,std::path::PathBuf){
     use pocold::node::{Config,Node};
@@ -2236,6 +2265,52 @@ fn a13_boot_refuses(c:&DevnetConfig){
     assert_eq!(d.items.iter().find(|x|x.0.starts_with("rpc/small answers")).map(|x|x.1),Some(32*pocold::rpc::SMALL_REPLY_PEAK as u128));
     println!("A13-BREAKDOWN {}",serde_json::json!({"total":d.total.to_string(),"items":d.items.iter().map(|(k,v)|serde_json::json!([k,v.to_string()])).collect::<Vec<_>>()}));
 }
+
+/// The v3 counterpart of a13_bound_breakdown: the itemized A13 model bound of the v3 devnet (DevnetConfig::new: CP
+/// schema v2, continuous, the first-import index) as Node::open derives it on a new data directory (`open_limits`:
+/// default limits, two configured peers, no listener, the eviction depth from R_keep, 0 journal records, no files).
+/// The items sum to the total, the FN-1/FN-1b cache terms are their formulas at this CP, the bound boots within the
+/// budget with its reserve, the small-answer term is 32 · SMALL_REPLY_PEAK, and with eviction on only the first-import
+/// index grows with the journal (every other term is equal at 0 and 10^9 records; a year of records still boots). The
+/// totals are pinned (eviction on and off) for the target the evidence is produced on, as a13_bound_breakdown pins the
+/// spec-1 ones.
+#[test] fn v3_a13_bound_breakdown(){
+    use pocold::node::Limits;
+    let spec=admitted(&cfg(&["a","b","c"]));let cp=spec.cp_max();assert_eq!((cp.schema_version(),cp.H_END,cp.nonceMode),(2,0,1));
+    let l=pocold::single_host_local();
+    let lim=open_limits(&spec,Limits::default(),false,2);assert!(lim.first_imports&&lim.evict_depth.is_some_and(|e|e>0),"{lim:?}");
+    let d=pocold::resources::derive(cp,l.k_hist,l.side_max,&lim,2).unwrap();
+    assert_eq!(d.items.iter().map(|x|x.1).sum::<u128>(),d.total);
+    let ctx_cache=d.items.iter().find(|x|x.0.starts_with("queues/child-context cache")).unwrap().1;
+    assert_eq!(Some(ctx_cache),pocold::resources::ctx_cache_bytes(cp));
+    let bases=d.items.iter().find(|x|x.0.starts_with("queues/membership inputs and write sets")).unwrap().1;
+    assert_eq!(Some(bases),pocold::resources::member_bases_bytes(cp));
+    assert!(pocold::resources::budget_required(d.total).unwrap()<=u128::from(pocold::node::MEM_BUDGET),"the v3 devnet boots within the budget");
+    assert_eq!(d.items.iter().find(|x|x.0.starts_with("rpc/small answers")).map(|x|x.1),Some(32*pocold::rpc::SMALL_REPLY_PEAK as u128));
+    // With eviction on, only the first-import index (V3-04: canon.redb's cache and allocator over (records +
+    // DISK_HEADROOM) hash/offset rows, counted even without eviction) grows with the journal; every other term is the
+    // same at 0 and 10^9 records, and a year of devnet records (T_blk 4: 7,889,400) still boots within the budget.
+    let at=|records:u64|pocold::resources::derive(cp,l.k_hist,l.side_max,&Limits{continuous_history:Some(records),..lim.clone()},2).unwrap();
+    assert_eq!(at(0).total,d.total);let (zero,many)=(at(0),at(1_000_000_000));let index="history/first-import index cache and allocator";
+    for ((k,v),(k2,v2)) in zero.items.iter().zip(&many.items){assert_eq!(k,k2);if *k!=index{assert_eq!(v,v2,"{k} does not grow with the journal");}}
+    let grows=|b:&pocold::resources::Bound|b.items.iter().find(|x|x.0==index).unwrap().1;assert!(grows(&many)>grows(&zero),"positive control: the first-import index is counted per record");
+    let year=at(7_889_400);assert!(pocold::resources::budget_required(year.total).unwrap()<=u128::from(pocold::node::MEM_BUDGET),"a year of devnet records boots: {}",year.total);
+    let off=pocold::resources::derive(cp,l.k_hist,l.side_max,&open_limits(&spec,Limits{evict_depth:Some(0),..Default::default()},false,2),2).unwrap();
+    assert!(off.total!=d.total);
+    println!("V3-A13-BREAKDOWN {}",serde_json::json!({"total":d.total.to_string(),"evictionOff":off.total.to_string(),"items":d.items.iter().map(|(k,v)|serde_json::json!([k,v.to_string()])).collect::<Vec<_>>()}));
+    if cfg!(all(target_os="linux",target_arch="x86_64")){
+        assert_eq!(d.total,V3_A13_TOTAL,"the v3 A13 model total changed");assert_eq!(off.total,V3_A13_TOTAL_EVICTION_OFF,"eviction off");
+        assert_eq!((ctx_cache,bases),V3_A13_CACHES);
+    }
+}
+/// The v3 devnet's A13 totals (v3_a13_bound_breakdown) on linux x86_64, as a new node boots them: eviction on
+/// 3,447,088,104 B (budget required 3,939,529,262 B of 6 GiB; the spec-1 devnet boots at 3,351,045,495 B,
+/// a13_boot_refuses_a_bound_above_the_memory_budget_spec1: v3 adds the first-import index, its lookup scratch and the
+/// template first-seen times, 13,372,234 B, and the larger v3 log and receipt terms), eviction off 3,375,514,880 B;
+/// the child-context cache 185,920 B and the membership inputs 1,207,460 B, as on the spec-1 devnet (the same M_max 64).
+const V3_A13_TOTAL:u128=3_447_088_104;
+const V3_A13_TOTAL_EVICTION_OFF:u128=3_375_514_880;
+const V3_A13_CACHES:(u128,u128)=(185_920,1_207_460);
 
 // ---------------- second round-2 review: side-branch retention, eviction and replay ----------------
 fn retention_node(tag:&str)->(pocold::node::Node,std::path::PathBuf,impl Fn()->pocold::node::Config){
@@ -5721,6 +5796,9 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 /// Phase 6a deletes this: pinned to the spec-1 devnet and its log caps (LOG_BLOCK_MAX 32,768 B, LOG_COUNT_MAX 546).
 /// The v3 counterpart at V3_LOG_BLOCK_MAX and V3_LOG_COUNT_MAX: v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool.
 #[test] fn a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded_spec1(),false)}
+/// The v3 counterpart of a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool on the v3 devnet: one LOG0
+/// of V3_LOG_BLOCK_MAX - 35 bytes or V3_LOG_COUNT_MAX + 1 = 4,369 LOG0 is refused at submission, and 4,368 LOG0 is pooled.
+#[test] fn v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded(),true)}
 fn own_logs_refused(c:DevnetConfig,v3:bool){
     let caps=pocol_lp4_execution::user_phase::log_caps(v3);let bob=key("bob");
     let (mut n,dir)=gas_node_cfg("own-logs",Default::default(),&c,None);
@@ -5752,6 +5830,9 @@ fn own_logs_refused(c:DevnetConfig,v3:bool){
 /// Phase 6a deletes this: pinned to the spec-1 devnet and LOG_COUNT_MAX 546. The v3 counterpart, 4,369 LOG0 past
 /// V3_LOG_COUNT_MAX: v3_a_transaction_halting_on_its_own_logs_is_included_and_charged.
 #[test] fn a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded_spec1(),false)}
+/// The v3 counterpart of a_transaction_halting_on_its_own_logs_is_included_and_charged on the v3 devnet: each call runs
+/// V3_LOG_COUNT_MAX + 1 = 4,369 LOG0 when PREVRANDAO is not zero.
+#[test] fn v3_a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded(),true)}
 fn own_logs_halt(c:DevnetConfig,v3:bool){
     let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
     let (mut n,dir)=gas_node_cfg("own-logs-ctx",Default::default(),&c,None);
