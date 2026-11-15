@@ -266,6 +266,9 @@ impl TimingAssumptions {
     /// FN-4 (FRESH-NETWORK-DESIGN §1c): the default of a v3 profile, Δ = φ = t_exec = 1 s (Δ_rel 7). The fresh network's
     /// CP (dFbWait 8) also admits the measured fallback (2,1,1), Δ_rel 8, declared as `localTiming`.
     pub const V3_DEFAULT: Self = Self::SINGLE_HOST;
+    /// A local devnet's assumptions (`pocold init-devnet`, Phase 5a): its nodes share one host and one clock, Δ 1 s, φ 0,
+    /// t_exec 1 s, so Δ_rel is 5 by V3-05, as `single_host_local`.
+    pub const DEVNET: Self = Self { delta: 1, phi: 0, t_exec: 1 };
     /// The largest value of each assumption accepted, in seconds (one hour): beyond it no block-time
     /// profile is meaningful, and the arithmetic stays far inside u32.
     pub const MAX_SECONDS: u32 = 3600;
@@ -299,6 +302,12 @@ pub fn local_for_v3(cp: &ConsensusParams, a: TimingAssumptions) -> Result<NodeLo
     local.delta_rel = derive_delta_rel(a)?;
     local.gamma = gamma_for(cp, &local)?;
     Ok(local)
+}
+
+/// devnet.json's `localTiming` for the V3-05 locals `local` derived from declared assumptions: what `local_for_network`
+/// reads back (its `deltaRel` and `gamma` must be the derived ones).
+pub fn local_timing_json(local: &NodeLocal) -> serde_json::Value {
+    serde_json::json!({"delta":local.delta,"phi":local.phi,"tExec":local.t_exec,"deltaRel":local.delta_rel,"gamma":local.gamma,"source":"declared"})
 }
 
 /// The local timing for a genesis of `spec_version`: spec 1 is exactly `local_for` (declared assumptions are
@@ -504,11 +513,14 @@ fn resolve(config: serde_json::Value, test_filled: bool) -> Result<(Config, devn
         || (input.earnin && !input.continuous) {
         return Err("invalid experimental testnet parameters".into());
     }
-    let mut cfg = devnet::DevnetConfig::new(input.chain_id, input.genesis_time, &[]);
+    // The builder's own base values, which Phase 5a left as they were (the devnet default became v3): the spec-1 devnet
+    // values with the testnet timing, so every config still builds the genesis it built before. A v3 config takes its
+    // v3 fields from them too, unless it states them (a profile states every one). Phase 6a makes the builder v3-only.
+    let mut cfg = devnet::DevnetConfig::spec1(input.chain_id, input.genesis_time, &[],
+        if input.earnin { devnet::Spec1Programs::EarnIn } else { devnet::Spec1Programs::Bonded });
     cfg.spec_version = if input.v3 { 2 } else { 1 };
     cfg.t_blk = 10; cfg.tau = 600; cfg.d_att = 60; cfg.d_fb_wait = 6;
     cfg.hash_rate = input.hash_rate.as_ref().map_or((1 << 18) / 10, |r| r.hashes_per_second); cfg.r_max = input.registration_per_block;
-    cfg.earnin = input.earnin;
     if input.earnin || input.full_nonce { cfg.nonce_mode = 1; }
     let schema = gs::cp_schema(cfg.spec_version).unwrap();
     let mut overrides = BTreeMap::new();
