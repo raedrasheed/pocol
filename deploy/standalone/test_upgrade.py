@@ -40,8 +40,9 @@ def rlp(value):
 
 
 class ScheduleUpgrade(unittest.TestCase):
-    """`pocol upgrade` appends a future fork activation to a home's binding (here version 2, the full nonce range: a no-op
-    on a v3 network, whose genesis already has it, but a schedule change the binding and identity follow)."""
+    """`pocol upgrade` appends a future fork activation to a home's binding (here fork 2, kept in the schedule as a no-op
+    on a v3 network, whose genesis already has its rule, but a schedule change the binding and identity follow; fork 3,
+    the FN-5 cap raise, uses the same path)."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

@@ -34,10 +34,10 @@ In the wallet-and-miner role, the Mining tab shows **Review mining registration*
 bond**. Each opens a review from the engine (`quote_*` commands of `pocold/src/wallet.rs`); nothing is signed before
 **Confirm & sign**. After a confirmed rejoin the engine loop (`pocold/src/mobile.rs`, every 2 s as on the desktop) signs
 `reactivate()` when the window opens; its steps appear as notices (the status's `event`, apart from the command answers
-in `response`). On the v3 network the card shows the bond still to earn from mining and the reactivation clock; when
+in `response`). The card shows the bond still to earn from mining and the reactivation clock; when
 every seat is taken it says whether a registration replaces an inactive member (the review then names the member), or,
 for a member out of the full set, that it waits for its bond refund and registers again
-(`deploy/standalone/README.md`, "On the v3 network"). The texts are the Windows wallet's (`WalletText.java`, checked by
+(`deploy/standalone/README.md`, "Bond", "Rejoin mining" and "Full set"). The texts are the Windows wallet's (`WalletText.java`, checked by
 `deploy/standalone/test_android_jni.py`).
 
 ## Key backup and restore
