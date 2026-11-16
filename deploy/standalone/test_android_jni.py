@@ -109,7 +109,19 @@ public final class JniBoundaryTest {
                 equal(WalletText.REGISTRY_LABEL,"Registry");equal(WalletText.rejoinTransactions("4"),"Transactions signed by this wallet: up to 4");
                 equal(WalletText.rejoinNotice("rejoin","","x"),"x");equal(WalletText.rejoinNotice("status","Stopped","x"),"");
                 equal(String.join("|",WalletText.replaceLines("0x02",new String[]{"a","b"},"n")),"Registration by replacement of 0x02|1. a|2. b|n");
-                equal(String.join("|",WalletText.replaceLines("0x03",new String[0],"")),"Registration by replacement of 0x03");break;
+                equal(String.join("|",WalletText.replaceLines("0x03",new String[0],"")),"Registration by replacement of 0x03");
+                // The device role (owner decision of 2026-11-16): wallet only unless the engine says miner; the Mining tab
+                // only for a miner; the wallet card never says mining is off on a device that never mines.
+                if(WalletText.minerMode("")||WalletText.minerMode(null)||WalletText.minerMode("wallet")||WalletText.minerMode("Miner")||WalletText.minerMode("x")||!WalletText.minerMode("miner"))throw new AssertionError("minerMode");
+                equal(String.join("|",WalletText.navTabs(false)),"Wallet|Activity|Settings");equal(String.join("|",WalletText.navTabs(true)),"Wallet|Activity|Mining|Settings");
+                equal(WalletText.walletNote(false,false),"Your device is validating blocks. Wallet only: this device never mines.");equal(WalletText.walletNote(false,true),WalletText.walletNote(false,false));
+                equal(WalletText.walletNote(true,true),"Your device is validating blocks. Mining is on.");equal(WalletText.walletNote(true,false),"Your device is validating blocks. Mining is off.");
+                equal(WalletText.modeButton(WalletText.WALLET_ONLY,true),"\u2713  Wallet only");equal(WalletText.modeButton(WalletText.WALLET_AND_MINER,false),"Wallet and miner");
+                equal(WalletText.MODE_TITLE,"Device role");
+                if(!WalletText.MODE_WALLET.contains("validates every block")||!WalletText.MODE_WALLET.contains("never mines"))throw new AssertionError("wallet-only text");
+                if(!WalletText.MODE_MINER.contains("Mining tab")||!WalletText.MODE_MINER.contains("only when you turn it on"))throw new AssertionError("miner text");
+                if(!WalletText.MODE_SWITCH_BACK.contains("stops mining at once"))throw new AssertionError("switch-back text");
+                if(!WalletText.MODE_OFFLINE.contains("Connect your wallet"))throw new AssertionError("offline text");break;
             case "key-backup":
                 // Passphrases cross as standard UTF-8 bytes built from char[] (never a String), files as raw bytes.
                 char[] typed="p\u00e4ss \uD83D\uDE80 phrase".toCharArray();

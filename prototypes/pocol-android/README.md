@@ -10,9 +10,24 @@ The release APK is unsigned. The release operator signs it locally with the rele
 repository and CI artifacts), checks the signer with `apksigner verify --print-certs` and the application ID and
 versionCode with `aapt dump badging`, and recomputes the checksums before publishing it as installable.
 
+## Wallet only or miner
+
+**Settings → Device role** chooses what this phone does (owner decision of 2026-11-16). Both roles run the local node,
+which validates every block, so the balance is always verified on the device.
+
+- **Wallet only** (the default, also for an app updated from a release without the choice): the phone never mines.
+  There is no Mining tab and no **Manage mining** button, and the engine itself refuses mining, registration, top-up and
+  rejoin in this role (`set_mode` and the wallet-only checks in `pocold/src/wallet.rs`).
+- **Wallet and miner**: the Mining tab appears. Mining still starts off and runs only when you turn it on there, with an
+  eligible registered account.
+
+Switching back to wallet only stops mining at once. A switch while a confirmed rejoin is under way is refused until it
+finishes or stops (it would lose the reactivation). The engine keeps the choice in its home (`app-mode.json`), so it
+survives a restart and a key restore; the app keeps only a display copy. The buttons work while the wallet is connected.
+
 ## Mining actions
 
-The Mining tab shows **Review mining registration**, and, when the engine offers them, **Rejoin mining** and **Top up
+In the wallet-and-miner role, the Mining tab shows **Review mining registration**, and, when the engine offers them, **Rejoin mining** and **Top up
 bond**. Each opens a review from the engine (`quote_*` commands of `pocold/src/wallet.rs`); nothing is signed before
 **Confirm & sign**. After a confirmed rejoin the engine loop (`pocold/src/mobile.rs`, every 2 s as on the desktop) signs
 `reactivate()` when the window opens; its steps appear as notices (the status's `event`, apart from the command answers
