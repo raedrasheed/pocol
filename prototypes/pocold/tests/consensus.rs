@@ -2227,7 +2227,14 @@ fn rnode(tag:&str,r_keep:u64,side_cap:usize)->(pocold::node::Node,std::path::Pat
     let conf=move||Config{dir:d.clone(),name:name.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{r_keep,side_cap,..Default::default()}};
     (Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap(),dir,conf)
 }
-fn reopen(conf:&dyn Fn()->pocold::node::Config)->pocold::node::Node{pocold::node::Node::open(conf(),admitted(&cfg(&["a","b","c"]))).expect("reopen")}
+/// A fixed first-import clock (`Node::import_clock`) for the nodes these tests compare with a reference. On v3 a
+/// block's first-import timeliness is node-local and read from the wall clock: on a slow or loaded runner the gap
+/// between two imports can pass a fallback block's deadline in one node and not the other, and the two disagree on
+/// F_LATE and on what they rebuild (Windows CI, parallel threads). With one fixed clock every node classifies a
+/// block as an unloaded one does: a signed block timely, an immediate fallback block not, on every run and restart.
+const TEST_IMPORT_CLOCK:u128=1_700_000_000_000;
+fn reopen(conf:&dyn Fn()->pocold::node::Config)->pocold::node::Node{
+    let mut n=pocold::node::Node::open(conf(),admitted(&cfg(&["a","b","c"]))).expect("reopen");n.import_clock=Some(TEST_IMPORT_CLOCK);n}
 /// A fallback branch from `parent` whose cumulative work strictly exceeds `than`, then `extra` more blocks.
 fn heavier(h:&mut Net,parent:[u8;32],than:U256,extra:usize)->Vec<Block>{
     let mut out=vec![];let mut p=parent;
@@ -2991,7 +2998,7 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     use pocold::node::{Config,Limits,Node};
     let mk=|tag:&str,full:bool|{let dir=std::env::temp_dir().join(format!("pocold-s3a-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let d=dir.clone();let t=tag.to_string();let conf=move||Config{dir:d.clone(),name:t.clone(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits{full_states:full,..Default::default()}};
-        (Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap(),dir,conf)};
+        let mut n=Node::open(conf(),admitted(&cfg(&["a","b","c"]))).unwrap();n.import_clock=Some(TEST_IMPORT_CLOCK);(n,dir,conf)};
     let (mut a,da,ca)=mk("diff",false);let (mut b,db,cb)=mk("full",true);
     let (mut h,blocks,p)=s1_chain();
     // A 6-block reorg near the tip, then the old branch again: both import paths run.
@@ -3024,6 +3031,7 @@ fn e4_store_node_at_the_spec_depth_2048_and_2049_answers_as_a_whole_state_node()
     compare(&mut a,&mut b,"after the reorgs");
     assert_eq!((a.chain.rebuilds,a.chain.restore_reexecs,a.stats.restored),(b.chain.rebuilds,b.chain.restore_reexecs,b.stats.restored),"the same rebuild and restore work");
     drop(a);drop(b);let mut a=Node::open(ca(),admitted(&cfg(&["a","b","c"]))).unwrap();let mut b=Node::open(cb(),admitted(&cfg(&["a","b","c"]))).unwrap();
+    a.import_clock=Some(TEST_IMPORT_CLOCK);b.import_clock=Some(TEST_IMPORT_CLOCK);
     compare(&mut a,&mut b,"after reopen");
     for d in [da,db]{let _=std::fs::remove_dir_all(&d);}
 }
@@ -5672,7 +5680,7 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 #[test] fn v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded(),true)}
 fn own_logs_refused(c:DevnetConfig,v3:bool){
     let caps=pocol_lp4_execution::user_phase::log_caps(v3);let bob=key("bob");
-    let (mut n,dir)=gas_node_cfg("own-logs",Default::default(),&c,None);
+    let (mut n,dir)=gas_node_cfg(if c.spec_version>=2{"own-logs"}else{"own-logs-spec1"},Default::default(),&c,None);
     assert_eq!(n.chain.spec.v3_active(1),v3);
     // LOG0 with 32,769 bytes (spec 1: 36 + 32,769 > LOG_BLOCK_MAX) or V3_LOG_BLOCK_MAX - 35 bytes (v3: one past the cap).
     let bytes=if v3{let len=caps.bytes-35;vec![0x62,(len>>16) as u8,(len>>8) as u8,len as u8,0x5f,0xa0,0x00]}else{vec![0x61,0x80,0x01,0x5f,0xa0,0x00]};
@@ -5703,7 +5711,7 @@ fn own_logs_refused(c:DevnetConfig,v3:bool){
 #[test] fn v3_a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded(),true)}
 fn own_logs_halt(c:DevnetConfig,v3:bool){
     let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
-    let (mut n,dir)=gas_node_cfg("own-logs-ctx",Default::default(),&c,None);
+    let (mut n,dir)=gas_node_cfg(if c.spec_version>=2{"own-logs-ctx"}else{"own-logs-ctx-spec1"},Default::default(),&c,None);
     assert_eq!(n.chain.spec.v3_active(1),v3);let k=pocol_lp4_execution::user_phase::log_caps(v3).count as u16+1;
     // PREVRANDAO ISZERO PUSH1 21 JUMPI; PUSH2 k (547 on spec 1, 4,369 on v3); loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 8 JUMPI; STOP; 21: JUMPDEST STOP
     let rt=vec![0x44,0x15,0x60,0x15,0x57,0x61,(k>>8) as u8,k as u8,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x08,0x57,0x00,0x5b,0x00];
