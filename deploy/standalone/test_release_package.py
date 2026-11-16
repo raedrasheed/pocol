@@ -36,6 +36,9 @@ class ReleasePackageTests(unittest.TestCase):
             (self.script.parent / name).write_text('public fixture\n', encoding='utf-8')
         for name in ('network.pocol.json', 'wallet.key', 'debug.keystore'):
             (self.root / name).write_bytes(b'EXCLUDED FIXTURE')
+        # FN-7: the committed profiles the Windows genesis ceremony fills.
+        for name in ('v3-profile.json', 'v3-rehearsal-profile.json'):
+            self.fixture('deploy/mainnet/' + name).write_bytes(b'public profile fixture ' + name.encode() + b'\n')
         notice = self.root / 'prototypes/third-party/evm-crypto/NOTICE.txt'
         notice.parent.mkdir(parents=True)
         notice.write_bytes(b'public crypto license fixture\n')
@@ -139,6 +142,8 @@ class ReleasePackageTests(unittest.TestCase):
                         names = tar.getnames()
                         self.assertNotIn('network.pocol.json', names)
                         self.assertNotIn('wallet.key', names)
+                        # The genesis ceremony runs from the Windows package only.
+                        self.assertFalse({'v3-profile.json', 'v3-rehearsal-profile.json'} & set(names))
                         if os.name != 'nt':
                             self.assertEqual(tar.getmember('pocol').mode & 0o111, 0o111)
                         expanded = self.root / 'expanded'
@@ -152,6 +157,9 @@ class ReleasePackageTests(unittest.TestCase):
                     self.metadata(out)
                     self.assertTrue(all((out / (name + suffix)).is_file() for name in bins))
                     self.assertTrue((out / 'PoCol-Wallet.exe').is_file())
+                    for name in ('v3-profile.json', 'v3-rehearsal-profile.json'):
+                        self.assertEqual((out / name).read_bytes(), (self.root / 'deploy/mainnet' / name).read_bytes())
+                        self.assertIn('  ' + name, (out / 'SHA256SUMS').read_text(encoding='utf-8'))
                 shutil.rmtree(out)
 
 
