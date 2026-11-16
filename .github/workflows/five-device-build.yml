@@ -2,10 +2,10 @@ name: PoCol Mainnet native release packages
 on:
   pull_request:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', '.github/workflows/five-device-build.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/five-device-build.yml']
   push:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', '.github/workflows/five-device-build.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/five-device-build.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -81,11 +81,16 @@ jobs:
             grep -F "enable caps-test through pocold's feature" "$RUNNER_TEMP/caps-only.log"
           fi
           python deploy/standalone/test_launcher.py -v
+          python deploy/standalone/test_initialize_network.py -v
           python deploy/standalone/test_launcher.py --integration
           python deploy/standalone/test_wallet.py
           cargo +1.99.1 test --locked --release --test consensus continuous_admission --manifest-path prototypes/pocold/Cargo.toml
           cargo +1.99.1 test --locked --release --test consensus final_ --manifest-path prototypes/pocold/Cargo.toml
           cargo +1.99.1 test --locked --release --lib --manifest-path prototypes/lp4-execution/Cargo.toml
+      - name: Genesis ceremony dry run (FN-7) admits the committed profiles, without contacting any server
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./deploy/standalone/test_initialize_network.ps1
       - name: Package explicit public allowlist
         shell: bash
         run: |

@@ -71,35 +71,79 @@ thread inventory (164 tasks with 7 configured peers and automatic outbound, 144 
 load qualification remain operational work. Numeric heights retain the format's
 u64 representation; zero disables scheduled expiry, not hardware arithmetic.
 
-## Fresh network setup from Windows
+## Fresh network setup from Windows (the genesis ceremony, FN-7)
 
 This section creates the network: one genesis, its invitation and the server
 installations. Every device then joins with that same invitation.
 
-Extract the five-device ZIP. Review `Initialize-PoColNetwork.ps1`, open PowerShell
-inside that directory, and run:
+`Initialize-PoColNetwork.ps1` creates the fresh v3 network: first the **rehearsal**, then
+**PoCol Mainnet**, each in its own ceremony with fresh keys. It fills the committed network
+profile shipped beside it (`v3-rehearsal-profile.json` or `v3-profile.json`, both covered by
+`SHA256SUMS`; the values are decided in `development/decisions/FRESH-NETWORK-CP.md`) and
+admits its genesis with `pocold init-testnet`, without `--test-placeholders`. The script
+fills only the ceremony inputs: the launch second, the founders' measured hash rate and the
+four founders' public addresses. Every other value, including the chain id (rehearsal
+1656550731, mainnet 2656089850, CP §5) and `registrationPerBlock` (equal to `R_max`, 4), is
+the committed profile's, and the script refuses a profile whose chain id is not the one of
+`-Network`.
+
+The four founders are the three servers (founders 1-3, in the order given) and this PC
+(founder 4). Each generates a fresh key on its own device; only public addresses are
+collected. Each founder is a HELD member from genesis with a 20 PCOL bond and 999,980 PCOL
+on its own address. The phone is not a founder: it joins with the invitation, wallet only by
+default, and can register as a miner later (see *Mining* below).
+
+Before the run:
+- Provision three fresh Ubuntu servers with the `pocol-admin` account, the local key
+  `%USERPROFILE%\.ssh\id_ed25519_pocol` and NTP-synchronized clocks. Configure a w32time
+  NTP peer on this PC (every founder within 0.5 s). The script refuses a local or
+  free-running time source and measures this PC's offset against that peer.
+- This PC needs a fresh wallet home: if `%LOCALAPPDATA%\PoCol` exists, back up its key
+  (`pocol.exe export-key --out FILE`), close PoCol and move the folder aside (never delete
+  it). The script refuses to start otherwise.
+- Measure the founders' aggregate hash rate (the rehearsal's `networkHashrateEst` in
+  `pocold status` feeds the mainnet run), and choose the launch second, or a delay.
+
+Extract the five-device ZIP into a new directory. Review `Initialize-PoColNetwork.ps1`,
+open PowerShell inside that directory, and run (the addresses are placeholders for the
+servers' public IPv4 addresses):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\Initialize-PoColNetwork.ps1 -LinuxArchive .\PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz"
 ```
 
-The process-scoped policy exception is for this script only. It uses the existing
-`pocol-admin` account, local `%USERPROFILE%\.ssh\id_ed25519_pocol`, and `-F none`
-to avoid the previously broken SSH config permissions. Enter passphrases and sudo
-passwords only into your local terminal. Host-key verification remains enabled;
-verify new fingerprints through the provider console. No key is forwarded/copied.
+`-GenesisTime UNIX_SECONDS` replaces `-LaunchDelaySeconds` for an announced launch second; the
+genesis is created at least 300 seconds before it. A founder that starts more than `D_att`
+(90 s) after the launch second produces fallback-only blocks, so allow time for the three
+sudo prompts. P2P is TCP 30300 on every server (the port `install-linux.sh` configures).
+`-DryRun` runs only the local steps (four throwaway identities in the setup folder, a TEST
+GENESIS on the local test chain id, an invitation in that folder) and contacts nothing; CI
+runs it (`test_initialize_network.ps1`).
 
-The only allowed targets are the three prepared PoCol hosts:
-`108.165.128.89`, `108.165.128.90`, `108.165.128.91`. The unrelated `.31` host is never
-contacted. The script verifies Linux/Windows checksums and source compatibility
-(equal build digests across the packages it installs; peering itself depends on the
-consensus identity, VA-SPEC §2),
-creates independent miner keys on their servers, collects only public addresses,
-creates one admitted continuous genesis, distributes its invitation, opens P2P TCP
-30300, starts server services and opens **PoCol-Wallet.exe** on Windows. Server RPC
-remains loopback-only. Existing state/identities are never overwritten. On a partial
-failure, retain the setup folder and the SAME genesis; do not blindly rerun or reset.
-The remote deployment path has not been exercised by CI.
+The process-scoped policy exception is for this script only. It uses `-F none` to avoid the
+previously broken SSH config permissions. Enter passphrases and sudo passwords only into
+your local terminal. Host-key verification remains enabled; verify new fingerprints through
+the provider console. No key is forwarded or copied. The script contacts only the three
+servers given. It verifies the package checksums, the build identity and the Linux/Windows
+source compatibility (equal build digests across the packages it installs; peering itself
+depends on the consensus identity, VA-SPEC §2), installs the servers, collects their public
+addresses, creates this PC's identity, admits the genesis, distributes its invitation, opens
+P2P TCP 30300, starts the server services and opens **PoCol-Wallet.exe**. Server RPC remains
+loopback-only. Existing state and identities are never overwritten. On a partial failure,
+retain the setup folder and the SAME genesis; do not blindly rerun or reset. The remote
+deployment path has not been exercised by CI.
+
+The genesis is admitted as an experimental network (below), and the script prints
+`publicLaunchReady: false` with every launch blocker verbatim; it refuses a genesis that is
+not in experimental-devnet scope or that comes from a non-release build.
+
+After the run, on PoCol-Wallet: mining is off by default. Choose **Settings → Device role →
+Wallet and miner**, turn mining on at once and keep it on (founder 4 mines from genesis).
+
+**Rehearsal, then mainnet.** The mainnet ceremony runs on the same servers and PC with the
+mainnet profile, after the rehearsal: re-provision the three servers (`install-linux.sh`
+refuses an existing installation), extract the package into a new directory, and move this
+PC's rehearsal home aside as above. Every founder key is then fresh for the mainnet.
 
 Transfer the generated **network.pocol.json** to the phone. After the signing and
 update checks in the release guide, install the correctly signed ARM64 APK,
@@ -107,7 +151,38 @@ open **PoCol Wallet → Settings → Import network file**, select that file, an
 connect. Windows imports the adjacent shared file automatically; Settings also
 supports explicit import while disconnected. All devices use the same invitation.
 Publish the invitation fingerprint through a trusted channel; a checksum is not
-publisher authentication.
+publisher authentication. The websites take their identity and the explorer's seed list
+from this invitation, in the repository (W15 for the rehearsal, W16 for the mainnet):
+`python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT [--gateway-host HOST]`.
+
+### Launch disclosures (DRAFT: wording for owner review)
+
+> **DRAFT — not yet reviewed by the owner.** Drafted from FRESH-NETWORK-DESIGN §4a and C8.
+
+- **Not public-launch-ready.** The software reports `publicLaunchReady: false` and lists its
+  reasons (the launch blockers the ceremony prints). The network is admitted as a Simnet
+  profile in ExperimentalDevnet scope (`admission-scope`, `profile-kind` and the
+  `admission-condition-*` blockers). It still runs publicly and permissionlessly; mining,
+  sites and rewards are unaffected. No financial qualification or independent audit is
+  claimed.
+- **Founders.** Four founders (three servers and the owner's PC) hold 1,000,000 PCOL each
+  from genesis, including each one's 20 PCOL bond: 4,000,000 PCOL of initial supply.
+- **Founders' seats.** At a full set (10,000 members), a member with no credited share for
+  `Theta_inact` (360 blocks, 1 h), a founder included, can be replaced by a newcomer. It
+  registers again with 20 PCOL after its refund.
+- **Seats at a full set.** At a full set of equal small miners about a third of the members
+  are replaceable at any moment, and newcomers can replace up to 1,440 per hour.
+- **State caps.** No creation fee: the account cap (1,000,000) can be filled cheaply, after
+  which new accounts cannot be created (and newcomers cannot register) until the dormant
+  cap-raise path is used. `pocol_getCaps` reports the occupancy.
+- **Low-bond members.** Members that are still earning their bond (ACCRUING) can win pots
+  and, from 5 PCOL of bond, propose blocks; type-2 evidence against an ACCRUING winner makes
+  its whole pot invalid.
+- **10 s blocks.** Natural forks of about 1 %; a home PC pays a latency tax of about 1-2.5 %.
+- **Retention.** A node partitioned for more than about 5.7 hours (R_KEEP 2,048 blocks)
+  resyncs.
+- **Disk.** The block journal is never compacted: up to about 1.7 GB per day in the worst
+  case.
 
 ## Everyday use
 
@@ -146,27 +221,37 @@ engine's `roleWarning` says so on the wallet card and in Settings → Device rol
 since wallet only has no Mining tab.
 Server miners (`pocol start`) are not affected.
 
-**Mining:** off by default in the wallet-and-miner role too, including after restart. The three
-server keys are genesis miners. The PC/phone must hold an eligible registered
-identity to enable mining. A new identity can use **Review mining registration**,
+**Mining:** off by default in the wallet-and-miner role too, including after restart. The four
+founders (the three server keys and the ceremony PC's key) are genesis miners. Any other
+device must hold an eligible registered identity to enable mining. A new identity can use **Review mining registration**,
 review the current bond and maximum fee, and explicitly confirm its transaction.
 Registration does not automatically enable mining. It needs the fee, a free or
 replaceable seat (see *Full set* below) and network inclusion. It can be the identity's first
-transaction: the Registry accepts the identity itself as its reward address. The fresh-network bootstrap funds the Windows identity
-with PCOL; send PCOL to the phone's public address to fund its bond and
-fees. Turning mining off does not deregister, release the bond or stop the wallet.
+transaction: the Registry accepts the identity itself as its reward address. The ceremony PC holds its founder allocation; send PCOL to the phone's public address to fund its fees and, if wanted, its
+bond. Turning mining off does not deregister, release the bond or stop the wallet.
 Inactive/ejected identities follow existing registry rules; registration is never
 silently repeated and a toggle does not bypass eligibility.
 
-**Bond:** a registration can lock 0 to 20 PCOL; the rest is earned from mining rewards, with no
-deadline (owner decision 10c). The status carries `bondRemaining` for an active record (an exited
-record earns nothing more: its bond is refunded at its due height), and both wallets show it next to
-the bond held. **Top up bond** fills it at once while the record is active; otherwise the review says
-why (the bond is already held in full, the record has exited, or there is no record) before anything
-is signed. The Registry takes one bond top-up or reward-address change per identity per block, and
-eight such operations per block across the network (V3-08): while a top-up or reward-address change
-of this account is still pending, the wallet hides **Top up bond** and refuses a second top-up, which
-would revert and cost its fee.
+**Bond:** the bond is 20 PCOL, and a new identity does not need it up front.
+**Review mining registration** offers a 0 PCOL bond by default and can lock 0 to 20 PCOL; the
+rest is earned from mining rewards, with no deadline (owner decision 10c).
+1. Get the first fee: where a fee faucet runs (`deploy/faucet/README.md`), it sends 0.002 PCOL
+   once to an account that has never sent a transaction.
+2. The registration can be that account's first transaction (see *Mining* above).
+3. The record is *accruing*: it mines like any member, but each reward fills the bond until it
+   holds 20 PCOL. Only then are rewards paid to the balance. Accruing records count within the
+   member limit (`M_max`), and an accruing member can propose blocks once its accrued bond is at
+   least a quarter of the bond (5 PCOL).
+4. The status carries `bondRemaining` for an active record (an exited record earns nothing more:
+   its bond is refunded at its due height), and both wallets show it next to the bond held.
+5. **Top up bond** (or `quote_top_up`) fills it at once while the record is active; otherwise the
+   review says why (the bond is already held in full, the record has exited, or there is no
+   record) before anything is signed. If rewards filled part of it before the top-up was
+   included, the extra returns to the identity. The Registry takes one bond top-up or
+   reward-address change per identity per block, and eight such operations per block across the
+   network (V3-08): while a top-up or reward-address change of this account is still pending,
+   the wallet hides **Top up bond** and refuses a second top-up, which would revert and cost its
+   fee.
 
 **Rejoin mining:** every live member keeps a nonce range whether or not it has shared recently
 (D-V3-01; the network builder always sets nonceMode 1), so an active member is never shut out for
@@ -177,8 +262,11 @@ shows **Rejoin mining**. One review and confirmation then cover the whole sequen
 2. `reactivate()` is signed by the engine once the next block is in the window. The Registry allows
    one reactivation per `C_react` blocks per identity (V3-09), and the engine reads the record's own
    clock: the window is `[max(exit + W_act, lastReactivation + C_react), exit + U)`, and the rejoin
-   review states it in block heights. The engine makes at most three attempts, one per new head,
-   because other registrations can take the block's `R_max` registration slots.
+   review states it in block heights. An identity that has never reactivated has no clock, so its
+   window is `[exit + W_act, exit + U)`, with `W_act` (32 on PoCol Mainnet) and `U` (380).
+   On Mainnet that is blocks exit+32 to exit+379. The engine makes at most three attempts, one
+   per new head, because other registrations can take the block's registration slots
+   (`R_max = 4`).
 3. Mining is turned on once the identity is back in the active set.
 
 The review shows the maximum fee for all four signatures. No PCOL is transferred.

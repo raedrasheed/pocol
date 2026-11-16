@@ -221,9 +221,17 @@ for two amendments, recorded here:
 
 ## 9. Left to later steps
 
-- **FN-7 (C8).** `deploy/standalone/Initialize-PoColNetwork.ps1` still emits the retired network's spec-1 config with
-  a random 7779xx-or-higher id. FN-7 makes it emit the v3 config with the chain id from §5 (the rehearsal id for the
-  rehearsal), plus the readiness disclosure text. FN-4 does not change it.
+- **FN-7 (C8): done.** `deploy/standalone/Initialize-PoColNetwork.ps1 -Network Rehearsal|Mainnet` fills the
+  committed profile (shipped and checksummed in the Windows package) instead of building a config: the launch second,
+  the measured hash rate (`-HashesPerSecond`) and the four founders (the three servers given by `-Servers`, then the
+  owner's PC, each a fresh key on its own device, id = reward). The chain id (§5) and `registrationPerBlock` = R_max
+  are the profile's; the script refuses a profile whose id is not the one of `-Network`, never passes
+  `--test-placeholders` outside its `-DryRun`, parses init-testnet's summary (experimental-devnet scope,
+  `publicLaunchReady` false with `admission-scope` and `profile-kind`) and prints every launch blocker. The seeds are
+  the servers on TCP 30300. The launch disclosures are drafted in `deploy/standalone/README.md` for owner review.
+  Tests: `deploy/standalone/test_initialize_network.py` and, on Windows CI, `test_initialize_network.ps1` (the dry
+  run through pocold init-testnet --test-placeholders, and the refusals). Still open: whether each server founder's
+  reward is its own hot miner key (999,980 PCOL on an internet-facing server) or a separate owner-held address.
 - **The launch evidence** (design §4b: T1-T8, M1-M4, R-off, D1, S1, S2) is measured in the rehearsal, on the release
   candidate, at this CP with the rehearsal chain id. A failed threshold changes only profile values (D_att, dFbWait,
   and T_blk 20-30 s as a last resort), recorded here, and both profiles change together.

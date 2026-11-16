@@ -44,6 +44,9 @@ else:
         files['PoCol-Wallet.exe']=root/'prototypes/pocold/target/release/PoCol-Wallet.exe'
         files['PoCol-Wallet-preview.png']=root/'wallet-preview.png'
     for name in (['Start-PoCol.cmd','Initialize-PoColNetwork.ps1'] if suffix else ['install-linux.sh']): files[name]=root/'deploy/standalone'/name
+    # FN-7: the genesis ceremony (Initialize-PoColNetwork.ps1) fills the committed profiles, covered by SHA256SUMS.
+    if suffix:
+        for name in ['v3-rehearsal-profile.json','v3-profile.json']: files[name]=root/'deploy/mainnet'/name
     info=subprocess.check_output([str(files['pocol'+suffix]),'build-info'])
     (args.out/'build-info.json').write_bytes(info)
 build=json.loads((args.out/'build-info.json').read_text(encoding='utf-8'))
