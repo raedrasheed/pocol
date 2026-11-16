@@ -207,6 +207,34 @@ class InitializeNetwork(unittest.TestCase):
         workflow = (ROOT / '.github/workflows/five-device-build.yml').read_text(encoding='utf-8')
         self.assertIn('./deploy/standalone/test_initialize_network.ps1', workflow)
         self.assertIn('python deploy/standalone/test_initialize_network.py', workflow)
+        # Every file these tests read triggers the workflow that runs them, on pull requests and on pushes.
+        filters = re.findall(r'^    paths: \[(.*)\]$', workflow, re.M)
+        self.assertEqual(len(filters), 2)
+        for read in ('deploy/standalone/**', 'prototypes/**', 'deploy/mainnet/v3-*profile.json',
+                     'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md'):
+            for paths in filters:
+                self.assertIn(f"'{read}'", paths)
+
+    def test_this_pcs_clock_is_checked_like_the_servers(self):
+        # A running Windows Time service is not a synchronized clock: the source and the measured offset are checked.
+        self.assertIn('& w32tm.exe /query /source', SCRIPT)
+        self.assertIn("-match 'Local CMOS Clock|Free-running System Clock'", SCRIPT)
+        self.assertIn('& w32tm.exe /stripchart "/computer:$TimePeer" /samples:1 /dataonly', SCRIPT)
+        self.assertIn('if ([Math]::Abs($OffsetSeconds) -gt 0.5) { throw', SCRIPT)
+        self.assertNotIn('/query /status', SCRIPT)
+        # Before anything is created on a server.
+        self.assertLess(SCRIPT.index('[Math]::Abs($OffsetSeconds)'), SCRIPT.index('& ssh.exe'))
+
+    def test_the_shipped_readme_describes_the_v3_network(self):
+        readme = (HERE / 'README.md').read_text(encoding='utf-8')
+        profile = json.loads((MAINNET / 'v3-profile.json').read_text(encoding='utf-8'))
+        cp = profile['cp']
+        self.assertIn(f"On Mainnet that is blocks exit+{cp['W_act']} to exit+{cp['U'] - 1}.", readme)
+        self.assertIn(f"(`R_max = {cp['R_max']}`)", readme)
+        self.assertIn(f"({cp['W_act']} on PoCol Mainnet)", readme)
+        retired = {e['chainId'] for e in json.loads((MAINNET / 'retired-networks.json').read_text(encoding='utf-8'))['retired']}
+        for gone in [str(c) for c in retired | {261597237}] + ['60,480', 'cutover', 'Probation seats']:
+            self.assertNotIn(gone, readme)
 
 
 if __name__ == '__main__':

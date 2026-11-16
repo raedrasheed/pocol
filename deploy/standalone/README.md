@@ -92,7 +92,8 @@ on its own address. The phone is a wallet only.
 Before the run:
 - Provision three fresh Ubuntu servers with the `pocol-admin` account, the local key
   `%USERPROFILE%\.ssh\id_ed25519_pocol` and NTP-synchronized clocks. Configure a w32time
-  NTP peer on this PC (every founder within 0.5 s).
+  NTP peer on this PC (every founder within 0.5 s). The script refuses a local or
+  free-running time source and measures this PC's offset against that peer.
 - This PC needs a fresh wallet home: if `%LOCALAPPDATA%\PoCol` exists, back up its key
   (`pocol.exe export-key --out FILE`), close PoCol and move the folder aside (never delete
   it). The script refuses to start otherwise.
@@ -227,25 +228,22 @@ fees. Turning mining off does not deregister, release the bond or stop the walle
 Inactive/ejected identities follow existing registry rules; registration is never
 silently repeated and a toggle does not bypass eligibility.
 
-**Mining on the earn-in network (chain ID 261597237):** the bond is 20 PCOL, and a new
-identity does not need it up front.
+**Earning the bond:** the bond is 20 PCOL, and a new identity does not need it up front.
 1. Get the first fee: the fee faucet sends 0.002 PCOL once to an account that has never sent a
    transaction (see `deploy/faucet/README.md`).
 2. **Review mining registration** offers a 0 PCOL bond by default. It can be the identity's first
-   transaction: the earn-in Registry accepts the identity itself as its reward address without the
+   transaction: the Registry accepts the identity itself as its reward address without the
    PAY-02 prior transaction.
-3. The record is on *probation*: it mines like any member, but each reward fills the bond until it
-   holds 20 PCOL. Only then are rewards paid to the balance. The wallet shows the progress and the
-   deadline (`registeredAt + 60,480` blocks, about 7 days).
+3. The record is *accruing*: it mines like any member, but each reward fills the bond until it
+   holds 20 PCOL. Only then are rewards paid to the balance. The wallet shows the progress. There
+   is no deadline.
 4. **Top up bond** (Windows) or `quote_top_up` fills the rest at once. If rewards filled part of
    it before the top-up was included, the extra returns to the identity.
-5. A probation record still short of 20 PCOL at the deadline is exited by the Registry, and its
-   accrued bond is refunded. Probation seats are limited to 8 at a time, so a registration with
-   less than 20 PCOL is refused while they are full.
+5. Accruing records count within the member limit (`M_max`); there is no separate probation pool.
 
-Probation members do not propose blocks while any full member exists. Balances from PoCol Mainnet
-moved to this network at the cutover, and each old 100 PCOL bond was returned to its reward
-address, so an old miner registers again here.
+An accruing member can propose blocks once its accrued bond is at least a quarter of the bond
+(5 PCOL). PoCol Mainnet is a fresh network: no balances or registrations carry over from any
+retired network.
 
 **Rejoin mining:** a registered identity with no shares in the last `W_act` blocks
 (32 on PoCol Mainnet) is outside the active set. It gets no nonce range and cannot
@@ -255,9 +253,9 @@ Windows wallet shows **Rejoin mining**. One review and confirmation then cover t
 whole sequence:
 1. `deregister()` is signed immediately. The bond stays held.
 2. `reactivate()` is signed by the engine once the next block is in
-   `[exit + W_act, exit + U)`. On Mainnet that is blocks exit+32 to exit+39. The
-   engine makes at most three attempts, one per new head, because another
-   registration can take the block's single slot (`R_max = 1`).
+   `[exit + W_act, exit + U)`. On Mainnet that is blocks exit+32 to exit+379. The
+   engine makes at most three attempts, one per new head, because other
+   registrations can take the block's slots (`R_max = 4`).
 3. Mining is turned on once the identity is back in the active set.
 
 The review shows the maximum fee for all four signatures. No PCOL is transferred.

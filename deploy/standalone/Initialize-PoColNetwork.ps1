@@ -135,8 +135,20 @@ if (!$DryRun) {
     if (Test-Path -LiteralPath $DesktopHome) {
         throw "$DesktopHome already exists. Back up its key (pocol.exe export-key --out FILE), close PoCol, and move the folder aside (never delete it); then run this again from a freshly extracted package."
     }
-    & w32tm.exe /query /status
+    # This PC's clock sets the launch second and the lead and D_att lateness checks, so it must be NTP-synchronized
+    # like the servers'. A running Windows Time service is not enough: its source can be the local or a free-running clock.
+    $TimeSource = ((& w32tm.exe /query /source) -join '').Trim()
     if ($LASTEXITCODE -ne 0) { throw 'Windows Time is not running. Configure an NTP peer first (every founder within 0.5 s, CP section 4).' }
+    if ($TimeSource -eq '' -or $TimeSource -match 'Local CMOS Clock|Free-running System Clock') {
+        throw "This PC's clock is not NTP-synchronized (Windows Time source: '$TimeSource'). Configure an NTP peer first (every founder within 0.5 s, CP section 4)."
+    }
+    $TimePeer = ($TimeSource -split ',')[0].Trim()
+    $Chart = (& w32tm.exe /stripchart "/computer:$TimePeer" /samples:1 /dataonly) -join "`n"
+    $Offset = [regex]::Match($Chart, '(?m),\s*([+-]\d+[.,]\d+)s\s*$')
+    if ($LASTEXITCODE -ne 0 -or !$Offset.Success) { throw "Cannot measure this PC's clock offset against its NTP peer $TimePeer. Make sure the peer answers, then run this again." }
+    $OffsetSeconds = [double]::Parse($Offset.Groups[1].Value.Replace(',', '.'), [Globalization.CultureInfo]::InvariantCulture)
+    if ([Math]::Abs($OffsetSeconds) -gt 0.5) { throw "This PC's clock is $OffsetSeconds s off its NTP peer $TimePeer (at most 0.5 s, CP section 4). Run w32tm /resync, then run this again." }
+    Write-Host "This PC's clock: $OffsetSeconds s off its NTP peer $TimePeer"
 }
 
 $Tag = 'pocol-setup-' + [Guid]::NewGuid().ToString('N')
