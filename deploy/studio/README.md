@@ -2,7 +2,9 @@
 
 A separate, bounded JSON-RPC relay for the Studio browser publisher and viewer.
 It listens on `127.0.0.1:8089`, forwards allowed requests to the existing local
-PoCol node, and uses the existing `gateway.pocol.net` Caddy site for HTTPS.
+PoCol node, and uses the existing `explorer.pocol.net` Caddy site for HTTPS.
+That site is the explorer gateway's (owner decision 9, 2026-11-16): it replaces the old PHP site at
+explorer.pocol.net, and the owner moves its DNS record at launch. Nothing here touches DNS or servers.
 It never reads wallet keys or signs transactions.
 
 ## Check and build
@@ -25,7 +27,7 @@ Transfer `Install-PoCol-Studio-Gateway.sh` to the server, then run:
 ```sh
 sudo bash ~/Install-PoCol-Studio-Gateway.sh --check
 sudo bash ~/Install-PoCol-Studio-Gateway.sh
-curl --fail --max-time 20 https://gateway.pocol.net/studio/health
+curl --fail --max-time 20 https://explorer.pocol.net/studio/health
 ```
 
 Require a successful preflight before installation. The response must identify

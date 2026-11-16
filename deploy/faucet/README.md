@@ -1,5 +1,10 @@
 # PoCol fee faucet
 
+**Rehearsal network only.** There is no faucet on mainnet (owner decision 2026-11-16): `pocol_faucet.py` refuses to
+start with the mainnet chain ID 2656089850 (`deploy/mainnet/v3-profile.json`), and `config.example.json` names the
+rehearsal network (1656550731, `deploy/mainnet/v3-rehearsal-profile.json`). On mainnet a newcomer receives its first
+fee by an ordinary transfer from any PCOL holder.
+
 A new miner can register with a 0 PCOL bond, but its first transaction still pays a fee. The faucet sends a new account enough for that fee, and nothing more.
 
 ## Rules
@@ -20,7 +25,7 @@ Why 0.002 PCOL is enough: the wallet's earn-in registration reserves a maximum f
 fee of 1 gwei the reservation is 0.0012 PCOL and the actual fee about 0.0004 PCOL. The amount still
 covers the reservation while the base fee stays below 2 gwei.
 
-On the v3 network (the release rules; no v3 network identity is pinned yet) a zero-bond newcomer facing a full set registers into the seat of an
+On the rehearsal network (the v3 release rules) a zero-bond newcomer facing a full set registers into the seat of an
 inactive member instead (FN-2b; `quote_register` sends registerReplacing): the wallet reserves REPLACE_GAS = 500,000
 gas, about twice the largest replacement measured (217,381 gas, `prototypes/lp4-execution/tests/v3_contracts.rs`,
 `replacing_write_ceilings_gas_and_user_sys_keys`). With the maximum fee at 2 x base fee + 1 gwei, 0.002 PCOL covers
@@ -100,10 +105,11 @@ python3 deploy/standalone/test_wallet_earnin.py   # opt-in, about 15 minutes: re
 ```
 
 The unit tests cover once per address, new accounts only, reserved addresses, the daily and
-per-client limits, the chain ID pin, an empty faucet, a durable ledger before the send, refused
+per-client limits, the chain ID pin, the refusal of the mainnet chain ID (and the example config naming the
+rehearsal network), an empty faucet, a durable ledger before the send, refused
 versus unanswered sends, connection admission, absolute read deadlines, request framing, busy-claim
 rejection, a stable status count during a concurrent claim, and the HTTP surface. The end-to-end test starts a faucet from a genesis
 miner's key file, funds a wallet that holds nothing, and that wallet then registers with a 0 PCOL
 bond as its first transaction.
 
-Deploying the faucet is the owner's action (A4). Nothing here deploys it.
+Deploying the faucet is the owner's action (A4), on the rehearsal servers only. Nothing here deploys it.

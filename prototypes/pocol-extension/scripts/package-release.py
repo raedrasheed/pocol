@@ -25,6 +25,9 @@ The packager refuses anything that is not the release build (Sites W3), independ
 Until the identity switch the tree carries the placeholder, so no release is packaged: CI checks that this packager
 refuses the build with "network placeholder" instead (.github/workflows). The network placeholder is refused before the
 manifest key, so that refusal holds whatever the key slot holds.
+
+The `<zip>.sha256` it writes is integrity only. A release is published only with its ssh-ed25519 release signature
+(owner decision 2026-11-16, deploy/release/README.md): the owner signs the zip with SHA256SUMS; this packager never signs.
 """
 from pathlib import Path
 import argparse
@@ -36,7 +39,7 @@ import sys
 import zipfile
 
 RELEASE_NAME = 'PoCol Studio, IDE & Viewer'
-HOST_PERMISSIONS = ['http://127.0.0.1/*', 'https://gateway.pocol.net/*']
+HOST_PERMISSIONS = ['http://127.0.0.1/*', 'https://explorer.pocol.net/*']
 PERMISSIONS = ['storage', 'unlimitedStorage', 'declarativeNetRequest']
 BACKGROUND = {'service_worker': 'sw.js', 'type': 'module'}
 SANDBOX = {'pages': ['sandbox.html']}
@@ -50,7 +53,7 @@ CONTENT_SCRIPTS = [
     {'matches': ['https://ide.pocol.net/*'], 'js': ['ide-content.js'], 'run_at': 'document_start', 'all_frames': False},
 ]
 EXTENSION_PAGES_CSP = "script-src 'self'; object-src 'self'"
-RELEASE_ENDPOINT = 'https://gateway.pocol.net/studio/rpc'
+RELEASE_ENDPOINT = 'https://explorer.pocol.net/studio/rpc'
 SANDBOX_PREFIX = '<!doctype html>\n<html><head><meta charset="utf-8"><script>'
 SANDBOX_SUFFIX = '</script></head><body></body></html>\n'
 
@@ -299,7 +302,8 @@ def main(argv):
             archive.writestr(entry, path.read_bytes())
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix(output.suffix + '.sha256').write_text(f'{digest}  {output.name}\n')
-    print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes\nextension id {release_id}')
+    print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes\nextension id {release_id}\n'
+          'UNSIGNED: sign with deploy/release (ssh-keygen -Y sign -n pocol-release) before publishing')
 
 
 if __name__ == '__main__':

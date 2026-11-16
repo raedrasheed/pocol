@@ -4,7 +4,7 @@ declare(strict_types=1);
 // Fixed read-only gateway operation; requests cannot supply RPC input or an upstream.
 const POCOL_REWARD_SCHEMA = 'pocol-block-reward-v1';
 const POCOL_REWARD_GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca';
-const POCOL_REWARD_UPSTREAM = 'https://gateway.pocol.net/rpc';
+const POCOL_REWARD_UPSTREAM = 'https://explorer.pocol.net/rpc';
 const POCOL_REWARD_MAX_REPLY = 262144;
 const POCOL_REWARD_UINT256_MAX = '115792089237316195423570985008687907853269984665640564039457584007913129639935';
 

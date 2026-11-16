@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""PoCol fee faucet (earn-in network, decision A2).
+"""PoCol fee faucet: rehearsal network only (owner decision 2026-11-16: no faucet on mainnet).
+
+It refuses to start with the mainnet chain ID (MAINNET_CHAIN_IDS, deploy/mainnet/v3-profile.json), before it touches
+the key file or the signer, and every claim still checks that the node's chain ID is the configured one.
 
 A new miner on the earn-in network registers with a 0 PCOL bond, but its first transaction still pays
 a fee. This service sends a small fixed amount (the configured `amountWei`) to a new account:
@@ -23,6 +26,8 @@ from pathlib import Path
 ADDRESS = re.compile(r'^0x[0-9a-fA-F]{40}$')
 DEFAULTS = {'listen': '127.0.0.1', 'port': 8547, 'rpc': 'http://127.0.0.1:8545', 'amountWei': str(2 * 10**15),
             'dailyLimit': 200, 'perClientDaily': 3, 'trustProxy': False, 'allowOrigin': None, 'signer': 'pocol-sign'}
+# The mainnet chain ID (deploy/mainnet/v3-profile.json chainId; a test pins it). The faucet never runs there.
+MAINNET_CHAIN_IDS = frozenset({2656089850})
 MAX_BODY = 512
 MAX_CONNECTIONS = 16
 REQUEST_TIMEOUT = 12
@@ -73,6 +78,8 @@ class Faucet:
         for k in ('chainId', 'keyFile', 'ledger'):
             if k not in self.cfg: raise ValueError(f'config needs {k}')
         self.chain_id = int(self.cfg['chainId']); self.amount = int(self.cfg['amountWei'])
+        if self.chain_id in MAINNET_CHAIN_IDS:
+            raise ValueError('the fee faucet runs on the rehearsal network only, never on mainnet (owner decision 2026-11-16)')
         if self.amount <= 0 or self.amount > 10**18: raise ValueError('amountWei must be positive and at most 1 PCOL')
         key = Path(self.cfg['keyFile'])
         if not key.is_file(): raise ValueError('the operator key file does not exist')

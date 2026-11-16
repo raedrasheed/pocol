@@ -63,6 +63,8 @@ const manifest = (f) => ['manifest.json', (t) => JSON.stringify(f(JSON.parse(t))
 test('the release build with a release identity is packaged, with the committed manifest key and its extension id', () => {
   const r = pack(); assert.equal(r.status, 0, r.stderr); assert.equal(r.zip, true);
   assert.match(r.stdout, new RegExp(`extension id ${extensionId(TEST_KEY)}$`, 'm'));
+  // Owner decision 2026-11-16: the packager never signs; the release signature comes from deploy/release.
+  assert.match(r.stdout, /^UNSIGNED: sign with deploy\/release \(ssh-keygen -Y sign -n pocol-release\) before publishing$/m);
   const listed = spawnSync('python3', ['-B', '-c', 'import sys,zipfile,json;print(json.loads(zipfile.ZipFile(sys.argv[1]).read("manifest.json"))["key"])', join(tree, 'out.zip')], { encoding: 'utf8' });
   assert.equal(listed.stdout.trim(), TEST_KEY);
 });
@@ -188,7 +190,9 @@ test('the testGateway build is refused, also under the release name', () => {
   assert.throws(() => build({ out: join(root, 'tg3'), lockMs: 1000 }), /testGateway build only/);
 });
 test('another endpoint or trust level for the built-in profile is refused', () => {
-  refused(pack({ edits: [['lib/studio-network.js', (t) => t.replace('"endpoint": "https://gateway.pocol.net/studio/rpc"', '"endpoint": "http://127.0.0.1:8540/studio/rpc"')]] }), /built-in profile must use/);
+  refused(pack({ edits: [['lib/studio-network.js', (t) => t.replace('"endpoint": "https://explorer.pocol.net/studio/rpc"', '"endpoint": "http://127.0.0.1:8540/studio/rpc"')]] }), /built-in profile must use/);
+  // The retired gateway host (owner decision 9, 2026-11-16: explorer.pocol.net) is refused too.
+  refused(pack({ edits: [['lib/studio-network.js', (t) => t.replace('"endpoint": "https://explorer.pocol.net/studio/rpc"', '"endpoint": "https://gateway.pocol.net/studio/rpc"')]] }), /built-in profile must use/);
   refused(pack({ edits: [['lib/studio-network.js', (t) => t.replace('"trustLevel": "RN"', '"trustLevel": "LN"')]] }), /built-in profile must use/);
 });
 test('a chatgpt.site origin anywhere in the build is refused', () => {

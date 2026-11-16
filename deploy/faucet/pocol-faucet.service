@@ -1,5 +1,5 @@
 [Unit]
-Description=PoCol fee faucet (earn-in network)
+Description=PoCol fee faucet (rehearsal network only; never on mainnet)
 After=network-online.target
 Wants=network-online.target
 

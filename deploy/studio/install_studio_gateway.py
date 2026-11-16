@@ -106,8 +106,8 @@ def patch_caddy(text):
         if '8089' in text.replace(ROUTE, ''): raise RuntimeError('Another Caddy route reaches the Studio relay port; review it first')
         return text
     if '8089' in text: raise RuntimeError('Another Caddy route reaches the Studio relay port; review it first')
-    host = 'gateway.pocol.net {'
-    if text.count(host) != 1: raise RuntimeError('Expected one dedicated gateway.pocol.net Caddy block')
+    host = 'explorer.pocol.net {'
+    if text.count(host) != 1: raise RuntimeError('Expected one dedicated explorer.pocol.net Caddy block')
     if text.count('max_size 16384') != 1: raise RuntimeError('Unexpected Caddy request-body configuration')
     if 'Request body exceeds 16 KiB' not in text or 'int({http.request.header.Content-Length}) > 16384' not in text:
         raise RuntimeError('The existing Explorer 16 KiB request guard was not found')
@@ -149,7 +149,7 @@ def tls_json(path, payload=None):
     This verifies the exact HTTPS routes without relying on hairpin routing/DNS.
     It does not prove reachability from the user's machine or hosting provider.
     """
-    hostname = 'gateway.pocol.net'
+    hostname = 'explorer.pocol.net'
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     conn = http.client.HTTPSConnection(hostname, 443, timeout=12, context=context)
@@ -273,8 +273,8 @@ def main():
         raise
     print('INSTALLED: separate PoCol Studio relay; existing node and Explorer services were preserved.')
     print('PASS: both Studio and existing Explorer HTTPS routes passed trusted certificate and network-identity verification.')
-    print('Endpoint: https://gateway.pocol.net/studio/rpc')
-    print('Verify external reachability from Windows/cPanel: curl --fail --max-time 20 https://gateway.pocol.net/studio/health')
+    print('Endpoint: https://explorer.pocol.net/studio/rpc')
+    print('Verify external reachability from Windows/cPanel: curl --fail --max-time 20 https://explorer.pocol.net/studio/health')
     print('Backup: ' + str(backup))
 
 

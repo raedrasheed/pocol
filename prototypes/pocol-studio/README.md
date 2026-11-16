@@ -37,7 +37,7 @@ Serve `dist/` with a static HTTP server for development. In the managed Sites en
 
 1. **Studio:** upload the contents of `dist/` to the separate cPanel document root for `studio.pocol.net`. Enable its normal HTTPS certificate. The included `.htaccess` disables directory listings and adds browser security headers.
 2. **Extension:** use the matching PoCol Studio extension build. It has a pinned PoCol Mainnet identity, a bounded Studio message bridge, a trusted confirmation page, password-encrypted local signing keys, and restartable publication records. Chrome Web Store submission and approval are separate from this release.
-3. **Gateway:** install the separate `deploy/studio` relay on the existing first PoCol node. `https://gateway.pocol.net/studio/rpc` forwards only bounded, allowlisted RPC requests to loopback. It never signs a transaction or holds a wallet key. The existing Explorer endpoint remains separate.
+3. **Gateway:** install the separate `deploy/studio` relay on the existing first PoCol node. `https://explorer.pocol.net/studio/rpc` forwards only bounded, allowlisted RPC requests to loopback. It never signs a transaction or holds a wallet key. The existing Explorer endpoint remains separate.
 
 The hosted preview is for inspecting the editor. Neither source publication nor preview deployment configures the user's DNS, installs the production gateway, or proves a successful on-chain publish.
 

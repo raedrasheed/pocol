@@ -54,8 +54,8 @@
       anchor.hidden = false;
     });
     document.querySelector('.docs-empty').hidden = true;
-    const fallback = !['ar','en'].includes(selected) ? `<span class="reading-availability" lang="${escape(selected)}" dir="auto">${escape(window.POCOL_LOCALES[selected].aboutReadingNotice)}</span>` : '';
-    document.querySelector('.docs-language-note').innerHTML = `${fallback}<span>${w.read}</span><a href="?lang=en" lang="en" ${language === 'en' ? 'aria-current="true"' : ''}>English</a><a href="?lang=ar" lang="ar" ${language === 'ar' ? 'aria-current="true"' : ''}>العربية</a>`;
+    // The guide is written in English and Arabic, the only site languages (owner decision 2026-11-16).
+    document.querySelector('.docs-language-note').innerHTML = `<span>${w.read}</span><a href="?lang=en" lang="en" ${language === 'en' ? 'aria-current="true"' : ''}>English</a><a href="?lang=ar" lang="ar" ${language === 'ar' ? 'aria-current="true"' : ''}>العربية</a>`;
     document.querySelector('.docs-breadcrumb').innerHTML = `<a href="index.html">${w.home}</a><span>/</span><a href="about.html">${w.about}</a><span>/</span><span>${text(topic.title)}</span>`;
     document.querySelector('.docs-status').innerHTML = `<span>${w.status}</span><a href="pocol-status.html">${w.statusLink}</a>`;
     const sections = topic.sections.map(section => `<section class="doc-section" id="${escape(section.id)}"><h2>${text(section.title)}</h2>${(section.paragraphs || []).map(p=>`<p>${text(p)}</p>`).join('')}${section.bullets?.length ? `<ul>${section.bullets.map(b=>`<li>${text(b)}</li>`).join('')}</ul>` : ''}${section.links?.length ? `<div class="actions">${section.links.map(l=>`<a class="button outline" href="${escape(safeLink(l.url))}">${text(l.label)}</a>`).join('')}</div>` : ''}</section>`).join('');

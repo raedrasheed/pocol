@@ -270,6 +270,6 @@ Write-Host 'The four founders (the three servers and this PC) are HELD members f
 Write-Host 'Mining is off by default on this PC: in PoCol-Wallet choose Settings, Device role, Wallet and miner, turn mining on now, and keep it on.'
 Write-Host "The phone is a wallet only: import this SAME public file in the Android app: $Invitation"
 Write-Host "Publish the invitation's SHA-256 through a trusted channel. Website switch (in the repository, not from this package; W15/W16):"
-Write-Host "  python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT [--gateway-host HOST]"
+Write-Host "  python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT --gateway-host explorer.pocol.net"
 Write-Host 'Once installed, operation does not need this script or an assistant. Keep servers running.'
 Start-Process -FilePath (Join-Path $Here 'PoCol-Wallet.exe') -WorkingDirectory $Here

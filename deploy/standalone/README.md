@@ -153,7 +153,7 @@ supports explicit import while disconnected. All devices use the same invitation
 Publish the invitation fingerprint through a trusted channel; a checksum is not
 publisher authentication. The websites take their identity and the explorer's seed list
 from this invitation, in the repository (W15 for the rehearsal, W16 for the mainnet):
-`python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT [--gateway-host HOST]`.
+`python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT --gateway-host explorer.pocol.net`.
 
 ### Launch disclosures (DRAFT: wording for owner review)
 
@@ -237,8 +237,9 @@ silently repeated and a toggle does not bypass eligibility.
 **Bond:** the bond is 20 PCOL, and a new identity does not need it up front.
 **Review mining registration** offers a 0 PCOL bond by default and can lock 0 to 20 PCOL; the
 rest is earned from mining rewards, with no deadline (owner decision 10c).
-1. Get the first fee: where a fee faucet runs (`deploy/faucet/README.md`), it sends 0.002 PCOL
-   once to an account that has never sent a transaction.
+1. Get the first fee: mainnet has no fee faucet (owner decision 2026-11-16), so the account receives its first fee
+   by an ordinary transfer from any PCOL holder. On the rehearsal network the fee faucet (`deploy/faucet/README.md`)
+   sends 0.002 PCOL once to an account that has never sent a transaction.
 2. The registration can be that account's first transaction (see *Mining* above).
 3. The record is *accruing*: it mines like any member, but each reward fills the bond until it
    holds 20 PCOL. Only then are rewards paid to the balance. Accruing records count within the

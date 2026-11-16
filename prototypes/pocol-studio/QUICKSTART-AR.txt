@@ -20,8 +20,8 @@ PoCol Studio — دليل التفعيل الأول
 راجع تعليمات الخادم الكاملة README-AR.txt المرافقة للمثبّت.
 افحص أولاً بالأمر: sudo bash ~/Install-PoCol-Studio-Gateway.sh --check
 بعد نجاح CHECK PASSED: sudo bash ~/Install-PoCol-Studio-Gateway.sh
-يضيف مسار https://gateway.pocol.net/studio/rpc إلى بوابة Caddy الحالية.
-تحقق من https://gateway.pocol.net/studio/health من جهازك أيضاً؛ يلزم ready:true.
+يضيف مسار https://explorer.pocol.net/studio/rpc إلى بوابة Caddy الحالية.
+تحقق من https://explorer.pocol.net/studio/health من جهازك أيضاً؛ يلزم ready:true.
 لا يحتاج المستخدمون نفق SSH بعد تفعيل هذه البوابة وتحديث الإضافة.
 
 3) تحديث إضافة Chrome

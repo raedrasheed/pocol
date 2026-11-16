@@ -22,13 +22,13 @@ PoCol Studio — تجهيز الاستضافة والاتصال
 
 المتطلبات: خادم Linux مع systemd وPython 3.10 أو أحدث وflock، وصلاحية sudo.
 يجب أن تكون بوابة Explorer الحالية وخدمة Caddy فعّالتين، وأن تكون شهادة
-gateway.pocol.net موثوقة، والعقدة المطلوبة متاحة محليًا على 127.0.0.1:8545.
+explorer.pocol.net موثوقة، والعقدة المطلوبة متاحة محليًا على 127.0.0.1:8545.
 يجب أن يكون المنفذ المحلي 8089 متاحًا أو مستخدمًا بنسخة Studio السابقة المُدارة.
 لا يتطلب هذا المثبّت تنزيل حزم من الإنترنت؛ مكوّنات البوابة مضمّنة فيه.
 
-يشير نطاق gateway.pocol.net إلى خادم البوابة، أي الخادم الذي يشغّل العقدة وبوابة Explorer
+يشير نطاق explorer.pocol.net إلى خادم البوابة، أي الخادم الذي يشغّل العقدة وبوابة Explorer
 (اكتب عنوانه مكان <gateway-server> في الأوامر أدناه).
-سنضيف إليه مسارًا مستقلاً: https://gateway.pocol.net/studio/rpc
+سنضيف إليه مسارًا مستقلاً: https://explorer.pocol.net/studio/rpc
 خدمة Explorer ومسارها /rpc يبقيان كما هما؛ RPC الخام على 8545 يبقى محليًا.
 
 احفظ Install-PoCol-Studio-Gateway.sh في Downloads على Windows، ثم في PowerShell:
@@ -45,7 +45,7 @@ sudo bash ~/Install-PoCol-Studio-Gateway.sh
 
 تحقّق من HTTPS الطبيعي دون تعطيل فحص الشهادة:
 
-curl --fail --max-time 20 https://gateway.pocol.net/studio/health
+curl --fail --max-time 20 https://explorer.pocol.net/studio/health
 
 يجب أن تعرض الاستجابة ready:true و chainId:1599846715.
 أعد الاختبار من جهاز Windows أو cPanel أيضًا لإثبات الوصول الخارجي.
@@ -53,7 +53,7 @@ curl --fail --max-time 20 https://gateway.pocol.net/studio/health
 البرنامج يضيف خدمة pocol-studio-gateway.service على 127.0.0.1:8089
 ويضيف مسارها إلى Caddy الموجود. لا يفتح منفذ 8089 للعامة ولا يحتاج سجل DNS جديدًا
 للبوابة. يتأكد من هوية الشبكة قبل التثبيت وقبل كل بث معاملة موقّعة.
-بعد إعادة تحميل Caddy يختبر شهادة HTTPS باسم gateway.pocol.net ومسار صحة Studio
+بعد إعادة تحميل Caddy يختبر شهادة HTTPS باسم explorer.pocol.net ومسار صحة Studio
 ومسار Explorer السابق /rpc. إذا فشل أي اختبار، يسترجع الإعداد السابق والخدمة السابقة.
 هذا الاختبار المحلي يثبت الشهادة والمسارات؛ يبقى الاختبار من Windows/cPanel مطلوبًا
 لإثبات وصول المستخدم من خارج الخادم.

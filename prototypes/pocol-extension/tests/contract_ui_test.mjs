@@ -26,7 +26,7 @@ async function fixture(options = {}) {
     Date:Clock, Uint8Array, TextEncoder, structuredClone, AbortController, console,
     location:{hash:'#'+JOB_ID}, document:{getElementById:id=>{assert.ok(elements.has(id),id);return elements.get(id)},createElement:tag=>makeElement(tag)},
     window:{addEventListener:(name,callback)=>listeners.set(name,callback)},setInterval:fn=>{tick=fn},
-    NETWORK:{chainId:1599846715,genesisHash:'0x'+'ab'.repeat(32),endpoint:'https://gateway.pocol.net/studio/rpc'},LOCK_MS:900000,
+    NETWORK:{chainId:1599846715,genesisHash:'0x'+'ab'.repeat(32),endpoint:'https://explorer.pocol.net/studio/rpc'},LOCK_MS:900000,
     extendLease:LEASE.extendLease,JOB_DEADLINE_DEFAULT_MS:LEASE.JOB_DEADLINE_DEFAULT_MS,isForeignJob:JOBS.isForeignJob,networkOf:JOBS.networkOf,
     addressOf:()=>ADDRESS, importKeyfile:async()=>{state.importEntered=true;const key = options.importGate ? await options.importGate : new Uint8Array(32).fill(7);state.generatedKeys.push(key);return key;}, exportKeyfile:async()=>({encrypted:true}),
     signTx:()=>{state.signed++;return{raw:'0x02',hash:HASH}}, Pool:class{},TRUST_POOL:1,RESERVE_WAIT_MS:2000,withRetry,transportRequest:async()=>{throw Error('No network should be used by this mocked UI test')},

@@ -24,9 +24,9 @@ await test('built-in profile is the marked spec-2 placeholder until the identity
   const placeholder=JSON.parse(readFileSync(new URL('../../../deploy/mainnet/placeholder-network.pocol.json',import.meta.url),'utf8'));
   const pinned=N.NETWORK.genesisPre===placeholder.files['genesis.spec.hex'];
   assert.equal(N.NETWORK_PLACEHOLDER===true,pinned,'the placeholder mark goes with the placeholder identity, and only with it');
-  assert.equal(N.NETWORK.name,'pocol-public');assert.equal(N.NETWORK.trustLevel,'RN');assert.equal(N.NETWORK.endpoint,'https://gateway.pocol.net/studio/rpc');
+  assert.equal(N.NETWORK.name,'pocol-public');assert.equal(N.NETWORK.trustLevel,'RN');assert.equal(N.NETWORK.endpoint,'https://explorer.pocol.net/studio/rpc');
 });
-await test('HTTPS only exact pinned RN endpoint',()=>{assert.equal(N.validateEndpoint(N.NETWORK.endpoint,'RN'),N.NETWORK.endpoint);for(const u of ['http://gateway.pocol.net/studio/rpc','https://gateway.pocol.net/studio/rpc?x=1','https://gateway.pocol.net.evil/studio/rpc','https://user@gateway.pocol.net/studio/rpc','https://example.org/'])assert.throws(()=>N.validateEndpoint(u,'RN'));});
+await test('HTTPS only exact pinned RN endpoint',()=>{assert.equal(N.validateEndpoint(N.NETWORK.endpoint,'RN'),N.NETWORK.endpoint);for(const u of ['http://explorer.pocol.net/studio/rpc','https://explorer.pocol.net/studio/rpc?x=1','https://explorer.pocol.net.evil/studio/rpc','https://user@explorer.pocol.net/studio/rpc','https://gateway.pocol.net/studio/rpc','https://example.org/'])assert.throws(()=>N.validateEndpoint(u,'RN'));});
 await test('remote endpoint cannot claim local verification or unsupported RP',()=>{assert.throws(()=>N.validateEndpoint(N.NETWORK.endpoint,'LN'));assert.throws(()=>N.validateEndpoint(N.NETWORK.endpoint,'RP'));assert.match(N.trustMessage('RN'),/remote/);});
 await test('loopback preserved and RN rejected on loopback',()=>{assert.equal(N.validateEndpoint('http://127.0.0.1:8540','LN'),'http://127.0.0.1:8540');assert.throws(()=>N.validateEndpoint('http://127.0.0.1:8540','RN'));});
 await test('wallet AES-GCM export roundtrip preserves exact desktop key address',async()=>{const box=await K.exportKeyfile(secret,password);assert.equal(box.address,'0x7e5f4552091a69125d5dfcb7b8c2659029395bdf');assert.deepEqual(await K.importKeyfile(text(box),password),secret);await assert.rejects(K.importKeyfile(text(box),'wrong password'));});
@@ -64,7 +64,7 @@ await test('W3: Studio and IDE content scripts match exactly the production orig
     vm.runInNewContext(readFileSync(dist+'/studio-content.js','utf8'),{window,location:{origin},chrome:{runtime:{sendMessage:async()=>({ok:true})}}});
     assert.equal(listener!==null,origin==='https://studio.pocol.net',origin);}
 });
-await test('manifest grants only fixed origins, publisher in package, unlimited checkpoint storage',()=>{assert.ok(manifest.permissions.includes('unlimitedStorage'));assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.optional_host_permissions,undefined);assert.equal(manifest.content_scripts[0].all_frames,false);assert.match(readFileSync(dist+'/publisher.html','utf8'),/publisher-ui.js/);});
+await test('manifest grants only fixed origins, publisher in package, unlimited checkpoint storage',()=>{assert.ok(manifest.permissions.includes('unlimitedStorage'));assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://explorer.pocol.net/*']);assert.equal(manifest.optional_host_permissions,undefined);assert.equal(manifest.content_scripts[0].all_frames,false);assert.match(readFileSync(dist+'/publisher.html','utf8'),/publisher-ui.js/);});
 
 // The decided release version is 0.5.0. It is set together with the signed release's download links, because the
 // websites' check (deploy/websites/tools/site_identity.py --check) requires every download link to name this version.

@@ -74,7 +74,7 @@ https://ide.pocol.net
 إعدادات الشبكة:
 Chain ID: 1599846715
 Chain ID (hex): 0x5f5bb93b
-RPC: https://gateway.pocol.net/studio/rpc
+RPC: https://explorer.pocol.net/studio/rpc
 Explorer: https://explorer.pocol.net
 Currency: PCOL — 18 decimals
 Genesis: 0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca
