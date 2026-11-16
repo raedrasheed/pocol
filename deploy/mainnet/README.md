@@ -10,7 +10,8 @@ this directory deploys anything, and no step below runs on a server without the 
 This runbook is completed once the genesis parameters are fixed. The steps, in order:
 
 1. **Release.** Build the release that will run the network with `POCOL_RELEASE=1` from a pinned tree, and
-   publish its binaries and checksums.
+   publish its binaries, `SHA256SUMS` and their ssh-ed25519 release signatures (`deploy/release/README.md`); the
+   owner verifies the set with `deploy/release/verify_release.py` before uploading it.
 2. **Prepare the servers.** The three US servers start from a clean install (`deploy/standalone/install-linux.sh`
    refuses a host that already has a PoCol install). The owner's computer runs the fourth founding miner; the
    phone is a wallet.
@@ -36,7 +37,8 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    the public launch if anything changed.
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
    one with `set_network_identity.py` (below), in one reviewed PR, and release the clients.
-8. **Public launch.** Publish the invitation on pocol.net and open the seeds.
+8. **Public launch.** Publish the invitation on pocol.net, signed with the release key like every download
+   (`deploy/release`), and open the seeds.
 
 ## Tools
 

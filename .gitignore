@@ -17,6 +17,11 @@
 **/keys-txa*.json
 **/txa-node-check.json
 *.pocol-key
+# OpenSSH private keys (the owner's release signing key never enters the repository; deploy/release).
+**/id_ed25519*
+**/*_ed25519
+**/pocol-release
+deploy/release/testdata/tmp-test-key*
 prototypes/pocold/target/
 # Ephemeral exploit-shaped witness programs copied in by the witness runner; never committed.
 **/tests/zz_audit_witness*.rs

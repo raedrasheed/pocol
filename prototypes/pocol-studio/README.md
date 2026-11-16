@@ -30,6 +30,9 @@ An optional `--guide /path/to/quick-start.txt` adds the Arabic quick-start.
 For separate checkouts, pass `--studio-dir`, `--extension-dir` and
 `--gateway-dir` explicitly. ZIP metadata is fixed for reproducible output.
 Packaging validates archive integrity; it does not run the component test suites.
+The public download (`PoCol-Studio-IDE-Viewer-<version>.zip`) is published only with its ssh-ed25519 release
+signature (`deploy/release/README.md`); the cPanel, gateway installer and source ZIPs are the owner's deploy inputs,
+not public downloads.
 
 Serve `dist/` with a static HTTP server for development. In the managed Sites environment, use `sites-preview start` with the absolute checkout directory. A preview origin must be explicitly included in the extension's Studio origin allowlist before the publish bridge is usable there.
 

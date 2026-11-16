@@ -8,7 +8,9 @@ backup, the backup's ciphertext.
 Build: `bash deploy/standalone/build-android.sh` (SDK 35, NDK 27.2.12479018, JDK 17, Gradle 8.11.1).
 The release APK is unsigned. The release operator signs it locally with the release keystore (kept outside the
 repository and CI artifacts), checks the signer with `apksigner verify --print-certs` and the application ID and
-versionCode with `aapt dump badging`, and recomputes the checksums before publishing it as installable.
+versionCode with `aapt dump badging`, and recomputes the checksums with `deploy/release/assemble_release.py`, then signs
+the release set (`deploy/release/README.md`) before publishing it as installable. The APK keeps both layers: the
+apksigner signature (Android's update identity) and the ssh-ed25519 release signature (download authenticity).
 
 ## Wallet only or miner
 

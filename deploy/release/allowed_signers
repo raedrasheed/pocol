@@ -1,0 +1,18 @@
+# PoCol release signing key (owner decision 2026-11-16): ssh-keygen ed25519, namespace pocol-release.
+#
+# OWNER INPUT. The line below is a PLACEHOLDER: no release verifies until the owner replaces it, by a reviewed pull
+# request, with the PUBLIC line of the release key. The owner makes the key once, offline, on a machine that is not a
+# server and not this repository's checkout:
+#
+#     ssh-keygen -t ed25519 -C release@pocol.net -f <offline path>/pocol-release
+#
+# then commits exactly one line here, in this form (the principal, the namespace option, and the key type and
+# base64 of <offline path>/pocol-release.pub; nothing else of that file):
+#
+#     release@pocol.net namespaces="pocol-release" ssh-ed25519 AAAA...
+#
+# and publishes its fingerprint (ssh-keygen -lf <offline path>/pocol-release.pub) on pocol.net and in
+# deploy/release/README.md. The private key never enters this repository, a CI runner, a server or a chat.
+# Exactly one key line is allowed: a rotation replaces it by a reviewed pull request, and an old release's signatures
+# stay checkable against the allowed_signers of that release's tagged commit.
+release@pocol.net namespaces="pocol-release" ssh-ed25519 PLACEHOLDER-OWNER-RELEASE-PUBLIC-KEY

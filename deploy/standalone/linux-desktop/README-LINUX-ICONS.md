@@ -6,4 +6,5 @@ Extract the complete tarball to a permanent folder and run `./install-desktop-ic
 
 Installing the desktop icon alone does not alter keys, service settings, network configuration or blockchain data.
 
-`SHA256SUMS` covers every included file. `source-commit.txt`, `build-info.json` and `release-info.json` identify the complete package source and compatibility.
+`SHA256SUMS` covers every included file (integrity). The published tarball is authenticated by its release signature
+(`deploy/release/README.md`). `source-commit.txt`, `build-info.json` and `release-info.json` identify the complete package source and compatibility.

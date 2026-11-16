@@ -107,7 +107,8 @@ Before the run:
 - Measure the founders' aggregate hash rate (the rehearsal's `networkHashrateEst` in
   `pocold status` feeds the mainnet run), and choose the launch second, or a delay.
 
-Extract the five-device ZIP into a new directory. Review `Initialize-PoColNetwork.ps1`,
+Verify the release first (*Verify the download* below), then extract
+`PoCol-Mainnet-0.4.0-windows-x86_64.zip` into a new directory. Review `Initialize-PoColNetwork.ps1`,
 open PowerShell inside that directory, and run (the addresses are placeholders for the
 servers' public IPv4 addresses):
 
@@ -158,14 +159,27 @@ refuses an existing installation), extract the package into a new directory, and
 PC's rehearsal home aside as above. Every founder key is then fresh for the mainnet.
 
 Transfer the generated **network.pocol.json** to the phone. After the signing and
-update checks in the release guide, install the correctly signed ARM64 APK,
+update checks in the release guide (`deploy/release/README.md`), install the correctly signed ARM64 APK,
 open **PoCol Wallet → Settings → Import network file**, select that file, and
 connect. Windows imports the adjacent shared file automatically; Settings also
 supports explicit import while disconnected. All devices use the same invitation.
-Publish the invitation fingerprint through a trusted channel; a checksum is not
-publisher authentication. The websites take their identity and the explorer's seed list
+Publish the invitation fingerprint through a trusted channel, and sign the invitation with the release key
+(`deploy/release`); a checksum is not publisher authentication, the release signature is. The websites take their identity and the explorer's seed list
 from this invitation, in the repository (W15 for the rehearsal, W16 for the mainnet):
 `python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT --gateway-host explorer.pocol.net`.
+
+### Verify the download
+
+Every published file has an ssh-ed25519 release signature `FILE.sig`, and the release's `SHA256SUMS` has
+`SHA256SUMS.sig` (owner decision 2026-11-16; `deploy/release/README.md`). With `allowed_signers` from the repository
+or pocol.net (compare its fingerprint with the published one) and OpenSSH 8.2 or later:
+
+```sh
+ssh-keygen -Y verify -f allowed_signers -I release@pocol.net -n pocol-release -s FILE.sig < FILE
+```
+
+or the whole directory with `deploy/release/verify_release.py DIR` (Windows: `Verify-PoColRelease.ps1 -Directory DIR`).
+Only `VERIFIED` is a verified release: the `SHA256SUMS` inside a package checks its integrity, not its publisher.
 
 ### Launch disclosures (DRAFT: wording for owner review)
 

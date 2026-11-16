@@ -13,6 +13,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 
@@ -189,12 +190,32 @@ class ReleasePackageTests(unittest.TestCase):
                             (expanded / member.name).write_bytes(tar.extractfile(member).read())
                     release = self.metadata(expanded)
                 else:
-                    release = self.metadata(out)
-                    self.assertTrue(all((out / (name + suffix)).is_file() for name in bins))
-                    self.assertTrue((out / 'PoCol-Wallet.exe').is_file())
+                    # The Windows download is one byte-stable archive with the package's SHA256SUMS inside.
+                    archive = out / f'PoCol-Mainnet-{VERSION}-windows-x86_64.zip'
+                    self.assertEqual({p.name for p in out.iterdir()}, {archive.name, 'SHA256SUMS'})
+                    self.assertEqual((out / 'SHA256SUMS').read_text(encoding='utf-8'),
+                                     f'{hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive.name}\n')
+                    expanded = self.root / 'expanded'
+                    expanded.mkdir()
+                    with zipfile.ZipFile(archive) as zf:
+                        for info in zf.infolist():
+                            self.assertEqual(Path(info.filename).name, info.filename)
+                            self.assertEqual(info.date_time, (1980, 1, 1, 0, 0, 0))
+                            (expanded / info.filename).write_bytes(zf.read(info))
+                        names = zf.namelist()
+                    self.assertEqual(names, sorted(names))
+                    self.assertNotIn('network.pocol.json', names)
+                    self.assertNotIn('wallet.key', names)
+                    release = self.metadata(expanded)
+                    self.assertTrue(all((expanded / (name + suffix)).is_file() for name in bins))
+                    self.assertTrue((expanded / 'PoCol-Wallet.exe').is_file())
                     for name in ('v3-profile.json', 'v3-rehearsal-profile.json'):
-                        self.assertEqual((out / name).read_bytes(), (self.root / 'deploy/mainnet' / name).read_bytes())
-                        self.assertIn('  ' + name, (out / 'SHA256SUMS').read_text(encoding='utf-8'))
+                        self.assertEqual((expanded / name).read_bytes(), (self.root / 'deploy/mainnet' / name).read_bytes())
+                        self.assertIn('  ' + name, (expanded / 'SHA256SUMS').read_text(encoding='utf-8'))
+                    # Byte-stable: the same inputs give the same archive.
+                    first = archive.read_bytes()
+                    shutil.rmtree(out); shutil.rmtree(expanded)
+                    self.assertEqual((self.package(platform) / archive.name).read_bytes(), first)
                 self.assertNotIn('applicationId', release)
                 shutil.rmtree(out)
 
