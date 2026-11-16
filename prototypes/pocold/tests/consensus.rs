@@ -5064,8 +5064,9 @@ fn pr7_sync(a:&mut pocold::node::Node,j:&mut pocold::node::Node,s:&mut std::net:
 
 /// Phase 8a: checkpoint format 1 (`POCKPT01`: every entry of the chain, no window fields) was written only by builds of
 /// the retired network, and its one-time migration is removed. Its bytes, sealed, are refused by name at decode, and a
-/// data directory whose state store holds one is not resumed from: open sets the store aside and replays from genesis,
-/// to the node a clean replay gives.
+/// data directory whose state store holds one is not resumed from, although the store's other checkpoint is format 2:
+/// open deletes `state.redb` (no `state.redb.aside` is kept), starts it empty and replays from genesis, to the node a
+/// clean replay gives.
 #[test] fn a_format_1_checkpoint_is_refused_by_name_and_open_replays_from_genesis(){
     use pocold::checkpoint::*;
     let rk=8u64;let blocks=pr7_chain(120);let a=e44_dir("p8a-ckpt1");let l=pr7_limits(rk,true,50,None);
@@ -5074,13 +5075,19 @@ fn pr7_sync(a:&mut pocold::node::Node,j:&mut pocold::node::Node,s:&mut std::net:
         assert!(decode(&b).is_ok(),"positive control: the newest checkpoint is format 2");
         let mut old=b[..b.len()-32].to_vec();old[..8].copy_from_slice(b"POCKPT01");let seal=revm::primitives::keccak256(&old);old.extend_from_slice(&seal.0);
         let e=decode(&old).unwrap_err();assert!(e.contains("format 1")&&e.contains("POCKPT01"),"refused by name: {e}");
-        st.write_checkpoint(&old,&roots,KEPT).unwrap();st.close();}
+        st.write_checkpoint(&old,&roots,KEPT).unwrap();let cps=st.checkpoints().unwrap();
+        assert!(cps.len()>=2&&cps.iter().any(|c|decode(&c.1).is_ok())&&cps.iter().any(|c|c.1.starts_with(b"POCKPT01")),
+            "the store holds the format-1 checkpoint beside a usable format-2 one ({} checkpoints)",cps.len());st.close();}
     let g=e44_dir("p8a-ckpt1-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
     let mut y=reopen(&pr7_conf(&g,l.clone()));assert_eq!(y.stats.resumed_from,None);
     let mut x=reopen(&pr7_conf(&a,l.clone()));
     assert_eq!(x.stats.resumed_from,None,"a state store holding a format-1 checkpoint is not resumed from");
     e44_same(&mut x,&mut y,"replayed from genesis past a format-1 checkpoint");
-    drop(x);drop(y);for p in [a,g]{let _=std::fs::remove_dir_all(&p);}
+    drop(x);drop(y);
+    assert!(!a.join(format!("{}.aside",pocold::state_store::FILE)).exists(),"the store is deleted, not set aside");
+    {let st=pocold::state_store::StateStore::open(&a).unwrap();let cps=st.checkpoints().unwrap();
+        assert!(cps.iter().all(|c|!c.1.starts_with(b"POCKPT01")&&decode(&c.1).is_ok()),"the store was started empty: it holds only checkpoints written since the open");st.close();}
+    for p in [a,g]{let _=std::fs::remove_dir_all(&p);}
 }
 
 /// PR7 (T13): a canonical index of another genesis, a missing one and one marked damaged are each set aside at open

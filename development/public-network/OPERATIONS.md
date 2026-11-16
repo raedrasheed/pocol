@@ -439,12 +439,16 @@ beside the bound; raise the budget. Status reports `canonicalBase`, `blocksIndex
 `anchors`, `evictStalls` (always 0 on a healthy node), `evictDepth`, `diskObserved`
 and `resourceDiskBytes`. `resourceDiskBytes` replaces `resourceProjectionRecords`.
 
-**Upgrade and downgrade.** On the first open of an older data directory a store-mode
-node resumes from its format-1 checkpoint (once, after a memory headroom check). It
-evicts in batches at open, writes canon.redb, and writes format-2 checkpoints from
-the next one on. A whole-state node replays from genesis, as it always does, now with
-window-sized memory. An older binary refuses the new checkpoint format (bad magic),
-drops it and replays from genesis, ignores canon.redb, and has the old memory
+**Upgrade and downgrade.** The local formats that only the retired network's builds
+wrote are not read (Phase 8a). A state store that holds a format-1 checkpoint
+(`POCKPT01`) is deleted and started empty, and the node replays from genesis; there is
+no one-time checkpoint resume and no migration headroom check. A state store of
+format 2 and a history.redb that holds the old nonce ranges table are set aside
+(`*.aside`) and rebuilt by replay. A journal in the v1 layout (`POCOLJ1`) or with the
+128-byte commit file is refused by name and left untouched: start that node on a new
+data directory. A whole-state node replays from genesis, as it always does, with
+window-sized memory. An older binary refuses the current checkpoint format (bad
+magic), drops it and replays from genesis, ignores canon.redb, and has the old memory
 behaviour.
 
 **Threads.** Every inbound place has a reader and a writer thread. The A13 thread
