@@ -5680,7 +5680,7 @@ fn signed_at(h:&Net,parent:[u8;32],txs:Vec<Vec<u8>>,clock:u64)->Result<lp1hdr::H
 #[test] fn v3_a_transaction_whose_own_logs_pass_a_block_cap_is_refused_by_the_pool(){own_logs_refused(cfg_funded(),true)}
 fn own_logs_refused(c:DevnetConfig,v3:bool){
     let caps=pocol_lp4_execution::user_phase::log_caps(v3);let bob=key("bob");
-    let (mut n,dir)=gas_node_cfg(if c.spec_version>=2{"own-logs"}else{"own-logs-spec1"},Default::default(),&c,None);
+    let (mut n,dir)=gas_node_cfg("own-logs",Default::default(),&c,None);
     assert_eq!(n.chain.spec.v3_active(1),v3);
     // LOG0 with 32,769 bytes (spec 1: 36 + 32,769 > LOG_BLOCK_MAX) or V3_LOG_BLOCK_MAX - 35 bytes (v3: one past the cap).
     let bytes=if v3{let len=caps.bytes-35;vec![0x62,(len>>16) as u8,(len>>8) as u8,len as u8,0x5f,0xa0,0x00]}else{vec![0x61,0x80,0x01,0x5f,0xa0,0x00]};
@@ -5711,7 +5711,7 @@ fn own_logs_refused(c:DevnetConfig,v3:bool){
 #[test] fn v3_a_transaction_halting_on_its_own_logs_is_included_and_charged(){own_logs_halt(cfg_funded(),true)}
 fn own_logs_halt(c:DevnetConfig,v3:bool){
     let mut h=net_with(&c);let g=h.chain.head;let (alice,bob)=(key("alice"),key("bob"));
-    let (mut n,dir)=gas_node_cfg(if c.spec_version>=2{"own-logs-ctx"}else{"own-logs-ctx-spec1"},Default::default(),&c,None);
+    let (mut n,dir)=gas_node_cfg("own-logs-ctx",Default::default(),&c,None);
     assert_eq!(n.chain.spec.v3_active(1),v3);let k=pocol_lp4_execution::user_phase::log_caps(v3).count as u16+1;
     // PREVRANDAO ISZERO PUSH1 21 JUMPI; PUSH2 k (547 on spec 1, 4,369 on v3); loop: PUSH0 PUSH0 LOG0 PUSH1 1 SWAP1 SUB DUP1 PUSH1 8 JUMPI; STOP; 21: JUMPDEST STOP
     let rt=vec![0x44,0x15,0x60,0x15,0x57,0x61,(k>>8) as u8,k as u8,0x5b,0x5f,0x5f,0xa0,0x60,0x01,0x90,0x03,0x80,0x60,0x08,0x57,0x00,0x5b,0x00];
