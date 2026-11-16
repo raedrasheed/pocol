@@ -16,7 +16,7 @@ import assemble_release as ar  # noqa: E402
 KEYGEN = shutil.which('ssh-keygen')
 VERSION = ar.native_version()
 # The documented key-line count of a downloaded allowed_signers (README.md, user procedure step 1): must print 1.
-KEY_COUNT = "grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers"
+KEY_COUNT = "LC_ALL=C grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers"
 EXT_VERSION = ar.extension_version()
 
 
@@ -287,14 +287,17 @@ class Verifier(unittest.TestCase):
             work = self.base / 'check'
             shutil.rmtree(work, ignore_errors=True)
             work.mkdir()
-            (work / 'allowed_signers').write_text(text, encoding='ascii')
-            count = subprocess.run(KEY_COUNT, shell=True, cwd=work, capture_output=True, text=True).stdout.strip()
+            (work / 'allowed_signers').write_text(text, encoding='utf-8')
+            # A UTF-8 locale, as a user's terminal has: the documented LC_ALL=C must still count a Unicode-space line.
+            env = dict(os.environ, LANG='C.UTF-8', LC_CTYPE='C.UTF-8')
+            count = subprocess.run(KEY_COUNT, shell=True, cwd=work, capture_output=True, text=True, env=env).stdout.strip()
             fp = subprocess.run(f"grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | '{KEYGEN}' -lf -", shell=True, cwd=work,
                                 capture_output=True, text=True).stdout
             return count, [l.split()[1] for l in fp.splitlines()]
         self.assertEqual(documented(f'# the release key\n\n{good}\n'), ('1', [printed]))
         for extra in (f'{vr.PRINCIPAL} {kind} {blob}', f'{vr.PRINCIPAL}  namespaces="{vr.NAMESPACE}" {kind} {blob}',
-                      f'{vr.PRINCIPAL}\tnamespaces="{vr.NAMESPACE}" {kind} {blob}', f'\x0b#x,{vr.PRINCIPAL} {kind} {blob}'):
+                      f'{vr.PRINCIPAL}\tnamespaces="{vr.NAMESPACE}" {kind} {blob}', f'\x0b#x,{vr.PRINCIPAL} {kind} {blob}',
+                      f'\u2000#x,{vr.PRINCIPAL} {kind} {blob}'):
             with self.subTest(extra=extra):
                 count, fingerprints = documented(f'{good}\n{extra}\n')
                 self.assertEqual(count, '2')

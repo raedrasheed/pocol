@@ -70,11 +70,12 @@ signatures stay checkable against the `allowed_signers` of that release's tagged
    and that key's fingerprint must be the one published on pocol.net:
 
    ```sh
-   grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers
+   LC_ALL=C grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers
    grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | ssh-keygen -lf -
    ```
 
-   The first must print `1`: ssh-keygen accepts every key line in the file, and the second command silently skips a
+   The first must print `1` (`LC_ALL=C` keeps `[[:blank:]]` to the space and tab that ssh-keygen skips; in a UTF-8
+   locale it also matches Unicode spaces, which would hide a key line): ssh-keygen accepts every key line in the file, and the second command silently skips a
    line it cannot cut (an added `release@pocol.net ssh-ed25519 KEY` line, or one spaced with tabs), so one printed
    fingerprint alone does not show the file holds one key. (`ssh-keygen -lf allowed_signers` does not work: it is not
    a public key file.) These commands only check the downloaded file. The check that decides is the fingerprint of
