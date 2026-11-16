@@ -23,28 +23,13 @@ except ImportError:
     TransactionIndex = None
     class SnapshotChanged(RuntimeError): pass
     def valid_options(_): return False
-try:
-    from pocol_rewards import (snapshot as reward_snapshot, validated_fork_schedule,
-                               DEFAULT_FORK_SCHEDULE)
-except ImportError:
-    reward_snapshot = None
-    validated_fork_schedule = None
-    DEFAULT_FORK_SCHEDULE = ((1, 0),)
-try:
-    from pocol_rewards import validated_network, MAX_CALLS_V3, MAX_SECONDS_V3
-except ImportError:
-    validated_network = None
-    MAX_CALLS_V3, MAX_SECONDS_V3 = 0, 0
-try:
-    from pocol_rewards import (keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS, ACTIVE_SLICE_GAS,
-                               MAX_MEMBERS_V3, ACTIVE_PAGE, active_version, full_nonce_rule)
-except ImportError:
-    keccak256 = None
-    MAX_MEMBERS_V3, ACTIVE_PAGE = 10000, 512
+# The reward and membership reader is part of the gateway (installed beside it); the GeoIP and transaction index modules
+# are optional server-installed pieces.
+from pocol_rewards import (snapshot_v3 as reward_snapshot, validated_fork_schedule, validated_network, DEFAULT_FORK_SCHEDULE,
+                           MAX_CALLS_V3, MAX_SECONDS_V3, keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS,
+                           ACTIVE_SLICE_GAS, MAX_MEMBERS_V3, ACTIVE_PAGE)
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-CHAIN_ID = 1599846715
-GENESIS = '0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
 MAX_REQUEST = 16384
 MAX_RESPONSE = 4 * 1024 * 1024
 NO_PARAMS = {'pocol_status', 'pocol_getParams', 'pocol_getMiners', 'eth_blockNumber', 'net_peerCount', 'eth_gasPrice', 'pocol_getNetworkGeography', 'pocol_getBlockReward',
@@ -59,16 +44,15 @@ MEMBER_PAGE_MAX = 256
 MEMBER_READS_MAX = 8
 MEMBER_CACHE_MAX = 64
 # pocol_getMember's proposerEligible is the draw's candidate rule for the next block (chain.rs membership_one_pass and
-# assignment.rs Membership::from_parent / DrawWeights::new), which can depend on the whole proposer membership A_h*: an
-# ACCRUING record below B_reg/4 is excluded unless every member of A_h* is (the owner-approved all-probationer
-# exception), and on a bounded nonce domain A_h* is the members active within W_act unless none is. Deciding that reads
-# the ActList (lengths and at most DRAW_PAGES_MAX activeSlice pages, cached per head) and, on demand, the bond and
-# graceStart of other members (at most DRAW_RECORDS_MAX recordWords calls); past that bound proposerEligible is null.
+# assignment.rs Membership::from_parent / DrawWeights::new), which can depend on the whole proposer membership A_h*, the
+# live (non-tomb) ActList members (v3 draws from all of them, D-V3-01): an ACCRUING record below B_reg/4 is excluded
+# unless every member of A_h* is (the owner-approved all-probationer exception). Deciding that reads the ActList
+# (lengths and at most DRAW_PAGES_MAX activeSlice pages, cached per head) and, on demand, the bond of other members (at
+# most DRAW_RECORDS_MAX recordWords calls); past that bound proposerEligible is null.
 DRAW_PAGES_MAX = -(-MAX_MEMBERS_V3 // ACTIVE_PAGE)
 DRAW_RECORDS_MAX = 32
 DRAW_READS_MAX = 3 + DRAW_PAGES_MAX + DRAW_RECORDS_MAX
 DRAW_CACHE_MAX = 2
-CP_NONCE_MODE, CP_W_ACT = 4, 24
 # Token cost per method (others cost 1): a reward snapshot and one member record (four calls and a fresh-block check).
 COSTS = {'pocol_getBlockReward': 20, 'pocol_getMember': 20, 'pocol_getMembers': 5, 'pocol_getRemovable': 10}
 # MinerRegistry record word w0 (REGISTRY-LAYOUT.md): status 0..7, tomb 8..15, bondState 16..23, recPos 24..55,
@@ -83,34 +67,22 @@ U32, U64, U160 = (1 << 32) - 1, (1 << 64) - 1, (1 << 160) - 1
 HASH_METHODS = {'eth_getTransactionByHash', 'eth_getTransactionReceipt'}
 ACCOUNT_METHODS = {'eth_getBalance', 'eth_getTransactionCount', 'eth_getCode'}
 
-def trusted_fork_schedule(value):
-    # Preserve the gateway's optional reward module in legacy-only installations.
-    if validated_fork_schedule is None:
-        if value != DEFAULT_FORK_SCHEDULE:
-            raise RuntimeError('Install the reward module before configuring a fork schedule')
-        return DEFAULT_FORK_SCHEDULE
-    return validated_fork_schedule(value)
-
-
 def load_fork_schedule(filename=None):
-    """Read operator configuration once at startup; never derive it from RPC."""
+    """Read operator configuration once at startup; never derive it from RPC. Without a file: [[1, 0]] (the v3 profiles
+    name no fork; fork 2 is a no-op, fork 3 the cap raise)."""
     if filename is None:
         return DEFAULT_FORK_SCHEDULE
     with open(filename, 'rb') as source:
         raw = source.read(4097)
     if len(raw) > 4096:
         raise ValueError('Fork schedule file exceeds 4096 bytes')
-    return trusted_fork_schedule(json.loads(raw))
+    return validated_fork_schedule(json.loads(raw))
 
 
-def load_v3_network(filename=None):
-    """Read the operator's v3 network configuration once at startup (V3-PR-G; no v3 network identity is pinned yet): a JSON object
-    {"chainId": N, "genesisHash": "0x...", "specVersion": 2, "v3": true}. Without a file the gateway serves only the
-    pinned spec-1 Mainnet; a v3 genesis is never enabled by an RPC answer."""
-    if filename is None:
-        return None
-    if validated_network is None:
-        raise RuntimeError('Install the reward module before configuring a v3 network')
+def load_v3_network(filename):
+    """Read the operator's network configuration once at startup (required: there is no built-in network): a JSON object
+    {"chainId": N, "genesisHash": "0x...", "specVersion": 2, "v3": true} and optionally "source" (an https URL the reward
+    answer names). The network is never enabled by an RPC answer."""
     with open(filename, 'rb') as source:
         raw = source.read(4097)
     if len(raw) > 4096:
@@ -184,49 +156,30 @@ def member_w0(w0):
 class DrawUndecided(Exception):
     """The candidate rule needs more member records than DRAW_RECORDS_MAX."""
 
-def draw_candidate(target, t_words, quarter, all_live, cutoff, scan, words):
+def draw_candidate(target, t_words, quarter, scan, bond):
     """Whether `target` is a proposer candidate of the next block h = H + 1 drawn from state H, exactly as pocold
     decides it (chain.rs membership_one_pass, assignment.rs Membership::from_parent and DrawWeights::new on v3):
-    A_h* is the live (non-tomb) ActList members, or on a bounded nonce domain (all_live() false) those with lastShare or
-    graceStart >= cutoff() = max(0, h - W_act) unless none is; a member of A_h* is a candidate unless it is ACCRUING with
-    a bond below B_reg/4 (`quarter`), and when every member of A_h* is such a probationer all of them are candidates.
-    t_words: the target's (w0, bond, graceStart). scan(): (the ActList at H as [(address, w0)], heldTotal), read only
-    when the answer depends on other members; words(address): (bond, graceStart) of another member, read on demand
-    (DrawUndecided past its bound). heldTotal (MinerRegistry slot 4) is the sum of the held bonds, so below `quarter`
-    every ACCRUING member is below it without reading the bonds."""
-    t_w0, t_bond, t_grace = t_words
+    A_h* is the live (non-tomb) ActList members; a member of A_h* is a candidate unless it is ACCRUING with a bond below
+    B_reg/4 (`quarter`), and when every member of A_h* is such a probationer all of them are candidates.
+    t_words: the target's (w0, bond). scan(): (the ActList at H as [(address, w0)], heldTotal), read only when the
+    answer depends on other members; bond(address): the bond of another member, read on demand (DrawUndecided past its
+    bound). heldTotal (MinerRegistry slot 4) is the sum of the held bonds, so below `quarter` every ACCRUING member is
+    below it without reading the bonds."""
+    t_w0, t_bond = t_words
     if t_w0 & 255 != 1 or (t_w0 >> 8) & 255:
         return False
-    all_live = all_live()
-    cutoff = 0 if all_live else cutoff()
-    share = lambda w0: (w0 >> 88) & U64
     accruing = lambda w0: (w0 >> 16) & 255 == 4
-    def live():
-        members, held = scan()
-        if not any(a == target for a, _ in members): raise RuntimeError('Active record missing from the active list')
-        return [(a, w0) for a, w0 in members if not (w0 >> 8) & 255], held
-    known = lambda a: (t_bond, t_grace) if a == target else words(a)
-    active = lambda a, w0: share(w0) >= cutoff or known(a)[1] >= cutoff
-    # pool_active: A_h* is the active subset (bounded domain with an active member); otherwise every live member.
-    pool_active = False
-    if not all_live:
-        if share(t_w0) >= cutoff or t_grace >= cutoff:
-            pool_active = True
-        else:
-            members, _ = live()
-            if any(share(w0) >= cutoff for _, w0 in members) or any(active(a, w0) for a, w0 in members):
-                return False
     if not (accruing(t_w0) and t_bond < quarter):
         return True
-    members, held = live()
-    in_pool = lambda a, w0: not pool_active or active(a, w0)
-    cheap = lambda w0: not pool_active or share(w0) >= cutoff
-    # Any member of A_h* that is not a probationer ends the exception: first those decided by w0 alone.
-    if any(not accruing(w0) and cheap(w0) for _, w0 in members) or any(not accruing(w0) and in_pool(a, w0) for a, w0 in members):
+    members, held = scan()
+    if not any(a == target for a, _ in members): raise RuntimeError('Active record missing from the active list')
+    members = [(a, w0) for a, w0 in members if not (w0 >> 8) & 255]
+    # Any member of A_h* that is not a probationer ends the exception.
+    if any(not accruing(w0) for _, w0 in members):
         return False
     if held < quarter:
         return True
-    return not any(in_pool(a, w0) and known(a)[0] >= quarter for a, w0 in members)
+    return not any((t_bond if a == target else bond(a)) >= quarter for a, _ in members)
 
 def member_record(address, words, clocks, removal, b_reg):
     """pocol_getMember: recordWords' four words decoded (w0 fields, w1 reward address, w2 bond, w3 exit clocks),
@@ -247,13 +200,11 @@ def member_record(address, words, clocks, removal, b_reg):
     return record
 
 class Gateway:
-    def __init__(self, upstream_port=8545, geography=None, transactions=None, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network=None):
-        self.fork_schedule = trusted_fork_schedule(fork_schedule)
-        if network is not None and validated_network is None:
-            raise RuntimeError('Install the reward module before configuring a v3 network')
-        # None: the pinned spec-1 Mainnet. A v3 network only from the operator's validated configuration.
-        self.network = None if network is None else validated_network(network)
-        self.chain_id = CHAIN_ID if self.network is None else self.network.chain_id
+    def __init__(self, upstream_port=8545, geography=None, transactions=None, *, fork_schedule=DEFAULT_FORK_SCHEDULE, network):
+        self.fork_schedule = validated_fork_schedule(fork_schedule)
+        # The network only from the operator's validated configuration; there is no built-in one.
+        self.network = validated_network(network)
+        self.chain_id = self.network.chain_id
         self.port = upstream_port
         self.geography = geography
         self.transactions = transactions
@@ -289,14 +240,12 @@ class Gateway:
         finally: conn.close()
     def verify_network(self):
         params = self.query('pocol_getParams', []).get('result', {})
-        chain_id, genesis = (CHAIN_ID, GENESIS) if self.network is None else (self.network.chain_id, self.network.genesis)
-        if params.get('chainId') != chain_id or params.get('genesisHash', '').lower() != genesis:
+        genesis = params.get('genesisHash')
+        if params.get('chainId') != self.network.chain_id or not isinstance(genesis, str) or genesis.lower() != self.network.genesis:
             raise RuntimeError('The local RPC does not belong to the configured PoCol network')
     def membership(self, method, params):
         """pocol_getMembers / pocol_getMember at the head block, every read at that one height, cached per head (block
         hash) and refused with ChainMoved when the block at that height changed while it was read."""
-        if self.network is None or keccak256 is None:
-            raise RuntimeError('v3 membership needs the reward module and a configured --v3-network')
         remaining = MEMBER_READS_MAX + (DRAW_READS_MAX if method == 'pocol_getMember' else 0)
         def read(read_method, read_params):
             nonlocal remaining
@@ -341,8 +290,7 @@ class Gateway:
             result = {'height': height, 'blockHash': head, **member_record(member, words, clocks, removal, b_reg)}
             draw = self.draw_state(head, height, call)
             try:
-                result['proposerEligible'] = draw_candidate(member, (words[0], words[2], (words[3] >> 192) & U64), b_reg // 4,
-                                                            draw['allLive'], draw['cutoff'], draw['scan'], draw['words'])
+                result['proposerEligible'] = draw_candidate(member, (words[0], words[2]), b_reg // 4, draw['scan'], draw['bond'])
             except DrawUndecided:
                 result['proposerEligible'] = None
         if block(hex(height))[1] != head: raise ChainMoved('Chain changed while membership was read')
@@ -356,25 +304,13 @@ class Gateway:
             while len(self.member_cache) > MEMBER_CACHE_MAX: self.member_cache.popitem(last=False)
         return result
     def draw_state(self, head, height, call):
-        """The inputs of draw_candidate at state `height` (block `head`), each read once and only when needed:
-        all_live (v3 with the full nonce domain at the next height: the operator's fork schedule, else CP nonceMode),
-        the W_act cutoff, the ActList with heldTotal (lengths and activeSlice pages) and other members' (bond,
-        graceStart). Values from a previous request at the same head are reused; `cached` is stored only after the
-        caller's final block check."""
+        """The inputs of draw_candidate at state `height` (block `head`), each read once and only when needed: the
+        ActList with heldTotal (lengths and activeSlice pages) and other members' bonds. Values from a previous request
+        at the same head are reused; `cached` is stored only after the caller's final block check."""
         with self.lock:
             cached = dict(self.draw_cache.get(head, {}))
-        cached['words'] = dict(cached.get('words', {}))
+        cached['bonds'] = dict(cached.get('bonds', {}))
         record_reads = 0
-        def cap(index):
-            return call(CAPS, _word_args('get(uint256)', index), CALL_GAS, 1)[0]
-        def all_live():
-            if 'allLive' not in cached:
-                version = active_version(height + 1, self.fork_schedule)
-                cached['allLive'] = full_nonce_rule(version, None if version >= 2 else cap(CP_NONCE_MODE))
-            return cached['allLive']
-        def cutoff():
-            if 'wAct' not in cached: cached['wAct'] = cap(CP_W_ACT)
-            return max(0, height + 1 - cached['wAct'])
         def scan():
             if 'members' not in cached:
                 lengths = call(REGISTRY, _word_args('lengths()'), CALL_GAS, 4)
@@ -392,15 +328,14 @@ class Gateway:
                         seen.add(address); members.append((address, w0))
                 cached['members'] = (members, held)
             return cached['members']
-        def words(address):
+        def bond(address):
             nonlocal record_reads
-            if address not in cached['words']:
+            if address not in cached['bonds']:
                 if record_reads >= DRAW_RECORDS_MAX: raise DrawUndecided()
                 record_reads += 1
-                w = call(REGISTRY, _word_args('recordWords(address)', int(address, 16)), CALL_GAS, 4)
-                cached['words'][address] = (w[2], (w[3] >> 192) & U64)
-            return cached['words'][address]
-        return {'allLive': all_live, 'cutoff': cutoff, 'scan': scan, 'words': words, 'cached': cached}
+                cached['bonds'][address] = call(REGISTRY, _word_args('recordWords(address)', int(address, 16)), CALL_GAS, 4)[2]
+            return cached['bonds'][address]
+        return {'scan': scan, 'bond': bond, 'cached': cached}
     def call(self, request):
         method, params = request['method'], request['params']
         key = json.dumps([method, params], separators=(',', ':'))
@@ -416,15 +351,15 @@ class Gateway:
         reward_locked = False
         try:
             if method == 'pocol_getBlockReward':
-                if reward_snapshot is None: raise RuntimeError('Reward summary is not installed')
                 if time.monotonic() - self.reward_failed_at < 3:
                     raise RuntimeError('Reward summary temporarily unavailable')
                 reward_locked = self.reward_slot.acquire(blocking=False)
                 if not reward_locked:
                     return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32021,'message':'Reward snapshot is being prepared; retry shortly'}}
-                deadline, remaining = time.monotonic() + (20 if self.network is None else MAX_SECONDS_V3), 512 if self.network is None else MAX_CALLS_V3
-                reads = {'pocol_status', 'pocol_getParams', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'pocol_getBlockRlp', 'eth_call', 'eth_getCode', 'eth_getBalance', 'eth_getTransactionCount'}
-                if self.network is not None: reads = reads | {'eth_getTransactionReceipt'}   # V3-20: the block's tips
+                deadline, remaining = time.monotonic() + MAX_SECONDS_V3, MAX_CALLS_V3
+                # eth_getTransactionReceipt: the block's tips (V3-20).
+                reads = {'pocol_status', 'pocol_getParams', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'pocol_getBlockRlp', 'eth_call',
+                         'eth_getCode', 'eth_getBalance', 'eth_getTransactionCount', 'eth_getTransactionReceipt'}
                 def bounded_reward_query(read_method, read_params):
                     nonlocal remaining
                     if remaining <= 0 or time.monotonic() >= deadline:
@@ -434,10 +369,7 @@ class Gateway:
                     remaining -= 1
                     return self.query(read_method, read_params)
                 try:
-                    if self.network is None:
-                        value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule)
-                    else:
-                        value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule, network=self.network)
+                    value = reward_snapshot(bounded_reward_query, fork_schedule=self.fork_schedule, network=self.network)
                 except Exception as error:
                     self.reward_failed_at = time.monotonic()
                     if isinstance(error, (OSError, ValueError, RuntimeError, KeyError, sqlite3.Error, http.client.HTTPException)):
@@ -548,8 +480,10 @@ if __name__ == '__main__':
     parser.add_argument('--bind', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=8088)
     parser.add_argument('--rpc-port', type=int, default=8545)
-    parser.add_argument('--fork-schedule', metavar='FILE', help='Trusted JSON [[1,0],[2,activation_height]] schedule, or [[1,0],[2,h2],[3,raise_height]] with a cap raise; default is version 1 only')
-    parser.add_argument('--v3-network', metavar='FILE', help='Trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true}: serve a v3 (spec-2) network instead of Mainnet')
+    parser.add_argument('--fork-schedule', metavar='FILE', help='Trusted JSON fork schedule; default [[1,0]] (the v3 profiles name no fork). '
+                        'Fork 2 is a no-op, fork 3 the cap raise: [[1,0],[2,h2],[3,raise_height]]')
+    parser.add_argument('--v3-network', metavar='FILE', required=True,
+                        help='Required trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true[,"source":"https://.."]}: the network served')
     args = parser.parse_args()
     try:
         fork_schedule = load_fork_schedule(args.fork_schedule)

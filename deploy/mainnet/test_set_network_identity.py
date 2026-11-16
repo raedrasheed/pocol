@@ -460,7 +460,7 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_line_endings_are_kept(self):
         root = self.copy()
-        rel = 'deploy/rewards/gateway.py'
+        rel = 'README.md'
         crlf = (root / rel).read_bytes().replace(b'\n', b'\r\n')
         (root / rel).write_bytes(crlf)
         self.assertEqual(self.run_tool(root), 0)
@@ -533,7 +533,7 @@ class SetNetworkIdentity(unittest.TestCase):
         for extra in (f'# {HASH_A}\n', f'# {SPEC_A.hex()}\n'):
             with self.subTest(extra=extra[:20]):
                 root = self.copy()
-                rel = 'deploy/rewards/gateway.py'
+                rel = 'README.md'
                 # It still holds its table's copies of the current identity, but after the switch it would hold one
                 # copy of the given genesis hash (or GenesisSpec) more than its table allows.
                 (root / rel).write_text((root / rel).read_text(encoding='utf-8') + extra, encoding='utf-8')
@@ -566,7 +566,7 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_a_file_that_already_holds_the_given_hash_is_refused(self):
         root = self.copy()
-        rel = 'deploy/rewards/gateway.py'
+        rel = 'README.md'
         text = (root / rel).read_text(encoding='utf-8')
         (root / rel).write_text(re.sub(CUR_GENESIS, HASH_A[2:], text, flags=re.IGNORECASE), encoding='utf-8')
         before = self.snapshot(root)
@@ -586,7 +586,7 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_a_hash_inside_longer_hex_is_neither_counted_nor_changed(self):
         root = self.copy()
-        rel = 'deploy/rewards/gateway.py'
+        rel = 'README.md'
         # The hash with hex digits after or before it, and the chain ID inside longer words and numbers.
         longer = f'# 0x{CUR_GENESIS}ab ab{CUR_GENESIS} {CUR_CHAIN}0 x{CUR_CHAIN} {CUR_CHAIN}_1\n'
         (root / rel).write_text((root / rel).read_text(encoding='utf-8') + longer, encoding='utf-8')
@@ -607,7 +607,7 @@ class SetNetworkIdentity(unittest.TestCase):
     def test_upper_case_copies_and_inputs_are_switched(self):
         root = self.copy()
         # A copy of the hash and of the GenesisSpec in upper case still counts, and is switched.
-        for rel, old in (('deploy/rewards/gateway.py', CUR_GENESIS), (ni.ANCHOR, CUR_SPEC.hex())):
+        for rel, old in (('README.md', CUR_GENESIS), (ni.ANCHOR, CUR_SPEC.hex())):
             text = (root / rel).read_text(encoding='utf-8')
             self.assertIn(old, text)
             (root / rel).write_text(text.replace(old, old.upper()), encoding='utf-8')

@@ -13,6 +13,10 @@ spec = importlib.util.spec_from_file_location('reward_gateway_under_test', ROOT 
 gateway = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gateway)
 
+# A trusted network configuration (--v3-network): every gateway serves one.
+NET = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
+OTHER_CHAIN = 777964
+
 def request(method='pocol_getBlockReward', params=None, ident=1):
     return {'jsonrpc': '2.0', 'id': ident, 'method': method, 'params': [] if params is None else params}
 
@@ -33,7 +37,7 @@ class GatewayRewardTests(unittest.TestCase):
         self.assertTrue(gateway.valid_call(request('eth_getBlockByNumber', ['latest', False])))
         self.assertTrue(gateway.valid_call(request('pocol_getNetworkGeography')))
 
-    def test_schedule_file_is_numeric_validated_and_defaults_to_legacy(self):
+    def test_schedule_file_is_numeric_validated_and_defaults_to_version_1(self):
         self.assertEqual(gateway.load_fork_schedule(), ((1, 0),))
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             filename = Path(directory) / 'forks.json'
@@ -58,11 +62,11 @@ class GatewayRewardTests(unittest.TestCase):
     def test_schedule_is_local_frozen_and_forwarded_as_keyword(self):
         for configured in (None, [[1, 0], [2, 100]]):
             expected = ((1, 0),) if configured is None else ((1, 0), (2, 100))
-            service = gateway.Gateway() if configured is None else gateway.Gateway(fork_schedule=configured)
+            service = gateway.Gateway(network=NET) if configured is None else gateway.Gateway(fork_schedule=configured, network=NET)
             if configured is not None:
                 configured[1][1] = 1
             reads = []
-            def fake(query, *, fork_schedule):
+            def fake(query, *, fork_schedule, network):
                 reads.append(fork_schedule)
                 return {'blockHeight': 100}
             # Extra JSON-RPC fields cannot replace the operator's startup schedule.
@@ -77,7 +81,7 @@ class GatewayRewardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             filename = Path(directory) / 'forks.json'
             filename.write_text('[[1,0],[2,100]]')
-            service = gateway.Gateway(fork_schedule=gateway.load_fork_schedule(filename))
+            service = gateway.Gateway(fork_schedule=gateway.load_fork_schedule(filename), network=NET)
             filename.write_text('[[1,0],[2,1]]')
             with patch.object(gateway, 'reward_snapshot', return_value={}) as snapshot:
                 service.call(request())
@@ -87,17 +91,26 @@ class GatewayRewardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             filename = Path(directory) / 'forks.json'
             filename.write_text('[[1,0],[2,0]]')
+            network = Path(directory) / 'network.json'
+            network.write_text(json.dumps(NET))
             result = subprocess.run([sys.executable, str(ROOT / 'gateway.py'),
-                                     '--fork-schedule', str(filename)], capture_output=True,
+                                     '--fork-schedule', str(filename), '--v3-network', str(network)], capture_output=True,
                                     text=True, timeout=5)
             self.assertEqual(result.returncode, 2)
             self.assertIn('Unsupported trusted fork schedule', result.stderr)
             self.assertNotIn('ConnectionRefusedError', result.stderr)
 
+    def test_cli_without_a_network_file_exits_before_connecting_to_node(self):
+        result = subprocess.run([sys.executable, str(ROOT / 'gateway.py')], capture_output=True, text=True, timeout=5)
+        self.assertEqual(result.returncode, 2)
+        self.assertIn('--v3-network', result.stderr)
+        self.assertIn('required', result.stderr)
+        self.assertNotIn('ConnectionRefusedError', result.stderr)
+
     def test_params_expose_only_new_public_fork_fields(self):
         added = {'forkSchedule': [[1, 0], [2, 100]], 'effectiveNonceMode': 0,
                  'nextBlockNonceMode': 1, 'consensusCompatibilitySha256': '0x' + 'a' * 64}
-        value = {'chainId': gateway.CHAIN_ID, **added,
+        value = {'chainId': NET['chainId'], **added,
                  'internalRpc': 'private', 'forkScheduleFile': '/private/forks.json'}
         result = gateway.sanitize('pocol_getParams', value)
         for key, expected in added.items():
@@ -120,12 +133,12 @@ class GatewayRewardTests(unittest.TestCase):
     def test_a_scheduled_cap_raise_passes_the_params_sanitizer_and_is_absent_without_one(self):
         # FN-5: pocol_getParams `capRaise` beside forkSchedule, so wallets and the reward check see the activated schedule.
         raise_ = {'ACCT_CAP': 90000, 'SLOT_CAP': 90000, 'CODE_CAP': 4194304, 'SYS_SLOT_MAX': 70000, 'height': 200}
-        value = {'chainId': gateway.CHAIN_ID, 'forkSchedule': [[1, 0], [2, 100], [3, 200]], 'capRaise': raise_}
+        value = {'chainId': NET['chainId'], 'forkSchedule': [[1, 0], [2, 100], [3, 200]], 'capRaise': raise_}
         result = gateway.sanitize('pocol_getParams', value)
         self.assertEqual((result['forkSchedule'], result['capRaise']), (value['forkSchedule'], raise_))
-        self.assertNotIn('capRaise', gateway.sanitize('pocol_getParams', {'chainId': gateway.CHAIN_ID, 'forkSchedule': [[1, 0]]}))
+        self.assertNotIn('capRaise', gateway.sanitize('pocol_getParams', {'chainId': NET['chainId'], 'forkSchedule': [[1, 0]]}))
         # The raise is node-advertised data: the trusted fork schedule file accepts the activated schedule.
-        self.assertEqual(gateway.trusted_fork_schedule([[1, 0], [2, 100], [3, 200]]), ((1, 0), (2, 100), (3, 200)))
+        self.assertEqual(gateway.validated_fork_schedule([[1, 0], [2, 100], [3, 200]]), ((1, 0), (2, 100), (3, 200)))
 
     def test_the_consensus_identity_and_wire_range_pass_the_sanitizer(self):
         fields = {'consensusIdentity': 'c' * 64, 'consensusRulesVersion': 2, 'protocolVersionMin': 2, 'maxForkVersion': 3}
@@ -136,9 +149,9 @@ class GatewayRewardTests(unittest.TestCase):
                 self.assertNotIn('consensusSourcesSha256', result)
 
     def test_snapshot_is_cached_with_request_ids_preserved(self):
-        service = gateway.Gateway()
+        service = gateway.Gateway(network=NET)
         reads = []
-        def fake(query, *, fork_schedule):
+        def fake(query, *, fork_schedule, network):
             reads.append(True)
             return {'blockHeight': 10, 'grossRewardWei': '2000000000000000000'}
         with patch.object(gateway, 'reward_snapshot', fake):
@@ -150,9 +163,9 @@ class GatewayRewardTests(unittest.TestCase):
 
     def test_one_snapshot_at_a_time_does_not_block_normal_reads(self):
         entered, release = threading.Event(), threading.Event()
-        service = gateway.Gateway()
+        service = gateway.Gateway(network=NET)
         service.query = lambda method, params: {'jsonrpc': '2.0', 'id': 1, 'result': '0x10'}
-        def fake(query, *, fork_schedule):
+        def fake(query, *, fork_schedule, network):
             entered.set()
             release.wait(2)
             return {'blockHeight': 16}
@@ -169,9 +182,9 @@ class GatewayRewardTests(unittest.TestCase):
         self.assertFalse(worker.is_alive())
 
     def test_failures_are_throttled_and_do_not_leak_details(self):
-        service = gateway.Gateway()
+        service = gateway.Gateway(network=NET)
         calls = []
-        def fail(query, *, fork_schedule):
+        def fail(query, *, fork_schedule, network):
             calls.append(True)
             raise RuntimeError('internal endpoint details')
         with patch.object(gateway, 'reward_snapshot', fail):
@@ -186,9 +199,9 @@ class GatewayRewardTests(unittest.TestCase):
         """A malformed node answer of an unexpected type (AttributeError, TypeError, ...) must not escape Gateway.call:
         the client gets the generic -32000 error and the failure is throttled like any other."""
         for kind in (AttributeError, TypeError, IndexError, ZeroDivisionError):
-            service = gateway.Gateway()
+            service = gateway.Gateway(network=NET)
             calls = []
-            def fail(query, *, fork_schedule):
+            def fail(query, *, fork_schedule, network):
                 calls.append(True)
                 raise kind("'int' object has no attribute 'lower'")
             with self.subTest(kind=kind.__name__), patch.object(gateway, 'reward_snapshot', fail):
@@ -200,30 +213,36 @@ class GatewayRewardTests(unittest.TestCase):
 
     def test_subcall_budget_and_read_only_filter(self):
         for prohibited in (True, False):
-            service = gateway.Gateway()
+            service = gateway.Gateway(network=NET)
             reads = []
             service.query = lambda method, params: reads.append(method) or {'result': '0x0'}
-            def excessive(query, *, fork_schedule):
-                for _ in range(513):
+            def excessive(query, *, fork_schedule, network):
+                for _ in range(gateway.MAX_CALLS_V3 + 1):
                     query('eth_sendRawTransaction' if prohibited else 'eth_call', [])
                 return {}
             with patch.object(gateway, 'reward_snapshot', excessive):
                 answer = service.call(request())
             self.assertIn('error', answer)
-            self.assertEqual(len(reads), 0 if prohibited else 512)
+            self.assertEqual(len(reads), 0 if prohibited else gateway.MAX_CALLS_V3)
 
 class GatewayV3NetworkTests(unittest.TestCase):
-    """V3-PR-G: a v3 (spec-2) network only from the operator's startup file; the public method stays parameterless."""
-    NETWORK = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
+    """V3-PR-G: the network only from the operator's startup file (required); the public method stays parameterless."""
+    NETWORK = NET
 
-    def test_network_file_is_validated_and_absent_by_default(self):
-        self.assertIsNone(gateway.load_v3_network())
+    def test_network_file_is_validated_and_required(self):
+        with self.assertRaises(TypeError):
+            gateway.load_v3_network()
+        for value in (None, {}):
+            with self.subTest(value=value), self.assertRaises(RuntimeError):
+                gateway.Gateway(network=value)
+        with self.assertRaises(TypeError):
+            gateway.Gateway()
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             filename = Path(directory) / 'network.json'
             filename.write_text(json.dumps(self.NETWORK))
             self.assertEqual(gateway.load_v3_network(filename).genesis, '0x' + '5a' * 32)
             for bad in (dict(self.NETWORK, specVersion=1), dict(self.NETWORK, v3=False), dict(self.NETWORK, chainId='1'),
-                        dict(self.NETWORK, genesisHash=gateway.GENESIS), [[1, 0]]):
+                        dict(self.NETWORK, genesisHash='0x' + '5a' * 31), [[1, 0]]):
                 filename.write_text(json.dumps(bad))
                 with self.subTest(bad=bad), self.assertRaises((ValueError, RuntimeError)):
                     gateway.load_v3_network(filename)
@@ -248,24 +267,16 @@ class GatewayV3NetworkTests(unittest.TestCase):
             self.assertIn('result', service.call(supplied))
         self.assertEqual((seen['schedule'], seen['network'].chain_id), (((1, 0), (2, 2)), 777963))
 
-    def test_mainnet_gateway_keeps_its_receipt_free_reads(self):
-        service = gateway.Gateway()
-        self.assertIsNone(service.network)
-        def fake(query, *, fork_schedule):
-            with self.assertRaisesRegex(RuntimeError, 'Unsupported reward read'):
-                query('eth_getTransactionReceipt', ['0x' + '00' * 32])
-            return {}
-        with patch.object(gateway, 'reward_snapshot', fake):
-            self.assertIn('result', service.call(request()))
-
     def test_verify_network_uses_the_configured_identity(self):
         service = gateway.Gateway(network=self.NETWORK)
         answers = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32}
         with patch.object(service, 'query', return_value={'result': answers}):
             service.verify_network()
-        with patch.object(service, 'query', return_value={'result': {'chainId': gateway.CHAIN_ID, 'genesisHash': gateway.GENESIS}}):
-            with self.assertRaises(RuntimeError):
-                service.verify_network()
+        for wrong in ({'chainId': OTHER_CHAIN, 'genesisHash': '0x' + '5a' * 32}, {'chainId': 777963, 'genesisHash': '0x' + '5b' * 32},
+                      {'chainId': 777963}, {'chainId': 777963, 'genesisHash': 7}):
+            with self.subTest(wrong=wrong), patch.object(service, 'query', return_value={'result': wrong}):
+                with self.assertRaises(RuntimeError):
+                    service.verify_network()
 
     def test_cli_rejects_a_spec_1_network_file_before_connecting(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
@@ -289,17 +300,16 @@ def selector(signature):
 
 B_REG = 20 * 10**18
 LOW160 = (1 << 160) - 1
-NET = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
 
 class Registry:
     """A mock v3 node: blocks, MinerRegistry lengths/activeSlice/recordWords/recordClocks/removalStatus and Caps.get
-    (B_reg 16, nonceMode 4, W_act 24). Records hold the stored words; recordWords masks w1 to the reward address and
+    (B_reg 16). Records hold the stored words; recordWords masks w1 to the reward address and
     recordClocks returns its clocks, as PoColSystemV3.sol does; lengths' fourth word is heldTotal (slot 4)."""
     def __init__(self, members, records=None, removal=None, height=40, caps=None, held=0):
         self.members = members                  # [(id int, w0)]
         self.records = records or {}            # address -> (w0, w1, w2, w3)
         self.removal = removal or {}
-        self.caps = {16: B_REG, 4: 1, 24: 720, **(caps or {})}
+        self.caps = {16: B_REG, **(caps or {})}
         self.held = held
         self.height, self.hashes = height, {}
         self.calls = []
@@ -449,8 +459,8 @@ class GatewayMembershipTests(unittest.TestCase):
                           'lastReactHeight': 17, 'lastMaintHeightMod32': 0xfffffff0, 'bondWei': str(B_REG), 'bondTargetWei': str(B_REG),
                           'exitHeight': 30, 'dueHeight': 750, 'burnHeight': 0, 'graceStart': 12, 'removal': 4,
                           'removalLabel': 'RECENTLY_ACTIVE', 'proposerEligible': True, 'height': 40})
-        # B_reg, then nonceMode (fork version 1 at the next height): a HELD record needs no other member.
-        self.assertEqual([c[1][0]['to'] for c in node.reads('eth_call')], [gateway.REGISTRY] * 3 + [gateway.CAPS] * 2)
+        # B_reg only: a HELD record needs no other member.
+        self.assertEqual([c[1][0]['to'] for c in node.reads('eth_call')], [gateway.REGISTRY] * 3 + [gateway.CAPS])
         self.assertEqual([c[1][0]['data'][:10] for c in node.reads('eth_call')][:3],
                          [selector('recordWords(address)'), selector('recordClocks(address)'), selector('removalStatus(address)')])
         self.assertEqual(len(node.reads('eth_getBlockByNumber')), 2, 'the head and its re-check')
@@ -479,13 +489,13 @@ class GatewayMembershipTests(unittest.TestCase):
             with self.subTest(field=field):
                 self.assertEqual(service.call(request('pocol_getMember', [self.A]))['error']['code'], -32000)
 
-    def draw(self, records, held=None, caps=None, schedule=gateway.DEFAULT_FORK_SCHEDULE, extra=()):
+    def draw(self, records, held=None, schedule=gateway.DEFAULT_FORK_SCHEDULE, extra=()):
         """proposerEligible of every record in `records` (address -> (w0, bond, graceStart), all on the ActList in that
         order, `extra` too) at head 40, from one gateway, and the node."""
         everything = {**records, **dict(extra)}
         node = Registry([(int(a, 16), r[0]) for a, r in everything.items()],
                         {a: (w0, 0, bond, grace << 192) for a, (w0, bond, grace) in everything.items()},
-                        caps=caps, held=sum(r[1] for r in everything.values()) if held is None else held)
+                        held=sum(r[1] for r in everything.values()) if held is None else held)
         service = v3_service(node, schedule)
         return {a: service.call(request('pocol_getMember', [a]))['result']['proposerEligible'] for a in records}, node
 
@@ -533,22 +543,17 @@ class GatewayMembershipTests(unittest.TestCase):
         self.assertEqual(answer, {self.A: None})
         self.assertLessEqual(len(node.calls), gateway.MEMBER_READS_MAX + gateway.DRAW_READS_MAX)
 
-    def test_a_bounded_nonce_domain_draws_from_the_recently_active_members(self):
-        # nonceMode 0 at fork version 1: A_h* is the members with lastShare or graceStart >= 41 - W_act unless none is.
+    def test_the_draw_is_every_live_member_whatever_its_activity(self):
+        # v3 draws from every live member (D-V3-01): a HELD member that has not shared for long still ends the exception,
+        # on any trusted fork schedule, and no CP item but B_reg is read.
         B = '0x' + '22' * 20
-        bounded = {4: 0, 24: 10}
         probationer = (w0_word(bond_state=4, last_share=35), 0, 0)
-        answer, _ = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 30)}, caps=bounded)
-        self.assertEqual(answer, {self.A: True, B: False}, 'B is outside A_h*, so A is the only (probationer) member')
-        answer, _ = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 31)}, caps=bounded)
-        self.assertEqual(answer, {self.A: False, B: True}, 'graceStart 31 keeps B in A_h*')
-        answer, _ = self.draw({self.A: (w0_word(bond_state=4, last_share=5), 0, 0), B: (w0_word(bond_state=1, last_share=5), B_REG, 0)}, caps=bounded)
-        self.assertEqual(answer, {self.A: False, B: True}, 'nobody active: every live member')
-        # The full nonce domain from fork version 2 at the next height: every live member, whatever nonceMode says.
-        answer, node = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=5), B_REG, 0)}, caps=bounded,
-                                 schedule=[[1, 0], [2, 41]])
-        self.assertEqual(answer, {self.A: False, B: True})
-        self.assertNotIn(4, [int(c[1][0]['data'][10:], 16) for c in node.reads('eth_call') if c[1][0]['to'] == gateway.CAPS])
+        for schedule in (gateway.DEFAULT_FORK_SCHEDULE, [[1, 0], [2, 41]], [[1, 0], [2, 10], [3, 20]]):
+            with self.subTest(schedule=schedule):
+                answer, node = self.draw({self.A: probationer, B: (w0_word(bond_state=1, last_share=0), B_REG, 0)}, schedule=schedule)
+                self.assertEqual(answer, {self.A: False, B: True})
+                self.assertEqual({int(c[1][0]['data'][10:], 16) for c in node.reads('eth_call') if c[1][0]['to'] == gateway.CAPS},
+                                 {gateway.CP_B_REG})
 
     def test_exited_victims_burned_paid_and_absent_records(self):
         record, _ = self.member(w0_word(status=2, bond_state=1), w2=B_REG, w3=50 | 770 << 64)
@@ -562,11 +567,13 @@ class GatewayMembershipTests(unittest.TestCase):
             self.assertEqual(self.member(w0_word(), removal=code)[0]['removalLabel'], name)
         self.assertEqual(self.member(w0_word(), removal=5)[0]['error']['code'], -32000)
 
-    def test_membership_needs_a_configured_v3_network(self):
-        service = gateway.Gateway()
-        service.query = lambda m, p: (_ for _ in ()).throw(AssertionError('no node read'))
-        for r in (request('pocol_getMembers', [0, 1]), request('pocol_getMember', [self.A])):
-            self.assertEqual(service.call(r)['error']['code'], -32000)
+    def test_a_gateway_needs_a_configured_v3_network(self):
+        # Membership (like every read) is only served for the operator's network: a gateway without one is refused
+        # when it is built, before any node read.
+        with self.assertRaises(TypeError):
+            gateway.Gateway(fork_schedule=gateway.DEFAULT_FORK_SCHEDULE)
+        with self.assertRaises(RuntimeError):
+            gateway.Gateway(network=dict(NET, specVersion=1))
 
     def test_removable_and_finality_are_forwarded(self):
         seen = []
