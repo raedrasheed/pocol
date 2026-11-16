@@ -2,7 +2,9 @@
 
 The logs behind JOURNAL-GROWTH-AND-REPLAY.md §14, produced on branch `claude/fresh-net-phase5bc-tests` (base main
 `daabfbd`), release, one host (Linux 6.18.44, 4 CPUs), one run after the other. Only the `JM-*` lines and the test
-result are kept. `JM_SPEC=1` selects the retired spec-1 devnet; without it the harness runs the v3 devnet.
+result are kept. `JM_SPEC=1` selected the retired spec-1 devnet; without it the harness runs the v3 devnet. Phase 6a deleted the spec-1
+rule set, its `_spec1` twin tests and `JM_SPEC=1` (now refused), so the spec-1 logs are historical: the commands below
+reproduce only the v3 logs.
 
 | log | command (from `prototypes/pocold`) |
 |---|---|

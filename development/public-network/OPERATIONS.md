@@ -263,7 +263,9 @@ first; the shipped legacy entry is uncertified and every H15000 home is refused.
 - `publicLaunchReady` and `launchBlockers` [{id, detail}] (V3-28 H1,
   `prototypes/pocold/src/readiness.rs`): computed from this build and the admission the
   node booted with, true only with no blocker. Today it is false, for example
-  `spec-version`, `plan-gate-Q1`, `v3-inactive`, `admission-scope` and `profile-kind`.
+  `plan-gate-Q1`, `network-not-release-pinned`, `admission-scope` and `profile-kind`
+  (a booted node runs a v3 genesis, since admission refuses spec 1, so it never reports
+  `v3-inactive`).
   `pocold build-info` reports the build's readiness alone (blocker `no-network`). The
   launcher's network description (`pocol network`, `import`, `upgrade`) reports these
   fields for the invitation's files, but it admits nothing, so it always adds
