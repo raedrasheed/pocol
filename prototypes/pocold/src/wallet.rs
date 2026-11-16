@@ -32,6 +32,14 @@
 //! mining rewards (no deadline, FN-2b C3) and the clock (`v3_status`); a top-up refusal says why (the bond is HELD, the
 //! record exited, there is no record, or a top-up or reward-address change of this account is still pending: the
 //! registry takes one such maintenance operation per identity per block, V3-08).
+//!
+//! Device role (owner decision of 2026-11-16). The Android and Windows apps run this engine on their own local
+//! validating node, and the user chooses in Settings whether the device is wallet only (the default) or wallet and
+//! miner (`set_mode`). The choice is kept per home in `app-mode.json`; a missing, damaged or unexpected file means
+//! wallet only. In wallet-only mode the engine never mines: it refuses `mining` on, the registration, top-up and rejoin
+//! quotes and the confirmation of any quote but a transfer, turns off a miner it finds running, and a switch to wallet
+//! only stops mining at once. Miner mode is the earlier behaviour: mining still starts off and the user enables it.
+//! A device-local client setting only: no block, rule or registry record changes.
 use crate::{launcher::Home,node::Node,types};
 use pocol_lp4_execution::{apply,txsign::{Key,Tx},view::View};
 use revm::primitives::{Address,B256,Bytes,U256,keccak256};
@@ -54,7 +62,55 @@ pub enum Command {
     Confirm { quote_id:String },
     Cancel,
     Stop,
+    /// The device role chosen in Settings: "wallet" (only) or "miner" (wallet and miner).
+    SetMode { mode:AppMode },
 }
+/// The device role (owner decision of 2026-11-16): wallet only (the default: the local node validates and never mines)
+/// or wallet and miner (mining available, still off until the user enables it).
+#[derive(Deserialize,Clone,Copy,PartialEq,Eq,Debug)]
+#[serde(rename_all="lowercase")]
+pub enum AppMode { Wallet, Miner }
+impl AppMode{
+    pub fn as_str(self)->&'static str{match self{AppMode::Wallet=>"wallet",AppMode::Miner=>"miner"}}
+}
+/// The device role's file in the engine home: {"mode":"wallet"|"miner"}.
+pub const MODE_FILE:&str="app-mode.json";
+/// The largest mode file read; a longer one is not ours and means wallet only.
+const MODE_FILE_MAX:u64=64;
+/// What the engine answers to a mining action in wallet-only mode.
+pub const WALLET_ONLY:&str="This device is set to wallet only, so it does not mine. Choose Wallet and miner in Settings first.";
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct ModeFile { mode:AppMode }
+/// The device role stored in `dir`. Fail-safe: a missing file (every install before the choice existed), a symbolic
+/// link or other non-regular file, a file over 64 bytes, invalid JSON, an extra field or an unknown value all mean
+/// wallet only, never an error.
+pub fn read_mode(dir:&std::path::Path)->AppMode{
+    use std::io::Read;
+    let path=dir.join(MODE_FILE);
+    let regular=std::fs::symlink_metadata(&path).is_ok_and(|m|m.file_type().is_file()&&m.len()<=MODE_FILE_MAX);
+    if !regular{return AppMode::Wallet}
+    let mut bytes=Vec::new();
+    match std::fs::File::open(&path).and_then(|f|f.take(MODE_FILE_MAX+1).read_to_end(&mut bytes)){
+        // Only a JSON object: serde would also take the struct from a one-element array.
+        Ok(n) if n as u64<=MODE_FILE_MAX=>serde_json::from_slice::<Value>(&bytes).ok().filter(Value::is_object)
+            .and_then(|v|serde_json::from_value::<ModeFile>(v).ok()).map_or(AppMode::Wallet,|f|f.mode),
+        _=>AppMode::Wallet,
+    }
+}
+/// Stores the device role in `dir` atomically (a crash leaves the old file or the new one, never a partial one).
+pub fn write_mode(dir:&std::path::Path,mode:AppMode)->Result<(),String>{
+    save_file(&dir.join(MODE_FILE),"app-mode",json!({"mode":mode.as_str()}).to_string().as_bytes())
+}
+/// Why the engine refuses to switch to `to`, or None. A switch to wallet only while a confirmed rejoin is under way is
+/// refused: its exit is already on chain, and dropping the plan would forfeit the reactivation (Disconnect remains the
+/// explicit way to abandon it).
+pub fn mode_change_refusal(to:AppMode,rejoin_in_progress:bool)->Option<&'static str>{
+    (to==AppMode::Wallet&&rejoin_in_progress).then_some("Rejoining is in progress: switching to wallet only now would lose the reactivation. Wait until the account is back in the active set or the rejoin stops, then switch.")
+}
+/// Whether a reviewed quote of `kind` may still be confirmed in `mode`: wallet only keeps transfers alone (a
+/// registration, top-up, rejoin or reactivation is mining).
+pub fn quote_allowed(mode:AppMode,kind:&str)->bool{mode==AppMode::Miner||kind=="transfer"}
 /// `tx` is signed on confirmation; `rejoin` starts the confirmed rejoin plan with the quoted fee cap.
 struct Quote { id:String, tx:Option<Tx>, deadline:Instant, kind:&'static str, rejoin:Option<(U256,U256)> }
 /// Reactivation signatures one rejoin confirmation allows (each counted in its maximum fee).
@@ -76,7 +132,7 @@ pub const REPLACE_GAS:u64=500_000;
 /// Heads the exit may stay unincluded before the plan stops (nothing changed on chain then).
 pub const EXIT_WAIT_BLOCKS:u64=30;
 struct Rejoin { exit:Option<(B256,u64)>, max_fee:U256, priority:U256, attempts:u8, last:Option<B256>, tried_at:Option<u64> }
-pub struct Wallet<'a> { home:&'a Home,key:Key,quote:Option<Quote>,rejoin:Option<Rejoin>,activity:VecDeque<Value>,pub stopped:bool,network_checks:bool }
+pub struct Wallet<'a> { home:&'a Home,key:Key,quote:Option<Quote>,rejoin:Option<Rejoin>,activity:VecDeque<Value>,mode:AppMode,pub stopped:bool,network_checks:bool }
 
 /// Where a registry record stands for rejoining, at the next block `next`. `member` is whether the
 /// account is in A_next (consensus membership from the head state).
@@ -442,8 +498,11 @@ impl<'a> Wallet<'a>{
     pub fn new(home:&'a Home)->Result<Self,String>{
         let key=home.key()?;let path=home.path.join(crate::launcher::ACTIVITY_FILE);
         let activity=if path.exists(){let bytes=crate::launcher::read_bounded(&path)?;let a:VecDeque<Value>=serde_json::from_slice(&bytes).map_err(|_|"Wallet activity is damaged; preserve it before recovery")?;if a.len()>100{return Err("Wallet activity exceeds limit".into())}a}else{VecDeque::new()};
-        Ok(Self{home,key,quote:None,rejoin:None,activity,stopped:false,network_checks:true})
+        // The device role is read before the node starts; every start is mining off.
+        Ok(Self{home,key,quote:None,rejoin:None,activity,mode:read_mode(&home.path),stopped:false,network_checks:true})
     }
+    /// The device role this engine runs with.
+    pub fn mode(&self)->AppMode{self.mode}
     /// The head's registry record, whether the account is in A_{head+1} (None if unknown) and the step.
     fn rejoin_view(&self,n:&Node)->(Option<apply::MinerRecord>,Option<bool>,RejoinStep){
         let addr=self.key.address();let head=n.chain.head();
@@ -492,13 +551,19 @@ impl<'a> Wallet<'a>{
             (true,_)=>"Enabled — awaiting eligible membership".to_owned(),
             (false,_)=>"Off — wallet keeps validating".to_owned(),
         }};
+        let wallet_only=self.mode==AppMode::Wallet;
+        let mining_state=if wallet_only{
+            let mut text="Wallet only — this device validates blocks and never mines".to_owned();
+            if record.is_some(){text.push_str(" · This account is registered to mine: while wallet only it earns no mining rewards, and when every seat is taken an inactive member can be replaced.");}
+            text
+        }else{mining_state};
         let mut rejoin=step_json(step);
         rejoin["inProgress"]=json!(self.rejoin.is_some());rejoin["attempts"]=json!(self.rejoin.as_ref().map(|p|p.attempts).unwrap_or(0));
         let registry=match &record{None=>"none",Some(r) if r.tomb=>"removed",Some(r) if !matches!(r.bond_state,1|4)=>"closed",
             Some(r) if r.status==1&&r.bond_state==apply::SystemPrograms::ACCRUING=>"probation",Some(r) if r.status==1=>"member",Some(r) if r.status==2=>"exited",Some(_)=>"closed"};
         // No deadline: the V3 set has none (FN-2b C3), so the bond fills from rewards without one.
         let mining_state=match probation{
-            Some(r) if self.rejoin.is_none()=>format!("{mining_state} · Bond {} of {} PCOL, earned from your mining rewards (no deadline)",coins(r.bond),coins(target)),
+            Some(r) if self.rejoin.is_none()&&!wallet_only=>format!("{mining_state} · Bond {} of {} PCOL, earned from your mining rewards (no deadline)",coins(r.bond),coins(target)),
             _=>mining_state,
         };
         let (seats_full,removable,replacing)=state.as_ref().map(|s|seat_flags(&n.chain,s.v(),head.height+1,record.is_some())).unwrap_or((false,0,false));
@@ -507,14 +572,14 @@ impl<'a> Wallet<'a>{
         let v3=state.as_ref().and_then(|s|v3_status(&n.chain,s.v(),addr,record.as_ref(),head.height.saturating_add(1)));
         let mut status=json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
-            "miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
+            "appMode":self.mode.as_str(),"miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
             "miningActive":member,"registryStatus":registry,"rejoin":rejoin,
-            "rejoinAvailable":self.rejoin.is_none()&&matches!(step,RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}),
+            "rejoinAvailable":!wallet_only&&self.rejoin.is_none()&&matches!(step,RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}),
             "miningState":mining_state,
             "blocksMined":n.stats.mined,"bond":coins(target),
             "earnIn":true,"bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),"probationEndsAt":null,
             // V3-08: hidden while a top-up or reward-address change of this account is pending (QuoteTopUp refuses then).
-            "topUpAvailable":probation.is_some()&&!pending_maintenance(&n.chain,addr,n.pool.sender_raw(addr)),
+            "topUpAvailable":!wallet_only&&probation.is_some()&&!pending_maintenance(&n.chain,addr,n.pool.sender_raw(addr)),
             // FN-2b C4: all seats taken, the members removable at the next block, and whether
             // quote_register would register this identity by replacing one of them.
             "seatsFull":seats_full,"removableSeats":removable,"registerReplaces":replacing,
@@ -537,6 +602,20 @@ impl<'a> Wallet<'a>{
             Command::Status=>Ok(self.status(n)),
             Command::Stop=>{self.stopped=true;Ok(json!({"type":"stopping"}))},
             Command::Cancel=>{self.quote=None;Ok(json!({"type":"cancelled"}))},
+            Command::SetMode{mode}=>{
+                if let Some(why)=mode_change_refusal(mode,self.rejoin.is_some()){return Err(why.into())}
+                // Stored first: if the file cannot be written nothing changes.
+                write_mode(&self.home.path,mode).map_err(|e|format!("The device role could not be saved: {e}"))?;
+                self.mode=mode;
+                if mode==AppMode::Wallet{
+                    // Wallet only stops mining at once, and a reviewed mining quote can no longer be confirmed.
+                    n.set_mining_key(None);
+                    if self.quote.as_ref().is_some_and(|q|!quote_allowed(mode,q.kind)){self.quote=None;}
+                }
+                let mut v=self.status(n);v["type"]=json!("mode");Ok(v)
+            },
+            Command::Mining{enabled:true} if self.mode==AppMode::Wallet=>Err(WALLET_ONLY.into()),
+            Command::QuoteRegister{..}|Command::QuoteTopUp{..}|Command::QuoteRejoin if self.mode==AppMode::Wallet=>Err(WALLET_ONLY.into()),
             Command::Mining{enabled}=>{
                 if enabled&&!self.status(n)["miningEligible"].as_bool().unwrap_or(false){return Err("This account is not eligible to mine. Register and wait for inclusion and eligibility first.".into())}
                 n.set_mining_key(if enabled{Some(self.home.key()?)}else{None});let mut v=self.status(n);v["type"]=json!("mining");Ok(v)
@@ -595,6 +674,7 @@ impl<'a> Wallet<'a>{
             Command::QuoteRejoin=>self.quote_rejoin(n),
             Command::Confirm{quote_id}=>{
                 let q=self.quote.take().ok_or("Review a transaction first")?;
+                if !quote_allowed(self.mode,q.kind){return Err(WALLET_ONLY.into())}
                 if q.id!=quote_id||Instant::now()>q.deadline{return Err("Review expired or changed. Review the transaction again.".into())}
                 if q.rejoin.is_some()&&self.rejoin.is_some(){return Err("Rejoining is already in progress".into())}
                 let submitted=match &q.tx{
@@ -620,7 +700,7 @@ impl<'a> Wallet<'a>{
         self.activity.push_front(json!({"hash":format!("{hash:#x}"),"kind":kind,"to":tx.to.map(|a|format!("{a:#x}")),"amount":coins(tx.value),"state":"Pending","time":crate::node::now_s()}));
         self.activity.truncate(100);
         let file=self.home.path.join("wallet-activity.json");
-        serde_json::to_vec(&self.activity).ok().is_some_and(|bytes|save_activity(&file,&bytes).is_ok())
+        serde_json::to_vec(&self.activity).ok().is_some_and(|bytes|save_file(&file,"wallet-activity",&bytes).is_ok())
     }
     fn quote_rejoin(&mut self,n:&Node)->Result<Value,String>{
         if self.rejoin.is_some(){return Err("Rejoining is already in progress".into())}
@@ -671,6 +751,8 @@ impl<'a> Wallet<'a>{
     }
     /// Advances a confirmed rejoin from the head. Called by the event loop; returns an event to show.
     pub fn advance(&mut self,n:&mut Node)->Option<Value>{
+        // Wallet only never mines, whatever started the node's miner.
+        if self.mode==AppMode::Wallet&&n.cfg.miner.is_some(){n.set_mining_key(None);}
         let mut plan=self.rejoin.take()?;
         let (record,_,step)=self.rejoin_view(n);let head=n.chain.head().height;
         let exit=plan.exit.map(|(h,_)|tx_state(n,&h).0);let last=plan.last.map(|h|tx_state(n,&h).0);
@@ -678,6 +760,8 @@ impl<'a> Wallet<'a>{
         match decide(step,&plan,head,exit,last,record.is_some()){
             Action::Wait=>{self.rejoin=Some(plan);None}
             Action::Stop(message)=>stop(message),
+            // A rejoin cannot be under way in wallet-only mode (the switch is refused); kept off if it ever is.
+            Action::Done if self.mode==AppMode::Wallet=>Some(json!({"type":"rejoin","state":"Rejoined","message":"Back in the active mining set. This device is set to wallet only, so mining stays off."})),
             Action::Done=>match self.home.key(){
                 Ok(key)=>{n.set_mining_key(Some(key));Some(json!({"type":"rejoin","state":"Rejoined","message":"Back in the active mining set. Mining is on; keep it running to stay active."}))}
                 Err(e)=>stop(format!("Back in the active set, but mining could not start: {e}")),
@@ -724,9 +808,11 @@ impl<'a> Wallet<'a>{
 }
 struct Fee { nonce:u64, balance:U256, priority:U256, max_fee:U256 }
 fn quote_id()->Result<String,String>{let mut id=[0u8;16];getrandom::getrandom(&mut id).map_err(|_|"Secure randomness unavailable")?;Ok(types::hex(&id))}
-fn save_activity(path:&std::path::Path,bytes:&[u8])->Result<(),String>{
+/// Replaces `path` atomically with `bytes`: a fresh owner-only temporary file named `<stem>-<random>.tmp`, synced,
+/// renamed over `path`, and the directory synced.
+fn save_file(path:&std::path::Path,stem:&str,bytes:&[u8])->Result<(),String>{
     let mut random=[0u8;16];getrandom::getrandom(&mut random).map_err(|_|"Secure randomness unavailable")?;
-    let temp=path.with_file_name(format!("wallet-activity-{}.tmp",types::hex(&random)));
+    let temp=path.with_file_name(format!("{stem}-{}.tmp",types::hex(&random)));
     let result=(||{
         let mut options=std::fs::OpenOptions::new();options.write(true).create_new(true);
         #[cfg(unix)]{use std::os::unix::fs::OpenOptionsExt;options.mode(0o600);}
@@ -947,5 +1033,61 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         assert!(serde_json::from_str::<Command>(r#"{"method":"contest_candidates"}"#).is_err(),"no contest candidates");
         assert!(serde_json::from_str::<Command>(r#"{"method":"quote_register","bond":20}"#).is_err(),"amounts are decimal strings");
         assert!(serde_json::from_str::<Command>(r#"{"method":"quote_top_up","value":"1"}"#).is_err());
-        assert!(serde_json::from_str::<Command>(r#"{"method":"reactivate"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"mining","enabled":true,"secret":"x"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"send","amount":1}"#).is_err());}
+        assert!(serde_json::from_str::<Command>(r#"{"method":"reactivate"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"mining","enabled":true,"secret":"x"}"#).is_err());assert!(serde_json::from_str::<Command>(r#"{"method":"send","amount":1}"#).is_err());
+        // The device role: exactly "wallet" or "miner", nothing else.
+        assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"set_mode","mode":"wallet"}"#),Ok(Command::SetMode{mode:AppMode::Wallet})));
+        assert!(matches!(serde_json::from_str::<Command>(r#"{"method":"set_mode","mode":"miner"}"#),Ok(Command::SetMode{mode:AppMode::Miner})));
+        for raw in [r#"{"method":"set_mode"}"#,r#"{"method":"set_mode","mode":"Miner"}"#,r#"{"method":"set_mode","mode":"x"}"#,r#"{"method":"set_mode","mode":1}"#,
+            r#"{"method":"set_mode","mode":"miner","mining":true}"#,r#"{"method":"mode","mode":"miner"}"#,r#"{"method":"set_mode","mode":null}"#]{
+            assert!(serde_json::from_str::<Command>(raw).is_err(),"{raw}");
+        }
+    }
+    struct Dir(std::path::PathBuf);
+    impl Dir{fn new()->Self{
+        static NEXT:std::sync::atomic::AtomicU32=std::sync::atomic::AtomicU32::new(0);
+        let p=std::env::temp_dir().join(format!("pocol-app-mode-{}-{}",std::process::id(),NEXT.fetch_add(1,std::sync::atomic::Ordering::Relaxed)));
+        let _=std::fs::remove_dir_all(&p);std::fs::create_dir_all(&p).unwrap();Self(p)
+    }}
+    impl Drop for Dir{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
+    /// The default is wallet only: an install from before the choice (no file) and anything but a well-formed
+    /// {"mode":"miner"} (garbage, an unknown value, an extra field such as an old stored miningEnabled, an oversized
+    /// file, a directory or a symbolic link) is wallet only and never fails the start.
+    #[test] fn the_device_role_defaults_to_wallet_only(){
+        let d=Dir::new();let file=d.0.join(MODE_FILE);
+        assert_eq!(read_mode(&d.0),AppMode::Wallet,"no file: an earlier install");
+        std::fs::write(&file,br#"{"mode":"miner"}"#).unwrap();assert_eq!(read_mode(&d.0),AppMode::Miner);
+        std::fs::write(&file,br#"{"mode":"wallet"}"#).unwrap();assert_eq!(read_mode(&d.0),AppMode::Wallet);
+        let padded=format!("{{\"mode\":\"miner\"}}{}",&" ".repeat(64-16));assert_eq!(padded.len(),64);
+        std::fs::write(&file,&padded).unwrap();assert_eq!(read_mode(&d.0),AppMode::Miner,"64 bytes is the limit");
+        for bad in [&b""[..],b"miner",b"{",br#"{"mode":"Miner"}"#,br#"{"mode":"x"}"#,br#"{"mode":1}"#,br#"{"mode":null}"#,br#"["miner"]"#,
+            br#"{"mode":"miner","miningEnabled":true}"#,br#"{"miningEnabled":true}"#,b"\xff\xfe"]{
+            std::fs::write(&file,bad).unwrap();assert_eq!(read_mode(&d.0),AppMode::Wallet,"{:?}",String::from_utf8_lossy(bad));
+        }
+        let big=format!("{{\"mode\":\"miner\"}}{}",&" ".repeat(64-15));assert_eq!(big.len(),65);
+        std::fs::write(&file,&big).unwrap();assert_eq!(read_mode(&d.0),AppMode::Wallet,"over 64 bytes");
+        std::fs::remove_file(&file).unwrap();std::fs::create_dir(&file).unwrap();assert_eq!(read_mode(&d.0),AppMode::Wallet,"a directory");
+        std::fs::remove_dir(&file).unwrap();
+        #[cfg(unix)]{
+            let target=d.0.join("elsewhere.json");std::fs::write(&target,br#"{"mode":"miner"}"#).unwrap();
+            std::os::unix::fs::symlink(&target,&file).unwrap();assert_eq!(read_mode(&d.0),AppMode::Wallet,"a symbolic link");
+            std::fs::remove_file(&file).unwrap();
+        }
+        // Written atomically, read back; no temporary file stays behind.
+        for mode in [AppMode::Miner,AppMode::Wallet,AppMode::Miner]{write_mode(&d.0,mode).unwrap();assert_eq!(read_mode(&d.0),mode);}
+        assert_eq!(std::fs::read(&file).unwrap(),br#"{"mode":"miner"}"#);
+        assert!(std::fs::read_dir(&d.0).unwrap().all(|e|!e.unwrap().file_name().to_string_lossy().ends_with(".tmp")));
+        #[cfg(unix)]{use std::os::unix::fs::PermissionsExt;assert_eq!(std::fs::metadata(&file).unwrap().permissions().mode()&0o777,0o600);}
+        assert!(write_mode(&d.0.join("missing"),AppMode::Miner).is_err(),"a failed write is an error, not a silent change");
+    }
+    /// Switching to wallet only is refused only while a confirmed rejoin is under way; a reviewed quote survives the
+    /// switch only if it is a transfer.
+    #[test] fn wallet_only_refuses_a_running_rejoin_and_keeps_only_transfers(){
+        assert!(mode_change_refusal(AppMode::Wallet,true).is_some_and(|m|m.contains("Rejoining is in progress")));
+        for (to,busy) in [(AppMode::Wallet,false),(AppMode::Miner,false),(AppMode::Miner,true)]{assert_eq!(mode_change_refusal(to,busy),None,"{to:?} {busy}");}
+        for kind in ["registration","topup","rejoin","reactivation"]{
+            assert!(!quote_allowed(AppMode::Wallet,kind),"{kind}");assert!(quote_allowed(AppMode::Miner,kind),"{kind}");
+        }
+        assert!(quote_allowed(AppMode::Wallet,"transfer")&&quote_allowed(AppMode::Miner,"transfer"));
+        assert_eq!((AppMode::Wallet.as_str(),AppMode::Miner.as_str()),("wallet","miner"));
+    }
 }
