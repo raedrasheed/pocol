@@ -110,12 +110,12 @@ if args.platform=='Android':
 (args.out/'release-info.json').write_text(json.dumps(release,indent=2)+'\n',encoding='utf-8',newline='\n')
 # The package's own SHA256SUMS: integrity of its files (Initialize-PoColNetwork.ps1 checks it). The published release
 # SHA256SUMS and the release signatures come from deploy/release (assemble_release.py, then the owner's signature).
-sums=''.join(f'{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}\n' for f in sorted(args.out.iterdir()) if f.is_file())
+sums=''.join(f'{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}\n' for f in sorted(args.out.iterdir(),key=lambda f:f.name) if f.is_file())
 (args.out/'SHA256SUMS').write_text(sums,encoding='utf-8',newline='\n')
 
 if args.platform=='Linux':
     # Artifact ZIPs discard executable bits. Keep the runnable distribution inside a tarball.
-    packaged=sorted(args.out.iterdir())
+    packaged=sorted(args.out.iterdir(),key=lambda f:f.name)
     archive=args.out/f'PoCol-Mainnet-{version}-linux-x86_64.tar.gz'
     with tarfile.open(archive, 'w:gz') as tar:
         for file in packaged:
@@ -128,7 +128,7 @@ if args.platform=='Linux':
 if args.platform=='Windows':
     # The signed Windows download is this byte-stable archive (fixed entry dates and order), not the CI artifact ZIP:
     # it keeps the package's own SHA256SUMS inside, which Initialize-PoColNetwork.ps1 checks after extraction.
-    packaged=sorted(args.out.iterdir())
+    packaged=sorted(args.out.iterdir(),key=lambda f:f.name)
     archive=args.out/f'PoCol-Mainnet-{version}-windows-x86_64.zip'
     with zipfile.ZipFile(archive,'w') as zf:
         for file in packaged:

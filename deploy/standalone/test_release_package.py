@@ -2,9 +2,11 @@
 """Release boundary checks: no invitation, wallet data or signing key in the package; one Android application id; the
 network identity only from a v3 invitation of the mainnet profile's chain; one release version."""
 import hashlib
+import io
 import json
 import os
 import re
+import pathlib
 from pathlib import Path
 import runpy
 import shutil
@@ -172,7 +174,10 @@ class ReleasePackageTests(unittest.TestCase):
                     self.fixture('deploy/standalone/linux-desktop/pocol-desktop').chmod(0o755)
                 self.fixture('prototypes/pocold/target/release/network.pocol.json')
                 self.fixture('prototypes/pocold/target/release/wallet.key')
-                out = self.package(platform)
+                # Paths order as on a Windows runner (WindowsPath compares case-insensitively): the archive's entry
+                # order, and so its bytes, must not depend on the OS that packs it.
+                with patch.object(pathlib.PurePath, '__lt__', lambda a, b: str(a).lower() < str(b).lower()):
+                    out = self.package(platform)
                 if platform == 'Linux':
                     archive = out / f'PoCol-Mainnet-{VERSION}-linux-x86_64.tar.gz'
                     with tarfile.open(archive) as tar:
@@ -189,6 +194,7 @@ class ReleasePackageTests(unittest.TestCase):
                             self.assertEqual(Path(member.name).name, member.name)
                             self.assertTrue(member.isfile())
                             (expanded / member.name).write_bytes(tar.extractfile(member).read())
+                    self.assertEqual(names, sorted(names))
                     release = self.metadata(expanded)
                 else:
                     # The Windows download is one byte-stable archive with the package's SHA256SUMS inside.
@@ -213,10 +219,16 @@ class ReleasePackageTests(unittest.TestCase):
                     for name in ('v3-profile.json', 'v3-rehearsal-profile.json'):
                         self.assertEqual((expanded / name).read_bytes(), (self.root / 'deploy/mainnet' / name).read_bytes())
                         self.assertIn('  ' + name, (expanded / 'SHA256SUMS').read_text(encoding='utf-8'))
-                    # Byte-stable: the same inputs give the same archive.
+                    # Byte-stable: the same inputs give the same archive, here packed in this OS's own path order.
                     first = archive.read_bytes()
                     shutil.rmtree(out); shutil.rmtree(expanded)
                     self.assertEqual((self.package(platform) / archive.name).read_bytes(), first)
+                    expanded.mkdir()
+                    with zipfile.ZipFile(io.BytesIO(first)) as zf:
+                        zf.extract('SHA256SUMS', expanded)
+                    inner = [l.split('  ', 1)[1] for l in (expanded / 'SHA256SUMS').read_text(encoding='utf-8').splitlines()]
+                    self.assertEqual(inner, sorted(inner), 'the package SHA256SUMS lists its files in ordinal order')
+                    shutil.rmtree(expanded)
                 self.assertNotIn('applicationId', release)
                 shutil.rmtree(out)
 
