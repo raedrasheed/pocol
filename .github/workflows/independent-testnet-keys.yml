@@ -1,7 +1,7 @@
 name: Independent testnet keys and enrollment
 on:
   pull_request:
-    branches: [main, codex/private-testnet, codex/english-only]
+    branches: [main]
     paths: ['prototypes/pocold/**', 'prototypes/lp4-execution/**', 'prototypes/lp1-node/**', 'deploy/private-testnet/**', '.github/workflows/independent-testnet-keys.yml']
   push:
     branches: [main]

@@ -160,7 +160,8 @@ KEPT = {
 # Shipped with the packages, so the identity-switch release replaces or bumps them (Phase 7 bumps the versions):
 # while the tree pins a retired network each holds its pattern (the old release's version, or text that is true only
 # on the retired network); once it pins a network that is not retired none may. A version bump before the switch
-# removes its entry here.
+# removes its entry here, as does a file that stops holding the version (five-device-build.yml reads it from
+# package.py since Phase 7).
 STEP3 = {
     'deploy/standalone/package.py': re.compile(r"version\s*=\s*'0\.4\.0'"),
     'deploy/standalone/README.md': re.compile(r'Wallet 0\.4\.0|retain their genesis'),
@@ -178,7 +179,6 @@ STEP3 = {
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
     'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
     'prototypes/pocol-android/app/build.gradle': re.compile(r"versionName '0\.4\.0'"),
-    '.github/workflows/five-device-build.yml': re.compile(r'0\.4\.0'),
 }
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED]
 

@@ -512,7 +512,7 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 - **CI.**
   - `audit-r2-windows-verify.yml`: Windows Server 2022;
   - `pocol-browser-verify.yml`: Chrome on Linux, in both state modes;
-  - `lp3-*.yml` and `lp4-execution-controls.yml`.
+  - `lp3-*.yml` and `lp4-execution-controls.yml` (manual dispatch).
 - **Security.**
   - Report vulnerabilities privately through GitHub's private vulnerability reporting; see [SECURITY.md](SECURITY.md).
   - Tests are limited to local nodes, local RPC and test browser profiles.

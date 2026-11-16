@@ -1,8 +1,8 @@
+# Manual dispatch only. Its pull_request trigger named a branch that no longer exists (it never ran against main);
+# dispatch it on a branch to run it, and give it a main trigger once a run there is green.
 name: LP3 TypeScript reference checks
 on:
-  pull_request:
-    branches: [work/lp3-consensus-foundation]
-    paths: ['prototypes/lp3-model/**', '.github/workflows/lp3-typescript.yml']
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:

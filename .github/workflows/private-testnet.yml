@@ -1,7 +1,7 @@
 name: Private testnet packaging rehearsal
 on:
   pull_request:
-    branches: [main, codex/english-only]
+    branches: [main]
     paths: ['deploy/private-testnet/**', 'prototypes/pocold/**', 'prototypes/lp4-execution/**', 'prototypes/lp1-node/**', '.github/workflows/private-testnet.yml']
   push:
     branches: [main]

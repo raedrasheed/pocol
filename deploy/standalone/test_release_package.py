@@ -298,6 +298,26 @@ class ReleasePackageTests(unittest.TestCase):
                     self.refused(self.v3_info(), 'refusing to package')
                 path.write_bytes(saved)
 
+    def test_the_release_version_is_one_constant(self):
+        # package.py holds the version; every other shipped copy must equal it, and the workflow reads it from there.
+        out = subprocess.run([sys.executable, '-I', str(HERE / 'package.py'), '--version'], capture_output=True, text=True, check=True)
+        self.assertEqual(out.stdout.strip(), VERSION)
+        copies = {
+            GRADLE: rf"versionName '{re.escape(VERSION)}'",
+            'prototypes/pocol-windows/Wallet.cs': rf'AssemblyVersion\("{re.escape(VERSION)}\.0"\)\][\s\S]*AssemblyFileVersion\("{re.escape(VERSION)}\.0"\)',
+            'prototypes/pocol-windows/Wallet.xaml': rf'PoCol Wallet · {re.escape(VERSION)}&',
+            'deploy/standalone/linux-desktop/pocol-desktop': rf'PoCol Mainnet · {re.escape(VERSION)} ',
+            'deploy/standalone/linux-desktop/install-desktop-icon.sh': rf'PoCol {re.escape(VERSION)} local node',
+            'deploy/standalone/README.md': rf'(?m)^# PoCol Mainnet · Wallet {re.escape(VERSION)} [\s\S]*PoCol-Mainnet-{re.escape(VERSION)}-linux-x86_64\.tar\.gz',
+        }
+        for rel, pattern in copies.items():
+            with self.subTest(file=rel):
+                text = (ROOT / rel).read_text(encoding='utf-8')
+                self.assertRegex(text, pattern)
+        workflow = (ROOT / '.github/workflows/five-device-build.yml').read_text(encoding='utf-8')
+        self.assertNotIn(VERSION, workflow)
+        self.assertIn('deploy/standalone/package.py --version', workflow)
+
     def expanded(self, out):
         expanded = self.root / 'expanded'
         shutil.rmtree(expanded, ignore_errors=True); expanded.mkdir()

@@ -1,7 +1,12 @@
-name: Full nonce consensus upgrade
+name: Consensus rules, profiles and extension release
 on:
   pull_request:
-    branches: [main, work/branding-20261031]
+    branches: [main]
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
+  # After a merge too: this is the only run of test_upgrade.py (same-release fork appends and the move to another
+  # genesis with the key kept).
+  push:
+    branches: [main]
     paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
   workflow_dispatch:
 permissions:
