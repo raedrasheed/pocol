@@ -29,7 +29,8 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   retired, the explorer snapshot's same-origin reads (`/api/rpc.php`, `/api/health.php`, `/api/miner-locations.php`,
   `/api/transactions.php`) must be served on the gateway host, by path-compatible handlers in `deploy/rewards/gateway.py`
   behind a Caddy `file_server` of the snapshot (with the CSP and headers of `.htaccess`). Until then the snapshot keeps
-  its PHP relays.
+  its PHP relays. pocol.net's network summary (`pocol.net/api/network.php`, `POCOL_SUMMARY_RPC`) reads the same
+  `/api/rpc.php`, so the handler must keep that path.
 - **No faucet on mainnet.** No site links a faucet; `deploy/faucet` is for the rehearsal network only.
 
 Left out of Git and kept in the release asset:
