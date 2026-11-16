@@ -1,0 +1,16 @@
+# PoCol Studio, IDE & Viewer: the release manifest public key (SITES-PLAN W14, Q7). OWNER INPUT.
+#
+# Chrome derives the extension id from the manifest "key" (sha256 of this DER SubjectPublicKeyInfo), so every release
+# built with it has one fixed id: users compare it with the id published on pocol.net, and Chrome keeps the extension's
+# storage (the studio:wallet vault) across releases loaded from any folder.
+#
+# The owner replaces the PLACEHOLDER line below with the base64 DER SubjectPublicKeyInfo of the release key, on one
+# line (the public half only; the private key never enters this repository). For a Chrome RSA key:
+#   openssl rsa -in KEY.pem -pubout -outform DER | base64 -w0
+# Then `python3 scripts/package-release.py --extension-id` prints the id to publish.
+#
+# While the line is the placeholder:
+#   - node build.mjs builds dist/ without a manifest "key" (a development build; Chrome gives it an id of its folder);
+#   - scripts/package-release.py refuses to package a release.
+# Fault, testGateway and rehearsal builds never carry the key, so loading one never replaces a release install.
+PLACEHOLDER: the owner's manifest public key (base64 DER SubjectPublicKeyInfo)
