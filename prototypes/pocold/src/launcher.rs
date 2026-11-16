@@ -146,17 +146,18 @@ impl Invitation {
             value["height"] = at.into();
             out["capRaise"] = value;
         }
-        crate::readiness::annotate(&mut out, &self.launch_blockers(&info, &forks));
+        crate::readiness::annotate(&mut out, &self.launch_blockers(&info));
         crate::network_display::annotate_genesis(out, &self.files["genesis.spec.hex"])
     }
     /// V3-28 H1: this build's readiness for the invitation's network, from what genesis.spec.hex commits to (chain,
-    /// genesis hash, spec version) and the fork schedule. The launcher admits nothing itself, so it always reports
-    /// `admission-not-booted`: the admission devnet.json records about itself is reflected only as further blockers,
-    /// never as evidence (D-V3-28); a node's status reports the admission it booted with.
-    fn launch_blockers(&self, info: &serde_json::Value, forks: &[(u16, u64)]) -> Vec<crate::readiness::Blocker> {
-        self.launch_blockers_for(&crate::readiness::Build::this(), info, forks)
+    /// genesis hash, spec version); v3 is active by specVersion 2 whatever the fork schedule. The launcher admits
+    /// nothing itself, so it always reports `admission-not-booted`: the admission devnet.json records about itself is
+    /// reflected only as further blockers, never as evidence (D-V3-28); a node's status reports the admission it
+    /// booted with.
+    fn launch_blockers(&self, info: &serde_json::Value) -> Vec<crate::readiness::Blocker> {
+        self.launch_blockers_for(&crate::readiness::Build::this(), info)
     }
-    fn launch_blockers_for(&self, build: &crate::readiness::Build, info: &serde_json::Value, forks: &[(u16, u64)]) -> Vec<crate::readiness::Blocker> {
+    fn launch_blockers_for(&self, build: &crate::readiness::Build, info: &serde_json::Value) -> Vec<crate::readiness::Blocker> {
         use crate::readiness::{blockers, Admission, AdmissionFacts, Network, Subject};
         let genesis = types::unhex(self.files.get("genesis.spec.hex").map_or("", |s| s.trim())).and_then(|bytes| {
             if bytes.len() > crate::genesis_spec::MAX_SPEC_BYTES { return Err("genesis specification exceeds its bound".into()) }
@@ -1057,7 +1058,7 @@ mod upgrade_tests {
         assert!(pinned.contains(&chain_id.to_string()) && pinned.contains(&genesis), "{pinned}");
         // Exactly the computed list: build facts, then the network's (devnet.json's recorded admission).
         let forks = crate::configured_forks(&info).unwrap();
-        assert_eq!(description["launchBlockers"], crate::readiness::json(&invitation.launch_blockers(&info, &forks))["launchBlockers"]);
+        assert_eq!(description["launchBlockers"], crate::readiness::json(&invitation.launch_blockers(&info))["launchBlockers"]);
         // The v3 rules are active by the genesis' specVersion 2; the schedule here has no cap raise (fork 3).
         assert!(forks.iter().all(|&(v, _)| v < 3));
         assert!(ids.contains(&"admission-not-booted"), "{ids:?}");
@@ -1076,7 +1077,7 @@ mod upgrade_tests {
             plan_gates_open: vec![], network_profiles: vec![(chain_id, genesis)] };
         let ids = |i: &Invitation| -> Vec<String> {
             let info = i.info().unwrap();
-            i.launch_blockers_for(&pinned, &info, &crate::configured_forks(&info).unwrap()).into_iter().map(|b| b.id).collect()
+            i.launch_blockers_for(&pinned, &info).into_iter().map(|b| b.id).collect()
         };
         let before = ids(&honest);
         assert!(before.iter().any(|b| b == "admission-scope") && before.iter().any(|b| b.starts_with("admission-condition-")), "{before:?}");
