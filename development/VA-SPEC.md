@@ -221,33 +221,33 @@ switches the four cap fields to the `capRaise` values devnet.json carries beside
 nodes with the same schedule and other raise values do not peer. Without a fork-3 entry the identity is unchanged byte
 for byte.
 Integers are big-endian; the schedule is the full configured fork schedule (`ForkSchedule::entries`). A node runs
-only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 3 (FN-5: version 3
-is the cap raise and needs `capRaise`; before FN-5 the bound was 2)
+only a schedule of versions 1, 2, ... in order, each once, starting `(1,0)`, at most MAX_FORK_VERSION = 3 (version 3
+is the cap raise and needs `capRaise`)
 (`configured_forks`; exactly `[(1,0)]`, `[(1,0),(2,H)]` or, on a spec-2 genesis with `capRaise`, `[(1,0),(2,H'),(3,H)]`;
-version 3 cannot be scheduled on a spec-1 genesis). The profile itself would accept a skipped version;
-the runtime keeps refusing one (owner decision D3, recorded in V3-DECISIONS.md). A later in-place fork on a v3
-chain appends (2,H) first, a nonce-rule no-op under nonceMode 1, then (3,Hprime).
+version 3 cannot be scheduled on a spec-1 genesis, which admission refuses anyway, §2.3). The profile itself would
+accept a skipped version; the runtime keeps refusing one (owner decision D3, recorded in V3-DECISIONS.md). The fresh
+network's genesis schedule is `[(1,0)]`; a later in-place fork appends (2,H) first, a nonce-rule no-op under
+nonceMode 1, then (3,H').
 genesisHash
 commits CP, sysCodeHash and the alloc. Flags: bit0 caps-test, taken from `pocol_lp4_execution::CAPS_TEST` (the
 crate whose LOG_CAP it changes; a build enabling lp4's feature without pocold's does not compile); bit1 unpinned,
 set when the build's consensus-boundary aggregate differs from the lock (§2.4), in which case the 32-byte aggregate
-is appended, so an unpinned tree peers only with byte-identical unpinned trees. Bit2 was the retired `v3-preview`
-build's flag: since the fresh network's phase 4 the v3 rules are the release rules (CONSENSUS_RULES_VERSION 2, spec 2
-decoded by default), the feature is gone and no build sets the bit. Other bits are 0. Left out: the build digest, the crash-test and io-fault features, `r_keep`, admission and other
+is appended, so an unpinned tree peers only with byte-identical unpinned trees. Bit2 is reserved: no build sets it.
+Other bits are 0. Left out: the build digest, the crash-test and io-fault features, `r_keep`, admission and other
 boot policy. A pinned ordinary release build's identity
 is computable by anyone from public data (devnet.json and `consensusRulesVersion`): `identity.rs`
-and `deploy/public-testnet/pocol_identity.py` compute it, and the
-H15000 value (chain 1599846715, genesis `0xbe137b…`, rules 1, flags 0, `[(1,0),(2,15000)]`) is pinned in tests:
-`bcc4b71570fed4788d84baff137e26a88527c1fd17a11f595d92ce1e5e50b110`.
+and `deploy/public-testnet/pocol_identity.py` compute it. Both pin the same test vector of the formula, a synthetic
+network rather than a release identity: chain 777915, genesis `0x5a…5a`, rules 1, flags 0, `[(1,0),(2,1000)]` gives
+`633afe4beab508ba5ab174300e3961d6ebb72235b68b994d597c508c5abd3021` (`identity::tests::a_scheduled_upgrade_identity_is_pinned`
+and `test_pocol_identity.py`). Its rules value 1 is only a formula input; the release rules are 2. The fresh network's
+own identity (rules 2) is pinned in those two tests once its genesis exists.
 
 ### 2.2 Wire range
 PROTOCOL_VERSION = 2 is this build's maximum and PROTOCOL_VERSION_MIN = 2 its minimum. Hello item 7 is the sender's
 maximum; a peer is accepted iff its maximum >= MIN, and the session runs at min(peer's maximum, ours). The 11-item
 Hello layout is frozen across every accepted range: changing it requires raising MIN. A sender never emits a message
-type or field above the negotiated version, and decoders stay strict (§1). Item 8 was redefined from the build digest
-to the consensus identity while keeping wire 2: deployed 0.4.0 sends 9 items and fails on arity, and earlier main
-builds send a build digest, which fails the 32-byte comparison. (The fresh-network Phase 2 removed the count of
-0.4.0 handshakes, status `legacyHellos`: such a first frame is refused like any other that fails to decode.)
+type or field above the negotiated version, and decoders stay strict (§1). Item 8 carries the sender's consensus
+identity (§2.1); a first frame that fails to decode is refused.
 
 Wire golden vectors (`pocold/tests/data/wire-golden.json`): one canonical frame per message type 0..9 and a
 `v2/limits` entry (MAX_FRAME, the Hello arity and the field bounds), each keyed `v<version>/<name>`. The unit test
@@ -261,6 +261,7 @@ Every change to a consensus-boundary file (§2.4) needs one appended history lin
 
 | kind | when | requirement |
 |---|---|---|
+| `base` | the first history line, which creates the lock | only the first line; re-pin refuses it while the history has more than one line |
 | `bump` | validity, state or receipt roots, rewards, genesis decoding or fork choice can differ for some input under a schedule or genesis an accepting build allows | CONSENSUS_RULES_VERSION += 1, **only together with a new genesis**; a rule change on a live chain is always a new fork version and a schedule entry |
 | `neutral` | refactors with identical verdicts; logs and comments | note required |
 | `neutral` + `gate=fork:V` | new rules reachable only through `active_version(h) >= V` | V greater than every `maxFork` on an earlier history line |
@@ -270,24 +271,33 @@ Every change to a consensus-boundary file (§2.4) needs one appended history lin
 | `wire` | only the wire golden file changed | the §2.2 rules |
 
 "Released" means merged to main. Gate freshness is determined by the version constants recorded on earlier
-history lines: `maxFork` (MAX_FORK_VERSION) and `spec` (genesis_spec::SPEC_VERSION). A dormant `neutral gate=spec:2`
-line still records `spec=1`, so it does not spend the gate. The fresh network's phase 4 (owner decisions of
-2026-11-13: the old network is retired and a new v3 genesis is launched) made the v3 rules the release rules: both
-SPEC_VERSION copies are 2, CONSENSUS_RULES_VERSION is 2 (a `kind=bump` line, with the new genesis) and
-MAX_FORK_VERSION stays 2. That line records `spec=2` and spends spec:2; invitations and releases of rules 1 are refused
-at import. Spec-1 genesis files still decode (`gsVersion <= 2`) until the spec-1 rule set is removed (removal plan
-Phase 6). Later corrections require a new spec:3 genesis/gate or a fork version. FN-5 (C10, D-V3-23 restricted to the
-cap fields) spends fork:3 as the cap raise and raises MAX_FORK_VERSION to 3 (`neutral gate=fork:3`): a schedule's fork-3
-entry with its `capRaise` values switches ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX at that height
-(`ProfileIdentity::cp_at`) on a v3 genesis only; it is dormant on every chain whose schedule does not name it, and a
-spec-1 genesis cannot schedule it, so the spec-1 fork:3 route of `v3_active` stays unreachable. See development/decisions/V3-DECISIONS.md and
+history lines: `maxFork` (MAX_FORK_VERSION) and `spec` (genesis_spec::SPEC_VERSION). The release rules are the v3
+rules: CONSENSUS_RULES_VERSION 2, both SPEC_VERSION copies 2, MAX_FORK_VERSION 3, PROTOCOL_VERSION and
+PROTOCOL_VERSION_MIN 2. Fork version 2 is a nonce-rule no-op under nonceMode 1. Fork version 3 is the cap raise (C10,
+D-V3-23 restricted to the cap fields): a schedule's fork-3 entry with its `capRaise` values switches ACCT_CAP,
+SLOT_CAP, CODE_CAP and SYS_SLOT_MAX at that height (`ProfileIdentity::cp_at`). The fresh genesis schedules neither
+(ForkSchedule `[(1,0)]`), so both take effect only through a release that schedules them (§2.1). Gates fork:2,
+fork:3 and spec:2 are spent; the next fresh gates are fork:4 and spec:3.
+
+Post-launch policy. A rule change on the running chain is a new fork version V ≥ 4: its rules are reachable only
+through `active_version(h) >= V`, it is re-pinned `neutral gate=fork:V`, and it takes effect only when a release
+schedules (V,H) after the signed announcement (development/m1/reference/governance.md, Upgrades). A new genesis specVersion is
+`neutral gate=spec:3` and, like any `bump` of CONSENSUS_RULES_VERSION, needs a new genesis. A GenesisSpec of version 1
+still decodes (`gsVersion <= 2`), but admission refuses it (R24, `lp4-execution/src/admission.rs`), and it refuses
+nonceMode 0 the same way.
+
+At the release cut before the fresh genesis the lock is reset once: the history restarts at a single `kind=base` line
+recording rules 2, maxFork 3, spec 2, protocol 2 and protocolMin 2, and nothing of the retired network's history is
+kept. That reset is the one exception to the append-only check of §2.4. It has not been made yet: the check gains the
+exception in the same change that performs the reset, and until then the development history stays append-only. From
+the `base` line on the append-only rule applies unchanged. See development/decisions/V3-DECISIONS.md and
 development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md.
 
-The schema-v2 CP wire list contains all 52 unchanged v1 fields followed by the fields below, in this exact order.
-All are unsigned canonical RLP integers; omitted v2 fields are not allowed. On v1, the named v2 fields are zero
-in the typed view and are absent from encoding; the builder writes and checks only the 52 v1 CP slots. Existing
-opaque allocation storage beyond that prefix is preserved. Schema validity is not complete ParamGate
-admission or a production-profile selection; cross-field bounds and measured values remain part of the profile PR.
+The CP wire list (CP schema v2, 59 fields) is fields 0..51, in their original order, followed by the fields below,
+in this exact order. All are unsigned canonical RLP integers; omitted fields are not allowed. GenesisSpec version 2
+carries all 59 fields; a version-1 encoding (the 52-field prefix) decodes but is refused at admission (R24). Schema
+validity is not ParamGate admission: cross-field bounds and measured values are checked by ParamGate (R1-R26) against
+the committed profiles (development/decisions/FRESH-NETWORK-CP.md §2).
 
 | CP index | Field | Width (bits) | Schema range |
 |---|---|---:|---|
@@ -298,14 +308,6 @@ admission or a production-profile selection; cross-field bounds and measured val
 | 56 | R_react | 8 | 0..255 |
 | 57 | C_react | 32 | 0..2^32-1 |
 | 58 | rho_bp | 16 | 0..10000 |
-
-FN-2a (owner decision 10d of 2026-11-13, no account-creation fee) deleted the three creation-fee coefficients
-F0_acct, F0_slot and F0_code (formerly 56..58), so CP schema v2 has 64 fields and every later field moved down by
-three (gamma_tip_bp 59 → 56, baseFeeMin 60 → 57, R_react 61 → 58, C_react 62 → 59, E_epoch 63 → 60, theta_bp 64 → 61,
-k_sigma 65 → 62, rho_bp 66 → 63). FN-2b (owner decisions 10b/10c of 2026-11-13: no seat contest, no probation pool or
-deadline) deleted P_MAX and T_PROB (formerly 54..55) and E_epoch, theta_bp and k_sigma (formerly 60..62), so CP schema v2
-has 59 fields: gamma_tip_bp 56 → 54, baseFeeMin 57 → 55, R_react 58 → 56, C_react 59 → 57, rho_bp 63 → 58. No chain runs
-CP schema v2, so neither deletion binds anything persisted.
 
 ### 2.4 Boundary, lock and enforcement
 `pocold/consensus-boundary.txt` lists the consensus sources (paths relative to `prototypes/`): `+` includes (all of
@@ -334,7 +336,7 @@ closure, `bump` without the incremented constant, and a spent gate. Enforcement:
   is not true.
 - The guard (`pocold/tests/consensus_guard.rs`, CI) checks the manifest, the aggregate build.rs saw, history
   consistency, the constants, module classification, the reference closure, `*tests.rs` declarations and the wire
-  rules. (The legacy launcher table `launcher::LEGACY_BUILDS` and its check were removed in the fresh-network Phase 2.)
+  rules.
 - `deploy/ci/check_lock_append_only.py` requires main's history lines to be a prefix of the branch's, and main's wire
   keys to obey §2.2.
 

@@ -5,7 +5,7 @@
 cfg = {chainId, genesisHash, ForkSchedule, CP, M_0}.
 
 GenesisSpec = RLP([specVersion, chainId, CP, allocRoot, M_0List, sysCodeHash]):
-- specVersion: u8 = 1; otherwise gsVersion.
+- specVersion: u8 = 2: CP schema v2 and the v3 rules (D-V3-34). A value other than 1 or 2 gives gsVersion; specVersion 1 (CP schema v1, the retired rule set) still decodes, and admission refuses it under R24.
 - chainId: u64 ∈ [1, 2^64−1].
 - allocRoot and sysCodeHash: exactly 32 bytes.
 - genesisHash = keccak256(GenesisSpec), excluding ForkSchedule.
@@ -15,14 +15,14 @@ Decoding:
 - Errors: gsInt (leading zero or integer ≤ 0x7f not encoded as one byte), gsCount, gsRange (out of range or unknown enum), and gsLen.
 - Evaluation order: structure, gsVersion, gsCount, gsInt, gsLen, gsRange, gsOrder, then gsSys.
 
-CP (version 1, 52 ordered elements):
-- 1–8: g_ts u64, target_g u256 [1, 2^256−1], T_blk u32 ≥ 1, tau u32 ≥ 1, nonceMode u8 (0 bounded, 1 unbounded), c u8 ≥ 1, D_att u32, dFbWait u32.
+CP (schema v2, 59 ordered elements: the 52 elements of schema v1 in their order, then 7 appended v3 elements; CP_V2_LEN):
+- 1–8: g_ts u64, target_g u256 [1, 2^256−1], T_blk u32 ≥ 1, tau u32 ≥ 1, nonceMode u8 (1 unbounded; 0, the bounded mode, is refused under R24), c u8 ≥ 1, D_att u32, dFbWait u32.
 - 9–15: m u16 ≥ 1, kappa u8 ≥ 1, S_max u16 ≤ 256, D u16, W_w u16, alpha_bp u16 ≤ 10^4, gamma_bp u16 ≤ 10^4−alpha_bp.
-- 16–24: subsidy u256, B_reg u256, R_max u8, M_max u16 ≥ 1, M_min u16 ≥ 1, REG_RECORDS_MAX u32, SWEEP_MAX u16, SWEEP_SCAN u16, REG_OPS u16.
+- 16–24: subsidy u256 (S0, the initial M3 issuance), B_reg u256, R_max u8, M_max u16 ≥ 1, M_min u16 ≥ 1, REG_RECORDS_MAX u32, SWEEP_MAX u16, SWEEP_SCAN u16, REG_OPS u16.
 - 25–30: W_act u32, Theta_inact u32, E_win u32, U u32, E_max u8, EVID_BYTES_MAX u32.
 - 31–40: GAS_LIMIT u64, baseFee0 u256, TX_MAX u32, BODY_MAX u32, B_code_max u32, CODE_CAP u64, TXBYTES_CAP u64, TX_CAP u64, SLOT_CAP u64, ACCT_CAP u64.
 - 41–45: SYS_SLOT_MAX u32, SYS_KEYS_BLOCK_MAX u32, SYS_KEYS_USER_MAX u32, SYS_ACCT_BLOCK_MAX u32, G_SYS u64.
-- 46–52: H_END u64, T_END u64, H_CLOSE u64, T_CLOSE u64, Z_close u32, RET u32 ≥ 1, P2 u32.
+- 46–52: H_END u64, T_END u64, H_CLOSE u64, T_CLOSE u64, Z_close u32, RET u32 ≥ 1, P2 u32. 53–59 (v3): H_half u64 ≥ 1, S_tail u256, gamma_tip_bp u16 ≤ 10^4, baseFeeMin u256, R_react u8, C_react u32, rho_bp u16 ≤ 10^4. Schema v2 has no other field: the creation-fee and probation-pool fields were deleted before any chain ran it (FRESH-NETWORK-CP.md §1).
 
 ParamGate, not decoding, checks inter-field relationships. R_max=0 is valid and disables register and reactivate.
 
@@ -37,13 +37,13 @@ Deriving genesis state:
 1. alloc.
 2. System code.
 3. For each MinerRegistry entry: active and HELD, bond = B_reg, lastShare = 0, graceStart = 0. ActList follows M_0List order; RecLen = ActLen = |M_0|.
-4. Escrow += |M_0|·B_reg; heldTotal = |M_0|·B_reg.
+4. Escrow += |M_0|·B_reg; heldTotal = |M_0|·B_reg. On the fresh network M_0 is the four founders, each with a 20 PCOL bond minted into Escrow this way; each founder's reward address holds 999,980 PCOL in alloc, so 1,000,000 PCOL per founder and 4,000,000 PCOL in all (FRESH-NETWORK-CP.md §3).
 
 allocRoot = the resulting state's MPT root; a mismatch violates R24(A).
 
-sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])).
+sysCodeHash = keccak256(RLP([code(C0C001..C0C005), 0x80 for PAY])); it must name the V3 program set (system-v3.json), the only set admission accepts.
 
-ForkSchedule = ordered [(v, H_v)], starting with (1,0). activeVersion(h) = the last v with H_v ≤ h. cfg is never read from a header, peer or RPC.
+ForkSchedule = ordered [(v, H_v)], starting with (1,0); versions are sequential (owner decision D3: 2 before 3) and v ≤ MAX_FORK_VERSION = 3. The fresh profiles have [(1,0)]. Version 2 changes nothing under nonceMode 1; version 3 is the cap raise (FN-5, C10: new ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX from its height, carried with the schedule and committed by the consensus identity), activated only by a release that schedules it. activeVersion(h) = the last v with H_v ≤ h. v3_active(h) = activeVersion(h) ≥ 3 or specVersion ≥ 2, so it holds at every height of an admitted genesis. cfg is never read from a header, peer or RPC.
 
 **1. Encoding**
 
@@ -74,20 +74,20 @@ Additional rules:
 - Every UT field, including stateRoot, receiptsRoot, logsBloom and gasUsed, depends only on parent state, parent header, cfg, non-root UT fields and the body.
 - apply for block h reads none of these from block h: nonce, its owner, shareList, winnerSig or sig.
 - Block h's result (winner and shares) is recorded in h+1 through recordShares(h) and recordResult(h), using ParentResult(h) (D142), not local state.
-  - ParentResult(p) = {blockHash(p), winner, shares}. shares is [(n, owner(n))] for each n in shareList(p), in its ascending order; winner = owner(p.nonce). The winning nonce is an implicit share counted for winner.
-  - shareList is committed by shareRoot inside blockHash, so every envelope copy of p yields the same list.
+  - ParentResult(p) = {blockHash(p), winner, shares}. shares is [(n, owner(n))] for each n in shareList(p), in its ascending order; winner = owner(p.nonce). The winning nonce is an implicit share counted for winner. shareList is committed by shareRoot inside blockHash, so every envelope copy of p yields the same list.
   - Owners come from p's assignment: the seed from the grandparent's seal and A_p* from grandparent state. ParentResult therefore depends only on committed content.
   - Two parents with the same template/nonce but different shareRoot values have different blockHash values and independent ParentResult values. Their children's stateRoot values therefore differ if the shares differ; they are not mixed.
 - Lemma: for fixed UT, every nonce satisfying items 6–9 and 13 in any A_h* owner's range yields the same roots. Thus two blocks with the same template share TemplateID and stateRoot and differ only in blockHash.
-- Final block F has no child, so its result is not recorded, consistently with its lack of a direct reward.
+- Final block F (H_END ≠ 0 only, §8) has no child, so its result is not recorded, consistently with its lack of a direct reward.
+- Late credit (evidence kind 3, D-V3-02): a signed body may carry `RLP([3, be64(j), [n_1<…<n_k]])` for an ancestor template j in [max(1, h−D), h−1], with 1 ≤ k ≤ S_max. Each nonce must be below nMax, distinct from j's winning nonce, in its owner's range under j's assignment, and meet j's share target T_share. Header shares of j, duplicates within or across carriers on the branch, nonancestor templates, fallback carriers and credit beyond C_header(j)+C_late(j) ≤ κm are rejected. Phase 0 records the credit after recordResult(h−1) and before settle(h−D), a carrier at h = j+D included; lastShare = max(lastShare, j); credit and deduplication roll back with the branch. The evidence is committed in the carrying template before it is mined, so apply(h) still reads nothing of block h's result.
 
 **2. Membership**
-- M_h = MinerRegistry records in parent state [PDF:87]; Act_h = ActList ≤ M_max.
-- A_h = {m ∈ Act_h, tomb=0 : lastShare ≥ h−W_act or graceStart ≥ h−W_act}.
-- A_h* = A_h, or Act_h excluding tombstones if A_h is empty.
-- deregister and removeInactive fail if they would make |Act| < M_min.
-- register and reactivate ≤ R_max per block, effective from h+1.
-- Registry operations are rejected during closing, so RecLen does not increase after closeH.
+- M_h = MinerRegistry records in parent state [PDF:87]; Act_h = ActList ≤ M_max. A record whose bond is below B_reg (bondState ACCRUING, the bond earned from rewards; incentives, "Earn-in rules") is a member like a HELD one and counts within M_max.
+- A_h* = Act_h excluding tombstones: every live active-list member receives a nonce range (§5), whether or not it has recent credited shares, and membership does not depend on the attempt.
+- (The activity-gated A_h = {lastShare ≥ h−W_act or graceStart ≥ h−W_act} with its empty-set fallback belonged to the bounded mode, nonceMode 0, which admission refuses.)
+- deregister and removeInactive fail if they would make |Act| < M_min. An inactive member is removed (removeInactive, registerReplacing) only at a full set, |Act| = M_max (incentives, "Removal at a full set").
+- register and registerReplacing ≤ R_max per block, reactivate ≤ R_react per block with the C_react cooldown, effective from h+1.
+- Registry operations are rejected during closing (H_END ≠ 0 only, §8), so RecLen does not increase after closeH.
 
 **3. Timing**
 - L(a) = p.ts+a·D_att+1 and U(a) = p.ts+(a+1)·D_att, computed in u128. A block is invalid if U(a) ≥ 2^63.
@@ -115,11 +115,11 @@ Additional rules:
 - ticket = SHA256(seed‖id20), sorted ascending over A_h* [PDF:91, modified].
 - start(i) = floor(i·nMax/n); end(i) = floor((i+1)·nMax/n)−1 [PDF:92].
 - work(t) = floor(2^256/(t+1)).
-- nMax = min(2^64, c·work(target)) in nonceMode=0; 2^64 in nonceMode=1.
+- nMax = 2^64, computed in a wider integer; the nonce encoding stays eight bytes. nonceMode is 1 on every admitted genesis (R24 refuses the bounded mode, nMax = min(2^64, c·work(target))), and no later fork version restores it.
 
 **6. Draw**
-- w(m) = Σcount[j][m] over j ∈ [h−1−W_w, h−2], for A_h* members.
-- P+ = {w > 0}; if empty, select uniformly.
+- Candidates: the members of A_h* except ACCRUING members whose bond is below B_reg/4 (D-V3-13); if that leaves none, every member of A_h* (the all-probationer exception, earn-in D1; owner decision 2026-11-12, option a). w(m) = Σcount[j][m] over j ∈ [max(1, h−1−W_w), h−2] for a candidate, 0 for any other member.
+- P+ = {candidates with w > 0}; if empty, select uniformly among the candidates (each weight 1, earn-in D2).
 - x_k = SHA256('PoColProposer'‖seal_p‖be64(h)‖be32(0)‖be32(k)), with rejection sampling to remove bias.
 - Select the first member in address order whose cumulative sum exceeds x_k mod W.
 
@@ -137,13 +137,13 @@ floor_div rounds toward −∞.
 Equivalence lemma: X ∈ [2^16, 2^273), so k ≥ 240 clamps to 2^256−1, while k ≤ −273 yields 0 then 1. Hence D83 = D74. At block h=1 the target is target_g.
 
 **8. Closing and finalization (D57, D85)**
-- closing is sticky, beginning when h ≥ H_CLOSE or ts ≥ T_CLOSE. closeH is the first closing block; closeH ≤ H_CLOSE.
+- H_END = 0 (every profile the genesis builder writes) is a continuous chain: no scheduled height or time closing and no final block; this section and item 10a apply only when H_END ≠ 0 (finite fixtures). Continuous does not mean unbounded resident memory: retention and checkpoints still bound it. closing is sticky, beginning when h ≥ H_CLOSE or ts ≥ T_CLOSE. closeH is the first closing block; closeH ≤ H_CLOSE.
 - The cursor processes ≤ RET records per block starting at closeH. cursorDone is true in state closeH+⌈RecLen_closeH/RET⌉−1 at the latest.
 - gate2: h ≥ H_END−P2 or ts ≥ T_END−P2·T_blk.
 - final = closing_p and cursorDone_p and h ≥ closeH_p+D and (h ≥ H_END or ts ≥ T_END). The final block has no valid child.
-- Item 10a: h ≤ H_END.
+- Item 10a: h ≤ H_END, when H_END ≠ 0.
 
-Theorem E1 (under R13 and R20):
+Theorem E1 (H_END ≠ 0, under R13 and R20):
 - At h = H_END, p.h ≥ closeH+⌈REG_RECORDS_MAX/RET⌉+P2+D.
 - Thus cursorDone_p is true and H_END is final; no block lies above it, and the non-genesis block count is ≤ H_END.
 - E1 is an upper bound, not an arrival guarantee.
@@ -151,7 +151,7 @@ Theorem E1 (under R13 and R20):
 **H-pre** (stateless, with parent header or virtual genesis header):
 1. Encoding and sizes; each transaction ≤ TX_MAX.
 1b. NetID in order: chainId, genesisHash, activeVersion. Errors: netChain, netGenesis, netVersion.
-2. h = p.h+1, parentHash = blockHash(p), h ≤ H_END (10a).
+2. h = p.h+1, parentHash = blockHash(p), h ≤ H_END when H_END ≠ 0 (10a).
 3. Form: either (proposer≠∅ and sig≠∅ and a=0 and ecrecover = proposer), or (proposer=∅ and sig=∅).
 4. Time window and fallback timestamp.
 5. target = ASERT(p).
@@ -166,7 +166,7 @@ Theorem E1 (under R13 and R20):
 12. Exclusive branching: signed requires proposer = Draw(h,0). Fallback requires byte-identical RLP(UT) = Build_fb(p,a).UT and Body = 0xc2c0c0.
 13. nonce owner ∈ A_h*; winnerSig is from that owner.
 14. Share owners ∈ A_h*.
-15. Body matches roots and limits.
+15. Body matches roots and limits; each evidence item is valid, a kind-3 item as in §1b.
 16. txBytes and txCount are within caps.
 17. apply matches stateRoot, receiptsRoot, logsBloom and gasUsed; system assertions hold.
 
@@ -195,7 +195,7 @@ Evaluation order (D75):
 - Execution (apply) occurs once per blockHash after its first envOk copy; its verdict is cached in BlockCache.
 - envReject does not invoke RejectPath.cancel, set HfullDone or record a block in pocol_getRejects. These three are restricted to blockReject or import.
 
-**9. Chain selection (D133, amends D15)**
+**9. Chain selection (D133, amends D15; V3-04)**
 
 From the thesis [PDF:74 §4.2]: only the cumulative-work rule. The tie-break is unavailable in the provided excerpts; the following is our addition.
 
@@ -203,7 +203,7 @@ Definitions:
 - Candidates: headers of blocks imported (passed H-full) by the node.
 - W(t) = Σwork from genesis to t.
 - importSeq(b): a local monotonic counter assigned to each blockHash at its first successful import. It remains unchanged while the block is stored. A block removed by D118 and imported again receives a new number.
-- key(b) = (signed(b) ? 0 : 1, importSeq(b), blockHash(b)); lexicographically smaller is better.
+- key(b) = (timely(b) ? 0 : 1, signed(b) ? 0 : 1, importSeq(b), blockHash(b)); lexicographically smaller is better. timely(b) is fixed at b's first successful import: a signed block is timely iff it arrived at or before T_j(local)+Φ, an attempt-0 fallback iff it arrived at or after T_j(local)−(Δ+Φ), and attempts ≥ 1 are timely. The first-import wall time is persisted, so replay and restart derive the same flag.
 
 The ordering t1 ≻ t2 holds in either case:
 - W(t1) > W(t2).
@@ -220,8 +220,8 @@ Transition lemma:
 - Hence head changes only on import, at most once per import.
 
 Effect:
-- Signed precedes fallback at the first divergence (D15).
-- Same-type sibling ties use local import precedence and cannot be ground.
+- At the first divergence a timely block precedes an untimely one, then signed precedes fallback (D15, V3-04).
+- Same-type sibling ties use local import precedence and cannot be ground. The arrival-qualified flag is local: it is not a globally identical arrival order and not a validity deadline.
 - The rule changes no block's validity.
 
 **10. Recovery**
@@ -236,10 +236,10 @@ Effect:
   - This is a local-retention rule, not validity.
 
 **11. Progress (conditional)**
-An honest miner starts within X^W; in bounded mode p0 ≥ 1−exp(−c·ρ_hon).
+An honest miner starts within X^W. In the unbounded mode each member's range holds about 2^64/|A_h*| nonces, so it is exhausted only by a member hashing that many times in one attempt; no progress probability is claimed.
 
 **12. Finality**
-Probabilistic: safe = head−6, finalized = head−60 [PDF:76-77], without a mathematical guarantee. (Superseded for the node by the Section 12 amendment below, V3-26: `finalized` is the persisted local floor finalized_h, `safe` = max(head − k_safe, finalized_h) with k_safe = 6 by default (reorg alarm k_alarm = 60, owner decision 12); network.md, "Local finality".)
+Local and probabilistic, never validity (V3-26): `finalized` is the node's persisted local irreversibility floor finalized_h (retention floor max(head − r_keep, finalized_h)), and `safe` = max(head − k_safe, finalized_h) with k_safe = 6 by default; a reorganization of k_alarm = 60 blocks or more (default) raises the reorg alarm (owner decision 12, 2026-11-13). pocol_finality reports {maxReorgDepth, reorgsGeKAlarm, networkHashrateEst, model: "probabilistic"}; the Nakamoto depths [PDF:76-77] are indicative only. This is a node retention and reorganization policy, not mathematical or committee finality, with no trusted signed checkpoint and no validity rule; network.md, "Local finality".
 
 **13. Consensus independence from RPC and the extension (D87–D97)**
 - Validation/mining run in a separate prioritized runtime with one redb writer.
@@ -249,21 +249,3 @@ Probabilistic: safe = head−6, finalized = head−60 [PDF:76-77], without a mat
   - The pocol_getLogs anchor and sendDone/receiveDone events.
   - BridgeAuth, bridge-message envelope, rate bucket, pending counter, SiteStorage quota and node origin blocking.
 - pocol_getLogs reads the canonical chain without changing it.
-
----
-
-## v3 amendment (D-V3-01, 02, 04, 13, 26, 29, 34)
-
-This amendment records the approved v3 target, not current implementation readiness. New validity, state, reward and fork-choice behavior below applies only when `v3_active(h) = active_version(h) >= 3 || genesis.spec_version >= 2`. Otherwise retain the existing rules and byte-identical spec-1 results. See [the decision record](../../decisions/V3-DECISIONS.md). The v2 full-range and existing continuous-profile clarifications below also describe already supported spec-1 profiles; they do not activate v3 on them.
-
-**Sections 0 and 5 — versioning and nonce domain.** Spec-2 genesis identifies v3 and uses CP schema v2 (the v1 prefix plus appended fields); a release with SPEC_VERSION=1 refuses it. Preview acceptance must have a distinct build identity, simnet-only admission and packaging refusal. Fork versions remain sequential. For every version >=2, or nonceMode=1, `nMax=2^64`, computed in a wider integer; the nonce encoding remains eight bytes. Otherwise preserve the bounded-domain rule. A later version must never restore bounded mode by an equality check against version 2.
-
-**Sections 2 and 6 — membership and draw.** On v3 in unbounded mode, all parent-state active-list members excluding tombstones receive disjoint ranges, whether or not they have recent credited shares. Membership is independent of attempt. Bounded mode retains activity gating and its historical empty-active fallback. On v3 an ACCRUING member is normally excluded from the proposer draw while its bond is below B_reg/4. Retain the existing all-probationer exception (earn-in D1) when that filter would exclude every draw member; the owner confirmed this on 2026-11-12 (option a, see the decision record). Draw remains deterministic and share-weighted; iterating ledger owners instead of all registry records must preserve old-chain results.
-
-**Sections 1b and H-full — late credit.** A signed body may carry evidence kind 3, `RLP([3, be64(j), [n_1<...<n_k]])`, for ancestor templates j in `[max(1,h-D),h-1]`, with 1<=k<=S_max. Each nonce must be below nMax_j, distinct from the winning nonce, in its derived owner range, and meet that template share target. Reject header shares, duplicates within or across carriers on the branch, nonancestor templates, fallback carriers and credits exceeding `C_header(j)+C_late(j)<=kappa*m`. Record late credit in phase 0 after recordResult and before settle(h-D), including a carrier at h=j+D. Update lastShare monotonically and roll back credits and deduplication with the branch. The evidence is committed in the carrying template before its mining; apply(h) still never reads h mining result. See [incentives](incentives.md).
-
-**Sections 8 and 10a — continuous profiles.** H_END=0 denotes no scheduled height/time closing or final block. Finite close/final rules remain for H_END!=0. Continuous profiles do not shut down when a finite-fixture deadline is reached. Supply is bounded over the representable u64 height domain and through the v3 issuance bound where applicable. Retention and checkpointing remain necessary; continuous does not mean unbounded resident memory.
-
-**Section 9 — D133 amendment.** Cumulative work is always primary. Under v3 only, compare siblings at the first branch-path divergence by `(timely?0:1, signed?0:1, importSeq, blockHash)`. At first successful import, a signed block is timely iff arrival<=T_j(local)+Phi; attempt-0 fallback is timely iff arrival>=T_j(local)-(Delta+Phi); attempts>=1 are timely. Persist first-import wall time so replay/restart re-derives the same flag. Keep importSeq and the key fixed while stored. This retains timely signed precedence, the total-order and transition lemmas, and unchanged block validity. Spec-1 keys remain unchanged while v3 is inactive. The local arrival-qualified tie-break is not globally identical arrival order or a validity deadline.
-
-**Section 12 — local finality disclosure (V3-26).** The target RPC finalized value is a persisted local irreversibility floor, with retention floor `max(head-r_keep, finalized_h)` and explicit reorg telemetry. It describes a node retention/reorganization policy, not mathematical or committee finality; no trusted signed checkpoint is introduced. Implemented (node-local, network.md "Local finality"): finalized_h is persisted in `retention.finalized`, RPC `finalized` = finalized_h, `safe` = max(head − k_safe, finalized_h) with k_safe = 6 by default, telemetry pocol_finality {maxReorgDepth, reorgsGeKAlarm (reorganizations of k_alarm = 60 blocks or more by default; owner decision 12, 2026-11-13: two settings), networkHashrateEst, model: "probabilistic"}; the Nakamoto depths there are indicative only. The §12 offsets above (safe = head−6, finalized = head−60) no longer describe the node. This policy adds no consensus-validity rule on any profile.
