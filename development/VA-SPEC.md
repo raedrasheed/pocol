@@ -277,7 +277,10 @@ PROTOCOL_VERSION_MIN 2. Fork version 2 is a nonce-rule no-op under nonceMode 1. 
 D-V3-23 restricted to the cap fields): a schedule's fork-3 entry with its `capRaise` values switches ACCT_CAP,
 SLOT_CAP, CODE_CAP and SYS_SLOT_MAX at that height (`ProfileIdentity::cp_at`). The fresh genesis schedules neither
 (ForkSchedule `[(1,0)]`), so both take effect only through a release that schedules them (§2.1). Gates fork:2,
-fork:3 and spec:2 are spent; the next fresh gates are fork:4 and spec:3.
+fork:3 and spec:2 are spent (the reset's `base` line records maxFork 3 and spec 2); the next fresh gates are fork:4
+and spec:3. On the fresh network's chain only `fork:V` gates are usable: a `spec:3` gate means a new genesis
+specVersion, which needs a new genesis. The guard code still accepts the `gate=spec:S` form of the table above; its
+removal is a later boundary change on top of the reset.
 
 Post-launch policy. A rule change on the running chain is a new fork version V ≥ 4: its rules are reachable only
 through `active_version(h) >= V`, it is re-pinned `neutral gate=fork:V`, and it takes effect only when a release
@@ -286,11 +289,15 @@ schedules (V,H) after the signed announcement (development/m1/reference/governan
 still decodes (`gsVersion <= 2`), but admission refuses it (R24, `lp4-execution/src/admission.rs`), and it refuses
 nonceMode 0 the same way.
 
-At the release cut before the fresh genesis the lock is reset once: the history restarts at a single `kind=base` line
-recording rules 2, maxFork 3, spec 2, protocol 2 and protocolMin 2, and nothing of the retired network's history is
-kept. That reset is the one exception to the append-only check of §2.4. It has not been made yet: the check gains the
-exception in the same change that performs the reset, and until then the development history stays append-only. From
-the `base` line on the append-only rule applies unchanged. See development/decisions/V3-DECISIONS.md and
+At the release cut before the fresh genesis the lock was reset once (Phase 8): the retired network's 41 history
+lines were dropped and the history restarts at a single `history n=1 kind=base` line recording rules 2, maxFork 3,
+spec 2, protocol 2 and protocolMin 2, `ref=Phase-8`. The reset changed no consensus-boundary file: the line's
+`sources`, `vectors` and `deps` digests and the `file` and `dep` manifest are those of the retired lock's last line,
+and of the `wire` lines only `v2/hello` and `v2/get-range` changed, because the canonical samples (§2.2) no longer
+carry the retired network's chain ID and height. That reset is the one exception to the append-only check of §2.4,
+and it is spent: the check accepts it only against the exact bytes of the retired lock, which main no longer has once the reset is
+merged.
+From the `base` line on the append-only rule applies unchanged. See development/decisions/V3-DECISIONS.md and
 development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md.
 
 The CP wire list (CP schema v2, 59 fields) is fields 0..51, in their original order, followed by the fields below,
@@ -324,10 +331,10 @@ and are not resolved. The aggregate is
 `SHA-256("pocol-consensus-sources-v1\0" ‖ (u64 len name ‖ name ‖ u64 len bytes ‖ bytes)*)`, with the `dep` lines as
 one entry named `Cargo.lock#closure`.
 
-`pocold/consensus-sources.lock` holds append-only `history` lines (n, kind, rules, maxFork, spec, protocol,
-protocolMin, sources, vectors, deps, wire digests, ref, note) and the `file`, `dep` and `wire` manifest, which re-pin
-mode rewrites: `POCOL_REPIN_CONSENSUS=<kind> POCOL_REPIN_REF=<PR> POCOL_REPIN_NOTE=<why> [POCOL_REPIN_GATE=fork:V]
-cargo test --release --locked --test consensus_guard`. Re-pin refuses `neutral` over a changed vector or dependency
+`pocold/consensus-sources.lock` holds `history` lines (n, kind, rules, maxFork, spec, protocol, protocolMin, sources,
+vectors, deps, wire digests, ref, note), append-only since the one reset to a single `base` line at the fresh genesis
+(§2.3), and the `file`, `dep` and `wire` manifest, which re-pin mode rewrites: `POCOL_REPIN_CONSENSUS=<kind>
+POCOL_REPIN_REF=<PR> POCOL_REPIN_NOTE=<why> [POCOL_REPIN_GATE=fork:V] cargo test --release --locked --test consensus_guard`. Re-pin refuses `neutral` over a changed vector or dependency
 closure, `bump` without the incremented constant, and a spent gate. Enforcement:
 - `build.rs` computes the aggregate. Equal to the last history line's `sources`: pinned. Otherwise the build is
   unpinned (bit1 and the aggregate in its identity, §2.1), and with `POCOL_RELEASE=1` (every packaging build) it fails
@@ -338,7 +345,10 @@ closure, `bump` without the incremented constant, and a spent gate. Enforcement:
   consistency, the constants, module classification, the reference closure, `*tests.rs` declarations and the wire
   rules.
 - `deploy/ci/check_lock_append_only.py` requires main's history lines to be a prefix of the branch's, and main's wire
-  keys to obey §2.2.
+  keys to obey §2.2. Its one exception, `RETIRED_BASE_LOCK_SHA256` (the sha256 of the retired network's last lock
+  bytes), accepted the §2.3 reset: one `n=1 kind=base` line without a gate, at spec 2, with the retired last line's
+  constants and `sources`, `vectors` and `deps`, the same `file` lines and the same wire keys. It cannot fire against
+  any later main; Phase 10 deletes it.
 
 The reference closure is a lexical scan, not a parser: an unusual construction errs towards an unclassified or
 unannounced reference (fail closed). A consensus effect through a node-local module that no `+` file references is

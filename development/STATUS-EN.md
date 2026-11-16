@@ -30,11 +30,13 @@ mining. The browser extension moves to 0.5.0 with a fixed key.
   genesis ceremony script (FN-7).
 - Devnets, tests, websites, the extension, the reward gateway and the wallets run on v3.
 - The specification and decision records describe the v3 network only; dated records keep "superseded" notes.
+- The consensus-source lock was reset once for the fresh genesis (Phase 8): one `kind=base` line recording rules 2,
+  maxFork 3 and spec 2, with the same consensus sources; the retired network's history lines are gone.
 
 ## Next
 
-1. **Release cut.** Reset the consensus-source lock once, to a single `base` line, in the
-   last code change before the release; build with `POCOL_RELEASE=1` and run the full CI.
+1. **Release cut.** The consensus-source lock has been reset once, to a single `base` line (Phase 8; the one-time
+   exemption of the append-only check is spent). Build with `POCOL_RELEASE=1` and run the full CI.
 2. **Rehearsal.** Run the ceremony with the rehearsal profile on the three servers and the PC and measure the launch
    evidence (T1-T8, M1-M4).
 3. **Mainnet ceremony.** Fresh keys again, the mainnet profile, one genesis and one invitation.

@@ -48,8 +48,8 @@ open gates in this order; its test keeps the two equal.
 
 ## Launch order
 
-1. **Release.** Build the release with `POCOL_RELEASE=1` from a pinned tree (the consensus-source lock is reset to a
-   single `base` line at the release cut) and run the full CI.
+1. **Release.** Build the release with `POCOL_RELEASE=1` from a pinned tree (the consensus-source lock was reset to a
+   single `base` line at the release cut, Phase 8) and run the full CI.
 2. **Rehearsal.** Run the ceremony with the rehearsal profile on the three servers and the PC, with fresh keys, and
    measure the launch evidence (T1-T8, M1-M4, FRESH-NETWORK-CP §9). A failed threshold changes only profile values,
    recorded in FRESH-NETWORK-CP, and both profiles change together.

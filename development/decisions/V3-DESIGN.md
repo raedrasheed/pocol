@@ -254,8 +254,8 @@ clients, PR-8 the harnesses and vectors; PR-9, the rehearsal, is the closed rehe
 - Launch admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope; `publicLaunchReady` is false and
   its blockers are disclosed (FRESH-NETWORK-CP.md §1, V3-28).
 - The ceremony: `deploy/mainnet/README.md` and `deploy/standalone/README.md` (FN-7, `Initialize-PoColNetwork.ps1`),
-  after the closed rehearsal and only with the owner's approval. The consensus-sources lock is reset once, at the
-  release cut before it (VA-SPEC §2.3).
+  after the closed rehearsal and only with the owner's approval. The consensus-sources lock was reset once, at the
+  release cut before it (Phase 8, VA-SPEC §2.3).
 
 ### 3.3 The v3 predicate
 
