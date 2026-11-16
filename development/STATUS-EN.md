@@ -51,13 +51,25 @@ The network launches with `publicLaunchReady: false` and its launch blockers dis
 
 Each of these is undecided; texts that need them say "owner decision pending".
 
-- the native release version and the signing scheme;
-- translations;
-- the founders' reward address: each server's hot miner key, or a separate owner-held address;
 - the launch-disclosure wording (draft in `deploy/standalone/README.md`);
-- whether a fee faucet runs on mainnet;
-- the explorer gateway host;
-- the canonical public repository URL.
+- the reward page S1 wording;
+- the extension manifest public key (`prototypes/pocol-extension/release/manifest-key.pub`), which the owner generates;
+- the release signing public key (`deploy/release/allowed_signers`), which the owner generates.
+
+Decided by the owner on 2026-11-16:
+
+- native release version 0.5.0 (pocold, Windows, Android; the extension's `package.json` moves with its signed 0.5.0
+  release);
+- release signing: every download and `SHA256SUMS` signed with ssh-keygen ed25519, namespace `pocol-release`
+  (`deploy/release`);
+- site languages at launch: English and Arabic;
+- the server founders' rewards go to owner-held offline addresses (`-ServerRewardAddresses`); only the 20 PCOL bond
+  stays on each server;
+- the canonical repository: `raedrasheed/pocol`;
+- a fork activation is announced at least 24 h (8,640 blocks at T_blk 10) ahead;
+- the build-info scope label is `mainnet`;
+- no faucet on mainnet (the rehearsal network only);
+- the explorer gateway host is `explorer.pocol.net`, replacing the old PHP site.
 
 ## Earlier work
 
