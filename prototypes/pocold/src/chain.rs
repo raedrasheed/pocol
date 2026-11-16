@@ -176,21 +176,20 @@ impl Spec{
     /// network. A `Spec` exists only from an admission (`new`), which refuses every GenesisSpec naming another sysCodeHash
     /// or CP schema (`SystemPrograms::for_spec`).
     pub fn programs(&self)->ProgramSet{ProgramSet::V3}
-    /// The earned-bond registration rules (zero-bond ACCRUING records that fill B_reg from their rewards): the V3 set's.
-    pub fn earnin_rules(&self)->bool{matches!(self.programs(),ProgramSet::V3)}
+    /// The earned-bond registration rules (zero-bond ACCRUING records that fill B_reg from their rewards): the V3 set's,
+    /// the only program set (`programs`), so always on.
+    pub fn earnin_rules(&self)->bool{true}
+    /// Whether the v3 rules hold at height `h` (`ProfileIdentity::v3_active`): true at every height, since an admission
+    /// (`new`) admits only a specVersion-2 genesis, which is v3 from genesis whatever its fork schedule.
     pub fn v3_active(&self,h:u64)->bool{self.profile().v3_active(h)}
-    pub fn base_fee_floor(&self,h:u64)->U256{if self.v3_active(h){from_fixed_lp4(&self.cp().baseFeeMin)}else{U256::ZERO}}
+    /// The base-fee floor of a block at height `h`: the CP's baseFeeMin at every height (the v3 rule).
+    pub fn base_fee_floor(&self,_h:u64)->U256{from_fixed_lp4(&self.cp().baseFeeMin)}
     pub fn target_g(&self)->Fixed{Fixed::from_be_slice(&self.profile().cp().target_g.to_be_bytes()).unwrap()}
     pub fn active_version(&self,h:u64)->u16{self.profile().forks().active_version(h)}
-    /// The genesis CP remains immutable. Consensus v2 activates the complete u64
-    /// nonce domain only for the block being built or validated, including replay.
-    pub fn effective_nonce_mode(&self,h:u64)->NonceMode{
-        if full_nonce_rule(self.active_version(h),self.cp().nonceMode){NonceMode::Unbounded}else{NonceMode::Bounded}
-    }
+    /// The nonce domain of a block at height `h`, built, validated or replayed: the complete u64 domain at every height.
+    /// An admission (`new`) admits only nonceMode 1, and no fork changes it (a cap raise changes only the four caps).
+    pub fn effective_nonce_mode(&self,_h:u64)->NonceMode{NonceMode::Unbounded}
 }
-/// Whether a block under fork `version` with genesis `nonce_mode` uses the full u64 nonce domain. v2 introduced it
-/// and every later version keeps it (`>= 2`, not `== 2`, so a v3 schedule cannot silently narrow the domain).
-pub fn full_nonce_rule(version:u16,nonce_mode:u8)->bool{version>=2||nonce_mode==1}
 
 #[derive(Clone,Debug)]
 pub struct Entry{
@@ -379,8 +378,7 @@ pub fn decode_result(rb:&[u8],hash:&[u8;32])->Result<Option<ParentResult>,Reject
 /// Drops a journaled block's bytes from memory (D-REORG-REDB): body, receipts, tx hashes and the
 /// encoded header. Fork choice, child contexts and evidence ancestry read only the metadata kept.
 /// V3-02: the block's kind-3 (late share) evidence items stay (`offloaded_body`): the late-share deduplication of its
-/// descendants reads them on the branch (`Chain::late_credited`). A valid spec-1 block carries none, so a spec-1
-/// entry is offloaded to exactly what it was before. An entry slimmed first keeps none (as `slim` of an offloaded
+/// descendants reads them on the branch (`Chain::late_credited`). An entry slimmed first keeps none (as `slim` of an offloaded
 /// one): a slimmed and offloaded entry holds no evidence whichever ran first, so the live entry, a replayed one and a
 /// checkpoint-restored one (`checkpoint::entry_of`) are the same, and `unslim` reads the items back.
 /// FN-3: and its member record and ids (the member source holds them).
@@ -840,15 +838,14 @@ impl Chain{
     /// `membership_one_pass` on what it reads (the ActList in order, each record's fields), so equal inputs give the same
     /// membership, accruing marks and error.
     pub fn membership_from_base(&self,p:&Entry,h:u64,base:&MemberBase)->Result<Membership,Reject>{
-        let cp=self.spec.cp();let v3=self.spec.v3_active(h);
+        let cp=self.spec.cp();
         let mut act=Vec::with_capacity(base.list.len());let mut accruing=Vec::new();
         for id in &base.list{
             let r=base.rec(id);
-            if r.is_some_and(|r|r.bond_state==4&&(!v3||r.below_quarter)){accruing.push(*id);}
+            if r.is_some_and(|r|r.bond_state==4&&r.below_quarter){accruing.push(*id);}
             act.push(ParentMember{id:*id,tomb:r.map(|r|r.tomb).unwrap_or(false),last_share:r.map(|r|r.last_share).unwrap_or(0),grace_start:r.map(|r|r.grace_start).unwrap_or(0)});
         }
-        let all_live=v3&&self.spec.effective_nonce_mode(h)==NonceMode::Unbounded;
-        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,all_live).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
+        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,true).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
     }
     /// FN-1b: the membership of a cacheable parent from its inputs (`member_base`). With the oracle on (tests), compared
     /// with the one-pass reading every time: a difference is an oracle mismatch and a member fault, and panics
@@ -908,30 +905,28 @@ impl Chain{
     pub fn membership_one_pass(&self,p:&Entry,h:u64)->Result<Membership,Reject>{
         let cp=self.spec.cp();
         let st=self.view_or(p)?;let st=st.v();
-        let v3=self.spec.v3_active(h);let quarter=from_fixed_lp4(&cp.B_reg)/U256::from(4);
+        let quarter=from_fixed_lp4(&cp.B_reg)/U256::from(4);
         let list=apply::active_list(st);let mut act=Vec::with_capacity(list.len());let mut accruing=Vec::new();
         for id in list{
             let r=apply::miner_record(st,id);
-            // Legacy D1 excludes every ACCRUING record. V3-13 allows those at B_reg/4;
+            // V3-13: an ACCRUING record below B_reg/4 is excluded (one at B_reg/4 or above takes part);
             // DrawWeights retains the owner's all-probationer exception if all are excluded.
-            if r.as_ref().is_some_and(|r|r.bond_state==4&&(!v3||r.bond<quarter)){accruing.push(raw_addr(id));}
+            if r.as_ref().is_some_and(|r|r.bond_state==4&&r.bond<quarter){accruing.push(raw_addr(id));}
             act.push(ParentMember{id:raw_addr(id),tomb:r.as_ref().map(|r|r.tomb).unwrap_or(false),last_share:r.as_ref().map(|r|r.last_share).unwrap_or(0),grace_start:r.as_ref().map(|r|r.grace_start).unwrap_or(0)});
         }
-        let all_live=v3&&self.spec.effective_nonce_mode(h)==NonceMode::Unbounded;
-        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,all_live).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
+        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,true).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
     }
-    /// The pre-FN-1 algorithm (two reads of the ActList, two of each record), kept unchanged as the oracle of
-    /// `membership_one_pass` and the cache (tests/fn1_membership.rs). Not used by the node.
+    /// The pre-FN-1 algorithm (two reads of the ActList, two of each record), with the same v3 accruing and all-live
+    /// rules, kept as the oracle of `membership_one_pass` and the cache (tests/fn1_membership.rs). Not used by the node.
     #[doc(hidden)]
     pub fn membership_two_pass(&self,p:&Entry,h:u64)->Result<Membership,Reject>{
         let cp=self.spec.cp();
         let st=self.view_or(p)?;let st=st.v();
         let act:Vec<ParentMember>=apply::active_list(st).into_iter().map(|id|{let r=apply::miner_record(st,id);
             ParentMember{id:raw_addr(id),tomb:r.map(|r|r.tomb).unwrap_or(false),last_share:r.map(|r|r.last_share).unwrap_or(0),grace_start:r.map(|r|r.grace_start).unwrap_or(0)}}).collect();
-        let v3=self.spec.v3_active(h);let quarter=from_fixed_lp4(&cp.B_reg)/U256::from(4);
-        let accruing:Vec<_>=apply::active_list(st).into_iter().filter(|id|apply::miner_record(st,*id).is_some_and(|r|r.bond_state==4&&(!v3||r.bond<quarter))).map(raw_addr).collect();
-        let all_live=v3&&self.spec.effective_nonce_mode(h)==NonceMode::Unbounded;
-        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,all_live).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
+        let quarter=from_fixed_lp4(&cp.B_reg)/U256::from(4);
+        let accruing:Vec<_>=apply::active_list(st).into_iter().filter(|id|apply::miner_record(st,*id).is_some_and(|r|r.bond_state==4&&r.bond<quarter)).map(raw_addr).collect();
+        Membership::from_parent(&ParentView{height:p.height,seal:&p.seal,act:&act},h,cp.W_act,cp.M_max,true).map(|m|m.with_accruing(accruing)).map_err(|e|Reject::Block(format!("membership {e:?}")))
     }
     /// Draw(h,0) of a child of `p` from its membership `m` (the one `membership_shared` gave for p and h): cached
     /// beside that membership when p's state is its committed one.
@@ -1439,15 +1434,15 @@ impl Chain{
     /// Evidence (incentives.md "Evidence"). Type 1: RLP([1, ST1, ST2]); type 2:
     /// RLP([2, TemplateID, nonce, shareRoot1, sig1, shareRoot2, sig2]). Invalid
     /// evidence invalidates the carrying block.
-    /// V3-02 (v3 program set only, `late_shares`): kind 3, RLP([3, be64(j), [n_1<...<n_k]]), credits valid omitted
+    /// V3-02: kind 3, RLP([3, be64(j), [n_1<...<n_k]]), credits valid omitted
     /// shares of the ancestor template j (`late_check`); its effect is recordLate(j, owners) in phase 0.
     pub fn evidence_effects(&self,p:&Entry,body:&Body,h:u64)->Result<Vec<EvidenceEffect>,Reject>{
         let cp=self.spec.cp();let mut out=Vec::new();let mut accused_seen=Vec::new();
-        let late=self.late_shares(h);let mut block=LateBlock::default();
+        let mut block=LateBlock::default();
         for raw in &body.evidence{
             let it=crate::rlp::decode(raw).map_err(|_|Reject::Block("15 evidence rlp".into()))?;let f=it.list().ok_or_else(||Reject::Block("15 evidence".into()))?;
             let kind=f.first().and_then(|k|k.bytes()).ok_or_else(||Reject::Block("15 evidence kind".into()))?;
-            if late&&kind==[3]&&f.len()==3{out.push(self.evidence_late(p,f,h,&mut block)?);continue}
+            if kind==[3]&&f.len()==3{out.push(self.evidence_late(p,f,h,&mut block)?);continue}
             let (accused,j)=match kind{
                 [1] if f.len()==3=>self.evidence_type1(p,&f[1],&f[2],h)?,
                 [2] if f.len()==7=>self.evidence_type2(p,&f,h)?,
@@ -1460,9 +1455,9 @@ impl Chain{
         }
         let _=cp;Ok(out)
     }
-    /// V3-02: kind-3 evidence is valid only on the v3 program set (whose ShareLedger and MinerRegistry have
-    /// recordLate), which only a specVersion-2 genesis selects; everywhere else it is "15 evidence form", as before.
-    pub fn late_shares(&self,h:u64)->bool{self.spec.v3_active(h)&&self.spec.programs()==ProgramSet::V3}
+    /// V3-02: whether kind-3 evidence is valid at height `h`: true at every height, since the v3 program set (whose
+    /// ShareLedger and MinerRegistry have recordLate) is the only one and v3 holds from genesis (`Spec::v3_active`).
+    pub fn late_shares(&self,_h:u64)->bool{true}
     /// V3-02: one kind-3 item carried by a child of `p` at height h: form, window, then the ancestor template j on this
     /// branch (its TemplateID, winning nonce, share target, owners recomputed from its member records and header shares), the shares already
     /// credited to j on the branch (`late_credited`) and C_header(j) + C_late(j) from the parent state, and `late_check`.
@@ -1499,7 +1494,6 @@ impl Chain{
     /// as many as the no-dilution cap, S_max and EVID_BYTES_MAX leave, smallest first. None when none can.
     pub fn late_offer(&self,p:&Entry,j:u64,candidates:&[u64],block:&mut LateBlock)->Option<Vec<u8>>{
         let cp=self.spec.cp();let h=p.height+1;
-        if !self.late_shares(h){return None}
         let rules=LateRules{h,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
         late_window(&rules,j).ok()?;
         let e=self.ancestor_at(p,j)?;if e.slim{return None}
@@ -2092,14 +2086,14 @@ impl Chain{
     pub fn side_counts(&self)->(usize,usize){(self.side.len(),self.side.iter().filter(|h|self.blocks.get(*h).map_or(false,|e|!e.pruned)).count())}
     /// C-1 S4: a slimmed entry's header (the journal record's header bytes) and ParentResult (its result bytes), each
     /// checked against the entry it restores (FN-3b: no nonce ranges; the member record stayed on the entry).
-    /// V3-02: and, for an offloaded entry on the v3 program set, its late-share evidence items (the body's kind-3 items,
-    /// which `slim` dropped); None elsewhere (nothing is read for them on spec-1 chains).
+    /// V3-02: and, for an offloaded entry, its late-share evidence items (the body's kind-3 items, which `slim` dropped);
+    /// None for an entry that is not offloaded.
     fn restored_fields(&self,e:&Entry,src:&dyn BlockBytes)->Result<(Header,Option<ParentResult>,Option<Vec<Vec<u8>>>),Reject>{
         let off=e.body_off.ok_or_else(||Reject::Block("slim entry without body_off".into()))?;let (hb,bb,rb)=src.record_at(off)?;
         let header=decode_header(&hb).map_err(|_|Reject::Block("slim header decode".into()))?;
         if block_hash(&header)!=e.hash{return blk("slim: journal header does not hash to the block")}
         let result=decode_result(&rb,&e.hash)?;
-        let late=if e.offloaded&&self.late_shares(e.height){
+        let late=if e.offloaded{
             let body=Body::decode(&bb,self.spec.cp().BODY_MAX as usize).map_err(|_|Reject::Block("slim: body decode".into()))?;
             if crate::types::body_commitment(&body.evidence)!=Some(header.evidence_root){return blk("slim: journal body does not match the evidence root")}
             Some(late_items(&body.evidence))}else{None};
@@ -2189,7 +2183,7 @@ impl Chain{
         // (C-1 S5: a disk walk's root is below the window; its walk kept whole copies of the blocks below it.)
         if let (Some(src),false)=(src,disk){
             // V3-02: and kind-3 evidence reads the template and carriers up to D heights back.
-            let back=if self.late_shares(root.height+1){u64::from(self.spec.cp().E_win).max(u64::from(self.spec.cp().D))}else{u64::from(self.spec.cp().E_win)};
+            let back=u64::from(self.spec.cp().E_win).max(u64::from(self.spec.cp().D));
             let lo=root.height.saturating_sub(back);let (mut below,mut c)=(vec![],Some(cur));
             while let Some(h)=c{let Some(e)=self.blocks.get(&h) else{break};if e.height<lo{break}if e.slim{below.push(h)}c=e.parent;}
             for h in below.into_iter().rev(){let x=self.restored(&self.blocks[&h],Some(src))?.into_owned();self.shadow_push(x);}
@@ -2258,8 +2252,8 @@ impl Chain{
         Ok(p)
     }
     fn key(&self,h:&[u8;32])->(u8,u8,u64,[u8;32]){let e=&self.blocks[h];
-        // The constant leading zero preserves the exact legacy order.
-        (if self.spec.v3_active(e.height)&&!e.timely{1}else{0},if e.signed{0}else{1},e.import_seq,e.hash)}
+        // V3-04: an untimely block sorts after a timely one; then a signed one first, the import order and the hash.
+        (u8::from(!e.timely),u8::from(!e.signed),e.import_seq,e.hash)}
     /// t1 ≻ t2: greater W, or equal W and smaller key at the children of the LCA.
     pub fn better(&self,t1:&[u8;32],t2:&[u8;32])->bool{
         if t1==t2{return false}

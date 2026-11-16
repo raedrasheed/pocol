@@ -244,8 +244,7 @@ pub struct TimingAssumptions {
     pub t_exec: u32,
 }
 impl TimingAssumptions {
-    /// The synthetic single-host assumptions of `local()`: Δ = φ = t_exec = 1 s (Δ_rel 7 by V3-05; spec-1
-    /// profiles keep 8, `local_for`).
+    /// The synthetic single-host assumptions of `local()`: Δ = φ = t_exec = 1 s (Δ_rel 7 by V3-05).
     pub const SINGLE_HOST: Self = Self { delta: 1, phi: 1, t_exec: 1 };
     /// The WAN bounds the owner's O-6=b timing holds under (D-V3-06): measured Δ ≤ 2 s, φ ≤ 2 s, t_exec 2 s,
     /// so Δ_rel = 13 (V3-06 (b): σ = 7, R2 13, R3 dFbWait ≥ 10). The default for a v3 profile.

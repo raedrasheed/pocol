@@ -22,14 +22,13 @@ struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Addres
 impl Drop for Net{fn drop(&mut self){members_sweep::sweep_on_drop(&self.chain);}}
 /// The v3 earn-in devnet (CP schema v2: the v3 program set, all-live membership, the full nonce domain). E_win 80, so
 /// type-2 evidence reaches far back. (Its spec-1 twin, bounded nonce ranges and the activity window, was deleted with the
-/// spec-1 rule set in phase 6a; `spec` is always 2.)
-fn config(spec:u8)->DevnetConfig{
-    assert_eq!(spec,2,"the spec-1 twin is retired (phase 6a)");
+/// spec-1 rule set in phase 6a.)
+fn config()->DevnetConfig{
     let mut c=DevnetConfig::new(777953,1_700_000_000,&["one","two","three"]);
     c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;c.e_win=80;c.u=96;c.c_react=96;c
 }
 fn spec_of(c:&DevnetConfig)->Spec{members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap_or_else(|e|panic!("{e}")).0)}
-fn net(spec:u8)->Net{net_of(config(spec))}
+fn net()->Net{net_of(config())}
 fn net_of(cfg:DevnetConfig)->Net{
     let d=devnet::build(&cfg).unwrap();
     let mut keys:HashMap<Address,Key>=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
@@ -126,7 +125,7 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
 /// held, after the caches are cleared and every held record is dropped (the walk reads 255 records and the snapshot's
 /// set from the source), and a source that fails or does not add up is a local fault, never a verdict.
 #[test] fn type2_against_a_block_255_deltas_above_its_snapshot_is_judged_from_the_source(){
-    let mut n=net(2);let (alice,bob)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
+    let mut n=net();let (alice,bob)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
     grow(&mut n,2);let t=register(&n,alice);let b=mine(&n,n.chain.head,vec![t],vec![],None);accept(&mut n,&b);
     grow(&mut n,300);let t=register(&n,bob);let b=mine(&n,n.chain.head,vec![t],vec![],None);accept(&mut n,&b);
     grow(&mut n,400);let t=deregister(&n,alice);let b=mine(&n,n.chain.head,vec![t],vec![],None);accept(&mut n,&b);
@@ -169,7 +168,7 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
 /// evidence against a block whose snapshot was evicted is judged from them.
 #[test] fn a_bare_chain_judges_evidence_whose_snapshot_was_evicted(){
     struct NoIndex;impl BlockBytes for NoIndex{fn record_at(&self,_:u64)->Result<(Vec<u8>,Vec<u8>,Vec<u8>),Reject>{Err(Reject::Local("no journal".into()))}}
-    let mut n=net(2);let mut r=net(2);
+    let mut n=net();let mut r=net();
     n.chain.r_keep=8;n.chain.side_cap=8;n.chain.evict_depth=Some(258);n.chain.evict_batch=8+2*8+2;
     let mut b512=None;
     while n.chain.head().height<525{
@@ -191,30 +190,28 @@ fn drop_held_records(c:&mut Chain,below:u64){for e in c.blocks.values_mut(){if e
 #[test] fn recomputed_owners_equal_the_live_assignment_and_the_cap_check_comes_first(){
     struct Counting<'a>(&'a Vec<(Address,u128,u128)>,AtomicU64);
     impl NonceOwners for Counting<'_>{fn owner(&self,n:u64)->Result<Option<Address>,Reject>{self.1.fetch_add(1,Ordering::SeqCst);self.0.owner(n)}}
-    for spec in [2u8]{
-        let mut n=net(spec);grow(&mut n,12);n.chain.clear_member_caches();
-        let mut x=0x9e3779b97f4a7c15u64;let mut nonces=vec![0,1,u64::MAX,u64::MAX-1];
-        for _ in 0..200{x^=x<<13;x^=x>>7;x^=x<<17;nonces.push(x);nonces.push(x%4096);}
-        for h in 1..=12u64{
-            let e=entry_at(&n.chain,h);let ranges=live_ranges(&n.chain,e);let mut edges=nonces.clone();for r in ranges.iter(){for v in [r.1,r.2]{edges.extend([v.saturating_sub(1) as u64,v.min(u128::from(u64::MAX)) as u64]);}}
-            n.chain.clear_member_caches();let lazy=LazyOwners::new(&n.chain,e);
-            for v in &edges{assert_eq!(lazy.owner(*v).unwrap(),ranges.owner(*v).unwrap(),"spec {spec} h={h} nonce {v}");}
-            assert_eq!(ranges.last().unwrap().2,u128::from(u64::MAX)+1,"the full domain");
-        }
-        // The cap: C_header(j) + C_late(j) + k > κm refuses before the first owner lookup (none recomputed or read).
-        let cp=n.chain.spec.cp();let rules=LateRules{h:13,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
-        let ranges=live_ranges(&n.chain,entry_at(&n.chain,12));let probe=Counting(&ranges,AtomicU64::new(0));let credited:std::collections::BTreeSet<u64>=Default::default();
-        let base=LateBase{j:12,tid:[0;32],nonce:0,t_share:Fixed::from_u64(1),owners:&probe,header:&[],credited:&credited,total:rules.kappa_m};
-        assert_eq!(late_check(&rules,&base,&[5],&mut LateBlock::default()),Err(Reject::Block("15 ls cap".into())));
-        assert_eq!(probe.1.load(Ordering::SeqCst),0,"no owner was looked up");
-        let base=LateBase{total:0,..base};let _=late_check(&rules,&base,&[5],&mut LateBlock::default());assert_eq!(probe.1.load(Ordering::SeqCst),1,"positive control");
+    let mut n=net();grow(&mut n,12);n.chain.clear_member_caches();
+    let mut x=0x9e3779b97f4a7c15u64;let mut nonces=vec![0,1,u64::MAX,u64::MAX-1];
+    for _ in 0..200{x^=x<<13;x^=x>>7;x^=x<<17;nonces.push(x);nonces.push(x%4096);}
+    for h in 1..=12u64{
+        let e=entry_at(&n.chain,h);let ranges=live_ranges(&n.chain,e);let mut edges=nonces.clone();for r in ranges.iter(){for v in [r.1,r.2]{edges.extend([v.saturating_sub(1) as u64,v.min(u128::from(u64::MAX)) as u64]);}}
+        n.chain.clear_member_caches();let lazy=LazyOwners::new(&n.chain,e);
+        for v in &edges{assert_eq!(lazy.owner(*v).unwrap(),ranges.owner(*v).unwrap(),"h={h} nonce {v}");}
+        assert_eq!(ranges.last().unwrap().2,u128::from(u64::MAX)+1,"the full domain");
     }
+    // The cap: C_header(j) + C_late(j) + k > κm refuses before the first owner lookup (none recomputed or read).
+    let cp=n.chain.spec.cp();let rules=LateRules{h:13,d:u64::from(cp.D),s_max:u64::from(cp.S_max),kappa_m:u64::from(cp.kappa)*u64::from(cp.m)};
+    let ranges=live_ranges(&n.chain,entry_at(&n.chain,12));let probe=Counting(&ranges,AtomicU64::new(0));let credited:std::collections::BTreeSet<u64>=Default::default();
+    let base=LateBase{j:12,tid:[0;32],nonce:0,t_share:Fixed::from_u64(1),owners:&probe,header:&[],credited:&credited,total:rules.kappa_m};
+    assert_eq!(late_check(&rules,&base,&[5],&mut LateBlock::default()),Err(Reject::Block("15 ls cap".into())));
+    assert_eq!(probe.1.load(Ordering::SeqCst),0,"no owner was looked up");
+    let base=LateBase{total:0,..base};let _=late_check(&rules,&base,&[5],&mut LateBlock::default());assert_eq!(probe.1.load(Ordering::SeqCst),1,"positive control");
 }
 
 /// §5.3 on a chain, kind 3: a valid late-share item is judged with its owners recomputed and compared (the shadow), and
 /// an item past the no-dilution cap is refused with "15 ls cap" with nothing recomputed.
 #[test] fn kind3_owners_are_compared_and_a_capped_item_recomputes_nothing(){
-    let mut n=net(2);let two=n.ids[1];grow(&mut n,3);
+    let mut n=net();let two=n.ids[1];grow(&mut n,3);
     let b4=mine(&n,n.chain.head,vec![],vec![],Some(two));accept(&mut n,&b4);let late=omitted(&n,&b4,two);
     assert!(late.len()>=2,"two's shares were left out: {late:?}");
     n.chain.clear_member_caches();let before=n.chain.member_counters();
@@ -258,7 +255,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 /// I3 crash point at a snapshot height: a snapshot's rows written to history.redb before the journal append are never
 /// read, and the block imported after the crash writes nothing new.
 #[test] fn restart_three_ways_keeps_the_records_and_the_verdicts(){
-    let mut r=net(2);let two=r.ids[1];let alice=devnet::account_key("alice").address();
+    let mut r=net();let two=r.ids[1];let alice=devnet::account_key("alice").address();
     grow(&mut r,5);let t=register(&r,alice);let b=mine(&r,r.chain.head,vec![t],vec![],None);accept(&mut r,&b);
     grow(&mut r,256);
     let blocks:Vec<Block>=(1..=256u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
@@ -278,7 +275,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for h in 258..=301u64{let e=entry_at(&r.chain,h);assert!(a.import(Block{header:e.header.clone(),body:e.body.clone()},None).unwrap());}
         a.checkpoint_now().unwrap();}
     let mut live=None;
-    let reference=||{let mut rr=net(2);for h in 1..=301u64{let e=entry_at(&r.chain,h);accept(&mut rr,&Block{header:e.header.clone(),body:e.body.clone()});}rr};
+    let reference=||{let mut rr=net();for h in 1..=301u64{let e=entry_at(&r.chain,h);accept(&mut rr,&Block{header:e.header.clone(),body:e.body.clone()});}rr};
     // Three copies of the data directory, one per way.
     for (way,what) in ["checkpoint restore","replay (the checkpoints deleted with state.redb)","history.redb deleted and rebuilt"].iter().enumerate(){
         let c=dir(&format!("restart-{way}"));copy_dir(&d,&c);
@@ -302,7 +299,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 /// falls back to replay, and replay refills them. A flipped byte in a member row marks the store damaged when it is
 /// read, and the next open rebuilds it.
 #[test] fn a_pre_fn3_history_is_refilled_by_replay_and_a_damaged_member_row_rebuilds(){
-    let mut r=net(2);grow(&mut r,70);
+    let mut r=net();grow(&mut r,70);
     let blocks:Vec<Block>=(1..=70u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let d=dir("s4");
     let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}assert!(a.stats.checkpoints_written>0);pocold::checkpoint::fingerprint(&a.chain).unwrap()};
@@ -342,7 +339,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 #[cfg(feature="io-fault")]
 #[test] fn an_io_fault_opening_the_member_tables_keeps_the_file(){
     use pocold::io_fault::{self,Op};
-    let mut r=net(2);grow(&mut r,20);
+    let mut r=net();grow(&mut r,20);
     let d=dir("iof");let blocks:Vec<Block>=(1..=20u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{a.import(b.clone(),None).unwrap();}}
     {let db=redb::Database::open(d.join(pocold::history::FILE)).unwrap();let w=db.begin_write().unwrap();
@@ -364,7 +361,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 /// fork is judged as on a chain that only ever held that branch.
 #[test] fn a_reorg_across_the_snapshot_height_judges_as_the_new_branch_alone(){
     for fork in [257u64,250]{
-        let mut n=net(2);let alice=devnet::account_key("alice").address();grow(&mut n,fork);
+        let mut n=net();let alice=devnet::account_key("alice").address();grow(&mut n,fork);
         let f=n.chain.head;
         // Branch A: a registration right after the fork (S_b + alice from fork + 2), 6 blocks.
         let mut a=vec![];let t=register(&n,alice);let b=mine(&n,f,vec![t],vec![],None);accept(&mut n,&b);a.push(b);
@@ -376,7 +373,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
         assert_ne!(n.chain.head,head_a);assert_eq!(n.chain.head,p,"fork choice took branch B");n.chain.retain();
         assert_ne!(rec(&n.chain,fork+3),n.chain.member_rec_of(n.chain.get(&a[2].hash()).unwrap()).unwrap(),"the branches' records differ");
         // The reference: the shared prefix and branch B only.
-        let mut r=net(2);for h in 1..=fork{let e=entry_at(&n.chain,h);accept(&mut r,&Block{header:e.header.clone(),body:e.body.clone()});}for b in &b_blocks{accept(&mut r,b);}
+        let mut r=net();for h in 1..=fork{let e=entry_at(&n.chain,h);accept(&mut r,&Block{header:e.header.clone(),body:e.body.clone()});}for b in &b_blocks{accept(&mut r,b);}
         assert_eq!(r.chain.head,n.chain.head);
         n.chain.clear_member_caches();
         for j in [fork-20,fork-1,fork,fork+1,fork+5]{
@@ -392,7 +389,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
         while n.chain.head!=tip{n.chain.ensure_state(&tip).unwrap();let b=mine(&n,tip,vec![],vec![],None);tip=b.hash();let (e,_)=n.chain.validate(&b,None,0).unwrap();n.chain.insert(e);a_ext.push(b);
             assert!(a_ext.len()<=12,"fork {fork}: branch A takes the head back");}
         n.chain.retain();
-        let mut r2=net(2);for h in 1..=fork{let e=entry_at(&n.chain,h);accept(&mut r2,&Block{header:e.header.clone(),body:e.body.clone()});}for b in a.iter().chain(&a_ext){accept(&mut r2,b);}
+        let mut r2=net();for h in 1..=fork{let e=entry_at(&n.chain,h);accept(&mut r2,&Block{header:e.header.clone(),body:e.body.clone()});}for b in a.iter().chain(&a_ext){accept(&mut r2,b);}
         assert_eq!(r2.chain.head,n.chain.head);
         assert!(n.chain.member_set(entry_at(&n.chain,fork+2)).unwrap().contains(&alice.0.0)&&!r.chain.member_set(entry_at(&r.chain,fork+2)).unwrap().contains(&alice.0.0),"positive control: the new head's member set differs from B's at fork + 2");
         let top=n.chain.head().height;
@@ -412,7 +409,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 /// that is sealed but does not describe the block (its count off): the re-execution's check is a local failure, the
 /// store is marked damaged, and the next open rebuilds it.
 #[test] fn a_wrong_member_record_found_by_a_rebuild_is_local_and_rebuilt(){
-    let mut r=net(2);grow(&mut r,40);
+    let mut r=net();grow(&mut r,40);
     let blocks:Vec<Block>=(1..=40u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let d=dir("wrong");
     let live={let mut a=Node::open(conf(&d,Limits{state_store:true,checkpoint_every:0,..Default::default()},None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}pocold::checkpoint::fingerprint(&a.chain).unwrap()};
@@ -442,7 +439,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 /// §5.12: a pool of type-2 items against distinct ancestors: the second template's evaluation is served by the owner
 /// memo; and an item whose check fails locally (the member source failing) stays in the pool.
 #[test] fn the_proposers_pool_uses_the_owner_memo_and_keeps_items_on_a_local_failure(){
-    let mut r=net(2);grow(&mut r,70);
+    let mut r=net();grow(&mut r,70);
     let blocks:Vec<Block>=(1..=70u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let p=r.chain.full_entry(&r.chain.head).unwrap();let proposer=r.chain.child_ctx(&p,0).unwrap().proposer;
     let d=dir("pool");let mut a=Node::open(conf(&d,Limits::default(),Some(Key::from_secret(&r.keys[&proposer].secret()).unwrap())),spec_of(&r.cfg)).unwrap();
@@ -467,7 +464,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 
 /// §5.2 (on a chain): a record round-trips through history.redb exactly as the chain holds it, and its set adds up.
 #[test] fn history_member_rows_are_the_chains(){
-    let mut r=net(2);let alice=devnet::account_key("alice").address();grow(&mut r,3);let t=register(&r,alice);let b=mine(&r,r.chain.head,vec![t],vec![],None);accept(&mut r,&b);grow(&mut r,10);
+    let mut r=net();let alice=devnet::account_key("alice").address();grow(&mut r,3);let t=register(&r,alice);let b=mine(&r,r.chain.head,vec![t],vec![],None);accept(&mut r,&b);grow(&mut r,10);
     let d=dir("rows");let mut a=Node::open(conf(&d,Limits::default(),None),spec_of(&r.cfg)).unwrap();
     for h in 1..=10u64{let e=entry_at(&r.chain,h);assert!(a.import(Block{header:e.header.clone(),body:e.body.clone()},None).unwrap());}
     for h in 1..=10u64{let e=entry_at(&r.chain,h);let (p,hh,m)=a.history.members(&e.hash).unwrap().unwrap();assert_eq!((p,hh,&m),(e.parent.unwrap(),h,&rec(&r.chain,h)));
@@ -481,7 +478,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 /// node slimming at depth 2 (below D): both ancestors are slimmed, restored for the evidence walk, and the carrier is
 /// accepted with the effects and state root of a node that never slims; the shadow compared at the restored ancestors.
 #[test] fn kind3_at_h_minus_d_and_type2_against_slimmed_ancestors_restore_them_first(){
-    let mut r=net(2);let two=r.ids[1];let d=u64::from(r.chain.spec.cp().D);assert!(d>2,"positive control: D {d} above the slim depth 2");
+    let mut r=net();let two=r.ids[1];let d=u64::from(r.chain.spec.cp().D);assert!(d>2,"positive control: D {d} above the slim depth 2");
     grow(&mut r,20);let bj=mine(&r,r.chain.head,vec![],vec![],Some(two));accept(&mut r,&bj);let j=bj.header.h;
     let late=omitted(&r,&bj,two);assert!(late.len()>=2,"two's shares were left out: {late:?}");
     grow(&mut r,j+d-1);let h=j+d;
@@ -522,7 +519,7 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
 ///     bare chain's (`a_bare_chain_judges_evidence_whose_snapshot_was_evicted`).
 /// (c) A following carrier with type-2 and kind-3 evidence is judged as the reference judges it.
 #[test] fn a_minimum_depth_store_node_walks_below_its_window_after_a_restore_and_rebuilds_from_an_anchor(){
-    let mut r=net(2);let two=r.ids[1];let rk=64u64;
+    let mut r=net();let two=r.ids[1];let rk=64u64;
     let spec=spec_of(&r.cfg);let (e_win,k_hist)=(u64::from(spec.cp().E_win),spec.local().k_hist);
     // The default slim depth (2·R_keep + E_win + 257): an evidence walk never meets a slimmed entry, and E_min is 2·R_keep +
     // E_win + 258 (above the store-mode anchor term at K_hist 32).
@@ -602,7 +599,7 @@ fn ranges_rows(file:&Path)->Option<u64>{
 /// held, and the node keeps working: it imports more blocks and judges a carrier of type-2 and kind-3 evidence as the
 /// reference does. A later open finds no table to delete.
 #[test] fn a_3a_data_dir_opens_on_3b_drops_its_ranges_and_keeps_working(){
-    let mut r=net(2);let two=r.ids[1];grow(&mut r,70);
+    let mut r=net();let two=r.ids[1];grow(&mut r,70);
     let blocks:Vec<Block>=(1..=70u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let d=dir("3a3b");let hist=d.join(pocold::history::FILE);
     let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}
@@ -632,7 +629,7 @@ fn ranges_rows(file:&Path)->Option<u64>{
 #[cfg(feature="io-fault")]
 #[test] fn an_io_fault_deleting_the_3a_ranges_keeps_the_file_and_its_ranges(){
     use pocold::io_fault::{self,Op};
-    let mut r=net(2);grow(&mut r,20);
+    let mut r=net();grow(&mut r,20);
     let d=dir("iof3b");let blocks:Vec<Block>=(1..=20u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{a.import(b.clone(),None).unwrap();}pocold::checkpoint::fingerprint(&a.chain).unwrap()};
     let hist=d.join(pocold::history::FILE);
@@ -664,7 +661,7 @@ fn ranges_rows(file:&Path)->Option<u64>{
 /// and accuses the block's validated winner; the cold sweep compares every entry with its capture. (Phase 6a rebuilt
 /// it on v3: its spec-1 original reached the overflow through the W_act activity window.)
 #[test] fn a_change_beyond_delta_cap_writes_an_off_cadence_snapshot(){
-    let mut cfg=config(2);cfg.miners=(0..40).map(|i|format!("flip-{i}")).collect();cfg.r_react=40;
+    let mut cfg=config();cfg.miners=(0..40).map(|i|format!("flip-{i}")).collect();cfg.r_react=40;
     let mut n=net_of(cfg);let cp=n.chain.spec.cp().clone();
     assert!(members::all_live_everywhere(&cp)&&members::delta_max(&cp)>members::DELTA_CAP,"delta_max {} above DELTA_CAP",members::delta_max(&cp));
     let alice=devnet::account_key("alice").address();let movers:Vec<Address>=n.ids[..36].to_vec();
@@ -708,7 +705,7 @@ fn ranges_rows(file:&Path)->Option<u64>{
 /// `member_set_bytes` (a snapshot's ids); the member caches never exceed their caps; and an entry is the type the A13
 /// Entry term reads (`resources::entry_bytes`), without the nonce ranges (FN-3b: FN-3a's 1,088 B less their boxed slice).
 #[test] fn the_member_records_stay_within_their_a13_terms(){
-    let mut r=net(2);let alice=devnet::account_key("alice").address();grow(&mut r,3);let t=register(&r,alice);let b=mine(&r,r.chain.head,vec![t],vec![],None);accept(&mut r,&b);
+    let mut r=net();let alice=devnet::account_key("alice").address();grow(&mut r,3);let t=register(&r,alice);let b=mine(&r,r.chain.head,vec![t],vec![],None);accept(&mut r,&b);
     grow(&mut r,270);
     let blocks:Vec<Block>=(1..=270u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let cp=r.chain.spec.cp().clone();let bound=pocold::resources::member_record_heap(&cp)+pocold::resources::member_set_bytes(&cp).unwrap();

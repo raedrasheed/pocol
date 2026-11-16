@@ -30,15 +30,15 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 // ---- harness (self-contained; test files are separate crates, nothing imports consensus.rs) ----
-/// Whether this run is on the retired spec-1 devnet: never since phase 6a (JM_SPEC=1, which selected it, is refused).
-/// The spec-1 branches of the harness below go with the dead spec-1 code paths in phase 6b.
-fn spec1()->bool{assert!(std::env::var("JM_SPEC").map_or(true,|v|v!="1"),"JM_SPEC=1: the spec-1 devnet is retired (phase 6a)");false}
-fn profile()->&'static str{if spec1(){"spec1"}else{"v3"}}
+/// The profile name the `JM-*` lines carry: always the v3 devnet (JM_SPEC=1, which selected the retired spec-1 devnet,
+/// is refused in `cfg`).
+fn profile()->&'static str{"v3"}
 fn cfg()->DevnetConfig{
+    assert!(std::env::var("JM_SPEC").map_or(true,|v|v!="1"),"JM_SPEC=1: the spec-1 devnet is retired (phase 6a)");
     let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);
     c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c}
-/// The most logs one block's logs reach: the v3 log caps (4,368), or the spec-1 LOG_COUNT_MAX (546).
-fn log_max()->u16{pocol_lp4_execution::user_phase::log_caps(!spec1()).count as u16}
+/// The most logs one block's logs reach: the v3 log caps (4,368).
+fn log_max()->u16{pocol_lp4_execution::user_phase::log_caps(true).count as u16}
 /// The gas a log_deploy of `n` LOG0s is given: about 405 gas a log beside the creation's own (274,379 gas used at 546),
 /// and never below the 300,000 the spec-1 rows used.
 fn log_gas(n:u16)->u64{(60_000+410*u64::from(n)).max(300_000)}
@@ -296,8 +296,8 @@ fn record_bytes(chain:&Chain,b:&Block)->usize{
     let (e,_)=chain.validate(b,None,0).unwrap();
     let rb=result_bytes(&e);
     // A v3 record carries its first-import field (node.rs `encode_record_with_import`: version byte + 33 B), which
-    // v3 replay requires (V3-04); a spec-1 record has none. Its size does not depend on the values.
-    let first=chain.spec.v3_active(b.header.h).then_some(store::FirstImport{received_ms:0,parent_received_ms:0,timely:true});
+    // v3 replay requires (V3-04). Its size does not depend on the values.
+    let first=Some(store::FirstImport{received_ms:0,parent_received_ms:0,timely:true});
     store::encode_frame(&store::encode_record_with_import(&b.header.encoded,&b.body.encode(),&rb,first)).len()
 }
 /// Re-derive the stored parentResult bytes (node.rs result_bytes), via the public Entry.result.
@@ -414,7 +414,7 @@ fn jm_replay_empty_blocks(){
 fn jm_replay_by_kind(){
     let count:u64=std::env::var("JM_KIND_COUNT").ok().and_then(|s|s.parse().ok()).unwrap_or(40);
     let kinds:Vec<String>=std::env::var("JM_KINDS").map(|s|s.split(',').map(str::to_string).collect())
-        .unwrap_or_else(|_|["empty","full_gas_transfers",if spec1(){"log_heavy_546"}else{"log_heavy_max"},"full_body_max","full_gas_compute"].map(str::to_string).to_vec());
+        .unwrap_or_else(|_|["empty","full_gas_transfers","log_heavy_max","full_body_max","full_gas_compute"].map(str::to_string).to_vec());
     {let (n,dir,conf)=mnode("kind-open0");drop(n);let mut ts=vec![];
         for _ in 0..5{let t=Instant::now();let r=Node::open(conf(),admitted()).unwrap();ts.push(t.elapsed().as_secs_f64());drop(r);}
         println!("JM-OPEN0 {}",serde_json::json!({"records":0,"openSecondsMedian":median(ts.clone()),"openSecondsMin":ts.iter().cloned().fold(f64::MAX,f64::min),"runs":5}));
@@ -1255,20 +1255,17 @@ fn jm_r14_workload_gap(){
 }
 
 // ============================ R3-4: a store-mode node at the network's state caps ============================
-/// The limits a new store-mode node checks A13 with at open (node.rs open): on a continuous v3 chain the eviction depth
-/// from R_keep, the first-import index, no journal records and empty files observed; unchanged on the spec-1 devnet.
+/// The limits a new store-mode node checks A13 with at open (node.rs open): the eviction depth from R_keep, the
+/// first-import index, no journal records and empty files observed.
 fn a13_at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,k_hist:u32,mut l:Limits)->Limits{
-    if spec1()&&cp.H_END!=0{return l}
     l.evict_depth=Some(pocold::resources::evict_depth_of(cp,k_hist,&l,l.r_keep).unwrap().unwrap_or(0));
-    l.first_imports=!spec1();l.continuous_history=Some(0);l.disk=Some(Default::default());l
+    l.first_imports=true;l.continuous_history=Some(0);l.disk=Some(Default::default());l
 }
 /// The journal_measure profile with the network's state caps (ACCT_CAP 10^6, SLOT_CAP 4·10^6, CODE_CAP 2^30: the fresh
-/// network's, FRESH-NETWORK-CP.md, as governance.md's); every other parameter is the devnet's. On the v3 devnet it stays
-/// continuous, with the fresh network's per-block TXBYTES_CAP 2^24 and TX_CAP 20,000 (the devnet's). On the spec-1
-/// devnet (JM_SPEC=1) it takes governance.md's lifetime transaction caps and its H_END and closing window (so that the
-/// ~30,000 blocks that fill those caps fit), as the spec-1 rows were measured.
-fn scale_cfg()->DevnetConfig{let mut c=cfg();c.acct_cap=1_000_000;c.slot_cap=4_000_000;c.code_cap=1<<30;
-    if spec1(){c.txbytes_cap=1<<33;c.tx_cap=10_000_000;c.h_end=129_600;c.h_close=129_440;c.t_end_offset=10_368_000;c.t_close_offset=10_368_000-9_600;c.z_close=160;}c}
+/// network's, FRESH-NETWORK-CP.md, as governance.md's); every other parameter is the devnet's. It stays continuous,
+/// with the fresh network's per-block TXBYTES_CAP 2^24 and TX_CAP 20,000 (the devnet's). (The spec-1 rows were measured
+/// on the retired spec-1 devnet, with governance.md's lifetime transaction caps, H_END and closing window.)
+fn scale_cfg()->DevnetConfig{let mut c=cfg();c.acct_cap=1_000_000;c.slot_cap=4_000_000;c.code_cap=1<<30;c}
 /// R3-4 (2026-10-27): a store-mode node grown to the network's state caps, measured beside what A13 computes for
 /// it. Separate processes on one directory, JM_SCALE_DIR, chosen by JM_SCALE_PHASE:
 /// - "grow" (the directory must not exist): a store-mode node of scale_cfg() builds and imports full-gas blocks of

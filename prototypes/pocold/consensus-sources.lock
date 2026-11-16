@@ -38,6 +38,7 @@ history n=35 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sour
 history n=36 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=82d108e9f117f63cf7a5b4cc0400e63a84e8a88fe8cbf7435a5b32f0bb97c46e vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=Phase-5a note="Fresh network Phase 5a (devnets v3 by default): lp4 devnet.rs DevnetConfig::new builds spec 2, the V3 programs, nonceMode 1, a continuous chain, B_reg 20 PCOL and S0 4 PCOL, with an explicit DevnetConfig::spec1 builder for the spec-1 suites Phase 6a deletes; only which genesis devnets and tests use by default changes, so for any given genesis block validity, fork choice, verdicts, roots, persisted bytes and the consensus identity are unchanged"
 history n=37 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=b29ba941e678465f5340d86e288cd85f7507690f6203848512d6502cdefb111b vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=state-retention note="Node-local state retention (K_hist window): pocold chain.rs clears the pruned mark on adopted canonical blocks whose state the head reaches through held diffs (memory mode, reach_window), keeps the re-executed version of canonical blocks above the cut (store mode, restore_canonical and rebuild_with), prunes a dropped anchor that is not a window state, gives a rebuild's side blocks a diff only within K_hist of the target and clears the diffs of pruned side blocks (A13 diffs_held holds again); which block states are held changes, not the states, so roots, persisted bytes, A13 terms and the consensus identity are unchanged and block validity follows the rules, with one node-local correction: a valid child of a former anchor that the base ran on an empty state and refused is now judged on its parent's state"
 history n=38 kind=neutral-vector rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=040a4f0e4dc03f1ffa8d597d4bda406bfca627b6e11826b47e91f99944f96acb vectors=cf382f21393587d360516061fa1240abf0fba6dab58b3882f28fdc5261c66322 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=Phase-6a note="Fresh network Phase 6a (retire spec 1): lp4 admission.rs refuses a spec-1 genesis and a nonceMode-0 genesis (R24) and bundles one V3 program set (V1, EarnIn and Continuous program sets and their vectors earnin-vectors.json, system-continuous.json, system-earnin.json, system-v1.json removed); GAS_ENVELOPE_V3 is self-contained and re-measured on the V3 programs (beginBlock 1,093,000 for the sweep at its program caps, 64 scans and 16 erasures; markClose 2,684,000; pruneShares 2,791,000 for a pot of 257 distinct owners; the earn-in entries the table took before bounded only markClose); apply.rs, devnet.rs, genesis_builder.rs and pocold build.rs, consensus_boundary.rs, chain.rs drop the spec-1 paths; fork 2 kept as a no-op, fork 3 (FN-5 cap raise) unchanged, MAX_FORK_VERSION 3; every v3 genesis (devnet default, fast, fork2, fork3, mainnet and rehearsal profiles) is byte-identical and its block validity, fork choice, verdicts, roots and persisted bytes are unchanged"
+history n=39 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=8ad39335838748c8f1c5e8b8f5666421358eb70dfdc558a86ccf3d4b119b797f vectors=cf382f21393587d360516061fa1240abf0fba6dab58b3882f28fdc5261c66322 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=Phase-6b note="Phase 6b collapses the dead non-v3 branches in pocold chain.rs, node.rs, node/imports.rs, rpc.rs, wallet.rs and main.rs, lp4 apply.rs and admission.rs and lp1 gate.rs (docs only in members.rs, resources.rs and issuance.rs), deletes chain::full_nonce_rule, renames wallet REGISTRY_GAS to REGISTRY_CALL_GAS with its v3 value 1,000,000 unchanged and keeps Limits::first_imports, and every v3 genesis, verdict and root is identical (harness)."
 file 9ed951416e93352d66d0c783c7fb09d5485fd79594efd6bef7aeb0466fd749b3 lp1-node/Cargo.toml
 file 8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502 lp1-node/src/asert.rs
 file e8f2a49a2774dfffcb7921025a6bf85cea9a76f5cb92cabfe74c3362a24420b5 lp1-node/src/assignment.rs
@@ -56,16 +57,16 @@ file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp1-node/s
 file d7a3c3fcbae35e06f916e7e147252b0234d650f48ceae07387912fc00576a61d lp1-node/tests/data/lp4-trie-vectors.json
 file 12a99a38e144bad0b3448a7edcfc627c88acf6665e6a1e4c1fbead0b390f28c1 lp4-execution/Cargo.toml
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 lp4-execution/rust-toolchain.toml
-file 546d107a58dfc169aecfa980d98737eb554e59d97536808d1b3019d306067047 lp4-execution/src/admission.rs
+file e1eda7d9d3734e2e996bc58bf6050048e4979fe2a43c23a97cff97bb4a57f820 lp4-execution/src/admission.rs
 file 1b66ef4171f62d14e2976c4396bb8919e47dd8acf78c9f8ccb33becd632443ee lp4-execution/src/admission/scope.rs
-file 53f9a406aac16f6ff7e8a24bbdc18944738e231251ee09fa6adad044a26b502b lp4-execution/src/apply.rs
+file f052ca32cb3355c341e1717e3a0e05ab464568cd4f3bb405b67abff6297f49f0 lp4-execution/src/apply.rs
 file 47da5a2cb193ff6f907b5ce039f00d7c5e55f0e2ba1c90b1c22b120b2dd524d2 lp4-execution/src/code_caps.rs
 file 49b3fba10a3421ed48d0766416df4ef5424a0ff71013a702d1ffb99b3ac14de9 lp4-execution/src/collision.rs
 file 2ca43d8c363f0bad13227695c28459554a08ca6f8d90c5f293486bb2b047f0b3 lp4-execution/src/devnet.rs
 file ed4d0b34f4be5bb98ea2ff0025a1cc6d9a0c64b704c46daf53a818b1504558f7 lp4-execution/src/fees.rs
 file 2edb8407a51b71fb25a67d9d918795db5fcc1b1462c4aedc04458fe108280472 lp4-execution/src/finality_core.rs
 file 4824ebfc294348f06a5482322e1c6b2d3de7ce4e4f3e526748a8ab3fb4eee06e lp4-execution/src/genesis_builder.rs
-file fbb3759ea285f5cfa58c24207362c3c14f772e1fe769f45eb269902019638c53 lp4-execution/src/issuance.rs
+file 80e31d60ad30d7130c667ca53d7635f2debc1f9d5b2598a4fd206c8dedaee80d lp4-execution/src/issuance.rs
 file 88190c3eb9c40a33bb763f19a03c19cc3f4d138c5cf21249e0ebff9f70389ae3 lp4-execution/src/lib.rs
 file 362a0cf67078deb861a162de1ac06358904b7d59c795a6017586e3726e3c5cdd lp4-execution/src/modexp.rs
 file d9f6197ab065fc04ef689a059a78531ba600148fb180c00bc8913afbc12837e2 lp4-execution/src/native.rs
@@ -115,12 +116,12 @@ file 81b6b3bca38e101aa1f015380ba33531a0d065392c8a394dbc917685e41a1fbc pocold/bui
 file 314937e0f5d849999095b6d843657ce05e4aaf9c501a1ac298e5184eeb15b8bb pocold/consensus-boundary.txt
 file 17c6990da89f09aee9a344607be1717c3abf6533e99d7b4dd4784169eacb5739 pocold/consensus_boundary.rs
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 pocold/rust-toolchain.toml
-file dc7b1611e0b09e5c3874f339a9c89b3d35490b683059e50fca8daf91905e6988 pocold/src/chain.rs
+file e2581ae511a6ba338fe125c14d37d5d248a64da6bb132197ed16e700586d2a0d pocold/src/chain.rs
 file 0631bce9331eef3d687410d09a8d089b742b136219e84e74d19ee9427972be61 pocold/src/checkpoint.rs
 file d1d33352da3c556fb095709241c51877909fc70a6b8e2d938a61190bf0902e2c pocold/src/history.rs
 file b6970559b5facb366d57ff66fe94cac60d438ff92f2a9e9e46eef452a5a7738d pocold/src/identity.rs
 file d1100e20b037bbc8be0b2c02c23732bf261156515f3ec835f0ee607ee9286761 pocold/src/lib.rs
-file bb9dec61752aeda387d544628ac13067196bff625d6b07d6e29916f8e497e4a6 pocold/src/members.rs
+file c94ad7e497e32a786a42cc588e00f062e899dc0381a15b9864ff9b26507b8a36 pocold/src/members.rs
 file 8be7eec8c6742dc07402d471d0cfeac31474057615ab61866b81511abfb0b5ab pocold/src/secp_backend.rs
 file b5f41a4940f124d930219026adb7de167d6be6ee362861b65b6eb6967da85158 pocold/src/state_store.rs
 file 42a27dd7c881adf9c200e6dfb4ab51278146323ceee2703561120b8d14e52b72 pocold/src/statediff.rs

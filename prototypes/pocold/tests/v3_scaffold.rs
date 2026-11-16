@@ -26,11 +26,12 @@ fn shared_codec_and_profile_sources_stay_byte_identical(){
     assert_eq!(include_bytes!("../../lp1-node/src/profile.rs").as_slice(),include_bytes!("../../lp4-execution/src/p1_profile.rs").as_slice());
 }
 
+/// The sequential schedule's versions; an admitted spec keeps the full nonce domain at each of them (nonceMode 1 is
+/// required by admission: tests/nonce_domain.rs the_full_nonce_domain_holds_at_every_fork_version).
 #[test]
 fn sequential_future_forks_never_narrow_the_nonce_domain(){
     let forks=ForkSchedule::new_bounded(&[(1,0),(2,10),(3,20)],3).unwrap();
-    assert!(!pocold::chain::full_nonce_rule(forks.active_version(9),0));
-    for h in [10,19,20,21,u64::MAX]{assert!(pocold::chain::full_nonce_rule(forks.active_version(h),0));}
+    for (h,version) in [(0,1),(9,1),(10,2),(19,2),(20,3),(21,3),(u64::MAX,3)]{assert_eq!(forks.active_version(h),version,"h={h}");}
     assert_eq!(gs::SPEC_VERSION,2);assert_eq!(pocol_lp4_execution::profile::MAX_FORK_VERSION,3);
     assert_eq!(pocold::identity::CONSENSUS_RULES_VERSION,2);
 }

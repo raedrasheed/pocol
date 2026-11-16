@@ -197,7 +197,7 @@ mod on_chain {
         assert_eq!((r.status, r.bond_state, r.bond), (1, 4, U256::from(PCOL)), "no deadline: still active and ACCRUING, the top-up accepted");
         let head = net.chain.head();
         let member = net.chain.membership(head, head.height + 1).unwrap().ids().contains(&raw_addr(alice.address()));
-        let step = wallet::rejoin_step(Some(&r), head.height + 1, member, u64::from(net.chain.spec.cp().W_act), None);
+        let step = wallet::rejoin_step(Some(&r), head.height + 1, member, u64::from(net.chain.spec.cp().W_act));
         assert!(matches!(step, RejoinStep::Exit | RejoinStep::Active), "no deadline in the wallet's rejoin step: {step:?}");
         assert_eq!(accruing_count(&net), U256::ZERO);
     }
@@ -403,7 +403,7 @@ mod on_chain {
             let head = net.chain.head();
             let r = apply::miner_record(&head.state, two);
             let member = net.chain.membership(head, head.height + 1).unwrap().ids().contains(&raw_addr(two));
-            (wallet::rejoin_step(r.as_ref(), head.height + 1, member, w_act, None), wallet::chain_rejoin_step(&net.chain, two))
+            (wallet::rejoin_step(r.as_ref(), head.height + 1, member, w_act), wallet::chain_rejoin_step(&net.chain, two))
         };
         let status = |net: &Net| {
             let head = net.chain.head();
@@ -415,7 +415,7 @@ mod on_chain {
         let r = record(&net, two);
         assert!(r.status == 1 && net.chain.head().height + 1 >= r.last_share.max(r.grace_start) + w_act, "two has no share within W_act: {r:?}");
         assert_eq!(step(&net).1, RejoinStep::Active, "a status-1 member that stops sharing stays in the active set on v3");
-        assert_eq!(wallet::rejoin_step(Some(&r), net.chain.head().height + 1, false, w_act, None), RejoinStep::Exit, "only a bounded-nonce membership would leave it out");
+        assert_eq!(wallet::rejoin_step(Some(&r), net.chain.head().height + 1, false, w_act), RejoinStep::Exit, "only a bounded-nonce membership would leave it out");
         // two pays its own fees (FN-2a: an ordinary transfer, no creation fee).
         let alice = devnet::account_key("alice");
         let fund = {

@@ -8,15 +8,14 @@ use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 struct Net { chain:Chain, keys:HashMap<Address,Key>, miners:Vec<Address> }
 /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
 impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
-/// The v3 devnet (the V3 programs, the full nonce domain; `earnin` names no program set there). Phase 6a deleted the
-/// spec-1 twins the neutrality checks compared against (the retired spec-1 devnet, bonded or earn-in) and the v3 runs on
-/// bounded nonce ranges (CP field 4 = 0, which admission refuses since phase 6a): `v3` and `full` are always true.
-fn net(v3:bool,full:bool,earnin:bool,n:usize)->Net {
-    assert!(v3&&full,"the spec-1 twins and bounded ranges are retired (phase 6a)");let _=earnin;
+/// The v3 devnet of `n` miners (the V3 programs, the full nonce domain). Phase 6a deleted the spec-1 twins the
+/// neutrality checks compared against (the retired spec-1 devnet, bonded or earn-in) and the v3 runs on bounded nonce
+/// ranges (CP field 4 = 0, which admission refuses since phase 6a).
+fn net(n:usize)->Net {
     let mut cfg=DevnetConfig::new(777936,1_700_000_000,&[]);
     cfg.miners=(0..n).map(|i|format!("membership-{i}")).collect();
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=73;cfg.w_act=4;cfg.r_max=1;
-    cfg.nonce_mode=if full{1}else{0};
+    cfg.nonce_mode=1;
     // The recovery fixtures' accrual periods and pinned draws are calibrated at the spec-1 devnet's S0 of 2 PCOL (tail S0/32).
     cfg.subsidy=U256::from(2*10u128.pow(18));cfg.s_tail=cfg.subsidy/U256::from(32);
     cfg.m_max=cfg.m_max.max(n as u16);
@@ -133,7 +132,7 @@ mod on_chain {
     const UNBOUNDED_PERIOD:usize=11;const UNBOUNDED_RECOVERY:u64=14;
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {
-        let mut n=net(true,true,true,3);let (x,y)=(n.miners[0],n.miners[1]);
+        let mut n=net(3);let (x,y)=(n.miners[0],n.miners[1]);
         for _ in 0..6 {next(&mut n,x,vec![]);assert_draw_parity(&n);}
         let p=n.chain.full_entry(&n.chain.head).unwrap();
         assert_eq!(n.chain.membership(&p,p.height+1).unwrap().ids().len(),3);
@@ -147,7 +146,7 @@ mod on_chain {
     }
     #[test]
     fn a_probationer_at_the_quarter_bond_is_eligible_and_one_wei_below_is_excluded() {
-        let mut n=net(true,true,true,3);let x=n.miners[0];
+        let mut n=net(3);let x=n.miners[0];
         let (a,b)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
         let quarter=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)/U256::from(4);
         let t=registration(&n,a,quarter-U256::from(1),None);next(&mut n,x,vec![t]);
@@ -173,52 +172,49 @@ mod on_chain {
     ///   every draw picks an idle operator. No signed template can exist: a fallback-only period, mined by the
     ///   probationers, whose fallback rewards fill their bonds. Signed blocks resume at the first height where a
     ///   probationer's accrued bond has reached B_reg/4: its shares count, the operators weigh 0, and it is drawn.
-    /// - Bounded ranges (the activity rule): the idle operators leave the membership after W_act heights. Every
-    ///   member left is a sub-quarter probationer, so the all-probationer exception makes them candidates and a
-    ///   probationer is drawn before any of them reaches B_reg/4.
+    /// - (Retired with bounded ranges in phase 6a: under the activity rule the idle operators left the membership after
+    ///   W_act heights, and the all-probationer exception drew a probationer before any of them reached B_reg/4.)
     #[test]
     fn idle_bonded_operators_leave_a_fallback_only_period_until_a_probationer_can_be_drawn() {
         // (The bounded-range run, the activity rule's recovery, was deleted with bounded ranges in phase 6a.)
-        for (full,period,recovery) in [(true,UNBOUNDED_PERIOD,UNBOUNDED_RECOVERY)] {
-            let mut n=net(true,full,true,3);let x=n.miners[0];let ops=n.miners.clone();
-            let (a,b)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
-            let quarter=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)/U256::from(4);
-            let t=registration(&n,a,U256::ZERO,None);next(&mut n,x,vec![t]);
-            let t=registration(&n,b,U256::ZERO,None);next(&mut n,x,vec![t]);
-            for id in &ops {n.keys.remove(id).unwrap();}
-            let mut fallbacks=0;
-            let (h,drawn)=loop {
-                let p=n.chain.full_entry(&n.chain.head).unwrap();let h=p.height+1;assert!(h<64,"full={full}: no recovery");
-                let members=n.chain.membership(&p,h).unwrap();let weights=n.chain.draw_weights(&p,&members,h).unwrap();
-                let drawn=n.chain.draw(&p,&members,h).unwrap();
-                let record=|id:Address|apply::miner_record(p.state.as_ref(),id).unwrap();
-                let weight=|id:Address|weights.weights().iter().find(|r|r.0==raw_addr(id)).map_or(0,|r|r.1);
-                if !ops.contains(&drawn) {
-                    for id in &ops {assert_eq!(weight(*id),0,"full={full}: an idle operator weighs nothing at recovery");}
-                    let r=record(drawn);
-                    assert!(full);
-                    assert_eq!(members.ids().len(),5,"the idle operators are still members");
-                    assert!(r.bond>=quarter,"recovery needs the drawn probationer at B_reg/4");
-                    assert!(!members.accruing().contains(&raw_addr(drawn)));
-                    break (h,drawn);
-                }
-                // The fallback-only period: an idle operator is drawn and the probationers' shares weigh nothing.
-                for id in [a,b] {let r=record(id);assert_eq!(r.bond_state,4);assert!(r.bond<quarter);assert_eq!(weight(id),0,"full={full} h={h}");}
-                // A fallback has one timestamp. A probationer whose range holds a solution mines it; when only the idle
-                // operators' ranges hold one, the attempt passes and the next fallback attempt is mined.
-                let (first,second)=if h%2==0 {(a,b)}else{(b,a)};
-                let blk=(0..8).find_map(|k|try_solve_template(&n,first,vec![],true,k).or_else(||try_solve_template(&n,second,vec![],true,k))).expect("a probationer solves a fallback");
-                assert!(blk.header.proposer.is_empty()&&blk.header.sig.is_empty());accept(&mut n,blk);fallbacks+=1;assert_draw_parity(&n);
-            };
-            assert_eq!((fallbacks,h),(period,recovery),"full={full}: the pinned fallback-only period and the first drawable height");
-            // The drawn probationer signs again: signed precedence and proposer rewards resume.
-            let blk=solve(&n,drawn,vec![]);assert_eq!(Address::from_slice(&blk.header.proposer),drawn);
-            accept(&mut n,blk);assert_draw_parity(&n);
-        }
+        let (period,recovery)=(UNBOUNDED_PERIOD,UNBOUNDED_RECOVERY);
+        let mut n=net(3);let x=n.miners[0];let ops=n.miners.clone();
+        let (a,b)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
+        let quarter=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)/U256::from(4);
+        let t=registration(&n,a,U256::ZERO,None);next(&mut n,x,vec![t]);
+        let t=registration(&n,b,U256::ZERO,None);next(&mut n,x,vec![t]);
+        for id in &ops {n.keys.remove(id).unwrap();}
+        let mut fallbacks=0;
+        let (h,drawn)=loop {
+            let p=n.chain.full_entry(&n.chain.head).unwrap();let h=p.height+1;assert!(h<64,"no recovery");
+            let members=n.chain.membership(&p,h).unwrap();let weights=n.chain.draw_weights(&p,&members,h).unwrap();
+            let drawn=n.chain.draw(&p,&members,h).unwrap();
+            let record=|id:Address|apply::miner_record(p.state.as_ref(),id).unwrap();
+            let weight=|id:Address|weights.weights().iter().find(|r|r.0==raw_addr(id)).map_or(0,|r|r.1);
+            if !ops.contains(&drawn) {
+                for id in &ops {assert_eq!(weight(*id),0,"an idle operator weighs nothing at recovery");}
+                let r=record(drawn);
+                assert_eq!(members.ids().len(),5,"the idle operators are still members");
+                assert!(r.bond>=quarter,"recovery needs the drawn probationer at B_reg/4");
+                assert!(!members.accruing().contains(&raw_addr(drawn)));
+                break (h,drawn);
+            }
+            // The fallback-only period: an idle operator is drawn and the probationers' shares weigh nothing.
+            for id in [a,b] {let r=record(id);assert_eq!(r.bond_state,4);assert!(r.bond<quarter);assert_eq!(weight(id),0,"h={h}");}
+            // A fallback has one timestamp. A probationer whose range holds a solution mines it; when only the idle
+            // operators' ranges hold one, the attempt passes and the next fallback attempt is mined.
+            let (first,second)=if h%2==0 {(a,b)}else{(b,a)};
+            let blk=(0..8).find_map(|k|try_solve_template(&n,first,vec![],true,k).or_else(||try_solve_template(&n,second,vec![],true,k))).expect("a probationer solves a fallback");
+            assert!(blk.header.proposer.is_empty()&&blk.header.sig.is_empty());accept(&mut n,blk);fallbacks+=1;assert_draw_parity(&n);
+        };
+        assert_eq!((fallbacks,h),(period,recovery),"the pinned fallback-only period and the first drawable height");
+        // The drawn probationer signs again: signed precedence and proposer rewards resume.
+        let blk=solve(&n,drawn,vec![]);assert_eq!(Address::from_slice(&blk.header.proposer),drawn);
+        accept(&mut n,blk);assert_draw_parity(&n);
     }
     #[test]
     fn all_probationers_below_the_quarter_bond_retain_the_owner_approved_draw_exception() {
-        let mut n=net(true,true,true,3);let x=n.miners[0];
+        let mut n=net(3);let x=n.miners[0];
         let (a,b,c)=(devnet::account_key("alice").address(),devnet::account_key("bob").address(),devnet::account_key("carol").address());
         // Fund the existing miner identities so they can sign their own exits. Everything is
         // on this disposable fixture chain; the three transfers and registration are ordered.
@@ -261,10 +257,10 @@ fn ledger_rows(db:&mut revm::InMemoryDB,j:u64,rows:&[(Address,u64)]) {
 #[test]
 fn streamed_owner_weights_match_the_original_member_scan_over_randomized_ledgers() {
     // The v3 cases (phase 6a deleted the spec-1 and bounded-range ones).
-    let cases=[(true,true,true,16),(true,true,true,256)];
+    let cases=[16,256];
     let mut rng=Random(0xc120261111);
-    for (v3,full,earnin,count) in cases {
-        let n=net(v3,full,earnin,count);let genesis=n.chain.full_entry(&n.chain.head).unwrap();
+    for count in cases {
+        let n=net(count);let genesis=n.chain.full_entry(&n.chain.head).unwrap();
         let cp=n.chain.spec.cp();let quarter=pocold::chain::from_fixed_lp4(&cp.B_reg)/U256::from(4);
         for round in 0..96u64 {
             // These are storage-view fixtures, not imported headers. Both ledger representations
@@ -286,10 +282,9 @@ fn streamed_owner_weights_match_the_original_member_scan_over_randomized_ledgers
                 ledger_rows(&mut db,j,&rows);
                 assert_eq!(apply::share_owners(&db,j).collect::<Vec<_>>(),rows.iter().map(|r|r.0).collect::<Vec<_>>());
             }}
-            let mut live=Vec::new();let mut active=Vec::new();
             for (i,id) in n.miners.iter().enumerate() {
                 let tomb=i>0&&rng.next()%7==0;
-                let accruing=earnin&&!tomb&&i<8&&rng.next()%2==0;
+                let accruing=!tomb&&i<8&&rng.next()%2==0;
                 let state=if tomb {3}else if accruing {4}else{1};
                 let bond=if tomb {U256::ZERO}else if accruing {
                     match rng.next()%3 {0=>quarter-U256::from(1),1=>quarter,_=>quarter+U256::from(1)}
@@ -301,15 +296,10 @@ fn streamed_owner_weights_match_the_original_member_scan_over_randomized_ledgers
                 put(&mut db,apply::registry(),slot,(old&!clear)|(U256::from(shared)<<88)|(U256::from(state)<<16)|(U256::from(tomb as u8)<<8));
                 put(&mut db,apply::registry(),slot+U256::from(2),bond);
                 put(&mut db,apply::registry(),slot+U256::from(3),U256::from(grace)<<192);
-                if !tomb {live.push(raw_addr(*id));if shared>=h.saturating_sub(u64::from(cp.W_act))||grace>=h.saturating_sub(u64::from(cp.W_act)){active.push(raw_addr(*id));}}
             }
             p.state=db.into();let members=n.chain.membership(&p,h).unwrap();
-            if !v3||!full {
-                let mut expected=if active.is_empty(){live}else{active};expected.sort();
-                assert_eq!(members.ids(),expected.as_slice(),"legacy activity selection remains exact");
-            }
             let before=old_draw(&n,&p,&members,h);let after=n.chain.draw_weights(&p,&members,h).unwrap();
-            assert_eq!(before.weights(),after.weights(),"v3={v3} full={full} earnin={earnin} count={count} h={h}");
+            assert_eq!(before.weights(),after.weights(),"count={count} h={h}");
             assert_eq!(before.total(),after.total());assert_eq!(before.draw().unwrap(),after.draw().unwrap());
         }
     }
@@ -318,7 +308,7 @@ fn streamed_owner_weights_match_the_original_member_scan_over_randomized_ledgers
 #[test]
 fn historical_v3_draws_and_ranges_still_authenticate_type1_evidence() {
     use pocold::rlp;
-    let mut n=net(true,true,true,3);let (x,y)=(n.miners[0],n.miners[1]);
+    let mut n=net(3);let (x,y)=(n.miners[0],n.miners[1]);
     for _ in 0..6 {next(&mut n,x,vec![]);}
     let p=n.chain.full_entry(&n.chain.head).unwrap();let ctx=n.chain.child_ctx(&p,0).unwrap();
     let (a,_,_)=n.chain.build_signed(&p,&n.keys[&ctx.proposer],ctx.window.lower(),Body::default(),vec![]).unwrap();
@@ -360,13 +350,10 @@ fn mixed_owner_block(n:&Net,winner:Address)->Block {
 #[test]
 fn multiple_owners_written_by_the_vm_keep_the_original_draw_weights() {
     // The v3 profile (phase 6a deleted the spec-1 ones).
-    let profiles=[(true,true,true)];
-    for (v3,full,earnin) in profiles {
-        let mut n=net(v3,full,earnin,3);let x=n.miners[0];
-        let b=mixed_owner_block(&n,x);accept(&mut n,b);next(&mut n,x,vec![]);
-        let p=n.chain.full_entry(&n.chain.head).unwrap();
-        assert_eq!(apply::share_owners(p.state.as_ref(),1).count(),3);
-        for id in &n.miners {assert_eq!(apply::share_count(p.state.as_ref(),1,*id),if *id==x {2}else{1});}
-        assert_draw_parity(&n);
-    }
+    let mut n=net(3);let x=n.miners[0];
+    let b=mixed_owner_block(&n,x);accept(&mut n,b);next(&mut n,x,vec![]);
+    let p=n.chain.full_entry(&n.chain.head).unwrap();
+    assert_eq!(apply::share_owners(p.state.as_ref(),1).count(),3);
+    for id in &n.miners {assert_eq!(apply::share_count(p.state.as_ref(),1,*id),if *id==x {2}else{1});}
+    assert_draw_parity(&n);
 }

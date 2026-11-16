@@ -14,10 +14,8 @@ fn publish(c:&DevnetConfig,dir:&Path,timing:bool){
     std::fs::write(dir.join("genesis.spec.hex"),pocold::types::hex(&n.spec_bytes)).unwrap();
     std::fs::write(dir.join("alloc.json"),devnet::alloc_to_json(&n.alloc).to_string()).unwrap();
     let mut info=serde_json::json!({"calibration":{"hashesPerSecond":n.hash_rate}});
-    // As init-devnet for a v3 devnet: the single-host localTiming that `run` derives its local timing from.
-    if n.profile.spec().spec_version>=2{
-        let local=pocold::testnet::local_for_v3(n.profile.cp(),pocold::testnet::TimingAssumptions::DEVNET).unwrap();info["localTiming"]=pocold::testnet::local_timing_json(&local);
-    }
+    // As init-devnet (every devnet is v3): the single-host localTiming that `run` derives its local timing from.
+    let local=pocold::testnet::local_for_v3(n.profile.cp(),pocold::testnet::TimingAssumptions::DEVNET).unwrap();info["localTiming"]=pocold::testnet::local_timing_json(&local);
     // As init-devnet: a profile whose blocks cannot be applied has no timing record.
     if timing{if let Ok(t)=pocol_lp4_execution::admission::measure(&n.spec_bytes,&n.alloc,1){info["timing"]=t.to_json();}}
     std::fs::write(dir.join("devnet.json"),info.to_string()).unwrap();

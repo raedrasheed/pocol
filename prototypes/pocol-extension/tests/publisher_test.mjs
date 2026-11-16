@@ -179,6 +179,16 @@ test('checkpoint failure after signing still prevents broadcast',async()=>{const
 test('signer cannot substitute another transaction',async()=>{const m=mock();await assert.rejects(publishSite(m.options(undefined,{sign:async tx=>signTx(secret,{...tx,to:owner,value:'1'})})),/changed transaction/);assert.equal(m.logs.sent.length,0);});
 test('wrong signing key is rejected',async()=>{const m=mock();await assert.rejects(publishSite(m.options(undefined,{sign:async tx=>signTx(fromHex('0x'+'22'.repeat(32)),tx)})),/publishing account/);assert.equal(m.logs.sent.length,0);});
 test('ambiguous submission resumes the SAME raw without another signature',async()=>{const m=mock();m.control.unknownBeforeSend=true;await assert.rejects(publishSite(m.options()),PublishPendingError);const saved=m.state,raw=m.logs.sent[0];m.control.unknownBeforeSend=false;await publishSite(m.options(undefined,{state:saved}));assert.equal(m.logs.sent[1],raw);assert.equal(m.logs.signed.length,7);});
+// A Lock or Pause that aborts the send itself (the page aborts the controller while eth_sendRawTransaction is in flight)
+// is reported as a pause, not as an unconfirmed submission; the resume sends the SAME raw without another signature.
+test('a pause that aborts an in-flight send reports a pause and resumes with the same raw',async()=>{
+  const m=mock(),abort=new AbortController(),base=m.options();
+  const rpc=async(method,...rest)=>{if(method==='eth_sendRawTransaction'&&!abort.signal.aborted){abort.abort();m.control.unknownBeforeSend=true;}return base.rpc(method,...rest);};
+  await assert.rejects(publishSite({...base,rpc,signal:abort.signal}),e=>e.code==='PUBLISH_PAUSED'&&/paused/.test(e.message)&&!(e instanceof PublishPendingError));
+  assert.equal(m.logs.sent.length,1);assert.equal(m.logs.signed.length,1);const raw=m.logs.sent[0];
+  m.control.unknownBeforeSend=false;await publishSite(m.options(undefined,{state:m.state}));
+  assert.equal(m.logs.sent[1],raw);assert.equal(m.logs.signed.length,7);
+});
 // Sites W11: a broadcast the gateway refused with HTTP 429 was never forwarded: the same signed bytes are sent again.
 test('a broadcast refused with HTTP 429 is sent again (same raw, no new signature); -32021 busy still pauses',async()=>{
   const m=mock();m.control.rateBeforeSend=3;const slept=[];const r=await publishSite(m.options(undefined,{sleep:async(ms)=>{slept.push(ms);}}));

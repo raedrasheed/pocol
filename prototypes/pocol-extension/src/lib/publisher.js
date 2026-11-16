@@ -460,7 +460,9 @@ export async function publishSite(options) {
         try { const h = await sendRefusedAgain(await rawOf(rec)); assert(typeof h === 'string' && h.toLowerCase() === rec.hash,'RPC returned a different transaction hash'); }
         catch (error) {
           receipt = await canonicalReceipt(rec.hash);
-          if (!receipt) throw new PublishPendingError(rec.hash,'Submission could not be confirmed. Resume to check or retransmit the same signed transaction.');
+          // A Lock or Pause that aborted the send is reported as the pause it is; the signed transaction is already
+          // saved, so the resume checks for it and retransmits the same bytes either way.
+          if (!receipt) { checkAbort(); throw new PublishPendingError(rec.hash,'Submission could not be confirmed. Resume to check or retransmit the same signed transaction.'); }
         }
       }
       const deadline = clock() + (options.receiptTimeoutMs ?? 300000);

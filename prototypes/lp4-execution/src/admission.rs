@@ -296,11 +296,12 @@ fn terminal(rule:&str,note:String)->Rejection{Rejection{rules:vec![rule.into()],
 /// FN-2a). The list is empty, but the gate and its `admit` call stay, so a blocker added before the
 /// launch is enforced again without other changes.
 pub const V3_LAUNCH_BLOCKERS:&[&str]=&[];
-/// V3_LAUNCH_BLOCKERS as an admission rule. Spec-1 profiles (v3 never active) never reach it.
-pub fn v3_launch_gate(v3:bool,kind:ProfileKind,node:NodeKind)->Result<(),Rejection>{v3_launch_gate_with(V3_LAUNCH_BLOCKERS,v3,kind,node)}
+/// V3_LAUNCH_BLOCKERS as an admission rule. `admit` applies it to every genesis it does not refuse as R24 first, and
+/// each of those is a v3 genesis (specVersion 2), so v3 is active on every profile that reaches it.
+pub fn v3_launch_gate(kind:ProfileKind,node:NodeKind)->Result<(),Rejection>{v3_launch_gate_with(V3_LAUNCH_BLOCKERS,kind,node)}
 /// The gate rule for a given blocker list (`v3_launch_gate` applies V3_LAUNCH_BLOCKERS).
-pub fn v3_launch_gate_with(blockers:&[&str],v3:bool,kind:ProfileKind,node:NodeKind)->Result<(),Rejection>{
-    if v3&&!blockers.is_empty()&&(kind!=ProfileKind::Simnet||node!=NodeKind::Simnet){
+pub fn v3_launch_gate_with(blockers:&[&str],kind:ProfileKind,node:NodeKind)->Result<(),Rejection>{
+    if !blockers.is_empty()&&(kind!=ProfileKind::Simnet||node!=NodeKind::Simnet){
         return Err(terminal("v3-launch-blocker",format!("a profile that can activate v3 has open launch blockers: {}",blockers.join("; "))))}
     Ok(())
 }
@@ -366,8 +367,8 @@ pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{admit_with(r,None)}
 /// raised CP (the genesis CP with ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX replaced), whose resource facts
 /// (R18's SYS slots, R21's retained state) are derived at the raised caps; a rule failing at either is a violation.
 /// R24's comparison of the GenesisSpec's CP with the evaluated CP applies to the genesis CP only (the raised CP is
-/// not the genesis CP by construction); a raise that lowers a cap, raises none, has no fork-3 entry or is on a
-/// spec-1 genesis is refused as R24.
+/// not the genesis CP by construction); a raise that lowers a cap, raises none or has no fork-3 entry is refused as
+/// R24, as is every spec-1 genesis, with or without a raise.
 pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Result<Admitted,Rejection>{
     // validation.md:2065: the caps-test build constants are simnet only.
     if cfg!(feature="caps-test")&&(r.kind!=ProfileKind::Simnet||r.node!=NodeKind::Simnet){
@@ -402,14 +403,14 @@ pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Resul
             r_keep:R_KEEP,k_hist:l.k_hist,k_final:K_FINAL,k_view:K_VIEW,hist_trie_budget:HIST_TRIE_BUDGET,gossip:l.gossip,retention_stress:l.retention_stress},
         rpc:l.rpc.values().clone()};
     let gp=gate_profile(&cp);
-    v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;
+    // The genesis is specVersion 2 here (refused above otherwise), so v3 is active at every height of the profile.
+    v3_launch_gate(r.kind,r.node)?;
     let binding=gp.binding();
     let model=gate::RESOURCE_MODEL.to_string();
     // FN-5: the raised CP, refused (R24) before any fact is derived when the raise lowers a cap or raises none.
-    // A fork-3 entry and its raise come together, on a spec-2 genesis only (`ProfileIdentity::validate_with_raise`).
+    // A fork-3 entry and its raise come together; the genesis is spec 2 here, as `ProfileIdentity::validate_with_raise` requires.
     if r.forks.iter().any(|(v,_)|*v==crate::profile::CAP_RAISE_VERSION)!=raise.is_some(){
         return Err(terminal("R24",if raise.is_some(){"cap raise without a fork version 3 activation".into()}else{"fork version 3 is a cap raise and needs its values".into()}))}
-    if raise.is_some()&&spec.spec_version<2{return Err(terminal("R24","a cap raise needs a v3 genesis (spec version 2)".into()))}
     let raised=match raise{None=>None,Some(x)=>Some(x.apply(&cp).map_err(|e|terminal("R24",format!("cap raise: {e:?}")))?)};
 
     let identity_for=|binding:[u8;32]|root.map(|root|{
@@ -418,8 +419,8 @@ pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Resul
         IdentityFacts{profile_binding:binding,model:model.clone(),class:FactClass::Measurement,artifact:digest("PoColIdentityFacts",&[&root.0,&programs.sys_code_hash().0,&flat]),
             alloc_root:root.0,sys_code_hash:programs.sys_code_hash().0,
             alloc_balances:balances.iter().map(|(_,b)|crate::devnet::to_fixed(*b)).collect(),
-            // V3-19: R23 takes the M3 term only for the v3 program set, as genesis_builder.rs does.
-            m3_issuance:set==ProgramSet::V3}
+            // V3-19: R23 takes the M3 term for the v3 program set (the only one `for_spec` accepts), as genesis_builder.rs does.
+            m3_issuance:true}
     });
     let identity=identity_for(binding);
 
@@ -474,7 +475,7 @@ pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Resul
             if r.kind!=ProfileKind::Simnet||r.node!=NodeKind::Simnet{
                 return Err(terminal("R22","the experimental-devnet scope admits only a simnet profile on a simnet node".into()))}
             if !l.rpc.absent().is_empty(){
-                let (w,failed)=r26_partial_for(&l.rpc,gp.v3_active(u64::MAX));
+                let (w,failed)=r26_partial_for(&l.rpc,true);
                 if failed.is_empty(){report.violations.retain(|v|v!="R26")}else{notes.push(format!("R26: enforced RpcGuard fields fail {failed:?}"))}
                 waivers.push(w);
             }

@@ -1,5 +1,5 @@
 //! N4 (V3-20 node-local pool, V3-24 RPC): the fee-ordered selection, replace-by-fee, lowest-fee eviction and the
-//! estimate's log caps, on the v3 devnet (the estimate's spec-1 caps also on the retired spec-1 devnet). Pool policy only: the blocks built from it are validated by the
+//! estimate's log caps, on the v3 devnet. Pool policy only: the blocks built from it are validated by the
 //! unchanged consensus code (`Chain::validate`) and imported.
 use std::collections::HashMap;
 use pocold::{chain::{Chain,Spec},types::*,hashes,node::{self,TxFields,Limits,Node}};
@@ -78,7 +78,7 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
     let p=head(&n);let sel=n.template_selection(&p,pocold::node::now_s());
     assert_eq!(sel.txs,vec![b0.clone(),c0.clone(),e0.clone(),a0.clone(),a1.clone()]);
     let blk=signed(&h,h.chain.head,sel.txs.clone());import(&mut h,&blk);
-    assert!(n.import(blk.clone(),None).unwrap(),"the fee-ordered block is valid on the spec-1 devnet");n.pool_settle();
+    assert!(n.import(blk.clone(),None).unwrap(),"the fee-ordered block is valid on the v3 devnet");n.pool_settle();
     assert!(n.pool.txs.is_empty(),"all included");n.pool_audit().unwrap();
     // A fee cap at the base fee pays no tip (min(priority, 0)): it comes after a later, paying arrival.
     let b2=base(&n).to::<u64>();let low=tx(&bob,1,b2,b2,21000,Address::with_last_byte(0xbb));let ok=pay(&carol,1,GWEI/2);
@@ -301,7 +301,7 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
 #[test] fn estimate_gas_models_the_v3_log_caps(){estimate_gas_models_the_log_caps(&cfg(&[]),"estimate-v3",256*1024,3_000_000)}
 fn estimate_gas_models_the_log_caps(c:&DevnetConfig,tag:&str,block_bytes:u32,call_gas:u64){
     let (mut n,_d)=node_with(tag,Limits::default(),c);let mut h=net_with(c);let alice=key("alice");
-    assert_eq!(u64::from(block_bytes),pocol_lp4_execution::user_phase::log_caps(h.chain.spec.v3_active(1)).bytes);
+    assert_eq!(u64::from(block_bytes),pocol_lp4_execution::user_phase::log_caps(true).bytes);
     // PUSH3 size; PUSH1 0; LOG0; STOP, deployed by a plain init code.
     let runtime=|size:u32|vec![0x62,(size>>16) as u8,(size>>8) as u8,size as u8,0x60,0,0xa0,0];
     let init=|r:&[u8]|{let len=r.len() as u8;let mut b=vec![0x60,len,0x60,12,0x60,0,0x39,0x60,len,0x60,0,0xf3];b.extend_from_slice(r);b};
@@ -373,7 +373,7 @@ fn estimate_gas_models_the_log_caps(c:&DevnetConfig,tag:&str,block_bytes:u32,cal
     assert_eq!(n.fee_order(base(&n)),vec![2,0,1],"bob 5, alice's funding 1, newbie's uncovered 10 last");
     let sel=n.template_selection(&head(&n),pocold::node::now_s());
     assert_eq!(sel.txs,vec![b0.clone(),fund.clone(),nb.clone()],"the dependent follows its funding");
-    let blk=signed(&h,h.chain.head,sel.txs);import(&mut h,&blk);assert!(n.import(blk,None).unwrap(),"valid on the spec-1 devnet");n.pool_settle();
+    let blk=signed(&h,h.chain.head,sel.txs);import(&mut h,&blk);assert!(n.import(blk,None).unwrap(),"valid on the v3 devnet");n.pool_settle();
     assert!(n.pool.txs.is_empty());n.pool_audit().unwrap();
     // A replacement of a funding (its own sender is covered) is accepted and may leave the dependent unfunded.
     let fund2=Tx{chain_id:CHAIN,nonce:1,max_priority:U256::from(GWEI),max_fee:U256::from(100*GWEI),gas:21000,to:Some(key("n4-other").address()),value:U256::from(10u128.pow(18)),data:Default::default()}.sign_1559(&alice);

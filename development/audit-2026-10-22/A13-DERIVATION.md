@@ -1725,8 +1725,9 @@ is what FN-3b removes. CONDITIONS `member-records-inventory` lists the caps, the
 
 The cadence-only snapshot count and the min(DELTA_CAP, delta_max) delta bound need a membership that is every live
 record at every height (`members::all_live_everywhere`: CP schema v2, so v3 is active from genesis, and nonceMode 1,
-so `chain::full_nonce_rule` holds under every fork version). A bounded-nonce schema-v2 CP (nonceMode 0, a devnet with
-the v3 programs) keeps the W_act activity set, which one block can change whole: it takes spec 1's branch (every block
+so the full u64 nonce domain holds under every fork version; pocold's former `chain::full_nonce_rule`, removed in phase
+6b once admission took only nonceMode 1). A bounded-nonce schema-v2 CP (nonceMode 0, which admission refuses since
+phase 6a, R24) keeps the W_act activity set, which one block can change whole: it takes spec 1's branch (every block
 may be a snapshot, a delta holds DELTA_CAP ids). No pinned profile is such a CP, so no pin moves.
 
 The FN-3a oracle (`Chain::member_oracle`) is on by default, in release builds too: each import recomputes the new

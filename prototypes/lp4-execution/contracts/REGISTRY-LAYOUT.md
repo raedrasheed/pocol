@@ -103,13 +103,14 @@ for slot3); claim middle10/tail8 -> 10/8; topUp 3 -> 4 (w1 clock; slot9 for slot
 clock and w0 promotion; FN-2b: 5, no ACC_COUNT write); partial register 11 -> 10 (FN-2b: no ACC_COUNT); accrue 2/4 ->
 2/3 (FN-2b: a promotion writes no ACC_COUNT).
 The beginBlock sweep changes the same slots per deletion as earn-in. Gas: a zero-bond register 174,447 against earn-in's
-194,172 (FN-2b removed the probation-pool check; the cold slot9 read remains), within the wallet's EARNIN_REGISTER_GAS 400,000; every other user path below 200,000 (REGISTRY_GAS
-1,000,000). The independent model is tests/v3_model.py (vectors tests/v3/registry-budget-vectors.json and
+194,172 (FN-2b removed the probation-pool check; the cold slot9 read remains), within the wallet's EARNIN_REGISTER_GAS 400,000; every other user path below 200,000 (REGISTRY_CALL_GAS
+1,000,000, the wallet's gas ceiling for v3 registry maintenance calls). The independent model is tests/v3_model.py (vectors tests/v3/registry-budget-vectors.json and
 tests/v3/earnin-on-v3-vectors.json); seven planted budget mutants are in tests/v3/system-v3-mutants.json.
 
 ## v3 evidence penalties (PoColSystemV3.sol only; V3-16, V3-17, V3-PR-E2b)
 
-Applies to the v3 program set only, as above; the spec-1 programs, host calls and phase order are unchanged.
+Applies to the v3 program set, the only bundled set, as above; the host calls and phase order below are the only ones
+the host runs (the retired spec-1 programs, host calls and phase order were deleted with the spec-1 rule set).
 
 | Location | Change |
 |---|---|
@@ -165,7 +166,7 @@ accruing-read-at-evidence, accruing-read-at-settle, rho-on-pot-not-bond) are in 
 
 ## v3 late share credit (PoColSystemV3.sol only; V3-02, V3-PR-E3)
 
-Applies to the v3 program set only, as above; the spec-1 programs, host calls and phase order are unchanged.
+Applies to the v3 program set, the only bundled set, as above (the retired spec-1 programs had no late share credit).
 
 | Location | Change |
 |---|---|
@@ -209,7 +210,8 @@ tests/v3/late-share-validity-vectors.json, replayed by pocold/tests/v3_late_shar
 
 ## v3 issuance, carry and tip split (PoColSystemV3.sol only; V3-19, V3-15, V3-20, V3-PR-E2a)
 
-Applies to the v3 program set only, as above; the spec-1 programs keep closeBlock(tips) with CP 15 every block.
+Applies to the v3 program set, the only bundled set, as above (the retired spec-1 programs used closeBlock(tips) with
+CP 15 every block).
 
 | Location | Change |
 |---|---|

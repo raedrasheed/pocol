@@ -94,10 +94,10 @@ fn template_at(f:&Fixture,body:Body,ahead:u64)->([u8;32],Msg,ChildCtx,u64){
     assert_eq!(h.ts,ts);
     (template_id(&h.ut_raw),Msg::Template{shell:h.encoded.clone(),body:body.encode()},ctx,ts)
 }
-/// The nonces below nMax (when `below`) or from nMax on (otherwise) whose PoW for `tid` meets T_share.
-fn valid_shares<'a>(tid:&'a [u8;32],ctx:&'a ChildCtx,below:bool)->impl Iterator<Item=u64>+'a{
-    let n_max=ctx.assignment.nonce_max();let start=if below{0}else{u64::try_from(n_max).unwrap()};
-    (start..).filter(move|n|((*n as u128)<n_max)==below&&le_target(&pow_hash(tid,*n),&ctx.t_share))
+/// The nonces below nMax (2^64 on the v3 devnet: every u64) whose PoW for `tid` meets T_share.
+fn valid_shares<'a>(tid:&'a [u8;32],ctx:&'a ChildCtx)->impl Iterator<Item=u64>+'a{
+    let n_max=ctx.assignment.nonce_max();
+    (0..).filter(move|n|(*n as u128)<n_max&&le_target(&pow_hash(tid,*n),&ctx.t_share))
 }
 /// The first nonce below nMax whose PoW does not meet T_share.
 fn invalid_share(tid:&[u8;32],ctx:&ChildCtx)->u64{(0u64..).find(|n|!le_target(&pow_hash(tid,*n),&ctx.t_share)).unwrap()}
@@ -116,7 +116,7 @@ fn relayed_once_and_never_back(tag:&str,chain_id:u64,tune:impl FnOnce(&mut Devne
     let f=fixture(tag,chain_id,tune);
     let [mut x,mut y]=peers(&f,["x","y"]);
     let (tid,tmsg,ctx)=template(&f,Body::default());
-    let s:Vec<u64>=valid_shares(&tid,&ctx,true).take(5).collect();let (early,s1,s2,s3,s4)=(s[0],s[1],s[2],s[3],s[4]);
+    let s:Vec<u64>=valid_shares(&tid,&ctx).take(5).collect();let (early,s1,s2,s3,s4)=(s[0],s[1],s[2],s[3],s[4]);
     let share=|n:u64|Msg::Share{tid,nonce:n};
     let next=|p:&mut TcpStream|gossip(p,Duration::from_secs(5));
     // A share for a template B has not locked (it is still waiting) is dropped, not kept for later; then the
@@ -129,13 +129,12 @@ fn relayed_once_and_never_back(tag:&str,chain_id:u64,tune:impl FnOnce(&mut Devne
     // reached it. y sends a second copy of the template, then s1: x must get s1 first.
     y.write_all(&frame(&tmsg)).unwrap();y.write_all(&frame(&share(s1))).unwrap();
     assert_eq!(next(&mut x),Some(share(s1)),"x got neither its own template back nor y's second copy, and y's new share once");
-    // Invalid PoW, nonce >= nMax and a foreign TemplateID are dropped; the next valid share goes to y only. With nonceMode 1
-    // (the v3 devnet) nMax is 2^64, so every u64 nonce is in range and there is no share at or above it.
+    // Invalid PoW and a foreign TemplateID are dropped; the next valid share goes to y only. With nonceMode 1 (the v3
+    // devnet) nMax is 2^64, so every u64 nonce is in range and no share is at or above it.
     let mut other=tid;other[0]^=1;
-    let bounded=u64::try_from(ctx.assignment.nonce_max()).is_ok();assert_eq!(bounded,f.chain.spec.cp().nonceMode==0,"nMax {}",ctx.assignment.nonce_max());
+    assert_eq!(ctx.assignment.nonce_max(),1u128<<64,"nMax {}",ctx.assignment.nonce_max());
     let mut drops=vec![share(invalid_share(&tid,&ctx))];
-    if bounded{drops.push(share(valid_shares(&tid,&ctx,false).next().unwrap()));}
-    drops.extend([Msg::Share{tid:other,nonce:valid_shares(&other,&ctx,true).next().unwrap()},share(s2)]);
+    drops.extend([Msg::Share{tid:other,nonce:valid_shares(&other,&ctx).next().unwrap()},share(s2)]);
     for m in drops{x.write_all(&frame(&m)).unwrap();}
     assert_eq!(next(&mut y),Some(share(s2)),"only the valid share reached y (and the early share was never applied)");
     y.write_all(&frame(&share(s3))).unwrap();
@@ -162,7 +161,7 @@ fn relayed_once_and_never_back(tag:&str,chain_id:u64,tune:impl FnOnce(&mut Devne
     assert_eq!(gossip(&mut y,Duration::from_secs(5)),Some(tmsg),"y's next gossip is the honest template: the foreign one neither locked nor was relayed");
     // Barrier: x's next frame, a valid share for the locked template, reaches y. So B handled x's foreign
     // template before it and did not close x for it.
-    let s=valid_shares(&tid,&ctx,true).next().unwrap();
+    let s=valid_shares(&tid,&ctx).next().unwrap();
     x.write_all(&frame(&Msg::Share{tid,nonce:s})).unwrap();
     assert_eq!(gossip(&mut y,Duration::from_secs(5)),Some(Msg::Share{tid,nonce:s}),"its sender is not punished");
     assert_eq!(stats(&f,&["relayedTemplates","templatePenalties"]),[Some(1),Some(0)]);
@@ -194,7 +193,7 @@ fn relayed_once_and_never_back(tag:&str,chain_id:u64,tune:impl FnOnce(&mut Devne
     x.write_all(&frame(&tmsg)).unwrap();
     assert_eq!(gossip(&mut y,Duration::from_secs(5)),Some(tmsg),"locked and relayed");
     let cap=4*usize::from(f.chain.spec.cp().S_max);
-    let sent:Vec<u64>=valid_shares(&tid,&ctx,true).take(cap+1).collect();
+    let sent:Vec<u64>=valid_shares(&tid,&ctx).take(cap+1).collect();
     let mut batch=Vec::new();for n in &sent{batch.extend(frame(&Msg::Share{tid,nonce:*n}));}
     x.write_all(&batch).unwrap();
     let mut got=Vec::new();
@@ -240,7 +239,7 @@ fn wait_for(ms:u64,mut f:impl FnMut()->bool)->bool{let t=Instant::now();while t.
     let sent=pocold::node::now_ms();x.write_all(&frame(&tmsg)).unwrap();
     assert_eq!(gossip(&mut y,Duration::from_secs(5)),Some(tmsg.clone()),"locked and relayed");let relayed=pocold::node::now_ms();
     // y's copy, then a share from y: once x gets the share, B has handled the copy.
-    let s=valid_shares(&tid,&ctx,true).next().unwrap();
+    let s=valid_shares(&tid,&ctx).next().unwrap();
     y.write_all(&frame(&tmsg)).unwrap();y.write_all(&frame(&Msg::Share{tid,nonce:s})).unwrap();
     assert_eq!(gossip(&mut x,Duration::from_secs(5)),Some(Msg::Share{tid,nonce:s}));
     let t=call(f.rpc,"pocol_templateLatency");
