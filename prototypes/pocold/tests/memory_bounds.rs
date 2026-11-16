@@ -145,19 +145,6 @@ fn indexing_a_height_below_the_window_panics(){let mut c=window(5);c.pop_low();c
     let _=std::fs::remove_dir_all(&dir);
 }
 
-/// A test-only format-1 encoder: the snapshot layout before C-1 S5 (no eviction or anchor parameters, no window
-/// fields), sealed as before.
-fn encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
-    let mut w=Vec::new();let u=|w:&mut Vec<u8>,x:u64|w.extend_from_slice(&x.to_be_bytes());let o=|w:&mut Vec<u8>,x:Option<u64>|match x{Some(v)=>{w.push(1);w.extend_from_slice(&v.to_be_bytes())}None=>w.push(0)};
-    let hs=|w:&mut Vec<u8>,v:&[[u8;32]]|{w.extend_from_slice(&(v.len() as u64).to_be_bytes());for h in v{w.extend_from_slice(h)}};
-    w.extend_from_slice(b"POCKPT01");w.extend_from_slice(&s.genesis);let p=&s.params;
-    for x in [p.r_keep,p.side_cap,p.k_hist,p.side_max]{u(&mut w,x)}o(&mut w,p.history_window);o(&mut w,p.slim_depth);w.push(u8::from(p.keep_full));
-    u(&mut w,s.binding.records);u(&mut w,s.binding.end);w.extend_from_slice(&s.binding.hash);
-    w.extend_from_slice(&s.head);for x in [s.next_seq,s.slim_cursor,s.history_cursor,s.evicted_total]{u(&mut w,x)}
-    hs(&mut w,&s.unslimmed);hs(&mut w,&s.evicted_order);match &s.protect{Some(v)=>{w.push(1);hs(&mut w,v)}None=>w.push(0)}u(&mut w,s.entries.len() as u64);
-    for r in &s.entries{w.extend_from_slice(&pocold::checkpoint::rec_bytes(r))}
-    let seal=revm::primitives::keccak256(&w);w.extend_from_slice(&seal.0);w
-}
 /// One row of a canonical index (what the node's would hold below a window base).
 struct OneRow(u64,pocold::checkpoint::Rec);
 impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option<pocold::checkpoint::Rec>,String>{Ok((h==self.0).then(||self.1.clone()))}}
@@ -165,8 +152,8 @@ impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option
 /// Checkpoint format 2 (C-1 S5): a snapshot of a store-mode chain with its entries below height `base` left out (as
 /// they are once evicted) restores at that window base, from the block below it that the canonical index holds; the
 /// restored chain's snapshot is the one restored. An index without that block, or with another one, and entries
-/// that do not start at the base are refused, leaving the chain as it was. A format-1 snapshot (every entry, no
-/// window fields) still reads back and restores under the new parameters (the one-time migration).
+/// that do not start at the base are refused, leaving the chain as it was. Format 1 (`POCKPT01`, written only by the
+/// retired network's builds) is refused by name.
 #[test] fn a_snapshot_restores_at_its_window_base_from_the_block_the_index_holds_below_it(){
     use pocold::checkpoint::*;use pocold::node::{Config,Limits,Node};
     // The base is below the K_hist cut (38), as an eviction base always is: no stored version at or near it.
@@ -178,9 +165,8 @@ impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option
     drop(n);
     let mut s=full.clone();s.entries.retain(|r|height[&r.hash]==0||height[&r.hash]>=base);(s.canon_base,s.base_parent,s.base_parent_work)=(base,below.hash,below.total_work);
     assert_eq!(decode(&encode_snapshot(&s)).unwrap(),s,"format 2 reads back");
-    let v1=decode(&encode_v1(&full)).unwrap();
-    assert!(full.anchor_cursor>0,"positive control: the forward prune moved the anchor cursor");
-    assert_eq!(v1,Snapshot{v1:true,params:Params{evict_depth:None,anchor_step:None,..full.params},anchor_cursor:0,..full.clone()},"format 1 reads back, without the new fields");
+    let mut v1=encode_snapshot(&full);v1.truncate(v1.len()-32);v1[..8].copy_from_slice(b"POCKPT01");let seal=revm::primitives::keccak256(&v1);v1.extend_from_slice(&seal.0);
+    let e=decode(&v1).unwrap_err();assert!(e.contains("format 1 (POCKPT01)"),"format 1 is refused by name: {e}");
     let spec=admitted();let gh=spec.genesis_hash();
     let rec=pocold::store::open(&dir,&gh).unwrap();let history=pocold::history::History::open(&dir).unwrap();
     let st:std::sync::Arc<dyn pocol_lp4_execution::node_trie::TrieStore>=std::sync::Arc::new(pocold::state_store::StateStore::open(&dir).unwrap());
@@ -196,9 +182,7 @@ impl pocold::checkpoint::CanonIndex for OneRow{fn at(&self,h:u64)->Result<Option
     assert_eq!((c.canonical.base(),c.head,c.canonical.len()),(base,full.head,canon.len()));
     assert!((1..base as usize).all(|h|c.canonical.get(h).is_none())&&(base as usize..canon.len()).all(|h|c.canonical[h]==canon[h]),"the window from its base, the heights below it not held");
     assert_eq!(fingerprint(&c).unwrap(),s,"the restored chain's snapshot is the one restored");
-    drop(c);let mut m=fresh();m.evict_depth=Some(1000);m.anchor_step=Some(7);
-    go(&mut m,&v1,&NoIndex).unwrap();assert_eq!((m.canonical.base(),m.head,m.blocks.len()),(0,full.head,full.entries.len()),"a format-1 snapshot restores whole under the new parameters");
-    drop(m);drop(rec);let _=std::fs::remove_dir_all(&dir);
+    drop(c);drop(rec);let _=std::fs::remove_dir_all(&dir);
 }
 
 /// PR7 (T16, §6.2): the continuous chain's A13 bound with eviction on. It is the same at 0 and 10^9 journal records

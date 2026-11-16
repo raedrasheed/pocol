@@ -305,10 +305,10 @@ fn release_step_io_child(){
     assert!(!s.release_pending(),"no more steps are tried");
     println!("IO-CHILD done");
 }
-/// D-6 (review 2026-10-27): what a count means changed with the `release` table (format 3). A format-2 store
-/// opens without a rebuild and is marked format 3, so a build of format 2 sets it aside rather than miss what
-/// it owes; a store of another format is rebuilt.
-#[test] fn a_format_2_store_opens_as_format_3_and_another_format_is_rebuilt(){
+/// D-6 (review 2026-10-27): what a count means changed with the `release` table (format 3). Phase 8a: a format-2
+/// store (written only by the retired network's builds) is no longer upgraded in place: it is set aside, kept as
+/// `state.redb.aside`, and rebuilt, as a store of any other format is.
+#[test] fn a_format_2_store_is_set_aside_and_rebuilt_as_another_format_is(){
     const META:redb::TableDefinition<&str,u64>=redb::TableDefinition::new("meta");
     let set=|d:&std::path::Path,f:u64|{let db=redb::Database::open(d.join(pocold::state_store::FILE)).unwrap();let w=db.begin_write().unwrap();
         {let mut m=w.open_table(META).unwrap();m.insert("format",f).unwrap();}w.commit().unwrap();};
@@ -316,9 +316,12 @@ fn release_step_io_child(){
         let v=r.open_table(META).unwrap().get("format").unwrap().map(|v|v.value());v};
     assert_eq!(pocold::state_store::FORMAT,3);
     let d=dir("format");{let s=owing_store(&d,0xf2);drop(s);}
-    assert_eq!(get(&d),Some(3));set(&d,2);
-    {let s=StateStore::open(&d).unwrap();assert!(!s.rebuilt,"a format-2 store is not rebuilt");assert!(s.release_pending());s.recount().unwrap();}
-    assert_eq!(get(&d),Some(3),"it is marked format 3");
+    assert_eq!(get(&d),Some(3));{let s=StateStore::open(&d).unwrap();assert!(!s.rebuilt,"positive control: format 3 reopens as it is");assert!(s.release_pending());}
+    set(&d,2);
+    {let s=StateStore::open(&d).unwrap();assert!(s.rebuilt,"a format-2 store is set aside and rebuilt");assert!(!s.release_pending(),"the new store owes nothing");}
+    assert_eq!(get(&d),Some(3),"the new store is format 3");
+    {let db=redb::Database::open(d.join(format!("{}.aside",pocold::state_store::FILE))).unwrap();let r=db.begin_read().unwrap();
+     assert_eq!(r.open_table(META).unwrap().get("format").unwrap().map(|v|v.value()),Some(2),"the format-2 store is kept aside");}
     set(&d,4);{let s=StateStore::open(&d).unwrap();assert!(s.rebuilt,"a store of another format is rebuilt");assert!(!s.release_pending());}
     let _=std::fs::remove_dir_all(&d);
 }

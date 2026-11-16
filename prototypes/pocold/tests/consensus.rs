@@ -4478,7 +4478,7 @@ fn e4_checkpoint_kill_child(){
     use pocold::checkpoint::*;
     let rec=|i:u64|Rec{hash:{let mut h=[0u8;32];h[..8].copy_from_slice(&(i+1).to_be_bytes());h},body_off:None,import_seq:i,total_work:U256::from(i),flags:0,cum_txs:0,cum_tx_bytes:0,cum_log_bytes:0,drawn:Address::ZERO,summary:None,root:None};
     let snap=|n:u64|Snapshot{genesis:[7;32],params:Params{r_keep:2048,side_cap:256,k_hist:32,side_max:2,history_window:Some(32),slim_depth:Some(100),keep_full:false,evict_depth:None,anchor_step:None},
-        binding:Binding{records:n,end:1,hash:[2;32]},head:rec(n.max(1)-1).hash,next_seq:n,slim_cursor:1,history_cursor:1,evicted_total:0,canon_base:0,base_parent:[0;32],base_parent_work:U256::ZERO,anchor_cursor:0,v1:false,unslimmed:vec![],evicted_order:vec![],protect:None,entries:(0..n).map(rec).collect()};
+        binding:Binding{records:n,end:1,hash:[2;32]},head:rec(n.max(1)-1).hash,next_seq:n,slim_cursor:1,history_cursor:1,evicted_total:0,canon_base:0,base_parent:[0;32],base_parent_work:U256::ZERO,anchor_cursor:0,unslimmed:vec![],evicted_order:vec![],protect:None,entries:(0..n).map(rec).collect()};
     let s=snap(1000);let b=encode_snapshot(&s);
     assert_eq!((b.len()-encode_snapshot(&snap(0)).len())/1000,126,"the smallest record is 126 bytes");
     assert_eq!(decode(&b).unwrap(),s,"a snapshot of minimal entries reads back");
@@ -5062,75 +5062,25 @@ fn pr7_sync(a:&mut pocold::node::Node,j:&mut pocold::node::Node,s:&mut std::net:
     drop(x);let _=std::fs::remove_dir_all(&a);
 }
 
-/// Review 2026-11 (finding 6): the headroom check of a format-1 migration counts the checkpoints open holds while it
-/// restores: the KEPT checkpoints' bytes and the one it decodes (one at a time), each of every entry of the chain. A
-/// budget that fits only the slimmed entries beside the model and the replay tables is refused; one that fits the
-/// checkpoints too is accepted, to the byte. FAIL-ON-ORIGINAL: the check left the decoded snapshots out, and accepted
-/// the first budget.
-#[test] fn the_migration_check_counts_the_checkpoints_open_holds(){
-    use pocold::resources as r;
-    let spec=admitted(&cfg(&["a","b","c"]));let (cp,lo)=(spec.cp(),spec.local());let mut l=pr7_limits(8,true,50,None);l.evict_depth=Some(pr7_depth(&l));
-    let n=1_000_000u64;let e=u128::from(n);
-    // Phase 5b: on the continuous v3 devnet the model reads what Node::open observed before the migration check: the
-    // first-import index, the journal's records and the files (none here).
-    assert!(cp.H_END==0&&spec.v3_active(u64::MAX));l.first_imports=true;l.continuous_history=Some(n);l.disk=Some(Default::default());
-    let base=r::derive(cp,lo.k_hist,lo.side_max,&l,0).unwrap().total+r::open_transient(cp,&l,n).unwrap()+e*(r::slim_entry_bytes().unwrap()+80);
-    let snaps=pocold::checkpoint::KEPT as u128*r::snapshot_raw_bytes(e).unwrap()+r::snapshot_decoded_bytes(e).unwrap();
-    assert!(snaps>e*pocold::checkpoint::REC_MAX as u128*2,"positive control: KEPT checkpoints of every entry, {snaps} B");
-    let fits=|b:u128|{let mut x=l.clone();x.mem_budget=b as u64;r::migration_fits(cp,lo.k_hist,lo.side_max,&x,0,n,n)};
-    assert!(fits(r::budget_required(base).unwrap()).is_err(),"the slimmed entries, the model and the replay tables alone do not fit the checkpoints");
-    let need=r::budget_required(base+snaps).unwrap();
-    assert!(fits(need).is_ok()&&fits(need-1).is_err(),"the checkpoints are counted to the byte ({need} B)");
-    assert_eq!(r::snapshot_bytes(e),Some(r::snapshot_raw_bytes(e).unwrap()+r::snapshot_decoded_bytes(e).unwrap()),"a decoded checkpoint is its bytes and its snapshot");
-}
-
-/// A test-only format-1 encoder: the checkpoint layout before C-1 S5 (no eviction or anchor parameters, no window
-/// fields), sealed as before.
-fn pr7_encode_v1(s:&pocold::checkpoint::Snapshot)->Vec<u8>{
-    let mut w=Vec::new();let u=|w:&mut Vec<u8>,x:u64|w.extend_from_slice(&x.to_be_bytes());let o=|w:&mut Vec<u8>,x:Option<u64>|match x{Some(v)=>{w.push(1);w.extend_from_slice(&v.to_be_bytes())}None=>w.push(0)};
-    let hs=|w:&mut Vec<u8>,v:&[[u8;32]]|{w.extend_from_slice(&(v.len() as u64).to_be_bytes());for h in v{w.extend_from_slice(h)}};
-    w.extend_from_slice(b"POCKPT01");w.extend_from_slice(&s.genesis);let p=&s.params;
-    for x in [p.r_keep,p.side_cap,p.k_hist,p.side_max]{u(&mut w,x)}o(&mut w,p.history_window);o(&mut w,p.slim_depth);w.push(u8::from(p.keep_full));
-    u(&mut w,s.binding.records);u(&mut w,s.binding.end);w.extend_from_slice(&s.binding.hash);
-    w.extend_from_slice(&s.head);for x in [s.next_seq,s.slim_cursor,s.history_cursor,s.evicted_total]{u(&mut w,x)}
-    hs(&mut w,&s.unslimmed);hs(&mut w,&s.evicted_order);match &s.protect{Some(v)=>{w.push(1);hs(&mut w,v)}None=>w.push(0)}u(&mut w,s.entries.len() as u64);
-    for r in &s.entries{w.extend_from_slice(&pocold::checkpoint::rec_bytes(r))}
-    let seal=revm::primitives::keccak256(&w);w.extend_from_slice(&seal.0);w
-}
-/// PR7 (T11): a data directory of a node before PR7 (no eviction; its newest checkpoint in format 1, every entry of
-/// the chain) opens under the default eviction: it resumes from that checkpoint, the open's window reaches its
-/// floor (batch after batch) with nothing stalled, and once the cut has passed the next anchor height the node is
-/// the one replay from genesis gives (a format-1 snapshot holds no anchor, and an anchor is only taken on the forward
-/// pass, so until then the migrated node lacks the anchors replay kept below the cut: a rebuild cache, never a
-/// verdict). Without canon.redb the format-1 checkpoint is still used (it needs no index); one whose entries do not
-/// fit the memory budget beside the model is refused, and the node replays from genesis.
-#[test] fn a_format_1_checkpoint_migrates_to_the_window_at_open(){
+/// Phase 8a: checkpoint format 1 (`POCKPT01`: every entry of the chain, no window fields) was written only by builds of
+/// the retired network, and its one-time migration is removed. Its bytes, sealed, are refused by name at decode, and a
+/// data directory whose state store holds one is not resumed from: open sets the store aside and replays from genesis,
+/// to the node a clean replay gives.
+#[test] fn a_format_1_checkpoint_is_refused_by_name_and_open_replays_from_genesis(){
     use pocold::checkpoint::*;
-    let rk=8u64;let more=pr7_chain(450);let blocks=&more[..420];let a=e44_dir("pr7-t11");
-    {let mut n=reopen(&pr7_conf(&a,pr7_limits(rk,true,50,Some(0))));for b in blocks{n.import(b.clone(),None).unwrap();}assert_eq!(n.chain.canonical.base(),0);n.checkpoint_now().unwrap();}
+    let rk=8u64;let blocks=pr7_chain(120);let a=e44_dir("p8a-ckpt1");let l=pr7_limits(rk,true,50,None);
+    {let mut n=reopen(&pr7_conf(&a,l.clone()));for b in &blocks{n.import(b.clone(),None).unwrap();}n.checkpoint_now().unwrap();}
     {let st=pocold::state_store::StateStore::open(&a).unwrap();let cps=st.checkpoints().unwrap();let (_,b,roots)=cps.iter().max_by_key(|c|c.0).unwrap().clone();
-        let s=decode(&b).unwrap();assert_eq!((s.canon_base,s.params.evict_depth,s.entries.len()),(0,None,421),"positive control: a snapshot of every entry");
-        st.write_checkpoint(&pr7_encode_v1(&s),&roots,KEPT).unwrap();st.close();}
-    let l=pr7_limits(rk,true,50,None);
-    let g=e44_dir("pr7-t11-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
-    let mut y=reopen(&pr7_conf(&g,pr7_limits(rk,true,0,None)));assert_eq!(y.stats.resumed_from,None);
-    let b=e44_dir("pr7-t11-mig");copy_dir(&a,&b);let mut m=reopen(&pr7_conf(&b,l.clone()));
-    assert_eq!(m.stats.resumed_from,Some(420),"the format-1 checkpoint is used");
-    assert!(m.chain.window_done()&&m.chain.evict_stalls==0&&m.chain.canonical.base()==420-m.cfg.limits.evict_depth.unwrap(),"the open's window reaches its floor");
-    assert!(m.chain.anchors().is_empty()&&!y.chain.anchors().is_empty(),"positive control: replay kept anchors below the cut that the format-1 snapshot does not hold");
-    // The bound and the open's replay tables fit; the format-1 entries beside them do not.
-    let budget={let c=m.chain.spec.cp().clone();let t=pocold::resources::derive(&c,m.chain.spec.local().k_hist,m.chain.spec.local().side_max,&m.cfg.limits,0).unwrap().total;
-        let t=t+pocold::resources::open_transient(&c,&m.cfg.limits,420).unwrap();pocold::resources::budget_required(t).unwrap() as u64};
-    let c=e44_dir("pr7-t11-noindex");copy_dir(&a,&c);std::fs::remove_file(c.join(pocold::node::canon::FILE)).unwrap();
-    let x=reopen(&pr7_conf(&c,l.clone()));assert_eq!(x.stats.resumed_from,Some(420),"without canon.redb the format-1 checkpoint is still used");drop(x);
-    let d=e44_dir("pr7-t11-budget");copy_dir(&a,&d);let mut tight=l.clone();tight.mem_budget=budget;
-    let mut x=reopen(&pr7_conf(&d,tight));
-    assert_eq!((x.stats.resumed_from,x.stats.checkpoints_refused>0),(None,true),"a format-1 checkpoint that does not fit beside the model is refused; the node replays from genesis");
-    e44_same(&mut x,&mut y,"replayed after the migration was refused");drop(x);
-    for b in &more[420..]{m.import(b.clone(),None).unwrap();y.import(b.clone(),None).unwrap();}
-    assert!(!m.chain.anchors().is_empty(),"the migrated node takes anchors as the cut moves");
-    e44_same(&mut m,&mut y,"migrated from format 1, and replayed from genesis, 30 blocks on");
-    drop(m);drop(y);for p in [a,b,g,c,d]{let _=std::fs::remove_dir_all(&p);}
+        assert!(decode(&b).is_ok(),"positive control: the newest checkpoint is format 2");
+        let mut old=b[..b.len()-32].to_vec();old[..8].copy_from_slice(b"POCKPT01");let seal=revm::primitives::keccak256(&old);old.extend_from_slice(&seal.0);
+        let e=decode(&old).unwrap_err();assert!(e.contains("format 1")&&e.contains("POCKPT01"),"refused by name: {e}");
+        st.write_checkpoint(&old,&roots,KEPT).unwrap();st.close();}
+    let g=e44_dir("p8a-ckpt1-ref");copy_dir(&a,&g);std::fs::remove_file(g.join(pocold::state_store::FILE)).unwrap();
+    let mut y=reopen(&pr7_conf(&g,l.clone()));assert_eq!(y.stats.resumed_from,None);
+    let mut x=reopen(&pr7_conf(&a,l.clone()));
+    assert_eq!(x.stats.resumed_from,None,"a state store holding a format-1 checkpoint is not resumed from");
+    e44_same(&mut x,&mut y,"replayed from genesis past a format-1 checkpoint");
+    drop(x);drop(y);for p in [a,g]{let _=std::fs::remove_dir_all(&p);}
 }
 
 /// PR7 (T13): a canonical index of another genesis, a missing one and one marked damaged are each set aside at open

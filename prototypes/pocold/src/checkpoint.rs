@@ -29,14 +29,15 @@ pub const EVERY:u64=1024;
 /// Checkpoints kept (D-6: the newest and one before it, for a fallback).
 pub const KEPT:usize=2;
 /// C-1 S5 (PR7): format 2 describes the in-memory window (`canon_base` and the block below it) and the eviction and
-/// anchor parameters. Format 1 (every entry of the chain) is still read: the one-time migration.
-const MAGIC:&[u8;8]=b"POCKPT02";const MAGIC_V1:&[u8;8]=b"POCKPT01";
+/// anchor parameters. Format 1 (`POCKPT01`, every entry of the chain) was written only by builds of the retired
+/// network: it is refused by name, never read.
+const MAGIC:&[u8;8]=b"POCKPT02";const RETIRED_MAGIC:&[u8;8]=b"POCKPT01";
 
 /// The retention parameters a snapshot was taken under. A checkpoint is used only under the same ones:
 /// replay from it then keeps exactly what replay from genesis would.
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct Params{pub r_keep:u64,pub side_cap:u64,pub k_hist:u64,pub side_max:u64,pub history_window:Option<u64>,pub slim_depth:Option<u64>,pub keep_full:bool,
-    /// C-1 S5: `Chain::evict_depth` and `Chain::anchor_step` (format 2; a format-1 snapshot reads None for both).
+    /// C-1 S5: `Chain::evict_depth` and `Chain::anchor_step`.
     pub evict_depth:Option<u64>,pub anchor_step:Option<u64>}
 impl Params{
     pub fn of(c:&Chain)->Params{Params{r_keep:c.r_keep,side_cap:c.side_cap as u64,k_hist:c.k_hist,side_max:u64::from(c.spec.local().side_max),history_window:c.history_window,slim_depth:c.slim_depth,keep_full:c.keep_full_states,
@@ -59,8 +60,8 @@ pub struct Rec{pub hash:[u8;32],pub body_off:Option<u64>,pub import_seq:u64,pub 
 pub struct Snapshot{pub genesis:[u8;32],pub params:Params,pub binding:Binding,pub head:[u8;32],pub next_seq:u64,pub slim_cursor:u64,pub history_cursor:u64,pub evicted_total:u64,
     /// C-1 S5: the window's base (`Canon::base`: 0, or the lowest canonical height held other than genesis), the hash
     /// and total work of the canonical block just below it (in the node's canonical index; zero for base 0), and
-    /// `Chain::anchor_cursor`. `v1`: read from a format-1 snapshot (base 0, every entry; params without the new fields).
-    pub canon_base:u64,pub base_parent:[u8;32],pub base_parent_work:U256,pub anchor_cursor:u64,pub v1:bool,
+    /// `Chain::anchor_cursor`.
+    pub canon_base:u64,pub base_parent:[u8;32],pub base_parent_work:U256,pub anchor_cursor:u64,
     pub unslimmed:Vec<[u8;32]>,pub evicted_order:Vec<[u8;32]>,
     /// Written by replay: its protect set (blocks a later record builds on), which open recomputes from the
     /// journal and compares. None from a running node (its protect set is a sync session's).
@@ -97,7 +98,7 @@ pub fn snapshot_of(c:&Chain,b:&Binding)->Result<Snapshot,String>{
     if c.trie_store.is_none(){return Err("a checkpoint is of a store-mode chain".into())}
     let entries=sorted(c).into_iter().map(rec_of).collect::<Result<Vec<_>,_>>()?;let (canon_base,base_parent,base_parent_work)=window_base(c)?;
     Ok(Snapshot{genesis:c.spec.genesis_hash(),params:Params::of(c),binding:*b,head:c.head,next_seq:c.next_seq,slim_cursor:c.slim_cursor,history_cursor:c.history_cursor,
-        evicted_total:c.evicted_total,canon_base,base_parent,base_parent_work,anchor_cursor:c.anchor_cursor,v1:false,
+        evicted_total:c.evicted_total,canon_base,base_parent,base_parent_work,anchor_cursor:c.anchor_cursor,
         unslimmed:c.unslimmed.clone(),evicted_order:c.evicted_order.iter().copied().collect(),protect:protect_of(c),entries})
 }
 /// The window's base and the canonical block below it, from the base's own entry: its parent hash, and its total
@@ -182,14 +183,13 @@ pub fn encode(c:&Chain,b:&Binding)->Result<(Vec<u8>,Vec<Id>),String>{
 pub fn decode(bytes:&[u8])->Result<Snapshot,String>{
     if bytes.len()<MAGIC.len()+32{return Err("snapshot too short".into())}
     let (body,seal)=bytes.split_at(bytes.len()-32);if keccak256(body).0[..]!=seal[..]{return Err("snapshot seal does not match".into())}
-    let mut r=R{b:body,i:0};let v1=match r.take(8)?{m if m==MAGIC=>false,m if m==MAGIC_V1=>true,_=>return Err("snapshot magic".into())};
+    let mut r=R{b:body,i:0};match r.take(8)?{m if m==MAGIC=>{}m if m==RETIRED_MAGIC=>return Err("snapshot format 1 (POCKPT01) of the retired network is not read".into()),_=>return Err("snapshot magic".into())}
     let genesis=r.h()?;
-    let mut params=Params{r_keep:r.u()?,side_cap:r.u()?,k_hist:r.u()?,side_max:r.u()?,history_window:r.o()?,slim_depth:r.o()?,keep_full:match r.take(1)?[0]{0=>false,1=>true,_=>return Err("snapshot bool".into())},
-        evict_depth:None,anchor_step:None};
-    if !v1{params.evict_depth=r.o()?;params.anchor_step=r.o()?;}
+    let params=Params{r_keep:r.u()?,side_cap:r.u()?,k_hist:r.u()?,side_max:r.u()?,history_window:r.o()?,slim_depth:r.o()?,keep_full:match r.take(1)?[0]{0=>false,1=>true,_=>return Err("snapshot bool".into())},
+        evict_depth:r.o()?,anchor_step:r.o()?};
     let binding=Binding{records:r.u()?,end:r.u()?,hash:r.h()?};
     let (head,next_seq,slim_cursor,history_cursor,evicted_total)=(r.h()?,r.u()?,r.u()?,r.u()?,r.u()?);
-    let (canon_base,base_parent,base_parent_work,anchor_cursor)=if v1{(0,[0;32],U256::ZERO,0)}else{(r.u()?,r.h()?,U256::from_be_bytes::<32>(r.take(32)?.try_into().unwrap()),r.u()?)};
+    let (canon_base,base_parent,base_parent_work,anchor_cursor)=(r.u()?,r.h()?,U256::from_be_bytes::<32>(r.take(32)?.try_into().unwrap()),r.u()?);
     if canon_base==1{return Err("snapshot: a window based at height 1".into())}
     let (unslimmed,evicted_order)=(r.hs()?,r.hs()?);
     let protect=match r.take(1)?[0]{0=>None,1=>Some(r.hs()?),_=>return Err("snapshot option tag".into())};
@@ -198,7 +198,7 @@ pub fn decode(bytes:&[u8])->Result<Snapshot,String>{
     let n=r.n(REC_MIN)?;let mut entries=Vec::with_capacity(n);
     for _ in 0..n{entries.push(get_rec(&mut r)?);}
     if r.i!=body.len(){return Err("snapshot has trailing bytes".into())}
-    Ok(Snapshot{genesis,params,binding,head,next_seq,slim_cursor,history_cursor,evicted_total,canon_base,base_parent,base_parent_work,anchor_cursor,v1,unslimmed,evicted_order,protect,entries})
+    Ok(Snapshot{genesis,params,binding,head,next_seq,slim_cursor,history_cursor,evicted_total,canon_base,base_parent,base_parent_work,anchor_cursor,unslimmed,evicted_order,protect,entries})
 }
 /// The roots a snapshot pins, as `encode` lists them.
 pub fn roots(s:&Snapshot)->Vec<Id>{s.entries.iter().filter_map(|e|e.root).collect()}
@@ -209,7 +209,7 @@ pub type MemberRow=([u8;32],u64,crate::members::MemberRec);
 /// refuses the entry); `None` (an RPC view) reads none.
 pub type MemberRead<'a>=Option<&'a dyn Fn()->Result<Option<MemberRow>,String>>;
 /// What `restore` reads besides the snapshot: a journal record's payload by its frame offset (only records
-/// of the bound prefix), and history.redb's receipts and (FN-3) member records (FN-3b: no nonce ranges).
+/// of the bound prefix), and history.redb's receipts and (FN-3) member records.
 /// What marks a restore error that is the node's own storage failing, not the checkpoint (2026-10-28).
 pub const LOCAL:&str="local storage failure: ";
 pub trait Source{
@@ -244,10 +244,8 @@ pub struct Read{pub whole:u64,pub by_diff:u64}
 /// failed. Returns how the stored versions were read.
 pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore>)->Result<Read,String>{
     if s.genesis!=c.spec.genesis_hash(){return Err("snapshot of another genesis".into())}
-    // A format-1 snapshot predates the eviction and anchor parameters: it is compared without them (the migration).
-    let now=Params::of(c);let then=if s.v1{Params{evict_depth:now.evict_depth,anchor_step:now.anchor_step,..s.params}}else{s.params};
-    if then!=now{return Err(format!("snapshot taken under other retention parameters: {:?}, now {:?}",s.params,now))}
-    if s.v1&&s.canon_base!=0{return Err("a format-1 snapshot with a window base".into())}
+    let now=Params::of(c);
+    if s.params!=now{return Err(format!("snapshot taken under other retention parameters: {:?}, now {:?}",s.params,now))}
     if c.blocks.len()!=1{return Err("restore into a chain that holds only genesis".into())}
     let cp=c.spec.cp();let (body_max,code_max)=(cp.BODY_MAX as usize,cp.B_code_max);let gh=c.spec.genesis_hash();
     // The entries are boxed as they are restored, as `Chain::blocks` keeps them: A13 counts each entry as a boxed
@@ -306,8 +304,8 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
         // slots that differ, as an import does. The diff (`NodeTrie::diff`'s `Touched`) holds every account and slot
         // that differs at once, so it is taken from the parent only: one block's write set, which A13 counts
         // (`batch_max`). From a farther ancestor it held every write between the two (review 2026-11, finding 3: an
-        // anchor R_keep blocks below, or genesis below the lowest K_hist entry of a format-1 migration, every write of
-        // the chain up to the state caps), which neither `open_transient` nor `migration_fits` counts. The oldest
+        // anchor R_keep blocks below, every write of the chain up to the state caps), which `open_transient` does not
+        // count. The oldest
         // version, and any whose parent's was not read (an anchor; the lowest entry above the K_hist cut unless its parent is one), is read whole,
         // streamed. A slimmed entry may still hold its version (a slim depth below K_hist): it keeps no summary, which
         // execution then computes from the version (`Chain::execute`); the version is still read.
@@ -350,7 +348,7 @@ pub fn restore(c:&mut Chain,s:&Snapshot,src:&dyn Source,store:&Arc<dyn TrieStore
 /// record decodes, the header hashes to the record's block, `parent` accepts the header (a restore checks the
 /// parent it restored, its height and the total work), then the body, the ParentResult, the receipts and (FN-3) the
 /// member record. The entry is offloaded and slimmed as the record's flags say, except that `slim: false` keeps a
-/// slimmed record whole (a rebuild re-executes it; FN-3b: no nonce ranges are read for it). Refusals are worded by
+/// slimmed record whole (a rebuild re-executes it). Refusals are worded by
 /// `why`; an error of `receipts` or `members` is passed on as it is (a local failure). Returns the entry and the
 /// block's body, which an offloaded entry does not hold (but for its V3-02 late-share evidence items, `chain::offload`).
 /// FN-3: `members`, when given, is read for an entry that is not offloaded (an offloaded one holds none, as live): a

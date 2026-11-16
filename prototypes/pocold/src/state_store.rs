@@ -29,11 +29,10 @@ use revm::primitives::{keccak256,Bytecode,Bytes,B256};
 const NODES:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("node");
 /// code hash -> runtime bytes (kept for good: storage.md keeps code to the end).
 const CODE:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("code");
-/// The store's format ("format" -> FORMAT). C-1 E5: a leaf keeps its key's preimage (format 2). D-6
-/// (2026-10-27): a node's count includes what it owes in the `release` table (format 3). A format-2 store
-/// opens as format 3 and is marked so: it owes nothing, or (written by a build with the table) its counts
-/// already include what it owes. A build of format 2 then sets it aside rather than miss what is owed. A
-/// store of any other format is set aside and rebuilt, as a damaged one is (derived data, I1).
+/// The store's format ("format" -> FORMAT). C-1 E5: a leaf keeps its key's preimage. D-6 (2026-10-27): a
+/// node's count includes what it owes in the `release` table (format 3). A store of any other format (format 2
+/// was written only by the retired network's builds) is never read: it is set aside and rebuilt, as a damaged
+/// one is (derived data, I1).
 const META:TableDefinition<&str,u64>=TableDefinition::new("meta");
 pub const FORMAT:u64=3;
 /// root id -> pins.
@@ -121,7 +120,7 @@ impl StateStore{
                 {let nodes=w.open_table(NODES).map_err(err)?;w.open_table(CODE).map_err(err)?;w.open_table(PINS).map_err(err)?;
                  w.open_table(CKPT).map_err(err)?;w.open_table(CKPT_ROOTS).map_err(err)?;w.open_table(RELEASE).map_err(err)?;let mut m=w.open_table(META).map_err(err)?;
                  let format=m.get("format").map_err(err)?.map(|v|v.value());
-                 match format{Some(FORMAT)=>{}Some(2)=>{m.insert("format",FORMAT).map_err(err)?;}None if nodes.is_empty().map_err(err)?=>{m.insert("format",FORMAT).map_err(err)?;}
+                 match format{Some(FORMAT)=>{}None if nodes.is_empty().map_err(err)?=>{m.insert("format",FORMAT).map_err(err)?;}
                      f=>return Err(StateStoreError(format!("state store format {f:?}, not {FORMAT}")))}}
                 w.commit().map_err(err)})).map_err(|_|StateStoreError("redb panicked at open".into()))??;
             Ok(db)};

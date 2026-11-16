@@ -1,7 +1,8 @@
 //! LP4 P9 persistence: torn tail at EVERY byte offset of the last record,
 //! complete-record corruption, binding mismatch, single writer.
 //! Audit A04: framing corruption is never an interrupted append (exhaustive bit flips, boundary
-//! edits, truncation of committed data, commit-file damage, v1 migration).
+//! edits, truncation of committed data, commit-file damage; the retired v1 journal and 128-byte commit
+//! file are refused).
 use pocold::store::{self,StoreError};
 use std::fs;
 use std::path::{Path,PathBuf};
@@ -10,9 +11,8 @@ fn tmp(name:&str)->PathBuf{let d=std::env::temp_dir().join(format!("pocold-store
 const B:[u8;32]=[9;32];
 const OV:usize=4+4+32+1; // v2 record overhead: len, lenCheck, digest, marker
 
-#[test] fn local_timing_extension_preserves_legacy_bytes_and_migrates_mixed_records(){
+#[test] fn local_timing_extension_preserves_three_field_record_bytes(){
     use pocold::store::FirstImport;
-    use sha2::{Digest,Sha256};
     let legacy=vec![0xc6,0x81,0x80,0x81,0x81,0x81,0x82];
     assert_eq!(store::encode_record(&[0x80],&[0x81],&[0x82]),legacy);
     assert_eq!(store::encode_record_with_import(&[0x80],&[0x81],&[0x82],None),legacy);
@@ -26,15 +26,6 @@ const OV:usize=4+4+32+1; // v2 record overhead: len, lenCheck, digest, marker
     let mut b=timed.clone();*b.last_mut().unwrap()=2;assert!(store::decode_record_ref(&b).is_err());
     for cut in 0..timed.len(){assert!(store::decode_record_ref(&timed[..cut]).is_err());}
     let mut b=timed.clone();b.push(0);assert!(store::decode_record_ref(&b).is_err());
-    // Outer v1 framing migrates with its original payload bytes, including old
-    // three-field records. A later append can use the local extension.
-    let d=tmp("timing-migration");fs::create_dir_all(&d).unwrap();
-    let mut v1=b"POCOLJ1\n".to_vec();v1.extend(B);
-    v1.extend((legacy.len() as u32).to_be_bytes());v1.extend(Sha256::digest(&legacy));v1.extend(&legacy);v1.push(1);
-    fs::write(d.join("blocks.journal"),&v1).unwrap();
-    {let mut r=store::open(&d,&B).unwrap();assert!(r.migrated_v1);assert_eq!(r.payloads(),vec![legacy.clone()]);r.journal.append(&timed).unwrap();}
-    assert_eq!(fs::read(d.join("blocks.journal.v1-0")).unwrap(),v1);
-    let r=store::open(&d,&B).unwrap();assert_eq!(r.payloads(),vec![legacy,timed]);drop(r);fs::remove_dir_all(d).unwrap();
 }
 /// Copies a store's journal and commit file into a fresh directory with the journal replaced by `journal`.
 fn store_with(src:&Path,name:&str,journal:&[u8])->PathBuf{
@@ -181,26 +172,29 @@ fn three_records(name:&str)->(PathBuf,Vec<u8>){
     let mut bad=c.clone();bad[3]^=0x10;bad[4099]^=0x10;fs::write(d.join("blocks.commit"),&bad).unwrap();
     assert_eq!(store::open(&d,&B).err(),Some(StoreError::CommitCorrupt));
     fs::remove_file(d.join("blocks.commit")).unwrap();assert_eq!(store::open(&d,&B).err(),Some(StoreError::MissingCommit));
-    // The first v2 layout (both slots adjacent, 128 bytes) is read and rewritten in the current layout.
+    // Phase 8a: the first v2 layout (both slots adjacent, 128 bytes; written only by the retired network's builds) is
+    // no longer read: it is refused by name, and neither file is modified.
     let d=tmp("a04-c3");fs::create_dir_all(&d).unwrap();fs::copy(dir.join("blocks.journal"),d.join("blocks.journal")).unwrap();
     let legacy=[&c[..64],&c[4096..4160]].concat();fs::write(d.join("blocks.commit"),&legacy).unwrap();
-    {let r=store::open(&d,&B).unwrap();assert_eq!(r.payloads().len(),3);}
-    assert_eq!(fs::read(d.join("blocks.commit")).unwrap().len(),4096+64);
-    {let mut r=store::open(&d,&B).unwrap();r.journal.append(&[1u8;10]).unwrap();}assert_eq!(store::open(&d,&B).unwrap().payloads().len(),4);let _=fs::remove_dir_all(&d);
+    let e=store::open(&d,&B).err();assert!(matches!(e,Some(StoreError::RetiredFormat(m)) if m.contains("128-byte commit file")),"{e:?}");
+    assert_eq!(fs::read(d.join("blocks.commit")).unwrap(),legacy,"the commit file is untouched");
+    assert_eq!(fs::read(d.join("blocks.journal")).unwrap(),fs::read(dir.join("blocks.journal")).unwrap(),"the journal is untouched");let _=fs::remove_dir_all(&d);
 }
-#[test] fn a04_v1_journal_migrates_only_when_fully_verified(){
+/// Phase 8a: a v1 journal (`POCOLJ1`, written only by the retired network's builds) is refused by name, whether its
+/// binding is this store's or another's, complete or with a tail, and nothing is modified or created beside it.
+#[test] fn a04_a_v1_journal_is_refused_by_name_and_left_untouched(){
     use sha2::{Digest,Sha256};
-    let v1=|recs:&[Vec<u8>]|{let mut b=b"POCOLJ1\n".to_vec();b.extend(B);for p in recs{b.extend((p.len() as u32).to_be_bytes());b.extend(Sha256::digest(p));b.extend(p);b.push(1);}b};
+    let v1=|b:&[u8;32],recs:&[Vec<u8>]|{let mut j=b"POCOLJ1\n".to_vec();j.extend(b);for p in recs{j.extend((p.len() as u32).to_be_bytes());j.extend(Sha256::digest(p));j.extend(p);j.push(1);}j};
     let recs:Vec<Vec<u8>>=(0..3u8).map(|i|vec![i;20]).collect();
-    let d=tmp("a04-v1");fs::create_dir_all(&d).unwrap();fs::write(d.join("blocks.journal"),v1(&recs)).unwrap();
-    let r=store::open(&d,&B).unwrap();assert!(r.migrated_v1);assert_eq!(r.payloads(),recs);drop(r);
-    assert_eq!(fs::read(d.join("blocks.journal.v1-0")).unwrap(),v1(&recs),"original kept");
-    let again=store::open(&d,&B).unwrap();assert!(!again.migrated_v1);assert_eq!(again.payloads(),recs);drop(again);
-    // A v1 journal with a tail (torn or a corrupted length) is ambiguous: refused, nothing modified.
-    let mut t=v1(&recs);t.truncate(t.len()-3);let d=tmp("a04-v1t");fs::create_dir_all(&d).unwrap();fs::write(d.join("blocks.journal"),&t).unwrap();
-    assert_eq!(store::open(&d,&B).err(),Some(StoreError::LegacyNeedsReview));assert_eq!(fs::read(d.join("blocks.journal")).unwrap(),t);
-    let mut l=v1(&recs);l[40]^=0x01;let d=tmp("a04-v1l");fs::create_dir_all(&d).unwrap();fs::write(d.join("blocks.journal"),&l).unwrap();
-    assert_eq!(store::open(&d,&B).err(),Some(StoreError::LegacyNeedsReview));assert_eq!(fs::read(d.join("blocks.journal")).unwrap(),l);
+    let mut torn=v1(&B,&recs);torn.truncate(torn.len()-3);
+    for (what,j) in [("complete",v1(&B,&recs)),("torn",torn),("another genesis",v1(&[1;32],&recs))]{
+        let d=tmp("a04-v1");fs::create_dir_all(&d).unwrap();fs::write(d.join("blocks.journal"),&j).unwrap();
+        let e=store::open(&d,&B).err();
+        assert!(matches!(e,Some(StoreError::RetiredFormat(m)) if m.contains("POCOLJ1")),"{what}: {e:?}");
+        assert_eq!(fs::read(d.join("blocks.journal")).unwrap(),j,"{what}: the journal is untouched");
+        let mut names:Vec<String>=fs::read_dir(&d).unwrap().map(|e|e.unwrap().file_name().to_string_lossy().into_owned()).collect();names.sort();
+        assert_eq!(names,["LOCK","blocks.journal"],"{what}: no commit file or copy is written");let _=fs::remove_dir_all(&d);
+    }
 }
 
 /// D-REORG-REDB: append returns each record's frame offset, and read_at reads it back by offset,

@@ -284,8 +284,7 @@ pub fn capture(chain:&[u8;32],block:&[u8;32],digest:[u8;32])->Option<bool>{
 }
 /// The captured assignment of block `block` on the chain with spec id `chain`.
 pub fn captured(chain:&[u8;32],block:&[u8;32])->Option<[u8;32]>{capture_map().as_ref()?.get(&(*chain,*block)).copied()}
-/// keccak over an assignment's nonce ranges in order, each owner (20 B), start and end exclusive (16 B each, big-endian):
-/// what FN-3a stored as `Entry.ranges` and as history.redb's ranges rows, which FN-3b removed.
+/// keccak over an assignment's nonce ranges in order, each owner (20 B), start and end exclusive (16 B each, big-endian).
 pub fn ranges_digest(a:&crate::assignment::Assignment)->[u8;32]{
     let mut b=Vec::with_capacity(52*a.ranges().len());
     for r in a.ranges(){b.extend_from_slice(&r.id());b.extend_from_slice(&r.start().to_be_bytes());b.extend_from_slice(&r.end_exclusive().to_be_bytes());}

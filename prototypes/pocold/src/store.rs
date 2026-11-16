@@ -8,7 +8,8 @@
 //!   commit  = two 64-byte slots {seq u64, count u64, end u64, sha256(tag ‖ binding ‖ seq ‖ count ‖ end)}
 //!             at offsets 0 and 4096 (separate sectors, so one torn sector write cannot damage both);
 //!             the valid slot with the larger seq gives the committed record count and end offset.
-//!             A 128-byte commit file (both slots adjacent, the first v2 layout) is read and rewritten.
+//!             A 128-byte commit file (both slots in one sector, the first v2 layout, written only by the
+//!             retired network's builds) is refused by name (`RetiredFormat`); any other size is `CommitCorrupt`.
 //! Classification of what follows the last verified record (LP2 P3/P4):
 //!   * nothing → clean;
 //!   * a strict prefix of a record (header incomplete, or header check valid and record incomplete), or an
@@ -23,15 +24,15 @@
 //!     slot the surviving one may predate the last commit;
 //!   * any tail after a complete record beyond the commit count → `Corrupt` (two appends in flight);
 //! Fewer verified records than the commit count (damaged or truncated committed data) → `Corrupt`.
-//! A v1 journal (`POCOLJ1`) is migrated only when it parses completely with no tail; otherwise the
-//! store refuses to open (`LegacyNeedsReview`) and nothing is modified.
+//! A v1 journal (`POCOLJ1`, written only by the retired network's builds) is refused by name
+//! (`RetiredFormat`) and nothing is modified.
 use std::fs::{self,File,OpenOptions};
 use std::io::{Read,Seek,SeekFrom,Write};
 use std::path::{Path,PathBuf};
 use sha2::{Digest,Sha256};
 
 const MAGIC:&[u8;8]=b"POCOLJ2\n";
-const MAGIC_V1:&[u8;8]=b"POCOLJ1\n";
+const RETIRED_MAGIC:&[u8;8]=b"POCOLJ1\n";
 pub const MAX_RECORD:usize=4*1024*1024;
 const HDR:usize=8;            // len + lenCheck
 pub const OVERHEAD:usize=HDR+32+1; // header + digest + marker (frame bytes beyond the payload)
@@ -40,7 +41,9 @@ const SLOT:usize=64;
 const SLOT_STRIDE:usize=4096;
 
 #[derive(Debug,PartialEq,Eq)]
-pub enum StoreError{Io(String),Locked,Binding,Corrupt(u64),TooLarge,MissingJournal,MissingCommit,CommitCorrupt,LegacyNeedsReview}
+pub enum StoreError{Io(String),Locked,Binding,Corrupt(u64),TooLarge,MissingJournal,MissingCommit,CommitCorrupt,
+    /// A journal of a local format no build of this network writes (named in the text); nothing is modified.
+    RetiredFormat(&'static str)}
 impl From<std::io::Error> for StoreError{fn from(e:std::io::Error)->Self{Self::Io(e.to_string())}}
 
 /// Local V3-04 input and its frozen classification. The parent receipt also restores
@@ -63,7 +66,7 @@ pub struct Journal{file:File,commit:File,path:PathBuf,_lock:File,binding:[u8;32]
 /// The journal opened: its records' frame offsets (each record verified when it was read), not their
 /// payloads (2026-10-28): open held every payload while it replayed, so its transient grew with the journal
 /// (condition `open-replay-transient`); a payload is now read back by its offset (`payload`).
-pub struct Recovered{pub journal:Journal,pub offsets:Vec<u64>,pub torn_tail:bool,pub migrated_v1:bool}
+pub struct Recovered{pub journal:Journal,pub offsets:Vec<u64>,pub torn_tail:bool}
 impl Recovered{
     /// Record `i`'s payload, read from the file and verified again.
     pub fn payload(&self,i:usize)->Result<Vec<u8>,StoreError>{self.journal.payload_at(*self.offsets.get(i).ok_or(StoreError::Corrupt(i as u64))?)}
@@ -83,7 +86,7 @@ fn slot_bytes(binding:&[u8;32],seq:u64,count:u64,end:u64)->[u8;SLOT]{
 /// The valid commit slot with the larger seq: (seq, count, end), and whether a slot is damaged
 /// (neither valid nor never written, i.e. all zero).
 fn read_commit(bytes:&[u8],binding:&[u8;32])->Option<((u64,u64,u64),bool)>{
-    let second=match bytes.len(){n if n==SLOT_STRIDE+SLOT=>SLOT_STRIDE,n if n==2*SLOT=>SLOT,_=>return None};
+    if bytes.len()!=SLOT_STRIDE+SLOT{return None}let second=SLOT_STRIDE;
     let parse=|s:&[u8]|{let u=|i:usize|u64::from_be_bytes(s[i..i+8].try_into().unwrap());let (seq,count,end)=(u(0),u(8),u(16));
         (s[24..56]==slot_check(binding,seq,count,end)[..]&&s[56..].iter().all(|b|*b==0)).then_some((seq,count,end))};
     let (s0,s1)=(&bytes[..SLOT],&bytes[second..second+SLOT]);
@@ -125,17 +128,6 @@ fn parse_v2(f:&mut File,total:u64,mut pos:u64,visit:&mut dyn FnMut(usize,u64,&[u
 fn copy_prefix(src:&Path,dst:&Path,n:u64)->Result<(),StoreError>{
     let mut r=File::open(src)?.take(n);let mut w=File::create(dst)?;std::io::copy(&mut r,&mut w)?;w.sync_all()?;Ok(())
 }
-/// Strict v1 parse (len ‖ digest ‖ payload ‖ marker): Some only when every byte belongs to a valid record.
-fn parse_v1_strict(bytes:&[u8])->Option<Vec<Vec<u8>>>{
-    let mut pos=40;let mut out=Vec::new();
-    while pos<bytes.len(){
-        if bytes.len()-pos<37{return None}
-        let len=u32::from_be_bytes(bytes[pos..pos+4].try_into().unwrap()) as usize;if len>MAX_RECORD||pos+37+len>bytes.len(){return None}
-        let digest=&bytes[pos+4..pos+36];let payload=&bytes[pos+36..pos+36+len];if bytes[pos+36+len]!=1||sha(payload)[..]!=digest[..]{return None}
-        out.push(payload.to_vec());pos+=37+len;
-    }
-    Some(out)
-}
 /// A commit file holding one valid slot (`seq`, `count`, `end`) in the current layout.
 fn commit_file(binding:&[u8;32],seq:u64,count:u64,end:u64)->Vec<u8>{
     let mut c=vec![0u8;SLOT_STRIDE+SLOT];let off=(seq%2) as usize*SLOT_STRIDE;c[off..off+SLOT].copy_from_slice(&slot_bytes(binding,seq,count,end));c
@@ -145,7 +137,6 @@ fn write_new(path:&Path,dir:&Path,bytes:&[u8])->Result<(),StoreError>{
     fs::rename(&tmp,path)?;sync_dir(dir);Ok(())
 }
 fn backup_path(dir:&Path,stem:&str)->PathBuf{let n=(0..).find(|i|!dir.join(format!("{stem}-{i}")).exists()).unwrap();dir.join(format!("{stem}-{n}"))}
-fn backup(dir:&Path,stem:&str,bytes:&[u8])->Result<(),StoreError>{let mut f=File::create(backup_path(dir,stem))?;f.write_all(bytes)?;f.sync_all()?;Ok(())}
 
 /// Opens (or creates) the journal in `dir`, holding an exclusive OS lock on `dir/LOCK` for the
 /// process lifetime (second writer => Locked).
@@ -160,25 +151,17 @@ pub fn open_with(dir:&Path,binding:&[u8;32],visit:&mut dyn FnMut(usize,u64,&[u8]
     let _=fs::remove_file(dir.join("blocks.tmp"));let _=fs::remove_file(dir.join("blocks.journal.tmp"));
     if !path.exists(){
         // Never silently restart from genesis when recovery artifacts or a commit file exist.
-        let artifacts=fs::read_dir(dir)?.filter_map(|e|e.ok()).any(|e|{let n=e.file_name().to_string_lossy().to_string();n.starts_with("blocks.journal.torn-")||n.starts_with("blocks.journal.v1-")});
+        let artifacts=fs::read_dir(dir)?.filter_map(|e|e.ok()).any(|e|{let n=e.file_name().to_string_lossy().to_string();n.starts_with("blocks.journal.torn-")});
         if artifacts||cpath.exists(){return Err(StoreError::MissingJournal)}
         let mut head=Vec::with_capacity(40);head.extend(MAGIC);head.extend(binding);
         write_new(&cpath,dir,&commit_file(binding,0,0,40))?;
         write_new(&path,dir,&head)?;
     }
     let mut head=[0u8;40];let head_len={let mut f=File::open(&path)?;let mut n=0;while n<40{let k=f.read(&mut head[n..])?;if k==0{break}n+=k;}n};
-    if head_len<40||&head[8..40]!=binding{return Err(StoreError::Binding)}
-    let mut migrated=false;
-    if &head[..8]==MAGIC_V1{
-        let mut bytes=Vec::new();File::open(&path)?.read_to_end(&mut bytes)?;
-        // Legacy journal: unauthenticated lengths, so only a complete, fully verified parse is trusted.
-        let payloads=parse_v1_strict(&bytes).ok_or(StoreError::LegacyNeedsReview)?;
-        backup(dir,"blocks.journal.v1",&bytes)?;
-        let mut v2=Vec::new();v2.extend(MAGIC);v2.extend(binding);for p in &payloads{v2.extend(encode_frame(p));}
-        write_new(&cpath,dir,&commit_file(binding,1,payloads.len() as u64,v2.len() as u64))?;
-        write_new(&path,dir,&v2)?;migrated=true;
-    }else if &head[..8]!=MAGIC{return Err(StoreError::Binding)}
+    if head_len>=8&&&head[..8]==RETIRED_MAGIC{return Err(StoreError::RetiredFormat("journal format v1 (POCOLJ1) of the retired network"))}
+    if head_len<40||&head[8..40]!=binding||&head[..8]!=MAGIC{return Err(StoreError::Binding)}
     let mut cbytes=Vec::new();match File::open(&cpath){Ok(mut f)=>{f.read_to_end(&mut cbytes)?;},Err(_)=>return Err(StoreError::MissingCommit)}
+    if cbytes.len()==2*SLOT{return Err(StoreError::RetiredFormat("a 128-byte commit file (the first v2 layout) of the retired network"))}
     let ((seq,count,cend),slot_damaged)=read_commit(&cbytes,binding).ok_or(StoreError::CommitCorrupt)?;
     let (total,(payloads,pos,tail))={let mut f=File::open(&path)?;let total=f.metadata()?.len();(total,parse_v2(&mut f,total,40,visit)?)};
     // Bytes that cannot be a record but lie after every committed record were never committed. Not
@@ -201,13 +184,11 @@ pub fn open_with(dir:&Path,binding:&[u8;32],visit:&mut dyn FnMut(usize,u64,&[u8]
         copy_prefix(&path,&backup_path(dir,"blocks.journal.torn"),total)?;
         let tmp=path.with_extension("tmp");copy_prefix(&path,&tmp,pos)?;fs::rename(&tmp,&path)?;sync_dir(dir);
     }
-    // The first v2 layout kept both slots in one sector: rewrite it in the current layout.
-    if cbytes.len()==2*SLOT{write_new(&cpath,dir,&commit_file(binding,seq,count,cend))?;}
     let commit=OpenOptions::new().read(true).write(true).open(&cpath)?;
     let file=OpenOptions::new().append(true).open(&path)?;
     let mut j=Journal{file,commit,path,_lock:lock,binding:*binding,seq,end:pos,records:payloads.len() as u64};
     if j.records>count{j.write_commit()?;}
-    Ok(Recovered{journal:j,offsets:payloads,torn_tail:torn,migrated_v1:migrated})
+    Ok(Recovered{journal:j,offsets:payloads,torn_tail:torn})
 }
 fn sync_dir(dir:&Path){if let Ok(d)=File::open(dir){let _=d.sync_all();}}
 
