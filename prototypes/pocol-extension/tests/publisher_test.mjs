@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,migrateCheckpoint,readNetworkFees,mimeIdFor,FACTORY,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE,MAX_APPROVALS,STATE_NOT_HELD,RATE_RESENDS} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,readNetworkFees,mimeIdFor,FACTORY,MAX_APPROVALS,STATE_NOT_HELD,RATE_RESENDS} from '../dist/lib/publisher.js';
 import {nextBaseFee,feeSchedule,capFor,GAS_LIMIT,BASE_FEE_FLOOR,ABSOLUTE_CEILING} from '../dist/lib/fees.js';
 import {KeyLease,JOB_DEADLINE_MAX_MS} from '../dist/lib/lease.js';
 import {isForeignJob,blocksAccount,archiveForeignJobs,archivedJobs,jobNetwork,archiveJob} from '../dist/lib/jobs.js';
@@ -442,20 +442,15 @@ test('W4: the ceiling and the budget are enforced; a record above its approval c
   const m=mock();await publishSite(m.options(p,{approval:q.approval}));const state=structuredClone(m.state),rec=Object.values(state.transactions)[0];
   state.approvals[0].ceilingWei=String(BigInt(rec.tx.maxFee)-1n);await assert.rejects(publishSite(m.options(p,{state,approval:q.approval})),/ceiling|approval/);
 });
-test('W4: a schema-1 checkpoint of this network is migrated and resumed with its saved raw transaction; another network\'s is refused',async()=>{
+test('Phase 8a: a schema-1 checkpoint (the fixed 200 gwei caps of a retired build) is refused by name, before any transaction is signed or sent',async()=>{
   const m=mock(),p=sample(),chunk=p.chunks[0];
-  const gas=BigInt(Math.min(200000+chunk.data.length*260,7900000)),maxGas=p.chunks.reduce((n,c)=>n+BigInt(Math.min(200000+c.data.length*260,7900000)),0n)+1500000n+1000000n;
-  const legacy=(g)=>toHex(keccak(enc.encode(JSON.stringify([p.manifestHash,owner,String(chainId),g,null,LEGACY_MAX_FEE,LEGACY_PRIORITY_FEE,(maxGas*BigInt(LEGACY_MAX_FEE)).toString()]))));
-  const tx={chainId:String(chainId),nonce:'0',maxPriority:LEGACY_PRIORITY_FEE,maxFee:LEGACY_MAX_FEE,gas:gas.toString(),to:FACTORY,value:'0',data:abiBytes('store(bytes)',chunk.data)};
-  const signed=signTx(secret,tx);
-  const v1={schema:1,binding:legacy(genesis),site:null,version:null,versionCountBefore:null,transactions:{['chunk:'+chunk.address]:{...signed,tx,receipt:null}},spentCapWei:(gas*BigInt(LEGACY_MAX_FEE)).toString()};
-  const migrated=migrateCheckpoint(v1,{plan:p,address:owner,chainId,genesisHash:genesis});assert.equal(migrated.schema,2);assert.equal(migrated.migratedFrom,1);assert.equal(migrated.approvals[0].ceilingWei,LEGACY_MAX_FEE);
-  await assert.rejects(publishSite(m.options(p,{state:v1})),/another publication or approval/,'the migrated checkpoint needs a re-approval of the remaining fees');
-  const r=await publishSite(m.options(p,{state:v1,reapprove:true}));assert.equal(r.verified,true);assert.equal(m.logs.sent[0],signed.raw,'the saved legacy raw transaction is broadcast, not replaced');
-  assert.equal(m.logs.signed.length,planTransactions(p).length-1);
-  const foreign={...v1,binding:legacy('0x'+'cd'.repeat(32))};
-  await assert.rejects(publishSite(mock().options(p,{state:foreign,reapprove:true})),/another network/);
-  const other=structuredClone(m.state);other.network.genesisHash='0x'+'cd'.repeat(32);await assert.rejects(publishSite(m.options(p,{state:other})),/another network/);
+  const gas=BigInt(Math.min(200000+chunk.data.length*260,7900000));
+  const tx={chainId:String(chainId),nonce:'0',maxPriority:'1000000000',maxFee:'200000000000',gas:gas.toString(),to:FACTORY,value:'0',data:abiBytes('store(bytes)',chunk.data)};
+  const v1={schema:1,binding:'0x'+'ab'.repeat(32),site:null,version:null,versionCountBefore:null,transactions:{['chunk:'+chunk.address]:{...signTx(secret,tx),tx,receipt:null}},spentCapWei:(gas*200000000000n).toString()};
+  for(const reapprove of[false,true])await assert.rejects(publishSite(m.options(p,{state:v1,reapprove})),/schema-1 checkpoint of a retired build/);
+  assert.deepEqual([m.logs.signed.length,m.logs.sent.length],[0,0],'nothing signed or sent');
+  const other={...v1,schema:2,network:{chainId:String(chainId),genesisHash:'0x'+'cd'.repeat(32)},approvals:[{budgetWei:'1',ceilingWei:'1',tipWei:'0',economy:false,spentBeforeWei:'0',digest:'x'}]};
+  await assert.rejects(publishSite(mock().options(p,{state:other,reapprove:true})),/another network/,'positive control: a schema-2 checkpoint of another network is refused as before');
 });
 test('W4: the key lease: a publication longer than LOCK_MS completes, Lock still aborts it, and the job deadline bounds it',async()=>{
   const LOCK=15*60*1000,v=virtual();

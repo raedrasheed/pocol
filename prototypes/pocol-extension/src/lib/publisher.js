@@ -13,9 +13,6 @@ import { denyReason, DENY_REASONS } from './publish-input.js';
 export { readNetworkFees } from './fees.js';
 
 export const FACTORY = '0x0000000000000000000000000000000000c0c005';
-// The fixed caps every publication used before Sites W4; kept only to recognise (and migrate) schema-1 checkpoints.
-export const LEGACY_MAX_FEE = '200000000000';
-export const LEGACY_PRIORITY_FEE = '1000000000';
 const enc = new TextEncoder();
 // Manifest MIME ids (site.js MIME, pocold site.rs MIME). Id 11 stays unassigned: the M1 manifest vectors use it as the
 // unknown MIME. Sites W5 (owner answer Q3): 12 favicon.ico, 13 site.webmanifest.
@@ -89,11 +86,6 @@ export function planTransactions(plan, {site = null} = {}) {
   const p = snapshot(plan); if (site) address(site);
   return [...p.chunks.map((c) => ({id:'chunk:' + c.address, gas:chunkGas(c.data.length), gasUsed:chunkGasUsed(c.data.length) < chunkGas(c.data.length) ? chunkGasUsed(c.data.length) : chunkGas(c.data.length)})), ...(site ? [] : [{id:'deploy', gas:DEPLOY_GAS}]),
     {id:'create-version', gas:CREATE_VERSION_GAS}, {id:'publish-version', gas:PUBLISH_GAS}, {id:'set-current', gas:SET_CURRENT_GAS}];
-}
-/** The legacy maximum (schema 1): every transaction at 200 gwei. Used only to recognise schema-1 checkpoints. */
-function legacyBudget(p, site) {
-  const maxGas = p.chunks.reduce((sum, c) => sum + chunkGas(c.data.length), 0n) + (site ? 0n : 1500000n) + 1000000n;
-  return maxGas * BigInt(LEGACY_MAX_FEE);
 }
 /**
  * Sites W4 quote. `fees` ({baseNext, tip}, from readNetworkFees) is required for the fee part: the projected London
@@ -263,23 +255,6 @@ export const STATE_NOT_HELD = -32017;
 /// approved, and each signed record names the approval it was signed under, so a resume after a re-approval keeps the
 /// records signed with other fee caps (each must stay within its own approval's ceiling).
 const bindingOf = ({manifestHash, from, chain, genesis, initialSite}) => toHex(keccak(enc.encode(JSON.stringify(['pocol-publish-2', manifestHash, from, chain.toString(), genesis, initialSite]))));
-const legacyBindingOf = ({manifestHash, from, chain, genesis, initialSite, maxFee, priority, budget}) => toHex(keccak(enc.encode(JSON.stringify([manifestHash, from, chain.toString(), genesis, initialSite, maxFee, priority, budget]))));
-/// A schema-1 checkpoint (fixed 200 gwei caps) is migrated only when its binding proves it belongs to this manifest,
-/// account, site and network: its binding hash is recomputed from the current NETWORK and the fixed legacy fees.
-/// Otherwise it belongs to another network (or was tampered with) and the caller archives the job.
-export function migrateCheckpoint(state, {plan, address: from, chainId, genesisHash, site = null}) {
-  if (!state || state.schema !== 1) return state;
-  const p = snapshot(plan), chain = uint(chainId, 'chain ID'), genesis = String(genesisHash).toLowerCase(), initialSite = site ? address(site) : null;
-  const recs = Object.values(state.transactions || {});
-  const maxFee = recs[0]?.tx?.maxFee ?? LEGACY_MAX_FEE, priority = recs[0]?.tx?.maxPriority ?? LEGACY_PRIORITY_FEE;
-  const budget = legacyBudget(p, initialSite).toString();
-  const legacy = legacyBindingOf({manifestHash:p.manifestHash, from, chain, genesis, initialSite, maxFee:String(maxFee), priority:String(priority), budget});
-  assert(state.binding === legacy, 'This saved publication belongs to another network or approval. Archive it; it cannot be resumed here.');
-  const out = jsonClone(state);
-  for (const rec of Object.values(out.transactions || {})) rec.approval = 0;
-  return {...out, schema:2, migratedFrom:1, binding:bindingOf({manifestHash:p.manifestHash, from, chain, genesis, initialSite}), network:{chainId:chain.toString(), genesisHash:genesis},
-    approvals:[{budgetWei:budget, ceilingWei:String(maxFee), tipWei:String(priority), economy:false, spentBeforeWei:'0', digest:'legacy-schema-1'}]};
-}
 const running = new Set();
 /** The most fee approvals one checkpoint keeps (each one signed at least one transaction). */
 export const MAX_APPROVALS = 64;
@@ -310,7 +285,8 @@ export async function publishSite(options) {
   try {
     const approvalRecord = (spentBefore) => ({budgetWei:approval.budget.toString(), ceilingWei:approval.ceiling.toString(), tipWei:approval.tip.toString(), economy:approval.economy, spentBeforeWei:spentBefore, digest:approval.digest});
     let state = options.state ? jsonClone(options.state) : {schema:2,binding,network:{chainId:chain.toString(),genesisHash:genesis},site:initialSite,version:null,versionCountBefore:null,transactions:{},spentCapWei:'0',approvals:[approvalRecord('0')]};
-    if (state.schema === 1) state = migrateCheckpoint(state, {plan, address:from, chainId:chain, genesisHash:genesis, site:initialSite});
+    // A schema-1 checkpoint (the fixed 200 gwei caps before Sites W4) was written only by builds of the retired network.
+    assert(state.schema !== 1, 'This saved publication is a schema-1 checkpoint of a retired build. Archive it; it cannot be resumed here.');
     assert(state.schema === 2 && state.transactions && typeof state.transactions === 'object' && Array.isArray(state.approvals) && state.approvals.length > 0 && state.approvals.length <= MAX_APPROVALS, 'Checkpoint belongs to another publication or approval');
     assert(state.network?.chainId === chain.toString() && state.network?.genesisHash === genesis, 'This saved publication belongs to another network. Archive it; it cannot be resumed here.');
     assert(state.binding === binding, 'Checkpoint belongs to another publication or approval');

@@ -657,14 +657,12 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
     let info = serde_json::json!({"chainId":cfg.chain_id, "genesisHash":crate::types::hex(&profile.genesis_hash()),
         "genesisTime":cfg.g_ts, "profileKind":"simnet", "keyMode":"independent-key-files", "forks":[[1,0]],
         "note":"Experimental candidate only; independent keys do not establish public-network readiness.",
-        "registrationPerBlock":params.R_max,"continuous":true,
+        "registrationPerBlock":params.R_max,
         "miners":input.miners.iter().map(|m|serde_json::json!({"id":m.id,"reward":m.reward})).collect::<Vec<_>>(),
         "calibration":{"hashesPerSecond":cfg.hash_rate,"class":if measured {"measurement"} else {"synthetic-fixture"}},
         "timing":timing.to_json(),"admission":crate::admission_json(&admitted)});
     let mut info = info;
     // The keys every v3 genesis has written (readers of devnet.json, such as the wallets and deploy tooling, use them).
-    info["earnin"] = serde_json::json!(true);
-    info["fullNonce"] = serde_json::json!(true);
     info["v3"] = serde_json::json!(true);
     info["specVersion"] = serde_json::json!(2);
     info["localTiming"] = serde_json::json!({"delta":local.delta,"phi":local.phi,"tExec":local.t_exec,"deltaRel":local.delta_rel,"gamma":local.gamma});
@@ -788,7 +786,8 @@ mod tests {
         assert_eq!((cp.nonceMode, cp.H_END, cp.T_blk, cp.D_att, cp.dFbWait), (1, 0, 10, 60, 6));
         assert_eq!((devnet::from_fixed(&cp.subsidy), devnet::from_fixed(&cp.S_tail)), (U256::from(2_000_000_000_000_000_000u128), U256::from(62_500_000_000_000_000u64)),
             "the builder's S0 of 2 PCOL for a config that does not state it");
-        for k in ["continuous", "earnin", "fullNonce", "v3"] { assert_eq!(info[k], true, "{k}"); }
+        assert_eq!(info["v3"], true);
+        for k in RETIRED_OPTIONS { assert!(info.get(k).is_none(), "devnet.json no longer writes {k}"); }
         assert_eq!(info["specVersion"], 2);
         for (key, value) in [("continuous", true), ("earnin", true), ("fullNonce", true), ("fullNonce", false), ("v3", false)] {
             let mut c = base.clone(); c[key] = serde_json::json!(value); let out = dir("refused");

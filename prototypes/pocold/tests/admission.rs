@@ -232,7 +232,7 @@ fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000
 /// notes, waivers, deferred items, specificationCompliant). The binding is the one exception: it hashes the profile and
 /// the node's local parameters, which differ between the builder (`local_for`) and a booting node.
 /// Phase 6a re-pinned CONTINUOUS_ADMISSION on the v3 network the builder now generates (before, the spec-1 continuous
-/// network: the report the retired H15000 bundle recorded, admission.rs of 28e295f), binding removed. Two texts moved:
+/// network's report, admission.rs of 28e295f), binding removed. Two texts moved:
 /// the R18 gas condition names GAS_ENVELOPE_V3 (the only table since phase 6a), and R26's RpcGuard log checks are
 /// derived from the v3 per-block log caps (4,368 logs, 256 KiB of data) instead of the spec-1 546 and 32 KiB.
 #[test] fn a_generated_continuous_networks_admission_report_is_reproduced_at_boot(){

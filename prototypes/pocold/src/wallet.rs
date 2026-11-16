@@ -588,7 +588,7 @@ impl<'a> Wallet<'a>{
             "rejoinAvailable":!wallet_only&&self.rejoin.is_none()&&matches!(step,RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}),
             "miningState":mining_state,
             "blocksMined":n.stats.mined,"bond":coins(target),
-            "earnIn":true,"bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),"probationEndsAt":null,
+            "bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),
             // V3-08: hidden while a top-up or reward-address change of this account is pending (QuoteTopUp refuses then).
             "topUpAvailable":!wallet_only&&probation.is_some()&&!pending_maintenance(&n.chain,addr,n.pool.sender_raw(addr)),
             // FN-2b C4: all seats taken, the members removable at the next block, and whether

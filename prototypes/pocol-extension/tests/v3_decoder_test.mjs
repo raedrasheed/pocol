@@ -37,7 +37,7 @@ export async function v3DecoderChecks(rel) {
     gs(() => RP.decodeSpec(v3Base)) === 'ok' && gs(() => D.decodeGenesisSpec(v3Base)) === 'ok' && gs(() => RP.decodeSpec(v3Base, 1)) === 'gsVersion:2');
   ok('release: the manifest is the release one', JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).name === 'PoCol Studio, IDE & Viewer');
 
-  // ---- v3Active: active_version(h) >= 3 || specVersion >= 2 ----
+  // ---- v3Active: specVersion >= 2, under any fork schedule ----
   const spec1Bytes = unhex(readFileSync(join(HERE, 'data', 'devnet-spec.hex'), 'utf8').trim().replace(/^0x/, ''));
   const spec1 = RP.decodeSpec(spec1Bytes);
   const spec2 = RP.decodeSpec(v3Base);
@@ -45,7 +45,7 @@ export async function v3DecoderChecks(rel) {
   const v1 = F.normalizeForkSchedule(), v2 = F.normalizeForkSchedule([[1, 0], [2, '5']]), v3 = F.normalizeForkSchedule([[1, 0], [2, '5'], [3, '9']]);
   ok('v3Active: a spec-2 genesis is v3 from height 0 under any schedule', [0n, 1n, 1n << 63n].every((h) => RP.v3Active(spec2, v1, h) && RP.v3Active(spec2, v2, h)));
   ok('v3Active: a spec-1 genesis is not v3 under v1 or v2', [0n, 4n, 5n, 1n << 63n].every((h) => !RP.v3Active(spec1, v1, h) && !RP.v3Active(spec1, v2, h)));
-  ok('v3Active: the predicate keeps its fork-3 route (pocold admits fork 3, the cap raise, only on a spec-2 genesis)', !RP.v3Active(spec1, v3, 8n) && RP.v3Active(spec1, v3, 9n) && RP.v3Active(spec1, v3, 10n));
+  ok('v3Active: fork version 3 (the cap raise) is no route to v3 for a spec-1 genesis; a spec-2 genesis stays v3 across it', [8n, 9n, 10n, 1n << 63n].every((h) => !RP.v3Active(spec1, v3, h) && RP.v3Active(spec2, v3, h)));
 
   // ---- RP over a v3 chain's window (the corpus's v3 headers come from the same fixture) ----
   const win2 = await rpWindow(rel, v3Base, 14);

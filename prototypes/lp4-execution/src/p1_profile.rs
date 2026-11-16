@@ -388,10 +388,11 @@ impl ProfileIdentity {
         Ok(Self { spec, cp, hash: *expected_hash, forks, kind, node_kind, raised })
     }
     pub fn spec_version(&self) -> u8 { self.spec.spec_version }
-    /// The sole host-rule predicate: the genesis route and the future scheduled-fork route. Since FN-5 version 3 is the
-    /// cap raise, which `validate_with_raise` admits only on a spec-2 genesis, so the fork route stays unreachable.
-    pub fn v3_active(&self, height: u64) -> bool {
-        self.spec_version() >= 2 || self.forks.active_version(height) >= 3
+    /// The sole host-rule predicate: the v3 rules hold at every height of a spec-2 genesis. No fork turns them on
+    /// (since FN-5 version 3 is the cap raise, which `validate_with_raise` admits only on a spec-2 genesis); the height
+    /// stays a parameter, the seam for a future fork.
+    pub fn v3_active(&self, _height: u64) -> bool {
+        self.spec_version() >= 2
     }
     pub fn spec(&self) -> &GenesisSpec {
         &self.spec
@@ -433,33 +434,20 @@ impl ProfileIdentity {
 #[cfg(test)]
 mod v3_tests {
     use super::*;
-    fn identity(version:u8,nonce_mode:u8,forks:&[(u16,u64)],max_fork:u16)->ProfileIdentity{
-        let mut values:Vec<U256>=genesis_spec::cp_schema(version).unwrap().iter().map(|f|U256::from_u64(f.lo)).collect();
-        values[4]=U256::from_u64(nonce_mode.into());
-        let raw=genesis_spec::encode(&GenesisSpec{spec_version:version,chain_id:7,cp:values,alloc_root:[0;32],
+    /// A spec-2 identity with nonceMode 1 and the fork schedule [(1, 0)].
+    fn identity()->ProfileIdentity{
+        let mut values:Vec<U256>=genesis_spec::cp_schema(2).unwrap().iter().map(|f|U256::from_u64(f.lo)).collect();
+        values[4]=U256::from_u64(1);
+        let raw=genesis_spec::encode(&GenesisSpec{spec_version:2,chain_id:7,cp:values,alloc_root:[0;32],
             m0_list:vec![genesis_spec::Member{id:[1;20],reward_addr:[2;20]}],sys_code_hash:[0;32]});
         // Schema-only test identity. This never constructs an Admitted or bootable profile.
         let spec=genesis_spec::decode_bounded(&raw,2).unwrap();
         ProfileIdentity{cp:ConsensusParams::from_values(&spec.cp).unwrap(),spec,hash:genesis_spec::genesis_hash(&raw),
-            forks:ForkSchedule::new_bounded(forks,max_fork).unwrap(),kind:ProfileKind::Simnet,node_kind:NodeKind::Simnet,raised:None}
+            forks:ForkSchedule::new_bounded(&[(1,0)],2).unwrap(),kind:ProfileKind::Simnet,node_kind:NodeKind::Simnet,raised:None}
     }
     #[test]
-    fn v3_predicate_keeps_v1_and_earnin_dormant_at_every_height_boundary(){
-        for nonce_mode in [0,1]{
-            let p=identity(1,nonce_mode,&[(1,0),(2,1000)],2);
-            for h in [0,1,999,1000,1001,u64::MAX]{assert!(!p.v3_active(h));}
-            assert_eq!(p.spec_version(),1);assert_eq!(p.cp().cp_len(),52);
-            assert_eq!((p.cp().H_half,p.cp().R_react,p.cp().C_react,p.cp().rho_bp),(0,0,0,0));
-            assert_eq!(p.cp().baseFeeMin,U256::ZERO);assert!(!p.bootable());
-        }
-    }
-    #[test]
-    fn v3_predicate_covers_genesis_and_future_sequential_schedule(){
-        let p=identity(1,0,&[(1,0),(2,10),(3,20)],3);
-        for h in [0,9,10,19]{assert!(!p.v3_active(h));}
-        for h in [20,21,u64::MAX]{assert!(p.v3_active(h));}
-        assert_eq!(p.forks().active_version(20),3);
-        let p=identity(2,1,&[(1,0)],2);
+    fn v3_predicate_covers_a_spec_2_genesis_at_every_height(){
+        let p=identity();
         for h in [0,1,u64::MAX]{assert!(p.v3_active(h));}
         assert_eq!(p.spec_version(),2);assert_eq!(p.cp().cp_len(),59);
         assert_eq!(p.cp().to_values(),p.spec().cp);assert!(!p.bootable());
