@@ -123,6 +123,9 @@ class ScheduleUpgrade(unittest.TestCase):
         for field in ('address', 'chainId', 'genesisHash', 'height', 'balanceWei', 'registered', 'bond'):
             self.assertEqual(after[field], before[field], field)
         self.assertFalse(after['miningEnabled'])
+        # An existing home has no device-role file: it is wallet only and does not mine.
+        self.assertEqual(after['appMode'], 'wallet')
+        self.assertFalse((self.home / 'app-mode.json').exists())
         self.assert_identity_preserved()
         # Explicit selection remains authoritative and cannot silently rebind a home.
         refused = subprocess.run([str(executable), 'wallet', '--home', str(self.home),

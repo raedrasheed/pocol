@@ -46,7 +46,10 @@ def run():
             log = open(root / 'wallet.log', 'w', encoding='utf-8'); logs.append(log); w = Wallet(homes[3], inv, log)
             s = status(w, lambda v: v['height'] >= 3 and v['peers'] > 0, 240)
             assert s['earnIn'] is True and s['bondTarget'] == '20' and s['registryStatus'] == 'none', s
-            assert s['balance'] == '0' and not s['topUpAvailable'], s
+            assert s['balance'] == '0' and not s['topUpAvailable'] and s['appMode'] == 'wallet', s
+            # The device role: wallet only by default; mining needs Wallet and miner (Settings).
+            e = w.request({'method': 'quote_register'}, 'error'); assert 'wallet only' in e['message'], e
+            s = w.request({'method': 'set_mode', 'mode': 'miner'}, 'mode'); assert s['appMode'] == 'miner', s
             e = w.request({'method': 'quote_register'}, 'error'); assert 'Insufficient' in e['message'], e
             # The fee faucet, funded by genesis miner 1's moved balance, signs with its key file.
             fcfg = root / 'faucet.json'; fport = port()

@@ -55,6 +55,10 @@ def run():
                 s=w.until(lambda v:v.get('type')=='status' and v['height']>=3 and v['peers']>0)
                 assert s['lifetime']['continuous'] and s['lifetime']['finalHeight'] is None
                 assert not s['miningEnabled'] and not s['miningEligible'] and s['balance']=='1000000',s
+                assert s['appMode']=='wallet',('the device role defaults to wallet only',s)
+            # Wallet only (the default) never mines; Wallet and miner keeps the earlier rules (eligibility first).
+            e=a.request({'method':'mining','enabled':True},'error');assert 'wallet only' in e['message'],e
+            s=a.request({'method':'set_mode','mode':'miner'},'mode');assert s['appMode']=='miner' and not s['miningEnabled'],s
             e=a.request({'method':'mining','enabled':True},'error');assert 'eligible' in e['message']
             e=a.request({'method':'quote_send','to':ids[4],'amount':'1e2'},'error');assert 'digits' in e['message']
             q=a.request({'method':'quote_send','to':ids[4],'amount':'1.234567890123456789'},'quote')
@@ -82,9 +86,20 @@ def run():
             log=open(root/'restart.log','w',encoding='utf-8');logs.append(log);a=Wallet(homes[3],inv,log);wallets.append(a)
             s=a.until(lambda v:v.get('type')=='status' and v['height']>=height)
             assert s['address']==ids[3] and not s['miningEnabled']
+            assert s['appMode']=='miner',('the device role survives a restart; mining starts off',s)
             assert any(x['hash']==sent['hash'] for x in s['activity'])
             assert (homes[3]/'identity.pocol-key').read_bytes()==keys[3]
-            print(json.dumps({'result':'PASS','scope':'five local native processes, continuous genesis, real wallet transfer/registration/mining/restart','physicalDevicesTested':False,'transfer':sent['hash'],'height':s['height']}))
+            # Switching back to wallet only stops mining at once and refuses it again; it survives a restart too.
+            s=a.request({'method':'mining','enabled':True},'mining');assert s['miningEnabled'],s
+            s=a.request({'method':'set_mode','mode':'wallet'},'mode');assert s['appMode']=='wallet' and not s['miningEnabled'],s
+            assert not s['rejoinAvailable'] and not s['topUpAvailable'] and s['miningState'].startswith('Wallet only'),s
+            e=a.request({'method':'mining','enabled':True},'error');assert 'wallet only' in e['message'],e
+            a.close();wallets.remove(a)
+            log=open(root/'restart2.log','w',encoding='utf-8');logs.append(log);a=Wallet(homes[3],inv,log);wallets.append(a)
+            s=a.until(lambda v:v.get('type')=='status' and v['height']>=height)
+            assert s['appMode']=='wallet' and not s['miningEnabled'],s
+            assert any(x['hash']==sent['hash'] for x in s['activity'])
+            print(json.dumps({'result':'PASS','scope':'five local native processes, continuous genesis, real wallet transfer/registration/mining/restart, wallet-only default and device-role switch','physicalDevicesTested':False,'transfer':sent['hash'],'height':s['height']}))
         except BaseException:
             for log in logs:log.flush()
             for path in root.glob('*.log'):print(path.name,path.read_text(encoding='utf-8',errors='replace')[-2500:])

@@ -5,7 +5,9 @@ release operator signs it (see `prototypes/pocol-android/README.md`).
 
 Run three Linux server miners, one native Windows wallet, and one native Android
 wallet. Both wallets contain the same full validating Rust/P2P engine and sign
-locally. Their mining switch starts/stops actual block production while validation
+locally. Each wallet is **wallet only** by default: its local node validates and
+synchronizes but never mines. **Settings → Device role → Wallet and miner** adds the
+Mining tab, whose mining switch starts/stops actual block production while validation
 and synchronization continue. No assistant or central signing/control service is
 needed after the one-time network setup.
 
@@ -13,9 +15,9 @@ The existing chain is displayed as **PoCol Mainnet** only after its chain ID and
 genesis are verified. The designation does not change its experimental admission
 conditions or `publicLaunchReady: false`; financial qualification and independent
 audit are not claimed. The wallet validates locally and signs on the device.
-Its primary color is #1aa9e4; it has Wallet, Activity, Mining and Settings
-screens, account transfers, receive/copy/share (Android), transaction review, and
-explicit bonded miner registration. No invented fiat price, reward yield or
+Its primary color is #1aa9e4; it has Wallet, Activity and Settings screens (plus a
+Mining screen in the wallet-and-miner role), account transfers, receive/copy/share
+(Android), transaction review, and explicit bonded miner registration. No invented fiat price, reward yield or
 external assets are displayed. Activity lists transactions submitted by this
 installation, with inclusion/revert status and confirmation counts.
 
@@ -129,7 +131,23 @@ can be consumed once. A quote does not broadcast. Zero/system/precompile recipie
 contract calls from the simple send screen, stale/offline states and insufficient
 available balance are refused. Inclusion is not advertised as irreversible finality.
 
-**Mining:** off by default on both wallets, including after restart. The three
+**Device role:** both wallets are **wallet only** by default, including a home from a
+release without the choice (no `app-mode.json`): the local node validates every block
+but never mines, the Mining tab and **Manage mining** are hidden, and the engine refuses
+mining, registration, top-up and rejoin with "This device is set to wallet only". In
+**Settings → Device role** the user chooses **Wallet and miner** (the engine's
+`set_mode` command; the choice is stored in the home's `app-mode.json` and survives
+restarts and key restores) and can switch back at any time; switching back stops
+mining at once (it is refused only while a confirmed rejoin is under way), even when
+the choice cannot be saved (full or read-only storage: the engine then reports the
+error, stays wallet only until restart, and the app may reopen as wallet and miner
+with mining off). A registered identity that switches to wallet only earns no mining
+rewards and, once every seat is taken, can be replaced as an inactive member; the
+engine's `roleWarning` says so on the wallet card and in Settings → Device role,
+since wallet only has no Mining tab.
+Server miners (`pocol start`) are not affected.
+
+**Mining:** off by default in the wallet-and-miner role too, including after restart. The three
 server keys are genesis miners. The PC/phone must hold an eligible registered
 identity to enable mining. A new identity can use **Review mining registration**,
 review the current bond and maximum fee, and explicitly confirm its transaction.
@@ -182,7 +200,7 @@ The review shows the maximum fee for all four signatures. No PCOL is transferred
 - Keep mining running afterwards: an identity that stops sharing leaves the
   active set again after `W_act` blocks.
 - Nothing about consensus, the Registry, keys or balances changes.
-- The Android app offers the same action (**Rejoin mining** on its Mining tab), and **Top up bond**. Its engine
+- The Android app offers the same action (**Rejoin mining** on its Mining tab, in the wallet-and-miner role), and **Top up bond**. Its engine
   loop advances a confirmed rejoin every 2 seconds, as the desktop wallet does (it signs `reactivate()` when the window
   opens), and shows each step (scheduled, reactivating, retrying, rejoined, stopped) as a notice; keep the app
   running until the account is back in the active set.
@@ -277,8 +295,9 @@ known 0.3.1 signer. No keystore/private key belongs in the release bundle or rep
 CI builds native Linux/Windows and the real ARM64 Android engine/JNI/APK. It runs
 portable identity/invitation controls, real-socket tests, five local validating
 processes, and a five-process wallet test with real transfer, one-shot review,
-bonded registration, mining on/off, continued synchronization and identity/history
-recovery. A compiled-contract execution test applies 20,002 blocks with real signed
+bonded registration, the wallet-only default and the device-role switch (mining
+refused in wallet only, stopped by a switch back, the role kept across restarts),
+mining on/off, continued synchronization and identity/history recovery. A compiled-contract execution test applies 20,002 blocks with real signed
 transfers beyond the old closing/ending heights and old time expiry. A continuous
 consensus test retains per-block caps and checks that local resource projections
 grow with history. Finite-profile regression tests remain required.

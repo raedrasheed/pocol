@@ -379,7 +379,8 @@ mod on_chain {
     /// The wallet engine on a v3 node, through Wallet::handle (G3b'): the status carries the v3 fields (bondRemaining, the
     /// reactivation clock) and the FN-2b seat fields, and no creation-burn field (FN-2a); a transfer quote signs the plain
     /// 21000 gas at the wallet's max fee, the confirmed transaction is exactly the reviewed one and lands; fee_bound is no
-    /// longer a field; top-up and Rejoin mining without a record are refused with the reason.
+    /// longer a field; top-up and Rejoin mining without a record are refused with the reason. A fresh home is wallet only
+    /// (the device role default), which refuses them first; transfers need no role.
     #[test]
     fn the_wallet_engine_on_a_v3_node_shows_the_v3_fields_and_signs_plain_transfers(){
         let dir=Temp::new();let cfg=node_cfg(|_|{});
@@ -401,6 +402,11 @@ mod on_chain {
         for k in ["creationBurn","feeBound","gasLimit"]{assert!(q.get(k).is_none(),"{k}: {q}");}
         let refused=wallet.handle(&mut node,&serde_json::json!({"method":"quote_send","to":format!("{to:#x}"),"amount":"0.001","fee_bound":"0.01"}).to_string());
         assert_eq!((refused["type"].as_str(),refused["message"].as_str()),(Some("error"),Some("Invalid wallet command")),"{refused}");
+        assert_eq!(status["appMode"],"wallet","{status}");
+        for raw in [r#"{"method":"quote_top_up"}"#,r#"{"method":"quote_rejoin"}"#]{
+            let e=wallet.handle(&mut node,raw);assert_eq!((e["type"].as_str(),e["message"].as_str()),(Some("error"),Some(pocold::wallet::WALLET_ONLY)),"{raw}: {e}");
+        }
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#)["appMode"],"miner");
         let top=wallet.handle(&mut node,r#"{"method":"quote_top_up"}"#);
         assert!(top["type"]=="error"&&top["message"].as_str().unwrap().contains("Register first"),"{top}");
         let rejoin=wallet.handle(&mut node,r#"{"method":"quote_rejoin"}"#);
@@ -430,6 +436,7 @@ mod on_chain {
         let fund=priced_tx(&alice,0,me,U256::from(10u128.pow(18)),21_000,next_base(&node)*U256::from(2)+U256::from(7));node.submit_tx(fund,false).unwrap();
         mine(&mut node,1);
         let mut wallet=pocold::wallet::Wallet::new(&home).unwrap().without_network_checks();
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#)["type"],"mode","the device mines only as wallet and miner");
         let q=wallet.handle(&mut node,r#"{"method":"quote_register"}"#);assert_eq!((q["type"].as_str(),q["amount"].as_str()),(Some("quote"),Some("0")),"{q}");
         let done=wallet.handle(&mut node,&serde_json::json!({"method":"confirm","quote_id":q["quoteId"]}).to_string());assert_eq!(done["type"],"submitted","{done}");
         mine(&mut node,1);
@@ -451,6 +458,113 @@ mod on_chain {
         let status=wallet.status(&node);
         assert_eq!((&status["topUpAvailable"],&status["bondHeld"]),(&serde_json::json!(true),&serde_json::json!("0.001")),"included: Top up bond returns {status}");
         assert_eq!(wallet.handle(&mut node,r#"{"method":"quote_top_up","amount":"0.001"}"#)["type"],"quote");
+    }
+
+    /// The device role (owner decision of 2026-11-16) in the wallet engine the Android and Windows apps run: a fresh home is
+    /// wallet only, which validates but refuses every mining action (mining on, registration, top-up) with the wallet-only
+    /// reason; Wallet and miner stores the role and allows them as before; switching back to wallet only stops the
+    /// running miner at once, hides Rejoin and Top up, drops the reviewed top-up and refuses mining again; and the role
+    /// survives a restart of the engine on the same home, which always starts with mining off. A miner found running in
+    /// wallet-only mode (as an earlier stored "mining on" could leave it) is turned off by the engine loop.
+    #[test]
+    fn the_wallet_engine_is_wallet_only_until_the_user_chooses_miner(){
+        let dir=Temp::new();let cfg=node_cfg(|_|{});
+        let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");
+        let home_dir=Temp::new();let home=pocold::launcher::Home::open(&home_dir.0).unwrap();let key=home.key().unwrap();let me=key.address();
+        let mode_file=home_dir.0.join(pocold::wallet::MODE_FILE);
+        let mut clock=cfg.g_ts;
+        let mut mine=|node:&mut pocold::node::Node,want:usize|{clock+=4;let p=node.chain.full_entry(&node.chain.head).unwrap();let selection=node.template_selection(&p,clock);
+            assert_eq!(selection.txs.len(),want);let b=solve(node,selection.txs,clock);assert!(node.import(b,None).unwrap());};
+        let fund=priced_tx(&alice,0,me,U256::from(10u128.pow(18)),21_000,next_base(&node)*U256::from(2)+U256::from(7));node.submit_tx(fund,false).unwrap();
+        mine(&mut node,1);
+        let mut wallet=pocold::wallet::Wallet::new(&home).unwrap().without_network_checks();
+        let s=wallet.status(&node);
+        assert_eq!((&s["appMode"],&s["miningEnabled"]),(&serde_json::json!("wallet"),&serde_json::json!(false)),"the default is wallet only: {s}");
+        assert!(s["miningState"].as_str().unwrap().starts_with("Wallet only — this device validates blocks and never mines"),"{s}");
+        assert_eq!(s["roleWarning"],"","an unregistered account has nothing to be warned about: {s}");
+        assert!(!mode_file.exists(),"the default needs no file");
+        let refused=|r:serde_json::Value|{assert_eq!((r["type"].as_str(),r["message"].as_str()),(Some("error"),Some(pocold::wallet::WALLET_ONLY)),"{r}");};
+        // Wallet only: the wallet-only reason, not the eligibility one, and nothing is quoted.
+        refused(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#));
+        refused(wallet.handle(&mut node,r#"{"method":"quote_register"}"#));
+        assert!(node.cfg.miner.is_none());
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"mining","enabled":false}"#)["type"],"mining","turning mining off is always allowed");
+        // Wallet and miner: stored, and mining works as before (off until enabled; registration first).
+        let m=wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#);
+        assert_eq!((&m["type"],&m["appMode"],&m["miningEnabled"]),(&serde_json::json!("mode"),&serde_json::json!("miner"),&serde_json::json!(false)),"{m}");
+        assert_eq!(std::fs::read(&mode_file).unwrap(),br#"{"mode":"miner"}"#);
+        assert_eq!(pocold::wallet::read_mode(&home_dir.0),pocold::wallet::AppMode::Miner);
+        let e=wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#);assert!(e["message"].as_str().unwrap().contains("not eligible"),"{e}");
+        let q=wallet.handle(&mut node,r#"{"method":"quote_register"}"#);assert_eq!(q["type"],"quote","{q}");
+        assert_eq!(wallet.handle(&mut node,&serde_json::json!({"method":"confirm","quote_id":q["quoteId"]}).to_string())["type"],"submitted");
+        mine(&mut node,1);
+        let s=wallet.status(&node);assert_eq!((&s["miningEligible"],&s["topUpAvailable"]),(&serde_json::json!(true),&serde_json::json!(true)),"{s}");
+        let on=wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#);assert_eq!((&on["type"],&on["miningEnabled"]),(&serde_json::json!("mining"),&serde_json::json!(true)),"{on}");
+        assert!(node.cfg.miner.as_ref().is_some_and(|k|k.address()==me),"the node mines with this account");
+        assert_eq!(wallet.status(&node)["roleWarning"],"","a miner-mode member is not warned");
+        // A role that cannot be saved (here a directory at app-mode.json; full or read-only storage alike). Wallet only
+        // stops mining and drops a reviewed top-up all the same; wallet and miner then changes nothing.
+        let top=wallet.handle(&mut node,r#"{"method":"quote_top_up","amount":"0.001"}"#);assert_eq!(top["type"],"quote","{top}");
+        std::fs::remove_file(&mode_file).unwrap();std::fs::create_dir(&mode_file).unwrap();std::fs::write(mode_file.join("x"),b"x").unwrap();
+        let failed=wallet.handle(&mut node,r#"{"method":"set_mode","mode":"wallet"}"#);
+        assert_eq!(failed["type"],"error","{failed}");assert!(failed["message"].as_str().unwrap().starts_with(pocold::wallet::WALLET_ONLY_NOT_SAVED),"{failed}");
+        assert!(node.cfg.miner.is_none(),"a switch to wallet only stops mining even when it cannot be saved");
+        assert_eq!(wallet.mode(),pocold::wallet::AppMode::Wallet);
+        let s=wallet.status(&node);assert_eq!((&s["appMode"],&s["miningEnabled"],&s["appModeSaved"]),(&serde_json::json!("wallet"),&serde_json::json!(false),&serde_json::json!(false)),"{s}");
+        let late=wallet.handle(&mut node,&serde_json::json!({"method":"confirm","quote_id":top["quoteId"]}).to_string());
+        assert_eq!(late["message"],"Review a transaction first","the reviewed top-up was dropped: {late}");
+        refused(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#));
+        assert!(wallet.advance(&mut node).is_none());assert!(node.cfg.miner.is_none());
+        let failed=wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#);
+        assert!(failed["message"].as_str().unwrap().starts_with("The device role could not be saved"),"{failed}");
+        assert_eq!(wallet.mode(),pocold::wallet::AppMode::Wallet,"an unsaved wallet-and-miner choice changes nothing");
+        assert!(!wallet.mode_saved(),"the unsaved wallet-only role is still reported as unsaved");
+        refused(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#));
+        std::fs::remove_dir_all(&mode_file).unwrap();
+        // Storage fixed: choosing wallet only again (the role already in use) saves it, as the error message advises.
+        let again=wallet.handle(&mut node,r#"{"method":"set_mode","mode":"wallet"}"#);
+        assert_eq!((&again["type"],&again["appMode"],&again["appModeSaved"]),(&serde_json::json!("mode"),&serde_json::json!("wallet"),&serde_json::json!(true)),"{again}");
+        assert_eq!(std::fs::read(&mode_file).unwrap(),br#"{"mode":"wallet"}"#);
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#)["appMode"],"miner");
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#)["miningEnabled"],true);
+        assert!(node.cfg.miner.as_ref().is_some_and(|k|k.address()==me));
+        let top=wallet.handle(&mut node,r#"{"method":"quote_top_up","amount":"0.001"}"#);assert_eq!(top["type"],"quote","{top}");
+        // Back to wallet only: mining stops at once and the reviewed top-up can no longer be confirmed.
+        let w=wallet.handle(&mut node,r#"{"method":"set_mode","mode":"wallet"}"#);
+        assert_eq!((&w["type"],&w["appMode"],&w["miningEnabled"]),(&serde_json::json!("mode"),&serde_json::json!("wallet"),&serde_json::json!(false)),"{w}");
+        assert!(node.cfg.miner.is_none(),"switching to wallet only stops mining");
+        assert_eq!((&w["rejoinAvailable"],&w["topUpAvailable"],&w["miningEligible"],&w["registered"]),
+            (&serde_json::json!(false),&serde_json::json!(false),&serde_json::json!(true),&serde_json::json!(true)),"no mining action is offered; the chain facts stay: {w}");
+        // The warning the apps show on the wallet card and the Settings role card (wallet only has no Mining tab).
+        assert_eq!(w["roleWarning"],pocold::wallet::REGISTERED_WALLET_ONLY,"{w}");
+        assert!(w["roleWarning"].as_str().unwrap().contains("earns no mining rewards")&&w["roleWarning"].as_str().unwrap().contains("can replace it"),"{w}");
+        assert!(w["miningState"].as_str().unwrap().ends_with(pocold::wallet::REGISTERED_WALLET_ONLY),"{w}");
+        let late=wallet.handle(&mut node,&serde_json::json!({"method":"confirm","quote_id":top["quoteId"]}).to_string());
+        assert_eq!(late["message"],"Review a transaction first","{late}");
+        assert!(node.pool.sender_raw(me).next().is_none(),"nothing was signed");
+        refused(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#));
+        refused(wallet.handle(&mut node,r#"{"method":"quote_top_up","amount":"0.001"}"#));
+        refused(wallet.handle(&mut node,r#"{"method":"quote_rejoin"}"#));
+        assert!(node.cfg.miner.is_none());
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"set_mode","mode":"wallet"}"#)["type"],"mode","idempotent");
+        // A restart of the engine on the same home keeps wallet only. A miner found running is turned off by the loop.
+        drop(wallet);
+        let mut wallet=pocold::wallet::Wallet::new(&home).unwrap().without_network_checks();
+        assert_eq!((wallet.mode(),&wallet.status(&node)["appMode"]),(pocold::wallet::AppMode::Wallet,&serde_json::json!("wallet")));
+        node.set_mining_key(Some(home.key().unwrap()));assert!(node.cfg.miner.is_some());
+        assert!(wallet.advance(&mut node).is_none());
+        assert!(node.cfg.miner.is_none(),"wallet only never mines, whatever started the miner");
+        assert_eq!(wallet.status(&node)["miningEnabled"],false);
+        // Wallet and miner survives a restart too, with mining off until the user enables it.
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#)["appMode"],"miner");
+        drop(wallet);
+        let mut wallet=pocold::wallet::Wallet::new(&home).unwrap().without_network_checks();
+        let s=wallet.status(&node);
+        assert_eq!((&s["appMode"],&s["miningEnabled"]),(&serde_json::json!("miner"),&serde_json::json!(false)),"{s}");
+        assert!(wallet.advance(&mut node).is_none());
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#)["miningEnabled"],true,"miner mode keeps mining as before");
+        assert!(wallet.advance(&mut node).is_none());assert!(node.cfg.miner.is_some(),"the loop leaves a miner-mode miner running");
+        assert_eq!(wallet.handle(&mut node,r#"{"method":"mining","enabled":false}"#)["miningEnabled"],false);
     }
 
     /// Deploys each runtime from bob (nonces 0, 1, ...) in one imported block at `clock`; their addresses.

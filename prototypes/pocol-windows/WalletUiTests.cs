@@ -22,7 +22,7 @@ internal static class WalletUiTests {
  static void Response(object value){Invoke("Response",Json.Serialize(value));}
  static Dictionary<string,object> D(params object[] pairs){var d=new Dictionary<string,object>();for(int i=0;i<pairs.Length;i+=2)d[(string)pairs[i]]=pairs[i+1];return d;}
  static Dictionary<string,object> Entry(string hash,string kind,string state){return D("hash",hash,"kind",kind,"amount",kind=="registration"?"100":"200.000000000000000001","state",state);}
- static Dictionary<string,object> Snapshot(object activity){return D("type","status","address","0x"+new string('1',40),"balance","1234.000000000000000001","height",143,"chainId",1599846715,"peers",3,"miningEnabled",true,"miningEligible",true,"miningState","Enabled — waiting for assigned work","blocksMined",5,"bond","100","lifetime",D("continuous",true),"activity",activity);}
+ static Dictionary<string,object> Snapshot(object activity){return D("type","status","address","0x"+new string('1',40),"balance","1234.000000000000000001","height",143,"chainId",1599846715,"peers",3,"appMode","miner","miningEnabled",true,"miningEligible",true,"miningState","Enabled — waiting for assigned work","blocksMined",5,"bond","100","lifetime",D("continuous",true),"activity",activity);}
  static StackPanel Card(int index){var card=Control<StackPanel>("ActivityList").Children[index] as Border;Check(card!=null,"The populated history was not rendered.");return card.Child as StackPanel;}
  static string CardText(int card,int child){return ((TextBlock)Card(card).Children[child]).Text;}
  [STAThread] static int Main(string[] args){
@@ -36,6 +36,10 @@ internal static class WalletUiTests {
    var state=Snapshot(new object[]{transfer,registration});
    var parsed=Json.Deserialize<Dictionary<string,object>>(Json.Serialize(state));
    Console.WriteLine("Actual nested activity type: "+parsed["activity"].GetType().FullName);
+   // Before the engine's first status (just launched, offline or failed to start) the XAML alone decides: wallet only.
+   Check(Control<Button>("NavMining").Visibility==Visibility.Collapsed&&Control<Button>("ManageMining").Visibility==Visibility.Collapsed,"Mining tab or Manage mining shown before the engine reports its role.");
+   Check(Control<RadioButton>("ModeWallet").IsChecked==true&&Control<RadioButton>("ModeMiner").IsChecked!=true,"Wallet only is not the role shown before the engine reports.");
+   Check(Control<TextBlock>("RoleWarning").Visibility==Visibility.Collapsed&&Control<TextBlock>("ModeWarning").Visibility==Visibility.Collapsed,"A role warning shown before the engine reports.");
    Response(state);
    Check(Control<StackPanel>("ActivityList").Children.Count==2,"Expected two history rows.");
    Check(CardText(0,0)=="Sent PCOL","Transfer row missing.");
@@ -111,6 +115,37 @@ internal static class WalletUiTests {
    var lonely=Snapshot(new object[0]);lonely["peers"]=0;Response(lonely);Check(Control<TextBlock>("WalletNote").Text.StartsWith("Looking for peers"),"Plain peer search text missing.");
    lonely["incompatiblePeers"]=D("network",0,"wire",0,"consensus",1);lonely["lastIncompatibleReason"]="peer seed-1: peer runs consensus rules 2";Response(lonely);
    Check(Control<TextBlock>("WalletNote").Text.StartsWith("Peers use a different network configuration")&&Control<TextBlock>("WalletNote").Text.EndsWith("peer runs consensus rules 2"),"Consensus refusal reason not shown.");
+   // The device role (owner decision of 2026-11-16): the engine's appMode decides. Wallet only (also for a missing or
+   // unknown value) hides the Mining tab and Manage mining and leaves the Mining page; Wallet and miner shows them; the
+   // Settings radios follow the engine and stay disabled without a running engine; a "mode" answer acknowledges the command.
+   var role=Snapshot(new object[0]);Response(role);
+   Check(Control<Button>("NavMining").Visibility==Visibility.Visible&&Control<Button>("ManageMining").Visibility==Visibility.Visible,"Mining tab hidden for a miner.");
+   Check(Control<RadioButton>("ModeMiner").IsChecked==true&&Control<RadioButton>("ModeWallet").IsChecked==false,"Miner role not selected.");
+   Check(Control<TextBlock>("WalletNote").Text=="Your device is validating blocks. Mining is on.","Miner wallet note missing: "+Control<TextBlock>("WalletNote").Text);
+   Invoke("Page","Mining");Response(role);Check(Control<StackPanel>("MiningPage").Visibility==Visibility.Visible,"The Mining page closed for a miner.");
+   role["appMode"]="wallet";Response(role);
+   Check(Control<Button>("NavMining").Visibility==Visibility.Collapsed&&Control<Button>("ManageMining").Visibility==Visibility.Collapsed,"Mining tab or Manage mining shown in wallet-only mode.");
+   Check(Control<StackPanel>("MiningPage").Visibility==Visibility.Collapsed&&Control<StackPanel>("WalletPage").Visibility==Visibility.Visible,"The Mining page stayed open in wallet-only mode.");
+   Check(Control<RadioButton>("ModeWallet").IsChecked==true&&Control<RadioButton>("ModeMiner").IsChecked==false,"Wallet-only role not selected.");
+   Check(Control<TextBlock>("WalletNote").Text=="Your device is validating blocks. Wallet only: this device never mines.","Wallet-only note missing: "+Control<TextBlock>("WalletNote").Text);
+   Check(!Control<RadioButton>("ModeWallet").IsEnabled&&!Control<RadioButton>("ModeMiner").IsEnabled&&Control<TextBlock>("ModeOffline").Visibility==Visibility.Visible,"The role can be changed without a running engine.");
+   Check(Control<TextBlock>("ModeInfo").Text.Contains("never mines")&&Control<TextBlock>("ModeInfo").Text.Contains("stops mining at once"),"Device role texts missing.");
+   // A registered member that is wallet only: the engine's roleWarning on the wallet card and the Settings role card.
+   Check(Control<TextBlock>("RoleWarning").Visibility==Visibility.Collapsed&&Control<TextBlock>("ModeWarning").Visibility==Visibility.Collapsed,"A role warning shown without one.");
+   role["roleWarning"]="This account is registered to mine, but this device is wallet only.";Response(role);
+   foreach(string name in new[]{"RoleWarning","ModeWarning"})Check(Control<TextBlock>(name).Visibility==Visibility.Visible&&Control<TextBlock>(name).Text==(string)role["roleWarning"],name+" does not show the registered-account warning.");
+   role["appMode"]="miner";Response(role);Check(Control<TextBlock>("RoleWarning").Visibility==Visibility.Collapsed&&Control<TextBlock>("ModeWarning").Visibility==Visibility.Collapsed,"A role warning shown for a miner.");
+   role["appMode"]="wallet";role.Remove("roleWarning");Response(role);Check(Control<TextBlock>("RoleWarning").Visibility==Visibility.Collapsed&&Control<TextBlock>("ModeWarning").Visibility==Visibility.Collapsed,"A cleared role warning stayed.");
+   role.Remove("appMode");Response(role);Check(Control<Button>("NavMining").Visibility==Visibility.Collapsed&&Control<RadioButton>("ModeWallet").IsChecked==true,"A missing appMode must mean wallet only.");
+   role["appMode"]="Miner";Response(role);Check(Control<Button>("NavMining").Visibility==Visibility.Collapsed,"Only the engine's exact miner value counts.");
+   pending.SetValue(wallet,true);role["type"]="mode";role["appMode"]="miner";Response(role);
+   Check(!(bool)pending.GetValue(wallet)&&Control<Button>("NavMining").Visibility==Visibility.Visible&&Control<RadioButton>("ModeMiner").IsChecked==true,"Mode acknowledgement not applied.");
+   pending.SetValue(wallet,true);role["type"]="status";Response(role);Check((bool)pending.GetValue(wallet),"Periodic status acknowledged a pending mode command.");pending.SetValue(wallet,false);
+   Check((bool)call("MinerMode",new object[]{D("appMode","miner")})&&!(bool)call("MinerMode",new object[]{D("appMode","wallet")})&&!(bool)call("MinerMode",new object[]{D()}),"MinerMode must count only the engine's miner value.");
+   Check((string)call("RoleWarning",new object[]{false,"w"})=="w"&&(string)call("RoleWarning",new object[]{true,"w"})==""&&(string)call("RoleWarning",new object[]{false,null})=="","RoleWarning must show the engine's text only while wallet only.");
+   Check(Json.Serialize(call("ModeCommand",new object[]{false}))=="{\"method\":\"set_mode\",\"mode\":\"wallet\"}"&&Json.Serialize(call("ModeCommand",new object[]{true}))=="{\"method\":\"set_mode\",\"mode\":\"miner\"}","Device role command wrong.");
+   Check(!(bool)call("SendMode",new object[]{false,D("appMode","wallet")})&&(bool)call("SendMode",new object[]{true,D("appMode","wallet")})&&(bool)call("SendMode",new object[]{false,D("appMode","miner")})&&!(bool)call("SendMode",new object[]{false,D("appMode","wallet","appModeSaved",true)})&&(bool)call("SendMode",new object[]{false,D("appMode","wallet","appModeSaved",false)}),"A repeated role must be sent again only while the engine reports it unsaved.");
+   Check((string)call("WalletNote",new object[]{false,true})=="Your device is validating blocks. Wallet only: this device never mines.","A wallet-only device must never say mining is on.");
    transfer["state"]="Included";transfer["confirmations"]=2;state["type"]="status";Response(state);
    if(args.Length==1){
     Invoke("Page","Activity");window.Show();window.UpdateLayout();
@@ -120,7 +155,7 @@ internal static class WalletUiTests {
     var png=new PngBitmapEncoder();png.Frames.Add(BitmapFrame.Create(bitmap));using(var file=File.Create(args[0]))png.Save(file);
    }
    window.Close();app.Shutdown();Check(Directory.Exists(home)==homeExisted,"UI test unexpectedly created a wallet home.");
-   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin, bond top-up, bond to earn, reactivation clock, full-set replacement texts, network upgrade texts and peer diagnostics");return 0;
+   Console.WriteLine("PASS actual WPF history rendering, exact amounts, receipt transitions, direct-peer label, mining acknowledgement, refresh, rejoin, bond top-up, bond to earn, reactivation clock, full-set replacement texts, network upgrade texts, peer diagnostics and the device role (wallet only by default, Mining tab only for a miner)");return 0;
   }catch(Exception e){Console.WriteLine("FAIL "+e.GetBaseException().Message);return 1;}
  }
 }

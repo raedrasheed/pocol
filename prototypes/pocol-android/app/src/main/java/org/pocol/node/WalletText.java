@@ -1,5 +1,5 @@
 package org.pocol.node;
-/** User-facing texts for peer diagnostics, network upgrades (plan §5), key backup and the mining card and reviews. No Android types, so the host JVM test
+/** User-facing texts for peer diagnostics, network upgrades (plan §5), key backup, the device role and the mining card and reviews. No Android types, so the host JVM test
  *  (deploy/standalone/test_android_jni.py) covers them; the Windows wallet shows the same texts. */
 final class WalletText {
     static final String CONSENSUS_REFUSED="Peers use a different network configuration: apply the published network upgrade file (Settings → Upgrade) or update PoCol.";
@@ -93,5 +93,32 @@ final class WalletText {
         if(!note.isEmpty())lines.add(note);
         return lines;
     }
+    /** The device role (owner decision of 2026-11-16), chosen in Settings: wallet only (the default) or wallet and miner.
+     *  Both run the local node that validates blocks; only the miner role shows the Mining tab, and the engine refuses
+     *  every mining action in wallet-only mode. Only the engine's appMode of miner counts: a missing or unknown value is
+     *  wallet only. */
+    static final String MODE_TITLE="Device role";
+    static final String WALLET_ONLY="Wallet only";
+    static final String WALLET_AND_MINER="Wallet and miner";
+    static final String MODE_WALLET="Wallet only: this device runs its own local node, which validates every block and your balance, and it never mines.";
+    static final String MODE_MINER="Wallet and miner: the Mining tab appears, and mining starts only when you turn it on there with an eligible registered account.";
+    static final String MODE_SWITCH_BACK="Switching back to wallet only stops mining at once. You can change the role at any time.";
+    static final String MODE_OFFLINE="Connect your wallet to change the device role.";
+    static boolean minerMode(String appMode){return "miner".equals(appMode);}
+    /** The role the activity keeps from the engine's appMode (a display-only copy; anything but miner is wallet). */
+    static String storedMode(String appMode){return minerMode(appMode)?"miner":"wallet";}
+    /** The tab to show: wallet only has no Mining tab, so it falls back to the Wallet tab. */
+    static String visibleTab(String tab,boolean miner){return "Mining".equals(tab)&&!miner?"Wallet":tab;}
+    /** The engine's roleWarning (a registered member that is wallet only earns no rewards and can be replaced), shown on
+     *  the wallet card and the Settings role card, since wallet only has no Mining tab; nothing in the miner role. */
+    static String roleWarning(boolean miner,String warning){return miner||warning==null?"":warning;}
+    /** The navigation tabs: the Mining tab only for a miner. */
+    static String[] navTabs(boolean miner){return miner?new String[]{"Wallet","Activity","Mining","Settings"}:new String[]{"Wallet","Activity","Settings"};}
+    /** The wallet card's line while peers are connected. */
+    static String walletNote(boolean miner,boolean miningOn){
+        return miner?"Your device is validating blocks. Mining is "+(miningOn?"on.":"off."):"Your device is validating blocks. Wallet only: this device never mines.";
+    }
+    /** A role button's label: the selected role is marked. */
+    static String modeButton(String label,boolean selected){return selected?"\u2713  "+label:label;}
     private WalletText(){}
 }
