@@ -73,6 +73,6 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "D:\PoCol\PoCol-Chrome\e
 النشر العام لا يزال بحاجة إلى اختبار فعلي بعد تفعيل البوابة؛ الاختبارات الآلية تستخدم عقدة محاكاة.
 
 المصادر:
-https://github.com/palcertcom/pocol
+https://github.com/raedrasheed/pocol
 https://docs.cpanel.net/cpanel/domains/domains/
 https://developer.chrome.com/docs/webstore/publish

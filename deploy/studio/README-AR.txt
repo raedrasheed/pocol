@@ -79,7 +79,7 @@ sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 لا تحذف بيانات العقدة ولا تغيّر منفذ RPC الخام لحل مشكلة في واجهة Studio.
 
 المصادر
-https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocold/src/site.rs
+https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocold/src/site.rs
 https://caddyserver.com/docs/caddyfile/directives/reverse_proxy
 https://caddyserver.com/docs/caddyfile/directives/request_body
 https://docs.cpanel.net/cpanel/domains/domains/

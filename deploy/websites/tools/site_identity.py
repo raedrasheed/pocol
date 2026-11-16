@@ -67,7 +67,7 @@ BUNDLES = {
     'explorer-bundle': (EXPLORER, 'index'),
     'ide-bundle': (IDE, 'index-extension041'),
 }
-LINK_PREFIX = 'https://github.com/palcertcom/pocol/'
+LINK_PREFIX = 'https://github.com/raedrasheed/pocol/'
 # The source links that --commit derives.
 COMMIT_LINKS = {
     'source': 'tree/{sha}',

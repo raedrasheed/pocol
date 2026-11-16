@@ -199,7 +199,8 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, '--commit', TEST_COMMIT), 0, self.last_errors)
         explorer = self.bundle(root, 'explorer-bundle').read_text(encoding='utf-8')
         app = (root / si.STUDIO / 'app.js').read_text(encoding='utf-8')
-        base = 'https://github.com/palcertcom/pocol/'
+        base = si.LINK_PREFIX
+        self.assertEqual(base, 'https://github.com/raedrasheed/pocol/')
         for url in (f'tree/{TEST_COMMIT}', f'blob/{TEST_COMMIT}/prototypes/pocold/src/rpc.rs', f'tree/{TEST_COMMIT}/prototypes/pocold'):
             self.assertIn(f'href:`{base}{url}`', explorer)
         for url in (f'blob/{TEST_COMMIT}/prototypes/pocold/src/site.rs', f'tree/{TEST_COMMIT}/prototypes/pocol-extension'):

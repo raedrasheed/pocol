@@ -82,7 +82,7 @@ The extension requests `unlimitedStorage` because a maximum-size publication plu
 
 These are component tests with mocked Chrome/RPC where stated. No real on-chain signing, production RPC deployment or store review was performed by these tests.
 
-Primary protocol source: https://github.com/palcertcom/pocol/tree/50c2f27ee67961dec7aaf0eb735c0b641810e0ea
+Primary protocol source: https://github.com/raedrasheed/pocol/tree/72cf38f6cdb143aeb41431d2702317db1a0d85ba
 
 ## JavaScript modules in published sites
 

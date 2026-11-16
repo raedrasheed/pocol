@@ -61,9 +61,9 @@ Publication is a bounded sequence of transactions. The approval shows its files,
 
 ## Sources
 
-- [PoCol website publisher and storage format](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocold/src/site.rs)
-- [PoCol extension viewer and profile validation](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocol-extension/src/sw.js)
-- [PoCol desktop key format](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocold/src/keyfile.rs)
+- [PoCol website publisher and storage format](https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocold/src/site.rs)
+- [PoCol extension viewer and profile validation](https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocol-extension/src/sw.js)
+- [PoCol desktop key format](https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocold/src/keyfile.rs)
 - [cPanel Domains](https://docs.cpanel.net/cpanel/domains/domains/)
 - [Chrome Web Store publishing](https://developer.chrome.com/docs/webstore/publish)
 

@@ -27,7 +27,7 @@
     if (source.url) return safeLink(source.url);
     const ref = source.ref || guide.sha;
     if (!/^[0-9a-f]{40}$/.test(ref)) throw new Error('Source references must pin a full commit SHA');
-    return `https://github.com/palcertcom/pocol/blob/${ref}/${source.path}${source.anchor ? '#'+source.anchor : ''}`;
+    return `https://github.com/raedrasheed/pocol/blob/${ref}/${source.path}${source.anchor ? '#'+source.anchor : ''}`;
   }
   let language = 'en';
   let observer;

@@ -96,6 +96,6 @@ command. No production deployment or live publication is established by the
 unit tests. Verify the deployed gateway and a funded publication on the
 user's computer before treating the complete workflow as live.
 
-Sources: [PoCol publisher](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocold/src/site.rs),
+Sources: [PoCol publisher](https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocold/src/site.rs),
 [Caddy reverse proxy](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy),
 [cPanel Domains](https://docs.cpanel.net/cpanel/domains/domains/).

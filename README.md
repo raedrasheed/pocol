@@ -273,7 +273,7 @@ Builds and long-running tests need disk and memory headroom; a node's resource m
 Keep the same terminal for the variables used later. The commands use the default Cargo target directory.
 
 ```bash
-git clone https://github.com/palcertcom/pocol.git
+git clone https://github.com/raedrasheed/pocol.git
 cd pocol
 git rev-parse HEAD
 
@@ -495,7 +495,7 @@ python3 prototypes/lp10/run_lp10.py
 - Long-running, explicitly ignored measurements are documented with their tests, including `tests/journal_measure.rs`.
   Inspect the individual test's scope before opting into it; an ignored test is not a pass.
 - On E2E failure, the harness keeps logs and inputs under `POCOL_E2E_KEEP` or `tests/failures/`. Preserve the failure evidence.
-- Check [Actions](https://github.com/palcertcom/pocol/actions) and the exact checkout SHA. The Windows workflow and real-browser
+- Check [Actions](https://github.com/raedrasheed/pocol/actions) and the exact checkout SHA. The Windows workflow and real-browser
   workflow cover different surfaces; some older workflows target historical branches. Path filters mean not every docs edit
   runs application CI. Never count cancelled or unexecuted tests as passing.
 
@@ -603,4 +603,4 @@ extension build. There is currently **no repository-wide root `LICENSE` file**. 
 statement also licenses the thesis and every evidence asset; check the relevant component's declaration and retain its
 source notices when reusing or distributing it. This README records existing declarations, not a new license grant.
 
-For questions about the idea or the project, open an [issue](https://github.com/palcertcom/pocol/issues).
+For questions about the idea or the project, open an [issue](https://github.com/raedrasheed/pocol/issues).
