@@ -97,12 +97,14 @@ fn construct(alloc:&InMemoryDB,p:&ProfileIdentity,programs:&[Bytes;5])->Result<G
  check_caps(&db,p,0)?;let root=world_root(&db)?;
  Ok(GenesisImage{state:db,profile:B256::from(p.genesis_hash()),codes:hashes,root,alloc_sum,bonds,supply_bound})
 }
-/// The issuance term of the supply bound. Spec-1 program sets credit CP 15 every block up to H_END (u64::MAX blocks on a
-/// continuous network). V3-19 (the v3 program set, a CP schema v2 genesis naming its sysCodeHash): the M3 schedule's
-/// 2·S0·H_half + S_tail·2^64 (issuance.rs), which bounds the sum over every height whatever H_END is.
+/// The issuance term of the supply bound. V3-19 (the v3 program set, a CP schema v2 genesis naming its sysCodeHash): the
+/// M3 schedule's 2·S0·H_half + S_tail·2^64 (issuance.rs), which bounds the sum over every height whatever H_END is. Any
+/// other GenesisSpec names no bundled program set since phase 6a (`SystemPrograms::program_set`) and is refused before a
+/// genesis is built; for such programs the bound keeps the flat term (CP 15 every block up to H_END, u64::MAX blocks
+/// when H_END is 0) the retired spec-1 sets credited.
 fn future_issuance(p:&ProfileIdentity)->Result<U256,GenesisError>{
  let cp=p.cp();let s0=number(p.spec().cp[15]);
- if crate::apply::SystemPrograms::program_set(cp,&p.spec().sys_code_hash)==crate::apply::ProgramSet::V3{
+ if crate::apply::SystemPrograms::program_set(cp,&p.spec().sys_code_hash)==Some(crate::apply::ProgramSet::V3){
   return crate::issuance::future_bound(s0,cp.H_half,number(cp.S_tail)).ok_or(GenesisError::Supply)
  }
  s0.checked_mul(U256::from(if cp.H_END==0{u64::MAX}else{cp.H_END})).ok_or(GenesisError::Supply)

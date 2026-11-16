@@ -14,8 +14,9 @@ A new miner can register with a 0 PCOL bond, but its first transaction still pay
 | Node chain ID must equal the configured one | always | `chainId` |
 
 Why 0.002 PCOL is enough: the wallet's earn-in registration reserves a maximum fee for
-400,000 gas, about twice the 194,143 gas a zero-bond first registration uses
-(`prototypes/lp4-execution/tests/earnin_contracts.rs`, `earn_in_write_ceilings`). At the starting base
+400,000 gas, more than twice the 174,447 gas a zero-bond first registration uses on the V3 programs
+(`prototypes/lp4-execution/tests/v3_contracts.rs`, `wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set`;
+194,143 on the earn-in programs, deleted in phase 6a). At the starting base
 fee of 1 gwei the reservation is 0.0012 PCOL and the actual fee about 0.0004 PCOL. The amount still
 covers the reservation while the base fee stays below 2 gwei.
 

@@ -12,8 +12,6 @@ struct Net{chain:Chain,keys:HashMap<Address,Key>}
 fn oracle_on(mut c:Chain)->Chain{c.set_member_oracle(true);c}
 /// The consensus suite's gate-valid test profile (consensus.rs `cfg`) with more funded senders.
 fn cfg(extra:&[&str])->DevnetConfig{tuned(DevnetConfig::new(CHAIN,1_700_000_000,&["a","b","c"]),extra)}
-/// The same on the retired spec-1 devnet (Phase 6 removes the spec-1 log caps it pins).
-fn cfg_spec1()->DevnetConfig{tuned(DevnetConfig::spec1(CHAIN,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded),&[])}
 fn tuned(mut c:DevnetConfig,extra:&[&str])->DevnetConfig{
     c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
     for l in extra{c.accounts.push(((*l).into(),U256::from(10u128.pow(24))));}c
@@ -296,12 +294,10 @@ fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).colle
     n.pool_audit().unwrap();
 }
 
-/// N4 (V3-24): eth_estimateGas models the log caps active in the next block. On spec-1 (32 KiB / 546 per block) a call
-/// whose one LOG0 carries 32 KiB of data (36 + 32,768 charged bytes) halts in every block, so it gets no estimate
-/// (-32000, LogBytes) while one of 1 KiB does; eth_call is not an estimate and still runs it. The pool refuses the
-/// former the same way.
-#[test] fn estimate_gas_models_the_spec1_log_caps(){estimate_gas_models_the_log_caps(&cfg_spec1(),"estimate",32768,400_000)}
-/// The same on v3 (256 KiB / 4368 per block): a LOG0 of 256 KiB of data halts in every block.
+/// N4 (V3-24): eth_estimateGas models the log caps active in the next block: on v3 (256 KiB / 4368 per block) a call
+/// whose one LOG0 carries 256 KiB of data halts in every block, so it gets no estimate (-32000, LogBytes) while one of
+/// 1 KiB does; eth_call is not an estimate and still runs it. The pool refuses the former the same way. (Its spec-1 twin,
+/// at 32 KiB / 546, was deleted with the spec-1 rule set in phase 6a.)
 #[test] fn estimate_gas_models_the_v3_log_caps(){estimate_gas_models_the_log_caps(&cfg(&[]),"estimate-v3",256*1024,3_000_000)}
 fn estimate_gas_models_the_log_caps(c:&DevnetConfig,tag:&str,block_bytes:u32,call_gas:u64){
     let (mut n,_d)=node_with(tag,Limits::default(),c);let mut h=net_with(c);let alice=key("alice");

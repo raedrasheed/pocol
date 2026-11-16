@@ -3749,8 +3749,8 @@ mod f5f6_tests{
         eprintln!("F5/F6: attacker self-signed pair ignored (pool stayed empty); real proposer equivocation still detected.");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
-    /// V3-04 template first-seen times: none on a profile that cannot activate v3; on one that can, a template counts
-    /// only once locked (a received shell never does), one TemplateID per slot with the earliest time, an equivocated
+    /// V3-04 template first-seen times (a v3 profile keeps them; phase 6a deleted the spec-1 profile that kept none): a
+    /// template counts only once locked (a received shell never does), one TemplateID per slot with the earliest time, an equivocated
     /// slot poisoned however many templates its signer floods, and never more than TEMPLATE_SEEN_MAX slots.
     #[test] fn template_first_seen_times_are_v3_only_locked_one_per_slot_and_bounded(){
         let (mut n,dir)=open_node_at("template-seen");
@@ -3760,10 +3760,6 @@ mod f5f6_tests{
         let signed=|parent:[u8;32],h:u64,key:&Key,salt:u16|{let mut t=selfsigned(parent,h,key,0);t.ut_raw=salt.to_be_bytes().repeat(4);
             t.sig=key.sign_hash(&B256::from(hashes::sig_msg(&template_id(&t.ut_raw)))).to_vec();t};
         let t=signed(gh,1,&drawn_key,20);let tid=template_id(&t.ut_raw);let slot=Node::seen_key(&t);
-        // The retired spec-1 devnet cannot activate v3 (Phase 6a deletes this check with the spec-1 rule set).
-        let (mut s1,d1)=open_node_with("template-seen-spec1",DevnetConfig::spec1(777915,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded));
-        assert!(!s1.cfg.limits.first_imports,"a spec-1 profile");s1.note_template_seen(&t);s1.template_equivocated(slot);assert!(s1.template_seen.is_empty(),"spec 1 keeps no map");
-        drop(s1);let _=std::fs::remove_dir_all(&d1);
         assert!(n.cfg.limits.first_imports,"the v3 devnet keeps first-seen times");
         // Gossip alone never counts: a drawn signer's shell may carry a body nobody can rebuild (a withheld template).
         n.import_clock=Some(3);n.observe_template(&t);assert!(n.template_seen.is_empty(),"received, not locked: not recorded");
@@ -3966,9 +3962,6 @@ mod late_cache_tests{
     use super::*;
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
     #[test] fn a_template_locked_again_takes_its_shares_back_and_its_peer_shares_are_relayed(){locked_again(1,"full")}
-    /// The same on a bounded nonce range (CP field 4 = 0, a valid v3 CP until Phase 6a requires nonceMode 1), where a share
-    /// past nMax exists.
-    #[test] fn a_template_locked_again_on_a_bounded_nonce_range(){locked_again(0,"bounded")}
     fn locked_again(nonce_mode:u8,tag:&str){
         let mut c=DevnetConfig::new(777918,1_700_000_000,&["a","b","c"]);c.nonce_mode=nonce_mode;
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);

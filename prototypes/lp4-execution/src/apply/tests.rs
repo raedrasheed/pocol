@@ -283,18 +283,6 @@ mod a03{
             if !ok{assert_eq!(o.halts,vec![(0,Halt::LogBytes)]);assert_eq!(r[0].1,3_000_000,"a halt charges all gas");assert_eq!(o.logs_bloom,[0u8;256]);}
         }
     }
-    /// LG2 (LOG-ACCT-01, lemma P1) at the spec-1 per-block limits (32 KiB, 546 logs), on the retired spec-1 devnet. The
-    /// v3 limits have `lg2_4368_logs_succeed_4369_halt_and_topics_are_charged`. Phase 6 removes the spec-1 limits.
-    #[test] fn lg2_546_logs_succeed_547_halt_and_topics_are_charged(){
-        let f=fx(&DevnetConfig::spec1(777900,1_800_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded),&[(addr(0x41),LOGN),(addr(0x42),LOG2)]);
-        let r=|n:u64,d:u64|{let o=apply(&f,&[tx(0,addr(0x41),data(n,d),7_000_000,0)],0).unwrap();(receipts(&o)[0],o.halts)};
-        assert_eq!(r(546,24).0.2,546,"LG2: 546 LOG0 of 24 bytes (546*60 = 32760) succeed");
-        assert_eq!(r(547,24).1,vec![(0,Halt::LogCount)],"LG2: the 547th halts");
-        assert_eq!(r(546,0).0.2,546);assert_eq!(r(547,0).1,vec![(0,Halt::LogCount)],"547 empty logs fit the bytes but not the count");
-        // LOG2: 36 + 2*32 + d bytes.
-        let t=|d:u64|apply(&f,&[tx(0,addr(0x42),data(0,d),2_000_000,0)],0).unwrap();
-        assert_eq!(t(32768-100).log_bytes,32768);assert_eq!(t(32768-99).halts,vec![(0,Halt::LogBytes)]);
-    }
     #[test] fn lg2_4368_logs_succeed_4369_halt_and_topics_are_charged(){
         let f=fx(&cfg(),&[(addr(0x41),LOGN),(addr(0x42),LOG2)]);
         let r=|n:u64,d:u64|{let o=apply(&f,&[tx(0,addr(0x41),data(n,d),7_000_000,0)],0).unwrap();(receipts(&o)[0],o.halts)};
@@ -375,27 +363,6 @@ mod a03{
             Tx{chain_id:777900,nonce,max_priority:U256::from(1_000_000_000u64),max_fee:U256::from(100_000_000_000u64),gas,to:Some(to),value:U256::from(value),data:d}.sign_1559(key)
         }
         fn halt_name(h:&Halt)->&'static str{match h{Halt::LogBytes=>"LogBytes",Halt::LogCount=>"LogCount",Halt::LogCap=>"LogCap",Halt::DirtyKeys=>"DirtyKeys",Halt::DirtyAccounts=>"DirtyAccounts",_=>"other"}}
-        /// The LOG-ACCT-01 vectors are absolute for the spec-1 per-block limits (32 KiB, 546 logs), so they replay on the
-        /// retired spec-1 devnet; the v3 limits have the boundary tests above. Phase 6 removes the spec-1 limits.
-        #[test] fn log_acct_01_vectors(){
-            let v=vectors(include_str!("../../../../development/audit-2026-10-22/proposals/vectors/log-acct-01.json"));let rec=v["recommended"].as_str().unwrap();
-            let f=fx(&DevnetConfig::spec1(777900,1_800_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded),&[(addr(0x41),LOGN),(addr(0x42),LOG2)]);let mut n=0;
-            for s in v["scenarios"].as_array().unwrap(){
-                let txs:Vec<Vec<u8>>=s["txs"].as_array().unwrap().iter().enumerate().map(|(i,t)|{
-                    let (count,log)=match t.get("repeat"){Some(r)=>(r.as_u64().unwrap(),&t["log"]),None=>(t.as_array().unwrap().len() as u64,&t[0])};
-                    let (topics,d)=(log["topics"].as_u64().unwrap(),log["data"].as_u64().unwrap());
-                    if topics==2{assert_eq!(count,1);tx(i as u64,addr(0x42),data(0,d),2_000_000,0)}else{assert_eq!(topics,0);tx(i as u64,addr(0x41),data(count,d),2_000_000,0)}
-                }).collect();
-                let e=&s["expected"][rec];let o=apply(&f,&txs,0).unwrap_or_else(|x|panic!("{}: {x:?}",s["id"]));let r=receipts(&o);
-                for (i,t) in e["txs"].as_array().unwrap().iter().enumerate(){
-                    let got=o.halts.iter().find(|(k,_)|*k==i).map(|(_,h)|halt_name(h));
-                    assert_eq!(got,t["halt"].as_str(),"{} tx {i}",s["id"]);
-                    assert_eq!(r[i].2 as u64,t["logs"].as_u64().unwrap_or(0),"{} tx {i} logs",s["id"]);
-                }
-                assert_eq!(o.log_bytes,e["blockLogBytes"].as_u64().unwrap(),"{}",s["id"]);n+=1;
-            }
-            assert_eq!(n,10);
-        }
         /// SPRAY with its payees at 0x3001.. instead of 0x1001.. (fresh accounts).
         fn spray_b()->Vec<u8>{let mut c=SPRAY.to_vec();let i=c.windows(3).position(|w|w==[0x61,0x10,0x00]).unwrap();c[i+1]=0x30;c}
         #[test] fn d_a03_dirty_vectors(){

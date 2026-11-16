@@ -17,9 +17,11 @@ fn spec(c:&DevnetConfig,extra_rel:u32)->Spec{
     let mut local=pocold::single_host_local();local.delta_rel+=extra_rel;
     Spec::new(devnet::build(c).unwrap().admit(&local).unwrap().0)
 }
-/// `v3`: the v3 devnet; otherwise its retired spec-1 twin, bonded with the full nonce domain (Phase 6a deletes it).
+/// The v3 devnet (`v3` is always true: its retired spec-1 twin and the tests of the spec-1 node's legacy fork choice,
+/// d133 order and three-field journals, were deleted with the spec-1 rule set in phase 6a).
 fn net(v3:bool)->Net{
-    let mut cfg=if v3{DevnetConfig::new(777937,1_700_000_000,&["fork-miner"])}else{DevnetConfig::spec1(777937,1_700_000_000,&["fork-miner"],devnet::Spec1Programs::Bonded)};
+    assert!(v3,"the spec-1 twin is retired (phase 6a)");
+    let mut cfg=DevnetConfig::new(777937,1_700_000_000,&["fork-miner"]);
     // R7 has room for the restart test's alternate, still gate-valid local
     // deadline. The original 73-second fixture sat exactly on that gate.
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=91;cfg.r_max=1;
@@ -101,16 +103,7 @@ fn twenty_orders(v3:bool){
     }
     derivations_checked(&build.chain,"the built DAG");
 }
-#[test]fn twenty_import_orders_keep_the_legacy_d133_order(){twenty_orders(false)}
 
-#[test]fn legacy_node_keeps_three_field_journals_and_signed_precedence(){
-    let n=net(false);let g=n.chain.head;let fb=block(&n,g,false,0,0);let sg=block(&n,g,true,0,0);let d=dir("legacy");
-    {let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();
-        assert!(at(&mut node,&fb,u128::MAX));assert!(at(&mut node,&sg,u128::MAX));assert_eq!(node.chain.head,sg.hash());
-        assert!(node.chain.blocks.values().all(|e|e.timely&&node.first_import(&e.hash).unwrap().is_none()));}
-    let r=store::open(&d,&g).unwrap();for p in r.payloads(){assert!(store::decode_record_ref(&p).unwrap().first_import.is_none());assert_eq!(pocold::rlp::decode(&p).unwrap().list().unwrap().len(),3);}drop(r);
-    let node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();assert_eq!(node.chain.head,sg.hash());drop(node);std::fs::remove_dir_all(d).unwrap();
-}
 
 #[path="support/auth_peer.rs"] mod auth_peer;
 

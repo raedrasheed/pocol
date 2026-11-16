@@ -21,7 +21,7 @@ from runtime import digest
 BIN = Path(os.environ.get('POCOLD_BIN_DIR', str(ROOT / 'prototypes/pocold/target/release')))
 LOCAL = ['--delta', '1', '--phi', '1', '--t-exec', '1', '--delta-rel', '8', '--gamma', '5']
 CONFIRMATIONS = 6
-# The genesis uses "fullNonce" (nonceMode 1, the full 64-bit nonce domain), as Mainnet after its v2
+# The genesis is a v3 genesis (init-testnet builds only v3: nonceMode 1, the full 64-bit nonce domain), as Mainnet after its v2
 # height does, so an attempt cannot run out of nonces. The budgets still allow one exhausted-or-late
 # attempt per block (D_att=60, the next attempt only after U(a)+gamma: 66 seconds): inclusion, six
 # confirmations, one extra attempt, and 60 seconds of RPC/scheduling slack. This is a finite test
@@ -49,7 +49,7 @@ def main():
     for name in ['m1', 'm2', 'm3', 'm4', 'r1', 'r2', 'r3', 'r4', 'alice', 'bob']:
         addresses[name] = subprocess.check_output([str(BIN / 'pocol-key'), 'generate', '--out',
             str(keys / (name + '.pocol-key'))], text=True).strip()
-    config = {'chainId': 777914, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1, 'fullNonce': True,
+    config = {'chainId': 777914, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1,
         'miners': [{'id': addresses[f'm{i}'], 'reward': addresses[f'r{i}']} for i in range(1, 4)],
         'accounts': [{'address': addresses[name], 'wei': str(10**24)} for name in ['alice', 'bob', 'm4', 'r4']]}
     (evidence / 'genesis-input.json').write_text(json.dumps(config, indent=2))
@@ -163,12 +163,16 @@ def main():
         # keccak256("register(address)")[:4], independently checked with @noble/hashes.
         calldata = '0x4420e486' + addresses['r4'][2:].rjust(64, '0')
         registry = '0x0000000000000000000000000000000000c0c001'
-        registration = send('m4', registry, 100 * 10**18, 0, calldata, 1000000)
+        # The v3 registration bond: B_reg is 20 PCOL on the genesis init-testnet builds (DevnetConfig::new), the bond
+        # the genesis members hold; PoColSystemV3 reverts a registration that sends more (BadValue).
+        bond = 20 * 10**18
+        assert all(int(m['bond'], 16) == bond for m in rpc(urls[0], 'pocol_getMiners')), 'the genesis bond is B_reg'
+        registration = send('m4', registry, bond, 0, calldata, 1000000)
         confirmed(registration)
         assert all(any(m['id'].lower() == addresses['m4'] and m['status'] == 1 for m in rpc(u, 'pocol_getMiners')) for u in urls)
         wait(lambda: rpc(urls[3], 'pocol_status')['stats']['mined'] > 0, 'new miner produces a block', CONFIRMATION_TIMEOUT)
         ok('non-genesis miner registers through a transaction and produces real blocks')
-        duplicate = send('m4', registry, 100 * 10**18, 1, calldata, 1000000)
+        duplicate = send('m4', registry, bond, 1, calldata, 1000000)
         confirmed(duplicate, '0x0')
         assert all(len(rpc(u, 'pocol_getMiners')) == 4 for u in urls)
         ok('duplicate registration reverts without adding a fifth member')

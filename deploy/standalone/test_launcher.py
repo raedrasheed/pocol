@@ -27,15 +27,14 @@ def call(name, *args, ok=True):
 def identity(home):
     return json.loads(call('pocol', 'identity', '--home', home).stdout)['address']
 
-def network(root, homes, seeds, full_nonce=True):
-    """A test network. `full_nonce` (default) gives nonceMode 1, the full nonce range, so the chain never
-    stalls on an exhausted attempt; the full-nonce upgrade tests pass False to start from the v1 range."""
+def network(root, homes, seeds):
+    """A test network: a v3 genesis (init-testnet builds only v3 since phase 6a: nonceMode 1, the full nonce range, so
+    the chain never stalls on an exhausted attempt)."""
     ids = [identity(h) for h in homes]
     public = root / 'public.json'
     config = {'chainId': 777915, 'genesisTime': int(time.time()) + 5,
         'registrationPerBlock': 1, 'miners': [{'id': a, 'reward': a} for a in ids[:3]],
         'accounts': [{'address': a, 'wei': str(10**24)} for a in ids]}
-    if full_nonce: config['fullNonce'] = True
     public.write_text(json.dumps(config), encoding='utf-8')
     call('pocold', 'init-testnet', '--config', public, '--out', root / 'genesis')
     args = ['network', '--from', root / 'genesis', '--out', root / 'network.pocol.json']
@@ -88,7 +87,7 @@ class Launcher(unittest.TestCase):
         # T27 (plan §1.7): `pocol network` writes v2 bound to the consensus rules, never to the build digest; the dry
         # run names the change and the identity a released node will report, and writes nothing.
         home = self.root / 'node'
-        path = network(self.root, [home], ['127.0.0.1:30300'], full_nonce=False)
+        path = network(self.root, [home], ['127.0.0.1:30300'])
         saved = json.loads(path.read_text(encoding='utf-8'))
         rules = json.loads(call('pocol', 'build-info').stdout)['consensusRulesVersion']
         self.assertEqual((saved['schema'], saved['consensusRulesVersion']), ('pocol-network-v2', rules))

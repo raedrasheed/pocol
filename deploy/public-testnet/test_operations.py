@@ -16,7 +16,8 @@ import monitor
 
 
 CORPUS = Path(__file__).resolve().parents[2] / 'prototypes/pocol-extension/tests/data'
-# The pocold devnet GenesisSpec of the decoder corpus: a spec-1 genesis of chain 777960.
+# The pocold devnet GenesisSpec of the decoder corpus: a spec-1 genesis of chain 777960, which the tools refuse as the
+# node's admission does (phase 6a of the fresh network retired the spec-1 rule set).
 SPEC1_HEX = (CORPUS / 'devnet-spec.hex').read_text().strip()
 SPEC1_CHAIN = 777960
 
@@ -27,6 +28,20 @@ def corpus_spec(label):
         for item in json.loads((CORPUS / name).read_text())['items']:
             if item['label'] == label: return item['hex']
     raise KeyError(label)
+
+
+# The bundles' network: the v3 genesis of the spec-2 corpus (CP schema v2, the v3 program set, nonceMode 1).
+V3_HEX = '0x' + corpus_spec('v3/base')
+V3_CHAIN = prepare.pocol_identity.decode_genesis_spec(bytes.fromhex(V3_HEX[2:]))['chainId']
+
+
+def bounded_v3_hex():
+    """V3_HEX with its nonceMode item (CP index 4, the single byte 0x01) set to 0 (0x80): bounded nonce ranges."""
+    ident = prepare.pocol_identity; b = bytearray.fromhex(V3_HEX[2:])
+    item = ident._children(b, ident._children(b, ident._item(b, 0))[2])[4]
+    assert b[item[1]:item[1] + item[2]] == b'\x01'
+    b[item[1]] = 0x80
+    return b.hex()
 
 
 def inventory():
@@ -109,17 +124,17 @@ class Operations(unittest.TestCase):
         h.update(','.join(info['features']).encode())
         self.assertEqual(h.hexdigest(), info['compatibilitySha256'])
         self.assertEqual(info['features'], []); self.assertEqual(info['protocolVersion'], 2)
-        self.assertIn('lp4-execution/tests/data/system-v1.json', info['sourceSha256'])
+        self.assertIn('lp4-execution/tests/data/system-v3.json', info['sourceSha256'])
         # The fields node_operator and prepare bind a bundle to (VA-SPEC §2): a pinned release build of rules 2 (the v3
         # release rules).
         # FN-5: fork version 3 is the cap raise (MAX_FORK_VERSION 3).
         self.assertEqual((info['consensusRulesVersion'], info['protocolVersionMin'], info['maxForkVersion']), (2, 2, 3))
         self.assertIs(info['consensusPinned'], True, 're-pin the consensus lock (pocold/tests/consensus_guard.rs)')
 
-    def bundle(self, name='bundle', digest='b'*64, forks=None, spec=SPEC1_HEX, declare=None):
+    def bundle(self, name='bundle', digest='b'*64, forks=None, spec=V3_HEX, declare=None):
         bundle = self.root / name; bundle.mkdir(); (bundle / 'net').mkdir(); (bundle / 'bin').mkdir()
         config = {'name':'n1', 'minerAddress':None, 'listen':'0.0.0.0:30300', 'rpc':'127.0.0.1:8545', 'peers':[]}
-        info = {'chainId':SPEC1_CHAIN, 'genesisHash':'0x'+'a'*64, 'admission':{'scope':'experimental-devnet'}}
+        info = {'chainId':V3_CHAIN, 'genesisHash':'0x'+'a'*64, 'specVersion':2, 'v3':True, 'admission':{'scope':'experimental-devnet'}}
         if forks is not None: info['forks'] = forks
         info.update(declare or {})
         build = {'features':[], 'protocolVersion':2, 'compatibilitySha256':digest, 'consensusRulesVersion':2,
@@ -235,35 +250,39 @@ class Operations(unittest.TestCase):
     def test_bundles_and_releases_check_the_public_genesis_spec_not_only_its_declaration(self):
         bundle, _ = self.bundle()
         self.assertEqual(op.verify(bundle)[1]['name'], 'n1')
-        # A spec-2 (v3) network: its v3 genesis on CP schema v2 with the v3 program set verifies.
-        v3 = corpus_spec('v3/base'); chain = prepare.pocol_identity.decode_genesis_spec(bytes.fromhex(v3))['chainId']
-        v3_bundle, _ = self.bundle('v3', spec='0x' + v3, declare={'chainId': chain, 'specVersion': 2, 'v3': True})
-        op.verify(v3_bundle)
-        # The declaration alone is not enough: a spec that differs in version, chain or (on spec 2) program set, or is
-        # not hex, is refused although the checksums match.
-        bad = [('spec2-declared', SPEC1_HEX, {'specVersion': 2, 'v3': True}, 'version differs'),
-               ('spec1-declared', v3, {'chainId': chain}, 'version differs'),
-               ('chain', SPEC1_HEX, {'chainId': SPEC1_CHAIN + 1}, 'chain ID differs'),
+        # The bundle's network is a spec-2 (v3) one: its v3 genesis on CP schema v2 with the v3 program set verifies.
+        self.assertEqual(op.read_json(bundle / 'net/devnet.json')['chainId'], V3_CHAIN)
+        # The declaration alone is not enough: a spec that differs in version, chain or program set, a genesis the node
+        # refuses (a spec-1 genesis, retired; nonceMode 0), or one that is not hex, is refused although the checksums match.
+        spec1 = {'chainId': SPEC1_CHAIN, 'specVersion': 1, 'v3': False}
+        bad = [('spec2-declared', SPEC1_HEX, {'chainId': SPEC1_CHAIN}, 'version differs'),
+               ('spec1-declared', V3_HEX, {'specVersion': 1, 'v3': False}, 'version differs'),
+               ('spec1', SPEC1_HEX, spec1, 'GenesisSpec version 1: the spec-1 rule set is retired'),
+               ('chain', V3_HEX, {'chainId': V3_CHAIN + 1}, 'chain ID differs'),
                ('program-set', corpus_spec('devnet-v2/base'), None, 'v3 program set'),
-               ('malformed', corpus_spec('v3/gamma-past-bound'), {'chainId': chain, 'specVersion': 2, 'v3': True}, 'gsRange:gamma_bp'),
-               ('not-hex', 'zz' + SPEC1_HEX, None, 'not hex')]
+               ('nonce-mode', bounded_v3_hex(), None, 'nonceMode 0: bounded nonce ranges are a retired spec-1 rule'),
+               ('malformed', corpus_spec('v3/gamma-past-bound'), None, 'gsRange:gamma_bp'),
+               ('not-hex', 'zz' + V3_HEX, None, 'not hex')]
         for name, spec, declare, message in bad:
             if name == 'program-set':
                 other = prepare.pocol_identity.decode_genesis_spec(bytes.fromhex(spec))
                 declare = {'chainId': other['chainId'], 'specVersion': other['specVersion'], 'v3': other['specVersion'] == 2}
             with self.subTest(name), self.assertRaisesRegex(ValueError, message):
                 op.verify(self.bundle(name, spec=spec, declare=declare)[0])
-        # prepare.py refuses such a network before it reads the build or writes anything.
-        network = self.root / 'network'; network.mkdir()
-        (network / 'genesis.spec.hex').write_text(SPEC1_HEX + '\n'); (network / 'alloc.json').write_text('{}')
-        op.write_json(network / 'devnet.json', {'chainId': SPEC1_CHAIN, 'genesisHash': '0x' + 'a' * 64, 'specVersion': 2, 'v3': True,
-                                                'keyMode': 'independent-key-files', 'admission': {'scope': 'experimental-devnet'}})
-        out = self.root / 'release'
-        with unittest.mock.patch.object(prepare.subprocess, 'check_output') as build_info:
-            with self.assertRaisesRegex(ValueError, 'version differs'):
-                prepare.prepare(inventory(), network, self.root / 'no-bin', out, rehearsal=True)
-            build_info.assert_not_called()
-        self.assertFalse(out.exists())
+        # prepare.py refuses such a network before it reads the build or writes anything: a declaration that differs
+        # from the spec, and a network an older init-testnet built at spec 1 (devnet.json without specVersion).
+        for name, declare, message in [('differs', {'specVersion': 2, 'v3': True}, 'version differs'),
+                                       ('retired', {}, 'GenesisSpec version 1: the spec-1 rule set is retired')]:
+            network = self.root / ('network-' + name); network.mkdir()
+            (network / 'genesis.spec.hex').write_text(SPEC1_HEX + '\n'); (network / 'alloc.json').write_text('{}')
+            op.write_json(network / 'devnet.json', {'chainId': SPEC1_CHAIN, 'genesisHash': '0x' + 'a' * 64, **declare,
+                                                    'keyMode': 'independent-key-files', 'admission': {'scope': 'experimental-devnet'}})
+            out = self.root / ('release-' + name)
+            with self.subTest(name), unittest.mock.patch.object(prepare.subprocess, 'check_output') as build_info:
+                with self.assertRaisesRegex(ValueError, message):
+                    prepare.prepare(inventory(), network, self.root / 'no-bin', out, rehearsal=True)
+                build_info.assert_not_called()
+            self.assertFalse(out.exists())
 
     def test_duplicate_json_keys_are_refused(self):
         path = self.root / 'bad.json'; path.write_text('{"chainId":1,"chainId":2}')

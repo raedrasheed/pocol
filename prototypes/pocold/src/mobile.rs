@@ -265,7 +265,7 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir(&dir).unwrap();
         let miner = pocol_lp4_execution::devnet::miner_identity("mobile-inspect");
-        let config = serde_json::json!({"continuous":true,"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+        let config = serde_json::json!({"chainId":777918,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
             "miners":[{"id":miner.id,"reward":miner.reward}],
             "accounts":[{"address":pocol_lp4_execution::devnet::account_key("mobile-inspect").address(),"wei":"1000000000000000000000000"}]});
         crate::testnet::prepare(config.to_string().as_bytes(), &dir.join("genesis")).unwrap();

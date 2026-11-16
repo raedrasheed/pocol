@@ -1,10 +1,11 @@
-//! The v3 twin of tests/earnin.rs (V3-PR-E0): the same full-chain earn-in flow on a specVersion-2 devnet, which
+//! The full-chain earn-in flow (V3-PR-E0; the spec-1 tests/earnin.rs it was the twin of went with the spec-1 rule set in
+//! Phase 6a) on a specVersion-2 devnet, which
 //! selects the v3 programs (system-v3.json), without a probation pool or deadline since FN-2b (owner decisions 10b/10c of
 //! 2026-11-13: ACCRUING records count within M_max and never exit by time). Real
 //! blocks, real settlement through RewardEscrow, the escrow invariant after every block. A spec-2 genesis is the release
 //! GenesisSpec (SPEC_VERSION 2), so these are default tests.
 //! V3-PR-E2b adds the evidence penalties on chain (V3-16, V3-17): real type-2 evidence, the reporter's cut, the
-//! whole-pot burn of an ACCRUING winner, the E_win boundary and a self-report, against the spec-1 earn-in chain. FN-2b C4
+//! whole-pot burn of an ACCRUING winner, the E_win boundary and a self-report. FN-2b C4
 //! adds the removal at a full set on chain: registerReplacing through the wallet's quote decision (a removable member
 //! chosen at random, confirmed by the registry's removalStatus view) and the node's pocol_getRemovable listing.
 #[path="support/members.rs"] mod members_sweep;
@@ -12,14 +13,9 @@ use pocol_lp4_execution::devnet::{self, DevnetConfig};
 
 const PCOL: u128 = 1_000_000_000_000_000_000;
 
-fn config() -> DevnetConfig { config_spec(2) }
-/// Spec 2: the v3 devnet. Spec 1: its retired spec-1 earn-in twin, which the fails-on-original comparisons run; Phase 6a
-/// deletes it with the spec-1 rule set.
-fn config_spec(spec: u8) -> DevnetConfig {
-    let mut cfg = match spec {
-        1 => DevnetConfig::spec1(777941, 1_700_000_000, &["one", "two"], devnet::Spec1Programs::EarnIn),
-        _ => DevnetConfig::new(777941, 1_700_000_000, &["one", "two"]),
-    };
+/// The v3 devnet.
+fn config() -> DevnetConfig {
+    let mut cfg = DevnetConfig::new(777941, 1_700_000_000, &["one", "two"]);
     cfg.hash_rate = 16;
     cfg.c = 8;
     cfg.d_att = 73;
@@ -31,9 +27,6 @@ fn config_spec(spec: u8) -> DevnetConfig {
 fn a_v3_earnin_genesis_selects_the_v3_program_set() {
     let net = devnet::build(&config()).unwrap();
     assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::v3().sys_code_hash(), "spec 2 + earn-in selects the v3 set");
-    // The spec-1 earn-in devnet keeps the earn-in set and its constants.
-    let net = devnet::build(&config_spec(1)).unwrap();
-    assert_eq!(net.programs.sys_code_hash(), pocol_lp4_execution::apply::SystemPrograms::earnin().sys_code_hash());
 }
 
 mod on_chain {
@@ -49,11 +42,7 @@ mod on_chain {
     /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
     impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
 
-    fn net() -> Net {
-        let net = net_with(config());
-        assert_eq!(net.chain.spec.probation(), None, "FN-2b: no probation pool or deadline on the v3 set");
-        net
-    }
+    fn net() -> Net { net_with(config()) }
     fn net_with(cfg: DevnetConfig) -> Net {
         let mut candidate = devnet::build(&cfg).unwrap();
         candidate.forks.push((2, 2));
@@ -90,6 +79,16 @@ mod on_chain {
                     assert!(net.chain.insert(entry));
                     let h = net.chain.head();
                     apply::check_escrow_invariant(&h.state, net.chain.spec.profile(), h.height, false).unwrap();
+                    // The owner list the child's recordShares receives (shares and winner of this real block) names
+                    // only registered records: members of the parent's ActList, still records after this block (the
+                    // premise of GAS_ENVELOPE_V3's recordShares entry, admission.rs; tests/earnin.rs checked it on the
+                    // retired earn-in set).
+                    let owners = h.result.as_ref().expect("a validated block has a result").owner_sequence();
+                    let active = apply::active_list(&parent.state);
+                    for id in owners {
+                        assert!(active.contains(&id) && apply::miner_record(&parent.state, id).is_some() && apply::miner_record(&h.state, id).is_some(),
+                            "recordShares owner {id} at {} is not a registered member of the parent's ActList", h.height);
+                    }
                     return context.proposer;
                 }
                 if shares.len() < usize::from(net.chain.spec.cp().S_max) && le_target(&hash, &context.t_share) { shares.push(nonce as u64); }
@@ -177,7 +176,7 @@ mod on_chain {
     /// FN-2b C2/C3 on chain: ACCRUING newcomers have no pool of their own and no deadline. At M_max 4 (two genesis members)
     /// alice (zero bond) and bob (1 PCOL) both register ACCRUING in consecutive blocks, carol's zero-bond registration is
     /// refused by M_max (a status-0 receipt), and 70 blocks on (there is no deadline to reach) alice's top-up lands and she
-    /// is still an active ACCRUING record; the wallet's rejoin step has no deadline either (Spec::probation None).
+    /// is still an active ACCRUING record; the wallet's rejoin step has no deadline either.
     #[test]
     fn accruing_members_count_within_m_max_and_never_exit_by_time() {
         let mut cfg = config(); cfg.m_max = 4; cfg.accounts.push(("carol".into(), U256::from(10u128.pow(24))));
@@ -198,7 +197,7 @@ mod on_chain {
         assert_eq!((r.status, r.bond_state, r.bond), (1, 4, U256::from(PCOL)), "no deadline: still active and ACCRUING, the top-up accepted");
         let head = net.chain.head();
         let member = net.chain.membership(head, head.height + 1).unwrap().ids().contains(&raw_addr(alice.address()));
-        let step = wallet::rejoin_step(Some(&r), head.height + 1, member, u64::from(net.chain.spec.cp().W_act), net.chain.spec.probation().map(|p| p.blocks));
+        let step = wallet::rejoin_step(Some(&r), head.height + 1, member, u64::from(net.chain.spec.cp().W_act), None);
         assert!(matches!(step, RejoinStep::Exit | RejoinStep::Active), "no deadline in the wallet's rejoin step: {step:?}");
         assert_eq!(accruing_count(&net), U256::ZERO);
     }
@@ -479,8 +478,8 @@ mod on_chain {
 
     /// D = 5, so that the evidence block (drawn deterministically) lands before settle(j). (FN-2b: R18 admits a v3 profile only
     /// up to D = 5 at G_SYS 96M, since its final class composes D - 1 settleFinal calls at the all-ACCRUING worst settle.)
-    fn net_spec(spec: u8) -> Net {
-        let mut cfg = config_spec(spec);
+    fn net_d5() -> Net {
+        let mut cfg = config();
         cfg.d = 5;
         let mut candidate = devnet::build(&cfg).unwrap();
         candidate.forks.push((2, 2));
@@ -491,7 +490,7 @@ mod on_chain {
         let admitted = admission::admit(&candidate.request(&pocold::single_host_local(), Some(&timing))).unwrap();
         crate::members_sweep::oracle();
         let chain = Chain::new(Spec::new(admitted));
-        assert_eq!(chain.spec.programs(), if spec == 2 { ProgramSet::V3 } else { ProgramSet::EarnIn });
+        assert_eq!(chain.spec.programs(), ProgramSet::V3);
         Net { chain, keys, one }
     }
 
@@ -556,12 +555,13 @@ mod on_chain {
     /// alice, a zero-bond ACCRUING member. One block, proposed by `one`, carries type-2 evidence against both before settle(j).
     /// On the v3 chain pot j settles normally (one's share is paid in settle(j), two's winner part burns), pot k burns
     /// whole (alice was ACCRUING when its result was recorded), and one's reward address receives 25% of two's 20 PCOL
-    /// bond. On the spec-1 earn-in chain both pots burn whole and nobody is paid for reporting.
+    /// bond. (The spec-1 earn-in chain this was compared with, where both pots burned whole and nobody was paid for
+    /// reporting, went with the spec-1 rule set in Phase 6a.)
     #[test]
     fn type2_evidence_settles_the_pot_and_pays_the_reporter_on_the_v3_chain() {
         let mut out = Vec::new();
-        for spec in [1u8, 2] {
-            let mut net = net_spec(spec);
+        {
+            let mut net = net_d5();
             let one = net.one;
             let two = net.chain.spec.profile().spec().m0_list.iter().map(|m| Address::from(m.id)).find(|m| *m != one).unwrap();
             let alice = devnet::account_key("alice");
@@ -592,11 +592,10 @@ mod on_chain {
             mine(&mut net, one, &[one], Body::default());
             assert_eq!(net.chain.head().height, j + d);
             let paid_j = balance(&net, reward) - before;
-            out.push((spec, pj.1 >> 168u32, pk.1 >> 168u32, pk.2 >> 160u32, cut, paid_j, prop_j == one));
+            out.push((2u8, pj.1 >> 168u32, pk.1 >> 168u32, pk.2 >> 160u32, cut, paid_j, prop_j == one));
         }
         eprintln!("{out:?}");
-        let (earnin, v3) = (&out[0], &out[1]);
-        assert_eq!((earnin.1, earnin.2, earnin.4, earnin.5), (U256::from(1), U256::from(1), U256::ZERO, U256::ZERO), "the earn-in chain burns both pots whole, no reporter");
+        let v3 = &out[0];
         assert_eq!((v3.1, v3.2, v3.3), (U256::ZERO, U256::from(1), U256::from(1)), "v3: pot j normal, pot k whole-burn with its ACCRUING winner bit");
         assert_eq!(v3.4, U256::from(5 * PCOL), "25% of two's 20 PCOL bond to the reporter one");
         // Pot j: S0 (4 PCOL on the v3 devnet; no tips, and no carry before the first settle), header shares of one and two
@@ -613,7 +612,7 @@ mod on_chain {
     /// 25% of it, and the pot settled in that block pays the tomb nothing.
     #[test]
     fn evidence_window_boundary_and_self_report_on_the_v3_chain() {
-        let mut net = net_spec(2);
+        let mut net = net_d5();
         let one = net.one;
         let two = net.chain.spec.profile().spec().m0_list.iter().map(|m| Address::from(m.id)).find(|m| *m != one).unwrap();
         // two equivocates first and is punished, so that one is the only proposer from then on.

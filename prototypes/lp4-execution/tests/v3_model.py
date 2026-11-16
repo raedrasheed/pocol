@@ -77,7 +77,7 @@ REG_MAINT_MAX = 8          # V3-08: a program constant, not a CP field
 MAINT_MOD = 1 << 32        # V3-08: lastMaintHeight is kept modulo 2^32 (w1's 32 spare bits since V3-PR-E4)
 Revert = em.Revert
 
-# The CP the contract harness installs (tests/v3_contracts.rs, as earnin_contracts.rs) by schema name.
+# The CP the contract harness installs (tests/v3_contracts.rs, as the deleted earnin_contracts.rs) by schema name.
 CP_INDEX = {'D': 11, 'R_max': 17, 'M_max': 18, 'M_min': 19, 'SWEEP_MAX': 21, 'SWEEP_SCAN': 22, 'REG_OPS': 23,
             'W_act': 24, 'Theta_inact': 25, 'E_win': 26, 'U': 27, 'R_react': 56, 'C_react': 57}
 DEFAULT_CP = {'D': 4, 'R_max': 16, 'M_max': 64, 'M_min': 1, 'SWEEP_MAX': 16, 'SWEEP_SCAN': 64, 'REG_OPS': 64,

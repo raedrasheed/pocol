@@ -1,32 +1,31 @@
 //! V3 system programs (system-v3.json, PoColSystemV3.sol; V3-PR-E0, V3-34 registry; V3-PR-E1, V3-08/V3-09 registry budgets;
 //! V3-PR-E2b, V3-16/V3-17 evidence penalties; V3-PR-E3 late shares; V3-PR-E2a issuance, carry, tips; FN-2b removal at a full
 //! set, registerReplacing and activeSlice).
-//! The v3 source is PoColSystemEarnIn.sol without the probation pool and its deadline (FN-2b, owner decisions 10b/10c of
+//! The v3 source is the earn-in programs' (PoColSystemEarnIn.sol, deleted with the spec-1 rule set in Phase 6a) without
+//! the probation pool and its deadline (FN-2b, owner decisions 10b/10c of
 //! 2026-11-13: ACCRUING records count within M_max and never exit by time), ChainCaps bounded by the 59-field CP schema
 //! v2, and the registry budgets of V3-08/V3-09 (a maintenance budget REG_MAINT_MAX = 8 with one maintenance operation per
 //! identity per block; reactivate on its own R_react budget, CP 56, with a per-record C_react clock, CP 57, and a window
 //! that closes strictly before dueHeight). This file proves:
-//! - the earn-in scenarios (tests/data/earnin-vectors.json) as the v3 model runs them replay on the v3 set
-//!   (tests/v3/earnin-on-v3-vectors.json); outside "top-up" (V3-08), "probation-seats" (no pool) and "deadline" (no
-//!   deadline) they give the earn-in model's own reverts, records, totals and payments and leave the identical Escrow
-//!   storage and the identical Registry storage except for the V3-08/V3-09 state alone;
+//! - the earn-in model's scenarios (earnin_model.py) as the v3 model runs them replay on the v3 set step by step
+//!   (tests/v3/earnin-on-v3-vectors.json); (the comparison with the earn-in set itself went with that set in Phase 6a);
 //! - the registry budgets and FN-2b's removal at a full set: every scenario of the independent model tests/v3_model.py
 //!   (tests/v3/registry-budget-vectors.json, registry and chain scenarios: removeInactive and registerReplacing only at a
 //!   full set, two REG_OPS units and one R_max entry, victims refunded after U and punishable until then, lastShare from
 //!   header and late shares) reproduces on the v3 bytecode step by step, with held_total conserved and the accruing count
-//!   (slot 8) never written; the fails-on-original attacks of V3-DESIGN.md V3-08/V3-09 freeze the earn-in registry and not
-//!   the v3 one; seven planted budget mutants and eight planted removal mutants each fail;
+//!   (slot 8) never written; the attacks of V3-DESIGN.md V3-08/V3-09 do not freeze the v3 registry; seven planted budget mutants and eight planted removal mutants each fail;
 //! - the four planted earn-in mutants that outlive FN-2b (EARN-IN-SPEC.md §9, restated on the v3 source:
 //!   tests/v3/system-v3-mutants.json, compile_system_v3.cjs --mutants) each fail the earn-in scenarios as the v3 model runs them;
 //! - every named and literal CP index of PoColSystemV3.sol is the schema's (a missed renumbering would make every v3 block
 //!   invalid), and every program stays EIP-170-sized;
-//! - the write ceilings and gas the wallet's quotes are sized from, and the beginBlock sweep within admission's GAS_ENVELOPE;
+//! - the write ceilings and gas the wallet's quotes are sized from, and the beginBlock sweep within admission's
+//!   GAS_ENVELOPE_V3 and the former spec-1 bound;
 //! - sysCodeHash pins and the registry: the v3 set is selected only on a CP schema v2 (specVersion 2) genesis;
 //! - V3-PR-E2b, the evidence penalties (V3-16, V3-17): every scenario of the independent chain model of tests/v3_model.py
 //!   (tests/v3/evidence-penalty-vectors.json: whole blocks with phase 0 in the v3 order, user transactions, phase 2,
 //!   settlement through RewardEscrow) reproduces on the v3 bytecode step by step, with the Escrow invariant held with
 //!   equality and the supply conserved after every step; type-2 evidence before settle(j) pays the contributors and
-//!   burns only the offender's parts (fails on the earn-in set, which burns the whole pot); an ACCRUING accused winner
+//!   burns only the offender's parts; an ACCRUING accused winner
 //!   burns the whole pot; the settlement boundary; a self-report loses (1 - rho) * B; five planted mutants each fail;
 //!   on real blocks through apply_block (the host's v3 phase 0) and the SYS gas of the changed calls
 //!   within admission's GAS_ENVELOPE_V3, keys and accounts within resources::derive.
@@ -34,7 +33,7 @@
 //!   after recordResult and before settle(h-D), the no-dilution cap, the window, lastShare = max(lastShare, j), owners
 //!   without a record, tombed or ACCRUING) reproduces on the v3 bytecode step by step, the ShareLedger counts and totals
 //!   included, with the Escrow invariant and the supply after every step; the omitted contributor is paid at settle(j)
-//!   (fails on the earn-in set, which has no recordLate); five planted mutants each fail; on real blocks
+//!   five planted mutants each fail; on real blocks
 //!   with Late effects through apply_block and recordLate's SYS gas at the worst path within GAS_ENVELOPE_V3.
 //! - V3-PR-E2a, issuance M3, carry and tip split (V3-19, V3-15, V3-20): the host's issuance(h) reproduces the model's
 //!   schedule table (h = 1, H_half - 1, H_half, 256·H_half and more); every scenario of tests/v3/issuance-carry-vectors.json
@@ -43,25 +42,23 @@
 //!   ACCRUING or tombed proposer as payTo pays it, nothing on a fallback; pot j+1 is fixed by block j+1 whatever later
 //!   blocks credit late; the carry is lagged by one block (D-V3-15): the last carrier of template j (block j + D) gains
 //!   nothing in its own pot by omitting LS(j), the omission's base burn reaching pot j + D + 1 (fails on the previous,
-//!   unlagged rule, the planted carry-not-lagged); the earn-in set records CP 15 + tips (fails on the original); eight
+//!   unlagged rule, the planted carry-not-lagged); eight
 //!   planted RewardEscrow mutants each fail; on real blocks: host credit = recorded pot every block over
-//!   3·H_half (H_half 8) with the carry of settle(h-D) in pot h+1, and CP 15 on the spec-1 earn-in devnet, a final block
+//!   3·H_half (H_half 8) with the carry of settle(h-D) in pot h+1, a final block
 //!   burning every outstanding carry (its own settle's included), the invariant's carry terms, the supply bound at
 //!   genesis, and closeBlock/finalize's SYS gas on their worst paths within GAS_ENVELOPE_V3.
 //! - FN-2b C4/C5: registerReplacing's call shape, write ceilings, gas and user SYS keys, the removalStatus and activeSlice
 //!   views; settle's worst path with every payee ACCRUING at bond 0 and promoted in one call (256 share
-//!   owners, the winner and the proposer; and the carry path), M_max above the spec-1 domain, and the earn-in refund
+//!   owners, the winner and the proposer; and the carry path), M_max 1,000, and the earn-in refund
 //!   regressions (earnin_refund_fix.rs) on the v3 set.
-use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,Probation,SystemPrograms},devnet::{DevnetConfig,Spec1Programs},profile::ConsensusParams,genesis_spec,
+use pocol_lp4_execution::{native,output,CHAIN_ID,apply::{ProgramSet,SystemPrograms},devnet::DevnetConfig,profile::ConsensusParams,genesis_spec,
     pay::{registry_address,escrow_address}};
 use revm::{DatabaseCommit,InMemoryDB,primitives::{Address,AccountInfo,Bytecode,Bytes,TxEnv,TxKind,U256,keccak256,ResultAndState}};
 use std::collections::{BTreeMap,BTreeSet};
 
 const PCOL:u128=1_000_000_000_000_000_000;
-const EARNIN:&str=include_str!("data/system-earnin.json");
 const V3:&str=include_str!("data/system-v3.json");
 const MUTANTS:&str=include_str!("v3/system-v3-mutants.json");
-const VECTORS:&str=include_str!("data/earnin-vectors.json");
 const BUDGET_VECTORS:&str=include_str!("v3/registry-budget-vectors.json");
 const EVIDENCE_VECTORS:&str=include_str!("v3/evidence-penalty-vectors.json");
 const LATE_VECTORS:&str=include_str!("v3/late-share-vectors.json");
@@ -109,7 +106,6 @@ fn insert(db:&mut InMemoryDB,a:Address,balance:U256,nonce:u64,code:Bytecode){db.
 fn slot(id:Address)->U256{U256::from_be_bytes(keccak256([id.into_word().as_slice(),U256::from(7).to_be_bytes::<32>().as_slice()].concat()).0)}
 fn base(n:u64)->U256{U256::from_be_bytes(keccak256(U256::from(n).to_be_bytes::<32>()).0)}
 fn storage(db:&InMemoryDB,a:Address,k:U256)->U256{db.accounts.get(&a).and_then(|x|x.storage.get(&k).copied()).unwrap_or_default()}
-fn nonzero(db:&InMemoryDB,a:Address)->BTreeMap<U256,U256>{db.accounts.get(&a).map(|x|x.storage.iter().filter(|(_,v)|!v.is_zero()).map(|(k,v)|(*k,*v)).collect()).unwrap_or_default()}
 fn put(db:&mut InMemoryDB,a:Address,k:U256,v:U256){db.insert_account_storage(a,k,v).unwrap();}
 fn reg(db:&InMemoryDB,k:u64)->U256{storage(db,registry_address(),U256::from(k))}
 fn selector(s:&str)->Vec<u8>{keccak256(s.as_bytes())[..4].to_vec()}
@@ -125,14 +121,13 @@ fn bits(w:U256,lo:usize,len:usize)->u64{((w>>lo)&((U256::from(1)<<len)-U256::fro
 macro_rules! ensure{($c:expr,$($m:tt)*)=>{if !$c{return Err(format!($($m)*))}}}
 macro_rules! ensure_eq{($a:expr,$b:expr,$($m:tt)*)=>{{let (a,b)=(&$a,&$b);if a!=b{return Err(format!("{}: {:?} != {:?}",format!($($m)*),a,b))}}}}
 
-/// The program set the harness runs, and its CP: the earn-in harness CP (earnin_contracts.rs), plus, for a v3
-/// set, the 7 schema-v2 slots, and per-run overrides.
+/// The program set the harness runs, and its CP: the earn-in harness CP (as the deleted earnin_contracts.rs installed
+/// it), plus the 7 schema-v2 slots, and per-run overrides.
 /// `v3`: the host conventions of the v3 program set (V3-16/V3-17: phase 0 records the parent's result before the
-/// evidence, invalidate(j, accused), punish(accused, reporter)); otherwise the spec-1 host's.
+/// evidence, invalidate(j, accused), punish(accused, reporter)); always set since Phase 6a deleted the earn-in set.
 #[derive(Clone)]
 struct Setup{registry:Bytes,escrow:Bytes,ledger:Bytes,caps:Bytes,cp_len:u64,cp:Vec<(u64,u128)>,v3:bool}
 impl Setup{
-    fn earnin()->Self{Self{registry:runtime(EARNIN,"MinerRegistry"),escrow:runtime(EARNIN,"RewardEscrow"),ledger:runtime(EARNIN,"ShareLedger"),caps:runtime(EARNIN,"ChainCaps"),cp_len:52,cp:vec![],v3:false}}
     /// R_react 16 (as the harness's R_max) and C_react 40 (= U, the least ParamGate admits) in CP 56/57 (tests/v3_model.py
     /// DEFAULT_CP; scenarios override them).
     fn v3()->Self{
@@ -176,7 +171,7 @@ impl Harness{
         for (a,code) in [(registry_address(),&s.registry),(escrow_address(),&s.escrow),(ledger(),&s.ledger),(caps(),&s.caps)]{insert(&mut db,a,U256::ZERO,1,Bytecode::new_raw(code.clone()));}
         for n in 0..s.cp_len{put(&mut db,caps(),U256::from(n),U256::ZERO);}
         // CP of a continuous network (47/48 zero), with per-block limits wide enough for the vectors'
-        // many same-block registrations; consensus values otherwise as Mainnet (as earnin_contracts.rs).
+        // many same-block registrations; consensus values otherwise as Mainnet (as the deleted earnin_contracts.rs).
         for (n,v) in [(11,4u128),(16,20*PCOL),(17,16),(18,64),(19,1),(20,8192),(21,16),(22,64),(23,64),(24,32),(25,64),(26,16),(27,40),(50,64)].into_iter().chain(s.cp.iter().copied()){
             assert!(n<s.cp_len,"CP slot {n} outside the program's ChainCaps");put(&mut db,caps(),U256::from(n),U256::from(v));
         }
@@ -400,69 +395,6 @@ impl Harness{
     }
 }
 
-/// The observable outcome of one scenario, for the earn-in vs v3 comparison.
-#[derive(Debug,PartialEq)]
-struct Outcome{steps:Vec<Option<String>>,registry:BTreeMap<U256,U256>,escrow:BTreeMap<U256,U256>,balances:BTreeMap<Address,U256>,ids:BTreeSet<Address>}
-
-/// Replays one model scenario and checks every model result (as earnin_contracts.rs); Err names the first mismatch.
-fn scenario(name_:&str,body:&serde_json::Value,s:&Setup)->Result<Outcome,String>{
-    let durable:Vec<String>=body["durable"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-    let mut h=Harness::new(&durable,s);let mut steps=Vec::new();
-    for step in body["steps"].as_array().unwrap(){
-        let op:Vec<String>=step["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        let got=h.step(&op)?;
-        match (&got,step["ok"].as_bool().unwrap()){
-            (None,true)=>{}
-            (Some(e),false)=>ensure_eq!(e.as_str(),step["revert"].as_str().unwrap(),"{name_} {op:?}"),
-            _=>return Err(format!("{name_} {op:?}: contract {got:?}, model {step}")),
-        }
-        steps.push(got);
-    }
-    let fin=&body["final"];
-    ensure_eq!(reg(&h.db,4).to_string(),fin["heldTotal"].as_str().unwrap(),"{name_} heldTotal");
-    // The earn-in model's accruing count (slot 8); FN-2b: the v3 set writes none.
-    ensure_eq!(reg(&h.db,8).to::<u64>(),if s.v3{0}else{fin["accruing"].as_u64().unwrap()},"{name_} accruing");
-    let burned=storage(&h.db,escrow_address(),U256::ZERO)+h.burned;
-    ensure_eq!(burned.to_string(),fin["burned"].as_str().unwrap(),"{name_} burned");
-    let active:BTreeSet<Address>=(0..reg(&h.db,1).to::<u64>()).map(|i|Address::from_word(storage(&h.db,registry_address(),base(6)+U256::from(i)).into())).collect();
-    let want:BTreeSet<Address>=fin["active"].as_array().unwrap().iter().map(|x|name(x.as_str().unwrap())).collect();
-    ensure_eq!(active,want,"{name_} active set");
-    let records=fin["records"].as_object().unwrap();
-    ensure_eq!(reg(&h.db,0).to::<usize>(),records.len(),"{name_} record count");
-    for (n,r) in records{
-        let (w0,w1,w2,w3)=h.record(name(n));
-        let got=(bits(w0,0,8),bits(w0,16,8),w2.to_string(),bits(w0,8,8)!=0,bits(w0,152,64),bits(w3,0,64),bits(w3,64,64),Address::from_word(w1.into()));
-        let want=(r["status"].as_u64().unwrap(),r["bond_state"].as_u64().unwrap(),r["bond"].as_str().unwrap().to_string(),
-            r["tomb"].as_bool().unwrap(),r["registered_at"].as_u64().unwrap(),r["exit"].as_u64().unwrap(),r["due"].as_u64().unwrap(),name(r["reward"].as_str().unwrap()));
-        ensure_eq!(got,want,"{name_} record {n}");
-    }
-    for (n,amount) in fin["paid"].as_object().unwrap(){
-        let a=name(n);let refunds=if h.senders.contains(&a){U256::ZERO}else{balance(&h.db,a)-h.start.get(&a).copied().unwrap_or_default()};
-        let got=refunds+h.settled.get(&a).copied().unwrap_or_default();
-        ensure_eq!(got.to_string(),amount.as_str().unwrap(),"{name_} paid {n}");
-    }
-    // Each sender's net PCOL into the Registry (bonds and top-ups, less returned excess and refunds).
-    for a in &h.senders{
-        let n=fin["records"].as_object().unwrap().keys().chain(fin["spent"].as_object().unwrap().keys()).find(|n|name(n)==*a).cloned();
-        let Some(n)=n else{continue};
-        let field=|k:&str|fin[k].get(&n).and_then(|x|x.as_str()).map(|x|x.parse::<U256>().unwrap()).unwrap_or_default();
-        let refunds=field("paid")-h.settled.get(a).copied().unwrap_or_default();
-        ensure_eq!(h.start[a]-balance(&h.db,*a),field("spent")-refunds,"{name_} sender {n} net PCOL");
-    }
-    let balances=h.db.accounts.iter().map(|(a,x)|(*a,x.info.balance)).collect();
-    let ids=h.senders.iter().copied().chain([name("m0")]).collect();
-    Ok(Outcome{steps,registry:nonzero(&h.db,registry_address()),escrow:nonzero(&h.db,escrow_address()),balances,ids})
-}
-/// Every scenario of a vector file; Err at the first scenario that differs from the model.
-fn replay(vectors:&str,s:&Setup)->Result<BTreeMap<String,Outcome>,String>{
-    let v:serde_json::Value=serde_json::from_str(vectors).unwrap();let mut out=BTreeMap::new();
-    for (scenario_,body) in v.as_object().unwrap(){
-        if body.get("steps").is_none(){continue}
-        out.insert(scenario_.clone(),scenario(scenario_,body,s)?);
-    }
-    Ok(out)
-}
-
 /// The earn-in model's scenarios as the v3 model runs them ("earnin/<name>" or "earnin-p64/<name>"), on a v3 set:
 /// every step, record, clock and total as in budget_scenario.
 fn earnin_on_v3(label:&str,s:&Setup)->Result<usize,String>{
@@ -470,82 +402,31 @@ fn earnin_on_v3(label:&str,s:&Setup)->Result<usize,String>{
     for (k,body) in v.as_object().unwrap(){if k.split('/').next()==Some(label){budget_scenario(k,body,s)?;n+=1;}}
     Ok(n)
 }
-/// Scenarios whose step results the v3 model and the earn-in model give differently (V3-08/V3-09 refusals).
-fn v3_model_differs(vectors:&str,label:&str)->BTreeSet<String>{
-    let (e,v):(serde_json::Value,serde_json::Value)=(serde_json::from_str(vectors).unwrap(),serde_json::from_str(EARNIN_ON_V3).unwrap());
-    let key=|st:&serde_json::Value|(st["ok"].clone(),st.get("revert").cloned());
-    e.as_object().unwrap().iter().filter(|(_,b)|b.get("steps").is_some()).filter(|(n,b)|{
-        let w=&v[format!("{label}/{n}")]["steps"];
-        b["steps"].as_array().unwrap().iter().zip(w.as_array().unwrap()).any(|(a,c)|key(a)!=key(c))
-    }).map(|(n,_)|n.clone()).collect()
-}
-
-/// The earn-in scenarios whose results differ on v3 (tests/v3_model.py EARNIN_ON_V3_DIFFER): "top-up" (V3-08: a second
-/// topUp from one identity in one block), "probation-seats" (FN-2b: no probation pool, so the ninth probationer registers)
-/// and "deadline" (FN-2b C3: no probation deadline, so nothing exits at registeredAt + T_PROB; its steps agree and its final
-/// records differ).
-const EARNIN_DIFFER_ON_V3:[&str;3]=["deadline","probation-seats","top-up"];
+/// The earn-in model's scenarios as the v3 model runs them (tests/v3_model.py earnin_on_v3: its results differ from the
+/// earn-in model's own in "top-up", V3-08, "probation-seats", no pool, and "deadline", no deadline) reproduce on the v3
+/// set step by step, every record, clock and total. (Before Phase 6a this also compared the v3 set's storage with the
+/// earn-in set's on the earn-in model's own vectors; both went with the spec-1 rule set.)
 #[test]
-fn v3_set_is_behaviour_equal_to_the_earnin_set_outside_v3_08_and_fn_2b(){
-    let earnin=replay(VECTORS,&Setup::earnin()).unwrap();
-    let v3_setup=Setup::v3();
-    // The v3 set reproduces every earn-in scenario as the v3 model runs it; the step results differ only in "top-up"
-    // (RegOpsLimit, V3-08) and "probation-seats" (the ninth probation registration lands: no pool).
-    assert_eq!(earnin_on_v3("earnin",&v3_setup),Ok(8),"every model scenario replayed");
-    assert_eq!(v3_model_differs(VECTORS,"earnin"),BTreeSet::from(["probation-seats".to_string(),"top-up".to_string()]));
-    // Every other scenario but "deadline": the earn-in model's own results, and the same storage and balances as on the
-    // earn-in set. "deadline" (and "probation-seats") fail the earn-in model's own vectors on v3: no deadline exit, no pool.
-    let v:serde_json::Value=serde_json::from_str(VECTORS).unwrap();
-    let mut v3=BTreeMap::new();let mut differ=BTreeSet::new();
-    for (n,body) in v.as_object().unwrap(){
-        if body.get("steps").is_none(){continue}
-        match scenario(n,body,&v3_setup){Ok(o)=>{v3.insert(n.clone(),o);}Err(e)=>{eprintln!("{n} differs on v3: {e}");differ.insert(n.as_str());}}
-    }
-    assert_eq!(differ,BTreeSet::from(EARNIN_DIFFER_ON_V3),"the earn-in scenarios v3 runs differently");
-    assert_eq!(v3.len(),5);
-    let mut e1_keys=0;
-    for (name_,got) in &v3{
-        let want=&earnin[name_];
-        assert_eq!(got.steps,want.steps,"{name_}: every step's result");
-        // V3-08/V3-09 state, and only it, differs: the budget slot 9, the clocks in w1 bits 160..255 of every identity and
-        // slot 3's per-block counters (bits 0..23, which every beginBlock clears). The earn-in set has none of the first two.
-        let (g,extra)=without_budget_state(&got.registry,&got.ids);let (w,none)=without_budget_state(&want.registry,&want.ids);
-        assert!(none.is_empty(),"{name_}: the earn-in registry holds no V3-08/V3-09 state: {none:?}");
-        e1_keys+=extra.len();
-        // The v3 set keeps no accruing count: the earn-in set's slot 8 is the only other difference.
-        let (mut g,mut w)=(g,w);let acc=w.remove(&U256::from(8));g.remove(&U256::from(8));
-        assert!(!got.registry.contains_key(&U256::from(8)),"{name_}: the v3 registry never writes slot 8");
-        if let Some(a)=acc{assert!(!a.is_zero());}
-        assert_eq!(g,w,"{name_}: identical MinerRegistry storage outside the V3-08/V3-09 state and the accruing count");
-        assert_eq!(got.escrow,want.escrow,"{name_}: identical RewardEscrow storage");
-        assert_eq!(got.balances,want.balances,"{name_}: identical balances");
-    }
-    // The model scenarios reactivate, so the v3 set did keep budget state (the projection is not vacuous).
-    assert!(e1_keys>0,"no V3-08/V3-09 state was written");
+fn v3_set_replays_the_earnin_scenarios_as_the_v3_model_runs_them(){
+    assert_eq!(earnin_on_v3("earnin",&Setup::v3()),Ok(8),"every model scenario replayed");
 }
 
 /// FN-2b C3 (owner 10c): no probation deadline on the v3 set. A zero-bond record registered at 10 tops up, exits and
-/// reactivates far past the earn-in deadline (60,480 blocks) and is never swept out; the earn-in set exits it at
-/// registeredAt + 60,480 and refuses the top-up there. ACCRUING newcomers have no pool of their own: at M_max 4 three
+/// reactivates far past the earn-in deadline (60,480 blocks) and is never swept out. ACCRUING newcomers have no pool of their own: at M_max 4 three
 /// zero-bond registrations fill the set and a fourth (or a full bond) is refused only by M_max (Capacity).
 #[test]
 fn v3_set_has_no_probation_pool_and_no_deadline(){
-    for (v3,s) in [(false,Setup::earnin()),(true,Setup::v3())]{
-        let mut h=Harness::new(&["rd".to_string()],&s);let a=name("d");
+    {
+        let s=Setup::v3();let mut h=Harness::new(&["rd".to_string()],&s);let a=name("d");
         assert_eq!(h.step(&strs(&["register","d","rd",&PCOL.to_string(),"10"])).unwrap(),None);
         assert_eq!(h.step(&strs(&["top_up","d","1","60489"])).unwrap(),None,"the last earn-in probation block");
         let at=h.step(&strs(&["top_up","d","1","60490"])).unwrap();
-        if v3{
-            assert_eq!(at,None,"no deadline: a top-up at registeredAt + 60,480");
-            assert_eq!((bits(h.record(a).0,0,8),bits(h.record(a).0,16,8)),(1,4),"still an active ACCRUING record");
-            assert_eq!(h.step(&strs(&["top_up","d","1","1000000"])).unwrap(),None);
-            assert_eq!(h.step(&strs(&["deregister","d","1000001"])).unwrap(),None);
-            assert_eq!(h.step(&strs(&["reactivate","d","1000033"])).unwrap(),None,"an ACCRUING record reactivates without a deadline");
-            assert_eq!(bits(h.record(a).0,0,8),1);
-        }else{
-            assert_eq!(at.as_deref(),Some("BadState"),"the earn-in deadline");
-            assert_eq!(bits(h.record(a).0,0,8),2,"the earn-in sweep exited it at the deadline");
-        }
+        assert_eq!(at,None,"no deadline: a top-up at registeredAt + 60,480");
+        assert_eq!((bits(h.record(a).0,0,8),bits(h.record(a).0,16,8)),(1,4),"still an active ACCRUING record");
+        assert_eq!(h.step(&strs(&["top_up","d","1","1000000"])).unwrap(),None);
+        assert_eq!(h.step(&strs(&["deregister","d","1000001"])).unwrap(),None);
+        assert_eq!(h.step(&strs(&["reactivate","d","1000033"])).unwrap(),None,"an ACCRUING record reactivates without a deadline");
+        assert_eq!(bits(h.record(a).0,0,8),1);
     }
     let mut s=Setup::v3();s.cp.push((18,4));
     let mut h=Harness::new(&[],&s);
@@ -557,20 +438,6 @@ fn v3_set_has_no_probation_pool_and_no_deadline(){
     assert!(!r.result.is_success(),"the accruingCount view is gone");
 }
 
-/// Splits the V3-08/V3-09 state out of a Registry storage map: slot 9 and the clock bits (w1 160..255; w0 216..255, the
-/// V3-10 counters)
-/// of the given ids are returned separately (keyed by slot), and slot 3's per-block counters (bits 0..23, which both
-/// sets keep but count differently) are cleared in the rest.
-fn without_budget_state(m:&BTreeMap<U256,U256>,ids:&BTreeSet<Address>)->(BTreeMap<U256,U256>,BTreeMap<U256,U256>){
-    let mask=|bits:usize|(U256::from(1)<<bits)-U256::from(1);
-    let mut rest=m.clone();let mut extra=BTreeMap::new();
-    if let Some(c)=rest.get_mut(&U256::from(3)){*c&=!mask(24);}
-    let mut split=|k:U256,keep:U256|{if let Some(v)=rest.get_mut(&k){let e=*v&!keep;if !e.is_zero(){extra.insert(k,e);}*v&=keep;}};
-    split(U256::from(9),U256::ZERO);
-    for a in ids{split(slot(*a),mask(216));split(slot(*a)+U256::from(1),mask(160));}
-    rest.retain(|_,v|!v.is_zero());
-    (rest,extra)
-}
 
 #[test]
 fn chain_caps_serves_exactly_the_v2_cp(){
@@ -579,7 +446,6 @@ fn chain_caps_serves_exactly_the_v2_cp(){
     let v3=Setup::v3();
     assert_eq!(read(&v3,56),Some(U256::from(16)));assert_eq!(read(&v3,57),Some(U256::from(40)));
     assert_eq!(read(&v3,58),Some(U256::ZERO));assert_eq!(read(&v3,59),None,"slot 59 is outside CP schema v2 (FN-2a, FN-2b deletions)");
-    assert_eq!(read(&Setup::earnin(),51),Some(U256::ZERO));assert_eq!(read(&Setup::earnin(),52),None,"the earn-in ChainCaps keeps its 52-field bound");
     assert_eq!(genesis_spec::CP_SCHEMA_V2.len(),59);
     for gone in ["P_MAX","T_PROB","E_epoch","theta_bp","k_sigma","F0_acct","F0_slot","F0_code"]{assert_eq!(genesis_spec::cp_index_for(2,gone),None,"{gone}");}
     // The harness's (and tests/v3_model.py's) named indices are the schema's own: a renumbering missed here would
@@ -678,19 +544,19 @@ fn ceilings(s:&Setup)->((usize,usize,usize,usize,usize),u64,u64){
 
 #[test]
 fn wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set(){
-    let (earn_writes,earn_reg,earn_top)=ceilings(&Setup::earnin());
+    // The earn-in set's zero-bond registration gas, measured by this test at bebce78 (Phase 6a deleted that set).
+    let earn_reg:u64=194_172;
     for s in [Setup::v3()]{
         let (writes,reg_gas,top_gas)=ceilings(&s);
-        eprintln!("v3 CEILINGS {writes:?} (earn-in {earn_writes:?}) gas: register-zero={reg_gas} (earn-in {earn_reg}) topUp-promote-with-return={top_gas} (earn-in {earn_top})");
-        assert_eq!(earn_writes,(11,3,5,2,4));
-        // V3-08: a topUp is maintenance, so it also writes lastMaintHeight (w1 bits 224..255 since V3-PR-E4) and the
-        // budget slot 9 where the earn-in set writes slot 3: one slot more for a plain topUp. FN-2b: no accruing count
+        eprintln!("v3 CEILINGS {writes:?} gas: register-zero={reg_gas} (earn-in at bebce78 {earn_reg}) topUp-promote-with-return={top_gas}");
+        // Against the earn-in set's (11, 3, 5, 2, 4): V3-08: a topUp is maintenance, so it also writes lastMaintHeight (w1
+        // bits 224..255 since V3-PR-E4) and the budget slot 9 where the earn-in set wrote slot 3: one slot more for a plain topUp. FN-2b: no accruing count
         // (slot 8), so an ACCRUING registration and a promotion (by topUp or accrual) each write one slot less; a
         // promoting topUp's two V3-08 slots and its missing count write net out.
         assert_eq!(writes,(10,4,5,2,3));
         // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for an earn-in/v3 registration and
         // REGISTRY_GAS (1,000,000) for a top-up; 200,000 is the tighter top-up bound kept from
-        // earnin_contracts.rs, so both quotes keep their margin. The cfg() reads add only a few
+        // the deleted earnin_contracts.rs, so both quotes keep their margin. The cfg() reads add only a few
         // thousand gas.
         assert!(reg_gas<=400_000&&top_gas<=200_000,"register {reg_gas}, topUp {top_gas}");
         // A zero-bond registration costs less than on the earn-in set: FN-2b removed the probation-pool check (the
@@ -704,63 +570,23 @@ fn wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set(){
 fn v3_sys_code_hash_is_pinned_and_selected_only_on_cp_schema_v2(){
     let v3=SystemPrograms::v3();
     assert_eq!(hex(&v3.sys_code_hash().0),V3_SYS_CODE_HASH);
-    // The existing sets' hashes are unchanged (spec-1 genesis bytes commit them).
-    let (v1,continuous,earnin)=(SystemPrograms::v1().sys_code_hash(),SystemPrograms::continuous().sys_code_hash(),SystemPrograms::earnin().sys_code_hash());
-    assert!(![v1,continuous,earnin].contains(&v3.sys_code_hash()));
-    // MinerRegistry, RewardEscrow (V3-16/V3-17), ShareLedger (V3-02 recordLate) and ChainCaps differ from the earn-in
-    // set; ChunkFactory is the same bytes.
-    let e=SystemPrograms::earnin();
-    assert!(v3.codes[4]==e.codes[4]);
-    assert!(v3.codes[0]!=e.codes[0]&&v3.codes[1]!=e.codes[1]&&v3.codes[2]!=e.codes[2]&&v3.codes[3]!=e.codes[3]);
     // EIP-170-sized for tooling (roadmap risk 10).
     for (i,c) in v3.codes.iter().enumerate(){assert!(c.len()<=24_576,"program {i} is {} bytes",c.len());}
-    let mut cfg=DevnetConfig::spec1(777940,1_700_000_000,&["one"],Spec1Programs::EarnIn);cfg.h_end=0;
-    let spec1=ConsensusParams::from_values(&cfg.cp()).unwrap();cfg.spec_version=2;let spec2=ConsensusParams::from_values(&cfg.cp()).unwrap();
+    let mut cfg=DevnetConfig::new(777940,1_700_000_000,&["one"]);
+    let spec2=ConsensusParams::from_values(&cfg.cp()).unwrap();cfg.spec_version=1;let spec1=ConsensusParams::from_values(&cfg.cp()).unwrap();
     assert_eq!((spec1.schema_version(),spec2.schema_version()),(1,2));
     let hash=v3.sys_code_hash().0;
-    assert_eq!(SystemPrograms::program_set(&spec2,&hash),ProgramSet::V3);
-    assert_eq!(SystemPrograms::for_spec(&spec2,&hash).sys_code_hash(),v3.sys_code_hash());
-    // On a spec-1 CP the v3 hash names nothing: the CP default, whose hash then fails the genesis code check.
-    assert_eq!(SystemPrograms::program_set(&spec1,&hash),ProgramSet::Continuous);
-    assert_eq!(SystemPrograms::for_spec(&spec1,&hash).sys_code_hash(),continuous);
-    for (kind,h) in [(ProgramSet::V1,v1),(ProgramSet::Continuous,continuous),(ProgramSet::EarnIn,earnin)]{
-        for cp in [&spec1,&spec2]{assert_eq!(SystemPrograms::program_set(cp,&h.0),kind);assert_eq!(SystemPrograms::for_spec(cp,&h.0).sys_code_hash(),h);}
-    }
-    // FN-2b: the probation pool is the earn-in set's alone.
-    assert_eq!(ProgramSet::EarnIn.probation(),Some(Probation{seats:8,blocks:60_480}));
-    assert_eq!((ProgramSet::V3.probation(),ProgramSet::V1.probation(),ProgramSet::Continuous.probation()),(None,None,None));
+    assert_eq!(SystemPrograms::program_set(&spec2,&hash),Some(ProgramSet::V3));
+    assert_eq!(SystemPrograms::for_spec(&spec2,&hash).unwrap().sys_code_hash(),v3.sys_code_hash());
+    // Phase 6a: the V3 set is the only bundled one. On a spec-1 CP the v3 hash names nothing (a CP schema v1 genesis is
+    // refused by name), and on CP schema v2 any other hash names nothing.
+    assert_eq!(SystemPrograms::program_set(&spec1,&hash),None);
+    assert!(SystemPrograms::for_spec(&spec1,&hash).err().unwrap().contains("spec-1"));
+    let other=keccak256(b"not the v3 programs").0;
+    assert_eq!(SystemPrograms::program_set(&spec2,&other),None);
+    assert!(SystemPrograms::for_spec(&spec2,&other).err().unwrap().contains("names no bundled program set"));
 }
 
-/// The v3 contracts read CP fields 52..58 as 0 on a 52-field CP (H_half 0, R_react 0, rho_bp 0), so nothing in the programs
-/// themselves keeps them off a spec-1 genesis: the registry gate does. A spec-1 GenesisSpec that names the v3
-/// sysCodeHash, with the allocRoot the v3 programs would give it, is built here and refused by every path that
-/// turns a GenesisSpec into a genesis (admission's measurement and the gate itself), with the genesis code check.
-#[test]
-fn a_spec1_genesis_naming_the_v3_set_is_refused_by_admission(){
-    use pocol_lp4_execution::{admission::{self,NodeLocal},apply::Genesis,devnet,genesis_spec as gs,profile::{ProfileIdentity,ProfileKind,NodeKind}};
-    // A spec-1 earn-in devnet (Phase 6a deletes the spec-1 rule set and this refusal with it).
-    let mut cfg=DevnetConfig::spec1(777942,1_700_000_000,&["one"],Spec1Programs::EarnIn);cfg.h_end=0;
-    let honest=devnet::build(&cfg).unwrap();
-    assert_eq!(honest.programs.sys_code_hash(),SystemPrograms::earnin().sys_code_hash(),"a spec-1 earn-in devnet runs the earn-in set");
-    let local=NodeLocal::single_host();
-    // Control: the honest candidate passes the same paths.
-    let timing=admission::measure(&honest.spec_bytes,&honest.alloc,1).unwrap();
-    admission::admit(&honest.request(&local,Some(&timing))).unwrap_or_else(|e|panic!("honest spec-1 earn-in candidate: {e}"));
-
-    let mut spec=gs::decode(&honest.spec_bytes).unwrap();assert_eq!(spec.spec_version,1);
-    let v3=SystemPrograms::v3();spec.sys_code_hash=v3.sys_code_hash().0;
-    let identity=|s:&gs::GenesisSpec|{let b=gs::encode(s);ProfileIdentity::validate(&b,&gs::genesis_hash(&b),s.chain_id,ProfileKind::Simnet,NodeKind::Simnet,&honest.forks).unwrap()};
-    // The v3 programs themselves would construct this genesis (only the registry stands in the way).
-    spec.alloc_root=Genesis::derive_root(&honest.alloc,&identity(&spec),&v3).expect("the v3 programs construct on a spec-1 CP").0;
-    let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!(cp.schema_version(),1);
-    assert_eq!(SystemPrograms::program_set(&cp,&spec.sys_code_hash),ProgramSet::Continuous,"the v3 hash names nothing on CP schema v1");
-    let forged=devnet::Devnet{spec_bytes:gs::encode(&spec),..honest};
-    let measured=admission::measure(&forged.spec_bytes,&forged.alloc,1).unwrap_err();
-    assert!(measured.contains("Code"),"measurement: {measured}");
-    let refused=match admission::admit(&forged.request(&local,None)){Err(e)=>e.to_string(),Ok(_)=>panic!("a spec-1 genesis naming the v3 set was admitted")};
-    eprintln!("spec-1 + v3 hash: measurement {measured}; admission {refused}");
-    assert!(refused.contains("R24")&&refused.contains("Code"),"admission: {refused}");
-}
 
 // ---------------- V3-PR-E1: registry budgets (V3-08, V3-09)
 
@@ -941,29 +767,14 @@ fn v3_registry_budgets_reproduce_the_independent_model(){
     }
 }
 
-/// The same vectors on the earn-in set: each budget scenario differs from the v3 model there (the CP schema v2
-/// fields do not exist on its 52-field ChainCaps, so R_react/C_react scenarios run at its constants; it has no
-/// registerReplacing and removes below a full set).
-#[test]
-fn registry_budget_vectors_fail_on_the_earnin_set(){
-    let mut earnin=Setup::earnin();earnin.cp_len=52;
-    let v:serde_json::Value=serde_json::from_str(BUDGET_VECTORS).unwrap();
-    for (n,body) in v.as_object().unwrap(){
-        // Run with the v1 CP fields only; the v2 ones are what the earn-in programs cannot read.
-        let mut b=body.clone();b["cp"].as_object_mut().unwrap().retain(|k,_|cp_index(k)<52);
-        let r=budget_scenario(n,&b,&earnin);
-        eprintln!("earn-in {n}: {}",r.as_ref().err().map_or("reproduces",|e|e.as_str()));
-        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-08/V3-09");
-    }
-}
 
-/// V3-DESIGN.md V3-08, fails on the original: one HELD identity calls setRewardAddress 16 times in a block (REG_OPS
-/// 16, R_max 1 as live). On the earn-in set every call succeeds and then another identity's registration and the
-/// spammer's own eviction revert RegOpsLimit; on v3 only the first call succeeds, the registration lands and the
-/// spammer is still evictable in the same block.
+/// V3-DESIGN.md V3-08: one HELD identity calls setRewardAddress 16 times in a block (REG_OPS 16, R_max 1 as live). On the
+/// earn-in set (deleted in Phase 6a) every call succeeded and then another identity's registration and the spammer's own
+/// eviction reverted RegOpsLimit; on v3 only the first call succeeds, the registration lands and the spammer is still
+/// evictable in the same block.
 #[test]
-fn one_identity_spamming_set_reward_address_freezes_earnin_joins_but_not_v3(){
-    for (v3,mut s) in [(false,Setup::earnin()),(true,Setup::v3())]{
+fn one_identity_spamming_set_reward_address_does_not_freeze_v3_joins(){
+    for (v3,mut s) in [(true,Setup::v3())]{
         // M_max 3: m0, s and the newcomer fill the set, where v3 removes an inactive member (FN-2b C4).
         s.cp.extend([(23,16),(17,1),(18,3)]);
         let mut h=Harness::new(&strs(&["x"]),&s);
@@ -972,26 +783,21 @@ fn one_identity_spamming_set_reward_address_freezes_earnin_joins_but_not_v3(){
         let join=h.step(&strs(&["register","n","n",&b().to_string(),"100"])).unwrap();
         let evict=h.step(&strs(&["remove_inactive","n","s","100"])).unwrap();
         eprintln!("v3={v3}: spam {spam:?} join {join:?} evict {evict:?}");
-        if v3{
-            assert_eq!(spam[0],None);assert!(spam[1..].iter().all(|r|r.as_deref()==Some("RegOpsLimit")),"one maintenance operation per identity per block");
-            assert_eq!((join,evict),(None,None),"the join lands and the spammer is evicted");
-            assert_eq!(bits(h.record(name("s")).0,0,8),2,"the spammer exited");
-        }else{
-            assert!(spam.iter().all(|r|r.is_none()),"the earn-in set spends REG_OPS on maintenance");
-            assert_eq!((join.as_deref(),evict.as_deref()),(Some("RegOpsLimit"),Some("RegOpsLimit")),"the earn-in registry is frozen for the block");
-        }
+        assert_eq!(spam[0],None);assert!(spam[1..].iter().all(|r|r.as_deref()==Some("RegOpsLimit")),"one maintenance operation per identity per block");
+        assert_eq!((join,evict),(None,None),"the join lands and the spammer is evicted");
+        assert_eq!(bits(h.record(name("s")).0,0,8),2,"the spammer exited");
     }
 }
 
-/// V3-DESIGN.md V3-09, fails on the original: an attacker with W_act+1 = 33 records deregisters one and reactivates
-/// another every block, its transactions first (R_max 1). On the earn-in set the reactivation takes the entry slot,
-/// so a newcomer's registration reverts in every block of the cycle; on v3 a newcomer registers in every block
+/// V3-DESIGN.md V3-09: an attacker with W_act+1 = 33 records deregisters one and reactivates another every block, its
+/// transactions first (R_max 1). On the earn-in set (deleted in Phase 6a) the reactivation took the entry slot, so a
+/// newcomer's registration reverted in every block of the cycle; on v3 a newcomer registers in every block
 /// (k = 1), and each attacker record's second reactivation inside C_react (= U = 40 > 33) reverts, so the cycle
 /// cannot be kept up beyond one pass.
 #[test]
-fn deregister_reactivate_cycle_holds_the_entry_slot_on_earnin_but_not_v3(){
+fn deregister_reactivate_cycle_does_not_hold_the_entry_slot_on_v3(){
     let (records,start,attack)=(33u64,40u64,40u64);let first=start+records-1;
-    for (v3,mut s) in [(false,Setup::earnin()),(true,Setup::v3())]{
+    for (v3,mut s) in [(true,Setup::v3())]{
         s.cp.extend([(23,16),(17,1),(18,128)]);
         let mut h=Harness::new(&[],&s);
         for i in 0..records{assert_eq!(h.step(&strs(&["register",&format!("a{i}"),&format!("a{i}"),&b().to_string(),&(1+i).to_string()])).unwrap(),None);}
@@ -1007,15 +813,10 @@ fn deregister_reactivate_cycle_holds_the_entry_slot_on_earnin_but_not_v3(){
         let first_pass=reacts[..records as usize].iter().filter(|r|r.is_none()).count();
         let later=reacts[records as usize..].iter().filter(|r|r.is_none()).count();
         eprintln!("v3={v3}: newcomers joined {} refused {}; attacker reactivations first pass {first_pass}, later {later}",joined.len(),refused.len());
-        if v3{
-            assert_eq!(joined,(first..first+attack).collect::<Vec<_>>(),"a newcomer registers in every block of the cycle");
-            assert_eq!(first_pass,records as usize);
-            assert_eq!(later,0,"a second reactivation within C_react reverts");
-            assert!(reacts[records as usize..].iter().all(|r|r.as_deref()==Some("BadState")));
-        }else{
-            assert!(joined.is_empty(),"the attacker holds the earn-in entry slot: {joined:?}");
-            assert_eq!(first_pass+later,attack as usize,"every attacker reactivation succeeds on the earn-in set");
-        }
+        assert_eq!(joined,(first..first+attack).collect::<Vec<_>>(),"a newcomer registers in every block of the cycle");
+        assert_eq!(first_pass,records as usize);
+        assert_eq!(later,0,"a second reactivation within C_react reverts");
+        assert!(reacts[records as usize..].iter().all(|r|r.as_deref()==Some("BadState")));
     }
 }
 
@@ -1092,16 +893,16 @@ fn user_path_writes(s:&Setup)->([usize;8],u64,u64){
 }
 fn apply_active(h:&Harness)->Vec<Address>{ids_of(&h.db,6,1)}
 
-/// Write ceilings (as earn_in_write_ceilings) of every user path on the v3 set, against the earn-in set: V3-08/V3-09
+/// Write ceilings (as earn_in_write_ceilings) of every user path on the v3 set, against the earn-in set's (REGISTRY-LAYOUT.md;
+/// the set itself went with the spec-1 rule set in Phase 6a): V3-08/V3-09
 /// add one slot exactly where REGISTRY-LAYOUT.md says (w1 on reactivate; slot 9 replaces slot 3 on maintenance and
 /// reactivation; setRewardAddress's clock shares w1 with the reward address), and nothing elsewhere.
 #[test]
 fn v3_registry_write_ceilings(){
-    let (earn,earn_reg,earn_gas)=user_path_writes(&Setup::earnin());let (v3,v3_reg,v3_gas)=user_path_writes(&Setup::v3());
-    eprintln!("WRITE-CEILINGS register,reward,deregister-middle,deregister-tail,reactivate,removeInactive-tail,claim-middle,claim-tail earn-in {earn:?} v3 {v3:?}; gas register earn-in {earn_reg} v3 {v3_reg}, other paths earn-in {earn_gas} v3 {v3_gas}");
-    // The earn-in counts are REGISTRY-LAYOUT.md's register10, reward2, deactivate middle7/tail5, reactivate5,
-    // claim middle10/tail8.
-    assert_eq!(earn,[10,2,7,5,5,5,10,8]);
+    let (v3,v3_reg,v3_gas)=user_path_writes(&Setup::v3());
+    eprintln!("WRITE-CEILINGS register,reward,deregister-middle,deregister-tail,reactivate,removeInactive-tail,claim-middle,claim-tail v3 {v3:?}; gas register v3 {v3_reg}, other paths v3 {v3_gas}");
+    // The earn-in counts were REGISTRY-LAYOUT.md's register10, reward2, deactivate middle7/tail5, reactivate5,
+    // claim middle10/tail8: [10,2,7,5,5,5,10,8].
     // V3-08/V3-09: setRewardAddress writes w1 (reward and lastMaintHeight, w1 bits 224..255 since V3-PR-E4) and slot 9 in
     // place of slot 3, so as many slots as on earn-in; reactivate +1 (w1 for lastReactHeight; slot 9 in place of slot 3);
     // register, deregister, removeInactive and claimBond unchanged.
@@ -1112,16 +913,18 @@ fn v3_registry_write_ceilings(){
 }
 
 /// The beginBlock sweep at its program caps (64 scans, 16 deletions) deleting records that carry clocks: the same
-/// changed slots per deletion as earn-in (the clocks sit in words erase clears anyway) and its gas, which stays
-/// inside admission's GAS_ENVELOPE (spec-1's beginBlock 926,000). For the v3 set R18 composes beginBlock from
-/// GAS_ENVELOPE_EARNIN (944,000: GAS_ENVELOPE_V3 has no beginBlock entry), which v3_sys_gas_and_caps_within_the_v3_envelope
-/// checks; this test keeps the stricter spec-1 bound on purpose. A fifth record word would put the worst case
-/// above that envelope; this pins that it is not there.
+/// changed slots per deletion as on the earn-in set (the clocks sit in words erase clears anyway; that set's count,
+/// measured here at bebce78, is pinned since Phase 6a deleted it) and its gas, which stays inside admission's
+/// GAS_ENVELOPE_V3 beginBlock and, on purpose, inside the stricter bound of the deleted spec-1 GAS_ENVELOPE (beginBlock
+/// 926,000). A fifth record word would put the worst case above that bound; this pins that it is not there.
 #[test]
 fn v3_sweep_deletions_keep_the_sys_envelope(){
-    let envelope=pocol_lp4_execution::admission::GAS_ENVELOPE.iter().find(|(n,_)|*n=="beginBlock").unwrap().1;
+    // The former spec-1 GAS_ENVELOPE beginBlock entry, and the v3 entry.
+    let envelope:u64=926_000;let v3_entry=pocol_lp4_execution::admission::envelope(ProgramSet::V3,"beginBlock").unwrap();
+    // The earn-in set's changed slots for the 16 deletions, measured here at bebce78.
+    let earnin_writes:usize=85;
     let mut out=Vec::new();
-    for s in [Setup::earnin().wide(),Setup::v3().wide()]{
+    for s in [Setup::v3().wide()]{
         let mut h=Harness::new(&[],&s);
         let n=80u64;let ids:Vec<Address>=(0..n).map(|i|h.sender(&format!("sw{i}"))).collect();
         h.at(1).unwrap();
@@ -1138,11 +941,12 @@ fn v3_sweep_deletions_keep_the_sys_envelope(){
         out.push((writes(&r),r.result.gas_used()));
         conserved(&h).unwrap();
     }
-    eprintln!("SWEEP 16 deletions: earn-in {:?} v3 {:?}; GAS_ENVELOPE beginBlock {envelope}",out[0],out[1]);
-    assert_eq!(out[1].0,out[0].0,"the same changed slots per deletion");
-    assert!(out[1].1<=envelope,"v3 beginBlock {} gas above the admission envelope {envelope}",out[1].1);
-    // The v3 worst case at the program caps: all 64 scans and 16 deletions, the first 48 scans over active ACCRUING
-    // records (FN-2b: no deadline to read), then 16 refunds of ACCRUING records with clocks.
+    eprintln!("SWEEP 16 deletions: v3 {:?}; spec-1 beginBlock bound {envelope}, GAS_ENVELOPE_V3 beginBlock {v3_entry}",out[0]);
+    assert_eq!(out[0].0,earnin_writes,"the same changed slots per deletion");
+    assert!(out[0].1<=envelope&&out[0].1<=v3_entry,"v3 beginBlock {} gas above the bound {envelope} or the envelope {v3_entry}",out[0].1);
+    // The program caps over live records: all 64 scans and 16 deletions, the first 48 scans over active ACCRUING records
+    // (FN-2b: no deadline to read), then 16 refunds of ACCRUING records with clocks. (The worst path scans tombs that are not
+    // yet erasable instead, on real blocks: resources::tests::sweep_worst_scenario, which GAS_ENVELOPE_V3's entry is.)
     let mut h=Harness::new(&[],&Setup::v3().wide());h.at(1).unwrap();
     let probation:Vec<Address>=(0..47).map(|i|h.sender(&format!("pp{i}"))).collect();
     let held:Vec<Address>=(0..16).map(|i|h.sender(&format!("ph{i}"))).collect();
@@ -1158,8 +962,8 @@ fn v3_sweep_deletions_keep_the_sys_envelope(){
     assert_eq!(reg(&h.db,0).to::<u64>(),48,"16 deletions after 48 scans of live records");
     conserved(&h).unwrap();
     let worst=r.result.gas_used();
-    eprintln!("SWEEP worst case (64 scans, 16 deletions) v3 {worst} gas; GAS_ENVELOPE beginBlock {envelope}");
-    assert!(worst<=envelope,"v3 beginBlock worst case {worst} gas above the admission envelope {envelope}");
+    eprintln!("SWEEP program caps over live records (64 scans, 16 deletions) v3 {worst} gas; spec-1 beginBlock bound {envelope}, GAS_ENVELOPE_V3 beginBlock {v3_entry}");
+    assert!(worst<=envelope&&worst<=v3_entry,"v3 beginBlock at the program caps over live records {worst} gas above the bound {envelope} or the envelope {v3_entry}");
 }
 
 /// The clocks sit in spare record bits: lastMaintHeight modulo 2^32 (w1 bits 224..255, moved from w0 bits 216..255 by
@@ -1257,14 +1061,14 @@ fn v3_evidence_penalties_reproduce_the_independent_model(){
     assert!(type1>=10&&type2>=20,"type 1 {type1}, type 2 {type2}");
 }
 
-/// V3-DESIGN.md V3-16, fails on the original: type-2 evidence against a HELD winner before settle(j), in block j+1 (pot 3)
-/// and in block j+2 (pot 5). On the earn-in set both pots burn whole, so the contributor c and the signed proposer p of
-/// both pots receive nothing; on v3 they are paid and only the tombed winners' parts burn, and the reporters receive
-/// rho of the burned bonds instead of nothing.
+/// V3-DESIGN.md V3-16: type-2 evidence against a HELD winner before settle(j), in block j+1 (pot 3) and in block j+2
+/// (pot 5). On the earn-in set (deleted in Phase 6a) both pots burned whole, so the contributor c and the signed proposer
+/// p of both pots received nothing; on v3 they are paid and only the tombed winners' parts burn, and the reporters
+/// receive rho of the burned bonds instead of nothing.
 #[test]
-fn type2_evidence_before_settlement_pays_contributors_on_v3_but_burns_the_pot_on_earnin(){
+fn type2_evidence_before_settlement_pays_contributors_on_v3(){
     let body=evidence_body("type2-held-winner-pays-contributors");
-    let earnin=chain_exec(&body,&Setup::earnin());let v3=chain_exec(&body,&Setup::v3());
+    let v3=chain_exec(&body,&Setup::v3());
     let pcol=|x:u128|U256::from(x);
     // Pot j: winner part 10%, proposer part 5%, R = the rest over Q = max(C, 64) = 64. Pots 3 and 5 are 2 PCOL: the carry
     // is lagged by one block (V3-15), so the first settlement, settle(1) in block 5, carries into pot 6, not pot 5 (the
@@ -1272,39 +1076,20 @@ fn type2_evidence_before_settlement_pays_contributors_on_v3_but_burns_the_pot_on
     let (pp,r)=(|a:U256|a*pcol(500)/pcol(10_000),|a:U256|a-a*pcol(1000)/pcol(10_000)-a*pcol(500)/pcol(10_000));
     let (a3,a5)=(v3.closed[&3].3,v3.closed[&5].3);
     assert_eq!((a3,a5),(pcol(2*PCOL),pcol(2*PCOL)),"no carry before pot 6");assert!(!v3.closed[&6].2.is_zero(),"pot 6 carries pot 1's base burn");
-    assert_eq!((gain(&earnin,"c"),gain(&earnin,"p")),(U256::ZERO,U256::ZERO),"the earn-in set burns pots 3 and 5 whole");
     assert_eq!(gain(&v3,"c"),r(a3)*pcol(2)/pcol(64)+r(a5)/pcol(64),"two shares in pot 3, one in pot 5");
     assert_eq!(gain(&v3,"p"),pp(a3)+pp(a5),"the signed proposer part of pots 3 and 5");
-    // The reporters: r (block 4) and m0 (block 7) receive 25% of the 20 PCOL bond on v3, nothing on the earn-in set, in the
-    // phase 0 that carries the evidence (neither is paid by that block's settlement).
+    // The reporters: r (block 4) and m0 (block 7) receive 25% of the 20 PCOL bond on v3 in the phase 0 that carries the
+    // evidence (neither is paid by that block's settlement).
     for (who,at) in [("r",4u64),("m0",7)]{
-        assert_eq!((begin_gain(&body,&Setup::v3(),at,who),begin_gain(&body,&Setup::earnin(),at,who)),(pcol(5*PCOL),U256::ZERO),"{who} reports in block {at}");
+        assert_eq!(begin_gain(&body,&Setup::v3(),at,who),pcol(5*PCOL),"{who} reports in block {at}");
     }
     assert_eq!((gain(&v3,"w"),gain(&v3,"v")),(U256::ZERO,U256::ZERO),"the tombed winners receive nothing");
-    // Earn-in burns both bonds and both pots; v3 burns 75% of each bond and only what of each pot it does not pay, and
-    // carries base burns into later pots: every wei v3 pays beyond the earn-in set is one the earn-in set burns or holds
-    // in a pending pot (the same issuance at these heights and the same held bonds); on v3 the carry into the next pot
-    // (lagged by one block, V3-15) is held too.
-    let burned=|h:&Harness|storage(&h.db,escrow_address(),U256::ZERO);
-    let pending=|h:&Harness|(1..=h.height).map(|j|pot(&h.db,j).0).fold(U256::ZERO,|a,b|a+b)+carry_into(&h.db,h.height+1);
-    assert!(carry_into(&earnin.db,0).is_zero()&&carry_into(&earnin.db,1).is_zero()&&carry_into(&v3.db,v3.height).is_zero());
-    assert_eq!((earnin.issued,reg(&earnin.db,4)),(v3.issued,reg(&v3.db,4)));
-    let more:U256=v3.db.accounts.iter().filter(|(a,_)|**a!=escrow_address()).map(|(a,x)|x.info.balance-balance(&earnin.db,*a)).fold(U256::ZERO,|x,y|x+y);
-    assert_eq!(burned(&earnin)+pending(&earnin),burned(&v3)+pending(&v3)+more);
-    for h in [&earnin,&v3]{h.chain_conserved().unwrap();}
+    // v3 burns 75% of each bond and only what of each pot it does not pay, and carries base burns into later pots
+    // (lagged by one block, V3-15); the supply is conserved with equality.
+    assert!(carry_into(&v3.db,v3.height).is_zero());
+    v3.chain_conserved().unwrap();
 }
 
-/// The evidence vectors test V3-16/V3-17: run with the spec-1 host conventions on the earn-in set, every scenario
-/// differs from the v3 model.
-#[test]
-fn evidence_penalty_vectors_fail_on_the_earnin_set(){
-    let v:serde_json::Value=serde_json::from_str(EVIDENCE_VECTORS).unwrap();
-    for (n,body) in v.as_object().unwrap(){
-        let r=budget_scenario(n,body,&Setup::earnin());
-        eprintln!("earn-in {n}: {}",r.as_ref().err().map_or("reproduces",|e|e.as_str()));
-        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-16/V3-17");
-    }
-}
 
 /// V3-17: a self-report loses exactly (1 - rho) * B. r (reward rr) reports itself and c in its own block: its 20 PCOL bond
 /// burns, its reward address receives 25% of it, and 25% of c's as the block's reporter.
@@ -1414,10 +1199,10 @@ fn v3_late_shares_reproduce_the_independent_model(){
 
 /// V3-DESIGN.md V3-02, fails on the original: the winner of block 4 omits b's share. On the v3 set LS(4) carried by
 /// block 5 credits b, and settle(4) at h = 8 pays b R/Q (R = 1.7 PCOL, Q = max(C, kappa*m) = 64) and sets its lastShare
-/// to 4. The earn-in programs have no recordLate (the block's call reverts), and without the late credit b is paid
-/// nothing: the winner alone decided b's credit. The header shares keep their value: c is paid the same R/Q either way.
+/// to 4. Without the late credit b is paid nothing: the winner alone decided b's credit (the earn-in programs, deleted in
+/// Phase 6a, had no recordLate). The header shares keep their value: c is paid the same R/Q either way.
 #[test]
-fn late_share_pays_the_omitted_contributor_on_v3_not_on_earnin(){
+fn late_share_pays_the_omitted_contributor_on_v3(){
     let body=late_body("late-share-pays-the-omitted-contributor");
     let v3=chain_exec(&body,&Setup::v3());
     let r=U256::from(17*PCOL/10);
@@ -1427,28 +1212,9 @@ fn late_share_pays_the_omitted_contributor_on_v3_not_on_earnin(){
     assert_eq!(gain(&original,"b"),U256::ZERO,"without V3-02 the winner's omission removes b's pay");
     assert_eq!(gain(&original,"c"),gain(&v3,"c"),"no header share loses value (no dilution: Q is unchanged)");
     assert_eq!(bits(original.record(name("b")).0,88,64),0);
-    // The earn-in set refuses the block that carries it: recordLate does not exist there.
-    let mut h=Harness::new(&[],&Setup::earnin());
-    let mut refused=None;
-    for st in body["steps"].as_array().unwrap(){
-        let op:Vec<String>=st["op"].as_array().unwrap().iter().map(|x|x.as_str().unwrap().to_string()).collect();
-        match op[0].as_str(){"begin"=>{if let Some(e)=h.begin(st).unwrap(){refused=Some((op[1].clone(),e));break}}"close"=>{h.close(op[1].parse().unwrap(),U256::ZERO).unwrap();}_=>{h.step(&op).unwrap();}}
-    }
-    let (at,why)=refused.expect("the earn-in programs refuse the carrying block");
-    assert_eq!(at,"5");eprintln!("earn-in refuses the carrying block: {why}");
     for x in [&v3,&original]{x.chain_conserved().unwrap();}
 }
 
-/// The late-share vectors test V3-02: on the earn-in set (no recordLate) every scenario differs from the model.
-#[test]
-fn late_share_vectors_fail_on_the_earnin_set(){
-    let v:serde_json::Value=serde_json::from_str(LATE_VECTORS).unwrap();
-    for (n,body) in v.as_object().unwrap(){
-        let r=budget_scenario(n,body,&Setup::earnin());
-        eprintln!("earn-in {n}: {}",r.as_ref().err().map_or("reproduces",|e|e.as_str()));
-        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-02");
-    }
-}
 
 /// The five planted V3-02 mutants (compile_system_v3.cjs --mutants) each fail the late-share vectors, each in the
 /// scenario written for it.
@@ -1642,27 +1408,6 @@ fn pots_fixed_by_their_blocks(ha:&Harness,hb:&Harness,fixed:u64)->Result<Vec<u64
     Ok(later)
 }
 
-/// Fails on the original: the earn-in programs with the spec-1 host conventions record every pot as CP 15 + tips (flat
-/// issuance, no tip split, no carry), so the compressed fixture's halvings, the proposer's tip share and the carried base
-/// burns are absent (the scenarios without late credits, which the earn-in set refuses); the vectors fail there as a whole.
-#[test]
-fn issuance_carry_and_tip_split_fail_on_the_earnin_set(){
-    let s0=U256::from(2*PCOL);
-    for n in ["issuance-halving-compressed","tip-split-signed-fallback-accruing-tomb"]{
-        let body=issuance_body(n);let e=chain_exec(&body,&Setup::earnin());
-        let v3=budget_run(n,&body,&Setup::v3()).unwrap();
-        for (j,c) in &e.closed{assert_eq!(c.3,s0+c.1,"{n}: earn-in pot {j} = CP 15 + tips");}
-        let differ=e.closed.iter().filter(|(j,c)|c.3!=v3.closed[j].3).count();
-        assert!(differ*2>e.closed.len(),"{n}: only {differ} of {} pots differ",e.closed.len());
-        assert!(storage(&e.db,escrow_address(),U256::ZERO)>storage(&v3.db,escrow_address(),U256::ZERO),"{n}: the earn-in set burns what v3 carries");
-    }
-    let v:serde_json::Value=serde_json::from_str(ISSUANCE_VECTORS).unwrap();
-    for (n,body) in v.as_object().unwrap(){
-        if body.get("steps").is_none(){continue}
-        let r=budget_scenario(n,body,&Setup::earnin());
-        assert!(r.is_err(),"{n} reproduces on the earn-in set: it does not test V3-19/V3-15/V3-20");
-    }
-}
 
 /// The eight planted V3-19/V3-15/V3-20 mutants (compile_system_v3.cjs --mutants, RewardEscrow) each fail the issuance-carry
 /// vectors, each in the scenario written for it.
@@ -1949,7 +1694,8 @@ fn active_slice_reads_m_max_members_in_gateway_pages(){
 mod on_chain {
     //! Real blocks through apply_block on a specVersion-2 devnet (the v3 program set), so through the host's v3 phase 0
     //! (apply.rs): the parent's result recorded first, invalidate(j, accused), punish(accused, reporter = the signed
-    //! proposer). The spec-1 earn-in devnet runs the same blocks for the fails-on-original comparison.
+    //! proposer). (The spec-1 earn-in devnet ran the same blocks for the fails-on-original comparisons until Phase 6a
+    //! deleted it; the earn-in figures those comparisons read are pinned below as measured at bebce78.)
     use super::*;
     use pocol_lp4_execution::{apply::{self,BlockInput,BlockOutput,EvidenceEffect,ParentResult,Proposer},admission,devnet::{self,Devnet},resources,txsign::Tx};
     use revm::primitives::B256;
@@ -1984,10 +1730,9 @@ mod on_chain {
         }
         fn bal(&self,a:Address)->U256{balance(&self.state,a)}
     }
-    /// Spec 2: the v3 devnet. Spec 1: the retired spec-1 earn-in devnet, kept for the fails-on-original comparisons until
-    /// Phase 6a deletes the earn-in set. Both run at the earn-in devnet's S0 of 2 PCOL (tail S0/32), so they run the same blocks.
-    fn config(spec:u8,miners:&[&str])->DevnetConfig{
-        let mut cfg=match spec{1=>DevnetConfig::spec1(777943,1_700_000_000,miners,Spec1Programs::EarnIn),_=>DevnetConfig::new(777943,1_700_000_000,miners)};
+    /// The v3 devnet at the earn-in devnet's S0 of 2 PCOL (tail S0/32), the blocks the earn-in comparisons ran before Phase 6a.
+    fn config(miners:&[&str])->DevnetConfig{
+        let mut cfg=DevnetConfig::new(777943,1_700_000_000,miners);
         cfg.h_end=0;cfg.r_max=8;cfg.subsidy=U256::from(2*PCOL);cfg.s_tail=U256::from(2*PCOL/32);cfg
     }
 
@@ -1995,12 +1740,13 @@ mod on_chain {
     /// alice, the ACCRUING (zero-bond) winner of pot 2, with signed proposer a as the reporter. On v3 pot 1 settles
     /// normally (c and a paid their shares, b's parts burn), pot 2 burns whole (alice was ACCRUING when its result was
     /// recorded, in block 3's phase 0 before the evidence), and a's reward receives 25% of b's 20 PCOL bond. The spec-1
-    /// earn-in devnet runs the same blocks and burns both pots whole, paying no reporter (fails on the original).
+    /// earn-in devnet ran the same blocks and burned both pots whole, paying no reporter: its reward gains and pot 6 at
+    /// bebce78 are pinned (EARNIN_EVIDENCE) since Phase 6a deleted it.
     #[test]
     fn v3_host_runs_the_evidence_penalties_on_real_blocks(){
         let mut out=Vec::new();
-        for spec in [1u8,2]{
-            let mut r=Run::new(&config(spec,&["a","b","c"]));
+        {
+            let mut r=Run::new(&config(&["a","b","c"]));
             let (a,b_,c)=(r.id(0),r.id(1),r.id(2));let alice=devnet::account_key("alice").address();
             let t=r.register("alice",0,0);
             r.block(Proposer::Signed(a),vec![],vec![t],b_,vec![(1,a),(2,c),(3,c)]);
@@ -2015,44 +1761,41 @@ mod on_chain {
             let gains:Vec<U256>=(0..3).map(|i|r.bal(r.reward(i))-before[i]).collect();
             out.push((p1.1>>168u32,p2.1>>168u32,p2.2>>160u32,reporter_cut,gains,storage(&r.state,escrow_address(),U256::ZERO),a6));
         }
-        let (earnin,v3)=(&out[0],&out[1]);
-        eprintln!("spec-1 earn-in {earnin:?}\nv3 {v3:?}");
-        // INVALID bits after block 3: both pots on the earn-in set, only pot 2 on v3 (with its ACCRUING winner bit).
-        assert_eq!((earnin.0,earnin.1),(U256::from(1),U256::from(1)));
+        let v3=&out[0];
+        // The spec-1 earn-in devnet's reward gains (a, b, c) and pot 6 on the same blocks, at bebce78.
+        let (earnin_gains,earnin_pot6)=([100_000_000_000_000_000u128,0,1_206_250_000_000_000_000],U256::from(2*PCOL));
+        eprintln!("v3 {v3:?}");
+        // INVALID bits after block 3: only pot 2 on v3 (with its ACCRUING winner bit); the earn-in set had both.
         assert_eq!((v3.0,v3.1,v3.2),(U256::ZERO,U256::from(1),U256::from(1)));
-        assert_eq!(earnin.3,U256::ZERO,"no reporter on the earn-in set");
         assert_eq!(v3.3,U256::from(5*PCOL),"25% of b's 20 PCOL bond to the signed proposer a's reward address");
         // Pot 1 (2 PCOL, 3 header shares + the winner's): a holds 1 share, c 2; R = 1.7 over Q = max(4, kappa*m = 64).
         let r=U256::from(17*PCOL/10);let share=|n:u64|r*U256::from(n)/U256::from(64);
         // Pot 6 (fallback, won by c, C = 1) settles at h = 10. On v3 it also holds pot 1's base burn R - floor(R·4/64), the
         // carry of settle(1) in block 5 into pot 6 (V3-15, lagged by one block), so c's winner part, proposer part and share
         // of it grow by exactly that (pot 5, settled at h = 9, is 2 PCOL on both sets: no settlement ran before block 5).
-        assert_eq!(earnin.6,U256::from(2*PCOL));assert_eq!(v3.6-earnin.6,r-r*U256::from(4)/U256::from(64),"pot 6 carries pot 1's base burn");
+        assert_eq!(v3.6-earnin_pot6,r-r*U256::from(4)/U256::from(64),"pot 6 carries pot 1's base burn");
         let c_parts=|a:U256|{let (wp,pp)=(a/U256::from(10),a*U256::from(500)/U256::from(10_000));wp+pp+(a-wp-pp)/U256::from(64)};
-        assert_eq!(v3.4[2]-earnin.4[2],share(2)+c_parts(v3.6)-c_parts(earnin.6),"c is paid its pot 1 shares on v3 only, and pot 6's carry");
-        assert_eq!(v3.4[0]-earnin.4[0],share(1)+U256::from(5*PCOL)+U256::from(PCOL/10),"a: its share, the reporter cut and the pot 1 proposer part");
-        assert_eq!(v3.4[1],earnin.4[1],"b, tombed, receives nothing more on either set");
+        let e=earnin_gains.map(U256::from);
+        assert_eq!(v3.4[2]-e[2],share(2)+c_parts(v3.6)-c_parts(earnin_pot6),"c is paid its pot 1 shares on v3 only, and pot 6's carry");
+        assert_eq!(v3.4[0]-e[0],share(1)+U256::from(5*PCOL)+U256::from(PCOL/10),"a: its share, the reporter cut and the pot 1 proposer part");
+        assert_eq!(v3.4[1],e[1],"b, tombed, receives nothing more on either set");
     }
 
     /// V3-02 through the host: block 2's winner b omits a's share; block 3 (signed by c) carries Late{j: 2, owners: [a, a]}.
-    /// On v3 settle(2) at h = 6 pays a two shares of pot 2 (R = 1.7 PCOL over Q = 64) and a's lastShare is 2; the spec-1
-    /// earn-in set refuses the effect (no recordLate: apply fails before any call), so there a is paid nothing.
+    /// On v3 settle(2) at h = 6 pays a two shares of pot 2 (R = 1.7 PCOL over Q = 64) and a's lastShare is 2. The spec-1
+    /// earn-in set refused the effect (no recordLate: apply failed before any call), so there a was paid nothing beyond
+    /// its own pots: that gain, measured at bebce78, is pinned since Phase 6a deleted the set.
     #[test]
     fn v3_host_runs_late_credit_on_real_blocks(){
-        let mut gains=Vec::new();
-        for spec in [1u8,2]{
-            let mut r=Run::new(&config(spec,&["a","b","c"]));
+        let mut gains=vec![U256::from(100_000_000_000_000_000u128)];
+        {
+            let mut r=Run::new(&config(&["a","b","c"]));
             let (a,b_,c)=(r.id(0),r.id(1),r.id(2));
             r.block(Proposer::Signed(a),vec![],vec![],c,vec![]);
             r.block(Proposer::Signed(c),vec![],vec![],b_,vec![(7,c)]);
             let before=r.bal(r.reward(0));
             let late=vec![EvidenceEffect::Late{j:2,owners:vec![a,a]}];
-            if spec==1{
-                let input=BlockInput{height:3,timestamp:1_700_000_012,base_fee:r.base,gas_limit:8_000_000,prevrandao:B256::ZERO,proposer:Proposer::Signed(c),
-                    parent_result:r.prev.clone(),evidence:late,evidence_raw:&[],transactions:&[],ancestors:vec![],cum_log_bytes:0};
-                assert_eq!(apply::apply_block(&r.state,&r.net.genesis,&r.net.profile,&input).err(),Some(apply::ApplyError::Context("late shares need the v3 program set")));
-                r.block(Proposer::Signed(c),vec![],vec![],c,vec![]);
-            }else{
+            {
                 let o=r.block(Proposer::Signed(c),late,vec![],c,vec![]);
                 assert_eq!(apply::share_total(&o.state,2),4,"the header's two shares and the two late ones");
                 assert_eq!(apply::share_count(&o.state,2,a),2);
@@ -2067,10 +1810,10 @@ mod on_chain {
 
     /// One zero-bond (or `bond`) registration of a funded devnet account with itself as the reward address.
     fn joins(r:&Run,labels:&[String],bond:u128)->Vec<Vec<u8>>{labels.iter().map(|p|r.register(p,bond,0)).collect()}
-    /// FN-2b: a v3 devnet with `n` ACCRUING registrants q0..q{n-1} (each funded with 1 PCOL for its fee), M_max 1,000 (above
-    /// the spec-1 domain's 256: the v3 domain has no M_max term) and the GAS_DOMAIN maxima otherwise (S_max 256, D 16).
+    /// FN-2b: a v3 devnet with `n` ACCRUING registrants q0..q{n-1} (each funded with 1 PCOL for its fee), M_max 1,000 (the
+    /// v3 domain has no M_max term; the deleted spec-1 domain stopped at 256) and the GAS_DOMAIN maxima otherwise (S_max 256, D 16).
     fn accruing_config(genesis:&[&str],n:usize)->(DevnetConfig,Vec<String>){
-        let mut cfg=config(2,genesis);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=1000;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
+        let mut cfg=config(genesis);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=1000;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
         cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.r_max=16;cfg.gamma_tip_bp=0;
         let q:Vec<String>=(0..n).map(|i|format!("q{i}")).collect();
         for p in &q{cfg.accounts.push((p.clone(),U256::from(PCOL)));}
@@ -2099,7 +1842,7 @@ mod on_chain {
         let r_:Vec<String>=(0..240).map(|i|format!("r{i}")).collect();
         for p in &r_{cfg.accounts.push((p.clone(),U256::from(PCOL)));}
         let mut a=Run::new(&cfg);let cp=a.net.profile.cp().clone();
-        assert!(admission::in_gas_domain(&cp,ProgramSet::V3)&&!admission::in_gas_domain(&cp,ProgramSet::EarnIn),"M_max 1,000: inside the v3 domain only");
+        assert!(admission::in_gas_domain(&cp,ProgramSet::V3),"M_max 1,000: inside the v3 domain");
         let genesis:Vec<Address>=(0..4).map(|i|a.id(i)).collect();let qid:Vec<Address>=q.iter().map(|p|devnet::account_key(p).address()).collect();
         let one=|g:Address|->Vec<(u64,Address)>{(0..256u64).map(|i|(i+1,g)).collect()};
         let bob=devnet::account_key("bob");
@@ -2171,7 +1914,6 @@ mod on_chain {
         for g in [held,zero]{
             assert!(g<=bound&&g<=admission::envelope(ProgramSet::V3,"settleFinal").unwrap(),"settle {g} above GAS_ENVELOPE_V3 {bound}");
             assert!(g<30_000_000,"the per-call cap");
-            assert!(g>admission::envelope(ProgramSet::EarnIn,"settle").unwrap()&&g>admission::envelope(ProgramSet::V1,"settle").unwrap(),"settle {g} fits an older envelope: drop its v3 entry");
         }
         // The envelope entry is the dearer measurement rounded up to 1000 (admission.rs GAS_ENVELOPE_V3).
         assert_eq!(bound,zero.max(held).div_ceil(1000)*1000,"GAS_ENVELOPE_V3 settle is the measured worst path");
@@ -2211,13 +1953,13 @@ mod on_chain {
     ///   punish HELD genesis members (never-written clock word, middle of the active list, the reporter's PAY). Each kind
     ///   comes first on one run of chain B, so each also pays the chain's first burn;
     /// - recordLate (chain C).
-    /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3 where it has an entry, GAS_ENVELOPE_EARNIN
-    /// otherwise: `gas_envelope(ProgramSet::V3)`), every call name measured has an entry there, and the blocks
+    /// Each call stays within admission's envelope for the v3 set (GAS_ENVELOPE_V3, self-contained since Phase 6a:
+    /// `gas_envelope(ProgramSet::V3)`), every call name measured has an entry there, and the blocks
     /// within resources::derive; the test asserts that the punish maximum is taken on these paths.
     #[test]
     fn v3_sys_gas_and_caps_within_the_v3_envelope(){
         let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-        let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
+        let mut cfg=config(&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
         cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.r_max=16;
         let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();
         for p in &probation{cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
@@ -2303,12 +2045,9 @@ mod on_chain {
         // v3_final_block_burns_the_carry_on_real_blocks (V3-PR-E2a, against the same composed entry).
         for (n,_) in admission::gas_envelope(ProgramSet::V3){if !["finalize","settleFinal","settle"].contains(n){assert!(gas.contains_key(n),"the v3 envelope names {n}, which no run measured");}}
         assert!(admission::gas_envelope(ProgramSet::V3).iter().any(|x|x.0=="recordLate"),"the composed v3 envelope names recordLate");
-        // The v3 table is needed: each of its measured entries exceeds the earn-in entry it replaces in the composition,
-        // and the spec-1 entry of the same name.
+        // These entries are these measurements rounded up to 1000 (admission.rs GAS_ENVELOPE_V3).
         for n in ["invalidate","punish","recordResult"]{
-            assert!(gas[n]>admission::envelope(ProgramSet::EarnIn,n).unwrap(),"{n} {} fits the earn-in envelope: drop its v3 entry",gas[n]);
-            assert!(gas[n]>admission::envelope(ProgramSet::V1,n).unwrap(),"{n} {} fits the spec-1 envelope: drop its v3 entry",gas[n]);}
-        for set in [ProgramSet::V1,ProgramSet::Continuous,ProgramSet::EarnIn]{assert_eq!(admission::envelope(set,"recordLate"),None,"recordLate exists on the v3 set only: {set:?}");}
+            assert_eq!(admission::envelope(ProgramSet::V3,n).unwrap(),gas[n].div_ceil(1000)*1000,"GAS_ENVELOPE_V3 {n} is the measured worst path");}
         assert!(keys as u64<=b.keys_normal&&accounts as u64<=b.accts_normal,"keys {keys} accounts {accounts} vs {b:?}");
     }
 
@@ -2316,11 +2055,11 @@ mod on_chain {
     /// the registry's bondRecord): 192 HELD genesis members and 64 ACCRUING registrants p0..p63 with half a bond (M_max
     /// records), RET 128, closing from H_CLOSE 8. The first closing markClose refunds 128 HELD records, the second 64 HELD
     /// and the 64 ACCRUING ones (FN-2b: no accruing count to write). Both stay within admission's envelope for the v3 set
-    /// (markClose in the composed v3 table), and every record ends PAID.
+    /// (GAS_ENVELOPE_V3 markClose, Phase 6a's re-measured entry), and every record ends PAID.
     #[test]
     fn v3_closing_mark_close_gas_within_the_envelope(){
         let labels:Vec<String>=(0..192).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-        let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
+        let mut cfg=config(&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
         cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;cfg.r_max=16;cfg.ret=128;cfg.h_close=8;cfg.h_end=30;
         let probation:Vec<String>=(0..64).map(|i|format!("p{i}")).collect();
         for p in &probation{cfg.accounts.push((p.clone(),U256::from(20*PCOL)));}
@@ -2343,23 +2082,23 @@ mod on_chain {
         for id in genesis.iter().chain(&pids){assert_eq!(apply::miner_record(&r.state,*id).map(|x|x.bond_state),Some(3),"every record PAID");}
         let worst=closing.iter().map(|c|c.1).max().unwrap();let bound=admission::envelope(ProgramSet::V3,"markClose").unwrap();
         assert!(worst<=bound,"v3 markClose {worst} above its envelope {bound}");
-        // FN-2b: within the earn-in entry, which the composed v3 table takes (GAS_ENVELOPE_V3 has no markClose entry), but
-        // above spec-1's (the earn-in programs' refunds cost more).
-        assert!(!admission::GAS_ENVELOPE_V3.iter().any(|x|x.0=="markClose"),"markClose fits the earn-in entry: no v3 entry");
-        assert_eq!(bound,admission::envelope(ProgramSet::EarnIn,"markClose").unwrap());
-        assert!(worst>admission::envelope(ProgramSet::V1,"markClose").unwrap(),"markClose {worst} fits the spec-1 envelope");
-        eprintln!("markClose worst {worst}; composed v3 {bound}, earn-in {}, spec-1 {}",admission::envelope(ProgramSet::EarnIn,"markClose").unwrap(),admission::envelope(ProgramSet::V1,"markClose").unwrap());
+        // Phase 6a: GAS_ENVELOPE_V3 has its own markClose entry (before, the v3 table took the earn-in entry).
+        assert!(admission::GAS_ENVELOPE_V3.iter().any(|x|x.0=="markClose"),"a v3 markClose entry");
+        eprintln!("markClose worst {worst}; GAS_ENVELOPE_V3 {bound}");
+        // The entry is the dearer markClose of resources::tests::sys_gas_envelope_fixture_v3 (2,683,810, after the
+        // beginBlock sweep of 76 tombstones), rounded up; this closing measures just below it.
+        assert!(bound-worst<1000+200,"markClose {worst} within a few hundred gas of its entry {bound}");
     }
 
     /// recordShares at its worst through apply_block at the GAS_DOMAIN maxima (S_max 256, M_max 256 genesis members): one
     /// call naming 256 distinct recorded owners (O = min(S_max + 1, M_max)), each record's w0 written with lastShare, as the
     /// chain's first call (every record cold) and the next; and the same with 257 distinct owners without a record (each
     /// read as four words). FN-2b: one pass over ownersOf, no epoch counters or totals. The maximum stays within admission's
-    /// envelope for the v3 set (recordShares in the composed v3 table).
+    /// envelope for the v3 set (GAS_ENVELOPE_V3 recordShares).
     #[test]
     fn v3_record_shares_gas_at_the_domain_maxima(){
         let labels:Vec<String>=(0..256).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-        let mut cfg=config(2,&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
+        let mut cfg=config(&refs);cfg.d=16;cfg.w_w=64;cfg.s_max=256;cfg.m_max=256;cfg.e_win=2048;cfg.u=2200;cfg.w_act=128;cfg.theta_inact=1024;cfg.c_react=2200;
         cfg.sys_slot_max=131072;cfg.slot_cap=4_000_000;cfg.acct_cap=1_000_000;
         let mut out=BTreeMap::new();
         for strangers in [false,true]{
@@ -2379,24 +2118,25 @@ mod on_chain {
         }
         let worst=out.values().flatten().copied().max().unwrap();
         let bound=admission::envelope(ProgramSet::V3,"recordShares").unwrap();
-        eprintln!("RECORD-SHARES gas (first call, second): recorded owners {:?}, owners without a record {:?}; composed v3 {bound}, earn-in {}, spec-1 {}",
-            out[&false],out[&true],admission::envelope(ProgramSet::EarnIn,"recordShares").unwrap(),admission::envelope(ProgramSet::V1,"recordShares").unwrap());
+        eprintln!("RECORD-SHARES gas (first call, second): recorded owners {:?}, owners without a record {:?}; GAS_ENVELOPE_V3 {bound}",
+            out[&false],out[&true]);
         assert!(worst<=bound,"recordShares {worst} above its envelope {bound}");
-        // The v3 entry is needed: the stranger path exceeds the earn-in entry it replaces in the composition and the spec-1
-        // entry of the same name; the entry is this measurement rounded up to 1000.
-        assert!(worst>admission::envelope(ProgramSet::EarnIn,"recordShares").unwrap(),"recordShares {worst} fits the earn-in envelope: drop its v3 entry");
-        assert!(worst>admission::envelope(ProgramSet::V1,"recordShares").unwrap(),"recordShares {worst} fits the spec-1 envelope: drop its v3 entry");
+        // The entry is this measurement (the stranger path) rounded up to 1000.
         assert_eq!(bound,worst.div_ceil(1000)*1000);
     }
 
-    /// The earn-in refund regressions (earnin_refund_fix.rs, F1-F3) on the v3 set through apply_block: two exited records
-    /// come due in one sweep, one with a durable reward and one with a reward that never sent a transaction; the block
-    /// applies, the durable reward is paid its bond once, the undeliverable bond stays held and claimable, and Escrow's
-    /// invariant holds; a contract that registers itself and self-destructs in one transaction stores no record.
+    /// The F1-F3 refund regressions (formerly tests/earnin_refund_fix.rs on the earn-in set, ported to the v3 set and
+    /// deleted with that set in phase 6a) through apply_block: two exited records come due in one sweep, one with a
+    /// durable reward and one with a reward that never sent a transaction; the block applies (the mandatory sweep never
+    /// halts it), the durable reward is paid its bond once, the undeliverable bond stays held and claimable, Escrow's
+    /// invariant holds and the supply is conserved (the refund moves value from Escrow to the payee, so the whole-chain
+    /// balance grows by the block's issuance alone, and a second block pays nobody twice); a contract that registers itself
+    /// and self-destructs in one transaction stores no record (the PAY-02 source fix: only an EOA's self reward skips the
+    /// durability probe).
     #[test]
     fn v3_keeps_the_earnin_refund_and_self_reward_fixes(){
         use pocol_lp4_execution::apply::{chain_facts,check_escrow_invariant,miner_record,record_list,registry,escrow};
-        let mut cfg=config(2,&["a","b","c"]);cfg.r_max=16;
+        let mut cfg=config(&["a","b","c"]);cfg.r_max=16;
         let net=devnet::build(&cfg).unwrap();
         let arr=|slot:u64|U256::from_be_bytes(keccak256(U256::from(slot).to_be_bytes::<32>()).0);
         let plant=|db:&mut InMemoryDB,id:Address,reward:Address,bond:U256,due:u64|{
@@ -2414,6 +2154,7 @@ mod on_chain {
         plant(&mut parent,good,durable,bg,1);plant(&mut parent,bad,ghost,bb,1);
         let held0=chain_facts(&parent).held_total;
         let o=apply::apply_block(&parent,&net.genesis,&net.profile,&input(1,&[])).expect("the sweep never halts the block");
+        assert_eq!(total(&o.state),total(&parent)+o.issued,"the refund neither burns nor duplicates value: only the issuance is new");
         assert!(miner_record(&o.state,good).is_none(),"the durable payee's record is erased");
         assert_eq!(balance(&o.state,durable),bg,"paid exactly its bond");
         assert_eq!(miner_record(&o.state,bad).map(|r|(r.status,r.bond)),Some((2,bb)),"the undeliverable bond stays claimable");
@@ -2422,6 +2163,8 @@ mod on_chain {
         let pr=ParentResult{block_hash:B256::from(U256::from(1)),winner:net.miners[0].id,shares:vec![]};
         let input2=BlockInput{parent_result:Some(pr),..input(2,&[])};
         let o2=apply::apply_block(&o.state,&net.genesis,&net.profile,&input2).unwrap();
+        assert_eq!(total(&o2.state),total(&o.state)+o2.issued,"the second sweep conserves value too");
+        check_escrow_invariant(&o2.state,&net.profile,2,false).unwrap();
         assert_eq!(balance(&o2.state,durable),bg,"not paid twice");assert_eq!(miner_record(&o2.state,bad).map(|r|r.bond),Some(bb));
         // The source fix: register(self) from a constructor that self-destructs stores nothing.
         let sel=|s:&str|{let h=keccak256(s.as_bytes());[h[0],h[1],h[2],h[3]]};
@@ -2436,7 +2179,8 @@ mod on_chain {
         assert!(miner_record(&o.state,x).is_none(),"a self-destructing contract registered a self reward");
         assert_eq!(record_list(&o.state).len(),3);check_escrow_invariant(&o.state,&net.profile,1,false).unwrap();
     }
-    /// The rest of earnin_halt_proof.rs (the F1/F2/F3 constructor halt) on the v3 set through apply_block, every block a
+    /// The F1/F2/F3 constructor halt (formerly tests/earnin_halt_proof.rs on the earn-in set, ported to the v3 set and
+    /// deleted with that set in phase 6a) on the v3 set through apply_block, every block a
     /// real one (Run checks the supply after each): a contract deployed at H_REG = 5 whose constructor calls
     /// register(reward) with 1 wei and then deregister(), and then (0) self-destructs with itself as the reward, (1) persists
     /// with itself as the reward, or (2, the positive control) self-destructs with a durable distinct reward D (a genesis
@@ -2457,7 +2201,7 @@ mod on_chain {
             c
         };
         for case in 0..3{
-            let mut r=Run::new(&config(2,&["a","b","c"]));let u=u64::from(r.net.profile.cp().U);let due=h_reg+u;
+            let mut r=Run::new(&config(&["a","b","c"]));let u=u64::from(r.net.profile.cp().U);let due=h_reg+u;
             let (w,d)=(r.id(0),r.reward(1));
             while r.h+1<h_reg{r.block(Proposer::Fallback,vec![],vec![],w,vec![(1,w)]);}
             let attacker=devnet::account_key("alice");let x=attacker.address().create(0);
@@ -2508,12 +2252,11 @@ mod on_chain {
     /// h = issued + tips - floor(tips·gamma_tip/10^4) (0 on a fallback) + the carry into pot h, which is the base burn of
     /// settle(h - 1 - D) computed from the parent of block h - 1 (V3-15, lagged by one block: block h's own settle(h - D)
     /// leaves exactly its base burn, computed from block h's parent, as the carry into pot h + 1); the invariant holds on
-    /// every block. Old-chain replay: the same blocks on the spec-1 earn-in devnet keep
-    /// CP 15 every block and pot h = CP 15 + tips.
+    /// every block. (Its old-chain replay on the spec-1 earn-in devnet, CP 15 every block, went with that devnet in Phase 6a.)
     #[test]
     fn v3_host_credit_equals_the_recorded_pot_every_block(){
-        for spec in [1u8,2]{
-            let mut cfg=config(spec,&["a","b","c","d"]);cfg.h_half=8;cfg.s_tail=U256::from(2*PCOL/32);
+        {
+            let mut cfg=config(&["a","b","c","d"]);cfg.h_half=8;cfg.s_tail=U256::from(2*PCOL/32);
             let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..4).map(|i|r.id(i)).collect();
             let (d,gamma)=(u64::from(cp.D),U256::from(cp.gamma_tip_bp));let mut nonce=0u64;let mut eras=BTreeSet::new();
             let mut pending_carry=U256::ZERO;
@@ -2522,12 +2265,7 @@ mod on_chain {
                 let txs=if h%3==0{nonce+=1;vec![tip_tx(&r,nonce-1,U256::from(1_000_000_000u64+h))]}else{vec![]};
                 let parent=r.state.clone();
                 let o=r.block(proposer,vec![],txs,ids[((h+1)%4) as usize],(0..(h%3)).map(|i|(i+1,ids[(i%4) as usize])).collect());
-                let share=if matches!(proposer,Proposer::Fallback)||spec==1{U256::ZERO}else{o.tips*gamma/U256::from(10_000)};
-                if spec==1{
-                    assert_eq!(o.issued,U256::from(2*PCOL),"spec 1 keeps CP 15 at {h}");
-                    assert_eq!(pot(&o.state,h).0,o.issued+o.tips,"spec 1: pot {h} = CP 15 + tips");
-                    continue
-                }
+                let share=if matches!(proposer,Proposer::Fallback){U256::ZERO}else{o.tips*gamma/U256::from(10_000)};
                 assert_eq!(o.issued,m3(h,&cp),"issuance({h})");assert_eq!(o.issued,pocol_lp4_execution::issuance::for_cp(&cp,h));eras.insert(o.issued);
                 let carry=pending_carry;
                 assert_eq!(pot(&o.state,h).0,o.issued+o.tips-share+carry,"pot {h}: issued {} tips {} share {share} carry {carry}",o.issued,o.tips);
@@ -2541,7 +2279,7 @@ mod on_chain {
                 assert_eq!(r.bal(escrow_address()),pending+f.held_total+f.burned_total+pending_carry,"Escrow at {h}");
                 if h>d+2{assert!(!carry.is_zero(),"C < kappa·m leaves a base burn to carry into {h}");}
             }
-            if spec==2{assert_eq!(eras.len(),4,"eras 0..3 of H_half = 8 over 30 blocks");}
+            assert_eq!(eras.len(),4,"eras 0..3 of H_half = 8 over 30 blocks");
         }
     }
 
@@ -2551,13 +2289,15 @@ mod on_chain {
     /// pending or carried, Escrow holds exactly burnedTotal, and every wei issued and every bond went to a reward address or
     /// the burn. Run twice: with every pot but 11 and 12 fully covered (C = kappa·m, R divisible by 64: nothing burns before
     /// F, so finalize burns two nonzero carries as the chain's first burn, its worst path) and with small C everywhere (the
-    /// carry recycles base burns into later pots: the members receive more than on the spec-1 earn-in devnet, which burns
-    /// them).
+    /// carry recycles base burns into later pots: the members receive more than on the spec-1 earn-in devnet, which burned
+    /// them: its figures at bebce78 are pinned since Phase 6a deleted it).
     #[test]
     fn v3_final_block_burns_the_carry_on_real_blocks(){
         let mut finalize_gas=0u64;let mut paid=BTreeMap::new();let mut v3_calls:BTreeMap<&str,u64>=BTreeMap::new();
-        for (spec,covered) in [(2u8,true),(2,false),(1,false)]{
-            let mut cfg=config(spec,&["a","b","c"]);cfg.h_close=10;cfg.h_end=16;cfg.ret=2;
+        // The spec-1 earn-in devnet's (members' gains, burned total) on the small-C chain, at bebce78.
+        paid.insert(1u8,(U256::from(65_296_875_000_000_000_000u128),U256::from(24_703_188_000_000_000_000u128)));
+        for (spec,covered) in [(2u8,true),(2,false)]{
+            let mut cfg=config(&["a","b","c"]);cfg.h_close=10;cfg.h_end=16;cfg.ret=2;
             let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..3).map(|i|r.id(i)).collect();
             let bonds=apply::chain_facts(&r.state).held_total;let start:Vec<U256>=(0..3).map(|i|r.bal(r.reward(i))).collect();
             let km=u64::from(cp.kappa)*u64::from(cp.m);let mut finals=Vec::new();let mut tips=U256::ZERO;
@@ -2607,7 +2347,7 @@ mod on_chain {
         eprintln!("finalize (two carries, first burn) {finalize_gas}; small-C chains: v3 {:?} earn-in {:?}",paid[&2],paid[&1]);
         assert!(paid[&2].0>paid[&1].0&&paid[&2].1<paid[&1].1,"the carry pays members what the spec-1 set burns");
         assert!(finalize_gas<=admission::envelope(ProgramSet::V3,"finalize").unwrap(),"finalize {finalize_gas} above the v3 envelope");
-        assert!(finalize_gas>admission::envelope(ProgramSet::EarnIn,"finalize").unwrap(),"finalize {finalize_gas} fits the earn-in envelope: drop its v3 entry");
+        assert_eq!(admission::envelope(ProgramSet::V3,"finalize").unwrap(),finalize_gas.div_ceil(1000)*1000,"GAS_ENVELOPE_V3 finalize is the measured worst path");
         // Every call these v3 chains ran, the final block's settleFinal among them, within its composed v3 entry (a
         // small-chain check of settleFinal on a real v3 final block; its entry's bound by the measured settle maximum is
         // v3_sys_gas_and_caps_within_the_v3_envelope's).
@@ -2629,7 +2369,7 @@ mod on_chain {
     /// tomb: the share burns) and a fallback block; every block's keys and accounts within resources::derive.
     #[test]
     fn v3_close_and_finalize_gas_within_the_v3_envelope(){
-        let mut cfg=config(2,&["a","b","c","d"]);for q in ["q0","q1"]{cfg.accounts.push((q.into(),U256::from(20*PCOL)));}
+        let mut cfg=config(&["a","b","c","d"]);for q in ["q0","q1"]{cfg.accounts.push((q.into(),U256::from(20*PCOL)));}
         let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..4).map(|i|r.id(i)).collect();
         let (q0,q1)=(devnet::account_key("q0").address(),devnet::account_key("q1").address());
         let joins=vec![r.register("q0",0,0),r.register("q1",10*PCOL,0)];
@@ -2664,10 +2404,8 @@ mod on_chain {
         assert_eq!(g["accruing-promoted-held-zero"],worst,"the promotion from held_total 0 is closeBlock's worst path");
         assert!(worst>g["accruing-promoted"],"held_total's zero-to-nonzero store costs more");
         assert!(worst<=admission::envelope(ProgramSet::V3,"closeBlock").unwrap(),"closeBlock {worst} above the v3 envelope");
-        // The v3 entry is needed: closeBlock's worst path exceeds the earn-in entry it replaces in the composition and
-        // the spec-1 entry of the same name.
-        assert!(worst>admission::envelope(ProgramSet::EarnIn,"closeBlock").unwrap(),"closeBlock {worst} fits the earn-in envelope: drop its v3 entry");
-        assert!(worst>admission::envelope(ProgramSet::V1,"closeBlock").unwrap(),"closeBlock {worst} fits the spec-1 envelope: drop its v3 entry");
+        // The entry is this worst path rounded up to 1000 (admission.rs GAS_ENVELOPE_V3).
+        assert_eq!(admission::envelope(ProgramSet::V3,"closeBlock").unwrap(),worst.div_ceil(1000)*1000,"GAS_ENVELOPE_V3 closeBlock is the measured worst path");
         // Every other call the measured blocks ran, within its composed v3 entry.
         eprintln!("measured blocks' call gas {calls:?}");
         for (n,gas) in &calls{
@@ -2684,7 +2422,7 @@ mod on_chain {
     /// q0 with 42 PCOL of tips, has a carry to zero and a 21 PCOL tip share that fills q0's bond from held_total 0,
     /// promotes it and pays the excess (returns closeBlock's gas).
     fn held_zero_gas(settle_payee:bool)->u64{
-        let mut cfg=config(2,&["a","b","c","d"]);for q in ["q0","q1"]{cfg.accounts.push((q.into(),U256::from(20*PCOL)));}
+        let mut cfg=config(&["a","b","c","d"]);for q in ["q0","q1"]{cfg.accounts.push((q.into(),U256::from(20*PCOL)));}
         let mut r=Run::new(&cfg);let cp=r.net.profile.cp().clone();let ids:Vec<Address>=(0..4).map(|i|r.id(i)).collect();
         let (q0,q1)=(devnet::account_key("q0").address(),devnet::account_key("q1").address());
         let joins=vec![r.register("q0",0,0),r.register("q1",0,0)];
@@ -2721,38 +2459,35 @@ mod on_chain {
     /// counted: raising it by x without the balance is "escrow surplus negative" (an invariant without that term would
     /// pass it: this test fails on it), with the balance it passes; a carry into pot h is "carry left after phase 2" when
     /// covered and "escrow surplus negative" when not; at h = 3 <= D a carry into pot 4 is "carry left after phase 2".
-    /// On the spec-1 earn-in set slots 4 and 5 mean nothing and every verdict is unchanged.
     #[test]
     fn v3_escrow_invariant_counts_the_carry(){
-        for spec in [2u8,1]{
-            let mut r=Run::new(&config(spec,&["a","b","c"]));let ids:Vec<Address>=(0..3).map(|i|r.id(i)).collect();
+        {
+            let mut r=Run::new(&config(&["a","b","c"]));let ids:Vec<Address>=(0..3).map(|i|r.id(i)).collect();
             let mut early=None;
             for h in 1..=6u64{r.block(Proposer::Signed(ids[(h%3) as usize]),vec![],vec![],ids[0],vec![(1,ids[1])]);if h==3{early=Some(r.state.clone());}}
             let h=r.h;let x=U256::from(12_345u64);let p=&r.net.profile;
             apply::check_escrow_invariant(&r.state,p,h,false).unwrap();
-            if spec==2{assert!(!apply::escrow_carry_into(&r.state,h+1).is_zero(),"the carry into pot h+1 outlives block h");}
+            assert!(!apply::escrow_carry_into(&r.state,h+1).is_zero(),"the carry into pot h+1 outlives block h");
             let slot=|t:u64|U256::from(4+(t&1));
             let with=|db:&InMemoryDB,t:u64,cover:bool|{let mut d=db.clone();let v=storage(&d,escrow_address(),slot(t))+x;d.insert_account_storage(escrow_address(),slot(t),v).unwrap();
                 if cover{d.accounts.get_mut(&escrow_address()).unwrap().info.balance+=x;}d};
             let verdict=|db:&InMemoryDB,at:u64|apply::check_escrow_invariant(db,p,at,false);
             let got=[verdict(&with(&r.state,h+1,false),h),verdict(&with(&r.state,h+1,true),h),verdict(&with(&r.state,h,false),h),verdict(&with(&r.state,h,true),h)];
             let e=early.unwrap();let at_d=[verdict(&e,3),verdict(&with(&e,4,true),3)];
-            if spec==2{
-                let (neg,left)=(Err(apply::ApplyError::Supply("escrow surplus negative")),Err(apply::ApplyError::Supply("carry left after phase 2")));
-                assert_eq!(got,[neg.clone(),Ok(()),neg,left.clone()],"carry into pot h+1: counted and allowed; into pot h: counted and refused");
-                assert_eq!(at_d,[Ok(()),left],"no carry into pot h+1 before a settlement ran");
-            }else{assert!(got.iter().chain(at_d.iter()).all(|v|v.is_ok()),"spec 1: slots 4 and 5 are not part of the invariant: {got:?} {at_d:?}");}
+            let (neg,left)=(Err(apply::ApplyError::Supply("escrow surplus negative")),Err(apply::ApplyError::Supply("carry left after phase 2")));
+            assert_eq!(got,[neg.clone(),Ok(()),neg,left.clone()],"carry into pot h+1: counted and allowed; into pot h: counted and refused");
+            assert_eq!(at_d,[Ok(()),left],"no carry into pot h+1 before a settlement ran");
         }
     }
 
     /// V3-19 supply bound (genesis_builder.rs): a genesis running the v3 set needs allocations + bonds + 2·S0·H_half +
     /// S_tail·2^64 < 2^127 (the M3 schedule summed over every height), checked when the genesis is built and on every
     /// candidate. At the largest S_tail that keeps the total below 2^127 the devnet builds and runs; one more wei of tail
-    /// refuses it (Supply), as does the same total reached through H_half. The flat CP 15 · u64::MAX term of the spec-1
-    /// continuous rule (2 PCOL · (2^64 - 1) < 2^126) would have admitted both.
+    /// refuses it (Supply), as does the same total reached through H_half. The flat CP 15 · u64::MAX term of the deleted
+    /// spec-1 continuous rule (2 PCOL · (2^64 - 1) < 2^126) would have admitted both.
     #[test]
     fn v3_genesis_supply_bound_refuses_at_2_pow_127(){
-        let base=config(2,&["a","b","c"]);
+        let base=config(&["a","b","c"]);
         let probe=devnet::build(&base).unwrap();let cp=probe.profile.cp().clone();
         let s0=devnet::from_fixed(&cp.subsidy);
         let alloc:U256=probe.alloc.accounts.values().map(|a|a.info.balance).fold(U256::ZERO,|a,b|a+b);

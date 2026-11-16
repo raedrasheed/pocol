@@ -25,7 +25,7 @@ pub const INSTRUCTIONS: &str = "Consensus-critical sources changed. If validity,
 or fork choice can differ for any input under a schedule or genesis an accepting build allows: on a live chain, add a new fork \
 version gated by `active_version(h) >= V` and re-pin `neutral` with POCOL_REPIN_GATE=fork:V; a `bump` (increment \
 CONSENSUS_RULES_VERSION in pocold/src/identity.rs) is allowed only with a new genesis. If neutral (golden vectors unchanged and \
-passing; full_nonce, decoder_reference, wire_mutation and profile tests pass), re-pin kind=neutral with a note; a changed vector \
+passing; nonce_domain, decoder_reference, wire_mutation and profile tests pass), re-pin kind=neutral with a note; a changed vector \
 file needs kind=neutral-vector and a changed dependency closure or rust-toolchain.toml needs kind=neutral-dep (both presumed bump \
 by reviewers). Re-pin: POCOL_REPIN_CONSENSUS=<kind> POCOL_REPIN_REF=<PR> POCOL_REPIN_NOTE=<why> [POCOL_REPIN_GATE=fork:V] \
 cargo test --release --locked --manifest-path prototypes/pocold/Cargo.toml --test consensus_guard. Until you re-pin, this tree \

@@ -8,17 +8,18 @@
 //! Fact provenance (each is reported; none is a caller-supplied "ok"):
 //! - identity (R23/R24a): allocRoot re-derived from the alloc, sysCodeHash of the bundled
 //!   programs, alloc balances. Exact builder outputs.
+//! - rule set (R24, phase 6a of the fresh network): only the v3 rules are admitted: a specVersion-2 GenesisSpec (CP schema
+//!   v2) whose sysCodeHash names the V3 programs (system-v3.json, the only bundled set) and whose nonceMode is 1 (the full
+//!   64-bit nonce domain, D-V3-01). A spec-1 genesis still decodes, so that it is refused here with its reason rather than
+//!   as an unreadable file.
 //! - SYS slots, keys, accounts (R18): the P7 derivation `resources::derive` over the CP,
 //!   raised to at least the system slots measured in the constructed genesis. The user
 //!   context is charged its full allowance (SYS_KEYS_USER_MAX keys, 16 accounts).
-//! - SYS gas (R18): the per-call maxima of the profile's program set (`gas_envelope`):
-//!   `GAS_ENVELOPE` (V1, Continuous) measured by the worst-case fixture
-//!   `resources::tests::sys_gas_envelope_fixture`, or `GAS_ENVELOPE_EARNIN` (EarnIn) measured by
-//!   `sys_gas_envelope_fixture_earnin`, or for V3 `GAS_ENVELOPE_V3` (measured by tests/v3_contracts.rs)
-//!   over `GAS_ENVELOPE_EARNIN` (V3-PR-E2a: closeBlock and finalize measured on v3; FN-2b: settle with every payee ACCRUING and recordShares re-measured on v3, markClose back on the earn-in entry; recordLate: v3 only), composed into the worst call sequence of each phase class.
-//!   Applicable only inside `GAS_DOMAIN` (for V3 without its M_max term, with the payee bound S_max + 3 <= `GAS_DOMAIN_V3_PAYEES`
-//!   and kappa*m <= `GAS_DOMAIN_V3_KAPPA_M`: `in_gas_domain`); gas is assumed monotone in the domain fields (open
-//!   derivation obligation, A13). Outside the domain the facts are absent.
+//! - SYS gas (R18): the per-call maxima of the profile's program set (`gas_envelope`): `GAS_ENVELOPE_V3`, measured on the
+//!   v3 programs (tests/v3_contracts.rs and `resources::tests::sys_gas_envelope_fixture_v3`), composed into the worst
+//!   call sequence of each phase class. Applicable only inside `GAS_DOMAIN` with the payee bound S_max + 3 <=
+//!   `GAS_DOMAIN_V3_PAYEES` and kappa*m <= `GAS_DOMAIN_V3_KAPPA_M` (`in_gas_domain`); gas is assumed monotone in the domain
+//!   fields (open derivation obligation, A13). Outside the domain the facts are absent.
 //! - timing (R14/R19): a `Timing` record measured on this machine for this exact profile
 //!   (`measure`). Absent or for another genesis: R14/R19 are violated.
 //! - R21: (K_hist + side) snapshots of a state at SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX, checked
@@ -38,11 +39,11 @@
 //! an unadmitted identity, and `Admitted` has no public constructor.
 //! ```
 //! use pocol_lp4_execution::{apply::{Genesis,SystemPrograms},profile::ProfileIdentity};
-//! fn ok(a:&revm::InMemoryDB,p:&ProfileIdentity){let _=Genesis::derive_root(a,p,&SystemPrograms::v1());}
+//! fn ok(a:&revm::InMemoryDB,p:&ProfileIdentity){let _=Genesis::derive_root(a,p,&SystemPrograms::v3());}
 //! ```
 //! ```compile_fail,E0624
 //! use pocol_lp4_execution::{apply::{Genesis,SystemPrograms},profile::ProfileIdentity};
-//! fn bypass(a:&revm::InMemoryDB,p:&ProfileIdentity){let _=Genesis::build(a,p,&SystemPrograms::v1());}
+//! fn bypass(a:&revm::InMemoryDB,p:&ProfileIdentity){let _=Genesis::build(a,p,&SystemPrograms::v3());}
 //! ```
 //! ```compile_fail,E0451
 //! fn forge(p:pocol_lp4_execution::profile::ProfileIdentity,g:pocol_lp4_execution::apply::Genesis)->pocol_lp4_execution::admission::Admitted{
@@ -84,119 +85,95 @@ impl NodeLocal{
     pub fn capital_phi(&self)->u32{self.phi.checked_mul(2).unwrap_or(u32::MAX)}
 }
 
-/// Measured SYS gas per call name of the V1 and Continuous program sets: the largest value in
-/// any phase class over the scenarios of `resources::tests::sys_gas_envelope_fixture`, rounded
-/// up to 1000. That test fails if a measurement ever exceeds an entry, so the table cannot
-/// silently go stale. The earn-in programs have their own table (`GAS_ENVELOPE_EARNIN`);
-/// `gas_envelope` selects by the program set the GenesisSpec's sysCodeHash names.
+/// The v3 program set's SYS gas per call name: the measured maxima of every SYSTEM call PoColSystemV3.sol has, rounded up
+/// to 1000, on real blocks through apply_block at the GAS_DOMAIN maxima. Self-contained since phase 6a of the fresh
+/// network, which deleted the spec-1 program sets and their tables (GAS_ENVELOPE for V1 and Continuous, GAS_ENVELOPE_EARNIN
+/// for the earn-in set): before it the v3 table took the earn-in entry of every call it had not measured (beginBlock,
+/// markClose and pruneShares). The measuring tests fail if a measurement ever exceeds its entry, so an entry cannot go stale
+/// on a path they run; an entry bounds the real cost only if they run the call's worst path, which the list below names
+/// with the argument that it is the worst. Each entry, on its worst path:
+/// - beginBlock, markClose and pruneShares (phase 6a, `resources::tests::sys_gas_envelope_fixture_v3`: the scenarios of the
+///   retired spec-1 and earn-in fixtures run on the v3 programs, ACCRUING registrants included, plus the pruning of a pot
+///   of S_max + 1 = 257 distinct owners, which the v3 domain reaches because it has no M_max term, and the sweep's worst
+///   path `sweep_worst_scenario`; and tests/v3_contracts.rs `v3_sweep_deletions_keep_the_sys_envelope` (the sweep at its
+///   program caps over live records) and `v3_closing_mark_close_gas_within_the_envelope` (closing refunds at RET 128, 64
+///   of them ACCRUING)):
+///   - beginBlock 1,092,822: the sweep at its program caps, SWEEP_SCAN 64 scans and SWEEP_MAX 16 erasures, with the 48
+///     records it does not erase the dearest scans and the 16 it erases the dearest erasures. A scan that does not erase
+///     costs most on a tomb that is not yet erasable (sweepOne reads both clocks and then E_win and D from ChainCaps, two
+///     STATICCALLs, before it refuses; a live record fails both branches before any ChainCaps read). An erasure costs most
+///     on an exited record past its due height: the refund (Escrow.releaseBond, its bondRecord callback and a PAY of the
+///     bond, then held_total) before the erase, which moves the last record into the erased position. No scan of a live
+///     exited record past due refuses: register and setRewardAddress admit only a durable reward (the PAY probe), so its
+///     refund never fails. Measured on real blocks: 48 tombs burned in the 12 blocks before the sweep, then 16 refunds of
+///     exited registrants chained from the list end. The same path with tomb erasures measures 977,314, the 76-tombstone
+///     sweep (live records scanned between the erasures) 928,947, the program-cap sweep over live ACCRUING records 806,559.
+///     Phase 6a lowered this entry to 929,000 from the earn-in table's 944,000 on the 76-tombstone sweep, and its review
+///     found both below the worst path, which no measurement had run.
+///   - markClose 2,683,810: the first closing markClose refunding RET records after that sweep; the RET-128 closing with 64
+///     ACCRUING records measures 2,683,610.
+///   - pruneShares 2,790,996: the prune of a pot of 257 distinct owners.
+///   The earn-in entries the v3 table took before phase 6a (944,000, 2,716,000 and 2,781,000) bounded only markClose:
+///   beginBlock's worst path and the 257-owner prune (the earn-in fixture's M_max stopped at 256 distinct owners) were
+///   never run.
+/// - settle and settleFinal (the same settleOne): every payee ACCRUING at bond 0 and promoted in the one call, as the
+///   chain's first burn (`v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner among them, and the
+///   signed proposer, 258 bond fills from 0 to B_reg, M_max 1,000), with held_total 0 at the first accrue (no bond held:
+///   the genesis bonds refunded, so accrue's first held_total write is from zero): 11,956,401; with a held bond
+///   11,939,301 (the test pins the entry to the dearer). The carry
+///   path (C < kappa*m: 63 owners and the proposer promoted, the base burn written to the carry, V3-15) measures 3,022,717
+///   (`v3_settle_gas_all_accruing_with_the_carry`), a settle writing the carry 134,224 and one accruing from held_total 0
+///   162,182. Before FN-2b the pool bounded the fills at P_MAX = 64 and settle measured 6,316,532.
+/// - recordShares (`v3_record_shares_gas_at_the_domain_maxima`): 257 distinct owners without a record as the chain's
+///   first call (each read as four words): 14,199,448 (256 recorded owners measure 13,214,946). FN-2b: one pass over
+///   ownersOf, no epoch counters.
+/// - recordLate (V3-02, at most kappa*m - 1 = 63 late shares of one template, `GAS_DOMAIN_V3_KAPPA_M`): the stranger path
+///   3,457,157 (recorded owners 3,228,593); an evidence item is counted as the dearer of recordLate and invalidate + punish
+///   (`phase_calls`).
+/// - V3-16/V3-17 (`v3_sys_gas_and_caps_within_the_v3_envelope`): recordResult reads the winner's record (36,149),
+///   invalidate the winner word (8,537), punish the reporter's record and pays its rho_bp cut (worst: a HELD genesis
+///   member's never-written clock word with the chain's first burn, 98,654).
+/// - V3-19/V3-15/V3-20 (`v3_close_and_finalize_gas_within_the_v3_envelope`, `v3_final_block_burns_the_carry_on_real_blocks`):
+///   closeBlock(tips, issued) zeroing a carry and paying the tip share to an ACCRUING proposer at bond 0 whose share
+///   exceeds B_reg while held_total is zero (accrue fills and promotes it, the excess is PAID): 127,704; finalize burning
+///   both outstanding carries with the tips as the chain's first burn: 61,932.
 ///
-/// Known gap, left open for the owner (this table is kept unchanged so spec-1 continuous admission
-/// facts stay byte-identical): the fixture's final blocks all carry tombs, and a tomb-free final block
-/// on the V1 programs measures settleFinal 4,291,596, or 4,306,697 when every earlier pot burned
-/// nothing so that the first settleFinal writes escrow slot 0 (burnedTotal) from zero; both exceed the
-/// 4,230,000 entry. So the class-2 facts of V1 are understated by up to 15 * 77,000 gas (worst
-/// composition about 88.9M instead of 87.7M, still under G_SYS 96M), and so are the composed class-2
-/// facts of the Continuous set, which never runs settleFinal. The other entries cover the tomb-free
-/// runs (V1 settle 4,304,468, also on the Continuous programs).
-///
-/// recordShares assumes every owner it is given is a registered record (w != 0); an absent
-/// owner costs about 3.6k gas more (four cold SLOADs instead of one SLOAD and a warm SSTORE),
-/// which the entries do not include. No valid block can name one, by these facts:
-/// - owners ⊆ ActList(parent): the host takes each share's owner (and the winner) from the
-///   nonce assignment, built only from the non-tomb entries of the parent state's ActList
-///   (pocold chain.rs `membership`, lp1-node assignment.rs `Membership::from_parent`); a nonce
-///   with no owner rejects the block. Every child of the block, on every attempt, carries the
-///   same parent result.
-/// - no erase in the window: between the parent state and recordShares(h-1) in phase 0 of h only
-///   block h-1 and h's punish/markClose/pruneShares run. punish only tombs, markClose only
-///   refunds. The program erases a record only by claimBond (state EXITED, at least U blocks
-///   after the exit) or by the beginBlock sweep (an exited record past due = exit + U, or a tomb
-///   at least E_win + D + 1 blocks after its burn), and beginBlock runs after recordShares.
-///   R8 (gate.rs) requires U >= E_win + D with D >= 2, so no record that was active at h-2 can be
-///   erased before recordShares(h-1). The earn-in probation deadline only exits a record.
-/// - ActList ⊆ live records: erase() does not remove a record from ActList, and a PAID record
-///   that is punished keeps its ActList entry with the tomb set. A sweep erasing it would leave an
-///   ActList entry naming an absent record, which the host would count as a live member. PAID
-///   exists only once CLOSING is set, and under CLOSING beginBlock returns before the sweep and
-///   claimBond reverts, so this cannot happen in V1, Continuous (which never sets CLOSING) or
-///   EarnIn.
-/// Checked on blocks: `resources::tests::sys_gas_envelope_fixture_earnin` takes its owners from the
-/// parent's ActList as the host does and asserts each is a record before and after the block, and
-/// pocold's tests/earnin.rs asserts it for the result of every real (mined and validated) block.
-pub const GAS_ENVELOPE:&[(&str,u64)]=&[("beginBlock",926_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_655_000),
-    ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_305_000),("settleFinal",4_230_000)];
-/// Measured SYS gas per call name of the earn-in program set (PoColSystemEarnIn.sol): the largest
-/// value in any phase class over the scenarios of `resources::tests::sys_gas_envelope_fixture_earnin`,
-/// rounded up to 1000. That test fails if a measurement exceeds an entry or an entry is not measured.
-/// Its scenarios: the V1 fixture's two on the earn-in programs, and runs with eight (P_MAX) ACCRUING
-/// payees registered by USER transactions: first bond fills, an ACCRUING winner and proposer, the
-/// promote-and-PAY path through a bond one wei short and through a large tip pot, continuous runs,
-/// ACCRUING records alive into closing (markClose's ACCRUING refunds; settleFinal pays them as PAID
-/// records, since the final block needs the closing cursor done), the sweep scenario with ACCRUING
-/// records moved into the first closing block, and a first fill at a closing boundary where every
-/// other bond is refunded (held_total goes from zero to nonzero); and tomb-free runs (no evidence, so
-/// no member is dropped from the payees), including runs where escrow slot 0 (burnedTotal) is still
-/// zero, because every earlier pot had one owner and burned nothing, so the measured call writes it
-/// from zero (17,100 gas more). Measured: the boundary first fill with a tip pot 4,667,822, the
-/// first-burn first fill with a tip pot 4,669,821, both at once 4,684,922 (the settle maximum), and a
-/// tomb-free final block 4,408,101, or 4,423,202 when its first settleFinal makes the first burn (the
-/// settleFinal maximum; runs with tombs reach only 4,344,322).
-/// Earn-in's payInfos returns a second array and settle calls accrue for ACCRUING payees, so
-/// settle and settleFinal cost more than in V1; markClose and beginBlock do as well. Not measured: the
-/// probation-deadline exit in the beginBlock sweep, which needs a height of at least T_PROB = 60480
-/// (at most P_MAX = 8 such exits per sweep).
-pub const GAS_ENVELOPE_EARNIN:&[(&str,u64)]=&[("beginBlock",944_000),("closeBlock",53_000),("finalize",32_000),("invalidate",7_000),("markClose",2_716_000),
-    ("pruneShares",2_781_000),("punish",81_000),("recordResult",26_000),("recordShares",13_216_000),("settle",4_685_000),("settleFinal",4_424_000)];
-/// The envelope of a program set. V1 and Continuous use `GAS_ENVELOPE` (spec-1 continuous chains
-/// run Continuous, so their admission facts are unchanged); EarnIn uses `GAS_ENVELOPE_EARNIN`.
-/// V3 (reachable only via the v3 sysCodeHash on a specVersion-2 genesis, which spec-1 releases refused):
-/// its fallback is decided explicitly. PoColSystemV3.sol is built on the earn-in programs, which
-/// measure markClose and beginBlock above `GAS_ENVELOPE` (2,715,144 and 943,609), so the v3 table is
-/// `GAS_ENVELOPE_V3`'s entries where it has one and `GAS_ENVELOPE_EARNIN`'s otherwise, not `GAS_ENVELOPE`'s.
-pub fn gas_envelope(set:ProgramSet)->&'static [(&'static str,u64)]{
-    match set{ProgramSet::EarnIn=>GAS_ENVELOPE_EARNIN,ProgramSet::V3=>GAS_ENVELOPE_V3_COMPOSED,ProgramSet::V1|ProgramSet::Continuous=>GAS_ENVELOPE}
-}
-/// `GAS_ENVELOPE_V3` over `GAS_ENVELOPE_EARNIN`, composed at compile time: every earn-in call name, in its order, with
-/// the v3 entry where one exists and the earn-in entry otherwise, then (V3-PR-E3) the v3-only call names (recordLate),
-/// in GAS_ENVELOPE_V3's order, with their v3 entry.
-pub const GAS_ENVELOPE_V3_COMPOSED:&[(&str,u64)]=&compose_v3_envelope();
-const fn same_name(a:&str,b:&str)->bool{
-    let (a,b)=(a.as_bytes(),b.as_bytes());if a.len()!=b.len(){return false}
-    let mut i=0;while i<a.len(){if a[i]!=b[i]{return false}i+=1;}true
-}
-const fn in_table(t:&[(&str,u64)],name:&str)->bool{let mut i=0;while i<t.len(){if same_name(t[i].0,name){return true}i+=1;}false}
-/// The number of GAS_ENVELOPE_V3 call names without an earn-in entry.
-const V3_ONLY_CALLS:usize={let mut n=0;let mut j=0;while j<GAS_ENVELOPE_V3.len(){if !in_table(GAS_ENVELOPE_EARNIN,GAS_ENVELOPE_V3[j].0){n+=1}j+=1;}n};
-const fn compose_v3_envelope()->[(&'static str,u64);GAS_ENVELOPE_EARNIN.len()+V3_ONLY_CALLS]{
-    let mut out=[("",0u64);GAS_ENVELOPE_EARNIN.len()+V3_ONLY_CALLS];let mut i=0;
-    while i<GAS_ENVELOPE_EARNIN.len(){
-        let (name,mut gas)=GAS_ENVELOPE_EARNIN[i];let mut j=0;
-        while j<GAS_ENVELOPE_V3.len(){if same_name(GAS_ENVELOPE_V3[j].0,name){gas=GAS_ENVELOPE_V3[j].1}j+=1;}
-        out[i]=(name,gas);i+=1;
-    }
-    let mut j=0;
-    while j<GAS_ENVELOPE_V3.len(){if !in_table(GAS_ENVELOPE_EARNIN,GAS_ENVELOPE_V3[j].0){out[i]=GAS_ENVELOPE_V3[j];i+=1;}j+=1;}
-    out
-}
+/// recordShares assumes every owner it is given is a registered record (w != 0); an absent owner costs more (the record's
+/// four words are read cold), which the 257-stranger measurement above includes. No valid block names one, by these facts:
+/// - owners ⊆ ActList(parent): the host takes each share's owner (and the winner) from the nonce assignment, built only from
+///   the non-tomb entries of the parent state's ActList (pocold chain.rs `membership`, lp1-node assignment.rs
+///   `Membership::from_parent`); a nonce with no owner rejects the block. Every child of the block, on every attempt,
+///   carries the same parent result.
+/// - no erase in the window: between the parent state and recordShares(h-1), which the v3 phase 0 runs first, only block
+///   h-1 runs. The program erases a record only by claimBond (state EXITED, at least U blocks after the exit) or by the
+///   beginBlock sweep (an exited record past due = exit + U, or a tomb at least E_win + D + 1 blocks after its burn). R8
+///   (gate.rs) requires U >= E_win + D with D >= 2, so no record that was active at h-2 can be erased before
+///   recordShares(h-1).
+/// - ActList ⊆ live records: erase() does not remove a record from ActList, and a PAID record that is punished keeps its
+///   ActList entry with the tomb set. A sweep erasing it would leave an ActList entry naming an absent record. PAID exists
+///   only once CLOSING is set, and under CLOSING beginBlock returns before the sweep and claimBond reverts.
+/// Checked on blocks: `resources::tests::sys_gas_envelope_fixture_v3` takes its owners from the parent's ActList as the host
+/// does and asserts each is a record before and after the block, and pocold's tests/v3_earnin.rs asserts it for the result
+/// of every real (mined and validated) block.
+pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("beginBlock",1_093_000),("closeBlock",128_000),("finalize",62_000),("invalidate",9_000),("markClose",2_684_000),
+    ("pruneShares",2_791_000),("punish",99_000),("recordLate",3_458_000),("recordResult",37_000),("recordShares",14_200_000),("settle",11_957_000),("settleFinal",11_957_000)];
+/// The envelope of a program set: `GAS_ENVELOPE_V3` for the one bundled set.
+pub fn gas_envelope(set:ProgramSet)->&'static [(&'static str,u64)]{match set{ProgramSet::V3=>GAS_ENVELOPE_V3}}
 /// The table's name, as the R18 condition reports it.
-fn envelope_name(set:ProgramSet)->&'static str{
-    match set{ProgramSet::EarnIn=>"GAS_ENVELOPE_EARNIN",ProgramSet::V3=>"GAS_ENVELOPE_V3 over GAS_ENVELOPE_EARNIN",ProgramSet::V1|ProgramSet::Continuous=>"GAS_ENVELOPE"}
-}
-/// Gas-driving CP fields of the fixture (loop bounds in PoColSystemV1: S_max+1 owners,
-/// M_max records, RET retirements, D pots, E_max evidence; SWEEP_SCAN/SWEEP_MAX are
-/// capped at 64/16 in the program and were at those caps). The M_max term binds the spec-1 sets only (`GAS_ENVELOPE`
-/// covers a V1 loop over M_max records) until Phase 6a deletes them; no SYSTEM call of the v3 set loops over the members
-/// (FN-2b: `in_gas_domain`).
+fn envelope_name(set:ProgramSet)->&'static str{match set{ProgramSet::V3=>"GAS_ENVELOPE_V3"}}
+/// Gas-driving CP fields of the measured domain (loop bounds of PoColSystemV3.sol: S_max+1 owners per pot, RET
+/// retirements, D pots, E_max evidence; SWEEP_SCAN/SWEEP_MAX are capped at 64/16 in the program). No SYSTEM call of the v3
+/// set loops over the members (FN-2b), so M_max is not a domain field: phase 6a deleted the M_max term (at most 256) that
+/// bounded the spec-1 sets, whose V1 programs looped over M_max records (FRESH-NETWORK-DESIGN.md C2, review R2-3).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
-pub struct GasDomain{pub s_max:u16,pub m_max:u16,pub d:u16,pub e_max:u8,pub ret:u32}
-pub const GAS_DOMAIN:GasDomain=GasDomain{s_max:256,m_max:256,d:16,e_max:4,ret:128};
+pub struct GasDomain{pub s_max:u16,pub d:u16,pub e_max:u8,pub ret:u32}
+pub const GAS_DOMAIN:GasDomain=GasDomain{s_max:256,d:16,e_max:4,ret:128};
 
-/// Worst SYSTEM call sequence of each phase class (apply_block phase 0 and 2). V3-02: on the v3 program set an
-/// evidence item is either type 1/2 (invalidate and punish) or kind 3 (one recordLate); each of the E_max items is
-/// counted as the dearer of the two.
+/// Worst SYSTEM call sequence of each phase class (apply_block phase 0 and 2). V3-02: an evidence item is either type 1/2
+/// (invalidate and punish) or kind 3 (one recordLate); each of the E_max items is counted as the dearer of the two.
 fn phase_calls(cp:&ConsensusParams,class:u8,set:ProgramSet)->Vec<(&'static str,u64)>{
     let mut v:Vec<(&'static str,u64)>=Vec::new();
-    let late=set==ProgramSet::V3&&envelope(set,"recordLate").zip(envelope(set,"invalidate").zip(envelope(set,"punish"))).is_some_and(|(l,(i,p))|l>i+p);
+    let late=envelope(set,"recordLate").zip(envelope(set,"invalidate").zip(envelope(set,"punish"))).is_some_and(|(l,(i,p))|l>i+p);
     for _ in 0..cp.E_max{if late{v.push(("recordLate",1));}else{v.push(("invalidate",1));v.push(("punish",1));}}
     for n in ["markClose","pruneShares","recordShares","recordResult","settle","beginBlock"]{v.push((n,1))}
     if class==2{v.push(("finalize",1));v.push(("settleFinal",u64::from(cp.D).saturating_sub(1)));}else{v.push(("closeBlock",1));}
@@ -209,55 +186,23 @@ fn phase_calls(cp:&ConsensusParams,class:u8,set:ProgramSet)->Vec<(&'static str,u
 /// counted by M_max. GAS_ENVELOPE_V3's settle is measured with every one of them ACCRUING at bond 0 and promoted in the
 /// one call (tests/v3_contracts.rs `v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner
 /// among them, and the proposer, with held_total nonzero and from zero; `v3_settle_gas_all_accruing_with_the_carry`: the
-/// carry path, C < kappa*m), at S_max 256, so the v3 domain is S_max + 3 <= GAS_DOMAIN_V3_PAYEES in place of the M_max
-/// term. With GAS_DOMAIN's S_max <= 256 this term adds no further restriction (S_max + 3 <= 259 is S_max <= 256): it states
-/// that the measured payee path is the bound, so widening GAS_DOMAIN's S_max must re-measure settle as well
-/// (tests/v3_model.py check_payee_bound asserts the bound for every settlement of a model chain, and the 258-payee test
-/// asserts the host chain's promoted payees are within it).
+/// carry path, C < kappa*m), at S_max 256, so the domain requires S_max + 3 <= GAS_DOMAIN_V3_PAYEES. With GAS_DOMAIN's
+/// S_max <= 256 this term adds no further restriction (S_max + 3 <= 259 is S_max <= 256): it states that the measured
+/// payee path is the bound, so widening GAS_DOMAIN's S_max must re-measure settle as well (tests/v3_model.py
+/// check_payee_bound asserts the bound for every settlement of a model chain, and the 258-payee test asserts the host
+/// chain's promoted payees are within it).
 pub const GAS_DOMAIN_V3_PAYEES:u32=259;
 /// V3-02: recordLate credits at most kappa*m - 1 shares of one template in one call (the no-dilution cap, with the
 /// winner's share already counted); GAS_ENVELOPE_V3's recordLate was measured at kappa*m = 64 (S_max 256 >= 4*kappa*m, R8).
 pub const GAS_DOMAIN_V3_KAPPA_M:u32=64;
-/// The measured domain of a program set: `GAS_DOMAIN`, except that for V3 (FN-2b) the M_max term is dropped (no v3 SYSTEM
-/// call iterates the members: the sweep is bounded by SWEEP_SCAN/SWEEP_MAX, closing by RET, settlement and recordShares by
-/// a pot's payees, recordLate by kappa*m) and the payee bound and kappa*m are required instead.
+/// The measured domain: `GAS_DOMAIN` (S_max, D, E_max, RET), the payee bound and kappa*m. No v3 SYSTEM call iterates the
+/// members (the sweep is bounded by SWEEP_SCAN/SWEEP_MAX, closing by RET, settlement, recordShares and pruneShares by a
+/// pot's payees, recordLate by kappa*m), so any M_max is inside it.
 pub fn in_gas_domain(cp:&ConsensusParams,set:ProgramSet)->bool{
     let d=GAS_DOMAIN;
-    let common=cp.S_max<=d.s_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret;
-    if set==ProgramSet::V3{common&&u32::from(cp.S_max)+3<=GAS_DOMAIN_V3_PAYEES&&u32::from(cp.kappa)*u32::from(cp.m)<=GAS_DOMAIN_V3_KAPPA_M}
-    else{common&&cp.M_max<=d.m_max}
+    match set{ProgramSet::V3=>cp.S_max<=d.s_max&&cp.D<=d.d&&cp.E_max<=d.e_max&&cp.RET<=d.ret
+        &&u32::from(cp.S_max)+3<=GAS_DOMAIN_V3_PAYEES&&u32::from(cp.kappa)*u32::from(cp.m)<=GAS_DOMAIN_V3_KAPPA_M}
 }
-/// Entries for a genesis running the v3 program set, measured (rounded up to 1000) by tests/v3_contracts.rs
-/// on real blocks through apply_block at the GAS_DOMAIN maxima. PoColSystemV3.sol is built on the earn-in programs, so
-/// every call without an entry here takes `GAS_ENVELOPE_EARNIN`'s; `gas_envelope(ProgramSet::V3)` is that composition,
-/// and spec-1 sets compose their own tables alone. Re-measured for FN-2b (owner decisions 10b/10c of 2026-11-13: no
-/// probation pool, seat contest or epoch counters; registerReplacing and activeSlice), each on its worst path:
-/// - settle and settleFinal (the same settleOne): every payee ACCRUING at bond 0 and promoted in the one call, as the
-///   chain's first burn (`v3_settle_gas_with_every_payee_accruing`: 256 share owners, the winner among them, and the
-///   signed proposer, 258 bond fills from 0 to B_reg, M_max 1,000), with held_total 0 at the first accrue (no bond held:
-///   the genesis bonds refunded, so accrue's first held_total write is from zero): 11,956,401; with a held bond
-///   11,939,301 (the test pins the entry to the dearer). The carry
-///   path (C < kappa*m: 63 owners and the proposer promoted, the base burn written to the carry, V3-15) measures 3,022,717
-///   (`v3_settle_gas_all_accruing_with_the_carry`), a settle writing the carry 134,224 and one accruing from held_total 0
-///   162,182. Before FN-2b the pool bounded the fills at P_MAX = 64 and settle measured 6,316,532.
-/// - recordShares (`v3_record_shares_gas_at_the_domain_maxima`): 257 distinct owners without a record as the chain's
-///   first call (each read as four words): 14,199,448, above its earn-in entry (13,216,000, the same as spec-1's; 256
-///   recorded owners measure 13,214,946). FN-2b: one pass over ownersOf, no epoch counters.
-/// - recordLate (V3-02, at most kappa*m - 1 = 63 late shares of one template, `GAS_DOMAIN_V3_KAPPA_M`): the stranger path
-///   3,457,157 (recorded owners 3,228,593); recordLate is the one v3-only call name, so the composition appends it after
-///   the earn-in names, and an evidence item is counted as the dearer of recordLate and invalidate + punish (`phase_calls`).
-/// - V3-16/V3-17 (`v3_sys_gas_and_caps_within_the_v3_envelope`): recordResult reads the winner's record (36,149),
-///   invalidate the winner word (8,537), punish the reporter's record and pays its rho_bp cut (worst: a HELD genesis
-///   member's never-written clock word with the chain's first burn, 98,654).
-/// - V3-19/V3-15/V3-20 (`v3_close_and_finalize_gas_within_the_v3_envelope`, `v3_final_block_burns_the_carry_on_real_blocks`):
-///   closeBlock(tips, issued) zeroing a carry and paying the tip share to an ACCRUING proposer at bond 0 whose share
-///   exceeds B_reg while held_total is zero (accrue fills and promotes it, the excess is PAID): 127,704; finalize burning
-///   both outstanding carries with the tips as the chain's first burn: 61,932.
-/// markClose's closing refunds (RET 128, 64 of them ACCRUING) measure 2,683,610 since FN-2b (no accruing count to write),
-/// within the earn-in entry (2,716,000) the composition takes, so markClose has no v3 entry
-/// (`v3_closing_mark_close_gas_within_the_envelope`); beginBlock, pruneShares and the rest take the earn-in entries.
-pub const GAS_ENVELOPE_V3:&[(&str,u64)]=&[("closeBlock",128_000),("finalize",62_000),("invalidate",9_000),("punish",99_000),("recordLate",3_458_000),
-    ("recordResult",37_000),("recordShares",14_200_000),("settle",11_957_000),("settleFinal",11_957_000)];
 /// The envelope entry of a SYSTEM call for a program set (`gas_envelope`).
 pub fn envelope(set:ProgramSet,name:&str)->Option<u64>{gas_envelope(set).iter().find(|(n,_)|*n==name).map(|x|x.1)}
 fn phase_gas(cp:&ConsensusParams,class:u8,set:ProgramSet)->Option<Vec<u64>>{
@@ -432,10 +377,15 @@ pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Resul
     let hash=gs::genesis_hash(r.spec_bytes);
     let spec=gs::verify_hash(r.spec_bytes,&hash).map_err(|e|terminal("R24",format!("GenesisSpec decode: {e:?}")))?;
     let cp=ConsensusParams::from_values(&spec.cp).map_err(|e|terminal("R24",format!("CP schema: {e:?}")))?;
+    // Phase 6a of the fresh network: the v3 rules only. A spec-1 genesis (CP schema v1) is the retired rule set, which this
+    // release no longer runs; a v3 genesis names the V3 programs and the full nonce domain. Refused before any fact is
+    // derived, each with its reason.
+    if spec.spec_version<2{return Err(terminal("R24",format!("GenesisSpec version {}: the spec-1 rule set is retired; this release admits only a specVersion-2 (v3) genesis",spec.spec_version)))}
+    let programs=SystemPrograms::for_spec(&cp,&spec.sys_code_hash).map_err(|e|terminal("R24",e))?;
+    if cp.nonceMode!=1{return Err(terminal("R24",format!("nonceMode {}: bounded nonce ranges are a retired spec-1 rule; a v3 genesis has nonceMode 1, the full 64-bit nonce domain (D-V3-01)",cp.nonceMode)))}
     let mut notes=Vec::new();
-    let programs=SystemPrograms::for_spec(&cp,&spec.sys_code_hash);
-    // The program set selects the SYS gas envelope (R18): the same sysCodeHash match as `for_spec`.
-    let set=SystemPrograms::program_set(&cp,&spec.sys_code_hash);
+    // The program set selects the SYS gas envelope (R18): the V3 set, the one `for_spec` accepts.
+    let set=ProgramSet::V3;
 
     // Builder facts: allocRoot and system slots of the constructed genesis (before the
     // allocRoot comparison, which the gate makes as R24).
@@ -476,7 +426,7 @@ pub fn admit_with(r:&Request<'_>,raise:Option<&crate::profile::CapRaise>)->Resul
     let timing=r.timing.filter(|t|t.genesis_hash==hash);
     if r.timing.is_none(){notes.push("timing: no measurement recorded (R14/R19)".into())}
     else if timing.is_none(){notes.push("timing: measurement recorded for another genesis (R14/R19)".into())}
-    if !in_gas_domain(&cp,set){notes.push(format!("SYS gas: CP outside the measured domain {:?}{} (R18)",GAS_DOMAIN,if set==ProgramSet::V3{format!(" without its M_max term, S_max + 3 <= {GAS_DOMAIN_V3_PAYEES}, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M}")}else{String::new()}))}
+    if !in_gas_domain(&cp,set){notes.push(format!("SYS gas: CP outside the measured domain {:?}, S_max + 3 <= {GAS_DOMAIN_V3_PAYEES}, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M} (R18)",GAS_DOMAIN))}
     let measured=timing.map(|t|t.phase_ms).unwrap_or([u64::MAX;3]);
     // The resource facts (R18 SYS slots/keys, R21 retained state) of the CP `cp`, bound to `binding`.
     let resource_for=|cp:&ConsensusParams,binding:[u8;32]|{
@@ -572,17 +522,11 @@ fn conditions(cp:&ConsensusParams,set:ProgramSet,r:&Request<'_>,l:&NodeLocal,tim
     c
 }
 
-/// The R18 gas condition, naming the envelope of the profile's program set. The V1/Continuous text is
-/// the one every earlier admission report carries, byte for byte.
+/// The R18 gas condition, naming the envelope of the profile's program set.
 fn gas_condition(set:ProgramSet)->String{
-    if set==ProgramSet::EarnIn{format!("SYS gas: {} holds at the earn-in fixture's maxima (earn-in program set); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
-    // V3: the composed table's v3 entries come from the v3 measurement (tests/v3_contracts.rs), the rest from the earn-in
-    // fixture. The v3 runs check every call they reach against the composition; the fixture's runs do not reach the final
-    // phase (h_end 0). V3-PR-E2a measures finalize on v3 on its worst path (two outstanding carries burned with the tips
-    // as the chain's first burn) on a small final chain, and closeBlock on its worst tip-share path; settleFinal is still
-    // bounded by the measured settle (the same settleOne), not by a measured v3 final block (A13-DERIVATION §3).
-    else if set==ProgramSet::V3{format!("SYS gas: {} (v3 measurement over the earn-in fixture) holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, any M_max, S_max + 3 <= {GAS_DOMAIN_V3_PAYEES} payees per pot all ACCRUING, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M}; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
-    else{format!("SYS gas: {} holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))}
+    // Every entry is a v3 measurement (GAS_ENVELOPE_V3). The v3 runs check every call they reach against it; settleFinal
+    // is bounded by the measured settle (the same settleOne), not by a measured v3 final block (A13-DERIVATION §3).
+    format!("SYS gas: {} holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, any M_max, S_max + 3 <= {GAS_DOMAIN_V3_PAYEES} payees per pot all ACCRUING, kappa*m <= {GAS_DOMAIN_V3_KAPPA_M}; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",envelope_name(set))
 }
 
 /// Calibration code: JUMPDEST; PUSH1 0; JUMP — loops until the transaction's gas is spent.
@@ -613,7 +557,7 @@ pub(crate) fn measure_run(spec_bytes:&[u8],alloc:&InMemoryDB,repeats:u32,store:O
     let mut costs:Vec<(usize,u64,u64)>=Vec::new();
     let hash=gs::genesis_hash(spec_bytes);let spec=gs::verify_hash(spec_bytes,&hash).map_err(|e|format!("{e:?}"))?;
     let profile=fact_identity(spec_bytes,&hash,spec.chain_id)?;let cp=profile.cp().clone();
-    let genesis=Genesis::build(alloc,&profile,&SystemPrograms::for_spec(&cp,&spec.sys_code_hash)).map_err(|e|format!("{e:?}"))?;
+    let genesis=Genesis::build(alloc,&profile,&SystemPrograms::for_spec(&cp,&spec.sys_code_hash)?).map_err(|e|format!("{e:?}"))?;
     let mut state=genesis.state().clone();
     // Fund the calibration sender by moving balance (total supply unchanged).
     let key=crate::txsign::Key::devnet("admission-calibration");let sender=key.address();let spin=scratch_address("pocol-admission-spin");

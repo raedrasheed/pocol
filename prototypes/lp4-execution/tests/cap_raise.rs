@@ -52,7 +52,7 @@ fn admission_is_unchanged_without_a_raise_and_evaluates_both_cps_with_one(){
 }
 
 #[test]
-fn admission_refuses_a_raise_that_is_unscheduled_lowering_empty_on_spec_1_or_breaks_a_rule(){
+fn admission_refuses_a_raise_that_is_unscheduled_lowering_empty_or_breaks_a_rule(){
     let mut d=devnet::build(&cfg(|_|{})).unwrap();let t=timing(&d);let local=NodeLocal::single_host();let b=base_raise(&d);
     let r24=|e:admission::Rejection,why:&str|{assert_eq!(e.rules,vec!["R24".to_string()]);assert!(e.notes.iter().any(|n|n.contains(why)),"{why}: {:?}",e.notes);};
     // Fork 3 without its raise, and a raise without fork 3.
@@ -64,10 +64,6 @@ fn admission_refuses_a_raise_that_is_unscheduled_lowering_empty_on_spec_1_or_bre
         r24(admit(&mut d,&t,&local,Some(low)).err().unwrap(),"may not lower a cap");
     }
     r24(admit(&mut d,&t,&local,Some(b)).err().unwrap(),"must raise at least one cap");
-    // A spec-1 genesis has no cap raise.
-    // The retired spec-1 rule set (Phase 6a deletes it and this case).
-    let mut one=devnet::build(&DevnetConfig::spec1(CHAIN,1_800_000_000,&["a"],devnet::Spec1Programs::Bonded)).unwrap();let t1=timing(&one);let b1=base_raise(&one);
-    r24(admit(&mut one,&t1,&local,Some(CapRaise{acct_cap:b1.acct_cap+1,..b1})).err().unwrap(),"needs a v3 genesis");
     // A rule broken only at the raised CP: without the simnet retentionStress exception, R21's retained state at an
     // ACCT_CAP of 2^40 is over HIST_TRIE_BUDGET while the genesis CP's is not.
     let strict=NodeLocal{retention_stress:false,..NodeLocal::single_host()};

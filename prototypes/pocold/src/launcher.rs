@@ -146,17 +146,18 @@ impl Invitation {
             value["height"] = at.into();
             out["capRaise"] = value;
         }
-        crate::readiness::annotate(&mut out, &self.launch_blockers(&info, &forks));
+        crate::readiness::annotate(&mut out, &self.launch_blockers(&info));
         crate::network_display::annotate_genesis(out, &self.files["genesis.spec.hex"])
     }
     /// V3-28 H1: this build's readiness for the invitation's network, from what genesis.spec.hex commits to (chain,
-    /// genesis hash, spec version) and the fork schedule. The launcher admits nothing itself, so it always reports
-    /// `admission-not-booted`: the admission devnet.json records about itself is reflected only as further blockers,
-    /// never as evidence (D-V3-28); a node's status reports the admission it booted with.
-    fn launch_blockers(&self, info: &serde_json::Value, forks: &[(u16, u64)]) -> Vec<crate::readiness::Blocker> {
-        self.launch_blockers_for(&crate::readiness::Build::this(), info, forks)
+    /// genesis hash, spec version); v3 is active by specVersion 2 whatever the fork schedule. The launcher admits
+    /// nothing itself, so it always reports `admission-not-booted`: the admission devnet.json records about itself is
+    /// reflected only as further blockers, never as evidence (D-V3-28); a node's status reports the admission it
+    /// booted with.
+    fn launch_blockers(&self, info: &serde_json::Value) -> Vec<crate::readiness::Blocker> {
+        self.launch_blockers_for(&crate::readiness::Build::this(), info)
     }
-    fn launch_blockers_for(&self, build: &crate::readiness::Build, info: &serde_json::Value, forks: &[(u16, u64)]) -> Vec<crate::readiness::Blocker> {
+    fn launch_blockers_for(&self, build: &crate::readiness::Build, info: &serde_json::Value) -> Vec<crate::readiness::Blocker> {
         use crate::readiness::{blockers, Admission, AdmissionFacts, Network, Subject};
         let genesis = types::unhex(self.files.get("genesis.spec.hex").map_or("", |s| s.trim())).and_then(|bytes| {
             if bytes.len() > crate::genesis_spec::MAX_SPEC_BYTES { return Err("genesis specification exceeds its bound".into()) }
@@ -166,7 +167,10 @@ impl Invitation {
         match genesis {
             Err(why) => blockers(build, Subject::Unreadable(why)),
             Ok((spec, genesis_hash)) => blockers(build, Subject::Network(&Network { chain_id: spec.chain_id, genesis_hash,
-                v3_active: spec.spec_version >= 2 || forks.iter().any(|&(version, _)| version >= 3),
+                // Phase 6a: only a specVersion-2 genesis is v3. Fork 3 is the cap raise (FN-5), admitted only on such a
+                // genesis, so no schedule makes a spec-1 invitation v3: it reports `v3-inactive` here, and pack, start
+                // and the boot admission refuse it (`testnet::local_for_network`, R24).
+                v3_active: spec.spec_version >= 2,
                 admission: Admission::Recorded(AdmissionFacts::recorded(info, spec.chain_id)) })),
         }
     }
@@ -1043,18 +1047,19 @@ mod upgrade_tests {
         assert_eq!(description["publicLaunchReady"], false);
         let blockers = description["launchBlockers"].as_array().unwrap();
         let ids: Vec<&str> = blockers.iter().map(|b| b["id"].as_str().unwrap()).collect();
-        for id in ["plan-gate-Q1", "v3-inactive", "network-not-release-pinned", "profile-kind"] {
+        for id in ["plan-gate-Q1", "network-not-release-pinned", "profile-kind"] {
             assert!(ids.contains(&id), "{id}: {ids:?}");
         }
-        assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable") && !ids.contains(&"spec-version"), "{ids:?}");
+        // Phase 6a: the generated network is v3 from genesis (specVersion 2), so v3-inactive is not among them.
+        assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable") && !ids.contains(&"spec-version") && !ids.contains(&"v3-inactive"), "{ids:?}");
         let info = invitation.info().unwrap();
         let (chain_id, genesis) = computed(&invitation);
         let pinned = blockers.iter().find(|b| b["id"] == "network-not-release-pinned").unwrap()["detail"].as_str().unwrap().to_string();
         assert!(pinned.contains(&chain_id.to_string()) && pinned.contains(&genesis), "{pinned}");
         // Exactly the computed list: build facts, then the network's (devnet.json's recorded admission).
         let forks = crate::configured_forks(&info).unwrap();
-        assert_eq!(description["launchBlockers"], crate::readiness::json(&invitation.launch_blockers(&info, &forks))["launchBlockers"]);
-        // A pinned v3 schedule entry would make the rules active; the schedule here has none.
+        assert_eq!(description["launchBlockers"], crate::readiness::json(&invitation.launch_blockers(&info))["launchBlockers"]);
+        // The v3 rules are active by the genesis' specVersion 2; the schedule here has no cap raise (fork 3).
         assert!(forks.iter().all(|&(v, _)| v < 3));
         assert!(ids.contains(&"admission-not-booted"), "{ids:?}");
         assert!(description.get("fullNonceActivationHeight").is_none());
@@ -1072,7 +1077,7 @@ mod upgrade_tests {
             plan_gates_open: vec![], network_profiles: vec![(chain_id, genesis)] };
         let ids = |i: &Invitation| -> Vec<String> {
             let info = i.info().unwrap();
-            i.launch_blockers_for(&pinned, &info, &crate::configured_forks(&info).unwrap()).into_iter().map(|b| b.id).collect()
+            i.launch_blockers_for(&pinned, &info).into_iter().map(|b| b.id).collect()
         };
         let before = ids(&honest);
         assert!(before.iter().any(|b| b == "admission-scope") && before.iter().any(|b| b.starts_with("admission-condition-")), "{before:?}");
@@ -1081,14 +1086,51 @@ mod upgrade_tests {
         info["admission"] = serde_json::json!({"scope":"specification","conditions":[],"waivers":[]});
         info["profileKind"] = "Network".into();
         forged.files.insert("devnet.json".into(), info.to_string());
-        // Only what genesis.spec.hex commits to (spec 1: v3 never active) and the launcher's own blocker remain, and
+        // Only the launcher's own blocker remains (genesis.spec.hex commits to a v3 genesis: no v3-inactive), and
         // profile-kind, since R22 allows the network profile only on chain 777001.
-        assert_eq!(ids(&forged), ["v3-inactive", "admission-not-booted", "profile-kind"]);
+        assert_eq!(ids(&forged), ["admission-not-booted", "profile-kind"]);
         assert_ne!(chain_id, crate::readiness::R22_NETWORK_CHAIN_ID);
         // The public description of the forged file says the same, and is false.
         let description = forged.describe();
         assert_eq!(description["publicLaunchReady"], false);
         assert!(description["launchBlockers"].as_array().unwrap().iter().any(|b| b["id"] == "admission-not-booted"));
+    }
+    /// Phase 6a: a spec-1 invitation still decodes, and no schedule makes it v3. With the cap-raise schedule
+    /// [(1,0),(2,H'),(3,H)] and its capRaise (`configured_forks` accepts the form; it never sees the genesis) the dry
+    /// run still reports `v3-inactive`, naming the retired spec-1 rule set; the same files with a v3 genesis do not.
+    #[test]
+    fn a_spec1_invitation_is_v3_inactive_under_any_schedule() {
+        use pocol_lp4_execution::{devnet, genesis_spec as gs};
+        let mut cfg = devnet::DevnetConfig::new(777936, 1_700_000_000, &["one"]);
+        cfg.spec_version = 1;
+        cfg.nonce_mode = 0;
+        let m = devnet::miner_identity("one");
+        let spec = gs::GenesisSpec { spec_version: 1, chain_id: 777936, cp: cfg.cp(), alloc_root: [0; 32],
+            m0_list: vec![gs::Member { id: m.id.0 .0, reward_addr: m.reward.0 .0 }], sys_code_hash: [0; 32] };
+        let raise = serde_json::json!({"ACCT_CAP":1u64 << 40,"SLOT_CAP":1u64 << 40,"CODE_CAP":1u64 << 40,"SYS_SLOT_MAX":1u32 << 30});
+        let v3 = generated(serde_json::Value::Null);
+        for forks in [serde_json::json!([[1, 0]]), serde_json::json!([[1, 0], [2, 5]]), serde_json::json!([[1, 0], [2, 5], [3, 9]])] {
+            let fork3 = forks.as_array().unwrap().len() == 3;
+            let ids = |genesis: &str| -> (Vec<String>, String) {
+                let mut i = v3.clone();
+                let mut info = i.info().unwrap();
+                info["forks"] = forks.clone();
+                if fork3 { info["capRaise"] = raise.clone(); }
+                i.files.insert("devnet.json".into(), info.to_string());
+                i.files.insert("genesis.spec.hex".into(), genesis.into());
+                assert_eq!(crate::configured_forks(&i.info().unwrap()).unwrap().len(), forks.as_array().unwrap().len());
+                let description = i.describe();
+                assert_eq!(description["publicLaunchReady"], false);
+                let blockers = description["launchBlockers"].as_array().unwrap();
+                let detail = blockers.iter().find(|b| b["id"] == "v3-inactive").map_or(String::new(), |b| b["detail"].as_str().unwrap().to_string());
+                (blockers.iter().map(|b| b["id"].as_str().unwrap().to_string()).collect(), detail)
+            };
+            let (old, detail) = ids(&types::hex(&gs::encode(&spec)));
+            assert!(old.iter().any(|b| b == "v3-inactive") && !old.iter().any(|b| b == "genesis-unreadable"), "{forks}: {old:?}");
+            assert!(detail.contains("spec-1 rule set is retired") && !detail.contains("fork to version 3"), "{detail}");
+            let (new, _) = ids(&v3.files["genesis.spec.hex"]);
+            assert!(!new.iter().any(|b| b == "v3-inactive" || b == "genesis-unreadable"), "{forks}: {new:?}");
+        }
     }
     fn journal(path: &Path, heights: &[u64]) -> Vec<u8> { journal_of(path, heights, 777915, [7; 32]) }
     fn journal_of(path: &Path, heights: &[u64], chain_id: u64, genesis: [u8; 32]) -> Vec<u8> {
@@ -1174,7 +1216,7 @@ mod upgrade_tests {
 
     // ---- The upgrade path (plan §1.7, §3): T20-T26 ----
 
-    /// A real simnet genesis (spec 1, bounded nonces, schedule [[1,0]]) that `pocold init-testnet` generates once, as
+    /// A real simnet genesis (v3: specVersion 2, the full nonce domain, schedule [[1,0]]) that `pocold init-testnet` generates once, as
     /// `pocol network` packs it; `forks`, when given, replaces the schedule in devnet.json.
     fn generated(forks: serde_json::Value) -> Invitation {
         static GENERATED: std::sync::OnceLock<BTreeMap<String, String>> = std::sync::OnceLock::new();

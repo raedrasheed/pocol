@@ -1,6 +1,11 @@
 //! Public-information-only genesis preparation for independently held test keys.
 //! Still ExperimentalDevnet admission; does not enable the production network profile.
 //!
+//! Phase 6a of the fresh network: every genesis this builder makes is a v3 genesis (specVersion 2, CP schema v2, the V3
+//! programs, nonceMode 1, a continuous chain). The spec-1 options `continuous`, `earnin` and `fullNonce` are retired and
+//! refused by name (each is implied); `"v3": true` is still accepted (the committed profiles state it), `"v3": false`
+//! is refused. A config that states none of them builds exactly the genesis it built with `"v3": true` before.
+//!
 //! FN-4 (FRESH-NETWORK-DESIGN.md row C7): a config with `profile` is a complete network profile, such as the committed
 //! `deploy/mainnet/v3-profile.json` and `v3-rehearsal-profile.json`. It states every CP field but g_ts and target_g
 //! (`genesisTime` and the measured `hashRate`), its local timing and its founders (`founders`, the only allocation).
@@ -27,33 +32,23 @@ use std::{collections::{BTreeMap, HashSet}, path::Path};
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct Config {
-    /// FN-4: a complete network profile (module doc): the name it is recorded under. Requires `v3`.
+    /// FN-4: a complete network profile (module doc): the name it is recorded under.
     #[serde(default)]
     profile: Option<String>,
     /// Where the profile's values are decided (a decision record path); recorded, not interpreted.
     #[serde(default)]
     record: Option<String>,
-    #[serde(default)]
+    /// Every genesis is a v3 genesis (module doc): absent or true; false (a spec-1 genesis) is refused.
+    #[serde(default = "yes")]
     v3: bool,
     #[serde(default)]
     cp: BTreeMap<String, serde_json::Value>,
-    #[serde(default)]
-    continuous: bool,
-    /// Earn-in network (EARN-IN-SPEC.md): earn-in system programs, B_reg = 20 PCOL, nonceMode 1. Needs
-    /// `continuous`.
-    #[serde(default)]
-    earnin: bool,
-    /// nonceMode 1: the full 64-bit nonce domain from genesis, so no attempt can run out of nonces (as
-    /// Mainnet after its v2 height). Absent or false keeps the v1 bounded range and the same genesis bytes.
-    #[serde(default)]
-    full_nonce: bool,
-    /// V3-05: the declared (or measured, V3-06 soak) WAN timing assumptions a v3 profile's local Δ_rel and Γ are
-    /// derived from (`local_for_v3`). Absent: `TimingAssumptions::V3_DEFAULT` (FN-4). Refused without `v3`: spec-1 local
-    /// timing stays the fixed `local_for` derivation.
+    /// V3-05: the declared (or measured, V3-06 soak) WAN timing assumptions the local Δ_rel and Γ are derived from
+    /// (`local_for_v3`). Absent: `TimingAssumptions::V3_DEFAULT` (FN-4).
     #[serde(default)]
     local_timing: Option<DeclaredTiming>,
-    /// FN-4: the R25d calibration input H_cal of a v3 config, with its class: `measurement` (the founders' aggregate
-    /// hash rate, measured) or `synthetic-fixture`. Absent: the synthetic (1<<18)/10 of every earlier testnet.
+    /// FN-4: the R25d calibration input H_cal, with its class: `measurement` (the founders' aggregate hash rate,
+    /// measured) or `synthetic-fixture`. Absent: the synthetic (1<<18)/10 of every earlier testnet.
     #[serde(default)]
     hash_rate: Option<HashRate>,
     chain_id: u64,
@@ -68,6 +63,9 @@ struct Config {
     #[serde(default)]
     founders: Vec<Founder>,
 }
+fn yes() -> bool { true }
+/// The spec-1 builder options phase 6a retired (each is implied by a v3 genesis), refused by name.
+const RETIRED_OPTIONS: [&str; 3] = ["continuous", "earnin", "fullNonce"];
 #[derive(Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct HashRate {
@@ -226,17 +224,6 @@ pub fn local() -> NodeLocal {
     }
 }
 
-/// Synthetic P11 local assumptions, with wait/attempt slack derived from the final CP.
-/// This does not measure WAN latency or select the production v3 profile. Spec-1 profiles (every committed
-/// network, continuous chains included) keep exactly this derivation: Δ_rel = dFbWait + Δ + t_exec (8 at
-/// dFbWait 6) and Γ the R6 slack (5). V3-05 changes only spec-2 (v3) profiles (`local_for_v3`).
-pub fn local_for(cp: &ConsensusParams) -> Result<NodeLocal, String> {
-    let mut local = local();
-    local.delta_rel = cp.dFbWait.checked_add(local.delta).and_then(|v| v.checked_add(local.t_exec))
-        .ok_or("local timing exceeds u32")?;
-    local.gamma = gamma_for(cp, &local)?;
-    Ok(local)
-}
 /// Γ: the attempt-advance slack R6 needs at these locals (`D_att + Γ ≥ 2(X^W + c·T_blk) + Φ`), never below
 /// `local().gamma` (5).
 fn gamma_for(cp: &ConsensusParams, local: &NodeLocal) -> Result<u32, String> {
@@ -310,15 +297,11 @@ pub fn local_timing_json(local: &NodeLocal) -> serde_json::Value {
     serde_json::json!({"delta":local.delta,"phi":local.phi,"tExec":local.t_exec,"deltaRel":local.delta_rel,"gamma":local.gamma,"source":"declared"})
 }
 
-/// The local timing for a genesis of `spec_version`: spec 1 is exactly `local_for` (declared assumptions are
-/// refused, so every spec-1 network keeps its timing); spec 2 (v3) is `local_for_v3` at the declared
+/// The local timing for a genesis of `spec_version`: spec 2 (v3) is `local_for_v3` at the declared
 /// assumptions, `TimingAssumptions::V3_DEFAULT` (1,1,1) by default (FN-4).
 pub fn local_for_spec(cp: &ConsensusParams, spec_version: u8, declared: Option<TimingAssumptions>) -> Result<NodeLocal, String> {
     if spec_version < 2 {
-        if declared.is_some() {
-            return Err("localTiming is a v3 profile input; a spec-1 network keeps its fixed local timing".into());
-        }
-        return local_for(cp);
+        return Err(retired_spec(spec_version));
     }
     local_for_v3(cp, declared.unwrap_or(TimingAssumptions::V3_DEFAULT))
 }
@@ -373,8 +356,8 @@ pub fn spec_version_of(dir: &Path) -> Result<u8, String> {
     Ok(genesis_spec_in(dir)?.spec_version)
 }
 
-/// The launcher uses the same final CP-derived local timing as the genesis builder: spec 1 `local_for`; a v3
-/// genesis `local_for_v3` at the assumptions its devnet.json declares (`TimingAssumptions::V3_DEFAULT` without one).
+/// The launcher uses the same final CP-derived local timing as the genesis builder: `local_for_v3` at the assumptions
+/// its devnet.json declares (`TimingAssumptions::V3_DEFAULT` without one).
 /// A v3 devnet.json whose recorded `deltaRel` or `gamma` differs from what V3-05 derives from its assumptions (a
 /// file written before V3-05, or one edited by hand) is refused, so a node never runs a T_j other than the one the
 /// file states.
@@ -382,7 +365,7 @@ pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
     let spec = genesis_spec_in(dir)?;
     let cp = ConsensusParams::from_values(&spec.cp).map_err(|e| format!("CP: {e:?}"))?;
     if spec.spec_version < 2 {
-        return local_for(&cp);
+        return Err(retired_spec(spec.spec_version));
     }
     let recorded = declared_in(dir)?;
     let local = local_for_spec(&cp, spec.spec_version, recorded.as_ref().map(|r| r.assumptions))?;
@@ -397,6 +380,12 @@ pub fn local_for_network(dir: &Path) -> Result<NodeLocal, String> {
         }
     }
     Ok(local)
+}
+
+/// Why a network of `spec_version` < 2 does not run: the spec-1 rule set is retired (phase 6a); boot admission refuses
+/// it too (R24).
+fn retired_spec(spec_version: u8) -> String {
+    format!("GenesisSpec version {spec_version}: the spec-1 rule set is retired; this release runs only v3 (specVersion 2) networks")
 }
 
 fn cp_number(value: &serde_json::Value) -> Result<pocol_lp4_execution::fixed::U256, String> {
@@ -415,7 +404,6 @@ const PROFILE_DERIVED: [&str; 2] = ["g_ts", "target_g"];
 fn profile_input(input: &mut Config, test_filled: bool) -> Result<(), String> {
     let name = input.profile.as_deref().unwrap_or_default();
     if name.is_empty() || name.len() > 64 { return Err("profile: the name is 1 to 64 characters".into()); }
-    if !input.v3 { return Err("profile: a network profile is a v3 profile (\"v3\": true)".into()); }
     if !input.miners.is_empty() || !input.accounts.is_empty() {
         return Err("profile: the founders are the only members and the only allocation (no miners or accounts)".into());
     }
@@ -493,9 +481,11 @@ pub fn supply_bound(initial: U256, cp: &ConsensusParams) -> Result<U256, String>
 
 /// Resolve once from typed public input.
 fn resolve(config: serde_json::Value, test_filled: bool) -> Result<(Config, devnet::DevnetConfig, Vec<pocol_lp4_execution::fixed::U256>), String> {
+    if let Some(gone) = RETIRED_OPTIONS.iter().find(|k| config.get(**k).is_some()) {
+        return Err(format!("{gone}: a retired spec-1 option; every genesis this builder makes is a v3 genesis (continuous, the V3 programs, nonceMode 1), so remove it"));
+    }
     let mut input: Config = serde_json::from_value(config).map_err(|_| "invalid public genesis config schema")?;
-    if input.local_timing.is_some() && !input.v3 { return Err("localTiming is a v3 profile input; a spec-1 network keeps its fixed local timing".into()); }
-    if input.hash_rate.is_some() && !input.v3 { return Err("hashRate is a v3 profile input".into()); }
+    if !input.v3 { return Err("\"v3\": false asks for a spec-1 genesis; the spec-1 rule set is retired and this builder makes only v3 genesis files".into()); }
     if let Some(r) = &input.hash_rate {
         if r.hashes_per_second == 0 || !["measurement", "synthetic-fixture"].contains(&r.class.as_str()) {
             return Err("hashRate: hashesPerSecond is at least 1 and class is measurement or synthetic-fixture".into());
@@ -503,32 +493,26 @@ fn resolve(config: serde_json::Value, test_filled: bool) -> Result<(Config, devn
     }
     if input.profile.is_some() { profile_input(&mut input, test_filled)?; }
     else if !input.founders.is_empty() { return Err("founders belong to a network profile (\"profile\")".into()); }
-    if input.v3 {
-        input.earnin = true; input.continuous = true; input.full_nonce = true;
-    }
     if input.chain_id == 777001 || input.chain_id == 0 || input.chain_id >= (1u64 << 53)
         || input.genesis_time > u64::MAX - 10_000_000
-        || !(1..=if input.v3 { 256 } else { 64 }).contains(&input.miners.len())
-        || input.accounts.len() > 10000 || input.registration_per_block > 4
-        || (input.earnin && !input.continuous) {
+        || !(1..=256).contains(&input.miners.len())
+        || input.accounts.len() > 10000 || input.registration_per_block > 4 {
         return Err("invalid experimental testnet parameters".into());
     }
-    // The builder's own base values, which Phase 5a left as they were (the devnet default became v3): the spec-1 devnet
-    // values with the testnet timing, so every config still builds the genesis it built before. A v3 config takes its
-    // v3 fields from them too, unless it states them (a profile states every one). Phase 6a makes the builder v3-only.
-    let mut cfg = devnet::DevnetConfig::spec1(input.chain_id, input.genesis_time, &[],
-        if input.earnin { devnet::Spec1Programs::EarnIn } else { devnet::Spec1Programs::Bonded });
-    cfg.spec_version = if input.v3 { 2 } else { 1 };
+    // The builder's own base values: the devnet values (DevnetConfig::new) with the testnet timing, and the S0 of 2 PCOL
+    // (S_tail S0/32) this builder has always written for a config that does not state it, so every config builds the
+    // genesis it built before phase 6a (a profile states every field).
+    let mut cfg = devnet::DevnetConfig::new(input.chain_id, input.genesis_time, &[]);
+    cfg.subsidy = U256::from(2_000_000_000_000_000_000u128); cfg.s_tail = U256::from(62_500_000_000_000_000u64);
     cfg.t_blk = 10; cfg.tau = 600; cfg.d_att = 60; cfg.d_fb_wait = 6;
     cfg.hash_rate = input.hash_rate.as_ref().map_or((1 << 18) / 10, |r| r.hashes_per_second); cfg.r_max = input.registration_per_block;
-    if input.earnin || input.full_nonce { cfg.nonce_mode = 1; }
     let schema = gs::cp_schema(cfg.spec_version).unwrap();
     let mut overrides = BTreeMap::new();
     for (name, raw) in &input.cp {
         let index = schema.iter().position(|f| f.name == name).ok_or_else(|| format!("unknown CP field {name}"))?;
         let value = cp_number(raw).map_err(|e| format!("CP {name}: {e}"))?;
         // A v3 chain is continuous: it may state H_END/H_CLOSE/T_END/T_CLOSE as the 0 the builder derives (a profile does).
-        let stated_zero = input.v3 && value.is_zero() && ["H_END", "H_CLOSE", "T_END", "T_CLOSE"].contains(&name.as_str());
+        let stated_zero = value.is_zero() && ["H_END", "H_CLOSE", "T_END", "T_CLOSE"].contains(&name.as_str());
         if ["g_ts", "target_g", "H_END", "H_CLOSE", "T_END", "T_CLOSE"].contains(&name.as_str()) && !stated_zero {
             return Err(format!("CP field {name} is derived by the builder"));
         }
@@ -539,19 +523,15 @@ fn resolve(config: serde_json::Value, test_filled: bool) -> Result<(Config, devn
         if name == "T_blk" { cfg.t_blk = value.to_u64().unwrap() as u32; }
         overrides.insert(index, value);
     }
-    if input.v3 {
-        // Time-based synthetic defaults. Explicit CP overrides below take precedence.
-        cfg.h_half = 126_230_400u64.div_ceil(u64::from(cfg.t_blk));
-    }
+    // Time-based synthetic defaults. Explicit CP overrides below take precedence.
+    cfg.h_half = 126_230_400u64.div_ceil(u64::from(cfg.t_blk));
+    // A continuous chain: DevnetConfig::new has H_END 0, so H_END, T_END, H_CLOSE and T_CLOSE (cp[45..=48]) are 0.
     let mut cp = cfg.cp();
-    if input.continuous { for value in &mut cp[45..=48] { *value = pocol_lp4_execution::fixed::U256::ZERO; } }
     for (index, value) in overrides { cp[index] = value; }
     let params = ConsensusParams::from_values(&cp).map_err(|e| format!("CP {}: {}", e.detail, e.code))?;
-    if (input.earnin || input.full_nonce) && params.nonceMode != 1 { return Err("nonceMode contradicts earnin/fullNonce/v3".into()); }
-    if input.v3 {
-        // FN-4: the tail of the M3 schedule is S0/32 (FRESH-NETWORK-DESIGN §1a row 53).
-        tail_is_s0_over_32(devnet::from_fixed(&params.subsidy), devnet::from_fixed(&params.S_tail))?;
-    }
+    if params.nonceMode != 1 { return Err("nonceMode contradicts v3: a v3 genesis has nonceMode 1, the full 64-bit nonce domain".into()); }
+    // FN-4: the tail of the M3 schedule is S0/32 (FRESH-NETWORK-DESIGN §1a row 53).
+    tail_is_s0_over_32(devnet::from_fixed(&params.subsidy), devnet::from_fixed(&params.S_tail))?;
     if input.profile.is_some() {
         if params.R_max != input.registration_per_block {
             return Err(format!("profile: registrationPerBlock {} is not the CP's R_max {}", input.registration_per_block, params.R_max));
@@ -629,8 +609,8 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
         });
     }
     members.sort_by_key(|m| m.id);
-    // V3-34: a v3 config (specVersion 2, CP schema v2) selects the v3 programs; nothing else can.
-    let programs = if input.v3 {SystemPrograms::v3()} else if input.earnin {SystemPrograms::earnin()} else if input.continuous {SystemPrograms::continuous()} else {SystemPrograms::v1()};
+    // V3-34: a v3 genesis (specVersion 2, CP schema v2) runs the V3 programs, the only bundled set.
+    let programs = SystemPrograms::v3();
     let mut spec = GenesisSpec {
         spec_version: cfg.spec_version,
         chain_id: cfg.chain_id,
@@ -674,35 +654,24 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
     };
     let admitted = admission::admit(&request).map_err(|e| e.to_string())?;
     if input.profile.is_some() { check_founders(&input, admitted.genesis(), devnet::from_fixed(&params.B_reg))?; }
-    let bound = if input.v3 { Some(supply_bound(admitted.genesis().initial_supply(), &params)?) } else { None };
+    let bound = supply_bound(admitted.genesis().initial_supply(), &params)?;
     let info = serde_json::json!({"chainId":cfg.chain_id, "genesisHash":crate::types::hex(&profile.genesis_hash()),
         "genesisTime":cfg.g_ts, "profileKind":"simnet", "keyMode":"independent-key-files", "forks":[[1,0]],
         "note":"Experimental candidate only; independent keys do not establish public-network readiness.",
-        "registrationPerBlock":params.R_max,"continuous":input.continuous,
+        "registrationPerBlock":params.R_max,"continuous":true,
         "miners":input.miners.iter().map(|m|serde_json::json!({"id":m.id,"reward":m.reward})).collect::<Vec<_>>(),
         "calibration":{"hashesPerSecond":cfg.hash_rate,"class":if measured {"measurement"} else {"synthetic-fixture"}},
         "timing":timing.to_json(),"admission":crate::admission_json(&admitted)});
     let mut info = info;
-    if input.earnin {
-        info["earnin"] = serde_json::json!(true);
-    }
-    if input.full_nonce || (!input.cp.is_empty() && params.nonceMode == 1) {
-        info["fullNonce"] = serde_json::json!(true);
-    }
-    if input.v3 {
-        info["v3"] = serde_json::json!(true);
-        info["specVersion"] = serde_json::json!(2);
-    }
-    if input.v3 || !input.cp.is_empty() {
-        info["localTiming"] = serde_json::json!({"delta":local.delta,"phi":local.phi,"tExec":local.t_exec,"deltaRel":local.delta_rel,"gamma":local.gamma});
-    }
-    if input.v3 {
-        // V3-05: where the assumptions came from; deltaRel = sigma + delta + 2 tExec, recomputed by the launcher.
-        info["localTiming"]["source"] = serde_json::json!(if declared.is_some() { "declared" } else { "v3-default" });
-    }
-    if let Some(bound) = bound {
-        info["supply"] = serde_json::json!({"initialWei":admitted.genesis().initial_supply().to_string(),"boundWei":bound.to_string(),"boundBits":bound.bit_len()});
-    }
+    // The keys every v3 genesis has written (readers of devnet.json, such as the wallets and deploy tooling, use them).
+    info["earnin"] = serde_json::json!(true);
+    info["fullNonce"] = serde_json::json!(true);
+    info["v3"] = serde_json::json!(true);
+    info["specVersion"] = serde_json::json!(2);
+    info["localTiming"] = serde_json::json!({"delta":local.delta,"phi":local.phi,"tExec":local.t_exec,"deltaRel":local.delta_rel,"gamma":local.gamma});
+    // V3-05: where the assumptions came from; deltaRel = sigma + delta + 2 tExec, recomputed by the launcher.
+    info["localTiming"]["source"] = serde_json::json!(if declared.is_some() { "declared" } else { "v3-default" });
+    info["supply"] = serde_json::json!({"initialWei":admitted.genesis().initial_supply().to_string(),"boundWei":bound.to_string(),"boundBits":bound.bit_len()});
     if let Some(name) = &input.profile {
         info["profile"] = serde_json::json!(name);
         if let Some(record) = &input.record { info["record"] = serde_json::json!(record); }
@@ -782,21 +751,6 @@ pub fn init(args: &[String]) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    /// The CP of a continuous spec-1 network this builder generates at its defaults (`continuous`, no CP overrides),
-    /// read back from its genesis.spec.hex.
-    fn continuous() -> ConsensusParams {
-        let out = std::env::temp_dir().join(format!("pocold-testnet-continuous-{}", std::process::id()));
-        let _ = std::fs::remove_dir_all(&out);
-        let miner = devnet::miner_identity("testnet-continuous");
-        let config = serde_json::json!({"continuous":true,"chainId":777917,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
-            "miners":[{"id":miner.id,"reward":miner.reward}],
-            "accounts":[{"address":devnet::account_key("testnet-continuous").address(),"wei":"1000000000000000000000000"}]});
-        prepare(config.to_string().as_bytes(), &out).unwrap();
-        let spec = genesis_spec_in(&out).unwrap();
-        let _ = std::fs::remove_dir_all(&out);
-        assert_eq!(spec.spec_version, 1);
-        ConsensusParams::from_values(&spec.cp).unwrap()
-    }
     fn cp(t_blk: u32, d_att: u32, fb: u32) -> ConsensusParams {
         let mut c = devnet::DevnetConfig::new(777990, 1_800_000_000, &["a"]);
         c.t_blk = t_blk; c.d_att = d_att; c.d_fb_wait = fb;
@@ -810,20 +764,42 @@ mod tests {
             u128::from(cp.D_att) + u128::from(l.gamma) >= 2 * (m.x_w + u128::from(cp.c) * u128::from(cp.T_blk)) + phi)
     }
 
+    /// Phase 6a: every genesis is a v3 genesis. A config without "v3" builds the same bytes as with "v3": true; the
+    /// retired spec-1 options and "v3": false are refused by name, before any output; a spec-1 network's local timing is
+    /// refused with its reason.
     #[test]
-    fn spec1_local_timing_is_unchanged_and_refuses_declared_assumptions() {
-        let live = continuous();
-        assert_eq!((live.T_blk, live.D_att, live.dFbWait, live.H_END), (10, 60, 6, 0));
-        let l = local_for(&live).unwrap();
-        assert_eq!((l.delta, l.phi, l.t_exec, l.delta_rel, l.gamma), (1, 1, 1, 8, 5), "a continuous chain's local timing");
-        let s = local_for_spec(&live, 1, None).unwrap();
-        assert_eq!((s.delta, s.phi, s.t_exec, s.delta_rel, s.gamma), (1, 1, 1, 8, 5));
-        assert!(local_for_spec(&live, 1, Some(TimingAssumptions::V3_WAN)).unwrap_err().contains("v3 profile input"));
-        // The spec-1 derivation at other CPs is the one before V3-05: dFbWait + Δ + t_exec, Γ the R6 slack.
-        for (t, d, f, rel, gamma) in [(10, 60, 6, 8, 5), (30, 150, 10, 12, 5), (4, 25, 3, 5, 7), (10, 30, 6, 8, 32)] {
-            let l = local_for(&cp(t, d, f)).unwrap();
-            assert_eq!((l.delta_rel, l.gamma), (rel, gamma), "T_blk {t} D_att {d} dFbWait {f}");
+    fn every_genesis_is_v3_and_the_spec1_options_are_refused() {
+        let miner = devnet::miner_identity("testnet-v3-only");
+        let base = serde_json::json!({"chainId":777917,"genesisTime":1_800_000_000u64,"registrationPerBlock":1,
+            "miners":[{"id":miner.id,"reward":miner.reward}],
+            "accounts":[{"address":devnet::account_key("testnet-v3-only").address(),"wei":"1000000000000000000000000"}]});
+        let dir = |tag: &str| { let d = std::env::temp_dir().join(format!("pocold-testnet-v3only-{tag}-{}", std::process::id())); let _ = std::fs::remove_dir_all(&d); d };
+        let built = |config: &serde_json::Value, tag: &str| {
+            let out = dir(tag); prepare(config.to_string().as_bytes(), &out).unwrap();
+            let bytes = std::fs::read_to_string(out.join("genesis.spec.hex")).unwrap();
+            let info: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(out.join("devnet.json")).unwrap()).unwrap();
+            let _ = std::fs::remove_dir_all(&out); (bytes, info)
+        };
+        let (plain, info) = built(&base, "plain");
+        let mut stated = base.clone(); stated["v3"] = serde_json::json!(true);
+        assert_eq!(built(&stated, "stated").0, plain, "\"v3\": true builds the same genesis");
+        let spec = gs::decode(&crate::types::unhex(plain.trim()).unwrap()).unwrap();
+        assert_eq!((spec.spec_version, spec.sys_code_hash), (2, SystemPrograms::v3().sys_code_hash().0));
+        let cp = ConsensusParams::from_values(&spec.cp).unwrap();
+        assert_eq!((cp.nonceMode, cp.H_END, cp.T_blk, cp.D_att, cp.dFbWait), (1, 0, 10, 60, 6));
+        assert_eq!((devnet::from_fixed(&cp.subsidy), devnet::from_fixed(&cp.S_tail)), (U256::from(2_000_000_000_000_000_000u128), U256::from(62_500_000_000_000_000u64)),
+            "the builder's S0 of 2 PCOL for a config that does not state it");
+        for k in ["continuous", "earnin", "fullNonce", "v3"] { assert_eq!(info[k], true, "{k}"); }
+        assert_eq!(info["specVersion"], 2);
+        for (key, value) in [("continuous", true), ("earnin", true), ("fullNonce", true), ("fullNonce", false), ("v3", false)] {
+            let mut c = base.clone(); c[key] = serde_json::json!(value); let out = dir("refused");
+            let e = prepare(c.to_string().as_bytes(), &out).unwrap_err();
+            assert!(e.contains(if key == "v3" { "spec-1 genesis" } else { "retired spec-1 option" }) && (key == "v3" || e.starts_with(key)), "{key}: {e}");
+            assert!(!out.exists());
         }
+        let mut c = base.clone(); c["cp"] = serde_json::json!({"nonceMode": 0}); let out = dir("bounded");
+        assert!(prepare(c.to_string().as_bytes(), &out).unwrap_err().contains("nonceMode contradicts v3"));
+        assert!(local_for_spec(&cp, 1, None).unwrap_err().contains("spec-1 rule set is retired"));
     }
 
     #[test]

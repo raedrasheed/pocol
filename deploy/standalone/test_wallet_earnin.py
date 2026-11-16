@@ -29,11 +29,12 @@ def run():
         root = Path(tmp); homes = [root / f'home{i}' for i in range(4)]; ids = [identity(h) for h in homes]
         p2p = [port() for _ in range(3)]; api = [port() for _ in range(3)]
         accounts = [{'address': a, 'wei': str(10**24)} for a in ids[:3]]
-        cfg = {'continuous': True, 'earnin': True, 'chainId': 777934, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1,
+        cfg = {'chainId': 777934, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1,
                'miners': [{'id': a, 'reward': a} for a in ids[:3]], 'accounts': accounts}
         (root / 'config.json').write_text(json.dumps(cfg), encoding='utf-8')
         call('pocold', 'init-testnet', '--config', root / 'config.json', '--out', root / 'genesis')
-        assert json.loads((root / 'genesis/devnet.json').read_text())['earnin'] is True
+        info = json.loads((root / 'genesis/devnet.json').read_text())
+        assert info['earnin'] is True and info['v3'] is True and info['specVersion'] == 2, info
         args = ['network', '--from', root / 'genesis', '--out', root / 'network.pocol.json']
         for p in p2p: args += ['--seed', f'127.0.0.1:{p}']
         call('pocol', *args); inv = root / 'network.pocol.json'; processes = []; logs = []; w = None
@@ -63,7 +64,7 @@ def run():
             code, gift = claim(ids[3]); assert code == 200 and gift['amountWei'] == str(2 * 10**15), gift
             assert claim(ids[3])[0] == 409 and claim(ids[0])[0] == 409, 'once per address, new accounts only'
             s = status(w, lambda v: v['balance'] == '0.002', 300)
-            e = w.request({'method': 'quote_top_up'}, 'error'); assert 'probation record' in e['message'], e
+            e = w.request({'method': 'quote_top_up'}, 'error'); assert 'still earning its bond' in e['message'], e
             e = w.request({'method': 'quote_register', 'bond': '21'}, 'error'); assert 'at most 20' in e['message'], e
             # The first transaction of this identity: no prior transfer is needed on the earn-in network.
             q = w.request({'method': 'quote_register'}, 'quote')
@@ -73,7 +74,8 @@ def run():
             registered = s['height']
             assert any(x['hash'] == reg['hash'] and x['state'] == 'Included' for x in s['activity']), s['activity']
             assert s['bondHeld'] == '0' and s['miningEligible'] and s['topUpAvailable'], s
-            assert s['probationEndsAt'] > registered and 'Probation' in s['miningState'], s
+            # The v3 set (the only one since phase 6a): no probation deadline, the bond fills from rewards without one.
+            assert s['probationEndsAt'] is None and 'no deadline' in s['miningState'], s
             miners = rpc(api[0], 'pocol_getMiners')
             mine = [m for m in (miners if isinstance(miners, list) else miners.get('miners', [])) if m.get('id', '').lower() == ids[3].lower()]
             assert mine and mine[0]['bond'] in ('0', '0x0', 0) and mine[0]['registeredAt'], miners
@@ -95,13 +97,13 @@ def run():
             held = wei(status(w, lambda v: True, 30)['balance'])
             top = w.request({'method': 'confirm', 'quote_id': q['quoteId']}, 'submitted')
             s = status(w, lambda v: v['registryStatus'] == 'member', 300)
-            assert s['bondHeld'] == '20' and not s['topUpAvailable'] and 'Probation' not in s['miningState'], s
+            assert s['bondHeld'] == '20' and not s['topUpAvailable'] and 'no deadline' not in s['miningState'], s
             # Rewards accrued after the quote shrink what the top-up keeps; the rest comes back (U2).
             assert held - wei(s['balance']) <= remaining + PCOL // 100, (held, s['balance'], remaining)
             kinds = {x['kind']: x for x in s['activity']}
             assert kinds['topup']['hash'] == top['hash'] and kinds['topup']['state'] == 'Included', kinds
             assert kinds['registration']['hash'] == reg['hash'], kinds
-            e = w.request({'method': 'quote_top_up'}, 'error'); assert 'probation record' in e['message'], e
+            e = w.request({'method': 'quote_top_up'}, 'error'); assert 'already held in full' in e['message'], e
             s = status(w, lambda v: v['blocksMined'] > 0 and v['miningActive'], 600)
             print(json.dumps({'result': 'PASS', 'scope': 'four local native processes on an earn-in genesis; fee faucet, real wallet zero-bond first-transaction registration, probation mining with accrual, top-up promotion',
                               'physicalDevicesTested': False, 'registeredAt': registered, 'accruedBeforeTopUpWei': str(accrued),

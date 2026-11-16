@@ -121,9 +121,10 @@ fn local(args:&[String])->NodeLocal{local_over(args,single_host_local())}
 fn local_over(args:&[String],d:NodeLocal)->NodeLocal{
     NodeLocal{delta:num(args,"--delta",d.delta),phi:num(args,"--phi",d.phi),t_exec:num(args,"--t-exec",d.t_exec),delta_rel:num(args,"--delta-rel",d.delta_rel),gamma:num(args,"--gamma",d.gamma),..d}
 }
-/// The local inputs a node on the network in `net` runs with (`run`, `status`). Spec 1 (every committed network):
-/// `local`, unchanged. A v3 (spec-2) network: V3-05's timing from its files (`testnet::local_for_network`, as the
-/// launcher), with the same overrides. A network whose spec cannot be read keeps `local`, and opening it reports why.
+/// The local inputs a node on the network in `net` runs with (`run`, `status`). A v3 (spec-2) network, the only kind
+/// this release runs: V3-05's timing from its files (`testnet::local_for_network`, as the launcher), with the same
+/// overrides. A spec-1 network (the retired rule set, phase 6a) or one whose spec cannot be read keeps `local`, and
+/// opening it reports why (the boot admission refuses spec 1 under R24).
 fn local_at(args:&[String],net:&std::path::Path)->Result<NodeLocal,String>{
     match pocold::testnet::spec_version_of(net){
         Ok(v) if v>=2=>Ok(local_over(args,pocold::testnet::local_for_network(net)?)),

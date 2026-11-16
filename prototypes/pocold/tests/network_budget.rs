@@ -1,31 +1,9 @@
-//! A13 at the network profile (governance.md genesis parameters, profileKind=network): the model the
-//! 6 GiB gate checks, itemized, for the decision package. pocold refuses to boot this profile; this
-//! test records by how much and which terms carry it. It asserts nothing about admission.
+//! A13 at the network profile: the model the 6 GiB gate checks, itemized, at the fresh network's own committed profile
+//! (deploy/mainnet/v3-profile.json) and on the v3 devnet pocold boots. (The retired spec-1 network profile of
+//! governance.md, the spec-1 devnet and the generated spec-1 continuous network these tests also modelled went with the
+//! spec-1 rule set in Phase 6a; each property that exists on v3 is checked on it below.)
 use pocol_lp4_execution::devnet::{self,DevnetConfig};
-#[path="support/continuous.rs"] mod continuous;
 
-/// Phase 5a pinned this file's profiles to the retired spec-1 devnet (DevnetConfig::spec1, the devnet default before
-/// Phase 5a). Phase 5c: the spec-1 models stay pinned here until Phase 6a deletes the spec-1 rule set (the governance.md
-/// network profile is a spec-1 CP whose R8 is the spec-1 rule; the spec-1 devnet is a finite chain without first imports;
-/// support/continuous.rs is a spec-1 continuous network). Each property that exists on v3 is checked there too: the
-/// node-local terms on the v3 devnet as well (`at_open`), and the network models at the fresh network's own profile
-/// (deploy/mainnet/v3-profile.json) in the `v3_*` tests at the end of this file, with the observed history terms
-/// (`Limits::continuous_history`, `Limits::disk`, the first-import index) and the v3 R8 (U >= W_act + 2, C_react >= U).
-fn spec1(chain_id:u64,g_ts:u64,miners:&[&str])->DevnetConfig{DevnetConfig::spec1(chain_id,g_ts,miners,devnet::Spec1Programs::Bonded)}
-
-/// The retired spec-1 network profile (governance.md), pinned for Phase 6a; the fresh network's is `v3_network`.
-fn network()->DevnetConfig{
-    let labels:Vec<String>=(0..4).map(|i|format!("m{i}")).collect();let refs:Vec<&str>=labels.iter().map(|s|s.as_str()).collect();
-    let mut c=spec1(777920,1_800_000_000,&refs);
-    // chainId 777920: devnet::build refuses the network chainId 777001; chainId does not enter any A13 term.
-    // governance.md: T_blk 60, tau 3600, c 2, D_att 300, dFbWait 25; m 32, kappa 2, S_max 256, D 16, W_w 64;
-    // R_max 2, M_max 256, REG_RECORDS_MAX 16384; W_act 128, Theta_inact 1024; E_win 2048, U 2200;
-    // caps; SYS_SLOT_MAX 131072; H_END 129600, H_CLOSE 129440, Z_close 160, RET 128, P2 2.
-    c.t_blk=60;c.tau=3600;c.c=2;c.d_att=300;c.d_fb_wait=25;c.m=32;c.kappa=2;c.s_max=256;c.d=16;c.w_w=64;
-    c.r_max=2;c.m_max=256;c.reg_records_max=16384;c.w_act=128;c.theta_inact=1024;c.e_win=2048;c.u=2200;
-    c.code_cap=1<<30;c.txbytes_cap=1<<33;c.tx_cap=10_000_000;c.slot_cap=4_000_000;c.acct_cap=1_000_000;c.sys_slot_max=131072;
-    c.h_end=129_600;c.h_close=129_440;c.t_end_offset=10_368_000;c.t_close_offset=10_368_000-9_600;c.z_close=160;c.ret=128;c.p2=2;c
-}
 fn print(tag:&str,b:&pocold::resources::Bound){
     let gib=|x:u128|x as f64/(1u128<<30) as f64;
     let need=pocold::resources::budget_required(b.total).unwrap();
@@ -34,20 +12,6 @@ fn print(tag:&str,b:&pocold::resources::Bound){
         "groupsGiB":{"snapshots":gib(b.snapshot_total),"diffs":gib(b.diffs),"trie":gib(b.trie),"code":gib(b.code),"store":gib(b.store),"history":gib(b.history),"side":gib(b.side_blocks),"queues":gib(b.queues),"rpc":gib(b.rpc),"threads":gib(b.threads),"execution":gib(b.execution)},
         "items":b.items.iter().map(|(k,v)|serde_json::json!([k,v.to_string(),gib(*v)])).collect::<Vec<_>>()}));
 }
-/// Phase 6a: the spec-1 network profile, pinned; the v3 counterpart is v3_a13_store_model_at_the_mainnet_profile.
-/// C-1 E4.5: the same profile with the states in state.redb (`Limits::state_store`), with the pool at its
-/// default gas bound (D-7, 4 × GAS_LIMIT), as pocold would boot it. Also state.redb's largest file, by part.
-#[test] fn a13_store_model_at_the_network_profile(){
-    let d=devnet::build(&network()).expect("network-profile candidate");let cp=d.profile.cp().clone();
-    let l=pocold::single_host_local();
-    let lim=pocold::node::Limits{state_store:true,..Default::default()};
-    let b=pocold::resources::derive(&cp,32,l.side_max,&lim,2).expect("no overflow");
-    print("A13-NETWORK-STORE",&b);
-    let p=pocold::resources::state_file_parts(&cp,32,l.side_max,&lim).unwrap();let f:u128=p.iter().sum();
-    println!("A13-NETWORK-STATE-FILE {}",serde_json::json!({"fileTiB":f as f64/(1u128<<40) as f64,"regions":f.div_ceil(pocold::resources::REDB_REGION_BYTES).to_string(),
-        "regionAllocatorBytes":pocold::resources::redb_region_allocator(pocold::resources::REDB_REGION_PAGES).unwrap().to_string(),
-        "partsTiB":{"versionsNodes":p[0] as f64/(1u128<<40) as f64,"preimages":p[1] as f64/(1u128<<40) as f64,"code":p[2] as f64/(1u128<<40) as f64,"checkpoints":p[3] as f64/(1u128<<40) as f64},"factor":pocold::resources::STATE_FILE_FACTOR.to_string()}));
-}
 /// D-7 (A13-DERIVATION §2d): the pool's terms follow its gas bound. The layer holds what that gas can write
 /// (`layer_writes`); its code is its creations in both modes (in store mode its entries keep no copy of the code
 /// they were read with, `Layer::drop_code_copies`). A bound past POOL_MAX_TXS ×
@@ -55,13 +19,12 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 /// the SYSTEM phase's accounts and keys.
 #[test] fn d7_a13_pool_terms_follow_the_gas_bound(){
     use pocold::{node::{Limits,POOL_MAX_TXS},resources::{self as r,derive}};use pocol_lp4_execution::resources::memory::code_bytes;
-    let net=devnet::build(&network()).unwrap().profile.cp().clone();
-    let dev=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
-    // Phase 5c: and the v3 rules (the fresh network's profile and the v3 devnet), as a new node opens them (`at_open`).
+    let l=pocold::single_host_local();
+    // The v3 rules (the fresh network's profile and the v3 devnet), as a new node opens them (`at_open`).
     let v3=v3_network("d7");let (v3net,v3dev)=(v3.spec.cp().clone(),v3_devnet());
     let item=|b:&r::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
     assert_eq!(r::layer_writes(32_000_000),Some((3*1523+13333+32,11034+320000)),"the counts at 4 × GAS_LIMIT");
-    for cp in [&net,&dev,&v3net,&v3dev]{
+    for cp in [&v3net,&v3dev]{
         let gl=u128::from(cp.GAS_LIMIT);let g=4*gl;let (pa,ps)=r::layer_writes(g).unwrap();
         for store in [false,true]{
             let at=|gmax:Option<u64>|derive(cp,32,l.side_max,&at_open(cp,Limits{state_store:store,pool_gas_max:gmax,..Default::default()}),2).unwrap();
@@ -100,23 +63,14 @@ fn print(tag:&str,b:&pocold::resources::Bound){
         }
     }
 }
-/// Phase 6a: the spec-1 network profile, pinned; the v3 counterpart is v3_a13_whole_state_model_at_the_mainnet_profile.
-#[test] fn a13_model_at_the_network_profile(){
-    let d=devnet::build(&network()).expect("network-profile candidate");let cp=d.profile.cp().clone();
-    let l=pocold::single_host_local();
-    // K_hist = 32 at the network profile (governance.md, local retention); side_max as pocold boots.
-    let b=pocold::resources::derive(&cp,32,l.side_max,&pocold::node::Limits::default(),2).expect("no overflow");print("A13-NETWORK",&b);
-    let need=pocold::resources::budget_required(b.total).unwrap();
-    assert!(need>u128::from(pocold::node::MEM_BUDGET),"the network profile does not fit 6 GiB today (if this fails, the model changed: update the decision package)");
-}
 
 /// C-1 E4.5: the devnet profile pocold boots, whole-state and store mode with the default limits: both pass
 /// the boot gate. Store mode is not the smaller bound here: the devnet's states are small, and its fixed
 /// caches and worst-case batch and file terms outweigh them.
 #[test] fn a13_store_model_at_the_devnet_profile(){
-    let c=spec1(777910,1_700_000_000,&["a","b","c"]);let d=devnet::build(&c).unwrap();let spec1_cp=d.profile.cp().clone();let l=pocold::single_host_local();
-    // Phase 5c: the spec-1 devnet (Phase 6a) and the v3 devnet pocold boots now (DevnetConfig::new), as a new node opens it.
-    for (tag,cp) in [("DEVNET",spec1_cp),("V3-DEVNET",v3_devnet())]{
+    let l=pocold::single_host_local();
+    // The v3 devnet pocold boots (DevnetConfig::new), as a new node opens it.
+    for (tag,cp) in [("V3-DEVNET",v3_devnet())]{
         let (m,s)=(at_open(&cp,pocold::node::Limits::default()),at_open(&cp,pocold::node::Limits{state_store:true,..Default::default()}));
         let bm=pocold::resources::check(&cp,l.k_hist,l.side_max,&m,0).unwrap_or_else(|e|panic!("{tag}: whole-state mode boots: {e}"));let bs=pocold::resources::check(&cp,l.k_hist,l.side_max,&s,0).unwrap_or_else(|e|panic!("{tag}: store mode boots: {e}"));
         print(&format!("A13-{tag}-MEM"),&bm);print(&format!("A13-{tag}-STORE"),&bs);
@@ -135,19 +89,16 @@ fn print(tag:&str,b:&pocold::resources::Bound){
         assert_eq!(r::held_runs(k,side,a).iter().sum::<u128>(),want,"the runs at K_hist {k}, side_max {side}, {a} anchors");
         assert_eq!(r::stored_versions(k,side,a),want,"a handle per held version at K_hist {k}, side_max {side}, {a} anchors");
     }
-    let net=devnet::build(&network()).unwrap().profile.cp().clone();let one=r::chain_versions_bytes(&net,1).unwrap();
-    assert_eq!(r::held_versions_bytes(&net,32,2,4).unwrap(),one+r::chain_versions_bytes(&net,33).unwrap()+r::chain_versions_bytes(&net,32).unwrap()+2*one+r::chain_versions_bytes(&net,2).unwrap()+4*one,
-        "the versions' bytes are the same runs");
     let store=Limits{state_store:true,..Default::default()};
-    assert_eq!(r::anchors_held(&net,32,&store),4,"⌈(2·2048 + 2 − 32) / 2048⌉ + 2 at the defaults");
-    assert_eq!((r::anchors_held(&net,32,&Limits{evict_depth:Some(0),..store.clone()}),r::anchors_held(&net,32,&Limits::default())),(0,0),"none with eviction off or whole states");
-    // Phase 5c: the same at the fresh network's profile (E_win 360) and on the v3 devnet, as a new node opens them.
+    // The versions' bytes are the same runs, and the anchors, at the fresh network's profile (E_win 360) and on the v3
+    // devnet, as a new node opens them.
     let v3=v3_network("handles");
     for cp in [v3.spec.cp().clone(),v3_devnet()]{
         let one=r::chain_versions_bytes(&cp,1).unwrap();
-        assert_eq!(r::held_versions_bytes(&cp,32,2,4).unwrap(),one+r::chain_versions_bytes(&cp,33).unwrap()+r::chain_versions_bytes(&cp,32).unwrap()+2*one+r::chain_versions_bytes(&cp,2).unwrap()+4*one);
+        assert_eq!(r::held_versions_bytes(&cp,32,2,4).unwrap(),one+r::chain_versions_bytes(&cp,33).unwrap()+r::chain_versions_bytes(&cp,32).unwrap()+2*one+r::chain_versions_bytes(&cp,2).unwrap()+4*one,
+            "the versions' bytes are the same runs");
         assert_eq!(r::anchors_held(&cp,32,&at_open(&cp,store.clone())),4,"⌈(2·2048 + 2 − 32) / 2048⌉ + 2 at the defaults (E_win {})",cp.E_win);
-        assert_eq!((r::anchors_held(&cp,32,&at_open(&cp,Limits{evict_depth:Some(0),..store.clone()})),r::anchors_held(&cp,32,&at_open(&cp,Limits::default()))),(0,0));
+        assert_eq!((r::anchors_held(&cp,32,&at_open(&cp,Limits{evict_depth:Some(0),..store.clone()})),r::anchors_held(&cp,32,&at_open(&cp,Limits::default()))),(0,0),"none with eviction off or whole states");
     }
 }
 
@@ -158,11 +109,10 @@ fn print(tag:&str,b:&pocold::resources::Bound){
 /// additions, at most n whole versions.
 #[test] fn a13_store_file_and_batch_terms_follow_the_node_trie_bounds(){
     use pocol_lp4_execution::node_trie::{batch_nodes,block_bytes,version_bytes,Id,Node,BRANCH_ENC,ROW};use pocold::resources as r;
-    let net=devnet::build(&network()).unwrap().profile.cp().clone();
-    let dev=devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();let l=pocold::single_host_local();
-    // Phase 5c: and the v3 rules (the fresh network's profile and the v3 devnet), as a new node opens them.
+    let l=pocold::single_host_local();
+    // The v3 rules (the fresh network's profile and the v3 devnet), as a new node opens them.
     let v3=v3_network("file");let (v3net,v3dev)=(v3.spec.cp().clone(),v3_devnet());
-    for cp in [&net,&dev,&v3net,&v3dev]{
+    for cp in [&v3net,&v3dev]{
         let (ka,ks)=(u128::from(cp.ACCT_CAP)+5,u128::from(cp.SLOT_CAP)+u128::from(cp.SYS_SLOT_MAX));assert_eq!(r::state_keys(cp),Some((ka,ks)));
         let (wa,ws)=r::block_writes(cp).unwrap();let (whole,add)=(version_bytes(ka,ks).unwrap(),block_bytes(wa,ws,ka,ks).unwrap());
         let run=|n:u128|(n*whole).min(whole+(n-1)*add);
@@ -183,102 +133,9 @@ fn print(tag:&str,b:&pocold::resources::Bound){
         assert!(b<=64*(wa+ws)&&lv<=2*(wa+ws)&&kids<=16*b,"within the paths");
     }
     // At the network profile the window's run is the oldest version and its blocks' additions, not K_hist + 1 whole versions.
-    assert!(r::chain_versions_bytes(&net,33).unwrap()<33*r::chain_versions_bytes(&net,1).unwrap());
-    assert!(r::chain_versions_bytes(&v3net,33).unwrap()<33*r::chain_versions_bytes(&v3net,1).unwrap(),"and at the fresh network's");
+    assert!(r::chain_versions_bytes(&v3net,33).unwrap()<33*r::chain_versions_bytes(&v3net,1).unwrap(),"at the fresh network's");
 }
 
-/// Phase 6a: the spec-1 network profile and its spec-1 R8, pinned; the v3 counterpart is v3_mainnet_profile_boot_gates_itemized.
-/// Why the network profile does not boot, gate by gate. The CP is network() (governance.md; chainId 777920
-/// only because the builder refuses 777001). The local parameters are governance.md's for a network node
-/// (Δ=5, φ=5, Φ=10, t_exec=3, Δ_rel=26, Γ=30; K_hist=32; retentionStress off) with pocold's RPC facts. The timing
-/// is measured here. Each R1–R26 line prints the rule's inputs, what it requires and what it gets; the rules
-/// re-derived here must agree with gate::check's own verdict (`admit` on a simnet request, which returns the
-/// pure violations), so the table cannot drift from the gate. Then the Specification-scope conditions, pocold's
-/// A13 check in both modes, and the boot path's structural refusals. It asserts nothing about what should boot.
-#[test] fn network_profile_boot_gates_itemized(){
-    use pocol_lp4_execution::{admission::{self,NodeLocal,Request,Scope},gate::{FactClass,calibration_target},param_gate::registry_metrics,
-        profile::{NodeKind,ProfileKind},timing::metrics};
-    let d=devnet::build(&network()).expect("network-profile candidate");let c=d.profile.cp().clone();
-    let local=NodeLocal{delta:5,phi:5,t_exec:3,delta_rel:26,gamma:30,k_hist:32,retention_stress:false,..pocold::single_host_local()};
-    let timing=admission::measure(&d.spec_bytes,&d.alloc,1).expect("the calibration blocks apply");
-    let req=|kind,node,scope|Request{spec_bytes:&d.spec_bytes,alloc:&d.alloc,forks:&d.forks,kind,node,local:&local,
-        calibration:Some((d.hash_rate,FactClass::SyntheticFixture)),timing:Some(&timing),scope};
-    let gate=admission::admit(&req(ProfileKind::Simnet,NodeKind::Simnet,Scope::ExperimentalDevnet)).err().map(|e|e.rules).unwrap_or_default();
-    let (t,big_phi,dl)=(u128::from(local.t_exec),u128::from(local.capital_phi()),u128::from(local.delta));
-    let m=metrics(local.delta.into(),big_phi as u64,local.t_exec.into(),local.delta_rel.into(),c.dFbWait.into());
-    let reg=registry_metrics(c.U,c.E_win,c.D,c.M_max,c.R_max,c.REG_RECORDS_MAX,c.RET,c.P2).ok();
-    let p99=timing.phase_ms.iter().copied().max().unwrap();
-    let hist=admission::historical_bytes(&c,&local);
-    // (rule, fails, inputs, required, actual)
-    let rows:Vec<(&str,bool,String,String,String)>=vec![
-        ("R2",u128::from(local.delta_rel)<m.sigma+dl+2*t,format!("Δ_rel={} σ={} Δ={} t_exec={}",local.delta_rel,m.sigma,dl,t),format!("Δ_rel ≥ σ+Δ+2t_exec = {}",m.sigma+dl+2*t),local.delta_rel.to_string()),
-        ("R3",u128::from(c.dFbWait)<big_phi+dl+2*t,format!("dFbWait={} Φ={big_phi} Δ={dl} t_exec={t}",c.dFbWait),format!("dFbWait ≥ Φ+Δ+2t_exec = {}",big_phi+dl+2*t),c.dFbWait.to_string()),
-        ("R4",big_phi>=u128::from(c.dFbWait)||u128::from(local.delta_rel)<t,format!("Φ={big_phi} dFbWait={} Δ_rel={} t_exec={t}",c.dFbWait,local.delta_rel),"Φ < dFbWait and Δ_rel ≥ t_exec".into(),format!("{big_phi} < {}, {} ≥ {t}",c.dFbWait,local.delta_rel)),
-        ("R5",3*u128::from(c.dFbWait)>u128::from(c.D_att),format!("dFbWait={} D_att={}",c.dFbWait,c.D_att),format!("3·dFbWait ≤ D_att = {}",c.D_att),(3*u128::from(c.dFbWait)).to_string()),
-        ("R7",u128::from(c.D_att)+u128::from(local.gamma)<2*(m.x_w+u128::from(c.c)*u128::from(c.T_blk))+big_phi,format!("D_att={} Γ={} X^W={} c={} T_blk={} Φ={big_phi}",c.D_att,local.gamma,m.x_w,c.c,c.T_blk),format!("D_att+Γ ≥ 2(X^W+c·T_blk)+Φ = {}",2*(m.x_w+u128::from(c.c)*u128::from(c.T_blk))+big_phi),(u128::from(c.D_att)+u128::from(local.gamma)).to_string()),
-        ("R8",c.D<2||c.U<c.E_win+u32::from(c.D)||c.E_win>admission::R_KEEP,format!("D={} U={} E_win={} R_keep={}",c.D,c.U,c.E_win,admission::R_KEEP),"D ≥ 2, U ≥ E_win+D, E_win ≤ R_keep".into(),format!("{}, {} vs {}, {}",c.D,c.U,c.E_win+u32::from(c.D),c.E_win)),
-        ("R9",u128::from(c.S_max)<4*u128::from(c.kappa)*u128::from(c.m)||c.B_code_max<24577,format!("S_max={} κ={} m={} B_code_max={}",c.S_max,c.kappa,c.m,c.B_code_max),format!("S_max ≥ 4κm = {}, B_code_max ≥ 24577",4*u128::from(c.kappa)*u128::from(c.m)),format!("{}, {}",c.S_max,c.B_code_max)),
-        ("R10",u128::from(c.BODY_MAX)<u128::from(c.TX_MAX)+16384,format!("BODY_MAX={} TX_MAX={}",c.BODY_MAX,c.TX_MAX),format!("BODY_MAX ≥ TX_MAX+16384 = {}",u128::from(c.TX_MAX)+16384),c.BODY_MAX.to_string()),
-        ("R13",c.H_END<=u64::from(c.Z_close)||u128::from(c.H_CLOSE)+u128::from(c.Z_close)>u128::from(c.H_END)||c.T_CLOSE>c.T_END,format!("H_END={} H_CLOSE={} Z_close={}",c.H_END,c.H_CLOSE,c.Z_close),"H_END > Z_close, H_CLOSE+Z_close ≤ H_END, T_CLOSE ≤ T_END".into(),format!("{} ≤ {}",u128::from(c.H_CLOSE)+u128::from(c.Z_close),c.H_END)),
-        ("R14",u128::from(p99)>t*1000,format!("validate_p99 = max phase ms measured here {:?}",timing.phase_ms),format!("≤ t_exec·1000 = {}",t*1000),p99.to_string()),
-        ("R16",reg.as_ref().map_or(true,|r|u128::from(c.REG_RECORDS_MAX)<r.records_required),format!("REG_RECORDS_MAX={} U={} E_win={} D={} M_max={} R_max={} RET={} P2={}",c.REG_RECORDS_MAX,c.U,c.E_win,c.D,c.M_max,c.R_max,c.RET,c.P2),format!("≥ records_required = {:?}",reg.as_ref().map(|r|r.records_required)),c.REG_RECORDS_MAX.to_string()),
-        ("R17",u128::from(c.SWEEP_MAX)<u128::from(c.R_max)+u128::from(c.E_max),format!("SWEEP_MAX={} R_max={} E_max={}",c.SWEEP_MAX,c.R_max,c.E_max),format!("≥ R_max+E_max = {}",u128::from(c.R_max)+u128::from(c.E_max)),c.SWEEP_MAX.to_string()),
-        ("R19",timing.phase_ms.iter().any(|ms|u128::from(*ms)>t*1000),format!("phase ms measured here {:?}",timing.phase_ms),format!("each ≤ {}",t*1000),format!("{:?}",timing.phase_ms)),
-        ("R20",reg.as_ref().map_or(true,|r|u128::from(c.Z_close)<r.close_blocks_required),format!("Z_close={}",c.Z_close),format!("≥ close_blocks_required = {:?}",reg.as_ref().map(|r|r.close_blocks_required)),c.Z_close.to_string()),
-        ("R21",u64::from(local.k_hist).min(c.H_END)<u64::from(local.k_hist)||hist>admission::HIST_TRIE_BUDGET,format!("(K_hist+side_max)·snapshot(ACCT_CAP+5, SLOT_CAP+SYS_SLOT_MAX), K_hist={} side_max={}",local.k_hist,local.side_max),format!("≤ HIST_TRIE_BUDGET = {} (no retentionStress exception off simnet)",admission::HIST_TRIE_BUDGET),hist.to_string()),
-        ("R25",calibration_target(d.hash_rate,c.T_blk)!=Some(c.target_g),format!("H_cal={} (synthetic) T_blk={}",d.hash_rate,c.T_blk),"target_g = 2^256/(H_cal·T_blk)".into(),"equal (target_g derived from the same H_cal)".into()),
-    ];
-    for (rule,fails,inputs,required,actual) in &rows{
-        println!("NETWORK-GATE {}",serde_json::json!({"rule":rule,"fails":fails,"inputs":inputs,"required":required,"actual":actual}));
-        assert_eq!(*fails,gate.iter().any(|g|g==rule),"{rule}: the re-derivation disagrees with gate::check ({gate:?})");
-    }
-    println!("NETWORK-GATE-VERDICT {}",serde_json::json!({"gateViolations":gate,"t_execMs":t*1000,"phaseMs":timing.phase_ms,"sigma":m.sigma.to_string(),"x_h":m.x_h.to_string(),"x_w":m.x_w.to_string()}));
-    // Specification scope (what a network node must pass): the gate plus every condition that keeps an admission
-    // from being specification evidence.
-    let spec=admission::admit(&req(ProfileKind::Synthetic,NodeKind::Simnet,Scope::Specification)).err().expect("refused in Specification scope");
-    println!("NETWORK-SPEC-SCOPE {}",serde_json::json!({"rules":spec.rules,"missing":spec.missing,"notes":spec.notes}));
-    // R21's input is (K_hist + side_max) whole snapshots (`admission::historical_bytes`: pocold's whole-state
-    // mode keeps full states). In store mode the retained versions share nodes in state.redb: what the K_hist
-    // versions behind the live one add is at most K_hist block additions (resources::chain_versions_bytes).
-    {
-        use pocol_lp4_execution::node_trie::version_bytes;
-        let (ka,ks)=pocold::resources::state_keys(&c).unwrap();let live=version_bytes(ka,ks).unwrap();
-        let window=pocold::resources::chain_versions_bytes(&c,u128::from(local.k_hist)+1).unwrap();
-        println!("NETWORK-R21-STORE {}",serde_json::json!({"wholeStateInput":hist.to_string(),"liveVersionBytes":live.to_string(),
-            "windowBytes":window.to_string(),"historicalAdditionsBytes":(window-live).to_string(),"histTrieBudget":admission::HIST_TRIE_BUDGET,
-            "additionsFit":window-live<=u128::from(admission::HIST_TRIE_BUDGET)}));
-    }
-    // pocold's A13 check (resources::check at open), both modes.
-    for store in [false,true]{
-        let lim=pocold::node::Limits{state_store:store,..Default::default()};
-        let b=pocold::resources::derive(&c,local.k_hist,local.side_max,&lim,2).unwrap();let need=pocold::resources::budget_required(b.total).unwrap();
-        let r=pocold::resources::check(&c,local.k_hist,local.side_max,&lim,2);
-        println!("NETWORK-A13 {}",serde_json::json!({"stateStore":store,"modelBytes":b.total.to_string(),"budgetRequiredBytes":need.to_string(),"budgetBytes":lim.mem_budget,"passes":r.is_ok()}));
-        assert_eq!(r.is_ok(),need<=u128::from(lim.mem_budget));
-    }
-}
-/// Phase 6a: spec-1 only, pinned. O2 proposed raising the spec-1 lifetime caps (TX_CAP and TXBYTES_CAP over H_END, the
-/// lifetime LOG_CAP); a v3 chain has no lifetime caps (H_END = 0: TX_CAP and TXBYTES_CAP bind per block, the v3 log caps
-/// per block), so the property has no v3 counterpart.
-/// D-3 O2 (2026-10-28; a fact the decision table lacked): the network store-mode A13 model at the caps O2
-/// proposes (TX_CAP 5·10^7, TXBYTES_CAP 24·2^30, LOG_CAP 2^32) beside today's (10^7, 2^33, 2^30). TX_CAP and
-/// TXBYTES_CAP are CP fields and enter `derive` through the profile. LOG_CAP is a build constant, so its share
-/// is added from the formula the history term uses (`resources.rs`: LOG_CAP·33/32 of history.redb payload, its
-/// allocator at HISTORY_FILE_FACTOR / 4096 bytes per byte; the resident window's logs are bounded by the window,
-/// not by LOG_CAP). Prints; asserts only that both are computed. Nothing here adopts O2.
-#[test] fn network_store_model_at_the_o2_caps(){
-    let local=pocold_local();let lim=pocold::node::Limits{state_store:true,..Default::default()};
-    let model=|c:&DevnetConfig|{let d=devnet::build(c).expect("network-profile candidate");pocold::resources::derive(d.profile.cp(),local.k_hist,local.side_max,&lim,2).unwrap().total};
-    let o1=model(&network());let mut o2c=network();o2c.tx_cap=50_000_000;o2c.txbytes_cap=24<<30;let o2_cp=model(&o2c);
-    let log_delta=((1u128<<32)-(1u128<<30))/32*33*pocold::resources::HISTORY_FILE_FACTOR/4096;
-    let o2=o2_cp+log_delta;let gib=|x:u128|x as f64/(1u128<<30) as f64;
-    let need=|x:u128|pocold::resources::budget_required(x).unwrap();
-    println!("NETWORK-A13-O2 {}",serde_json::json!({"o1ModelBytes":o1.to_string(),"o1GiB":gib(o1),"o1RequiredGiB":gib(need(o1)),
-        "o2CpCapsModelBytes":o2_cp.to_string(),"o2LogCapDeltaBytes":log_delta.to_string(),"o2ModelBytes":o2.to_string(),"o2GiB":gib(o2),"o2RequiredGiB":gib(need(o2)),
-        "budgetGiB":gib(u128::from(lim.mem_budget)),"o2FitsBudget":need(o2)<=u128::from(lim.mem_budget)}));
-    assert!(o2>=o1);
-}
-fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution::admission::NodeLocal{delta:5,phi:5,t_exec:3,delta_rel:26,gamma:30,k_hist:32,retention_stress:false,..pocold::single_host_local()}}
 
 /// PR2a (plan §9): peer discovery's queue terms are counted only with discovery on, each at its formula: the book's
 /// BOOK_MAX entries reserved once; the links table at its churn high-water (the live peers, PR2b's S automatic slot
@@ -288,8 +145,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// nothing.
 #[test] fn a13_discovery_terms_are_counted_only_when_enabled(){
     use pocold::{addrbook::{self as ab,BOOK_MAX,CACHE_MAX,SELF_MAX,ANCHORS_MAX,FILE_LINE_MAX},node::{self,Discovery,Limits,Outbound},net,resources::derive};use std::mem::size_of;
-    // Phase 5c: on the spec-1 devnet (Phase 6a) and on the v3 devnet, as a new node opens it.
-    for cp in [devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone(),v3_devnet()]{let l=pocold::single_host_local();
+    // On the v3 devnet, as a new node opens it.
+    for cp in [v3_devnet()]{let l=pocold::single_host_local();
     let disc=|b:&pocold::resources::Bound|b.items.iter().filter(|x|x.0.starts_with("queues/discovery")).cloned().collect::<Vec<_>>();
     let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);
     for (peers_max,dials) in [(net::Limits::default().peers_max,2usize),(16,5),(1,0)]{for outbound in [Discovery::default().outbound,Outbound::Count(0),Outbound::Count(8)]{
@@ -312,149 +169,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!((size_of::<ab::Entry>(),node::LINK_BYTES),(152,144),"the type sizes the pinned total was derived with");}
 }
 
-/// Phase 6a: the generated spec-1 continuous network (support/continuous.rs), pinned with its seed rule; the v3
-/// counterpart is v3_a13_live_chain_halts_at_the_mainnet_profile.
-/// R1 (PR3): a continuous chain (a generated continuous genesis at the builder's defaults, T_blk 10 s; the
-/// continuous chain this evidence was first produced on had the same CP) has no finite lifetime, so A13 projects
-/// from its journal and the node stops once the journal holds more records than the budget admits (node.rs re-runs
-/// `resources::check` every 256 records). The largest admitted record count R, found by binary search for each
-/// (peers_max, dials), as the seeds boot: store mode with checkpoints every 128 records, discovery on, node_operator.py's
-/// LOCAL_ARGS. The network's files are generated (support/continuous.rs) and loaded with `load_spec_for`. Pinned for
-/// the target the evidence is produced on, so a term that moves the halt is seen.
-#[test] fn a13_live_chain_halt_records(){
-    use pocold::{net,node::Limits};
-    let dir=std::env::temp_dir().join(format!("pocold-live-halt-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    continuous::continuous_network(&dir);
-    let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
-    let spec=pocold::load_spec_for(&dir,&local,None).expect("the generated continuous network loads");let _=std::fs::remove_dir_all(&dir);
-    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the chain is continuous");
-    // C-1 S5 (PR7 §6.5): with eviction off (`evict_depth` Some(0)), the model before PR7.
-    let passes=|peers_max:usize,dials:usize,r:u64|pocold::resources::check(cp,k,side,&Limits{state_store:true,checkpoint_every:128,continuous_history:Some(r),evict_depth:Some(0),
-        net:net::Limits{peers_max,..Default::default()},..Default::default()},dials).is_ok();
-    let halt=|peers_max:usize,dials:usize|->u64{
-        assert!(passes(peers_max,dials,0),"an empty journal boots at peers_max {peers_max}, dials {dials}");
-        let mut hi=1u64;while passes(peers_max,dials,hi){hi*=2;assert!(hi<1<<40,"no halt below 2^40 records");}
-        let mut lo=hi/2;while hi-lo>1{let mid=lo+(hi-lo)/2;if passes(peers_max,dials,mid){lo=mid}else{hi=mid}}lo
-    };
-    let mut got=Vec::new();
-    for (p,d) in [(8usize,2usize),(8,7),(32,2),(32,7),(64,2),(64,7)]{let r=halt(p,d);got.push(r);
-        println!("A13-LIVE-HALT {}",serde_json::json!({"peersMax":p,"dials":d,"records":r,"days":r as f64/8640.0}));}
-    // At main b83b584: 1,170,090 and 1,145,444 records (135.4 and 132.6 days). Main e3d6f07, PR4's post-state verdicts
-    // (239,520 B): 1,169,988 and 1,145,342 (-102, -102). PR3 R10, the node's per-connection maps, on that main: 1,169,713
-    // and 1,144,871 (-275, -471). PR3 inbound eviction, every physical inbound place counted (8 established and 8
-    // waiting for a Hello) and the eviction registry: 1,158,957 and 1,134,336 (-10,756, -10,535).
-    // PR3 commit 5, the default of 32 established (40 places): 1,127,165 at 2 dials and 1,102,318 at 7 (130.5 and 127.6
-    // days; -42,548 and -42,553 against R10's (8, d) halts, within the week of records, 60,480, the plan's rule allows).
-    // PR6, the pool's meta, the parked entries, the template selection's candidates and the block overlay's BLOCKHASH
-    // window: 1,157,187 and 1,132,366 at 8 established (-1,770, -1,970), 1,125,239 and 1,100,548 at 32 (-1,926, -1,770),
-    // 1,082,629 and 1,058,008 at 64 (-1,996, -1,770); the seed rule's outcome is unchanged. PR6 review, the selection's
-    // tail after a gas failure (GAS_LIMIT/TX_GAS_MIN more candidate entries and BODY_MAX more raw bytes): 1,157,024 and
-    // 1,132,366 at 8 (-163, 0), 1,125,232 and 1,100,385 at 32 (-7, -163), 1,082,476 and 1,057,845 at 64 (-153, -163).
-    // PR6 review, parked runs (PARKED_ENTRY_BYTES 128 -> 160) and the parked senders in the selection's skipped sets:
-    // 1,156,856 and 1,132,236 at 8 (-168, -130), 1,125,065 and 1,100,218 at 32 (-167, -167), 1,082,476 and 1,057,678 at
-    // 64 (0, -167); the seed rule's outcome is unchanged. PR2b, the link's automatic-outbound fields (LINK_BYTES 128 ->
-    // 144): 1,156,841 and 1,132,210 at 8 (-15, -26), 1,125,048 and 1,100,190 at 32 (-17, -28), 1,082,476 and 1,057,648
-    // at 64 (0, -30). PR2b, automatic outbound on by default (auto counted at S = 5 slot places, the forwarder and the
-    // outbound state, +27,517,640 B): 1,146,268 and 1,121,410 at 8 (-10,573, -10,800), 1,114,248 and 1,089,603 at 32
-    // (-10,800, -10,587), 1,071,706 and 1,046,848 at 64 (-10,770, -10,800); the seed rule's outcome is unchanged
-    // (R10[0] - R(32, 2) = 55,465 of the week's 60,480).
-    // A seed at 64 established: 1,084,625 at 2 dials and 1,059,778 at 7 (125.5 and 122.7 days); R(64, 7) is 85,093
-    // records (9.8 days) below R10's R(8, 7), more than a week, so by the plan's seed rule the seeds stay at the default 32.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){
-        // C3: the legacy receipt encoding/root-clone/output-copy under-count is
-        // corrected on every profile (+878624 B on the live spec-1 chain; no
-        // block report grows). The stops are 374/374/374/360/374/147 records below
-        // the earlier pins [1_146_268,1_121_410,1_114_248,1_089_603,1_071_706,1_046_848].
-        // Keep the original R10 baseline and owner seed guards below.
-        // N4 (V3-20 node-local pool) moves no stop: the pool's entries keep their sizes and the fee order's scratch takes
-        // the place of the selection's first-seen sender set (consensus.rs a13_bound_breakdown).
-        // FN-1 (C6): the child-context cache term (resources::ctx_cache_bytes, 185,920 B at this chain's M_max) moves each
-        // stop 79 records earlier than the pins [1_145_894,1_121_036,1_113_874,1_089_243,1_071_332,1_046_701].
-        // FN-3a (C6): the member-record terms (the caches and scratch, the window's records, 3,778,756 B at this chain's
-        // M_max 64 and S_max 256, and each record's and snapshot row's history.redb allocator bytes) move each stop
-        // 2,797/2,766/2,757/2,727/2,704/2,674 records earlier than the pins [1_145_815,1_120_957,1_113_795,1_089_164,
-        // 1_071_253,1_046_622]. An Entry's size is unchanged (its `members` pointer is paid for by `ranges` as a boxed
-        // slice), so a slimmed entry, the bulk of this eviction-off projection, costs what it did. The seed rule's
-        // outcome is unchanged: R10[0] - R(32, 2) = 58,675 of the week's 60,480, and R10[1] - R(64, 7) = 100,923 > a week.
-        // FN-3b (C6): the nonce ranges removed (4,096 B a slimmed entry at this chain's M_max 64, and the ranges' boxed
-        // slice, 16 B, from every Entry; history.redb's ranges rows) move each stop 27,119/26,878/26,809/26,570/26,396/
-        // 26,157 records later than the pins [1_143_018,1_118_191,1_111_038,1_086_437,1_068_549,1_043_948]; R(8, 2) is now
-        // above R10's own (by 424 records), so the differences below are signed. The default's margin widens (R10[0] -
-        // R(32, 2) = 31,866 of the week's 60,480: a rise can never fail it), and the seed-at-64 gap narrows but stays
-        // above a week (R10[1] - R(64, 7) = 74,766 > 60,480), so the rule's outcome is unchanged (the seeds stay at the
-        // default 32).
-        // FN-1b (C6): the membership inputs and write sets of the child-context cache (resources::member_bases_bytes,
-        // 1,207,460 B at this chain's M_max 64: CTX_BASES_MAX + 1 inputs and CTX_WRITES_MAX write sets of
-        // CTX_WRITE_SLOTS_MAX slots) move each stop 518 records earlier than the pins [1_170_137,1_145_069,1_137_847,
-        // 1_113_007,1_094_945,1_070_105]. The seed rule's outcome is unchanged: R10[0] - R(32, 2) = 32,384 of the week's
-        // 60,480, and R10[1] - R(64, 7) = 75,284 > a week.
-        assert_eq!(got,[1_169_619,1_144_551,1_137_329,1_112_489,1_094_427,1_069_587],"the live chain's halt moved (record it in the PR)");
-        // The seed rule (plan §4, commit 5), against R10's halts at (8, 2) and (8, 7): seeds ship at 64 only while R(64, 7)
-        // stays within a week of records of R(8, 7); the default of 32 only while R(32, 2) stays within a week of R(8, 2).
-        // Signed (FN-3b): a halt may now rise above R10's.
-        const WEEK:i128=7*8640;const R10:[i128;2]=[1_169_713,1_144_871];let got:Vec<i128>=got.iter().map(|x|i128::from(*x)).collect();
-        assert!(R10[0]-got[2]<=WEEK,"the default of 32 moves the halt by more than a week: ask the owner");
-        assert!(R10[1]-got[5]>WEEK,"a seed at 64 now moves the halt by at most a week: the seeds may take POCOL_PEERS_MAX=64 (deploy/public-testnet/prepare.py)");
-    }
-}
 
-/// Phase 6a: the spec-1 continuous network, pinned; the v3 counterpart is v3_a13_live_chain_halts_at_the_mainnet_profile.
-/// C-1 S5 (PR7 §6.5): the same live chain and seed settings with eviction on (the default depth): no term grows with
-/// the journal's records, so the stop is where the observed files' allocator terms (1 B per 4 KiB of history.redb past
-/// one region's allocator) use the budget up. The largest admitted history.redb size, found by binary search for each
-/// (peers_max, dials), with state.redb and canon.redb empty, is at least 1 TiB, and its bound is the same at 0 and
-/// 10^9 records. Pinned for the target the evidence is produced on.
-#[test] fn a13_live_chain_halt_disk_bytes(){
-    use pocold::{net,node::Limits,resources::DiskBytes};
-    let dir=std::env::temp_dir().join(format!("pocold-live-halt-disk-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
-    continuous::continuous_network(&dir);
-    let local=pocol_lp4_execution::admission::NodeLocal{delta:1,phi:1,t_exec:1,delta_rel:8,gamma:5,..pocold::single_host_local()};
-    let spec=pocold::load_spec_for(&dir,&local,None).expect("the generated continuous network loads");let _=std::fs::remove_dir_all(&dir);
-    let (cp,k,side)=(spec.cp(),spec.local().k_hist,spec.local().side_max);assert_eq!(cp.H_END,0,"the chain is continuous");
-    let lim=|peers_max:usize,records:u64,history:u64|Limits{state_store:true,checkpoint_every:128,continuous_history:Some(records),disk:Some(DiskBytes{history,..Default::default()}),
-        net:net::Limits{peers_max,..Default::default()},..Default::default()};
-    let passes=|peers_max:usize,dials:usize,x:u64|pocold::resources::check(cp,k,side,&lim(peers_max,0,x),dials).is_ok();
-    let halt=|peers_max:usize,dials:usize|->u64{
-        assert!(passes(peers_max,dials,0),"empty files boot at peers_max {peers_max}, dials {dials}");
-        let mut hi=1u64<<30;while passes(peers_max,dials,hi){hi*=2;assert!(hi<1<<60,"no stop below 2^60 bytes");}
-        let mut lo=hi/2;while hi-lo>1{let mid=lo+(hi-lo)/2;if passes(peers_max,dials,mid){lo=mid}else{hi=mid}}lo
-    };
-    let total=|p:usize,d:usize,r:u64,x:u64|pocold::resources::derive(cp,k,side,&lim(p,r,x),d).unwrap().total;
-    let mut got=Vec::new();
-    for (p,d) in [(8usize,2usize),(8,7),(32,2),(32,7),(64,2),(64,7)]{let x=halt(p,d);got.push(x);
-        assert_eq!(total(p,d,0,x),total(p,d,1_000_000_000,x),"the bound does not grow with records at ({p}, {d})");
-        assert!(x>=1<<40,"the stop is at least 1 TiB of history at ({p}, {d}): {x}");
-        println!("A13-LIVE-HALT-DISK {}",serde_json::json!({"peersMax":p,"dials":d,"historyBytes":x,"historyTiB":x as f64/(1u64<<40) as f64,"boundAtEmptyFiles":total(p,d,0,0).to_string()}));}
-    // PR7: 12,113,967,612,031 B (11.02 TiB) at (8, 2) down to 11,067,424,194,687 B (10.07 TiB) at (64, 7); the default
-    // seed, (32, 2), stops at 11,777,328,119,935 B (10.71 TiB) of history.redb, where it stopped at 1,127,165 records
-    // (130.5 days) before. Merged with main's PR6 (the pool's meta, the parked entries and the template selection):
-    // 12,091,563,507,839 B (11.00 TiB) at (8, 2) down to 11,045,020,090,495 B (10.05 TiB) at (64, 7); (32, 2) stops at
-    // 11,754,924,015,743 B (10.69 TiB), where it stops at 1,125,065 records (130.2 days) with eviction off. Merged with
-    // PR2b (the link's automatic-outbound fields, 146 B a connection at the old high, and automatic outbound on by
-    // default, +27,517,640 B; each stop moves by 4,096 B of history.redb per model byte): 11,978,704,740,479 B
-    // (10.89 TiB) at (8, 2) down to 10,932,026,171,519 B (9.94 TiB) at (64, 7); (32, 2) stops at 11,642,050,895,999 B
-    // (10.59 TiB), 4,096 × 27,556,914 B before main's, where it stops at 1,114,248 records with eviction off.
-    // V3-04: timestamps stay in the journal and the timely bit fits the old
-    // Entry/Rec layout, preserving the record stops and seed-rule assertions
-    // above. Correcting the eviction batch to actual inline Entry/Rec storage
-    // adds 11,815,110 model bytes: each windowed stop moves by
-    // 4,096 × 11,815,110 = 48,394,690,560 history bytes. No budget or reserve changes.
-    if cfg!(all(target_os="linux",target_arch="x86_64")){
-        // C3: 4096 * 878624 = 3598843904 fewer modeled file bytes per stop (legacy receipt under-count).
-        // FN-1 (C6): the child-context cache term, 185,920 model bytes: 4096 * 185920 = 761,528,320 fewer modeled file bytes per stop.
-        // FN-3a (C6): the member-record terms, 3,778,756 model bytes at this chain's M_max 64, and their history.redb
-        // payload: each stop 15,505,223,296 B (14.4 GiB of history.redb) earlier than the pins
-        // [11_925_949_677_695,11_664_796_745_855,11_589_295_833_215,11_328_142_901_375,11_140_424_040_575,10_879_271_108_735].
-        // FN-3b (C6): the nonce ranges removed, 44,477,750 model bytes at this chain's M_max 64 with eviction on (the
-        // entry-equivalents' 64·M_max, the Entry's boxed slice, history.redb's ranges rows): each stop 182,180,866,560 B
-        // (169.7 GiB of history.redb) later than the pins [11_910_444_454_399,11_649_291_522_559,11_573_790_609_919,
-        // 11_312_637_678_079,11_124_918_817_279,10_863_765_885_439].
-        // FN-1b (C6): the membership inputs and write sets, 1,207,460 model bytes at this chain's M_max 64: each stop
-        // 4,096 × 1,207,460 = 4,945,756,160 B (4.6 GiB of history.redb) earlier than the pins [12_092_625_320_959,
-        // 11_831_472_389_119,11_755_971_476_479,11_494_818_544_639,11_307_099_683_839,11_045_946_751_999].
-        assert_eq!(got,[12_087_679_564_799,11_826_526_632_959,11_751_025_720_319,11_489_872_788_479,11_302_153_927_679,11_041_000_995_839],"the live chain's stop moved (record it in the PR)");
-    }
-}
 /// PR3: A13 counts every physical inbound place, S = inbound_max = peers_max + handshaking_max (the established ones and
 /// those waiting for a Hello; an evicted peer keeps its place until its reader releases it), in each per-place term: the
 /// send queues and frames, the group entries, the connection high-water (`high`, with the node's maps at 2,718 B an
@@ -463,8 +178,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// costs 3,424,620 B of model (PR2b: 3,424,474 before the link's automatic-outbound fields, 2·73 B a link).
 #[test] fn a13_inbound_terms_count_every_inbound_place_and_the_eviction_registry(){
     use pocold::{net,node::{self,Limits},resources::derive,threads::IO_STACK};
-    // Phase 5c: on the spec-1 devnet (Phase 6a) and on the v3 devnet, as a new node opens it.
-    for cp in [devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone(),v3_devnet()]{let l=pocold::single_host_local();
+    // On the v3 devnet, as a new node opens it.
+    for cp in [v3_devnet()]{let l=pocold::single_host_local();
     let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
     let at=|peers_max:usize,handshaking_max:usize,dials:usize|derive(&cp,32,l.side_max,&at_open(&cp,Limits{net:net::Limits{peers_max,handshaking_max,..Default::default()},..Default::default()}),dials).unwrap();
     let conn_max=Limits::default().rpc.conn_max as u128;assert_eq!(conn_max,32,"the RPC connections the io and exiting terms were derived with");
@@ -491,8 +206,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// outbound state. Discovery off counts none of it, whatever the setting.
 #[test] fn a13_outbound_slots_cost_exactly_their_terms(){
     use pocold::{net,node::{self,Limits,Discovery,Outbound},resources::derive,threads::IO_STACK};
-    // Phase 5c: on the spec-1 devnet (Phase 6a) and on the v3 devnet, as a new node opens it.
-    for cp in [devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone(),v3_devnet()]{let l=pocold::single_host_local();
+    // On the v3 devnet, as a new node opens it.
+    for cp in [v3_devnet()]{let l=pocold::single_host_local();
     let at=|o:Outbound,on:bool|derive(&cp,32,l.side_max,&at_open(&cp,Limits{discovery:Discovery{enabled:on,outbound:o,..Default::default()},..Default::default()}),2).unwrap();
     let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0.starts_with(k)).unwrap_or_else(||panic!("{k}")).1;
     let link=((node::LINK_BYTES as u128+1)*32).div_ceil(7);let (q,fr)=(net::Limits::default().queue_bytes_max as u128,net::MAX_FRAME as u128);
@@ -518,8 +233,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// PR3 A2: the devnet profile pocold boots passes the A13 gate at a seed's settings (64 established, 8 waiting for a
 /// Hello, 7 configured peers) and at the largest established count (128), in both modes.
 #[test] fn a13_admits_seed_inbound_settings_at_the_devnet_profile(){
-    // Phase 5c: on the spec-1 devnet (Phase 6a) and on the v3 devnet, as a new node opens it.
-    for (tag,cp) in [("spec1",devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone()),("v3",v3_devnet())]{let l=pocold::single_host_local();
+    // On the v3 devnet, as a new node opens it.
+    for (tag,cp) in [("v3",v3_devnet())]{let l=pocold::single_host_local();
     for peers_max in [64usize,128]{for state_store in [false,true]{
         let lim=at_open(&cp,pocold::node::Limits{state_store,net:pocold::net::Limits{peers_max,handshaking_max:8,..Default::default()},..Default::default()});
         let b=pocold::resources::check(&cp,l.k_hist,l.side_max,&lim,7).unwrap_or_else(|e|panic!("{tag}: peers_max {peers_max}, store {state_store}: {e}"));
@@ -530,8 +245,8 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 /// inventory; the default (one thread) is the bound and inventory of before V3-30, so the pinned totals are unchanged.
 #[test] fn a13_counts_every_miner_thread(){
     use pocold::{node::Limits,resources::{derive,tasks_needed},threads::IO_STACK};
-    // Phase 5c: on the spec-1 devnet (Phase 6a) and on the v3 devnet, as a new node opens it.
-    for cp in [devnet::build(&spec1(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone(),v3_devnet()]{let l=pocold::single_host_local();
+    // On the v3 devnet, as a new node opens it.
+    for cp in [v3_devnet()]{let l=pocold::single_host_local();
     let at=|n:usize|derive(&cp,32,l.side_max,&at_open(&cp,Limits{mine_threads:n,..Default::default()}),2).unwrap();
     let item=|b:&pocold::resources::Bound,k:&str|b.items.iter().find(|x|x.0==k).unwrap_or_else(||panic!("{k}")).1;
     let io=IO_STACK as u128+4096;
@@ -551,9 +266,7 @@ fn pocold_local()->pocol_lp4_execution::admission::NodeLocal{pocol_lp4_execution
 }
 
 // ============================ Phase 5c: A13 on the v3 rules the fresh network runs ============================
-// The tests above model the retired spec-1 network (the governance.md profile, the spec-1 devnet and the generated spec-1
-// continuous network): they stay pinned to it until Phase 6a deletes the spec-1 rule set. Below, the same properties on
-// the v3 rules: the fresh network's own committed profile (deploy/mainnet/v3-profile.json, FRESH-NETWORK-CP.md) where
+// The properties at the network level on the v3 rules: the fresh network's own committed profile (deploy/mainnet/v3-profile.json, FRESH-NETWORK-CP.md) where
 // the test models the network, and the v3 devnet (`DevnetConfig::new`) where it models the devnet pocold boots. A v3
 // chain is continuous (H_END = 0) and runs the first-import index (`Spec::v3_active(MAX)`), so its model counts what
 // Node::open observes before its first check: the journal records (`Limits::continuous_history`) and the files
@@ -587,13 +300,12 @@ fn booted(cp:&pocol_lp4_execution::profile::ConsensusParams,k_hist:u32,v3:bool,m
     l.evict_depth=Some(pocold::resources::evict_depth_of(cp,k_hist,&l,l.r_keep).unwrap().unwrap_or(0));
     l.first_imports=v3;if cp.H_END==0||l.first_imports{l.continuous_history=Some(records);}l.disk=Some(disk);l
 }
-/// `l` as a new node (no records, empty files) opens it on `cp`: unchanged on a spec-1 CP (the spec-1 pins above), the
-/// booted limits on a v3 one.
+/// `l` as a new node (no records, empty files) opens it on the v3 `cp`: the booted limits.
 fn at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,l:pocold::node::Limits)->pocold::node::Limits{
-    if cp.schema_version()>=2{booted(cp,32,true,l,0,Default::default())}else{l}
+    assert!(cp.schema_version()>=2,"a v3 CP");booted(cp,32,true,l,0,Default::default())
 }
 
-/// The v3 counterpart of a13_store_model_at_the_network_profile: the fresh network's store-mode model as a new founder
+/// The fresh network's store-mode model as a new founder
 /// node opens it (eviction on, the first-import index, empty files), itemized, with state.redb's largest file by part.
 #[test] fn v3_a13_store_model_at_the_mainnet_profile(){
     let n=v3_network("store");let (cp,local)=(n.spec.cp(),n.spec.local());
@@ -611,7 +323,7 @@ fn at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,l:pocold::node::Lim
     }
     if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(b.total,V3_MAINNET_STORE_TOTAL,"the fresh network's store-mode model moved (record it in the PR)");}
 }
-/// The v3 counterpart of a13_model_at_the_network_profile: whole-state mode at the fresh network's caps, which the
+/// Whole-state mode at the fresh network's caps, which the
 /// launch does not run (FRESH-NETWORK-CP.md §1: the caps hold subject to A13 store mode). Printed, and its verdict pinned.
 #[test] fn v3_a13_whole_state_model_at_the_mainnet_profile(){
     let n=v3_network("mem");let (cp,local)=(n.spec.cp(),n.spec.local());
@@ -623,7 +335,7 @@ fn at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,l:pocold::node::Lim
 /// The pinned v3 totals (Linux x86-64; the Entry's size is the platform's).
 const V3_MAINNET_STORE_TOTAL:u128=5_512_153_289;
 
-/// The v3 counterpart of network_profile_boot_gates_itemized: the fresh network's profile at its declared local timing
+/// Why the fresh network's profile boots, gate by gate: the profile at its declared local timing
 /// (1, 1, 1; Δ_rel 7, Γ 5, K_hist 32, retentionStress as the launcher sets it), each R1-R26 row re-derived on CP schema v2:
 /// R8 with the v3 registry window (U >= W_act + 2, C_react >= U; gate.rs v3_registry_window_violated), R10 with the
 /// late-share item sizing, R13 for a continuous profile (Simnet profile on a Simnet node), R21 with the simnet
@@ -692,13 +404,13 @@ const V3_MAINNET_STORE_TOTAL:u128=5_512_153_289;
     }
 }
 
-/// The v3 counterparts of a13_live_chain_halt_records and a13_live_chain_halt_disk_bytes, at the fresh network's profile
-/// and a seed's settings (store mode, checkpoints every 128 records, discovery on; (peers_max, dials) as before):
+/// The live chain's A13 stop (A13 projects a continuous chain from its journal), at the fresh network's profile
+/// and a seed's settings (store mode, checkpoints every 128 records, discovery on; for each (peers_max, dials) below):
 /// - eviction off (`evict_depth` Some(0)): the largest admitted journal record count R (binary search), or the fact that
 ///   the profile does not open at all with eviction off;
 /// - eviction on (the default depth): the largest admitted history.redb size at 0 records and at one year of records
-///   (8,640 blocks a day for 365.25 days), and the largest admitted record count with empty files. Unlike the spec-1
-///   chain's, the v3 bound can grow with the records: the first-import index (one row a record, `FIRST_IMPORT_ROW`) is
+///   (8,640 blocks a day for 365.25 days), and the largest admitted record count with empty files. The v3 bound can
+///   grow with the records: the first-import index (one row a record, `FIRST_IMPORT_ROW`) is
 ///   counted with its redb allocator (resources.rs `first_imports`), so the stop is in both the files and the records
 ///   (`V3_LIVE_HALTS` records the figures). A setting at which a new node does not open records zeros for eviction on.
 /// Pinned for the target the evidence is produced on, so a term that moves the stop is seen.

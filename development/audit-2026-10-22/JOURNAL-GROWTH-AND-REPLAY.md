@@ -120,8 +120,8 @@ The two profiles referenced throughout (governance.md:5–16; `prototypes/lp4-ex
 
 **Spec-1 rows (Phase 5c).** Every figure in §1-§13 was measured on the retired spec-1 devnet (CP schema v1, bounded
 nonce ranges, the spec-1 log caps, a finite chain with lifetime TXBYTES_CAP and TX_CAP). Phase 5a made
-`DevnetConfig::new` the v3 devnet; the harness now runs it by default, and `JM_SPEC=1` reproduces the spec-1 rows. The
-v3 rows, on the rules the fresh network runs, are in §14.
+`DevnetConfig::new` the v3 devnet and the harness runs it; Phase 6a deleted the spec-1 rule set, so the spec-1 rows are
+historical and no longer reproducible (`JM_SPEC=1` is refused). The v3 rows, on the rules the fresh network runs, are in §14.
 
 **Measured profile (J2-m7).** The harness (`journal_measure.rs` `cfg()`) was `DevnetConfig::new` (spec-1) with
 `hash_rate` 1024, `d_att` 73 and `c` 8 (`tau` 40 as the default): the devnet caps, GAS_LIMIT, BODY_MAX and H_END, with an
@@ -1314,9 +1314,9 @@ same harness values (`hash_rate` 1024, `d_att` 73, `tau` 40, `c` 8). The harness
 - **The full nonce domain** (nonceMode 1, nMax = 2^64). A seal scans from nonce 0, inside the first member's range,
   and never reaches nMax.
 
-The spec-1 rows above are unchanged and labelled; `JM_SPEC=1` reproduces them (`jm_journal_bytes_per_record_spec1` and
-`retained_states_of_one_lineage_share_their_code_buffers_spec1` are their default-test twins, kept until Phase 6a
-deletes the spec-1 rule set). The pairs below are on one host (Linux 6.18.44, 4 CPUs, release), one after the other.
+The spec-1 rows above are unchanged and labelled. They were measured with `JM_SPEC=1` and the default-test twins
+`jm_journal_bytes_per_record_spec1` and `retained_states_of_one_lineage_share_their_code_buffers_spec1`, which Phase 6a
+deleted with the spec-1 rule set: the rows are historical, and `JM_SPEC=1` is now refused. The pairs below are on one host (Linux 6.18.44, 4 CPUs, release), one after the other.
 This host runs the spec-1 replay about twice as slowly as the round-3 host of §3.1 (5.05 s against 2.54 s at 1,000
 records), so compare a v3 row with its spec-1 row of the same run, not with §3. Logs: `evidence/journal-v3/`.
 

@@ -58,7 +58,7 @@ $ChainId = Get-Random -Minimum 777916 -Maximum 2147483000
 $GenesisTime = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 180
 $Miners = @($Public | ForEach-Object { @{ id=$_; reward=$_ } })
 $Accounts = @(($Public + @($Desktop.address)) | ForEach-Object { @{ address=$_; wei='1000000000000000000000000' } })
-$Config = @{ continuous=$true; chainId=$ChainId; genesisTime=$GenesisTime; registrationPerBlock=1; miners=$Miners; accounts=$Accounts }
+$Config = @{ chainId=$ChainId; genesisTime=$GenesisTime; registrationPerBlock=1; miners=$Miners; accounts=$Accounts }
 $ConfigFile = Join-Path $Work 'public-genesis.json'
 [IO.File]::WriteAllText($ConfigFile, ($Config | ConvertTo-Json -Depth 8), (New-Object Text.UTF8Encoding($false)))
 $Genesis = Join-Path $Work 'genesis'

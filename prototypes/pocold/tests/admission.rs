@@ -227,14 +227,16 @@ fn held_profile()->DevnetConfig{let mut c=DevnetConfig::new(777917,1_700_000_000
     assert!(median>t_exec_ms,"the typical commit is past t_exec: {e}");
     let _=std::fs::remove_dir_all(&d);
 }
-/// Boot admission reproduces the recorded report, and that report is pinned: a generated continuous spec-1 network
-/// (support/continuous.rs, the Continuous program set, whose SYS gas envelope GAS_ENVELOPE covers it) admitted from
+/// Boot admission reproduces the recorded report, and that report is pinned: a generated continuous v3 network
+/// (support/continuous.rs, the V3 program set, whose SYS gas envelope GAS_ENVELOPE_V3 covers it) admitted from
 /// its files with the timing its devnet.json records gives the admission report `pocold init-testnet` recorded, and
 /// both equal CONTINUOUS_ADMISSION (scope, conditions with ids, rules and detail text including the R18 gas facts,
 /// notes, waivers, deferred items, specificationCompliant). The binding is the one exception: it hashes the profile and
 /// the node's local parameters, which differ between the builder (`local_for`) and a booting node.
-/// CONTINUOUS_ADMISSION is the report the retired H15000 bundle recorded (admission.rs of 28e295f), binding removed,
-/// with only the timing-not-a-bound sample count changed (11 there, 33 for this generated network's timing record).
+/// Phase 6a re-pinned CONTINUOUS_ADMISSION on the v3 network the builder now generates (before, the spec-1 continuous
+/// network: the report the retired H15000 bundle recorded, admission.rs of 28e295f), binding removed. Two texts moved:
+/// the R18 gas condition names GAS_ENVELOPE_V3 (the only table since phase 6a), and R26's RpcGuard log checks are
+/// derived from the v3 per-block log caps (4,368 logs, 256 KiB of data) instead of the spec-1 546 and 32 KiB.
 #[test] fn a_generated_continuous_networks_admission_report_is_reproduced_at_boot(){
     let d=tmp("continuous");continuous::continuous_network(&d);
     let info:serde_json::Value=serde_json::from_slice(&std::fs::read(d.join("devnet.json")).unwrap()).unwrap();
@@ -284,7 +286,7 @@ const CONTINUOUS_ADMISSION:&str=r#"{
    ]
   },
   {
-   "detail": "SYS gas: GAS_ENVELOPE holds at the fixture's maxima; monotonicity in the domain fields is assumed (A13-DERIVATION §4)",
+   "detail": "SYS gas: GAS_ENVELOPE_V3 holds at the v3 fixture's maxima for every call the v3 runs reach (v3 program set, any M_max, S_max + 3 <= 259 payees per pot all ACCRUING, kappa*m <= 64; final phase: finalize measured on v3 at its worst path on a small final chain, settleFinal takes the measured settle); monotonicity in the domain fields is assumed (A13-DERIVATION §4)",
    "id": "gas-monotonicity-assumed",
    "rules": [
     "R18"
@@ -341,9 +343,9 @@ const CONTINUOUS_ADMISSION:&str=r#"{
     "batchRespMax>=respMax",
     "lightQueue>=connMax",
     "batchMax*errItemMax+64<=connBuf",
-    "respMax>=2*32768+546*512",
-    "logsCountMax>=546",
-    "logsScanBytes>=32768",
+    "respMax>=2*262144+4368*512+2048",
+    "logsCountMax>=4368",
+    "logsScanBytes>=262144",
     "lightRespMax>=385KiB",
     "rate>=1",
     "bucketCap>=batchMax",

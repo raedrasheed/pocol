@@ -132,7 +132,7 @@ pub fn blockers(b:&Build,subject:Subject)->Vec<Blocker>{
         Subject::Unreadable(why)=>{out.push(blocker("genesis-unreadable",format!("the network's genesis specification cannot be read: {why}")));return out}
         Subject::Network(n)=>n,
     };
-    if !n.v3_active{out.push(blocker("v3-inactive","the network's genesis never activates the v3 rules (spec version 1 and no fork to version 3); the public launch is a v3 genesis"))}
+    if !n.v3_active{out.push(blocker("v3-inactive","the network's genesis is not a v3 genesis (specVersion below 2): the spec-1 rule set is retired and this release runs only v3 (specVersion 2) networks; the public launch is a v3 genesis"))}
     if !b.network_profiles.contains(&(n.chain_id,n.genesis_hash)){
         out.push(blocker("network-not-release-pinned",format!("chain {} genesis {} is not a launch network pinned by this release (V3-28 H2{})",
             n.chain_id,crate::types::hex(&n.genesis_hash),if b.network_profiles.is_empty(){"; it pins none yet"}else{""})))}
@@ -286,15 +286,6 @@ mod tests{
         assert_eq!(network,expect,"the network blockers of a booted devnet admission");
         assert!(!got.contains(&"admission-not-booted")&&!got.contains(&"admission-unrecorded"));
         assert!(n.v3_active);
-        // A spec-1 genesis with the schedule [(1,0)] never activates v3. No admissible schedule activates it later
-        // (MAX_FORK_VERSION is 3, but version 3 is the cap raise, admitted only on a spec-2 genesis: FN-5), so the height
-        // Network::admitted asks at is not observable. The
-        // retired spec-1 devnet; Phase 6a deletes the spec-1 rule set and this check.
-        let mut c=DevnetConfig::spec1(777942,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
-        let (a,_)=devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap();
-        let n=Network::admitted(&a);assert!(!n.v3_active);
-        let got=of_admitted(&a);let got=ids(&got);
-        assert_eq!(got.iter().copied().skip_while(|id|*id!="v3-inactive").take(2).collect::<Vec<_>>(),["v3-inactive","network-not-release-pinned"],"{got:?}");
     }
     /// PLAN_GATES_OPEN lists exactly the acceptance-ledger gates whose status is not "Closed".
     #[test]

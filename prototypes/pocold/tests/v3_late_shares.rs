@@ -5,8 +5,7 @@
 //!   every case gives the model's verdict (the same reason at the same item, or the same owners per template). The model
 //!   also plants 17 mutants of these rules, each of which fails some vector (`v3_model.py --check`).
 //! - Real v3 chains (a specVersion-2 devnet, the v3 program set): the omitted share of a
-//!   contributor is credited by LS(j) in block j+1 and paid at settle(j), which a spec-1 chain refuses as an evidence
-//!   form; the negative cases on real branches (a fallback carrier, a sibling template's share, a duplicate across
+//!   contributor is credited by LS(j) in block j+1 and paid at settle(j); the negative cases on real branches (a fallback carrier, a sibling template's share, a duplicate across
 //!   carriers, the cap read from the parent state); a reorg across a carrier rolls the credit and its deduplication
 //!   back; replay determinism; the Escrow invariant on every block.
 #[path="support/members.rs"] mod members_sweep;
@@ -67,41 +66,31 @@ fn late_share_validity_reproduces_the_independent_model(){
     assert_eq!(reasons,want.iter().map(|x|x.to_string()).collect::<BTreeSet<_>>());
 }
 
-/// A13 under the v3 domain only (V3-02): on CP schema v2 the model adds the late-share cache (D templates of 4·S_max
-/// nonces) and the kind-3 evidence offloaded entries keep, and bounds a window's evidence per block; on CP schema v1
-/// (every spec-1 profile) none of these terms exists and the bound is the one pinned in tests/consensus.rs.
+/// A13 under the v3 domain (V3-02): on CP schema v2 the model adds the late-share cache (D templates of 4·S_max
+/// nonces) and the kind-3 evidence offloaded entries keep, and bounds a window's evidence per block. (Its CP schema v1
+/// comparison went with the spec-1 rule set in Phase 6a.)
 #[test]
-fn a13_counts_late_share_memory_on_cp_schema_v2_only(){
-    use pocol_lp4_execution::{devnet::{self,DevnetConfig},genesis_spec as gs,profile::ConsensusParams,fixed::U256 as F};
-    // The CP schema v1 baseline: the retired spec-1 devnet (Phase 6a deletes the spec-1 rule set and this comparison).
-    let mut c=DevnetConfig::spec1(777910,1_700_000_000,&["a","b","c"],devnet::Spec1Programs::Bonded);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;
-    let v1=pocold::chain::Spec::new(devnet::build(&c).unwrap().admit(&pocold::single_host_local()).unwrap().0).cp().clone();
-    let mut values=v1.to_values();
-    for f in &gs::CP_SCHEMA_V2[gs::CP_LEN..]{values.push(F::from_u64(match f.name{"R_react"=>4,"C_react"=>v1.U as u64,_=>f.lo}));}
-    let v2=ConsensusParams::from_values(&values).unwrap();assert_eq!((v1.schema_version(),v2.schema_version()),(1,2));
+fn a13_counts_late_share_memory_on_cp_schema_v2(){
+    use pocol_lp4_execution::{devnet::{self,DevnetConfig},profile::ConsensusParams};
+    // A finite chain (H_END > 0), as the CP schema v1 baseline this test compared with was: the model then needs no
+    // observed journal records (a continuous chain projects from them, `Limits::continuous_history`).
+    let mut c=DevnetConfig::new(777910,1_700_000_000,&["a","b","c"]);c.hash_rate=1024;c.d_att=73;c.tau=40;c.c=8;c.h_end=20_000;c.h_close=19_000;
+    let v2=pocold::chain::Spec::new(devnet::build(&c).unwrap().admit(&pocold::single_host_local()).unwrap().0).cp().clone();
+    assert_eq!(v2.schema_version(),2);
     let limits=pocold::node::Limits::default();let l=pocold::single_host_local();
     let at=|cp:&ConsensusParams|pocold::resources::derive(cp,l.k_hist,l.side_max,&limits,2).unwrap();
-    let (a,b)=(at(&v1),at(&v2));
+    let b=at(&v2);
     let item=|d:&pocold::resources::Bound,k:&str|d.items.iter().find(|x|x.0.starts_with(k)).map(|x|x.1);
-    for k in ["queues/late-share cache","history/late-share evidence kept on offloaded entries"]{assert_eq!(item(&a,k),None,"{k} on CP schema v1");}
     // The cache: D = 4 canonical templates, LATE_PENDING_MAX = 2 of the production height and one between a stash and
     // its prune, of 4·256 nonces at memory::VEC, beside the type's own size.
     let per=std::mem::size_of::<pocold::node::LateTemplate>() as u128+3*4*256*8;
     assert_eq!(pocold::node::LATE_PENDING_MAX,2);
     assert_eq!(item(&b,"queues/late-share cache"),Some(3*(4+2+1)*per+64));
-    assert_eq!(pocold::resources::late_cache_bytes(&v1),Some(0));assert_eq!(pocold::resources::late_kept_bytes(&v1),Some(0));
     // Per offloaded entry: L = min(E_max·min(S_max, kappa*m - 1), D·(kappa*m - 1)) = min(4·63, 4·63) = 252 late shares in at most E_max = 4
     // items: 4·(24 + 17) + 9·252 = 2,432 bytes.
     assert_eq!(pocol_lp4_execution::resources::late_shares_max(&v2),252);
     assert_eq!(pocold::resources::late_kept_bytes(&v2),Some(2_432));
     let kept=item(&b,"history/late-share evidence kept on offloaded entries").unwrap();assert_eq!(kept%2_432,0);assert!(kept>0);
-    assert!(b.total>a.total,"the v3 terms add to the bound");
-    // The spec-1 pin of tests/consensus.rs: unchanged by V3-02. (Merging main moved that pin from 3,396,912,610 to
-    // 3,397,791,234 B: V3-PR-C3's receipt-encoding correction, +878,624 B on every profile; this test follows it. FN-1's
-    // child-context cache term, +185,920 B on this profile, moved it to 3,397,977,154 B; FN-3a's member-record terms,
-    // +3,836,884 B, to 3,401,814,038 B; FN-3b's removal of the nonce ranges, -44,594,987 B, to 3,357,219,051 B; FN-1b's
-    // membership inputs and write sets, +1,207,460 B, to 3,358,426,511 B.)
-    if cfg!(all(target_os="linux",target_arch="x86_64")){assert_eq!(a.total,3_358_426_511,"the spec-1 A13 model total");}
 }
 
 mod on_chain {
@@ -115,37 +104,32 @@ mod on_chain {
     struct Net{chain:Chain,keys:HashMap<Address,Key>,cfg:DevnetConfig,ids:Vec<Address>}
     /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
     impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
-    /// Spec 2: the v3 devnet, on the full 64-bit nonce domain the fresh network runs (CP field 4 = 1, nonceMode 1: the
-    /// DevnetConfig::new default; Phase 5c). Spec 1: its retired spec-1 earn-in twin, on bounded ranges (Phase 6a deletes it
-    /// with the spec-1 rule set).
-    fn config(spec:u8)->DevnetConfig{
-        let mut c=match spec{1=>DevnetConfig::spec1(777952,1_700_000_000,&["one","two","three"],devnet::Spec1Programs::EarnIn),_=>DevnetConfig::new(777952,1_700_000_000,&["one","two","three"])};
+    /// The v3 devnet, on the full 64-bit nonce domain the fresh network runs (CP field 4 = 1, nonceMode 1: the
+    /// DevnetConfig::new default; the only domain admission takes since Phase 6a).
+    fn config()->DevnetConfig{
+        let mut c=DevnetConfig::new(777952,1_700_000_000,&["one","two","three"]);
         c.hash_rate=16;c.c=8;c.d_att=73;c.r_max=1;
-        assert_eq!(c.nonce_mode,if spec==1{0}else{1});c
+        assert_eq!(c.nonce_mode,1);c
     }
-    /// The v3 devnet on bounded nonce ranges (CP field 4 = 0), the only place the nMax bound of a late share ("15 ls nonce
-    /// outside nMax") is reachable: on the full domain every u64 nonce is inside it. Pinned until Phase 6a, whose
-    /// admission requires nonceMode 1 and so removes this CP.
-    fn config_bounded()->DevnetConfig{let mut c=config(2);c.nonce_mode=0;c}
     /// The largest nonce of the context's domain, as a u64 (the full domain's 2^64 is u64::MAX + 1).
     fn top(ctx:&pocold::chain::ChildCtx)->u64{u64::try_from(ctx.assignment.nonce_max()).unwrap_or(u64::MAX)}
-    /// The nonces a block search scans: the whole bounded domain from 0 (at most 2^16), or, on the full domain (whose
-    /// ranges each span about 2^64 / |members| nonces), the first SCAN nonces of every member's range, in ascending order.
+    /// The nonces a block search scans: on the full domain (whose ranges each span about 2^64 / |members| nonces), the
+    /// first SCAN nonces of every member's range, in ascending order.
     const SCAN:u64=512;
     fn scan(ctx:&pocold::chain::ChildCtx)->Vec<u64>{
-        if ctx.assignment.nonce_max()<=1<<16{return (0..top(ctx)).collect()}
+        assert_eq!(ctx.assignment.nonce_max(),1u128<<64,"the full domain");
         let mut starts:Vec<u64>=ctx.assignment.ranges().iter().map(|r|r.start() as u64).collect();starts.sort_unstable();
         starts.iter().flat_map(|s|*s..s.saturating_add(SCAN)).collect()
     }
     fn spec_of(c:&DevnetConfig)->Spec{crate::members_sweep::oracle();Spec::new(devnet::build(c).unwrap().admit(&pocold::single_host_local()).unwrap().0)}
-    fn net(spec:u8)->Net{net_with(spec,config(spec))}
-    fn net_with(spec:u8,cfg:DevnetConfig)->Net{
+    fn net()->Net{net_with(config())}
+    fn net_with(cfg:DevnetConfig)->Net{
         let d=devnet::build(&cfg).unwrap();
         let keys=d.miners.iter().map(|m|(m.id,Key::from_secret(&m.key.secret()).unwrap())).collect();
         let ids=d.miners.iter().map(|m|m.id).collect();
         let chain=Chain::new(spec_of(&cfg));
-        assert_eq!(chain.spec.programs(),if spec==2{ProgramSet::V3}else{ProgramSet::EarnIn});
-        assert_eq!(chain.late_shares(1),spec==2,"kind 3 only on the v3 program set");
+        assert_eq!(chain.spec.programs(),ProgramSet::V3);
+        assert!(chain.late_shares(1),"kind 3 on the v3 program set");
         Net{chain,keys,cfg,ids}
     }
     /// A mined block: its header shares, the omitted owners' shares and the shares left out past `header_max`.
@@ -215,19 +199,13 @@ mod on_chain {
 
     /// V3-DESIGN.md V3-02, fails on the original: the winner of block 4 omits two's shares. On the v3 chain block 5
     /// carries LS(4) with two of them; recordLate credits two (owner from block 4's stored ranges) and settle(4) at h = 8
-    /// pays two R*2/Q (R = 1.7 PCOL, Q = max(C, kappa*m) = 64) besides whatever pot 4 owed two as its proposer. On the
-    /// spec-1 earn-in chain the same carrier is "15 evidence form" and the omission stands.
+    /// pays two R*2/Q (R = 1.7 PCOL, Q = max(C, kappa*m) = 64) besides whatever pot 4 owed two as its proposer.
     #[test]
     fn the_omitted_share_is_credited_by_the_next_block_and_paid_at_settlement(){
-        for spec in [1u8,2]{
-            let mut n=net(spec);let (one,two)=(n.ids[0],n.ids[1]);
+        {
+            let mut n=net();let (one,two)=(n.ids[0],n.ids[1]);
             let (_,m4)=omitted_chain(&mut n);let h4=n.chain.head;
             let ls=late_encode(4,&m4.omitted[..2]);
-            if spec==1{
-                let b=mine(&n,h4,vec![ls],false,one,&[],8,0);
-                assert_eq!(refused(&n,&b.block),"15 evidence form","no kind 3 before v3");
-                continue
-            }
             let p=n.chain.full_entry(&h4).unwrap();
             assert_eq!(n.chain.evidence_effects(&p,&Body{txs:vec![],evidence:vec![ls.clone()]},5).unwrap(),vec![EvidenceEffect::Late{j:4,owners:vec![two,two]}]);
             let b5=mine(&n,h4,vec![ls],true,one,&[],8,0);let h5=accept(&mut n,&b5.block);
@@ -239,8 +217,8 @@ mod on_chain {
             let m8=mine(&n,n.chain.head,vec![],true,one,&[],8,0);let h8=accept(&mut n,&m8.block);
             let gain=balance(&n,&h8,reward(&n,1))-before;
             let pot4_proposer=Address::from_slice(&m4.block.header.proposer);
-            // Pot 4: S0 (4 PCOL on the v3 devnet, 2 PCOL on its spec-1 twin; no tips, no carry before the first settle).
-            let amount=devnet::from_fixed(&n.cfg.cp()[15]);assert_eq!(amount,U256::from(if n.chain.spec.v3_active(4){4}else{2}*PCOL));
+            // Pot 4: S0 (4 PCOL on the v3 devnet; no tips, no carry before the first settle).
+            let amount=devnet::from_fixed(&n.cfg.cp()[15]);assert_eq!(amount,U256::from(4*PCOL));
             let r=amount-amount/U256::from(10)-amount/U256::from(20);
             let q=U256::from(header.max(64));
             let want=r*U256::from(2)/q+if pot4_proposer==two{amount/U256::from(20)}else{U256::ZERO};
@@ -251,12 +229,8 @@ mod on_chain {
     /// The design's negative cases on real branches (V3-DESIGN.md V3-02 Tests), each refused with its rule, on the full
     /// nonce domain: a nonce at the top of the u64 domain is judged on its share target, never on an nMax bound.
     #[test]
-    fn late_shares_refused_on_a_real_branch(){refused_cases(net(2),false)}
-    /// The same cases on bounded nonce ranges, where "15 ls nonce outside nMax" is reachable: pinned until Phase 6a
-    /// (`config_bounded`); its full-domain counterpart is late_shares_refused_on_a_real_branch.
-    #[test]
-    fn late_shares_refused_on_a_real_branch_on_bounded_nonces(){refused_cases(net_with(2,config_bounded()),true)}
-    fn refused_cases(mut n:Net,bounded:bool){
+    fn late_shares_refused_on_a_real_branch(){
+        let mut n=net();
         let (one,two,three)=(n.ids[0],n.ids[1],n.ids[2]);
         let (_,m4)=omitted_chain(&mut n);let h4=n.chain.head;let b4=&m4.block.header;
         let reason=|n:&Net,parent:[u8;32],items:Vec<Vec<u8>>|refused(n,&mine(n,parent,items,false,one,&[],8,0).block);
@@ -278,12 +252,9 @@ mod on_chain {
         let nmax=top(&ctx4);
         let miss=(0..nmax).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
         assert_eq!(reason(&n,h4,vec![late_encode(4,&[miss])]),"15 ls share target");
-        if bounded{assert_eq!(reason(&n,h4,vec![late_encode(4,&[nmax])]),"15 ls nonce outside nMax");}
-        else{
-            assert_eq!(ctx4.assignment.nonce_max(),1u128<<64,"the full domain");
-            let far=(0..u64::MAX).map(|i|u64::MAX-i).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
-            assert_eq!(reason(&n,h4,vec![late_encode(4,&[far])]),"15 ls share target","no nMax bound inside the u64 domain");
-        }
+        assert_eq!(ctx4.assignment.nonce_max(),1u128<<64,"the full domain");
+        let far=(0..u64::MAX).map(|i|u64::MAX-i).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
+        assert_eq!(reason(&n,h4,vec![late_encode(4,&[far])]),"15 ls share target","no nMax bound inside the u64 domain");
         // A share mined on a sibling template of height 4 (another timestamp of the same parent; not an ancestor of
         // this branch) is checked against the branch's template j and misses it.
         let sib=mine(&n,p4.parent.unwrap(),vec![],true,one,&[],8,1);let tid_sib=template_id(&sib.block.header.ut_raw);assert_ne!(tid_sib,tid4);
@@ -320,7 +291,7 @@ mod on_chain {
     /// A then overtakes B again with the credit, where the same nonce is refused as credited on the branch.
     #[test]
     fn a_reorg_across_a_carrier_rolls_the_credit_back(){
-        let mut n=net(2);let (one,two)=(n.ids[0],n.ids[1]);
+        let mut n=net();let (one,two)=(n.ids[0],n.ids[1]);
         let (_,m4)=omitted_chain(&mut n);let h4=n.chain.head;let o=m4.omitted.clone();
         let a5={let m_=mine(&n,h4,vec![late_encode(4,&o[..2])],true,one,&[],8,0);accept(&mut n,&m_.block)};
         assert_eq!((n.chain.head,count(&n,&a5,4,two)),(a5,2));
@@ -337,7 +308,7 @@ mod on_chain {
         assert_eq!(n.chain.head,a8,"A overtakes B again");
         assert_eq!(count(&n,&a8,4,two),3,"A's credits, not B's");
         // Replay determinism: a second chain importing every stored block in another order reaches the same head and roots.
-        let mut m=net(2);
+        let mut m=net();
         let mut all:Vec<[u8;32]>=n.chain.blocks.keys().copied().filter(|h|*h!=n.chain.spec.genesis_hash()).collect();
         all.sort_by_key(|h|(n.chain.blocks[h].height,std::cmp::Reverse(*h)));
         for h in &all{let e=&n.chain.blocks[h];let b=Block{header:e.header.clone(),body:n.chain.body_of(e,None).unwrap()};accept(&mut m,&b);}
@@ -352,12 +323,8 @@ mod on_chain {
     /// the omitted shares (smallest first, within the cap), the block validates and credits them. The cache keeps at
     /// most D templates of at most 4·S_max shares, and takes a later share only below nMax and on target.
     #[test]
-    fn a_proposer_carries_the_uncredited_shares_it_saw(){proposer_carries(net(2),false)}
-    /// The same on bounded nonce ranges, where the cache's stash also meets a share at nMax: pinned until Phase 6a
-    /// (`config_bounded`); its full-domain counterpart is a_proposer_carries_the_uncredited_shares_it_saw.
-    #[test]
-    fn a_proposer_carries_the_uncredited_shares_it_saw_on_bounded_nonces(){proposer_carries(net_with(2,config_bounded()),true)}
-    fn proposer_carries(mut n:Net,bounded:bool){
+    fn a_proposer_carries_the_uncredited_shares_it_saw(){
+        let mut n=net();
         use pocold::node::{LateCache,LateTemplate,Selection};
         let one=n.ids[0];
         let (blocks,m4)=omitted_chain(&mut n);let h4=n.chain.head;let b4=m4.block.header.clone();
@@ -365,11 +332,11 @@ mod on_chain {
         let ctx4=n.chain.child_ctx(&n.chain.full_entry(&p.parent.unwrap()).unwrap(),0).unwrap();let tid4=template_id(&b4.ut_raw);
         let nmax=ctx4.assignment.nonce_max();
         let miss=(0..top(&ctx4)).find(|x|!le_target(&pow_hash(&tid4,*x),&ctx4.t_share)).unwrap();
-        let d=dir(if bounded{"proposer-bounded"}else{"proposer"});let key=Key::from_secret(&n.keys[&proposer].secret()).unwrap();
+        let d=dir("proposer");let key=Key::from_secret(&n.keys[&proposer].secret()).unwrap();
         let mut node=Node::open(Config{miner:Some(key),..node_config(&d,Limits::default())},spec_of(&n.cfg)).unwrap();
         for b in &blocks{assert!(node.import(b.clone(),None).unwrap());}
-        // A header share, the winning nonce, a target miss, (on bounded ranges) nMax, and a duplicate.
-        let mut shares=m4.omitted.clone();shares.extend([b4.shares[0],b4.nonce,miss]);if bounded{shares.push(nmax as u64);}shares.push(m4.omitted[0]);
+        // A header share, the winning nonce, a target miss, and a duplicate.
+        let mut shares=m4.omitted.clone();shares.extend([b4.shares[0],b4.nonce,miss]);shares.push(m4.omitted[0]);
         node.late_cache.stash(LateTemplate{tid:tid4,height:4,nonce_max:nmax,t_share:ctx4.t_share,shares},4*256);
         let (h,body)=node.build_template_unrecorded(&p,Selection::default(),p.ts+4).expect("a template");
         // The no-dilution cap leaves kappa*m - C_header(4) of them (two found more than that).
@@ -419,7 +386,7 @@ mod on_chain {
     #[test]
     fn restart_and_checkpoint_restore_keep_the_deduplication(){
         for (store,slim) in [(false,true),(true,true),(false,false),(true,false)]{
-            let mut n=net(2);let one=n.ids[0];let d=dir(&format!("restart-{store}-{slim}"));
+            let mut n=net();let one=n.ids[0];let d=dir(&format!("restart-{store}-{slim}"));
             let limits=||Limits{r_keep:4,side_cap:2,state_store:store,checkpoint_every:if store{2}else{0},slim_depth:slim.then_some(0),history_window:Some(1),..Default::default()};
             let (blocks,m4)=omitted_chain(&mut n);let o=m4.omitted.clone();
             let b5=mine(&n,n.chain.head,vec![late_encode(4,&o[..2])],true,one,&[],8,0);accept(&mut n,&b5.block);
@@ -459,7 +426,7 @@ mod on_chain {
     /// restores only the named entry per try), and the rebuild reaches the same state as a node that never slims.
     #[test]
     fn a_rebuild_through_slimmed_entries_with_late_shares(){
-        let mut n=net(2);let one=n.ids[0];
+        let mut n=net();let one=n.ids[0];
         let (mut blocks,m4)=omitted_chain(&mut n);let o=m4.omitted.clone();
         for items in [vec![late_encode(4,&o[..2])],vec![late_encode(4,&o[2..3])]]{let m=mine(&n,n.chain.head,items,true,one,&[],8,0);accept(&mut n,&m.block);blocks.push(m.block);}
         let at_s=n.chain.head;

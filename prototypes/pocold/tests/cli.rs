@@ -410,7 +410,8 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
 /// `pocold build-info` and `pocol build-info` (the build alone), by `init-testnet` (the profile it admitted), by a
 /// running node's pocol_status and by `pocold status` (the admission the node booted with). Today it is false for
 /// the build's reasons (the open PLAN.md gates; SPEC_VERSION 2 is the release, so not spec-version) and the network's (experimental-devnet admission with
-/// its conditions, a simnet profile, v3 never active, no release-pinned launch network).
+/// its conditions, a simnet profile, no release-pinned launch network; since Phase 6a the generated network is v3 from
+/// genesis, so "v3-inactive" is never among them).
 #[test] fn launch_readiness_is_computed_and_reported_with_its_blockers(){
     let ids=|v:&serde_json::Value|->Vec<String>{
         assert_eq!(v["publicLaunchReady"],false,"{v}");
@@ -426,7 +427,7 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
         assert!(!got.iter().any(|g|g=="v3-inactive"||g.starts_with("admission-")),"the build alone has no network facts: {got:?}");
         assert!(info.get("v3Preview").is_none()&&!got.iter().any(|g|g=="spec-version"||g=="v3-preview-build"),"no preview build, spec 2 is the release: {got:?}");
     }
-    let network=["v3-inactive","network-not-release-pinned","admission-scope","admission-condition-calibration-synthetic","profile-kind"];
+    let network=["network-not-release-pinned","admission-scope","admission-condition-calibration-synthetic","profile-kind"];
     let d=tmp("launch-ready");std::fs::create_dir_all(&d).unwrap();
     let miner=pocol_lp4_execution::devnet::miner_identity("launch-ready");
     let config=d.join("public.json");
@@ -436,7 +437,7 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     let o=pocold(&["init-testnet","--config",config.to_str().unwrap(),"--out",out.to_str().unwrap()]);assert!(o.status.success(),"{}",text(&o.stderr));
     let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
     assert_eq!(summary["scope"],"experimental-devnet");
-    let got=ids(&summary);has(&got,&build);has(&got,&network);assert!(!got.iter().any(|g|g=="no-network"),"{got:?}");
+    let got=ids(&summary);has(&got,&build);has(&got,&network);assert!(!got.iter().any(|g|g=="no-network"||g=="v3-inactive"),"{got:?}");
     // A running node answers pocol_status with the same computed fields; `pocold status` prints the same list.
     let rpc={let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
     let data=d.join("data");

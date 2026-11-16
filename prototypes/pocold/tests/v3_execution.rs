@@ -17,9 +17,10 @@ mod on_chain {
     use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},native::{self,NativeBlockContext},receipts,state_summary::Summary,txsign::Tx,user_phase::{self,Halt,PoolMeter},view::View,wire};
     use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,alloy_primitives::U512}};
 
-    /// `v3`: the v3 devnet; otherwise its retired spec-1 earn-in twin with the full nonce domain (Phase 6a deletes it).
+    /// The v3 devnet (`v3` is always true: its retired spec-1 earn-in twin was deleted in phase 6a).
     fn net(v3:bool,tune:impl FnOnce(&mut DevnetConfig))->devnet::Devnet{
-        let mut c=if v3{DevnetConfig::new(777938,1_800_000_000,&["execution"])}else{DevnetConfig::spec1(777938,1_800_000_000,&["execution"],devnet::Spec1Programs::EarnIn)};
+        assert!(v3,"the spec-1 twin is retired (phase 6a)");
+        let mut c=DevnetConfig::new(777938,1_800_000_000,&["execution"]);
         c.nonce_mode=1;
         tune(&mut c);devnet::build(&c).unwrap()
     }
@@ -41,9 +42,10 @@ mod on_chain {
     fn node_config(dir:&Temp,store:bool)->pocold::node::Config{pocold::node::Config{dir:dir.0.clone(),name:"execution-test".into(),miner:None,listen:None,rpc:None,peers:vec![],stop_at:None,log:false,
         limits:pocold::node::Limits{r_keep:4,side_cap:2,state_store:store,history_window:Some(2),slim_depth:Some(4),pool_sender_gas_max:Some(8_000_000),..Default::default()}}}
     fn node_cfg(tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{node_cfg_spec(2,tune)}
-    /// Spec 2: the v3 devnet. Spec 1: its retired spec-1 earn-in twin with the full nonce domain (Phase 6a deletes it).
+    /// Spec 2: the v3 devnet (its retired spec-1 earn-in twin was deleted in phase 6a).
     fn node_cfg_spec(spec:u8,tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{
-        let mut c=match spec{1=>DevnetConfig::spec1(777938,1_700_000_000,&["execution"],devnet::Spec1Programs::EarnIn),_=>DevnetConfig::new(777938,1_700_000_000,&["execution"])};
+        assert_eq!(spec,2,"the spec-1 twin is retired (phase 6a)");
+        let mut c=DevnetConfig::new(777938,1_700_000_000,&["execution"]);
         c.nonce_mode=1;c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;
         tune(&mut c);c
     }
@@ -80,7 +82,7 @@ mod on_chain {
 
     #[test]
     fn account_creation_pays_ordinary_gas_only_in_both_domains(){
-        for v3 in [false,true]{
+        for v3 in [true]{
             let n=net(v3,|c|c.acct_cap=8);let db=n.genesis.state();let before=count(db);
             let raw:Vec<_>=(0..3).map(|i|tx(i,Some(new_address(40+i as u8)),1,vec![],21000)).collect();let o=run(&n,db,&raw);
             assert!(o.halts().is_empty());assert_eq!(o.commitments().gas_used,63000);assert_eq!(o.log_bytes(),0);
@@ -94,15 +96,16 @@ mod on_chain {
     /// The same transactions give the same receipts, gas and created units on a spec-1 and a v3 profile: without the
     /// creation fee, v3 adds nothing to a creation (the v3 log caps only raise limits these transactions stay under).
     #[test]
-    fn creations_execute_identically_on_spec_1_and_v3(){
+    fn creations_execute_on_v3_paying_gas_only(){
         let target=new_address(63);let runtime=vec![0;80];
         let raws=||vec![tx(0,Some(new_address(64)),5,vec![],21000),tx(1,None,0,init(&runtime),200000),tx(2,Some(target),0,vec![],100000)];
         let mut outs=Vec::new();
-        for v3 in [false,true]{let n=net(v3,|_|{});let mut db=n.genesis.state().clone();code(&mut db,target,vec![0x60,1,0x60,0,0x55,0x60,2,0x60,1,0x55,0]);
+        for v3 in [true]{let n=net(v3,|_|{});let mut db=n.genesis.state().clone();code(&mut db,target,vec![0x60,1,0x60,0,0x55,0x60,2,0x60,1,0x55,0]);
             let o=run(&n,&db,&raws());assert!(o.halts().is_empty(),"v3={v3}");pays_gas_only(&db,&o,5);
             let (a,b)=(count(&db),count(o.state()));
             outs.push((o.receipts().to_vec(),o.commitments().gas_used,b.user_accounts-a.user_accounts,b.user_slots-a.user_slots,b.inventory()-a.inventory()));}
-        assert_eq!(outs[0],outs[1]);
+        // (Before phase 6a the same three transactions ran on the spec-1 earn-in twin and gave the same outputs.)
+        assert_eq!((outs[0].2,outs[0].3),(2,2),"the transfer's new account and the creation's account; the target's two slots");
     }
 
     #[test]
@@ -158,7 +161,7 @@ mod on_chain {
 
     #[test]
     fn a_front_loaded_32k_log_does_not_halt_a_later_transfer_log_on_v3(){
-        for v3 in [false,true]{
+        for v3 in [true]{
             let n=net(v3,|_|{});let mut db=n.genesis.state().clone();let front=new_address(81);let transfer=new_address(82);
             // LOG0 charges 36+32732=32768 bytes. A fixed-transfer token fixture
             // moves one unit between balances and emits ERC-20 Transfer.
@@ -198,7 +201,7 @@ mod on_chain {
     /// both, and neither charges anything beyond gas.
     #[test]
     fn dust_filled_account_and_slot_caps_halt_in_both_domains_and_raised_caps_admit_both(){
-        for v3 in [false,true]{
+        for v3 in [true]{
             for (cap,full) in [(3,true),(10,false)]{
                 let n=net(v3,|c|c.acct_cap=cap);let db=n.genesis.state();
                 let o=run(&n,db,&[tx(0,Some(new_address(92)),1,vec![],50000)]);
@@ -218,7 +221,7 @@ mod on_chain {
 
     #[test]
     fn dust_filled_code_cap_halts_a_deployment_in_both_domains(){
-        for v3 in [false,true]{
+        for v3 in [true]{
             let baseline=net(v3,|_|{});let sys=count(baseline.genesis.state()).inventory();
             // The ChainCaps appended words have a fixed width, so changing the
             // cap does not change its own logical runtime length.
@@ -425,11 +428,6 @@ mod on_chain {
         let before=balance(&node,me);let b=solve(&node,selection.txs,cfg.g_ts+8);assert!(node.import(b,None).unwrap());
         let lost=before-balance(&node,me);assert!(lost<=pocold::wallet::amount(q["maximumTotal"].as_str().unwrap()).unwrap()&&lost>U256::from(10u128.pow(15)),"{lost} {q}");
         assert_eq!(balance(&node,to),U256::from(10u128.pow(15)),"a new account receives the value; no creation fee");
-        // A spec-1 node: no v3 field.
-        let dir1=Temp::new();let cfg1=node_cfg_spec(1,|_|{});let spec1=pocold::node::Node::open(node_config(&dir1,false),node_spec(&cfg1)).unwrap();
-        let s1=wallet.status(&spec1);
-        for k in ["bondRemaining","reactivation","creationBurn"]{assert!(s1.get(k).is_none(),"{k}: {s1}");}
-        assert_eq!(s1["seatsFull"],false);
     }
 
     /// V3-08 in the wallet engine (G3b' review): the registry takes one maintenance operation per identity per block, so
@@ -516,9 +514,9 @@ mod on_chain {
     /// FN-2a: pocol_quoteCreationBurn is gone. A v3 node and a spec-1 node answer it exactly as any unknown method.
     #[test]
     fn the_creation_burn_quote_is_unknown_to_every_node(){
-        for spec in [2u8,1]{
+        for spec in [2u8]{
             let c=node_cfg_spec(spec,|_|{});let dir=Temp::new();let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&c)).unwrap();
-            assert_eq!(node.chain.spec.v3_active(u64::MAX),spec==2);
+            assert!(node.chain.spec.v3_active(u64::MAX));
             let call=serde_json::json!([{"to":new_address(162)}]);
             let quote=rpc(&mut node,"pocol_quoteCreationBurn",call.clone());let unknown=rpc(&mut node,"pocol_quoteCreationBurx",call);
             assert_eq!(quote["error"]["code"],-32601,"spec {spec}: {quote}");assert_eq!(quote["error"]["message"],"method pocol_quoteCreationBurn not found");assert_eq!(unknown["error"]["code"],-32601);
@@ -527,7 +525,7 @@ mod on_chain {
 
     #[test]
     fn log_count_and_byte_boundaries_are_inclusive_in_both_domains(){
-        for v3 in [false,true]{let n=net(v3,|_|{});let limits=user_phase::log_caps(v3);let target=new_address(125);
+        for v3 in [true]{let n=net(v3,|_|{});let limits=user_phase::log_caps(v3);let target=new_address(125);
             for extra in [0,1]{let mut db=n.genesis.state().clone();let count=limits.count+extra;let mut runtime=Vec::new();
                 for _ in 0..count{runtime.extend_from_slice(&[0x60,0,0x60,0,0xa0])}runtime.push(0);code(&mut db,target,runtime);
                 let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
@@ -614,7 +612,7 @@ mod on_chain {
 
     #[test]
     fn a_thousand_validated_empty_blocks_keep_the_v3_floor_and_legacy_london_decay(){
-        for v3 in [false,true]{let cfg=node_cfg_spec(if v3{2}else{1},|_|{});let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
+        for v3 in [true]{let cfg=node_cfg_spec(2,|_|{});let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
             for height in 1..=1000{let clock=cfg.g_ts+height*u64::from(cfg.t_blk);let block=solve_chain(&chain,vec![],clock);
                 let (entry,_)=chain.validate(&block,None,0).unwrap();assert_eq!(entry.gas_used,0);if v3{assert!(entry.base_fee>=cfg.base_fee_min,"height {height}");}
                 assert!(chain.insert(entry));assert_eq!(chain.head().height,height);
@@ -653,8 +651,6 @@ mod on_chain {
         let forced=ask(&mut node,true);assert!(forced.contains("resultBytes")&&!forced.contains("\"result\""),"{forced}");
         // The in-process handler applies the same v3 answer limit.
         assert_eq!(rpc(&mut node,"eth_getTransactionReceipt",serde_json::json!([hash]))["result"]["logs"].as_array().unwrap().len() as u64,count);
-        let legacy=node_cfg_spec(1,|_|{});let dir=Temp::new();let old=pocold::node::Node::open(node_config(&dir,false),node_spec(&legacy)).unwrap();
-        assert!(!old.cfg.limits.rpc.heavy_receipts,"spec-1 keeps the light receipt row");
     }
 
     /// The v3 R26 receipt row (param_gate.rs satisfies_r26_for, network.md (B)):

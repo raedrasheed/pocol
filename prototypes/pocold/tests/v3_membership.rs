@@ -8,12 +8,12 @@ use revm::primitives::{keccak256,Address,Bytes,B256,U256};
 struct Net { chain:Chain, keys:HashMap<Address,Key>, miners:Vec<Address> }
 /// FN-3a: every test ends with the cold sweep of its chain (tests/support/members.rs).
 impl Drop for Net{fn drop(&mut self){crate::members_sweep::sweep_on_drop(&self.chain);}}
-/// `v3`: the v3 devnet (the V3 programs; `full` false keeps CP field 4's bounded nonce ranges, `earnin` names no program
-/// set there). Otherwise the retired spec-1 devnet, bonded or earn-in: the spec-1 twins the neutrality checks compare
-/// against, which Phase 6a deletes with the spec-1 rule set.
+/// The v3 devnet (the V3 programs, the full nonce domain; `earnin` names no program set there). Phase 6a deleted the
+/// spec-1 twins the neutrality checks compared against (the retired spec-1 devnet, bonded or earn-in) and the v3 runs on
+/// bounded nonce ranges (CP field 4 = 0, which admission refuses since phase 6a): `v3` and `full` are always true.
 fn net(v3:bool,full:bool,earnin:bool,n:usize)->Net {
-    use devnet::Spec1Programs::{Bonded,EarnIn};
-    let mut cfg=if v3{DevnetConfig::new(777936,1_700_000_000,&[])}else{DevnetConfig::spec1(777936,1_700_000_000,&[],if earnin{EarnIn}else{Bonded})};
+    assert!(v3&&full,"the spec-1 twins and bounded ranges are retired (phase 6a)");let _=earnin;
+    let mut cfg=DevnetConfig::new(777936,1_700_000_000,&[]);
     cfg.miners=(0..n).map(|i|format!("membership-{i}")).collect();
     cfg.hash_rate=16;cfg.c=8;cfg.d_att=73;cfg.w_act=4;cfg.r_max=1;
     cfg.nonce_mode=if full{1}else{0};
@@ -109,22 +109,6 @@ fn registration(n:&Net,key:Address,value:U256,nonce:Option<u64>)->Vec<u8> {
     tx(n,key,apply::registry(),value,data,1_000_000,nonce)
 }
 
-#[test]
-fn legacy_bounded_full_nonce_and_earnin_membership_and_draw_stay_unchanged() {
-    for (full,earnin) in [(false,false),(true,false),(true,true)] {
-        let mut n=net(false,full,earnin,3);let x=n.miners[0];
-        for _ in 0..6 {assert_draw_parity(&n);next(&mut n,x,vec![]);}
-        assert_draw_parity(&n);
-        let p=n.chain.full_entry(&n.chain.head).unwrap();let h=p.height+1;
-        assert!(!n.chain.spec.v3_active(h));
-        assert_eq!(n.chain.membership(&p,h).unwrap().ids(),&[raw_addr(x)]);
-        let mut copy=solve(&n,x,vec![]);let y=n.miners[1];
-        let tid=template_id(&copy.header.ut_raw);
-        copy.header.winner_sig=n.keys[&y].sign_hash(&B256::from(hashes::win_msg(&tid,copy.header.nonce,&share_root(&copy.header))));
-        reseal(&mut copy.header);
-        assert!(matches!(n.chain.validate(&copy,None,0),Err(pocold::chain::Reject::Envelope(ref why)) if why.starts_with("13 ")));
-    }
-}
 
 mod on_chain {
     use super::*;
@@ -145,11 +129,8 @@ mod on_chain {
     // and in the bounded run one probationer, whose range held no fallback solution in time, left the activity window, so
     // the recovery's members are the probationers with a recent share (pinned: BOUNDED_RECOVERY_MEMBERS).
     // Phase 5a (the v3 devnet default is continuous, H_END 0) changes the genesis CP and so every draw again: 11/14.
+    // Phase 6a deleted the bounded-range run (nonceMode 0 is refused at admission) and its pins.
     const UNBOUNDED_PERIOD:usize=11;const UNBOUNDED_RECOVERY:u64=14;
-    const BOUNDED_PERIOD:usize=4;const BOUNDED_RECOVERY:u64=7;
-    /// The bounded run's recovery membership since FN-2b: the probationers with a share in the activity window.
-    /// Phase 5a: on the new genesis both probationers have a recent share at the recovery.
-    const BOUNDED_RECOVERY_MEMBERS:&[&str]=&["alice","bob"];
     #[test]
     fn another_live_miner_can_mine_after_the_only_recent_miner_stops() {
         let mut n=net(true,true,true,3);let (x,y)=(n.miners[0],n.miners[1]);
@@ -163,15 +144,6 @@ mod on_chain {
         assert!(b.header.proposer.is_empty()&&b.header.sig.is_empty());
         accept(&mut n,b);assert_draw_parity(&n);
         assert_eq!(n.chain.head().height,7);
-    }
-    #[test]
-    fn bounded_v3_ranges_keep_the_activity_rule() {
-        let mut n=net(true,false,false,3);let x=n.miners[0];
-        for _ in 0..6 {next(&mut n,x,vec![]);}
-        let p=n.chain.full_entry(&n.chain.head).unwrap();
-        assert!(n.chain.spec.v3_active(p.height+1));
-        assert_eq!(n.chain.membership(&p,p.height+1).unwrap().ids(),&[raw_addr(x)]);
-        assert_draw_parity(&n);
     }
     #[test]
     fn a_probationer_at_the_quarter_bond_is_eligible_and_one_wei_below_is_excluded() {
@@ -206,7 +178,8 @@ mod on_chain {
     ///   probationer is drawn before any of them reaches B_reg/4.
     #[test]
     fn idle_bonded_operators_leave_a_fallback_only_period_until_a_probationer_can_be_drawn() {
-        for (full,period,recovery) in [(true,UNBOUNDED_PERIOD,UNBOUNDED_RECOVERY),(false,BOUNDED_PERIOD,BOUNDED_RECOVERY)] {
+        // (The bounded-range run, the activity rule's recovery, was deleted with bounded ranges in phase 6a.)
+        for (full,period,recovery) in [(true,UNBOUNDED_PERIOD,UNBOUNDED_RECOVERY)] {
             let mut n=net(true,full,true,3);let x=n.miners[0];let ops=n.miners.clone();
             let (a,b)=(devnet::account_key("alice").address(),devnet::account_key("bob").address());
             let quarter=pocold::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg)/U256::from(4);
@@ -223,19 +196,10 @@ mod on_chain {
                 if !ops.contains(&drawn) {
                     for id in &ops {assert_eq!(weight(*id),0,"full={full}: an idle operator weighs nothing at recovery");}
                     let r=record(drawn);
-                    if full {
-                        assert_eq!(members.ids().len(),5,"the idle operators are still members");
-                        assert!(r.bond>=quarter,"recovery needs the drawn probationer at B_reg/4");
-                        assert!(!members.accruing().contains(&raw_addr(drawn)));
-                    }else{
-                        // The activity rule keeps only probationers with a recent share: BOUNDED_RECOVERY_MEMBERS, pinned as
-                        // this fixture's draws fall (a probationer without a range at an attempt cannot mine it).
-                        let ids=members.ids();
-                        let want:Vec<_>={let mut v:Vec<_>=BOUNDED_RECOVERY_MEMBERS.iter().map(|l|raw_addr(devnet::account_key(l).address())).collect();v.sort();v};
-                        assert_eq!(ids,want.as_slice(),"the activity rule removed the operators and every probationer without a recent share");
-                        assert_eq!(members.accruing().len(),ids.len(),"all members are sub-quarter probationers");
-                        assert!(r.bond<quarter,"the all-probationer exception, not the bond, makes it drawable");
-                    }
+                    assert!(full);
+                    assert_eq!(members.ids().len(),5,"the idle operators are still members");
+                    assert!(r.bond>=quarter,"recovery needs the drawn probationer at B_reg/4");
+                    assert!(!members.accruing().contains(&raw_addr(drawn)));
                     break (h,drawn);
                 }
                 // The fallback-only period: an idle operator is drawn and the probationers' shares weigh nothing.
@@ -296,7 +260,8 @@ fn ledger_rows(db:&mut revm::InMemoryDB,j:u64,rows:&[(Address,u64)]) {
 }
 #[test]
 fn streamed_owner_weights_match_the_original_member_scan_over_randomized_ledgers() {
-    let cases=[(false,false,false,3),(false,true,false,16),(false,true,true,16),(true,false,false,3),(true,true,true,16),(true,true,true,256)];
+    // The v3 cases (phase 6a deleted the spec-1 and bounded-range ones).
+    let cases=[(true,true,true,16),(true,true,true,256)];
     let mut rng=Random(0xc120261111);
     for (v3,full,earnin,count) in cases {
         let n=net(v3,full,earnin,count);let genesis=n.chain.full_entry(&n.chain.head).unwrap();
@@ -394,7 +359,8 @@ fn mixed_owner_block(n:&Net,winner:Address)->Block {
 }
 #[test]
 fn multiple_owners_written_by_the_vm_keep_the_original_draw_weights() {
-    let profiles=[(false,false,false),(false,true,true),(true,true,true)];
+    // The v3 profile (phase 6a deleted the spec-1 ones).
+    let profiles=[(true,true,true)];
     for (v3,full,earnin) in profiles {
         let mut n=net(v3,full,earnin,3);let x=n.miners[0];
         let b=mixed_owner_block(&n,x);accept(&mut n,b);next(&mut n,x,vec![]);

@@ -40,14 +40,14 @@ def rlp(value):
 
 
 class ScheduleUpgrade(unittest.TestCase):
-    """`pocol upgrade` appends a future fork activation to a home's binding (here version 2, the full nonce range)."""
+    """`pocol upgrade` appends a future fork activation to a home's binding (here version 2, the full nonce range: a no-op
+    on a v3 network, whose genesis already has it, but a schedule change the binding and identity follow)."""
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
         self.home = self.root / 'home'
-        # The upgrade moves a v1 bounded-range network to v2, so it starts without fullNonce.
-        self.invitation = network(self.root, [self.home], ['127.0.0.1:30300'], full_nonce=False)
+        self.invitation = network(self.root, [self.home], ['127.0.0.1:30300'])
         self.before = read_json(self.invitation)
         metadata = json.loads(self.before['files']['devnet.json'])
         metadata['upgradeTestNote'] = 'Unicode fixture: Δφ / شبكة PoCol / 日本語'
@@ -299,7 +299,7 @@ class AnotherGenesis(unittest.TestCase):
         root.mkdir()
         config = {'chainId': chain_id, 'genesisTime': int(time.time()) + 5, 'registrationPerBlock': 1,
                   'miners': [{'id': self.address, 'reward': self.address}],
-                  'accounts': [{'address': self.address, 'wei': str(10**24)}], 'fullNonce': True}
+                  'accounts': [{'address': self.address, 'wei': str(10**24)}]}
         (root / 'public.json').write_text(json.dumps(config), encoding='utf-8')
         call('pocold', 'init-testnet', '--config', root / 'public.json', '--out', root / 'genesis')
         call('pocol', 'network', '--from', root / 'genesis', '--out', root / 'network.pocol.json',
