@@ -2,10 +2,11 @@
 """Explicit allowlists only: no network keys, private state or Android signing keys."""
 import argparse, hashlib, json, re, runpy, shutil, subprocess, tarfile, zipfile
 from pathlib import Path
-# The native release version (Linux, Windows and Android). Its other copies (Wallet.cs, Wallet.xaml, build.gradle
-# versionName, the shipped README and the Linux desktop texts) must equal it: test_release_package.py checks them, and
-# five-device-build.yml reads it from here (`--version`).
-version='0.4.0'
+# The native release version (Linux, Windows and Android; owner decision 2026-11-16: 0.5.0). Its other copies
+# (Wallet.cs, Wallet.xaml, build.gradle versionName, the pocold crate version that build-info reports, the shipped README
+# and the Linux desktop texts) must equal it: test_release_package.py checks them, this script refuses a build-info of
+# another version, and five-device-build.yml reads it from here (`--version`).
+version='0.5.0'
 p=argparse.ArgumentParser(); p.add_argument('--version',action='version',version=version)
 p.add_argument('--platform',choices=['Linux','Windows','Android'],required=True); p.add_argument('--out',type=Path,required=True)
 p.add_argument('--network',type=Path,help='the v3 (spec-2) invitation of the network this release is for; release-info then names its chain ID, genesis hash and consensusIdentity')
@@ -53,6 +54,7 @@ build=json.loads((args.out/'build-info.json').read_text(encoding='utf-8'))
 # Release builds are compiled with POCOL_RELEASE=1, so build.rs refuses an unpinned tree; refuse its build-info too
 # (VA-SPEC §2.4).
 if build.get('consensusPinned') is not True: raise SystemExit('refusing to package an unpinned consensus build (consensusPinned is not true)')
+if build.get('version')!=version: raise SystemExit(f"refusing to package: build-info reports version {build.get('version')!r}, not the release version {version}")
 
 def known_identities(path,list_key=None):
     """(chainId, lowercase genesisHash) pairs read from a committed file: retired-networks.json's `retired` list, or the

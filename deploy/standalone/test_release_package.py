@@ -47,7 +47,8 @@ class ReleasePackageTests(unittest.TestCase):
         for name in MAINNET:
             shutil.copyfile(ROOT / 'deploy/mainnet' / name, self.root / 'deploy/mainnet' / name)
         self.build = {'compatibilitySha256': 'c' * 64, 'consensusPinned': True, 'consensusRulesVersion': 2,
-                      'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': []}
+                      'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': [], 'version': VERSION,
+                      'scope': 'mainnet'}
         self.commit = 'd' * 40
         for name in ('README.md', 'install-linux.sh',
                      'Start-PoCol.cmd', 'Initialize-PoColNetwork.ps1'):
@@ -225,6 +226,17 @@ class ReleasePackageTests(unittest.TestCase):
             self.fixture('prototypes/pocold/target/release/' + name).chmod(0o755)
         self.fixture('deploy/standalone/linux-desktop/pocol-desktop').chmod(0o755)
 
+    def test_a_build_of_another_version_is_never_packaged(self):
+        self.native_fixture()
+        for change in ({'version': '0.4.0'}, {'version': None}):
+            with self.subTest(change=change):
+                self.build.update(change)
+                if change['version'] is None: del self.build['version']
+                with self.assertRaisesRegex(SystemExit, 'not the release version'):
+                    self.package('Linux')
+                shutil.rmtree(self.root / 'dist', ignore_errors=True)
+                self.build['version'] = VERSION
+
     def test_an_unpinned_or_unlabelled_consensus_build_is_never_packaged(self):
         self.native_fixture()
         for change in ({'consensusPinned': False}, {'consensusPinned': None}):
@@ -334,6 +346,8 @@ class ReleasePackageTests(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), VERSION)
         copies = {
             GRADLE: rf"versionName '{re.escape(VERSION)}'",
+            # build-info's `version` is the pocold crate version (build.rs).
+            'prototypes/pocold/Cargo.toml': rf'(?m)\A\[package\]\nname = "pocold"\nversion = "{re.escape(VERSION)}"$',
             'prototypes/pocol-windows/Wallet.cs': rf'AssemblyVersion\("{re.escape(VERSION)}\.0"\)\][\s\S]*AssemblyFileVersion\("{re.escape(VERSION)}\.0"\)',
             'prototypes/pocol-windows/Wallet.xaml': rf'PoCol Wallet · {re.escape(VERSION)}&',
             'deploy/standalone/linux-desktop/pocol-desktop': rf'PoCol Mainnet · {re.escape(VERSION)} ',

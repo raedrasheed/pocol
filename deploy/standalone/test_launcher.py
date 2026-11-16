@@ -139,6 +139,9 @@ class Launcher(unittest.TestCase):
         self.assertNotIn('bootstrap', json.loads(plain.read_text(encoding='utf-8')), 'absent when not given')
         shown = json.loads(call('pocol', 'inspect', '--network', listed).stdout)
         self.assertEqual((shown['bootstrap'], shown['seedsRetired']), (['127.0.0.1:30301', '127.0.0.1:30302'], True))
+        # The deployment label (owner decision 7, 2026-11-16), in `pocol inspect` and `pocol identity`.
+        self.assertEqual(shown['scope'], 'mainnet')
+        self.assertEqual(json.loads(call('pocol', 'identity', '--home', self.root / 'a').stdout.splitlines()[0])['scope'], 'mainnet')
         for bad in (['--bootstrap', '127.0.0.1:80'], ['--bootstrap', '127.0.0.1:30300'], ['--seeds-retired', 'yes']):
             out = self.root / 'bad.pocol.json'
             self.assertNotEqual(call('pocol', 'network', '--from', self.root / 'genesis', '--seed', '127.0.0.1:30300', *bad, '--out', out, ok=False).returncode, 0, bad)

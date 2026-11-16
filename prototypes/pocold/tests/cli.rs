@@ -423,6 +423,8 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
     for bin in [env!("CARGO_BIN_EXE_pocold"),env!("CARGO_BIN_EXE_pocol")]{
         let o=Command::new(bin).arg("build-info").output().unwrap();assert!(o.status.success(),"{}",text(&o.stderr));
         let info:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
+        assert_eq!(info["scope"],"mainnet","build-info scope label (owner decision 7)");
+        assert_eq!(info["version"],env!("CARGO_PKG_VERSION"),"build-info release version (owner decision 1)");
         let got=ids(&info);has(&got,&build);has(&got,&["no-network"]);
         assert!(!got.iter().any(|g|g=="v3-inactive"||g.starts_with("admission-")),"the build alone has no network facts: {got:?}");
         assert!(info.get("v3Preview").is_none()&&!got.iter().any(|g|g=="spec-version"||g=="v3-preview-build"),"no preview build, spec 2 is the release: {got:?}");

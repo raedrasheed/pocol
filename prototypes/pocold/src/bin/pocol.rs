@@ -133,7 +133,7 @@ fn command() -> Result<(), String> {
     let home = Home::open(&home_path)?;
     println!(
         "{}",
-        serde_json::json!({"address":home.address()?,"home":home_path,"scope":"experimental-testnet"})
+        serde_json::json!({"address":home.address()?,"home":home_path,"scope":"mainnet"})
     );
     if command == "identity" {
         return Ok(());

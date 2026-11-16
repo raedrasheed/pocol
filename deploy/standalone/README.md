@@ -1,4 +1,4 @@
-# PoCol Mainnet · Wallet 0.4.0 and native node tools
+# PoCol Mainnet · Wallet 0.5.0 and native node tools
 
 The Android artifact is an **unsigned release APK**: it is not installable until the
 release operator signs it (see `prototypes/pocol-android/README.md`).
@@ -108,12 +108,12 @@ Before the run:
   `pocold status` feeds the mainnet run), and choose the launch second, or a delay.
 
 Verify the release first (*Verify the download* below), then extract
-`PoCol-Mainnet-0.4.0-windows-x86_64.zip` into a new directory. Review `Initialize-PoColNetwork.ps1`,
+`PoCol-Mainnet-0.5.0-windows-x86_64.zip` into a new directory. Review `Initialize-PoColNetwork.ps1`,
 open PowerShell inside that directory, and run (the addresses are placeholders for the
 servers' public IPv4 addresses):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.5.0-linux-x86_64.tar.gz"
 ```
 
 `OWNER_ADDR1..3` are placeholders for three distinct owner-held addresses, one per server in

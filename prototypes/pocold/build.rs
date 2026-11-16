@@ -155,9 +155,11 @@ fn main() {
     hash.update(flags.as_bytes());
     let digest = format!("{:x}", hash.finalize());
     println!("cargo:rustc-env=POCOL_COMPATIBILITY_SHA256={digest}");
+    // scope: the deployment the build is for (owner decision 2026-11-16); the admission scope stays the computed one.
+    // version: the release version (the crate version, equal to deploy/standalone/package.py's).
     let mut info = serde_json::json!({"schema":"pocol-testnet-build-v1", "protocolVersion":2,
         "compatibilitySha256":digest,"features":features,"sourceSha256":manifest,
-        "scope":"experimental-testnet"});
+        "scope":"mainnet","version":env::var("CARGO_PKG_VERSION").unwrap()});
     // publicLaunchReady and launchBlockers are computed at run time from this build's facts (pocold::readiness).
     for (key, value) in consensus(root).as_object().unwrap() {
         info[key] = value.clone();

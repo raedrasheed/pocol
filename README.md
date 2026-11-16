@@ -28,7 +28,10 @@ invitation for them, is refused at import.
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and
 `publicLaunchReady: false`, computed with the `launchBlockers` that keep it false
-(V3-28 H1, `pocold status`, `pocold build-info`); these are not overridden by branding. Independent
+(V3-28 H1, `pocold status`, `pocold build-info`); these are not overridden by branding. The `scope`
+field of `pocold build-info` (and of `pocol identity` and `pocol inspect`) reads `mainnet`, the deployment the build is
+for, beside its `version` (0.5.0); the admission scope in `pocold status` and `init-testnet` stays
+`experimental-devnet`, and `publicLaunchReady` stays computed. Independent
 external security review and the technical conditions in
 [Current status and limits](#current-status-and-limits) remain outstanding.
 
