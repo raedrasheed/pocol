@@ -76,17 +76,17 @@
   "founders": [
     {
       "id": "PLACEHOLDER: founder 1 (US server 1) miner id, from its fresh independent key at the ceremony",
-      "reward": "PLACEHOLDER: founder 1 (US server 1) reward address, from its fresh independent key at the ceremony",
+      "reward": "PLACEHOLDER: founder 1 (US server 1) reward address, the owner-held offline address given as -ServerRewardAddresses (never a server key)",
       "allocationWei": "999980000000000000000000"
     },
     {
       "id": "PLACEHOLDER: founder 2 (US server 2) miner id, from its fresh independent key at the ceremony",
-      "reward": "PLACEHOLDER: founder 2 (US server 2) reward address, from its fresh independent key at the ceremony",
+      "reward": "PLACEHOLDER: founder 2 (US server 2) reward address, the owner-held offline address given as -ServerRewardAddresses (never a server key)",
       "allocationWei": "999980000000000000000000"
     },
     {
       "id": "PLACEHOLDER: founder 3 (US server 3) miner id, from its fresh independent key at the ceremony",
-      "reward": "PLACEHOLDER: founder 3 (US server 3) reward address, from its fresh independent key at the ceremony",
+      "reward": "PLACEHOLDER: founder 3 (US server 3) reward address, the owner-held offline address given as -ServerRewardAddresses (never a server key)",
       "allocationWei": "999980000000000000000000"
     },
     {
