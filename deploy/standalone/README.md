@@ -138,9 +138,13 @@ mining, registration, top-up and rejoin with "This device is set to wallet only"
 **Settings → Device role** the user chooses **Wallet and miner** (the engine's
 `set_mode` command; the choice is stored in the home's `app-mode.json` and survives
 restarts and key restores) and can switch back at any time; switching back stops
-mining at once (it is refused only while a confirmed rejoin is under way). A
-registered identity that switches to wallet only earns no mining rewards and, once
-every seat is taken, can be replaced as an inactive member; the mining card says so.
+mining at once (it is refused only while a confirmed rejoin is under way), even when
+the choice cannot be saved (full or read-only storage: the engine then reports the
+error, stays wallet only until restart, and the app may reopen as wallet and miner
+with mining off). A registered identity that switches to wallet only earns no mining
+rewards and, once every seat is taken, can be replaced as an inactive member; the
+engine's `roleWarning` says so on the wallet card and in Settings → Device role,
+since wallet only has no Mining tab.
 Server miners (`pocol start`) are not affected.
 
 **Mining:** off by default in the wallet-and-miner role too, including after restart. The three

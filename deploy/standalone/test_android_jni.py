@@ -121,7 +121,14 @@ public final class JniBoundaryTest {
                 if(!WalletText.MODE_WALLET.contains("validates every block")||!WalletText.MODE_WALLET.contains("never mines"))throw new AssertionError("wallet-only text");
                 if(!WalletText.MODE_MINER.contains("Mining tab")||!WalletText.MODE_MINER.contains("only when you turn it on"))throw new AssertionError("miner text");
                 if(!WalletText.MODE_SWITCH_BACK.contains("stops mining at once"))throw new AssertionError("switch-back text");
-                if(!WalletText.MODE_OFFLINE.contains("Connect your wallet"))throw new AssertionError("offline text");break;
+                if(!WalletText.MODE_OFFLINE.contains("Connect your wallet"))throw new AssertionError("offline text");
+                // The role MainActivity keeps and the tab it shows (AndroidRoleWiring checks that it uses these helpers).
+                equal(WalletText.storedMode("miner"),"miner");for(String m:new String[]{"","wallet","Miner","x"})equal(WalletText.storedMode(m),"wallet");equal(WalletText.storedMode(null),"wallet");
+                equal(WalletText.visibleTab("Mining",false),"Wallet");equal(WalletText.visibleTab("Mining",true),"Mining");
+                for(String t:new String[]{"Wallet","Activity","Settings"}){equal(WalletText.visibleTab(t,false),t);equal(WalletText.visibleTab(t,true),t);}
+                // The engine's roleWarning reaches the wallet card and Settings only while wallet only.
+                equal(WalletText.roleWarning(false,"registered"),"registered");equal(WalletText.roleWarning(true,"registered"),"");
+                equal(WalletText.roleWarning(false,""),"");equal(WalletText.roleWarning(false,null),"");break;
             case "key-backup":
                 // Passphrases cross as standard UTF-8 bytes built from char[] (never a String), files as raw bytes.
                 char[] typed="p\u00e4ss \uD83D\uDE80 phrase".toCharArray();
@@ -229,6 +236,53 @@ class AndroidBackupRules(unittest.TestCase):
             self.assertEqual(part.findall('include'), [], section)
             excluded = {e.get('domain') for e in part.findall('exclude') if e.get('path') == '.'}
             self.assertEqual(excluded, domains, section)
+
+
+class AndroidRoleWiring(unittest.TestCase):
+    """MainActivity needs the Android SDK, so no host test runs it. This pins, in its source, the role wiring the
+    wallet-text case tests through the WalletText helpers: a wallet-only phone must never show the Mining tab."""
+    @classmethod
+    def setUpClass(cls):
+        cls.src = (ROOT / 'prototypes/pocol-android/app/src/main/java/org/pocol/node/MainActivity.java').read_text(encoding='utf-8')
+
+    def method(self, name):
+        start = self.src.index('private void '+name+'(')
+        end = self.src.find('\n    private ', start+1)
+        return self.src[start:end]
+
+    def test_the_cached_role_defaults_to_wallet_only(self):
+        defaults = re.findall(r'getString\("appMode","([^"]*)"\)', self.src)
+        self.assertEqual(defaults, [''], 'one cached role, defaulting to not miner')
+        self.assertIn('private String appMode="";', self.src)
+        self.assertIn('private boolean miner(){return WalletText.minerMode(appMode);}', self.src)
+
+    def test_the_tabs_follow_the_role(self):
+        render = self.method('render')
+        self.assertIn('tab=WalletText.visibleTab(tab,miner());', render)
+        self.assertLess(render.index('WalletText.visibleTab'), render.index('wallet();'), 'the tab is fixed before it is built')
+        self.assertIn('String[] names=WalletText.navTabs(miner());', render)
+        self.assertNotRegex(self.src, r'"Mining"\s*,\s*"Settings"', 'no fixed tab list with Mining')
+        self.assertEqual(len(re.findall(r'\bmining\(\);', self.src)), 1, 'the Mining tab is built from the tab switch only')
+        self.assertIn('else if(tab.equals("Mining")) mining();', render)
+
+    def test_manage_mining_only_for_a_miner(self):
+        self.assertEqual(self.src.count('"Manage mining"'), 1)
+        self.assertIn('else if(miner())button(status,"Manage mining"', self.method('wallet'))
+
+    def test_the_engine_role_is_cached_and_re_rendered(self):
+        update = self.method('update')
+        self.assertIn('String mode=WalletText.storedMode(v.optString("appMode"));', update)
+        self.assertIn('if(!mode.equals(appMode)){appMode=mode;getPreferences(MODE_PRIVATE).edit().putString("appMode",mode).apply();render();}', update)
+        self.assertIn('if(service==null||!snapshot.has("appMode")){notice(WalletText.MODE_OFFLINE);return;}', self.method('setMode'))
+
+    def test_the_registered_warning_is_shown_outside_the_mining_tab(self):
+        self.assertIn('walletWarning=warning(status);', self.method('wallet'))
+        self.assertIn('modeWarning=warning(role);', self.method('settings'))
+        show = self.method('showSnapshot')
+        self.assertIn('WalletText.roleWarning(miner(),snapshot.optString("roleWarning"))', show)
+        self.assertIn('for(TextView w:new TextView[]{walletWarning,modeWarning})if(w!=null){w.setText(roleWarning);w.setVisibility(roleWarning.isEmpty()?View.GONE:View.VISIBLE);}', show)
+        self.assertLess(show.index('roleWarning'), show.index('if(service==null){headerStatus'), 'set before the offline return')
+        self.assertIn('walletWarning=null;modeWarning=null;', self.method('render'))
 
 
 class WalletTexts(unittest.TestCase):

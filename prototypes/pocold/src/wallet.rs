@@ -38,7 +38,9 @@
 //! miner (`set_mode`). The choice is kept per home in `app-mode.json`; a missing, damaged or unexpected file means
 //! wallet only. In wallet-only mode the engine never mines: it refuses `mining` on, the registration, top-up and rejoin
 //! quotes and the confirmation of any quote but a transfer, turns off a miner it finds running, and a switch to wallet
-//! only stops mining at once. Miner mode is the earlier behaviour: mining still starts off and the user enables it.
+//! only stops mining at once, even when the choice cannot be saved. A registered member that is wallet only is told,
+//! in the status `roleWarning` the apps show on the wallet card and the Settings role card, that it earns no mining
+//! rewards and can be replaced. Miner mode is the earlier behaviour: mining still starts off and the user enables it.
 //! A device-local client setting only: no block, rule or registry record changes.
 use crate::{launcher::Home,node::Node,types};
 use pocol_lp4_execution::{apply,txsign::{Key,Tx},view::View};
@@ -79,6 +81,10 @@ pub const MODE_FILE:&str="app-mode.json";
 const MODE_FILE_MAX:u64=64;
 /// What the engine answers to a mining action in wallet-only mode.
 pub const WALLET_ONLY:&str="This device is set to wallet only, so it does not mine. Choose Wallet and miner in Settings first.";
+/// The status `roleWarning` of an active registered member (HELD or ACCRUING) in wallet-only mode; empty otherwise.
+pub const REGISTERED_WALLET_ONLY:&str="This account is registered to mine, but this device is wallet only: it earns no mining rewards, and once every seat is taken a new registration can replace it as an inactive member (its bond is refunded later). To keep its seat, choose Wallet and miner and turn mining on.";
+/// The error of a switch to wallet only whose choice could not be saved: mining has stopped all the same.
+pub const WALLET_ONLY_NOT_SAVED:&str="Mining has stopped and this device is wallet only until the app restarts, but the choice could not be saved, so the app may open as Wallet and miner next time (mining still off). Free some storage and choose Wallet only again.";
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct ModeFile { mode:AppMode }
@@ -552,9 +558,11 @@ impl<'a> Wallet<'a>{
             (false,_)=>"Off — wallet keeps validating".to_owned(),
         }};
         let wallet_only=self.mode==AppMode::Wallet;
+        // Shown on the wallet card and the Settings role card: wallet only has no Mining tab.
+        let role_warning=if wallet_only&&eligible{REGISTERED_WALLET_ONLY}else{""};
         let mining_state=if wallet_only{
             let mut text="Wallet only — this device validates blocks and never mines".to_owned();
-            if record.is_some(){text.push_str(" · This account is registered to mine: while wallet only it earns no mining rewards, and when every seat is taken an inactive member can be replaced.");}
+            if !role_warning.is_empty(){text.push_str(" · ");text.push_str(role_warning);}
             text
         }else{mining_state};
         let mut rejoin=step_json(step);
@@ -572,7 +580,7 @@ impl<'a> Wallet<'a>{
         let v3=state.as_ref().and_then(|s|v3_status(&n.chain,s.v(),addr,record.as_ref(),head.height.saturating_add(1)));
         let mut status=json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
-            "appMode":self.mode.as_str(),"miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
+            "appMode":self.mode.as_str(),"roleWarning":role_warning,"miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
             "miningActive":member,"registryStatus":registry,"rejoin":rejoin,
             "rejoinAvailable":!wallet_only&&self.rejoin.is_none()&&matches!(step,RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}),
             "miningState":mining_state,
@@ -604,13 +612,18 @@ impl<'a> Wallet<'a>{
             Command::Cancel=>{self.quote=None;Ok(json!({"type":"cancelled"}))},
             Command::SetMode{mode}=>{
                 if let Some(why)=mode_change_refusal(mode,self.rejoin.is_some()){return Err(why.into())}
-                // Stored first: if the file cannot be written nothing changes.
-                write_mode(&self.home.path,mode).map_err(|e|format!("The device role could not be saved: {e}"))?;
-                self.mode=mode;
+                let saved=write_mode(&self.home.path,mode);
                 if mode==AppMode::Wallet{
-                    // Wallet only stops mining at once, and a reviewed mining quote can no longer be confirmed.
-                    n.set_mining_key(None);
+                    // Wallet only stops mining at once, and a reviewed mining quote can no longer be confirmed, even
+                    // when the file cannot be written (full or read-only storage): that only fails safe. The file then
+                    // keeps its earlier role, and miner mode always starts with mining off.
+                    self.mode=mode;n.set_mining_key(None);
                     if self.quote.as_ref().is_some_and(|q|!quote_allowed(mode,q.kind)){self.quote=None;}
+                    saved.map_err(|e|format!("{WALLET_ONLY_NOT_SAVED} ({e})"))?;
+                }else{
+                    // Wallet and miner is stored first: if the file cannot be written nothing changes.
+                    saved.map_err(|e|format!("The device role could not be saved: {e}"))?;
+                    self.mode=mode;
                 }
                 let mut v=self.status(n);v["type"]=json!("mode");Ok(v)
             },

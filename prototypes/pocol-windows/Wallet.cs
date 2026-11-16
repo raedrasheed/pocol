@@ -54,7 +54,7 @@ internal sealed class Wallet {
   try{engine=new Process {StartInfo=Info("wallet"+HomeArgs()),EnableRaisingEvents=true};Process current=engine;
    current.OutputDataReceived+=(s,e)=>{if(e.Data!=null)window.Dispatcher.BeginInvoke(new Action(()=>Response(e.Data)));};
    current.ErrorDataReceived+=(s,e)=>{if(e.Data!=null)lastError=e.Data.Length>1000?e.Data.Substring(0,1000):e.Data;};
-   current.Exited+=(s,e)=>window.Dispatcher.BeginInvoke(new Action(()=>{if(engine!=current)return;Get<Button>("Connect").IsEnabled=true;Get<TextBlock>("Connection").Text="Wallet offline · balances unavailable";Get<TextBlock>("Balance").Text="—";Get<CheckBox>("MiningToggle").IsEnabled=false;Get<RadioButton>("ModeWallet").IsEnabled=false;Get<RadioButton>("ModeMiner").IsEnabled=false;Get<TextBlock>("ModeOffline").Visibility=Visibility.Visible;pending=false;Message(lastError);}));
+   current.Exited+=(s,e)=>window.Dispatcher.BeginInvoke(new Action(()=>{if(engine!=current)return;Get<Button>("Connect").IsEnabled=true;Get<TextBlock>("Connection").Text="Wallet offline · balances unavailable";Get<TextBlock>("Balance").Text="—";Get<CheckBox>("MiningToggle").IsEnabled=false;Get<RadioButton>("ModeWallet").IsEnabled=false;Get<RadioButton>("ModeMiner").IsEnabled=false;Get<TextBlock>("ModeOffline").Visibility=Visibility.Visible;Get<TextBlock>("RoleWarning").Visibility=Visibility.Collapsed;Get<TextBlock>("ModeWarning").Visibility=Visibility.Collapsed;pending=false;Message(lastError);}));
    current.Start();current.BeginOutputReadLine();current.BeginErrorReadLine();await Task.Yield();
   }catch(Exception e){Get<Button>("Connect").IsEnabled=true;Message(e.Message);}}
  async Task Stop(){if(engine==null||engine.HasExited)return;Process current=engine;try{current.StandardInput.WriteLine("{\"method\":\"stop\"}");current.StandardInput.Flush();if(await Task.WhenAny(Task.Run(()=>current.WaitForExit()),Task.Delay(10000))!=null&&!current.HasExited)current.Kill();}catch(Exception e){Message(e.Message);}}
@@ -64,6 +64,8 @@ internal sealed class Wallet {
   // Wallet only (the default, also for a missing appMode) has no Mining tab and leaves the Mining page.
   Get<Button>("NavMining").Visibility=miner?Visibility.Visible:Visibility.Collapsed;Get<Button>("ManageMining").Visibility=miner?Visibility.Visible:Visibility.Collapsed;
   if(!miner&&Get<StackPanel>("MiningPage").Visibility==Visibility.Visible)Page("Wallet");
+  // A registered member that is wallet only: the engine's warning on the wallet card and the Settings role card.
+  string warning=RoleWarning(miner,Text(state,"roleWarning"));foreach(string name in new[]{"RoleWarning","ModeWarning"}){var t=Get<TextBlock>(name);t.Text=warning;t.Visibility=warning==""?Visibility.Collapsed:Visibility.Visible;}
   bool running=engine!=null&&!engine.HasExited;updating=true;ShowMode();Get<RadioButton>("ModeWallet").IsEnabled=running;Get<RadioButton>("ModeMiner").IsEnabled=running;updating=false;Get<TextBlock>("ModeOffline").Visibility=running?Visibility.Collapsed:Visibility.Visible;
   ShowNetwork(state);
   object lifetime;if(state.TryGetValue("lifetime",out lifetime)&&lifetime is Dictionary<string,object>){var life=(Dictionary<string,object>)lifetime;Get<TextBlock>("Lifetime").Text=Flag(life,"continuous")?"Continuous network · no scheduled closing block or expiry date":"Final block: "+Text(life,"finalHeight");}
@@ -93,6 +95,7 @@ internal sealed class Wallet {
  const string ModeSwitchBack="Switching back to wallet only stops mining at once. You can change the role at any time.";
  const string ModeOffline="Connect your wallet to change the device role.";
  static bool MinerMode(Dictionary<string,object> s){return Text(s,"appMode")=="miner";}
+ static string RoleWarning(bool miner,string warning){return miner||warning==null?"":warning;}
  static Dictionary<string,object> ModeCommand(bool miner){return Cmd("method","set_mode","mode",miner?"miner":"wallet");}
  static string WalletNote(bool miner,bool miningOn){return miner?"Your device is validating blocks. Mining is "+(miningOn?"on.":"off."):"Your device is validating blocks. Wallet only: this device never mines.";}
  void ShowMode(){bool miner=MinerMode(state);Get<RadioButton>("ModeWallet").IsChecked=!miner;Get<RadioButton>("ModeMiner").IsChecked=miner;}

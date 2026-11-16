@@ -21,7 +21,10 @@ which validates every block, so the balance is always verified on the device.
 - **Wallet and miner**: the Mining tab appears. Mining still starts off and runs only when you turn it on there, with an
   eligible registered account.
 
-Switching back to wallet only stops mining at once. A switch while a confirmed rejoin is under way is refused until it
+Switching back to wallet only stops mining at once, even if the choice cannot be saved (the app then shows the error
+and may reopen as wallet and miner, with mining off). A registered account that is wallet only earns no mining rewards
+and, once every seat is taken, can be replaced as an inactive member: the wallet card and the Device role card say so. A
+switch while a confirmed rejoin is under way is refused until it
 finishes or stops (it would lose the reactivation). The engine keeps the choice in its home (`app-mode.json`), so it
 survives a restart and a key restore; the app keeps only a display copy. The buttons work while the wallet is connected.
 

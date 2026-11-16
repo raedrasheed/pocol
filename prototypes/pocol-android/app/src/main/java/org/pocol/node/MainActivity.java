@@ -45,6 +45,8 @@ public final class MainActivity extends Activity {
     private String appMode="";
     private Button modeWallet,modeMiner;
     private TextView modeNote;
+    /** The engine's roleWarning on the wallet card and the Settings role card (wallet only; hidden when empty). */
+    private TextView walletWarning,modeWarning;
     private AlertDialog quoteDialog;
     private final Messenger receiver=new Messenger(new Handler(Looper.getMainLooper(),msg->{
         if(msg.what==1) update(msg.getData().getString("status","{}"));
@@ -89,9 +91,9 @@ public final class MainActivity extends Activity {
         render();
     }
     private void render(){
-        balance=null;connectionStatus=null;miningSwitch=null;miningStatus=null;rejoinButton=null;topUpButton=null;modeWallet=null;modeMiner=null;modeNote=null;
+        balance=null;connectionStatus=null;miningSwitch=null;miningStatus=null;rejoinButton=null;topUpButton=null;modeWallet=null;modeMiner=null;modeNote=null;walletWarning=null;modeWarning=null;
         // Wallet only has no Mining tab.
-        if(tab.equals("Mining")&&!miner())tab="Wallet";
+        tab=WalletText.visibleTab(tab,miner());
         LinearLayout root=column();root.setBackgroundColor(BG);root.setPadding(dp(18),dp(12),dp(18),0);
         root.setOnApplyWindowInsetsListener((v,i)->{v.setPadding(dp(18)+i.getSystemWindowInsetLeft(),dp(12)+i.getSystemWindowInsetTop(),dp(18)+i.getSystemWindowInsetRight(),i.getSystemWindowInsetBottom());return i;});setContentView(root);
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);root.addView(top,new LinearLayout.LayoutParams(-1,-2));
@@ -108,6 +110,7 @@ public final class MainActivity extends Activity {
     }
     private static String navIcon(String name){switch(name){case "Wallet":return "◈";case "Activity":return "⇄";case "Mining":return "◇";default:return "⚙";}}
     private boolean miner(){return WalletText.minerMode(appMode);}
+    private TextView warning(LinearLayout parent){TextView t=text("",13,INK,true);t.setVisibility(View.GONE);parent.addView(t);return t;}
     private void wallet(){
         heading("Your wallet.","Your place in the PoCol network.");
         LinearLayout hero=card(content);GradientDrawable bg=new GradientDrawable(GradientDrawable.Orientation.TL_BR,new int[]{SOFT,Color.rgb(9,49,70)});bg.setCornerRadius(dp(22));bg.setStroke(dp(1),Color.rgb(31,83,109));hero.setBackground(bg);
@@ -116,6 +119,7 @@ public final class MainActivity extends Activity {
         LinearLayout actions=new LinearLayout(this);content.addView(actions);for(String label:new String[]{"↗  Send PCOL","↙  Receive"}){boolean sendAction=label.contains("Send");LinearLayout c=column();LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(0,-2,1);lp.setMargins(sendAction?0:dp(6),0,sendAction?dp(6):0,dp(20));actions.addView(c,lp);button(c,label,sendAction,()->{if(sendAction)send();else receive();});}
         LinearLayout asset=card(content);eyebrow(asset,"NATIVE ASSET");LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);asset.addView(row);ImageView icon=new ImageView(this);icon.setImageResource(R.drawable.pocol_icon);icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);LinearLayout.LayoutParams ip=new LinearLayout.LayoutParams(dp(44),dp(44));ip.setMargins(0,0,dp(12),0);row.addView(icon,ip);LinearLayout info=column();row.addView(info,new LinearLayout.LayoutParams(0,-2,1));info.addView(text("PoCol",18,INK,true));info.addView(text("PCOL · Native currency",12,MUTED,false));asset.addView(text("Validated locally on your device.",12,MUTED,false));
         LinearLayout status=card(content);status.addView(text("Connected, on your terms",18,INK,true));connectionStatus=text("Connect your local node to see its verified balance.",14,MUTED,false);status.addView(connectionStatus);
+        walletWarning=warning(status);
         // Manage mining only for a miner; offline the card connects the wallet.
         if(service==null)button(status,"Connect wallet",false,this::startNode);else if(miner())button(status,"Manage mining",false,()->{tab="Mining";render();});
     }
@@ -139,7 +143,7 @@ public final class MainActivity extends Activity {
         button(c,"Connect wallet",false,this::startNode);button(c,"Disconnect wallet",false,()->{if(service!=null)try{service.send(Message.obtain(null,2));headerStatus.setText("Disconnecting…");}catch(RemoteException ignored){}});
         // The device role (owner decision of 2026-11-16): wallet only by default; the engine stores the choice.
         LinearLayout role=card(content);eyebrow(role,"DEVICE ROLE");role.addView(text(WalletText.MODE_TITLE+" · "+(miner()?WalletText.WALLET_AND_MINER:WalletText.WALLET_ONLY),20,INK,true));
-        role.addView(text(WalletText.MODE_WALLET,13,MUTED,false));gap(role,6);role.addView(text(WalletText.MODE_MINER,13,MUTED,false));gap(role,6);role.addView(text(WalletText.MODE_SWITCH_BACK,13,MUTED,false));
+        role.addView(text(WalletText.MODE_WALLET,13,MUTED,false));gap(role,6);role.addView(text(WalletText.MODE_MINER,13,MUTED,false));gap(role,6);role.addView(text(WalletText.MODE_SWITCH_BACK,13,MUTED,false));modeWarning=warning(role);
         modeWallet=button(role,WalletText.modeButton(WalletText.WALLET_ONLY,!miner()),!miner(),()->setMode("wallet"));modeWallet.setContentDescription(WalletText.WALLET_ONLY+(miner()?"":", selected"));
         modeMiner=button(role,WalletText.modeButton(WalletText.WALLET_AND_MINER,miner()),miner(),()->setMode("miner"));modeMiner.setContentDescription(WalletText.WALLET_AND_MINER+(miner()?", selected":""));
         modeNote=text(WalletText.MODE_OFFLINE,12,MUTED,false);role.addView(modeNote);
@@ -178,12 +182,14 @@ public final class MainActivity extends Activity {
     private void setMode(String mode){if(service==null||!snapshot.has("appMode")){notice(WalletText.MODE_OFFLINE);return;}if(mode.equals(appMode))return;command(object("method","set_mode","mode",mode));}
     private void update(String raw){try{JSONObject v=new JSONObject(raw);if(v.has("address")){snapshot=v;
                 // The engine's role decides the tabs: re-render when it differs from the one on screen.
-                String mode=WalletText.minerMode(v.optString("appMode"))?"miner":"wallet";
+                String mode=WalletText.storedMode(v.optString("appMode"));
                 if(!mode.equals(appMode)){appMode=mode;getPreferences(MODE_PRIVATE).edit().putString("appMode",mode).apply();render();}else showSnapshot();
                 showEvent(v);long id=v.optLong("responseId");if(id>responseId){responseId=id;JSONObject r=v.optJSONObject("response");if(r!=null){requestPending=false;String type=r.optString("type");if(type.equals("quote"))review(r);else if(type.equals("error"))notice(r.optString("message"));else if(type.equals("rejoin"))notice(WalletText.rejoinNotice(type,r.optString("state"),r.optString("message")));else if(type.equals("submitted"))new AlertDialog.Builder(this).setTitle("Transaction submitted").setMessage("Waiting for network inclusion.\n\n"+r.optString("hash")).setPositiveButton("Done",null).show();}}}else if(v.has("error")){headerStatus.setText(v.optString("error"));}else headerStatus.setText("Preparing local validation…");}catch(JSONException ignored){}}
     private void showSnapshot(){if(headerStatus==null)return;if(networkBadge!=null)networkBadge.setText(snapshot.optString("networkName","PoCol network"));
         // The role buttons work only while the engine runs and has reported its role.
         boolean roleKnown=service!=null&&snapshot.has("appMode");for(Button b:new Button[]{modeWallet,modeMiner})if(b!=null)b.setEnabled(roleKnown);if(modeNote!=null)modeNote.setVisibility(roleKnown?View.GONE:View.VISIBLE);
+        String roleWarning=service==null?"":WalletText.roleWarning(miner(),snapshot.optString("roleWarning"));
+        for(TextView w:new TextView[]{walletWarning,modeWarning})if(w!=null){w.setText(roleWarning);w.setVisibility(roleWarning.isEmpty()?View.GONE:View.VISIBLE);}
         if(service==null){headerStatus.setText("Wallet offline · balances unavailable");return;}if(!snapshot.has("balance"))return;if(tab.equals("Activity")){content.removeAllViews();activity();}headerStatus.setText(snapshot.optInt("peers")+" peers · Block "+snapshot.optLong("height"));if(balance!=null)balance.setText(snapshot.optString("balance","—"));if(connectionStatus!=null)connectionStatus.setText(snapshot.optInt("peers")>0?WalletText.walletNote(miner(),snapshot.optBoolean("miningEnabled")):peerNote());if(miningSwitch!=null){updating=true;miningSwitch.setChecked(snapshot.optBoolean("miningEnabled"));miningSwitch.setEnabled(snapshot.optBoolean("miningEligible")||snapshot.optBoolean("miningEnabled"));updating=false;}if(miningStatus!=null){JSONObject react=snapshot.optJSONObject("reactivation"),step=snapshot.optJSONObject("rejoin");
             String mined=WalletText.minedText(String.valueOf(snapshot.optLong("blocksMined")),snapshot.optString("bond"),snapshot.optString("bondHeld"),snapshot.isNull("bondRemaining")?"":snapshot.optString("bondRemaining"),react==null||react.isNull("lastAt")?"":react.optString("lastAt"),react==null||react.isNull("allowedFrom")?"":react.optString("allowedFrom"));
             String seats=WalletText.seatText(snapshot.optBoolean("seatsFull"),snapshot.optLong("removableSeats"),snapshot.optBoolean("registerReplaces"),snapshot.optBoolean("registered"),step!=null&&step.optString("step").equals("full")?step.optString("refundAt"):"");

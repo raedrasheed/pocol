@@ -105,6 +105,13 @@ final class WalletText {
     static final String MODE_SWITCH_BACK="Switching back to wallet only stops mining at once. You can change the role at any time.";
     static final String MODE_OFFLINE="Connect your wallet to change the device role.";
     static boolean minerMode(String appMode){return "miner".equals(appMode);}
+    /** The role the activity keeps from the engine's appMode (a display-only copy; anything but miner is wallet). */
+    static String storedMode(String appMode){return minerMode(appMode)?"miner":"wallet";}
+    /** The tab to show: wallet only has no Mining tab, so it falls back to the Wallet tab. */
+    static String visibleTab(String tab,boolean miner){return "Mining".equals(tab)&&!miner?"Wallet":tab;}
+    /** The engine's roleWarning (a registered member that is wallet only earns no rewards and can be replaced), shown on
+     *  the wallet card and the Settings role card, since wallet only has no Mining tab; nothing in the miner role. */
+    static String roleWarning(boolean miner,String warning){return miner||warning==null?"":warning;}
     /** The navigation tabs: the Mining tab only for a miner. */
     static String[] navTabs(boolean miner){return miner?new String[]{"Wallet","Activity","Mining","Settings"}:new String[]{"Wallet","Activity","Settings"};}
     /** The wallet card's line while peers are connected. */
