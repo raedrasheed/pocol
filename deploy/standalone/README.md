@@ -173,7 +173,9 @@ from this invitation, in the repository (W15 for the rehearsal, W16 for the main
 Every published file has an ssh-ed25519 release signature `FILE.sig`, and the release's `SHA256SUMS` has
 `SHA256SUMS.sig` (owner decision 2026-11-16; `deploy/release/README.md`, user procedure). Take `allowed_signers` from
 the repository or pocol.net and compare its fingerprint with the published one
-(`grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | ssh-keygen -lf -`, exactly one line). A `FILE.sig` binds no
+(`grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers` must print `1`, then
+`grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | ssh-keygen -lf -`). That only checks the file: the fingerprint that
+decides is the signing key's, printed by the signature check below or the `VERIFIED` line. A `FILE.sig` binds no
 file name or version, so verify the signed `SHA256SUMS` and the download's line in it, with OpenSSH 8.2 or later:
 
 ```sh

@@ -63,15 +63,20 @@ signatures stay checkable against the `allowed_signers` of that release's tagged
 
 ## User procedure
 
-1. **The key.** Download `allowed_signers` from this repository (or pocol.net) and check its fingerprint against the
-   one published on pocol.net. It must print exactly one line:
+1. **The key.** Download `allowed_signers` from this repository (or pocol.net). It must hold exactly one key line,
+   and that key's fingerprint must be the one published on pocol.net:
 
    ```sh
+   grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers
    grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | ssh-keygen -lf -
    ```
 
-   (`ssh-keygen -lf allowed_signers` does not work: it is not a public key file.) The directory verifiers below print
-   the same `SHA256:...` fingerprint in their `VERIFIED` line.
+   The first must print `1`: ssh-keygen accepts every key line in the file, and the second command silently skips a
+   line it cannot cut (an added `release@pocol.net ssh-ed25519 KEY` line, or one spaced with tabs), so one printed
+   fingerprint alone does not show the file holds one key. (`ssh-keygen -lf allowed_signers` does not work: it is not
+   a public key file.) These commands only check the downloaded file. The check that decides is the fingerprint of
+   the key that signed: the one on the `Good ... with ED25519 key SHA256:...` line of step 2, or in the directory
+   verifiers' `VERIFIED` line (they refuse a file with a second key line), and it must be the published one.
 2. **One download.** A `FILE.sig` signs only the file's bytes, not its name or version: an older signed file served
    under a newer name still has a good `FILE.sig`. So check the release's signed `SHA256SUMS` and the file's own line in
    it, with OpenSSH 8.2 or later:

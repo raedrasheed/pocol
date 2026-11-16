@@ -15,6 +15,8 @@ import assemble_release as ar  # noqa: E402
 
 KEYGEN = shutil.which('ssh-keygen')
 VERSION = ar.native_version()
+# The documented key-line count of a downloaded allowed_signers (README.md, user procedure step 1): must print 1.
+KEY_COUNT = "grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers"
 EXT_VERSION = ar.extension_version()
 
 
@@ -269,6 +271,34 @@ class Verifier(unittest.TestCase):
                            capture_output=True, text=True)
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual([l.split()[1] for l in r.stdout.splitlines()], [printed])
+
+    def test_the_documented_key_check_sees_a_second_key_line(self):
+        # The fingerprint command alone prints one correct line for a file that also holds a key line it cannot cut;
+        # ssh-keygen accepts that second key. The documented count is 1 only for a one-key file.
+        readme = (HERE / 'README.md').read_text(encoding='utf-8')
+        standalone = (ROOT / 'deploy/standalone/README.md').read_text(encoding='utf-8')
+        self.assertIn(KEY_COUNT, readme)
+        self.assertIn(KEY_COUNT, standalone)
+        good = key_line(self.key)
+        evil = self.keys.make('evil')
+        kind, blob = evil.with_suffix('.pub').read_text().split()[:2]
+        printed = keygen('-lf', str(self.key.with_suffix('.pub')), text=True).stdout.split()[1]
+        def documented(text):
+            work = self.base / 'check'
+            shutil.rmtree(work, ignore_errors=True)
+            work.mkdir()
+            (work / 'allowed_signers').write_text(text, encoding='ascii')
+            count = subprocess.run(KEY_COUNT, shell=True, cwd=work, capture_output=True, text=True).stdout.strip()
+            fp = subprocess.run(f"grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | '{KEYGEN}' -lf -", shell=True, cwd=work,
+                                capture_output=True, text=True).stdout
+            return count, [l.split()[1] for l in fp.splitlines()]
+        self.assertEqual(documented(f'# the release key\n\n{good}\n'), ('1', [printed]))
+        for extra in (f'{vr.PRINCIPAL} {kind} {blob}', f'{vr.PRINCIPAL}  namespaces="{vr.NAMESPACE}" {kind} {blob}',
+                      f'{vr.PRINCIPAL}\tnamespaces="{vr.NAMESPACE}" {kind} {blob}', f'\x0b#x,{vr.PRINCIPAL} {kind} {blob}'):
+            with self.subTest(extra=extra):
+                count, fingerprints = documented(f'{good}\n{extra}\n')
+                self.assertEqual(count, '2')
+                self.assertNotIn(vr.fingerprint(blob), fingerprints)
 
     def test_the_documented_one_download_check_binds_the_name(self):
         # A FILE.sig alone binds no name: an older signed file under a newer name keeps a good signature. The
