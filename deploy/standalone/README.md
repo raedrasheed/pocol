@@ -107,7 +107,9 @@ Before the run:
 - Measure the founders' aggregate hash rate (the rehearsal's `networkHashrateEst` in
   `pocold status` feeds the mainnet run), and choose the launch second, or a delay.
 
-Verify the release first (*Verify the download* below), then extract
+Download the CI artifacts of the pinned release commit and check them against that CI run's `SHA256SUMS`
+(integrity only: the ceremony runs before the identity switch, so there is no signed release yet; the first one,
+checked as in *Verify the download* below, follows the switch). Then extract
 `PoCol-Mainnet-0.5.0-windows-x86_64.zip` into a new directory. Review `Initialize-PoColNetwork.ps1`,
 open PowerShell inside that directory, and run (the addresses are placeholders for the
 servers' public IPv4 addresses):

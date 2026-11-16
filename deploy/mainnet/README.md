@@ -9,9 +9,11 @@ this directory deploys anything, and no step below runs on a server without the 
 
 This runbook is completed once the genesis parameters are fixed. The steps, in order:
 
-1. **Release.** Build the release that will run the network with `POCOL_RELEASE=1` from a pinned tree, and
-   publish its binaries, `SHA256SUMS` and their ssh-ed25519 release signatures (`deploy/release/README.md`); the
-   owner verifies the set with `deploy/release/verify_release.py` before uploading it.
+1. **Ceremony packages.** Build the packages the ceremony runs on with `POCOL_RELEASE=1` from a pinned tree in CI
+   (five-device-build). The rehearsal and the mainnet ceremony run on those CI artifacts, which the owner downloads
+   from that CI run and checks against its `SHA256SUMS`: integrity only, not a release signature. No signed release
+   exists yet: the assembler refuses every release until the identity switch (step 7), and the switch changes the
+   native binaries (`network_display.rs`) as well as the extension version, so these packages are never published.
 2. **Prepare the servers.** The three US servers start from a clean install (`deploy/standalone/install-linux.sh`
    refuses a host that already has a PoCol install). The owner's computer runs the fourth founding miner; the
    phone is a wallet.
@@ -36,7 +38,9 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 6. **Closed rehearsal.** Run the network on the three US servers only, then wipe and repeat from step 4 for
    the public launch if anything changed.
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
-   one with `set_network_identity.py` (below), in one reviewed PR, and release the clients.
+   one with `set_network_identity.py` (below), in one reviewed PR, and release the clients: rebuild the native
+   packages and the 0.5.0 extension from the switched tree, then assemble, sign and verify them
+   (`deploy/release/README.md`, owner procedure). This is the first signed release.
 8. **Public launch.** Publish the invitation on pocol.net, signed with the release key like every download
    (`deploy/release`), and open the seeds.
 
@@ -74,7 +78,7 @@ unchanged" notes) must be gone by then. The native 0.5.0 bump (owner decision 20
 what `STEP3` still lists (the extension and Studio versions and the 0.4.x extension download names) moves with the
 signed 0.5.0 extension release and its download links. `deploy/release/assemble_release.py` refuses a release whose
 extension `package.json` version is not the native version, so no release is assembled before the switch sets it to
-0.5.0.
+0.5.0: the ceremony runs on unsigned CI artifacts (step 1), and the first signed release follows the switch (step 7).
 
 ## A spec-2 (v3) genesis
 

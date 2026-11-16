@@ -684,6 +684,23 @@ class Consistency(unittest.TestCase):
         for other in (ROOT / 'deploy/standalone/README.md', ROOT / 'prototypes/pocol-extension/README-IDE.md'):
             self.assertIn(f'-I {vr.PRINCIPAL} -n {vr.NAMESPACE}', other.read_text(encoding='utf-8'), other)
 
+    def test_the_runbook_signs_only_after_the_identity_switch(self):
+        # The assembler refuses every release until the switch sets the extension to the native version, and the
+        # switch changes the native binaries too: no runbook step may ask for a signed or verified release before it.
+        runbook = (ROOT / 'deploy/mainnet/README.md').read_text(encoding='utf-8')
+        steps = dict(re.findall(r'(?ms)^(\d)\. \*\*(.*?)(?=^\d\. \*\*|^## )', runbook))
+        self.assertEqual(sorted(steps), [str(n) for n in range(1, 9)])
+        self.assertIn('Pin the identity', steps['7'])
+        for n in '123456':
+            self.assertNotIn('verify_release', steps[n], f'step {n}')
+            self.assertNotRegex(steps[n], r'(?i)publish[^.]*signature', f'step {n}')
+        self.assertIn('not a release signature', steps['1'])
+        self.assertIn('assemble, sign and verify', steps['7'])
+        standalone = (ROOT / 'deploy/standalone/README.md').read_text(encoding='utf-8')
+        ceremony = standalone[:standalone.index('### Verify the download')]
+        self.assertNotIn('Verify the release first', ceremony)
+        self.assertIn('no signed release yet', ceremony)
+
     def test_the_scripts_are_ascii(self):
         for name in ('Verify-PoColRelease.ps1', 'Sign-PoColRelease.ps1', 'test_verify_release.ps1', 'sign-release.sh'):
             (HERE / name).read_bytes().decode('ascii')

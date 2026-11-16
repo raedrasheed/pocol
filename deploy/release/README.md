@@ -20,7 +20,9 @@ v3 APK Signing Block at its place just before the ZIP central directory, is refu
 (the release build only) and, when it is published, `network.pocol.json` (the mainnet invitation only: the checks of
 `package.py --network`, so a rehearsal, placeholder, retired or spec-1 invitation is refused). V is
 `deploy/standalone/package.py`'s version, and the extension's `package.json` version must be the same V (owner
-decision 2026-11-16): until the identity switch sets it, the assembler refuses every release. The
+decision 2026-11-16): until the identity switch sets it, the assembler refuses every release, so the genesis
+ceremony runs on unsigned CI artifacts (`deploy/mainnet/README.md`, step 1) and the first signed release is built
+from the switched tree (step 7). The
 per-package `SHA256SUMS` inside the native packages and the extension's `.sha256` stay as integrity checks; the signed
 `SHA256SUMS` is the one this directory writes.
 
@@ -37,8 +39,9 @@ per-package `SHA256SUMS` inside the native packages and the extension's `.sha256
    `release@pocol.net namespaces="pocol-release" ssh-ed25519 AAAA...` (the first two fields of
    `pocol-release.pub`). Publish its fingerprint, `ssh-keygen -lf <offline path>/pocol-release.pub`, on pocol.net and
    here.
-3. **Download the CI artifacts** of the release commit (five-device-build: Linux, Windows, Android; the extension
-   package after the identity switch).
+3. **Download the CI artifacts** of the release commit, a commit after the identity switch (five-device-build:
+   Linux, Windows, Android; the extension package). Packages built before the switch, such as the ceremony's, are
+   never signed: the switch changes the native binaries too.
 4. **Sign the APK** with the Android release key (`apksigner`, `prototypes/pocol-android/README.md`); rename it
    `PoCol-Mainnet-V-arm64.apk`.
 5. **Assemble:** `python3 deploy/release/assemble_release.py --out RELEASE_DIR FILE...`
