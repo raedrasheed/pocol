@@ -23,8 +23,9 @@ installation, with inclusion/revert status and confirmation counts.
 
 ## Continuous protocol
 
-Every network this release builds is a v3 genesis (`specVersion` 2), and every v3
-genesis is continuous. The bootstrap passes no option for it: `pocold init-testnet`
+Every network this release builds is a v3 genesis (`specVersion` 2), and every genesis
+`pocold init-testnet` builds is continuous (only a local `pocold init-devnet --h-end`
+devnet is finite). The bootstrap passes no option for it: `pocold init-testnet`
 refuses the retired options `continuous`, `earnin` and `fullNonce` by name. The
 genesis explicitly encodes all four lifetime fields (`H_END`, `T_END`, `H_CLOSE`,
 `T_CLOSE`) as zero, meaning **no scheduled closing block, final block or expiration

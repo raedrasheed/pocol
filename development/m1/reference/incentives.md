@@ -111,7 +111,7 @@ Tests. `tests/v3/earnin-on-v3-vectors.json` replays the earn-in model's scenario
 - over-fill-bad-value: the first top-up rule, BadValue when msg.value exceeds B − bond (found by the wallet end-to-end test: an exact-remainder top-up reverted whenever a reward accrued between the quote and inclusion);
 - excess-kept: the over-fill rest kept instead of returned.
 
-Write counts (SSTOREs, tests/v3_contracts.rs v3_registry_write_ceilings): register 10, with a full or a partial bond; topUp 4, or 5 when it promotes; accrue 2, or 3 when it promotes. A zero-bond register measures 174,447 gas, within the wallet's 400,000-gas quote.
+Write counts (SSTOREs, tests/v3_contracts.rs wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set): register 10, with a full or a partial bond; topUp 4, or 5 when it promotes; accrue 2, or 3 when it promotes. The same test bounds a zero-bond register's gas within the wallet's 400,000-gas quote (it measured 174,447 gas; contracts/REGISTRY-LAYOUT.md).
 
 **Removal at a full set (FN-2b C4; owner decisions 10b and Q2(a) of 2026-11-13)**
 - There is no seat contest. An inactive member, one with no credited share and no (re)activation within Theta_inact (height ≥ max(lastShare, graceStart) + Theta_inact), is removable only when active = M_max and more than M_min are active. removeInactive reverts below a full set; register alone reverts Capacity at a full set.

@@ -259,11 +259,13 @@ exists only on a v3 (spec-2) genesis. To activate it:
 `compatibilitySha256` stays for install integrity: `monitor.py` groups nodes by
 `consensusIdentity` (and fork schedule) and warns about mixed digests.
 
-**Upgrade rules (owner decisions of PR5).** Every consensus-relevant path stays fail-closed:
+**Upgrade rules (PR5).** Every consensus-relevant path stays fail-closed. Only D3 is an owner decision; D2 and D5
+are the recommended defaults the code implements (owner decision pending: D2 and D5 of PR5):
 
 - D2, "merged to main counts as released": gate values are spent on merge (VA-SPEC §2.3);
-- D3, fork versions are sequential: a schedule appends version 2 before version 3, and the runtime schedule shape
-  refuses a skipped version ([V3-DECISIONS.md](../decisions/V3-DECISIONS.md), "Release rules and lock", D3);
+- D3 (owner decision), fork versions are sequential: a schedule appends version 2 before version 3, and the runtime
+  schedule shape refuses a skipped version ([V3-DECISIONS.md](../decisions/V3-DECISIONS.md), "Release rules and
+  lock", D3);
 - D5, the activation-window identity (CONS-10) and a data-directory rules record, is deferred.
 
 **Seeds behind NAT.** A seed that dials its own public address detects itself by its
@@ -551,13 +553,15 @@ retained as `translation-snapshot-drift.json` rather than relabeled PASS.
 
 The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
 
-1. **Ceremony.** Run the genesis ceremony with the committed profile (`deploy/mainnet/v3-profile.json`, a continuous
-   genesis with `H_END` 0) as described in [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and
-   [deploy/standalone/README.md](../../deploy/standalone/README.md): fresh keys on every founder's device, one
-   genesis, one invitation.
-2. **Rehearsal.** First run it with the rehearsal profile on the three servers and the PC, and measure the launch
-   evidence (T1-T8, M1-M4, the cap-raise rehearsal S2 above; FRESH-NETWORK-CP §9): multi-host partition/heal,
-   recovery, overload, release/rollback and soak.
+1. **Rehearsal.** Run the genesis ceremony first with the rehearsal profile
+   (`deploy/mainnet/v3-rehearsal-profile.json`) on the three servers and the PC, and measure the launch evidence
+   (T1-T8, M1-M4, the cap-raise rehearsal S2 above; FRESH-NETWORK-CP §9): multi-host partition/heal, recovery,
+   overload, release/rollback and soak.
+2. **Mainnet ceremony.** Only after the rehearsal evidence, re-provision the hosts and run the ceremony with the
+   committed mainnet profile (`deploy/mainnet/v3-profile.json`, a continuous genesis with `H_END` 0) as described in
+   [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and
+   [deploy/standalone/README.md](../../deploy/standalone/README.md): fresh keys again on every founder's device, one
+   genesis, one invitation (PLAN.md, "Launch order").
 3. **Bounded state and admission.** Resolve bounded historical-state/K_eff accounting and near-cap tests; complete the
    deferred resource/gas derivations and the missing RpcGuard mechanisms; measure worst-case execution.
 4. **Review.** Obtain an independent security review and publish the reviewed release with its limitations before

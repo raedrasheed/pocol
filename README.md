@@ -116,8 +116,9 @@ This is an outline. The normative rules are in [development/m1/reference/](devel
   `apply(S_parent, ctx, body, parentHeader) → (S, receipts, roots, …)`.
 - The network has cumulative caps on accounts, storage slots and code (fork version 3 can raise them) and per-block
   caps on transactions and transaction bytes.
-  Every network this release builds, devnets included, is continuous (`H_END=0`): no scheduled closing height. A
-  test may still build a finite chain.
+  Every committed network profile and every `pocold init-testnet` genesis is continuous (`H_END=0`): no scheduled
+  closing height, and `init-testnet` refuses non-zero end fields. `pocold init-devnet --h-end N` (with `--h-close`)
+  still builds a finite local devnet, as some tests do.
 
 ### Site storage and the browser
 

@@ -41,7 +41,7 @@ Status: records the owner approval of 2026-11-08, as changed on 2026-11-13, and 
 
 Node-local changes are approved without reservation. Consensus changes are approved only while preserving collaboration, the common immutable template, and every basic PoCol principle P1–P10 in [V3-DESIGN.md](V3-DESIGN.md). Stop and ask the owner before crossing that boundary or deciding an unanswered owner question.
 
-For compliant items with the choices below, this standing owner authorization supplies the required owner decision; it supersedes the proposal-before-implementation gate of the repository root `README.md` (the bullet "Consensus is owner-gated") for those items only. That bullet reads: “**Consensus is owner-gated.** A change to a consensus rule, a `CP` parameter or a wire encoding needs an owner decision. Write a proposal in `development/audit-2026-10-22/proposals/` with the alternatives and their effects, and do not implement it before it is approved.” It does not approve rejected mechanisms, deferred work, unanswered questions reserved to the owner or live deployment. Earlier decision records stay as dated history; the amendments below take precedence over them.
+For compliant items with the choices below, this standing owner authorization supplies the required owner decision; it supersedes the proposal-before-implementation gate of the repository root `README.md` (the bullet "Consensus is owner-gated") for those items only. That bullet reads: “**Consensus is owner-gated.** A change to a consensus rule, a `CP` parameter or a wire encoding needs an owner decision. Write a proposal in `development/decisions/` with the alternatives and their effects, and do not implement it before it is approved. A change to a consensus-critical source needs a labelled history line in `prototypes/pocold/consensus-sources.lock` (VA-SPEC §2.3); on the running network a rule change goes behind a new, sequential fork version.” It does not approve rejected mechanisms, deferred work, unanswered questions reserved to the owner or live deployment. Earlier decision records stay as dated history; the amendments below take precedence over them.
 
 Sources: [approved design](V3-DESIGN.md), [dated owner answers](V3-OWNER-DECISIONS-2026-11-08.md), and [consensus boundary policy](../VA-SPEC.md). The launch path is [V3-DESIGN.md](V3-DESIGN.md) §3 (fresh v3 genesis launch); the final values are [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md).
 
@@ -397,6 +397,14 @@ single `kind=base` line recording the v3 constants, and nothing of the retired n
 not made yet, and until then the development history stays append-only). From that line on the history is append-only. A later rule change on the running chain is a new fork version V ≥ 4 behind
 `active_version(h) >= V` with a `neutral gate=fork:V` line; a change that needs a new genesis is a `kind=bump` or
 `gate=spec:3` line with that genesis.
+
+**Superseded 2026-11-14: the lock and activation strategy of the dormant sequence** (fresh network, phase 4;
+[OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). Until then the v3 work
+landed dormant beside the retired spec-1 rules: host changes were re-pinned as `neutral gate=spec:2` lines that still
+recorded `spec=1` and so did not spend the gate, and test-only `v3-preview` builds accepted spec-2 genesis files. That
+is why the lock's earlier history lines record `spec=1` with `gate=spec:2` until the reset above. The full record (the
+dormant constants, the gate-freshness reading of VA-SPEC §2.3 and the preview restrictions) is in this file's history,
+for example at commit 52b2507, section "Lock and activation strategy".
 
 ## Deferred and rejected work
 

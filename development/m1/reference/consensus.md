@@ -24,7 +24,7 @@ CP (schema v2, 59 ordered elements: the 52 elements of schema v1 in their order,
 - 41–45: SYS_SLOT_MAX u32, SYS_KEYS_BLOCK_MAX u32, SYS_KEYS_USER_MAX u32, SYS_ACCT_BLOCK_MAX u32, G_SYS u64.
 - 46–52: H_END u64, T_END u64, H_CLOSE u64, T_CLOSE u64, Z_close u32, RET u32 ≥ 1, P2 u32. 53–59 (v3): H_half u64 ≥ 1, S_tail u256, gamma_tip_bp u16 ≤ 10^4, baseFeeMin u256, R_react u8, C_react u32, rho_bp u16 ≤ 10^4. Schema v2 has no other field: the creation-fee and probation-pool fields were deleted before any chain ran it (FRESH-NETWORK-CP.md §1).
 
-ParamGate, not decoding, checks inter-field relationships. R_max=0 is valid and disables register and reactivate.
+ParamGate, not decoding, checks inter-field relationships. R_max=0 is valid and disables register and registerReplacing; reactivate draws on R_react (R_react=0 disables it).
 
 Local parameters outside CP enter neither genesisHash nor validity: Δ, φ, Φ, t_exec, Δ_rel, Γ, A_fb, K_hist, R_keep, k_*, VIEW_SLACK_S, and RpcGuard/BridgeAuth parameters.
 
