@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createCipheriv, pbkdf2Sync, createHmac } from 'node:crypto';
-import { build } from '../build.mjs';
+import { build, readManifestKey } from '../build.mjs';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
 import { siteFixture } from './site_fixture.mjs';
 import { devnetSpecV3Hex, devnetSpecV1Hex } from './rp_fixture.mjs';
@@ -65,6 +65,12 @@ await test('W3: Studio and IDE content scripts match exactly the production orig
     assert.equal(listener!==null,origin==='https://studio.pocol.net',origin);}
 });
 await test('manifest grants only fixed origins, publisher in package, unlimited checkpoint storage',()=>{assert.ok(manifest.permissions.includes('unlimitedStorage'));assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.optional_host_permissions,undefined);assert.equal(manifest.content_scripts[0].all_frames,false);assert.match(readFileSync(dist+'/publisher.html','utf8'),/publisher-ui.js/);});
+
+await test('W14: the extension is 0.5.0 (the manifest version comes from package.json) with the committed manifest key, none while the slot is the placeholder',()=>{
+  assert.equal(JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version,'0.5.0');assert.equal(manifest.version,'0.5.0');
+  const lock=JSON.parse(readFileSync(new URL('../package-lock.json',import.meta.url),'utf8'));assert.equal(lock.version,'0.5.0');assert.equal(lock.packages[''].version,'0.5.0');
+  const key=readManifestKey();assert.equal(manifest.key,key===null?undefined:key);
+});
 
 const mock=installChromeMock();await loadWorker(dist,'studio-regressions');
 const sender={id:chrome.runtime.id,url:'https://studio.pocol.net/',frameId:0,tab:{id:17}};
