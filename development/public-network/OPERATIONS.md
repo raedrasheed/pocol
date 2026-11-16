@@ -191,7 +191,8 @@ invitations bound to `consensusRulesVersion`, not to a build digest, so their
 fingerprint is stable across such releases, and `pocol upgrade` appends future fork
 entries of any supported version (append-only, future-only) or rebinds to an
 equivalent v2 file. `pocol inspect-upgrade` shows the effect first and writes nothing.
-G3 (a fork activation) still needs a coordinated release: a node without the new
+G3 (a fork activation) still needs a coordinated release, announced (signed) at least 24 h, 8,640 blocks at
+T_blk 10, before its activation height (governance.md, Upgrades; owner decision 2026-11-16): a node without the new
 schedule entry is refused by the others with an explicit reason. **TODO (tracked, open):**
 seeds have no fork migration tool at present. `deploy/public-testnet/nonce_upgrade.py` was
 removed with the old-network transition tooling (fresh network, Phase 1), and
@@ -210,9 +211,9 @@ exists only on a v3 (spec-2) genesis. To activate it:
 2. **devnet.json.** Append two entries to `forks` and add `capRaise` beside it, nothing else:
    `"forks": [[1,0],[2,H2],[3,H]]`, `"capRaise": {"ACCT_CAP": a, "SLOT_CAP": s, "CODE_CAP": c, "SYS_SLOT_MAX": m}`
    (JSON integers, all four; SYS_SLOT_MAX within u32). (2,H2) comes first because versions are never skipped; under
-   nonceMode 1 it is a no-op. Choose H2 < H, both above every home's stored head when the invitation is published,
-   and H far enough ahead (at least the announcement window plus a day of blocks) for every seed, home and gateway to
-   update. Each value must be at least the genesis value and at least one must be higher; ParamGate (R1-R26 at the
+   nonceMode 1 it is a no-op. Choose H2 < H, both at least 8,640 blocks (24 h at T_blk 10, the minimum notice) above every home's
+   stored head when the signed announcement and the invitation are published, and H far enough ahead (the 8,640-block
+   announcement window plus a day of blocks, 17,280 blocks in all) for every seed, home and gateway to update. Each value must be at least the genesis value and at least one must be higher; ParamGate (R1-R26 at the
    raised CP) refuses anything else at boot, and `pocol network --from` refuses it before it writes.
 3. **Publish.** `pocol network --from <network dir> --seed … [--bootstrap …] --out network.pocol.json`, then publish
    the file and its fingerprint through the same trusted channel as the genesis, with H2, H and the four values.
@@ -571,3 +572,4 @@ The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
 4. **Review.** Obtain an independent security review and publish the reviewed release with its limitations before
    the public endpoints are opened. Existing automated review is not that review.
 5. **Fork tooling.** Restore the seed fork-migration tool (the G3 TODO above) before the first fork of the new chain.
+   It must refuse an H2 or H less than 8,640 blocks (the 24 h minimum notice) above the current head, with a test.

@@ -180,7 +180,7 @@ Others: sv-fix-v2 (ForkSchedule=[(1,0),(2,50)], chainId=777904, node returns [R2
 - The genesis tool produces genesisPre; three keccak libraries hash it; signing occurs only when all agree.
 
 **Upgrades (D72)**
-- Hard fork = a new binary adding (v, H_v) to the ForkSchedule, with a signed announcement ≥ 1440 blocks beforehand. Versions are sequential, never skipped, and at most MAX_FORK_VERSION = 3. Fork 2 is a nonce-rule no-op under nonceMode 1; fork 3 is the cap raise only (D-V3-23 restricted to ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX, C10): at H_3 those four fields switch to the schedule's `capRaise` values, which are part of the consensus identity (VA-SPEC §2.1). The fresh genesis schedules neither. A later rule change is a new fork version ≥ 4 (VA-SPEC §2.3).
+- Hard fork = a new binary adding (v, H_v) to the ForkSchedule, with a signed announcement at least 24 h beforehand: 8,640 blocks at T_blk 10 (owner decision 2026-11-16; the earlier 1,440 blocks was 24 h only at the M1 draft's T_blk 60). Versions are sequential, never skipped, and at most MAX_FORK_VERSION = 3. Fork 2 is a nonce-rule no-op under nonceMode 1; fork 3 is the cap raise only (D-V3-23 restricted to ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX, C10): at H_3 those four fields switch to the schedule's `capRaise` values, which are part of the consensus identity (VA-SPEC §2.1). The fresh genesis schedules neither. A later rule change is a new fork version ≥ 4 (VA-SPEC §2.3).
 - Nonupdated nodes do not peer with nodes that scheduled the fork (their consensus identities differ, VA-SPEC §2.1) and reject blocks of the new version, causing a deliberate, announced split.
 - Changing the genesis CP or specVersion means a new network; within a network, height-selected CP changes come only from a scheduled fork (fork 3's caps, `cp_at`). No peer or RPC may replace the pinned configuration or code, and a configured fork is an explicit activation by a coordinated release, not a mutable contract upgrade.
 - Fork choice (D133) is a consensus rule:
@@ -195,7 +195,7 @@ Others: sv-fix-v2 (ForkSchedule=[(1,0),(2,50)], chainId=777904, node returns [R2
 **Procedures**
 1. Finite fixtures only (H_END ≠ 0): closing and end, then a signed snapshot. The fresh network is continuous (H_END = 0) and has no end.
 2. Cap approaching: pocol_getCaps raises its alarm at 80 % occupancy of any cap (C9); alert, and raise the caps through a release that schedules fork 3 with `capRaise` (C10). At a reached cap the transactions that would pass it fail or are left out (execution.md, Caps).
-3. Emergency: signed announcement at height ≥ 1440.
+3. Emergency: signed announcement at least 8,640 blocks (24 h at T_blk 10) before the activation height; the emergency path has no shorter notice.
 4. Halt: signed restart statement (disclosed centralization).
 5. Rollback deeper than R_keep: manual checkpoint. (V3-26: to follow a heavier branch that forks between head − R_keep and the local floor finalized_h, stop the node and remove `<data>/retention.finalized`; the next open uses head − R_keep. network.md, "Local finality".)
 6. Network revocation: update networks.json.
