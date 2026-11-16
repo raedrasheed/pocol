@@ -1451,8 +1451,12 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     let mut s=std::net::TcpStream::connect(("127.0.0.1",port)).unwrap();s.set_read_timeout(Some(std::time::Duration::from_millis(50))).unwrap();
     let hello=Msg::Hello{chain_id,genesis,head:genesis,height:0,work:[0;32],node:"peer".into(),protocol:pocold::identity::PROTOCOL_VERSION,compatibility:identity,listen_port:0,nonce:0}.encode();
     let mut f=(hello.len() as u32).to_be_bytes().to_vec();f.extend(hello);s.write_all(&f).unwrap();
-    let mut buf=Vec::new();let mut sent=frames_from(&mut n,&mut s,&mut buf,1500);
+    // The peer is gossiped to (`broadcast`) only once its Hello is handled (`peer_status`), not as soon as it is
+    // connected: wait for that, within a deadline a loaded runner meets, so b0 below is relayed when submitted.
+    let mut buf=Vec::new();let mut sent=Vec::new();let t0=std::time::Instant::now();
+    while n.peer_status.is_empty()&&t0.elapsed()<std::time::Duration::from_secs(60){sent.extend(frames_from(&mut n,&mut s,&mut buf,100));}
     assert_eq!(n.status_json()["peers"].as_array().unwrap().len(),1,"the peer is connected");
+    assert_eq!(n.peer_status.len(),1,"the peer's Hello is handled");
     let (alice,bob)=(devnet::account_key("alice"),devnet::account_key("bob"));
     let (a0,a1,b0)=(pay(&alice,0,1),pay(&alice,1,1),pay(&bob,0,1));
     // a0 and a1 reach this node only in its block x; b0 is submitted here and relayed then.
@@ -1460,6 +1464,10 @@ fn frames_from(n:&mut pocold::node::Node,s:&mut std::net::TcpStream,buf:&mut Vec
     n.import(x[0].clone(),None).unwrap();n.submit_tx(b0.clone(),true).unwrap();
     let mut h2=net();let y=branch(&mut h2,g,2,&[]);for b in &y{n.import(b.clone(),None).unwrap();}
     assert_eq!(n.chain.head,y[1].hash(),"reorganized");assert_eq!(pool(&mut n),vec![a0.clone(),a1.clone(),b0.clone()]);
+    // Read until the three transactions arrived (within a deadline a loaded runner meets), then a while longer, so a
+    // transaction sent twice would be seen.
+    let tx_count=|v:&[Msg]|v.iter().filter(|m|matches!(m,Msg::Tx{..})).count();let t1=std::time::Instant::now();
+    while tx_count(&sent)<3&&t1.elapsed()<std::time::Duration::from_secs(60){sent.extend(frames_from(&mut n,&mut s,&mut buf,100));}
     sent.extend(frames_from(&mut n,&mut s,&mut buf,1500));
     let txs:Vec<Vec<u8>>=sent.into_iter().filter_map(|m|match m{Msg::Tx{raw}=>Some(raw),_=>None}).collect();
     let count=|t:&Vec<u8>|txs.iter().filter(|r|*r==t).count();
