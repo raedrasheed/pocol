@@ -52,6 +52,13 @@ test('the app runs the pre-check before opening the publisher and has every caps
   const{createHash}=await import('node:crypto');const html=await readFile(new URL('../dist/index.html',import.meta.url),'utf8');
   assert.ok(html.includes('app.js?v='+createHash('sha256').update(app).digest('hex').slice(0,12)),'index.html loads this app.js content version');
 });
+test('the network check compares the gateway identity canonically and the network is named the main network in both languages',async()=>{
+  const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  // checkNetwork: the chain ID as a number and the genesis hash in lower case (a gateway may spell either differently).
+  assert.match(app,/if\(Number\(cid\)!==\d+\|\|String\(v\.genesisHash\?\?v\.network\?\.genesisHash\?\?''\)\.toLowerCase\(\)!=='0x[0-9a-f]{64}'\)/);
+  assert.ok(!app.includes('شبكة اختبارية'),'no Arabic test-network label');
+  assert.match(app,/networkDetails:'الشبكة الرئيسية · Chain ID \d+'/);assert.match(app,/networkDetails:'Mainnet · Chain ID \d+'/);
+});
 test('a continuous chain (cumulative false) checks each transaction against one block\'s room',()=>{
   const least=siteNeedsAtLeast(site,{newSite:true}),most=siteNeedsAtMost(site,{newSite:true});
   assert.ok(most.txCount>1&&most.largestTxBytes<most.txBytes);
