@@ -934,7 +934,8 @@ normative changes.
   - With both pending, the event loop's background steps alternate between pool slices and release steps,
     so a pool backlog cannot hold the release back to the next write (finding 2).
   - A deleted node leaves the cache as it is deleted; no list of the deleted ids is held (finding 3).
-  - The store's format is 3: a node's count includes what it owes. A format-2 store opens as format 3. Unsynced
+  - The store's format is 3: a node's count includes what it owes. A format-2 store opened as format 3 until
+    Phase 8a; since then it is set aside and rebuilt, as a store of any other format is. Unsynced
     steps were measured too: each block's durable commit then wrote their pages, and imports during a release
     took up to 905 ms, against 155–209 ms with fsynced steps (two runs), and state.redb grew to 4.3–8.6 GB, since
     pages freed by unsynced transactions are not reused before a durable commit.

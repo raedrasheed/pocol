@@ -83,7 +83,7 @@ fn resolved_cp_drives_bond_target_timing_and_the_actual_program_registry(){
     let local=pocold::testnet::local_for_network(&out.0).unwrap();assert_eq!((local.t_exec,local.delta_rel),(1,7));
     let info:serde_json::Value=serde_json::from_slice(&std::fs::read(out.0.join("devnet.json")).unwrap()).unwrap();
     assert_eq!((info["localTiming"]["deltaRel"].as_u64(),info["localTiming"]["gamma"].as_u64()),(Some(u64::from(local.delta_rel)),Some(u64::from(local.gamma))));
-    let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert_eq!(admitted.programs(),ProgramSet::V3);assert!(admitted.earnin_rules());assert!(admitted.v3_active(0));
+    let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert_eq!(admitted.programs(),ProgramSet::V3);assert!(admitted.v3_active(0));
     assert_eq!(spec.sys_code_hash,apply::SystemPrograms::v3().sys_code_hash().0);
     let miner=devnet::miner_identity("v3-scaffold");assert_eq!(apply::miner_record(admitted.genesis().state(),miner.id).unwrap().bond,U256::from(25_000_000_000_000_000_000u128));
 }
@@ -96,7 +96,7 @@ fn v3_config_implies_the_new_schema_and_full_nonce(){
     let cp=ConsensusParams::from_values(&spec.cp).unwrap();assert_eq!((cp.nonceMode,cp.H_END,cp.M_max),(1,0,256));
     let local=pocold::testnet::local_for_network(&out.0).unwrap();let admitted=pocold::load_spec_for(&out.0,&local,None).unwrap();assert!(admitted.v3_active(0));assert!(admitted.v3_active(u64::MAX));
     // V3-PR-E0: a v3 config selects the compiled v3 set, which has no probation pool or deadline since FN-2b.
-    assert_eq!(admitted.programs(),ProgramSet::V3);assert!(admitted.earnin_rules());
+    assert_eq!(admitted.programs(),ProgramSet::V3);
     assert_eq!(spec.sys_code_hash,apply::SystemPrograms::v3().sys_code_hash().0);
     for (field,value) in [("rho_bp",10001),("H_half",0)]{
         let invalid=Temp::new(field);let mut config=input.clone();config["cp"][field]=serde_json::json!(value);

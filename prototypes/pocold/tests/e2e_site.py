@@ -251,7 +251,7 @@ def main():
         dn.start(work, log=True); wait(lambda: min(head(i) for i in range(3)) >= 3, 120, "nodes up")
         caps = rpc(0, "pocol_getCaps")
         ok("the devnet is v3: specVersion 2, the V3 programs, nonceMode 1, continuous (devnet.json, pocol_getCaps, pocol_getParams)",
-           info.get("specVersion") == 2 and info.get("v3") is True and info.get("fullNonce") is True and caps["v3"] is True and caps["cumulative"] is False and rpc(0, "pocol_getParams")["nonceMode"] == 1, json.dumps({k: info.get(k) for k in ("specVersion", "v3", "fullNonce")}))
+           info.get("specVersion") == 2 and info.get("v3") is True and caps["v3"] is True and caps["cumulative"] is False and rpc(0, "pocol_getParams")["nonceMode"] == 1, json.dumps({k: info.get(k) for k in ("specVersion", "v3")}))
         modes = [rpc(i, "pocol_status")["stateStore"] for i in range(3)]
         ok("every node runs in the requested state mode", modes == ["--state-store" in dn.EXTRA] * 3, f"stateStore={modes} (POCOLD_RUN_ARGS)")
         wait_floor()

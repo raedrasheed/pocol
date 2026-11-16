@@ -113,12 +113,12 @@ impl Index{
     }
     /// A durable commit: every earlier `put` is persisted (invariant I5: before each checkpoint).
     pub fn sync(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;w.commit().map_err(rerr)})}
-    /// Called only by a profile that can activate v3. Legacy files need no new table.
+    /// Opens (creating it if missing) the first-import table (V3-04) before the open reads its coverage marker.
     pub fn prepare_imports(&self)->Result<(),String>{self.guard(||{let w=self.db.begin_write().map_err(rerr)?;
         let existed=w.list_tables().map_err(rerr)?.any(|t|t.name()==FIRST_IMPORT.name());
         {w.open_table(FIRST_IMPORT).map_err(rerr)?;
-            // An old coverage marker cannot certify a newly created empty
-            // table. Preserve canonical rows, but stream timing rows again.
+            // A coverage marker cannot certify a newly created empty table (a file that lost the table):
+            // preserve canonical rows, but stream timing rows again.
             if !existed{let mut m=w.open_table(META).map_err(rerr)?;m.remove("imports").map_err(rerr)?;}}
         w.commit().map_err(rerr)})}
     pub fn import_coverage(&self)->Result<Option<ImportCoverage>,String>{

@@ -55,7 +55,7 @@ mod on_chain {
         crate::members_sweep::oracle();
         let chain = Chain::new(Spec::new(admitted));
         assert_eq!(chain.spec.programs(), ProgramSet::V3);
-        assert!(chain.spec.earnin_rules() && chain.spec.v3_active(0));
+        assert!(chain.spec.v3_active(0));
         Net { chain, keys, one }
     }
 

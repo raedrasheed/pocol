@@ -936,7 +936,7 @@ Before PR7 every canonical block kept an `Entry` in memory for good (slimmed pas
 continuous chain's bound projected from its journal's record count. So the live chain stopped itself at about
 1.13M records (§2f, NODE-03 / SCALE-02). PR7 (`claude/memory-bounds`) moves canonical entries below
 `floor = max(1, head − E)` into a node-local on-disk index, `canon.redb` (`node::canon`). Only the window, the side
-blocks and genesis stay in memory and in checkpoints (format 2, `POCKPT02`; format 1 is still read). Verdicts,
+blocks and genesis stay in memory and in checkpoints (format 2, `POCKPT02`; format 1 was read until Phase 8a, which refuses it by name: a state store holding one is deleted and rebuilt, and open replays from genesis). Verdicts,
 state roots and fork choice are unchanged, and PR7 adds no refusal of any block: it is a `neutral` change of the
 consensus lock (VA-SPEC §2.3).
 
@@ -980,7 +980,7 @@ one. Released: anchors that are no longer canonical, every anchor with `h < floo
 but the newest one with `h + lag ≤ head` and those above it. At most `N_A = ⌈(lag − K_hist)/rk⌉ + 2` are held
 (**4** at the defaults), each one stored version (`held_runs` gains N_A runs of 1, counted in `stored_versions` and
 `state_file_parts`). A rebuild starts at the nearest anchor, at most `lag + rk` blocks plus the branch below the
-head. With no anchor (whole-state mode, a format-1 migration, a head drop beyond the anchors) it walks from genesis
+head. With no anchor (whole-state mode, a state store rebuilt at open, a head drop beyond the anchors) it walks from genesis
 through the index and journal, holding only the last `max(257, E_win + 1)` restored entries (`Chain::shadow`).
 
 **Changed terms** (`derive`). `resident = min(H_END + 1, E + 2)`, and `E + 2` for a continuous chain. Every
@@ -1082,15 +1082,15 @@ every ROLL_SAMPLE (256) records; and in store mode the KEPT snapshots it decodes
 The model is 160 B a record; tests/open_transient.rs measured about 89 B a record with eviction off and 107 B by
 default. It is checked before the journal pass builds the tables, at the count the commit file gives, and again
 exactly after the pass (which may add one uncommitted record). On failure: `LOCAL CAPACITY at open: the journal's N
-records need … B of replay tables …`. A format-1
-checkpoint is restored whole once (`migration_fits`: entries × (slim_entry + 80), the KEPT checkpoints' bytes at
-REC_MAX an entry and the one snapshot open decodes at a time, beside the model and the transient). If it does not fit, open replays from genesis, which now holds only the window.
+records need … B of replay tables …`. Until Phase 8a a format-1
+checkpoint was restored whole once (`migration_fits`: entries × (slim_entry + 80), the KEPT checkpoints' bytes at
+REC_MAX an entry and the one snapshot open decodes at a time, beside the model and the transient), and open replayed from genesis when it did not fit. Phase 8a removes that migration and the `migration_fits` term: a format-1 checkpoint is refused at decode, the state store is deleted and rebuilt, and open replays from genesis, which holds only the window.
 
 **CONDITIONS.** New: `canon-redb-representation` (canon.redb relies on the same redb behaviour as history.redb and
 on HISTORY_FILE_FACTOR; the allocator terms are over observed sizes) and `serving-io` (GetRange/GetFrom below the
 window read the index and journal on the consensus thread, bounded per request by `offer` and one index read per locator hash not
 in memory, at most the wire's 32, with no per-peer rate limit). `cpu-and-timing` is narrowed: a store-mode rebuild starts at an anchor, and it stays
-O(height) in whole-state mode, with eviction off, after a lost index or format-1 migration, and after a head drop
+O(height) in whole-state mode, with eviction off, after a lost index or a rebuilt state store (before Phase 8a also a format-1 migration), and after a head drop
 beyond the anchors. `open-replay-transient` is restated: the tables are counted and checked at open.
 
 ## 3. System gas (R18) and timing (R14/R19)
@@ -1741,7 +1741,7 @@ term. FN-3b must lower the default (the tests switch it on explicitly), and the 
 
 FN-3b takes the type-2, kind-3 and `late_offer` owners from the member records (`chain::CheckedOwners` over
 `LazyOwners`: the owner memo, else `Chain::assignment_of`) and removes `Entry.ranges`, `BlockBytes::ranges_of`,
-`checkpoint::Source::ranges`, history.redb's ranges table (deleted at open, in the open's own write transaction) and
+`checkpoint::Source::ranges`, history.redb's ranges table (deleted at open, in the open's own write transaction, until Phase 8a; since then a history.redb that still holds the table is of a retired format, set aside and rebuilt by replay) and
 `History::ranges`. Removed terms:
 - the per-block `64·M_max` of the nonce ranges (4,096 B at the devnet's M_max 64, 640,000 B at 10,000), in every
   entry-equivalent the model counts (offloaded and slimmed metadata, the window, the shadow, the reload, the views, the
