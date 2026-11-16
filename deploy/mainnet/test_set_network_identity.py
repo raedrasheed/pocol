@@ -160,7 +160,8 @@ KEPT = {
 # Shipped with the packages, so the identity-switch release replaces or bumps them (Phase 7 bumps the versions):
 # while the tree pins a retired network each holds its pattern (the old release's version, or text that is true only
 # on the retired network); once it pins a network that is not retired none may. A version bump before the switch
-# removes its entry here.
+# removes its entry here, as does a file that stops holding the version (five-device-build.yml reads it from
+# package.py since Phase 7).
 STEP3 = {
     'deploy/standalone/package.py': re.compile(r"version\s*=\s*'0\.4\.0'"),
     'deploy/standalone/README.md': re.compile(r'Wallet 0\.4\.0|retain their genesis'),
@@ -168,17 +169,13 @@ STEP3 = {
     'deploy/standalone/linux-desktop/install-desktop-icon.sh': re.compile(r'0\.4\.0'),
     'prototypes/pocol-windows/Wallet.cs': re.compile(r'Assembly(?:File)?Version\("0\.4\.0\.0"\)'),
     'prototypes/pocol-windows/Wallet.xaml': re.compile(r'PoCol Wallet · 0\.4\.0'),
+    # 0.5.0 is decided, but the version moves with the signed release and its download links (the websites' check,
+    # deploy/websites/tools/site_identity.py, requires the links to name the package.json version).
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
-    'prototypes/pocol-extension/README-IDE.md': re.compile(
-        r'(?m)^# PoCol Studio, IDE & Viewer 0\.4\.1|chain ID and genesis remain unchanged'),
-    'prototypes/pocol-extension/README-STUDIO.md': re.compile(
-        r'(?m)^# PoCol Studio extension — 0\.4\.1|its chain ID and genesis are unchanged'),
-    'prototypes/pocol-extension/README-AR.md': re.compile(r'الإصدار 0\.4\.[01]|ومعرّف الشبكة وكتلة التكوين كما هي'),
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
     'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
     'prototypes/pocol-android/app/build.gradle': re.compile(r"versionName '0\.4\.0'"),
-    '.github/workflows/five-device-build.yml': re.compile(r'0\.4\.0'),
 }
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED]
 
@@ -460,7 +457,7 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_line_endings_are_kept(self):
         root = self.copy()
-        rel = 'deploy/rewards/gateway.py'
+        rel = 'README.md'
         crlf = (root / rel).read_bytes().replace(b'\n', b'\r\n')
         (root / rel).write_bytes(crlf)
         self.assertEqual(self.run_tool(root), 0)
@@ -533,7 +530,7 @@ class SetNetworkIdentity(unittest.TestCase):
         for extra in (f'# {HASH_A}\n', f'# {SPEC_A.hex()}\n'):
             with self.subTest(extra=extra[:20]):
                 root = self.copy()
-                rel = 'deploy/rewards/gateway.py'
+                rel = 'README.md'
                 # It still holds its table's copies of the current identity, but after the switch it would hold one
                 # copy of the given genesis hash (or GenesisSpec) more than its table allows.
                 (root / rel).write_text((root / rel).read_text(encoding='utf-8') + extra, encoding='utf-8')
@@ -566,7 +563,7 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_a_file_that_already_holds_the_given_hash_is_refused(self):
         root = self.copy()
-        rel = 'deploy/rewards/gateway.py'
+        rel = 'README.md'
         text = (root / rel).read_text(encoding='utf-8')
         (root / rel).write_text(re.sub(CUR_GENESIS, HASH_A[2:], text, flags=re.IGNORECASE), encoding='utf-8')
         before = self.snapshot(root)
@@ -586,7 +583,7 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_a_hash_inside_longer_hex_is_neither_counted_nor_changed(self):
         root = self.copy()
-        rel = 'deploy/rewards/gateway.py'
+        rel = 'README.md'
         # The hash with hex digits after or before it, and the chain ID inside longer words and numbers.
         longer = f'# 0x{CUR_GENESIS}ab ab{CUR_GENESIS} {CUR_CHAIN}0 x{CUR_CHAIN} {CUR_CHAIN}_1\n'
         (root / rel).write_text((root / rel).read_text(encoding='utf-8') + longer, encoding='utf-8')
@@ -607,7 +604,7 @@ class SetNetworkIdentity(unittest.TestCase):
     def test_upper_case_copies_and_inputs_are_switched(self):
         root = self.copy()
         # A copy of the hash and of the GenesisSpec in upper case still counts, and is switched.
-        for rel, old in (('deploy/rewards/gateway.py', CUR_GENESIS), (ni.ANCHOR, CUR_SPEC.hex())):
+        for rel, old in (('README.md', CUR_GENESIS), (ni.ANCHOR, CUR_SPEC.hex())):
             text = (root / rel).read_text(encoding='utf-8')
             self.assertIn(old, text)
             (root / rel).write_text(text.replace(old, old.upper()), encoding='utf-8')
@@ -789,7 +786,7 @@ class SetNetworkIdentity(unittest.TestCase):
         else:
             self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
         # The detector works: each pattern finds the text it names on the retired release's tree.
-        self.assertIsNotNone(STEP3['prototypes/pocol-extension/README-STUDIO.md'].search('its chain ID and genesis are unchanged'))
+        self.assertIsNotNone(STEP3['prototypes/pocol-studio/dist/app.js'].search('PoCol-Studio-IDE-Viewer-0.4.1.zip'))
 
 if __name__ == '__main__':
     unittest.main()

@@ -1,11 +1,11 @@
-name: PoCol Mainnet 0.4.0 native release packages
+name: PoCol Mainnet native release packages
 on:
   pull_request:
-    branches: [main, codex/public-network-operations, work/branding-20261031]
-    paths: ['prototypes/**', 'deploy/standalone/**', '.github/workflows/five-device-build.yml']
+    branches: [main]
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/five-device-build.yml']
   push:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', '.github/workflows/five-device-build.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/five-device-build.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -33,6 +33,9 @@ jobs:
           persist-credentials: false
           # origin/main for the consensus lock's append-only check.
           fetch-depth: 0
+      - name: Read the release version (deploy/standalone/package.py, its only definition)
+        shell: bash
+        run: echo "POCOL_VERSION=$(python deploy/standalone/package.py --version | tr -d '\r')" >> "$GITHUB_ENV"
       - name: Consensus lock is append-only against main
         if: runner.os == 'Linux'
         shell: bash
@@ -78,12 +81,16 @@ jobs:
             grep -F "enable caps-test through pocold's feature" "$RUNNER_TEMP/caps-only.log"
           fi
           python deploy/standalone/test_launcher.py -v
-          python deploy/standalone/test_upgrade.py -v
+          python deploy/standalone/test_initialize_network.py -v
           python deploy/standalone/test_launcher.py --integration
           python deploy/standalone/test_wallet.py
           cargo +1.99.1 test --locked --release --test consensus continuous_admission --manifest-path prototypes/pocold/Cargo.toml
           cargo +1.99.1 test --locked --release --test consensus final_ --manifest-path prototypes/pocold/Cargo.toml
           cargo +1.99.1 test --locked --release --lib --manifest-path prototypes/lp4-execution/Cargo.toml
+      - name: Genesis ceremony dry run (FN-7) admits the committed profiles, without contacting any server
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: ./deploy/standalone/test_initialize_network.ps1
       - name: Package explicit public allowlist
         shell: bash
         run: |
@@ -99,7 +106,7 @@ jobs:
           TMPDIR="$RUNNER_TEMP" python3 -B prototypes/pocold/tests/e2e_mixed_release.py
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: PoCol-Mainnet-0.4.0-${{ runner.os }}-${{ env.EXPECTED_COMMIT }}
+          name: PoCol-Mainnet-${{ env.POCOL_VERSION }}-${{ runner.os }}-${{ env.EXPECTED_COMMIT }}
           path: dist/
           retention-days: 30
   android:
@@ -113,6 +120,9 @@ jobs:
         with:
           ref: ${{ env.EXPECTED_COMMIT }}
           persist-credentials: false
+      - name: Read the release version (deploy/standalone/package.py, its only definition)
+        shell: bash
+        run: echo "POCOL_VERSION=$(python deploy/standalone/package.py --version | tr -d '\r')" >> "$GITHUB_ENV"
       - name: Set up fixed toolchain versions
         shell: bash
         run: |
@@ -133,37 +143,20 @@ jobs:
           export PATH="$JAVA_HOME/bin:$PATH"
           bash deploy/standalone/build-android.sh
           apk=prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk
-          badging=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk")
-          printf '%s\n' "$badging" | grep -F "package: name='org.pocol.node' versionCode='5' versionName='0.4.0'"
           if "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify "$apk"; then
-            echo 'Release must remain unsigned until the existing app signer is supplied.' >&2
+            echo 'The release stays unsigned until the owner signs it with the release key.' >&2
             exit 1
           fi
           python deploy/standalone/package.py --platform Android --out dist
-      - name: Build the new-key app under its own application id (V3-33)
-        shell: bash
-        run: |
-          set -euo pipefail
-          export JAVA_HOME="$JAVA_HOME_17_X64"
-          export PATH="$JAVA_HOME/bin:$PATH"
-          # A build for a new signing key cannot update org.pocol.node; it is another app that installs beside it.
-          gradle --no-daemon -p prototypes/pocol-android assembleRelease -PpocolApplicationId=org.pocol.wallet
-          apk=prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk
+          # The one application id: the APK's id, versionCode and versionName are the ones release-info states (read
+          # from build.gradle), and its launcher label is PoCol Wallet.
+          expected=$(python -c "import json; r=json.load(open('dist/release-info.json')); print(f\"package: name='{r['applicationId']}' versionCode='{r['versionCode']}' versionName='{r['version']}'\")")
+          case "$expected" in "package: name='org.pocol.wallet' "*) ;; *) echo "unexpected application: $expected" >&2; exit 1 ;; esac
           badging=$("$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$apk")
-          printf '%s\n' "$badging" | grep -F "package: name='org.pocol.wallet' versionCode='5' versionName='0.4.0'"
-          printf '%s\n' "$badging" | grep -F "application-label:'PoCol Wallet (new)'"
-          if gradle --no-daemon -q -p prototypes/pocol-android help -PpocolApplicationId=Not.A.Package; then
-            echo 'An invalid application id must be refused.' >&2
-            exit 1
-          fi
-          python deploy/standalone/package.py --platform Android --android-application-id org.pocol.wallet --out dist-wallet
+          printf '%s\n' "$badging" | grep -F "$expected"
+          printf '%s\n' "$badging" | grep -F "application-label:'PoCol Wallet'"
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
         with:
-          name: PoCol-Mainnet-0.4.0-Android-arm64-UNSIGNED-${{ env.EXPECTED_COMMIT }}
+          name: PoCol-Mainnet-${{ env.POCOL_VERSION }}-Android-arm64-UNSIGNED-${{ env.EXPECTED_COMMIT }}
           path: dist/
-          retention-days: 30
-      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
-        with:
-          name: PoCol-Wallet-0.4.0-Android-arm64-org.pocol.wallet-UNSIGNED-${{ env.EXPECTED_COMMIT }}
-          path: dist-wallet/
           retention-days: 30

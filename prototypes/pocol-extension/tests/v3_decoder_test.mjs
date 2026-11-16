@@ -6,6 +6,7 @@ import { readFileSync, mkdtempSync, mkdirSync, cpSync, writeFileSync, rmSync, ex
 import { dirname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { createPrivateKey, createPublicKey } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { rpWindow } from './rp_fixture.mjs';
 import { applyFaults } from '../build.mjs';
@@ -16,6 +17,9 @@ const REPO = join(HERE, '..', '..', '..');
 const PLACEHOLDER_FILE = join(REPO, 'deploy', 'mainnet', 'placeholder-network.pocol.json');
 const PLACEHOLDER = JSON.parse(readFileSync(PLACEHOLDER_FILE, 'utf8'));
 const FIXTURE = join(HERE, 'identity_fixture.py');
+// A throwaway manifest key (an Ed25519 SubjectPublicKeyInfo of a fixed seed) for the packager copies below.
+const TEST_MANIFEST_KEY = createPublicKey(createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.alloc(32, 9)]), format: 'der', type: 'pkcs8' }))
+  .export({ format: 'der', type: 'spki' }).toString('base64');
 const unhex = (s) => Uint8Array.from((s.match(/../g) || []).map((x) => parseInt(x, 16)));
 
 export async function v3DecoderChecks(rel) {
@@ -151,6 +155,9 @@ function packagerChecks(rel, root, { spec2, v3Base, C }) {
     const pack = (edit = null, { switched = true, identity = true, network = null, placeholder = phText } = {}) => {
       rmSync(join(ext, 'dist'), { recursive: true, force: true }); rmSync(join(tmp, 'out.zip'), { force: true });
       cpSync(rel, join(ext, 'dist'), { recursive: true });
+      // W14: a release carries the committed owner manifest key; here a throwaway one in the copy's key slot.
+      mkdirSync(join(ext, 'release'), { recursive: true }); writeFileSync(join(ext, 'release', 'manifest-key.pub'), TEST_MANIFEST_KEY + '\n');
+      const mf = join(ext, 'dist', 'manifest.json'); writeFileSync(mf, JSON.stringify({ ...JSON.parse(readFileSync(mf, 'utf8')), key: TEST_MANIFEST_KEY }, null, 2) + '\n');
       writeFileSync(phFile, placeholder);
       if (edit) { const f = join(ext, 'dist', 'lib', 'refdec.js'); writeFileSync(f, edit(readFileSync(f, 'utf8'))); }
       // As deploy/mainnet/set_network_identity.py does at the switch, every page and README that shows the retired network

@@ -1,7 +1,7 @@
 name: Public testnet compatibility and operations
 on:
   pull_request:
-    branches: [main, codex/english-only, codex/private-testnet, codex/public-testnet-keys]
+    branches: [main]
     paths: ['prototypes/pocold/**', 'prototypes/lp1-node/**', 'prototypes/lp4-execution/**', 'deploy/public-testnet/**', '.github/workflows/public-testnet-operations.yml']
   push:
     branches: [main]

@@ -2,10 +2,12 @@
 // builds for tests only; browser.md BR-neg: "fault builds are absent from the release").
 //   node build.mjs                 -> dist/
 //   node build.mjs --fault=noDnr   -> dist-fault-noDnr/
+// The release build (dist/) carries the manifest key of release/manifest-key.pub once the owner commits it (W14), so
+// its extension id is fixed; until then it is a development build without a key. Fault builds never carry the key.
 // Fault regions in sources: /*@fault NAME*/release code/*@else*/fault code/*@end*/. The release decodes a spec-2 (v3)
 // genesis by default (refdec.js SPEC_VERSION 2), as pocold does; there is no separate preview build.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs';
-import { createHash } from 'node:crypto';
+import { createHash, createPublicKey } from 'node:crypto';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -26,6 +28,27 @@ export function testGatewayValues(testNetwork, lockMs = 15 * 60 * 1000) {
   if (!Number.isSafeInteger(lockMs) || lockMs < 1000 || lockMs > 15 * 60 * 1000) throw new Error('testGateway lockMs');
   return { network: JSON.stringify({ ...n, trustLevel: 'RN' }), lockMs: String(lockMs) };
 }
+// W14 (Q7): the release manifest key, a fixed extension id. release/manifest-key.pub holds the owner's base64 DER
+// SubjectPublicKeyInfo on its one non-comment line, or a line starting with PLACEHOLDER until the owner commits it.
+// readManifestKey returns the base64 key, or null for the placeholder; anything else is refused (the same rules as
+// scripts/package-release.py manifest_key).
+export const MANIFEST_KEY_FILE = join(HERE, 'release', 'manifest-key.pub');
+export function readManifestKey(file = MANIFEST_KEY_FILE) {
+  if (!existsSync(file)) throw new Error(`${file} is missing: it is the manifest key slot (W14), committed with a PLACEHOLDER line until the owner's key`);
+  const lines = readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
+  if (lines.length !== 1) throw new Error(`${file} must hold exactly one key line (or the PLACEHOLDER line), found ${lines.length}`);
+  if (lines[0].startsWith('PLACEHOLDER')) return null;
+  const key = lines[0];
+  const der = /^[A-Za-z0-9+/]+={0,2}$/.test(key) && key.length % 4 === 0 ? Buffer.from(key, 'base64') : null;
+  if (!der || der.toString('base64') !== key || der.length > 4096) throw new Error(`${file}: the key line is not canonical base64`);
+  let spki;
+  try { spki = createPublicKey({ key: der, format: 'der', type: 'spki' }).export({ format: 'der', type: 'spki' }); } catch (e) { throw new Error(`${file}: the key line is not a DER SubjectPublicKeyInfo (${e.message})`); }
+  if (!spki.equals(der)) throw new Error(`${file}: the key line is not a canonical DER SubjectPublicKeyInfo`);
+  return key;
+}
+/** Chrome's extension id of a manifest key: the first 128 bits of sha256(DER), each hex digit 0-f written as a-p. */
+export const extensionId = (key) => [...createHash('sha256').update(Buffer.from(key, 'base64')).digest('hex').slice(0, 32)]
+  .map((c) => String.fromCharCode(97 + parseInt(c, 16))).join('');
 const MARK = /\/\*@fault (\w+)\*\/([\s\S]*?)\/\*@else\*\/([\s\S]*?)\/\*@end\*\//g;
 export function applyFaults(text, fault) {
   return text.replace(MARK, (m, name, rel, alt) => (name === fault || (fault === 'cspOpenNoDnr' && name === 'noDnr') ? alt : rel));
@@ -44,10 +67,15 @@ export const SANDBOX_CSP = (hash, open) => open
   ? `sandbox allow-scripts allow-forms; script-src 'sha256-${hash}' blob:; style-src * blob: 'unsafe-inline'; img-src * blob: data:; font-src * blob:; media-src * blob:; connect-src *; frame-src *`
   : `sandbox allow-scripts allow-forms; default-src 'none'; script-src 'sha256-${hash}' blob:; style-src blob: 'unsafe-inline'; img-src blob: data:; font-src blob:; media-src blob:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'`;
 
-export function build({ fault = null, out, testNetwork, lockMs } = {}) {
+export function build({ fault = null, out, testNetwork, lockMs, manifestKeyFile = MANIFEST_KEY_FILE } = {}) {
   if (fault && !FAULTS.includes(fault)) throw new Error('unknown fault ' + fault);
   if ((testNetwork || lockMs) && fault !== 'testGateway') throw new Error('testNetwork and lockMs are for the testGateway build only');
   const tg = fault === 'testGateway' ? testGatewayValues(testNetwork, lockMs) : null;
+  // Only the release build carries the release key: a fault or testGateway build with it would have the release id, so
+  // loading it would replace the user's release install and its storage (the studio:wallet vault). The slot is read and
+  // checked for every build, so a malformed key fails the build at once.
+  const releaseKey = readManifestKey(manifestKeyFile);
+  const key = fault ? null : releaseKey;
   const fill = (text) => (tg ? text.replace(/\/\*@testGatewayNetwork\*\/null/g, () => tg.network).replace(/\/\*@testGatewayLockMs\*\/null/g, () => tg.lockMs) : text);
   const dist = out || join(HERE, fault ? `dist-fault-${fault}` : 'dist');
   rmSync(dist, { recursive: true, force: true }); mkdirSync(join(dist, 'lib'), { recursive: true });
@@ -76,6 +104,7 @@ export function build({ fault = null, out, testNetwork, lockMs } = {}) {
   const hash = createHash('sha256').update(loader, 'utf8').digest('base64');
   emit('sandbox.html', `<!doctype html>\n<html><head><meta charset="utf-8"><script>${loader}</script></head><body></body></html>\n`);
   const manifest = {
+    ...(key ? { key } : {}),
     manifest_version: 3,
     name: 'PoCol Studio, IDE & Viewer' + (fault ? ` [TEST FAULT ${fault}]` : ''),
     version: JSON.parse(readFileSync(join(HERE, 'package.json'), 'utf8')).version,
@@ -106,6 +135,7 @@ export function build({ fault = null, out, testNetwork, lockMs } = {}) {
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const fa = process.argv.find((a) => a.startsWith('--fault='));
   const r = build({ fault: fa ? fa.slice(8) : null });
-  console.log(JSON.stringify({ dist: r.dist, loaderSha256: r.loaderHash, csp: r.manifest.content_security_policy.sandbox }, null, 1));
+  console.log(JSON.stringify({ dist: r.dist, loaderSha256: r.loaderHash, csp: r.manifest.content_security_policy.sandbox,
+    extensionId: r.manifest.key ? extensionId(r.manifest.key) : null }, null, 1));
   if (!existsSync(join(r.dist, 'vendor', 'hashes', 'sha3.js'))) process.exit(1);
 }

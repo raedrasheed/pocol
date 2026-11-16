@@ -1,8 +1,8 @@
+# Manual dispatch only. Its pull_request trigger named a branch that no longer exists (it never ran against main);
+# dispatch it on a branch to run it, and give it a main trigger once a run there is green.
 name: LP3 integrated Windows regression
 on:
-  pull_request:
-    branches: [work/lp3-consensus-foundation]
-    paths: ['prototypes/lp1-node/**', '.github/workflows/lp3-regression.yml', '.github/scripts/lp3-s1-windows-verify.ps1']
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97
         with:

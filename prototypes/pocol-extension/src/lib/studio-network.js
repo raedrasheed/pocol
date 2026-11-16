@@ -1,4 +1,4 @@
-// Pinned identity of the existing PoCol Mainnet. Public data only.
+// Pinned identity of the PoCol Mainnet. Public data only.
 export const STUDIO_ORIGINS = Object.freeze(['https://studio.pocol.net']);
 /*@fault testGateway*/export const NETWORK/*@else*/const PINNED_NETWORK/*@end*/ = Object.freeze({
   "name": "pocol-public",

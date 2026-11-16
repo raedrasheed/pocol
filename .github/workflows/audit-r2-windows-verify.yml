@@ -8,7 +8,7 @@
 # Triggers:
 # - Manual dispatch with a required `commit` input (a full 40-character SHA). GitHub dispatches a
 #   workflow only once its file is on the default branch, so this path needs the file on `main`.
-# - Pushes to main and PRs into main or the audit-repair base from
+# - Pushes to main and PRs into main from
 #   this repository (never from a fork), when the repair paths change. The commit under test is the
 #   PR head SHA, not the merge commit. This path needs no merge into `main`.
 # The evidence (artifact audit-r2-windows-<sha>-<group>) is bound to the commit, and the run fails if the
@@ -28,7 +28,7 @@ on:
         required: true
         type: string
   pull_request:
-    branches: [main, claude/affectionate-pascal-rjhh2k]
+    branches: [main]
     types: [opened, synchronize, reopened]
     paths:
       - 'prototypes/lp1-node/**'

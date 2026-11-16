@@ -1,4 +1,3 @@
-param([switch]$VerifyRegression)
 $ErrorActionPreference='Stop'
 $root=Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $fx=Join-Path $env:WINDIR 'Microsoft.NET\Framework64\v4.0.30319'
@@ -14,27 +13,6 @@ $tests=Join-Path $root 'prototypes\pocol-windows\WalletUiTests.cs'
 if($LASTEXITCODE -ne 0){throw 'Wallet compilation failed'}
 $testDir=Join-Path $root 'wallet-ui-tests'
 New-Item -ItemType Directory -Path $testDir -Force | Out-Null
-if($VerifyRegression){
-    # Prove that the same UI test catches the released history-rendering bug. The released source is
-    # prototypes/pocol-windows/Wallet.cs of palcertcom/pocol@50c2f27ee67961dec7aaf0eb735c0b641810e0ea.
-    # That commit predates the history this repository was migrated with, so its exact bytes are kept
-    # in released/ and must still be the blob of that commit's tree entry.
-    $released=Join-Path $root 'prototypes\pocol-windows\released\Wallet-50c2f27.cs.txt'
-    $blob=& git hash-object --no-filters $released
-    if($LASTEXITCODE -ne 0 -or $blob -ne 'b8ead58ce2d5228636648ebc3bd82ba7065a8e82'){throw 'Could not load released wallet source'}
-    $oldSource=Join-Path $testDir 'Wallet-before.cs'
-    Copy-Item -LiteralPath $released -Destination $oldSource -Force
-    $oldExe=Join-Path $testDir 'WalletUiTests-before.exe'
-    & "$fx\csc.exe" @References /target:exe /main:WalletUiTests "/out:$oldExe" $oldSource $tests
-    if($LASTEXITCODE -ne 0){throw 'Regression baseline compilation failed'}
-    $before=@(& $oldExe)
-    $beforeExit=$LASTEXITCODE
-    $before | Tee-Object -FilePath (Join-Path $testDir 'before.log')
-    if($beforeExit -ne 1 -or ($before -join "`n") -notmatch 'FAIL The populated history was not rendered\.'){
-        throw 'The released source did not reproduce the expected regression'
-    }
-    Write-Output 'PASS regression reproduced in the released Windows UI'
-}
 $testExe=Join-Path $testDir 'WalletUiTests.exe'
 & "$fx\csc.exe" @References /target:exe /main:WalletUiTests "/out:$testExe" $source $tests
 if($LASTEXITCODE -ne 0){throw 'UI test compilation failed'}

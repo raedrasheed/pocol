@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { createCipheriv, pbkdf2Sync, createHmac } from 'node:crypto';
-import { build } from '../build.mjs';
+import { build, readManifestKey } from '../build.mjs';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
 import { siteFixture } from './site_fixture.mjs';
+import { devnetSpecV3Hex, devnetSpecV1Hex } from './rp_fixture.mjs';
 import { readFileSync, writeFileSync, mkdtempSync, cpSync, rmSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -65,6 +66,14 @@ await test('W3: Studio and IDE content scripts match exactly the production orig
 });
 await test('manifest grants only fixed origins, publisher in package, unlimited checkpoint storage',()=>{assert.ok(manifest.permissions.includes('unlimitedStorage'));assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.optional_host_permissions,undefined);assert.equal(manifest.content_scripts[0].all_frames,false);assert.match(readFileSync(dist+'/publisher.html','utf8'),/publisher-ui.js/);});
 
+// The decided release version is 0.5.0. It is set together with the signed release's download links, because the
+// websites' check (deploy/websites/tools/site_identity.py --check) requires every download link to name this version.
+await test('W14: the extension stays 0.4.1 until the signed 0.5.0 release moves the download links (the manifest version comes from package.json), with the committed manifest key, none while the slot is the placeholder',()=>{
+  assert.equal(JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version,'0.4.1');assert.equal(manifest.version,'0.4.1');
+  const lock=JSON.parse(readFileSync(new URL('../package-lock.json',import.meta.url),'utf8'));assert.equal(lock.version,'0.4.1');assert.equal(lock.packages[''].version,'0.4.1');
+  const key=readManifestKey();assert.equal(manifest.key,key===null?undefined:key);
+});
+
 const mock=installChromeMock();await loadWorker(dist,'studio-regressions');
 const sender={id:chrome.runtime.id,url:'https://studio.pocol.net/',frameId:0,tab:{id:17}};
 const call=(type,payload={},who=sender)=>new Promise(resolve=>{const keep=mock.listeners.message[0]({type,payload},who,resolve);if(keep!==true)resolve(undefined);});
@@ -126,72 +135,81 @@ await test('content bridge accepts only same window and exact origin, replies no
   await listener({source:{},origin:context.location.origin,data:payload});await listener({source:window,origin:'https://evil',data:payload});assert.equal(posted.length,0);
   await listener({source:window,origin:context.location.origin,data:payload});assert.equal(posted[0][0].source,'pocol-extension');assert.equal(posted[0][1],context.location.origin);
 });
-const scheduleKey='pocol:publicForkSchedule';
+// W14: the built-in profile's fork schedule is pinned by the release ([[1,'0']], what the fresh network's genesis
+// metadata carries). There is no settings operation for it, and neither storage nor RPC metadata changes it.
+const legacyScheduleKey='pocol:publicForkSchedule';
 const settingsSender={id:chrome.runtime.id,url:chrome.runtime.getURL('options.html'),frameId:0,tab:{id:31}};
-const setSchedule=(forkSchedule,who=settingsSender,extra={})=>new Promise(resolve=>mock.listeners.message[0]({type:'profiles.publicSchedule',forkSchedule,...extra},who,resolve));
 const getPublic=async()=>(await mock.send({type:'profiles.list'})).profiles.find(p=>p.name===N.NETWORK.name);
 const initialPublic=await getPublic();
-await test('built-in public schedule defaults to v1 and only top-frame extension settings can change it',async()=>{
-  assert.deepEqual(initialPublic.forkSchedule,[[1,'0']]);
-  for(const who of [sender,{...sender,url:'https://ide.pocol.net/'},{...settingsSender,url:chrome.runtime.getURL('viewer.html')},{...settingsSender,frameId:1},{id:chrome.runtime.id}])assert.equal((await setSchedule([[1,'0'],[2,'42']],who)).ok,false);
-  assert.equal(mock.storage.data.has(scheduleKey),false);
+await test('W14: the built-in profile carries the pinned schedule [[1,"0"]], also in studio.status and ide.status',async()=>{
+  assert.deepEqual(initialPublic.forkSchedule,[[1,'0']]);assert.equal(initialPublic.invalid,undefined);assert.equal(initialPublic.conflict,false);
+  assert.deepEqual((await call('studio.status')).result.network.forkSchedule,[[1,'0']]);
+  assert.deepEqual((await call('ide.status',{}, {...sender,url:'https://ide.pocol.net/'})).result.network.forkSchedule,[[1,'0']]);
 });
-await test('settings preserve exact u64 height, pinned network and existing encrypted wallet data',async()=>{
+await test('W14: the removed settings operation for the built-in schedule is refused, from the settings page too, and writes nothing',async()=>{
+  for(const who of [settingsSender,{id:chrome.runtime.id}]){
+    const r=await new Promise(resolve=>mock.listeners.message[0]({type:'profiles.publicSchedule',forkSchedule:[[1,'0'],[2,'42']]},who,resolve));
+    assert.equal(r.ok,false);assert.match(String(r.error),/unknown message/);
+  }
+  assert.equal(mock.storage.data.has(legacyScheduleKey),false);assert.deepEqual((await getPublic()).forkSchedule,[[1,'0']]);
+});
+await test('W14: a schedule saved by releases up to 0.4.1 is ignored, a corrupt one too, and install or update removes it',async()=>{
   const savedVault={schema:'pocol-studio-vault-v1',ciphertext:'opaque-test-marker'};
   await mock.storage.set({'studio:wallet':savedVault});
-  const r=await setSchedule([[1,'0'],[2,'18446744073709551615']],settingsSender,{endpoint:'https://evil.invalid',chainId:1,genesisHash:'0x00'});
-  assert.equal(r.ok,true);assert.deepEqual(r.profile.forkSchedule,[[1,'0'],[2,'18446744073709551615']]);
-  for(const key of ['name','chainId','genesisPre','genesisHash','endpoint','trustLevel','netKey'])assert.equal(r.profile[key],initialPublic[key]);
-  assert.deepEqual(mock.storage.data.get('studio:wallet'),savedVault);
-  assert.deepEqual((await getPublic()).forkSchedule,r.profile.forkSchedule);
-  assert.deepEqual((await call('studio.status')).result.network.forkSchedule,r.profile.forkSchedule);
-  assert.deepEqual((await call('ide.status',{}, {...sender,url:'https://ide.pocol.net/'})).result.network.forkSchedule,r.profile.forkSchedule);
+  for(const stale of [[[1,'0'],[2,'42']],[[1,'0'],[3,'43']],'not a schedule']){
+    await mock.storage.set({[legacyScheduleKey]:stale});
+    const pub=await getPublic();assert.equal(pub.invalid,undefined);assert.deepEqual(pub.forkSchedule,[[1,'0']]);
+    for(const key of ['name','chainId','genesisPre','genesisHash','endpoint','trustLevel','netKey'])assert.equal(pub[key],initialPublic[key]);
+    const status=await call('studio.status');assert.equal(status.ok,true);assert.deepEqual(status.result.network.forkSchedule,[[1,'0']]);
+  }
+  mock.listeners.installed[0]({reason:'update'});
+  for(let i=0;i<50&&mock.storage.data.has(legacyScheduleKey);i++)await new Promise(r=>setTimeout(r,5));
+  assert.equal(mock.storage.data.has(legacyScheduleKey),false);assert.deepEqual(mock.storage.data.get('studio:wallet'),savedVault);
 });
-await test('settings reject missing, unsafe numeric, out-of-range and unknown-version schedules without replacing the saved value',async()=>{
-  const before=mock.storage.data.get(scheduleKey);
-  for(const value of [undefined,null,[],[[1,'0'],[2,9007199254740992]],[[1,'0'],[2,'18446744073709551616']],[[1,'0'],[3,'42']],[[1,'0'],[2,'0']],[[1,'0'],[1,'42']]])assert.equal((await setSchedule(value)).ok,false);
-  assert.deepEqual(mock.storage.data.get(scheduleKey),before);
-});
-await test('aligning a trusted public schedule clears custom-profile conflicts without changing either network key',async()=>{
-  const custom={...N.NETWORK,name:'operator-local',trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule:[[1,'0'],[2,'42']]};
-  assert.equal((await mock.send({type:'profiles.add',profile:custom})).ok,true);
-  assert.equal((await getPublic()).conflict,true);
-  const result=await setSchedule(custom.forkSchedule);assert.equal(result.ok,true);assert.equal(result.profile.conflict,false);assert.equal(result.profile.netKey,initialPublic.netKey);
-  const local=(await mock.send({type:'profiles.list'})).profiles.find(p=>p.name==='operator-local');assert.equal(local.conflict,false);assert.equal(local.netKey,initialPublic.netKey);
-  await mock.send({type:'profiles.remove',name:'operator-local'});
-});
-await test('changing the built-in schedule revokes its Viewer session and pending approval; RPC metadata cannot override it',async()=>{
+await test('W14: RPC metadata advertising an activation cannot change the built-in schedule of an open Viewer session',async()=>{
   const fx=await siteFixture(dist);
-  const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x'+N.NETWORK.chainId.toString(16),pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']]})});
+  const log=installFetchMock({...fx.handlers,eth_chainId:()=> '0x'+N.NETWORK.chainId.toString(16),pocol_status:()=>({chainId:N.NETWORK.chainId,genesisHash:N.NETWORK.genesisHash,forkSchedule:[[1,'0'],[2,'1']],activeVersion:2})});
   await mock.send({type:'wallet.create',password:'studio-test-pw',seedHex:'0x'+'42'.repeat(32)});
-  const oldAddress=(await mock.send({type:'wallet.address',name:N.NETWORK.name})).address;
-  const opened=await mock.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true);
-  assert.deepEqual((await getPublic()).forkSchedule,[[1,'0'],[2,'42']]);
-  const port=mock.connect('bridge:'+opened.sessionId);
-  port.post({seq:1,frame:1,text:JSON.stringify({id:1,kind:'wallet_req',payload:{method:'eth_requestAccounts',params:[]}})});
-  await port.next(m=>m.ask!==undefined && m.q.type==='confirmAccounts');
-  assert.equal((await setSchedule([[1,'0'],[2,'43']])).ok,true);
-  const result=await port.next(m=>m.seq===1);assert.equal(result.reply.error.code,4901);
-  const revoked=await port.next(m=>m.revoked);assert.equal(revoked.revoked.code,4901);
-  await new Promise(resolve=>setTimeout(resolve,20));assert.equal(port.port.disconnected,true);
-  assert.equal((await mock.send({type:'wallet.address',name:N.NETWORK.name})).address,oldAddress);
+  const address=(await mock.send({type:'wallet.address',name:N.NETWORK.name})).address;
+  const opened=await mock.send({type:'open',name:N.NETWORK.name,site:fx.site,path:'/'});assert.equal(opened.ok,true,JSON.stringify(opened));
+  assert.deepEqual((await getPublic()).forkSchedule,[[1,'0']]);
+  assert.deepEqual((await call('studio.status')).result.network.forkSchedule,[[1,'0']]);
+  assert.equal((await mock.send({type:'wallet.address',name:N.NETWORK.name})).address,address);
   assert.equal(log.some(entry=>entry.method==='eth_sendRawTransaction'),false);
 });
-await test('failed schedule storage keeps the prior configuration and reports failure',async()=>{
-  mock.storage.failSets=1;assert.equal((await setSchedule([[1,'0'],[2,'44']])).ok,false);
-  assert.deepEqual((await getPublic()).forkSchedule,[[1,'0'],[2,'43']]);
+await test('W14: a custom profile of the built-in chain with a cap-raise schedule conflicts with the pinned one and is read-only',async()=>{
+  const custom={...N.NETWORK,name:'operator-local',trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule:[[1,'0'],[2,'42'],[3,'43']]};
+  const added=await mock.send({type:'profiles.add',profile:custom});assert.equal(added.ok,true,JSON.stringify(added));
+  const list=(await mock.send({type:'profiles.list'})).profiles;
+  assert.equal(list.find(p=>p.name==='operator-local').conflict,true);assert.equal(list.find(p=>p.name===N.NETWORK.name).conflict,true);
+  assert.deepEqual(list.find(p=>p.name===N.NETWORK.name).forkSchedule,[[1,'0']]);assert.equal(list.find(p=>p.name==='operator-local').netKey,initialPublic.netKey);
+  await mock.send({type:'profiles.remove',name:'operator-local'});
+  assert.equal((await getPublic()).conflict,false);
 });
-await test('corrupt saved public schedule fails closed and explicit settings can repair or reset it',async()=>{
-  await mock.storage.set({[scheduleKey]:[[1,'0'],[3,'43']]});
-  assert.ok((await getPublic()).invalid);assert.equal((await call('studio.status')).ok,false);
-  assert.equal((await setSchedule([[1,'0']])).ok,true);assert.deepEqual((await getPublic()).forkSchedule,[[1,'0']]);assert.equal((await getPublic()).netKey,initialPublic.netKey);
+// W13: a profile is a spec-2 genesis with nonceMode 1, as pocold admits (R24); a spec-1 or bounded-range GenesisSpec still
+// decodes but is refused as a profile with pocold's reason.
+await test('W13: a spec-1 or nonceMode-0 GenesisSpec is refused as a profile with the node\'s reason',async()=>{
+  const R=await import('../dist/lib/rlp.js'),Cr=await import('../dist/lib/crypto.js');
+  const raw=R.decode(H.fromHex('0x'+devnetSpecV3Hex()));
+  const asProfile=(name,bytes)=>{const spec=RP.decodeSpec(bytes);return {name,chainId:Number(spec.chainId),genesisPre:H.toHex(bytes),genesisHash:H.toHex(Cr.keccak(bytes)),trustLevel:'RP',endpoint:'http://127.0.0.1:8540'};};
+  const v3=R.encode(raw),v1=H.fromHex('0x'+devnetSpecV1Hex()),bounded=R.encode([raw[0],raw[1],raw[2].map((x,i)=>(i===4?R.encUint(0n):x)),raw[3],raw[4],raw[5]]);
+  assert.equal(RP.decodeSpec(v1).specVersion,1);assert.equal(RP.cpv(RP.decodeSpec(bounded),'nonceMode'),0n);
+  const ok=await mock.send({type:'profiles.add',profile:asProfile('v3-devnet',v3)});assert.equal(ok.ok,true,JSON.stringify(ok));
+  for(const [name,bytes,reason] of [['spec1-devnet',v1,/GenesisSpec version 1: the spec-1 rule set is retired; this release admits only a specVersion-2 \(v3\) genesis/],
+                                    ['bounded-devnet',bounded,/nonceMode 0: bounded nonce ranges are a retired spec-1 rule/]]){
+    const r=await mock.send({type:'profiles.add',profile:asProfile(name,bytes)});assert.equal(r.ok,false);assert.match(String(r.error?.message||r.error),reason);
+  }
+  // A stored spec-1 profile (saved by an earlier release) is listed invalid, so it is unusable.
+  const stored=structuredClone(mock.storage.data.get('profiles'));stored.push(asProfile('spec1-stored',v1));mock.storage.data.set('profiles',stored);
+  const listed=(await mock.send({type:'profiles.list'})).profiles.find(p=>p.name==='spec1-stored');assert.match(listed.invalid,/spec-1 rule set is retired/);
+  for(const name of ['v3-devnet','spec1-stored'])await mock.send({type:'profiles.remove',name});
 });
 // Every profile keys its wallet with its own netKey (D14), the built-in one included: a wallet's address belongs to
 // one network, so an extension pinned to another network gives the built-in profile that network's address, and
 // no extension update moves a custom profile's address.
 const W=await import('../dist/lib/wallet.js'),C=await import('../dist/lib/crypto.js'),{Transaction}=await import('ethers');
 const viewerSeed='0x'+'42'.repeat(32);
-const fixtureSpec=(from,to)=>{let pre=readFileSync(new URL('./data/devnet-spec.hex',import.meta.url),'utf8').trim();if(from){assert.ok(pre.includes(from));pre=pre.replace(from,to);}const spec=RP.decodeSpec(H.fromHex(pre));return {pre,chainId:Number(spec.chainId),hash:H.toHex(C.keccak(H.fromHex(pre)))};};
+const fixtureSpec=(from,to)=>{let pre='0x'+devnetSpecV3Hex();if(from){assert.ok(pre.includes(from));pre=pre.replace(from,to);}const spec=RP.decodeSpec(H.fromHex(pre));return {pre,chainId:Number(spec.chainId),hash:H.toHex(C.keccak(H.fromHex(pre)))};};
 const localProfile=(name,s,forkSchedule=[[1,'0']])=>({name,chainId:s.chainId,genesisPre:s.pre,genesisHash:s.hash,trustLevel:'RP',endpoint:'http://127.0.0.1:8540',forkSchedule});
 const walletOf=async(m,name)=>(await m.send({type:'wallet.address',name})).address;
 const keyOf=async(m,name)=>(await m.send({type:'profiles.list'})).profiles.find(p=>p.name===name).netKey;

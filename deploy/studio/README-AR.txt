@@ -14,7 +14,7 @@ PoCol Studio — تجهيز الاستضافة والاتصال
 - فعّل شهادة SSL عبر AutoSSL إذا لم تتفعّل تلقائيًا.
 
 إذا كانت DNS تُدار خارج cPanel، أضف سجل A باسم studio يشير إلى عنوان
-خادم استضافة cPanel نفسه (لا تستخدم 108.165.128.89 لصفحة Studio في هذا الخيار).
+خادم استضافة cPanel نفسه (لا تستخدم عنوان خادم البوابة <gateway-server> لصفحة Studio في هذا الخيار).
 استخدم عنوان Shared IP Address الظاهر في cPanel أو إعداد الاستضافة الموثّق؛
 لا نحزر عنوان خادم Namecheap. لا تعدّل سجلات pocol.net أو explorer أو البريد.
 
@@ -26,13 +26,14 @@ gateway.pocol.net موثوقة، والعقدة المطلوبة متاحة مح
 يجب أن يكون المنفذ المحلي 8089 متاحًا أو مستخدمًا بنسخة Studio السابقة المُدارة.
 لا يتطلب هذا المثبّت تنزيل حزم من الإنترنت؛ مكوّنات البوابة مضمّنة فيه.
 
-يوجد بالفعل نطاق gateway.pocol.net على خادم العقدة الأولى 108.165.128.89.
+يشير نطاق gateway.pocol.net إلى خادم البوابة، أي الخادم الذي يشغّل العقدة وبوابة Explorer
+(اكتب عنوانه مكان <gateway-server> في الأوامر أدناه).
 سنضيف إليه مسارًا مستقلاً: https://gateway.pocol.net/studio/rpc
 خدمة Explorer ومسارها /rpc يبقيان كما هما؛ RPC الخام على 8545 يبقى محليًا.
 
 احفظ Install-PoCol-Studio-Gateway.sh في Downloads على Windows، ثم في PowerShell:
 
-scp -F none -o IdentitiesOnly=yes -i "$env:USERPROFILE\.ssh\id_ed25519_pocol" "$env:USERPROFILE\Downloads\Install-PoCol-Studio-Gateway.sh" pocol-admin@108.165.128.89:~/
+scp -F none -o IdentitiesOnly=yes -i "$env:USERPROFILE\.ssh\id_ed25519_pocol" "$env:USERPROFILE\Downloads\Install-PoCol-Studio-Gateway.sh" pocol-admin@<gateway-server>:~/
 
 افتح اتصال SSH المعتاد بالخادم، ثم فحص دون تعديل:
 
