@@ -47,12 +47,12 @@ export const work = (t) => (1n << 256n) / (t + 1n);
  * spec-2 genesis with nonceMode 1 (Spec::effective_nonce_mode is always Unbounded), so on its networks the domain is
  * full from genesis; the bounded branch stays for decoding a spec-1 or nonceMode-0 GenesisSpec. */
 export const fullRange = (v, m) => v >= 2n || m === 1n;
-/** The one v3 predicate (V3-DESIGN §3.3; pocold Spec::v3_active, lp1-node ProfileIdentity::v3_active):
- * active_version(h) >= 3 || genesis specVersion >= 2. `forks` is a normalized local schedule
- * (forks.js). Since phase 6a pocold admits only a spec-2 (v3) genesis, so on every network it runs the spec-2 route is
- * true from genesis; fork version 3 is the cap raise (FN-5), not a route to v3. A spec-1 genesis still decodes here
- * (refdec.js), as in pocold, which refuses it at admission with its reason. */
-export const v3Active = (spec, forks, h) => (spec.specVersion ?? 1) >= 2 || activeVersion(forks, h) >= 3n;
+/** The one v3 predicate (V3-DESIGN §3.3; pocold Spec::v3_active, lp1-node ProfileIdentity::v3_active): genesis
+ * specVersion >= 2, at every height. No fork turns the v3 rules on: fork version 3 is the cap raise (FN-5), which pocold
+ * admits only on a spec-2 genesis. `forks` and `h` stay parameters, the seam for a future fork. Since phase 6a pocold
+ * admits only a spec-2 (v3) genesis; a spec-1 genesis still decodes here (refdec.js), as in pocold, which refuses it at
+ * admission with its reason. */
+export const v3Active = (spec, forks, h) => (spec.specVersion ?? 1) >= 2;
 /** Header (A08): every field, width and canonical encoding of the reference decoder before any
  * trust result (refdec.js). RP still does not establish execution or membership validity. */
 export const decodeHeader = decodeHeaderRef;

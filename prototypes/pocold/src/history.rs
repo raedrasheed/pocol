@@ -3,15 +3,13 @@
 //! (invariant I1): they are written for every validated block before its journal record (I3), can
 //! always be rebuilt by re-execution, and a damaged store is rebuilt by replay. An I/O failure stops open and preserves the store.
 //! Bodies and encoded headers stay in the journal, which is never compacted (storage.md:70).
-//! C-1 S4 added a third table, each block's nonce ranges (64 B per member and block in memory, 52 B in the file), so
-//! that an entry slimmed in memory was restored exactly (its header and ParentResult come back from its journal record).
-//! FN-3 (C6, `crate::members`) replaced it with each block's member record (`members`: its member set as a change from
-//! its parent's, or a snapshot) and each snapshot's set (`member_sets`), from which a stored block's assignment is
-//! recomputed: FN-3a wrote them beside the nonce ranges, and FN-3b removed the ranges (the table of a store written
-//! before FN-3b is deleted at open, in the open's own write transaction). All of a block's rows are written in one
-//! commit (I3). A store written before FN-3 holds no member rows: `has` is false for its blocks, so a checkpoint
-//! restore falls back to replay, whose puts refill them (the S4 path; the file is not set aside). A store written by
-//! FN-3a holds every member row: it loses its ranges table at open and nothing is rebuilt.
+//! FN-3 (C6, `crate::members`): each block's member record (`members`: its member set as a change from its parent's,
+//! or a snapshot) and each snapshot's set (`member_sets`), from which a stored block's assignment is recomputed (an
+//! entry slimmed in memory is restored exactly; its header and ParentResult come back from its journal record). All of
+//! a block's rows are written in one commit (I3). A store without a block's member rows: `has` is false for it, so a
+//! checkpoint restore falls back to replay, whose puts refill them (the file is not set aside). A store that holds the
+//! nonce ranges table (`ranges`, a format written only by the retired network's builds, before FN-3b) is never read: it
+//! is set aside and rebuilt, as a damaged one is.
 //!
 //! The store is never trusted past what it can prove. Each receipts record carries keccak(block hash ++
 //! record), a transaction index entry is checked by its reader against the block's transaction hashes,
@@ -20,7 +18,7 @@
 use std::path::{Path,PathBuf};
 use std::panic::{catch_unwind,AssertUnwindSafe};
 use std::sync::atomic::{AtomicBool,Ordering};
-use redb::{Database,Durability,TableDefinition};
+use redb::{Database,Durability,TableDefinition,TableHandle};
 use revm::primitives::{keccak256,B256};
 
 /// block hash -> keccak(block hash ++ record) ++ record; the record is the block's receipts, each
@@ -29,10 +27,8 @@ const RECEIPTS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("receipts");
 /// (tx hash ++ block hash) -> the transaction's index in that block (u32 big-endian). One key per block
 /// that holds the transaction; a reader takes the canonical one.
 const TXIDX:TableDefinition<&[u8;64],u32>=TableDefinition::new("txidx");
-/// C-1 S4 to FN-3a: block hash -> keccak(block hash ++ record) ++ record, the block's nonce ranges (each owner 20 bytes,
-/// start and end 16 bytes each, big-endian). FN-3b removed them: the table, which a store written before FN-3b holds,
-/// is deleted at open (`open`; never read or written otherwise).
-const RANGES_REMOVED:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("ranges");
+/// The name of the nonce ranges table of the retired format (before FN-3b): a store that holds it is set aside at open.
+const RETIRED_RANGES:&str="ranges";
 /// FN-3: block hash -> keccak(block hash ++ record) ++ record; the record is the block's member record with its parent's
 /// hash and its height (`members::encode_rec`).
 const MEMBERS:TableDefinition<&[u8;32],&[u8]>=TableDefinition::new("members");
@@ -46,9 +42,7 @@ pub const FILE:&str="history.redb";
 /// Written when the store was found damaged while running; the next open rebuilds the store.
 pub const DAMAGED:&str="history.redb.damaged";
 
-pub struct History{db:Database,path:PathBuf,dir:PathBuf,pub rebuilt:bool,
-    /// FN-3b: this open deleted the ranges table of a store written before FN-3b.
-    pub dropped_ranges:bool,damaged:AtomicBool}
+pub struct History{db:Database,path:PathBuf,dir:PathBuf,pub rebuilt:bool,damaged:AtomicBool}
 #[derive(Debug)]
 pub struct HistoryError(pub String);
 fn err(e:impl std::fmt::Display)->HistoryError{HistoryError(e.to_string())}
@@ -65,33 +59,32 @@ impl History{
     /// byte in an index key is caught only there), or one marked damaged, is moved aside (as
     /// `history.redb.aside`, replacing an older one) and a new store is created: replay refills it (I1).
     /// `rebuilt` tells the caller. The check reads the whole file: about 1–1.4 s per GiB measured
-    /// (evidence/c1-s1/), against the replay from genesis that open does anyway. FN-3b: the write transaction that opens
-    /// the tables also deletes the nonce ranges table a store written before FN-3b holds (`dropped_ranges`); an I/O
-    /// failure there keeps the file and fails the open, as any other (a failed write leaves the table; a failed fsync
-    /// may leave its deletion committed, and no reader reads the table either way). redb does not shrink the file.
+    /// (evidence/c1-s1/), against the replay from genesis that open does anyway. A store of the retired format (it holds
+    /// the nonce ranges table, `RETIRED_RANGES`) is set aside the same way, before any table is opened in it.
     pub fn open(dir:&Path)->Result<Self,HistoryError>{
         let path=dir.join(FILE);let marker=dir.join(DAMAGED);
-        let create=|p:&Path|->Result<(Database,bool),HistoryError>{
+        let create=|p:&Path|->Result<Database,HistoryError>{
             let mut db=catch_unwind(AssertUnwindSafe(||{let mut b=Database::builder();b.set_cache_size(HISTORY_CACHE);
                 #[cfg(feature="io-fault")] {crate::io_fault::create(&b,p)}
                 #[cfg(not(feature="io-fault"))] {b.create(p)}})).map_err(|_|HistoryError("redb panicked at open".into()))?.map_err(rerr)?;
             // Ok(false): redb found damage and repaired what it could; the store is not trusted.
             match catch_unwind(AssertUnwindSafe(||db.check_integrity())){Ok(Ok(true))=>{}Ok(Err(e))=>{let e=rerr(e);if e.is_io(){return Err(e)}return Err(HistoryError("integrity check failed".into()))}_=>return Err(HistoryError("integrity check failed".into()))}
             crate::io_point(p,"history-open-tables");
-            let dropped=catch_unwind(AssertUnwindSafe(||->Result<bool,HistoryError>{let w=db.begin_write().map_err(rerr)?;
+            catch_unwind(AssertUnwindSafe(||->Result<(),HistoryError>{let w=db.begin_write().map_err(rerr)?;
+                if w.list_tables().map_err(rerr)?.any(|t|t.name()==RETIRED_RANGES){return Err(HistoryError("history.redb of a retired format (its nonce ranges table, before FN-3b)".into()))}
                 {w.open_table(RECEIPTS).map_err(rerr)?;w.open_table(TXIDX).map_err(rerr)?;w.open_table(MEMBERS).map_err(rerr)?;w.open_table(MEMBER_SETS).map_err(rerr)?;}
-                let dropped=w.delete_table(RANGES_REMOVED).map_err(rerr)?;w.commit().map_err(rerr)?;Ok(dropped)}))
+                w.commit().map_err(rerr)}))
                 .map_err(|_|HistoryError("redb panicked at open".into()))??;
-            Ok((db,dropped))};
+            Ok(db)};
         let first=if marker.exists(){Err(HistoryError("marked damaged".into()))}else{create(&path)};
         // An I/O failure keeps the file and fails the open (review 2026-10-28, F-A); only a damaged store is set aside.
         if let Err(e)=&first{if e.is_io(){return Err(HistoryError(e.0.clone()))}}
-        let ((db,dropped_ranges),rebuilt)=match first{
+        let (db,rebuilt)=match first{
             Ok(x)=>(x,false),
             Err(_)=>{let aside=dir.join(format!("{FILE}.aside"));let _=std::fs::remove_file(&aside);let _=std::fs::rename(&path,&aside);
                 let x=create(&path)?;let _=std::fs::remove_file(&marker);(x,true)}
         };
-        Ok(Self{db,path,dir:dir.to_path_buf(),rebuilt,dropped_ranges,damaged:AtomicBool::new(false)})
+        Ok(Self{db,path,dir:dir.to_path_buf(),rebuilt,damaged:AtomicBool::new(false)})
     }
     pub fn path(&self)->&Path{&self.path}
     /// redb's full check: every page checksum and the allocator state (`Database::check_integrity`). True

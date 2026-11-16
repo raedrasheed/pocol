@@ -101,7 +101,7 @@ async function refreshQuote(note = '') {
     const tip = tipGwei ? BigInt(Math.round(Number(tipGwei) * 1e9)).toString() : fees.tip;
     if (tipGwei && !(Number(tipGwei) >= 0 && Number(tipGwei) <= 2)) throw new Error('The tip must be between 0 and 2 gwei');
     const txs = job.checkpoint ? remainingTransactions(plan, job.checkpoint, {site:job.request.site}) : undefined;
-    // Every transaction is signed already: resume under the saved approval (or, for a schema-1 checkpoint, an approval
+    // Every transaction is signed already: resume under the saved approval (or, for a job saved without one, an approval
     // that allows no further signature), so the remaining checks finish without a new budget.
     if (txs && !txs.length) quote = {...quotePublish(plan,{site:job.request.site}), quotedTransactions:0, budgetWei:'0', expectedWei:'0', ceilingWei:'1', tipWei:'0', baseNextWei:fees.baseNext,
       approval:job.approval ?? {budgetWei:'1', ceilingWei:'1', tipWei:'0', economy:false, schedule:{}}};

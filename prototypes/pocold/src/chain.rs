@@ -176,9 +176,6 @@ impl Spec{
     /// network. A `Spec` exists only from an admission (`new`), which refuses every GenesisSpec naming another sysCodeHash
     /// or CP schema (`SystemPrograms::for_spec`).
     pub fn programs(&self)->ProgramSet{ProgramSet::V3}
-    /// The earned-bond registration rules (zero-bond ACCRUING records that fill B_reg from their rewards): the V3 set's,
-    /// the only program set (`programs`), so always on.
-    pub fn earnin_rules(&self)->bool{true}
     /// Whether the v3 rules hold at height `h` (`ProfileIdentity::v3_active`): true at every height, since an admission
     /// (`new`) admits only a specVersion-2 genesis, which is v3 from genesis whatever its fork schedule.
     pub fn v3_active(&self,h:u64)->bool{self.profile().v3_active(h)}
@@ -1768,7 +1765,7 @@ impl Chain{
     /// holding (checked in debug builds), the old walk over 1..=cut changed nothing below it.
     /// C-1 S5 (PR7 §2.4, store mode): the first time the cut passes a canonical height that is a multiple of
     /// `anchor_step` (above `anchor_cursor`), the entry there keeps its stored version as an anchor. Only that forward
-    /// pass takes one: a height walked again after a rebuild lowered the cursor (a refused block's, a cutover's, an RPC
+    /// pass takes one: a height walked again after a rebuild lowered the cursor (a refused block's, a state rebuild's, an RPC
     /// state's, which a replay of the journal does not make) never becomes one, so live import and replay take the same
     /// anchors; an anchor walked again keeps its version.
     fn prune_window(&mut self){

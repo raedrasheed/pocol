@@ -34,7 +34,7 @@ def run():
         (root / 'config.json').write_text(json.dumps(cfg), encoding='utf-8')
         call('pocold', 'init-testnet', '--config', root / 'config.json', '--out', root / 'genesis')
         info = json.loads((root / 'genesis/devnet.json').read_text())
-        assert info['earnin'] is True and info['v3'] is True and info['specVersion'] == 2, info
+        assert info['v3'] is True and info['specVersion'] == 2, info
         args = ['network', '--from', root / 'genesis', '--out', root / 'network.pocol.json']
         for p in p2p: args += ['--seed', f'127.0.0.1:{p}']
         call('pocol', *args); inv = root / 'network.pocol.json'; processes = []; logs = []; w = None
@@ -45,7 +45,7 @@ def run():
                                                    '--listen', f'127.0.0.1:{p2p[i]}', '--rpc', f'127.0.0.1:{api[i]}'], stdout=log, stderr=log))
             log = open(root / 'wallet.log', 'w', encoding='utf-8'); logs.append(log); w = Wallet(homes[3], inv, log)
             s = status(w, lambda v: v['height'] >= 3 and v['peers'] > 0, 240)
-            assert s['earnIn'] is True and s['bondTarget'] == '20' and s['registryStatus'] == 'none', s
+            assert s['bondTarget'] == '20' and s['registryStatus'] == 'none', s
             assert s['balance'] == '0' and not s['topUpAvailable'] and s['appMode'] == 'wallet', s
             # The device role: wallet only by default; mining needs Wallet and miner (Settings).
             e = w.request({'method': 'quote_register'}, 'error'); assert 'wallet only' in e['message'], e
@@ -78,7 +78,7 @@ def run():
             assert any(x['hash'] == reg['hash'] and x['state'] == 'Included' for x in s['activity']), s['activity']
             assert s['bondHeld'] == '0' and s['miningEligible'] and s['topUpAvailable'], s
             # The v3 set (the only one since phase 6a): no probation deadline, the bond fills from rewards without one.
-            assert s['probationEndsAt'] is None and 'no deadline' in s['miningState'], s
+            assert 'no deadline' in s['miningState'], s
             miners = rpc(api[0], 'pocol_getMiners')
             mine = [m for m in (miners if isinstance(miners, list) else miners.get('miners', [])) if m.get('id', '').lower() == ids[3].lower()]
             assert mine and mine[0]['bond'] in ('0', '0x0', 0) and mine[0]['registeredAt'], miners

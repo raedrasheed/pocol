@@ -159,7 +159,7 @@ fn identity(spec:&GenesisSpec,forks:&[(u16,u64)])->Result<ProfileIdentity,String
     ProfileIdentity::validate(&bytes,&hash,spec.chain_id,ProfileKind::Simnet,NodeKind::Simnet,forks).map_err(|e|format!("{e:?}"))
 }
 /// alloc JSON: {"0x..":{"nonce":n,"balance":"decimal"[,"code":"0x..","storage":{"0xslot":"0xvalue"}]}}.
-/// `code` and `storage` appear only for an account that has them (a cutover genesis carries contracts), so
+/// `code` and `storage` appear only for an account that has them (a genesis allocation may carry contracts), so
 /// a balance-only allocation serializes exactly as before.
 pub fn alloc_to_json(db:&InMemoryDB)->serde_json::Value{
     let mut m=serde_json::Map::new();

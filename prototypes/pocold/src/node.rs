@@ -902,13 +902,13 @@ fn load_finality(dir:&std::path::Path)->Result<Option<(u64,[u8;32])>,String>{
 
 /// C-1 S5 (PR7 §7, review 2026-11): the record count the journal's commit file gives (its valid slot with the larger
 /// seq, as `store::open` reads it), read before the journal pass so that the replay tables are checked before the pass
-/// builds them. None when it cannot be read (no journal or commit file, a format-1 journal, no valid slot): the pass
+/// builds them. None when it cannot be read (no journal or commit file, a journal of another format, no valid slot): the pass
 /// then decides, and the exact check after it runs either way. The slot layout (store.rs's module docs) is read here,
 /// not exposed by store.rs, which is a consensus-boundary file.
 fn committed_records(dir:&std::path::Path,binding:&[u8;32])->Option<u64>{
     use std::io::Read;use sha2::{Digest,Sha256};
     let mut magic=[0u8;8];std::fs::File::open(dir.join("blocks.journal")).ok()?.read_exact(&mut magic).ok()?;if &magic!=b"POCOLJ2\n"{return None}
-    let c=std::fs::read(dir.join("blocks.commit")).ok()?;let second=match c.len(){4160=>4096,128=>64,_=>return None};
+    let c=std::fs::read(dir.join("blocks.commit")).ok()?;let second=match c.len(){4160=>4096,_=>return None};
     let slot=|s:&[u8]|{let u=|i:usize|u64::from_be_bytes(s[i..i+8].try_into().unwrap());let (seq,count,end)=(u(0),u(8),u(16));
         let mut h=Sha256::new();h.update(b"POCOL-COMMIT");h.update(binding);h.update(seq.to_be_bytes());h.update(count.to_be_bytes());h.update(end.to_be_bytes());
         (s[24..56]==h.finalize()[..]&&s[56..64].iter().all(|b|*b==0)).then_some((seq,count))};
@@ -1049,9 +1049,8 @@ impl Node{
             // The pins are reset to the checkpoints' before genesis's version is pinned for its entry.
             let t=Instant::now();let mut reset_ms=0u64;
             // Each checkpoint is decoded and checked here, then dropped, and decoded again only when it is tried below, so
-            // one decoded snapshot is alive at a time beside the KEPT checkpoints' bytes (`resources::migration_fits`
-            // counts that for a format-1 one, which holds every entry of the chain). Before, all KEPT were decoded at once
-            // and alive through the migration's restore, uncounted (review 2026-11, finding 6).
+            // one decoded snapshot is alive at a time beside the KEPT checkpoints' bytes. Before, all KEPT were decoded at
+            // once and alive through a restore, uncounted (review 2026-11, finding 6).
             let snaps:Result<Vec<(u64,Vec<u8>)>,String>=if ckpt_every>0&&!st.rebuilt&&!history.rebuilt&&history_kept{
                 st.checkpoints().map_err(|e|e.0).and_then(|c|c.into_iter().map(|(q,b,roots)|{
                     let s=crate::checkpoint::decode(&b).map_err(|e|format!("checkpoint {q}: {e}"))?;
@@ -1083,10 +1082,8 @@ impl Node{
                             // read that fails is the node's own storage failing, as in the restore below (it stops the open,
                             // nothing is dropped). Before, it returned the bare read error (review 2026-11, io-fault CI).
                             let r=if k>n_rec||end_of(k)!=b.end||roll_at(k).map_err(|e|format!("state store: checkpoint {q} could not be read: journal {e}"))?!=b.hash{Err("it is not bound to this journal's records".to_string())}
-                                // C-1 S5: a window based above height 1 needs the index rows below it; a format-1 snapshot needs
-                                // none, but restores every entry of the chain at once (the migration), which must fit.
-                                else if !s.v1&&s.canon_base>1&&(canon.rebuilt||!canon_kept){Err("the canonical index does not reach the snapshot's window (it was rebuilt or is new)".to_string())}
-                                else if let Some(e)=s.v1.then(||crate::resources::migration_fits(chain.spec.cp_max(),chain.spec.local().k_hist,chain.spec.local().side_max,&cfg.limits,cfg.peers.len(),s.entries.len() as u64,n_rec as u64).err()).flatten(){Err(e)}
+                                // C-1 S5: a window based above height 1 needs the index rows below it.
+                                else if s.canon_base>1&&(canon.rebuilt||!canon_kept){Err("the canonical index does not reach the snapshot's window (it was rebuilt or is new)".to_string())}
                                 else if s.protect.as_ref().map_or(false,|p|p.len()!=protect.len()||p.iter().any(|h|!protect.contains(h))){Err("its protect set is not the one replay had after its last record".to_string())}
                                 else{crate::checkpoint::restore(&mut chain,&s,&crate::checkpoint::JournalSource{offsets:&rec.offsets,journal:&rec.journal,records:k,history:&history,canon:&canon},&dyn_st)};
                             // 2026-10-28 (independent review F1, F2): a restore that failed because the journal or
@@ -1245,7 +1242,7 @@ impl Node{
         };
         chain.finalized_h=fin_loaded.unwrap_or(0);
         drop(evs);drop(samples);chain.protect.clear();chain.replaying=false;chain.r_keep=cfg.limits.r_keep;chain.retain_unsettled();
-        // C-1 S5: at open the window reaches its floor whatever was restored (a format-1 snapshot holds every entry):
+        // C-1 S5: at open the window reaches its floor whatever was restored:
         // batch after batch, each made durable, then the tables give back what the evicted entries held.
         {let src=Src{journal:&rec.journal,history:&history,canon:&canon};
             loop{chain.window(&src).map_err(|e|format!("open: the window: {e:?}"))?;let more=!chain.evicted_out.is_empty();flush_evicted(&mut chain,&canon).map_err(|e|format!("open: {e}"))?;
@@ -1273,7 +1270,6 @@ impl Node{
         // A file that is not canonical here is replaced; otherwise the file is rewritten only when the floor rose.
         if node.chain.finalized_h>node.fin_saved||(fin_ignored&&fin_kept==0){node.persist_finality()?;}
         if rec.torn_tail{node.log("recovered torn journal tail into a new journal");}
-        if rec.migrated_v1{node.log("migrated a fully verified v1 journal to format v2 (original kept as blocks.journal.v1-n)");}
         Ok(node)
     }
     /// Local first-import metadata, verified against the original journal

@@ -16,7 +16,7 @@ def _arg(args, name):
     return int(args[args.index(name) + 1])
 
 
-# The devnet uses the full nonce range (private_testnet.py prepare: --full-nonce), so attempts do not run
+# The devnet uses the full nonce range (a v3 devnet: nonceMode 1 from genesis), so attempts do not run
 # out of nonces. Waits that need the chain to advance are still budgeted per block, each block allowed one
 # missed attempt: the next attempt is valid only after U(a) + gamma (consensus timing windows), so such a
 # block costs D_att + gamma + 1 seconds. This matches e2e_independent_keys.py and keeps the bounded-range

@@ -277,7 +277,7 @@ fn a_devnet_booted_from_the_final_profile_mines_v3_blocks(){
     let out=built("devnet",&json(MAINNET));
     let local=testnet::local_for_network(&out.0).unwrap();assert_eq!((local.delta,local.phi,local.t_exec,local.delta_rel),(1,1,1,7));
     let spec=pocold::load_spec_for(&out.0,&local,None).unwrap();
-    assert_eq!(spec.programs(),ProgramSet::V3);assert!(spec.v3_active(0)&&spec.earnin_rules());
+    assert_eq!(spec.programs(),ProgramSet::V3);assert!(spec.v3_active(0));
     assert_eq!(spec.profile().spec().spec_version,2);assert_eq!(spec.chain_id(),testnet::TEST_CHAIN_ID);
     let mut chain=Chain::new(spec);
     let keys:Vec<_>=(0..testnet::FOUNDERS).map(testnet::test_founder).collect();

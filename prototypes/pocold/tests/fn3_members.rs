@@ -294,27 +294,22 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     let _=std::fs::remove_dir_all(&d);
 }
 
-/// §5.9: a history.redb written before FN-3 (the C-1 S4 format: its receipts, transaction index and nonce ranges, no
-/// member tables) is not set aside: the open deletes the ranges table, a checkpoint restore finds no member rows (`has`),
-/// falls back to replay, and replay refills them. A flipped byte in a member row marks the store damaged when it is
+/// §5.9: a history.redb without member tables (its receipts and transaction index only) is not set aside: a checkpoint
+/// restore finds no member rows (`has`), falls back to replay, and replay refills them. A flipped byte in a member row marks the store damaged when it is
 /// read, and the next open rebuilds it.
 #[test] fn a_pre_fn3_history_is_refilled_by_replay_and_a_damaged_member_row_rebuilds(){
     let mut r=net();grow(&mut r,70);
     let blocks:Vec<Block>=(1..=70u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
     let d=dir("s4");
     let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}assert!(a.stats.checkpoints_written>0);pocold::checkpoint::fingerprint(&a.chain).unwrap()};
-    // The S4 format: the member tables removed (an older build never made them).
+    // The member tables removed.
     {let db=redb::Database::open(d.join(pocold::history::FILE)).unwrap();let w=db.begin_write().unwrap();
         for t in ["members","member_sets"]{let def:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new(t);assert!(w.delete_table(def).unwrap(),"{t} existed");}w.commit().unwrap();}
-    // and its nonce ranges table (S4 wrote it as FN-3a did).
-    let hist=d.join(pocold::history::FILE);assert_eq!(ranges_rows(&hist),None);
-    assert_eq!(write_3a_ranges(&hist,&r,&blocks),70);assert_eq!(ranges_rows(&hist),Some(70),"positive control: the S4 table");
     {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();
-        assert!(a.history.dropped_ranges,"the open deleted the ranges table");assert!(!a.history.rebuilt,"not set aside");assert!(a.stats.resumed_from.is_none(),"no checkpoint restores without member rows");
+        assert!(!a.history.rebuilt,"not set aside");assert!(a.stats.resumed_from.is_none(),"no checkpoint restores without member rows");
         assert!(a.stats.history_refilled>=70,"replay refilled every block ({})",a.stats.history_refilled);
         for b in &blocks{assert!(a.history.has(&b.hash()).unwrap());assert!(a.history.members(&b.hash()).unwrap().is_some());}
         assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep_node(&a);}
-    assert_eq!(ranges_rows(&hist),None,"the table is gone from the file");
     // A later open resumes from a checkpoint again.
     {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(a.stats.resumed_from.is_some());assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);}
     // A flipped byte in block 5's member record (an offloaded block: no restore holds it, a member walk reads it).
@@ -577,9 +572,9 @@ fn judge_next(r:&mut Net,node:&mut Node,old:&Block,late:&[u64],what:&str){
     drop(a);let _=std::fs::remove_dir_all(&d);
 }
 
-// ---------------- FN-3b: the ranges removed ----------------
-/// FN-3b: the nonce ranges table of a store as FN-3a (beside the member tables) or C-1 S4 (without them) wrote it: a
-/// sealed row per block (`live_ranges`, encoded as their history.rs did). Returns the rows written.
+// ---------------- Phase 8a: the retired ranges format refused ----------------
+/// The nonce ranges table as builds of the retired network (C-1 S4 to FN-3a) wrote it: a sealed row per block
+/// (`live_ranges`, encoded as their history.rs did). Returns the rows written.
 fn write_3a_ranges(file:&Path,r:&Net,blocks:&[Block])->usize{
     let db=redb::Database::open(file).unwrap();let w=db.begin_write().unwrap();
     {let def:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new("ranges");let mut t=w.open_table(def).unwrap();
@@ -587,69 +582,34 @@ fn write_3a_ranges(file:&Path,r:&Net,blocks:&[Block])->usize{
          let mut sb=h.to_vec();sb.extend_from_slice(&rg);let mut v=keccak256(&sb).to_vec();v.extend_from_slice(&rg);t.insert(&h,v.as_slice()).unwrap();}}
     w.commit().unwrap();blocks.len()
 }
-/// FN-3b: the rows of history.redb's nonce ranges table, None when the file has no such table.
+/// The rows of a history.redb's nonce ranges table, None when the file has no such table.
 fn ranges_rows(file:&Path)->Option<u64>{
     let db=redb::Database::open(file).unwrap();let r=db.begin_read().unwrap();let def:redb::TableDefinition<&[u8;32],&[u8]>=redb::TableDefinition::new("ranges");
     match r.open_table(def){Ok(t)=>Some(redb::ReadableTableMetadata::len(&t).unwrap()),Err(redb::TableError::TableDoesNotExist(_))=>None,Err(e)=>panic!("{e}")}
 }
 
-/// §5.9, 3a → 3b: a data directory written by FN-3a (its history.redb holding the nonce ranges table beside the member
-/// tables) opens on FN-3b: the open deletes the ranges table in its own write transaction (the file is not set aside,
-/// nothing is refilled, the checkpoint restores since every member row is there), the chain is the one the directory
-/// held, and the node keeps working: it imports more blocks and judges a carrier of type-2 and kind-3 evidence as the
-/// reference does. A later open finds no table to delete.
-#[test] fn a_3a_data_dir_opens_on_3b_drops_its_ranges_and_keeps_working(){
-    let mut r=net();let two=r.ids[1];grow(&mut r,70);
+/// §5.9, Phase 8a: a history.redb that holds the nonce ranges table (a format written only by the retired network's
+/// builds, before FN-3b) is never read: the open sets it aside (`history.redb.aside`, with its table) and creates a
+/// new store, which replay refills; no checkpoint is resumed from it, and the chain is the one the directory held. A
+/// later open keeps the new store.
+#[test] fn a_history_store_of_the_retired_ranges_format_is_set_aside_and_rebuilt(){
+    let mut r=net();grow(&mut r,70);
     let blocks:Vec<Block>=(1..=70u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
-    let d=dir("3a3b");let hist=d.join(pocold::history::FILE);
+    let d=dir("retired-ranges");let hist=d.join(pocold::history::FILE);
     let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{assert!(a.import(b.clone(),None).unwrap());}
-        assert!(!a.history.dropped_ranges,"a fresh store has no ranges table");assert!(a.stats.checkpoints_written>0);pocold::checkpoint::fingerprint(&a.chain).unwrap()};
-    assert_eq!(ranges_rows(&hist),None,"FN-3b writes no ranges");
-    assert_eq!(write_3a_ranges(&hist,&r,&blocks),70);assert_eq!(ranges_rows(&hist),Some(70),"positive control: FN-3a's table");
-    {let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();
-        assert!(a.history.dropped_ranges,"the open deleted the ranges table");assert!(!a.history.rebuilt,"not set aside");
-        assert!(a.stats.resumed_from.is_some(),"the checkpoint restores: every member row is there");assert_eq!(a.stats.history_refilled,0,"nothing refilled");
-        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live,"the chain the directory held");
+        assert!(!a.history.rebuilt);assert!(a.stats.checkpoints_written>0);pocold::checkpoint::fingerprint(&a.chain).unwrap()};
+    assert_eq!(ranges_rows(&hist),None,"a store of this network writes no ranges");
+    assert_eq!(write_3a_ranges(&hist,&r,&blocks),70);assert_eq!(ranges_rows(&hist),Some(70),"positive control: the retired table");
+    {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();
+        assert!(a.history.rebuilt,"the retired store is set aside");assert!(a.stats.resumed_from.is_none(),"no checkpoint is resumed beside a rebuilt history");
+        assert!(a.stats.history_refilled>=70,"replay refilled every block ({})",a.stats.history_refilled);
         for b in &blocks{assert!(a.history.has(&b.hash()).unwrap());}
-        members_sweep::sweep_node(&a);
-        // It keeps working: more blocks, then a carrier judged as the reference judges it.
-        grow(&mut r,90);for h in 71..=90u64{let e=entry_at(&r.chain,h);assert!(a.import(Block{header:e.header.clone(),body:e.body.clone()},None).unwrap());}
-        let bt=mine(&r,r.chain.head,vec![],vec![],Some(two));accept(&mut r,&bt);assert!(a.import(bt.clone(),None).unwrap());let late=omitted(&r,&bt,two);assert!(late.len()>=2);
-        let old=Block{header:entry_at(&r.chain,40).header.clone(),body:entry_at(&r.chain,40).body.clone()};
-        judge_next(&mut r,&mut a,&old,&late[..2],"after the 3a store's ranges were dropped");}
-    assert_eq!(ranges_rows(&hist),None,"the table is gone from the file");
-    {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(!a.history.dropped_ranges&&!a.history.rebuilt);assert_eq!(a.chain.head,r.chain.head);members_sweep::sweep_node(&a);}
+        assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live,"the chain the directory held");members_sweep::sweep_node(&a);}
+    assert_eq!(ranges_rows(&d.join(format!("{}.aside",pocold::history::FILE))),Some(70),"the retired store is kept aside with its table");
+    assert_eq!(ranges_rows(&hist),None,"the new store holds no ranges");
+    {let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(!a.history.rebuilt);assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);}
     let _=std::fs::remove_dir_all(&d);
 }
-
-/// §5.9 (io-fault), 3a → 3b: an I/O error in the open's write transaction, which deletes FN-3a's ranges table, fails the
-/// open and keeps the file (nothing set aside, nothing rebuilt). A failed write leaves the ranges as they were; a failed
-/// fsync comes after the commit's pages were written, so the file holds the store either as it was or with the table
-/// deleted (both are a valid store: no reader reads the table). The next open deletes what is left and restores.
-#[cfg(feature="io-fault")]
-#[test] fn an_io_fault_deleting_the_3a_ranges_keeps_the_file_and_its_ranges(){
-    use pocold::io_fault::{self,Op};
-    let mut r=net();grow(&mut r,20);
-    let d=dir("iof3b");let blocks:Vec<Block>=(1..=20u64).map(|h|{let e=entry_at(&r.chain,h);Block{header:e.header.clone(),body:e.body.clone()}}).collect();
-    let live={let mut a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();for b in &blocks{a.import(b.clone(),None).unwrap();}pocold::checkpoint::fingerprint(&a.chain).unwrap()};
-    let hist=d.join(pocold::history::FILE);
-    for op in [Op::Write,Op::Sync]{
-        if ranges_rows(&hist).is_none(){write_3a_ranges(&hist,&r,&blocks);}let size=std::fs::metadata(&hist).unwrap().len();
-        io_fault::arm(&hist,"history-open-tables",op);
-        let e=match Node::open(conf(&d,store(),None),spec_of(&r.cfg)){Err(e)=>e,Ok(_)=>panic!("the open succeeded")};
-        let fired=io_fault::fired(&hist);io_fault::disarm(&hist);assert!(!fired.is_empty(),"positive control: the fault fired");
-        assert!(e.contains("I/O failure"),"{e}");assert!(hist.exists()&&std::fs::metadata(&hist).unwrap().len()>=size,"the file is kept");
-        assert!(!d.join(format!("{}.aside",pocold::history::FILE)).exists(),"not set aside");
-        let left=ranges_rows(&hist);
-        if op==Op::Write{assert_eq!(left,Some(20),"a failed write: the ranges are still there");}else{assert!(matches!(left,Some(20)|None),"a failed fsync: as it was, or deleted whole: {left:?}");}
-    }
-    if ranges_rows(&hist).is_none(){write_3a_ranges(&hist,&r,&blocks);}
-    let a=Node::open(conf(&d,store(),None),spec_of(&r.cfg)).unwrap();assert!(a.history.dropped_ranges&&!a.history.rebuilt);
-    // 20 blocks, no checkpoint yet (every 64): the open replays, and every block's rows are there (nothing refilled).
-    assert_eq!(a.stats.history_refilled,0,"nothing refilled");assert_eq!(pocold::checkpoint::fingerprint(&a.chain).unwrap(),live);members_sweep::sweep_node(&a);
-    drop(a);assert_eq!(ranges_rows(&hist),None);let _=std::fs::remove_dir_all(&d);
-}
-
 
 /// §5.8: a snapshot by overflow, on a v3 genesis whose delta_max (REG_OPS 16 + R_react + E_max 4) exceeds DELTA_CAP: R_react
 /// 40 (no gate rule bounds the sum). Forty genesis members; alice funds 36 of them (block 2), which deregister in blocks 3..5

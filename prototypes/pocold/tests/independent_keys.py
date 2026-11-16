@@ -132,8 +132,9 @@ class IndependentKeys(unittest.TestCase):
             self.assertEqual((self.root / 'plain' / name).read_bytes(), (self.root / 'stated' / name).read_bytes(), name)
         self.assertEqual(nonce_mode(self.root / 'plain'), 1, 'the full 64-bit nonce domain from genesis')
         info = json.loads((self.root / 'plain/devnet.json').read_text())
-        self.assertIs(info['fullNonce'], True)
         self.assertEqual((info['specVersion'], info['v3']), (2, True))
+        for retired in ('fullNonce', 'continuous', 'earnin'):
+            self.assertNotIn(retired, info, retired)
         for name, extra in (('full', {'fullNonce': True}), ('bounded', {'fullNonce': False}), ('cont', {'continuous': True}),
                             ('earn', {'earnin': True}), ('spec1', {'v3': False})):
             result = self.init({**config, **extra}, name)
@@ -141,15 +142,11 @@ class IndependentKeys(unittest.TestCase):
             self.assertFalse((self.root / name).exists(), name)
         devnet = ['init-devnet', '--miners', 'a,b,c', '--chain-id', '777912', '--genesis-time', '1793275000']
         self.assertEqual(self.call('pocold', *devnet, '--out', self.root / 'dev').returncode, 0)
-        self.assertEqual(self.call('pocold', *devnet, '--full-nonce', '--out', self.root / 'dev-full').returncode, 0)
-        # A devnet is v3 (Phase 5a): nonceMode 1 from genesis, so --full-nonce changes nothing.
-        self.assertEqual((nonce_mode(self.root / 'dev'), nonce_mode(self.root / 'dev-full')), (1, 1))
-        for name in ('genesis.spec.hex', 'alloc.json'):
-            self.assertEqual((self.root / 'dev' / name).read_bytes(), (self.root / 'dev-full' / name).read_bytes(), name)
-        for name in ('dev', 'dev-full'):
-            info = json.loads((self.root / name / 'devnet.json').read_text())
-            self.assertIs(info['fullNonce'], True, name)
-            self.assertEqual((info['specVersion'], info['v3']), (2, True), name)
+        # A devnet is v3 (Phase 5a): nonceMode 1 from genesis.
+        self.assertEqual(nonce_mode(self.root / 'dev'), 1)
+        info = json.loads((self.root / 'dev' / 'devnet.json').read_text())
+        self.assertEqual((info['specVersion'], info['v3']), (2, True))
+        self.assertNotIn('fullNonce', info)
 
     def test_bad_genesis_inputs_never_create_output(self):
         config = self.config()

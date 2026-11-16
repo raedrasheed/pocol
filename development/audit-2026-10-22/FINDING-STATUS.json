@@ -1354,7 +1354,7 @@
      "consensus::a_damaged_or_foreign_canonical_index_is_set_aside_and_rebuilt (T13)",
      "consensus::crash_at_canon_points (T12, crash-test feature)",
      "consensus::head_drop_across_history_window_does_not_stall (T19)",
-     "consensus::a_format_1_checkpoint_migrates_to_the_window_at_open (T11)"
+     "consensus::a_format_1_checkpoint_migrates_to_the_window_at_open (T11; removed in Phase 8a with the format-1 migration, which it pinned: consensus::a_format_1_checkpoint_is_refused_by_name_and_open_replays_from_genesis pins the refusal)"
     ]
    },
    "openRelated": [
@@ -1396,12 +1396,11 @@
     "tests": [
      "consensus::canonical_entries_are_evicted_below_the_window_and_a_checkpoint_stays_the_same_size (T4: 42,046 B at 1,000 and 2,000 blocks)",
      "memory_bounds::a_snapshot_restores_at_its_window_base_from_the_block_the_index_holds_below_it",
-     "consensus::a_format_1_checkpoint_migrates_to_the_window_at_open (T11)"
+     "consensus::a_format_1_checkpoint_migrates_to_the_window_at_open (T11; removed in Phase 8a with the format-1 migration, which it pinned: consensus::a_format_1_checkpoint_is_refused_by_name_and_open_replays_from_genesis pins the refusal)"
     ]
    },
    "openRelated": [
-    "A format-1 checkpoint is restored whole once, after a headroom check; otherwise open replays from genesis",
-    "A format-1 snapshot holds no rebuild anchor; the migrated node takes its first anchors as the cut moves"
+    "Until Phase 8a a format-1 checkpoint was restored whole once, after a headroom check, and the migrated node took its first anchors as the cut moved; Phase 8a removes the migration: a format-1 checkpoint is refused by name, the state store is deleted and rebuilt, and open replays from genesis"
    ],
    "disposition": "VERIFIED (Linux, release; Windows CI not run on this branch) — owner acceptance pending"
   },

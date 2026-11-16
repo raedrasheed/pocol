@@ -1263,22 +1263,23 @@ change what the journal stores, or which blocks are valid. The derivation is A13
 - **Checkpoints are O(window).** Format 2 (`POCKPT02`) holds the window, the side blocks and genesis, with the
   window's base and the parent hash and work below it (checked against the index at restore). At R_keep 8 a
   checkpoint was 42,046 B at both 1,000 and 2,000 blocks (`PR7-CHECKPOINT-BYTES`, T1); before PR7 it grew with every
-  block. Format 1 is still read once, after a headroom check (`resources::migration_fits`). A format-1 snapshot holds
-  no rebuild anchor, so the migrated node takes its first anchors as the cut moves.
+  block. Format 1 was read once, after a headroom check (`resources::migration_fits`), until Phase 8a removed the
+  migration and the check: a format-1 checkpoint is now refused by name, the state store is deleted and rebuilt,
+  and open replays from genesis.
 - **A deep rebuild starts from an anchor or walks the disk.** In store mode with eviction on, a stored version
   every R_keep heights at or below the K_hist cut is kept as a rebuild anchor (at most 4 at the defaults). A rebuild
-  re-executes at most `2·R_keep + 2 + R_keep` blocks plus the branch. With no anchor (whole-state mode, a format-1
-  migration, a head drop beyond the anchors) the rebuild walks from genesis, one journal read and one
+  re-executes at most `2·R_keep + 2 + R_keep` blocks plus the branch. With no anchor (whole-state mode, a state store
+  rebuilt at open, a head drop beyond the anchors) the rebuild walks from genesis, one journal read and one
   history.redb read per height. Each block is checked against its parent link, height and work, and only the last
   `max(257, E_win + 1)` restored entries are held (`Chain::shadow`). That is O(height) CPU as before (§5.1), with
   O(window) memory. A restore reads each anchor's version, and the lowest one above the cut when its parent holds
   none, whole and streamed (about 17 s each at the network's state caps, so up to about 85 s at the defaults' 4
   anchors); only a version whose parent's was read is read through the diff, one block's writes. A diff from the
-  anchor below would hold up to R_keep blocks' writes at once (from genesis in a format-1 migration, every write of
-  the chain up to the state caps), which no open-time term counts (review 2026-11, finding 3).
+  anchor below would hold up to R_keep blocks' writes at once (from genesis, in the format-1 migration before Phase 8a, every write
+  of the chain up to the state caps), which no open-time term counts (review 2026-11, finding 3).
 - **When open still replays from genesis:** a lost or damaged canon.redb, history.redb or state.redb (every
-  checkpoint based above height 1 needs the index); whole-state mode (no checkpoints, as before); a journal migrated
-  from format 1 (every checkpoint fails its binding); a format-1 checkpoint that does not fit the headroom check.
+  checkpoint based above height 1 needs the index); whole-state mode (no checkpoints, as before); a state store that holds a format-1 checkpoint (since Phase 8a it
+  is deleted and rebuilt; a v1 journal is refused by name and the node does not open).
   Replay refills the index (derived data, I1).
 - **The open transient** (§3.4's obligation). Open no longer holds a second offset table or a per-record hash map.
   Per record it keeps the journal's frame offset and two sorted replay events (36 B each), and a rolling hash every
