@@ -98,7 +98,7 @@ fn check(n:&mut Node,r:&Value){
     let caps=[u128::from(cp.ACCT_CAP),u128::from(cp.SLOT_CAP),u128::from(cp.CODE_CAP),u128::from(cp.TX_CAP),u128::from(cp.TXBYTES_CAP),u128::from(pocol_lp4_execution::user_phase::caps::LOG_CAP)];
     assert_eq!(q(&r["number"]),u128::from(n.chain.head().height));assert_eq!(r["hash"],json!(hex(&n.chain.head().hash)));
     assert_eq!(r["cumulative"],json!(cp.H_END!=0));assert_eq!(r["alarmPercent"],json!(80));
-    assert_eq!(r["v3"],json!(n.chain.spec.v3_active(n.chain.head().height+1)));
+    assert_eq!(r["v3"],json!(true));
     let mut any=false;
     for (i,(name,cap)) in NAMES.iter().enumerate(){
         assert_eq!(q(&r[name]),counts[i],"{name}");assert_eq!(q(&r[cap]),caps[i],"{cap}");

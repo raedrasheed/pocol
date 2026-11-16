@@ -123,16 +123,17 @@ macro_rules! ensure_eq{($a:expr,$b:expr,$($m:tt)*)=>{{let (a,b)=(&$a,&$b);if a!=
 
 /// The program set the harness runs, and its CP: the earn-in harness CP (as the deleted earnin_contracts.rs installed
 /// it), plus the 7 schema-v2 slots, and per-run overrides.
-/// `v3`: the host conventions of the v3 program set (V3-16/V3-17: phase 0 records the parent's result before the
-/// evidence, invalidate(j, accused), punish(accused, reporter)); always set since Phase 6a deleted the earn-in set.
+/// The harness runs the host conventions of the v3 program set, the only one since Phase 6a deleted the earn-in set
+/// (V3-16/V3-17: phase 0 records the parent's result before the evidence, invalidate(j, accused), punish(accused,
+/// reporter)).
 #[derive(Clone)]
-struct Setup{registry:Bytes,escrow:Bytes,ledger:Bytes,caps:Bytes,cp_len:u64,cp:Vec<(u64,u128)>,v3:bool}
+struct Setup{registry:Bytes,escrow:Bytes,ledger:Bytes,caps:Bytes,cp_len:u64,cp:Vec<(u64,u128)>}
 impl Setup{
     /// R_react 16 (as the harness's R_max) and C_react 40 (= U, the least ParamGate admits) in CP 56/57 (tests/v3_model.py
     /// DEFAULT_CP; scenarios override them).
     fn v3()->Self{
         Self{registry:runtime(V3,"MinerRegistry"),escrow:runtime(V3,"RewardEscrow"),ledger:runtime(V3,"ShareLedger"),caps:runtime(V3,"ChainCaps"),cp_len:59,
-            cp:vec![(56,16),(57,40)],v3:true}
+            cp:vec![(56,16),(57,40)]}
     }
     /// A planted mutant in place of the program it names.
     fn with_program(mut self,program:&str,code:Bytes)->Self{match program{"MinerRegistry"=>self.registry=code,"RewardEscrow"=>self.escrow=code,"ShareLedger"=>self.ledger=code,o=>panic!("no mutant of {o}")}self}
@@ -147,7 +148,7 @@ impl Setup{
 /// settle(j) or settleFinal(j) distributed it; `final_carry`: at a final block F, the carries into pots F and F+1 just
 /// before finalize (V3-15, lagged: block F-1's and F's own settle's).
 /// `view`: the result of the last removal_status step, the removal code (FN-2b C4).
-struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>,v3:bool,origin:Address,issued:U256,
+struct Harness{db:InMemoryDB,height:u64,senders:BTreeSet<Address>,settled:BTreeMap<Address,U256>,burned:U256,start:BTreeMap<Address,U256>,origin:Address,issued:U256,
     closed:BTreeMap<u64,(U256,U256,U256,U256)>,distributed:BTreeMap<u64,U256>,final_carry:Option<(U256,U256)>,view:Option<String>}
 /// V3-15 (lagged by one block): RewardEscrow slot 4 + (t & 1) of the v3 programs holds the carry into pot t.
 fn carry_into(db:&InMemoryDB,t:u64)->U256{storage(db,escrow_address(),U256::from(4+(t&1)))}
@@ -182,7 +183,7 @@ impl Harness{
         db.accounts.get_mut(&escrow_address()).unwrap().info.balance=b();
         for d in durable{insert(&mut db,name(d),U256::ZERO,1,Bytecode::default());}
         let start=db.accounts.iter().map(|(a,x)|(*a,x.info.balance)).collect();
-        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start,v3:s.v3,origin:Address::ZERO,issued:U256::ZERO,closed:BTreeMap::new(),distributed:BTreeMap::new(),final_carry:None,view:None}
+        Harness{db,height:0,senders:BTreeSet::new(),settled:BTreeMap::new(),burned:U256::ZERO,start,origin:Address::ZERO,issued:U256::ZERO,closed:BTreeMap::new(),distributed:BTreeMap::new(),final_carry:None,view:None}
     }
     /// One SYSTEM call at the current height with tx.origin = self.origin, through FORWARDER. The origin's nonce and
     /// the SYSTEM account are restored afterwards, so the call leaves only its own effects.
@@ -204,14 +205,12 @@ impl Harness{
         let known=["BadCalldata","BadState","BadPending","BadSystemCall","Unauthorized","BadPhase","HeightOverflow","PaymentFailed"];
         Err(known.iter().find(|k|selector(&format!("{k}()"))==out).map(|k|k.to_string()).unwrap_or(format!("{what}: {:?} {out:?}",r.result)))
     }
-    /// punish as the host calls it on this program set: v3 `punish(accused, reporter)` with the reporter = tx.origin,
-    /// spec-1 `punish(accused)`.
+    /// punish as the host calls it on this program set: v3 `punish(accused, reporter)` with the reporter = tx.origin.
     fn punish_call(&mut self,accused:Address)->Result<(),String>{
-        if self.v3{let mut d=with_arg("punish(address,address)",Some(accused));d.extend(self.origin.into_word());self.sys("punish",registry_address(),d)}
-        else{self.sys("punish",registry_address(),with_arg("punish(address)",Some(accused)))}
+        let mut d=with_arg("punish(address,address)",Some(accused));d.extend(self.origin.into_word());self.sys("punish",registry_address(),d)
     }
-    /// Phase 0 of block h (tests/v3_model.py Chain.begin): v3 records the parent's result first, then the evidence;
-    /// the spec-1 host runs the evidence first. A revert invalidates the block: the state is restored.
+    /// Phase 0 of block h (tests/v3_model.py Chain.begin): v3 records the parent's result first, then the evidence.
+    /// A revert invalidates the block: the state is restored.
     fn begin(&mut self,step:&serde_json::Value)->Result<Option<String>,String>{
         let op=step["op"].as_array().unwrap();let h:u64=op[1].as_str().unwrap().parse().unwrap();let proposer=op[2].as_str().unwrap();
         ensure!(h==self.height+1,"begin {h} after {}",self.height);
@@ -233,7 +232,7 @@ impl Harness{
             let mut data=selector("recordResult(uint256,address)");data.extend(U256::from(h-1).to_be_bytes::<32>());data.extend(winner.into_word());
             x.sys("recordResult",escrow_address(),data)
         };
-        if self.v3{record(self)?;}
+        record(self)?;
         for e in step["evidence"].as_array().unwrap(){
             // V3-02: a late credit is recordLate(j, owners) (selector absent from the earn-in programs: the call reverts).
             if e[0]=="late"{
@@ -243,24 +242,20 @@ impl Harness{
                 for a in &owners{data.extend(a.into_word());}
                 self.sys("recordLate",registry_address(),data)?;continue
             }
-            // The spec-1 host has no reporter: punish(accused) whatever the evidence names.
             let accused=name(e[0].as_str().unwrap());let reporter=e[2].as_str().unwrap();
             if let Some(j)=e[1].as_u64(){
                 if !pot(&self.db,j).1.is_zero(){
-                    let mut data=selector(if self.v3{"invalidate(uint256,address)"}else{"invalidate(uint256)"});data.extend(U256::from(j).to_be_bytes::<32>());
-                    if self.v3{data.extend(accused.into_word());}
+                    let mut data=selector("invalidate(uint256,address)");data.extend(U256::from(j).to_be_bytes::<32>());
+                    data.extend(accused.into_word());
                     self.sys("invalidate",escrow_address(),data)?;
                 }
             }
-            if self.v3{
-                // The reporter the evidence names (the honest host passes the proposer; the vectors also try others).
-                let mut data=with_arg("punish(address,address)",Some(accused));data.extend((if reporter.is_empty(){Address::ZERO}else{name(reporter)}).into_word());
-                self.sys("punish",registry_address(),data)?;
-            }else{self.punish_call(accused)?;}
+            // The reporter the evidence names (the honest host passes the proposer; the vectors also try others).
+            let mut data=with_arg("punish(address,address)",Some(accused));data.extend((if reporter.is_empty(){Address::ZERO}else{name(reporter)}).into_word());
+            self.sys("punish",registry_address(),data)?;
         }
         self.sys("markClose",registry_address(),selector("markClose()"))?;
         self.sys("pruneShares",ledger(),selector("pruneShares()"))?;
-        if !self.v3{record(self)?;}
         if h>cp_d{
             self.distributed.insert(h-cp_d,pot(&self.db,h-cp_d).0);
             let mut data=selector("settle(uint256)");data.extend(U256::from(h-cp_d).to_be_bytes::<32>());self.sys("settle",escrow_address(),data)?;
@@ -275,16 +270,16 @@ impl Harness{
     }
     /// Phase 2 of the current block, as the host runs it on this program set. V3-19/V3-20 (v3): the host credits
     /// issuance(h) of lp4-execution issuance.rs (S0 = CP 15, H_half = CP 52, S_tail = CP 53) and calls closeBlock(tips,
-    /// issued); the spec-1 host credits CP 15 and calls closeBlock(tips). Returns the issuance.
+    /// issued). Returns the issuance.
     fn close(&mut self,h:u64,tips:U256)->Result<U256,String>{
         ensure!(h==self.height,"close {h} at {}",self.height);
         let cp=|n:u64|storage(&self.db,caps(),U256::from(n));
-        let issued=if self.v3{pocol_lp4_execution::issuance::issuance(h,cp(15),cp(52).to::<u64>(),cp(53))}else{cp(15)};
+        let issued=pocol_lp4_execution::issuance::issuance(h,cp(15),cp(52).to::<u64>(),cp(53));
         self.db.accounts.get_mut(&escrow_address()).unwrap().info.balance+=issued;self.issued+=issued;
         self.pay_tips(tips);
         let carry=carry_into(&self.db,h);
-        let mut data=selector(if self.v3{"closeBlock(uint256,uint256)"}else{"closeBlock(uint256)"});data.extend(tips.to_be_bytes::<32>());
-        if self.v3{data.extend(issued.to_be_bytes::<32>());}
+        let mut data=selector("closeBlock(uint256,uint256)");data.extend(tips.to_be_bytes::<32>());
+        data.extend(issued.to_be_bytes::<32>());
         self.sys("closeBlock",escrow_address(),data).map_err(|e|format!("closeBlock at {h}: {e}"))?;
         self.closed.insert(h,(issued,tips,carry,pot(&self.db,h).0));
         Ok(issued)
@@ -554,8 +549,8 @@ fn wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set(){
         // (slot 8), so an ACCRUING registration and a promotion (by topUp or accrual) each write one slot less; a
         // promoting topUp's two V3-08 slots and its missing count write net out.
         assert_eq!(writes,(10,4,5,2,3));
-        // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for an earn-in/v3 registration and
-        // REGISTRY_GAS (1,000,000) for a top-up; 200,000 is the tighter top-up bound kept from
+        // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for a v3 registration and REGISTRY_CALL_GAS
+        // (1,000,000, its gas ceiling for v3 registry maintenance calls) for a top-up; 200,000 is the tighter top-up bound kept from
         // the deleted earnin_contracts.rs, so both quotes keep their margin. The cfg() reads add only a few
         // thousand gas.
         assert!(reg_gas<=400_000&&top_gas<=200_000,"register {reg_gas}, topUp {top_gas}");
@@ -610,7 +605,7 @@ fn conserved(h:&Harness)->Result<(),String>{
         ensure!(w0>>216u32==U256::ZERO,"w0 bits 216..255 written");
         if bits(w0,0,8)!=0&&bits(w0,8,8)==0&&(st==1||st==4){held+=w2;}
     }
-    if h.v3{ensure_eq!(reg(&h.db,8),U256::ZERO,"the accruing count");ensure_eq!(reg(&h.db,10),U256::ZERO,"slot 10");}
+    ensure_eq!(reg(&h.db,8),U256::ZERO,"the accruing count");ensure_eq!(reg(&h.db,10),U256::ZERO,"slot 10");
     ensure_eq!(reg(&h.db,4),held,"held_total");
     Ok(())
 }
@@ -774,19 +769,18 @@ fn v3_registry_budgets_reproduce_the_independent_model(){
 /// evictable in the same block.
 #[test]
 fn one_identity_spamming_set_reward_address_does_not_freeze_v3_joins(){
-    for (v3,mut s) in [(true,Setup::v3())]{
-        // M_max 3: m0, s and the newcomer fill the set, where v3 removes an inactive member (FN-2b C4).
-        s.cp.extend([(23,16),(17,1),(18,3)]);
-        let mut h=Harness::new(&strs(&["x"]),&s);
-        assert_eq!(h.step(&strs(&["register","s","s",&b().to_string(),"1"])).unwrap(),None);
-        let spam:Vec<Option<String>>=(0..16).map(|_|h.step(&strs(&["set_reward","s","x","100"])).unwrap()).collect();
-        let join=h.step(&strs(&["register","n","n",&b().to_string(),"100"])).unwrap();
-        let evict=h.step(&strs(&["remove_inactive","n","s","100"])).unwrap();
-        eprintln!("v3={v3}: spam {spam:?} join {join:?} evict {evict:?}");
-        assert_eq!(spam[0],None);assert!(spam[1..].iter().all(|r|r.as_deref()==Some("RegOpsLimit")),"one maintenance operation per identity per block");
-        assert_eq!((join,evict),(None,None),"the join lands and the spammer is evicted");
-        assert_eq!(bits(h.record(name("s")).0,0,8),2,"the spammer exited");
-    }
+    let mut s=Setup::v3();
+    // M_max 3: m0, s and the newcomer fill the set, where v3 removes an inactive member (FN-2b C4).
+    s.cp.extend([(23,16),(17,1),(18,3)]);
+    let mut h=Harness::new(&strs(&["x"]),&s);
+    assert_eq!(h.step(&strs(&["register","s","s",&b().to_string(),"1"])).unwrap(),None);
+    let spam:Vec<Option<String>>=(0..16).map(|_|h.step(&strs(&["set_reward","s","x","100"])).unwrap()).collect();
+    let join=h.step(&strs(&["register","n","n",&b().to_string(),"100"])).unwrap();
+    let evict=h.step(&strs(&["remove_inactive","n","s","100"])).unwrap();
+    eprintln!("v3: spam {spam:?} join {join:?} evict {evict:?}");
+    assert_eq!(spam[0],None);assert!(spam[1..].iter().all(|r|r.as_deref()==Some("RegOpsLimit")),"one maintenance operation per identity per block");
+    assert_eq!((join,evict),(None,None),"the join lands and the spammer is evicted");
+    assert_eq!(bits(h.record(name("s")).0,0,8),2,"the spammer exited");
 }
 
 /// V3-DESIGN.md V3-09: an attacker with W_act+1 = 33 records deregisters one and reactivates another every block, its
@@ -797,27 +791,26 @@ fn one_identity_spamming_set_reward_address_does_not_freeze_v3_joins(){
 #[test]
 fn deregister_reactivate_cycle_does_not_hold_the_entry_slot_on_v3(){
     let (records,start,attack)=(33u64,40u64,40u64);let first=start+records-1;
-    for (v3,mut s) in [(true,Setup::v3())]{
-        s.cp.extend([(23,16),(17,1),(18,128)]);
-        let mut h=Harness::new(&[],&s);
-        for i in 0..records{assert_eq!(h.step(&strs(&["register",&format!("a{i}"),&format!("a{i}"),&b().to_string(),&(1+i).to_string()])).unwrap(),None);}
-        for t in start..first{assert_eq!(h.step(&strs(&["deregister",&format!("a{}",(t-start)%records),&t.to_string()])).unwrap(),None);}
-        let (mut joined,mut refused,mut reacts)=(Vec::new(),Vec::new(),Vec::new());
-        for t in first..first+attack{
-            let _=h.step(&strs(&["deregister",&format!("a{}",(t-start)%records),&t.to_string()])).unwrap();
-            reacts.push(h.step(&strs(&["reactivate",&format!("a{}",(t-start+1)%records),&t.to_string()])).unwrap());
-            match h.step(&strs(&["register",&format!("n{t}"),&format!("n{t}"),&b().to_string(),&t.to_string()])).unwrap(){
-                None=>joined.push(t),Some(e)=>{assert_eq!(e,"RegOpsLimit");refused.push(t)}
-            }
+    let mut s=Setup::v3();
+    s.cp.extend([(23,16),(17,1),(18,128)]);
+    let mut h=Harness::new(&[],&s);
+    for i in 0..records{assert_eq!(h.step(&strs(&["register",&format!("a{i}"),&format!("a{i}"),&b().to_string(),&(1+i).to_string()])).unwrap(),None);}
+    for t in start..first{assert_eq!(h.step(&strs(&["deregister",&format!("a{}",(t-start)%records),&t.to_string()])).unwrap(),None);}
+    let (mut joined,mut refused,mut reacts)=(Vec::new(),Vec::new(),Vec::new());
+    for t in first..first+attack{
+        let _=h.step(&strs(&["deregister",&format!("a{}",(t-start)%records),&t.to_string()])).unwrap();
+        reacts.push(h.step(&strs(&["reactivate",&format!("a{}",(t-start+1)%records),&t.to_string()])).unwrap());
+        match h.step(&strs(&["register",&format!("n{t}"),&format!("n{t}"),&b().to_string(),&t.to_string()])).unwrap(){
+            None=>joined.push(t),Some(e)=>{assert_eq!(e,"RegOpsLimit");refused.push(t)}
         }
-        let first_pass=reacts[..records as usize].iter().filter(|r|r.is_none()).count();
-        let later=reacts[records as usize..].iter().filter(|r|r.is_none()).count();
-        eprintln!("v3={v3}: newcomers joined {} refused {}; attacker reactivations first pass {first_pass}, later {later}",joined.len(),refused.len());
-        assert_eq!(joined,(first..first+attack).collect::<Vec<_>>(),"a newcomer registers in every block of the cycle");
-        assert_eq!(first_pass,records as usize);
-        assert_eq!(later,0,"a second reactivation within C_react reverts");
-        assert!(reacts[records as usize..].iter().all(|r|r.as_deref()==Some("BadState")));
     }
+    let first_pass=reacts[..records as usize].iter().filter(|r|r.is_none()).count();
+    let later=reacts[records as usize..].iter().filter(|r|r.is_none()).count();
+    eprintln!("v3: newcomers joined {} refused {}; attacker reactivations first pass {first_pass}, later {later}",joined.len(),refused.len());
+    assert_eq!(joined,(first..first+attack).collect::<Vec<_>>(),"a newcomer registers in every block of the cycle");
+    assert_eq!(first_pass,records as usize);
+    assert_eq!(later,0,"a second reactivation within C_react reverts");
+    assert!(reacts[records as usize..].iter().all(|r|r.as_deref()==Some("BadState")));
 }
 
 /// The seven planted V3-08/V3-09 mutants (compile_system_v3.cjs --mutants) each fail the budget vectors. The two that
@@ -907,8 +900,8 @@ fn v3_registry_write_ceilings(){
     // place of slot 3, so as many slots as on earn-in; reactivate +1 (w1 for lastReactHeight; slot 9 in place of slot 3);
     // register, deregister, removeInactive and claimBond unchanged.
     assert_eq!(v3,[10,2,7,5,6,5,10,8]);
-    // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for a registration and REGISTRY_GAS (1,000,000) for
-    // every other registry call.
+    // pocold's wallet quotes EARNIN_REGISTER_GAS (400,000) for a registration and REGISTRY_CALL_GAS (1,000,000, its gas
+    // ceiling for v3 registry maintenance calls: topUp, reactivate, a rejoin's exit) for every other registry call.
     assert!(v3_reg<=400_000&&v3_gas<=200_000,"v3 register {v3_reg}, largest other user path {v3_gas} gas");
 }
 

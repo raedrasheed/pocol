@@ -17,9 +17,8 @@ mod on_chain {
     use pocol_lp4_execution::{apply,devnet::{self,DevnetConfig},native::{self,NativeBlockContext},receipts,state_summary::Summary,txsign::Tx,user_phase::{self,Halt,PoolMeter},view::View,wire};
     use revm::{InMemoryDB,primitives::{AccountInfo,Address,B256,Bytecode,Bytes,alloy_primitives::U512}};
 
-    /// The v3 devnet (`v3` is always true: its retired spec-1 earn-in twin was deleted in phase 6a).
-    fn net(v3:bool,tune:impl FnOnce(&mut DevnetConfig))->devnet::Devnet{
-        assert!(v3,"the spec-1 twin is retired (phase 6a)");
+    /// The v3 devnet (its retired spec-1 earn-in twin was deleted in phase 6a).
+    fn net(tune:impl FnOnce(&mut DevnetConfig))->devnet::Devnet{
         let mut c=DevnetConfig::new(777938,1_800_000_000,&["execution"]);
         c.nonce_mode=1;
         tune(&mut c);devnet::build(&c).unwrap()
@@ -41,10 +40,8 @@ mod on_chain {
     impl Drop for Temp{fn drop(&mut self){let _=std::fs::remove_dir_all(&self.0);}}
     fn node_config(dir:&Temp,store:bool)->pocold::node::Config{pocold::node::Config{dir:dir.0.clone(),name:"execution-test".into(),miner:None,listen:None,rpc:None,peers:vec![],stop_at:None,log:false,
         limits:pocold::node::Limits{r_keep:4,side_cap:2,state_store:store,history_window:Some(2),slim_depth:Some(4),pool_sender_gas_max:Some(8_000_000),..Default::default()}}}
-    fn node_cfg(tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{node_cfg_spec(2,tune)}
-    /// Spec 2: the v3 devnet (its retired spec-1 earn-in twin was deleted in phase 6a).
-    fn node_cfg_spec(spec:u8,tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{
-        assert_eq!(spec,2,"the spec-1 twin is retired (phase 6a)");
+    /// The v3 devnet a node boots (its retired spec-1 earn-in twin was deleted in phase 6a).
+    fn node_cfg(tune:impl FnOnce(&mut DevnetConfig))->DevnetConfig{
         let mut c=DevnetConfig::new(777938,1_700_000_000,&["execution"]);
         c.nonce_mode=1;c.hash_rate=16;c.c=8;c.d_att=91;c.r_max=1;
         tune(&mut c);c
@@ -82,35 +79,31 @@ mod on_chain {
 
     #[test]
     fn account_creation_pays_ordinary_gas_only_in_both_domains(){
-        for v3 in [true]{
-            let n=net(v3,|c|c.acct_cap=8);let db=n.genesis.state();let before=count(db);
-            let raw:Vec<_>=(0..3).map(|i|tx(i,Some(new_address(40+i as u8)),1,vec![],21000)).collect();let o=run(&n,db,&raw);
-            assert!(o.halts().is_empty());assert_eq!(o.commitments().gas_used,63000);assert_eq!(o.log_bytes(),0);
-            for i in 0..3{assert_eq!(o.receipts()[i as usize],receipts::encode(2,true,(i+1)*21000,&[]).unwrap(),"v3={v3}: no annotation log");}
-            assert_eq!(o.commitments().logs_bloom,[0u8;256]);pays_gas_only(db,&o,3);
-            assert_eq!(count(o.state()).user_accounts,before.user_accounts+3);
-            for i in 0..3u8{assert_eq!(o.state().accounts[&new_address(40+i)].info.balance,U256::from(1));}
-        }
+        let n=net(|c|c.acct_cap=8);let db=n.genesis.state();let before=count(db);
+        let raw:Vec<_>=(0..3).map(|i|tx(i,Some(new_address(40+i as u8)),1,vec![],21000)).collect();let o=run(&n,db,&raw);
+        assert!(o.halts().is_empty());assert_eq!(o.commitments().gas_used,63000);assert_eq!(o.log_bytes(),0);
+        for i in 0..3{assert_eq!(o.receipts()[i as usize],receipts::encode(2,true,(i+1)*21000,&[]).unwrap(),"no annotation log");}
+        assert_eq!(o.commitments().logs_bloom,[0u8;256]);pays_gas_only(db,&o,3);
+        assert_eq!(count(o.state()).user_accounts,before.user_accounts+3);
+        for i in 0..3u8{assert_eq!(o.state().accounts[&new_address(40+i)].info.balance,U256::from(1));}
     }
 
-    /// The same transactions give the same receipts, gas and created units on a spec-1 and a v3 profile: without the
-    /// creation fee, v3 adds nothing to a creation (the v3 log caps only raise limits these transactions stay under).
+    /// Without the creation fee, v3 adds nothing to a creation: the transactions pay gas only (the v3 log caps only raise
+    /// limits these transactions stay under). (Before phase 6a the same three transactions ran on the spec-1 earn-in twin
+    /// and gave the same receipts, gas and created units.)
     #[test]
     fn creations_execute_on_v3_paying_gas_only(){
         let target=new_address(63);let runtime=vec![0;80];
         let raws=||vec![tx(0,Some(new_address(64)),5,vec![],21000),tx(1,None,0,init(&runtime),200000),tx(2,Some(target),0,vec![],100000)];
-        let mut outs=Vec::new();
-        for v3 in [true]{let n=net(v3,|_|{});let mut db=n.genesis.state().clone();code(&mut db,target,vec![0x60,1,0x60,0,0x55,0x60,2,0x60,1,0x55,0]);
-            let o=run(&n,&db,&raws());assert!(o.halts().is_empty(),"v3={v3}");pays_gas_only(&db,&o,5);
-            let (a,b)=(count(&db),count(o.state()));
-            outs.push((o.receipts().to_vec(),o.commitments().gas_used,b.user_accounts-a.user_accounts,b.user_slots-a.user_slots,b.inventory()-a.inventory()));}
-        // (Before phase 6a the same three transactions ran on the spec-1 earn-in twin and gave the same outputs.)
-        assert_eq!((outs[0].2,outs[0].3),(2,2),"the transfer's new account and the creation's account; the target's two slots");
+        let n=net(|_|{});let mut db=n.genesis.state().clone();code(&mut db,target,vec![0x60,1,0x60,0,0x55,0x60,2,0x60,1,0x55,0]);
+        let o=run(&n,&db,&raws());assert!(o.halts().is_empty());pays_gas_only(&db,&o,5);
+        let (a,b)=(count(&db),count(o.state()));
+        assert_eq!((b.user_accounts-a.user_accounts,b.user_slots-a.user_slots),(2,2),"the transfer's new account and the creation's account; the target's two slots");
     }
 
     #[test]
     fn slot_replacement_at_a_full_cap_succeeds_and_is_independent_of_write_order(){
-        let n=net(true,|c|c.slot_cap=1);let a=new_address(61);let mut db=n.genesis.state().clone();
+        let n=net(|c|c.slot_cap=1);let a=new_address(61);let mut db=n.genesis.state().clone();
         // Clear slot0 then insert slot1: the live count stays one, within the cap, and only gas is paid.
         code(&mut db,a,vec![0x60,0,0x60,0,0x55,0x60,9,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(5)).unwrap();
         let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);assert!(o.halts().is_empty());assert_eq!(count(o.state()).user_slots,1);pays_gas_only(&db,&o,0);
@@ -125,7 +118,7 @@ mod on_chain {
     #[test]
     fn native_reverts_and_temporary_slot_creations_leave_nothing(){
         for tail in [vec![0x60,0,0x60,0,0xfd],vec![0x60,0,0x60,0,0x55,0]]{
-            let n=net(true,|_|{});let a=new_address(62);let mut db=n.genesis.state().clone();let mut runtime=vec![0x60,1,0x60,0,0x55];runtime.extend(tail);code(&mut db,a,runtime);
+            let n=net(|_|{});let a=new_address(62);let mut db=n.genesis.state().clone();let mut runtime=vec![0x60,1,0x60,0,0x55];runtime.extend(tail);code(&mut db,a,runtime);
             let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),0);
             assert_eq!(o.state().slot(&a,&U256::ZERO),U256::ZERO);pays_gas_only(&db,&o,0);
         }
@@ -134,7 +127,7 @@ mod on_chain {
     /// A deployment (its account and every logical code byte) and a chunk-sized deployment burn nothing beyond gas.
     #[test]
     fn a_deployment_burns_nothing_beyond_gas(){
-        let n=net(true,|_|{});let db=n.genesis.state();let before=count(db);let runtime=vec![0;80];
+        let n=net(|_|{});let db=n.genesis.state();let before=count(db);let runtime=vec![0;80];
         let o=run(&n,db,&[tx(0,None,0,init(&runtime),200000),tx(1,None,0,init(&runtime),200000)]);assert!(o.halts().is_empty());
         assert_eq!(count(o.state()).inventory(),before.inventory()+160,"identical code at two addresses counts twice toward CODE_CAP");
         assert_eq!(count(o.state()).user_accounts,before.user_accounts+2);assert_eq!(o.log_bytes(),0);pays_gas_only(db,&o,0);
@@ -147,7 +140,7 @@ mod on_chain {
 
     #[test]
     fn pool_pending_state_and_block_execution_agree_on_creations(){
-        let n=net(true,|c|c.acct_cap=10);let start=n.genesis.state();let mut db=start.clone();let mut meter=PoolMeter::of(&db,&n.profile);let context=ctx(&n);
+        let n=net(|c|c.acct_cap=10);let start=n.genesis.state();let mut db=start.clone();let mut meter=PoolMeter::of(&db,&n.profile);let context=ctx(&n);
         let raw:Vec<_>=(0..4).map(|i|tx(i,Some(new_address(70+i as u8)),1,vec![],21000)).collect();
         for r in &raw{
             let env=wire::decode_for_profile(r,&n.profile).unwrap().tx_env();let total=count(&db).inventory();
@@ -161,20 +154,17 @@ mod on_chain {
 
     #[test]
     fn a_front_loaded_32k_log_does_not_halt_a_later_transfer_log_on_v3(){
-        for v3 in [true]{
-            let n=net(v3,|_|{});let mut db=n.genesis.state().clone();let front=new_address(81);let transfer=new_address(82);
-            // LOG0 charges 36+32732=32768 bytes. A fixed-transfer token fixture
-            // moves one unit between balances and emits ERC-20 Transfer.
-            code(&mut db,front,vec![0x61,0x7f,0xdc,0x60,0,0xa0,0]);
-            let mut token=vec![0x60,99,0x60,0,0x55,0x60,1,0x60,1,0x55,0x60,1,0x60,0,0x52,0x73];
-            token.extend_from_slice(devnet::account_key("bob").address().as_slice());token.push(0x73);token.extend_from_slice(devnet::account_key("alice").address().as_slice());token.push(0x7f);
-            token.extend_from_slice(revm::primitives::keccak256("Transfer(address,address,uint256)").as_slice());token.extend_from_slice(&[0x60,32,0x60,0,0xa3,0]);code(&mut db,transfer,token);
-            db.insert_account_storage(transfer,U256::ZERO,U256::from(100)).unwrap();
-            let o=run(&n,&db,&[tx(0,Some(front),0,vec![],1000000),tx(1,Some(transfer),0,vec![],100000)]);
-            if v3{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),32768+36+96+32,"no annotation log");
-                assert_eq!(o.state().slot(&transfer,&U256::ZERO),U256::from(99));assert_eq!(o.state().slot(&transfer,&U256::from(1)),U256::from(1));
-            }else{assert_eq!(o.halts(),&[(1,Halt::LogBytes)]);assert_eq!(o.log_bytes(),32768);assert_eq!(o.state().slot(&transfer,&U256::ZERO),U256::from(100));assert_eq!(o.state().slot(&transfer,&U256::from(1)),U256::ZERO)}
-        }
+        let n=net(|_|{});let mut db=n.genesis.state().clone();let front=new_address(81);let transfer=new_address(82);
+        // LOG0 charges 36+32732=32768 bytes. A fixed-transfer token fixture
+        // moves one unit between balances and emits ERC-20 Transfer.
+        code(&mut db,front,vec![0x61,0x7f,0xdc,0x60,0,0xa0,0]);
+        let mut token=vec![0x60,99,0x60,0,0x55,0x60,1,0x60,1,0x55,0x60,1,0x60,0,0x52,0x73];
+        token.extend_from_slice(devnet::account_key("bob").address().as_slice());token.push(0x73);token.extend_from_slice(devnet::account_key("alice").address().as_slice());token.push(0x7f);
+        token.extend_from_slice(revm::primitives::keccak256("Transfer(address,address,uint256)").as_slice());token.extend_from_slice(&[0x60,32,0x60,0,0xa3,0]);code(&mut db,transfer,token);
+        db.insert_account_storage(transfer,U256::ZERO,U256::from(100)).unwrap();
+        let o=run(&n,&db,&[tx(0,Some(front),0,vec![],1000000),tx(1,Some(transfer),0,vec![],100000)]);
+        assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),32768+36+96+32,"no annotation log");
+        assert_eq!(o.state().slot(&transfer,&U256::ZERO),U256::from(99));assert_eq!(o.state().slot(&transfer,&U256::from(1)),U256::from(1));
     }
 
 
@@ -185,13 +175,13 @@ mod on_chain {
     fn full_live_caps_halt_and_charge_the_declared_gas(){
         let alice=devnet::account_key("alice").address();
         // ACCT_CAP: three genesis accounts fill a cap of 3.
-        let n=net(true,|c|c.acct_cap=3);let db=n.genesis.state();assert_eq!(count(db).user_accounts,3);let to=new_address(91);
+        let n=net(|c|c.acct_cap=3);let db=n.genesis.state();assert_eq!(count(db).user_accounts,3);let to=new_address(91);
         let o=run(&n,db,&[tx(0,Some(to),1,vec![],50000)]);
         assert_eq!(o.halts(),&[(0,Halt::AcctCap)]);assert_eq!(o.commitments().gas_used,50000,"the declared gas, not the 21000 executed");
         assert_eq!(o.receipts()[0],receipts::encode(2,false,50000,&[]).unwrap());assert!(!o.state().accounts.contains_key(&to));
         assert_eq!(o.state().accounts[&alice].info.nonce,1);pays_gas_only(db,&o,0);
         // SLOT_CAP: one live slot fills a cap of 1; the clear that would earn a refund is discarded with the halt.
-        let n=net(true,|c|c.slot_cap=1);let a=new_address(93);let mut db=n.genesis.state().clone();
+        let n=net(|c|c.slot_cap=1);let a=new_address(93);let mut db=n.genesis.state().clone();
         code(&mut db,a,vec![0x60,1,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(1)).unwrap();
         let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);assert_eq!(o.halts(),&[(0,Halt::SlotCap)]);assert_eq!(o.commitments().gas_used,100000);
         assert_eq!(count(o.state()).user_slots,1);assert_eq!(o.state().slot(&a,&U256::from(1)),U256::ZERO);pays_gas_only(&db,&o,0);
@@ -201,38 +191,34 @@ mod on_chain {
     /// both, and neither charges anything beyond gas.
     #[test]
     fn dust_filled_account_and_slot_caps_halt_in_both_domains_and_raised_caps_admit_both(){
-        for v3 in [true]{
-            for (cap,full) in [(3,true),(10,false)]{
-                let n=net(v3,|c|c.acct_cap=cap);let db=n.genesis.state();
-                let o=run(&n,db,&[tx(0,Some(new_address(92)),1,vec![],50000)]);
-                if full{assert_eq!(o.halts(),&[(0,Halt::AcctCap)],"v3={v3}");pays_gas_only(db,&o,0);}
-                else{assert!(o.halts().is_empty(),"v3={v3}");pays_gas_only(db,&o,1);}
-            }
-            for (cap,full) in [(1,true),(4,false)]{
-                let n=net(v3,|c|c.slot_cap=cap);let mut db=n.genesis.state().clone();let a=new_address(93);
-                code(&mut db,a,vec![0x60,1,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(1)).unwrap();
-                let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);
-                if full{assert_eq!(o.halts(),&[(0,Halt::SlotCap)],"v3={v3}");assert_eq!(count(o.state()).user_slots,1);}
-                else{assert!(o.halts().is_empty(),"v3={v3}");assert_eq!(count(o.state()).user_slots,2);}
-                pays_gas_only(&db,&o,0);
-            }
+        for (cap,full) in [(3,true),(10,false)]{
+            let n=net(|c|c.acct_cap=cap);let db=n.genesis.state();
+            let o=run(&n,db,&[tx(0,Some(new_address(92)),1,vec![],50000)]);
+            if full{assert_eq!(o.halts(),&[(0,Halt::AcctCap)],"cap {cap}");pays_gas_only(db,&o,0);}
+            else{assert!(o.halts().is_empty(),"cap {cap}");pays_gas_only(db,&o,1);}
+        }
+        for (cap,full) in [(1,true),(4,false)]{
+            let n=net(|c|c.slot_cap=cap);let mut db=n.genesis.state().clone();let a=new_address(93);
+            code(&mut db,a,vec![0x60,1,0x60,1,0x55,0]);db.insert_account_storage(a,U256::ZERO,U256::from(1)).unwrap();
+            let o=run(&n,&db,&[tx(0,Some(a),0,vec![],100000)]);
+            if full{assert_eq!(o.halts(),&[(0,Halt::SlotCap)],"cap {cap}");assert_eq!(count(o.state()).user_slots,1);}
+            else{assert!(o.halts().is_empty(),"cap {cap}");assert_eq!(count(o.state()).user_slots,2);}
+            pays_gas_only(&db,&o,0);
         }
     }
 
     #[test]
     fn dust_filled_code_cap_halts_a_deployment_in_both_domains(){
-        for v3 in [true]{
-            let baseline=net(v3,|_|{});let sys=count(baseline.genesis.state()).inventory();
-            // The ChainCaps appended words have a fixed width, so changing the
-            // cap does not change its own logical runtime length.
-            for (room,full) in [(100,true),(200,false)]{
-                let n=net(v3,|c|c.code_cap=sys+room);let mut db=n.genesis.state().clone();
-                assert_eq!(count(&db).inventory(),sys);code(&mut db,new_address(94),vec![0;100]);
-                let o=run(&n,&db,&[tx(0,None,0,init(&[0;80]),200000)]);
-                if full{assert_eq!(count(o.state()).inventory(),sys+100,"v3={v3}");assert_eq!(o.receipts()[0],receipts::encode(2,false,200000,&[]).unwrap());}
-                else{assert!(o.halts().is_empty(),"v3={v3}");assert_eq!(count(o.state()).inventory(),sys+180);}
-                pays_gas_only(&db,&o,0);
-            }
+        let baseline=net(|_|{});let sys=count(baseline.genesis.state()).inventory();
+        // The ChainCaps appended words have a fixed width, so changing the
+        // cap does not change its own logical runtime length.
+        for (room,full) in [(100,true),(200,false)]{
+            let n=net(|c|c.code_cap=sys+room);let mut db=n.genesis.state().clone();
+            assert_eq!(count(&db).inventory(),sys);code(&mut db,new_address(94),vec![0;100]);
+            let o=run(&n,&db,&[tx(0,None,0,init(&[0;80]),200000)]);
+            if full{assert_eq!(count(o.state()).inventory(),sys+100,"room {room}");assert_eq!(o.receipts()[0],receipts::encode(2,false,200000,&[]).unwrap());}
+            else{assert!(o.halts().is_empty(),"room {room}");assert_eq!(count(o.state()).inventory(),sys+180);}
+            pays_gas_only(&db,&o,0);
         }
     }
 
@@ -241,7 +227,7 @@ mod on_chain {
     #[test]
     fn creations_conserve_supply_and_escrow_on_copy_overlay_and_stored_views(){
         use pocol_lp4_execution::{node_trie::{Batch,MemStore,NodeTrie,TrieState},state_trie::StateTrie,view::Overlay};
-        let n=net(true,|c|c.acct_cap=20);let mut db=n.genesis.state().clone();let initial=sum(&db);let mut issued=U512::ZERO;let mut external=U512::ZERO;let mut parent_result=None;
+        let n=net(|c|c.acct_cap=20);let mut db=n.genesis.state().clone();let initial=sum(&db);let mut issued=U512::ZERO;let mut external=U512::ZERO;let mut parent_result=None;
         for height in 1..=12{
             let raw=vec![tx(height-1,Some(new_address(100+((height-1)%6) as u8)),1,vec![],21000)];
             let input=apply::BlockInput{height,timestamp:1_800_000_000+height*4,base_fee:U256::from(100),gas_limit:n.profile.cp().GAS_LIMIT,prevrandao:B256::ZERO,
@@ -327,7 +313,7 @@ mod on_chain {
         let alice=devnet::account_key("alice");let value=U256::from(10u128.pow(21));let (max_fee,base)=(200u64,100u64);
         for kind in [0u8,1,2]{
             let effective=if kind==2{base+7}else{max_fee};let tip=effective-base;
-            let n=net(true,|c|c.acct_cap=4);let db=n.genesis.state();assert_eq!(count(db).user_accounts,3);
+            let n=net(|c|c.acct_cap=4);let db=n.genesis.state();assert_eq!(count(db).user_accounts,3);
             let to=new_address(140+kind);let t=Tx{chain_id:777938,nonce:0,max_priority:U256::from(7),max_fee:U256::from(max_fee),gas:21000,to:Some(to),value,data:Default::default()};
             let raw=match kind{0=>t.sign_legacy(&alice),1=>sign_2930(&t,&alice),_=>t.sign_1559(&alice)};assert_eq!(wire::decode_for_profile(&raw,&n.profile).unwrap().kind(),kind);
             let o=run(&n,db,&[raw]);let lost=db.accounts[&alice.address()].info.balance-o.state().accounts[&alice.address()].info.balance;
@@ -393,8 +379,7 @@ mod on_chain {
     /// The wallet engine on a v3 node, through Wallet::handle (G3b'): the status carries the v3 fields (bondRemaining, the
     /// reactivation clock) and the FN-2b seat fields, and no creation-burn field (FN-2a); a transfer quote signs the plain
     /// 21000 gas at the wallet's max fee, the confirmed transaction is exactly the reviewed one and lands; fee_bound is no
-    /// longer a field; top-up and Rejoin mining without a record are refused with the reason. On a spec-1 node no v3 field
-    /// is shown.
+    /// longer a field; top-up and Rejoin mining without a record are refused with the reason.
     #[test]
     fn the_wallet_engine_on_a_v3_node_shows_the_v3_fields_and_signs_plain_transfers(){
         let dir=Temp::new();let cfg=node_cfg(|_|{});
@@ -511,29 +496,26 @@ mod on_chain {
         assert_eq!(balance(&node,alice.address()),before);
     }
 
-    /// FN-2a: pocol_quoteCreationBurn is gone. A v3 node and a spec-1 node answer it exactly as any unknown method.
+    /// FN-2a: pocol_quoteCreationBurn is gone. A v3 node answers it exactly as any unknown method.
     #[test]
     fn the_creation_burn_quote_is_unknown_to_every_node(){
-        for spec in [2u8]{
-            let c=node_cfg_spec(spec,|_|{});let dir=Temp::new();let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&c)).unwrap();
-            assert!(node.chain.spec.v3_active(u64::MAX));
-            let call=serde_json::json!([{"to":new_address(162)}]);
-            let quote=rpc(&mut node,"pocol_quoteCreationBurn",call.clone());let unknown=rpc(&mut node,"pocol_quoteCreationBurx",call);
-            assert_eq!(quote["error"]["code"],-32601,"spec {spec}: {quote}");assert_eq!(quote["error"]["message"],"method pocol_quoteCreationBurn not found");assert_eq!(unknown["error"]["code"],-32601);
-        }
+        let c=node_cfg(|_|{});let dir=Temp::new();let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&c)).unwrap();
+        assert!(node.chain.spec.v3_active(u64::MAX));
+        let call=serde_json::json!([{"to":new_address(162)}]);
+        let quote=rpc(&mut node,"pocol_quoteCreationBurn",call.clone());let unknown=rpc(&mut node,"pocol_quoteCreationBurx",call);
+        assert_eq!(quote["error"]["code"],-32601,"{quote}");assert_eq!(quote["error"]["message"],"method pocol_quoteCreationBurn not found");assert_eq!(unknown["error"]["code"],-32601);
     }
 
     #[test]
     fn log_count_and_byte_boundaries_are_inclusive_in_both_domains(){
-        for v3 in [true]{let n=net(v3,|_|{});let limits=user_phase::log_caps(v3);let target=new_address(125);
-            for extra in [0,1]{let mut db=n.genesis.state().clone();let count=limits.count+extra;let mut runtime=Vec::new();
-                for _ in 0..count{runtime.extend_from_slice(&[0x60,0,0x60,0,0xa0])}runtime.push(0);code(&mut db,target,runtime);
-                let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
-                if extra==0{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),36*count)}else{assert_eq!(o.halts(),&[(0,Halt::LogCount)]);assert_eq!(o.log_bytes(),0)}
-                let bytes=limits.bytes-36+extra;let mut runtime=vec![0x62,((bytes>>16)&255) as u8,((bytes>>8)&255) as u8,(bytes&255) as u8,0x60,0,0xa0,0];code(&mut db,target,std::mem::take(&mut runtime));
-                let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
-                if extra==0{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),limits.bytes)}else{assert_eq!(o.halts(),&[(0,Halt::LogBytes)]);assert_eq!(o.log_bytes(),0)}
-            }
+        let n=net(|_|{});let limits=user_phase::log_caps(true);let target=new_address(125);
+        for extra in [0,1]{let mut db=n.genesis.state().clone();let count=limits.count+extra;let mut runtime=Vec::new();
+            for _ in 0..count{runtime.extend_from_slice(&[0x60,0,0x60,0,0xa0])}runtime.push(0);code(&mut db,target,runtime);
+            let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
+            if extra==0{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),36*count)}else{assert_eq!(o.halts(),&[(0,Halt::LogCount)]);assert_eq!(o.log_bytes(),0)}
+            let bytes=limits.bytes-36+extra;let mut runtime=vec![0x62,((bytes>>16)&255) as u8,((bytes>>8)&255) as u8,(bytes&255) as u8,0x60,0,0xa0,0];code(&mut db,target,std::mem::take(&mut runtime));
+            let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
+            if extra==0{assert!(o.halts().is_empty());assert_eq!(o.log_bytes(),limits.bytes)}else{assert_eq!(o.halts(),&[(0,Halt::LogBytes)]);assert_eq!(o.log_bytes(),0)}
         }
     }
 
@@ -542,7 +524,7 @@ mod on_chain {
     /// succeeds; one more byte halts with LogBytes, reverts the slot and charges the declared gas.
     #[test]
     fn a_creation_adds_no_log_to_the_log_caps(){
-        let n=net(true,|_|{});let target=new_address(126);
+        let n=net(|_|{});let target=new_address(126);
         for extra in [0,1]{let mut db=n.genesis.state().clone();let bytes=256*1024-36+extra;
             let mut runtime=vec![0x60,1,0x60,0,0x55,0x62,((bytes>>16)&255) as u8,((bytes>>8)&255) as u8,(bytes&255) as u8,0x60,0,0xa0,0];
             code(&mut db,target,std::mem::take(&mut runtime));let o=run(&n,&db,&[tx(0,Some(target),0,vec![],5_000_000)]);
@@ -555,7 +537,7 @@ mod on_chain {
 
     #[test]
     fn create_collision_preserves_copied_storage_and_counts_no_fictitious_creations(){
-        let n=net(true,|c|c.slot_cap=1);let mut db=n.genesis.state().clone();let alice=devnet::account_key("alice").address();let contract=alice.create(0);
+        let n=net(|c|c.slot_cap=1);let mut db=n.genesis.state().clone();let alice=devnet::account_key("alice").address();let contract=alice.create(0);
         db.insert_account_info(contract,AccountInfo{balance:U256::from(1),..Default::default()});db.insert_account_storage(contract,U256::from(99),U256::from(7)).unwrap();
         // LP4-CREATE-01 deliberately includes nonzero storage in the collision
         // check, even with nonce zero and empty code. V3 preserves this rule.
@@ -591,7 +573,7 @@ mod on_chain {
     }
 
     /// N4 (V3-24): a v3 estimate models the v3 log caps (256 KiB / 4,368 per block). A call whose one LOG0 carries
-    /// 32 KiB of data (past the spec-1 block cap, which the spec-1 estimate refuses: fee_pool.rs) is estimated; one whose
+    /// 32 KiB of data (past the retired spec-1 block cap of 32,768 B) is estimated; one whose
     /// LOG0 charges past 256 KiB is refused (LogBytes), and so is one that emits 4,369 logs (LogCount).
     #[test]
     fn v3_estimate_models_the_v3_log_caps(){
@@ -612,18 +594,17 @@ mod on_chain {
 
     #[test]
     fn a_thousand_validated_empty_blocks_keep_the_v3_floor_and_legacy_london_decay(){
-        for v3 in [true]{let cfg=node_cfg_spec(2,|_|{});let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
-            for height in 1..=1000{let clock=cfg.g_ts+height*u64::from(cfg.t_blk);let block=solve_chain(&chain,vec![],clock);
-                let (entry,_)=chain.validate(&block,None,0).unwrap();assert_eq!(entry.gas_used,0);if v3{assert!(entry.base_fee>=cfg.base_fee_min,"height {height}");}
-                assert!(chain.insert(entry));assert_eq!(chain.head().height,height);
-            }
-            assert_eq!(chain.head().base_fee,if v3{cfg.base_fee_min}else{U256::from(7)});
+        let cfg=node_cfg(|_|{});let mut chain=pocold::chain::Chain::new(node_spec(&cfg));
+        for height in 1..=1000{let clock=cfg.g_ts+height*u64::from(cfg.t_blk);let block=solve_chain(&chain,vec![],clock);
+            let (entry,_)=chain.validate(&block,None,0).unwrap();assert_eq!(entry.gas_used,0);assert!(entry.base_fee>=cfg.base_fee_min,"height {height}");
+            assert!(chain.insert(entry));assert_eq!(chain.head().height,height);
         }
+        assert_eq!(chain.head().base_fee,cfg.base_fee_min);
     }
 
     /// C3-2: one v3 transaction may emit every block log (here 4,368 LOG0 of 24 bytes, 262,080 charged
     /// bytes). Its JSON receipt exceeds LIGHT_RESP_MAX, so a v3 node serves eth_getTransactionReceipt on
-    /// the heavy lane (RESP_MAX); a spec-1 node keeps the light row.
+    /// the heavy lane (RESP_MAX).
     #[test]
     fn a_maximal_log_v3_receipt_is_served_on_the_heavy_lane(){
         let dir=Temp::new();let cfg=node_cfg(|_|{});let mut node=pocold::node::Node::open(node_config(&dir,false),node_spec(&cfg)).unwrap();let alice=devnet::account_key("alice");

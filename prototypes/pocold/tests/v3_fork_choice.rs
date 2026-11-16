@@ -17,10 +17,9 @@ fn spec(c:&DevnetConfig,extra_rel:u32)->Spec{
     let mut local=pocold::single_host_local();local.delta_rel+=extra_rel;
     Spec::new(devnet::build(c).unwrap().admit(&local).unwrap().0)
 }
-/// The v3 devnet (`v3` is always true: its retired spec-1 twin and the tests of the spec-1 node's legacy fork choice,
-/// d133 order and three-field journals, were deleted with the spec-1 rule set in phase 6a).
-fn net(v3:bool)->Net{
-    assert!(v3,"the spec-1 twin is retired (phase 6a)");
+/// The v3 devnet (its retired spec-1 twin and the tests of the spec-1 node's legacy fork choice, d133 order and
+/// three-field journals, were deleted with the spec-1 rule set in phase 6a).
+fn net()->Net{
     let mut cfg=DevnetConfig::new(777937,1_700_000_000,&["fork-miner"]);
     // R7 has room for the restart test's alternate, still gate-valid local
     // deadline. The original 73-second fixture sat exactly on that gate.
@@ -78,13 +77,13 @@ fn best(c:&Chain)->[u8;32]{
     for e in c.blocks.values(){
         let b=&c.blocks[&best];let better=if e.total_work!=b.total_work{e.total_work>b.total_work}else if e.hash==best{false}else{
             let (x,y)=(path(e.hash),path(best));let i=x.iter().zip(&y).take_while(|(a,b)|a==b).count();
-            let key=|h:&[u8;32]|{let e=&c.blocks[h];(u8::from(c.spec.v3_active(e.height)&&!e.timely),u8::from(!e.signed),e.import_seq,e.hash)};
+            let key=|h:&[u8;32]|{let e=&c.blocks[h];(u8::from(!e.timely),u8::from(!e.signed),e.import_seq,e.hash)};
             key(&x[i])<key(&y[i])
         };if better{best=e.hash}
     }best
 }
-fn twenty_orders(v3:bool){
-    let mut build=net(v3);let g=build.chain.head;let mut dag=Vec::new();
+fn twenty_orders(){
+    let mut build=net();let g=build.chain.head;let mut dag=Vec::new();
     let fb=block(&build,g,false,0,0);let a=block(&build,g,true,0,0);let b=block(&build,g,true,0,a.header.nonce+1);
     assert_ne!(a.hash(),b.hash());
     for (root,timely) in [(fb,true),(a,false),(b,true)]{
@@ -92,7 +91,7 @@ fn twenty_orders(v3:bool){
         for depth in 0..2{let child=block(&build,p,depth==1,0,0);p=child.hash();accept(&mut build,&child,!timely);dag.push((child,!timely));}
     }
     for order in 0..20{
-        let mut n=net(v3);let mut remaining=dag.clone();let mut seed=0x4352_0001u64+order;
+        let mut n=net();let mut remaining=dag.clone();let mut seed=0x4352_0001u64+order;
         while !remaining.is_empty(){
             let ready:Vec<_>=remaining.iter().enumerate().filter(|(_,x)|n.chain.get(&x.0.header.parent_hash).is_some()).map(|(i,_)|i).collect();
             seed^=seed<<13;seed^=seed>>7;seed^=seed<<17;
@@ -130,7 +129,7 @@ mod on_chain {
     // template; the solution took longer than T_j+Phi. A fallback released after the signed block must not take
     // the head from it (D15 for honest proposers).
     #[test]fn signed_block_solved_late_keeps_the_head_when_its_template_was_seen_on_time(){
-        for seen in ["at T_j","at T_j+Phi"]{let n=net(true);let d=dir("template-on-time");
+        for seen in ["at T_j","at T_j+Phi"]{let n=net();let d=dir("template-on-time");
             let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&mut node);
             let tj=deadline(&node,n.chain.head);gossip(&mut node,&shell,if seen=="at T_j"{tj}else{high});
             assert!(at(&mut node,&sg,high+1),"{seen}");assert_eq!(node.chain.head,sg.hash());
@@ -147,7 +146,7 @@ mod on_chain {
     // Without the template the node cannot tell a slow honest solution from a withheld one: the solved block's
     // arrival decides, as before, and so does a template seen only after T_j+Phi.
     #[test]fn signed_block_late_without_a_timely_template_loses_to_a_later_fallback(){
-        for seen in [false,true]{let n=net(true);let d=dir("template-unseen");
+        for seen in [false,true]{let n=net();let d=dir("template-unseen");
             let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&mut node);
             if seen{gossip(&mut node,&shell,high+1);}
             assert!(at(&mut node,&sg,high+1));assert!(!node.first_import(&sg.hash()).unwrap().unwrap().timely);assert!(!node.chain.get(&sg.hash()).unwrap().timely);
@@ -160,7 +159,7 @@ mod on_chain {
     // first-seen times are not persisted: a restart (here also with a larger local deadline) neither needs them nor
     // reclassifies, and a duplicate import changes nothing.
     #[test]fn restart_keeps_template_based_classifications_frozen(){
-        for store in [false,true]{let n=net(true);let d=dir("template-restart");
+        for store in [false,true]{let n=net();let d=dir("template-restart");
             let (first,head,sg,fb)={let mut node=Node::open(config(&d,store),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&mut node);
                 gossip(&mut node,&shell,high);at(&mut node,&sg,high+1);at(&mut node,&fb,high+5_000);assert_eq!(node.chain.head,sg.hash());
                 if store{node.checkpoint_now().unwrap();}
@@ -178,7 +177,7 @@ mod on_chain {
         }
         // A template seen before a restart but a block first imported after it: the map is gone, so the arrival rule
         // decides (never more timely than the template rule), and that first classification is the frozen one.
-        let n=net(true);let d=dir("template-restart-first");
+        let n=net();let d=dir("template-restart-first");
         let high={let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,_,_)=honest_race(&n,&mut node);gossip(&mut node,&shell,high);high};
         let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let g=n.chain.head;let sg=block(&n,g,true,0,0);
         let high=high.max(deadline(&node,g)+u128::from(node.chain.spec.local().capital_phi())*1000);
@@ -190,7 +189,7 @@ mod on_chain {
     // The shell is refused, so its privately solved block, released after T_j+Phi, is judged on its own arrival and a
     // later timely fallback takes the head (the withholding gain V3-04 removes stays removed).
     #[test]fn a_signed_shell_that_cannot_be_mined_leaves_its_late_block_to_the_arrival_rule(){
-        let n=net(true);let d=dir("template-withheld");
+        let n=net();let d=dir("template-withheld");
         let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&mut node);
         let tj=deadline(&node,n.chain.head);
         gossip_body(&mut node,&shell,&Body{txs:vec![vec![0x01]],evidence:vec![]},tj-1_000);
@@ -204,7 +203,7 @@ mod on_chain {
     // the two this node locked, the slot is poisoned: the equivocator's privately solved block, released after
     // T_j+Phi, is judged on its own arrival and loses to the later timely fallback.
     #[test]fn an_equivocators_late_block_loses_to_the_later_timely_fallback(){
-        for locked_first in [true,false]{let n=net(true);let d=dir("template-equivocation");
+        for locked_first in [true,false]{let n=net();let d=dir("template-equivocation");
             let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,shell,sg,fb)=honest_race(&n,&mut node);
             let tj=deadline(&node,n.chain.head);let other=template_at(&n,n.chain.head,1);
             assert_ne!(template_id(&other.ut_raw),template_id(&shell.ut_raw));
@@ -219,7 +218,7 @@ mod on_chain {
     // A flood of equivocating templates for one (parent, height) is one poisoned slot of the bounded map: at the next
     // height, the honest proposer's template still counts and its slowly solved block keeps the head.
     #[test]fn an_equivocation_flood_does_not_stop_the_next_honest_template_from_counting(){
-        let mut n=net(true);let d=dir("template-flood");
+        let mut n=net();let d=dir("template-flood");
         let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let (high,_,_,fb)=honest_race(&n,&mut node);
         let g=n.chain.head;let tj=deadline(&node,g);
         // Every distinct valid template the window allows (timestamps from its lower bound to the fallback timestamp).
@@ -237,10 +236,10 @@ mod on_chain {
         drop(node);std::fs::remove_dir_all(d).unwrap();
     }
 
-    #[test]fn twenty_import_orders_use_the_timely_key_at_the_first_divergence(){twenty_orders(true)}
+    #[test]fn twenty_import_orders_use_the_timely_key_at_the_first_divergence(){twenty_orders()}
 
     #[test]fn timely_fallback_beats_late_signed_and_early_fallback_loses(){
-        for early in [false,true]{let n=net(true);let g=n.chain.head;let fb=block(&n,g,false,0,0);let sg=block(&n,g,true,0,0);let d=dir("boundaries");
+        for early in [false,true]{let n=net();let g=n.chain.head;let fb=block(&n,g,false,0,0);let sg=block(&n,g,true,0,0);let d=dir("boundaries");
             let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);
             let local=node.chain.spec.local();let low=tj-u128::from(local.delta+local.capital_phi())*1000;let high=tj+u128::from(local.capital_phi())*1000;
             assert!(at(&mut node,&fb,if early{low-1}else{low}));assert_eq!(node.chain.head,fb.hash());
@@ -255,7 +254,7 @@ mod on_chain {
     }
 
     #[test]fn replay_checkpoint_and_changed_local_deadline_keep_the_original_flags(){
-        for store in [false,true]{let n=net(true);let g=n.chain.head;let fb=block(&n,g,false,0,0);let sg=block(&n,g,true,0,0);let d=dir("restart");
+        for store in [false,true]{let n=net();let g=n.chain.head;let fb=block(&n,g,false,0,0);let sg=block(&n,g,true,0,0);let d=dir("restart");
             let (first,head)={let mut node=Node::open(config(&d,store),spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);
                 at(&mut node,&fb,tj);at(&mut node,&sg,tj+1);assert_eq!(node.chain.head,fb.hash());
                 if store{node.checkpoint_now().unwrap();}
@@ -278,7 +277,7 @@ mod on_chain {
     }
 
     #[test]fn refetch_keeps_original_timing_but_receives_a_new_import_sequence(){
-        for store in [false,true]{let n=net(true);let g=n.chain.head;
+        for store in [false,true]{let n=net();let g=n.chain.head;
             let fb=block(&n,g,false,0,0);let late=block(&n,g,true,0,0);let timely=block(&n,g,true,0,late.header.nonce+1);
             let d=dir("refetch");let mut cfg=config(&d,store);cfg.limits.side_cap=0;
             let (stamp,seq,head)={let mut node=Node::open(cfg,spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);
@@ -301,7 +300,7 @@ mod on_chain {
     }
 
     #[test]fn a_journal_record_without_timing_refuses_to_invent_history(){
-        let n=net(true);let g=n.chain.head;let b=block(&n,g,true,0,0);let d=dir("untimed");let src=dir("timed-source");
+        let n=net();let g=n.chain.head;let b=block(&n,g,true,0,0);let d=dir("untimed");let src=dir("timed-source");
         {let mut node=Node::open(config(&src,false),spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);at(&mut node,&b,tj);}
         let legacy={let r=store::open(&src,&g).unwrap();let p=r.payload(0).unwrap();let rec=store::decode_record_ref(&p).unwrap();store::encode_record(rec.header,rec.body,rec.result)};
         std::fs::remove_dir_all(src).unwrap();
@@ -312,7 +311,7 @@ mod on_chain {
     }
 
     #[test]fn slimmed_offloaded_and_canonically_evicted_entries_keep_the_stamp(){
-        let mut n=net(true);let d=dir("canonical-eviction");let mut cfg=config(&d,true);cfg.limits.checkpoint_every=64;
+        let mut n=net();let d=dir("canonical-eviction");let mut cfg=config(&d,true);cfg.limits.checkpoint_every=64;
         let (root,stamp,head,base)={let mut node=Node::open(cfg,spec(&n.cfg,0)).unwrap();
             let count=node.chain.evict_depth.unwrap()+3;assert!(count<500,"keep this private fixture bounded");
             let mut root=[0;32];let mut stamp=None;
@@ -344,7 +343,7 @@ mod on_chain {
     }
 
     #[test]fn later_attempts_are_timely_even_outside_the_first_attempt_bounds(){
-        let n=net(true);let g=n.chain.head;let a=block(&n,g,false,1,0);let b=block(&n,g,false,1,a.header.nonce+1);let d=dir("later-attempt");
+        let n=net();let g=n.chain.head;let a=block(&n,g,false,1,0);let b=block(&n,g,false,1,a.header.nonce+1);let d=dir("later-attempt");
         let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();
         at(&mut node,&a,0);at(&mut node,&b,u128::MAX);
         for h in [a.hash(),b.hash()]{assert!(node.chain.get(&h).unwrap().timely);assert!(node.first_import(&h).unwrap().unwrap().timely);}
@@ -352,7 +351,7 @@ mod on_chain {
     }
 
     #[test]fn an_invalid_copy_does_not_stamp_or_poison_the_first_valid_import(){
-        let n=net(true);let g=n.chain.head;let b=block(&n,g,true,0,0);let mut bad=b.clone();bad.header.winner_sig=[0;65];reseal(&mut bad.header);
+        let n=net();let g=n.chain.head;let b=block(&n,g,true,0,0);let mut bad=b.clone();bad.header.winner_sig=[0;65];reseal(&mut bad.header);
         assert_eq!(bad.hash(),b.hash());let d=dir("invalid-copy");let mut node=Node::open(config(&d,false),spec(&n.cfg,0)).unwrap();let tj=deadline(&node,g);
         node.import_clock=Some(tj);assert!(matches!(node.import(bad,None),Err(pocold::chain::Reject::Envelope(_))));
         assert_eq!(node.journal_records(),0);assert!(node.chain.get(&b.hash()).is_none());

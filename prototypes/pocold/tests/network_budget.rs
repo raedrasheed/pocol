@@ -293,23 +293,23 @@ fn v3_devnet()->pocol_lp4_execution::profile::ConsensusParams{
     let cp=devnet::build(&DevnetConfig::new(777910,1_700_000_000,&["a","b","c"])).unwrap().profile.cp().clone();
     assert_eq!((cp.schema_version(),cp.nonceMode,cp.H_END),(2,1,0));cp
 }
-/// The limits as Node::open sets them before its first A13 check (node.rs open) on a profile whose first-import index
-/// is on (`v3`, imports::enabled = spec.v3_active(MAX)): the eviction depth from R_keep (an explicit Some(0) keeps
-/// eviction off), the continuous projection from `records` observed journal records, and the observed files `disk`.
-fn booted(cp:&pocol_lp4_execution::profile::ConsensusParams,k_hist:u32,v3:bool,mut l:pocold::node::Limits,records:u64,disk:pocold::resources::DiskBytes)->pocold::node::Limits{
+/// The limits as Node::open sets them before its first A13 check (node.rs open; every admitted profile keeps the
+/// first-import index): the eviction depth from R_keep (an explicit Some(0) keeps eviction off), the first-import
+/// index, the continuous projection from `records` observed journal records, and the observed files `disk`.
+fn booted(cp:&pocol_lp4_execution::profile::ConsensusParams,k_hist:u32,mut l:pocold::node::Limits,records:u64,disk:pocold::resources::DiskBytes)->pocold::node::Limits{
     l.evict_depth=Some(pocold::resources::evict_depth_of(cp,k_hist,&l,l.r_keep).unwrap().unwrap_or(0));
-    l.first_imports=v3;if cp.H_END==0||l.first_imports{l.continuous_history=Some(records);}l.disk=Some(disk);l
+    l.first_imports=true;l.continuous_history=Some(records);l.disk=Some(disk);l
 }
 /// `l` as a new node (no records, empty files) opens it on the v3 `cp`: the booted limits.
 fn at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,l:pocold::node::Limits)->pocold::node::Limits{
-    assert!(cp.schema_version()>=2,"a v3 CP");booted(cp,32,true,l,0,Default::default())
+    assert!(cp.schema_version()>=2,"a v3 CP");booted(cp,32,l,0,Default::default())
 }
 
 /// The fresh network's store-mode model as a new founder
 /// node opens it (eviction on, the first-import index, empty files), itemized, with state.redb's largest file by part.
 #[test] fn v3_a13_store_model_at_the_mainnet_profile(){
     let n=v3_network("store");let (cp,local)=(n.spec.cp(),n.spec.local());
-    let lim=booted(cp,local.k_hist,true,pocold::node::Limits{state_store:true,..Default::default()},0,Default::default());
+    let lim=booted(cp,local.k_hist,pocold::node::Limits{state_store:true,..Default::default()},0,Default::default());
     let b=pocold::resources::derive(cp,local.k_hist,local.side_max,&lim,2).expect("no overflow");
     print("A13-V3-MAINNET-STORE",&b);
     let need=pocold::resources::budget_required(b.total).unwrap();
@@ -327,7 +327,7 @@ fn at_open(cp:&pocol_lp4_execution::profile::ConsensusParams,l:pocold::node::Lim
 /// launch does not run (FRESH-NETWORK-CP.md §1: the caps hold subject to A13 store mode). Printed, and its verdict pinned.
 #[test] fn v3_a13_whole_state_model_at_the_mainnet_profile(){
     let n=v3_network("mem");let (cp,local)=(n.spec.cp(),n.spec.local());
-    let lim=booted(cp,local.k_hist,true,pocold::node::Limits::default(),0,Default::default());
+    let lim=booted(cp,local.k_hist,pocold::node::Limits::default(),0,Default::default());
     let b=pocold::resources::derive(cp,local.k_hist,local.side_max,&lim,2).expect("no overflow");print("A13-V3-MAINNET-MEM",&b);
     let need=pocold::resources::budget_required(b.total).unwrap();
     assert!(need>u128::from(pocold::node::MEM_BUDGET),"whole-state mode does not fit 6 GiB at the fresh network's caps (if this fails, the model changed: record it)");
@@ -396,7 +396,7 @@ const V3_MAINNET_STORE_TOTAL:u128=5_512_153_289;
     let spec=admission::admit(&req(ProfileKind::Synthetic,NodeKind::Simnet,Scope::Specification)).err().expect("refused in Specification scope");
     println!("V3-MAINNET-SPEC-SCOPE {}",serde_json::json!({"rules":spec.rules,"missing":spec.missing,"notes":spec.notes}));
     for store in [false,true]{
-        let lim=booted(&c,local.k_hist,true,pocold::node::Limits{state_store:store,..Default::default()},0,Default::default());
+        let lim=booted(&c,local.k_hist,pocold::node::Limits{state_store:store,..Default::default()},0,Default::default());
         let b=pocold::resources::derive(&c,local.k_hist,local.side_max,&lim,2).unwrap();let need=pocold::resources::budget_required(b.total).unwrap();
         let r=pocold::resources::check(&c,local.k_hist,local.side_max,&lim,2);
         println!("V3-MAINNET-A13 {}",serde_json::json!({"stateStore":store,"modelBytes":b.total.to_string(),"budgetRequiredBytes":need.to_string(),"budgetBytes":lim.mem_budget,"passes":r.is_ok()}));
@@ -419,7 +419,7 @@ const V3_MAINNET_STORE_TOTAL:u128=5_512_153_289;
     let n=v3_network("halt");let (cp,k,side)=(n.spec.cp(),n.spec.local().k_hist,n.spec.local().side_max);
     let lim=|peers_max:usize,evict:Option<u64>,records:u64,history:u64|{
         let base=Limits{state_store:true,checkpoint_every:128,evict_depth:evict,net:net::Limits{peers_max,..Default::default()},..Default::default()};
-        booted(cp,k,true,base,records,DiskBytes{history,..Default::default()})
+        booted(cp,k,base,records,DiskBytes{history,..Default::default()})
     };
     let passes=|p:usize,d:usize,evict:Option<u64>,r:u64,x:u64|pocold::resources::check(cp,k,side,&lim(p,evict,r,x),d).is_ok();
     let search=|lo0:u64,cap:u64,ok:&dyn Fn(u64)->bool|->u64{
