@@ -179,7 +179,7 @@ pub fn chain_facts(db:&dyn crate::view::View)->ChainFacts{
 /// One Registry record (four words, REGISTRY-LAYOUT.md).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct MinerRecord{pub id:Address,pub status:u8,pub tomb:bool,pub bond_state:u8,pub last_share:u64,pub reward:Address,pub bond:U256,pub exit_height:u64,pub due_height:u64,pub burn_height:u64,pub grace_start:u64,
-    /// Earn-in w0 bits 152..215 (EARN-IN-SPEC.md section 2).
+    /// Earn-in w0 bits 152..215 (development/m1/reference/incentives.md, Earn-in rules E2).
     pub registered_at:u64}
 pub fn record_slot(id:Address)->U256{U256::from_be_bytes(keccak256([id.into_word().as_slice(),U256::from(7).to_be_bytes::<32>().as_slice()].concat()).0)}
 fn array_slot(slot:u64)->U256{U256::from_be_bytes(keccak256(U256::from(slot).to_be_bytes::<32>()).0)}

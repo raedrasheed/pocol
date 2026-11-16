@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Independent domain model of the earn-in rules (development/decisions/EARN-IN-SPEC.md).
+"""Independent domain model of the earn-in rules (development/m1/reference/incentives.md, Earn-in rules).
 
 No bytecode, no Rust and no storage encoding: plain records and integers. Since phase 6a of the fresh network the
 earn-in program set and its replay vectors (tests/data/earnin-vectors.json) are deleted with the spec-1 rule set; this

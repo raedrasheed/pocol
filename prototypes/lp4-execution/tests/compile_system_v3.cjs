@@ -2,7 +2,7 @@
 // Compiles the five v3 system programs (C0C001..C0C005) with the v1/earn-in settings.
 //   node compile_system_v3.cjs OUT.json            the v3 program set (tests/data/system-v3.json)
 //   node compile_system_v3.cjs --mutants OUT.json  planted mutants (tests/v3/system-v3-mutants.json): four of
-//     EARN-IN-SPEC.md §9 (its P_MAX and T_PROB mutants went with the probation pool and deadline, FN-2b) and seven of the
+//     the earn-in rules (development/m1/reference/incentives.md, Earn-in rules; its P_MAX and T_PROB mutants went with the probation pool and deadline, FN-2b) and seven of the
 //     V3-08/V3-09 registry budgets (V3-PR-E1), MinerRegistry; five of the V3-16/V3-17 evidence penalties (V3-PR-E2b),
 //     MinerRegistry or RewardEscrow; five of the V3-02 late share credit (V3-PR-E3), MinerRegistry or ShareLedger; eight of
 //     the V3-19/V3-15/V3-20 issuance, carry and tip split (V3-PR-E2a), RewardEscrow; eight of the FN-2b removal at a full
@@ -26,7 +26,7 @@ function compile(registry){
 }
 const pick=(o,f,c)=>o.contracts[f][c].evm.deployedBytecode.object;
 const names=[['MinerRegistry','system/PoColSystemV3.sol'],['RewardEscrow','system/PoColSystemV3.sol'],['ShareLedger','system/PoColSystemV3.sol'],['ChainCaps','system/PoColSystemV3.sol'],['ChunkFactory','ChunkFactory.sol']];
-// EARN-IN-SPEC.md §9's planted mutants that outlive FN-2b, restated on the v3 source: each must fail tests/v3_contracts.rs.
+// The planted earn-in mutants that outlive FN-2b (incentives.md, Earn-in rules), restated on the v3 source: each must fail tests/v3_contracts.rs.
 const MUTANTS=[
   ['r9-removed','if(!(arg==msg.sender && msg.sender==tx.origin) && !Sys.pay(arg,0))revert RewardNotDurable();','if(!Sys.pay(arg,0))revert RewardNotDurable();'],
   ['no-promotion-at-b','if(bond==cfg(16))put(r,(w&~STATE_MASK)|(uint256(1)<<16));','if(bond>cfg(16))put(r,(w&~STATE_MASK)|(uint256(1)<<16));'],

@@ -177,7 +177,7 @@ fn seeded_partition_properties_and_permutation_invariance() {
     }
 }
 
-/// Earn-in D1–D2 (EARN-IN-SPEC.md), the cases of earnin-vectors.json "draw": a/b/c are ids 1/2/3.
+/// Earn-in D1–D2 (development/m1/reference/incentives.md, Earn-in rules E6): a/b/c are ids 1/2/3.
 #[test]
 fn accruing_members_are_not_proposer_candidates_unless_all_are() {
     let act = [member(1, 9, 0, false), member(2, 9, 0, false), member(3, 9, 0, false)];

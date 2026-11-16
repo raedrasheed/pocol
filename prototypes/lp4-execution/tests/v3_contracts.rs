@@ -14,7 +14,7 @@
 //!   full set, two REG_OPS units and one R_max entry, victims refunded after U and punishable until then, lastShare from
 //!   header and late shares) reproduces on the v3 bytecode step by step, with held_total conserved and the accruing count
 //!   (slot 8) never written; the attacks of V3-DESIGN.md V3-08/V3-09 do not freeze the v3 registry; seven planted budget mutants and eight planted removal mutants each fail;
-//! - the four planted earn-in mutants that outlive FN-2b (EARN-IN-SPEC.md §9, restated on the v3 source:
+//! - the four planted earn-in mutants that outlive FN-2b (incentives.md, Earn-in rules, restated on the v3 source:
 //!   tests/v3/system-v3-mutants.json, compile_system_v3.cjs --mutants) each fail the earn-in scenarios as the v3 model runs them;
 //! - every named and literal CP index of PoColSystemV3.sol is the schema's (a missed renumbering would make every v3 block
 //!   invalid), and every program stays EIP-170-sized;
@@ -66,7 +66,7 @@ const ISSUANCE_VECTORS:&str=include_str!("v3/issuance-carry-vectors.json");
 const V3_SOURCE:&str=include_str!("../contracts/system/PoColSystemV3.sol");
 /// The earn-in model's scenarios (both value sets) re-run through the v3 model (tests/v3_model.py earnin_on_v3).
 const EARNIN_ON_V3:&str=include_str!("v3/earnin-on-v3-vectors.json");
-/// The four planted earn-in mutants that outlive FN-2b (EARN-IN-SPEC.md §9; its P_MAX and T_PROB mutants went with the
+/// The four planted earn-in mutants that outlive FN-2b (incentives.md, Earn-in rules; its P_MAX and T_PROB mutants went with the
 /// pool and the deadline) and the seven V3-08/V3-09 budget mutants, in fixture order.
 const EARNIN_MUTANTS:[&str;4]=["r9-removed","no-promotion-at-b","over-fill-bad-value","excess-kept"];
 const BUDGET_MUTANTS:[&str;7]=["maint-counter-shared","maint-twice-per-block","react-budget-ignored","react-cooldown-off-by-one","react-window-at-sweep-height",
