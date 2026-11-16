@@ -347,7 +347,8 @@ closure, `bump` without the incremented constant, and a spent gate. Enforcement:
 - `deploy/ci/check_lock_append_only.py` requires main's history lines to be a prefix of the branch's, and main's wire
   keys to obey §2.2. Its one exception, `RETIRED_BASE_LOCK_SHA256` (the sha256 of the retired network's last lock
   bytes), accepted the §2.3 reset: one `n=1 kind=base` line without a gate, at spec 2, with the retired last line's
-  constants and `sources`, `vectors` and `deps`, the same `file` lines and the same wire keys. It cannot fire against
+  constants and `sources`, `vectors` and `deps`, the same `file` lines and the same wire keys, of which only `v2/hello` and `v2/get-range` (`RESET_WIRE_KEYS`, the
+  neutral samples) could change sha. It cannot fire against
   any later main; Phase 10 deletes it.
 
 The reference closure is a lexical scan, not a parser: an unusual construction errs towards an unclassified or

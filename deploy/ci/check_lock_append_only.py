@@ -31,6 +31,10 @@ LOCK = 'prototypes/pocold/consensus-sources.lock'
 # reset merges: main's lock then has other bytes, so the exemption can never fire again. Phase 10
 # deletes this constant, reset_problem() and their tests (deploy/ci only; no lock line).
 RETIRED_BASE_LOCK_SHA256 = 'eecb9e772762d21e55e2d9c927589884fe87d46a056ac8c65967d07daefc6ae7'
+# The only wire keys whose pinned sha the reset may move: their canonical samples carried the retired
+# network's chain id and heights and now carry neutral values (net.rs canonical()). Every other key keeps
+# its sha.
+RESET_WIRE_KEYS = frozenset({'v2/hello', 'v2/get-range'})
 
 
 def history(text):
@@ -79,7 +83,7 @@ def reset_problem(base_text, head_text):
 
     Strict: the head is one `history n=1 kind=base` line without a gate, at spec 2, that records the
     base's last line's rules, maxFork, spec, protocol, protocolMin, sources, vectors and deps; the file
-    lines are the base's; the wire keys are the base's (only their shas may change). So the reset changes
+    lines are the base's; the wire keys are the base's, and only the RESET_WIRE_KEYS samples may change sha. So the reset changes
     no consensus source, constant, vector or dependency, and only the history and pinned v2 samples move.
     """
     base, head = history(base_text), history(head_text)
@@ -97,8 +101,12 @@ def reset_problem(base_text, head_text):
             return f'the reset line records {name}={token(line, name)}, the base\'s last line {name}={token(last, name)}; a reset changes no consensus source, constant, vector or dependency'
     if files(head_text) != files(base_text):
         return 'the file lines differ from the base; a reset changes no consensus source'
-    if set(wire(head_text)) != set(wire(base_text)):
+    head_wire, base_wire = wire(head_text), wire(base_text)
+    if set(head_wire) != set(base_wire):
         return 'the wire keys differ from the base; a reset may change only the pinned shas of existing keys'
+    for key in sorted(base_wire):
+        if key not in RESET_WIRE_KEYS and head_wire[key] != base_wire[key]:
+            return f'wire key {key} changed; the reset may move only the samples of {", ".join(sorted(RESET_WIRE_KEYS))}'
     return None
 
 

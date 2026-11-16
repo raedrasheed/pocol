@@ -119,6 +119,7 @@ class OneTimeReset(unittest.TestCase):
         self.assertIn('file lines', refused(RESET.replace('file f2 b/y.rs\n', ''), 'a removed file line'))
         self.assertIn('wire keys', refused(RESET.replace('wire 0c v2/tx\n', 'wire 0c v2/tx\nwire 0d v2/ping\n'), 'a wire key added'))
         self.assertIn('wire keys', refused(RESET.replace('wire 0c v2/tx\n', ''), 'a wire key removed'))
+        self.assertIn('wire key v2/tx changed', refused(RESET.replace('wire 0c v2/tx', 'wire 1c v2/tx'), 'another key\'s sha moved'))
         self.assertIn('malformed wire line', refused(RESET.replace('wire 0c v2/tx', 'wire 0c tx'), 'malformed wire'))
         # A note that only mentions a field does not count as that field.
         with self.armed():
