@@ -295,7 +295,7 @@ v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVe
      stored headers.
    - **Done in PR5** (consensus identity and upgrade path): the generic schedule rule (`new_bounded`, the runtime
      shape, `forks.js`, `pocol_rewards.py`, `preflight.py`, `nonce_upgrade.py`, `prepare_nonce_upgrade.py`), the
-     `>=2` sites (`chain::full_nonce_rule`, `rp.js fullRange`, `pocol_rewards.full_nonce_rule`) and the launcher
+     `>=2` sites (`chain::full_nonce_rule`, removed from pocold in phase 6b; `rp.js fullRange`, `pocol_rewards.full_nonce_rule`) and the launcher
      path (v2 invitations bound to `consensusRulesVersion`, append-only and future-only `pocol upgrade`,
      `pocol inspect-upgrade`). `MAX_FORK_VERSION` stays 2 and `v3_active` is not added.
    - **What the v3 PR must do under the PR5 guard** (VA-SPEC §2.3): raise `MAX_FORK_VERSION` (both profile files)
