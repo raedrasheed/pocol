@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Owner-run: sign a PoCol release directory with the owner's ssh-ed25519 release key (owner decision 2026-11-16).
-# For a Linux or macOS signing machine; on Windows use Sign-PoColRelease.ps1. deploy/release/README.md is the procedure.
+# For a Linux or macOS signing machine (bash 3.2 or later, OpenSSH 8.2 or later, python3 3.8 or later; no GNU tools
+# needed); on Windows use Sign-PoColRelease.ps1. deploy/release/README.md is the procedure.
 #
 #     bash deploy/release/sign-release.sh --key <offline path>/pocol-release DIR
 #
 # --key is the private key file (ssh-keygen asks for its passphrase), or its .pub when an ssh-agent holds the key.
 # DIR comes from assemble_release.py: the release files and SHA256SUMS. This script
 #   - refuses a key inside this repository, a public key that is not the committed allowed_signers key, an existing
-#     .sig in DIR, a SHA256SUMS that is not strict or does not match the files, and any file SHA256SUMS does not list;
+#     .sig in DIR, a SHA256SUMS that is not strict or does not match the files, and any entry SHA256SUMS does not list
+#     (hidden ones such as .DS_Store included), before it writes anything;
 #   - signs each listed file, then SHA256SUMS, with `ssh-keygen -Y sign -n pocol-release`, writing FILE.sig;
 #   - runs verify_release.py on DIR against the committed allowed_signers and prints the key's fingerprint, to compare
 #     with the one published on pocol.net.
@@ -50,18 +52,45 @@ except v.NotVerified as e:
 parts = open(sys.argv[3], encoding="ascii").read().split()
 sys.exit(0 if parts[:2] == [kind, key] else 1)
 ' "$HERE/verify_release.py" "$ALLOWED" "$PUB" || die "the key is not the one in $ALLOWED (commit its public line first, by a reviewed PR)"
+# The release directory, before anything is written, in Python (portable to stock macOS: bash 3.2 builtins only, no
+# GNU coreutils; hidden entries such as .DS_Store are listed too): the strict SHA256SUMS of verify_release.py, every listed hash, no
+# existing .sig, and nothing SHA256SUMS does not list. It prints the listed names, one per line.
+NAMES="$(python3 -B -c '
+import hashlib, os, sys, importlib.util
+spec = importlib.util.spec_from_file_location("v", sys.argv[1]); v = importlib.util.module_from_spec(spec); spec.loader.exec_module(v)
+d = sys.argv[2]
+def refuse(why):
+    print("REFUSED: " + why, file=sys.stderr); sys.exit(1)
+entries = sorted(os.listdir(d))
+if v.SUMS not in entries:
+    refuse("no SHA256SUMS (run assemble_release.py first)")
+if any(e.endswith(v.SIG) for e in entries):
+    refuse("a .sig already exists in the release directory; never overwrite a signature")
+path = os.path.join(d, v.SUMS)
+if os.path.islink(path) or not os.path.isfile(path):
+    refuse("SHA256SUMS is not a regular file")
+try:
+    rows = v.parse_sums(open(path, "rb").read())
+except v.NotVerified as e:
+    refuse(str(e))
+listed = [n for _, n in rows]
+for e in entries:
+    if e != v.SUMS and e not in listed:
+        refuse(e + " is not listed in SHA256SUMS")
+for digest, name in rows:
+    f = os.path.join(d, name)
+    if os.path.islink(f) or not os.path.isfile(f):
+        refuse(name + " is listed in SHA256SUMS but is not a regular file")
+    if hashlib.sha256(open(f, "rb").read()).hexdigest() != digest:
+        refuse("SHA256SUMS does not match the files (" + name + ")")
+print("\n".join(listed))
+' "$HERE/verify_release.py" "$DIR")" || exit 1
+LISTED=()
+while IFS= read -r name; do LISTED+=("$name"); done <<EOF_NAMES
+$NAMES
+EOF_NAMES
+[ "${#LISTED[@]}" -gt 0 ] || die 'SHA256SUMS lists no file'
 cd "$DIR"
-[ -f SHA256SUMS ] || die 'no SHA256SUMS (run assemble_release.py first)'
-if compgen -G '*.sig' >/dev/null; then die 'a .sig already exists in the release directory; never overwrite a signature'; fi
-if grep -q $'\r' SHA256SUMS; then die 'SHA256SUMS has CR line endings'; fi
-if grep -qvE '^[0-9a-f]{64}  [A-Za-z0-9._-]+$' SHA256SUMS; then die 'SHA256SUMS has a line that is not <sha256>  <name>'; fi
-sha256sum --check --strict --quiet SHA256SUMS || die 'SHA256SUMS does not match the files'
-mapfile -t LISTED < <(cut -c67- SHA256SUMS)
-for entry in *; do
-  [ "$entry" = SHA256SUMS ] && continue
-  found=0; for name in "${LISTED[@]}"; do [ "$name" = "$entry" ] && found=1; done
-  [ "$found" = 1 ] || die "$entry is not listed in SHA256SUMS"
-done
 for name in "${LISTED[@]}" SHA256SUMS; do
   ssh-keygen -q -Y sign -f "$KEY_ABS" -n "$NAMESPACE" "$name"
 done

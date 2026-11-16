@@ -56,6 +56,8 @@ try {
     Assert ($LASTEXITCODE -eq 0) 'the signer signs and verifies'
     $R = Invoke-Verify $Dir $Allowed
     Assert ($R.Code -eq 0 -and $R.Text.StartsWith('VERIFIED: 2 files')) 'a signed release verifies'
+    $Fingerprint = (@(& $SshKeygen -lf "$Key.pub") -join ' ').Split(' ')[1]
+    Assert ($Fingerprint.StartsWith('SHA256:') -and $R.Text.Contains("key $Fingerprint (ED25519)")) "the verifier prints the key fingerprint $Fingerprint"
     Assert ((& python -B (Join-Path $Here 'verify_release.py') $Dir --allowed-signers $Allowed --ssh-keygen $SshKeygen) -match '^VERIFIED') 'the Python verifier agrees'
     Assert-NotVerified $Dir (Join-Path $Here 'allowed_signers') 'not committed' 'the committed placeholder verifies nothing'
     Assert-NotVerified $Dir (New-Allowed $Key 'other-principal' 'someone@test.invalid') 'principal' 'another principal'
@@ -70,6 +72,28 @@ try {
     Assert-NotVerified $Dir $Allowed 'not signed: network.pocol.json.sig' 'a missing file signature'
     [IO.File]::WriteAllText((Join-Path $Dir 'extra.txt'), 'x')
     Assert-NotVerified $Dir $Allowed 'extra.txt is in the release directory' 'an unlisted file'
+
+    # A second key hidden behind VT (0x0b), NBSP (C2 A0) or a BOM before '#': a comment to .NET Trim, a key line to
+    # ssh-keygen. A release signed only by that key never verifies, and the signer refuses such a file.
+    $Evil = New-Key 'evil'
+    $EvilPub = ([IO.File]::ReadAllText("$Evil.pub")).Trim().Split(' ')
+    $EvilLine = [Text.Encoding]::ASCII.GetBytes("#example,release@pocol.net namespaces=`"pocol-release`" $($EvilPub[0]) $($EvilPub[1])`n")
+    $DirEvil = New-Release 'release-evil'
+    foreach ($Name in @('PoCol-Mainnet-test-windows-x86_64.zip', 'network.pocol.json', 'SHA256SUMS')) {
+        & $SshKeygen -q -Y sign -f $Evil -n pocol-release (Join-Path $DirEvil $Name)
+        if ($LASTEXITCODE -ne 0) { throw "FAIL cannot sign $Name with the throwaway key" }
+    }
+    $Index = 0
+    foreach ($Prefix in @([byte[]](0x0B), [byte[]](0xC2, 0xA0), [byte[]](0xEF, 0xBB, 0xBF))) {
+        $Index += 1
+        $Hidden = Join-Path $Base "hidden-allowed-$Index"
+        [IO.File]::WriteAllBytes($Hidden, [byte[]]($Prefix + $EvilLine + [IO.File]::ReadAllBytes($Allowed)))
+        Assert-NotVerified $DirEvil $Hidden 'not printable ASCII' "a key line hidden behind bytes $(($Prefix | ForEach-Object { '{0:x2}' -f $_ }) -join ' ')"
+    }
+    $DirHidden = New-Release 'release-hidden'
+    $Failed = $false
+    try { & $Sign -Key $Key -Directory $DirHidden -AllowedSigners (Join-Path $Base 'hidden-allowed-1') -SshKeygen $SshKeygen } catch { $Failed = $_.Exception.Message -match 'not printable ASCII' }
+    Assert ($Failed -and @(Get-ChildItem -LiteralPath $DirHidden -Filter '*.sig').Count -eq 0) 'the signer refuses a hidden key line and writes nothing'
 
     # The signer refuses before it writes: an existing signature, a key that is not the committed one.
     $Dir2 = New-Release 'release2'

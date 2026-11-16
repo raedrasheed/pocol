@@ -72,7 +72,9 @@ outside `development/` and `deploy/websites/` may hold a retired identity (`FILE
 release texts that are true only on the retired network (`STEP3`: the 0.4.x versions and "chain ID and genesis
 unchanged" notes) must be gone by then. The native 0.5.0 bump (owner decision 2026-11-16) landed before the switch;
 what `STEP3` still lists (the extension and Studio versions and the 0.4.x extension download names) moves with the
-signed 0.5.0 extension release and its download links.
+signed 0.5.0 extension release and its download links. `deploy/release/assemble_release.py` refuses a release whose
+extension `package.json` version is not the native version, so no release is assembled before the switch sets it to
+0.5.0.
 
 ## A spec-2 (v3) genesis
 

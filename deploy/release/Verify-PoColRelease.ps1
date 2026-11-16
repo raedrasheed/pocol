@@ -3,8 +3,11 @@
 #   - SHA256SUMS: one '<sha256>  <name>' line per file, LF only, sorted, distinct bare names;
 #   - SHA256SUMS.sig and '<name>.sig' beside every listed file, each verified with
 #     ssh-keygen -Y verify -f allowed_signers -I release@pocol.net -n pocol-release -s FILE.sig < FILE;
-#   - nothing else in the directory; the allowed_signers file holds exactly one ssh-ed25519 line, not the placeholder.
-# Prints 'VERIFIED: ...' only when every signature verifies; otherwise 'NOT VERIFIED: <reason>' and exit code 1. There is
+#   - nothing else in the directory; the allowed_signers file holds exactly one ssh-ed25519 line, not the placeholder,
+#     and only printable ASCII and LF (ssh-keygen skips only spaces and tabs before a '#', while .NET Trim also strips
+#     VT, NEL, NBSP and a BOM: a line hidden that way would be a comment here and a second key to ssh-keygen).
+# Prints 'VERIFIED: ...' with the release key's SHA256 fingerprint (compare it with the one published on pocol.net)
+# only when every signature verifies; otherwise 'NOT VERIFIED: <reason>' and exit code 1. There is
 # no checksum-only success: a SHA-256 match alone is integrity, not the publisher's authentication.
 #
 #   powershell -NoProfile -ExecutionPolicy Bypass -File Verify-PoColRelease.ps1 -Directory DIR [-AllowedSigners FILE] [-SshKeygen PATH]
@@ -49,18 +52,26 @@ function Test-Armor([string]$Path) {
 
 # The allowed signers file: exactly one key line, the release principal, the namespace, an ed25519 key.
 if (!(Test-Path -LiteralPath $AllowedSigners -PathType Leaf)) { Fail "cannot read the allowed signers file $AllowedSigners" }
-$AllowedText = [IO.File]::ReadAllText($AllowedSigners)
-if ($AllowedText.Contains("`r")) { Fail "${AllowedSigners}: CR line endings" }
-$KeyLines = @($AllowedText.Split("`n") | Where-Object { $_.Trim() -ne '' -and !$_.TrimStart().StartsWith('#') })
+$AllowedBytes = [IO.File]::ReadAllBytes($AllowedSigners)
+if ($AllowedBytes -contains 13) { Fail "${AllowedSigners}: CR line endings" }
+foreach ($Byte in $AllowedBytes) {
+    if ($Byte -ne 10 -and ($Byte -lt 32 -or $Byte -gt 126)) { Fail "${AllowedSigners}: byte $('0x{0:x2}' -f $Byte) is not printable ASCII (only printable ASCII and LF are allowed)" }
+}
+$AllowedText = [Text.Encoding]::ASCII.GetString($AllowedBytes)
+$KeyLines = @($AllowedText.Split("`n") | Where-Object { $_.Trim([char]32) -ne '' -and !$_.TrimStart([char]32).StartsWith('#') })
 if ($KeyLines.Count -ne 1) { Fail "${AllowedSigners}: exactly one key line is allowed, found $($KeyLines.Count)" }
 if ($KeyLines[0].Contains('PLACEHOLDER')) { Fail "the owner release key is not committed ($AllowedSigners holds the PLACEHOLDER line)" }
-$KeyMatch = [regex]::Match($KeyLines[0].Trim(), '\A(\S+) namespaces="([^"]+)" (\S+) (\S+)(?: .*)?\z')
+$KeyMatch = [regex]::Match($KeyLines[0].Trim([char]32), '\A(\S+) namespaces="([^"]+)" (\S+) (\S+)(?: .*)?\z')
 if (!$KeyMatch.Success) { Fail "${AllowedSigners}: the key line is not '$Principal namespaces=`"$Namespace`" ssh-ed25519 KEY'" }
 if ($KeyMatch.Groups[1].Value -cne $Principal) { Fail "${AllowedSigners}: the principal is not $Principal" }
 if ($KeyMatch.Groups[2].Value -cne $Namespace) { Fail "${AllowedSigners}: the namespace is not $Namespace" }
 if ($KeyMatch.Groups[3].Value -cne 'ssh-ed25519' -or $KeyMatch.Groups[4].Value -cnotmatch '\AAAAAC3NzaC1lZDI1NTE5[A-Za-z0-9+/]{48}\z') {
     Fail "${AllowedSigners}: the key is not an ssh-ed25519 public key"
 }
+# The fingerprint ssh-keygen -l prints: SHA256 of the key blob, unpadded base64.
+$Sha = [Security.Cryptography.SHA256]::Create()
+try { $Fingerprint = 'SHA256:' + [Convert]::ToBase64String($Sha.ComputeHash([Convert]::FromBase64String($KeyMatch.Groups[4].Value))).TrimEnd('=') }
+finally { $Sha.Dispose() }
 
 # ssh-keygen must implement -Y verify: the committed known-good vector verifies, and the same signature over other
 # bytes does not.
@@ -110,5 +121,6 @@ foreach ($Row in $Rows) {
     Test-Armor "$File.sig"
     if (!(Invoke-Verify $AllowedSigners $Principal "$File.sig" $File)) { Fail "$($Row[1]).sig does not verify for $Principal in namespace $Namespace" }
 }
-Write-Output "VERIFIED: $($Rows.Count) files, $Sums and every signature ($Principal, namespace $Namespace, $AllowedSigners)"
+Write-Output "VERIFIED: $($Rows.Count) files, $Sums and every signature ($Principal, namespace $Namespace, key $Fingerprint (ED25519), $AllowedSigners)"
+Write-Output "Compare the key fingerprint $Fingerprint with the release key fingerprint published on pocol.net."
 exit 0

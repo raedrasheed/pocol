@@ -35,10 +35,16 @@ if ($Key.EndsWith('.pub')) { $Pub = $Key } else { $Pub = "$Key.pub" }
 if (!(Test-Path -LiteralPath $Pub -PathType Leaf)) { Refuse "no public key at $Pub (keep the .pub beside the key)" }
 
 # The key must be the committed release key, before anything is written.
-$AllowedText = [IO.File]::ReadAllText($AllowedSigners)
-$KeyLines = @($AllowedText.Split("`n") | Where-Object { $_.Trim() -ne '' -and !$_.TrimStart().StartsWith('#') })
+# Printable ASCII and LF only, as Verify-PoColRelease.ps1 reads it: a line hidden by VT, NEL, NBSP or a BOM would be
+# a comment to .NET Trim and a second key line to ssh-keygen.
+$AllowedBytes = [IO.File]::ReadAllBytes($AllowedSigners)
+foreach ($Byte in $AllowedBytes) {
+    if ($Byte -ne 10 -and ($Byte -lt 32 -or $Byte -gt 126)) { Refuse "$AllowedSigners holds a byte that is not printable ASCII or LF" }
+}
+$AllowedText = [Text.Encoding]::ASCII.GetString($AllowedBytes)
+$KeyLines = @($AllowedText.Split("`n") | Where-Object { $_.Trim([char]32) -ne '' -and !$_.TrimStart([char]32).StartsWith('#') })
 if ($KeyLines.Count -ne 1 -or $KeyLines[0].Contains('PLACEHOLDER')) { Refuse "the owner release key is not committed in $AllowedSigners (commit its public line first, by a reviewed PR)" }
-$Committed = $KeyLines[0].Trim().Split(' ')
+$Committed = $KeyLines[0].Trim([char]32).Split(' ')
 $Given = ([IO.File]::ReadAllText($Pub)).Trim().Split(' ')
 if ($Committed.Count -lt 4 -or $Given.Count -lt 2 -or $Committed[2] -cne $Given[0] -or $Committed[3] -cne $Given[1]) {
     Refuse "the key is not the one in $AllowedSigners"

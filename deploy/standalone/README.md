@@ -171,14 +171,19 @@ from this invitation, in the repository (W15 for the rehearsal, W16 for the main
 ### Verify the download
 
 Every published file has an ssh-ed25519 release signature `FILE.sig`, and the release's `SHA256SUMS` has
-`SHA256SUMS.sig` (owner decision 2026-11-16; `deploy/release/README.md`). With `allowed_signers` from the repository
-or pocol.net (compare its fingerprint with the published one) and OpenSSH 8.2 or later:
+`SHA256SUMS.sig` (owner decision 2026-11-16; `deploy/release/README.md`, user procedure). Take `allowed_signers` from
+the repository or pocol.net and compare its fingerprint with the published one
+(`grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | ssh-keygen -lf -`, exactly one line). A `FILE.sig` binds no
+file name or version, so verify the signed `SHA256SUMS` and the download's line in it, with OpenSSH 8.2 or later:
 
 ```sh
-ssh-keygen -Y verify -f allowed_signers -I release@pocol.net -n pocol-release -s FILE.sig < FILE
+ssh-keygen -Y verify -f allowed_signers -I release@pocol.net -n pocol-release -s SHA256SUMS.sig < SHA256SUMS
+awk -v f=FILE '$2 == f' SHA256SUMS | sha256sum --check
 ```
 
-or the whole directory with `deploy/release/verify_release.py DIR` (Windows: `Verify-PoColRelease.ps1 -Directory DIR`).
+(the first ends `with ED25519 key SHA256:...`, the published fingerprint; the second must print `FILE: OK`), or the
+whole directory with `deploy/release/verify_release.py DIR` (Windows: `Verify-PoColRelease.ps1 -Directory DIR`), which
+prints the key fingerprint in its `VERIFIED` line.
 Only `VERIFIED` is a verified release: the `SHA256SUMS` inside a package checks its integrity, not its publisher.
 
 ### Launch disclosures (DRAFT: wording for owner review)

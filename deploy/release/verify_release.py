@@ -7,18 +7,21 @@
 DIR holds the release as it is published: the downloadable files, SHA256SUMS (one `<sha256>  <name>` line per file,
 LF only, sorted names of letters, digits, `.`, `_` and `-`), SHA256SUMS.sig, and `<name>.sig` beside every listed
 file. The signer is the principal release@pocol.net in namespace pocol-release of the allowed_signers file (default:
-the committed deploy/release/allowed_signers, exactly one ssh-ed25519 key line).
+the committed deploy/release/allowed_signers, exactly one ssh-ed25519 key line, printable ASCII and LF only).
 
-It prints `VERIFIED: ...` and exits 0 only when SHA256SUMS.sig, every listed file's hash and every `<name>.sig` verify,
+It prints `VERIFIED: ...` with the release key's SHA256 fingerprint (compare it with the one published on pocol.net)
+and exits 0 only when SHA256SUMS.sig, every listed file's hash and every `<name>.sig` verify,
 and nothing else is in DIR. Otherwise it prints `NOT VERIFIED: <reason>` and exits 1 (2 for a usage error). There is
 no checksum-only success: a release without its signatures is never reported verified. A SHA-256 match alone is
 integrity, not the publisher's authentication.
 
-One file by hand (the same check, for one download):
+One download by hand: a FILE.sig binds only the file's bytes, not its name or version, so check the signed SHA256SUMS
+and the file's line in it (deploy/release/README.md, user procedure):
 
-    ssh-keygen -Y verify -f allowed_signers -I release@pocol.net -n pocol-release -s FILE.sig < FILE
+    ssh-keygen -Y verify -f allowed_signers -I release@pocol.net -n pocol-release -s SHA256SUMS.sig < SHA256SUMS
+    grep '  FILE$' SHA256SUMS | sha256sum --check
 """
-import argparse, hashlib, os, re, shutil, subprocess, sys
+import argparse, base64, binascii, hashlib, os, re, shutil, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -41,19 +44,29 @@ class NotVerified(Exception):
 
 
 def read_allowed(path, principal=PRINCIPAL):
-    """The one key line of an allowed_signers file: (principal, key type, base64). Refuses the placeholder."""
+    """The one key line of an allowed_signers file: (principal, key type, base64). Refuses the placeholder.
+
+    Only printable ASCII and LF are allowed, so this reading and ssh-keygen's agree on every line: ssh-keygen skips
+    only spaces and tabs before a `#`, while Python's str.strip and .NET's Trim also remove VT, FF, NEL, NBSP and other
+    Unicode spaces. A line `\\v#x,release@pocol.net namespaces=... KEY` would otherwise be a comment here and a
+    second key line (whose principal pattern list matches release@pocol.net) to ssh-keygen."""
     try:
-        text = Path(path).read_bytes().decode('utf-8')
-    except (OSError, UnicodeDecodeError) as e:
+        raw = Path(path).read_bytes()
+    except OSError as e:
         raise NotVerified(f'cannot read the allowed signers file {path} ({e})') from None
-    if '\r' in text:
+    if b'\r' in raw:
         raise NotVerified(f'{path}: CR line endings')
-    lines = [l for l in text.split('\n') if l.strip() and not l.lstrip().startswith('#')]
+    bad = re.search(rb'[^\x20-\x7e\n]', raw)
+    if bad:
+        raise NotVerified(f'{path}: byte 0x{bad[0][0]:02x} at offset {bad.start()} is not printable ASCII (only printable '
+                          'ASCII and LF are allowed)')
+    text = raw.decode('ascii')
+    lines = [l for l in text.split('\n') if l.strip(' ') and not l.lstrip(' ').startswith('#')]
     if len(lines) != 1:
         raise NotVerified(f'{path}: exactly one key line is allowed, found {len(lines)}')
     if 'PLACEHOLDER' in lines[0]:
         raise NotVerified(f'the owner release key is not committed ({path} holds the PLACEHOLDER line)')
-    m = KEY_LINE.fullmatch(lines[0].strip())
+    m = KEY_LINE.fullmatch(lines[0].strip(' '))
     if not m:
         raise NotVerified(f'{path}: the key line is not `{principal} namespaces="{NAMESPACE}" ssh-ed25519 KEY`')
     if m['principal'] != principal:
@@ -63,6 +76,15 @@ def read_allowed(path, principal=PRINCIPAL):
     if m['type'] != 'ssh-ed25519' or not re.fullmatch(r'AAAAC3NzaC1lZDI1NTE5[A-Za-z0-9+/]{48}', m['key']):
         raise NotVerified(f'{path}: the key is not an ssh-ed25519 public key')
     return m['principal'], m['type'], m['key']
+
+
+def fingerprint(key):
+    """The SHA256 fingerprint ssh-keygen -l prints for a public key's base64 blob: SHA256:<unpadded base64>."""
+    try:
+        blob = base64.b64decode(key, validate=True)
+    except (binascii.Error, ValueError):
+        raise NotVerified('the key is not base64') from None
+    return 'SHA256:' + base64.b64encode(hashlib.sha256(blob).digest()).decode('ascii').rstrip('=')
 
 
 def parse_sums(data):
@@ -177,11 +199,13 @@ def main(argv=None):
     a = p.parse_args(argv)
     try:
         count = verify(a.directory, a.allowed_signers, a.ssh_keygen)
+        key = fingerprint(read_allowed(a.allowed_signers)[2])
     except NotVerified as e:
         print(f'NOT VERIFIED: {e}')
         return 1
-    print(f'VERIFIED: {count} files, {SUMS} and every signature ({PRINCIPAL}, namespace {NAMESPACE}, '
+    print(f'VERIFIED: {count} files, {SUMS} and every signature ({PRINCIPAL}, namespace {NAMESPACE}, key {key} (ED25519), '
           f'{a.allowed_signers})')
+    print(f'Compare the key fingerprint {key} with the release key fingerprint published on pocol.net.')
     return 0
 
 
