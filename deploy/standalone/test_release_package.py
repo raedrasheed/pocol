@@ -315,7 +315,10 @@ class ReleasePackageTests(unittest.TestCase):
                 text = (ROOT / rel).read_text(encoding='utf-8')
                 self.assertRegex(text, pattern)
         workflow = (ROOT / '.github/workflows/five-device-build.yml').read_text(encoding='utf-8')
-        self.assertNotIn(VERSION, workflow)
+        # Tool pins (Rust toolchain, Android build-tools and NDK, Gradle) are not release versions: drop them, then
+        # match on token boundaries so a release version inside another number (5.0.0 in 35.0.0) does not count.
+        unpinned = re.sub(r'(?:toolchain install |cargo \+|build-tools[;/]|ndk;|gradle-)[0-9][0-9.]*', '', workflow)
+        self.assertNotRegex(unpinned, rf'(?<![0-9.]){re.escape(VERSION)}(?![0-9])')
         self.assertIn('deploy/standalone/package.py --version', workflow)
 
     def expanded(self, out):
