@@ -23,7 +23,7 @@ const B = await load(rel, 'bridge.js'), S = await load(rel, 'sitestore.js'), SIT
 const RLP = await load(rel, 'rlp.js'), HEX = await load(rel, 'hex.js'), C = await load(rel, 'crypto.js'), WAL = await load(rel, 'wallet.js');
 let passed = 0; const failed = [];
 const ok = (name, cond, detail = '') => { if (cond) passed++; else failed.push(name + (detail ? ' — ' + detail : '')); };
-for (const c of forkResults) ok('Maximum nonce ' + c.name, c.pass, c.detail);
+for (const c of forkResults) ok('Fork schedule ' + c.name, c.pass, c.detail);
 for (const c of v3Results) ok('G3a ' + c.name, c.pass, c.detail);
 const msg = (id, kind, method, params) => JSON.stringify({ id, kind, payload: { method, params } });
 const code = (r) => (r.ok ? 'ok' : r.reply.error.code);

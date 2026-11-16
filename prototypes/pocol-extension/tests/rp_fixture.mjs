@@ -2,8 +2,22 @@
 // exact timing (L(0)+dFbWait), ASERT targets, real PoW nonces below nMax and a recoverable winnerSig.
 // `mutate(h, ut)` may alter UT fields of height h (as RLP items) before sealing. `maxVersion` is an explicit decoder
 // ceiling for the spec (by default the release ceiling, SPEC_VERSION 2, which decodes a v3 genesis).
-import { pathToFileURL } from 'node:url';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { pathToFileURL, fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
+
+// The devnet GenesisSpec fixtures. data/devnet-spec-v3.hex is the one a profile uses: a spec-2 (v3) genesis with nonceMode
+// 1, as pocold admits, written by the Rust tool (genesis.spec.hex of
+//   pocold init-devnet --out DIR --miners a,b,c --chain-id 777960 --genesis-time 1700000000 --t-blk 4 --tau 40 \
+//     --d-att 25 --fb-wait 3 --c 2 --work-bits 8
+// ), never by hand. data/devnet-spec.hex is the retired spec-1 devnet genesis under the same chain ID and genesis time: it
+// still decodes (the decoder corpus and the spec-1 decode checks), but no node admits it and no profile accepts it.
+const DATA = join(dirname(fileURLToPath(import.meta.url)), 'data');
+const readHex = (name) => readFileSync(join(DATA, name), 'utf8').trim().replace(/^0x/, '');
+/** The v3 devnet GenesisSpec as hex without 0x (the profile fixture). */
+export const devnetSpecV3Hex = () => readHex('devnet-spec-v3.hex');
+/** The retired spec-1 devnet GenesisSpec as hex without 0x (decode-compatibility fixture only). */
+export const devnetSpecV1Hex = () => readHex('devnet-spec.hex');
 
 export async function rpWindow(dist, specBytes, heights, mutate = () => {}, maxVersion = undefined) {
   const L = async (m) => import(pathToFileURL(join(dist, 'lib', m)).href);

@@ -10,13 +10,10 @@ async function refresh() {
   $('archivedJobs').replaceChildren(...archived.map((job) => { const li = document.createElement('li'); li.textContent = `${job.request?.title || 'PoCol operation'} · ${job.status} · chain ${job.network?.chainId ?? 'unknown'} · ${Object.keys(job.checkpoint?.transactions || {}).length} signed transaction(s) · archived ${new Date(job.archivedAt || 0).toISOString().slice(0, 10)}`; return li; }));
   if (!archived.length) $('archivedJobs').textContent = 'None';
   const r = await send({ type: 'profiles.list' });
-  const publicProfile = (r.profiles || []).find((p) => p.name === 'pocol-public');
-  if (publicProfile && !publicProfile.invalid) $('publicForkSchedule').value = JSON.stringify(publicProfile.forkSchedule);
-  else if (publicProfile?.invalid) $('publicForkStatus').textContent = 'Saved schedule is invalid. Enter the operator-approved schedule to repair it.';
   $('profiles').replaceChildren(...(r.profiles || []).map((p) => {
     const li = document.createElement('li');
     // A stored profile that no longer validates is listed as invalid (removable, unusable).
-    li.textContent = p.invalid ? `${p.name} · Invalid: ${p.invalid} ` : `${p.name} · chainId ${p.chainId} · ${p.trustLevel} · ${p.endpoint} · ${p.forkSchedule.length > 1 ? p.forkSchedule.slice(1).map(([v, h]) => 'Version ' + v + (v === 3 ? ' (cap raise)' : '') + ' from block ' + h).join(', ') : 'Version 1'} · netKey ${p.netKey.slice(0, 18)}…${p.conflict ? ' · network or activation conflict (read-only)' : ''} `;
+    li.textContent = p.invalid ? `${p.name} · Invalid: ${p.invalid} ` : `${p.name} · chainId ${p.chainId} · ${p.trustLevel} · ${p.endpoint} · ${p.forkSchedule.length > 1 ? p.forkSchedule.slice(1).map(([v, h]) => 'Version ' + v + (v === 3 ? ' (cap raise)' : '') + ' from block ' + h).join(', ') : 'Version 1'} · netKey ${p.netKey.slice(0, 18)}…${p.conflict ? ' · network or fork-schedule conflict (read-only)' : ''} `;
     const rm = Object.assign(document.createElement('button'), { type: 'button', textContent: 'Delete' });
     rm.onclick = async () => { await send({ type: 'profiles.remove', name: p.name }); refresh(); };
     if(p.name !== 'pocol-public')li.append(rm); return li;
@@ -28,15 +25,6 @@ async function refresh() {
 $('add').onclick = async () => {
   let p; try { p = JSON.parse($('profile').value); } catch { alert('Invalid JSON'); return; }
   const r = await send({ type: 'profiles.add', profile: p }); if (!r.ok) alert('Profile rejected: ' + (r.error.message || r.error)); refresh();
-};
-$('savePublicForkSchedule').onclick = async () => {
-  let forkSchedule;
-  try { forkSchedule = JSON.parse($('publicForkSchedule').value); }
-  catch { $('publicForkStatus').textContent = 'Invalid JSON. Enter the exact approved schedule.'; return; }
-  const r = await send({ type: 'profiles.publicSchedule', forkSchedule });
-  if (!r.ok) { $('publicForkStatus').textContent = 'Schedule rejected: ' + (r.error?.message || r.error); return; }
-  $('publicForkStatus').textContent = 'Trusted schedule saved. Reopen active Viewer tabs to use it. Wallet identity is unchanged.';
-  await refresh();
 };
 $('create').onclick = async () => {
   // F11: require a real password here too (the worker enforces it regardless), and confirm before

@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { build } from '../build.mjs';
 import { siteFixture } from './site_fixture.mjs';
+import { devnetSpecV3Hex } from './rp_fixture.mjs';
 
 // A private build: node --test runs suites in parallel, and others read dist/.
 const { dist } = build({ out: mkdtempSync(join(tmpdir(), 'pocol-site-fetch-')) });
@@ -236,9 +237,8 @@ test('the site fetch keeps the manifest checks: a wrong manifest hash is refused
 });
 test('the service worker opens a site whose chunk reads are first refused (-32021) and retries a busy site read', async () => {
   const { installChromeMock, installFetchMock, loadWorker } = await import('./chrome_mock.mjs');
-  const { readFileSync } = await import('node:fs');
   const C = await L('crypto.js'), RP = await L('rp.js');
-  const pre = '0x' + readFileSync(new URL('./data/devnet-spec.hex', import.meta.url), 'utf8').trim().replace(/^0x/, '');
+  const pre = '0x' + devnetSpecV3Hex();
   const spec = RP.decodeSpec(H.fromHex(pre)), hash = H.toHex(C.keccak(H.fromHex(pre)));
   const fx = await fixture(); let refusedCode = 0, refusedRead = 0;
   // The session's 30 s identity check is captured, not scheduled (as worker_test does), so the suite can exit.
@@ -265,9 +265,8 @@ test('the service worker opens a site whose chunk reads are first refused (-3202
 });
 test('a closed or revoked site session stops retrying at once: no further read is sent and its pending-read slots return', async () => {
   const { installChromeMock, installFetchMock, loadWorker } = await import('./chrome_mock.mjs');
-  const { readFileSync } = await import('node:fs');
   const C = await L('crypto.js'), RP = await L('rp.js'), B = await L('bridge.js');
-  const pre = '0x' + readFileSync(new URL('./data/devnet-spec.hex', import.meta.url), 'utf8').trim().replace(/^0x/, '');
+  const pre = '0x' + devnetSpecV3Hex();
   const spec = RP.decodeSpec(H.fromHex(pre)), hash = H.toHex(C.keccak(H.fromHex(pre)));
   const fx = await fixture(); let busy = true;
   // The retry sleeps (the -32021 hint, HINT ms) are captured, not scheduled: the test decides when each one ends.
