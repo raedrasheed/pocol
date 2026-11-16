@@ -606,6 +606,32 @@ class Consistency(unittest.TestCase):
             self.assertNotRegex(script, r'(\$_|KeyLines\[0\])\.Trim(Start)?\(\)')
         self.assertIn('key $Fingerprint (ED25519)', ps)
 
+    def test_the_powershell_signer_checks_strictly_before_it_signs(self):
+        # Verify-PoColRelease.ps1's SHA256SUMS rules run before the first signature, as sign-release.sh runs parse_sums:
+        # otherwise an unsorted or duplicate list is signed, then refused, and its .sig files stay behind.
+        sign = (HERE / 'Sign-PoColRelease.ps1').read_text(encoding='ascii')
+        first_signature = sign.index('-Y sign -f $Key')
+        for text in ("$Name.StartsWith('.') -or $Name -ceq $Sums -or $Name.EndsWith('.sig')",
+                     'Sort-Object -Unique -CaseSensitive', '[Array]::Sort($Sorted, [StringComparer]::Ordinal)',
+                     'the names are not sorted', 'a name is listed twice', '[IO.FileAttributes]::ReparsePoint',
+                     'is not listed in SHA256SUMS', 'SHA256SUMS does not match the files'):
+            self.assertIn(text, sign)
+            self.assertLess(sign.index(text), first_signature, text)
+
+    def test_the_powershell_test_can_pass_on_windows(self):
+        # test_verify_release.ps1 runs on Windows CI only (no PowerShell here); these are the traps it must avoid.
+        test = (HERE / 'test_verify_release.ps1').read_text(encoding='ascii')
+        # Sort-Object compares by culture and ignores case: network.pocol.json would precede PoCol-..., which the
+        # verifiers (ordinal, like Python sorted) refuse as unsorted.
+        self.assertNotIn('Sort-Object Name', test)
+        self.assertIn('[Array]::Sort($Names, [StringComparer]::Ordinal)', test)
+        names = ['PoCol-Mainnet-test-windows-x86_64.zip', 'network.pocol.json']
+        self.assertNotEqual(sorted(names), sorted(names, key=str.lower), 'the fixture names differ in the two orders')
+        # Assert takes a [bool]: a -match over the verifier's two output lines is an array, which does not bind.
+        self.assertNotRegex(test, r"Assert \(\(& [^\n]*\) -match ")
+        # GitHub's powershell step exits with $LASTEXITCODE, which the last refusing verifier run left at 1.
+        self.assertEqual(test.rstrip().splitlines()[-1], 'exit 0')
+
     def test_the_readme_commands_use_the_tool_constants(self):
         readme = (HERE / 'README.md').read_text(encoding='utf-8')
         sums_check = f'ssh-keygen -Y verify -f allowed_signers -I {vr.PRINCIPAL} -n {vr.NAMESPACE} -s SHA256SUMS.sig < SHA256SUMS'

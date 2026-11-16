@@ -50,8 +50,9 @@ per-package `SHA256SUMS` inside the native packages and the extension's `.sha256
    ```
 
    It refuses a key inside the repository, a key that is not the committed one, an existing `.sig`, a
-   `SHA256SUMS` that does not match the files, and any file it does not list (hidden ones such as `.DS_Store`
-   included), before it writes anything.
+   `SHA256SUMS` that is not strict (names out of sorted order, listed twice, or not release file names) or does not
+   match the files, and any file it does not list (hidden ones such as `.DS_Store` included), before it writes
+   anything.
 7. **Verify** the result: `python3 deploy/release/verify_release.py RELEASE_DIR` (or `Verify-PoColRelease.ps1`).
    It must print `VERIFIED` with the key fingerprint you published.
 8. **Upload** every file with its `.sig`, `SHA256SUMS` and `SHA256SUMS.sig`. Never upload a release that does not

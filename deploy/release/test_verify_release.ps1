@@ -33,10 +33,21 @@ function New-Release([string]$Name) {
     foreach ($File in @('PoCol-Mainnet-test-windows-x86_64.zip', 'network.pocol.json')) {
         [IO.File]::WriteAllBytes((Join-Path $Dir $File), [Text.Encoding]::ASCII.GetBytes("$File`n"))
     }
-    $Lines = @(Get-ChildItem -LiteralPath $Dir -File | Sort-Object Name | ForEach-Object {
-        (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant() + '  ' + $_.Name })
-    [IO.File]::WriteAllText((Join-Path $Dir 'SHA256SUMS'), (($Lines -join "`n") + "`n"), (New-Object Text.ASCIIEncoding))
+    # Ordinal order, as assemble_release.py (Python sorted) writes it and both verifiers require: Sort-Object compares
+    # by culture and ignores case, which puts network.pocol.json before PoCol-... ('P' 0x50 < 'n' 0x6e).
+    $Names = [string[]]@(Get-ChildItem -LiteralPath $Dir -File | ForEach-Object Name)
+    [Array]::Sort($Names, [StringComparer]::Ordinal)
+    Write-Sums $Dir $Names
     return $Dir
+}
+function Write-Sums([string]$Dir, [string[]]$Names) {
+    # A listed name with no file gets a dummy hash (the strict-name cases below).
+    $Lines = @($Names | ForEach-Object {
+        $Path = Join-Path $Dir $_
+        if (Test-Path -LiteralPath $Path -PathType Leaf) { $Hash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant() }
+        else { $Hash = '0' * 64 }
+        $Hash + '  ' + $_ })
+    [IO.File]::WriteAllText((Join-Path $Dir 'SHA256SUMS'), (($Lines -join "`n") + "`n"), (New-Object Text.ASCIIEncoding))
 }
 function Invoke-Verify([string]$Dir, [string]$Allowed) {
     $Out = & powershell -NoProfile -ExecutionPolicy Bypass -File $Verify -Directory $Dir -AllowedSigners $Allowed -SshKeygen $SshKeygen
@@ -58,7 +69,9 @@ try {
     Assert ($R.Code -eq 0 -and $R.Text.StartsWith('VERIFIED: 2 files')) 'a signed release verifies'
     $Fingerprint = (@(& $SshKeygen -lf "$Key.pub") -join ' ').Split(' ')[1]
     Assert ($Fingerprint.StartsWith('SHA256:') -and $R.Text.Contains("key $Fingerprint (ED25519)")) "the verifier prints the key fingerprint $Fingerprint"
-    Assert ((& python -B (Join-Path $Here 'verify_release.py') $Dir --allowed-signers $Allowed --ssh-keygen $SshKeygen) -match '^VERIFIED') 'the Python verifier agrees'
+    # verify_release.py prints two lines on success: collect them, so Assert gets one bool, not an array.
+    $PyOut = @(& python -B (Join-Path $Here 'verify_release.py') $Dir --allowed-signers $Allowed --ssh-keygen $SshKeygen)
+    Assert ($LASTEXITCODE -eq 0 -and $PyOut.Count -ge 1 -and ([string]$PyOut[0]).StartsWith('VERIFIED: 2 files')) 'the Python verifier agrees'
     Assert-NotVerified $Dir (Join-Path $Here 'allowed_signers') 'not committed' 'the committed placeholder verifies nothing'
     Assert-NotVerified $Dir (New-Allowed $Key 'other-principal' 'someone@test.invalid') 'principal' 'another principal'
     Assert-NotVerified $Dir (New-Allowed (New-Key 'other') 'other-key') 'does not verify' 'another key'
@@ -105,6 +118,28 @@ try {
     $Failed = $false
     try { & $Sign -Key $Key -Directory $Dir2 -AllowedSigners $Allowed -SshKeygen $SshKeygen } catch { $Failed = $_.Exception.Message -match 'CR line endings' }
     Assert ($Failed -and @(Get-ChildItem -LiteralPath $Dir2 -Filter '*.sig').Count -eq 0) 'the signer refuses CRLF SHA256SUMS'
+
+    # The signer runs the verifier's strict SHA256SUMS rules before it signs: names out of ordinal order (the culture
+    # order of Sort-Object), a name listed twice, a name that is not a release file name, a listed directory.
+    $Cases = @(
+        @{ Names = @('network.pocol.json', 'PoCol-Mainnet-test-windows-x86_64.zip'); Want = 'not sorted'; What = 'unsorted names' },
+        @{ Names = @('PoCol-Mainnet-test-windows-x86_64.zip', 'PoCol-Mainnet-test-windows-x86_64.zip', 'network.pocol.json'); Want = 'listed twice'; What = 'a name listed twice' },
+        @{ Names = @('.hidden', 'PoCol-Mainnet-test-windows-x86_64.zip', 'network.pocol.json'); Want = 'not a release file name'; What = 'a hidden name' },
+        @{ Names = @('PoCol-Mainnet-test-windows-x86_64.zip', 'network.pocol.json', 'notes.sig'); Want = 'not a release file name'; What = 'a .sig name' }
+    )
+    $Index = 0
+    foreach ($Case in $Cases) {
+        $Index += 1
+        $DirBad = New-Release "release-strict-$Index"
+        # Only the two release files exist: a bad name is refused before the signer looks for its file.
+        Write-Sums $DirBad ([string[]]$Case.Names)
+        $Failed = $false
+        try { & $Sign -Key $Key -Directory $DirBad -AllowedSigners $Allowed -SshKeygen $SshKeygen } catch { $Failed = $_.Exception.Message -match $Case.Want }
+        Assert ($Failed -and @(Get-ChildItem -LiteralPath $DirBad -Filter '*.sig' -Force).Count -eq 0) "the signer refuses $($Case.What) and writes nothing"
+    }
 } finally {
     Remove-Item -LiteralPath $Base -Recurse -Force -ErrorAction SilentlyContinue
 }
+# GitHub's powershell step ends with `exit $LASTEXITCODE`: the last native command above (a verifier run that must
+# refuse) left it at 1. Every check passed, so the step exits 0; a FAIL throw has already ended the script non-zero.
+exit 0

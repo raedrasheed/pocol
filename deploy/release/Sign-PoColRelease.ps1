@@ -56,17 +56,27 @@ if (@(Get-ChildItem -LiteralPath $Directory -Filter '*.sig' -Force).Count -ne 0)
 $SumsText = [Text.Encoding]::ASCII.GetString([IO.File]::ReadAllBytes($SumsPath))
 if ($SumsText.Contains("`r")) { Refuse 'SHA256SUMS has CR line endings' }
 if ($SumsText.Length -eq 0 -or !$SumsText.EndsWith("`n")) { Refuse 'SHA256SUMS is empty or does not end with a newline' }
-$Names = @()
+# The strict rules of Verify-PoColRelease.ps1 (and sign-release.sh's parse_sums), all before the first signature:
+# release file names only, each once, in ordinal order; nothing unlisted; regular files only; matching hashes.
+$Rows = @()
 foreach ($Line in $SumsText.Substring(0, $SumsText.Length - 1).Split("`n")) {
     if ($Line -cnotmatch '\A([0-9a-f]{64})  ([A-Za-z0-9._-]+)\z') { Refuse "SHA256SUMS has a line that is not <sha256>  <name>: $Line" }
-    $Expected = $Matches[1]; $Name = $Matches[2]
-    $File = Join-Path $Directory $Name
-    if (!(Test-Path -LiteralPath $File -PathType Leaf)) { Refuse "$Name is listed in SHA256SUMS but missing" }
-    if ((Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Expected) { Refuse 'SHA256SUMS does not match the files' }
-    $Names += $Name
+    $Name = $Matches[2]
+    if ($Name.StartsWith('.') -or $Name -ceq $Sums -or $Name.EndsWith('.sig')) { Refuse "SHA256SUMS: '$Name' is not a release file name" }
+    $Rows += ,@($Matches[1], $Name)
 }
+$Names = @($Rows | ForEach-Object { $_[1] })
+if (@($Names | Sort-Object -Unique -CaseSensitive).Count -ne $Names.Count) { Refuse 'SHA256SUMS: a name is listed twice' }
+$Sorted = [string[]]$Names.Clone(); [Array]::Sort($Sorted, [StringComparer]::Ordinal)
+if (($Sorted -join "`n") -cne ($Names -join "`n")) { Refuse 'SHA256SUMS: the names are not sorted (ordinal order, as assemble_release.py writes them)' }
 foreach ($Entry in @(Get-ChildItem -LiteralPath $Directory -Force)) {
     if ($Entry.Name -cne $Sums -and $Names -cnotcontains $Entry.Name) { Refuse "$($Entry.Name) is not listed in SHA256SUMS" }
+    if ($Entry.PSIsContainer -or ($Entry.Attributes -band [IO.FileAttributes]::ReparsePoint)) { Refuse "$($Entry.Name) is not a regular file" }
+}
+foreach ($Row in $Rows) {
+    $File = Join-Path $Directory $Row[1]
+    if (!(Test-Path -LiteralPath $File -PathType Leaf)) { Refuse "$($Row[1]) is listed in SHA256SUMS but missing" }
+    if ((Get-FileHash -LiteralPath $File -Algorithm SHA256).Hash.ToLowerInvariant() -cne $Row[0]) { Refuse 'SHA256SUMS does not match the files' }
 }
 foreach ($Name in @($Names + $Sums)) {
     & $SshKeygen -q -Y sign -f $Key -n $Namespace (Join-Path $Directory $Name)
