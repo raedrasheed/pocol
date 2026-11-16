@@ -46,8 +46,7 @@ internal static class WalletUiTests {
    Check(CardText(0,1)=="200.000000000000000001 PCOL","Amount precision changed.");
    Check(CardText(1,0)=="Mining registration"&&CardText(1,2)=="Included · 4 confirmations","Registration/receipt status missing.");
    Check(((TextBox)Card(0).Children[3]).Text==Transfer,"Transaction hash changed.");
-   // Keep newer feature checks after the history regression: the historical
-   // baseline has no network-name support and must first fail for missing cards.
+   // The network name follows the engine's designation: an unknown network is never shown as Mainnet.
    Check(Control<TextBlock>("NetworkName").Text=="●  PoCol network","Unknown networks must not be presented as Mainnet.");
    state["networkName"]="PoCol Mainnet";state["networkEnvironment"]="mainnet";Response(state);
    Check(Control<TextBlock>("NetworkName").Text=="●  PoCol Mainnet","Validated network designation was not displayed.");

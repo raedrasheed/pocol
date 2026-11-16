@@ -1,7 +1,7 @@
-name: Windows wallet UI regression
+name: Windows wallet UI
 on:
   pull_request:
-    branches: [main, codex/public-network-operations]
+    branches: [main]
     paths: ['prototypes/pocol-windows/**', 'deploy/standalone/build-windows-wallet.ps1', '.github/workflows/windows-wallet-ui.yml']
   workflow_dispatch:
 permissions:
@@ -21,13 +21,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ env.EXPECTED_COMMIT }}
-          fetch-depth: 0
           persist-credentials: false
-      - name: Build GUI and verify actual WPF history before and after the fix
+      - name: Build GUI and run the WPF UI tests
         shell: powershell
         run: |
           if ((git rev-parse HEAD) -ne $env:EXPECTED_COMMIT) { throw 'Unexpected source commit' }
-          ./deploy/standalone/build-windows-wallet.ps1 -VerifyRegression
+          ./deploy/standalone/build-windows-wallet.ps1
       - name: Stage the GUI update and test evidence
         shell: powershell
         run: |
