@@ -94,45 +94,17 @@ other. A file is exactly 98 bytes:
 The passphrase is the UTF-8 bytes of exactly what was typed, with no Unicode normalization. If you use
 non-ASCII characters, restore with the same keyboard or input method you used to make the backup.
 
-## Application id and moving to a new signing key
+## Application id and signing
 
-The installed 0.4.0 app is `org.pocol.node`. Android installs an update only when it is signed by the installed
-app's signer, or by a key that signer authorized through APK signature scheme v3 rotation. The installed app
-has no key export, so a build signed only with a new key cannot replace it, and uninstalling it deletes its key.
-`development/decisions/V3-DESIGN.md` (V3-33) sets the order:
+The app is `org.pocol.wallet`, the only application id that is built and packaged (`app/build.gradle`). The Java
+package and the `namespace` stay `org.pocol.node`, because the JNI symbols that `bridge.c` exports
+(`Java_org_pocol_node_*`) are named after it; only the installed id differs.
 
-1. **If the key that signed the installed APK can be recovered** (for a debug-signed build, that is the debug
-   keystore of the machine that built it), sign the backup-capable release with it, or with a v3 signing
-   lineage from it to the new key. Users then update in place, keep their account, and can make a backup from
-   then on. Check the installed signer first: `apksigner verify --print-certs` on the installed APK, or
-   `adb shell dumpsys package org.pocol.node`.
-2. **Otherwise**, ship the new-key build as a **separate app**. It installs beside the old one:
+The release APK is unsigned until the owner signs it with the Android release key, which is kept outside the
+repository and CI. Android updates an installed app only with the signer it was installed with, so every later release
+of `org.pocol.wallet` must be signed with that same key; without it no installed copy can be updated again. An app
+with another id (such as `org.pocol.node` from an earlier release) is a different app: this release neither updates
+nor reads it.
 
-   ```sh
-   gradle -p prototypes/pocol-android assembleRelease -PpocolApplicationId=org.pocol.wallet
-   ```
-
-   The default build is still `org.pocol.node`. Another id gets the launcher label *PoCol Wallet (new)*;
-   `-PpocolAppLabel=...` overrides it. `deploy/standalone/package.py --android-application-id
-   org.pocol.wallet` packages it as `PoCol-Mainnet-0.4.0-arm64-org.pocol.wallet-unsigned.apk`. CI builds both
-   ids.
-
-   Users then move their funds before the re-genesis block S:
-
-   1. Install the new app (*PoCol Wallet (new)*) and leave the old *PoCol Wallet* installed.
-   2. In the new app, import the network file. **Back up the new key now** (Settings → Key backup) and keep the
-      file and passphrase safe.
-   3. A registered mining identity deregisters first (V3-33). Send moves only the spendable balance, not a
-      locked bond, and the Android app has no deregister action. Follow the cutover announcement for member
-      identities, and allow time for the bond to come back before S.
-   4. In the old app, use **Send PCOL** to send the balance to the new app's address (Receive → Copy address in
-      the new app). Leave enough for the network fee, and check the address on the review screen before you
-      confirm.
-   5. Wait until the new app shows the funds as included with confirmations. Only then uninstall the old app,
-      if you want to.
-
-   The cutover waits until this has been announced for long enough. Transfers after block S are voided by the
-   re-genesis, so they must be included before it.
-
-From the new app on, an encrypted backup is the recovery path. Restoring a backup on a new phone, or in a
-reinstalled app, gives back the same account.
+An encrypted backup is the recovery path. Restoring a backup on a new phone, or in a reinstalled app, gives back the
+same account.

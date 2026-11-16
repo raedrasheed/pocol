@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Release boundary checks: no old invitation, wallet data or replacement signer."""
+"""Release boundary checks: no invitation, wallet data or signing key in the package; one Android application id; the
+network identity only from a v3 invitation of the mainnet profile's chain; one release version."""
 import hashlib
 import json
 import os
@@ -7,6 +8,7 @@ import re
 from pathlib import Path
 import runpy
 import shutil
+import subprocess
 import sys
 import tarfile
 import tempfile
@@ -15,6 +17,15 @@ from unittest.mock import patch
 
 
 HERE = Path(__file__).resolve().parent
+ROOT = HERE.parents[1]
+GRADLE = 'prototypes/pocol-android/app/build.gradle'
+MAINNET = ('retired-networks.json', 'placeholder-network.pocol.json', 'v3-profile.json')
+# The release version, read from package.py (its only definition), so a version bump touches no test.
+VERSION = re.search(r"(?m)^version='([0-9]+\.[0-9]+\.[0-9]+)'$", (HERE / 'package.py').read_text(encoding='utf-8'))[1]
+
+
+def mainnet_file(name):
+    return json.loads((ROOT / 'deploy/mainnet' / name).read_text(encoding='utf-8'))
 
 
 class ReleasePackageTests(unittest.TestCase):
@@ -28,6 +39,12 @@ class ReleasePackageTests(unittest.TestCase):
         self.identity = self.root / 'deploy/public-testnet/pocol_identity.py'
         self.identity.parent.mkdir(parents=True)
         shutil.copyfile(HERE.parent / 'public-testnet/pocol_identity.py', self.identity)
+        # package.py reads these at run time: the Android build file, and the retired, placeholder and mainnet identities.
+        (self.root / GRADLE).parent.mkdir(parents=True)
+        shutil.copyfile(ROOT / GRADLE, self.root / GRADLE)
+        (self.root / 'deploy/mainnet').mkdir(parents=True)
+        for name in MAINNET:
+            shutil.copyfile(ROOT / 'deploy/mainnet' / name, self.root / 'deploy/mainnet' / name)
         self.build = {'compatibilitySha256': 'c' * 64, 'consensusPinned': True, 'consensusRulesVersion': 2,
                       'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': []}
         self.commit = 'd' * 40
@@ -65,12 +82,14 @@ class ReleasePackageTests(unittest.TestCase):
         self.assertEqual((folder / 'THIRD-PARTY-CRYPTO-NOTICES.txt').read_bytes(),
                          b'public crypto license fixture\n')
         release = json.loads((folder / 'release-info.json').read_text(encoding='utf-8'))
+        self.assertEqual(release['version'], VERSION)
         self.assertEqual(release['compatibilitySha256'], self.build['compatibilitySha256'])
         self.assertEqual((release['consensusRulesVersion'], release['protocolVersionMin']), (2, 2))
         self.assertEqual(release['sourceCommit'], self.commit)
         self.assertEqual(release['networkName'], 'PoCol Mainnet')
-        self.assertTrue(release['requiresCoordinatedUpgrade'])
-        self.assertIsNone(release['activationHeight'])
+        # A fresh network: no coordinated upgrade of an existing chain, and no activation height.
+        self.assertNotIn('requiresCoordinatedUpgrade', release)
+        self.assertNotIn('activationHeight', release)
         self.assertFalse(release['networkInvitationIncluded'])
         self.assertFalse(release['publicLaunchReady'])
         self.assertNotIn('network.pocol.json', {f.name for f in folder.iterdir()})
@@ -79,22 +98,31 @@ class ReleasePackageTests(unittest.TestCase):
             self.assertEqual(hashlib.sha256((folder / name).read_bytes()).hexdigest(), expected)
         return release
 
-    def test_android_packages_only_unsigned_release_without_old_signer_or_invitation(self):
+    def android_fixture(self):
         self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk')
-        self.fixture('prototypes/pocol-android/app/build/outputs/apk/debug/app-debug.apk')
-        self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/wallet.key')
         info = self.fixture('prototypes/pocold/target/aarch64-linux-android/release/build/pocold-fixture/out/build-info.json')
         info.write_text(json.dumps(self.build), encoding='utf-8')
+
+    def test_android_packages_only_the_unsigned_org_pocol_wallet_release(self):
+        self.android_fixture()
+        self.fixture('prototypes/pocol-android/app/build/outputs/apk/debug/app-debug.apk')
+        self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/wallet.key')
         out = self.package('Android')
         release = self.metadata(out)
         self.assertEqual({p.name for p in out.iterdir()}, {
-            'PoCol-Mainnet-0.4.0-arm64-unsigned.apk', 'README.md',
+            f'PoCol-Mainnet-{VERSION}-arm64-unsigned.apk', 'README.md',
             'build-info.json', 'release-info.json', 'source-commit.txt', 'SHA256SUMS',
             'THIRD-PARTY-CRYPTO-NOTICES.txt'})
         self.assertFalse(release['installable'])
-        self.assertEqual(release['applicationId'], 'org.pocol.node')
-        self.assertEqual(release['versionCode'], 5)
-        self.assertEqual(release['signingStatus'], 'blocked-requires-existing-signer')
+        # The id and versionCode are build.gradle's, the only source (the CI badging check compares them with the APK).
+        gradle = (ROOT / GRADLE).read_text(encoding='utf-8')
+        self.assertEqual(release['applicationId'], 'org.pocol.wallet')
+        self.assertEqual(re.findall(r"applicationId '([^']+)'", gradle), ['org.pocol.wallet'])
+        self.assertEqual(release['versionCode'], int(re.search(r'versionCode ([0-9]+)', gradle)[1]))
+        self.assertEqual(release['signingStatus'], 'requires-release-signer')
+        for retired in ('lastDistributedSignerSha256', 'installsBeside'):
+            self.assertNotIn(retired, release)
+        self.assertEqual((release['chainId'], release['genesisHash'], release['consensusIdentity']), (None, None, None))
         # V3-28 H1: the raw identity plus the readiness keys the desktop build-info has, marked as not computed.
         packaged = json.loads((out / 'build-info.json').read_text(encoding='utf-8'))
         self.assertEqual({k: packaged[k] for k in self.build}, self.build)
@@ -102,21 +130,27 @@ class ReleasePackageTests(unittest.TestCase):
         self.assertEqual([b['id'] for b in packaged['launchBlockers']], ['readiness-not-computed'])
         self.assertEqual(set(packaged), set(self.build) | {'publicLaunchReady', 'launchBlockers'})
 
-    def test_android_new_key_app_is_packaged_under_its_own_application_id(self):
-        # V3-33: the new-key build is another app (org.pocol.wallet) that installs beside org.pocol.node.
-        self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk')
-        info = self.fixture('prototypes/pocold/target/aarch64-linux-android/release/build/pocold-fixture/out/build-info.json')
-        info.write_text(json.dumps(self.build), encoding='utf-8')
-        out = self.package('Android', '--android-application-id', 'org.pocol.wallet')
-        release = self.metadata(out)
-        self.assertIn('PoCol-Mainnet-0.4.0-arm64-org.pocol.wallet-unsigned.apk', {p.name for p in out.iterdir()})
-        self.assertNotIn('PoCol-Mainnet-0.4.0-arm64-unsigned.apk', {p.name for p in out.iterdir()})
-        self.assertEqual((release['applicationId'], release['installsBeside']), ('org.pocol.wallet', 'org.pocol.node'))
-        self.assertEqual(release['signingStatus'], 'requires-new-release-signer')
-        self.assertNotIn('lastDistributedSignerSha256', release)
-        self.assertFalse(release['installable'])
-        with self.assertRaises(SystemExit):
-            self.package('Android', '--android-application-id', 'org.example.other')
+    def test_there_is_one_android_application_id_and_no_option_for_another(self):
+        self.android_fixture()
+        with self.assertRaises(SystemExit) as refused, patch('sys.stderr'):
+            self.package('Android', '--android-application-id', 'org.pocol.wallet')
+        self.assertEqual(refused.exception.code, 2, 'argparse refuses the retired option as unknown')
+        self.assertFalse((self.root / 'dist').exists())
+        self.assertNotIn('pocolApplicationId', (ROOT / GRADLE).read_text(encoding='utf-8'))
+        self.assertNotIn('pocolAppLabel', (ROOT / 'prototypes/pocol-android/app/src/main/AndroidManifest.xml').read_text(encoding='utf-8'))
+
+    def test_an_android_build_of_another_version_or_without_one_id_is_refused(self):
+        self.android_fixture()
+        gradle = self.root / GRADLE
+        text = gradle.read_text(encoding='utf-8')
+        for change, message in (((f"versionName '{VERSION}'", "versionName '9.9.9'"), 'not the release version'),
+                                (("applicationId 'org.pocol.wallet'", "applicationId 'org.pocol.wallet'\napplicationId 'org.pocol.other'"), 'one applicationId'),
+                                (('versionCode ', 'versionCode = '), 'one applicationId, versionCode')):
+            with self.subTest(change=change):
+                self.assertIn(change[0], text)
+                gradle.write_text(text.replace(change[0], change[1], 1), encoding='utf-8')
+                with self.assertRaisesRegex(SystemExit, message): self.package('Android')
+                shutil.rmtree(self.root / 'dist')
 
     def test_native_complete_packages_preserve_modes_and_exclude_old_network(self):
         bins = ('pocol', 'pocold', 'pocol-key', 'pocol-sign', 'pocol-site')
@@ -134,7 +168,7 @@ class ReleasePackageTests(unittest.TestCase):
                 self.fixture('prototypes/pocold/target/release/wallet.key')
                 out = self.package(platform)
                 if platform == 'Linux':
-                    archive = out / 'PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz'
+                    archive = out / f'PoCol-Mainnet-{VERSION}-linux-x86_64.tar.gz'
                     with tarfile.open(archive) as tar:
                         names = tar.getnames()
                         self.assertNotIn('network.pocol.json', names)
@@ -147,11 +181,12 @@ class ReleasePackageTests(unittest.TestCase):
                             self.assertEqual(Path(member.name).name, member.name)
                             self.assertTrue(member.isfile())
                             (expanded / member.name).write_bytes(tar.extractfile(member).read())
-                    self.metadata(expanded)
+                    release = self.metadata(expanded)
                 else:
-                    self.metadata(out)
+                    release = self.metadata(out)
                     self.assertTrue(all((out / (name + suffix)).is_file() for name in bins))
                     self.assertTrue((out / 'PoCol-Wallet.exe').is_file())
+                self.assertNotIn('applicationId', release)
                 shutil.rmtree(out)
 
 
@@ -174,8 +209,8 @@ class ReleasePackageTests(unittest.TestCase):
         # has no v3Preview field and there is no preview build to refuse, so a pinned build packages on every platform
         # and its release-info carries the build's rules as reported.
         self.native_fixture()
-        self.fixture('prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk')
-        android_info = self.fixture('prototypes/pocold/target/aarch64-linux-android/release/build/pocold-fixture/out/build-info.json')
+        self.android_fixture()
+        android_info = self.root / 'prototypes/pocold/target/aarch64-linux-android/release/build/pocold-fixture/out/build-info.json'
         self.assertNotIn('v3Preview', self.build)
         script = self.script.read_text(encoding='utf-8')
         self.assertNotIn('v3Preview', script); self.assertNotIn('v3-preview', script)
@@ -191,29 +226,82 @@ class ReleasePackageTests(unittest.TestCase):
                 finally:
                     shutil.rmtree(out); shutil.rmtree(self.root / 'expanded', ignore_errors=True)
 
-    def test_release_info_names_the_consensus_identity_only_of_a_matching_v2_invitation(self):
-        self.native_fixture()
-        # The network package.py names (switched with it at the cutover), so no identity is pinned here.
-        chain, genesis = re.search(r"chain,genesis=([0-9]+),'(0x[0-9a-f]{64})'", self.script.read_text(encoding='utf-8')).groups()
-        info = {'chainId': int(chain), 'genesisHash': genesis, 'forks': [[1, 0], [2, 1000]]}
+    def invitation(self, info, rules=2):
         network = self.root / 'next.pocol.json'
-        network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 2, 'seeds': [],
+        network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': rules, 'seeds': [],
                                        'files': {'devnet.json': json.dumps(info)}}), encoding='utf-8')
-        release = self.metadata(self.expanded(self.package('Linux', '--network', str(network))))
-        reference = runpy.run_path(str(self.identity))['consensus_id']
-        self.assertEqual(release['consensusIdentity'], reference(int(chain), genesis, 2, 0, [(1, 0), (2, 1000)]))
-        shutil.rmtree(self.root / 'dist'); shutil.rmtree(self.root / 'expanded')
-        self.assertIsNone(self.metadata(self.expanded(self.package('Linux')))['consensusIdentity'], 'no invitation, no claim')
+        return network
+
+    def v3_info(self, **change):
+        # The mainnet profile's chain ID (read, never written here) under a fixture genesis of no network.
+        info = {'chainId': mainnet_file('v3-profile.json')['chainId'], 'genesisHash': '0x' + 'ab' * 32,
+                'specVersion': 2, 'v3': True, 'forks': [[1, 0], [2, 1000]]}
+        info.update(change)
+        return {k: v for k, v in info.items() if v is not None}
+
+    def refused(self, info, message, rules=2):
+        with self.assertRaisesRegex(SystemExit, message): self.package('Linux', '--network', str(self.invitation(info, rules)))
+        self.assertEqual({p.name for p in (self.root / 'dist').iterdir()}, {'build-info.json'}, 'nothing else is staged')
         shutil.rmtree(self.root / 'dist')
-        # An invitation of the old network's rules (1) binds other consensus rules.
-        network.write_text(json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 1, 'seeds': [],
-                                       'files': {'devnet.json': json.dumps(info)}}), encoding='utf-8')
-        with self.assertRaisesRegex(SystemExit, 'other consensus rules'): self.package('Linux', '--network', str(network))
+
+    def test_release_info_takes_the_network_identity_only_from_a_v3_invitation_of_the_mainnet_profile(self):
+        self.native_fixture()
+        info = self.v3_info()
+        release = self.metadata(self.expanded(self.package('Linux', '--network', str(self.invitation(info)))))
+        reference = runpy.run_path(str(self.identity))['consensus_id']
+        self.assertEqual((release['chainId'], release['genesisHash']), (info['chainId'], info['genesisHash']))
+        self.assertEqual(release['consensusIdentity'], reference(info['chainId'], info['genesisHash'], 2, 0, [(1, 0), (2, 1000)]))
+        shutil.rmtree(self.root / 'dist'); shutil.rmtree(self.root / 'expanded')
+        upper = self.v3_info(genesisHash='0x' + 'AB' * 32)
+        release = self.metadata(self.expanded(self.package('Linux', '--network', str(self.invitation(upper)))))
+        self.assertEqual(release['genesisHash'], info['genesisHash'], 'recorded in lowercase')
+        shutil.rmtree(self.root / 'dist'); shutil.rmtree(self.root / 'expanded')
+        release = self.metadata(self.expanded(self.package('Linux')))
+        self.assertEqual((release['chainId'], release['genesisHash'], release['consensusIdentity']), (None, None, None),
+                         'no invitation, no claim: no release compiles a network identity in')
+        shutil.rmtree(self.root / 'dist')
+
+    def test_an_invitation_of_another_network_rules_or_spec_is_refused(self):
+        self.native_fixture()
+        retired = mainnet_file('retired-networks.json')['retired'][0]
+        placeholder = json.loads(mainnet_file('placeholder-network.pocol.json')['files']['devnet.json'])
+        rehearsal = mainnet_file('v3-rehearsal-profile.json')['chainId']
+        self.assertNotEqual(rehearsal, mainnet_file('v3-profile.json')['chainId'])
+        for info, message, rules in (
+                # The old network's rules (1) bind other consensus rules.
+                (self.v3_info(), 'other consensus rules', 1),
+                (self.v3_info(chainId=retired['chainId'], genesisHash=retired['genesisHash']), 'retired network', 2),
+                (self.v3_info(chainId=retired['chainId']), 'retired network', 2),
+                (self.v3_info(genesisHash=retired['genesisHash']), 'retired network', 2),
+                (self.v3_info(chainId=placeholder['chainId'], genesisHash=placeholder['genesisHash']), 'network placeholder', 2),
+                (self.v3_info(genesisHash=placeholder['genesisHash']), 'network placeholder', 2),
+                # A spec-1 devnet.json (no specVersion, no v3) and an inconsistent declaration.
+                (self.v3_info(specVersion=None, v3=None), 'spec-1 network', 2),
+                (self.v3_info(v3=None), 'no valid GenesisSpec version', 2),
+                (self.v3_info(specVersion=3), 'no valid GenesisSpec version', 2),
+                # A rehearsal invitation is never stamped as a PoCol Mainnet release.
+                (self.v3_info(chainId=rehearsal), 'mainnet profile', 2),
+                (self.v3_info(chainId=True), 'no chain ID and genesis hash', 2),
+                (self.v3_info(genesisHash='0x1234'), 'no chain ID and genesis hash', 2)):
+            with self.subTest(info=info, rules=rules):
+                self.refused(info, message, rules)
+
+    def test_the_identity_checks_fail_closed_without_their_files(self):
+        self.native_fixture()
+        for name in MAINNET:
+            with self.subTest(name=name):
+                path = self.root / 'deploy/mainnet' / name
+                saved = path.read_bytes()
+                for broken in (None, b'{}'):
+                    if broken is None: path.unlink()
+                    else: path.write_bytes(broken)
+                    self.refused(self.v3_info(), 'refusing to package')
+                path.write_bytes(saved)
 
     def expanded(self, out):
         expanded = self.root / 'expanded'
         shutil.rmtree(expanded, ignore_errors=True); expanded.mkdir()
-        with tarfile.open(out / 'PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz') as tar:
+        with tarfile.open(out / f'PoCol-Mainnet-{VERSION}-linux-x86_64.tar.gz') as tar:
             for member in tar.getmembers(): (expanded / member.name).write_bytes(tar.extractfile(member).read())
         return expanded
 

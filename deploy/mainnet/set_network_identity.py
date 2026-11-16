@@ -89,7 +89,6 @@ FILES = {
     'deploy/rewards/pocol_rewards.py': (1, 1, 0),
     'deploy/rewards/gateway.py': (1, 1, 0),
     'deploy/rewards/test_pocol_rewards.py': (1, 1, 0),
-    'deploy/standalone/package.py': (1, 1, 0),
     'deploy/studio/install_studio_gateway.py': (3, 2, 0),
     'deploy/studio/pocol_studio_gateway.py': (1, 1, 0),
     'deploy/studio/README.md': (1, 0, 0),

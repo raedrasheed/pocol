@@ -282,13 +282,11 @@ devices mining with one key can lose the bond.
 Android cloud backup and device-to-device transfer copy nothing of the app
 (`allowBackup="false"`, `fullBackupContent="false"` for Android 8 to 11, and
 `dataExtractionRules` excluding every domain on Android 12 and later), and uninstalling
-erases identity and state, so make an encrypted backup first. CI builds only unsigned release APKs. Do not
-uninstall an existing key-bearing app to install a different certificate. Updating
-the existing app requires its matching retained signer; a new release key alone
-cannot update an old debug-signed installation. A build for a new key is a separate
-app, `org.pocol.wallet`, that installs beside `org.pocol.node`. See
-`prototypes/pocol-android/README.md` and the release guide for the migration and the
-known 0.3.1 signer. No keystore/private key belongs in the release bundle or repository.
+erases identity and state, so make an encrypted backup first. The app is
+`org.pocol.wallet`. CI builds only unsigned release APKs; the owner signs each release
+with the Android release key, and every later release must be signed with the same key
+to update an installed app (`prototypes/pocol-android/README.md`). No keystore/private
+key belongs in the release bundle or repository.
 
 ## Validation and remaining qualification
 

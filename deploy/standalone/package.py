@@ -1,22 +1,34 @@
 #!/usr/bin/env python3
 """Explicit allowlists only: no network keys, private state or Android signing keys."""
-import argparse, hashlib, json, runpy, shutil, subprocess, tarfile
+import argparse, hashlib, json, re, runpy, shutil, subprocess, tarfile
 from pathlib import Path
-p=argparse.ArgumentParser(); p.add_argument('--platform',choices=['Linux','Windows','Android'],required=True); p.add_argument('--out',type=Path,required=True)
-p.add_argument('--network',type=Path,help='the v2 invitation this release is for; release-info then names its consensusIdentity')
-# The installed app is org.pocol.node; an APK for a new signing key is another app (V3-33), built with
-# gradle -PpocolApplicationId=org.pocol.wallet. Only these two ids are packaged.
-p.add_argument('--android-application-id',choices=['org.pocol.node','org.pocol.wallet'],default='org.pocol.node'); args=p.parse_args()
+# The native release version (Linux, Windows and Android). Its other copies (Wallet.cs, Wallet.xaml, build.gradle
+# versionName, the shipped README and the Linux desktop texts) must equal it: test_release_package.py checks them, and
+# five-device-build.yml reads it from here (`--version`).
+version='0.4.0'
+p=argparse.ArgumentParser(); p.add_argument('--version',action='version',version=version)
+p.add_argument('--platform',choices=['Linux','Windows','Android'],required=True); p.add_argument('--out',type=Path,required=True)
+p.add_argument('--network',type=Path,help='the v3 (spec-2) invitation of the network this release is for; release-info then names its chain ID, genesis hash and consensusIdentity')
+args=p.parse_args()
 root=Path(__file__).resolve().parents[2]
 # The consensus identity reference (standard library only; never imported from a package).
 identity=runpy.run_path(str(root/'deploy/public-testnet/pocol_identity.py'))
+
+def android_app():
+    """The application id, versionCode and versionName the APK is built with (app/build.gradle, the only source)."""
+    gradle=(root/'prototypes/pocol-android/app/build.gradle').read_text(encoding='utf-8')
+    found={k:re.findall(rf"\b{k} {pattern}",gradle) for k,pattern in
+           (('applicationId',r"'([a-z][a-z0-9_]*(?:\.[a-z][a-z0-9_]*)+)'"),('versionCode',r'([1-9][0-9]*)\b'),('versionName',r"'([^']+)'"))}
+    if any(len(v)!=1 for v in found.values()): raise SystemExit('build.gradle must state one applicationId, versionCode and versionName')
+    if found['versionName'][0]!=version: raise SystemExit(f"build.gradle versionName {found['versionName'][0]} is not the release version {version}")
+    return found['applicationId'][0],int(found['versionCode'][0])
+
 args.out.mkdir()
-version='0.4.0'
 if args.platform=='Android':
-    # CI has no retained signer for the installed app. An unsigned release is a
+    application_id,version_code=android_app()
+    # The release stays unsigned until the owner signs it with the release key. An unsigned release is a
     # signing input, never an installable update or a freshly debug-signed APK.
-    apk='arm64-unsigned.apk' if args.android_application_id=='org.pocol.node' else f'arm64-{args.android_application_id}-unsigned.apk'
-    files={f'PoCol-Mainnet-{version}-{apk}':root/'prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk'}
+    files={f'PoCol-Mainnet-{version}-arm64-unsigned.apk':root/'prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk'}
     infos=list((root/'prototypes/pocold/target/aarch64-linux-android/release/build').glob('pocold-*/out/build-info.json'))
     assert infos and len({json.loads(f.read_text(encoding='utf-8'))['compatibilitySha256'] for f in infos})==1, 'ambiguous Android build identity'
     # build.rs writes the raw build identity; readiness is computed at run time (V3-28 H1), which a host cannot do for
@@ -38,12 +50,38 @@ build=json.loads((args.out/'build-info.json').read_text(encoding='utf-8'))
 # Release builds are compiled with POCOL_RELEASE=1, so build.rs refuses an unpinned tree; refuse its build-info too
 # (VA-SPEC §2.4).
 if build.get('consensusPinned') is not True: raise SystemExit('refusing to package an unpinned consensus build (consensusPinned is not true)')
-chain,genesis=1599846715,'0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca'
-network_identity=None
+
+def known_identities(path,list_key=None):
+    """(chainId, lowercase genesisHash) pairs read from a committed file: retired-networks.json's `retired` list, or the
+    devnet.json of an invitation (the placeholder). Fails closed: a missing or malformed file refuses the release."""
+    try:
+        doc=json.loads(path.read_text(encoding='utf-8'))
+        entries=doc[list_key] if list_key else [json.loads(doc['files']['devnet.json'])]
+        pairs={(e['chainId'],str(e['genesisHash']).lower()) for e in entries}
+        if not pairs or any(type(c) is not int or not re.fullmatch(r'0x[0-9a-f]{64}',g) for c,g in pairs): raise ValueError('no identity')
+        return pairs
+    except (OSError,KeyError,TypeError,ValueError) as e:
+        raise SystemExit(f'refusing to package: {path} names no network identity ({e})')
+
+chain=genesis=network_identity=None
 if args.network:
     invitation=json.loads(args.network.read_bytes()); info=json.loads(invitation['files']['devnet.json'])
     if invitation['schema']!='pocol-network-v2' or invitation['consensusRulesVersion']!=build['consensusRulesVersion']: raise SystemExit('the invitation binds other consensus rules')
-    if (info['chainId'],info['genesisHash'].lower())!=(chain,genesis): raise SystemExit('the invitation is for another network')
+    chain,genesis=info.get('chainId'),str(info.get('genesisHash','')).lower()
+    if type(chain) is not int or not re.fullmatch(r'0x[0-9a-f]{64}',genesis): raise SystemExit('the invitation names no chain ID and genesis hash')
+    # Neither the chain ID nor the genesis hash of the placeholder (deploy/mainnet, decision D1) or of a retired network.
+    mainnet=root/'deploy/mainnet'
+    def names(pairs): return any(chain==c or genesis==g for c,g in pairs)
+    if names(known_identities(mainnet/'placeholder-network.pocol.json')): raise SystemExit('the invitation is the network placeholder, not a network')
+    if names(known_identities(mainnet/'retired-networks.json','retired')): raise SystemExit('the invitation is for a retired network')
+    try: spec=identity['spec_version'](info)
+    except ValueError as e: raise SystemExit(f'the invitation declares no valid GenesisSpec version ({e})')
+    if spec!=2: raise SystemExit('the invitation is for a spec-1 network; a release is for a v3 (spec-2) network only')
+    # release-info names the network PoCol Mainnet, so only the mainnet profile's chain ID may be stamped into it (the
+    # rehearsal is packaged without --network).
+    try: mainnet_chain=json.loads((mainnet/'v3-profile.json').read_text(encoding='utf-8'))['chainId']
+    except (OSError,KeyError,TypeError,ValueError) as e: raise SystemExit(f'refusing to package: no mainnet profile chain ID ({e})')
+    if chain!=mainnet_chain: raise SystemExit('the invitation is not for the network the mainnet profile names (deploy/mainnet/v3-profile.json chainId)')
     network_identity=identity['for_network'](info,build)
 if args.platform=='Linux':
     for asset in (root/'deploy/standalone/linux-desktop').iterdir():
@@ -53,24 +91,17 @@ shutil.copy2(root/'deploy/standalone/README.md',args.out/'README.md')
 shutil.copy2(root/'prototypes/third-party/evm-crypto/NOTICE.txt',args.out/'THIRD-PARTY-CRYPTO-NOTICES.txt')
 commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=root,text=True).strip()
 (args.out/'source-commit.txt').write_text(commit+'\n',encoding='utf-8',newline='\n')
+# The network identity is the invitation's (--network), or none: no release compiles a chain ID or genesis in.
 release={'version':version,'platform':args.platform,'sourceCommit':commit,
          'compatibilitySha256':build['compatibilitySha256'],'consensusRulesVersion':build['consensusRulesVersion'],
          'protocolVersionMin':build['protocolVersionMin'],'consensusIdentity':network_identity,
-         'networkName':'PoCol Mainnet','networkEnvironment':'mainnet',
-         'operatorDesignation':'PoCol Mainnet','requiresCoordinatedUpgrade':True,'activationHeight':None,
+         'networkName':'PoCol Mainnet','networkEnvironment':'mainnet','operatorDesignation':'PoCol Mainnet',
          'chainId':chain,'genesisHash':genesis,
          'publicLaunchReady':False,'networkInvitationIncluded':False,
          'distribution':'unsigned-apk' if args.platform=='Android' else 'portable-native-tools',
          'installable':args.platform!='Android'}
 if args.platform=='Android':
-    if args.android_application_id=='org.pocol.node':
-        release.update({'applicationId':'org.pocol.node','versionCode':5,
-                        'signingStatus':'blocked-requires-existing-signer',
-                        'lastDistributedSignerSha256':'bbb399007be5217a5a939eaa9b0ed1335170f7397a7487ef6da9acddb21b8772'})
-    else:
-        # A separate app for the owner's new release key: it installs beside org.pocol.node and never updates it.
-        release.update({'applicationId':args.android_application_id,'versionCode':5,
-                        'signingStatus':'requires-new-release-signer','installsBeside':'org.pocol.node'})
+    release.update({'applicationId':application_id,'versionCode':version_code,'signingStatus':'requires-release-signer'})
 (args.out/'release-info.json').write_text(json.dumps(release,indent=2)+'\n',encoding='utf-8',newline='\n')
 sums=''.join(f'{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}\n' for f in sorted(args.out.iterdir()) if f.is_file())
 (args.out/'SHA256SUMS').write_text(sums,encoding='utf-8',newline='\n')
