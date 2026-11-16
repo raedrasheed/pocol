@@ -62,7 +62,7 @@ function startRelay(port, clientIp) {
 function studioRoute(info) {
   const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
   const app = readFileSync(join(STUDIO, 'app.js'), 'utf8');
-  const pinned = { chain: (/Number\(cid\)!==(\d+)/.exec(app) || [])[1], genesis: (/v\.genesisHash!=='(0x[0-9a-f]{64})'/.exec(app) || [])[1] };
+  const pinned = { chain: (/Number\(cid\)!==(\d+)/.exec(app) || [])[1], genesis: (/toLowerCase\(\)!=='(0x[0-9a-f]{64})'/.exec(app) || [])[1] };
   if (!pinned.chain || !pinned.genesis) throw new Error('Studio app.js: the pinned identity was not found');
   const patched = app.replaceAll(pinned.chain, String(info.chainId)).replaceAll(pinned.genesis, info.genesisHash.toLowerCase());
   return async (route) => {
