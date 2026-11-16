@@ -1,6 +1,6 @@
 // PoCol extension service worker: network profiles, verified site loading
 // (RP window or LN trust), BridgeAuth for site messages, DNR isolation, wallet.
-import { decodeSpec, verifyWindow } from './lib/rp.js';
+import { decodeSpec, verifyWindow, cpv } from './lib/rp.js';
 import { normalizeForkSchedule } from './lib/forks.js';
 import { fetchSite, normalize, chunkWidth } from './lib/site.js';
 import { withRetry, IDEMPOTENT_READS } from './lib/retry.js';
@@ -43,15 +43,15 @@ export function netKeyOf(chainId, genesisHash) {
 /** The salt of a profile's wallet key (D14): its netKey, for the built-in profile too, so a wallet's address
  *  belongs to one network. A custom profile always keeps its own netKey, so no extension update moves its address. */
 export const walletSalt = (p) => p.netKey;
-// An operator supplies the schedule through this extension's settings page. It is
-// separate from the immutable public network identity and never populated by RPC.
-const PUBLIC_FORKS_KEY = 'pocol:publicForkSchedule';
-const storedPublicProfile = async () => ({ ...NETWORK, forkSchedule: (await store.get(PUBLIC_FORKS_KEY))[PUBLIC_FORKS_KEY] });
-const publicNetwork = async () => { const p = await storedPublicProfile(); return { ...NETWORK, forkSchedule: normalizeForkSchedule(p.forkSchedule) }; };
+// The built-in profile's fork schedule is pinned by this release: [[1,"0"]], what the fresh network's genesis metadata
+// carries (pocold testnet.rs and main.rs write "forks":[[1,0]]; lib.rs maps a missing forks key to [(1,0)]). Neither
+// storage nor RPC can change it. A cap raise ([[1,"0"],[2,H'],[3,H]]) ships as an extension release with the node release.
+export const PUBLIC_FORK_SCHEDULE = Object.freeze(normalizeForkSchedule([[1, '0']]).map((entry) => Object.freeze(entry)));
+const publicProfile = () => ({ ...NETWORK, forkSchedule: PUBLIC_FORK_SCHEDULE });
 const storedProfiles = async () => {
   const existing = (await store.get('profiles')).profiles || [];
-  // Reserved preset cannot be shadowed by an imported profile; old `pocol` profiles remain intact.
-  return [...existing.filter((p) => p.name !== NETWORK.name), await storedPublicProfile()];
+  // The reserved built-in name cannot be shadowed by an imported profile.
+  return [...existing.filter((p) => p.name !== NETWORK.name), publicProfile()];
 };
 /** Stored profiles re-validated on every read (A06/A07): a profile that no longer passes
  *  validation is listed with `invalid` and is unusable; `conflict` is recomputed over the whole
@@ -68,6 +68,10 @@ function validateProfile(p) {
   if (!['DEV', 'LN', 'RP', 'RN'].includes(p.trustLevel)) throw new Error('trustLevel');
   validateEndpoint(p.endpoint, p.trustLevel);
   const pre = fromHex(p.genesisPre); const spec = decodeSpec(pre);
+  // As pocold's admission (R24), with its reasons: a spec-1 genesis and a bounded nonce range are the retired rule set,
+  // which no node of this release runs. Such a GenesisSpec still decodes (refdec.js), but is no profile.
+  if (spec.specVersion < 2) throw new Error(`GenesisSpec version ${spec.specVersion}: the spec-1 rule set is retired; this release admits only a specVersion-2 (v3) genesis`);
+  if (cpv(spec, 'nonceMode') !== 1n) throw new Error(`nonceMode ${cpv(spec, 'nonceMode')}: bounded nonce ranges are a retired spec-1 rule; a v3 genesis has nonceMode 1, the full 64-bit nonce domain`);
   if (!eq(spec.genesisHash, fromHex(p.genesisHash))) throw new Error('genesisHash mismatch');
   if (spec.chainId !== BigInt(p.chainId)) throw new Error('chainId mismatch');
   return { name: p.name, chainId: Number(p.chainId), genesisPre: p.genesisPre, genesisHash: p.genesisHash.toLowerCase(), endpoint: p.endpoint, trustLevel: p.trustLevel, forkSchedule: normalizeForkSchedule(p.forkSchedule), netKey: netKeyOf(p.chainId, spec.genesisHash) };
@@ -471,7 +475,7 @@ async function studioRequest(msg, sender) {
   if (msg.type === 'studio.status') {
     const all = await store.get(null);
     const jobs = Object.entries(all).filter(([k,j]) => k.startsWith(JOB_PREFIX) && j?.origin === origin && j.sourceTabId === sender.tab.id).map(([,j]) => ({...publicJob(j),title:j.request?.title,createdAt:j.createdAt,site:j.result?.site || j.request?.site || null})).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
-    return { version: chrome.runtime.getManifest().version, capabilities: ['publish', 'openSite', 'jobStatus'], network: await publicNetwork(), jobs };
+    return { version: chrome.runtime.getManifest().version, capabilities: ['publish', 'openSite', 'jobStatus'], network: publicProfile(), jobs };
   }
   if (msg.type === 'studio.jobStatus') {
     if (typeof payload.jobId !== 'string' || !/^[a-f0-9-]{36}$/.test(payload.jobId)) throw new Error('Invalid job');
@@ -519,7 +523,7 @@ async function ideRequest(msg,sender) {
   if(msg.type==='ide.status') {
     const all=await store.get(null);
     const jobs=Object.entries(all).filter(([k,j])=>k.startsWith(IDE_JOB_PREFIX)&&j?.origin===origin&&j.sourceTabId===sender.tab.id).map(([,j])=>({...publicContractJob(j),title:j.request?.title,createdAt:j.createdAt})).sort((a,b)=>b.createdAt-a.createdAt).slice(0,20);
-    return {version:chrome.runtime.getManifest().version,capabilities:['contractTransactions','jobStatus'],network:await publicNetwork(),jobs};
+    return {version:chrome.runtime.getManifest().version,capabilities:['contractTransactions','jobStatus'],network:publicProfile(),jobs};
   }
   if(msg.type==='ide.jobStatus') {
     if(typeof payload.jobId!=='string'||!/^[a-f0-9-]{36}$/.test(payload.jobId))throw new Error('Invalid contract job');
@@ -552,7 +556,9 @@ async function ideRequest(msg,sender) {
 }
 // Sites W4: on install or update, jobs of another network (a retired chain, or an identity change) move to the read-only
 // archive, so they never block the wallet and need no receipts from this network.
-chrome.runtime.onInstalled?.addListener(() => { archiveForeignJobs(store, NETWORK).catch(() => {}); });
+// The schedule key of releases up to 0.4.1 (an operator-supplied schedule for the built-in profile) is never read; an
+// update into the same storage (a development build without the release key) removes it.
+chrome.runtime.onInstalled?.addListener(() => { archiveForeignJobs(store, NETWORK).catch(() => {}); store.remove('pocol:publicForkSchedule').catch(() => {}); });
 chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   if (sender.id !== chrome.runtime.id) return false;
   // Content scripts have our extension ID too. They must never reach wallet/profile APIs.
@@ -564,14 +570,6 @@ chrome.runtime.onMessage.addListener((msg, sender, reply) => {
   (async () => {
     switch (msg.type) {
       case 'profiles.list': return { ok: true, profiles: await profiles() };
-      case 'profiles.publicSchedule': return profileLocked(async () => {
-        if (sender.url !== chrome.runtime.getURL('options.html') || sender.frameId !== 0) throw new Error('Change the public schedule only in extension settings');
-        if (!Array.isArray(msg.forkSchedule)) throw new Error('An explicit forkSchedule is required');
-        const forkSchedule = normalizeForkSchedule(msg.forkSchedule);
-        profilesChanging();
-        try { await store.set({ [PUBLIC_FORKS_KEY]: forkSchedule }); } finally { await profilesChanged(); }
-        return { ok: true, profile: (await profiles()).find((p) => p.name === NETWORK.name) };
-      });
       case 'profiles.add': return profileLocked(async () => {
         if (msg.profile?.name === NETWORK.name) throw new Error('pocol-public is a built-in profile; choose a different name for custom networks');
         const p = validateProfile(msg.profile); profilesChanging(); const list = (await storedProfiles()).filter((x) => x.name !== p.name);

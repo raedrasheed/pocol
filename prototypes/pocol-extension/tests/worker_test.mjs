@@ -2,11 +2,11 @@
 // Chrome and RPC; component evidence, not real-browser evidence). A06: signing eligibility across
 // wallet and profile transitions; A09: one session receive budget; A12: storage admission follows
 // the operation; A14: responses must answer exactly the request.
-import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { installChromeMock, installFetchMock, loadWorker } from './chrome_mock.mjs';
 import { siteFixture } from './site_fixture.mjs';
+import { devnetSpecV3Hex } from './rp_fixture.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -14,8 +14,8 @@ export async function workerChecks(dist) {
   const L = (m) => import(pathToFileURL(join(dist, 'lib', m)).href);
   const R = await L('rlp.js'), H = await L('hex.js'), C = await L('crypto.js'), RP = await L('rp.js'), T = await L('transport.js'), W = await L('wallet.js');
   const out = []; const ok = (name, pass, detail = '') => out.push({ name, pass: !!pass, detail: String(detail) });
-  // Specs: the devnet GenesisSpec, the same chainId with another genesis time (conflict), another chainId.
-  const hex1 = readFileSync(join(HERE, 'data', 'devnet-spec.hex'), 'utf8').trim().replace(/^0x/, '');
+  // Specs: the v3 devnet GenesisSpec (rp_fixture.mjs), the same chainId with another genesis time (conflict), another chainId.
+  const hex1 = devnetSpecV3Hex();
   const mk = (h) => { const pre = '0x' + h; const b = H.fromHex(pre); const sp = RP.decodeSpec(b); return { pre, hash: H.toHex(C.keccak(b)), chainId: Number(sp.chainId) }; };
   const s1 = mk(hex1), s2 = mk(hex1.replace('846553f100', '846553f101')), s3 = mk(hex1.replace('830bdee8', '830bdee9'));
   ok('fixture specs: s2 shares the chainId with another genesis, s3 has another chainId', s1.chainId === s2.chainId && s1.hash !== s2.hash && s3.chainId !== s1.chainId, `${s1.chainId} ${s3.chainId}`);
@@ -134,25 +134,25 @@ export async function workerChecks(dist) {
     const update = await w.mock.send({ type: 'profiles.add', profile: { ...prof('p1', s1), forkSchedule: [[1, 0], [2, '30000']] } });
     const r = await w.reply(s), after = await w.mock.send({ type: 'wallet.address', name: 'p1' });
     const revoked = await w.port.next((m) => m.revoked); await sleep(20);
-    ok('maximum nonce: local schedule change cancels pending signing and revokes the old session', update.ok && code(r) === 4901 && revoked.revoked.code === 4901 && w.port.port.disconnected && w.count('eth_sendRawTransaction') === 0, JSON.stringify(r));
-    ok('maximum nonce: profile stores the trusted schedule without changing the derived wallet', JSON.stringify(update.profile.forkSchedule) === '[[1,"0"],[2,"30000"]]' && before.address === after.address && update.profile.netKey === netKeyOf(s1));
+    ok('fork schedule: local schedule change cancels pending signing and revokes the old session', update.ok && code(r) === 4901 && revoked.revoked.code === 4901 && w.port.port.disconnected && w.count('eth_sendRawTransaction') === 0, JSON.stringify(r));
+    ok('fork schedule: profile stores the trusted schedule without changing the derived wallet', JSON.stringify(update.profile.forkSchedule) === '[[1,"0"],[2,"30000"]]' && before.address === after.address && update.profile.netKey === netKeyOf(s1));
   });
   await scenario(async () => {
     const w = await world({ grant: false, extra: [{ ...prof('p2', s1), forkSchedule: [[1, 0], [2, 30000]] }] });
     const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
     const r = await w.reply(w.req('eth_requestAccounts'));
     const local = list.filter((p) => ['p1', 'p2'].includes(p.name));
-    ok('maximum nonce: conflicting activation schedules are read-only even with the same genesis', local.length === 2 && local.every((p) => p.conflict === true) && code(r) === 4100 && noAsk(w, 'confirmAccounts') && w.count('eth_sendRawTransaction') === 0);
+    ok('fork schedule: conflicting fork schedules are read-only even with the same genesis', local.length === 2 && local.every((p) => p.conflict === true) && code(r) === 4100 && noAsk(w, 'confirmAccounts') && w.count('eth_sendRawTransaction') === 0);
   });
   await scenario(async () => {
     const w = await world({ grant: false });
     const r = await w.mock.send({ type: 'profiles.add', profile: { ...prof('p1', s1), forkSchedule: [[1, 0], [3, 30000]] } });
     const list = (await w.mock.send({ type: 'profiles.list' })).profiles;
-    ok('maximum nonce: unsupported local upgrade rejected without replacing the old profile', !r.ok && list.filter((p) => p.name === 'p1').length === 1 && JSON.stringify(list.find((p) => p.name === 'p1').forkSchedule) === '[[1,"0"]]' && !w.port.port.disconnected);
+    ok('fork schedule: unsupported local schedule rejected without replacing the old profile', !r.ok && list.filter((p) => p.name === 'p1').length === 1 && JSON.stringify(list.find((p) => p.name === 'p1').forkSchedule) === '[[1,"0"]]' && !w.port.port.disconnected);
     const stored = structuredClone(w.mock.storage.data.get('profiles')); stored.find((p) => p.name === 'p1').forkSchedule = [[1, 0], [2, 0]]; w.mock.storage.data.set('profiles', stored);
     const corrupt = (await w.mock.send({ type: 'profiles.list' })).profiles;
     const open = await w.mock.send({ type: 'open', name: 'p1', site: w.site, path: '/' }, 8);
-    ok('maximum nonce: malformed schedule in saved storage makes the profile unusable', !!corrupt.find((p) => p.name === 'p1').invalid && !open.ok && open.error.code === 4901);
+    ok('fork schedule: malformed schedule in saved storage makes the profile unusable', !!corrupt.find((p) => p.name === 'p1').invalid && !open.ok && open.error.code === 4901);
   });
   await scenario(async () => {
     const w = await world(); const s = w.tx(); const a = await w.ask('confirmTx');

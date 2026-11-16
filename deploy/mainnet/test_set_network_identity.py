@@ -169,12 +169,9 @@ STEP3 = {
     'deploy/standalone/linux-desktop/install-desktop-icon.sh': re.compile(r'0\.4\.0'),
     'prototypes/pocol-windows/Wallet.cs': re.compile(r'Assembly(?:File)?Version\("0\.4\.0\.0"\)'),
     'prototypes/pocol-windows/Wallet.xaml': re.compile(r'PoCol Wallet · 0\.4\.0'),
+    # 0.5.0 is decided, but the version moves with the signed release and its download links (the websites' check,
+    # deploy/websites/tools/site_identity.py, requires the links to name the package.json version).
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
-    'prototypes/pocol-extension/README-IDE.md': re.compile(
-        r'(?m)^# PoCol Studio, IDE & Viewer 0\.4\.1|chain ID and genesis remain unchanged'),
-    'prototypes/pocol-extension/README-STUDIO.md': re.compile(
-        r'(?m)^# PoCol Studio extension — 0\.4\.1|its chain ID and genesis are unchanged'),
-    'prototypes/pocol-extension/README-AR.md': re.compile(r'الإصدار 0\.4\.[01]|ومعرّف الشبكة وكتلة التكوين كما هي'),
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
     'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
@@ -789,7 +786,7 @@ class SetNetworkIdentity(unittest.TestCase):
         else:
             self.assertEqual(held, list(STEP3), 'update STEP3 to what the files hold today')
         # The detector works: each pattern finds the text it names on the retired release's tree.
-        self.assertIsNotNone(STEP3['prototypes/pocol-extension/README-STUDIO.md'].search('its chain ID and genesis are unchanged'))
+        self.assertIsNotNone(STEP3['prototypes/pocol-studio/dist/app.js'].search('PoCol-Studio-IDE-Viewer-0.4.1.zip'))
 
 if __name__ == '__main__':
     unittest.main()

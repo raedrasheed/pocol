@@ -1,30 +1,30 @@
-# PoCol Studio, IDE & Viewer 0.4.1
+# PoCol Studio, IDE & Viewer 0.5.0
 
-Version 0.4.1 combines Studio website publication, IDE contract deployment, the supplied PoCol artwork, and support for an explicitly configured full 64-bit mining range. Network labels use PoCol Mainnet. Existing wallet storage is kept, and the chain ID and genesis remain unchanged in this release; the Viewer wallet address follows the network (see the release note in `README-STUDIO.md`). Studio confirmation defaults to English, with Arabic available from the language control.
+Version 0.5.0 is the extension for the fresh PoCol Mainnet (consensus v3). It combines Studio website publication, IDE contract deployment and the verified Viewer. Network labels use PoCol Mainnet, and Studio and IDE keep their addresses, `https://studio.pocol.net` and `https://ide.pocol.net`. The release pins the network's identity and its fork schedule; there is no activation setting. The Viewer wallet address belongs to the network (see `README-STUDIO.md`). Studio confirmation defaults to English, with Arabic available from the language control.
 
-The 0.3 series adds contract deployment and contract writes from PoCol IDE using the **same PoCol wallet address** as Studio and the native Windows/Linux wallet. No MetaMask account is needed. Websites send public contract intents; private keys and passwords are accepted only in the extension's trusted confirmation tab.
+Contract deployment and contract writes from PoCol IDE use the **same PoCol wallet address** as Studio and the native Windows/Linux wallet. No MetaMask account is needed. Websites send public contract intents; private keys and passwords are accepted only in the extension's trusted confirmation tab.
 
-## Install or update
+## Upgrade from 0.4.1 or earlier
 
-This is a development unpacked Chrome extension, not a Chrome Web Store release.
+This is a development unpacked Chrome extension, not a Chrome Web Store release. Release 0.5.0 has a fixed extension ID, taken from its manifest key, so Chrome treats it as a different extension from 0.4.x: it does not replace 0.4.1, and its storage starts empty. If both stay installed, both run on Studio and IDE. Upgrade in this order:
 
-1. Keep your existing encrypted wallet export and password available.
-2. To update an existing unpacked installation, replace its application files in the **same already-loaded extension folder**, then open `chrome://extensions` and click **Reload** on that existing extension. **Do not click Remove or load the update from a different folder:** this can change Chrome's extension ID/storage and make the saved wallet unavailable. Keep that extension installed to retain its encrypted Studio vault. Do not delete native wallet files as part of an update.
-3. For a first installation, extract this package, enable Chrome Developer mode and choose **Load unpacked** on the folder containing `manifest.json`.
-4. Reload PoCol IDE or Studio after updating the extension.
+1. Keep the encrypted wallet export of your native wallet and its password: the `PoCol-Studio-Wallet.json` that `tools/Export-Studio-Wallet.ps1` (Windows) or `tools/export-studio-wallet.py` (Linux, see below) creates. The Studio vault that 0.4.1 saved stays in 0.4.1's storage and is not carried over. The Viewer's seed wallet cannot be exported; its address belongs to the retired network, so nothing carries over from it.
+2. Open `chrome://extensions` and click **Remove** on PoCol Studio, IDE & Viewer 0.4.1 (or older). This removes only the extension and its copy of the vault. Do not delete native wallet files.
+3. Extract the 0.5.0 package and compare its SHA-256 with the one published with the release. Enable Developer mode, choose **Load unpacked** on the folder containing `manifest.json`, and check that the extension ID Chrome shows is the one published on pocol.net.
+4. Reload PoCol IDE or Studio. In the confirmation tab of your first operation, import the wallet JSON. The Studio and IDE address is unchanged, because the imported key is used directly.
 
-A new unpacked folder can have a different extension ID/storage. In that case import the same encrypted wallet export in the confirmation tab; this preserves the original address. The extension never replaces the native wallet identity.
+A first installation is steps 3 and 4. Later releases keep the same extension ID: to update one, replace its application files in the already-loaded folder and click **Reload**. This keeps the saved vault. The extension never replaces the native wallet identity.
 
 ## Deploy a contract
 
-1. Write and compile Solidity in `https://ide.pocol.net` (or the owner preview).
+1. Write and compile Solidity in `https://ide.pocol.net`.
 2. Select PoCol Mainnet and choose **Review in PoCol Wallet**.
 3. In the extension confirmation tab, check the originating site and requested contract.
 4. Unlock the saved Studio wallet. Windows users may instead import the encrypted JSON produced by `tools/Export-Studio-Wallet.ps1`, running that script under the Windows account that owns the native wallet. Linux users should create the encrypted JSON with `tools/export-studio-wallet.py` using the instructions below, then select that JSON in the same confirmation tab. No raw key file is created or uploaded by this workflow.
 5. Click **Prepare transaction review**. Check the signing address, target or expected deployment address, bytecode/calldata fingerprints, value, and maximum PCOL fee.
 6. Select the consent checkbox and click **Confirm & sign transaction**. Keep the confirmation tab open while it checks the receipt.
 
-The original imported key is used directly. The older Viewer seed-derived wallet is a separate mechanism and is not used for IDE or Studio publication. The Viewer wallet now keys the built-in profile by its network key too, so its address changes with the network (see the release note in `README-STUDIO.md`).
+The original imported key is used directly. The Viewer's seed-derived wallet is a separate mechanism and is not used for IDE or Studio publication; its address belongs to each network (see `README-STUDIO.md`).
 
 ## Linux encrypted export
 
@@ -56,17 +56,15 @@ Select the resulting JSON **only in the extension confirmation tab**. The extens
 
 PoCol Mainnet / pocol-public: chain ID `1599846715`, genesis `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`, RPC `https://gateway.pocol.net/studio/rpc`, native currency **PCOL** (18 decimals). Execution and receipts use remote-node trust.
 
-RP verification uses only the saved local `forkSchedule`: omitted means version 1; `[[1,"0"],[2,"<activation height>"]]` enables version 2 at the exact locally configured height. RPC responses cannot choose or override that schedule. The full nonce range is 0 through 18,446,744,073,709,551,615, inclusive. Historical version-1 headers retain their original range. Changing a profile invalidates active signing sessions; conflicting network identities or schedules are read-only. The built-in RN profile continues to trust the pinned remote node for consensus and execution, and this package alone does not activate a network upgrade.
+The built-in profile's fork schedule is fixed by this release: `[[1,"0"]]`, version 1 from genesis, as the fresh network's genesis records it. There is no setting for it, and RPC responses cannot choose or override it. A later cap raise (fork version 3) arrives as an extension update, together with the node release. A custom local profile uses the schedule its network operator publishes: omitted means `[[1,"0"]]`, and after a cap raise it is `[[1,"0"],[2,"H2"],[3,"H3"]]` with the operator's heights as quoted decimal strings (version 2 changes no rule; it keeps the versions in order). Until that extension update, a custom RP profile of the PoCol Mainnet chain with the cap-raise schedule conflicts with the built-in profile, and conflicting profiles are read-only: only Viewer dApp signing is blocked on them. Changing a profile invalidates active signing sessions. The built-in RN profile trusts the pinned remote node for consensus and execution.
 
-A spec-2 (consensus v3) genesis is the release GenesisSpec: this build decodes it at profile and RP decoding with the final CP schema v2 (59 fields), exactly as the release node does, and a spec-1 genesis still decodes. The decoder and the RP rules for it are tested against the node's reference decoders (`tests/decoder_diff.mjs`, `tests/v3_decoder_test.mjs`, one verdict file per corpus regenerated from Rust). On a v3 window RP checks the same header items and states that the v3 membership, fork-choice, evidence and reward rules are not evaluated by RP.
-
-To configure the reserved `pocol-public` profile, open the extension's **Options → PoCol Mainnet activation**, paste the exact operator-approved schedule, then click **Save trusted schedule**. For example, if the operator approves height H, replace `ACTIVATION_HEIGHT` with H in `[[1,"0"],[2,"ACTIVATION_HEIGHT"]]`; keep both heights quoted to preserve all 64 bits. Reopen Viewer tabs after saving. Use the same schedule for any custom local profile of this chain. Saving `[[1,"0"]]` explicitly restores version-1-only configuration. The control changes only the locally trusted schedule, never the endpoint, chain ID, genesis, encrypted wallet, or address. Website content scripts and RPC responses cannot call this settings-only operation. No activation height is preselected in this release; coordinate the native-node upgrade separately.
+The release GenesisSpec is a spec-2 (consensus v3) genesis with nonceMode 1, the only kind a node admits: the full nonce range, 0 through 18,446,744,073,709,551,615 inclusive, holds from genesis. This build decodes it at profile and RP decoding with the final CP schema v2 (59 fields), exactly as the release node does. A spec-1 genesis still decodes for compatibility, but no node admits it, and the extension refuses it as a profile with the node's reason, as it refuses a nonceMode other than 1. The decoder and the RP rules are tested against the node's reference decoders (`tests/decoder_diff.mjs`, `tests/v3_decoder_test.mjs`, one verdict file per corpus regenerated from Rust). On a v3 window RP checks the same header items and states that the v3 membership, fork-choice, evidence and reward rules are not evaluated by RP.
 
 Contract intents are limited to 256 KiB, ABI to 512 entries/96 KiB, arguments to 64 KiB, encoded creation bytecode to the Cancun 49,152-byte limit, and call data to 58,000 bytes. EIP-1559 transactions use at most 8,000,000 gas and 200 gwei maximum fee per gas. New requests never choose another network or supply an arbitrary endpoint.
 
 ## Source and verification
 
-Baseline: PoCol Studio extension 0.2.1 from `palcertcom/pocol`, branch `work/pocol-studio`, commit `93d7f39fbe1f34890bbe1685a0f95309fc1cb7a5`. The published 0.3.1 IDE and icon release is reconciled with the full-range verifier in 0.4.1; wallet storage is not migrated.
+Baseline: PoCol Studio extension 0.2.1 from `palcertcom/pocol`, branch `work/pocol-studio`, commit `93d7f39fbe1f34890bbe1685a0f95309fc1cb7a5`. The 0.3.1 IDE and icon release and the 0.4.x verifier are carried into 0.5.0; wallet storage is not migrated (see the upgrade above).
 
 Pinned dependencies: Noble hashes 1.8.0, Noble secp256k1 2.3.0, ethers 6.17.0. Dependencies are bundled locally; there are no runtime CDN imports.
 
@@ -80,5 +78,7 @@ npm run test:contracts
 npm run test:contract-ui
 python3 -m unittest tests/test_linux_export.py -v
 ```
+
+`npm run build` makes `dist/`. It carries the manifest key, and with it the fixed extension ID, once the owner's public key is committed in `release/manifest-key.pub`; until then it is a development build, and `npm run package` refuses to package a release. `python3 scripts/package-release.py --extension-id` prints the ID of the committed key. Test-fault builds never carry the key. The source tree keeps `package.json` at 0.4.1 until the signed 0.5.0 release: the version and the website download links move together, because `deploy/websites/tools/site_identity.py --check` requires every download link to name the `package.json` version.
 
 Component checks use mocked Chrome and RPC plus a public test key. They do not access a user's wallet or send live transactions. Real Chrome installation, native wallet file interaction and end-to-end on-chain signing still require device verification.

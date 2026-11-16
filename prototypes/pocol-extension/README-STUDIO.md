@@ -1,8 +1,8 @@
-# PoCol Studio extension — 0.4.1
+# PoCol Studio extension — 0.5.0
 
 Built from the existing PoCol extension at `50c2f27ee67961dec7aaf0eb735c0b641810e0ea`, with a trusted browser publishing workflow and the original isolated viewer.
 
-Version 0.4.1 preserves Studio publication and wallet storage alongside IDE contract publishing and full-range RP verification. The network is labeled PoCol Mainnet; its chain ID and genesis are unchanged in this release, and the Viewer wallet address follows the network (see the release note below). Fees use **PCOL**. See `README-IDE.md` for the complete release, installation and upgrade instructions.
+Version 0.5.0 is the extension for the fresh PoCol Mainnet (consensus v3): Studio publication, IDE contract publishing and RP verification, with the network's identity and fork schedule pinned by the release. The network is labeled PoCol Mainnet, and the Viewer wallet address belongs to the network (see below). Fees use **PCOL**. 0.5.0 has a fixed extension ID, so it does not replace 0.4.1: export the wallet, remove 0.4.1, then load 0.5.0. See `README-IDE.md` for the complete release, installation and upgrade instructions.
 
 ## Build and checks
 
@@ -16,20 +16,19 @@ npm run test:contracts
 npm run test:contract-ui
 ```
 
-The build vendors the pinned Noble and ethers dependencies; it downloads no executable code at runtime. Load `dist/` with Chrome's Load unpacked developer option for this development release. Store publication has not been performed or approved. No manifest extension ID is hardcoded: the Studio page uses an origin-scoped content bridge, so installation paths/IDs may differ between users.
+The build vendors the pinned Noble and ethers dependencies; it downloads no executable code at runtime. Load `dist/` with Chrome's Load unpacked developer option for this development release. Store publication has not been performed or approved. A release has a fixed extension ID: the manifest `key` is the owner's public key in `release/manifest-key.pub`, so every user and every later release has the same ID, the one published on pocol.net, and the saved vault stays with it. Until that key is committed, `npm run build` makes a development build without a key (Chrome then gives it an ID of its folder) and `npm run package` refuses to package a release. The Studio page still talks to the extension only through an origin-scoped content bridge; it does not need the ID.
 
 ## Network
 
 The built-in `pocol-public` profile pins chain ID `1599846715`, genesis hash `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`, and the complete GenesisSpec preimage. It connects only to `https://gateway.pocol.net/studio/rpc` using RN trust: trust the remote node for execution, independently verify site content hashes and the network identity. The relay must be deployed before live publishing/viewing through that profile works. Existing loopback profiles and the original local verification modes remain available.
 
-## Release note: the Viewer wallet address on the new network
+## The Viewer wallet address
 
 The Viewer's seed-derived wallet keys each profile's address with that profile's network key (netKey, D14), the
-built-in `pocol-public` profile included. Releases up to 0.4.1 keyed the built-in profile with a fixed salt (the
-retired network's netKey) so that its address survived an identity change; that salt is removed. When the built-in
-profile is pinned to the new network, the Viewer shows a **different address** for the same seed on it: the new
-network's own address, the same one a custom profile of that network gets. Nothing carries over from the retired
-network, so no balance is lost. Studio and IDE use the imported wallet key directly and are not affected.
+built-in `pocol-public` profile included, so an address belongs to one network. Releases up to 0.4.1 keyed the
+built-in profile with a fixed salt (the retired network's netKey); 0.5.0 has no such salt. On the PoCol Mainnet the
+Viewer shows the network's own address, the same one a custom profile of that network gets. Nothing carries over from
+the retired network, so no balance is lost. Studio and IDE use the imported wallet key directly and are not affected.
 
 ## Existing Windows wallet
 
@@ -77,9 +76,9 @@ The extension requests `unlimitedStorage` because a maximum-size publication plu
 
 ## Verified scope
 
-- Original extension and full-range verification regressions: 266 passing checks.
-- Studio integration, keyfile and trusted public-schedule security checks: 32 passing checks.
-- Publishing engine: 42 passing tests, including M1 vector parity, full mocked publish/fetch/update, wrong-network/ownership refusal, fee bounds, pending recovery (including chunks stored concurrently), reverted receipts and reorganization recovery. Cleanup shares the publisher job lock and rechecks stored state before deleting expired requests.
+- Original extension, fork-schedule and RP verification regressions (`tests/unit.mjs`): 338 passing checks.
+- Studio integration, keyfile, pinned-schedule and release-version checks (`tests/studio_test.mjs`): 39 passing checks.
+- Publishing engine (`tests/publisher_test.mjs`): 82 passing tests, including M1 vector parity, full mocked publish/fetch/update, wrong-network/ownership refusal, fee bounds, pending recovery (including chunks stored concurrently), reverted receipts and reorganization recovery. Cleanup shares the publisher job lock and rechecks stored state before deleting expired requests.
 
 These are component tests with mocked Chrome/RPC where stated. No real on-chain signing, production RPC deployment or store review was performed by these tests.
 

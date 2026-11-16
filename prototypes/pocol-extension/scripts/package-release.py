@@ -2,6 +2,7 @@
 """Package only the built extension with reproducible archive metadata.
 
     python3 scripts/package-release.py [OUTPUT.zip] [--retired FILE]
+    python3 scripts/package-release.py --extension-id   (print the release extension id of release/manifest-key.pub)
 
 The packager refuses anything that is not the release build (Sites W3), independently of the tests on dist/:
   - the manifest name is exactly RELEASE_NAME (so "[TEST FAULT ...]" and "[REHEARSAL]" builds are refused), MV3, and
@@ -18,9 +19,12 @@ The packager refuses anything that is not the release build (Sites W3), independ
     genesis hash (so a tree whose NETWORK was repinned but whose pages, e.g. publisher.html and contract.html, were
     not is refused too);
   - the decoder decodes spec 2;
-  - the built-in profile's chain ID and genesis hash are not in deploy/mainnet/retired-networks.json (or --retired FILE).
+  - the built-in profile's chain ID and genesis hash are not in deploy/mainnet/retired-networks.json (or --retired FILE);
+  - the owner's manifest public key is committed (release/manifest-key.pub is not the PLACEHOLDER, W14) and the manifest
+    `key` is exactly that key, so the release has the fixed extension id (printed with the package).
 Until the identity switch the tree carries the placeholder, so no release is packaged: CI checks that this packager
-refuses the build with "network placeholder" instead (.github/workflows).
+refuses the build with "network placeholder" instead (.github/workflows). The network placeholder is refused before the
+manifest key, so that refusal holds whatever the key slot holds.
 """
 from pathlib import Path
 import argparse
@@ -37,8 +41,8 @@ PERMISSIONS = ['storage', 'unlimitedStorage', 'declarativeNetRequest']
 BACKGROUND = {'service_worker': 'sw.js', 'type': 'module'}
 SANDBOX = {'pages': ['sandbox.html']}
 # Every top-level key the release manifest may have (build.mjs). Anything else, e.g. optional_permissions,
-# web_accessible_resources or externally_connectable, is refused; W14 adds the fixed `key` (Q7) here with its value.
-MANIFEST_KEYS = {'manifest_version', 'name', 'version', 'description', 'minimum_chrome_version', 'background', 'permissions',
+# web_accessible_resources or externally_connectable, is refused. `key` (W14, Q7) must be the committed owner key.
+MANIFEST_KEYS = {'key', 'manifest_version', 'name', 'version', 'description', 'minimum_chrome_version', 'background', 'permissions',
                  'host_permissions', 'content_scripts', 'omnibox', 'options_page', 'icons', 'action', 'sandbox',
                  'content_security_policy'}
 CONTENT_SCRIPTS = [
@@ -60,6 +64,80 @@ def sandbox_csp(loader_hash):
 
 def refuse(message):
     raise SystemExit('Refusing to package: ' + message)
+
+
+def _der_item(data, at):
+    """(tag, start of contents, end) of the DER item at `at`, with a definite minimal length inside `data`."""
+    if at + 2 > len(data):
+        raise ValueError('truncated')
+    tag, first = data[at], data[at + 1]
+    if first < 0x80:
+        size, start = first, at + 2
+    else:
+        n = first & 0x7f
+        if n == 0 or n > 2 or at + 2 + n > len(data):
+            raise ValueError('length')
+        size, start = int.from_bytes(data[at + 2:at + 2 + n], 'big'), at + 2 + n
+        if size < 0x80 or (n == 2 and size < 0x100):
+            raise ValueError('non-minimal length')
+    if start + size > len(data):
+        raise ValueError('truncated')
+    return tag, start, start + size
+
+
+def is_spki(der):
+    """A DER SubjectPublicKeyInfo: SEQUENCE { SEQUENCE { OID, ... } AlgorithmIdentifier, BIT STRING } and nothing else."""
+    try:
+        tag, start, end = _der_item(der, 0)
+        if tag != 0x30 or end != len(der):
+            return False
+        tag, alg_start, alg_end = _der_item(der, start)
+        if tag != 0x30 or _der_item(der, alg_start)[0] != 0x06:
+            return False
+        tag, bits_start, bits_end = _der_item(der, alg_end)
+        return tag == 0x03 and bits_end == end and bits_end > bits_start and der[bits_start] == 0
+    except ValueError:
+        return False
+
+
+def manifest_key(root):
+    """W14 (Q7): the committed owner manifest key of release/manifest-key.pub (base64 DER SubjectPublicKeyInfo on its
+    one non-comment line), or None while that line is the PLACEHOLDER (the same rules as build.mjs readManifestKey)."""
+    slot = root / 'release' / 'manifest-key.pub'
+    try:
+        text = slot.read_text(encoding='utf-8')
+    except OSError:
+        refuse(f'{slot} is missing: it is the manifest key slot (W14)')
+    lines = [line.strip() for line in text.splitlines() if line.strip() and not line.strip().startswith('#')]
+    if len(lines) != 1:
+        refuse(f'{slot} must hold exactly one key line (or the PLACEHOLDER line), found {len(lines)}')
+    if lines[0].startswith('PLACEHOLDER'):
+        return None
+    key = lines[0]
+    try:
+        der = base64.b64decode(key, validate=True)
+    except ValueError:
+        der = b''
+    if not der or base64.b64encode(der).decode('ascii') != key or len(der) > 4096 or not is_spki(der):
+        refuse(f'{slot}: the key line is not the canonical base64 of a DER SubjectPublicKeyInfo')
+    return key
+
+
+def extension_id(key):
+    """Chrome's extension id of a manifest key: the first 128 bits of sha256(DER), each hex digit 0-f written as a-p."""
+    digest = hashlib.sha256(base64.b64decode(key)).hexdigest()[:32]
+    return ''.join(chr(ord('a') + int(c, 16)) for c in digest)
+
+
+def check_manifest_key(root, manifest):
+    """W14 (Q7): a release carries exactly the committed owner key, so its extension id is the published one."""
+    key = manifest_key(root)
+    if key is None:
+        refuse('no manifest key: the owner public key is not committed (release/manifest-key.pub is the PLACEHOLDER, '
+               'Q7); a release needs its fixed extension id')
+    if manifest.get('key') != key:
+        refuse('the manifest key is not the committed owner key of release/manifest-key.pub: rebuild with npm run build')
+    return extension_id(key)
 
 
 def built_network(text):
@@ -147,6 +225,8 @@ def check_release(root, dist, version, retired_file):
     # D1 is refused before NETWORK is parsed and before the retired identities, which the placeholder tree's pages still
     # show: a placeholder build fails as the placeholder (the refusal CI expects), whatever else it holds.
     refuse_placeholder(root, network_text)
+    # The manifest key after the placeholder (CI expects "network placeholder" for the placeholder tree), before the rest.
+    release_id = check_manifest_key(root, manifest)
     network = built_network(network_text)
     if network.get('endpoint') != RELEASE_ENDPOINT or network.get('trustLevel') != 'RN':
         refuse(f'the built-in profile must use {RELEASE_ENDPOINT} at trust level RN')
@@ -176,6 +256,7 @@ def check_release(root, dist, version, retired_file):
     identity += shown_in
     if identity:
         refuse('; '.join(identity) + '. A release needs the mainnet identity (Phase 10)')
+    return release_id
 
 
 def main(argv):
@@ -183,7 +264,14 @@ def main(argv):
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument('output', nargs='?', type=Path)
     parser.add_argument('--retired', type=Path, default=root.parents[1] / 'deploy' / 'mainnet' / 'retired-networks.json')
+    parser.add_argument('--extension-id', action='store_true', help='print the extension id of the committed manifest key')
     args = parser.parse_args(argv)
+    if args.extension_id:
+        key = manifest_key(root)
+        if key is None:
+            refuse('no manifest key: the owner public key is not committed (release/manifest-key.pub is the PLACEHOLDER, Q7)')
+        print(extension_id(key))
+        return
     dist = root / 'dist'
     version = json.loads((root / 'package.json').read_text())['version']
     output = args.output or root / 'releases' / f'PoCol-Studio-IDE-Viewer-{version}.zip'
@@ -194,7 +282,7 @@ def main(argv):
     for name in required:
         if not (dist / name).is_file():
             raise SystemExit(f'Missing built release file: {name}. Run npm run build first.')
-    check_release(root, dist, version, args.retired)
+    release_id = check_release(root, dist, version, args.retired)
     output.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
         for path in sorted(dist.rglob('*')):
@@ -211,7 +299,7 @@ def main(argv):
             archive.writestr(entry, path.read_bytes())
     digest = hashlib.sha256(output.read_bytes()).hexdigest()
     output.with_suffix(output.suffix + '.sha256').write_text(f'{digest}  {output.name}\n')
-    print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes')
+    print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes\nextension id {release_id}')
 
 
 if __name__ == '__main__':
