@@ -319,7 +319,8 @@ has a stable `id` and a `detail`:
   `test-features` (caps-test, crash-test, io-fault); `v3-launch-blocker` (each `V3_LAUNCH_BLOCKERS` entry, none
   today); `plan-gate-<id>` (each acceptance-ledger gate of `development/public-network/PLAN.md` not marked
   closed, all nine today; a test keeps `PLAN_GATES_OPEN` equal to the ledger);
-- network: `v3-inactive` (spec-1 genesis and no fork to version 3); `network-not-release-pinned` ((chainId,
+- network: `v3-inactive` (a genesis below specVersion 2; since phase 6a the spec-1 rule set is retired and no fork makes
+  such a network v3: fork 3 is the cap raise, admitted only on a spec-2 genesis); `network-not-release-pinned` ((chainId,
   genesisHash) not in `NETWORK_PROFILES`, the H2 hook, empty today); `admission-scope` (not `specification`);
   `admission-condition-<id>` and `admission-waiver-<rule>` (each condition and waiver); `profile-kind` (not the
   network profile on a network node, R22); `admission-not-booted` (always), `admission-unrecorded` and

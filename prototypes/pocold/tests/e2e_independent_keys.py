@@ -163,12 +163,16 @@ def main():
         # keccak256("register(address)")[:4], independently checked with @noble/hashes.
         calldata = '0x4420e486' + addresses['r4'][2:].rjust(64, '0')
         registry = '0x0000000000000000000000000000000000c0c001'
-        registration = send('m4', registry, 100 * 10**18, 0, calldata, 1000000)
+        # The v3 registration bond: B_reg is 20 PCOL on the genesis init-testnet builds (DevnetConfig::new), the bond
+        # the genesis members hold; PoColSystemV3 reverts a registration that sends more (BadValue).
+        bond = 20 * 10**18
+        assert all(int(m['bond'], 16) == bond for m in rpc(urls[0], 'pocol_getMiners')), 'the genesis bond is B_reg'
+        registration = send('m4', registry, bond, 0, calldata, 1000000)
         confirmed(registration)
         assert all(any(m['id'].lower() == addresses['m4'] and m['status'] == 1 for m in rpc(u, 'pocol_getMiners')) for u in urls)
         wait(lambda: rpc(urls[3], 'pocol_status')['stats']['mined'] > 0, 'new miner produces a block', CONFIRMATION_TIMEOUT)
         ok('non-genesis miner registers through a transaction and produces real blocks')
-        duplicate = send('m4', registry, 100 * 10**18, 1, calldata, 1000000)
+        duplicate = send('m4', registry, bond, 1, calldata, 1000000)
         confirmed(duplicate, '0x0')
         assert all(len(rpc(u, 'pocol_getMiners')) == 4 for u in urls)
         ok('duplicate registration reverts without adding a fifth member')

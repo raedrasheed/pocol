@@ -132,7 +132,7 @@ pub fn blockers(b:&Build,subject:Subject)->Vec<Blocker>{
         Subject::Unreadable(why)=>{out.push(blocker("genesis-unreadable",format!("the network's genesis specification cannot be read: {why}")));return out}
         Subject::Network(n)=>n,
     };
-    if !n.v3_active{out.push(blocker("v3-inactive","the network's genesis never activates the v3 rules (spec version 1 and no fork to version 3); the public launch is a v3 genesis"))}
+    if !n.v3_active{out.push(blocker("v3-inactive","the network's genesis is not a v3 genesis (specVersion below 2): the spec-1 rule set is retired and this release runs only v3 (specVersion 2) networks; the public launch is a v3 genesis"))}
     if !b.network_profiles.contains(&(n.chain_id,n.genesis_hash)){
         out.push(blocker("network-not-release-pinned",format!("chain {} genesis {} is not a launch network pinned by this release (V3-28 H2{})",
             n.chain_id,crate::types::hex(&n.genesis_hash),if b.network_profiles.is_empty(){"; it pins none yet"}else{""})))}

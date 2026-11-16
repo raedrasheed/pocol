@@ -433,7 +433,8 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
 /// spec-1 table, which phase 6a deleted with GAS_ENVELOPE and GAS_ENVELOPE_EARNIN), recordLate counted as the dearer
 /// evidence item, and the measured domain without an M_max term (FN-2b; the spec-1 term went with the spec-1 sets).
 #[test] fn the_v3_envelope_is_self_contained_and_bounds_the_v3_domain(){
-    assert!(std::ptr::eq(gas_envelope(ProgramSet::V3),GAS_ENVELOPE_V3));
+    // By content: GAS_ENVELOPE_V3 is a `const`, whose address is not one object (it differs per use in a dev build).
+    assert_eq!(gas_envelope(ProgramSet::V3),GAS_ENVELOPE_V3);
     let names:Vec<&str>=GAS_ENVELOPE_V3.iter().map(|x|x.0).collect();
     assert_eq!(names,["beginBlock","closeBlock","finalize","invalidate","markClose","pruneShares","punish","recordLate","recordResult","recordShares","settle","settleFinal"],
         "every SYSTEM call of the v3 phases, once, in name order");

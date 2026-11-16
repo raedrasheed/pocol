@@ -21,16 +21,20 @@ installation, with inclusion/revert status and confirmation counts.
 
 ## Continuous protocol
 
-The new bootstrap sets `continuous: true`. Its genesis explicitly encodes all four
+Every network this release builds is a v3 genesis (`specVersion` 2), and every v3
+genesis is continuous. The bootstrap passes no option for it: `pocold init-testnet`
+refuses the retired spec-1 options `continuous`, `earnin` and `fullNonce` by name. The
+genesis explicitly encodes all four
 lifetime fields (`H_END`, `T_END`, `H_CLOSE`, `T_CLOSE`) as zero, meaning **no
 scheduled closing block, final block or expiration date**. This is not a larger
-hidden end height. A separate compiled system-program set keeps the registry open;
-finite profiles retain the original program bytes and behavior.
+hidden end height. The release bundles one compiled system-program set (v3), which
+keeps the registry open. The spec-1 rule set, with its finite profiles and its other
+program sets, is retired: a spec-1 network is refused with that reason at start.
 
-Continuous profiles apply TX_CAP and TXBYTES_CAP per block, and reset the historical
+A continuous chain applies TX_CAP and TXBYTES_CAP per block, and resets the historical
 log allowance at each block. Per-transaction, per-block, live-state, gas, peer and
 queue protections remain. Old cumulative transaction/log limits cannot gradually
-exhaust the ability to send. Existing finite networks are not silently converted.
+exhaust the ability to send. An existing spec-1 network is not converted.
 A new shared genesis and the same updated binaries on every device are required;
 never erase an existing identity or regenerate different genesis files per device.
 

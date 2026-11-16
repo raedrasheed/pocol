@@ -456,7 +456,7 @@ const V3_FIXTURE_ENTRIES:&[(&str,bool)]=&[("beginBlock",true),("markClose",true)
     }
     // Every name but recordLate (no late shares here: tests/v3_contracts.rs measures it) was measured here.
     for (name,_) in table{assert!(*name=="recordLate"||seen.contains_key(name),"GAS_ENVELOPE_V3 names {name}, which no run measured");}
-    assert!(std::ptr::eq(crate::admission::gas_envelope(apply::ProgramSet::V3),table));
+    assert_eq!(crate::admission::gas_envelope(apply::ProgramSet::V3),table,"the one bundled set uses this table (by content: a `const` has no single address)");
     // The entries this fixture is the measurement of: rounded up to 1000 (BEGIN_MARK_PRUNE: the fixture's maxima, and the
     // dearer v3_contracts.rs worst case where it has one, recorded in admission.rs).
     for (name,from_fixture) in V3_FIXTURE_ENTRIES{let e=crate::admission::envelope(apply::ProgramSet::V3,name).unwrap();
