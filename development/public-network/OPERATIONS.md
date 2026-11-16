@@ -1,10 +1,10 @@
-# Public-network compatibility and operations, 29 October 2026
+# Public-network compatibility and operations
 
-The owner requested completion of a functioning public network. This increment
-implements additional prerequisites; **the complete launch goal is not fulfilled**.
-No actual server addresses/access were supplied. No Internet service, paid hosting,
-real-value currency or production profile was launched. Remaining software/protocol
-obligations are still open in [PLAN.md](PLAN.md); servers alone would not close them.
+This guide covers how PoCol Mainnet nodes peer, discover each other, take upgrades and bound their memory, and how
+the operator seeds are run and stopped. The network is a fresh v3 network (consensus rules 2, a version-2
+`GenesisSpec` with nonceMode 1; [FRESH-NETWORK-CP.md](../decisions/FRESH-NETWORK-CP.md)). Nothing in this guide
+launches or changes a server by itself. The launch gates that are still open are in [PLAN.md](PLAN.md); servers alone
+do not close them.
 
 ## Compatibility and hostile input
 
@@ -73,8 +73,7 @@ hash/state/receipt roots while all nodes advance.
 
 A node learns peer addresses by asking, never by being told (VA-SPEC §1a; local
 policy, which never changes validity, chain state or admission). Hello now has 11
-items: `listenPort` and an 8-byte `nonce` follow the consensus identity (originally
-the compatibility digest, VA-SPEC §2.2). `PROTOCOL_VERSION` stays 2, and a 9-item
+items: `listenPort` and an 8-byte `nonce` follow the consensus identity (VA-SPEC §2.2). `PROTOCOL_VERSION` stays 2, and a 9-item
 Hello fails closed. A node sends GetAddr (type 8) once on each connection it dialed, and
 answers the first GetAddr of each inbound connection with one Addr (type 9) of at
 most 64 addresses. It learns only the addresses it dialed and verified, the source
@@ -234,22 +233,6 @@ exists only on a v3 (spec-2) genesis. To activate it:
    reorg across H (`pocold/tests/fn5_cap_raise.rs` is the in-process version of these checks) and compare the heads,
    state roots and `consensusIdentity` on every node.
 
-**The last coordinated switch** (superseded: on 2026-11-13 the owner decided to launch a
-brand-new network from a fresh genesis instead, so there is no switch and no 0.4.0 node
-to reach; `development/decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md`; the text
-below is kept until the operations guide is rewritten). Deployed 0.4.0 sends a 9-item Hello; every later
-build sends 11 items, so the two peer sets are disjoint (a partition, not a rule
-divergence). The first release with the consensus identity (R1) therefore needs one
-last coordinated switch. The recommended path (owner decision D1, Option B, which this
-code implements by default) rides the held earn-in re-genesis: freeze a height, stop
-**all** seeds before any restarts, replay offline, publish a v2 invitation for the new
-genesis, start the seeds together and publish packages once they report the same
-`consensusIdentity` and head. Old launcher homes then get "This network was replaced
-by a new genesis. Follow the release notes to move the old network files aside; keep
-your wallet key." (Packages no longer ship those release notes; the fresh-network Phase 2 removes this
-refusal, `Switch::B` in prototypes/pocold/src/launcher.rs, which is inside the consensus boundary.) Option A (run R1 on the live H15000 chain) needed a certified replay
-first; the shipped legacy entry is uncertified and every H15000 home is refused. Deployment is held.
-
 **Reading the status fields.** `pocol_status` (and wallet status) report:
 - `consensusIdentity`, `consensusRulesVersion`, `maxForkVersion`, `protocolVersion`
   (maximum), `protocolVersionMin` and `consensusPinned` (false: a development build
@@ -276,16 +259,12 @@ first; the shipped legacy entry is uncertified and every H15000 home is refused.
 `compatibilitySha256` stays for install integrity: `monitor.py` groups nodes by
 `consensusIdentity` (and fork schedule) and warns about mixed digests.
 
-**Owner decisions (PR5).** D1–D5 are pending; the code implements their recommended
-defaults and keeps every consensus-relevant path fail-closed:
-- D1, Option B: `launcher::SWITCH = B` selects the refusal text above, and the H15000
-  `LEGACY_BUILDS` entry (with its Python mirror) ships uncertified (the switch and the
-  table were removed in the fresh-network Phase 2);
+**Upgrade rules (owner decisions of PR5).** Every consensus-relevant path stays fail-closed:
+
 - D2, "merged to main counts as released": gate values are spent on merge (VA-SPEC §2.3);
-- D3, the runtime schedule shape still refuses a skipped version;
-- D4, no further legacy build is certified;
-- D5, the activation-window identity (CONS-10) and a data-directory rules record are
-  deferred.
+- D3, fork versions are sequential: a schedule appends version 2 before version 3, and the runtime schedule shape
+  refuses a skipped version ([V3-DECISIONS.md](../decisions/V3-DECISIONS.md), "Release rules and lock", D3);
+- D5, the activation-window identity (CONS-10) and a data-directory rules record, is deferred.
 
 **Seeds behind NAT.** A seed that dials its own public address detects itself by its
 nonce and stops dialing that address. This needs NAT hairpinning. A seed behind a NAT
@@ -376,8 +355,8 @@ listens. An operator who lowers `POCOL_MEMORY_BUDGET_BYTES` (read by `pocol star
 and, since PR7, by `pocold run`, which also takes `--memory-budget-bytes`) should
 lower `POCOL_PEERS_MAX` with it.
 
-**The live chain's halt.** The live continuous chain (deploy/mainnet/h15000) has no
-finite lifetime, so the node stops once its journal holds more records than the A13
+**The continuous chain's halt with eviction off.** A continuous chain (`H_END` 0) has no
+finite lifetime, so a node with eviction off stops once its journal holds more records than the A13
 budget admits (`a13_live_chain_halt_records`, store mode as the seeds boot; T_blk
 10 s, so 8,640 records a day):
 
@@ -413,7 +392,7 @@ same time; the disk usually fills first.
 mode) `state.redb`. It is derived data: a missing, damaged or foreign one (another
 genesis) is set aside as `canon.redb.aside` and rebuilt by replaying from genesis.
 Every checkpoint of a window above height 1 then needs the replay. It costs about
-680 B a block on disk (about 2.1 GB a year on the live chain), and its first 34 MB
+680 B a block on disk (about 2.1 GB a year at `T_blk` 10 s), and its first 34 MB
 are allocated at once. Back it up with the rest of the data directory, or leave it
 out and let the next open rebuild it.
 
@@ -486,9 +465,10 @@ so it buys only capped protection. Within one /16, an attacker and honest member
 can evict each other's youngest members, at most once per 30 s per group, and the
 group's oldest member is always kept.
 
-## Evidence and limits
+## Evidence and limits (29 October 2026)
 
-Local runs (evidence under `evidence/operations/`):
+This is a dated record of the first operations increment, measured before the fresh network; the tools it
+covers (`deploy/public-testnet/`) are current. Local runs (evidence under `evidence/operations/`):
 
 | Check | Result | Scope |
 | --- | --- | --- |
@@ -569,13 +549,17 @@ retained as `translation-snapshot-drift.json` rather than relabeled PASS.
 
 ## Remaining launch work
 
-1. Resolve bounded historical-state/K_eff accounting and near-cap tests; complete
-   deferred resource/gas derivations and the missing RpcGuard mechanisms.
-2. Adopt a concrete public profile and normative decisions, measure target hardware
-   and worst-case execution, and define lifetime/cumulative-cap behavior. The present
-   profile still closes/ends at 19,000/20,000; this is not a perpetual network.
-3. Supply operator-controlled hosts/endpoints, independent public keys/allocations,
-   clock/network measurements and a shared genesis schedule; perform multi-host
-   partition/heal, recovery, overload, release/rollback and soak acceptance.
-4. Obtain an independent security review, publish a reviewed release and limitations,
-   then activate/verify the public endpoints. Existing automated review is not that review.
+The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
+
+1. **Ceremony.** Run the genesis ceremony with the committed profile (`deploy/mainnet/v3-profile.json`, a continuous
+   genesis with `H_END` 0) as described in [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and
+   [deploy/standalone/README.md](../../deploy/standalone/README.md): fresh keys on every founder's device, one
+   genesis, one invitation.
+2. **Rehearsal.** First run it with the rehearsal profile on the three servers and the PC, and measure the launch
+   evidence (T1-T8, M1-M4, the cap-raise rehearsal S2 above; FRESH-NETWORK-CP §9): multi-host partition/heal,
+   recovery, overload, release/rollback and soak.
+3. **Bounded state and admission.** Resolve bounded historical-state/K_eff accounting and near-cap tests; complete the
+   deferred resource/gas derivations and the missing RpcGuard mechanisms; measure worst-case execution.
+4. **Review.** Obtain an independent security review and publish the reviewed release with its limitations before
+   the public endpoints are opened. Existing automated review is not that review.
+5. **Fork tooling.** Restore the seed fork-migration tool (the G3 TODO above) before the first fork of the new chain.

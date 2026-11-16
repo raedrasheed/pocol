@@ -80,7 +80,7 @@ This is an outline. The normative rules are in [development/m1/reference/](devel
 
 - A network is defined by a `GenesisSpec`: a strict RLP encoding of the spec version, chainId, consensus parameters
   (`CP`), the initial allocation root, the initial miner list `M_0` and the system-contract code hash. Version 2 (CP
-  schema v2, 59 fields, the v3 rules) is the release version; version 1 still decodes.
+  schema v2, 59 fields, the v3 rules) is the only version a network is admitted with; admission refuses version 1.
 - `genesisHash = keccak256(GenesisSpec)`. Nodes and the extension check the network identity before accepting its data.
 - Before boot, **ParamGate** evaluates rules R1–R26 over the consensus and local parameters. A profile that violates a
   rule is refused, and the refusal lists the rules it violates.
@@ -106,14 +106,18 @@ This is an outline. The normative rules are in [development/m1/reference/](devel
 - `R_tot = subsidy + fees`. The winner and the shares of a block are recorded in its child block (`ParentResult`).
 - Settlement is deferred and runs through system contracts (Registry, Escrow, PAY), with exact rounding and
   classified burns.
-- The design specifies a registration bond (`B_reg`) and activity eligibility. The public chain supports transaction-driven miner registration; local fixture profiles may disable new registration with `R_max=0`.
+- Miners register through an ordinary transaction with a 20 PCOL bond (`B_reg`). A newcomer may start with a 0 PCOL
+  bond and earn the rest from its rewards (ACCRUING). At a full set of `M_max` members a newcomer replaces a member
+  with no credited share or (re)activation in the last `Theta_inact` blocks (`registerReplacing`). There is no probation pool and no account-creation fee.
 
 ### Execution (EVM)
 
 - User transactions run on revm 19.7 with Cancun rules. Consensus and execution are kept apart:
   `apply(S_parent, ctx, body, parentHeader) → (S, receipts, roots, …)`.
-- The network has cumulative caps on accounts, storage slots, code and transaction bytes.
-  The current public chain is continuous (`H_END=0`); finite local profiles retain a closing height.
+- The network has cumulative caps on accounts, storage slots and code (fork version 3 can raise them) and per-block
+  caps on transactions and transaction bytes.
+  Every network this release builds, devnets included, is continuous (`H_END=0`): no scheduled closing height. A
+  test may still build a finite chain.
 
 ### Site storage and the browser
 
@@ -133,7 +137,8 @@ in separate roles:
 - **Claude** (Anthropic) authors changes: specification, code, tests and evidence.
 - **Codex** (OpenAI) reviews them independently, runs the checks, and has carried out some repair rounds.
 - **The owner** takes every consensus and normative decision. Nothing counts as decided until the owner approves it
-  explicitly. Open decisions are recorded in `development/audit-2026-10-22/proposals/`.
+  explicitly. Decisions are recorded in `development/decisions/`; earlier proposals are in
+  `development/audit-2026-10-22/proposals/`.
 
 The working rules are in [development/README.md](development/README.md):
 
@@ -154,9 +159,10 @@ Stages, in order:
 | **LP9**                                | The Chrome MV3 extension                                                                                                                          | `prototypes/pocol-extension/`, `development/lp9`                                           |
 | **LP10**                               | An integrated devnet: site publishing, reorganization, restart and the browser                                                                    | `prototypes/lp10/`, `development/lp10`                                                     |
 | **Audit of 2026-10-22 and its rounds** | Repairs A01–A14, the A13 memory bound, the on-disk state store (redb), checkpoints, RpcGuard, I/O-fault handling, Windows and Chrome verification | `development/audit-2026-10-22/`                                                            |
+| **v3 and the fresh network (2026-11)** | The v3 rule set (earn-in, issuance, evidence, caps and the cap raise) as the release, and a fresh PoCol Mainnet genesis with four founders        | `development/decisions/`, `deploy/mainnet/`                                                |
 
-Stage reports: [development/reports/](development/reports/) and [development/STATUS-EN.md](development/STATUS-EN.md),
-now available in English. The status of every audit finding: `development/audit-2026-10-22/FINDING-STATUS.json`.
+Current status: [development/STATUS-EN.md](development/STATUS-EN.md). Stage reports: [development/reports/](development/reports/).
+The status of every audit finding: `development/audit-2026-10-22/FINDING-STATUS.json`.
 
 ## Repository and code layout
 
@@ -181,6 +187,7 @@ flowchart TD
 │   ├── VA-SPEC.md                             validation specification
 │   ├── lp1 … lp10/                            evidence for each stage
 │   ├── audit-2026-10-22/                      the audit, its repair rounds, evidence and the open-decision table
+│   ├── decisions/, public-network/            owner decisions, the fresh network's parameters, launch gates, operations
 │   ├── reports/, STATUS-EN.md                 status summaries (English)
 │   └── *-APPROVAL.md, OWNER-STANDING-AUTHORIZATION.md   owner approvals
 ├── prototypes/
@@ -499,8 +506,10 @@ the tested commit, and any missing checks. Changes to shared LP1 sources need co
 For a first contribution, reproduce a documented bug, add a focused boundary test, or improve a command's documentation.
 
 - **Consensus is owner-gated.** A change to a consensus rule, a `CP` parameter or a wire encoding needs an owner
-  decision. Write a proposal in `development/audit-2026-10-22/proposals/` with the alternatives and their effects, and
-  do not implement it before it is approved.
+  decision. Write a proposal in `development/decisions/` with the alternatives and their effects, and do not implement
+  it before it is approved. A change to a consensus-critical source needs a labelled history line in
+  `prototypes/pocold/consensus-sources.lock` (VA-SPEC §2.3); on the running network a rule change goes behind a new,
+  sequential fork version.
 - **Local limits.** Resource limits are not raised without a decision. Every new data structure in the node must be
   counted in the A13 model (`src/resources.rs`). The `v3_a13_bound_breakdown` test (`prototypes/pocold/tests/consensus.rs`) pins the total.
 - **Test before you claim.** Add a test that fails without the fix, and record the command, the version and the
@@ -534,16 +543,23 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 
 **Not established, or still open:**
 
-- **Specification-profile admission is not implemented for the current public chain.**
-  - The current chain has an existing operator-selected genesis; the separately defined `Network` profile expects a different chain ID. Renaming a deployment does not change either identity.
-  - Whole-state mode does not meet the A13 memory condition.
-  - Rule R21 refuses the profile.
-  - Only simnet admission exists (R22).
-- **The memory bound.** In store mode the computed bound is about 5.2 GiB against a 6 GiB budget (the condition is
-  model × 8/7 ≤ 6 GiB). Not every worst case has been measured.
-- **Decisions pending with the owner.** Many consensus and normative decisions are still open: the six consensus
-  proposals, the network caps, constant identity and timing calibration among them. They are listed in
-  `development/audit-2026-10-22/proposals/DECISION-TABLE-2026-10-28.md`.
+- **Not public-launch-ready.** PoCol Mainnet is admitted as a Simnet profile in `ExperimentalDevnet` scope, and
+  reports `publicLaunchReady: false` with its `launchBlockers`.
+  - Rule R22 binds the separately defined `Network` profile to chainId 777001, so `profile-kind` and
+    `admission-scope` cannot clear on this network as designed. Renaming a deployment does not change either.
+  - Rule R21 holds at the network's caps only through the simnet `retentionStress` exception.
+  - The open launch gates (identities, enrollment, admission, historical state, Internet exposure, sustained
+    operation, economics, release review) are in [PLAN.md](development/public-network/PLAN.md). The network launches
+    with them open and disclosed.
+- **The memory bound.** At 10,000 members the store-mode bound is 5,485,767,089 B at the network's parameters, inside
+  the usable 5.25 GiB (7/8 of the 6 GiB budget) with a thin margin
+  ([FN-3c evidence](development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)). Whole-state mode was not measured at
+  these parameters, and not every worst case has been measured.
+- **The rehearsal and the ceremony.** The launch evidence (T1-T8, M1-M4) is measured in the rehearsal on the
+  founders' devices, which has not run yet ([FRESH-NETWORK-CP.md](development/decisions/FRESH-NETWORK-CP.md) §9).
+- **Decisions pending with the owner.** The native release version and signing scheme, translations, the founders'
+  reward address, the launch-disclosure wording, a fee faucet on mainnet, the explorer gateway host and the canonical
+  public repository URL ([STATUS-EN.md](development/STATUS-EN.md)).
 - **Design objectives.** PoW-equivalent security, fairness and Sybil resistance are not proven.
 - **No external audit.** No independent external human security audit has been done.
 
@@ -570,8 +586,9 @@ Read the admission report and rollout prerequisites before operating this releas
   [storage](development/m1/reference/storage.md) and [threat model](development/m1/reference/threat.md).
 - [Ordered local-network plan](development/LOCAL-DEVNET-PLAN.md) and [extension coverage](development/lp9/LP9-EXTENSION.md).
 - [R6 status, 29 October 2026](development/audit-2026-10-22/evidence/codex-r6/STATUS-EN.md): measured results and their limits.
-- [Network boot blockers by cause](development/audit-2026-10-22/BOOT-BLOCKERS-2026-10-28.md) and
-  [open decisions](development/audit-2026-10-22/proposals/DECISION-TABLE-2026-10-28.md).
+- [Network boot blockers by cause](development/audit-2026-10-22/BOOT-BLOCKERS-2026-10-28.md), the
+  [public-network launch gates](development/public-network/PLAN.md) and the
+  [fresh network's parameters](development/decisions/FRESH-NETWORK-CP.md).
 
 Historical progress pages describe their own revisions, not every later commit. Cite the thesis for the research idea,
 and the repository URL **plus the commit SHA** when discussing this implementation. Treat proposed decisions as proposals
