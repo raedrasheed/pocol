@@ -1,15 +1,13 @@
 //! PoCol block apply (M1 execution.md "Block phases", D141/D142, LEDGER-01).
 //!
 //! apply(S_parent, ctx, body) runs, as one private candidate:
-//!   phase 0: applyEvidence, markClose, pruneShares, recordShares(h-1),
-//!            recordResult(h-1), settle(h-D), beginBlock (h=1 skips record*);
-//!            on the v3 program set (V3-16/V3-17) recordShares(h-1) and recordResult(h-1) come first,
-//!            then applyEvidence (invalidate names the accused, punish the reporter; V3-02 recordLate(j, owners)
-//!            for kind-3 late shares, in body order), markClose, ...;
+//!   phase 0 (V3-16/V3-17): recordShares(h-1), recordResult(h-1) (h=1 skips record*), applyEvidence
+//!            (invalidate names the accused, punish the reporter; V3-02 recordLate(j, owners) for kind-3 late
+//!            shares, in body order), markClose, pruneShares, settle(h-D), beginBlock;
 //!   phase 1: signed USER transactions (legacy-155/2930/1559);
-//!   phase 2: subsidy issuance + closeBlock(tips), or finalize(tips) at F; on the v3 program set (V3-19/V3-15/V3-20)
-//!            issuance(h) of issuance.rs (M3) + closeBlock(tips, issued), which pays the signed proposer its tip share
-//!            and adds the carry into pot h (block h-1's settle base burn; this block's goes to pot h+1) to pot h;
+//!   phase 2 (V3-19/V3-15/V3-20): issuance(h) of issuance.rs (M3) + closeBlock(tips, issued), which pays the signed
+//!            proposer its tip share and adds the carry into pot h (block h-1's settle base burn; this block's goes
+//!            to pot h+1) to pot h; or finalize(tips) at F;
 //!   phase 3: roots (state, tx, receipts, bloom, gasUsed, evidence).
 //! Any error discards the whole candidate; the parent snapshot is never mutated.
 //! Inputs never include the current block's nonce, owners, shares or signatures.
@@ -102,11 +100,11 @@ pub enum Proposer{Signed(Address),Fallback}
 
 /// Effects of consensus-validated evidence (validity is a consensus-layer rule,
 /// H-full item 15). Type 1 and type 2 both burn/tomb the accused; type 2 also
-/// invalidates pot_j when it is still pending. On the v3 program set (V3-16/V3-17) the host passes the accused to
+/// invalidates pot_j when it is still pending. The host (V3-16/V3-17) passes the accused to
 /// invalidate (the program burns the whole pot only for an accused winner that was ACCRUING when the result was
 /// recorded; otherwise the pot settles normally) and the reporter to punish: the carrying block's signed proposer
 /// (`BlockInput::proposer`, zero on a fallback block), which is also the calls' tx.origin.
-/// V3-02 (v3 program set only): `Late` credits the late shares of template j that kind-3 evidence carried, one owner
+/// V3-02: `Late` credits the late shares of template j that kind-3 evidence carried, one owner
 /// per share in nonce order (each the owner of its nonce under block j's assignment): recordLate(j, owners) raises
 /// count[j][owner] and total[j] and sets lastShare = max(lastShare, j), after recordResult(h-1) and before settle(h-D).
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -181,7 +179,7 @@ pub fn chain_facts(db:&dyn crate::view::View)->ChainFacts{
 /// One Registry record (four words, REGISTRY-LAYOUT.md).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct MinerRecord{pub id:Address,pub status:u8,pub tomb:bool,pub bond_state:u8,pub last_share:u64,pub reward:Address,pub bond:U256,pub exit_height:u64,pub due_height:u64,pub burn_height:u64,pub grace_start:u64,
-    /// Earn-in w0 bits 152..215 (EARN-IN-SPEC.md section 2); zero on v1 networks.
+    /// Earn-in w0 bits 152..215 (EARN-IN-SPEC.md section 2).
     pub registered_at:u64}
 pub fn record_slot(id:Address)->U256{U256::from_be_bytes(keccak256([id.into_word().as_slice(),U256::from(7).to_be_bytes::<32>().as_slice()].concat()).0)}
 fn array_slot(slot:u64)->U256{U256::from_be_bytes(keccak256(U256::from(slot).to_be_bytes::<32>()).0)}
@@ -223,7 +221,7 @@ pub fn share_owners(db:&dyn crate::view::View,j:u64)->impl Iterator<Item=Address
 pub fn share_total(db:&dyn crate::view::View,j:u64)->u64{low_u64(word(db,ledger(),ledger_slot_total(j)))}
 /// V3-15 (lagged by one block, D-V3-15): RewardEscrow slot 4 + (t & 1) of the v3 programs, the carry into pot t. Block
 /// h's settle(h-D) adds to the carry into pot h+1 and closeBlock(h) drains the carry into pot h, so between blocks h and
-/// h+1 only the carry into pot h+1 can be nonzero. The spec-1 programs never write these slots.
+/// h+1 only the carry into pot h+1 can be nonzero.
 pub fn escrow_carry_into(db:&dyn crate::view::View,t:u64)->U256{word(db,escrow(),U256::from(4+(t&1)))}
 /// V3-15: every outstanding carry (both carry slots), the Escrow invariant's carry term.
 pub fn escrow_carry(db:&dyn crate::view::View)->U256{word(db,escrow(),U256::from(4)).saturating_add(word(db,escrow(),U256::from(5)))}
@@ -385,15 +383,13 @@ fn context_checks(cp:&crate::profile::ConsensusParams,input:&BlockInput<'_>)->Re
     Ok(())
 }
 fn job<'a>(parent:&'a dyn crate::view::View,parent_summary:Option<&'a crate::state_summary::Summary>,profile:&'a ProfileIdentity,input:&'a BlockInput<'a>,check:bool)->Result<Job<'a>,ApplyError>{
-    let cp=profile.cp();let h=input.height;
+    let h=input.height;
     let is_final=is_final_block(parent,profile,h,input.timestamp);
-    // FN-5: CODE_CAP of this height (`cp_at`); every other field of `cp` is the genesis CP's.
+    // FN-5: CODE_CAP of this height (`cp_at`); every other field of `profile.cp()` is the genesis CP's.
     let limits=CodeLimits::at(profile,h);
     let origin=match input.proposer{Proposer::Signed(a) if a!=Address::ZERO=>a,Proposer::Signed(_)=>return Err(ApplyError::Context("proposer")),Proposer::Fallback=>Address::ZERO};
     let block=NativeBlockContext{height:U256::from(h),timestamp:U256::from(input.timestamp),gas_limit:U256::from(input.gas_limit),base_fee:input.base_fee,prevrandao:input.prevrandao};
-    // V3-16/V3-17: the v3 phase-0 order and calls, only on the v3 program set (a CP schema v2 genesis naming it).
-    let v3=SystemPrograms::program_set(cp,&profile.spec().sys_code_hash)==Some(ProgramSet::V3);
-    Ok(Job{parent,parent_summary,profile,input,block,origin,limits,is_final,check,v3})
+    Ok(Job{parent,parent_summary,profile,input,block,origin,limits,is_final,check})
 }
 /// C-1 E4: `apply_block_with` on a parent read through any view (a stored trie version), given the
 /// parent's summary. Every check reads summaries and views; nothing walks or copies the parent. Under
@@ -465,7 +461,7 @@ fn apply_impl(parent:&InMemoryDB,parent_trie:Option<&crate::state_trie::StateTri
         receipts:users.receipts().to_vec(),tips,issued,system_gas,is_final,facts,meter,log_bytes:users.log_bytes(),halts:users.halts().to_vec(),dirty_accounts:users.dirty_accounts(),trie,summary,writes:None})
 }
 /// What `apply_block_with` runs on a working state (phases 0 to 2), with what it borrows.
-struct Job<'a>{parent:&'a dyn crate::view::View,parent_summary:Option<&'a crate::state_summary::Summary>,profile:&'a ProfileIdentity,input:&'a BlockInput<'a>,block:NativeBlockContext,origin:Address,limits:CodeLimits,is_final:bool,check:bool,v3:bool}
+struct Job<'a>{parent:&'a dyn crate::view::View,parent_summary:Option<&'a crate::state_summary::Summary>,profile:&'a ProfileIdentity,input:&'a BlockInput<'a>,block:NativeBlockContext,origin:Address,limits:CodeLimits,is_final:bool,check:bool}
 struct Ran<S>{state:S,rest:Rest}
 struct Rest{users:crate::user_phase::UserCandidate<()>,tips:U256,issued:U256,system_gas:u64,meter:Meter}
 /// The written set of a working state since the parent (C-1 E3): complete for an overlay, a whole-state
@@ -485,25 +481,19 @@ impl Job<'_>{
         // first call's whole check would have found it (C-2 item 2's invariant).
         let mut ex=Exec{state,profile,block,origin:self.origin,used:0,limits,meter:Meter::default(),code_total:self.parent_summary.map(|s|s.inventory())};
 
-        // Phase 0. V3-16/V3-17 (v3 program set only): the parent's result is recorded first, so that recordResult
-        // commits whether the winner of h-1 was ACCRUING before any evidence of this block can tomb it; then
-        // invalidate names the accused and punish the reporter (the signed proposer, tx.origin; zero on a fallback).
-        if self.v3{record_parent(&mut ex,cp,input,h)?;}
+        // Phase 0. V3-16/V3-17: the parent's result is recorded first, so that recordResult commits whether the
+        // winner of h-1 was ACCRUING before any evidence of this block can tomb it; then invalidate names the accused
+        // and punish the reporter (the signed proposer, tx.origin; zero on a fallback).
+        record_parent(&mut ex,cp,input,h)?;
         for e in &input.evidence{
             let (accused,j)=match e{EvidenceEffect::Punish{accused}=>(*accused,None),EvidenceEffect::PunishAndInvalidate{accused,j}=>(*accused,Some(*j)),
-                // V3-02: only the v3 programs have recordLate; the host never derives the effect elsewhere.
-                EvidenceEffect::Late{j,owners}=>{if !self.v3{return Err(ApplyError::Context("late shares need the v3 program set"))}record_late(&mut ex,cp,*j,owners)?;continue}};
-            if self.v3{
-                if let Some(j)=j{ if pending(ex.state.as_view(),j).1!=U256::ZERO{let mut d=selector("invalidate(uint256,address)");enc_u256(&mut d,U256::from(j));enc_addr(&mut d,accused);ex.call("invalidate",escrow(),d)?;} }
-                let mut d=selector("punish(address,address)");enc_addr(&mut d,accused);enc_addr(&mut d,self.origin);ex.call("punish",registry(),d)?;
-                continue;
-            }
-            if let Some(j)=j{ if pending(ex.state.as_view(),j).1!=U256::ZERO{let mut d=selector("invalidate(uint256)");enc_u256(&mut d,U256::from(j));ex.call("invalidate",escrow(),d)?;} }
-            let mut d=selector("punish(address)");enc_addr(&mut d,accused);ex.call("punish",registry(),d)?;
+                // V3-02: recordLate on the v3 MinerRegistry.
+                EvidenceEffect::Late{j,owners}=>{record_late(&mut ex,cp,*j,owners)?;continue}};
+            if let Some(j)=j{ if pending(ex.state.as_view(),j).1!=U256::ZERO{let mut d=selector("invalidate(uint256,address)");enc_u256(&mut d,U256::from(j));enc_addr(&mut d,accused);ex.call("invalidate",escrow(),d)?;} }
+            let mut d=selector("punish(address,address)");enc_addr(&mut d,accused);enc_addr(&mut d,self.origin);ex.call("punish",registry(),d)?;
         }
         ex.call("markClose",registry(),selector("markClose()"))?;
         ex.call("pruneShares",ledger(),selector("pruneShares()"))?;
-        if !self.v3{record_parent(&mut ex,cp,input,h)?;}
         if h>u64::from(cp.D){let mut d=selector("settle(uint256)");enc_u256(&mut d,U256::from(h-u64::from(cp.D)));ex.call("settle",escrow(),d)?;}
         ex.call("beginBlock",registry(),selector("beginBlock()"))?;
 
@@ -533,16 +523,15 @@ impl Job<'_>{
             None=>{code_caps::validate_snapshot(ex.state.as_view(),limits).map_err(ApplyError::Caps)?;None}
         };
 
-        // Phase 2: issuance + closeBlock, or finalize (no subsidy, tips burned). V3-19 (v3 program set only): issuance(h)
-        // of the M3 schedule instead of CP 15, passed to closeBlock(tips, issued) with the tips (V3-20 splits them there).
+        // Phase 2: issuance + closeBlock, or finalize (no subsidy, tips burned). V3-19: issuance(h) of the M3 schedule,
+        // passed to closeBlock(tips, issued) with the tips (V3-20 splits them there).
         let mut issued=U256::ZERO;
         if !self.is_final{
-            let subsidy=if self.v3{crate::issuance::for_cp(cp,h)}else{U256::from_be_bytes(profile.spec().cp[15].to_be_bytes())};
+            let subsidy=crate::issuance::for_cp(cp,h);
             let info=ex.state.info_mut(&pay::escrow_address()).ok_or(ApplyError::Genesis("escrow".into()))?;
             info.balance=info.balance.checked_add(subsidy).ok_or(ApplyError::Supply("issuance"))?;
             issued=subsidy;
-            if self.v3{let mut d=selector("closeBlock(uint256,uint256)");enc_u256(&mut d,tips);enc_u256(&mut d,issued);ex.call("closeBlock",escrow(),d)?;}
-            else{let mut d=selector("closeBlock(uint256)");enc_u256(&mut d,tips);ex.call("closeBlock",escrow(),d)?;}
+            let mut d=selector("closeBlock(uint256,uint256)");enc_u256(&mut d,tips);enc_u256(&mut d,issued);ex.call("closeBlock",escrow(),d)?;
         }else{
             let mut d=selector("finalize(uint256)");enc_u256(&mut d,tips);ex.call("finalize",escrow(),d)?;
             // LP4-FINAL-01: one SYSTEM call per remaining pot j in [F-D+1, F-1].
@@ -595,7 +584,7 @@ pub fn root_check()->bool{
 
 /// T17: Escrow surplus = balance-(Σpending+heldTotal+burnedTotal) >= 0, and
 /// pending[j] exists for every j in [h-D+1,h] (non-final) with winners recorded
-/// for j<h; at F no pending remains. V3-15 (v3 program set only, the carry lagged by one block): need also counts every
+/// for j<h; at F no pending remains. V3-15 (the carry lagged by one block): need also counts every
 /// outstanding carry, and after phase 2 of a non-final block h the carry into pot h is zero (closeBlock moved it into pot
 /// h) while the carry into pot h+1 (settle(h-D)'s base burn) may remain only once a settlement ran (h > D); after a final
 /// block both are zero (finalize burned them), so no wei is left outside a pot, a bond, the burn or the one carry the next
@@ -613,8 +602,7 @@ pub fn check_escrow_invariant(db:&dyn crate::view::View,profile:&ProfileIdentity
     }
     let f=chain_facts(db);
     let balance=db.account(&escrow()).map(|a|a.info.balance).unwrap_or_default();
-    let v3=SystemPrograms::program_set(profile.cp(),&profile.spec().sys_code_hash)==Some(ProgramSet::V3);
-    let (now,next)=if v3{(escrow_carry_into(db,h),escrow_carry_into(db,h.wrapping_add(1)))}else{(U256::ZERO,U256::ZERO)};
+    let (now,next)=(escrow_carry_into(db,h),escrow_carry_into(db,h.wrapping_add(1)));
     let need=sum.checked_add(f.held_total).and_then(|v|v.checked_add(f.burned_total)).and_then(|v|v.checked_add(now)).and_then(|v|v.checked_add(next))
         .ok_or(ApplyError::Supply("need"))?;
     if balance<need{return Err(ApplyError::Supply("escrow surplus negative"))}

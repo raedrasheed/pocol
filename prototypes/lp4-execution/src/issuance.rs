@@ -1,5 +1,5 @@
-//! V3-19 issuance (O-19 = M3; V3-DESIGN.md V3-19, V3-DECISIONS.md D-V3-19), for the v3 program set only. The spec-1
-//! program sets keep crediting CP 15 every block (apply.rs phase 2).
+//! V3-19 issuance (O-19 = M3; V3-DESIGN.md V3-19, V3-DECISIONS.md D-V3-19), for the v3 program set, the only bundled set
+//! (apply.rs phase 2). The retired spec-1 program sets credited CP 15 every block.
 //!
 //! ```text
 //! issuance(h) = h == 0 ? 0 : max(k >= 256 ? 0 : S0 >> k, S_tail),   k = floor(h / H_half)

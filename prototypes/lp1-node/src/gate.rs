@@ -38,10 +38,11 @@ pub struct GateProfile {
     pub rpc: RpcLimits,
 }
 impl GateProfile {
-    /// CP schema and GenesisSpec version agree under R22. Reserve for the
-    /// largest active cap over the admitted schedule, including a future fork.
-    pub fn v3_active(&self, height: u64) -> bool {
-        self.cp.schema_version() >= 2 || ForkSchedule::new(&self.forks).map_or(false, |f| f.active_version(height) >= 3)
+    /// The v3 rule set runs from genesis exactly on CP schema v2 (a specVersion-2 GenesisSpec; schema and GenesisSpec
+    /// version agree under R22), at every height. A fork never activates it: fork version 3 is only the FN-5 cap raise,
+    /// which needs a v3 genesis. Schema v1 (the retired spec-1 rule set) survives only in the gate's own test profiles.
+    pub fn v3_active(&self, _height: u64) -> bool {
+        self.cp.schema_version() >= 2
     }
     /// Canonical fixed-width domain-separated binding of every profile/CP/local/RPC field.
     /// NodeKind is an evaluation context, not a resource-driving profile field.
@@ -174,7 +175,8 @@ pub struct IdentityFacts {
     pub sys_code_hash: H256,
     pub alloc_balances: Vec<U256>,
     /// V3-19: the genesis runs the v3 program set (its sysCodeHash on CP schema v2), whose issuance is the M3 schedule;
-    /// every other program set credits CP 15 per block. The admitting node derives it from sys_code_hash.
+    /// every other program set credits CP 15 per block. Admission admits only the v3 program set, so the admitting node
+    /// always sets it; the false arm survives for the gate's own test profiles.
     pub m3_issuance: bool,
 }
 #[derive(Clone, Debug)]
@@ -250,7 +252,7 @@ pub fn reject_unknown_fields(value: &serde_json::Value, allowed: &[&str]) -> Res
 /// R8 on CP schema v2 (the v3 registry, V3-09; V3-DECISIONS.md D-V3-09): a reactivation is valid after the W_act
 /// cooldown and strictly before dueHeight = exitHeight + U, where the refund sweep erases the record, so U >= W_act + 2
 /// keeps that window at least two blocks wide; and an identity reactivates at most once per C_react >= U blocks. CP
-/// schema v1 has no C_react and runs the v1/earn-in programs, whose window the gate leaves as it was.
+/// schema v1 (the retired spec-1 rule set, which admission refuses) has no C_react; the gate leaves its window as it was.
 pub fn v3_registry_window_violated(c: &ConsensusParams) -> bool {
     c.schema_version() >= 2 && ((c.U as u128) < c.W_act as u128 + 2 || c.C_react < c.U)
 }

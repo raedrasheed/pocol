@@ -306,20 +306,19 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
 /// option A (2026-11-12); owner decision 10d (2026-11-13) then deleted the creation burn itself (FN-2a:
 /// new state pays ordinary gas only; tests in pocold/tests/v3_execution.rs). The entry is gone and no
 /// other blocker is open. The rule itself is unchanged: any open blocker refuses every non-simnet v3
-/// admission, and spec-1 never reaches it.
+/// admission (a spec-1 genesis is refused as R24 before it).
 #[test] fn the_v3_launch_gate_enforces_any_open_blocker_and_no_creation_burn_blocker_remains(){
     assert!(!V3_LAUNCH_BLOCKERS.iter().any(|b|b.contains("D-V3-21")),"no creation-burn blocker: the burn is deleted (owner 10d)");
     assert!(V3_LAUNCH_BLOCKERS.is_empty(),"no other v3 launch blocker is recorded: {V3_LAUNCH_BLOCKERS:?}");
     let open=["D-V3-99 a later pre-launch item"];
     for (k,n) in [(ProfileKind::Network,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node),(ProfileKind::Synthetic,NodeKind::Node),(ProfileKind::Simnet,NodeKind::Simnet)]{
         let simnet=k==ProfileKind::Simnet&&n==NodeKind::Simnet;
-        match v3_launch_gate_with(&open,true,k,n){
+        match v3_launch_gate_with(&open,k,n){
             Err(e)=>{assert!(!simnet);assert_eq!(e.rules,v(&["v3-launch-blocker"]));assert!(e.notes[0].contains("D-V3-99"),"{e}");}
             Ok(())=>assert!(simnet,"a simnet profile on a simnet node stays admissible"),
         }
-        assert!(v3_launch_gate_with(&open,false,k,n).is_ok(),"spec-1 profiles never reach the v3 blockers");
-        assert_eq!(v3_launch_gate(true,k,n),v3_launch_gate_with(V3_LAUNCH_BLOCKERS,true,k,n),"the admission gate applies the recorded list");
-        assert!(v3_launch_gate(true,k,n).is_ok(),"with no open blocker the gate admits");
+        assert_eq!(v3_launch_gate(k,n),v3_launch_gate_with(V3_LAUNCH_BLOCKERS,k,n),"the admission gate applies the recorded list");
+        assert!(v3_launch_gate(k,n).is_ok(),"with no open blocker the gate admits");
     }
 }
 /// Release builds decode spec 2 (SPEC_VERSION 2), so `admit` reaches the gate with v3 on a non-simnet profile, but
@@ -329,7 +328,7 @@ fn pocold_like()->RpcFacts{RpcFacts::enforced(&[("conn_max",32),("req_buf",1<<20
     let src=include_str!("../admission.rs");
     assert!(src.contains("pub fn admit(r:&Request<'_>)->Result<Admitted,Rejection>{admit_with(r,None)}"),"admit is admit_with without a raise");
     let start=src.find("\npub fn admit_with(").expect("admit_with");let body=&src[start..];let end=body[1..].find("\npub fn ").map_or(body.len(),|i|i+1);let body=&body[..end];
-    let gate=body.find("v3_launch_gate(gp.v3_active(u64::MAX),r.kind,r.node)?;").expect("admit must call v3_launch_gate on the v3 domain of the profile");
+    let gate=body.find("v3_launch_gate(r.kind,r.node)?;").expect("admit must call v3_launch_gate");
     assert!(gate<body.find("let binding=gp.binding();").expect("binding"),"the launch gate runs before the gate facts are built");
 }
 
