@@ -241,15 +241,17 @@ const EXIT_LINE:&str="Exit status: 0 done; 1 the command failed; 2 no command, o
     }
     let _=std::fs::remove_dir_all(&d);
 }
-/// pocol_status from a node's RPC port, None until it answers.
-fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
+/// The result of a parameterless RPC `method` from a node's RPC port, None until it answers.
+fn rpc_call(rpc:std::net::SocketAddr,method:&str)->Option<serde_json::Value>{
     use std::io::{Read,Write};
-    let body=r#"{"jsonrpc":"2.0","id":1,"method":"pocol_status","params":[]}"#;
+    let body=format!(r#"{{"jsonrpc":"2.0","id":1,"method":"{method}","params":[]}}"#);
     let mut s=std::net::TcpStream::connect(rpc).ok()?;s.set_read_timeout(Some(std::time::Duration::from_secs(5))).ok()?;
     s.write_all(format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes()).ok()?;
     let mut out=String::new();let _=s.read_to_string(&mut out);
-    let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();v.is_object().then_some(v)
+    let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();(!v.is_null()).then_some(v)
 }
+/// pocol_status from a node's RPC port, None until it answers.
+fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{rpc_call(rpc,"pocol_status").filter(|v|v.is_object())}
 
 /// D20: only `pocold run` catches SIGINT and SIGTERM; any other command still ends at once. `pocold status` here
 /// blocks reading its genesis file, a FIFO: the writer's open returns once pocold opened it (the ordering barrier,
@@ -450,8 +452,11 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{
         if let Some(s)=c.try_wait().unwrap(){panic!("run exited with {s}")}
         seen=rpc_status(rpc);if seen.is_none(){std::thread::sleep(std::time::Duration::from_millis(50));}
     }
+    // web3_clientVersion names the release version build-info reports (owner decision 1), not a stale copy.
+    let client=rpc_call(rpc,"web3_clientVersion");
     let _=c.kill();let _=c.wait();
     let status=seen.expect("pocol_status within 60 s");
+    assert_eq!(client,Some(serde_json::json!(format!("pocold/{}",env!("CARGO_PKG_VERSION")))),"web3_clientVersion");
     let live=ids(&status);has(&live,&build);has(&live,&network);
     assert_eq!(status["launchBlockers"],summary["launchBlockers"],"the node reports what init-testnet reported for the same build and profile");
     assert_eq!(status["admission"]["scope"],"experimental-devnet");
