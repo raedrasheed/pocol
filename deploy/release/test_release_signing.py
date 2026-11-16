@@ -701,6 +701,16 @@ class Consistency(unittest.TestCase):
         self.assertNotIn('Verify the release first', ceremony)
         self.assertIn('no signed release yet', ceremony)
 
+    def test_the_byte_checked_files_keep_lf_on_every_checkout(self):
+        # Git for Windows defaults to core.autocrlf=true: without -text, a checkout turns allowed_signers into CRLF
+        # (both signers and verifiers refuse CR) and breaks the probe vector's signature.
+        if subprocess.run(['git', 'rev-parse', '--git-dir'], cwd=ROOT, capture_output=True).returncode != 0:
+            self.skipTest('not a git checkout')
+        paths = ['deploy/release/allowed_signers'] + sorted(f'deploy/release/testdata/{p.name}' for p in (HERE / 'testdata').iterdir())
+        self.assertGreaterEqual(len(paths), 4)
+        out = subprocess.run(['git', 'check-attr', 'text', '--', *paths], cwd=ROOT, capture_output=True, text=True, check=True).stdout
+        self.assertEqual(out.splitlines(), [f'{p}: text: unset' for p in paths])
+
     def test_the_scripts_are_ascii(self):
         for name in ('Verify-PoColRelease.ps1', 'Sign-PoColRelease.ps1', 'test_verify_release.ps1', 'sign-release.sh'):
             (HERE / name).read_bytes().decode('ascii')
