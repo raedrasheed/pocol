@@ -118,14 +118,17 @@ class InitializeNetwork(unittest.TestCase):
 
     def test_the_script_rule_fills_typed_values_and_leaves_no_placeholder(self):
         addresses = [f'0x{i:040x}' for i in (0xa1, 0xa2, 0xa3, 0xa4)]
-        founders = {f'/founders/{i}/{f}': f'"{addresses[i]}"' for i in range(4) for f in ('id', 'reward')}
+        # Founders 1-3 are paid to owner-held addresses (owner decision 2026-11-16); founder 4 is its own reward address.
+        rewards = [f'0x{i:040x}' for i in (0xb1, 0xb2, 0xb3)] + addresses[3:]
+        founders = {**{f'/founders/{i}/id': f'"{addresses[i]}"' for i in range(4)},
+                    **{f'/founders/{i}/reward': f'"{rewards[i]}"' for i in range(4)}}
         for profile, chain_id, _ in networks().values():
             text = (MAINNET / profile).read_text(encoding='utf-8')
             filled = fill(text, {'/genesisTime': '1900000000', '/hashRate/hashesPerSecond': '1000000', **founders})
             self.assertNotIn('PLACEHOLDER', filled)
             data, committed = json.loads(filled), json.loads(text)
             self.assertEqual((data['genesisTime'], data['hashRate']['hashesPerSecond'], data['chainId']), (1900000000, 1000000, chain_id))
-            self.assertEqual([(f['id'], f['reward']) for f in data['founders']], [(a, a) for a in addresses])
+            self.assertEqual([(f['id'], f['reward']) for f in data['founders']], list(zip(addresses, rewards)))
             self.assertEqual({k: v for k, v in data.items() if k not in ('genesisTime', 'hashRate', 'founders')},
                              {k: v for k, v in committed.items() if k not in ('genesisTime', 'hashRate', 'founders')})
             # The dry run: everything but the launch second, which --test-placeholders fills.
@@ -168,11 +171,37 @@ class InitializeNetwork(unittest.TestCase):
     def test_four_founders_three_servers_and_this_pc(self):
         self.assertIn("$Founders += Assert-Address $Address $Server", SCRIPT)
         self.assertIn("$Founders += Assert-Address $Desktop.address 'this PC'", SCRIPT)
-        self.assertIn('for ($i = 0; $i -lt 4; $i++) { $Values["/founders/$i/id"] = \'"\' + $Founders[$i] + \'"\'; $Values["/founders/$i/reward"] = \'"\' + $Founders[$i] + \'"\' }', SCRIPT)
+        self.assertIn('for ($i = 0; $i -lt 4; $i++) { $Values["/founders/$i/id"] = \'"\' + $Founders[$i] + \'"\'; $Values["/founders/$i/reward"] = \'"\' + $Rewards[$i] + \'"\' }', SCRIPT)
         # The PC's founder key is fresh: an existing wallet home is refused before any server is contacted.
         refusal = SCRIPT.index('if (Test-Path -LiteralPath $DesktopHome)')
         self.assertLess(refusal, SCRIPT.index('& ssh.exe'))
         self.assertIn("$DesktopHome = Join-Path $env:LOCALAPPDATA 'PoCol'", SCRIPT)
+
+    def test_founders_1_to_3_are_paid_to_owner_held_reward_addresses(self):
+        # Owner decision 2026-11-16: a required parameter for a real run, three distinct addresses, checked before any
+        # server is contacted; founder 4 (this PC) keeps its own address.
+        self.assertIn('[ValidateCount(3,3)][string[]]$ServerRewardAddresses', SCRIPT)
+        self.assertNotIn('Mandatory=$true)][ValidateCount(3,3)][string[]]$ServerRewardAddresses', SCRIPT, 'a dry run runs without it')
+        required = "if (!$DryRun -and !$ServerRewardAddresses) { throw 'ServerRewardAddresses is required"
+        self.assertIn(required, SCRIPT)
+        checks = SCRIPT.index('Assert-RewardAddress $ServerRewardAddresses[$i]')
+        for later in ('& ssh.exe', '& scp.exe', 'New-Item -ItemType Directory -Path $Work'):
+            self.assertLess(SCRIPT.index(required), SCRIPT.index(later), later)
+            self.assertLess(checks, SCRIPT.index(later), later)
+        self.assertIn("if (@($ServerRewardAddresses | Sort-Object -Unique).Count -ne 3)", SCRIPT)
+        self.assertIn("$Rewards += $Founders[3]", SCRIPT)
+        self.assertIn("if ($Founders -ccontains $Rewards[$i])", SCRIPT)
+        self.assertIn("$Filled.founders[$i].reward -cne $Rewards[$i]", SCRIPT)
+        self.assertIn('pocol-sign --nonce 1', SCRIPT)
+        # The refused set mirrors pocold testnet.rs allowed(): zero, 0x...c0c001-0x...c0c0ff, 0xff..fe.
+        allowed = re.search(r'pub\(crate\) fn allowed\(address: Address\) -> bool \{(.*?)\n\}', TESTNET, re.S).group(1)
+        self.assertIn('0xc0c001u64', allowed); self.assertIn('0xc0c0ffu64', allowed); self.assertIn('U256::from(2)', allowed)
+        for text in ("('0x' + ('0' * 40))", "('0x' + ('f' * 38) + 'fe')", '$Low -ge 0xc0c001 -and $Low -le 0xc0c0ff',
+                     "$Address -cnotmatch '^0x[0-9a-f]{40}$'"):
+            self.assertIn(text, SCRIPT)
+        # No real address is committed: the README names placeholders.
+        readme = (HERE / 'README.md').read_text(encoding='utf-8')
+        self.assertIn('-ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3', readme)
 
     def test_the_readiness_summary_is_parsed_checked_and_printed(self):
         self.assertIn('$Admitted = $Summary | ConvertFrom-Json', SCRIPT)

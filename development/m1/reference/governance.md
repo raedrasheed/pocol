@@ -322,8 +322,8 @@ chainId 777001, so `pocold init-testnet` reports `publicLaunchReady` false with 
 Genesis contents: four founders, the three US servers and the owner's PC, each with a fresh key made on its own device
 at the ceremony. Each has a live HELD record whose 20 PCOL bond the builder mints into Escrow, and its reward address
 gets 999,980 PCOL: 1,000,000 PCOL per founder and an initial supply of 4,000,000 PCOL. The founders are the only
-members and the only allocation. The owner's phone is not a founder: it runs the apps' default wallet-only role. (Owner decision pending: whether each server
-founder's reward address is its own hot miner key or a separate owner-held address; FRESH-NETWORK-CP.md §9.)
+members and the only allocation. The owner's phone is not a founder: it runs the apps' default wallet-only role. (Owner decision 2026-11-16: each server
+founder's reward address is a separate owner-held offline address given to the ceremony, -ServerRewardAddresses; the 999,980 PCOL and the rewards go there, and only the 20 PCOL HELD bond is tied to the server.)
 
 Upgrades after launch follow "Upgrades (D72)" above and VA-SPEC §2.3: the genesis CP and specVersion stay fixed, fork
 2 is a nonce-rule no-op, fork 3 is the cap raise, and a later rule change is a new fork version ≥ 4.
@@ -331,7 +331,7 @@ Upgrades after launch follow "Upgrades (D72)" above and VA-SPEC §2.3: the genes
 **Operations remain owner-controlled.** The genesis is made only at the ceremony, after the closed rehearsal and with
 the owner's approval (FRESH-NETWORK-CP.md §8-§9). `deploy/standalone/Initialize-PoColNetwork.ps1 -Network
 Rehearsal|Mainnet` fills the committed profile's ceremony placeholders (the launch second, the measured aggregate hash
-rate, and each founder's miner id and reward address) and runs `pocold init-testnet` without `--test-placeholders`;
+rate, each founder's miner id, and the owner-held reward addresses of founders 1-3) and runs `pocold init-testnet` without `--test-placeholders`;
 then `prototypes/pocold/tests/launch_delay_asert.rs` is run on the final CP. A rehearsal or WAN soak is not permission
 to launch mainnet. Nothing from the retired network is carried over; later changes use the fork schedule. The launch
 disclosures are drafted in `deploy/standalone/README.md` (owner decision pending: review of that disclosure wording).

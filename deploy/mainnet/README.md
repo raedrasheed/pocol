@@ -14,13 +14,18 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 2. **Prepare the servers.** The three US servers start from a clean install (`deploy/standalone/install-linux.sh`
    refuses a host that already has a PoCol install). The owner's computer runs the fourth founding miner; the
    phone is a wallet.
-3. **Fresh keys.** Each founding miner generates its key on its own device with the independent-key flow
-   (`pocol-key`); only the public miner ID and reward address leave the device.
+3. **Fresh keys.** Each founding miner generates its miner key on its own device with the independent-key flow
+   (`pocol-key`); only the public miner ID leaves the device. Founders 1-3 (the servers) are paid to owner-held
+   reward addresses (owner decision 2026-11-16): the owner makes three of them offline with `pocol-key generate` and
+   `pocol-key address` on a device that is never a server, and passes them to the ceremony as
+   `-ServerRewardAddresses`. Only the 20 PCOL bond is tied to each server. Founder 4 (the owner's PC) keeps its own
+   address. Each reward account starts at nonce 1 (PAY-02): its first offline transaction uses `pocol-sign --nonce 1`.
 4. **Genesis.** Start from the committed profile, `v3-profile.json` (for the rehearsal, `v3-rehearsal-profile.json`).
    It holds the chain ID and the consensus parameters recorded in
    [FRESH-NETWORK-CP.md](../../development/decisions/FRESH-NETWORK-CP.md), and the four founders' allocations
    (999,980 PCOL each, plus the 20 PCOL HELD bond minted into Escrow). Fill its `PLACEHOLDER` values: the launch
-   second, the founders' measured aggregate hash rate, and each founder's public miner ID and reward address. Then
+   second, the founders' measured aggregate hash rate, each founder's public miner ID and reward address (the
+   owner-held ones for founders 1-3). Then
    run `pocold init-testnet --config PROFILE.json --out NEW_DIR` once, and record the printed chain ID and genesis
    hash. While any placeholder remains, the builder refuses. `--test-placeholders` fills them with public test keys
    for a local test genesis only; that genesis runs on the local test chain ID 777990 (the profile's ID is recorded

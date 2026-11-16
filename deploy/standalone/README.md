@@ -88,9 +88,12 @@ the committed profile's, and the script refuses a profile whose chain id is not 
 
 The four founders are the three servers (founders 1-3, in the order given) and this PC
 (founder 4). Each generates a fresh key on its own device; only public addresses are
-collected. Each founder is a HELD member from genesis with a 20 PCOL bond and 999,980 PCOL
-on its own address (owner decision pending: whether a server founder's reward address is
-its own hot miner key, as the script does today, or a separate owner-held address). The phone is not a founder: it joins with the invitation, wallet only by
+collected. Each founder is a HELD member from genesis with a 20 PCOL bond in Escrow. Founders
+1-3 are paid to owner-held reward addresses (owner decision 2026-11-16): the 999,980 PCOL
+allocation and every mining reward of each server founder go to an address the owner holds
+offline, given to the script as `-ServerRewardAddresses`; only the 20 PCOL bond is tied to each
+server, whose key holds no balance (send it PCOL before a server transaction such as
+reactivate, deregister or claimBond). Founder 4 (this PC) is its own reward address. The phone is not a founder: it joins with the invitation, wallet only by
 default, and can register as a miner later (see *Mining* below).
 
 Before the run:
@@ -109,8 +112,17 @@ open PowerShell inside that directory, and run (the addresses are placeholders f
 servers' public IPv4 addresses):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz"
 ```
+
+`OWNER_ADDR1..3` are placeholders for three distinct owner-held addresses, one per server in
+`-Servers` order. Make them on another device that is never a server, ideally offline:
+`pocol-key generate --out FILE`, then `pocol-key address --key-file FILE` (lower-case `0x` hex,
+as the script requires); keep each key file and its backup offline. The script refuses a
+missing, repeated, mixed-case, zero or system address before it contacts any server, and an
+address equal to a founder's miner identity. Each reward account starts at nonce 1 (PAY-02), so
+its first offline-signed transaction needs `pocol-sign --nonce 1` (pocol-sign defaults to 0).
+The rehearsal takes the same parameter (throwaway or separate addresses are fine there).
 
 `-GenesisTime UNIX_SECONDS` replaces `-LaunchDelaySeconds` for an announced launch second; the
 genesis is created at least 300 seconds before it. A founder that starts more than `D_att`
@@ -168,7 +180,8 @@ from this invitation, in the repository (W15 for the rehearsal, W16 for the main
   sites and rewards are unaffected. No financial qualification or independent audit is
   claimed.
 - **Founders.** Four founders (three servers and the owner's PC) hold 1,000,000 PCOL each
-  from genesis, including each one's 20 PCOL bond: 4,000,000 PCOL of initial supply.
+  from genesis, including each one's 20 PCOL bond: 4,000,000 PCOL of initial supply. The
+  999,980 PCOL of each server founder sits on an owner-held reward address, not on the server.
 - **Founders' seats.** At a full set (10,000 members), a member with no credited share for
   `Theta_inact` (360 blocks, 1 h), a founder included, can be replaced by a newcomer. It
   registers again with 20 PCOL after its refund.

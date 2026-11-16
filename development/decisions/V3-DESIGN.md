@@ -1052,8 +1052,8 @@ fork; a restart test. **Effort:** S. **Risk:** low.
 - **Final (owner answers 8, 9 and 15 of 2026-11-13; O-32 = b superseded, FRESH-NETWORK-CP.md §7):** the initial
   supply is exactly 4,000,000 PCOL, 1,000,000 PCOL to each of the four founding miners (the three US servers and the
   owner's PC): 999,980 PCOL on its reward address and its 20 PCOL HELD bond minted into Escrow (FRESH-NETWORK-CP.md
-  §3). The genesis builder refuses any other member or allocation. (Owner decision pending: whether each server
-  founder's reward address is its own hot miner key or a separate owner-held address; FRESH-NETWORK-CP.md §9.)
+  §3). The genesis builder refuses any other member or allocation. (Owner decision 2026-11-16: each server
+  founder's reward address is a separate owner-held offline address given to the ceremony, -ServerRewardAddresses; the 999,980 PCOL and the rewards go there, and only the 20 PCOL HELD bond is tied to the server.)
 - The thesis allows genesis balances "to founding entities or to a treasury account" (T p97/80), and bootstrap is
   "a deployment choice" (T p95/78). Not consensus.
 - The owner states the allocation funds network development. The finding concerns disclosure and holding: the

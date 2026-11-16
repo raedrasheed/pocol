@@ -4,7 +4,10 @@
 # in this package) and admits its genesis with pocold init-testnet. Never exports, copies or forwards a private key.
 #
 # The four founders are the three servers (founders 1-3, in the order of -Servers) and this PC (founder 4); each key
-# is generated on its own device. The chain id is the profile's (CP section 5): -Network Rehearsal 1656550731, -Network Mainnet
+# is generated on its own device. Founders 1-3 are paid to the owner-held reward addresses -ServerRewardAddresses
+# (owner decision 2026-11-16): made offline with pocol-key on another device, never on a server, they receive the
+# 999,980 PCOL allocations and every mining reward; each server keeps only its miner key and its 20 PCOL bond in Escrow.
+# Founder 4 (this PC) is its own reward address. The chain id is the profile's (CP section 5): -Network Rehearsal 1656550731, -Network Mainnet
 # 2656089850. The rehearsal and the mainnet are separate ceremonies with separate fresh keys: before the mainnet run,
 # the servers are re-provisioned (install-linux.sh refuses an existing installation), the package is extracted into a
 # new directory, and this PC's rehearsal home (%LOCALAPPDATA%\PoCol) is moved aside after its key is backed up.
@@ -17,6 +20,9 @@ param(
     [Parameter(Mandatory=$true)][ValidateSet('Rehearsal','Mainnet')][string]$Network,
     # The three servers' public IPv4 addresses. P2P stays on TCP 30300: install-linux.sh's service listens there.
     [Parameter(Mandatory=$true)][ValidateCount(3,3)][string[]]$Servers,
+    # The owner-held reward addresses of founders 1-3, in -Servers order (pocol-key address output, lower-case 0x hex).
+    # Required for a real run; a dry run without them uses three throwaway reward identities.
+    [ValidateCount(3,3)][string[]]$ServerRewardAddresses,
     # The founders' measured aggregate hash rate in H/s (R25d; the rehearsal's networkHashrateEst feeds the mainnet).
     [Parameter(Mandatory=$true)][uint64]$HashesPerSecond,
     # The synchronized launch second (unix time), or a delay from the moment the genesis is created. Exactly one.
@@ -85,6 +91,17 @@ function Assert-Address([string]$Address, [string]$Who) {
     if ($Address -cnotmatch '^0x[0-9a-f]{40}$') { throw "Cannot read the public address of $Who" }
     return $Address
 }
+# A genesis reward account the node accepts (pocold testnet.rs allowed): not zero, not a system address
+# 0x...c0c001-0x...c0c0ff (PAY 0x...c0c0ff and Escrow 0x...c0c002 among them), not 0xff..fe.
+function Assert-RewardAddress([string]$Address, [string]$Who) {
+    if ($Address -cnotmatch '^0x[0-9a-f]{40}$') { throw "The reward address of $Who is not a lower-case 0x address of 40 hex digits (pocol-key address output): $Address" }
+    if ($Address -ceq ('0x' + ('0' * 40)) -or $Address -ceq ('0x' + ('f' * 38) + 'fe')) { throw "The reward address of $Who is a reserved address: $Address" }
+    if ($Address.Substring(2, 34) -ceq ('0' * 34)) {
+        $Low = [Convert]::ToInt32($Address.Substring(36), 16)
+        if ($Low -ge 0xc0c001 -and $Low -le 0xc0c0ff) { throw "The reward address of $Who is a system address: $Address" }
+    }
+    return $Address
+}
 
 # Parameters, before anything is touched.
 foreach ($Server in $Servers) {
@@ -99,6 +116,13 @@ if (($GenesisTime -eq 0) -eq ($LaunchDelaySeconds -eq 0)) { throw 'Give exactly 
 if ($LaunchDelaySeconds -ne 0 -and $LaunchDelaySeconds -lt $MinLeadSeconds) { throw "LaunchDelaySeconds is at least $MinLeadSeconds" }
 if ($GenesisTime -ne 0 -and $GenesisTime -lt (Now) + $MinLeadSeconds) { throw "GenesisTime must be at least $MinLeadSeconds seconds in the future" }
 if (!$DryRun -and !$LinuxArchive) { throw 'LinuxArchive is required (the Linux package of this same release)' }
+# Reward addresses before any server is touched: install-linux.sh refuses an existing installation, so a refusal from
+# init-testnet after provisioning would force a re-provision.
+if (!$DryRun -and !$ServerRewardAddresses) { throw 'ServerRewardAddresses is required: the three owner-held reward addresses of founders 1-3 (pocol-key address output), in -Servers order' }
+if ($ServerRewardAddresses) {
+    for ($i = 0; $i -lt 3; $i++) { Assert-RewardAddress $ServerRewardAddresses[$i] "founder $($i + 1)" | Out-Null }
+    if (@($ServerRewardAddresses | Sort-Object -Unique).Count -ne 3) { throw 'The three server reward addresses must be distinct (each founder has its own genesis reward account)' }
+}
 
 # This package: checksums (the profiles included), binaries, build identity, profile.
 if (Test-Path -LiteralPath $Invitation) { throw 'A network invitation already exists here. Refusing to replace an existing network.' }
@@ -160,6 +184,7 @@ if ($DryRun) {
     Write-Host 'DRY RUN: no server is contacted and no wallet home is created; the genesis is a TEST GENESIS on the local test chain id.'
 } else {
     Write-Host 'SSH may ask for your local key passphrase and each server sudo password. Enter them only in the terminal.'
+    Write-Host "Reward addresses of founders 1-3 (compare them with your offline pocol-key output): $($ServerRewardAddresses -join ', ')"
     Write-Host 'Verify any new SSH host fingerprint through the provider console. No host-key checks are disabled.'
 }
 
@@ -198,12 +223,32 @@ if ($LASTEXITCODE -ne 0) { throw 'Cannot initialize the Windows identity. Stop a
 $Founders += Assert-Address $Desktop.address 'this PC'
 if (@($Founders | Sort-Object -Unique).Count -ne 4) { throw 'Founders unexpectedly share an identity' }
 Write-Host "This PC's public address (founder 4): $($Founders[3])"
+# The reward addresses: founders 1-3 the owner-held ones (throwaway identities in a dry run without them), founder 4
+# this PC's own address.
+$Rewards = @()
+if ($ServerRewardAddresses) {
+    $Rewards = @($ServerRewardAddresses)
+} else {
+    for ($i = 1; $i -le 3; $i++) {
+        $Identity = (& $Node identity --home (Join-Path $Work "dry-run-reward-$i") | ConvertFrom-Json)
+        if ($LASTEXITCODE -ne 0) { throw "Cannot create dry-run reward identity $i" }
+        $Rewards += Assert-RewardAddress $Identity.address "dry-run founder $i"
+    }
+}
+$Rewards += $Founders[3]
+for ($i = 0; $i -lt 3; $i++) {
+    if ($Founders -ccontains $Rewards[$i]) { throw "The reward address of founder $($i + 1) is a founder's miner identity: give the owner-held address" }
+    Write-Host "Founder $($i + 1) reward address (owner-held): $($Rewards[$i])"
+}
+if (@($Rewards | Sort-Object -Unique).Count -ne 4) { throw 'The four reward addresses must be distinct' }
 
-# The profile with its ceremony inputs. Each founder's reward address is its own identity address.
+# The profile with its ceremony inputs. Founders 1-3 are paid to the owner-held reward addresses (they receive the
+# 999,980 PCOL allocations and every mining reward); each server keeps only its key, and its 20 PCOL HELD bond sits in
+# Escrow. Founder 4 (this PC) is its own reward address.
 if ($GenesisTime -eq 0) { $GenesisTime = (Now) + [uint64]$LaunchDelaySeconds }
 if ($GenesisTime -lt (Now) + $MinLeadSeconds) { throw "Less than $MinLeadSeconds seconds remain before the launch second; nothing was published. Re-provision the servers and choose a later -GenesisTime." }
 $Values = [ordered]@{ '/hashRate/hashesPerSecond' = $HashesPerSecond }
-for ($i = 0; $i -lt 4; $i++) { $Values["/founders/$i/id"] = '"' + $Founders[$i] + '"'; $Values["/founders/$i/reward"] = '"' + $Founders[$i] + '"' }
+for ($i = 0; $i -lt 4; $i++) { $Values["/founders/$i/id"] = '"' + $Founders[$i] + '"'; $Values["/founders/$i/reward"] = '"' + $Rewards[$i] + '"' }
 # A dry run leaves the launch second to --test-placeholders, which also moves it to the local test chain id.
 if (!$DryRun) { $Values['/genesisTime'] = $GenesisTime }
 $Config = Set-Ceremony $ProfileText $Values
@@ -211,7 +256,7 @@ $Filled = $Config | ConvertFrom-Json
 if (!$DryRun -and ($Config.Contains('PLACEHOLDER') -or [uint64]$Filled.genesisTime -ne $GenesisTime)) { throw 'The ceremony config still has a placeholder' }
 if ([uint64]$Filled.hashRate.hashesPerSecond -ne $HashesPerSecond -or [uint64]$Filled.chainId -ne $Selected.ChainId) { throw 'The ceremony config was not filled as given' }
 for ($i = 0; $i -lt 4; $i++) {
-    if ($Filled.founders[$i].id -cne $Founders[$i] -or $Filled.founders[$i].reward -cne $Founders[$i]) { throw "Founder $($i + 1) was not filled as given" }
+    if ($Filled.founders[$i].id -cne $Founders[$i] -or $Filled.founders[$i].reward -cne $Rewards[$i]) { throw "Founder $($i + 1) was not filled as given" }
 }
 $ConfigFile = Join-Path $Work $Selected.Profile
 [IO.File]::WriteAllText($ConfigFile, $Config, (New-Object Text.UTF8Encoding($false)))
@@ -266,7 +311,10 @@ foreach ($Server in $Servers) {
 }
 Write-Host "Genesis time (UTC): $([DateTimeOffset]::FromUnixTimeSeconds([int64]$GenesisTime).UtcDateTime.ToString('u'))"
 if ((Now) -gt $GenesisTime + $AttestationWindow) { Write-Warning "This PC starts more than D_att ($AttestationWindow s) after the launch second." }
-Write-Host 'The four founders (the three servers and this PC) are HELD members from genesis, each with 999,980 PCOL and its 20 PCOL bond.'
+Write-Host 'The four founders (the three servers and this PC) are HELD members from genesis, each with its 20 PCOL bond in Escrow.'
+Write-Host "The 999,980 PCOL allocations and the mining rewards of founders 1-3 go to the owner-held addresses $($Rewards[0..2] -join ', '); founder 4's go to this PC's address."
+Write-Host 'Each owner-held reward account starts at nonce 1: sign its first offline transaction with pocol-sign --nonce 1.'
+Write-Host 'The server keys hold no balance: send PCOL to a server address before it reactivates, deregisters or claims its bond.'
 Write-Host 'Mining is off by default on this PC: in PoCol-Wallet choose Settings, Device role, Wallet and miner, turn mining on now, and keep it on.'
 Write-Host "The phone is a wallet only: import this SAME public file in the Android app: $Invitation"
 Write-Host "Publish the invitation's SHA-256 through a trusted channel. Website switch (in the repository, not from this package; W15/W16):"

@@ -429,8 +429,8 @@ The fresh genesis allocates the initial supply of exactly 4,000,000 PCOL to the 
 Each founder generates fresh keys on its own device at the ceremony; the phone is a wallet only. The miner ids and
 reward addresses are published at the ceremony, with the genesis (in the committed profiles they are `PLACEHOLDER`
 strings). The genesis builder checks that the founders are four and distinct, that they are the only members and the
-only allocation, and that each founder's allocation plus B_reg is 10^24 wei. (Owner decision pending: whether each
-server founder's reward address is its own hot miner key or a separate owner-held address; FRESH-NETWORK-CP.md §9.)
+only allocation, and that each founder's allocation plus B_reg is 10^24 wei. (Owner decision 2026-11-16: each
+server founder's reward address is a separate owner-held offline address given to the ceremony, -ServerRewardAddresses; the 999,980 PCOL and the rewards go there, and only the 20 PCOL HELD bond is tied to the server.)
 
 The owner describes the allocation as funds intended to finance network development. This record neither moves funds
 nor invents a custodian, beneficiary or unlock schedule.

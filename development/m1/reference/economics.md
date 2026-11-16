@@ -73,7 +73,7 @@ SHA-256 mining; losing work is unrewarded; D_att extends idling (T8).
 - The continuous chain (H_END = 0) has no closing and no final block.
 
 **Genesis allocation (FRESH-NETWORK-CP.md §3)**
-- Four founders (the three US servers and the owner's PC), each with 1,000,000 PCOL: 999,980 PCOL on its reward address and its 20 PCOL HELD bond minted into Escrow. The initial supply is exactly 4,000,000 PCOL, and nothing else is allocated. (Owner decision pending: whether each server founder's reward address is its own hot miner key, which puts 999,980 PCOL on an internet-facing server, or a separate owner-held address.)
+- Four founders (the three US servers and the owner's PC), each with 1,000,000 PCOL: 999,980 PCOL on its reward address and its 20 PCOL HELD bond minted into Escrow. The initial supply is exactly 4,000,000 PCOL, and nothing else is allocated. (Owner decision 2026-11-16: each server founder's reward address is a separate owner-held offline address given to the ceremony, -ServerRewardAddresses; the 999,980 PCOL and the rewards go there, and only the 20 PCOL HELD bond is tied to the server.)
 - This text moves no funds and does not assert current balances.
 
 **Storage**
