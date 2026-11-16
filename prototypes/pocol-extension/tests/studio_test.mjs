@@ -66,9 +66,11 @@ await test('W3: Studio and IDE content scripts match exactly the production orig
 });
 await test('manifest grants only fixed origins, publisher in package, unlimited checkpoint storage',()=>{assert.ok(manifest.permissions.includes('unlimitedStorage'));assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.optional_host_permissions,undefined);assert.equal(manifest.content_scripts[0].all_frames,false);assert.match(readFileSync(dist+'/publisher.html','utf8'),/publisher-ui.js/);});
 
-await test('W14: the extension is 0.5.0 (the manifest version comes from package.json) with the committed manifest key, none while the slot is the placeholder',()=>{
-  assert.equal(JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version,'0.5.0');assert.equal(manifest.version,'0.5.0');
-  const lock=JSON.parse(readFileSync(new URL('../package-lock.json',import.meta.url),'utf8'));assert.equal(lock.version,'0.5.0');assert.equal(lock.packages[''].version,'0.5.0');
+// The decided release version is 0.5.0. It is set together with the signed release's download links, because the
+// websites' check (deploy/websites/tools/site_identity.py --check) requires every download link to name this version.
+await test('W14: the extension stays 0.4.1 until the signed 0.5.0 release moves the download links (the manifest version comes from package.json), with the committed manifest key, none while the slot is the placeholder',()=>{
+  assert.equal(JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8')).version,'0.4.1');assert.equal(manifest.version,'0.4.1');
+  const lock=JSON.parse(readFileSync(new URL('../package-lock.json',import.meta.url),'utf8'));assert.equal(lock.version,'0.4.1');assert.equal(lock.packages[''].version,'0.4.1');
   const key=readManifestKey();assert.equal(manifest.key,key===null?undefined:key);
 });
 

@@ -79,6 +79,6 @@ npm run test:contract-ui
 python3 -m unittest tests/test_linux_export.py -v
 ```
 
-`npm run build` makes `dist/`. It carries the manifest key, and with it the fixed extension ID, once the owner's public key is committed in `release/manifest-key.pub`; until then it is a development build, and `npm run package` refuses to package a release. `python3 scripts/package-release.py --extension-id` prints the ID of the committed key. Test-fault builds never carry the key.
+`npm run build` makes `dist/`. It carries the manifest key, and with it the fixed extension ID, once the owner's public key is committed in `release/manifest-key.pub`; until then it is a development build, and `npm run package` refuses to package a release. `python3 scripts/package-release.py --extension-id` prints the ID of the committed key. Test-fault builds never carry the key. The source tree keeps `package.json` at 0.4.1 until the signed 0.5.0 release: the version and the website download links move together, because `deploy/websites/tools/site_identity.py --check` requires every download link to name the `package.json` version.
 
 Component checks use mocked Chrome and RPC plus a public test key. They do not access a user's wallet or send live transactions. Real Chrome installation, native wallet file interaction and end-to-end on-chain signing still require device verification.

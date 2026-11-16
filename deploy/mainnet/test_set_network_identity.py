@@ -168,6 +168,9 @@ STEP3 = {
     'deploy/standalone/linux-desktop/install-desktop-icon.sh': re.compile(r'0\.4\.0'),
     'prototypes/pocol-windows/Wallet.cs': re.compile(r'Assembly(?:File)?Version\("0\.4\.0\.0"\)'),
     'prototypes/pocol-windows/Wallet.xaml': re.compile(r'PoCol Wallet · 0\.4\.0'),
+    # 0.5.0 is decided, but the version moves with the signed release and its download links (the websites' check,
+    # deploy/websites/tools/site_identity.py, requires the links to name the package.json version).
+    'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
     'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
