@@ -2,7 +2,8 @@
 
 > **Superseded in part by the owner decisions of 2026-11-13**
 > ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)): PoCol launches a brand-new network from a
-> fresh genesis and keeps nothing related to the old network. This record stays as dated history. Affected items:
+> fresh genesis and keeps nothing related to the old network. This record stays as dated history; where it differs
+> from the 2026-11-13 decisions, they apply. Affected items:
 >
 > - **O-0** (v3 rides the held earn-in re-genesis): superseded. v3 launches as a brand-new network from a fresh
 >   genesis with new keys and a new chain ID; there is no re-genesis or cutover of the old chain (answers 1-5).
@@ -15,16 +16,17 @@
 >   and the first 20 PCOL of their rewards is held as their bond, forfeited on misbehaviour (answers 10, 10c; second
 >   follow-up, answer 2).
 > - **O-21** (raised state caps with a burned creation fee): the creation fee is removed; new accounts pay ordinary
->   gas only (answer 10d).
+>   gas only (answer 10d), and the caps are ACCT 1,000,000 / SLOT 4,000,000 / CODE 2^30 (Q1 = a).
 > - **O-32** (the 4,000,000 PCOL genesis allocation): superseded. The new genesis gives each of the four founding
->   miners 1,000,000 PCOL (answers 8, 9, 15).
+>   miners 1,000,000 PCOL, its 20 PCOL bond included (answers 8, 9, 15).
 > - **O-33** (how the re-genesis is run): moot. The old network is stopped and nothing carries over, so there is no
 >   freeze height S, old-chain export or migration (answers 1-4).
 > - **O-19** (issuance, M3): changed. S0 = 4 PCOL per block at the 10 s average block, halving every 4 years
 >   (H_half = 12,623,040 blocks), with a tail of S0/32 = 0.125 PCOL (answer 7; second follow-up, answer 1).
 >
-> How these map onto the parameters and programs is implemented in later changes; until then the code still carries
-> the 2026-11-08 values.
+> Implemented in FN-2a, FN-2b, FN-4 and FN-5. The final values are in [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md),
+> whose §7 maps each changed item, and the decisions in [V3-DECISIONS.md](V3-DECISIONS.md). Every mention below of
+> the earn-in re-genesis, the cutover or the live network is moot.
 
 Status: **approved by the owner, Raed S. Rasheed, on 2026-11-08.** Approval of the design and its values is not
 approval to deploy: the earn-in re-genesis and every live-network change remain on hold until the owner releases
@@ -93,4 +95,5 @@ Each step is its own pull request, merged when CI passes:
 9. simulations and test vectors;
 10. the cutover rehearsal.
 
-V3-DESIGN.md §3 gives the dependencies.
+This order was carried out as V3-DESIGN.md's PR-0 to PR-8. The cutover rehearsal (10) is moot (O-33); the fresh
+network's closed rehearsal takes its place (V3-DESIGN.md §3, fresh v3 genesis launch).

@@ -3,16 +3,18 @@
 > **Affected by the owner decisions of 2026-11-13**
 > ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)): PoCol launches a
 > brand-new network from a fresh genesis and keeps nothing related to the old network. This file stays as dated
-> history.
+> history; where it differs from the 2026-11-13 decisions, they apply.
 >
 > - The **second decision** (the user bound on the v3 creation burn, D-V3-21) concerns the creation fee of O-21,
->   which the owner removed: new accounts pay ordinary gas only (answer 10d). It no longer applies once the fee is
->   removed from the programs.
+>   which the owner removed: new accounts pay ordinary gas only (answer 10d). It no longer applies: FN-2a removed the
+>   fee, its bound and `pocol_quoteCreationBurn` from the code (V3-DECISIONS.md D-V3-21).
 > - The **third decision** (the probation-pool contest victim, D-V3-14) concerns the seat and probation-pool
 >   contests of O-10 and O-14, which the owner removed: no seat contest and no separate probation pool; the member
 >   cap is M_max = 10,000, with newcomers accruing their bond counted within it (answers 10, 10b, 10c; second
->   follow-up, answer 2). Answer 13 of 2026-11-13 approved it again but notes that it may become moot.
-> - The **first decision** (the all-probationer exception, O-13) is not changed by the 2026-11-13 answers.
+>   follow-up, answer 2). Answer 13 of 2026-11-13 approved it again but noted that it may become moot; it is moot
+>   since FN-2b removed both contests and the pool (V3-DECISIONS.md D-V3-10 and D-V3-14).
+> - The **first decision** (the all-probationer exception, O-13) is not changed by the 2026-11-13 answers. It is the
+>   earn-in rule D1 of [incentives.md](../m1/reference/incentives.md) (Earn-in rules E6).
 > - Every mention of the earn-in re-genesis or of live-network changes on the old network is moot (O-0, O-33).
 
 Status: **decided by the owner, Raed S. Rasheed, on 2026-11-12.** It adds to
@@ -31,7 +33,8 @@ found no verifiable owner source for it, so the question was put to the owner di
 
 What should happen when every draw member is a probationer below B_reg/4?
 - **(a) Keep the exception. This was the recommended option.** All of them become candidates, so the network keeps
-  running. This is the earn-in rule D1 ([EARN-IN-SPEC.md](EARN-IN-SPEC.md) §6). The cost: in that case a
+  running. This is the earn-in rule D1 (then EARN-IN-SPEC.md §6; now
+  [incentives.md](../m1/reference/incentives.md), Earn-in rules E6). The cost: in that case a
   misbehaving proposer may lose less than B_reg/4.
 - **(b) No signed proposer.** Only fallback blocks are made until a probationer reaches B_reg/4. This needs a new
   rule, because simply removing the exception would stop the chain.
