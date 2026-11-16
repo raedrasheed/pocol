@@ -109,7 +109,7 @@ pub struct Limits{pub net:net::Limits,pub rpc:crate::rpc::Limits,
     pub mem_budget:u64,
     /// Observed journal records for the continuous resource projection with eviction off, never a consensus limit.
     pub continuous_history:Option<u64>,
-    /// Set by open from the admitted fork schedule. The timing index grows on
+    /// Set true by open: every admitted profile is v3 and keeps first-import times. The timing index grows on
     /// disk with journal records even when the execution history is bounded.
     pub first_imports:bool,
     /// C-1 S5 (PR7 §6.2): the observed sizes of history.redb, state.redb and canon.redb, which the continuous chain's
@@ -590,13 +590,10 @@ pub const TEMPLATE_BUILDS_MAX:usize=8;
 pub fn is_user_gas(why:&str)->bool{why.ends_with("User(\"Gas\")")}
 /// PR6 review: the log cap a transaction's own logs pass in a child of a block whose chain charged `cum` log bytes,
 /// if any: the block meter's log checks (`user_phase.rs` BlockMeter::check) with nothing before it in the block,
-/// LOG_COUNT_MAX, LOG_BLOCK_MAX and, when H_END != 0, LOG_CAP. Such a transaction halts in every block built on
-/// that parent, wherever it is placed.
+/// the v3 log caps (`user_phase::log_caps(true)`: V3_LOG_COUNT_MAX, V3_LOG_BLOCK_MAX) and, when H_END != 0, LOG_CAP.
+/// Such a transaction halts in every block built on that parent, wherever it is placed.
 pub fn own_logs_halt(cp:&pocol_lp4_execution::profile::ConsensusParams,cum:u64,logs:&[revm::primitives::Log])->Option<user_phase::Halt>{
-    own_logs_halt_for(cp,cum,logs,false)
-}
-pub fn own_logs_halt_for(cp:&pocol_lp4_execution::profile::ConsensusParams,cum:u64,logs:&[revm::primitives::Log],v3:bool)->Option<user_phase::Halt>{
-    use user_phase::{caps,Halt};let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));let limits=user_phase::log_caps(v3);
+    use user_phase::{caps,Halt};let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));let limits=user_phase::log_caps(true);
     if n>limits.count{Some(Halt::LogCount)}else if c>limits.bytes{Some(Halt::LogBytes)}
     else if cp.H_END!=0&&cum.saturating_add(c)>caps::LOG_CAP{Some(Halt::LogCap)}else{None}
 }
@@ -719,9 +716,9 @@ pub struct Node{
     mine_warning:Option<String>,
     templates:HashMap<[u8;32],(Header,Body,u128,PeerId)>,
     /// V3-04: seen_key slot -> (TemplateID, first lock ms) of the signed templates this node validated as minable and
-    /// locked (`note_template_seen`), NO_TEMPLATE for a slot whose signer equivocated (`template_equivocated`); empty
-    /// on profiles that cannot activate v3. Not persisted: a block first imported after a restart whose template was
-    /// locked before it is judged on its own arrival.
+    /// locked (`note_template_seen`), NO_TEMPLATE for a slot whose signer equivocated (`template_equivocated`). Not
+    /// persisted: a block first imported after a restart whose template was locked before it is judged on its own
+    /// arrival.
     template_seen:HashMap<([u8;32],u64),([u8;32],u128)>,
     /// V3-05 telemetry (node-local, every profile): per-proposer template arrival and lock latency in the attempt-0
     /// slots this node waits in (`latency::Tracker`, bounded by latency::BOUND_BYTES; pocol_templateLatency).
@@ -964,10 +961,11 @@ impl Node{
         let rk_replay=retention_rkeep(&cfg.dir,cfg.limits.r_keep).map_err(|e|format!("retention.rkeep: {e}"))?;
         // C-1 S5: the eviction depth, from that R_keep, set once in the limits so that A13 and the chain use one value.
         let evict=crate::resources::evict_depth_of(spec.cp_max(),spec.local().k_hist,&cfg.limits,rk_replay)?;cfg.limits.evict_depth=Some(evict.unwrap_or(0));
-        cfg.limits.first_imports=imports::enabled(&spec);
-        // C3-2: in the same v3 domain one receipt can exceed LIGHT_RESP_MAX, so it is served heavy.
-        cfg.limits.rpc.heavy_receipts=cfg.limits.first_imports;
-        if spec.cp().H_END==0||cfg.limits.first_imports{cfg.limits.continuous_history=Some(0);}
+        // Every admitted profile is v3: it keeps first-import times (V3-04).
+        cfg.limits.first_imports=true;
+        // C3-2: in the v3 domain one receipt can exceed LIGHT_RESP_MAX, so it is served heavy.
+        cfg.limits.rpc.heavy_receipts=true;
+        cfg.limits.continuous_history=Some(0);
         // D3', D14' (VA-SPEC §1a.7, network.md:157): `auto` becomes a count within the 18 outbound places, an explicit
         // count past them is refused, and every seed must be a configured peer (it is dialed as one, VA-SPEC §1a.8).
         cfg.limits.discovery.resolve(cfg.listen.is_some(),cfg.peers.len())?;
@@ -981,7 +979,7 @@ impl Node{
         // check after the pass came after its tables). The pass adds at most one uncommitted record, which the exact
         // check after it counts; at the committed count this refuses only a journal that check refuses (both grow with
         // the count, and the pass changes none of the observed files).
-        if let Some(n)=committed_records(&cfg.dir,&binding){let mut l=cfg.limits.clone();if spec.cp().H_END==0||l.first_imports{l.continuous_history=Some(n);}
+        if let Some(n)=committed_records(&cfg.dir,&binding){let mut l=cfg.limits.clone();l.continuous_history=Some(n);
             crate::resources::check_open(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&l,cfg.peers.len(),n)?;}
         // One pass over the journal (2026-10-28: its payloads are not held, condition `open-replay-transient`):
         // each verified record's replay events (its block and its parent) and the rolling hash of the journal prefix
@@ -1003,7 +1001,7 @@ impl Node{
         if let Some(e)=bad{return Err(e)}
         evs.sort_unstable();
         cfg.limits.disk=Some(crate::resources::DiskBytes::observe(&cfg.dir));
-        if spec.cp().H_END==0||cfg.limits.first_imports{cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;}
+        cfg.limits.continuous_history=Some(rec.journal.records);crate::resources::check(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len())?;
         // PR7 §7: the replay's own tables must fit beside the bound (they grow with the journal, not the window).
         crate::resources::check_open(spec.cp_max(),spec.local().k_hist,spec.local().side_max,&cfg.limits,cfg.peers.len(),rec.journal.records)?;
         let mut chain=Chain::new(spec);chain.r_keep=rk_replay;chain.side_cap=cfg.limits.side_cap;chain.replaying=true;
@@ -1171,7 +1169,7 @@ impl Node{
                 let deep=|x:&[u8;32]|->Result<Option<u64>,String>{Ok(canon.height_of(x).map_err(|e|format!("record {i}: canonical index: {e}"))?.filter(|h|*h<base))};
                 if let Some(h)=deep(&hash)?{
                     let mut r=canon.at(h).map_err(|e|format!("record {i}: canonical index: {e}"))?.ok_or_else(||format!("record {i}: canonical index: no row at height {h}"))?;
-                    if chain.spec.v3_active(h)&&(r.flags&crate::checkpoint::flags::LATE==0)!=first_import.map_or(true,|m|m.timely){return Err(format!("record {i}: canonical first import changed"))}
+                    if (r.flags&crate::checkpoint::flags::LATE==0)!=first_import.map_or(true,|m|m.timely){return Err(format!("record {i}: canonical first import changed"))}
                     r.import_seq=chain.note_reimported();r.body_off=Some(this_off);canon.put(&[(h,r)]).map_err(|e|format!("record {i}: canonical index: {e}"))?;return Ok(true)
                 }
                 let held=block.header.h>0&&chain.canonical.get(block.header.h as usize-1)==Some(&parent);
@@ -1184,7 +1182,7 @@ impl Node{
             match validated{
                 None=>{}
                 Some(Err(Reject::Duplicate))=>{
-                    if chain.spec.v3_active(block.header.h)&&chain.get(&hash).unwrap().timely!=first_import.map_or(true,|m|m.timely){return Err(format!("record {i}: first import changed"))}
+                    if chain.get(&hash).unwrap().timely!=first_import.map_or(true,|m|m.timely){return Err(format!("record {i}: first import changed"))}
                     chain.reimport(&hash,block.header.clone(),Some(this_off));
                 }
                 // Unreachable by (1) for a block whose parent replay holds; counted (Stats::replay_skipped) rather than
@@ -1279,9 +1277,8 @@ impl Node{
         Ok(node)
     }
     /// Local first-import metadata, verified against the original journal
-    /// frame. This is not a lifetime RAM map, and is absent on legacy profiles.
+    /// frame. This is not a lifetime RAM map.
     pub fn first_import(&self,hash:&[u8;32])->Result<Option<store::FirstImport>,String>{
-        if !imports::enabled(&self.chain.spec){return Ok(None)}
         if *hash==self.chain.spec.genesis_hash(){return Ok(self.genesis_received_ms.map(|received_ms|store::FirstImport{received_ms,parent_received_ms:received_ms,timely:true}))}
         imports::first(&self.canon,&self.journal,hash)
     }
@@ -1481,8 +1478,8 @@ impl Node{
         }
     }
     pub fn import_with(&mut self,b:Block,from:Option<PeerId>,solicited:bool)->Result<bool,Reject>{
-        let import_ms=imports::enabled(&self.chain.spec).then(||self.import_clock.unwrap_or_else(now_ms));
-        if (self.chain.spec.cp().H_END==0||self.cfg.limits.first_imports) && self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{self.capacity_recheck()?;}
+        let received_ms=self.import_clock.unwrap_or_else(now_ms);
+        if self.journal.records/256>self.cfg.limits.continuous_history.unwrap_or(0)/256{self.capacity_recheck()?;}
         let hash=b.hash();
         let was_evicted=self.chain.was_evicted(&hash);
         if was_evicted&&!solicited{return Err(Reject::Evicted)}
@@ -1537,26 +1534,23 @@ impl Node{
             Err(Reject::Block(why))=>{self.chain.mark_invalid(hash,why.clone());self.reject(hash,&why);return Err(Reject::Block(why))}
             Err(e)=>{if let Reject::Envelope(w)=&e{self.reject(hash,w);}return Err(e)}
         };
-        let mut first_import=None;
-        if let Some(received_ms)=import_ms{
-            first_import=Some(match imports::first(&self.canon,&self.journal,&hash){
-                Ok(Some(original))=>original,
-                Ok(None)=>{
-                    // Only a fully valid block can cause these original-frame
-                    // reads. Their time is not charged to the captured arrival.
-                    let parent_received_ms=match self.first_import(&b.header.parent_hash){
-                        Ok(Some(m))=>m.received_ms,
-                        Ok(None)=>self.received.get(&b.header.parent_hash).copied().unwrap_or(received_ms),
-                        Err(e)=>self.fatal(&e),
-                    };
-                    let tid=template_id(&b.header.ut_raw);
-                    let template_ms=self.template_seen.get(&Self::seen_key(&b.header)).filter(|x|x.0==tid).map(|x|x.1);
-                    let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms,template_ms){
-                    Ok(stamp)=>stamp,Err(e)=>self.fatal(&e)}},
-                Err(e)=>self.fatal(&e),
-            });
-            entry.timely=first_import.unwrap().timely;
-        }
+        let first_import=match imports::first(&self.canon,&self.journal,&hash){
+            Ok(Some(original))=>original,
+            Ok(None)=>{
+                // Only a fully valid block can cause these original-frame
+                // reads. Their time is not charged to the captured arrival.
+                let parent_received_ms=match self.first_import(&b.header.parent_hash){
+                    Ok(Some(m))=>m.received_ms,
+                    Ok(None)=>self.received.get(&b.header.parent_hash).copied().unwrap_or(received_ms),
+                    Err(e)=>self.fatal(&e),
+                };
+                let tid=template_id(&b.header.ut_raw);
+                let template_ms=self.template_seen.get(&Self::seen_key(&b.header)).filter(|x|x.0==tid).map(|x|x.1);
+                let p=self.chain.get(&b.header.parent_hash).unwrap();match imports::classify(&self.chain.spec,p,&entry,received_ms,parent_received_ms,template_ms){
+                Ok(stamp)=>stamp,Err(e)=>self.fatal(&e)}},
+            Err(e)=>self.fatal(&e),
+        };
+        entry.timely=first_import.timely;
         crate::crash_point("state-commit");
         // PR4: a validated signed block passed items 1, 2, 3 and 12 (20-byte proposer, a=0, h=p.h+1, sig by the
         // proposer, proposer=Draw(h,0)), every check observe_template makes, so its template is recorded without
@@ -1568,19 +1562,17 @@ impl Node{
         // append does; the next open sets a damaged store aside and replay rebuilds it.
         if let Err(e)=self.history.put(&entry){self.log(&format!("FATAL history write: {}",e.0));std::process::exit(70);}
         crate::crash_point("history");
-        let record=store::encode_record_with_import(&b.header.encoded,&b.body.encode(),&result_bytes(&entry.result),first_import);
+        let record=store::encode_record_with_import(&b.header.encoded,&b.body.encode(),&result_bytes(&entry.result),Some(first_import));
         // D-REORG-REDB: record the journal frame offset so this block's body can be read back off-heap.
         match self.journal.append(&record){Ok(off)=>entry.body_off=Some(off),Err(e)=>{self.log(&format!("FATAL journal append: {e:?}"));std::process::exit(70);}}
         self.ckpt.roll=crate::checkpoint::roll(&self.ckpt.roll,&record);
-        if import_ms.is_some(){
-            crate::crash_point("import-index");
-            let coverage=canon::ImportCoverage{binding:crate::checkpoint::Binding{records:self.journal.records,end:self.journal.end_offset(),hash:self.ckpt.roll},
-                genesis_received_ms:self.genesis_received_ms};
-            if let Err(e)=self.canon.note_import(Some((hash,entry.body_off.unwrap())),coverage){self.fatal(&e)}
-        }
+        crate::crash_point("import-index");
+        let coverage=canon::ImportCoverage{binding:crate::checkpoint::Binding{records:self.journal.records,end:self.journal.end_offset(),hash:self.ckpt.roll},
+            genesis_received_ms:self.genesis_received_ms};
+        if let Err(e)=self.canon.note_import(Some((hash,entry.body_off.unwrap())),coverage){self.fatal(&e)}
         crate::crash_point("journal");
         if solicited&&was_evicted{self.stats.refetched+=1;}
-        self.received.insert(hash,first_import.map_or_else(now_ms,|m|m.received_ms));
+        self.received.insert(hash,first_import.received_ms);
         if self.received.len()>RECEIVED_MAX{let keep=self.chain.head().height.saturating_sub(8);let blocks=&self.chain.blocks;self.received.retain(|h,_|blocks.get(h).map_or(false,|e|e.height>=keep));}
         let old_head=self.chain.head;let old_h=self.chain.head().height;
         let new_head=self.chain.insert(entry);self.stats.imported+=1;
@@ -1821,7 +1813,7 @@ impl Node{
         // PR6 third review: so is a later transaction of a sender with parked ones, whatever its gas. Its nonce follows
         // theirs, which the pending state does not have, so executed there it was refused as nonce too high and
         // lost (at a head, one that was pooled behind a parked one); parked, it joins its sender's run.
-        // N4 x D-V3-21 review: under v3 a newcomer that would evict also passes the pool's checks on the head state (the
+        // N4 x D-V3-21 review: a newcomer that would evict also passes the pool's checks on the head state (the
         // next block's parent, `head_checks`), as the selection will run it. The pending state can hold writes that no
         // block will make (an evicted or replaced transaction's, which stay until the next head), so there a creation
         // can look done and its cap use zero; the head lacks what the pooled transactions ahead of it write. It evicts
@@ -1831,7 +1823,7 @@ impl Node{
         // modelled (its sender has nothing parked here, else it is parked). Run before its execution on the pending
         // state, so no result is held across it (A13: one execution at a time); nothing is committed. An RPC
         // submission runs both within its one deadline (`by`).
-        if victim.is_some()&&self.chain.spec.v3_active(self.chain.head().height.saturating_add(1)){
+        if victim.is_some(){
             let (tx,ctx,room)=(env.tx_env(),self.next_block_ctx(),self.headroom(caller,None).unwrap_or_default());
             if let Err(e)=self.head_checks(&tx,&ctx,by,room){self.stats.evict_refused+=1;return Err(e)}
         }
@@ -1855,7 +1847,7 @@ impl Node{
         // PR6 review: one whose own logs pass a block's log caps would halt in every block on this head. The honest
         // selection takes it only as such a halt (charged all its gas); the pool refuses it, as it refuses one past
         // the meter's caps, so it cannot hold the gas bound unpaid.
-        if let Some(why)=own_logs_halt_for(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs(),self.chain.spec.v3_active(self.chain.head().height.saturating_add(1))){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
+        if let Some(why)=own_logs_halt(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs()){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
         // A13: the effects must stay within the caps a block enforces; then only live entries are kept.
         self.pool.meter.admit(&view,&r.state).map_err(|h|format!("-32000 pending state would exceed a cap ({h:?})"))?;
         // The same commit as a block's USER phase (EIP-161 cleanup, normalization), so the meter
@@ -1894,10 +1886,10 @@ impl Node{
     /// head, offered; another is relayed when admitted at a later head. Answer: POOL_PARKED, or POOL_FULL_GAS when it is not held.
     /// N4: `fresh` (a new submission) may also evict parked ones of lower priority (`evict_parked_by_fee`); a
     /// revalidation at a new head does not.
-    /// N4 x D-V3-21 review: under v3, before it evicts anything (by either rule), it passes the pool's checks on the
+    /// N4 x D-V3-21 review: before it evicts anything (by either rule), it passes the pool's checks on the
     /// head state and on the pending state (`eviction_checks`: the engine, its own logs, the meter), once; if they fail nothing is evicted, the refusal counts in
     /// `evict_refused` and the answer is their refusal. N4 x D-V3-21 re-review: neither state holds a parked
-    /// transaction's effects, so under v3 one behind its sender's parked ones (a run) evicts nothing (POOL_FULL_GAS,
+    /// transaction's effects, so one behind its sender's parked ones (a run) evicts nothing (POOL_FULL_GAS,
     /// counted in `evict_refused`), whatever it would pay: its sender's earlier parked ones come first in every block.
     /// A revalidated one is held to the same rule (dropped, with its sender's later ones, as one finding no room is).
     /// A parked transaction is not executed otherwise, so one that would pass a live cap can take free parked room
@@ -1913,11 +1905,11 @@ impl Node{
         let base=self.next_block_ctx().base_fee;
         if tx.nonce!=Some(next)||total.is_none_or(|c|acct.balance<c)||tx.gas_price<base{return POOL_FULL_GAS.into()}
         let prio=TxFields::of(tx).effective_tip(base).min(self.chain_priority(tx.caller,base));
-        // N4 x D-V3-21 review: the eviction checks are owed (under v3) until the first eviction, run with the balance
+        // N4 x D-V3-21 review: the eviction checks are owed until the first eviction, run with the balance
         // the checks above leave it: for a new submission what the overdraft rule leaves (as for a replacement), else
         // its pending-state balance less its sender's other parked ones. One behind its sender's parked ones evicts
         // nothing (re-review: no state the pool holds has their effects).
-        let mut owed=self.chain.spec.v3_active(self.chain.head().height.saturating_add(1));
+        let mut owed=true;
         let room=if fresh{self.headroom(tx.caller,None).unwrap_or_default()}else{spent.map_or(U256::ZERO,|s|acct.balance.saturating_sub(s))};
         let ctx=self.next_block_ctx();
         macro_rules! gate{()=>{if std::mem::take(&mut owed){
@@ -2077,7 +2069,7 @@ impl Node{
     ///   pending-state check (`park`'s) holds too;
     /// - N4 review: a pooled one passes the pool's execution checks (`head_checks`: the engine, its own logs,
     ///   the meter) run on the head, as the selection runs it, without committing;
-    /// - N4 x D-V3-21 re-review: under v3, a parked one that is its sender's first parked one (the only kind that can
+    /// - N4 x D-V3-21 re-review: a parked one that is its sender's first parked one (the only kind that can
     ///   have evicted, `park`) passes the checks an evicting one passes (`eviction_checks`, on the head and on the
     ///   pending state), so a transaction cannot evict and then be swapped for one that could not have. A later one
     ///   of a run evicted nothing (`park`) and is checked like a parked transaction (two reads).
@@ -2124,7 +2116,7 @@ impl Node{
                 let spent=self.pool.parked.iter().enumerate().filter(|(k,x)|x.sender==tx.caller&&*k!=j).try_fold(cost,|n,(_,x)|n.checked_add(x.cost));
                 if spent.is_none_or(|c|balance<c){self.stats.overdraft_refused+=1;return Err(POOL_OVERDRAFT.into())}
                 let first=!self.pool.parked.iter().any(|x|x.sender==tx.caller&&x.nonce<self.pool.parked[j].nonce);
-                if first&&self.chain.spec.v3_active(self.chain.head().height.saturating_add(1)){self.eviction_checks(tx,&ctx,by,room)?;}
+                if first{self.eviction_checks(tx,&ctx,by,room)?;}
                 self.pool.parked_bytes=self.pool.parked_bytes+raw.len()-old_len;
                 let x=&mut self.pool.parked[j];x.gas=tx.gas_limit;x.hash=hash;x.cost=cost;x.raw=raw.clone();x.repl=repl+1;
                 // Relayed now (below), so not again when admitted; one past the relay bound is relayed when admitted at
@@ -2142,7 +2134,7 @@ impl Node{
     /// one's effects), with its sender's nonce at its own and its balance at `room`, what the overdraft rule leaves
     /// it; then the pool's admission checks: the engine's and the meter's caps at the pending state's utilisation
     /// (as a newcomer's are checked) and its own logs. Nothing is committed (a scratch overlay).
-    /// N4 x D-V3-21 review: also run, under v3, for a newcomer before it evicts a pooled transaction (`admit_tx`) or a
+    /// N4 x D-V3-21 review: also run for a newcomer before it evicts a pooled transaction (`admit_tx`) or a
     /// parked one (`park`), with its balance at what the pool's checks leave it.
     /// The pending utilisation counts what the pooled transactions create, the old one's own creations included for a
     /// replacement (its effects stay in the pending state), so a replacement is checked as if one more of each unit it
@@ -2154,7 +2146,7 @@ impl Node{
     fn head_checks(&self,tx:&revm::primitives::TxEnv,ctx:&NativeBlockContext,by:Option<Instant>,room:U256)->Result<(),String>{
         self.checks_on(&self.pool.pending_base,tx,ctx,by,room)
     }
-    /// N4 x D-V3-21 re-review: the checks owed under v3 before a transaction evicts anything (a pooled one at the count
+    /// N4 x D-V3-21 re-review: the checks owed before a transaction evicts anything (a pooled one at the count
     /// or byte bound, `admit_tx`; a parked one, `park`) or replaces a parked one that may have evicted (`replace`):
     /// `head_checks` (an evicted or replaced transaction's writes, which no block makes, are not there), then the same
     /// checks on the pending state (the pooled transactions' effects, its sender's earlier ones and other senders', are
@@ -2181,8 +2173,7 @@ impl Node{
             (None,None)=>native::execute_for_profile(&ov,tx.clone(),ctx,profile)};
         let r=match r{Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>return Err(SUBMIT_DEADLINE.into()),r=>r.map_err(|e|format!("-32000 {e:?}"))?};
         if by.is_some_and(|by|Instant::now()>=by){return Err(SUBMIT_DEADLINE.into())}
-        let v3=self.chain.spec.v3_active(self.chain.head().height.saturating_add(1));
-        if let Some(why)=own_logs_halt_for(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs(),v3){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
+        if let Some(why)=own_logs_halt(self.chain.spec.cp(),self.chain.head().cum_log_bytes,r.result.logs()){return Err(format!("-32000 logs would exceed a block cap ({why:?})"))}
         let mut meter=self.pool.meter;meter.admit(&ov,&r.state).map_err(|h|format!("-32000 pending state would exceed a cap ({h:?})"))?;
         Ok(())
     }
@@ -2415,7 +2406,7 @@ impl Node{
                     // it, but its logs can follow the context, for example PREVRANDAO, which admission does not
                     // have). It is included as the block applies it, charged its declared gas as before PR6, so it
                     // cannot stay pooled unpaid. The halt writes no logs.
-                    Ok(r) if own_logs_halt_for(cp,p.cum_log_bytes,r.result.logs(),self.chain.spec.v3_active(p.height.saturating_add(1))).is_some()=>{
+                    Ok(r) if own_logs_halt(cp,p.cum_log_bytes,r.result.logs()).is_some()=>{
                         let Ok((price,tip))=pocol_lp4_execution::fees::effective_fees(ctx.base_fee,gas_price,priority) else{skip(slot);continue};
                         if sim_halt(st,caller,gas_limit,price,tip).is_none(){skip(slot);continue}
                         gas_limit
@@ -2424,7 +2415,7 @@ impl Node{
                         // B4: a transaction that would halt on a block cap is left out.
                         let logs=r.result.logs();let (n,c)=(logs.len() as u64,user_phase::log_charge(logs));
                         let log_cap=cp.H_END!=0&&p.cum_log_bytes.saturating_add(log_bytes+c)>user_phase::caps::LOG_CAP;
-                        let log_limits=user_phase::log_caps(self.chain.spec.v3_active(p.height.saturating_add(1)));
+                        let log_limits=user_phase::log_caps(true);
                         if log_count+n>log_limits.count||log_bytes+c>log_limits.bytes||log_cap{skip(slot);continue}
                         if let Some(m)=&mut meter{let mut m2=*m;if m2.admit(&*st,&r.state).is_err(){skip(slot);continue}*m=m2;}
                         log_count+=n;log_bytes+=c;let gas=r.result.gas_used();
@@ -2452,9 +2443,8 @@ impl Node{
     /// Starts producing on the current head, as `run` does first: for a node driven in process.
     pub fn start_production(&mut self){self.restart_production()}
     /// V3-02: the locked template's shares go to the late-share cache before production leaves it, and the cache is
-    /// pruned to the current head's carrier window (`LateCache::prune`; v3 program set only).
+    /// pruned to the current head's carrier window (`LateCache::prune`).
     fn stash_late(&mut self){
-        let h=self.chain.head().height+1;if !self.chain.late_shares(h){return}
         let (d,cap)=(u64::from(self.chain.spec.cp().D),SHARE_RELAY_PER_S_MAX*usize::from(self.chain.spec.cp().S_max));
         if let Some(Production{mode:Mode::Locked(l),shares,..})=&self.prod{
             let t=LateTemplate{tid:l.tid,height:l.header.h,nonce_max:l.ctx.assignment.nonce_max(),t_share:l.ctx.t_share,shares:shares.iter().copied().collect()};
@@ -2540,8 +2530,8 @@ impl Node{
     ///   time; the block is built again only if one fits. The simulation cannot inflate declared gas, so a
     ///   transaction that burns gas only in the simulation cannot leave the block under-filled. PR6 third review:
     ///   an appended transaction the build reports by index is dropped with every appended one after it, and the
-    ///   block is built once more (its prefix executed), so the round costs at most two builds. Under v3
-    ///   (D-V3-21 review) an appended one that halts in a successful append build is dropped the same way, so
+    ///   block is built once more (its prefix executed), so the round costs at most two builds. D-V3-21
+    ///   review: an appended one that halts in a successful append build is dropped the same way, so
     ///   the round costs at most three builds (a halt found in the build after an index failure).
     /// The last good build is kept when a later one fails.
     fn build_signed_template(&mut self,p:&Entry,sel:Selection,clock:u64)->Option<(Header,Body)>{
@@ -2555,7 +2545,6 @@ impl Node{
         let Selection{mut txs,mut rest,..}=sel;
         let sender=|chain:&Chain,raw:&Vec<u8>|wire::decode_for_profile(raw,chain.spec.profile()).ok().map(|e|(e.tx_env().caller,e.tx_env().gas_limit));
         let mut last_good:Option<(Header,Body)>=None;let mut base:Option<usize>=None;let t0=Instant::now();let mut builds=0;
-        let v3=self.chain.spec.v3_active(p.height.saturating_add(1));
         while builds<TEMPLATE_BUILDS_MAX{
             builds+=1;
             // Evidence shares BODY_MAX with the transactions: drop transactions until the encoded body fits.
@@ -2566,16 +2555,16 @@ impl Node{
             match self.chain.build_signed(p,key,clock,body.clone(),effects.clone()){
                 Ok((h,out,_))=>{
                     if let Some(n)=base{
-                        // D-V3-21 review (v3 only, node-local): an appended transaction that halts in this build
+                        // D-V3-21 review (node-local): an appended transaction that halts in this build
                         // (an A03 cap halt charged its declared gas, for example LogCount behind the selected
                         // ones' logs) is dropped with every appended one after it, as one the
                         // build reports by index, and the block is built once more (its prefix executed, so that
                         // build has no halt from n on). The selection checks only its own order; this keeps the
                         // honest append round from including a halt it could leave out. It stays pooled.
-                        if v3{let halts=match &out{chain::Executed::Mem(o)=>&o.halts,chain::Executed::Stored{run,..}=>&run.halts};
-                            if let Some(i)=halts.iter().map(|(i,_)|*i).filter(|i|*i>=n&&*i<txs.len()).min(){
-                                self.log(&format!("signed template: appended transaction {i} would halt ({:?}); dropped",halts.iter().find(|x|x.0==i).map(|x|x.1)));
-                                txs.truncate(i);continue}}
+                        let halts=match &out{chain::Executed::Mem(o)=>&o.halts,chain::Executed::Stored{run,..}=>&run.halts};
+                        if let Some(i)=halts.iter().map(|(i,_)|*i).filter(|i|*i>=n&&*i<txs.len()).min(){
+                            self.log(&format!("signed template: appended transaction {i} would halt ({:?}); dropped",halts.iter().find(|x|x.0==i).map(|x|x.1)));
+                            txs.truncate(i);continue}
                         self.stats.template_appended+=(body.txs.len()-n) as u64;last_good=Some((h,body));break}
                     // The append round, within the room this build left (exact: its own gas used).
                     let (room_txs,room_bytes)=self.chain.caps_room(p);let used_bytes:u64=body.txs.iter().map(|t|t.len() as u64).sum();
@@ -2603,7 +2592,7 @@ impl Node{
                     match idx{
                         // PR6 third review: in the append build, the appended ones from the failing one on are dropped
                         // (the transactions before it executed, so the next build succeeds): the append round costs at
-                        // most two builds more (three under v3, with the halt drop above), whatever its candidates are.
+                        // most two builds more (three with the halt drop above), whatever its candidates are.
                         Some(i) if base.is_some_and(|n|i>=n)&&i<txs.len()=>txs.truncate(i),
                         Some(i) if i<txs.len()=>{let s=sender(&self.chain,&txs[i]).map(|x|x.0);let chain=&self.chain;let mut j=0;txs.retain(|t|{j+=1;j-1<i||(j-1>i&&(s.is_none()||sender(chain,t).map(|x|x.0)!=s))});}
                         _ if base.is_some()=>break,
@@ -3496,11 +3485,9 @@ impl Node{
     /// `lock` calls it for a signed template only: its own, or one `try_lock_signed` validated as minable here (the
     /// drawn signer, the window, item 16 and its body rebuilding to its UT) by T_j. A template merely received, say a
     /// signed shell whose body does not rebuild, never counts: nobody else can mine it, so its block is a withheld one.
-    /// Only on a profile that can activate v3: a spec-1 node keeps the map empty. One TemplateID per slot (parent and
-    /// signer, height), the earliest time kept; a second TemplateID for a slot, or one seen_templates already
-    /// contradicts, is an equivocation and poisons the slot (`template_equivocated`).
+    /// One TemplateID per slot (parent and signer, height), the earliest time kept; a second TemplateID for a slot, or
+    /// one seen_templates already contradicts, is an equivocation and poisons the slot (`template_equivocated`).
     fn note_template_seen(&mut self,h:&Header){
-        if !self.cfg.limits.first_imports{return}
         let key=Self::seen_key(h);let tid=template_id(&h.ut_raw);let ms=self.import_clock.unwrap_or_else(now_ms);
         match self.template_seen.get_mut(&key){
             Some(x) if x.0==tid=>x.1=x.1.min(ms),
@@ -3511,7 +3498,6 @@ impl Node{
     /// V3-04: the signer of slot `key` equivocated (type-1 evidence). No template of the slot is timely by the template
     /// rule, so the equivocator's privately released block is judged on its own arrival, as without the map.
     fn template_equivocated(&mut self,key:([u8;32],u64)){
-        if !self.cfg.limits.first_imports{return}
         match self.template_seen.get_mut(&key){Some(x)=>x.0=NO_TEMPLATE,None=>self.insert_template_seen(key,NO_TEMPLATE,0)}
     }
     /// Bounded at TEMPLATE_SEEN_MAX slots. A full map first forgets the heights below the head (blocks there can only
@@ -3583,10 +3569,10 @@ impl Node{
             }
         }
         self.evidence_pool=keep;
-        // V3-02 (v3 program set only): the shares this node saw for its ancestors' templates j in [max(1,h-D), h-1]
+        // V3-02: the shares this node saw for its ancestors' templates j in [max(1,h-D), h-1]
         // that the branch has not credited, as kind-3 items within E_max (`Chain::late_offer` applies every rule).
         let h=p.height+1;
-        if self.chain.late_shares(h)&&!self.late_cache.is_empty(){
+        if !self.late_cache.is_empty(){
             let mut block=chain::LateBlock::default();
             for raw in &out{if let Ok((j,ns))=chain::late_parse(raw,u64::MAX){block.seen.entry(j).or_default().extend(ns);}}
             let lo=h.saturating_sub(u64::from(self.chain.spec.cp().D)).max(1);
@@ -3961,11 +3947,10 @@ mod late_cache_tests{
     //! (The handler and the cache do not depend on the program set; a v3 node fills the cache, `stash_late`.)
     use super::*;
     use pocol_lp4_execution::devnet::{self,DevnetConfig};
-    #[test] fn a_template_locked_again_takes_its_shares_back_and_its_peer_shares_are_relayed(){locked_again(1,"full")}
-    fn locked_again(nonce_mode:u8,tag:&str){
-        let mut c=DevnetConfig::new(777918,1_700_000_000,&["a","b","c"]);c.nonce_mode=nonce_mode;
+    #[test] fn a_template_locked_again_takes_its_shares_back_and_its_peer_shares_are_relayed(){
+        let c=DevnetConfig::new(777918,1_700_000_000,&["a","b","c"]);
         let spec=Spec::new(devnet::build(&c).unwrap().admit(&crate::single_host_local()).unwrap().0);
-        let dir=std::env::temp_dir().join(format!("pocold-latecache-{tag}-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
+        let dir=std::env::temp_dir().join(format!("pocold-latecache-full-{}",std::process::id()));let _=std::fs::remove_dir_all(&dir);
         let cfg=Config{dir:dir.clone(),name:"latecache".into(),miner:None,listen:None,peers:vec![],rpc:None,stop_at:None,log:false,limits:Limits::default()};
         let mut n=Node::open(cfg,spec).unwrap();
         let (_p7,_o7)=net::test_peer(7,1<<16);let (p8,_o8)=net::test_peer(8,1<<16);n.peers.insert(7,_p7.clone());n.peers.insert(8,p8.clone());
@@ -3997,9 +3982,9 @@ mod late_cache_tests{
         assert_eq!(p8.queued_bytes(),q,"a duplicate is not relayed");
         let off=(0..u64::try_from(nmax).unwrap_or(u64::MAX)).find(|x|!le_target(&pow_hash(&tid,*x),&ctx.t_share)).unwrap();
         n.on_msg(7,Msg::Share{tid,nonce:off});
-        // A nonce past nMax exists only on a bounded range (nonceMode 1: nMax = 2^64 holds every u64 nonce).
-        assert_eq!(u64::try_from(nmax).is_ok(),nonce_mode==0);if let Ok(past)=u64::try_from(nmax){n.on_msg(7,Msg::Share{tid,nonce:past});}
-        assert_eq!((p8.queued_bytes(),n.late_cache.get(&tid).unwrap().shares.len()),(q,3),"off target or past nMax: neither kept nor relayed");
+        // No nonce is past nMax (nonceMode 1: nMax = 2^64 holds every u64 nonce).
+        assert!(u64::try_from(nmax).is_err(),"nonceMode 1: nMax = 2^64");
+        assert_eq!((p8.queued_bytes(),n.late_cache.get(&tid).unwrap().shares.len()),(q,3),"off target: neither kept nor relayed");
         drop(n);let _=std::fs::remove_dir_all(&dir);
     }
     /// Review E3 (blocking): a template the drawn proposer signed for the production parent but at a height other than
@@ -4016,8 +4001,8 @@ mod late_cache_tests{
         let key=devnet::miner_identity(label).key;
         let (mut hd,_,_)=n.chain.build_signed(&par,&key,ctx.window.lower(),Body::default(),vec![]).unwrap();drop(par);
         n.prod=Some(Production{parent:gh,height:1,attempt:0,mode:Mode::Idle,shares:BTreeSet::new(),miner:None,solved:false,received_ms:now_ms(),own_shares:0,exhausted:false});
-        // (An empty body: on this spec-1 node a kind-3 item would be "15 evidence form" anyway; the v3 verdict on the
-        // item itself is tests/v3_late_shares.rs late_shares_refused_on_a_real_branch. The original locked this.)
+        // (An empty body keeps evidence out of this item-2 test; the verdict on a kind-3 item itself is
+        // tests/v3_late_shares.rs late_shares_refused_on_a_real_branch. The original locked this.)
         hd.h=2;
         assert!(!n.try_lock_signed(hd.clone(),Body::default(),1),"FAIL-ON-ORIGINAL: no lock");
         assert_eq!(n.stats.template_penalties,1,"its sender is punished for the height (item 2)");

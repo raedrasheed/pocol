@@ -11,7 +11,7 @@
 //! 3. mining on once the account is in A_{h+1} again.
 //! If the window passes, the Registry sweep refunds the bond and erases the record at `due`.
 //!
-//! Registration at a full set (FN-2b C4, owner decision Q2(a) of 2026-11-13; the v3 program set only). There is no
+//! Registration at a full set (FN-2b C4, owner decision Q2(a) of 2026-11-13). There is no
 //! seat contest and no probation pool: a newcomer that finds all M_max seats taken registers with
 //! registerReplacing(reward, victim) into the seat of a member the registry could remove as inactive at the next block
 //! (no credited share and no (re)activation within Theta_inact). `quote_register` does it: it lists the removable
@@ -20,15 +20,15 @@
 //! registry's own removalStatus view on the head state at the next height, and quotes the call. The victim exits as by
 //! deregister (its bond refunded after U, no penalty) and may return; the registry decides again at inclusion.
 //!
-//! The v3 rejoin clock and bond (the v3 program set only; spec-1 answers are unchanged). On the v3 network every live
-//! member is in A_next whatever its recent shares (D-V3-01: the network builder always sets nonceMode 1, so the nonce
-//! domain is unbounded and `Chain::membership` lists every live member), so a status-1 record is always `Active` there and
+//! The v3 rejoin clock and bond. On the v3 network every live member is in A_next whatever its recent shares (D-V3-01:
+//! admission takes only nonceMode 1 (R24), so the nonce domain is unbounded and `Chain::membership` lists every live
+//! member), so a status-1 record is always `Active` and
 //! Rejoin mining applies only after a voluntary exit (deregister); a member replaced at a full set gets `Full`. Rejoin
 //! reads the record's own reactivation clock (V3-09, `rejoin_step_with`): one reactivation per C_react blocks, so the
 //! window after an exit opens at max(exit + W_act, lastReactHeight + C_react), and a window the clock leaves empty is
 //! reported at once with that cause (`RejoinStep::ClockMissed`). The `Exit` and `Cooldown` steps of a status-1 record
-//! outside A_next arise only on a bounded-nonce devnet with the v3 programs (built by tests, never by the network
-//! builder); they are kept as defensive code. The status adds the bond an active ACCRUING record still earns from its
+//! outside A_next never arise on an admitted node (every live member is in A_next); they are kept as defensive code,
+//! which only the pure-function tests reach. The status adds the bond an active ACCRUING record still earns from its
 //! mining rewards (no deadline, FN-2b C3) and the clock (`v3_status`); a top-up refusal says why (the bond is HELD, the
 //! record exited, there is no record, or a top-up or reward-address change of this account is still pending: the
 //! registry takes one such maintenance operation per identity per block, V3-08).
@@ -46,11 +46,10 @@ pub enum Command {
     Status,
     Mining { enabled:bool },
     QuoteSend { to:String, amount:String },
-    /// `bond`: the PCOL locked now. Earn-in networks take 0..B (default 0: the rest is earned from rewards);
-    /// other networks take exactly B (the default).
+    /// `bond`: the PCOL locked now: 0..B (default 0: the rest is earned from rewards).
     QuoteRegister { #[serde(default)] bond:Option<String> },
     QuoteRejoin,
-    /// Earn-in: fill an ACCRUING bond (default: the whole remainder).
+    /// Fill an ACCRUING bond (default: the whole remainder).
     QuoteTopUp { #[serde(default)] amount:Option<String> },
     Confirm { quote_id:String },
     Cancel,
@@ -60,10 +59,14 @@ pub enum Command {
 struct Quote { id:String, tx:Option<Tx>, deadline:Instant, kind:&'static str, rejoin:Option<(U256,U256)> }
 /// Reactivation signatures one rejoin confirmation allows (each counted in its maximum fee).
 pub const REACTIVATE_ATTEMPTS:u8=3;
-const REGISTRY_GAS:u64=1_000_000;
-/// Earn-in registration: more than 2x the 174,447 gas a zero-bond first registration measures on the V3 programs
-/// (lp4-execution tests/v3_contracts.rs `wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set`; 194,143
-/// on the earn-in programs phase 6a deleted), so the fee faucet's 0.002 PCOL covers its maximum fee.
+/// The gas ceiling of the v3 registry maintenance calls the wallet signs (topUp, deregister, reactivate), and the gas of
+/// each transaction a rejoin quote's maximum fee counts. lp4-execution tests/v3_contracts.rs measures every such call
+/// below 200,000 gas.
+const REGISTRY_CALL_GAS:u64=1_000_000;
+/// Registration (register(address), any bond 0..B_reg): more than 2x the 174,447 gas a zero-bond first registration
+/// measures on the V3 programs (lp4-execution tests/v3_contracts.rs
+/// `wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set`; 194,172 on the earn-in programs phase 6a
+/// deleted), so the fee faucet's 0.002 PCOL covers its maximum fee.
 const EARNIN_REGISTER_GAS:u64=400_000;
 /// FN-2b C4 registerReplacing: about 2x the largest replacement measured (217,381 gas, the victim in the middle of the
 /// active list with a full-bond newcomer; lp4-execution tests/v3_contracts.rs replacing_write_ceilings_gas_and_user_sys_keys),
@@ -83,8 +86,8 @@ pub enum RejoinStep {
     Unavailable,
     /// In the active set: it has a nonce range.
     Active,
-    /// Status 1 but outside A_next: exit, then reactivate. Not on the v3 network, where every live member is in A_next
-    /// (D-V3-01, nonceMode 1); there only on a bounded-nonce devnet with the v3 programs (tests).
+    /// Status 1 but outside A_next: exit, then reactivate. Unreachable on an admitted node, where every live member is in
+    /// A_next (D-V3-01, nonceMode 1); pure-function tests only.
     Exit,
     /// Exited: reactivation opens at `opens`; the sweep refunds at `closes`.
     Wait { opens:u64, closes:u64 },
@@ -92,22 +95,22 @@ pub enum RejoinStep {
     Reactivate { closes:u64 },
     /// Exited and past the window: the sweep refunds the bond and erases the record.
     Missed,
-    /// V3-09 (the v3 program set): exited, but the identity reactivated less than C_react blocks before the window would
+    /// V3-09: exited, but the identity reactivated less than C_react blocks before the window would
     /// open, so the registry's clock allows the next reactivation only from `allowed_from`, at or after the refund at
     /// `refund` (dueHeight): the window never opens, and the sweep refunds the bond at `refund`.
     ClockMissed { refund:u64, allowed_from:u64 },
-    /// FN-2b C4 (the v3 program set, owner decision Q2(a)): exited while every seat is taken (active = M_max), as a member
+    /// FN-2b C4 (owner decision Q2(a)): exited while every seat is taken (active = M_max), as a member
     /// replaced by registerReplacing is: reactivate() reverts (Capacity) while the set stays full, so the wallet offers no
     /// rejoin; the bond is refunded at `refund` (dueHeight), after which the account registers again (by replacement while
     /// the set is full).
     Full { refund:u64 },
-    /// V3-09 (the v3 program set): status 1 outside A_next, but the identity reactivated less than C_react blocks ago, so an
-    /// exit now would leave too short a reactivation window before its refund at dueHeight; exiting is useful from
-    /// `exit_from`. Defensive code: like `Exit`, only on a bounded-nonce devnet with the v3 programs (tests), never on the
-    /// v3 network, where a status-1 record is always in A_next.
+    /// V3-09: status 1 outside A_next, but the identity reactivated less than C_react blocks ago, so an exit now would
+    /// leave too short a reactivation window before its refund at dueHeight; exiting is useful from `exit_from`.
+    /// Defensive code: like `Exit`, unreachable on an admitted node, where a status-1 record is always in A_next
+    /// (pure-function tests only).
     Cooldown { exit_from:u64 },
 }
-/// V3-09 (the v3 program set only): an identity reactivates at most once per C_react blocks, counted from its previous
+/// V3-09: an identity reactivates at most once per C_react blocks, counted from its previous
 /// reactivation (the per-record clock lastReactHeight, w1 bits 160..223; 0 before its first reactivation).
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct ReactClock{pub last:u64,pub c_react:u64,pub u:u64}
@@ -118,16 +121,17 @@ impl ReactClock{
     pub fn allowed_from_ahead(&self,next:u64)->Option<u64>{(self.last!=0&&self.allows_from()>next).then_some(self.allows_from())}
 }
 /// The registry's per-record reactivation clock (V3-09; PoColSystemV3.sol reactClock): lastReactHeight in w1 bits
-/// 160..223, 0 for an identity that never reactivated or has no record. Only the v3 program set writes it.
+/// 160..223, 0 for an identity that never reactivated or has no record.
 pub fn react_clock(v:&dyn View,id:Address)->u64{
     let w1=v.slot(&apply::program_address(0),&(apply::record_slot(id)+U256::from(1)));
     (w1>>160usize).as_limbs()[0]
 }
-/// The v3 programs' reactivation clock of `id` (V3-09), None on the other program sets (no clock).
+/// The reactivation clock of `id` (V3-09) on `v`: always Some (the Option is kept for the callers that may have no
+/// state to read it from, and for `rejoin_step`'s clock-free rule).
 pub fn reactivation_clock(chain:&crate::chain::Chain,v:&dyn View,id:Address)->Option<ReactClock>{
-    (chain.spec.programs()==apply::ProgramSet::V3).then(||{let cp=chain.spec.cp();ReactClock{last:react_clock(v,id),c_react:u64::from(cp.C_react),u:u64::from(cp.U)}})
+    let cp=chain.spec.cp();Some(ReactClock{last:react_clock(v,id),c_react:u64::from(cp.C_react),u:u64::from(cp.U)})
 }
-/// FN-2b C4: `step` at a full set (`seats_full`: the v3 program set with active = M_max at the head): an exited record
+/// FN-2b C4: `step` at a full set (`seats_full`: active = M_max at the head): an exited record
 /// waiting for or inside its reactivation window cannot reactivate, so it is `Full` until its refund at dueHeight.
 pub fn at_full_set(step:RejoinStep,seats_full:bool)->RejoinStep{
     match step{
@@ -136,19 +140,19 @@ pub fn at_full_set(step:RejoinStep,seats_full:bool)->RejoinStep{
     }
 }
 /// The rejoin step of `id` at the head's next block on `chain` (what the wallet's status and Rejoin mining use): its
-/// record, its membership of A_{head+1}, the earn-in deadline, the v3 reactivation clock and the full-set rule.
+/// record, its membership of A_{head+1}, the v3 reactivation clock and the full-set rule.
 pub fn chain_rejoin_step(chain:&crate::chain::Chain,id:Address)->RejoinStep{
     let head=chain.head();let Some(state)=chain.view_of(&head.hash) else{return RejoinStep::Unavailable};
     let record=apply::miner_record(state.v(),id);
     let Ok(m)=chain.membership(head,head.height+1) else{return RejoinStep::Unavailable};
-    // No probation deadline: the V3 set, the only bundled one, has none (FN-2b C3).
-    let step=rejoin_step_with(record.as_ref(),head.height+1,m.ids().contains(&types::raw_addr(id)),u64::from(chain.spec.cp().W_act),None,
+    // No probation deadline: the V3 set has none (FN-2b C3).
+    let step=rejoin_step_with(record.as_ref(),head.height+1,m.ids().contains(&types::raw_addr(id)),u64::from(chain.spec.cp().W_act),
         reactivation_clock(chain,state.v(),id));
     at_full_set(step,seats_full(chain,state.v()))
 }
-/// Whether every seat is taken: the v3 program set with active = M_max (FN-2b C4; other sets have no replacement).
+/// Whether every seat is taken: active = M_max (FN-2b C4).
 pub fn seats_full(chain:&crate::chain::Chain,v:&dyn View)->bool{
-    chain.spec.programs()==apply::ProgramSet::V3&&apply::active_list(v).len() as u64>=u64::from(chain.spec.cp().M_max)
+    apply::active_list(v).len() as u64>=u64::from(chain.spec.cp().M_max)
 }
 /// Why Rejoin mining cannot be quoted at `step`, or None when it can (exit or reactivation).
 pub fn rejoin_refusal(step:RejoinStep)->Option<String>{
@@ -165,37 +169,31 @@ pub fn rejoin_refusal(step:RejoinStep)->Option<String>{
 fn full_message(refund:u64)->String{format!("All seats are taken, so reactivation would be refused. The bond is refunded at block {refund}; register again after that.")}
 fn clock_missed_message(refund:u64,allowed_from:u64)->String{format!("This identity reactivated recently, and the registry allows one reactivation per cooldown period: the next one is allowed from block {allowed_from}, but the bond is refunded at block {refund}, so this exit cannot be reactivated. Register again after the refund.")}
 fn cooldown_message(exit_from:u64)->String{format!("This identity reactivated recently, and the registry allows one reactivation per cooldown period: an exit now could not be reactivated before the bond is refunded. Rejoin mining from block {exit_from}.")}
-/// `t_prob`: a probation deadline in blocks of the genesis programs. None on the V3 set (FN-2b C3: no deadline), the only
-/// bundled set since phase 6a, which deleted the earn-in set and its deadline (phase 6b removes the parameter). The rule without a reactivation clock; `rejoin_step_with` adds the
-/// v3 clock.
-pub fn rejoin_step(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64,t_prob:Option<u64>)->RejoinStep{
-    rejoin_step_with(record,next,member,w_act,t_prob,None)
+/// The rule without a reactivation clock; `rejoin_step_with` adds the v3 clock. The V3 set has no probation deadline
+/// (FN-2b C3).
+pub fn rejoin_step(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64)->RejoinStep{
+    rejoin_step_with(record,next,member,w_act,None)
 }
-/// The rejoin step with the v3 programs' reactivation clock (`clock`, V3-09; None on the other program sets, where the
-/// result is `rejoin_step`'s). reactivate() is valid at height h only when exit + W_act <= h < due (strictly before the
-/// refund sweep), before registeredAt + T_PROB for an earn-in-set probation record, and, once the identity has
-/// reactivated, at or after lastReactHeight + C_react. So with a clock:
+/// The rejoin step with the v3 reactivation clock (`clock`, V3-09; None gives `rejoin_step`'s clock-free rule).
+/// reactivate() is valid at height h only when exit + W_act <= h < due (strictly before the refund sweep) and, once the
+/// identity has reactivated, at or after lastReactHeight + C_react. So with a clock:
 /// - an exited record's window opens at max(exit + W_act, lastReactHeight + C_react), and a window the clock leaves
 ///   empty is `ClockMissed` at once (the sweep refunds at due), unless it has already passed (`Missed`);
-/// - a status-1 record outside A_next (a bounded-nonce devnet only: on the v3 network every live member is in A_next) is
+/// - a status-1 record outside A_next (never on an admitted node, where every live member is in A_next) is
 ///   told to exit only when the window after an exit at `next` would hold `exit_window_need` blocks: the whole
 ///   U - W_act, or REACTIVATE_ATTEMPTS + 1 if that is shorter (so that the plan's attempts fit, one per head, with
 ///   the last one still able to land); before that it is `Cooldown` until the first such exit height.
-pub fn rejoin_step_with(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64,t_prob:Option<u64>,clock:Option<ReactClock>)->RejoinStep{
+pub fn rejoin_step_with(record:Option<&apply::MinerRecord>,next:u64,member:bool,w_act:u64,clock:Option<ReactClock>)->RejoinStep{
     let Some(r)=record else{return RejoinStep::Unavailable};
     if r.tomb||!matches!(r.bond_state,1|4){return RejoinStep::Unavailable}
-    // Earn-in (EARN-IN-SPEC U4): a probation record reactivates only before registeredAt + T_PROB (60,480 on the earn-in
-    // programs; the v3 programs have no deadline).
-    let deadline=t_prob.filter(|_|r.bond_state==apply::SystemPrograms::ACCRUING).map(|t|r.registered_at.saturating_add(t));
     let gate=clock.map_or(0,|c|c.allows_from());
     // V3-09: an exit at `next` leaves [max(next + W_act, gate), next + U), which holds `need` blocks once
     // next + U >= gate + need.
     match r.status{
         1 if member=>RejoinStep::Active,
-        1 if deadline.is_some_and(|d|next.saturating_add(w_act).max(gate)>=d)=>RejoinStep::Missed,
         1=>match clock.map(|c|(c,gate.saturating_add(exit_window_need(w_act,c.u)))).filter(|(c,least)|*least>next.saturating_add(c.u)){
             Some((c,least))=>RejoinStep::Cooldown{exit_from:least-c.u},None=>RejoinStep::Exit},
-        2=>{let opens=r.exit_height.saturating_add(w_act).max(gate);let closes=deadline.map_or(r.due_height,|d|d.min(r.due_height));
+        2=>{let opens=r.exit_height.saturating_add(w_act).max(gate);let closes=r.due_height;
             if next>=closes{RejoinStep::Missed}
             else if clock.is_some()&&gate>=closes{RejoinStep::ClockMissed{refund:closes,allowed_from:gate}}
             else if clock.is_some()&&opens>=closes{RejoinStep::Missed}
@@ -203,15 +201,14 @@ pub fn rejoin_step_with(record:Option<&apply::MinerRecord>,next:u64,member:bool,
         _=>RejoinStep::Unavailable,
     }
 }
-/// V3-09 (a bounded-nonce devnet with the v3 programs only): the least reactivation window, in blocks, an exit must leave
+/// V3-09 (for the `Exit` step, which an admitted node never produces): the least reactivation window, in blocks, an exit must leave
 /// before the wallet offers it: the whole U - W_act, or REACTIVATE_ATTEMPTS + 1 if that is shorter. ParamGate R8 admits
 /// U - W_act >= 2, so this is at least 2.
 pub fn exit_window_need(w_act:u64,u:u64)->u64{u.saturating_sub(w_act).min(u64::from(REACTIVATE_ATTEMPTS)+1)}
-/// V3 (`clock` Some, the v3 program set): the reactivation window [opens, closes) the rejoin review states. For `Exit`, the
-/// window an exit included at `next` leaves: max(next + W_act, lastReactHeight + C_react) .. next + U (the `Exit` arm is
-/// defensive code for a bounded-nonce devnet: on the v3 network a status-1 record is never `Exit`); for
-/// `Wait`/`Reactivate`, the record's own window. None without a clock (the review keeps the W_act/U wording) and for every
-/// other step.
+/// V3 (`clock` Some): the reactivation window [opens, closes) the rejoin review states. For `Exit`, the window an exit
+/// included at `next` leaves: max(next + W_act, lastReactHeight + C_react) .. next + U (the `Exit` arm is defensive code:
+/// on an admitted node a status-1 record is never `Exit`); for `Wait`/`Reactivate`, the record's own window. None without
+/// a clock (no head state to read it from: the review keeps the W_act/U wording) and for every other step.
 pub fn v3_rejoin_window(step:RejoinStep,next:u64,w_act:u64,u:u64,clock:Option<ReactClock>)->Option<(u64,u64)>{
     let c=clock?;
     match step{
@@ -234,9 +231,6 @@ fn step_json(step:RejoinStep)->Value{
         RejoinStep::Cooldown{exit_from}=>json!({"step":"cooldown","exitFrom":exit_from}),
     }
 }
-/// PAY-02 judges a reward address on the pre-transaction state: it must have sent a transaction
-/// (or hold code). The wallet registers with itself as the reward address, so the included nonce decides.
-fn registration_reward_durable(included_nonce:Option<u64>)->bool{included_nonce.is_some_and(|n|n>0)}
 fn selector(signature:&str)->Bytes{keccak256(signature)[..4].to_vec().into()}
 /// FN-2b C4 registerReplacing(reward, victim): the account registers with itself as the reward address, as
 /// quote_register does.
@@ -244,7 +238,7 @@ pub fn replacing_calldata(reward:Address,victim:Address)->Bytes{
     let mut d=keccak256("registerReplacing(address,address)")[..4].to_vec();d.extend_from_slice(reward.into_word().as_slice());d.extend_from_slice(victim.into_word().as_slice());d.into()
 }
 /// FN-2b C4: the members the registry could remove as inactive at height `next` on `v` (the state of block next - 1), in
-/// ActList order: none unless the program set is v3 and the set is full (active = M_max) with more than M_min active;
+/// ActList order: none unless the set is full (active = M_max) with more than M_min active;
 /// otherwise each live active record whose last credited share and (re)activation are both at least Theta_inact blocks
 /// before `next` (next >= max(lastShare, graceStart) + Theta_inact), where `credited` are the owners of template next - 1
 /// (block next - 1's header shares and winner), whose lastShare block next's phase 0 raises to next - 1 before any
@@ -252,7 +246,6 @@ pub fn replacing_calldata(reward:Address,victim:Address)->Bytes{
 /// restatement of PoColSystemV3.sol `removal` for listing; the wallet's quote asks the registry's own removalStatus view
 /// for the member it picks.
 pub fn removable_members(chain:&crate::chain::Chain,v:&dyn View,next:u64,credited:&[Address])->Vec<Address>{
-    if chain.spec.programs()!=apply::ProgramSet::V3{return vec![]}
     let cp=chain.spec.cp();let active=apply::active_list(v);let n=active.len() as u64;
     if n<u64::from(cp.M_max)||n<=u64::from(cp.M_min){return vec![]}
     active.into_iter().filter(|id|apply::miner_record(v,*id).is_some_and(|r|{
@@ -266,7 +259,7 @@ pub fn removable_json(chain:&crate::chain::Chain)->Result<Value,String>{
     let head=chain.head();let state=chain.view_of(&head.hash).ok_or("The head state is not available")?;
     let active=apply::active_list(state.v()).len() as u64;
     let list=removable_members(chain,state.v(),head.height+1,&head_credited(chain));
-    Ok(json!({"height":head.height+1,"active":active,"seats":chain.spec.cp().M_max,"full":chain.spec.programs()==apply::ProgramSet::V3&&active>=u64::from(chain.spec.cp().M_max),
+    Ok(json!({"height":head.height+1,"active":active,"seats":chain.spec.cp().M_max,"full":active>=u64::from(chain.spec.cp().M_max),
         "removable":list.iter().map(|a|format!("{a:#x}")).collect::<Vec<_>>()}))
 }
 /// FN-2b C4: the registry's removalStatus(victim) view, run on `state` (a head state) at height `next` with timestamp `ts`,
@@ -307,7 +300,6 @@ pub fn pending_victims<'b>(chain:&crate::chain::Chain,raw:impl Iterator<Item=&'b
 }
 /// `replace_plan` with the members in `exclude` (victims of pending replacements, `pending_victims`) left out of the draw.
 pub fn replace_plan_excluding(chain:&crate::chain::Chain,me:Address,value:U256,exclude:&[Address],pick:impl FnOnce(usize)->usize)->Result<Option<ReplacePlan>,String>{
-    if chain.spec.programs()!=apply::ProgramSet::V3{return Ok(None)}
     let head=chain.head();let cp=chain.spec.cp();
     let state=chain.view_of(&head.hash).ok_or("The head state is not available")?;
     let active=apply::active_list(state.v()).len() as u64;
@@ -333,7 +325,7 @@ impl ReplacePlan{
             "note":"Checked against the current head. The registry judges the member again when the transaction is included; if it has mined or another newcomer replaced it first, the transaction reverts and only the fee is spent."})
     }
 }
-/// The status flags at a full set (v3 program set only): whether the seats are all taken, how many members are removable
+/// The status flags at a full set: whether the seats are all taken, how many members are removable
 /// at the next block, and whether a newcomer would register by replacement.
 /// The count scans the active list (up to M_max records), so it is made only for an identity without a record, the one
 /// that could register (by replacement); a registered identity gets 0.
@@ -344,7 +336,7 @@ pub fn seat_flags(chain:&crate::chain::Chain,v:&dyn View,next:u64,registered:boo
 }
 /// A uniform index below n from the system's secure randomness (the replacement victim).
 fn random_index(n:usize)->usize{let mut b=[0u8;8];if getrandom::getrandom(&mut b).is_err(){return 0}(u64::from_le_bytes(b)%(n.max(1) as u64)) as usize}
-/// V3 (the v3 program set): why the registry's topUp() would refuse this record (BadState), in the wallet's words; None
+/// V3: why the registry's topUp() would refuse this record (BadState), in the wallet's words; None
 /// for a live, active ACCRUING record (topUp's own condition; the v3 set has no deadline).
 pub fn v3_top_up_refusal(record:Option<&apply::MinerRecord>,full:U256)->Option<String>{
     let Some(r)=record.filter(|r|!r.tomb&&matches!(r.bond_state,1|4)) else{return Some("Top-up needs a registry record that is still earning its bond. Register first (the bond can start at 0 PCOL and is earned from your mining rewards).".into())};
@@ -352,7 +344,7 @@ pub fn v3_top_up_refusal(record:Option<&apply::MinerRecord>,full:U256)->Option<S
     if r.status!=1{return Some("This record has exited (by its own exit, or replaced at a full set), and the registry accepts a top-up only from an active record. Its earned bond is refunded at its due height; reactivate it first to keep filling it.".into())}
     None
 }
-/// V3-08 (the v3 program set): whether `raw` (pooled transactions) holds a maintenance operation of `me` (topUp() or
+/// V3-08: whether `raw` (pooled transactions) holds a maintenance operation of `me` (topUp() or
 /// setRewardAddress(address) sent to the Registry). The registry takes one per identity per block (a second in the same
 /// block reverts RegOpsLimit, and a top-up after the bond became HELD reverts BadState), so the wallet offers no top-up
 /// while one is pending: a second would be included as a status-0 receipt and cost its fee.
@@ -363,13 +355,12 @@ pub fn pending_maintenance<'b>(chain:&crate::chain::Chain,me:Address,raw:impl It
         e.sender()==me&&t.transact_to==revm::primitives::TxKind::Call(apply::program_address(0))&&t.data.len()>=4&&(t.data[..4]==top[..]||t.data[..4]==reward[..])
     })
 }
-/// V3 (the v3 program set): the status fields the wallet adds for `id` with registry record `record` at the next block
+/// V3: the status fields the wallet adds for `id` with registry record `record` at the next block
 /// `next`: bondRemaining (the bond an active ACCRUING record still earns from its rewards or a top-up, no deadline; null
 /// for an exited record, which earns nothing more: its bond is refunded at dueHeight unless it reactivates, and its rejoin
-/// step says when) and reactivation (the V3-09 clock: lastAt, cooldownBlocks and allowedFrom while it is still ahead). None on
-/// the other program sets.
+/// step says when) and reactivation (the V3-09 clock: lastAt, cooldownBlocks and allowedFrom while it is still ahead).
+/// Always Some.
 pub fn v3_status(chain:&crate::chain::Chain,v:&dyn View,id:Address,record:Option<&apply::MinerRecord>,next:u64)->Option<Value>{
-    if chain.spec.programs()!=apply::ProgramSet::V3{return None}
     let target=crate::chain::from_fixed_lp4(&chain.spec.cp().B_reg);
     let clock=reactivation_clock(chain,v,id);
     Some(json!({
@@ -409,7 +400,7 @@ fn decide(step:RejoinStep,plan:&Rejoin,head:u64,exit:Option<&str>,last:Option<&s
         RejoinStep::ClockMissed{refund,allowed_from}=>Action::Stop(clock_missed_message(refund,allowed_from)),
         // The set filled while the plan waited (or the member was replaced): reactivate() would revert, so stop.
         RejoinStep::Full{refund}=>Action::Stop(full_message(refund)),
-        // V3-09 (a bounded-nonce devnet only): the identity reactivated recently (an exit now would leave too short a
+        // V3-09 (defensive: never on an admitted node): the identity reactivated recently (an exit now would leave too short a
         // window): no plan step, say when to review.
         RejoinStep::Cooldown{exit_from}=>Action::Stop(format!("This identity reactivated recently; review Rejoin mining again from block {exit_from}.")),
         RejoinStep::Unavailable=>Action::Stop(if has_record{"The registry record can no longer be reactivated."}else{"The registry record was removed and its bond refunded. Register again to mine."}.into()),
@@ -467,9 +458,9 @@ impl<'a> Wallet<'a>{
         let account=state.as_ref().and_then(|s|s.v().account(&addr));
         let balance=account.map(|a|a.info.balance).unwrap_or_default();
         let (record,member,step)=self.rejoin_view(n);
-        // A HELD or (earn-in) ACCRUING active record mines: probation keeps a nonce range.
+        // A HELD or ACCRUING active record mines: probation keeps a nonce range.
         let eligible=record.as_ref().is_some_and(|r|r.status==1&&!r.tomb&&matches!(r.bond_state,1|4));
-        let earn=n.chain.spec.earnin_rules();let target=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+        let target=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
         let probation=record.as_ref().filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::ACCRUING);
         let mut activity=self.activity.clone();
         for item in &mut activity{
@@ -496,7 +487,7 @@ impl<'a> Wallet<'a>{
             (_,RejoinStep::Missed)=>"Exited — the bond is being refunded; register again to mine".to_owned(),
             (_,RejoinStep::ClockMissed{refund,allowed_from})=>format!("Exited — this identity reactivated recently (next reactivation allowed from block {allowed_from}), so it cannot reactivate before the bond refund at block {refund}; register again after that"),
             (_,RejoinStep::Full{refund})=>format!("Exited — all seats are taken, so this account cannot reactivate; the bond is refunded at block {refund}, then register again"),
-            // V3-09 (the v3 programs on a bounded-nonce devnet only): one reactivation per C_react blocks.
+            // V3-09 (defensive: never on an admitted node): one reactivation per C_react blocks.
             (_,RejoinStep::Cooldown{exit_from})=>format!("Inactive — out of the active set. This identity reactivated recently (one reactivation per {} blocks): Rejoin mining opens at block {exit_from}",n.chain.spec.cp().C_react),
             (true,_)=>"Enabled — awaiting eligible membership".to_owned(),
             (false,_)=>"Off — wallet keeps validating".to_owned(),
@@ -505,16 +496,14 @@ impl<'a> Wallet<'a>{
         rejoin["inProgress"]=json!(self.rejoin.is_some());rejoin["attempts"]=json!(self.rejoin.as_ref().map(|p|p.attempts).unwrap_or(0));
         let registry=match &record{None=>"none",Some(r) if r.tomb=>"removed",Some(r) if !matches!(r.bond_state,1|4)=>"closed",
             Some(r) if r.status==1&&r.bond_state==apply::SystemPrograms::ACCRUING=>"probation",Some(r) if r.status==1=>"member",Some(r) if r.status==2=>"exited",Some(_)=>"closed"};
-        // No deadline: the V3 set (the only bundled one) has none (FN-2b C3), so the bond fills from rewards without one.
-        let ends:Option<u64>=None;
-        let mining_state=match (probation,ends){
-            (Some(r),Some(end)) if self.rejoin.is_none()=>format!("{mining_state} · Probation: bond {} of {} PCOL, filled from your rewards (by block {end})",coins(r.bond),coins(target)),
-            (Some(r),None) if self.rejoin.is_none()=>format!("{mining_state} · Bond {} of {} PCOL, earned from your mining rewards (no deadline)",coins(r.bond),coins(target)),
+        // No deadline: the V3 set has none (FN-2b C3), so the bond fills from rewards without one.
+        let mining_state=match probation{
+            Some(r) if self.rejoin.is_none()=>format!("{mining_state} · Bond {} of {} PCOL, earned from your mining rewards (no deadline)",coins(r.bond),coins(target)),
             _=>mining_state,
         };
         let (seats_full,removable,replacing)=state.as_ref().map(|s|seat_flags(&n.chain,s.v(),head.height+1,record.is_some())).unwrap_or((false,0,false));
         let diag=n.incompatible_json();
-        // V3 (the v3 program set): the bond still to earn and the reactivation clock.
+        // V3: the bond still to earn and the reactivation clock.
         let v3=state.as_ref().and_then(|s|v3_status(&n.chain,s.v(),addr,record.as_ref(),head.height.saturating_add(1)));
         let mut status=json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
@@ -523,11 +512,10 @@ impl<'a> Wallet<'a>{
             "rejoinAvailable":self.rejoin.is_none()&&matches!(step,RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}),
             "miningState":mining_state,
             "blocksMined":n.stats.mined,"bond":coins(target),
-            "earnIn":earn,"bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),"probationEndsAt":ends,
+            "earnIn":true,"bondHeld":record.as_ref().map(|r|coins(r.bond)),"bondTarget":coins(target),"probationEndsAt":null,
             // V3-08: hidden while a top-up or reward-address change of this account is pending (QuoteTopUp refuses then).
-            "topUpAvailable":earn&&probation.is_some()&&ends.map_or(true,|e|head.height+1<e)
-                &&!(n.chain.spec.programs()==apply::ProgramSet::V3&&pending_maintenance(&n.chain,addr,n.pool.sender_raw(addr))),
-            // FN-2b C4 (the v3 program set only): all seats taken, the members removable at the next block, and whether
+            "topUpAvailable":probation.is_some()&&!pending_maintenance(&n.chain,addr,n.pool.sender_raw(addr)),
+            // FN-2b C4: all seats taken, the members removable at the next block, and whether
             // quote_register would register this identity by replacing one of them.
             "seatsFull":seats_full,"removableSeats":removable,"registerReplaces":replacing,
             "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true,
@@ -564,21 +552,14 @@ impl<'a> Wallet<'a>{
             },
             Command::QuoteRegister{bond}=>{
                 if self.status(n)["registered"].as_bool().unwrap_or(false){return Err("This identity already has a registry record".into())}
-                let earn=n.chain.spec.earnin_rules();let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
+                let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
                 let value=match bond.as_deref(){
-                    None=>if earn{U256::ZERO}else{full},
-                    Some("0")=>U256::ZERO,
+                    None|Some("0")=>U256::ZERO,
                     Some(text)=>amount(text)?,
                 };
                 if value>full{return Err(format!("The bond is at most {} PCOL",coins(full)))}
-                if !earn&&value!=full{return Err(format!("This network takes the full {} PCOL bond",coins(full)))}
-                // PAY-02: the reward address (this identity) must have nonce > 0 in the state before the
-                // registration, or register(address) reverts with RewardNotDurable and only costs the fee.
-                // The earn-in Registry accepts a self reward without that probe (R9).
-                if !earn&&!registration_reward_durable(n.chain.view_of(&n.chain.head().hash).and_then(|s|s.v().account(&self.key.address())).map(|a|a.info.nonce)){
-                    return Err("This identity has not sent a transaction yet, and the registry pays rewards only to an account that has. Send one transfer first (a small amount, even to your own address), wait for it to be included, then register.".into())
-                }
-                // FN-2b C4: at a full v3 set, registerReplacing into the seat of a removable member chosen at random.
+                // The v3 Registry accepts a self reward address without a prior transaction (R9).
+                // FN-2b C4: at a full set, registerReplacing into the seat of a removable member chosen at random.
                 let pending=pending_victims(&n.chain,n.pool.txs.iter().map(|(_,raw)|raw.as_slice()));
                 if let Some(plan)=replace_plan_excluding(&n.chain,self.key.address(),value,&pending,random_index)?{
                     let mut q=self.quote(n,"registration",apply::program_address(0),value,replacing_calldata(self.key.address(),plan.victim),REPLACE_GAS)?;
@@ -587,32 +568,28 @@ impl<'a> Wallet<'a>{
                     return Ok(q)
                 }
                 let mut data=keccak256("register(address)")[..4].to_vec();data.extend_from_slice(self.key.address().into_word().as_slice());
-                let mut q=self.quote(n,"registration",apply::program_address(0),value,data.into(),if earn{EARNIN_REGISTER_GAS}else{REGISTRY_GAS})?;
+                let mut q=self.quote(n,"registration",apply::program_address(0),value,data.into(),EARNIN_REGISTER_GAS)?;
                 q["bondTarget"]=json!(coins(full));q["probation"]=json!(value<full);
                 Ok(q)
             },
             Command::QuoteTopUp{amount:requested}=>{
-                if !n.chain.spec.earnin_rules(){return Err("Bond top-up exists only on the earn-in network".into())}
                 let (record,_,_)=self.rejoin_view(n);let full=crate::chain::from_fixed_lp4(&n.chain.spec.cp().B_reg);
                 // V3: the registry's topUp takes value only from a live, active ACCRUING record; say which of those the
                 // record is missing.
-                let v3=n.chain.spec.programs()==apply::ProgramSet::V3;
-                if v3{if let Some(why)=v3_top_up_refusal(record.as_ref(),full){return Err(why)}}
+                if let Some(why)=v3_top_up_refusal(record.as_ref(),full){return Err(why)}
                 // V3-08: one maintenance operation per identity per block; a second top-up behind a pending one reverts.
-                if v3&&pending_maintenance(&n.chain,self.key.address(),n.pool.sender_raw(self.key.address())){
+                if pending_maintenance(&n.chain,self.key.address(),n.pool.sender_raw(self.key.address())){
                     return Err("A bond top-up or reward-address change from this account is still pending, and the registry takes one per block. Wait until it is included, then review the top-up again.".into())
                 }
                 let r=record.filter(|r|r.status==1&&!r.tomb&&r.bond_state==apply::SystemPrograms::ACCRUING).ok_or("Top-up needs an active probation record")?;
                 let remaining=full-r.bond;
                 let value=match requested.as_deref(){None=>remaining,Some(text)=>amount(text)?};
                 if value>remaining{return Err(format!("At most {} PCOL remains to fill the bond",coins(remaining)))}
-                let mut q=self.quote(n,"topup",apply::program_address(0),value,keccak256("topUp()")[..4].to_vec().into(),REGISTRY_GAS)?;
+                let mut q=self.quote(n,"topup",apply::program_address(0),value,keccak256("topUp()")[..4].to_vec().into(),REGISTRY_CALL_GAS)?;
                 q["bondTarget"]=json!(coins(full));q["bondHeld"]=json!(coins(r.bond));
-                if v3{
-                    // V3-08: topUp is a maintenance operation, at most one per identity per block.
-                    q["bondRemaining"]=json!(coins(remaining));
-                    q["note"]=json!(format!("The bond becomes HELD once it reaches {} PCOL; the rest of this top-up returns to you if rewards fill part of it first. The registry takes one bond top-up or reward-address change per identity per block, and eight such operations per block across the network (REG_MAINT_MAX): if they are used up before this one, the top-up reverts and only the fee is spent.",coins(full)));
-                }
+                // V3-08: topUp is a maintenance operation, at most one per identity per block.
+                q["bondRemaining"]=json!(coins(remaining));
+                q["note"]=json!(format!("The bond becomes HELD once it reaches {} PCOL; the rest of this top-up returns to you if rewards fill part of it first. The registry takes one bond top-up or reward-address change per identity per block, and eight such operations per block across the network (REG_MAINT_MAX): if they are used up before this one, the top-up reverts and only the fee is spent.",coins(full)));
                 Ok(q)
             },
             Command::QuoteRejoin=>self.quote_rejoin(n),
@@ -662,10 +639,10 @@ impl<'a> Wallet<'a>{
         };
         let fee=self.fee(n)?;
         let count=u64::from(REACTIVATE_ATTEMPTS)+u64::from(tx_data.is_some());
-        let cost=fee.max_fee.checked_mul(U256::from(REGISTRY_GAS*count)).ok_or("Fee overflow")?;
+        let cost=fee.max_fee.checked_mul(U256::from(REGISTRY_CALL_GAS*count)).ok_or("Fee overflow")?;
         if cost>fee.balance{return Err("Insufficient available balance for the maximum fees".into())}
         let to=apply::program_address(0);
-        let tx=tx_data.map(|data|Tx{chain_id:n.chain.spec.chain_id(),nonce:fee.nonce,max_priority:fee.priority,max_fee:fee.max_fee,gas:REGISTRY_GAS,to:Some(to),value:U256::ZERO,data});
+        let tx=tx_data.map(|data|Tx{chain_id:n.chain.spec.chain_id(),nonce:fee.nonce,max_priority:fee.priority,max_fee:fee.max_fee,gas:REGISTRY_CALL_GAS,to:Some(to),value:U256::ZERO,data});
         let mut steps=Vec::new();
         let head=n.chain.head();let next=head.height.saturating_add(1);
         let clock=n.chain.view_of(&head.hash).and_then(|st|reactivation_clock(&n.chain,st.v(),self.key.address()));
@@ -680,12 +657,10 @@ impl<'a> Wallet<'a>{
             (false,Some((opens,closes)))=>steps.push(format!("The wallet signs reactivate() from block {} (up to {REACTIVATE_ATTEMPTS} times); it must be included before block {closes}.",opens.max(next))),
             (false,None)=>steps.push(format!("The wallet signs reactivate() when the window opens, up to {REACTIVATE_ATTEMPTS} times.")),
         }
-        if n.chain.spec.programs()==apply::ProgramSet::V3{
-            // V3-09: the reactivation starts the record's C_react clock. FN-2b C4: an exit frees a seat that a newcomer may
-            // take; reactivate() reverts (Capacity) while every seat is taken, and the plan then stops.
-            steps.push(format!("A reactivation starts a {}-block cooldown: this identity cannot reactivate again before it ends.",cp.C_react));
-            if tx.is_some(){steps.push("While this account is out, a newcomer may take the free seat. If every seat is taken when the window opens, reactivation is refused: the wallet stops, the bond is refunded at the end of the window, and you register again.".to_owned());}
-        }
+        // V3-09: the reactivation starts the record's C_react clock. FN-2b C4: an exit frees a seat that a newcomer may
+        // take; reactivate() reverts (Capacity) while every seat is taken, and the plan then stops.
+        steps.push(format!("A reactivation starts a {}-block cooldown: this identity cannot reactivate again before it ends.",cp.C_react));
+        if tx.is_some(){steps.push("While this account is out, a newcomer may take the free seat. If every seat is taken when the window opens, reactivation is refused: the wallet stops, the bond is refunded at the end of the window, and you register again.".to_owned());}
         steps.push("Mining turns on once this account is back in the active set. Keep the wallet open until then.".to_owned());
         steps.push(format!("If the window passes, the registry refunds the bond after {u} blocks and you register again."));
         let id=quote_id()?;
@@ -710,7 +685,7 @@ impl<'a> Wallet<'a>{
             Action::Reactivate=>{
                 plan.tried_at=Some(head);plan.attempts+=1;
                 let nonce=n.pool_view().account(&self.key.address()).map(|a|a.info.nonce).unwrap_or(0);
-                let tx=Tx{chain_id:n.chain.spec.chain_id(),nonce,max_priority:plan.priority,max_fee:plan.max_fee,gas:REGISTRY_GAS,to:Some(apply::program_address(0)),value:U256::ZERO,data:reactivate_calldata()};
+                let tx=Tx{chain_id:n.chain.spec.chain_id(),nonce,max_priority:plan.priority,max_fee:plan.max_fee,gas:REGISTRY_CALL_GAS,to:Some(apply::program_address(0)),value:U256::ZERO,data:reactivate_calldata()};
                 let event=match n.submit_tx(tx.sign_1559(&self.key),true){
                     Ok(hash)=>{plan.last=Some(hash);self.record_activity(hash,"reactivation",&tx);
                         json!({"type":"rejoin","state":"Reactivating","hash":format!("{hash:#x}"),"attempt":plan.attempts,"message":format!("Reactivation submitted (attempt {} of {REACTIVATE_ATTEMPTS}).",plan.attempts)})}
@@ -802,20 +777,20 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
     #[test] fn rejoin_step_follows_the_registry_window(){
         // Mainnet: W_act=32, U=40. Exit at 100 → reactivate() may be included at 132..=139; the sweep refunds at 140.
         // No probation deadline (the V3 set has none, FN-2b C3).
-        let w=32;let t=None;
-        assert_eq!(rejoin_step(None,200,false,w,t),RejoinStep::Unavailable);
-        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,true,w,t),RejoinStep::Active);
-        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,false,w,t),RejoinStep::Exit);
+        let w=32;
+        assert_eq!(rejoin_step(None,200,false,w),RejoinStep::Unavailable);
+        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,true,w),RejoinStep::Active);
+        assert_eq!(rejoin_step(Some(&record(1,0,0)),200,false,w),RejoinStep::Exit);
         let exited=record(2,100,140);
-        assert_eq!(rejoin_step(Some(&exited),101,false,w,t),RejoinStep::Wait{opens:132,closes:140});
-        assert_eq!(rejoin_step(Some(&exited),131,false,w,t),RejoinStep::Wait{opens:132,closes:140});
-        assert_eq!(rejoin_step(Some(&exited),132,false,w,t),RejoinStep::Reactivate{closes:140});
-        assert_eq!(rejoin_step(Some(&exited),139,false,w,t),RejoinStep::Reactivate{closes:140});
-        assert_eq!(rejoin_step(Some(&exited),140,false,w,t),RejoinStep::Missed);
+        assert_eq!(rejoin_step(Some(&exited),101,false,w),RejoinStep::Wait{opens:132,closes:140});
+        assert_eq!(rejoin_step(Some(&exited),131,false,w),RejoinStep::Wait{opens:132,closes:140});
+        assert_eq!(rejoin_step(Some(&exited),132,false,w),RejoinStep::Reactivate{closes:140});
+        assert_eq!(rejoin_step(Some(&exited),139,false,w),RejoinStep::Reactivate{closes:140});
+        assert_eq!(rejoin_step(Some(&exited),140,false,w),RejoinStep::Missed);
         // An exited record is never "active", even on the empty-set fallback that lists every live member.
-        assert_eq!(rejoin_step(Some(&exited),135,true,w,t),RejoinStep::Reactivate{closes:140});
+        assert_eq!(rejoin_step(Some(&exited),135,true,w),RejoinStep::Reactivate{closes:140});
         for r in [apply::MinerRecord{tomb:true,..record(1,0,0)},apply::MinerRecord{bond_state:2,..record(2,100,140)},apply::MinerRecord{bond_state:3,..record(1,0,0)},record(3,0,0)]{
-            assert_eq!(rejoin_step(Some(&r),135,false,w,t),RejoinStep::Unavailable,"{r:?}");
+            assert_eq!(rejoin_step(Some(&r),135,false,w),RejoinStep::Unavailable,"{r:?}");
         }
     }
     fn plan()->Rejoin{Rejoin{exit:Some((B256::repeat_byte(1),50)),max_fee:U256::from(3u64),priority:U256::from(1u64),attempts:0,last:None,tried_at:None}}
@@ -855,11 +830,6 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         for s in [wait,react,RejoinStep::Exit]{assert_eq!(rejoin_refusal(s),None);}
         assert_eq!(step_json(RejoinStep::Full{refund:140}),json!({"step":"full","refundAt":140}));
     }
-    #[test] fn registration_needs_a_prior_transaction(){
-        assert!(!registration_reward_durable(None));
-        assert!(!registration_reward_durable(Some(0)));
-        assert!(registration_reward_durable(Some(1)));
-    }
     #[test] fn rejoin_calls_match_the_registry_selectors(){
         assert_eq!(exit_calldata().as_ref(),&keccak256("deregister()")[..4]);
         assert_eq!(reactivate_calldata().as_ref(),&keccak256("reactivate()")[..4]);
@@ -869,10 +839,10 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         // usual window and may exit at any height. (The retired earn-in set's T_PROB deadline went with it in phase 6a.)
         let t=60_480u64;
         let mut r=record(2,t+100,t+140);r.bond_state=apply::SystemPrograms::ACCRUING;r.registered_at=135;
-        assert_eq!(rejoin_step(Some(&r),t+139,false,32,None),RejoinStep::Reactivate{closes:t+140},"no deadline on the v3 set");
+        assert_eq!(rejoin_step(Some(&r),t+139,false,32),RejoinStep::Reactivate{closes:t+140},"no deadline on the v3 set");
         let mut active=record(1,0,0);active.bond_state=apply::SystemPrograms::ACCRUING;active.registered_at=200;
-        assert_eq!(rejoin_step(Some(&active),t+10_000_000,false,32,None),RejoinStep::Exit);
-        assert_eq!(rejoin_step(Some(&active),t+500,true,32,None),RejoinStep::Active);
+        assert_eq!(rejoin_step(Some(&active),t+10_000_000,false,32),RejoinStep::Exit);
+        assert_eq!(rejoin_step(Some(&active),t+500,true,32),RejoinStep::Active);
     }
     /// FN-2b C4: the replacement calls the selector the v3 MinerRegistry dispatches, with the reward and the victim words,
     /// and the random index stays below its bound.
@@ -889,38 +859,38 @@ pub fn stdio(home:&Home,stop:impl Fn()->bool)->Result<(),String>{
         let w=32;
         let exited=record(2,100,140);let active=record(1,0,0);
         for (r,next,member) in [(&exited,101,false),(&exited,132,false),(&exited,140,false),(&active,200,false),(&active,200,true),(&exited,135,true)]{
-            assert_eq!(rejoin_step_with(Some(r),next,member,w,None,None),rejoin_step(Some(r),next,member,w,None),"no clock: the clock-free rule");
-            assert_eq!(rejoin_step_with(Some(r),next,member,w,None,react(0,40,40)),rejoin_step(Some(r),next,member,w,None),"a record that never reactivated");
+            assert_eq!(rejoin_step_with(Some(r),next,member,w,None),rejoin_step(Some(r),next,member,w),"no clock: the clock-free rule");
+            assert_eq!(rejoin_step_with(Some(r),next,member,w,react(0,40,40)),rejoin_step(Some(r),next,member,w),"a record that never reactivated");
         }
         // Reactivated at 95 with C_react 40: allowed from 135, inside the [132, 140) window.
-        assert_eq!(rejoin_step_with(Some(&exited),133,false,w,None,react(95,40,40)),RejoinStep::Wait{opens:135,closes:140});
-        assert_eq!(rejoin_step_with(Some(&exited),135,false,w,None,react(95,40,40)),RejoinStep::Reactivate{closes:140});
-        assert_eq!(rejoin_step_with(Some(&exited),140,false,w,None,react(95,40,40)),RejoinStep::Missed);
+        assert_eq!(rejoin_step_with(Some(&exited),133,false,w,react(95,40,40)),RejoinStep::Wait{opens:135,closes:140});
+        assert_eq!(rejoin_step_with(Some(&exited),135,false,w,react(95,40,40)),RejoinStep::Reactivate{closes:140});
+        assert_eq!(rejoin_step_with(Some(&exited),140,false,w,react(95,40,40)),RejoinStep::Missed);
         // Reactivated at 90 with C_react 200: the clock opens at 290, past the sweep at 140, so the window is gone now.
-        assert_eq!(rejoin_step(Some(&exited),101,false,w,None),RejoinStep::Wait{opens:132,closes:140},"the clock-free rule would wait");
+        assert_eq!(rejoin_step(Some(&exited),101,false,w),RejoinStep::Wait{opens:132,closes:140},"the clock-free rule would wait");
         let shut=RejoinStep::ClockMissed{refund:140,allowed_from:290};
-        assert_eq!(rejoin_step_with(Some(&exited),101,false,w,None,react(90,200,40)),shut,"the v3 clock: missed at once, with its cause");
-        assert_eq!(rejoin_step_with(Some(&exited),140,false,w,None,react(90,200,40)),RejoinStep::Missed,"at the refund the window has passed");
+        assert_eq!(rejoin_step_with(Some(&exited),101,false,w,react(90,200,40)),shut,"the v3 clock: missed at once, with its cause");
+        assert_eq!(rejoin_step_with(Some(&exited),140,false,w,react(90,200,40)),RejoinStep::Missed,"at the refund the window has passed");
         assert_eq!(step_json(shut),json!({"step":"missed","cause":"cooldown","refundAt":140,"allowedFrom":290}));
         assert!(rejoin_refusal(shut).is_some_and(|m|m.contains("reactivated recently")&&m.contains("block 290")&&m.contains("block 140")&&!m.contains("has passed")),"the cause is the clock");
         assert!(matches!(decide(shut,&plan(),101,None,None,true),Action::Stop(m) if m.contains("block 290")&&!m.contains("window passed")));
         assert_eq!(at_full_set(shut,true),shut);
-        // A status-1 member outside A_next (a bounded-nonce devnet only: on the v3 network every live member is in A_next)
+        // A status-1 member outside A_next (a pure-function input: on an admitted node every live member is in A_next)
         // that reactivated at 100 (C_react 200, U 40): an exit is offered from 264, when [max(e + 32, 300), e + 40) holds
         // REACTIVATE_ATTEMPTS + 1 = 4 blocks (U - W_act = 8 is longer).
         assert_eq!(exit_window_need(w,40),4);assert_eq!(exit_window_need(32,34),2,"the R8 boundary: the whole window");assert_eq!(exit_window_need(32,35),3);
-        assert_eq!(rejoin_step_with(Some(&active),200,false,w,None,react(100,200,40)),RejoinStep::Cooldown{exit_from:264});
-        assert_eq!(rejoin_step_with(Some(&active),263,false,w,None,react(100,200,40)),RejoinStep::Cooldown{exit_from:264});
-        assert_eq!(rejoin_step_with(Some(&active),264,false,w,None,react(100,200,40)),RejoinStep::Exit);
+        assert_eq!(rejoin_step_with(Some(&active),200,false,w,react(100,200,40)),RejoinStep::Cooldown{exit_from:264});
+        assert_eq!(rejoin_step_with(Some(&active),263,false,w,react(100,200,40)),RejoinStep::Cooldown{exit_from:264});
+        assert_eq!(rejoin_step_with(Some(&active),264,false,w,react(100,200,40)),RejoinStep::Exit);
         assert_eq!(v3_rejoin_window(RejoinStep::Exit,264,w,40,react(100,200,40)),Some((300,304)),"the first exit offered leaves 4 blocks");
         // U - W_act = 2 (the R8 boundary): the whole window is needed, as without the clock.
-        assert_eq!(rejoin_step_with(Some(&active),267,false,32,None,react(100,200,34)),RejoinStep::Cooldown{exit_from:268});
-        assert_eq!(rejoin_step_with(Some(&active),268,false,32,None,react(100,200,34)),RejoinStep::Exit);
-        assert_eq!(rejoin_step_with(Some(&active),200,true,w,None,react(100,200,40)),RejoinStep::Active);
+        assert_eq!(rejoin_step_with(Some(&active),267,false,32,react(100,200,34)),RejoinStep::Cooldown{exit_from:268});
+        assert_eq!(rejoin_step_with(Some(&active),268,false,32,react(100,200,34)),RejoinStep::Exit);
+        assert_eq!(rejoin_step_with(Some(&active),200,true,w,react(100,200,40)),RejoinStep::Active);
         // An ACCRUING record on the v3 set (no deadline) follows the same clock.
         let mut p=record(1,0,0);p.bond_state=apply::SystemPrograms::ACCRUING;
-        assert_eq!(rejoin_step_with(Some(&p),200,false,w,None,react(100,200,40)),RejoinStep::Cooldown{exit_from:264});
-        assert_eq!(rejoin_step_with(Some(&p),10_000_000,false,w,None,react(100,200,40)),RejoinStep::Exit,"no probation deadline on the v3 set");
+        assert_eq!(rejoin_step_with(Some(&p),200,false,w,react(100,200,40)),RejoinStep::Cooldown{exit_from:264});
+        assert_eq!(rejoin_step_with(Some(&p),10_000_000,false,w,react(100,200,40)),RejoinStep::Exit,"no probation deadline on the v3 set");
         assert_eq!(step_json(RejoinStep::Cooldown{exit_from:264}),json!({"step":"cooldown","exitFrom":264}));
         // A cooldown is no plan step: a running plan stops and says when to review again; Rejoin mining is refused.
         assert!(matches!(decide(RejoinStep::Cooldown{exit_from:264},&plan(),200,None,None,true),Action::Stop(m) if m.contains("264")));

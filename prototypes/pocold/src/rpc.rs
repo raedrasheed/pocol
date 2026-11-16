@@ -83,10 +83,10 @@ pub struct Limits{
     pub min_send_rate:u64,pub grace:Duration,pub enforce_slack:Duration,pub timer_eps:Duration,
     /// BATCH_WALL (network.md:282): from read-end to sendDone; reaching it closes the connection.
     pub batch_wall:Duration,
-    /// V3 receipt lane (network.md (B)): under a profile that can activate v3 (`Node::open` sets it
-    /// from the `first_imports` domain, spec.v3_active(MAX)), one transaction may emit up to 4,368
-    /// logs / 256 KiB, a receipt above LIGHT_RESP_MAX. eth_getTransactionReceipt is then heavy: heavy
-    /// lane, reservation, deadline and RESP_MAX answer limit. False (the legacy light row) otherwise.
+    /// V3 receipt lane (network.md (B)): under the v3 rules (`Node::open` sets it, as every admitted
+    /// profile is v3), one transaction may emit up to 4,368 logs / 256 KiB, a receipt above
+    /// LIGHT_RESP_MAX. eth_getTransactionReceipt is then heavy: heavy lane, reservation, deadline and
+    /// RESP_MAX answer limit. False (the legacy light row) only in `Limits::default`, which tests use.
     pub heavy_receipts:bool,
 }
 impl Default for Limits{
@@ -1096,8 +1096,9 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
                 "protocolVersion":crate::identity::PROTOCOL_VERSION,"compatibilitySha256":crate::identity::COMPATIBILITY_HEX,
                 // Deprecated alias of consensusIdentity (VA-SPEC §2.1), kept for existing readers.
                 "consensusCompatibilitySha256":n.consensus.hex(),
-                "effectiveNonceMode":if sp.effective_nonce_mode(n.chain.head().height)==crate::assignment::NonceMode::Unbounded{1}else{0},
-                "nextBlockNonceMode":if sp.effective_nonce_mode(n.chain.head().height.saturating_add(1))==crate::assignment::NonceMode::Unbounded{1}else{0},
+                // The complete u64 nonce domain at every height (admission takes only nonceMode 1, `Spec::effective_nonce_mode`);
+                // both fields are kept for existing readers.
+                "effectiveNonceMode":1,"nextBlockNonceMode":1,
                 "forkSchedule":sp.profile().forks().entries().iter().map(|(v,h)|json!([v,h])).collect::<Vec<_>>(),
                 "activeVersion":sp.active_version(n.chain.head().height),"rpcLimits":rpc_limits_json(l)});
             for (k,v) in n.identity_json(){params[k]=v;}
@@ -1118,7 +1119,7 @@ fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
             Ok(json!({"header":hex(&e.header.encoded),"body":hex(&e.body.encode())}))}
         "pocol_getMiners"=>{let head=n.chain.head;let s=n.chain.view_of(&head).ok_or((-32001,"head state".to_string()))?;let s=s.v();Ok(json!(apply::record_list(s).iter().map(|id|{let r=apply::miner_record(s,*id).unwrap();
             json!({"id":format!("{id:#x}"),"status":r.status,"tomb":r.tomb,"bondState":r.bond_state,"lastShare":r.last_share,"bond":qty256(r.bond),"registeredAt":r.registered_at,"reward":format!("{:#x}",r.reward),"rewardBalance":qty256(s.account(&r.reward).map(|a|a.info.balance).unwrap_or_default())})}).collect::<Vec<_>>()))}
-        // FN-2b C4: the members the registry could remove as inactive at the next block (v3 program set, full set only),
+        // FN-2b C4: the members the registry could remove as inactive at the next block (full set only),
         // which a newcomer's registerReplacing names (wallet.rs removable_members); heavy lane (one entry per removable member).
         "pocol_getRemovable"=>crate::wallet::removable_json(&n.chain).map_err(|e|Fail::from((-32001,e))),
         "pocol_getTemplate"=>Ok(n.template_json()),
@@ -1247,7 +1248,8 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
     let mut tx=TxEnv{caller:o["from"].as_str().and_then(|s|s.parse().ok()).unwrap_or(Address::ZERO),transact_to:to.map(TxKind::Call).unwrap_or(TxKind::Create),
         gas_limit:gas.or_else(||parse_u64(&o["gas"])).unwrap_or(CALL_GAS_MAX).min(CALL_GAS_MAX),gas_price:U256::ZERO,value:parse_u256(&o["value"]).unwrap_or_default(),
         data:Bytes::from(data),nonce:None,chain_id:Some(n.chain.spec.chain_id()),..Default::default()};
-    let estimate_v3=gas.is_some()&&n.chain.spec.v3_active(e.height.saturating_add(1));
+    // eth_estimateGas (`gas` Some) models the next block (base fee, funds, caps); eth_call (None) is a plain call.
+    let estimate_v3=gas.is_some();
     let floor=n.chain.spec.base_fee_floor(e.height.saturating_add(1));
     let base_fee=if !estimate_v3{U256::ZERO}else if e.height==0{chain::from_fixed_lp4(&cp.baseFee0).max(floor)}else{
         pocol_lp4_execution::fees::next_base_fee(e.base_fee,e.gas_used,e.header.gas_limit,floor).map_err(|_|Fail::from((-32000,"base fee prediction".into())))?};
@@ -1300,17 +1302,16 @@ fn simulate(n:&Node,o:&Value,tag:&Value,gas:Option<u64>,b:&Budget)->Result<Simul
                 // The own-log caps are checked below for every estimate (N4, V3-24), with this same error object.
                 if b.expired(){return deadline()}
             }
-            // N4 (V3-24): an estimate models the log caps active in the next block (`user_phase::log_caps`: the v3
-            // 256 KiB / 4,368 once v3 is active, else 32 KiB / 546, and LOG_CAP when H_END != 0). A transaction whose own
-            // logs pass one halts with all its gas in every block on this parent, so no gas value is answered for it
-            // (the pool refuses it the same way, `own_logs_halt_for`). Before N4 only the v3 estimate checked them.
-            if gas.is_some(){
-                if let Some(why)=crate::node::own_logs_halt_for(cp,e.cum_log_bytes,r.result.logs(),n.chain.spec.v3_active(e.height.saturating_add(1))){
+            // N4 (V3-24): an estimate models the log caps of the next block (`user_phase::log_caps(true)`: 256 KiB /
+            // 4,368, and LOG_CAP when H_END != 0). A transaction whose own logs pass one halts with all its gas in every
+            // block on this parent, so no gas value is answered for it (the pool refuses it the same way,
+            // `node::own_logs_halt`).
+            if estimate_v3{
+                if let Some(why)=crate::node::own_logs_halt(cp,e.cum_log_bytes,r.result.logs()){
                     return Err(Fail(-32000,format!("execution would halt ({why:?})"),Some(json!({"reason":format!("{why:?}")}))))}
             }
-            // Preserve the legacy search ceiling; only the v3 estimate uses
-            // the request/funds-constrained upper bound.
-            Ok(Simulated{result:r.result,gas_limit:if estimate_v3{gas_limit}else{gas.unwrap_or(gas_limit)}})
+            // The gas limit the call ran with (for an estimate, the request/funds-constrained upper bound above).
+            Ok(Simulated{result:r.result,gas_limit})
         },
         Err(revm::primitives::EVMError::Custom(m)) if m==native::SIMULATION_STOPPED=>deadline(),
         Err(e)=>Err(Fail::from((-32000,format!("{e:?}")))),

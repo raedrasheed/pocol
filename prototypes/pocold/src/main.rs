@@ -171,7 +171,8 @@ fn init(args:&[String])->Result<(),String>{
         "calibration":{"hashesPerSecond":cfg.hash_rate,"class":"synthetic-fixture","note":"devnet difficulty chosen with --work-bits, not a measured hash rate"},
         "timing":timing.to_json(),
         "admission":pocold::admission_json(&admitted)});
-    let mut info=info;if cfg.nonce_mode==1{info["fullNonce"]=serde_json::json!(true);}
+    // nonceMode 1 is the only mode a devnet admits (R24), so the file always says fullNonce.
+    let mut info=info;info["fullNonce"]=serde_json::json!(true);
     info["v3"]=serde_json::json!(true);info["specVersion"]=serde_json::json!(cfg.spec_version);
     info["localTiming"]=pocold::testnet::local_timing_json(&derived);
     std::fs::write(out.join("devnet.json"),serde_json::to_string_pretty(&info).unwrap()).map_err(|e|e.to_string())?;
