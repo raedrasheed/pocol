@@ -1007,6 +1007,35 @@ class V3RecordedTapeTests(unittest.TestCase):
         other = self.fx['members']['hank']
         self.refused(32, self.on('eth_getBlockByNumber', lambda p: True, lambda b: dict(b, miner=other)), 'Winner assignment mismatch')
 
+    def test_every_header_version_must_match_its_height_under_the_trusted_schedule(self):
+        # decode_header compares each header's own fork version with active_version(height) of the trusted schedule;
+        # nothing else reads the version a header carries. The tape's schedule is [(1,0),(2,2)]: blocks 31 and 32 are
+        # version 2.
+        def version(v):
+            def change(top):
+                top[0][0][6] = uint(v)
+            return change
+        # The anchored header: a version-3 (cap-raise) header before any trusted raise, and a version-1 header after the
+        # trusted fork-2 height, are refused although the node advertises the trusted schedule.
+        for v in (3, 1):
+            with self.subTest(anchor_version=v):
+                self.refused(32, self.forge_anchor(32, change_ut=version(v)), 'Header version differs from trusted fork schedule')
+        # An ancestor header (block 31, read for the carry into pot 32) is checked in the same way.
+        for v in (3, 1):
+            with self.subTest(ancestor_version=v):
+                self.refused(32, self.forge_anchor(31, change_ut=version(v)), 'Header version differs from trusted fork schedule')
+        # The honest header against other trusted schedules: the version-2 header at height 32 is accepted from a fork-2
+        # height of 32 on, and refused when the schedule puts height 32 at version 1 or at version 3.
+        net = rewards.validated_network(self.network)
+        raw = bytes.fromhex(self.data['tape'][_tape_key('pocol_getBlockRlp', [hex(32)])]['header'][2:])
+        for schedule in (self.schedule, ((1, 0), (2, 32)), ((1, 0), (2, 2), (3, 33))):
+            with self.subTest(accepted=schedule):
+                self.assertEqual(rewards.decode_header(raw, schedule, net)['height'], 32)
+        for schedule in (((1, 0),), ((1, 0), (2, 33)), ((1, 0), (2, 2), (3, 32))):
+            with self.subTest(refused=schedule):
+                with self.assertRaisesRegex(rewards.RewardUnavailable, 'Header version differs from trusted fork schedule'):
+                    rewards.decode_header(raw, schedule, net)
+
     def test_an_ancestor_outside_the_reward_window_is_never_read(self):
         query = Tape(self.data)
         net = rewards.validated_network(self.network)

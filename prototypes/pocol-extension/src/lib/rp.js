@@ -42,11 +42,12 @@ export function asert(targetG, gTs, tBlk, tau, pTs, pH) {
   return Y < 1n ? 1n : (Y > MAX ? MAX : Y);
 }
 export const work = (t) => (1n << 256n) / (t + 1n);
-/** pocold chain::full_nonce_rule: v2 introduced the full u64 nonce domain and every later version keeps it. The rule
- * reads only the fork version and CP nonceMode, never the spec version: a v3 (spec-2) genesis has nonceMode 1. */
+/** The rule of pocold's former chain::full_nonce_rule (deleted in phase 6b): v2 introduced the full u64 nonce domain
+ * and every later version keeps it. The rule reads only the fork version and CP nonceMode, never the spec version: a v3
+ * (spec-2) genesis has nonceMode 1. */
 export const fullRange = (v, m) => v >= 2n || m === 1n;
-/** The one v3 predicate (V3-DESIGN §3.3; pocold Spec::v3_active, lp1-node ProfileIdentity::v3_active,
- * pocol_rewards.v3_active): active_version(h) >= 3 || genesis specVersion >= 2. `forks` is a normalized local schedule
+/** The one v3 predicate (V3-DESIGN §3.3; pocold Spec::v3_active, lp1-node ProfileIdentity::v3_active):
+ * active_version(h) >= 3 || genesis specVersion >= 2. `forks` is a normalized local schedule
  * (forks.js). Since phase 6a pocold admits only a spec-2 (v3) genesis, so on every network it runs the spec-2 route is
  * true from genesis; fork version 3 is the cap raise (FN-5), not a route to v3. A spec-1 genesis still decodes here
  * (refdec.js), as in pocold, which refuses it at admission with its reason. */
