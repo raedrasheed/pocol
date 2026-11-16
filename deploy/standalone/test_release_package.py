@@ -53,9 +53,10 @@ class ReleasePackageTests(unittest.TestCase):
             (self.script.parent / name).write_text('public fixture\n', encoding='utf-8')
         for name in ('network.pocol.json', 'wallet.key', 'debug.keystore'):
             (self.root / name).write_bytes(b'EXCLUDED FIXTURE')
-        # FN-7: the committed profiles the Windows genesis ceremony fills.
+        # FN-7: the committed profiles the Windows genesis ceremony fills, as committed: package.py also reads the
+        # mainnet profile's chain ID at run time (MAINNET), so a fixture in its place would break --network.
         for name in ('v3-profile.json', 'v3-rehearsal-profile.json'):
-            self.fixture('deploy/mainnet/' + name).write_bytes(b'public profile fixture ' + name.encode() + b'\n')
+            shutil.copyfile(ROOT / 'deploy/mainnet' / name, self.root / 'deploy/mainnet' / name)
         notice = self.root / 'prototypes/third-party/evm-crypto/NOTICE.txt'
         notice.parent.mkdir(parents=True)
         notice.write_bytes(b'public crypto license fixture\n')
