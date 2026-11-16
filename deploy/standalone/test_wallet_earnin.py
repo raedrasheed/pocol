@@ -5,8 +5,8 @@ Opt-in and slow (about 10 minutes; T_blk=10 s is fixed by the testnet profile). 
 miners run as `pocol start`; a fourth home holds nothing and has never
 sent a transaction. Through the wallet pipes it must:
 - get its first fee from the fee faucet (deploy/faucet, the real service, signer and node);
-- register with a 0 PCOL bond as its first transaction (EARN-IN-SPEC R9: no PAY-02 probe for a self
-  reward), so the record is on probation;
+- register with a 0 PCOL bond as its first transaction (earn-in R9, incentives.md E3: no PAY-02 probe for
+  a self reward), so the record is on probation;
 - mine on probation, and see its bond grow from its own rewards (accrual through RewardEscrow);
 - fill the rest with one top-up, after which it is a full member.
 """

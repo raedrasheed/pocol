@@ -1,6 +1,6 @@
 # Upgrades and operation
 
-**Genesis parameters (assumptions, profileKind=network; [CP] = included in CP)**
+**LP1 ParamGate fixture (profileKind=network, chainId 777001, CP schema v1, nonceMode 0; R22; [CP] = included in CP).** Not an admissible network: pocold and lp4 admission refuse it (R24: GenesisSpec version 1, nonceMode 0). Its values stay because `prototypes/lp1-node/tests/gate.rs` pins them; the fresh network's profile is under "Fresh v3 network profile" below.
 - Network: chainId=777001, ForkSchedule=[(1,0)].
 - Difficulty [CP]: g_ts, target_g, T_blk=60s, τ=3600s, nonceMode=0, c=2.
 - Attempts: D_att=300 and Δ_fb_wait=25 [CP]. A_fb=1 and Γ=30 are local.
@@ -101,22 +101,22 @@ Performance and resources:
 
 Profiles and identity:
 - R22: profileKind, nodeKind and chainId separation.
-- R23: Σalloc+|M_0|·B_reg+subsidy·H_END < 2^127.
-- R24: (A) Decode GenesisSpec; match genesisHash, allocRoot and sysCodeHash. (B) ForkSchedule nonempty, starting at (1,0), ascending. (C) Every v supported. (D) TestFork-v2 only in simnet. (E) chainId ≠ 0, fits u64.
-- R25: (A) 1 ≤ target_g ≤ 2^256−1. (B) τ ≥ 1 and T_blk ≥ 1. (C) In network: τ ≥ 10·T_blk. (D) target_g calibration recorded.
+- R23: Σalloc+|M_0|·B_reg+I < 2^127, where I = 2·S0·H_half+S_tail·2^64 for the V3 programs (M3 issuance, at any H_END; `gate.rs::future_issuance`) and subsidy·H_END for a fixture without M3.
+- R24: (A) Decode GenesisSpec; match genesisHash, allocRoot and sysCodeHash. (B) ForkSchedule nonempty, starting at (1,0), versions sequential, each once. (C) Every v supported, at most MAX_FORK_VERSION = 3; version 3 (the cap raise) only with `capRaise` on a spec-2 genesis. (D) GenesisSpec version ≥ 2 (v3) and nonceMode = 1: a spec-1 genesis or nonceMode 0 is refused. (E) chainId ≠ 0, fits u64.
+- R25: (A) 1 ≤ target_g ≤ 2^256−1. (B) τ ≥ 1 and T_blk ≥ 1. (C) In network: τ ≥ 10·T_blk. (D) target_g calibration recorded with its class; a synthetic class is reported as the admission condition `calibration-synthetic`, so a launch genesis records a measured one.
 
 RPC service (local, not affecting consensus), R26:
 - (A) HEAVY_RESP_MEM ≥ RESP_MAX, LIGHT_RESP_MEM ≥ RPC_CONN_MAX·LIGHT_RESP_MAX.
 - (B) HEAVY_RESP_MEM+LIGHT_RESP_MEM+HEAVY_ACTIVE·SCRATCH_HEAVY+LIGHT_ACTIVE·SCRATCH_LIGHT+RPC_CONN_MAX·(REQ_BUF+CONN_BUF) ≤ RPC_MEM_TOTAL.
 - (C) BATCH_RESP_MAX ≥ RESP_MAX, LIGHT_QUEUE ≥ RPC_CONN_MAX, BATCH_MAX·ERR_ITEM_MAX+64 B ≤ CONN_BUF.
-- (D) RESP_MAX ≥ 2·LOG_BLOCK_MAX+546·512 B, LOGS_COUNT_MAX ≥ 546, LOGS_SCAN_BYTES ≥ LOG_BLOCK_MAX.
+- (D) RESP_MAX ≥ 2·LOG_BLOCK_MAX+LOG_COUNT_MAX·512 B+2 KiB, LOGS_COUNT_MAX ≥ LOG_COUNT_MAX, LOGS_SCAN_BYTES ≥ LOG_BLOCK_MAX, with the V3 host constants LOG_BLOCK_MAX = 256 KiB and LOG_COUNT_MAX = 4,368 (the receipt of one transaction emitting every block log; `param_gate.rs::satisfies_r26_for`). The v1 fixture's values are 32 KiB and 546 with no 2 KiB term.
 - (E) LIGHT_RESP_MAX ≥ greatest light value (385 KiB).
 - (F) SEND_MAX and BATCH_SEND_MAX are formula-only; BATCH_WALL ≥ BATCH_MAX·(QUEUE_WAIT+ENFORCE_SLACK+COMPUTE_DEADLINE_HEAVY+CANCEL_MAX)+BATCH_SEND_MAX+ENFORCE_SLACK. RATE ≥ 1, capacity ≥ BATCH_MAX.
 - (G) 0 < TIMER_EPS < ENFORCE_SLACK ≤ 500 ms, SEND_SOCK_BUF ≤ 64 KiB.
 
-Default checks: (A) 48 ≥ 8, 16 ≥ 16. (B) 178 ≤ 192. (C) 16 ≥ 8, 32 ≥ 32, 5184 B ≤ 64 KiB. (D) 8 MiB ≥ 337 KiB. (E) 512 ≥ 385. (F) 420 ≥ 404.2791015625, 20 ≥ 20. (G) 1 < 200 ≤ 500, 32 ≤ 64.
+Default checks: (A) 48 ≥ 8, 16 ≥ 16. (B) 178 ≤ 192. (C) 16 ≥ 8, 32 ≥ 32, 5184 B ≤ 64 KiB. (D) 8 MiB ≥ 2,762,752 B ≈ 2.63 MiB (2·256 KiB+4368·512 B+2 KiB), 10000 ≥ 4368, 32 MiB ≥ 256 KiB. (E) 512 ≥ 385. (F) 420 ≥ 404.2791015625, 20 ≥ 20. (G) 1 < 200 ≤ 500, 32 ≤ 64.
 
-Network checks: R16 = 12578 ≤ 16384, R20: 160 ≥ 147, R13: 129440+160 = 129600.
+Network checks (the fixture above): R16 = 12578 ≤ 16384, R20: 160 ≥ 147, R13: 129440+160 = 129600. The fresh network's figures are under "Fresh v3 network profile" below.
 
 Bridge constants are outside ParamGate because they belong to the extension, not pocold. BG1 unit tests check:
 - BUCKET_CAP_MT = 50·MSG_COST_MT, BUCKET_REFILL_MT_PER_MS·1000 = 50·MSG_COST_MT, PENDING_READS_MAX ≥ 1.
@@ -180,9 +180,9 @@ Others: sv-fix-v2 (ForkSchedule=[(1,0),(2,50)], chainId=777904, node returns [R2
 - The genesis tool produces genesisPre; three keccak libraries hash it; signing occurs only when all agree.
 
 **Upgrades (D72)**
-- Hard fork = a new binary adding (v, H_v), with a signed announcement ≥ 1440 blocks beforehand.
-- Nonupdated nodes reject with netVersion, causing a deliberate, announced split.
-- Changing CP or specVersion means a new network.
+- Hard fork = a new binary adding (v, H_v) to the ForkSchedule, with a signed announcement ≥ 1440 blocks beforehand. Versions are sequential, never skipped, and at most MAX_FORK_VERSION = 3. Fork 2 is a nonce-rule no-op under nonceMode 1; fork 3 is the cap raise only (D-V3-23 restricted to ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX, C10): at H_3 those four fields switch to the schedule's `capRaise` values, which are part of the consensus identity (VA-SPEC §2.1). The fresh genesis schedules neither. A later rule change is a new fork version ≥ 4 (VA-SPEC §2.3).
+- Nonupdated nodes do not peer with nodes that scheduled the fork (their consensus identities differ, VA-SPEC §2.1) and reject blocks of the new version, causing a deliberate, announced split.
+- Changing the genesis CP or specVersion means a new network; within a network, height-selected CP changes come only from a scheduled fork (fork 3's caps, `cp_at`). No peer or RPC may replace the pinned configuration or code, and a configured fork is an explicit activation by a coordinated release, not a mutable contract upgrade.
 - Fork choice (D133) is a consensus rule:
   - It does not change validity, but differing versions may select different heads on ties.
   - Changes require a coordinated release and signed announcement as for an upgrade; they are not RPC or local-retention changes.
@@ -193,8 +193,8 @@ Others: sv-fix-v2 (ForkSchedule=[(1,0),(2,50)], chainId=777904, node returns [R2
 - Changing bucket or pending constants requires joint updates to BR19, BridgeRef and BG1. Changing SITE_STORE_MAX or key/value bounds requires rederiving BR17e, SiteStorageRef and BG1 together.
 
 **Procedures**
-1. Closing and end, then a signed snapshot.
-2. Cap reached: freeze and alert.
+1. Finite fixtures only (H_END ≠ 0): closing and end, then a signed snapshot. The fresh network is continuous (H_END = 0) and has no end.
+2. Cap approaching: pocol_getCaps raises its alarm at 80 % occupancy of any cap (C9); alert, and raise the caps through a release that schedules fork 3 with `capRaise` (C10). At a reached cap the transactions that would pass it fail or are left out (execution.md, Caps).
 3. Emergency: signed announcement at height ≥ 1440.
 4. Halt: signed restart statement (disclosed centralization).
 5. Rollback deeper than R_keep: manual checkpoint. (V3-26: to follow a heavier branch that forks between head − R_keep and the local floor finalized_h, stop the node and remove `<data>/retention.finalized`; the next open uses head − R_keep. network.md, "Local finality".)
@@ -280,50 +280,59 @@ FSM, T_j, rejections by rule, ASERT (s, saturated), Escrow, pendingSum, burns, R
 
 ---
 
-## v3 amendment — profiles and upgrade authority (D-V3-23, 29, 32–34)
+## Fresh v3 network profile
 
-The table at the start of this document is a historical specification assumption, not the deployed profile. P-live below is decoded from the committed public H15000 invitation `deploy/mainnet/h15000/network.pocol.json`; it is not a fresh live-node observation and is not an admission/readiness certificate.
+The fresh network's genesis values are committed as data in two profiles, read by the genesis builder (`pocold init-testnet`):
+`deploy/mainnet/v3-profile.json` (mainnet, chain id 2656089850) and `deploy/mainnet/v3-rehearsal-profile.json` (the
+closed rehearsal, chain id 1656550731), which differ only in the chain id and the launch second. Every value and its
+reason is recorded in [FRESH-NETWORK-CP.md](../../decisions/FRESH-NETWORK-CP.md) §2-§5;
+`prototypes/pocold/tests/fn4_profiles.rs` checks both profiles against that record and through the full ParamGate.
+"Ceremony" marks a value that the genesis ceremony supplies; the committed profiles hold a `PLACEHOLDER` string there,
+and the builder refuses to write a genesis while one remains.
 
-| P-live field | Committed value |
+| Group | Values |
 |---|---|
-| chainId / specVersion | 1599846715 / 1 |
-| Genesis hash | `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca` |
-| Fork schedule | `[(1,0),(2,15000)]` |
-| T_blk / tau / D_att / dFbWait | 10 / 600 / 60 / 6 |
-| nonceMode / H_END | 0 / 0 |
-| M_max / R_max / REG_OPS | 64 / 1 / 16 |
-| m / kappa / S_max / D / W_w | 32 / 2 / 256 / 4 / 8 |
-| B_reg (wei) | 100000000000000000000 |
-| W_act / Theta_inact / E_win / U | 32 / 64 / 16 / 40 |
-| ACCT_CAP / SLOT_CAP / CODE_CAP | 20000 / 50000 / 2097152 |
+| Network | chainId 2656089850 (mainnet) / 1656550731 (rehearsal); GenesisSpec version 2, CP schema v2 (59 fields); ForkSchedule `[(1,0)]`; MAX_FORK_VERSION 3 |
+| Difficulty [CP] | g_ts: ceremony (the synchronized launch second); target_g = calibration_target(H_measured, 10), ceremony, class `measurement`; T_blk 10 s; τ 600 s; nonceMode 1; c 2 |
+| Attempts [CP] | D_att 90, Δ_fb_wait 8 |
+| Local timing | Δ 1, φ 1, t_exec 1, Δ_rel 7, Γ 5 (`localTiming`); X^h / X^W = 6 / 11 s. Fallback if measured Δ exceeds 1 s: Δ 2, Δ_rel 8, the same CP, X^h / X^W = 7 / 11 s |
+| Shares [CP] | m 32, κ 2, S_max 256, D 4, W_w 8, α_bp 1000, γ_bp 500 |
+| Economics [CP] | S0 (subsidy, cp[15]) 4 PCOL per block; H_half 12,623,040 blocks (4 years); S_tail 0.125 PCOL (S0/32); B_reg 20 PCOL; baseFee0 10^9 wei; baseFeeMin 10^7 wei; γ_tip_bp 5000; ρ_bp 2500 |
+| Membership [CP] | R_max 4 (= the profile's `registrationPerBlock`); M_max 10,000; M_min 1; REG_RECORDS_MAX 24,576; SWEEP_MAX 16; SWEEP_SCAN 64; REG_OPS 16; W_act 32; Θ_inact 360 (1 h), enforced only at a full set through `registerReplacing`; R_react 4; C_react 380. No probation pool and no seat contest: ACCRUING members count within M_max |
+| Evidence [CP] | E_win 360, U 380, E_max 4, EVID_BYTES_MAX 8192 |
+| Block [CP] | GAS_LIMIT 8,000,000, TX_MAX 131,072, BODY_MAX 196,608 |
+| Caps [CP] | B_code_max 32,768; CODE_CAP 2^30 (2^29 if A13 store mode fails); TXBYTES_CAP 2^24; TX_CAP 20,000; SLOT_CAP 4,000,000; ACCT_CAP 1,000,000. No creation fee: a creation costs only its gas |
+| SYS [CP] | SYS_SLOT_MAX 147,456; SYS_KEYS_BLOCK_MAX 4096; SYS_KEYS_USER_MAX 256; SYS_ACCT_BLOCK_MAX 512; G_SYS 96·10^6 |
+| End [CP] | H_END = T_END = H_CLOSE = T_CLOSE = 0 (continuous); Z_close 256, RET 128, P2 2 (unused while H_END = 0) |
+| Log host constants | LOG_BLOCK_MAX 256 KiB, LOG_COUNT_MAX 4,368 (V3-24, `lp4-execution/src/user_phase.rs`) |
+| Retention and confirmation (local) | R_keep 2048 (5.7 h), K_hist 32, k_final 60, k_view 12, k_safe 6, k_alarm 60 |
 
-P-live has full u64 nonce range at version>=2 and a continuous horizon. It remains spec 1 and must retain its pinned consensus identity. v3 is a separate held genesis plan; these amendments neither change P-live parameters nor authorize deploying to it.
+Gate figures at this CP:
+- R12: 10,000 ≥ 4 ≥ 1 ≥ 1. R16: 10,000+4·(725+2048) = 21,092 ≤ 24,576. R20: 256 ≥ ⌈24,576/128⌉+2+4+1 = 199. R13 has no end to bound.
+- R23: 4·10^24 wei+2·S0·H_half+S_tail·2^64 = 2,305,843,009,318,678,272·10^18 wei (121 bits) < 2^127.
+- R25: τ = 600 ≥ 10·T_blk = 100; the calibration class is measured.
+- R26 (D): 8 MiB ≥ 2,762,752 B, 10000 ≥ 4368, 32 MiB ≥ 256 KiB. Log caps stay checked cumulatively.
+- R21: the retained-state bound at these caps is above HIST_TRIE_BUDGET; it is admitted through the simnet `retentionStress` exception, and the resident bound is A13 store mode.
+- R18 rests on the V3 SYS gas domain (SYS_SLOT_MAX ≥ slot_min ≈ 137,091).
 
-**D72 amendment, scoped to future version-gated replacement.** CP/specVersion remain committed by genesis. New compiled, pinned rules may introduce an explicitly height/version-selected program and CP set through the future V3-23 machinery, with height-aware cp_at, fixed accounts, ASERT/parameter transitions, caps migration and replay/reorg tests. No peer or RPC may replace pinned cfg or code. Retain coordinated binary release and advance announcement requirements; a future configured fork is an explicit activation, not a mutable contract upgrade or an implied consequence of this document. The first v3-chain in-place fork appends (2,H), a nonce-rule no-op under nonceMode=1, then (3,Hprime). Do not skip schedule versions. Before FN-5, fork:3 was unreachable with MAX_FORK_VERSION=2. FN-5 (C10) implements fork:3 as the cap raise only (D-V3-23 restricted to ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX, MAX_FORK_VERSION=3); it stays dormant unless a release schedules (3,H) with its values, and only on a v3 genesis.
+Admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope, with `retentionStress`. R22 stays bound to
+chainId 777001, so `pocold init-testnet` reports `publicLaunchReady` false with the blockers `admission-scope` and
+`profile-kind`, and the launch discloses them.
 
-**Dormant implementation and activation.** Preserve rules=1, maxFork=2 and spec=1 during implementation. New v3 rules use the single predicate `active_version(h)>=3 || genesis.spec_version>=2`. Use neutral gate=spec:2 for dormant host changes, neutral-vector with a spec:2-dormant note for artifacts, and distinct simnet-only preview identities. Only the final activation PR after all implementation/verifier/resource/simulation gates passes raises SPEC_VERSION to 2 and spends spec:2. See the full [lock strategy](../../decisions/V3-DECISIONS.md). Never bump CONSENSUS_RULES_VERSION while H15000 compatibility is required.
+Genesis contents: four founders, the three US servers and the owner's PC, each with a fresh key made on its own device
+at the ceremony. Each has a live HELD record whose 20 PCOL bond the builder mints into Escrow, and its reward address
+gets 999,980 PCOL: 1,000,000 PCOL per founder and an initial supply of 4,000,000 PCOL. The founders are the only
+members and the only allocation. The owner's phone is not a founder: it runs the apps' default wallet-only role. (Owner decision pending: whether each server
+founder's reward address is its own hot miner key or a separate owner-held address; FRESH-NETWORK-CP.md §9.)
 
-**Candidate v3 profile, not frozen or measured.** The following table records the approved options and working profile. Finalization depends on measured WAN timing, exact system programs, A13 and ParamGate. The F0_* creation-fee coefficients are deleted (owner decision 10d, FN-2a); no evidence is invented here.
+Upgrades after launch follow "Upgrades (D72)" above and VA-SPEC §2.3: the genesis CP and specVersion stay fixed, fork
+2 is a nonce-rule no-op, fork 3 is the cap raise, and a later rule change is a new fork version ≥ 4.
 
-| Field | Value | Source |
-|---|---|---|
-| T_blk / D_att / dFbWait / Δ_rel (local) | 30 / 150 / 10 / 13 | O-6=b, valid iff measured WAN Δ ≤ 2 s and φ ≤ 2 s; else 60 / 300 / 25 / 26 |
-| nonceMode / H_END | 1 / 0 | earn-in, continuous |
-| M_max / R_max / REG_OPS | 256 / 4 / 16 | V3-07, V3-09 |
-| R_react / C_react | 4 / ≥ U (e.g. 160) | V3-09 |
-| B_reg | 20 PCOL | O-12=a |
-| P_MAX / T_PROB | deleted (FN-2b, owner decisions 10b/10c of 2026-11-13: no probation pool or deadline; ACCRUING members count within M_max) | O-14 superseded |
-| Θ_inact | 120 blocks (1 h) | O-11=b |
-| E_win / U | 120 / 140 (= E_win + D + 16) | O-18=b; R7, U ≥ W_act+2 |
-| W_act / D / W_w | 32 / 4 / 8 (unchanged unless SimNet says otherwise) | — |
-| S0 (cp[15]) / H_half / S_tail | 1 PCOL / 4,207,680 blocks (4 y) / S0/32 = 0.03125 PCOL | O-19=M3 |
-| γ_tip_bp / baseFeeMin | 5000 / 10^7 wei (0.01 gwei) | O-20=b |
-| ρ_bp | 2500 | O-17=b |
-| E_epoch / θ_bp / k_sigma | deleted (FN-2b, owner decision 10b: no seat contest; removal of inactive members only at a full set, registerReplacing, Q2(a)) | O-10 superseded |
-| ACCT_CAP / SLOT_CAP / CODE_CAP | 200,000 / 500,000 / 32 MiB (A13-verified in F) | O-21=b |
-| F0_acct / F0_slot / F0_code | deleted (FN-2a, owner decision 10d of 2026-11-13: no creation fee) | O-21 superseded |
-| LOG_BLOCK_MAX / LOG_COUNT_MAX (host constants) | 256 KiB / 4,368 | V3-24 |
-
-Use T_blk=30 s only with measured WAN Delta<=2 s and phi<=2 s and all gate inequalities. Otherwise use the approved 60 s fallback and recompute every time-derived block count. Log caps remain checked cumulatively, and RESP_MAX>=2*LOG_BLOCK_MAX. The profile/resource PR must establish all gas/write ceilings, memory terms and execution bounds before activation.
-
-**Operations remain owner-controlled.** No live deployment, reinitialization or cutover is authorized. The owner chooses S/date after migration readiness; a private rehearsal or WAN soak is not permission to change the live chain. Before S, deliver the no-user-transactions-after-S builder, public old-chain data/rebuild instructions and an Android migration route preserving signing compatibility. The approved policy is the last owner-only re-genesis; future changes use the fork schedule. The allocation disclosure and planned owner-operated public time lock/spending reports do not authorize moving or reallocating funds.
+**Operations remain owner-controlled.** The genesis is made only at the ceremony, after the closed rehearsal and with
+the owner's approval (FRESH-NETWORK-CP.md §8-§9). `deploy/standalone/Initialize-PoColNetwork.ps1 -Network
+Rehearsal|Mainnet` fills the committed profile's ceremony placeholders (the launch second, the measured aggregate hash
+rate, and each founder's miner id and reward address) and runs `pocold init-testnet` without `--test-placeholders`;
+then `prototypes/pocold/tests/launch_delay_asert.rs` is run on the final CP. A rehearsal or WAN soak is not permission
+to launch mainnet. Nothing from the retired network is carried over; later changes use the fork schedule. The launch
+disclosures are drafted in `deploy/standalone/README.md` (owner decision pending: review of that disclosure wording).
+The allocation disclosure does not authorize moving or reallocating funds.

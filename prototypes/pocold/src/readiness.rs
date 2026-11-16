@@ -28,14 +28,14 @@ fn blocker(id:impl Into<String>,detail:impl Into<String>)->Blocker{Blocker{id:id
 /// leaves this list only when the ledger marks it closed with its evidence (its status starts with "Closed"), never by
 /// a label change here alone; the test `plan_gates_open_match_the_acceptance_ledger` keeps the two equal.
 pub const PLAN_GATES_OPEN:&[(&str,&str)]=&[
-    ("K1","independent identities: operator secret-key recovery and an encrypted keystore or HSM remain"),
-    ("J1","open miner enrollment: a public faucet, eligibility churn and load, and network-scale enrollment remain"),
-    ("I1","stable network identity: the normative digest adoption and an independently reproduced binary release remain"),
-    ("A1","honest admission: an approved profile, measured H_cal, real worst-case calibration, the R18/R21 obligations and the RpcGuard gaps remain"),
+    ("K1","independent identities: operator secret-key recovery procedures and an encrypted keystore or HSM remain"),
+    ("J1","open miner enrollment: a public fee faucet, eligibility churn and load, and network-scale enrollment remain"),
+    ("I1","stable network identity: the ceremony's genesis and its pin in the clients, the normative digest adoption and an independently reproduced binary release remain"),
+    ("A1","honest admission: real worst-case execution calibration, the R18/R21 obligations and the RpcGuard gaps remain"),
     ("S1","bounded historical state: K_eff and historical RPC behavior within the resource budget remain"),
     ("N1","Internet exposure: actual Internet ingress acceptance and the remaining RpcGuard controls remain"),
-    ("L1","sustained operation: physical servers, an actual multi-host soak and an upgrade drill remain"),
-    ("E1","network lifetime and economics: approved allocation, issuance, bonds, H_CLOSE/H_END and cumulative caps remain"),
+    ("L1","sustained operation: the rehearsal on the founders' devices, an actual multi-host soak and an upgrade drill remain"),
+    ("E1","network lifetime and economics: the genesis ceremony, the founders' reward addresses and the rehearsal evidence remain"),
     ("Q1","release review: an independent security review and the unresolved-finding ledger remain"),
 ];
 /// V3-28 H2: the launch networks (chainId, genesisHash) this release pins. Empty: no network is a launch network yet,

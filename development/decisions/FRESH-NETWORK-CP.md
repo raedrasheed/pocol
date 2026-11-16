@@ -110,7 +110,8 @@ The future bound is 2·S0·H_half + S_tail·2^64 = 2,305,843,009,314,678,272·10
 - **Supply bound.** 4·10^24 + future bound = 2,305,843,009,318,678,272·10^18 wei, about 2.3058·10^36. That is 121
   bits, below the 127-bit limit (genesis_builder, R23). The builder records it in devnet.json under `supply`.
 - **Programs.** The V3 program set only, with ChunkFactory at `0xC0C005`. ForkSchedule is `[(1,0)]` and
-  MAX_FORK_VERSION is 1. The cap-raise path (C10, FN-5) is compiled in and dormant.
+  MAX_FORK_VERSION is 3 (fork 2 a no-op, fork 3 the dormant cap raise). The cap-raise path (C10, FN-5) is compiled in
+  and dormant.
 
 **Placeholders.** Every value the ceremony supplies is a string that starts with `PLACEHOLDER`: `genesisTime`,
 `hashRate.hashesPerSecond` and each founder's `id` and `reward`. The builder lists every placeholder and refuses to

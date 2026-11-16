@@ -1,61 +1,56 @@
 # PoCol development
 
-## Current status — 7 October 2026
+This directory holds the specification, the owner's decisions, the evidence of every stage and the working rules.
+The current status is in [STATUS-EN.md](STATUS-EN.md).
 
-This page tracks development. Sanitized copies of actual local work through draft 0.7 were imported into `work/m1-import`, preserving the thesis and local sources. Details and results are in [STATUS-EN.md](STATUS-EN.md).
+## Where things are
 
-**Locally verified:** the 0.8 author/reviewer cycle corrected the profile reference in 0.7. Codex performed 261 successful checks and recorded three values, without failures. Sanitized review evidence and earlier-cycle failures are preserved; there is no implementation approval or project CI result yet.
-
-M1 here means preparing the specification for web-page storage, associated contracts and test evidence. It does not mean the PoCol network is complete or its security or efficiency has been established.
-
-## Following the work
-
-| Location | What it explains |
+| Location | What it holds |
 |---|---|
-| Issues | The problem, impact, resolution requirements and status |
-| Pull requests | Proposed changes and reviews before merging |
-| Checks | Automated test results tied to the change, once configured and run |
-| development/STATUS-EN.md | A short status summary created at import and updated after each cycle |
-| development/decisions/ | Decisions required from the project owner and their rationale |
+| [decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md) | The owner's decision to launch a brand-new network from a fresh genesis, keeping nothing of the retired network |
+| [decisions/FRESH-NETWORK-CP.md](decisions/FRESH-NETWORK-CP.md) | The final consensus parameters, genesis contents, chain ids and what is left to later steps |
+| [decisions/V3-DECISIONS.md](decisions/V3-DECISIONS.md) | The v3 rule-set decisions (D-V3-01 to D-V3-34), the release rules and lock, and the founders' allocation |
+| [decisions/V3-DESIGN.md](decisions/V3-DESIGN.md), [decisions/V3-EXECUTION-FEES.md](decisions/V3-EXECUTION-FEES.md) | The v3 design and its execution fees |
+| [decisions/](decisions/) | The other owner decisions and evidence records; dated records are kept with their "superseded" notes |
+| [VA-SPEC.md](VA-SPEC.md) | The validation specification: wire, consensus identity, the consensus-source lock and its history kinds |
+| [m1/reference/](m1/reference/) | The normative reference specification: consensus, execution, network, storage, browser, governance, incentives, economics, threat model |
+| [public-network/PLAN.md](public-network/PLAN.md) | The public-network launch gates (the acceptance ledger) and the launch order |
+| [public-network/OPERATIONS.md](public-network/OPERATIONS.md) | Peering, discovery, upgrades, the cap-raise activation, seeds, eviction and memory bounds |
+| [public-network/KEYS.md](public-network/KEYS.md) | Independent key operations |
+| [audit-2026-10-22/](audit-2026-10-22/) | The audit of 2026-10-22, its repair rounds, evidence and proposals |
+| `lp1/` … `lp10/`, [reports/](reports/) | Evidence and reports for each implementation stage |
 
-Every status update must explain what changed, why, what was actually tested, what remains and whether Raed needs to decide anything. Code, technical specifications and current progress summaries are in English. Earlier summaries were originally written in Arabic.
+The deployment side is in `deploy/`: the launch runbook in [deploy/mainnet/README.md](../deploy/mainnet/README.md)
+and the native clients and the genesis ceremony in [deploy/standalone/README.md](../deploy/standalone/README.md).
 
 ## Workflow
 
-1. Preserve the thesis and all existing work. Import the local specification history on a separate branch and open a draft PR.
-2. Claude authors scoped changes. Codex independently reviews and runs applicable checks. Use sequential author/reviewer turns to avoid overlapping writes.
-3. Link each finding to a requirement, affected revision, proposed fix, and evidence. Distinguish open, proposed fix, verified, deferred, and owner decision.
-4. Update the status summary and the PR after each completed cycle. Record commands, tool versions, exit codes, and the exact tested revision. A successful test run does not establish complete coverage.
-5. Do not close findings by elapsed time, fixed round count, or agreement alone. Missing tests remain missing. Experimental code is not production approval.
-6. No automatic merge, deployment, or expansion beyond specification/fixture work is authorized by this tracking setup.
+1. Start from current `main` on a separate branch. Preserve the thesis, the specifications and their evidence.
+2. Claude authors scoped changes. Codex independently reviews and runs applicable checks. Use sequential
+   author/reviewer turns to avoid overlapping writes.
+3. Link each finding to a requirement, affected revision, proposed fix and evidence. Distinguish open, proposed fix,
+   verified, deferred and owner decision.
+4. Record commands, tool versions, exit codes and the exact tested revision in the pull request. A successful test run
+   does not establish complete coverage.
+5. Do not close findings by elapsed time, fixed round count or agreement alone. Missing tests remain missing.
+   Experimental code is not production approval.
+6. The owner takes every consensus and normative decision. A decision counts only once the owner approves it
+   explicitly; until then a text that needs it says "owner decision pending".
+7. A change to a consensus-critical source needs a labelled history line in `prototypes/pocold/consensus-sources.lock`
+   (VA-SPEC §2.3, §2.4). After launch, a rule change goes behind a new fork version; fork versions are sequential (D3).
 
-## Local coordinator handoff
-
-Repository: https://github.com/raedrasheed/Proof-of-Collaboration
-Tracking branch: `docs/development-tracking`
-Local project reported by the user: `D:\PoCol-Development`
-
-The local coordinator should finish or checkpoint its active author turn before migration, then:
-
-- Read this document and the actual current local issue ledger. Identify the latest complete revision; do not assume 0.7 has completed.
-- Inspect Git status, remotes, GitHub CLI availability and authentication. Do not overwrite an existing checkout, change unrelated remotes, reset work, or force-push.
-- Fetch the tracking branch into an appropriate checkout and create a separate `work/m1-import` branch from it. Keep the original local project and earlier drafts intact.
-- Import project specifications, revision history, deterministic fixtures, source tools and relevant review evidence. If prior Git commits exist, preserve them where practical; copying snapshots alone must not be described as preserving Git history.
-- This repository is public. Stage only reviewed project files. Exclude credentials, tokens, private keys, personal account data, `.env`, model session directories, raw private transcripts, runtime binaries, downloaded dependencies and caches. Keep sanitized task/review records needed for reproducibility.
-- Create `development/STATUS-EN.md` with actual revision paths, completed work, checks actually run, remaining blockers and plain English explanations of owner questions. Preserve unanswered questions as open.
-- Push the import branch and open a draft PR. Put the link and a short English progress explanation in the local session. Do not merge it.
-- Thereafter publish sanitized revision/review summaries to the PR so the owner can follow work in the browser without carrying messages between agents. Clearly identify which agent produced each report; a shared account is not independent GitHub approval.
-
-If GitHub access is unavailable, report the exact blocker without requesting secrets in chat. Do not claim a push, PR, or test succeeded without its result.
+Every status update explains what changed, why, what was actually tested, what remains and whether the owner needs to
+decide anything. Code, technical specifications and progress summaries are in English.
 
 ## Execution boundary
 
-GitHub is the shared record, not an automatic host for the current agents. Claude and Codex currently run through the local coordinator. No cloud runner or agent integration has been configured by this document. CI workflows should be added after inspecting the imported tools and their requirements; do not introduce a permanently green placeholder check.
+GitHub is the shared record. Pull requests carry the proposed changes, their reviews and their CI results; nothing is
+merged, deployed or launched automatically. CI workflows run on the paths they list; never count a cancelled or
+unexecuted check as passing, and do not add a permanently green placeholder check. Never put secret keys, tokens or
+private data in the repository, chat or uploaded artifacts.
 
 ## References
 
 - [GitHub Issues](https://docs.github.com/en/issues/tracking-your-work-with-issues/learning-about-issues/about-issues)
 - [Pull requests](https://docs.github.com/en/pull-requests/reference/pull-requests)
 - [GitHub Actions](https://docs.github.com/en/actions/get-started/understand-github-actions)
-
-The status above is based on the user's local-session screenshot from 2026-10-07 and repository inspection. It must be updated from the actual imported artifacts before any implementation gate is evaluated.

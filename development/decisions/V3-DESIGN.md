@@ -1,14 +1,20 @@
 # PoCol v3 — final design (consensus bundle within the PoCol principles)
 
-Status: design, approved by the owner on 2026-11-08 (see V3-OWNER-DECISIONS-2026-11-08.md). Nothing here is deployed or built yet. Every file:line was read at commit
+Status: design, approved by the owner on 2026-11-08 (see V3-OWNER-DECISIONS-2026-11-08.md) and changed by the owner
+decisions of 2026-11-13 ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)).
+It is implemented as the release rules of the fresh PoCol network, launched from a new v3 genesis (§3); the decisions
+are [V3-DECISIONS.md](V3-DECISIONS.md) and the final values [FRESH-NETWORK-CP.md](FRESH-NETWORK-CP.md). Nothing is
+deployed until the genesis ceremony. The problem statements below describe the old network the design was written
+against: every file:line in them was read at commit
 `53a9e878f5d1fd9caa5a39275911a9d5960de8a9` (head of PR #1). Paths are relative to the repository root
 (`WT`) at that commit. The old network's cutover and upgrade tooling cited here (the earn-in cutover runbook,
 `preflight.py`, `nonce_upgrade.py`, `prepare_nonce_upgrade.py`, `RELEASE-UPGRADE.md`, the earn-in proposal and the
 earn-in rollout records) was removed after the owner's 2026-11-13 decision to launch a brand-new network
 ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)); read it in git history, for example at commit `d24843d`.
 Thesis citations are "T p<PDF page>/<printed page>" of `WT/PhD-thesis-Raed-Rasheed-120211566-61.pdf`.
-Superseded in part (owner decisions 10b, 10c and Q2(a) of 2026-11-13; FN-2b): V3-10 (contestable seats) and V3-14 (the
-probation pool, its contest and T_PROB) are not built. There is no seat contest and no separate probation pool or deadline;
+Superseded or changed in part (owner decisions of 2026-11-13; FRESH-NETWORK-CP.md §7): V3-10 (contestable seats) and
+V3-14 (the probation pool, its contest and T_PROB) are not built (FN-2b); V3-21's creation fee is deleted (FN-2a); V3-06,
+V3-07 and V3-19 have new values; V3-32 and V3-33 are superseded and moot. There is no seat contest and no separate probation pool or deadline;
 an inactive member is removed only at a full set, atomically with registerReplacing. See V3-DECISIONS.md D-V3-10 and
 D-V3-14 and prototypes/lp4-execution/contracts/REGISTRY-LAYOUT.md "v3 removal at a full set".
 
@@ -65,7 +71,8 @@ Here is how this document applies it:
 | V3-34 | Fork machinery: schedule v≥3, launcher upgrade path, `==2` → `>=2`, one dual-key rule predicate, program-set registry, off-node verifiers | kept (schedule semantics unchanged) | CONSENSUS-COMPLIANT (infrastructure) | first PRs of release B | M–L | medium |
 | V3-R | BFT/committee finality, operator-signed checkpoints, lower R_keep as "finality", a different PoW hash, per-identity hashrate caps, stake-weighted chain selection | violates P1/P9 (Q1.3, Q1.4, Q6.2) | REJECT | — | — | — |
 
-Owner question O-0 decides the vehicle itself (B = ride the held earn-in re-genesis). The recommended answer is B.
+Owner question O-0 decided the vehicle (B = ride the held earn-in re-genesis). Superseded on 2026-11-13: v3 launches
+as a brand-new network from a fresh genesis (§3), so "B" in the Deployment column now means the fresh v3 genesis.
 
 ---
 
@@ -218,161 +225,84 @@ Owner question O-0 decides the vehicle itself (B = ride the held earn-in re-gene
 
 ---
 
-## 3. Deployment plan for the consensus bundle
+## 3. Fresh v3 genesis launch
 
-### 3.1 What exists today (verified)
-- **The schedule cannot express v3.**
-  - `ForkSchedule` rejects any version other than 1 or 2, and anything after v2
-    (`prototypes/lp4-execution/src/p1_profile.rs:231-236`; byte-identical copy in `lp1-node/src/profile.rs`).
-  - The node accepts only `[(1,0)]` or `[(1,0),(2,H)]` (`prototypes/pocold/src/lib.rs:202-204`).
-- **The v2 rule is an equality in three places.** If a (3,H) entry were appended, every height ≥ H would
-  silently fall back to the bounded domain (live CP4 = nonceMode 0, `deploy/mainnet/h15000/README.md:18`):
-  - `chain.rs:72` `active_version(h)==2||cp().nonceMode==1`;
-  - `prototypes/pocol-extension/src/lib/rp.js:56` `x.version === 2n || …`;
-  - `deploy/rewards/pocol_rewards.py:277` `header['protocolVersion'] == 2 or cp[4] == 1`.
-- **CP and system code are pinned to genesis.** Both are re-checked on every parent and candidate block
-  (`genesis_builder.rs:22-27`). Changing CP "means a new network" (`governance.md:185`).
-- **Every release is a hard partition.** The handshake digest covers the source (`build.rs:24-35`), and
-  `pocol upgrade` accepts only "v1-only plus one v2 append" (`launcher.rs:107-112`).
-- **The held re-genesis.**
-  - The earn-in genesis has schedule `[[1,0]]` and nonceMode 1 (`development/decisions/EARN-IN-SPEC.md:17`;
-    `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md:287`).
-  - The release that builds it must replay the old chain to S (`prototypes/pocold/src/cutover.rs:104-113`).
-  - It hard-codes a 20 PCOL bond (`cutover.rs:120`) and requires `earnin:true, continuous:true`
-    (`cutover.rs:102`).
+This section replaces the deployment plan for the old network (a held re-genesis with a cutover, and the PR order
+that led to it), which the owner's 2026-11-13 decision made moot; read it in this file's history, for example at
+commit `52b2507`.
+The item texts in §4 and §7 still name the PRs of that plan, all landed: PR-0 the decision record (V3-DECISIONS.md),
+PR-1 the fork machinery (V3-34), PR-2 the program-set registry and CP schema v2, PR-3 the host rules, PR-4 the v3 system
+programs, PR-5 the Escrow invariant and issuance, PR-6 the resource proofs (V3-25), PR-7 the off-node verifiers and
+clients, PR-8 the harnesses and vectors; PR-9, the rehearsal, is the closed rehearsal of §3.2.
 
-### 3.2 Recommended path: B, the held re-genesis carrying v3, with generalized fork machinery in the same release
+### 3.1 The launch vehicle
+- PoCol launches a brand-new network from a fresh genesis, with new keys and new chain ids, and keeps nothing of the
+  old network (owner answers 1-5 of 2026-11-13). There is no re-genesis, no cutover, no freeze height S and no
+  migration: O-0 is superseded and O-33 is moot (FRESH-NETWORK-CP.md §7).
+- The v3 rules are the release rule set: `CONSENSUS_RULES_VERSION` 2, both `SPEC_VERSION` copies 2 and
+  `MAX_FORK_VERSION` 3 (V3-DECISIONS.md, "Release rules and lock").
+- A fresh genesis gives a fresh ASERT anchor, so T_blk, D and W_w were chosen freely (FRESH-NETWORK-CP.md §2).
 
-**Why B:**
-- Almost every item changes a program-read CP field or system code (V3-02/08/09/10/14/15/16/19/21). Today
-  only a new genesis can deliver those.
-- B gives a fresh ASERT anchor, so T_blk, D and W_w can change at no cost, and their transition traps never
-  arise (`asert.rs:57`; `PoColSystemV1.sol:91-94`, `:162-166`).
-- The operator still runs all three seeds. Once the seeds stop (the owner's plan after discovery works), a
-  re-genesis would need community consent. B is the last cheap point.
+### 3.2 The genesis
+- specVersion 2 (CP schema v2, 59 fields), nonceMode 1, ForkSchedule `[(1,0)]`, the V3 program set only.
+- The values are committed as data in two network profiles that `pocold init-testnet` reads (FN-4):
+  `deploy/mainnet/v3-profile.json` (mainnet, chain id 2656089850) and `deploy/mainnet/v3-rehearsal-profile.json` (the
+  closed rehearsal, chain id 1656550731). `prototypes/pocold/tests/fn4_profiles.rs` checks both against
+  FRESH-NETWORK-CP.md and through the full ParamGate.
+- Four founding miners, the three US servers and the owner's PC, each with 1,000,000 PCOL, its 20 PCOL HELD bond
+  included (V3-32).
+- Launch admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope; `publicLaunchReady` is false and
+  its blockers are disclosed (FRESH-NETWORK-CP.md §1, V3-28).
+- The ceremony: `deploy/mainnet/README.md` and `deploy/standalone/README.md` (FN-7, `Initialize-PoColNetwork.ps1`),
+  after the closed rehearsal and only with the owner's approval. The consensus-sources lock is reset once, at the
+  release cut before it (VA-SPEC §2.3).
 
-**Why also build the machinery (V3-23, V3-34) now:** every later fix can then go in place through the fork
-schedule, without another re-genesis.
+### 3.3 The v3 predicate
 
-**Alternatives** (owner question O-0):
-- **A1.** In-place version-keyed host overrides. These are only possible after V3-34, and they cannot
-  deliver CP or program changes.
-- **A2.** In-place `cp_at(h)` plus a code swap at H on the live chain. This is high risk (about 105 `.cp()`
-  call sites, transition traps, a D72 amendment) and needs a testnet rehearsal (`development/public-network/PLAN.md:35`).
-
-### 3.3 Gating rule (resolves the review's keying conflict)
-
-Every v3 host rule uses one predicate. It is defined once and mirrored in the host, `rp.js` and
-`pocol_rewards.py`:
+Every v3 host rule uses one predicate. It is defined once and mirrored in the host and `rp.js`; the reward gateway
+reads only specVersion-2 networks (`V3_SPEC_VERSION`), on which it is true:
 
 ```
 v3_active(h) = active_version(h) >= 3  ||  spec.spec_version >= 2      // specVersion 2 = v3 genesis
 ```
 
-- On the live and old chain both terms are false. The cutover replay from 0 to S is therefore unchanged.
-- On the v3 genesis the second term is true from height 0.
-- On the live chain, a later in-place A1 fork turns the first term on.
-- Every v2 test changes from `==2` to `>=2`.
+- On every admitted network the second term is true from genesis: admission accepts only a specVersion-2 genesis
+  with nonceMode 1 (R24).
+- Fork version 3 is the cap raise (V3-23, FN-5), not a route to v3.
+- Schedule consumers compare versions with `>=`, never `==`.
 
-### 3.4 What must be built first, and PR order
-1. **PR-0 Decision record (docs).**
-   - Add `development/decisions/V3-DECISIONS.md` and `decisions.json` entries D-V3-*.
-   - Quote the owner's rule verbatim. Record the §5 answers.
-   - State that the rule supersedes the repository root `README.md:484-486` (the proposal-before-implementation
-     gate) for compliant items.
-   - Write the normative amendments (V3-29).
-   - Must merge before any consensus code.
-2. **PR-1 Fork machinery (V3-34).**
-   - Generalize ForkSchedule to v≥3 (both profile files), `lib.rs:202-204`, and the 8 schedule consumers
-     (`launcher.rs:107-112`, `deploy/public-testnet/nonce_upgrade.py:58-66`,
-     `deploy/standalone/prepare_nonce_upgrade.py:29-34`, `forks.js:7,20`, `pocol_rewards.py:52-53`,
-     `deploy/mainnet/preflight.py:129-134`).
-   - Change `==2` to `>=2` in the three places above.
-   - Add `v3_active`.
-   - Add a launcher path for digest-only and append-only upgrades. The compatibility digest otherwise strands
-     every home (`launcher.rs:29-31`, `:459-465`).
-   - Tests: a [(1,0),(2,H2),(3,H3)] schedule keeps nMax = 2^64 above H3; a v3 schedule fails closed against
-     stored headers.
-   - **Done in PR5** (consensus identity and upgrade path): the generic schedule rule (`new_bounded`, the runtime
-     shape, `forks.js`, `pocol_rewards.py`, `preflight.py`, `nonce_upgrade.py`, `prepare_nonce_upgrade.py`), the
-     `>=2` sites (`chain::full_nonce_rule`, removed from pocold in phase 6b; `rp.js fullRange`, `pocol_rewards.full_nonce_rule`) and the launcher
-     path (v2 invitations bound to `consensusRulesVersion`, append-only and future-only `pocol upgrade`,
-     `pocol inspect-upgrade`). `MAX_FORK_VERSION` stays 2 and `v3_active` is not added.
-   - **What the v3 PR must do under the PR5 guard** (VA-SPEC §2.3): raise `MAX_FORK_VERSION` (both profile files)
-     and/or `SPEC_VERSION`, put every v3 rule behind `active_version(h) >= 3` (or genesis specVersion 2), and re-pin
-     `consensus-sources.lock` as `neutral` with `POCOL_REPIN_GATE=fork:3` (or `spec:2`). "Released" means merged to
-     main (owner decision D2, recommended default), so that gate is spent when the PR merges: a later v3 tweak needs
-     a new gate (fork:4) or a `bump` together with the earn-in genesis. It also decides D3 (whether a schedule may
-     skip a version; the runtime shape refuses `[(1,0),(3,H)]` until then).
-3. **PR-2 Program-set registry and genesis tooling.**
-   - Replace `Spec::earnin()` equality (`chain.rs:49-52`) with a feature predicate ("earn-in or later").
-   - Add the v3 set to `SystemPrograms::for_spec` (`apply.rs:54`), `testnet.rs:159`, `devnet.rs` and
-     `build.rs:27-30`.
-   - Give the `testnet.rs` Config (currently `deny_unknown_fields`, `:19`) explicit CP overrides.
-   - Make `cutover.rs:120` read cp[16].
-   - Add CP schema version 2 (specVersion 2), appending: H_half, S_tail, P_MAX, T_PROB, F0_acct, F0_slot,
-     F0_code (deleted by FN-2a), γ_tip_bp, baseFeeMin, R_react, the contest parameters, and ρ_bp (`p1_genesis_spec.rs:35`, `:67-121`;
-     both profile files).
-4. **PR-3 Host rules.**
-   - V3-01 membership, V3-04 fork choice, V3-24 log caps and the V3-21 creation fee, all gated by `v3_active`.
-   - V3-13 draw candidates.
-   - V3-02 host validation of late shares.
-5. **PR-4 v3 system programs** (`system-v3.json`, a fork of `PoColSystemEarnIn.sol`).
-   - V3-08/09 registry budgets, V3-02 `recordLate`, V3-16 type-2, V3-15 carry (if chosen),
-     V3-19 `closeBlock(tips, issued)`, V3-10/14 contest (if chosen), V3-17 ρ, and P_MAX/T_PROB through `cfg()`.
-   - Delete the host mirrors at `apply.rs:48-49`.
-6. **PR-5 Escrow invariant and issuance.**
-   - Add `issuance.rs`. Add the carry term to `check_escrow_invariant` (`apply.rs:524-543`).
-   - Replace the supply bound (`genesis_builder.rs:70`, `gate.rs:324`).
-7. **PR-6 Resource proofs (V3-25).**
-   - GAS_ENVELOPE for the v3 programs (`admission.rs:86-87`).
-   - A13 re-run at the v3 CP in store mode (`resources.rs:571-577`).
-   - ParamGate R1–R26 at the v3 CP and the WAN locals (V3-06).
-8. **PR-7 Off-node verifiers** (V3-PR-G, off-node verifiers and clients).
-   - `pocol_rewards.py:272-281` (V3-01 membership, late shares, issuance), `rp.js:41-61`, `refdec.js:18`.
-   - V3-21 creation burn: deleted by owner decision 10d (2026-11-13, FN-2a). New accounts, slots and code pay
-     ordinary gas only, so wallets need no burn allowance and `pocol_quoteCreationBurn` is gone (network.md).
-   - V3 receipt polling (V3-PR-C3 review C3-2): a v3 node serves eth_getTransactionReceipt on the heavy lane
-     (heavy queue, RESP_MAX reservation, heavy deadline), so wallets and clients treat receipt polling as heavy-class
-     and back off on −32021 {busy, retryAfterMs}; expose the lane in `pocol_getParams.rpcLimits` if clients need it.
-9. **PR-8 Harnesses and vectors.**
-   - SimNet T7c(S) (share omission), T10b(iv) (withholding proposer plus a pre-mined fallback coalition),
-     T10 with ASERT (carry and burn).
-   - Test vectors for every new validity rule.
-10. **PR-9 Rehearsal.**
-    - Local cutover at the v3 genesis, then the pending real-server rehearsal
-      (`local-rehearsal-reviewed.json:11,15`).
-    - A multi-host WAN soak to measure Δ and φ for V3-06.
-
-**Node-local items (V3-05, V3-20 pool part, V3-24 builder part, V3-26, V3-28, V3-30)** can merge at any time.
-Every release changes the handshake digest, so they reach the live network only with PR-1's upgrade path or in
-release B.
-
-**Activation:**
-- The owner answers §5, then PR-0 through PR-9 land.
-- The new genesis is generated with specVersion 2, and S is announced in advance.
-- The cutover runs as in the runbook, with the V3-33 conduct rules.
+### 3.4 Fork versions after launch
+- `MAX_FORK_VERSION` is raised only by the PR that adds that version's rules. Those rules are reachable only through
+  `active_version(h) >= V`, and the PR re-pins the lock `neutral gate=fork:V` (VA-SPEC §2.3). The next new version is
+  4.
+- Versions are sequential (owner decision D3, V3-DECISIONS.md "Release rules and lock"): a schedule appends (2,H),
+  a nonce-rule no-op under nonceMode 1, before (3,H'). The runtime (`configured_forks`) and ParamGate (R24) refuse a
+  skipped version.
+- Version 3 is the cap raise with its `capRaise` values (D-V3-23). The off-node verifiers already take it, so its
+  activation needs no client release of its own.
+- A change that needs a new genesis is a new specVersion (`gate=spec:3`), with that genesis.
 
 ---
 
 ## 4. Items in full
 
-Live parameters below are decoded from `deploy/mainnet/h15000/network.pocol.json`:
+The problem statements below cite the old network's parameters; the fresh network's are in FRESH-NETWORK-CP.md §2:
 
-| Parameter | Live value |
-|---|---|
-| T_blk | 10 s |
-| D_att / dFbWait | 60 / 6 |
-| m / κ / S_max | 32 / 2 / 256 |
-| D / W_w | 4 / 8 |
-| B_reg | 100 PCOL (earn-in: 20) |
-| R_max / M_max | 1 / 64 |
-| REG_OPS | 16 |
-| W_act / Θ_inact | 32 / 64 |
-| E_win / U | 16 / 40 |
-| subsidy | 2 PCOL |
+| Parameter | Old network (the design's baseline) | Fresh network |
+|---|---|---|
+| T_blk | 10 s | 10 s |
+| D_att / dFbWait | 60 / 6 | 90 / 8 |
+| m / κ / S_max | 32 / 2 / 256 | 32 / 2 / 256 |
+| D / W_w | 4 / 8 | 4 / 8 |
+| B_reg | 100 PCOL (earn-in: 20) | 20 PCOL |
+| R_max / M_max | 1 / 64 | 4 / 10,000 |
+| REG_OPS | 16 | 16 |
+| W_act / Θ_inact | 32 / 64 | 32 / 360 |
+| E_win / U | 16 / 40 | 360 / 380 |
+| subsidy | 2 PCOL | 4 PCOL, M3 (V3-19) |
 
-Local timing values are Δ=1, φ=1, Φ=2, t_exec=1, Δ_rel=8 (`prototypes/pocold/src/testnet.rs:50-56`).
+Local timing: the old network used Δ=1, φ=1, Φ=2, t_exec=1, Δ_rel=8; the fresh network declares (Δ, φ, t_exec) =
+(1, 1, 1) with Δ_rel = 7, or (2, 1, 1) with Δ_rel = 8 (FRESH-NETWORK-CP.md §4).
 
 ### V3-01 Ranges for every live member (unbounded mode)
 
@@ -551,9 +481,8 @@ first-lock times are lost on a restart; a block first imported after it is judge
 - **Implementation note (N1).**
   - Derivation (`pocold/src/testnet.rs`): `derive_delta_rel(Δ, φ, t_exec) = σ + Δ + 2·t_exec` with
     σ = max(Δ, Φ+1) + t_exec, Φ = 2φ (R2 at equality); `local_for_v3` adds Γ as the R6 slack at those locals
-    (never below 5). It applies only to spec-2 (v3) genesis files: `local_for_spec` and `local_for_network` keep the
-    spec-1 derivation `local_for` (Δ_rel = dFbWait + Δ + t_exec, Γ the R6 slack) byte for byte, so the live H15000
-    chain stays at Δ_rel 8, Γ 5, and a spec-1 config that declares timing is refused.
+    (never below 5). `local_for_spec` applies it to every admitted (spec-2) genesis and refuses a spec-1 one; the old
+    network's spec-1 derivation was removed with the spec-1 rule set.
   - Inputs: the public testnet config's `localTiming {delta, phi, tExec}` (v3 only), recorded in devnet.json
     `localTiming` with `source` (`declared` or `v3-wan-default`) and read back by the launcher; without it the
     default is `TimingAssumptions::V3_WAN` (Δ = φ = t_exec = 2 s, the O-6=b bounds): Δ_rel 13, Γ 8 at
@@ -574,6 +503,9 @@ first-lock times are lost on a restart; a block first imported after it is judge
     whose recorded deltaRel or gamma differs from the derivation is refused.
 
 ### V3-06 Timing recalibration (OWNER-CHOICE O-6)
+
+**Final (FRESH-NETWORK-CP.md §7, owner answer 10a):** T_blk 10 s, D_att 90, dFbWait 8, declared (1, 1, 1) with
+Δ_rel 7, fallback (2, 1, 1) with Δ_rel 8. The O-6 options below are the record of the question.
 
 **Problem.**
 - The live timing is calibrated for one host. With governance WAN locals the gate formulas
@@ -599,6 +531,8 @@ seconds and converted (V3-11/14/18).
 fallback ratio. **Effort:** S plus measurement. **Risk:** medium.
 
 ### V3-07 M_max 64 → 256
+
+**Final (FRESH-NETWORK-CP.md §2, owner second follow-up, answer 2):** M_max = 10,000.
 
 **Problem.**
 - `register` reverts `Capacity` at active ≥ M_max (`PoColSystemV1.sol:290`; `PoColSystemEarnIn.sol:327`).
@@ -677,6 +611,10 @@ register must succeed within k blocks. Also check ACC_COUNT conservation through
 
 ### V3-10 Contestable seats (OWNER-CHOICE O-10)
 
+**Superseded (owner decisions 10b and Q2(a) of 2026-11-13; FN-2b):** there is no seat contest. An inactive member is
+removed only when the set is full, atomically with `registerReplacing` (V3-DECISIONS.md D-V3-10). The text below is the
+record of the design.
+
 **Problem.** Seats are bought with a refundable bond and kept with very little work, so a funded party can
 close entry (ECON-02, DEC-05, CONS-1). CONS-1's "committee" is overstated: there is no vote, and wins follow
 hashrate (`chain.rs:592`).
@@ -723,7 +661,7 @@ hashrate (`chain.rs:592`).
 ### V3-12 Bond B_reg (OWNER-CHOICE O-12)
 - The bond is the instance of P8's "cost per identity" (`decisions.json:38` D8; `threat.md:16` A6), already
   lowered to 20 PCOL and made earnable (`EARN-IN-MEMBERSHIP-PROPOSAL.md:15`).
-- **Deployment:** B (CP 16; `cutover.rs:120` must read it). **Effort:** S.
+- **Deployment:** B (CP 16; the genesis builder, wallet and reward gateway read it). **Effort:** S.
 
 ### V3-13 Probationers as proposer candidates (OWNER-CHOICE O-13)
 - ACCRUING records are excluded from the draw (`chain.rs:418-420`, earn-in E5). At earn-in launch only operator
@@ -731,11 +669,14 @@ hashrate (`chain.rs:592`).
 - Option (b) filter: `bond_state==4 && bond < B_reg/4` → excluded. A type-1 equivocation then always burns at
   least B_reg/4.
   - Note (2026-11-12): this minimum does not hold while every draw member is a sub-quarter probationer. The
-    existing earn-in D1 exception (EARN-IN-SPEC.md §6) then makes all of them candidates, and the dormant v3 code
-    keeps it. The owner confirmed the exception on 2026-11-12 (option a); see V3-OWNER-DECISIONS-2026-11-12.md.
+    existing earn-in D1 exception (`development/m1/reference/incentives.md`, Earn-in rules E6) then makes all of
+    them candidates, and the v3 code keeps it. The owner confirmed the exception on 2026-11-12 (option a); see V3-OWNER-DECISIONS-2026-11-12.md.
 - The draw stays deterministic and share-weighted (P3). **Deployment:** B (host). **Effort:** S.
 
 ### V3-14 Probation pool (OWNER-CHOICE O-14)
+
+**Superseded (owner decision 10c of 2026-11-13; FN-2b):** there is no probation pool and no deadline; ACCRUING members
+count within M_max (V3-DECISIONS.md D-V3-14). The text below is the record of the design.
 
 **Problem.**
 - Zero-bond probation records are capped by the constant P_MAX=8 (`PoColSystemEarnIn.sol:261`, `:334-335`).
@@ -824,6 +765,9 @@ CONSENSUS-COMPLIANT. **Deployment:** B.
 
 ### V3-19 Issuance (OWNER-CHOICE O-19)
 
+**Final (FRESH-NETWORK-CP.md §7):** M3 with S0 = 4 PCOL per 10 s block, H_half = 12,623,040 blocks (4 years) and
+S_tail = S0/32.
+
 **Problem.**
 - The host credits `cp[15]` every block (`apply.rs:489-492`), and the program records `cfg(15)+tips`
   (`PoColSystemEarnIn.sol:149`).
@@ -910,6 +854,12 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
 
 ### V3-21 Live-state caps (OWNER-CHOICE O-21)
 
+**Final (owner answer 10d and Q1 = a of 2026-11-13; FN-2a):** the caps are raised to ACCT 1,000,000 / SLOT 4,000,000 /
+CODE 2^30, subject to A13 store mode (fallback CODE 2^29), with no creation fee: new accounts, slots and code pay
+ordinary gas only. ACCT_CAP and SLOT_CAP stay A03 halts that charge the declared gas (owner answer 11), and CODE_CAP
+fails the CREATE. The cap-fill risk is accepted and disclosed in threat.md; the cap-raise path (V3-23, FN-5) and an
+occupancy alarm answer it. The creation fee below is the record of the design.
+
 **Problem (EXEC-01, ECON-01, MAT-05, SCALE-01, SCALE-05, MISSED).**
 - Live caps: CODE_CAP 2 MiB, SLOT_CAP 50,000, ACCT_CAP 20,000 (`devnet.rs:45`).
 - A user transaction that would pass a cap halts with full gas (`user_phase.rs:222-223`).
@@ -937,8 +887,7 @@ issuance(h) = h==0 ? 0 : max(k>=256 ? 0 : S0>>k, S_tail),  k = h / H_half
 **Principle check:** execution layer; Q2.4 holds (a function of state and the transaction); Q4.3 holds
 (classified burn); Q5 untouched.
 
-**Deployment:** B. The cutover copies all state unchanged (`cutover.rs:16-33`), so the caps may only be raised,
-never lowered, across it (`genesis_builder.rs:60`).
+**Deployment:** B (the fresh genesis).
 
 **Tests:**
 - Fails on the original code: dust-fill each cap, then a legitimate fund or deploy halts today and succeeds
@@ -946,25 +895,10 @@ never lowered, across it (`genesis_builder.rs:60`).
 - A griefer-cost test at the chosen F0.
 - Conservation.
 - A13 boot in store mode at the new caps.
-- The raised caps survive `transform` → `genesis_builder`.
 
-**Superseded (FN-2a, owner decision 10d of 2026-11-13).** The creation fee above and the user bound below are
-deleted, with the CP fields F0_acct, F0_slot and F0_code. The raised caps stay, as A03 halts charging the declared
-gas; the cap-fill risk is accepted (Q1 option a) and disclosed in threat.md. The text is kept as the record.
-
-**User bound (D-V3-21, owner option A, 2026-11-12; implemented dormant, v3 only; deleted by FN-2a).**
-- A nonzero burn is charged only if `gas_used·effective_price + burn ≤ max_fee·gas_limit` (types 0/1: the gas
-  price; the value stays separate, as in the Ethereum balance pre-check); otherwise `Halt::CreationFee`.
-- That halt charges the spent gas (before refunds), not the declared gas, so a builder order that raises the
-  burn past the maximum cannot convert the burn allowance in gas_limit into a gas charge through it (decided
-  under the owner rule). Other order-dependent cap halts (LogCount, AcctCap, ...) still charge the declared
-  gas; a hostile proposer, or another user against an honest builder, can cause one, so the loss bound is the
-  signed `max_fee·gas_limit` (the v3 append round drops an appended transaction that halts; node-local).
-- One transaction burns at most `max_fee·GAS_LIMIT` minus its gas cost. eth_estimateGas covers the burn with a
-  margin of 4 creations ahead per class (4·B_code_max code bytes); a fixed 21000-gas transfer to a new address
-  is refused; `pocol_quoteCreationBurn` quotes it. Details: V3-EXECUTION-FEES.md, "The signed
-  maximum fee".
-- Principle check: a function of the transaction and ancestor state (Q2.4); classified burn (Q4.3); Q5 untouched.
+**Superseded (FN-2a, owner decision 10d of 2026-11-13).** The creation fee above is deleted, with the CP fields
+F0_acct, F0_slot and F0_code and the user bound the owner chose for it on 2026-11-12 (option A, the burn within the
+signed maximum fee; V3-OWNER-DECISIONS-2026-11-12.md, second decision). The text is kept as the record.
 
 **Effort:** M. **Risk:** medium.
 
@@ -1007,8 +941,8 @@ gas; the cap-fill risk is accepted (Q1 option a) and disclosed in threat.md. The
   - NODE-LOCAL: model the log caps in PoolMeter/`template_txs` and in `eth_estimateGas`. PR6: the builder
     (`template_selection`) now models the log caps (count, block bytes, LOG_CAP) and SLOT_CAP/ACCT_CAP/SYS_SLOT_MAX;
     the pool refuses a transaction whose own logs pass a log cap. C3 made the v3 `eth_estimateGas` check a call's own
-    logs against the v3 caps. N4 makes every estimate model the caps active in the next block: v3 256 KiB / 4,368, or
-    spec-1 32 KiB / 546, plus LOG_CAP when H_END ≠ 0. A call whose own logs pass a cap gets −32000 {reason}, not a
+    logs against the v3 caps. N4 makes every estimate model the caps active in the next block: 256 KiB / 4,368, plus
+    LOG_CAP when H_END ≠ 0. A call whose own logs pass a cap gets −32000 {reason}, not a
     gas value.
 - **Classification:** CONSENSUS-COMPLIANT. **Deployment:** B; later forks through A1.
 - **Tests:** fails on the original code: front-load 32 KiB of logs, then a later ERC-20 transfer halts today and
@@ -1115,50 +1049,32 @@ fork; a restart test. **Effort:** S. **Risk:** low.
   V3-04. Keep current claims modest. The owner's planned post-launch human audit can include it.
 
 ### V3-32 Genesis allocation (OWNER-CHOICE O-32)
-- 4 × 1,000,000 PCOL (`network.pocol.json:10`), copied unchanged by the cutover (`EARN-IN-SPEC.md:135-144`).
-  PLAN E1 is open.
+- **Final (owner answers 8, 9 and 15 of 2026-11-13; O-32 = b superseded, FRESH-NETWORK-CP.md §7):** the initial
+  supply is exactly 4,000,000 PCOL, 1,000,000 PCOL to each of the four founding miners (the three US servers and the
+  owner's PC): 999,980 PCOL on its reward address and its 20 PCOL HELD bond minted into Escrow (FRESH-NETWORK-CP.md
+  §3). The genesis builder refuses any other member or allocation. (Owner decision pending: whether each server
+  founder's reward address is its own hot miner key or a separate owner-held address; FRESH-NETWORK-CP.md §9.)
 - The thesis allows genesis balances "to founding entities or to a treasury account" (T p97/80), and bootstrap is
   "a deployment choice" (T p95/78). Not consensus.
-- The owner states the allocation funds network development. The finding concerns disclosure and holding.
-- **Deployment:** docs, plus optional on-chain transactions before or after B.
+- The owner states the allocation funds network development. The finding concerns disclosure and holding: the
+  allocation is disclosed with the launch (the launch disclosures drafted in `deploy/standalone/README.md`; PLAN E1).
+- **Deployment:** the genesis, plus the disclosures.
 
 ### V3-33 Re-genesis conduct (OWNER-CHOICE O-33)
-- **Problem.**
-  - Transactions after S are voided (`EARN-IN-CUTOVER-RUNBOOK.md:81`, `:96`).
-  - Android installs cannot follow (`:434`) and keys cannot be exported (`deploy/standalone/README.md:171-173`).
-  - The owner alone decides (DEC-06).
-- **Status (N6):** the builder/pool freeze (`--freeze-user-txs-after S`, POCOL_FREEZE_USER_TXS_AFTER, `pocol
-  freeze-user-txs`; `node::Limits::freeze_user_txs_after`), the old-chain export (`pocold export-chain`,
-  `pocold verify-export`; `pocold/src/cutover/export.rs`) and the conduct steps in
-  `deploy/mainnet/EARN-IN-CUTOVER-RUNBOOK.md` step 0.4 are in tree. No validity, fork-choice, journal or
-  checkpoint byte changed; with the setting off a node behaves as before. The freeze is local policy, so "nothing
-  is voided" holds only when every node that can be drawn as proposer runs it; the runbook's step 1 checks every
-  block after S, whoever proposed it. A saved launcher or inventory setting names its network and is not applied
-  to the new one. The cutover can write the export in the same run (`--export-chain`), rebuilding the state at S
-  once. The Android export build is the existing key-backup work. Nothing was run on a real network.
-  The freeze, the export and the cutover were removed in fresh-network phase 2a after the owner's 2026-11-13
-  decision to launch a brand-new network (no re-genesis of the old chain); read them at commit `d24843d`.
-- **NODE-LOCAL parts:**
-  - a builder flag that includes no user transactions after S, so nothing is voided;
-  - publish old-chain data and rebuild instructions;
-  - an Android key-export/migration path. Android installs an update only if it is signed by the installed
-    app's signer or an authorized signing-key lineage (`deploy/standalone/RELEASE-UPGRADE.md:81-105`), so an
-    export build signed only with the owner's new key cannot reach existing wallets. (Review fix.) In order:
-    (1) if the key that signed the installed APKs can be recovered (for a debug-signed build, the debug
-    keystore of the machine that built it), ship the export build signed with it, or with a v3 signing lineage
-    from it to the new key; (2) otherwise, existing users move their funds before S with the installed app's
-    Send action to an address of the new app (new key, new applicationId so both apps can be installed at the
-    same time), and member identities deregister first. The cutover waits until this has been announced for
-    long enough.
-- **Policy part:** owner question O-33.
+**Moot (owner answers 1-4 of 2026-11-13; FRESH-NETWORK-CP.md §7):** the network is brand-new and nothing carries over,
+so there is no re-genesis, no freeze height S, no old-chain export and no wallet migration. The freeze, the export and
+the cutover the design asked for were built and then removed in fresh-network phase 2a; read them, and this item's
+earlier text, in git history (for example at commit `d24843d`). What remains of the policy part: later consensus
+changes go through the fork schedule (§3.4).
 
 ### V3-34 Fork machinery and verifier hygiene
-Content as PR-1, PR-2 and PR-7 in §3.4. **Status:** the PR-1 schedule generalisation, the `>=2` sites and the
-launcher upgrade path are done (PR5); `v3_active`, PR-2 and PR-7 remain. The v3 PR re-pins with `gate=fork:3` (or
-`spec:2`), see §3.4.
+**Status: done.** The schedule generalisation, the `>=2` sites and the launcher upgrade path (PR5); `v3_active`, the
+program-set registry and CP schema v2 (the V3 program set is the only one, `SystemPrograms::for_spec`); and the
+off-node verifiers (the extension, the reward gateway and the identity tool, which also take fork version 3). Fork
+versions after launch: §3.4.
 - **Principle check:** the schedule semantics (`consensus.md:46`) are unchanged.
-- **Tests:** a [(1,0),(2,H2),(3,H3)] schedule keeps nMax=2^64; `v3_active` is false for every old-chain block
-  0..S; the wallet's bond features still work on the v3 program set.
+- **Tests:** a [(1,0),(2,H2),(3,H3)] schedule keeps nMax=2^64; a skipped version is refused; the wallet's bond
+  features work on the v3 program set.
 - **Effort:** M–L. **Risk:** medium.
 
 ### V3-R Rejected
@@ -1177,10 +1093,15 @@ Only a new explicit owner decision could reopen these.
 
 ## 5. OWNER-CHOICE items (answer with one word each)
 
+This is the question sheet of 2026-11-08. The owner's answers are recorded in V3-DECISIONS.md ("Owner choices"); the
+2026-11-13 decisions superseded O-0, O-10, O-14 and O-32, changed O-6, O-19 and O-21 and made O-33 moot
+(FRESH-NETWORK-CP.md §7). Each such question is marked below.
+
 Answer sheet: `O-0=… O-6=… O-10=… O-11=… O-12=… O-13=… O-14=… O-15=… O-17=… O-18=… O-19=… O-20=… O-21=… O-32=… O-33=…`
 Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=b O-19=M3 O-20=b O-21=b O-32=b O-33=b`
 
 **O-0 Vehicle for v3** — كيف يُطلق v3؟
+- *(2026-11-13: Superseded: a brand-new network from a fresh genesis (§3).)*
 - (a) Ride the held earn-in re-genesis (B), and build the in-place fork machinery in the same release.
 - (b) No re-genesis: change the live chain in place at a height (A2, high risk, needs a testnet rehearsal).
 - (c) Postpone v3.
@@ -1188,6 +1109,7 @@ Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=
   safely today. It is also the last cheap point while the operator still runs all three seeds.
 
 **O-6 Block time** — زمن الكتلة.
+- *(2026-11-13: Changed: T_blk 10 s (D_att 90, dFbWait 8, Δ_rel 7).)*
 - (a) Keep 10 s. Valid only for a single-host latency of about 1 s.
 - (b) 30 s (D_att 150, dFbWait 10, Δ_rel 13). Valid if measured WAN Δ ≤ 2 s; otherwise use c.
 - (c) 60 s (the governance profile: D_att 300, dFbWait 25).
@@ -1195,6 +1117,7 @@ Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=
   from +0.105 to about +0.066 at 20% hashrate.
 
 **O-10 Contestable seats when the set is full** — هل يحق لقادم جديد أن يأخذ مقعد عضو لا يعدّن فعلاً؟
+- *(2026-11-13: Superseded: no seat contest; removal at a full set only.)*
 - (a) No contest; rely on 256 seats and inactivity removal.
 - (b) Contest by work over one day, with a statistical margin (θ=1/8, 3σ), only when all seats are full, the
   victim refunded, and only together with V3-02.
@@ -1220,6 +1143,7 @@ Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=
 - **Recommend b.** It ends "only operator servers propose", and equivocation still burns at least 5 PCOL.
 
 **O-14 Probation pool** — حجم قائمة الاختبار.
+- *(2026-11-13: Superseded: no probation pool and no deadline.)*
 - (a) Keep 8 slots, no contest.
 - (b) M_max/4 slots (64), contest by work inside the pool, T_PROB = 30 days, both as CP fields (requires V3-09).
 - (c) 64 slots, no contest.
@@ -1243,6 +1167,7 @@ Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=
 - **Recommend b.**
 
 **O-19 Issuance schedule** — سياسة الإصدار.
+- *(2026-11-13: Changed: M3 at S0 = 4 PCOL per 10 s block, H_half 12,623,040.)*
 - M0: keep 2 PCOL per block forever (6.31M per year at 10 s).
 - M1: flat 2 PCOL per 60 s, scaled by T_blk (1.05M per year, no cap).
 - M3: M1's rate halving every 4 years, with a tail of S0/32 (about 8.4M total plus a small perpetual tail).
@@ -1256,6 +1181,7 @@ Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=
 - **Recommend b.** In every case the pool becomes fee-ordered with replacement and eviction (node-local).
 
 **O-21 State caps** — حدود حالة السلسلة.
+- *(2026-11-13: Changed: no creation fee; ACCT 1,000,000 / SLOT 4,000,000 / CODE 2^30.)*
 - (a) Raise the caps only (ACCT 200k, SLOT 500k, CODE 32 MiB).
 - (b) Raise the caps and add a burned creation fee that rises as the cap fills (about 0.001 PCOL per new account
   at low use).
@@ -1263,6 +1189,7 @@ Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=
 - **Recommend b.**
 
 **O-32 The 4,000,000 PCOL genesis allocation** — مخصص التأسيس.
+- *(2026-11-13: Superseded: 1,000,000 PCOL to each of the four founders, its bond included.)*
 - (a) Publish the holder addresses and their purpose only.
 - (b) Publish them, and move the development fund into a public time-locked account with published spending
   reports.
@@ -1270,6 +1197,7 @@ Recommended: `O-0=a O-6=b O-10=b O-11=b O-12=a O-13=b O-14=b O-15=b O-17=b O-18=
 - **Recommend b.**
 
 **O-33 How the re-genesis is run** — طريقة إعادة التكوين.
+- *(2026-11-13: Moot: nothing carries over.)*
 - (a) As in the current runbook.
 - (b) Include no user transactions after S, publish the old-chain data, ship an Android key-export build first,
   and publicly commit that this is the last owner-only re-genesis; later consensus changes go through the fork

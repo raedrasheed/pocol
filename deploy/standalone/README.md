@@ -23,22 +23,21 @@ installation, with inclusion/revert status and confirmation counts.
 
 ## Continuous protocol
 
-Every network this release builds is a v3 genesis (`specVersion` 2), and every v3
-genesis is continuous. The bootstrap passes no option for it: `pocold init-testnet`
-refuses the retired spec-1 options `continuous`, `earnin` and `fullNonce` by name. The
-genesis explicitly encodes all four
-lifetime fields (`H_END`, `T_END`, `H_CLOSE`, `T_CLOSE`) as zero, meaning **no
-scheduled closing block, final block or expiration date**. This is not a larger
-hidden end height. The release bundles one compiled system-program set (v3), which
-keeps the registry open. The spec-1 rule set, with its finite profiles and its other
-program sets, is retired: a spec-1 network is refused with that reason at start.
+Every network this release builds is a v3 genesis (`specVersion` 2), and every genesis
+`pocold init-testnet` builds is continuous (only a local `pocold init-devnet --h-end`
+devnet is finite). The bootstrap passes no option for it: `pocold init-testnet`
+refuses the retired options `continuous`, `earnin` and `fullNonce` by name. The
+genesis explicitly encodes all four lifetime fields (`H_END`, `T_END`, `H_CLOSE`,
+`T_CLOSE`) as zero, meaning **no scheduled closing block, final block or expiration
+date**. This is not a larger hidden end height. The release bundles one compiled
+system-program set (v3), which keeps the registry open; a spec-1 genesis is refused
+at start.
 
 A continuous chain applies TX_CAP and TXBYTES_CAP per block, and resets the historical
 log allowance at each block. Per-transaction, per-block, live-state, gas, peer and
-queue protections remain. Old cumulative transaction/log limits cannot gradually
-exhaust the ability to send. An existing spec-1 network is not converted.
-A new shared genesis and the same updated binaries on every device are required;
-never erase an existing identity or regenerate different genesis files per device.
+queue protections remain, and no cumulative transaction/log limit can gradually
+exhaust the ability to send. Every device runs the same release with one shared
+genesis; never erase an existing identity or regenerate different genesis files per device.
 
 No fixed machine can promise infinite storage. History, replay indexes and some
 metadata still grow. The local memory model explicitly projects from observed
@@ -90,7 +89,8 @@ the committed profile's, and the script refuses a profile whose chain id is not 
 The four founders are the three servers (founders 1-3, in the order given) and this PC
 (founder 4). Each generates a fresh key on its own device; only public addresses are
 collected. Each founder is a HELD member from genesis with a 20 PCOL bond and 999,980 PCOL
-on its own address. The phone is not a founder: it joins with the invitation, wallet only by
+on its own address (owner decision pending: whether a server founder's reward address is
+its own hot miner key, as the script does today, or a separate owner-held address). The phone is not a founder: it joins with the invitation, wallet only by
 default, and can register as a miner later (see *Mining* below).
 
 Before the run:
@@ -157,7 +157,9 @@ from this invitation, in the repository (W15 for the rehearsal, W16 for the main
 
 ### Launch disclosures (DRAFT: wording for owner review)
 
-> **DRAFT — not yet reviewed by the owner.** Drafted from FRESH-NETWORK-DESIGN §4a and C8.
+> **DRAFT — not yet reviewed by the owner** (owner decision pending: launch-disclosure wording). Drafted from the
+> fresh-network design's §4a and C8, which is kept outside this repository; the decided values are in
+> `development/decisions/FRESH-NETWORK-CP.md`.
 
 - **Not public-launch-ready.** The software reports `publicLaunchReady: false` and lists its
   reasons (the launch blockers the ceremony prints). The network is admitted as a Simnet
