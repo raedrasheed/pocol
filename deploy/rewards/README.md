@@ -1,71 +1,38 @@
-# Reward projection and the full nonce range upgrade
+# Reward projection of the v3 network
 
-`pocol_rewards.py` is the read-only latest-block reward adapter previously
-packaged for the public explorer gateway. It is now tracked beside the node
-upgrade so the gateway can use the same height-dependent nonce rules. Its
-`pocol-block-reward-v1` response schema and payout formula are unchanged.
+`pocol_rewards.py` is the read-only latest-block reward adapter of the public explorer gateway (`gateway.py`). It
+reads a v3 (spec-2) network only: the v3 rules (V3-DESIGN.md, V3-DECISIONS.md) are the release rules (consensus rules
+2, GenesisSpec version 2), and the answer has schema `pocol-block-reward-v3`.
 
 The adapter does not submit transactions, modify state, change difficulty, or
 prove that a projected payment has settled. It reads the captured block's state
 and returns `status: "pending"`; evidence and payment eligibility can still
 change before settlement.
 
-## Trusted activation configuration
+## Trusted configuration
 
-Without an explicit schedule, only consensus version 1 is accepted:
-
-```python
-from pocol_rewards import snapshot
-
-result = snapshot(node_query)
-```
-
-For a coordinated upgrade, pass the exact operator-approved schedule used by
-the nodes. `activation_height` below is an integer loaded from the trusted
-deployment configuration, not from an RPC response or a public HTTP parameter:
+The network and the fork schedule are operator configuration, never RPC answers or public HTTP parameters. There is
+no built-in network: `snapshot_v3` and `decode_header` need one.
 
 ```python
-trusted_schedule = ((1, 0), (2, activation_height))
-result = snapshot(node_query, fork_schedule=trusted_schedule)
+from pocol_rewards import snapshot_v3, validated_network
+
+network = validated_network({'chainId': chain_id, 'genesisHash': genesis_hash, 'specVersion': 2, 'v3': True,
+                             'source': 'https://explorer.pocol.net'})
+result = snapshot_v3(node_query, fork_schedule=trusted_schedule, network=network)
 ```
 
-The adapter requires the node's `pocol_getParams.forkSchedule` to match that
-configuration. It never adopts a schedule advertised by the node. A legacy
-node without `forkSchedule` is accepted only with the default v1 schedule.
-Use the gateway's direct node RPC connection: a proxy that strips this field
-must be updated before enabling the upgrade projection.
+`chain_id`, `genesis_hash` (lower-case `0x` hex), the optional `source` (an https URL the answer names) and
+`trusted_schedule` come from the operator's deployment configuration. The adapter requires the node's
+`pocol_getParams` to name that chain and genesis, its `genesisPre` to hash (keccak256) to the configured genesis and
+to decode as a version-2 GenesisSpec with the 59 CP items of CP schema v2, nonceMode 1 (the full nonce domain, the
+only mode a v3 genesis admits) and the v3 program set's sysCodeHash (`V3_SYS_CODE_HASH`, recomputed by the tests from
+`system-v3.json`), and the node's advertised fork schedule to equal the configured one.
 
-Both the captured header and its parent are checked against the trusted
-schedule at their individual heights. Before activation, immutable genesis
-`nonceMode` still determines the range. At and after activation, version 2 uses
-the full domain of `2^64` values, including nonce `2^64 - 1`. The genesis Caps
-value is not rewritten. The moving-head `activeVersion` field is not used to
-choose rules for a previously captured block.
-
-This version also corrects membership reconstruction to use **CP24 (`W_act`,
-blocks)**. The earlier adapter used CP7 (`dFbWait`, seconds), which could exclude
-valid members when their last activity was older than 6 but within 32 blocks
-under the current network configuration.
-
-## v3 (spec-2) networks
-
-The v3 rules (V3-DESIGN.md, V3-DECISIONS.md) are the release rules (consensus rules 2, GenesisSpec version 2), but no
-v3 network identity is pinned yet (removal plan Phase 10). The adapter reads a v3 genesis only when the
-operator configures it explicitly, in the same trusted way as a fork schedule; without it every call is the pinned
-spec-1 Mainnet projection above, byte for byte, and a node on another genesis is refused:
-
-```python
-from pocol_rewards import snapshot, validated_network
-
-network = validated_network({'chainId': chain_id, 'genesisHash': genesis_hash, 'specVersion': 2, 'v3': True})
-result = snapshot(node_query, fork_schedule=trusted_schedule, network=network)
-```
-
-`chain_id`, `genesis_hash` and `trusted_schedule` come from the operator's deployment configuration, never from RPC.
-The adapter requires the node's `pocol_getParams` to name that chain and genesis, its `genesisPre` to hash (keccak256)
-to the configured genesis and to decode as a version-2 GenesisSpec with the 59 CP items of CP schema v2 and the v3
-program set's sysCodeHash (`V3_SYS_CODE_HASH`, recomputed by the tests from `system-v3.json`), and the node's
-advertised fork schedule to equal the configured one. `v3_active(h)` is `active_version(h) >= 3 || specVersion >= 2`.
+The trusted fork schedule defaults to `[[1, 0]]`: the v3 profiles name no fork. It only checks each header's version
+against its height and the cap raise: fork version 2 is a kept no-op, and fork version 3 is the cap raise (FN-5,
+`MAX_FORK_VERSION` 3, as in pocold's profile), whose node-advertised `capRaise` must sit at the schedule's fork-3
+height. The moving-head `activeVersion` field is not used to choose rules for a previously captured block.
 
 The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For the captured block h it reproduces:
 
@@ -73,9 +40,9 @@ The answer has schema `pocol-block-reward-v3` and stays `status: "pending"`. For
   share (V3-20) plus the carry into pot h, the base burn `R - A` of `settle(h-1-D)` lagged by one block (V3-15). The
   sum is checked against RewardEscrow's pending pot and the carry against `RewardEscrow.carry()`. Its projected
   settlement uses the header's owners under the all-live membership (D-V3-01: every live member of the parent's
-  ActList owns a nonce range on unbounded ranges, without the `W_act` activity filter); `projectedCarryWei` is its
+  ActList owns a range of the full u64 nonce domain, without any activity filter); `projectedCarryWei` is its
   uncovered pool part, which goes to the next pot rather than burning. Late shares, evidence and registry changes before
-  h + D can still change it, as on spec 1. Once the registry is closing (`closing`), the final block may settle pot h
+  h + D can still change it. Once the registry is closing (`closing`), the final block may settle pot h
   before h + D and burn its base burn instead of carrying it: `closing.settlementMayBeFinal` says when that can happen
   (`earliestFinalHeight <= h + D`). As in the host's final predicate, `earliestFinalHeight` is `max(closeHeight + D,
   h + 1)`: H_END is only a ceiling, and with T_END = 0 (or H_END = 0) the end condition always holds.
@@ -114,13 +81,13 @@ tag is read as `latest`), so a reorganisation away from the anchor and back with
 detected by the final anchor re-read. A read of another branch's state would generally break the cross-checks above,
 but this is not a guarantee.
 
-The gateway enables it with `--v3-network FILE` (a JSON object as above, at most 4096 bytes, read once at startup);
-the public `pocol_getBlockReward` method stays a parameterless read. A v3 reward read may also call
-`eth_getTransactionReceipt`, and it has a larger read budget (`MAX_CALLS_V3`, `MAX_SECONDS_V3`).
+The gateway requires `--v3-network FILE` (a JSON object as above, at most 4096 bytes, read once at startup); the
+public `pocol_getBlockReward` method stays a parameterless read. A reward read may call the node's block, header, state
+and `eth_getTransactionReceipt` reads only, within `MAX_CALLS_V3` calls and `MAX_SECONDS_V3` seconds.
 
 ### v3 membership reads (Sites W6)
 
-With `--v3-network`, the gateway also serves the explorer's membership reads, each at one head block (every
+The gateway also serves the explorer's membership reads, each at one head block (every
 `eth_call` at that height, then a re-read of the block; a changed block is error -32022) and cached per head block:
 
 - `pocol_getMembers(start, count)` (integers, `0 <= start < 10000`, `1 <= count <= 256`, token cost 5): one
@@ -134,9 +101,8 @@ With `--v3-network`, the gateway also serves the explorer's membership reads, ea
   here) and `removalStatus` (the removal verdict, labelled), plus `proposerEligible`: whether the next block's draw
   (pocold `membership_one_pass`, `Membership::from_parent`, `DrawWeights::new`) counts the record as a candidate. A
   live member of the proposer membership A_h* is one unless it is ACCRUING with a bond below B_reg/4 (Caps), and when
-  every member of A_h* is such a probationer all of them are (the all-probationer exception); on a bounded nonce
-  domain (fork version 1 at the next height and CP nonceMode 0) A_h* is the members with lastShare or graceStart
-  within W_act unless none is. When the answer depends on other members the gateway reads the ActList at the same
+  every member of A_h* is such a probationer all of them are (the all-probationer exception). A_h* is every live
+  (non-tomb) member of the ActList: v3 has no activity window. When the answer depends on other members the gateway reads the ActList at the same
   height (`lengths`, whose heldTotal bounds every bond, and `activeSlice` pages, cached per head) and at most 32 other
   records; past that bound `proposerEligible` is `null`, never guessed. It also answers for records outside the
   active list, such as `registerReplacing` victims (status 2).
@@ -148,11 +114,8 @@ the same bounds.
 
 ## Integration boundary
 
-The gateway installer and running service are not changed by adding this
-directory. Its caller must replace the old module and pass the trusted schedule
-as shown above during the coordinated release. Keep the schedule out of the
-public `pocol_getBlockReward` request; that method remains a no-argument read.
-Do not enable version 2 by accepting arbitrary browser-supplied heights.
+The repository tests change no installed service. Keep the network and the schedule out of the public
+`pocol_getBlockReward` request; that method remains a no-argument read.
 
 ## Validation
 
@@ -160,12 +123,7 @@ Do not enable version 2 by accepting arbitrary browser-supplied heights.
 python3 -m unittest discover -s deploy/rewards -v
 ```
 
-Tests use a deterministic independent RLP/RPC fixture with block-anchored state
-reads. They cover activation boundaries, a v1 parent of the first v2 block,
-maximum-nonce ownership, incorrect versions and untrusted schedules, moving
-head races, the activity-window regression, reward arithmetic and PAY burns.
-
-The v3 tests check the network configuration and the GenesisSpec proof, and the reward arithmetic against the
+The tests check the network configuration (required, no default) and the GenesisSpec proof (nonceMode 1 only), and the reward arithmetic against the
 independent model's vectors (`prototypes/lp4-execution/tests/v3/*.json`: the M3 schedule, for every closed pot of
 every chain scenario issuance + tips - share + the lagged base burn, and the scenario with a final block replayed
 through the adapter's own settlement code to its end). `V3FlowTests` run the payment, closing-refund, reporter-cut and
@@ -192,47 +150,53 @@ not a replacement for full block validation.
 
 ## Gateway startup integration
 
-`gateway.py` is the explorer gateway with this adapter integration. The public
-`pocol_getBlockReward` method still accepts exactly `params: []`; clients cannot
-supply an activation height. The gateway passes an immutable, locally validated
-schedule to the adapter on every reward read. No HTTP/RPC input can replace it.
+`gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it; the GeoIP
+and transaction index modules stay optional). The public `pocol_getBlockReward` method still accepts exactly
+`params: []`; clients cannot supply a network or a schedule. The gateway passes its immutable, locally validated
+configuration to the adapter on every reward read. No HTTP/RPC input can replace it.
 
-For an operator-approved deployment, install `gateway.py` and `pocol_rewards.py`
-together in the existing `/opt/pocol-explorer-gateway` service directory. Keep
-its other installed modules and existing service arguments. With no new argument,
-the gateway uses only `[[1, 0]]` and does not enable consensus version 2.
+For an operator-approved deployment, install `gateway.py` and `pocol_rewards.py` together in the
+`/opt/pocol-explorer-gateway` service directory, and create operator-controlled files outside the website's document
+root, writable only by the operator (they are not downloadable public configuration):
 
-To configure the coordinated upgrade, create an operator-controlled JSON file
-at `/etc/pocol-explorer-gateway/forks.json`. Its contents must be numeric pairs
-`[[1, 0], [2, H]]`, replacing `H` with the exact approved activation height used
-by the nodes. `H` must be a positive integer below `2^64`. Strings, booleans,
-zero-height version 2, unknown versions, and extra entries are rejected. Keep
-this configuration outside the website's document root and writable only by the
-operator; it is not a downloadable public configuration endpoint.
-
-Add this argument to the existing service's gateway command:
-
-```sh
---fork-schedule /etc/pocol-explorer-gateway/forks.json
-```
+- `/etc/pocol-explorer-gateway/network.json` (required): the network, taken from the network's invitation
+  (`network.pocol.json`: its GenesisSpec's chain ID and keccak256 hash), for example
+  `{"chainId": N, "genesisHash": "0x...", "specVersion": 2, "v3": true, "source": "https://explorer.pocol.net"}`.
+  Keep `"source"` while the pocol.net reward page checks it.
+- `/etc/pocol-explorer-gateway/forks.json` (optional): numeric pairs of the nodes' exact schedule, `[[1, 0]]` by
+  default; `[[1, 0], [2, H2], [3, H3]]` for a cap raise at H3. Heights are integers below `2^64`, strictly increasing;
+  strings, booleans, unknown versions and extra entries are rejected.
 
 For a service using the default local ports, the complete command is:
 
 ```sh
 python3 /opt/pocol-explorer-gateway/gateway.py \
   --bind 127.0.0.1 --port 8088 --rpc-port 8545 \
+  --v3-network /etc/pocol-explorer-gateway/network.json
+```
+
+and with a scheduled cap raise:
+
+```sh
+python3 /opt/pocol-explorer-gateway/gateway.py \
+  --bind 127.0.0.1 --port 8088 --rpc-port 8545 \
+  --v3-network /etc/pocol-explorer-gateway/network.json \
   --fork-schedule /etc/pocol-explorer-gateway/forks.json
 ```
 
-The file is loaded and validated once, before the node connection is opened.
-Changing the file has no effect on a running gateway; an operator restart is
-required. The adapter then requires the node's advertised schedule to match the
-configured schedule, rather than adopting the node's response. These files do
-not alter the installed service or choose an activation height automatically.
+Without `--v3-network` the gateway exits (status 2) before it connects to the node, as it does for an invalid file.
+Both files are loaded and validated once, before the node connection is opened; changing them has no effect on a
+running gateway, and an operator restart is required. At startup the gateway refuses a node that does not name the
+configured chain ID and genesis hash.
 
-The explorer's existing `pocol_getParams` sanitizer now retains the public fields
-`forkSchedule`, `effectiveNonceMode`, `nextBlockNonceMode`, and
-`consensusCompatibilitySha256`. The public RPC method allowlist is unchanged.
+**Operator step at deployment.** The live explorer service unit is not in this repository. Its `ExecStart` must gain
+`--v3-network` (and the network file must exist) when this gateway is installed: an unchanged unit, with only the old
+arguments, fails at startup. The pocol.net reward page (`deploy/websites/pocol.net/api/reward.php`, `reward.js`) still
+validates the retired `pocol-block-reward-v1` answer and is switched to `pocol-block-reward-v3` separately.
+
+The explorer's `pocol_getParams` sanitizer retains the public fields `forkSchedule`, `capRaise`,
+`effectiveNonceMode`, `nextBlockNonceMode` and `consensusCompatibilitySha256`. The public RPC method allowlist is
+unchanged.
 
 The Studio gateway (`deploy/studio/pocol_studio_gateway.py`) retains the same public
 fields in its own sanitizer. Neither gateway adds transaction or read methods, and no
