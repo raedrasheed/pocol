@@ -178,8 +178,9 @@ public final class MainActivity extends Activity {
         reviewRow(body,rejoin?"Maximum fees":"Maximum fee",q.optString("maximumFee")+" PCOL",false);reviewRow(body,"Maximum total",q.optString("maximumTotal")+" PCOL",false);body.addView(text("Review expires in 60 seconds.",12,MUTED,false));
         quoteDialog=new AlertDialog.Builder(this).setTitle(registration?(replacing!=null?"Review registration by replacement":"Review registration"):top?"Review bond top-up":rejoin?"Review mining rejoin":"Review transfer").setView(scrollBody(body)).setNegativeButton("Cancel",(d,w)->command(object("method","cancel"))).setPositiveButton("Confirm & sign",(d,w)->command(object("method","confirm","quote_id",id))).setOnCancelListener(d->command(object("method","cancel"))).create();quoteDialog.show();styleDialog(quoteDialog);
     }
-    /** Sends the role chosen in Settings; the engine's next snapshot carries it and re-renders the tabs. */
-    private void setMode(String mode){if(service==null||!snapshot.has("appMode")){notice(WalletText.MODE_OFFLINE);return;}if(mode.equals(appMode))return;command(object("method","set_mode","mode",mode));}
+    /** Sends the role chosen in Settings; the engine's next snapshot carries it and re-renders the tabs. The role already
+     *  in use is sent again when the engine reports it unsaved (appModeSaved false), so a failed save can be retried. */
+    private void setMode(String mode){if(service==null||!snapshot.has("appMode")){notice(WalletText.MODE_OFFLINE);return;}if(mode.equals(appMode)&&snapshot.optBoolean("appModeSaved",true))return;command(object("method","set_mode","mode",mode));}
     private void update(String raw){try{JSONObject v=new JSONObject(raw);if(v.has("address")){snapshot=v;
                 // The engine's role decides the tabs: re-render when it differs from the one on screen.
                 String mode=WalletText.storedMode(v.optString("appMode"));

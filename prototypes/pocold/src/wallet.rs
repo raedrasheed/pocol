@@ -138,7 +138,7 @@ pub const REPLACE_GAS:u64=500_000;
 /// Heads the exit may stay unincluded before the plan stops (nothing changed on chain then).
 pub const EXIT_WAIT_BLOCKS:u64=30;
 struct Rejoin { exit:Option<(B256,u64)>, max_fee:U256, priority:U256, attempts:u8, last:Option<B256>, tried_at:Option<u64> }
-pub struct Wallet<'a> { home:&'a Home,key:Key,quote:Option<Quote>,rejoin:Option<Rejoin>,activity:VecDeque<Value>,mode:AppMode,pub stopped:bool,network_checks:bool }
+pub struct Wallet<'a> { home:&'a Home,key:Key,quote:Option<Quote>,rejoin:Option<Rejoin>,activity:VecDeque<Value>,mode:AppMode,mode_saved:bool,pub stopped:bool,network_checks:bool }
 
 /// Where a registry record stands for rejoining, at the next block `next`. `member` is whether the
 /// account is in A_next (consensus membership from the head state).
@@ -505,10 +505,13 @@ impl<'a> Wallet<'a>{
         let key=home.key()?;let path=home.path.join(crate::launcher::ACTIVITY_FILE);
         let activity=if path.exists(){let bytes=crate::launcher::read_bounded(&path)?;let a:VecDeque<Value>=serde_json::from_slice(&bytes).map_err(|_|"Wallet activity is damaged; preserve it before recovery")?;if a.len()>100{return Err("Wallet activity exceeds limit".into())}a}else{VecDeque::new()};
         // The device role is read before the node starts; every start is mining off.
-        Ok(Self{home,key,quote:None,rejoin:None,activity,mode:read_mode(&home.path),stopped:false,network_checks:true})
+        Ok(Self{home,key,quote:None,rejoin:None,activity,mode:read_mode(&home.path),mode_saved:true,stopped:false,network_checks:true})
     }
     /// The device role this engine runs with.
     pub fn mode(&self)->AppMode{self.mode}
+    /// Whether the role in use is the one saved in MODE_FILE (false after a switch to wallet only that could not be
+    /// saved): the apps then send the same choice again, so the user can retry the save once storage is fixed.
+    pub fn mode_saved(&self)->bool{self.mode_saved}
     /// The head's registry record, whether the account is in A_{head+1} (None if unknown) and the step.
     fn rejoin_view(&self,n:&Node)->(Option<apply::MinerRecord>,Option<bool>,RejoinStep){
         let addr=self.key.address();let head=n.chain.head();
@@ -580,7 +583,7 @@ impl<'a> Wallet<'a>{
         let v3=state.as_ref().and_then(|s|v3_status(&n.chain,s.v(),addr,record.as_ref(),head.height.saturating_add(1)));
         let mut status=json!({"type":"status","address":format!("{addr:#x}"),"balance":coins(balance),"balanceWei":balance.to_string(),
             "chainId":n.chain.spec.chain_id(),"genesisHash":types::hex(&n.chain.spec.genesis_hash()),"height":head.height,"peers":n.peer_count(),"headTime":head.ts,
-            "appMode":self.mode.as_str(),"roleWarning":role_warning,"miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
+            "appMode":self.mode.as_str(),"appModeSaved":self.mode_saved,"roleWarning":role_warning,"miningEnabled":enabled,"miningEligible":eligible,"registered":record.is_some(),
             "miningActive":member,"registryStatus":registry,"rejoin":rejoin,
             "rejoinAvailable":!wallet_only&&self.rejoin.is_none()&&matches!(step,RejoinStep::Exit|RejoinStep::Wait{..}|RejoinStep::Reactivate{..}),
             "miningState":mining_state,
@@ -617,13 +620,13 @@ impl<'a> Wallet<'a>{
                     // Wallet only stops mining at once, and a reviewed mining quote can no longer be confirmed, even
                     // when the file cannot be written (full or read-only storage): that only fails safe. The file then
                     // keeps its earlier role, and miner mode always starts with mining off.
-                    self.mode=mode;n.set_mining_key(None);
+                    self.mode=mode;self.mode_saved=saved.is_ok();n.set_mining_key(None);
                     if self.quote.as_ref().is_some_and(|q|!quote_allowed(mode,q.kind)){self.quote=None;}
                     saved.map_err(|e|format!("{WALLET_ONLY_NOT_SAVED} ({e})"))?;
                 }else{
                     // Wallet and miner is stored first: if the file cannot be written nothing changes.
                     saved.map_err(|e|format!("The device role could not be saved: {e}"))?;
-                    self.mode=mode;
+                    self.mode=mode;self.mode_saved=true;
                 }
                 let mut v=self.status(n);v["type"]=json!("mode");Ok(v)
             },

@@ -144,6 +144,7 @@ internal static class WalletUiTests {
    Check((bool)call("MinerMode",new object[]{D("appMode","miner")})&&!(bool)call("MinerMode",new object[]{D("appMode","wallet")})&&!(bool)call("MinerMode",new object[]{D()}),"MinerMode must count only the engine's miner value.");
    Check((string)call("RoleWarning",new object[]{false,"w"})=="w"&&(string)call("RoleWarning",new object[]{true,"w"})==""&&(string)call("RoleWarning",new object[]{false,null})=="","RoleWarning must show the engine's text only while wallet only.");
    Check(Json.Serialize(call("ModeCommand",new object[]{false}))=="{\"method\":\"set_mode\",\"mode\":\"wallet\"}"&&Json.Serialize(call("ModeCommand",new object[]{true}))=="{\"method\":\"set_mode\",\"mode\":\"miner\"}","Device role command wrong.");
+   Check(!(bool)call("SendMode",new object[]{false,D("appMode","wallet")})&&(bool)call("SendMode",new object[]{true,D("appMode","wallet")})&&(bool)call("SendMode",new object[]{false,D("appMode","miner")})&&!(bool)call("SendMode",new object[]{false,D("appMode","wallet","appModeSaved",true)})&&(bool)call("SendMode",new object[]{false,D("appMode","wallet","appModeSaved",false)}),"A repeated role must be sent again only while the engine reports it unsaved.");
    Check((string)call("WalletNote",new object[]{false,true})=="Your device is validating blocks. Wallet only: this device never mines.","A wallet-only device must never say mining is on.");
    transfer["state"]="Included";transfer["confirmations"]=2;state["type"]="status";Response(state);
    if(args.Length==1){

@@ -274,6 +274,8 @@ class AndroidRoleWiring(unittest.TestCase):
         self.assertIn('String mode=WalletText.storedMode(v.optString("appMode"));', update)
         self.assertIn('if(!mode.equals(appMode)){appMode=mode;getPreferences(MODE_PRIVATE).edit().putString("appMode",mode).apply();render();}', update)
         self.assertIn('if(service==null||!snapshot.has("appMode")){notice(WalletText.MODE_OFFLINE);return;}', self.method('setMode'))
+        # A repeated choice is skipped only while the engine reports the role saved, so a failed save can be retried.
+        self.assertIn('if(mode.equals(appMode)&&snapshot.optBoolean("appModeSaved",true))return;', self.method('setMode'))
 
     def test_the_registered_warning_is_shown_outside_the_mining_tab(self):
         self.assertIn('walletWarning=warning(status);', self.method('wallet'))

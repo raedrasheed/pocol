@@ -510,7 +510,7 @@ mod on_chain {
         assert_eq!(failed["type"],"error","{failed}");assert!(failed["message"].as_str().unwrap().starts_with(pocold::wallet::WALLET_ONLY_NOT_SAVED),"{failed}");
         assert!(node.cfg.miner.is_none(),"a switch to wallet only stops mining even when it cannot be saved");
         assert_eq!(wallet.mode(),pocold::wallet::AppMode::Wallet);
-        let s=wallet.status(&node);assert_eq!((&s["appMode"],&s["miningEnabled"]),(&serde_json::json!("wallet"),&serde_json::json!(false)),"{s}");
+        let s=wallet.status(&node);assert_eq!((&s["appMode"],&s["miningEnabled"],&s["appModeSaved"]),(&serde_json::json!("wallet"),&serde_json::json!(false),&serde_json::json!(false)),"{s}");
         let late=wallet.handle(&mut node,&serde_json::json!({"method":"confirm","quote_id":top["quoteId"]}).to_string());
         assert_eq!(late["message"],"Review a transaction first","the reviewed top-up was dropped: {late}");
         refused(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#));
@@ -518,8 +518,13 @@ mod on_chain {
         let failed=wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#);
         assert!(failed["message"].as_str().unwrap().starts_with("The device role could not be saved"),"{failed}");
         assert_eq!(wallet.mode(),pocold::wallet::AppMode::Wallet,"an unsaved wallet-and-miner choice changes nothing");
+        assert!(!wallet.mode_saved(),"the unsaved wallet-only role is still reported as unsaved");
         refused(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#));
         std::fs::remove_dir_all(&mode_file).unwrap();
+        // Storage fixed: choosing wallet only again (the role already in use) saves it, as the error message advises.
+        let again=wallet.handle(&mut node,r#"{"method":"set_mode","mode":"wallet"}"#);
+        assert_eq!((&again["type"],&again["appMode"],&again["appModeSaved"]),(&serde_json::json!("mode"),&serde_json::json!("wallet"),&serde_json::json!(true)),"{again}");
+        assert_eq!(std::fs::read(&mode_file).unwrap(),br#"{"mode":"wallet"}"#);
         assert_eq!(wallet.handle(&mut node,r#"{"method":"set_mode","mode":"miner"}"#)["appMode"],"miner");
         assert_eq!(wallet.handle(&mut node,r#"{"method":"mining","enabled":true}"#)["miningEnabled"],true);
         assert!(node.cfg.miner.as_ref().is_some_and(|k|k.address()==me));

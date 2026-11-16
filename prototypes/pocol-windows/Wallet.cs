@@ -38,7 +38,7 @@ internal sealed class Wallet {
   Hook("Upgrade",Upgrade);Hook("BackupKey",BackupKey);Hook("RestoreKey",RestoreKey);Get<TextBlock>("BackupInfo").Text=BackupInfo+"\n"+BackupStore;
   // The device role (Settings): the click is undone until the engine's "mode" answer, as the mining toggle's is.
   Get<TextBlock>("ModeInfo").Text=ModeWalletText+"\n"+ModeMinerText+"\n"+ModeSwitchBack;Get<TextBlock>("ModeOffline").Text=ModeOffline;Get<RadioButton>("ModeWallet").Content=WalletOnly;Get<RadioButton>("ModeMiner").Content=WalletAndMiner;
-  foreach(string name in new[]{"ModeWallet","ModeMiner"}){bool miner=name=="ModeMiner";Get<RadioButton>(name).Click+=(s,e)=>{if(updating)return;updating=true;ShowMode();updating=false;if(miner!=MinerMode(state))Command(ModeCommand(miner));};}
+  foreach(string name in new[]{"ModeWallet","ModeMiner"}){bool miner=name=="ModeMiner";Get<RadioButton>(name).Click+=(s,e)=>{if(updating)return;updating=true;ShowMode();updating=false;if(SendMode(miner,state))Command(ModeCommand(miner));};}
   Get<CheckBox>("MiningToggle").Click+=(s,e)=>{if(updating)return;bool on=Get<CheckBox>("MiningToggle").IsChecked==true;updating=true;Get<CheckBox>("MiningToggle").IsChecked=Flag(state,"miningEnabled");updating=false;Command(Cmd("method","mining","enabled",on));};
   window.Closing+=async(s,e)=>{if(networkActionPending){e.Cancel=true;Message("Finish the network upgrade before closing the wallet.");return;}if(closing||engine==null||engine.HasExited)return;e.Cancel=true;closing=true;await Stop();window.Close();};
   Page("Wallet");
@@ -96,6 +96,9 @@ internal sealed class Wallet {
  const string ModeOffline="Connect your wallet to change the device role.";
  static bool MinerMode(Dictionary<string,object> s){return Text(s,"appMode")=="miner";}
  static string RoleWarning(bool miner,string warning){return miner||warning==null?"":warning;}
+ // A choice is sent when it differs from the engine's role, or repeats a role the engine reports unsaved (appModeSaved
+ // false), so a failed save can be retried. A snapshot without the field counts as saved.
+ static bool SendMode(bool miner,Dictionary<string,object> s){object v;bool unsaved=s.TryGetValue("appModeSaved",out v)&&v is bool&&!(bool)v;return miner!=MinerMode(s)||unsaved;}
  static Dictionary<string,object> ModeCommand(bool miner){return Cmd("method","set_mode","mode",miner?"miner":"wallet");}
  static string WalletNote(bool miner,bool miningOn){return miner?"Your device is validating blocks. Mining is "+(miningOn?"on.":"off."):"Your device is validating blocks. Wallet only: this device never mines.";}
  void ShowMode(){bool miner=MinerMode(state);Get<RadioButton>("ModeWallet").IsChecked=!miner;Get<RadioButton>("ModeMiner").IsChecked=miner;}
