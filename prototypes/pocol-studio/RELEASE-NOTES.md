@@ -1,6 +1,7 @@
 # PoCol Studio 0.1.1 — validation
 
-This release targets `studio.pocol.net` with a matching Chrome extension and the `gateway.pocol.net/studio/rpc` relay.
+This release targets `studio.pocol.net` with a matching Chrome extension and the `explorer.pocol.net/studio/rpc` relay
+(owner decision 9, 2026-11-16: the relay moved from the retired gateway host to explorer.pocol.net).
 
 ## Verified locally
 

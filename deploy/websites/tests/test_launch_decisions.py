@@ -77,6 +77,25 @@ class ExplorerHost(unittest.TestCase):
                 if 'gateway.pocol.net' in text:
                     self.fail(f'{path.relative_to(ROOT).as_posix()} names the retired gateway host')
 
+    def test_the_shipped_studio_release_notes_name_the_explorer_host(self):
+        # build-release.py copies RELEASE-NOTES.md into every Studio release, so it is served too.
+        notes = (ROOT / 'prototypes' / 'pocol-studio' / 'RELEASE-NOTES.md').read_text(encoding='utf-8')
+        build = (ROOT / 'prototypes' / 'pocol-studio' / 'scripts' / 'build-release.py').read_text(encoding='utf-8')
+        self.assertIn("(studio / 'RELEASE-NOTES.md', 'RELEASE-NOTES.md')", build)
+        self.assertNotIn('gateway.pocol.net', notes)
+        self.assertIn(f'`{HOST}/studio/rpc`', notes)
+
+    def test_the_gateway_readmes_say_the_explorer_dns_record_moves_at_launch(self):
+        # The installer's TLS self-test needs explorer.pocol.net to point at the gateway server, which happens only
+        # when the owner moves its record at launch; both language versions say so.
+        studio = ROOT / 'deploy' / 'studio'
+        english = (studio / 'README.md').read_text(encoding='utf-8')
+        arabic = (studio / 'README-AR.txt').read_text(encoding='utf-8')
+        self.assertIn('the owner moves its DNS record at launch', english)
+        self.assertIn('ينقل المالك', arabic)
+        self.assertIn('سجل DNS الخاص بـ explorer.pocol.net إلى خادم البوابة عند الإطلاق', arabic)
+        self.assertNotIn('يشير نطاق explorer.pocol.net إلى خادم البوابة', arabic)
+
     def test_the_studio_csp_connects_only_to_the_explorer_host(self):
         htaccess = (ROOT / 'prototypes' / 'pocol-studio' / 'dist' / '.htaccess').read_text(encoding='utf-8')
         csp = re.search(r'Content-Security-Policy "([^"]+)"', htaccess).group(1)
