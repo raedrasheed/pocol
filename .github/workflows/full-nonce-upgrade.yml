@@ -1,7 +1,7 @@
-name: Full nonce consensus upgrade
+name: Consensus, packaging and extension release
 on:
   pull_request:
-    branches: [main, work/branding-20261031]
+    branches: [main]
     paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
   workflow_dispatch:
 permissions:
@@ -96,6 +96,8 @@ jobs:
           cargo +1.99.1 test --release --locked --manifest-path prototypes/lp4-execution/Cargo.toml --features caps-test --lib --test caps_identity -- --test-threads=1
           cargo +1.99.1 test --release --locked --manifest-path prototypes/pocold/Cargo.toml --features caps-test --lib --test log_cap --test log_cap_scope --test caps --test fn1_caps --test consensus_guard --test v3_scaffold --test net -- --test-threads=1
   browser:
+    # The job id stays `browser`; its check name is this name (no branch protection pins either).
+    name: Extension release (Studio, IDE, Viewer)
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     steps:
@@ -126,6 +128,8 @@ jobs:
             fi
             grep -F 'network placeholder' "$RUNNER_TEMP/package.log"
           else
+            # After the identity switch a release also needs the owner's manifest key (release/manifest-key.pub, W14):
+            # the packager refuses "no manifest key" while that slot is the placeholder.
             npm run package
           fi
         working-directory: prototypes/pocol-extension
