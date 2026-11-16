@@ -18,7 +18,7 @@ Python 3, systemd, Caddy, `curl`, `flock`, the existing gateway configuration,
 and the intended PoCol node on its configured loopback RPC endpoint. Read
 `install_studio_gateway.py` before use on an existing server.
 
-## Install on the first testnet node
+## Install on the gateway node
 
 Transfer `Install-PoCol-Studio-Gateway.sh` to the server, then run:
 
@@ -87,13 +87,13 @@ For a test or rehearsal network, `--network FILE` takes the explorer gateway's
 
 Host the editor on a separate `studio.pocol.net` cPanel document root with HTTPS.
 Use the matching Studio extension build. The extension verifies the pinned
-testnet identity and content hashes; RN mode trusts the remote node for chain
+network identity and content hashes; RN mode trusts the remote node for chain
 execution. Browser approval and local signing are still required for publication.
 Chrome Web Store publication and review are separate from this package.
 
 `README-AR.txt` contains the Arabic installation walkthrough and Windows transfer
 command. No production deployment or live publication is established by the
-unit tests. Verify the deployed gateway and a funded testnet publication on the
+unit tests. Verify the deployed gateway and a funded publication on the
 user's computer before treating the complete workflow as live.
 
 Sources: [PoCol publisher](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocold/src/site.rs),
