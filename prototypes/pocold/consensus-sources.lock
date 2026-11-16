@@ -37,6 +37,7 @@ history n=34 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sour
 history n=35 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=fdd4b51910c815a99a53a584b52d6aa8897929910f4da7ccf7c0d6e9945a8eb9 vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=FN-1b note="Fresh network FN-1b (node-local performance): pocold chain.rs derives a child's membership inputs from its parent's held inputs plus the block's registry write set (bounded caches CTX_BASES_MAX=3, CTX_WRITES_MAX=8, CTX_WRITE_SLOTS_MAX=4096, whole-read fallback, test-only oracle), and members.rs gains MemberBase; the membership it yields is the same one-pass reading, so block validity, fork choice, verdicts, roots, persisted bytes and the consensus identity unchanged"
 history n=36 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=82d108e9f117f63cf7a5b4cc0400e63a84e8a88fe8cbf7435a5b32f0bb97c46e vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=Phase-5a note="Fresh network Phase 5a (devnets v3 by default): lp4 devnet.rs DevnetConfig::new builds spec 2, the V3 programs, nonceMode 1, a continuous chain, B_reg 20 PCOL and S0 4 PCOL, with an explicit DevnetConfig::spec1 builder for the spec-1 suites Phase 6a deletes; only which genesis devnets and tests use by default changes, so for any given genesis block validity, fork choice, verdicts, roots, persisted bytes and the consensus identity are unchanged"
 history n=37 kind=neutral rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=b29ba941e678465f5340d86e288cd85f7507690f6203848512d6502cdefb111b vectors=e5e0aa1a61cbfa774e70733487228b770543d9986793dd46e044e8bdcdb97962 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=state-retention note="Node-local state retention (K_hist window): pocold chain.rs clears the pruned mark on adopted canonical blocks whose state the head reaches through held diffs (memory mode, reach_window), keeps the re-executed version of canonical blocks above the cut (store mode, restore_canonical and rebuild_with), prunes a dropped anchor that is not a window state, gives a rebuild's side blocks a diff only within K_hist of the target and clears the diffs of pruned side blocks (A13 diffs_held holds again); which block states are held changes, not the states, so roots, persisted bytes, A13 terms and the consensus identity are unchanged and block validity follows the rules, with one node-local correction: a valid child of a former anchor that the base ran on an empty state and refused is now judged on its parent's state"
+history n=38 kind=neutral-vector rules=2 maxFork=3 spec=2 protocol=2 protocolMin=2 sources=040a4f0e4dc03f1ffa8d597d4bda406bfca627b6e11826b47e91f99944f96acb vectors=cf382f21393587d360516061fa1240abf0fba6dab58b3882f28fdc5261c66322 deps=0a6c309c55cb472af73bd88fb8f29ae5ad5b36f8a9edcbf574ece6ae84b28fa3 wire=75f4d0a4ef8d9107175def6fbb7f702271266f1040904417c9bc4f068a574f51 ref=Phase-6a note="Fresh network Phase 6a (retire spec 1): lp4 admission.rs refuses a spec-1 genesis and bundles one V3 program set (V1, EarnIn and Continuous program sets and their vectors earnin-vectors.json, system-continuous.json, system-earnin.json, system-v1.json removed); GAS_ENVELOPE_V3 is self-contained and re-measured on the V3 programs (beginBlock 929,000, markClose 2,684,000, pruneShares 2,791,000, the last above the 257-owner prune the borrowed earn-in value missed); apply.rs, devnet.rs, genesis_builder.rs and pocold build.rs, consensus_boundary.rs, chain.rs drop the spec-1 paths; fork 2 kept as a no-op, fork 3 (FN-5 cap raise) unchanged, MAX_FORK_VERSION 3; every v3 genesis (devnet default, fast, fork2, fork3, mainnet and rehearsal profiles) is byte-identical and its block validity, fork choice, verdicts, roots and persisted bytes are unchanged"
 file 9ed951416e93352d66d0c783c7fb09d5485fd79594efd6bef7aeb0466fd749b3 lp1-node/Cargo.toml
 file 8d5feea50a1c35acccc5866d48f45a6a39d1e17aa6e5cca4ce7dc7648550e502 lp1-node/src/asert.rs
 file e8f2a49a2774dfffcb7921025a6bf85cea9a76f5cb92cabfe74c3362a24420b5 lp1-node/src/assignment.rs
@@ -55,15 +56,15 @@ file 2faaa5aa9d218024ca3f8cff50cf1bec80e753b844254f98e7bdfa5dba279999 lp1-node/s
 file d7a3c3fcbae35e06f916e7e147252b0234d650f48ceae07387912fc00576a61d lp1-node/tests/data/lp4-trie-vectors.json
 file 12a99a38e144bad0b3448a7edcfc627c88acf6665e6a1e4c1fbead0b390f28c1 lp4-execution/Cargo.toml
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 lp4-execution/rust-toolchain.toml
-file 8cb00b9ee2db6876cf3574ef7a7e31247521365c6e28a4f1def357ee6ef72204 lp4-execution/src/admission.rs
+file 546d107a58dfc169aecfa980d98737eb554e59d97536808d1b3019d306067047 lp4-execution/src/admission.rs
 file 1b66ef4171f62d14e2976c4396bb8919e47dd8acf78c9f8ccb33becd632443ee lp4-execution/src/admission/scope.rs
-file 129048418a80d9cff02d50714637acc6777535e34e9b50cdf1b5b0b08928f416 lp4-execution/src/apply.rs
+file 53f9a406aac16f6ff7e8a24bbdc18944738e231251ee09fa6adad044a26b502b lp4-execution/src/apply.rs
 file 47da5a2cb193ff6f907b5ce039f00d7c5e55f0e2ba1c90b1c22b120b2dd524d2 lp4-execution/src/code_caps.rs
 file 49b3fba10a3421ed48d0766416df4ef5424a0ff71013a702d1ffb99b3ac14de9 lp4-execution/src/collision.rs
-file 5020302c0b993aeeae966174a817b0830a8d1ac266f3b7d4d6cab1fd6be600b0 lp4-execution/src/devnet.rs
+file 2ca43d8c363f0bad13227695c28459554a08ca6f8d90c5f293486bb2b047f0b3 lp4-execution/src/devnet.rs
 file ed4d0b34f4be5bb98ea2ff0025a1cc6d9a0c64b704c46daf53a818b1504558f7 lp4-execution/src/fees.rs
 file 2edb8407a51b71fb25a67d9d918795db5fcc1b1462c4aedc04458fe108280472 lp4-execution/src/finality_core.rs
-file 91f8723baef5c1e30616d936018c55c50685d1a1ab7b1ecae0d2770b709f1340 lp4-execution/src/genesis_builder.rs
+file 4824ebfc294348f06a5482322e1c6b2d3de7ce4e4f3e526748a8ab3fb4eee06e lp4-execution/src/genesis_builder.rs
 file fbb3759ea285f5cfa58c24207362c3c14f772e1fe769f45eb269902019638c53 lp4-execution/src/issuance.rs
 file 88190c3eb9c40a33bb763f19a03c19cc3f4d138c5cf21249e0ebff9f70389ae3 lp4-execution/src/lib.rs
 file 362a0cf67078deb861a162de1ac06358904b7d59c795a6017586e3726e3c5cdd lp4-execution/src/modexp.rs
@@ -92,7 +93,6 @@ file 7e65ce014bb902dd2fbf4d3c93970c317eed4b351a936b06aa60aeed633fa1b4 lp4-execut
 file 8c02f7ac4f76bc0f5764a1ea328191c6e72be63520899a09a3f038bee15a2f35 lp4-execution/tests/data/code-caps-execution.json
 file 0d24b324586d4fb85c7b267453d5fda364b43bf200423aafe4bc8a67dce158fc lp4-execution/tests/data/code-caps-native-views.json
 file 18728035350360f94b340d459c4f8139d729371bf07371959170456d5ff488fa lp4-execution/tests/data/code-caps-witness.json
-file 775d5c85506d6d9f721707ace09147652d515bde1366a03e89ebee4f64637f19 lp4-execution/tests/data/earnin-vectors.json
 file fc6c76f1089e99698c0625c89cd5520ead2099a6d44f35b973ebd59163c527c4 lp4-execution/tests/data/execution-profile.hex
 file f6bef5032a763ec0d56640ae18e8fa0b0f83b06383ee732099fbd672bd78074e lp4-execution/tests/data/issuance-signed.json
 file 0448f0d6a29dd138c197b2a45f188261b84f4f73e8118ab60455ee9badd7b8a2 lp4-execution/tests/data/london-fees.json
@@ -105,20 +105,17 @@ file c5aba9fa19ded72a527bb17cad422ef2d2b7c5212ec64d8dd87b279ed8a50b53 lp4-execut
 file c260e6c1fe384168f2f785b73e013d738b3fa6f8fbd0b7454c93c5e1e3df1ddb lp4-execution/tests/data/signing-legacy-compat.json
 file 7121347d56565f208f0f4df726ee5f7ec014b7eecc3a31173c18ac660b1e9eef lp4-execution/tests/data/system-boundary-independent.json
 file 36b2064cde89f9c4116a975a88956cdefc5e371a4cc0ed750f6b43a008b99b2b lp4-execution/tests/data/system-boundary-witness.json
-file 76a852f7842d6f926ef36231a57041b8041d5c0a7851b52c576bd9e2572ceef6 lp4-execution/tests/data/system-continuous.json
-file 148f0a5895bab4ec70c2f4fd9b6c5625718c2f0c8097c5657f846a36a1da331e lp4-execution/tests/data/system-earnin.json
 file a14925d17bb458c10e5f336fbb99c90d9ca223c7e3d67bde95ae86099560d3df lp4-execution/tests/data/system-epoch-witness.json
 file b6e317bad9edbfa51e7333054ef968fbebfff873511a7b5a6d73adc8d73b8192 lp4-execution/tests/data/system-registry-pre.json
-file 931086b0598354ddd07700b429c3ebec580e567ca1775e6e02980e9bed0c3ab0 lp4-execution/tests/data/system-v1.json
 file 641ed392945719553812a40dfd29c0eae3e9cf2805bf2624e6b6f1caa05a93a6 lp4-execution/tests/data/system-v3.json
 file 553a45c9e8f334b1a82326a87e0350c33bba4529ab8d22f01f2b265193f3fb89 lp4-execution/tests/data/user-phase.json
 file 67cedea610a77f5205a98264e638e4801cf7e2798106496513d0420c061f4c02 lp4-execution/tests/data/wire-envelopes.json
 file f39bde64afd02e24fbc9a6f01c60d1728c10e1731682474f402a4a9851ad2977 pocold/Cargo.toml
-file 2922a7cc59a9b629fb9ced9580182c8b7cad9ac400e8cd12cbc65f9863ec44ea pocold/build.rs
+file 81b6b3bca38e101aa1f015380ba33531a0d065392c8a394dbc917685e41a1fbc pocold/build.rs
 file 314937e0f5d849999095b6d843657ce05e4aaf9c501a1ac298e5184eeb15b8bb pocold/consensus-boundary.txt
-file d738791f204eb705c4a9b86c991e0e6124d61595a55709b77255dfa0244bbc43 pocold/consensus_boundary.rs
+file 17c6990da89f09aee9a344607be1717c3abf6533e99d7b4dd4784169eacb5739 pocold/consensus_boundary.rs
 file 7c3650fd9cfa530cec6a61d25602726381988a08b5ebf118fa1ef2b35d5cf609 pocold/rust-toolchain.toml
-file 3334f6c4b8ad95603bb858bf775401688cca9e382fd652ca65d4078896892336 pocold/src/chain.rs
+file dc7b1611e0b09e5c3874f339a9c89b3d35490b683059e50fca8daf91905e6988 pocold/src/chain.rs
 file 0631bce9331eef3d687410d09a8d089b742b136219e84e74d19ee9427972be61 pocold/src/checkpoint.rs
 file d1d33352da3c556fb095709241c51877909fc70a6b8e2d938a61190bf0902e2c pocold/src/history.rs
 file b6970559b5facb366d57ff66fe94cac60d438ff92f2a9e9e46eef452a5a7738d pocold/src/identity.rs
