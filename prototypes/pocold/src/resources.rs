@@ -156,9 +156,10 @@ pub fn member_scratch_bytes(cp:&ConsensusParams)->Option<u128>{
 /// FN-3: what `blocks` blocks add to history.redb: a member record per block (its key, seal and fixed part, and a delta's
 /// ids: at most min(DELTA_CAP, delta_max)) and a snapshot row per snapshot block (its key, seal and M_max ids; a snapshot's
 /// record holds no delta). Snapshots follow the cadence alone (⌈blocks/256⌉ + 1) when the membership is every live record
-/// at every height (`members::all_live_everywhere`: CP schema v2 and nonceMode 1, so a block changes at most delta_max
-/// ids) and delta_max(cp) <= DELTA_CAP; otherwise (spec 1, a bounded-nonce schema-v2 CP, whose activity window can flip
-/// any number of ids at once, or a larger delta_max) every block may be one.
+/// at every height (`members::all_live_everywhere`: CP schema v2 and nonceMode 1, every admitted CP, so a block changes
+/// at most delta_max ids) and delta_max(cp) <= DELTA_CAP; otherwise (a larger delta_max, or a raw CP schema v1 or
+/// nonceMode 0 value that no admission accepts, whose activity window can flip any number of ids at once) every block
+/// may be one.
 pub fn member_payload(cp:&ConsensusParams,blocks:u128)->Option<u128>{
     let (dm,m)=(crate::members::delta_bound(cp) as u128,u128::from(cp.M_max));let fixed=32+32+crate::members::REC_FIXED as u128;
     if crate::members::all_live_everywhere(cp)&&crate::members::delta_max(cp)<=crate::members::DELTA_CAP{
@@ -540,8 +541,8 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
         p.TX_CAP=orig.TX_CAP.min(orig.GAS_LIMIT/21_000).checked_mul(n.checked_add(1)?)?;p.TXBYTES_CAP=orig.TXBYTES_CAP.min(u64::from(orig.BODY_MAX)).checked_mul(n.checked_add(1)?)?;Some(p)};
     let (projected,disk)=match (continuous,windowed){(false,_)=>(cp.clone(),None),(true,None)=>(over(limits.continuous_history?.checked_add(2048)?)?,None),(true,Some(_))=>(over(DISK_HEADROOM)?,Some(limits.disk?))};
     let cp=&projected;
-    // Node::open derives first_imports from spec.v3_active(MAX), before admission;
-    // reserve the largest log cap anywhere in that same profile domain.
+    // Node::open sets first_imports (every admitted profile is v3), before admission;
+    // reserve the largest log cap of those rules (`Limits::default` keeps the legacy row, for tests).
     let block_log_max=pocol_lp4_execution::user_phase::log_caps(limits.first_imports).bytes;
     let log_cap=if continuous{u128::from(block_log_max).checked_mul(u128::from(cp.H_END)+1)?}else{u128::from(caps::LOG_CAP)};
     // The canonical entries in memory, and the caps the window's content is bounded by: on the continuous windowed
@@ -659,8 +660,9 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // R_max registrations per block (D86 registry rotation).
     // C-1 S5: the continuous windowed chain has no such total (its height is unbounded): the window's own bound.
     let w_evidence=mul(window,mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX))?)?;
-    // V3-02 (CP schema v2): kind-3 evidence is not one item per identity (late shares can be carried in every block),
-    // so a v3 window is bounded per block only.
+    // V3-02 (CP schema v2, every admitted CP): kind-3 evidence is not one item per identity (late shares can be carried
+    // in every block), so a v3 window is bounded per block only; the identities cap below serves only a raw CP schema v1
+    // value outside a continuous windowed chain, which no admission accepts.
     let w_evidence=if (continuous&&windowed.is_some())||cp.schema_version()>=2{w_evidence}else{
         let identities=u128::from(cp.M_max).checked_add(mul(u128::from(cp.R_max),u128::from(cp.H_END))?)?;w_evidence.min(mul(identities,u128::from(cp.EVID_BYTES_MAX)+24)?)};
     let w_bodies=mul(window,u128::from(cp.BODY_MAX))?.min(txbytes_mem);
@@ -907,7 +909,7 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
     // EVM execution buffers, journal, transient storage and loaded state (A13 obligation 4).
     let (gas,code_max)=(memory::execution_gas(cp.GAS_LIMIT),u128::from(cp.B_code_max));
     let evm_execution=mul(EXECUTIONS,memory::execution(gas,code_max)?)?;let fixed=mul(EXECUTIONS,memory::fixed_heap(gas,code_max)?)?;
-    // A legacy under-count, corrected on every profile (spec-1 included; the v3
+    // A legacy under-count, corrected on every profile (the v3
     // growth is gated through log_caps(first_imports)). Unchanged legacy code
     // allocates it while a block runs: receipts::encode nests growing RLP
     // buffers (per-log parts, topic/log lists, outer payload and typed
@@ -934,14 +936,15 @@ pub fn derive(cp:&ConsensusParams,k_hist:u32,side_max:u32,limits:&Limits,dials:u
 /// allocation header (`derive`'s per-block term starts from it).
 /// V3-02 (CP schema v2): the most kind-3 evidence one offloaded entry keeps: at most min(E_max, L) items (L =
 /// lp4 resources::late_shares_max, the late shares one block can credit), each its Vec slot (24 B) and at most 17 B of
-/// RLP framing plus 9 B per nonce; never more than E_max whole items. 0 on CP schema v1 (no kind-3 evidence).
+/// RLP framing plus 9 B per nonce; never more than E_max whole items. 0 when L is 0 (no kind-3 evidence can be kept).
 pub fn late_kept_bytes(cp:&ConsensusParams)->Option<u128>{
     let l=u128::from(pocol_lp4_execution::resources::late_shares_max(cp));if l==0{return Some(0)}
     let items=u128::from(cp.E_max).min(l);
     Some(add(&[mul(items,24+17)?,mul(l,9)?])?.min(mul(u128::from(cp.E_max),u128::from(cp.EVID_BYTES_MAX)+24)?))
 }
 /// V3-02 (CP schema v2): node::LateCache at its bound, D + LATE_PENDING_MAX + 1 entries (`LateCache::prune`) of size_of::<LateTemplate>() and SHARE_RELAY_PER_S_MAX·S_max
-/// nonces, counted at memory::VEC; 0 on CP schema v1 (the cache is never filled).
+/// nonces, counted at memory::VEC; 0 on a raw CP schema v1 value (which no admission accepts; the recorded pre-phase-6a C6-row
+/// CP of tests/fn3_scale.rs is one), whose cache is never filled.
 pub fn late_cache_bytes(cp:&ConsensusParams)->Option<u128>{
     if cp.schema_version()<2{return Some(0)}
     let per=add(&[size_of::<node::LateTemplate>() as u128,mul(memory::VEC,mul((node::SHARE_RELAY_PER_S_MAX as u128)*u128::from(cp.S_max),8)?)?])?;
@@ -1047,7 +1050,8 @@ mod tests{
     /// FN-3a review: the member terms take the cadence-only snapshot count and the min(DELTA_CAP, delta_max) delta bound
     /// only where the membership is every live record at every height (CP schema v2 and nonceMode 1). A schema-v2 CP with
     /// bounded nonces (nonceMode 0) keeps the W_act activity set, so one block can change any number of ids: every block
-    /// may be a snapshot and a delta holds up to DELTA_CAP ids, as on spec 1.
+    /// may be a snapshot and a delta holds up to DELTA_CAP ids, as on a CP schema v1 value. Neither is an admitted CP (an
+/// admission accepts only CP schema v2 with nonceMode 1); both are raw values A13 still reads.
     #[test] fn member_terms_take_the_cadence_only_where_every_live_record_is_a_member(){
         use crate::members::{all_live_everywhere,delta_bound,delta_max,DELTA_CAP,REC_FIXED,SNAPSHOT_EVERY};
         let cp_of=|spec:u8,nonce:u8|{let mut c=pocol_lp4_execution::devnet::DevnetConfig::new(1,1_700_000_000,&["a"]);c.spec_version=spec;c.nonce_mode=nonce;

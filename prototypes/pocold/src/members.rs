@@ -69,17 +69,18 @@ pub fn is_snapshot(h:u64,delta_len:usize)->bool{h%SNAPSHOT_EVERY==1||delta_len>D
 /// The most ids one block can change in S_b when the membership is every live record (`all_live_everywhere`): REG_OPS (register, deregister, removeInactive and
 /// claimBond share it; registerReplacing costs two for its two changes), R_react (reactivate) and E_max (punish's
 /// removeActive); the sweep and markClose do not touch S_b (PoColSystemV3.sol `checkBudgets`, `registerReplacing`,
-/// `punish`). A larger change (a spec-1 Bounded activity flip, the empty-active fallback) is written as a snapshot.
+/// `punish`). A larger change (a CP with delta_max > DELTA_CAP; on a CP whose membership is not every live record, an
+/// activity-window flip) is written as a snapshot.
 pub fn delta_max(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{usize::from(cp.REG_OPS)+usize::from(cp.R_react)+usize::from(cp.E_max)}
-/// Whether this CP's membership is every live record at every height (`chain::Chain::membership`'s `all_live`: v3 active
-/// and the nonce mode Unbounded): CP schema v2, so v3 is active from genesis, and nonceMode 1, so `chain::full_nonce_rule`
-/// holds under every fork version. The A13 terms see no fork schedule, so a CP that reaches the full domain only through
-/// a fork, and a schema-v2 CP with bounded nonces (nonceMode 0, which keeps the W_act activity set: a bounded-nonce devnet
-/// with the v3 programs), are not.
+/// Whether this CP's membership is every live record at every height (`chain::Chain::membership`'s `all_live`, always
+/// on): CP schema v2 and nonceMode 1, which every admitted CP has (admission refuses any other specVersion or nonceMode,
+/// and a cap raise keeps both), so it holds for every `Spec::cp_max` A13 is computed at. It is false only for raw CP
+/// values that no admission accepts (a CP schema v1 or nonceMode 0 encoding, such as the pre-phase-6a C6-row CP whose
+/// A13 figures are recorded in tests/fn3_scale.rs); the A13 terms of those keep the activity-window bound.
 pub fn all_live_everywhere(cp:&pocol_lp4_execution::profile::ConsensusParams)->bool{cp.schema_version()>=2&&cp.nonceMode==1}
 /// The ids a delta of this CP's chain holds at most: min(DELTA_CAP, delta_max) when the membership is every live record
-/// at every height (`all_live_everywhere`); DELTA_CAP otherwise (the activity window, of spec 1 or of a bounded-nonce
-/// schema-v2 CP, can flip any number of ids at once).
+/// at every height (`all_live_everywhere`, every admitted CP); DELTA_CAP otherwise (a raw CP that no admission accepts,
+/// whose activity window can flip any number of ids at once).
 pub fn delta_bound(cp:&pocol_lp4_execution::profile::ConsensusParams)->usize{if all_live_everywhere(cp){DELTA_CAP.min(delta_max(cp))}else{DELTA_CAP}}
 
 fn word(id:&Id)->U256{U256::from_be_bytes(keccak256(id).0)}
