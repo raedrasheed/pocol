@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,readNetworkFees,mimeIdFor,FACTORY,MAX_APPROVALS,STATE_NOT_HELD,RATE_RESENDS} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,TX_ENVELOPE_MAX,planTransactions,remainingTransactions,readNetworkFees,mimeIdFor,FACTORY,MAX_APPROVALS,STATE_NOT_HELD,RATE_RESENDS} from '../dist/lib/publisher.js';
 import {nextBaseFee,feeSchedule,capFor,GAS_LIMIT,BASE_FEE_FLOOR,ABSOLUTE_CEILING} from '../dist/lib/fees.js';
 import {KeyLease,JOB_DEADLINE_MAX_MS} from '../dist/lib/lease.js';
 import {isForeignJob,blocksAccount,archiveForeignJobs,archivedJobs,jobNetwork,archiveJob} from '../dist/lib/jobs.js';
@@ -249,6 +249,38 @@ test('the needs are what the publication adds: accounts, code, transactions, and
   // The mock does not execute Website.sol: pocold tests/fn1_caps.rs (a_website_publication_adds_what_the_publisher_pre_check_expects)
   // executes a publication and checks these slot counts (4 + 3 + n new, 3 + n update) against the chain.
   assert.equal(need.storageSlots,4+3+p.manifestChunks.length);assert.equal(need.logBytes,0);
+});
+// Sites W12: the same needs as pocol-site's pre-check (pocold src/site.rs publish_needs), through the fixture both read.
+test('the needs follow the fixture shared with pocol-site (pocold tests/data/publish_needs.json)',()=>{
+  const fx=JSON.parse(readFileSync(fileURLToPath(new URL('../../pocold/tests/data/publish_needs.json',import.meta.url)),'utf8'));
+  assert.equal(fx.txEnvelopeMax,TX_ENVELOPE_MAX);
+  assert.equal(fx.websiteRuntimeBytes,(WEBSITE_RUNTIME.length-2)/2);assert.equal(fx.websiteInitcodeBytes,(WEBSITE_INITCODE.length-2)/2);
+  assert.equal(fx.cases.length,7);
+  const bytesOf=(f)=>f.text!==undefined?enc.encode(f.text):new Uint8Array(f.size).fill(f.fill);
+  for(const c of fx.cases){
+    const files=c.files.map(f=>({path:f.path,data:bytesOf(f)}));
+    if(c.series)for(let i=0;i<c.series.count;i++)files.push({path:c.series.prefix+String(i).padStart(3,'0')+c.series.suffix,data:enc.encode(c.series.text)});
+    const p=prepareSite(files,{entry:c.entry});
+    assert.equal(p.manifest.length,c.manifestBytes,c.name);assert.equal(p.manifestHash,c.manifestHash,c.name);
+    assert.equal(p.chunks.length,c.chunks,c.name);assert.equal(p.manifestChunks.length,c.manifestChunks,c.name);
+    const stored=new Set(c.stored==='all'?p.chunks.map(x=>x.address):p.files.filter(f=>c.stored.includes(f.path)).flatMap(f=>f.chunks.map(x=>x.address)));
+    const missing=new Set(p.chunks.map(x=>x.address).filter(a=>!stored.has(a)));assert.equal(missing.size,c.missingChunks,c.name);
+    assert.deepEqual(publishNeeds(p,{newSite:c.newSite,missing}),c.needs,c.name);
+  }
+});
+// Sites W12 follow-up: a Website with no version yet (a publication stopped after its deploy) gains its version counter
+// slot on the first createVersion, as pocol-site counts it (pocold site.rs publish_needs_on).
+test('a resumed Website with no version counts its version counter slot',async()=>{
+  const p=sample(),missing=new Set(p.chunks.map(c=>c.address)),m0=p.manifestChunks.length;
+  assert.equal(publishNeeds(p,{newSite:false,missing,versionCount:0n}).storageSlots,4+m0);
+  assert.equal(publishNeeds(p,{newSite:false,missing,versionCount:1n}).storageSlots,3+m0);
+  assert.equal(publishNeeds(p,{newSite:false,missing}).storageSlots,3+m0,'no count read: the update case');
+  const m=mock(),r=await publishSite(m.options());m.versions.length=0; // the Website stays, with no version
+  const p2=prepareSite([{path:'/index.html',data:enc.encode('First version')}]),need=publishNeeds(p2,{newSite:false,missing:new Set(p2.chunks.map(c=>c.address)),versionCount:0n});
+  m.control.room={storageSlots:need.storageSlots-1};const before=m.logs.signed.length;
+  await assert.rejects(publishSite(m.options(p2,{site:r.site})),e=>e instanceof PublishCapsError&&/storage slots \(SLOT_CAP\)/.test(e.message)&&e.shortfalls[0].need===String(need.storageSlots));
+  assert.equal(m.logs.signed.length,before,'nothing signed');
+  m.control.room={storageSlots:need.storageSlots};const r2=await publishSite(m.options(p2,{site:r.site}));assert.equal(r2.version,0);
 });
 test('chunks already on chain are not counted against the caps',async()=>{
   const m=mock(),p=sample();for(const c of p.chunks)m.codes.set(c.address,toHex(concat(Uint8Array.of(0),c.data)));

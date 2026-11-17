@@ -530,7 +530,20 @@ fn heavy_duration()->Duration{
     (0..2).map(|_|{let (code,t)=timed(w.rpc,HEAVY);assert_eq!(code,200);t}).min().unwrap()
 }
 /// pocold's RPC counters. A heavy request: while it runs it holds its own RESP_MAX reservation.
-fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id":9,"method":"pocold_rpcCounters","params":[]}"#,false);serde_json::from_str::<serde_json::Value>(&b).unwrap()["result"].clone()}
+/// The request is subject to the node's work deadline too: a node started with a deadline of a few milliseconds (the
+/// deadline tests) answers it 504 `{}` when its consensus thread is busy for a moment (a tick), and a full lane answers
+/// -32021 {busy}. Those are asked again, for at most 10 s; only a real answer is returned (ubuntu CI on PR #86 read
+/// `queued` as Null from one 504).
+fn stats(port:u16)->serde_json::Value{
+    let t=Instant::now();let mut last=String::new();
+    while t.elapsed()<Duration::from_secs(10){
+        let (code,b)=rpc(port,r#"{"jsonrpc":"2.0","id":9,"method":"pocold_rpcCounters","params":[]}"#,false);
+        let v=serde_json::from_str::<serde_json::Value>(&b).unwrap_or(serde_json::Value::Null);
+        if code==200&&v["result"].is_object(){return v["result"].clone()}
+        last=format!("HTTP {code} {b}");std::thread::sleep(Duration::from_millis(100));
+    }
+    panic!("pocold_rpcCounters gave no answer in 10 s: {last}")
+}
 /// Review F8: the real VM, queued requests, batches and resource release. The
 /// deadline is a quarter of a warm call's duration to exercise expiration.
 /// Transport independence from backend completion is proved causally by

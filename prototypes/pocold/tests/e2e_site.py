@@ -12,7 +12,12 @@ follows the London recurrence and stays within the W4 publisher's simulated sche
 pocol-extension/src/lib/fees.js), no "fee rose" refusal, the spend within the simulated budget; economy pacing keeps
 the base fee at its floor; no charge beyond gas (FN-2a); setCurrent and revoke; concurrent publishers; a chunk stored by
 another account and reorganized out before `safe` is stored again by the safe sweep (a partitioned devnet); digests
-identical on all 3 nodes before and after a restart; CODE_CAP and ACCT_CAP give a clear CLI error (small-cap devnets).
+identical on all 3 nodes before and after a restart. Small-cap devnets (Sites W12, the pocol_getCaps pre-check): a site
+that cannot fit CODE_CAP or ACCT_CAP is refused before any signature, with the cap named and "Nothing was signed" (the
+nonce, codeBytes and accounts unchanged), and with --no-caps-check the cap is met at the network and still named after
+the failure ("stored chunks are kept"); the same site with exactly CODE_CAP's room is published (codeBytes == cap
+afterwards); on that full chain a new version with --site that adds a chunk is refused the same way, and the same files
+again (every chunk stored, the check skipped) publish a version.
 nightly adds: a site of 4 MiB - 4 KiB (about 171 chunks) accepted, with the same fee checks over its whole trajectory.
 """
 import json, os, re, shutil, signal, socket, subprocess, sys, tempfile, threading, time
@@ -24,7 +29,9 @@ BIN = os.environ.get("POCOLD_BIN_DIR") or os.path.join(ROOT, "target", "release"
 SITE_BIN = os.path.join(BIN, "pocol-site"); SIGN = os.path.join(BIN, "pocol-sign")
 EXT = os.path.join(ROOT, "..", "pocol-extension")
 W10_SITE = os.path.join(EXT, "tests", "w10_site.mjs"); FEES_JS = os.path.join(EXT, "src", "lib", "fees.js")
-SEL = {k.split("(")[0]: v for k, v in json.load(open(os.path.join(ROOT, "..", "lp4-execution", "tests", "data", "website.json")))["methodIdentifiers"].items()}
+WEBSITE = json.load(open(os.path.join(ROOT, "..", "lp4-execution", "tests", "data", "website.json")))
+SEL = {k.split("(")[0]: v for k, v in WEBSITE["methodIdentifiers"].items()}
+WEBSITE_RUNTIME_LEN = len(bytes.fromhex(WEBSITE["runtime"].removeprefix("0x")))
 CHUNK_MAX, FILE_MAX, SITE_MAX, FILES_MAX, MANIFEST_MAX = 24575, 1 << 20, 4 << 20, 256, 65536
 GWEI, FLOOR = 10**9, 10**7          # the v3 baseFeeMin (FRESH-NETWORK-CP row 55)
 FACTORY = "0x0000000000000000000000000000000000c0c005"
@@ -154,6 +161,18 @@ def plan_txs(files, new_site, existing=frozenset()):
     if new_site: txs.append({"id": "deploy", "gas": "1500000"})
     txs += [{"id": "createVersion", "gas": "600000"}, {"id": "publish", "gas": "200000"}, {"id": "setCurrent", "gas": "200000"}]
     return txs, ml
+
+def need_code(files, new_site=True, existing=frozenset()):
+    """The code bytes a publication of `files` creates (site.rs publish_needs): each distinct chunk the chain does not
+    hold, 0x00-prefixed, the manifest's chunks, and the Website runtime for a new site."""
+    seen, total = set(existing), 0
+    for p in sorted(files):
+        d = files[p]
+        for o in range(0, len(d), CHUNK_MAX):
+            a = chunk_address(d[o:o + CHUNK_MAX])
+            if a not in seen: seen.add(a); total += 1 + len(d[o:o + CHUNK_MAX])
+    ml = manifest_len({p: len(d) for p, d in files.items()})
+    return total + sum(1 + min(CHUNK_MAX, ml - o) for o in range(0, ml, CHUNK_MAX)) + (WEBSITE_RUNTIME_LEN if new_site else 0)
 
 class RpcProxy:
     """A JSON-RPC relay for the CLI: forwards each request to `upstream` (switchable), and can hold every
@@ -447,23 +466,59 @@ def main():
         for i in range(3): ok(f"after restart node {'abc'[i]} serves the current versions unchanged", all(digest(fetch(8540 + i, s)[1]) == before[s] for s in before) and fetch(8540 + i, site)[1] == fa)
         dn.stop(work); time.sleep(2)
 
-        # ---- small-cap devnets: CODE_CAP and ACCT_CAP give a clear CLI error ----
+        # ---- small-cap devnets (Sites W12): a site that cannot fit is refused before any signature ----
         def capnet(tag, flags):
+            nonlocal cid
             w = os.path.join(work, "cap-" + tag)
             dn.init(w, "a", DEVNET_ARGS + flags); dn.start(w, log=True)
+            cid = str(json.load(open(os.path.join(w, "net", "devnet.json")))["chainId"])
             wait(lambda: head() >= 3, 90, f"{tag} devnet up"); return w
+        cid0 = cid
         w = capnet("probe", []); c0 = rpc(0, "pocol_getCaps"); dn.stop(w); time.sleep(2)
         code0, acct0 = q(c0["codeBytes"]), q(c0["accounts"])
-        w = capnet("code", ["--code-cap", str(code0 + 30000)]); cid0 = cid; cid = str(json.load(open(os.path.join(w, "net", "devnet.json")))["chainId"])
-        cd = os.path.join(work, "capsite"); write_w10(cd, pad=3 * CHUNK_MAX, seed=21)
-        r = run_cli(["--dir", cd]); cc = rpc(0, "pocol_getCaps")
-        ok(f"CODE_CAP {code0 + 30000}: the CLI stops with a clear error naming the cap", r.returncode != 0 and "code-size cap is reached (CODE_CAP)" in r.stderr and "stored chunks are kept" in r.stderr, r.stderr.strip()[-260:])
-        ok("the chain stayed within CODE_CAP", q(cc["codeBytes"]) <= q(cc["codeBytesCap"]), f"{q(cc['codeBytes'])} of {q(cc['codeBytesCap'])}")
+        cd = os.path.join(work, "capsite"); capfiles = write_w10(cd, pad=3 * CHUNK_MAX, seed=21)
+        def not_signed(name, args, needle):
+            """The CLI refuses `args` with the cap named; two blocks later the account's nonce (pending), codeBytes and
+            accounts are what they were before the run: nothing was signed or sent."""
+            n0, c1 = nonce("alice"), rpc(0, "pocol_getCaps"); r = run_cli(args); h = head()
+            wait(lambda: head() >= h + 2, 60, "two more blocks")
+            cc = rpc(0, "pocol_getCaps"); n1 = nonce("alice")
+            ok(f"{name}: refused before any signature, naming {needle} (\"cannot fit\", \"Nothing was signed\")",
+               r.returncode != 0 and "cannot fit" in r.stderr and needle in r.stderr and "Nothing was signed" in r.stderr, r.stderr.strip()[-300:])
+            ok(f"{name}: nothing was signed: nonce {n0} -> {n1}, codeBytes {q(c1['codeBytes'])} -> {q(cc['codeBytes'])}, accounts {q(c1['accounts'])} -> {q(cc['accounts'])}",
+               n1 == n0 and cc["codeBytes"] == c1["codeBytes"] and cc["accounts"] == c1["accounts"])
+            ok(f"{name}: the chain stayed within its caps", q(cc["codeBytes"]) <= q(cc["codeBytesCap"]) and q(cc["accounts"]) <= q(cc["accountsCap"]))
+        def met_at_network(name, explained, count, cap):
+            """--no-caps-check: no pre-check, so the cap is met at the network (a failed receipt or the pool's refusal) and
+            the CLI names it after the failure from pocol_getCaps (site.rs `explain`)."""
+            r = run_cli(["--dir", cd, "--no-caps-check"]); cc = rpc(0, "pocol_getCaps")
+            ok(f"{name} with --no-caps-check: the cap is met at the network and named after the failure (\"{explained}\", \"stored chunks are kept\")",
+               r.returncode != 0 and explained in r.stderr and "stored chunks are kept" in r.stderr and "cannot fit" not in r.stderr, r.stderr.strip()[-300:])
+            ok(f"{name} with --no-caps-check: the chain stayed within the cap", q(cc[count]) <= q(cc[cap]), f"{q(cc[count])} of {q(cc[cap])}")
+        w = capnet("code", ["--code-cap", str(code0 + 30000)])
+        not_signed(f"CODE_CAP {code0 + 30000}", ["--dir", cd], "code bytes (CODE_CAP)")
+        met_at_network(f"CODE_CAP {code0 + 30000}", "code-size cap is reached (CODE_CAP)", "codeBytes", "codeBytesCap")
         dn.stop(w); time.sleep(2)
         w = capnet("acct", ["--acct-cap", str(acct0 + 3)])
+        not_signed(f"ACCT_CAP {acct0 + 3}", ["--dir", cd], "accounts (ACCT_CAP)")
+        met_at_network(f"ACCT_CAP {acct0 + 3}", "account cap is reached (ACCT_CAP)", "accounts", "accountsCap")
+        dn.stop(w); time.sleep(2)
+        # The same site with exactly its code bytes of room is published, and fills CODE_CAP.
+        need = need_code(capfiles)
+        w = capnet("exact", ["--code-cap", str(code0 + need)]); ce = rpc(0, "pocol_getCaps")
+        ok(f"exact-fit devnet: CODE_CAP leaves exactly the site's {need} code bytes", q(ce["codeBytesCap"]) - q(ce["codeBytes"]) == need, f"{q(ce['codeBytes'])} of {q(ce['codeBytesCap'])}")
         r = run_cli(["--dir", cd]); cc = rpc(0, "pocol_getCaps")
-        ok(f"ACCT_CAP {acct0 + 3}: the CLI stops with a clear error naming the cap", r.returncode != 0 and "account cap is reached (ACCT_CAP)" in r.stderr, r.stderr.strip()[-260:])
-        ok("the chain stayed within ACCT_CAP", q(cc["accounts"]) <= q(cc["accountsCap"]), f"{q(cc['accounts'])} of {q(cc['accountsCap'])}")
+        ok("a site that exactly fits CODE_CAP is published: codeBytes == CODE_CAP afterwards", r.returncode == 0 and q(cc["codeBytes"]) == q(cc["codeBytesCap"]), r.stderr.strip()[-300:] if r.returncode else f"{q(cc['codeBytes'])} of {q(cc['codeBytesCap'])}")
+        exact_site = json.loads(r.stdout)["site"]
+        meta, got = fetch(8540, exact_site)
+        ok("the exact-fit site is served with verified hashes", got == capfiles)
+        # --site on the full chain: a new version that adds a chunk is refused the same way (no Website counted) ...
+        open(os.path.join(cd, "added.txt"), "wb").write(b"one chunk more than CODE_CAP holds")
+        not_signed("--site on a full CODE_CAP, one new chunk", ["--dir", cd, "--site", exact_site], "code bytes (CODE_CAP)")
+        os.remove(os.path.join(cd, "added.txt"))
+        # ... and the same files again (every chunk stored, the check skipped) publish a version: only its 3 transactions.
+        n0 = nonce("alice"); r = run_cli(["--dir", cd, "--site", exact_site])
+        ok("--site with every chunk stored on the full chain: published with createVersion, publish and setCurrent only", r.returncode == 0 and nonce("alice") - n0 == 3, r.stderr.strip()[-300:] if r.returncode else f"{nonce('alice') - n0} transactions")
         dn.stop(w); cid = cid0
         print(json.dumps({"result": "PASS", "profile": profile, "checks": n, "site": site}))
         time.sleep(2); shutil.rmtree(work, ignore_errors=True)

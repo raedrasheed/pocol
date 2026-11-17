@@ -205,12 +205,16 @@ impl Rpc{
     /// again after its retryAfterMs (at most 2 s), up to BUSY_RETRIES times (Sites W10: a 4 MiB publication met it on
     /// eth_getTransactionReceipt). eth_sendRawTransaction is never repeated here: its caller reconciles from the receipt.
     pub fn call(&self,method:&str,params:Value)->Result<Value,String>{
+        self.answer(method,params)?.map_err(|e|format!("{method}: {e}"))
+    }
+    /// `call`, with the node's own error answer (other than busy, which is retried as `call` retries it) returned as
+    /// Ok(Err(error object)) instead of a message, so a caller can tell -32601 (method not found) from a failure.
+    pub fn answer(&self,method:&str,params:Value)->Result<Result<Value,Value>,String>{
         for attempt in 0..=BUSY_RETRIES{
             match self.call_raw(method,params.clone())?{
-                Ok(v)=>return Ok(v),
                 Err(e) if e["code"].as_i64()==Some(BUSY)&&method!="eth_sendRawTransaction"&&attempt<BUSY_RETRIES=>{
                     std::thread::sleep(Duration::from_millis(e["data"]["retryAfterMs"].as_u64().unwrap_or(250).clamp(50,2000)));}
-                Err(e)=>return Err(format!("{method}: {e}")),
+                r=>return Ok(r),
             }
         }
         unreachable!()
@@ -248,6 +252,32 @@ impl Rpc{
     pub fn wait_receipt(&self,h:B256,timeout:Duration)->Result<Value,String>{
         let t=Instant::now();loop{let r=self.call("eth_getTransactionReceipt",json!([format!("{h}")]))?;if !r.is_null(){return Ok(r)}if t.elapsed()>timeout{return Err(format!("receipt timeout {h}"))}std::thread::sleep(Duration::from_millis(250));}
     }
+}
+
+// ---------------- publish plan ----------------
+/// The manifest of `files` (path -> bytes) with entry `entry`, and its encoding, after every rule a publication checks
+/// before its first transaction (paths, MIME, sizes, entry, manifest T16 and limits, 1..3 manifest chunks). The
+/// extension's `prepareSite` (lib/publisher.js) builds the same manifest.
+pub fn prepare(files:&BTreeMap<String,Vec<u8>>,entry:&str)->Result<(Manifest,Vec<u8>),String>{
+    if files.is_empty()||files.len()>FILES_MAX{return Err("1..256 files".into())}
+    let predicted=|data:&[u8]|->Vec<(Address,u32)>{data.chunks(CHUNK_MAX).map(|c|(chunk_address(c),c.len() as u32)).collect()};
+    let mut entries=Vec::new();let mut total=0usize;
+    for (p,data) in files{
+        if !valid_path(p){return Err(format!("invalid path {p}"))}let mime=mime_for_path(p).ok_or(format!("unknown MIME for {p}"))?;
+        if data.len()>SITE_FILE_MAX{return Err(format!("{p}: size 0..1 MiB"))}total+=data.len();
+        entries.push(FileEntry{path:p.clone(),mime,size:data.len() as u32,content_hash:keccak256(data),chunks:predicted(data)});
+    }
+    if total>SITE_MAX{return Err("site > 4 MiB".into())}
+    let entry=entries.iter().position(|f|f.path==entry).ok_or("entry path not found")? as u32;
+    let m=Manifest{entry,files:entries};let mb=m.encode();Manifest::decode(&mb)?;
+    let n=mb.chunks(CHUNK_MAX).count();if n==0||n>3{return Err("manifest needs 1..3 chunks".into())}
+    Ok((m,mb))
+}
+/// Every distinct chunk a publication of `files` with the encoded manifest `mb` references (file chunks in path order,
+/// then the manifest's), each once: two files with equal bytes share their chunks (the extension's `plan.chunks`).
+pub fn site_chunks<'a>(files:&'a BTreeMap<String,Vec<u8>>,mb:&'a [u8])->Vec<(Address,&'a [u8])>{
+    let mut seen=std::collections::HashSet::new();
+    files.values().flat_map(|d|d.chunks(CHUNK_MAX)).chain(mb.chunks(CHUNK_MAX)).map(|c|(chunk_address(c),c)).filter(|(a,_)|seen.insert(*a)).collect()
 }
 
 // ---------------- publisher ----------------
@@ -288,21 +318,44 @@ pub fn derive_fee(base_next:U256,policy:&FeePolicy,spent:U256,gas:u64)->Result<U
 }
 pub struct Publisher<'a>{pub rpc:&'a Rpc,pub key:&'a pocol_lp4_execution::txsign::Key,pub chain_id:u64,pub log:bool,pub fees:FeePolicy,
     /// The safe sweep's bound (3 minutes) and the wait between its passes (1 s); tests shorten them.
-    pub sweep_timeout:Duration,pub sweep_poll:Duration,spent:std::cell::Cell<U256>,last_block:std::cell::Cell<Option<u64>>}
+    pub sweep_timeout:Duration,pub sweep_poll:Duration,
+    /// Sites W12: the pocol_getCaps pre-check before the first signature (`caps_precheck`); on by default, off with
+    /// pocol-site --no-caps-check.
+    pub caps_check:bool,
+    /// Economy pacing's bound (10 minutes) and the wait between its passes (500 ms); tests shorten them.
+    pub economy_timeout:Duration,pub economy_poll:Duration,
+    spent:std::cell::Cell<U256>,last_tx:std::cell::Cell<Option<B256>>}
 impl<'a> Publisher<'a>{
-    pub fn new(rpc:&'a Rpc,key:&'a pocol_lp4_execution::txsign::Key,chain_id:u64,log:bool,fees:FeePolicy)->Self{Self{rpc,key,chain_id,log,fees,sweep_timeout:Duration::from_secs(180),sweep_poll:Duration::from_millis(1000),spent:std::cell::Cell::new(U256::ZERO),last_block:std::cell::Cell::new(None)}}
+    pub fn new(rpc:&'a Rpc,key:&'a pocol_lp4_execution::txsign::Key,chain_id:u64,log:bool,fees:FeePolicy)->Self{Self{rpc,key,chain_id,log,fees,sweep_timeout:Duration::from_secs(180),sweep_poll:Duration::from_millis(1000),caps_check:true,economy_timeout:Duration::from_secs(600),economy_poll:Duration::from_millis(500),spent:std::cell::Cell::new(U256::ZERO),last_tx:std::cell::Cell::new(None)}}
     /// The committed cost so far: the sum of gas * maxFee of the signed transactions.
     pub fn committed(&self)->U256{self.spent.get()}
     fn tx(&self,to:Option<Address>,data:Vec<u8>,gas:u64)->Result<Value,String>{
-        if self.fees.economy{if let Some(last)=self.last_block.get(){
-            let t=Instant::now();while self.rpc.block_number()?<=last{if t.elapsed()>Duration::from_secs(600){return Err("economy pacing: no new block for 10 minutes".into())}std::thread::sleep(Duration::from_millis(500));}
-        }}
-        let max_fee=derive_fee(self.rpc.base_next()?,&self.fees,self.spent.get(),gas)?;
+        // Economy: a block without a publication transaction after each one (fees.js feeSchedule economy), so each is
+        // signed at the base fee that block brought back down. The block holding the previous transaction is read again on
+        // every pass: a reorganization can move it to a later block (or back into the pool, where it has no receipt), and a
+        // head above the block its first receipt named is then the block that holds it, whose base fee rise the budget does
+        // not count. Each pass reads the head first and the receipt after it, so the receipt is never older than the head
+        // it is compared with, then the base fee, then both again: a reorganization between these reads (which the node
+        // answers one by one) sends the pass round again instead of signing at a base fee read from another head.
+        let base=if self.fees.economy&&self.last_tx.get().is_some(){
+            let prev=self.last_tx.get().unwrap_or_default();
+            let held=|| ->Result<Option<u64>,String>{Ok(self.rpc.call("eth_getTransactionReceipt",json!([format!("{prev}")]))?["blockNumber"].as_str().and_then(|b|u64::from_str_radix(b.trim_start_matches("0x"),16).ok()))};
+            let t=Instant::now();
+            loop{
+                let head=self.rpc.block_number()?;let at=held()?;
+                if let Some(b)=at{if head>b{
+                    let base=self.rpc.base_next()?;
+                    if self.rpc.block_number()?==head&&held()?==at{break base}
+                }}
+                if t.elapsed()>self.economy_timeout{return Err(format!("economy pacing: no block after the previous transaction {prev} for {} s; stored chunks are kept, run publish again to continue",self.economy_timeout.as_secs()))}
+                std::thread::sleep(self.economy_poll);
+            }
+        }else{self.rpc.base_next()?};
+        let max_fee=derive_fee(base,&self.fees,self.spent.get(),gas)?;
         let nonce=self.rpc.nonce(self.key.address())?;
         let raw=pocol_lp4_execution::txsign::Tx{chain_id:self.chain_id,nonce,max_priority:self.fees.tip,max_fee,gas,to,value:U256::ZERO,data:data.into()}.sign_1559(self.key);
         self.spent.set(self.spent.get().saturating_add(max_fee.saturating_mul(U256::from(gas))));
-        let h=self.rpc.send(&raw)?;let r=self.rpc.wait_receipt(h,Duration::from_secs(300))?;
-        if let Some(b)=r["blockNumber"].as_str().and_then(|b|u64::from_str_radix(b.trim_start_matches("0x"),16).ok()){self.last_block.set(Some(b))}
+        let h=self.rpc.send(&raw)?;let r=self.rpc.wait_receipt(h,Duration::from_secs(300))?;self.last_tx.set(Some(h));
         if r["status"]!="0x1"{return Err(format!("transaction failed: {r}"))}Ok(r)
     }
     /// Sites W4 safe sweep: before createVersion references them, every chunk must exist at the `safe` tag. A chunk
@@ -353,32 +406,40 @@ impl<'a> Publisher<'a>{
     }
     /// Publishes `files` (path -> bytes) as a new version and makes it current. Every rule (paths,
     /// MIME, sizes, entry, manifest T16 and limits) is checked on the predicted manifest before the
-    /// first transaction, so a rejected site has no state effect.
+    /// first transaction, so a rejected site has no state effect. Sites W12: so are the chain caps (pocol_getCaps,
+    /// `caps_precheck`), from what the chain does not hold yet: each chunk is read once (a chunk's code never changes
+    /// once created, so a stored one is not read or stored again), and the needs of the missing ones, the Website for a
+    /// new site (`site` None) and the version transactions are checked before anything is signed. With `--site` (a new
+    /// version of an existing site, or a resumed publication) the check runs as well, counting no Website but, when the
+    /// Website has no version yet, its version counter's slot (`publish_needs_on`); it is skipped only when every chunk
+    /// is already stored, so only the version transactions remain. A cap filled by others between the check and a send
+    /// is still explained after the failure (`explain`).
     pub fn publish(&self,site:Option<Address>,files:&BTreeMap<String,Vec<u8>>,entry:&str)->Result<(Address,u64,Manifest),String>{
-        if files.is_empty()||files.len()>FILES_MAX{return Err("1..256 files".into())}
-        let predicted=|data:&[u8]|->Vec<(Address,u32)>{data.chunks(CHUNK_MAX).map(|c|(chunk_address(c),c.len() as u32)).collect()};
-        let mut entries=Vec::new();let mut total=0usize;
-        for (p,data) in files{
-            if !valid_path(p){return Err(format!("invalid path {p}"))}let mime=mime_for_path(p).ok_or(format!("unknown MIME for {p}"))?;
-            if data.len()>SITE_FILE_MAX{return Err(format!("{p}: size 0..1 MiB"))}total+=data.len();
-            entries.push(FileEntry{path:p.clone(),mime,size:data.len() as u32,content_hash:keccak256(data),chunks:predicted(data)});
+        let (m,mb)=prepare(files,entry)?;
+        let mpred:Vec<Address>=mb.chunks(CHUNK_MAX).map(chunk_address).collect();
+        let mut stored=std::collections::HashSet::new();
+        if self.caps_check{
+            let mut missing=Vec::new();
+            for (a,c) in site_chunks(files,&mb){if self.rpc.code(a)?.is_empty(){missing.push(c.len())}else{stored.insert(a);}}
+            if site.is_some()&&missing.is_empty(){if self.log{eprintln!("every chunk is already stored: the capacity pre-check is skipped (only the version transactions remain)");}}
+            else{
+                let need=match site{None=>publish_needs(&missing,true,mpred.len()),
+                    Some(s)=>publish_needs_on(&missing,mpred.len(),U256::from_be_slice(&self.rpc.eth_call(s,&sel("versionCount()"))?))};
+                caps_precheck(self.rpc,&need)?;
+            }
         }
-        if total>SITE_MAX{return Err("site > 4 MiB".into())}
-        let entry=entries.iter().position(|f|f.path==entry).ok_or("entry path not found")? as u32;
-        let m=Manifest{entry,files:entries};let mb=m.encode();Manifest::decode(&mb)?;
-        let mpred=predicted(&mb);if mpred.is_empty()||mpred.len()>3{return Err("manifest needs 1..3 chunks".into())}
         // Validated: now store chunks (idempotent CREATE2) and check each lands at its predicted address.
         for (p,data) in files{
             if self.log{eprintln!("storing {p} ({} bytes)",data.len());}
-            for c in data.chunks(CHUNK_MAX){self.store_chunk(c)?;}
+            for c in data.chunks(CHUNK_MAX){if !stored.contains(&chunk_address(c)){stored.insert(self.store_chunk(c)?);}}
         }
-        for c in mb.chunks(CHUNK_MAX){self.store_chunk(c)?;}
+        for c in mb.chunks(CHUNK_MAX){if !stored.contains(&chunk_address(c)){stored.insert(self.store_chunk(c)?);}}
         // A Website deployed by this run is reported at once, and every later refusal names it: publishing again
         // without --site would deploy a second Website (about 1.5M gas) and orphan this one.
         let deployed=site.is_none();
         let site=match site{Some(s)=>s,None=>{let s=self.deploy_website()?;eprintln!("deployed website {s:#x}; if this publication stops, pass --site {s:#x} to resume it");s}};
         let resume=|e:String|if deployed{format!("{e} (the new Website is at {site:#x}: run publish again with --site {site:#x})")}else{e};
-        let v=self.publish_version(site,files,&mb,mpred.iter().map(|c|c.0).collect()).map_err(resume)?;
+        let v=self.publish_version(site,files,&mb,mpred).map_err(resume)?;
         Ok((site,v,m))
     }
     /// The safe sweep, createVersion, publish and setCurrent of `publish` for the encoded manifest `mb`.
@@ -407,6 +468,105 @@ pub fn website_runtime_len()->u128{
 }
 pub fn website_initcode()->Vec<u8>{
     let v:Value=serde_json::from_str(include_str!("../../lp4-execution/tests/data/website.json")).unwrap();unhex(v["initcode"].as_str().unwrap()).unwrap()
+}
+
+// ---------------- Sites W12: the pocol_getCaps pre-check (FN-1, C9) ----------------
+/// A raw transaction is counted at its calldata (or initcode) plus at most this many bytes of envelope (the extension's
+/// TX_ENVELOPE_MAX).
+pub const TX_ENVELOPE_MAX:u128=160;
+/// The occupancy at which a cap is reported (pocold rpc.rs CAPS_ALARM_PERCENT, the extension's CAPS_ALARM_PERCENT).
+pub const CAPS_ALARM_PERCENT:u128=80;
+/// What a publication adds to the chain caps, at most (the extension's `publishNeeds`, lib/publisher.js). The field
+/// names are pocol_getCaps' rows; `largest_tx_bytes` is its largest single transaction, envelope included.
+#[derive(Clone,Copy,Debug,Default,PartialEq,Eq)]
+pub struct Needs{pub accounts:u128,pub storage_slots:u128,pub code_bytes:u128,pub tx_count:u128,pub tx_bytes:u128,pub log_bytes:u128,pub largest_tx_bytes:u128}
+/// The needs of a publication given the data lengths of the chunks the chain does not hold yet (`missing`, each
+/// distinct chunk once), whether it deploys a new Website (`new_site`) and its manifest's chunk count: each missing
+/// chunk a ChunkFactory account with its 0x00-prefixed runtime and a store(bytes) transaction; a new site the Website
+/// account with its runtime (`website_runtime_len`), its initcode (`website_initcode`, the bytes `deploy_website`
+/// sends) and its constructor's three slots plus the version counter; the version record's manifestHash, meta,
+/// chunk-array length and one slot per manifest chunk, written by createVersion (publish and setCurrent rewrite slots
+/// that are already nonzero, 36 bytes of calldata each); no logs (Website and ChunkFactory emit none). pocold
+/// tests/fn1_caps.rs executes a publication and checks these counts; tests/data/publish_needs.json is shared with the
+/// extension's publisher_test.mjs so the two formulas cannot drift.
+pub fn publish_needs(missing:&[usize],new_site:bool,manifest_chunks:usize)->Needs{
+    let store_data=|n:usize|4+64+(n as u128).div_ceil(32)*32;
+    let (new,m)=(u128::from(new_site),manifest_chunks as u128);
+    let version_data=4+96+32+32*m;
+    let init=if new_site{website_initcode().len() as u128}else{0};
+    let txs=missing.len() as u128+new+3;
+    let largest=missing.iter().map(|n|store_data(*n)).chain([version_data,36,init]).max().unwrap_or(0);
+    Needs{accounts:missing.len() as u128+new,storage_slots:4*new+3+m,
+        code_bytes:missing.iter().map(|n|1+*n as u128).sum::<u128>()+if new_site{website_runtime_len()}else{0},
+        tx_count:txs,tx_bytes:missing.iter().map(|n|store_data(*n)).sum::<u128>()+init+version_data+36+36+txs*TX_ENVELOPE_MAX,
+        log_bytes:0,largest_tx_bytes:largest+TX_ENVELOPE_MAX}
+}
+/// The needs of a publication on an existing Website (`--site`) that holds `version_count` versions: `publish_needs`
+/// without a Website, plus the version counter's slot when the Website has no version yet (one whose publication
+/// stopped after its deploy): the constructor leaves that slot zero, and the first createVersion makes it nonzero.
+pub fn publish_needs_on(missing:&[usize],manifest_chunks:usize,version_count:U256)->Needs{
+    let mut n=publish_needs(missing,false,manifest_chunks);if version_count.is_zero(){n.storage_slots+=1;}n
+}
+/// pocol_getCaps rows: (count, cap, label).
+const CAP_ROWS:[(&str,&str,&str);6]=[("accounts","accountsCap","accounts (ACCT_CAP)"),("storageSlots","storageSlotsCap","storage slots (SLOT_CAP)"),
+    ("codeBytes","codeBytesCap","code bytes (CODE_CAP)"),("txCount","txCap","transactions (TX_CAP)"),("txBytes","txBytesCap","transaction bytes (TXBYTES_CAP)"),
+    ("logBytes","logCap","log bytes (LOG_CAP)")];
+impl Needs{
+    /// What a cap's room must hold: the whole publication, or, for the per-block rows of a continuous chain
+    /// (`per_block`: txCount, txBytes and logBytes when pocol_getCaps reports `cumulative` false), one transaction, its
+    /// largest transaction's bytes and the publication's log bytes. Each transaction is confirmed before the next is
+    /// sent, so each must fit one block's room on its own.
+    fn of(&self,row:&str,per_block:bool)->u128{
+        match (row,per_block){
+            ("accounts",_)=>self.accounts,("storageSlots",_)=>self.storage_slots,("codeBytes",_)=>self.code_bytes,("logBytes",_)=>self.log_bytes,
+            ("txCount",true)=>u128::from(self.tx_count>0),("txCount",false)=>self.tx_count,
+            ("txBytes",true)=>self.largest_tx_bytes,("txBytes",false)=>self.tx_bytes,_=>0,
+        }
+    }
+}
+/// Compares a pocol_getCaps answer with a publication's needs. Ok(None): the answer does not report every count and
+/// cap (an older node; the pre-check is skipped). Ok(Some(alarms)): the site fits; `alarms` are the labels of the caps
+/// at or above CAPS_ALARM_PERCENT. Err: a cap's room (cap - count, 0 when past it) is below the need, each short cap
+/// named, or the answer is malformed.
+pub fn check_caps(caps:&Value,needs:&Needs)->Result<Option<Vec<&'static str>>,String>{
+    let bad=|why:String|format!("invalid pocol_getCaps answer ({why}). Nothing was signed.");
+    let obj=caps.as_object().ok_or_else(||bad("not an object".into()))?;
+    if CAP_ROWS.iter().any(|(c,k,_)|obj.get(*c).is_none_or(Value::is_null)||obj.get(*k).is_none_or(Value::is_null)){return Ok(None)}
+    let qty=|k:&str|->Result<u128,String>{
+        let s=obj[k].as_str().ok_or_else(||bad(format!("{k} is not a quantity")))?;let h=s.strip_prefix("0x").ok_or_else(||bad(format!("{k} is not a quantity")))?;
+        if h.is_empty()||h.len()>32||!h.bytes().all(|c|c.is_ascii_hexdigit()){return Err(bad(format!("{k} is not a quantity")))}
+        u128::from_str_radix(h,16).map_err(|_|bad(format!("{k} is not a quantity")))
+    };
+    // An answer without `cumulative` is read as cumulative (the stricter check).
+    let per_block=match obj.get("cumulative"){None|Some(Value::Null)=>false,Some(Value::Bool(b))=>!b,Some(_)=>return Err(bad("cumulative is not a boolean".into()))};
+    let (mut short,mut alarms)=(Vec::new(),Vec::new());
+    for (name,cap_name,label) in CAP_ROWS{
+        let (count,cap)=(qty(name)?,qty(cap_name)?);
+        let block=per_block&&matches!(name,"txCount"|"txBytes"|"logBytes");
+        let (room,need)=(cap.saturating_sub(count),needs.of(name,block));
+        if need>room{short.push(format!("it needs {need} {} and {room} remain",if block{label.replacen(" ("," in one block (",1)}else{label.to_string()}))}
+        if count.saturating_mul(100)>=cap.saturating_mul(CAPS_ALARM_PERCENT){alarms.push(label)}
+    }
+    if !short.is_empty(){return Err(format!("This site cannot fit on the network: {}. Nothing was signed.",short.join("; ")))}
+    Ok(Some(alarms))
+}
+/// Sites W12: reads pocol_getCaps and refuses, before any signature, a publication whose needs a cap's room cannot hold
+/// (`check_caps`). Ok(true): checked, the site fits (a cap at or above 80 % is noted on stderr). Ok(false): the node
+/// predates the method (-32601) or does not report every count and cap; a warning goes to stderr and the publication
+/// goes on (every transaction is still checked by the network, and a refusal is explained after it). Any other answer
+/// or transport failure is an error: nothing is signed.
+pub fn caps_precheck(rpc:&Rpc,needs:&Needs)->Result<bool,String>{
+    let skipped="the capacity pre-check was skipped";
+    let fail=|e:String|format!("pocol_getCaps: {e}. Nothing was signed (pocol-site --no-caps-check publishes without the pre-check).");
+    let caps=match rpc.answer("pocol_getCaps",json!([])).map_err(fail)?{
+        Ok(v)=>v,
+        Err(e) if e["code"].as_i64()==Some(-32601)=>{eprintln!("warning: this node does not report its chain caps (pocol_getCaps): {skipped}");return Ok(false)}
+        Err(e)=>return Err(fail(e.to_string())),
+    };
+    match check_caps(&caps,needs)?{
+        None=>{eprintln!("warning: this node's pocol_getCaps answer does not report every count and cap: {skipped}");Ok(false)}
+        Some(alarms)=>{if !alarms.is_empty(){eprintln!("note: the network's chain caps are at or above {CAPS_ALARM_PERCENT} % for {}; the site still fits",alarms.join(", "));}Ok(true)}
+    }
 }
 
 // ---------------- fetcher ----------------
