@@ -21,6 +21,15 @@ const FIXTURE = join(HERE, 'identity_fixture.py');
 const TEST_MANIFEST_KEY = createPublicKey(createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.alloc(32, 9)]), format: 'der', type: 'pkcs8' }))
   .export({ format: 'der', type: 'spki' }).toString('base64');
 const unhex = (s) => Uint8Array.from((s.match(/../g) || []).map((x) => parseInt(x, 16)));
+// W13: the Rust source of the fork-version bound (pocold's build-info maxForkVersion reads the same file, build.rs). The
+// definition must appear exactly once in its plain `pub const MAX_FORK_VERSION: u16 = N;` form; anything else is refused
+// rather than guessed, so a reworded definition fails here instead of silently matching nothing.
+const P1_PROFILE = join(REPO, 'prototypes', 'lp4-execution', 'src', 'p1_profile.rs');
+export function rustMaxForkVersion(src = readFileSync(P1_PROFILE, 'utf8')) {
+  const found = [...src.matchAll(/^pub const MAX_FORK_VERSION: u16 = ([0-9]+);$/gm)];
+  if (found.length !== 1) throw new Error(`${P1_PROFILE} must define pub const MAX_FORK_VERSION: u16 exactly once (found ${found.length})`);
+  return Number(found[0][1]);
+}
 
 export async function v3DecoderChecks(rel) {
   const checks = [], ok = (name, pass, detail = '') => checks.push({ name, pass: !!pass, detail });
@@ -33,6 +42,13 @@ export async function v3DecoderChecks(rel) {
   // ---- the release build: spec 2 is the release GenesisSpec ----
   const RP = await L(rel, 'rp.js'), D = await L(rel, 'refdec.js'), F = await L(rel, 'forks.js');
   ok('release: SPEC_VERSION and the shipped entry-point ceiling are 2; MAX_FORK_VERSION is 3 (FN-5: version 3 is the cap raise)', D.DECODE_CEILING === 2 && D.SPEC_VERSION === 2 && F.MAX_FORK_VERSION === 3);
+  // W13: forks.js is a copy of the Rust bound; it must move with lp4-execution's p1_profile.rs (the file pocold uses).
+  let rustMax; try { rustMax = rustMaxForkVersion(); } catch (e) { rustMax = e.message; }
+  ok('W13: forks.js MAX_FORK_VERSION equals p1_profile.rs MAX_FORK_VERSION', F.MAX_FORK_VERSION === rustMax, `forks.js=${F.MAX_FORK_VERSION} p1_profile.rs=${rustMax}`);
+  const refuses = (src) => { try { rustMaxForkVersion(src); return false; } catch { return true; } };
+  ok('W13: the p1_profile.rs reader refuses a missing, commented-out, reworded or repeated definition',
+    rustMaxForkVersion('pub const MAX_FORK_VERSION: u16 = 7;\n') === 7 && refuses('') && refuses('// pub const MAX_FORK_VERSION: u16 = 3;\n')
+    && refuses('pub const MAX_FORK_VERSION: u32 = 3;\n') && refuses('pub const MAX_FORK_VERSION: u16 = 3;\npub const MAX_FORK_VERSION: u16 = 4;\n'));
   ok('release: RP.decodeSpec and the decoder default decode a v3 genesis; only an explicit spec-1 ceiling refuses it with gsVersion',
     gs(() => RP.decodeSpec(v3Base)) === 'ok' && gs(() => D.decodeGenesisSpec(v3Base)) === 'ok' && gs(() => RP.decodeSpec(v3Base, 1)) === 'gsVersion:2');
   ok('release: the manifest is the release one', JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).name === 'PoCol Studio, IDE & Viewer');
