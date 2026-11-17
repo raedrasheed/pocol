@@ -81,6 +81,31 @@ def wait(pred, timeout, what):
     raise AssertionError("timeout: " + what + (f" ({last})" if last else ""))
 q = lambda v: int(v, 16)
 
+def log_tail(work, label, lines=25):
+    """The end of a node's log since its last start marker: what a node that exited or never answered said."""
+    try: text = open(os.path.join(work, f"{label}.log"), "rb").read().decode("utf-8", "replace")
+    except OSError as e: return f"{label}.log: {e}"
+    return f"--- {label}.log (last {lines} lines)\n" + "\n".join(text.rstrip().splitlines()[-lines:])
+
+def stop_confirmed(work, what, wait_s=90):
+    """dn.stop, then refuse when a node is still running: the restart that follows takes the same ports and data, so
+    a node still shutting down would make the new one exit and every later check time out on "connection refused"."""
+    left = dn.stop(work, wait_s=wait_s)
+    if left: raise AssertionError(f"{what}: node(s) {', '.join(left)} still running {wait_s} s after SIGTERM\n" + "\n".join(log_tail(work, l) for l in left))
+
+def wait_up(work, alive, ready, timeout, what):
+    """Waits until `ready()` holds; fails at once, with the node's log tail, when a node of `alive` (label ->
+    callable, true while that node's process runs) exited, and on a timeout gives every node's log tail."""
+    t = time.time(); last = None
+    while time.time() - t < timeout:
+        gone = [l for l, a in alive.items() if not a()]
+        if gone: raise AssertionError(f"{what}: node(s) {', '.join(gone)} exited\n" + "\n".join(log_tail(work, l) for l in gone))
+        try:
+            if ready(): return
+        except Exception as e: last = e
+        time.sleep(0.5)
+    raise AssertionError(f"timeout: {what}" + (f" ({last})" if last else "") + "\n" + "\n".join(log_tail(work, l) for l in alive))
+
 def write_w10(d, **kw):
     a = ["node", W10_SITE, d]
     for k, v in kw.items():
@@ -373,7 +398,7 @@ def main():
         # relay forwards to a, on the heavier a+b branch, which has never seen X, Y or the manifest. The sweep must find
         # them missing at both `safe` and `latest` and store them again before createVersion. c later rejoins without
         # mining and adopts the a+b branch (reorganizing its own away); every node then serves the same site.
-        dn.stop(work); time.sleep(2)
+        stop_confirmed(work, "before the partition"); time.sleep(1)
         def node(i, peers, miner=True, listen=True, what=""):
             l = "abc"[i]; logf = open(os.path.join(work, f"{l}.log"), "ab"); logf.write(f"\n=== {what}\n".encode()); logf.flush()
             cmd = [dn.BIN, "run", "--network", os.path.join(work, "net"), "--data", os.path.join(work, "data", l), "--name", l, "--rpc", f"127.0.0.1:{8540 + i}", "--log", "--no-discovery"]
@@ -381,7 +406,8 @@ def main():
             p = subprocess.Popen(cmd, stdout=logf, stderr=logf, start_new_session=True); extra_procs.append(p); return p
         def stop(p): os.killpg(p.pid, signal.SIGTERM); p.wait(60)
         pa, pb_ = node(0, [1], what="partition: a with b"), node(1, [0], what="partition: b with a"); pc = node(2, [], listen=False, what="partition: c alone")
-        wait(lambda: all(rpc(i, "pocol_status") for i in range(3)), 60, "partitioned nodes up")
+        wait_up(work, {"a": lambda: pa.poll() is None, "b": lambda: pb_.poll() is None, "c": lambda: pc.poll() is None},
+                lambda: all(rpc(i, "pocol_status") for i in range(3)), 120, "partitioned nodes up")
         wait(lambda: rpc(2, "pocol_status")["peers"] == [] and rpc(0, "pocol_status")["peers"], 60, "c isolated, a and b meshed")
         x = b"<!doctype html><p>chunk X, first stored by bob on a branch that loses"
         xd = os.path.join(work, "bobx"); os.makedirs(xd); open(os.path.join(xd, "index.html"), "wb").write(x)
@@ -416,8 +442,8 @@ def main():
         wait(lambda: len({rpc(i, "eth_getBlockByNumber", [hex(min(head(j) for j in range(3)) - 1), False])["hash"] for i in range(3)}) == 1, 180, "nodes agree")
         before = {s: digest(fetch(8540, s)[1]) for s in (site, site256)}
         ok("before the restart every node serves identical digests (W10 site and 256-file site)", all(digest(fetch(8540 + i, s)[1]) == before[s] for i in range(3) for s in before), before)
-        dn.stop(work); time.sleep(2); dn.start(work, log=True)
-        wait(lambda: all(rpc(i, "pocol_status") for i in range(3)), 90, "restart")
+        stop_confirmed(work, "before the restart"); time.sleep(1); pids = dn.start(work, log=True)
+        wait_up(work, {l: (lambda p=p: dn._alive(p)) for l, p in pids.items()}, lambda: all(rpc(i, "pocol_status") for i in range(3)), 120, "restart")
         for i in range(3): ok(f"after restart node {'abc'[i]} serves the current versions unchanged", all(digest(fetch(8540 + i, s)[1]) == before[s] for s in before) and fetch(8540 + i, site)[1] == fa)
         dn.stop(work); time.sleep(2)
 
@@ -453,6 +479,7 @@ def main():
         for d in os.listdir(work) if os.path.isdir(work) else []:
             if d.startswith("cap-"): dn.stop(os.path.join(work, d))
     time.sleep(2)  # the nodes stop: their logs and journals are whole when they are kept
+    print(f"FAIL {error}", flush=True)  # the whole message, node log tails included (the JSON line keeps its last 500 characters)
     kept = dn.keep_on_failure("e2e_site", work, {"error": str(error)[-500:], "passed": n, "profile": profile, "results": records})
     print(json.dumps({"result": "FAIL", "error": str(error)[-500:], "work": work, "kept": kept})); return 1
 

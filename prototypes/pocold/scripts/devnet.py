@@ -64,19 +64,21 @@ def _alive(pid):
 def stop(work, only=None, sig=signal.SIGTERM, wait_s=30):
     """Signals the nodes and waits (at most `wait_s`) until they have exited, so their P2P and RPC ports are free
     when this returns: a suite started right after another one checks those ports (a node still flushing after
-    SIGTERM held 30301 and the next e2e refused to start)."""
+    SIGTERM held 30301 and the next e2e refused to start). Returns the labels of the nodes still running after the
+    wait (empty when every node exited), so a caller that restarts them on the same ports and data can refuse."""
     pidfile = os.path.join(work, "pids.json")
-    if not os.path.exists(pidfile): return
+    if not os.path.exists(pidfile): return []
     pids = json.load(open(pidfile))
     sent = []
     for l, pid in list(pids.items()):
         if only and l not in only: continue
-        try: os.kill(pid, sig); sent.append(pid)
+        try: os.kill(pid, sig); sent.append((l, pid))
         except ProcessLookupError: pass
         pids.pop(l)
     json.dump(pids, open(pidfile, "w"))
     deadline = time.time() + wait_s
-    while any(_alive(p) for p in sent) and time.time() < deadline: time.sleep(0.05)
+    while any(_alive(p) for _, p in sent) and time.time() < deadline: time.sleep(0.05)
+    return [l for l, p in sent if _alive(p)]
 
 def keep_on_failure(suite, work, extra=None):
     """A failed run's evidence (2026-10-28), kept before anything cleans the work directory: every node log and
