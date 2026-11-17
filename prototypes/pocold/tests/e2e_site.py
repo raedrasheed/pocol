@@ -14,7 +14,8 @@ the base fee at its floor; no charge beyond gas (FN-2a); setCurrent and revoke; 
 another account and reorganized out before `safe` is stored again by the safe sweep (a partitioned devnet); digests
 identical on all 3 nodes before and after a restart. Small-cap devnets (Sites W12, the pocol_getCaps pre-check): a site
 that cannot fit CODE_CAP or ACCT_CAP is refused before any signature, with the cap named and "Nothing was signed" (the
-nonce, codeBytes and accounts unchanged); the same site with exactly CODE_CAP's room is published (codeBytes == cap
+nonce, codeBytes and accounts unchanged), and with --no-caps-check the cap is met at the network and still named after
+the failure ("stored chunks are kept"); the same site with exactly CODE_CAP's room is published (codeBytes == cap
 afterwards); on that full chain a new version with --site that adds a chunk is refused the same way, and the same files
 again (every chunk stored, the check skipped) publish a version.
 nightly adds: a site of 4 MiB - 4 KiB (about 171 chunks) accepted, with the same fee checks over its whole trajectory.
@@ -461,11 +462,20 @@ def main():
             ok(f"{name}: nothing was signed: nonce {n0} -> {n1}, codeBytes {q(c1['codeBytes'])} -> {q(cc['codeBytes'])}, accounts {q(c1['accounts'])} -> {q(cc['accounts'])}",
                n1 == n0 and cc["codeBytes"] == c1["codeBytes"] and cc["accounts"] == c1["accounts"])
             ok(f"{name}: the chain stayed within its caps", q(cc["codeBytes"]) <= q(cc["codeBytesCap"]) and q(cc["accounts"]) <= q(cc["accountsCap"]))
+        def met_at_network(name, explained, count, cap):
+            """--no-caps-check: no pre-check, so the cap is met at the network (a failed receipt or the pool's refusal) and
+            the CLI names it after the failure from pocol_getCaps (site.rs `explain`)."""
+            r = run_cli(["--dir", cd, "--no-caps-check"]); cc = rpc(0, "pocol_getCaps")
+            ok(f"{name} with --no-caps-check: the cap is met at the network and named after the failure (\"{explained}\", \"stored chunks are kept\")",
+               r.returncode != 0 and explained in r.stderr and "stored chunks are kept" in r.stderr and "cannot fit" not in r.stderr, r.stderr.strip()[-300:])
+            ok(f"{name} with --no-caps-check: the chain stayed within the cap", q(cc[count]) <= q(cc[cap]), f"{q(cc[count])} of {q(cc[cap])}")
         w = capnet("code", ["--code-cap", str(code0 + 30000)])
         not_signed(f"CODE_CAP {code0 + 30000}", ["--dir", cd], "code bytes (CODE_CAP)")
+        met_at_network(f"CODE_CAP {code0 + 30000}", "code-size cap is reached (CODE_CAP)", "codeBytes", "codeBytesCap")
         dn.stop(w); time.sleep(2)
         w = capnet("acct", ["--acct-cap", str(acct0 + 3)])
         not_signed(f"ACCT_CAP {acct0 + 3}", ["--dir", cd], "accounts (ACCT_CAP)")
+        met_at_network(f"ACCT_CAP {acct0 + 3}", "account cap is reached (ACCT_CAP)", "accounts", "accountsCap")
         dn.stop(w); time.sleep(2)
         # The same site with exactly its code bytes of room is published, and fills CODE_CAP.
         need = need_code(capfiles)
