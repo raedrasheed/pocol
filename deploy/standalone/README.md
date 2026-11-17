@@ -169,6 +169,10 @@ Publish the invitation fingerprint through a trusted channel, and sign the invit
 (`deploy/release`); a checksum is not publisher authentication, the release signature is. The websites take their identity and the explorer's seed list
 from this invitation, in the repository (W15 for the rehearsal, W16 for the mainnet):
 `python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT --gateway-host explorer.pocol.net`.
+On the gateway server, the explorer gateway and the explorer site at `explorer.pocol.net` (its static files, `/api`
+reads, `/rpc`) are installed from that commit by `deploy/explorer/install_explorer_gateway.py`
+(`deploy/explorer/README.md`): `--check` before the owner moves the `explorer.pocol.net` DNS record to that server, the
+full install (whose HTTPS self-test needs the record) right after, then the Studio gateway (`deploy/studio`).
 
 ### Verify the download
 

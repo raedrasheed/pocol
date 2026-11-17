@@ -21,7 +21,8 @@ PoCol Studio — تجهيز الاستضافة والاتصال
 2. تمكين الاتصال المباشر بالشبكة
 
 المتطلبات: خادم Linux مع systemd وPython 3.10 أو أحدث وflock، وصلاحية sudo.
-يجب أن تكون بوابة Explorer الحالية وخدمة Caddy فعّالتين، وأن تكون شهادة
+ثبّت بوابة Explorer وموقعها أولًا بالمثبّت deploy/explorer/install_explorer_gateway.py (انظر deploy/explorer/README-AR.txt).
+يجب أن تكون بوابة Explorer وخدمة Caddy فعّالتين، وأن تكون شهادة
 explorer.pocol.net موثوقة، والعقدة المطلوبة متاحة محليًا على 127.0.0.1:8545.
 يجب أن يكون المنفذ المحلي 8089 متاحًا أو مستخدمًا بنسخة Studio السابقة المُدارة.
 لا يتطلب هذا المثبّت تنزيل حزم من الإنترنت؛ مكوّنات البوابة مضمّنة فيه.
@@ -77,7 +78,7 @@ sudo systemctl status pocol-studio-gateway.service --no-pager
 sudo journalctl -u pocol-studio-gateway.service -n 40 --no-pager
 sudo caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 
-لا تُشغّل مثبّت HTTPS القديم مرة أخرى، لأنه يتوقع ملف Caddy السابق قبل إضافة Studio.
+تحديثات مثبّت بوابة Explorer اللاحقة تحافظ على مسار Studio وحجم الطلب الخاص به؛ لا تعدّل كتلة Caddy يدويًا.
 لا تحذف بيانات العقدة ولا تغيّر منفذ RPC الخام لحل مشكلة في واجهة Studio.
 
 المصادر

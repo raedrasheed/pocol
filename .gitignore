@@ -4,7 +4,8 @@
 **/__pycache__/
 **/.venv/
 **/.env*
-# Host credentials of the PHP sites (explorer.pocol.net/api/config.php): kept on the host, never in the repository.
+# Host credentials of PHP sites (an api/config.php): kept on the host, never in the repository. The explorer snapshot
+# has no PHP since Sites W8 (its /api reads are the gateway's); the rule stays as a defence.
 **/api/config.php
 **/.claude/
 **/.codex/

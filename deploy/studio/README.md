@@ -5,6 +5,8 @@ It listens on `127.0.0.1:8089`, forwards allowed requests to the existing local
 PoCol node, and uses the existing `explorer.pocol.net` Caddy site for HTTPS.
 That site is the explorer gateway's (owner decision 9, 2026-11-16): it replaces the old PHP site at
 explorer.pocol.net, and the owner moves its DNS record at launch. Nothing here touches DNS or servers.
+`deploy/explorer/install_explorer_gateway.py` installs that site (the explorer gateway, its static explorer copy and
+the Caddy block); install it first. Its later updates keep this relay's route and body size.
 It never reads wallet keys or signs transactions.
 
 ## Check and build
@@ -16,7 +18,7 @@ bash -n Install-PoCol-Studio-Gateway.sh
 ```
 
 The installer embeds its Python source with SHA-256 checksums. It requires
-Python 3, systemd, Caddy, `curl`, `flock`, the existing gateway configuration,
+Python 3, systemd, Caddy, `curl`, `flock`, the explorer gateway's Caddy site (`deploy/explorer`),
 and the intended PoCol node on its configured loopback RPC endpoint. Read
 `install_studio_gateway.py` before use on an existing server.
 
