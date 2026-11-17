@@ -112,7 +112,7 @@ test('content script filters same window/origin, exposes only three intent metho
  const payload={source:'pocol-ide',id:'request-1',method:'status'};
  await listener({source:{},origin:'https://ide.pocol.net',data:payload});await listener({source:window,origin:'https://evil',data:payload});await listener({source:window,origin:'https://ide.pocol.net',data:{...payload,method:'wallet.unlock'}});assert.equal(calls.length,0);
  await listener({source:window,origin:'https://ide.pocol.net',data:payload});assert.deepEqual(JSON.parse(JSON.stringify(calls[0])),{type:'ide.status',payload:{}});assert.equal(replies[0][0].source,'pocol-ide-extension');assert.equal(replies[0][1],'https://ide.pocol.net');
- assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://gateway.pocol.net/*']);assert.equal(manifest.content_scripts[1].all_frames,false);assert.equal(manifest.externally_connectable,undefined);
+ assert.deepEqual(manifest.host_permissions,['http://127.0.0.1/*','https://explorer.pocol.net/*']);assert.equal(manifest.content_scripts[1].all_frames,false);assert.equal(manifest.externally_connectable,undefined);
 });
 test('W3: the IDE origin list is exactly https://ide.pocol.net in the library, the content script and the confirmation page',()=>{
  assert.deepEqual(C.IDE_ORIGINS,['https://ide.pocol.net']);assert.equal(C.isIdeOrigin('https://ide.pocol.net/'),true);

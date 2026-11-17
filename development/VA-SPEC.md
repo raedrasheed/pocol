@@ -284,7 +284,8 @@ removal is a later boundary change on top of the reset.
 
 Post-launch policy. A rule change on the running chain is a new fork version V ≥ 4: its rules are reachable only
 through `active_version(h) >= V`, it is re-pinned `neutral gate=fork:V`, and it takes effect only when a release
-schedules (V,H) after the signed announcement (development/m1/reference/governance.md, Upgrades). A new genesis specVersion is
+schedules (V,H) after the signed announcement, at least 24 h (8,640 blocks at T_blk 10) before H
+(development/m1/reference/governance.md, Upgrades). A new genesis specVersion is
 `neutral gate=spec:3` and, like any `bump` of CONSENSUS_RULES_VERSION, needs a new genesis. A GenesisSpec of version 1
 still decodes (`gsVersion <= 2`), but admission refuses it (R24, `lp4-execution/src/admission.rs`), and it refuses
 nonceMode 0 the same way.

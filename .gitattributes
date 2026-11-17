@@ -1,2 +1,6 @@
 # Keep imported byte fixtures and their recorded SHA256 stable on Windows.
 /development/m1/** -text
+# The release key and the ssh-keygen probe vector are checked byte for byte (LF only; the probe signature covers the
+# exact bytes): never convert their line endings on checkout (Git for Windows defaults to core.autocrlf=true).
+/deploy/release/allowed_signers -text
+/deploy/release/testdata/** -text

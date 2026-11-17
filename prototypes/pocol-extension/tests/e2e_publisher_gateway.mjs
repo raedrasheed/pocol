@@ -9,7 +9,7 @@
 // between them counts what the gateway asks the node); per-viewer relays in front of the gateway set distinct
 // X-Pocol-Client-IP headers (as Caddy does), so the gateway sees separate clients; Chromium with the testGateway build;
 // PoCol Studio (prototypes/pocol-studio/dist, its pinned identity replaced by the devnet's) served at
-// https://studio.pocol.net and its gateway calls at https://gateway.pocol.net routed to the local gateway.
+// https://studio.pocol.net and its gateway calls at https://explorer.pocol.net routed to the local gateway.
 // Checks: the folder import and the handoff to publisher.html; fees read from the node through the gateway (W4), no
 // "fee rose" pause, the spend within the approved budget; the publication outlasts the build's shortened LOCK_MS
 // (the key lease, W4) and Lock aborts a running one; the site opens through the gateway (CSS, JS, ES modules, font, JSON,
@@ -83,8 +83,8 @@ async function openBrowser(testNetwork, relayPort, tag, { headless = !HEADED } =
   contexts.push(ctx);
   let [sw] = ctx.serviceWorkers(); if (!sw) sw = await ctx.waitForEvent('serviceworker', { timeout: 20000 });
   const id = new URL(sw.url()).host;
-  // Studio and its gateway calls: Studio's fixed https://gateway.pocol.net endpoints go to this viewer's relay.
-  await ctx.route('https://gateway.pocol.net/**', async (route) => {
+  // Studio and its gateway calls: Studio's fixed https://explorer.pocol.net endpoints go to this viewer's relay.
+  await ctx.route('https://explorer.pocol.net/**', async (route) => {
     const r = route.request(); const u = new URL(r.url());
     const res = await fetch(`http://127.0.0.1:${relayPort}${u.pathname}`, { method: r.method(), headers: { 'content-type': 'application/json' }, body: r.method() === 'POST' ? r.postDataBuffer() : undefined });
     return route.fulfill({ status: res.status, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: Buffer.from(await res.arrayBuffer()) });
@@ -246,9 +246,9 @@ async function main() {
       // user allows it; the IDE's origin is allowed here (the release rpcUrl is the public https gateway).
       await b.ctx.grantPermissions(['local-network-access'], { origin: 'https://ide.pocol.net' });
       const idePage = await b.ctx.newPage(); const ideErrors = []; idePage.on('pageerror', (e) => ideErrors.push(e.message));
-      // The context routes https://gateway.pocol.net (the release rpcUrl) to relay 0 for Studio; the IDE page may not
+      // The context routes https://explorer.pocol.net (the release rpcUrl) to relay 0 for Studio; the IDE page may not
       // reach it: an IDE copy left on the release rpcUrl is caught here, not served.
-      const ideToRelease = []; await idePage.route('https://gateway.pocol.net/**', (route) => { ideToRelease.push(route.request().url()); return route.abort(); });
+      const ideToRelease = []; await idePage.route('https://explorer.pocol.net/**', (route) => { ideToRelease.push(route.request().url()); return route.abort(); });
       await idePage.goto('https://ide.pocol.net/', { waitUntil: 'load' }); await sleep(4000);
       const compiled = await idePage.evaluate(async () => {
         const worker = new Worker('/compiler/worker.js');
@@ -292,7 +292,7 @@ async function main() {
       ok('IDE: the IDE page reads the devnet through its switched rpcUrl (own relay, Origin https://ide.pocol.net): network check, the loaded contract\'s code and count() = 7 shown',
         shown === '7' && ['eth_chainId', 'pocol_status', 'eth_getCode', 'eth_call'].every((m) => ideMethods.includes(m)) && ideLog.every((x) => x.origin === 'https://ide.pocol.net' && x.status === 200) && /connected/i.test(await idePage.textContent('body')),
         `shown=${shown}; ${ideLog.map((x) => x.method + ':' + x.status + ':' + x.origin).join(' ').slice(0, 240)}`);
-      ok('IDE: nothing from the IDE page went to the release rpcUrl (https://gateway.pocol.net) and it raised no uncaught error', ideToRelease.length === 0 && ideErrors.length === 0, [...ideToRelease, ...ideErrors].join(' | '));
+      ok('IDE: nothing from the IDE page went to the release rpcUrl (https://explorer.pocol.net) and it raised no uncaught error', ideToRelease.length === 0 && ideErrors.length === 0, [...ideToRelease, ...ideErrors].join(' | '));
       await idePage.close();
     }
 

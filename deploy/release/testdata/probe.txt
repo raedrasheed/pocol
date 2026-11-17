@@ -1,0 +1,1 @@
+PoCol release verifier probe: ssh-keygen -Y verify must accept this signature.

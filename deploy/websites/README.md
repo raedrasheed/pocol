@@ -13,6 +13,26 @@ Removed for the new network (2026-11-13): the old network's upgrade notes (`NETW
 manifest and the checksums of the superseded 0.3.x and 0.4.0 packages. Each `SHA256SUMS.txt` was regenerated for the
 files that remain. Until the rebuild, pages that link the removed invitation or the old packages are stale.
 
+## Launch decisions (owner, 2026-11-16)
+
+- **Languages.** The sites launch in English and Arabic. pocol.net offers exactly `en` and `ar` (every page's
+  language selector, `locales.js`, `about-locales.js`; `app.js` falls back to English for any other requested or stored
+  language). The 43 other translations were translations of the retired network's text and would not have followed the
+  English and Arabic rebuild, so they were removed from the served files; they stay in Git history (snapshot 0df6f62).
+  Studio is already English and Arabic. The explorer, the IDE and the extension UI stay English at launch (their
+  bundles have no sources). `tests/test_launch_decisions.py` checks the set.
+- **Explorer gateway host.** The explorer gateway, its `/rpc`, and the Studio relay `/studio/*` are served at
+  `explorer.pocol.net`, which replaces the old PHP site; the owner moves its DNS record at launch. The extension's host
+  permission and endpoint, the IDE `rpcUrl` (`site_identity.py --rpc-url`), the explorer's named gateway host
+  (`--gateway-host`), the Studio app and its CSP `connect-src`, the reward page's upstream and the Studio gateway
+  installer all name `explorer.pocol.net`; `gateway.pocol.net` is named nowhere. **Open (W8):** once the PHP site is
+  retired, the explorer snapshot's same-origin reads (`/api/rpc.php`, `/api/health.php`, `/api/miner-locations.php`,
+  `/api/transactions.php`) must be served on the gateway host, by path-compatible handlers in `deploy/rewards/gateway.py`
+  behind a Caddy `file_server` of the snapshot (with the CSP and headers of `.htaccess`). Until then the snapshot keeps
+  its PHP relays. pocol.net's network summary (`pocol.net/api/network.php`, `POCOL_SUMMARY_RPC`) reads the same
+  `/api/rpc.php`, so the handler must keep that path.
+- **No faucet on mainnet.** No site links a faucet; `deploy/faucet` is for the rehearsal network only.
+
 Left out of Git and kept in the release asset:
 - the download archives (`*.zip`): the old native packages and the extension packages;
 - a partial upload left by an earlier transfer (a hidden `downloads/.PoCol-Mainnet-*-Linux.zip.*` file). It is not

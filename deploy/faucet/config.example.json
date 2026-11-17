@@ -1,5 +1,5 @@
 {
-  "chainId": 261597237,
+  "chainId": 1656550731,
   "rpc": "http://127.0.0.1:8545",
   "keyFile": "/var/lib/pocol-faucet/operator.pocol-key",
   "signer": "/opt/pocol-testnet/bin/pocol-sign",

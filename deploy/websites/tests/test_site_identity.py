@@ -199,7 +199,8 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, '--commit', TEST_COMMIT), 0, self.last_errors)
         explorer = self.bundle(root, 'explorer-bundle').read_text(encoding='utf-8')
         app = (root / si.STUDIO / 'app.js').read_text(encoding='utf-8')
-        base = 'https://github.com/palcertcom/pocol/'
+        base = si.LINK_PREFIX
+        self.assertEqual(base, 'https://github.com/raedrasheed/pocol/')
         for url in (f'tree/{TEST_COMMIT}', f'blob/{TEST_COMMIT}/prototypes/pocold/src/rpc.rs', f'tree/{TEST_COMMIT}/prototypes/pocold'):
             self.assertIn(f'href:`{base}{url}`', explorer)
         for url in (f'blob/{TEST_COMMIT}/prototypes/pocold/src/site.rs', f'tree/{TEST_COMMIT}/prototypes/pocol-extension'):
@@ -238,12 +239,16 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, '--to', str(root / 'test.json'), '--rpc-url', TEST_RPC), 2)
         self.assertIn('pass --gateway-host', self.last_errors)
         self.assertEqual(snapshot(root), before)
-        # A network whose seeds still include the gateway host keeps it without --gateway-host.
-        (root / 'same-seeds.json').write_text(invitation(TEST_SPEC, DECLARED['seeds']), encoding='utf-8')
-        self.assertIn(DECLARED['gatewayHost'], [s.split(':')[0] for s in DECLARED['seeds']])
+        # A network whose seeds include the gateway host keeps it without --gateway-host. The declared host
+        # (explorer.pocol.net) is a name the pages use beside the seeds, so this copy first names a seed IP as its host.
+        port = DECLARED['seeds'][0].rsplit(':', 1)[1]
+        host = '192.0.2.77'
+        self.assertEqual(self.run_tool(root, '--gateway-host', host), 0, self.last_errors)
+        same = [f'{host}:{port}'] + DECLARED['seeds']
+        (root / 'same-seeds.json').write_text(invitation(TEST_SPEC, same), encoding='utf-8')
         self.assertEqual(self.run_tool(root, '--to', str(root / 'same-seeds.json'), '--rpc-url', TEST_RPC), 0, self.last_errors)
         declared = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))
-        self.assertEqual((declared['chainId'], declared['gatewayHost']), (TEST_CHAIN, DECLARED['gatewayHost']))
+        self.assertEqual((declared['chainId'], declared['gatewayHost']), (TEST_CHAIN, host))
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
 
     def test_the_repository_names_an_https_rpc_url(self):
@@ -403,7 +408,10 @@ class SiteIdentity(unittest.TestCase):
         genesis = '0x' + ni.keccak256(spec).hex()
         self.assertNotEqual(genesis, DECLARED['genesisHash'])
         (root / 'redo.json').write_text(invitation(spec, DECLARED['seeds']), encoding='utf-8')
-        self.assertEqual(self.run_tool(root, '--to', str(root / 'redo.json')), 0, self.last_errors)
+        # The explorer's gateway host (explorer.pocol.net, owner decision 9) is not a seed, so the switch names it, as the
+        # launch command does (Initialize-PoColNetwork.ps1).
+        self.assertEqual(self.run_tool(root, '--to', str(root / 'redo.json'), '--gateway-host', DECLARED['gatewayHost']), 0,
+                         self.last_errors)
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
         self.assert_consistent(root)
         declared = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))

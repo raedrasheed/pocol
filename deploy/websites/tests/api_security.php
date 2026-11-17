@@ -22,6 +22,9 @@ function call(string $method = 'eth_blockNumber', array $params = [], int $id = 
     return (object)['jsonrpc'=>'2.0','id'=>$id,'method'=>$method,'params'=>$params];
 }
 
+// Owner decision 9 (2026-11-16): the explorer gateway is served at explorer.pocol.net.
+check('reward upstream is the explorer gateway host', POCOL_REWARD_UPSTREAM === 'https://explorer.pocol.net/rpc');
+check('network summary reads the explorer host', str_starts_with(POCOL_SUMMARY_RPC, 'https://explorer.pocol.net/'));
 check('ordinary explorer read accepted', pocol_valid_call(call()));
 foreach (['eth_sendRawTransaction','eth_sendTransaction','personal_unlockAccount','admin_peers','debug_traceTransaction','pocol_submitShare'] as $method) {
     check('privileged method refused: '.$method, !pocol_valid_call(call($method)));

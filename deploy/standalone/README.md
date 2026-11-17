@@ -1,4 +1,4 @@
-# PoCol Mainnet · Wallet 0.4.0 and native node tools
+# PoCol Mainnet · Wallet 0.5.0 and native node tools
 
 The Android artifact is an **unsigned release APK**: it is not installable until the
 release operator signs it (see `prototypes/pocol-android/README.md`).
@@ -88,9 +88,12 @@ the committed profile's, and the script refuses a profile whose chain id is not 
 
 The four founders are the three servers (founders 1-3, in the order given) and this PC
 (founder 4). Each generates a fresh key on its own device; only public addresses are
-collected. Each founder is a HELD member from genesis with a 20 PCOL bond and 999,980 PCOL
-on its own address (owner decision pending: whether a server founder's reward address is
-its own hot miner key, as the script does today, or a separate owner-held address). The phone is not a founder: it joins with the invitation, wallet only by
+collected. Each founder is a HELD member from genesis with a 20 PCOL bond in Escrow. Founders
+1-3 are paid to owner-held reward addresses (owner decision 2026-11-16): the 999,980 PCOL
+allocation and every mining reward of each server founder go to an address the owner holds
+offline, given to the script as `-ServerRewardAddresses`; only the 20 PCOL bond is tied to each
+server, whose key holds no balance (send it PCOL before a server transaction such as
+reactivate, deregister or claimBond). Founder 4 (this PC) is its own reward address. The phone is not a founder: it joins with the invitation, wallet only by
 default, and can register as a miner later (see *Mining* below).
 
 Before the run:
@@ -104,13 +107,25 @@ Before the run:
 - Measure the founders' aggregate hash rate (the rehearsal's `networkHashrateEst` in
   `pocold status` feeds the mainnet run), and choose the launch second, or a delay.
 
-Extract the five-device ZIP into a new directory. Review `Initialize-PoColNetwork.ps1`,
+Download the CI artifacts of the pinned release commit and check them against that CI run's `SHA256SUMS`
+(integrity only: the ceremony runs before the identity switch, so there is no signed release yet; the first one,
+checked as in *Verify the download* below, follows the switch). Then extract
+`PoCol-Mainnet-0.5.0-windows-x86_64.zip` into a new directory. Review `Initialize-PoColNetwork.ps1`,
 open PowerShell inside that directory, and run (the addresses are placeholders for the
 servers' public IPv4 addresses):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.4.0-linux-x86_64.tar.gz"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.5.0-linux-x86_64.tar.gz"
 ```
+
+`OWNER_ADDR1..3` are placeholders for three distinct owner-held addresses, one per server in
+`-Servers` order. Make them on another device that is never a server, ideally offline:
+`pocol-key generate --out FILE`, then `pocol-key address --key-file FILE` (lower-case `0x` hex,
+as the script requires); keep each key file and its backup offline. The script refuses a
+missing, repeated, mixed-case, zero or system address before it contacts any server, and an
+address equal to a founder's miner identity. Each reward account starts at nonce 1 (PAY-02), so
+its first offline-signed transaction needs `pocol-sign --nonce 1` (pocol-sign defaults to 0).
+The rehearsal takes the same parameter (throwaway or separate addresses are fine there).
 
 `-GenesisTime UNIX_SECONDS` replaces `-LaunchDelaySeconds` for an announced launch second; the
 genesis is created at least 300 seconds before it. A founder that starts more than `D_att`
@@ -146,14 +161,34 @@ refuses an existing installation), extract the package into a new directory, and
 PC's rehearsal home aside as above. Every founder key is then fresh for the mainnet.
 
 Transfer the generated **network.pocol.json** to the phone. After the signing and
-update checks in the release guide, install the correctly signed ARM64 APK,
+update checks in the release guide (`deploy/release/README.md`), install the correctly signed ARM64 APK,
 open **PoCol Wallet → Settings → Import network file**, select that file, and
 connect. Windows imports the adjacent shared file automatically; Settings also
 supports explicit import while disconnected. All devices use the same invitation.
-Publish the invitation fingerprint through a trusted channel; a checksum is not
-publisher authentication. The websites take their identity and the explorer's seed list
+Publish the invitation fingerprint through a trusted channel, and sign the invitation with the release key
+(`deploy/release`); a checksum is not publisher authentication, the release signature is. The websites take their identity and the explorer's seed list
 from this invitation, in the repository (W15 for the rehearsal, W16 for the mainnet):
-`python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT [--gateway-host HOST]`.
+`python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT --gateway-host explorer.pocol.net`.
+
+### Verify the download
+
+Every published file has an ssh-ed25519 release signature `FILE.sig`, and the release's `SHA256SUMS` has
+`SHA256SUMS.sig` (owner decision 2026-11-16; `deploy/release/README.md`, user procedure). Take `allowed_signers` from
+the repository or pocol.net and compare its fingerprint with the published one
+(`LC_ALL=C grep -Ecv '^[[:blank:]]*(#|$)' allowed_signers` must print `1`, then
+`grep -v '^ *#' allowed_signers | cut -d' ' -f3,4 | ssh-keygen -lf -`). That only checks the file: the fingerprint that
+decides is the signing key's, printed by the signature check below or the `VERIFIED` line. A `FILE.sig` binds no
+file name or version, so verify the signed `SHA256SUMS` and the download's line in it, with OpenSSH 8.2 or later:
+
+```sh
+ssh-keygen -Y verify -f allowed_signers -I release@pocol.net -n pocol-release -s SHA256SUMS.sig < SHA256SUMS
+awk -v f=FILE '$2 == f' SHA256SUMS | sha256sum --check
+```
+
+(the first ends `with ED25519 key SHA256:...`, the published fingerprint; the second must print `FILE: OK`), or the
+whole directory with `deploy/release/verify_release.py DIR` (Windows: `Verify-PoColRelease.ps1 -Directory DIR`), which
+prints the key fingerprint in its `VERIFIED` line.
+Only `VERIFIED` is a verified release: the `SHA256SUMS` inside a package checks its integrity, not its publisher.
 
 ### Launch disclosures (DRAFT: wording for owner review)
 
@@ -168,7 +203,8 @@ from this invitation, in the repository (W15 for the rehearsal, W16 for the main
   sites and rewards are unaffected. No financial qualification or independent audit is
   claimed.
 - **Founders.** Four founders (three servers and the owner's PC) hold 1,000,000 PCOL each
-  from genesis, including each one's 20 PCOL bond: 4,000,000 PCOL of initial supply.
+  from genesis, including each one's 20 PCOL bond: 4,000,000 PCOL of initial supply. The
+  999,980 PCOL of each server founder sits on an owner-held reward address, not on the server.
 - **Founders' seats.** At a full set (10,000 members), a member with no credited share for
   `Theta_inact` (360 blocks, 1 h), a founder included, can be replaced by a newcomer. It
   registers again with 20 PCOL after its refund.
@@ -237,8 +273,9 @@ silently repeated and a toggle does not bypass eligibility.
 **Bond:** the bond is 20 PCOL, and a new identity does not need it up front.
 **Review mining registration** offers a 0 PCOL bond by default and can lock 0 to 20 PCOL; the
 rest is earned from mining rewards, with no deadline (owner decision 10c).
-1. Get the first fee: where a fee faucet runs (`deploy/faucet/README.md`), it sends 0.002 PCOL
-   once to an account that has never sent a transaction.
+1. Get the first fee: mainnet has no fee faucet (owner decision 2026-11-16), so the account receives its first fee
+   by an ordinary transfer from any PCOL holder. On the rehearsal network the fee faucet (`deploy/faucet/README.md`)
+   sends 0.002 PCOL once to an account that has never sent a transaction.
 2. The registration can be that account's first transaction (see *Mining* above).
 3. The record is *accruing*: it mines like any member, but each reward fills the bond until it
    holds 20 PCOL. Only then are rewards paid to the balance. Accruing records count within the

@@ -16,11 +16,11 @@ npm run test:contracts
 npm run test:contract-ui
 ```
 
-The build vendors the pinned Noble and ethers dependencies; it downloads no executable code at runtime. Load `dist/` with Chrome's Load unpacked developer option for this development release. Store publication has not been performed or approved. A release has a fixed extension ID: the manifest `key` is the owner's public key in `release/manifest-key.pub`, so every user and every later release has the same ID, the one published on pocol.net, and the saved vault stays with it. Until that key is committed, `npm run build` makes a development build without a key (Chrome then gives it an ID of its folder) and `npm run package` refuses to package a release. The Studio page still talks to the extension only through an origin-scoped content bridge; it does not need the ID.
+The build vendors the pinned Noble and ethers dependencies; it downloads no executable code at runtime. Load `dist/` with Chrome's Load unpacked developer option for this development release. Store publication has not been performed or approved. A release has a fixed extension ID: the manifest `key` is the owner's public key in `release/manifest-key.pub`, so every user and every later release has the same ID, the one published on pocol.net, and the saved vault stays with it. Until that key is committed, `npm run build` makes a development build without a key (Chrome then gives it an ID of its folder) and `npm run package` refuses to package a release. The Studio page still talks to the extension only through an origin-scoped content bridge; it does not need the ID. The published zip is signed with the owner's ssh-ed25519 release key (`deploy/release/README.md`); its `.sha256` is integrity only.
 
 ## Network
 
-The built-in `pocol-public` profile pins chain ID `1599846715`, genesis hash `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`, and the complete GenesisSpec preimage. It connects only to `https://gateway.pocol.net/studio/rpc` using RN trust: trust the remote node for execution, independently verify site content hashes and the network identity. The relay must be deployed before live publishing/viewing through that profile works. Existing loopback profiles and the original local verification modes remain available.
+The built-in `pocol-public` profile pins chain ID `1599846715`, genesis hash `0xbe137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca`, and the complete GenesisSpec preimage. It connects only to `https://explorer.pocol.net/studio/rpc` using RN trust: trust the remote node for execution, independently verify site content hashes and the network identity. The relay must be deployed before live publishing/viewing through that profile works. Existing loopback profiles and the original local verification modes remain available.
 
 ## The Viewer wallet address
 
@@ -82,7 +82,7 @@ The extension requests `unlimitedStorage` because a maximum-size publication plu
 
 These are component tests with mocked Chrome/RPC where stated. No real on-chain signing, production RPC deployment or store review was performed by these tests.
 
-Primary protocol source: https://github.com/palcertcom/pocol/tree/50c2f27ee67961dec7aaf0eb735c0b641810e0ea
+Primary protocol source: https://github.com/raedrasheed/pocol/tree/72cf38f6cdb143aeb41431d2702317db1a0d85ba
 
 ## JavaScript modules in published sites
 

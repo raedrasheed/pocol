@@ -150,6 +150,12 @@ not a replacement for full block validation.
 
 ## Gateway startup integration
 
+Public host (owner decision 9, 2026-11-16): the explorer gateway is served at `https://explorer.pocol.net` (the Caddy
+site `explorer.pocol.net`: `/rpc` and `/health`, with the Studio relay route `/studio/*` in the same block), replacing
+the old PHP site there; the pocol.net reward page reads `https://explorer.pocol.net/rpc`. The owner moves the DNS record
+at launch; nothing here touches DNS or servers. Serving the explorer snapshot and its same-origin `/api/*.php` reads from
+that host is open work (deploy/websites/README.md, Explorer host).
+
 `gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it; the GeoIP
 and transaction index modules stay optional). The public `pocol_getBlockReward` method still accepts exactly
 `params: []`; clients cannot supply a network or a schedule. The gateway passes its immutable, locally validated

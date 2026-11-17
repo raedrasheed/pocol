@@ -2,9 +2,11 @@
 """Release boundary checks: no invitation, wallet data or signing key in the package; one Android application id; the
 network identity only from a v3 invitation of the mainnet profile's chain; one release version."""
 import hashlib
+import io
 import json
 import os
 import re
+import pathlib
 from pathlib import Path
 import runpy
 import shutil
@@ -13,6 +15,7 @@ import sys
 import tarfile
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
 
 
@@ -46,7 +49,8 @@ class ReleasePackageTests(unittest.TestCase):
         for name in MAINNET:
             shutil.copyfile(ROOT / 'deploy/mainnet' / name, self.root / 'deploy/mainnet' / name)
         self.build = {'compatibilitySha256': 'c' * 64, 'consensusPinned': True, 'consensusRulesVersion': 2,
-                      'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': []}
+                      'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': [], 'version': VERSION,
+                      'scope': 'mainnet'}
         self.commit = 'd' * 40
         for name in ('README.md', 'install-linux.sh',
                      'Start-PoCol.cmd', 'Initialize-PoColNetwork.ps1'):
@@ -170,7 +174,10 @@ class ReleasePackageTests(unittest.TestCase):
                     self.fixture('deploy/standalone/linux-desktop/pocol-desktop').chmod(0o755)
                 self.fixture('prototypes/pocold/target/release/network.pocol.json')
                 self.fixture('prototypes/pocold/target/release/wallet.key')
-                out = self.package(platform)
+                # Paths order as on a Windows runner (WindowsPath compares case-insensitively): the archive's entry
+                # order, and so its bytes, must not depend on the OS that packs it.
+                with patch.object(pathlib.PurePath, '__lt__', lambda a, b: str(a).lower() < str(b).lower()):
+                    out = self.package(platform)
                 if platform == 'Linux':
                     archive = out / f'PoCol-Mainnet-{VERSION}-linux-x86_64.tar.gz'
                     with tarfile.open(archive) as tar:
@@ -187,14 +194,41 @@ class ReleasePackageTests(unittest.TestCase):
                             self.assertEqual(Path(member.name).name, member.name)
                             self.assertTrue(member.isfile())
                             (expanded / member.name).write_bytes(tar.extractfile(member).read())
+                    self.assertEqual(names, sorted(names))
                     release = self.metadata(expanded)
                 else:
-                    release = self.metadata(out)
-                    self.assertTrue(all((out / (name + suffix)).is_file() for name in bins))
-                    self.assertTrue((out / 'PoCol-Wallet.exe').is_file())
+                    # The Windows download is one byte-stable archive with the package's SHA256SUMS inside.
+                    archive = out / f'PoCol-Mainnet-{VERSION}-windows-x86_64.zip'
+                    self.assertEqual({p.name for p in out.iterdir()}, {archive.name, 'SHA256SUMS'})
+                    self.assertEqual((out / 'SHA256SUMS').read_text(encoding='utf-8'),
+                                     f'{hashlib.sha256(archive.read_bytes()).hexdigest()}  {archive.name}\n')
+                    expanded = self.root / 'expanded'
+                    expanded.mkdir()
+                    with zipfile.ZipFile(archive) as zf:
+                        for info in zf.infolist():
+                            self.assertEqual(Path(info.filename).name, info.filename)
+                            self.assertEqual(info.date_time, (1980, 1, 1, 0, 0, 0))
+                            (expanded / info.filename).write_bytes(zf.read(info))
+                        names = zf.namelist()
+                    self.assertEqual(names, sorted(names))
+                    self.assertNotIn('network.pocol.json', names)
+                    self.assertNotIn('wallet.key', names)
+                    release = self.metadata(expanded)
+                    self.assertTrue(all((expanded / (name + suffix)).is_file() for name in bins))
+                    self.assertTrue((expanded / 'PoCol-Wallet.exe').is_file())
                     for name in ('v3-profile.json', 'v3-rehearsal-profile.json'):
-                        self.assertEqual((out / name).read_bytes(), (self.root / 'deploy/mainnet' / name).read_bytes())
-                        self.assertIn('  ' + name, (out / 'SHA256SUMS').read_text(encoding='utf-8'))
+                        self.assertEqual((expanded / name).read_bytes(), (self.root / 'deploy/mainnet' / name).read_bytes())
+                        self.assertIn('  ' + name, (expanded / 'SHA256SUMS').read_text(encoding='utf-8'))
+                    # Byte-stable: the same inputs give the same archive, here packed in this OS's own path order.
+                    first = archive.read_bytes()
+                    shutil.rmtree(out); shutil.rmtree(expanded)
+                    self.assertEqual((self.package(platform) / archive.name).read_bytes(), first)
+                    expanded.mkdir()
+                    with zipfile.ZipFile(io.BytesIO(first)) as zf:
+                        zf.extract('SHA256SUMS', expanded)
+                    inner = [l.split('  ', 1)[1] for l in (expanded / 'SHA256SUMS').read_text(encoding='utf-8').splitlines()]
+                    self.assertEqual(inner, sorted(inner), 'the package SHA256SUMS lists its files in ordinal order')
+                    shutil.rmtree(expanded)
                 self.assertNotIn('applicationId', release)
                 shutil.rmtree(out)
 
@@ -203,6 +237,17 @@ class ReleasePackageTests(unittest.TestCase):
         for name in ('pocol', 'pocold', 'pocol-key', 'pocol-sign', 'pocol-site'):
             self.fixture('prototypes/pocold/target/release/' + name).chmod(0o755)
         self.fixture('deploy/standalone/linux-desktop/pocol-desktop').chmod(0o755)
+
+    def test_a_build_of_another_version_is_never_packaged(self):
+        self.native_fixture()
+        for change in ({'version': '0.4.0'}, {'version': None}):
+            with self.subTest(change=change):
+                self.build.update(change)
+                if change['version'] is None: del self.build['version']
+                with self.assertRaisesRegex(SystemExit, 'not the release version'):
+                    self.package('Linux')
+                shutil.rmtree(self.root / 'dist', ignore_errors=True)
+                self.build['version'] = VERSION
 
     def test_an_unpinned_or_unlabelled_consensus_build_is_never_packaged(self):
         self.native_fixture()
@@ -313,6 +358,8 @@ class ReleasePackageTests(unittest.TestCase):
         self.assertEqual(out.stdout.strip(), VERSION)
         copies = {
             GRADLE: rf"versionName '{re.escape(VERSION)}'",
+            # build-info's `version` is the pocold crate version (build.rs).
+            'prototypes/pocold/Cargo.toml': rf'(?m)\A\[package\]\nname = "pocold"\nversion = "{re.escape(VERSION)}"$',
             'prototypes/pocol-windows/Wallet.cs': rf'AssemblyVersion\("{re.escape(VERSION)}\.0"\)\][\s\S]*AssemblyFileVersion\("{re.escape(VERSION)}\.0"\)',
             'prototypes/pocol-windows/Wallet.xaml': rf'PoCol Wallet · {re.escape(VERSION)}&',
             'deploy/standalone/linux-desktop/pocol-desktop': rf'PoCol Mainnet · {re.escape(VERSION)} ',

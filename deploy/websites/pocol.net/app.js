@@ -10,7 +10,10 @@
   const system = matchMedia('(prefers-color-scheme: dark)');
   const read = (key, fallback) => { try { return localStorage.getItem(key) || fallback; } catch { return fallback; } };
   const save = (key, value) => { try { localStorage.setItem(key, value); } catch {} };
-  const supported = value => Object.prototype.hasOwnProperty.call(dictionaries, value);
+  // Launch languages (owner decision 2026-11-16): English and Arabic only. A stored or requested other language falls
+  // back to English.
+  const SUPPORTED = ['en', 'ar'];
+  const supported = value => SUPPORTED.includes(value) && Object.prototype.hasOwnProperty.call(dictionaries, value);
   const requested = new URL(location.href).searchParams.get('lang');
   let lang = requested || read('pocol-language', 'en');
   if (!supported(lang)) lang = 'en';
@@ -70,7 +73,7 @@
   function translate() {
     const text = dictionaries[lang];
     root.lang = lang;
-    root.dir = ['ar', 'ug', 'he'].includes(lang) ? 'rtl' : 'ltr';
+    root.dir = lang === 'ar' ? 'rtl' : 'ltr';
     language.value = lang;
     const studio = document.querySelector('#studio');
     if (studio) { studio.lang = lang === 'ar' ? 'ar' : 'en'; studio.dir = lang === 'ar' ? 'rtl' : 'ltr'; }

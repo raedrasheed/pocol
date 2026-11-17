@@ -45,12 +45,27 @@ function Assert-Refused([string]$Dir, [hashtable]$Arguments, [string]$Pattern, [
 function Base([string]$Network) {
     return @{ DryRun = $true; Network = $Network; Servers = $Servers; HashesPerSecond = [uint64]1000000; LaunchDelaySeconds = 900 }
 }
+# Three fresh throwaway reward addresses (owner decision 2026-11-16: founders 1-3 are paid to owner-held addresses); no
+# real address is ever used here.
+function New-RewardAddresses {
+    $Dir = Join-Path ([IO.Path]::GetTempPath()) ('pocol-fn7-rewards-' + [Guid]::NewGuid().ToString('N'))
+    $script:Folders += $Dir
+    $List = @()
+    for ($i = 1; $i -le 3; $i++) {
+        $List += ((& (Join-Path $Release 'pocol.exe') identity --home (Join-Path $Dir "reward-$i")) | ConvertFrom-Json).address
+    }
+    return $List
+}
 
 try {
-    foreach ($Network in @('Rehearsal', 'Mainnet')) {
+    foreach ($Run in @(@('Rehearsal', $true), @('Mainnet', $true), @('Mainnet', $false))) {
+        $Network = $Run[0]; $GiveRewards = $Run[1]
         $ProfileName = $Profiles[$Network][0]; $ChainId = [uint64]$Profiles[$Network][1]
         $Dir = New-Package
-        Invoke-DryRun $Dir (Base $Network) | Out-Host
+        $Arguments = Base $Network
+        $Given = @()
+        if ($GiveRewards) { $Given = New-RewardAddresses; $Arguments.ServerRewardAddresses = $Given }
+        Invoke-DryRun $Dir $Arguments | Out-Host
         $Work = @(Get-ChildItem -LiteralPath $Dir -Directory -Filter 'pocol-setup-*')
         Assert ($Work.Count -eq 1) "$Network dry run writes one setup folder"
         $Work = $Work[0].FullName
@@ -66,8 +81,12 @@ try {
         Assert (($Config.cp | ConvertTo-Json -Compress) -ceq ($Source.cp | ConvertTo-Json -Compress) -and [uint64]$Config.chainId -eq $ChainId -and $Config.registrationPerBlock -eq $Source.cp.R_max) "$Network config keeps the committed CP, chain id and registrationPerBlock = R_max"
         $Devnet = [IO.File]::ReadAllText((Join-Path $Work 'genesis\devnet.json')) | ConvertFrom-Json
         $Founders = @($Config.founders | ForEach-Object { $_.id })
-        Assert ($Founders.Count -eq 4 -and @($Founders | Sort-Object -Unique).Count -eq 4 -and @($Config.founders | Where-Object { $_.id -cne $_.reward -or $_.id -cnotmatch '^0x[0-9a-f]{40}$' }).Count -eq 0) "$Network four distinct founders, each its own reward address"
+        $Rewards = @($Config.founders | ForEach-Object { $_.reward })
+        Assert ($Founders.Count -eq 4 -and @($Founders | Sort-Object -Unique).Count -eq 4 -and @($Founders | Where-Object { $_ -cnotmatch '^0x[0-9a-f]{40}$' }).Count -eq 0) "$Network four distinct founders"
+        Assert (@($Rewards | Sort-Object -Unique).Count -eq 4 -and $Rewards[3] -ceq $Founders[3] -and @(0..2 | Where-Object { $Founders -ccontains $Rewards[$_] }).Count -eq 0) "$Network founders 1-3 are paid to separate reward addresses, founder 4 to its own"
+        if ($GiveRewards) { Assert ((@($Rewards[0..2]) -join ',') -ceq ($Given -join ',')) "$Network founders 1-3 rewards are the given owner-held addresses" }
         Assert ((@($Devnet.founders | ForEach-Object { $_.id }) -join ',') -ceq ($Founders -join ',') -and $Devnet.testPlaceholders -eq $true) "$Network genesis founders are the script's"
+        Assert ((@($Devnet.founders | ForEach-Object { $_.reward }) -join ',') -ceq ($Rewards -join ',')) "$Network genesis reward addresses are the script's"
         $Invitation = [IO.File]::ReadAllText((Join-Path $Work 'network.pocol.json')) | ConvertFrom-Json
         Assert ((@($Invitation.seeds) -join ',') -ceq (($Servers | ForEach-Object { "${_}:30300" }) -join ',')) "$Network invitation seeds are the servers on 30300"
     }
@@ -95,6 +114,25 @@ try {
     Assert-Refused $Dir $Given 'Network|argument' 'an unknown network'
     $Given = Base 'Mainnet'; $Given.Remove('DryRun')
     Assert-Refused $Dir $Given 'LinuxArchive' 'a real run without the Linux package'
+    $Given = Base 'Mainnet'; $Given.Remove('DryRun'); $Given.LinuxArchive = (Join-Path $Dir 'missing.tar.gz')
+    Assert-Refused $Dir $Given 'ServerRewardAddresses is required' 'a real run without the reward addresses'
+    $Good = New-RewardAddresses
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], $Good[1])
+    Assert-Refused $Dir $Given 'ServerRewardAddresses|argument' 'two reward addresses'
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], $Good[1], $Good[2], $Good[0])
+    Assert-Refused $Dir $Given 'ServerRewardAddresses|argument' 'four reward addresses'
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], $Good[0], $Good[2])
+    Assert-Refused $Dir $Given 'distinct' 'a repeated reward address'
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], $Good[1].ToUpperInvariant().Replace('0X', '0x'), $Good[2])
+    Assert-Refused $Dir $Given 'lower-case' 'an upper-case reward address'
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], '0x12345', $Good[2])
+    Assert-Refused $Dir $Given 'lower-case' 'a short reward address'
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], ('0x' + ('0' * 40)), $Good[2])
+    Assert-Refused $Dir $Given 'reserved' 'the zero reward address'
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], ('0x' + ('0' * 34) + 'c0c0ff'), $Good[2])
+    Assert-Refused $Dir $Given 'system address' 'the PAY address as a reward address'
+    $Given = Base 'Mainnet'; $Given.ServerRewardAddresses = @($Good[0], ('0x' + ('0' * 34) + 'c0c002'), $Good[2])
+    Assert-Refused $Dir $Given 'system address' 'the Escrow address as a reward address'
 
     # The profile: tampered, uncovered, or with another network's chain id.
     $File = Join-Path $Dir 'v3-profile.json'

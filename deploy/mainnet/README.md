@@ -9,18 +9,26 @@ this directory deploys anything, and no step below runs on a server without the 
 
 This runbook is completed once the genesis parameters are fixed. The steps, in order:
 
-1. **Release.** Build the release that will run the network with `POCOL_RELEASE=1` from a pinned tree, and
-   publish its binaries and checksums.
+1. **Ceremony packages.** Build the packages the ceremony runs on with `POCOL_RELEASE=1` from a pinned tree in CI
+   (five-device-build). The rehearsal and the mainnet ceremony run on those CI artifacts, which the owner downloads
+   from that CI run and checks against its `SHA256SUMS`: integrity only, not a release signature. No signed release
+   exists yet: the assembler refuses every release until the identity switch (step 7), and the switch changes the
+   native binaries (`network_display.rs`) as well as the extension version, so these packages are never published.
 2. **Prepare the servers.** The three US servers start from a clean install (`deploy/standalone/install-linux.sh`
    refuses a host that already has a PoCol install). The owner's computer runs the fourth founding miner; the
    phone is a wallet.
-3. **Fresh keys.** Each founding miner generates its key on its own device with the independent-key flow
-   (`pocol-key`); only the public miner ID and reward address leave the device.
+3. **Fresh keys.** Each founding miner generates its miner key on its own device with the independent-key flow
+   (`pocol-key`); only the public miner ID leaves the device. Founders 1-3 (the servers) are paid to owner-held
+   reward addresses (owner decision 2026-11-16): the owner makes three of them offline with `pocol-key generate` and
+   `pocol-key address` on a device that is never a server, and passes them to the ceremony as
+   `-ServerRewardAddresses`. Only the 20 PCOL bond is tied to each server. Founder 4 (the owner's PC) keeps its own
+   address. Each reward account starts at nonce 1 (PAY-02): its first offline transaction uses `pocol-sign --nonce 1`.
 4. **Genesis.** Start from the committed profile, `v3-profile.json` (for the rehearsal, `v3-rehearsal-profile.json`).
    It holds the chain ID and the consensus parameters recorded in
    [FRESH-NETWORK-CP.md](../../development/decisions/FRESH-NETWORK-CP.md), and the four founders' allocations
    (999,980 PCOL each, plus the 20 PCOL HELD bond minted into Escrow). Fill its `PLACEHOLDER` values: the launch
-   second, the founders' measured aggregate hash rate, and each founder's public miner ID and reward address. Then
+   second, the founders' measured aggregate hash rate, each founder's public miner ID and reward address (the
+   owner-held ones for founders 1-3). Then
    run `pocold init-testnet --config PROFILE.json --out NEW_DIR` once, and record the printed chain ID and genesis
    hash. While any placeholder remains, the builder refuses. `--test-placeholders` fills them with public test keys
    for a local test genesis only; that genesis runs on the local test chain ID 777990 (the profile's ID is recorded
@@ -30,8 +38,11 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 6. **Closed rehearsal.** Run the network on the three US servers only, then wipe and repeat from step 4 for
    the public launch if anything changed.
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
-   one with `set_network_identity.py` (below), in one reviewed PR, and release the clients.
-8. **Public launch.** Publish the invitation on pocol.net and open the seeds.
+   one with `set_network_identity.py` (below), in one reviewed PR, and release the clients: rebuild the native
+   packages and the 0.5.0 extension from the switched tree, then assemble, sign and verify them
+   (`deploy/release/README.md`, owner procedure). This is the first signed release.
+8. **Public launch.** Publish the invitation on pocol.net, signed with the release key like every download
+   (`deploy/release`), and open the seeds.
 
 ## Tools
 
@@ -63,7 +74,11 @@ The tests (`test_set_network_identity.py`) also guard the tree: every tracked fi
 identity is in `FILES` or kept on purpose; once the tree pins a network that is not retired, no tracked file
 outside `development/` and `deploy/websites/` may hold a retired identity (`FILES` included); and the shipped
 release texts that are true only on the retired network (`STEP3`: the 0.4.x versions and "chain ID and genesis
-unchanged" notes) must be gone by then, so the version bump (removal plan Phase 7) lands before the switch.
+unchanged" notes) must be gone by then. The native 0.5.0 bump (owner decision 2026-11-16) landed before the switch;
+what `STEP3` still lists (the extension and Studio versions and the 0.4.x extension download names) moves with the
+signed 0.5.0 extension release and its download links. `deploy/release/assemble_release.py` refuses a release whose
+extension `package.json` version is not the native version, so no release is assembled before the switch sets it to
+0.5.0: the ceremony runs on unsigned CI artifacts (step 1), and the first signed release follows the switch (step 7).
 
 ## A spec-2 (v3) genesis
 

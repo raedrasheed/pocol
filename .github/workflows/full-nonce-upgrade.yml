@@ -2,12 +2,12 @@ name: Consensus rules, profiles and extension release
 on:
   pull_request:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'deploy/release/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
   # After a merge too: this is the only run of test_upgrade.py (same-release fork appends and the move to another
   # genesis with the key kept).
   push:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'deploy/release/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -136,6 +136,11 @@ jobs:
             # After the identity switch a release also needs the owner's manifest key (release/manifest-key.pub, W14):
             # the packager refuses "no manifest key" while that slot is the placeholder.
             npm run package
+            # The packaged zip is unsigned until the owner signs it (deploy/release): it must not verify.
+            if python3 -B ../../deploy/release/verify_release.py releases > "$RUNNER_TEMP/verify.log"; then
+              echo 'an unsigned extension release must not verify' >&2; exit 1
+            fi
+            grep -F 'NOT VERIFIED' "$RUNNER_TEMP/verify.log"
           fi
         working-directory: prototypes/pocol-extension
       - name: Verify Studio

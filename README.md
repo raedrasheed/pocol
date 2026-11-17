@@ -28,7 +28,10 @@ invitation for them, is refused at import.
 The Mainnet name is a deployment designation. The engine still reports its actual
 experimental admission scope, `specificationCompliant: false` and
 `publicLaunchReady: false`, computed with the `launchBlockers` that keep it false
-(V3-28 H1, `pocold status`, `pocold build-info`); these are not overridden by branding. Independent
+(V3-28 H1, `pocold status`, `pocold build-info`); these are not overridden by branding. The `scope`
+field of `pocold build-info` (and of `pocol identity` and `pocol inspect`) reads `mainnet`, the deployment the build is
+for, beside its `version` (0.5.0); the admission scope in `pocold status` and `init-testnet` stays
+`experimental-devnet`, and `publicLaunchReady` stays computed. Independent
 external security review and the technical conditions in
 [Current status and limits](#current-status-and-limits) remain outstanding.
 
@@ -273,7 +276,7 @@ Builds and long-running tests need disk and memory headroom; a node's resource m
 Keep the same terminal for the variables used later. The commands use the default Cargo target directory.
 
 ```bash
-git clone https://github.com/palcertcom/pocol.git
+git clone https://github.com/raedrasheed/pocol.git
 cd pocol
 git rev-parse HEAD
 
@@ -495,7 +498,7 @@ python3 prototypes/lp10/run_lp10.py
 - Long-running, explicitly ignored measurements are documented with their tests, including `tests/journal_measure.rs`.
   Inspect the individual test's scope before opting into it; an ignored test is not a pass.
 - On E2E failure, the harness keeps logs and inputs under `POCOL_E2E_KEEP` or `tests/failures/`. Preserve the failure evidence.
-- Check [Actions](https://github.com/palcertcom/pocol/actions) and the exact checkout SHA. The Windows workflow and real-browser
+- Check [Actions](https://github.com/raedrasheed/pocol/actions) and the exact checkout SHA. The Windows workflow and real-browser
   workflow cover different surfaces; some older workflows target historical branches. Path filters mean not every docs edit
   runs application CI. Never count cancelled or unexecuted tests as passing.
 
@@ -558,9 +561,12 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
   these parameters, and not every worst case has been measured.
 - **The rehearsal and the ceremony.** The launch evidence (T1-T8, M1-M4) is measured in the rehearsal on the
   founders' devices, which has not run yet ([FRESH-NETWORK-CP.md](development/decisions/FRESH-NETWORK-CP.md) §9).
-- **Decisions pending with the owner.** The native release version and signing scheme, translations, the founders'
-  reward address, the launch-disclosure wording, a fee faucet on mainnet, the explorer gateway host and the canonical
-  public repository URL ([STATUS-EN.md](development/STATUS-EN.md)).
+- **Decisions pending with the owner.** The launch-disclosure wording, the reward page S1 wording and the extension
+  manifest public key ([STATUS-EN.md](development/STATUS-EN.md)). Decided on 2026-11-16: native release 0.5.0; release
+  signing with ssh-keygen ed25519 ([deploy/release](deploy/release/README.md)); English and Arabic sites; owner-held
+  reward addresses for the server founders; the repository `raedrasheed/pocol`; a fork notice of at least 24 h
+  (8,640 blocks); the build-info scope label `mainnet`; no faucet on mainnet; the explorer gateway host
+  `explorer.pocol.net`.
 - **Design objectives.** PoW-equivalent security, fairness and Sybil resistance are not proven.
 - **No external audit.** No independent external human security audit has been done.
 
@@ -603,4 +609,4 @@ extension build. There is currently **no repository-wide root `LICENSE` file**. 
 statement also licenses the thesis and every evidence asset; check the relevant component's declaration and retain its
 source notices when reusing or distributing it. This README records existing declarations, not a new license grant.
 
-For questions about the idea or the project, open an [issue](https://github.com/palcertcom/pocol/issues).
+For questions about the idea or the project, open an [issue](https://github.com/raedrasheed/pocol/issues).

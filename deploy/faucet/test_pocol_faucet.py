@@ -112,6 +112,32 @@ class FaucetRules(unittest.TestCase):
         (self.dir / 'ledger.json').write_text('{"claims": []}')
         with self.assertRaises(ValueError): self.faucet()
 
+    def test_mainnet_is_refused_before_the_key_or_signer(self):
+        # Owner decision 2026-11-16: no faucet on mainnet; the rehearsal network only.
+        root = Path(__file__).resolve().parents[2] / 'deploy' / 'mainnet'
+        mainnet = json.loads((root / 'v3-profile.json').read_text(encoding='utf-8'))['chainId']
+        rehearsal = json.loads((root / 'v3-rehearsal-profile.json').read_text(encoding='utf-8'))['chainId']
+        self.assertEqual(pf.MAINNET_CHAIN_IDS, {mainnet})
+        self.assertNotIn(rehearsal, pf.MAINNET_CHAIN_IDS)
+        for chain in (mainnet, str(mainnet)):
+            with self.assertRaises(ValueError) as e:
+                pf.Faucet({'chainId': chain, 'keyFile': str(self.dir / 'missing.pocol-key'), 'ledger': str(self.dir / 'l.json')},
+                          rpc=self.node, sign=self.signer)
+            self.assertIn('rehearsal network only', str(e.exception))
+        self.assertEqual(self.signer.calls, [], 'the signer is never called for mainnet')
+        self.assertFalse((self.dir / 'l.json').exists())
+
+    def test_the_example_config_names_the_rehearsal_network(self):
+        here = Path(__file__).resolve().parent
+        example = json.loads((here / 'config.example.json').read_text(encoding='utf-8'))
+        rehearsal = json.loads((here.parents[1] / 'deploy' / 'mainnet' / 'v3-rehearsal-profile.json').read_text(encoding='utf-8'))['chainId']
+        self.assertEqual(example['chainId'], rehearsal)
+        self.assertNotIn(example['chainId'], pf.MAINNET_CHAIN_IDS)
+        self.node.chain = rehearsal
+        cfg = {k: v for k, v in example.items() if k not in ('keyFile', 'ledger', 'signer')}
+        f = pf.Faucet({**cfg, 'keyFile': str(self.key), 'ledger': str(self.dir / 'ledger.json')}, rpc=self.node, sign=self.signer)
+        self.assertEqual(f.claim(NEW, 'c1')['to'], NEW)
+
     def test_http_surface(self):
         f = self.faucet(allowOrigin='https://pocol.net')
         server = pf.Server(('127.0.0.1', 0), pf.handler(f)); port = server.server_address[1]

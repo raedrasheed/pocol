@@ -30,6 +30,9 @@ An optional `--guide /path/to/quick-start.txt` adds the Arabic quick-start.
 For separate checkouts, pass `--studio-dir`, `--extension-dir` and
 `--gateway-dir` explicitly. ZIP metadata is fixed for reproducible output.
 Packaging validates archive integrity; it does not run the component test suites.
+The public download (`PoCol-Studio-IDE-Viewer-<version>.zip`) is published only with its ssh-ed25519 release
+signature (`deploy/release/README.md`); the cPanel, gateway installer and source ZIPs are the owner's deploy inputs,
+not public downloads.
 
 Serve `dist/` with a static HTTP server for development. In the managed Sites environment, use `sites-preview start` with the absolute checkout directory. A preview origin must be explicitly included in the extension's Studio origin allowlist before the publish bridge is usable there.
 
@@ -37,7 +40,7 @@ Serve `dist/` with a static HTTP server for development. In the managed Sites en
 
 1. **Studio:** upload the contents of `dist/` to the separate cPanel document root for `studio.pocol.net`. Enable its normal HTTPS certificate. The included `.htaccess` disables directory listings and adds browser security headers.
 2. **Extension:** use the matching PoCol Studio extension build. It has a pinned PoCol Mainnet identity, a bounded Studio message bridge, a trusted confirmation page, password-encrypted local signing keys, and restartable publication records. Chrome Web Store submission and approval are separate from this release.
-3. **Gateway:** install the separate `deploy/studio` relay on the existing first PoCol node. `https://gateway.pocol.net/studio/rpc` forwards only bounded, allowlisted RPC requests to loopback. It never signs a transaction or holds a wallet key. The existing Explorer endpoint remains separate.
+3. **Gateway:** install the separate `deploy/studio` relay on the existing first PoCol node. `https://explorer.pocol.net/studio/rpc` forwards only bounded, allowlisted RPC requests to loopback. It never signs a transaction or holds a wallet key. The existing Explorer endpoint remains separate.
 
 The hosted preview is for inspecting the editor. Neither source publication nor preview deployment configures the user's DNS, installs the production gateway, or proves a successful on-chain publish.
 
@@ -61,9 +64,9 @@ Publication is a bounded sequence of transactions. The approval shows its files,
 
 ## Sources
 
-- [PoCol website publisher and storage format](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocold/src/site.rs)
-- [PoCol extension viewer and profile validation](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocol-extension/src/sw.js)
-- [PoCol desktop key format](https://github.com/palcertcom/pocol/blob/50c2f27ee67961dec7aaf0eb735c0b641810e0ea/prototypes/pocold/src/keyfile.rs)
+- [PoCol website publisher and storage format](https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocold/src/site.rs)
+- [PoCol extension viewer and profile validation](https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocol-extension/src/sw.js)
+- [PoCol desktop key format](https://github.com/raedrasheed/pocol/blob/72cf38f6cdb143aeb41431d2702317db1a0d85ba/prototypes/pocold/src/keyfile.rs)
 - [cPanel Domains](https://docs.cpanel.net/cpanel/domains/domains/)
 - [Chrome Web Store publishing](https://developer.chrome.com/docs/webstore/publish)
 

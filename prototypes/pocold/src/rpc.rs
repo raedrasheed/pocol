@@ -1014,7 +1014,7 @@ fn state_for<'a>(n:&'a Node,tag:&Value)->Result<TagState<'a>,(i64,String)>{
 fn call(n:&mut Node,m:&str,p:&[Value],b:&mut Budget)->R{
     let cp=n.chain.spec.cp();
     match m{
-        "web3_clientVersion"=>Ok(json!("pocold/0.1.0 (PoCol local devnet)")),
+        "web3_clientVersion"=>Ok(json!(concat!("pocold/",env!("CARGO_PKG_VERSION")))),
         "net_version"=>Ok(json!(n.chain.spec.chain_id().to_string())),
         "net_listening"=>Ok(json!(true)),
         "net_peerCount"=>Ok(json!(qty(n.peer_count() as u64))),

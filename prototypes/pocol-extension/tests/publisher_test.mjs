@@ -29,7 +29,7 @@ function refNext(parent,used,limit,floor){
   return fee<floor?floor:fee;
 }
 // Sites W4 needs W1's Studio gateway (claude/sites-w1-w6-gateways): the publisher's only endpoint on RN is
-// https://gateway.pocol.net/studio/rpc (deploy/studio/pocol_studio_gateway.py), and the safe sweep, the safe wait,
+// https://explorer.pocol.net/studio/rpc (deploy/studio/pocol_studio_gateway.py), and the safe sweep, the safe wait,
 // eth_feeHistory and eth_maxPriorityFeePerGas exist there only from W1 on. The mock below refuses, as a test failure
 // (never as a silent transport fallback), every call that W1's valid_call would answer with HTTP 400; and the last
 // test of this file runs every call the mocks saw through the repository's own gateway validator.

@@ -128,11 +128,11 @@ const REGISTRY_CALL_GAS:u64=1_000_000;
 /// Registration (register(address), any bond 0..B_reg): more than 2x the 174,447 gas a zero-bond first registration
 /// measures on the V3 programs (lp4-execution tests/v3_contracts.rs
 /// `wallet_bond_features_keep_their_write_ceilings_and_gas_on_the_v3_set`; 194,172 on the earn-in programs phase 6a
-/// deleted), so the fee faucet's 0.002 PCOL covers its maximum fee.
+/// deleted), so 0.002 PCOL (the rehearsal fee faucet's amount, or any first transfer on mainnet) covers its maximum fee.
 const EARNIN_REGISTER_GAS:u64=400_000;
 /// FN-2b C4 registerReplacing: about 2x the largest replacement measured (217,381 gas, the victim in the middle of the
 /// active list with a full-bond newcomer; lp4-execution tests/v3_contracts.rs replacing_write_ceilings_gas_and_user_sys_keys),
-/// so that a zero-bond newcomer's fee faucet (0.002 PCOL) covers its maximum fee while the base fee stays below 1.5 gwei
+/// so that a zero-bond newcomer's 0.002 PCOL first fee (the rehearsal faucet's amount) covers its maximum fee while the base fee stays below 1.5 gwei
 /// (deploy/faucet/README.md).
 pub const REPLACE_GAS:u64=500_000;
 /// Heads the exit may stay unincluded before the plan stops (nothing changed on chain then).

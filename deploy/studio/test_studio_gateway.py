@@ -730,7 +730,7 @@ class HTTPChunkTests(unittest.TestCase):
 
 
 class CaddyTests(unittest.TestCase):
-    BASE = '''gateway.pocol.net {
+    BASE = '''explorer.pocol.net {
         header {
             Cache-Control "no-store"
             X-Content-Type-Options "nosniff"
@@ -854,8 +854,8 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(installer.tls_json('/studio/health'), {'ready': True})
             trust.assert_called_once_with()
             sock.assert_called_once_with(('127.0.0.1', 443), timeout=12)
-            context.wrap_socket.assert_called_once_with('local-socket', server_hostname='gateway.pocol.net')
-            https.assert_called_once_with('gateway.pocol.net', 443, timeout=12, context=context)
+            context.wrap_socket.assert_called_once_with('local-socket', server_hostname='explorer.pocol.net')
+            https.assert_called_once_with('explorer.pocol.net', 443, timeout=12, context=context)
             connection.close.assert_called_once()
 
     def run_install(self, fail_https=False, existing=False, unit_text=None):

@@ -155,25 +155,20 @@ KEPT_PREFIXES = {
 KEPT = {
     ni.RETIRED: 'the retired identities the switch tool and this guard look for',
 }
-# Shipped with the packages, so the identity-switch release replaces or bumps them (Phase 7 bumps the versions):
-# while the tree pins a retired network each holds its pattern (the old release's version, or text that is true only
-# on the retired network); once it pins a network that is not retired none may. A version bump before the switch
-# removes its entry here, as does a file that stops holding the version (five-device-build.yml reads it from
-# package.py since Phase 7).
+# Shipped with the packages, so the identity-switch release replaces or bumps them: while the tree pins a retired
+# network each holds its pattern (the old release's version, or text that is true only on the retired network); once
+# it pins a network that is not retired none may. A version bump before the switch removes its entry here, as does a
+# file that stops holding the version (five-device-build.yml reads it from package.py since Phase 7). The native 0.5.0
+# bump (owner decision 2026-11-16) landed before the switch, so package.py, the standalone README, the Linux desktop
+# texts, the Windows wallet and build.gradle are gone from this list; what remains moves with the signed extension
+# release and its download links.
 STEP3 = {
-    'deploy/standalone/package.py': re.compile(r"version\s*=\s*'0\.4\.0'"),
-    'deploy/standalone/README.md': re.compile(r'Wallet 0\.4\.0|retain their genesis'),
-    'deploy/standalone/linux-desktop/pocol-desktop': re.compile(r'0\.4\.0'),
-    'deploy/standalone/linux-desktop/install-desktop-icon.sh': re.compile(r'0\.4\.0'),
-    'prototypes/pocol-windows/Wallet.cs': re.compile(r'Assembly(?:File)?Version\("0\.4\.0\.0"\)'),
-    'prototypes/pocol-windows/Wallet.xaml': re.compile(r'PoCol Wallet · 0\.4\.0'),
     # 0.5.0 is decided, but the version moves with the signed release and its download links (the websites' check,
     # deploy/websites/tools/site_identity.py, requires the links to name the package.json version).
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
     'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
-    'prototypes/pocol-android/app/build.gradle': re.compile(r"versionName '0\.4\.0'"),
 }
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED]
 

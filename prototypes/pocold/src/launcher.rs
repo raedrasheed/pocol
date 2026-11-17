@@ -138,7 +138,7 @@ impl Invitation {
         let activations: Vec<&(u16, u64)> = forks.iter().filter(|(version, _)| *version > 1).collect();
         let mut out = serde_json::json!({"networkFingerprint":self.fingerprint(),"invitationSchema":self.schema,
             "consensusRulesVersion":self.consensus_rules_version,"consensusIdentity":self.published_identity(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],
-            "forkSchedule":forks,"activations":activations,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"experimental-testnet"});
+            "forkSchedule":forks,"activations":activations,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"mainnet"});
         // FN-5: a scheduled cap raise, its four new caps and its fork-3 height (as pocol_getParams `capRaise`), so a
         // dry run shows what the caps become, not only that fork 3 activates. Absent without one.
         if let (Ok(Some(raise)), Some(&(_, at))) = (crate::configured_cap_raise(&info), forks.iter().find(|(v, _)| *v == pocol_lp4_execution::profile::CAP_RAISE_VERSION)) {
@@ -1303,6 +1303,8 @@ mod upgrade_tests {
         let home = home_with(&t, &bytes(&packed));
         home.import(&bytes(&packed)).unwrap();
         assert_eq!(packed.describe()["consensusIdentity"], identity_on(&packed, &[(1, 0)]));
+        // The deployment label (owner decision 7, 2026-11-16).
+        assert_eq!(packed.describe()["scope"], "mainnet");
         // Only this schema and a rules revision bind a home: no other schema, no build digest, no missing rules.
         let value: serde_json::Value = serde_json::from_slice(&bytes(&packed)).unwrap();
         let mut v1 = value.clone(); v1["schema"] = "pocol-network-v1".into();

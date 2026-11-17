@@ -112,7 +112,7 @@ export function build({ fault = null, out, testNetwork, lockMs, manifestKeyFile 
     minimum_chrome_version: '130', // chrome.storage.local.getKeys (D103 recovery)
     background: { service_worker: 'sw.js', type: 'module' },
     permissions: ['storage', 'unlimitedStorage', 'declarativeNetRequest'],
-    host_permissions: ['http://127.0.0.1/*', 'https://gateway.pocol.net/*'],
+    host_permissions: ['http://127.0.0.1/*', 'https://explorer.pocol.net/*'],
     content_scripts: [{matches:['https://studio.pocol.net/*'],js:['studio-content.js'],run_at:'document_start',all_frames:false},{matches:['https://ide.pocol.net/*'],js:['ide-content.js'],run_at:'document_start',all_frames:false}],
     omnibox: { keyword: 'pocol' },
     options_page: 'options.html',

@@ -49,6 +49,10 @@ try{
         await page.click('#language-trigger');
         await page.click('button[data-language="ar"]');
         check('main Arabic language and direction',await page.evaluate(()=>document.documentElement.lang==='ar'&&document.documentElement.dir==='rtl'));
+        // Launch languages (owner decision 2026-11-16): English and Arabic only; any other request falls back to English.
+        check('main offers exactly English and Arabic',await page.locator('button[data-language]').count()===2);
+        await page.goto(server.origin+'/?lang=de',{waitUntil:'networkidle'});
+        check('main falls back to English for a retired language',await page.evaluate(()=>document.documentElement.lang==='en'&&document.documentElement.dir==='ltr'));
         await page.goto(server.origin+'/about.html?lang=en',{waitUntil:'networkidle'});
         check('guide renders its chapters',await page.locator('#docs-article').innerText().then(text=>text.length>200));
       }
