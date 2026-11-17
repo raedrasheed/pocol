@@ -91,4 +91,5 @@ these handlers' answers). Where an in-process answer cannot be the PHP one, the 
 
 The budget is the gateway's: one global token bucket (80 tokens, 20 per second) shared by `/rpc`, the `/api` reads,
 pocol.net's summary and the reward page, as it was behind the PHP relays, plus four relay slots shared by the `/api`
-reads (PHP's four lock slots).
+reads (PHP's four lock slots). A connection beyond the gateway's 16 request slots gets the same JSON busy answer (429,
+`Retry-After: 3`), which Caddy passes on, not an empty 502.

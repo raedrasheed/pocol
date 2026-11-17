@@ -9,6 +9,7 @@ import http.client
 import importlib.util
 import json
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import tempfile
@@ -317,6 +318,34 @@ class ExplorerRelayTests(GatewayServerCase):
         finally:
             for _ in range(api.RELAY_SLOTS): self.server.explorer.slots.release()
         self.assertEqual(self.post(call())[0], 200)
+
+    def test_connections_beyond_the_gateway_slots_get_the_json_busy_answer(self):
+        """Behind Caddy every /api request is one connection to the gateway: one beyond its 16 request slots gets the
+        PHP relays' JSON 429 (lib.php answered it before the gateway was reached), not a closed connection that Caddy
+        would turn into an empty 502."""
+        idle = []
+        try:
+            for _ in range(16): idle.append(socket.create_connection(('127.0.0.1', self.port), timeout=5))
+            deadline = time.monotonic() + 5
+            while self.server.slots.acquire(blocking=False):
+                self.server.slots.release()
+                self.assertLess(time.monotonic(), deadline, 'the 16 connections were not accepted')
+                time.sleep(0.02)
+            for method, path, body in (('GET', '/api/health.php', None), ('POST', '/api/rpc.php', json.dumps(call()).encode()),
+                                       ('POST', '/rpc', json.dumps(call()).encode())):
+                with self.subTest(path=path):
+                    headers = [('Content-Type', 'application/json'), ('Content-Length', str(len(body)))] if body else []
+                    status, answer_headers, raw = self.send(method, path, headers, body)
+                    answer_headers = dict(answer_headers)
+                    self.assertEqual((status, json.loads(raw)), (429, {'error': api.BUSY}))
+                    self.assertEqual((answer_headers['Retry-After'], answer_headers['Content-Type'], answer_headers['Cache-Control']),
+                                     ('3', 'application/json; charset=utf-8', 'no-store'))
+            self.assertEqual(self.node.calls, [])
+        finally:
+            for sock in idle: sock.close()
+        deadline = time.monotonic() + 5
+        while self.send('GET', '/api/health.php')[0] != 200:
+            self.assertLess(time.monotonic(), deadline, 'the slots were not released'); time.sleep(0.05)
 
     def test_forward_failures(self):
         with patch.object(api, 'FORWARD_SECONDS', -1):

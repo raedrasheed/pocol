@@ -508,6 +508,15 @@ class Handler(BaseHTTPRequestHandler):
             answers.append(answer)
         self.reply(200, answers if isinstance(value, list) else answers[0])
 
+# The answer to a connection beyond the 16 request slots: the explorer relays' JSON busy answer (lib.php answered it
+# before a request reached the gateway; behind Caddy every request is one connection here), never a dropped connection
+# that Caddy turns into an empty 502.
+BUSY_BODY = json.dumps({'error': explorer_api.BUSY}, separators=(',', ':')).encode()
+BUSY_REPLY = (b'HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json; charset=utf-8\r\nCache-Control: no-store\r\n'
+              b'X-Content-Type-Options: nosniff\r\nRetry-After: 3\r\nConnection: close\r\nContent-Length: '
+              + str(len(BUSY_BODY)).encode() + b'\r\n\r\n' + BUSY_BODY)
+BUSY_SLOTS, BUSY_SECONDS = 8, 1.0
+
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 16
@@ -518,11 +527,39 @@ class Server(ThreadingHTTPServer):
         self.explorer = explorer_api.Relay(gateway, site_origin, cost=lambda call: COSTS.get(call['method'], 1),
                                            transaction_options_valid=lambda options: valid_options(options))
         self.slots = threading.BoundedSemaphore(16)
+        self.busy_slots = threading.BoundedSemaphore(BUSY_SLOTS)
         super().__init__(address, Handler)
     def process_request(self, request, client_address):
-        if not self.slots.acquire(blocking=False): self.shutdown_request(request); return
+        if not self.slots.acquire(blocking=False):
+            # A few busy answers at a time on their own threads (the accept loop never waits on a client); beyond
+            # those the connection is closed as before.
+            if not self.busy_slots.acquire(blocking=False): self.shutdown_request(request); return
+            try: threading.Thread(target=self.answer_busy, args=(request,), daemon=True).start()
+            except BaseException: self.busy_slots.release(); self.shutdown_request(request); raise
+            return
         try: super().process_request(request, client_address)
         except BaseException: self.slots.release(); raise
+    def answer_busy(self, request):
+        """BUSY_REPLY, after reading the request (its head and a body of up to MAX_REQUEST bytes, for at most
+        BUSY_SECONDS) so that closing does not reset the connection before the client has read the answer."""
+        try:
+            deadline, seen, need = time.monotonic() + BUSY_SECONDS, b'', None
+            while need is None or len(seen) < need:
+                left = deadline - time.monotonic()
+                if left <= 0 or len(seen) > MAX_REQUEST + 65536: break
+                request.settimeout(left)
+                chunk = request.recv(65536)
+                if not chunk: break
+                seen += chunk
+                if need is None and b'\r\n\r\n' in seen:
+                    head, _, _ = seen.partition(b'\r\n\r\n')
+                    found = re.search(rb'(?im)^content-length:[ \t]*([0-9]{1,12})[ \t]*\r?$', head)
+                    need = len(head) + 4 + min(int(found.group(1)) if found else 0, MAX_REQUEST)
+            request.settimeout(BUSY_SECONDS)
+            request.sendall(BUSY_REPLY)
+        except OSError: pass
+        finally:
+            self.shutdown_request(request); self.busy_slots.release()
     def process_request_thread(self, request, client_address):
         try: super().process_request_thread(request, client_address)
         finally: self.slots.release()

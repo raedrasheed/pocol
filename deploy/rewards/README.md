@@ -143,7 +143,9 @@ relays' behaviour:
 Every answer is `application/json; charset=utf-8` with `Cache-Control: no-store`, nosniff and the explorer's security
 headers; errors are `{"error": "..."}` with PHP's messages. The four paths share four relay slots (PHP's lock slots;
 busy is 429 with `Retry-After: 3`, 503 for transactions as in PHP) and the gateway's global token bucket (the `/rpc`
-costs). Where PHP cannot be matched, the safer answer is kept (`deploy/explorer/README.md`, Behaviour that differs): a
+costs). Behind Caddy each request is one connection to the gateway: a connection beyond its 16 request slots is
+answered `{"error":"The data service is busy. Please retry shortly."}` with 429 and `Retry-After: 3` on any path (the
+PHP relays' lock slots answered so before a request reached the gateway), not closed unanswered. Where PHP cannot be matched, the safer answer is kept (`deploy/explorer/README.md`, Behaviour that differs): a
 spent budget is 429 with `Retry-After` (PHP: 503), a body needs one `Content-Length`, repeated query keys and `Origin`
 headers are refused, health has no `phpReady`/`curlReady`, and wrong methods get the PHP 405 instead of a 501.
 `/rpc` and `/health` are unchanged, except that a deeply nested `/rpc` body is now 400 instead of a dropped
