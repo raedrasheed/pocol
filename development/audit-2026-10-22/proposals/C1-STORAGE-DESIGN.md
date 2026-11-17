@@ -988,6 +988,13 @@ re-execution at open.
 - From a checkpoint written live, the snapshot is the live chain. Live retention can differ from
   replay's only through the protect set (a sync session's blocks against the journal's later children).
   The tests compare the two field by field and found no difference in the runs below.
+- The checkpoint replay writes after the journal's last record is the state the running node goes on
+  from, and is written like a live one, with no protect set (2026-11-17, node-local, no rule change). Its
+  sealed set would be empty, since no record follows yet. The next record the node appends builds on one
+  of its entries, so the next open would recompute another set and refuse it every time, falling back to
+  an older checkpoint or to genesis (seen on Windows CI in e4_checkpoint_survives_kills). The checkpoints
+  replay writes inside the journal keep the strict check: their sealed set must be the one the open
+  recomputes.
 
 **Tests (tests/consensus.rs, "C-1 E4.4"):**
 - open from a checkpoint equals replay from genesis, for a replay-written checkpoint and a live-written

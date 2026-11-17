@@ -4240,12 +4240,19 @@ fn e4_checkpoint_kill_child(){
 /// D-6 crash test: a node importing blocks with a checkpoint after every record (each a block commit, a
 /// journal append and a checkpoint transaction) is killed (SIGKILL on Unix, TerminateProcess on Windows)
 /// at increasing delays. After every kill the node opens and is the node replay from genesis gives from
-/// the same journal; it resumes from a checkpoint once there is one; the last run imports every block.
+/// the same journal; it resumes from a checkpoint whenever the store holds one; the last run imports every
+/// block. The delays are fixed and a host's speed decides how many kills come before the first checkpoint
+/// (Windows CI, 2026-11-17: four of eleven, about 250 ms a record), so only the opens that found a checkpoint
+/// count, and enough of them must.
 #[test] fn e4_checkpoint_survives_kills(){
     use std::io::BufRead;
     let blocks=e44_blocks();let a=e44_dir("kill");let file=a.with_extension("blocks");
     {let mut out=vec![];for b in blocks{for p in [b.header.encoded.clone(),b.body.encode()]{out.extend((p.len() as u32).to_be_bytes());out.extend(p);}}std::fs::write(&file,out).unwrap();}
-    let exe=std::env::current_exe().unwrap();let mut resumed=0;let mut heights=vec![];let err=a.with_extension("child-stderr");
+    let exe=std::env::current_exe().unwrap();let (mut resumed,mut found)=(0,0);let mut heights=vec![];let err=a.with_extension("child-stderr");
+    // The checkpoints the store holds, read before the open (which works off and drops what it refuses).
+    let held=|d:&std::path::Path|->usize{use redb::ReadableTableMetadata;let p=d.join(pocold::state_store::FILE);if !p.exists(){return 0}
+        let ckpt:redb::TableDefinition<u64,&[u8]>=redb::TableDefinition::new("checkpoint");let db=redb::Database::open(&p).unwrap();let r=db.begin_read().unwrap();
+        r.open_table(ckpt).map_or(0,|t|t.len().unwrap() as usize)};
     for (k,delay) in [40u64,90,160,260,400,600,900,1300,1800,2600,0].into_iter().enumerate(){
         let mut c=std::process::Command::new(&exe).args(["e4_checkpoint_kill_child","--exact","--ignored","--nocapture","--test-threads=1"])
             .env("POCOLD_E44_CHILD",&a).env("POCOLD_E44_BLOCKS",&file).stdout(std::process::Stdio::piped()).stderr(std::fs::File::create(&err).unwrap()).spawn().unwrap();
@@ -4257,15 +4264,17 @@ fn e4_checkpoint_kill_child(){
         if delay==0{assert!(lines.find_map(|l|l.ok().filter(|l|l=="E44DONE")).is_some(),"the last run imports every block");}
         else{std::thread::sleep(std::time::Duration::from_millis(delay));}
         c.kill().unwrap();c.wait().unwrap();
+        let ckpts=held(&a);
         let (mut g,gd)=e44_reference(&a,&format!("kill-ref-{k}"));
-        let mut n=reopen(&e44_conf(&a,1));if n.stats.resumed_from.is_some(){resumed+=1;}
-        heights.push((ready,n.chain.head().height,n.stats.resumed_from));
+        let mut n=reopen(&e44_conf(&a,1));if ckpts>0{found+=1;if n.stats.resumed_from.is_some(){resumed+=1;}}
+        heights.push((ready,n.chain.head().height,ckpts,n.stats.resumed_from,n.stats.checkpoints_refused));
         e44_same(&mut n,&mut g,&format!("after kill {k} ({delay} ms)"));
         if delay==0{assert_eq!(n.chain.head,blocks.last().unwrap().hash());}
         drop(n);drop(g);let _=std::fs::remove_dir_all(&gd);
     }
     println!("E44-KILLS {heights:?}");
-    assert!(resumed>=8,"positive control: most opens resumed from a checkpoint ({resumed})");
+    assert!(found>=5,"positive control: {found} of the opens found a checkpoint");
+    assert_eq!(resumed,found,"every open that found a checkpoint resumed from one");
     let _=std::fs::remove_dir_all(&a);let _=std::fs::remove_file(&file);let _=std::fs::remove_file(&err);
 }
 
@@ -6020,4 +6029,59 @@ fn pool_txs(n:&pocold::node::Node)->Vec<Vec<u8>>{n.pool.txs.iter().map(|(_,r)|r.
     assert!(!a.chain.invalid.contains_key(&c2.hash())&&a.chain.get(&c2.hash()).is_some(),"c2 is held, not invalid");
     assert_eq!(a.chain.head,deep.last().unwrap().hash(),"fork choice: the deeper branch stays the head");
     drop(a);let _=std::fs::remove_dir_all(&d);
+}
+
+/// 2026-11-17 (Windows CI, e4_checkpoint_survives_kills): a replay checkpoint at the end of the journal it was written
+/// from, then one live record and a stop before that record's checkpoint (as a kill between the journal append and the
+/// checkpoint's commit leaves it). It sealed an empty protect set (no record followed yet) and the next open, whose
+/// recomputed set holds the new record's parent, refused it every time. It is now written as the running node's
+/// checkpoints are (no protect set), so the next open resumes from it and is the node replay from genesis gives.
+#[test] fn e4_a_replay_checkpoint_at_the_journal_end_is_used_after_a_later_record(){
+    let blocks=e44_blocks();let d=e44_dir("journal-end");let m=50usize;
+    {let mut n=reopen(&e44_conf(&d,1));for b in &blocks[..m]{n.import(b.clone(),None).unwrap();}}
+    std::fs::remove_file(d.join(pocold::state_store::FILE)).unwrap();
+    {let n=reopen(&e44_conf(&d,1));println!("E44 replay: resumed {:?} written {}",n.stats.resumed_from,n.stats.checkpoints_written);}
+    // A live run that appends one record and stops before its checkpoint (checkpoint_every 1000: none is due).
+    {let mut n=reopen(&e44_conf(&d,1000));println!("E44 live: resumed {:?} refused {}",n.stats.resumed_from,n.stats.checkpoints_refused);
+     assert_eq!(n.stats.resumed_from,Some(m as u64));n.import(blocks[m].clone(),None).unwrap();}
+    let (mut g,gd)=e44_reference(&d,"journal-end-ref");
+    let mut n=reopen(&e44_conf(&d,1));println!("E44 after: resumed {:?} refused {}",n.stats.resumed_from,n.stats.checkpoints_refused);
+    e44_same(&mut n,&mut g,"journal end");
+    assert_eq!((n.stats.resumed_from,n.stats.checkpoints_refused),(Some(m as u64),0),"the replay checkpoint at record {m} is used");
+    drop(n);drop(g);for p in [d,gd]{let _=std::fs::remove_dir_all(&p);}
+}
+
+/// A replay checkpoint inside the journal (record 99 of more) keeps the strict check: one whose sealed protect set is
+/// changed in any way (a set the journal cut at record 99 or 100 would give, a block left out, genesis added) is
+/// refused and the open replays; the one as written is used.
+#[test] fn e4_a_mid_replay_checkpoint_with_another_protect_set_is_refused(){
+    use redb::ReadableTable;
+    let blocks=e44_blocks();let base=e44_dir("protect-tamper");let every=99u64;
+    {let mut n=reopen(&e44_conf(&base,0));for b in blocks{n.import(b.clone(),None).unwrap();}}
+    std::fs::remove_file(base.join(pocold::state_store::FILE)).unwrap();
+    {let n=reopen(&e44_conf(&base,every));assert_eq!(n.stats.checkpoints_written,1);}
+    let (tip,fork)=(blocks[98].hash(),blocks[99].header.parent_hash);
+    let ckpt:redb::TableDefinition<u64,&[u8]>=redb::TableDefinition::new("checkpoint");let roots:redb::TableDefinition<u64,&[u8]>=redb::TableDefinition::new("checkpoint_roots");
+    {let st=pocold::state_store::StateStore::open(&base).unwrap();let c=st.checkpoints().unwrap();let s=pocold::checkpoint::decode(&c[0].1).unwrap();
+     let mut want=vec![tip,fork];want.sort();println!("E44 stored {:?}",s.protect.as_ref().map(|p|p.iter().map(|h|B256::from(*h)).collect::<Vec<_>>()));
+     assert_eq!(s.binding.records,99);assert_eq!(s.protect,Some(want),"positive control: the fork block and the tip are protected at record 99");}
+    let cases:Vec<(&str,Option<Vec<[u8;32]>>,Option<u64>)>=vec![
+        ("as written",None,Some(99)),
+        ("the fork block only (the journal cut at record 100)",Some(vec![fork]),None),
+        ("nothing (the journal cut at record 99)",Some(vec![]),None),
+        ("the tip only (the fork block's child, record 99, is below the tip's)",Some(vec![tip]),None),
+        ("genesis added (no later record builds on it)",Some({let mut v=vec![tip,fork,blocks[0].header.parent_hash];v.sort();v}),None),
+    ];
+    let (mut g,gd)=e44_reference(&base,"protect-tamper-ref");
+    for (k,(what,p,want)) in cases.into_iter().enumerate(){
+        let d=e44_dir(&format!("protect-tamper-{k}"));copy_dir(&base,&d);
+        if let Some(p)=p{let db=redb::Database::open(d.join(pocold::state_store::FILE)).unwrap();let w=db.begin_write().unwrap();
+            {let mut t=w.open_table(ckpt).unwrap();let (seq,bytes)={let (k,v)=t.last().unwrap().unwrap();(k.value(),v.value().to_vec())};
+             let mut s=pocold::checkpoint::decode(&bytes).unwrap();s.protect=Some(p);t.insert(seq,pocold::checkpoint::encode_snapshot(&s).as_slice()).unwrap();
+             let flat:Vec<u8>=pocold::checkpoint::roots(&s).iter().flat_map(|r|r.to_vec()).collect();w.open_table(roots).unwrap().insert(seq,flat.as_slice()).unwrap();}
+            w.commit().unwrap();}
+        let mut n=reopen(&e44_conf(&d,every));println!("E44 {what}: resumed {:?} refused {}",n.stats.resumed_from,n.stats.checkpoints_refused);
+        assert_eq!(n.stats.resumed_from,want,"{what}");e44_same(&mut n,&mut g,what);drop(n);let _=std::fs::remove_dir_all(&d);
+    }
+    drop(g);for p in [base,gd]{let _=std::fs::remove_dir_all(&p);}
 }
