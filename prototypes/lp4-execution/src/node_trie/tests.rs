@@ -17,7 +17,8 @@ fn random_state(r:&mut Rng,n:u64,codes:&[Bytecode])->InMemoryDB{
 /// One block's worth of changes, as `state_trie`'s test makes them: new and removed accounts, balance and
 /// nonce changes, slots written, zeroed and cleared, an account marked not existing.
 fn mutate(r:&mut Rng,db:&InMemoryDB,codes:&[Bytecode],pool:u64)->InMemoryDB{
-    let mut d=db.clone();let addrs:Vec<Address>=d.accounts.keys().copied().collect();
+    // Sorted: `InMemoryDB`'s map is randomly seeded per process, so its order would make the seed draw other changes.
+    let mut d=db.clone();let mut addrs:Vec<Address>=d.accounts.keys().copied().collect();addrs.sort_unstable();
     for _ in 0..1+r.below(20){
         let a=if addrs.is_empty()||r.below(4)==0{addr(r,pool)}else{addrs[r.below(addrs.len() as u64) as usize]};
         match r.below(7){
@@ -199,6 +200,22 @@ fn diff_lists_what_differs_and_reads_every_node_only_the_second_version_holds(){
     big.sort_by(|a,b|a.partial_cmp(b).unwrap());let med=big[big.len()/2];
     println!("NODE-TRIE-DIFF pairs {pairs} nextOf400 {} medianShareRead {med:.3} maxShareRead {:.3}",big.len(),big[big.len()-1]);
     assert!(med<0.25,"the diff of consecutive versions reads {med} of the version");
+}
+
+/// A slot changed and changed back leaves the account as it was, though its storage trie's top node may now name
+/// another key below it (another `Id` for the same slots): the diff lists nothing.
+#[test]
+fn diff_of_a_slot_changed_and_changed_back_is_empty(){
+    let a=Address::with_last_byte(7);let mut db=InMemoryDB::default();db.insert_account_info(a,AccountInfo{nonce:1,..Default::default()});
+    for k in 0..3u64{db.insert_account_storage(a,U256::from(k),U256::from(1)).unwrap();}
+    // The slot whose key sorts last, so the top branch's first child is one the updates keep.
+    let last=(0..3u64).map(U256::from).max_by_key(hashed_slot).unwrap();
+    let mut store=MemStore::default();let mut b=Batch::default();let t0=NodeTrie::build(&db,&store,&mut b);store.commit(&b,t0.world);
+    let (mut t,mut prev)=(t0,db.clone());
+    for v in [2u64,1]{let mut next=prev.clone();next.insert_account_storage(a,last,U256::from(v)).unwrap();
+        let mut b=Batch::default();t=t.update(&store,&mut b,&next,&Touched::between(&prev,&next));store.commit(&b,t.world);prev=next;}
+    assert_eq!(t.root(&store,&Batch::default()),t0.root(&store,&Batch::default()));
+    assert_eq!(norm(&t0.diff(&store,&t)),norm(&Touched::default()));assert_eq!(norm(&t.diff(&store,&t0)),norm(&Touched::default()));
 }
 
 /// Keys that share long prefixes, so that branches split and merge at every depth between the two versions: the
