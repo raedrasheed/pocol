@@ -341,7 +341,7 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(commands[-1], ('systemctl', 'daemon-reload'))
 
     def run_install(self, fail_https=False, existing=False, unit_text=None, caddy_text=None, check=False, studio_route=False, forks=False,
-                    change_copy=None, accept=None, prepare=None, umask=None, root_uid=None):
+                    change_copy=None, accept=None, prepare=None, umask=None, root_uid=None, https_wait=None):
         """installer.main() on temporary host paths: (Caddyfile after, commands, printed text, root). `change_copy(dir)`
         edits the copy after it is built; `accept` is the --accept-site value (the copy's id when True); `prepare(root)`
         runs after the host paths are set up; `umask` is root's umask during main(); `root_uid` the owner the installer
@@ -377,6 +377,7 @@ class InstallerTests(unittest.TestCase):
         def plan(text, site_root, studio_module):
             return real_plan(text, '/srv/pocol-explorer/' + Path(site_root).name, studio_module)
         argv = ['--site', str(copy)] + (['--check'] if check else []) + (['--accept-site', 'site-' + ident if accept is True else accept] if accept else [])
+        argv += ['--https-wait', str(https_wait)] if https_wait else []
         with patch.multiple(installer, BASE=base, UNIT=unit, CADDYFILE=caddy, SITE_PARENT=srv, BACKUPS=backups, CONFIG=config,
                             NETWORK=config / 'network.json', FORKS=config / 'forks.json',
                             ROOT_UID=os.getuid() if root_uid is None else root_uid), \
@@ -408,6 +409,7 @@ class InstallerTests(unittest.TestCase):
                     verify.assert_called_once()
                     self.assertEqual(verify.call_args.args[1], files)
                     self.assertEqual(verify.call_args.args[2], studio_route)
+                    self.assertEqual(verify.call_args.args[3], https_wait or installer.HTTPS_WAIT)
             gateway_instance.verify_network.assert_called_once_with()
             return caddy.read_text(), commands, printed(), root, ident, files
 
@@ -430,6 +432,9 @@ class InstallerTests(unittest.TestCase):
         text, commands, printed, root, ident, _ = self.run_install(existing=True, studio_route=True)
         self.assertEqual(text, studio.patch_caddy(site.render_block(f'/srv/pocol-explorer/site-{ident}')))
         self.assertTrue((root / 'srv' / ('site-' + 'a' * 12)).exists(), 'the previous copy stays for a rollback')
+
+    def test_https_wait_reaches_the_https_check(self):
+        self.run_install(https_wait=1800)
 
     def test_forks_json_adds_the_fork_schedule(self):
         root = self.run_install(forks=True)[3]
@@ -455,9 +460,31 @@ class InstallerTests(unittest.TestCase):
                      ['--site', '--check'], ['--site', 'x', '--accept-site'], ['--site', 'x', '--accept-site', 'site-xyz'],
                      ['--site', 'x', '--accept-site', 'site-' + 'a' * 12, '--accept-site', 'site-' + 'a' * 12]):
             with self.assertRaisesRegex(RuntimeError, 'Usage'): installer.main(argv)
+        for argv in (['--site', 'x', '--https-wait'], ['--site', 'x', '--https-wait', '59'], ['--site', 'x', '--https-wait', '3601'],
+                     ['--site', 'x', '--https-wait', '-1'], ['--site', 'x', '--https-wait', '600', '--https-wait', '600']):
+            with self.assertRaisesRegex(RuntimeError, 'Usage'): installer.main(argv)
         self.assertEqual(installer.usage(['--site', 'x', '--accept-site', 'site-' + 'a' * 12, '--check']),
-                         (Path('x'), True, 'site-' + 'a' * 12))
-        self.assertEqual(installer.usage(['--site', 'x']), (Path('x'), False, None))
+                         (Path('x'), True, 'site-' + 'a' * 12, 600))
+        self.assertEqual(installer.usage(['--site', 'x']), (Path('x'), False, None, 600))
+        self.assertEqual(installer.usage(['--site', 'x', '--https-wait', '1200'])[3], 1200)
+
+    def test_the_https_check_waits_past_the_first_acme_retries(self):
+        # Right after the DNS move the CA's first validation can fail; the ACME client retries after about one, then two
+        # minutes. A fixed 120 s window rolled the install back (and stopped the issuance) before the second retry.
+        self.assertGreaterEqual(installer.HTTPS_WAIT, 600)
+        clock = [0.0]
+        attempts = []
+        def verify(*_):
+            attempts.append(clock[0])
+            if clock[0] < 400: raise OSError('certificate not yet issued')
+        with patch.object(installer, 'verify_https', side_effect=verify), \
+             patch.object(installer.time, 'monotonic', side_effect=lambda: clock[0]), \
+             patch.object(installer.time, 'sleep', side_effect=lambda s: clock.__setitem__(0, clock[0] + s)):
+            installer.verify_https_with_retry(None, {}, False)
+            self.assertGreaterEqual(attempts[-1], 400)
+            clock[0] = 0.0
+            with self.assertRaisesRegex(OSError, 'not yet issued'):
+                installer.verify_https_with_retry(None, {}, False, 120)
 
     def test_a_copy_that_is_not_the_checkouts_snapshot_is_refused_unless_named(self):
         # A leftover copy of an earlier release, or one edited by hand, passes the copy's own checks: refused.

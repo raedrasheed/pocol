@@ -18,9 +18,10 @@ systemd, a running Caddy, the operator's /etc/pocol-explorer-gateway/network.jso
 node's RPC on 127.0.0.1:8545. --check runs every preflight (the network file, the node's identity, the copy, the
 free port, `caddy validate` of the candidate) and changes nothing. An install backs up what it replaces under
 /var/backups/pocol-explorer-gateway, starts the service and checks it on loopback, reloads Caddy, then checks the
-public routes over HTTPS with the public name and trusted certificates; on any failure it restores the previous
-Caddyfile, files and service state. The HTTPS check needs the certificate for explorer.pocol.net, so the full
-install runs once the owner has moved the DNS record (only --check before that).
+public routes over HTTPS with the public name and trusted certificates (waiting up to --https-wait seconds, default
+600, for Caddy's first certificate); on any failure it restores the previous Caddyfile, files and service state. The
+HTTPS check needs the certificate for explorer.pocol.net, so the full install runs once the owner has moved the DNS
+record and public resolvers return this server for the name (only --check before that).
 """
 import hashlib
 import http.client
@@ -62,6 +63,10 @@ SITE_PARENT = Path(str(explorer_site.SITE_PARENT))
 BACKUPS = Path('/var/backups/pocol-explorer-gateway')
 PORT = 8088
 ROOT_UID = 0
+# How long the HTTPS check waits for Caddy's first certificate: longer than the ACME client's first retries (about one
+# then two minutes after a failed validation), so a slow first validation right after the DNS move does not roll back
+# the install and start a new issuance on every rerun (each failure counts against the CA's per-name limit).
+HTTPS_WAIT, HTTPS_WAIT_RANGE = 600, (60, 3600)
 ORIGIN = 'https://' + explorer_site.HOST
 ARGUMENTS = (f'--bind 127.0.0.1 --port {PORT} --rpc-port 8545 --v3-network {NETWORK} --site-origin {ORIGIN}')
 UNIT_TEXT = f'''[Unit]
@@ -267,7 +272,7 @@ def verify_https(network, files, studio_route):
             raise RuntimeError('The Studio HTTPS route stopped answering')
 
 
-def verify_https_with_retry(network, files, studio_route, seconds=120):
+def verify_https_with_retry(network, files, studio_route, seconds=HTTPS_WAIT):
     """Caddy may still be obtaining the certificate right after the reload: retry until `seconds` have passed."""
     deadline, last = time.monotonic() + seconds, None
     while True:
@@ -313,11 +318,13 @@ def prune_sites(keep):
     return removed
 
 
-USAGE = 'Usage: sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR [--check] [--accept-site site-<12 hex>]'
+USAGE = ('Usage: sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR [--check] [--accept-site site-<12 hex>] '
+         f'[--https-wait SECONDS ({HTTPS_WAIT_RANGE[0]}-{HTTPS_WAIT_RANGE[1]}, default {HTTPS_WAIT})]')
 
 
 def usage(argv):
-    """(site directory, check only, the site id --accept-site names or None); each option at most once."""
+    """(site directory, check only, the site id --accept-site names or None, the HTTPS wait in seconds); each option at
+    most once."""
     if len(argv) < 2 or argv[0] != '--site' or argv[1].startswith('--'):
         raise RuntimeError(USAGE)
     rest, options = list(argv[2:]), {}
@@ -326,8 +333,10 @@ def usage(argv):
         if flag in options: raise RuntimeError(USAGE)
         if flag == '--check': options[flag] = True
         elif flag == '--accept-site' and rest and re.fullmatch(r'site-[0-9a-f]{12}', rest[0]): options[flag] = rest.pop(0)
+        elif (flag == '--https-wait' and rest and re.fullmatch(r'[0-9]{1,5}', rest[0])
+              and HTTPS_WAIT_RANGE[0] <= int(rest[0]) <= HTTPS_WAIT_RANGE[1]): options[flag] = int(rest.pop(0))
         else: raise RuntimeError(USAGE)
-    return Path(argv[1]), options.get('--check', False), options.get('--accept-site')
+    return Path(argv[1]), options.get('--check', False), options.get('--accept-site'), options.get('--https-wait', HTTPS_WAIT)
 
 
 def committed_site():
@@ -358,7 +367,7 @@ def check_copy(site, files, ident, accept):
 
 
 def main(argv=None):
-    site, check_only, accept = usage(sys.argv[1:] if argv is None else argv)
+    site, check_only, accept, https_wait = usage(sys.argv[1:] if argv is None else argv)
     check_forced_loopback()
     if os.geteuid() != 0: raise RuntimeError('Run with sudo')
     for utility in ('caddy', 'systemctl'):
@@ -430,7 +439,7 @@ def main(argv=None):
         if last: raise last
         atomic_write(CADDYFILE, candidate.encode())
         command('systemctl', 'reload', 'caddy')
-        verify_https_with_retry(network, files, studio_route)
+        verify_https_with_retry(network, files, studio_route, https_wait)
         command('systemctl', 'enable', SERVICE)
     except BaseException as exc:
         failures = rollback_install(original, previous, base_existed, new_site, old_active, old_enabled)

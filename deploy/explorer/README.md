@@ -74,8 +74,17 @@ Studio route when it is installed. On any failure it restores the previous Caddy
 state, and names what it could not restore together with the backup.
 
 The HTTPS check needs the certificate for explorer.pocol.net, which Caddy obtains only once the DNS record points at
-the gateway server. So run `--check` before the owner moves the record and the full install right after; TLS
-verification is never relaxed.
+the gateway server. So run `--check` before the owner moves the record, and the full install once public resolvers
+return this server for the name:
+
+```sh
+dig +short explorer.pocol.net @1.1.1.1; dig +short explorer.pocol.net @8.8.8.8   # both: this server's address
+```
+
+The install waits up to `--https-wait` seconds (default 600, from 60 to 3600) for the first certificate, past the
+ACME client's first retries. If the HTTPS check still fails, it rolls back; wait for the record to propagate before
+rerunning, because each rerun starts a new issuance and repeated failed validations can reach the CA's limit for the
+name for an hour. TLS verification is never relaxed.
 
 The Caddyfile: on a fresh server the stock Debian/Ubuntu `:80` file is replaced by the block; other sites are kept;
 an unmanaged `explorer.pocol.net` site, a second marked block, an edited marked block, or another route to port 8088
