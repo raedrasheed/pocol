@@ -14,7 +14,7 @@
  {
   "file": "explorer-bundle",
   "old": "[`pocol_getMiners`,[]]]),r=Number(e.head.height),i=Math.min(20,r+1),a=await it(Array.from({length:i},(e,t)=>[`eth_getBlockByNumber`,[ot(r-t),!0]]));Ie(e,t,a),u({status:e,params:t,miners:n,blocks:a})",
-  "new": "[`pocol_getMembers`,[0,256]]]),r=Number(e.head.height),i=Math.min(20,r+1),a=await it(Array.from({length:i},(e,t)=>[`eth_getBlockByNumber`,[ot(r-t),!1]]));Ie(e,t,a);let PocolW7H=PocolW7Hashes(a,5),PocolW7T=PocolW7H.length?(await it(PocolW7H.map(([e])=>[`eth_getTransactionByHash`,[e]])).catch(()=>[])).map((e,t)=>e&&{...e,timestamp:PocolW7H[t][1]}).filter(Boolean):[];u({status:e,params:t,miners:n,blocks:a,PocolW7Txs:PocolW7T})",
+  "new": "[`pocol_getMembers`,[0,256]]]),r=Number(e.head.height),i=Math.min(20,r+1),a=await it(Array.from({length:i},(e,t)=>[`eth_getBlockByNumber`,[ot(r-t),!1]]));Ie(e,t,a);let PocolW7H=PocolW7Hashes(a,5),PocolW7TE=null,PocolW7T=PocolW7H.length?(await it(PocolW7H.map(([e])=>[`eth_getTransactionByHash`,[e]])).catch(e=>(PocolW7TE=e.message,[]))).map((e,t)=>e&&{...e,timestamp:PocolW7H[t][1]}).filter(Boolean):[];u({status:e,params:t,miners:n,blocks:a,PocolW7Txs:PocolW7T,PocolW7TxError:PocolW7TE})",
   "count": 1
  },
  {
@@ -51,6 +51,12 @@
   "file": "explorer-bundle",
   "old": "pt=ft.flatMap(e=>(e.transactions||[]).filter(e=>typeof e==`object`).map(t=>({...t,timestamp:e.timestamp})))",
   "new": "pt=l?.PocolW7Txs||[]",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "pt.length?(0,N.jsx)(Ct,{rows:pt.slice(0,5)}):I(l?`No transactions in this window`",
+  "new": "pt.length?(0,N.jsx)(Ct,{rows:pt.slice(0,5)}):l?.PocolW7TxError?I(`Latest transactions unavailable`,`${l.PocolW7TxError} The latest blocks hold transactions; the next update reads them again.`,C):I(l?`No transactions in this window`",
   "count": 1
  },
  {
@@ -129,6 +135,12 @@
   "file": "explorer-bundle",
   "old": "(0,N.jsx)(`div`,{className:`table-foot`,children:`Reward account balance includes all account funds; it is not a measure of lifetime mining earnings.`})",
   "new": "(0,N.jsxs)(`div`,{className:`pagination`,children:[(0,N.jsx)(`span`,{children:PocolW7Meta?`Members ${PocolW7Shown.length?PocolW7Meta.start+1:0}–${PocolW7Meta.start+PocolW7Shown.length} of ${A(PocolW7Meta.active)} · 256 per page`:`No members loaded`}),(0,N.jsxs)(`div`,{children:[(0,N.jsx)(`button`,{\"aria-label\":`Previous members`,disabled:PocolW7Start===0,onClick:()=>PocolW7SetStart(Math.max(0,PocolW7Start-256)),children:`Prev`}),(0,N.jsx)(`button`,{\"aria-label\":`Next members`,disabled:!PocolW7Meta||PocolW7Start+256>=A(PocolW7Meta.active),onClick:()=>PocolW7SetStart(PocolW7Start+256),children:`Next`})]})]}),(0,N.jsx)(`div`,{className:`table-foot`,children:`Bond, reward address and removal check are in each member's account view. Counts are for the loaded page.`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "children:t?`${e.length} registered miners`:`Miner registry loading`",
+  "new": "children:t?`${e.length} members on the loaded page`:`Miner registry loading`",
   "count": 1
  },
  {

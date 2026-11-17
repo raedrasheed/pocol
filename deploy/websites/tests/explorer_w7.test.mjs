@@ -122,6 +122,18 @@ test('the refresh reads one members page and light blocks; nothing reads every m
   assert.equal(count(BUNDLE, 'PocolW7Retry(()=>at(`pocol_getMember`,[PocolW7D.victim])).catch(e=>({PocolW7Error:e.message}))'), 1, 'the transaction view reads the named member');
 });
 
+test('the map counts the loaded members page, and a failed transaction read is not shown as an empty window', () => {
+  // The map gets one pocol_getMembers page (at most 256), not every record: its summary says so.
+  assert.equal(count(BUNDLE, 'registered miners'), 0);
+  assert.equal(count(BUNDLE, 'children:t?`${e.length} members on the loaded page`:`Miner registry loading`'), 1);
+  // The Overview's eth_getTransactionByHash batch can be refused (429) after the status and block reads succeed: its
+  // error is kept beside the empty list and the panel says the read failed (explorer_w7_browser.mjs checks it live).
+  assert.equal(count(BUNDLE, '.catch(()=>[])'), 0, 'the transaction read\'s error is not dropped');
+  assert.equal(count(BUNDLE, '.catch(e=>(PocolW7TE=e.message,[]))'), 1);
+  assert.equal(count(BUNDLE, 'PocolW7Txs:PocolW7T,PocolW7TxError:PocolW7TE})'), 1);
+  assert.equal(count(BUNDLE, ':l?.PocolW7TxError?I(`Latest transactions unavailable`,`${l.PocolW7TxError} '), 1);
+});
+
 test('a member read is tried up to 3 times with a growing pause, then its last error is shown', async () => {
   const retry = RAW.PocolW7Retry;
   let calls = 0;

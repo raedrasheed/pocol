@@ -113,3 +113,5 @@ jobs:
           echo "POCOL_CHROMIUM=$(node --input-type=module -e "const {chromium}=await import('$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs');console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
       - name: Browser checks of the four sites (all requests outside each local origin aborted)
         run: node deploy/websites/tests/browser_security.mjs
+      - name: Explorer W7 Overview against a fake relay (a refused transaction read, the map's members page)
+        run: node deploy/websites/tests/explorer_w7_browser.mjs

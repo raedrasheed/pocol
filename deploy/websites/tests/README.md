@@ -12,6 +12,8 @@ python3 -B -m unittest discover -s deploy/explorer -v                         # 
 node --test deploy/websites/tests/explorer_w7.test.mjs                        # the explorer's W7 edits and helpers
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/browser_security.mjs
+PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
+  POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/explorer_w7_browser.mjs   # the W7 Overview, fake relay
 ```
 
 ## Explorer v3 membership (Sites W7)
@@ -26,6 +28,10 @@ Registry selectors (checked against keccak-256 of the PoColSystemV3.sol signatur
 the refresh reads one `pocol_getMembers` page and light blocks. `test_explorer_w7_size.py` sends that refresh through
 the gateway's relay at the mainnet profile's bounds: each request (and all three together) stays under 4 MiB, one
 full block (about 393 KB) fits, and 20 full blocks, the refresh before W7, are refused.
+`explorer_w7_browser.mjs` loads the snapshot in Chromium against a fake relay (no node or gateway; every outside
+request aborted) with 300 members: when the gateway refuses the refresh's transaction read (429, its busy answer) after
+the status and block reads, the Latest transactions panel says so with the gateway's message instead of "No
+transactions in this window"; the map's summary counts the loaded members page ("256 members on the loaded page").
 
 The Python tests (`test_site_identity.py`) switch a temporary copy of the snapshots to a test identity and back
 (byte-identical), check that a moved, duplicated or stray anchor fails and writes nothing, exercise anchored edits and
