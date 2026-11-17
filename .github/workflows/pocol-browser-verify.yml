@@ -54,6 +54,13 @@ jobs:
           npm ci --ignore-scripts --prefix prototypes/pocol-extension
           npm run build --prefix prototypes/pocol-extension
           npm test --prefix prototypes/pocol-extension 2>&1 | tee evidence/extension-unit.log
+      - name: Devnet spec fixture regenerates byte for byte (W13)
+        if: always() && steps.build.outcome == 'success'
+        run: |
+          set -o pipefail
+          # Reruns the pocold init-devnet command recorded in tests/rp_fixture.mjs with the pocold just built and compares
+          # its genesis.spec.hex with tests/data/devnet-spec-v3.hex; devnet-spec.hex stays the spec-1 fixture.
+          TMPDIR="$RUNNER_TEMP" npm run test:devnet-spec --prefix prototypes/pocol-extension 2>&1 | tee evidence/devnet-spec-fixture.log
       - name: Verify Studio and IDE publishing and wallet exports
         run: |
           set -euo pipefail

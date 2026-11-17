@@ -14,7 +14,8 @@
     "test:contracts": "node --test tests/contracts_test.mjs",
     "test:contract-ui": "node --test tests/contract_ui_test.mjs",
     "package": "node build.mjs && python3 scripts/package-release.py",
-    "test:modules-browser": "node tests/module_loader_browser.mjs"
+    "test:modules-browser": "node tests/module_loader_browser.mjs",
+    "test:devnet-spec": "node tests/devnet_spec_fixture.mjs"
   },
   "dependencies": {
     "@noble/hashes": "1.8.0",
