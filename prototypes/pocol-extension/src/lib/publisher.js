@@ -374,15 +374,31 @@ export async function publishSite(options) {
       assert(typeof raw === 'string' && hexRx.test(raw), 'The saved signed transaction ' + rec.hash + ' is missing; it cannot be checked or resent');
       return raw;
     };
-    const lastBlock = () => Object.values(state.transactions).reduce((m, r) => (r.receipt?.blockNumber ? (BigInt(r.receipt.blockNumber) > m ? BigInt(r.receipt.blockNumber) : m) : m), -1n);
-    // Economy pacing: the next publication transaction is signed only once the block after the last one exists, so at
-    // most every second block carries one (a full block raises the base fee by ~4.4 %, an empty one lowers it by 12.5 %).
+    // The previous transaction of this publication: the most recently signed record, the highest nonce (records are
+    // signed in nonce order, also across approvals and resumes; its saved receipt may be null or out of date).
+    const previousTx = () => Object.values(state.transactions).reduce((p, r) => (!p || uint(r.tx.nonce) > uint(p.tx.nonce) ? r : p), null);
+    // Economy pacing: the next publication transaction is signed only once a block after the one that holds the previous
+    // transaction exists, so at most every second block carries one (a full block raises the base fee by ~4.4 %, an empty
+    // one lowers it by 12.5 %), and at the base fee that empty block brought back down, which the approved schedule
+    // (fees.js feeSchedule economy) counts. The block that holds the previous transaction is read again on every pass
+    // (`canonicalReceipt`): a reorganization can move it to a later block, or back into the pool, where it has no receipt
+    // (keep waiting), and a head above the block its saved receipt named is then the block that holds it, whose base fee
+    // rise the budget does not count. Each pass reads the head first and the receipt after it, so the receipt is never
+    // older than the head it is compared with, then the base fee, then both again: a reorganization between these reads
+    // (which the node answers one by one) sends the pass round again instead of signing at a base fee read from another
+    // head. Returns that base fee, or null without a previous transaction (the caller reads the base fee itself).
     const economyWait = async () => {
-      const last = lastBlock(); if (last < 0n) return;
+      const prev = previousTx(); if (!prev) return null;
       const deadline = clock() + (options.blockWaitMs ?? 600000);
+      const head = async () => quantityOf(await rpc('eth_blockNumber', []), 'block number');
+      const same = (a, b) => b !== null && a.blockHash.toLowerCase() === b.blockHash.toLowerCase() && BigInt(a.blockNumber) === BigInt(b.blockNumber);
       for (;;) {
         checkAbort();
-        if (quantityOf(await rpc('eth_blockNumber', []), 'block number') > last) return;
+        const h = await head(), held = await canonicalReceipt(prev.hash);
+        if (held && h > BigInt(held.blockNumber)) {
+          const base = await baseNext();
+          if (await head() === h && same(held, await canonicalReceipt(prev.hash))) return base;
+        }
         if (clock() >= deadline) throw new PublishPendingError(null, 'The network has not produced a new block. Resume this publication later.');
         await sleep(Math.max(1, pollMs));
       }
@@ -406,8 +422,8 @@ export async function publishSite(options) {
       let rec = state.transactions[id];
       if (!rec) {
         await network();
-        if (approval.economy) await economyWait();
-        const base = await baseNext();
+        // Economy: the base fee economyWait checked against the head (null without a previous transaction).
+        const base = (approval.economy ? await economyWait() : null) ?? await baseNext();
         let maxFee = capFor(base, approval.tip, MARGIN_PER_MILLE); const planned = approval.schedule.get(id);
         if (planned !== undefined && planned > maxFee) maxFee = planned;
         const spent = uint(state.spentCapWei), cost = gas * maxFee;
