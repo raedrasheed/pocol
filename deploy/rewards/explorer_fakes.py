@@ -41,7 +41,8 @@ def default_answers():
 
 class FakeNode(ThreadingHTTPServer):
     """A pocold JSON-RPC endpoint on 127.0.0.1: `answers[method]` is the answer's fields ({'result': ..} or
-    {'error': ..}), the whole envelope when it has 'envelope', or 'fail' for an HTTP 500."""
+    {'error': ..}), the whole envelope when it has 'envelope', the body bytes when it has 'raw', or 'fail' for an
+    HTTP 500."""
     daemon_threads = True
 
     def __init__(self):
@@ -72,8 +73,11 @@ class NodeHandler(BaseHTTPRequestHandler):
         if answer == 'fail':
             self.send_response(500); self.send_header('Content-Length', '0'); self.end_headers(); return
         answer = copy.deepcopy(answer)
-        envelope = answer['envelope'] if 'envelope' in answer else {'jsonrpc': '2.0', 'id': request['id'], **answer}
-        body = json.dumps(envelope).encode()
+        if 'raw' in answer:
+            body = answer['raw']
+        else:
+            envelope = answer['envelope'] if 'envelope' in answer else {'jsonrpc': '2.0', 'id': request['id'], **answer}
+            body = json.dumps(envelope).encode()
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.send_header('Content-Length', str(len(body)))

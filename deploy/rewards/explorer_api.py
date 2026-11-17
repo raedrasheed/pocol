@@ -298,7 +298,9 @@ class Response:
 
 
 def encode(value):
-    return json.dumps(value, separators=(',', ':')).encode()
+    """Strict JSON: NaN or Infinity (a node answer json.loads accepted) raise ValueError, as PHP's json_decode of the
+    gateway's reply failed on them."""
+    return json.dumps(value, separators=(',', ':'), allow_nan=False).encode()
 
 
 def json_response(status, value, extra=()):
@@ -353,8 +355,13 @@ class Relay:
                     return 503, None, FAILED
                 try:
                     answer = self.gateway.call(call)
-                    size += len(encode(answer)) + 1
                 except Exception:  # an unexpected node answer: the relay's 503, never a dropped connection
+                    return 503, None, FAILED
+                try:
+                    size += len(encode(answer)) + 1
+                except ValueError:  # NaN or Infinity: lib.php's json_decode failed, pocol_forward answered 502
+                    return 502, None, INVALID
+                except Exception:
                     return 503, None, FAILED
                 if size > MAX_REPLY:
                     return 503, None, FAILED

@@ -333,6 +333,14 @@ class ExplorerRelayTests(GatewayServerCase):
         self.assertEqual(self.post(call())[0], 502)
         self.scenario({'node': {'eth_blockNumber': {'error': {'code': True, 'message': 'x'}}}})
         self.assertEqual(self.post(call())[0], 502)
+        # A node answer with NaN, Infinity or an overflowing number (json.loads accepts them; 1e999 is inf) is not JSON:
+        # lib.php's json_decode of it failed and pocol_forward answered 502, never a 200 that a strict parser refuses.
+        for value in (float('nan'), float('inf'), float('-inf')):
+            with self.subTest(value=value):
+                self.scenario({'node': {'eth_gasPrice': {'result': value}}})
+                self.assertEqual(self.post([call(ident=1), call('eth_gasPrice', ident=2)])[:3:2], (502, {'error': api.INVALID}))
+        self.scenario({'node': {'eth_gasPrice': {'raw': b'{"jsonrpc":"2.0","id":1,"result":1e999}'}}})
+        self.assertEqual(self.post(call('eth_gasPrice'))[:3:2], (502, {'error': api.INVALID}))
 
     def test_health(self):
         status, _, raw = self.send('GET', '/api/health.php')
