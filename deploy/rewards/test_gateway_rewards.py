@@ -1,5 +1,6 @@
 import importlib.util
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -16,6 +17,23 @@ spec.loader.exec_module(gateway)
 # A trusted network configuration (--v3-network): every gateway serves one.
 NET = {'chainId': 777963, 'genesisHash': '0x' + '5a' * 32, 'specVersion': 2, 'v3': True}
 OTHER_CHAIN = 777964
+P1_PROFILE = ROOT.parents[1] / 'prototypes' / 'lp4-execution' / 'src' / 'p1_profile.rs'
+
+
+def rust_max_fork_version(src=None):
+    """W13: pocold's fork-version bound, read from the Rust source pocold's build-info also reads (lp4-execution
+    p1_profile.rs, see pocold/build.rs). Exactly one plain `pub const MAX_FORK_VERSION: u16 = N;` line is accepted;
+    anything else is refused rather than guessed."""
+    src = P1_PROFILE.read_text(encoding='utf-8') if src is None else src
+    found = re.findall(r'^pub const MAX_FORK_VERSION: u16 = ([0-9]+);$', src, re.M)
+    if len(found) != 1:
+        raise ValueError(f'{P1_PROFILE} must define pub const MAX_FORK_VERSION: u16 exactly once (found {len(found)})')
+    return int(found[0])
+
+
+def schedule_up_to(version):
+    """[(1, 0), (2, 100), ..., (version, 100 * (version - 1))]: the runtime shape up to `version`."""
+    return [[v, 100 * (v - 1)] for v in range(1, version + 1)]
 
 def request(method='pocol_getBlockReward', params=None, ident=1):
     return {'jsonrpc': '2.0', 'id': ident, 'method': method, 'params': [] if params is None else params}
@@ -598,6 +616,27 @@ class GatewayMembershipTests(unittest.TestCase):
         finally:
             server.shutdown(); server.server_close(); thread.join()
         self.assertEqual(costs, [20 + 5 + 10 + 1])
+
+
+class ForkVersionBoundTests(unittest.TestCase):
+    """W13: pocol_rewards.MAX_FORK_VERSION, the gateway's schedule bound, is a copy of pocold's; it moves with
+    p1_profile.rs or this fails."""
+
+    def test_the_python_bound_equals_p1_profile(self):
+        import pocol_rewards
+        rust = rust_max_fork_version()
+        self.assertEqual(pocol_rewards.MAX_FORK_VERSION, rust)
+        # The gateway's own loader uses that bound: a schedule up to the Rust bound passes, one version more does not.
+        self.assertEqual(gateway.validated_fork_schedule(schedule_up_to(rust)), tuple(map(tuple, schedule_up_to(rust))))
+        with self.assertRaises((ValueError, RuntimeError)):
+            gateway.validated_fork_schedule(schedule_up_to(rust + 1))
+
+    def test_the_reader_refuses_what_it_cannot_read_exactly(self):
+        self.assertEqual(rust_max_fork_version('pub const MAX_FORK_VERSION: u16 = 7;\n'), 7)
+        for src in ('', '// pub const MAX_FORK_VERSION: u16 = 3;\n', 'pub const MAX_FORK_VERSION: u32 = 3;\n',
+                    'pub const MAX_FORK_VERSION: u16 = 3;\npub const MAX_FORK_VERSION: u16 = 4;\n'):
+            with self.subTest(src=src), self.assertRaises(ValueError):
+                rust_max_fork_version(src)
 
 
 if __name__ == '__main__':
