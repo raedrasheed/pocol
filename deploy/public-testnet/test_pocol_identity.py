@@ -12,6 +12,7 @@ import pocol_identity as ident
 
 REPO = Path(__file__).resolve().parents[2]
 CORPUS = REPO / 'prototypes' / 'pocol-extension' / 'tests' / 'data'
+P1_PROFILE = REPO / 'prototypes' / 'lp4-execution' / 'src' / 'p1_profile.rs'
 
 # A synthetic network with one scheduled activation; the new network's golden identity is pinned once its genesis
 # exists. Pinned also by pocold identity::tests::a_scheduled_upgrade_identity_is_pinned.
@@ -28,6 +29,22 @@ def published_devnet_json():
         'chainId': CHAIN_ID, 'genesisHash': '0x' + GENESIS, 'genesisTime': 1800000000, 'profileKind': 'simnet',
         'keyMode': 'independent-key-files', 'forks': [list(f) for f in FORKS], 'registrationPerBlock': 1,
         'continuous': True, 'miners': [], 'calibration': {'hashesPerSecond': 26214, 'class': 'synthetic-fixture'}}))
+
+
+def rust_max_fork_version(src=None):
+    """W13: pocold's fork-version bound, read from the Rust source pocold's build-info also reads (lp4-execution
+    p1_profile.rs, see pocold/build.rs). Exactly one plain `pub const MAX_FORK_VERSION: u16 = N;` line is accepted;
+    anything else is refused rather than guessed."""
+    src = P1_PROFILE.read_text(encoding='utf-8') if src is None else src
+    found = re.findall(r'^pub const MAX_FORK_VERSION: u16 = ([0-9]+);$', src, re.M)
+    if len(found) != 1:
+        raise ValueError(f'{P1_PROFILE} must define pub const MAX_FORK_VERSION: u16 exactly once (found {len(found)})')
+    return int(found[0])
+
+
+def schedule_up_to(version):
+    """[(1, 0), (2, 100), ..., (version, 100 * (version - 1))]: the runtime shape up to `version`."""
+    return [[v, 100 * (v - 1)] for v in range(1, version + 1)]
 
 
 class ConsensusIdentity(unittest.TestCase):
@@ -149,6 +166,25 @@ def verdict(b, max_version):
         return 'ok'
     except ident.GenesisSpecError as error:
         return f'{error.code}:{error.detail}'
+
+
+class ForkVersionBound(unittest.TestCase):
+    """W13: pocol_identity.MAX_FORK_VERSION (the fallback bound when a build-info has no maxForkVersion) is a copy of
+    pocold's; it moves with p1_profile.rs or this fails."""
+
+    def test_the_python_bound_equals_p1_profile(self):
+        rust = rust_max_fork_version()
+        self.assertEqual(ident.MAX_FORK_VERSION, rust)
+        self.assertEqual(ident.validated_schedule(schedule_up_to(rust)), tuple(map(tuple, schedule_up_to(rust))))
+        with self.assertRaises(ValueError):
+            ident.validated_schedule(schedule_up_to(rust + 1))
+
+    def test_the_reader_refuses_what_it_cannot_read_exactly(self):
+        self.assertEqual(rust_max_fork_version('pub const MAX_FORK_VERSION: u16 = 7;\n'), 7)
+        for src in ('', '// pub const MAX_FORK_VERSION: u16 = 3;\n', 'pub const MAX_FORK_VERSION: u32 = 3;\n',
+                    'pub const MAX_FORK_VERSION: u16 = 3;\npub const MAX_FORK_VERSION: u16 = 4;\n'):
+            with self.subTest(src=src), self.assertRaises(ValueError):
+                rust_max_fork_version(src)
 
 
 class GenesisSpecReference(unittest.TestCase):
