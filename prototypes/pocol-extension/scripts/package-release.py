@@ -26,6 +26,9 @@ Until the identity switch the tree carries the placeholder, so no release is pac
 refuses the build with "network placeholder" instead (.github/workflows). The network placeholder is refused before the
 manifest key, so that refusal holds whatever the key slot holds.
 
+The zip is reproducible (W14, write_release_zip): the same dist/ bytes give the same zip and `<zip>.sha256` wherever
+and whenever they were built, given the same zlib (tests/package_release_test.mjs; the CI double build compares two
+checkouts on one image).
 The `<zip>.sha256` it writes is integrity only. A release is published only with its ssh-ed25519 release signature
 (owner decision 2026-11-16, deploy/release/README.md): the owner signs the zip with SHA256SUMS; this packager never signs.
 """
@@ -262,6 +265,52 @@ def check_release(root, dist, version, retired_file):
     return release_id
 
 
+# Fixed archive metadata (W14 reproducible zip): the zip depends only on the bytes and relative paths of dist/, not on
+# where dist/ was built, the order its files were made in, their mtimes or modes, the umask, the clock, the time zone
+# or the host OS. Compression is DEFLATE at level 9, stated per entry: a ZipInfo given to writestr() does not take the
+# ZipFile's compresslevel, so it would otherwise fall back to zlib's default. zlib itself is the one input this cannot
+# pin, so the CI double build (.github/workflows/full-nonce-upgrade.yml, extension-reproducible) builds on one image.
+ZIP_DATE = (1980, 1, 1, 0, 0, 0)
+ZIP_MODE = 0o100644
+ZIP_LEVEL = 9
+
+
+def release_members(dist):
+    """(archive name, path) of every regular file under dist/, sorted by archive name (a POSIX path compared as a
+    string, the same on every OS and filesystem); a symbolic link or a member no release has is refused."""
+    members = []
+    for path in dist.rglob('*'):
+        relative = path.relative_to(dist).as_posix()
+        if path.is_symlink():
+            raise SystemExit(f'Release must not contain symbolic links: {relative}')
+        if not path.is_file():
+            continue
+        if 'node_modules' in path.relative_to(dist).parts or 'dist-fault' in relative or relative.endswith('.pocol-key'):
+            raise SystemExit(f'Unexpected release member: {relative}')
+        members.append((relative, path))
+    return sorted(members)
+
+
+def write_release_zip(dist, output):
+    """Write the release zip of dist/ to `output` and its `<zip>.sha256` (integrity only, LF, the zip's file name) next
+    to it; return the zip's SHA-256. No release check is made here: main() runs check_release() first."""
+    dist, output = Path(dist), Path(output)
+    if dist.resolve() in output.resolve().parents:
+        raise SystemExit('Refusing to package: the release zip must be written outside dist/')
+    members = release_members(dist)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=ZIP_LEVEL) as archive:
+        for relative, path in members:
+            entry = zipfile.ZipInfo(relative, date_time=ZIP_DATE)
+            entry.create_system = 3  # Unix, also when packaged on Windows (ZipInfo's default there is 0)
+            entry.compress_type = zipfile.ZIP_DEFLATED
+            entry.external_attr = ZIP_MODE << 16
+            archive.writestr(entry, path.read_bytes(), compresslevel=ZIP_LEVEL)
+    digest = hashlib.sha256(output.read_bytes()).hexdigest()
+    output.with_suffix(output.suffix + '.sha256').write_bytes(f'{digest}  {output.name}\n'.encode('utf-8'))
+    return digest
+
+
 def main(argv):
     root = Path(__file__).resolve().parents[1]
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -286,22 +335,7 @@ def main(argv):
         if not (dist / name).is_file():
             raise SystemExit(f'Missing built release file: {name}. Run npm run build first.')
     release_id = check_release(root, dist, version, args.retired)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(output, 'w', compression=zipfile.ZIP_DEFLATED, compresslevel=9) as archive:
-        for path in sorted(dist.rglob('*')):
-            if path.is_symlink():
-                raise SystemExit(f'Release must not contain symbolic links: {path.name}')
-            if not path.is_file():
-                continue
-            relative = path.relative_to(dist).as_posix()
-            if 'node_modules' in path.parts or 'dist-fault' in relative or relative.endswith('.pocol-key'):
-                raise SystemExit(f'Unexpected release member: {relative}')
-            entry = zipfile.ZipInfo(relative, date_time=(1980, 1, 1, 0, 0, 0))
-            entry.compress_type = zipfile.ZIP_DEFLATED
-            entry.external_attr = 0o100644 << 16
-            archive.writestr(entry, path.read_bytes())
-    digest = hashlib.sha256(output.read_bytes()).hexdigest()
-    output.with_suffix(output.suffix + '.sha256').write_text(f'{digest}  {output.name}\n')
+    digest = write_release_zip(dist, output)
     print(f'{output}\nSHA-256 {digest}\n{output.stat().st_size} bytes\nextension id {release_id}\n'
           'UNSIGNED: sign with deploy/release (ssh-keygen -Y sign -n pocol-release) before publishing')
 
