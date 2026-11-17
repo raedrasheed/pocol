@@ -183,7 +183,10 @@ const CAP_FIELDS = [['accounts','accountsCap','accounts (ACCT_CAP)'],['storageSl
 // Counted per block, not over the branch, when pocol_getCaps reports `cumulative` false.
 const PER_BLOCK = new Set(['txCount','txBytes','logBytes']);
 const hexLen = (h) => (h.length - 2) / 2;
-export function publishNeeds(plan, {newSite, missing}) {
+// `versionCount`: the named Website's version count when it exists (newSite false). A Website with no version yet (a
+// publication stopped after its deploy) gains its version counter slot on the first createVersion, so that slot is
+// counted too: 4 + m slots, not the update's 3 + m (pocold site.rs publish_needs_on; fn1_caps.rs measures both).
+export function publishNeeds(plan, {newSite, missing, versionCount = null}) {
   const p = snapshot(plan); const absent = p.chunks.filter((c) => missing.has(c.address));
   const storeData = (n) => 4 + 64 + Math.ceil(n / 32) * 32;
   const versionData = 4 + 96 + 32 + 32 * p.manifestChunks.length;
@@ -191,7 +194,7 @@ export function publishNeeds(plan, {newSite, missing}) {
   const largest = Math.max(versionData, 36, newSite ? hexLen(WEBSITE_INITCODE) : 0, ...absent.map((c) => storeData(c.data.length)));
   return {
     accounts: absent.length + (newSite ? 1 : 0),
-    storageSlots: (newSite ? 4 : 0) + 3 + p.manifestChunks.length,
+    storageSlots: (newSite ? 4 : (versionCount === 0n ? 1 : 0)) + 3 + p.manifestChunks.length,
     codeBytes: absent.reduce((n, c) => n + 1 + c.data.length, 0) + (newSite ? hexLen(WEBSITE_RUNTIME) : 0),
     txCount: txs,
     txBytes: absent.reduce((n, c) => n + storeData(c.data.length), 0) + (newSite ? hexLen(WEBSITE_INITCODE) : 0) + versionData + 36 + 36 + txs * TX_ENVELOPE_MAX,
@@ -371,15 +374,31 @@ export async function publishSite(options) {
       assert(typeof raw === 'string' && hexRx.test(raw), 'The saved signed transaction ' + rec.hash + ' is missing; it cannot be checked or resent');
       return raw;
     };
-    const lastBlock = () => Object.values(state.transactions).reduce((m, r) => (r.receipt?.blockNumber ? (BigInt(r.receipt.blockNumber) > m ? BigInt(r.receipt.blockNumber) : m) : m), -1n);
-    // Economy pacing: the next publication transaction is signed only once the block after the last one exists, so at
-    // most every second block carries one (a full block raises the base fee by ~4.4 %, an empty one lowers it by 12.5 %).
+    // The previous transaction of this publication: the most recently signed record, the highest nonce (records are
+    // signed in nonce order, also across approvals and resumes; its saved receipt may be null or out of date).
+    const previousTx = () => Object.values(state.transactions).reduce((p, r) => (!p || uint(r.tx.nonce) > uint(p.tx.nonce) ? r : p), null);
+    // Economy pacing: the next publication transaction is signed only once a block after the one that holds the previous
+    // transaction exists, so at most every second block carries one (a full block raises the base fee by ~4.4 %, an empty
+    // one lowers it by 12.5 %), and at the base fee that empty block brought back down, which the approved schedule
+    // (fees.js feeSchedule economy) counts. The block that holds the previous transaction is read again on every pass
+    // (`canonicalReceipt`): a reorganization can move it to a later block, or back into the pool, where it has no receipt
+    // (keep waiting), and a head above the block its saved receipt named is then the block that holds it, whose base fee
+    // rise the budget does not count. Each pass reads the head first and the receipt after it, so the receipt is never
+    // older than the head it is compared with, then the base fee, then both again: a reorganization between these reads
+    // (which the node answers one by one) sends the pass round again instead of signing at a base fee read from another
+    // head. Returns that base fee, or null without a previous transaction (the caller reads the base fee itself).
     const economyWait = async () => {
-      const last = lastBlock(); if (last < 0n) return;
+      const prev = previousTx(); if (!prev) return null;
       const deadline = clock() + (options.blockWaitMs ?? 600000);
+      const head = async () => quantityOf(await rpc('eth_blockNumber', []), 'block number');
+      const same = (a, b) => b !== null && a.blockHash.toLowerCase() === b.blockHash.toLowerCase() && BigInt(a.blockNumber) === BigInt(b.blockNumber);
       for (;;) {
         checkAbort();
-        if (quantityOf(await rpc('eth_blockNumber', []), 'block number') > last) return;
+        const h = await head(), held = await canonicalReceipt(prev.hash);
+        if (held && h > BigInt(held.blockNumber)) {
+          const base = await baseNext();
+          if (await head() === h && same(held, await canonicalReceipt(prev.hash))) return base;
+        }
         if (clock() >= deadline) throw new PublishPendingError(null, 'The network has not produced a new block. Resume this publication later.');
         await sleep(Math.max(1, pollMs));
       }
@@ -403,8 +422,8 @@ export async function publishSite(options) {
       let rec = state.transactions[id];
       if (!rec) {
         await network();
-        if (approval.economy) await economyWait();
-        const base = await baseNext();
+        // Economy: the base fee economyWait checked against the head (null without a previous transaction).
+        const base = (approval.economy ? await economyWait() : null) ?? await baseNext();
         let maxFee = capFor(base, approval.tip, MARGIN_PER_MILLE); const planned = approval.schedule.get(id);
         if (planned !== undefined && planned > maxFee) maxFee = planned;
         const spent = uint(state.spentCapWei), cost = gas * maxFee;
@@ -479,12 +498,18 @@ export async function publishSite(options) {
     const scanned = new Map();
     if (!Object.keys(state.transactions).length) {
       const missing = new Set(); let pre = null;
-      try { for (const c of plan.chunks) { checkAbort(); const code = await readCode(c.address); scanned.set(c.address, code); if (code === '0x') missing.add(c.address); } }
+      let versionCount = null;
+      try {
+        for (const c of plan.chunks) { checkAbort(); const code = await readCode(c.address); scanned.set(c.address, code); if (code === '0x') missing.add(c.address); }
+        // An existing Website: its version count decides whether the first createVersion adds the counter slot. An
+        // address with no code answers empty, read as no version (the cautious count).
+        if (state.site) { const raw = await call(state.site, selector('versionCount()')); versionCount = raw === '0x' ? 0n : decodeWord(raw, 0); }
+      }
       catch (e) {
         if (!e?.transport && !e?.rpc) throw e;
         pre = {checked:false, warning:'The network endpoint did not answer the chunk scan (eth_getCode: ' + (e.transport || e.rpc?.message || 'error') + '): the capacity pre-check was skipped.'};
       }
-      pre ??= await capsPrecheck(rpc, publishNeeds(plan, {newSite:!state.site, missing}));
+      pre ??= await capsPrecheck(rpc, publishNeeds(plan, {newSite:!state.site, missing, versionCount}));
       if (!pre.checked) { try { options.onWarning?.(pre.warning); } catch {} progress({phase:'warning', message:pre.warning}); }
       else if (pre.alarms.length) progress({phase:'capsAlarm', alarms:pre.alarms});
     }

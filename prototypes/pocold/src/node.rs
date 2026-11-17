@@ -1219,7 +1219,15 @@ impl Node{
                 history.sync().map_err(|e|format!("replay {i}: history {}",e.0))?;
                 // C-1 S5 (I5): the index is durable below the window the checkpoint describes.
                 canon.sync().map_err(|e|format!("replay {i}: canonical index: {e}"))?;
-                match write_checkpoint(&chain,st,&crate::checkpoint::Binding{records:i as u64+1,end:end_of(i+1),hash:run}){
+                // The checkpoint after the journal's last record is the one the running node goes on from, and is written
+                // as the running node's (no protect set): its sealed set would be empty (no record follows yet), and the
+                // record the node appends next builds on one of its entries, so the next open would recompute another set
+                // and refuse it (2026-11-17, Windows CI e4_checkpoint_survives_kills). The live checkpoints written from
+                // this state on carry no set either.
+                let last=i+1==n_rec;if last{chain.replaying=false;}
+                let wrote=write_checkpoint(&chain,st,&crate::checkpoint::Binding{records:i as u64+1,end:end_of(i+1),hash:run});
+                if last{chain.replaying=true;}
+                match wrote{
                     Ok(_)=>{written+=1;ckpt_last=i as u64+1;}
                     Err(e) if st.io_failed()=>return Err(format!("replay {i}: state store: the checkpoint's write: {e}")),
                     Err(e)=>if cfg.log{eprintln!("[{}] checkpoint at record {}: {e}",cfg.name,i+1)}}timing.replay_checkpoint_ms+=ms(t);}}

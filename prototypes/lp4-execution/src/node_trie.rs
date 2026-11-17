@@ -429,7 +429,11 @@ impl NodeTrie{
         diff_ids(s,self.world.as_ref(),to.world.as_ref(),&mut |c|match c{
             Change::Gone(_,Val::Acct{address,..})=>t.whole_account(*address),
             Change::Came(_,Val::Acct{address,storage,..})=>{t.whole_account(*address);if let Some(st)=storage{walk(s,st,&mut |_,_|{})}}
-            Change::Moved(_,Val::Acct{address,storage:x,..},Val::Acct{storage:y,..})=>{let a=*address;t.account(a);
+            // A leaf names its storage trie's top node by `Id`, which can differ for the same slots (a branch keeps
+            // the key of a child its update had at hand, not always the smallest below it): the account is listed
+            // when its fields differ or a slot does, as `Touched::between` lists it; the storage is still compared.
+            Change::Moved(_,Val::Acct{address,nonce:n1,balance:b1,code_hash:c1,storage:x,..},Val::Acct{nonce:n2,balance:b2,code_hash:c2,storage:y,..})=>{let a=*address;
+                if (n1,b1,c1)!=(n2,b2,c2){t.account(a)}
                 diff_ids(s,x.as_ref(),y.as_ref(),&mut |c|match c{Change::Gone(_,Val::Slot(_,k))|Change::Came(_,Val::Slot(_,k))|Change::Moved(_,_,Val::Slot(_,k))=>t.slot(a,*k),
                     _=>panic!("C-1 E4: an account leaf in a storage trie")})}
             _=>panic!("C-1 E4: a slot leaf in the world trie"),

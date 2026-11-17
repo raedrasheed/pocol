@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,planTransactions,remainingTransactions,readNetworkFees,mimeIdFor,FACTORY,MAX_APPROVALS,STATE_NOT_HELD,RATE_RESENDS} from '../dist/lib/publisher.js';
+import {prepareSite,quotePublish,publishSite,selector,word,abiUint,abiBytes,PublishPendingError,PublishRevertedError,PublishCapsError,PublishFeeRoseError,publishNeeds,capsPrecheck,TX_ENVELOPE_MAX,planTransactions,remainingTransactions,readNetworkFees,mimeIdFor,FACTORY,MAX_APPROVALS,STATE_NOT_HELD,RATE_RESENDS} from '../dist/lib/publisher.js';
 import {nextBaseFee,feeSchedule,capFor,GAS_LIMIT,BASE_FEE_FLOOR,ABSOLUTE_CEILING} from '../dist/lib/fees.js';
 import {KeyLease,JOB_DEADLINE_MAX_MS} from '../dist/lib/lease.js';
 import {isForeignJob,blocksAccount,archiveForeignJobs,archivedJobs,jobNetwork,archiveJob} from '../dist/lib/jobs.js';
@@ -65,7 +65,7 @@ function mock() {
   // Sites W4: the mock chain mines one block per accepted transaction, its gasUsed the declared gas, and moves the base
   // fee by the reference London rule below (`chain.base` is the next block's base fee). `unsafe` chunks are absent at
   // the `safe` tag; `reorgOut` chunks disappear from `latest` too when the sweep first reads them at `safe`.
-  const chain={head:42n,base:BASE_FEE_FLOOR,unsafe:new Set(),reorgOut:new Set(),spikeAfter:null,spike:1n,gasUsedPercent:100n,clockOnSend:null};
+  const chain={head:42n,base:BASE_FEE_FLOOR,unsafe:new Set(),reorgOut:new Set(),spikeAfter:null,spike:1n,gasUsedPercent:100n,clockOnSend:null,slept:false};
   const control={allow:true,wrongNetwork:false,failAfterSend:null,unknownBeforeSend:false,rateBeforeSend:0,busyBeforeSend:false,noReceipt:false,failSave:false,wrongHash:false,revert:false,publishAfterCreate:false,wrongVersionChunks:false,orphanBlock:false,
     // FN-1: pocol_getCaps. `room` overrides a cap's remaining room (count = cap - room); `caps` 'missing' answers -32601, 'transport' a relay refusal.
     caps:'ok',room:{},capCount:{},cumulative:true,
@@ -94,7 +94,9 @@ function mock() {
     if(method==='eth_feeHistory')return {oldestBlock:'0x'+chain.head.toString(16),baseFeePerGas:['0x'+chain.base.toString(16),'0x'+chain.base.toString(16)],gasUsedRatio:[0],reward:[]};
     if(method==='eth_gasPrice')return '0x'+(chain.base+10n**9n).toString(16);
     if(method==='eth_maxPriorityFeePerGas')return '0x'+(10n**9n).toString(16);
-    if(method==='eth_blockNumber'){if(control.emptyBlockOnPoll){chain.head++;chain.base=refNext(chain.base,0n,GAS_LIMIT,BASE_FEE_FLOOR);logs.bases.push(chain.base);}return '0x'+chain.head.toString(16);}
+    // `emptyBlockOnPoll`: the chain mines one empty block per wait of the publisher (its `sleep`), seen by the next
+    // eth_blockNumber; the reads of one economy pass (head, receipt, base fee, head again) all see the same head.
+    if(method==='eth_blockNumber'){if(control.emptyBlockOnPoll&&chain.slept){chain.slept=false;chain.head++;chain.base=refNext(chain.base,0n,GAS_LIMIT,BASE_FEE_FLOOR);logs.bases.push(chain.base);}return '0x'+chain.head.toString(16);}
     if(method==='eth_getBalance')return '0x'+(10n**30n).toString(16);
     if(method==='eth_getTransactionCount')return '0x'+nonce.toString(16);
     if(method==='eth_getCode'){
@@ -154,7 +156,10 @@ function mock() {
   }
   let state;
   // The approval is quoted at the floor base fee and the node tip, as the publisher page quotes an idle chain.
-  const options=(plan=sample(),more={})=>({plan,rpc,address:owner,chainId,genesisHash:genesis,...(more.approval?{}:{approval:approve(plan,{site:more.site})}),sign:async tx=>{logs.signed.push(tx);return signTx(secret,tx);},onCheckpoint:async s=>{if(control.failSave)throw new Error('Storage full');state=s;},pollIntervalMs:0,receiptTimeoutMs:10,readBurst:64,...more});
+  const options=(plan=sample(),more={})=>{
+    const o={plan,rpc,address:owner,chainId,genesisHash:genesis,...(more.approval?{}:{approval:approve(plan,{site:more.site})}),sign:async tx=>{logs.signed.push(tx);return signTx(secret,tx);},onCheckpoint:async s=>{if(control.failSave)throw new Error('Storage full');state=s;},pollIntervalMs:0,receiptTimeoutMs:10,readBurst:64,...more};
+    const sleep=o.sleep??(ms=>new Promise(resolve=>setTimeout(resolve,ms)));o.sleep=async ms=>{chain.slept=true;return sleep(ms);};return o;
+  };
   return {rpc,logs,control,chain,codes,receipts,versions,options,reorg(){codes.clear();receipts.clear();versions.length=0;nonce=0n;current=null;site=null;},get state(){return state;},get site(){return site;}};
 }
 test('canonical manifest and chunks are accepted by existing independent viewer',()=>{
@@ -249,6 +254,38 @@ test('the needs are what the publication adds: accounts, code, transactions, and
   // The mock does not execute Website.sol: pocold tests/fn1_caps.rs (a_website_publication_adds_what_the_publisher_pre_check_expects)
   // executes a publication and checks these slot counts (4 + 3 + n new, 3 + n update) against the chain.
   assert.equal(need.storageSlots,4+3+p.manifestChunks.length);assert.equal(need.logBytes,0);
+});
+// Sites W12: the same needs as pocol-site's pre-check (pocold src/site.rs publish_needs), through the fixture both read.
+test('the needs follow the fixture shared with pocol-site (pocold tests/data/publish_needs.json)',()=>{
+  const fx=JSON.parse(readFileSync(fileURLToPath(new URL('../../pocold/tests/data/publish_needs.json',import.meta.url)),'utf8'));
+  assert.equal(fx.txEnvelopeMax,TX_ENVELOPE_MAX);
+  assert.equal(fx.websiteRuntimeBytes,(WEBSITE_RUNTIME.length-2)/2);assert.equal(fx.websiteInitcodeBytes,(WEBSITE_INITCODE.length-2)/2);
+  assert.equal(fx.cases.length,7);
+  const bytesOf=(f)=>f.text!==undefined?enc.encode(f.text):new Uint8Array(f.size).fill(f.fill);
+  for(const c of fx.cases){
+    const files=c.files.map(f=>({path:f.path,data:bytesOf(f)}));
+    if(c.series)for(let i=0;i<c.series.count;i++)files.push({path:c.series.prefix+String(i).padStart(3,'0')+c.series.suffix,data:enc.encode(c.series.text)});
+    const p=prepareSite(files,{entry:c.entry});
+    assert.equal(p.manifest.length,c.manifestBytes,c.name);assert.equal(p.manifestHash,c.manifestHash,c.name);
+    assert.equal(p.chunks.length,c.chunks,c.name);assert.equal(p.manifestChunks.length,c.manifestChunks,c.name);
+    const stored=new Set(c.stored==='all'?p.chunks.map(x=>x.address):p.files.filter(f=>c.stored.includes(f.path)).flatMap(f=>f.chunks.map(x=>x.address)));
+    const missing=new Set(p.chunks.map(x=>x.address).filter(a=>!stored.has(a)));assert.equal(missing.size,c.missingChunks,c.name);
+    assert.deepEqual(publishNeeds(p,{newSite:c.newSite,missing}),c.needs,c.name);
+  }
+});
+// Sites W12 follow-up: a Website with no version yet (a publication stopped after its deploy) gains its version counter
+// slot on the first createVersion, as pocol-site counts it (pocold site.rs publish_needs_on).
+test('a resumed Website with no version counts its version counter slot',async()=>{
+  const p=sample(),missing=new Set(p.chunks.map(c=>c.address)),m0=p.manifestChunks.length;
+  assert.equal(publishNeeds(p,{newSite:false,missing,versionCount:0n}).storageSlots,4+m0);
+  assert.equal(publishNeeds(p,{newSite:false,missing,versionCount:1n}).storageSlots,3+m0);
+  assert.equal(publishNeeds(p,{newSite:false,missing}).storageSlots,3+m0,'no count read: the update case');
+  const m=mock(),r=await publishSite(m.options());m.versions.length=0; // the Website stays, with no version
+  const p2=prepareSite([{path:'/index.html',data:enc.encode('First version')}]),need=publishNeeds(p2,{newSite:false,missing:new Set(p2.chunks.map(c=>c.address)),versionCount:0n});
+  m.control.room={storageSlots:need.storageSlots-1};const before=m.logs.signed.length;
+  await assert.rejects(publishSite(m.options(p2,{site:r.site})),e=>e instanceof PublishCapsError&&/storage slots \(SLOT_CAP\)/.test(e.message)&&e.shortfalls[0].need===String(need.storageSlots));
+  assert.equal(m.logs.signed.length,before,'nothing signed');
+  m.control.room={storageSlots:need.storageSlots};const r2=await publishSite(m.options(p2,{site:r.site}));assert.equal(r2.version,0);
 });
 test('chunks already on chain are not counted against the caps',async()=>{
   const m=mock(),p=sample();for(const c of p.chunks)m.codes.set(c.address,toHex(concat(Uint8Array.of(0),c.data)));
@@ -518,6 +555,62 @@ test('W4: economy pacing signs one publication transaction every second block an
   for(let i=1;i<blocks.length;i++)assert.ok(blocks[i]-blocks[i-1]>=2n,'one publication transaction every second block');
   assert.ok(m.logs.bases.every(b=>b<=BASE_FEE_FLOOR*1045n/1000n+1n),'the base fee stays at the floor');
   assert.equal(quotePublish(p,{fees:FLOOR_FEES}).approval.economy,false,'economy is off by default');
+});
+// Economy pacing under a reorganization (the bug the Rust CLI's Publisher::tx fixed on claude/site-economy-reorg): the
+// wait reads the block that holds the previous transaction NOW, never the block its saved receipt named. `script(method,
+// m, prev)` runs before each call the publisher makes while its first transaction is the previous one (the wait before
+// the second), `prev` that transaction's hash. Every transaction must be signed at the floor schedule's maxFee, and
+// only once the head is above the block that holds the previous transaction.
+async function economyReorgRun(script){
+  const m=mock(),p=sample(),v=virtual();m.control.emptyBlockOnPoll=true;const q=quotePublish(p,{fees:FLOOR_FEES,economy:true});
+  const o=m.options(p,{approval:q.approval,clock:v.clock,sleep:v.sleep,pollIntervalMs:1000}),inner=o.rpc,sign=o.sign,hash=(raw)=>toHex(keccak(fromHex(raw)));
+  o.rpc=async(method,params)=>{if(m.logs.sent.length===1)script(method,m,hash(m.logs.sent[0]));return inner(method,params);};
+  o.sign=async(tx)=>{
+    if(m.logs.sent.length){const r=m.receipts.get(hash(m.logs.sent.at(-1)));assert.ok(r&&m.chain.head>BigInt(r.blockNumber),'signed only once a block above the one that holds the previous transaction exists');}
+    return sign(tx);
+  };
+  const r=await publishSite(o);assert.equal(r.verified,true);assert.equal(m.state.complete,true);
+  for(const[id,rec]of Object.entries(m.state.transactions))assert.equal(rec.tx.maxFee,q.approval.schedule[id],id+' is signed at the floor schedule');
+  const blocks=Object.values(m.state.transactions).map(rec=>BigInt(rec.receipt.blockNumber)).sort((a,b)=>a<b?-1:a>b?1:0);
+  for(let i=1;i<blocks.length;i++)assert.ok(blocks[i]-blocks[i-1]>=2n,'one publication transaction every second block');
+  return {m,feeReads:m.logs.calls.filter(([x])=>x==='eth_feeHistory').length};
+}
+const RAISED=refNext(BASE_FEE_FLOOR,GAS_LIMIT,GAS_LIMIT,BASE_FEE_FLOOR);
+test('W4: economy pacing waits for a block above the one that holds the previous transaction now, after a reorganization moved it',async()=>{
+  assert.ok(capFor(RAISED,10n**9n)>capFor(BASE_FEE_FLOOR,10n**9n),'a transaction signed at the raised base fee is above the floor schedule');
+  // While the head is N (the block the first receipt named): the block N is replaced by an empty one and the first
+  // transaction is back in the pool (no receipt) for two passes, then the block N+1 holds it and raises the base fee,
+  // then the empty block N+2 brings it back down. The head N+1 is above the saved receipt's N: a wait on that block
+  // signs the second transaction at the raised base fee.
+  let step=0,n=null;
+  const {m,feeReads}=await economyReorgRun((method,m,prev)=>{
+    if(method!=='eth_blockNumber'||step>=4||(step>0&&!m.chain.slept))return;
+    if(step===0){const r=m.receipts.get(prev);n=BigInt(r.blockNumber);assert.equal(m.chain.head,n);m.receipts.delete(prev);}
+    else if(step===2){m.chain.head=n+1n;m.receipts.set(prev,{transactionHash:prev,status:'0x1',blockNumber:'0x'+(n+1n).toString(16),blockHash,contractAddress:null});m.chain.base=RAISED;}
+    else if(step===3){m.chain.head=n+2n;m.chain.base=refNext(RAISED,0n,GAS_LIMIT,BASE_FEE_FLOOR);}
+    step++;m.chain.slept=false;
+  });
+  assert.equal(step,4,'the reorganization ran');
+  assert.equal(feeReads,m.logs.signed.length,'one base fee read per signature: the one the wait checked against the head');
+});
+test('W4: economy pacing reads the head and the previous transaction again after the base fee, and goes round on a reorganization between them',async()=>{
+  // The first eth_feeHistory of the wait (the head N+1 is above the block N that holds the first transaction): a
+  // reorganization at the same height moves the first transaction into the block N+1 and raises the base fee.
+  let moved=0;
+  const a=await economyReorgRun((method,m,prev)=>{
+    if(method!=='eth_feeHistory'||moved++)return;
+    const n=BigInt(m.receipts.get(prev).blockNumber);assert.equal(m.chain.head,n+1n);
+    m.receipts.set(prev,{...m.receipts.get(prev),blockNumber:'0x'+(n+1n).toString(16)});m.chain.base=RAISED;
+  });
+  assert.ok(moved>=1);assert.equal(a.feeReads,a.m.logs.signed.length+1,'the base fee read across the reorganization is not used');
+  // The same read, with the head falling back to N (the empty block N+1 is reorganized away, the first transaction
+  // stays in N) and the base fee the block after N would bring.
+  let fell=0;
+  const b=await economyReorgRun((method,m,prev)=>{
+    if(method!=='eth_feeHistory'||fell++)return;
+    const n=BigInt(m.receipts.get(prev).blockNumber);assert.equal(m.chain.head,n+1n);m.chain.head=n;m.chain.base=RAISED;
+  });
+  assert.ok(fell>=1);assert.equal(b.feeReads,b.m.logs.signed.length+1,'the base fee read across the reorganization is not used');
 });
 test('W4: jobs of another network never block the wallet, and are archived read-only',async()=>{
   const NET={chainId:chainId,genesisHash:genesis},addr=owner;
