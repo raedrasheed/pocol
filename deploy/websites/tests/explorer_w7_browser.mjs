@@ -5,7 +5,8 @@
 //   node deploy/websites/tests/explorer_w7_browser.mjs     (needs Playwright/Chromium: PLAYWRIGHT_MODULE, POCOL_CHROMIUM)
 // 1. The gateway refuses the refresh's third request, the eth_getTransactionByHash batch, with its busy answer (429)
 //    after the status and block reads succeed: the Latest transactions panel says the read failed and gives the
-//    gateway's message, not "No transactions in this window".
+//    gateway's message, not "No transactions in this window". A refusal whose message has no closing period
+//    (a 503 without an error field: "Data source unavailable") still reads as two sentences.
 // 2. The same read answered: the panel lists the transactions. No transactions in the window: the empty state.
 // 3. The map's summary counts the loaded members page ("256 members on the loaded page"), not "registered miners",
 //    beside "Active members 300".
@@ -68,6 +69,8 @@ async function serve(state) {
       let body = ''; for await (const c of req) body += c;
       const calls = JSON.parse(body); state.batches.push(calls.map((c) => c.method));
       if (state.busyTxRead && calls.every((c) => c.method === 'eth_getTransactionByHash')) {
+        // 'down': a 503 without an error field, which the bundle reports as "Data source unavailable" (no period).
+        if (state.busyTxRead === 'down') { res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' }); return res.end('{}'); }
         res.writeHead(429, { 'content-type': 'application/json; charset=utf-8', 'retry-after': '3' }); return res.end(JSON.stringify({ error: BUSY }));
       }
       res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); return res.end(JSON.stringify(calls.map((c) => answer(state, c))));
@@ -115,16 +118,20 @@ try {
   check('the refresh sent the status batch, the light blocks, then the transaction read (refused)',
     busy.batches.some((b) => b.includes('pocol_getMembers')) && busy.batches.some((b) => b.length === 3 && b.every((m) => m === 'eth_getTransactionByHash')), JSON.stringify(busy.batches.slice(0, 4)));
   check('a refused transaction read shows "Latest transactions unavailable" with the gateway\'s message, not an empty window',
-    busy.panel.includes('Latest transactions unavailable') && busy.panel.includes(BUSY) && !busy.panel.includes('No transactions in this window') && !busy.panel.includes('Empty blocks are valid'), busy.panel.replace(/\s+/g, ' '));
+    busy.panel.includes('Latest transactions unavailable') && busy.panel.includes(`reading them failed: ${BUSY} The next update reads them again.`) && !busy.panel.includes('No transactions in this window') && !busy.panel.includes('Empty blocks are valid'), busy.panel.replace(/\s+/g, ' '));
   check('the map\'s summary counts the loaded members page: "256 members on the loaded page", never "registered miners"',
     /\b256 members on the loaded page\b/.test(busy.text) && !/registered miners/.test(busy.text), (/[^\n]*members on the loaded page[^\n]*|[^\n]*registered miners[^\n]*/.exec(busy.text) || [''])[0]);
   check('the page raised no uncaught error', busy.errors.length === 0, busy.errors.join(' | '));
+  // 1b. The same read refused with a message that has no closing period: it is still set apart from the next sentence.
+  const down = await overview({ [HEAD]: 2, [HEAD - 3]: 1 }, 'down');
+  check('a transaction read refused without a message ends "Data source unavailable." and keeps the next sentence apart',
+    down.panel.includes('reading them failed: Data source unavailable. The next update reads them again.') && !down.panel.includes('No transactions in this window'), down.panel.replace(/\s+/g, ' '));
   // 2. The same read answered: the transactions are listed; and a window without transactions is the empty state.
   const answered = await overview({ [HEAD]: 2, [HEAD - 3]: 1 }, false);
   check('an answered transaction read lists the newest transactions', [tx(HEAD, 0), tx(HEAD, 1), tx(HEAD - 3, 0)].every((s) => answered.panel.includes(s)) && !answered.panel.includes('unavailable'), answered.panel.replace(/\s+/g, ' '));
   const empty = await overview({}, true);
   check('a window without transactions sends no transaction read and shows "No transactions in this window"',
     empty.panel.includes('No transactions in this window') && !empty.panel.includes('unavailable') && !empty.batches.some((b) => b.includes('eth_getTransactionByHash')), empty.panel.replace(/\s+/g, ' '));
-  check('no uncaught error in the other scenarios', answered.errors.length === 0 && empty.errors.length === 0, [...answered.errors, ...empty.errors].join(' | '));
+  check('no uncaught error in the other scenarios', down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors].join(' | '));
 } finally { await browser.close(); }
 console.log(`explorer W7 browser checks: ${checks} passed`);

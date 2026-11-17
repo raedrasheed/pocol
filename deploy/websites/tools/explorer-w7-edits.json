@@ -56,7 +56,7 @@
  {
   "file": "explorer-bundle",
   "old": "pt.length?(0,N.jsx)(Ct,{rows:pt.slice(0,5)}):I(l?`No transactions in this window`",
-  "new": "pt.length?(0,N.jsx)(Ct,{rows:pt.slice(0,5)}):l?.PocolW7TxError?I(`Latest transactions unavailable`,`${l.PocolW7TxError} The latest blocks hold transactions; the next update reads them again.`,C):I(l?`No transactions in this window`",
+  "new": "pt.length?(0,N.jsx)(Ct,{rows:pt.slice(0,5)}):l?.PocolW7TxError?I(`Latest transactions unavailable`,`The latest blocks hold transactions, but reading them failed: ${String(l.PocolW7TxError).replace(/\\.$/,``)}. The next update reads them again.`,C):I(l?`No transactions in this window`",
   "count": 1
  },
  {

@@ -131,7 +131,9 @@ test('the map counts the loaded members page, and a failed transaction read is n
   assert.equal(count(BUNDLE, '.catch(()=>[])'), 0, 'the transaction read\'s error is not dropped');
   assert.equal(count(BUNDLE, '.catch(e=>(PocolW7TE=e.message,[]))'), 1);
   assert.equal(count(BUNDLE, 'PocolW7Txs:PocolW7T,PocolW7TxError:PocolW7TE})'), 1);
-  assert.equal(count(BUNDLE, ':l?.PocolW7TxError?I(`Latest transactions unavailable`,`${l.PocolW7TxError} '), 1);
+  assert.equal(count(BUNDLE, ':l?.PocolW7TxError?I(`Latest transactions unavailable`,`The latest blocks hold transactions, but reading them failed: ${String(l.PocolW7TxError).replace(/\\.$/,``)}. The next update reads them again.`,C)'), 1);
+  // The message is set apart from the next sentence, whether or not it ends in a period (Data source unavailable).
+  assert.equal(count(BUNDLE, '`${l.PocolW7TxError} '), 0);
 });
 
 test('a member read is tried up to 3 times with a growing pause, then its last error is shown', async () => {
