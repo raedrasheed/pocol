@@ -8,6 +8,7 @@
 //    gateway's message, not "No transactions in this window". A refusal whose message has no closing period
 //    (a 503 without an error field: "Data source unavailable") still reads as two sentences.
 // 2. The same read answered: the panel lists the transactions. No transactions in the window: the empty state.
+// 4. An open account view follows the loaded window (accountFollowsWindow).
 // 3. The map's summary counts the loaded members page ("256 members on the loaded page"), not "registered miners",
 //    beside "Active members 300".
 import assert from 'node:assert/strict';
@@ -46,16 +47,26 @@ function answer(state, call) {
   const { method, params } = call;
   const ok = (result) => ({ jsonrpc: '2.0', id: call.id, result });
   switch (method) {
-    case 'pocol_status': return ok({ chainId: DECLARED.chainId, genesisHash: DECLARED.genesisHash, head: { height: HEAD, hash: hash('b', HEAD) }, pool: 0, peers: [{}, {}], stats: { reorgs: 0, mined: 3, imported: 37 } });
+    case 'pocol_status': return ok({ chainId: DECLARED.chainId, genesisHash: DECLARED.genesisHash, head: { height: state.head, hash: hash('b', state.head) }, pool: 0, peers: [{}, {}], stats: { reorgs: 0, mined: 3, imported: 37 } });
     case 'pocol_getParams': return ok({ chainId: DECLARED.chainId, genesisHash: DECLARED.genesisHash, protocolVersion: 2, compatibilitySha256: '0x' + '11'.repeat(32) });
     case 'pocol_getMembers': {
       const [start, count] = params, n = Math.max(0, Math.min(count, ACTIVE - start));
       const members = Array.from({ length: n }, (_, i) => ({ id: address(0x1000 + start + i), status: 1, tomb: false, bondState: 1, lastShare: HEAD - 1, registeredAt: 1 }));
-      return ok({ height: HEAD, blockHash: hash('b', HEAD), active: ACTIVE, start, count: n, members });
+      return ok({ height: state.head, blockHash: hash('b', state.head), active: ACTIVE, start, count: n, members });
     }
-    case 'eth_getBlockByNumber': return ok(Number(params[0]) <= HEAD ? state.chain.block(Number(params[0])) : null);
+    case 'eth_getBlockByNumber': {
+      if (params[1] === true) state.full.push(Number(params[0]));
+      const b = Number(params[0]) <= state.head ? state.chain.block(Number(params[0])) : null;
+      // A full block carries its transaction objects (what the account activity reads); a light one only the hashes.
+      return ok(b && params[1] === true ? { ...b, transactions: b.transactions.map((h) => state.chain.txs.get(h)) } : b);
+    }
     case 'eth_getTransactionByHash': return ok(state.chain.txs.get(params[0]) || null);
-    case 'eth_blockNumber': return ok(hex(HEAD));
+    case 'eth_blockNumber': return ok(hex(state.head));
+    // The account view's batch (accountFollowsWindow): a plain account that is not a member.
+    case 'eth_getBalance': return ok('0x0');
+    case 'eth_getTransactionCount': return ok('0x0');
+    case 'eth_getCode': return ok('0x');
+    case 'pocol_getMember': return ok(null);
     default: return { jsonrpc: '2.0', id: call.id, error: { code: -32601, message: 'Method not found' } };
   }
 }
@@ -89,7 +100,7 @@ async function serve(state) {
 
 const browser = await chromium.launch({ executablePath: process.env.POCOL_CHROMIUM || '/usr/bin/chromium', headless: true });
 async function overview(txBlocks, busyTxRead) {
-  const state = { chain: chain(txBlocks), busyTxRead, batches: [] };
+  const state = { chain: chain(txBlocks), busyTxRead, batches: [], head: HEAD, full: [] };
   const server = await serve(state), context = await browser.newContext();
   try {
     await context.route('**/*', (route) => (new URL(route.request().url()).origin === server.origin ? route.continue() : route.abort()));
@@ -110,8 +121,33 @@ async function overview(txBlocks, busyTxRead) {
   } finally { await context.close(); await server.close(); }
 }
 
+// 4. An account view left open follows the loaded window: when the head moves on, a new transaction of the account
+//    appears, one that left the latest 20 blocks goes, and only the new block is read in full (the others come from
+//    the activity's cache, keyed by block hash).
+async function accountFollowsWindow(txBlocks) {
+  const state = { chain: chain(txBlocks), busyTxRead: false, batches: [], head: HEAD, full: [] };
+  const server = await serve(state), context = await browser.newContext();
+  try {
+    await context.route('**/*', (route) => (new URL(route.request().url()).origin === server.origin ? route.continue() : route.abort()));
+    const page = await context.newPage(), errors = []; page.on('pageerror', (e) => errors.push(e.message));
+    await page.goto(server.origin + '/');
+    const until = async (pred, ms) => { const end = Date.now() + ms; let t = ''; while (Date.now() < end) { t = await page.evaluate(() => document.body.innerText); if (pred(t)) return t; await new Promise((r) => setTimeout(r, 250)); } return t; };
+    // The account's own list: what follows its "Recent account activity" heading (the Overview lists transactions too).
+    const activity = (t) => { const i = t.indexOf('Recent account activity'); return i < 0 ? '' : t.slice(i); };
+    await until((t) => /Latest block\s+40\b/.test(t), 30000);
+    const box = 'input[aria-label="Search block, transaction or address"]';
+    await page.fill(box, address(1)); await page.press(box, 'Enter');
+    const first = activity(await until((t) => activity(t) && !/Reading the latest blocks/.test(activity(t)), 30000));
+    const fullFirst = [...state.full];
+    state.chain.block(HEAD + 1); state.head = HEAD + 1; // block 41 holds one transaction of address(1)
+    const second = activity(await until((t) => activity(t).includes(atx(HEAD + 1, 0)), 40000));
+    return { first, second, fullFirst, fullAfter: state.full.slice(fullFirst.length), errors };
+  } finally { await context.close(); await server.close(); }
+}
+const tx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 8) + '…' + h.slice(-6); }; // the Overview's short hash
+const atx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 9) + '…' + h.slice(-7); }; // the account view's
+
 try {
-  const tx = (n, i) => { const h = hash('c' + i, n); return h.slice(0, 8) + '…' + h.slice(-6); };
   // 1. The third request of the refresh refused (429, the gateway's busy answer).
   const busy = await overview({ [HEAD]: 2, [HEAD - 3]: 1 }, true);
   check('the fake relay serves the explorer: the Overview shows the head and "Active members 300"', /Latest block\s+40\b/.test(busy.text) && /Active members\s+300\b/.test(busy.text), busy.text.slice(0, 400));
@@ -132,6 +168,13 @@ try {
   const empty = await overview({}, true);
   check('a window without transactions sends no transaction read and shows "No transactions in this window"',
     empty.panel.includes('No transactions in this window') && !empty.panel.includes('unavailable') && !empty.batches.some((b) => b.includes('eth_getTransactionByHash')), empty.panel.replace(/\s+/g, ' '));
-  check('no uncaught error in the other scenarios', down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors].join(' | '));
+  // 4. The account activity follows the loaded window.
+  const acct = await accountFollowsWindow({ [HEAD]: 2, [HEAD - 19]: 1, [HEAD + 1]: 1 });
+  check('the account view lists the account\'s transactions of the loaded window (blocks 21..40)',
+    [atx(HEAD, 0), atx(HEAD, 1), atx(HEAD - 19, 0)].every((s) => acct.first.includes(s)) && acct.fullFirst.length === 2, JSON.stringify(acct.fullFirst) + ' ' + acct.first.slice(0, 300).replace(/\s+/g, ' '));
+  check('when the head moves on, the new transaction appears and the one that left the window goes, without reopening the account',
+    acct.second.includes(atx(HEAD + 1, 0)) && acct.second.includes(atx(HEAD, 0)) && !acct.second.includes(atx(HEAD - 19, 0)), acct.second.slice(0, 400).replace(/\s+/g, ' '));
+  check('only the new block is read in full after the move (the others come from the cache)', acct.fullAfter.length === 1 && acct.fullAfter[0] === HEAD + 1, JSON.stringify(acct.fullAfter));
+  check('no uncaught error in the other scenarios', down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors].join(' | '));
 } finally { await browser.close(); }
 console.log(`explorer W7 browser checks: ${checks} passed`);
