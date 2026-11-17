@@ -4,8 +4,9 @@
 One Caddy site block, between the markers below, serves the explorer snapshot's static files with Caddy's file_server
 and routes the gateway's paths to deploy/rewards/gateway.py on 127.0.0.1:8088: /rpc (with its 16 KiB guard, as the
 lost host block had), /health, and /api/* (the snapshot's same-origin reads, explorer_api.py, under the same guard).
-The static files and /api/* carry the headers the explorer's .htaccess set (explorer_api.SECURITY_HEADERS); dotfiles,
-server code, checksum lists and the extensions .htaccess denied are 404. The Studio installer
+The static files and /api/* carry the headers the explorer's .htaccess set (explorer_api.SECURITY_HEADERS), also on
+the error answers Caddy writes itself (handle_errors); dotfiles, server code, checksum lists and the extensions
+.htaccess denied are 404. The Studio installer
 (deploy/studio/install_studio_gateway.py) adds its /studio/* route to this block, and an update keeps it.
 
 The static copy is a directory of the snapshot's public files, as `deploy/websites/tools/site_snapshot.py --out DIR`
@@ -53,17 +54,20 @@ GUARD = ('expression `{http.request.header.Content-Length} != "" && '
 API_TOO_LARGE = '{"error":"Request size limit exceeded."}'
 
 
-def _headers(indent):
+def _headers(indent, matcher=''):
     pad = ' ' * indent
     # nosniff is set for the whole site; Referrer-Policy, X-Frame-Options, Permissions-Policy and the CSP are the
     # explorer's (.htaccess), so they apply to its files and its /api reads, not to /rpc, /health or /studio/*.
     lines = [f'{pad}{name} "{value}"' for name, value in explorer_api.SECURITY_HEADERS if name != 'X-Content-Type-Options']
-    return f'{pad[:-4]}header {{\n' + '\n'.join(lines) + f'\n{pad}defer\n{pad[:-4]}}}'
+    return f'{pad[:-4]}header {matcher}{{\n' + '\n'.join(lines) + f'\n{pad}defer\n{pad[:-4]}}}'
 
 
 def render_block(site_root, host=HOST, gateway=GATEWAY):
     """The managed site block. Its /rpc route, `max_size 16384` and 16 KiB guard text are the ones the Studio installer
-    requires (install_studio_gateway.patch_caddy), and nothing in it names the Studio relay port. Every block opens
+    requires (install_studio_gateway.patch_caddy), and nothing in it names the Studio relay port. The answers Caddy
+    writes itself (a missing file or directory index is 404, an unreachable or busy gateway 502) go through
+    handle_errors, which sets the same headers as the routes (the retired .htaccess used `Header always set`, which
+    Apache applied to error answers too); without it Caddy writes them without the deferred headers. Every block opens
     with `{` at the end of its line and closes on a line of its own (Caddy 2.7 and later refuse a token after `{` on
     the same line, such as `request_body { max_size 16384 }`); one-path matchers use the one-line form."""
     if not SITE_ROOT.fullmatch(str(site_root)):
@@ -79,6 +83,16 @@ def render_block(site_root, host=HOST, gateway=GATEWAY):
     }}
     request_body {{
         max_size {explorer_api.MAX_BODY}
+    }}
+    handle_errors {{
+        header {{
+            Cache-Control "no-store"
+            X-Content-Type-Options "nosniff"
+            -Server
+        }}
+        @explorer_error not path /rpc /health /studio/*
+{_headers(12, '@explorer_error ')}
+        respond "{{err.status_code}} {{err.status_text}}"
     }}
     @rpc path /rpc
     handle @rpc {{

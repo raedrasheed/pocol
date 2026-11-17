@@ -153,9 +153,15 @@ async function main() {
     ok('/api/rpc.php refuses a method outside the explorer allow-list that /rpc accepts (400)', reward.status === 400);
     const geo = await fetch(`${base}/api/miner-locations.php`), txs = await fetch(`${base}/api/transactions.php?page=1&size=25&order=newest&q=`), badTx = await fetch(`${base}/api/transactions.php?page=0`);
     ok('without the optional GeoIP and transaction index modules, miner-locations and transactions answer 503 with their messages; a bad query is 400', geo.status === 503 && /GeoIP/.test((await geo.json()).error) && txs.status === 503 && /Transaction history/.test((await txs.json()).error) && badTx.status === 400, `${geo.status} ${txs.status} ${badTx.status}`);
-    const hidden = {};
-    for (const path of ['/api/config.php', '/api/lib.php', '/api/', '/.htaccess', '/SHA256SUMS.txt', '/site-identity.json', '/index.php', '/assets/index.js.map', '/assets/', '/missing.html']) hidden[path] = (await fetch(base + path)).status;
+    const hidden = {}, bare = {};
+    for (const path of ['/api/config.php', '/api/lib.php', '/api/', '/.htaccess', '/SHA256SUMS.txt', '/site-identity.json', '/index.php', '/assets/index.js.map', '/assets/', '/missing.html']) {
+      const r = await fetch(base + path); hidden[path] = r.status; await r.arrayBuffer();
+      // The 404s Caddy writes itself (a missing file, a directory without index.html) come from handle_errors, the
+      // others from the routes: every one with the explorer's headers, no-store, nosniff and no Server header.
+      const lost = missing(r); if (lost.length || r.headers.get('server')) bare[path] = lost.concat(r.headers.get('server') ? ['server: ' + r.headers.get('server')] : []);
+    }
     ok('server, hidden and missing paths are 404 (no directory listing, no PHP)', Object.values(hidden).every((s) => s === 404), JSON.stringify(hidden));
+    ok('every 404, those of a missing file and of a directory included, carries the explorer\'s headers, no-store and nosniff and no Server header', Object.keys(bare).length === 0, JSON.stringify(bare));
 
     const browser = await chromium.launch({ executablePath: EXE, headless: true });
     try {

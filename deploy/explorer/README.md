@@ -6,7 +6,9 @@ server serves:
 
 - the explorer snapshot (`deploy/websites/explorer.pocol.net`, a built bundle without sources) as static files with
   Caddy's `file_server`, with the headers its retired `.htaccess` set (Content-Security-Policy, X-Frame-Options DENY,
-  Referrer-Policy, Permissions-Policy, nosniff) and `Cache-Control: no-store`;
+  Referrer-Policy, Permissions-Policy, nosniff) and `Cache-Control: no-store`, also on the answers Caddy writes itself
+  (a missing file's 404, a 502 when the gateway cannot be reached; the block's `handle_errors`), as `Header always set`
+  did;
 - the snapshot's same-origin reads `/api/rpc.php` (POST), `/api/health.php`, `/api/miner-locations.php` and
   `/api/transactions.php` (GET), answered in process by the gateway (`deploy/rewards/explorer_api.py`, imported by
   `gateway.py`) with the checks of the PHP relays they replace. pocol.net's network summary

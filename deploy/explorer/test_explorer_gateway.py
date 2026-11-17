@@ -62,10 +62,25 @@ class CaddyBlockTests(unittest.TestCase):
                 self.assertTrue(line.endswith(' {'), line)
             if '}' in bare:
                 self.assertEqual(line.strip(), '}', line)
-        # The explorer's .htaccess headers on its files and its /api reads, verbatim, and not site-wide.
+        # The explorer's .htaccess headers on its files, its /api reads and the error answers Caddy writes itself,
+        # verbatim, and not site-wide.
         for name, value in explorer_api.SECURITY_HEADERS:
             if name == 'X-Content-Type-Options': continue
-            self.assertEqual(block.count(f'{name} "{value}"'), 2, name)
+            self.assertEqual(block.count(f'{name} "{value}"'), 3, name)
+        # Caddy writes a missing file's 404 and an unreachable gateway's 502 outside the routes, where their deferred
+        # header blocks never apply (.htaccess: `Header always set`): handle_errors sets the site's headers, and the
+        # explorer's on every path but /rpc, /health and the Studio relay, before it answers the status.
+        errors = block.split('    handle_errors {\n', 1)[1].split('\n    }\n', 1)[0]
+        self.assertEqual(block.count('handle_errors'), 1)
+        self.assertIn('        header {\n            Cache-Control "no-store"\n            X-Content-Type-Options "nosniff"\n'
+                      '            -Server\n        }\n', errors)
+        self.assertIn('        @explorer_error not path /rpc /health /studio/*\n        header @explorer_error {\n', errors)
+        for name, value in explorer_api.SECURITY_HEADERS:
+            if name == 'X-Content-Type-Options': continue
+            self.assertIn(f'            {name} "{value}"\n', errors)
+        self.assertIn('            defer\n', errors)
+        self.assertTrue(errors.endswith('        respond "{err.status_code} {err.status_text}"'), errors[-80:])
+        self.assertLess(block.index('handle_errors'), block.index('@rpc path /rpc'))
         site_header = block.split('request_body', 1)[0]
         self.assertIn('Cache-Control "no-store"', site_header); self.assertIn('X-Content-Type-Options "nosniff"', site_header)
         self.assertNotIn('Content-Security-Policy', site_header)
