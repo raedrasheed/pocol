@@ -5,6 +5,8 @@
 # favicon.ico and site.webmanifest have manifest MIME ids 12 and 13 (owner answer Q3).
 # The bundle line follows a rename: tools/site_identity.py rewrites it (an identity switch or anchored edits such as W7),
 # and its --check refuses a list that names any other explorer bundle.
+# A change of the bundle's size moves the chunk counts the extension's publisher test pins for this list
+# (prototypes/pocol-extension/tests/publisher_test.mjs, 'W5: the S1 explorer include list').
 index.html
 assets/index-d9b7533915bf.js
 assets/index-oGnBWUS-.css
