@@ -321,21 +321,41 @@ pub struct Publisher<'a>{pub rpc:&'a Rpc,pub key:&'a pocol_lp4_execution::txsign
     pub sweep_timeout:Duration,pub sweep_poll:Duration,
     /// Sites W12: the pocol_getCaps pre-check before the first signature (`caps_precheck`); on by default, off with
     /// pocol-site --no-caps-check.
-    pub caps_check:bool,spent:std::cell::Cell<U256>,last_block:std::cell::Cell<Option<u64>>}
+    pub caps_check:bool,
+    /// Economy pacing's bound (10 minutes) and the wait between its passes (500 ms); tests shorten them.
+    pub economy_timeout:Duration,pub economy_poll:Duration,
+    spent:std::cell::Cell<U256>,last_tx:std::cell::Cell<Option<B256>>}
 impl<'a> Publisher<'a>{
-    pub fn new(rpc:&'a Rpc,key:&'a pocol_lp4_execution::txsign::Key,chain_id:u64,log:bool,fees:FeePolicy)->Self{Self{rpc,key,chain_id,log,fees,sweep_timeout:Duration::from_secs(180),sweep_poll:Duration::from_millis(1000),caps_check:true,spent:std::cell::Cell::new(U256::ZERO),last_block:std::cell::Cell::new(None)}}
+    pub fn new(rpc:&'a Rpc,key:&'a pocol_lp4_execution::txsign::Key,chain_id:u64,log:bool,fees:FeePolicy)->Self{Self{rpc,key,chain_id,log,fees,sweep_timeout:Duration::from_secs(180),sweep_poll:Duration::from_millis(1000),caps_check:true,economy_timeout:Duration::from_secs(600),economy_poll:Duration::from_millis(500),spent:std::cell::Cell::new(U256::ZERO),last_tx:std::cell::Cell::new(None)}}
     /// The committed cost so far: the sum of gas * maxFee of the signed transactions.
     pub fn committed(&self)->U256{self.spent.get()}
     fn tx(&self,to:Option<Address>,data:Vec<u8>,gas:u64)->Result<Value,String>{
-        if self.fees.economy{if let Some(last)=self.last_block.get(){
-            let t=Instant::now();while self.rpc.block_number()?<=last{if t.elapsed()>Duration::from_secs(600){return Err("economy pacing: no new block for 10 minutes".into())}std::thread::sleep(Duration::from_millis(500));}
-        }}
-        let max_fee=derive_fee(self.rpc.base_next()?,&self.fees,self.spent.get(),gas)?;
+        // Economy: a block without a publication transaction after each one (fees.js feeSchedule economy), so each is
+        // signed at the base fee that block brought back down. The block holding the previous transaction is read again on
+        // every pass: a reorganization can move it to a later block (or back into the pool, where it has no receipt), and a
+        // head above the block its first receipt named is then the block that holds it, whose base fee rise the budget does
+        // not count. Each pass reads the head first and the receipt after it, so the receipt is never older than the head
+        // it is compared with, then the base fee, then both again: a reorganization between these reads (which the node
+        // answers one by one) sends the pass round again instead of signing at a base fee read from another head.
+        let base=if self.fees.economy&&self.last_tx.get().is_some(){
+            let prev=self.last_tx.get().unwrap_or_default();
+            let held=|| ->Result<Option<u64>,String>{Ok(self.rpc.call("eth_getTransactionReceipt",json!([format!("{prev}")]))?["blockNumber"].as_str().and_then(|b|u64::from_str_radix(b.trim_start_matches("0x"),16).ok()))};
+            let t=Instant::now();
+            loop{
+                let head=self.rpc.block_number()?;let at=held()?;
+                if let Some(b)=at{if head>b{
+                    let base=self.rpc.base_next()?;
+                    if self.rpc.block_number()?==head&&held()?==at{break base}
+                }}
+                if t.elapsed()>self.economy_timeout{return Err(format!("economy pacing: no block after the previous transaction {prev} for {} s; stored chunks are kept, run publish again to continue",self.economy_timeout.as_secs()))}
+                std::thread::sleep(self.economy_poll);
+            }
+        }else{self.rpc.base_next()?};
+        let max_fee=derive_fee(base,&self.fees,self.spent.get(),gas)?;
         let nonce=self.rpc.nonce(self.key.address())?;
         let raw=pocol_lp4_execution::txsign::Tx{chain_id:self.chain_id,nonce,max_priority:self.fees.tip,max_fee,gas,to,value:U256::ZERO,data:data.into()}.sign_1559(self.key);
         self.spent.set(self.spent.get().saturating_add(max_fee.saturating_mul(U256::from(gas))));
-        let h=self.rpc.send(&raw)?;let r=self.rpc.wait_receipt(h,Duration::from_secs(300))?;
-        if let Some(b)=r["blockNumber"].as_str().and_then(|b|u64::from_str_radix(b.trim_start_matches("0x"),16).ok()){self.last_block.set(Some(b))}
+        let h=self.rpc.send(&raw)?;let r=self.rpc.wait_receipt(h,Duration::from_secs(300))?;self.last_tx.set(Some(h));
         if r["status"]!="0x1"{return Err(format!("transaction failed: {r}"))}Ok(r)
     }
     /// Sites W4 safe sweep: before createVersion references them, every chunk must exist at the `safe` tag. A chunk
