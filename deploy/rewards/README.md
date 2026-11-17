@@ -212,7 +212,9 @@ configuration to the adapter on every reward read. No HTTP/RPC input can replace
 For an operator-approved deployment, `deploy/explorer/install_explorer_gateway.py` installs `gateway.py`,
 `pocol_rewards.py` and `explorer_api.py` together in the `/opt/pocol-explorer-gateway` service directory with its
 systemd unit (`pocol-explorer-gateway.service`). Create operator-controlled files outside the website's document
-root, writable only by the operator (they are not downloadable public configuration):
+root, writable only by the operator (they are not downloadable public configuration) and readable by others (`0644`,
+in a directory others may enter, `0755`: the service runs as its own unprivileged user, and the installer refuses
+files it could not read):
 
 - `/etc/pocol-explorer-gateway/network.json` (required): the network, taken from the network's invitation
   (`network.pocol.json`: its GenesisSpec's chain ID and keccak256 hash), for example

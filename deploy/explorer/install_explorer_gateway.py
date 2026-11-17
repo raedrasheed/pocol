@@ -31,6 +31,7 @@ import re
 import shutil
 import socket
 import ssl
+import stat
 import subprocess
 import sys
 import tempfile
@@ -60,6 +61,7 @@ CADDYFILE = Path('/etc/caddy/Caddyfile')
 SITE_PARENT = Path(str(explorer_site.SITE_PARENT))
 BACKUPS = Path('/var/backups/pocol-explorer-gateway')
 PORT = 8088
+ROOT_UID = 0
 ORIGIN = 'https://' + explorer_site.HOST
 ARGUMENTS = (f'--bind 127.0.0.1 --port {PORT} --rpc-port 8545 --v3-network {NETWORK} --site-origin {ORIGIN}')
 UNIT_TEXT = f'''[Unit]
@@ -135,6 +137,36 @@ def atomic_write(path, raw, mode=0o644):
     finally: Path(name).unlink(missing_ok=True)
 
 
+def make_directory(path):
+    """mkdir -p, every directory it creates 0755 whatever root's umask (Caddy and the DynamicUser service read below
+    SITE_PARENT and BASE; a umask of 027 would make them 0750)."""
+    created, folder = [], path
+    while not folder.exists():
+        created.append(folder); folder = folder.parent
+    for folder in reversed(created):
+        folder.mkdir(mode=0o755); os.chmod(folder, 0o755)
+
+
+def check_service_paths():
+    """Refuse what Caddy (the caddy user) or the DynamicUser service could not read, or a local user could change:
+    SITE_PARENT and BASE, if they exist, root-owned directories that others may enter and nobody else may write; the
+    network file (and forks.json) readable by others in a directory they may enter (the service reads them as its own
+    user; root reading them proves nothing)."""
+    for folder in (SITE_PARENT, BASE):
+        if not folder.exists(): continue
+        info = folder.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != ROOT_UID or info.st_mode & 0o022 or info.st_mode & 0o005 != 0o005:
+            raise RuntimeError(f'{folder} must be a root-owned directory (0755: others may read and enter it, only root may '
+                               f'write it), not {oct(info.st_mode & 0o777)}; review it first (no changes made)')
+    if CONFIG.stat().st_mode & 0o001 == 0:
+        raise RuntimeError(f'{CONFIG} must be enterable by others (0755): the explorer gateway service reads its files as '
+                           'its own unprivileged user')
+    for path in (NETWORK, FORKS):
+        if path.is_file() and path.stat().st_mode & 0o004 == 0:
+            raise RuntimeError(f'{path} must be readable by others (0644, writable only by root): the explorer gateway '
+                               'service reads it as its own unprivileged user')
+
+
 def write_site(files, ident):
     """The static copy at SITE_PARENT/site-<ident> (root-owned, world-readable, written beside it then renamed).
     (path, created): an existing copy of the same id is reused when its files are exactly these."""
@@ -144,7 +176,7 @@ def write_site(files, ident):
         if explorer_site.site_files(target) != files:
             raise RuntimeError(f'{target} exists with other files; review it first')
         return target, False
-    SITE_PARENT.mkdir(mode=0o755, parents=True, exist_ok=True)
+    make_directory(SITE_PARENT)
     staging = Path(tempfile.mkdtemp(prefix='.site-', dir=SITE_PARENT))
     try:
         for name, raw in files.items():
@@ -349,6 +381,7 @@ def main(argv=None):
     network = gateway.load_v3_network(NETWORK)
     if forks: gateway.load_fork_schedule(FORKS)
     gateway.Gateway(network=network).verify_network()
+    check_service_paths()
     files = explorer_site.site_files(site)
     text, ident = explorer_site.manifest(files)
     origin = check_copy(site, files, ident, accept)
@@ -380,7 +413,7 @@ def main(argv=None):
     (backup / 'state.json').write_text(json.dumps({'active': old_active, 'enabled': old_enabled, 'paths': list(map(str, paths)),
                                                    'previousSite': old_root, 'site': f'site-{ident}'}))
     base_existed = BASE.exists()
-    BASE.mkdir(mode=0o755, parents=True, exist_ok=True)
+    make_directory(BASE)
     new_site = None
     try:
         site_root, created = write_site(files, ident)

@@ -155,6 +155,14 @@ class CaddyBlockTests(unittest.TestCase):
             with self.assertRaises(ValueError): site.loopback_config(tmp, '0.0.0.0:8661', '127.0.0.1:8662')
 
 
+class umask_during:
+    """The process umask set to `mask` inside the block (no change for None)."""
+    def __init__(self, mask): self.mask = mask
+    def __enter__(self): self.old = None if self.mask is None else os.umask(self.mask)
+    def __exit__(self, *_):
+        if self.old is not None: os.umask(self.old)
+
+
 def studio_fixture():
     return CaddyFixture.BASE
 
@@ -333,15 +341,18 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(commands[-1], ('systemctl', 'daemon-reload'))
 
     def run_install(self, fail_https=False, existing=False, unit_text=None, caddy_text=None, check=False, studio_route=False, forks=False,
-                    change_copy=None, accept=None):
+                    change_copy=None, accept=None, prepare=None, umask=None, root_uid=None):
         """installer.main() on temporary host paths: (Caddyfile after, commands, printed text, root). `change_copy(dir)`
-        edits the copy after it is built; `accept` is the --accept-site value (the copy's id when True)."""
+        edits the copy after it is built; `accept` is the --accept-site value (the copy's id when True); `prepare(root)`
+        runs after the host paths are set up; `umask` is root's umask during main(); `root_uid` the owner the installer
+        takes for root (default: the test's own user, which owns the temporary paths)."""
         temporary = tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
         base, unit, caddy, srv, backups, config = (root / 'opt', root / 'gateway.service', root / 'Caddyfile', root / 'srv',
                                                    root / 'backups', root / 'etc')
-        config.mkdir(); (config / 'network.json').write_text(json.dumps(NET))
-        if forks: (config / 'forks.json').write_text('[[1, 0]]')
+        config.mkdir(); os.chmod(config, 0o755); (config / 'network.json').write_text(json.dumps(NET)); os.chmod(config / 'network.json', 0o644)
+        if forks: (config / 'forks.json').write_text('[[1, 0]]'); os.chmod(config / 'forks.json', 0o644)
+        if prepare: prepare(root)
         copy = snapshot_copy(root)
         if change_copy: change_copy(copy)
         files = site.site_files(copy); ident = site.manifest(files)[1]
@@ -367,7 +378,9 @@ class InstallerTests(unittest.TestCase):
             return real_plan(text, '/srv/pocol-explorer/' + Path(site_root).name, studio_module)
         argv = ['--site', str(copy)] + (['--check'] if check else []) + (['--accept-site', 'site-' + ident if accept is True else accept] if accept else [])
         with patch.multiple(installer, BASE=base, UNIT=unit, CADDYFILE=caddy, SITE_PARENT=srv, BACKUPS=backups, CONFIG=config,
-                            NETWORK=config / 'network.json', FORKS=config / 'forks.json'), \
+                            NETWORK=config / 'network.json', FORKS=config / 'forks.json',
+                            ROOT_UID=os.getuid() if root_uid is None else root_uid), \
+             umask_during(umask), \
              patch.object(installer.os, 'geteuid', return_value=0, create=True), \
              patch.object(installer.shutil, 'which', return_value='/test/tool'), \
              patch.object(installer.socket, 'socket', return_value=MagicMock()), \
@@ -460,6 +473,34 @@ class InstallerTests(unittest.TestCase):
         text, _, printed, _, ident, _ = self.run_install(change_copy=stale, accept=True)
         self.assertEqual(text, site.render_block(f'/srv/pocol-explorer/site-{ident}'))
         self.assertIn("this checkout's snapshot", self.run_install(check=True)[2])
+
+    def test_directories_are_0755_whatever_the_umask(self):
+        # A hardened host's root umask of 027 would make /srv/pocol-explorer and /opt/pocol-explorer-gateway 0750,
+        # which Caddy and the DynamicUser service cannot enter.
+        _, _, _, root, ident, _ = self.run_install(umask=0o027)
+        for folder in (root / 'srv', root / 'opt', root / 'srv' / f'site-{ident}', root / 'srv' / f'site-{ident}' / 'assets'):
+            self.assertEqual(oct(folder.stat().st_mode & 0o777), '0o755', folder)
+        with tempfile.TemporaryDirectory() as tmp, umask_during(0o077):
+            installer.make_directory(Path(tmp) / 'a' / 'b')
+            self.assertEqual([oct((Path(tmp) / p).stat().st_mode & 0o777) for p in ('a', 'a/b')], ['0o755', '0o755'])
+            installer.make_directory(Path(tmp) / 'a' / 'b')
+
+    def test_paths_the_service_and_caddy_cannot_read_or_others_could_change_are_refused(self):
+        cases = {
+            'network.json 0600': lambda root: os.chmod(root / 'etc' / 'network.json', 0o600),
+            'forks.json 0600': lambda root: ((root / 'etc' / 'forks.json').write_text('[[1, 0]]'), os.chmod(root / 'etc' / 'forks.json', 0o600)),
+            'config 0700': lambda root: os.chmod(root / 'etc', 0o700),
+            'site parent 0750': lambda root: ((root / 'srv').mkdir(), os.chmod(root / 'srv', 0o750)),
+            'site parent group-writable': lambda root: ((root / 'srv').mkdir(), os.chmod(root / 'srv', 0o775)),
+            'gateway directory world-writable': lambda root: ((root / 'opt').mkdir(), (root / 'opt' / installer.MARKER).write_text('x'),
+                                                              os.chmod(root / 'opt', 0o777)),
+        }
+        for name, prepare in cases.items():
+            with self.subTest(name), self.assertRaisesRegex(RuntimeError, 'must be'):
+                self.run_install(check=True, prepare=prepare)
+        with self.assertRaisesRegex(RuntimeError, 'root-owned'):
+            self.run_install(check=True, prepare=lambda root: (root / 'srv').mkdir(mode=0o755), root_uid=os.getuid() + 1)
+        self.assertIn('CHECK PASSED', self.run_install(check=True, prepare=lambda root: os.chmod(root / 'etc', 0o711))[2])
 
     def test_write_site_reuses_an_identical_copy_and_refuses_another(self):
         with tempfile.TemporaryDirectory() as tmp:

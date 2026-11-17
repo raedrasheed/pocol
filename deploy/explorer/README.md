@@ -61,7 +61,10 @@ SHA-256>`, so a new copy is a new root and the Caddy reload switches it at once;
 rollback and older ones are removed.
 
 `--check` runs every preflight and changes nothing: the network file, the node's chain ID and genesis hash, the copy,
-the free port 8088, and `caddy validate` of the candidate Caddyfile. An install backs up what it replaces under
+the free port 8088, and `caddy validate` of the candidate Caddyfile. It also refuses what the unprivileged readers
+could not read or others could change: a `network.json` or `forks.json` not readable by others (`0644`) or in a
+directory they may not enter, and a `/srv/pocol-explorer` or `/opt/pocol-explorer-gateway` that is not a root-owned
+`0755` directory. The directories the installer creates are `0755` whatever root's umask. An install backs up what it replaces under
 `/var/backups/pocol-explorer-gateway/`, writes the sources and the systemd unit `pocol-explorer-gateway.service`
 (`--bind 127.0.0.1 --port 8088 --site-origin https://explorer.pocol.net`, no other address), restarts the service and
 checks `/health`, `/api/rpc.php` and `/api/health.php` on loopback, then writes and reloads the Caddyfile and checks
