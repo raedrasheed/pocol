@@ -61,8 +61,10 @@ assert.ok(start > 0 && end > start && count(BUNDLE, 'function Pe(e){') === 1 && 
 const REGION = BUNDLE.slice(start, end);
 const NAMES = ['Pe', 'PocolW7Label', 'PocolW7Bond', 'PocolW7Decode', 'PocolW7TxRows', 'PocolW7MemberRows', 'PocolW7Counts',
   'PocolW7Hashes', 'PocolW7Blocks', 'PocolW7LastShare', 'PocolW7Match', 'PocolW7Pcol', 'PocolW7Registry', 'PocolW7Calls'];
-// A fresh context with nothing of the bundle in it: the helpers name no other bundle binding.
-const RAW = vm.runInNewContext(`${REGION};({${NAMES.join(',')}})`, Object.create(null), { timeout: 2000 });
+// A fresh context with nothing of the bundle in it (only the host's setTimeout, for the retry's pause): the helpers
+// name no other bundle binding.
+const CONTEXT = Object.assign(Object.create(null), { setTimeout });
+const RAW = vm.runInNewContext(`${REGION};({${NAMES.join(',')},PocolW7Retry})`, CONTEXT, { timeout: 2000 });
 // Values from the context are copied into this realm (JSON), so deepStrictEqual compares them as plain data.
 const plain = (x) => (x === undefined ? x : JSON.parse(JSON.stringify(x)));
 const W = Object.fromEntries(Object.entries(RAW).map(([k, v]) => [k, typeof v === 'function' ? (...a) => plain(v(...a)) : plain(v)]));
@@ -114,9 +116,23 @@ test('the refresh reads one members page and light blocks; nothing reads every m
   // Full blocks only one at a time: the block view and the account activity (sequential, at most 20).
   assert.equal(count(BUNDLE, '`eth_getBlockByNumber`,[a,!0]'), 1);
   assert.match(BUNDLE, /PocolW7Blocks\(l\.blocks,20\);\(async\(\)=>\{let i=\[\];for\(let a of r\)\{let o=await at\(/);
-  // Each beside its view's batch, its failure kept to its own rows (a busy gateway still shows the balance).
-  assert.equal(count(BUNDLE, 'at(`pocol_getMember`,[n]).catch(e=>({PocolW7Error:e.message}))'), 1, 'the account view reads the member record');
-  assert.equal(count(BUNDLE, 'at(`pocol_getMember`,[PocolW7D.victim]).catch(e=>({PocolW7Error:e.message}))'), 1, 'the transaction view reads the named member');
+  // Each beside its view's batch, retried while the shared gateway budget is busy (pocol_getMember costs 20 of its 80
+  // tokens), its failure kept to its own rows (a busy gateway still shows the balance).
+  assert.equal(count(BUNDLE, 'PocolW7Retry(()=>at(`pocol_getMember`,[n])).catch(e=>({PocolW7Error:e.message}))'), 1, 'the account view reads the member record');
+  assert.equal(count(BUNDLE, 'PocolW7Retry(()=>at(`pocol_getMember`,[PocolW7D.victim])).catch(e=>({PocolW7Error:e.message}))'), 1, 'the transaction view reads the named member');
+});
+
+test('a member read is tried up to 3 times with a growing pause, then its last error is shown', async () => {
+  const retry = RAW.PocolW7Retry;
+  let calls = 0;
+  assert.equal(await retry(async () => { calls++; return 'ok'; }, 3, 1), 'ok'); assert.equal(calls, 1);
+  calls = 0;
+  assert.equal(await retry(async () => { if (++calls < 3) throw new Error('The data service is busy. Please retry shortly.'); return 'third'; }, 3, 1), 'third');
+  assert.equal(calls, 3);
+  calls = 0; const started = Date.now();
+  await assert.rejects(retry(async () => { calls++; throw new Error(`busy ${calls}`); }, 3, 20), /busy 3/);
+  assert.equal(calls, 3); assert.ok(Date.now() - started >= 55, 'pauses of 20 then 40 ms');
+  assert.match(REGION, /async function PocolW7Retry\(e,t=3,n=1500\)/, 'the bundle tries 3 times, 1.5 s then 3 s apart');
 });
 
 // ---- labels ----

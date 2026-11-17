@@ -6,7 +6,7 @@
 # The bundle line follows a rename: tools/site_identity.py rewrites it (an identity switch or anchored edits such as W7),
 # and its --check refuses a list that names any other explorer bundle.
 index.html
-assets/index-ff80a7dede95.js
+assets/index-5108fc386934.js
 assets/index-oGnBWUS-.css
 favicon.ico
 site.webmanifest
