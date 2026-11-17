@@ -4,10 +4,13 @@ to a test identity and back is byte-identical; a moved, duplicated or stray anch
 anchored edits rename the hashed bundle and regenerate SHA256SUMS.txt, and an edit that breaks an anchor or adds an
 identity copy writes nothing; a switch that would leave an old gateway host named, and a loopback RPC URL in the
 repository's own snapshots, are refused; --check refuses chatgpt.site origins, stale
-download links, missing index.html assets, misnamed bundles, stale checksums and content versions, retired identities
+download links, extension version labels that are not package.json's (capability messages "X or later" exempt),
+native package names that are not assemble_release.py's (the linked retired names exempt while linked), missing
+index.html assets, misnamed bundles, stale checksums and content versions, retired identities
 (one on the declared chain ID, a postponed launch, by its genesis hash only), any config.php (which is never read) and
 server code or a hidden file in the explorer snapshot (Sites W8: the gateway host serves it as static files); no
-config.php is tracked or committable.
+config.php is tracked or committable; --download writes the kept-out SHA256SUMS.txt lines of release files and drops
+the ones they supersede; the W14 text edits reproduce the served files.
 
     python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
 """
@@ -63,10 +66,12 @@ def invitation(spec, seeds):
     return json.dumps({'schema': 'pocol-network-v2', 'consensusRulesVersion': 2, 'seeds': seeds,
                        'files': {'genesis.spec.hex': '0x' + spec.hex(), 'devnet.json': json.dumps(info)}})
 
-# Every tree the tool reads (the document roots, the PHP test, the declared identity, the retired list and the
-# extension version).
+# Every tree the tool reads (the document roots, the PHP test, the declared identity, the retired list, the extension
+# version and the native release version).
 COPIED = ['deploy/websites', si.STUDIO]
-COPIED_FILES = [si.RETIRED, si.EXTENSION_PACKAGE]
+COPIED_FILES = [si.RETIRED, si.EXTENSION_PACKAGE, si.NATIVE_PACKAGE]
+EXT_VERSION = json.loads((ROOT / si.EXTENSION_PACKAGE).read_text(encoding='utf-8'))['version']
+NATIVE_VERSION = si.release.native_version(ROOT)
 
 def snapshot(root):
     out = {}
@@ -119,7 +124,7 @@ class SiteIdentity(unittest.TestCase):
                 if (root / site / name).exists():
                     self.assertEqual(hashlib.sha256((root / site / name).read_bytes()).hexdigest(), digest, name)
                 else:
-                    self.assertRegex(name, r'^downloads/[^/]+\.zip$')
+                    self.assertRegex(name, r'^downloads/[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?$')
             listed = {line.split('  ', 1)[1] for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines()}
             present = {p.relative_to(root / site).as_posix() for p in (root / site).rglob('*') if p.is_file()} - {si.SUMS}
             self.assertEqual(present - listed, set(), site)
@@ -443,12 +448,31 @@ class SiteIdentity(unittest.TestCase):
         def config_php(root):
             (root / si.EXPLORER / 'api').mkdir(exist_ok=True)
             (root / si.EXPLORER / 'api' / 'config.php').write_text('<?php // test file that the tool must never read\n')
+        def append(rel, text):
+            def make(root):
+                p = root / rel; p.write_text(p.read_text(encoding='utf-8') + text, encoding='utf-8')
+            return make
+        stale_label = append(f'{si.MAIN}/chrome-extension.html', '<p>Download PoCol extension 0.3.9</p>')
+        stale_label.__name__ = 'stale_label'
+        stale_studio_label = append(f'{si.MAIN}/style.css', '/* PoCol Studio &amp; Viewer 0.3.9 */')
+        stale_studio_label.__name__ = 'stale_studio_label'
+        stale_arabic_label = append(f'{si.IDE}/DEPLOY-README-AR.txt', 'المسار الأساسي هو إضافة PoCol للإصدار 0.3.9.\n')
+        stale_arabic_label.__name__ = 'stale_arabic_label'
+        native_name = append(f'{si.MAIN}/wallet-downloads.js', f'// PoCol-Mainnet-{NATIVE_VERSION}-Windows.zip\n')
+        native_name.__name__ = 'native_name'
+        native_version = append(f'{si.MAIN}/wallet-downloads.js', '// PoCol-Mainnet-0.4.9-windows-x86_64.zip\n')
+        native_version.__name__ = 'native_version'
         cases = {chatgpt: 'chatgpt.site', old_download: '0.3.9', missing_asset: 'does not exist',
                  misnamed_bundle: 'index-extension041-000000000000.js: would be removed', stale_sums: 'SHA256SUMS.txt', unlisted: 'SHA256SUMS.txt',
                  stale_version: '.html: does not carry', relay_restored: 'api/rpc.php: server code', htaccess_restored: '.htaccess: server code',
                  php_page: 'status.php: server code', config_php: 'config.php must never',
                  stale_include_list: "names ['assets/index-000000000000.js'], not the bundle",
-                 include_list_without_bundle: 'names no bundle, not the bundle'}
+                 include_list_without_bundle: 'names no bundle, not the bundle',
+                 stale_label: "chrome-extension.html: labels the extension 'PoCol extension 0.3.9'",
+                 stale_studio_label: "style.css: labels the extension 'Studio &amp; Viewer 0.3.9'",
+                 stale_arabic_label: "DEPLOY-README-AR.txt: labels the extension 'إضافة PoCol للإصدار 0.3.9', 'للإصدار 0.3.9'",
+                 native_name: f'wallet-downloads.js: names the native package PoCol-Mainnet-{NATIVE_VERSION}-Windows.zip',
+                 native_version: 'wallet-downloads.js: names the native package PoCol-Mainnet-0.4.9-windows-x86_64.zip'}
         for make, message in cases.items():
             with self.subTest(make.__name__):
                 root = self.copy()
@@ -461,6 +485,160 @@ class SiteIdentity(unittest.TestCase):
                 with mock.patch.object(Path, 'read_bytes', guarded):
                     self.assertEqual(self.run_tool(root, '--check'), 2, make.__name__)
                 self.assertIn(message, self.last_errors, make.__name__)
+
+    # ---------------- Sites W14: version labels, native names, kept-out download lines ----------------
+    def test_version_labels_name_the_package_and_capability_messages_are_exempt(self):
+        # The IDE's download button names the package it links (it said 0.4.0 next to the 0.4.1 href).
+        ide = self.bundle(ROOT, 'ide-bundle').read_text(encoding='utf-8')
+        self.assertIn(f'href:`/downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip`,download:!0,children:[(0,D.jsx)(Wr,'
+                      f'{{name:`download`}}),`Download PoCol extension {EXT_VERSION}`]', ide)
+        # Its capability messages name the oldest version with contract signing: matched by the label patterns, and
+        # exempt only because they say "or later".
+        for message in ('Update the PoCol extension to version 0.4.0 or later', 'Update your PoCol extension to 0.4.0 or later',
+                        'Install or update PoCol Studio & Viewer to version 0.4.0 or later'):
+            self.assertIn(message, ide)
+            found = [m for rx in si.LABELS for m in rx.finditer(message)]
+            self.assertEqual(len(found), 1, message)
+            self.assertIsNotNone(si.OR_LATER.match(message, found[0].end()), message)
+        for text in ('Version 0.3.9 · Chrome 130+', 'يدعم الإصدار 0.3.9 كليهما', 'تربط إضافة PoCol Studio & Viewer 0.3.9 النشر',
+                     'Get PoCol extension 0.3.9', 'إضافة PoCol 0.3.9'):
+            self.assertTrue(any(rx.search(text) for rx in si.LABELS), text)
+        for text in ('إصدار المشروع: 0.1.0', 'Solidity 0.8.38', 'version:`19.3.1`', 'الإصدار 3', 'Chrome 130 أو أحدث'):
+            self.assertFalse(any(rx.search(text) for rx in si.LABELS), text)
+        root = self.copy()
+        p = root / si.MAIN / 'chrome-extension.html'
+        original = p.read_bytes()
+        for line in (f'<p>Update the PoCol extension to version 0.3.9 or later.</p>', f'<p>حدّث إضافة PoCol إلى الإصدار 0.3.9 أو أحدث.</p>',
+                     f'<p>Version {EXT_VERSION} · ZIP</p>'):
+            with self.subTest(line=line):
+                p.write_text(original.decode('utf-8') + line, encoding='utf-8')
+                self.assertEqual(self.run_tool(root), 0, self.last_errors)  # the checksums of the change
+                self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        # A stale label is refused by the run itself, which writes nothing.
+        p.write_text(original.decode('utf-8') + '<p>Version 0.3.9 · ZIP</p>', encoding='utf-8')
+        before = snapshot(root)
+        self.assertEqual(self.run_tool(root), 2)
+        self.assertIn("chrome-extension.html: labels the extension 'Version 0.3.9', not", self.last_errors)
+        self.assertEqual(snapshot(root), before)
+
+    def test_native_names_are_the_release_names_and_the_legacy_exemption_leaves_with_its_last_link(self):
+        names = set(si.release.native_names(ROOT))
+        self.assertEqual(names, {f'PoCol-Mainnet-{NATIVE_VERSION}-linux-x86_64.tar.gz',
+                                 f'PoCol-Mainnet-{NATIVE_VERSION}-windows-x86_64.zip', f'PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk'})
+        # The exempt names are the retired packages the pages still link, and each is linked today.
+        main = '\n'.join(p.read_text(encoding='utf-8') for p in (ROOT / si.MAIN).iterdir()
+                         if p.suffix in ('.html', '.js'))
+        for name in si.LEGACY_NATIVE:
+            self.assertIn(name, main)
+            self.assertNotIn(name, names)
+        root = self.copy()
+        p = root / si.MAIN / 'wallet-downloads.js'
+        original = p.read_bytes()
+        for name in sorted(names) + [n + '.sig' for n in sorted(names)]:
+            with self.subTest(name=name):
+                p.write_text(original.decode('utf-8') + f'// {name}\n', encoding='utf-8')
+                self.assertEqual(self.run_tool(root), 0, self.last_errors)
+                self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        p.write_bytes(original)
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        # An exempt name that no file names any more fails, so the exemption is removed with the last link.
+        with mock.patch.object(si, 'LEGACY_NATIVE', si.LEGACY_NATIVE | {'PoCol-Mainnet-0.3.0-Windows.zip'}):
+            self.assertEqual(self.run_tool(root, '--check'), 2)
+        self.assertIn('LEGACY_NATIVE: no website file names PoCol-Mainnet-0.3.0-Windows.zip any more', self.last_errors)
+        # The native version follows deploy/standalone/package.py.
+        pkg = root / si.NATIVE_PACKAGE
+        pkg.write_text(pkg.read_text(encoding='utf-8').replace(f"\nversion='{NATIVE_VERSION}'\n", "\nversion='9.9.9'\n"), encoding='utf-8')
+        p.write_text(original.decode('utf-8') + f'// PoCol-Mainnet-9.9.9-arm64.apk\n', encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        p.write_text(original.decode('utf-8') + f'// PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk\n', encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 2)
+        self.assertIn(f'names the native package PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk', self.last_errors)
+
+    def test_download_writes_the_kept_out_lines_and_drops_the_superseded_ones(self):
+        root = self.copy()
+        sums = root / si.MAIN / si.SUMS
+        lines = lambda: dict(reversed(line.split('  ', 1)) for line in sums.read_text(encoding='utf-8').splitlines())
+        old_native, chrome, ext = 'a' * 64, lines()['downloads/PoCol-Studio-Chrome.zip'], lines()[f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip']
+        # A kept-out line of the retired native package (it was listed before the 2026-11-13 clean-up): a run keeps it.
+        sums.write_text(sums.read_text(encoding='utf-8') + f'{old_native}  downloads/PoCol-Mainnet-0.4.0-Windows.zip\n',
+                        encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertEqual(lines()['downloads/PoCol-Mainnet-0.4.0-Windows.zip'], old_native, 'kept-out lines are kept')
+        # And of an older extension package with an unversioned copy of it: kept too, so --check names the stale line.
+        sums.write_text(sums.read_text(encoding='utf-8') + f'{"b" * 64}  downloads/PoCol-Studio-IDE-Viewer-0.3.9.zip\n'
+                        f'{"b" * 64}  downloads/PoCol-Legacy-Chrome.zip\n', encoding='utf-8')
+        self.assertEqual(self.run_tool(root, '--check'), 2, 'the stale 0.3.9 extension line')
+        self.assertIn('SHA256SUMS.txt: links the extension package 0.3.9', self.last_errors)
+        win = f'{si.MAIN}/downloads/PoCol-Mainnet-{NATIVE_VERSION}-windows-x86_64.zip'
+        given = {win: '1' * 64, win + '.sig': '2' * 64, win + '.sha256': '3' * 64,
+                 f'{si.MAIN}/downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip.sig': '4' * 64}
+        before = snapshot(root)
+        args = [a for path, digest in given.items() for a in ('--download', f'{path}={digest}')]
+        self.assertEqual(self.run_tool(root, *args, '--check'), 2, 'check: the run would change SHA256SUMS.txt')
+        self.assertEqual(snapshot(root), before)
+        # The extension's own .sha256 is tracked, so a newer family member would have to remove it first: here the
+        # 0.4.1 lines stay (same version) and the 0.3.9 line and its copy go (older version of the same family).
+        self.assertEqual(self.run_tool(root, *args), 0, self.last_errors)
+        got = lines()
+        for path, digest in given.items():
+            self.assertEqual(got[path[len(si.MAIN) + 1:]], digest, path)
+        for gone in ('downloads/PoCol-Mainnet-0.4.0-Windows.zip', 'downloads/PoCol-Studio-IDE-Viewer-0.3.9.zip',
+                     'downloads/PoCol-Legacy-Chrome.zip'):
+            self.assertNotIn(gone, got)
+        self.assertEqual((got['downloads/PoCol-Studio-Chrome.zip'], got[f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip']),
+                         (chrome, ext), 'the current extension package and its copy stay')
+        self.assertEqual(list(got), sorted(got))
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        self.assert_consistent(root)
+        # The lines persist: a later run without --download keeps them, and --download is idempotent.
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertEqual(lines(), got)
+        self.assertEqual(self.run_tool(root, *args, '--check'), 0, self.last_errors)
+        # A newer extension supersedes the tracked 0.4.1 .sha256, which must be removed first (nothing is written).
+        before = snapshot(root)
+        newer = f'{si.MAIN}/downloads/PoCol-Studio-IDE-Viewer-9.9.9.zip'
+        self.assertEqual(self.run_tool(root, '--download', f'{newer}={"5" * 64}'), 2)
+        self.assertIn(f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip.sha256: superseded by --download {newer}', self.last_errors)
+        self.assertEqual(snapshot(root), before)
+        # Refused before anything is read: a file of the snapshot, a site without SHA256SUMS.txt, a path outside
+        # downloads/, an unknown kind of file, a bad digest, a repeated path.
+        tracked = f'{si.MAIN}/downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip.sha256'
+        for value, message in ((f'{tracked}={"6" * 64}', 'is in the snapshot'),
+                               (f'{si.STUDIO}/downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip={"6" * 64}', 'PATH=SHA256 with PATH'),
+                               (f'{si.MAIN}/PoCol-Mainnet-{NATIVE_VERSION}-arm64.apk={"6" * 64}', 'PATH=SHA256 with PATH'),
+                               (f'{si.MAIN}/downloads/../index.html={"6" * 64}', 'PATH=SHA256 with PATH'),
+                               (f'{si.MAIN}/downloads/notes.txt={"6" * 64}', 'PATH=SHA256 with PATH'),
+                               (f'{win}={"6" * 63}', '64 lower-case hex digits'),
+                               (f'{win}={"A" * 64}', '64 lower-case hex digits'),
+                               (win, 'PATH=SHA256 with PATH')):
+            with self.subTest(value=value):
+                self.assertEqual(self.run_tool(root, '--download', value), 2)
+                self.assertIn(message, self.last_errors)
+                self.assertEqual(snapshot(root), before)
+        self.assertEqual(self.run_tool(root, '--download', f'{win}={"1" * 64}', '--download', f'{win}={"7" * 64}'), 2)
+        self.assertIn('given twice', self.last_errors)
+        self.assertEqual(snapshot(root), before)
+
+    def test_the_w14_edits_reproduce_the_served_files(self):
+        # Sites W14's site texts are anchored edits (tools/w14-text-edits.json): undone in reverse on a copy, the tool's
+        # own --edits run gives back every served file byte for byte, with the IDE bundle's name and the derived files.
+        root = self.copy()
+        edits = json.loads((ROOT / 'deploy/websites/tools/w14-text-edits.json').read_text(encoding='utf-8'))
+        texts = {}
+        for e in reversed(edits):
+            rel = si.anchor_file(si.Tree(ROOT), e['file'])
+            texts.setdefault(rel, (ROOT / rel).read_text(encoding='utf-8'))
+            self.assertEqual(texts[rel].count(e['new']), e['count'], e['new'][:80])
+            texts[rel] = texts[rel].replace(e['new'], e['old'])
+        for rel, text in texts.items():
+            (root / rel).write_text(text, encoding='utf-8')
+        # The texts before W14 fail the new checks (the IDE's 0.4.0 label, DEPLOY-README-AR.txt's), so a plain run
+        # refuses them; --edits rebuilds every derived file (bundle name, content versions, checksums) from the texts.
+        self.assertEqual(self.run_tool(root, '--check'), 2)
+        self.assertIn("labels the extension 'PoCol extension 0.4.0'", self.last_errors)
+        self.assertIn("DEPLOY-README-AR.txt: labels the extension 'إضافة PoCol للإصدار 0.4.0'", self.last_errors)
+        self.assertEqual(self.run_tool(root, '--edits', str(ROOT / 'deploy/websites/tools/w14-text-edits.json')), 0, self.last_errors)
+        self.assertEqual(snapshot(root), snapshot(ROOT))
 
     def test_a_retired_identity_left_after_a_switch_fails(self):
         root = self.copy()

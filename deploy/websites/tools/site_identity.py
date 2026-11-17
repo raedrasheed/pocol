@@ -7,7 +7,8 @@ copy of an identity value may sit outside the anchors.
     python3 deploy/websites/tools/site_identity.py --check                     # CI: the tree matches DECLARED
     python3 deploy/websites/tools/site_identity.py                             # finish the derived files only
     python3 deploy/websites/tools/site_identity.py --to NEW.json [--gateway-host HOST] [--commit SHA] [--rpc-url URL]
-    python3 deploy/websites/tools/site_identity.py --edits EDITS.json           # anchored bundle edits (W7)
+    python3 deploy/websites/tools/site_identity.py --edits EDITS.json           # anchored bundle edits (W7, W14)
+    python3 deploy/websites/tools/site_identity.py --download SITE/downloads/NAME=SHA256 ...   # kept-out archive lines
 
 DECLARED (deploy/websites/site-identity.json) names the identity the snapshots pin: chain ID, genesis hash and the
 GenesisSpec that proves both, the display name, the IDE's RPC URL, the explorer's seed list and the source links. --to
@@ -27,11 +28,23 @@ Derived files move with their sources:
 - each site's SHA256SUMS.txt lists every file of the site (and keeps the lines of the download archives that are kept
   out of Git).
 
+--download PATH=SHA256 (repeatable; PATH is `<site>/downloads/<name>`, a .zip, .tar.gz or .apk archive or its .sig or
+.sha256) writes the SHA256SUMS.txt line of a release file that is kept out of Git. It drops the lines it supersedes: the
+kept-out lines of another version of the same archive family (the name before `-X.Y.Z`, for example
+`PoCol-Studio-IDE-Viewer` or `PoCol-Mainnet`) and any other kept-out line with the bytes of one of those (an unversioned
+copy such as `PoCol-Studio-Chrome.zip`). A file of the snapshot that it supersedes (a tracked `.sha256`) is refused
+until it is removed, and a PATH that is in the snapshot is refused (its line is its own digest).
+
 --check also refuses: any retired identity (deploy/mainnet/retired-networks.json) other than the declared one, so the
 check turns on by itself once the snapshots pin a network that is not retired (a retired identity on the declared chain
 ID, a postponed launch with a new genesis, is refused by its genesis hash only); any `chatgpt.site` origin; a download
-link whose version is not the extension's package.json version; an index.html script or stylesheet that does not
-exist; a hashed bundle whose name is not its content version; any config.php in a snapshot (never read), and server
+link whose version is not the extension's package.json version; an extension version label (`PoCol extension X.Y.Z`,
+`Studio & Viewer X.Y.Z`, `Version X.Y.Z`, `الإصدار X.Y.Z`, `إضافة PoCol X.Y.Z`) that is not that version, except a
+capability message that names the oldest version with a feature (`X.Y.Z or later`, `X.Y.Z أو أحدث`); a native package
+name `PoCol-Mainnet-X.Y.Z-*` that is not one of deploy/release/assemble_release.py's names at
+deploy/standalone/package.py's version (or its .sig or .sha256), apart from the retired names in LEGACY_NATIVE that the
+pages still link until the signed release moves them (W16), each of which must still be named; an index.html script or
+stylesheet that does not exist; a hashed bundle whose name is not its content version; any config.php in a snapshot (never read), and server
 code or a hidden file in the explorer snapshot (an api/ entry, a .php file, a dotfile such as .htaccess): the gateway
 host serves the explorer as static files, and its /api reads are deploy/rewards/explorer_api.py (Sites W8).
 
@@ -49,11 +62,14 @@ sys.path.insert(0, str(ROOT / 'deploy' / 'mainnet'))
 sys.path.insert(0, str(ROOT / 'deploy' / 'rewards'))
 sys.path.insert(0, str(ROOT / 'deploy' / 'studio'))
 sys.path.insert(0, str(ROOT / 'deploy' / 'public-testnet'))
+sys.path.insert(0, str(ROOT / 'deploy' / 'release'))
 import set_network_identity as ni  # noqa: E402  (the invitation decoder, the token rules and the retired list)
+import assemble_release as release  # noqa: E402  (the native release file names)
 
 DECLARED = 'deploy/websites/site-identity.json'
 RETIRED = ni.RETIRED
 EXTENSION_PACKAGE = 'prototypes/pocol-extension/package.json'
+NATIVE_PACKAGE = 'deploy/standalone/package.py'
 EXPLORER, IDE, MAIN = 'deploy/websites/explorer.pocol.net', 'deploy/websites/ide.pocol.net', 'deploy/websites/pocol.net'
 STUDIO = 'prototypes/pocol-studio/dist'
 # Document roots; True: the site publishes a SHA256SUMS.txt of its files.
@@ -61,8 +77,13 @@ SITES = {EXPLORER: True, IDE: True, MAIN: True, STUDIO: False}
 # Files outside the document roots that pin the identity (a test of the deployed PHP).
 EXTRA = ['deploy/websites/tests/api_security.php', 'deploy/websites/tests/browser_security.mjs']
 SUMS = 'SHA256SUMS.txt'
-# Listed in SHA256SUMS.txt but kept out of Git (deploy/websites/README.md): download archives.
-KEPT_OUT = re.compile(r'downloads/[^/]+\.zip')
+# Listed in SHA256SUMS.txt but kept out of Git (deploy/websites/README.md): download archives, their signatures and
+# their .sha256 files.
+KEPT_OUT = re.compile(r'downloads/[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
+# A --download name: a kept-out file name of plain characters.
+DOWNLOAD_NAME = re.compile(r'downloads/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
+# An archive family and its version: `downloads/<family>-X.Y.Z<rest>`.
+ARCHIVE_VERSION = re.compile(r'downloads/(.+?)-([0-9]+\.[0-9]+\.[0-9]+)(?=[-.])(.*)')
 # Hashed bundles: key -> (site, prefix). The file is `<site>/assets/<prefix>-<12 hex>.js`, exactly one per key.
 BUNDLES = {
     'explorer-bundle': (EXPLORER, 'index'),
@@ -123,6 +144,25 @@ ANCHORS = [
 FIELD = re.compile(r'\{(chainId|chainIdHex|genesisHash|name|rpcUrl|gatewayHost|seedHosts|seedPort|link\.[A-Za-z]+)\}')
 BINARY = {'.png', '.ico', '.ttf', '.woff', '.woff2', '.zip', '.jpg', '.jpeg', '.webp', '.wasm', '.gz'}
 DOWNLOAD = re.compile(r'PoCol-Studio-IDE-Viewer-([0-9]+\.[0-9]+\.[0-9]+)\.zip')
+# Extension version labels (Sites W14): the version a page names for the extension must be package.json's. The forms
+# with `to` or `version` are there so that a capability message is seen and exempted, never skipped by the pattern.
+_SEMVER = r'([0-9]+\.[0-9]+\.[0-9]+)(?![0-9A-Za-z])'
+LABELS = [re.compile(prefix + _SEMVER) for prefix in (
+    r'PoCol extension (?:to )?(?:version )?',
+    r'Studio (?:&|&amp;) Viewer (?:to )?(?:version )?',
+    r'(?<![A-Za-z])Version ',
+    r'إضافة PoCol (?:لل|ال|بال)?(?:إصدار )?',
+    r'(?<![\u0600-\u06ff])(?:ال|لل|بال)إصدار ',
+)]
+# A capability message names the oldest version that has a feature ("Update the PoCol extension to version 0.4.0 or
+# later"): it is not a label of the offered package.
+OR_LATER = re.compile(r'\s+(?:or later|or newer|أو أحدث|أو ما بعده)')
+# Native package names (assemble_release.py's, at package.py's version).
+NATIVE = re.compile(r'PoCol-Mainnet-[0-9]+\.[0-9]+\.[0-9]+-[A-Za-z0-9_-]+(?:\.[A-Za-z0-9]+)+')
+# The retired network's native packages that pocol.net still links (wallet-downloads.js, index.html, pocol-tools.html,
+# guide-content.js) until the signed release moves those links (W16, PR F). --check fails once none links one of them,
+# so the exemption leaves with the last link.
+LEGACY_NATIVE = frozenset({'PoCol-Mainnet-0.4.0-Windows.zip', 'PoCol-Mainnet-0.4.0-Linux.zip'})
 VERSIONED = re.compile(r'(?<![0-9A-Za-z_.:/-])(/?[A-Za-z0-9_][A-Za-z0-9_./-]*)\?v=([0-9a-f]{12})(?![0-9A-Za-z])')
 # The explorer snapshot is static (Sites W8): its /api paths are the gateway's (deploy/rewards/explorer_api.py) and its
 # headers are the Caddy site's (deploy/explorer/explorer_site.py), so no server code or hidden file may be in it.
@@ -348,8 +388,14 @@ def resolve(site, rel, path):
     near = posixpath.normpath(posixpath.join(posixpath.dirname(rel), path))
     return near if near.startswith(site + '/') else posixpath.normpath(f'{site}/{path}')
 
-def finish(tree, problems):
-    """The derived files (into tree.out): bundle names, content versions and SHA256SUMS.txt."""
+def archive_version(name):
+    """(family, version) of a kept-out archive name, or None."""
+    m = ARCHIVE_VERSION.fullmatch(name)
+    return (m.group(1), m.group(2)) if m else None
+
+def finish(tree, problems, downloads=None):
+    """The derived files (into tree.out): bundle names, content versions and SHA256SUMS.txt. downloads ({site path:
+    digest}, --download) adds kept-out lines and drops the ones they supersede."""
     # A hashed bundle is named by its content version; the site's index.html reference follows.
     for key, (site, prefix) in BUNDLES.items():
         rel = bundle_path(tree, key)
@@ -417,10 +463,32 @@ def finish(tree, problems):
                 problems.append(f'{f}: a config.php must never be in a website snapshot (it was not read)')
                 continue
             lines[f[len(site) + 1:]] = hashlib.sha256(tree.read(f)).hexdigest()
+        kept = {}
         for line in tree.text(sums).splitlines():
             digest, _, name = line.partition('  ')
             if KEPT_OUT.fullmatch(name) and name not in lines and re.fullmatch(r'[0-9a-f]{64}', digest):
-                lines[name] = digest
+                kept[name] = digest
+        given = {path[len(site) + 1:]: digest for path, digest in (downloads or {}).items() if path.startswith(site + '/')}
+        superseded = set()
+        for name, digest in given.items():
+            if name in lines:
+                problems.append(f'{site}/{name}: is in the snapshot, so its {SUMS} line is its own digest, not a --download')
+                continue
+            family = archive_version(name)
+            if family is None:
+                continue
+            for old in list(kept):
+                if old not in given and (archive_version(old) or (None,))[0] == family[0] and archive_version(old) != family:
+                    superseded.add(kept.pop(old))
+            for old in lines:
+                if KEPT_OUT.fullmatch(old) and (archive_version(old) or (None,))[0] == family[0] \
+                        and archive_version(old)[1] != family[1]:
+                    problems.append(f'{site}/{old}: superseded by --download {site}/{name}; remove it from the snapshot')
+        # A copy of a superseded archive under another name (the unversioned PoCol-Studio-Chrome.zip) goes with it.
+        for old in [n for n, d in kept.items() if d in superseded and n not in given]:
+            del kept[old]
+        kept.update(given)
+        lines.update({n: d for n, d in kept.items() if n not in lines})
         text = ''.join(f'{lines[n]}  {n}\n' for n in sorted(lines))
         if text != tree.text(sums):
             tree.out[sums] = text.encode('utf-8')
@@ -433,6 +501,13 @@ def tree_checks(tree, doc, retired, problems):
     own = re.compile('|'.join(f'(?:{rx})' for _, rx in tokens(values)), re.IGNORECASE)
     gone = [identity_regex(c, g, keep_chain=doc['chainId']) for c, g in retired if (c, g) != (doc['chainId'], doc['genesisHash'][2:])]
     version = json.loads((tree.root / EXTENSION_PACKAGE).read_text(encoding='utf-8'))['version']
+    try:
+        native = set(release.native_names(tree.root))
+        native_version = release.native_version(tree.root)
+    except (OSError, TypeError) as e:
+        raise Refused(f'{NATIVE_PACKAGE}: no native release version ({e})') from None
+    native |= {n + suffix for n in native for suffix in ('.sig', '.sha256')}
+    legacy_named = set()
     for site in list(SITES) + ['deploy/websites/tests']:
         for rel in tree.files(site):
             if not any(rel.startswith(s + '/') for s in SITES) and rel not in EXTRA:
@@ -458,6 +533,21 @@ def tree_checks(tree, doc, retired, problems):
             bad = sorted({v for v in DOWNLOAD.findall(text) if v != version})
             if bad:
                 problems.append(f'{rel}: links the extension package {", ".join(bad)}, not {version} ({EXTENSION_PACKAGE})')
+            if rel in EXTRA:
+                continue
+            labels = sorted({m.group(0) for rx in LABELS for m in rx.finditer(text)
+                             if m.group(1) != version and not OR_LATER.match(text, m.end())})
+            if labels:
+                problems.append(f'{rel}: labels the extension {", ".join(map(repr, labels))}, not {version} '
+                                f'({EXTENSION_PACKAGE}); only a capability message ("X or later") may name another version')
+            names = set(NATIVE.findall(text))
+            legacy_named |= names & LEGACY_NATIVE
+            wrong = sorted(names - native - LEGACY_NATIVE)
+            if wrong:
+                problems.append(f'{rel}: names the native package {", ".join(wrong)}, not one of deploy/release/'
+                                f'assemble_release.py\'s names at {NATIVE_PACKAGE} version {native_version}: {sorted(native)}')
+    for name in sorted(LEGACY_NATIVE - legacy_named):
+        problems.append(f'LEGACY_NATIVE: no website file names {name} any more; remove it from the exemption')
     for site in SITES:
         index = f'{site}/index.html'
         page = tree.text(index)
@@ -489,7 +579,24 @@ def load_retired(root):
     except (OSError, ValueError) as e:
         raise Refused(f'{RETIRED}: {e}') from None
 
-def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=False, gateway_host=None):
+def parse_downloads(values):
+    """{site path: digest} of the --download PATH=SHA256 values."""
+    out = {}
+    for value in values or []:
+        path, sep, digest = value.rpartition('=')
+        site = next((s for s, has_sums in SITES.items() if has_sums and path.startswith(s + '/')), None)
+        if not sep or site is None or not DOWNLOAD_NAME.fullmatch(path[len(site) + 1:]):
+            raise Refused(f'--download {value!r}: PATH=SHA256 with PATH <site>/downloads/<archive> (a .zip, .tar.gz or '
+                          f'.apk, or its .sig or .sha256) in a site that publishes {SUMS}: '
+                          f'{", ".join(s for s, has_sums in SITES.items() if has_sums)}')
+        if not re.fullmatch(r'[0-9a-f]{64}', digest):
+            raise Refused(f'--download {path}: the SHA-256 is 64 lower-case hex digits')
+        if path in out:
+            raise Refused(f'--download {path}: given twice')
+        out[path] = digest
+    return out
+
+def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=False, gateway_host=None, downloads=None):
     """(problems, {path: new bytes or None}, new declared doc) of a run."""
     tree = Tree(root)
     try:
@@ -538,7 +645,7 @@ def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=
         problems += [f'after the {"edits" if edits is not None else "switch"}: {line}' for line in after]
     if problems:
         return problems, {}, new
-    finish(tree, problems)
+    finish(tree, problems, downloads)
     tree_checks(tree, new, retired, problems)
     declared = (json.dumps(new, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
     if declared != tree.read(DECLARED):
@@ -578,6 +685,8 @@ def main(argv=None):
     p.add_argument('--rpc-url', help="the IDE's RPC endpoint (https, or http://127.0.0.1:<port>/<path> for a test copy)")
     p.add_argument('--gateway-host', help='the host the explorer names as its gateway host (default: unchanged)')
     p.add_argument('--edits', type=Path, help='a JSON list of anchored edits [{"file", "old", "new", "count"}]')
+    p.add_argument('--download', action='append', metavar='PATH=SHA256',
+                   help=f'the {SUMS} line of a release file kept out of Git, PATH <site>/downloads/<name> (repeatable)')
     p.add_argument('--allow-revert', action='store_true', help=f'allow a --to identity listed in {RETIRED}')
     p.add_argument('--check', action='store_true', help='verify only; fails if the run would change any file')
     p.add_argument('--root', type=Path, default=ROOT)
@@ -593,7 +702,8 @@ def main(argv=None):
                 raise Refused(f'--edits: {e}') from None
             if not isinstance(edits, list) or not edits:
                 raise Refused('--edits: a non-empty JSON list')
-        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host)
+        downloads = parse_downloads(a.download)
+        problems, changed, new = plan(a.root, a.to, a.commit, a.rpc_url, edits, a.allow_revert, a.gateway_host, downloads)
     except Refused as e:
         print('FAIL', e, file=sys.stderr)
         return 2
