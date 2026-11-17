@@ -156,3 +156,87 @@ jobs:
           name: pocol-extension-${{ github.sha }}
           path: prototypes/pocol-extension/releases/*
           if-no-files-found: error
+  extension-reproducible:
+    # W14 double build: two fresh checkouts at different paths, on the same image (zlib output can differ between
+    # images), with other umasks, time zones and source mtimes. Each uploads the sorted sha256 list of dist/, the hash of
+    # write_release_zip over that dist/ (the placeholder build: only its .sha256 is kept, it is no release), and, once the
+    # identity switch removes the network placeholder, the packaged release zip's .sha256. The compare job fails on any
+    # difference.
+    name: Extension double build (${{ matrix.leg }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: a
+            path: a
+            umask: '0022'
+            tz: UTC
+          - leg: b
+            path: other/deeper/checkout-b
+            umask: '0077'
+            tz: Pacific/Kiritimati
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+          path: ${{ matrix.path }}
+      - name: Build dist/ and hash it
+        shell: bash
+        env:
+          TZ: ${{ matrix.tz }}
+          LEG: ${{ matrix.leg }}
+          UMASK: ${{ matrix.umask }}
+          OUT: ${{ runner.temp }}/extension-reproducible
+        working-directory: ${{ matrix.path }}/prototypes/pocol-extension
+        run: |
+          set -euo pipefail
+          umask "$UMASK"
+          if [ "$LEG" = b ]; then
+            # Other source mtimes, set in reverse order of name.
+            git ls-files -z | LC_ALL=C sort -rz | xargs -0 touch -d '2001-02-03 04:05:06 UTC'
+          fi
+          mkdir -p "$OUT" "$RUNNER_TEMP/zip-writer"
+          { echo "image ${ImageOS:-?} ${ImageVersion:-?}"; node --version; python3 -B -c 'import sys, zlib; print(sys.version.split()[0], "zlib", zlib.ZLIB_RUNTIME_VERSION)'; } > "$OUT/env.txt"
+          npm ci --ignore-scripts
+          node build.mjs
+          (cd dist && find . -type f -print0 | LC_ALL=C sort -z | xargs -0 sha256sum) > "$OUT/dist.sha256"
+          test -s "$OUT/dist.sha256"
+          python3 -B -c 'import importlib.util, sys; s = importlib.util.spec_from_file_location("p", "scripts/package-release.py"); m = importlib.util.module_from_spec(s); s.loader.exec_module(m); m.write_release_zip(m.Path("dist"), m.Path(sys.argv[1]))' "$RUNNER_TEMP/zip-writer/dist.zip"
+          cp "$RUNNER_TEMP/zip-writer/dist.zip.sha256" "$OUT/dist-zip.sha256"
+          if ! grep -q NETWORK_PLACEHOLDER src/lib/studio-network.js; then
+            # After the identity switch: the release zip itself (the packager's checks included).
+            version=$(node -p 'require("./package.json").version')
+            python3 -B scripts/package-release.py "$RUNNER_TEMP/release/PoCol-Studio-IDE-Viewer-$version.zip"
+            cp "$RUNNER_TEMP/release/PoCol-Studio-IDE-Viewer-$version.zip.sha256" "$OUT/release-zip.sha256"
+          fi
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: extension-reproducible-${{ matrix.leg }}
+          path: ${{ runner.temp }}/extension-reproducible
+          if-no-files-found: error
+  extension-reproducible-compare:
+    name: Extension double build compare
+    needs: extension-reproducible
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: extension-reproducible-a
+          path: repro/a
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: extension-reproducible-b
+          path: repro/b
+      - name: The two builds must be byte-identical
+        shell: bash
+        run: |
+          set -euo pipefail
+          for leg in a b; do echo "leg $leg:"; cat "repro/$leg/env.txt"; test -s "repro/$leg/dist.sha256"; test -s "repro/$leg/dist-zip.sha256"; done
+          if ! diff -r -x env.txt repro/a repro/b; then
+            echo 'the two extension builds differ (if env.txt above differs too, the legs ran on different images)' >&2; exit 1
+          fi
+          echo "identical: $(wc -l < repro/a/dist.sha256) dist/ files; zip writer $(cut -d' ' -f1 repro/a/dist-zip.sha256)"

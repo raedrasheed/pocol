@@ -3,14 +3,15 @@
 // another sandbox page or background, an open or stale sandbox CSP, another endpoint or trust level, a chatgpt.site
 // origin, the D1 placeholder (Sites W9: its mark or its identity), a retired identity (in the built-in profile or shown
 // by any file), or a missing or other manifest key (W14: release/manifest-key.pub, the owner key of the fixed extension
-// id). The tree as it is carries both placeholders until the identity switch, so it is never packaged.
+// id). The tree as it is carries both placeholders until the identity switch, so it is never packaged. The release zip
+// is reproducible (W14): it depends only on the bytes and relative paths of dist/.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync, rmSync, existsSync, readdirSync, statSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync, rmSync, existsSync, readdirSync, statSync, chmodSync, utimesSync, symlinkSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { createHash, createPrivateKey, createPublicKey } from 'node:crypto';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { join, dirname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { build, SANDBOX_CSP, readManifestKey, extensionId, MANIFEST_KEY_FILE } from '../build.mjs';
 
@@ -19,10 +20,14 @@ const RETIRED = join(EXT, '..', '..', 'deploy', 'mainnet', 'retired-networks.jso
 const root = mkdtempSync(join(tmpdir(), 'pocol-package-'));
 const rel = build({ out: join(root, 'release') }).dist, faultCsp = build({ fault: 'cspOpen', out: join(root, 'fault') }).dist;
 test.after(() => rmSync(root, { recursive: true, force: true }));
-const tree = join(root, 'tree');
-mkdirSync(join(tree, 'scripts'), { recursive: true });
-cpSync(join(EXT, 'scripts', 'package-release.py'), join(tree, 'scripts', 'package-release.py'));
-writeFileSync(join(tree, 'package.json'), readFileSync(join(EXT, 'package.json')));
+/** A packager tree: a copy of scripts/package-release.py and package.json, with dist/ and the key slot filled by pack(). */
+const packagerTree = (dir) => {
+  mkdirSync(join(dir, 'scripts'), { recursive: true });
+  cpSync(join(EXT, 'scripts', 'package-release.py'), join(dir, 'scripts', 'package-release.py'));
+  writeFileSync(join(dir, 'package.json'), readFileSync(join(EXT, 'package.json')));
+  return dir;
+};
+const tree = packagerTree(join(root, 'tree'));
 // A throwaway manifest key (an Ed25519 SubjectPublicKeyInfo from a fixed seed) in the tree's key slot; the real slot is
 // the owner's (release/manifest-key.pub, the PLACEHOLDER until committed). Its extension id is pinned below.
 const spkiOf = (seedByte) => createPublicKey(createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.alloc(32, seedByte)]), format: 'der', type: 'pkcs8' }))
@@ -30,9 +35,9 @@ const spkiOf = (seedByte) => createPublicKey(createPrivateKey({ key: Buffer.conc
 const TEST_KEY = spkiOf(7), OTHER_KEY = spkiOf(8);
 const PLACEHOLDER_SLOT = readFileSync(MANIFEST_KEY_FILE, 'utf8').replace(/^(?!#)\S.*$/m, 'PLACEHOLDER: the owner\'s manifest public key (base64 DER SubjectPublicKeyInfo)');
 const slotWith = (line) => PLACEHOLDER_SLOT.replace(/^PLACEHOLDER.*$/m, line);
-const setSlot = (text) => { mkdirSync(join(tree, 'release'), { recursive: true }); writeFileSync(join(tree, 'release', 'manifest-key.pub'), text); };
+const setSlot = (text, at = tree) => { mkdirSync(join(at, 'release'), { recursive: true }); writeFileSync(join(at, 'release', 'manifest-key.pub'), text); };
 setSlot(slotWith(TEST_KEY));
-const edit = (file, f) => { const p = join(tree, 'dist', file); writeFileSync(p, f(readFileSync(p, 'utf8'))); };
+const edit = (file, f, at = tree) => { const p = join(at, 'dist', file); writeFileSync(p, f(readFileSync(p, 'utf8'))); };
 const RETIRED_ID = JSON.parse(readFileSync(RETIRED, 'utf8')).retired[0];
 // The identity switch (D1) removes the NETWORK_PLACEHOLDER mark and pins the network in place of the placeholder.
 const MARK = /\/\/ PLACEHOLDER \(decision D1\)[^]*?export const NETWORK_PLACEHOLDER = true;\n/;
@@ -42,20 +47,22 @@ const releaseIdentity = (t) => dropMark(t).replace(/"chainId": \d+/, '"chainId":
 const shownIdentity = (t) => t.replaceAll(String(RETIRED_ID.chainId), '4242').replaceAll(RETIRED_ID.genesisHash.slice(2), '42'.repeat(32));
 const TEXT = /\.(js|html|md|json|txt)$/;
 const files = (d) => readdirSync(d).flatMap((f) => (statSync(join(d, f)).isDirectory() ? files(join(d, f)) : [join(d, f)]));
-/** Packages a copy of `from` after `edits`, with a release identity unless `asBuilt` keeps the tree's own. */
-function pack({ from = rel, edits = [], asBuilt = false, args = [], out = 'out.zip', key = TEST_KEY, slot = slotWith(TEST_KEY) } = {}) {
-  rmSync(join(tree, 'dist'), { recursive: true, force: true }); rmSync(join(tree, out), { force: true });
-  cpSync(from, join(tree, 'dist'), { recursive: true });
-  setSlot(slot);
+/** Packages a copy of `from` after `edits`, with a release identity unless `asBuilt` keeps the tree's own; `at` is the
+ * packager tree, `prepare(dist)` runs on its dist/ last and `env` is the packager's environment. */
+function pack({ from = rel, edits = [], asBuilt = false, args = [], out = 'out.zip', key = TEST_KEY, slot = slotWith(TEST_KEY), at = tree, prepare = null, env = process.env } = {}) {
+  rmSync(join(at, 'dist'), { recursive: true, force: true }); rmSync(join(at, out), { force: true }); rmSync(join(at, out + '.sha256'), { force: true });
+  cpSync(from, join(at, 'dist'), { recursive: true });
+  setSlot(slot, at);
   // As build.mjs writes it for a release once the slot holds the key (null: no key in the manifest).
-  edit('manifest.json', (t) => { const { key: _, ...m } = JSON.parse(t); return JSON.stringify(key === null ? m : { key, ...m }, null, 2) + '\n'; });
+  edit('manifest.json', (t) => { const { key: _, ...m } = JSON.parse(t); return JSON.stringify(key === null ? m : { key, ...m }, null, 2) + '\n'; }, at);
   if (!asBuilt) {
-    edit('lib/studio-network.js', releaseIdentity);
-    for (const f of files(join(tree, 'dist')).filter((f) => TEXT.test(f))) { const t = readFileSync(f, 'utf8'), u = shownIdentity(t); if (u !== t) writeFileSync(f, u); }
+    edit('lib/studio-network.js', releaseIdentity, at);
+    for (const f of files(join(at, 'dist')).filter((f) => TEXT.test(f))) { const t = readFileSync(f, 'utf8'), u = shownIdentity(t); if (u !== t) writeFileSync(f, u); }
   }
-  for (const [file, f] of edits) edit(file, f);
-  const r = spawnSync('python3', ['-B', join(tree, 'scripts', 'package-release.py'), join(tree, out), '--retired', RETIRED, ...args], { encoding: 'utf8' });
-  return { ...r, zip: existsSync(join(tree, out)) };
+  for (const [file, f] of edits) edit(file, f, at);
+  if (prepare) prepare(join(at, 'dist'));
+  const r = spawnSync('python3', ['-B', join(at, 'scripts', 'package-release.py'), join(at, out), '--retired', RETIRED, ...args], { encoding: 'utf8', env });
+  return { ...r, zip: existsSync(join(at, out)) };
 }
 const refused = (r, rx) => { assert.notEqual(r.status, 0, r.stdout); assert.equal(r.zip, false); assert.match(r.stderr, rx); };
 const manifest = (f) => ['manifest.json', (t) => JSON.stringify(f(JSON.parse(t)), null, 2) + '\n'];
@@ -204,4 +211,74 @@ test('an unreadable retired list fails closed for a release', () => {
   setSlot(slotWith(TEST_KEY)); edit('manifest.json', (t) => JSON.stringify({ key: TEST_KEY, ...JSON.parse(t) }, null, 2) + '\n');
   const r = spawnSync('python3', ['-B', join(tree, 'scripts', 'package-release.py'), join(tree, 'x.zip'), '--retired', join(root, 'missing.json')], { encoding: 'utf8' });
   assert.notEqual(r.status, 0); assert.match(r.stderr, /cannot read the retired network identities/); assert.equal(existsSync(join(tree, 'x.zip')), false);
+});
+
+// W14 reproducible zip (scripts/package-release.py write_release_zip): the zip and its .sha256 depend only on the bytes
+// and relative paths of dist/, never on where it was built or packaged, the order its files were made in, their mtimes
+// or modes, or the time zone. The CI double build (.github/workflows/full-nonce-upgrade.yml, extension-reproducible)
+// compares two real checkouts the same way.
+const sha = (b) => createHash('sha256').update(b).digest('hex');
+const names = (d) => files(d).map((f) => relative(d, f).split(sep).join('/')).sort();
+const MODES = [0o600, 0o755, 0o640, 0o444];
+/** Recreates dist/ with its files made in reverse order of name, other modes and mtimes spread over decades. */
+function scramble(dist) {
+  const list = names(dist), bytes = new Map(list.map((n) => [n, readFileSync(join(dist, n))]));
+  rmSync(dist, { recursive: true, force: true });
+  list.slice().reverse().forEach((n, i) => {
+    const p = join(dist, n); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, bytes.get(n));
+    const t = new Date(Date.UTC(1999 + (i % 90), i % 12, 1 + (i % 28), i % 24, i % 60, i % 60)); utimesSync(p, t, t);
+    chmodSync(p, MODES[i % MODES.length]);
+  });
+}
+test('the release zip and its .sha256 are byte-identical from builds in other directories, file orders, mtimes and modes', () => {
+  // A second release build, made later in another directory (a deeper path with a space).
+  const other = build({ out: join(root, 'second build', 'nested', 'dist') }).dist;
+  assert.deepEqual(names(other), names(rel));
+  for (const n of names(rel)) assert.equal(sha(readFileSync(join(other, n))), sha(readFileSync(join(rel, n))), `dist/${n} differs between the two builds`);
+  // Each is packaged from its own packager tree, at another path, as a release (throwaway key, release identity); the
+  // second one's dist/ is scrambled and packaged under another time zone.
+  const twin = packagerTree(join(root, 'second checkout', 'prototypes', 'pocol-extension'));
+  const a = pack({ out: 'release.zip' });
+  const b = pack({ from: other, at: twin, out: 'release.zip', prepare: scramble, env: { ...process.env, TZ: 'Pacific/Kiritimati' } });
+  assert.equal(a.status, 0, a.stderr); assert.equal(b.status, 0, b.stderr);
+  // Not vacuous: every file's mtime, and the modes, differ between the two dist/ trees that were packaged.
+  const list = names(join(tree, 'dist'));
+  assert.deepEqual(names(join(twin, 'dist')), list); assert.ok(list.length > 20, list.join(' '));
+  const stats = list.map((n) => [statSync(join(tree, 'dist', n)), statSync(join(twin, 'dist', n))]);
+  assert.ok(stats.every(([x, y]) => x.mtimeMs !== y.mtimeMs), 'the two dist/ trees have the same mtimes');
+  assert.ok(stats.some(([x, y]) => (x.mode & 0o777) !== (y.mode & 0o777)), 'the two dist/ trees have the same modes');
+  const za = readFileSync(join(tree, 'release.zip')), zb = readFileSync(join(twin, 'release.zip'));
+  assert.ok(za.equals(zb), `the two release zips differ: ${sha(za)} and ${sha(zb)}`);
+  const sa = readFileSync(join(tree, 'release.zip.sha256')), sb = readFileSync(join(twin, 'release.zip.sha256'));
+  assert.ok(sa.equals(sb), `the two .sha256 files differ: ${sa} and ${sb}`);
+  assert.equal(sa.toString('utf8'), `${sha(za)}  release.zip\n`);
+  for (const r of [a, b]) assert.match(r.stdout, new RegExp(`^SHA-256 ${sha(za)}$`, 'm'));
+});
+test('the release zip holds exactly dist/, sorted by name, with fixed dates, modes and host system, DEFLATE level 9', () => {
+  const r = pack({ out: 'layout.zip', prepare: scramble }); assert.equal(r.status, 0, r.stderr);
+  // Each entry as Python reads it, and whether its raw stream is zlib's level-9 raw DEFLATE of the dist/ file.
+  const read = spawnSync('python3', ['-B', '-c', `import json, struct, sys, zipfile, zlib
+from pathlib import Path
+dist, out = Path(sys.argv[2]), []
+with zipfile.ZipFile(sys.argv[1]) as z, open(sys.argv[1], 'rb') as f:
+    for i in z.infolist():
+        f.seek(i.header_offset); n, m = struct.unpack('<HH', f.read(30)[26:30]); f.seek(i.header_offset + 30 + n + m)
+        data, c = (dist / i.filename).read_bytes(), zlib.compressobj(9, zlib.DEFLATED, -15)
+        out.append({'name': i.filename, 'date': list(i.date_time), 'mode': oct(i.external_attr), 'system': i.create_system,
+                    'method': i.compress_type, 'level9': f.read(i.compress_size) == c.compress(data) + c.flush(), 'same': z.read(i) == data})
+    print(json.dumps({'entries': out, 'comment': z.comment.hex()}))`, join(tree, 'layout.zip'), join(tree, 'dist')], { encoding: 'utf8' });
+  assert.equal(read.status, 0, read.stderr);
+  const { entries, comment } = JSON.parse(read.stdout);
+  assert.equal(comment, '');
+  assert.deepEqual(entries.map((e) => e.name), names(join(tree, 'dist')), 'the zip lists every dist/ file once, sorted by name, and nothing else');
+  for (const e of entries) {
+    assert.deepEqual({ ...e, name: undefined }, { name: undefined, date: [1980, 1, 1, 0, 0, 0], mode: '0o' + (0o100644 * 65536).toString(8), system: 3, method: 8, level9: true, same: true }, e.name);
+  }
+});
+test('the zip writer refuses a symbolic link, a key file, node_modules or an output inside dist/, and writes no zip', () => {
+  refused(pack({ prepare: (d) => symlinkSync('manifest.json', join(d, 'link.json')) }), /must not contain symbolic links: link\.json/);
+  refused(pack({ prepare: (d) => writeFileSync(join(d, 'lib', 'miner.pocol-key'), 'throwaway') }), /Unexpected release member: lib\/miner\.pocol-key/);
+  refused(pack({ prepare: (d) => { mkdirSync(join(d, 'node_modules', 'x'), { recursive: true }); writeFileSync(join(d, 'node_modules', 'x', 'i.js'), ''); } }), /Unexpected release member: node_modules\/x\/i\.js/);
+  const inside = pack({ out: join('dist', 'inside.zip') });
+  refused(inside, /the release zip must be written outside dist\//); assert.equal(existsSync(join(tree, 'dist', 'inside.zip.sha256')), false);
 });
