@@ -114,8 +114,18 @@ test('the refresh reads one members page and light blocks; nothing reads every m
   assert.doesNotMatch(BUNDLE, /\[ot\([A-Za-z]+-t\),!0\]/, 'no block list asks for full blocks');
   assert.equal(count(BUNDLE, '[ot(r-t),!1]'), 1); assert.equal(count(BUNDLE, '[ot(M-t),!1]'), 1);
   // Full blocks only one at a time: the block view and the account activity (sequential, at most 20).
-  assert.equal(count(BUNDLE, '`eth_getBlockByNumber`,[a,!0]'), 1);
-  assert.match(BUNDLE, /PocolW7Blocks\(l\.blocks,20\);\(async\(\)=>\{let i=\[\];for\(let a of r\)\{let o=await at\(/);
+  assert.equal(count(BUNDLE, '`eth_getBlockByNumber`,[a.number,!0]'), 1);
+  assert.match(BUNDLE, /PocolW7Blocks\(l\.blocks,20\);\(async\(\)=>\{let i=\[\],g=\{\};for\(let a of r\)\{let o=c\[a\.hash\];if\(!o\)\{let b=await at\(/);
+  // The account activity follows the loaded window (explorer_w7_browser.mjs checks it live): it is keyed to the newest
+  // loaded block's hash, reads again when that changes, reads only blocks it has not read (by hash, so a reorganized
+  // block is read again), and refuses a full block whose hash is not the light block's.
+  assert.equal(count(BUNDLE, 'let k=l?.blocks?.[0]?.hash;if(D?.type!==`address`||!k||D.PocolW7Activity?.key===k)return;'), 1);
+  assert.equal(count(BUNDLE, '},[D?.type,D?.address,l?.blocks?.[0]?.hash]);'), 1);
+  assert.equal(count(BUNDLE, 'if(b?.hash!==a.hash)throw Error('), 1);
+  // A failed read keeps the last list, and says so above it (Codex review, PR #81): the list is never shown as the
+  // latest window's matches while it may be out of date (or hold transactions a reorganization dropped).
+  assert.equal(count(BUNDLE, 'D.PocolW7Activity?.error&&D.PocolW7Activity.txs.length?(0,N.jsx)(`div`,{className:`small-empty`,children:`These are the last transactions read; reading the latest blocks failed: '), 1);
+  assert.equal(count(BUNDLE, ',[D,!!l?.blocks?.length]'), 0, 'the activity is not frozen at the first loaded window');
   // Each beside its view's batch, retried while the shared gateway budget is busy (pocol_getMember costs 20 of its 80
   // tokens), its failure kept to its own rows (a busy gateway still shows the balance).
   assert.equal(count(BUNDLE, 'PocolW7Retry(()=>at(`pocol_getMember`,[n])).catch(e=>({PocolW7Error:e.message}))'), 1, 'the account view reads the member record');
@@ -131,7 +141,9 @@ test('the map counts the loaded members page, and a failed transaction read is n
   assert.equal(count(BUNDLE, '.catch(()=>[])'), 0, 'the transaction read\'s error is not dropped');
   assert.equal(count(BUNDLE, '.catch(e=>(PocolW7TE=e.message,[]))'), 1);
   assert.equal(count(BUNDLE, 'PocolW7Txs:PocolW7T,PocolW7TxError:PocolW7TE})'), 1);
-  assert.equal(count(BUNDLE, ':l?.PocolW7TxError?I(`Latest transactions unavailable`,`${l.PocolW7TxError} '), 1);
+  assert.equal(count(BUNDLE, ':l?.PocolW7TxError?I(`Latest transactions unavailable`,`The latest blocks hold transactions, but reading them failed: ${String(l.PocolW7TxError).replace(/\\.$/,``)}. The next update reads them again.`,C)'), 1);
+  // The message is set apart from the next sentence, whether or not it ends in a period (Data source unavailable).
+  assert.equal(count(BUNDLE, '`${l.PocolW7TxError} '), 0);
 });
 
 test('a member read is tried up to 3 times with a growing pause, then its last error is shown', async () => {
@@ -233,7 +245,9 @@ test('light blocks: the five newest transaction hashes and the blocks with trans
     { number: '0x7', timestamp: '0x7', transactions: [h(3), h(4), h(5), h(6)] }];
   assert.deepEqual(W.PocolW7Hashes(blocks, 5).map((r) => [...r]), [[h(1), '0x9'], [h(2), '0x9'], [h(3), '0x7'], [h(4), '0x7'], [h(5), '0x7']]);
   assert.deepEqual([...W.PocolW7Hashes([{ transactions: [{ hash: h(1) }] }], 5)], [], 'a full block\'s objects are not hashes');
-  assert.deepEqual([...W.PocolW7Blocks(blocks, 20)], ['0x9', '0x7']);
+  const hb = (n) => '0x' + 'b'.repeat(62) + n.toString(16).padStart(2, '0');
+  for (const b of blocks) b.hash = hb(Number(b.number));
+  assert.deepEqual(W.PocolW7Blocks(blocks, 20).map((b) => ({ ...b })), [{ number: '0x9', hash: hb(9) }, { number: '0x7', hash: hb(7) }]);
   const many = Array.from({ length: 30 }, (_, i) => ({ number: '0x' + i.toString(16), transactions: [h(i)] }));
   assert.equal(W.PocolW7Blocks(many, 20).length, 20);
 });

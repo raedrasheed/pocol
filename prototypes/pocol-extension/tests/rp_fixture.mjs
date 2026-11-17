@@ -12,6 +12,8 @@ import { join, dirname } from 'node:path';
 //     --d-att 25 --fb-wait 3 --c 2 --work-bits 8
 // ), never by hand. data/devnet-spec.hex is the retired spec-1 devnet genesis under the same chain ID and genesis time: it
 // still decodes (the decoder corpus and the spec-1 decode checks), but no node admits it and no profile accepts it.
+// tests/devnet_spec_fixture.mjs (npm run test:devnet-spec, run by CI after pocold is built) reruns the command above and
+// compares its genesis.spec.hex with data/devnet-spec-v3.hex byte for byte; keep the command here in that one form.
 const DATA = join(dirname(fileURLToPath(import.meta.url)), 'data');
 const readHex = (name) => readFileSync(join(DATA, name), 'utf8').trim().replace(/^0x/, '');
 /** The v3 devnet GenesisSpec as hex without 0x (the profile fixture). */

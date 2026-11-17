@@ -31,7 +31,11 @@ full block (about 393 KB) fits, and 20 full blocks, the refresh before W7, are r
 `explorer_w7_browser.mjs` loads the snapshot in Chromium against a fake relay (no node or gateway; every outside
 request aborted) with 300 members: when the gateway refuses the refresh's transaction read (429, its busy answer) after
 the status and block reads, the Latest transactions panel says so with the gateway's message instead of "No
-transactions in this window"; the map's summary counts the loaded members page ("256 members on the loaded page").
+transactions in this window" (also for a message without a closing period); the map's summary counts the loaded
+members page ("256 members on the loaded page"); and an account view left open follows the loaded window: when the head
+moves on, the account's new transaction appears, one that left the latest 20 blocks goes, and only the new block is
+read in full (the activity caches each block's matches by hash); when that read is refused, the last list stays with a
+warning above it that it may be out of date.
 
 ## Site texts and download checks (Sites W14)
 
