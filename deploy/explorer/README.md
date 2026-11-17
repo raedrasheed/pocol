@@ -15,7 +15,8 @@ server serves:
 
 Dotfiles, server code (`.php`), checksum lists and the extensions the `.htaccess` denied (`zip tar gz bak log sh md
 json map`) are 404; there is no directory listing. `/api/*` and `/rpc` keep a 16 KiB request-body guard each, also
-after the Studio installer raises the site's `max_size` to 128 KiB for its own route.
+after the Studio installer raises the site's `max_size` to 128 KiB for its own route; the `/api/*` one answers as
+rpc.php did, 413 `{"error":"Request size limit exceeded."}` as JSON.
 
 ## Files
 

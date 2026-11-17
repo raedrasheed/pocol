@@ -57,6 +57,7 @@ function nodeFront(block, siteDir) {
   const hiddenText = /path_regexp explorer_hidden `([^`]+)`/.exec(block)[1];
   const hidden = new RegExp(hiddenText.replace(/^\(\?i\)/, ''), hiddenText.startsWith('(?i)') ? 'i' : '');
   const limit = Number(/int\(\{http\.request\.header\.Content-Length\}\) > ([0-9]+)/.exec(block)[1]);
+  const apiTooLarge = /respond @api_oversized `([^`]*)` 413/.exec(block)[1], apiTooLargeType = /header @api_oversized Content-Type "([^"]*)"/.exec(block)[1];
   const root = /^ {8}root \* (.+)$/m.exec(block)[1];
   const send = (res, status, headers, body = '') => { res.writeHead(status, { ...headers, ...site }); res.end(body); };
   const proxy = (req, res, headers) => {
@@ -68,7 +69,7 @@ function nodeFront(block, siteDir) {
     const path = new URL(req.url, 'http://x').pathname;
     if (path === '/rpc' || path === '/health') return proxy(req, res, {});
     const size = Number(req.headers['content-length'] || 0);
-    if (path.startsWith('/api/')) return size > limit ? send(res, 413, explorerHeaders, 'Request body exceeds 16 KiB') : proxy(req, res, explorerHeaders);
+    if (path.startsWith('/api/')) return size > limit ? send(res, 413, { ...explorerHeaders, 'content-type': apiTooLargeType }, apiTooLarge) : proxy(req, res, explorerHeaders);
     if (hidden.test(path)) return send(res, 404, explorerHeaders, 'Not found');
     let file; try { file = normalize(join(root, decodeURIComponent(path))); } catch { return send(res, 400, explorerHeaders); }
     if (!file.startsWith(normalize(root) + sep) && file !== normalize(root)) return send(res, 404, explorerHeaders);
@@ -144,8 +145,8 @@ async function main() {
     ok('/api/rpc.php accepts the site Origin', own.status === 200 && /^0x/.test((await own.json()).result));
     const getRpc = await fetch(`${base}/api/rpc.php`);
     ok('GET /api/rpc.php is 405 with Allow: POST', getRpc.status === 405 && getRpc.headers.get('allow') === 'POST');
-    const big = await post(one + ' '.repeat(16385 - one.length));
-    ok('a 16385-byte body is 413 (the 16 KiB guard)', big.status === 413, `HTTP ${big.status}`);
+    const big = await post(one + ' '.repeat(16385 - one.length)); const bigText = await big.text();
+    ok('a 16385-byte body is 413 (the 16 KiB guard) with rpc.php\'s JSON error', big.status === 413 && big.headers.get('content-type') === 'application/json; charset=utf-8' && bigText === '{"error":"Request size limit exceeded."}' && missing(big).length === 0, `HTTP ${big.status} ${big.headers.get('content-type')} ${bigText.slice(0, 100)} missing ${missing(big)}`);
     const batch21 = await post(JSON.stringify(Array.from({ length: 21 }, (_, i) => ({ jsonrpc: '2.0', id: i + 1, method: 'eth_blockNumber', params: [] }))));
     ok('a batch of 21 is 400 (lib.php\'s bound)', batch21.status === 400);
     const reward = await post(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'pocol_getBlockReward', params: [] }));

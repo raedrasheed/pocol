@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -44,16 +45,22 @@ class CaddyBlockTests(unittest.TestCase):
             self.assertEqual(block.count(route), 1)
         self.assertEqual(block.count('reverse_proxy 127.0.0.1:8088'), 3)
         self.assertEqual(block.count('respond @oversized "Request body exceeds 16 KiB" 413'), 1)
-        self.assertEqual(block.count('respond @api_oversized "Request body exceeds 16 KiB" 413'), 1)
+        # The /api guard answers as rpc.php did; the /rpc guard keeps the text the Studio installer looks for.
+        self.assertEqual(block.count('respond @api_oversized `{"error":"Request size limit exceeded."}` 413'), 1)
+        self.assertEqual(block.count('header @api_oversized Content-Type "application/json; charset=utf-8"'), 1)
+        self.assertEqual(json.loads(site.API_TOO_LARGE), {'error': 'Request size limit exceeded.'})
+        self.assertEqual(block.count('Request body exceeds 16 KiB'), 1)
         self.assertEqual(block.count('int({http.request.header.Content-Length}) > 16384'), 2)
         self.assertEqual(block.count(f'root * {ROOT_A}\n        file_server\n'), 1)
         self.assertNotIn('browse', block)
         self.assertIn('    request_body {\n        max_size 16384\n    }\n', block)
         # Caddy 2.7+ refuses a token after '{' on the same line: every '{' ends its line, every '}' is alone on one.
+        # (Placeholders and backtick-quoted tokens are single tokens, not blocks.)
         for line in block.splitlines():
-            if '{' in line.replace('{http.request.header.Content-Length}', ''):
+            bare = re.sub(r'`[^`]*`|\{[A-Za-z][A-Za-z0-9_.-]*\}', '', line)
+            if '{' in bare:
                 self.assertTrue(line.endswith(' {'), line)
-            if '}' in line.replace('{http.request.header.Content-Length}', ''):
+            if '}' in bare:
                 self.assertEqual(line.strip(), '}', line)
         # The explorer's .htaccess headers on its files and its /api reads, verbatim, and not site-wide.
         for name, value in explorer_api.SECURITY_HEADERS:

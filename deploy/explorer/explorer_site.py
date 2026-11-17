@@ -49,6 +49,8 @@ SITE_ROOT = re.compile(r'/srv/pocol-explorer/site-[0-9a-f]{12}')
 HIDDEN = r'(?i)(^|/)\.|\.(php[0-9]?|phtml|zip|tar|gz|bak|log|sh|md|json|map)$|(^|/)sha256sums'
 GUARD = ('expression `{http.request.header.Content-Length} != "" && '
          'int({http.request.header.Content-Length}) > ' + str(explorer_api.MAX_BODY) + '`')
+# The /api guard answers as rpc.php did (413, JSON, its message), so a client that reads the error gets PHP's text.
+API_TOO_LARGE = '{"error":"Request size limit exceeded."}'
 
 
 def _headers(indent):
@@ -92,7 +94,8 @@ def render_block(site_root, host=HOST, gateway=GATEWAY):
     handle @explorer_api {{
 {_headers(12)}
         @api_oversized {GUARD}
-        respond @api_oversized "Request body exceeds 16 KiB" 413
+        header @api_oversized Content-Type "{explorer_api.JSON_TYPE}"
+        respond @api_oversized `{API_TOO_LARGE}` 413
         reverse_proxy {gateway} {{
             transport http {{
                 dial_timeout 3s
