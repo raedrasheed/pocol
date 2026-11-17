@@ -339,16 +339,23 @@ def usage(argv):
     return Path(argv[1]), options.get('--check', False), options.get('--accept-site'), options.get('--https-wait', HTTPS_WAIT)
 
 
-def committed_site():
-    """The static copy of this checkout's explorer snapshot, as site_snapshot.py builds it (the committed blobs at HEAD,
-    the include list, checked against the snapshot's SHA256SUMS.txt)."""
-    with tempfile.TemporaryDirectory(prefix='pocol-explorer-committed-') as tmp:
-        try:
-            site_snapshot.build(Path(tmp) / 'site', SNAPSHOT, INCLUDE, repo=ROOT)
-            return explorer_site.site_files(Path(tmp) / 'site')
-        except (ValueError, OSError, subprocess.CalledProcessError) as error:
-            raise RuntimeError('The explorer snapshot of this checkout could not be read (run from a git checkout of the '
-                               f'release commit): {error}') from error
+def checkout_site():
+    """{path: bytes} of this checkout's explorer snapshot as site_snapshot.py publishes it: the include list's files,
+    each checked against the snapshot's SHA256SUMS.txt. Read from the checkout's files, as the gateway sources are (git
+    would refuse, under sudo, a checkout that another user owns)."""
+    folder = ROOT / SNAPSHOT
+    try:
+        include = site_snapshot.parse_include_list(INCLUDE.read_text(encoding='utf-8'))
+        sums = site_snapshot.checksum_entries({'/SHA256SUMS.txt': (folder / 'SHA256SUMS.txt').read_bytes()})
+        files = {}
+        for path in include:
+            raw = (folder / path.lstrip('/')).read_bytes()
+            if path in sums and hashlib.sha256(raw).hexdigest() != sums[path]:
+                raise ValueError(f'{SNAPSHOT}{path} differs from its SHA256SUMS.txt')
+            files[path.lstrip('/')] = raw
+        return files
+    except (ValueError, OSError) as error:
+        raise RuntimeError(f'The explorer snapshot of this checkout could not be read: {error}; no changes made') from error
 
 
 def check_copy(site, files, ident, accept):
@@ -357,7 +364,7 @@ def check_copy(site, files, ident, accept):
         if accept != f'site-{ident}':
             raise RuntimeError(f'--accept-site names {accept}, but {site} is site-{ident}; no changes made')
         return 'accepted with --accept-site'
-    committed = committed_site()
+    committed = checkout_site()
     if files != committed:
         raise RuntimeError(f'{site} (site-{ident}) is not the explorer snapshot of this checkout '
                            f'(site-{explorer_site.manifest(committed)[1]}). Build the copy again into a new directory '

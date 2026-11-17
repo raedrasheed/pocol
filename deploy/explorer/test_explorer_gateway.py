@@ -500,6 +500,15 @@ class InstallerTests(unittest.TestCase):
         text, _, printed, _, ident, _ = self.run_install(change_copy=stale, accept=True)
         self.assertEqual(text, site.render_block(f'/srv/pocol-explorer/site-{ident}'))
         self.assertIn("this checkout's snapshot", self.run_install(check=True)[2])
+        # The checkout's own snapshot is read from its files and checked against its SHA256SUMS.txt (as site_snapshot.py
+        # checks the committed blobs): the copy built from git equals it, and a checkout file that differs is refused.
+        with tempfile.TemporaryDirectory() as tmp:
+            self.assertEqual(installer.checkout_site(), site.site_files(snapshot_copy(tmp)))
+            fake = Path(tmp) / 'checkout'
+            shutil.copytree(ROOT / installer.SNAPSHOT, fake / installer.SNAPSHOT)
+            (fake / installer.SNAPSHOT / 'favicon.ico').write_bytes(b'changed')
+            with patch.object(installer, 'ROOT', fake), self.assertRaisesRegex(RuntimeError, 'differs from its SHA256SUMS'):
+                installer.checkout_site()
 
     def test_directories_are_0755_whatever_the_umask(self):
         # A hardened host's root umask of 027 would make /srv/pocol-explorer and /opt/pocol-explorer-gateway 0750,
