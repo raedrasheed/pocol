@@ -1,0 +1,248 @@
+{
+ "comment": [
+  "Sites W12: what a publication adds to the chain caps (pocold src/site.rs publish_needs, the extension lib/publisher.js publishNeeds).",
+  "Read by pocold tests/site.rs and pocol-extension tests/publisher_test.mjs, so the two formulas cannot drift. A case lists its files",
+  "(text, or `size` bytes of `fill`; `series` adds count files prefix+NNN+suffix with the same text), whether it deploys a new Website,",
+  "and which chunks the chain already holds (`stored`: the chunks of the listed files, or \"all\" for every chunk with the manifest's).",
+  "Every distinct chunk is counted once. Change a formula on both sides and regenerate the needs together."
+ ],
+ "txEnvelopeMax": 160,
+ "websiteRuntimeBytes": 3204,
+ "websiteInitcodeBytes": 3279,
+ "cases": [
+  {
+   "name": "new site, every chunk missing (an empty file has no chunk)",
+   "newSite": true,
+   "stored": [],
+   "files": [
+    {
+     "path": "/index.html",
+     "text": "<!doctype html><h1>Hello</h1>"
+    },
+    {
+     "path": "/style.css",
+     "text": "body{color:red}"
+    },
+    {
+     "path": "/empty.txt",
+     "text": ""
+    }
+   ],
+   "entry": "/index.html",
+   "manifestBytes": 199,
+   "manifestHash": "0x5be41504d69679d4aae137dde93b8575a1ce01c451844077f2ef2a9986926aad",
+   "manifestChunks": 1,
+   "chunks": 3,
+   "missingChunks": 3,
+   "needs": {
+    "accounts": 4,
+    "storageSlots": 8,
+    "codeBytes": 3450,
+    "txCount": 7,
+    "txBytes": 5127,
+    "logBytes": 0,
+    "largestTxBytes": 3439
+   }
+  },
+  {
+   "name": "new site, a two-chunk file and two files with equal bytes (one shared chunk)",
+   "newSite": true,
+   "stored": [],
+   "files": [
+    {
+     "path": "/index.html",
+     "text": "<!doctype html><p>two"
+    },
+    {
+     "path": "/big.txt",
+     "fill": 97,
+     "size": 30000
+    },
+    {
+     "path": "/a.txt",
+     "text": "same bytes"
+    },
+    {
+     "path": "/b.txt",
+     "text": "same bytes"
+    }
+   ],
+   "entry": "/index.html",
+   "manifestBytes": 316,
+   "manifestHash": "0x7abf4d0199b35f223610351f5fadd38d6a983d297be51ebbddfbd3572dcb25dc",
+   "manifestChunks": 1,
+   "chunks": 5,
+   "missingChunks": 5,
+   "needs": {
+    "accounts": 6,
+    "storageSlots": 8,
+    "codeBytes": 33556,
+    "txCount": 9,
+    "txBytes": 35695,
+    "logBytes": 0,
+    "largestTxBytes": 24804
+   }
+  },
+  {
+   "name": "new site, the two-chunk file already stored",
+   "newSite": true,
+   "stored": [
+    "/big.txt"
+   ],
+   "files": [
+    {
+     "path": "/index.html",
+     "text": "<!doctype html><p>two"
+    },
+    {
+     "path": "/big.txt",
+     "fill": 97,
+     "size": 30000
+    },
+    {
+     "path": "/a.txt",
+     "text": "same bytes"
+    },
+    {
+     "path": "/b.txt",
+     "text": "same bytes"
+    }
+   ],
+   "entry": "/index.html",
+   "manifestBytes": 316,
+   "manifestHash": "0x7abf4d0199b35f223610351f5fadd38d6a983d297be51ebbddfbd3572dcb25dc",
+   "manifestChunks": 1,
+   "chunks": 5,
+   "missingChunks": 3,
+   "needs": {
+    "accounts": 4,
+    "storageSlots": 8,
+    "codeBytes": 3554,
+    "txCount": 7,
+    "txBytes": 5223,
+    "logBytes": 0,
+    "largestTxBytes": 3439
+   }
+  },
+  {
+   "name": "new version of an existing site (--site): only the changed file and the manifest are new",
+   "newSite": false,
+   "stored": [
+    "/index.html"
+   ],
+   "files": [
+    {
+     "path": "/index.html",
+     "text": "<!doctype html><h1>Hello</h1>"
+    },
+    {
+     "path": "/new.css",
+     "text": "p{margin:0}"
+    }
+   ],
+   "entry": "/index.html",
+   "manifestBytes": 149,
+   "manifestHash": "0x67b80de626e741358a9e63d0117502e709baccc317736dfcfdf8921eebc6dc46",
+   "manifestChunks": 1,
+   "chunks": 3,
+   "missingChunks": 2,
+   "needs": {
+    "accounts": 2,
+    "storageSlots": 4,
+    "codeBytes": 162,
+    "txCount": 5,
+    "txBytes": 1364,
+    "logBytes": 0,
+    "largestTxBytes": 388
+   }
+  },
+  {
+   "name": "new version of an existing site, every chunk stored",
+   "newSite": false,
+   "stored": "all",
+   "files": [
+    {
+     "path": "/index.html",
+     "text": "<!doctype html><h1>Hello</h1>"
+    },
+    {
+     "path": "/style.css",
+     "text": "body{color:red}"
+    }
+   ],
+   "entry": "/index.html",
+   "manifestBytes": 151,
+   "manifestHash": "0xe3d6be9028e0e4eec006124e0fd158c780c8527adc0a1acb974c094aa0827cfc",
+   "manifestChunks": 1,
+   "chunks": 3,
+   "missingChunks": 0,
+   "needs": {
+    "accounts": 0,
+    "storageSlots": 4,
+    "codeBytes": 0,
+    "txCount": 3,
+    "txBytes": 716,
+    "logBytes": 0,
+    "largestTxBytes": 324
+   }
+  },
+  {
+   "name": "new site, every chunk stored (only the Website and the version)",
+   "newSite": true,
+   "stored": "all",
+   "files": [
+    {
+     "path": "/index.html",
+     "text": "<!doctype html><h1>Hello</h1>"
+    }
+   ],
+   "entry": "/index.html",
+   "manifestBytes": 79,
+   "manifestHash": "0x9c03a3385200d2d4d484bd278c82fcc7f6fee45c2fee4fe7c248abc717a90943",
+   "manifestChunks": 1,
+   "chunks": 2,
+   "missingChunks": 0,
+   "needs": {
+    "accounts": 1,
+    "storageSlots": 8,
+    "codeBytes": 3204,
+    "txCount": 4,
+    "txBytes": 4155,
+    "logBytes": 0,
+    "largestTxBytes": 3439
+   }
+  },
+  {
+   "name": "new site with a manifest of two chunks",
+   "newSite": true,
+   "stored": [],
+   "files": [
+    {
+     "path": "/index.html",
+     "text": "<!doctype html><p>many"
+    }
+   ],
+   "series": {
+    "count": 130,
+    "prefix": "/d/f",
+    "suffix": "-pppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppp.txt",
+    "text": "shared chunk"
+   },
+   "entry": "/index.html",
+   "manifestBytes": 29332,
+   "manifestHash": "0x6f783bcece410dc9e8530de4beb0a7d0f4b82a24456369096ee978e3bc953337",
+   "manifestChunks": 2,
+   "chunks": 4,
+   "missingChunks": 4,
+   "needs": {
+    "accounts": 5,
+    "storageSlots": 9,
+    "codeBytes": 32574,
+    "txCount": 8,
+    "txBytes": 34507,
+    "logBytes": 0,
+    "largestTxBytes": 24804
+   }
+  }
+ ]
+}
