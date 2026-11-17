@@ -143,7 +143,7 @@ class CaddyBlockTests(unittest.TestCase):
     def test_the_loopback_test_config(self):
         with tempfile.TemporaryDirectory() as tmp:
             text = site.loopback_config(tmp, '127.0.0.1:8661', '127.0.0.1:8662')
-            self.assertTrue(text.startswith('{\n    admin off\n    persist_config off\n}\n'))
+            self.assertTrue(text.startswith('{\n    admin off\n}\n'))
             self.assertIn('\nhttp://127.0.0.1:8661 {\n', text)
             self.assertNotIn('explorer.pocol.net', text); self.assertNotIn('8088', text)
             self.assertEqual(text.count('reverse_proxy 127.0.0.1:8662'), 3)

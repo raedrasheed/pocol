@@ -137,7 +137,7 @@ def loopback_config(site_root, listen, gateway):
     root = str(Path(site_root).resolve()).replace('\\', '/')
     if any(c in root for c in ' "`{}\n'):
         raise ValueError('The test site root needs a plain path')
-    return '{\n    admin off\n    persist_config off\n}\n\n' + block.replace('/srv/pocol-explorer/site-000000000000', root, 1)
+    return '{\n    admin off\n}\n\n' + block.replace('/srv/pocol-explorer/site-000000000000', root, 1)
 
 
 def is_stock_caddyfile(text):
