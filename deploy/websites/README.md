@@ -77,8 +77,10 @@ extension version label that is not package.json's (a capability message "X or l
 name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
 `PoCol-Mainnet-0.4.0-Windows.zip` and `-Linux.zip` that the pages link until the signed release (W16) are exempt while a
 page still names them. `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
-out of Git (an archive, its `.sig` or `.sha256`) and drops the kept-out lines of other versions of the same archive
-family and their unversioned copies; a tracked file it supersedes must be removed first.
+out of Git (an archive, its `.sig` or `.sha256`), adds its name to the site's `keptOut` list in `site-identity.json`
+and drops the kept-out lines (and names) of other versions of the same archive family and their unversioned copies; a
+tracked file it supersedes must be removed first. Only the lines `keptOut` names are carried for files that are not in
+the snapshot, so a tracked file that is deleted (a `.sha256`) loses its line and `--check` fails until a run drops it.
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
 explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails

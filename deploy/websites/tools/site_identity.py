@@ -25,11 +25,13 @@ Derived files move with their sources:
 - a hashed bundle (BUNDLES) is named `<prefix>-<first 12 hex of its SHA-256>.js`; a changed bundle is renamed and the
   site's index.html reference and its line in an include list (INCLUDE_LISTS: the explorer's S1 file list) follow;
 - a `<path>?v=<12 hex>` reference to a file of the same site that is not a page gets that file's content version;
-- each site's SHA256SUMS.txt lists every file of the site (and keeps the lines of the download archives that are kept
-  out of Git).
+- each site's SHA256SUMS.txt lists every file of the site, and keeps the lines of the download files that DECLARED's
+  keptOut names as kept out of Git. Only those lines are carried: the line of any other file that is not in the
+  snapshot (a deleted tracked .sha256) is dropped, so --check fails until a run removes it.
 
 --download PATH=SHA256 (repeatable; PATH is `<site>/downloads/<name>`, a .zip, .tar.gz or .apk archive or its .sig or
-.sha256) writes the SHA256SUMS.txt line of a release file that is kept out of Git. It drops the lines it supersedes: the
+.sha256) writes the SHA256SUMS.txt line of a release file that is kept out of Git and adds its name to keptOut. It
+drops the lines it supersedes (and their keptOut names): the
 kept-out lines of another version of the same archive family (the name before `-X.Y.Z`, for example
 `PoCol-Studio-IDE-Viewer` or `PoCol-Mainnet`) and any other kept-out line with the bytes of one of those (an unversioned
 copy such as `PoCol-Studio-Chrome.zip`). A file of the snapshot that it supersedes (a tracked `.sha256`) is refused
@@ -74,11 +76,13 @@ EXPLORER, IDE, MAIN = 'deploy/websites/explorer.pocol.net', 'deploy/websites/ide
 STUDIO = 'prototypes/pocol-studio/dist'
 # Document roots; True: the site publishes a SHA256SUMS.txt of its files.
 SITES = {EXPLORER: True, IDE: True, MAIN: True, STUDIO: False}
+# DECLARED's keptOut key of each site that publishes a SHA256SUMS.txt.
+SUMS_SITES = {posixpath.basename(site): site for site, has_sums in SITES.items() if has_sums}
 # Files outside the document roots that pin the identity (a test of the deployed PHP).
 EXTRA = ['deploy/websites/tests/api_security.php', 'deploy/websites/tests/browser_security.mjs']
 SUMS = 'SHA256SUMS.txt'
-# Listed in SHA256SUMS.txt but kept out of Git (deploy/websites/README.md): download archives, their signatures and
-# their .sha256 files.
+# A download file that may be listed in SHA256SUMS.txt but kept out of Git (deploy/websites/README.md): an archive, its
+# signature or its .sha256. Which ones are kept out is DECLARED's keptOut: a tracked .sha256 has this form too.
 KEPT_OUT = re.compile(r'downloads/[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
 # A --download name: a kept-out file name of plain characters.
 DOWNLOAD_NAME = re.compile(r'downloads/[A-Za-z0-9][A-Za-z0-9._-]*\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?')
@@ -223,6 +227,14 @@ def validate(doc):
         raise Refused(f'{DECLARED}: links must name exactly {sorted(COMMIT_LINKS)}')
     for k, v in links.items():
         check_link(k, v)
+    kept = doc.get('keptOut')
+    if not isinstance(kept, dict) or set(kept) != set(SUMS_SITES):
+        raise Refused(f'{DECLARED}: keptOut must name exactly {sorted(SUMS_SITES)}')
+    for site, names in kept.items():
+        if not isinstance(names, list) or not all(isinstance(n, str) and DOWNLOAD_NAME.fullmatch(n) for n in names) \
+                or names != sorted(set(names)):
+            raise Refused(f'{DECLARED}: keptOut {site}: a sorted list of distinct names downloads/<archive> (a .zip, '
+                          '.tar.gz or .apk, or its .sig or .sha256)')
     return doc
 
 def fields(doc):
@@ -393,9 +405,10 @@ def archive_version(name):
     m = ARCHIVE_VERSION.fullmatch(name)
     return (m.group(1), m.group(2)) if m else None
 
-def finish(tree, problems, downloads=None):
-    """The derived files (into tree.out): bundle names, content versions and SHA256SUMS.txt. downloads ({site path:
-    digest}, --download) adds kept-out lines and drops the ones they supersede."""
+def finish(tree, problems, downloads=None, kept_out=None):
+    """The derived files (into tree.out): bundle names, content versions and SHA256SUMS.txt, and the new keptOut
+    (returned). kept_out (DECLARED's keptOut) names the kept-out lines that are carried; downloads ({site path: digest},
+    --download) adds kept-out lines and drops the ones they supersede."""
     # A hashed bundle is named by its content version; the site's index.html reference follows.
     for key, (site, prefix) in BUNDLES.items():
         rel = bundle_path(tree, key)
@@ -450,7 +463,8 @@ def finish(tree, problems, downloads=None):
             break
     else:
         problems.append('content versions do not settle (a cycle of versioned references)')
-    # SHA256SUMS.txt of each site: every file but itself, and the kept-out archives it lists.
+    # SHA256SUMS.txt of each site: every file but itself, and the declared kept-out lines.
+    new_kept = {}
     for site, has_sums in SITES.items():
         if not has_sums:
             continue
@@ -463,12 +477,16 @@ def finish(tree, problems, downloads=None):
                 problems.append(f'{f}: a config.php must never be in a website snapshot (it was not read)')
                 continue
             lines[f[len(site) + 1:]] = hashlib.sha256(tree.read(f)).hexdigest()
+        # Only the declared kept-out lines are read back; the line of any other file that is not in the snapshot goes.
+        declared = set((kept_out or {}).get(posixpath.basename(site), []))
         kept = {}
         for line in tree.text(sums).splitlines():
             digest, _, name = line.partition('  ')
-            if KEPT_OUT.fullmatch(name) and name not in lines and re.fullmatch(r'[0-9a-f]{64}', digest):
+            if name in declared and name not in lines and re.fullmatch(r'[0-9a-f]{64}', digest):
                 kept[name] = digest
         given = {path[len(site) + 1:]: digest for path, digest in (downloads or {}).items() if path.startswith(site + '/')}
+        for name in sorted(declared - set(kept) - set(lines) - set(given)):
+            problems.append(f'{sums}: has no line for {name}, which {DECLARED} keptOut names; give it with --download')
         superseded = set()
         for name, digest in given.items():
             if name in lines:
@@ -488,10 +506,12 @@ def finish(tree, problems, downloads=None):
         for old in [n for n, d in kept.items() if d in superseded and n not in given]:
             del kept[old]
         kept.update(given)
+        new_kept[posixpath.basename(site)] = sorted(n for n in kept if n not in lines)
         lines.update({n: d for n, d in kept.items() if n not in lines})
         text = ''.join(f'{lines[n]}  {n}\n' for n in sorted(lines))
         if text != tree.text(sums):
             tree.out[sums] = text.encode('utf-8')
+    return new_kept
 
 # ---------------- checks ----------------
 def tree_checks(tree, doc, retired, problems):
@@ -645,7 +665,7 @@ def plan(root, target=None, commit=None, rpc_url=None, edits=None, allow_revert=
         problems += [f'after the {"edits" if edits is not None else "switch"}: {line}' for line in after]
     if problems:
         return problems, {}, new
-    finish(tree, problems, downloads)
+    new['keptOut'] = finish(tree, problems, downloads, new['keptOut'])
     tree_checks(tree, new, retired, problems)
     declared = (json.dumps(new, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
     if declared != tree.read(DECLARED):

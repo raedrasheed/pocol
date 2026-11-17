@@ -46,7 +46,8 @@ languages without a version number, and that DEPLOY-README-AR.txt sections 2 and
 anchored network block kept. The Studio's `tests/model.test.mjs` pins the two install3 texts.
 `test_site_identity.py` covers the extension version labels (package.json's version; "X or later" capability messages
 exempt), the native package names (assemble_release.py's at package.py's version; the linked retired names exempt only
-while linked), `--download` (kept-out lines written, superseded ones dropped, a tracked superseded file refused) and
+while linked), `--download` (kept-out lines written, superseded ones dropped, a tracked superseded file refused), the
+`keptOut` list (only its lines are carried, so a deleted tracked `.sha256` fails `--check`) and
 that the W14 edits, undone on a copy, give back every served file byte for byte.
 
 The Python tests (`test_site_identity.py`) switch a temporary copy of the snapshots to a test identity and back

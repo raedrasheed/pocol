@@ -10,7 +10,8 @@ index.html assets, misnamed bundles, stale checksums and content versions, retir
 (one on the declared chain ID, a postponed launch, by its genesis hash only), any config.php (which is never read) and
 server code or a hidden file in the explorer snapshot (Sites W8: the gateway host serves it as static files); no
 config.php is tracked or committable; --download writes the kept-out SHA256SUMS.txt lines of release files and drops
-the ones they supersede; the W14 text edits reproduce the served files.
+the ones they supersede, and only the lines site-identity.json's keptOut names are carried (a deleted tracked file loses
+its line); the W14 text edits reproduce the served files.
 
     python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
 """
@@ -116,15 +117,20 @@ class SiteIdentity(unittest.TestCase):
                 listed = (root / si.INCLUDE_LISTS[key]).read_text(encoding='utf-8').split('\n')
                 self.assertEqual([line for line in listed if line.startswith(f'assets/{prefix}-') and line.endswith('.js')],
                                  [f'assets/{path.name}'], si.INCLUDE_LISTS[key])
+        kept_out = json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']
         for site, has_sums in si.SITES.items():
             if not has_sums:
                 continue
+            # A listed file that is not in the snapshot is one the declared keptOut names, and each of those is listed.
+            missing = set()
             for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines():
                 digest, name = line.split('  ', 1)
                 if (root / site / name).exists():
                     self.assertEqual(hashlib.sha256((root / site / name).read_bytes()).hexdigest(), digest, name)
                 else:
                     self.assertRegex(name, r'^downloads/[^/]+\.(?:zip|tar\.gz|apk)(?:\.sig|\.sha256)?$')
+                    missing.add(name)
+            self.assertEqual(missing, set(kept_out[Path(site).name]), site)
             listed = {line.split('  ', 1)[1] for line in (root / site / si.SUMS).read_text(encoding='utf-8').splitlines()}
             present = {p.relative_to(root / site).as_posix() for p in (root / site).rglob('*') if p.is_file()} - {si.SUMS}
             self.assertEqual(present - listed, set(), site)
@@ -559,14 +565,29 @@ class SiteIdentity(unittest.TestCase):
         sums = root / si.MAIN / si.SUMS
         lines = lambda: dict(reversed(line.split('  ', 1)) for line in sums.read_text(encoding='utf-8').splitlines())
         old_native, chrome, ext = 'a' * 64, lines()['downloads/PoCol-Studio-Chrome.zip'], lines()[f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip']
-        # A kept-out line of the retired native package (it was listed before the 2026-11-13 clean-up): a run keeps it.
+        declared_path = root / si.DECLARED
+        def declare(*names):
+            doc = json.loads(declared_path.read_text(encoding='utf-8'))
+            doc['keptOut']['pocol.net'] = sorted(set(doc['keptOut']['pocol.net']) | set(names))
+            declared_path.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+        # A kept-out line of the retired native package (it was listed before the 2026-11-13 clean-up): a run keeps it
+        # while keptOut names it, and drops it when it does not.
         sums.write_text(sums.read_text(encoding='utf-8') + f'{old_native}  downloads/PoCol-Mainnet-0.4.0-Windows.zip\n',
                         encoding='utf-8')
+        self.assertEqual(self.run_tool(root, '--check'), 2, 'an undeclared line of a file that is not in the snapshot')
+        declare('downloads/PoCol-Mainnet-0.4.0-Windows.zip')
         self.assertEqual(self.run_tool(root), 0, self.last_errors)
         self.assertEqual(lines()['downloads/PoCol-Mainnet-0.4.0-Windows.zip'], old_native, 'kept-out lines are kept')
+        # A declared name without a line is refused (its digest is not known).
+        text = sums.read_text(encoding='utf-8')
+        sums.write_text(text.replace(f'{old_native}  downloads/PoCol-Mainnet-0.4.0-Windows.zip\n', ''), encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 2)
+        self.assertIn('has no line for downloads/PoCol-Mainnet-0.4.0-Windows.zip', self.last_errors)
+        sums.write_text(text, encoding='utf-8')
         # And of an older extension package with an unversioned copy of it: kept too, so --check names the stale line.
         sums.write_text(sums.read_text(encoding='utf-8') + f'{"b" * 64}  downloads/PoCol-Studio-IDE-Viewer-0.3.9.zip\n'
                         f'{"b" * 64}  downloads/PoCol-Legacy-Chrome.zip\n', encoding='utf-8')
+        declare('downloads/PoCol-Studio-IDE-Viewer-0.3.9.zip', 'downloads/PoCol-Legacy-Chrome.zip')
         self.assertEqual(self.run_tool(root, '--check'), 2, 'the stale 0.3.9 extension line')
         self.assertIn('SHA256SUMS.txt: links the extension package 0.3.9', self.last_errors)
         win = f'{si.MAIN}/downloads/PoCol-Mainnet-{NATIVE_VERSION}-windows-x86_64.zip'
@@ -582,9 +603,13 @@ class SiteIdentity(unittest.TestCase):
         got = lines()
         for path, digest in given.items():
             self.assertEqual(got[path[len(si.MAIN) + 1:]], digest, path)
+        kept_out = json.loads(declared_path.read_text(encoding='utf-8'))['keptOut']['pocol.net']
         for gone in ('downloads/PoCol-Mainnet-0.4.0-Windows.zip', 'downloads/PoCol-Studio-IDE-Viewer-0.3.9.zip',
                      'downloads/PoCol-Legacy-Chrome.zip'):
             self.assertNotIn(gone, got)
+            self.assertNotIn(gone, kept_out)
+        self.assertEqual(kept_out, sorted(['downloads/PoCol-Studio-Chrome.zip', f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip',
+                                           *(path[len(si.MAIN) + 1:] for path in given)]))
         self.assertEqual((got['downloads/PoCol-Studio-Chrome.zip'], got[f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip']),
                          (chrome, ext), 'the current extension package and its copy stay')
         self.assertEqual(list(got), sorted(got))
@@ -618,6 +643,21 @@ class SiteIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, '--download', f'{win}={"1" * 64}', '--download', f'{win}={"7" * 64}'), 2)
         self.assertIn('given twice', self.last_errors)
         self.assertEqual(snapshot(root), before)
+
+    def test_a_missing_tracked_download_file_loses_its_line(self):
+        # The tracked 0.4.1 .zip.sha256 is listed by its own digest, not as a kept-out line: deleted without a
+        # superseding --download, its line is not carried, so --check fails and a run drops the line.
+        name = f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip.sha256'
+        for site in (si.MAIN, si.IDE):
+            with self.subTest(site=site):
+                root = self.copy()
+                (root / site / name).unlink()
+                self.assertEqual(self.run_tool(root, '--check'), 2, 'a deleted tracked file fails the check')
+                self.assertIn(f'{site}/{si.SUMS}: does not carry', self.last_errors)
+                self.assertEqual(self.run_tool(root), 0, self.last_errors)
+                self.assertNotIn(name, (root / site / si.SUMS).read_text(encoding='utf-8'))
+                self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+                self.assert_consistent(root)
 
     def test_the_w14_edits_reproduce_the_served_files(self):
         # Sites W14's site texts are anchored edits (tools/w14-text-edits.json): undone in reverse on a copy, the tool's
