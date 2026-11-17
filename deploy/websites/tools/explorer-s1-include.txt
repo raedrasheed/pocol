@@ -3,7 +3,8 @@
 # Not listed, and refused whatever this list says: SHA256SUMS.txt, and any dotfile or api/** (the snapshot holds none
 # since Sites W8: the gateway host serves it as static files and answers its /api reads, deploy/explorer).
 # favicon.ico and site.webmanifest have manifest MIME ids 12 and 13 (owner answer Q3).
-# When a bundle file is renamed (W9 identity tool, W7), update its line here.
+# The bundle line follows a rename: tools/site_identity.py rewrites it (an identity switch or anchored edits such as W7),
+# and its --check refuses a list that names any other explorer bundle.
 index.html
 assets/index-038724d30ca3.js
 assets/index-oGnBWUS-.css

@@ -21,6 +21,14 @@ import site_identity as si  # noqa: E402
 
 ni = si.ni
 ROOT = si.ROOT
+
+def served_bundle(root=ROOT):
+    """The explorer bundle index.html loads (`assets/index-<hash>.js`), read from the page rather than pinned here, so a
+    rename (an identity switch, anchored edits) needs no test change."""
+    page = (root / si.EXPLORER / 'index.html').read_text(encoding='utf-8')
+    found = re.findall(r'<script\b[^>]*\bsrc="/(assets/index-[A-Za-z0-9_-]+\.js)"', page)
+    assert len(found) == 1, found
+    return found[0]
 DECLARED = json.loads((ROOT / si.DECLARED).read_text(encoding='utf-8'))
 # A spec-2 (v3) GenesisSpec for the test identity: the decoder corpus's v3 genesis (the devnet spec naming the v3
 # program set) under a test chain ID.
@@ -99,6 +107,10 @@ class SiteIdentity(unittest.TestCase):
             path = self.bundle(root, key)
             self.assertEqual(path.name, f'{prefix}-{hashlib.sha256(path.read_bytes()).hexdigest()[:12]}.js')
             self.assertIn(f'"/assets/{path.name}"', (root / site / 'index.html').read_text(encoding='utf-8'))
+            if key in si.INCLUDE_LISTS:
+                listed = (root / si.INCLUDE_LISTS[key]).read_text(encoding='utf-8').split('\n')
+                self.assertEqual([line for line in listed if line.startswith(f'assets/{prefix}-') and line.endswith('.js')],
+                                 [f'assets/{path.name}'], si.INCLUDE_LISTS[key])
         for site, has_sums in si.SITES.items():
             if not has_sums:
                 continue
@@ -147,7 +159,7 @@ class SiteIdentity(unittest.TestCase):
         for name in ('api/rpc.php', 'API/health.php', 'api', 'api/x.txt', '.htaccess', 'assets/.hidden', 'x.php', 'x.PHP7',
                      'x.phtml', 'x.phar'):
             self.assertRegex(name, si.SERVER_CODE)
-        for name in ('index.html', 'assets/index-038724d30ca3.js', 'site.webmanifest', 'apis.html', 'php.png', 'assets/api.css'):
+        for name in ('index.html', served_bundle(), 'site.webmanifest', 'apis.html', 'php.png', 'assets/api.css'):
             self.assertNotRegex(name, si.SERVER_CODE)
 
     # ---------------- switch ----------------
@@ -319,6 +331,10 @@ class SiteIdentity(unittest.TestCase):
         path = self.bundle(root, 'explorer-bundle')
         self.assertNotEqual(path.name, old_name)
         self.assertFalse((root / si.EXPLORER / 'assets' / old_name).exists())
+        # The S1 include list follows the rename (it named the old bundle, and the publish would have missed the new one).
+        listed = (root / si.INCLUDE_LISTS['explorer-bundle']).read_text(encoding='utf-8')
+        self.assertIn(f'\nassets/{path.name}\n', listed)
+        self.assertNotIn(old_name, listed)
         self.assertIn('Reading network data…', path.read_text(encoding='utf-8'))
         self.assert_consistent(root)
         self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
@@ -351,6 +367,23 @@ class SiteIdentity(unittest.TestCase):
                 self.assertEqual(snapshot(root), before, 'nothing is written when an edit breaks an anchor')
                 self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
 
+    def test_a_rename_the_include_list_cannot_follow_writes_nothing(self):
+        # The S1 include list must name the old bundle on one line of its own; otherwise a rename is refused, so the
+        # list is never left naming a bundle that no longer exists.
+        edits = [{'file': 'explorer-bundle', 'old': 'Looking up network data…', 'new': 'Reading network data…', 'count': 1}]
+        for name, change in (('missing', lambda text, line: text.replace(line + '\n', '')),
+                             ('twice', lambda text, line: text + line + '\n'),
+                             ('not on a line of its own', lambda text, line: text.replace(line, './' + line))):
+            with self.subTest(name):
+                root = self.copy()
+                (root / 'edits.json').write_text(json.dumps(edits, ensure_ascii=False), encoding='utf-8')
+                listed = root / si.INCLUDE_LISTS['explorer-bundle']
+                listed.write_text(change(listed.read_text(encoding='utf-8'), served_bundle(root)), encoding='utf-8')
+                before = snapshot(root)
+                self.assertEqual(self.run_tool(root, '--edits', str(root / 'edits.json')), 2)
+                self.assertIn(f'must name {served_bundle(root)} on one line of its own', self.last_errors)
+                self.assertEqual(snapshot(root), before)
+
     # ---------------- checks ----------------
     def test_check_refuses_what_must_not_be_served(self):
         def chatgpt(root):
@@ -374,13 +407,21 @@ class SiteIdentity(unittest.TestCase):
             (root / si.EXPLORER / '.htaccess').write_text('Options -Indexes\n')
         def php_page(root):
             (root / si.EXPLORER / 'status.php').write_text('<?php\n')
+        def stale_include_list(root):
+            p = root / si.INCLUDE_LISTS['explorer-bundle']
+            p.write_text(p.read_text(encoding='utf-8').replace(served_bundle(root), 'assets/index-000000000000.js'), encoding='utf-8')
+        def include_list_without_bundle(root):
+            p = root / si.INCLUDE_LISTS['explorer-bundle']
+            p.write_text(p.read_text(encoding='utf-8').replace(served_bundle(root) + '\n', ''), encoding='utf-8')
         def config_php(root):
             (root / si.EXPLORER / 'api').mkdir(exist_ok=True)
             (root / si.EXPLORER / 'api' / 'config.php').write_text('<?php // test file that the tool must never read\n')
         cases = {chatgpt: 'chatgpt.site', old_download: '0.3.9', missing_asset: 'does not exist',
                  misnamed_bundle: 'index-extension041-000000000000.js: would be removed', stale_sums: 'SHA256SUMS.txt', unlisted: 'SHA256SUMS.txt',
                  stale_version: '.html: does not carry', relay_restored: 'api/rpc.php: server code', htaccess_restored: '.htaccess: server code',
-                 php_page: 'status.php: server code', config_php: 'config.php must never'}
+                 php_page: 'status.php: server code', config_php: 'config.php must never',
+                 stale_include_list: "names ['assets/index-000000000000.js'], not the bundle",
+                 include_list_without_bundle: 'names no bundle, not the bundle'}
         for make, message in cases.items():
             with self.subTest(make.__name__):
                 root = self.copy()
