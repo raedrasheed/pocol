@@ -367,6 +367,33 @@ class SiteIdentity(unittest.TestCase):
                 self.assertEqual(snapshot(root), before, 'nothing is written when an edit breaks an anchor')
                 self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
 
+    def test_the_w7_edits_reproduce_the_served_explorer_bundle(self):
+        # Sites W7 is anchored edits only (tools/explorer-w7-edits.json): undone in reverse on a copy, the tool's own
+        # --edits run gives back the served bundle byte for byte, with the same name, index.html, SHA256SUMS.txt and S1
+        # include list, so the committed bundle is exactly the patcher's output of the committed edits.
+        root = self.copy()
+        edits = json.loads((ROOT / 'deploy/websites/tools/explorer-w7-edits.json').read_text(encoding='utf-8'))
+        served = self.bundle(ROOT, 'explorer-bundle')
+        text = served.read_text(encoding='utf-8')
+        for e in reversed(edits):
+            self.assertEqual(text.count(e['new']), 1, e['new'][:80])
+            text = text.replace(e['new'], e['old'])
+        self.assertNotIn('PocolW7', text)
+        base = text.encode('utf-8')
+        base_name = f'index-{hashlib.sha256(base).hexdigest()[:12]}.js'
+        (root / si.EXPLORER / 'assets' / served.name).unlink()
+        (root / si.EXPLORER / 'assets' / base_name).write_bytes(base)
+        for rel in (f'{si.EXPLORER}/index.html', si.INCLUDE_LISTS['explorer-bundle']):
+            p = root / rel
+            p.write_text(p.read_text(encoding='utf-8').replace(served.name, base_name), encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)  # the checksums of the reconstructed base
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root, '--edits', str(ROOT / 'deploy/websites/tools/explorer-w7-edits.json')), 0, self.last_errors)
+        self.assertEqual(self.bundle(root, 'explorer-bundle').name, served.name)
+        for rel in (f'{si.EXPLORER}/assets/{served.name}', f'{si.EXPLORER}/index.html', f'{si.EXPLORER}/{si.SUMS}',
+                    si.INCLUDE_LISTS['explorer-bundle']):
+            self.assertEqual((root / rel).read_bytes(), (ROOT / rel).read_bytes(), rel)
+
     def test_a_rename_the_include_list_cannot_follow_writes_nothing(self):
         # The S1 include list must name the old bundle on one line of its own; otherwise a rename is refused, so the
         # list is never left naming a bundle that no longer exists.

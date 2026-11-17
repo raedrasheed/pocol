@@ -13,8 +13,14 @@
 // CSP, reads the chain through /api/rpc.php and shows the devnet's live head; /api/health.php passes; the relay refuses
 // a foreign Origin, a GET and an oversized body as PHP did; server and hidden paths are 404; no answer reaches 4 MiB;
 // no request leaves the page's origin.
-// Not covered here (W7, the explorer's v3 membership semantics, has not landed: the bundle has no pocol_getMembers):
-// an ACCRUING member shown as "Earning bond" and a registerReplacing transaction decoded with its victim.
+// Sites W7 (the bundle's v3 membership, light refresh and Registry decoding): a throwaway devnet account registers with
+// less than B_reg and another sends registerReplacing naming a miner (pocol-sign with devnet-only --account keys).
+// The refresh asks for one pocol_getMembers page and only full=false block lists, never pocol_getMiners; the account
+// view shows the newcomer as "Earning bond" with its bond as x/B PCOL (both from its pocol_getMember record); the
+// transaction view decodes the registerReplacing call and shows the miner's record read at the head; the Miners tab and the
+// Overview count the page's Held and Earning bond members, and the Overview lists the latest transactions by hash. A devnet of three miners cannot fill the member set, so the
+// replacement itself reverts (the set is not full): what is checked is the decoding of the included call and the
+// victim read, the same for a successful one (the vm test covers an exited victim's label).
 import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, cpSync, readFileSync, writeFileSync, rmSync, existsSync, statSync, createReadStream } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -38,6 +44,7 @@ const ok = (name, cond, detail = '') => { results.push({ name, pass: !!cond, det
 const wait = async (pred, ms, what) => { const t = Date.now(); let last; while (Date.now() - t < ms) { try { if ((last = await pred())) return last; } catch (e) { last = e; } await sleep(300); } throw new Error('timeout: ' + what + (last instanceof Error ? ' (' + last.message + ')' : '')); };
 const portFree = (p) => new Promise((res) => { const s = connect(p, '127.0.0.1'); s.on('connect', () => { s.destroy(); res(false); }); s.on('error', () => res(true)); });
 const rpc = async (port, method, params = [], path = '/') => { const r = await fetch(`http://127.0.0.1:${port}${path}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) }); const v = await r.json(); if (v.error) throw new Error(JSON.stringify(v.error)); return v.result; };
+const sign = (args) => { const r = spawnSync(join(BIN, 'pocol-sign'), args, { encoding: 'utf8' }); if (r.status) throw new Error(r.stderr); return r.stdout.trim(); };
 const devnet = (args) => { const r = spawnSync('python3', [join(POCOLD, 'scripts', 'devnet.py'), ...args], { encoding: 'utf8', env: { ...process.env, POCOLD: join(BIN, 'pocold') } }); if (r.status) throw new Error(r.stderr); return r.stdout; };
 const base = process.env.RUNNER_TEMP || tmpdir();
 const work = mkdtempSync(join(base, 'pocol-explorer-smoke-'));
@@ -85,7 +92,7 @@ function nodeFront(block, siteDir) {
 async function main() {
   for (const p of [30300, 30301, 30302, 8540, 8541, 8542, FRONT, EXPLORER_GW, STUDIO_GW]) if (!(await portFree(p))) throw new Error('port busy ' + p);
   ok(`the front is ${MODE}` + (MODE === 'caddy' ? ' (' + spawnSync('caddy', ['version'], { encoding: 'utf8' }).stdout.trim().split(' ')[0] + ')' : ' (no Caddy: the Caddy block\'s routes and headers from a Node front)'), MODE === 'node' || (MODE === 'caddy' && CADDY));
-  devnet(['init', join(work, 'dn'), '--miners', 'a,b,c', '--t-blk', '2', '--tau', '20', '--c', '8', '--d-att', '41', '--fb-wait', '3', '--work-bits', '15']);
+  devnet(['init', join(work, 'dn'), '--miners', 'a,b,c', '--accounts', 'e,f', '--t-blk', '2', '--tau', '20', '--c', '8', '--d-att', '41', '--fb-wait', '3', '--work-bits', '15']);
   const info = JSON.parse(readFileSync(join(work, 'dn', 'net', 'devnet.json'), 'utf8'));
   const spec = readFileSync(join(work, 'dn', 'net', 'genesis.spec.hex'), 'utf8').trim();
   devnet(['start', join(work, 'dn'), '--log']);
@@ -117,6 +124,26 @@ async function main() {
     writeFileSync(join(work, 'v3-network.json'), JSON.stringify({ chainId: info.chainId, genesisHash, specVersion: 2, v3: true }));
     const egw = spawnLogged('explorer-gateway', 'python3', ['-B', join(ROOT, 'deploy', 'rewards', 'gateway.py'), '--port', String(EXPLORER_GW), '--rpc-port', '8540', '--v3-network', join(work, 'v3-network.json'), '--site-origin', `http://127.0.0.1:${FRONT}`]);
     await wait(async () => (await rpc(EXPLORER_GW, 'eth_blockNumber', [], '/rpc')) !== undefined, 30000, 'explorer gateway').catch((e) => { throw new Error(e.message + ' ' + egw.out.slice(-300)); });
+    // ---- W7: an ACCRUING newcomer (e, with a quarter of B_reg) and a registerReplacing call naming a miner (f) ----
+    // B_reg is the Registry's (the gateway's pocol_getMember reads it from the CAPS contract), never assumed here; the
+    // named miner is the first record of the active list (a miner's id is its miner key, not a devnet account).
+    const REGISTRY = '0x0000000000000000000000000000000000c0c001';
+    const addressOf = (label) => sign(['--chain-id', String(info.chainId), '--account', label, '--address']).toLowerCase();
+    const [newcomer, replacer] = ['e', 'f'].map(addressOf);
+    const victim = (await rpc(EXPLORER_GW, 'pocol_getMembers', [0, 256], '/rpc')).members[0].id.toLowerCase();
+    const word = (a) => '0'.repeat(24) + a.slice(2);
+    const before = await rpc(EXPLORER_GW, 'pocol_getMember', [newcomer], '/rpc');
+    const bReg = BigInt(before.bondTargetWei), bond = bReg / 4n;
+    const send = (label, data, value, gas) => rpc(8540, 'eth_sendRawTransaction', [sign(['--chain-id', String(info.chainId), '--account', label, '--to', REGISTRY, '--value', String(value), '--gas', String(gas), '--data', data])]);
+    const registered = await send('e', '0x4420e486' + word(newcomer), bond, 400000);
+    const replacing = await send('f', '0x5326ca0b' + word(replacer) + word(victim), 0, 500000);
+    const receipts = await wait(async () => { const a = await rpc(8540, 'eth_getTransactionReceipt', [registered]), b = await rpc(8540, 'eth_getTransactionReceipt', [replacing]); return a && b && [a, b]; }, 120000, 'the two Registry transactions are included');
+    const record = await wait(async () => { const r = await rpc(EXPLORER_GW, 'pocol_getMember', [newcomer], '/rpc'); return r.exists && r; }, 30000, 'the newcomer\'s record');
+    ok('a throwaway account registers with a quarter of B_reg (ACCRUING) and a registerReplacing call naming a miner is included (it reverts: the set is not full)',
+      before.exists === false && bReg > 0n && receipts[0].status === '0x1' && receipts[1].status === '0x0' && record.status === 1 && record.bondState === 4 && BigInt(record.bondWei) === bond,
+      JSON.stringify({ receipts: receipts.map((r) => r.status), status: record.status, bondState: record.bondState, bondWei: record.bondWei, bondTargetWei: record.bondTargetWei }));
+    const pcol = (wei) => { const n = 10n ** 18n, f = (wei % n).toString().padStart(18, '0').replace(/0+$/, ''); return (wei / n).toString() + (f ? '.' + f : ''); };
+    const bondText = `${pcol(bond)}/${pcol(bReg)} PCOL`;
     if (MODE === 'caddy') {
       const home = join(work, 'caddy-home'); mkdirSync(home);
       spawnLogged('caddy', 'caddy', ['run', '--config', caddyfile, '--adapter', 'caddyfile'], { env: { ...process.env, HOME: home, XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config') } });
@@ -171,6 +198,7 @@ async function main() {
       await ctx.route('**/*', (route) => { const u = new URL(route.request().url()); if (u.origin === `http://127.0.0.1:${FRONT}`) return route.fallback(); outside.push(u.href); return route.abort(); });
       const page = await ctx.newPage(); const errors = []; page.on('pageerror', (e) => errors.push(e.message));
       const asked = []; page.on('request', (r) => { if (r.url().includes('/api/')) asked.push(r.method() + ' ' + r.url().replace(/^.*\/api\//, '')); });
+      const bodies = []; page.on('request', (r) => { if (r.url().includes('/api/rpc.php')) { try { bodies.push(JSON.parse(r.postData() || 'null')); } catch { bodies.push(null); } } });
       page.on('response', async (r) => { if (r.url().includes('/api/')) { try { answers.push({ url: r.url(), status: r.status(), bytes: (await r.body()).length }); } catch (e) { answers.push({ url: r.url(), status: r.status(), bytes: 0, error: e.message }); } } });
       const csp = []; page.on('console', (m) => { if (/Content Security Policy/i.test(m.text())) csp.push(m.text()); });
       await page.goto(`http://127.0.0.1:${FRONT}/`);
@@ -181,9 +209,57 @@ async function main() {
         return /\bConnected\b/.test(t) && new RegExp(`Chain ID\\s+${info.chainId}\\b`).test(t) && n >= headNow - 5 && n <= Number(await rpc(8540, 'eth_blockNumber')) && t; }, 60000, 'the explorer shows Connected, the devnet chain ID and its live head');
       const rpcAnswers = answers.filter((a) => a.url.includes('/api/rpc.php'));
       ok('the explorer bundle loads from the copy and shows "Connected", the devnet\'s chain ID and its live head ("Latest block") read through api/rpc.php', rpcAnswers.some((a) => a.status === 200), `${rpcAnswers.length} relay answers; head ${headNow}; api: ${answers.map((a) => a.url.replace(/^.*\/api\//, '') + ':' + a.status).join(' ')}; asked: ${asked.slice(0, 6).join(', ')}`);
+      // ---- W7 in the page: the Overview counts, the account view, the transaction view, the Miners tab ----
+      const text = () => page.evaluate(() => document.body.innerText);
+      const dialog = () => page.evaluate(() => document.querySelector('dialog.detail-dialog')?.innerText || '');
+      const short = (h) => h.slice(0, 9) + '…' + h.slice(-7);
+      const overview = await wait(async () => { const t = await text(); return /Active members\s+4\s+3 held · 1 earning bond · 0 tombed/.test(t) && t; }, 60000, 'the Overview counts the members page').catch((e) => e.message);
+      ok('the Overview shows "Active members 4" with "3 held · 1 earning bond · 0 tombed" for the loaded page', /Active members/.test(overview), String(overview).slice(0, 300));
+      // The Overview's latest transactions: eth_getTransactionByHash for the newest hashes of the light blocks. The
+      // devnet's only transactions are the two Registry calls, each listed exactly when its block is in the window.
+      const short6 = (h) => h.slice(0, 8) + '…' + h.slice(-6);
+      const latest = await wait(async () => { const t = await text(); const head = Number((/Latest block\s+([\d,]+)/.exec(t) || [0, '0'])[1].replace(/,/g, ''));
+        const due = [[registered, receipts[0]], [replacing, receipts[1]]].filter(([, r]) => Number(r.blockNumber) > head - 20).map(([h]) => h);
+        return head > 0 && (due.length ? due.every((h) => t.includes(short6(h))) : t.includes('No transactions in this window')) && { head, due }; }, 40000, 'the latest transactions').catch((e) => e.message);
+      ok('the Overview lists the latest transactions read by hash from the light blocks (the two Registry calls while their blocks are loaded)', typeof latest === 'object', JSON.stringify(latest));
+      const search = async (q) => { await page.fill('input[aria-label="Search block, transaction or address"]', q); await page.press('input[aria-label="Search block, transaction or address"]', 'Enter'); };
+      const close = async () => { await page.click('button[aria-label="Close details"]'); await wait(async () => !(await page.evaluate(() => document.querySelector('dialog.detail-dialog')?.open)), 10000, 'the dialog closes'); };
+      const loadedHead = Number((/Latest block\s+([\d,]+)/.exec(await text()) || [0, '0'])[1].replace(/,/g, ''));
+      await search(newcomer);
+      const account = await wait(async () => { const t = await dialog(); return /Recent account activity/.test(t) && !/Reading the latest blocks with transactions/.test(t) && t; }, 60000, 'the account view and its activity').catch((e) => e.message);
+      ok(`the account view shows the newcomer as "Earning bond" with its bond ${bondText} and the proposer flag, from its pocol_getMember record`,
+        /Mining membership\s+Earning bond/.test(account) && new RegExp(`Bond\\s+${bondText.replace(/[.]/g, '\\.')}`).test(account) && /Proposer eligible \(next block\)\s+(Yes|No|Undetermined)/.test(account) && /Reward address\s+0x/i.test(account), String(account).slice(String(account).indexOf('Mining membership')).replace(/\s+/g, ' '));
+      // The activity reads the loaded window's blocks that have transactions, one full block per request: the
+      // registration is listed exactly when its block is in that window.
+      const inWindow = Number(receipts[0].blockNumber) > loadedHead - 20;
+      ok(`the account activity ${inWindow ? 'lists the registration (its block is in the loaded window)' : 'reports no match (the registration\'s block left the loaded window)'}`,
+        inWindow ? account.includes(short(registered)) : account.includes('No matching transactions in the loaded window.'), `block ${Number(receipts[0].blockNumber)} head ${loadedHead}`);
+      await close();
+      await search(replacing);
+      const decoded = await wait(async () => { const t = await dialog(); return /Registry call\s+registerReplacing/.test(t) && /Named member now/.test(t) && t; }, 60000, 'the decoded registerReplacing').catch((e) => e.message);
+      ok('the transaction view decodes registerReplacing (reward address, the replaced miner) and shows that miner\'s record ("Held") read at the head, not at the transaction\'s height',
+        /Reward address\s+0x/i.test(decoded) && new RegExp(`replaced member\\s+${victim}`).test(decoded.toLowerCase()) && /Named member now\s+Held · read at the head \(block \d+\), not at this transaction's height/.test(decoded) && /Reverted/.test(decoded), String(decoded).slice(String(decoded).indexOf('Registry call')).replace(/\s+/g, ' '));
+      await close();
+      await page.click('nav button:has-text("Miners")');
+      const rowsOf = () => page.evaluate(() => [...document.querySelectorAll('table tbody tr')].map((r) => r.innerText.replace(/\s+/g, ' ')));
+      const miners = await wait(async () => { const rows = await rowsOf(); return rows.length === 4 && rows; }, 30000, 'the Miners table').catch(() => []);
+      const mine = miners.find((r) => r.includes(short(newcomer))) || '';
+      ok('the Miners tab lists the page with State, Last share and Registered at: the newcomer "Earning bond", the three miners "Held", "Members 1–4 of 4"',
+        mine.includes('Earning bond') && miners.filter((r) => r.includes('Held')).length === 3 && /Members 1–4 of 4 · 256 per page/.test(await text()) && /Last share/.test(await text()), JSON.stringify(miners).slice(0, 600));
+      await page.selectOption('select[aria-label="Member state"]', 'Earning bond');
+      const filtered = await wait(async () => { const rows = await rowsOf(); return rows.length === 1 && rows; }, 10000, 'the filter').catch(() => []);
+      ok('the Miners filter "Earning bond" keeps only the newcomer', filtered.length === 1 && filtered[0].includes(short(newcomer)), JSON.stringify(filtered));
+      await page.click('nav button:has-text("Overview")');
       await sleep(16000); // past one 15 s refresh of the overview and the transaction history
       const biggest = Math.max(0, ...answers.map((a) => a.bytes));
       ok(`every relay answer stays under 4 MiB (largest ${biggest} B over ${answers.length} answers)`, answers.length > 0 && biggest < 4194304);
+      const calls = bodies.flatMap((b) => (Array.isArray(b) ? b : [b])).filter(Boolean);
+      const blockLists = bodies.filter((b) => Array.isArray(b) && b.length > 1 && b.every((c) => c.method === 'eth_getBlockByNumber'));
+      ok(`the refresh reads one pocol_getMembers page [0,256] and light blocks only (${blockLists.length} block lists, all full=false), never pocol_getMiners`,
+        !calls.some((c) => c.method === 'pocol_getMiners') && calls.some((c) => c.method === 'pocol_getMembers' && JSON.stringify(c.params) === '[0,256]')
+        && blockLists.length >= 2 && blockLists.every((b) => b.every((c) => c.params[1] === false)), JSON.stringify(calls.map((c) => c.method + JSON.stringify(c.params))).slice(0, 400));
+      const full = calls.filter((c) => c.method === 'eth_getBlockByNumber' && c.params[1] === true);
+      ok(`full blocks are read one per request only (${full.length}: the account activity's blocks with transactions)`, full.length > 0 && bodies.every((b) => !Array.isArray(b) || b.length === 1 || b.every((c) => !(c.method === 'eth_getBlockByNumber' && c.params[1] === true))), '');
       const unexpected = outside.filter((u) => !/^https:\/\/fonts\.(googleapis|gstatic)\.com\//.test(u));
       ok(`no request left the page's origin except the font stylesheet (${outside.length} aborted)`, unexpected.length === 0, unexpected.slice(0, 5).join(' '));
       ok('the explorer raised no uncaught error', errors.length === 0, errors.join(' | '));
