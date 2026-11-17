@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Bounded read-only PoCol explorer gateway. Python 3.10+, standard library only."""
+"""Bounded read-only PoCol explorer gateway: POST /rpc, GET /health and the explorer snapshot's same-origin reads
+(/api/rpc.php, /api/health.php, /api/miner-locations.php, /api/transactions.php; explorer_api.py). Python 3.10+,
+standard library only."""
 import argparse
 import collections
 import http.client
@@ -28,7 +30,10 @@ except ImportError:
 from pocol_rewards import (snapshot_v3 as reward_snapshot, validated_fork_schedule, validated_network, DEFAULT_FORK_SCHEDULE,
                            MAX_CALLS_V3, MAX_SECONDS_V3, keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS,
                            ACTIVE_SLICE_GAS, MAX_MEMBERS_V3, ACTIVE_PAGE)
+# Sites W8: the explorer snapshot's same-origin /api reads (the retired PHP relays' paths), installed beside it.
+import explorer_api
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
 
 MAX_REQUEST = 16384
 MAX_RESPONSE = 4 * 1024 * 1024
@@ -417,7 +422,7 @@ class Handler(BaseHTTPRequestHandler):
     def setup(self):
         super().setup(); self.connection.settimeout(6)
     def log_message(self, *_args): pass
-    def reply(self, status, value):
+    def reply(self, status, value, head=False):
         body = json.dumps(value, separators=(',', ':')).encode()
         if len(body) > MAX_RESPONSE:
             status, body = 413, b'{"error":"Explorer response limit exceeded"}'
@@ -429,14 +434,44 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Connection','close')
         self.end_headers()
         self.close_connection = True
+        if head: return
         try: self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError, socket.timeout): pass
-    def do_GET(self):
-        if self.path == '/health':
+    def dispatch(self, method):
+        """The explorer snapshot's /api paths (explorer_api: every method, so a wrong one gets the PHP relays' 405 and
+        Allow; another /api path is its 404), GET /health and POST /rpc; anything else is 404."""
+        path = urlsplit(self.path).path
+        if path.startswith('/api/'):
+            self.explorer(method)
+        elif method == 'GET' and self.path == '/health':
             self.reply(200, {'service':'pocol-explorer-gateway','readOnly':True,'chainId':self.server.gateway.chain_id,'note':'Service health only; the explorer checks upstream identity and freshness.'})
-        else: self.reply(404, {'error':'Not found'})
-    def do_POST(self):
-        if self.path != '/rpc': self.reply(404, {'error':'Not found'}); return
+        elif method == 'POST' and self.path == '/rpc':
+            self.rpc()
+        else:
+            self.reply(404, {'error':'Not found'}, head=method == 'HEAD')
+    def do_GET(self): self.dispatch('GET')
+    def do_HEAD(self): self.dispatch('HEAD')
+    def do_POST(self): self.dispatch('POST')
+    def do_PUT(self): self.dispatch('PUT')
+    def do_DELETE(self): self.dispatch('DELETE')
+    def do_PATCH(self): self.dispatch('PATCH')
+    def do_OPTIONS(self): self.dispatch('OPTIONS')
+    def __getattr__(self, name):
+        # Any other method token (BaseHTTPRequestHandler would answer 501): 405 on an /api path, 404 elsewhere.
+        if re.fullmatch(r'do_[A-Z]{1,16}', name): return lambda: self.dispatch(name[3:])
+        raise AttributeError(name)
+    def explorer(self, method):
+        response = self.server.explorer.handle(method, self.path, self.headers, self.rfile)
+        self.send_response(response.status)
+        for name, value in response.headers: self.send_header(name, value)
+        body = b'' if method == 'HEAD' or response.body is None else response.body
+        if method != 'HEAD': self.send_header('Content-Length', str(len(body)))
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        self.close_connection = True
+        try: self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, socket.timeout): pass
+    def rpc(self):
         if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1:
             self.reply(400, {'error':'A single Content-Length is required'}); return
         try: size = int(self.headers.get('Content-Length', '0'))
@@ -449,7 +484,8 @@ class Handler(BaseHTTPRequestHandler):
             if len(raw) != size: raise ValueError()
             value = json.loads(raw)
             if not valid_payload(value): raise ValueError()
-        except (ValueError, OSError): self.reply(400, {'error':'Unsupported explorer read'}); return
+        # RecursionError: a deeply nested body (within 16 KiB) is a bad request, not a dropped connection.
+        except (ValueError, OSError, RecursionError): self.reply(400, {'error':'Unsupported explorer read'}); return
         items = value if isinstance(value, list) else [value]
         if not self.server.gateway.charge(sum(COSTS.get(item['method'], 1) for item in items)): self.reply(429, {'error':'Explorer request budget exceeded; retry shortly'}); return
         answers, size = [], 2
@@ -463,8 +499,12 @@ class Handler(BaseHTTPRequestHandler):
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 16
-    def __init__(self, address, gateway):
+    def __init__(self, address, gateway, site_origin=explorer_api.SITE_ORIGIN):
         self.gateway = gateway
+        # The explorer's /api reads: the Origin a browser request may carry (the explorer site), the gateway's call
+        # costs and the transaction index's option check.
+        self.explorer = explorer_api.Relay(gateway, site_origin, cost=lambda call: COSTS.get(call['method'], 1),
+                                           transaction_options_valid=lambda options: valid_options(options))
         self.slots = threading.BoundedSemaphore(16)
         super().__init__(address, Handler)
     def process_request(self, request, client_address):
@@ -484,7 +524,12 @@ if __name__ == '__main__':
                         'Fork 2 is a no-op, fork 3 the cap raise: [[1,0],[2,h2],[3,raise_height]]')
     parser.add_argument('--v3-network', metavar='FILE', required=True,
                         help='Required trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true[,"source":"https://.."]}: the network served')
+    parser.add_argument('--site-origin', default=explorer_api.SITE_ORIGIN,
+                        help='The only Origin a browser request to /api/rpc.php may carry (default %(default)s; '
+                        'http:// only on loopback, for a test copy)')
     args = parser.parse_args()
+    if not explorer_api.valid_origin(args.site_origin):
+        parser.error('--site-origin: https://HOST[:PORT], or http://127.0.0.1[:PORT] for a test copy')
     try:
         fork_schedule = load_fork_schedule(args.fork_schedule)
         network = load_v3_network(args.v3_network)
@@ -497,6 +542,6 @@ if __name__ == '__main__':
         if TransactionIndex is None: raise RuntimeError('Transaction index module is missing')
         gateway.transactions = TransactionIndex(os.environ['POCOL_TX_DB'], gateway.query)
         gateway.transactions.start()
-    server = Server((args.bind, args.port), gateway)
+    server = Server((args.bind, args.port), gateway, args.site_origin)
     print('PoCol explorer read-only gateway ready', flush=True)
     server.serve_forever(poll_interval=0.5)
