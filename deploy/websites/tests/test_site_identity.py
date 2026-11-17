@@ -644,6 +644,29 @@ class SiteIdentity(unittest.TestCase):
         self.assertIn('given twice', self.last_errors)
         self.assertEqual(snapshot(root), before)
 
+    def test_a_kept_out_archive_present_on_disk_stays_declared(self):
+        # A release archive that keptOut names, restored under downloads/ for a local test or a deployment, is listed
+        # by the bytes on disk and stays declared: once it is gone again (a clean checkout), its line is still carried,
+        # so --check passes and a run does not drop the release checksum.
+        root = self.copy()
+        name = f'downloads/PoCol-Studio-IDE-Viewer-{EXT_VERSION}.zip'
+        declared = lambda: json.loads((root / si.DECLARED).read_text(encoding='utf-8'))['keptOut']['pocol.net']
+        self.assertIn(name, declared())
+        archive = root / si.MAIN / name
+        self.assertFalse(archive.exists())
+        data = b'PK\x05\x06' + bytes(18)
+        archive.write_bytes(data)
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertIn(name, declared(), 'a present kept-out archive stays declared')
+        sums = (root / si.MAIN / si.SUMS).read_text(encoding='utf-8')
+        self.assertIn(f'{hashlib.sha256(data).hexdigest()}  {name}\n', sums, 'listed by the bytes on disk')
+        archive.unlink()
+        self.assertEqual(self.run_tool(root, '--check'), 0, self.last_errors)
+        self.assertEqual(self.run_tool(root), 0, self.last_errors)
+        self.assertIn(f'{hashlib.sha256(data).hexdigest()}  {name}\n', (root / si.MAIN / si.SUMS).read_text(encoding='utf-8'))
+        self.assertIn(name, declared())
+        self.assert_consistent(root)
+
     def test_a_missing_tracked_download_file_loses_its_line(self):
         # The tracked 0.4.1 .zip.sha256 is listed by its own digest, not as a kept-out line: deleted without a
         # superseding --download, its line is not carried, so --check fails and a run drops the line.

@@ -27,7 +27,8 @@ Derived files move with their sources:
 - a `<path>?v=<12 hex>` reference to a file of the same site that is not a page gets that file's content version;
 - each site's SHA256SUMS.txt lists every file of the site, and keeps the lines of the download files that DECLARED's
   keptOut names as kept out of Git. Only those lines are carried: the line of any other file that is not in the
-  snapshot (a deleted tracked .sha256) is dropped, so --check fails until a run removes it.
+  snapshot (a deleted tracked .sha256) is dropped, so --check fails until a run removes it. A declared file that is
+  present on disk (an archive restored under downloads/) is listed by its bytes and stays declared.
 
 --download PATH=SHA256 (repeatable; PATH is `<site>/downloads/<name>`, a .zip, .tar.gz or .apk archive or its .sig or
 .sha256) writes the SHA256SUMS.txt line of a release file that is kept out of Git and adds its name to keptOut. It
@@ -506,7 +507,9 @@ def finish(tree, problems, downloads=None, kept_out=None):
         for old in [n for n, d in kept.items() if d in superseded and n not in given]:
             del kept[old]
         kept.update(given)
-        new_kept[posixpath.basename(site)] = sorted(n for n in kept if n not in lines)
+        # A declared kept-out archive restored under downloads/ (a local test or a deployment) is listed by the bytes on
+        # disk and stays declared, so a clean checkout without it still carries its line.
+        new_kept[posixpath.basename(site)] = sorted({n for n in kept if n not in lines} | {n for n in declared if n in lines and KEPT_OUT.fullmatch(n)})
         lines.update({n: d for n, d in kept.items() if n not in lines})
         text = ''.join(f'{lines[n]}  {n}\n' for n in sorted(lines))
         if text != tree.text(sums):
