@@ -9,9 +9,10 @@ limits, field filtering, response shapes and status codes; Caddy serves the snap
 (deploy/explorer).
 
 Where the in-process answer cannot be the PHP one, the safer behaviour is kept (deploy/rewards/README.md, Explorer
-reads): a refusal of the gateway's request budget is 429 with Retry-After (PHP answered 503 naming its config.php), a
-request body without one Content-Length or with Transfer-Encoding is refused, repeated transaction query keys are
-refused, health has no PHP-only keys (phpReady, curlReady), and an empty filtered object is {} (PHP encoded []).
+reads): a refusal of the gateway's request budget is each path's busy answer (429, with Retry-After: 3 on
+/api/rpc.php only as rpc.php sent it; 503 on transactions) where PHP answered 503 naming its config.php, a request
+body without one Content-Length or with Transfer-Encoding is refused, repeated transaction query keys are refused,
+health has no PHP-only keys (phpReady, curlReady), and an empty filtered object is {} (PHP encoded []).
 The answers carry the security headers the explorer's .htaccess set; Caddy sets the same on the static files.
 Standard library only; no network access besides the gateway's own node reads.
 """

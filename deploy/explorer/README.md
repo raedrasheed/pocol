@@ -80,7 +80,9 @@ the same allow-list, bounds, status codes, messages, field filtering and headers
 (`deploy/rewards/testdata/explorer-php-vectors.json` holds 131 requests answered by the PHP relays themselves next to
 these handlers' answers). Where an in-process answer cannot be the PHP one, the safer one is kept:
 
-- a spent gateway request budget is 429 with `Retry-After: 3` (PHP answered 503 naming its `config.php`);
+- a spent gateway request budget gets the busy answer of each path: 429 with `Retry-After: 3` on `/api/rpc.php`, 429
+  without it on `/api/health.php` and `/api/miner-locations.php`, 503 on `/api/transactions.php` (PHP answered 503
+  naming its `config.php`);
 - a request body needs exactly one `Content-Length` and no `Transfer-Encoding`;
 - repeated transaction query keys and repeated `Origin` headers are refused;
 - `/api/health.php` has no `phpReady` or `curlReady` keys; `gatewayReachable` is true when the read went through the

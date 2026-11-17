@@ -301,6 +301,18 @@ class ExplorerRelayTests(GatewayServerCase):
         self.assertEqual((status, [b['id'] for b in blocks]), (200, list(range(4, 24))))
         self.assertTrue(all(b['result']['hash'] == F.HASH for b in blocks))
 
+    def test_a_spent_budget_is_each_paths_busy_answer(self):
+        """As documented (README, Explorer reads): Retry-After only on /api/rpc.php, as rpc.php sent it."""
+        with patch.object(gateway.time, 'monotonic', return_value=1000.0):  # no refill during the check
+            self.gateway.tokens, self.gateway.token_time = 0.0, 1000.0
+            status, headers, answer = self.post(call())
+            self.assertEqual((status, headers.get('Retry-After'), answer), (429, '3', {'error': api.BUSY}))
+            for path, expected in (('/api/health.php', 429), ('/api/miner-locations.php', 429), ('/api/transactions.php', 503)):
+                with self.subTest(path=path):
+                    status, headers, _ = self.send('GET', path)
+                    self.assertEqual((status, dict(headers).get('Retry-After')), (expected, None))
+        self.assertEqual(self.node.calls, [])
+
     def test_relay_slots_are_shared_and_mapped_as_php(self):
         for _ in range(api.RELAY_SLOTS): self.assertTrue(self.server.explorer.slots.acquire(blocking=False))
         try:
