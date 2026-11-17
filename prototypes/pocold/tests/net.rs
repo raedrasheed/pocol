@@ -540,7 +540,9 @@ fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id
 /// - the heavy caller is answered 504 after its deadline;
 /// - light requests sent meanwhile are run (200) when they are drained before the heavy event,
 ///   or wait behind it and expire (504); one dequeued after its deadline is skipped, never run,
-///   so the skipped count is at most the 504s, and at least one is skipped;
+///   so the skipped count is at most the 504s (the heavy caller's own included: on a busy host the
+///   consensus thread can reach the heavy call only after its deadline and skip it too), and at
+///   least one is skipped;
 /// - in a batch whose first member runs past the deadline, the 19 later members are not started;
 /// - afterwards no connection thread, queued body or response reservation is left.
 #[test] fn rpc_work_deadline_skips_expired_work_and_releases_resources(){let _g=serial();
@@ -563,7 +565,10 @@ fn stats(port:u16)->serde_json::Value{let (_,b)=rpc(port,r#"{"jsonrpc":"2.0","id
     assert!(wait_until(30_000,||counter(&c.heavy_active)<=ha0&&counter(&c.light_queued)<=lq0),"the window's requests are all run or skipped");
     let skipped=counter(&c.expired)-e0;
     assert!(wait_until(10_000,||rpc(r.rpc,LIGHT,false).0==200),"the node serves again");
-    assert!(late>=1&&skipped>=1&&skipped<=late,"light 504s {late}, skipped {skipped} (of {} light requests)",codes.len());
+    // Every skipped request of the window was answered 504: the lights' 504s, plus the heavy caller's own (asserted
+    // above), which is skipped as well when the consensus thread, still busy with a tick or block production on a
+    // loaded host, reaches it only after its deadline. ubuntu CI on PR #82 saw 16 light 504s and 17 skipped.
+    assert!(late>=1&&skipped>=1&&skipped<=late+1,"light 504s {late} (and the heavy caller's), skipped {skipped} (of {} light requests)",codes.len());
     // A batch: the first member runs past the deadline; the 19 after it are not started. On a slow or
     // busy host the node can reach the batch only after its deadline (d/4); it then skips the whole
     // batch unrun (`expired`, the rule tested above) and no member is counted, or it starts the batch
