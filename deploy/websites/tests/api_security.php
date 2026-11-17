@@ -3,7 +3,6 @@ declare(strict_types=1);
 // Local-only tests: injectable transports and private temporary cache directories.
 define('POCOL_NETWORK_LIBRARY_ONLY', true);
 define('POCOL_REWARD_LIBRARY_ONLY', true);
-require __DIR__.'/../explorer.pocol.net/api/lib.php';
 require __DIR__.'/../pocol.net/api/network.php';
 require __DIR__.'/../pocol.net/api/reward.php';
 
@@ -25,40 +24,10 @@ function call(string $method = 'eth_blockNumber', array $params = [], int $id = 
 // Owner decision 9 (2026-11-16): the explorer gateway is served at explorer.pocol.net.
 check('reward upstream is the explorer gateway host', POCOL_REWARD_UPSTREAM === 'https://explorer.pocol.net/rpc');
 check('network summary reads the explorer host', str_starts_with(POCOL_SUMMARY_RPC, 'https://explorer.pocol.net/'));
-check('ordinary explorer read accepted', pocol_valid_call(call()));
-foreach (['eth_sendRawTransaction','eth_sendTransaction','personal_unlockAccount','admin_peers','debug_traceTransaction','pocol_submitShare'] as $method) {
-    check('privileged method refused: '.$method, !pocol_valid_call(call($method)));
-}
-// Sites W6: v3 membership and finality reads, with the gateway's bounds.
-foreach (['pocol_getRemovable','pocol_finality'] as $method) {
-    check('parameterless read accepted: '.$method, pocol_valid_call(call($method)));
-    check('parameters refused: '.$method, !pocol_valid_call(call($method,['latest'])));
-}
-check('members page accepted', pocol_valid_call(call('pocol_getMembers',[0,256])) && pocol_valid_call(call('pocol_getMembers',[9999,1])));
-foreach ([[0,257],[0,0],[-1,1],[10000,1],[true,1],[0,1.0],['0',1],['0x0',1],[0],[0,1,2],[null,1]] as $params) {
-    check('members page bounds refused: '.json_encode($params), !pocol_valid_call(call('pocol_getMembers',$params)));
-}
-$big = json_decode('{"jsonrpc":"2.0","id":1,"method":"pocol_getMembers","params":[0,99999999999999999999]}', false, 32, JSON_BIGINT_AS_STRING);
-check('members page oversized integer refused', !pocol_valid_call($big));
-$member = '0x'.str_repeat('ab',20);
-check('member record accepted', pocol_valid_call(call('pocol_getMember',[$member])));
-check('member record 0X prefix refused', !pocol_valid_call(call('pocol_getMember',[strtoupper($member)])));
-check('member record mixed-case address accepted', pocol_valid_call(call('pocol_getMember',['0x'.str_repeat('aB',20)])));
-foreach ([[],[$member,'latest'],['0x11'],[$member.'00'],[1],[(object)[]]] as $params) {
-    check('member record shape refused: '.json_encode($params), !pocol_valid_call(call('pocol_getMember',$params)));
-}
-check('duplicate request IDs refused', !pocol_valid_payload([call(),call()]));
-check('empty batch refused', !pocol_valid_payload([]));
-check('batch above twenty refused', !pocol_valid_payload(array_map(static fn($i)=>call(id:$i),range(1,21))));
-check('account shape refused', !pocol_valid_call(call('eth_getBalance',['0x1','latest'])));
-check('state overrides refused', !pocol_valid_call(call('eth_call',[(object)[],'latest',(object)[]])));
+// Sites W8: the explorer's PHP relays (explorer.pocol.net/api/lib.php) are retired; their 43 checks are in
+// deploy/rewards/test_explorer_api.py against the gateway's /api handlers, which pocol.net's summary below reads.
 $requests = [call(id:1),call(id:2)];
 $responses = [(object)['jsonrpc'=>'2.0','id'=>2,'result'=>null],(object)['jsonrpc'=>'2.0','id'=>1,'result'=>'0x1']];
-check('response IDs may be reordered', pocol_valid_response($responses,$requests));
-check('duplicate response IDs refused', !pocol_valid_response([$responses[0],$responses[0]],$requests));
-check('foreign response ID refused', !pocol_valid_response((object)['jsonrpc'=>'2.0','id'=>2,'result'=>'0x1'],call()));
-check('response cannot contain both result and error', !pocol_valid_response((object)['jsonrpc'=>'2.0','id'=>1,'result'=>null,'error'=>(object)['code'=>1,'message'=>'x']],call()));
-check('untyped error refused', !pocol_valid_response((object)['jsonrpc'=>'2.0','id'=>1,'error'=>(object)['code'=>'1','message'=>'x']],call()));
 check('batch results mapped to request order', pocol_summary_results([['id'=>1],['id'=>2]],$responses) === ['0x1',null]);
 rejected('summary wrong protocol refused', static fn()=>pocol_summary_results([['id'=>1]],[(object)['jsonrpc'=>'1.0','id'=>1,'result'=>1]]));
 rejected('summary unsafe quantity refused', static fn()=>pocol_summary_quantity('9007199254740992'));

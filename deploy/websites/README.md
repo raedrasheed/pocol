@@ -25,12 +25,14 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   `explorer.pocol.net`, which replaces the old PHP site; the owner moves its DNS record at launch. The extension's host
   permission and endpoint, the IDE `rpcUrl` (`site_identity.py --rpc-url`), the explorer's named gateway host
   (`--gateway-host`), the Studio app and its CSP `connect-src`, the reward page's upstream and the Studio gateway
-  installer all name `explorer.pocol.net`; `gateway.pocol.net` is named nowhere. **Open (W8):** once the PHP site is
-  retired, the explorer snapshot's same-origin reads (`/api/rpc.php`, `/api/health.php`, `/api/miner-locations.php`,
-  `/api/transactions.php`) must be served on the gateway host, by path-compatible handlers in `deploy/rewards/gateway.py`
-  behind a Caddy `file_server` of the snapshot (with the CSP and headers of `.htaccess`). Until then the snapshot keeps
-  its PHP relays. pocol.net's network summary (`pocol.net/api/network.php`, `POCOL_SUMMARY_RPC`) reads the same
-  `/api/rpc.php`, so the handler must keep that path.
+  installer all name `explorer.pocol.net`; `gateway.pocol.net` is named nowhere. **Done (W8):** the gateway host
+  serves the explorer snapshot as static files (Caddy `file_server`, with the CSP and headers its `.htaccess` set) and
+  answers its same-origin reads `/api/rpc.php`, `/api/health.php`, `/api/miner-locations.php` and
+  `/api/transactions.php` in the gateway process (`deploy/rewards/explorer_api.py`, with the checks of the PHP relays
+  it replaces); pocol.net's network summary (`pocol.net/api/network.php`, `POCOL_SUMMARY_RPC`) keeps reading the same
+  `/api/rpc.php`. `deploy/explorer` installs the gateway service, the static copy and the Caddy site (to which the
+  Studio installer adds its route). The PHP relays, both `.htaccess` files and `explorer-config.example.php` are
+  retired: the explorer snapshot holds no server code, and `site_identity.py --check` refuses any.
 - **No faucet on mainnet.** No site links a faucet; `deploy/faucet` is for the rehearsal network only.
 
 Left out of Git and kept in the release asset:
@@ -60,20 +62,19 @@ A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` a
 versions and every `SHA256SUMS.txt` are regenerated. `--check` also refuses a retired identity
 (`deploy/mainnet/retired-networks.json`, active once the snapshots pin a network that is not retired), any
 `chatgpt.site` origin, a download link whose version is not the extension's `package.json` version, a missing
-`index.html` script or stylesheet, and any `config.php` (never read). A `--to` run without `--gateway-host` is refused
+`index.html` script or stylesheet, any `config.php` (never read), and server code or a hidden file in the explorer
+snapshot (an `api/` entry, a `.php` file, a dotfile such as `.htaccess`: Sites W8). A `--to` run without `--gateway-host` is refused
 unless the explorer's current gateway host is one of the new seeds, and the repository's own snapshots must name an
 https RPC URL (a loopback `--rpc-url` is only for a test copy given with `--root`). The explorer bundle was renamed to that scheme
 (`assets/index-473b5bd9e7ec.js`, the same bytes as the deployed `assets/index-Cj8htKRO.js`), and the superseded IDE bundle
 `assets/index-CJbrNXr_.js` (it differed from `index-extension041-02af63944c2b.js` only in its download link) was
 deleted with its `SHA256SUMS.txt` line.
 
-Not included, and must be preserved on the host:
-- `explorer.pocol.net/api/config.php` (`.gitignore` ignores every `api/config.php`; CI fails if one is tracked, and
-  `explorer.pocol.net/api/.htaccess` must keep its `FilesMatch "^(config|lib)\.php$"` deny rule, which a test checks
-  because `php -S` ignores `.htaccess`);
-- every other hosting configuration and credential.
-
-The PHP files read `config.php` from the host, and this snapshot never overwrites it.
+Not included, and must be preserved on the host: every hosting configuration and credential. No `config.php` is in
+the repository (`.gitignore` ignores every `api/config.php`, CI fails if one is tracked, and `site_identity.py --check`
+refuses one in a snapshot). The pocol.net PHP files (`api/network.php`, `api/reward.php`) need none. The explorer
+snapshot has no PHP since Sites W8 (its `/api` reads are the gateway's, `deploy/explorer`), and its `SHA256SUMS.txt`
+is not served there.
 
 ## Live comparison, 2026-11-01 (from outside, with strict TLS)
 
