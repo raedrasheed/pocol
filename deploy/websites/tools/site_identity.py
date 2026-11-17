@@ -31,8 +31,9 @@ Derived files move with their sources:
 check turns on by itself once the snapshots pin a network that is not retired (a retired identity on the declared chain
 ID, a postponed launch with a new genesis, is refused by its genesis hash only); any `chatgpt.site` origin; a download
 link whose version is not the extension's package.json version; an index.html script or stylesheet that does not
-exist; a hashed bundle whose name is not its content version; any config.php in a snapshot (never read) and the
-explorer api/.htaccess without its config/lib deny rule.
+exist; a hashed bundle whose name is not its content version; any config.php in a snapshot (never read), and server
+code or a hidden file in the explorer snapshot (an api/ entry, a .php file, a dotfile such as .htaccess): the gateway
+host serves the explorer as static files, and its /api reads are deploy/rewards/explorer_api.py (Sites W8).
 
 Files are read and written as bytes decoded as UTF-8 (line endings are kept). Nothing is written unless every check
 passes, and the tree a run would write is checked as --check checks it (every anchor at its count, no identity value
@@ -120,8 +121,9 @@ FIELD = re.compile(r'\{(chainId|chainIdHex|genesisHash|name|rpcUrl|gatewayHost|s
 BINARY = {'.png', '.ico', '.ttf', '.woff', '.woff2', '.zip', '.jpg', '.jpeg', '.webp', '.wasm', '.gz'}
 DOWNLOAD = re.compile(r'PoCol-Studio-IDE-Viewer-([0-9]+\.[0-9]+\.[0-9]+)\.zip')
 VERSIONED = re.compile(r'(?<![0-9A-Za-z_.:/-])(/?[A-Za-z0-9_][A-Za-z0-9_./-]*)\?v=([0-9a-f]{12})(?![0-9A-Za-z])')
-HTACCESS = f'{EXPLORER}/api/.htaccess'
-HTACCESS_RULE = re.compile(r'<FilesMatch "\^\(config\|lib\)\\\.php\$">\s*\n\s*Require all denied\s*\n\s*</FilesMatch>')
+# The explorer snapshot is static (Sites W8): its /api paths are the gateway's (deploy/rewards/explorer_api.py) and its
+# headers are the Caddy site's (deploy/explorer/explorer_site.py), so no server code or hidden file may be in it.
+SERVER_CODE = re.compile(r'(^|/)\.|\.(php[0-9]?|phtml|phar)$|^api(/|$)', re.IGNORECASE)
 
 class Refused(Exception):
     pass
@@ -456,8 +458,10 @@ def tree_checks(tree, doc, retired, problems):
         rel = bundle_path(tree, key)
         if rel != f'{site}/assets/{prefix}-{sha12(tree.read(rel))}.js':
             problems.append(f'{rel}: a hashed bundle is named by its content version')
-    if not HTACCESS_RULE.search(tree.text(HTACCESS) or ''):
-        problems.append(f'{HTACCESS}: the FilesMatch "^(config|lib)\\.php$" deny rule is missing')
+    for rel in tree.files(EXPLORER):
+        if SERVER_CODE.search(rel[len(EXPLORER) + 1:]):
+            problems.append(f'{rel}: server code or a hidden file in the explorer snapshot (the gateway host serves it as '
+                            'static files; its /api reads are deploy/rewards/explorer_api.py)')
 
 def load_retired(root):
     try:

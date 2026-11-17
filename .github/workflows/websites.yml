@@ -1,6 +1,6 @@
 name: Websites
 # The website snapshots (explorer.pocol.net, ide.pocol.net, pocol.net), the Studio site and the gateways behind them:
-# the PHP and browser security checks, the website identity tool's --check, and the guards that keep host credentials
+# the PHP (pocol.net) and browser security checks, the explorer gateway's /api reads and its host's Caddy site, the website identity tool's --check, and the guards that keep host credentials
 # (config.php) out of the repository. Local only: nothing here contacts a pocol.net host or deploys anything.
 on:
   pull_request:
@@ -11,6 +11,12 @@ on:
       - 'prototypes/pocol-extension/src/**'
       - 'deploy/studio/**'
       - 'deploy/rewards/gateway.py'
+      # Sites W8: the explorer snapshot's /api reads (explorer_api.py, its tests and recorded PHP vectors) and the
+      # explorer gateway host's Caddy site, static copy and installer.
+      - 'deploy/rewards/explorer_*.py'
+      - 'deploy/rewards/test_explorer_api.py'
+      - 'deploy/rewards/testdata/*explorer*'
+      - 'deploy/explorer/**'
       # What site_identity.py --check and its tests read besides the snapshots: the identity tool it imports, its
       # retired list and placeholder (deploy/mainnet), that tool's imports, the node's SPEC_VERSION, the extension
       # version the download links must name, and the decoder corpus the tests take their spec-2 genesis from.
@@ -33,6 +39,10 @@ on:
       - 'prototypes/pocol-extension/src/**'
       - 'deploy/studio/**'
       - 'deploy/rewards/gateway.py'
+      - 'deploy/rewards/explorer_*.py'
+      - 'deploy/rewards/test_explorer_api.py'
+      - 'deploy/rewards/testdata/*explorer*'
+      - 'deploy/explorer/**'
       - 'deploy/mainnet/**'
       - 'deploy/rewards/pocol_rewards.py'
       - 'deploy/public-testnet/pocol_identity.py'
@@ -59,7 +69,8 @@ jobs:
       - name: No config.php is tracked
         run: |
           set -euo pipefail
-          # Host credentials (explorer.pocol.net/api/config.php) stay on the host; the file is never read here.
+          # Host credentials (pocol.net's and any api/config.php) stay on the host; the file is never read here. The
+          # explorer snapshot has no api/ since Sites W8; the ignore rule still covers that path as a defence.
           if git ls-files | grep -iE '(^|/)config\.php$'; then
             echo 'a config.php is tracked: remove it from the repository (it holds host credentials)' >&2
             exit 1
@@ -67,11 +78,15 @@ jobs:
           git check-ignore -q --no-index deploy/websites/explorer.pocol.net/api/config.php
       - name: Website identity, derived files, retired identities, origins and download links
         run: python3 -B deploy/websites/tools/site_identity.py --check
-      - name: Website tool tests, the explorer api/.htaccess deny rule and the config.php guards
+      - name: Website tool tests, the static explorer snapshot and the config.php guards
         run: python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
+      - name: Explorer gateway /api reads (the retired PHP relays' checks, every handler, the recorded PHP vectors)
+        run: python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
+      - name: Explorer gateway host (Caddy site with the Studio route, static copy, installer and rollback)
+        run: python3 -B -m unittest discover -s deploy/explorer -v
       - name: Use the official Ubuntu archive
         run: printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
-      - name: PHP request, response and cache checks
+      - name: PHP request, response and cache checks (pocol.net)
         run: |
           set -euo pipefail
           sudo apt-get update

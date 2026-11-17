@@ -109,8 +109,48 @@ The gateway also serves the explorer's membership reads, each at one head block 
 - `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for
   compatibility.
 
-The explorer's PHP allowlist (`deploy/websites/explorer.pocol.net/api/lib.php`) accepts the same four methods with
-the same bounds.
+The explorer snapshot's `/api/rpc.php` (below, which replaces the PHP allowlist of the retired
+`explorer.pocol.net/api/lib.php`) accepts the same four methods with the same bounds.
+
+### Explorer reads (Sites W8)
+
+The explorer snapshot (`deploy/websites/explorer.pocol.net`, a built bundle without sources) reads `/api/rpc.php`
+(POST), `/api/miner-locations.php` and `/api/transactions.php` (GET) on its own origin, operators read
+`/api/health.php`, and pocol.net's network summary (`pocol.net/api/network.php`) POSTs to
+`https://explorer.pocol.net/api/rpc.php`. Those paths were PHP relays in front of this gateway's `/rpc`; since owner
+decision 9 put the explorer on the gateway host, `gateway.py` answers them in process (`explorer_api.py`, a required
+import installed beside it), and Caddy serves the snapshot's static files (`deploy/explorer`). They keep the PHP
+relays' behaviour:
+
+- `/api/rpc.php`: POST only (405 with `Allow: POST`); an `Origin` other than `--site-origin` (default
+  `https://explorer.pocol.net`; none is fine, as from pocol.net's server) is 403; a media type other than
+  `application/json` is 415; a body above 16384 bytes is 413; then the JSON as PHP's `json_decode` read it (depth 32,
+  big integers as strings, no NaN, lone surrogates or NUL-prefixed keys) must be one call or a batch of 1 to 20 with
+  distinct integer ids within 2^53 - 1, each in lib.php's 17-method allow-list with its bounds, else 400. That list is
+  narrower than `/rpc`'s: `pocol_getBlockReward`, `pocol_getNetworkGeography` and `pocol_getTransactions` are refused
+  here. The answers (each through `Gateway.call`, with its cache, slots and sanitizer) keep the request's shape, at
+  most 4 MiB and 9 s (else 503; as lib.php's curl timeout, the 9 s bound the whole request: every node read of every
+  call, `pocol_getMember`'s included, stops at it), and are checked as lib.php checked the gateway's reply (else 502,
+  also for a node answer holding NaN or Infinity).
+- `/api/health.php`: GET only; `pocol_getParams` against the configured network: 200 PASS, 429 when busy, else 503
+  NOT_CONNECTED, with the keys `service`, `gatewayReachable`, `networkMatch`, `result` and `message`.
+- `/api/miner-locations.php`: GET or HEAD; the GeoIP snapshot of this network (schema, chain, genesis, source and
+  scope checked) reduced to its public fields, as `{"data": ...}`; 503 (429 when busy) without the GeoIP module.
+- `/api/transactions.php`: GET or HEAD; PHP's query rules (page 1..10^9, size 25/50/100, order, `q`, an optional
+  snapshot height and hash), 400 otherwise; a changed chain is 409 `{"error": ..., "reset": true}`; 503 without the
+  transaction index or for a page of another network or with more rows than asked.
+
+Every answer is `application/json; charset=utf-8` with `Cache-Control: no-store`, nosniff and the explorer's security
+headers; errors are `{"error": "..."}` with PHP's messages. The four paths share four relay slots (PHP's lock slots;
+busy is 429, with `Retry-After: 3` on `/api/rpc.php` only as rpc.php sent it, and 503 for transactions, as in PHP)
+and the gateway's global token bucket (the `/rpc` costs). Behind Caddy each request is one connection to the gateway: a connection beyond its 16 request slots is
+answered `{"error":"The data service is busy. Please retry shortly."}` with 429 and `Retry-After: 3` on any path (the
+PHP relays' lock slots answered so before a request reached the gateway), not closed unanswered. Where PHP cannot be matched, the safer answer is kept (`deploy/explorer/README.md`, Behaviour that differs): a
+spent budget is answered as busy, so 429 with `Retry-After: 3` on `/api/rpc.php`, 429 without it on health and
+miner-locations, 503 on transactions (PHP: 503 on all), a body needs one `Content-Length`, repeated query keys and `Origin`
+headers are refused, health has no `phpReady`/`curlReady`, and wrong methods get the PHP 405 instead of a 501.
+`/rpc` and `/health` are unchanged, except that a deeply nested `/rpc` body is now 400 instead of a dropped
+connection.
 
 ## Integration boundary
 
@@ -122,6 +162,13 @@ The repository tests change no installed service. Keep the network and the sched
 ```sh
 python3 -m unittest discover -s deploy/rewards -v
 ```
+
+`test_explorer_api.py` covers the explorer reads: the 43 lib.php checks api_security.php had, every handler over
+loopback against a fake node (`explorer_fakes.py`: methods, Origin, Content-Type, sizes, budgets, relay slots, field
+filtering, error mapping, headers, pocol.net's two summary batches), and `testdata/explorer-php-vectors.json`, 131
+requests answered by the PHP relays themselves (php -S on the snapshot at e8974fa in front of this gateway, recorded by
+`testdata/record_explorer_php_vectors.py`) next to these handlers' answers; each matches or carries the note that says
+why it differs.
 
 The tests check the network configuration (required, no default) and the GenesisSpec proof (nonceMode 1 only), and the reward arithmetic against the
 independent model's vectors (`prototypes/lp4-execution/tests/v3/*.json`: the M3 schedule, for every closed pot of
@@ -153,17 +200,21 @@ not a replacement for full block validation.
 Public host (owner decision 9, 2026-11-16): the explorer gateway is served at `https://explorer.pocol.net` (the Caddy
 site `explorer.pocol.net`: `/rpc` and `/health`, with the Studio relay route `/studio/*` in the same block), replacing
 the old PHP site there; the pocol.net reward page reads `https://explorer.pocol.net/rpc`. The owner moves the DNS record
-at launch; nothing here touches DNS or servers. Serving the explorer snapshot and its same-origin `/api/*.php` reads from
-that host is open work (deploy/websites/README.md, Explorer host).
+at launch; nothing here touches DNS or servers. The same site serves the explorer snapshot's static files and its
+same-origin `/api/*.php` reads (Explorer reads, above); `deploy/explorer/install_explorer_gateway.py` installs this
+gateway, the static copy and the Caddy site (`deploy/explorer/README.md`).
 
 `gateway.py` is the explorer gateway with this adapter integrated (a required import, installed beside it; the GeoIP
 and transaction index modules stay optional). The public `pocol_getBlockReward` method still accepts exactly
 `params: []`; clients cannot supply a network or a schedule. The gateway passes its immutable, locally validated
 configuration to the adapter on every reward read. No HTTP/RPC input can replace it.
 
-For an operator-approved deployment, install `gateway.py` and `pocol_rewards.py` together in the
-`/opt/pocol-explorer-gateway` service directory, and create operator-controlled files outside the website's document
-root, writable only by the operator (they are not downloadable public configuration):
+For an operator-approved deployment, `deploy/explorer/install_explorer_gateway.py` installs `gateway.py`,
+`pocol_rewards.py` and `explorer_api.py` together in the `/opt/pocol-explorer-gateway` service directory with its
+systemd unit (`pocol-explorer-gateway.service`). Create operator-controlled files outside the website's document
+root, writable only by the operator (they are not downloadable public configuration) and readable by others (`0644`,
+in a directory others may enter, `0755`: the service runs as its own unprivileged user, and the installer refuses
+files it could not read):
 
 - `/etc/pocol-explorer-gateway/network.json` (required): the network, taken from the network's invitation
   (`network.pocol.json`: its GenesisSpec's chain ID and keccak256 hash), for example
@@ -178,7 +229,8 @@ For a service using the default local ports, the complete command is:
 ```sh
 python3 /opt/pocol-explorer-gateway/gateway.py \
   --bind 127.0.0.1 --port 8088 --rpc-port 8545 \
-  --v3-network /etc/pocol-explorer-gateway/network.json
+  --v3-network /etc/pocol-explorer-gateway/network.json \
+  --site-origin https://explorer.pocol.net
 ```
 
 and with a scheduled cap raise:
@@ -187,18 +239,22 @@ and with a scheduled cap raise:
 python3 /opt/pocol-explorer-gateway/gateway.py \
   --bind 127.0.0.1 --port 8088 --rpc-port 8545 \
   --v3-network /etc/pocol-explorer-gateway/network.json \
-  --fork-schedule /etc/pocol-explorer-gateway/forks.json
+  --fork-schedule /etc/pocol-explorer-gateway/forks.json \
+  --site-origin https://explorer.pocol.net
 ```
+
+(`--site-origin` is the only `Origin` a browser request to `/api/rpc.php` may carry; its default is
+`https://explorer.pocol.net`, and `http://` is accepted only on loopback, for a test copy.)
 
 Without `--v3-network` the gateway exits (status 2) before it connects to the node, as it does for an invalid file.
 Both files are loaded and validated once, before the node connection is opened; changing them has no effect on a
 running gateway, and an operator restart is required. At startup the gateway refuses a node that does not name the
 configured chain ID and genesis hash.
 
-**Operator step at deployment.** The live explorer service unit is not in this repository. Its `ExecStart` must gain
-`--v3-network` (and the network file must exist) when this gateway is installed: an unchanged unit, with only the old
-arguments, fails at startup. The pocol.net reward page (`deploy/websites/pocol.net/api/reward.php`, `reward.js`) still
-validates the retired `pocol-block-reward-v1` answer and is switched to `pocol-block-reward-v3` separately.
+**Operator step at deployment.** The explorer service unit is written by `deploy/explorer/install_explorer_gateway.py`
+(with `--v3-network`, and `--fork-schedule` when `forks.json` exists); the network file must exist before it runs. A
+hand-made unit with only the old arguments fails at startup. The pocol.net reward page
+(`deploy/websites/pocol.net/api/reward.php`, `reward.js`) still validates the retired `pocol-block-reward-v1` answer and is switched to `pocol-block-reward-v3` separately.
 
 The explorer's `pocol_getParams` sanitizer retains the public fields `forkSchedule`, `capRaise`,
 `effectiveNonceMode`, `nextBlockNonceMode` and `consensusCompatibilitySha256`. The public RPC method allowlist is

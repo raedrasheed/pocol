@@ -1,4 +1,0 @@
-Options -Indexes
-<FilesMatch "^(config|lib)\.php$">
-  Require all denied
-</FilesMatch>

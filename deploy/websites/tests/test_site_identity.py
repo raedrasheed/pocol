@@ -5,8 +5,9 @@ anchored edits rename the hashed bundle and regenerate SHA256SUMS.txt, and an ed
 identity copy writes nothing; a switch that would leave an old gateway host named, and a loopback RPC URL in the
 repository's own snapshots, are refused; --check refuses chatgpt.site origins, stale
 download links, missing index.html assets, misnamed bundles, stale checksums and content versions, retired identities
-(one on the declared chain ID, a postponed launch, by its genesis hash only) and any config.php (which is never read); no config.php is tracked or committable, and the explorer's api/.htaccess
-keeps its deny rule (php -S ignores .htaccess, so nothing else checks it).
+(one on the declared chain ID, a postponed launch, by its genesis hash only), any config.php (which is never read) and
+server code or a hidden file in the explorer snapshot (Sites W8: the gateway host serves it as static files); no
+config.php is tracked or committable.
 
     python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
 """
@@ -134,13 +135,20 @@ class SiteIdentity(unittest.TestCase):
             ignored = subprocess.run(['git', '-C', str(ROOT), 'check-ignore', '-q', '--no-index', rel])
             self.assertEqual(ignored.returncode, 0, f'.gitignore must ignore {rel}')
 
-    def test_the_explorer_api_denies_config_and_lib(self):
-        text = (ROOT / si.HTACCESS).read_text(encoding='utf-8')
-        self.assertRegex(text, si.HTACCESS_RULE)
-        self.assertIn('<FilesMatch "^(config|lib)\\.php$">', text)
-        # The detector finds the rule only when it denies: a weakened rule is missed.
-        self.assertIsNone(si.HTACCESS_RULE.search(text.replace('Require all denied', 'Require all granted')))
-        self.assertIsNone(si.HTACCESS_RULE.search(text.replace('(config|lib)', '(lib)')))
+    def test_the_explorer_snapshot_is_static(self):
+        """Sites W8: the PHP relays, their .htaccess files and the config example are retired; the gateway answers the
+        /api paths (deploy/rewards/explorer_api.py) and Caddy sends the headers (deploy/explorer/explorer_site.py)."""
+        names = [p.relative_to(ROOT / si.EXPLORER).as_posix() for p in (ROOT / si.EXPLORER).rglob('*')]
+        self.assertFalse([n for n in names if si.SERVER_CODE.search(n)], 'server code or a hidden file in the explorer snapshot')
+        self.assertFalse((ROOT / si.EXPLORER / 'api').exists())
+        self.assertFalse((ROOT / 'deploy/websites/explorer-config.example.php').exists())
+        sums = (ROOT / si.EXPLORER / si.SUMS).read_text(encoding='utf-8')
+        self.assertNotIn('api/', sums); self.assertNotIn('.php', sums); self.assertNotIn('.htaccess', sums)
+        for name in ('api/rpc.php', 'API/health.php', 'api', 'api/x.txt', '.htaccess', 'assets/.hidden', 'x.php', 'x.PHP7',
+                     'x.phtml', 'x.phar'):
+            self.assertRegex(name, si.SERVER_CODE)
+        for name in ('index.html', 'assets/index-038724d30ca3.js', 'site.webmanifest', 'apis.html', 'php.png', 'assets/api.css'):
+            self.assertNotRegex(name, si.SERVER_CODE)
 
     # ---------------- switch ----------------
     def test_a_switch_to_a_test_identity_and_back_is_byte_identical(self):
@@ -360,13 +368,19 @@ class SiteIdentity(unittest.TestCase):
             (root / si.IDE / 'extra.txt').write_text('PoCol\n')
         def stale_version(root):
             p = root / si.MAIN / 'reward.js'; p.write_text(p.read_text(encoding='utf-8') + '\n')
-        def no_deny_rule(root):
-            p = root / si.HTACCESS; p.write_text(p.read_text(encoding='utf-8').replace('Require all denied', 'Require all granted'))
+        def relay_restored(root):
+            (root / si.EXPLORER / 'api').mkdir(); (root / si.EXPLORER / 'api' / 'rpc.php').write_text('<?php\n')
+        def htaccess_restored(root):
+            (root / si.EXPLORER / '.htaccess').write_text('Options -Indexes\n')
+        def php_page(root):
+            (root / si.EXPLORER / 'status.php').write_text('<?php\n')
         def config_php(root):
+            (root / si.EXPLORER / 'api').mkdir(exist_ok=True)
             (root / si.EXPLORER / 'api' / 'config.php').write_text('<?php // test file that the tool must never read\n')
         cases = {chatgpt: 'chatgpt.site', old_download: '0.3.9', missing_asset: 'does not exist',
                  misnamed_bundle: 'index-extension041-000000000000.js: would be removed', stale_sums: 'SHA256SUMS.txt', unlisted: 'SHA256SUMS.txt',
-                 stale_version: '.html: does not carry', no_deny_rule: 'deny rule', config_php: 'config.php must never'}
+                 stale_version: '.html: does not carry', relay_restored: 'api/rpc.php: server code', htaccess_restored: '.htaccess: server code',
+                 php_page: 'status.php: server code', config_php: 'config.php must never'}
         for make, message in cases.items():
             with self.subTest(make.__name__):
                 root = self.copy()

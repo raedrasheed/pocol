@@ -141,9 +141,10 @@ class TrackedSnapshot(unittest.TestCase):
             self.assertEqual(len(paths), 12)
             self.assertIn('/favicon.ico', paths)
             self.assertIn('/site.webmanifest', paths)
-            refused = {d['path'] for d in r['refused']}
-            self.assertTrue({'/.htaccess', '/SHA256SUMS.txt', '/api/rpc.php', '/api/lib.php', '/api/.htaccess'} <= refused)
-            self.assertFalse(any(p.startswith('/api/') or p.endswith('.php') for p in paths))
+            # Sites W8: the tracked explorer is static, so its checksum list is the only file left out.
+            self.assertEqual(r['refused'], [{'path': '/SHA256SUMS.txt', 'reason': 'checksums'}])
+            self.assertEqual(r['excluded'], [])
+            self.assertFalse(any(p.startswith('/api/') or p.endswith('.php') or '/.' in p for p in paths))
             self.assertLess(r['bytes'], 4 * 1024 * 1024)
 
 

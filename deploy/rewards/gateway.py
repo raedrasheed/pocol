@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Bounded read-only PoCol explorer gateway. Python 3.10+, standard library only."""
+"""Bounded read-only PoCol explorer gateway: POST /rpc, GET /health and the explorer snapshot's same-origin reads
+(/api/rpc.php, /api/health.php, /api/miner-locations.php, /api/transactions.php; explorer_api.py). Python 3.10+,
+standard library only."""
 import argparse
 import collections
 import http.client
@@ -28,7 +30,10 @@ except ImportError:
 from pocol_rewards import (snapshot_v3 as reward_snapshot, validated_fork_schedule, validated_network, DEFAULT_FORK_SCHEDULE,
                            MAX_CALLS_V3, MAX_SECONDS_V3, keccak256, _abi_two_arrays, hex_bytes, REGISTRY, CAPS, CALL_GAS,
                            ACTIVE_SLICE_GAS, MAX_MEMBERS_V3, ACTIVE_PAGE)
+# Sites W8: the explorer snapshot's same-origin /api reads (the retired PHP relays' paths), installed beside it.
+import explorer_api
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
 
 MAX_REQUEST = 16384
 MAX_RESPONSE = 4 * 1024 * 1024
@@ -225,8 +230,14 @@ class Gateway:
             if self.tokens < cost: return False
             self.tokens -= cost
             return True
-    def query(self, method, params):
-        conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
+    def query(self, method, params, deadline=None):
+        """One node read. With `deadline` (a time.monotonic() value) the read is refused once it has passed and its
+        socket timeout is at most the time left, so a caller's total limit holds for every read it makes."""
+        timeout = 5
+        if deadline is not None:
+            timeout = min(timeout, deadline - time.monotonic())
+            if timeout <= 0: raise RuntimeError('Explorer read time limit reached')
+        conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=timeout)
         try:
             body = json.dumps({'jsonrpc':'2.0','id':1,'method':method,'params':params}, separators=(',', ':')).encode()
             conn.request('POST', '/', body=body, headers={'Content-Type':'application/json','Connection':'close'})
@@ -238,20 +249,24 @@ class Gateway:
             if not isinstance(result, dict) or result.get('id') != 1: raise RuntimeError('Invalid node response')
             return result
         finally: conn.close()
+    def read(self, method, params, deadline):
+        """query(), with the caller's deadline when it has one (a call without one reads exactly as /rpc always has)."""
+        return self.query(method, params) if deadline is None else self.query(method, params, deadline=deadline)
     def verify_network(self):
         params = self.query('pocol_getParams', []).get('result', {})
         genesis = params.get('genesisHash')
         if params.get('chainId') != self.network.chain_id or not isinstance(genesis, str) or genesis.lower() != self.network.genesis:
             raise RuntimeError('The local RPC does not belong to the configured PoCol network')
-    def membership(self, method, params):
+    def membership(self, method, params, deadline=None):
         """pocol_getMembers / pocol_getMember at the head block, every read at that one height, cached per head (block
-        hash) and refused with ChainMoved when the block at that height changed while it was read."""
+        hash) and refused with ChainMoved when the block at that height changed while it was read. Every read keeps
+        to `deadline` (Gateway.query)."""
         remaining = MEMBER_READS_MAX + (DRAW_READS_MAX if method == 'pocol_getMember' else 0)
         def read(read_method, read_params):
             nonlocal remaining
             if remaining <= 0: raise RuntimeError('Membership read budget exceeded')
             remaining -= 1
-            answer = self.query(read_method, read_params)
+            answer = self.read(read_method, read_params, deadline)
             if not isinstance(answer, dict) or 'result' not in answer or 'error' in answer: raise RuntimeError('Node read failed')
             return answer['result']
         def block(at):
@@ -336,7 +351,9 @@ class Gateway:
                 cached['bonds'][address] = call(REGISTRY, _word_args('recordWords(address)', int(address, 16)), CALL_GAS, 4)[2]
             return cached['bonds'][address]
         return {'scan': scan, 'bond': bond, 'cached': cached}
-    def call(self, request):
+    def call(self, request, deadline=None):
+        """One allowed read, answered from the cache or the node. `deadline` bounds every node read it makes (the
+        explorer's /api reads pass theirs; /rpc keeps the per-read timeouts)."""
         method, params = request['method'], request['params']
         key = json.dumps([method, params], separators=(',', ':'))
         now = time.monotonic()
@@ -356,13 +373,13 @@ class Gateway:
                 reward_locked = self.reward_slot.acquire(blocking=False)
                 if not reward_locked:
                     return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32021,'message':'Reward snapshot is being prepared; retry shortly'}}
-                deadline, remaining = time.monotonic() + MAX_SECONDS_V3, MAX_CALLS_V3
+                reward_deadline, remaining = time.monotonic() + MAX_SECONDS_V3, MAX_CALLS_V3
                 # eth_getTransactionReceipt: the block's tips (V3-20).
                 reads = {'pocol_status', 'pocol_getParams', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'pocol_getBlockRlp', 'eth_call',
                          'eth_getCode', 'eth_getBalance', 'eth_getTransactionCount', 'eth_getTransactionReceipt'}
                 def bounded_reward_query(read_method, read_params):
                     nonlocal remaining
-                    if remaining <= 0 or time.monotonic() >= deadline:
+                    if remaining <= 0 or time.monotonic() >= reward_deadline:
                         raise RuntimeError('Reward read budget exceeded')
                     if read_method not in reads:
                         raise RuntimeError('Unsupported reward read')
@@ -381,13 +398,13 @@ class Gateway:
                 if self.transactions is None: raise RuntimeError('Transaction index is not installed')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.transactions.page(params[0])}
             elif method in MEMBERS:
-                answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params)}
+                answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params, deadline)}
             elif method == 'pocol_getNetworkGeography':
                 if self.geography is None: raise RuntimeError('Automatic GeoIP is not installed')
-                raw_status = self.query('pocol_status', []).get('result')
+                raw_status = self.read('pocol_status', [], deadline).get('result')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.geography.snapshot(raw_status)}
             else:
-                answer = self.query(method, params)
+                answer = self.read(method, params, deadline)
             if 'result' in answer: answer['result'] = sanitize(method, answer['result'])
             answer['id'] = request['id']
             if 'error' not in answer and method not in MEMBERS:
@@ -417,7 +434,7 @@ class Handler(BaseHTTPRequestHandler):
     def setup(self):
         super().setup(); self.connection.settimeout(6)
     def log_message(self, *_args): pass
-    def reply(self, status, value):
+    def reply(self, status, value, head=False):
         body = json.dumps(value, separators=(',', ':')).encode()
         if len(body) > MAX_RESPONSE:
             status, body = 413, b'{"error":"Explorer response limit exceeded"}'
@@ -429,14 +446,44 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header('Connection','close')
         self.end_headers()
         self.close_connection = True
+        if head: return
         try: self.wfile.write(body)
         except (BrokenPipeError, ConnectionResetError, socket.timeout): pass
-    def do_GET(self):
-        if self.path == '/health':
+    def dispatch(self, method):
+        """The explorer snapshot's /api paths (explorer_api: every method, so a wrong one gets the PHP relays' 405 and
+        Allow; another /api path is its 404), GET /health and POST /rpc; anything else is 404."""
+        path = urlsplit(self.path).path
+        if path.startswith('/api/'):
+            self.explorer(method)
+        elif method == 'GET' and self.path == '/health':
             self.reply(200, {'service':'pocol-explorer-gateway','readOnly':True,'chainId':self.server.gateway.chain_id,'note':'Service health only; the explorer checks upstream identity and freshness.'})
-        else: self.reply(404, {'error':'Not found'})
-    def do_POST(self):
-        if self.path != '/rpc': self.reply(404, {'error':'Not found'}); return
+        elif method == 'POST' and self.path == '/rpc':
+            self.rpc()
+        else:
+            self.reply(404, {'error':'Not found'}, head=method == 'HEAD')
+    def do_GET(self): self.dispatch('GET')
+    def do_HEAD(self): self.dispatch('HEAD')
+    def do_POST(self): self.dispatch('POST')
+    def do_PUT(self): self.dispatch('PUT')
+    def do_DELETE(self): self.dispatch('DELETE')
+    def do_PATCH(self): self.dispatch('PATCH')
+    def do_OPTIONS(self): self.dispatch('OPTIONS')
+    def __getattr__(self, name):
+        # Any other method token (BaseHTTPRequestHandler would answer 501): 405 on an /api path, 404 elsewhere.
+        if re.fullmatch(r'do_[A-Z]{1,16}', name): return lambda: self.dispatch(name[3:])
+        raise AttributeError(name)
+    def explorer(self, method):
+        response = self.server.explorer.handle(method, self.path, self.headers, self.rfile)
+        self.send_response(response.status)
+        for name, value in response.headers: self.send_header(name, value)
+        body = b'' if method == 'HEAD' or response.body is None else response.body
+        if method != 'HEAD': self.send_header('Content-Length', str(len(body)))
+        self.send_header('Connection', 'close')
+        self.end_headers()
+        self.close_connection = True
+        try: self.wfile.write(body)
+        except (BrokenPipeError, ConnectionResetError, socket.timeout): pass
+    def rpc(self):
         if self.headers.get('Transfer-Encoding') or len(self.headers.get_all('Content-Length', [])) != 1:
             self.reply(400, {'error':'A single Content-Length is required'}); return
         try: size = int(self.headers.get('Content-Length', '0'))
@@ -449,7 +496,8 @@ class Handler(BaseHTTPRequestHandler):
             if len(raw) != size: raise ValueError()
             value = json.loads(raw)
             if not valid_payload(value): raise ValueError()
-        except (ValueError, OSError): self.reply(400, {'error':'Unsupported explorer read'}); return
+        # RecursionError: a deeply nested body (within 16 KiB) is a bad request, not a dropped connection.
+        except (ValueError, OSError, RecursionError): self.reply(400, {'error':'Unsupported explorer read'}); return
         items = value if isinstance(value, list) else [value]
         if not self.server.gateway.charge(sum(COSTS.get(item['method'], 1) for item in items)): self.reply(429, {'error':'Explorer request budget exceeded; retry shortly'}); return
         answers, size = [], 2
@@ -460,17 +508,58 @@ class Handler(BaseHTTPRequestHandler):
             answers.append(answer)
         self.reply(200, answers if isinstance(value, list) else answers[0])
 
+# The answer to a connection beyond the 16 request slots: the explorer relays' JSON busy answer (lib.php answered it
+# before a request reached the gateway; behind Caddy every request is one connection here), never a dropped connection
+# that Caddy turns into an empty 502.
+BUSY_BODY = json.dumps({'error': explorer_api.BUSY}, separators=(',', ':')).encode()
+BUSY_REPLY = (b'HTTP/1.1 429 Too Many Requests\r\nContent-Type: application/json; charset=utf-8\r\nCache-Control: no-store\r\n'
+              b'X-Content-Type-Options: nosniff\r\nRetry-After: 3\r\nConnection: close\r\nContent-Length: '
+              + str(len(BUSY_BODY)).encode() + b'\r\n\r\n' + BUSY_BODY)
+BUSY_SLOTS, BUSY_SECONDS = 8, 1.0
+
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     request_queue_size = 16
-    def __init__(self, address, gateway):
+    def __init__(self, address, gateway, site_origin=explorer_api.SITE_ORIGIN):
         self.gateway = gateway
+        # The explorer's /api reads: the Origin a browser request may carry (the explorer site), the gateway's call
+        # costs and the transaction index's option check.
+        self.explorer = explorer_api.Relay(gateway, site_origin, cost=lambda call: COSTS.get(call['method'], 1),
+                                           transaction_options_valid=lambda options: valid_options(options))
         self.slots = threading.BoundedSemaphore(16)
+        self.busy_slots = threading.BoundedSemaphore(BUSY_SLOTS)
         super().__init__(address, Handler)
     def process_request(self, request, client_address):
-        if not self.slots.acquire(blocking=False): self.shutdown_request(request); return
+        if not self.slots.acquire(blocking=False):
+            # A few busy answers at a time on their own threads (the accept loop never waits on a client); beyond
+            # those the connection is closed as before.
+            if not self.busy_slots.acquire(blocking=False): self.shutdown_request(request); return
+            try: threading.Thread(target=self.answer_busy, args=(request,), daemon=True).start()
+            except BaseException: self.busy_slots.release(); self.shutdown_request(request); raise
+            return
         try: super().process_request(request, client_address)
         except BaseException: self.slots.release(); raise
+    def answer_busy(self, request):
+        """BUSY_REPLY, after reading the request (its head and a body of up to MAX_REQUEST bytes, for at most
+        BUSY_SECONDS) so that closing does not reset the connection before the client has read the answer."""
+        try:
+            deadline, seen, need = time.monotonic() + BUSY_SECONDS, b'', None
+            while need is None or len(seen) < need:
+                left = deadline - time.monotonic()
+                if left <= 0 or len(seen) > MAX_REQUEST + 65536: break
+                request.settimeout(left)
+                chunk = request.recv(65536)
+                if not chunk: break
+                seen += chunk
+                if need is None and b'\r\n\r\n' in seen:
+                    head, _, _ = seen.partition(b'\r\n\r\n')
+                    found = re.search(rb'(?im)^content-length:[ \t]*([0-9]{1,12})[ \t]*\r?$', head)
+                    need = len(head) + 4 + min(int(found.group(1)) if found else 0, MAX_REQUEST)
+            request.settimeout(BUSY_SECONDS)
+            request.sendall(BUSY_REPLY)
+        except OSError: pass
+        finally:
+            self.shutdown_request(request); self.busy_slots.release()
     def process_request_thread(self, request, client_address):
         try: super().process_request_thread(request, client_address)
         finally: self.slots.release()
@@ -484,7 +573,12 @@ if __name__ == '__main__':
                         'Fork 2 is a no-op, fork 3 the cap raise: [[1,0],[2,h2],[3,raise_height]]')
     parser.add_argument('--v3-network', metavar='FILE', required=True,
                         help='Required trusted JSON {"chainId":N,"genesisHash":"0x..","specVersion":2,"v3":true[,"source":"https://.."]}: the network served')
+    parser.add_argument('--site-origin', default=explorer_api.SITE_ORIGIN,
+                        help='The only Origin a browser request to /api/rpc.php may carry (default %(default)s; '
+                        'http:// only on loopback, for a test copy)')
     args = parser.parse_args()
+    if not explorer_api.valid_origin(args.site_origin):
+        parser.error('--site-origin: https://HOST[:PORT], or http://127.0.0.1[:PORT] for a test copy')
     try:
         fork_schedule = load_fork_schedule(args.fork_schedule)
         network = load_v3_network(args.v3_network)
@@ -497,6 +591,6 @@ if __name__ == '__main__':
         if TransactionIndex is None: raise RuntimeError('Transaction index module is missing')
         gateway.transactions = TransactionIndex(os.environ['POCOL_TX_DB'], gateway.query)
         gateway.transactions.start()
-    server = Server((args.bind, args.port), gateway)
+    server = Server((args.bind, args.port), gateway, args.site_origin)
     print('PoCol explorer read-only gateway ready', flush=True)
     server.serve_forever(poll_interval=0.5)
