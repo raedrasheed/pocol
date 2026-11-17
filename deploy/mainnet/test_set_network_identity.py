@@ -154,8 +154,6 @@ KEPT_PREFIXES = {
 }
 KEPT = {
     ni.RETIRED: 'the retired identities the switch tool and this guard look for',
-    'prototypes/pocold/src/net.rs': 'a pinned canonical Hello frame (wire golden vectors), not a network setting',
-    'prototypes/pocold/tests/data/wire-golden.json': 'the pinned canonical Hello frame (wire golden vectors)',
 }
 # Shipped with the packages, so the identity-switch release replaces or bumps them (Phase 7 bumps the versions):
 # while the tree pins a retired network each holds its pattern (the old release's version, or text that is true only
@@ -738,7 +736,7 @@ class SetNetworkIdentity(unittest.TestCase):
                    ('d.md', f'genesis {gone_genesis[:8].upper()}...'), (list(ni.FILES)[0], f'chain {gone_chain}')]
         self.assertEqual(unaccounted(planted, gone=gone), [rel for rel, _ in planted])
         exempt = [('development/x.md', str(gone_chain)), ('deploy/websites/x.js', str(gone_chain)), (ni.RETIRED, str(gone_chain)),
-                  ('prototypes/pocold/tests/data/wire-golden.json', str(gone_chain)), ('e.md', 'no identity')]
+                  ('e.md', 'no identity')]
         self.assertEqual(unaccounted(exempt, gone=gone), [])
         # A retired genesis of the current chain (a redo with another genesis for the same chain): its hash is flagged,
         # the current network's chain ID is not.

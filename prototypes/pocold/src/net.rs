@@ -1389,13 +1389,13 @@ mod tests{
         /// One canonical message per type 0–9, then the limits; `v` is the wire version that introduced the frame.
         fn canonical()->Vec<(&'static str,u64,Vec<u8>,Option<Msg>)>{
             let msgs=[
-                ("v2/hello",Msg::Hello{chain_id:1599846715,genesis:[0x11;32],head:[0x22;32],height:15000,work:{let mut w=[0;32];w[30]=0x01;w[31]=0x2a;w},node:"pocol-golden".into(),
+                ("v2/hello",Msg::Hello{chain_id:0x0102_0304,genesis:[0x11;32],head:[0x22;32],height:0x1234,work:{let mut w=[0;32];w[30]=0x01;w[31]=0x2a;w},node:"pocol-golden".into(),
                     protocol:2,compatibility:[0x44;32],listen_port:30333,nonce:0x0102030405060708}),
                 ("v2/block",Msg::Block{header:vec![0xc1,0x80],body:vec![0xc0]}),
                 ("v2/template",Msg::Template{shell:vec![1,2,3],body:vec![]}),
                 ("v2/share",Msg::Share{tid:[0x55;32],nonce:0xfedcba9876543210}),
                 ("v2/get-block",Msg::GetBlock{hash:[0x66;32]}),
-                ("v2/get-range",Msg::GetRange{start:15000,count:512}),
+                ("v2/get-range",Msg::GetRange{start:0x1234,count:512}),
                 ("v2/tx",Msg::Tx{raw:vec![0x02,0xf8,0x01]}),
                 ("v2/get-from",Msg::GetFrom{locator:vec![[0x77;32],[0x88;32]],count:512}),
                 ("v2/get-addr",Msg::GetAddr),

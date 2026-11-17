@@ -392,17 +392,21 @@ once and in order; version 2 is a nonce-rule no-op under nonceMode 1. The runtim
 (`configured_forks`), and ParamGate refuses one as R24 (lp1-node `gate.rs`, the skip check of `bad[23]`), although the
 schedule type itself would accept it. No version skipping is authorized.
 
-The consensus-sources lock is to be reset once, at the release cut before the fresh genesis: its history restarts at a
-single `kind=base` line recording the v3 constants, and nothing of the retired network's history is kept (VA-SPEC §2.3;
-not made yet, and until then the development history stays append-only). From that line on the history is append-only. A later rule change on the running chain is a new fork version V ≥ 4 behind
-`active_version(h) >= V` with a `neutral gate=fork:V` line; a change that needs a new genesis is a `kind=bump` or
-`gate=spec:3` line with that genesis.
+The consensus-sources lock was reset once, at the release cut before the fresh genesis (Phase 8): the retired
+network's 41 history lines were dropped and the history restarts at a single `history n=1 kind=base` line recording
+the v3 constants (rules 2, maxFork 3, spec 2, protocol 2, protocolMin 2), with the retired last line's sources,
+vectors and deps digests, so no consensus source changed (VA-SPEC §2.3). The append-only check accepted it through a
+one-time exemption bound to the retired lock's exact bytes (`RETIRED_BASE_LOCK_SHA256` in
+`deploy/ci/check_lock_append_only.py`); that exemption is spent and Phase 10 deletes it. From that line on the history
+is append-only. A later rule change on the running chain is a new fork version V ≥ 4 behind `active_version(h) >= V`
+with a `neutral gate=fork:V` line; fork:3 and spec:2 are spent, so `fork:V` is the only gate usable on the fresh
+network's chain. A change that needs a new genesis is a `kind=bump` or `gate=spec:3` line with that genesis.
 
 **Superseded 2026-11-14: the lock and activation strategy of the dormant sequence** (fresh network, phase 4;
 [OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). Until then the v3 work
 landed dormant beside the retired spec-1 rules: host changes were re-pinned as `neutral gate=spec:2` lines that still
 recorded `spec=1` and so did not spend the gate, and test-only `v3-preview` builds accepted spec-2 genesis files. That
-is why the lock's earlier history lines record `spec=1` with `gate=spec:2` until the reset above. The full record (the
+is why the retired lock's history lines recorded `spec=1` with `gate=spec:2` until the reset above dropped them. The full record (the
 dormant constants, the gate-freshness reading of VA-SPEC §2.3 and the preview restrictions) is in this file's history,
 for example at commit 52b2507, section "Lock and activation strategy".
 
