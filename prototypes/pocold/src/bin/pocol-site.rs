@@ -2,11 +2,17 @@
 //! chunks + Website version) and fetch/verify it back from any node.
 //!   pocol-site publish --rpc 127.0.0.1:8540 --chain-id N --account alice --dir SITE [--site 0x..] [--entry /index.html]
 //!       [--exclude GLOB]... [--include-list FILE] [--max-total-pcol PCOL] [--max-fee-gwei GWEI] [--priority-gwei GWEI] [--economy]
+//!       [--no-caps-check]
 //!   pocol-site fetch   --rpc 127.0.0.1:8541 --site 0x.. [--out DIR]
 //! Sites W5: hidden files and directories, config.*, *.key, *.pem, *.sql, *.bak*, api/** and SHA256SUMS* are never
 //! published (each is listed with its reason); --exclude and --include-list leave files out explicitly (each listed);
 //! an unsupported extension still fails loudly. Sites W4: every transaction is signed just in time at
-//! 2 * base fee + tip, within --max-fee-gwei (default 200) and --max-total-pcol (default: no budget).
+//! 2 * base fee + tip, within --max-fee-gwei (default 200) and --max-total-pcol (default: no budget). Sites W12: before
+//! the first signature, the chunks the chain does not hold yet, the Website (without --site) and the version
+//! transactions are checked against the node's chain caps (pocol_getCaps); a site that cannot fit is refused with each
+//! short cap named and nothing signed. With --site the check runs too (no Website counted) and is skipped only when
+//! every chunk is already stored. A node without pocol_getCaps (-32601) gives a warning and the publication goes on;
+//! --no-caps-check skips the pre-check (a cap reached during the publication is still named after the failure).
 use std::collections::BTreeMap;
 use std::path::{Path,PathBuf};
 use pocold::site::{self,Rpc,Publisher};
@@ -73,7 +79,7 @@ fn main(){
                 if let Some(w)=&include{let missing:Vec<&String>=w.iter().filter(|p|!files.contains_key(*p)&&!filter.denied.iter().any(|d|&d.0==*p||(d.0.ends_with('/')&&p.starts_with(&d.0)))).collect();if !missing.is_empty(){return Err(format!("--include-list names files that are not in --dir: {missing:?}"))}}
                 let fees=site::FeePolicy::from_cli(arg(&a,"--max-total-pcol").as_deref(),arg(&a,"--max-fee-gwei").as_deref(),arg(&a,"--priority-gwei").as_deref(),a.iter().any(|x|x=="--economy"))?;
                 let site=arg(&a,"--site").map(|s|s.parse().map_err(|_|"--site address")).transpose()?;
-                let p=Publisher::new(&rpc,&key,chain_id,true,fees);
+                let mut p=Publisher::new(&rpc,&key,chain_id,true,fees);p.caps_check=!a.iter().any(|x|x=="--no-caps-check");
                 let (addr,v,m)=p.publish(site,&files,&arg(&a,"--entry").unwrap_or("/index.html".into()))?;
                 println!("{}",serde_json::json!({"site":format!("{addr:#x}"),"version":v,"files":m.files.len(),"manifestBytes":m.encode().len(),"manifestHash":format!("{:#x}",revm::primitives::keccak256(m.encode())),
                     "refused":filter.denied.iter().map(|(p,r)|serde_json::json!({"path":p,"reason":r})).collect::<Vec<_>>(),"excluded":filter.excluded,"committedFeeWei":p.committed().to_string()}));Ok(())
