@@ -29,14 +29,18 @@ PoCol Explorer — بوابة Explorer وموقعها على خادم البوا
 قبل ذلك لا تصدر شهادة HTTPS لهذا الاسم على خادم البوابة، فيفشل اختبار HTTPS في المثبّت ثم يسترجع الإعداد
 السابق. لذلك شغّل الفحص (--check) قبل نقل السجل، والتثبيت الكامل بعد نقله مباشرة. لا يُعطَّل فحص الشهادة أبدًا.
 
-python3 deploy/websites/tools/site_snapshot.py --out /tmp/explorer-site
-sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site --check
-sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site
+D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" \
+  && sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D" --check
+sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D"
 curl --fail --max-time 20 https://explorer.pocol.net/api/health.php
 
 يجب أن تعرض الاستجابة "result":"PASS". أعد الاختبار من جهاز خارجي أيضًا لإثبات الوصول من خارج الخادم.
 
-الأمر الأول يبني النسخة الثابتة (اثنا عشر ملفًا) من الملفات المحفوظة في Git ويتحقق منها مقابل SHA256SUMS.txt.
+الأمر الأول يبني النسخة الثابتة (اثنا عشر ملفًا) من الملفات المحفوظة في Git في مجلد جديد ويتحقق منها مقابل
+SHA256SUMS.txt، ويجب أن ينجح؛ إذا فشل لا يُشغَّل الفحص، ولا تبقى نسخة قديمة تُثبَّت.
+يقارن المثبّت النسخة أيضًا بنسخة Explorer في هذا الالتزام، ويرفض نسخة مختلفة (قديمة أو معدّلة يدويًا) ويعرض
+المعرّفين، إلا إذا سُمّي معرّفها صراحة بالخيار --accept-site site-<المعرّف> (لنسخة مقصود اختلافها، مثل نسخة
+مُحوّلة لشبكة تجريبية).
 الفحص (--check) لا يغيّر شيئًا: يتحقق من ملف الشبكة وهوية العقدة والنسخة الثابتة والمنفذ 8088 وصحة ملف Caddy الجديد.
 التثبيت يحفظ نسخة احتياطية في /var/backups/pocol-explorer-gateway/، ويثبّت خدمة pocol-explorer-gateway.service
 على 127.0.0.1:8088 فقط، ويكتب النسخة الثابتة في /srv/pocol-explorer/site-<معرّف>، ثم يعيد تحميل Caddy ويختبر عبر

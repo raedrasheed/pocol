@@ -332,8 +332,10 @@ class InstallerTests(unittest.TestCase):
             self.assertIn(('systemctl', 'disable', installer.SERVICE), commands)
             self.assertEqual(commands[-1], ('systemctl', 'daemon-reload'))
 
-    def run_install(self, fail_https=False, existing=False, unit_text=None, caddy_text=None, check=False, studio_route=False, forks=False):
-        """installer.main() on temporary host paths: (Caddyfile after, commands, printed text, root)."""
+    def run_install(self, fail_https=False, existing=False, unit_text=None, caddy_text=None, check=False, studio_route=False, forks=False,
+                    change_copy=None, accept=None):
+        """installer.main() on temporary host paths: (Caddyfile after, commands, printed text, root). `change_copy(dir)`
+        edits the copy after it is built; `accept` is the --accept-site value (the copy's id when True)."""
         temporary = tempfile.TemporaryDirectory(); self.addCleanup(temporary.cleanup)
         root = Path(temporary.name)
         base, unit, caddy, srv, backups, config = (root / 'opt', root / 'gateway.service', root / 'Caddyfile', root / 'srv',
@@ -341,6 +343,7 @@ class InstallerTests(unittest.TestCase):
         config.mkdir(); (config / 'network.json').write_text(json.dumps(NET))
         if forks: (config / 'forks.json').write_text('[[1, 0]]')
         copy = snapshot_copy(root)
+        if change_copy: change_copy(copy)
         files = site.site_files(copy); ident = site.manifest(files)[1]
         prior_root = srv / ('site-' + 'a' * 12)
         if caddy_text is None:
@@ -362,7 +365,7 @@ class InstallerTests(unittest.TestCase):
         real_plan = site.plan_caddyfile
         def plan(text, site_root, studio_module):
             return real_plan(text, '/srv/pocol-explorer/' + Path(site_root).name, studio_module)
-        argv = ['--site', str(copy)] + (['--check'] if check else [])
+        argv = ['--site', str(copy)] + (['--check'] if check else []) + (['--accept-site', 'site-' + ident if accept is True else accept] if accept else [])
         with patch.multiple(installer, BASE=base, UNIT=unit, CADDYFILE=caddy, SITE_PARENT=srv, BACKUPS=backups, CONFIG=config,
                             NETWORK=config / 'network.json', FORKS=config / 'forks.json'), \
              patch.object(installer.os, 'geteuid', return_value=0, create=True), \
@@ -435,8 +438,28 @@ class InstallerTests(unittest.TestCase):
             self.run_install(existing=True, unit_text=installer.UNIT_TEXT.replace('MemoryMax=256M', 'MemoryMax=1G'))
         with self.assertRaisesRegex(RuntimeError, 'unmanaged explorer.pocol.net'):
             self.run_install(caddy_text=CaddyFixture.BASE)
-        for argv in ([], ['--check'], ['--site'], ['--site', 'x', '--force'], ['--site', 'x', '--check', '--check']):
+        for argv in ([], ['--check'], ['--site'], ['--site', 'x', '--force'], ['--site', 'x', '--check', '--check'],
+                     ['--site', '--check'], ['--site', 'x', '--accept-site'], ['--site', 'x', '--accept-site', 'site-xyz'],
+                     ['--site', 'x', '--accept-site', 'site-' + 'a' * 12, '--accept-site', 'site-' + 'a' * 12]):
             with self.assertRaisesRegex(RuntimeError, 'Usage'): installer.main(argv)
+        self.assertEqual(installer.usage(['--site', 'x', '--accept-site', 'site-' + 'a' * 12, '--check']),
+                         (Path('x'), True, 'site-' + 'a' * 12))
+        self.assertEqual(installer.usage(['--site', 'x']), (Path('x'), False, None))
+
+    def test_a_copy_that_is_not_the_checkouts_snapshot_is_refused_unless_named(self):
+        # A leftover copy of an earlier release, or one edited by hand, passes the copy's own checks: refused.
+        stale = lambda copy: (copy / 'index.html').write_bytes((copy / 'index.html').read_bytes().replace(b'<title>', b'<title>STALE ', 1))
+        for change in (stale, lambda copy: (copy / 'icon-512.png').unlink(), lambda copy: (copy / 'extra.js').write_text('x')):
+            with self.subTest(change=change), self.assertRaisesRegex(RuntimeError, 'is not the explorer snapshot of this checkout'):
+                self.run_install(check=True, change_copy=change)
+        with self.assertRaisesRegex(RuntimeError, '--accept-site names'):
+            self.run_install(check=True, change_copy=stale, accept='site-' + 'f' * 12)
+        # A copy meant to differ (a switched or rebuilt bundle) is installed when --accept-site names its id.
+        printed = self.run_install(check=True, change_copy=stale, accept=True)[2]
+        self.assertIn('accepted with --accept-site', printed)
+        text, _, printed, _, ident, _ = self.run_install(change_copy=stale, accept=True)
+        self.assertEqual(text, site.render_block(f'/srv/pocol-explorer/site-{ident}'))
+        self.assertIn("this checkout's snapshot", self.run_install(check=True)[2])
 
     def test_write_site_reuses_an_identical_copy_and_refuses_another(self):
         with tempfile.TemporaryDirectory() as tmp:

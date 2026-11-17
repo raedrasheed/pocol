@@ -4,9 +4,14 @@
 copy, and the explorer.pocol.net Caddy site that serves both (explorer_site.py). No node data, key or DNS record is
 touched.
 
-    python3 deploy/websites/tools/site_snapshot.py --out /tmp/explorer-site      # the copy, from the committed blobs
-    sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site --check
-    sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site
+    D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" \
+        && sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D" --check
+    sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D"
+
+The copy is built from the committed blobs into a new directory, so a failed build stops there and no older copy is
+left to install. The installer also compares it with this checkout's explorer snapshot (its include list, checked
+against its SHA256SUMS.txt) and refuses one that differs, unless --accept-site names that copy's site id (a copy meant
+to differ, such as a bundle switched for a rehearsal network).
 
 Run it from a checkout of the release commit (it installs the gateway sources beside it). It needs Python 3.10+,
 systemd, a running Caddy, the operator's /etc/pocol-explorer-gateway/network.json (deploy/rewards/README.md) and the
@@ -38,7 +43,11 @@ sys.path.insert(0, str(HERE.parent / 'studio'))
 sys.path.insert(0, str(HERE))
 import explorer_site  # noqa: E402
 import explorer_api  # noqa: E402
+import site_snapshot  # noqa: E402  (deploy/websites/tools, on the path through explorer_site)
 
+ROOT = HERE.parents[1]
+SNAPSHOT = 'deploy/websites/explorer.pocol.net'
+INCLUDE = ROOT / 'deploy/websites/tools/explorer-s1-include.txt'
 BASE = Path('/opt/pocol-explorer-gateway')
 SOURCES = ('gateway.py', 'pocol_rewards.py', 'explorer_api.py')
 MARKER = 'managed-by-explorer-v1'
@@ -272,14 +281,52 @@ def prune_sites(keep):
     return removed
 
 
+USAGE = 'Usage: sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR [--check] [--accept-site site-<12 hex>]'
+
+
 def usage(argv):
-    if len(argv) not in (2, 3) or argv[0] != '--site' or argv[2:] not in ([], ['--check']):
-        raise RuntimeError('Usage: sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR [--check]')
-    return Path(argv[1]), argv[2:] == ['--check']
+    """(site directory, check only, the site id --accept-site names or None); each option at most once."""
+    if len(argv) < 2 or argv[0] != '--site' or argv[1].startswith('--'):
+        raise RuntimeError(USAGE)
+    rest, options = list(argv[2:]), {}
+    while rest:
+        flag = rest.pop(0)
+        if flag in options: raise RuntimeError(USAGE)
+        if flag == '--check': options[flag] = True
+        elif flag == '--accept-site' and rest and re.fullmatch(r'site-[0-9a-f]{12}', rest[0]): options[flag] = rest.pop(0)
+        else: raise RuntimeError(USAGE)
+    return Path(argv[1]), options.get('--check', False), options.get('--accept-site')
+
+
+def committed_site():
+    """The static copy of this checkout's explorer snapshot, as site_snapshot.py builds it (the committed blobs at HEAD,
+    the include list, checked against the snapshot's SHA256SUMS.txt)."""
+    with tempfile.TemporaryDirectory(prefix='pocol-explorer-committed-') as tmp:
+        try:
+            site_snapshot.build(Path(tmp) / 'site', SNAPSHOT, INCLUDE, repo=ROOT)
+            return explorer_site.site_files(Path(tmp) / 'site')
+        except (ValueError, OSError, subprocess.CalledProcessError) as error:
+            raise RuntimeError('The explorer snapshot of this checkout could not be read (run from a git checkout of the '
+                               f'release commit): {error}') from error
+
+
+def check_copy(site, files, ident, accept):
+    """Refuse a copy that is not this checkout's snapshot (a leftover or edited copy), unless --accept-site names it."""
+    if accept is not None:
+        if accept != f'site-{ident}':
+            raise RuntimeError(f'--accept-site names {accept}, but {site} is site-{ident}; no changes made')
+        return 'accepted with --accept-site'
+    committed = committed_site()
+    if files != committed:
+        raise RuntimeError(f'{site} (site-{ident}) is not the explorer snapshot of this checkout '
+                           f'(site-{explorer_site.manifest(committed)[1]}). Build the copy again into a new directory '
+                           '(site_snapshot.py --out), or rerun with --accept-site site-' + ident + ' if this copy is meant '
+                           'to differ; no changes made')
+    return "this checkout's snapshot"
 
 
 def main(argv=None):
-    site, check_only = usage(sys.argv[1:] if argv is None else argv)
+    site, check_only, accept = usage(sys.argv[1:] if argv is None else argv)
     check_forced_loopback()
     if os.geteuid() != 0: raise RuntimeError('Run with sudo')
     for utility in ('caddy', 'systemctl'):
@@ -304,6 +351,7 @@ def main(argv=None):
     gateway.Gateway(network=network).verify_network()
     files = explorer_site.site_files(site)
     text, ident = explorer_site.manifest(files)
+    origin = check_copy(site, files, ident, accept)
     import install_studio_gateway as studio
     original = CADDYFILE.read_bytes()
     candidate, old_root = explorer_site.plan_caddyfile(original.decode(), SITE_PARENT / f'site-{ident}', studio)
@@ -317,8 +365,8 @@ def main(argv=None):
         result = command('caddy', 'validate', '--config', str(testfile), '--adapter', 'caddyfile', check=False)
         if result.returncode: raise RuntimeError('Caddy candidate validation failed: ' + result.stderr.decode()[-1500:])
     if check_only:
-        print(f'CHECK PASSED: network {network.chain_id} {network.genesis} on the node, site-{ident} ({len(files)} files), '
-              'the loopback port, and the candidate Caddy configuration.')
+        print(f'CHECK PASSED: network {network.chain_id} {network.genesis} on the node, site-{ident} ({len(files)} files, '
+              f'{origin}), the loopback port, and the candidate Caddy configuration.')
         print(text, end='')
         return
     BACKUPS.mkdir(parents=True, exist_ok=True, mode=0o700)

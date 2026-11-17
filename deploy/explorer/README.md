@@ -43,16 +43,20 @@ systemd, Caddy (running), the node's RPC on `127.0.0.1:8545`, and the operator's
 integration).
 
 ```sh
-python3 deploy/websites/tools/site_snapshot.py --out /tmp/explorer-site     # the static copy, from the committed blobs
-sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site --check
-sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site
+# The static copy, from the committed blobs, into a new directory; the check runs only if that build succeeded.
+D=$(mktemp -d) && python3 deploy/websites/tools/site_snapshot.py --out "$D" \
+  && sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D" --check
+sudo python3 deploy/explorer/install_explorer_gateway.py --site "$D"
 curl --fail --max-time 20 https://explorer.pocol.net/api/health.php
 ```
 
-The static copy is the snapshot's twelve public files (`deploy/websites/tools/explorer-s1-include.txt`), checked
-against its `SHA256SUMS.txt`; the installer refuses a copy with a hidden, server, checksum or configuration file, a
-symbolic link, an unexpected file type, more than 64 files or 8 MiB, or an `index.html` script or stylesheet that is
-missing. It is written root-owned and world-readable to `/srv/pocol-explorer/site-<first 12 hex of its manifest's
+The first step must succeed: it builds the snapshot's twelve public files (`deploy/websites/tools/explorer-s1-include.txt`),
+checked against its `SHA256SUMS.txt`, into a new directory, so no copy of an earlier run is left to install. The
+installer also compares the copy with this checkout's snapshot built the same way, and refuses one that differs (a
+leftover or edited copy) unless `--accept-site site-<id>` names that copy's id (for a copy meant to differ, such as a
+bundle switched for a rehearsal network); it prints both ids. It refuses a copy with a hidden, server, checksum or
+configuration file, a symbolic link, an unexpected file type, more than 64 files or 8 MiB, or an `index.html` script
+or stylesheet that is missing. It is written root-owned and world-readable to `/srv/pocol-explorer/site-<first 12 hex of its manifest's
 SHA-256>`, so a new copy is a new root and the Caddy reload switches it at once; the previous copy is kept for a
 rollback and older ones are removed.
 
