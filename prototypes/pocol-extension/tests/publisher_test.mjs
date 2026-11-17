@@ -268,6 +268,20 @@ test('the needs follow the fixture shared with pocol-site (pocold tests/data/pub
     assert.deepEqual(publishNeeds(p,{newSite:c.newSite,missing}),c.needs,c.name);
   }
 });
+// Sites W12 follow-up: a Website with no version yet (a publication stopped after its deploy) gains its version counter
+// slot on the first createVersion, as pocol-site counts it (pocold site.rs publish_needs_on).
+test('a resumed Website with no version counts its version counter slot',async()=>{
+  const p=sample(),missing=new Set(p.chunks.map(c=>c.address)),m0=p.manifestChunks.length;
+  assert.equal(publishNeeds(p,{newSite:false,missing,versionCount:0n}).storageSlots,4+m0);
+  assert.equal(publishNeeds(p,{newSite:false,missing,versionCount:1n}).storageSlots,3+m0);
+  assert.equal(publishNeeds(p,{newSite:false,missing}).storageSlots,3+m0,'no count read: the update case');
+  const m=mock(),r=await publishSite(m.options());m.versions.length=0; // the Website stays, with no version
+  const p2=prepareSite([{path:'/index.html',data:enc.encode('First version')}]),need=publishNeeds(p2,{newSite:false,missing:new Set(p2.chunks.map(c=>c.address)),versionCount:0n});
+  m.control.room={storageSlots:need.storageSlots-1};const before=m.logs.signed.length;
+  await assert.rejects(publishSite(m.options(p2,{site:r.site})),e=>e instanceof PublishCapsError&&/storage slots \(SLOT_CAP\)/.test(e.message)&&e.shortfalls[0].need===String(need.storageSlots));
+  assert.equal(m.logs.signed.length,before,'nothing signed');
+  m.control.room={storageSlots:need.storageSlots};const r2=await publishSite(m.options(p2,{site:r.site}));assert.equal(r2.version,0);
+});
 test('chunks already on chain are not counted against the caps',async()=>{
   const m=mock(),p=sample();for(const c of p.chunks)m.codes.set(c.address,toHex(concat(Uint8Array.of(0),c.data)));
   const need=publishNeeds(p,{newSite:true,missing:new Set()});assert.equal(need.accounts,1);assert.equal(need.txCount,4);

@@ -183,7 +183,10 @@ const CAP_FIELDS = [['accounts','accountsCap','accounts (ACCT_CAP)'],['storageSl
 // Counted per block, not over the branch, when pocol_getCaps reports `cumulative` false.
 const PER_BLOCK = new Set(['txCount','txBytes','logBytes']);
 const hexLen = (h) => (h.length - 2) / 2;
-export function publishNeeds(plan, {newSite, missing}) {
+// `versionCount`: the named Website's version count when it exists (newSite false). A Website with no version yet (a
+// publication stopped after its deploy) gains its version counter slot on the first createVersion, so that slot is
+// counted too: 4 + m slots, not the update's 3 + m (pocold site.rs publish_needs_on; fn1_caps.rs measures both).
+export function publishNeeds(plan, {newSite, missing, versionCount = null}) {
   const p = snapshot(plan); const absent = p.chunks.filter((c) => missing.has(c.address));
   const storeData = (n) => 4 + 64 + Math.ceil(n / 32) * 32;
   const versionData = 4 + 96 + 32 + 32 * p.manifestChunks.length;
@@ -191,7 +194,7 @@ export function publishNeeds(plan, {newSite, missing}) {
   const largest = Math.max(versionData, 36, newSite ? hexLen(WEBSITE_INITCODE) : 0, ...absent.map((c) => storeData(c.data.length)));
   return {
     accounts: absent.length + (newSite ? 1 : 0),
-    storageSlots: (newSite ? 4 : 0) + 3 + p.manifestChunks.length,
+    storageSlots: (newSite ? 4 : (versionCount === 0n ? 1 : 0)) + 3 + p.manifestChunks.length,
     codeBytes: absent.reduce((n, c) => n + 1 + c.data.length, 0) + (newSite ? hexLen(WEBSITE_RUNTIME) : 0),
     txCount: txs,
     txBytes: absent.reduce((n, c) => n + storeData(c.data.length), 0) + (newSite ? hexLen(WEBSITE_INITCODE) : 0) + versionData + 36 + 36 + txs * TX_ENVELOPE_MAX,
@@ -479,12 +482,18 @@ export async function publishSite(options) {
     const scanned = new Map();
     if (!Object.keys(state.transactions).length) {
       const missing = new Set(); let pre = null;
-      try { for (const c of plan.chunks) { checkAbort(); const code = await readCode(c.address); scanned.set(c.address, code); if (code === '0x') missing.add(c.address); } }
+      let versionCount = null;
+      try {
+        for (const c of plan.chunks) { checkAbort(); const code = await readCode(c.address); scanned.set(c.address, code); if (code === '0x') missing.add(c.address); }
+        // An existing Website: its version count decides whether the first createVersion adds the counter slot. An
+        // address with no code answers empty, read as no version (the cautious count).
+        if (state.site) { const raw = await call(state.site, selector('versionCount()')); versionCount = raw === '0x' ? 0n : decodeWord(raw, 0); }
+      }
       catch (e) {
         if (!e?.transport && !e?.rpc) throw e;
         pre = {checked:false, warning:'The network endpoint did not answer the chunk scan (eth_getCode: ' + (e.transport || e.rpc?.message || 'error') + '): the capacity pre-check was skipped.'};
       }
-      pre ??= await capsPrecheck(rpc, publishNeeds(plan, {newSite:!state.site, missing}));
+      pre ??= await capsPrecheck(rpc, publishNeeds(plan, {newSite:!state.site, missing, versionCount}));
       if (!pre.checked) { try { options.onWarning?.(pre.warning); } catch {} progress({phase:'warning', message:pre.warning}); }
       else if (pre.alarms.length) progress({phase:'capsAlarm', alarms:pre.alarms});
     }
