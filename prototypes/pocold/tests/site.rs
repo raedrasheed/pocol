@@ -504,3 +504,43 @@ fn publisher<'a>(rpc:&'a site::Rpc,key:&'a pocol_lp4_execution::txsign::Key)->si
         assert!(e.contains("pocol_getCaps")&&e.contains("Nothing was signed"),"{bad}: {e}");assert_eq!(sends(&seen),0,"{bad}");
     }
 }
+
+/// Sites W4 economy (CI sites-e2e: "fee rose: the budget (64059896400000000 wei, --max-total-pcol) does not cover the
+/// next transaction (63861641653260000 committed, 204000000000000 more)", short by exactly one full chunk signed one
+/// full block above the floor): the economy budget assumes a block without a publication transaction after each one
+/// (fees.js feeSchedule), so every transaction is signed at the floor. A reorganization moved the previous
+/// transaction from the block its receipt named (5) to the next one (6): a head above 5 is then the block that holds it,
+/// whose base fee it raised. The publisher reads that receipt again and waits for a block after the one that holds it
+/// now (7), so the budget of two transactions at the floor covers both; without the second read it signed at block 6's
+/// raised base fee and refused the second transaction ("fee rose").
+#[test] fn w4_economy_waits_for_a_block_after_the_one_that_holds_its_previous_transaction_now(){
+    use std::sync::{Arc,Mutex};
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");
+    // (head, receipt reads of the first transaction, eth_blockNumber reads at head 6, maxFee per gas of each send)
+    let st=Arc::new(Mutex::new((5u64,0usize,0usize,Vec::<u64>::new())));let s2=st.clone();
+    let (floor,raised,tip)=(10_000_000u64,10_435_940u64,1_000_000_000u64);
+    let (addr,_)=stand_in_rpc(move|m,p,_|{let mut s=s2.lock().unwrap();match m{
+        "eth_blockNumber"=>{if s.0==6{s.2+=1;if s.2>=3{s.0=7;}}serde_json::json!({"result":format!("0x{:x}",s.0)})}
+        // eth_gasPrice is the next block's base fee + 1 gwei (rpc.rs): block 6 holds a full chunk and raised it.
+        "eth_gasPrice"=>serde_json::json!({"result":format!("0x{:x}",if s.0==6{raised}else{floor}+tip)}),
+        "eth_maxPriorityFeePerGas"=>serde_json::json!({"result":format!("0x{tip:x}")}),
+        "eth_getTransactionCount"=>serde_json::json!({"result":format!("0x{:x}",s.3.len())}),
+        "eth_sendRawTransaction"=>{let raw=unhex(p[0].as_str().unwrap()).unwrap();let it=rlp::decode(&raw[1..]).unwrap();let f=it.list().unwrap();
+            s.3.push(revm::primitives::U256::from_be_slice(f[3].bytes().unwrap()).to::<u64>());
+            serde_json::json!({"result":format!("0x{}",format!("{:02x}",s.3.len()).repeat(32))})}
+        "eth_getTransactionReceipt"=>{let first=p[0].as_str().unwrap().ends_with("01");
+            // The first receipt read names block 5; then the chain reorganizes: the transaction is in block 6, the head.
+            let block=if first{s.1+=1;if s.1==1{5}else{6}}else{9};if first&&s.1==1{s.0=6;}
+            serde_json::json!({"result":{"status":"0x1","blockNumber":format!("0x{block:x}"),"contractAddress":format!("0x{}","42".repeat(20))}})}
+        m=>panic!("unexpected {m}")}});
+    let rpc=site::Rpc{addr};
+    let gas=1_500_000u64;let budget=revm::primitives::U256::from(2*gas)*revm::primitives::U256::from(2*floor+tip);
+    let fees=site::FeePolicy{budget:Some(budget),economy:true,..site::FeePolicy::default()};
+    let p=site::Publisher::new(&rpc,&key,7,false,fees);
+    p.deploy_website().unwrap();
+    p.deploy_website().unwrap_or_else(|e|panic!("the second transaction waits for the base fee to fall back: {e}"));
+    let s=st.lock().unwrap();
+    assert_eq!(s.3,vec![2*floor+tip,2*floor+tip],"both signed at the floor");
+    assert_eq!(p.committed(),budget,"exactly the budget");
+    assert!(s.1>=2&&s.0==7,"the previous transaction's receipt was read again and the head passed its block: {:?}",(s.0,s.1,s.2));
+}
