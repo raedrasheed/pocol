@@ -59,6 +59,19 @@ test('the network check compares the gateway identity canonically and the networ
   assert.ok(!app.includes('شبكة اختبارية'),'no Arabic test-network label');
   assert.match(app,/networkDetails:'الشبكة الرئيسية · Chain ID \d+'/);assert.match(app,/networkDetails:'Mainnet · Chain ID \d+'/);
 });
+// Sites W14: the install dialog's upgrade step is README-IDE.md's order in both languages (export the wallet, Remove the
+// old version, verify the signature, Load unpacked, compare the extension ID with pocol.net, import the wallet), with no
+// version number and no in-place update (replace the files in the same folder, Reload).
+test('the install dialog gives the upgrade order in both languages and no in-place update',async()=>{
+  const{readFile}=await import('node:fs/promises');const app=await readFile(new URL('../dist/app.js',import.meta.url),'utf8');
+  const steps=[...app.matchAll(/install3:'([^']*)'/g)].map(m=>m[1]);assert.equal(steps.length,2);
+  assert.deepEqual(steps,[
+    'اختر «تحميل إضافة غير مضغوطة» ثم المجلد الذي يحتوي manifest.json. لترقية إضافة مثبتة: صدّر محفظتك، ثم اضغط «إزالة» على الإصدار القديم، وتحقّق من توقيع الحزمة الجديدة، ثم حمّلها بخيار «تحميل إضافة غير مضغوطة»، وقارن معرّف الإضافة بالمعرّف المنشور على pocol.net، ثم استورد محفظتك في تبويب التأكيد.',
+    'Choose Load unpacked and select the extracted folder that contains manifest.json. To upgrade an existing installation: export your wallet, click Remove on the old version, verify the signature of the new package, load it with Load unpacked, compare the extension ID with the one published on pocol.net, then import your wallet in the confirmation tab.']);
+  for(const step of steps){assert.doesNotMatch(step,/\d+\.\d+\.\d+/);assert.doesNotMatch(step,/Reload|same folder|replace its files|مجلدها الحالي|استبدل الملفات/);}
+  // The dialog shows the four steps in order.
+  assert.ok(app.includes("[1,2,3,4].map(i=>`<li>${t('install'+i)}</li>`)"));
+});
 test('a continuous chain (cumulative false) checks each transaction against one block\'s room',()=>{
   const least=siteNeedsAtLeast(site,{newSite:true}),most=siteNeedsAtMost(site,{newSite:true});
   assert.ok(most.txCount>1&&most.largestTxBytes<most.txBytes);

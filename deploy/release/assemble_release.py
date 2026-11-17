@@ -55,6 +55,14 @@ def release_name(root=ROOT):
     return m[1] if m else RELEASE_NAME
 
 
+def native_names(root=ROOT):
+    """The native release files' names at package.py's version. deploy/websites/tools/site_identity.py checks every
+    PoCol-Mainnet-V-* name on the websites against them."""
+    v = native_version(root)
+    return {f'PoCol-Mainnet-{v}-linux-x86_64.tar.gz': 'linux', f'PoCol-Mainnet-{v}-windows-x86_64.zip': 'windows',
+            f'PoCol-Mainnet-{v}-arm64.apk': 'apk'}
+
+
 def allowed_names(root=ROOT):
     v, e = native_version(root), extension_version(root)
     # Owner decision 2026-11-16: the native release version is the extension's. Before the identity switch the
@@ -63,9 +71,7 @@ def allowed_names(root=ROOT):
         raise Refused(f'the extension version {e} (prototypes/pocol-extension/package.json) is not the native release '
                       f'version {v} (deploy/standalone/package.py); a release is assembled only after the identity switch '
                       f'sets the extension to {v}')
-    return {f'PoCol-Mainnet-{v}-linux-x86_64.tar.gz': 'linux', f'PoCol-Mainnet-{v}-windows-x86_64.zip': 'windows',
-            f'PoCol-Mainnet-{v}-arm64.apk': 'apk', f'PoCol-Studio-IDE-Viewer-{v}.zip': 'extension',
-            'network.pocol.json': 'invitation'}
+    return {**native_names(root), f'PoCol-Studio-IDE-Viewer-{v}.zip': 'extension', 'network.pocol.json': 'invitation'}
 
 
 def apk_signing_block(data):

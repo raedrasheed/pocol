@@ -26,6 +26,9 @@ on:
       - 'prototypes/lp1-node/src/genesis_spec.rs'
       - 'prototypes/pocol-extension/package.json'
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      # Sites W14: the native package names the sites may name (assemble_release.py at package.py's version).
+      - 'deploy/release/assemble_release.py'
+      - 'deploy/standalone/package.py'
       # Sites W7: explorer_w7.test.mjs checks the decoder's selectors against the Registry signatures there.
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
       # A config.php anywhere (the .gitignore rule covers only api/ directories) runs the tracked-config.php guard.
@@ -51,6 +54,8 @@ on:
       - 'prototypes/lp1-node/src/genesis_spec.rs'
       - 'prototypes/pocol-extension/package.json'
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      - 'deploy/release/assemble_release.py'
+      - 'deploy/standalone/package.py'
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
       - '**/config.php'
       - '.gitignore'

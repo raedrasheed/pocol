@@ -231,7 +231,7 @@ async function main() {
     {
       const tree = join(work, 'ide-tree');
       for (const top of ['deploy/websites', 'prototypes/pocol-studio/dist']) cpSync(join(REPO, top), join(tree, top), { recursive: true, filter: (s) => !/__pycache__|[\\/]config\.php$/.test(s) });
-      for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(REPO, f), join(tree, f)); }
+      for (const f of ['deploy/mainnet/retired-networks.json', 'prototypes/pocol-extension/package.json', 'deploy/standalone/package.py']) { mkdirSync(dirname(join(tree, f)), { recursive: true }); cpSync(join(REPO, f), join(tree, f)); }
       const spec = readFileSync(join(work, 'net', 'genesis.spec.hex'), 'utf8').trim();
       writeFileSync(join(work, 'network.pocol.json'), JSON.stringify({ schema: 'pocol-network-v2', consensusRulesVersion: 2, seeds: ['192.0.2.10:30300'],
         files: { 'genesis.spec.hex': spec.startsWith('0x') ? spec : '0x' + spec, 'devnet.json': JSON.stringify({ chainId: info.chainId, genesisHash: info.genesisHash.toLowerCase() }) } }));

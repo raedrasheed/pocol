@@ -37,6 +37,23 @@ moves on, the account's new transaction appears, one that left the latest 20 blo
 read in full (the activity caches each block's matches by hash); when that read is refused, the last list stays with a
 warning above it that it may be out of date.
 
+## Site texts and download checks (Sites W14)
+
+The retired activation texts and the in-place extension update are anchored edits, `tools/w14-text-edits.json`
+(pocol.net, the IDE's DEPLOY-README-AR.txt and download label, the Studio's install dialog), plus a direct edit of
+`prototypes/pocol-studio/QUICKSTART-AR.txt`. `test_w14_texts.py` refuses "PoCol Mainnet activation", the
+`[2,"15000"]` schedule and every same-folder, replace-the-files or Reload update text (English and Arabic) in each
+served file, the Studio files and the quick start; it checks that its patterns find the old texts, that the guide, the
+pocol.net help, the Studio dialog, the quick start and DEPLOY-README-AR.txt give README-IDE.md's order (export the
+wallet, Remove, verify the signature, Load unpacked, compare the extension ID with pocol.net, import the wallet) in both
+languages without a version number, and that DEPLOY-README-AR.txt sections 2 and 4 are for a fresh network with the
+anchored network block kept. The Studio's `tests/model.test.mjs` pins the two install3 texts.
+`test_site_identity.py` covers the extension version labels (package.json's version; "X or later" capability messages
+exempt), the native package names (assemble_release.py's at package.py's version; the linked retired names exempt only
+while linked), `--download` (kept-out lines written, superseded ones dropped, a tracked superseded file refused), the
+`keptOut` list (only its lines are carried, so a deleted tracked `.sha256` fails `--check`) and
+that the W14 edits, undone on a copy, give back every served file byte for byte.
+
 The Python tests (`test_site_identity.py`) switch a temporary copy of the snapshots to a test identity and back
 (byte-identical), check that a moved, duplicated or stray anchor fails and writes nothing, exercise anchored edits and
 every `--check` refusal, and guard `config.php`: none is tracked, `.gitignore` ignores it, the tool never reads one.

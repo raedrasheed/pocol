@@ -55,7 +55,8 @@ tree that its own `--check` refuses.
 ```sh
 python3 -B deploy/websites/tools/site_identity.py --check            # what CI runs (.github/workflows/websites.yml)
 python3 -B deploy/websites/tools/site_identity.py --to NEW.json --gateway-host HOST --commit SHA   # the switch (W15, W16)
-python3 -B deploy/websites/tools/site_identity.py --edits EDITS.json  # anchored bundle edits (W7)
+python3 -B deploy/websites/tools/site_identity.py --edits EDITS.json  # anchored bundle edits (W7, W14)
+python3 -B deploy/websites/tools/site_identity.py --download deploy/websites/pocol.net/downloads/NAME=SHA256   # a kept-out line
 ```
 
 Sites W7 (the explorer's v3 membership, light refresh and Registry decoding) is `tools/explorer-w7-edits.json`, applied
@@ -65,6 +66,21 @@ bond as x/B PCOL with B the record's `bondTargetWei`, proposer flag, reward addr
 refreshes with `full=false` blocks (the latest transactions by hash, the account activity one full block per request),
 and decodes the eight Registry calls at `0x…c0c001`, reading a `registerReplacing` or `removeInactive` member at the
 head and saying so. Its tests are in `tests/README.md`.
+
+Sites W14 (site texts) is `tools/w14-text-edits.json`, applied once with `--edits`: the retired activation texts
+("Options → PoCol Mainnet activation", `[[1,"0"],[2,"15000"]]`) are replaced by "the release pins the network; there is
+no activation setting", every in-place extension update (replace the files in the same folder, Reload) by README-IDE.md's
+order without version numbers (export the wallet, Remove the old version, verify the signature, Load unpacked, compare
+the extension ID with pocol.net, import the wallet), DEPLOY-README-AR.txt sections 2 and 4 are rewritten for a fresh
+network, and the IDE's download button names the package it links (0.4.1, it said 0.4.0). `--check` also refuses an
+extension version label that is not package.json's (a capability message "X or later" is exempt) and a native package
+name that is not `deploy/release/assemble_release.py`'s at `deploy/standalone/package.py`'s version; the retired
+`PoCol-Mainnet-0.4.0-Windows.zip` and `-Linux.zip` that the pages link until the signed release (W16) are exempt while a
+page still names them. `--download PATH=SHA256` (repeatable) writes the `SHA256SUMS.txt` line of a release file kept
+out of Git (an archive, its `.sig` or `.sha256`), adds its name to the site's `keptOut` list in `site-identity.json`
+and drops the kept-out lines (and names) of other versions of the same archive family and their unversioned copies; a
+tracked file it supersedes must be removed first. Only the lines `keptOut` names are carried for files that are not in
+the snapshot, so a tracked file that is deleted (a `.sha256`) loses its line and `--check` fails until a run drops it.
 
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
 explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails
