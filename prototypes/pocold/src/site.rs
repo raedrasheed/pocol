@@ -390,9 +390,10 @@ impl<'a> Publisher<'a>{
     /// `caps_precheck`), from what the chain does not hold yet: each chunk is read once (a chunk's code never changes
     /// once created, so a stored one is not read or stored again), and the needs of the missing ones, the Website for a
     /// new site (`site` None) and the version transactions are checked before anything is signed. With `--site` (a new
-    /// version of an existing site, or a resumed publication) the check runs as well, counting no Website; it is skipped
-    /// only when every chunk is already stored, so only the version transactions remain. A cap filled by others between
-    /// the check and a send is still explained after the failure (`explain`).
+    /// version of an existing site, or a resumed publication) the check runs as well, counting no Website but, when the
+    /// Website has no version yet, its version counter's slot (`publish_needs_on`); it is skipped only when every chunk
+    /// is already stored, so only the version transactions remain. A cap filled by others between the check and a send
+    /// is still explained after the failure (`explain`).
     pub fn publish(&self,site:Option<Address>,files:&BTreeMap<String,Vec<u8>>,entry:&str)->Result<(Address,u64,Manifest),String>{
         let (m,mb)=prepare(files,entry)?;
         let mpred:Vec<Address>=mb.chunks(CHUNK_MAX).map(chunk_address).collect();
@@ -401,7 +402,11 @@ impl<'a> Publisher<'a>{
             let mut missing=Vec::new();
             for (a,c) in site_chunks(files,&mb){if self.rpc.code(a)?.is_empty(){missing.push(c.len())}else{stored.insert(a);}}
             if site.is_some()&&missing.is_empty(){if self.log{eprintln!("every chunk is already stored: the capacity pre-check is skipped (only the version transactions remain)");}}
-            else{caps_precheck(self.rpc,&publish_needs(&missing,site.is_none(),mpred.len()))?;}
+            else{
+                let need=match site{None=>publish_needs(&missing,true,mpred.len()),
+                    Some(s)=>publish_needs_on(&missing,mpred.len(),U256::from_be_slice(&self.rpc.eth_call(s,&sel("versionCount()"))?))};
+                caps_precheck(self.rpc,&need)?;
+            }
         }
         // Validated: now store chunks (idempotent CREATE2) and check each lands at its predicted address.
         for (p,data) in files{
@@ -475,6 +480,12 @@ pub fn publish_needs(missing:&[usize],new_site:bool,manifest_chunks:usize)->Need
         code_bytes:missing.iter().map(|n|1+*n as u128).sum::<u128>()+if new_site{website_runtime_len()}else{0},
         tx_count:txs,tx_bytes:missing.iter().map(|n|store_data(*n)).sum::<u128>()+init+version_data+36+36+txs*TX_ENVELOPE_MAX,
         log_bytes:0,largest_tx_bytes:largest+TX_ENVELOPE_MAX}
+}
+/// The needs of a publication on an existing Website (`--site`) that holds `version_count` versions: `publish_needs`
+/// without a Website, plus the version counter's slot when the Website has no version yet (one whose publication
+/// stopped after its deploy): the constructor leaves that slot zero, and the first createVersion makes it nonzero.
+pub fn publish_needs_on(missing:&[usize],manifest_chunks:usize,version_count:U256)->Needs{
+    let mut n=publish_needs(missing,false,manifest_chunks);if version_count.is_zero(){n.storage_slots+=1;}n
 }
 /// pocol_getCaps rows: (count, cap, label).
 const CAP_ROWS:[(&str,&str,&str);6]=[("accounts","accountsCap","accounts (ACCT_CAP)"),("storageSlots","storageSlotsCap","storage slots (SLOT_CAP)"),

@@ -342,10 +342,14 @@ fn exact(n:&site::Needs,base:u128)->Vec<(&'static str,u128,u128)>{
 /// reads per address. Loopback only.
 type Reads=std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String,usize>>>;
 fn publish_stand_in(files:&Files,caps:serde_json::Value,stored:&std::collections::HashSet<Address>)->(String,Calls,Reads){
+    publish_stand_in_with_versions(files,caps,stored,0)
+}
+/// `publish_stand_in` for a Website that already holds `versions` versions.
+fn publish_stand_in_with_versions(files:&Files,caps:serde_json::Value,stored:&std::collections::HashSet<Address>,versions:u64)->(String,Calls,Reads){
     use std::sync::{Arc,Mutex};
     let (_,mb)=site::prepare(files,"/index.html").unwrap();let (mhash,mlen)=(keccak256(&mb),mb.len());
     let have:Arc<Mutex<std::collections::HashSet<String>>>=Arc::new(Mutex::new(stored.iter().map(|a|format!("{a:#x}")).collect()));
-    let versions=Arc::new(Mutex::new(0u64));let reads:Reads=Default::default();let r2=reads.clone();
+    let versions=Arc::new(Mutex::new(versions));let reads:Reads=Default::default();let r2=reads.clone();
     let word=|v:u64|format!("{v:064x}");
     let (addr,seen)=stand_in_rpc(move|m,p,_|match m{
         "pocol_getCaps"=>caps.clone(),
@@ -437,6 +441,27 @@ fn publisher<'a>(rpc:&'a site::Rpc,key:&'a pocol_lp4_execution::txsign::Key)->si
     // --no-caps-check: no scan and no pocol_getCaps (the cap is met, and explained, at the network).
     let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("accounts",3,3)],Some(false)),&old);let rpc=site::Rpc{addr};
     let mut p=publisher(&rpc,&key);p.caps_check=false;p.publish(Some(site_addr),&files,"/index.html").unwrap();assert_eq!((sends(&seen),caps_reads(&seen)),(5,0));
+}
+#[test] fn w12_with_site_a_website_without_a_version_counts_its_version_counter_slot(){
+    // A Website deployed by a publication that stopped before createVersion: its version counter slot is still zero,
+    // and the first createVersion makes it nonzero, one slot more than an update of a site that has a version.
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let site_addr:Address=format!("0x{}","42".repeat(20)).parse().unwrap();
+    let files:Files=[("/index.html".to_string(),b"<!doctype html><h1>resumed</h1>".to_vec())].into();let none=Default::default();
+    let n=needs_of(&files,false,&none);assert_eq!(n.storage_slots,3+1,"the version's 3 and one manifest chunk slot");
+    assert_eq!(site::publish_needs_on(&[1,2],1,revm::primitives::U256::ZERO).storage_slots,3+1+1);
+    assert_eq!(site::publish_needs_on(&[1,2],1,revm::primitives::U256::from(1)),site::publish_needs(&[1,2],false,1));
+    // SLOT_CAP room 3 + m: enough for an update of a site with a version, one short for a site without one.
+    let rows=[("storageSlots",50,50+n.storage_slots)];
+    let (addr,seen,_)=publish_stand_in_with_versions(&files,caps_answer(&rows,Some(false)),&none,0);let rpc=site::Rpc{addr};
+    let e=publisher(&rpc,&key).publish(Some(site_addr),&files,"/index.html").unwrap_err();
+    assert!(e.contains(&format!("it needs {} storage slots (SLOT_CAP) and {} remain",n.storage_slots+1,n.storage_slots))&&e.contains("Nothing was signed"),"{e}");
+    let seen=seen.lock().unwrap().clone();
+    assert!(!seen.iter().any(|m|m.starts_with("eth_sendRawTransaction")||m.starts_with("eth_getTransactionCount")||m.starts_with("eth_gasPrice")),"nothing was signed: {seen:?}");
+    let (addr,seen,_)=publish_stand_in_with_versions(&files,caps_answer(&rows,Some(false)),&none,1);let rpc=site::Rpc{addr};
+    let (_,v,_)=publisher(&rpc,&key).publish(Some(site_addr),&files,"/index.html").unwrap();assert_eq!((v,sends(&seen)),(1,5),"a site with a version: fits");
+    // Room 4 + m: the site without a version fits.
+    let (addr,seen,_)=publish_stand_in_with_versions(&files,caps_answer(&[("storageSlots",50,50+n.storage_slots+1)],Some(false)),&none,0);let rpc=site::Rpc{addr};
+    let (_,v,_)=publisher(&rpc,&key).publish(Some(site_addr),&files,"/index.html").unwrap();assert_eq!((v,sends(&seen)),(0,5));
 }
 #[test] fn w12_a_node_without_pocol_get_caps_is_published_after_a_warning(){
     let key=pocol_lp4_execution::txsign::Key::devnet("alice");let files=sample_files();let none=Default::default();

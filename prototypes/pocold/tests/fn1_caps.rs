@@ -250,6 +250,17 @@ fn free_port()->u16{std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_ad
     assert_eq!(delta(&before,&after,"storageSlots"),3+1,"an update: the version's 3 and 1 chunk slot");
     assert_eq!(delta(&before,&after,"accounts"),1);assert_eq!(delta(&before,&after,"codeBytes"),1+30);assert_eq!(delta(&before,&after,"logBytes"),0);
     agree(pocold::site::publish_needs(&[30],false,1),&before,&after,"an update");
+    agree(pocold::site::publish_needs_on(&[30],1,U256::from(1)),&before,&after,"--site on a site with a version");
+    // A resumed publication: a Website deployed on its own (the run stopped before createVersion), then its first
+    // version with --site. The constructor left the version counter slot zero, so it is a new slot: 4 + n.
+    let at=p.key.address().create(p.nonce);let t=p.send(&h,None,pocold::site::website_initcode(),1_500_000);
+    let b=signed(&h,vec![t.clone()]);import(&mut h,&b);assert!(n.import(b,None).unwrap());
+    let r=rpc_call(&mut n,"eth_getTransactionReceipt",json!([format!("{}",revm::primitives::keccak256(&t))]));assert_eq!(r["status"],json!("0x1"),"{r}");
+    assert_eq!(version_count(&mut n,at),0,"deployed without a version");
+    let c2=vec![0x44u8;20];
+    let (again,before,after)=p.publish(&mut h,&mut n,Some(at),&[&c2]);assert_eq!(again,at);
+    assert_eq!(delta(&before,&after,"storageSlots"),4+1,"a first version on a deployed site: the counter, the version's 3 and 1 chunk slot");
+    agree(pocold::site::publish_needs_on(&[20],1,U256::ZERO),&before,&after,"--site on a site without a version");
     std::fs::remove_dir_all(d).unwrap();
 }
 struct Publisher{key:Key,nonce:u64}
