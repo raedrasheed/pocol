@@ -3,8 +3,9 @@ name: Sites end to end on a v3 devnet
 # 2, the V3 programs, nonceMode 1, continuous). Per PR (`sites-e2e`): the about 1 MiB cases with the Rust CLI
 # (prototypes/pocold/tests/e2e_site.py --profile pr), Studio -> publisher.html -> the local Studio gateway -> the
 # viewer with the extension's testGateway build, the IDE smoke and the multi-viewer open
-# (prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs), the explorer under php -S against a local explorer
-# gateway (deploy/websites/tests/explorer_smoke.mjs) and browser_security.mjs. Nightly and on dispatch
+# (prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs), the explorer served as the gateway host serves it
+# (Sites W8: a loopback copy of its Caddy site in front of a local explorer gateway, deploy/websites/tests/
+# explorer_smoke.mjs) and browser_security.mjs. Nightly and on dispatch
 # (`sites-e2e-nightly`): the 4 MiB - 4 KiB site (about 171 chunks), a 4 MiB site opened by three viewers at once and a
 # publication in a background tab of a headed Chromium (xvfb), recorded. Local devnets and loopback only: nothing here
 # contacts a pocol.net host or deploys anything. The browser suites on v3 (e2e_browser, e2e_integrated) run in
@@ -20,6 +21,7 @@ on:
       - 'prototypes/pocol-studio/**'
       - 'deploy/studio/**'
       - 'deploy/rewards/**'
+      - 'deploy/explorer/**'
       - 'deploy/websites/**'
       - 'deploy/mainnet/**'
       - '.github/workflows/sites-e2e.yml'
@@ -34,6 +36,7 @@ on:
       - 'prototypes/pocol-studio/**'
       - 'deploy/studio/**'
       - 'deploy/rewards/**'
+      - 'deploy/explorer/**'
       - 'deploy/websites/**'
       - 'deploy/mainnet/**'
       - '.github/workflows/sites-e2e.yml'
@@ -66,17 +69,20 @@ jobs:
           uname -a > evidence/platform.txt
       - name: Use the official Ubuntu archive
         run: printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
-      - name: Install tools, PHP and the browser
+      - name: Install tools, Caddy and the browser
         run: |
           set -euo pipefail
           rustup toolchain install 1.99.1 --profile minimal
           sudo apt-get update
-          sudo apt-get install -y php-cli php-curl
+          # Caddy (Ubuntu archive) serves the explorer smoke's copy of the gateway host's site; its packaged service
+          # is stopped, the smoke runs its own instance on loopback.
+          sudo apt-get install -y caddy
+          sudo systemctl disable --now caddy || true
           npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund playwright@1.62.1
           node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
           echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
           echo "POCOL_CHROMIUM=$(node --input-type=module -e "const {chromium}=await import('$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs');console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
-          node --version > evidence/node-version.txt; php -v > evidence/php-version.txt
+          node --version > evidence/node-version.txt; caddy version > evidence/caddy-version.txt
       - name: Build the node and the extension
         id: build
         run: |
@@ -104,10 +110,11 @@ jobs:
         run: |
           set -o pipefail
           node prototypes/pocol-extension/tests/e2e_publisher_gateway.mjs 2>&1 | tee evidence/e2e-publisher-gateway.log
-      - name: W11 explorer under php -S against a local explorer gateway
+      - name: W11 and W8 explorer behind the gateway host's Caddy site against a local explorer gateway
         if: always() && steps.build.outcome == 'success'
         env:
           POCOL_E2E_KEEP: ${{ github.workspace }}/evidence/kept
+          POCOL_EXPLORER_FRONT: caddy
         run: |
           set -o pipefail
           node deploy/websites/tests/explorer_smoke.mjs 2>&1 | tee evidence/explorer-smoke.log
@@ -150,12 +157,12 @@ jobs:
           uname -a > evidence/platform.txt
       - name: Use the official Ubuntu archive
         run: printf '%s\n' 'https://archive.ubuntu.com/ubuntu/' | sudo tee /etc/apt/apt-mirrors.txt
-      - name: Install tools, PHP, xvfb and the browser
+      - name: Install tools, xvfb and the browser
         run: |
           set -euo pipefail
           rustup toolchain install 1.99.1 --profile minimal
           sudo apt-get update
-          sudo apt-get install -y php-cli php-curl xvfb
+          sudo apt-get install -y xvfb
           npm install --prefix "$RUNNER_TEMP/browser-tools" --ignore-scripts --no-audit --no-fund playwright@1.62.1
           node "$RUNNER_TEMP/browser-tools/node_modules/playwright/cli.js" install --with-deps chromium
           echo "PLAYWRIGHT_MODULE=$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs" >> "$GITHUB_ENV"
