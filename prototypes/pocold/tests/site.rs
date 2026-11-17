@@ -127,6 +127,8 @@ fn stand_in_with(safe:impl Fn(usize)->serde_json::Value+Send+'static)->(String,s
         let out=match req["method"].as_str().unwrap(){
             "eth_getCode" if p[1]=="safe"=>{safe_reads+=1;safe(safe_reads-1)}
             "eth_getCode"=>serde_json::json!({"result":"0x0001"}),
+            // Sites W12: the pre-check before the first signature; room for anything.
+            "pocol_getCaps"=>caps_answer(&[],Some(false)),
             "eth_gasPrice"=>serde_json::json!({"result":"0x3c336080"}),
             "eth_maxPriorityFeePerGas"=>serde_json::json!({"result":"0x3b9aca00"}),
             "eth_getTransactionCount"=>serde_json::json!({"result":"0x0"}),
@@ -277,4 +279,203 @@ fn common(m:&str)->Option<serde_json::Value>{
     let seen=seen.lock().unwrap().clone();
     assert_eq!(seen.iter().filter(|m|m.starts_with("eth_getTransactionReceipt")).count(),3,"two busy answers, then the receipt: {seen:?}");
     assert_eq!(seen.iter().filter(|m|m.starts_with("eth_sendRawTransaction")).count(),1,"a broadcast is sent once: {seen:?}");
+}
+
+// ---------------- Sites W12: the pocol_getCaps pre-check, before any signature ----------------
+type Files=std::collections::BTreeMap<String,Vec<u8>>;
+/// tests/data/publish_needs.json, shared with the extension's publisher_test.mjs.
+fn needs_fixture()->serde_json::Value{
+    let p=std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/data/publish_needs.json");
+    serde_json::from_str(&std::fs::read_to_string(p).unwrap()).unwrap()
+}
+fn fixture_files(c:&serde_json::Value)->Files{
+    let bytes=|f:&serde_json::Value|match f["text"].as_str(){Some(t)=>t.as_bytes().to_vec(),None=>vec![f["fill"].as_u64().unwrap() as u8;f["size"].as_u64().unwrap() as usize]};
+    let mut files:Files=c["files"].as_array().unwrap().iter().map(|f|(f["path"].as_str().unwrap().to_string(),bytes(f))).collect();
+    if let Some(s)=c.get("series"){for i in 0..s["count"].as_u64().unwrap(){
+        files.insert(format!("{}{i:03}{}",s["prefix"].as_str().unwrap(),s["suffix"].as_str().unwrap()),s["text"].as_str().unwrap().as_bytes().to_vec());}}
+    files
+}
+/// The needs of publishing `files` when the chain holds the chunks in `stored`.
+fn needs_of(files:&Files,new_site:bool,stored:&std::collections::HashSet<Address>)->site::Needs{
+    let (_,mb)=site::prepare(files,"/index.html").unwrap();
+    let missing:Vec<usize>=site::site_chunks(files,&mb).into_iter().filter(|(a,_)|!stored.contains(a)).map(|(_,c)|c.len()).collect();
+    site::publish_needs(&missing,new_site,mb.chunks(site::CHUNK_MAX).count())
+}
+#[test] fn w12_publish_needs_follow_the_shared_fixture(){
+    let v=needs_fixture();
+    assert_eq!(v["txEnvelopeMax"].as_u64().unwrap() as u128,site::TX_ENVELOPE_MAX);
+    assert_eq!(v["websiteRuntimeBytes"].as_u64().unwrap() as u128,site::website_runtime_len(),"the runtime deploy_website creates");
+    assert_eq!(v["websiteInitcodeBytes"].as_u64().unwrap() as usize,site::website_initcode().len(),"the initcode deploy_website sends");
+    let cases=v["cases"].as_array().unwrap();assert_eq!(cases.len(),7);
+    for c in cases{
+        let name=c["name"].as_str().unwrap();let files=fixture_files(c);
+        let (_,mb)=site::prepare(&files,c["entry"].as_str().unwrap()).unwrap();
+        assert_eq!(mb.len() as u64,c["manifestBytes"].as_u64().unwrap(),"{name}: manifest length");
+        assert_eq!(format!("{:#x}",keccak256(&mb)),c["manifestHash"].as_str().unwrap(),"{name}: the manifest prepareSite builds");
+        let chunks=site::site_chunks(&files,&mb);assert_eq!(chunks.len() as u64,c["chunks"].as_u64().unwrap(),"{name}: distinct chunks");
+        let stored:std::collections::HashSet<Address>=if c["stored"]=="all"{chunks.iter().map(|x|x.0).collect()}else{
+            strings(&c["stored"]).iter().flat_map(|p|files[p].chunks(site::CHUNK_MAX).map(site::chunk_address)).collect()};
+        let missing:Vec<usize>=chunks.iter().filter(|(a,_)|!stored.contains(a)).map(|(_,d)|d.len()).collect();
+        assert_eq!(missing.len() as u64,c["missingChunks"].as_u64().unwrap(),"{name}");
+        let m=mb.chunks(site::CHUNK_MAX).count();assert_eq!(m as u64,c["manifestChunks"].as_u64().unwrap(),"{name}");
+        let n=site::publish_needs(&missing,c["newSite"].as_bool().unwrap(),m);let w=&c["needs"];let f=|k:&str|w[k].as_u64().unwrap() as u128;
+        assert_eq!(n,site::Needs{accounts:f("accounts"),storage_slots:f("storageSlots"),code_bytes:f("codeBytes"),tx_count:f("txCount"),tx_bytes:f("txBytes"),
+            log_bytes:f("logBytes"),largest_tx_bytes:f("largestTxBytes")},"{name}");
+    }
+}
+/// A pocol_getCaps answer: every row (count, cap) is (0, 2^40) unless given; `cumulative` as given.
+fn caps_answer(rows:&[(&str,u128,u128)],cumulative:Option<bool>)->serde_json::Value{
+    let mut r=serde_json::json!({"number":"0x5","v3":true,"alarmPercent":80,"occupancy":{}});
+    for (c,k) in [("accounts","accountsCap"),("storageSlots","storageSlotsCap"),("codeBytes","codeBytesCap"),("txCount","txCap"),("txBytes","txBytesCap"),("logBytes","logCap")]{
+        let (n,cap)=rows.iter().find(|x|x.0==c).map_or((0,1u128<<40),|x|(x.1,x.2));r[c]=format!("0x{n:x}").into();r[k]=format!("0x{cap:x}").into();}
+    if let Some(b)=cumulative{r["cumulative"]=b.into();}
+    serde_json::json!({"result":r})
+}
+/// Each row's room exactly the need: count `base`, cap `base + need`.
+fn exact(n:&site::Needs,base:u128)->Vec<(&'static str,u128,u128)>{
+    vec![("accounts",base,base+n.accounts),("storageSlots",base,base+n.storage_slots),("codeBytes",base,base+n.code_bytes),("txCount",base,base+n.tx_count),
+        ("txBytes",base,base+n.tx_bytes),("logBytes",base,base+n.log_bytes)]
+}
+/// A stand-in node for a whole publication: chunks in `stored` hold code from the start, a chunk store gives its chunk
+/// code at once, the deploy answers contractAddress 0x4242.., `safe` holds everything, and createVersion makes version
+/// `n` (from 0) hold the manifest of `files`. `caps` answers pocol_getCaps. Also returns the latest-tag eth_getCode
+/// reads per address. Loopback only.
+type Reads=std::sync::Arc<std::sync::Mutex<std::collections::HashMap<String,usize>>>;
+fn publish_stand_in(files:&Files,caps:serde_json::Value,stored:&std::collections::HashSet<Address>)->(String,Calls,Reads){
+    use std::sync::{Arc,Mutex};
+    let (_,mb)=site::prepare(files,"/index.html").unwrap();let (mhash,mlen)=(keccak256(&mb),mb.len());
+    let have:Arc<Mutex<std::collections::HashSet<String>>>=Arc::new(Mutex::new(stored.iter().map(|a|format!("{a:#x}")).collect()));
+    let versions=Arc::new(Mutex::new(0u64));let reads:Reads=Default::default();let r2=reads.clone();
+    let word=|v:u64|format!("{v:064x}");
+    let (addr,seen)=stand_in_rpc(move|m,p,_|match m{
+        "pocol_getCaps"=>caps.clone(),
+        "eth_getCode"=>{let a=p[0].as_str().unwrap().to_ascii_lowercase();
+            if p[1]=="safe"{return serde_json::json!({"result":"0x0001"})}
+            *r2.lock().unwrap().entry(a.clone()).or_default()+=1;
+            serde_json::json!({"result":if have.lock().unwrap().contains(&a){"0x0001"}else{"0x"}})}
+        "eth_sendRawTransaction"=>{
+            let raw=unhex(p[0].as_str().unwrap()).unwrap();let it=rlp::decode(&raw[1..]).unwrap();let f=it.list().unwrap();
+            let (to,data)=(f[5].bytes().unwrap().to_vec(),f[7].bytes().unwrap().to_vec());
+            if to==site::factory().as_slice(){let n=revm::primitives::U256::from_be_slice(&data[36..68]).to::<usize>();
+                have.lock().unwrap().insert(format!("{:#x}",site::chunk_address(&data[68..68+n])));}
+            if data.starts_with(&site::sel("createVersion(bytes32,uint32,address[])")){*versions.lock().unwrap()+=1;}
+            common(m).unwrap()}
+        "eth_getTransactionReceipt"=>serde_json::json!({"result":{"status":"0x1","blockNumber":"0x5","contractAddress":format!("0x{}","42".repeat(20))}}),
+        "eth_call"=>{let d=p[0]["data"].as_str().unwrap().to_string();
+            let out=if d.starts_with(&hex(&site::sel("versionCount()"))){word(*versions.lock().unwrap())}
+                else{format!("{}{}{}{}{}{}",hex(mhash.as_slice()).trim_start_matches("0x"),word(mlen as u64),word(0),word(0),word(0xa0),word(0))};
+            serde_json::json!({"result":format!("0x{out}")})}
+        m=>common(m).unwrap_or_else(||panic!("unexpected {m}"))});
+    (addr,seen,reads)
+}
+fn hex(b:&[u8])->String{format!("0x{}",b.iter().map(|x|format!("{x:02x}")).collect::<String>())}
+fn sample_files()->Files{
+    [("/index.html".to_string(),b"<!doctype html><h1>W12</h1>".to_vec()),("/style.css".to_string(),b"body{color:red}".to_vec()),("/big.txt".to_string(),vec![b'w';30_000])].into()
+}
+fn sends(seen:&Calls)->usize{seen.lock().unwrap().iter().filter(|m|m.starts_with("eth_sendRawTransaction")).count()}
+fn caps_reads(seen:&Calls)->usize{seen.lock().unwrap().iter().filter(|m|m.starts_with("pocol_getCaps")).count()}
+fn publisher<'a>(rpc:&'a site::Rpc,key:&'a pocol_lp4_execution::txsign::Key)->site::Publisher<'a>{
+    let mut p=site::Publisher::new(rpc,key,7,false,site::FeePolicy::default());p.sweep_poll=std::time::Duration::from_millis(10);p
+}
+#[test] fn w12_a_site_short_of_code_bytes_or_accounts_by_one_is_refused_before_any_signature(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let files=sample_files();let none=Default::default();
+    let n=needs_of(&files,true,&none);assert_eq!((n.accounts,n.tx_count),(6,9),"four file chunks, the manifest and the Website");
+    for (rows,cap) in [(vec![("codeBytes",1000,1000+n.code_bytes-1)],"code bytes (CODE_CAP)"),(vec![("accounts",5,5+n.accounts-1)],"accounts (ACCT_CAP)")]{
+        let (addr,seen,_)=publish_stand_in(&files,caps_answer(&rows,Some(false)),&none);let rpc=site::Rpc{addr};
+        let e=publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap_err();
+        let need=if cap.starts_with("code"){n.code_bytes}else{n.accounts};
+        assert!(e.contains("cannot fit")&&e.contains(&format!("it needs {need} {cap} and {} remain",need-1))&&e.contains("Nothing was signed"),"{e}");
+        let seen=seen.lock().unwrap().clone();
+        assert!(!seen.iter().any(|m|m.starts_with("eth_sendRawTransaction")||m.starts_with("eth_getTransactionCount")||m.starts_with("eth_gasPrice")),"nothing was signed: {seen:?}");
+    }
+    // Both short: each is named.
+    let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("codeBytes",0,n.code_bytes-1),("accounts",0,n.accounts-1)],Some(false)),&none);let rpc=site::Rpc{addr};
+    let e=publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap_err();
+    assert!(e.contains("accounts (ACCT_CAP)")&&e.contains("code bytes (CODE_CAP)")&&e.matches("it needs").count()==2,"{e}");assert_eq!(sends(&seen),0);
+}
+#[test] fn w12_a_site_that_exactly_fits_every_cap_is_published(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let files=sample_files();let none=Default::default();let n=needs_of(&files,true,&none);
+    let (addr,seen,reads)=publish_stand_in(&files,caps_answer(&exact(&n,7),Some(true)),&none);let rpc=site::Rpc{addr};
+    let (s,v,_)=publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap();
+    assert_eq!((format!("{s:#x}"),v),(format!("0x{}","42".repeat(20)),0));
+    assert_eq!(sends(&seen) as u128,n.tx_count,"every planned transaction");assert_eq!(caps_reads(&seen),1);
+    // Each missing chunk: the scan, store_chunk's read before and after its store.
+    assert!(reads.lock().unwrap().values().all(|r|*r==3),"{:?}",reads.lock().unwrap());
+}
+#[test] fn w12_chunks_already_stored_are_read_once_and_not_counted(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let files=sample_files();
+    let stored:std::collections::HashSet<Address>=files.values().flat_map(|d|d.chunks(site::CHUNK_MAX).map(site::chunk_address)).collect();
+    let n=needs_of(&files,true,&stored);assert_eq!((n.accounts,n.tx_count),(2,5),"the manifest chunk and the Website");
+    assert!(needs_of(&files,true,&Default::default()).accounts>2);
+    let (addr,seen,reads)=publish_stand_in(&files,caps_answer(&[("accounts",9,9+2)],Some(false)),&stored);let rpc=site::Rpc{addr};
+    publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap();
+    assert_eq!((sends(&seen),caps_reads(&seen)),(5,1),"checked; the manifest chunk, the deploy and the three version transactions");
+    let reads=reads.lock().unwrap();for a in &stored{assert_eq!(reads[&format!("{a:#x}")],1,"a stored chunk is read once, by the scan");}
+    // One account less than the two new ones: refused, so the stored chunks are left out of a check that runs.
+    let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("accounts",9,9+1)],Some(false)),&stored);let rpc=site::Rpc{addr};
+    let e=publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap_err();assert!(e.contains("it needs 2 accounts (ACCT_CAP) and 1 remain"),"{e}");assert_eq!(sends(&seen),0);
+}
+#[test] fn w12_with_site_the_check_runs_without_a_website_and_is_skipped_only_when_every_chunk_is_stored(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let site_addr:Address=format!("0x{}","42".repeat(20)).parse().unwrap();
+    let files:Files=[("/index.html".to_string(),b"<!doctype html><h1>v2</h1>".to_vec()),("/style.css".to_string(),b"body{color:red}".to_vec())].into();
+    let old:std::collections::HashSet<Address>=[site::chunk_address(b"body{color:red}")].into();
+    let n=needs_of(&files,false,&old);assert_eq!((n.accounts,n.storage_slots,n.tx_count),(2,4,5),"index.html and the manifest; no Website");
+    // One account short: refused, nothing signed.
+    let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("accounts",3,3+1)],Some(false)),&old);let rpc=site::Rpc{addr};
+    let e=publisher(&rpc,&key).publish(Some(site_addr),&files,"/index.html").unwrap_err();
+    assert!(e.contains("it needs 2 accounts (ACCT_CAP) and 1 remain")&&e.contains("Nothing was signed"),"{e}");assert_eq!(sends(&seen),0);
+    // Exactly enough: published.
+    let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("accounts",3,3+2)],Some(false)),&old);let rpc=site::Rpc{addr};
+    publisher(&rpc,&key).publish(Some(site_addr),&files,"/index.html").unwrap();assert_eq!((sends(&seen),caps_reads(&seen)),(5,1));
+    // Every chunk stored (a resumed publication, or the same files again): only the version transactions, no check.
+    let (_,mb)=site::prepare(&files,"/index.html").unwrap();let all:std::collections::HashSet<Address>=site::site_chunks(&files,&mb).into_iter().map(|x|x.0).collect();
+    let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("accounts",3,3)],Some(false)),&all);let rpc=site::Rpc{addr};
+    publisher(&rpc,&key).publish(Some(site_addr),&files,"/index.html").unwrap();assert_eq!((sends(&seen),caps_reads(&seen)),(3,0));
+    // Without --site every chunk stored still deploys a Website: checked, and refused at a full ACCT_CAP.
+    let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("accounts",3,3)],Some(false)),&all);let rpc=site::Rpc{addr};
+    let e=publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap_err();assert!(e.contains("it needs 1 accounts (ACCT_CAP) and 0 remain"),"{e}");assert_eq!(sends(&seen),0);
+    // --no-caps-check: no scan and no pocol_getCaps (the cap is met, and explained, at the network).
+    let (addr,seen,_)=publish_stand_in(&files,caps_answer(&[("accounts",3,3)],Some(false)),&old);let rpc=site::Rpc{addr};
+    let mut p=publisher(&rpc,&key);p.caps_check=false;p.publish(Some(site_addr),&files,"/index.html").unwrap();assert_eq!((sends(&seen),caps_reads(&seen)),(5,0));
+}
+#[test] fn w12_a_node_without_pocol_get_caps_is_published_after_a_warning(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let files=sample_files();let none=Default::default();
+    let (addr,seen,_)=publish_stand_in(&files,serde_json::json!({"error":{"code":-32601,"message":"method not found"}}),&none);let rpc=site::Rpc{addr};
+    assert_eq!(site::caps_precheck(&rpc,&site::Needs::default()),Ok(false));
+    publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap();assert_eq!((sends(&seen),caps_reads(&seen)),(9,2),"asked (also by caps_precheck above), then published");
+    // An answer that does not report every count and cap is skipped the same way.
+    let mut c=caps_answer(&[],Some(false));c["result"].as_object_mut().unwrap().remove("txBytesCap");
+    assert_eq!(site::check_caps(&c["result"],&site::Needs{accounts:u128::MAX,..Default::default()}),Ok(None));
+}
+#[test] fn w12_a_continuous_chain_checks_its_per_block_rows_per_transaction(){
+    let files=sample_files();let n=needs_of(&files,true,&Default::default());assert!(n.largest_tx_bytes<n.tx_bytes&&n.tx_count>1);
+    let rows=|tx_cap:u128,bytes_cap:u128|[("txCount",0,tx_cap),("txBytes",0,bytes_cap),("logBytes",0,0)];
+    // cumulative false (H_END = 0): a block's room holds one transaction, the largest one's bytes, and its logs (none).
+    assert_eq!(site::check_caps(&caps_answer(&rows(1,n.largest_tx_bytes),Some(false))["result"],&n),Ok(Some(vec!["log bytes (LOG_CAP)"])));
+    let e=site::check_caps(&caps_answer(&rows(1,n.largest_tx_bytes-1),Some(false))["result"],&n).unwrap_err();
+    assert!(e.contains(&format!("it needs {} transaction bytes in one block (TXBYTES_CAP) and {} remain",n.largest_tx_bytes,n.largest_tx_bytes-1)),"{e}");
+    let e=site::check_caps(&caps_answer(&rows(0,n.tx_bytes),Some(false))["result"],&n).unwrap_err();assert!(e.contains("it needs 1 transactions in one block (TX_CAP) and 0 remain"),"{e}");
+    // cumulative true, or the field absent (the stricter reading): the whole publication.
+    for cumulative in [Some(true),None]{
+        let e=site::check_caps(&caps_answer(&rows(1,n.largest_tx_bytes),cumulative)["result"],&n).unwrap_err();
+        assert!(e.contains(&format!("it needs {} transactions (TX_CAP) and 1 remain",n.tx_count))&&e.contains("transaction bytes (TXBYTES_CAP)"),"{e}");
+        assert_eq!(site::check_caps(&caps_answer(&exact(&n,0),cumulative)["result"],&n),Ok(Some(vec!["log bytes (LOG_CAP)"])),"a zero cap is at 100 %");
+    }
+}
+#[test] fn w12_a_cap_at_80_percent_is_noted_and_the_site_still_fits(){
+    let n=site::Needs{accounts:1,..Default::default()};
+    assert_eq!(site::check_caps(&caps_answer(&[("accounts",80,100)],Some(false))["result"],&n),Ok(Some(vec!["accounts (ACCT_CAP)"])));
+    assert_eq!(site::check_caps(&caps_answer(&[("accounts",79,100)],Some(false))["result"],&n),Ok(Some(vec![])));
+}
+#[test] fn w12_a_malformed_pocol_get_caps_answer_is_an_error_and_nothing_is_signed(){
+    let key=pocol_lp4_execution::txsign::Key::devnet("alice");let files=sample_files();let none=Default::default();
+    let good=caps_answer(&[],Some(false));
+    let with=|k:&str,v:serde_json::Value|{let mut c=good.clone();c["result"][k]=v;c};
+    for bad in [serde_json::json!({"result":"caps"}),serde_json::json!({"result":[1]}),with("codeBytes","1000".into()),with("accounts","0xzz".into()),with("accountsCap",7.into()),
+        with("txCap","0x".into()),with("logCap",format!("0x1{}","0".repeat(32)).into()),with("cumulative","no".into()),
+        serde_json::json!({"error":{"code":-32000,"message":"head state"}})]{
+        let (addr,seen,_)=publish_stand_in(&files,bad.clone(),&none);let rpc=site::Rpc{addr};
+        let e=publisher(&rpc,&key).publish(None,&files,"/index.html").unwrap_err();
+        assert!(e.contains("pocol_getCaps")&&e.contains("Nothing was signed"),"{bad}: {e}");assert_eq!(sends(&seen),0,"{bad}");
+    }
 }
