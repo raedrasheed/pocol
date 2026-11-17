@@ -70,7 +70,9 @@ class Languages(unittest.TestCase):
 class ExplorerHost(unittest.TestCase):
     def test_the_retired_gateway_host_is_named_nowhere_served(self):
         for base in (ROOT / 'deploy' / 'websites', ROOT / 'prototypes' / 'pocol-studio' / 'dist',
-                     ROOT / 'prototypes' / 'pocol-extension' / 'src', ROOT / 'deploy' / 'studio'):
+                     ROOT / 'prototypes' / 'pocol-extension' / 'src', ROOT / 'deploy' / 'studio',
+                     # Sites W8: the explorer gateway host's installer and Caddy site, and the gateway itself.
+                     ROOT / 'deploy' / 'explorer', ROOT / 'deploy' / 'rewards'):
             for path, text in tracked_text(base):
                 if 'tests' in path.parts or path.name == 'README.md':
                     continue
@@ -95,6 +97,11 @@ class ExplorerHost(unittest.TestCase):
         self.assertIn('ينقل المالك', arabic)
         self.assertIn('سجل DNS الخاص بـ explorer.pocol.net إلى خادم البوابة عند الإطلاق', arabic)
         self.assertNotIn('يشير نطاق explorer.pocol.net إلى خادم البوابة', arabic)
+        # Sites W8: the explorer gateway installer (deploy/explorer) has the same TLS self-test.
+        explorer = ROOT / 'deploy' / 'explorer'
+        self.assertIn('the owner moves its DNS record at launch', (explorer / 'README.md').read_text(encoding='utf-8'))
+        self.assertIn('سجل DNS الخاص بـ explorer.pocol.net إلى خادم البوابة عند الإطلاق',
+                      (explorer / 'README-AR.txt').read_text(encoding='utf-8'))
 
     def test_the_studio_csp_connects_only_to_the_explorer_host(self):
         htaccess = (ROOT / 'prototypes' / 'pocol-studio' / 'dist' / '.htaccess').read_text(encoding='utf-8')

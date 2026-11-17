@@ -1,0 +1,373 @@
+#!/usr/bin/env python3
+"""Transactional installer of the explorer gateway host (Sites W8, owner decision 9): the read-only gateway service
+(deploy/rewards/gateway.py with pocol_rewards.py and explorer_api.py) on 127.0.0.1:8088, the explorer snapshot's static
+copy, and the explorer.pocol.net Caddy site that serves both (explorer_site.py). No node data, key or DNS record is
+touched.
+
+    python3 deploy/websites/tools/site_snapshot.py --out /tmp/explorer-site      # the copy, from the committed blobs
+    sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site --check
+    sudo python3 deploy/explorer/install_explorer_gateway.py --site /tmp/explorer-site
+
+Run it from a checkout of the release commit (it installs the gateway sources beside it). It needs Python 3.10+,
+systemd, a running Caddy, the operator's /etc/pocol-explorer-gateway/network.json (deploy/rewards/README.md) and the
+node's RPC on 127.0.0.1:8545. --check runs every preflight (the network file, the node's identity, the copy, the
+free port, `caddy validate` of the candidate) and changes nothing. An install backs up what it replaces under
+/var/backups/pocol-explorer-gateway, starts the service and checks it on loopback, reloads Caddy, then checks the
+public routes over HTTPS with the public name and trusted certificates; on any failure it restores the previous
+Caddyfile, files and service state. The HTTPS check needs the certificate for explorer.pocol.net, so the full
+install runs once the owner has moved the DNS record (only --check before that).
+"""
+import hashlib
+import http.client
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import socket
+import ssl
+import subprocess
+import sys
+import tempfile
+import time
+
+HERE = Path(__file__).resolve().parent
+REWARDS = HERE.parent / 'rewards'
+sys.path.insert(0, str(REWARDS))
+sys.path.insert(0, str(HERE.parent / 'studio'))
+sys.path.insert(0, str(HERE))
+import explorer_site  # noqa: E402
+import explorer_api  # noqa: E402
+
+BASE = Path('/opt/pocol-explorer-gateway')
+SOURCES = ('gateway.py', 'pocol_rewards.py', 'explorer_api.py')
+MARKER = 'managed-by-explorer-v1'
+SERVICE = 'pocol-explorer-gateway.service'
+UNIT = Path('/etc/systemd/system') / SERVICE
+CONFIG = Path('/etc/pocol-explorer-gateway')
+NETWORK = CONFIG / 'network.json'
+FORKS = CONFIG / 'forks.json'
+CADDYFILE = Path('/etc/caddy/Caddyfile')
+SITE_PARENT = Path(str(explorer_site.SITE_PARENT))
+BACKUPS = Path('/var/backups/pocol-explorer-gateway')
+PORT = 8088
+ORIGIN = 'https://' + explorer_site.HOST
+ARGUMENTS = (f'--bind 127.0.0.1 --port {PORT} --rpc-port 8545 --v3-network {NETWORK} --site-origin {ORIGIN}')
+UNIT_TEXT = f'''[Unit]
+Description=PoCol explorer gateway (read-only /rpc and the explorer's /api reads)
+After=network.target pocol-standalone.service
+
+[Service]
+Type=simple
+DynamicUser=yes
+ExecStart=/usr/bin/python3 {BASE}/gateway.py {ARGUMENTS}
+WorkingDirectory={BASE}
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+MemoryMax=256M
+TasksMax=64
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
+'''
+
+
+NETWORK_ARGUMENT, FORKS_ARGUMENT = f'--v3-network {NETWORK} ', f'--fork-schedule {FORKS} '
+
+
+def unit_text(forks):
+    """The unit, with --fork-schedule when the operator's forks.json exists (a scheduled cap raise)."""
+    if not forks:
+        return UNIT_TEXT
+    return UNIT_TEXT.replace(NETWORK_ARGUMENT, NETWORK_ARGUMENT + FORKS_ARGUMENT, 1)
+
+
+def check_forced_loopback():
+    """The unit starts the gateway on loopback and the block proxies only to it (a guard against an edit of this file)."""
+    for text in (UNIT_TEXT, unit_text(True)):
+        if text.count(' --bind 127.0.0.1 ') != 1 or 'IPAddressAllow=localhost' not in text or f'--port {PORT} ' not in text:
+            raise RuntimeError('The explorer gateway service must bind 127.0.0.1:8088')
+    block = explorer_site.render_block('/srv/pocol-explorer/site-000000000000')
+    if block.count('reverse_proxy 127.0.0.1:8088') != 3 or re.search(r'reverse_proxy (?!127\.0\.0\.1:8088\b)', block):
+        raise RuntimeError('The explorer Caddy block must proxy only to the loopback gateway')
+
+
+def same_identity(value, network):
+    """chainId is the network's integer chain ID (not a bool or a float) and genesisHash its hash in any letter case."""
+    if not isinstance(value, dict): return False
+    chain, found = value.get('chainId'), value.get('genesisHash')
+    return (type(chain) is int and chain == network.chain_id and isinstance(found, str)
+            and re.fullmatch(r'0x[0-9a-fA-F]{64}', found) is not None and found.lower() == network.genesis)
+
+
+def command(*args, check=True):
+    return subprocess.run(args, check=check, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
+
+
+def atomic_write(path, raw, mode=0o644):
+    fd, name = tempfile.mkstemp(prefix='.explorer-', dir=path.parent)
+    try:
+        with os.fdopen(fd, 'wb') as stream:
+            stream.write(raw); stream.flush(); os.fsync(stream.fileno())
+        os.chmod(name, mode); os.replace(name, path)
+    finally: Path(name).unlink(missing_ok=True)
+
+
+def write_site(files, ident):
+    """The static copy at SITE_PARENT/site-<ident> (root-owned, world-readable, written beside it then renamed).
+    (path, created): an existing copy of the same id is reused when its files are exactly these."""
+    target = SITE_PARENT / f'site-{ident}'
+    if target.is_symlink(): raise RuntimeError(f'{target} is a symbolic link; no changes made')
+    if target.exists():
+        if explorer_site.site_files(target) != files:
+            raise RuntimeError(f'{target} exists with other files; review it first')
+        return target, False
+    SITE_PARENT.mkdir(mode=0o755, parents=True, exist_ok=True)
+    staging = Path(tempfile.mkdtemp(prefix='.site-', dir=SITE_PARENT))
+    try:
+        for name, raw in files.items():
+            path = staging / name
+            path.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+            path.write_bytes(raw); os.chmod(path, 0o644)
+        for folder in [staging, *(p for p in staging.rglob('*') if p.is_dir())]:
+            os.chmod(folder, 0o755)
+        os.rename(staging, target)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True); raise
+    return target, True
+
+
+def http_json(conn, method, path, payload=None, headers=None):
+    body = None if payload is None else json.dumps(payload).encode()
+    conn.request(method, path, body, {'Content-Type': 'application/json', 'Connection': 'close', **(headers or {})})
+    response = conn.getresponse(); raw = response.read(4 * 1024 * 1024 + 1)
+    return response.status, response, raw
+
+
+def local(method, path, payload=None, headers=None):
+    conn = http.client.HTTPConnection('127.0.0.1', PORT, timeout=20)
+    try: return http_json(conn, method, path, payload, headers)
+    finally: conn.close()
+
+
+def verify_local(network):
+    """The service on loopback: /health, /api/rpc.php (with the site Origin) and /api/health.php name the network."""
+    status, _, raw = local('GET', '/health')
+    if status != 200 or json.loads(raw).get('chainId') != network.chain_id:
+        raise RuntimeError('Explorer gateway /health did not answer for the configured network')
+    status, _, raw = local('POST', '/api/rpc.php', [{'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getParams', 'params': []}],
+                           {'Origin': ORIGIN})
+    answer = json.loads(raw) if status == 200 else None
+    if not (isinstance(answer, list) and len(answer) == 1 and same_identity(answer[0].get('result'), network)):
+        raise RuntimeError('Explorer gateway /api/rpc.php identity verification failed')
+    status, _, raw = local('GET', '/api/health.php')
+    if status != 200 or json.loads(raw).get('result') != 'PASS':
+        raise RuntimeError('Explorer gateway /api/health.php did not PASS')
+
+
+def tls(method, path, payload=None, headers=None):
+    """One request to local Caddy with the public SNI and trusted certificate checks (no hairpin routing or DNS).
+    It does not prove reachability from outside."""
+    hostname = explorer_site.HOST
+    context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
+    conn = http.client.HTTPSConnection(hostname, 443, timeout=12, context=context)
+    try:
+        conn.sock = context.wrap_socket(socket.create_connection(('127.0.0.1', 443), timeout=12), server_hostname=hostname)
+        return http_json(conn, method, path, payload, headers)
+    finally: conn.close()
+
+
+def verify_https(network, files, studio_route):
+    """The public routes: every static file byte for byte with the explorer's headers, /api/health.php PASS,
+    /api/rpc.php and /rpc naming the network, /health, hidden and server paths 404, and the Studio route if present."""
+    for name, raw in sorted(files.items()):
+        status, response, body = tls('GET', '/' + name)
+        if status != 200 or body != raw:
+            raise RuntimeError(f'HTTPS /{name} is not the installed file')
+    status, response, body = tls('GET', '/')
+    if status != 200 or body != files['index.html']:
+        raise RuntimeError('HTTPS / is not the installed index.html')
+    for name, value in (*explorer_api.SECURITY_HEADERS, ('Cache-Control', 'no-store')):
+        if response.getheader(name) != value:
+            raise RuntimeError(f'HTTPS / does not send {name}: {value}')
+    status, response, body = tls('GET', '/api/health.php')
+    if status != 200 or json.loads(body).get('result') != 'PASS' or response.getheader('Content-Security-Policy') != explorer_api.CONTENT_SECURITY_POLICY:
+        raise RuntimeError('HTTPS /api/health.php did not PASS with the explorer headers')
+    request = [{'jsonrpc': '2.0', 'id': 1, 'method': 'pocol_getParams', 'params': []}]
+    status, _, body = tls('POST', '/api/rpc.php', request, {'Origin': ORIGIN})
+    if status != 200 or not same_identity(json.loads(body)[0].get('result'), network):
+        raise RuntimeError('HTTPS /api/rpc.php identity verification failed')
+    status, _, body = tls('POST', '/rpc', request[0])
+    if status != 200 or not same_identity(json.loads(body).get('result'), network):
+        raise RuntimeError('HTTPS /rpc identity verification failed')
+    status, _, body = tls('GET', '/health')
+    if status != 200 or json.loads(body).get('service') != 'pocol-explorer-gateway':
+        raise RuntimeError('HTTPS /health verification failed')
+    for path in ('/SHA256SUMS.txt', '/.htaccess', '/api/config.php', '/api/lib.php', '/index.php', '/site-identity.json'):
+        if tls('GET', path)[0] != 404:
+            raise RuntimeError(f'HTTPS {path} is not 404')
+    if studio_route:
+        status, _, body = tls('GET', '/studio/health')
+        if status != 200 or json.loads(body).get('service') != 'pocol-studio-gateway':
+            raise RuntimeError('The Studio HTTPS route stopped answering')
+
+
+def verify_https_with_retry(network, files, studio_route, seconds=120):
+    """Caddy may still be obtaining the certificate right after the reload: retry until `seconds` have passed."""
+    deadline, last = time.monotonic() + seconds, None
+    while True:
+        try: return verify_https(network, files, studio_route)
+        except (OSError, RuntimeError, ValueError, KeyError, TypeError, IndexError, http.client.HTTPException) as error:
+            last = error
+        if time.monotonic() >= deadline: raise last
+        time.sleep(3)
+
+
+def rollback_install(original, previous, base_existed, new_site, old_active, old_enabled):
+    """Attempt every recovery step, even if a service command fails or times out."""
+    failures = []
+    def attempt(label, action):
+        try: action()
+        except Exception as exc: failures.append(label + ': ' + str(exc))
+    attempt('restore Caddyfile', lambda: atomic_write(CADDYFILE, original))
+    attempt('reload previous Caddy configuration', lambda: command('systemctl', 'reload', 'caddy'))
+    if UNIT.exists():
+        attempt('stop explorer gateway service', lambda: command('systemctl', 'stop', SERVICE))
+        if not old_enabled:
+            attempt('restore disabled explorer gateway boot state', lambda: command('systemctl', 'disable', SERVICE))
+    for path, old in previous.items():
+        attempt('restore ' + str(path), lambda p=path, raw=old: p.unlink(missing_ok=True) if raw is None else atomic_write(p, raw))
+    if new_site is not None:
+        attempt('remove new site copy', lambda: shutil.rmtree(new_site))
+    if not base_existed:
+        attempt('remove new gateway directory', lambda: BASE.rmdir() if BASE.exists() else None)
+    attempt('reload restored service definition', lambda: command('systemctl', 'daemon-reload'))
+    if old_enabled:
+        attempt('restore enabled explorer gateway boot state', lambda: command('systemctl', 'enable', SERVICE))
+    if old_active:
+        attempt('restart previous explorer gateway service', lambda: command('systemctl', 'restart', SERVICE))
+    return failures
+
+
+def prune_sites(keep):
+    """Remove site copies whose names are not in `keep` (the new one and the one the previous Caddyfile served)."""
+    removed = []
+    for path in SITE_PARENT.iterdir():
+        if re.fullmatch(r'site-[0-9a-f]{12}', path.name) and not path.is_symlink() and path.is_dir() and path.name not in keep:
+            shutil.rmtree(path); removed.append(path.name)
+    return removed
+
+
+def usage(argv):
+    if len(argv) not in (2, 3) or argv[0] != '--site' or argv[2:] not in ([], ['--check']):
+        raise RuntimeError('Usage: sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR [--check]')
+    return Path(argv[1]), argv[2:] == ['--check']
+
+
+def main(argv=None):
+    site, check_only = usage(sys.argv[1:] if argv is None else argv)
+    check_forced_loopback()
+    if os.geteuid() != 0: raise RuntimeError('Run with sudo')
+    for utility in ('caddy', 'systemctl'):
+        if not shutil.which(utility): raise RuntimeError(f'{utility} must already be installed')
+    sources = {}
+    for name in SOURCES:
+        raw = (REWARDS / name).read_bytes(); compile(raw, name, 'exec'); sources[name] = raw
+    for p in (BASE, UNIT, CADDYFILE, SITE_PARENT, CONFIG, NETWORK, FORKS):
+        if p.is_symlink(): raise RuntimeError(f'Unexpected symbolic link {p}; no changes made')
+    if not CADDYFILE.is_file(): raise RuntimeError('Install Caddy first (its /etc/caddy/Caddyfile is missing)')
+    if command('systemctl', 'is-active', '--quiet', 'caddy', check=False).returncode:
+        raise RuntimeError('Caddy must be running')
+    if BASE.exists() and not (BASE / MARKER).is_file():
+        raise RuntimeError(f'Unrecognized {BASE}; no changes made')
+    forks = FORKS.is_file()
+    unit = unit_text(forks)
+    if UNIT.exists() and UNIT.read_text() not in (unit_text(False), unit_text(True)):
+        raise RuntimeError('The explorer gateway service has custom edits; review before updating')
+    import gateway
+    network = gateway.load_v3_network(NETWORK)
+    if forks: gateway.load_fork_schedule(FORKS)
+    gateway.Gateway(network=network).verify_network()
+    files = explorer_site.site_files(site)
+    text, ident = explorer_site.manifest(files)
+    import install_studio_gateway as studio
+    original = CADDYFILE.read_bytes()
+    candidate, old_root = explorer_site.plan_caddyfile(original.decode(), SITE_PARENT / f'site-{ident}', studio)
+    studio_route = studio.MARKER in candidate
+    old_active = command('systemctl', 'is-active', '--quiet', SERVICE, check=False).returncode == 0
+    old_enabled = command('systemctl', 'is-enabled', '--quiet', SERVICE, check=False).returncode == 0
+    if not old_active:
+        with socket.socket() as sock: sock.bind(('127.0.0.1', PORT))
+    with tempfile.TemporaryDirectory(prefix='pocol-explorer-check-') as tmp:
+        testfile = Path(tmp) / 'Caddyfile'; testfile.write_text(candidate)
+        result = command('caddy', 'validate', '--config', str(testfile), '--adapter', 'caddyfile', check=False)
+        if result.returncode: raise RuntimeError('Caddy candidate validation failed: ' + result.stderr.decode()[-1500:])
+    if check_only:
+        print(f'CHECK PASSED: network {network.chain_id} {network.genesis} on the node, site-{ident} ({len(files)} files), '
+              'the loopback port, and the candidate Caddy configuration.')
+        print(text, end='')
+        return
+    BACKUPS.mkdir(parents=True, exist_ok=True, mode=0o700)
+    backup = BACKUPS / (time.strftime('%Y%m%d-%H%M%S') + '-' + str(os.getpid()))
+    backup.mkdir(mode=0o700)
+    (backup / 'Caddyfile.before').write_bytes(original)
+    paths = [BASE / name for name in SOURCES] + [BASE / MARKER, UNIT]
+    previous = {p: p.read_bytes() if p.is_file() else None for p in paths}
+    for i, p in enumerate(paths):
+        if previous[p] is not None: (backup / f'file-{i}.before').write_bytes(previous[p])
+    (backup / 'state.json').write_text(json.dumps({'active': old_active, 'enabled': old_enabled, 'paths': list(map(str, paths)),
+                                                   'previousSite': old_root, 'site': f'site-{ident}'}))
+    base_existed = BASE.exists()
+    BASE.mkdir(mode=0o755, parents=True, exist_ok=True)
+    new_site = None
+    try:
+        site_root, created = write_site(files, ident)
+        new_site = site_root if created else None
+        for name, raw in sources.items():
+            atomic_write(BASE / name, raw)
+        atomic_write(BASE / MARKER, b'PoCol explorer gateway v1\n')
+        atomic_write(UNIT, unit.encode())
+        command('systemctl', 'daemon-reload'); command('systemctl', 'restart', SERVICE)
+        last = None
+        for _ in range(20):
+            try: verify_local(network); last = None; break
+            except (OSError, RuntimeError, ValueError, AttributeError, http.client.HTTPException) as exc: last = exc; time.sleep(.5)
+        if last: raise last
+        atomic_write(CADDYFILE, candidate.encode())
+        command('systemctl', 'reload', 'caddy')
+        verify_https_with_retry(network, files, studio_route)
+        command('systemctl', 'enable', SERVICE)
+    except BaseException as exc:
+        failures = rollback_install(original, previous, base_existed, new_site, old_active, old_enabled)
+        if failures:
+            raise RuntimeError('Installation failed: ' + str(exc) + '; ROLLBACK INCOMPLETE: ' + '; '.join(failures)
+                               + '; recovery backup: ' + str(backup)) from exc
+        raise
+    keep = {site_root.name} | ({Path(old_root).name} if old_root else set())
+    try: removed = prune_sites(keep)
+    except OSError as exc: removed = ['(not pruned: ' + str(exc) + ')']
+    print(f'INSTALLED: explorer gateway on 127.0.0.1:{PORT} and the explorer site site-{ident} at https://{explorer_site.HOST}')
+    print('PASS: every static file, /api/rpc.php, /api/health.php, /rpc and /health over HTTPS with trusted certificates'
+          + (', and the Studio route' if studio_route else '') + '.')
+    if removed: print('Removed older site copies: ' + ', '.join(removed))
+    print(f'Verify from outside: curl --fail --max-time 20 https://{explorer_site.HOST}/api/health.php')
+    print('Backup: ' + str(backup))
+
+
+if __name__ == '__main__':
+    try: main()
+    except Exception as exc: print('INSTALL FAILED: ' + str(exc), file=sys.stderr); sys.exit(1)
