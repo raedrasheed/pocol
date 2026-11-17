@@ -164,7 +164,7 @@
  {
   "file": "explorer-bundle",
   "old": "rt.flatMap(e=>e.transactions.map(t=>({...t,timestamp:e.timestamp}))).filter(e=>[e.from,e.to].some(e=>e?.toLowerCase()===D.address.toLowerCase())).map(e=>",
-  "new": "(D.PocolW7Activity?.txs||[]).map(e=>",
+  "new": "D.PocolW7Activity?.error&&D.PocolW7Activity.txs.length?(0,N.jsx)(`div`,{className:`small-empty`,children:`These are the last transactions read; reading the latest blocks failed: ${String(D.PocolW7Activity.error).replace(/\\.$/,``)}. They may be out of date until the next update reads them again.`}):null,(D.PocolW7Activity?.txs||[]).map(e=>",
   "count": 1
  },
  {

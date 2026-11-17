@@ -34,7 +34,8 @@ the status and block reads, the Latest transactions panel says so with the gatew
 transactions in this window" (also for a message without a closing period); the map's summary counts the loaded
 members page ("256 members on the loaded page"); and an account view left open follows the loaded window: when the head
 moves on, the account's new transaction appears, one that left the latest 20 blocks goes, and only the new block is
-read in full (the activity caches each block's matches by hash).
+read in full (the activity caches each block's matches by hash); when that read is refused, the last list stays with a
+warning above it that it may be out of date.
 
 The Python tests (`test_site_identity.py`) switch a temporary copy of the snapshots to a test identity and back
 (byte-identical), check that a moved, duplicated or stray anchor fails and writes nothing, exercise anchored edits and

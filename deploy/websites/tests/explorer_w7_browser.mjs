@@ -79,6 +79,11 @@ async function serve(state) {
     if (path === '/api/rpc.php' && req.method === 'POST') {
       let body = ''; for await (const c of req) body += c;
       const calls = JSON.parse(body); state.batches.push(calls.map((c) => c.method));
+      // accountFollowsWindow(.., true): once set, the account activity's full block reads are refused (503, no message).
+      if (state.failFull && calls.some((c) => c.method === 'eth_getBlockByNumber' && c.params?.[1] === true)) {
+        state.full.push(...calls.map((c) => Number(c.params[0])));
+        res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' }); return res.end('{}');
+      }
       if (state.busyTxRead && calls.every((c) => c.method === 'eth_getTransactionByHash')) {
         // 'down': a 503 without an error field, which the bundle reports as "Data source unavailable" (no period).
         if (state.busyTxRead === 'down') { res.writeHead(503, { 'content-type': 'application/json; charset=utf-8' }); return res.end('{}'); }
@@ -124,7 +129,7 @@ async function overview(txBlocks, busyTxRead) {
 // 4. An account view left open follows the loaded window: when the head moves on, a new transaction of the account
 //    appears, one that left the latest 20 blocks goes, and only the new block is read in full (the others come from
 //    the activity's cache, keyed by block hash).
-async function accountFollowsWindow(txBlocks) {
+async function accountFollowsWindow(txBlocks, failAfterMove = false) {
   const state = { chain: chain(txBlocks), busyTxRead: false, batches: [], head: HEAD, full: [] };
   const server = await serve(state), context = await browser.newContext();
   try {
@@ -139,8 +144,8 @@ async function accountFollowsWindow(txBlocks) {
     await page.fill(box, address(1)); await page.press(box, 'Enter');
     const first = activity(await until((t) => activity(t) && !/Reading the latest blocks/.test(activity(t)), 30000));
     const fullFirst = [...state.full];
-    state.chain.block(HEAD + 1); state.head = HEAD + 1; // block 41 holds one transaction of address(1)
-    const second = activity(await until((t) => activity(t).includes(atx(HEAD + 1, 0)), 40000));
+    state.chain.block(HEAD + 1); state.failFull = failAfterMove; state.head = HEAD + 1; // block 41 holds one transaction of address(1)
+    const second = activity(await until((t) => failAfterMove ? /reading the latest blocks failed/.test(activity(t)) : activity(t).includes(atx(HEAD + 1, 0)), 40000));
     return { first, second, fullFirst, fullAfter: state.full.slice(fullFirst.length), errors };
   } finally { await context.close(); await server.close(); }
 }
@@ -175,6 +180,13 @@ try {
   check('when the head moves on, the new transaction appears and the one that left the window goes, without reopening the account',
     acct.second.includes(atx(HEAD + 1, 0)) && acct.second.includes(atx(HEAD, 0)) && !acct.second.includes(atx(HEAD - 19, 0)), acct.second.slice(0, 400).replace(/\s+/g, ' '));
   check('only the new block is read in full after the move (the others come from the cache)', acct.fullAfter.length === 1 && acct.fullAfter[0] === HEAD + 1, JSON.stringify(acct.fullAfter));
-  check('no uncaught error in the other scenarios', down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors].join(' | '));
+  // 4b. The same move with the new block's read refused: the last list stays, and a warning above it says it may be
+  // out of date (it is not presented as the latest window's matches).
+  const stale = await accountFollowsWindow({ [HEAD]: 2, [HEAD - 19]: 1, [HEAD + 1]: 1 }, true);
+  check('a refused activity read keeps the last list and says above it that reading the latest blocks failed',
+    stale.second.includes('These are the last transactions read; reading the latest blocks failed: Data source unavailable. They may be out of date until the next update reads them again.')
+      && [atx(HEAD, 0), atx(HEAD, 1)].every((s) => stale.second.includes(s)) && !stale.second.includes(atx(HEAD + 1, 0)) && stale.second.indexOf('These are the last') < stale.second.indexOf(atx(HEAD, 0)),
+    stale.second.slice(0, 500).replace(/\s+/g, ' '));
+  check('no uncaught error in the other scenarios', down.errors.length === 0 && answered.errors.length === 0 && empty.errors.length === 0 && acct.errors.length === 0 && stale.errors.length === 0, [...down.errors, ...answered.errors, ...empty.errors, ...acct.errors, ...stale.errors].join(' | '));
 } finally { await browser.close(); }
 console.log(`explorer W7 browser checks: ${checks} passed`);

@@ -122,6 +122,9 @@ test('the refresh reads one members page and light blocks; nothing reads every m
   assert.equal(count(BUNDLE, 'let k=l?.blocks?.[0]?.hash;if(D?.type!==`address`||!k||D.PocolW7Activity?.key===k)return;'), 1);
   assert.equal(count(BUNDLE, '},[D?.type,D?.address,l?.blocks?.[0]?.hash]);'), 1);
   assert.equal(count(BUNDLE, 'if(b?.hash!==a.hash)throw Error('), 1);
+  // A failed read keeps the last list, and says so above it (Codex review, PR #81): the list is never shown as the
+  // latest window's matches while it may be out of date (or hold transactions a reorganization dropped).
+  assert.equal(count(BUNDLE, 'D.PocolW7Activity?.error&&D.PocolW7Activity.txs.length?(0,N.jsx)(`div`,{className:`small-empty`,children:`These are the last transactions read; reading the latest blocks failed: '), 1);
   assert.equal(count(BUNDLE, ',[D,!!l?.blocks?.length]'), 0, 'the activity is not frozen at the first loaded window');
   // Each beside its view's batch, retried while the shared gateway budget is busy (pocol_getMember costs 20 of its 80
   // tokens), its failure kept to its own rows (a busy gateway still shows the balance).
