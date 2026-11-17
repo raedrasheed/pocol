@@ -129,7 +129,9 @@ relays' behaviour:
   distinct integer ids within 2^53 - 1, each in lib.php's 17-method allow-list with its bounds, else 400. That list is
   narrower than `/rpc`'s: `pocol_getBlockReward`, `pocol_getNetworkGeography` and `pocol_getTransactions` are refused
   here. The answers (each through `Gateway.call`, with its cache, slots and sanitizer) keep the request's shape, at
-  most 4 MiB and 9 s (else 503), and are checked as lib.php checked the gateway's reply (else 502).
+  most 4 MiB and 9 s (else 503; as lib.php's curl timeout, the 9 s bound the whole request: every node read of every
+  call, `pocol_getMember`'s included, stops at it), and are checked as lib.php checked the gateway's reply (else 502,
+  also for a node answer holding NaN or Infinity).
 - `/api/health.php`: GET only; `pocol_getParams` against the configured network: 200 PASS, 429 when busy, else 503
   NOT_CONNECTED, with the keys `service`, `gatewayReachable`, `networkMatch`, `result` and `message`.
 - `/api/miner-locations.php`: GET or HEAD; the GeoIP snapshot of this network (schema, chain, genesis, source and

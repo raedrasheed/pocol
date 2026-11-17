@@ -13,6 +13,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 from unittest.mock import patch
 
@@ -341,6 +342,28 @@ class ExplorerRelayTests(GatewayServerCase):
                 self.assertEqual(self.post([call(ident=1), call('eth_gasPrice', ident=2)])[:3:2], (502, {'error': api.INVALID}))
         self.scenario({'node': {'eth_gasPrice': {'raw': b'{"jsonrpc":"2.0","id":1,"result":1e999}'}}})
         self.assertEqual(self.post(call('eth_gasPrice'))[:3:2], (502, {'error': api.INVALID}))
+
+    def test_the_relay_time_limit_is_a_deadline(self):
+        """lib.php's CURLOPT_TIMEOUT 9 bounded the whole request: the client had the 503 by then, before the bundle's
+        and network.php's 12 s timeouts. Here every node read keeps to the same deadline (scaled down to 1 s)."""
+        batch = [call('eth_getBlockByNumber', ['0x%x' % i, False], i) for i in range(1, 4)]
+        with patch.object(api, 'FORWARD_SECONDS', 1.0):
+            # Three reads of 0.45 s each: the third starts before the limit and would end after it.
+            self.node.delay = 0.45
+            start = time.monotonic()
+            self.assertEqual(self.post(batch)[:3:2], (503, {'error': api.FAILED}))
+            self.assertLess(time.monotonic() - start, 1.3)
+            # One read slower than the whole limit (a stalled node), on a plain read and on each membership read
+            # (pocol_getMember makes up to MEMBER_READS_MAX + DRAW_READS_MAX of them).
+            self.node.delay = 3
+            for request in (call('eth_gasPrice'), call('pocol_getMember', ['0x' + '1' * 40]), call('pocol_getMembers', [0, 4])):
+                with self.subTest(method=request['method']):
+                    self.scenario({}); self.node.delay = 3
+                    start = time.monotonic()
+                    self.assertEqual(self.post(request)[:3:2], (503, {'error': api.FAILED}))
+                    self.assertLess(time.monotonic() - start, 1.8)
+        self.scenario({})
+        self.assertEqual(self.post(batch)[0], 200)
 
     def test_health(self):
         status, _, raw = self.send('GET', '/api/health.php')

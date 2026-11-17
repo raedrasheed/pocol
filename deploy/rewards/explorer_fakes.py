@@ -42,12 +42,13 @@ def default_answers():
 class FakeNode(ThreadingHTTPServer):
     """A pocold JSON-RPC endpoint on 127.0.0.1: `answers[method]` is the answer's fields ({'result': ..} or
     {'error': ..}), the whole envelope when it has 'envelope', the body bytes when it has 'raw', or 'fail' for an
-    HTTP 500."""
+    HTTP 500. `delay` seconds pass before each answer."""
     daemon_threads = True
 
     def __init__(self):
         self.answers = default_answers()
         self.calls = []
+        self.delay = 0
         super().__init__(('127.0.0.1', 0), NodeHandler)
         self.thread = threading.Thread(target=self.serve_forever, daemon=True)
         self.thread.start()
@@ -55,6 +56,7 @@ class FakeNode(ThreadingHTTPServer):
     def reset(self):
         self.answers = default_answers()
         self.calls = []
+        self.delay = 0
 
     def stop(self):
         self.shutdown(); self.server_close(); self.thread.join()
@@ -69,6 +71,8 @@ class NodeHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         request = json.loads(self.rfile.read(int(self.headers['Content-Length'])))
         self.server.calls.append((request['method'], request['params']))
+        if self.server.delay:
+            time.sleep(self.server.delay)
         answer = self.server.answers.get(request['method'], {'error': {'code': -32601, 'message': 'Method not found'}})
         if answer == 'fail':
             self.send_response(500); self.send_header('Content-Length', '0'); self.end_headers(); return

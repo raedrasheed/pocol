@@ -29,7 +29,7 @@ MEMBERS_PAGE_MAX = 256          # lib.php POCOL_MEMBERS_PAGE_MAX (the gateway's 
 MAX_BATCH = 20
 REQUEST_DEPTH = 32              # rpc.php json_decode($body, false, 32, JSON_BIGINT_AS_STRING)
 REPLY_DEPTH = 64                # lib.php json_decode($response, false, 64, JSON_BIGINT_AS_STRING)
-FORWARD_SECONDS = 9             # lib.php CURLOPT_TIMEOUT: checked before each call of a batch
+FORWARD_SECONDS = 9             # lib.php CURLOPT_TIMEOUT: the deadline of a whole request, every node read included
 RELAY_SLOTS = 4                 # lib.php pocol_slot: four non-blocking slots shared by every /api read
 MAX_QUERY = 4096                # transactions.php: a query this long is refused (the bundle's are < 300 bytes)
 SITE_ORIGIN = 'https://explorer.pocol.net'
@@ -349,13 +349,18 @@ class Relay:
         try:
             if not self.gateway.charge(sum(self.cost(call) for call in calls)):
                 return 429, None, BUSY
-            start, size, answers = time.monotonic(), 2, []
+            # lib.php's CURLOPT_TIMEOUT was a total deadline: every node read of every call keeps to it (Gateway.query
+            # refuses a read once it has passed and bounds each socket wait by the time left), and a request that
+            # reaches it is the relay's 503.
+            deadline, size, answers = time.monotonic() + FORWARD_SECONDS, 2, []
             for call in calls:
-                if time.monotonic() - start > FORWARD_SECONDS:
+                if time.monotonic() >= deadline:
                     return 503, None, FAILED
                 try:
-                    answer = self.gateway.call(call)
+                    answer = self.gateway.call(call, deadline=deadline)
                 except Exception:  # an unexpected node answer: the relay's 503, never a dropped connection
+                    return 503, None, FAILED
+                if time.monotonic() >= deadline:
                     return 503, None, FAILED
                 try:
                     size += len(encode(answer)) + 1

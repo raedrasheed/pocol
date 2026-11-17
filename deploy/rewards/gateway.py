@@ -230,8 +230,14 @@ class Gateway:
             if self.tokens < cost: return False
             self.tokens -= cost
             return True
-    def query(self, method, params):
-        conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=5)
+    def query(self, method, params, deadline=None):
+        """One node read. With `deadline` (a time.monotonic() value) the read is refused once it has passed and its
+        socket timeout is at most the time left, so a caller's total limit holds for every read it makes."""
+        timeout = 5
+        if deadline is not None:
+            timeout = min(timeout, deadline - time.monotonic())
+            if timeout <= 0: raise RuntimeError('Explorer read time limit reached')
+        conn = http.client.HTTPConnection('127.0.0.1', self.port, timeout=timeout)
         try:
             body = json.dumps({'jsonrpc':'2.0','id':1,'method':method,'params':params}, separators=(',', ':')).encode()
             conn.request('POST', '/', body=body, headers={'Content-Type':'application/json','Connection':'close'})
@@ -243,20 +249,24 @@ class Gateway:
             if not isinstance(result, dict) or result.get('id') != 1: raise RuntimeError('Invalid node response')
             return result
         finally: conn.close()
+    def read(self, method, params, deadline):
+        """query(), with the caller's deadline when it has one (a call without one reads exactly as /rpc always has)."""
+        return self.query(method, params) if deadline is None else self.query(method, params, deadline=deadline)
     def verify_network(self):
         params = self.query('pocol_getParams', []).get('result', {})
         genesis = params.get('genesisHash')
         if params.get('chainId') != self.network.chain_id or not isinstance(genesis, str) or genesis.lower() != self.network.genesis:
             raise RuntimeError('The local RPC does not belong to the configured PoCol network')
-    def membership(self, method, params):
+    def membership(self, method, params, deadline=None):
         """pocol_getMembers / pocol_getMember at the head block, every read at that one height, cached per head (block
-        hash) and refused with ChainMoved when the block at that height changed while it was read."""
+        hash) and refused with ChainMoved when the block at that height changed while it was read. Every read keeps
+        to `deadline` (Gateway.query)."""
         remaining = MEMBER_READS_MAX + (DRAW_READS_MAX if method == 'pocol_getMember' else 0)
         def read(read_method, read_params):
             nonlocal remaining
             if remaining <= 0: raise RuntimeError('Membership read budget exceeded')
             remaining -= 1
-            answer = self.query(read_method, read_params)
+            answer = self.read(read_method, read_params, deadline)
             if not isinstance(answer, dict) or 'result' not in answer or 'error' in answer: raise RuntimeError('Node read failed')
             return answer['result']
         def block(at):
@@ -341,7 +351,9 @@ class Gateway:
                 cached['bonds'][address] = call(REGISTRY, _word_args('recordWords(address)', int(address, 16)), CALL_GAS, 4)[2]
             return cached['bonds'][address]
         return {'scan': scan, 'bond': bond, 'cached': cached}
-    def call(self, request):
+    def call(self, request, deadline=None):
+        """One allowed read, answered from the cache or the node. `deadline` bounds every node read it makes (the
+        explorer's /api reads pass theirs; /rpc keeps the per-read timeouts)."""
         method, params = request['method'], request['params']
         key = json.dumps([method, params], separators=(',', ':'))
         now = time.monotonic()
@@ -361,13 +373,13 @@ class Gateway:
                 reward_locked = self.reward_slot.acquire(blocking=False)
                 if not reward_locked:
                     return {'jsonrpc':'2.0','id':request['id'],'error':{'code':-32021,'message':'Reward snapshot is being prepared; retry shortly'}}
-                deadline, remaining = time.monotonic() + MAX_SECONDS_V3, MAX_CALLS_V3
+                reward_deadline, remaining = time.monotonic() + MAX_SECONDS_V3, MAX_CALLS_V3
                 # eth_getTransactionReceipt: the block's tips (V3-20).
                 reads = {'pocol_status', 'pocol_getParams', 'eth_getBlockByNumber', 'eth_getBlockByHash', 'pocol_getBlockRlp', 'eth_call',
                          'eth_getCode', 'eth_getBalance', 'eth_getTransactionCount', 'eth_getTransactionReceipt'}
                 def bounded_reward_query(read_method, read_params):
                     nonlocal remaining
-                    if remaining <= 0 or time.monotonic() >= deadline:
+                    if remaining <= 0 or time.monotonic() >= reward_deadline:
                         raise RuntimeError('Reward read budget exceeded')
                     if read_method not in reads:
                         raise RuntimeError('Unsupported reward read')
@@ -386,13 +398,13 @@ class Gateway:
                 if self.transactions is None: raise RuntimeError('Transaction index is not installed')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.transactions.page(params[0])}
             elif method in MEMBERS:
-                answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params)}
+                answer = {'jsonrpc':'2.0','id':request['id'],'result':self.membership(method, params, deadline)}
             elif method == 'pocol_getNetworkGeography':
                 if self.geography is None: raise RuntimeError('Automatic GeoIP is not installed')
-                raw_status = self.query('pocol_status', []).get('result')
+                raw_status = self.read('pocol_status', [], deadline).get('result')
                 answer = {'jsonrpc':'2.0','id':request['id'],'result':self.geography.snapshot(raw_status)}
             else:
-                answer = self.query(method, params)
+                answer = self.read(method, params, deadline)
             if 'result' in answer: answer['result'] = sanitize(method, answer['result'])
             answer['id'] = request['id']
             if 'error' not in answer and method not in MEMBERS:
