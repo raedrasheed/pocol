@@ -107,7 +107,7 @@ The gateway also serves the explorer's membership reads, each at one head block 
   records; past that bound `proposerEligible` is `null`, never guessed. It also answers for records outside the
   active list, such as `registerReplacing` victims (status 2).
 - `pocol_getRemovable` (cost 10) and `pocol_finality` (cost 1) are forwarded to the node. `pocol_getMiners` stays for
-  compatibility.
+  compatibility; the explorer bundle no longer calls it (Sites W7: it reads `pocol_getMembers` pages).
 
 The explorer snapshot's `/api/rpc.php` (below, which replaces the PHP allowlist of the retired
 `explorer.pocol.net/api/lib.php`) accepts the same four methods with the same bounds.

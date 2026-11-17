@@ -22,7 +22,7 @@ there, --check included, and is only for a test copy. The display name is not sw
 
 Derived files move with their sources:
 - a hashed bundle (BUNDLES) is named `<prefix>-<first 12 hex of its SHA-256>.js`; a changed bundle is renamed and the
-  site's index.html reference follows;
+  site's index.html reference and its line in an include list (INCLUDE_LISTS: the explorer's S1 file list) follow;
 - a `<path>?v=<12 hex>` reference to a file of the same site that is not a page gets that file's content version;
 - each site's SHA256SUMS.txt lists every file of the site (and keeps the lines of the download archives that are kept
   out of Git).
@@ -68,6 +68,9 @@ BUNDLES = {
     'explorer-bundle': (EXPLORER, 'index'),
     'ide-bundle': (IDE, 'index-extension041'),
 }
+# Files outside the document roots that name a hashed bundle on a line of its own (`assets/<prefix>-<12 hex>.js`): the
+# explorer's S1 include list (Sites W5). A rename rewrites that line and --check refuses a list that names any other.
+INCLUDE_LISTS = {'explorer-bundle': 'deploy/websites/tools/explorer-s1-include.txt'}
 LINK_PREFIX = 'https://github.com/raedrasheed/pocol/'
 # The source links that --commit derives.
 COMMIT_LINKS = {
@@ -366,6 +369,16 @@ def finish(tree, problems):
             problems.append(f'{rel}: also named by {others}; only index.html may name a hashed bundle')
         tree.out[index] = page.replace(old_ref, new_ref).encode('utf-8')
         tree.out[name], tree.out[rel] = data, None
+        if key in INCLUDE_LISTS:
+            listed = INCLUDE_LISTS[key]
+            text = tree.text(listed) if tree.exists(listed) else None
+            old_line, new_line = rel[len(site) + 1:], name[len(site) + 1:]
+            lines = None if text is None else text.split('\n')
+            if lines is None or lines.count(old_line) != 1:
+                problems.append(f'{listed}: must name {old_line} on one line of its own, to follow the rename to {new_line}')
+                continue
+            lines[lines.index(old_line)] = new_line
+            tree.out[listed] = '\n'.join(lines).encode('utf-8')
     # Content versions of the files that are not pages, to a fixed point (a script may version a stylesheet).
     for _ in range(8):
         moved = False
@@ -458,6 +471,13 @@ def tree_checks(tree, doc, retired, problems):
         rel = bundle_path(tree, key)
         if rel != f'{site}/assets/{prefix}-{sha12(tree.read(rel))}.js':
             problems.append(f'{rel}: a hashed bundle is named by its content version')
+        if key in INCLUDE_LISTS:
+            listed = INCLUDE_LISTS[key]
+            text = tree.text(listed) if tree.exists(listed) else None
+            named = [] if text is None else [line for line in text.split('\n')
+                                             if re.fullmatch(rf'assets/{re.escape(prefix)}-[A-Za-z0-9_-]+\.js', line)]
+            if named != [rel[len(site) + 1:]]:
+                problems.append(f'{listed}: names {named or "no bundle"}, not the bundle {rel[len(site) + 1:]}')
     for rel in tree.files(EXPLORER):
         if SERVER_CODE.search(rel[len(EXPLORER) + 1:]):
             problems.append(f'{rel}: server code or a hidden file in the explorer snapshot (the gateway host serves it as '

@@ -89,7 +89,11 @@ class CaddyBlockTests(unittest.TestCase):
                      '/sha256sums', '/x.json', '/assets/index.js.map', '/README.md', '/a.zip', '/a.tar', '/a.gz', '/a.bak',
                      '/a.log', '/a.sh', '/x.phtml'):
             self.assertRegex(path, site.HIDDEN)
-        for path in ('/', '/index.html', '/assets/index-038724d30ca3.js', '/site.webmanifest', '/pocol-logo.png', '/favicon.ico'):
+        # The bundle index.html loads, read from the page (a rename by the W9 tool needs no change here).
+        bundle = re.findall(r'<script\b[^>]*\bsrc="(/assets/index-[A-Za-z0-9_-]+\.js)"',
+                            (ROOT / 'deploy/websites/explorer.pocol.net/index.html').read_text(encoding='utf-8'))
+        self.assertEqual(len(bundle), 1, bundle)
+        for path in ('/', '/index.html', bundle[0], '/site.webmanifest', '/pocol-logo.png', '/favicon.ico'):
             self.assertNotRegex(path, site.HIDDEN)
         for value in ('/srv/pocol-explorer/site-x', '/var/www', ROOT_A + '/'):
             with self.assertRaises(ValueError): site.render_block(value)

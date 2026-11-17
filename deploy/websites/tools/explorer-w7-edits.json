@@ -1,0 +1,182 @@
+[
+ {
+  "file": "explorer-bundle",
+  "old": "function Pe(e){return e.status===1&&e.tomb===!1&&e.bondState===1}",
+  "new": "function Pe(e){return e?.status===1&&e.tomb===!1&&(e.bondState===1||e.bondState===4)}var PocolW7Registry=`0x0000000000000000000000000000000000c0c001`,PocolW7Calls={\"0x4420e486\":[`register`,[`Reward address`]],\"0x5326ca0b\":[`registerReplacing`,[`Reward address`,`Replaced member`]],\"0xd18611d6\":[`reactivate`,[]],\"0x5e00e679\":[`setRewardAddress`,[`New reward address`]],\"0x3cdced1e\":[`removeInactive`,[`Removed member`]],\"0xaff5edb1\":[`deregister`,[]],\"0xc7cf7484\":[`claimBond`,[]],\"0xdc29f1de\":[`topUp`,[]]},PocolW7Removal={REMOVABLE:`Removable as inactive now`,NOT_LIVE_ACTIVE:`Not removable: not a live active record`,SET_NOT_FULL:`Not removable: the member set is not full`,AT_MINIMUM:`Not removable: the set is at its minimum size`,RECENTLY_ACTIVE:`Not removable: recently active`};async function PocolW7Retry(e,t=3,n=1500){for(let r=1;;r++)try{return await e()}catch(i){if(r>=t)throw i;await new Promise(e=>setTimeout(e,n*r))}}function PocolW7Int(e){return typeof e==`number`&&Number.isSafeInteger(e)&&e>=0?e:null}function PocolW7Pcol(e){try{if(typeof e!=`string`&&typeof e!=`number`&&typeof e!=`bigint`)return`—`;let t=BigInt(e);if(t<0n)return`—`;let n=10n**18n,r=(t%n).toString().padStart(18,`0`).replace(/0+$/,``);return(t/n).toString()+(r?`.`+r:``)}catch{return`—`}}function PocolW7Label(e){if(!e||typeof e!=`object`)return`Unknown`;if(e.exists===!1||e.status===0)return`Not a member`;let t=e.status,n=e.bondState;if(typeof e.tomb!=`boolean`||t!==1&&t!==2||![1,2,3,4].includes(n))return`Unknown`;if(e.tomb)return`Tombed`;if(n===2)return`Burned`;if(n===3)return`Paid`;if(t===1)return n===1?`Held`:`Earning bond`;let r=PocolW7Int(e.dueHeight);return r===null?`Exited`:`Exited (refund at block ${r})`}function PocolW7Bond(e){return[`${PocolW7Pcol(e?.bondWei)}/${PocolW7Pcol(e?.bondTargetWei)} PCOL`,e?.proposerEligible===!0?`Yes`:e?.proposerEligible===!1?`No`:`Undetermined`]}function PocolW7Match(e,t){return t===`All`||PocolW7Label(e)===t}function PocolW7LastShare(e,t){let n=PocolW7Int(e?.lastShare),r=PocolW7Int(t);return n===null||n===0?`None yet`:r===null||r<n?`Block ${n}`:`Block ${n} · inactive for ${r-n} blocks`}function PocolW7Counts(e,t){let n=Array.isArray(e)?e:[],r={Held:0,Earning:0,Tombed:0};for(let i of n){let a=PocolW7Label(i);a===`Held`?r.Held++:a===`Earning bond`?r.Earning++:a===`Tombed`&&r.Tombed++}let i=`${r.Held} held · ${r.Earning} earning bond · ${r.Tombed} tombed`,a=PocolW7Int(t?.active),o=PocolW7Int(t?.start)??0;return a!==null&&n.length<a?i+` in members ${n.length?o+1:0}–${o+n.length} of ${a}`:i}function PocolW7Hashes(e,t){let n=[];for(let r of Array.isArray(e)?e:[])for(let i of r?.transactions||[])n.length<t&&typeof i==`string`&&n.push([i,r.timestamp]);return n}function PocolW7Blocks(e,t){return(Array.isArray(e)?e:[]).filter(e=>(e?.transactions||[]).length>0).slice(0,t).map(e=>({number:e.number,hash:e.hash}))}function PocolW7Decode(e){if(!e||typeof e.to!=`string`||e.to.toLowerCase()!==PocolW7Registry)return null;let t=typeof e.input==`string`?e.input.toLowerCase():``,n={name:`Registry call (undecoded)`,args:[],value:null,victim:null,undecoded:!0};if(!/^0x([0-9a-f]{2})*$/.test(t)||t.length<10||!Object.hasOwn(PocolW7Calls,t.slice(0,10)))return n;let[r,i]=PocolW7Calls[t.slice(0,10)];if(t.length!==10+64*i.length)return n;let a=[];for(let o=0;o<i.length;o++){let s=t.slice(10+64*o,74+64*o);if(!s.startsWith(`0`.repeat(24)))return n;a.push(`0x`+s.slice(24))}return{name:r,args:i.map((e,t)=>[e,a[t]]),value:r===`register`||r===`registerReplacing`?[`Bond paid`,PocolW7Pcol(e.value??0)+` PCOL`]:r===`topUp`?[`Top-up amount`,PocolW7Pcol(e.value??0)+` PCOL`]:null,victim:r===`registerReplacing`?a[1]:r===`removeInactive`?a[0]:null,undecoded:!1}}function PocolW7TxRows(e,t){if(!e)return[];let n=[[`Registry call`,e.name]];for(let[r,i]of e.args)n.push([r,i,!0]);e.value&&n.push(e.value);e.victim&&n.push([`Named member now`,!t||t.PocolW7Error?`Unavailable: ${t?.PocolW7Error||`not read`}`:`${PocolW7Label(t)} · read at the head (block ${t.height}), not at this transaction's height`]);return n}function PocolW7MemberRows(e){if(!e||typeof e!=`object`)return[[`Mining membership`,`Unavailable`]];if(e.PocolW7Error)return[[`Mining membership`,`Unavailable: ${e.PocolW7Error}`]];let t=PocolW7Label(e);if(t===`Not a member`)return[[`Mining membership`,t]];let[n,r]=PocolW7Bond(e),i=[[`Mining membership`,t],[`Bond`,n],[`Proposer eligible (next block)`,r]];typeof e.rewardAddress==`string`&&/^0x[0-9a-f]{40}$/i.test(e.rewardAddress)&&i.push([`Reward address`,e.rewardAddress,!0]);typeof e.removalLabel==`string`&&i.push([`Removal check`,Object.hasOwn(PocolW7Removal,e.removalLabel)?PocolW7Removal[e.removalLabel]:e.removalLabel]);e.status===2&&PocolW7Int(e.dueHeight)!==null&&i.push([`Refund at`,`Block ${e.dueHeight}`]);PocolW7Int(e.registeredAt)!==null&&i.push([`Registered at`,`Block ${e.registeredAt}`]);i.push([`Last share`,PocolW7LastShare(e,e.height)]);PocolW7Int(e.height)!==null&&i.push([`Membership read at`,`Block ${e.height} (the head)`]);return i}",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "[Be,Ve]=(0,h.useState)(`All miners`),[M,He]=(0,h.useState)(null),[Ue,We]=(0,h.useState)([]),[Ke,qe]=(0,h.useState)(!1),Je=",
+  "new": "[Be,Ve]=(0,h.useState)(`All`),[M,He]=(0,h.useState)(null),[Ue,We]=(0,h.useState)([]),[Ke,qe]=(0,h.useState)(!1),[PocolW7Start,PocolW7SetStart]=(0,h.useState)(0),[PocolW7Page,PocolW7SetPage]=(0,h.useState)(null),Je=",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "[`pocol_getMiners`,[]]]),r=Number(e.head.height),i=Math.min(20,r+1),a=await it(Array.from({length:i},(e,t)=>[`eth_getBlockByNumber`,[ot(r-t),!0]]));Ie(e,t,a),u({status:e,params:t,miners:n,blocks:a})",
+  "new": "[`pocol_getMembers`,[0,256]]]),r=Number(e.head.height),i=Math.min(20,r+1),a=await it(Array.from({length:i},(e,t)=>[`eth_getBlockByNumber`,[ot(r-t),!1]]));Ie(e,t,a);let PocolW7H=PocolW7Hashes(a,5),PocolW7TE=null,PocolW7T=PocolW7H.length?(await it(PocolW7H.map(([e])=>[`eth_getTransactionByHash`,[e]])).catch(e=>(PocolW7TE=e.message,[]))).map((e,t)=>e&&{...e,timestamp:PocolW7H[t][1]}).filter(Boolean):[];u({status:e,params:t,miners:n,blocks:a,PocolW7Txs:PocolW7T,PocolW7TxError:PocolW7TE})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "eth_getBlockByNumber`,[ot(M-t),!0]])).then(",
+  "new": "eth_getBlockByNumber`,[ot(M-t),!1]])).then(",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "()=>{e=!1}},[M]);let Qe=e=>{n(e),ze(``),He(null),i(!1),",
+  "new": "()=>{e=!1}},[M]),(0,h.useEffect)(()=>{if(t!==`Miners`||PocolW7Start===0)return;let e=!0;it([[`pocol_getMembers`,[PocolW7Start,256]]]).then(([t])=>{e&&PocolW7SetPage(t)}).catch(t=>{e&&Le(t.message)});return()=>{e=!1}},[t,PocolW7Start,v]),(0,h.useEffect)(()=>{let k=l?.blocks?.[0]?.hash;if(D?.type!==`address`||!k||D.PocolW7Activity?.key===k)return;let e=!0,t=D.address,n=t.toLowerCase(),c=D.PocolW7Activity?.cache||{},r=PocolW7Blocks(l.blocks,20);(async()=>{let i=[],g={};for(let a of r){let o=c[a.hash];if(!o){let b=await at(`eth_getBlockByNumber`,[a.number,!0]);if(!e)return;if(b?.hash!==a.hash)throw Error(`The chain changed while the blocks were read. The next update reads them again.`);o=(b?.transactions||[]).filter(s=>typeof s==`object`&&[s.from,s.to].some(e=>e?.toLowerCase()===n)).map(s=>({...s,timestamp:b.timestamp}))}g[a.hash]=o;i.push(...o)}return{key:k,cache:g,blocks:r.length,txs:i}})().catch(e=>({key:k,cache:c,blocks:0,txs:D.PocolW7Activity?.txs||[],error:e.message})).then(r=>{e&&r&&pe(e=>e&&e.type===`address`&&e.address===t?{...e,PocolW7Activity:r}:e)});return()=>{e=!1}},[D?.type,D?.address,l?.blocks?.[0]?.hash]);let Qe=e=>{n(e),ze(``),He(null),PocolW7SetStart(0),i(!1),",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "let[e,t,r]=await it([[`eth_getBalance`,[n,`latest`]],[`eth_getTransactionCount`,[n,`latest`]],[`eth_getCode`,[n,`latest`]]]);a={type:`address`,title:r&&r!==`0x`?`Contract account`:`Account`,address:n,balance:e,nonce:t,code:r}",
+  "new": "let[[e,t,r],PocolW7M]=await Promise.all([it([[`eth_getBalance`,[n,`latest`]],[`eth_getTransactionCount`,[n,`latest`]],[`eth_getCode`,[n,`latest`]]]),PocolW7Retry(()=>at(`pocol_getMember`,[n])).catch(e=>({PocolW7Error:e.message}))]);a={type:`address`,title:r&&r!==`0x`?`Contract account`:`Account`,address:n,balance:e,nonce:t,code:r,member:PocolW7M}",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "let[t,r,i]=await it([[`eth_getTransactionReceipt`,[n]],[`eth_blockNumber`,[]],[`eth_getBlockByNumber`,[e.blockNumber,!1]]]);a={type:`transaction`,title:`Transaction details`,data:e,",
+  "new": "let PocolW7D=PocolW7Decode(e),[[t,r,i],PocolW7V]=await Promise.all([it([[`eth_getTransactionReceipt`,[n]],[`eth_blockNumber`,[]],[`eth_getBlockByNumber`,[e.blockNumber,!1]]]),PocolW7D?.victim?PocolW7Retry(()=>at(`pocol_getMember`,[PocolW7D.victim])).catch(e=>({PocolW7Error:e.message})):null]);a={type:`transaction`,title:`Transaction details`,data:e,registry:PocolW7D,victim:PocolW7V,",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "F=l?.miners||[]",
+  "new": "F=l?.miners?.members||[]",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "pt=ft.flatMap(e=>(e.transactions||[]).filter(e=>typeof e==`object`).map(t=>({...t,timestamp:e.timestamp})))",
+  "new": "pt=l?.PocolW7Txs||[]",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "pt.length?(0,N.jsx)(Ct,{rows:pt.slice(0,5)}):I(l?`No transactions in this window`",
+  "new": "pt.length?(0,N.jsx)(Ct,{rows:pt.slice(0,5)}):l?.PocolW7TxError?I(`Latest transactions unavailable`,`The latest blocks hold transactions, but reading them failed: ${String(l.PocolW7TxError).replace(/\\.$/,``)}. The next update reads them again.`,C):I(l?`No transactions in this window`",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "let yt=F.filter(e=>(Be===`All miners`||(Be===`Eligible`?Pe(e):!Pe(e)))&&[e.id,e.reward].some(e=>e?.toLowerCase().includes(Re.toLowerCase())))",
+  "new": "let PocolW7Meta=PocolW7Start===0?l?.miners:PocolW7Page?.start===PocolW7Start?PocolW7Page:null,PocolW7Shown=PocolW7Meta?.members||[],yt=PocolW7Shown.filter(e=>PocolW7Match(e,Be)&&e.id?.toLowerCase().includes(Re.toLowerCase()))",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "children:F.length})",
+  "new": "children:A(l.miners?.active)})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "{label:`Eligible miners`,value:l?mt.length.toLocaleString():`—`,icon:Ee,note:l?`${F.length} registered on chain`:`On-chain mining membership`}",
+  "new": "{label:`Active members`,value:l?A(l.miners?.active).toLocaleString():`—`,icon:Ee,note:l?PocolW7Counts(F,l.miners):`On-chain mining membership`}",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "On-chain membership, eligibility and reward accounts.",
+  "new": "On-chain membership, bond states and share activity.",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "Eligible miners satisfy the on-chain status and bond checks. Eligibility does not prove a device is currently online or mining.",
+  "new": "Held members have their full bond; Earning bond members are still paying it in. Membership does not prove a device is currently online or mining.",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "children:l?`${mt.length} eligible · ${F.length} registered`:`Registration data will load from the chain.`",
+  "new": "children:PocolW7Meta?PocolW7Counts(PocolW7Shown,PocolW7Meta):l?`Loading members…`:`Registration data will load from the chain.`",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "disabled:!F.length,onClick:()=>lt(`pocol-miners.json`,JSON.stringify(F,null,2))",
+  "new": "disabled:!PocolW7Shown.length,onClick:()=>lt(`pocol-members-${PocolW7Meta?.start??0}.json`,JSON.stringify(PocolW7Shown,null,2))",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "placeholder:`Search miner or reward address`",
+  "new": "placeholder:`Search member address`",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "\"aria-label\":`Miner eligibility`,value:Be,onChange:e=>Ve(e.target.value),children:[(0,N.jsx)(`option`,{children:`All miners`}),(0,N.jsx)(`option`,{children:`Eligible`}),(0,N.jsx)(`option`,{children:`Not eligible`})]",
+  "new": "\"aria-label\":`Member state`,value:Be,onChange:e=>Ve(e.target.value),children:[`All`,`Held`,`Earning bond`,`Tombed`].map(e=>(0,N.jsx)(`option`,{children:e},e))",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(`th`,{children:`Miner address`}),(0,N.jsx)(`th`,{children:`Eligibility`}),(0,N.jsx)(`th`,{children:`Reward account`}),(0,N.jsx)(`th`,{className:`right`,children:`Reward account balance`})",
+  "new": "(0,N.jsx)(`th`,{children:`Member`}),(0,N.jsx)(`th`,{children:`State`}),(0,N.jsx)(`th`,{children:`Last share`}),(0,N.jsx)(`th`,{children:`Registered at`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(`td`,{children:(0,N.jsxs)(`span`,{className:`badge ${Pe(e)?`success`:`neutral`}`,children:[Pe(e)?(0,N.jsx)(ne,{size:12}):(0,N.jsx)(le,{size:12}),` `,Pe(e)?`Eligible`:`Not eligible`]})}),(0,N.jsx)(`td`,{children:xt(e.reward)}),(0,N.jsxs)(`td`,{className:`right amount`,children:[j(e.rewardBalance),` `,(0,N.jsx)(`small`,{children:`PCOL`})]})",
+  "new": "(0,N.jsx)(`td`,{children:(0,N.jsxs)(`span`,{className:`badge ${Pe(e)?`success`:`neutral`}`,children:[Pe(e)?(0,N.jsx)(ne,{size:12}):(0,N.jsx)(le,{size:12}),` `,PocolW7Label(e)]})}),(0,N.jsx)(`td`,{children:PocolW7LastShare(e,PocolW7Meta?.height??dt)}),(0,N.jsx)(`td`,{children:PocolW7Int(e.registeredAt)===null?`—`:`Block ${e.registeredAt}`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "Mining registration, eligibility and reward accounts will appear here.",
+  "new": "Members, their bond states and share activity will appear here.",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(`div`,{className:`table-foot`,children:`Reward account balance includes all account funds; it is not a measure of lifetime mining earnings.`})",
+  "new": "(0,N.jsxs)(`div`,{className:`pagination`,children:[(0,N.jsx)(`span`,{children:PocolW7Meta?`Members ${PocolW7Shown.length?PocolW7Meta.start+1:0}–${PocolW7Meta.start+PocolW7Shown.length} of ${A(PocolW7Meta.active)} · 256 per page`:`No members loaded`}),(0,N.jsxs)(`div`,{children:[(0,N.jsx)(`button`,{\"aria-label\":`Previous members`,disabled:PocolW7Start===0,onClick:()=>PocolW7SetStart(Math.max(0,PocolW7Start-256)),children:`Prev`}),(0,N.jsx)(`button`,{\"aria-label\":`Next members`,disabled:!PocolW7Meta||PocolW7Start+256>=A(PocolW7Meta.active),onClick:()=>PocolW7SetStart(PocolW7Start+256),children:`Next`})]})]}),(0,N.jsx)(`div`,{className:`table-foot`,children:`Bond, reward address and removal check are in each member's account view. Counts are for the loaded page.`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "children:t?`${e.length} registered miners`:`Miner registry loading`",
+  "new": "children:t?`${e.length} members on the loaded page`:`Miner registry loading`",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "let he=n=>n.observer&&t?e.find(e=>e.id?.toLowerCase()===n.miner):null;",
+  "new": "let he=n=>n.observer&&t?e.find(e=>e.id?.toLowerCase()===n.miner)||(/^0x[0-9a-f]{40}$/.test(n.miner||``)?{id:n.miner,PocolW7Off:!0}:null):null;",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "t&&(0,N.jsx)(`small`,{children:Pe(t)?`Eligible registered miner`:`Registered miner · not eligible`})",
+  "new": "t&&(0,N.jsx)(`small`,{children:t.PocolW7Off?`Not on the loaded members page (open account)`:`Member · ${PocolW7Label(t)}`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(L,{label:`Mining membership`,value:F.some(e=>e.id.toLowerCase()===D.address.toLowerCase())?Pe(F.find(e=>e.id.toLowerCase()===D.address.toLowerCase()))?`Registered · eligible`:`Registered · not eligible`:`Not in the loaded registry`})",
+  "new": "...PocolW7MemberRows(D.member).map(([e,t,n])=>(0,N.jsx)(L,{label:e,value:t,link:!!n},e))",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "rt.flatMap(e=>e.transactions.map(t=>({...t,timestamp:e.timestamp}))).filter(e=>[e.from,e.to].some(e=>e?.toLowerCase()===D.address.toLowerCase())).map(e=>",
+  "new": "D.PocolW7Activity?.error&&D.PocolW7Activity.txs.length?(0,N.jsx)(`div`,{className:`small-empty`,children:`These are the last transactions read; reading the latest blocks failed: ${String(D.PocolW7Activity.error).replace(/\\.$/,``)}. They may be out of date until the next update reads them again.`}):null,(D.PocolW7Activity?.txs||[]).map(e=>",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "!rt.some(e=>e.transactions.some(e=>[e.from,e.to].some(e=>e?.toLowerCase()===D.address.toLowerCase())))&&(0,N.jsx)(`div`,{className:`small-empty`,children:`No matching transactions in the loaded window.`})",
+  "new": "!D.PocolW7Activity?.txs.length&&(0,N.jsx)(`div`,{className:`small-empty`,children:!D.PocolW7Activity?`Reading the latest blocks with transactions, one at a time…`:D.PocolW7Activity.error?`Account activity unavailable: ${D.PocolW7Activity.error}`:`No matching transactions in the loaded window.`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "value:D.receipt.contractAddress,link:!0}),(0,N.jsx)(L,{label:`Input data`",
+  "new": "value:D.receipt.contractAddress,link:!0}),...PocolW7TxRows(D.registry,D.victim).map(([e,t,n])=>(0,N.jsx)(L,{label:e,value:t,link:!!n},e)),(0,N.jsx)(L,{label:`Input data`",
+  "count": 1
+ }
+]

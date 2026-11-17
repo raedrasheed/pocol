@@ -26,6 +26,8 @@ on:
       - 'prototypes/lp1-node/src/genesis_spec.rs'
       - 'prototypes/pocol-extension/package.json'
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      # Sites W7: explorer_w7.test.mjs checks the decoder's selectors against the Registry signatures there.
+      - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
       # A config.php anywhere (the .gitignore rule covers only api/ directories) runs the tracked-config.php guard.
       - '**/config.php'
       - '.gitignore'
@@ -49,6 +51,7 @@ on:
       - 'prototypes/lp1-node/src/genesis_spec.rs'
       - 'prototypes/pocol-extension/package.json'
       - 'prototypes/pocol-extension/tests/data/decoder-corpus-v3.json'
+      - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
       - '**/config.php'
       - '.gitignore'
       - '.github/workflows/websites.yml'
@@ -78,8 +81,10 @@ jobs:
           git check-ignore -q --no-index deploy/websites/explorer.pocol.net/api/config.php
       - name: Website identity, derived files, retired identities, origins and download links
         run: python3 -B deploy/websites/tools/site_identity.py --check
-      - name: Website tool tests, the static explorer snapshot and the config.php guards
+      - name: Website tool tests, the static explorer snapshot, the config.php guards and the explorer refresh size (W7)
         run: python3 -B -m unittest discover -s deploy/websites/tests -p 'test_*.py' -v
+      - name: Explorer v3 membership edits (W7) and their helpers in node:vm
+        run: node --test deploy/websites/tests/explorer_w7.test.mjs
       - name: Explorer gateway /api reads (the retired PHP relays' checks, every handler, the recorded PHP vectors)
         run: python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
       - name: Explorer gateway host (Caddy site with the Studio route, static copy, installer and rollback)
@@ -108,3 +113,5 @@ jobs:
           echo "POCOL_CHROMIUM=$(node --input-type=module -e "const {chromium}=await import('$RUNNER_TEMP/browser-tools/node_modules/playwright/index.mjs');console.log(chromium.executablePath())")" >> "$GITHUB_ENV"
       - name: Browser checks of the four sites (all requests outside each local origin aborted)
         run: node deploy/websites/tests/browser_security.mjs
+      - name: Explorer W7 Overview against a fake relay (a refused transaction read, the map's members page)
+        run: node deploy/websites/tests/explorer_w7_browser.mjs

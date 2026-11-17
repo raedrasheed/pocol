@@ -662,8 +662,9 @@ test('W5: the S1 explorer include list publishes 12 files from the tracked snaps
   assert.equal(include.length,12);assert.ok(include.every(path=>denyReason(path)===null&&mimeIdFor(path)!==null),'nothing denied or unsupported is listed');
   const files=include.map(path=>({path,data:new Uint8Array(readFileSync(new URL(path.slice(1),root)))}));
   const p=prepareSite(files);const fileChunks=p.files.reduce((n,f)=>n+f.chunks.length,0);
-  // icon-512.png and pocol-icon.png are byte-identical, so their 7 chunks are stored once.
-  assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,75);assert.equal(p.chunks.length,69,"68 unique file chunks and the manifest");assert.equal(planTransactions(p).length,73,"69 chunks, deploy, createVersion, publish, setCurrent");
+  // icon-512.png and pocol-icon.png are byte-identical, so their 7 chunks are stored once. The explorer bundle is 29
+  // chunks since its W7 edits (tools/explorer-w7-edits.json); a change of its size moves these counts.
+  assert.equal(p.manifestChunks.length,1);assert.equal(fileChunks,76);assert.equal(p.chunks.length,70,"69 unique file chunks and the manifest");assert.equal(planTransactions(p).length,74,"70 chunks, deploy, createVersion, publish, setCurrent");
 });
 
 // ---------------- Sites W4 needs W1: the publisher's calls against the Studio gateway ----------------

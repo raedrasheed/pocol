@@ -58,8 +58,17 @@ python3 -B deploy/websites/tools/site_identity.py --to NEW.json --gateway-host H
 python3 -B deploy/websites/tools/site_identity.py --edits EDITS.json  # anchored bundle edits (W7)
 ```
 
-A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows; `?v=` content
-versions and every `SHA256SUMS.txt` are regenerated. `--check` also refuses a retired identity
+Sites W7 (the explorer's v3 membership, light refresh and Registry decoding) is `tools/explorer-w7-edits.json`, applied
+once with `--edits`: the explorer counts and labels members from one `pocol_getMembers` page of 256 (Held, Earning
+bond, Tombed; the Miners tab pages by 256 while it is open), shows each account's `pocol_getMember` record (state,
+bond as x/B PCOL with B the record's `bondTargetWei`, proposer flag, reward address, removal check, refund height),
+refreshes with `full=false` blocks (the latest transactions by hash, the account activity one full block per request),
+and decodes the eight Registry calls at `0x…c0c001`, reading a `registerReplacing` or `removeInactive` member at the
+head and saying so. Its tests are in `tests/README.md`.
+
+A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
+explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails
+`--check`); `?v=` content versions and every `SHA256SUMS.txt` are regenerated. `--check` also refuses a retired identity
 (`deploy/mainnet/retired-networks.json`, active once the snapshots pin a network that is not retired), any
 `chatgpt.site` origin, a download link whose version is not the extension's `package.json` version, a missing
 `index.html` script or stylesheet, any `config.php` (never read), and server code or a hidden file in the explorer

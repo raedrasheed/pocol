@@ -9,9 +9,33 @@ python3 -B deploy/websites/tools/site_identity.py --check
 php deploy/websites/tests/api_security.php
 python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v   # the explorer's /api reads (Sites W8)
 python3 -B -m unittest discover -s deploy/explorer -v                         # the explorer gateway host's Caddy site
+node --test deploy/websites/tests/explorer_w7.test.mjs                        # the explorer's W7 edits and helpers
 PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
   POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/browser_security.mjs
+PLAYWRIGHT_MODULE=/path/to/playwright/index.mjs \
+  POCOL_CHROMIUM=/path/to/chromium node deploy/websites/tests/explorer_w7_browser.mjs   # the W7 Overview, fake relay
 ```
+
+## Explorer v3 membership (Sites W7)
+
+The explorer bundle has no sources (owner answer Q1), so W7 is a list of anchored edits,
+`tools/explorer-w7-edits.json`, applied once with `python3 -B deploy/websites/tools/site_identity.py --edits
+deploy/websites/tools/explorer-w7-edits.json` (the tool renames the bundle and rewrites index.html, SHA256SUMS.txt and
+the S1 include list). `explorer_w7.test.mjs` checks that the served bundle carries exactly those edits (undone in
+reverse they leave no `PocolW7` name; redone they give the bundle byte for byte), runs the extracted label, bond and
+Registry-decoding helpers in `node:vm` over every bondState, status and tomb value, the ACCRUING thresholds and all 8
+Registry selectors (checked against keccak-256 of the PoColSystemV3.sol signatures) with bad calldata, and checks that
+the refresh reads one `pocol_getMembers` page and light blocks. `test_explorer_w7_size.py` sends that refresh through
+the gateway's relay at the mainnet profile's bounds: each request (and all three together) stays under 4 MiB, one
+full block (about 393 KB) fits, and 20 full blocks, the refresh before W7, are refused.
+`explorer_w7_browser.mjs` loads the snapshot in Chromium against a fake relay (no node or gateway; every outside
+request aborted) with 300 members: when the gateway refuses the refresh's transaction read (429, its busy answer) after
+the status and block reads, the Latest transactions panel says so with the gateway's message instead of "No
+transactions in this window" (also for a message without a closing period); the map's summary counts the loaded
+members page ("256 members on the loaded page"); and an account view left open follows the loaded window: when the head
+moves on, the account's new transaction appears, one that left the latest 20 blocks goes, and only the new block is
+read in full (the activity caches each block's matches by hash); when that read is refused, the last list stays with a
+warning above it that it may be out of date.
 
 The Python tests (`test_site_identity.py`) switch a temporary copy of the snapshots to a test identity and back
 (byte-identical), check that a moved, duplicated or stray anchor fails and writes nothing, exercise anchored edits and
@@ -58,8 +82,12 @@ hidden and missing paths are 404, that the bundle shows the devnet's live head u
 no answer reaches 4 MiB and that no request leaves the page's origin. `POCOL_EXPLORER_FRONT=caddy` (CI) requires
 Caddy; without Caddy (`=node`, the default then) a small Node front serves the same block's routes, headers and
 hidden-path rule, read from its text, so Caddy's own handling is tested only with Caddy. The explorer's v3 membership
-semantics (W7: "Earning bond" for an ACCRUING member, a decoded `registerReplacing`) are not checked: the bundle has
-no `pocol_getMembers` yet. A failed run keeps its work directory's logs and inputs (`explorer-gateway.log`,
+(Sites W7) is checked live: a throwaway devnet account registers with a quarter of B_reg and another sends
+`registerReplacing` naming a miner; the refresh reads one `pocol_getMembers` page and `full=false` block lists only
+(never `pocol_getMiners`; full blocks one per request), the account view shows "Earning bond" with the bond as
+x/B PCOL, the transaction view decodes the call and shows that miner's record read at the head, and the Miners tab and the
+Overview count the loaded page. A three-miner devnet cannot fill the member set, so that replacement reverts: its
+decoding and the victim read are what is checked. A failed run keeps its work directory's logs and inputs (`explorer-gateway.log`,
 `caddy.log`, the `Caddyfile`, the devnet's node logs) in `$POCOL_E2E_KEEP` (CI: `evidence/kept`, uploaded) or
 `prototypes/pocol-extension/tests/failures/`.
 
