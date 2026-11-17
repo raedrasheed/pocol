@@ -28,7 +28,7 @@
 param(
     [Parameter(Mandatory = $true)][string]$Evidence,
     [Parameter(Mandatory = $true)][string]$ExpectedCommit,
-    [ValidateSet('all', 'lp1', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault', 'extension')][string]$Group = 'all'
+    [ValidateSet('all', 'lp1', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault', 'pocold-io-fault-consensus', 'extension')][string]$Group = 'all'
 )
 
 Set-StrictMode -Version 2.0
@@ -41,7 +41,7 @@ $NodeVersion = '22.22.0'
 # https://nodejs.org/dist/v22.22.0/SHASUMS256.txt, node-v22.22.0-win-x64.zip
 $NodeSha256 = 'c97fa376d2becdc8863fcd3ca2dd9a83a9f3468ee7ccf7a6d076ec66a645c77a'
 $NeedsLp1 = @('all', 'lp1') -contains $Group
-$NeedsMain = @('all', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault') -contains $Group
+$NeedsMain = @('all', 'lp4', 'pocold', 'pocold-consensus', 'pocold-io-fault', 'pocold-io-fault-consensus') -contains $Group
 $NeedsExtension = @('all', 'extension') -contains $Group
 
 if ($ExpectedCommit -cnotmatch '^[0-9a-f]{40}$') { throw 'ExpectedCommit must be a full 40-character lowercase hex SHA' }
@@ -189,7 +189,7 @@ $NodeEnv = $(if ($NodeDir) { @{ PATH = ($NodeDir + ';' + $env:PATH) } } else { @
 $SelectedCrates = @()
 if ($NeedsLp1) { $SelectedCrates += 'lp1-node' }
 if (@('all', 'lp4') -contains $Group) { $SelectedCrates += 'lp4-execution' }
-if (@('all', 'pocold', 'pocold-consensus', 'pocold-io-fault') -contains $Group) { $SelectedCrates += 'pocold' }
+if (@('all', 'pocold', 'pocold-consensus', 'pocold-io-fault', 'pocold-io-fault-consensus') -contains $Group) { $SelectedCrates += 'pocold' }
 foreach ($c in @(@('lp1-node', $RustLp1), @('lp4-execution', $RustMain), @('pocold', $RustMain))) {
     if ($SelectedCrates -notcontains $c[0]) { continue }
     $r = Invoke-Step ('fetch-' + $c[0]) 'cargo' @('fetch', '--locked') (& $P $c[0]) @{ RUSTUP_TOOLCHAIN = $c[1] }
@@ -215,11 +215,15 @@ $PocoldArgs = @('test', '--release', '--locked', '--no-fail-fast', '--lib', '--b
 if (@('all', 'pocold-consensus') -contains $Group) {
 [void](Test-Cargo 'pocold-consensus' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--test', 'consensus') 120)
 }
-# Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store, consensus,
-# checkpoint_source, eviction_memory and fn3_members (history.redb's member tables, FN-3).
-# This group takes about 70 minutes on a hosted runner; 120 minutes leaves room for a slow runner inside the 150-minute job.
+# Deterministic storage faults (--features io-fault, absent from the release): the I/O fault tests of state_store,
+# checkpoint_source, eviction_memory and fn3_members (history.redb's member tables, FN-3), and, as their own group, the
+# consensus binary built with io-fault. The consensus binary alone took 6284 s on one hosted runner and 60-100 minutes on
+# others, so one combined step could pass its 120 minutes; each group now has its own 120-minute step and 150-minute job.
 if (@('all', 'pocold-io-fault') -contains $Group) {
-[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'consensus', '--test', 'checkpoint_source', '--test', 'eviction_memory', '--test', 'fn3_members') 120)
+[void](Test-Cargo 'pocold-io-fault' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'state_store', '--test', 'checkpoint_source', '--test', 'eviction_memory', '--test', 'fn3_members') 120)
+}
+if (@('all', 'pocold-io-fault-consensus') -contains $Group) {
+[void](Test-Cargo 'pocold-io-fault-consensus' 'pocold' $RustMain @('test', '--release', '--locked', '--no-fail-fast', '--features', 'io-fault', '--test', 'consensus') 120)
 }
 if ($NeedsExtension) {
 $npm = $(if ($NodeDir) { Join-Path $NodeDir 'npm.cmd' } else { 'npm' }); $node = $(if ($NodeDir) { Join-Path $NodeDir 'node.exe' } else { 'node' })
