@@ -1,0 +1,152 @@
+[
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"The network upgrade is active from block 15000. Use the complete 0.4.0 native package with the matching public network file. Chrome extension users must save the trusted schedule [[1,\\\"0\\\"],[2,\\\"15000\\\"]] in Options → PoCol Mainnet activation and reopen Viewer tabs.\"",
+  "new": "\"Each release pins the network it connects to, including its fork schedule; there is no activation setting in the native applications or in the Chrome extension. Use the native package together with the public network file published with it.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"ترقية الشبكة مفعّلة منذ الكتلة 15000. استخدم حزمة 0.4.0 الأصلية الكاملة مع ملف الشبكة العامة المطابق. على مستخدمي إضافة Chrome حفظ الجدول [[1,\\\"0\\\"],[2,\\\"15000\\\"]] في Options ثم PoCol Mainnet activation وإعادة فتح تبويبات Viewer.\"",
+  "new": "\"يثبّت كل إصدار الشبكة التي يتصل بها، بما في ذلك جدول ترقياتها، ولا يوجد إعداد للتفعيل في التطبيقات الأصلية ولا في إضافة Chrome. استخدم الحزمة الأصلية مع ملف الشبكة العامة المنشور معها.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/about-locales.js",
+  "old": "\"The network upgrade is active from block 15000. Use the complete 0.4.0 native package with the matching public network file. Chrome extension users must save the trusted schedule [[1,\\\"0\\\"],[2,\\\"15000\\\"]] in Options → PoCol Mainnet activation and reopen Viewer tabs.\"",
+  "new": "\"Each release pins the network it connects to, including its fork schedule; there is no activation setting in the native applications or in the Chrome extension. Use the native package together with the public network file published with it.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/about-locales.js",
+  "old": "\"ترقية الشبكة مفعّلة منذ الكتلة 15000. استخدم حزمة 0.4.0 الأصلية الكاملة مع ملف الشبكة العامة المطابق. على مستخدمي إضافة Chrome حفظ الجدول [[1,\\\"0\\\"],[2,\\\"15000\\\"]] في Options ثم PoCol Mainnet activation وإعادة فتح تبويبات Viewer.\"",
+  "new": "\"يثبّت كل إصدار الشبكة التي يتصل بها، بما في ذلك جدول ترقياتها، ولا يوجد إعداد للتفعيل في التطبيقات الأصلية ولا في إضافة Chrome. استخدم الحزمة الأصلية مع ملف الشبكة العامة المنشور معها.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/index.html",
+  "old": ">The network upgrade is active from block 15000. Use the complete 0.4.0 native package with the matching public network file. Chrome extension users must save the trusted schedule [[1,&quot;0&quot;],[2,&quot;15000&quot;]] in Options → PoCol Mainnet activation and reopen Viewer tabs.<",
+  "new": ">Each release pins the network it connects to, including its fork schedule; there is no activation setting in the native applications or in the Chrome extension. Use the native package together with the public network file published with it.<",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/pocol-tools.html",
+  "old": ">The network upgrade is active from block 15000. Use the complete 0.4.0 native package with the matching public network file. Chrome extension users must save the trusted schedule [[1,&quot;0&quot;],[2,&quot;15000&quot;]] in Options → PoCol Mainnet activation and reopen Viewer tabs.<",
+  "new": ">Each release pins the network it connects to, including its fork schedule; there is no activation setting in the native applications or in the Chrome extension. Use the native package together with the public network file published with it.<",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"In extension Options → PoCol Mainnet activation, save [[1,\\\"0\\\"],[2,\\\"15000\\\"]]. Reopen Viewer tabs after saving. Keep the same extension folder and use Reload when updating.\"",
+  "new": "\"The release pins the network and its fork schedule; there is no activation setting in the extension Options.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"في Options ثم PoCol Mainnet activation احفظ [[1,\\\"0\\\"],[2,\\\"15000\\\"]]. أعد فتح تبويبات Viewer بعد الحفظ، واحتفظ بمجلد الإضافة نفسه واستخدم Reload عند تحديثها.\"",
+  "new": "\"يثبّت الإصدار الشبكة وجدول ترقياتها، ولا يوجد إعداد للتفعيل في خيارات الإضافة (Options).\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"For an existing installation, replace the files in the same extension folder and select Reload, then refresh the IDE. Keep the existing extension installation to retain its wallet storage.\"",
+  "new": "\"To upgrade an existing installation, follow this order: export your wallet, click Remove on the old version at chrome://extensions, verify the signature of the new package, load it with Load unpacked, compare the extension ID Chrome shows with the one published on pocol.net, then import your wallet in the confirmation tab.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"لتحديث تثبيت موجود، استبدل الملفات داخل مجلد الإضافة نفسه واختر Reload، ثم أعد تحميل IDE. احتفظ بتثبيت الإضافة الموجود للحفاظ على بيانات محفظتها.\"",
+  "new": "\"لترقية تثبيت موجود اتبع هذا الترتيب: صدّر محفظتك، ثم اضغط Remove على الإصدار القديم في chrome://extensions، وتحقّق من توقيع الحزمة الجديدة، ثم حمّلها باستخدام Load unpacked، وقارن معرّف الإضافة الذي يعرضه Chrome بالمعرّف المنشور على pocol.net، ثم استورد محفظتك في تبويب التأكيد.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/about-locales.js",
+  "old": " For an existing installation, replace the files in the same extension folder and select Reload, then refresh the IDE. Keep the existing extension installation to retain its wallet storage.\"",
+  "new": " To upgrade an existing installation, follow this order: export your wallet, click Remove on the old version at chrome://extensions, verify the signature of the new package, load it with Load unpacked, compare the extension ID Chrome shows with the one published on pocol.net, then import your wallet in the confirmation tab.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/about-locales.js",
+  "old": " لتحديث تثبيت موجود، استبدل الملفات داخل مجلد الإضافة نفسه واختر Reload، ثم أعد تحميل IDE. احتفظ بتثبيت الإضافة الموجود للحفاظ على بيانات محفظتها.\"",
+  "new": " لترقية تثبيت موجود اتبع هذا الترتيب: صدّر محفظتك، ثم اضغط Remove على الإصدار القديم في chrome://extensions، وتحقّق من توقيع الحزمة الجديدة، ثم حمّلها باستخدام Load unpacked، وقارن معرّف الإضافة الذي يعرضه Chrome بالمعرّف المنشور على pocol.net، ثم استورد محفظتك في تبويب التأكيد.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/index.html",
+  "old": " For an existing installation, replace the files in the same extension folder and select Reload, then refresh the IDE. Keep the existing extension installation to retain its wallet storage.</p>",
+  "new": " To upgrade an existing installation, follow this order: export your wallet, click Remove on the old version at chrome://extensions, verify the signature of the new package, load it with Load unpacked, compare the extension ID Chrome shows with the one published on pocol.net, then import your wallet in the confirmation tab.</p>",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/chrome-extension.html",
+  "old": "<li>For an existing installation, replace the files in the same extension folder and select Reload, then refresh the IDE. Keep the existing extension installation to retain its wallet storage.</li>",
+  "new": "<li>To upgrade an existing installation, follow this order: export your wallet, click Remove on the old version at chrome://extensions, verify the signature of the new package, load it with Load unpacked, compare the extension ID Chrome shows with the one published on pocol.net, then import your wallet in the confirmation tab.</li>",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"If you already loaded the extension from a folder, close publishing tabs before updating. Replace the files in that same folder with the contents of the new extension folder, then choose Reload on its card at chrome://extensions. Keeping the same installation folder preserves the extension identity and stored data. Reload Studio afterwards.\"",
+  "new": "\"Close publishing tabs, then upgrade in this order: (1) export your wallet and keep the encrypted PoCol-Studio-Wallet.json and its password; (2) click Remove on the old version at chrome://extensions; (3) verify the release signature of the new package before you extract it; (4) choose Load unpacked and select the extracted folder that contains manifest.json; (5) check that the extension ID Chrome shows is the one published on pocol.net; (6) reload Studio or the IDE and import your wallet in the confirmation tab of your first operation. Removing the old version deletes the data it stored, so the wallet export is what carries your wallet over.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/guide-content.js",
+  "old": "\"إذا سبق أن حمّلت الإضافة من مجلد، فأغلق تبويبات النشر قبل التحديث. استبدل الملفات داخل المجلد نفسه بمحتويات مجلد extension الجديد، ثم اختر Reload من بطاقة الإضافة في chrome://extensions. يحافظ استخدام مجلد التثبيت نفسه على هوية الإضافة وبياناتها المحفوظة. أعد تحميل Studio بعد ذلك.\"",
+  "new": "\"أغلق تبويبات النشر، ثم رقِّ الإضافة بهذا الترتيب: (1) صدّر محفظتك واحتفظ بملف PoCol-Studio-Wallet.json المشفّر وكلمة مروره؛ (2) اضغط Remove على الإصدار القديم في chrome://extensions؛ (3) تحقّق من توقيع الإصدار للحزمة الجديدة قبل فك ضغطها؛ (4) اختر Load unpacked وحدد المجلد المفكوك الذي يحتوي على manifest.json؛ (5) تحقّق من أن معرّف الإضافة الذي يعرضه Chrome هو المعرّف المنشور على pocol.net؛ (6) أعد تحميل Studio أو IDE ثم استورد محفظتك في تبويب التأكيد عند أول عملية. تحذف إزالة الإصدار القديم البيانات التي حفظها، لذا فملف تصدير المحفظة هو ما ينقل محفظتك.\"",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/pocol.net/chrome-extension.html",
+  "old": "<p>If you already loaded the extension from a folder, close publishing tabs before updating. Replace the files in that same folder with the contents of the new extension folder, then choose Reload on its card at chrome://extensions. Keeping the same installation folder preserves the extension identity and stored data. Reload Studio afterwards.</p>",
+  "new": "<p>Close publishing tabs, then upgrade in this order: (1) export your wallet and keep the encrypted PoCol-Studio-Wallet.json and its password; (2) click Remove on the old version at chrome://extensions; (3) verify the release signature of the new package before you extract it; (4) choose Load unpacked and select the extracted folder that contains manifest.json; (5) check that the extension ID Chrome shows is the one published on pocol.net; (6) reload Studio or the IDE and import your wallet in the confirmation tab of your first operation. Removing the old version deletes the data it stored, so the wallet export is what carries your wallet over.</p>",
+  "count": 1
+ },
+ {
+  "file": "prototypes/pocol-studio/dist/app.js",
+  "old": "install3:'Choose Load unpacked and select the extracted folder that contains manifest.json. To update an existing installation, replace its files in the same folder and click Reload on its extension card.'",
+  "new": "install3:'Choose Load unpacked and select the extracted folder that contains manifest.json. To upgrade an existing installation: export your wallet, click Remove on the old version, verify the signature of the new package, load it with Load unpacked, compare the extension ID with the one published on pocol.net, then import your wallet in the confirmation tab.'",
+  "count": 1
+ },
+ {
+  "file": "prototypes/pocol-studio/dist/app.js",
+  "old": "install3:'اختر «تحميل إضافة غير مضغوطة» ثم المجلد الذي يحتوي manifest.json. لتحديث إضافة مثبتة، استبدل الملفات في مجلدها الحالي ثم اضغط Reload من بطاقة الإضافة.'",
+  "new": "install3:'اختر «تحميل إضافة غير مضغوطة» ثم المجلد الذي يحتوي manifest.json. لترقية إضافة مثبتة: صدّر محفظتك، ثم اضغط «إزالة» على الإصدار القديم، وتحقّق من توقيع الحزمة الجديدة، ثم حمّلها بخيار «تحميل إضافة غير مضغوطة»، وقارن معرّف الإضافة بالمعرّف المنشور على pocol.net، ثم استورد محفظتك في تبويب التأكيد.'",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/ide.pocol.net/DEPLOY-README-AR.txt",
+  "old": "عند استبدال نسخة منشورة، احتفظ بنسخة احتياطية من ملفات الموقع السابق. ارفع الملفات الجديدة كاملة ثم حدّث الصفحة الرئيسية. إذا كانت هناك طبقة CDN، حدّث كاش HTML بعد الرفع، واترك الأصول المطابقة متاحة أثناء الانتقال.",
+  "new": "لكل شبكة جديدة Chain ID وGenesis جديدان، وتثبّتهما نسخة IDE المعدّة لها (راجع إعدادات الشبكة في القسم 4)؛ فلا تعمل ملفاتها مع شبكة سابقة، ولا تعمل ملفات نسخة سابقة مع الشبكة الجديدة. عند استبدال النسخة المنشورة، خذ نسخة احتياطية من ملفات الموقع السابق، ثم احذفها من جذر النطاق وارفع ملفات النسخة الجديدة كاملة، واجعل index.html آخر ما ترفعه. لا تخلط ملفات النسختين. إذا كانت هناك طبقة CDN، امسح الكاش لجميع ملفات الموقع بعد الرفع.",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/ide.pocol.net/DEPLOY-README-AR.txt",
+  "old": "المسار الأساسي هو إضافة PoCol للإصدار 0.4.0 المرفقة مع هذه النسخة. اسم الحزمة",
+  "new": "المسار الأساسي هو إضافة PoCol المرفقة مع هذه النسخة. اسم الحزمة",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/ide.pocol.net/DEPLOY-README-AR.txt",
+  "old": "للتثبيت لأول مرة، فك حزمة الإضافة ثم افتح chrome://extensions، فعّل Developer mode، واختر Load unpacked وحدد المجلد الذي يحتوي manifest.json.",
+  "new": "للتثبيت لأول مرة، تحقّق من توقيع الإصدار لحزمة الإضافة، ثم فك ضغطها وافتح chrome://extensions، وفعّل Developer mode، واختر Load unpacked وحدد المجلد الذي يحتوي manifest.json، ثم قارن معرّف الإضافة الذي يعرضه Chrome بالمعرّف المنشور على pocol.net.",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/ide.pocol.net/DEPLOY-README-AR.txt",
+  "old": "لتحديث إضافة غير مضغوطة موجودة بالفعل، احتفظ بنسخة محفظة مشفرة وكلمة مرورها. استبدل ملفات الإضافة داخل مجلدها الحالي نفسه، ثم اضغط Reload من chrome://extensions. لا تحذف الإضافة ثم تعيد تثبيتها كخطوة تحديث؛ الحفاظ على التثبيت نفسه مهم لبيانات المحفظة المحلية. ملفات تطبيقات Windows وLinux الأصلية لم تتغير ضمن إصدار الويب والإضافة هذا.",
+  "new": "إضافة الشبكة الجديدة تثبّت هويتها (Chain ID وGenesis الجديدين)، ولا تحلّ محل إضافة مثبتة للشبكة السابقة. لترقية إضافة مثبتة اتبع هذا الترتيب:\n1. صدّر المحفظة: احتفظ بملف PoCol-Studio-Wallet.json المشفّر وكلمة مروره.\n2. افتح chrome://extensions واضغط Remove على الإضافة القديمة. لا تحذف ملفات محفظة Windows أو Linux الأصلية.\n3. تحقّق من توقيع الإصدار للحزمة الجديدة قبل فك ضغطها.\n4. اختر Load unpacked وحدد المجلد الذي يحتوي manifest.json.\n5. قارن معرّف الإضافة الذي يعرضه Chrome بالمعرّف المنشور على pocol.net.\n6. استورد المحفظة في تبويب التأكيد داخل الإضافة عند أول عملية.\nتحذف إزالة الإضافة القديمة بياناتها المحفوظة في المتصفح، لذا فملف تصدير المحفظة هو ما ينقل محفظتك.",
+  "count": 1
+ },
+ {
+  "file": "deploy/websites/ide.pocol.net/DEPLOY-README-AR.txt",
+  "old": "تم التحقق من Chain ID وGenesis للبوابة الحية من المتصفح عند الكتلة 10922. لم يُتحقق حتى الآن",
+  "new": "القيم أعلاه هي هوية الشبكة التي تثبّتها هذه النسخة؛ تحقّق منها مقابل البوابة الحية من المتصفح بعد نشر الموقع. لم يُتحقق حتى الآن",
+  "count": 1
+ },
+ {
+  "file": "ide-bundle",
+  "old": "`Download PoCol extension 0.4.0`",
+  "new": "`Download PoCol extension 0.4.1`",
+  "count": 1
+ }
+]

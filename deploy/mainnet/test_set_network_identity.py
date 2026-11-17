@@ -161,14 +161,13 @@ KEPT = {
 # file that stops holding the version (five-device-build.yml reads it from package.py since Phase 7). The native 0.5.0
 # bump (owner decision 2026-11-16) landed before the switch, so package.py, the standalone README, the Linux desktop
 # texts, the Windows wallet and build.gradle are gone from this list; what remains moves with the signed extension
-# release and its download links.
+# release and its download links. The Studio quick start's upgrade section names no version since Sites W14.
 STEP3 = {
     # 0.5.0 is decided, but the version moves with the signed release and its download links (the websites' check,
     # deploy/websites/tools/site_identity.py, requires the links to name the package.json version).
     'prototypes/pocol-extension/package.json': re.compile(r'"version":\s*"0\.4\.1"'),
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
-    'prototypes/pocol-studio/QUICKSTART-AR.txt': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
 }
 TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED]
 
