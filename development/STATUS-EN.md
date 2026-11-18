@@ -52,9 +52,16 @@ The network launches with `publicLaunchReady: false` and its launch blockers dis
 Each of these is undecided; texts that need them say "owner decision pending".
 
 - the launch-disclosure wording (draft in `deploy/standalone/README.md`);
-- the reward page S1 wording;
-- the extension manifest public key (`prototypes/pocol-extension/release/manifest-key.pub`), which the owner generates;
-- the release signing public key (`deploy/release/allowed_signers`), which the owner generates.
+- the reward page S1 wording.
+
+Decided by the owner on 2026-11-18:
+
+- the extension manifest public key (`prototypes/pocol-extension/release/manifest-key.pub`), made offline by the
+  owner: extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp`;
+- the release signing public key (`deploy/release/allowed_signers`), made offline by the owner: fingerprint
+  `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (ED25519);
+- the three owner-held server reward addresses, made offline with `pocol-key` and given to the ceremony as
+  `-ServerRewardAddresses` (not committed: the ceremony takes them as a parameter).
 
 Decided by the owner on 2026-11-16:
 

@@ -29,7 +29,7 @@ const packagerTree = (dir) => {
 };
 const tree = packagerTree(join(root, 'tree'));
 // A throwaway manifest key (an Ed25519 SubjectPublicKeyInfo from a fixed seed) in the tree's key slot; the real slot is
-// the owner's (release/manifest-key.pub, the PLACEHOLDER until committed). Its extension id is pinned below.
+// the owner's (release/manifest-key.pub, committed 2026-11-18). Its extension id is pinned below.
 const spkiOf = (seedByte) => createPublicKey(createPrivateKey({ key: Buffer.concat([Buffer.from('302e020100300506032b657004220420', 'hex'), Buffer.alloc(32, seedByte)]), format: 'der', type: 'pkcs8' }))
   .export({ format: 'der', type: 'spki' }).toString('base64');
 const TEST_KEY = spkiOf(7), OTHER_KEY = spkiOf(8);
@@ -87,13 +87,19 @@ test('the extension id of a manifest key is Chrome\'s (sha256 of the DER, first 
   setSlot(PLACEHOLDER_SLOT); const none = spawnSync('python3', ['-B', join(tree, 'scripts', 'package-release.py'), '--extension-id'], { encoding: 'utf8' });
   assert.notEqual(none.status, 0); assert.match(none.stderr, /owner public key is not committed/);
 });
-test('the committed slot is the clearly marked placeholder until the owner commits the key; a development build then has no key', () => {
-  const committed = readManifestKey();
-  if (committed === null) {
-    assert.match(readFileSync(MANIFEST_KEY_FILE, 'utf8'), /^PLACEHOLDER/m); assert.equal(JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).key, undefined);
-  } else assert.equal(JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).key, committed);
+// The owner's release manifest key (release/manifest-key.pub, committed 2026-11-18) and the extension id published on
+// pocol.net.
+const OWNER_MANIFEST_KEY = 'MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqWQrqZhBbzcU1D+5dr+xs5kTZg4C84b6mGILnubAGjeU/JxC+Fg/F9fwE9b4e+ZTXgltm5AgIvhpwvzROtoQ1a6gpcwDLRf+TrhF6oMZwFhoMptBNLnJFsv/gg2LC56qmB7H0CWHi/2eQcabDrqSGBD0lxLKx65qES+1+YT/jT1SXoaDKWtSGMYadTgWZ7N3rXtmaMDJpJwGp4IcTt/eoiNeJKtZvDJSJY3SaWNJaAb/vBUeRvA2rH8BcoPAnrubjEPPHqdryMtKwDFxYlJnT8l25PyspO9nKB2mM8ROprSQjQmCd7U1liTq6KR99LBxDMuQnx9qHjOSGV3qsFLbtQIDAQAB';
+const OWNER_EXTENSION_ID = 'gggcoflmedlhlkcdhebmoepmggdnafmp';
+test('the committed slot is the owner key: the release build carries it, with the published extension id', () => {
+  assert.equal(readManifestKey(), OWNER_MANIFEST_KEY);
+  assert.doesNotMatch(readFileSync(MANIFEST_KEY_FILE, 'utf8'), /^PLACEHOLDER/m);
+  assert.equal(extensionId(OWNER_MANIFEST_KEY), OWNER_EXTENSION_ID);
+  assert.equal(JSON.parse(readFileSync(join(rel, 'manifest.json'), 'utf8')).key, OWNER_MANIFEST_KEY);
   const real = py('m.manifest_key(m.Path(sys.argv[2]))', EXT);
-  assert.equal(real.status === 0 ? real.stdout : null, committed === null ? 'None' : committed, real.stderr);
+  assert.equal(real.status, 0, real.stderr); assert.equal(real.stdout, OWNER_MANIFEST_KEY);
+  const printed = spawnSync('python3', ['-B', join(EXT, 'scripts', 'package-release.py'), '--extension-id'], { encoding: 'utf8' });
+  assert.equal(printed.status, 0, printed.stderr); assert.equal(printed.stdout.trim(), OWNER_EXTENSION_ID);
 });
 test('a release without the committed owner key, or with another key, is refused', () => {
   refused(pack({ slot: PLACEHOLDER_SLOT }), /no manifest key: the owner public key is not committed \(release\/manifest-key\.pub is the PLACEHOLDER/);
@@ -208,7 +214,7 @@ test('a chatgpt.site origin anywhere in the build is refused', () => {
 });
 test('an unreadable retired list fails closed for a release', () => {
   rmSync(join(tree, 'dist'), { recursive: true, force: true }); cpSync(rel, join(tree, 'dist'), { recursive: true }); edit('lib/studio-network.js', releaseIdentity);
-  setSlot(slotWith(TEST_KEY)); edit('manifest.json', (t) => JSON.stringify({ key: TEST_KEY, ...JSON.parse(t) }, null, 2) + '\n');
+  setSlot(slotWith(TEST_KEY)); edit('manifest.json', (t) => JSON.stringify({ ...JSON.parse(t), key: TEST_KEY }, null, 2) + '\n');
   const r = spawnSync('python3', ['-B', join(tree, 'scripts', 'package-release.py'), join(tree, 'x.zip'), '--retired', join(root, 'missing.json')], { encoding: 'utf8' });
   assert.notEqual(r.status, 0); assert.match(r.stderr, /cannot read the retired network identities/); assert.equal(existsSync(join(tree, 'x.zip')), false);
 });
