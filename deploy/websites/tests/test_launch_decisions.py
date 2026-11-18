@@ -4,7 +4,7 @@ decision 3) and the explorer gateway host (explorer.pocol.net, decision 9). Deci
 superseded on 2026-11-18: the fee faucet runs on mainnet. Outside the tests and READMEs, the sites name it only in
 pocol.net's claim page (faucet.html, faucet.js, faucet.css), the home page's Get started card link and its locales.js keys,
 and SHA256SUMS.txt; the only faucet URLs are https://explorer.pocol.net/faucet/claim and /faucet/status."""
-import json, re, unittest
+import html, json, re, unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -222,6 +222,118 @@ class FaucetPage(unittest.TestCase):
                         'locales.js': re.sub(r'"faucetCard(?:Title|Body)": ', '', text)}.get(path.name)
                 self.assertIsNotNone(rest, name)
                 self.assertIsNone(re.search(r'faucet', rest, re.I), name)
+
+class LaunchTexts(unittest.TestCase):
+    """Owner decision 4 (2026-11-18): no served text states anything untrue or presents the public launch as prevented
+    or conditional; the node's readiness report is node-local and refuses nothing. The texts that did (and the retired
+    network's upgrade and migration steps, which are untrue on the new network) were replaced; none may come back."""
+    SERVED = [ROOT / 'deploy' / 'websites' / site for site in ('explorer.pocol.net', 'ide.pocol.net', 'pocol.net')] + \
+             [ROOT / 'prototypes' / 'pocol-studio' / 'dist']
+    REMOVED = {
+        'production readiness': re.compile(r'(?i)production[- ]read(?:y|iness)'),
+        'simnet-only': re.compile(r'(?i)simnet-only'),
+        'production qualification': re.compile(r'(?i)production qualification'),
+        'production admission': re.compile(r'(?i)production admission'),
+        'production blockers': re.compile(r'(?i)production blockers'),
+        'a pending Chrome Web Store release': re.compile(r'(?i)until Chrome Web Store|Web Store installation is not available yet'),
+        'the retired upgrade path': re.compile(r'Upgrade existing network|migration support|block 15000|Install-PoCol-Explorer'),
+        'a pending HTTPS domain': re.compile(r'(?i)when a domain is available'),
+        'Arabic: production readiness': re.compile(r'الجاهزية للإنتاج|جاهز للإنتاج|للاستخدام الإنتاجي'),
+        'Arabic: production qualification': re.compile(r'(?:التأهيل|تأهيلها) للإنتاج'),
+        'Arabic: production operation': re.compile(r'التشغيل الإنتاجي|عوائق الإنتاج|مراجعة أمنية إنتاجية'),
+        'Arabic: a required release step': re.compile(r'خطوة إصدار مطلوبة'),
+        'Arabic: a pending Chrome store release': re.compile(r'إلى حين نشرها في متجر Chrome|متجر Chrome لم يُتح بعد'),
+        'Arabic: the retired upgrade path': re.compile(r'مساعدة الترحيل|الكتلة 15000'),
+        'a pending Android update': re.compile(r'(?i)Android update is being prepared|Android update in preparation'),
+        'Arabic: a pending Android update': re.compile(r'تحديث Android قيد التجهيز|يجري تجهيز تحديث Android'),
+        'a key backup the retired wallet lacks': re.compile(r'back it up first \(Settings → Back up key'),
+        'Arabic: a key backup the retired wallet lacks': re.compile(r'فاحفظ نسخة احتياطية منه أولًا \(Settings'),
+    }
+
+    def test_no_served_file_has_a_removed_launch_text(self):
+        seen = 0
+        for base in self.SERVED:
+            for path, text in tracked_text(base):
+                seen += 1
+                for what, rx in self.REMOVED.items():
+                    m = rx.search(text)
+                    self.assertIsNone(m, f'{path.relative_to(ROOT).as_posix()} has {what}: '
+                                         f'{text[max(0, m.start() - 60):m.end() + 40]!r}' if m else '')
+        self.assertGreater(seen, 40)
+
+    def test_the_patterns_find_the_removed_texts(self):
+        # Each pattern finds the text it was written for, so a silent pattern cannot pass.
+        for what, sample in (
+                ('production readiness', 'Production readiness is not claimed'),
+                ('production readiness', 'The current README labels the code simnet-only and not production-ready.'),
+                ('simnet-only', 'labels the code simnet-only'),
+                ('production qualification', 'it does not imply completed production qualification.'),
+                ('production admission', 'while production admission, open security questions and independent audit remain'),
+                ('production blockers', 'Current status and production blockers'),
+                ('a pending Chrome Web Store release', 'Manual extension installation is needed until Chrome Web Store publication.'),
+                ('a pending Chrome Web Store release', 'Chrome Web Store installation is not available yet.'),
+                ('the retired upgrade path', 'Use Settings → Upgrade existing network while disconnected.'),
+                ('the retired upgrade path', 'retain all data and obtain migration support before proceeding.'),
+                ('the retired upgrade path', 'Use the supplied Install-PoCol-Explorer.sh installer'),
+                ('a pending HTTPS domain', 'A verified HTTPS gateway can be configured when a domain is available.'),
+                ('Arabic: production readiness', 'الجاهزية للإنتاج غير مثبتة'),
+                ('Arabic: production readiness', 'بأنه مخصص لشبكات simnet وغير جاهز للإنتاج'),
+                ('Arabic: production qualification', 'ولا يعني اكتمال تأهيلها للإنتاج.'),
+                ('Arabic: production qualification', 'أو اكتمال التأهيل للإنتاج.'),
+                ('Arabic: production operation', 'بينما يظل التشغيل الإنتاجي والمسائل الأمنية المفتوحة'),
+                ('Arabic: production operation', 'الحالة الحالية وعوائق الإنتاج'),
+                ('Arabic: a required release step', 'وظهور إيصال النشر على الشبكة خطوة إصدار مطلوبة.'),
+                ('Arabic: a pending Chrome store release', 'والإضافة تحتاج تثبيتًا يدويًا إلى حين نشرها في متجر Chrome.'),
+                ('Arabic: the retired upgrade path', 'احتفظ بجميع البيانات واطلب مساعدة الترحيل قبل المتابعة.'),
+                ('a pending Android update', 'The Android update is being prepared with release signing.'),
+                ('a pending Android update', 'Android update in preparation'),
+                ('Arabic: a pending Android update', 'تحديث Android قيد التجهيز'),
+                ('Arabic: a pending Android update', 'يجري تجهيز تحديث Android بتوقيع الإصدار.'),
+                ('a key backup the retired wallet lacks',
+                 'If you want to keep your old key, back it up first (Settings → Back up key to encrypted file, or pocol.exe export-key).'),
+                ('Arabic: a key backup the retired wallet lacks',
+                 'إن أردت الاحتفاظ بمفتاحك القديم فاحفظ نسخة احتياطية منه أولًا (Settings ثم Back up key to encrypted file، أو الأمر pocol.exe export-key).')):
+            self.assertRegex(sample, self.REMOVED[what], what)
+
+    def test_the_home_page_fallbacks_are_the_english_locale(self):
+        # The static English of the wallet-download section (no JavaScript, crawlers, the first paint) is the locale's
+        # English, so a text replaced in about-locales.js cannot stay behind in index.html.
+        locales = (MAIN / 'about-locales.js').read_text(encoding='utf-8')
+        english = json.loads(re.search(r'const extra = (\{.*?\}\}); for', locales, re.S).group(1))['en']
+        page = (MAIN / 'index.html').read_text(encoding='utf-8')
+        checked = 0
+        for tag, key, text in re.findall(r'<(\w+)[^>]*\bdata-i18n="(apps\w+)"[^>]*>(.*?)</\1>', page, re.S):
+            self.assertIn(key, english, key)
+            self.assertEqual(html.unescape(text), english[key], key)
+            checked += 1
+        self.assertGreater(checked, 25)
+        # The retired network's old key stays in the folder moved aside; the 0.4.0 wallet has no encrypted key backup.
+        self.assertIn('your old key stays in that folder', english['appsWindowsUpdateBody'])
+        self.assertIn('\u200e%LOCALAPPDATA%\\PoCol', json.loads(re.search(r'const extra = (\{.*?\}\}); for', locales, re.S).group(1))['ar']['appsWindowsUpdateBody'])
+
+    def test_the_status_page_reports_the_gates_without_blocking_the_launch(self):
+        guide = json.loads((MAIN / 'guide-content.js').read_text(encoding='utf-8')[len('window.POCOL_GUIDE = '):].rstrip().rstrip(';'))
+        status = next(t for t in guide['topics'] if t['id'] == 'status')
+        launch = next(s for s in status['sections'] if s['id'] == 'production')
+        self.assertEqual(launch['title'], {'en': 'Launch status and open gates', 'ar': 'حالة الإطلاق والبوابات التي ما زالت مفتوحة'})
+        self.assertIn('This report is local to the node and stops nothing', launch['paragraphs'][0]['en'])
+        self.assertIn('وهذا التقرير محلي في العقدة ولا يمنع شيئًا', launch['paragraphs'][0]['ar'])
+        page = (MAIN / 'pocol-status.html').read_text(encoding='utf-8')
+        self.assertEqual(page.count('Launch status and open gates'), 2)  # the heading and the page's table of contents
+        # Every repository source link the guide renders pins a full commit, and the static list shows the same ones.
+        for topic in guide['topics']:
+            static = (MAIN / guide['files'][topic['id']]).read_text(encoding='utf-8')
+            listed = re.search(r'<details class="doc-sources" open>.*?</details>', static, re.S).group(0)
+            for source in topic['sources']:
+                if 'url' in source:
+                    continue
+                ref = source.get('ref', guide['sha'])
+                self.assertRegex(ref, r'^[0-9a-f]{40}$')
+                href = f"https://github.com/raedrasheed/pocol/blob/{ref}/{source['path']}" + (f"#{source['anchor']}" if source.get('anchor') else '')
+                self.assertIn(f'<a href="{href}">', listed, topic['id'])
+            self.assertEqual(len(re.findall(r'<li>', listed)), len(topic['sources']), topic['id'])
+            for code, href_ref in re.findall(r'href="https://github\.com/raedrasheed/pocol/blob/([0-9a-f]{40})/[^"]*">[^<]*</a> · <code>([0-9a-f]+)</code>', listed):
+                self.assertEqual(code[:7], href_ref, topic['id'])
 
 if __name__ == '__main__':
     unittest.main()

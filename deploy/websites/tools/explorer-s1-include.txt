@@ -8,7 +8,7 @@
 # A change of the bundle's size moves the chunk counts the extension's publisher test pins for this list
 # (prototypes/pocol-extension/tests/publisher_test.mjs, 'W5: the S1 explorer include list').
 index.html
-assets/index-a577ff41f43d.js
+assets/index-35fb4e83b9af.js
 assets/index-oGnBWUS-.css
 favicon.ico
 site.webmanifest

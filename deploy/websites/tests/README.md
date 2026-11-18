@@ -54,6 +54,16 @@ while linked), `--download` (kept-out lines written, superseded ones dropped, a 
 `keptOut` list (only its lines are carried, so a deleted tracked `.sha256` fails `--check`) and
 that the W14 edits, undone on a copy, give back every served file byte for byte.
 
+## Site truth (owner decision 4, 2026-11-18)
+
+`test_launch_decisions.py` (`LaunchTexts`) refuses the removed launch-blocking and retired-network texts in every
+served file, in English and Arabic. These include "production readiness", "simnet-only", "production qualification",
+"production admission", the old "Upgrade existing network" and migration steps, a pending Chrome Web Store release and
+the old explorer installer, the pending Android update and the key backup that the retired wallet lacks. A check also confirms that each pattern finds its old text, and that the home page's static wallet-download texts are about-locales.js's English. The test checks that the
+status page reports the open gates as node-local and that each guide page's static source list is the guide's, with
+every `<code>` label matching the commit its link pins. `test_site_identity.py` checks that `tools/site-truth-edits.json`,
+undone on a copy, gives back the served explorer bundle and its derived files byte for byte.
+
 The Python tests (`test_site_identity.py`) switch a temporary copy of the snapshots to a test identity and back
 (byte-identical), check that a moved, duplicated or stray anchor fails and writes nothing, exercise anchored edits and
 every `--check` refusal, and guard `config.php`: none is tracked, `.gitignore` ignores it, the tool never reads one.

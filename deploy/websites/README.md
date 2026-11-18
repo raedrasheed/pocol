@@ -99,6 +99,18 @@ and drops the kept-out lines (and names) of other versions of the same archive f
 tracked file it supersedes must be removed first. Only the lines `keptOut` names are carried for files that are not in
 the snapshot, so a tracked file that is deleted (a `.sha256`) loses its line and `--check` fails until a run drops it.
 
+Site truth (owner decision 4, 2026-11-18: no text states anything untrue or presents the public launch as prevented or
+conditional). The explorer bundle's installer step names `deploy/explorer/install_explorer_gateway.py --site DIR` and
+its gateway note says that the gateway listens on 127.0.0.1:8088 behind Caddy (`tools/site-truth-edits.json`, applied
+once with `--edits` after W7). pocol.net, DEPLOY-README-AR.txt and the Studio app were edited directly. The status page
+reports the open gates and says that the node's readiness report is node-local and stops nothing. The retired
+network's upgrade, migration and Android-update texts are replaced: nothing carries over to the new network. The
+static source lists are the guide's, and the README, V3 program and CP links pin main at `4db2652`. The 0.5.0
+download links and names, the published extension ID and key fingerprint, and the IDE's "0.4.0 or later" messages
+change with the signed release (W16). Until then the links beside "Coming from the retired network?" (home page and
+tools page) are labelled as the retired network's 0.4.0 Windows package; W16 replaces or removes them.
+`tests/test_launch_decisions.py` (`LaunchTexts`) refuses the removed texts.
+
 A changed bundle is renamed `<prefix>-<first 12 hex digits of its SHA-256>.js` and `index.html` follows, as does the
 explorer bundle's line in `tools/explorer-s1-include.txt` (a list that names any other explorer bundle fails
 `--check`); `?v=` content versions and every `SHA256SUMS.txt` are regenerated. `--check` also refuses a retired identity

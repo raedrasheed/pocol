@@ -1,0 +1,26 @@
+[
+ {
+  "file": "explorer-bundle",
+  "old": "`Use the supplied `,(0,N.jsx)(`code`,{children:`Install-PoCol-Explorer.sh`}),` installer on explorer.pocol.net. It reads the existing node at 127.0.0.1:8545.`]",
+  "new": "`Use the supplied `,(0,N.jsx)(`code`,{children:`deploy/explorer/install_explorer_gateway.py`}),` installer on explorer.pocol.net. It reads the existing node at 127.0.0.1:8545. DIR in the command below is the static copy that deploy/websites/tools/site_snapshot.py builds from a checkout of the release commit (deploy/explorer/README.md).`]",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "(0,N.jsx)(`code`,{children:`sudo bash Install-PoCol-Explorer.sh`})",
+  "new": "(0,N.jsx)(`code`,{children:`sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR`})",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "onClick:()=>et(`sudo bash Install-PoCol-Explorer.sh`)",
+  "new": "onClick:()=>et(`sudo python3 deploy/explorer/install_explorer_gateway.py --site DIR`)",
+  "count": 1
+ },
+ {
+  "file": "explorer-bundle",
+  "old": "`Gateway: HTTP port 8088, read-only PoCol Mainnet data. Use HTTPS for explorer.pocol.net. A verified HTTPS gateway can be configured when a domain is available.`",
+  "new": "`Gateway: read-only PoCol Mainnet data, served over HTTPS at explorer.pocol.net. The gateway itself listens only on 127.0.0.1:8088, behind Caddy.`",
+  "count": 1
+ }
+]
