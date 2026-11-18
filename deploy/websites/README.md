@@ -34,9 +34,23 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   Studio installer adds its route). The PHP relays, both `.htaccess` files and `explorer-config.example.php` are
   retired: the explorer snapshot holds no server code, and `site_identity.py --check` refuses any.
 - **The fee faucet.** Decided 2026-11-16 as "no faucet on mainnet"; superseded on 2026-11-18: the fee faucet
-  (`deploy/faucet`) runs on mainnet with the owner's limits. The site snapshots do not link it yet: its claim page and
-  gateway route are added with their own change, and `tests/test_launch_decisions.py` keeps every faucet reference
-  out of the snapshots until then.
+  (`deploy/faucet`) runs on mainnet with the owner's limits. Its claim page is `pocol.net/faucet.html` (with
+  `faucet.js` and `faucet.css`), linked from the fourth "Get your first fee" card of the home page's Get started
+  section. The browser calls the faucet itself, so the faucet's per-client limit counts each visitor's IP address rather
+  than this host: `GET https://explorer.pocol.net/faucet/status` for the amount and the transfers left today (the button is
+  disabled at 0), and `POST https://explorer.pocol.net/faucet/claim` with the JSON body `{"address": ...}` after the
+  page checks the address format. Those routes and the faucet's `allowOrigin` of exactly `https://pocol.net` are configured
+  with the faucet and the gateway host, not in these snapshots. Every faucet error carries a `code`; the page shows its own English or Arabic text for
+  each of the 21 codes (falling back on the HTTP status when an answer has none) and never inserts server text as
+  HTML. An `unknown_outcome`, an unreadable success answer and a claim that got no answer tell the visitor to check
+  the address in the explorer before trying again. The page pins no chain ID: the faucet pins its own network.
+  Answers over 16 KiB are not read to the end and count as unreadable.
+  `tests/test_launch_decisions.py` (`FaucetPage`) checks that, tests and READMEs aside, the only files under
+  `deploy/websites` and `prototypes/pocol-studio/dist` that name the faucet are the claim page files, the home page (its card link and keys),
+  `locales.js` (the card keys) and `SHA256SUMS.txt` (the three page files), and that the only faucet URLs are those two
+  routes (the IDE's third-party bundle is checked for faucet links only); `tests/browser_security.mjs` runs the page against stubbed answers.
+  If the pocol.net host sends a Content-Security-Policy (none is in this repository), its `connect-src` must allow
+  `https://explorer.pocol.net`, or every claim fails as unreachable.
 
 Left out of Git and kept in the release asset:
 - the download archives (`*.zip`): the old native packages and the extension packages;
