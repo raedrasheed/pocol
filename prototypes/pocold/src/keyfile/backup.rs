@@ -160,6 +160,42 @@ pub fn seal(secret: &[u8; 32], passphrase: &[u8]) -> Result<Vec<u8>, String> {
     seal_with(secret, passphrase, DEFAULT_ITERATIONS, &salt, &nonce)
 }
 
+/// [`seal`], then [`open`] again: a backup that would not restore is never handed out.
+pub fn seal_checked(secret: &[u8; 32], passphrase: &[u8]) -> Result<Vec<u8>, String> {
+    let file = seal(secret, passphrase)?;
+    if open(&file, passphrase)?.as_ref() != secret.as_ref() {
+        return Err("key backup self-check failed; nothing was exported".into());
+    }
+    Ok(file)
+}
+
+/// The bytes of the backup file at `path`, a regular file read to at most one byte past [`LEN`] (so [`open`]
+/// reports a longer file as damaged without reading all of it).
+pub fn read(path: &std::path::Path) -> Result<Vec<u8>, String> {
+    use std::io::Read;
+    let file = std::fs::File::open(path).map_err(|e| format!("open {}: {e}", path.display()))?;
+    if !file.metadata().map_err(|e| e.to_string())?.is_file() {
+        return Err("expected a regular key backup file".into());
+    }
+    let mut bytes = Vec::with_capacity(LEN + 1);
+    file.take(LEN as u64 + 1).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+    Ok(bytes)
+}
+
+/// Writes a backup to a new file that never replaces an existing path (mode 0600 on Unix): only ciphertext.
+pub fn write_new(path: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
+    use std::io::Write;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options.open(path).map_err(|e| format!("create {}: {e} (an existing file is never replaced)", path.display()))?;
+    file.write_all(bytes).and_then(|_| file.sync_all()).map_err(|e| e.to_string())
+}
+
 fn seal_with(secret: &[u8; 32], passphrase: &[u8], iterations: u32, salt: &[u8; 16], nonce: &[u8; 12]) -> Result<Vec<u8>, String> {
     let mut out = Vec::with_capacity(LEN);
     out.extend_from_slice(MAGIC);
@@ -529,9 +565,9 @@ fn gcm_open(key: &[u8; 32], nonce: &[u8; 12], aad: &[u8], data: &mut [u8], tag: 
     true
 }
 
-// ---- Passphrase input of the `pocol` command ----
+// ---- Passphrase input of the `pocol`, `pocol-key` and `pocol-sign` commands (the terminal side is `prompt`) ----
 
-/// Where the `pocol` command reads a passphrase from.
+/// Where the command reads a passphrase from.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PassphraseInput {
     /// A pipe or file (the Windows wallet writes the line through a pipe).

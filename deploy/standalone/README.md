@@ -121,7 +121,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetw
 `OWNER_ADDR1..3` are placeholders for three distinct owner-held addresses, one per server in
 `-Servers` order. Make them on another device that is never a server, ideally offline:
 `pocol-key generate --out FILE`, then `pocol-key address --key-file FILE` (lower-case `0x` hex,
-as the script requires); keep each key file and its backup offline. The script refuses a
+as the script requires); keep each key file and its backup offline. Back the key up encrypted
+with `pocol-key export --key-file FILE --out BACKUP` (the `export-key` format; the passphrase is
+read twice from stdin) and check it, without writing any file, with
+`pocol-sign --chain-id ID --address --backup BACKUP`, which prints the same address;
+`pocol-sign --backup BACKUP` signs from the backup directly. The script refuses a
 missing, repeated, mixed-case, zero or system address before it contacts any server, and an
 address equal to a founder's miner identity. Each reward account starts at nonce 1 (PAY-02), so
 its first offline-signed transaction needs `pocol-sign --nonce 1` (pocol-sign defaults to 0).
