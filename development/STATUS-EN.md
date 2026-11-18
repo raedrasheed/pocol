@@ -44,7 +44,7 @@ mining. The browser extension moves to 0.5.0 with a fixed key.
    change, and release them.
 5. **Public launch** with the launch disclosures.
 
-The network launches with `publicLaunchReady: false` and its launch blockers disclosed; the open gates are in
+The network launches with `publicLaunchReady: false`, its launch blockers reported by the software; the open gates are in
 [public-network/PLAN.md](public-network/PLAN.md). No independent external security review has been done.
 
 ## Open owner items
