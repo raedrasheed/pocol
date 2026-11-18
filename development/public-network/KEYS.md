@@ -37,6 +37,32 @@ secret input buffers are zeroized; no claim of complete process-memory erasure o
 protection against a compromised operating system is made. Keep a controlled offline
 backup, test recovery to the same address and retain access to reward keys.
 
+### Encrypted backup of a key file
+
+An offline key can be backed up encrypted, in the same 98-byte passphrase-encrypted
+format as `pocol export-key` (PBKDF2-HMAC-SHA256, 600,000 iterations, AES-256-GCM):
+
+```sh
+prototypes/pocold/target/release/pocol-key export \
+  --key-file /absolute/private/key-directory/reward.pocol-key --out reward.pocol-backup
+prototypes/pocold/target/release/pocol-key import \
+  --backup reward.pocol-backup --out /absolute/private/key-directory/restored.pocol-key
+```
+
+Both print only the public address. The passphrase is read from stdin, never from an
+argument: on a terminal it is typed with echo off (a terminal whose echo cannot be
+switched off is refused), otherwise it is one line on a pipe. `export` reads it twice
+and refuses a passphrase shorter than 12 characters or one that guessing tools try
+first. Neither command replaces an existing path: the backup is created with mode
+0600, the restored key file like a generated one. A wrong passphrase or a damaged
+backup is refused and writes nothing. To check that the backup restores the same
+address without writing a second plaintext copy, run
+`pocol-sign --chain-id ID --address --backup reward.pocol-backup`: it decrypts in memory and
+prints the address. `import` writes a plaintext key file; delete it when it is not needed. `pocol-sign --backup FILE` signs straight
+from the backup (the same transactions as `--key-file`), so the plaintext key need not
+stay on the signing device. The backup is as strong as its passphrase: store it apart
+from the passphrase. This is a portable backup, not a keystore or an HSM.
+
 For a service, generate the miner key as the service user in a separate private key
 directory. The node must run as that same user. Do not copy every miner's secret to
 every host. No shared private-key list is needed to construct genesis. `*.pocol-key`
@@ -90,7 +116,8 @@ prototypes/pocold/target/release/pocold run --network new-network-directory \
 
 Use `--peer IP:PORT` for known peers. `pocol-sign --key-file FILE` and
 `pocol-site publish --key-file FILE` accept independent account keys instead of
-`--account LABEL`. Never supply both. `--miner-key-file` is mutually exclusive with
+`--account LABEL`; `pocol-sign --backup FILE` takes an encrypted backup instead.
+Never supply more than one. `--miner-key-file` is mutually exclusive with
 `--miner LABEL`; missing or duplicate key selectors fail. The old label switches
 remain solely for existing disposable devnet fixtures.
 
