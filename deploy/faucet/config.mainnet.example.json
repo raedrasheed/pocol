@@ -1,0 +1,15 @@
+{
+  "chainId": 2656089850,
+  "rpc": "http://127.0.0.1:8545",
+  "keyFile": "/var/lib/pocol-faucet/operator.pocol-key",
+  "signer": "/opt/pocol-standalone/pocol-sign",
+  "ledger": "/var/lib/pocol-faucet/ledger.json",
+  "listen": "127.0.0.1",
+  "port": 8547,
+  "amountWei": "2000000000000000",
+  "dailyLimit": 200,
+  "perClientDaily": 3,
+  "maxFloatWei": "10000000000000000000",
+  "trustProxy": false,
+  "allowOrigin": null
+}

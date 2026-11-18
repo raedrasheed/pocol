@@ -65,7 +65,9 @@ Decided by the owner on 2026-11-18:
   encrypted backup and paper copies;
 - no text may state anything untrue or present the public launch as prevented; the launch disclosures carry no
   "not public-launch-ready" item and no list of ongoing engineering work;
-- newcomers' first registration fee: the founders transfer it on request (no mainnet faucet);
+- newcomers' first registration fee: the automated fee faucet runs on mainnet (`deploy/faucet`), with the owner's
+  limits as code-enforced ceilings: 0.002 PCOL per new address once, 200 transfers a day, 3 per client a day, from a
+  dedicated operator key holding at most 10 PCOL (this supersedes the 2026-11-16 "no faucet on mainnet");
 - the independent security review (Q1) is commissioned after the launch.
 
 The decisions and the owner's words are in
@@ -83,7 +85,7 @@ Decided by the owner on 2026-11-16:
 - the canonical repository: `raedrasheed/pocol`;
 - a fork activation is announced at least 24 h (8,640 blocks at T_blk 10) ahead;
 - the build-info scope label is `mainnet`;
-- no faucet on mainnet (the rehearsal network only);
+- no faucet on mainnet (the rehearsal network only; superseded on 2026-11-18: the fee faucet runs on mainnet);
 - the explorer gateway host is `explorer.pocol.net`, replacing the old PHP site.
 
 ## Earlier work

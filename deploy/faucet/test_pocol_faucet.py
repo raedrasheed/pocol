@@ -112,20 +112,73 @@ class FaucetRules(unittest.TestCase):
         (self.dir / 'ledger.json').write_text('{"claims": []}')
         with self.assertRaises(ValueError): self.faucet()
 
-    def test_mainnet_is_refused_before_the_key_or_signer(self):
-        # Owner decision 2026-11-16: no faucet on mainnet; the rehearsal network only.
+    def mainnet(self):
         root = Path(__file__).resolve().parents[2] / 'deploy' / 'mainnet'
-        mainnet = json.loads((root / 'v3-profile.json').read_text(encoding='utf-8'))['chainId']
-        rehearsal = json.loads((root / 'v3-rehearsal-profile.json').read_text(encoding='utf-8'))['chainId']
+        return (json.loads((root / 'v3-profile.json').read_text(encoding='utf-8'))['chainId'],
+                json.loads((root / 'v3-rehearsal-profile.json').read_text(encoding='utf-8'))['chainId'])
+
+    def test_mainnet_runs_with_the_owner_limits(self):
+        # Owner decision 2026-11-18: the faucet runs on mainnet with these limits (superseding 2026-11-16).
+        mainnet, rehearsal = self.mainnet()
         self.assertEqual(pf.MAINNET_CHAIN_IDS, {mainnet})
         self.assertNotIn(rehearsal, pf.MAINNET_CHAIN_IDS)
-        for chain in (mainnet, str(mainnet)):
+        self.assertEqual(pf.MAINNET_LIMITS, {'amountWei': 2 * 10**15, 'dailyLimit': 200, 'perClientDaily': 3,
+                                             'maxFloatWei': 10 * 10**18})
+        # The defaults are the mainnet ceilings, so a config that names only the chain runs at them.
+        for k in ('amountWei', 'dailyLimit', 'perClientDaily'):
+            self.assertEqual(int(pf.DEFAULTS[k]), pf.MAINNET_LIMITS[k], k)
+        self.node.chain = mainnet; self.node.balances[OP] = 10 * 10**18
+        f = self.faucet(chainId=str(mainnet))
+        self.assertEqual(f.max_float, 10 * 10**18)
+        self.assertEqual(f.claim(NEW, 'c1'), {'type': 'sent', 'hash': '0x' + f'{1:064x}', 'amountWei': str(2 * 10**15), 'to': NEW})
+        # Lower values are allowed.
+        lower = self.faucet(chainId=mainnet, amountWei=str(10**15), dailyLimit=10, perClientDaily=1, maxFloatWei=str(10**18),
+                            ledger=str(self.dir / 'lower.json'))
+        self.assertEqual((lower.amount, lower.max_float), (10**15, 10**18))
+
+    def test_mainnet_refuses_limits_above_the_owner_ceilings_before_the_key_or_signer(self):
+        mainnet, rehearsal = self.mainnet()
+        for bad in ({'amountWei': str(2 * 10**15 + 1)}, {'dailyLimit': 201}, {'perClientDaily': 4},
+                    {'maxFloatWei': str(10 * 10**18 + 1)}):
             with self.assertRaises(ValueError) as e:
-                pf.Faucet({'chainId': chain, 'keyFile': str(self.dir / 'missing.pocol-key'), 'ledger': str(self.dir / 'l.json')},
+                pf.Faucet({'chainId': mainnet, 'keyFile': str(self.dir / 'missing.pocol-key'), 'ledger': str(self.dir / 'l.json'), **bad},
                           rpc=self.node, sign=self.signer)
-            self.assertIn('rehearsal network only', str(e.exception))
-        self.assertEqual(self.signer.calls, [], 'the signer is never called for mainnet')
+            self.assertIn('owner decision 2026-11-18', str(e.exception))
+            self.assertIn(next(iter(bad)), str(e.exception))
+        self.assertEqual(self.signer.calls, [], 'the signer is never called for a refused mainnet config')
         self.assertFalse((self.dir / 'l.json').exists())
+        # The ceilings are mainnet's: the rehearsal network keeps its configurable limits and has no default float.
+        self.node.chain = rehearsal
+        f = self.faucet(chainId=rehearsal, dailyLimit=500, perClientDaily=10)
+        self.assertIsNone(f.max_float)
+        self.assertEqual(f.claim(NEW, 'c1')['to'], NEW)
+
+    def test_mainnet_stops_while_the_operator_holds_more_than_the_float(self):
+        mainnet, _ = self.mainnet()
+        self.node.chain = mainnet; self.node.balances[OP] = 10 * 10**18 + 1
+        f = self.faucet(chainId=mainnet)
+        self.refused(f, NEW, 503, 'more than the faucet float')
+        self.assertNotIn(NEW, json.loads((self.dir / 'ledger.json').read_text())['claims'] if (self.dir / 'ledger.json').exists() else {})
+        self.assertEqual(len(self.signer.calls), 1, 'only the address was asked of the signer')
+        # Back at or below the float, the same address is served.
+        self.node.balances[OP] = 10 * 10**18
+        self.assertEqual(f.claim(NEW, 'c1')['to'], NEW)
+        # A configured float applies on any network.
+        self.node.chain = CHAIN; self.node.balances[OP] = 2 * 10**18
+        g = self.faucet(maxFloatWei=str(10**18), ledger=str(self.dir / 'g.json'))
+        self.refused(g, '0x' + 'cd' * 20, 503, 'more than the faucet float')
+        with self.assertRaises(ValueError): self.faucet(maxFloatWei='0', ledger=str(self.dir / 'h.json'))
+
+    def test_the_mainnet_example_config_is_within_the_owner_limits(self):
+        here = Path(__file__).resolve().parent
+        example = json.loads((here / 'config.mainnet.example.json').read_text(encoding='utf-8'))
+        mainnet, _ = self.mainnet()
+        self.assertEqual(example['chainId'], mainnet)
+        self.assertEqual({k: int(example[k]) for k in pf.MAINNET_LIMITS}, pf.MAINNET_LIMITS)
+        self.node.chain = mainnet; self.node.balances[OP] = 10 * 10**18
+        cfg = {k: v for k, v in example.items() if k not in ('keyFile', 'ledger', 'signer')}
+        f = pf.Faucet({**cfg, 'keyFile': str(self.key), 'ledger': str(self.dir / 'ledger.json')}, rpc=self.node, sign=self.signer)
+        self.assertEqual(f.claim(NEW, 'c1')['to'], NEW)
 
     def test_the_example_config_names_the_rehearsal_network(self):
         here = Path(__file__).resolve().parent

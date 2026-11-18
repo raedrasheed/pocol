@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
-"""PoCol fee faucet: rehearsal network only (owner decision 2026-11-16: no faucet on mainnet).
+"""PoCol fee faucet, on the rehearsal network and on mainnet (owner decision 2026-11-18, superseding the
+rehearsal-only decision of 2026-11-16).
 
-It refuses to start with the mainnet chain ID (MAINNET_CHAIN_IDS, deploy/mainnet/v3-profile.json), before it touches
-the key file or the signer, and every claim still checks that the node's chain ID is the configured one.
+On the mainnet chain ID (MAINNET_CHAIN_IDS, deploy/mainnet/v3-profile.json) the owner-approved limits are ceilings
+(MAINNET_LIMITS): a config above them is refused before the key file or the signer is touched, and a claim is refused
+while the operator account holds more than the mainnet float, so only a dedicated key with a small balance can serve.
+Every claim still checks that the node's chain ID is the configured one.
 
 A new miner on the earn-in network registers with a 0 PCOL bond, but its first transaction still pays
 a fee. This service sends a small fixed amount (the configured `amountWei`) to a new account:
@@ -26,8 +29,11 @@ from pathlib import Path
 ADDRESS = re.compile(r'^0x[0-9a-fA-F]{40}$')
 DEFAULTS = {'listen': '127.0.0.1', 'port': 8547, 'rpc': 'http://127.0.0.1:8545', 'amountWei': str(2 * 10**15),
             'dailyLimit': 200, 'perClientDaily': 3, 'trustProxy': False, 'allowOrigin': None, 'signer': 'pocol-sign'}
-# The mainnet chain ID (deploy/mainnet/v3-profile.json chainId; a test pins it). The faucet never runs there.
+# The mainnet chain ID (deploy/mainnet/v3-profile.json chainId; a test pins it).
 MAINNET_CHAIN_IDS = frozenset({2656089850})
+# Owner decision 2026-11-18: on mainnet, at most 0.002 PCOL per address, 200 transfers a UTC day and 3 per client a
+# UTC day, from a dedicated operator key holding at most a 10 PCOL float. A config may set lower values, never higher.
+MAINNET_LIMITS = {'amountWei': 2 * 10**15, 'dailyLimit': 200, 'perClientDaily': 3, 'maxFloatWei': 10 * 10**18}
 MAX_BODY = 512
 MAX_CONNECTIONS = 16
 REQUEST_TIMEOUT = 12
@@ -78,9 +84,16 @@ class Faucet:
         for k in ('chainId', 'keyFile', 'ledger'):
             if k not in self.cfg: raise ValueError(f'config needs {k}')
         self.chain_id = int(self.cfg['chainId']); self.amount = int(self.cfg['amountWei'])
-        if self.chain_id in MAINNET_CHAIN_IDS:
-            raise ValueError('the fee faucet runs on the rehearsal network only, never on mainnet (owner decision 2026-11-16)')
         if self.amount <= 0 or self.amount > 10**18: raise ValueError('amountWei must be positive and at most 1 PCOL')
+        self.max_float = None if self.cfg.get('maxFloatWei') is None else int(self.cfg['maxFloatWei'])
+        if self.max_float is not None and self.max_float <= 0: raise ValueError('maxFloatWei must be positive')
+        if self.chain_id in MAINNET_CHAIN_IDS:
+            if self.max_float is None: self.max_float = MAINNET_LIMITS['maxFloatWei']
+            values = {'amountWei': self.amount, 'dailyLimit': int(self.cfg['dailyLimit']),
+                      'perClientDaily': int(self.cfg['perClientDaily']), 'maxFloatWei': self.max_float}
+            for k, ceiling in MAINNET_LIMITS.items():
+                if values[k] > ceiling:
+                    raise ValueError(f'on mainnet {k} may be at most {ceiling} (owner decision 2026-11-18)')
         key = Path(self.cfg['keyFile'])
         if not key.is_file(): raise ValueError('the operator key file does not exist')
         if os.name != 'nt' and key.stat().st_mode & 0o077: raise ValueError('the operator key file must not be readable by group or others')
@@ -130,7 +143,10 @@ class Faucet:
             if self.rpc('eth_getCode', [address, 'latest']) not in ('0x', '0x0', ''): raise Refused(400, 'The faucet funds only ordinary accounts')
             if int(self.rpc('eth_getBalance', [address, 'pending']), 16) >= self.amount: raise Refused(409, 'This account already holds enough PCOL for its first fee')
             price = int(self.rpc('eth_gasPrice', []), 16); max_fee = max(2 * price, 2 * GWEI)
-            if int(self.rpc('eth_getBalance', [self.address, 'pending']), 16) < self.amount + 21000 * max_fee: raise Refused(503, 'The faucet is empty')
+            held = int(self.rpc('eth_getBalance', [self.address, 'pending']), 16)
+            if self.max_float is not None and held > self.max_float:
+                raise Refused(503, 'The faucet operator account holds more than the faucet float; the faucet is stopped')
+            if held < self.amount + 21000 * max_fee: raise Refused(503, 'The faucet is empty')
             nonce = int(self.rpc('eth_getTransactionCount', [self.address, 'pending']), 16)
             raw = self.sign(['--to', address, '--value', str(self.amount), '--nonce', str(nonce), '--max-fee', str(max_fee)])
             if not re.fullmatch(r'0x[0-9a-fA-F]+', raw): raise Refused(500, 'the signer returned no transaction')
