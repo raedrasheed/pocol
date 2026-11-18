@@ -35,7 +35,7 @@ pub const PLAN_GATES_OPEN:&[(&str,&str)]=&[
     ("S1","bounded historical state: K_eff and historical RPC behavior within the resource budget remain"),
     ("N1","Internet exposure: actual Internet ingress acceptance and the remaining RpcGuard controls remain"),
     ("L1","sustained operation: the rehearsal on the founders' devices, an actual multi-host soak and an upgrade drill remain"),
-    ("E1","network lifetime and economics: the genesis ceremony, the founders' reward addresses and the rehearsal evidence remain"),
+    ("E1","network lifetime and economics: the genesis ceremony (it enters the founders' decided reward addresses) and the rehearsal evidence remain"),
     ("Q1","release review: an independent security review and the unresolved-finding ledger remain"),
 ];
 /// V3-28 H2: the launch networks (chainId, genesisHash) this release pins. Empty: no network is a launch network yet,

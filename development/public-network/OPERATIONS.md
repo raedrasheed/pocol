@@ -569,7 +569,7 @@ The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
    genesis, one invitation (PLAN.md, "Launch order").
 3. **Bounded state and admission.** Resolve bounded historical-state/K_eff accounting and near-cap tests; complete the
    deferred resource/gas derivations and the missing RpcGuard mechanisms; measure worst-case execution.
-4. **Review.** Obtain an independent security review and publish the reviewed release with its limitations before
-   the public endpoints are opened. Existing automated review is not that review.
+4. **Review.** Obtain an independent security review (Q1, open: the software reports it as `plan-gate-Q1`) and
+   publish the reviewed release with its limitations. Existing automated review is not that review.
 5. **Fork tooling.** Restore the seed fork-migration tool (the G3 TODO above) before the first fork of the new chain.
    It must refuse an H2 or H less than 8,640 blocks (the 24 h minimum notice) above the current head, with a test.
