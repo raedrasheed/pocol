@@ -135,7 +135,7 @@ is marked `testPlaceholders: true` and "TEST GENESIS" in its devnet.json and sum
 - `safe` at 6 blocks and the reorg alarm at 60 (owner answer 12).
 - NTP offset ≤ 0.5 s on every founder, including the Windows PC through a configured w32time peer.
 - Admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope, with `retentionStress`. R21's input is far
-  above `HIST_TRIE_BUDGET` at these caps; the resident bound is A13 store mode, measured in M1. The calibration class
+  above `HIST_TRIE_BUDGET` at these caps; the resident bound is A13 store mode, to be measured in M1. The calibration class
   is measured.
 
 ## 5. Chain ids (drawn 2026-11-14)

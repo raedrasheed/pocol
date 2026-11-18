@@ -1,10 +1,10 @@
 # Public testnet operations candidate
 
-This package advances public-network preparation. It is **not a public launch
-clearance**: the existing experimental admission conditions, resource/proof gaps,
-finite lifetime and missing real-host acceptance remain. Test coins have no monetary
-value. No infrastructure, public endpoint or economic mainnet is created by these
-scripts. See `development/public-network/PLAN.md` in the source repository.
+This package advances public-network preparation. Its open gates are reported by the
+software (`publicLaunchReady: false` with its `launchBlockers`): the experimental
+admission conditions, resource/proof gaps and real-host acceptance remain open. Test
+coins have no monetary value. No infrastructure, public endpoint or economic mainnet
+is created by these scripts. See `development/public-network/PLAN.md` in the source repository.
 
 Supported deployment target: dedicated Linux x86-64 hosts with systemd, Python 3.10+
 and the release binaries built on a compatible distribution. Use three separate
@@ -24,8 +24,8 @@ Reward and faucet accounts should have separate operator-held keys.
 Prepare one public allocation/configuration using `development/public-network/KEYS.md`.
 Use `pocold init-testnet --config public-genesis.json --out network` once. Distribute
 exactly those three genesis files to everyone; never regenerate genesis per host.
-The current builder still uses a synthetic difficulty fixture. Actual hardware
-calibration and an adopted public profile remain launch requirements.
+A config without a measured `hashRate` gets the builder's synthetic difficulty
+fixture; actual worst-case execution calibration on the hardware remains open (gate A1).
 
 Build all four binaries together, with Rust 1.99.1 and the checked-in lockfile:
 
@@ -73,11 +73,12 @@ Before activation on actual hosts:
 3. Resolve your RPC DNS name to the correct host and install a valid certificate at
    `/etc/pocol-testnet/tls/{fullchain.pem,privkey.pem}`. Test the dedicated gateway
    config with `nginx -t -c /opt/pocol-testnet/nginx.conf` before enabling it.
-4. Review and close the source launch ledger before Internet activation. The Nginx
+4. Review the source launch ledger's open gates, which the node reports in
+   `launchBlockers`, before Internet activation. The Nginx
    template limits per-IP and total HTTP requests/connections, but does not close
    the node's unresolved RpcGuard/precompile or consensus execution obligations.
    Run the hostile traffic, partition, recovery and soak acceptance on actual hosts.
-5. Once accepted, start `pocol-testnet.service` and the reviewed gateway configuration.
+5. Then start `pocol-testnet.service` and the reviewed gateway configuration.
    Observe logs (`journalctl -u pocol-testnet`) and the cross-node checker below.
 
 The gateway is a standalone config for a dedicated Nginx instance, not an arbitrary
@@ -188,14 +189,13 @@ launch and every restore of a bundle) decode the network's `genesis.spec.hex` wi
 `public_spec_hex`, which applies `public_spec`'s version, chain ID, v3 program-set and
 nonceMode checks, so a bundle of a retired spec-1 network fails there and not at every node's boot; `for_network` then gives the consensus identity.
 
-## Lifetime and unresolved work
+## Lifetime and open work
 
-The current profile closes at height 19,000 and ends at 20,000: approximately 53/56
-hours at nominal ten-second blocks, with actual elapsed time varying. This package
-does not remove those consensus rules or inflate cumulative caps. A perpetual network
-requires the remaining protocol/resource/economic design. Public launch still needs
-approved public parameters, target-hardware calibration, admission/storage/RPC work,
-real multi-host/Internet acceptance, and independent security review.
+A genesis built by `pocold init-testnet` is continuous (H_END 0): it has no closing or
+end height. This package does not inflate cumulative caps. The open gates, reported by
+the software and listed in `development/public-network/PLAN.md`, include worst-case
+execution calibration, admission/storage/RPC work, real multi-host/Internet acceptance
+and an independent security review.
 
 References for service behavior:
 - https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html#Credentials
