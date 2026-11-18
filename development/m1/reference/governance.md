@@ -317,7 +317,7 @@ Gate figures at this CP:
 
 Admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope, with `retentionStress`. R22 stays bound to
 chainId 777001, so `pocold init-testnet` reports `publicLaunchReady` false with the blockers `admission-scope` and
-`profile-kind`, and the launch discloses them.
+`profile-kind`, which the release reports in its readiness output.
 
 Genesis contents: four founders, the three US servers and the owner's PC, each with a fresh key made on its own device
 at the ceremony. Each has a live HELD record whose 20 PCOL bond the builder mints into Escrow, and its reward address

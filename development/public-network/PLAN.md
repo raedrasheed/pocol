@@ -17,12 +17,13 @@ and no seat contest. The genesis is continuous (`H_END` 0). The committed profil
 [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and
 [deploy/standalone/README.md](../../deploy/standalone/README.md).
 
-The network launches publicly and permissionlessly **with the gates below still open, and discloses them**. The
+The network launches publicly and permissionlessly **with the gates below still open**. The
 software reports `publicLaunchReady: false` with its `launchBlockers` (V3-28 H1). That never stops a node from
 running, mining or serving sites; it is a statement of what is not yet established. Two blockers cannot clear on
 this network as designed: R22 binds the `Network` profile to chainId 777001, so the mainnet is admitted as a Simnet
-profile in `ExperimentalDevnet` scope (`profile-kind`, `admission-scope`). The disclosures are drafted in the
-standalone README, "Launch disclosures" (owner decision pending: launch-disclosure wording).
+profile in `ExperimentalDevnet` scope (`profile-kind`, `admission-scope`). The launch disclosures are drafted in the
+standalone README, "Launch disclosures" (owner decision pending: launch-disclosure wording; owner decision
+2026-11-18: they carry no "not public-launch-ready" item).
 
 New miners register through an ordinary transaction. A newcomer may register with a 0 PCOL bond and earn the rest
 from its rewards (ACCRUING). At a full set of `M_max` members a newcomer replaces an inactive member

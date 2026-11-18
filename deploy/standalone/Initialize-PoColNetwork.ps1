@@ -284,7 +284,7 @@ $Ids = @($Blockers | ForEach-Object { $_.id })
 foreach ($Id in $RequiredBlockers) { if ($Ids -cnotcontains $Id) { throw "The admission does not report the $Id blocker of the experimental admission" } }
 foreach ($Id in $RefusedBlockers) { if ($Ids -ccontains $Id) { throw "Refusing a genesis with the $Id blocker: use the release build of this package" } }
 Write-Host "Genesis hash: $($Admitted.genesisHash)"
-Write-Host 'Public launch ready: false. Launch blockers, verbatim (disclose them with the launch notes, README "Launch disclosures"):'
+Write-Host 'Public launch ready: false. Launch blockers, verbatim:'
 foreach ($Blocker in $Blockers) { Write-Host "  $($Blocker.id): $($Blocker.detail)" }
 
 # The invitation: the genesis and the three servers as its seeds (the explorer's seed list comes from it, W9).
