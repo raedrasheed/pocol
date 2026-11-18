@@ -29,7 +29,7 @@ fn blocker(id:impl Into<String>,detail:impl Into<String>)->Blocker{Blocker{id:id
 /// a label change here alone; the test `plan_gates_open_match_the_acceptance_ledger` keeps the two equal.
 pub const PLAN_GATES_OPEN:&[(&str,&str)]=&[
     ("K1","independent identities: operator secret-key recovery procedures and an encrypted keystore or HSM remain"),
-    ("J1","open miner enrollment: eligibility churn and load, and network-scale enrollment remain (newcomers' first fee: the founders transfer it on request, no mainnet faucet)"),
+    ("J1","open miner enrollment: eligibility churn and load, and network-scale enrollment remain (newcomers' first fee: the automated fee faucet, 0.002 PCOL once per new address)"),
     ("I1","stable network identity: the ceremony's genesis and its pin in the clients, the normative digest adoption and an independently reproduced binary release remain"),
     ("A1","honest admission: real worst-case execution calibration, the R18/R21 obligations and the RpcGuard gaps remain"),
     ("S1","bounded historical state: K_eff and historical RPC behavior within the resource budget remain"),

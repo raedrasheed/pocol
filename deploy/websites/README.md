@@ -33,7 +33,10 @@ files that remain. Until the rebuild, pages that link the removed invitation or 
   `/api/rpc.php`. `deploy/explorer` installs the gateway service, the static copy and the Caddy site (to which the
   Studio installer adds its route). The PHP relays, both `.htaccess` files and `explorer-config.example.php` are
   retired: the explorer snapshot holds no server code, and `site_identity.py --check` refuses any.
-- **No faucet on mainnet.** No site links a faucet; `deploy/faucet` is for the rehearsal network only.
+- **The fee faucet.** Decided 2026-11-16 as "no faucet on mainnet"; superseded on 2026-11-18: the fee faucet
+  (`deploy/faucet`) runs on mainnet with the owner's limits. The site snapshots do not link it yet: its claim page and
+  gateway route are added with their own change, and `tests/test_launch_decisions.py` keeps every faucet reference
+  out of the snapshots until then.
 
 Left out of Git and kept in the release asset:
 - the download archives (`*.zip`): the old native packages and the extension packages;

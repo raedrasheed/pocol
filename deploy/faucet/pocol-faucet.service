@@ -1,5 +1,5 @@
 [Unit]
-Description=PoCol fee faucet (rehearsal network only; never on mainnet)
+Description=PoCol fee faucet
 After=network-online.target
 Wants=network-online.target
 

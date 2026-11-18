@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Owner launch decisions of 2026-11-16 that the website snapshots carry: the site languages (English and Arabic only,
-decision 3), the explorer gateway host (explorer.pocol.net, decision 9) and no faucet on the sites (decision 8)."""
+decision 3), the explorer gateway host (explorer.pocol.net, decision 9), and no faucet link on the sites (decision 8;
+the faucet itself runs on mainnet since the owner decision of 2026-11-18, and its claim page is added with its own
+change, which replaces this check)."""
 import json, re, unittest
 from pathlib import Path
 

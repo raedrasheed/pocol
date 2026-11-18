@@ -561,12 +561,15 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
   these parameters, and not every worst case has been measured.
 - **The rehearsal and the ceremony.** The launch evidence (T1-T8, M1-M4) is measured in the rehearsal on the
   founders' devices, which has not run yet ([FRESH-NETWORK-CP.md](development/decisions/FRESH-NETWORK-CP.md) §9).
-- **Decisions pending with the owner.** The launch-disclosure wording, the reward page S1 wording and the extension
-  manifest public key ([STATUS-EN.md](development/STATUS-EN.md)). Decided on 2026-11-16: native release 0.5.0; release
+- **Decisions pending with the owner.** The launch-disclosure wording and the reward page S1 wording
+  ([STATUS-EN.md](development/STATUS-EN.md)). Decided on 2026-11-16: native release 0.5.0; release
   signing with ssh-keygen ed25519 ([deploy/release](deploy/release/README.md)); English and Arabic sites; owner-held
   reward addresses for the server founders; the repository `raedrasheed/pocol`; a fork notice of at least 24 h
-  (8,640 blocks); the build-info scope label `mainnet`; no faucet on mainnet; the explorer gateway host
-  `explorer.pocol.net`.
+  (8,640 blocks); the build-info scope label `mainnet`; the explorer gateway host
+  `explorer.pocol.net`. Decided on 2026-11-18
+  ([OWNER-DECISIONS-2026-11-18.md](development/decisions/OWNER-DECISIONS-2026-11-18.md)): the owner's extension
+  manifest key and release signing key; the automated fee faucet on mainnet, with the owner's limits
+  ([deploy/faucet](deploy/faucet/README.md)).
 - **Design objectives.** PoW-equivalent security, fairness and Sybil resistance are not proven.
 - **No external audit.** No independent external human security audit has been done.
 

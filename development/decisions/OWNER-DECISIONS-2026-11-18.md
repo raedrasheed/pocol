@@ -13,6 +13,14 @@ On the launch texts:
 
 Answers to the four questions put to the owner (verbatim): "1 أ، 2 لا شيء، 3 لاحقا، 4 نعم".
 
+Later the same day, on funding newcomers' first fee by hand (verbatim):
+
+> الارسال للبريد ستكون عملية مضنية لانني يجب ان اتبع البريد وهذا عمل مضني
+
+and, on the automated fee faucet with the limits put to the owner (verbatim):
+
+> موافق على الصنبور الآلي بهذه الحدود
+
 ## Decisions
 
 1. **Owner keys.** The owner made, offline, the extension manifest key (extension ID
@@ -30,8 +38,17 @@ Answers to the four questions put to the owner (verbatim): "1 أ، 2 لا شيء
    closed only when its acceptance criterion is met, with evidence.
 5. **Launch disclosures.** They carry no "not public-launch-ready" item (question 2: and no list of ongoing
    engineering work). The other draft items still await the owner's review of their wording.
-6. **Newcomers' first fee (question 1: a).** There is no faucet on mainnet (owner decision 2026-11-16). A newcomer's
-   first registration fee (about 0.0012 PCOL of gas) is transferred by the founders on request. The request channel
-   is published on pocol.net with the launch.
+6. **Newcomers' first fee: the automated fee faucet on mainnet.** The owner first chose a transfer by the founders on
+   request (question 1: a), then, the same day, replaced it with the automated fee faucet, which supersedes the
+   rehearsal-only decision of 2026-11-16. The faucet (`deploy/faucet`) runs on mainnet with these limits, which the
+   code enforces as ceilings (`MAINNET_LIMITS`; a config may set lower values, never higher):
+   - 0.002 PCOL per address, once ever;
+   - new accounts only: never sent a transaction, no code, a balance below the amount;
+   - at most 200 transfers a UTC day (0.4 PCOL a day) and 3 per client a UTC day;
+   - from a dedicated operator key that holds at most a 10 PCOL float; a claim is refused while it holds more.
+
+   The operator key is a hot key, generated on the server that runs the faucet; it is not a reward, miner or release
+   key. The faucet creates no coins and does not touch consensus. Deploying it on a server, and funding its float,
+   needs the owner's approval like every other launch step. Any PCOL holder can still send a newcomer its first fee.
 7. **Independent security review (question 3: later).** Gate Q1 stays open; the owner commissions an independent
    review after the launch.

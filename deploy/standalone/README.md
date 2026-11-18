@@ -272,9 +272,9 @@ silently repeated and a toggle does not bypass eligibility.
 **Bond:** the bond is 20 PCOL, and a new identity does not need it up front.
 **Review mining registration** offers a 0 PCOL bond by default and can lock 0 to 20 PCOL; the
 rest is earned from mining rewards, with no deadline (owner decision 10c).
-1. Get the first fee: mainnet has no fee faucet (owner decision 2026-11-16), so the account receives its first fee
-   by an ordinary transfer from any PCOL holder. On the rehearsal network the fee faucet (`deploy/faucet/README.md`)
-   sends 0.002 PCOL once to an account that has never sent a transaction.
+1. Get the first fee: the fee faucet (`deploy/faucet/README.md`; on mainnet and on the rehearsal network, owner
+   decision 2026-11-18) sends 0.002 PCOL once to an account that has never sent a transaction. Any PCOL holder can
+   also send it with an ordinary transfer.
 2. The registration can be that account's first transaction (see *Mining* above).
 3. The record is *accruing*: it mines like any member, but each reward fills the bond until it
    holds 20 PCOL. Only then are rewards paid to the balance. Accruing records count within the
