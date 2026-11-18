@@ -72,7 +72,10 @@ try {
     # verify_release.py prints two lines on success: collect them, so Assert gets one bool, not an array.
     $PyOut = @(& python -B (Join-Path $Here 'verify_release.py') $Dir --allowed-signers $Allowed --ssh-keygen $SshKeygen)
     Assert ($LASTEXITCODE -eq 0 -and $PyOut.Count -ge 1 -and ([string]$PyOut[0]).StartsWith('VERIFIED: 2 files')) 'the Python verifier agrees'
-    Assert-NotVerified $Dir (Join-Path $Here 'allowed_signers') 'not committed' 'the committed placeholder verifies nothing'
+    Assert-NotVerified $Dir (Join-Path $Here 'allowed_signers') 'does not verify' 'the committed owner key did not sign this throwaway release'
+    $Placeholder = Join-Path $Base 'placeholder_allowed_signers'
+    [IO.File]::WriteAllText($Placeholder, "release@pocol.net namespaces=`"pocol-release`" ssh-ed25519 PLACEHOLDER-OWNER-RELEASE-PUBLIC-KEY`n", (New-Object Text.ASCIIEncoding))
+    Assert-NotVerified $Dir $Placeholder 'not committed' 'a placeholder allowed_signers verifies nothing'
     Assert-NotVerified $Dir (New-Allowed $Key 'other-principal' 'someone@test.invalid') 'principal' 'another principal'
     Assert-NotVerified $Dir (New-Allowed (New-Key 'other') 'other-key') 'does not verify' 'another key'
 

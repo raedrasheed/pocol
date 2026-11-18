@@ -11,6 +11,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(HERE))
 import verify_release as vr  # noqa: E402
+# The owner's release key (allowed_signers, committed 2026-11-18) and its published fingerprint.
+OWNER_RELEASE_KEY = 'AAAAC3NzaC1lZDI1NTE5AAAAIH4XZvQEqPlwD2oNZyyn4QGfrE2IvRzLg8RXeIJTOe/t'
+OWNER_RELEASE_FINGERPRINT = 'SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8'
 import assemble_release as ar  # noqa: E402
 
 KEYGEN = shutil.which('ssh-keygen')
@@ -221,7 +224,12 @@ class Verifier(unittest.TestCase):
 
     def test_the_allowed_signers_file_is_checked(self):
         self.sign_all()
-        self.refused('owner release key is not committed', allowed=HERE / 'allowed_signers')
+        # The committed owner key did not sign this throwaway release; a file that still holds the placeholder line
+        # verifies nothing at all.
+        self.refused('SHA256SUMS.sig does not verify', allowed=HERE / 'allowed_signers')
+        placeholder = self.base / 'placeholder_allowed_signers'
+        placeholder.write_text(f'{vr.PRINCIPAL} namespaces="{vr.NAMESPACE}" ssh-ed25519 PLACEHOLDER-OWNER-RELEASE-PUBLIC-KEY\n')
+        self.refused('owner release key is not committed', allowed=placeholder)
         pub = self.key.with_suffix('.pub').read_text().split()
         cases = {
             'two': (f'{vr.PRINCIPAL} namespaces="{vr.NAMESPACE}" {pub[0]} {pub[1]}\n' * 2, 'exactly one key line'),
@@ -326,13 +334,29 @@ class Verifier(unittest.TestCase):
         self.assertIn(f'PoCol-Mainnet-{VERSION}-linux-x86_64.tar.gz: OK', ok.stdout)
         self.assertNotEqual(documented(new.name).returncode, 0, 'a name SHA256SUMS does not list never checks')
 
-    def test_the_committed_allowed_signers_is_the_marked_placeholder(self):
+    def test_the_committed_allowed_signers_is_the_owner_release_key(self):
+        # The owner's release key (committed 2026-11-18): exactly this one line, and the fingerprint published on
+        # pocol.net and in README.md is the one ssh-keygen -lf prints for it.
         text = (HERE / 'allowed_signers').read_text(encoding='ascii')
         lines = [l for l in text.splitlines() if l.strip() and not l.startswith('#')]
-        self.assertEqual(lines, [f'{vr.PRINCIPAL} namespaces="{vr.NAMESPACE}" ssh-ed25519 PLACEHOLDER-OWNER-RELEASE-PUBLIC-KEY'])
-        self.assertIn('OWNER INPUT', text)
+        self.assertEqual(lines, [f'{vr.PRINCIPAL} namespaces="{vr.NAMESPACE}" ssh-ed25519 {OWNER_RELEASE_KEY}'])
+        self.assertNotIn('PLACEHOLDER', text)
+        principal, kind, key = vr.read_allowed(HERE / 'allowed_signers')[:3]
+        self.assertEqual((principal, kind, key), (vr.PRINCIPAL, 'ssh-ed25519', OWNER_RELEASE_KEY))
+        self.assertEqual(vr.fingerprint(key), OWNER_RELEASE_FINGERPRINT)
+        for doc in (HERE / 'allowed_signers', HERE / 'README.md'):
+            self.assertIn(OWNER_RELEASE_FINGERPRINT, doc.read_text(encoding='utf-8'), doc)
+        # A release signed by any other key (here the test's throwaway key) never verifies against it.
+        self.sign_all()
+        self.refused('SHA256SUMS.sig does not verify', allowed=HERE / 'allowed_signers')
+
+    def test_a_placeholder_allowed_signers_verifies_nothing(self):
+        # The refusal stays for any file that still holds the placeholder line (an old checkout, a test copy).
+        path = self.base / 'placeholder_allowed_signers'
+        path.write_text(f'{vr.PRINCIPAL} namespaces="{vr.NAMESPACE}" ssh-ed25519 PLACEHOLDER-OWNER-RELEASE-PUBLIC-KEY\n',
+                        encoding='ascii')
         with self.assertRaises(vr.NotVerified) as e:
-            vr.read_allowed(HERE / 'allowed_signers')
+            vr.read_allowed(path)
         self.assertIn('not committed', str(e.exception))
 
     def test_no_private_key_is_committed(self):

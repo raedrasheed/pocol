@@ -133,8 +133,8 @@ jobs:
             fi
             grep -F 'network placeholder' "$RUNNER_TEMP/package.log"
           else
-            # After the identity switch a release also needs the owner's manifest key (release/manifest-key.pub, W14):
-            # the packager refuses "no manifest key" while that slot is the placeholder.
+            # After the identity switch the release carries the owner's manifest key (release/manifest-key.pub, W14,
+            # committed 2026-11-18), so the packager packages it with the fixed extension id.
             npm run package
             # The packaged zip is unsigned until the owner signs it (deploy/release): it must not verify.
             if python3 -B ../../deploy/release/verify_release.py releases > "$RUNNER_TEMP/verify.log"; then
