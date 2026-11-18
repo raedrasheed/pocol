@@ -13,7 +13,9 @@ server serves:
   `/api/transactions.php` (GET), answered in process by the gateway (`deploy/rewards/explorer_api.py`, imported by
   `gateway.py`) with the checks of the PHP relays they replace. pocol.net's network summary
   (`pocol.net/api/network.php`) reads the same `/api/rpc.php`;
-- the gateway's `/rpc` and `/health`, and the Studio relay `/studio/*` that `deploy/studio` adds to the same block.
+- the gateway's `/rpc` and `/health`, the Studio relay `/studio/*` that `deploy/studio` adds to the same block, and
+  the fee faucet's `/faucet/claim` and `/faucet/status` that `deploy/faucet/faucet_route.py` adds to it (proxied to
+  the faucet on `127.0.0.1:8547` with the prefix removed; `deploy/faucet/README.md`).
 
 Dotfiles, server code (`.php`), checksum lists and the extensions the `.htaccess` denied (`zip tar gz bak log sh md
 json map`) are 404; there is no directory listing. `/api/*` and `/rpc` keep a 16 KiB request-body guard each, also
@@ -25,7 +27,8 @@ rpc.php did, 413 `{"error":"Request size limit exceeded."}` as JSON.
 - `explorer_site.py`: the Caddy site block (between `# BEGIN/END POCOL EXPLORER GATEWAY v1`), the checks of the
   static copy, and a loopback test copy of the block (`test-config`, used by `deploy/websites/tests/explorer_smoke.mjs`).
 - `install_explorer_gateway.py`: the transactional installer of the gateway service, the static copy and the block.
-- `test_explorer_gateway.py`: the block against the Studio installer in both orders, the update and refusal rules,
+- `test_explorer_gateway.py`: the block against the Studio installer and the faucet route in every order, the update
+  and refusal rules,
   the copy's checks on the committed snapshot, and the install, `--check` and rollback paths on temporary paths with
   every system command faked.
 
@@ -37,7 +40,8 @@ python3 -B -m unittest discover -s deploy/rewards -p test_explorer_api.py -v
 ## Install on the gateway server
 
 Run from a checkout of the release commit: the installer installs `deploy/rewards/gateway.py`, `pocol_rewards.py` and
-`explorer_api.py` from it, and reads the Studio installer's route rules from `deploy/studio`. It needs Python 3.10+,
+`explorer_api.py` from it, and reads the Studio installer's and the faucet route's rules from `deploy/studio` and
+`deploy/faucet`. It needs Python 3.10+,
 systemd, Caddy (running), the node's RPC on `127.0.0.1:8545`, and the operator's network file
 `/etc/pocol-explorer-gateway/network.json` (and optionally `forks.json`; `deploy/rewards/README.md`, Gateway startup
 integration).
@@ -69,8 +73,9 @@ directory they may not enter, and a `/srv/pocol-explorer` or `/opt/pocol-explore
 (`--bind 127.0.0.1 --port 8088 --site-origin https://explorer.pocol.net`, no other address), restarts the service and
 checks `/health`, `/api/rpc.php` and `/api/health.php` on loopback, then writes and reloads the Caddyfile and checks
 over HTTPS, with the public name and trusted certificates: every static file byte for byte, the headers of `/`,
-`/api/health.php` PASS, `/api/rpc.php` and `/rpc` naming the network, `/health`, hidden and server paths 404, and the
-Studio route when it is installed. On any failure it restores the previous Caddyfile, files, site copy and service
+`/api/health.php` PASS, `/api/rpc.php` and `/rpc` naming the network, `/health`, hidden and server paths 404, the
+Studio route when it is installed, and the faucet route when it is installed (`GET /faucet/status` answering with
+the network's chain ID; nothing is posted to `/faucet/claim`). On any failure it restores the previous Caddyfile, files, site copy and service
 state, and names what it could not restore together with the backup.
 
 The HTTPS check needs the certificate for explorer.pocol.net, which Caddy obtains only once the DNS record points at
@@ -89,8 +94,10 @@ name for an hour. TLS verification is never relaxed.
 The Caddyfile: on a fresh server the stock Debian/Ubuntu `:80` file is replaced by the block; other sites are kept;
 an unmanaged `explorer.pocol.net` site, a second marked block, an edited marked block, or another route to port 8088
 is refused for review (no changes made). An update replaces only the site root of the marked block and keeps the
-Studio route and its body size. Install this before the Studio gateway (`deploy/studio`), which adds its route to this
-block; either order of later updates gives the same file.
+Studio route and its body size, and the faucet route; an edited, damaged or duplicated copy of either route is refused.
+Install this before the Studio gateway (`deploy/studio`) and the faucet route (`deploy/faucet/faucet_route.py`), which
+add their routes to this block (Studio after the host line, the faucet right before `@rpc path /rpc`); either order of
+those installs and of later updates gives the same file.
 
 ## Behaviour that differs from the PHP relays
 
