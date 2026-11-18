@@ -76,7 +76,16 @@ contract in the existing browser worker's local Ethereum simulation. No compiler
 or generated website bundle is modified. `POCOL_CHROMIUM` defaults to the system
 Chromium path `/usr/bin/chromium`.
 
-These 20 browser checks use no browser extension. They do not establish extension
+The fee faucet's claim page (`pocol.net/faucet.html`) is loaded in English and Arabic with explorer.pocol.net blocked
+(its status and a claim must show the unreachable message), then in a second context where a Playwright route stubs
+`https://explorer.pocol.net/faucet/status` and `/faucet/claim` (CORS answers for the local origin): the amount and the
+transfers left, a malformed address refused before any request, a claim body of exactly `{"address"}` as JSON, the
+transaction hash, address and explorer link after a transfer, a success answer over the 16 KiB cap read as a
+transfer that may exist, the figures aligned with their labels in Arabic, the Arabic "check the explorer first" text for
+`unknown_outcome` (with a server message that is never rendered as HTML), and a disabled button when no transfer is
+left today. The real faucet and gateway route are not contacted.
+
+These 35 browser checks use no browser extension. They do not establish extension
 viewer isolation, signing authorization, production HTTP headers (the explorer smoke checks the explorer's), compatibility on
 other browsers or equivalence between this local EVM and PoCol consensus.
 

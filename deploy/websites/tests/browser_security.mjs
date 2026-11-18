@@ -1,5 +1,6 @@
 // Local website/worker checks. All requests outside each temporary static server
-// are aborted. No extension, wallet connection, live RPC or signing key is used.
+// are aborted, except the fee faucet's two routes, which one context answers with
+// stubs. No extension, wallet connection, live RPC, live faucet or signing key is used.
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
 import {readFile,stat} from 'node:fs/promises';
@@ -55,6 +56,89 @@ try{
         check('main falls back to English for a retired language',await page.evaluate(()=>document.documentElement.lang==='en'&&document.documentElement.dir==='ltr'));
         await page.goto(server.origin+'/about.html?lang=en',{waitUntil:'networkidle'});
         check('guide renders its chapters',await page.locator('#docs-article').innerText().then(text=>text.length>200));
+        // The fee faucet page with the faucet blocked (the route above aborts explorer.pocol.net like any other host).
+        const address='0x'+'12'.repeat(20);
+        await page.goto(server.origin+'/faucet.html?lang=en',{waitUntil:'networkidle'});
+        check('faucet page English language, direction and title',await page.evaluate(()=>document.documentElement.lang==='en'
+          &&document.documentElement.dir==='ltr'&&document.title==='Get your first fee · PoCol'));
+        check('faucet status shows the faucet unreachable when blocked',
+          await page.locator('#faucet-status').getAttribute('data-state')==='unreachable');
+        await page.fill('#faucet-address',' '+address+' ');
+        await page.click('#faucet-submit');
+        await page.waitForFunction(()=>document.querySelector('#faucet-form').getAttribute('aria-busy')==='false'
+          &&!document.querySelector('#faucet-message').hidden);
+        check('faucet claim shows the unreachable message when blocked',
+          /could not be reached/.test(await page.locator('#faucet-message').innerText())
+          &&await page.locator('#faucet-result').isHidden());
+        await page.goto(server.origin+'/faucet.html?lang=ar',{waitUntil:'networkidle'});
+        check('faucet page Arabic language, direction and title',await page.evaluate(()=>document.documentElement.lang==='ar'
+          &&document.documentElement.dir==='rtl'&&document.title==='احصل على رسومك الأولى · PoCol'));
+        // The faucet stubbed with its answers (the real one allows exactly https://pocol.net; the stub allows this origin).
+        const stub=await browser.newContext(),claims=[],hash='0x'+'ab'.repeat(32);
+        let remaining=7,claimAnswer={status:200,body:{type:'sent',hash,amountWei:'2000000000000000',to:address}};
+        try{
+          await stub.route('**/*',route=>{
+            const request=route.request(),url=new URL(request.url());
+            if(url.origin===server.origin)return route.continue();
+            const cors={'Access-Control-Allow-Origin':server.origin,'Cache-Control':'no-store'};
+            if(request.method()==='OPTIONS')return route.fulfill({status:204,headers:{...cors,
+              'Access-Control-Allow-Methods':'GET, POST','Access-Control-Allow-Headers':'Content-Type'}});
+            if(url.href==='https://explorer.pocol.net/faucet/status'&&request.method()==='GET')return route.fulfill({status:200,
+              headers:cors,contentType:'application/json',body:JSON.stringify({type:'status',chainId:1,amountWei:'2000000000000000',
+                faucet:'0x'+'34'.repeat(20),remainingToday:remaining})});
+            if(url.href==='https://explorer.pocol.net/faucet/claim'&&request.method()==='POST'){
+              claims.push({type:request.headers()['content-type'],body:request.postData()});
+              return route.fulfill({status:claimAnswer.status,headers:cors,contentType:'application/json',
+                body:claimAnswer.raw??JSON.stringify(claimAnswer.body)});
+            }
+            blocked++;return route.abort('blockedbyclient');
+          });
+          const faucet=await stub.newPage(),faucetErrors=[];
+          faucet.on('pageerror',error=>faucetErrors.push(String(error)));
+          await faucet.goto(server.origin+'/faucet.html?lang=en',{waitUntil:'networkidle'});
+          check('faucet status shows the amount in PCOL and the transfers left today',
+            await faucet.locator('#faucet-amount').innerText()==='0.002 PCOL'&&await faucet.locator('#faucet-remaining').innerText()==='7');
+          await faucet.fill('#faucet-address','0x1234');
+          await faucet.click('#faucet-submit');
+          check('faucet refuses a malformed address before sending',claims.length===0
+            &&/full address/.test(await faucet.locator('#faucet-message').innerText()));
+          await faucet.fill('#faucet-address',address);
+          await faucet.click('#faucet-submit');
+          await faucet.locator('#faucet-result').waitFor({state:'visible'});
+          check('faucet claim sends exactly {"address"} as JSON',claims.length===1&&claims[0].type==='application/json'
+            &&claims[0].body===JSON.stringify({address}));
+          check('faucet success shows the transaction hash, the address and the explorer link',
+            await faucet.locator('#faucet-hash').innerText()===hash&&await faucet.locator('#faucet-to').innerText()===address
+            &&await faucet.locator('#faucet-link').getAttribute('href')===`https://explorer.pocol.net/#page=Transactions&q=${hash}`);
+          // A success answer over the 16 KiB cap is not read, and a transfer may exist: never reported as sent or failed.
+          claimAnswer={status:200,raw:JSON.stringify({type:'sent',hash,amountWei:'2000000000000000',to:address,pad:'x'.repeat(20000)})};
+          await faucet.goto(server.origin+'/faucet.html?lang=en',{waitUntil:'networkidle'});
+          await faucet.fill('#faucet-address',address);
+          await faucet.click('#faucet-submit');
+          await faucet.waitForFunction(()=>document.querySelector('#faucet-form').getAttribute('aria-busy')==='false'
+            &&!document.querySelector('#faucet-message').hidden);
+          check('faucet treats an oversized success answer as a transfer that may exist',
+            /may already have been sent/.test(await faucet.locator('#faucet-message').innerText())
+            &&await faucet.locator('#faucet-result').isHidden());
+          claimAnswer={status:502,body:{type:'error',code:'unknown_outcome',message:'<b>may already</b>'}};
+          await faucet.goto(server.origin+'/faucet.html?lang=ar',{waitUntil:'networkidle'});
+          check('faucet figures line up with their labels in Arabic (right to left)',await faucet.evaluate(()=>{
+            const edge=id=>document.getElementById(id).getBoundingClientRect().right;
+            return ['amount','remaining'].every(name=>Math.abs(edge(`faucet-${name}`)-edge(`faucet-${name}-label`))<2);
+          }));
+          await faucet.fill('#faucet-address',address);
+          await faucet.click('#faucet-submit');
+          await faucet.waitForFunction(()=>document.querySelector('#faucet-form').getAttribute('aria-busy')==='false'
+            &&!document.querySelector('#faucet-message').hidden);
+          check('faucet unknown outcome says to check the explorer, in Arabic, never the server text',
+            await faucet.locator('#faucet-message').innerText()==='ربما أُرسل التحويل بالفعل؛ تحقّق من العنوان في المستكشف قبل إعادة المحاولة.'
+            &&await faucet.locator('#faucet-link').getAttribute('href')===`https://explorer.pocol.net/#page=Transactions&q=${address}`
+            &&await faucet.locator('main b').count()===0);
+          remaining=0;
+          await faucet.goto(server.origin+'/faucet.html?lang=en',{waitUntil:'networkidle'});
+          check('faucet disables the claim when no transfer is left today',await faucet.locator('#faucet-submit').isDisabled());
+          check('faucet page has no uncaught JavaScript errors',faucetErrors.length===0||assert.fail(faucetErrors.join('\n')));
+        }finally{await stub.close();}
       }
       if(name==='ide'){
         const result=await page.evaluate(async()=>{
