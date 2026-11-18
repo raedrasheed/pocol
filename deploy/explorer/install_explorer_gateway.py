@@ -42,6 +42,7 @@ HERE = Path(__file__).resolve().parent
 REWARDS = HERE.parent / 'rewards'
 sys.path.insert(0, str(REWARDS))
 sys.path.insert(0, str(HERE.parent / 'studio'))
+sys.path.insert(0, str(HERE.parent / 'faucet'))
 sys.path.insert(0, str(HERE))
 import explorer_site  # noqa: E402
 import explorer_api  # noqa: E402
@@ -237,9 +238,10 @@ def tls(method, path, payload=None, headers=None):
     finally: conn.close()
 
 
-def verify_https(network, files, studio_route):
+def verify_https(network, files, studio_route, faucet_route=False):
     """The public routes: every static file byte for byte with the explorer's headers, /api/health.php PASS,
-    /api/rpc.php and /rpc naming the network, /health, hidden and server paths 404, and the Studio route if present."""
+    /api/rpc.php and /rpc naming the network, /health, hidden and server paths 404, and the Studio route and the faucet
+    route (/faucet/status naming the network's chain ID; never a claim) if present."""
     for name, raw in sorted(files.items()):
         status, response, body = tls('GET', '/' + name)
         if status != 200 or body != raw:
@@ -270,13 +272,19 @@ def verify_https(network, files, studio_route):
         status, _, body = tls('GET', '/studio/health')
         if status != 200 or json.loads(body).get('service') != 'pocol-studio-gateway':
             raise RuntimeError('The Studio HTTPS route stopped answering')
+    if faucet_route:
+        status, _, body = tls('GET', '/faucet/status')
+        value = json.loads(body) if status == 200 else None
+        if not isinstance(value, dict) or value.get('type') != 'status' or type(value.get('chainId')) is not int \
+                or value['chainId'] != network.chain_id:
+            raise RuntimeError('The faucet HTTPS route stopped answering for the network')
 
 
-def verify_https_with_retry(network, files, studio_route, seconds=HTTPS_WAIT):
+def verify_https_with_retry(network, files, studio_route, seconds=HTTPS_WAIT, faucet_route=False):
     """Caddy may still be obtaining the certificate right after the reload: retry until `seconds` have passed."""
     deadline, last = time.monotonic() + seconds, None
     while True:
-        try: return verify_https(network, files, studio_route)
+        try: return verify_https(network, files, studio_route, faucet_route)
         except (OSError, RuntimeError, ValueError, KeyError, TypeError, IndexError, http.client.HTTPException) as error:
             last = error
         if time.monotonic() >= deadline: raise last
@@ -402,9 +410,10 @@ def main(argv=None):
     text, ident = explorer_site.manifest(files)
     origin = check_copy(site, files, ident, accept)
     import install_studio_gateway as studio
+    import faucet_route as faucet
     original = CADDYFILE.read_bytes()
-    candidate, old_root = explorer_site.plan_caddyfile(original.decode(), SITE_PARENT / f'site-{ident}', studio)
-    studio_route = studio.MARKER in candidate
+    candidate, old_root = explorer_site.plan_caddyfile(original.decode(), SITE_PARENT / f'site-{ident}', studio, faucet)
+    studio_route, faucet_route = studio.MARKER in candidate, faucet.MARKER in candidate
     old_active = command('systemctl', 'is-active', '--quiet', SERVICE, check=False).returncode == 0
     old_enabled = command('systemctl', 'is-enabled', '--quiet', SERVICE, check=False).returncode == 0
     if not old_active:
@@ -446,7 +455,7 @@ def main(argv=None):
         if last: raise last
         atomic_write(CADDYFILE, candidate.encode())
         command('systemctl', 'reload', 'caddy')
-        verify_https_with_retry(network, files, studio_route, https_wait)
+        verify_https_with_retry(network, files, studio_route, https_wait, faucet_route=faucet_route)
         command('systemctl', 'enable', SERVICE)
     except BaseException as exc:
         failures = rollback_install(original, previous, base_existed, new_site, old_active, old_enabled)
@@ -459,7 +468,7 @@ def main(argv=None):
     except OSError as exc: removed = ['(not pruned: ' + str(exc) + ')']
     print(f'INSTALLED: explorer gateway on 127.0.0.1:{PORT} and the explorer site site-{ident} at https://{explorer_site.HOST}')
     print('PASS: every static file, /api/rpc.php, /api/health.php, /rpc and /health over HTTPS with trusted certificates'
-          + (', and the Studio route' if studio_route else '') + '.')
+          + (', and the Studio route' if studio_route else '') + (', and the faucet route' if faucet_route else '') + '.')
     if removed: print('Removed older site copies: ' + ', '.join(removed))
     print(f'Verify from outside: curl --fail --max-time 20 https://{explorer_site.HOST}/api/health.php')
     print('Backup: ' + str(backup))

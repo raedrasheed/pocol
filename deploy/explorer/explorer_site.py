@@ -7,7 +7,8 @@ lost host block had), /health, and /api/* (the snapshot's same-origin reads, exp
 The static files and /api/* carry the headers the explorer's .htaccess set (explorer_api.SECURITY_HEADERS), also on
 the error answers Caddy writes itself (handle_errors); dotfiles, server code, checksum lists and the extensions
 .htaccess denied are 404. The Studio installer
-(deploy/studio/install_studio_gateway.py) adds its /studio/* route to this block, and an update keeps it.
+(deploy/studio/install_studio_gateway.py) adds its /studio/* route to this block, the faucet route
+(deploy/faucet/faucet_route.py) its /faucet/claim and /faucet/status, and an update keeps both.
 
 The static copy is a directory of the snapshot's public files, as `deploy/websites/tools/site_snapshot.py --out DIR`
 builds it from the committed blobs: regular files only, no hidden or server files, a bounded size, an index.html whose
@@ -146,10 +147,12 @@ def is_stock_caddyfile(text):
     return tokens == [':80', '{', 'root', '*', '/usr/share/caddy', 'file_server', '}']
 
 
-def plan_caddyfile(text, site_root, studio=None):
+def plan_caddyfile(text, site_root, studio=None, faucet=None):
     """(new Caddyfile, previous site root or None) with the managed block serving `site_root`. `studio` is the Studio
-    installer module (ROUTE, MARKER, patch_caddy): its route in the managed block is kept. A fresh server's stock file
-    is replaced, other sites are kept, and anything else that names this host or the gateway port is refused."""
+    installer module and `faucet` the faucet route module (deploy/faucet/faucet_route.py), each with ROUTE, MARKER and
+    patch_caddy: their routes in the managed block are kept, exactly as written (an edited, damaged or duplicated one is
+    refused). A fresh server's stock file is replaced, other sites are kept, and anything else that names this host or
+    the gateway port is refused."""
     block = render_block(site_root)
     if BEGIN not in text and END not in text:
         if HOST in text:
@@ -174,12 +177,19 @@ def plan_caddyfile(text, site_root, studio=None):
         if region.count(studio.ROUTE) != 1:
             raise RuntimeError('The Studio route in the explorer block has custom edits; review it first')
         normalized = region.replace(studio.ROUTE, '', 1).replace('max_size 131072', 'max_size 16384', 1)
+    has_faucet = faucet is not None and (faucet.MARKER in region or faucet.END in region)
+    if has_faucet:
+        if region.count(faucet.ROUTE) != 1 or region.count(faucet.MARKER) != 1 or region.count(faucet.END) != 1:
+            raise RuntimeError('The faucet route in the explorer block has custom edits; review it first')
+        normalized = normalized.replace(faucet.ROUTE, '', 1)
     roots = SITE_ROOT.findall(normalized)
     if len(roots) != 1 or normalized != render_block(roots[0]):
         raise RuntimeError('The managed explorer Caddy block has custom edits; review it first (no changes made)')
     new = before + block + after
     if has_studio:
         new = studio.patch_caddy(new)
+    if has_faucet:
+        new = faucet.patch_caddy(new)
     return new, roots[0]
 
 
