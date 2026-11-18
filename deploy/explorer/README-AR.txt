@@ -14,7 +14,9 @@ PoCol Explorer — بوابة Explorer وموقعها على خادم البوا
 - مسارات القراءة نفسها التي يستدعيها Explorer: /api/rpc.php (POST) و /api/health.php و
   /api/miner-locations.php و /api/transactions.php (GET)، تجيب عنها البوابة نفسها (deploy/rewards/explorer_api.py)
   بالقيود نفسها التي كانت في ملفات PHP؛ ملخص الشبكة في pocol.net يقرأ /api/rpc.php نفسه؛
-- مسارَي البوابة /rpc و /health، ومسار Studio /studio/* الذي يضيفه مثبّت deploy/studio إلى الكتلة نفسها.
+- مسارَي البوابة /rpc و /health، ومسار Studio /studio/* الذي يضيفه مثبّت deploy/studio إلى الكتلة نفسها،
+  ومسارَي صنبور الرسوم /faucet/claim و /faucet/status اللذين يضيفهما deploy/faucet/faucet_route.py إليها
+  (يُمرَّران إلى الصنبور على 127.0.0.1:8547 بعد حذف البادئة /faucet؛ انظر deploy/faucet/README.md).
 الملفات المخفية وملفات PHP وقوائم التحقق والامتدادات التي كان .htaccess يمنعها تعطي 404، ولا يُعرض محتوى المجلدات.
 
 2. المتطلبات
@@ -55,10 +57,12 @@ SHA256SUMS.txt، ويجب أن ينجح؛ إذا فشل لا يُشغَّل ال
 التثبيت يحفظ نسخة احتياطية في /var/backups/pocol-explorer-gateway/، ويثبّت خدمة pocol-explorer-gateway.service
 على 127.0.0.1:8088 فقط، ويكتب النسخة الثابتة في /srv/pocol-explorer/site-<معرّف>، ثم يعيد تحميل Caddy ويختبر عبر
 HTTPS باسم explorer.pocol.net وشهادة موثوقة كل ملف ثابت والترويسات و /api/health.php و /api/rpc.php و /rpc
-و /health والمسارات الممنوعة ومسار Studio إن وُجد. إذا فشل أي اختبار، يسترجع ملف Caddy والملفات والخدمة السابقة،
+و /health والمسارات الممنوعة ومسار Studio إن وُجد، ومسار الصنبور إن وُجد (GET /faucet/status برقم سلسلة الشبكة؛
+ولا يُرسل أي طلب إلى /faucet/claim). إذا فشل أي اختبار، يسترجع ملف Caddy والملفات والخدمة السابقة،
 وإذا تعثّرت الاستعادة يعرض ROLLBACK INCOMPLETE مع الخطوات المتعثّرة ومسار النسخة الاحتياطية.
 
-ثبّت هذه البوابة قبل بوابة Studio (deploy/studio)، لأن مثبّت Studio يضيف مساره إلى هذه الكتلة.
+ثبّت هذه البوابة قبل بوابة Studio (deploy/studio) ومسار الصنبور (deploy/faucet/faucet_route.py)، لأن كلًّا منهما
+يضيف مساره إلى هذه الكتلة؛ أي ترتيب لتثبيتهما يعطي الملف نفسه، والتحديث يحتفظ بالمسارين كما هما ويرفض أي تعديل عليهما.
 إذا وُجد موقع explorer.pocol.net غير مُدار أو كتلة معدّلة يدويًا، يتوقف المثبّت دون تغيير لتُراجع أولًا.
 
 4. استكشاف الخطأ

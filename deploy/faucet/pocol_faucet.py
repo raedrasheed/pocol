@@ -19,10 +19,15 @@ signed bytes are relayed to the local node with `eth_sendRawTransaction`. Before
 chain ID must equal the configured one.
 
     python3 pocol_faucet.py --config /etc/pocol-faucet/config.json
-    POST /claim {"address": "0x..."}  ->  {"hash": "0x...", "amountWei": "..."}
-    GET  /status                      ->  {"chainId": ..., "amountWei": ..., "remainingToday": ...}
+    POST /claim {"address": "0x..."}  ->  {"type": "sent", "hash": "0x...", "amountWei": "...", "to": "0x..."}
+    GET  /status                      ->  {"type": "status", "chainId": ..., "amountWei": ..., "remainingToday": ..., ...}
+
+Every error answer is {"type": "error", "code": CODE, "message": TEXT}, CODE one of ERROR_CODES (README.md lists them).
+`unknown_outcome` means a transfer may already have been submitted (the ledger keeps the claim): check the address
+before retrying. `node_unavailable` means the node could not be reached (or the ledger written) before anything was
+sent.
 """
-import argparse, datetime, http.server, io, json, os, re, subprocess, sys, tempfile, threading, time, urllib.request
+import argparse, datetime, http.server, io, ipaddress, json, os, re, subprocess, sys, tempfile, threading, time, urllib.request
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -39,9 +44,31 @@ MAX_CONNECTIONS = 16
 REQUEST_TIMEOUT = 12
 GWEI = 10**9
 
+# The machine-readable `code` of every error answer (a page translates these, not the English message).
+ERROR_CODES = frozenset({
+    'invalid_address', 'reserved_address', 'contract_account', 'bad_request', 'too_large', 'unsupported_media',
+    'not_found', 'deadline', 'already_claimed', 'not_new_account', 'already_funded', 'busy', 'daily_limit',
+    'client_limit', 'signer_failed', 'node_refused', 'node_unavailable', 'unknown_outcome', 'wrong_network',
+    'over_float', 'empty'})
+
 class Refused(Exception):
-    def __init__(self, status, message):
-        super().__init__(message); self.status = status; self.message = message
+    """A refusal answered with `status` and `code`; nothing was sent. A Refused raised without a code is a node's
+    refusal (an injected rpc may raise one), so it answers node_refused."""
+    def __init__(self, status, message, code='node_refused'):
+        super().__init__(message); self.status = status; self.message = message; self.code = code
+
+class UnknownOutcome(TimeoutError):
+    """A transfer may have been submitted: the node did not answer the send, or its answer could not be saved. The
+    ledger keeps the claim (`unknown`, or `sent` when only saving the answer failed), so the address cannot claim again
+    until the operator has checked the nonce. A TimeoutError: the send's outcome did not arrive."""
+
+def client_key(value):
+    """The per-client counter key of an IP address: an IPv4 address as is, an IPv6 address by its /64 (one host can
+    rotate addresses inside its /64). ValueError if `value` is not an IP address."""
+    ip = ipaddress.ip_address(value.strip())
+    if ip.version == 6 and ip.ipv4_mapped: ip = ip.ipv4_mapped
+    if ip.version == 4: return str(ip)
+    return str(ipaddress.IPv6Network((int(ip) >> 64 << 64, 64)))
 
 def reserved(address):
     """System programs, PAY, precompiles and the zero address never receive faucet transfers."""
@@ -106,61 +133,82 @@ class Faucet:
         body = json.dumps({'jsonrpc': '2.0', 'id': 1, 'method': method, 'params': params}).encode()
         req = urllib.request.Request(self.cfg['rpc'], data=body, headers={'Content-Type': 'application/json'})
         with urllib.request.urlopen(req, timeout=10) as r: value = json.load(r)
-        if 'error' in value: raise Refused(502, f"node refused {method}: {value['error'].get('message', value['error'])}")
+        if 'error' in value:
+            error = value['error']; text = error.get('message', error) if isinstance(error, dict) else error
+            raise Refused(502, f'node refused {method}: {text}', 'node_refused')
         return value['result']
 
     def _sign(self, args):
         cmd = [self.cfg['signer'], '--key-file', str(self.cfg['keyFile']), '--chain-id', str(self.chain_id), *args]
-        p = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-        if p.returncode: raise Refused(500, 'the signer failed')
+        try: p = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.SubprocessError): raise Refused(500, 'the signer failed', 'signer_failed')
+        if p.returncode: raise Refused(500, 'the signer failed', 'signer_failed')
         return p.stdout.strip()
 
     def status(self):
         day = today()
         return {'type': 'status', 'chainId': self.chain_id, 'amountWei': str(self.amount), 'faucet': self.address,
-                'remainingToday': max(0, int(self.cfg['dailyLimit']) - self.ledger.count(day))}
+                'remainingToday': max(0, int(self.cfg['dailyLimit']) - self.ledger.count(day)),
+                'dailyLimit': int(self.cfg['dailyLimit']), 'perClientDaily': int(self.cfg['perClientDaily'])}
 
     @contextmanager
     def claim_slot(self):
         # An unavailable node/signer must not build a queue of HTTP worker threads.
         if not self.lock.acquire(blocking=False):
-            raise Refused(429, 'The faucet is processing a claim. Retry shortly.')
+            raise Refused(429, 'The faucet is processing a claim. Retry shortly.', 'busy')
         try: yield
         finally: self.lock.release()
 
     def claim(self, address, client):
-        if not isinstance(address, str) or not ADDRESS.match(address): raise Refused(400, 'Enter the full 0x address (42 characters)')
+        if not isinstance(address, str) or not ADDRESS.match(address): raise Refused(400, 'Enter the full 0x address (42 characters)', 'invalid_address')
         address = address.lower()
-        if reserved(address) or address == self.address: raise Refused(400, 'This address cannot receive faucet transfers')
+        if reserved(address) or address == self.address: raise Refused(400, 'This address cannot receive faucet transfers', 'reserved_address')
         with self.claim_slot():
             day = today()
-            if address in self.ledger.claims: raise Refused(409, 'This address has already received a faucet transfer')
-            if self.ledger.count(day) >= int(self.cfg['dailyLimit']): raise Refused(429, "Today's faucet limit is reached. Try again tomorrow (UTC).")
+            if address in self.ledger.claims: raise Refused(409, 'This address has already received a faucet transfer', 'already_claimed')
+            if self.ledger.count(day) >= int(self.cfg['dailyLimit']): raise Refused(429, "Today's faucet limit is reached. Try again tomorrow (UTC).", 'daily_limit')
             used = self.clients.get((day, client), 0)
-            if used >= int(self.cfg['perClientDaily']): raise Refused(429, 'This connection has reached its daily faucet limit')
-            if int(self.rpc('eth_chainId', []), 16) != self.chain_id: raise Refused(503, 'The node is on a different network; the faucet is stopped')
-            if int(self.rpc('eth_getTransactionCount', [address, 'pending']), 16) != 0: raise Refused(409, 'The faucet funds only new accounts that have not sent a transaction')
-            if self.rpc('eth_getCode', [address, 'latest']) not in ('0x', '0x0', ''): raise Refused(400, 'The faucet funds only ordinary accounts')
-            if int(self.rpc('eth_getBalance', [address, 'pending']), 16) >= self.amount: raise Refused(409, 'This account already holds enough PCOL for its first fee')
+            if used >= int(self.cfg['perClientDaily']): raise Refused(429, 'This connection has reached its daily faucet limit', 'client_limit')
+            if int(self.rpc('eth_chainId', []), 16) != self.chain_id: raise Refused(503, 'The node is on a different network; the faucet is stopped', 'wrong_network')
+            if int(self.rpc('eth_getTransactionCount', [address, 'pending']), 16) != 0: raise Refused(409, 'The faucet funds only new accounts that have not sent a transaction', 'not_new_account')
+            if self.rpc('eth_getCode', [address, 'latest']) not in ('0x', '0x0', ''): raise Refused(400, 'The faucet funds only ordinary accounts', 'contract_account')
+            if int(self.rpc('eth_getBalance', [address, 'pending']), 16) >= self.amount: raise Refused(409, 'This account already holds enough PCOL for its first fee', 'already_funded')
             price = int(self.rpc('eth_gasPrice', []), 16); max_fee = max(2 * price, 2 * GWEI)
             held = int(self.rpc('eth_getBalance', [self.address, 'pending']), 16)
             if self.max_float is not None and held > self.max_float:
-                raise Refused(503, 'The faucet operator account holds more than the faucet float; the faucet is stopped')
-            if held < self.amount + 21000 * max_fee: raise Refused(503, 'The faucet is empty')
+                raise Refused(503, 'The faucet operator account holds more than the faucet float; the faucet is stopped', 'over_float')
+            if held < self.amount + 21000 * max_fee: raise Refused(503, 'The faucet is empty', 'empty')
             nonce = int(self.rpc('eth_getTransactionCount', [self.address, 'pending']), 16)
             raw = self.sign(['--to', address, '--value', str(self.amount), '--nonce', str(nonce), '--max-fee', str(max_fee)])
-            if not re.fullmatch(r'0x[0-9a-fA-F]+', raw): raise Refused(500, 'the signer returned no transaction')
+            if not re.fullmatch(r'0x[0-9a-fA-F]+', raw): raise Refused(500, 'the signer returned no transaction', 'signer_failed')
             # Durable before the send: a crash after this line can never pay the same address twice.
-            self.ledger.claims[address] = {'day': day, 'nonce': nonce, 'state': 'sending'}; self.ledger.save()
+            self.ledger.claims[address] = {'day': day, 'nonce': nonce, 'state': 'sending'}
+            try: self.ledger.save()
+            except BaseException:
+                # Nothing was sent, so the address may claim again (node_unavailable). A retry saves 'sending' again
+                # before it sends; the rollback save is best effort.
+                del self.ledger.claims[address]
+                try: self.ledger.save()
+                except Exception: pass
+                raise
             try:
                 tx = self.rpc('eth_sendRawTransaction', [raw])
             except Refused:
                 # The node answered and refused: nothing was sent, so the address may claim again.
                 del self.ledger.claims[address]; self.ledger.save(); raise
-            except BaseException:
-                # No answer: the transfer may be in the pool. Keep the claim; the operator checks the nonce.
-                self.ledger.claims[address]['state'] = 'unknown'; self.ledger.save(); raise
-            self.ledger.claims[address].update({'state': 'sent', 'hash': tx}); self.ledger.save()
+            except BaseException as error:
+                # No answer: the transfer may be in the pool. Keep the claim; the operator checks the nonce. If even
+                # this save fails, the file still holds the claim as 'sending', which refuses the address as well.
+                self.ledger.claims[address]['state'] = 'unknown'
+                try: self.ledger.save()
+                except Exception: pass
+                if not isinstance(error, Exception): raise
+                raise UnknownOutcome(f'no answer to eth_sendRawTransaction: {error!r}') from error
+            try:
+                self.ledger.claims[address].update({'state': 'sent', 'hash': tx}); self.ledger.save()
+            except Exception as error:
+                # The node took the transfer; only its record failed. The file still refuses the address ('sending' or 'sent').
+                raise UnknownOutcome('the transfer was submitted but the ledger could not record it') from error
             self.clients[(day, client)] = used + 1
             for key in [k for k in self.clients if k[0] != day]: del self.clients[key]
             return {'type': 'sent', 'hash': tx, 'amountWei': str(self.amount), 'to': address}
@@ -212,50 +260,65 @@ def handler(faucet):
             self.rfile = io.BufferedReader(DeadlineReader(self.connection, timeout))
         def log_message(self, fmt, *args): pass
         def client(self):
+            """The per-client key (client_key). With trustProxy, the last X-Forwarded-For entry: the route on
+            explorer.pocol.net (faucet_route.py) overwrites the header with the connecting address. An entry that is
+            not an IP address falls back to the peer address, so it cannot open a fresh counter."""
+            peer = self.client_address[0]
             if faucet.cfg['trustProxy']:
-                forwarded = self.headers.get('X-Forwarded-For', '')
-                if forwarded: return forwarded.split(',')[-1].strip()
-            return self.client_address[0]
-        def reply(self, status, value):
+                forwarded = ','.join(self.headers.get_all('X-Forwarded-For', []))
+                try: return client_key(forwarded.split(',')[-1])
+                except ValueError: pass
+            try: return client_key(peer)
+            except ValueError: return peer
+        def reply(self, status, value, headers=()):
             body = json.dumps(value).encode()
             self.send_response(status); self.send_header('Content-Type', 'application/json'); self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store'); self.send_header('X-Content-Type-Options', 'nosniff')
             if faucet.cfg['allowOrigin']: self.send_header('Access-Control-Allow-Origin', faucet.cfg['allowOrigin'])
+            for name, text in headers: self.send_header(name, text)
             try: self.end_headers(); self.wfile.write(body)
             except (BrokenPipeError, ConnectionResetError, TimeoutError): pass
+        def error(self, status, code, message, headers=()):
+            self.reply(status, {'type': 'error', 'code': code, 'message': message}, headers)
         def do_OPTIONS(self):
             self.send_response(204)
             if faucet.cfg['allowOrigin']:
                 self.send_header('Access-Control-Allow-Origin', faucet.cfg['allowOrigin']); self.send_header('Access-Control-Allow-Methods', 'GET, POST')
-                self.send_header('Access-Control-Allow-Headers', 'Content-Type')
-            self.end_headers()
+                self.send_header('Access-Control-Allow-Headers', 'Content-Type'); self.send_header('Access-Control-Max-Age', '600')
+            self.send_header('Content-Length', '0')
+            try: self.end_headers()
+            except (BrokenPipeError, ConnectionResetError, TimeoutError): pass
         def do_GET(self):
-            if self.path != '/status': return self.reply(404, {'type': 'error', 'message': 'not found'})
+            if self.path != '/status': return self.error(404, 'not_found', 'not found')
             self.reply(200, faucet.status())
         def do_POST(self):
             try:
-                if self.path != '/claim': raise Refused(404, 'not found')
+                if self.path != '/claim': raise Refused(404, 'not found', 'not_found')
                 lengths = self.headers.get_all('Content-Length', [])
                 if self.headers.get('Transfer-Encoding') is not None or len(lengths) != 1:
-                    raise Refused(400, 'A single Content-Length is required; chunked requests are not supported')
+                    raise Refused(400, 'A single Content-Length is required; chunked requests are not supported', 'bad_request')
                 if re.fullmatch(r'[0-9]{1,3}', lengths[0]) is None:
-                    raise Refused(413, 'request body size is invalid')
+                    raise Refused(413, 'request body size is invalid', 'too_large')
                 length = int(lengths[0])
-                if length <= 0 or length > MAX_BODY: raise Refused(413, 'request body too large')
+                if length <= 0 or length > MAX_BODY: raise Refused(413, 'request body too large', 'too_large')
                 if self.headers.get('Content-Type', '').split(';')[0].strip().lower() != 'application/json':
-                    raise Refused(415, 'Use application/json')
+                    raise Refused(415, 'Use application/json', 'unsupported_media')
                 raw = self.rfile.read(length)
-                if len(raw) != length: raise Refused(400, 'Incomplete request body')
+                if len(raw) != length: raise Refused(400, 'Incomplete request body', 'bad_request')
                 try: body = json.loads(raw)
-                except ValueError: raise Refused(400, 'invalid JSON')
-                if not isinstance(body, dict) or set(body) != {'address'}: raise Refused(400, 'send {"address": "0x..."}')
+                except ValueError: raise Refused(400, 'invalid JSON', 'bad_request')
+                if not isinstance(body, dict) or set(body) != {'address'}: raise Refused(400, 'send {"address": "0x..."}', 'bad_request')
                 self.reply(200, faucet.claim(body['address'], self.client()))
             except Refused as e:
-                self.reply(e.status, {'type': 'error', 'message': e.message})
+                # Only a busy claim slot invites an automatic retry; the daily and per-client limits do not.
+                self.error(e.status, e.code, e.message, [('Retry-After', '2')] if e.code == 'busy' else ())
             except RequestDeadline:
-                self.reply(408, {'type': 'error', 'message': 'Request read deadline exceeded; no claim was processed.'})
+                self.error(408, 'deadline', 'Request read deadline exceeded; no claim was processed.')
+            except UnknownOutcome:
+                self.error(502, 'unknown_outcome', 'The faucet could not reach the node or save its response. A transfer may already have been submitted; check the address before retrying.')
             except Exception:
-                self.reply(502, {'type': 'error', 'message': 'The faucet could not reach the node or save its response. A transfer may already have been submitted; check the address before retrying.'})
+                # Raised before the send (claim() turns every failure from the send on into UnknownOutcome).
+                self.error(502, 'node_unavailable', 'The faucet could not reach the node or write its ledger before sending. No transfer was submitted; retry later.')
     return Handler
 
 def main(argv=None):

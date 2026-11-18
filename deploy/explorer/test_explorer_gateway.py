@@ -1,5 +1,5 @@
 """The explorer gateway host's Caddy site, static copy and installer (explorer_site.py, install_explorer_gateway.py):
-the rendered block against the Studio installer in both orders, the update and refusal rules, the copy's checks on
+the rendered block against the Studio installer and the faucet route in every order, the update and refusal rules, the copy's checks on
 the committed snapshot, and the install, check and rollback paths with every host path in a temporary directory and
 every system command faked. Nothing here changes a host or contacts a network."""
 import hashlib
@@ -23,6 +23,7 @@ import install_explorer_gateway as installer  # noqa: E402
 import explorer_api  # noqa: E402  (deploy/rewards, on the path through explorer_site)
 import gateway  # noqa: E402
 import install_studio_gateway as studio  # noqa: E402  (deploy/studio, on the path through the installer)
+import faucet_route as faucet  # noqa: E402  (deploy/faucet, on the path through the installer)
 sys.path.insert(0, str(ROOT / 'deploy' / 'websites' / 'tools'))
 import site_snapshot  # noqa: E402
 
@@ -114,6 +115,43 @@ class CaddyBlockTests(unittest.TestCase):
         self.assertEqual(site.plan_caddyfile(updated, ROOT_B, studio), (updated, ROOT_B))
         tampered = patched.replace('response_header_timeout 25s', 'response_header_timeout 99s')
         with self.assertRaisesRegex(RuntimeError, 'Studio route .* custom edits'): site.plan_caddyfile(tampered, ROOT_B, studio)
+
+    def test_the_faucet_route_and_the_studio_route_in_any_order(self):
+        block = site.render_block(ROOT_A)
+        both = faucet.patch_caddy(studio.patch_caddy(block))
+        # Either install order gives the same file, and each patch is idempotent.
+        self.assertEqual(studio.patch_caddy(faucet.patch_caddy(block)), both)
+        self.assertEqual(faucet.patch_caddy(both), both); self.assertEqual(studio.patch_caddy(both), both)
+        self.assertEqual(both.count(faucet.ROUTE), 1); self.assertEqual(both.count(studio.ROUTE), 1)
+        self.assertIn(faucet.ROUTE + '    @rpc path /rpc\n', both)
+        # The faucet route leaves the body size to Studio: alone it keeps 16 KiB.
+        self.assertIn('max_size 16384', faucet.patch_caddy(block)); self.assertIn('max_size 131072', both)
+        # An explorer update keeps whichever routes are installed and changes only the site root.
+        for text in (faucet.patch_caddy(block), both):
+            with self.subTest(studio=studio.MARKER in text):
+                updated, old = site.plan_caddyfile(text, ROOT_B, studio, faucet)
+                self.assertEqual((updated, old), (text.replace(ROOT_A, ROOT_B), ROOT_A))
+                self.assertEqual(site.plan_caddyfile(updated, ROOT_B, studio, faucet), (updated, ROOT_B))
+        # Explorer first, then the routes, equals the routes after an explorer update.
+        fresh = site.plan_caddyfile(block, ROOT_B, studio, faucet)[0]
+        self.assertEqual(faucet.patch_caddy(studio.patch_caddy(fresh)), both.replace(ROOT_A, ROOT_B))
+        self.assertEqual(site.plan_caddyfile(block, ROOT_B, studio, faucet)[0], site.render_block(ROOT_B))
+        # The route stripped, the block is the rendered one again.
+        self.assertEqual(faucet.patch_caddy(block).replace(faucet.ROUTE, ''), block)
+        # A caller that does not know the faucet route, an edited, damaged or duplicated one: refused.
+        refused = {
+            'faucet unknown to the caller': (both, None),
+            'edited timeout': (both.replace('response_header_timeout 45s', 'response_header_timeout 99s'), faucet),
+            'header removed': (both.replace('            ' + faucet.CLIENT_IP_HEADER + '\n', ''), faucet),
+            'end marker removed': (both.replace('    ' + faucet.END + '\n', ''), faucet),
+            'begin marker removed': (both.replace('    ' + faucet.MARKER + '\n', ''), faucet),
+            'duplicated': (both.replace(faucet.ROUTE, faucet.ROUTE * 2), faucet),
+        }
+        for name, (text, module) in refused.items():
+            with self.subTest(name), self.assertRaisesRegex(RuntimeError, 'custom edits'):
+                site.plan_caddyfile(text, ROOT_B, studio, module)
+        with self.assertRaisesRegex(RuntimeError, 'faucet port'):
+            site.plan_caddyfile(both + 'other.example {\n    reverse_proxy 127.0.0.1:8547\n}\n', ROOT_B, studio, faucet)
 
     def test_caddyfile_plans(self):
         block = site.render_block(ROOT_A)
@@ -304,6 +342,7 @@ class InstallerTests(unittest.TestCase):
                 if path == '/rpc': return 200, response, json.dumps({'jsonrpc': '2.0', 'id': 1, 'result': params}).encode()
                 if path == '/health': return 200, response, b'{"service":"pocol-explorer-gateway"}'
                 if path == '/studio/health': return 200, response, b'{"service":"pocol-studio-gateway"}'
+                if path == '/faucet/status': return 200, response, json.dumps({'type': 'status', 'chainId': NET['chainId']}).encode()
                 return 404, response, b'Not found'
             return tls
         with patch.object(installer, 'tls', side_effect=answers()) as tls:
@@ -322,6 +361,20 @@ class InstallerTests(unittest.TestCase):
                 installer.verify_https(network, files, True)
         with patch.object(installer, 'tls', side_effect=answers({('GET', '/studio/health'): (502, bare, b'')})):
             installer.verify_https(network, files, False)
+        # The faucet route: /faucet/status names the network's chain ID; nothing is ever posted to /faucet/claim.
+        with patch.object(installer, 'tls', side_effect=answers()) as tls:
+            installer.verify_https(network, files, False, True)
+            asked = [c.args[:2] for c in tls.call_args_list]
+            self.assertIn(('GET', '/faucet/status'), asked)
+            self.assertFalse(any(p.startswith('/faucet/claim') for _, p in asked))
+        for answer in ((502, bare, b''), (200, bare, b'{"type":"status","chainId":"777963"}'),
+                       (200, bare, json.dumps({'type': 'error', 'chainId': NET['chainId']}).encode()),
+                       (200, bare, json.dumps({'type': 'status', 'chainId': NET['chainId'] + 1}).encode())):
+            with self.subTest(answer=answer[2]), patch.object(installer, 'tls', side_effect=answers({('GET', '/faucet/status'): answer})), \
+                    self.assertRaisesRegex(RuntimeError, 'faucet'):
+                installer.verify_https(network, files, False, True)
+        with patch.object(installer, 'tls', side_effect=answers({('GET', '/faucet/status'): (502, bare, b'')})):
+            installer.verify_https(network, files, False, False)
 
     def test_rollback_continues_after_a_caddy_command_timeout(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -345,7 +398,7 @@ class InstallerTests(unittest.TestCase):
             self.assertEqual(commands[-1], ('systemctl', 'daemon-reload'))
 
     def run_install(self, fail_https=False, existing=False, unit_text=None, caddy_text=None, check=False, studio_route=False, forks=False,
-                    change_copy=None, accept=None, prepare=None, umask=None, root_uid=None, https_wait=None):
+                    change_copy=None, accept=None, prepare=None, umask=None, root_uid=None, https_wait=None, faucet_route=False):
         """installer.main() on temporary host paths: (Caddyfile after, commands, printed text, root). `change_copy(dir)`
         edits the copy after it is built; `accept` is the --accept-site value (the copy's id when True); `prepare(root)`
         runs after the host paths are set up; `umask` is root's umask during main(); `root_uid` the owner the installer
@@ -364,6 +417,7 @@ class InstallerTests(unittest.TestCase):
         if caddy_text is None:
             caddy_text = site.render_block(ROOT_A) if existing else ':80 {\n\troot * /usr/share/caddy\n\tfile_server\n}\n'
             if studio_route: caddy_text = studio.patch_caddy(caddy_text)
+            if faucet_route: caddy_text = faucet.patch_caddy(caddy_text)
         caddy.write_text(caddy_text)
         prior_source = b'# existing gateway preserved\n'
         if existing:
@@ -378,8 +432,8 @@ class InstallerTests(unittest.TestCase):
         gateway_instance = MagicMock()
         # The copy is written under `srv`; the Caddyfile names its production root (/srv/pocol-explorer/site-<id>).
         real_plan = site.plan_caddyfile
-        def plan(text, site_root, studio_module):
-            return real_plan(text, '/srv/pocol-explorer/' + Path(site_root).name, studio_module)
+        def plan(text, site_root, studio_module, faucet_module=None):
+            return real_plan(text, '/srv/pocol-explorer/' + Path(site_root).name, studio_module, faucet_module)
         argv = ['--site', str(copy)] + (['--check'] if check else []) + (['--accept-site', 'site-' + ident if accept is True else accept] if accept else [])
         argv += ['--https-wait', str(https_wait)] if https_wait else []
         with patch.multiple(installer, BASE=base, UNIT=unit, CADDYFILE=caddy, SITE_PARENT=srv, BACKUPS=backups, CONFIG=config,
@@ -414,6 +468,7 @@ class InstallerTests(unittest.TestCase):
                     self.assertEqual(verify.call_args.args[1], files)
                     self.assertEqual(verify.call_args.args[2], studio_route)
                     self.assertEqual(verify.call_args.args[3], https_wait or installer.HTTPS_WAIT)
+                    self.assertEqual(verify.call_args.kwargs, {'faucet_route': faucet_route})
             gateway_instance.verify_network.assert_called_once_with()
             return caddy.read_text(), commands, printed(), root, ident, files
 
@@ -436,6 +491,16 @@ class InstallerTests(unittest.TestCase):
         text, commands, printed, root, ident, _ = self.run_install(existing=True, studio_route=True)
         self.assertEqual(text, studio.patch_caddy(site.render_block(f'/srv/pocol-explorer/site-{ident}')))
         self.assertTrue((root / 'srv' / ('site-' + 'a' * 12)).exists(), 'the previous copy stays for a rollback')
+
+    def test_an_update_keeps_the_faucet_and_studio_routes(self):
+        for routes in ({'faucet_route': True}, {'faucet_route': True, 'studio_route': True}):
+            with self.subTest(**routes):
+                text, _, printed, _, ident, _ = self.run_install(existing=True, **routes)
+                expected = site.render_block(f'/srv/pocol-explorer/site-{ident}')
+                if routes.get('studio_route'): expected = studio.patch_caddy(expected)
+                self.assertEqual(text, faucet.patch_caddy(expected))
+                self.assertIn('and the faucet route', printed)
+        self.run_install(existing=True, faucet_route=True, fail_https=True)
 
     def test_https_wait_reaches_the_https_check(self):
         self.run_install(https_wait=1800)
