@@ -94,6 +94,119 @@ class IndependentKeys(unittest.TestCase):
         os.link(path, link)
         self.assertNotEqual(self.call('pocol-key', 'address', '--key-file', path).returncode, 0)
 
+    def feed(self, binary, *args, stdin):
+        """A tool run whose passphrase lines arrive on stdin (a pipe), as the Windows wallet feeds `pocol`."""
+        return subprocess.run([str(BIN / binary), *map(str, args)], input=stdin, capture_output=True, text=True,
+                              encoding='utf-8', timeout=120)
+
+    def test_a_tool_waiting_on_a_pipe_for_its_passphrase_ends_on_sigterm(self):
+        # The Ctrl-C handlers of the prompt are installed for a terminal only (echo off): with stdin a pipe that is
+        # still open, SIGTERM ends pocol-key at once instead of waiting for the pipe to deliver a line or close.
+        import signal, time
+        key, _ = self.key('waiting')
+        out = self.root / 'waiting.pocol-backup'
+        p = subprocess.Popen([str(BIN / 'pocol-key'), 'export', '--key-file', str(key), '--out', str(out)],
+                             stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        try:
+            time.sleep(1)
+            self.assertIsNone(p.poll(), 'still waiting for the passphrase')
+            p.send_signal(signal.SIGTERM)
+            p.wait(timeout=5)
+        finally:
+            if p.poll() is None:
+                p.kill()
+            p.stdin.close()
+            p.wait()
+        self.assertNotEqual(p.returncode, 0)
+        self.assertFalse(out.exists(), 'nothing was written')
+
+    def test_encrypted_backup_restores_the_same_address(self):
+        # CRY-02 for raw key files: `pocol-key export` writes the 98-byte passphrase-encrypted backup of
+        # `pocol export-key`, `pocol-key import` restores it into a new key file. Passphrases come on stdin.
+        key, address = self.key('reward')
+        secret = key.read_bytes()
+        backup = self.root / 'reward.pocol-backup'
+        phrase = 'a long backup passphrase ✓'
+        both = f'{phrase}\n{phrase}\n'
+        def export(stdin, out=backup):
+            return self.feed('pocol-key', 'export', '--key-file', key, '--out', out, stdin=stdin)
+        self.assertIn('differ', export(f'{phrase}\nanother long passphrase\n').stderr)
+        self.assertIn('at least 12', export('short\nshort\n').stderr)
+        self.assertIn('too easy to guess', export('Password2024!\nPassword2024!\n').stderr)
+        self.assertIn('no passphrase', export('').stderr)
+        self.assertFalse(backup.exists(), 'a refused passphrase writes no backup')
+        done = export(both)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertEqual(done.stdout.strip(), address)
+        data = backup.read_bytes()
+        self.assertEqual((len(data), data[:17]), (98, b'POCOL-KEY-BACKUP\x01'))
+        self.assertEqual(backup.stat().st_mode & 0o777, 0o600)
+        self.assertNotIn(secret, data)
+        self.assertNotIn(secret.hex(), done.stdout + done.stderr)
+        # An existing output, a symlink to one or another file, is never replaced.
+        again = export(both)
+        self.assertNotEqual(again.returncode, 0)
+        self.assertIn('never replaced', again.stderr)
+        self.assertEqual(backup.read_bytes(), data)
+        link = self.root / 'link.pocol-backup'
+        link.symlink_to(self.root / 'absent')
+        self.assertNotEqual(export(both, link).returncode, 0)
+        self.assertFalse((self.root / 'absent').exists())
+
+        restored = self.root / 'restored.pocol-key'
+        def restore(stdin, out=restored, source=backup):
+            return self.feed('pocol-key', 'import', '--backup', source, '--out', out, stdin=stdin)
+        wrong = restore('a wrong passphrase\n')
+        self.assertNotEqual(wrong.returncode, 0)
+        self.assertIn('Wrong passphrase', wrong.stderr)
+        self.assertFalse(restored.exists(), 'a wrong passphrase writes nothing')
+        damaged = self.root / 'damaged.pocol-backup'
+        damaged.write_bytes(data[:-1] + bytes([data[-1] ^ 1]))
+        self.assertIn('Wrong passphrase or damaged', restore(phrase + '\n', source=damaged).stderr)
+        self.assertFalse(restored.exists())
+        ok = restore(phrase + '\r\n')
+        self.assertEqual(ok.returncode, 0, ok.stderr)
+        self.assertEqual(ok.stdout.strip(), address)
+        self.assertEqual(restored.read_bytes(), secret)
+        self.assertEqual(restored.stat().st_mode & 0o777, 0o600)
+        self.assertEqual(self.call('pocol-key', 'address', '--key-file', restored).stdout.strip(), address)
+        # The restored key file, or any other existing path, is never overwritten by an import.
+        other, _ = self.key('other')
+        saved = other.read_bytes()
+        for target in (restored, other):
+            refused = restore(phrase + '\n', out=target)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn('never replaced', refused.stderr)
+        self.assertEqual((restored.read_bytes(), other.read_bytes()), (secret, saved))
+        for args in [('export', '--key-file', key), ('import', '--backup', backup), ('export', '--out', backup, '--key-file', key)]:
+            self.assertIn('usage', self.feed('pocol-key', *args, stdin=both).stderr)
+
+    def test_signing_from_a_backup_matches_the_key_file(self):
+        key, address = self.key('alice')
+        backup = self.root / 'alice.pocol-backup'
+        phrase = 'a long backup passphrase ✓'
+        self.assertEqual(self.feed('pocol-key', 'export', '--key-file', key, '--out', backup,
+                                   stdin=f'{phrase}\n{phrase}\n').returncode, 0)
+        tx = ('--chain-id', 777913, '--to', '0x' + '22' * 20, '--value', 7, '--nonce', 1, '--count', 2)
+        plain = self.call('pocol-sign', *tx, '--key-file', key)
+        self.assertEqual(plain.returncode, 0, plain.stderr)
+        self.assertEqual(len(plain.stdout.split()), 2)
+        sealed = self.feed('pocol-sign', *tx, '--backup', backup, stdin=phrase + '\n')
+        self.assertEqual(sealed.returncode, 0, sealed.stderr)
+        self.assertEqual(sealed.stdout, plain.stdout, 'the same signed transactions')
+        self.assertEqual(self.feed('pocol-sign', '--chain-id', 777913, '--address', '--backup', backup,
+                                   stdin=phrase + '\n').stdout.strip(), address)
+        wrong = self.feed('pocol-sign', *tx, '--backup', backup, stdin='a wrong passphrase\n')
+        self.assertNotEqual(wrong.returncode, 0)
+        self.assertIn('Wrong passphrase', wrong.stderr)
+        self.assertEqual(wrong.stdout, '')
+        # Exactly one key source: a backup with a key file or a devnet label, a repeated or valueless --backup.
+        for args in [('--backup', backup, '--key-file', key), ('--backup', backup, '--account', 'alice'),
+                     ('--backup', backup, '--backup', backup), ('--backup',)]:
+            refused = self.feed('pocol-sign', '--chain-id', 777913, '--address', *args, stdin=phrase + '\n')
+            self.assertNotEqual(refused.returncode, 0, args)
+            self.assertEqual(refused.stdout, '', args)
+
     def test_ambiguous_and_missing_key_selectors_fail(self):
         path, _ = self.key('a')
         for args in [('--account', 'alice', '--key-file', path), ('--key-file',),
