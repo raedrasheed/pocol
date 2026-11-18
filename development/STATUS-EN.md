@@ -61,7 +61,15 @@ Decided by the owner on 2026-11-18:
 - the release signing public key (`deploy/release/allowed_signers`), made offline by the owner: fingerprint
   `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (ED25519);
 - the three owner-held server reward addresses, made offline with `pocol-key` and given to the ceremony as
-  `-ServerRewardAddresses` (not committed: the ceremony takes them as a parameter).
+  `-ServerRewardAddresses` (not committed: the ceremony takes them as a parameter), and held offline as an
+  encrypted backup and paper copies;
+- no text may state anything untrue or present the public launch as prevented; the launch disclosures carry no
+  "not public-launch-ready" item and no list of ongoing engineering work;
+- newcomers' first registration fee: the founders transfer it on request (no mainnet faucet);
+- the independent security review (Q1) is commissioned after the launch.
+
+The decisions and the owner's words are in
+[decisions/OWNER-DECISIONS-2026-11-18.md](decisions/OWNER-DECISIONS-2026-11-18.md).
 
 Decided by the owner on 2026-11-16:
 
