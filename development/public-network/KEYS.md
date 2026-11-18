@@ -31,8 +31,9 @@ prototypes/pocold/target/release/pocol-key address \
 
 Files must be regular, have one link, be owned by the running user, have no group/
 other permissions and contain a valid scalar. Final-component symlinks are refused.
-The parent directory and host must also be protected. These files are **plaintext**,
-not encrypted keystores; they are not intended for real-value assets. Temporary
+The parent directory and host must also be protected. These files are **plaintext**
+at rest, not encrypted keystores. A file whose key controls real value, such as an
+offline reward key, is held only on an offline device or in encrypted form. Temporary
 secret input buffers are zeroized; no claim of complete process-memory erasure or
 protection against a compromised operating system is made. Keep a controlled offline
 backup, test recovery to the same address and retain access to reward keys.

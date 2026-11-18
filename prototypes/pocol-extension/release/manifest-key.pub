@@ -1,16 +1,16 @@
-# PoCol Studio, IDE & Viewer: the release manifest public key (SITES-PLAN W14, Q7). OWNER INPUT.
+# PoCol Studio, IDE & Viewer: the release manifest public key (SITES-PLAN W14, Q7), the owner's, committed 2026-11-18.
 #
 # Chrome derives the extension id from the manifest "key" (sha256 of this DER SubjectPublicKeyInfo), so every release
 # built with it has one fixed id: users compare it with the id published on pocol.net, and Chrome keeps the extension's
 # storage (the studio:wallet vault) across releases loaded from any folder.
 #
-# The owner replaces the PLACEHOLDER line below with the base64 DER SubjectPublicKeyInfo of the release key, on one
-# line (the public half only; the private key never enters this repository). For a Chrome RSA key:
+# The line below is the base64 DER SubjectPublicKeyInfo of the owner's RSA 2048 release manifest key, on one line (the
+# public half only; the private key never enters this repository). It was made offline with:
+#   openssl genrsa -out KEY.pem 2048
 #   openssl rsa -in KEY.pem -pubout -outform DER | base64 -w0
-# Then `python3 scripts/package-release.py --extension-id` prints the id to publish.
+# `python3 scripts/package-release.py --extension-id` prints the id to publish:
+#   gggcoflmedlhlkcdhebmoepmggdnafmp
 #
-# While the line is the placeholder:
-#   - node build.mjs builds dist/ without a manifest "key" (a development build; Chrome gives it an id of its folder);
-#   - scripts/package-release.py refuses to package a release.
-# Fault, testGateway and rehearsal builds never carry the key, so loading one never replaces a release install.
-PLACEHOLDER: the owner's manifest public key (base64 DER SubjectPublicKeyInfo)
+# node build.mjs builds dist/ with this manifest "key". Fault, testGateway and rehearsal builds never carry the key, so
+# loading one never replaces a release install.
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqWQrqZhBbzcU1D+5dr+xs5kTZg4C84b6mGILnubAGjeU/JxC+Fg/F9fwE9b4e+ZTXgltm5AgIvhpwvzROtoQ1a6gpcwDLRf+TrhF6oMZwFhoMptBNLnJFsv/gg2LC56qmB7H0CWHi/2eQcabDrqSGBD0lxLKx65qES+1+YT/jT1SXoaDKWtSGMYadTgWZ7N3rXtmaMDJpJwGp4IcTt/eoiNeJKtZvDJSJY3SaWNJaAb/vBUeRvA2rH8BcoPAnrubjEPPHqdryMtKwDFxYlJnT8l25PyspO9nKB2mM8ROprSQjQmCd7U1liTq6KR99LBxDMuQnx9qHjOSGV3qsFLbtQIDAQAB

@@ -43,7 +43,10 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
    one with `set_network_identity.py` (below), in one reviewed PR, and release the clients: rebuild the native
    packages and the 0.5.0 extension from the switched tree, then assemble, sign and verify them
-   (`deploy/release/README.md`, owner procedure). This is the first signed release.
+   (`deploy/release/README.md`, owner procedure). This is the first signed release. The same PR publishes on the
+   pocol.net extension and download pages the two values users compare: the extension ID
+   `gggcoflmedlhlkcdhebmoepmggdnafmp` (`prototypes/pocol-extension/release/manifest-key.pub`) and the release key
+   fingerprint `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (`deploy/release/allowed_signers`).
 8. **Public launch.** Publish the invitation on pocol.net, signed with the release key like every download
    (`deploy/release`), and open the seeds.
 

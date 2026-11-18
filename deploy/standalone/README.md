@@ -202,14 +202,9 @@ Only `VERIFIED` is a verified release: the `SHA256SUMS` inside a package checks 
 
 > **DRAFT — not yet reviewed by the owner** (owner decision pending: launch-disclosure wording). Drafted from the
 > fresh-network design's §4a and C8, which is kept outside this repository; the decided values are in
-> `development/decisions/FRESH-NETWORK-CP.md`.
+> `development/decisions/FRESH-NETWORK-CP.md`. Owner decision 2026-11-18: the disclosures carry no "not
+> public-launch-ready" item and no list of ongoing engineering work; the other items below await the owner's review.
 
-- **Not public-launch-ready.** The software reports `publicLaunchReady: false` and lists its
-  reasons (the launch blockers the ceremony prints). The network is admitted as a Simnet
-  profile in ExperimentalDevnet scope (`admission-scope`, `profile-kind` and the
-  `admission-condition-*` blockers). It still runs publicly and permissionlessly; mining,
-  sites and rewards are unaffected. No financial qualification or independent audit is
-  claimed.
 - **Founders.** Four founders (three servers and the owner's PC) hold 1,000,000 PCOL each
   from genesis, including each one's 20 PCOL bond: 4,000,000 PCOL of initial supply. The
   999,980 PCOL of each server founder sits on an owner-held reward address, not on the server.

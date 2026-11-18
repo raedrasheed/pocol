@@ -56,8 +56,10 @@ explicit R_max; it must not be used to reopen an old data directory.
 
 ## Remaining limits
 
-Key files are plaintext, not encrypted wallets or HSMs. Directory protection,
-backup and recovery remain operator obligations; Windows key ACL support is absent.
+Key files are not encrypted wallets or HSMs: Unix key files are plaintext, and Windows
+key files are DPAPI ciphertext bound to the Windows user (`keyfile/windows.rs`), with no
+explicit ACL set (a file keeps its directory's inherited ACL). Directory protection,
+backup and recovery remain operator obligations.
 The original private bundle generator still uses disposable labels. Public service
 packaging, Internet exposure controls, K_eff/resource obligations, versioned constants,
 worst-case calibration, network lifetime/economic decisions, actual multi-host trials

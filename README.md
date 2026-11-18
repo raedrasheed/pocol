@@ -547,14 +547,14 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 
 **Not established, or still open:**
 
-- **Not public-launch-ready.** PoCol Mainnet is admitted as a Simnet profile in `ExperimentalDevnet` scope, and
-  reports `publicLaunchReady: false` with its `launchBlockers`.
+- **Open gates, reported by the software.** PoCol Mainnet is admitted as a Simnet profile in `ExperimentalDevnet`
+  scope, and reports `publicLaunchReady: false` with its `launchBlockers`.
   - Rule R22 binds the separately defined `Network` profile to chainId 777001, so `profile-kind` and
     `admission-scope` cannot clear on this network as designed. Renaming a deployment does not change either.
   - Rule R21 holds at the network's caps only through the simnet `retentionStress` exception.
   - The open launch gates (identities, enrollment, admission, historical state, Internet exposure, sustained
     operation, economics, release review) are in [PLAN.md](development/public-network/PLAN.md). The network launches
-    with them open and disclosed.
+    with them open; the software reports them (`launchBlockers`).
 - **The memory bound.** At 10,000 members the store-mode bound is 5,485,767,089 B at the network's parameters, inside
   the usable 5.25 GiB (7/8 of the 6 GiB budget) with a thin margin
   ([FN-3c evidence](development/decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)). Whole-state mode was not measured at

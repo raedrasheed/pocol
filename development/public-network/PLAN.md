@@ -17,12 +17,13 @@ and no seat contest. The genesis is continuous (`H_END` 0). The committed profil
 [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and
 [deploy/standalone/README.md](../../deploy/standalone/README.md).
 
-The network launches publicly and permissionlessly **with the gates below still open, and discloses them**. The
+The network launches publicly and permissionlessly **with the gates below still open**. The
 software reports `publicLaunchReady: false` with its `launchBlockers` (V3-28 H1). That never stops a node from
 running, mining or serving sites; it is a statement of what is not yet established. Two blockers cannot clear on
 this network as designed: R22 binds the `Network` profile to chainId 777001, so the mainnet is admitted as a Simnet
-profile in `ExperimentalDevnet` scope (`profile-kind`, `admission-scope`). The disclosures are drafted in the
-standalone README, "Launch disclosures" (owner decision pending: launch-disclosure wording).
+profile in `ExperimentalDevnet` scope (`profile-kind`, `admission-scope`). The launch disclosures are drafted in the
+standalone README, "Launch disclosures" (owner decision pending: launch-disclosure wording; owner decision
+2026-11-18: they carry no "not public-launch-ready" item).
 
 New miners register through an ordinary transaction. A newcomer may register with a 0 PCOL bond and earn the rest
 from its rewards (ACCRUING). At a full set of `M_max` members a newcomer replaces an inactive member
@@ -33,14 +34,14 @@ from its rewards (ACCRUING). At a full set of `M_max` members a newcomer replace
 | Gate | Required deliverable/evidence | Present status |
 | --- | --- | --- |
 | K1: Independent identities | OS-random per-node keys, no secrets in genesis/bundles, permission failures and backup/restart tests | Unix keys, Windows DPAPI keys, service-local custody and the passphrase-encrypted key backup implemented; state recovery tested locally; operator secret-key recovery procedures and an encrypted keystore or HSM remain |
-| J1: Open miner enrollment | A non-genesis identity funds a bond, registers through an ordinary transaction, joins mining; duplicate/invalid operations rejected | Zero-bond (ACCRUING) registration, top-up, rejoin and replacement at a full set implemented and tested on v3; first-fee funding for newcomers without a mainnet faucet (owner decision 2026-11-16: the fee faucet runs on the rehearsal network only), eligibility churn and load, and network-scale enrollment remain |
+| J1: Open miner enrollment | A non-genesis identity funds a bond, registers through an ordinary transaction, joins mining; duplicate/invalid operations rejected | Zero-bond (ACCRUING) registration, top-up, rejoin and replacement at a full set implemented and tested on v3; first-fee funding without a mainnet faucet is decided (owner decision 2026-11-18: the founders transfer the first fee on request; the fee faucet runs on the rehearsal network only); eligibility churn and load, and network-scale enrollment remain |
 | I1: Stable network identity | Published genesis, versioned wire/constants identity, reproducible release and compatibility rejection | Wire v2 with the consensus identity and the consensus-source lock implemented and tested; chain ids drawn; the genesis is published at the ceremony and pinned in the clients afterwards; the normative digest adoption and an independently reproduced binary release remain |
-| A1: Honest admission | Approved profile, measured H_cal, real worst-case execution calibration, R18/R21 obligations, RpcGuard gaps closed | Open; the profile is approved (FRESH-NETWORK-CP) and the ceremony records a measured hash rate, but the network is admitted in ExperimentalDevnet scope with its admission conditions; real worst-case execution calibration, the R18/R21 obligations and the RpcGuard gaps remain |
+| A1: Honest admission | Approved profile, measured H_cal, real worst-case execution calibration, R18/R21 obligations, RpcGuard gaps closed | Open; the profile is approved (FRESH-NETWORK-CP) and the ceremony will record a measured hash rate, but the network is admitted in ExperimentalDevnet scope with its admission conditions; real worst-case execution calibration, the R18/R21 obligations and the RpcGuard gaps remain |
 | S1: Bounded historical state | K_eff and historical RPC behavior within the resource budget; near-cap measurements and fault/recovery tests | Open; R21 holds only through the simnet `retentionStress` exception; do not bypass R21 or rely on average RSS |
 | N1: Internet exposure | Seed/bootstrap operations, hostile-peer and RPC overload tests, ingress controls, time synchronization, public endpoint monitoring | Seeds, peer discovery, automatic outbound, inbound eviction, bounded handshakes, gateway configuration and monitoring implemented; actual Internet ingress acceptance and the remaining RpcGuard controls open |
 | L1: Sustained operation | Multi-host soak, partition/heal, restart/replay, backup/restore, release/rollback drill and bounded resource growth | Local packaged processes passed restore and progress/root comparison; the rehearsal on the three servers and the PC (T1-T8, M1-M4), an actual multi-host soak and an upgrade drill remain |
-| E1: Network lifetime/economics | Explicit approved choices for initial allocation, issuance/bonds, H_CLOSE/H_END and cumulative caps | Open; allocation, issuance (M3, S0 4 PCOL), the bond, H_END 0 and the caps with their raise path are approved in FRESH-NETWORK-CP; the ceremony, the founders' reward addresses (owner decision pending) and the rehearsal evidence remain |
-| Q1: Release review | Exact-commit CI, independent security review, unresolved-finding ledger and public limitations | Open; AI-authored tests do not substitute for external review |
+| E1: Network lifetime/economics | Explicit approved choices for initial allocation, issuance/bonds, H_CLOSE/H_END and cumulative caps | Open; allocation, issuance (M3, S0 4 PCOL), the bond, H_END 0 and the caps with their raise path are approved in FRESH-NETWORK-CP; the founders' reward addresses are decided (three owner-held offline addresses, made 2026-11-18, given to the ceremony as `-ServerRewardAddresses`) and enter the genesis at the ceremony; the ceremony and the rehearsal evidence remain |
+| Q1: Release review | Exact-commit CI, independent security review, unresolved-finding ledger and public limitations | Open; AI-authored tests do not substitute for external review; the owner commissions the independent review after the launch (owner decision 2026-11-18) |
 
 A gate closes only with its implementation and evidence, never by changing a status label. No dates or completion
 percentages are asserted without that evidence. `prototypes/pocold/src/readiness.rs` (`PLAN_GATES_OPEN`) lists the

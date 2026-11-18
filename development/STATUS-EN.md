@@ -44,7 +44,7 @@ mining. The browser extension moves to 0.5.0 with a fixed key.
    change, and release them.
 5. **Public launch** with the launch disclosures.
 
-The network launches with `publicLaunchReady: false` and its launch blockers disclosed; the open gates are in
+The network launches with `publicLaunchReady: false`, its launch blockers reported by the software; the open gates are in
 [public-network/PLAN.md](public-network/PLAN.md). No independent external security review has been done.
 
 ## Open owner items
@@ -52,9 +52,24 @@ The network launches with `publicLaunchReady: false` and its launch blockers dis
 Each of these is undecided; texts that need them say "owner decision pending".
 
 - the launch-disclosure wording (draft in `deploy/standalone/README.md`);
-- the reward page S1 wording;
-- the extension manifest public key (`prototypes/pocol-extension/release/manifest-key.pub`), which the owner generates;
-- the release signing public key (`deploy/release/allowed_signers`), which the owner generates.
+- the reward page S1 wording.
+
+Decided by the owner on 2026-11-18:
+
+- the extension manifest public key (`prototypes/pocol-extension/release/manifest-key.pub`), made offline by the
+  owner: extension ID `gggcoflmedlhlkcdhebmoepmggdnafmp`;
+- the release signing public key (`deploy/release/allowed_signers`), made offline by the owner: fingerprint
+  `SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8` (ED25519);
+- the three owner-held server reward addresses, made offline with `pocol-key` and given to the ceremony as
+  `-ServerRewardAddresses` (not committed: the ceremony takes them as a parameter), and held offline as an
+  encrypted backup and paper copies;
+- no text may state anything untrue or present the public launch as prevented; the launch disclosures carry no
+  "not public-launch-ready" item and no list of ongoing engineering work;
+- newcomers' first registration fee: the founders transfer it on request (no mainnet faucet);
+- the independent security review (Q1) is commissioned after the launch.
+
+The decisions and the owner's words are in
+[decisions/OWNER-DECISIONS-2026-11-18.md](decisions/OWNER-DECISIONS-2026-11-18.md).
 
 Decided by the owner on 2026-11-16:
 

@@ -2,8 +2,8 @@
 // builds for tests only; browser.md BR-neg: "fault builds are absent from the release").
 //   node build.mjs                 -> dist/
 //   node build.mjs --fault=noDnr   -> dist-fault-noDnr/
-// The release build (dist/) carries the manifest key of release/manifest-key.pub once the owner commits it (W14), so
-// its extension id is fixed; until then it is a development build without a key. Fault builds never carry the key.
+// The release build (dist/) carries the manifest key of release/manifest-key.pub, the owner's (W14, committed
+// 2026-11-18), so its extension id is fixed (gggcoflmedlhlkcdhebmoepmggdnafmp). Fault builds never carry the key.
 // Fault regions in sources: /*@fault NAME*/release code/*@else*/fault code/*@end*/. The release decodes a spec-2 (v3)
 // genesis by default (refdec.js SPEC_VERSION 2), as pocold does; there is no separate preview build.
 import { readFileSync, writeFileSync, mkdirSync, rmSync, readdirSync, statSync, existsSync } from 'node:fs';
@@ -29,12 +29,13 @@ export function testGatewayValues(testNetwork, lockMs = 15 * 60 * 1000) {
   return { network: JSON.stringify({ ...n, trustLevel: 'RN' }), lockMs: String(lockMs) };
 }
 // W14 (Q7): the release manifest key, a fixed extension id. release/manifest-key.pub holds the owner's base64 DER
-// SubjectPublicKeyInfo on its one non-comment line, or a line starting with PLACEHOLDER until the owner commits it.
-// readManifestKey returns the base64 key, or null for the placeholder; anything else is refused (the same rules as
+// SubjectPublicKeyInfo on its one non-comment line (committed 2026-11-18). A line starting with PLACEHOLDER, the slot's
+// state before that, still reads as no key: readManifestKey returns the base64 key, or null for the placeholder (and
+// scripts/package-release.py then refuses the release); anything else is refused (the same rules as
 // scripts/package-release.py manifest_key).
 export const MANIFEST_KEY_FILE = join(HERE, 'release', 'manifest-key.pub');
 export function readManifestKey(file = MANIFEST_KEY_FILE) {
-  if (!existsSync(file)) throw new Error(`${file} is missing: it is the manifest key slot (W14), committed with a PLACEHOLDER line until the owner's key`);
+  if (!existsSync(file)) throw new Error(`${file} is missing: it is the manifest key slot (W14), which holds the owner's committed release manifest key; restore it from git`);
   const lines = readFileSync(file, 'utf8').split(/\r?\n/).map((l) => l.trim()).filter((l) => l && !l.startsWith('#'));
   if (lines.length !== 1) throw new Error(`${file} must hold exactly one key line (or the PLACEHOLDER line), found ${lines.length}`);
   if (lines[0].startsWith('PLACEHOLDER')) return null;

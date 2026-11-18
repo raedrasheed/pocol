@@ -8,7 +8,7 @@ verified only when its signatures verify.
 
 | File | Who runs it | What it does |
 |---|---|---|
-| `allowed_signers` | committed | The one release public key, printable ASCII and LF only (today a marked **PLACEHOLDER**: nothing verifies until the owner commits the key) |
+| `allowed_signers` | committed | The one release public key, printable ASCII and LF only: the owner's key, committed 2026-11-18 (fingerprint below) |
 | `assemble_release.py` | owner | Copies the downloadable files into one directory and writes its `SHA256SUMS` (allowlisted names only) |
 | `Sign-PoColRelease.ps1` / `sign-release.sh` | owner | Signs each listed file and `SHA256SUMS` (`FILE.sig`), then verifies the result |
 | `verify_release.py` / `Verify-PoColRelease.ps1` | anyone | Verifies a whole release directory; prints `VERIFIED` only when every signature verifies |
@@ -26,7 +26,17 @@ from the switched tree (step 7). The
 per-package `SHA256SUMS` inside the native packages and the extension's `.sha256` stay as integrity checks; the signed
 `SHA256SUMS` is the one this directory writes.
 
+## The release key
+
+The owner's release key, committed in `allowed_signers` on 2026-11-18. Every signed release must verify with this
+fingerprint, the one `ssh-keygen -Y verify` and the directory verifiers print:
+
+```
+256 SHA256:FlrCFc4LXIOOPMrT2g4dgV6CuOEiw1L30NWKzGPBZt8 release@pocol.net (ED25519)
+```
+
 ## Owner procedure
+
 
 1. **Make the key, once, offline** (a machine that is not a server and holds no checkout of this repository):
 
@@ -38,7 +48,8 @@ per-package `SHA256SUMS` inside the native packages and the extension's `.sha256
 2. **Commit only the public line** into `allowed_signers` by a reviewed pull request, replacing the PLACEHOLDER line:
    `release@pocol.net namespaces="pocol-release" ssh-ed25519 AAAA...` (the first two fields of
    `pocol-release.pub`). Publish its fingerprint, `ssh-keygen -lf <offline path>/pocol-release.pub`, on pocol.net and
-   here.
+   here. Done for the current key on 2026-11-18 (*The release key* above); pocol.net publishes it with the first
+   signed release.
 3. **Download the CI artifacts** of the release commit, a commit after the identity switch (five-device-build:
    Linux, Windows, Android; the extension package). Packages built before the switch, such as the ceremony's, are
    never signed: the switch changes the native binaries too.
