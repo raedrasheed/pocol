@@ -129,7 +129,27 @@ pub fn account(args: &[String]) -> Result<Key, String> {
     }
 }
 
+/// [`account`], or with `--backup FILE` the key in that encrypted backup ([`open_backup`]): exactly one source.
+pub fn signer(args: &[String]) -> Result<Key, String> {
+    match values(args, "--backup")?.as_slice() {
+        [] => account(args),
+        [path] if values(args, "--key-file")?.is_empty() && values(args, "--account")?.is_empty() => {
+            Key::from_secret(&*open_backup(Path::new(path))?).map_err(|_| "invalid secp256k1 secret scalar".into())
+        }
+        _ => Err("provide exactly one --key-file PATH, --backup FILE or devnet-only --account LABEL".into()),
+    }
+}
+
+/// The secret in the passphrase-encrypted backup at `path` ([`backup`]). The file is read before the passphrase
+/// is asked for ([`prompt::ask`], one stdin line); a wrong passphrase and a changed byte give the same error.
+pub fn open_backup(path: &Path) -> Result<Zeroizing<[u8; 32]>, String> {
+    let file = backup::read(path)?;
+    let passphrase = prompt::ask("Backup passphrase")?;
+    backup::open(&file, &passphrase)
+}
+
 pub mod backup;
+pub mod prompt;
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]

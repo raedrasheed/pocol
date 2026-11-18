@@ -10,6 +10,6 @@
   "dailyLimit": 200,
   "perClientDaily": 3,
   "maxFloatWei": "10000000000000000000",
-  "trustProxy": false,
-  "allowOrigin": null
+  "trustProxy": true,
+  "allowOrigin": "https://pocol.net"
 }
