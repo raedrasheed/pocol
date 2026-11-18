@@ -21,7 +21,10 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    (`pocol-key`); only the public miner ID leaves the device. Founders 1-3 (the servers) are paid to owner-held
    reward addresses (owner decision 2026-11-16): the owner makes three of them offline with `pocol-key generate` and
    `pocol-key address` on a device that is never a server, and passes them to the ceremony as
-   `-ServerRewardAddresses`. Only the 20 PCOL bond is tied to each server. Founder 4 (the owner's PC) keeps its own
+   `-ServerRewardAddresses`. Each offline key is backed up encrypted with `pocol-key export --key-file FILE
+   --out BACKUP` (passphrase read twice from stdin), and the backup checked without writing any file with
+   `pocol-sign --chain-id ID --address --backup BACKUP`, which prints the same address; `pocol-sign --backup BACKUP`
+   signs from it. Only the 20 PCOL bond is tied to each server. Founder 4 (the owner's PC) keeps its own
    address. Each reward account starts at nonce 1 (PAY-02): its first offline transaction uses `pocol-sign --nonce 1`.
 4. **Genesis.** Start from the committed profile, `v3-profile.json` (for the rehearsal, `v3-rehearsal-profile.json`).
    It holds the chain ID and the consensus parameters recorded in

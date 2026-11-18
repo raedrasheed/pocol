@@ -593,10 +593,7 @@ impl Home {
         backup::check_new_passphrase(passphrase)?;
         let key = self.key()?;
         let secret = Zeroizing::new(key.secret());
-        let file = backup::seal(&secret, passphrase)?;
-        if backup::open(&file, passphrase)?.as_ref() != secret.as_ref() {
-            return Err("key backup self-check failed; nothing was exported".into());
-        }
+        let file = backup::seal_checked(&secret, passphrase)?;
         Ok((file, format!("{:#x}", key.address())))
     }
     /// What restoring `file` would do, without writing anything: the backup's address, the account this home
