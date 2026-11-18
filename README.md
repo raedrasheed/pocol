@@ -547,8 +547,8 @@ For a first contribution, reproduce a documented bug, add a focused boundary tes
 
 **Not established, or still open:**
 
-- **Not public-launch-ready.** PoCol Mainnet is admitted as a Simnet profile in `ExperimentalDevnet` scope, and
-  reports `publicLaunchReady: false` with its `launchBlockers`.
+- **Open gates, reported by the software.** PoCol Mainnet is admitted as a Simnet profile in `ExperimentalDevnet`
+  scope, and reports `publicLaunchReady: false` with its `launchBlockers`.
   - Rule R22 binds the separately defined `Network` profile to chainId 777001, so `profile-kind` and
     `admission-scope` cannot clear on this network as designed. Renaming a deployment does not change either.
   - Rule R21 holds at the network's caps only through the simnet `retentionStress` exception.
