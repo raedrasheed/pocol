@@ -33,6 +33,17 @@ order with 64-bit big-endian lengths, SHA-256 and domain
 build paths, timestamps and secrets. Raw text requires a release checkout with
 preserved line endings.
 
+That fingerprint covers the sources, not the binaries. Binary reproducibility of
+the Linux release (the five binaries and the `.tar.gz` package) is compared by
+the native double build (`deploy/release/double_build.py`, CI jobs
+`native-reproducible` and `native-reproducible-compare` in
+`five-device-build.yml`): two builds from other checkout paths, umasks, TZ and
+cargo homes, under one recipe (fixed build path, remapped compiler paths,
+`SOURCE_DATE_EPOCH` from the commit, toolchain 1.99.1 `--locked`), and any
+difference fails. Local runs (2026-11-19) were byte-identical; the CI jobs
+have not yet run. It does not cover the Windows package or the APK, and it is
+not an independent rebuild of the signed release (gate I1 keeps that open).
+
 The consensus-critical sources are pinned instead by `pocold/consensus-sources.lock`
 (VA-SPEC §2.4). A change to one of them needs a reviewed, labelled history line; a
 build of a tree that differs from the lock is **unpinned**: its identity carries the

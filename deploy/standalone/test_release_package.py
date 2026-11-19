@@ -52,6 +52,7 @@ class ReleasePackageTests(unittest.TestCase):
                       'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': [], 'version': VERSION,
                       'scope': 'mainnet'}
         self.commit = 'd' * 40
+        self.commit_time = 1795029413
         for name in ('README.md', 'install-linux.sh',
                      'Start-PoCol.cmd', 'Initialize-PoColNetwork.ps1'):
             (self.script.parent / name).write_text('public fixture\n', encoding='utf-8')
@@ -71,16 +72,23 @@ class ReleasePackageTests(unittest.TestCase):
         file.write_bytes(b'public artifact fixture\n')
         return file
 
-    def package(self, platform, *extra):
+    def package(self, platform, *extra, source_date_epoch=None):
         out = self.root / 'dist'
+        # The archive date comes from SOURCE_DATE_EPOCH when set (a reproducible-build job sets it), else the commit.
+        env = {k: v for k, v in os.environ.items() if k != 'SOURCE_DATE_EPOCH'}
+        if source_date_epoch is not None:
+            env['SOURCE_DATE_EPOCH'] = source_date_epoch
 
         def command(args, **kwargs):
             if args == ['git', 'rev-parse', 'HEAD']:
                 return self.commit + '\n'
+            if args == ['git', 'log', '-1', '--format=%ct', 'HEAD']:
+                return f'{self.commit_time}\n'
             self.assertEqual(args[-1], 'build-info')
             return json.dumps(self.build).encode('utf-8')
 
-        with patch.object(sys, 'argv', ['package.py', '--platform', platform, '--out', str(out), *extra]), patch('subprocess.check_output', command):
+        with patch.object(sys, 'argv', ['package.py', '--platform', platform, '--out', str(out), *extra]), \
+                patch('subprocess.check_output', command), patch.dict(os.environ, env, clear=True):
             runpy.run_path(str(self.script), run_name='__main__')
         for name in ('network.pocol.json', 'wallet.key', 'debug.keystore'):
             self.assertEqual((self.root / name).read_bytes(), b'EXCLUDED FIXTURE')
@@ -237,6 +245,52 @@ class ReleasePackageTests(unittest.TestCase):
         for name in ('pocol', 'pocold', 'pocol-key', 'pocol-sign', 'pocol-site'):
             self.fixture('prototypes/pocold/target/release/' + name).chmod(0o755)
         self.fixture('deploy/standalone/linux-desktop/pocol-desktop').chmod(0o755)
+
+    def test_the_linux_archive_is_byte_stable(self):
+        # deploy/release/double_build.py compares the archives of two builds byte for byte: the archive must not carry
+        # the packing time, the inputs' mtimes or modes beyond the executable bit, the umask, the TZ or owner names.
+        self.native_fixture()
+        name = f'PoCol-Mainnet-{VERSION}-linux-x86_64.tar.gz'
+        executables = {'pocol', 'pocold', 'pocol-key', 'pocol-sign', 'pocol-site', 'pocol-desktop'}
+        out = self.package('Linux')
+        first = (out / name).read_bytes()
+        self.assertEqual(first[:4], b'\x1f\x8b\x08\x00', 'gzip without a file name or other optional fields')
+        self.assertEqual(first[4:8], b'\0\0\0\0', 'no gzip timestamp')
+        with tarfile.open(fileobj=io.BytesIO(first)) as tar:
+            self.assertEqual(tar.pax_headers, {})
+            members = tar.getmembers()
+        self.assertEqual([m.name for m in members], sorted(m.name for m in members))
+        for m in members:
+            with self.subTest(member=m.name):
+                self.assertEqual((m.mtime, m.uid, m.gid, m.uname, m.gname, m.pax_headers), (self.commit_time, 0, 0, '', '', {}))
+                if os.name != 'nt':
+                    self.assertEqual(m.mode, 0o755 if m.name in executables else 0o644)
+        self.assertTrue(executables <= {m.name for m in members})
+        shutil.rmtree(out)
+        # Other input mtimes and modes, another umask and TZ: the same bytes.
+        for path in (self.root / 'prototypes/pocold/target/release').iterdir():
+            os.utime(path, (1_000_000_000, 1_000_000_000))
+            if os.name != 'nt': path.chmod(0o700)
+        for path in (self.script.parent / 'README.md', self.script.parent / 'install-linux.sh'):
+            os.utime(path, (2_000_000_000, 2_000_000_000))
+            if os.name != 'nt': path.chmod(0o600)
+        old_umask = os.umask(0o077)
+        try:
+            with patch.dict(os.environ, {'TZ': 'Pacific/Kiritimati'}):
+                again = (self.package('Linux') / name).read_bytes()
+        finally:
+            os.umask(old_umask)
+        self.assertEqual(again, first)
+        shutil.rmtree(out)
+        # SOURCE_DATE_EPOCH, when a build sets it, is the one date; anything but whole seconds is refused.
+        with tarfile.open(self.package('Linux', source_date_epoch='1234567890') / name) as tar:
+            self.assertEqual({m.mtime for m in tar.getmembers()}, {1234567890})
+        shutil.rmtree(out)
+        for bad in ('', '12.5', '-1', 'now'):
+            with self.subTest(source_date_epoch=bad):
+                with self.assertRaisesRegex(SystemExit, 'SOURCE_DATE_EPOCH'):
+                    self.package('Linux', source_date_epoch=bad)
+                shutil.rmtree(out)
 
     def test_a_build_of_another_version_is_never_packaged(self):
         self.native_fixture()
