@@ -147,8 +147,10 @@ The wallets offer no screen for this call. It is an ordinary transaction to the 
 
 1. The server founder's miner key holds no balance, so first send it enough PCOL for the fee from an owner-held
    account. With `pocol-sign`'s default maximum fee of 100 gwei, a 1,000,000-gas transaction costs at most 0.1 PCOL.
-2. Take the nonce from `eth_getTransactionCount` of the miner address (`"latest"`) and pass the count it returns as
-   `--nonce`; `pocol-sign`'s default of 0 is wrong for a key that has already sent a transaction.
+2. Take the nonce from `eth_getTransactionCount` of the miner address (`"latest"`). It answers a hexadecimal
+   quantity (for example `"0x1c"`), but `pocol-sign --nonce` reads a decimal number and silently uses 0 for anything
+   it cannot read, so convert it first, for example `printf '%d\n' 0x1c` prints `28`. `pocol-sign`'s default of 0 is
+   wrong for a key that has already sent a transaction, and a hexadecimal value would silently become that 0.
 3. Sign and send it. The gas limit, 1,000,000, is the wallets' value for Registry maintenance calls
    (`REGISTRY_CALL_GAS`, `wallet.rs`); `pocol-sign`'s default of 21,000 is too low for a contract call. The data is
    `0x5e00e679` followed by the new address as a 32-byte word (lower-case, without `0x`, left-padded with 24
