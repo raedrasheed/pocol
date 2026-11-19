@@ -226,7 +226,10 @@ async function main() {
       const close = async () => { await page.click('button[aria-label="Close details"]'); await wait(async () => !(await page.evaluate(() => document.querySelector('dialog.detail-dialog')?.open)), 10000, 'the dialog closes'); };
       const loadedHead = Number((/Latest block\s+([\d,]+)/.exec(await text()) || [0, '0'])[1].replace(/,/g, ''));
       await search(newcomer);
-      const account = await wait(async () => { const t = await dialog(); return /Recent account activity/.test(t) && !/Reading the latest blocks with transactions/.test(t) && t; }, 60000, 'the account view and its activity').catch((e) => e.message);
+      // The activity is final once it lists a transaction of the account or says the loaded window has none: the
+      // section heading can show before the activity read starts, and an empty section is not yet an answer.
+      const account = await wait(async () => { const t = await dialog(); return /Recent account activity/.test(t) && !/Reading the latest blocks with transactions/.test(t)
+        && (t.includes(short(registered)) || t.includes('No matching transactions in the loaded window.')) && t; }, 60000, 'the account view and its activity').catch((e) => e.message);
       ok(`the account view shows the newcomer as "Earning bond" with its bond ${bondText} and the proposer flag, from its pocol_getMember record`,
         /Mining membership\s+Earning bond/.test(account) && new RegExp(`Bond\\s+${bondText.replace(/[.]/g, '\\.')}`).test(account) && /Proposer eligible \(next block\)\s+(Yes|No|Undetermined)/.test(account) && /Reward address\s+0x/i.test(account), String(account).slice(String(account).indexOf('Mining membership')).replace(/\s+/g, ' '));
       // The activity reads the loaded window's blocks that have transactions, one full block per request: the
