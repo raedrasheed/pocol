@@ -1009,8 +1009,9 @@ fork; a restart test. **Effort:** S. **Risk:** low.
 - **Change.**
   - H1: `launch_ready = scope==Specification && no conditions && no waivers && PLAN gates closed`, emitted with
     `launchBlockers`.
-  - H2: a release-pinned `NETWORK_PROFILES [(chainId, genesisHash)]`, then close each condition (V3-21, V3-25,
-    V3-29, K_eff).
+  - H2: a release-pinned `NETWORK_PROFILES [(chainId, genesisHash, expected admission)]`, then close each
+    condition (V3-21, V3-25, V3-29, K_eff). (The table and its expected admission, which the launcher compares,
+    never devnet.json, are implemented since; D-V3-28 implementation note, H2 (1). No entry is pinned.)
 - **Classification:** NODE-LOCAL. **Effort:** H1 S, H2 L.
 
 ### V3-29 Decision record and normative amendments (CONS-7, MAT-03, MAT-04)

@@ -9,9 +9,10 @@ tree's current identity is listed in FILES or kept on purpose, and none (FILES i
 tree no longer pins; and the shipped release texts that are true only on the retired network are gone once the tree
 pins a network that is not retired; the extension's built-in profile placeholder (D1) is proven, placed only into the
 placeholder files, and replaced (with its mark) by the switch; the release's NETWORK_PROFILES (readiness.rs) holds
-exactly the entry of the tree's identity unless that is a retired or the rehearsal network (then none, as today): a
-switch writes the --to entry and removes the --from one, --check refuses a missing or extra entry, and a round trip
-restores the file byte for byte.
+exactly the entry of the tree's identity unless that is a retired or the rehearsal network (then none, as today), each
+entry a NetworkProfile expecting ExpectedAdmission::FRESH_NETWORK (the decided launch admission, never
+ExpectedAdmission::LAUNCH) in exactly the form readiness.rs's WRITTEN test compiles: a switch writes the --to entry and
+removes the --from one, --check refuses a missing or extra entry, and a round trip restores the file byte for byte.
 
 The tests name no network: the --from fixture is the tree's current identity (the GenesisSpec the node file pins)
 and the --to fixtures are derived from it, so they pass whatever network the tree pins."""
@@ -177,11 +178,21 @@ TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, n
 # The rehearsal network's chain ID (read independently of the tool): never a launch network.
 REHEARSAL_CHAIN = json.loads((ni.ROOT / ni.REHEARSAL_PROFILE).read_text(encoding='utf-8'))['chainId']
 
+# One NETWORK_PROFILES entry as readiness.rs compiles it (read independently of the tool): a NetworkProfile with the
+# chain ID, the decoded genesis hash and the fresh network's decided launch admission.
+ENTRY = re.compile(r'NetworkProfile\{chain_id:([0-9]+),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),admission:ExpectedAdmission::FRESH_NETWORK\}')
+
+def entries_of(body):
+    """[(chain ID, genesis hash hex)] of a list body of ENTRY entries; every NetworkProfile in it must be one."""
+    found = [(int(c), g) for c, g in ENTRY.findall(body)]
+    assert body.count('NetworkProfile{') == len(found), f'an entry not in the written form: {body}'
+    return found
+
 def profiles(root):
     """[(chain ID, genesis hash hex)] of NETWORK_PROFILES, read independently of the tool."""
     text = (root / ni.PROFILES).read_text(encoding='utf-8')
     line = next(l for l in text.splitlines() if l.startswith('pub const NETWORK_PROFILES:'))
-    return [(int(c), g) for c, g in re.findall(r'\(([0-9]+),genesis_hash\("([0-9a-f]{64})"\)\)', line)]
+    return entries_of(line)
 
 def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE):
     """Paths among (path, text) pairs outside the kept ones that pin the current identity without being listed, or
@@ -757,26 +768,38 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_the_entry_form_the_tool_writes_is_the_one_readiness_compiles(self):
         # readiness.rs's unit test WRITTEN compiles entries in this form and checks their decoded genesis hashes.
-        # The samples are built on the file with its list emptied, so this holds for a switched tree too (whose list
-        # holds its launch network), and the file's own entries are restored from that base exactly.
-        current = (ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')
-        text = ni.with_profiles(current, [])
-        self.assertEqual(ni.with_profiles(text, ni.read_profiles(current)), current)
-        decl = '    const WRITTEN:&[(u64,[u8;32])]=&['
+        text = (ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')
+        self.assertEqual(ni.PROFILES_DECL, 'pub const NETWORK_PROFILES:&[NetworkProfile]=&[')
+        self.assertEqual(ni.PROFILES_ADMISSION, 'ExpectedAdmission::FRESH_NETWORK')
+        decl = '    const WRITTEN:&[NetworkProfile]=&['
         line = next(l for l in text.splitlines() if l.startswith(decl))
         self.assertTrue(line.endswith('];'))
         body = line[len(decl):-2]
-        entries = [(int(c), g) for c, g in re.findall(r'\(([0-9]+),genesis_hash\("([0-9a-f]{64})"\)\)', body)]
+        entries = entries_of(body)
         self.assertEqual(len(entries), 2)
+        self.assertEqual(body.count('},NetworkProfile{'), 1, 'entries separated by ","')
         self.assertEqual(ni.profiles_text(entries), body)
-        sample = text.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + body + ']')
+        # The samples start from the file with an empty list, whatever the tree pins (after the switch it holds an entry).
+        empty = ni.with_profiles(text, [])
+        self.assertEqual(empty.count(ni.PROFILES_DECL + ']'), 1)
+        self.assertEqual(ni.with_profiles(empty, ni.read_profiles(text)), text)
+        sample = empty.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + body + ']')
         self.assertEqual(ni.read_profiles(sample), entries)
         self.assertEqual(ni.read_profiles(ni.with_profiles(text, entries)), entries)
-        self.assertEqual(ni.with_profiles(ni.with_profiles(text, entries), []), text)
+        self.assertEqual(ni.with_profiles(ni.with_profiles(text, entries), []), empty)
+        # Malformed entries, a duplicate, and an entry that expects any admission other than the fresh network's (the
+        # specification admission LAUNCH included), or names its fields in another order: each is refused.
         for bad in (body.replace('genesis_hash("0', 'genesis_hash("0x', 1), body.upper(), body + ',', body.replace('(', '( ', 1),
-                    body.replace(str(entries[0][0]), f'{entries[0][0]:_}', 1), ni.profiles_text([entries[0], entries[0]])):
+                    body.replace(str(entries[0][0]), f'{entries[0][0]:_}', 1), ni.profiles_text([entries[0], entries[0]]),
+                    body.replace('ExpectedAdmission::FRESH_NETWORK', 'ExpectedAdmission::LAUNCH', 1),
+                    body.replace('ExpectedAdmission::FRESH_NETWORK', 'ExpectedAdmission{waivers:&[],'
+                                 '..ExpectedAdmission::FRESH_NETWORK}', 1),
+                    body.replace('ExpectedAdmission::FRESH_NETWORK', 'FRESH_NETWORK', 1), body.replace('},', '}, ', 1),
+                    body.replace('admission:ExpectedAdmission::FRESH_NETWORK', '', 1),
+                    body.replace(f'chain_id:{entries[0][0]},genesis_hash:genesis_hash("{entries[0][1]}")',
+                                 f'genesis_hash:genesis_hash("{entries[0][1]}"),chain_id:{entries[0][0]}', 1)):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
-                ni.read_profiles(text.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + bad + ']'))
+                ni.read_profiles(empty.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + bad + ']'))
         with self.assertRaises(ValueError):
             ni.read_profiles(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL.replace('=&[', '= &[')))
 

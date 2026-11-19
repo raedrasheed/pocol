@@ -2,8 +2,8 @@
 //! genesis identity, admission scope, currency policy or launch qualification.
 use serde_json::Value;
 
-const MAINNET_CHAIN_ID: u64 = 1_599_846_715;
-const MAINNET_GENESIS: &str = "be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca";
+pub(crate) const MAINNET_CHAIN_ID: u64 = 1_599_846_715;
+pub(crate) const MAINNET_GENESIS: &str = "be137bfdb4fdf332f2e1500ee1a67e0b22ce6bdf57efa46fb4ea7b0debe509ca";
 
 fn is_mainnet(info: &Value) -> bool {
     info["chainId"].as_u64() == Some(MAINNET_CHAIN_ID)
