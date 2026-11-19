@@ -66,7 +66,12 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 
   `<commit>` is any commit before that file was deleted (`git log --diff-filter=D -- deploy/mainnet/h15000`
   names the deleting commit; use its parent). The tool prints the identity it switches from and to before it
-  writes anything.
+  writes anything. It also writes the release's pinned launch network, `NETWORK_PROFILES` in
+  `prototypes/pocold/src/readiness.rs` (V3-28 H2): the `--to` entry replaces the `--from` one, unless `--to` is a
+  retired network or the rehearsal network (the chain ID of `v3-rehearsal-profile.json`), which get no entry, and
+  `--check` refuses a missing or extra entry. The tree pins a retired network today, so the list is empty and every
+  network reports `network-not-release-pinned`. The entry only changes that report: the node's readiness report is
+  node-local and refuses nothing.
 - `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet and rehearsal profiles (FN-4). They
   differ only in the chain ID and the launch second. `test_v3_profiles.py` checks them; `pocold`'s
   `tests/fn4_profiles.rs` builds and admits them.

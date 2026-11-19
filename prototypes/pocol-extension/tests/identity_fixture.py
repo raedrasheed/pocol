@@ -62,7 +62,8 @@ def invitation(spec):
 
 def switch(root, out):
     out.mkdir(parents=True, exist_ok=True)
-    rels = set(ni.FILES) | {ni.ANCHOR, ni.NODE_SPEC, ni.RETIRED, ni.INSTALLER} | set(ni.INSTALLER_SOURCES.values()) \
+    rels = set(ni.FILES) | {ni.ANCHOR, ni.NODE_SPEC, ni.RETIRED, ni.INSTALLER, ni.PROFILES, ni.REHEARSAL_PROFILE} \
+        | set(ni.INSTALLER_SOURCES.values()) \
         | {page for page, _ in ni.VERSIONED} | {rel for _, rel in ni.VERSIONED}
     copy(root, out, sorted(rels))
     cur_chain, _, cur_spec = ni.current_identity(out)
