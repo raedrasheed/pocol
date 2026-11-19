@@ -39,8 +39,20 @@ pub const PLAN_GATES_OPEN:&[(&str,&str)]=&[
     ("Q1","release review: an independent security review (commissioned after the launch) and the unresolved-finding ledger remain"),
 ];
 /// V3-28 H2: the launch networks (chainId, genesisHash) this release pins. Empty: no network is a launch network yet,
-/// whatever its name or designation.
+/// whatever its name or designation. deploy/mainnet/set_network_identity.py writes it at the identity switch (the
+/// `(chainId,genesis_hash("<64 hex>"))` entry of the network the clients are switched to, unless that is a retired or
+/// the rehearsal network) and its `--check` verifies it; the declaration stays on one line in that form.
 pub const NETWORK_PROFILES:&[(u64,[u8;32])]=&[];
+/// A genesis hash written as 64 lower-case hex digits, as `pocol_status` reports it without `0x`, decoded at compile
+/// time in a `NETWORK_PROFILES` entry (a malformed one does not compile).
+pub const fn genesis_hash(hex:&str)->[u8;32]{
+    const fn nibble(c:u8)->u8{match c{b'0'..=b'9'=>c-b'0',b'a'..=b'f'=>c-b'a'+10,_=>panic!("a genesis hash is lower-case hex")}}
+    let b=hex.as_bytes();
+    assert!(b.len()==64,"a genesis hash is 64 hex digits");
+    let mut out=[0u8;32];let mut i=0;
+    while i<32{out[i]=nibble(b[2*i])<<4|nibble(b[2*i+1]);i+=1}
+    out
+}
 
 /// The build's facts. `this()` reads this binary's; tests change one at a time.
 #[derive(Clone,Debug)]
@@ -286,6 +298,18 @@ mod tests{
         assert_eq!(network,expect,"the network blockers of a booted devnet admission");
         assert!(!got.contains(&"admission-not-booted")&&!got.contains(&"admission-unrecorded"));
         assert!(n.v3_active);
+    }
+    /// The entry form set_network_identity.py writes into NETWORK_PROFILES compiles and decodes to the hash it names
+    /// (its test reads WRITTEN's line and checks that the tool writes exactly this form).
+    const WRITTEN:&[(u64,[u8;32])]=&[(777001,genesis_hash("0909090909090909090909090909090909090909090909090909090909090909")),(777002,genesis_hash("00112233445566778899aabbccddeeff0123456789abcdef0fedcba987654321"))];
+    #[test]
+    fn network_profile_entries_decode_their_genesis_hash(){
+        assert_eq!(WRITTEN[0],(777001,[9;32]));
+        assert_eq!(crate::types::hex(&WRITTEN[1].1),"0x00112233445566778899aabbccddeeff0123456789abcdef0fedcba987654321");
+        let (mut b,mut n)=ready();b.network_profiles=WRITTEN.to_vec();(n.chain_id,n.genesis_hash)=WRITTEN[1];
+        assert!(blockers(&b,Subject::Network(&n)).is_empty(),"an entry in this form pins its network");
+        n.genesis_hash=WRITTEN[0].1;
+        assert_eq!(ids(&blockers(&b,Subject::Network(&n))),["network-not-release-pinned"],"the pair, not the chain ID alone");
     }
     /// PLAN_GATES_OPEN lists exactly the acceptance-ledger gates whose status is not "Closed".
     #[test]

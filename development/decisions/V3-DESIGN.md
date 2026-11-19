@@ -11,6 +11,8 @@ against: every file:line in them was read at commit
 `preflight.py`, `nonce_upgrade.py`, `prepare_nonce_upgrade.py`, `RELEASE-UPGRADE.md`, the earn-in proposal and the
 earn-in rollout records) was removed after the owner's 2026-11-13 decision to launch a brand-new network
 ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)); read it in git history, for example at commit `d24843d`.
+`deploy/public-testnet/nonce_upgrade.py` was later restored, adapted to the fresh network, as the seed fork-migration tool
+(development/public-network/OPERATIONS.md, G3); the version cited here is the one at that commit.
 Thesis citations are "T p<PDF page>/<printed page>" of `WT/PhD-thesis-Raed-Rasheed-120211566-61.pdf`.
 Superseded or changed in part (owner decisions of 2026-11-13; FRESH-NETWORK-CP.md §7): V3-10 (contestable seats) and
 V3-14 (the probation pool, its contest and T_PROB) are not built (FN-2b); V3-21's creation fee is deleted (FN-2a); V3-06,
