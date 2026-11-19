@@ -310,8 +310,12 @@ class SeedUpgradeTests(unittest.TestCase):
         network = self.invitation(bootstrap=['198.51.100.7:30300'])
         target = self.root / 'prepared'
         original = {name: path.read_bytes() for name, path in op.files(self.old).items()}
-        with patch.object(upgrade, 'ROOT', source), patch.object(upgrade.subprocess, 'check_output', return_value=json.dumps(build)):
-            result = upgrade.prepare_bundle(self.old, self.new / 'bin', network, target, op.digest(self.old / 'manifest.json'))
+        mask = os.umask(0o077)
+        try:
+            with patch.object(upgrade, 'ROOT', source), patch.object(upgrade.subprocess, 'check_output', return_value=json.dumps(build)):
+                result = upgrade.prepare_bundle(self.old, self.new / 'bin', network, target, op.digest(self.old / 'manifest.json'))
+        finally:
+            os.umask(mask)
         self.assertFalse(result['deploymentPerformed'])
         self.assertEqual(result['appended'], [[2, str(ACTIVATION)]])
         self.assertEqual(result['consensusIdentity'], self.after['consensusIdentity'], 'the identity the published schedule names')
@@ -319,6 +323,10 @@ class SeedUpgradeTests(unittest.TestCase):
         for name in ('node.json', 'pocol-testnet.service', 'nginx.conf', 'install.sh', 'net/genesis.spec.hex', 'net/alloc.json'):
             self.assertEqual((target / name).read_bytes(), original[name])
         self.assertTrue((target / 'nonce_upgrade.py').is_file())
+        # Every file is public, so a bundle copied with its modes is readable by the service user (umask 077 here).
+        for path in [target, *target.rglob('*')]:
+            want = 0o755 if path.is_dir() or path.parent == target / 'bin' else 0o644
+            self.assertEqual(path.stat().st_mode & 0o777, want, path)
         op.verify(target, result['bundleManifestSha256'])
         with self.assertRaisesRegex(ValueError, 'outside'):
             upgrade.prepare_bundle(self.old, self.new / 'bin', network, self.old / 'nested')

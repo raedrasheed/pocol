@@ -757,7 +757,11 @@ class SetNetworkIdentity(unittest.TestCase):
 
     def test_the_entry_form_the_tool_writes_is_the_one_readiness_compiles(self):
         # readiness.rs's unit test WRITTEN compiles entries in this form and checks their decoded genesis hashes.
-        text = (ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')
+        # The samples are built on the file with its list emptied, so this holds for a switched tree too (whose list
+        # holds its launch network), and the file's own entries are restored from that base exactly.
+        current = (ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')
+        text = ni.with_profiles(current, [])
+        self.assertEqual(ni.with_profiles(text, ni.read_profiles(current)), current)
         decl = '    const WRITTEN:&[(u64,[u8;32])]=&['
         line = next(l for l in text.splitlines() if l.startswith(decl))
         self.assertTrue(line.endswith('];'))

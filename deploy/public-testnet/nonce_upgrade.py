@@ -192,6 +192,10 @@ def prepare_bundle(old_bundle, binary_dir, invitation_file, out, expected_old=No
     manifest['identity'] = op.identity(config, new_info, build)
     manifest['sha256'] = {name: op.digest(path) for name, path in op.files(out).items()}
     op.write_json(out / 'manifest.json', manifest)
+    # Everything in a bundle is public (install.sh normalizes the same way): the service user must read it even when
+    # the preparer's umask was 077 or the bundle root was made 0700, so a bundle copied with its modes still starts.
+    for path in [out, *out.rglob('*')]:
+        path.chmod(0o755 if path.is_dir() or path.parent == out / 'bin' else 0o644)
     expected_new = op.digest(out / 'manifest.json')
     verify_transition(old_bundle, out, expected_new)
     return {'bundle': str(out), 'bundleManifestSha256': expected_new,
