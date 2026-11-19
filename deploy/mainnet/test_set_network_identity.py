@@ -8,7 +8,10 @@ the --from network in the retired list and a retired --to needs --allow-revert; 
 tree's current identity is listed in FILES or kept on purpose, and none (FILES included) pins a retired identity the
 tree no longer pins; and the shipped release texts that are true only on the retired network are gone once the tree
 pins a network that is not retired; the extension's built-in profile placeholder (D1) is proven, placed only into the
-placeholder files, and replaced (with its mark) by the switch.
+placeholder files, and replaced (with its mark) by the switch; the release's NETWORK_PROFILES (readiness.rs) holds
+exactly the entry of the tree's identity unless that is a retired or the rehearsal network (then none, as today): a
+switch writes the --to entry and removes the --from one, --check refuses a missing or extra entry, and a round trip
+restores the file byte for byte.
 
 The tests name no network: the --from fixture is the tree's current identity (the GenesisSpec the node file pins)
 and the --to fixtures are derived from it, so they pass whatever network the tree pins."""
@@ -169,14 +172,34 @@ STEP3 = {
     'prototypes/pocol-studio/package.json': re.compile(r'"version":\s*"0\.1\.1"'),
     'prototypes/pocol-studio/dist/app.js': re.compile(r'PoCol-Studio-IDE-Viewer-0\.4\.[01]\.zip'),
 }
-TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED]
+TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, ni.NODE_SPEC, ni.RETIRED, ni.PROFILES,
+                                                                  ni.REHEARSAL_PROFILE]
+# The rehearsal network's chain ID (read independently of the tool): never a launch network.
+REHEARSAL_CHAIN = json.loads((ni.ROOT / ni.REHEARSAL_PROFILE).read_text(encoding='utf-8'))['chainId']
+
+def profiles(root):
+    """[(chain ID, genesis hash hex)] of NETWORK_PROFILES, read independently of the tool."""
+    text = (root / ni.PROFILES).read_text(encoding='utf-8')
+    line = next(l for l in text.splitlines() if l.startswith('pub const NETWORK_PROFILES:'))
+    return [(int(c), g) for c, g in re.findall(r'\(([0-9]+),genesis_hash\("([0-9a-f]{64})"\)\)', line)]
 
 def unaccounted(files, current=CUR_ANYWHERE, gone=GONE_ANYWHERE):
     """Paths among (path, text) pairs outside the kept ones that pin the current identity without being listed, or
     pin a retired identity the tree no longer pins (listed or not)."""
     return [rel for rel, text in files
             if not rel.startswith(tuple(KEPT_PREFIXES)) and rel not in KEPT
-            and ((rel not in ni.FILES and current.search(text)) or (gone is not None and gone.search(text)))]
+            and ((rel not in ni.FILES and current.search(without_profiles(rel, text)))
+                 or (gone is not None and gone.search(text)))]
+
+def without_profiles(rel, text):
+    """The text the current-identity guard searches: in ni.PROFILES only the NETWORK_PROFILES declaration's body is
+    left out (it pins the tree's identity once it is a launch network, and the tool's --check verifies it); every other
+    line of that file stays under the guard."""
+    if rel != ni.PROFILES: return text
+    try:
+        return ni.with_profiles(text, [])
+    except ValueError:
+        return text
 
 def digests(files):
     """{name: SHA-256}, so a failing comparison reports quickly instead of diffing whole files."""
@@ -378,9 +401,14 @@ class SetNetworkIdentity(unittest.TestCase):
         after, original = self.snapshot(root), self.snapshot(ni.ROOT)
         # The built-in profile placeholder (D1) is replaced for good: switching back pins the original network there.
         kept = {ni.RETIRED} | {rel for rel in ni.PLACEHOLDER_FILES if ni.PLACEHOLDER_MARK in (ni.ROOT / rel).read_text(encoding='utf-8')}
+        # Switching back pins a network the switches retired, so NETWORK_PROFILES holds no entry then; while the tree
+        # pins a retired network it held none before either, and the file is restored byte for byte.
+        self.assertEqual(profiles(root), [])
+        if SWITCHED:
+            kept.add(ni.PROFILES)
         self.assertEqual({k: v for k, v in after.items() if k not in kept}, {k: v for k, v in original.items() if k not in kept},
                          'switching back restores the original bytes of every pin')
-        for rel in kept - {ni.RETIRED}:
+        for rel in kept - {ni.RETIRED, ni.PROFILES}:
             text = (root / rel).read_text(encoding='utf-8')
             self.assertEqual(held(text, CUR_CHAIN, CUR_GENESIS, CUR_SPEC.hex()), ni.FILES[rel], rel)
             self.assertNotIn(ni.PLACEHOLDER_MARK, text)
@@ -716,6 +744,110 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(self.run_tool(root, source='v3.json', target='v3b.json'), 0)
         self.assert_carries(root, '0x' + ni.keccak256(make_spec(version=2, flip=2)).hex(), make_spec(version=2, flip=2))
 
+    def test_the_tree_pins_the_network_profiles_of_its_identity(self):
+        # Today the tree pins a retired network, so NETWORK_PROFILES is empty; once it pins a launch network it holds
+        # exactly that network's entry.
+        expected = [] if (CUR_CHAIN, CUR_GENESIS) in RETIRED or CUR_CHAIN == REHEARSAL_CHAIN else [(CUR_CHAIN, CUR_GENESIS)]
+        self.assertEqual(profiles(ni.ROOT), expected)
+        self.assertEqual(ni.read_profiles((ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')), expected)
+        if not SWITCHED:
+            self.assertEqual(expected, [], 'the retired identity is the current one: no launch network is pinned')
+        self.assertEqual(ni.launch_profiles((CUR_CHAIN, CUR_GENESIS), RETIRED, ni.rehearsal_chain(ni.ROOT)), expected)
+        self.assertEqual(ni.rehearsal_chain(ni.ROOT), REHEARSAL_CHAIN)
+
+    def test_the_entry_form_the_tool_writes_is_the_one_readiness_compiles(self):
+        # readiness.rs's unit test WRITTEN compiles entries in this form and checks their decoded genesis hashes.
+        # The samples are built on the file with its list emptied, so this holds for a switched tree too (whose list
+        # holds its launch network), and the file's own entries are restored from that base exactly.
+        current = (ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')
+        text = ni.with_profiles(current, [])
+        self.assertEqual(ni.with_profiles(text, ni.read_profiles(current)), current)
+        decl = '    const WRITTEN:&[(u64,[u8;32])]=&['
+        line = next(l for l in text.splitlines() if l.startswith(decl))
+        self.assertTrue(line.endswith('];'))
+        body = line[len(decl):-2]
+        entries = [(int(c), g) for c, g in re.findall(r'\(([0-9]+),genesis_hash\("([0-9a-f]{64})"\)\)', body)]
+        self.assertEqual(len(entries), 2)
+        self.assertEqual(ni.profiles_text(entries), body)
+        sample = text.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + body + ']')
+        self.assertEqual(ni.read_profiles(sample), entries)
+        self.assertEqual(ni.read_profiles(ni.with_profiles(text, entries)), entries)
+        self.assertEqual(ni.with_profiles(ni.with_profiles(text, entries), []), text)
+        for bad in (body.replace('genesis_hash("0', 'genesis_hash("0x', 1), body.upper(), body + ',', body.replace('(', '( ', 1),
+                    body.replace(str(entries[0][0]), f'{entries[0][0]:_}', 1), ni.profiles_text([entries[0], entries[0]])):
+            with self.subTest(bad=bad), self.assertRaises(ValueError):
+                ni.read_profiles(text.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + bad + ']'))
+        with self.assertRaises(ValueError):
+            ni.read_profiles(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL.replace('=&[', '= &[')))
+
+    def test_a_switch_writes_the_network_profile_and_check_requires_exactly_it(self):
+        root = self.copy()
+        original = (root / ni.PROFILES).read_bytes()
+        self.assertEqual(self.run_tool(root), 0)
+        self.assertEqual(profiles(root), [(NEW_CHAIN, HASH_A[2:])], 'the --to entry')
+        self.assertEqual(self.run_tool(root, '--check'), 0)
+        switched = (root / ni.PROFILES).read_bytes()
+        rest = lambda data: re.sub(rb'(?m)^pub const NETWORK_PROFILES:.*$', b'', data)
+        self.assertEqual(rest(switched), rest(original), 'only the NETWORK_PROFILES line changes')
+        text = switched.decode('utf-8')
+        # A missing entry, an extra one, another network's in its place, or a duplicate: --check refuses each.
+        other = (NEW_CHAIN + 1, 'cd' * 32)
+        for entries in ([], [(NEW_CHAIN, HASH_A[2:]), other], [other], [(NEW_CHAIN, HASH_B[2:])],
+                        [(NEW_CHAIN, HASH_A[2:]), (NEW_CHAIN, HASH_A[2:])], [(CUR_CHAIN, CUR_GENESIS)]):
+            with self.subTest(entries=entries):
+                (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])]),
+                                                            ni.PROFILES_DECL + ni.profiles_text(entries)), encoding='utf-8')
+                self.assertNotEqual((root / ni.PROFILES).read_bytes(), switched)
+                self.assertEqual(self.run_tool(root, '--check'), 2)
+        # An entry of another network is refused by a switch too, which then writes nothing.
+        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])]),
+                                                    ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:]), other])), encoding='utf-8')
+        before = self.snapshot(root)
+        self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 2)
+        self.assertEqual(before, self.snapshot(root))
+        # A missing entry is restored by finishing the switch (the tree pins --to already).
+        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL + ni.profiles_text([(NEW_CHAIN, HASH_A[2:])]),
+                                                    ni.PROFILES_DECL), encoding='utf-8')
+        self.assertEqual(self.run_tool(root), 0)
+        self.assertEqual((root / ni.PROFILES).read_bytes(), switched)
+        # A redo replaces the --from entry with the --to one.
+        self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 0)
+        self.assertEqual(profiles(root), [(NEW_CHAIN, HASH_B[2:])])
+        self.assertEqual(self.run_tool(root, '--check', source='a.json', target='b.json'), 0)
+
+    def test_the_rehearsal_and_retired_networks_get_no_network_profile(self):
+        root = self.copy()
+        (root / 'rehearsal.json').write_text(invitation(make_spec(chain=REHEARSAL_CHAIN, version=2, flip=4)), encoding='utf-8')
+        self.assertEqual(self.run_tool(root, target='rehearsal.json'), 0)
+        self.assertEqual(ni.current_identity(root)[0], REHEARSAL_CHAIN, 'the clients pin the rehearsal network')
+        self.assertEqual(profiles(root), [], 'the rehearsal network is never a launch network')
+        self.assertEqual(self.run_tool(root, '--check', target='rehearsal.json'), 0)
+        rehearsal_genesis = ni.current_identity(root)[1]
+        text = (root / ni.PROFILES).read_text(encoding='utf-8')
+        (root / ni.PROFILES).write_text(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL + ni.profiles_text([(REHEARSAL_CHAIN, rehearsal_genesis)])), encoding='utf-8')
+        self.assertEqual(self.run_tool(root, '--check', target='rehearsal.json'), 2, 'an entry for it is refused')
+        (root / ni.PROFILES).write_text(text, encoding='utf-8')
+        # From the rehearsal network to a launch network, and back on purpose: the retired network gets no entry.
+        self.assertEqual(self.run_tool(root, source='rehearsal.json', target='v3.json'), 0)
+        self.assertEqual(profiles(root), [(NEW_CHAIN, HASH_V3[2:])])
+        self.assertEqual(self.run_tool(root, '--allow-revert', source='v3.json', target='rehearsal.json'), 0)
+        self.assertEqual(profiles(root), [])
+        self.assertEqual((root / ni.PROFILES).read_text(encoding='utf-8'), text)
+
+    def test_a_round_trip_restores_network_profiles_byte_for_byte(self):
+        root = self.copy()
+        original = (root / ni.PROFILES).read_bytes()
+        self.assertEqual(self.run_tool(root), 0)
+        self.assertEqual(self.run_tool(root, source='a.json', target='b.json'), 0)
+        self.assertNotEqual((root / ni.PROFILES).read_bytes(), original)
+        self.assertEqual(self.run_tool(root, '--allow-revert', source='b.json', target='cur.json'), 0)
+        if SWITCHED:
+            # The reverted-to network was retired by the first switch: its entry is not written back.
+            self.assertEqual(profiles(root), [])
+        else:
+            self.assertEqual((root / ni.PROFILES).read_bytes(), original)
+        self.assertEqual(self.run_tool(root, '--check', '--allow-revert', source='b.json', target='cur.json'), 0)
+
     def test_the_guard_flags_planted_copies(self):
         planted = [('a.py', f'X = {CUR_CHAIN}n'), ('b.rs', f'const X: u64 = {CUR_CHAIN:_};'), ('c.js', f"c='0x{CUR_CHAIN:X}'"),
                    ('d.md', f'genesis {CUR_GENESIS[:8]}...'), ('e.json', CUR_SPEC.hex())]
@@ -723,6 +855,13 @@ class SetNetworkIdentity(unittest.TestCase):
         exempt = [('development/x.md', str(CUR_CHAIN)), ('deploy/websites/x.js', str(CUR_CHAIN)), (list(ni.FILES)[0], str(CUR_CHAIN)),
                   (ni.RETIRED, str(CUR_CHAIN))]
         self.assertEqual(unaccounted(exempt), [])
+        # In readiness.rs only the NETWORK_PROFILES entry is exempt; a copy anywhere else in that file is flagged.
+        entry = ni.PROFILES_DECL + ni.profiles_text([(CUR_CHAIN, CUR_GENESIS)]) + '];\n'
+        self.assertEqual(unaccounted([(ni.PROFILES, entry)]), [])
+        for stray in (f'// chain {CUR_CHAIN}\n', f'const G:&str="{CUR_GENESIS}";\n'):
+            with self.subTest(stray=stray):
+                self.assertEqual(unaccounted([(ni.PROFILES, entry + stray)]), [ni.PROFILES])
+                self.assertEqual(unaccounted([(ni.PROFILES, ni.PROFILES_DECL + '];\n' + stray)]), [ni.PROFILES])
         # A retired identity the tree no longer pins: flagged everywhere outside the kept files, FILES included.
         gone_chain, gone_genesis = NEW_CHAIN, HASH_A[2:]
         gone = anywhere([(gone_chain, gone_genesis)])
