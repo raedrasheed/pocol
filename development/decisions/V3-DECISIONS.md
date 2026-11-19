@@ -344,8 +344,13 @@ read the pinned admission in place of the recorded one (a network profile still 
 with no pin, or a pin of any other admission, it keeps `admission-not-booted` and reflects the recorded facts as
 before. A booted node's readiness still reads the admission it booted with. `NETWORK_PROFILES` is empty, so
 behaviour is unchanged today: the launcher reports `admission-not-booted` (and `network-not-release-pinned`) for
-every network; pinning an entry is the H2 release step, the owner's decision. Like every blocker it is reported and
-refuses nothing. (2) `profile-kind` clears only with a Network profile,
+every network. At the identity switch `deploy/mainnet/set_network_identity.py` pins the switched-to network (not a
+retired or the rehearsal network) with `ExpectedAdmission::FRESH_NETWORK`, the decided launch admission
+(FRESH-NETWORK-CP.md §1, "Launch admission": Simnet profile, Simnet node, ExperimentalDevnet scope, with the
+conditions and waivers its boot reports; `tests/fn4_profiles.rs` checks it against a boot of both profiles). That
+entry clears only `network-not-release-pinned`: it is not `LAUNCH`, so the launcher keeps `admission-not-booted` and
+the recorded facts. The tool never writes `LAUNCH`; pinning it is the owner's decision. Like every blocker it is
+reported and refuses nothing. (2) `profile-kind` clears only with a Network profile,
 which R22 allows only on chainId 777001: the fresh network (rehearsal 1656550731, mainnet 2656089850) can never clear
 it without an R22 or admission change, or a launch on 777001. That change belongs
 to H2, may be consensus-adjacent (R22 is checked at profile validation), and is the owner's decision; N5 changes

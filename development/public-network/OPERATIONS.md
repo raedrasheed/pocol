@@ -272,8 +272,12 @@ exists only on a v3 (spec-2) genesis. To activate it:
   genesisHash) in `NETWORK_PROFILES` with exactly the launch admission (scope
   specification, no condition, no waiver, the Network profile on a Node; V3-28 H2 (1)),
   and the launcher then reads that pin, not devnet.json. The release pins no network, so
-  today every network keeps `admission-not-booted`. Only a booted node's status reports
-  the admission it booted with.
+  today every network keeps `admission-not-booted`. The identity switch
+  (`deploy/mainnet/set_network_identity.py`) pins the new network with the decided launch
+  admission (`ExpectedAdmission::FRESH_NETWORK`: experimental-devnet scope, Simnet
+  profile on a Simnet node), not the launch admission, so that network loses only
+  `network-not-release-pinned` and keeps `admission-not-booted`. Only a booted node's
+  status reports the admission it booted with.
   An Android package's build-info.json is the build's raw identity, with
   `publicLaunchReady: false` and the single blocker `readiness-not-computed`.
 `compatibilitySha256` stays for install integrity: `monitor.py` groups nodes by

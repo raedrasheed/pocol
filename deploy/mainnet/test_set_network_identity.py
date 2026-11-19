@@ -10,9 +10,9 @@ tree no longer pins; and the shipped release texts that are true only on the ret
 pins a network that is not retired; the extension's built-in profile placeholder (D1) is proven, placed only into the
 placeholder files, and replaced (with its mark) by the switch; the release's NETWORK_PROFILES (readiness.rs) holds
 exactly the entry of the tree's identity unless that is a retired or the rehearsal network (then none, as today), each
-entry a NetworkProfile expecting ExpectedAdmission::LAUNCH in exactly the form readiness.rs's WRITTEN test compiles: a
-switch writes the --to entry and removes the --from one, --check refuses a missing or extra entry, and a round trip
-restores the file byte for byte.
+entry a NetworkProfile expecting ExpectedAdmission::FRESH_NETWORK (the decided launch admission, never
+ExpectedAdmission::LAUNCH) in exactly the form readiness.rs's WRITTEN test compiles: a switch writes the --to entry and
+removes the --from one, --check refuses a missing or extra entry, and a round trip restores the file byte for byte.
 
 The tests name no network: the --from fixture is the tree's current identity (the GenesisSpec the node file pins)
 and the --to fixtures are derived from it, so they pass whatever network the tree pins."""
@@ -179,13 +179,13 @@ TRACKED = list(ni.FILES) + [page for page, _ in ni.VERSIONED] + [ni.INSTALLER, n
 REHEARSAL_CHAIN = json.loads((ni.ROOT / ni.REHEARSAL_PROFILE).read_text(encoding='utf-8'))['chainId']
 
 # One NETWORK_PROFILES entry as readiness.rs compiles it (read independently of the tool): a NetworkProfile with the
-# chain ID, the decoded genesis hash and the launch admission.
-ENTRY = re.compile(r'NetworkProfile\{chain_id:([0-9]+),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),admission:ExpectedAdmission::LAUNCH\}')
+# chain ID, the decoded genesis hash and the fresh network's decided launch admission.
+ENTRY = re.compile(r'NetworkProfile\{chain_id:([0-9]+),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),admission:ExpectedAdmission::FRESH_NETWORK\}')
 
 def entries_of(body):
     """[(chain ID, genesis hash hex)] of a list body of ENTRY entries; every NetworkProfile in it must be one."""
     found = [(int(c), g) for c, g in ENTRY.findall(body)]
-    assert body.count('NetworkProfile{') == len(found), f'an entry not in the launch form: {body}'
+    assert body.count('NetworkProfile{') == len(found), f'an entry not in the written form: {body}'
     return found
 
 def profiles(root):
@@ -770,7 +770,7 @@ class SetNetworkIdentity(unittest.TestCase):
         # readiness.rs's unit test WRITTEN compiles entries in this form and checks their decoded genesis hashes.
         text = (ni.ROOT / ni.PROFILES).read_text(encoding='utf-8')
         self.assertEqual(ni.PROFILES_DECL, 'pub const NETWORK_PROFILES:&[NetworkProfile]=&[')
-        self.assertEqual(ni.PROFILES_ADMISSION, 'ExpectedAdmission::LAUNCH')
+        self.assertEqual(ni.PROFILES_ADMISSION, 'ExpectedAdmission::FRESH_NETWORK')
         decl = '    const WRITTEN:&[NetworkProfile]=&['
         line = next(l for l in text.splitlines() if l.startswith(decl))
         self.assertTrue(line.endswith('];'))
@@ -779,22 +779,27 @@ class SetNetworkIdentity(unittest.TestCase):
         self.assertEqual(len(entries), 2)
         self.assertEqual(body.count('},NetworkProfile{'), 1, 'entries separated by ","')
         self.assertEqual(ni.profiles_text(entries), body)
-        sample = text.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + body + ']')
+        # The samples start from the file with an empty list, whatever the tree pins (after the switch it holds an entry).
+        empty = ni.with_profiles(text, [])
+        self.assertEqual(empty.count(ni.PROFILES_DECL + ']'), 1)
+        self.assertEqual(ni.with_profiles(empty, ni.read_profiles(text)), text)
+        sample = empty.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + body + ']')
         self.assertEqual(ni.read_profiles(sample), entries)
         self.assertEqual(ni.read_profiles(ni.with_profiles(text, entries)), entries)
-        self.assertEqual(ni.with_profiles(ni.with_profiles(text, entries), []), text)
-        # Malformed entries, a duplicate, and an entry that expects any admission other than the launch one (or names
-        # its fields in another order): each is refused.
+        self.assertEqual(ni.with_profiles(ni.with_profiles(text, entries), []), empty)
+        # Malformed entries, a duplicate, and an entry that expects any admission other than the fresh network's (the
+        # specification admission LAUNCH included), or names its fields in another order: each is refused.
         for bad in (body.replace('genesis_hash("0', 'genesis_hash("0x', 1), body.upper(), body + ',', body.replace('(', '( ', 1),
                     body.replace(str(entries[0][0]), f'{entries[0][0]:_}', 1), ni.profiles_text([entries[0], entries[0]]),
-                    body.replace('ExpectedAdmission::LAUNCH', 'ExpectedAdmission{scope:Scope::ExperimentalDevnet,'
-                                 '..ExpectedAdmission::LAUNCH}', 1),
-                    body.replace('ExpectedAdmission::LAUNCH', 'LAUNCH', 1), body.replace('},', '}, ', 1),
-                    body.replace('admission:ExpectedAdmission::LAUNCH', '', 1),
+                    body.replace('ExpectedAdmission::FRESH_NETWORK', 'ExpectedAdmission::LAUNCH', 1),
+                    body.replace('ExpectedAdmission::FRESH_NETWORK', 'ExpectedAdmission{waivers:&[],'
+                                 '..ExpectedAdmission::FRESH_NETWORK}', 1),
+                    body.replace('ExpectedAdmission::FRESH_NETWORK', 'FRESH_NETWORK', 1), body.replace('},', '}, ', 1),
+                    body.replace('admission:ExpectedAdmission::FRESH_NETWORK', '', 1),
                     body.replace(f'chain_id:{entries[0][0]},genesis_hash:genesis_hash("{entries[0][1]}")',
                                  f'genesis_hash:genesis_hash("{entries[0][1]}"),chain_id:{entries[0][0]}', 1)):
             with self.subTest(bad=bad), self.assertRaises(ValueError):
-                ni.read_profiles(text.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + bad + ']'))
+                ni.read_profiles(empty.replace(ni.PROFILES_DECL + ']', ni.PROFILES_DECL + bad + ']'))
         with self.assertRaises(ValueError):
             ni.read_profiles(text.replace(ni.PROFILES_DECL, ni.PROFILES_DECL.replace('=&[', '= &[')))
 

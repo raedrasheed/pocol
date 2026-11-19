@@ -51,16 +51,26 @@ deployed.
 The release's pinned launch networks (NETWORK_PROFILES in PROFILES, V3-28 H2) follow the switch: --to writes the
 entry of the new identity and removes the --from (and the tree's current) entry, each entry in the form
 
-    NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::LAUNCH}
+    NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::FRESH_NETWORK}
 
 (the declaration on one line, entries separated by ","), and --check verifies that NETWORK_PROFILES holds exactly the
-entry of the tree's identity. A launch network expects the specification admission (ExpectedAdmission::LAUNCH), so
-for it the launcher drops `admission-not-booted`; a node that boots it with another admission (experimental-devnet
-today) still reports its own blockers. A retired identity (RETIRED, the --from network included once the switch lists
-it) and the rehearsal network (the chain ID of REHEARSAL_PROFILE) are never a launch network, so for them the expected
-list is empty; that is the case while the tree pins a retired network. An entry of any other network is refused, never
-removed silently. The entry only changes what is reported (`network-not-release-pinned`, and in the launcher
-`admission-not-booted`); the readiness report is node-local and refuses nothing.
+entry of the tree's identity. A retired identity (RETIRED, the --from network included once the switch lists it) and
+the rehearsal network (the chain ID of REHEARSAL_PROFILE) are never a launch network, so for them the expected list is
+empty; that is the case while the tree pins a retired network. An entry of any other network is refused, never removed
+silently.
+
+The entry pins the admission the release expects a node booting the network to get: ExpectedAdmission::FRESH_NETWORK,
+the decided launch admission (development/decisions/FRESH-NETWORK-CP.md §1 "Launch admission": a Simnet profile on a
+Simnet node in scope experimental-devnet, with the conditions and waivers its boot reports), never
+ExpectedAdmission::LAUNCH (scope specification, no condition, no waiver, the Network profile on a Node), which is not
+the admission this release boots and stays the owner's decision (V3-28 H2 (1)). The entry removes only
+`network-not-release-pinned` for that network. Everything else is reported as before: a booted node reports the
+admission it booted with (admission-scope, each admission-condition-* and admission-waiver-*, profile-kind), and the
+launcher keeps `admission-not-booted` (its detail names the fields in which the pin differs from
+ExpectedAdmission::LAUNCH) and still reflects devnet.json's recorded admission as further blockers (admission-scope,
+admission-condition-*, admission-waiver-*, profile-kind, or admission-unrecorded). On the fresh network's chains
+`profile-kind` stays in any case: R22 allows the Network profile only on chain 777001. The readiness report is
+node-local and refuses nothing.
 """
 import argparse, hashlib, json, os, re, shutil, sys
 from pathlib import Path
@@ -89,9 +99,9 @@ ANCHOR = 'prototypes/pocold/src/network_display.rs'
 # PROFILES_ADMISSION.
 PROFILES = 'prototypes/pocold/src/readiness.rs'
 PROFILES_DECL = 'pub const NETWORK_PROFILES:&[NetworkProfile]=&['
-# The admission a launch network's entry expects: the specification admission (scope specification, no condition, no
-# waiver, the Network profile on a Node).
-PROFILES_ADMISSION = 'ExpectedAdmission::LAUNCH'
+# The admission a launch network's entry expects: the decided launch admission (readiness.rs
+# ExpectedAdmission::FRESH_NETWORK, FRESH-NETWORK-CP.md §1), never the specification admission ExpectedAdmission::LAUNCH.
+PROFILES_ADMISSION = 'ExpectedAdmission::FRESH_NETWORK'
 # The rehearsal network's committed profile: its chain ID is never a launch network.
 REHEARSAL_PROFILE = 'deploy/mainnet/v3-rehearsal-profile.json'
 # Each listed file and the copies of the identity it pins: (chain ID in any spelling, genesis hash,
@@ -368,7 +378,7 @@ def profiles_span(text):
 
 def read_profiles(text):
     """[(chain ID, genesis hash hex)] of NETWORK_PROFILES, in order; ValueError unless it is in the form
-    profiles_text writes (a lower-case 64-digit hash, a decimal chain ID without digit groups, the launch admission,
+    profiles_text writes (a lower-case 64-digit hash, a decimal chain ID without digit groups, PROFILES_ADMISSION,
     each entry once)."""
     start, end = profiles_span(text)
     body = text[start:end]

@@ -154,7 +154,9 @@ impl Invitation {
     /// nothing itself: the admission devnet.json records about itself is reflected only as further blockers, never as
     /// evidence (D-V3-28), beside `admission-not-booted`. Only a `NETWORK_PROFILES` pin of this (chain, genesis hash)
     /// whose expected admission is exactly the launch admission drops that blocker, and then the pin, not devnet.json,
-    /// is the admission read (V3-28 H2 (1)); none is pinned today. A node's status reports the admission it booted with.
+    /// is the admission read (V3-28 H2 (1)); no network is pinned so (the identity switch pins the decided launch
+    /// admission, `ExpectedAdmission::FRESH_NETWORK`, which keeps the blocker). A node's status reports the admission it
+    /// booted with.
     fn launch_blockers(&self, info: &serde_json::Value) -> Vec<crate::readiness::Blocker> {
         self.launch_blockers_for(&crate::readiness::Build::this(), info)
     }
@@ -1110,8 +1112,23 @@ mod upgrade_tests {
             let got: Vec<String> = invitation.launch_blockers_for(&pinned, &info).into_iter().map(|b| b.id).collect();
             assert_eq!(got, ["profile-kind"]);
         }
-        // This release pins no network: the same invitation keeps admission-not-booted with this build's facts.
-        assert!(crate::readiness::NETWORK_PROFILES.is_empty());
+        // A pin of the admission the identity switch writes (the decided launch admission, not the launch one) keeps
+        // admission-not-booted and the recorded facts: only network-not-release-pinned goes.
+        let fresh = pinned_build(&honest, ExpectedAdmission::FRESH_NETWORK);
+        let unpinned = crate::readiness::Build { network_profiles: vec![], ..fresh.clone() };
+        for invitation in [honest.clone(), forged_admission(&honest)] {
+            let info = invitation.info().unwrap();
+            let got: Vec<String> = invitation.launch_blockers_for(&fresh, &info).into_iter().map(|b| b.id).collect();
+            let mut want: Vec<String> = invitation.launch_blockers_for(&unpinned, &info).into_iter().map(|b| b.id).collect();
+            assert_eq!(want.remove(0), "network-not-release-pinned");
+            assert_eq!(got, want);
+            assert!(got.contains(&"admission-not-booted".to_string()));
+        }
+        // This release pins no network with the launch admission, and not this invitation's: with this build's facts
+        // the invitation keeps admission-not-booted.
+        assert!(crate::readiness::NETWORK_PROFILES.iter().all(|p| p.admission != ExpectedAdmission::LAUNCH));
+        let this = &pinned.network_profiles[0];
+        assert!(!crate::readiness::NETWORK_PROFILES.iter().any(|p| (p.chain_id, p.genesis_hash) == (this.chain_id, this.genesis_hash)));
         let info = honest.info().unwrap();
         assert!(honest.launch_blockers(&info).iter().any(|b| b.id == "admission-not-booted"));
     }

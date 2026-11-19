@@ -71,12 +71,21 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
   retired network or the rehearsal network (the chain ID of `v3-rehearsal-profile.json`), which get no entry, and
   `--check` refuses a missing or extra entry. Each entry is written on the declaration's one line, entries separated
   by `,`, as
-  `NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::LAUNCH}` (`HEX` the
-  64 lower-case hex digits of the genesis hash, decoded at compile time): a launch network expects the specification
-  admission, so the launcher drops `admission-not-booted` for it, while a node that boots it with another admission
-  (experimental-devnet today) still reports its own blockers. The tree pins a retired network today, so the list is
-  empty and every network reports `network-not-release-pinned` (and, in the launcher, `admission-not-booted`). The
-  entry only changes those reports: the readiness report is node-local and refuses nothing.
+  `NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::FRESH_NETWORK}`
+  (`HEX` the 64 lower-case hex digits of the genesis hash, decoded at compile time). `FRESH_NETWORK` is the decided
+  launch admission (`development/decisions/FRESH-NETWORK-CP.md` §1, "Launch admission": a Simnet profile on a Simnet
+  node in scope experimental-devnet, with the conditions and waivers its boot reports; `pocold`'s
+  `tests/fn4_profiles.rs` checks it against a boot of both profiles). It is not `ExpectedAdmission::LAUNCH` (scope
+  specification, no condition, no waiver, the Network profile on a Node), and the tool never writes that one: pinning
+  the specification admission is the owner's decision (V3-28 H2 (1)). The entry removes only
+  `network-not-release-pinned` for its network. A booted node still reports the admission it booted with
+  (`admission-scope`, each `admission-condition-*` and `admission-waiver-*`, `profile-kind`), and the launcher still
+  reports `admission-not-booted` (its detail names the fields in which the pin differs from the specification
+  admission) and the blockers of the admission devnet.json records. On the fresh network's chains (the mainnet and
+  rehearsal profiles' chain IDs) `profile-kind` stays in any case, since R22 allows the Network profile only on chain
+  777001. The tree pins a retired network today, so the list is empty and every network reports
+  `network-not-release-pinned` (and, in the launcher, `admission-not-booted`). The readiness report is node-local and
+  refuses nothing.
 - `v3-profile.json`, `v3-rehearsal-profile.json`: the fresh network's mainnet and rehearsal profiles (FN-4). They
   differ only in the chain ID and the launch second. `test_v3_profiles.py` checks them; `pocold`'s
   `tests/fn4_profiles.rs` builds and admits them.
