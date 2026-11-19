@@ -91,6 +91,14 @@ against fakes, not yet on the servers. The `pocold run --miner-key-file` path ha
 credential option. No shared private-key list is needed to construct genesis. `*.pocol-key`
 is ignored by Git, but that does not replace checking release and artifact contents.
 
+### Recovery runbook
+
+[RECOVERY.md](RECOVERY.md) is the key recovery runbook for the fresh network (gate K1):
+backing up and restoring a server's miner key as the `pocol-standalone` user with
+`pocol-key export`/`import` (and `pocol import-key` for a re-provisioned home), the
+owner-held offline reward keys, a lost miner key (a new identity registers again; when
+the old bond is refunded under the v3 Registry rules) and the faucet operator key.
+
 ## Construct a candidate using public information only
 
 Create `public-genesis.json` with actual public addresses:

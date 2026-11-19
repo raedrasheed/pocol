@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Explicit allowlists only: no network keys, private state or Android signing keys."""
-import argparse, hashlib, json, re, runpy, shutil, subprocess, tarfile, zipfile
+import argparse, gzip, hashlib, json, os, re, runpy, shutil, subprocess, tarfile, zipfile
 from pathlib import Path
 # The native release version (Linux, Windows and Android; owner decision 2026-11-16: 0.5.0). Its other copies
 # (Wallet.cs, Wallet.xaml, build.gradle versionName, the pocold crate version that build-info reports, the shipped README
@@ -114,13 +114,29 @@ if args.platform=='Android':
 sums=''.join(f'{hashlib.sha256(f.read_bytes()).hexdigest()}  {f.name}\n' for f in sorted(args.out.iterdir(),key=lambda f:f.name) if f.is_file())
 (args.out/'SHA256SUMS').write_text(sums,encoding='utf-8',newline='\n')
 
+def source_date_epoch():
+    """The one timestamp of the Linux archive (reproducible builds): SOURCE_DATE_EPOCH when it is set, else the source
+    commit's committer time, so two builds of one commit stamp the same date whatever the clock, TZ or file mtimes."""
+    given=os.environ.get('SOURCE_DATE_EPOCH')
+    if given is not None:
+        if not re.fullmatch(r'[0-9]{1,12}',given): raise SystemExit(f'SOURCE_DATE_EPOCH {given!r} is not a whole number of seconds')
+        return int(given)
+    return int(subprocess.check_output(['git','log','-1','--format=%ct','HEAD'],cwd=root,text=True).strip())
+
 if args.platform=='Linux':
-    # Artifact ZIPs discard executable bits. Keep the runnable distribution inside a tarball.
+    # Artifact ZIPs discard executable bits. Keep the runnable distribution inside a tarball. Byte-stable
+    # (deploy/release/double_build.py compares two builds): entries in ordinal name order, one fixed mtime, owner 0:0 with
+    # no names, mode 0755 for an executable and 0644 otherwise (never the builder's umask), ustar headers without pax
+    # records, and a gzip header with no file name and no timestamp.
     packaged=sorted(args.out.iterdir(),key=lambda f:f.name)
     archive=args.out/f'PoCol-Mainnet-{version}-linux-x86_64.tar.gz'
-    with tarfile.open(archive, 'w:gz') as tar:
+    epoch=source_date_epoch()
+    with archive.open('wb') as raw, gzip.GzipFile(filename='',mode='wb',fileobj=raw,mtime=0,compresslevel=9) as gz, \
+            tarfile.open(fileobj=gz,mode='w',format=tarfile.USTAR_FORMAT) as tar:
         for file in packaged:
-            info=tar.gettarinfo(str(file), arcname=file.name)
+            info=tarfile.TarInfo(file.name)
+            info.size=file.stat().st_size; info.mtime=epoch; info.type=tarfile.REGTYPE
+            info.mode=0o755 if file.stat().st_mode & 0o111 else 0o644
             info.uid=info.gid=0; info.uname=info.gname=''
             with file.open('rb') as stream: tar.addfile(info, stream)
     for file in packaged: file.unlink()

@@ -11,6 +11,8 @@ against: every file:line in them was read at commit
 `preflight.py`, `nonce_upgrade.py`, `prepare_nonce_upgrade.py`, `RELEASE-UPGRADE.md`, the earn-in proposal and the
 earn-in rollout records) was removed after the owner's 2026-11-13 decision to launch a brand-new network
 ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)); read it in git history, for example at commit `d24843d`.
+`deploy/public-testnet/nonce_upgrade.py` was later restored, adapted to the fresh network, as the seed fork-migration tool
+(development/public-network/OPERATIONS.md, G3); the version cited here is the one at that commit.
 Thesis citations are "T p<PDF page>/<printed page>" of `WT/PhD-thesis-Raed-Rasheed-120211566-61.pdf`.
 Superseded or changed in part (owner decisions of 2026-11-13; FRESH-NETWORK-CP.md §7): V3-10 (contestable seats) and
 V3-14 (the probation pool, its contest and T_PROB) are not built (FN-2b); V3-21's creation fee is deleted (FN-2a); V3-06,
@@ -1007,8 +1009,9 @@ fork; a restart test. **Effort:** S. **Risk:** low.
 - **Change.**
   - H1: `launch_ready = scope==Specification && no conditions && no waivers && PLAN gates closed`, emitted with
     `launchBlockers`.
-  - H2: a release-pinned `NETWORK_PROFILES [(chainId, genesisHash)]`, then close each condition (V3-21, V3-25,
-    V3-29, K_eff).
+  - H2: a release-pinned `NETWORK_PROFILES [(chainId, genesisHash, expected admission)]`, then close each
+    condition (V3-21, V3-25, V3-29, K_eff). (The table and its expected admission, which the launcher compares,
+    never devnet.json, are implemented since; D-V3-28 implementation note, H2 (1). No entry is pinned.)
 - **Classification:** NODE-LOCAL. **Effort:** H1 S, H2 L.
 
 ### V3-29 Decision record and normative amendments (CONS-7, MAT-03, MAT-04)

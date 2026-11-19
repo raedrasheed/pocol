@@ -104,6 +104,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 -B deploy/release/test_release_signing.py -v
+          python3 -B deploy/release/test_double_build.py -v
           # The CI package carries no release signature: the verifier must say NOT VERIFIED, never VERIFIED.
           if python3 -B deploy/release/verify_release.py dist > "$RUNNER_TEMP/verify.log"; then
             echo 'an unsigned release must not verify' >&2; exit 1
@@ -176,4 +177,113 @@ jobs:
         with:
           name: PoCol-Mainnet-${{ env.POCOL_VERSION }}-Android-arm64-UNSIGNED-${{ env.EXPECTED_COMMIT }}
           path: dist/
+          retention-days: 30
+  native-reproducible:
+    # Gate I1 (d): the Linux release binaries and package built twice, from other checkout paths, umasks, TZ, locales,
+    # cargo homes and source mtimes, under the recipe of deploy/release/double_build.py (one fixed build path, remapped
+    # compiler paths, SOURCE_DATE_EPOCH from the commit, toolchain 1.99.1 --locked). The compare job fails on any
+    # difference. The Windows wallet and the APK are not part of this check.
+    name: Native double build (${{ matrix.leg }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - leg: a
+            path: a
+            umask: '0022'
+            tz: UTC
+            lc_all: C
+          - leg: b
+            path: other/deeper/checkout-b
+            umask: '0077'
+            tz: Pacific/Kiritimati
+            lc_all: C.UTF-8
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      CARGO_BUILD_JOBS: '2'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+          path: ${{ matrix.path }}
+      - name: Build the Linux release binaries and package, and hash them
+        shell: bash
+        working-directory: ${{ matrix.path }}
+        env:
+          TZ: ${{ matrix.tz }}
+          LC_ALL: ${{ matrix.lc_all }}
+          LEG: ${{ matrix.leg }}
+          UMASK: ${{ matrix.umask }}
+          OUT: ${{ runner.temp }}/native-reproducible
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          rustup toolchain install 1.99.1 --profile minimal
+          umask "$UMASK"
+          if [ "$LEG" = b ]; then
+            # Other source mtimes (set in reverse name order) and modes, and another cargo home (the registry is
+            # fetched again, under another path; Cargo.lock's checksums pin its bytes).
+            git ls-files -z | LC_ALL=C sort -rz | xargs -0 touch -d '2001-02-03 04:05:06 UTC'
+            chmod -R go-rwx .
+            export CARGO_HOME="$RUNNER_TEMP/cargo-home-b"
+          fi
+          python3 -B deploy/release/double_build.py build --leg "$LEG" --out "$OUT"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: native-reproducible-${{ matrix.leg }}
+          path: ${{ runner.temp }}/native-reproducible
+          if-no-files-found: error
+          retention-days: 30
+  native-reproducible-compare:
+    name: Native double build compare
+    # The comparison runs whenever both legs finished, so its verdict is shown even when a native job fails; the
+    # package to sign is uploaded only when the native jobs passed too (Linux and Windows; on Linux the vendor and
+    # crypto-graph checks, the consensus-lock check, the test suites, the release-package tests, the
+    # unsigned-must-not-verify and mixed-build checks).
+    needs: [native, native-reproducible]
+    if: ${{ !cancelled() && needs.native-reproducible.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: native-reproducible-a
+          path: ${{ runner.temp }}/repro/a
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: native-reproducible-b
+          path: ${{ runner.temp }}/repro/b
+      - name: The two builds must be byte-identical
+        id: compare
+        shell: bash
+        run: python3 -B deploy/release/double_build.py compare --no-diffoscope "$RUNNER_TEMP/repro/a" "$RUNNER_TEMP/repro/b"
+      - name: Explain the difference with diffoscope
+        if: failure() && steps.compare.outcome == 'failure'
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends diffoscope-minimal
+          python3 -B deploy/release/double_build.py compare "$RUNNER_TEMP/repro/a" "$RUNNER_TEMP/repro/b" || true
+          exit 1
+      - name: Read the release version (deploy/standalone/package.py, its only definition)
+        shell: bash
+        run: echo "POCOL_VERSION=$(python3 deploy/standalone/package.py --version | tr -d '\r')" >> "$GITHUB_ENV"
+      # The Linux package both builds agree on: the one to sign (deploy/release/README.md, owner procedure step 3).
+      # compare checked that repro/a/dist holds exactly the archive whose SHA-256 both legs listed, and its SHA256SUMS.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        if: ${{ success() && needs.native.result == 'success' }}
+        with:
+          name: PoCol-Mainnet-${{ env.POCOL_VERSION }}-Linux-reproducible-${{ env.EXPECTED_COMMIT }}
+          path: ${{ runner.temp }}/repro/a/dist/
+          if-no-files-found: error
           retention-days: 30

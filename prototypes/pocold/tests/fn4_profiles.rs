@@ -177,6 +177,29 @@ fn a_ceremony_filled_profile_builds_without_the_flag_with_a_measured_calibration
     let o2=Temp::new("ceremony-synthetic");assert!(testnet::prepare(synthetic.to_string().as_bytes(),&o2.0).unwrap_err().contains("measurement"));
 }
 
+/// V3-28 H2 (1): the admission set_network_identity.py pins for a switched-to network, readiness.rs
+/// `ExpectedAdmission::FRESH_NETWORK`, is the decided launch admission (FRESH-NETWORK-CP.md §1 "Launch admission"):
+/// every field of it is what the launcher's boot gives a ceremony genesis of either profile. It is not the launch
+/// admission, so a pin of it keeps `admission-not-booted` in the launcher.
+#[test]
+fn the_pinned_fresh_network_admission_is_the_one_a_ceremony_genesis_boots_with(){
+    use pocol_lp4_execution::profile::{NodeKind,ProfileKind};use pocold::readiness::ExpectedAdmission;
+    let want=ExpectedAdmission::FRESH_NETWORK;
+    assert_eq!((want.scope,want.profile_kind,want.node_kind),(Scope::ExperimentalDevnet,ProfileKind::Simnet,NodeKind::Simnet),"Q3 = a");
+    assert_eq!(want.differing(&ExpectedAdmission::LAUNCH),["scope","conditions","waivers","profile kind","node kind"]);
+    for (label,profile,chain) in [("fresh-mainnet",MAINNET,MAINNET_CHAIN_ID),("fresh-rehearsal",REHEARSAL,REHEARSAL_CHAIN_ID)]{
+        let out=Temp::new(label);testnet::prepare(ceremony_filled(&json(profile),1_000_000).to_string().as_bytes(),&out.0).unwrap();
+        let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
+        assert_eq!(spec.chain_id(),chain);
+        let got=ExpectedAdmission{scope:a.scope(),conditions:&[],waivers:&[],profile_kind:a.profile().kind(),node_kind:a.profile().node_kind()};
+        assert_eq!(got,ExpectedAdmission{conditions:&[],waivers:&[],..want},"{label}");
+        assert_eq!(a.report().conditions.iter().map(|c|c.id).collect::<Vec<_>>(),want.conditions,"{label}");
+        assert_eq!(a.report().waivers.iter().map(|w|w.rule).collect::<Vec<_>>(),want.waivers,"{label}");
+        // Its facts are the booted node's: readiness reports the same admission blockers from either.
+        assert_eq!(want.facts(chain),pocold::readiness::AdmissionFacts::of(a),"{label}");
+    }
+}
+
 #[test]
 fn the_founder_allocation_check(){
     let base=ceremony_filled(&json(MAINNET),1_000_000);
