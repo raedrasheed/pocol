@@ -1490,10 +1490,24 @@ class Harness:
         raise RuntimeError(f'fewer than {want} removable harness members after {self.args.wait_blocks} blocks '
                            '(members become removable Theta_inact blocks after their last share or registration)')
 
+    def included(self, what, tx, err):
+        """m3: a call that decides a check was sent and included, or RuntimeError (exit 1, and no m3 result is written):
+        only an included transaction decides a check, never a refusal or one still in flight after --include-timeout
+        blocks (it stays recorded in flight, and the next run settles it)."""
+        if tx is None:
+            raise RuntimeError(f'the {what} was refused or not sent: {err}')
+        if not self.wait_included([tx], self.args.include_timeout):
+            raise RuntimeError(f'the {what} was not included within --include-timeout blocks (it stays recorded in flight)')
+
     def run_m3(self):
         a = self.args
         self.poll()
         self.resume()   # what a stopped m3 (or fill) left in flight is settled first
+        # and waited for: a registerReplacing an earlier run left held would otherwise race this run's own on the same
+        # victim (whichever lands second reverts, and check 1 would record that as the rule not holding).
+        earlier = list(self.inflight)
+        if earlier and not self.wait_included(earlier, 2 * a.include_timeout + 2):
+            raise RuntimeError('an earlier transaction is still in flight (it stays recorded; run again later)')
         L = self.chain.lengths()
         if L['active'] < self.cp['M_max']:
             raise Refused(f'M3 runs at a full set: active {L["active"]} < M_max {self.cp["M_max"]} (run fill first)')
@@ -1520,7 +1534,7 @@ class Harness:
                 raise RuntimeError(f'registerReplacing was refused: {err}')
             sent.append(tx)
         self.save()
-        self.wait_included(sent, a.include_timeout)
+        done = self.wait_included(sent, a.include_timeout)
         at = [p['attempt'] for p in prepared]
         blocks = {x.get('block') for x in at}
         after = {v: self.chain.record(v, hex(x['block'])) if x.get('block') else None for v, x in zip(victims, at)}
@@ -1533,6 +1547,8 @@ class Harness:
             elif x.get('status') == 0:
                 ident['outcome'] = f'failed: {x.get("reason") or "not included"}'
         self.save()
+        if not done:
+            raise RuntimeError('a registerReplacing was not included within --include-timeout blocks (it stays recorded in flight)')
         checks['twoReplacingSameBlock'] = {
             'pass': all(x.get('status') == 1 for x in at) and len(blocks) == 1 and None not in blocks and len(set(victims)) == 2
                     and all(r and r['status'] == 'EXITED' for r in after.values()),
@@ -1545,43 +1561,43 @@ class Harness:
         self.step(1)
         L = self.chain.lengths()
         tx, err = self.register(plain)
-        if tx:
-            self.wait_included([tx], a.include_timeout)
+        self.included('register at the full set', tx, err)
         att = plain['attempts'][-1]
         checks['registerAloneCapacity'] = {'pass': att.get('status') == 0 and (att.get('reason') or '').startswith('Capacity'),
                                            'activeBefore': L['active'], 'block': att.get('block'), 'status': att.get('status'),
                                            'reason': att.get('reason') or err}
-        if plain['outcome'] != 'registered' and (att.get('status') is not None or tx is None):
+        if plain['outcome'] != 'registered':
             plain['outcome'] = 'm3: register at a full set'
         self.say('M3 register alone: ' + json.dumps(checks['registerAloneCapacity'], sort_keys=True))
-        # 3. Below a full set: one harness member deregisters, then removeInactive on an idle member reverts.
+        # 3. Below a full set: one harness member deregisters, then removeInactive on an idle member reverts. The leaver
+        # is one whose record is ACTIVE at the head: state.json does not see another registrant's registerReplacing
+        # (the wallet's, at a full set) exiting a harness member.
         idle = [i for i in self.state['identities'] if i['role'] == 'idle' and i['outcome'] == 'registered' and i['address'] not in victims]
-        if len(idle) < 2:
+        leaver = next((i for i in idle if (self.chain.record(i['address']) or {}).get('status') == 'ACTIVE'), None)
+        if leaver is None or len(idle) < 2:
             raise RuntimeError('M3 needs two more registered idle harness members')
-        leaver = idle[0]
         target = self.wait_removable(1, exclude=set(victims) | {leaver['address']})[0]
         remover = self.fresh_funded(op_key, op_addr, 1, call_need)[0]
         self.ensure_funds(op_key, op_addr, [leaver], call_need)
         tx, err = self.registry_tx(leaver, 'deregister', calldata('deregister()'), REGISTRY_CALL_GAS)
-        if tx is None:
-            raise RuntimeError(f'deregister was refused: {err}')
-        self.wait_included([tx], a.include_timeout)
+        self.included('deregister', tx, err)
         dereg = leaver['attempts'][-1]
-        leaver['outcome'] = 'deregistered (m3)' if dereg.get('status') == 1 else leaver['outcome']
-        if dereg.get('status') is None:
-            raise RuntimeError('the deregister was not included within --include-timeout blocks (it stays recorded in flight)')
+        if dereg.get('status') != 1:
+            # The set is still full: a removeInactive now would remove a member, which says nothing about this rule.
+            self.save()
+            raise RuntimeError(f'the deregister of {leaver["address"]} reverted ({dereg.get("reason")}); removeInactive is not '
+                               'sent at a full set')
+        leaver['outcome'] = 'deregistered (m3)'
         L = self.chain.lengths()
         tx, err = self.registry_tx(remover, 'removeInactive', calldata('removeInactive(address)', target), REGISTRY_CALL_GAS, victim=target)
-        if tx:
-            self.wait_included([tx], a.include_timeout)
+        self.included('removeInactive', tx, err)
         rm = remover['attempts'][-1]
         code_before = self.chain.removal(target, hex(rm['block'] - 1)) if rm.get('block') else None
         checks['removeInactiveBelowFullSet'] = {
             'pass': dereg.get('status') == 1 and L['active'] < self.cp['M_max'] and rm.get('status') == 0 and code_before == 2,
             'deregisterBlock': dereg.get('block'), 'activeAfterDeregister': L['active'], 'target': target,
             'block': rm.get('block'), 'status': rm.get('status'), 'removalCodeBefore': code_before, 'reason': rm.get('reason') or err}
-        if rm.get('status') is not None or tx is None:
-            remover['outcome'] = 'm3: removeInactive below a full set'
+        remover['outcome'] = 'm3: removeInactive below a full set'
         if rm.get('status') == 1:
             for ident in self.state['identities']:
                 if ident['address'] == target:
@@ -1591,8 +1607,7 @@ class Harness:
         filler = self.fresh_funded(op_key, op_addr, 1, need)[0]
         filler['role'] = 'idle'
         tx, err = self.register(filler)
-        if tx:
-            self.wait_included([tx], a.include_timeout)
+        self.included('register into the free seat', tx, err)
         att = filler['attempts'][-1]
         checks['registerBelowFullSet'] = {'pass': att.get('status') == 1, 'block': att.get('block'), 'reason': att.get('reason') or err,
                                           'activeAfter': self.chain.lengths()['active']}
@@ -1622,22 +1637,21 @@ class Harness:
         claimed = None
         if self.chain.record(victim) is not None:
             tx, err = self.registry_tx(ident, 'claimBond', calldata('claimBond()'), REGISTRY_CALL_GAS)
-            if tx:
-                self.wait_included([tx], self.args.include_timeout)
+            self.included('claimBond', tx, err)
             claimed = ident['attempts'][-1].get('status')
         erased = self.chain.record(victim) is None
-        ident['outcome'] = None
         full = self.chain.lengths()['active'] >= self.cp['M_max']
         if full:
             target = self.wait_removable(1, exclude={victim})[0]
             tx, err = self.register_replacing(ident, target)
         else:
             tx, err = self.register(ident)
-        if tx:
-            self.wait_included([tx], self.args.include_timeout)
+        if tx is not None:
+            ident['outcome'] = None   # in flight: settled from the chain, by this run or the next
+        self.included('registration of the victim again', tx, err)
         att = ident['attempts'][-1]
-        if att.get('status') is not None or tx is None:
-            ident['outcome'] = 'registered' if att.get('status') == 1 else f'failed: {att.get("reason") or err}'
+        if att.get('status') != 1:
+            ident['outcome'] = f'failed: {att.get("reason")}'
         out = {'pass': erased and att.get('status') == 1, 'victim': victim, 'dueHeight': due, 'claimBond': claimed,
                'recordErased': erased, 'kind': att['kind'], 'block': att.get('block'), 'reason': att.get('reason') or err}
         self.say('M3 victim registers again after U: ' + json.dumps(out, sort_keys=True))

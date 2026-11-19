@@ -320,18 +320,21 @@ python3 deploy/rehearsal/registration_fill.py m3 --rpc http://127.0.0.1:8545 --e
   --reregister-after-u
 ```
 
-It waits for removable harness members (idle for Θ_inact, 360 blocks), then checks: two fresh registrants'
-`registerReplacing`, signed first and sent back to back, are both included in one block on two distinct victims, which
-are EXITED; `register` alone then reverts (Capacity, inferred); after one harness member deregisters, `removeInactive`
-on an idle member reverts, its removal code at the block before being 2 (the set is not full); a fresh `register` takes
-the free seat; and, with `--reregister-after-u`, a victim registers again once its record is refunded at dueHeight
-(U = 380 blocks, about 1 h). Reasons are inferred because pocold's receipts carry no revert data and the registry's user
-paths revert BadPhase under `eth_call`. The exit status is 0 when every check passes and 2 when one does not; the
-result is then in `state.json` (`m3`) and `report.json`. It is 130 when it was stopped (what it sent stays recorded in
-flight, with no outcome, and the next run settles it), 3 when it was refused before it started (for example, the set is
-not full), and 1 when the path could not be completed (too few removable harness members within `--wait-blocks`, a
-refused call, a transaction not included in time, an identity that could not be funded): the reason is on stderr, and
-no `m3` result is written.
+It first waits for any transaction an earlier run left in flight, then for removable harness members (idle for Θ_inact,
+360 blocks), then checks: two fresh registrants' `registerReplacing`, signed first and sent back to back, are both
+included in one block on two distinct victims, which are EXITED; `register` alone then reverts (Capacity, inferred);
+after one harness member deregisters (one whose registry record is ACTIVE at the head, since another registrant's
+`registerReplacing` may have exited a harness member), `removeInactive` on an idle member reverts, its removal code at
+the block before being 2 (the set is not full); a fresh `register` takes the free seat; and, with
+`--reregister-after-u`, a victim registers again once its record is refunded at dueHeight (U = 380 blocks, about 1 h).
+Reasons are inferred because pocold's receipts carry no revert data and the registry's user paths revert BadPhase under
+`eth_call`. The exit status is 0 when every check passes and 2 when one does not; only included transactions decide a
+check, and the result is then in `state.json` (`m3`) and `report.json`. It is 130 when it was stopped (what it sent
+stays recorded in flight, with no outcome, and the next run settles it), 3 when it was refused before it started (for
+example, the set is not full), and 1 when the path could not be completed (too few removable harness members within
+`--wait-blocks`, a refused or unsent call, a transaction not included within `--include-timeout` blocks, a deregister
+that reverts, so that no `removeInactive` is sent at a full set, an identity that could not be funded): the reason is on
+stderr, and no `m3` result is written.
 
 **R-off.** Once the home PC has been offline past Θ_inact at the full set, `replace --victim PC_MINER_ID --watch-refund`
 registers a fresh identity into its seat and records the PC's record at its dueHeight. The PC's own registration again

@@ -1337,6 +1337,93 @@ class Loop(unittest.TestCase):
         report = self.harness('fill', '--count', '20').run_fill()
         self.assertEqual((report['identities'], report['registered']), (20, 20))
 
+    # ---- review round 4: the M3 leaver from the chain, and only included transactions decide a check
+
+    def no_m3_result(self, h):
+        self.assertNotIn('m3', json.loads((h.dir / 'state.json').read_text()))
+        report = h.dir / 'report.json'
+        self.assertFalse(report.exists() and 'm3' in json.loads(report.read_text()))
+
+    def sent_kinds(self):
+        return [SEL.get(t['data'][2:10]) for b in self.node.blocks.values() for t in b['txs'] if t['to'] == REG] + \
+            [SEL.get(t['data'][2:10]) for t in self.node.pool + self.node.parked if t['to'] == REG]
+
+    def test_m3_picks_a_leaver_the_chain_holds_active(self):
+        # Another registrant's registerReplacing (the wallet's, at a full set) exits the first idle harness member, which
+        # state.json still records as registered: check 3 deregisters a member whose record is ACTIVE instead.
+        self.harness('fill', '--count', '11').run_fill()
+        first = next(i for i in self.last.state['identities'] if i['role'] == 'idle' and i['outcome'] == 'registered')
+        self.node.exit(self.node.reg, first['address'], self.node.height)
+        other = '0x' + 'cd' * 20
+        self.node.reg['records'][other] = self.node.record(4, self.node.height)
+        self.node.reg['active'].append(other)
+        self.node.mine()
+        h = self.harness('m3')
+        result = h.run_m3()
+        c = result['checks']['removeInactiveBelowFullSet']
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+        self.assertEqual((c['status'], c['removalCodeBefore']), (0, 2))
+        self.assertLess(c['activeAfterDeregister'], self.cp['M_max'])
+        self.assertNotIn('deregister', [a['kind'] for a in h.state['identities'][first['i']]['attempts']])
+
+    def test_m3_a_deregister_that_reverts_sends_no_remove_inactive(self):
+        # The leaver is exited by another registrant in the block that carries its deregister (which reverts): the set is
+        # still full, so no removeInactive is sent (it would remove a member) and no m3 result is written.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+
+        def mine(*a):
+            for t in self.node.pool:
+                if SEL.get(t['data'][2:10]) == 'deregister()' and self.node.reg['records'][t['from']]['status'] == 1:
+                    self.node.exit(self.node.reg, t['from'], self.node.height)
+                    self.node.reg['records']['0x' + 'cd' * 20] = self.node.record(4, self.node.height)
+                    self.node.reg['active'].append('0x' + 'cd' * 20)
+            real()
+        h.sleep = mine
+        with self.assertRaisesRegex(RuntimeError, 'deregister .* reverted'):
+            h.run_m3()
+        self.assertIn('deregister()', self.sent_kinds())
+        self.assertNotIn('removeInactive(address)', self.sent_kinds())
+        self.no_m3_result(h)
+
+    def test_m3_a_replacement_not_included_in_time_writes_no_result(self):
+        # Both registerReplacing are held (-32016) past --include-timeout: the path could not be completed (exit 1), not
+        # a check that does not hold; they stay in flight and the next run settles them.
+        self.harness('fill', '--count', '11').run_fill()
+        self.node.park = lambda t: t['to'] == REG and SEL.get(t['data'][2:10]) == 'registerReplacing(address,address)'
+        self.node.park_blocks = 8
+        h = self.harness('m3', '--include-timeout', '2')
+        with self.assertRaisesRegex(RuntimeError, 'registerReplacing was not included'):
+            h.run_m3()
+        self.no_m3_result(h)
+        newcomers = [i for i in h.state['identities'] if i['role'] == 'm3' and i['attempts']]
+        self.assertEqual(len(newcomers), 2)
+        self.assertTrue(all(i['outcome'] is None and 'status' not in i['attempts'][-1] for i in newcomers), 'no outcome invented')
+        self.assertEqual(self.sent_kinds().count('register(address)'), 11, 'only the fill\'s: no later check was run')
+        self.node.park = None
+        h2 = self.harness('m3')
+        result = h2.run_m3()
+        by = {i['address']: i for i in h2.state['identities']}
+        self.assertTrue(all(by[n['address']]['outcome'] == 'registered' for n in newcomers))
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+
+    def test_m3_a_refused_call_writes_no_result(self):
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.call
+
+        def call(method, params=()):
+            if method == 'eth_sendRawTransaction' and \
+                    SEL.get(json.loads(bytes.fromhex(params[0][2:]))['data'][2:10]) == 'register(address)':
+                raise rf.RpcError(-32000, '-32000 insufficient funds')
+            return real(method, params)
+        self.node.call = call
+        with self.assertRaisesRegex(RuntimeError, 'register at the full set was refused'):
+            h.run_m3()
+        self.no_m3_result(h)
+        self.assertNotIn('deregister()', self.sent_kinds())
+
     def test_stop_miners_survives_a_miner_that_exits_meanwhile(self):
         proc = subprocess.Popen([sys.executable, '-c', 'pass'])
         proc.wait()   # exited and reaped: its pid is gone
