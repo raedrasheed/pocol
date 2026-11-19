@@ -344,7 +344,9 @@ Windows uses authenticated user-bound DPAPI ciphertext and rejects raw Unix keys
 reparse points, hard links and altered ciphertext. Linux/Android retain strict
 0600/0400, same-user, single-link key checks. Keys never cross the wallet UI bridge,
 HTTP RPC or P2P. A home lock prevents concurrent engines. Missing, corrupt or
-substituted keys fail instead of silently rotating identity.
+substituted keys fail instead of silently rotating identity. A Linux or Android key
+file is plaintext at rest; a Linux server can hold its key in an encrypted systemd
+credential instead (*Encrypted server key* below).
 
 ### Encrypted key backup
 
@@ -397,6 +399,119 @@ erases identity and state, so make an encrypted backup first. The app is
 with the Android release key, and every later release must be signed with the same key
 to update an installed app (`prototypes/pocol-android/README.md`). No keystore/private
 key belongs in the release bundle or repository.
+
+### Encrypted server key (Linux, opt-in)
+
+`install-linux.sh` leaves the server's miner key in `/var/lib/pocol-standalone/identity.pocol-key`:
+plaintext at rest, protected only by its owner and mode (the service user, 0600). A server can instead
+hold it in a **systemd credential encrypted at rest** (gate K1). `encrypt-server-key.sh`, in the Linux
+package, makes the move on a server whose service already runs:
+
+```sh
+sudo bash encrypt-server-key.sh --backup FILE   # --with-key host|tpm2|host+tpm2
+sudo bash encrypt-server-key.sh --keep-plaintext  # seals and switches, but removes nothing
+```
+
+It needs systemd 250 or later (`LoadCredentialEncrypted=`). Make the passphrase-encrypted backup first
+(`pocol export-key`, above) and give its path, readable by `pocol-standalone`, as `--backup FILE`: the
+plaintext key file is removed only after that backup was checked to open to the same address. The script
+refuses, changing nothing, unless it runs as root and finds `systemd-creds`, this installation's unit, a
+running service, the plaintext key file, a `pocol` with `--key-credential`, and `--backup FILE` or
+`--keep-plaintext`. It also refuses when a credential or drop-in already exists. Then it:
+
+1. stops the service and reads the key file's address with `pocol identity`;
+2. with `--backup`, checks that the backup opens to that address (`pocol inspect-key-backup`; it asks for the
+   backup's passphrase);
+3. seals the key file with
+   `systemd-creds encrypt --name=pocol-identity identity.pocol-key /etc/credstore.encrypted/pocol-identity`.
+   The default key is `host+tpm2` when systemd finds a usable TPM2, otherwise `host`; a null key is refused;
+4. checks that the credential decrypts to the same bytes (through a pipe, never a file);
+5. writes the drop-in `/etc/systemd/system/pocol-standalone.service.d/50-encrypted-key.conf`. The drop-in sets
+   `LoadCredentialEncrypted=pocol-identity:/etc/credstore.encrypted/pocol-identity` and the unit's
+   `ExecStart` plus `--key-credential pocol-identity`;
+6. starts the service and waits until it reports the same address and keeps running. It stops waiting when
+   the node exits first;
+7. removes the plaintext key file with `shred --remove`, run as the service user, unless `--keep-plaintext` is
+   given. It first checks the path again and removes nothing if it is no longer a regular file.
+
+If anything fails before step 7, or the script is interrupted (Ctrl-C, a hang-up, TERM), it rolls back: it
+removes the credential and the drop-in, clears the unit's start limit (`systemctl reset-failed`), and starts
+the service again from the key file, which stays in place. It then checks that the service runs and reports
+the key file's address, and says `ROLLBACK FAILED` when it does not; then start the service yourself
+(`systemctl reset-failed` and `systemctl start`, see `journalctl -u pocol-standalone.service`).
+
+With `--key-credential NAME`, `pocol start` reads the key only from `$CREDENTIALS_DIRECTORY/NAME`. systemd
+decrypts the credential there, into memory-backed storage of the service. `pocol` never opens
+`identity.pocol-key`, even when the credential is missing or `$CREDENTIALS_DIRECTORY` is unset. It refuses
+to start then, and it refuses a credential whose account is not the home's `identity.address`. The
+credential holds a key file's 32 bytes and gets a key file's checks: one link, a regular file, a valid key.
+Only its owner may differ. It may be owned by the service user with mode 0400 or 0600, as a key file may,
+or by root with mode 0400 or 0440, as systemd can place it. `identity`, `upgrade`, `inspect-upgrade` and
+`export-key` take the same option. `import-key` and `inspect-key-backup` work on the key file and do not.
+
+What this protects, and what it does not:
+- Once the script removes it, no plaintext key file remains in the live state directory, and backups taken
+  afterwards hold only the credential. Earlier backups, and old blocks of the disk, may still hold the
+  plaintext (see below). With `host`, the credential is decrypted with `/var/lib/systemd/credential.secret`,
+  a root-only file on the same disk, so a full copy of the disk still yields the key. With `tpm2` or
+  `host+tpm2`, the copy also needs this machine's TPM2.
+- Root, and the running service, can still read the key, and so can anyone who controls the running host.
+  This is no HSM: the key is in the service's memory while it runs.
+- `shred` cannot reach copies kept by a journaling or copy-on-write file system, an SSD's spare blocks or an
+  earlier backup. On a fresh server, run the script before the first backup; full-disk encryption covers the
+  rest. Older plaintext files left by key restores (`identity.pocol-key.replaced-*`) are listed, not removed.
+
+Recovery with an encrypted server key (these commands are documented, not yet run on the servers; the
+rehearsal exercises them):
+- The credential is bound to this machine. A reinstalled host, a new host secret, a cleared or replaced TPM2,
+  or a move to another server cannot decrypt it. With `tpm2` or `host+tpm2`, the script keeps
+  `systemd-creds`' default TPM2 policy. systemd-creds(1) documents that default as binding to PCR 7, the
+  Secure Boot state, or to a signed PCR 11 policy when `/etc/systemd/tpm2-pcr-public-key.pem` exists. So a
+  firmware update, a Secure Boot key or revocation update, or switching Secure Boot on or off can also make the
+  credential undecryptable, and the service then fails to start after the next boot. `--with-key host` binds to
+  no PCR (and to no TPM2). The account then comes back only from the passphrase-encrypted backup. Restore it
+  with the plaintext key file, then run the script again:
+
+  ```sh
+  sudo systemctl stop pocol-standalone.service
+  sudo rm /etc/systemd/system/pocol-standalone.service.d/50-encrypted-key.conf /etc/credstore.encrypted/pocol-identity
+  sudo systemctl daemon-reload
+  sudo runuser -u pocol-standalone -- /opt/pocol-standalone/pocol import-key --home /var/lib/pocol-standalone --backup FILE
+  sudo systemctl reset-failed pocol-standalone.service
+  sudo systemctl start pocol-standalone.service
+  sudo journalctl -u pocol-standalone.service -n 20   # it reports the address in /opt/pocol-standalone/identity.address
+  sudo bash encrypt-server-key.sh --backup FILE
+  ```
+
+  `FILE` must be readable by `pocol-standalone`. `import-key` restores the home's own account into the missing
+  key file; it asks for the backup's passphrase.
+- Commands that need the key run with the credential, the service stopped (they lock the home):
+
+  ```sh
+  sudo systemctl stop pocol-standalone.service
+  sudo systemd-run --pipe --wait -p User=pocol-standalone \
+    -p LoadCredentialEncrypted=pocol-identity:/etc/credstore.encrypted/pocol-identity \
+    /opt/pocol-standalone/pocol upgrade --home /var/lib/pocol-standalone --network FILE --key-credential pocol-identity
+  sudo systemctl start pocol-standalone.service
+  ```
+
+  The same form runs `pocol export-key --out FILE --key-credential pocol-identity`. Without the option, a
+  command finds no key file and is refused ("existing identity key is missing"). It never makes a new identity.
+- Back to a plaintext key file, while the credential still decrypts: stop the service and decrypt the
+  credential into the key file, as the service user with mode 0600, then check its address:
+
+  ```sh
+  sudo systemctl stop pocol-standalone.service
+  sudo bash -c 'set -euo pipefail; systemd-creds decrypt --name=pocol-identity /etc/credstore.encrypted/pocol-identity - \
+    | runuser -u pocol-standalone -- sh -c "umask 077; set -C; cat > /var/lib/pocol-standalone/identity.pocol-key"'
+  sudo runuser -u pocol-standalone -- /opt/pocol-standalone/pocol identity --home /var/lib/pocol-standalone
+  ```
+
+  `set -C` never overwrites an existing key file. The last command must report the address in
+  `/opt/pocol-standalone/identity.address`. If a command fails or the address differs, the key file may be
+  empty or partial: remove it (`sudo rm /var/lib/pocol-standalone/identity.pocol-key`) before you try again.
+  Only then remove the drop-in and the credential (both, or a later run of the script refuses), run
+  `sudo systemctl daemon-reload` and start the service.
 
 ## Validation and remaining qualification
 

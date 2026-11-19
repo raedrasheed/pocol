@@ -48,14 +48,17 @@ fn command() -> Result<(), String> {
     let command = args.first().map(String::as_str).unwrap_or("start");
     let rest = args.get(1..).unwrap_or_default();
     let allowed: &[&str] = match command {
-        "identity" => &["--home"], "start" => &["--home", "--network", "--listen", "--rpc", "--peer"],
-        "wallet" | "import" | "upgrade" | "inspect-upgrade" => &["--home", "--network"],
+        // --key-credential NAME (K1, Linux servers): the key is the systemd credential NAME in $CREDENTIALS_DIRECTORY
+        // (LoadCredentialEncrypted=), never the plaintext key file (deploy/standalone/encrypt-server-key.sh).
+        "identity" => &["--home", "--key-credential"], "start" => &["--home", "--network", "--listen", "--rpc", "--peer", "--key-credential"],
+        "wallet" | "import" => &["--home", "--network"],
+        "upgrade" | "inspect-upgrade" => &["--home", "--network", "--key-credential"],
         // Passphrase-encrypted key backup (CRY-02): the passphrase is read from stdin, never from an argument.
-        "export-key" => &["--home", "--out"], "inspect-key-backup" => &["--home", "--backup"],
+        "export-key" => &["--home", "--out", "--key-credential"], "inspect-key-backup" => &["--home", "--backup"],
         "import-key" => &["--home", "--backup", "--replace"],
         "network" => &["--from", "--seed", "--bootstrap", "--seeds-retired", "--out"], "inspect" => &["--network"],
         "build-info" => { println!("{}", pocold::readiness::build_info()); return Ok(()); }
-        _ => return Err("usage: pocol identity [--home DIR] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE | inspect-upgrade [--home DIR] --network FILE | export-key [--home DIR] --out FILE | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice)".into()),
+        _ => return Err("usage: pocol identity [--home DIR] [--key-credential NAME] | start [--home DIR] [--network FILE] [--listen IP:PORT] [--rpc 127.0.0.1:PORT] [--peer IP:PORT]... [--key-credential NAME] | network --from GENESIS_DIR --seed IP:PORT... [--bootstrap IP:PORT]... [--seeds-retired true|false] --out FILE | inspect --network FILE | upgrade [--home DIR] --network FILE [--key-credential NAME] | inspect-upgrade [--home DIR] --network FILE [--key-credential NAME] | export-key [--home DIR] --out FILE [--key-credential NAME] | inspect-key-backup [--home DIR] --backup FILE | import-key [--home DIR] --backup FILE [--replace CURRENT_ADDRESS] (key backup passphrases are read from stdin: export-key reads it twice; --key-credential NAME reads the key from the systemd credential NAME in $CREDENTIALS_DIRECTORY, never from the key file)".into()),
     };
     let mut values = std::collections::BTreeMap::<String, Vec<String>>::new();
     if rest.len() % 2 != 0 {
@@ -73,6 +76,12 @@ fn command() -> Result<(), String> {
     }
     let get = |k: &str| values.get(k).and_then(|v| v.first()).map(String::as_str);
     let need = |k: &str| get(k).ok_or_else(|| format!("missing {k}"));
+    // With --key-credential the home's key is that systemd credential; an unset $CREDENTIALS_DIRECTORY or a missing
+    // credential is refused when the key is read, never answered from the key file.
+    let keyed = |home: Home| match get("--key-credential") {
+        Some(name) => home.with_key_credential(name, std::env::var_os("CREDENTIALS_DIRECTORY").map(PathBuf::from)),
+        None => Ok(home),
+    };
     if command == "network" {
         let seeds = values
             .get("--seed")
@@ -99,7 +108,7 @@ fn command() -> Result<(), String> {
         .unwrap_or_else(launcher::default_home)?;
     if command == "upgrade" || command == "inspect-upgrade" {
         let network = Path::new(need("--network")?);
-        let home = Home::open_existing(&home_path, command)?;
+        let home = keyed(Home::open_existing(&home_path, command)?)?;
         let bytes = launcher::read_bounded(network)?;
         // inspect-upgrade is the read-only dry run (change none, rebind or activation); it writes nothing.
         let out = if command == "upgrade" { home.upgrade(&bytes)?.describe() } else { home.inspect_upgrade(&bytes)? };
@@ -111,7 +120,11 @@ fn command() -> Result<(), String> {
         if std::fs::symlink_metadata(out).is_ok() {
             return Err(format!("{} exists; an existing file is never replaced", out.display()));
         }
-        let home = Home::open_existing(&home_path, command)?;
+        let home = keyed(Home::open_existing(&home_path, command)?)?;
+        // An unreadable key credential is refused before any passphrase is asked for.
+        if get("--key-credential").is_some() {
+            home.key()?;
+        }
         let pass = passphrase("Backup passphrase (at least 12 characters)")?;
         if *passphrase("Repeat the backup passphrase")? != *pass {
             return Err("the passphrases differ; nothing was exported".into());
@@ -130,7 +143,8 @@ fn command() -> Result<(), String> {
         println!("{out}");
         return Ok(());
     }
-    let home = Home::open(&home_path)?;
+    // A key credential serves an existing home only, so a mistyped --home creates nothing.
+    let home = keyed(if get("--key-credential").is_some() { Home::open_existing(&home_path, command)? } else { Home::open(&home_path)? })?;
     println!(
         "{}",
         serde_json::json!({"address":home.address()?,"home":home_path,"scope":"mainnet"})

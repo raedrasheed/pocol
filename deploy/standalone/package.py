@@ -44,7 +44,8 @@ else:
     if suffix:
         files['PoCol-Wallet.exe']=root/'prototypes/pocold/target/release/PoCol-Wallet.exe'
         files['PoCol-Wallet-preview.png']=root/'wallet-preview.png'
-    for name in (['Start-PoCol.cmd','Initialize-PoColNetwork.ps1'] if suffix else ['install-linux.sh']): files[name]=root/'deploy/standalone'/name
+    # encrypt-server-key.sh: the opt-in move of a server's key into an encrypted systemd credential (K1).
+    for name in (['Start-PoCol.cmd','Initialize-PoColNetwork.ps1'] if suffix else ['install-linux.sh','encrypt-server-key.sh']): files[name]=root/'deploy/standalone'/name
     # FN-7: the genesis ceremony (Initialize-PoColNetwork.ps1) fills the committed profiles, covered by SHA256SUMS.
     if suffix:
         for name in ['v3-rehearsal-profile.json','v3-profile.json']: files[name]=root/'deploy/mainnet'/name
