@@ -560,8 +560,9 @@ The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
 
 1. **Rehearsal.** Run the genesis ceremony first with the rehearsal profile
    (`deploy/mainnet/v3-rehearsal-profile.json`) on the three servers and the PC, and measure the launch evidence
-   (T1-T8, M1-M4, the cap-raise rehearsal S2 above; FRESH-NETWORK-CP §9): multi-host partition/heal, recovery,
-   overload, release/rollback and soak.
+   in [REHEARSAL.md](REHEARSAL.md) (T1-T8, M1-M4, R-off, D1, S1, the cap-raise rehearsal S2 above; FRESH-NETWORK-CP
+   §9): multi-host partition/heal, restart/replay, backup/restore ([RECOVERY.md](RECOVERY.md)), overload,
+   release/rollback, the resource-growth bound and soak.
 2. **Mainnet ceremony.** Only after the rehearsal evidence, re-provision the hosts and run the ceremony with the
    committed mainnet profile (`deploy/mainnet/v3-profile.json`, a continuous genesis with `H_END` 0) as described in
    [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and

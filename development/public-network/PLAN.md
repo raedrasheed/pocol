@@ -33,27 +33,31 @@ from its rewards (ACCRUING). At a full set of `M_max` members a newcomer replace
 
 | Gate | Required deliverable/evidence | Present status |
 | --- | --- | --- |
-| K1: Independent identities | OS-random per-node keys, no secrets in genesis/bundles, permission failures and backup/restart tests | Unix keys, Windows DPAPI keys, service-local custody and the passphrase-encrypted key backup implemented; state recovery tested locally; operator secret-key recovery procedures and an encrypted keystore or HSM remain |
+| K1: Independent identities | OS-random per-node keys, no secrets in genesis/bundles, permission failures and backup/restart tests | Unix keys, Windows DPAPI keys, service-local custody and the passphrase-encrypted key backup implemented; state recovery tested locally; the operator key recovery runbook is written ([RECOVERY.md](RECOVERY.md)) and is drilled in the rehearsal; that drill and an encrypted keystore or HSM remain |
 | J1: Open miner enrollment | A non-genesis identity funds a bond, registers through an ordinary transaction, joins mining; duplicate/invalid operations rejected | Zero-bond (ACCRUING) registration, top-up, rejoin and replacement at a full set implemented and tested on v3; first-fee funding is decided (owner decision 2026-11-18: the automated fee faucet runs on mainnet, 0.002 PCOL once per new address, 200 a day, 3 per client a day, from a dedicated key holding at most 10 PCOL; the limits are code-enforced ceilings); eligibility churn and load, and network-scale enrollment remain |
 | I1: Stable network identity | Published genesis, versioned wire/constants identity, reproducible release and compatibility rejection | Wire v2 with the consensus identity and the consensus-source lock implemented and tested; chain ids drawn; the genesis is published at the ceremony and pinned in the clients afterwards; the normative digest adoption and an independently reproduced binary release remain |
 | A1: Honest admission | Approved profile, measured H_cal, real worst-case execution calibration, R18/R21 obligations, RpcGuard gaps closed | Open; the profile is approved (FRESH-NETWORK-CP) and the ceremony will record a measured hash rate, but the network is admitted in ExperimentalDevnet scope with its admission conditions; real worst-case execution calibration, the R18/R21 obligations and the RpcGuard gaps remain |
 | S1: Bounded historical state | K_eff and historical RPC behavior within the resource budget; near-cap measurements and fault/recovery tests | Open; R21 holds only through the simnet `retentionStress` exception; do not bypass R21 or rely on average RSS |
 | N1: Internet exposure | Seed/bootstrap operations, hostile-peer and RPC overload tests, ingress controls, time synchronization, public endpoint monitoring | Seeds, peer discovery, automatic outbound, inbound eviction, bounded handshakes, gateway configuration and monitoring implemented; actual Internet ingress acceptance and the remaining RpcGuard controls open |
-| L1: Sustained operation | Multi-host soak, partition/heal, restart/replay, backup/restore, release/rollback drill and bounded resource growth | Local packaged processes passed restore and progress/root comparison; the rehearsal on the three servers and the PC (T1-T8, M1-M4), an actual multi-host soak and an upgrade drill remain |
+| L1: Sustained operation | Multi-host soak, partition/heal, restart/replay, backup/restore, release/rollback drill and bounded resource growth | Local packaged processes passed restore and progress/root comparison; the evidence plan is [REHEARSAL.md](REHEARSAL.md); the rehearsal on the three servers and the PC (T1-T8, M1-M4, R-off, D1, S1, S2 and the L1 drills), an actual multi-host soak and an upgrade drill remain |
 | E1: Network lifetime/economics | Explicit approved choices for initial allocation, issuance/bonds, H_CLOSE/H_END and cumulative caps | Open; allocation, issuance (M3, S0 4 PCOL), the bond, H_END 0 and the caps with their raise path are approved in FRESH-NETWORK-CP; the founders' reward addresses are decided (three owner-held offline addresses, made 2026-11-18, given to the ceremony as `-ServerRewardAddresses`) and enter the genesis at the ceremony; the ceremony and the rehearsal evidence remain |
 | Q1: Release review | Exact-commit CI, independent security review, unresolved-finding ledger and public limitations | Open; AI-authored tests do not substitute for external review; the owner commissions the independent review after the launch (owner decision 2026-11-18) |
 
 A gate closes only with its implementation and evidence, never by changing a status label. No dates or completion
 percentages are asserted without that evidence. `prototypes/pocold/src/readiness.rs` (`PLAN_GATES_OPEN`) lists the
-open gates in this order; its test keeps the two equal.
+open gates in this order; its test keeps the two equal. The test compares the gate ids only: the node's K1 text
+("operator secret-key recovery procedures and an encrypted keystore or HSM remain") predates the recovery runbook
+and is not yet aligned with the K1 row above (`readiness.rs` is lock-pinned, so the change needs its own re-pin).
 
 ## Launch order
 
 1. **Release.** Build the release with `POCOL_RELEASE=1` from a pinned tree (the consensus-source lock was reset to a
    single `base` line at the release cut, Phase 8) and run the full CI.
 2. **Rehearsal.** Run the ceremony with the rehearsal profile on the three servers and the PC, with fresh keys, and
-   measure the launch evidence (T1-T8, M1-M4, FRESH-NETWORK-CP §9). A failed threshold changes only profile values,
-   recorded in FRESH-NETWORK-CP, and both profiles change together.
+   measure the launch evidence ([REHEARSAL.md](REHEARSAL.md): T1-T8, M1-M4, R-off, D1, S1, S2 and the L1 drills).
+   A remedy that changes a consensus parameter changes only profile values (such as D_att, dFbWait, GAS_LIMIT,
+   BODY_MAX, τ, S_max or κm, and T_blk 20-30 s as a last resort; REHEARSAL.md names them per measure), with the
+   owner's approval, recorded in FRESH-NETWORK-CP, and both profiles change together.
 3. **Mainnet ceremony.** Re-provision the devices, generate fresh keys again and run the ceremony with the mainnet
    profile. Publish the invitation and its fingerprint through a trusted channel.
 4. **Pin the identity** of the new genesis in the clients in one reviewed change, and release them.
@@ -73,6 +77,8 @@ chat, Git or uploaded test artifacts.
 - [Launch readiness](../../prototypes/pocold/src/readiness.rs)
 - [Launch runbook](../../deploy/mainnet/README.md)
 - [Independent key operations](KEYS.md)
+- [Key recovery runbook](RECOVERY.md)
+- [Rehearsal: the launch-evidence plan](REHEARSAL.md)
 - [Service, gateway, monitoring and recovery runbook](../../deploy/public-testnet/README.md)
 - [Compatibility and operations](OPERATIONS.md)
 - [Key and enrollment results, 29 October 2026](RESULTS.md)
