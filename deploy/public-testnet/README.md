@@ -198,7 +198,20 @@ record included) or that is fewer than 8,640 blocks above the highest one, and r
 entry is a rebind to a new build of the same rules and schedule. It does not install the bundle,
 start the service, read a key or change any block, journal, state or history byte; it changes no
 consensus rule. Then replace the installed bundle (`/opt/pocol-testnet`) with the verified new
-bundle, keeping the old one aside, and start the service. A seed run from a launcher home uses
+bundle, keeping the old one aside, and start the service. `prepare` leaves every file of the new
+bundle public (directories and `bin/` 0755, other files 0644, as `install.sh` does), so the service
+user can read it; install it owned by root:
+
+```sh
+sudo systemctl stop pocol-testnet
+sudo mv /opt/pocol-testnet /opt/pocol-testnet.before-upgrade
+sudo cp -a -- NEW_VERIFIED_BUNDLE /opt/pocol-testnet
+sudo chown -R root:root /opt/pocol-testnet
+sudo python3 -B /opt/pocol-testnet/node_operator.py verify --bundle /opt/pocol-testnet \
+  --expected-sha256 NEW_MANIFEST_SHA256
+sudo systemctl start pocol-testnet
+```
+ A seed run from a launcher home uses
 `pocol upgrade` instead. For a failed same-release deployment, stop the service and restore its
 matching prior snapshot and binaries. Never run two copies of one miner key at once.
 
