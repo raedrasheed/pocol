@@ -728,6 +728,23 @@ class Loop(unittest.TestCase):
         self.assertEqual((out['status'], out['after']['status']), (1, 'EXITED'))
         self.assertIsNone(out['atDue']['record'], 'refunded and erased at dueHeight')
 
+    def test_replace_not_included_in_time_writes_no_result(self):
+        self.harness('fill', '--count', '11').run_fill()
+        victim = next(a for a in self.node.reg['active'] if a != self.node.miner)
+        self.node.park = lambda t: t['to'] == REG and SEL.get(t['data'][2:10]) == 'registerReplacing(address,address)'
+        self.node.park_blocks = 8
+        h = self.harness('replace', '--victim', victim, '--include-timeout', '2')
+        with self.assertRaisesRegex(RuntimeError, 'registerReplacing was not included'):
+            h.run_replace()
+        self.assertNotIn('replacements', h.state, 'no result recorded for a transaction still in flight')
+        newcomer = h.state['identities'][-1]
+        self.assertIsNone(newcomer['outcome'])
+        self.node.park = None
+        h2 = self.harness('replace', '--victim', victim)
+        h2.resume()
+        self.assertTrue(h2.wait_included(list(h2.inflight), 12))
+        self.assertEqual(h2.state['identities'][-1]['attempts'][-1].get('status'), 1, 'the next run settles it from its receipt')
+
     def test_delete_keys_refuses_while_a_miner_runs(self):
         # A stand-in `pocol` that sleeps, so start_miners really starts the mining identity's node; the fill runs with a
         # relative --dir, and stop-miners and delete-keys are given other spellings of it, from another directory.

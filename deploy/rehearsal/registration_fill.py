@@ -1681,8 +1681,10 @@ class Harness:
         ident = self.fresh_funded(op_key, op_addr, 1, fund_wei_of(a))[0]
         ident['role'] = 'idle'
         tx, err = self.register_replacing(ident, victim)
-        if tx:
-            self.wait_included([tx], a.include_timeout)
+        if tx and not self.wait_included([tx], a.include_timeout):
+            # Not a result: it stays recorded in flight and the next run settles it (exit 1, no replacement written).
+            self.save()
+            raise RuntimeError('the registerReplacing was not included within --include-timeout blocks (it stays recorded in flight)')
         att = ident['attempts'][-1]
         if att.get('status') is not None or tx is None:
             ident['outcome'] = 'registered' if att.get('status') == 1 else f'failed: {att.get("reason") or err}'

@@ -337,7 +337,8 @@ that reverts, so that no `removeInactive` is sent at a full set, an identity tha
 stderr, and no `m3` result is written.
 
 **R-off.** Once the home PC has been offline past Θ_inact at the full set, `replace --victim PC_MINER_ID --watch-refund`
-registers a fresh identity into its seat and records the PC's record at its dueHeight. The PC's own registration again
+registers a fresh identity into its seat and records the PC's record at its dueHeight. A registerReplacing not included
+within `--include-timeout` blocks records no replacement (exit 1); it stays in flight for the next run. The PC's own registration again
 (20 PCOL, HELD; once with 0, ACCRUING) is made from its wallet.
 
 **After the rehearsal.** `stop-miners --dir DIR` stops the mining identities' nodes (their homes are recorded as
