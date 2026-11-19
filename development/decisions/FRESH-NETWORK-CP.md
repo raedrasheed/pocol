@@ -234,6 +234,9 @@ for two amendments, recorded here:
   run through pocold init-testnet --test-placeholders, and the refusals). Decided 2026-11-16 (owner): each server founder's
   reward is a separate owner-held offline address, so no allocation sits on an internet-facing server.
 - **The launch evidence** (design §4b: T1-T8, M1-M4, R-off, D1, S1, S2) is measured in the rehearsal, on the release
-  candidate, at this CP with the rehearsal chain id. A failed threshold changes only profile values (D_att, dFbWait,
-  and T_blk 20-30 s as a last resort), recorded here, and both profiles change together.
+  candidate, at this CP with the rehearsal chain id. The thresholds, the risks they read (design §4a) and the L1
+  drills are now in the repository: [REHEARSAL.md](../public-network/REHEARSAL.md). A remedy that changes a consensus
+  parameter changes only profile values (such as D_att, dFbWait, GAS_LIMIT, BODY_MAX, τ, S_max or κm, and T_blk
+  20-30 s as a last resort; REHEARSAL.md names them per measure), with the owner's approval, recorded here, and both
+  profiles change together.
 - **Phase 10.** The ceremony's genesis hash is pinned in the clients.
