@@ -32,7 +32,8 @@ prototypes/pocold/target/release/pocol-key address \
 Files must be regular, have one link, be owned by the running user, have no group/
 other permissions and contain a valid scalar. Final-component symlinks are refused.
 The parent directory and host must also be protected. These files are **plaintext**
-at rest, not encrypted keystores. A file whose key controls real value, such as an
+at rest, not encrypted keystores (for a standalone server's miner key, see the
+encrypted systemd credential below). A file whose key controls real value, such as an
 offline reward key, is held only on an offline device or in encrypted form. Temporary
 secret input buffers are zeroized; no claim of complete process-memory erasure or
 protection against a compromised operating system is made. Keep a controlled offline
@@ -66,7 +67,28 @@ from the passphrase. This is a portable backup, not a keystore or an HSM.
 
 For a service, generate the miner key as the service user in a separate private key
 directory. The node must run as that same user. Do not copy every miner's secret to
-every host. No shared private-key list is needed to construct genesis. `*.pocol-key`
+every host.
+
+A standalone Linux server (`install-linux.sh`) can keep its miner key encrypted at rest
+instead: `deploy/standalone/encrypt-server-key.sh` seals the key file into a systemd
+credential with `systemd-creds encrypt`, bound to the host key and, where present, a
+TPM2 (with systemd's default TPM2 policy, which systemd-creds(1) documents as PCR 7, so
+firmware or Secure Boot changes can make it undecryptable). It writes a drop-in that
+passes the credential through `LoadCredentialEncrypted=` and starts `pocol start
+--key-credential pocol-identity`. Once the restarted service reports the same address,
+and only when a passphrase-encrypted backup (`--backup FILE`) was checked to open to that
+address, the script removes the plaintext file. The credential's plaintext is the same
+32-byte key file and gets the same checks, except that a root owner as systemd places it
+is accepted. With the option, the node reads only `$CREDENTIALS_DIRECTORY/NAME` and
+refuses to start without it; it never falls back to the key file. Afterwards no plaintext
+key file remains in the live state directory and later backups hold only the credential;
+earlier backups, old disk blocks (journaling, copy-on-write, SSD) and any
+`identity.pocol-key.replaced-*` files may still hold the plaintext. It does not protect
+against root or a compromised running host, and it is no HSM. A credential sealed to one
+machine is no backup either: keep the passphrase-encrypted backup. The standalone README,
+"Encrypted server key", has the procedure, its limits and recovery. The script is tested
+against fakes, not yet on the servers. The `pocold run --miner-key-file` path has no
+credential option. No shared private-key list is needed to construct genesis. `*.pocol-key`
 is ignored by Git, but that does not replace checking release and artifact contents.
 
 ## Construct a candidate using public information only

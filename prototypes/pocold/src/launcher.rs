@@ -442,6 +442,13 @@ pub fn default_home() -> Result<PathBuf, String> {
 pub struct Home {
     pub path: PathBuf,
     _lock: File,
+    /// Set by [`Home::with_key_credential`]: the key comes from this systemd credential, never from the key file.
+    credential: Option<Credential>,
+}
+/// A systemd credential holding this home's key (K1): `name` in `dir`, the service's `$CREDENTIALS_DIRECTORY`.
+struct Credential {
+    dir: Option<PathBuf>,
+    name: String,
 }
 const KEY_FILE: &str = "identity.pocol-key";
 const ADDRESS_FILE: &str = "identity.address";
@@ -553,9 +560,46 @@ impl Home {
         Ok(Self {
             path: path.to_path_buf(),
             _lock: lock,
+            credential: None,
         })
     }
+    /// This home's key is read from the systemd credential `name` in `dir` (`$CREDENTIALS_DIRECTORY`, set by
+    /// `LoadCredentialEncrypted=`) instead of `identity.pocol-key` (`pocol start --key-credential NAME`, K1). From then on
+    /// [`Home::key`] never opens the key file and never falls back to it: an unset directory or a missing credential is
+    /// refused (`keyfile::load_credential`). The credential must hold this home's account (its address marker).
+    pub fn with_key_credential(mut self, name: &str, dir: Option<PathBuf>) -> Result<Self, String> {
+        keyfile::credential_name(name)?;
+        self.credential = Some(Credential { dir, name: name.into() });
+        Ok(self)
+    }
+    /// The key of the home's credential ([`Home::with_key_credential`]). Only an existing home holds one: its address
+    /// marker must exist and name the credential's account, and nothing is generated or written. The key file is
+    /// never opened, so an interrupted key restore (which `finish_restore` completes from the key file) is refused.
+    fn credential_key(&self, credential: &Credential) -> Result<Key, String> {
+        if fs::symlink_metadata(self.path.join(RESTORE_RECORD)).is_ok() {
+            return Err("a key restore is unfinished in this home; finish it with its key file (without --key-credential) first".into());
+        }
+        let key = keyfile::load_credential(credential.dir.as_deref(), &credential.name)?;
+        let marker = self.path.join(ADDRESS_FILE);
+        if fs::symlink_metadata(&marker).is_err() {
+            return Err("a key credential serves an existing home only: this home has no identity address marker".into());
+        }
+        if read_marker(&marker)? != format!("{:#x}", key.address()) {
+            return Err("key credential does not match this home's original public identity".into());
+        }
+        Ok(key)
+    }
+    /// Commands that rewrite or inspect the key file have no credential form.
+    fn no_credential(&self, command: &str) -> Result<(), String> {
+        match self.credential {
+            Some(_) => Err(format!("{command} works on the key file; it has no --key-credential form")),
+            None => Ok(()),
+        }
+    }
     pub fn key(&self) -> Result<Key, String> {
+        if let Some(credential) = &self.credential {
+            return self.credential_key(credential);
+        }
         self.finish_restore()?;
         let path = self.path.join("identity.pocol-key");
         // Any existing path, including a bad file or dangling link, must fail rather than rotate identity.
@@ -567,7 +611,7 @@ impl Home {
                     || self.path.join("state").exists()
                     || self.path.join("network.pocol.json").exists()
                 {
-                    return Err("existing identity key is missing; restore its backup, never silently replace it".into());
+                    return Err("existing identity key is missing; restore its backup, never silently replace it (a key held in a systemd credential is read with --key-credential NAME)".into());
                 }
                 keyfile::generate(&path)?
             }
@@ -600,6 +644,7 @@ impl Home {
     /// holds now (`null` for a new home) and whether restoring replaces it (then `import_key_backup` needs
     /// `replace` = `current`).
     pub fn inspect_key_backup(&self, file: &[u8], passphrase: &[u8]) -> Result<serde_json::Value, String> {
+        self.no_credential("inspect-key-backup")?;
         let address = backup_address(&*backup::open(file, passphrase)?)?;
         let current = self.current_identity()?;
         let replaces = current.as_ref().is_some_and(|c| !c.address.eq_ignore_ascii_case(&address));
@@ -611,6 +656,7 @@ impl Home {
     /// the current address (the confirmation the user saw); the old key file is kept beside it as
     /// `identity.pocol-key.replaced-<address>`, never deleted, and its wallet activity moves aside with it.
     pub fn import_key_backup(&self, file: &[u8], passphrase: &[u8], replace: Option<&str>) -> Result<serde_json::Value, String> {
+        self.no_credential("import-key")?;
         let secret = backup::open(file, passphrase)?;
         self.finish_restore()?;
         let address = backup_address(&secret)?;
@@ -806,9 +852,13 @@ impl Home {
         Ok(true)
     }
     /// The saved binding, after the checks every upgrade path makes first: the key, its address and the binding
-    /// are regular files. Well-formed only; the transition checks its rules.
+    /// are regular files (with a key credential, the credential holds the marker's account instead). Well-formed only;
+    /// the transition checks its rules.
     fn saved(&self) -> Result<Invitation, String> {
-        real_file(&self.path.join("identity.pocol-key"))?;
+        match self.credential {
+            Some(_) => drop(self.key()?),
+            None => real_file(&self.path.join("identity.pocol-key"))?,
+        }
         real_file(&self.path.join("identity.address"))?;
         let binding = self.path.join("network.pocol.json");
         real_file(&binding)?;
@@ -1265,6 +1315,30 @@ mod upgrade_tests {
         }
         out
     }
+    /// K1: with --key-credential the upgrade checks the credential (it must hold the marker's account) in place of the
+    /// key file, so a home whose plaintext key file was removed still upgrades; without the flag it is refused.
+    #[cfg(unix)]
+    #[test]
+    fn an_upgrade_with_a_key_credential_needs_no_key_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let t = Scratch::new();
+        let (before, after) = (generated(serde_json::json!([[1, 0]])), generated(serde_json::json!([[1, 0], [2, 1000]])));
+        let home = home_with(&t, &bytes(&before));
+        let creds = t.0.join("creds");
+        fs::create_dir(&creds).unwrap();
+        fs::rename(home.path.join(KEY_FILE), creds.join("pocol-identity")).unwrap();
+        fs::set_permissions(creds.join("pocol-identity"), fs::Permissions::from_mode(0o400)).unwrap();
+        let path = home.path.clone();
+        assert!(home.inspect_upgrade(&bytes(&after)).unwrap_err().contains("identity.pocol-key"), "the key file is required without the flag");
+        let home = home.with_key_credential("pocol-identity", None).unwrap();
+        assert!(home.inspect_upgrade(&bytes(&after)).unwrap_err().contains("needs $CREDENTIALS_DIRECTORY"));
+        drop(home);
+        let home = Home::open(&path).unwrap().with_key_credential("pocol-identity", Some(creds)).unwrap();
+        assert_eq!(home.inspect_upgrade(&bytes(&after)).unwrap()["change"], "activation");
+        home.upgrade(&bytes(&after)).unwrap();
+        assert_eq!(fs::read(path.join("network.pocol.json")).unwrap(), bytes(&after));
+        assert!(fs::symlink_metadata(path.join(KEY_FILE)).is_err(), "no key file is created");
+    }
     #[test]
     fn every_upgrade_keeps_its_own_backup() {
         // T22: a backup is named by the replaced binding's fingerprint, so a second upgrade never collides with the first.
@@ -1531,9 +1605,9 @@ pub(crate) mod key_backup_tests {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     const PASS: &[u8] = b"a long backup passphrase";
     /// A new home in its own scratch directory; the directory goes when the guard drops.
-    pub(crate) struct Scratch(PathBuf);
+    pub(crate) struct Scratch(pub(crate) PathBuf);
     impl Scratch {
-        fn new() -> Self {
+        pub(crate) fn new() -> Self {
             let p = std::env::temp_dir().join(format!("pocol-key-backup-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::Relaxed)));
             let _ = fs::remove_dir_all(&p);
             Self(p)
@@ -1710,5 +1784,120 @@ pub(crate) mod key_backup_tests {
         let home = t.home("home");
         home.address().unwrap();
         assert!(Home::open(&home.path).is_err(), "export and import open the home, which a running wallet holds");
+    }
+}
+
+#[cfg(all(test, unix))]
+mod key_credential_tests {
+    //! K1: `--key-credential NAME` reads the home's key from `$CREDENTIALS_DIRECTORY/NAME` only. The key file is never
+    //! opened (watched with inotify on Linux), never used when the credential is absent, and never created.
+    use super::*;
+    use key_backup_tests::Scratch;
+    use std::os::unix::fs::PermissionsExt;
+    const NAME: &str = "pocol-identity";
+    /// A home with a generated throwaway key, and a credentials directory holding that key as systemd places it.
+    fn migrated(t: &Scratch) -> (PathBuf, PathBuf, String) {
+        let path = t.0.join("home");
+        let address = Home::open(&path).unwrap().address().unwrap();
+        let creds = t.0.join("creds");
+        fs::create_dir(&creds).unwrap();
+        let secret = fs::read(path.join(KEY_FILE)).unwrap();
+        fs::write(creds.join(NAME), &secret).unwrap();
+        fs::set_permissions(creds.join(NAME), fs::Permissions::from_mode(0o400)).unwrap();
+        (path, creds, address)
+    }
+    fn with(path: &Path, dir: Option<&Path>) -> Home {
+        Home::open(path).unwrap().with_key_credential(NAME, dir.map(Path::to_path_buf)).unwrap()
+    }
+
+    #[test]
+    fn the_credential_gives_the_key_files_address() {
+        let t = Scratch::new();
+        let (path, creds, address) = migrated(&t);
+        let home = with(&path, Some(&creds));
+        assert_eq!(home.address().unwrap(), address);
+        assert_eq!(home.key().unwrap().address(), keyfile::load(&path.join(KEY_FILE)).unwrap().address());
+        drop(home);
+        // The plaintext key file can go: the credential alone serves, and no key file is generated in its place.
+        fs::remove_file(path.join(KEY_FILE)).unwrap();
+        let home = with(&path, Some(&creds));
+        assert_eq!(home.address().unwrap(), address);
+        assert!(fs::symlink_metadata(path.join(KEY_FILE)).is_err(), "no key file is created");
+        drop(home);
+        let plain = Home::open(&path).unwrap();
+        assert!(plain.address().unwrap_err().contains("existing identity key is missing"), "without the flag the missing key is refused, never replaced");
+        assert!(fs::symlink_metadata(path.join(KEY_FILE)).is_err());
+    }
+    #[test]
+    fn an_absent_credential_is_refused_never_answered_from_the_key_file() {
+        let t = Scratch::new();
+        let (path, creds, _) = migrated(&t);
+        let home = with(&path, None);
+        assert!(home.address().unwrap_err().contains("needs $CREDENTIALS_DIRECTORY"));
+        drop(home);
+        let home = Home::open(&path).unwrap().with_key_credential("other-name", Some(creds.clone())).unwrap();
+        assert!(home.address().unwrap_err().contains("key credential other-name is missing"));
+        assert!(home.export_key_backup(b"a long backup passphrase").unwrap_err().contains("is missing"), "no export from the key file either");
+        drop(home);
+        assert!(Home::open(&path).unwrap().with_key_credential("../home/identity.pocol-key", Some(creds.clone())).is_err());
+    }
+    #[test]
+    fn the_credential_must_hold_this_homes_account() {
+        let t = Scratch::new();
+        let (path, creds, _) = migrated(&t);
+        // Another throwaway account's credential.
+        let other = Home::open(&t.0.join("other")).unwrap();
+        other.address().unwrap();
+        fs::remove_file(creds.join(NAME)).unwrap();
+        fs::write(creds.join(NAME), fs::read(other.path.join(KEY_FILE)).unwrap()).unwrap();
+        fs::set_permissions(creds.join(NAME), fs::Permissions::from_mode(0o400)).unwrap();
+        assert!(with(&path, Some(&creds)).address().unwrap_err().contains("does not match this home's original public identity"));
+        // A home without an address marker (a new one) gets no identity from a credential, and nothing is written.
+        let fresh = t.0.join("fresh");
+        let home = with(&fresh, Some(&creds));
+        assert!(home.address().unwrap_err().contains("existing home only"));
+        assert!(fs::symlink_metadata(fresh.join(KEY_FILE)).is_err() && fs::symlink_metadata(fresh.join(ADDRESS_FILE)).is_err());
+        // Commands that work on the key file have no credential form, and an unfinished restore of it is refused.
+        let backup = other.export_key_backup(b"a long backup passphrase").unwrap().0;
+        let home = with(&path, Some(&creds));
+        assert!(home.import_key_backup(&backup, b"a long backup passphrase", None).unwrap_err().contains("no --key-credential form"));
+        assert!(home.inspect_key_backup(&backup, b"a long backup passphrase").unwrap_err().contains("no --key-credential form"));
+        fs::write(path.join(RESTORE_RECORD), b"0x0000000000000000000000000000000000000000").unwrap();
+        assert!(home.key().err().unwrap().contains("restore is unfinished"));
+    }
+    /// The node's key path never opens the plaintext key file with the flag: an inotify watch on it sees no open, while
+    /// the same watch sees the key-file mode open it (the control).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn with_the_flag_the_key_file_is_never_opened() {
+        let t = Scratch::new();
+        let (path, creds, address) = migrated(&t);
+        let key_path = std::ffi::CString::new(path.join(KEY_FILE).into_os_string().into_encoded_bytes()).unwrap();
+        let opened = |action: &dyn Fn()| -> bool {
+            unsafe {
+                let fd = libc::inotify_init1(libc::IN_NONBLOCK | libc::IN_CLOEXEC);
+                assert!(fd >= 0);
+                assert!(libc::inotify_add_watch(fd, key_path.as_ptr(), libc::IN_OPEN | libc::IN_ACCESS) >= 0);
+                action();
+                let mut buf = [0u8; 4096];
+                let n = libc::read(fd, buf.as_mut_ptr().cast(), buf.len());
+                let err = std::io::Error::last_os_error();
+                libc::close(fd);
+                assert!(n > 0 || err.kind() == std::io::ErrorKind::WouldBlock, "{err}");
+                n > 0
+            }
+        };
+        let home = with(&path, Some(&creds));
+        assert!(!opened(&|| {
+            assert_eq!(home.address().unwrap(), address);
+            assert_eq!(home.export_key_backup(b"a long backup passphrase").unwrap().1, address);
+        }), "the credential path opened the key file");
+        // An absent credential is refused without touching the key file either.
+        drop(home);
+        let home = Home::open(&path).unwrap().with_key_credential("absent", Some(creds.clone())).unwrap();
+        assert!(!opened(&|| assert!(home.key().is_err())));
+        drop(home);
+        let home = Home::open(&path).unwrap();
+        assert!(opened(&|| assert_eq!(home.address().unwrap(), address)), "control: the key-file path opens it");
     }
 }

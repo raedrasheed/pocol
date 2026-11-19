@@ -52,7 +52,7 @@ class ReleasePackageTests(unittest.TestCase):
                       'protocolVersionMin': 2, 'consensusSourcesSha256': 'e' * 64, 'features': [], 'version': VERSION,
                       'scope': 'mainnet'}
         self.commit = 'd' * 40
-        for name in ('README.md', 'install-linux.sh',
+        for name in ('README.md', 'install-linux.sh', 'encrypt-server-key.sh',
                      'Start-PoCol.cmd', 'Initialize-PoColNetwork.ps1'):
             (self.script.parent / name).write_text('public fixture\n', encoding='utf-8')
         for name in ('network.pocol.json', 'wallet.key', 'debug.keystore'):
@@ -186,6 +186,8 @@ class ReleasePackageTests(unittest.TestCase):
                         self.assertNotIn('wallet.key', names)
                         # The genesis ceremony runs from the Windows package only.
                         self.assertFalse({'v3-profile.json', 'v3-rehearsal-profile.json'} & set(names))
+                        # The server scripts: the installer and the opt-in encrypted server key (K1).
+                        self.assertLessEqual({'install-linux.sh', 'encrypt-server-key.sh'}, set(names))
                         if os.name != 'nt':
                             self.assertEqual(tar.getmember('pocol').mode & 0o111, 0o111)
                         expanded = self.root / 'expanded'
