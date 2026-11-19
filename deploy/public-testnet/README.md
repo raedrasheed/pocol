@@ -157,14 +157,49 @@ coordination: `node_operator.py` compares the state marker on chain, genesis,
 without a migration. A new fork entry changes the `consensusIdentity`, so it needs a
 coordinated upgrade of every node, and `node_operator.py` refuses the existing marker. A
 marker without a `consensusIdentity` is refused. These scripts do not rewrite state bindings to
-make an upgrade appear compatible.
+make an upgrade appear compatible; only the explicit migration below moves a stopped seed's
+binding to the published schedule.
 
-**TODO (tracked, open): there is no seed fork migration tool.** The seed-side tool that
-rewrote a stopped seed's binding for a new fork schedule (`nonce_upgrade.py` and its tests)
-was removed with the old-network transition tooling. Before the first fork of the new chain,
-restore it from commit d24843d without the old network's compatibility parts (`LEGACY_BACKUP`, legacy rules) and
-its tests. Until then a seed can take only a release with the same rules and schedule. The
-launcher side (`pocol upgrade`) is unaffected. For a failed same-release deployment, stop the service and restore its
+**Fork activation on a seed (`nonce_upgrade.py`).** A fork activation is published as a
+`pocol-network-v2` invitation whose devnet.json appends future `forks` entries (append-only,
+future-only; a fork-3 entry adds its `capRaise`), at least 24 h (8,640 blocks at T_blk 10) before
+its height plus the time the seeds need to migrate (OPERATIONS.md, cap raise step 2: 17,280 blocks
+for the first appended activation). `migrate` refuses once a seed's highest stored block is
+fewer than 8,640 blocks below the first appended activation, so run it before then; a seed that
+missed that point starts the new bundle on a new, empty state directory (the old one kept aside)
+and syncs the chain from its peers. On the build/operations workstation, prepare a new bundle for
+each seed; the live installation and state are not touched:
+
+```sh
+python3 -B deploy/public-testnet/nonce_upgrade.py prepare \
+  --old-bundle OLD_VERIFIED_BUNDLE --expected-old-manifest OLD_MANIFEST_SHA256 \
+  --bin-dir NEW_NATIVE_BINARIES --network network.pocol.json --out NEW_SEED_BUNDLE
+```
+
+It verifies the old bundle and the new release (feature-free, pinned, its source digests and the
+invitation's `consensusRulesVersion`), requires the genesis and allocations byte-identical and
+devnet.json unchanged except the appended entries (and their `capRaise`), and keeps the node name,
+miner, endpoints, peers, service and gateway files. Compare its `consensusIdentity` and `appended`
+with the published values and record the new manifest SHA256 through the authenticated channel.
+Then, on the stopped seed, with its state backup available:
+
+```sh
+python3 -B deploy/public-testnet/nonce_upgrade.py migrate \
+  --old-bundle OLD_VERIFIED_BUNDLE --new-bundle NEW_VERIFIED_BUNDLE \
+  --expected-new-manifest NEW_MANIFEST_SHA256 --data /var/lib/pocol-testnet
+```
+
+It takes both state locks, reads the journal and commit records without repairing them, refuses an
+appended activation that is not above every stored block (every branch and a complete uncommitted
+record included) or that is fewer than 8,640 blocks above the highest one, and rewrites only
+`network-binding.json`, keeping the replaced one as
+`network-binding.before-<16 hex of the marker's SHA-256>.json` and a resumable intent
+(`nonce-upgrade.intent.json`); repeating the same interrupted command finishes it. No appended
+entry is a rebind to a new build of the same rules and schedule. It does not install the bundle,
+start the service, read a key or change any block, journal, state or history byte; it changes no
+consensus rule. Then replace the installed bundle (`/opt/pocol-testnet`) with the verified new
+bundle, keeping the old one aside, and start the service. A seed run from a launcher home uses
+`pocol upgrade` instead. For a failed same-release deployment, stop the service and restore its
 matching prior snapshot and binaries. Never run two copies of one miner key at once.
 
 ## Consensus identity and GenesisSpec reference

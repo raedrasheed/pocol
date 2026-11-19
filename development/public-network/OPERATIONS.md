@@ -193,12 +193,18 @@ entries of any supported version (append-only, future-only) or rebinds to an
 equivalent v2 file. `pocol inspect-upgrade` shows the effect first and writes nothing.
 G3 (a fork activation) still needs a coordinated release, announced (signed) at least 24 h, 8,640 blocks at
 T_blk 10, before its activation height (governance.md, Upgrades; owner decision 2026-11-16): a node without the new
-schedule entry is refused by the others with an explicit reason. **TODO (tracked, open):**
-seeds have no fork migration tool at present. `deploy/public-testnet/nonce_upgrade.py` was
-removed with the old-network transition tooling (fresh network, Phase 1), and
-`node_operator.py` refuses a marker whose `consensusIdentity` differs. Before the first fork
-of the new chain, restore the tool from commit d24843d without its 0.4.0 parts, together
-with its tests (`deploy/public-testnet/README.md`).
+schedule entry is refused by the others with an explicit reason. A seed bundle of
+`deploy/public-testnet` (`node_operator.py` refuses a state marker whose `consensusIdentity`
+differs) takes the activation with the seed fork-migration tool
+`deploy/public-testnet/nonce_upgrade.py` (`deploy/public-testnet/README.md`): `prepare` builds a
+new bundle with the published invitation's devnet.json (only the appended fork entries and, with a
+fork-3 entry, its `capRaise` may differ) and the new release, and `migrate`, on the stopped seed,
+moves only its state binding to the new consensus identity, with a backup and a resumable intent.
+`migrate` refuses an appended activation that is not above every stored block, or that is fewer
+than 8,640 blocks (24 h at T_blk 10) above the seed's highest stored block. The tool applies the
+published schedule append (VA-SPEC §2.3) to the seed's configuration and changes no consensus rule
+and no chain data; `test_nonce_upgrade.py` tests it (CI: public-testnet-operations). A seed run
+from a launcher home takes the activation with `pocol upgrade` like any home.
 
 **Activating the cap raise (FN-5, C10; rehearsal S2).** The raise of ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX is
 compiled into every release from FN-5 on (MAX_FORK_VERSION 3) and dormant until a schedule names fork version 3. It
@@ -211,17 +217,25 @@ exists only on a v3 (spec-2) genesis. To activate it:
 2. **devnet.json.** Append two entries to `forks` and add `capRaise` beside it, nothing else:
    `"forks": [[1,0],[2,H2],[3,H]]`, `"capRaise": {"ACCT_CAP": a, "SLOT_CAP": s, "CODE_CAP": c, "SYS_SLOT_MAX": m}`
    (JSON integers, all four; SYS_SLOT_MAX within u32). (2,H2) comes first because versions are never skipped; under
-   nonceMode 1 it is a no-op. Choose H2 < H, both at least 8,640 blocks (24 h at T_blk 10, the minimum notice) above every home's
-   stored head when the signed announcement and the invitation are published, and H far enough ahead (the 8,640-block
-   announcement window plus a day of blocks, 17,280 blocks in all) for every seed, home and gateway to update. Each value must be at least the genesis value and at least one must be higher; ParamGate (R1-R26 at the
+   nonceMode 1 it is a no-op. Choose H2 < H, both at least 17,280 blocks above every home's and seed's stored head when
+   the signed announcement and the invitation are published: the 8,640-block minimum notice (24 h at T_blk 10) plus a
+   day of blocks for every seed, home and gateway to update. H2 needs this margin as well as H, because a seed bundle's
+   `nonce_upgrade.py migrate` refuses once fewer than 8,640 blocks remain before the first appended activation (H2). Each value must be at least the genesis value and at least one must be higher; ParamGate (R1-R26 at the
    raised CP) refuses anything else at boot, and `pocol network --from` refuses it before it writes.
 3. **Publish.** `pocol network --from <network dir> --seed … [--bootstrap …] --out network.pocol.json`, then publish
    the file and its fingerprint through the same trusted channel as the genesis, with H2, H and the four values.
 4. **Homes.** `pocol inspect-upgrade --network …` and compare with the published values: `change` "activation",
    `appended` `[[2,H2],[3,H]]`, `capRaise` (the four caps and `height` H), `forkSchedule`, `consensusIdentity` and
    `fingerprintAfter`. Then `pocol upgrade --network …`. A scheduled raise can never be changed or removed afterwards.
-5. **Seeds and gateways.** Replace each seed's devnet.json with the published one and restart it on the release
-   (seeds have no migration tool yet, see the TODO above). Set the reward gateway's trusted `--fork-schedule` file to
+5. **Seeds and gateways.** A seed run from a launcher home upgrades as in step 4. A `deploy/public-testnet` seed
+   bundle: `nonce_upgrade.py prepare` with the published file and the release, compare its `consensusIdentity` and
+   `appended` with the published values, then stop the seed, run `nonce_upgrade.py migrate`, install the new bundle
+   and start it (`deploy/public-testnet/README.md`). Run `migrate` while the seed's highest stored block is at most
+   H2 - 8,640; above that it refuses (with the margin of step 2 that leaves about a day after publication). A seed
+   that missed this point cannot use the tool, and a scheduled entry can never be moved: start the new bundle on a
+   new, empty state directory (keeping the old one aside), so that it binds the new identity and syncs the chain from
+   its peers. Set the reward gateway's trusted
+   `--fork-schedule` file to
    `[[1,0],[2,H2],[3,H]]` when its node is upgraded (until both match it answers "differs from trusted
    configuration"). Wallets add the same schedule to their local profile (`[[1,"0"],[2,"H2"],[3,"H"]]`) before H;
    one left on the old schedule refuses headers from H on (`netVersion`).
@@ -576,5 +590,6 @@ The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
    deferred resource/gas derivations and the missing RpcGuard mechanisms; measure worst-case execution.
 4. **Review.** Obtain an independent security review (Q1, open: the software reports it as `plan-gate-Q1`) and
    publish the reviewed release with its limitations. Existing automated review is not that review.
-5. **Fork tooling.** Restore the seed fork-migration tool (the G3 TODO above) before the first fork of the new chain.
-   It must refuse an H2 or H less than 8,640 blocks (the 24 h minimum notice) above the current head, with a test.
+5. **Fork tooling.** The seed fork-migration tool (`deploy/public-testnet/nonce_upgrade.py`, G3 above) refuses an
+   H2 or H less than 8,640 blocks (the 24 h minimum notice) above the seed's highest stored block, with a test; it
+   has not yet been run on real hosts (the upgrade drill of gate L1 remains open).

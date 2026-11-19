@@ -70,8 +70,23 @@ impl ExpectedAdmission{
 #[derive(Clone,Copy,Debug,PartialEq,Eq)]
 pub struct NetworkProfile{pub chain_id:u64,pub genesis_hash:[u8;32],pub admission:ExpectedAdmission}
 /// V3-28 H2: the launch networks this release pins. Empty: no network is a launch network yet, whatever its name or
-/// designation, and the launcher keeps `admission-not-booted` for every network.
+/// designation, and the launcher keeps `admission-not-booted` for every network. deploy/mainnet/set_network_identity.py
+/// writes it at the identity switch and its `--check` verifies it: the entry
+/// `NetworkProfile{chain_id:<chainId>,genesis_hash:genesis_hash("<64 hex>"),admission:ExpectedAdmission::LAUNCH}` of
+/// the network the clients are switched to, unless that is a retired or the rehearsal network, entries separated by
+/// `,`; the declaration stays on one line in that form. A launch network expects the launch admission; a node that
+/// boots it with any other admission (experimental-devnet today) still reports its own blockers.
 pub const NETWORK_PROFILES:&[NetworkProfile]=&[];
+/// A genesis hash written as 64 lower-case hex digits, as `pocol_status` reports it without `0x`, decoded at compile
+/// time in a `NETWORK_PROFILES` entry (a malformed one does not compile).
+pub const fn genesis_hash(hex:&str)->[u8;32]{
+    const fn nibble(c:u8)->u8{match c{b'0'..=b'9'=>c-b'0',b'a'..=b'f'=>c-b'a'+10,_=>panic!("a genesis hash is lower-case hex")}}
+    let b=hex.as_bytes();
+    assert!(b.len()==64,"a genesis hash is 64 hex digits");
+    let mut out=[0u8;32];let mut i=0;
+    while i<32{out[i]=nibble(b[2*i])<<4|nibble(b[2*i+1]);i+=1}
+    out
+}
 
 /// The build's facts. `this()` reads this binary's; tests change one at a time.
 #[derive(Clone,Debug)]
@@ -381,6 +396,25 @@ mod tests{
         assert_eq!(network,expect,"the network blockers of a booted devnet admission");
         assert!(!got.contains(&"admission-not-booted")&&!got.contains(&"admission-unrecorded"));
         assert!(n.v3_active);
+    }
+    /// The entry form set_network_identity.py writes into NETWORK_PROFILES compiles, decodes to the hash it names and
+    /// pins the launch admission (its test reads WRITTEN's line and checks that the tool writes exactly this form).
+    const WRITTEN:&[NetworkProfile]=&[NetworkProfile{chain_id:777001,genesis_hash:genesis_hash("0909090909090909090909090909090909090909090909090909090909090909"),admission:ExpectedAdmission::LAUNCH},NetworkProfile{chain_id:777002,genesis_hash:genesis_hash("00112233445566778899aabbccddeeff0123456789abcdef0fedcba987654321"),admission:ExpectedAdmission::LAUNCH}];
+    #[test]
+    fn network_profile_entries_decode_their_genesis_hash(){
+        assert_eq!(WRITTEN[0],NetworkProfile{chain_id:777001,genesis_hash:[9;32],admission:ExpectedAdmission::LAUNCH});
+        assert_eq!(crate::types::hex(&WRITTEN[1].genesis_hash),"0x00112233445566778899aabbccddeeff0123456789abcdef0fedcba987654321");
+        assert!(WRITTEN.iter().all(|p|p.admission==ExpectedAdmission::LAUNCH),"the tool pins the launch admission");
+        let (mut b,mut n)=ready();b.network_profiles=WRITTEN.to_vec();(n.chain_id,n.genesis_hash)=(WRITTEN[1].chain_id,WRITTEN[1].genesis_hash);
+        assert!(blockers(&b,Subject::Network(&n)).is_empty(),"an entry in this form pins its network");
+        n.genesis_hash=WRITTEN[0].genesis_hash;
+        assert_eq!(ids(&blockers(&b,Subject::Network(&n))),["network-not-release-pinned"],"the pair, not the chain ID alone");
+        // In the launcher (a recorded admission) the written entry's launch admission drops admission-not-booted (on
+        // the R22 chain; elsewhere the pinned launch admission still is no network profile, R22).
+        let mut n=Network{chain_id:WRITTEN[0].chain_id,genesis_hash:WRITTEN[0].genesis_hash,v3_active:true,admission:forged()};
+        assert!(blockers(&b,Subject::Network(&n)).is_empty(),"the written entry pins the launch admission");
+        (n.chain_id,n.genesis_hash)=(WRITTEN[1].chain_id,WRITTEN[1].genesis_hash);
+        assert_eq!(ids(&blockers(&b,Subject::Network(&n))),["profile-kind"]);
     }
     /// PLAN_GATES_OPEN lists exactly the acceptance-ledger gates whose status is not "Closed".
     #[test]
