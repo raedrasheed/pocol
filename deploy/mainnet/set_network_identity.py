@@ -47,6 +47,30 @@ written unless every file passes: every new file is written beside its original 
 whole, the node file last. Documents about the project's history (development/) and the website snapshots in
 deploy/websites (build output) are not changed; deploy/websites/tools/site_identity.py switches those. Nothing is
 deployed.
+
+The release's pinned launch networks (NETWORK_PROFILES in PROFILES, V3-28 H2) follow the switch: --to writes the
+entry of the new identity and removes the --from (and the tree's current) entry, each entry in the form
+
+    NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::FRESH_NETWORK}
+
+(the declaration on one line, entries separated by ","), and --check verifies that NETWORK_PROFILES holds exactly the
+entry of the tree's identity. A retired identity (RETIRED, the --from network included once the switch lists it) and
+the rehearsal network (the chain ID of REHEARSAL_PROFILE) are never a launch network, so for them the expected list is
+empty; that is the case while the tree pins a retired network. An entry of any other network is refused, never removed
+silently.
+
+The entry pins the admission the release expects a node booting the network to get: ExpectedAdmission::FRESH_NETWORK,
+the decided launch admission (development/decisions/FRESH-NETWORK-CP.md §1 "Launch admission": a Simnet profile on a
+Simnet node in scope experimental-devnet, with the conditions and waivers its boot reports), never
+ExpectedAdmission::LAUNCH (scope specification, no condition, no waiver, the Network profile on a Node), which is not
+the admission this release boots and stays the owner's decision (V3-28 H2 (1)). The entry removes only
+`network-not-release-pinned` for that network. Everything else is reported as before: a booted node reports the
+admission it booted with (admission-scope, each admission-condition-* and admission-waiver-*, profile-kind), and the
+launcher keeps `admission-not-booted` (its detail names the fields in which the pin differs from
+ExpectedAdmission::LAUNCH) and still reflects devnet.json's recorded admission as further blockers (admission-scope,
+admission-condition-*, admission-waiver-*, profile-kind, or admission-unrecorded). On the fresh network's chains
+`profile-kind` stays in any case: R22 allows the Network profile only on chain 777001. The readiness report is
+node-local and refuses nothing.
 """
 import argparse, hashlib, json, os, re, shutil, sys
 from pathlib import Path
@@ -70,6 +94,16 @@ MAX_INVITATION = 1 << 20
 # The node's network designation names the tree's current identity: MAINNET_CHAIN_ID, MAINNET_GENESIS,
 # and the published GenesisSpec in its test.
 ANCHOR = 'prototypes/pocold/src/network_display.rs'
+# The release's pinned launch networks: NETWORK_PROFILES, as PROFILES_DECL ... '];' with NetworkProfile entries in the
+# form profiles_text writes, each genesis hash decoded at compile time by readiness.rs genesis_hash, each expecting
+# PROFILES_ADMISSION.
+PROFILES = 'prototypes/pocold/src/readiness.rs'
+PROFILES_DECL = 'pub const NETWORK_PROFILES:&[NetworkProfile]=&['
+# The admission a launch network's entry expects: the decided launch admission (readiness.rs
+# ExpectedAdmission::FRESH_NETWORK, FRESH-NETWORK-CP.md §1), never the specification admission ExpectedAdmission::LAUNCH.
+PROFILES_ADMISSION = 'ExpectedAdmission::FRESH_NETWORK'
+# The rehearsal network's committed profile: its chain ID is never a launch network.
+REHEARSAL_PROFILE = 'deploy/mainnet/v3-rehearsal-profile.json'
 # Each listed file and the copies of the identity it pins: (chain ID in any spelling, genesis hash,
 # GenesisSpec). Code, tests, and the documents that describe the current network and ship with it.
 FILES = {
@@ -327,6 +361,54 @@ def with_retired(data, chain_id, genesis):
         doc['retired'].append({'chainId': chain_id, 'genesisHash': '0x' + genesis})
     return (json.dumps(doc, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
 
+def profiles_text(entries):
+    """The body of NETWORK_PROFILES for [(chain ID, genesis hash hex)], as the tool writes it."""
+    return ','.join(f'NetworkProfile{{chain_id:{chain},genesis_hash:genesis_hash("{genesis}"),admission:{PROFILES_ADMISSION}}}'
+                    for chain, genesis in entries)
+
+def profiles_span(text):
+    """(start, end) of the NETWORK_PROFILES body in PROFILES' text; ValueError if the declaration is not readable."""
+    if text.count(PROFILES_DECL) != 1:
+        raise ValueError(f'{PROFILES}: NETWORK_PROFILES is not declared once as {PROFILES_DECL}...];')
+    start = text.index(PROFILES_DECL) + len(PROFILES_DECL)
+    end = text.find('];', start)
+    if end < 0 or '\n' in text[start:end]:
+        raise ValueError(f'{PROFILES}: NETWORK_PROFILES is not one line ending in ];')
+    return start, end
+
+def read_profiles(text):
+    """[(chain ID, genesis hash hex)] of NETWORK_PROFILES, in order; ValueError unless it is in the form
+    profiles_text writes (a lower-case 64-digit hash, a decimal chain ID without digit groups, PROFILES_ADMISSION,
+    each entry once)."""
+    start, end = profiles_span(text)
+    body = text[start:end]
+    entries = [(int(chain), genesis) for chain, genesis in
+               re.findall(r'NetworkProfile\{chain_id:([1-9][0-9]*),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),admission:'
+                          + re.escape(PROFILES_ADMISSION) + r'\}', body)]
+    if profiles_text(entries) != body or len(set(entries)) != len(entries):
+        raise ValueError(f'{PROFILES}: NETWORK_PROFILES is not a list of NetworkProfile{{chain_id:<chain ID>,genesis_hash:'
+                         f'genesis_hash("<64 hex>"),admission:{PROFILES_ADMISSION}}} entries')
+    return entries
+
+def with_profiles(text, entries):
+    start, end = profiles_span(text)
+    return text[:start] + profiles_text(entries) + text[end:]
+
+def rehearsal_chain(root):
+    """The rehearsal network's chain ID (REHEARSAL_PROFILE chainId)."""
+    try:
+        chain = json.loads((root / REHEARSAL_PROFILE).read_text(encoding='utf-8'))['chainId']
+    except (OSError, ValueError, KeyError, TypeError) as e:
+        raise SystemExit(f'{REHEARSAL_PROFILE}: its chainId is not readable ({e})')
+    if type(chain) is not int:
+        raise SystemExit(f'{REHEARSAL_PROFILE}: its chainId is not an integer')
+    return chain
+
+def launch_profiles(identity, retired, rehearsal):
+    """The NETWORK_PROFILES a tree pinning `identity` (chain ID, genesis hash hex) holds: its entry, unless it is a
+    retired network or the rehearsal network, which are never launch networks."""
+    return [] if identity in retired or identity[0] == rehearsal else [identity]
+
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--from', dest='source', type=Path,
@@ -432,6 +514,20 @@ def main(argv=None):
     # A switch retires the --from network (a run that finishes the derived files changes no identity).
     data[RETIRED] = retired_data
     out[RETIRED] = retired_data if same else with_retired(retired_data, old_chain, old_genesis)
+    # NETWORK_PROFILES: the --from (and current) entry goes, the --to entry comes unless --to is not a launch network
+    # (retired, the --from network now included, or the rehearsal network); any other entry is refused.
+    data[PROFILES] = (a.root / PROFILES).read_bytes()
+    try:
+        held_profiles = read_profiles(data[PROFILES].decode('utf-8'))
+    except ValueError as e:
+        problems.append(str(e))
+    else:
+        expected_profiles = launch_profiles((chain_id, genesis), read_retired(out[RETIRED]), rehearsal_chain(a.root))
+        kept_profiles = [e for e in held_profiles if e not in ((old_chain, old_genesis), (cur_chain, cur_genesis), (chain_id, genesis))]
+        if kept_profiles:
+            problems.append(f'{PROFILES}: NETWORK_PROFILES holds entries of other networks {kept_profiles}; it holds only '
+                            'the entry of the network the tree pins')
+        out[PROFILES] = with_profiles(data[PROFILES].decode('utf-8'), kept_profiles + expected_profiles).encode('utf-8')
     data[INSTALLER] = (a.root / INSTALLER).read_bytes()
     out[INSTALLER] = build_installer.script({name: out[rel] for name, rel in INSTALLER_SOURCES.items()}).encode('utf-8')
     # The content versions and the installer payloads hash these files' bytes, which must be the bytes git
@@ -445,7 +541,8 @@ def main(argv=None):
                             '`git config core.autocrlf false`, `git rm -r --cached -q .` and `git reset --hard`')
     changed = [rel for rel in out if out[rel] != data[rel]]
     if a.check and changed:
-        problems += [f'{rel}: does not carry the --to identity (or its content version, installer payload or retired list)' for rel in changed]
+        problems += [f'{rel}: does not carry the --to identity (or its content version, installer payload, retired list '
+                     'or NETWORK_PROFILES entry)' for rel in changed]
     for line in problems:
         print('FAIL', line, file=sys.stderr)
     if stale and same:

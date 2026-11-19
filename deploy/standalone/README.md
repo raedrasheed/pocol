@@ -382,6 +382,13 @@ nothing or is finished the next time the wallet opens its key. Keep the backup f
 and its passphrase apart. Stop mining on any other device that uses the same key: two
 devices mining with one key can lose the bond.
 
+Servers installed by `install-linux.sh` keep the miner key in
+`/var/lib/pocol-standalone/identity.pocol-key`, owned by the `pocol-standalone` user. The
+key recovery runbook in the repository, `development/public-network/RECOVERY.md`, backs it
+up and restores it as that user (`pocol-key export`/`import`, checked with
+`pocol-sign --chain-id ID --address --backup BACKUP`), and covers a lost miner key and
+the faucet operator key.
+
 Android cloud backup and device-to-device transfer copy nothing of the app
 (`allowBackup="false"`, `fullBackupContent="false"` for Android 8 to 11, and
 `dataExtractionRules` excluding every domain on Android 12 and later), and uninstalling
