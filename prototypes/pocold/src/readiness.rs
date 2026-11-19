@@ -7,13 +7,17 @@
 //!   feature, `V3_LAUNCH_BLOCKERS` empty, and every gate of the public-network acceptance ledger closed
 //!   (`PLAN_GATES_OPEN`, development/public-network/PLAN.md);
 //! - network: v3 active on the genesis, (chainId, genesisHash) one of this release's pinned launch networks
-//!   (`NETWORK_PROFILES`, V3-28 H2; none yet), and an admission this node booted with in scope specification with
-//!   no condition and no waiver, as the network profile on a network node.
+//!   (`NETWORK_PROFILES`, V3-28 H2; none yet), and an admission this node booted with (or, in the launcher, this
+//!   release's pin of the network with exactly `ExpectedAdmission::LAUNCH`, V3-28 H2 (1)) in scope specification
+//!   with no condition and no waiver, as the network profile on a network node.
 //!
-//! The launcher admits nothing, so its description always keeps `admission-not-booted`: what a devnet.json records
-//! about its own admission is operator metadata that nothing commits to, never readiness evidence (D-V3-28). It is
-//! reflected, bounded and validated, only as further blockers. Letting the launcher report ready would need H2 to pin
-//! the expected admission with each `NETWORK_PROFILES` entry and compare against that, not against devnet.json.
+//! The launcher admits nothing. What a devnet.json records about its own admission is operator metadata that nothing
+//! commits to, never readiness evidence (D-V3-28): it is reflected, bounded and validated, only as further blockers,
+//! beside `admission-not-booted`. Each `NETWORK_PROFILES` entry also pins the admission this release expects a node
+//! booting that network to get (`ExpectedAdmission`, V3-28 H2 (1)); the launcher compares that pin, never
+//! devnet.json, with `ExpectedAdmission::LAUNCH`, and only on an exact match takes the pinned admission in place of
+//! the recorded one and drops `admission-not-booted`. `NETWORK_PROFILES` is empty, so today every network keeps
+//! `admission-not-booted` in the launcher.
 //!
 //! Node-local reporting only: no validity verdict, fork choice or persisted byte reads it. Deployment branding
 //! (`network_display`) is never readiness evidence: a designated network reports the same blockers.
@@ -38,15 +42,42 @@ pub const PLAN_GATES_OPEN:&[(&str,&str)]=&[
     ("E1","network lifetime and economics: the genesis ceremony (it enters the founders' decided reward addresses) and the rehearsal evidence remain"),
     ("Q1","release review: an independent security review (commissioned after the launch) and the unresolved-finding ledger remain"),
 ];
-/// V3-28 H2: the launch networks (chainId, genesisHash) this release pins. Empty: no network is a launch network yet,
-/// whatever its name or designation.
-pub const NETWORK_PROFILES:&[(u64,[u8;32])]=&[];
+/// V3-28 H2 (1): the admission this release expects a node booting a pinned network to get, every field the
+/// readiness of an admission reads, compared exactly (`==`).
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct ExpectedAdmission{
+    pub scope:Scope,pub conditions:&'static [&'static str],pub waivers:&'static [&'static str],
+    pub profile_kind:ProfileKind,pub node_kind:NodeKind,
+}
+impl ExpectedAdmission{
+    /// The only pinned admission that lets the launcher drop `admission-not-booted`: scope specification, no
+    /// condition, no waiver, the network profile on a network node.
+    pub const LAUNCH:Self=Self{scope:Scope::Specification,conditions:&[],waivers:&[],profile_kind:ProfileKind::Network,node_kind:NodeKind::Node};
+    /// The fields in which this expected admission differs from `other`, in declaration order.
+    pub fn differing(&self,other:&Self)->Vec<&'static str>{
+        [(self.scope!=other.scope,"scope"),(self.conditions!=other.conditions,"conditions"),(self.waivers!=other.waivers,"waivers"),
+            (self.profile_kind!=other.profile_kind,"profile kind"),(self.node_kind!=other.node_kind,"node kind")]
+            .into_iter().filter(|(d,_)|*d).map(|(_,f)|f).collect()
+    }
+    /// The pinned admission's facts on `chain_id`: as at boot, a network profile counts only on the R22 chain.
+    pub fn facts(&self,chain_id:u64)->AdmissionFacts{
+        AdmissionFacts{scope:self.scope.name().into(),conditions:self.conditions.iter().map(|c|c.to_string()).collect(),
+            waivers:self.waivers.iter().map(|w|w.to_string()).collect(),
+            network_profile:self.profile_kind==ProfileKind::Network&&self.node_kind==NodeKind::Node&&chain_id==R22_NETWORK_CHAIN_ID}
+    }
+}
+/// V3-28 H2: one launch network this release pins, (chainId, genesisHash), with the admission it expects there.
+#[derive(Clone,Copy,Debug,PartialEq,Eq)]
+pub struct NetworkProfile{pub chain_id:u64,pub genesis_hash:[u8;32],pub admission:ExpectedAdmission}
+/// V3-28 H2: the launch networks this release pins. Empty: no network is a launch network yet, whatever its name or
+/// designation, and the launcher keeps `admission-not-booted` for every network.
+pub const NETWORK_PROFILES:&[NetworkProfile]=&[];
 
 /// The build's facts. `this()` reads this binary's; tests change one at a time.
 #[derive(Clone,Debug)]
 pub struct Build{
     pub spec_version:u64,pub consensus_pinned:bool,pub test_features:Vec<&'static str>,
-    pub v3_launch_blockers:Vec<&'static str>,pub plan_gates_open:Vec<(&'static str,&'static str)>,pub network_profiles:Vec<(u64,[u8;32])>,
+    pub v3_launch_blockers:Vec<&'static str>,pub plan_gates_open:Vec<(&'static str,&'static str)>,pub network_profiles:Vec<NetworkProfile>,
 }
 impl Build{
     pub fn this()->Self{
@@ -67,10 +98,12 @@ pub struct AdmissionFacts{pub scope:String,pub conditions:Vec<String>,pub waiver
 /// Where a network's admission facts come from.
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub enum Admission{
-    /// The admission this node booted with (`Admitted`): the only readiness evidence.
+    /// The admission this node booted with (`Admitted`): the readiness evidence of a booted node. In the launcher,
+    /// which boots nothing, only a release pin of exactly `ExpectedAdmission::LAUNCH` stands in for it (H2 (1)).
     Booted(AdmissionFacts),
-    /// What a devnet.json records about itself (the launcher), None when it records none. Never evidence: it always
-    /// keeps `admission-not-booted`, and its facts can only add blockers.
+    /// What a devnet.json records about itself (the launcher), None when it records none. Never evidence: its facts
+    /// can only add blockers, beside `admission-not-booted`. Only a `NETWORK_PROFILES` pin of this network whose
+    /// expected admission is exactly `ExpectedAdmission::LAUNCH` replaces it (and drops `admission-not-booted`).
     Recorded(Option<AdmissionFacts>),
 }
 /// A recorded id kept as written only in the shape the gate writes (`[a-z0-9-]{1,64}`), else `unreadable`.
@@ -88,7 +121,8 @@ impl AdmissionFacts{
             network_profile:a.profile().kind()==ProfileKind::Network&&a.profile().node_kind()==NodeKind::Node}
     }
     /// The admission recorded in a devnet.json (`admission_json`) and its declared profileKind, for the genesis's
-    /// `chain_id`; None when there is none. Informational only (`Admission::Recorded` always blocks): nothing missing
+    /// `chain_id`; None when there is none. Informational only (`Admission::Recorded` keeps `admission-not-booted`
+    /// unless a launch pin of the network matches, and is then not read at all): nothing missing
     /// or malformed reads as cleared, ids outside the gate's shape read `unreadable`, each list is deduplicated and
     /// capped at `RECORDED_MAX` (then `overflow`), and a recorded network profile counts only on the R22 chain.
     pub fn recorded(info:&serde_json::Value,chain_id:u64)->Option<Self>{
@@ -133,14 +167,23 @@ pub fn blockers(b:&Build,subject:Subject)->Vec<Blocker>{
         Subject::Network(n)=>n,
     };
     if !n.v3_active{out.push(blocker("v3-inactive","the network's genesis is not a v3 genesis (specVersion below 2): the spec-1 rule set is retired and this release runs only v3 (specVersion 2) networks; the public launch is a v3 genesis"))}
-    if !b.network_profiles.contains(&(n.chain_id,n.genesis_hash)){
+    let pin=b.network_profiles.iter().find(|p|(p.chain_id,p.genesis_hash)==(n.chain_id,n.genesis_hash));
+    if pin.is_none(){
         out.push(blocker("network-not-release-pinned",format!("chain {} genesis {} is not a launch network pinned by this release (V3-28 H2{})",
             n.chain_id,crate::types::hex(&n.genesis_hash),if b.network_profiles.is_empty(){"; it pins none yet"}else{""})))}
-    let facts=match &n.admission{
-        Admission::Booted(a)=>Some(a),
-        Admission::Recorded(a)=>{
-            out.push(blocker("admission-not-booted","the launcher admits nothing and devnet.json's recorded admission is not evidence; a booted node's status reports the admission readiness is computed from"));
-            a.as_ref()
+    // V3-28 H2 (1): the release's pin of this network, compared exactly; devnet.json is never compared.
+    let launch_pin=pin.filter(|p|p.admission==ExpectedAdmission::LAUNCH);
+    let facts=match (&n.admission,launch_pin){
+        (Admission::Booted(a),_)=>Some(a.clone()),
+        (Admission::Recorded(_),Some(p))=>Some(p.admission.facts(n.chain_id)),
+        (Admission::Recorded(a),None)=>{
+            let why=match pin{
+                None=>"this release pins no expected admission for this network".to_string(),
+                Some(p)=>format!("the expected admission this release pins for this network is not the launch admission (it differs in {})",
+                    p.admission.differing(&ExpectedAdmission::LAUNCH).join(", ")),
+            };
+            out.push(blocker("admission-not-booted",format!("the launcher admits nothing, devnet.json's recorded admission is not evidence and {why} (V3-28 H2); a booted node's status reports the admission readiness is computed from")));
+            a.clone()
         }
     };
     match facts{
@@ -176,11 +219,16 @@ mod tests{
     /// A build and a network with every blocker cleared.
     fn ready()->(Build,Network){
         let n=Network{chain_id:777001,genesis_hash:[9;32],v3_active:true,admission:Admission::Booted(cleared())};
-        (Build{spec_version:2,consensus_pinned:true,test_features:vec![],v3_launch_blockers:vec![],plan_gates_open:vec![],network_profiles:vec![(777001,[9;32])]},n)
+        (Build{spec_version:2,consensus_pinned:true,test_features:vec![],v3_launch_blockers:vec![],plan_gates_open:vec![],
+            network_profiles:vec![NetworkProfile{chain_id:777001,genesis_hash:[9;32],admission:ExpectedAdmission::LAUNCH}]},n)
     }
     fn cleared()->AdmissionFacts{AdmissionFacts{scope:"specification".into(),conditions:vec![],waivers:vec![],network_profile:true}}
     fn ids(b:&[Blocker])->Vec<&str>{b.iter().map(|x|x.id.as_str()).collect()}
     fn booted(n:&mut Network)->&mut AdmissionFacts{match &mut n.admission{Admission::Booted(a)=>a,Admission::Recorded(_)=>unreachable!()}}
+    fn pinned(b:&mut Build)->&mut ExpectedAdmission{&mut b.network_profiles[0].admission}
+    /// What a devnet.json records when every fact reads cleared, or when it records an experimental admission.
+    fn forged()->Admission{Admission::Recorded(Some(cleared()))}
+    fn experimental()->Admission{Admission::Recorded(Some(AdmissionFacts{scope:"experimental-devnet".into(),conditions:vec!["calibration-synthetic".into()],waivers:vec!["R26".into()],network_profile:false}))}
 
     #[test]
     fn this_build_is_not_ready_today_with_honest_reasons(){
@@ -209,9 +257,20 @@ mod tests{
             (|b,_|b.network_profiles.clear(),&["network-not-release-pinned"]),
             (|_,n|n.genesis_hash=[8;32],&["network-not-release-pinned"]),
             (|_,n|n.chain_id=777002,&["network-not-release-pinned"]),
-            // A recorded admission never clears, even one recording every fact cleared (a forged devnet.json).
-            (|_,n|n.admission=Admission::Recorded(Some(cleared())),&["admission-not-booted"]),
-            (|_,n|n.admission=Admission::Recorded(None),&["admission-not-booted","admission-unrecorded"]),
+            // A recorded admission never clears, even one recording every fact cleared (a forged devnet.json): without
+            // a pin of the network, or with a pin whose expected admission is not exactly the launch admission.
+            (|b,n|{b.network_profiles.clear();n.admission=forged()},&["network-not-release-pinned","admission-not-booted"]),
+            (|b,n|{pinned(b).scope=Scope::ExperimentalDevnet;n.admission=forged()},&["admission-not-booted"]),
+            (|b,n|{pinned(b).conditions=&["timing-not-a-bound"];n.admission=forged()},&["admission-not-booted"]),
+            (|b,n|{pinned(b).waivers=&["R26"];n.admission=forged()},&["admission-not-booted"]),
+            (|b,n|{pinned(b).profile_kind=ProfileKind::Simnet;n.admission=forged()},&["admission-not-booted"]),
+            (|b,n|{pinned(b).node_kind=NodeKind::Simnet;n.admission=forged()},&["admission-not-booted"]),
+            (|b,n|{pinned(b).scope=Scope::ExperimentalDevnet;n.admission=Admission::Recorded(None)},&["admission-not-booted","admission-unrecorded"]),
+            // Without a matching pin the recorded facts still add their blockers.
+            (|b,n|{pinned(b).scope=Scope::ExperimentalDevnet;n.admission=experimental()},
+                &["admission-not-booted","admission-scope","admission-condition-calibration-synthetic","admission-waiver-R26","profile-kind"]),
+            // A pinned launch admission on another chain than R22's still is not the network profile there.
+            (|b,n|{n.chain_id=1656550731;b.network_profiles[0].chain_id=1656550731;n.admission=forged()},&["profile-kind"]),
             (|_,n|booted(n).scope="experimental-devnet".into(),&["admission-scope"]),
             (|_,n|booted(n).conditions=vec!["timing-not-a-bound".into()],&["admission-condition-timing-not-a-bound"]),
             (|_,n|booted(n).waivers=vec!["R26".into()],&["admission-waiver-R26"]),
@@ -224,6 +283,42 @@ mod tests{
         }
         let (mut b,n)=ready();b.test_features=vec!["caps-test","io-fault"];
         assert!(blockers(&b,Subject::Network(&n))[0].detail.ends_with("caps-test, io-fault"));
+    }
+    /// V3-28 H2 (1): the launcher drops `admission-not-booted` only when the release pins the network with exactly the
+    /// launch admission, and then the pin, never devnet.json, is what it reads: a recorded admission neither clears nor
+    /// adds anything, and recording none is no `admission-unrecorded`.
+    #[test]
+    fn a_pinned_launch_admission_replaces_the_recorded_one_only_on_an_exact_match(){
+        let (b,mut n)=ready();
+        for recorded in [forged(),experimental(),Admission::Recorded(None)]{
+            n.admission=recorded.clone();
+            assert_eq!(blockers(&b,Subject::Network(&n)),[],"{recorded:?}");
+        }
+        assert_eq!(ExpectedAdmission::LAUNCH.facts(R22_NETWORK_CHAIN_ID),cleared());
+        assert!(!ExpectedAdmission::LAUNCH.facts(1656550731).network_profile,"R22");
+        // The same pinned network with any one field of its expected admission changed keeps the blocker, and
+        // its detail names the pin.
+        let (mut b,mut n)=ready();pinned(&mut b).waivers=&["R26"];n.admission=forged();
+        let got=blockers(&b,Subject::Network(&n));assert_eq!(ids(&got),["admission-not-booted"]);
+        assert!(got[0].detail.contains("is not the launch admission (it differs in waivers)"),"{}",got[0].detail);
+        let mixed=ExpectedAdmission{scope:Scope::ExperimentalDevnet,node_kind:NodeKind::Simnet,..ExpectedAdmission::LAUNCH};
+        assert_eq!(mixed.differing(&ExpectedAdmission::LAUNCH),["scope","node kind"]);
+        assert!(ExpectedAdmission::LAUNCH.differing(&ExpectedAdmission::LAUNCH).is_empty());
+        b.network_profiles.clear();
+        assert!(blockers(&b,Subject::Network(&n))[1].detail.contains("pins no expected admission for this network"));
+        // A booted admission is read as booted, whatever the pin expects.
+        let (mut b,mut n)=ready();pinned(&mut b).scope=Scope::ExperimentalDevnet;
+        assert_eq!(blockers(&b,Subject::Network(&n)),[]);
+        booted(&mut n).scope="experimental-devnet".into();b.network_profiles[0].admission=ExpectedAdmission::LAUNCH;
+        assert_eq!(ids(&blockers(&b,Subject::Network(&n))),["admission-scope"]);
+    }
+    /// This release pins no network, so the launcher keeps `admission-not-booted` for every network today.
+    #[test]
+    fn no_network_is_pinned_today(){
+        assert!(NETWORK_PROFILES.is_empty()&&Build::this().network_profiles.is_empty());
+        let n=Network{chain_id:R22_NETWORK_CHAIN_ID,genesis_hash:[9;32],v3_active:true,admission:forged()};
+        let got=blockers(&Build::this(),Subject::Network(&n));let got=ids(&got);
+        assert!(got.contains(&"admission-not-booted")&&got.contains(&"network-not-release-pinned"),"{got:?}");
     }
     #[test]
     fn recorded_admission_never_reads_as_cleared_from_missing_or_malformed_fields(){

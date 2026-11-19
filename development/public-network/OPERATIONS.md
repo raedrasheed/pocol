@@ -252,9 +252,14 @@ exists only on a v3 (spec-2) genesis. To activate it:
   `v3-inactive`).
   `pocold build-info` reports the build's readiness alone (blocker `no-network`). The
   launcher's network description (`pocol network`, `import`, `upgrade`) reports these
-  fields for the invitation's files, but it admits nothing, so it always adds
+  fields for the invitation's files, but it admits nothing, so it adds
   `admission-not-booted`: what devnet.json records about its admission is never
-  evidence. Only a booted node's status reports the admission readiness is computed from.
+  evidence. The blocker clears only when this release pins the invitation's (chainId,
+  genesisHash) in `NETWORK_PROFILES` with exactly the launch admission (scope
+  specification, no condition, no waiver, the Network profile on a Node; V3-28 H2 (1)),
+  and the launcher then reads that pin, not devnet.json. The release pins no network, so
+  today every network keeps `admission-not-booted`. Only a booted node's status reports
+  the admission it booted with.
   An Android package's build-info.json is the build's raw identity, with
   `publicLaunchReady: false` and the single blocker `readiness-not-computed`.
 `compatibilitySha256` stays for install integrity: `monitor.py` groups nodes by

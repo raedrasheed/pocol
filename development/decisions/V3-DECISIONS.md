@@ -308,7 +308,9 @@ Approved within the owner rule; NODE-LOCAL. Principle check: kept. Authority: V3
 `launchBlockers` is empty, and both are reported by `pocold build-info`/`pocol build-info` (the build alone, which
 is never ready: blocker `no-network`), `pocold status` and `pocol_status` (the admission the node booted with),
 `init-testnet` (the profile it admitted) and the launcher's network description (`pocol network`/`import`/
-`upgrade`, from what genesis.spec.hex commits to; the launcher admits nothing, so it is never ready). Each blocker
+`upgrade`, from what genesis.spec.hex commits to; the launcher admits nothing, so it keeps `admission-not-booted`
+unless this release pins the network with the launch admission, H2 (1) below; none is pinned, so today it is never
+ready). Each blocker
 has a stable `id` and a `detail`:
 - build: `consensus-unpinned`;
   `test-features` (caps-test, crash-test, io-fault); `v3-launch-blocker` (each `V3_LAUNCH_BLOCKERS` entry, none
@@ -318,10 +320,11 @@ has a stable `id` and a `detail`:
   not a route to v3); `network-not-release-pinned` ((chainId,
   genesisHash) not in `NETWORK_PROFILES`, the H2 hook, empty today); `admission-scope` (not `specification`);
   `admission-condition-<id>` and `admission-waiver-<rule>` (each condition and waiver); `profile-kind` (not the
-  network profile on a network node, R22); `admission-not-booted` (always), `admission-unrecorded` and
+  network profile on a network node, R22); `admission-not-booted`, `admission-unrecorded` and
   `genesis-unreadable` (launcher only). The admission devnet.json records about itself is operator metadata that
-  nothing commits to, so the launcher never treats it as evidence: `admission-not-booted` always blocks, and the
-  recorded scope, condition ids and waiver rules are reflected only as further blockers, in the gate's id shape
+  nothing commits to, so the launcher never treats it as evidence: `admission-not-booted` blocks unless the release
+  pins the network with the launch admission (H2 (1) below; no network is pinned, so it blocks for every network
+  today), and the recorded scope, condition ids and waiver rules are reflected only as further blockers, in the gate's id shape
   (`[a-z0-9-]{1,64}`, `R[0-9]{1,3}`, else `unreadable`), deduplicated and capped at 32 each (then `overflow`); a
   recorded network profile counts only on chain 777001, as R22 requires at boot.
 
@@ -329,12 +332,20 @@ It is false today with the build reasons of every open PLAN gate and, for any ne
 fresh network launches with it false and its blockers disclosed (`admission-scope`, `profile-kind`; FRESH-NETWORK-CP.md
 §1, "Launch admission"). Deployment branding (`network_display`) clears none of them. Node-local reporting only: no validity
 rule, fork choice, persisted byte or consensus identity reads it; `build.rs` (a boundary file) only drops the
-literal, under a `neutral` lock line. H2 (release-pinned profiles and closing the conditions) is unchanged.
+literal, under a `neutral` lock line. N5 left H2 (release-pinned profiles and closing the conditions) unchanged;
+H2 (1) has since been implemented, below, and the rest of H2 is open.
 
-Open for H2 and the owner. (1) If the launcher is ever to report a network ready before a node boots it, each
-`NETWORK_PROFILES` entry must also pin the expected admission (scope specification, no condition, no waiver, the
-network profile on a network node, or a digest of them) and the launcher must compare against that pin, never
-against devnet.json; until then `admission-not-booted` stays. (2) `profile-kind` clears only with a Network profile,
+Open for H2 and the owner. (1) Implemented (node-local, `readiness.rs`/`launcher.rs`): each `NETWORK_PROFILES`
+entry is a `NetworkProfile` (chainId, genesisHash and an `ExpectedAdmission`: scope, condition ids, waiver rules,
+profile kind and node kind, compared exactly). The launcher's network description compares the pin of the
+invitation's (chainId, genesisHash), never devnet.json, with `ExpectedAdmission::LAUNCH` (scope specification, no
+condition, no waiver, the Network profile on a Node). Only on an exact match does it drop `admission-not-booted` and
+read the pinned admission in place of the recorded one (a network profile still counts only on chain 777001, R22);
+with no pin, or a pin of any other admission, it keeps `admission-not-booted` and reflects the recorded facts as
+before. A booted node's readiness still reads the admission it booted with. `NETWORK_PROFILES` is empty, so
+behaviour is unchanged today: the launcher reports `admission-not-booted` (and `network-not-release-pinned`) for
+every network; pinning an entry is the H2 release step, the owner's decision. Like every blocker it is reported and
+refuses nothing. (2) `profile-kind` clears only with a Network profile,
 which R22 allows only on chainId 777001: the fresh network (rehearsal 1656550731, mainnet 2656089850) can never clear
 it without an R22 or admission change, or a launch on 777001. That change belongs
 to H2, may be consensus-adjacent (R22 is checked at profile validation), and is the owner's decision; N5 changes
