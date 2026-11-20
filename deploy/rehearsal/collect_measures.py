@@ -17,6 +17,7 @@ JSON-RPC and the host's clock status; it signs nothing, sends no transaction and
 import argparse
 import bisect
 import datetime
+import fractions
 import http.client
 import json
 import os
@@ -262,8 +263,9 @@ def block_line(b):
             'txCount': len(b.get('transactions') or [])}
 
 
-def cmd_blocks(a):
+def cmd_blocks(a, now_ms=lambda: int(time.time() * 1000)):
     rpc = Rpc(a.rpc)
+    collected = now_ms()  # taken before the read, so no block after the head below was made before it
     status = rpc.call('pocol_status')
     if a.expect_chain_id is not None and status.get('chainId') != a.expect_chain_id:
         raise Refused(f'the node runs chain id {status.get("chainId")}, not --expect-chain-id {a.expect_chain_id}')
@@ -274,7 +276,8 @@ def cmd_blocks(a):
     fd = os.open(a.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
     with os.fdopen(fd, 'w', encoding='utf-8') as f:
         f.write(json.dumps({'v': VERSION, 'kind': 'chain', **{k: status.get(k) for k in IDENTITY}, 'fromHeight': a.from_,
-                            'toHeight': to}, sort_keys=True) + '\n')
+                            'toHeight': to, 'headHeight': head, 'headHash': status['head'].get('hash'), 'collectedUnixMs': collected},
+                           sort_keys=True) + '\n')
         for h in range(a.from_, to + 1):
             b = rpc.call('eth_getBlockByNumber', [hex(h), False])
             if b is None:
@@ -346,44 +349,185 @@ def verdict(ok):
     return 'pass' if ok else 'miss'
 
 
+# A proposer's counters that only grow while the node keeps its entry (node/latency.rs, Stats). `missing` is not one:
+# a template can arrive after its slot was counted. A decrease means the entry was evicted and created again.
+GROWING = (('slots',), ('received',), ('late',), ('early',), ('stampAtWindow',), ('locked',), ('sinceParentMs', 'count'),
+           ('sinceStampMs', 'count'), ('beforeStampMs', 'count'), ('lockMs', 'count'), ('sinceParentMs', 'max'),
+           ('sinceStampMs', 'max'), ('beforeStampMs', 'max'), ('lockMs', 'max'))
+TRACKED_MAX = 256  # latency.rs PROPOSERS_MAX, when the answer has no trackedMax
+
+
+def proposer_epochs(seg):
+    """Each proposer's entries in one segment's samples, cut into epochs. The node keeps at most trackedMax proposers
+    and evicts the least recently drawn; one drawn (or timed) again starts from zero. So an epoch ends when the proposer
+    is missing from a sample, or when a counter that only grows went down; its last sample is that epoch's total.
+
+    An entry can also be evicted and created again between two samples with every counter at least as high as before.
+    Slots are numbered by the aggregate's `slots`, which counts every slot and is never evicted. That needs:
+    - an eviction no visible departure accounts for: each eviction removes one entry, and every proposer listed in the
+      earlier sample but not in the later one was removed at least once, so `evicted` must have risen by more than
+      their number (any rise counts when either listing is incomplete; an unknown count, an older node, always does);
+    - trackedMax - 1 + n slots after the proposer's last known draw, where n is its slots in the later sample: the
+      proposer is evicted only as the least recently drawn of trackedMax entries (each other entry drawn later), and its
+      new entry starts from zero, so its n draws all came after the eviction. The last known draw is at least the
+      earlier sample's total plus the draws added since it (or, in a segment's first sample, the entry's own draws).
+      An entry never drawn (made by a template or lock alone) is evicted first, at any eviction.
+    Then the counts are read as one epoch (late, received and max are right either way: a reset with no decrease leaves
+    the new epoch at least as high), and the earlier sample's p99 is kept too, since a p99 is not additive. Returns
+    {proposer: {'epochs': [final entries], 'prefixes': [entries before a possible reset], 'max', 'possibleResets'}}."""
+    tracks = {}
+    prev, prev_present, prev_complete = None, {}, False
+    for s in seg:
+        lat = s.get('latency') or {}
+        total = dig(lat, 'all', 'slots') or 0
+        prev_total = (dig(prev, 'all', 'slots') or 0) if prev is not None else 0
+        cap = lat.get('trackedMax') or TRACKED_MAX
+        listed = lat.get('proposers') or []
+        present = {p['proposer']: p for p in listed if isinstance(p, dict) and isinstance(p.get('proposer'), str)}
+        complete = isinstance(lat.get('tracked'), int) and lat['tracked'] == len(listed) == len(present)
+        evicted, prev_evicted = lat.get('evicted'), (prev or {}).get('evicted')
+        if evicted is None or prev_evicted is None:
+            eviction = True
+        else:
+            departed = sum(1 for a in prev_present if a not in present) if complete and prev_complete else 0
+            eviction = evicted - prev_evicted > departed
+        for addr, t in tracks.items():
+            if t['cur'] is not None and addr not in present:
+                t['epochs'].append(t['cur'])
+                t['cur'] = None
+        for addr, p in present.items():
+            t = tracks.setdefault(addr, {'epochs': [], 'cur': None, 'drawn': 0, 'prefixes': [], 'max': None, 'possibleResets': 0})
+            slots = p.get('slots') or 0
+            cur = t['cur']
+            grows = lambda path: (dig(p, *path) if dig(p, *path) is not None else -1) >= (dig(cur, *path) if dig(cur, *path) is not None else -1)
+            if cur is not None and not all(grows(path) for path in GROWING):
+                t['epochs'].append(cur)
+                cur = None
+            if cur is None:
+                # A new entry: its draws (if any) came after the previous sample, each on its own slot.
+                t['drawn'] = prev_total + slots if slots > 0 else 0
+            else:
+                if eviction and (t['drawn'] == 0 or total - t['drawn'] >= cap - 1 + slots):
+                    t['prefixes'].append(cur)
+                    t['possibleResets'] += 1
+                added = slots - (cur.get('slots') or 0)
+                if added > 0:
+                    t['drawn'] = max(t['drawn'], prev_total + added)
+            t['cur'] = p
+            mx = dig(p, 'sinceParentMs', 'max')
+            if mx is not None:
+                t['max'] = mx if t['max'] is None else max(t['max'], mx)
+        prev, prev_present, prev_complete = lat, present, complete
+    out = {}
+    for addr, t in tracks.items():
+        epochs = t['epochs'] + ([t['cur']] if t['cur'] is not None else [])
+        out[addr] = {'epochs': epochs, 'prefixes': t['prefixes'], 'max': t['max'], 'possibleResets': t['possibleResets']}
+    return out
+
+
+def p99_verdict(definite, possible, limit):
+    """A pair's p99 from its pieces: each definite epoch's last entry, and each entry seen just before a possible reset
+    (whose templates the later entries then do not hold). Its templates are the definite entries' and some of the
+    possible ones', disjoint. `limit` is a bucket bound (latency.rs BOUNDS_MS holds 1,000 and 2,000), so a piece whose
+    p99 is above it has more than floor(n/100) of its n templates above it, and none at or below it has more.
+    Returns (the highest p99, 'pass' | 'miss' | 'unknown'): pass when no piece's p99 is above the limit; miss when the
+    definite pieces' templates above it are more than 1 % of every possible total; else unknown (the epochs' p99s do
+    not add up to the whole's)."""
+    def piece(e):
+        n = dig(e, 'sinceParentMs', 'count')
+        return dig(e, 'sinceParentMs', 'p99'), n if isinstance(n, int) else e.get('received', 0)
+    defs = [piece(e) for e in definite]
+    poss = [piece(e) for e in possible]
+    p99s = [v for v, _ in defs + poss if v is not None]
+    if not p99s:
+        return None, 'unknown'
+    top = max(p99s)
+    if top <= limit:
+        return top, 'pass'
+    above = sum(n // 100 + 1 for v, n in defs if v is not None and v > limit and n > 0)
+    most = sum(n for _, n in defs + poss)
+    return top, ('miss' if above >= most // 100 + 1 else 'unknown')
+
+
 def t1(servers, names, declared):
     """T1 per ordered pair (receiver server <- proposer): late 0, sinceParentMs p99 <= 1,000 ms (Δ1) or 2,000 ms (Δ2),
-    max < Δ_rel - 2 s. Counters are cumulative since the node's start, so each segment's last sample is its total."""
+    max < Δ_rel - 2 s. Counters are cumulative since the node's start, so a segment is cut at each restart, and within
+    it a proposer's entry into epochs at each eviction (proposer_epochs); the epochs' totals are added, the worst max
+    kept, and the p99 graded by p99_verdict. The aggregate (`all`, never evicted) checks that no template was left
+    unattributed."""
     p99_limit = 1000 if declared == 'delta1' else 2000
-    pairs = []
+    pairs, receivers = [], []
     for label, segs in sorted(servers.items()):
         fallbacks = sum((dig(seg[-1], 'status', 'stats', 'fallbackTemplates') or 0) - (dig(seg[0], 'status', 'stats', 'fallbackTemplates') or 0) for seg in segs)
-        found = {}
+        found, parts = {}, {}
+        agg = {'late': 0, 'received': 0, 'max': None}
+        delta_rel = None
         for seg in segs:
             last = seg[-1]['latency']
             delta_rel = dig(last, 'local', 'deltaRel')
-            for p in last.get('proposers', []):
-                a = found.setdefault(p['proposer'], {'late': 0, 'received': 0, 'missing': 0, 'early': 0, 'slots': 0, 'p99': None, 'max': None,
-                                                     'deltaRel': delta_rel, 'segments': 0})
-                for k in ('late', 'received', 'missing', 'early', 'slots'):
-                    a[k] += p.get(k, 0)
+            for k in ('late', 'received'):
+                agg[k] += dig(last, 'all', k) or 0
+            for s in seg:
+                v = dig(s, 'latency', 'all', 'sinceParentMs', 'max')
+                if v is not None:
+                    agg['max'] = v if agg['max'] is None else max(agg['max'], v)
+            for proposer, e in proposer_epochs(seg).items():
+                a = found.setdefault(proposer, {'late': 0, 'received': 0, 'missing': 0, 'early': 0, 'slots': 0, 'p99': None, 'max': None,
+                                                'deltaRel': delta_rel, 'segments': 0, 'epochs': 0, 'possibleResets': 0})
+                for p in e['epochs']:
+                    for k in ('late', 'received', 'missing', 'early', 'slots'):
+                        a[k] += p.get(k, 0)
                 a['segments'] += 1
-                for k, src in (('p99', 'p99'), ('max', 'max')):
-                    v = dig(p, 'sinceParentMs', src)
-                    if v is not None:
-                        a[k] = v if a[k] is None else max(a[k], v)
+                a['epochs'] += len(e['epochs'])
+                a['possibleResets'] += e['possibleResets']
+                if e['max'] is not None:
+                    a['max'] = e['max'] if a['max'] is None else max(a['max'], e['max'])
+                pp = parts.setdefault(proposer, {'definite': [], 'possible': []})
+                pp['definite'] += e['epochs']
+                pp['possible'] += e['prefixes']
+        attributed_max = None
         for proposer, a in sorted(found.items()):
             max_limit = None if a['deltaRel'] is None else (a['deltaRel'] - 2) * 1000
+            a['p99'], p99_state = p99_verdict(parts[proposer]['definite'], parts[proposer]['possible'], p99_limit)
             row = {'receiver': label, 'proposer': names.get(proposer, proposer), 'proposerAddress': proposer, **a,
                    'fallbackTemplatesAtReceiver': fallbacks,
                    'thresholds': {'late': 0, 'p99MsAtMost': p99_limit, 'maxMsBelow': max_limit}}
             if a['received'] == 0:
                 row['verdict'] = 'not measured'
+            elif a['late'] != 0 or max_limit is None or a['max'] is None or a['max'] >= max_limit or p99_state == 'miss':
+                row['verdict'] = 'miss'
             else:
-                row['verdict'] = verdict(a['late'] == 0 and a['p99'] is not None and a['p99'] <= p99_limit
-                                         and max_limit is not None and a['max'] is not None and a['max'] < max_limit)
+                row['verdict'] = 'pass' if p99_state == 'pass' else 'cannot exclude a miss'
+            if a['max'] is not None:
+                attributed_max = a['max'] if attributed_max is None else max(attributed_max, a['max'])
             pairs.append(row)
+        late_left = agg['late'] - sum(a['late'] for a in found.values())
+        received_left = agg['received'] - sum(a['received'] for a in found.values())
+        max_limit = None if delta_rel is None else (delta_rel - 2) * 1000
+        slower = agg['max'] is not None and (attributed_max is None or agg['max'] > attributed_max)
+        if late_left > 0 or (received_left > 0 and slower and max_limit is not None and agg['max'] >= max_limit):
+            v = 'miss'
+        elif received_left > 0 and (agg['max'] is None or agg['max'] > p99_limit or max_limit is None):
+            v = 'cannot exclude a miss'
+        elif received_left > 0:
+            v = 'pass'
+        else:
+            v = 'all attributed'
+        receivers.append({'receiver': label, 'aggregateLate': agg['late'], 'aggregateReceived': agg['received'], 'aggregateMaxMs': agg['max'],
+                          'unattributedLate': late_left, 'unattributedReceived': received_left, 'verdict': v})
     observed = set(servers)
     not_observable = [{'receiver': name, 'reason': 'no RPC on that device (the PC runs the wallet engine over stdio)'}
                       for name in sorted(set(names.values()) - observed)]
-    return {'declared': declared, 'pairs': pairs, 'notObservable': not_observable,
-            'note': 'p99 is the upper bound of its bucket (never below the exact value), so a pass is sound and a miss may be '
-                    'up to one bucket above the true value. Drill windows cannot be left out of these cumulative counters.'}
+    return {'declared': declared, 'pairs': pairs, 'receivers': receivers, 'notObservable': not_observable,
+            'note': 'p99 is the upper bound of its bucket (never below the exact value), and the limits are bucket bounds. '
+                    'A pair\'s p99 is the highest of its pieces (each epoch, and the entry before each possible eviction, '
+                    'counted in possibleResets): a pass when none is above the limit, a miss when the templates certainly above '
+                    'it are more than 1 % of the most the pair can hold, else "cannot exclude a miss" (epochs\' p99s do not '
+                    'add up). A pair\'s counts may miss a possibly evicted entry\'s (never more than the true ones), which '
+                    'changes no verdict: late and max cannot drop without a visible reset. A receiver\'s '
+                    'unattributed templates were timed for proposers evicted between two samples (their pair is unknown): '
+                    'a late one, or one at or above the max limit, is a miss; above p99\'s limit their p99 is unknown. '
+                    'Drill windows cannot be left out of these cumulative counters.'}
 
 
 def t2(servers, clocks, align_ms):
@@ -470,9 +614,15 @@ def t5(servers, windows, every_ms):
                     'counter, so the estimate is reported, not graded as T5.'}
 
 
-def t6(blocks, windows, step_height):
+def t6(blocks, windows, step_height, end=None):
     """T6 from the blocks file: the 24 h mean interval (10 s ± 5 %) per full day from genesis, the first 100 blocks'
-    mean (5-20 s), and the difficulty against its trailing 60-block mean (τ / T_blk), whose grading is to confirm."""
+    mean (5-20 s), and the difficulty against its trailing 60-block mean (τ / T_blk), whose grading is to confirm.
+
+    A day (lo, hi] is 86,400 s divided by the blocks it holds, where an interval (ts[h-1], ts[h]] that crosses a day's
+    boundary counts in each day by the share of its length that lies there. So a stall counts against the day it falls
+    in, whichever day its next block lands in, and is never counted twice; every full day is listed, one without a block
+    as stalled. `end` ({'unixMs', 'source'}, from merge) is a time at which the last block was still the head: the time
+    from the last block to it holds no block, so the days up to it are listed too, and it is reported."""
     by_h = {b['height']: b for b in blocks}
     out = {}
     if 0 in by_h and 100 in by_h:
@@ -485,15 +635,43 @@ def t6(blocks, windows, step_height):
         g = by_h[0]['timestamp']
         ordered = sorted(blocks, key=lambda b: b['height'])
         last_ts = ordered[-1]['timestamp']
-        day = 0
-        while g + (day + 1) * 86400 <= last_ts:
-            lo, hi = g + day * 86400, g + (day + 1) * 86400
-            inside = [b for b in ordered if lo <= b['timestamp'] < hi]
-            if len(inside) > 1:
-                m = (inside[-1]['timestamp'] - inside[0]['timestamp']) / (len(inside) - 1)
-                days.append({'day': day, 'blocks': len(inside), 'meanSeconds': m, 'threshold': [9.5, 10.5], 'verdict': verdict(9.5 <= m <= 10.5)})
-            day += 1
-    out['dayMeans'] = days or [{'verdict': 'not measured (less than 24 h of blocks)'}]
+        horizon = last_ts
+        if end is not None:
+            horizon = max(last_ts, fractions.Fraction(end['unixMs'], 1000))
+            out['afterLastBlock'] = {'lastBlockHeight': ordered[-1]['height'], 'lastBlockTimestamp': last_ts, 'endUnixMs': end['unixMs'],
+                                     'endSource': end['source'], 'secondsWithoutBlock': float(horizon - last_ts),
+                                     'partialDaySeconds': float((horizon - g) % 86400)}
+        else:
+            out['afterLastBlock'] = {'lastBlockHeight': ordered[-1]['height'], 'lastBlockTimestamp': last_ts, 'endUnixMs': None,
+                                     'note': 'not known: the blocks file records no collection time at the head and no sample shows '
+                                             'its last block as the head, so a stall after the last block is in no day'}
+        n_days = max(0, int((horizon - g) // 86400))
+        share, longest, inside = [0] * n_days, [0] * n_days, [0] * n_days
+        day_of = lambda ts: (ts - g - 1) // 86400  # the day (lo, hi] holding ts
+        for x, y in zip(ordered, ordered[1:]):
+            a, b, n = x['timestamp'], y['timestamp'], y['height'] - x['height']  # a gap in the heights is n blocks
+            if 0 <= day_of(b) < n_days:
+                inside[day_of(b)] += 1
+            if b <= a:  # no length: its blocks count in the day of b
+                if 0 <= day_of(b) < n_days:
+                    share[day_of(b)] += n
+                continue
+            for d in range(max(0, (a - g) // 86400), min(n_days - 1, day_of(b)) + 1):
+                lo, hi = g + d * 86400, g + (d + 1) * 86400
+                part = min(b, hi) - max(a, lo)
+                if part > 0:
+                    # Exact, so a day exactly at a threshold is graded as such.
+                    share[d] += n if part == b - a else fractions.Fraction(n * part, b - a)
+                    longest[d] = max(longest[d], b - a)
+        for d in range(max(0, (last_ts - g) // 86400), n_days):  # the open time after the last block, up to the end
+            if horizon > max(last_ts, g + d * 86400):
+                longest[d] = max(longest[d], float(horizon - last_ts))
+        for d in range(n_days):
+            m = fractions.Fraction(86400) / share[d] if share[d] else None
+            days.append({'day': d, 'blocks': inside[d], 'stalled': inside[d] == 0, 'meanSeconds': None if m is None else float(m),
+                         'longestIntervalSeconds': longest[d], 'threshold': [9.5, 10.5],
+                         'verdict': verdict(m is not None and fractions.Fraction(19, 2) <= m <= fractions.Fraction(21, 2))})
+    out['dayMeans'] = days or [{'verdict': 'not measured (less than 24 h from genesis to the end)'}]
     ordered = sorted(blocks, key=lambda b: b['height'])
     diffs = [int(b['difficulty']) for b in ordered]
     noise = None
@@ -521,6 +699,25 @@ def t6(blocks, windows, step_height):
                     'attemptAtLeast1': sum(1 for b in outside if (b['attempt'] or 0) >= 1), 'unsigned': sum(1 for b in outside if b['signed'] is False),
                     'verdict': 'raw counts, definition to confirm'}
     return out
+
+
+def blocks_end(header, blocks, samples):
+    """The latest time at which the blocks file's last block is known to have been the head: the file's collection time
+    when it was written up to the head, or a sample whose head is that block (same height and hash). None if neither."""
+    last = max(blocks, key=lambda b: b['height'])
+    found = []
+    if (isinstance(header.get('collectedUnixMs'), int) and header.get('headHeight') == header.get('toHeight') == last['height']
+            and header.get('headHash') in (None, last.get('hash'))):
+        found.append((header['collectedUnixMs'], 'blocks file collected at its last block'))
+    for label, s in sorted(samples.items()):
+        for x in s:
+            head = dig(x, 'status', 'head') or {}
+            if head.get('height') == last['height'] and head.get('hash') is not None and head.get('hash') == last.get('hash'):
+                found.append((x['unixMs'], f'sample {label} {x["utc"]} with the last block as its head'))
+    if not found:
+        return None
+    ms, source = max(found)
+    return {'unixMs': ms, 'source': source}
 
 
 def merge(paths, blocks_path, windows_path, declared, addresses, step_height, align_ms=120_000):
@@ -572,11 +769,12 @@ def merge(paths, blocks_path, windows_path, declared, addresses, step_height, al
             raise Refused(f'{blocks_path}: not a blocks file (no chain header)')
         same(lines[0], blocks_path)
         blocks = lines[1:]
+    end = blocks_end(lines[0], blocks, samples) if blocks else None
     windows = read_windows(windows_path)
     return {'v': VERSION, 'identity': identity, 'inputs': {'samples': list(paths), 'blocks': blocks_path, 'windows': windows},
             'labels': {'servers': sorted(servers), 'clocks': sorted(clocks), 'addresses': {v: k for k, v in names.items()}},
             'T1': t1(servers, names, declared), 'T2': t2(servers, clocks, align_ms), 'T5': t5(servers, windows, every_ms),
-            'T6': t6(blocks, windows, step_height) if blocks else {'verdict': 'not measured (no --blocks file)'},
+            'T6': t6(blocks, windows, step_height, end) if blocks else {'verdict': 'not measured (no --blocks file)'},
             'note': 'Mechanical: each measure with its value, threshold and verdict. It closes no gate (REHEARSAL.md, sections 6 '
                     'and 8); a reviewer reads it against section 2.'}
 

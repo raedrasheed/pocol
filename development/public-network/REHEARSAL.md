@@ -509,10 +509,29 @@ merge refuses files of different chains (`chainId`, `genesisHash` or `consensusI
 What the report grades, and how:
 - **T1**, per ordered pair (receiver server, proposer): `late` 0, `sinceParentMs.p99` at most 1,000 ms (`delta1`) or
   2,000 ms (`delta2`), and `max` below (Δ_rel − 2) s from the node's own `deltaRel`. The counters are cumulative since
-  the node's start, so each restart starts a segment; a segment's last sample is its total, and the segments are added
-  (the worst p99 and max are kept). `missing`, `early` and the receiver's fallback templates are reported beside them. A
-  pair with nothing received is not measured. p99 is the upper bound of its histogram bucket, so a pass is sound and a
-  miss may be up to one bucket above the true value. The drill windows cannot be left out of these counters.
+  the node's start, so each restart starts a segment. Within a segment a proposer's counters are not always its total:
+  the node tracks at most `trackedMax` (256) proposers and evicts the least recently drawn, and one drawn again starts
+  from zero. So each proposer's samples are cut into epochs where it is missing from a sample or a counter that only
+  grows went down; the epochs' last samples are added, the worst max kept, and an evicted proposer that never comes
+  back is still reported. Between two samples an eviction and a return can also leave every counter as high as before.
+  Numbering slots by the aggregate's `slots`, that is possible only when the node's `evicted` count rose by more than
+  the proposers that left its (complete) table, and at least `trackedMax` − 1 slots plus the proposer's slots in the
+  later sample came after its last known draw (it was the least recently drawn of 256, and its new entry's draws all
+  came after the eviction). Its last known draw is the earlier sample's `slots` plus the draws added since (in a
+  segment's first sample, its own draws). Then the entry before it is kept as a piece of its own (counted in
+  `possibleResets`; late, received and max are right either way). With samples a minute apart (about 6 slots), this
+  can happen only across a sampler gap of more than about 255 slots (about 43 min), or between a segment's first two
+  samples when collection starts long after the node, and only while evictions are not all accounted for; a
+  frequently drawn proposer (a founder) can then be among them. Its p99 is graded over its pieces: a pass when no
+  piece's p99 is above the limit (1,000 and 2,000 ms are bucket bounds); a miss when the templates certainly above it
+  (more than 1 % of each such piece) are more than 1 % of the most the pair can hold; else "cannot exclude a miss",
+  since epochs' p99s do not add up. Each receiver's aggregate (`all`, never
+  evicted) is compared with what the pairs account for: a late template no pair holds (its proposer was evicted between
+  two samples), or one whose time is at or above the max limit and above every pair's max, is a miss for that receiver;
+  other unattributed templates are a pass when the aggregate max is within p99's limit, else "cannot exclude a miss".
+  `missing`, `early` and the receiver's fallback templates are reported beside them. A pair with nothing received is not
+  measured. p99 is the upper bound of its histogram bucket, so the reported value may be up to one bucket above the true
+  one; the verdicts above stay sound. The drill windows cannot be left out of these counters.
 - **T2**, clocks: for each pair of hosts, samples within 120 s of each other are compared on |o_i| + |o_j|, at most
   500 ms. Each host measures only against its own NTP source, so this bounds the pair only when their sources agree.
   Future templates: a receiver whose `beforeStampMs.max` is at most Φ·1,000 ms (Φ = 2φ) rejected no timed template as
@@ -522,7 +541,17 @@ What the report grades, and how:
   Each restart is listed with its gap and whether a window covers it; the time between the last sample and the restart
   (up to one sampling interval) is not measured.
 - **T6**, from the blocks file: the first 100 blocks' mean, (ts[100] − ts[0]) / 100, in 5-20 s, and each full day's mean
-  interval from genesis in 9.5-10.5 s.
+  interval from genesis in 9.5-10.5 s. A day's mean is 86,400 s divided by the blocks the day holds, where an interval
+  that crosses midnight counts in each day by the share of its length that lies there: a stall counts against the day it
+  falls in, wherever its next block lands, and is never counted twice. The run ends at the latest time the last block
+  is known to have been the head: when the blocks file was written up to the head (its header records the head and the
+  time it was read, `collectedUnixMs`), or at a sample whose head is that block (same height and hash). The time from
+  the last block to that end holds no block: every full day up to the end is listed with its blocks and its longest
+  interval (the open time after the last block included); a day without a block is marked stalled, and misses.
+  `afterLastBlock` reports the end, its source, the seconds without a block and the partial day after the last full
+  one (not graded). Write the blocks file at the end of the run, to the head; without an end (a file written below the
+  head, or by an older collector, and no such sample), the time after the last block is in no day and the report says
+  so.
 
 What it does not measure or grade: the three pairs with the PC as receiver (listed as not observable); future-queued
 blocks and templates that were never timed (not exposed by the node); siblings, which have no counter and are estimated

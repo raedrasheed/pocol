@@ -15,6 +15,7 @@ import tempfile
 import threading
 import time
 import unittest
+from fractions import Fraction
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -276,6 +277,127 @@ class Rules(unittest.TestCase):
         row = cm.t1({'s1': segs}, {A['pc']: 'pc'}, 'delta1')['pairs'][0]
         self.assertEqual((row['received'], row['late'], row['p99'], row['max'], row['segments'], row['verdict']), (12, 1, 750, 800, 2, 'miss'))
 
+    def tracked(self, t, proposers, total, evicted=None, all_late=None, all_received=None, all_max=None):
+        """A sample whose latency table holds `proposers`, with the aggregate's slots `total` and eviction count."""
+        lat = latency(proposers)
+        lat['all'].update({'slots': total, 'late': sum(p['late'] for p in proposers) if all_late is None else all_late,
+                           'received': sum(p['received'] for p in proposers) if all_received is None else all_received})
+        lat['all']['sinceParentMs']['max'] = max([p['sinceParentMs']['max'] or 0 for p in proposers], default=0) if all_max is None else all_max
+        lat['trackedMax'] = 256
+        if evicted is not None:
+            lat['evicted'] = evicted
+        return sample('s1', t, lat=lat)
+
+    def pair(self, seg):
+        r = cm.t1({'s1': [seg]}, {A['pc']: 'pc'}, 'delta1')
+        rows = [p for p in r['pairs'] if p['proposerAddress'] == A['pc']]
+        return (rows[0] if rows else None), r
+
+    def test_t1_keeps_an_epoch_that_the_proposer_table_evicted(self):
+        # The PC's late template, then the PC evicted (absent), then back with fresh counters: the late one stays.
+        late = proposer(A['pc'], received=3, late=1, p99=800, mx=900)
+        fresh = proposer(A['pc'], received=2, p99=300, mx=400)
+        row, _ = self.pair([self.tracked(0, [late], 10, 0), self.tracked(60, [], 20, 1, all_late=1, all_received=3, all_max=900),
+                            self.tracked(120, [fresh], 30, 1, all_late=1, all_received=5, all_max=900)])
+        self.assertEqual((row['late'], row['received'], row['max'], row['epochs'], row['verdict']), (1, 5, 900, 2, 'miss'))
+        # Back with counters that went down, without a sample in between: a new epoch, and the sums of both.
+        row, _ = self.pair([self.tracked(0, [late], 10, 0), self.tracked(60, [fresh], 20, 1, all_late=1, all_received=5, all_max=900)])
+        self.assertEqual((row['late'], row['received'], row['epochs'], row['verdict']), (1, 5, 2, 'miss'))
+        # Evicted before the last sample and never back: the pair is still reported, with its late template.
+        row, _ = self.pair([self.tracked(0, [late], 10, 0), self.tracked(60, [], 20, 1, all_late=1, all_received=3, all_max=900)])
+        self.assertEqual((row['late'], row['received'], row['verdict']), (1, 3, 'miss'))
+
+    def test_t1_a_possible_eviction_between_samples_keeps_the_earlier_p99(self):
+        # The counters did not go down, but the table evicted proposers and more than 255 slots passed since the PC's
+        # last known draw: the PC may have been evicted and come back, so its earlier p99 (1,500 ms) still counts. A pass
+        # is then not certain, nor a miss (without a reset its p99 is 800 ms).
+        before = proposer(A['pc'], received=3, p99=1500, mx=1500)
+        after = proposer(A['pc'], received=5, p99=800, mx=1600)
+        row, _ = self.pair([self.tracked(0, [before], 10, 0), self.tracked(60, [after], 1000, 7)])
+        self.assertEqual((row['p99'], row['possibleResets'], row['verdict']), (1500, 1, 'cannot exclude a miss'))
+        # Fewer than 255 + 5 slots since its last known draw (slot 3: its first sample's own 3 draws), or no eviction at
+        # all: it cannot have been evicted, so it is one epoch.
+        for total, evicted in ((262, 7), (1000, 0)):
+            row, _ = self.pair([self.tracked(0, [before], 10, 0), self.tracked(60, [after], total, evicted)])
+            self.assertEqual((row['p99'], row['possibleResets'], row['received'], row['epochs'], row['verdict']), (800, 0, 5, 1, 'pass'), total)
+        # A draw seen between two samples moves the PC's last known draw forward (to slot 11): at slot 270 that is under
+        # 255 + 5 slots ago, so the third sample cannot follow an eviction (from slot 3 it could).
+        mid = proposer(A['pc'], received=4, slots=4, p99=1500, mx=1500)
+        row, _ = self.pair([self.tracked(0, [before], 10, 0), self.tracked(60, [mid], 100, 0), self.tracked(120, [after], 270, 7)])
+        self.assertEqual((row['p99'], row['possibleResets'], row['verdict']), (800, 0, 'pass'))
+        row, _ = self.pair([self.tracked(0, [before], 10, 0), self.tracked(120, [after], 270, 7)])
+        self.assertEqual((row['p99'], row['possibleResets'], row['verdict']), (1500, 1, 'cannot exclude a miss'))
+        # Without the eviction count (an older node), an eviction is assumed possible.
+        row, _ = self.pair([self.tracked(0, [before], 10), self.tracked(60, [after], 1000)])
+        self.assertEqual((row['p99'], row['possibleResets']), (1500, 1))
+
+    def test_t1_p99_over_several_pieces(self):
+        piece = lambda p99, n: proposer(A['pc'], received=n, p99=p99, mx=p99)
+        # One piece above the limit: more than 1 % of its templates are above it, a miss.
+        self.assertEqual(cm.p99_verdict([piece(1500, 1000)], [], 1000), (1500, 'miss'))
+        # Every piece at or below: a pass, whatever the pieces.
+        self.assertEqual(cm.p99_verdict([piece(1000, 10), piece(750, 5000)], [piece(1000, 3)], 1000), (1000, 'pass'))
+        # Epochs: at least 11 of 1,000 above the limit is more than 1 % of 1,010, a miss. At least 1 of 10 above beside
+        # at most 10 of 1,000 above: the whole's p99 can be on either side, not known.
+        self.assertEqual(cm.p99_verdict([piece(1500, 1000), piece(750, 10)], [], 1000), (1500, 'miss'))
+        self.assertEqual(cm.p99_verdict([piece(1500, 10), piece(750, 1000)], [], 1000), (1500, 'unknown'))
+        # A miss in the definite epoch, with a possible earlier piece that may add templates below the limit.
+        self.assertEqual(cm.p99_verdict([piece(1500, 100)], [piece(750, 100)], 1000), (1500, 'unknown'))
+        self.assertEqual(cm.p99_verdict([piece(1500, 1000)], [piece(750, 50)], 1000), (1500, 'miss'))
+        # Through t1: two epochs, the first a small one above the limit, the second large below it.
+        small, large = proposer(A['pc'], received=10, p99=1500, mx=1500), proposer(A['pc'], received=5, p99=750, mx=900)
+        large['received'] = large['slots'] = large['sinceParentMs']['count'] = 1000
+        row, _ = self.pair([self.tracked(0, [small], 10, 0), self.tracked(60, [], 20, 1, all_received=10, all_max=1500),
+                            self.tracked(120, [large], 1100, 1, all_received=1010, all_max=1500)])
+        self.assertEqual((row['epochs'], row['p99'], row['verdict']), (2, 1500, 'cannot exclude a miss'))
+
+    def test_t1_a_frequently_drawn_proposer_is_not_taken_for_evicted(self):
+        # A founder drawn on most slots, then a sampler gap of 400 slots with one eviction. Its last known draw is slot
+        # 202 or later (2 draws after slot 200); a new entry would have needed 255 slots after it and then its own 400
+        # draws, more than the 606 slots there were. So it is one epoch, and its cumulative p99 (750 ms) is graded.
+        s1 = self.tracked(0, [proposer(A['pc'], received=50, slots=50, p99=1500, mx=1500)], 200, 0)
+        s2 = self.tracked(60, [proposer(A['pc'], received=52, slots=52, p99=1500, mx=1500)], 206, 0)
+        s3 = self.tracked(5000, [proposer(A['pc'], received=400, slots=400, p99=750, mx=1500)], 606, 1)
+        row, _ = self.pair([s1, s2, s3])
+        self.assertEqual((row['p99'], row['possibleResets'], row['epochs'], row['received'], row['verdict']), (750, 0, 1, 400, 'pass'))
+        # Collection starting long after the node: the first sample's own 300 draws put its last draw at slot 300 or
+        # later, and 255 + 3,000 slots fit before slot 10,000, so a reset is possible and the earlier p99 is kept (not
+        # graded either way)...
+        late_start = [self.tracked(0, [proposer(A['pc'], received=300, slots=300, p99=1500, mx=1500)], 1000, 0),
+                      self.tracked(60, [proposer(A['pc'], received=3000, slots=3000, p99=750, mx=1500)], 10000, 1)]
+        row, _ = self.pair(late_start)
+        self.assertEqual((row['p99'], row['possibleResets'], row['verdict']), (1500, 1, 'cannot exclude a miss'))
+        # ... unless every eviction is accounted for by a proposer that left the (complete) table.
+        other = proposer('0x' + '77' * 20, received=1, slots=1)
+        late_start[0]['latency']['proposers'].append(other)
+        late_start[0]['latency']['tracked'] = 2
+        row, _ = self.pair(late_start)
+        self.assertEqual((row['p99'], row['possibleResets'], row['verdict']), (750, 0, 'pass'))
+        # An incomplete listing (tracked above the proposers listed) accounts for nothing.
+        late_start[1]['latency']['tracked'] = 2
+        row, _ = self.pair(late_start)
+        self.assertEqual((row['p99'], row['possibleResets']), (1500, 1))
+
+    def test_t1_a_late_template_no_sample_attributed_is_a_miss_at_the_receiver(self):
+        # The aggregate counted a late template whose proposer was drawn and evicted between two samples.
+        seg = [self.tracked(0, [proposer(A['pc'])], 10, 0), self.tracked(60, [proposer(A['pc'], received=12)], 20, 3, all_late=1, all_received=14)]
+        row, r = self.pair(seg)
+        self.assertEqual(row['verdict'], 'pass')
+        rec = r['receivers'][0]
+        self.assertEqual((rec['receiver'], rec['unattributedLate'], rec['unattributedReceived'], rec['verdict']), ('s1', 1, 2, 'miss'))
+        # Unattributed templates, none late and all within p99's limit: they cannot hide a miss.
+        seg = [self.tracked(0, [proposer(A['pc'])], 10, 0), self.tracked(60, [proposer(A['pc'], received=12)], 20, 3, all_received=14, all_max=900)]
+        self.assertEqual(self.pair(seg)[1]['receivers'][0]['verdict'], 'pass')
+        # Above p99's limit, their pair's p99 is unknown.
+        seg[-1]['latency']['all']['sinceParentMs']['max'] = 1200
+        self.assertEqual(self.pair(seg)[1]['receivers'][0]['verdict'], 'cannot exclude a miss')
+        # At or above the max limit and above every attributed max: one of them was too slow.
+        seg[-1]['latency']['all']['sinceParentMs']['max'] = 5000
+        self.assertEqual(self.pair(seg)[1]['receivers'][0]['verdict'], 'miss')
+        # Everything attributed.
+        seg = [self.tracked(0, [proposer(A['pc'])], 10, 0)]
+        self.assertEqual(self.pair(seg)[1]['receivers'][0]['verdict'], 'all attributed')
+
     def test_t2_clock_bound_and_future_templates(self):
         clocks = {'s1': [(0, 250.0)], 's2': [(30_000, -260.0)], 'pc': [(500_000, 0.0)]}
         r = cm.t2({}, clocks, 120_000)
@@ -300,10 +422,61 @@ class Rules(unittest.TestCase):
         b[100]['timestamp'] = b[0]['timestamp'] + 499
         self.assertEqual(cm.t6(b, [], None)['first100MeanSeconds']['verdict'], 'miss', '4.99 s')
         day = lambda step: cm.t6(chain(int(86400 / step) + 20, step), [], None)['dayMeans'][0]
-        self.assertEqual(day(10.5)['verdict'], 'pass')
+
+        def exactly(mean, start=1_800_000_000):
+            """A first day holding exactly 86,400 / mean blocks: whole intervals of integer lengths, then one interval
+            across midnight whose share inside the day is the remaining fraction (integer timestamps, as on the chain)."""
+            n = Fraction(86400) / Fraction(mean)
+            k, frac = int(n), n - int(n)
+            length = frac.denominator * -(-mean // frac.denominator)
+            inside = frac.numerator * (length // frac.denominator)
+            total = 86400 - inside
+            ts = [0] + [total // k * i + min(i, total % k) for i in range(1, k + 1)] + [86400 - inside + int(length) + 10 * i for i in range(20)]
+            return [{'height': h, 'timestamp': start + t, 'difficulty': '1', 'attempt': 0, 'signed': True, 'txCount': 0} for h, t in enumerate(ts)]
+        for mean in (Fraction(19, 2), Fraction(21, 2)):
+            d0 = cm.t6(exactly(mean), [], None)['dayMeans'][0]
+            self.assertEqual((d0['meanSeconds'], d0['verdict']), (float(mean), 'pass'), mean)
         self.assertEqual(day(10.52)['verdict'], 'miss')
-        self.assertEqual(day(9.5)['verdict'], 'pass')
-        self.assertEqual(cm.t6(chain(200, 10), [], None)['dayMeans'], [{'verdict': 'not measured (less than 24 h of blocks)'}])
+        self.assertEqual(day(9.48)['verdict'], 'miss')
+        self.assertEqual(day(10)['verdict'], 'pass')
+        self.assertEqual(cm.t6(chain(200, 10), [], None)['dayMeans'], [{'verdict': 'not measured (less than 24 h from genesis to the end)'}])
+        self.assertIsNone(cm.t6(chain(200, 10), [], None)['afterLastBlock']['endUnixMs'])
+        # A stall across midnight is counted in the day it falls in: blocks every 10 s for an hour, then none until the
+        # next day starts. The day's active hour alone would give 10 s.
+        stall = chain(361, 10) + [dict(b, height=361 + i, timestamp=1_800_000_000 + 86400 + 10 * i) for i, b in enumerate(chain(100, 10))]
+        d0 = cm.t6(stall, [], None)['dayMeans'][0]
+        self.assertEqual((d0['day'], d0['blocks'], d0['longestIntervalSeconds'], d0['verdict']), (0, 361, 82800, 'miss'))
+        self.assertAlmostEqual(d0['meanSeconds'], 86400 / 361)
+        # A day without any block is listed, as stalled, and misses.
+        gap = chain(8641, 10) + [dict(b, height=8641 + i, timestamp=1_800_000_000 + 2 * 86400 + 10 * (i + 1)) for i, b in enumerate(chain(10, 10))]
+        days = cm.t6(gap, [], None)['dayMeans']
+        self.assertEqual([(x['day'], x['blocks'], x['stalled'], x['verdict']) for x in days], [(0, 8640, False, 'pass'), (1, 0, True, 'miss')])
+        self.assertAlmostEqual(days[1]['meanSeconds'], 86410)
+        # A stall that crosses midnight is shared by the share of it in each day, not counted twice.
+        cross = chain(8461, 10) + [dict(b, height=8461 + i, timestamp=1_800_000_000 + 84600 + 3600 + 10 * i) for i, b in enumerate(chain(8800, 10))]
+        days = cm.t6(cross, [], None)['dayMeans']
+        self.assertAlmostEqual(days[0]['meanSeconds'], 86400 / 8460.5)
+        self.assertEqual([x['verdict'] for x in days], ['pass', 'pass'])
+        # A halt before the end of the run: blocks every 10 s for 5.5 days, the last block still the head 1.5 days later.
+        # The half day and the full day without a block are listed and miss, and the time without a block is reported.
+        halt = chain(int(5.5 * 8640) + 1, 10)
+        end = {'unixMs': (1_800_000_000 + 7 * 86400) * 1000, 'source': 'test'}
+        r = cm.t6(halt, [], None, end)
+        self.assertEqual([(x['day'], x['stalled'], x['verdict']) for x in r['dayMeans']],
+                         [(0, False, 'pass'), (1, False, 'pass'), (2, False, 'pass'), (3, False, 'pass'), (4, False, 'pass'),
+                          (5, False, 'miss'), (6, True, 'miss')])
+        self.assertAlmostEqual(r['dayMeans'][5]['meanSeconds'], 20)
+        self.assertEqual((r['dayMeans'][5]['longestIntervalSeconds'], r['dayMeans'][6]['longestIntervalSeconds']), (1.5 * 86400, 1.5 * 86400))
+        self.assertEqual((r['afterLastBlock']['secondsWithoutBlock'], r['afterLastBlock']['partialDaySeconds']), (1.5 * 86400, 0))
+        # Without the end, only the five full days before the halt are listed.
+        self.assertEqual(len(cm.t6(halt, [], None)['dayMeans']), 5)
+        # A chain that stops within its first day, the end a day later: the first day is listed and misses.
+        r = cm.t6(chain(200, 10), [], None, {'unixMs': (1_800_000_000 + 90000) * 1000, 'source': 'test'})
+        self.assertEqual([(x['day'], x['blocks'], x['verdict']) for x in r['dayMeans']], [(0, 199, 'miss')])
+        self.assertEqual(r['afterLastBlock']['partialDaySeconds'], 3600)
+        # An end before the last block's timestamp (clock skew) adds nothing.
+        r = cm.t6(chain(8700, 10), [], None, {'unixMs': 1_800_000_000 * 1000, 'source': 'test'})
+        self.assertEqual((len(r['dayMeans']), r['afterLastBlock']['secondsWithoutBlock']), (1, 0))
         d = cm.t6(chain(200, 10), [], 100)['difficulty']
         self.assertEqual((d['verdict'], d['maxDeviationFromTrailing60Mean'], d['blocksToWithin5PercentAfterStep']), ('definition to confirm', 0.0, 1))
 
@@ -342,6 +515,48 @@ class Merge(unittest.TestCase):
         self.assertEqual(cm.main(['merge', '--in', s1, '--blocks', bad_blocks, '--out', str(out2)]), 3)
         self.assertEqual(cm.main(['merge', '--in', s1, '--address', 'pc=0xABC', '--out', str(out2)]), 3)
         self.assertFalse(out2.exists())
+
+
+    def test_the_end_of_the_blocks_is_known_from_the_header_or_a_sample(self):
+        blocks = [{'height': h, 'hash': '0x%064x' % h, 'timestamp': 1_800_000_000 + 10 * h, 'difficulty': '100', 'attempt': 0,
+                   'signed': True, 'txCount': 0} for h in range(201)]
+        header = {'kind': 'chain', **IDENT, 'fromHeight': 0, 'toHeight': 200, 'headHeight': 200, 'headHash': blocks[-1]['hash'],
+                  'collectedUnixMs': (1_800_000_000 + 2 * 86400) * 1000}
+        head = lambda t, h, hsh: dict(sample('s1', t), status={**sample('s1', t)['status'], 'head': {'height': h, 'hash': hsh, 'ts': 1}})
+        self.assertEqual(cm.blocks_end(header, blocks, {})['unixMs'], header['collectedUnixMs'])
+        # Written below the head, or by an older collector: the header says nothing; a later sample at the last block does.
+        for h in (dict(header, headHeight=201), {k: v for k, v in header.items() if k != 'collectedUnixMs'}):
+            self.assertIsNone(cm.blocks_end(h, blocks, {}))
+            later = head(1_800_000_000 + 3 * 86400, 200, blocks[-1]['hash'])
+            got = cm.blocks_end(h, blocks, {'s1': [head(0, 100, '0x01'), later]})
+            self.assertEqual(got['unixMs'], later['unixMs'])
+            self.assertIn('sample s1', got['source'])
+            self.assertIsNone(cm.blocks_end(h, blocks, {'s1': [head(1_800_000_000 + 3 * 86400, 200, '0x' + 'ee' * 32)]}), 'another block 200')
+        # The latest of the two.
+        self.assertEqual(cm.blocks_end(header, blocks, {'s1': [head(1_800_000_000 + 3 * 86400, 200, blocks[-1]['hash'])]})['unixMs'],
+                         (1_800_000_000 + 3 * 86400) * 1000)
+        # Through merge, the stalled day after the last block is listed.
+        bpath = self.write('blocks.jsonl', [header] + blocks)
+        spath = self.write('s1.jsonl', [sample('s1', 0)])
+        out = self.dir / 'r.json'
+        self.assertEqual(cm.main(['merge', '--in', spath, '--blocks', bpath, '--out', str(out)]), 0)
+        t6 = json.loads(out.read_text(encoding='utf-8'))['T6']
+        self.assertEqual([(x['day'], x['stalled'], x['verdict']) for x in t6['dayMeans']], [(0, False, 'miss'), (1, True, 'miss')])
+        self.assertEqual(t6['afterLastBlock']['secondsWithoutBlock'], 2 * 86400 - 2000)
+
+    def test_blocks_records_the_head_and_when_it_was_read(self):
+        def block(h):
+            return {'result': {'number': hex(h), 'hash': '0x%064x' % h, 'parentHash': '0x%064x' % max(h - 1, 0), 'timestamp': hex(1_800_000_000 + 10 * h),
+                               'difficulty': hex(100), 'gasUsed': '0x0', 'transactions': [], 'pocol': {'attempt': 0, 'signed': True}}}
+        n = FakeNode({'pocol_status': [{'result': status(height=2)}], 'eth_getBlockByNumber': [block(0), block(1), block(2)]})
+        self.addCleanup(n.close)
+        out = self.dir / 'blocks.jsonl'
+        before = int(time.time() * 1000)
+        self.assertEqual(cm.main(['blocks', '--rpc', n.url, '--out', str(out)]), 0)
+        lines = cm.read_jsonl(out)
+        self.assertEqual((lines[0]['toHeight'], lines[0]['headHeight'], lines[0]['headHash']), (2, 2, '0x' + '01' * 32))
+        self.assertTrue(before <= lines[0]['collectedUnixMs'] <= int(time.time() * 1000))
+        self.assertEqual([b['height'] for b in lines[1:]], [0, 1, 2])
 
 
 class Scripts(unittest.TestCase):
