@@ -13,15 +13,31 @@ pub enum Scope{
     /// read an RpcGuard field the node does not enforce are waived and reported; every other
     /// rule is evaluated exactly as in `Specification`. Never specification compliance.
     ExperimentalDevnet,
+    /// "public-network" (OWNER-DECISIONS-2026-11-20 D5 and D6): a public network's boot admission. It is chain-id
+    /// gated: only ProfileKind::Network on NodeKind::Node, and only for a chain in `profile::PUBLIC_NETWORK_CHAINS` (any
+    /// other request is refused as R22). Every condition is reported, none is dropped and none rejects. Three rules are
+    /// waived explicitly, each reported as a `Waiver` with its detail, and only at clause level: R13's continuous-kind
+    /// term (the network profile runs the continuous protocol, which R13 admits only for a simnet profile on a simnet
+    /// node; a finite schedule that fails R13 is never waived), R21's history-budget term (the retained-state bound above
+    /// HIST_TRIE_BUDGET; the retained-blocks term and missing resource facts are never waived), and, as in
+    /// `ExperimentalDevnet`, the R26 predicates that read an RpcGuard field the node does not enforce. Every other rule
+    /// is evaluated exactly as in `Specification`.
+    /// It is never specification compliance (`Admitted::specification_compliant` is false: its scope is not
+    /// `Specification`), and it says nothing about which genesis is approved: only a release pin of the network
+    /// (pocold readiness.rs `NETWORK_PROFILES`) with an approval reference does. Every producer that shows it also shows
+    /// `specificationCompliant: false` and the approval and pin state.
+    PublicNetwork,
 }
-impl Scope{pub fn name(self)->&'static str{match self{Scope::Specification=>"specification",Scope::ExperimentalDevnet=>"experimental-devnet"}}}
+impl Scope{pub fn name(self)->&'static str{match self{Scope::Specification=>"specification",Scope::ExperimentalDevnet=>"experimental-devnet",Scope::PublicNetwork=>"public-network"}}}
 
 /// Why an admitted profile is not specification evidence. `Specification` rejects with `rules`.
 #[derive(Clone,Debug,PartialEq,Eq)]
 pub struct Condition{pub id:&'static str,pub rules:&'static [&'static str],pub detail:String}
-/// R26 predicates not evaluated because they read absent fields.
+/// A rule partly not enforced by an admission: the predicates or terms `waived`, those still `checked`, the absent
+/// fields they read (R26), and `detail`, why. R26 (ExperimentalDevnet and PublicNetwork): predicates that read absent
+/// RpcGuard fields. R13 and R21 (PublicNetwork only): the owner's explicit clause-level waivers.
 #[derive(Clone,Debug,PartialEq,Eq)]
-pub struct Waiver{pub rule:&'static str,pub absent:Vec<&'static str>,pub waived:Vec<&'static str>,pub checked:Vec<&'static str>}
+pub struct Waiver{pub rule:&'static str,pub absent:Vec<&'static str>,pub waived:Vec<&'static str>,pub checked:Vec<&'static str>,pub detail:String}
 
 /// The RpcGuard fields of `param_gate::RpcLimits`, in declaration order, listed once: the macro
 /// derives RPC_FIELDS, the field lookup and an exhaustive destructuring of RpcLimits (no `..`),
@@ -117,5 +133,6 @@ pub fn r26_partial_for(f:&RpcFacts,v3:bool)->(Waiver,Vec<&'static str>){
     let reads_absent=|p:&Pred|p.1.iter().any(|x|f.absent.contains(x));
     let checked:Vec<&Pred>=r26_predicates(v3).filter(|p|!reads_absent(p)).collect();
     let failed=checked.iter().filter(|p|!(p.2)(&f.values)).map(|p|p.0).collect();
-    (Waiver{rule:"R26",absent:f.absent.clone(),waived:r26_predicates(v3).filter(|p|reads_absent(p)).map(|p|p.0).collect(),checked:checked.iter().map(|p|p.0).collect()},failed)
+    (Waiver{rule:"R26",absent:f.absent.clone(),waived:r26_predicates(v3).filter(|p|reads_absent(p)).map(|p|p.0).collect(),checked:checked.iter().map(|p|p.0).collect(),
+        detail:"RpcGuard predicates that read fields this node does not enforce are not evaluated".into()},failed)
 }

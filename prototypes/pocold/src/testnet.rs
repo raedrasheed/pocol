@@ -20,7 +20,7 @@ use pocol_lp4_execution::{
     devnet,
     gate::FactClass,
     genesis_spec::{self as gs, GenesisSpec, Member},
-    profile::{ConsensusParams, NodeKind, ProfileIdentity, ProfileKind},
+    profile::{ConsensusParams, ProfileIdentity, ProfileKind},
 };
 use revm::{
     primitives::{AccountInfo, Address, U256},
@@ -618,14 +618,17 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
         m0_list: members,
         sys_code_hash: programs.sys_code_hash().0,
     };
+    // OWNER-DECISIONS-2026-11-20 D5: the kinds and scope of this chain (`boot_admission`): the network profile on a
+    // network node in scope public-network on a public network chain, else a simnet profile on a simnet node.
+    let (kind, node, scope) = crate::boot_admission(cfg.chain_id);
     let identity = |spec: &GenesisSpec| {
         let bytes = gs::encode(spec);
         ProfileIdentity::validate(
             &bytes,
             &gs::genesis_hash(&bytes),
             spec.chain_id,
-            ProfileKind::Simnet,
-            NodeKind::Simnet,
+            kind,
+            node,
             &[(1, 0)],
         )
         .map_err(|_| "invalid profile identity")
@@ -644,19 +647,21 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
         spec_bytes: &bytes,
         alloc: &alloc,
         forks: &[(1, 0)],
-        kind: ProfileKind::Simnet,
-        node: NodeKind::Simnet,
+        kind,
+        node,
         local: &local,
         calibration: Some((cfg.hash_rate, if measured { FactClass::Measurement } else { FactClass::SyntheticFixture })),
         timing: Some(&timing),
-        scope: admission::Scope::ExperimentalDevnet,
+        scope,
     };
     let admitted = admission::admit(&request).map_err(|e| e.to_string())?;
     if input.profile.is_some() { check_founders(&input, admitted.genesis(), devnet::from_fixed(&params.B_reg))?; }
     let bound = supply_bound(admitted.genesis().initial_supply(), &params)?;
+    let public = scope == admission::Scope::PublicNetwork;
     let info = serde_json::json!({"chainId":cfg.chain_id, "genesisHash":crate::types::hex(&profile.genesis_hash()),
-        "genesisTime":cfg.g_ts, "profileKind":"simnet", "keyMode":"independent-key-files", "forks":[[1,0]],
-        "note":"Experimental candidate only; independent keys do not establish public-network readiness.",
+        "genesisTime":cfg.g_ts, "profileKind":if kind == ProfileKind::Network { "network" } else { "simnet" }, "keyMode":"independent-key-files", "forks":[[1,0]],
+        "note":if public { "Public network genesis admitted in scope public-network with its reported conditions and waivers; not specification compliance; launch approval and readiness are reported by a node booted on it." }
+            else { "Experimental candidate only; independent keys do not establish public-network readiness." },
         "registrationPerBlock":params.R_max,
         "miners":input.miners.iter().map(|m|serde_json::json!({"id":m.id,"reward":m.reward})).collect::<Vec<_>>(),
         "calibration":{"hashesPerSecond":cfg.hash_rate,"class":if measured {"measurement"} else {"synthetic-fixture"}},
@@ -693,7 +698,8 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
         std::fs::write(out.join(name), contents).map_err(|e| format!("write {name}: {e}"))?;
     }
     let mut summary = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),
-        "scope":admitted.scope().name()});
+        "scope":admitted.scope().name(),"profileKind":format!("{:?}",admitted.profile().kind()).to_ascii_lowercase(),
+        "nodeKind":format!("{:?}",admitted.profile().node_kind()).to_ascii_lowercase()});
     if test_filled {
         summary["testPlaceholders"] = serde_json::json!(true);
         summary["profileChainId"] = profile_chain_id.unwrap_or_default();

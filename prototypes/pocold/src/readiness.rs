@@ -23,7 +23,7 @@
 //!
 //! Node-local reporting only: no validity verdict, fork choice or persisted byte reads it. Deployment branding
 //! (`network_display`) is never readiness evidence: a designated network reports the same blockers.
-use pocol_lp4_execution::{admission::{self,Admitted,Scope},profile::{NodeKind,ProfileKind}};
+use pocol_lp4_execution::{admission::{self,Admitted,Scope},profile::{network_chain,NodeKind,ProfileKind}};
 
 /// One reason the network is not ready for a public launch: a stable id and what is missing.
 #[derive(Clone,Debug,PartialEq,Eq)]
@@ -68,11 +68,12 @@ impl ExpectedAdmission{
             (self.profile_kind!=other.profile_kind,"profile kind"),(self.node_kind!=other.node_kind,"node kind")]
             .into_iter().filter(|(d,_)|*d).map(|(_,f)|f).collect()
     }
-    /// The pinned admission's facts on `chain_id`: as at boot, a network profile counts only on the R22 chain.
+    /// The pinned admission's facts on `chain_id`: as at boot, a network profile counts only on an R22 network chain
+    /// (`profile::network_chain`: 777001 or a public network chain).
     pub fn facts(&self,chain_id:u64)->AdmissionFacts{
         AdmissionFacts{scope:self.scope.name().into(),conditions:self.conditions.iter().map(|c|c.to_string()).collect(),
             waivers:self.waivers.iter().map(|w|w.to_string()).collect(),
-            network_profile:self.profile_kind==ProfileKind::Network&&self.node_kind==NodeKind::Node&&chain_id==R22_NETWORK_CHAIN_ID}
+            network_profile:self.profile_kind==ProfileKind::Network&&self.node_kind==NodeKind::Node&&network_chain(chain_id)}
     }
 }
 /// V3-28 H2: one launch network this release pins, (chainId, genesisHash), with the admission it expects there.
@@ -86,7 +87,8 @@ pub struct NetworkProfile{pub chain_id:u64,pub genesis_hash:[u8;32],pub admissio
 /// `,`; the declaration stays on one line in that form. The entry pins the decided launch admission, not `LAUNCH`, and
 /// removes only `network-not-release-pinned` for its network: a booted node still reports the admission it booted with,
 /// and the launcher keeps `admission-not-booted` (naming the fields that differ from `LAUNCH`) and the blockers of the
-/// admission devnet.json records. On the fresh network's chains `profile-kind` stays in any case (R22).
+/// admission devnet.json records. On the rehearsal chain `profile-kind` stays in any case (R22); on a public network
+/// chain (`profile::PUBLIC_NETWORK_CHAINS`) a node boots the network profile in scope public-network (OWNER-DECISIONS-2026-11-20 D5).
 pub const NETWORK_PROFILES:&[NetworkProfile]=&[];
 /// A genesis hash written as 64 lower-case hex digits, as `pocol_status` reports it without `0x`, decoded at compile
 /// time in a `NETWORK_PROFILES` entry (a malformed one does not compile).
@@ -113,8 +115,6 @@ impl Build{
             test_features,v3_launch_blockers:admission::V3_LAUNCH_BLOCKERS.to_vec(),plan_gates_open:PLAN_GATES_OPEN.to_vec(),network_profiles:NETWORK_PROFILES.to_vec()}
     }
 }
-/// R22 (p1_profile.rs `ProfileIdentity::validate`): the network profile exists only on this chain id.
-pub const R22_NETWORK_CHAIN_ID:u64=777001;
 /// At most this many distinct recorded condition ids and waiver rules are reflected each; past it one `overflow`
 /// entry stands for the rest.
 pub const RECORDED_MAX:usize=32;
@@ -150,7 +150,8 @@ impl AdmissionFacts{
     /// `chain_id`; None when there is none. Informational only (`Admission::Recorded` keeps `admission-not-booted`
     /// unless a launch pin of the network matches, and is then not read at all): nothing missing
     /// or malformed reads as cleared, ids outside the gate's shape read `unreadable`, each list is deduplicated and
-    /// capped at `RECORDED_MAX` (then `overflow`), and a recorded network profile counts only on the R22 chain.
+    /// capped at `RECORDED_MAX` (then `overflow`), and a recorded network profile counts only on an R22 network chain
+    /// (`profile::network_chain`).
     pub fn recorded(info:&serde_json::Value,chain_id:u64)->Option<Self>{
         let a=info.get("admission")?.as_object()?;
         let ids=|key:&str,field:&str,read:fn(&serde_json::Value)->String|->Vec<String>{
@@ -165,7 +166,7 @@ impl AdmissionFacts{
         };
         let scope=match a.get("scope"){None=>"unrecorded".into(),Some(s)=>recorded_id(s)};
         Some(Self{scope,conditions:ids("conditions","id",recorded_id),waivers:ids("waivers","rule",recorded_rule),
-            network_profile:chain_id==R22_NETWORK_CHAIN_ID&&info["profileKind"].as_str().is_some_and(|k|k.eq_ignore_ascii_case("network"))})
+            network_profile:network_chain(chain_id)&&info["profileKind"].as_str().is_some_and(|k|k.eq_ignore_ascii_case("network"))})
     }
 }
 /// The network's facts.
@@ -320,7 +321,8 @@ mod tests{
             n.admission=recorded.clone();
             assert_eq!(blockers(&b,Subject::Network(&n)),[],"{recorded:?}");
         }
-        assert_eq!(ExpectedAdmission::LAUNCH.facts(R22_NETWORK_CHAIN_ID),cleared());
+        assert_eq!(ExpectedAdmission::LAUNCH.facts(777001),cleared());
+        assert!(ExpectedAdmission::LAUNCH.facts(2656089850).network_profile,"R22: a public network chain");
         assert!(!ExpectedAdmission::LAUNCH.facts(1656550731).network_profile,"R22");
         // The same pinned network with any one field of its expected admission changed keeps the blocker, and
         // its detail names the pin.
@@ -354,8 +356,8 @@ mod tests{
         assert_eq!(NETWORK_PROFILES,want.as_slice());assert_eq!(Build::this().network_profiles,want);
         assert!(NETWORK_PROFILES.iter().all(|p|p.admission!=ExpectedAdmission::LAUNCH));
         // An unpinned network, and each pinned one, with a devnet.json recording a cleared admission.
-        assert!(!NETWORK_PROFILES.iter().any(|p|(p.chain_id,p.genesis_hash)==(R22_NETWORK_CHAIN_ID,[9;32])));
-        let n=Network{chain_id:R22_NETWORK_CHAIN_ID,genesis_hash:[9;32],v3_active:true,admission:forged()};
+        assert!(!NETWORK_PROFILES.iter().any(|p|(p.chain_id,p.genesis_hash)==(777001,[9;32])));
+        let n=Network{chain_id:777001,genesis_hash:[9;32],v3_active:true,admission:forged()};
         let got=blockers(&Build::this(),Subject::Network(&n));let got=ids(&got);
         assert!(got.contains(&"admission-not-booted")&&got.contains(&"network-not-release-pinned"),"{got:?}");
         for p in NETWORK_PROFILES{
@@ -373,8 +375,10 @@ mod tests{
         assert_eq!(a,AdmissionFacts{scope:"experimental-devnet".into(),conditions:vec!["calibration-synthetic".into(),"unreadable".into()],waivers:vec!["R26".into()],network_profile:false});
         let a=AdmissionFacts::recorded(&serde_json::json!({"profileKind":"Network","admission":{}}),777001).unwrap();
         assert_eq!(a,AdmissionFacts{scope:"unrecorded".into(),conditions:vec!["unreadable".into()],waivers:vec!["unreadable".into()],network_profile:true});
-        // R22: a recorded network profile on any other chain is not one (the boot refuses it).
-        for chain in [123456789,777002,0]{
+        // R22: a recorded network profile on a public network chain is one, on any other chain it is not (the boot
+        // refuses it).
+        assert!(AdmissionFacts::recorded(&serde_json::json!({"profileKind":"network","admission":{}}),2656089850).unwrap().network_profile);
+        for chain in [123456789,777002,0,1656550731,777990]{
             assert!(!AdmissionFacts::recorded(&serde_json::json!({"profileKind":"network","admission":{}}),chain).unwrap().network_profile,"{chain}");
         }
     }

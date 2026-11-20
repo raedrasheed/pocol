@@ -3,7 +3,7 @@ use crate::fixed::{U256, U512};
 use crate::genesis_spec as gs;
 use crate::hashes::{sha256, H256};
 use crate::param_gate::{registry_metrics, RpcLimits};
-use crate::profile::{ConsensusParams, ForkSchedule, NodeKind, ProfileKind};
+use crate::profile::{network_chain, ConsensusParams, ForkSchedule, NodeKind, ProfileKind};
 
 pub const RESOURCE_MODEL: &str = "pocol-lp3-numeric-facts-v1";
 #[derive(Clone, Debug)]
@@ -197,6 +197,12 @@ pub struct GateReport {
     pub identity_class: Option<FactClass>,
     pub calibration_class: Option<FactClass>,
     pub deferred: [&'static str; 3],
+    /// The failing sub-terms of R13 and R21, in this order when present: "R13:continuous-kind" (a continuous profile
+    /// that is not a simnet profile on a simnet node), "R13:schedule" (a finite schedule's checks), "R21:resource-facts"
+    /// (no bound resource facts), "R21:retained-blocks" (retained_blocks < min(k_hist, H_END)) and
+    /// "R21:history-budget" (historical_trie_bytes > hist_trie_budget outside the simnet retentionStress exception).
+    /// Reporting only: the verdicts are `violations`, which these terms do not change.
+    pub terms: Vec<&'static str>,
 }
 impl GateReport {
     pub fn accepted(&self) -> bool {
@@ -315,8 +321,9 @@ pub fn check(
     bad[11] = c.M_min < 1 || members < c.M_min as usize || members > c.M_max as usize;
     // All four zero values explicitly select the continuous protocol; partial zero profiles are invalid.
     let continuous=c.H_END==0 && c.H_CLOSE==0 && c.T_END==0 && c.T_CLOSE==0;
-    bad[12] = if continuous {p.kind!=ProfileKind::Simnet || node!=NodeKind::Simnet} else {
-        c.H_END==0 || c.T_END==0 || c.H_END <= c.Z_close as u64 || c.H_CLOSE as u128 + c.Z_close as u128 > c.H_END as u128 || c.T_CLOSE > c.T_END};
+    let r13_continuous_kind = continuous && (p.kind!=ProfileKind::Simnet || node!=NodeKind::Simnet);
+    let r13_schedule = !continuous && (c.H_END==0 || c.T_END==0 || c.H_END <= c.Z_close as u64 || c.H_CLOSE as u128 + c.Z_close as u128 > c.H_END as u128 || c.T_CLOSE > c.T_END);
+    bad[12] = if continuous {r13_continuous_kind} else {r13_schedule};
     let binding = p.binding();
     let rf = resource.filter(|r| r.profile_binding == binding && r.model == RESOURCE_MODEL && r.artifact != [0; 32]);
     if rf.is_none() {
@@ -351,11 +358,21 @@ pub fn check(
     });
     bad[18] = phases.map_or(true, |r| r.phases.iter().any(|f| f.duration_ms as u128 > t * 1000));
     bad[19] = reg.as_ref().map_or(true, |r| (c.Z_close as u128) < r.close_blocks_required);
-    bad[20] = rf.map_or(true, |r| {
-        r.retained_blocks < (l.k_hist as u64).min(if continuous{u64::MAX}else{c.H_END})
-            || (r.historical_trie_bytes > l.hist_trie_budget && !(p.kind == ProfileKind::Simnet && node == NodeKind::Simnet && l.retention_stress))
-    });
-    bad[21] = (node == NodeKind::Node && p.kind != ProfileKind::Network) || ((p.kind == ProfileKind::Network) != (p.chain_id == 777001));
+    let r21_retained = |r: &ResourceFacts| r.retained_blocks < (l.k_hist as u64).min(if continuous{u64::MAX}else{c.H_END});
+    let r21_history = |r: &ResourceFacts| r.historical_trie_bytes > l.hist_trie_budget && !(p.kind == ProfileKind::Simnet && node == NodeKind::Simnet && l.retention_stress);
+    bad[20] = rf.map_or(true, |r| r21_retained(r) || r21_history(r));
+    let terms: Vec<&'static str> = [
+        (r13_continuous_kind, "R13:continuous-kind"),
+        (r13_schedule, "R13:schedule"),
+        (rf.is_none(), "R21:resource-facts"),
+        (rf.map_or(false, r21_retained), "R21:retained-blocks"),
+        (rf.map_or(false, r21_history), "R21:history-budget"),
+    ]
+    .into_iter()
+    .filter(|(b, _)| *b)
+    .map(|(_, t)| t)
+    .collect();
+    bad[21] = (node == NodeKind::Node && p.kind != ProfileKind::Network) || ((p.kind == ProfileKind::Network) != network_chain(p.chain_id));
     let id = identity.filter(|i| i.profile_binding == binding && i.model == RESOURCE_MODEL && i.artifact != [0; 32]);
     if id.is_none() {
         missing.push("identityFacts:missing-or-binding-model-artifact-mismatch");
@@ -394,5 +411,6 @@ pub fn check(
         identity_class: id.map(|i| i.class),
         calibration_class: cal.map(|i| i.class),
         deferred: ["LP4:general-R18", "LP4:general-R21", "LP4:caps64-minimum-SYS_SLOT_MAX"],
+        terms,
     }
 }

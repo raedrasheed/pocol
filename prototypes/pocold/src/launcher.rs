@@ -890,11 +890,14 @@ impl Home {
         let info = after.info()?;
         let genesis: [u8; 32] = types::unhex(info["genesisHash"].as_str().ok_or("missing genesis hash")?)?
             .try_into().map_err(|_| "invalid genesis hash")?;
+        let chain_id = info["chainId"].as_u64().ok_or("missing chain ID")?;
+        // The kinds a node boots this chain with (`boot_admission`, OWNER-DECISIONS-2026-11-20 D5).
+        let (kind, node, _) = crate::boot_admission(chain_id);
         pocol_lp4_execution::profile::ProfileIdentity::validate_with_raise(
             &types::unhex(after.files["genesis.spec.hex"].trim())?, &genesis,
-            info["chainId"].as_u64().ok_or("missing chain ID")?,
-            pocol_lp4_execution::profile::ProfileKind::Simnet,
-            pocol_lp4_execution::profile::NodeKind::Simnet,
+            chain_id,
+            kind,
+            node,
             &crate::configured_forks(&info)?,
             crate::configured_cap_raise(&info)?.as_ref(),
         ).map_err(|e| format!("upgraded network profile: {e:?}"))?;
@@ -1134,9 +1137,9 @@ mod upgrade_tests {
         assert!(before.iter().any(|b| b == "admission-scope") && before.iter().any(|b| b.starts_with("admission-condition-")), "{before:?}");
         let forged = forged_admission(&honest);
         // Only the launcher's own blocker remains (genesis.spec.hex commits to a v3 genesis: no v3-inactive), and
-        // profile-kind, since R22 allows the network profile only on chain 777001.
+        // profile-kind, since R22 allows the network profile only on a network chain (777001 or a public network chain).
         assert_eq!(ids(&forged, &pinned), ["admission-not-booted", "profile-kind"]);
-        assert_ne!(chain_id, crate::readiness::R22_NETWORK_CHAIN_ID);
+        assert!(!pocol_lp4_execution::profile::network_chain(chain_id));
         // Unpinned (this release's NETWORK_PROFILES, empty), the forged file also keeps the blocker.
         let unpinned = crate::readiness::Build { network_profiles: vec![], ..pinned.clone() };
         assert_eq!(ids(&forged, &unpinned), ["network-not-release-pinned", "admission-not-booted", "profile-kind"]);
@@ -1151,7 +1154,8 @@ mod upgrade_tests {
     }
     /// V3-28 H2 (1): a network pinned with exactly the launch admission drops `admission-not-booted`, and the pin, not
     /// devnet.json, is the admission the description reads: the honest experimental record and a forged cleared one
-    /// give the same blockers. Here only profile-kind remains, since R22 allows the network profile only on 777001.
+    /// give the same blockers. Here only profile-kind remains, since R22 allows the network profile only on a network
+    /// chain (777001 or a public network chain), which this devnet's is not.
     #[test]
     fn a_pinned_launch_admission_clears_admission_not_booted() {
         use crate::readiness::ExpectedAdmission;

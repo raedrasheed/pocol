@@ -513,3 +513,132 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
     assert_eq!(SystemPrograms::program_set(n.profile.cp(),&n.programs.sys_code_hash().0),Some(ProgramSet::V3));
     assert_eq!(SystemPrograms::for_spec(n.profile.cp(),&n.programs.sys_code_hash().0).unwrap().sys_code_hash(),SystemPrograms::v3().sys_code_hash());
 }
+
+// OWNER-DECISIONS-2026-11-20 D5: the public-network scope (`Scope::PublicNetwork`). devnet::build refuses a network
+// chain, so these tests re-encode a devnet genesis on the chain under test, with its allocRoot re-derived for it.
+const MAINNET_CHAIN:u64=2656089850;
+fn on_chain(n:&Devnet,chain:u64)->Vec<u8>{
+    let mut spec=gs::decode(&n.spec_bytes).unwrap();spec.chain_id=chain;
+    let b=gs::encode(&spec);let p=fact_identity(&b,&gs::genesis_hash(&b),chain).unwrap();
+    spec.alloc_root=Genesis::derive_root(&n.alloc,&p,&n.programs).unwrap().0;gs::encode(&spec)
+}
+/// The network profile on a network node in scope public-network, for `bytes`, with `t` rebound to it.
+fn public<'a>(n:&'a Devnet,bytes:&'a [u8],local:&'a NodeLocal,t:&'a Timing)->Request<'a>{
+    Request{spec_bytes:bytes,kind:ProfileKind::Network,node:NodeKind::Node,scope:Scope::PublicNetwork,timing:Some(t),..n.request(local,None)}
+}
+fn waiver_rules(a:&Admitted)->Vec<&'static str>{a.report().waivers.iter().map(|w|w.rule).collect()}
+fn condition_ids(a:&Admitted)->Vec<&'static str>{a.report().conditions.iter().map(|c|c.id).collect()}
+
+#[test] fn public_network_admits_the_network_profile_on_a_public_chain_with_explicit_waivers(){
+    assert_eq!(Scope::PublicNetwork.name(),"public-network");
+    let (n,t)=base();let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    // The lp4 fixture (complete RpcGuard values): R13's continuous-kind term is the only waiver.
+    let a=admit(&public(&n,&b,&sh(),&tt)).unwrap_or_else(|e|panic!("{e}"));
+    assert_eq!(a.scope(),Scope::PublicNetwork);assert!(!a.specification_compliant());
+    assert_eq!((a.profile().kind(),a.profile().node_kind(),a.profile().spec().chain_id),(ProfileKind::Network,NodeKind::Node,MAINNET_CHAIN));
+    assert_eq!(waiver_rules(&a),["R13"]);
+    let w=&a.report().waivers[0];
+    assert_eq!((w.absent.clone(),w.waived.clone(),w.checked.clone()),(vec![],vec!["continuous-kind"],vec!["continuous: H_END=H_CLOSE=T_END=T_CLOSE=0"]));
+    assert_eq!(w.detail,"continuous protocol on the network profile; R13 admits it only for a simnet profile on a simnet node; waived by OWNER-DECISIONS-2026-11-20 D5");
+    // Every condition is reported, as in ExperimentalDevnet; none is dropped and none rejects.
+    for id in ["rpc-fixture","calibration-synthetic","continuous-protocol","timing-not-a-bound","gas-monotonicity-assumed","gate-deferred-general-R18","gate-deferred-general-R21","gate-deferred-caps64"]{
+        assert!(condition_ids(&a).contains(&id),"{id}: {:?}",condition_ids(&a));}
+    assert!(!a.report().r21_exception&&!condition_ids(&a).contains(&"r21-retention-stress"));
+    // pocold's facts: the R26 waiver as in ExperimentalDevnet, after R13 (rule order).
+    let a=admit(&public(&n,&b,&NodeLocal{rpc:pocold_like(),..sh()},&tt)).unwrap_or_else(|e|panic!("{e}"));
+    assert_eq!(waiver_rules(&a),["R13","R26"]);
+    assert_eq!(a.report().waivers[1].detail,"RpcGuard predicates that read fields this node does not enforce are not evaluated");
+    assert!(condition_ids(&a).contains(&"rpc-absent"));
+    // Network-scale caps: R21's history-budget term is waived, reported with the bytes and the budget, and the waiver
+    // does not depend on the simnet retentionStress flag.
+    let mut c=cfg();c.slot_cap=4_000_000;c.acct_cap=1_000_000;let big=net(&c);let bb=on_chain(&big,MAINNET_CHAIN);let bt=rebound(&t,&bb);
+    for stress in [true,false]{
+        let local=NodeLocal{rpc:pocold_like(),retention_stress:stress,..sh()};
+        let a=admit(&public(&big,&bb,&local,&bt)).unwrap_or_else(|e|panic!("{e}"));
+        assert_eq!(waiver_rules(&a),["R13","R21","R26"],"retentionStress {stress}");
+        let r=a.report();assert!(r.r21_exception&&r.historical_bytes>HIST_TRIE_BUDGET);
+        let w=&r.waivers[1];
+        assert_eq!((w.waived.clone(),w.checked.clone()),(vec!["historicalTrieBytes<=HIST_TRIE_BUDGET"],vec!["retainedBlocks>=min(K_hist,H_END)"]));
+        assert_eq!(w.detail,format!("retained-state bound {} B exceeds HIST_TRIE_BUDGET 1717986918 B; waived by OWNER-DECISIONS-2026-11-20 D5, with the 4 GB server risk accepted by D2",r.historical_bytes));
+        assert!(!condition_ids(&a).contains(&"r21-retention-stress"),"the waiver reports the excess");
+        assert!(r.notes.iter().any(|x|*x==format!("R21: retained-state bound {} B exceeds 1717986918 B; admitted by the owner's R21 waiver (scope public-network)",r.historical_bytes)),"{:?}",r.notes);
+    }
+    // ExperimentalDevnet keeps the simnet exception's texts on the same caps.
+    let a=run(&big,&t,&sh()).unwrap();
+    assert!(condition_ids(&a).contains(&"r21-retention-stress")&&a.report().notes.iter().any(|x|x.ends_with("admitted by the simnet retentionStress exception")));
+}
+#[test] fn public_network_is_chain_gated_and_r22_stays_two_way(){
+    let (n,t)=base();let r22=if cfg!(feature="caps-test"){"caps-test"}else{"R22"};
+    // A public-network request on any chain but a public network chain is refused as R22: the devnet's own chain, the
+    // rehearsal chain, the local test chain and 777001.
+    for chain in [None,Some(1656550731),Some(777990),Some(777001)]{
+        let b=chain.map_or(n.spec_bytes.clone(),|c|on_chain(&n,c));let tt=rebound(&t,&b);
+        let e=admit(&public(&n,&b,&sh(),&tt)).err().expect("refused");assert_eq!(e.rules,v(&[r22]),"{chain:?}");
+        if r22=="R22"{assert!(e.notes[0].contains("admits only the network profile on a network node on a public network chain"),"{e}");}
+    }
+    // On the public chain: only the network profile on a network node.
+    let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    for (kind,node) in [(ProfileKind::Simnet,NodeKind::Simnet),(ProfileKind::Network,NodeKind::Simnet),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node)]{
+        let e=admit(&Request{kind,node,..public(&n,&b,&sh(),&tt)}).err().expect("refused");assert_eq!(e.rules,v(&[r22]),"{kind:?} on {node:?}");
+    }
+    // No ExperimentalDevnet boot of the public chain: a simnet request there fails R22 at the gate.
+    let e=admit(&Request{spec_bytes:&b,..n.request(&sh(),Some(&tt))}).err().expect("refused");assert_eq!(e.rules,v(&["R22"]));
+    // Specification scope still refuses the conditions on the public chain.
+    if r22=="R22"{let e=admit(&Request{scope:Scope::Specification,..public(&n,&b,&sh(),&tt)}).err().expect("refused");assert!(e.rules.contains(&"R13".to_string())&&!e.missing.is_empty(),"{e}");}
+}
+#[test] fn public_network_waives_r13_and_r21_only_at_clause_level(){
+    let (_,t)=base();
+    // A finite schedule that fails R13's schedule checks is never waived.
+    let mut c=finite();c.h_close=c.h_end;let f=net(&c);let b=on_chain(&f,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    assert_eq!(rules(admit(&public(&f,&b,&sh(),&tt))),v(&["R13"]),"H_CLOSE=H_END");
+    let mut c=finite();c.t_close_offset=c.t_end_offset+1;let f=net(&c);let b=on_chain(&f,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    assert_eq!(rules(admit(&public(&f,&b,&sh(),&tt))),v(&["R13"]),"T_CLOSE > T_END");
+    // A valid finite schedule passes R13 itself: no R13 waiver.
+    let f=net(&finite());let b=on_chain(&f,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    let a=admit(&public(&f,&b,&sh(),&tt)).unwrap_or_else(|e|panic!("{e}"));assert!(a.report().waivers.is_empty(),"{:?}",a.report().waivers);
+    // An R26 checked-predicate failure still fails.
+    let (n,t)=base();let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    let bad=RpcFacts::enforced(&[("resp_max",1000),("batch_resp_max",16<<20)]).unwrap();
+    let e=admit(&public(&n,&b,&NodeLocal{rpc:bad,..sh()},&tt)).err().unwrap();assert_eq!(e.rules,v(&["R26"]));
+    // Other rules are evaluated as in Specification: a timing above t_exec, a wrong calibration.
+    let slow=Timing{phase_ms:[10,10,1001],..tt.clone()};assert_eq!(rules(admit(&public(&n,&b,&sh(),&slow))),v(&["R14","R19"]));
+    assert_eq!(rules(admit(&Request{calibration:Some((n.hash_rate+1,FactClass::SyntheticFixture)),..public(&n,&b,&sh(),&tt)})),v(&["R25"]));
+    // The clause rule itself: exactly the one term, never another term of the rule beside or instead of it. The
+    // retained-blocks and resource-facts terms cannot arise through `admit` (retained_blocks is K_hist and the resource
+    // facts are always supplied); lp1-node tests/gate.rs shows the gate names them.
+    assert!(only_term(&["R13:continuous-kind"],"R13","continuous-kind"));
+    assert!(only_term(&["R13:continuous-kind","R21:history-budget"],"R21","history-budget"));
+    for terms in [&["R13:schedule"][..],&["R13:continuous-kind","R13:schedule"],&[]]{assert!(!only_term(terms,"R13","continuous-kind"),"{terms:?}");}
+    for terms in [&["R21:retained-blocks"][..],&["R21:retained-blocks","R21:history-budget"],&["R21:resource-facts","R21:history-budget"],&["R21:resource-facts"],&["R13:continuous-kind"]]{
+        assert!(!only_term(terms,"R21","history-budget"),"{terms:?}");}
+}
+/// FN-5 under PublicNetwork: the clause rules hold at both CPs. A raise that takes the retained state above
+/// HIST_TRIE_BUDGET only at the raised CP gets the R21 waiver with the raised bound; R13 is waived at both (continuous).
+#[test] fn public_network_clause_rules_hold_at_the_raised_cp(){
+    let (n,t)=base();let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    let cp=n.profile.cp();let raise=crate::profile::CapRaise{code_cap:cp.CODE_CAP,slot_cap:cp.SLOT_CAP,acct_cap:1<<40,sys_slot_max:cp.SYS_SLOT_MAX};
+    let forks=[(1,0),(2,5),(3,10)];
+    let strict=NodeLocal{retention_stress:false,..sh()};
+    let a=admit_with(&Request{forks:&forks,..public(&n,&b,&strict,&tt)},Some(&raise)).unwrap_or_else(|e|panic!("{e}"));
+    assert_eq!(waiver_rules(&a),["R13","R21"]);assert!(a.report().historical_bytes>HIST_TRIE_BUDGET);
+    assert!(a.report().waivers[1].detail.starts_with(&format!("retained-state bound {} B",a.report().historical_bytes)));
+    // Without the raise the same genesis needs no R21 waiver.
+    let a=admit(&public(&n,&b,&strict,&tt)).unwrap();assert_eq!(waiver_rules(&a),["R13"]);
+}
+/// Design 2e (OWNER-DECISIONS-2026-11-20 D5): the genesis does not depend on the profile kind. Two identities that differ
+/// only in their kinds give the same allocRoot, the same constructed state root and the same genesis.
+#[test] fn the_genesis_is_independent_of_the_profile_and_node_kind(){
+    let (n,_)=base();let b=on_chain(&n,MAINNET_CHAIN);let h=gs::genesis_hash(&b);
+    let network=ProfileIdentity::validate(&b,&h,MAINNET_CHAIN,ProfileKind::Network,NodeKind::Node,&[(1,0)]).unwrap();
+    for (kind,node) in [(ProfileKind::Simnet,NodeKind::Simnet),(ProfileKind::Synthetic,NodeKind::Simnet)]{
+        let other=network.with_kinds_for_test(kind,node);assert_eq!((other.kind(),other.node_kind()),(kind,node));
+        assert_eq!(Genesis::derive_root(&n.alloc,&network,&n.programs).unwrap(),Genesis::derive_root(&n.alloc,&other,&n.programs).unwrap());
+        let (ra,sa)=crate::genesis_builder::construct_state(&n.alloc,&network,&n.programs.codes).unwrap();
+        let (rb,sb)=crate::genesis_builder::construct_state(&n.alloc,&other,&n.programs.codes).unwrap();
+        assert_eq!(ra,rb);assert_eq!(apply::state_root(&sa).unwrap(),apply::state_root(&sb).unwrap());
+        let (ga,gb)=(Genesis::build(&n.alloc,&network,&n.programs).unwrap(),Genesis::build(&n.alloc,&other,&n.programs).unwrap());
+        assert_eq!(ga.root(),gb.root());assert_eq!(apply::state_root(ga.state()).unwrap(),apply::state_root(gb.state()).unwrap());
+    }
+    // And R22 refuses those kinds on the public chain at validate.
+    assert_eq!(ProfileIdentity::validate(&b,&h,MAINNET_CHAIN,ProfileKind::Simnet,NodeKind::Simnet,&[(1,0)]),Err(crate::profile::ProfileError::R22));
+}
