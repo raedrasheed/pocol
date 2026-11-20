@@ -349,7 +349,8 @@ Reasons are inferred because pocold's receipts carry no revert data and the regi
 check, and the result is then in `state.json` (`m3`) and `report.json`. It is 130 when it was stopped (what it sent
 stays recorded in flight, with no outcome, and the next run settles it), 3 when it was refused before it started (for
 example, the set is not full at the start of a fresh drill, or `--reregister-after-u` with `--victims any`, or with a
-resumed drill whose first victim the earlier run chose under `--victims any`), and 1 when
+resumed drill whose first victim the earlier run chose under `--victims any`, or `m3` without `--reregister-after-u`
+for a saved drill whose `--reregister-after-u` step has started), and 1 when
 the path could not be completed (too few removable harness members within `--wait-blocks`, a refused or unsent call, a
 transaction not included within `--include-timeout` blocks, a deregister that reverts, so that no `removeInactive` is
 sent at a full set, an identity that could not be funded, a step whose block did not reach the safe height within
@@ -357,43 +358,50 @@ sent at a full set, an identity that could not be funded, a step whose block did
 decided earlier in the drill or included the drill's transactions out of its order, a check that needs state the node
 no longer retains): the reason is on stderr, and no `m3` result is written. The
 same command resumes a drill that stopped or failed below the full set it leaves: from just before its deregister is
-sent until the free seat is taken again, the drill's progress and its earlier checks are kept in `state.json`
-(`m3Run`), and the next `m3` settles what was in flight and continues from the deregister, the `removeInactive` or the
-`register` into the free seat, without the full-set precondition and without sending again what was included (the
-result then lists `resumedAt`). Checks 1 to 4, and the deregister, keep the hash of the block that included their
-transaction (`blockHash`, `blockHashes` for check 1, `deregisterBlockHash`); the `--reregister-after-u` check, made
-after the saved drill is cleared, keeps none. A resumed run first waits until the saved drill's included transactions
-are at the safe height. A step that a reorganization undid since
+sent until its result is written (with `--reregister-after-u`, through the U wait and the victim's registration
+again), the drill's progress and its earlier checks are kept in `state.json` (`m3Run`), and the next `m3` settles what
+was in flight and continues from the deregister, the `removeInactive`, the `register` into the free seat or the
+`--reregister-after-u` step (its U wait, `claimBond` and registration), without the full-set precondition and without
+sending again what was included (the result then lists `resumedAt`). Checks 1 to 5, and the deregister, keep the hash
+of the block that included their transaction (`blockHash`, `blockHashes` for check 1, `deregisterBlockHash`, and
+`claimBondBlockHash` for the `--reregister-after-u` check's `claimBond`). A resumed run first waits until the saved
+drill's included transactions are at the safe height. A step that a reorganization undid since
 it was decided (its transaction in flight again, or included in another block) is recomputed from the canonical
-receipt when the drill resumes: checks 1 and 2 in place, and the drill goes back to the deregister or the
-`removeInactive` it undid, which reads its included transaction again and sends nothing that is included. The
+receipt when the drill resumes: checks 1 and 2 in place, and the drill goes back to the deregister, the
+`removeInactive` or the `register` into the free seat it undid, which reads its included transaction again and sends
+nothing that is included; the `--reregister-after-u` check is then read again from its included registration. The
 recomputed check reports the canonical receipt, so it can fail where the saved one passed (for example a
 `removeInactive` replayed after another registrant took the free seat succeeds at the full set, and check 3 fails).
-The same is read once the free seat is taken again, before the saved drill is cleared: a step undone during the run
-(by a reorganization deeper than kSafe) writes no result (exit 1), the drill stays saved, and the same command recomputes it (a reorganization after that, for
-example while `--reregister-after-u` waits for U, is not read again).
+The same is read once the free seat is taken again and, with `--reregister-after-u`, again once the victim's
+registration is decided, before the result is written and the saved drill is cleared: a step undone during the run (by
+a reorganization deeper than kSafe, for example while `--reregister-after-u` waits for U) writes no result (exit 1),
+the drill stays saved, and the same command recomputes it; if the drill's transactions are also included out of its
+order, it writes no result (exit 1) either, and the next `m3` then clears the saved drill with no result (below).
 The drill sends each step once the one before is included, so each is in a later block than the one before: check 1's
-two `registerReplacing` in one block, then check 2's `register`, the deregister, the `removeInactive` and the `register`
-into the free seat. A reorganization can include them again in another order or together in one block (pocold puts an
-orphaned block's transactions back in its pool, so they usually go into the next block together), and then their
-receipts no longer test the rules: a `removeInactive` in the deregister's block reverts below the full set the
-deregister just left while the removal code read at the block before shows the full set, and a `register` in check 1's
-block reverts for the block's registration limit rather than Capacity. When the drill resumes and the canonical chain
-breaks that order (or check 2's `register` is no longer included, or check 1, undone by a reorganization, is no longer
-in one block), no check is graded: it exits 1 with no `m3` result, the saved drill is cleared with the leaver's and the
-`removeInactive` target's outcomes as the chain shows them, and the next `m3` starts a fresh drill at a full set (run
-`fill` first when the set is below it). A reorganization of this kind during the run is first read as a step undone
-(exit 1) and then by the next `m3`. Check 1 that the drill's own run saw outside one block, with no reorganization,
+two `registerReplacing` in one block, then check 2's `register`, the deregister, the `removeInactive`, the `register`
+into the free seat and, with `--reregister-after-u`, the victim's registration again. A reorganization can include
+them again in another order or together in one block (pocold puts an orphaned block's transactions back in its pool, so
+they usually go into the next block together), and then their receipts no longer test the rules: a `removeInactive`
+in the deregister's block reverts below the full set the deregister just left while the removal code read at the block
+before shows the full set, and a `register` in check 1's block reverts for the block's registration limit rather than
+Capacity. When the drill resumes and the canonical chain breaks that order (or check 2's `register` is no longer
+included, or check 1, undone by a reorganization, is no longer in one block), no check is graded: it exits 1 with no
+`m3` result, the saved drill is cleared with the leaver's and the `removeInactive` target's outcomes as the chain shows
+them, and the next `m3` starts a fresh drill at a full set (run `fill` first when the set is below it). A reorganization
+of this kind during the run is first read as a step undone (exit 1, the drill stays saved), and the next `m3` then
+clears the saved drill with no result. Check 1 that the drill's own run saw outside one block, with no reorganization,
 stays its graded result.
 If the deregister was never included, the next `m3` starts a fresh drill at the full set; if another registrant took the free seat before the `removeInactive` was sent, it sends none (it would remove a
 member at a full set), exits 1, and the next `m3` starts a fresh drill; likewise if the seat was taken before the
 `register` into the free seat was sent, it sends none (it would revert Capacity at a full set, which is not this check
-failing), exits 1 with no `m3` result, and the next `m3` starts a fresh drill. Once the free seat is taken again, a stop (for
-example while `--reregister-after-u` waits for U) starts a fresh drill on the next run.
+failing), exits 1 with no `m3` result, and the next `m3` starts a fresh drill. A stop after that (for example while
+`--reregister-after-u` waits for U) is resumed by the same command; once the result is written, the next `m3` starts a
+fresh drill.
 pocold answers state reads only within the last K_hist = 32 blocks (−32017 beyond them), and a resumed drill may decide
 a step long after its block. What the checks and the inferred revert reasons read at a past height (the active count at
-the deregister's block; the removal code, the active count and the sender's record at the block before a call; check
-1's victims' records at its block) is kept in `state.json` (`stateAt`, with the hash of the block at that height, for
+the deregister's block; the removal code, the active count and the sender's record at the block before a call, which
+for the `--reregister-after-u` check is the victim's record before it registers again, `recordErased`; check 1's
+victims' records at its block) is kept in `state.json` (`stateAt`, with the hash of the block at that height, for
 the last 2,048 heights), read when the transaction is settled and, for the block before, when it is sent, and reused
 while that block is canonical. When a check must be decided from a height that was not kept and is no longer retained
 (the drill stopped before its transaction was settled and resumed more than K_hist blocks later, or a reorganization

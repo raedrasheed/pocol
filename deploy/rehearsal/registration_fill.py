@@ -93,6 +93,7 @@ SIGNATURES = ('register(address)', 'registerReplacing(address,address)', 'remove
               'claimBond()', 'reactivate()', 'topUp()', 'setRewardAddress(address)')
 SELECTORS = {s: keccak256(s.encode())[:4] for s in SIGNATURES}
 REGISTRATION_SELECTORS = {SELECTORS['register(address)'], SELECTORS['registerReplacing(address,address)']}
+REREGISTER_KINDS = ('register', 'registerReplacing')   # M3 check 5: the victim registers again (either path)
 ADDRESS = re.compile(r'0x[0-9a-f]{40}')
 
 
@@ -913,6 +914,8 @@ class Harness:
                 self.past('record', n, item['victim'])
             elif item['kind'] == 'register':
                 self.past('lengths', n - 1)
+            if item['kind'] in REREGISTER_KINDS and item.get('sender'):
+                self.past('record', n - 1, item['sender'])   # check 5: the victim's record before it registers again
         except StateGone:
             pass
 
@@ -1654,8 +1657,10 @@ class Harness:
             self.step(1)
 
     def m3_attempt(self, ident, kind, since=0):
-        """m3: the latest attempt of `ident` of this kind, from its `since`-th on, that a block included, or None."""
-        return next((x for x in reversed(ident['attempts'][since:]) if x['kind'] == kind and 'block' in x), None)
+        """m3: the latest attempt of `ident` of this kind (or of one of these kinds), from its `since`-th on, that a
+        block included, or None."""
+        kinds = (kind,) if isinstance(kind, str) else kind
+        return next((x for x in reversed(ident['attempts'][since:]) if x['kind'] in kinds and 'block' in x), None)
 
     def m3_hash(self, attempt):
         """m3: the canonical hash of the block that included `attempt` (as settled), or None when it is not included."""
@@ -1727,8 +1732,8 @@ class Harness:
     def m3_disorder(self, run, undone=()):
         """How the canonical chain breaks the order the drill sent its transactions in, or None. A drill sends each step
         once the one before is included, so each lands in a later block than the one before: check 1's two
-        registerReplacing in one block, then check 2's register, the deregister, the removeInactive and the register
-        into the free seat. A reorganization can include them again in another order or together in one block (pocold
+        registerReplacing in one block, then check 2's register, the deregister, the removeInactive, the register
+        into the free seat and, with --reregister-after-u, the victim's registration again. A reorganization can include them again in another order or together in one block (pocold
         pools an orphaned block's transactions again, so they usually go into the next block together), and then a
         receipt no longer tests its rule: a removeInactive in the deregister's block reads the removal code of the full
         set before it, and a register in check 1's block reverts for the block's registration limit, not Capacity.
@@ -1749,6 +1754,9 @@ class Harness:
                  ('the deregister', run['leaver'], 'deregister', run['leaverSince'], False),
                  ('the removeInactive', run['remover'], 'removeInactive', 0, False),
                  ('the register into the free seat', run.get('filler'), 'register', 0, False)]
+        rr = run.get('rereg')
+        if rr is not None:
+            steps.append(('the registration of the victim again', rr['i'], REREGISTER_KINDS, rr['since'], False))
         for what, i, kind, since, required in steps:
             att = self.m3_attempt(ids[i], kind, since) if i is not None else None
             if att is None:
@@ -1766,6 +1774,9 @@ class Harness:
         steps = [(i, 'registerReplacing', 0) for i in run.get('replacers') or []] + [
             (run.get('plain'), 'register', 0), (run['leaver'], 'deregister', run['leaverSince']),
             (run['remover'], 'removeInactive', 0), (run.get('filler'), 'register', 0)]
+        rr = run.get('rereg')
+        if rr is not None:
+            steps += [(rr['i'], 'claimBond', rr['since']), (rr['i'], REREGISTER_KINDS, rr['since'])]
         atts = [self.m3_attempt(ids[i], kind, since) for i, kind, since in steps if i is not None]
         return [x['tx'] for x in atts if x is not None and x.get('tx')]
 
@@ -1788,9 +1799,11 @@ class Harness:
         the deregister, keeps the hash of the block that included its transaction, and one whose transaction is now in
         flight again or settled from another block (the canonical receipt may differ) is named. With `redo` (its
         transactions settled: run_m3 waits for those in flight first), checks 1 and 2 are recomputed from the canonical
-        chain, and the drill goes back to the first later step that was undone (the deregister or the removeInactive),
-        whose phase reads its included transaction again and sends nothing that is included; check 4 is always
-        recomputed by the refill phase."""
+        chain, and the drill goes back to the first later step that was undone (the deregister, the removeInactive or
+        the register into the free seat), whose phase reads its included transaction again and sends nothing that is
+        included; check 4 is always recomputed by the refill phase. Check 5 (--reregister-after-u) keeps the hashes of
+        the blocks of its registration and its claimBond, and is recomputed by the reregister phase when one changed or
+        an earlier step is run again."""
         ids = self.state['identities']
         checks = run['result']['checks']
         undone = []
@@ -1811,13 +1824,13 @@ class Harness:
                     checks['registerAloneCapacity'] = self.m3_register_alone(plain, before)
         leaver = ids[run['leaver']]
         phase = run['phase']
-        if phase in ('belowFull', 'refill') and \
+        if phase in ('belowFull', 'refill', 'reregister') and \
                 self.m3_hash(self.m3_attempt(leaver, 'deregister', run['leaverSince'])) != run.get('deregisterBlockHash'):
             undone.append('deregister')
             phase = 'deregister'
             if leaver['outcome'] == 'deregistered (m3)':
                 leaver['outcome'] = 'registered'   # set again by the deregister phase when it is included
-        if phase == 'refill' and \
+        if phase in ('refill', 'reregister') and \
                 self.m3_hash(self.m3_attempt(ids[run['remover']], 'removeInactive')) != checks['removeInactiveBelowFullSet'].get('blockHash'):
             undone.append('removeInactiveBelowFullSet')
             phase = 'belowFull'
@@ -1825,10 +1838,21 @@ class Harness:
         if 'registerBelowFullSet' in checks and filler is not None and \
                 self.m3_hash(self.m3_attempt(ids[filler], 'register')) != checks['registerBelowFullSet'].get('blockHash'):
             undone.append('registerBelowFullSet')
-        if redo and phase != run['phase']:
-            run['phase'] = phase
-            for k in ('removeInactiveBelowFullSet', 'registerBelowFullSet'):
-                checks.pop(k, None)
+            if phase == 'reregister':
+                phase = 'refill'
+        rr = run.get('rereg')
+        if 'victimReregistersAfterU' in checks and rr is not None:
+            c5, victim = checks['victimReregistersAfterU'], ids[rr['i']]
+            if self.m3_hash(self.m3_attempt(victim, REREGISTER_KINDS, rr['since'])) != c5.get('blockHash') or \
+                    self.m3_hash(self.m3_attempt(victim, 'claimBond', rr['since'])) != c5.get('claimBondBlockHash'):
+                undone.append('victimReregistersAfterU')
+        if redo:
+            if phase != run['phase']:
+                run['phase'] = phase
+                for k in ('removeInactiveBelowFullSet',) * (phase != 'refill') + ('registerBelowFullSet', 'victimReregistersAfterU'):
+                    checks.pop(k, None)
+            elif 'victimReregistersAfterU' in undone:
+                checks.pop('victimReregistersAfterU')
         return undone
 
     def run_m3(self):
@@ -1862,6 +1886,9 @@ class Harness:
         # only a fresh drill needs a full set. One whose deregister was never included left the set as it was: the drill
         # starts afresh.
         run = self.state.get('m3Run')
+        if run is not None and (run['phase'] == 'reregister' or run.get('rereg') is not None) and not a.reregister_after_u:
+            # Its optional step (--reregister-after-u) has started: what it sent is graded only by that step.
+            raise Refused('the saved drill (m3Run) is in its --reregister-after-u step; run m3 --reregister-after-u to finish it')
         # Its included transactions are confirmed first (m3_confirm: at the node's safe height), so that what is
         # recomputed below is read from blocks a shallow reorganization no longer changes.
         txs = self.m3_run_txs(run) if run else []
@@ -1958,7 +1985,7 @@ class Harness:
             self.included('deregister', tx, err, confirm=True)
         else:
             run['result'].setdefault('resumedAt', []).append(self.head)
-            self.say(f'M3 resumes its drill below a full set (phase {run["phase"]}, started at {run["result"]["startHeight"]})')
+            self.say(f'M3 resumes its saved drill (phase {run["phase"]}, started at {run["result"]["startHeight"]})')
         result, victims, target = run['result'], run['victims'], run['target']
         checks = result['checks']
         leaver, remover = ids[run['leaver']], ids[run['remover']]
@@ -1992,7 +2019,35 @@ class Harness:
             self.say('M3 removeInactive below a full set: ' + json.dumps(checks['removeInactiveBelowFullSet'], sort_keys=True))
             run['phase'] = 'refill'
             self.save()
-        # 4. The free seat takes a plain register again (the set is full once more).
+        if run['phase'] == 'refill':
+            self.m3_refill(run, op_key, op_addr, need)
+            # A reorganization during the drill may have undone a step decided earlier in it: no result is written from
+            # it, and the drill stays saved for the same command to recompute.
+            self.m3_revalidate(run)
+            if a.reregister_after_u:
+                # The drill stays saved through the optional step: a stop during it (the U wait) resumes it, and its
+                # checks are read again before the result is written.
+                run['phase'] = 'reregister'
+                self.save()
+        if run['phase'] == 'reregister':
+            # 5. Optional: a victim registers again after U (its record refunded and erased at dueHeight).
+            checks['victimReregistersAfterU'] = self.reregister(run, op_key, op_addr, need)
+            self.save()
+            # A reorganization deeper than kSafe during the U wait or the registration may have undone checks 1 to 4
+            # (or check 5's own blocks) after they were decided: read again, as above.
+            self.m3_revalidate(run)
+        # The set is full again and every check is decided: a run stopped from here on starts a fresh drill.
+        del self.state['m3Run']
+        result['endHeight'] = self.head
+        result['pass'] = all(c['pass'] for c in checks.values())
+        self.state['m3'] = result
+        self.save()
+        self.write_report({'m3': result})
+        return result
+
+    def m3_refill(self, run, op_key, op_addr, need):
+        """M3 check 4: the free seat takes a plain register again (the set is full once more)."""
+        ids, checks = self.state['identities'], run['result']['checks']
         filler = ids[run['filler']] if run.get('filler') is not None else None
         att = self.m3_attempt(filler, 'register') if filler is not None else None
         if att is None and self.chain.lengths()['active'] >= self.cp['M_max']:
@@ -2015,60 +2070,76 @@ class Harness:
         checks['registerBelowFullSet'] = {'pass': att.get('status') == 1, 'block': att.get('block'), 'reason': att.get('reason') or err,
                                           'activeAfter': self.chain.lengths()['active'], 'blockHash': self.m3_hash(att)}
         self.say('M3 register into the free seat: ' + json.dumps(checks['registerBelowFullSet'], sort_keys=True))
-        # A reorganization during the drill may have undone a step decided earlier in it: no result is written from it,
-        # and the drill stays saved for the same command to recompute.
-        undone = self.m3_rewound(run, redo=False)
-        if undone:
-            self.save()
-            raise RuntimeError(f'a reorganization undid {", ".join(undone)} after it was decided; no m3 result is written, and '
-                               'the same command recomputes the saved drill (m3Run) from the canonical chain')
-        # The set is full again: a run stopped from here on starts a fresh drill.
-        del self.state['m3Run']
-        self.save()
-        # 5. Optional: a victim registers again after U (its record refunded and erased at dueHeight).
-        if a.reregister_after_u:
-            checks['victimReregistersAfterU'] = self.reregister(victims[0], op_key, op_addr, need)
-        result['endHeight'] = self.head
-        result['pass'] = all(c['pass'] for c in checks.values())
-        self.state['m3'] = result
-        self.save()
-        self.write_report({'m3': result})
-        return result
 
-    def reregister(self, victim, op_key, op_addr, need):
+    def m3_revalidate(self, run):
+        """Before the drill goes on to its optional step and before its result is written: every decided step (checks 1
+        to 5 and the deregister) is still in the block it was decided from (m3_rewound) and the canonical chain keeps
+        the drill's order (m3_disorder). If not, no result is written (exit 1) and the drill stays saved (m3Run): with
+        the order kept, the same command recomputes it from the canonical chain (the past state its checks read
+        included); with the order broken, the next m3 reads that again and clears the saved drill with no result (as
+        a resumed drill whose order is broken), and the m3 after it starts a fresh drill."""
+        undone = self.m3_rewound(run, redo=False)
+        bad = self.m3_disorder(run, undone)
+        if undone or bad:
+            self.save()
+            what = ' and '.join(([f'undid {", ".join(undone)} after it was decided'] if undone else []) +
+                                ([f'included the drill\'s transactions out of its order ({bad})'] if bad else []))
+            then = ('the next m3 clears the saved drill (m3Run) with no result, and the m3 after it starts a fresh drill '
+                    'at a full set' if bad else 'the same command recomputes the saved drill (m3Run) from the canonical chain')
+            raise RuntimeError(f'a reorganization {what}; no m3 result is written, and {then}')
+
+    def reregister(self, run, op_key, op_addr, need):
+        """M3 check 5 (--reregister-after-u): the drill's first victim registers again once its record is refunded and
+        erased at dueHeight (with a claimBond if the record is still there). The step is saved in the drill (`rereg`: the
+        victim and its first attempt of the step), so a resumed run reads what it included from the canonical receipts
+        and sends nothing that is included. The check keeps the hashes of the blocks of the registration and of the
+        claimBond (m3_rewound), and recordErased is read at the block before the registration (past)."""
+        victim = run['victims'][0]
         ident = next((i for i in self.state['identities'] if i['address'] == victim), None)
         if ident is None:   # (run_m3 refuses this before it sends anything)
             raise RuntimeError(f'the victim {victim} is not a harness identity: its key cannot register it again')
-        rec = self.chain.record(victim)
-        due = rec['dueHeight'] if rec else self.head
-        self.say(f'M3 waiting for the victim {victim} refund at dueHeight {due} (U = {self.cp["U"]} blocks)')
-        while self.head < due:
-            self.step(1, timeout=self.cp['T_blk'] * 60)
-        self.ensure_funds(op_key, op_addr, [ident], need + REGISTRY_CALL_GAS * self.args.fee_cap_wei)
-        for _ in range(self.args.wait_blocks):
-            if self.chain.record(victim) is None:
-                break
-            self.step(1)
-        claimed = None
-        if self.chain.record(victim) is not None:
-            tx, err = self.registry_tx(ident, 'claimBond', calldata('claimBond()'), REGISTRY_CALL_GAS)
-            self.included('claimBond', tx, err, confirm=True)
-            claimed = ident['attempts'][-1].get('status')
-        erased = self.chain.record(victim) is None
-        full = self.chain.lengths()['active'] >= self.cp['M_max']
-        if full:
-            target = self.wait_removable(1, exclude={victim})[0]
-            tx, err = self.register_replacing(ident, target)
-        else:
-            tx, err = self.register(ident)
-        if tx is not None:
-            ident['outcome'] = None   # in flight: settled from the chain, by this run or the next
-        self.included('registration of the victim again', tx, err, confirm=True)
-        att = ident['attempts'][-1]
+        rr = run.get('rereg')
+        if rr is None or rr['i'] != ident['i']:
+            rr = run['rereg'] = {'i': ident['i'], 'since': len(ident['attempts'])}
+            self.save()
+        exited = (run['result']['checks'].get('twoReplacingSameBlock', {}).get('victimRecords') or {}).get(victim) or {}
+        due = exited.get('dueHeight')
+        if due is None:
+            rec = self.chain.record(victim)
+            due = rec['dueHeight'] if rec else self.head
+        att = self.m3_attempt(ident, REREGISTER_KINDS, rr['since'])
+        err = None
+        if att is None:
+            self.say(f'M3 waiting for the victim {victim} refund at dueHeight {due} (U = {self.cp["U"]} blocks)')
+            while self.head < due:
+                self.step(1, timeout=self.cp['T_blk'] * 60)
+            self.ensure_funds(op_key, op_addr, [ident], need + REGISTRY_CALL_GAS * self.args.fee_cap_wei)
+            for _ in range(self.args.wait_blocks):
+                if self.chain.record(victim) is None:
+                    break
+                self.step(1)
+            if self.chain.record(victim) is not None and self.m3_attempt(ident, 'claimBond', rr['since']) is None:
+                tx, err = self.registry_tx(ident, 'claimBond', calldata('claimBond()'), REGISTRY_CALL_GAS)
+                self.included('claimBond', tx, err, confirm=True)
+            if self.chain.lengths()['active'] >= self.cp['M_max']:
+                target = self.wait_removable(1, exclude={victim})[0]
+                tx, err = self.register_replacing(ident, target)
+            else:
+                tx, err = self.register(ident)
+            if tx is not None:
+                ident['outcome'] = None   # in flight: settled from the chain, by this run or the next
+            self.included('registration of the victim again', tx, err, confirm=True)
+            att = self.m3_attempt(ident, REREGISTER_KINDS, rr['since'])
+            if att is None:
+                raise RuntimeError('the registration of the victim again is no longer included (not decided; its record is kept)')
         if att.get('status') != 1:
             ident['outcome'] = f'failed: {att.get("reason")}'
-        out = {'pass': erased and att.get('status') == 1, 'victim': victim, 'dueHeight': due, 'claimBond': claimed,
-               'recordErased': erased, 'kind': att['kind'], 'block': att.get('block'), 'reason': att.get('reason') or err}
+        claim = self.m3_attempt(ident, 'claimBond', rr['since'])
+        erased = self.past('record', att['block'] - 1, victim) is None
+        out = {'pass': erased and att.get('status') == 1, 'victim': victim, 'dueHeight': due,
+               'claimBond': claim.get('status') if claim else None, 'claimBondBlockHash': self.m3_hash(claim),
+               'recordErased': erased, 'kind': att['kind'], 'block': att.get('block'), 'status': att.get('status'),
+               'reason': att.get('reason') or err, 'blockHash': self.m3_hash(att)}
         self.say('M3 victim registers again after U: ' + json.dumps(out, sort_keys=True))
         return out
 

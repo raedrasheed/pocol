@@ -2227,6 +2227,138 @@ class Loop(unittest.TestCase):
         self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
         self.assertNotIn('resumedAt', result)
 
+    # ---- review round 8: the optional registration again after U stays part of the saved drill
+
+    def m3_undone_during_the_u_wait(self):
+        """A fill to the full set, then m3 --reregister-after-u in which, once the drill waits for U, the removeInactive's
+        block is orphaned (a reorganization deeper than kSafe) and another registrant takes the free seat first in the
+        new block: the replayed removeInactive succeeds at the full set, and the filler's register is included after it.
+        Returns the harness and the removeInactive's hash (once the reorganization happened)."""
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3', '--reregister-after-u')
+        real = self.node.mine
+        done = []
+
+        def mine(*a):
+            real()
+            if not done and 'M3 waiting for the victim' in self.out.getvalue():
+                rm = next(x['tx'] for i in h.state['identities'] for x in i['attempts'] if x['kind'] == 'removeInactive')
+                done.append(rm)
+                self.node.external = 1
+                self.node.reorg(depth=self.node.height - self.node.included[rm][0] + 1, keep=lambda t: t['hash'] == rm)
+        h.sleep = mine
+        return h, done
+
+    def test_m3_a_step_undone_during_the_reregistration_writes_no_result(self):
+        # The removeInactive's block is orphaned during the U wait and its replay succeeds at the full set: no result is
+        # written from the stale check 3 (status 0), the drill stays saved, and the same command recomputes it from the
+        # canonical receipt, reading the registration again from its included transaction (nothing sent twice).
+        h, done = self.m3_undone_during_the_u_wait()
+        with self.assertRaisesRegex(RuntimeError, 'reorganization undid removeInactiveBelowFullSet'):
+            h.run_m3()
+        self.assertTrue(done)
+        self.assertEqual(self.node.receipts[done[0]]['status'], '0x1', 'the canonical removeInactive succeeds at the full set')
+        self.no_m3_result(h)
+        self.assertIn('m3Run', json.loads((h.dir / 'state.json').read_text()))
+        result = self.harness('m3', '--reregister-after-u').run_m3()
+        c = result['checks']
+        self.assertEqual((c['removeInactiveBelowFullSet']['status'], c['removeInactiveBelowFullSet']['pass']), (1, False))
+        self.assertEqual(c['removeInactiveBelowFullSet']['blockHash'], self.node.blocks[c['removeInactiveBelowFullSet']['block']]['hash'])
+        self.assertTrue(c['victimReregistersAfterU']['pass'], json.dumps(c, indent=1))
+        self.assertFalse(result['pass'])
+        kinds = self.sent_kinds()
+        self.assertEqual((kinds.count('deregister()'), kinds.count('removeInactive(address)'),
+                          kinds.count('registerReplacing(address,address)')), (1, 1, 3), 'nothing sent twice')
+        self.assertNotIn('m3Run', self.last.state)
+
+    def test_m3_stopped_during_the_u_wait_resumes_the_reregistration(self):
+        # A stop while --reregister-after-u waits for U keeps the drill saved; run without the flag it is refused (its
+        # optional step started), and the same command finishes it: one result with all five checks, nothing sent twice.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3', '--reregister-after-u')
+        real = self.node.mine
+
+        def mine(*a):
+            real()
+            if 'M3 waiting for the victim' in self.out.getvalue():
+                h.stopping = True
+        h.sleep = mine
+        with self.assertRaises(rf.Stopped):
+            h.run_m3()
+        h.save()
+        self.no_m3_result(h)
+        self.assertEqual(json.loads((h.dir / 'state.json').read_text()).get('m3Run', {}).get('phase'), 'reregister')
+        before = self.sent_kinds()
+        with self.assertRaisesRegex(rf.Refused, '--reregister-after-u'):
+            self.harness('m3').run_m3()
+        self.assertEqual(self.sent_kinds(), before, 'nothing sent')
+        result = self.harness('m3', '--reregister-after-u').run_m3()
+        c = result['checks']
+        self.assertTrue(result['pass'], json.dumps(c, indent=1))
+        self.assertEqual(set(c), {'twoReplacingSameBlock', 'registerAloneCapacity', 'removeInactiveBelowFullSet',
+                                  'registerBelowFullSet', 'victimReregistersAfterU'})
+        self.assertEqual(len(result['resumedAt']), 1)
+        self.assertEqual(c['victimReregistersAfterU']['blockHash'], self.node.blocks[c['victimReregistersAfterU']['block']]['hash'])
+        kinds = self.sent_kinds()
+        self.assertEqual((kinds.count('deregister()'), kinds.count('removeInactive(address)'),
+                          kinds.count('registerReplacing(address,address)')), (1, 1, 3), 'nothing sent twice')
+        self.assertNotIn('m3Run', self.last.state)
+
+    def test_m3_reregistration_orphaned_while_saved_is_recomputed(self):
+        # The drill stays saved after a step undone during the U wait (as above); while it is stopped, the block of check
+        # 5's own registration is orphaned (deeper than kSafe) and its replay reverts. The same command recomputes check 5
+        # from the canonical receipt (its block hash names the new block), never the saved success, and sends nothing again.
+        h, done = self.m3_undone_during_the_u_wait()
+        with self.assertRaisesRegex(RuntimeError, 'reorganization undid'):
+            h.run_m3()
+        saved = h.state['m3Run']['result']['checks']['victimReregistersAfterU']
+        self.assertEqual((saved['status'], saved['pass']), (1, True))
+        self.assertEqual(saved['blockHash'], self.node.blocks[saved['block']]['hash'])
+        self.node.revert_replacing = 1
+        self.node.reorg(depth=self.node.height - saved['block'] + 1, keep=lambda t: True)
+        result = self.harness('m3', '--reregister-after-u').run_m3()
+        c = result['checks']['victimReregistersAfterU']
+        self.assertEqual((c['status'], c['pass']), (0, False), json.dumps(c))
+        self.assertEqual(c['blockHash'], self.node.blocks[c['block']]['hash'])
+        self.assertNotEqual(c['blockHash'], saved['blockHash'])
+        self.assertFalse(result['pass'])
+        victim = next(i for i in self.last.state['identities'] if i['address'] == c['victim'])
+        self.assertTrue(victim['outcome'].startswith('failed'), victim['outcome'])
+        self.assertEqual(self.sent_kinds().count('registerReplacing(address,address)'), 3, 'not sent again')
+
+    def test_m3_drill_replayed_out_of_order_during_the_u_wait_is_cleared_by_the_next_m3(self):
+        # During the U wait the deregister's block is orphaned (deeper than kSafe) and the node includes it and every
+        # later block's transactions again in one block. The run writes no result and says that the order is broken
+        # and that the next m3 clears the drill (not that it recomputes it); the next m3 clears it with no result, and
+        # the m3 after it starts a fresh drill.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3', '--reregister-after-u')
+        real = self.node.mine
+        done = []
+
+        def mine(*a):
+            real()
+            if not done and 'M3 waiting for the victim' in self.out.getvalue():
+                dereg = next(x['tx'] for i in h.state['identities'] for x in i['attempts'] if x['kind'] == 'deregister')
+                done.append(dereg)
+                self.node.reorg(depth=self.node.height - self.node.included[dereg][0] + 1, keep=lambda t: True)
+        h.sleep = mine
+        with self.assertRaises(RuntimeError) as cm:
+            h.run_m3()
+        self.assertTrue(done)
+        msg = str(cm.exception)
+        self.assertIn('out of its order', msg)
+        self.assertIn('the next m3 clears the saved drill', msg)
+        self.assertNotIn('recomputes', msg)
+        self.no_m3_result(h)
+        self.assertIn('m3Run', json.loads((h.dir / 'state.json').read_text()))
+        before = self.sent_kinds()
+        with self.assertRaisesRegex(RuntimeError, 'out of its order.*the next m3 starts a fresh drill'):
+            self.harness('m3', '--reregister-after-u').run_m3()
+        self.assertEqual(self.sent_kinds(), before, 'nothing sent at the cleared drill')
+        self.no_m3_result(self.last)
+        self.assertNotIn('m3Run', json.loads((h.dir / 'state.json').read_text()))
+
     def test_stop_miners_survives_a_miner_that_exits_meanwhile(self):
         proc = subprocess.Popen([sys.executable, '-c', 'pass'])
         proc.wait()   # exited and reaped: its pid is gone
