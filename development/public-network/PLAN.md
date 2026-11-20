@@ -41,7 +41,7 @@ from its rewards (ACCRUING). At a full set of `M_max` members a newcomer replace
 | N1: Internet exposure | Seed/bootstrap operations, hostile-peer and RPC overload tests, ingress controls, time synchronization, public endpoint monitoring | Seeds, peer discovery, automatic outbound, inbound eviction, bounded handshakes, gateway configuration and monitoring implemented; actual Internet ingress acceptance and the remaining RpcGuard controls open |
 | L1: Sustained operation | Multi-host soak, partition/heal, restart/replay, backup/restore, release/rollback drill and bounded resource growth | Local packaged processes passed restore and progress/root comparison; the evidence plan is [REHEARSAL.md](REHEARSAL.md); the rehearsal on the three servers and the PC (T1-T8, M1-M4, R-off, D1, S1, S2 and the L1 drills), an actual multi-host soak and an upgrade drill remain |
 | E1: Network lifetime/economics | Explicit approved choices for initial allocation, issuance/bonds, H_CLOSE/H_END and cumulative caps | Open; allocation, issuance (M3, S0 4 PCOL), the bond, H_END 0 and the caps with their raise path are approved in FRESH-NETWORK-CP; the founders' reward addresses are decided (three owner-held offline addresses, made 2026-11-18, given to the ceremony as `-ServerRewardAddresses`) and enter the genesis at the ceremony; the ceremony and the rehearsal evidence remain |
-| Q1: Release review | Exact-commit CI, independent security review, unresolved-finding ledger and public limitations | Open; AI-authored tests do not substitute for external review; the owner commissions the independent review after the launch (owner decision 2026-11-18) |
+| Q1: Release review | Exact-commit CI, independent security review, unresolved-finding ledger and public limitations | Open; AI-authored tests do not substitute for external review; the owner commissions the independent review after the launch (owner decision 2026-11-18); the unresolved-finding ledger and public limitations are in [FINDINGS.md](FINDINGS.md) |
 
 A gate closes only with its implementation and evidence, never by changing a status label. No dates or completion
 percentages are asserted without that evidence. `prototypes/pocold/src/readiness.rs` (`PLAN_GATES_OPEN`) lists the
@@ -81,4 +81,5 @@ chat, Git or uploaded test artifacts.
 - [Rehearsal: the launch-evidence plan](REHEARSAL.md)
 - [Service, gateway, monitoring and recovery runbook](../../deploy/public-testnet/README.md)
 - [Compatibility and operations](OPERATIONS.md)
+- [Unresolved findings and public limitations](FINDINGS.md)
 - [Key and enrollment results, 29 October 2026](RESULTS.md)

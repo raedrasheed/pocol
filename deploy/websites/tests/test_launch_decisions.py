@@ -3,7 +3,9 @@
 decision 3) and the explorer gateway host (explorer.pocol.net, decision 9). Decision 8 (no faucet on mainnet) was
 superseded on 2026-11-18: the fee faucet runs on mainnet. Outside the tests and READMEs, the sites name it only in
 pocol.net's claim page (faucet.html, faucet.js, faucet.css), the home page's Get started card link and its locales.js keys,
-and SHA256SUMS.txt; the only faucet URLs are https://explorer.pocol.net/faucet/claim and /faucet/status."""
+and SHA256SUMS.txt; the only faucet URLs are https://explorer.pocol.net/faucet/claim and /faucet/status.
+Gate Q1's unresolved-finding ledger and public limitations (development/public-network/FINDINGS.md, owner decisions
+4 and 7 of 2026-11-18): every link and cited path exists, every F-NN id is unique."""
 import html, json, re, unittest
 from pathlib import Path
 
@@ -334,6 +336,112 @@ class LaunchTexts(unittest.TestCase):
             self.assertEqual(len(re.findall(r'<li>', listed)), len(topic['sources']), topic['id'])
             for code, href_ref in re.findall(r'href="https://github\.com/raedrasheed/pocol/blob/([0-9a-f]{40})/[^"]*">[^<]*</a> · <code>([0-9a-f]+)</code>', listed):
                 self.assertEqual(code[:7], href_ref, topic['id'])
+
+
+class FindingsLedger(unittest.TestCase):
+    """development/public-network/FINDINGS.md, gate Q1's unresolved-finding ledger and public limitations. Every relative
+    link and cited repository path exists (a cited line number is at most its file's line count; the content at that
+    line is not checked), every F-NN id is unique and in order, and, for owner decision 4, none of a fixed list of
+    phrases appears that call the launch not ready, blocked, prevented or conditional (other wording is not judged).
+    .github/workflows/findings-ledger.yml runs this class on every push and pull request to main."""
+    PATH = ROOT / 'development' / 'public-network' / 'FINDINGS.md'
+    KINDS = {'open-finding', 'limitation', 'accepted-risk'}
+    SEVERITIES = {'high', 'medium', 'low', 'info'}
+    GATES = {'K1', 'J1', 'I1', 'A1', 'S1', 'N1', 'L1', 'E1', 'Q1'}
+    LINK = re.compile(r'\[([^\]]*)\]\(([^)\s]+)\)')
+    CITED = re.compile(r'`((?:prototypes|development|deploy|\.github)/[\w./-]*?)(?::([\d,-]+))?`')
+    REMOVED = re.compile(r'(?i)not (?:yet )?ready (?:for|to) (?:a |the )?(?:full )?(?:public )?launch|'
+                         r'not (?:yet )?public-launch-ready|ليست جاهزة للاطلاق|'
+                         r'\blaunch (?:is|stays|remains) (?:blocked|prevented|conditional|on hold)|'
+                         r'\b(?:blocks?|prevents?|stops?|holds? back) (?:the )?(?:public )?launch\b|'
+                         r'\bbefore (?:the )?(?:public )?launch (?:can|may)\b|'
+                         r'(?<!not a )\b(?:public )?launch (?:condition|prerequisite)s?\b')
+    # Sentences the pattern must catch (and one it must leave: the ledger says severity "is not a launch condition").
+    CAUGHT = ('The network is not ready for a public launch.', 'The launch is blocked until the review.',
+              'This blocks the public launch.', 'It must be fixed before the launch can go ahead.',
+              'A launch condition remains.', 'The node is not public-launch-ready.')
+
+    def text(self):
+        return self.PATH.read_text(encoding='utf-8')
+
+    def rows(self):
+        rows = []
+        for line in self.text().splitlines():
+            if line.startswith('| F-'):
+                cells = [c.strip() for c in re.split(r'(?<!\\)\|', line)[1:-1]]
+                self.assertEqual(len(cells), 7, line[:80])
+                rows.append(cells)
+        return rows
+
+    def test_every_relative_link_exists_and_cited_lines_lie_inside_their_file(self):
+        checked = 0
+        for label, target in self.LINK.findall(self.text()):
+            if re.match(r'(?i)(?:https?:|mailto:|#)', target):
+                continue
+            path = (self.PATH.parent / target.split('#')[0]).resolve()
+            self.assertTrue(path.exists(), f'{label} -> {target}')
+            checked += 1
+            m = re.fullmatch(r'([^:\s]+):([\d,-]+)', label)
+            if m:
+                self.assertEqual((ROOT / m.group(1)).resolve(), path, label)
+                lines = self.line_count(path)
+                for number in re.findall(r'\d+', m.group(2)):
+                    self.assertLessEqual(int(number), lines, label)
+                spans = [tuple(map(int, r.split('-'))) for r in m.group(2).split(',') if '-' in r]
+                self.assertTrue(all(a <= b for a, b in spans), label)
+            elif re.fullmatch(r'[\w.-]+/[\w./-]*', label):
+                # A source shown as a bare repository path links to that path.
+                self.assertEqual((ROOT / label).resolve(), path, label)
+        self.assertGreater(checked, 500)
+
+    @staticmethod
+    def line_count(path):
+        return len(path.read_text(encoding='utf-8', errors='replace').splitlines())
+
+    def test_every_cited_repository_path_exists(self):
+        cited = set(self.CITED.findall(self.text()))
+        self.assertTrue(cited)
+        for path, numbers in sorted(cited):
+            self.assertTrue((ROOT / path).exists(), path)
+            if numbers:
+                self.assertTrue((ROOT / path).is_file(), path)
+                lines = self.line_count(ROOT / path)
+                for number in re.findall(r'\d+', numbers):
+                    self.assertLessEqual(int(number), lines, f'{path}:{numbers}')
+
+    def test_ids_are_unique_and_in_order_and_every_row_is_complete(self):
+        rows = self.rows()
+        ids = [r[0] for r in rows]
+        self.assertGreater(len(ids), 50)
+        self.assertEqual(len(ids), len(set(ids)), 'duplicate F-NN id')
+        self.assertEqual(ids, [f'F-{n:02d}' for n in range(1, len(ids) + 1)])
+        for fid, area, kind, severity, statement, gate, sources in rows:
+            self.assertTrue(area, fid)
+            self.assertIn(kind, self.KINDS, fid)
+            self.assertIn(severity, self.SEVERITIES, fid)
+            self.assertRegex(statement, r'^\*\*[^*]+\.\*\* \S', fid)
+            self.assertTrue(gate == '-' or set(g.strip() for g in gate.split(',')) <= self.GATES, fid)
+            self.assertTrue(self.LINK.search(sources), fid)
+        # Every F-NN reference anywhere in the file names an entry of the table.
+        self.assertLessEqual(set(re.findall(r'\bF-\d{2}\b', self.text())), set(ids))
+        # The count stated in the header is the table's.
+        self.assertEqual(re.search(r'The ledger has\s+(\d+) entries', self.text()).group(1), str(len(ids)))
+
+    def test_the_text_keeps_q1_open_and_never_presents_the_launch_as_prevented(self):
+        text = self.text()
+        self.assertIsNone(self.REMOVED.search(text), self.REMOVED.search(text) and self.REMOVED.search(text).group(0))
+        for sentence in self.CAUGHT:
+            self.assertRegex(sentence, self.REMOVED)
+        self.assertNotRegex('It is not a launch condition.', self.REMOVED)
+        self.assertIn('Q1 stays open', text)
+        self.assertIn('the owner commissions an independent security review\n  after the launch', text)
+        self.assertIn('## Public limitations', text)
+        self.assertIn('## Adding and closing entries', text)
+        plan = (ROOT / 'development' / 'public-network' / 'PLAN.md').read_text(encoding='utf-8')
+        q1 = next(line for line in plan.splitlines() if line.startswith('| Q1:'))
+        cells = [c.strip() for c in q1.split('|')]
+        self.assertTrue(cells[3].startswith('Open;'), q1)
+        self.assertIn('[FINDINGS.md](FINDINGS.md)', cells[3])
 
 if __name__ == '__main__':
     unittest.main()
