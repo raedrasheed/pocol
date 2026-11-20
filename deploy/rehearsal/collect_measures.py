@@ -537,17 +537,21 @@ def t2(servers, clocks, align_ms):
     pairs = []
     for i, a in enumerate(labels):
         for b in labels[i + 1:]:
-            worst, n = None, 0
-            sb = sorted(clocks[b])
-            times = [x[0] for x in sb]
-            for ta, oa in clocks[a]:
-                i = bisect.bisect_left(times, ta)
-                near = min(sb[max(i - 1, 0):i + 1], key=lambda x: abs(x[0] - ta), default=None)
-                if near is None or abs(near[0] - ta) > align_ms:
-                    continue
-                bound = abs(oa) + abs(near[1])
-                worst = bound if worst is None else max(worst, bound)
-                n += 1
+            # Every sample of either host is matched with the other host's nearest sample within align_ms, in both
+            # directions, so neither a sampling gap on one host nor the labels' order can hide an observed offset.
+            worst, matched = None, set()
+            for xs, ys, flip in ((clocks[a], clocks[b], False), (clocks[b], clocks[a], True)):
+                sy = sorted(ys)
+                times = [y[0] for y in sy]
+                for tx, ox in xs:
+                    k = bisect.bisect_left(times, tx)
+                    near = min(sy[max(k - 1, 0):k + 1], key=lambda y: abs(y[0] - tx), default=None)
+                    if near is None or abs(near[0] - tx) > align_ms:
+                        continue
+                    matched.add((near[0], tx) if flip else (tx, near[0]))
+                    bound = abs(ox) + abs(near[1])
+                    worst = bound if worst is None else max(worst, bound)
+            n = len(matched)
             pairs.append({'pair': [a, b], 'alignedSamples': n, 'worstBoundMs': worst, 'thresholdMs': 500,
                           'verdict': 'not measured' if worst is None else verdict(worst <= 500)})
     future = []

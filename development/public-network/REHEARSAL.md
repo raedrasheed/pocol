@@ -532,8 +532,8 @@ What the report grades, and how:
   `missing`, `early` and the receiver's fallback templates are reported beside them. A pair with nothing received is not
   measured. p99 is the upper bound of its histogram bucket, so the reported value may be up to one bucket above the true
   one; the verdicts above stay sound. The drill windows cannot be left out of these counters.
-- **T2**, clocks: for each pair of hosts, samples within 120 s of each other are compared on |o_i| + |o_j|, at most
-  500 ms. Each host measures only against its own NTP source, so this bounds the pair only when their sources agree.
+- **T2**, clocks: for each pair of hosts, every sample of either host is compared with the other host's nearest
+  sample within 120 s, in both directions, on |o_i| + |o_j|, at most 500 ms. Each host measures only against its own NTP source, so this bounds the pair only when their sources agree.
   Future templates: a receiver whose `beforeStampMs.max` is at most Φ·1,000 ms (Φ = 2φ) rejected no timed template as
   future; above that the report says it cannot exclude one.
 - **T5**, in the intervals of section 2: between consecutive samples that no window overlaps, cut at every restart. An

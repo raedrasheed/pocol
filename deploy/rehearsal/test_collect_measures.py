@@ -406,6 +406,14 @@ class Rules(unittest.TestCase):
         self.assertEqual(by[('pc', 's1')]['verdict'], 'not measured', 'no samples within the alignment')
         ok = cm.t2({}, {'s1': [(0, 250.0)], 's2': [(0, -250.0)]}, 120_000)
         self.assertEqual(ok['clockPairs'][0]['verdict'], 'pass')
+        # A sampling gap on the alphabetically earlier host must not hide the other host's offset, and the labels'
+        # order must not change the verdict (Codex, PR #108).
+        gap = {'s1': [(0, 0.0), (120_000, 0.0)], 's2': [(0, 0.0), (60_000, 1000.0), (120_000, 0.0)]}
+        g = cm.t2({}, gap, 120_000)['clockPairs'][0]
+        self.assertEqual((g['worstBoundMs'], g['verdict']), (1000.0, 'miss'))
+        swapped = cm.t2({}, {'s1': gap['s2'], 's2': gap['s1']}, 120_000)['clockPairs'][0]
+        self.assertEqual((swapped['worstBoundMs'], swapped['verdict']), (1000.0, 'miss'))
+        self.assertEqual(g['alignedSamples'], swapped['alignedSamples'])
         fut = lambda m: cm.t2({'s1': [[sample('s1', 0, lat=latency([], before_max=m))]]}, {}, 1)['futureTemplates'][0]['verdict']
         self.assertEqual(fut(2000), 'no timed template rejected as future')
         self.assertEqual(fut(2001), 'cannot exclude')
