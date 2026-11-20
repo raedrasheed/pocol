@@ -308,6 +308,8 @@ class FakeNode:
         self.external = 0   # registrations another registrant makes at the start of the next block
         self.others = 0
         self.broken = set()  # rules this fake leaves out, to show that the M3 checks can fail
+        self.k_hist = None   # like pocold's K_hist: eth_call answers -32017 at a height more than k_hist below the head
+        self.k_safe = 2      # like pocold's kSafe: pocol_finality's safe height is head - k_safe
 
     @staticmethod
     def record(bond_state, h, bond=0):
@@ -517,11 +519,15 @@ class FakeNode:
             return {'accounts': hex(len(self.accounts)), 'occupancy': {'accounts': {'percent': 0.0}}}
         if method == 'pocol_getRemovable':
             return {'removable': [a for a in self.reg['active'] if self.removal(self.reg, a, h + 1) == 0]}
-        if method in ('pocol_templateLatency', 'pocol_finality'):
+        if method == 'pocol_templateLatency':
             return {'all': {}}
+        if method == 'pocol_finality':   # node.rs finality_json (no finalized floor here)
+            return {'head': h, 'safe': max(0, h - self.k_safe), 'kSafe': self.k_safe, 'model': 'probabilistic', 'scope': 'local'}
         raise rf.RpcError(-32601, f'{method} not in the fake')
 
     def eth_call(self, to, data, tag):
+        if self.k_hist is not None and tag not in ('latest', 'pending') and int(tag, 16) < self.height - self.k_hist:
+            raise rf.RpcError(-32017, 'state outside the retained trie window (K_hist)')
         reg = self.reg if tag in ('latest', 'pending') else self.snaps[int(tag, 16)]
         height = (self.height if tag in ('latest', 'pending') else int(tag, 16)) + 1
         sig = GETTERS[data[:4].hex()]
@@ -1831,6 +1837,395 @@ class Loop(unittest.TestCase):
         result = self.harness('m3', '--victims', 'any').run_m3()
         self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
         self.assertIn(other, result['checks']['twoReplacingSameBlock']['victims'])
+
+    # ---- review round 8: an interrupted replace resumes its saved replacement (replaceRun) before any eligibility check
+
+    def replace_stopped(self, victim, after=0, *argv):
+        """`replace --victim victim --watch-refund` stopped `after` blocks after the block that includes its
+        registerReplacing (0: at that block, before its result is written; None: while it is pooled, not yet mined)."""
+        h = self.harness('replace', '--victim', victim, '--watch-refund', *argv)
+        real = self.node.mine
+        at = []
+
+        def mine(*a):
+            if after is None and any(t['to'] == REG for t in self.node.pool):
+                at.append(self.node.height + 1)
+                h.stopping = True
+                return
+            real()
+            if not at and any(SEL.get(t['data'][2:10]) == 'registerReplacing(address,address)'
+                              for t in self.node.blocks[self.node.height]['txs'] if t['to'] == REG):
+                at.append(self.node.height)
+            if at and self.node.height >= at[0] + after:
+                h.stopping = True
+        h.sleep = mine
+        with self.assertRaises(rf.Stopped):
+            h.run_replace()
+        h.save()
+        self.assertNotIn('replacements', h.state)
+        return h, at[0]
+
+    def full_set_victim(self):
+        self.harness('fill', '--count', '11').run_fill()
+        return next(a for a in self.node.reg['active'] if a != self.node.miner)
+
+    def test_replace_stopped_after_its_replacement_resumes_with_the_same_command(self):
+        # Stopped while the replacement is pooled (the victim still ACTIVE: a fresh replacement would race it on the same
+        # seat), at the replacement's block, and during the refund wait (the victim EXITED: a fresh eligibility check
+        # would refuse it). The same command finishes the saved replacement, sends nothing again, and records the
+        # refund at dueHeight.
+        for after in (None, 0, 3):
+            with self.subTest(stopped_blocks_after=after):
+                self.setUp()
+                victim = self.full_set_victim()
+                h, at = self.replace_stopped(victim, after)
+                newcomer = h.state['identities'][-1]
+                self.assertEqual(self.node.reg['records'][victim]['status'], 1 if after is None else 2)
+                out = self.harness('replace', '--victim', victim, '--watch-refund').run_replace()
+                self.assertEqual((out['status'], out['block'], out['after']['status']), (1, at, 'EXITED'))
+                self.assertEqual(out['blockHash'], self.node.blocks[at]['hash'])
+                self.assertEqual(out['newcomer'], newcomer['address'])
+                self.assertEqual(out['before']['status'], 'ACTIVE')
+                self.assertIsNone(out['atDue']['record'], 'refunded and erased at dueHeight')
+                self.assertEqual(len(out['resumedAt']), 1)
+                self.assertEqual(self.last.state['replacements'], [out])
+                self.assertNotIn('replaceRun', self.last.state)
+                self.assertEqual(self.sent_kinds().count('registerReplacing(address,address)'), 1, 'not sent again')
+                self.assertEqual(sum(1 for b in self.node.blocks.values() for t in b['txs'] if t['from'] == self.op), 12,
+                                 'one transfer per identity: no second newcomer funded')
+
+    def test_replace_resumed_after_its_replacement_was_orphaned_recomputes_it(self):
+        # Stopped during the refund wait; the replacement's block is orphaned meanwhile and its replay reverts. The
+        # resumed run records the canonical receipt (block, hash, revert), not the orphaned block's success.
+        victim = self.full_set_victim()
+        h, at = self.replace_stopped(victim, 3)
+        newcomer = h.state['identities'][-1]['i']
+        self.node.revert_replacing = 1
+        self.node.reorg(depth=self.node.height - at + 1, keep=lambda t: True)
+        out = self.harness('replace', '--victim', victim, '--watch-refund').run_replace()
+        self.assertEqual((out['status'], out['block'], out['blockHash']), (0, at, self.node.blocks[at]['hash']))
+        self.assertNotIn('atDue', out)
+        by = {i['i']: i for i in self.last.state['identities']}
+        self.assertTrue(by[newcomer]['outcome'].startswith('failed'))
+        self.assertEqual(self.node.reg['records'][victim]['status'], 1, 'the victim keeps its seat')
+        self.assertEqual(self.sent_kinds().count('registerReplacing(address,address)'), 1, 'not sent again')
+
+    def test_replace_undone_during_its_refund_wait_writes_no_result(self):
+        # The replacement's block is orphaned during the refund wait and its replay reverts: no replacement is written
+        # from the stale success (exit 1), it stays saved, and the same command records the canonical receipt.
+        victim = self.full_set_victim()
+        h = self.harness('replace', '--victim', victim, '--watch-refund')
+        real = self.node.mine
+        at = []
+
+        def mine(*a):
+            real()
+            if not at and any(SEL.get(t['data'][2:10]) == 'registerReplacing(address,address)'
+                              for t in self.node.blocks[self.node.height]['txs'] if t['to'] == REG):
+                at.append(self.node.height)
+            elif at and len(at) == 1 and self.node.height == at[0] + 3:
+                at.append(1)
+                self.node.revert_replacing = 1
+                self.node.reorg(depth=4, keep=lambda t: True)
+        h.sleep = mine
+        with self.assertRaisesRegex(RuntimeError, 'reorganization undid the registerReplacing'):
+            h.run_replace()
+        self.assertNotIn('replacements', h.state)
+        self.assertIn('replaceRun', h.state)
+        out = self.harness('replace', '--victim', victim, '--watch-refund').run_replace()
+        self.assertEqual((out['status'], out['blockHash']), (0, self.node.blocks[out['block']]['hash']))
+        self.assertEqual(self.sent_kinds().count('registerReplacing(address,address)'), 1, 'not sent again')
+
+    def test_replace_not_included_in_time_is_finished_by_the_same_command(self):
+        # Held past --include-timeout: exit 1, no result. The same command waits for that registerReplacing (the victim
+        # is still ACTIVE, so a fresh replacement would race it on the same seat) and records it.
+        victim = self.full_set_victim()
+        self.node.park = lambda t: t['to'] == REG and SEL.get(t['data'][2:10]) == 'registerReplacing(address,address)'
+        self.node.park_blocks = 6
+        with self.assertRaisesRegex(RuntimeError, 'registerReplacing was not included'):
+            self.harness('replace', '--victim', victim, '--include-timeout', '2').run_replace()
+        self.assertNotIn('replacements', self.last.state)
+        self.node.park = None
+        out = self.harness('replace', '--victim', victim).run_replace()
+        self.assertEqual((out['status'], out['after']['status']), (1, 'EXITED'))
+        self.assertEqual(self.sent_kinds().count('registerReplacing(address,address)'), 1, 'not sent again')
+        self.assertEqual(len(self.last.state['identities']), 12, 'no second newcomer')
+
+    def test_replace_refused_writes_no_result_and_the_same_newcomer_retries(self):
+        victim = self.full_set_victim()
+        real = self.node.call
+
+        def call(method, params=()):
+            if method == 'eth_sendRawTransaction' and json.loads(bytes.fromhex(params[0][2:]))['to'] == REG:
+                raise rf.RpcError(-32000, '-32000 insufficient funds')
+            return real(method, params)
+        self.node.call = call
+        with self.assertRaisesRegex(RuntimeError, 'registerReplacing was refused'):
+            self.harness('replace', '--victim', victim).run_replace()
+        self.assertNotIn('replacements', self.last.state)
+        newcomer = self.last.state['replaceRun']['newcomer']
+        self.node.call = real
+        out = self.harness('replace', '--victim', victim).run_replace()
+        self.assertEqual((out['status'], out['newcomer']), (1, self.last.state['identities'][newcomer]['address']))
+        self.assertEqual(len(self.last.state['identities']), 12, 'no second newcomer')
+
+    def test_replace_with_another_victim_does_not_mix_with_a_saved_one(self):
+        victim = self.full_set_victim()
+        h, _ = self.replace_stopped(victim, 3)
+        other = next(a for a in self.node.reg['active'] if a not in (self.node.miner, victim, h.state['identities'][-1]['address']))
+        before = self.sent_kinds()
+        with self.assertRaisesRegex(rf.Refused, f'unfinished replacement of {victim}'):
+            self.harness('replace', '--victim', other).run_replace()
+        self.assertEqual(self.sent_kinds(), before, 'nothing sent')
+        out = self.harness('replace', '--victim', victim, '--watch-refund').run_replace()
+        self.assertEqual((out['victim'], out['status']), (victim, 1))
+        out2 = self.harness('replace', '--victim', other).run_replace()
+        self.assertEqual((out2['victim'], out2['status']), (other, 1))
+        self.assertNotIn('resumedAt', out2)
+
+    def test_replace_resumed_beyond_the_retained_state_window_finishes(self):
+        # pocold answers state reads only within the last K_hist blocks (-32017 beyond), and the refund wait is U blocks:
+        # a resume long after the replacement's block reuses the victim's record saved at it (stopped during the wait),
+        # or, stopped at that block before it was saved, reads the latest record of that exit (restarted before
+        # dueHeight) or derives the exit from the receipt (restarted after the record was refunded and erased). The
+        # resumed run writes the result and clears replaceRun.
+        for after, late, source in ((8, 0, 'inclusionBlock'), (0, 7, 'latest'), (0, 20, 'derived')):
+            with self.subTest(stopped_blocks_after=after, restarted_blocks_later=late):
+                self.setUp()
+                self.node.k_hist = 4
+                victim = self.full_set_victim()
+                h, at = self.replace_stopped(victim, after)
+                for _ in range(late):
+                    self.node.mine()
+                self.assertGreater(self.node.height - at, self.node.k_hist, 'its block is outside the retained window')
+                out = self.harness('replace', '--victim', victim, '--watch-refund').run_replace()
+                self.assertEqual((out['status'], out['block'], out['blockHash']), (1, at, self.node.blocks[at]['hash']))
+                self.assertTrue(out['afterSource'].startswith(source), out['afterSource'])
+                self.assertEqual((out['after']['status'], out['after']['exitHeight'], out['after']['dueHeight']),
+                                 ('EXITED', at, at + self.cp['U']))
+                self.assertIsNone(out['atDue']['record'], 'refunded and erased at dueHeight')
+                self.assertEqual(self.last.state['replacements'], [out])
+                self.assertNotIn('replaceRun', self.last.state)
+                self.assertEqual(self.sent_kinds().count('registerReplacing(address,address)'), 1, 'not sent again')
+
+    def test_replace_orphaned_while_stopped_beyond_the_retained_state_window_recomputes_it(self):
+        # The saved record is from a block a reorganization orphaned while the run was stopped; the canonical replay
+        # reverted and its state is no longer retained: the victim's latest record is used, not the saved one.
+        self.node.k_hist = 4
+        victim = self.full_set_victim()
+        h, at = self.replace_stopped(victim, 3)
+        self.assertEqual(h.state['replaceRun']['after']['record']['status'], 'EXITED')
+        self.node.revert_replacing = 1
+        self.node.reorg(depth=self.node.height - at + 1, keep=lambda t: True)
+        for _ in range(6):
+            self.node.mine()
+        out = self.harness('replace', '--victim', victim, '--watch-refund').run_replace()
+        self.assertEqual((out['status'], out['block'], out['blockHash']), (0, at, self.node.blocks[at]['hash']))
+        self.assertEqual(out['after']['status'], 'ACTIVE', 'the victim keeps its seat')
+        self.assertTrue(out['afterSource'].startswith('latest'), out['afterSource'])
+        self.assertNotIn('replaceRun', self.last.state)
+
+    # ---- review round 9: a saved drill (and a fill) resumed beyond pocold's retained state window (K_hist)
+
+    def m3_stopped(self, stop_at, pooled=False):
+        """A fill to the full set, then an m3 stopped once a block includes its `stop_at` call (`pooled`: once it is sent,
+        before any block includes it; the next block mined, while the harness is stopped, includes it)."""
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+
+        def mine(*a):
+            if pooled and any(SEL.get(t['data'][2:10]) == stop_at for t in self.node.pool if t['to'] == REG):
+                h.stopping = True
+                return
+            real()
+            if any(SEL.get(t['data'][2:10]) == stop_at for t in self.node.blocks[self.node.height]['txs'] if t['to'] == REG):
+                h.stopping = True
+        h.sleep = mine
+        with self.assertRaises(rf.Stopped):
+            h.run_m3()
+        h.save()
+        self.no_m3_result(h)
+        return h
+
+    def test_m3_stopped_beyond_the_retained_state_window_resumes(self):
+        # pocold answers state reads only within the last K_hist blocks (-32017 beyond them). A drill stopped once its
+        # deregister or removeInactive is included (settled before the stop), or once its removeInactive is sent (included
+        # in the next block while the harness is stopped), is resumed long after: what deciding the step reads at a past
+        # height was kept when it was settled or sent, and is reused while that block is canonical.
+        for stop_at, pooled in (('deregister()', False), ('removeInactive(address)', False), ('removeInactive(address)', True)):
+            with self.subTest(stopped_at=stop_at, pooled=pooled):
+                self.setUp()
+                self.node.k_hist = 4
+                h = self.m3_stopped(stop_at, pooled)
+                for _ in range(8):
+                    self.node.mine()
+                tx = next(t['hash'] for b in self.node.blocks.values() for t in b['txs'] if SEL.get(t['data'][2:10]) == stop_at)
+                self.assertGreater(self.node.height - self.node.included[tx][0], self.node.k_hist, 'outside the retained window')
+                result = self.harness('m3').run_m3()
+                c = result['checks']
+                self.assertTrue(result['pass'], json.dumps(c, indent=1))
+                self.assertEqual(set(c), {'twoReplacingSameBlock', 'registerAloneCapacity', 'removeInactiveBelowFullSet',
+                                          'registerBelowFullSet'})
+                self.assertEqual(c['removeInactiveBelowFullSet']['removalCodeBefore'], 2)
+                self.assertLess(c['removeInactiveBelowFullSet']['activeAfterDeregister'], self.cp['M_max'])
+                self.assertEqual(len(result['resumedAt']), 1)
+                kinds = self.sent_kinds()
+                self.assertEqual((kinds.count('deregister()'), kinds.count('removeInactive(address)')), (1, 1), 'nothing sent twice')
+                self.assertNotIn('m3Run', self.last.state)
+
+    def assert_m3_not_gradable(self, h):
+        """Exit 1 with no m3 result: a check needs state the node no longer retains; the drill is cleared (the next m3
+        starts a fresh one) and nothing more is sent."""
+        before = self.sent_kinds()
+        with self.assertRaisesRegex(RuntimeError, 'not retained.*not graded'):
+            h.run_m3()
+        self.assertEqual(self.sent_kinds(), before, 'nothing sent')
+        self.no_m3_result(h)
+        self.assertNotIn('m3Run', json.loads((h.dir / 'state.json').read_text()))
+
+    def test_m3_stopped_before_deciding_its_deregister_beyond_the_window_is_not_graded(self):
+        # Stopped with its deregister sent; a block includes it while the harness is stopped, and the harness starts again
+        # long after: the active count at that block (check 3) is no longer retained, and the receipts do not show it.
+        self.node.k_hist = 4
+        h = self.m3_stopped('deregister()', pooled=True)
+        leaver = h.state['m3Run']['leaver']
+        for _ in range(8):
+            self.node.mine()
+        h2 = self.harness('m3')
+        self.assert_m3_not_gradable(h2)
+        self.assertEqual(h2.state['identities'][leaver]['outcome'], 'deregistered (m3)', 'as the canonical chain shows it')
+        with self.assertRaisesRegex(rf.Refused, 'full set'):
+            self.harness('m3').run_m3()
+        self.harness('fill', '--count', '12').run_fill()
+        result = self.harness('m3').run_m3()
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+        self.assertNotIn('resumedAt', result)
+
+    def test_m3_rewound_beyond_the_retained_state_window_is_not_graded(self):
+        # Every block from check 1's on is orphaned while the drill is stopped, each one's transactions are included again
+        # in order, and the harness starts again long after: the recomputed checks would need the state at those new
+        # blocks, which is no longer retained. No check is graded from it (neither the saved values of the orphaned blocks
+        # nor a guess): exit 1, no result, the drill is cleared, and a fresh drill passes.
+        self.node.k_hist = 4
+        h = self.m3_stopped_at_refill()
+        run = dict(h.state['m3Run'])
+        first = run['result']['checks']['twoReplacingSameBlock']['block']
+        groups = [[t['hash'] for t in self.node.blocks[n]['txs']] for n in range(first, self.node.height + 1)]
+        self.node.reorg(depth=len(groups))
+        pool = self.node.pool
+        for g in groups:
+            self.node.pool = [t for t in pool if t['hash'] in g]
+            self.node.mine()
+        self.node.pool = [t for t in pool if not any(t['hash'] in g for g in groups)]
+        for _ in range(8):
+            self.node.mine()
+        h2 = self.harness('m3')
+        self.assert_m3_not_gradable(h2)
+        ids = h2.state['identities']
+        self.assertEqual(ids[run['leaver']]['outcome'], 'deregistered (m3)')
+        self.assertEqual(next(i for i in ids if i['address'] == run['target'])['outcome'], 'registered', 'its removeInactive reverted')
+        self.harness('fill', '--count', '12').run_fill()
+        result = self.harness('m3').run_m3()
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+
+    def test_a_fill_resumed_beyond_the_window_infers_reasons_from_the_receipts(self):
+        # Stopped with four registrations sent; another registrant takes three of the next block's four registrations
+        # while the harness is stopped, and it starts again long after. The state before that block is no longer retained,
+        # but the block's receipts show the registration limit: RegOpsLimit, never a reason read from state it lacks.
+        self.cp['M_max'] = 64
+        self.node.k_hist = 4
+        h = self.harness('fill', '--count', '6', '--attempts', '6')
+        real = self.node.mine
+
+        def interrupt(*a):
+            if any(t['to'] == REG for t in self.node.pool):
+                h.stopping = True
+                return
+            real()
+        h.sleep = interrupt
+        h.run_fill()
+        self.node.external = 3
+        self.node.mine()
+        for _ in range(8):
+            self.node.mine()
+        report = self.harness('fill', '--count', '6', '--attempts', '6').run_fill()
+        self.assertEqual(report['registered'], 6, report['failuresByReason'])
+        self.assertEqual(set(report['failuresByReason']), {'RegOpsLimit'}, report['failuresByReason'])
+
+    def test_a_revert_beyond_the_window_says_its_state_is_not_retained(self):
+        # A revert the receipts do not explain, settled beyond the window: its reason says so, not a state-read failure.
+        self.node.k_hist = 4
+        h = self.harness('fill', '--count', '2')
+        h.run_fill()
+        ident = h.state['identities'][0]
+        n = ident['registeredAt']
+        for _ in range(8):
+            self.node.mine()
+        reason = h.reason_for({'kind': 'register', 'gas': rf.REGISTER_GAS}, ident,
+                              {'gasUsed': hex(60_000), 'transactionIndex': '0x0', 'status': '0x0'}, n)
+        self.assertEqual(reason, f'reverted (reason not observable: state at {n - 1} {rf.NOT_RETAINED})')
+
+    # ---- review round 9: a reorganization shallower than the node's safe depth (two miners' sibling blocks)
+
+    def test_m3_steps_are_decided_at_the_safe_height_so_shallow_reorganizations_pass(self):
+        # Every block that includes one of the drill's registry calls is orphaned once, after the harness has settled it,
+        # and its transactions are included again (in the new block at that height, or in the next one), as two mining
+        # nodes' sibling blocks do. Each step is decided, and the next one sent, only once its block is at the node's safe height
+        # (head - kSafe), so no decided step is undone and the drill keeps its order: the drill passes, every check
+        # names its canonical block, and nothing is sent twice.
+        for replay in ('same height', 'next block'):
+            with self.subTest(replay=replay):
+                self.setUp()
+                self.harness('fill', '--count', '11').run_fill()
+                h = self.harness('m3', '--reregister-after-u')
+                real = self.node.mine
+                seen, reorgs = set(), []
+
+                def mine(*a, replay=replay):
+                    txs = [t['hash'] for t in self.node.blocks[self.node.height]['txs'] if t['to'] == REG and t['hash'] not in seen]
+                    if txs:   # the head block the harness has settled is orphaned, then the next one is mined on the other
+                        seen.update(txs)
+                        reorgs.append(self.node.height)
+                        self.node.reorg(depth=1, keep=(lambda t: True) if replay == 'same height' else None)
+                    real()
+                h.sleep = mine
+                result = h.run_m3()
+                c = result['checks']
+                self.assertTrue(result['pass'], json.dumps(c, indent=1))
+                self.assertGreaterEqual(len(reorgs), 6, 'each step was reorganized once')
+                self.assertGreater(h.state['reorgsSeen'], 0)
+                for k in ('registerAloneCapacity', 'removeInactiveBelowFullSet', 'registerBelowFullSet'):
+                    self.assertEqual(c[k]['blockHash'], self.node.blocks[c[k]['block']]['hash'], k)
+                self.assertEqual(c['twoReplacingSameBlock']['blockHashes'], [self.node.blocks[c['twoReplacingSameBlock']['block']]['hash']] * 2)
+                kinds = self.sent_kinds()
+                self.assertEqual((kinds.count('deregister()'), kinds.count('removeInactive(address)'),
+                                  kinds.count('registerReplacing(address,address)')), (1, 1, 3), 'nothing sent twice')
+
+    def test_m3_check_1_split_by_a_shallow_reorganization_is_not_graded(self):
+        # Check 1's two registerReplacing are included in one block, which is orphaned before the check is decided; the
+        # node includes them again in two blocks. That is the reorganization, not the rule: the check is not graded (exit
+        # 1, no result, nothing below the full set sent), and the next m3 is a fresh drill that passes.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+        done = []
+
+        def mine(*a):
+            reps = [t for t in self.node.blocks[self.node.height]['txs'] if SEL.get(t['data'][2:10]) == 'registerReplacing(address,address)']
+            if len(reps) == 2 and not done:   # once the harness has settled them in one block
+                done.append(1)
+                self.node.reorg(depth=1, keep=lambda t: t['hash'] == reps[0]['hash'])
+            real()
+        h.sleep = mine
+        with self.assertRaisesRegex(RuntimeError, 'different blocks before the check was decided'):
+            h.run_m3()
+        self.no_m3_result(h)
+        self.assertNotIn('m3Run', h.state)
+        self.assertNotIn('deregister()', self.sent_kinds())
+        result = self.harness('m3').run_m3()
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+        self.assertNotIn('resumedAt', result)
 
     def test_stop_miners_survives_a_miner_that_exits_meanwhile(self):
         proc = subprocess.Popen([sys.executable, '-c', 'pass'])

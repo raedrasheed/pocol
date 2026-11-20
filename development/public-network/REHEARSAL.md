@@ -334,6 +334,16 @@ after one harness member deregisters (one whose registry record is ACTIVE at the
 the block before being 2 (the set is not full); a fresh `register` takes the free seat; and, with
 `--reregister-after-u`, a victim registers again once its record is refunded at dueHeight (U = 380 blocks, about 1 h;
 it signs with the victim's own key, so it needs harness victims and is refused with `--victims any`).
+Each step is decided, and the next one sent, only once the block that includes its transaction is at or below the
+node's `safe` height (`pocol_finality`: max(head − kSafe, finalized), kSafe 6 by default; a local, probabilistic
+depth, not consensus finality) and is still the block the harness settled it from; a transaction that a shallower
+reorganization returns to the pool is waited for again, and its new block is confirmed in turn. Sibling blocks of two
+mining nodes (reorganizations of one or two blocks, as on the local devnet, where the founder and the harness's mining identity
+both mine) therefore neither undo a decided step nor replay the steps out of order. This costs about kSafe blocks per
+step: five steps, up to seven with `--reregister-after-u`, so about 5 to 7 minutes in all at T_blk 10 s. If such a reorganization splits
+check 1's two `registerReplacing` into two blocks before the check is decided, the check is not graded (exit 1,
+nothing below the full set is sent), and the next `m3` starts a fresh drill. A reorganization deeper than kSafe is read
+as described below.
 Reasons are inferred because pocold's receipts carry no revert data and the registry's user paths revert BadPhase under
 `eth_call`. The exit status is 0 when every check passes and 2 when one does not; only included transactions decide a
 check, and the result is then in `state.json` (`m3`) and `report.json`. It is 130 when it was stopped (what it sent
@@ -342,22 +352,25 @@ example, the set is not full at the start of a fresh drill, or `--reregister-aft
 resumed drill whose first victim the earlier run chose under `--victims any`), and 1 when
 the path could not be completed (too few removable harness members within `--wait-blocks`, a refused or unsent call, a
 transaction not included within `--include-timeout` blocks, a deregister that reverts, so that no `removeInactive` is
-sent at a full set, an identity that could not be funded, a reorganization that undid a step decided earlier in the
-drill or included the drill's transactions out of its order): the reason is on stderr, and no `m3` result is written. The
+sent at a full set, an identity that could not be funded, a step whose block did not reach the safe height within
+`--wait-blocks` blocks, check 1 split by a reorganization before it was decided, a reorganization that undid a step
+decided earlier in the drill or included the drill's transactions out of its order, a check that needs state the node
+no longer retains): the reason is on stderr, and no `m3` result is written. The
 same command resumes a drill that stopped or failed below the full set it leaves: from just before its deregister is
 sent until the free seat is taken again, the drill's progress and its earlier checks are kept in `state.json`
 (`m3Run`), and the next `m3` settles what was in flight and continues from the deregister, the `removeInactive` or the
 `register` into the free seat, without the full-set precondition and without sending again what was included (the
 result then lists `resumedAt`). Checks 1 to 4, and the deregister, keep the hash of the block that included their
 transaction (`blockHash`, `blockHashes` for check 1, `deregisterBlockHash`); the `--reregister-after-u` check, made
-after the saved drill is cleared, keeps none. A step that a reorganization undid since
+after the saved drill is cleared, keeps none. A resumed run first waits until the saved drill's included transactions
+are at the safe height. A step that a reorganization undid since
 it was decided (its transaction in flight again, or included in another block) is recomputed from the canonical
 receipt when the drill resumes: checks 1 and 2 in place, and the drill goes back to the deregister or the
 `removeInactive` it undid, which reads its included transaction again and sends nothing that is included. The
 recomputed check reports the canonical receipt, so it can fail where the saved one passed (for example a
 `removeInactive` replayed after another registrant took the free seat succeeds at the full set, and check 3 fails).
 The same is read once the free seat is taken again, before the saved drill is cleared: a step undone during the run
-writes no result (exit 1), the drill stays saved, and the same command recomputes it (a reorganization after that, for
+(by a reorganization deeper than kSafe) writes no result (exit 1), the drill stays saved, and the same command recomputes it (a reorganization after that, for
 example while `--reregister-after-u` waits for U, is not read again).
 The drill sends each step once the one before is included, so each is in a later block than the one before: check 1's
 two `registerReplacing` in one block, then check 2's `register`, the deregister, the `removeInactive` and the `register`
@@ -377,10 +390,38 @@ member at a full set), exits 1, and the next `m3` starts a fresh drill; likewise
 `register` into the free seat was sent, it sends none (it would revert Capacity at a full set, which is not this check
 failing), exits 1 with no `m3` result, and the next `m3` starts a fresh drill. Once the free seat is taken again, a stop (for
 example while `--reregister-after-u` waits for U) starts a fresh drill on the next run.
+pocold answers state reads only within the last K_hist = 32 blocks (−32017 beyond them), and a resumed drill may decide
+a step long after its block. What the checks and the inferred revert reasons read at a past height (the active count at
+the deregister's block; the removal code, the active count and the sender's record at the block before a call; check
+1's victims' records at its block) is kept in `state.json` (`stateAt`, with the hash of the block at that height, for
+the last 2,048 heights), read when the transaction is settled and, for the block before, when it is sent, and reused
+while that block is canonical. When a check must be decided from a height that was not kept and is no longer retained
+(the drill stopped before its transaction was settled and resumed more than K_hist blocks later, or a reorganization
+while it was stopped moved its steps to blocks now outside the window), it is not graded: exit 1, no `m3` result, the
+saved drill is cleared with the outcomes the canonical chain shows, and the next `m3` starts a fresh drill at a full set
+(run `fill` first when the set is below it). Only check 1's victim record has another source: the victim's latest
+record proves the exit when it shows its exitHeight at that block. In `fill` too, a revert settled from a block whose
+preceding state is no longer retained is inferred from that block's receipts only (OutOfGas, RegOpsLimit); otherwise
+its reason says so (`reverted (reason not observable: state at N not retained (K_hist))`), and it is retried while
+`--attempts` allow.
 
 **R-off.** Once the home PC has been offline past Θ_inact at the full set, `replace --victim PC_MINER_ID --watch-refund`
-registers a fresh identity into its seat and records the PC's record at its dueHeight. A registerReplacing not included
-within `--include-timeout` blocks records no replacement (exit 1); it stays in flight for the next run. The PC's own registration again
+registers a fresh identity into its seat and records the PC's record at its dueHeight. Only an included
+`registerReplacing` is a result (in `state.json` `replacements`, with `blockHash`, the hash of the block that included
+it): one refused, not sent, given up, or not included within `--include-timeout` blocks (it stays in flight) records no
+replacement (exit 1). From before its newcomer is funded until its result is written, the replacement is kept in
+`state.json` (`replaceRun`), and the same command finishes one that stopped or failed before any eligibility check
+(once its `registerReplacing` is included the victim is EXITED, and refunded at dueHeight): it waits for the
+`registerReplacing` in flight, reads the included one from its canonical receipt (so a reorganization while it was
+stopped is read, and a replay that reverted is recorded as such), sends nothing again, and, given `--watch-refund` again, resumes the refund watch (the result then lists `resumedAt`). `after` is the victim's record at the block that
+included the `registerReplacing`, saved with that block's hash when first read, since pocold answers state reads only
+within the last K_hist = 32 blocks (−32017 beyond them) and the refund wait is U blocks: a resumed run reuses it while
+that block is still canonical. When it was not yet saved or the block changed, and the state at that block is no longer
+retained, `after` is the victim's latest record if it shows that exit, else the exit derived from the receipt
+(exitHeight that block, dueHeight that block + U); `afterSource` says which. With nothing of it included or in flight, the same newcomer replaces the victim afresh,
+and the saved replacement is cleared if the victim is no longer eligible. A reorganization that undid the replacement
+during the refund wait writes no result (exit 1); it stays saved and the same command recomputes it. While a
+replacement is saved, `replace` with another `--victim` is refused (exit 3). The PC's own registration again
 (20 PCOL, HELD; once with 0, ACCRUING) is made from its wallet.
 
 **After the rehearsal.** `stop-miners --dir DIR` stops the mining identities' nodes (their homes are recorded as
@@ -393,4 +434,4 @@ hold only public data and go to [evidence/](evidence/).
 **Tests.** `python3 -B -m unittest discover -s deploy/rehearsal -p 'test_*.py' -v` runs the unit tests (planning,
 limits, refusals, reason inference, keys, and the fill and M3 loops against an in-process registry model). With
 `POCOL_REHEARSAL_E2E=1` and `POCOLD_BIN_DIR` set to the release binaries, the same command also fills a local devnet to
-M_max 8 and runs M3 on it, about 30 s (CI: `.github/workflows/full-nonce-upgrade.yml`, Linux).
+M_max 8 and runs M3 on it, about 1 to 2 minutes (CI: `.github/workflows/full-nonce-upgrade.yml`, Linux).

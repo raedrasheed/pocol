@@ -110,6 +110,21 @@ class RpcError(Exception):
         self.code, self.message, self.data = code, message, data
 
 
+# pocold answers state reads (eth_call) only within its retained trie window, the last K_hist blocks (32 on the
+# rehearsal profile), and -32017 beyond it (rpc.rs state_for).
+STATE_NOT_RETAINED = -32017
+NOT_RETAINED = 'not retained (K_hist)'
+
+
+class StateGone(Exception):
+    """The registry state at a past height that the harness needs is no longer retained by the node (-32017), and was
+    not kept by the harness when it was within the window."""
+
+    def __init__(self, height):
+        super().__init__(f'the state at height {height} is {NOT_RETAINED}')
+        self.height = height
+
+
 def word(value):
     return int(value).to_bytes(32, 'big')
 
@@ -704,6 +719,9 @@ class Harness:
         for d in (self.hashes, self.settled):
             for h in [h for h in d if h < low]:
                 del d[h]
+        kept = self.state.get('stateAt') or {}
+        for k in [k for k, v in kept.items() if v['height'] < low]:
+            del kept[k]
         return self.head
 
     def start(self, head):
@@ -752,6 +770,9 @@ class Harness:
         for h in [h for h in self.hashes if h >= fork]:
             del self.hashes[h]
             self.blocks.pop(h, None)
+        kept = self.state.get('stateAt') or {}
+        for k in [k for k, v in kept.items() if v['height'] >= fork]:
+            del kept[k]   # (past() reads a height again whenever its block changed; these are orphaned)
         self.last_block = min(self.last_block, fork - 1)
 
     def settle(self, tx, n):
@@ -799,6 +820,7 @@ class Harness:
                     victim['outcome'] = 'replaced (m3)' if getattr(self.args, 'command', None) == 'm3' else 'replaced'
         else:
             attempt['reason'] = self.reason_for(item, ident, rc, n)
+        self.keep_settled(item, n)
 
     def unsettle(self, undo):
         """Undoes settle() for a transaction whose block was orphaned: it is in flight again."""
@@ -843,15 +865,75 @@ class Harness:
         if not per[str(n)]:
             del per[str(n)]
 
+    def past(self, what, height, *args):
+        """A registry read at a past height (`what`: lengths, record or removal), kept in state.json (stateAt) with the
+        hash of the block at that height and reused while that block is canonical: pocold answers state reads only
+        within the last K_hist blocks (-32017 beyond them: StateGone), and a resumed run may decide a step long after
+        its block. A height whose block changed is read again; a value is kept only when the block at that height was
+        the same before and after the read."""
+        key = f'{what}:{":".join(args)}@{height}'
+        kept = self.state.setdefault('stateAt', {})
+        b = self.chain.block(height)
+        if b is not None and (kept.get(key) or {}).get('hash') == b['hash']:
+            return kept[key]['value']
+        try:
+            value = getattr(self.chain, what)(*args, hex(height))
+        except RpcError as e:
+            if e.code == STATE_NOT_RETAINED:
+                raise StateGone(height) from None
+            raise
+        if b is not None and (self.chain.block(height) or {}).get('hash') == b['hash']:
+            kept[key] = {'height': height, 'hash': b['hash'], 'value': value}
+        return value
+
+    def keep_before(self, prepared):
+        """m3: before a registry call is sent at the head, the state its block would be decided from if the next block
+        includes it (the facts reason_for and the M3 checks read at the block before), kept by past()."""
+        if getattr(self.args, 'command', None) != 'm3' or self.head is None:
+            return
+        try:
+            self.past('lengths', self.head)
+            self.past('record', self.head, prepared['ident']['address'])
+            if prepared.get('victim'):
+                self.past('removal', self.head, prepared['victim'])
+        except StateGone:
+            pass
+
+    def keep_settled(self, item, n):
+        """m3: while settling a registry call at height n (usually the head), the state its M3 decision reads at a past
+        height, kept by past(): a run stopped before deciding the step decides it from these, later than K_hist."""
+        if getattr(self.args, 'command', None) != 'm3':
+            return
+        try:
+            if item['kind'] == 'deregister':
+                self.past('lengths', n)
+            elif item['kind'] == 'removeInactive' and item.get('victim'):
+                self.past('removal', n - 1, item['victim'])
+            elif item['kind'] == 'registerReplacing' and item.get('victim'):
+                self.past('record', n, item['victim'])
+            elif item['kind'] == 'register':
+                self.past('lengths', n - 1)
+        except StateGone:
+            pass
+
     def reason_for(self, item, ident, rc, n):
+        """The inferred revert reason of a settled call (infer_reason). The facts read from the state at the block before
+        come from past(); when that state is no longer retained only what the block's receipts show is inferred (OutOfGas,
+        the registration limits), and otherwise the reason says the state is not retained."""
         try:
             facts = {'gasUsed': int(rc['gasUsed'], 16) if rc else None, 'gas': item.get('gas'), 'rMax': self.cp['R_max'],
                      'regOps': self.cp['REG_OPS'], 'mMax': self.cp['M_max'], 'recordsMax': self.cp['REG_RECORDS_MAX']}
-            before = self.chain.lengths(hex(n - 1))
-            facts.update({'activeBefore': before['active'], 'recordsBefore': before['records']})
-            facts['senderRecord'] = self.chain.record(ident['address'], hex(n - 1)) is not None
-            if item.get('victim'):
-                facts['victimCode'] = self.chain.removal(item['victim'], hex(n - 1))
+            gone = None
+            try:
+                before = self.past('lengths', n - 1)
+                facts.update({'activeBefore': before['active'], 'recordsBefore': before['records']})
+                facts['senderRecord'] = self.past('record', n - 1, ident['address']) is not None
+                if item.get('victim'):
+                    facts['victimCode'] = self.past('removal', n - 1, item['victim'])
+            except StateGone as e:
+                gone = e.height
+                for k in ('activeBefore', 'recordsBefore', 'senderRecord', 'victimCode'):
+                    facts.pop(k, None)
             b = self.chain.block(n, True)
             index = int(rc['transactionIndex'], 16) if rc else len(b['transactions'])
             regs = ops = 0
@@ -867,7 +949,10 @@ class Harness:
                 ops += 2 if sel == SELECTORS['registerReplacing(address,address)'] else 1
                 regs += 1 if sel in REGISTRATION_SELECTORS else 0
             facts.update({'regsBefore': regs, 'opsBefore': ops})
-            return infer_reason(item['kind'], facts)
+            reason = infer_reason(item['kind'], facts)
+            if gone is not None and reason == 'reverted (reason not observable over RPC)':
+                reason = f'reverted (reason not observable: state at {gone} {NOT_RETAINED})'
+            return reason
         except RpcError as e:
             return f'reverted (state not readable: {e.message[:80]})'
 
@@ -978,6 +1063,7 @@ class Harness:
             attempt['victim'] = prepared['victim']
         prepared['ident']['attempts'].append(attempt)
         prepared['attempt'] = attempt
+        self.keep_before(prepared)   # (saved with the attempt)
 
     def submit(self, prepared):
         ident = prepared['ident']
@@ -1506,14 +1592,66 @@ class Harness:
         raise RuntimeError(f'fewer than {want} removable harness members after {self.args.wait_blocks} blocks '
                            '(members become removable Theta_inact blocks after their last share or registration)')
 
-    def included(self, what, tx, err):
-        """m3: a call that decides a check was sent and included, or RuntimeError (exit 1, and no m3 result is written):
-        only an included transaction decides a check, never a refusal or one still in flight after --include-timeout
-        blocks (it stays recorded in flight, and the next run settles it)."""
+    def included(self, what, tx, err, confirm=False):
+        """m3 and replace: a call that decides a check was sent and included, or RuntimeError (exit 1, and no result is
+        written): only an included transaction decides a check, never a refusal or one still in flight after
+        --include-timeout blocks (it stays recorded in flight, and the next run settles it). With `confirm` (m3), its
+        block is also at the node's safe height (m3_confirm)."""
         if tx is None:
             raise RuntimeError(f'the {what} was refused or not sent: {err}')
         if not self.wait_included([tx], self.args.include_timeout):
             raise RuntimeError(f'the {what} was not included within --include-timeout blocks (it stays recorded in flight)')
+        if confirm:
+            self.m3_confirm(what, [tx])
+
+    def settled_at(self, tx):
+        """The canonical height the harness settled `tx` at, or None (in flight, given up, or never settled). One settled
+        below the heights the harness keeps (REORG_WINDOW, pocold's reorganization bound) is read from its record."""
+        h = next((h for h, us in self.settled.items() for u in us if u.get('tx') == tx), None)
+        if h is None and tx not in self.inflight:
+            h = next((a['block'] for i in self.state['identities'] for a in i['attempts']
+                      if a.get('tx') == tx and a.get('block') is not None and a['block'] < self.head - REORG_WINDOW), None)
+        return h
+
+    def still_canonical(self, h):
+        """The block the harness processed at height h is the canonical one (a height below the ones it keeps is
+        beyond pocold's reorganization bound)."""
+        if h < self.head - REORG_WINDOW:
+            return True
+        return self.hashes.get(h) is not None and self.hashes[h] == (self.chain.block(h) or {}).get('hash')
+
+    def safe_height(self):
+        """The node's RPC `safe` height (pocol_finality: max(head - kSafe, finalized), kSafe 6 by default), a local,
+        probabilistic confirmation depth, not consensus finality."""
+        safe = self.rpc.call('pocol_finality')['safe']
+        return int(safe, 16) if isinstance(safe, str) else int(safe)
+
+    def m3_confirm(self, what, txs):
+        """m3: a step is decided, and the next one sent, only once every block that includes its transactions is at or
+        below the node's safe height and is still the block the harness settled them from. The drill sends each step
+        once the one before is decided, so a reorganization of at most kSafe blocks (two miners' sibling blocks) can
+        neither undo a decided step nor replay the drill's steps out of order or into one block. A transaction that such a
+        reorganization returns to flight is waited for again (--include-timeout blocks), and its new block confirmed in
+        turn. A deeper reorganization is read as before (m3_rewound, m3_disorder). Returns whether any of the blocks
+        changed meanwhile; RuntimeError when a transaction is no longer included (it stays recorded) or its block is not
+        safe within --wait-blocks blocks."""
+        first = {t: self.settled_at(t) for t in txs}
+        first = {t: (h, self.hashes.get(h)) for t, h in first.items()}
+        start = self.head
+        while True:
+            if any(t in self.inflight for t in txs):
+                if not self.wait_included(txs, self.args.include_timeout):
+                    raise RuntimeError(f'the {what} was returned to flight by a reorganization and not included again within '
+                                       '--include-timeout blocks (it stays recorded in flight)')
+            heights = [self.settled_at(t) for t in txs]
+            if None in heights:
+                raise RuntimeError(f'the {what} is no longer included after a reorganization (not decided; its record is kept)')
+            safe = self.safe_height()
+            if all(h <= safe and self.still_canonical(h) for h in heights):
+                return any(first[t] != (h, self.hashes.get(h)) for t, h in zip(txs, heights))
+            if self.head > start + self.args.wait_blocks:
+                raise RuntimeError(f'the {what}\'s block did not reach the node\'s safe height within --wait-blocks blocks')
+            self.step(1)
 
     def m3_attempt(self, ident, kind, since=0):
         """m3: the latest attempt of `ident` of this kind, from its `since`-th on, that a block included, or None."""
@@ -1530,7 +1668,7 @@ class Harness:
         in flight keeps no outcome (a later run settles it)."""
         at = [next((x for x in reversed(r['attempts']) if x['kind'] == 'registerReplacing'), {}) for r in reps]
         blocks = {x.get('block') for x in at}
-        after = {v: self.chain.record(v, hex(x['block'])) if x.get('block') else None for v, x in zip(victims, at)}
+        after = {v: self.m3_victim_after(v, x) if x.get('block') else None for v, x in zip(victims, at)}
         for ident, x in zip(reps, at):
             if x.get('status') == 1:
                 ident['role'] = 'idle'
@@ -1543,9 +1681,23 @@ class Harness:
                 'statuses': [x.get('status') for x in at], 'victimRecords': after,
                 'reasons': [x.get('reason') for x in at if x.get('status') == 0], 'blockHashes': [self.m3_hash(x) for x in at]}
 
+    def m3_victim_after(self, victim, att):
+        """Check 1: the victim's record at the block that includes `att` (past). When that state is no longer retained,
+        the latest record if it shows the exit at that block (a later state proves it); else StateGone (not graded)."""
+        try:
+            return self.past('record', att['block'], victim)
+        except StateGone:
+            latest = self.chain.record(victim)
+            if att.get('status') == 1 and latest and latest['status'] == 'EXITED' and latest['exitHeight'] == att['block']:
+                return latest
+            raise
+
     def m3_register_alone(self, plain, active_before, err=None):
-        """M3 check 2 from the included register at the full set."""
+        """M3 check 2 from the included register at the full set. Its reason is inferred from the state at the block
+        before: when that is no longer retained, the check is not graded (StateGone)."""
         att = self.m3_attempt(plain, 'register') or next((x for x in reversed(plain['attempts']) if x['kind'] == 'register'), {})
+        if NOT_RETAINED in (att.get('reason') or ''):
+            raise StateGone(att['block'] - 1)
         if plain['outcome'] != 'registered':
             plain['outcome'] = 'm3: register at a full set'
         return {'pass': att.get('status') == 0 and (att.get('reason') or '').startswith('Capacity'), 'activeBefore': active_before,
@@ -1555,7 +1707,7 @@ class Harness:
     def m3_remove_inactive(self, run, remover, rm):
         """M3 check 3 from the included removeInactive, and the target's outcome."""
         target = run['target']
-        code_before = self.chain.removal(target, hex(rm['block'] - 1)) if rm.get('block') else None
+        code_before = self.past('removal', rm['block'] - 1, target) if rm.get('block') else None
         remover['outcome'] = 'm3: removeInactive below a full set'
         self.m3_target_outcome(target, rm)
         return {'pass': run['activeAfterDeregister'] < self.cp['M_max'] and rm.get('status') == 0 and code_before == 2,
@@ -1608,6 +1760,15 @@ class Harness:
             last, prev = att['block'], what
         return None
 
+    def m3_run_txs(self, run):
+        """The saved drill's transactions that a block includes (as settled)."""
+        ids = self.state['identities']
+        steps = [(i, 'registerReplacing', 0) for i in run.get('replacers') or []] + [
+            (run.get('plain'), 'register', 0), (run['leaver'], 'deregister', run['leaverSince']),
+            (run['remover'], 'removeInactive', 0), (run.get('filler'), 'register', 0)]
+        atts = [self.m3_attempt(ids[i], kind, since) for i, kind, since in steps if i is not None]
+        return [x['tx'] for x in atts if x is not None and x.get('tx')]
+
     def m3_drop(self, run):
         """Clears a saved drill (the next m3 starts a fresh one), with the leaver's and the removeInactive target's
         outcomes as the canonical chain shows them."""
@@ -1646,7 +1807,7 @@ class Harness:
             if self.m3_hash(att) != checks['registerAloneCapacity'].get('blockHash'):
                 undone.append('registerAloneCapacity')
                 if redo:
-                    before = self.chain.lengths(hex(att['block'] - 1))['active'] if att else None
+                    before = self.past('lengths', att['block'] - 1)['active'] if att else None
                     checks['registerAloneCapacity'] = self.m3_register_alone(plain, before)
         leaver = ids[run['leaver']]
         phase = run['phase']
@@ -1671,6 +1832,20 @@ class Harness:
         return undone
 
     def run_m3(self):
+        """The M3 drill (m3_drill). A check that needs the state at a past height the node no longer retains, and that
+        the harness did not keep while it was retained (past), is not graded: no m3 result is written, the saved drill is
+        cleared with the outcomes the canonical chain shows (m3_drop), and the next m3 starts a fresh drill."""
+        try:
+            return self.m3_drill()
+        except StateGone as e:
+            if self.state.get('m3Run') is not None:
+                self.m3_drop(self.state['m3Run'])
+            self.save()
+            raise RuntimeError(f'{e} (pocold answers state reads only within the last K_hist blocks, -32017), and a check of the '
+                               'drill is decided from it; its checks are not graded, no m3 result is written, and the next m3 '
+                               'starts a fresh drill at a full set (run fill first if the set is below it)') from None
+
+    def m3_drill(self):
         a = self.args
         if a.reregister_after_u and a.victims == 'any':
             # The victim that registers again signs with its own key: another registrant's member cannot.
@@ -1687,6 +1862,11 @@ class Harness:
         # only a fresh drill needs a full set. One whose deregister was never included left the set as it was: the drill
         # starts afresh.
         run = self.state.get('m3Run')
+        # Its included transactions are confirmed first (m3_confirm: at the node's safe height), so that what is
+        # recomputed below is read from blocks a shallow reorganization no longer changes.
+        txs = self.m3_run_txs(run) if run else []
+        if txs:
+            self.m3_confirm('saved drill\'s transactions', txs)
         # A step of it that a reorganization undid since it was decided (while it was stopped, or settled again above) is
         # recomputed from the canonical chain, or its phase is run again.
         undone = self.m3_rewound(run) if run else []
@@ -1737,10 +1917,17 @@ class Harness:
                 sent.append(tx)
             self.save()
             done = self.wait_included(sent, a.include_timeout)
+            moved = self.m3_confirm('registerReplacing', sent) if done else False
             check = self.m3_replacing(newcomers[:2], victims)
             self.save()
             if not done:
                 raise RuntimeError('a registerReplacing was not included within --include-timeout blocks (it stays recorded in flight)')
+            if moved and len(check['blocks']) != 1:
+                # Included in one block, then split by a reorganization before the check was decided: the receipts no
+                # longer test the rule (a pass or a fail would both be unfounded). Nothing below the full set was sent.
+                raise RuntimeError('a reorganization included check 1\'s two registerReplacing again in different blocks before '
+                                   'the check was decided; it is not graded, no m3 result is written, and the next m3 starts a '
+                                   'fresh drill')
             checks['twoReplacingSameBlock'] = check
             self.say('M3 two registerReplacing: ' + json.dumps(checks['twoReplacingSameBlock'], sort_keys=True))
             # 2. register alone at the full set: Capacity.
@@ -1748,7 +1935,7 @@ class Harness:
             self.step(1)
             L = self.chain.lengths()
             tx, err = self.register(plain)
-            self.included('register at the full set', tx, err)
+            self.included('register at the full set', tx, err, confirm=True)
             checks['registerAloneCapacity'] = self.m3_register_alone(plain, L['active'], err)
             self.say('M3 register alone: ' + json.dumps(checks['registerAloneCapacity'], sort_keys=True))
             # 3. Below a full set: one harness member deregisters, then removeInactive on an idle member reverts. The
@@ -1768,7 +1955,7 @@ class Harness:
             self.save()
             self.ensure_funds(op_key, op_addr, [leaver], call_need)
             tx, err = self.registry_tx(leaver, 'deregister', calldata('deregister()'), REGISTRY_CALL_GAS)
-            self.included('deregister', tx, err)
+            self.included('deregister', tx, err, confirm=True)
         else:
             run['result'].setdefault('resumedAt', []).append(self.head)
             self.say(f'M3 resumes its drill below a full set (phase {run["phase"]}, started at {run["result"]["startHeight"]})')
@@ -1785,7 +1972,7 @@ class Harness:
                                    'sent at a full set')
             leaver['outcome'] = 'deregistered (m3)'
             run.update({'phase': 'belowFull', 'deregisterBlock': dereg['block'], 'deregisterBlockHash': self.m3_hash(dereg),
-                        'activeAfterDeregister': self.chain.lengths(hex(dereg['block']))['active']})
+                        'activeAfterDeregister': self.past('lengths', dereg['block'])['active']})
             self.save()
         if run['phase'] == 'belowFull':
             rm = self.m3_attempt(remover, 'removeInactive')
@@ -1799,7 +1986,7 @@ class Harness:
                                        'full set (the next m3 starts a fresh drill)')
                 tx, err = self.registry_tx(remover, 'removeInactive', calldata('removeInactive(address)', target), REGISTRY_CALL_GAS,
                                            victim=target)
-                self.included('removeInactive', tx, err)
+                self.included('removeInactive', tx, err, confirm=True)
                 rm = remover['attempts'][-1]
             checks['removeInactiveBelowFullSet'] = self.m3_remove_inactive(run, remover, rm)
             self.say('M3 removeInactive below a full set: ' + json.dumps(checks['removeInactiveBelowFullSet'], sort_keys=True))
@@ -1823,7 +2010,7 @@ class Harness:
         err = None
         if att is None:
             tx, err = self.register(filler)
-            self.included('register into the free seat', tx, err)
+            self.included('register into the free seat', tx, err, confirm=True)
             att = filler['attempts'][-1]
         checks['registerBelowFullSet'] = {'pass': att.get('status') == 1, 'block': att.get('block'), 'reason': att.get('reason') or err,
                                           'activeAfter': self.chain.lengths()['active'], 'blockHash': self.m3_hash(att)}
@@ -1865,7 +2052,7 @@ class Harness:
         claimed = None
         if self.chain.record(victim) is not None:
             tx, err = self.registry_tx(ident, 'claimBond', calldata('claimBond()'), REGISTRY_CALL_GAS)
-            self.included('claimBond', tx, err)
+            self.included('claimBond', tx, err, confirm=True)
             claimed = ident['attempts'][-1].get('status')
         erased = self.chain.record(victim) is None
         full = self.chain.lengths()['active'] >= self.cp['M_max']
@@ -1876,7 +2063,7 @@ class Harness:
             tx, err = self.register(ident)
         if tx is not None:
             ident['outcome'] = None   # in flight: settled from the chain, by this run or the next
-        self.included('registration of the victim again', tx, err)
+        self.included('registration of the victim again', tx, err, confirm=True)
         att = ident['attempts'][-1]
         if att.get('status') != 1:
             ident['outcome'] = f'failed: {att.get("reason")}'
@@ -1886,6 +2073,21 @@ class Harness:
         return out
 
     # -- R-off support: register into one named member's seat
+    def replace_eligible(self, victim):
+        """The victim's record once it is removable (code 0), or Refused / RuntimeError."""
+        a = self.args
+        rec = self.chain.record(victim)
+        if rec is None:
+            raise Refused(f'{victim} has no registry record')
+        for _ in range(a.wait_blocks + 1):
+            code = self.chain.removal(victim)
+            if code == 0:
+                return rec
+            if code in (1, 3):
+                raise Refused(f'{victim} cannot be removed: removal code {code} {REMOVAL_LABELS[code]}')
+            self.step(1)
+        raise RuntimeError(f'{victim} did not become removable within {a.wait_blocks} blocks (code {code} {REMOVAL_LABELS.get(code)})')
+
     def run_replace(self):
         a = self.args
         victim = a.victim.lower()
@@ -1894,36 +2096,107 @@ class Harness:
         self.poll()
         op_key, op_addr = self.operator()
         self.resume()
-        rec = self.chain.record(victim)
-        if rec is None:
-            raise Refused(f'{victim} has no registry record')
-        for _ in range(a.wait_blocks + 1):
-            code = self.chain.removal(victim)
-            if code == 0:
-                break
-            if code in (1, 3):
-                raise Refused(f'{victim} cannot be removed: removal code {code} {REMOVAL_LABELS[code]}')
-            self.step(1)
-        else:
-            raise RuntimeError(f'{victim} did not become removable within {a.wait_blocks} blocks (code {code} {REMOVAL_LABELS.get(code)})')
-        ident = self.fresh_funded(op_key, op_addr, 1, fund_wei_of(a))[0]
-        ident['role'] = 'idle'
+        ids = self.state['identities']
+        # A replacement is saved (replaceRun) from before its newcomer is funded until its result is written: a run
+        # stopped or failed meanwhile is finished by the same command, before any eligibility check (once the
+        # registerReplacing is included the victim is EXITED, and refunded at dueHeight), never by a second newcomer.
+        run = self.state.get('replaceRun')
+        if run is not None and run['victim'] != victim:
+            raise Refused(f'an unfinished replacement of {run["victim"]} is saved (replaceRun); finish it with replace --victim '
+                          f'{run["victim"]} before replacing another member')
+        ident = ids[run['newcomer']] if run is not None else None
+        if run is not None:
+            run.setdefault('resumedAt', []).append(self.head)
+            self.say(f'replace resumes its saved replacement of {victim} (newcomer {ident["address"]})')
+            mine = [t for t, v in self.inflight.items() if v['i'] == ident['i']]
+            if mine and not self.wait_included(mine, a.include_timeout):
+                self.save()
+                raise RuntimeError('the registerReplacing was not included within --include-timeout blocks (it stays recorded in '
+                                   'flight)')
+            self.revive(ident)   # one given up earlier that a canonical block includes after all
+            att = self.m3_attempt(ident, 'registerReplacing')
+            if att is not None:
+                return self.replace_result(run, ident, att)
+            # Nothing of it is included or in flight (none sent, refused or given up): the same newcomer replaces the
+            # victim afresh, if it is still eligible; if not, the saved replacement is cleared.
+        try:
+            rec = self.replace_eligible(victim)
+        except (Refused, RuntimeError):
+            if run is not None:
+                del self.state['replaceRun']
+                self.save()
+            raise
+        if run is None:
+            ident = self.new_identity('m3')
+            ident['role'] = 'idle'
+            run = {'victim': victim, 'newcomer': ident['i'], 'startHeight': self.head}
+            self.state['replaceRun'] = run
+        run['before'] = rec
+        self.save()
+        self.ensure_funds(op_key, op_addr, [ident], fund_wei_of(a))
         tx, err = self.register_replacing(ident, victim)
-        if tx and not self.wait_included([tx], a.include_timeout):
-            # Not a result: it stays recorded in flight and the next run settles it (exit 1, no replacement written).
+        # Only an included registerReplacing is a result: one refused, not sent, not included within --include-timeout
+        # blocks (it stays in flight) or given up is exit 1 with no replacement written, and the saved one is resumed.
+        self.included('registerReplacing', tx, err)
+        att = self.m3_attempt(ident, 'registerReplacing')
+        if att is None:
             self.save()
-            raise RuntimeError('the registerReplacing was not included within --include-timeout blocks (it stays recorded in flight)')
-        att = ident['attempts'][-1]
-        if att.get('status') is not None or tx is None:
-            ident['outcome'] = 'registered' if att.get('status') == 1 else f'failed: {att.get("reason") or err}'
-        after = self.chain.record(victim)
-        out = {'victim': victim, 'before': rec, 'after': after, 'newcomer': ident['address'], 'block': att.get('block'),
-               'status': att.get('status'), 'reason': att.get('reason') or err}
-        if att.get('status') == 1 and a.watch_refund and after:
+            raise RuntimeError(f'the registerReplacing was not included ({ident["attempts"][-1].get("reason")})')
+        return self.replace_result(run, ident, att)
+
+    def replace_after(self, run, att, block_hash):
+        """The victim's record at the block that includes `att` (`after`), and where it was read from. pocold answers
+        state reads only within the last K_hist blocks (-32017 beyond them), and a resumed run may come long after that
+        block (U blocks of refund wait), so `after` is saved with the block's hash when first read and reused while
+        that block is still canonical. When the block changed (a reorganization while stopped) and its state is no
+        longer retained, `after` is the latest record if it shows this exit, else the exit `att` made, with its
+        dueHeight from U (the victim's record is refunded and erased at dueHeight, or registered again since)."""
+        victim, block = run['victim'], att['block']
+        saved = run.get('after')
+        if saved is not None and saved.get('block') == block and saved.get('blockHash') == block_hash:
+            return saved['record'], saved['source']
+        try:
+            record, source = self.chain.record(victim, hex(block)), 'inclusionBlock'
+        except RpcError as e:
+            if e.code != -32017:
+                raise
+            latest = self.chain.record(victim)
+            if att.get('status') != 1:
+                record, source = latest, f'latest at {self.head} (state at {block} not retained)'
+            elif latest and latest['status'] == 'EXITED' and latest['exitHeight'] == block:
+                record, source = latest, f'latest at {self.head} (state at {block} not retained)'
+            else:
+                record = {'status': 'EXITED', 'exitHeight': block, 'dueHeight': block + self.cp['U']}
+                source = f'derived from the receipt (state at {block} not retained; latest record {latest and latest["status"]})'
+        run['after'] = {'block': block, 'blockHash': block_hash, 'record': record, 'source': source}
+        return record, source
+
+    def replace_result(self, run, ident, att):
+        """The replacement from its included registerReplacing `att`, as the canonical chain shows it (a resumed run
+        recomputes it from the receipt, so a reorganization while it was stopped is read), and with --watch-refund the
+        victim's record at its dueHeight. A stop during that wait keeps it saved for the same command; a reorganization
+        that undid the replacement during the wait writes no result (exit 1) and keeps it saved."""
+        victim = run['victim']
+        if att.get('status') != 1:
+            ident['outcome'] = f'failed: {att.get("reason")}'
+        block_hash = self.m3_hash(att)
+        after, source = self.replace_after(run, att, block_hash)
+        out = {'victim': victim, 'before': run['before'], 'after': after, 'afterSource': source, 'newcomer': ident['address'],
+               'block': att['block'], 'blockHash': block_hash, 'status': att.get('status'), 'reason': att.get('reason')}
+        if run.get('resumedAt'):
+            out['resumedAt'] = run['resumedAt']
+        self.save()
+        if att.get('status') == 1 and self.args.watch_refund and after:
+            self.say(f'replace waiting for the victim {victim} refund at dueHeight {after["dueHeight"]}')
             while self.head < after['dueHeight']:
                 self.step(1, timeout=self.cp['T_blk'] * 60)
             self.step(2)
             out['atDue'] = {'height': self.head, 'record': self.chain.record(victim)}
+            if self.m3_hash(self.m3_attempt(ident, 'registerReplacing')) != out['blockHash']:
+                self.save()
+                raise RuntimeError('a reorganization undid the registerReplacing after it was decided; no replacement is written, '
+                                   'and the same command recomputes it (replaceRun) from the canonical chain')
+        del self.state['replaceRun']
         self.state.setdefault('replacements', []).append(out)
         self.save()
         self.say('replace ' + json.dumps(out, sort_keys=True))
