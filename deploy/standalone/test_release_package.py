@@ -107,7 +107,7 @@ class ReleasePackageTests(unittest.TestCase):
         self.assertNotIn('requiresCoordinatedUpgrade', release)
         self.assertNotIn('activationHeight', release)
         self.assertFalse(release['networkInvitationIncluded'])
-        self.assertFalse(release['publicLaunchReady'])
+        self.assertIs(release['publicLaunchReady'], False); self.assertIs(release['publicLaunchApproved'], False)
         self.assertNotIn('network.pocol.json', {f.name for f in folder.iterdir()})
         for line in (folder / 'SHA256SUMS').read_text(encoding='utf-8').splitlines():
             expected, name = line.split('  ', 1)
@@ -139,12 +139,19 @@ class ReleasePackageTests(unittest.TestCase):
         for retired in ('lastDistributedSignerSha256', 'installsBeside'):
             self.assertNotIn(retired, release)
         self.assertEqual((release['chainId'], release['genesisHash'], release['consensusIdentity']), (None, None, None))
-        # V3-28 H1: the raw identity plus the readiness keys the desktop build-info has, marked as not computed.
+        # V3-28 H1, OWNER-DECISIONS-2026-11-20 D4: the raw identity plus the approval and readiness keys the desktop
+        # build-info has, marked as not computed.
         packaged = json.loads((out / 'build-info.json').read_text(encoding='utf-8'))
         self.assertEqual({k: packaged[k] for k in self.build}, self.build)
-        self.assertIs(packaged['publicLaunchReady'], False)
+        self.assertIs(packaged['publicLaunchReady'], False); self.assertIs(packaged['publicLaunchApproved'], False)
         self.assertEqual([b['id'] for b in packaged['launchBlockers']], ['readiness-not-computed'])
-        self.assertEqual(set(packaged), set(self.build) | {'publicLaunchReady', 'launchBlockers'})
+        self.assertEqual(packaged['technicalReadiness']['complete'], False)
+        self.assertEqual([b['id'] for b in packaged['technicalReadiness']['pending']], ['readiness-not-computed'])
+        for k in ('launchApprovalReference', 'networkName', 'networkEnvironment', 'networkScope'): self.assertIsNone(packaged[k], k)
+        self.assertEqual(set(packaged), set(self.build) | {'publicLaunchApproved', 'launchApprovalReference', 'publicLaunchReady', 'launchBlockers',
+                                                           'technicalReadiness', 'networkName', 'networkEnvironment', 'networkScope'})
+        release = self.metadata(out)
+        self.assertIs(release['publicLaunchApproved'], False); self.assertIs(release['publicLaunchReady'], False)
 
     def test_there_is_one_android_application_id_and_no_option_for_another(self):
         self.android_fixture()

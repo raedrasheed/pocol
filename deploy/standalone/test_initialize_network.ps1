@@ -74,7 +74,9 @@ try {
         Assert ($Summary.testPlaceholders -eq $true -and [uint64]$Summary.chainId -eq 777990 -and [uint64]$Summary.profileChainId -eq $ChainId) "$Network dry run is a test genesis on the local test id, from the $ChainId profile"
         Assert ($Summary.scope -ceq 'experimental-devnet' -and $Summary.publicLaunchReady -eq $false) "$Network admission is experimental and not public-launch-ready"
         $Ids = @($Summary.launchBlockers | ForEach-Object { $_.id })
-        Assert (($Ids -ccontains 'admission-scope') -and ($Ids -ccontains 'profile-kind') -and !($Ids -ccontains 'consensus-unpinned')) "$Network readiness blockers"
+        $PendingIds = @($Summary.technicalReadiness.pending | ForEach-Object { $_.id })
+        Assert ($Summary.publicLaunchApproved -eq $false -and ($Ids -ccontains 'launch-not-approved') -and !($Ids -ccontains 'consensus-unpinned')) "$Network launch blockers"
+        Assert (($PendingIds -ccontains 'admission-scope') -and ($PendingIds -ccontains 'profile-kind')) "$Network technical readiness"
         $Source = [IO.File]::ReadAllText((Join-Path $Root "deploy\mainnet\$ProfileName")) | ConvertFrom-Json
         $Config = [IO.File]::ReadAllText((Join-Path $Work $ProfileName)) | ConvertFrom-Json
         Assert ([string]$Config.genesisTime -clike 'PLACEHOLDER*' -and [uint64]$Config.hashRate.hashesPerSecond -eq 1000000) "$Network dry run fills the hash rate and leaves the launch second to the test flag"

@@ -187,20 +187,24 @@ fn a_ceremony_filled_profile_builds_without_the_flag_with_a_measured_calibration
     let o2=Temp::new("ceremony-synthetic");assert!(testnet::prepare(synthetic.to_string().as_bytes(),&o2.0).unwrap_err().contains("measurement"));
 }
 
-/// V3-28 H2 (1): the admission set_network_identity.py pins for a switched-to network other than a public network
-/// chain, readiness.rs `ExpectedAdmission::FRESH_NETWORK`, is the experimental admission (FRESH-NETWORK-CP.md §1 "Launch
-/// admission", superseded for the mainnet chain by OWNER-DECISIONS-2026-11-20 D5): every field of it is what the
-/// launcher's boot gives a ceremony genesis of the rehearsal profile. It is not the launch admission, so a pin of it keeps
-/// `admission-not-booted` in the launcher. The mainnet profile's ceremony genesis boots in scope public-network instead
-/// (`a_ceremony_filled_mainnet_genesis_boots_as_the_public_network_with_every_condition_and_waiver`), so it does not
-/// match FRESH_NETWORK.
+/// V3-28 H2 (1), OWNER-DECISIONS-2026-11-20 D4 and D5: the admissions set_network_identity.py pins are the ones the
+/// launcher's boot gives a ceremony genesis, every field compared. On the mainnet chain it pins readiness.rs
+/// `ExpectedAdmission::PUBLIC_MAINNET` (with the approval reference): the network profile on a network node in scope
+/// public-network, with its conditions and the R13, R21 and R26 waivers. For a switched-to network off the public network
+/// chains it pins `ExpectedAdmission::FRESH_NETWORK`, the experimental admission (FRESH-NETWORK-CP.md §1 "Launch
+/// admission", superseded for the mainnet chain by D5), which the rehearsal profile's ceremony genesis boots with. Neither
+/// is the specification admission `LAUNCH`, and the two differ from each other in every field.
 #[test]
 fn the_pinned_fresh_network_admission_is_the_one_a_ceremony_genesis_boots_with(){
-    use pocold::readiness::ExpectedAdmission;
+    use pocold::readiness::{AdmissionFacts,ExpectedAdmission};
     let want=ExpectedAdmission::FRESH_NETWORK;
-    assert_eq!((want.scope,want.profile_kind,want.node_kind),(Scope::ExperimentalDevnet,ProfileKind::Simnet,NodeKind::Simnet),"Q3 = a");
+    assert_eq!((want.scope,want.profile_kind,want.node_kind),(Scope::ExperimentalDevnet,ProfileKind::Simnet,NodeKind::Simnet),"Q3 = a, off the public chains");
     assert_eq!(want.differing(&ExpectedAdmission::LAUNCH),["scope","conditions","waivers","profile kind","node kind"]);
-    for (label,profile,chain) in [("fresh-rehearsal",REHEARSAL,REHEARSAL_CHAIN_ID)]{
+    let public=ExpectedAdmission::PUBLIC_MAINNET;
+    assert_eq!((public.scope,public.profile_kind,public.node_kind),(Scope::PublicNetwork,ProfileKind::Network,NodeKind::Node),"D5");
+    assert_eq!(public.differing(&ExpectedAdmission::LAUNCH),["scope","conditions","waivers"]);
+    assert_eq!(public.differing(&want),["scope","conditions","waivers","profile kind","node kind"]);
+    for (label,profile,chain,want) in [("fresh-rehearsal",REHEARSAL,REHEARSAL_CHAIN_ID,want),("public-mainnet",MAINNET,MAINNET_CHAIN_ID,public)]{
         let out=Temp::new(label);testnet::prepare(ceremony_filled(&json(profile),1_000_000).to_string().as_bytes(),&out.0).unwrap();
         let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
         assert_eq!(spec.chain_id(),chain);
@@ -208,15 +212,18 @@ fn the_pinned_fresh_network_admission_is_the_one_a_ceremony_genesis_boots_with()
         assert_eq!(got,ExpectedAdmission{conditions:&[],waivers:&[],..want},"{label}");
         assert_eq!(a.report().conditions.iter().map(|c|c.id).collect::<Vec<_>>(),want.conditions,"{label}");
         assert_eq!(a.report().waivers.iter().map(|w|w.rule).collect::<Vec<_>>(),want.waivers,"{label}");
-        // Its facts are the booted node's: readiness reports the same admission blockers from either.
-        assert_eq!(want.facts(chain),pocold::readiness::AdmissionFacts::of(a),"{label}");
+        // Its facts are the booted node's: readiness reports the same technical items from either, and the pin matches.
+        assert_eq!(want.facts(chain),AdmissionFacts::of(a),"{label}");
+        assert!(want.matches(&AdmissionFacts::of(a))&&want.mismatches(&AdmissionFacts::of(a)).is_empty(),"{label}");
+        assert_eq!(want.facts(chain).network_profile,chain==MAINNET_CHAIN_ID,"{label}: R22");
     }
     // The mainnet ceremony genesis does not boot with it.
     let out=Temp::new("fresh-mainnet");testnet::prepare(ceremony_filled(&json(MAINNET),1_000_000).to_string().as_bytes(),&out.0).unwrap();
     let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
     let got=ExpectedAdmission{scope:a.scope(),conditions:&[],waivers:&[],profile_kind:a.profile().kind(),node_kind:a.profile().node_kind()};
     assert_eq!(got.differing(&ExpectedAdmission{conditions:&[],waivers:&[],..want}),["scope","profile kind","node kind"]);
-    assert_ne!(want.facts(MAINNET_CHAIN_ID),pocold::readiness::AdmissionFacts::of(a));
+    assert_ne!(want.facts(MAINNET_CHAIN_ID),AdmissionFacts::of(a));
+    assert_eq!(want.mismatches(&AdmissionFacts::of(a)),["scope","conditions","waivers","profile kind","node kind"]);
 }
 
 /// allocRoot and genesisHash of `ceremony_filled(MAINNET, 1_000_000)`, computed at main 8b465b9, before
@@ -240,7 +247,21 @@ fn a_ceremony_filled_mainnet_genesis_boots_as_the_public_network_with_every_cond
     assert!(o.status.success(),"{}",String::from_utf8_lossy(&o.stderr));
     let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
     assert_eq!((summary["scope"].as_str(),summary["profileKind"].as_str(),summary["nodeKind"].as_str()),(Some("public-network"),Some("network"),Some("node")));
-    assert_eq!(summary["chainId"],MAINNET_CHAIN_ID);assert_eq!(summary["publicLaunchReady"],false);
+    assert_eq!(summary["chainId"],MAINNET_CHAIN_ID);
+    // OWNER-DECISIONS-2026-11-20 D4: the ceremony's genesis is not pinned by this release yet, so it is not approved:
+    // exactly the pin and the approval are missing; its technical readiness lists the open gates and the admission's
+    // scope, conditions and waivers; its identity fields are the facts': the mainnet chain, the booted scope, no name.
+    let ids=|v:&serde_json::Value|->Vec<String>{v.as_array().unwrap().iter().map(|b|b["id"].as_str().unwrap().to_string()).collect()};
+    assert_eq!((summary["publicLaunchApproved"].as_bool(),summary["publicLaunchReady"].as_bool()),(Some(false),Some(false)));
+    assert!(summary["launchApprovalReference"].is_null()&&summary["networkName"].is_null(),"{summary}");
+    assert_eq!((summary["networkEnvironment"].as_str(),summary["networkScope"].as_str()),(Some("mainnet"),Some("public-network")));
+    assert_eq!(ids(&summary["launchBlockers"]),["network-not-release-pinned","launch-not-approved"],"{summary}");
+    let mut want:Vec<String>=pocold::readiness::PLAN_GATES_OPEN.iter().map(|(g,_)|format!("plan-gate-{g}")).collect();
+    want.push("admission-scope".into());
+    want.extend(pocold::readiness::ExpectedAdmission::PUBLIC_MAINNET.conditions.iter().map(|c|format!("admission-condition-{c}")));
+    want.extend(pocold::readiness::ExpectedAdmission::PUBLIC_MAINNET.waivers.iter().map(|w|format!("admission-waiver-{w}")));
+    assert_eq!(ids(&summary["technicalReadiness"]["pending"]),want,"no profile-kind: the network profile on a network node");
+    assert_eq!(summary["technicalReadiness"]["complete"],false);
     // The genesis bytes are the base's.
     assert_eq!(pocold::types::hex(&spec_in(&out).alloc_root),BASE_8B465B9_ALLOC_ROOT);
     let info=info_in(&out);
@@ -272,9 +293,61 @@ fn a_ceremony_filled_mainnet_genesis_boots_as_the_public_network_with_every_cond
     now.as_object_mut().unwrap().remove("binding");recorded.as_object_mut().unwrap().remove("binding");assert_eq!(now,recorded);
     let w=&now["waivers"];assert_eq!((w[0]["rule"].as_str(),w[1]["rule"].as_str(),w[2]["rule"].as_str()),(Some("R13"),Some("R21"),Some("R26")));
     assert!(w.as_array().unwrap().iter().all(|w|w["detail"].as_str().is_some_and(|d|!d.is_empty())));
-    // Readiness reads it as the network profile on a network node.
-    assert!(pocold::readiness::AdmissionFacts::of(a).network_profile);
-    assert!(pocold::readiness::ExpectedAdmission{scope:Scope::PublicNetwork,conditions:&[],waivers:&[],profile_kind:ProfileKind::Network,node_kind:NodeKind::Node}.facts(MAINNET_CHAIN_ID).network_profile);
+    // Readiness reads it as the network profile on a network node, exactly the pinned public admission.
+    use pocold::readiness::{AdmissionFacts,ExpectedAdmission};
+    assert!(AdmissionFacts::of(a).network_profile);
+    assert!(ExpectedAdmission::PUBLIC_MAINNET.matches(&AdmissionFacts::of(a)));
+    assert!(ExpectedAdmission::PUBLIC_MAINNET.facts(MAINNET_CHAIN_ID).network_profile);
+    // A booted node reports what init-testnet reported for the same build and genesis.
+    let mut status=serde_json::json!({});pocold::readiness::annotate(&mut status,&pocold::readiness::of_admitted(a));
+    for (k,v) in status.as_object().unwrap(){assert_eq!(&summary[k],v,"{k}")}
+}
+
+/// OWNER-DECISIONS-2026-11-20 D6 B, end to end on a test-only pin: a ceremony-filled genesis on the mainnet chain (public
+/// test founders, a temp dir only, never a launch genesis), booted by the launcher, under this build's facts with only
+/// NETWORK_PROFILES replaced by the entry set_network_identity.py writes for it (`PUBLIC_MAINNET` and the approval
+/// reference). Nothing else is set: the booted node is approved and ready, names PoCol Mainnet, the mainnet environment
+/// and scope public-network, and its technical readiness still reports every open gate, the scope, every condition and
+/// every waiver (tests done and risks left are reported, not cleared). Without the pin, with a pin of another genesis or
+/// without the approval reference, it is not approved, and the launcher never is.
+#[test]
+fn a_booted_mainnet_genesis_pinned_with_its_approval_is_approved_and_reports_what_remains(){
+    use pocold::readiness::{self,Admission,Build,ExpectedAdmission,Network,NetworkProfile,Subject,PUBLIC_MAINNET_APPROVAL};
+    let out=Temp::new("approved");testnet::prepare(ceremony_filled(&json(MAINNET),1_000_000).to_string().as_bytes(),&out.0).unwrap();
+    let spec=boot(&out.0,&testnet::local_for_network(&out.0).unwrap()).unwrap();let a=spec.admission();
+    let n=Network::admitted(a);assert_eq!((n.chain_id,n.genesis_hash),(MAINNET_CHAIN_ID,a.genesis_hash()));
+    let pin=NetworkProfile{chain_id:n.chain_id,genesis_hash:n.genesis_hash,admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some(PUBLIC_MAINNET_APPROVAL)};
+    assert!(pocold::identity::PINNED,"a pinned tree (re-pin the consensus lock: tests/consensus_guard.rs)");
+    let build=Build{network_profiles:vec![pin],..Build::this()};
+    assert!(build.test_features.is_empty()&&build.v3_launch_blockers.is_empty()&&build.spec_version>=2);
+    let r=readiness::readiness(&build,Subject::Network(&n));
+    assert!(r.approved&&r.ready()&&r.blockers.is_empty(),"{r:?}");
+    let mut status=serde_json::json!({});readiness::annotate(&mut status,&r);
+    assert_eq!((status["networkName"].as_str(),status["networkEnvironment"].as_str(),status["networkScope"].as_str()),(Some("PoCol Mainnet"),Some("mainnet"),Some("public-network")));
+    assert_eq!((status["publicLaunchApproved"].as_bool(),status["publicLaunchReady"].as_bool()),(Some(true),Some(true)));
+    assert_eq!(status["launchApprovalReference"],"OWNER-DECISIONS-2026-11-20 D1");
+    assert_eq!(status["launchBlockers"],serde_json::json!([]));
+    let pending:Vec<String>=r.pending.iter().map(|b|b.id.clone()).collect();
+    let mut want:Vec<String>=readiness::PLAN_GATES_OPEN.iter().map(|(g,_)|format!("plan-gate-{g}")).collect();
+    want.push("admission-scope".into());
+    want.extend(a.report().conditions.iter().map(|c|format!("admission-condition-{}",c.id)));
+    want.extend(a.report().waivers.iter().map(|w|format!("admission-waiver-{}",w.rule)));
+    assert_eq!(pending,want);assert_eq!(status["technicalReadiness"]["complete"],false,"the public-network scope is never specification");
+    // Each missing term withholds the approval, with its blocker.
+    let ids=|b:&Build,n:&Network|->(bool,Vec<String>){let r=readiness::readiness(b,Subject::Network(n));(r.approved,r.blockers.into_iter().map(|x|x.id).collect())};
+    let unpinned=Build{network_profiles:vec![],..Build::this()};
+    assert_eq!(ids(&unpinned,&n),(false,vec!["network-not-release-pinned".to_string(),"launch-not-approved".into()]));
+    let other=Build{network_profiles:vec![NetworkProfile{genesis_hash:[0;32],..pin}],..Build::this()};
+    assert_eq!(ids(&other,&n).1,["network-not-release-pinned","launch-not-approved"]);
+    let unapproved=Build{network_profiles:vec![NetworkProfile{approval:None,..pin}],..Build::this()};
+    assert_eq!(ids(&unapproved,&n),(false,vec!["launch-not-approved".to_string()]));
+    let test_build=Build{test_features:vec!["caps-test"],..build.clone()};
+    assert_eq!(ids(&test_build,&n),(false,vec!["test-features".to_string()]));
+    // The launcher's view of the same network: never approved, the same reference and technical readiness.
+    let launcher=Network{admission:Admission::Recorded(readiness::AdmissionFacts::recorded(&info_in(&out.0),n.chain_id)),..n.clone()};
+    let l=readiness::readiness(&build,Subject::Network(&launcher));
+    assert_eq!((l.approved,l.blockers.iter().map(|b|b.id.as_str()).collect::<Vec<_>>()),(false,vec!["admission-not-booted"]));
+    assert_eq!((l.approval_reference,&l.pending,l.network_name),(r.approval_reference,&r.pending,r.network_name));
 }
 
 /// R22 stays two-way on the public chain, and the public-network scope is chain-gated: a Simnet request on 2656089850 is

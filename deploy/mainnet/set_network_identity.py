@@ -48,28 +48,32 @@ whole, the node file last. Documents about the project's history (development/) 
 deploy/websites (build output) are not changed; deploy/websites/tools/site_identity.py switches those. Nothing is
 deployed.
 
-The release's pinned launch networks (NETWORK_PROFILES in PROFILES, V3-28 H2) follow the switch: --to writes the
-entry of the new identity and removes the --from (and the tree's current) entry, each entry in the form
+The release's pinned networks (NETWORK_PROFILES in PROFILES, V3-28 H2) follow the switch: --to writes the entry of the
+new identity and removes the --from (and the tree's current) entry, the declaration on one line, entries separated by
+",". On a public network chain (PUBLIC_NETWORK_CHAINS in PUBLIC_CHAINS, the R22 list of the profile code, which a test
+keeps equal to the chainId of MAINNET_PROFILE) the entry is
 
-    NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::FRESH_NETWORK}
+    NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::PUBLIC_MAINNET,approval:Some("OWNER-DECISIONS-2026-11-20 D1")}
 
-(the declaration on one line, entries separated by ","), and --check verifies that NETWORK_PROFILES holds exactly the
-entry of the tree's identity. A retired identity (RETIRED, the --from network included once the switch lists it) and
-the rehearsal network (the chain ID of REHEARSAL_PROFILE) are never a launch network, so for them the expected list is
-empty; that is the case while the tree pins a retired network. An entry of any other network is refused, never removed
-silently.
+the public network's admission (OWNER-DECISIONS-2026-11-20 D5: the network profile on a network node in scope
+public-network, with its reported conditions and the owner's R13, R21 and R26 waivers) and the owner's launch approval
+(D1). On any other chain it is
 
-The entry pins the admission the release expects a node booting the network to get: ExpectedAdmission::FRESH_NETWORK,
-the decided launch admission (development/decisions/FRESH-NETWORK-CP.md §1 "Launch admission": a Simnet profile on a
-Simnet node in scope experimental-devnet, with the conditions and waivers its boot reports), never
-ExpectedAdmission::LAUNCH (scope specification, no condition, no waiver, the Network profile on a Node), which is not
-the admission this release boots and stays the owner's decision (V3-28 H2 (1)). The entry removes only
-`network-not-release-pinned` for that network. Everything else is reported as before: a booted node reports the
-admission it booted with (admission-scope, each admission-condition-* and admission-waiver-*, profile-kind), and the
-launcher keeps `admission-not-booted` (its detail names the fields in which the pin differs from
-ExpectedAdmission::LAUNCH) and still reflects devnet.json's recorded admission as further blockers (admission-scope,
-admission-condition-*, admission-waiver-*, profile-kind, or admission-unrecorded). On the fresh network's chains
-`profile-kind` stays in any case: R22 allows the Network profile only on chain 777001. The readiness report is
+    NetworkProfile{chain_id:CHAIN,genesis_hash:genesis_hash("HEX"),admission:ExpectedAdmission::FRESH_NETWORK,approval:None}
+
+the experimental admission (development/decisions/FRESH-NETWORK-CP.md §1 "Launch admission": a Simnet profile on a
+Simnet node in scope experimental-devnet), which approves nothing. --check verifies that NETWORK_PROFILES holds exactly
+the entry of the tree's identity in the form for its chain. A retired identity (RETIRED, the --from network included
+once the switch lists it) and the rehearsal network (the chain ID of REHEARSAL_PROFILE) are never pinned, so for them
+the expected list is empty; that is the case while the tree pins a retired network. An entry of any other network, or
+in the other chain's form, is refused, never removed silently. No entry expects ExpectedAdmission::LAUNCH (scope
+specification, no condition, no waiver), which no profile reaches.
+
+The entry is a release fact, never readiness evidence by itself (readiness.rs, OWNER-DECISIONS-2026-11-20 D4): a node
+booted on the pinned network reports publicLaunchApproved only when its build's hard facts clear and the admission it
+booted with matches the entry's expected admission exactly, and it keeps reporting its technical readiness (the open
+plan gates, the admission's scope, conditions and waivers). The launcher, which boots nothing, reports the entry's
+approval reference and expected admission and stays not approved (admission-not-booted). The readiness report is
 node-local and refuses nothing.
 """
 import argparse, hashlib, json, os, re, shutil, sys
@@ -94,15 +98,24 @@ MAX_INVITATION = 1 << 20
 # The node's network designation names the tree's current identity: MAINNET_CHAIN_ID, MAINNET_GENESIS,
 # and the published GenesisSpec in its test.
 ANCHOR = 'prototypes/pocold/src/network_display.rs'
-# The release's pinned launch networks: NETWORK_PROFILES, as PROFILES_DECL ... '];' with NetworkProfile entries in the
-# form profiles_text writes, each genesis hash decoded at compile time by readiness.rs genesis_hash, each expecting
-# PROFILES_ADMISSION.
+# The release's pinned networks: NETWORK_PROFILES, as PROFILES_DECL ... '];' with NetworkProfile entries in the form
+# profiles_text writes, each genesis hash decoded at compile time by readiness.rs genesis_hash, each with the admission
+# and approval of its chain's form (entry_text).
 PROFILES = 'prototypes/pocold/src/readiness.rs'
 PROFILES_DECL = 'pub const NETWORK_PROFILES:&[NetworkProfile]=&['
-# The admission a launch network's entry expects: the decided launch admission (readiness.rs
-# ExpectedAdmission::FRESH_NETWORK, FRESH-NETWORK-CP.md §1), never the specification admission ExpectedAdmission::LAUNCH.
+# The admission and approval an entry pins: on a public network chain the public network's admission with the owner's
+# launch approval (readiness.rs ExpectedAdmission::PUBLIC_MAINNET, PUBLIC_MAINNET_APPROVAL; OWNER-DECISIONS-2026-11-20
+# D1, D5), on any other chain the experimental admission without one (ExpectedAdmission::FRESH_NETWORK,
+# FRESH-NETWORK-CP.md §1); never the specification admission ExpectedAdmission::LAUNCH.
+PUBLIC_ADMISSION = 'ExpectedAdmission::PUBLIC_MAINNET'
+PUBLIC_APPROVAL = 'OWNER-DECISIONS-2026-11-20 D1'
 PROFILES_ADMISSION = 'ExpectedAdmission::FRESH_NETWORK'
-# The rehearsal network's committed profile: its chain ID is never a launch network.
+# The public network chains: PUBLIC_NETWORK_CHAINS of the profile code (R22), declared once as PUBLIC_CHAINS_DECL on one
+# line; its test keeps it equal to [the chainId of MAINNET_PROFILE].
+PUBLIC_CHAINS = 'prototypes/lp4-execution/src/p1_profile.rs'
+PUBLIC_CHAINS_DECL = 'pub const PUBLIC_NETWORK_CHAINS: &[u64] = &['
+MAINNET_PROFILE = 'deploy/mainnet/v3-profile.json'
+# The rehearsal network's committed profile: its chain ID is never pinned.
 REHEARSAL_PROFILE = 'deploy/mainnet/v3-rehearsal-profile.json'
 # Each listed file and the copies of the identity it pins: (chain ID in any spelling, genesis hash,
 # GenesisSpec). Code, tests, and the documents that describe the current network and ship with it.
@@ -361,10 +374,30 @@ def with_retired(data, chain_id, genesis):
         doc['retired'].append({'chainId': chain_id, 'genesisHash': '0x' + genesis})
     return (json.dumps(doc, indent=2, ensure_ascii=False) + '\n').encode('utf-8')
 
-def profiles_text(entries):
+def public_chains(root):
+    """The public network chains (PUBLIC_CHAINS' PUBLIC_NETWORK_CHAINS), as a frozenset of chain IDs."""
+    try:
+        text = (root / PUBLIC_CHAINS).read_text(encoding='utf-8')
+    except OSError as e:
+        raise SystemExit(f'{PUBLIC_CHAINS}: cannot read it: {e.strerror or e}')
+    if text.count(PUBLIC_CHAINS_DECL) != 1:
+        raise SystemExit(f'{PUBLIC_CHAINS}: PUBLIC_NETWORK_CHAINS is not declared once as {PUBLIC_CHAINS_DECL}...];')
+    start = text.index(PUBLIC_CHAINS_DECL) + len(PUBLIC_CHAINS_DECL)
+    end = text.find('];', start)
+    body = text[start:end] if end >= 0 else '\n'
+    if not re.fullmatch(r'(?:[1-9][0-9]*(?:, [1-9][0-9]*)*)?', body):
+        raise SystemExit(f'{PUBLIC_CHAINS}: PUBLIC_NETWORK_CHAINS is not a one-line list of decimal chain IDs')
+    return frozenset(int(c) for c in body.split(', ') if c)
+
+def entry_text(chain, genesis, public):
+    """One NETWORK_PROFILES entry as the tool writes it, in the form for its chain (`public`: the public network chains)."""
+    tail = (f'admission:{PUBLIC_ADMISSION},approval:Some("{PUBLIC_APPROVAL}")' if chain in public
+            else f'admission:{PROFILES_ADMISSION},approval:None')
+    return f'NetworkProfile{{chain_id:{chain},genesis_hash:genesis_hash("{genesis}"),{tail}}}'
+
+def profiles_text(entries, public):
     """The body of NETWORK_PROFILES for [(chain ID, genesis hash hex)], as the tool writes it."""
-    return ','.join(f'NetworkProfile{{chain_id:{chain},genesis_hash:genesis_hash("{genesis}"),admission:{PROFILES_ADMISSION}}}'
-                    for chain, genesis in entries)
+    return ','.join(entry_text(chain, genesis, public) for chain, genesis in entries)
 
 def profiles_span(text):
     """(start, end) of the NETWORK_PROFILES body in PROFILES' text; ValueError if the declaration is not readable."""
@@ -376,23 +409,26 @@ def profiles_span(text):
         raise ValueError(f'{PROFILES}: NETWORK_PROFILES is not one line ending in ];')
     return start, end
 
-def read_profiles(text):
+def read_profiles(text, public):
     """[(chain ID, genesis hash hex)] of NETWORK_PROFILES, in order; ValueError unless it is in the form
-    profiles_text writes (a lower-case 64-digit hash, a decimal chain ID without digit groups, PROFILES_ADMISSION,
-    each entry once)."""
+    profiles_text writes (a lower-case 64-digit hash, a decimal chain ID without digit groups, the admission and
+    approval of its chain's form, each entry once)."""
     start, end = profiles_span(text)
     body = text[start:end]
+    tails = '|'.join(re.escape(t) for t in (f'admission:{PUBLIC_ADMISSION},approval:Some("{PUBLIC_APPROVAL}")',
+                                             f'admission:{PROFILES_ADMISSION},approval:None'))
     entries = [(int(chain), genesis) for chain, genesis in
-               re.findall(r'NetworkProfile\{chain_id:([1-9][0-9]*),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),admission:'
-                          + re.escape(PROFILES_ADMISSION) + r'\}', body)]
-    if profiles_text(entries) != body or len(set(entries)) != len(entries):
-        raise ValueError(f'{PROFILES}: NETWORK_PROFILES is not a list of NetworkProfile{{chain_id:<chain ID>,genesis_hash:'
-                         f'genesis_hash("<64 hex>"),admission:{PROFILES_ADMISSION}}} entries')
+               re.findall(r'NetworkProfile\{chain_id:([1-9][0-9]*),genesis_hash:genesis_hash\("([0-9a-f]{64})"\),(?:' + tails + r')\}', body)]
+    if profiles_text(entries, public) != body or len(set(entries)) != len(entries):
+        raise ValueError(f'{PROFILES}: NETWORK_PROFILES is not a list of entries in the written form (on a public network chain '
+                         f'NetworkProfile{{chain_id:<chain ID>,genesis_hash:genesis_hash("<64 hex>"),admission:{PUBLIC_ADMISSION},'
+                         f'approval:Some("{PUBLIC_APPROVAL}")}}, on any other NetworkProfile{{...,admission:{PROFILES_ADMISSION},'
+                         'approval:None}})')
     return entries
 
-def with_profiles(text, entries):
+def with_profiles(text, entries, public):
     start, end = profiles_span(text)
-    return text[:start] + profiles_text(entries) + text[end:]
+    return text[:start] + profiles_text(entries, public) + text[end:]
 
 def rehearsal_chain(root):
     """The rehearsal network's chain ID (REHEARSAL_PROFILE chainId)."""
@@ -406,7 +442,7 @@ def rehearsal_chain(root):
 
 def launch_profiles(identity, retired, rehearsal):
     """The NETWORK_PROFILES a tree pinning `identity` (chain ID, genesis hash hex) holds: its entry, unless it is a
-    retired network or the rehearsal network, which are never launch networks."""
+    retired network or the rehearsal network, which are never pinned."""
     return [] if identity in retired or identity[0] == rehearsal else [identity]
 
 def main(argv=None):
@@ -514,11 +550,12 @@ def main(argv=None):
     # A switch retires the --from network (a run that finishes the derived files changes no identity).
     data[RETIRED] = retired_data
     out[RETIRED] = retired_data if same else with_retired(retired_data, old_chain, old_genesis)
-    # NETWORK_PROFILES: the --from (and current) entry goes, the --to entry comes unless --to is not a launch network
+    # NETWORK_PROFILES: the --from (and current) entry goes, the --to entry comes unless --to is never pinned
     # (retired, the --from network now included, or the rehearsal network); any other entry is refused.
     data[PROFILES] = (a.root / PROFILES).read_bytes()
+    public = public_chains(a.root)
     try:
-        held_profiles = read_profiles(data[PROFILES].decode('utf-8'))
+        held_profiles = read_profiles(data[PROFILES].decode('utf-8'), public)
     except ValueError as e:
         problems.append(str(e))
     else:
@@ -527,7 +564,7 @@ def main(argv=None):
         if kept_profiles:
             problems.append(f'{PROFILES}: NETWORK_PROFILES holds entries of other networks {kept_profiles}; it holds only '
                             'the entry of the network the tree pins')
-        out[PROFILES] = with_profiles(data[PROFILES].decode('utf-8'), kept_profiles + expected_profiles).encode('utf-8')
+        out[PROFILES] = with_profiles(data[PROFILES].decode('utf-8'), kept_profiles + expected_profiles, public).encode('utf-8')
     data[INSTALLER] = (a.root / INSTALLER).read_bytes()
     out[INSTALLER] = build_installer.script({name: out[rel] for name, rel in INSTALLER_SOURCES.items()}).encode('utf-8')
     # The content versions and the installer payloads hash these files' bytes, which must be the bytes git

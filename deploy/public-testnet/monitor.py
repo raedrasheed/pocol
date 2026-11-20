@@ -30,6 +30,17 @@ def rpc(url, method, params=None):
     return value['result']
 
 
+# The admission scopes an init-testnet genesis boots with (pocold boot_admission): experimental-devnet, or public-network
+# on a public network chain (OWNER-DECISIONS-2026-11-20 D5).
+ADMISSION_SCOPES = ('experimental-devnet', 'public-network')
+
+
+def readiness(after):
+    """The launch approval and readiness the nodes computed (pocol_status, OWNER-DECISIONS-2026-11-20 D4), never a label
+    of this tool: true only when every node reports true; a node that reports no boolean counts as false."""
+    return {key: all(s.get(key) is True for s in after.values()) for key in ('publicLaunchApproved', 'publicLaunchReady')}
+
+
 def snapshot(release, urls, warnings=None):
     """Nodes must share the chain, genesis and consensus identity (VA-SPEC §2.1) and overlapping wire ranges. The
     build digest is informational: a digest-only release may be rolled out node by node, so a mixed digest only warns."""
@@ -43,7 +54,10 @@ def snapshot(release, urls, warnings=None):
             raise ValueError('Wire protocol range outside the release on ' + name)
         if s['compatibilitySha256'] != release['compatibilitySha256'] and warnings is not None:
             warnings.append(name + ' runs another build of the same consensus rules (compatibilitySha256 differs)')
-        if s['name'] != name or not s['stateStore'] or s['admission']['scope'] != 'experimental-devnet':
+        # The admission scope the node booted with: one init-testnet admits (experimental-devnet, or public-network on a
+        # public network chain), and the one the release recorded when it names one.
+        scope = s['admission']['scope']
+        if s['name'] != name or not s['stateStore'] or scope not in ADMISSION_SCOPES or scope != release.get('admission', {}).get('scope', scope):
             raise ValueError('Unexpected node mode or name on ' + name)
         if s['compatiblePeers'] < 1: raise ValueError('No compatible peers on ' + name)
         # A continuous chain (H_END = 0) reports closingHeight null; a finite one reports its closing height.
@@ -77,8 +91,10 @@ def check(release, urls, observe=180):
     if any(rpc(u, 'eth_getBlockByNumber', [hex(height), False])['hash'] != blocks[0]['hash'] for u in urls.values()):
         raise ValueError('Reorganization during observation; retry a fresh sample')
     return {'result': 'PASS', 'observedSeconds': observe, 'checkedAtUnix': int(time.time()),
-            'commonHeight': height, 'commonHash': blocks[0]['hash'], 'publicLaunchReady': False, 'warnings': warnings,
-            'nodes': {n: {'height': s['head']['height'], 'compatiblePeers': s['compatiblePeers']} for n, s in after.items()}}
+            'commonHeight': height, 'commonHash': blocks[0]['hash'], **readiness(after), 'warnings': warnings,
+            'nodes': {n: {'height': s['head']['height'], 'compatiblePeers': s['compatiblePeers'],
+                          'publicLaunchApproved': s.get('publicLaunchApproved') is True, 'publicLaunchReady': s.get('publicLaunchReady') is True,
+                          'technicalReadinessComplete': s.get('technicalReadiness', {}).get('complete') is True} for n, s in after.items()}}
 
 
 def metrics(result):

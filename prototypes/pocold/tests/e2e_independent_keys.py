@@ -222,8 +222,13 @@ def main():
             (evidence / 'observation.json').write_text(json.dumps(observed, indent=2))
             (evidence / 'observation.prom').write_text(monitor.metrics(observed))
             ok('packaged nodes advance through a 180-second observation with matching confirmed roots')
+        # The nodes' own computed launch approval and readiness (pocol_status, OWNER-DECISIONS-2026-11-20 D4), never a
+        # label of this harness: true only when every node reports true.
+        final = [rpc(u, 'pocol_status') for u in urls]
+        launch = {key: all(s.get(key) is True for s in final) for key in ('publicLaunchApproved', 'publicLaunchReady')}
+        assert not launch['publicLaunchReady'] and all(s['launchBlockers'] for s in final), 'a local devnet is never approved'
         report = {'result': 'PASS', 'scope': 'local independent-key/registration integration', 'checks': checks,
-                  'publicLaunchReady': False, 'realMultiHostProven': False, 'binarySha256': digest(BIN / 'pocold'),
+                  **launch, 'realMultiHostProven': False, 'binarySha256': digest(BIN / 'pocold'),
                   'commonHeight': height, 'commonHash': blocks[0]['hash'], 'site': site, 'packaged': args.packaged,
                   'compatibilitySha256': build['compatibilitySha256'], 'consensusIdentity': next(iter(identities)),
                   'transactions': {'transfer': transfer, 'registration': registration, 'duplicate': duplicate}}

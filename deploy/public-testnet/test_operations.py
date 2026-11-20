@@ -230,6 +230,24 @@ class Operations(unittest.TestCase):
         self.assertEqual(len(warnings), 1); self.assertIn('n2', warnings[0])
         for change in ({'consensusIdentity': 'e' * 64}, {'chainId': 7}, {'protocolVersion': 1}, {'protocolVersionMin': 3}):
             with self.subTest(change=change), self.assertRaises(ValueError): observe(**change)
+        # The admission scope: one init-testnet admits (public-network on a public network chain, OWNER-DECISIONS-2026-11-20
+        # D5), and the one the release recorded when it names one.
+        for scope in ('specification', 'public-network-owner-waived', ''):
+            with self.subTest(scope=scope), self.assertRaises(ValueError): observe(admission={'scope': scope})
+        release['admission'] = {'scope': 'public-network'}
+        with self.assertRaises(ValueError): observe()
+        nodes_public = {'admission': {'scope': 'public-network'}}
+        with self.assertRaises(ValueError): observe(**nodes_public)
+        release['admission'] = {'scope': 'experimental-devnet'}; self.assertEqual(observe()[1], [])
+        del release['admission']
+        # The approval and readiness the release reports are the nodes' own computed values (D4), never a label: true
+        # only when every node reports true.
+        yes = {'publicLaunchApproved': True, 'publicLaunchReady': True}
+        self.assertEqual(monitor.readiness({'n1': yes, 'n2': yes}), yes)
+        for other in ({}, {'publicLaunchApproved': True, 'publicLaunchReady': False}, {'publicLaunchApproved': 1, 'publicLaunchReady': 'true'}):
+            with self.subTest(other=other):
+                got = monitor.readiness({'n1': yes, 'n2': other})
+                self.assertEqual(got, {k: other.get(k) is True for k in yes})
         # A continuous chain reports closingHeight null (pocold node.rs, H_END = 0) and is not near any closing height.
         continuous = {'continuous': True, 'closingHeight': None, 'finalHeight': None, 'closingTime': None, 'finalTime': None}
         self.assertEqual(set(observe(lifetime=continuous)[0]), {'n1', 'n2'})

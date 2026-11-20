@@ -200,7 +200,8 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
     if set(files(network)) != {'genesis.spec.hex', 'alloc.json', 'devnet.json'}:
         raise ValueError('Network directory must contain exactly the three public genesis files')
     info = read_json(network / 'devnet.json')
-    if info.get('keyMode') != 'independent-key-files' or info['admission']['scope'] != 'experimental-devnet':
+    # init-testnet admits experimental-devnet, or public-network on a public network chain (OWNER-DECISIONS-2026-11-20 D5).
+    if info.get('keyMode') != 'independent-key-files' or info['admission']['scope'] not in ('experimental-devnet', 'public-network'):
         raise ValueError('Generate independent genesis with init-testnet, not label-based init-devnet')
     # The public GenesisSpec itself, not the devnet.json declaration alone: its version and chain ID must match the
     # declaration, and it must be a genesis the node admits: spec 2 (v3), the v3 program set and nonceMode 1; a retired
@@ -250,7 +251,10 @@ def prepare(inventory, network, bin_dir, out, rehearsal=False, join=False):
         'compatibilitySha256': build['compatibilitySha256'], 'consensusRulesVersion': build['consensusRulesVersion'],
         'consensusIdentity': pocol_identity.for_network(info, build),
         'bundleManifestSha256': manifests, 'rehearsalOnly': rehearsal,
-        'admission': info['admission'], 'publicLaunchReady': False, 'deploymentPerformed': False,
+        # The build alone is never approved or ready (pocold build-info computes it: no-network); a node booted on the
+        # network reports the network's (pocol_status, monitor.py).
+        'admission': info['admission'], 'publicLaunchApproved': build['publicLaunchApproved'], 'publicLaunchReady': build['publicLaunchReady'],
+        'deploymentPerformed': False,
         'seeds': sorted(set(p for n in nodes for p in n['seeds']) | {f"{n['ip']}:{n['p2pPort']}" for n in nodes})}
     write_json(out / 'release.json', release)
     return release

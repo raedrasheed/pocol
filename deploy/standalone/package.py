@@ -32,11 +32,13 @@ if args.platform=='Android':
     files={f'PoCol-Mainnet-{version}-arm64-unsigned.apk':root/'prototypes/pocol-android/app/build/outputs/apk/release/app-release-unsigned.apk'}
     infos=list((root/'prototypes/pocold/target/aarch64-linux-android/release/build').glob('pocold-*/out/build-info.json'))
     assert infos and len({json.loads(f.read_text(encoding='utf-8'))['compatibilitySha256'] for f in infos})==1, 'ambiguous Android build identity'
-    # build.rs writes the raw build identity; readiness is computed at run time (V3-28 H1), which a host cannot do for
-    # the Android binary. Say so in the same keys the desktop build-info carries, never as a computed value.
+    # build.rs writes the raw build identity; approval and readiness are computed at run time (V3-28 H1,
+    # OWNER-DECISIONS-2026-11-20 D4), which a host cannot do for the Android binary. Say so in the same keys the desktop
+    # build-info carries: the value is not computed, which is not a claim (the build alone is never approved anyway).
     android_info=json.loads(infos[0].read_text(encoding='utf-8'))
-    android_info['publicLaunchReady']=False
-    android_info['launchBlockers']=[{'id':'readiness-not-computed','detail':'this file is the Android build\'s raw identity; the computed readiness is in pocol_status on the device (pocold::readiness)'}]
+    not_computed=[{'id':'readiness-not-computed','detail':'this file is the Android build\'s raw identity; the computed approval and readiness are in pocol_status on the device (pocold::readiness)'}]
+    android_info.update({'publicLaunchApproved':False,'launchApprovalReference':None,'publicLaunchReady':False,'launchBlockers':not_computed,
+        'technicalReadiness':{'complete':False,'pending':not_computed},'networkName':None,'networkEnvironment':None,'networkScope':None})
     (args.out/'build-info.json').write_text(json.dumps(android_info,separators=(',',':')),encoding='utf-8',newline='\n')
 else:
     suffix='.exe' if args.platform=='Windows' else ''
@@ -103,7 +105,10 @@ release={'version':version,'platform':args.platform,'sourceCommit':commit,
          'protocolVersionMin':build['protocolVersionMin'],'consensusIdentity':network_identity,
          'networkName':'PoCol Mainnet','networkEnvironment':'mainnet','operatorDesignation':'PoCol Mainnet',
          'chainId':chain,'genesisHash':genesis,
-         'publicLaunchReady':False,'networkInvitationIncluded':False,
+         # Copied from the build-info read above (computed by pocold for the build alone, so never true; absent reads as
+         # not approved and not ready), never written as a label here.
+         'publicLaunchApproved':build.get('publicLaunchApproved') is True,'publicLaunchReady':build.get('publicLaunchReady') is True,
+         'networkInvitationIncluded':False,
          'distribution':'unsigned-apk' if args.platform=='Android' else 'portable-native-tools',
          'installable':args.platform!='Android'}
 if args.platform=='Android':

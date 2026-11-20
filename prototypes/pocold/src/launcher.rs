@@ -138,7 +138,10 @@ impl Invitation {
         let activations: Vec<&(u16, u64)> = forks.iter().filter(|(version, _)| *version > 1).collect();
         let mut out = serde_json::json!({"networkFingerprint":self.fingerprint(),"invitationSchema":self.schema,
             "consensusRulesVersion":self.consensus_rules_version,"consensusIdentity":self.published_identity(),"chainId":info["chainId"],"genesisHash":info["genesisHash"],
-            "forkSchedule":forks,"activations":activations,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,"scope":"mainnet"});
+            "forkSchedule":forks,"activations":activations,"seeds":self.seeds,"bootstrap":self.bootstrap,"seedsRetired":self.seeds_retired,
+            // The release's deployment label (build-info's `scope`, owner decision 7 of 2026-11-16), not an admission
+            // scope: the launcher admits nothing, so it reports no `networkScope` (readiness.rs).
+            "scope":"mainnet"});
         // FN-5: a scheduled cap raise, its four new caps and its fork-3 height (as pocol_getParams `capRaise`), so a
         // dry run shows what the caps become, not only that fork 3 activates. Absent without one.
         if let (Ok(Some(raise)), Some(&(_, at))) = (crate::configured_cap_raise(&info), forks.iter().find(|(v, _)| *v == pocol_lp4_execution::profile::CAP_RAISE_VERSION)) {
@@ -146,30 +149,29 @@ impl Invitation {
             value["height"] = at.into();
             out["capRaise"] = value;
         }
-        crate::readiness::annotate(&mut out, &self.launch_blockers(&info));
+        crate::readiness::annotate(&mut out, &self.readiness(&info));
         crate::network_display::annotate_genesis(out, &self.files["genesis.spec.hex"])
     }
-    /// V3-28 H1: this build's readiness for the invitation's network, from what genesis.spec.hex commits to (chain,
-    /// genesis hash, spec version); v3 is active by specVersion 2 whatever the fork schedule. The launcher admits
-    /// nothing itself: the admission devnet.json records about itself is reflected only as further blockers, never as
-    /// evidence (D-V3-28), beside `admission-not-booted`. Only a `NETWORK_PROFILES` pin of this (chain, genesis hash)
-    /// whose expected admission is exactly the launch admission drops that blocker, and then the pin, not devnet.json,
-    /// is the admission read (V3-28 H2 (1)); no network is pinned so (the identity switch pins the decided launch
-    /// admission, `ExpectedAdmission::FRESH_NETWORK`, which keeps the blocker). A node's status reports the admission it
-    /// booted with.
-    fn launch_blockers(&self, info: &serde_json::Value) -> Vec<crate::readiness::Blocker> {
-        self.launch_blockers_for(&crate::readiness::Build::this(), info)
+    /// V3-28 H1, OWNER-DECISIONS-2026-11-20 D4: this build's approval and readiness for the invitation's network, from
+    /// what genesis.spec.hex commits to (chain, genesis hash, spec version); v3 is active by specVersion 2 whatever the
+    /// fork schedule. The launcher boots nothing, so it is never approved and always reports `admission-not-booted`,
+    /// whatever devnet.json records about its own admission (never evidence, D-V3-28) and whatever this release pins.
+    /// It reports this release's pin of the network (the approval reference, the expected admission in the
+    /// `admission-not-booted` detail), and its technical readiness is that pinned expected admission's, or, unpinned,
+    /// devnet.json's record. A node booted on the network (pocol_status) computes the approval.
+    fn readiness(&self, info: &serde_json::Value) -> crate::readiness::Readiness {
+        self.readiness_for(&crate::readiness::Build::this(), info)
     }
-    fn launch_blockers_for(&self, build: &crate::readiness::Build, info: &serde_json::Value) -> Vec<crate::readiness::Blocker> {
-        use crate::readiness::{blockers, Admission, AdmissionFacts, Network, Subject};
+    fn readiness_for(&self, build: &crate::readiness::Build, info: &serde_json::Value) -> crate::readiness::Readiness {
+        use crate::readiness::{readiness, Admission, AdmissionFacts, Network, Subject};
         let genesis = types::unhex(self.files.get("genesis.spec.hex").map_or("", |s| s.trim())).and_then(|bytes| {
             if bytes.len() > crate::genesis_spec::MAX_SPEC_BYTES { return Err("genesis specification exceeds its bound".into()) }
             let spec = crate::genesis_spec::decode(&bytes).map_err(|e| format!("genesis specification: {e:?}"))?;
             Ok((spec, crate::genesis_spec::genesis_hash(&bytes)))
         });
         match genesis {
-            Err(why) => blockers(build, Subject::Unreadable(why)),
-            Ok((spec, genesis_hash)) => blockers(build, Subject::Network(&Network { chain_id: spec.chain_id, genesis_hash,
+            Err(why) => readiness(build, Subject::Unreadable(why)),
+            Ok((spec, genesis_hash)) => readiness(build, Subject::Network(&Network { chain_id: spec.chain_id, genesis_hash,
                 // Phase 6a: only a specVersion-2 genesis is v3. Fork 3 is the cap raise (FN-5), admitted only on such a
                 // genesis, so no schedule makes a spec-1 invitation v3: it reports `v3-inactive` here, and pack, start
                 // and the boot admission refuse it (`testnet::local_for_network`, R24).
@@ -1082,116 +1084,123 @@ mod upgrade_tests {
         let bytes = serde_json::to_vec(&invitation).unwrap();
         let fingerprint = invitation.fingerprint();
         let description = invitation.describe();
-        assert!(description.get("networkName").is_none());
-        assert!(description.get("networkEnvironment").is_none());
-        assert_eq!(description["publicLaunchReady"], false);
+        // Its genesis cannot be read, so nothing supports a name, an environment or a scope.
+        for k in ["networkName", "networkEnvironment", "networkScope", "launchApprovalReference"] { assert!(description[k].is_null(), "{k}: {description}"); }
+        assert!(description.get("networkName").is_none(), "an unsupported name is left out (the wallets show their own label)");
+        assert_eq!((description["publicLaunchApproved"].clone(), description["publicLaunchReady"].clone()), (false.into(), false.into()));
         let ids: Vec<&str> = description["launchBlockers"].as_array().unwrap().iter().map(|b| b["id"].as_str().unwrap()).collect();
         assert_eq!(ids.last(), Some(&"genesis-unreadable"), "{ids:?}");
         assert_eq!(description["networkFingerprint"], fingerprint);
         assert_eq!(serde_json::to_vec(&invitation).unwrap(), bytes);
         assert_eq!(invitation.fingerprint(), fingerprint);
     }
-    /// V3-28 H1: a network `pocold init-testnet` generated is not launch ready, for computed reasons.
+    /// V3-28 H1, OWNER-DECISIONS-2026-11-20 D4: a network `pocold init-testnet` generated is not approved, for computed
+    /// reasons, and its technical readiness reflects the admission devnet.json records.
     #[test]
     fn a_generated_network_reports_computed_launch_blockers() {
         let invitation = generated(serde_json::Value::Null);
         let description = invitation.describe();
-        assert!(description.get("networkName").is_none(), "not a designated network");
-        assert_eq!(description["publicLaunchReady"], false);
+        assert!(description["networkName"].is_null() && description["networkScope"].is_null(), "not a pinned public network; nothing booted");
+        assert_eq!(description["networkEnvironment"], "devnet");
+        assert_eq!((description["publicLaunchApproved"].clone(), description["publicLaunchReady"].clone()), (false.into(), false.into()));
         let blockers = description["launchBlockers"].as_array().unwrap();
         let ids: Vec<&str> = blockers.iter().map(|b| b["id"].as_str().unwrap()).collect();
-        for id in ["plan-gate-Q1", "network-not-release-pinned", "profile-kind"] {
-            assert!(ids.contains(&id), "{id}: {ids:?}");
-        }
+        let pending: Vec<&str> = description["technicalReadiness"]["pending"].as_array().unwrap().iter().map(|b| b["id"].as_str().unwrap()).collect();
+        for id in ["network-not-release-pinned", "launch-not-approved", "admission-not-booted"] { assert!(ids.contains(&id), "{id}: {ids:?}"); }
+        for id in ["plan-gate-Q1", "admission-scope", "profile-kind"] { assert!(pending.contains(&id) && !ids.contains(&id), "{id}: {pending:?}"); }
+        assert_eq!(description["technicalReadiness"]["complete"], false);
         // Phase 6a: the generated network is v3 from genesis (specVersion 2), so v3-inactive is not among them.
         assert!(!ids.contains(&"no-network") && !ids.contains(&"genesis-unreadable") && !ids.contains(&"spec-version") && !ids.contains(&"v3-inactive"), "{ids:?}");
         let info = invitation.info().unwrap();
         let (chain_id, genesis) = computed(&invitation);
         let pinned = blockers.iter().find(|b| b["id"] == "network-not-release-pinned").unwrap()["detail"].as_str().unwrap().to_string();
         assert!(pinned.contains(&chain_id.to_string()) && pinned.contains(&genesis), "{pinned}");
-        // Exactly the computed list: build facts, then the network's (devnet.json's recorded admission).
+        // Exactly the computed fields: build facts, then the network's (devnet.json's recorded admission).
         let forks = crate::configured_forks(&info).unwrap();
-        assert_eq!(description["launchBlockers"], crate::readiness::json(&invitation.launch_blockers(&info))["launchBlockers"]);
+        let want = crate::readiness::json(&invitation.readiness(&info));
+        for k in ["publicLaunchApproved", "launchApprovalReference", "publicLaunchReady", "launchBlockers", "technicalReadiness"] { assert_eq!(description[k], want[k], "{k}"); }
         // The v3 rules are active by the genesis' specVersion 2; the schedule here has no cap raise (fork 3).
         assert!(forks.iter().all(|&(v, _)| v < 3));
-        assert!(ids.contains(&"admission-not-booted"), "{ids:?}");
         assert!(description.get("fullNonceActivationHeight").is_none());
     }
-    /// V3-28 H1 (review): a devnet.json that records a cleared admission and the network profile, on a network the
-    /// release does not pin or pins with an expected admission other than the launch admission, and with every build
-    /// fact cleared, still is not launch ready in the launcher: it admits nothing, and nothing commits to what
-    /// devnet.json says about itself.
+    /// V3-28 H1 (review), OWNER-DECISIONS-2026-11-20 D4: a devnet.json that records a cleared admission and the network
+    /// profile, with every build fact cleared, is never approved in the launcher, pinned or not, with whatever pin: it
+    /// boots nothing, and nothing commits to what devnet.json says about itself. Its record does not change the blockers.
     #[test]
     fn a_forged_recorded_admission_clears_nothing_in_the_launcher() {
-        use crate::readiness::{ExpectedAdmission, NetworkProfile};
+        use crate::readiness::{ExpectedAdmission, NetworkProfile, PUBLIC_MAINNET_APPROVAL};
         use pocol_lp4_execution::admission::Scope;
         let honest = generated(serde_json::Value::Null);
         let (chain_id, _) = computed(&honest);
-        // The network pinned, but with an expected admission that is not the launch admission (V3-28 H2 (1)).
-        let pinned = pinned_build(&honest, ExpectedAdmission { scope: Scope::ExperimentalDevnet, ..ExpectedAdmission::LAUNCH });
-        let ids = |i: &Invitation, build: &crate::readiness::Build| -> Vec<String> {
-            let info = i.info().unwrap();
-            i.launch_blockers_for(build, &info).into_iter().map(|b| b.id).collect()
+        let ids = |i: &Invitation, build: &crate::readiness::Build| -> (bool, Vec<String>) {
+            let r = i.readiness_for(build, &i.info().unwrap());
+            (r.approved, r.blockers.into_iter().map(|b| b.id).collect())
         };
-        let before = ids(&honest, &pinned);
-        assert!(before.iter().any(|b| b == "admission-scope") && before.iter().any(|b| b.starts_with("admission-condition-")), "{before:?}");
         let forged = forged_admission(&honest);
-        // Only the launcher's own blocker remains (genesis.spec.hex commits to a v3 genesis: no v3-inactive), and
-        // profile-kind, since R22 allows the network profile only on a network chain (777001 or a public network chain).
-        assert_eq!(ids(&forged, &pinned), ["admission-not-booted", "profile-kind"]);
+        for admission in [ExpectedAdmission { scope: Scope::ExperimentalDevnet, ..ExpectedAdmission::LAUNCH }, ExpectedAdmission::LAUNCH, ExpectedAdmission::PUBLIC_MAINNET, ExpectedAdmission::FRESH_NETWORK] {
+            for approval in [None, Some(PUBLIC_MAINNET_APPROVAL)] {
+                let pinned = pinned_build(&honest, admission, approval);
+                let want: Vec<String> = if approval.is_some() && admission.approvable() { vec!["admission-not-booted".into()] }
+                    else { vec!["launch-not-approved".into(), "admission-not-booted".into()] };
+                for i in [&honest, &forged] { assert_eq!(ids(i, &pinned), (false, want.clone()), "{admission:?} {approval:?}"); }
+            }
+        }
         assert!(!pocol_lp4_execution::profile::network_chain(chain_id));
         // Unpinned (this release's NETWORK_PROFILES, empty), the forged file also keeps the blocker.
-        let unpinned = crate::readiness::Build { network_profiles: vec![], ..pinned.clone() };
-        assert_eq!(ids(&forged, &unpinned), ["network-not-release-pinned", "admission-not-booted", "profile-kind"]);
+        let unpinned = crate::readiness::Build { network_profiles: vec![], ..pinned_build(&honest, ExpectedAdmission::LAUNCH, Some(PUBLIC_MAINNET_APPROVAL)) };
+        assert_eq!(ids(&forged, &unpinned).1, ["network-not-release-pinned", "launch-not-approved", "admission-not-booted"]);
+        // Its technical readiness is the record's then: a forged record drops its own items, never a blocker, and its
+        // network profile does not count off a network chain (R22).
+        let pending: Vec<String> = forged.readiness_for(&unpinned, &forged.info().unwrap()).pending.into_iter().map(|b| b.id).collect();
+        assert_eq!(pending, ["profile-kind"]);
         // The public description of the forged file says the same, and is false.
         let description = forged.describe();
-        assert_eq!(description["publicLaunchReady"], false);
+        assert_eq!((description["publicLaunchApproved"].clone(), description["publicLaunchReady"].clone()), (false.into(), false.into()));
         assert!(description["launchBlockers"].as_array().unwrap().iter().any(|b| b["id"] == "admission-not-booted"));
         // A pin of another genesis on the same chain is no pin of this network.
-        let mut other = pinned_build(&honest, ExpectedAdmission::LAUNCH);
+        let mut other = pinned_build(&honest, ExpectedAdmission::LAUNCH, Some(PUBLIC_MAINNET_APPROVAL));
         other.network_profiles = vec![NetworkProfile { genesis_hash: [0; 32], ..other.network_profiles[0] }];
-        assert_eq!(ids(&forged, &other), ["network-not-release-pinned", "admission-not-booted", "profile-kind"]);
+        assert_eq!(ids(&forged, &other).1, ["network-not-release-pinned", "launch-not-approved", "admission-not-booted"]);
     }
-    /// V3-28 H2 (1): a network pinned with exactly the launch admission drops `admission-not-booted`, and the pin, not
-    /// devnet.json, is the admission the description reads: the honest experimental record and a forged cleared one
-    /// give the same blockers. Here only profile-kind remains, since R22 allows the network profile only on a network
-    /// chain (777001 or a public network chain), which this devnet's is not.
+    /// OWNER-DECISIONS-2026-11-20 D4: a pin of the network, whatever its expected admission, never drops
+    /// `admission-not-booted` in the launcher (it boots nothing). The pin replaces devnet.json in technical readiness:
+    /// the honest experimental record and a forged cleared one give the same pending items, the pinned expected
+    /// admission's, and the description reports the pin's approval reference and names its expected admission.
     #[test]
-    fn a_pinned_launch_admission_clears_admission_not_booted() {
-        use crate::readiness::ExpectedAdmission;
+    fn a_pinned_admission_never_clears_admission_not_booted() {
+        use crate::readiness::{ExpectedAdmission, PUBLIC_MAINNET_APPROVAL};
         let honest = generated(serde_json::Value::Null);
-        let pinned = pinned_build(&honest, ExpectedAdmission::LAUNCH);
-        for invitation in [honest.clone(), forged_admission(&honest)] {
-            let info = invitation.info().unwrap();
-            let got: Vec<String> = invitation.launch_blockers_for(&pinned, &info).into_iter().map(|b| b.id).collect();
-            assert_eq!(got, ["profile-kind"]);
+        let (chain_id, _) = computed(&honest);
+        for (admission, approval) in [(ExpectedAdmission::LAUNCH, Some(PUBLIC_MAINNET_APPROVAL)), (ExpectedAdmission::PUBLIC_MAINNET, Some(PUBLIC_MAINNET_APPROVAL)), (ExpectedAdmission::FRESH_NETWORK, None)] {
+            let pinned = pinned_build(&honest, admission, approval);
+            for invitation in [honest.clone(), forged_admission(&honest)] {
+                let r = invitation.readiness_for(&pinned, &invitation.info().unwrap());
+                assert!(!r.approved && !r.ready());
+                assert!(r.blockers.iter().any(|b| b.id == "admission-not-booted" && b.detail.contains(&format!("This release pins {} for it, approval reference {}", admission.name(), approval.unwrap_or("none")))), "{r:?}");
+                assert_eq!(r.approval_reference, approval);
+                // The pinned admission's items (the build here has no open plan gate).
+                let f = admission.facts(chain_id);
+                let mut want: Vec<String> = vec![];
+                if f.scope != "specification" { want.push("admission-scope".into()) }
+                want.extend(f.conditions.iter().map(|c| format!("admission-condition-{c}")));
+                want.extend(f.waivers.iter().map(|x| format!("admission-waiver-{x}")));
+                if !f.network_profile { want.push("profile-kind".into()) }
+                assert_eq!(r.pending.into_iter().map(|b| b.id).collect::<Vec<_>>(), want, "{admission:?}");
+            }
         }
-        // A pin of the admission the identity switch writes (the decided launch admission, not the launch one) keeps
-        // admission-not-booted and the recorded facts: only network-not-release-pinned goes.
-        let fresh = pinned_build(&honest, ExpectedAdmission::FRESH_NETWORK);
-        let unpinned = crate::readiness::Build { network_profiles: vec![], ..fresh.clone() };
-        for invitation in [honest.clone(), forged_admission(&honest)] {
-            let info = invitation.info().unwrap();
-            let got: Vec<String> = invitation.launch_blockers_for(&fresh, &info).into_iter().map(|b| b.id).collect();
-            let mut want: Vec<String> = invitation.launch_blockers_for(&unpinned, &info).into_iter().map(|b| b.id).collect();
-            assert_eq!(want.remove(0), "network-not-release-pinned");
-            assert_eq!(got, want);
-            assert!(got.contains(&"admission-not-booted".to_string()));
-        }
-        // This release pins no network with the launch admission, and not this invitation's: with this build's facts
+        // This release pins no network with an approvable admission, and not this invitation's: with this build's facts
         // the invitation keeps admission-not-booted.
         assert!(crate::readiness::NETWORK_PROFILES.iter().all(|p| p.admission != ExpectedAdmission::LAUNCH));
-        let this = &pinned.network_profiles[0];
-        assert!(!crate::readiness::NETWORK_PROFILES.iter().any(|p| (p.chain_id, p.genesis_hash) == (this.chain_id, this.genesis_hash)));
         let info = honest.info().unwrap();
-        assert!(honest.launch_blockers(&info).iter().any(|b| b.id == "admission-not-booted"));
+        assert!(honest.readiness(&info).blockers.iter().any(|b| b.id == "admission-not-booted"));
     }
-    /// A build with every build fact cleared that pins this invitation's network with `admission`.
-    fn pinned_build(i: &Invitation, admission: crate::readiness::ExpectedAdmission) -> crate::readiness::Build {
+    /// A build with every build fact cleared and no open plan gate that pins this invitation's network with `admission`
+    /// and `approval`.
+    fn pinned_build(i: &Invitation, admission: crate::readiness::ExpectedAdmission, approval: Option<&'static str>) -> crate::readiness::Build {
         let (chain_id, genesis) = computed(i);
         let genesis_hash: [u8; 32] = types::unhex(&genesis).unwrap().try_into().unwrap();
         crate::readiness::Build { spec_version: 2, consensus_pinned: true, test_features: vec![], v3_launch_blockers: vec![],
-            plan_gates_open: vec![], network_profiles: vec![crate::readiness::NetworkProfile { chain_id, genesis_hash, admission }] }
+            plan_gates_open: vec![], network_profiles: vec![crate::readiness::NetworkProfile { chain_id, genesis_hash, admission, approval }] }
     }
     /// The invitation with a devnet.json that records a cleared specification admission and the network profile.
     fn forged_admission(honest: &Invitation) -> Invitation {

@@ -208,7 +208,11 @@ class InitializeNetwork(unittest.TestCase):
         self.assertIn("$Admitted.scope -cne 'experimental-devnet'", SCRIPT)
         self.assertIn('$Admitted.publicLaunchReady', SCRIPT)
         self.assertIn('foreach ($Blocker in $Blockers) { Write-Host "  $($Blocker.id): $($Blocker.detail)" }', SCRIPT)
-        required, refused = ps_list('RequiredBlockers'), ps_list('RefusedBlockers')
+        self.assertIn('foreach ($Item in $Pending) { Write-Host "  $($Item.id): $($Item.detail)" }', SCRIPT)
+        self.assertNotIn("Write-Host 'Public launch ready: false", SCRIPT, 'the computed values are printed, not a literal')
+        # OWNER-DECISIONS-2026-11-20 D4: the experimental admission's items are technical readiness, not launch blockers.
+        self.assertIn('$Admitted.technicalReadiness.pending', SCRIPT)
+        required, refused = ps_list('RequiredPending'), ps_list('RefusedBlockers')
         self.assertEqual(required, ['admission-scope', 'profile-kind'])
         for blocker in required + refused:
             self.assertIn(f'blocker("{blocker}"', READINESS, 'a blocker id readiness.rs reports')

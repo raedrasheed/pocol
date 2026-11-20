@@ -704,7 +704,8 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
         summary["testPlaceholders"] = serde_json::json!(true);
         summary["profileChainId"] = profile_chain_id.unwrap_or_default();
     }
-    // V3-28 H1: computed from this build and the admission above (readiness.rs).
+    // V3-28 H1, OWNER-DECISIONS-2026-11-20 D4: launch approval, blockers, technical readiness and the identity fields,
+    // computed from this build and the admission above (readiness.rs).
     crate::readiness::annotate(&mut summary, &crate::readiness::of_admitted(&admitted));
     println!("{summary}");
     Ok(())

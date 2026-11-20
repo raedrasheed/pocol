@@ -47,8 +47,9 @@ $Ceremony = @('/genesisTime', '/hashRate/hashesPerSecond',
     '/founders/2/id', '/founders/2/reward', '/founders/3/id', '/founders/3/reward')
 # install-linux.sh's service listens on this port on every interface; the invitation's seeds and the firewall rule use it.
 $P2pPort = 30300
-# init-testnet's summary must report the experimental admission (design C8) and must not report a non-release build.
-$RequiredBlockers = @('admission-scope', 'profile-kind')
+# init-testnet's summary must report the experimental admission (design C8) in its technical readiness
+# (OWNER-DECISIONS-2026-11-20 D4) and must not report a non-release build among its launch blockers.
+$RequiredPending = @('admission-scope', 'profile-kind')
 $RefusedBlockers = @('consensus-unpinned', 'test-features', 'spec-version', 'v3-inactive')
 # The genesis is created at least this long before its launch second: the invitation still has to reach three servers
 # (each asks for its sudo password) and this PC's wallet has to start. Allow more for a slow operator.
@@ -281,11 +282,15 @@ if ($Admitted.scope -cne 'experimental-devnet' -or $Admitted.publicLaunchReady -
 }
 $Blockers = @($Admitted.launchBlockers)
 $Ids = @($Blockers | ForEach-Object { $_.id })
-foreach ($Id in $RequiredBlockers) { if ($Ids -cnotcontains $Id) { throw "The admission does not report the $Id blocker of the experimental admission" } }
+$Pending = @($Admitted.technicalReadiness.pending)
+$PendingIds = @($Pending | ForEach-Object { $_.id })
+foreach ($Id in $RequiredPending) { if ($PendingIds -cnotcontains $Id) { throw "The admission does not report the $Id item of the experimental admission" } }
 foreach ($Id in $RefusedBlockers) { if ($Ids -ccontains $Id) { throw "Refusing a genesis with the $Id blocker: use the release build of this package" } }
 Write-Host "Genesis hash: $($Admitted.genesisHash)"
-Write-Host 'Public launch ready: false. Launch blockers, verbatim:'
+Write-Host "Public launch approved: $($Admitted.publicLaunchApproved). Public launch ready: $($Admitted.publicLaunchReady). Launch blockers, verbatim:"
 foreach ($Blocker in $Blockers) { Write-Host "  $($Blocker.id): $($Blocker.detail)" }
+Write-Host "Technical readiness complete: $($Admitted.technicalReadiness.complete). Pending, verbatim:"
+foreach ($Item in $Pending) { Write-Host "  $($Item.id): $($Item.detail)" }
 
 # The invitation: the genesis and the three servers as its seeds (the explorer's seed list comes from it, W9).
 $Target = $Invitation; if ($DryRun) { $Target = Join-Path $Work 'network.pocol.json' }
