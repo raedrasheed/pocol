@@ -14,6 +14,7 @@ verified only when its signatures verify.
 | `verify_release.py` / `Verify-PoColRelease.ps1` | anyone | Verifies a whole release directory; prints `VERIFIED` only when every signature verifies |
 | `test_release_signing.py`, `test_verify_release.ps1` | CI | Throwaway keys in temporary directories; never a committed private key |
 | `double_build.py`, `test_double_build.py` | CI, owner, anyone | Builds the Linux native binaries and package twice and fails unless every byte is the same (*Reproducible Linux build* below) |
+| `compare_build_identity.py`, `test_compare_build_identity.py` | CI, anyone | Compares the consensus identity of the Linux, Windows and Android builds (*Cross-platform consensus identity* below) |
 
 The release set (`assemble_release.py`): `PoCol-Mainnet-V-linux-x86_64.tar.gz`, `PoCol-Mainnet-V-windows-x86_64.zip`,
 `PoCol-Mainnet-V-arm64.apk` (already signed with the Android release key: an `-unsigned` APK, or one without a v2 or
@@ -181,11 +182,33 @@ covered by this check. Two builds on the same runner image agreeing is not an in
 requires someone other than the release builder to rebuild the signed release and obtain the same bytes
 (`development/public-network/PLAN.md`).
 
+## Cross-platform consensus identity
+
+`compare_build_identity.py` checks device compatibility (OWNER-DECISIONS-2026-11-20 D6 E). On Linux and Windows,
+`genesis` fills `deploy/mainnet/v3-profile.json` with fixed throwaway values on its own chain (2656089850): genesis
+time 1800000000, hash rate 1000000 H/s, and founder ids and reward addresses that are SHA-256 digests of public labels,
+so no one holds their keys and the genesis can never be mined or launched. It runs `pocold init-testnet`, `pocol
+network` and `pocol inspect` on it and keeps devnet.json, both summaries and `pocol build-info`. `compare` then requires:
+
+- the same genesis hash on every platform, admitted in scope public-network as the network profile on a network node;
+- the same value from every build-info (Linux, Windows and the Android engine's raw build.rs output) for each field the
+  consensus identity or the handshake reads: `consensusRulesVersion`, `protocolVersion`, `protocolVersionMin`,
+  `maxForkVersion`, `consensusPinned` (true), `consensusSourcesSha256` and `features` (empty);
+- the same build digest (`compatibilitySha256`) and `version` everywhere;
+- one consensus identity for every build on that genesis, computed with `deploy/public-testnet/pocol_identity.py`, and
+  equal to the identity the Linux and Windows binaries computed themselves.
+
+The Android engine cannot run on the CI host, so its identity is computed from its build identity, not observed. Its
+mining path is exercised natively on the host instead (`pocold` lib test
+`the_android_engine_mines_a_public_network_genesis_natively_on_the_host`). Neither is a device or emulator run.
+
 ## Wiring
 
 - `.github/workflows/five-device-build.yml` runs `test_release_signing.py` and `test_double_build.py` on Linux, checks
   that the unsigned CI package does **not** verify (`NOT VERIFIED`), runs `test_verify_release.ps1` on Windows, and
-  runs the native double build (`native-reproducible`, `native-reproducible-compare`).
+  runs the native double build (`native-reproducible`, `native-reproducible-compare`). Each `native` job runs
+  `compare_build_identity.py genesis` and the `android` job uploads its build-info; *Linux, Windows and Android consensus
+  identity compare* (`consensus-identity-compare`) runs `compare_build_identity.py compare` on the three.
 - `.github/workflows/full-nonce-upgrade.yml`: after the identity switch, the freshly packaged extension must not verify
   until the owner signs it.
 - `prototypes/pocol-extension/scripts/package-release.py` prints `UNSIGNED: ...`; it never signs.

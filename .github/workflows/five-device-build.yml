@@ -2,10 +2,10 @@ name: PoCol Mainnet native release packages
 on:
   pull_request:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', 'deploy/release/**', '.github/workflows/five-device-build.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', 'deploy/release/**', 'deploy/public-testnet/pocol_identity.py', '.github/workflows/five-device-build.yml']
   push:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', 'deploy/release/**', '.github/workflows/five-device-build.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/mainnet/v3-*profile.json', 'deploy/mainnet/retired-networks.json', 'development/decisions/FRESH-NETWORK-CP.md', 'deploy/release/**', 'deploy/public-testnet/pocol_identity.py', '.github/workflows/five-device-build.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -89,6 +89,18 @@ jobs:
           cargo +1.99.1 test --locked --release --test consensus continuous_admission --manifest-path prototypes/pocold/Cargo.toml
           cargo +1.99.1 test --locked --release --test consensus final_ --manifest-path prototypes/pocold/Cargo.toml
           cargo +1.99.1 test --locked --release --lib --manifest-path prototypes/lp4-execution/Cargo.toml
+      - name: Consensus identity input (a fixed throwaway genesis on the mainnet chain; never a launch genesis)
+        shell: bash
+        run: |
+          set -euo pipefail
+          python deploy/release/test_compare_build_identity.py -v
+          python deploy/release/compare_build_identity.py genesis --bin-dir prototypes/pocold/target/release --out "$RUNNER_TEMP/consensus-identity"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: consensus-identity-${{ runner.os }}-${{ env.EXPECTED_COMMIT }}
+          path: ${{ runner.temp }}/consensus-identity
+          if-no-files-found: error
+          retention-days: 30
       - name: Genesis ceremony dry run (FN-7) admits the committed profiles, without contacting any server
         if: runner.os == 'Windows'
         shell: powershell
@@ -178,6 +190,49 @@ jobs:
           name: PoCol-Mainnet-${{ env.POCOL_VERSION }}-Android-arm64-UNSIGNED-${{ env.EXPECTED_COMMIT }}
           path: dist/
           retention-days: 30
+      # The engine's raw build identity (build.rs) for the cross-platform consensus identity compare.
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+        with:
+          name: consensus-identity-Android-${{ env.EXPECTED_COMMIT }}
+          path: dist/build-info.json
+          if-no-files-found: error
+          retention-days: 30
+  consensus-identity-compare:
+    # Device compatibility (OWNER-DECISIONS-2026-11-20 D6 E): the Linux and Windows binaries built the same genesis bytes
+    # from fixed inputs on the mainnet chain, and the Linux, Windows and Android builds agree on every field the consensus
+    # identity and the handshake read, on the build digest, and on the identity they would send on that genesis
+    # (deploy/release/compare_build_identity.py). The Android engine does not run here: its identity is computed from
+    # the build identity its APK's engine was compiled with.
+    name: Linux, Windows and Android consensus identity compare
+    needs: [native, android]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: consensus-identity-Linux-${{ env.EXPECTED_COMMIT }}
+          path: ${{ runner.temp }}/identity/Linux
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: consensus-identity-Windows-${{ env.EXPECTED_COMMIT }}
+          path: ${{ runner.temp }}/identity/Windows
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: consensus-identity-Android-${{ env.EXPECTED_COMMIT }}
+          path: ${{ runner.temp }}/identity/Android
+      - name: The three builds agree on the consensus identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          t="$RUNNER_TEMP/identity"
+          python3 -B deploy/release/compare_build_identity.py compare --genesis "Linux=$t/Linux" --genesis "Windows=$t/Windows" \
+            --build "Linux=$t/Linux/build-info.json" --build "Windows=$t/Windows/build-info.json" --build "Android=$t/Android/build-info.json"
   native-reproducible:
     # Gate I1 (d): the Linux release binaries and package built twice, from other checkout paths, umasks, TZ, locales,
     # cargo homes and source mtimes, under the recipe of deploy/release/double_build.py (one fixed build path, remapped

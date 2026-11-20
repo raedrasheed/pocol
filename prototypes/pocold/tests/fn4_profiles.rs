@@ -354,6 +354,78 @@ fn a_booted_mainnet_genesis_pinned_with_its_approval_is_approved_and_reports_wha
     assert_eq!((l.approval_reference,&l.pending,l.network_name),(r.approval_reference,&r.pending,r.network_name));
 }
 
+/// One JSON-RPC call to a node's loopback RPC port: its result, None until it answers.
+fn rpc_call(rpc:std::net::SocketAddr,method:&str)->Option<serde_json::Value>{
+    use std::io::{Read,Write};
+    let body=format!(r#"{{"jsonrpc":"2.0","id":1,"method":"{method}","params":[]}}"#);
+    let mut s=std::net::TcpStream::connect(rpc).ok()?;s.set_read_timeout(Some(std::time::Duration::from_secs(5))).ok()?;
+    s.write_all(format!("POST / HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",body.len()).as_bytes()).ok()?;
+    let mut out=String::new();let _=s.read_to_string(&mut out);
+    let v=serde_json::from_str::<serde_json::Value>(out.split("\r\n\r\n").nth(1)?).ok()?["result"].clone();(!v.is_null()).then_some(v)
+}
+
+/// The cross-interface consistency of the approval and readiness fields (final design §6 test 4) on the public chain,
+/// through the binaries: a ceremony-filled mainnet genesis (public test founders, a temp dir only) as init-testnet
+/// reports it, as a running `pocold run --state-store` node reports it (the in-memory store does not fit the A13 memory
+/// budget at the mainnet CP, so a mainnet node runs with the state store, as `pocol start` does) (pocol_status), as `pocold status` reports it offline, as the
+/// launcher describes its invitation (`pocol network`, `pocol inspect`) and as both build-info commands report the build.
+/// No producer reports approved or ready where the booted node reports false; the booted producers agree exactly on
+/// every field; the launcher agrees on the approval reference, the technical readiness, the name and the environment,
+/// adds admission-not-booted and reports no scope; build-info reports no-network and no identity.
+#[test]
+fn every_producer_reports_the_booted_public_network_nodes_approval_and_readiness(){
+    let fields=["publicLaunchApproved","launchApprovalReference","publicLaunchReady","launchBlockers","technicalReadiness","networkName","networkEnvironment","networkScope"];
+    let ids=|v:&serde_json::Value|->Vec<String>{v["launchBlockers"].as_array().unwrap_or_else(||panic!("{v}")).iter().map(|b|b["id"].as_str().unwrap().to_string()).collect()};
+    let d=Temp::new("producers");std::fs::create_dir_all(&d.0).unwrap();
+    let config=d.0.join("v3-profile.json");std::fs::write(&config,ceremony_filled(&json(MAINNET),1_000_000).to_string()).unwrap();
+    let out=d.0.join("genesis");
+    let run=|bin:&str,args:&[&str]|->serde_json::Value{
+        let o=std::process::Command::new(bin).args(args).output().unwrap();
+        assert!(o.status.success(),"{args:?}: {}",String::from_utf8_lossy(&o.stderr));serde_json::from_slice(&o.stdout).unwrap()};
+    let (pocold,pocol)=(env!("CARGO_BIN_EXE_pocold"),env!("CARGO_BIN_EXE_pocol"));
+    let summary=run(pocold,&["init-testnet","--config",config.to_str().unwrap(),"--out",out.to_str().unwrap()]);
+    assert_eq!((summary["chainId"].as_u64(),summary["networkEnvironment"].as_str(),summary["networkScope"].as_str()),(Some(MAINNET_CHAIN_ID),Some("mainnet"),Some("public-network")));
+    // A running node.
+    let rpc={let l=std::net::TcpListener::bind("127.0.0.1:0").unwrap();l.local_addr().unwrap()};
+    let data=d.0.join("data");
+    let mut node=std::process::Command::new(pocold).args(["run","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap(),"--rpc",&rpc.to_string(),"--no-discovery","--state-store"])
+        .stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).spawn().unwrap();
+    let t=std::time::Instant::now();let mut seen=None;
+    while seen.is_none()&&t.elapsed()<std::time::Duration::from_secs(60){
+        if let Some(s)=node.try_wait().unwrap(){panic!("pocold run exited with {s}")}
+        seen=rpc_call(rpc,"pocol_status").filter(|v|v.is_object());if seen.is_none(){std::thread::sleep(std::time::Duration::from_millis(50));}
+    }
+    let _=node.kill();let _=node.wait();
+    let status=seen.expect("pocol_status within 60 s");
+    for k in fields{assert_eq!(status[k],summary[k],"{k}: the running node reports what init-testnet reported for the same build and genesis")}
+    assert_eq!((status["chainId"].as_u64(),status["genesisHash"].as_str()),(Some(MAINNET_CHAIN_ID),summary["genesisHash"].as_str()));
+    assert_eq!((status["admission"]["scope"].as_str(),status["admission"]["specificationCompliant"].as_bool()),(Some("public-network"),Some(false)),"{status}");
+    let waivers:Vec<&str>=status["admission"]["waivers"].as_array().unwrap().iter().map(|w|w["rule"].as_str().unwrap()).collect();assert_eq!(waivers,["R13","R21","R26"]);
+    assert_eq!(ids(&status),["network-not-release-pinned","launch-not-approved"]);
+    let offline=run(pocold,&["status","--network",out.to_str().unwrap(),"--data",data.to_str().unwrap(),"--state-store"]);
+    for k in fields{assert_eq!(offline[k],status[k],"{k}: pocold status")}
+    // The launcher's description of the same network.
+    let invitation=d.0.join("network.pocol.json");
+    let packed=run(pocol,&["network","--from",out.to_str().unwrap(),"--seed","127.0.0.1:30300","--out",invitation.to_str().unwrap()]);
+    let described=run(pocol,&["inspect","--network",invitation.to_str().unwrap()]);
+    for (label,l) in [("network",&packed),("inspect",&described)]{
+        let mut want=ids(&status);want.push("admission-not-booted".into());assert_eq!(ids(l),want,"{label}");
+        for k in ["launchApprovalReference","technicalReadiness","networkName","networkEnvironment"]{assert_eq!(l[k],status[k],"{label} {k}")}
+        assert!(l["networkScope"].is_null(),"{label}: the launcher booted nothing");
+        assert_eq!(l["consensusIdentity"],status["consensusIdentity"],"{label}: the identity a node of this genesis sends");
+    }
+    // The build alone.
+    for bin in [pocold,pocol]{
+        let info=run(bin,&["build-info"]);assert!(ids(&info).iter().any(|b|b=="no-network"),"{info}");
+        for k in ["launchApprovalReference","networkName","networkEnvironment","networkScope"]{assert!(info[k].is_null(),"{k}: {info}")}
+        assert_eq!(info["compatibilitySha256"],status["compatibilitySha256"],"the node runs this build");
+    }
+    // No producer claims more than the booted node.
+    for (label,v) in [("init-testnet",&summary),("pocold status",&offline),("pocol network",&packed),("pocol inspect",&described)]{
+        for k in ["publicLaunchApproved","publicLaunchReady"]{assert!(!(v[k]==true&&status[k]==false),"{label} {k}")}
+    }
+}
+
 /// R22 stays two-way on the public chain, and the public-network scope is chain-gated: a Simnet request on 2656089850 is
 /// refused as R22 at validate and at admission (whose gate reports it), and a public-network request on the rehearsal
 /// chain, the local test chain or 777001 is refused as R22.

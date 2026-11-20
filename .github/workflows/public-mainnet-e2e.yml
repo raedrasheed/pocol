@@ -1,0 +1,75 @@
+name: PoCol Mainnet genesis, sync, mining, rewards and RPC security
+# The pre-launch tests of OWNER-DECISIONS-2026-11-20 D6 E that run on one Linux host (final design §6 tests 1, 4 and 5).
+# Every genesis here is a throwaway test genesis in a temporary directory; nothing here contacts a server. This is not
+# a multi-host soak, an Internet ingress test or a device run (PLAN.md gates L1 and N1 stay open).
+on:
+  pull_request:
+    branches: [main]
+    paths: ['prototypes/pocold/**', 'prototypes/lp1-node/**', 'prototypes/lp4-execution/**', 'deploy/mainnet/**', 'deploy/standalone/**',
+            'deploy/faucet/**', 'deploy/rewards/**', 'deploy/studio/**', 'deploy/public-testnet/pocol_identity.py', '.github/workflows/public-mainnet-e2e.yml']
+  push:
+    branches: [main]
+    paths: ['prototypes/pocold/**', 'prototypes/lp1-node/**', 'prototypes/lp4-execution/**', 'deploy/mainnet/**', 'deploy/standalone/**',
+            'deploy/faucet/**', 'deploy/rewards/**', 'deploy/studio/**', 'deploy/public-testnet/pocol_identity.py', '.github/workflows/public-mainnet-e2e.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: public-mainnet-e2e-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 150
+    env:
+      CARGO_BUILD_JOBS: '2'
+      PYTHONDONTWRITEBYTECODE: '1'
+      EXPECTED_COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+      # The last commit whose build boots chain 2656089850 in scope experimental-devnet (before OWNER-DECISIONS-2026-11-20
+      # D5): the old admission of the interop step. Replace it only together with a consensus rules bump, which ends
+      # compatibility with it by design.
+      OLD_ADMISSION_COMMIT: 8b465b999b880cd9358d02c885f61528ca67537f
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ env.EXPECTED_COMMIT }}
+          persist-credentials: false
+          # OLD_ADMISSION_COMMIT for the interop step.
+          fetch-depth: 0
+      - name: Build the release binaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_COMMIT"
+          rustup toolchain install 1.99.1 --profile minimal
+          cargo +1.99.1 build --locked --release --bins --manifest-path prototypes/pocold/Cargo.toml
+      - name: Public genesis, admission, readiness (with a test-only pin) and the consistency of every producer
+        shell: bash
+        run: cargo +1.99.1 test --locked --release --test fn4_profiles --test cli --manifest-path prototypes/pocold/Cargo.toml
+      - name: The Android engine's mining path, natively on the host (no device or emulator run exists)
+        shell: bash
+        run: cargo +1.99.1 test --locked --release --lib --manifest-path prototypes/pocold/Cargo.toml -- 'mobile::'
+      - name: Public-chain genesis end to end (founders peer over the host address, late join, transfer, earn-in registration, rewards, restart)
+        shell: bash
+        run: python3 -B prototypes/pocold/tests/e2e_public_genesis.py
+      - name: The old admission and the new one agree on one chain (no consensus validity or compatibility change)
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/old-admission" "$OLD_ADMISSION_COMMIT"
+          CARGO_TARGET_DIR="$RUNNER_TEMP/old-target" cargo +1.99.1 build --locked --release --bins --manifest-path "$RUNNER_TEMP/old-admission/prototypes/pocold/Cargo.toml"
+          POCOL_OLD_BIN_DIR="$RUNNER_TEMP/old-target/release" python3 -B prototypes/pocold/tests/e2e_admission_interop.py
+      - name: Three-node sync, late join, partition and heal, crash and replay, malicious peer, convergence
+        shell: bash
+        run: python3 -B prototypes/pocold/tests/e2e_devnet.py
+      - name: Earn-in through the real wallet (fee faucet, zero-bond registration, probation mining, top-up)
+        shell: bash
+        run: python3 -B deploy/standalone/test_wallet_earnin.py
+      - name: RPC security controls (RpcGuard on loopback sockets, the Studio and rewards gateways, the fee faucet)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo +1.99.1 test --locked --release --test net --manifest-path prototypes/pocold/Cargo.toml
+          python3 -B -m unittest discover -s deploy/studio -v
+          python3 -B -m unittest discover -s deploy/rewards -v
+          python3 -B -m unittest discover -s deploy/faucet -v

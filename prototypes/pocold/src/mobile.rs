@@ -392,6 +392,78 @@ mod tests {
         assert_eq!((&third["response"]["type"], &third["responseId"], &third["event"]["state"], &third["eventId"]), (&serde_json::json!("answer"), &serde_json::json!(1), &serde_json::json!("Stopped"), &serde_json::json!(2)));
         assert_eq!((wallet.advances, wallet.handled.len()), (3, 1));
     }
+    /// The Android engine's mining path, run natively on the host (OWNER-DECISIONS-2026-11-20 D6 E, device compatibility):
+    /// the same Rust code the ARM64 `libpocold.so` exports, driven through the bridge's own entry points as the JNI
+    /// bridge drives it (`pocol_mobile_import`, `pocol_mobile_run` on its thread, `pocol_mobile_command`,
+    /// `pocol_mobile_status`, `pocol_mobile_stop`). The genesis is a ceremony-filled copy of deploy/mainnet/v3-profile.json
+    /// on its own chain (2656089850) in a temp dir only: this home's fresh key is founder 1, the other founders are the
+    /// public test identities, and the launch second and the hash rate are throwaway test values, so it is never a launch
+    /// genesis. The engine's preview and import of the invitation report what the desktop launcher reports for it
+    /// (`Invitation::describe`: not approved, admission-not-booted, environment mainnet); in the miner role with mining
+    /// enabled it mines blocks of that chain, and its PCOL is not a test currency. This is not an Android device or
+    /// emulator run: none exists for this release (the APK is built, unsigned, by five-device-build.yml).
+    #[test]
+    fn the_android_engine_mines_a_public_network_genesis_natively_on_the_host() {
+        let dir = std::env::temp_dir().join(format!("pocol-mobile-mine-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let home_path = dir.join("home");
+        let address = Home::open(&home_path).unwrap().address().unwrap();
+        let mut profile: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/v3-profile.json")).unwrap();
+        let chain = profile["chainId"].as_u64().unwrap();
+        assert!(pocol_lp4_execution::profile::PUBLIC_NETWORK_CHAINS.contains(&chain), "the mainnet profile's own chain");
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        profile["genesisTime"] = serde_json::json!(now);
+        profile["hashRate"]["hashesPerSecond"] = serde_json::json!(16);
+        for (i, f) in profile["founders"].as_array_mut().unwrap().iter_mut().enumerate() {
+            let (id, reward) = if i == 0 { (address.clone(), address.clone()) } else { let t = crate::testnet::test_founder(i); (format!("{:#x}", t.id), format!("{:#x}", t.reward)) };
+            f["id"] = serde_json::json!(id);
+            f["reward"] = serde_json::json!(reward);
+        }
+        crate::testnet::prepare(profile.to_string().as_bytes(), &dir.join("net")).unwrap();
+        let invitation = dir.join("network.pocol.json");
+        launcher::pack(&dir.join("net"), vec!["127.0.0.1:9".parse().unwrap()], vec![], false, &invitation).unwrap();
+        let desktop = Invitation::parse(&std::fs::read(&invitation).unwrap()).unwrap().describe();
+        let preview = json(unsafe { pocol_mobile_inspect_network(CString::new(invitation.to_str().unwrap()).unwrap().as_ptr()) });
+        let imported = ask(pocol_mobile_import, &home_path, &invitation);
+        for (label, seen) in [("preview", &preview), ("import", &imported)] {
+            for k in ["chainId", "genesisHash", "consensusIdentity", "publicLaunchApproved", "launchApprovalReference", "publicLaunchReady", "launchBlockers",
+                      "technicalReadiness", "networkName", "networkEnvironment", "networkScope"] {
+                assert_eq!(seen[k], desktop[k], "{label} {k}: the Android engine reports what the desktop launcher reports");
+            }
+        }
+        assert_eq!((desktop["chainId"].as_u64(), desktop["networkEnvironment"].as_str(), desktop["publicLaunchApproved"].as_bool()), (Some(chain), Some("mainnet"), Some(false)));
+        assert!(desktop["launchBlockers"].as_array().unwrap().iter().any(|b| b["id"] == "admission-not-booted"), "{desktop}");
+        // The engine thread, as the JNI bridge starts it.
+        STOP.store(false, Ordering::Relaxed);
+        let run_home = home_path.to_str().unwrap().to_owned();
+        let engine = std::thread::spawn(move || json(unsafe { pocol_mobile_run(CString::new(run_home).unwrap().as_ptr()) }));
+        let status = || json(pocol_mobile_status());
+        let command = |c: &str| json(unsafe { pocol_mobile_command(CString::new(c).unwrap().as_ptr()) });
+        let wait = |what: &str, done: &dyn Fn(&serde_json::Value) -> bool| {
+            let t = Instant::now();
+            loop {
+                let s = status();
+                if done(&s) { return s; }
+                assert!(!engine.is_finished(), "the engine stopped while waiting for {what}: {s}");
+                assert!(t.elapsed() < Duration::from_secs(240), "{what} within 240 s: {s}");
+                std::thread::sleep(Duration::from_millis(200));
+            }
+        };
+        wait("the engine's first status", &|s| s["type"] == "status");
+        assert_eq!(command(r#"{"method":"set_mode","mode":"miner"}"#)["queued"], true);
+        wait("the miner role", &|s| s["appMode"] == "miner");
+        assert_eq!(command(r#"{"method":"mining","enabled":true}"#)["queued"], true);
+        let mined = wait("two blocks mined by the Android engine", &|s| s["miningEnabled"] == true && s["blocksMined"].as_u64().is_some_and(|n| n >= 2));
+        assert_eq!((mined["chainId"].as_u64(), mined["address"].as_str(), mined["currency"].as_str(), mined["testCurrency"].as_bool()), (Some(chain), Some(address.as_str()), Some("PCOL"), Some(false)));
+        assert_eq!(mined["genesisHash"], desktop["genesisHash"]);
+        assert!(mined["height"].as_u64().unwrap() >= 2 && mined["miningActive"] == true, "{mined}");
+        pocol_mobile_stop();
+        let stopped = engine.join().unwrap();
+        STOP.store(false, Ordering::Relaxed);
+        assert_eq!(stopped, serde_json::json!({"state":"stopped"}));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
     #[test]
     fn network_preview_rejects_missing_input_without_side_effects() {
         unsafe {
