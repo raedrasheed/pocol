@@ -226,7 +226,11 @@ class FaucetPage(unittest.TestCase):
 class LaunchTexts(unittest.TestCase):
     """Owner decision 4 (2026-11-18): no served text states anything untrue or presents the public launch as prevented
     or conditional; the node's readiness report is node-local and refuses nothing. The texts that did (and the retired
-    network's upgrade and migration steps, which are untrue on the new network) were replaced; none may come back."""
+    network's upgrade and migration steps, which are untrue on the new network) were replaced; none may come back.
+    OWNER-DECISIONS-2026-11-20 (D1, D4, D5, D6): PoCol Mainnet is the public network, launched without a separate
+    rehearsal, admitted in scope public-network, with launch approval reported apart from technical readiness and every
+    value computed by the node. No served text or client user interface states the old experimental admission, a fixed
+    readiness value or a launch after a closed rehearsal (CLAIMS)."""
     SERVED = [ROOT / 'deploy' / 'websites' / site for site in ('explorer.pocol.net', 'ide.pocol.net', 'pocol.net')] + \
              [ROOT / 'prototypes' / 'pocol-studio' / 'dist']
     REMOVED = {
@@ -249,6 +253,19 @@ class LaunchTexts(unittest.TestCase):
         'a key backup the retired wallet lacks': re.compile(r'back it up first \(Settings → Back up key'),
         'Arabic: a key backup the retired wallet lacks': re.compile(r'فاحفظ نسخة احتياطية منه أولًا \(Settings'),
     }
+    # Checked in the served files and in the clients' user interface sources (the extension pages and scripts, the
+    # Windows wallet and the Android app).
+    CLIENTS = [ROOT / 'prototypes' / 'pocol-extension' / 'src', ROOT / 'prototypes' / 'pocol-windows',
+               ROOT / 'prototypes' / 'pocol-android' / 'app' / 'src' / 'main']
+    CLAIMS = {
+        'a hard-coded experimental admission': re.compile(r'(?i)Simnet profile in ExperimentalDevnet|(?:ExperimentalDevnet|experimental-devnet) scope'),
+        'a hard-coded readiness value': re.compile(r'(?i)publicLaunch(?:Ready|Approved)"?\s*:\s*(?:false|true)\b'),
+        'the superseded R22 and R21 status': re.compile(r'(?i)binds the separately defined Network profile to chain ID 777001|only through the simnet retentionStress exception'),
+        'a launch after a closed rehearsal': re.compile(r'(?i)after (?:a |the )?(?:closed )?rehearsal|rehearsal (?:comes |runs )?(?:first|before the (?:public )?launch)'),
+        'Arabic: a hard-coded experimental admission': re.compile(r'بملف Simnet في نطاق|في نطاق (?:ExperimentalDevnet|experimental-devnet)'),
+        'Arabic: the superseded R22 and R21 status': re.compile(r'المعرَّف على حدة بمعرّف السلسلة 777001|استثناء retentionStress'),
+        'Arabic: a launch after a closed rehearsal': re.compile(r'بعد (?:ال)?تجربة (?:ال)?مغلقة|بعد (?:ال)?(?:بروفة|تجربة الإطلاق)'),
+    }
 
     def test_no_served_file_has_a_removed_launch_text(self):
         seen = 0
@@ -260,6 +277,41 @@ class LaunchTexts(unittest.TestCase):
                     self.assertIsNone(m, f'{path.relative_to(ROOT).as_posix()} has {what}: '
                                          f'{text[max(0, m.start() - 60):m.end() + 40]!r}' if m else '')
         self.assertGreater(seen, 40)
+
+    def test_no_served_file_or_client_has_a_superseded_launch_claim(self):
+        seen = 0
+        for base in self.SERVED + self.CLIENTS:
+            for path, text in tracked_text(base):
+                seen += 1
+                for what, rx in self.CLAIMS.items():
+                    m = rx.search(text)
+                    self.assertIsNone(m, f'{path.relative_to(ROOT).as_posix()} has {what}: '
+                                         f'{text[max(0, m.start() - 60):m.end() + 40]!r}' if m else '')
+        self.assertGreater(seen, 80)
+
+    def test_the_claim_patterns_find_the_superseded_texts(self):
+        for what, sample in (
+                ('a hard-coded experimental admission', 'The node admits it as a Simnet profile in ExperimentalDevnet scope'),
+                ('a hard-coded experimental admission', 'Every founder node runs in experimental-devnet scope.'),
+                ('a hard-coded readiness value', 'and reports publicLaunchReady: false with its launchBlockers'),
+                ('a hard-coded readiness value', '{"publicLaunchApproved":true}'),
+                ('the superseded R22 and R21 status', 'Rule R22 binds the separately defined Network profile to chain ID 777001'),
+                ('the superseded R22 and R21 status', "rule R21 holds at the network's caps only through the simnet retentionStress exception"),
+                ('a launch after a closed rehearsal', "The public launch follows after a closed rehearsal on the founders' devices."),
+                ('a launch after a closed rehearsal', 'PoCol Mainnet opens to the public after the rehearsal.'),
+                ('a launch after a closed rehearsal', 'The rehearsal runs before the public launch.'),
+                ('Arabic: a hard-coded experimental admission', 'وتقبلها العقدة بملف Simnet في نطاق ExperimentalDevnet'),
+                ('Arabic: a hard-coded experimental admission', 'تعمل العقد في نطاق experimental-devnet'),
+                ('Arabic: the superseded R22 and R21 status', 'تربط القاعدة R22 ملف الشبكة Network المعرَّف على حدة بمعرّف السلسلة 777001'),
+                ('Arabic: the superseded R22 and R21 status', 'إلا عبر استثناء retentionStress الخاص بشبكات simnet'),
+                ('Arabic: a launch after a closed rehearsal', 'يأتي الإطلاق العام بعد تجربة مغلقة على أجهزة المؤسسين.'),
+                ('Arabic: a launch after a closed rehearsal', 'تُفتح الشبكة للجمهور بعد البروفة.')):
+            self.assertRegex(sample, self.CLAIMS[what], what)
+        # The status texts that replaced them are not refused.
+        for sample in ('It launches from a fresh genesis under the v3 rule set by the owner\'s decision of 2026-11-20, without a separate rehearsal,',
+                       'دون تجربة إطلاق منفصلة (rehearsal)، بينما ما زالت بواباتها التقنية مفتوحة.'):
+            for what, rx in self.CLAIMS.items():
+                self.assertNotRegex(sample, rx, what)
 
     def test_the_patterns_find_the_removed_texts(self):
         # Each pattern finds the text it was written for, so a silent pattern cannot pass.
@@ -320,6 +372,25 @@ class LaunchTexts(unittest.TestCase):
         self.assertIn('وهذا التقرير محلي في العقدة ولا يمنع شيئًا', launch['paragraphs'][0]['ar'])
         page = (MAIN / 'pocol-status.html').read_text(encoding='utf-8')
         self.assertEqual(page.count('Launch status and open gates'), 2)  # the heading and the page's table of contents
+        # OWNER-DECISIONS-2026-11-20 D4, D5, D6: the text names the public network, its admission scope and waivers, and
+        # the approval and technical readiness fields as the node computes them (readiness.rs json(), scope.rs and
+        # ExpectedAdmission::PUBLIC_MAINNET), in both languages and on the static page.
+        readiness = (ROOT / 'prototypes' / 'pocold' / 'src' / 'readiness.rs').read_text(encoding='utf-8')
+        emitted = re.search(r'pub fn json\(r:&Readiness\)->serde_json::Value\{(.*?)\n\}', readiness, re.S).group(1)
+        fields = ['publicLaunchApproved', 'launchApprovalReference', 'publicLaunchReady', 'launchBlockers', 'technicalReadiness']
+        for field in fields:
+            self.assertIn(f'"{field}"', emitted, field)
+        scope = re.search(r'Scope::PublicNetwork=>"([a-z-]+)"', (ROOT / 'prototypes' / 'lp4-execution' / 'src' / 'admission' / 'scope.rs').read_text(encoding='utf-8')).group(1)
+        self.assertEqual(scope, 'public-network')
+        waivers = re.findall(r'"(R\d+)"', re.search(r'const PUBLIC_MAINNET:Self=Self\{.*?waivers:&\[([^\]]*)\]', readiness, re.S).group(1))
+        self.assertEqual(waivers, ['R13', 'R21', 'R26'])
+        static = html.unescape(re.search(r'<section class="doc-section" id="production">(.*?)</section>', page, re.S).group(1))
+        for lang, text in (('en', launch['paragraphs'][0]['en']), ('ar', launch['paragraphs'][0]['ar']), ('static', static)):
+            for name in fields + [scope] + waivers:
+                self.assertIn(name, text, (lang, name))
+        self.assertTrue(launch['paragraphs'][0]['en'].startswith('PoCol Mainnet is the public network.'))
+        self.assertTrue(launch['paragraphs'][0]['ar'].startswith('PoCol Mainnet هي الشبكة العامة.'))
+        self.assertIn(launch['paragraphs'][0]['en'], static)
         # Every repository source link the guide renders pins a full commit, and the static list shows the same ones.
         for topic in guide['topics']:
             static = (MAIN / guide['files'][topic['id']]).read_text(encoding='utf-8')

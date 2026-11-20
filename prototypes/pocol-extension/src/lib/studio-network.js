@@ -1,4 +1,5 @@
-// Pinned identity of the PoCol Mainnet. Public data only.
+// The built-in network that deploy/mainnet/set_network_identity.py pins: PoCol Mainnet, the public network, from the
+// identity switch on. Public data only.
 export const STUDIO_ORIGINS = Object.freeze(['https://studio.pocol.net']);
 /*@fault testGateway*/export const NETWORK/*@else*/const PINNED_NETWORK/*@end*/ = Object.freeze({
   "name": "pocol-public",

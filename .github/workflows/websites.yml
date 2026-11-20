@@ -33,6 +33,12 @@ on:
       - 'deploy/standalone/package.py'
       # Sites W7: explorer_w7.test.mjs checks the decoder's selectors against the Registry signatures there.
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
+      # test_launch_decisions.py (OWNER-DECISIONS-2026-11-20): the readiness fields the status page names, the
+      # public-network scope name, and the client user interface sources it checks for superseded launch claims.
+      - 'prototypes/pocold/src/readiness.rs'
+      - 'prototypes/lp4-execution/src/admission/scope.rs'
+      - 'prototypes/pocol-windows/**'
+      - 'prototypes/pocol-android/app/src/main/**'
       # A config.php anywhere (the .gitignore rule covers only api/ directories) runs the tracked-config.php guard.
       - '**/config.php'
       - '.gitignore'
@@ -60,6 +66,10 @@ on:
       - 'deploy/release/assemble_release.py'
       - 'deploy/standalone/package.py'
       - 'prototypes/lp4-execution/contracts/system/PoColSystemV3.sol'
+      - 'prototypes/pocold/src/readiness.rs'
+      - 'prototypes/lp4-execution/src/admission/scope.rs'
+      - 'prototypes/pocol-windows/**'
+      - 'prototypes/pocol-android/app/src/main/**'
       - '**/config.php'
       - '.gitignore'
       - '.github/workflows/websites.yml'
