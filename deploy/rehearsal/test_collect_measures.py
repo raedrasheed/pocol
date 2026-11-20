@@ -502,7 +502,8 @@ class Merge(unittest.TestCase):
     def test_a_full_merge_and_its_refusals(self):
         s1 = self.write('s1.jsonl', [sample('s1', 0, miner=A['s1'], lat=latency([proposer(A['pc'])])), sample('s1', 60, miner=A['s1'], lat=latency([proposer(A['pc'])]))])
         pc = self.write('pc.jsonl', [{'v': 1, 'kind': 'clock', 'label': 'PC', 'utc': cm.utc(0), 'unixMs': 0, 'clock': {'source': 'w32tm', 'offsetMs': 12.5}}])
-        blocks = self.write('blocks.jsonl', [{'kind': 'chain', **IDENT}] + [{'height': h, 'timestamp': 1_800_000_000 + 10 * h, 'difficulty': '100', 'attempt': 0,
+        blocks = self.write('blocks.jsonl', [{'kind': 'chain', **IDENT}] + [{'height': h, 'hash': '0x%064x' % h, 'parentHash': '0x%064x' % max(h - 1, 0),
+                                                                              'timestamp': 1_800_000_000 + 10 * h, 'difficulty': '100', 'attempt': 0,
                                                                               'signed': True, 'txCount': 0} for h in range(101)])
         windows = self.dir / 'windows.json'
         windows.write_text(json.dumps({'windows': [{'name': 'pc off/on', 'start': '2026-12-01T10:00:00Z', 'end': 1796121000}]}), encoding='utf-8')
@@ -526,8 +527,8 @@ class Merge(unittest.TestCase):
 
 
     def test_the_end_of_the_blocks_is_known_from_the_header_or_a_sample(self):
-        blocks = [{'height': h, 'hash': '0x%064x' % h, 'timestamp': 1_800_000_000 + 10 * h, 'difficulty': '100', 'attempt': 0,
-                   'signed': True, 'txCount': 0} for h in range(201)]
+        blocks = [{'height': h, 'hash': '0x%064x' % h, 'parentHash': '0x%064x' % max(h - 1, 0), 'timestamp': 1_800_000_000 + 10 * h,
+                   'difficulty': '100', 'attempt': 0, 'signed': True, 'txCount': 0} for h in range(201)]
         header = {'kind': 'chain', **IDENT, 'fromHeight': 0, 'toHeight': 200, 'headHeight': 200, 'headHash': blocks[-1]['hash'],
                   'collectedUnixMs': (1_800_000_000 + 2 * 86400) * 1000}
         head = lambda t, h, hsh: dict(sample('s1', t), status={**sample('s1', t)['status'], 'head': {'height': h, 'hash': hsh, 'ts': 1}})
@@ -551,20 +552,52 @@ class Merge(unittest.TestCase):
         t6 = json.loads(out.read_text(encoding='utf-8'))['T6']
         self.assertEqual([(x['day'], x['stalled'], x['verdict']) for x in t6['dayMeans']], [(0, False, 'miss'), (1, True, 'miss')])
         self.assertEqual(t6['afterLastBlock']['secondsWithoutBlock'], 2 * 86400 - 2000)
+        # A file that is not one chain is refused, never graded: another branch's block, a gap, or a last block that is
+        # not the head the header recorded.
+        other = [dict(b) for b in blocks]
+        other[150] = dict(other[150], hash='0x' + 'ee' * 32)
+        moved = dict(header, headHash='0x' + 'ee' * 32)
+        for name, (h, bs) in {'branch': (header, other), 'gap': (header, blocks[:100] + blocks[101:]), 'head': (moved, blocks)}.items():
+            bad = self.write(f'{name}.jsonl', [h] + bs)
+            self.assertEqual(cm.main(['merge', '--in', spath, '--blocks', bad, '--out', str(self.dir / f'{name}.json')]), 3, name)
+            self.assertFalse((self.dir / f'{name}.json').exists(), name)
 
     def test_blocks_records_the_head_and_when_it_was_read(self):
         def block(h):
             return {'result': {'number': hex(h), 'hash': '0x%064x' % h, 'parentHash': '0x%064x' % max(h - 1, 0), 'timestamp': hex(1_800_000_000 + 10 * h),
                                'difficulty': hex(100), 'gasUsed': '0x0', 'transactions': [], 'pocol': {'attempt': 0, 'signed': True}}}
-        n = FakeNode({'pocol_status': [{'result': status(height=2)}], 'eth_getBlockByNumber': [block(0), block(1), block(2)]})
+        head = dict(status(height=2), head={'height': 2, 'hash': '0x%064x' % 2, 'ts': 1})
+        n = FakeNode({'pocol_status': [{'result': head}], 'eth_getBlockByNumber': [block(0), block(1), block(2)]})
         self.addCleanup(n.close)
         out = self.dir / 'blocks.jsonl'
         before = int(time.time() * 1000)
         self.assertEqual(cm.main(['blocks', '--rpc', n.url, '--out', str(out)]), 0)
         lines = cm.read_jsonl(out)
-        self.assertEqual((lines[0]['toHeight'], lines[0]['headHeight'], lines[0]['headHash']), (2, 2, '0x' + '01' * 32))
+        self.assertEqual((lines[0]['toHeight'], lines[0]['headHeight'], lines[0]['headHash']), (2, 2, '0x%064x' % 2))
         self.assertTrue(before <= lines[0]['collectedUnixMs'] <= int(time.time() * 1000))
         self.assertEqual([b['height'] for b in lines[1:]], [0, 1, 2])
+
+    def test_blocks_refuses_an_export_the_chain_reorganized_under(self):
+        def block(h, mark=0):
+            return {'result': {'number': hex(h), 'hash': '0x%064x' % (h + mark), 'parentHash': '0x%064x' % (max(h - 1, 0) + mark),
+                               'timestamp': hex(1_800_000_000 + 10 * h), 'difficulty': hex(100), 'gasUsed': '0x0', 'transactions': [],
+                               'pocol': {'attempt': 0, 'signed': True}}}
+        head = dict(status(height=2), head={'height': 2, 'hash': '0x%064x' % 2, 'ts': 1})
+        cases = {
+            # Block 2 comes from another branch than the block 1 read before it.
+            'parent': ({'result': head}, [block(0), block(1), block(2, mark=1000)], []),
+            # Blocks 0-2 are one chain, but block 2 is not the head recorded before the read.
+            'head': ({'result': head}, [block(0), block(1, mark=1000), block(2, mark=1000)], []),
+            # Below the head, the parent links alone decide.
+            'below': ({'result': dict(head, head={'height': 5, 'hash': '0x' + 'aa' * 32, 'ts': 1})},
+                      [block(0), block(1), block(2, mark=1000)], ['--to', '2']),
+        }
+        for name, (st, blocks, extra) in cases.items():
+            n = FakeNode({'pocol_status': [st], 'eth_getBlockByNumber': blocks})
+            self.addCleanup(n.close)
+            out = self.dir / f'{name}.jsonl'
+            self.assertEqual(cm.main(['blocks', '--rpc', n.url, '--out', str(out), *extra]), 3, name)
+            self.assertFalse(out.exists(), f'{name}: no partial file is left')
 
 
 class Scripts(unittest.TestCase):

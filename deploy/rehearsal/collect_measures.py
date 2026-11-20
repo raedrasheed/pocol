@@ -273,17 +273,47 @@ def cmd_blocks(a, now_ms=lambda: int(time.time() * 1000)):
     to = head if a.to == 'latest' else int(a.to)
     if not 0 <= a.from_ <= to <= head:
         raise Refused(f'--from {a.from_} --to {a.to}: the head is {head}')
+    header = {'v': VERSION, 'kind': 'chain', **{k: status.get(k) for k in IDENTITY}, 'fromHeight': a.from_,
+              'toHeight': to, 'headHeight': head, 'headHash': status['head'].get('hash'), 'collectedUnixMs': collected}
     fd = os.open(a.out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
-    with os.fdopen(fd, 'w', encoding='utf-8') as f:
-        f.write(json.dumps({'v': VERSION, 'kind': 'chain', **{k: status.get(k) for k in IDENTITY}, 'fromHeight': a.from_,
-                            'toHeight': to, 'headHeight': head, 'headHash': status['head'].get('hash'), 'collectedUnixMs': collected},
-                           sort_keys=True) + '\n')
-        for h in range(a.from_, to + 1):
-            b = rpc.call('eth_getBlockByNumber', [hex(h), False])
-            if b is None:
-                raise Refused(f'block {h} is not served')
-            f.write(json.dumps(block_line(b), sort_keys=True) + '\n')
+    try:
+        with os.fdopen(fd, 'w', encoding='utf-8') as f:
+            f.write(json.dumps(header, sort_keys=True) + '\n')
+            prev = None
+            for h in range(a.from_, to + 1):
+                b = rpc.call('eth_getBlockByNumber', [hex(h), False])
+                if b is None:
+                    raise Refused(f'block {h} is not served')
+                line = block_line(b)
+                if prev is not None and line['parentHash'] != prev['hash']:
+                    raise Refused(f'block {h} does not extend block {h - 1} read before it (the chain reorganized during '
+                                  'the export); run it again')
+                f.write(json.dumps(line, sort_keys=True) + '\n')
+                prev = line
+            check_chain(header, [], prev)
+    except BaseException:
+        os.unlink(a.out)
+        raise
     return 0
+
+
+def check_chain(header, blocks, last=None):
+    """Refuses a blocks file that is not one chain: heights from fromHeight to toHeight with no gap, each block's
+    parentHash the hash of the block before it, and, when the file was written up to the head, its last block the head
+    the header recorded. A reorganization during an export breaks one of these."""
+    if blocks:
+        want = list(range(header.get('fromHeight', blocks[0]['height']), header.get('toHeight', blocks[-1]['height']) + 1))
+        if [b['height'] for b in blocks] != want:
+            raise Refused('the blocks file does not hold each height from fromHeight to toHeight once, in order')
+        for p, b in zip(blocks, blocks[1:]):
+            if b.get('parentHash') is None or b['parentHash'] != p.get('hash'):
+                raise Refused(f'block {b["height"]} does not extend block {p["height"]} (the chain reorganized during '
+                              'the export); export the blocks again')
+        last = blocks[-1]
+    if (last is not None and header.get('headHash') is not None and header.get('headHeight') == last['height']
+            and last.get('hash') != header['headHash']):
+        raise Refused(f'block {last["height"]} is not the head {header["headHash"]} the header recorded (the chain '
+                      'reorganized during the export); export the blocks again')
 
 
 # ---- merge ---------------------------------------------------------------------------------------------------------
@@ -773,6 +803,7 @@ def merge(paths, blocks_path, windows_path, declared, addresses, step_height, al
             raise Refused(f'{blocks_path}: not a blocks file (no chain header)')
         same(lines[0], blocks_path)
         blocks = lines[1:]
+        check_chain(lines[0], blocks)
     end = blocks_end(lines[0], blocks, samples) if blocks else None
     windows = read_windows(windows_path)
     return {'v': VERSION, 'identity': identity, 'inputs': {'samples': list(paths), 'blocks': blocks_path, 'windows': windows},

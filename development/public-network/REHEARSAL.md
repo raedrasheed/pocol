@@ -493,6 +493,10 @@ It measures as `Initialize-PoColNetwork.ps1` does (`w32tm /stripchart` against t
 python3 collect_measures.py blocks --rpc http://127.0.0.1:8545 --out ~/blocks.jsonl --expect-chain-id 1656550731
 ```
 
+The export is one chain or nothing. Each block must extend the block read before it, and when the export runs to the
+head, its last block must be the head recorded before the read. If the chain reorganizes during the export, it is
+refused, no file is left, and it is run again. `merge` checks the same on any blocks file it is given.
+
 Then, wherever the files are gathered, with the drill windows of section 4 and the home-PC off/on window in
 `windows.json` (`{"windows": [{"name": "partition", "start": "2026-12-01T10:00:00Z", "end": "2026-12-01T10:30:00Z"}]}`,
 times as unix seconds or ISO 8601 UTC ending in `Z`):
