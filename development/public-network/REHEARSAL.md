@@ -67,7 +67,8 @@ Reading the measures on the node:
   section 4.1) hides any later shallower reorganization on that node, so that node is restarted cleanly right after
   the drill window, which starts its counters again (the restart can serve as the section 4.2 drill).
 - **M1.** C6's history target is 100 MB a day for the membership part of history.redb
-  ([FN-3C-C6-EVIDENCE](../decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)). The A13 bound is in section 5.
+  ([FN-3C-C6-EVIDENCE](../decisions/FN-3C-C6-EVIDENCE-2026-11-14.md)). The A13 bound is in section 5. The fill and the
+  M3 and R-off registrations are made with the harness of section 7.
 - **S2** follows [OPERATIONS.md](OPERATIONS.md), "Activating the cap raise (FN-5, C10; rehearsal S2)", step 7.
 
 ## 3. The risks these measures read (design §4a)
@@ -197,3 +198,248 @@ Record each measure with its value, its threshold, pass or miss, and any remedy 
 [evidence/](evidence/) for the rehearsal run. The evidence holds only public data: addresses, hashes, heights,
 timings and counters, never a key file, a backup or a passphrase. A gate in [PLAN.md](PLAN.md) changes its status only
 with that evidence.
+
+## 7. The registration fill harness (M1, M3, R-off)
+
+`deploy/rehearsal/registration_fill.py` makes the registrations M1, M3 and R-off need, over the node's JSON-RPC. It is
+tooling: it changes no consensus rule or CP value, judges no threshold and closes no gate. M1 is measured in the
+rehearsal itself, and the measures are read against section 2 and recorded as section 6 says.
+
+**What it does.** `fill` registers up to `--count` fresh identities (default 10,000, clamped to the free seats:
+M_max less the active members, and REG_RECORDS_MAX less the records), mostly idle zero-bond (ACCRUING) members,
+`--bonded K` with a B_reg bond (HELD), and `--miners M` ACCRUING members that mine: each of those runs as its own
+`pocol start` node on the harness's host, with its own key, connected to `--peer`. Each identity's key is made by
+`pocol-key generate` in the harness directory (mode 0700, each key file 0600) and every transaction is signed by
+`pocol-sign --key-file`; the harness never reads or prints a key. Registrations are `register(address)` (and
+`registerReplacing` in M3 and R-off) with the native wallet's gas (wallet.rs: 400,000 and 500,000).
+
+**Rate.** By default the harness keeps at most R_max (4, the profile's `registrationPerBlock`) of its registrations in
+flight, so no block carries more than 4 of them. That reaches R_max per block only while a registration sent just after
+a head is included in the next block, as it is on a local devnet; when the proposer's template is already locked it
+lands a block later and the rate halves (10,000 then takes about 5,000 blocks rather than about 2,500). `--inflight` up
+to 8 pipelines the next batch, at the risk that two batches meet in one block: the extra registrations revert with
+RegOpsLimit and are retried while `--attempts` and the identity's funds allow. Registrations by anyone else in the same
+block use the same budget, with the same result, and so does a reorganization (such as a section 4 drill) even at the
+default: the node returns an orphaned block's registrations to its pool beside the 4 the harness sent after that block,
+so one block can carry up to 8 of them. The registrations-per-block counts hold successful registrations only, which
+the registry keeps at 4 or fewer.
+
+**Funding.** Newcomers get their first fee from `--operator-key FILE`, a separate funding key (never a founder's or a
+server's key; the harness refuses the node's own miner key and any key with a registry record unless
+`--allow-member-operator` is given). Make it with `pocol-key generate --out FILE` (as the user that runs the harness:
+the key file must be that user's, mode 0600) and fund it with an ordinary transfer.
+Each identity gets `--fund-wei` (default `--attempts` x 500,000 gas x `--fee-cap-wei`: 0.003 PCOL at the defaults of
+two attempts and 3 gwei), plus its bond if bonded, in batched ordinary transfers (`--fund-batch`, 128), each signed at
+most at `--fee-cap-wei` like every other transaction. 10,000 identities with 20 bonded need about 30 + 400 PCOL, plus
+at most 0.63 PCOL of transfer fees (21,000 gas at the fee cap each); `fill --dry-run` prints the plan, its blocks at
+R_max and the operator total (fees included), and sends nothing. Before anything is sent the operator's balance is
+checked against what the plan still sends (`operatorRemainingWei`): the operator total on a fresh run; on a resumed
+one, an identity the interrupted run already funded and that is not registered yet is not funded again (nor charged
+its transfer fee), and one funded only in part needs the rest. A transfer the interrupted run left in flight that the
+node's pending layer holds counts as sent, since the operator's balance at `pending` (read on the pool's layer) has
+already paid it; one the pending layer does not hold (parked, or no longer held) is charged. `--dry-run` reads no pool
+and charges such a transfer.
+
+**Refusals.** Chain id 2656089850 (the mainnet) is refused unless `--allow-mainnet-chain` is given;
+`--expect-chain-id 1656550731` refuses any other chain. A harness directory belongs to the chain and genesis it was
+first used on.
+
+**Setup.** Run the harness as an ordinary, non-root user that can reach the node's RPC (and read its `/proc` entry,
+for `--node-pid`), not as root and not as the `pocol-standalone` user: the harness's keys are that user's, and its
+mining identities' nodes run as that user. The harness creates `--dir` with mode 0700 when it can; under `/var/lib` an
+ordinary user cannot, so create it first and keep the operator key in it:
+
+```sh
+sudo install -d -o "$USER" -m 0700 /var/lib/pocol-fill
+/opt/pocol-standalone/pocol-key generate --out /var/lib/pocol-fill/operator.pocol-key
+```
+
+`delete-keys --discard-funds` deletes the identities' keys (`keys/`, `miners/`), not the operator key; move what the
+operator key still holds and delete it by hand. What the identities' keys control is lost with them: each identity's
+unspent first fee, the B_reg bonds of the bonded ones (HELD, refunded only to the identity itself, which is its own
+reward address) and the mining identities' rewards. The harness moves none of it back; deregister, claim the bonds
+and move the balances first where they matter. Without `--discard-funds`, `delete-keys` is refused and names the
+recorded identities, bonds and miners.
+
+**M1.** On a founder server, from a checkout of this repository (the harness imports
+`deploy/rewards/pocol_rewards.py`; it is not part of the release package), as that user. `--network` is the network's
+invitation (`network.pocol.json`), which the mining identities' nodes start from:
+
+```sh
+python3 deploy/rehearsal/registration_fill.py fill --rpc http://127.0.0.1:8545 --expect-chain-id 1656550731 \
+  --dir /var/lib/pocol-fill --bin-dir /opt/pocol-standalone --operator-key /var/lib/pocol-fill/operator.pocol-key \
+  --count 10000 --bonded 20 --miners 4 --network NETWORK.pocol.json --peer 127.0.0.1:30300 \
+  --node-pid "$(systemctl show -p MainPID --value pocol-standalone)"
+```
+
+Each mining identity's node is a full node on this host (its memory is bounded as a founder's is), on loopback ports
+from `--miner-port-base`.
+
+**Stops, resumes and reorganizations.** Ctrl-C (or SIGTERM) stops `fill` between steps, including between two of
+the keys it makes before its first transfer (the signing tools run in a session of their own, so the signal does not
+cut a signature short), and `m3` or `replace` at their next wait. Every
+transaction is signed and recorded in `state.json` with its hash and signed envelope before it is sent, so a run that
+stops, or fails (the node restarting under it), loses none, and a stopped run resumes with the same command. The resumed
+run settles what the earlier one left in flight before it plans (registrations included meanwhile count as done), keeps
+in flight what the node still holds, and sends a transaction the node no longer holds again unchanged: pocold answers a
+pooled or parked copy of the same envelope as held, so this never conflicts with a copy it or a peer still holds. A
+transaction is taken as held while the identity's nonce at `pending` is above `latest` (pocold answers transaction
+lookups only for canonical blocks), or while pocold answers it `-32016 ... held for the next block` (parked at the
+pool's gas bound: relayed and included later, so in flight, and counted against R_max). Only when the node refuses the
+same envelope twice, `--include-timeout` blocks apart, is it given up; the identity then signs another at the same
+nonce, and whichever of the two is included settles it from its receipt (when the fee cap binds, the second is the same
+envelope, and both records settle from the one receipt). An answer that pools nothing for now (pocold's `-32016` pool
+full answers, `-32020` compute deadline, `-32021` busy) is no attempt: the registration is signed again at a later
+head (and a resent envelope stays in flight). `m3` and `replace` wait for an operator transfer an earlier run left in
+flight before they sign another (the operator's nonce at `pending` does not count a parked one), and stop with an error
+when an identity cannot be funded. Before an identity is recorded as failed, before a run plans, and again at the end
+of the run, its own transactions' receipts and its registry record are read: an identity the registry holds is recorded
+as registered (`reconciledFromRecord` when no recorded transaction of its own shows it). Such an identity can take the
+registered count past `--count` (it was replaced by a new one meanwhile); the same command then plans nothing more and
+the plan records `countExceededBy`. A reorganization, such as a section 4 drill, is undone back to the fork: what the
+orphaned blocks settled is in flight again and is settled from the new blocks, so the counts follow the canonical
+chain. The block hashes and what was settled at them are kept for the last 2,048 heights (pocold's R_KEEP) in
+`state.json`. A run compares every kept hash with the chain when it starts (at most 2,048 block reads) and processes the
+blocks from the highest one still canonical to the head, so a reorganization while the harness is stopped is undone when
+it starts again, also when the chain has grown meanwhile. One command uses a directory at a time: a second `fill`, `m3` or
+`replace`, `stop-miners` or `delete-keys` on it is refused while one runs; `status` only reads, and may run beside one.
+After `delete-keys`, the directory is refused for `fill`, `m3` and `replace` (use a fresh one).
+
+`status` prints the measures now (its census reads every page at one height). The harness writes `report.json` (and
+`state.json`, the identities' public record) in `--dir`:
+- registrations per block (a histogram and the largest), failures by reason, the active set by bond state;
+- the head and block intervals, the attempt of each block, unsigned blocks, the reorg counters (`pocol_status`), and
+  the harness's own RPC latency per method;
+- samples every `--sample-every` blocks: the registry's lengths, `pocol_status` `members` (reconstructions,
+  `reconstructUsP99`, `reconstructUsMax`), `membership`, `diskObserved` (history, state and canon bytes, from which it
+  computes the growth per day), `a13.boundBytes`, `pocol_getCaps` accounts, and the RSS with `--node-pid`.
+
+What it does not measure: child_ctx p99 is not exposed over the node's RPC (`members.reconstructUsP99` is the
+member-set reconstruction time, recorded as the nearest figure), the gateway's reward computation time (time the
+gateway, deploy/rewards), and the pass or miss of T4 and T5 (it records their raw counters for comparison).
+
+**M3.** At the full set:
+
+```sh
+python3 deploy/rehearsal/registration_fill.py m3 --rpc http://127.0.0.1:8545 --expect-chain-id 1656550731 \
+  --dir /var/lib/pocol-fill --bin-dir /opt/pocol-standalone --operator-key /var/lib/pocol-fill/operator.pocol-key \
+  --reregister-after-u
+```
+
+It first waits for any transaction an earlier run left in flight, then for removable harness members (idle for Θ_inact,
+360 blocks), then checks: two fresh registrants' `registerReplacing`, signed first and sent back to back, are both
+included in one block on two distinct victims, which are EXITED; `register` alone then reverts (Capacity, inferred);
+after one harness member deregisters (one whose registry record is ACTIVE at the head, since another registrant's
+`registerReplacing` may have exited a harness member), `removeInactive` on an idle member reverts, its removal code at
+the block before being 2 (the set is not full); a fresh `register` takes the free seat; and, with
+`--reregister-after-u`, a victim registers again once its record is refunded at dueHeight (U = 380 blocks, about 1 h;
+it signs with the victim's own key, so it needs harness victims and is refused with `--victims any`).
+Each step is decided, and the next one sent, only once the block that includes its transaction is at or below the
+node's `safe` height (`pocol_finality`: max(head − kSafe, finalized), kSafe 6 by default; a local, probabilistic
+depth, not consensus finality) and is still the block the harness settled it from; a transaction that a shallower
+reorganization returns to the pool is waited for again, and its new block is confirmed in turn. Sibling blocks of two
+mining nodes (reorganizations of one or two blocks, as on the local devnet, where the founder and the harness's mining identity
+both mine) therefore neither undo a decided step nor replay the steps out of order. This costs about kSafe blocks per
+step: five steps, up to seven with `--reregister-after-u`, so about 5 to 7 minutes in all at T_blk 10 s. If such a reorganization splits
+check 1's two `registerReplacing` into two blocks before the check is decided, the check is not graded (exit 1,
+nothing below the full set is sent), and the next `m3` starts a fresh drill. A reorganization deeper than kSafe is read
+as described below.
+Reasons are inferred because pocold's receipts carry no revert data and the registry's user paths revert BadPhase under
+`eth_call`. The exit status is 0 when every check passes and 2 when one does not; only included transactions decide a
+check, and the result is then in `state.json` (`m3`) and `report.json`. It is 130 when it was stopped (what it sent
+stays recorded in flight, with no outcome, and the next run settles it), 3 when it was refused before it started (for
+example, the set is not full at the start of a fresh drill, or `--reregister-after-u` with `--victims any`, or with a
+resumed drill whose first victim the earlier run chose under `--victims any`, or `m3` without `--reregister-after-u`
+for a saved drill whose `--reregister-after-u` step has started), and 1 when
+the path could not be completed (too few removable harness members within `--wait-blocks`, a refused or unsent call, a
+transaction not included within `--include-timeout` blocks, a deregister that reverts, so that no `removeInactive` is
+sent at a full set, an identity that could not be funded, a step whose block did not reach the safe height within
+`--wait-blocks` blocks, check 1 split by a reorganization before it was decided, a reorganization that undid a step
+decided earlier in the drill or included the drill's transactions out of its order, a check that needs state the node
+no longer retains): the reason is on stderr, and no `m3` result is written. The
+same command resumes a drill that stopped or failed below the full set it leaves: from just before its deregister is
+sent until its result is written (with `--reregister-after-u`, through the U wait and the victim's registration
+again), the drill's progress and its earlier checks are kept in `state.json` (`m3Run`), and the next `m3` settles what
+was in flight and continues from the deregister, the `removeInactive`, the `register` into the free seat or the
+`--reregister-after-u` step (its U wait, `claimBond` and registration), without the full-set precondition and without
+sending again what was included (the result then lists `resumedAt`). Checks 1 to 5, and the deregister, keep the hash
+of the block that included their transaction (`blockHash`, `blockHashes` for check 1, `deregisterBlockHash`, and
+`claimBondBlockHash` for the `--reregister-after-u` check's `claimBond`). A resumed run first waits until the saved
+drill's included transactions are at the safe height. A step that a reorganization undid since
+it was decided (its transaction in flight again, or included in another block) is recomputed from the canonical
+receipt when the drill resumes: checks 1 and 2 in place, and the drill goes back to the deregister, the
+`removeInactive` or the `register` into the free seat it undid, which reads its included transaction again and sends
+nothing that is included; the `--reregister-after-u` check is then read again from its included registration. The
+recomputed check reports the canonical receipt, so it can fail where the saved one passed (for example a
+`removeInactive` replayed after another registrant took the free seat succeeds at the full set, and check 3 fails).
+The same is read once the free seat is taken again and, with `--reregister-after-u`, again once the victim's
+registration is decided, before the result is written and the saved drill is cleared: a step undone during the run (by
+a reorganization deeper than kSafe, for example while `--reregister-after-u` waits for U) writes no result (exit 1),
+the drill stays saved, and the same command recomputes it; if the drill's transactions are also included out of its
+order, it writes no result (exit 1) either, and the next `m3` then clears the saved drill with no result (below).
+The drill sends each step once the one before is included, so each is in a later block than the one before: check 1's
+two `registerReplacing` in one block, then check 2's `register`, the deregister, the `removeInactive`, the `register`
+into the free seat and, with `--reregister-after-u`, the victim's registration again. A reorganization can include
+them again in another order or together in one block (pocold puts an orphaned block's transactions back in its pool, so
+they usually go into the next block together), and then their receipts no longer test the rules: a `removeInactive`
+in the deregister's block reverts below the full set the deregister just left while the removal code read at the block
+before shows the full set, and a `register` in check 1's block reverts for the block's registration limit rather than
+Capacity. When the drill resumes and the canonical chain breaks that order (or check 2's `register` is no longer
+included, or check 1, undone by a reorganization, is no longer in one block), no check is graded: it exits 1 with no
+`m3` result, the saved drill is cleared with the leaver's and the `removeInactive` target's outcomes as the chain shows
+them, and the next `m3` starts a fresh drill at a full set (run `fill` first when the set is below it). A reorganization
+of this kind during the run is first read as a step undone (exit 1, the drill stays saved), and the next `m3` then
+clears the saved drill with no result. Check 1 that the drill's own run saw outside one block, with no reorganization,
+stays its graded result.
+If the deregister was never included, the next `m3` starts a fresh drill at the full set; if another registrant took the free seat before the `removeInactive` was sent, it sends none (it would remove a
+member at a full set), exits 1, and the next `m3` starts a fresh drill; likewise if the seat was taken before the
+`register` into the free seat was sent, it sends none (it would revert Capacity at a full set, which is not this check
+failing), exits 1 with no `m3` result, and the next `m3` starts a fresh drill. A stop after that (for example while
+`--reregister-after-u` waits for U) is resumed by the same command; once the result is written, the next `m3` starts a
+fresh drill.
+pocold answers state reads only within the last K_hist = 32 blocks (−32017 beyond them), and a resumed drill may decide
+a step long after its block. What the checks and the inferred revert reasons read at a past height (the active count at
+the deregister's block; the removal code, the active count and the sender's record at the block before a call, which
+for the `--reregister-after-u` check is the victim's record before it registers again, `recordErased`; check 1's
+victims' records at its block) is kept in `state.json` (`stateAt`, with the hash of the block at that height, for
+the last 2,048 heights), read when the transaction is settled and, for the block before, when it is sent, and reused
+while that block is canonical. When a check must be decided from a height that was not kept and is no longer retained
+(the drill stopped before its transaction was settled and resumed more than K_hist blocks later, or a reorganization
+while it was stopped moved its steps to blocks now outside the window), it is not graded: exit 1, no `m3` result, the
+saved drill is cleared with the outcomes the canonical chain shows, and the next `m3` starts a fresh drill at a full set
+(run `fill` first when the set is below it). Only check 1's victim record has another source: the victim's latest
+record proves the exit when it shows its exitHeight at that block. In `fill` too, a revert settled from a block whose
+preceding state is no longer retained is inferred from that block's receipts only (OutOfGas, RegOpsLimit); otherwise
+its reason says so (`reverted (reason not observable: state at N not retained (K_hist))`), and it is retried while
+`--attempts` allow.
+
+**R-off.** Once the home PC has been offline past Θ_inact at the full set, `replace --victim PC_MINER_ID --watch-refund`
+registers a fresh identity into its seat and records the PC's record at its dueHeight. Only an included
+`registerReplacing` is a result (in `state.json` `replacements`, with `blockHash`, the hash of the block that included
+it): one refused, not sent, given up, or not included within `--include-timeout` blocks (it stays in flight) records no
+replacement (exit 1). From before its newcomer is funded until its result is written, the replacement is kept in
+`state.json` (`replaceRun`), and the same command finishes one that stopped or failed before any eligibility check
+(once its `registerReplacing` is included the victim is EXITED, and refunded at dueHeight): it waits for the
+`registerReplacing` in flight, reads the included one from its canonical receipt (so a reorganization while it was
+stopped is read, and a replay that reverted is recorded as such), sends nothing again, and, given `--watch-refund` again, resumes the refund watch (the result then lists `resumedAt`). `after` is the victim's record at the block that
+included the `registerReplacing`, saved with that block's hash when first read, since pocold answers state reads only
+within the last K_hist = 32 blocks (−32017 beyond them) and the refund wait is U blocks: a resumed run reuses it while
+that block is still canonical. When it was not yet saved or the block changed, and the state at that block is no longer
+retained, `after` is the victim's latest record if it shows that exit, else the exit derived from the receipt
+(exitHeight that block, dueHeight that block + U); `afterSource` says which. With nothing of it included or in flight, the same newcomer replaces the victim afresh,
+and the saved replacement is cleared if the victim is no longer eligible. A reorganization that undid the replacement
+during the refund wait writes no result (exit 1); it stays saved and the same command recomputes it. While a
+replacement is saved, `replace` with another `--victim` is refused (exit 3). The PC's own registration again
+(20 PCOL, HELD; once with 0, ACCRUING) is made from its wallet.
+
+**After the rehearsal.** `stop-miners --dir DIR` stops the mining identities' nodes (their homes are recorded as
+absolute paths, so any spelling of DIR finds them); `delete-keys --dir DIR --discard-funds` deletes every harness key
+and the miners' homes (and with them what those keys control, see Funding), and is refused while one of those nodes
+runs or may run. A recorded pid that is alive but whose command line
+cannot be read (no `/proc` and no `ps`) is never signalled: `stop-miners` names it, and it is stopped by hand. `state.json` and `report.json`
+hold only public data and go to [evidence/](evidence/).
+
+**Tests.** `python3 -B -m unittest discover -s deploy/rehearsal -p 'test_*.py' -v` runs the unit tests (planning,
+limits, refusals, reason inference, keys, and the fill and M3 loops against an in-process registry model). With
+`POCOL_REHEARSAL_E2E=1` and `POCOLD_BIN_DIR` set to the release binaries, the same command also fills a local devnet to
+M_max 8 and runs M3 on it, about 1 to 2 minutes (CI: `.github/workflows/full-nonce-upgrade.yml`, Linux).

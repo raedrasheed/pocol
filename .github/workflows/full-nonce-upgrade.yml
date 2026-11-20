@@ -2,12 +2,12 @@ name: Consensus rules, profiles and extension release
 on:
   pull_request:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'deploy/release/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'deploy/rehearsal/**', 'deploy/release/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
   # After a merge too: this is the only run of test_upgrade.py (same-release fork appends and the move to another
   # genesis with the key kept).
   push:
     branches: [main]
-    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'deploy/release/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
+    paths: ['prototypes/**', 'deploy/standalone/**', 'deploy/rewards/**', 'deploy/mainnet/**', 'deploy/public-testnet/**', 'deploy/studio/**', 'deploy/faucet/**', 'deploy/rehearsal/**', 'deploy/release/**', 'README.md', 'development/decisions/FRESH-NETWORK-CP.md', '.github/workflows/full-nonce-upgrade.yml']
   workflow_dispatch:
 permissions:
   contents: read
@@ -50,6 +50,12 @@ jobs:
           python deploy/standalone/test_launcher.py -v
           python deploy/standalone/test_upgrade.py -v
           python -m unittest discover -s deploy/rewards -v
+      - name: Test the rehearsal's registration fill harness (M1, M3) on a local devnet
+        if: runner.os == 'Linux'
+        env:
+          # The devnet test (fill to M_max 8, then M3) runs on the binaries built above, about 1 to 2 minutes.
+          POCOL_REHEARSAL_E2E: '1'
+        run: python3 -B -m unittest discover -s deploy/rehearsal -p 'test_*.py' -v
       - name: Check shared decoder and profile copies
         if: runner.os == 'Linux'
         run: |
