@@ -55,8 +55,8 @@ pub const PLAN_GATES_OPEN:&[(&str,&str)]=&[
     ("A1","honest admission: real worst-case execution calibration, the R18/R21 obligations and the RpcGuard gaps remain"),
     ("S1","bounded historical state: K_eff and historical RPC behavior within the resource budget remain"),
     ("N1","Internet exposure: actual Internet ingress acceptance and the remaining RpcGuard controls remain"),
-    ("L1","sustained operation: the rehearsal on the founders' devices, an actual multi-host soak and an upgrade drill remain"),
-    ("E1","network lifetime and economics: the genesis ceremony (it enters the founders' decided reward addresses) and the rehearsal evidence remain"),
+    ("L1","sustained operation: the launch evidence of REHEARSAL.md (T1-T8, M1-M4, R-off, D1, S1, S2 and the L1 drills), measured on PoCol Mainnet after the launch without a rehearsal (OWNER-DECISIONS-2026-11-20 D1), an actual multi-host soak and an upgrade drill remain"),
+    ("E1","network lifetime and economics: the genesis ceremony (it enters the founders' decided reward addresses) and the launch evidence, measured on PoCol Mainnet after the launch, remain"),
     ("Q1","release review: an independent security review (commissioned after the launch) and the unresolved-finding ledger remain"),
 ];
 /// V3-28 H2 (1): the admission this release expects a node booting a pinned network to get, every field the

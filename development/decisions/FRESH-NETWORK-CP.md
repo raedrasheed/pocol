@@ -4,7 +4,10 @@ Status: **record of decided values, 2026-11-14.** Every value below comes from t
 ([OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md](OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md), with both follow-ups and
 the answers Q1-Q4 = a) and from the fresh-network consensus design (FRESH-NETWORK-DESIGN.md, the handoff design kept
 outside this repository, §0-§1 and rows C1-C10). This record does not deploy anything. The genesis is made only at
-the ceremony, after the rehearsal, and only with the owner's approval.
+the ceremony, after the rehearsal, and only with the owner's approval. (Superseded by owner decision 2026-11-20 D1,
+[OWNER-DECISIONS-2026-11-20.md](OWNER-DECISIONS-2026-11-20.md): there is no rehearsal; PoCol Mainnet launches
+directly from its ceremony, which still needs the owner's approval. The rehearsal profile is kept only as a test and
+devnet profile.)
 
 The values are committed as data in two network profiles. The genesis builder reads them (`pocold init-testnet`,
 `prototypes/pocold/src/testnet.rs`, FN-4):
@@ -26,7 +29,7 @@ The values are committed as data in two network profiles. The genesis builder re
 | Caps | ACCT 1,000,000 / SLOT 4,000,000 / CODE 2^30, subject to A13 store mode. Fallback: CODE 2^29. | Base-spec values (`development/m1/reference/governance.md`). |
 | Sites | explorer, studio and ide stay HTTPS-hosted. Any user site up to the publisher's 4 MiB / 1 MiB-per-file limit is published on chain. The explorer bundle is the rehearsal's reference site. | The IDE bundle (20.6 MB, one 10.8 MB file) is above the publisher limits. |
 | Node-local timing | Declared (Δ 1, φ 1, t_exec 1), Δ_rel 7. Fallback (2, 1, 1), Δ_rel 8. | At dFbWait 8, (2, 2, 2) fails R3. The same CP admits both declarations. |
-| Launch admission | Simnet profile, Simnet node, ExperimentalDevnet scope, as the retired network was admitted. R22 stays bound to 777001. `publicLaunchReady` stays false and its blockers are disclosed. | Q3 = a. R13 forces a continuous profile to Simnet/Simnet. R21 holds at these caps only through the simnet `retentionStress` exception. |
+| Launch admission | Simnet profile, Simnet node, ExperimentalDevnet scope, as the retired network was admitted. R22 stays bound to 777001. `publicLaunchReady` stays false and its blockers are disclosed. **Superseded by owner decision 2026-11-20 (D4, D5) for the mainnet chain only:** PoCol Mainnet is admitted as the network profile on a network node in scope public-network (R22 allows the network profile on 777001 and `PUBLIC_NETWORK_CHAINS`, [2656089850]), with its conditions and the owner's explicit R13, R21 and R26 waivers reported, and launch approval is computed apart from technical readiness. The rehearsal chain keeps this experimental admission as a test and devnet profile. | Q3 = a. R13 forces a continuous profile to Simnet/Simnet. R21 holds at these caps only through the simnet `retentionStress` exception. (On the mainnet chain both are owner waivers since 2026-11-20 D5.) |
 
 ## 2. Consensus parameters: CP schema v2, 59 fields (in genesisHash; design §1a)
 
@@ -136,7 +139,10 @@ is marked `testPlaceholders: true` and "TEST GENESIS" in its devnet.json and sum
 - NTP offset ≤ 0.5 s on every founder, including the Windows PC through a configured w32time peer.
 - Admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope, with `retentionStress`. R21's input is far
   above `HIST_TRIE_BUDGET` at these caps; the resident bound is A13 store mode, to be measured in M1. The calibration class
-  is measured.
+  is measured. (Superseded by owner decision 2026-11-20 D5 for the mainnet chain: the network profile on a network
+  node in scope public-network; R21's budget term, 59,702,459,358 B against 1,717,986,918 B, is an explicit owner
+  waiver tied to the 4 GB servers of D2, and the retained-blocks term stays enforced. M1 is measured after the launch
+  or on a devnet, REHEARSAL.md section 1a.)
 
 ## 5. Chain ids (drawn 2026-11-14)
 
@@ -228,7 +234,11 @@ for two amendments, recorded here:
   owner's PC, each a fresh key on its own device; founders 1-3 have reward = the owner-held -ServerRewardAddresses, founder 4 id = reward). The chain id (§5) and `registrationPerBlock` = R_max
   are the profile's; the script refuses a profile whose id is not the one of `-Network`, never passes
   `--test-placeholders` outside its `-DryRun`, parses init-testnet's summary (experimental-devnet scope,
-  `publicLaunchReady` false with `admission-scope` and `profile-kind`) and prints every launch blocker. The seeds are
+  `publicLaunchReady` false with `admission-scope` and `profile-kind`) and prints every launch blocker. (Superseded by
+  owner decision 2026-11-20: `-Network Mainnet` is the default and `Rehearsal` only a devnet option; on the mainnet
+  chain the script expects scope public-network, the network profile on a network node, `publicLaunchApproved` and
+  `publicLaunchReady` false with `network-not-release-pinned` and `launch-not-approved`, and PUBLIC_MAINNET's
+  conditions and waivers in `technicalReadiness`, and it prints the computed values.) The seeds are
   the servers on TCP 30300. The launch disclosures are drafted in `deploy/standalone/README.md` for owner review.
   Tests: `deploy/standalone/test_initialize_network.py` and, on Windows CI, `test_initialize_network.ps1` (the dry
   run through pocold init-testnet --test-placeholders, and the refusals). Decided 2026-11-16 (owner): each server founder's
@@ -238,5 +248,8 @@ for two amendments, recorded here:
   drills are now in the repository: [REHEARSAL.md](../public-network/REHEARSAL.md). A remedy that changes a consensus
   parameter changes only profile values (such as D_att, dFbWait, GAS_LIMIT, BODY_MAX, τ, S_max or κm, and T_blk
   20-30 s as a last resort; REHEARSAL.md names them per measure), with the owner's approval, recorded here, and both
-  profiles change together.
+  profiles change together. (Superseded by owner decision 2026-11-20 D1: there is no rehearsal; the launch evidence
+  has no pre-launch measurement and is measured on PoCol Mainnet after the launch, or on a devnet where a measure
+  would change the public network's state, and a remedy that changes a consensus parameter is then a fork with
+  notice. REHEARSAL.md section 1a says where each measure is taken.)
 - **Phase 10.** The ceremony's genesis hash is pinned in the clients.

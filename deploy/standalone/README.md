@@ -65,8 +65,10 @@ evict within its own range; `0` turns the limit off. Both are local P2P policy a
 not change consensus. Every inbound place counts against the memory budget, about
 3.73 MiB each: an operator who lowers `POCOL_MEMORY_BUDGET_BYTES` should lower
 `POCOL_PEERS_MAX` with it.
-The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup remains a
-small pilot, not a worst-case capacity proof. The service's `MemoryMax=3G` was already
+The default model uses 6 GiB; a 4 GiB server with a 3 GiB service cgroup is not a
+worst-case capacity proof. PoCol Mainnet's founder servers have 4 GB of RAM, a risk the
+owner accepted (OWNER-DECISIONS-2026-11-20 D2); 8 GB is the recommended size for a
+server founder or seed. The service's `MemoryMax=3G` was already
 below the model's bound, and the 32 established inbound places add about 126 MB of
 budget to it (110 MB of model) over the earlier 8. The unit's `TasksMax=256` holds the
 thread inventory (164 tasks with 7 configured peers and automatic outbound, 144 with 2). Disk sizing, compaction and long-term
@@ -93,8 +95,9 @@ package only as a devnet option for a test (`-Network Rehearsal`); it is not a l
 The four founders are the three servers (founders 1-3, in the order given) and this PC
 (founder 4). The founder servers are `108.165.128.89`, `108.165.128.90` and `108.165.128.91`
 (D3), in that order; they are also the invitation's seeds. Each has 4 GB of RAM, a risk the
-owner accepted (D2): a node that passes about 3.5 GB is OOM-killed and restarts, and block
-production stops if all three restart at once; 8 GB is the recommended size. Each generates a fresh key on its own device; only public addresses are
+owner accepted (D2): a node whose memory passes its limit (the unit's `MemoryMax=3G`, or about
+3.5 GB of the host) is killed and restarts, and block production stops if all three restart
+at once; 8 GB is the recommended size. Each generates a fresh key on its own device; only public addresses are
 collected. Each founder is a HELD member from genesis with a 20 PCOL bond in Escrow. Founders
 1-3 are paid to owner-held reward addresses (owner decision 2026-11-16): the 999,980 PCOL
 allocation and every mining reward of each server founder go to an address the owner holds
@@ -240,6 +243,19 @@ Only `VERIFIED` is a verified release: the `SHA256SUMS` inside a package checks 
   resyncs.
 - **Disk.** The block journal is never compacted: up to about 1.7 GB per day in the worst
   case.
+- **No separate rehearsal.** By the owner's decision of 2026-11-20 (D1) PoCol Mainnet
+  launches directly from its ceremony. Its launch evidence (WAN timing, forks, the full
+  member set, the drills; `development/public-network/REHEARSAL.md`) is measured on the
+  network after the launch; a remedy that changes a consensus parameter is then a fork,
+  announced at least 24 h ahead.
+- **Founder server memory.** The three founder servers have 4 GB of RAM (D2). A server
+  node that passes its memory limit, for example once the member set fills, is killed and
+  restarts; if all three restart at once, block production stops until one is back. 8 GB
+  is the recommended size.
+- **Admission.** Nodes admit PoCol Mainnet in scope `public-network`, which is not
+  specification compliance: each node reports its admission conditions and the owner's
+  R13, R21 and R26 waivers (`technicalReadiness` in `pocol_status`). The accepted risks are
+  listed in `development/decisions/OWNER-DECISIONS-2026-11-20.md`.
 
 ## Everyday use
 

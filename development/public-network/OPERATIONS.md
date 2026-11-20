@@ -217,10 +217,10 @@ published schedule append (VA-SPEC §2.3) to the seed's configuration and change
 and no chain data; `test_nonce_upgrade.py` tests it (CI: public-testnet-operations). A seed run
 from a launcher home takes the activation with `pocol upgrade` like any home.
 
-**Activating the cap raise (FN-5, C10; rehearsal S2).** The raise of ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX is
+**Activating the cap raise (FN-5, C10; launch evidence S2).** The raise of ACCT_CAP, SLOT_CAP, CODE_CAP and SYS_SLOT_MAX is
 compiled into every release from FN-5 on (MAX_FORK_VERSION 3) and dormant until a schedule names fork version 3. It
 exists only on a v3 (spec-2) genesis. To activate it:
-1. **Build.** Any release with `maxForkVersion` 3 in `pocold build-info` (rehearsal S2: the `caps-test` build, whose
+1. **Build.** Any release with `maxForkVersion` 3 in `pocold build-info` (launch evidence S2, on a devnet only: the `caps-test` build, whose
    lowered caps let the fixture fill ACCT_CAP quickly). The off-node verifiers must be releases that accept fork
    version 3 too, before the schedule is published: the extension (`forks.js` MAX_FORK_VERSION 3), the reward gateway
    (`pocol_rewards.py` MAX_FORK_VERSION 3) and the identity tool (`pocol_identity.py`, which takes the bound from
@@ -254,7 +254,8 @@ exists only on a v3 (spec-2) genesis. To activate it:
    whose child is H (head H-1) it reports `active` true and `accountsCap`, `storageSlotsCap` and `codeBytesCap` equal
    to the raised values; `pocol_getParams` reports `capRaise` and `maxForkVersion` 3, and every node reports the same
    `consensusIdentity`. A node left without the raise agrees on every block below H and is refused from H.
-7. **Rehearsal S2.** On the cap-test build: fill ACCT_CAP; a transfer that creates an account fails (the pool refuses
+7. **Launch evidence S2** (a cap-test devnet, never PoCol Mainnet; [REHEARSAL.md](REHEARSAL.md) section 1a). On the
+   cap-test build: fill ACCT_CAP; a transfer that creates an account fails (the pool refuses
    it with `AcctCap`), so a newcomer cannot be funded to `register`; activate as above; from H both succeed; restart a node and
    reorg across H (`pocold/tests/fn5_cap_raise.rs` is the in-process version of these checks) and compare the heads,
    state roots and `consensusIdentity` on every node.
@@ -269,28 +270,39 @@ exists only on a v3 (spec-2) genesis. To activate it:
 - `lastIncompatibleReason`: the last refusal, `peer <name>: <reason>`, at most 160
   characters, for example "peer has not scheduled activation (2,H): it must apply the
   published network upgrade" or "peer runs consensus rules 3; this node runs rules 2";
-- `publicLaunchReady` and `launchBlockers` [{id, detail}] (V3-28 H1,
-  `prototypes/pocold/src/readiness.rs`): computed from this build and the admission the
-  node booted with, true only with no blocker. Today it is false, for example
-  `plan-gate-Q1`, `network-not-release-pinned`, `admission-scope` and `profile-kind`
-  (a booted node runs a v3 genesis, since admission refuses spec 1, so it never reports
-  `v3-inactive`).
-  `pocold build-info` reports the build's readiness alone (blocker `no-network`). The
-  launcher's network description (`pocol network`, `import`, `upgrade`) reports these
-  fields for the invitation's files, but it admits nothing, so it adds
-  `admission-not-booted`: what devnet.json records about its admission is never
-  evidence. The blocker clears only when this release pins the invitation's (chainId,
-  genesisHash) in `NETWORK_PROFILES` with exactly the launch admission (scope
-  specification, no condition, no waiver, the Network profile on a Node; V3-28 H2 (1)),
-  and the launcher then reads that pin, not devnet.json. The release pins no network, so
-  today every network keeps `admission-not-booted`. The identity switch
-  (`deploy/mainnet/set_network_identity.py`) pins the new network with the decided launch
-  admission (`ExpectedAdmission::FRESH_NETWORK`: experimental-devnet scope, Simnet
-  profile on a Simnet node), not the launch admission, so that network loses only
-  `network-not-release-pinned` and keeps `admission-not-booted`. Only a booted node's
-  status reports the admission it booted with.
-  An Android package's build-info.json is the build's raw identity, with
-  `publicLaunchReady: false` and the single blocker `readiness-not-computed`.
+- launch approval and technical readiness (V3-28 H1; OWNER-DECISIONS-2026-11-20 D4;
+  `prototypes/pocold/src/readiness.rs`), computed from this build and the admission the
+  node booted with:
+  - `publicLaunchApproved`: the build's hard facts clear, v3 is active, this release pins
+    the network's (chainId, genesisHash) in `NETWORK_PROFILES` with an approval reference
+    and the expected admission `PUBLIC_MAINNET` (or `LAUNCH`), and the booted admission
+    matches it exactly; `launchApprovalReference` is that pin's reference
+    ("OWNER-DECISIONS-2026-11-20 D1") or null;
+  - `launchBlockers` [{id, detail}]: the hard blockers only (for example
+    `network-not-release-pinned` and `launch-not-approved` before the identity pin, or
+    `admission-mismatch` naming the fields that differ); `publicLaunchReady` is
+    `publicLaunchApproved` with no blocker;
+  - `technicalReadiness` {complete, pending}: every open gate (`plan-gate-<id>`) and what
+    the admission reports (`admission-scope`, each `admission-condition-*` and
+    `admission-waiver-*`, `profile-kind`), never claimed passed;
+  - `networkName`, `networkEnvironment` and `networkScope`, the identity as the facts
+    support it (D6 B).
+
+  A node booted on PoCol Mainnet's chain runs the network profile on a network node in
+  scope public-network (D5), with the owner's R13, R21 and R26 waivers in `pending`; a
+  devnet (the rehearsal profile, the local test chain 777990) keeps the experimental
+  admission. `pocold build-info` reports the build alone (blocker `no-network`, null
+  identity fields). The launcher's network description (`pocol network`, `import`,
+  `upgrade`) admits nothing, so it always reports `admission-not-booted` and is never
+  approved: what devnet.json records about its admission is never evidence. It reports
+  the pin's approval reference and expected admission, and takes its technical readiness
+  from the pin when there is one, else from devnet.json. The identity switch
+  (`deploy/mainnet/set_network_identity.py`) pins PoCol Mainnet with
+  `ExpectedAdmission::PUBLIC_MAINNET` and the approval reference; another allowed network
+  gets `ExpectedAdmission::FRESH_NETWORK` without one, which removes only
+  `network-not-release-pinned`. Only a booted node's status reports the admission it
+  booted with. An Android package's build-info.json states that readiness is not
+  computed there (`readiness-not-computed` in `launchBlockers` and `technicalReadiness`).
 `compatibilitySha256` stays for install integrity: `monitor.py` groups nodes by
 `consensusIdentity` (and fork schedule) and warns about mixed digests.
 
@@ -592,16 +604,16 @@ retained as `translation-snapshot-drift.json` rather than relabeled PASS.
 
 The open gates and the launch order are in [PLAN.md](PLAN.md). For operations:
 
-1. **Rehearsal.** Run the genesis ceremony first with the rehearsal profile
-   (`deploy/mainnet/v3-rehearsal-profile.json`) on the three servers and the PC, and measure the launch evidence
-   in [REHEARSAL.md](REHEARSAL.md) (T1-T8, M1-M4, R-off, D1, S1, the cap-raise rehearsal S2 above; FRESH-NETWORK-CP
-   §9): multi-host partition/heal, restart/replay, backup/restore ([RECOVERY.md](RECOVERY.md)), overload,
-   release/rollback, the resource-growth bound and soak.
-2. **Mainnet ceremony.** Only after the rehearsal evidence, re-provision the hosts and run the ceremony with the
-   committed mainnet profile (`deploy/mainnet/v3-profile.json`, a continuous genesis with `H_END` 0) as described in
-   [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and
-   [deploy/standalone/README.md](../../deploy/standalone/README.md): fresh keys again on every founder's device, one
+1. **Mainnet ceremony.** There is no rehearsal (OWNER-DECISIONS-2026-11-20 D1). On freshly provisioned hosts run the
+   ceremony with the committed mainnet profile (`deploy/mainnet/v3-profile.json`, a continuous genesis with `H_END`
+   0) as described in [deploy/mainnet/README.md](../../deploy/mainnet/README.md) and
+   [deploy/standalone/README.md](../../deploy/standalone/README.md): fresh keys on every founder's device, one
    genesis, one invitation (PLAN.md, "Launch order").
+2. **Launch evidence after the launch.** Measure the launch evidence of [REHEARSAL.md](REHEARSAL.md) (T1-T8, M1-M4,
+   R-off, D1, S1, the cap-raise S2 above) where its section 1a says, on PoCol Mainnet or a devnet: multi-host
+   partition/heal, restart/replay, backup/restore ([RECOVERY.md](RECOVERY.md)), overload, release/rollback, the
+   resource-growth bound and soak. None of it has pre-launch evidence on the founders' devices, and a remedy that
+   changes a consensus parameter is then a fork with notice.
 3. **Bounded state and admission.** Resolve bounded historical-state/K_eff accounting and near-cap tests; complete the
    deferred resource/gas derivations and the missing RpcGuard mechanisms; measure worst-case execution.
 4. **Review.** Obtain an independent security review (Q1, open: the software reports it as `plan-gate-Q1`) and

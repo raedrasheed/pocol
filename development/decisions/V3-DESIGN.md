@@ -235,7 +235,8 @@ commit `52b2507`.
 The item texts in §4 and §7 still name the PRs of that plan, all landed: PR-0 the decision record (V3-DECISIONS.md),
 PR-1 the fork machinery (V3-34), PR-2 the program-set registry and CP schema v2, PR-3 the host rules, PR-4 the v3 system
 programs, PR-5 the Escrow invariant and issuance, PR-6 the resource proofs (V3-25), PR-7 the off-node verifiers and
-clients, PR-8 the harnesses and vectors; PR-9, the rehearsal, is the closed rehearsal of §3.2.
+clients, PR-8 the harnesses and vectors; PR-9, the rehearsal, is the closed rehearsal of §3.2 (superseded by owner
+decision 2026-11-20 D1: there is no rehearsal, [OWNER-DECISIONS-2026-11-20.md](OWNER-DECISIONS-2026-11-20.md)).
 
 ### 3.1 The launch vehicle
 - PoCol launches a brand-new network from a fresh genesis, with new keys and new chain ids, and keeps nothing of the
@@ -249,14 +250,18 @@ clients, PR-8 the harnesses and vectors; PR-9, the rehearsal, is the closed rehe
 - specVersion 2 (CP schema v2, 59 fields), nonceMode 1, ForkSchedule `[(1,0)]`, the V3 program set only.
 - The values are committed as data in two network profiles that `pocold init-testnet` reads (FN-4):
   `deploy/mainnet/v3-profile.json` (mainnet, chain id 2656089850) and `deploy/mainnet/v3-rehearsal-profile.json` (the
-  closed rehearsal, chain id 1656550731). `prototypes/pocold/tests/fn4_profiles.rs` checks both against
+  closed rehearsal, chain id 1656550731; since owner decision 2026-11-20 only a test and devnet profile). `prototypes/pocold/tests/fn4_profiles.rs` checks both against
   FRESH-NETWORK-CP.md and through the full ParamGate.
 - Four founding miners, the three US servers and the owner's PC, each with 1,000,000 PCOL, its 20 PCOL HELD bond
   included (V3-32).
 - Launch admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope; `publicLaunchReady` is false and
-  its blockers are disclosed (FRESH-NETWORK-CP.md §1, V3-28).
+  its blockers are disclosed (FRESH-NETWORK-CP.md §1, V3-28). Superseded by owner decision 2026-11-20 (D4, D5) for the
+  mainnet chain: PoCol Mainnet boots as the network profile on a network node in scope public-network, with its
+  conditions and the owner's explicit R13, R21 and R26 waivers, and launch approval is computed apart from technical
+  readiness. The rehearsal profile's chain 1656550731 keeps the experimental admission as a test and devnet profile.
 - The ceremony: `deploy/mainnet/README.md` and `deploy/standalone/README.md` (FN-7, `Initialize-PoColNetwork.ps1`),
-  after the closed rehearsal and only with the owner's approval. The consensus-sources lock was reset once, at the
+  after the closed rehearsal and only with the owner's approval (superseded by owner decision 2026-11-20 D1: the
+  ceremony runs without a rehearsal, still only with the owner's approval). The consensus-sources lock was reset once, at the
   release cut before it (Phase 8, VA-SPEC §2.3).
 
 ### 3.3 The v3 predicate

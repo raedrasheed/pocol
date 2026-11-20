@@ -1,10 +1,14 @@
 # Security policy
 
-PoCol is experimental software. The public network is operator-designated **PoCol Mainnet**; that name is a
-deployment designation, not a statement of maturity. The engine reports its experimental admission scope,
-`specificationCompliant: false` and `publicLaunchReady: false` (computed, with the `launchBlockers` that keep it
-false), and there has been no independent external
-security review (see [Current status and limits](README.md#current-status-and-limits)). Do not hold more value
+PoCol is experimental software. **PoCol Mainnet** is the public network, launched without a separate rehearsal by
+the owner's decision, with the documented risks accepted
+([OWNER-DECISIONS-2026-11-20.md](development/decisions/OWNER-DECISIONS-2026-11-20.md)); the name is not a statement
+of maturity. The engine reports what it computes: its admission scope `public-network` with
+`specificationCompliant: false`, its admission conditions and the owner's R13, R21 and R26 waivers (including the
+RpcGuard predicates it does not enforce), and launch approval (`publicLaunchApproved`, `publicLaunchReady`,
+`launchBlockers`) apart from `technicalReadiness`, which lists every open item. There has been no independent external
+security review; the owner commissions one after the launch (see
+[Current status and limits](README.md#current-status-and-limits)). Do not hold more value
 on it than you can afford to lose. Even so, we want to hear about every vulnerability, and we treat reports
 seriously.
 

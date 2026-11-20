@@ -35,7 +35,11 @@ and, on the automated fee faucet with the limits put to the owner (verbatim):
 4. **Truthful texts, nothing presented as preventing the launch.** No text in the repository or on the sites may
    state anything untrue, or present the public launch as prevented or conditional. The node's readiness report
    (`publicLaunchReady`, `launchBlockers`) is node-local, refuses nothing, and stays as computed: a gate is marked
-   closed only when its acceptance criterion is met, with evidence.
+   closed only when its acceptance criterion is met, with evidence. (Superseded in part by owner decision 2026-11-20
+   D4, [OWNER-DECISIONS-2026-11-20.md](OWNER-DECISIONS-2026-11-20.md): the wording "stays as computed" and "refuses
+   nothing" is refined. Launch approval is computed apart from technical readiness; the open gates are reported in
+   `technicalReadiness` and do not withhold approval; every value stays computed and truthful. This decision's
+   truthfulness rule stays.)
 5. **Launch disclosures.** They carry no "not public-launch-ready" item (question 2: and no list of ongoing
    engineering work). The other draft items still await the owner's review of their wording.
 6. **Newcomers' first fee: the automated fee faucet on mainnet.** The owner first chose a transfer by the founders on

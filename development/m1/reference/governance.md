@@ -87,7 +87,10 @@ Evidence and sizes:
 
 Membership and end:
 - R12: M_max ≥ |M_0| ≥ M_min ≥ 1.
-- R13: H_END > Z_close, H_CLOSE+Z_close ≤ H_END, T_CLOSE ≤ T_END.
+- R13: H_END > Z_close, H_CLOSE+Z_close ≤ H_END, T_CLOSE ≤ T_END. A continuous profile (H_END = H_CLOSE = T_END =
+  T_CLOSE = 0) passes only as a simnet profile on a simnet node. Admission scope public-network (the network profile on
+  a network node, on a public network chain only) waives that continuous-kind term as an explicit, reported owner
+  waiver (OWNER-DECISIONS-2026-11-20 D5), also at a raised CP; a finite schedule that fails R13 is never waived.
 
 Performance and resources:
 - R14: t_exec ≥ validate_p99.
@@ -97,10 +100,18 @@ Performance and resources:
 - R18: SYS, including the cost of RET records within G_SYS.
 - R19: block times ≤ t_exec.
 - R20: Z_close ≥ ⌈REG_RECORDS_MAX/RET⌉+P2+D+1.
-- R21: historical trie; the only exception is simnet with retentionStress.
+- R21: historical trie: the resource facts present, retained blocks ≥ min(K_hist, H_END), and the retained-state bound
+  ≤ HIST_TRIE_BUDGET. Two exceptions to the budget term only: simnet with retentionStress (scope experimental-devnet),
+  and, in scope public-network, the owner's explicit waiver of the budget term (OWNER-DECISIONS-2026-11-20 D5, with
+  the 4 GB server risk of D2), which does not depend on retentionStress. The retained-blocks term and missing
+  resource facts are never waived.
 
 Profiles and identity:
-- R22: profileKind, nodeKind and chainId separation.
+- R22: profileKind, nodeKind and chainId separation: a network node runs only the network profile, and the network
+  profile runs exactly on the network chains, chainId 777001 or a public network chain (`PUBLIC_NETWORK_CHAINS`,
+  `[2656089850]`, PoCol Mainnet; `network_chain` in the profile code), which admit no other profile. A simnet or
+  synthetic profile on a public network chain is refused, so no simnet profile is relabelled as the network
+  profile.
 - R23: Σalloc+|M_0|·B_reg+I < 2^127, where I = 2·S0·H_half+S_tail·2^64 for the V3 programs (M3 issuance, at any H_END; `gate.rs::future_issuance`) and subsidy·H_END for a fixture without M3.
 - R24: (A) Decode GenesisSpec; match genesisHash, allocRoot and sysCodeHash. (B) ForkSchedule nonempty, starting at (1,0), versions sequential, each once. (C) Every v supported, at most MAX_FORK_VERSION = 3; version 3 (the cap raise) only with `capRaise` on a spec-2 genesis. (D) GenesisSpec version ≥ 2 (v3) and nonceMode = 1: a spec-1 genesis or nonceMode 0 is refused. (E) chainId ≠ 0, fits u64.
 - R25: (A) 1 ≤ target_g ≤ 2^256−1. (B) τ ≥ 1 and T_blk ≥ 1. (C) In network: τ ≥ 10·T_blk. (D) target_g calibration recorded with its class; a synthetic class is reported as the admission condition `calibration-synthetic`, so a launch genesis records a measured one.
@@ -283,8 +294,9 @@ FSM, T_j, rejections by rule, ASERT (s, saturated), Escrow, pendingSum, burns, R
 ## Fresh v3 network profile
 
 The fresh network's genesis values are committed as data in two profiles, read by the genesis builder (`pocold init-testnet`):
-`deploy/mainnet/v3-profile.json` (mainnet, chain id 2656089850) and `deploy/mainnet/v3-rehearsal-profile.json` (the
-closed rehearsal, chain id 1656550731), which differ only in the chain id and the launch second. Every value and its
+`deploy/mainnet/v3-profile.json` (PoCol Mainnet, chain id 2656089850) and `deploy/mainnet/v3-rehearsal-profile.json`
+(chain id 1656550731, kept only as a test and devnet profile; OWNER-DECISIONS-2026-11-20), which differ only in the
+chain id and the launch second. Every value and its
 reason is recorded in [FRESH-NETWORK-CP.md](../../decisions/FRESH-NETWORK-CP.md) §2-§5;
 `prototypes/pocold/tests/fn4_profiles.rs` checks both profiles against that record and through the full ParamGate.
 "Ceremony" marks a value that the genesis ceremony supplies; the committed profiles hold a `PLACEHOLDER` string there,
@@ -292,7 +304,7 @@ and the builder refuses to write a genesis while one remains.
 
 | Group | Values |
 |---|---|
-| Network | chainId 2656089850 (mainnet) / 1656550731 (rehearsal); GenesisSpec version 2, CP schema v2 (59 fields); ForkSchedule `[(1,0)]`; MAX_FORK_VERSION 3 |
+| Network | chainId 2656089850 (mainnet) / 1656550731 (rehearsal profile, a test and devnet profile); GenesisSpec version 2, CP schema v2 (59 fields); ForkSchedule `[(1,0)]`; MAX_FORK_VERSION 3 |
 | Difficulty [CP] | g_ts: ceremony (the synchronized launch second); target_g = calibration_target(H_measured, 10), ceremony, class `measurement`; T_blk 10 s; τ 600 s; nonceMode 1; c 2 |
 | Attempts [CP] | D_att 90, Δ_fb_wait 8 |
 | Local timing | Δ 1, φ 1, t_exec 1, Δ_rel 7, Γ 5 (`localTiming`); X^h / X^W = 6 / 11 s. Fallback if measured Δ exceeds 1 s: Δ 2, Δ_rel 8, the same CP, X^h / X^W = 7 / 11 s |
@@ -308,16 +320,26 @@ and the builder refuses to write a genesis while one remains.
 | Retention and confirmation (local) | R_keep 2048 (5.7 h), K_hist 32, k_final 60, k_view 12, k_safe 6, k_alarm 60 |
 
 Gate figures at this CP:
-- R12: 10,000 ≥ 4 ≥ 1 ≥ 1. R16: 10,000+4·(725+2048) = 21,092 ≤ 24,576. R20: 256 ≥ ⌈24,576/128⌉+2+4+1 = 199. R13 has no end to bound.
+- R12: 10,000 ≥ 4 ≥ 1 ≥ 1. R16: 10,000+4·(725+2048) = 21,092 ≤ 24,576. R20: 256 ≥ ⌈24,576/128⌉+2+4+1 = 199. R13 has no end to bound: the profile is continuous,
+  which R13 admits only for a simnet profile on a simnet node, so PoCol Mainnet's admission reports the owner's R13
+  waiver (scope public-network) and the rehearsal profile's devnet boots as a simnet profile.
 - R23: 4·10^24 wei+2·S0·H_half+S_tail·2^64 = 2,305,843,009,318,678,272·10^18 wei (121 bits) < 2^127.
 - R25: τ = 600 ≥ 10·T_blk = 100; the calibration class is measured.
 - R26 (D): 8 MiB ≥ 2,762,752 B, 10000 ≥ 4368, 32 MiB ≥ 256 KiB. Log caps stay checked cumulatively.
-- R21: the retained-state bound at these caps is above HIST_TRIE_BUDGET; it is admitted through the simnet `retentionStress` exception, and the resident bound is A13 store mode.
+- R21: the retained-state bound at these caps, 59,702,459,358 B, is above HIST_TRIE_BUDGET (1,717,986,918 B). On PoCol Mainnet (scope public-network) it is admitted by the owner's explicit waiver of the budget term (`admission-waiver-R21`, OWNER-DECISIONS-2026-11-20 D5, D2), with the retained-blocks term enforced; on the rehearsal profile's devnet (scope experimental-devnet) by the simnet `retentionStress` exception. The resident bound is A13 store mode.
 - R18 rests on the V3 SYS gas domain (SYS_SLOT_MAX ≥ slot_min ≈ 137,091).
 
-Admission: a Simnet profile on a Simnet node in ExperimentalDevnet scope, with `retentionStress`. R22 stays bound to
-chainId 777001, so `pocold init-testnet` reports `publicLaunchReady` false with the blockers `admission-scope` and
-`profile-kind`, which the release reports in its readiness output.
+Admission (OWNER-DECISIONS-2026-11-20 D5, superseding FRESH-NETWORK-CP §1 Q3 = a for the mainnet chain): on PoCol
+Mainnet's chain the network profile on a network node in scope public-network. The scope is chain-id gated (only
+`PUBLIC_NETWORK_CHAINS`), never specification compliance (`specificationCompliant` false), and says nothing about
+which genesis is approved (only a release pin with an approval reference does). It reports every condition
+(rpc-absent, continuous-protocol, timing-not-a-bound, gas-monotonicity-assumed and the gate's three deferred
+obligations) and the owner's explicit waivers, ordered R13, R21, R26, each with its detail: R13's continuous-kind
+term, R21's budget term and the R26 predicates that read RpcGuard fields the node does not enforce. The release
+reports them in `technicalReadiness` (`admission-scope`, `admission-condition-*`, `admission-waiver-*`), apart from
+launch approval (D4). The kind changes no allocRoot or genesis hash. The rehearsal profile's chain and the local test
+chain 777990 keep the experimental admission: a Simnet profile on a Simnet node in scope experimental-devnet, with
+`retentionStress`.
 
 Genesis contents: four founders, the three US servers and the owner's PC, each with a fresh key made on its own device
 at the ceremony. Each has a live HELD record whose 20 PCOL bond the builder mints into Escrow, and its reward address
@@ -328,11 +350,12 @@ founder's reward address is a separate owner-held offline address given to the c
 Upgrades after launch follow "Upgrades (D72)" above and VA-SPEC §2.3: the genesis CP and specVersion stay fixed, fork
 2 is a nonce-rule no-op, fork 3 is the cap raise, and a later rule change is a new fork version ≥ 4.
 
-**Operations remain owner-controlled.** The genesis is made only at the ceremony, after the closed rehearsal and with
-the owner's approval (FRESH-NETWORK-CP.md §8-§9). `deploy/standalone/Initialize-PoColNetwork.ps1 -Network
-Rehearsal|Mainnet` fills the committed profile's ceremony placeholders (the launch second, the measured aggregate hash
+**Operations remain owner-controlled.** The genesis is made only at the ceremony, with the owner's approval and
+without a separate rehearsal (FRESH-NETWORK-CP.md §8-§9; OWNER-DECISIONS-2026-11-20 D1).
+`deploy/standalone/Initialize-PoColNetwork.ps1 -Network Mainnet` (the default; `-Network Rehearsal` is only a devnet
+option) fills the committed profile's ceremony placeholders (the launch second, the measured aggregate hash
 rate, each founder's miner id, and the owner-held reward addresses of founders 1-3) and runs `pocold init-testnet` without `--test-placeholders`;
-then `prototypes/pocold/tests/launch_delay_asert.rs` is run on the final CP. A rehearsal or WAN soak is not permission
-to launch mainnet. Nothing from the retired network is carried over; later changes use the fork schedule. The launch
+then `prototypes/pocold/tests/launch_delay_asert.rs` is run on the final CP. A devnet run or WAN soak is not
+permission to launch mainnet; the owner's launch approval is recorded in OWNER-DECISIONS-2026-11-20 D1. Nothing from the retired network is carried over; later changes use the fork schedule. The launch
 disclosures are drafted in `deploy/standalone/README.md` (owner decision pending: review of that disclosure wording).
 The allocation disclosure does not authorize moving or reallocating funds.

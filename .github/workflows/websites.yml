@@ -39,6 +39,9 @@ on:
       - 'prototypes/lp4-execution/src/admission/scope.rs'
       - 'prototypes/pocol-windows/**'
       - 'prototypes/pocol-android/app/src/main/**'
+      # test_owner_decision_record.py: the owner decision records that the accepted risks and the approval references
+      # name (the readiness and identity sources it reads are listed above).
+      - 'development/decisions/OWNER-DECISIONS-*.md'
       # A config.php anywhere (the .gitignore rule covers only api/ directories) runs the tracked-config.php guard.
       - '**/config.php'
       - '.gitignore'
@@ -70,6 +73,7 @@ on:
       - 'prototypes/lp4-execution/src/admission/scope.rs'
       - 'prototypes/pocol-windows/**'
       - 'prototypes/pocol-android/app/src/main/**'
+      - 'development/decisions/OWNER-DECISIONS-*.md'
       - '**/config.php'
       - '.gitignore'
       - '.github/workflows/websites.yml'

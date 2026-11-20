@@ -62,7 +62,7 @@
   - X^W = max(Φ+1+Δ_fb_wait, Δ+t_exec+Δ_rel).
 
   Values are 6/11 s at the fresh network's declared locals (Δ, φ, t_exec) = (1, 1, 1), 7/11 s at the fallback declaration (2, 1, 1), and 6/10 in P11. Collusion invalidates them (T10b(iv-v)).
-- 10 s blocks (design estimates, FRESH-NETWORK design §4a, measured in the rehearsal): they need a measured Δ ≤ 2 s and φ ≤ 1 s. Natural forks run at about 0.8-1.4 %, a home PC pays a latency tax of about 1-2.5 %, and the withholding gain is 1.6 times the 30 s value (+0.105 at f = 0.2).
+- 10 s blocks (design estimates, FRESH-NETWORK design §4a; with no rehearsal, OWNER-DECISIONS-2026-11-20 D1, they are measured on PoCol Mainnet after the launch): they need a measured Δ ≤ 2 s and φ ≤ 1 s. Natural forks run at about 0.8-1.4 %, a home PC pays a latency tax of about 1-2.5 %, and the withholding gain is 1.6 times the 30 s value (+0.105 at f = 0.2).
 - Launch: a founder that starts mining more than D_att (90 s) after g_ts produces fallback-only blocks, and a wrong target_g gives a burst of fast blocks or slow blocks for 75 or more blocks; the ceremony measures the founders' aggregate hash rate.
 
 **Timestamp and ASERT**

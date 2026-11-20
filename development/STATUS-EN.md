@@ -1,17 +1,18 @@
-# PoCol development status — 16 November 2026
+# PoCol development status — 20 November 2026
 
 ## The network
 
 On 2026-11-13 the owner decided to launch **PoCol Mainnet** (currency PCOL) as a brand-new public network from a
 fresh genesis, with new keys and a new chain id, keeping nothing of the retired network
-([decisions](decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). The network launches directly as a public
-mainnet, after a closed rehearsal on the same devices.
+([decisions](decisions/OWNER-DECISIONS-2026-11-13-FRESH-NETWORK.md)). On 2026-11-20 the owner decided that it
+launches directly as a public mainnet, without a separate rehearsal, and accepted the documented risks
+([decisions](decisions/OWNER-DECISIONS-2026-11-20.md) D1).
 
 The final parameters are in [FRESH-NETWORK-CP.md](decisions/FRESH-NETWORK-CP.md):
 
 - the v3 rule set: consensus rules 2 (`CONSENSUS_RULES_VERSION` 2) on a version-2 `GenesisSpec` (CP schema v2,
   nonceMode 1), continuous (`H_END` 0);
-- chain id 2656089850 for the mainnet and 1656550731 for the rehearsal;
+- chain id 2656089850 for the mainnet; 1656550731 is the rehearsal profile's, kept only as a test and devnet profile;
 - four founders (the three US servers and the owner's PC), each with 1,000,000 PCOL including its 20 PCOL bond;
 - `M_max` 10,000, `T_blk` 10 s, RPC `safe` depth 6 and reorg alarm depth 60;
 - no probation pool, no creation fee and no seat contest; a newcomer may start with a 0 PCOL bond and earn it;
@@ -37,15 +38,20 @@ mining. The browser extension moves to 0.5.0 with a fixed key.
 
 1. **Release cut.** The consensus-source lock has been reset once, to a single `base` line (Phase 8; the one-time
    exemption of the append-only check is spent). Build with `POCOL_RELEASE=1` and run the full CI.
-2. **Rehearsal.** Run the ceremony with the rehearsal profile on the three servers and the PC and measure the launch
-   evidence (T1-T8, M1-M4).
-3. **Mainnet ceremony.** Fresh keys again, the mainnet profile, one genesis and one invitation.
-4. **Identity pin.** Switch the clients from the retired identity they still pin to the new genesis, in one reviewed
-   change, and release them.
-5. **Public launch** with the launch disclosures.
+2. **Mainnet ceremony.** No rehearsal (D1): fresh keys on the three founder servers (also the seeds) and the owner's
+   PC (D3), the mainnet profile, one genesis and one invitation.
+3. **Identity pin.** Switch the clients from the retired identity they still pin to the new genesis, in one reviewed
+   change; it pins the genesis with the approval reference "OWNER-DECISIONS-2026-11-20 D1".
+4. **Signed release** of the switched clients (the first signed release).
+5. **Public launch** with the launch disclosures. The launch evidence (T1-T8, M1-M4) is measured on the network after
+   the launch.
 
-The network launches with `publicLaunchReady: false`, its launch blockers reported by the software; the open gates are in
-[public-network/PLAN.md](public-network/PLAN.md). No independent external security review has been done.
+The node computes launch approval apart from technical readiness (D4): `publicLaunchApproved` and
+`publicLaunchReady` become true only on a release that pins the genesis with its approval reference and only on a
+node booted with exactly the pinned admission, while `technicalReadiness` keeps listing the open gates of
+[public-network/PLAN.md](public-network/PLAN.md) and the admission's conditions and waivers. PoCol Mainnet is
+admitted as the network profile on a network node in scope public-network (D5), never specification compliance, with
+the owner's R13, R21 and R26 waivers reported. No independent external security review has been done.
 
 ## Open owner items
 
@@ -53,6 +59,19 @@ Each of these is undecided; texts that need them say "owner decision pending".
 
 - the launch-disclosure wording (draft in `deploy/standalone/README.md`);
 - the reward page S1 wording.
+
+Decided by the owner on 2026-11-20
+([decisions/OWNER-DECISIONS-2026-11-20.md](decisions/OWNER-DECISIONS-2026-11-20.md)):
+
+- the public launch of PoCol Mainnet without a separate rehearsal, with the owner's responsibility for the launch
+  decision and acceptance of the documented risks (D1; it supersedes the closed rehearsal of 2026-11-13);
+- the three founder servers have 4 GB of RAM, risk accepted, 8 GB recommended (D2);
+- the founders and seeds: `108.165.128.89`, `108.165.128.90`, `108.165.128.91` and the owner's Windows PC, from a
+  fresh genesis (D3);
+- launch approval separate from technical readiness (D4);
+- the public network's own admission scope, public-network, with explicit owner waivers (D5);
+- a full public launch, never a renamed test network, every value computed from facts (D6);
+- the rehearsal profile is kept only as a test and devnet profile.
 
 Decided by the owner on 2026-11-18:
 
@@ -71,7 +90,8 @@ Decided by the owner on 2026-11-18:
 - the independent security review (Q1) is commissioned after the launch.
 
 The decisions and the owner's words are in
-[decisions/OWNER-DECISIONS-2026-11-18.md](decisions/OWNER-DECISIONS-2026-11-18.md).
+[decisions/OWNER-DECISIONS-2026-11-18.md](decisions/OWNER-DECISIONS-2026-11-18.md). Its decision 4 ("stays as
+computed", "refuses nothing") is refined by the decision of 2026-11-20 D4; its truthfulness rule stays.
 
 Decided by the owner on 2026-11-16:
 
