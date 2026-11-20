@@ -483,3 +483,29 @@ fn rpc_status(rpc:std::net::SocketAddr)->Option<serde_json::Value>{rpc_call(rpc,
     assert_eq!(read(None),31_557_600,"T_blk 4: four years of blocks, the earlier default");
     assert_eq!(read(Some("10")),12_623_040,"T_blk 10: four years of blocks, as FRESH-NETWORK-CP row 52");
 }
+/// `pocol hashrate` (the ceremony's -HashesPerSecond input, measured on each founder's device): it prints one JSON line
+/// with this device's rate on the one miner thread `pocol start` and the wallet mine with, opens and creates no home
+/// (HOME and LOCALAPPDATA point at an empty folder that stays empty), and refuses a bad --seconds or any other option.
+#[test] fn pocol_hashrate_measures_this_device_and_writes_nothing(){
+    let d=tmp("hashrate");std::fs::create_dir_all(&d).unwrap();
+    let pocol=|args:&[&str]|Command::new(env!("CARGO_BIN_EXE_pocol")).args(args).env("HOME",&d).env("LOCALAPPDATA",&d).output().unwrap();
+    let o=pocol(&["hashrate","--seconds","1"]);
+    assert_eq!(o.status.code(),Some(0),"{}",text(&o.stderr));
+    assert!(o.stderr.is_empty(),"{}",text(&o.stderr));
+    let out=text(&o.stdout);assert_eq!(out.lines().count(),1,"{out}");
+    let v:serde_json::Value=serde_json::from_str(out.trim()).unwrap_or_else(|e|panic!("JSON: {e}: {out}"));
+    let rate=v["hashesPerSecond"].as_u64().unwrap_or(0);
+    assert!(rate>=1&&rate<=(1u64<<53)-1,"in the ceremony's range 1..2^53-1: {v}");
+    assert_eq!(v["threads"],1,"{v}");assert_eq!(v["seconds"],1,"{v}");
+    assert!(v["hashes"].as_u64().unwrap_or(0)>=1&&v["elapsedMs"].is_u64(),"{v}");
+    assert!(v["note"].as_str().is_some_and(|n|n.contains("sum of the four founders")),"{v}");
+    assert_eq!(std::fs::read_dir(&d).unwrap().count(),0,"no home is created");
+    for bad in [&["hashrate","--seconds","0"][..],&["hashrate","--seconds","601"],&["hashrate","--seconds","x"],&["hashrate","--seconds","-1"],
+                &["hashrate","--seconds","1","--seconds","1"],&["hashrate","--home","h"],&["hashrate","--seconds"],&["hashrate","--network","n"]]{
+        let o=pocol(bad);let err=text(&o.stderr);
+        assert_eq!(o.status.code(),Some(1),"{bad:?}: {err}");
+        assert!(err.starts_with("PoCol: ")&&o.stdout.is_empty(),"{bad:?}: {err} {}",text(&o.stdout));
+    }
+    assert_eq!(std::fs::read_dir(&d).unwrap().count(),0,"a refusal creates no home either");
+    let _=std::fs::remove_dir_all(&d);
+}

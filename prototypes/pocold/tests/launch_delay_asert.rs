@@ -6,9 +6,14 @@
 //! t_blk=10, tau=600, d_att=90, m=32; `final_cp_constants_are_the_committed_profile` checks them against
 //! the profile). The profile's hash rate is measured at the genesis ceremony; until then H_cal is the
 //! synthetic (1<<18)/10 that `init-testnet --test-placeholders` fills in, and target_g is its R25d
-//! calibration (a measured rate moves target_g, not the lateness thresholds below, which depend on tau and
-//! d_att). A simulated clock drives block timestamps through the real AttemptWindow rule. Nothing here
-//! touches a live network.
+//! calibration. A measured rate moves target_g, and with it the lateness at which the target collapses to
+//! U256::MAX and the length of the near-free burst after a late start (a smaller target_g needs more
+//! doublings); block 1's full difficulty, the d_att signing limit and the height at which full difficulty
+//! returns after a late start do not depend on it. `launch_delay_across_admissible_hash_rates` checks both
+//! kinds at eight rates spanning the ceremony's admissible range (1 to 2^53-1 H/s), and the ignored
+//! `ceremony_filled_profile_record` prints the figures of one filled profile for the ceremony record
+//! (deploy/mainnet/README.md, step 4). A simulated clock drives block timestamps through the
+//! real AttemptWindow rule. Nothing here touches a live network.
 //!
 //! Proven facts:
 //!  * on-time launch -> target stays at target_g (full difficulty) for the first blocks
@@ -202,4 +207,105 @@ fn late_start_burst_and_recovery() {
     assert!(trivial >= 100, "a 3h-late start leaves a long run of trivial-difficulty blocks");
     eprintln!("RESULT: a >d_att-late start => block 1 full difficulty but FORCED FALLBACK; then a burst of");
     eprintln!("        ~{trivial} trivial-difficulty blocks (mineable in <=256 hashes) before difficulty recovers.");
+}
+
+/// target_g for a measured rate `rate` (R25d), through the real calibration.
+fn target_g_at(rate: u64) -> F {
+    let cal = pocol_lp4_execution::gate::calibration_target(rate, T_BLK as u32).unwrap();
+    F::from_be_slice(&cal.to_be_bytes()).unwrap()
+}
+/// The least tip lateness dt (s) at which the target is U256::MAX, by bisection over [0, 48 h] (the target is
+/// non-decreasing in dt); None when it does not saturate within 48 h.
+fn collapse_after(tg: &F) -> Option<i128> {
+    let max_at = |dt: i128| child(tg, G_TS + T_BLK + dt, 1).target == F::MAX;
+    let (mut lo, mut hi) = (0i128, 48 * 3600i128);
+    if !max_at(hi) { return None; }
+    if max_at(lo) { return Some(0); }
+    while hi - lo > 1 { let mid = (lo + hi) / 2; if max_at(mid) { hi = mid } else { lo = mid } }
+    assert!(!max_at(hi - 1) && max_at(hi));
+    Some(hi)
+}
+/// The late-start simulation of `late_start_burst_and_recovery` for target_g `tg` and a clock `late` seconds past
+/// g_ts: (blocks of at most 256 expected hashes, blocks a single nonce meets with prob >= 1/2, the height at which the
+/// target is back at full difficulty).
+fn late_start(tg: &F, late: i128) -> (i128, i128, Option<i128>) {
+    let clock = (G_TS + late) as u64;
+    let d = D_ATT as i128;
+    let (mut p_ts, mut p_h) = (G_TS, 0i128);
+    let (mut trivial, mut free) = (0i128, 0i128);
+    for h in 1..=4000i128 {
+        let o = child(tg, p_ts, p_h);
+        let bits = o.target.bits();
+        if bits >= 248 { trivial += 1; }
+        if bits == 256 { free += 1; }
+        if o.trace.s == 0 && h > 1 { return (trivial, free, Some(h)); }
+        let w = AttemptWindow::new(p_ts as u64, 0, d as u32).unwrap();
+        let ts = match w.proposer_timestamp(clock) {
+            Ok(t) => t as i128,
+            Err(_) => { let a = (((clock as i128) - p_ts - 1) / d).max(1); p_ts + a * d + 1 }
+        };
+        p_ts = ts; p_h = h;
+    }
+    (trivial, free, None)
+}
+
+/// The facts above at eight rates spanning the ceremony's admissible range (Initialize-PoColNetwork.ps1: 1 to
+/// 2^53-1 H/s; sampled, not every rate): at each, on schedule the target stays at target_g, block 1 is at full
+/// difficulty, the d_att limit holds, the target collapses within 24 h of tip lateness and later than at the rate
+/// before it, and after a 3 h late start full difficulty returns at the same height at all eight. The near-free
+/// burst's length is printed: it shrinks as the rate rises (none at the sampled 1e9 and 2^53-1 H/s).
+#[test]
+fn launch_delay_across_admissible_hash_rates() {
+    let rates: [u64; 8] = [1, 1_000, 26_214, 1_000_000, 4_000_000, 10_000_000, 1_000_000_000, (1u64 << 53) - 1];
+    eprintln!("\n==== LATE LAUNCH ACROSS ADMISSIBLE HASH RATES (t_blk={T_BLK}, tau={TAU}, d_att={D_ATT}) ====");
+    eprintln!("  {:>16} {:>9} {:>14} {:>22} {:>9}", "H/s", "tg bits", "collapse (h)", "near-free after 3 h", "recovery");
+    let w = AttemptWindow::new(G_TS as u64, 0, D_ATT).unwrap();
+    assert_eq!(w.proposer_timestamp((G_TS + i128::from(D_ATT)) as u64), Ok((G_TS + i128::from(D_ATT)) as u64));
+    assert_eq!(w.proposer_timestamp((G_TS + i128::from(D_ATT) + 1) as u64), Err(TimingError::OutsideWindow));
+    let (mut last_collapse, mut recovery) = (None::<i128>, None::<Option<i128>>);
+    for rate in rates {
+        let tg = target_g_at(rate);
+        for h in 1..=6i128 {
+            let o = child(&tg, G_TS + T_BLK * (h - 1), h - 1);
+            assert_eq!((o.target == tg, o.trace.s), (true, 0), "{rate} H/s: on schedule block {h} stays at target_g");
+        }
+        assert_eq!(child(&tg, G_TS, 0).target, tg, "{rate} H/s: block 1 is at full difficulty");
+        let collapse = collapse_after(&tg).unwrap_or_else(|| panic!("{rate} H/s: no collapse within 48 h"));
+        assert!(collapse <= 24 * 3600, "{rate} H/s: the target collapses within 24 h of lateness ({collapse} s)");
+        if let Some(prev) = last_collapse { assert!(collapse > prev, "{rate} H/s: a higher rate collapses later ({collapse} <= {prev})"); }
+        last_collapse = Some(collapse);
+        let (trivial, free, rec) = late_start(&tg, 3 * 3600);
+        assert!(rec.is_some(), "{rate} H/s: full difficulty returns after a 3 h late start");
+        match recovery { None => recovery = Some(rec), Some(r) => assert_eq!(rec, r, "{rate} H/s: the recovery height does not depend on the rate") }
+        eprintln!("  {rate:>16} {:>9} {:>14.2} {:>14} ({free:>4} free) {:>9}", tg.bits(), collapse as f64 / 3600.0, trivial, rec.unwrap());
+    }
+    // The committed synthetic rate reproduces late_start_burst_and_recovery's run.
+    assert!(late_start(&target_g(), 3 * 3600).0 >= 100);
+}
+
+/// The ceremony record (deploy/mainnet/README.md, step 4): run on the filled profile after `init-testnet`, from a
+/// development checkout at the release commit, never on a founder device:
+/// `POCOL_FILLED_PROFILE=<absolute path of the filled profile> cargo +1.99.1 test --release --locked --manifest-path
+/// prototypes/pocold/Cargo.toml --test launch_delay_asert -- --ignored --nocapture` (cargo runs tests from
+/// prototypes/pocold, so a relative path resolves there). The profile holds only public
+/// values. It checks that the profile runs the committed final CP on a fresh-network chain id with a measured rate,
+/// and prints target_g, the collapse threshold, the near-free burst after a 3 h late start and the recovery height.
+#[test]
+#[ignore = "ceremony record: POCOL_FILLED_PROFILE=<path>, run with --ignored --nocapture"]
+fn ceremony_filled_profile_record() {
+    let path = std::env::var_os("POCOL_FILLED_PROFILE").expect("set POCOL_FILLED_PROFILE to the ceremony's filled profile");
+    let p: serde_json::Value = serde_json::from_slice(&std::fs::read(&path).unwrap_or_else(|e| panic!("{}: {e}", std::path::Path::new(&path).display()))).unwrap();
+    let committed: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/v3-profile.json")).unwrap();
+    assert_eq!(p["cp"], committed["cp"], "the filled profile runs the committed final CP");
+    let chain_id = p["chainId"].as_u64().expect("chainId");
+    assert!(chain_id == 1_656_550_731 || chain_id == 2_656_089_850, "a fresh-network chain id (rehearsal or mainnet): {chain_id}");
+    assert_eq!(p["hashRate"]["class"], "measurement");
+    let rate = p["hashRate"]["hashesPerSecond"].as_u64().expect("a measured integer hash rate, not a placeholder");
+    assert!((1..=(1u64 << 53) - 1).contains(&rate), "the ceremony's range 1 to 2^53-1: {rate}");
+    assert!(!p.to_string().contains("PLACEHOLDER"), "no placeholder is left");
+    let tg = target_g_at(rate);
+    let collapse = collapse_after(&tg).expect("the target collapses within 48 h");
+    let (trivial, free, rec) = late_start(&tg, 3 * 3600);
+    eprintln!("{}", serde_json::json!({"chainId": chain_id, "hashesPerSecond": rate, "targetGBits": tg.bits(),
+        "collapseAfterSeconds": collapse, "lateStart3h": {"nearFreeBlocks": trivial, "freeBlocks": free, "fullDifficultyAtHeight": rec}}));
 }

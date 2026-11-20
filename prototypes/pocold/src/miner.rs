@@ -137,9 +137,107 @@ fn scan(tid:[u8;32],s:u64,e:u64,target:Fixed,t_share:Fixed,max_shares:usize,flag
     }
 }
 
+/// `pocol hashrate` (R25d input, node-local, never validity): the threads the measurement mines on. They are the threads
+/// `pocol start` and the Windows wallet mine with: neither sets `--mine-threads`, so both run
+/// `node::Limits::default().mine_threads`. A test keeps the two equal.
+pub const MEASURE_THREADS:usize=1;
+/// The first probe of `measure`, in nonces; each probe doubles until one takes at least `MEASURE_PROBE`.
+const MEASURE_FIRST_PROBE:u64=1<<16;
+const MEASURE_PROBE:std::time::Duration=std::time::Duration::from_millis(500);
+/// The largest probe (2^40 nonces, hours at any CPU rate): `measure` stops doubling there.
+const MEASURE_PROBE_MAX:u64=1<<40;
+/// The tid every measurement hashes: a throwaway value of no network. The target and the share target are 0, so no hash
+/// of it is reported (a SHA-256 of 0 would be needed).
+const MEASURE_TID:[u8;32]=[0x5a;32];
+/// One measurement: `hashes` nonces scanned in `elapsed`, and their rate (`rate`).
+#[derive(Debug,Clone,Copy,PartialEq,Eq)]
+pub struct Measurement{pub hashes:u64,pub elapsed:std::time::Duration,pub rate:u64}
+/// hashes / elapsed in H/s, rounded down and at least 1. Computed in u128 nanoseconds, so it never overflows; a zero
+/// elapsed time counts as 1 ns, and a rate above u64::MAX is u64::MAX.
+pub fn rate(hashes:u64,elapsed:std::time::Duration)->u64{
+    let ns=elapsed.as_nanos().max(1);
+    (u128::from(hashes)*1_000_000_000/ns).clamp(1,u128::from(u64::MAX)) as u64
+}
+/// Scans the nonces [0, nonces − 1] of `MEASURE_TID` with the production miner (`start_threads` on `MEASURE_THREADS`
+/// threads, target 0, share target 0, no share place: the `scan` loop the node mines with, which reports nothing but the
+/// exhaustion). Returns the exhaustion's hash count and the time from the start to it. It waits for the event 100 ms at a
+/// time; once `cancel()` is true the miner is dropped (stopped and joined) and the answer is an error.
+pub fn scan_rate(nonces:u64,cancel:&dyn Fn()->bool)->Result<(u64,std::time::Duration),String>{
+    if nonces==0{return Err("nothing to scan".into())}
+    if cancel(){return Err("hash rate measurement cancelled".into())}
+    let (tx,rx)=std::sync::mpsc::channel();
+    let started=std::time::Instant::now();
+    let handle=start_threads(MEASURE_TID,0,nonces-1,Fixed::ZERO,Fixed::ZERO,0,MEASURE_THREADS,tx)
+        .ok_or("cannot start the miner thread (the service's task limit?)")?;
+    loop{
+        match rx.recv_timeout(std::time::Duration::from_millis(100)){
+            Ok(MinerEvent::Exhausted{hashes,..})=>{let elapsed=started.elapsed();drop(handle);return Ok((hashes,elapsed))}
+            Ok(other)=>{drop(handle);return Err(format!("unexpected miner event while measuring: {other:?}"))}
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout)=>if cancel(){drop(handle);return Err("hash rate measurement cancelled".into())},
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected)=>{drop(handle);return Err("the miner stopped without reporting".into())}
+        }
+    }
+}
+/// This build's mining rate on this device (`pocol hashrate`): probes from 2^16 nonces, doubling until one probe takes
+/// at least 0.5 s, then scans rate × `seconds` nonces and reports that scan alone.
+pub fn measure(seconds:u64,cancel:&dyn Fn()->bool)->Result<Measurement,String>{
+    let mut n=MEASURE_FIRST_PROBE;
+    let (hashes,elapsed)=loop{
+        let (h,d)=scan_rate(n,cancel)?;
+        if d>=MEASURE_PROBE||n>=MEASURE_PROBE_MAX{break (h,d)}
+        n=n.saturating_mul(2);
+    };
+    let total=rate(hashes,elapsed).saturating_mul(seconds.max(1));
+    let (hashes,elapsed)=scan_rate(total,cancel)?;
+    Ok(Measurement{hashes,elapsed,rate:rate(hashes,elapsed)})
+}
+
 #[cfg(test)]
 mod tests{
     use super::*;
+    #[test] fn the_measured_rate_is_hashes_per_second_rounded_down_and_at_least_one(){
+        use std::time::Duration;
+        assert_eq!(rate(1_000_000,Duration::from_secs(2)),500_000);
+        assert_eq!(rate(999,Duration::from_secs(1)),999);
+        assert_eq!(rate(1_000,Duration::from_millis(1_500)),666,"rounded down");
+        assert_eq!(rate(5,Duration::from_secs(10)),1,"at least 1");
+        assert_eq!(rate(0,Duration::from_secs(1)),1,"at least 1");
+        assert_eq!(rate(7,Duration::ZERO),7_000_000_000,"zero elapsed counts as 1 ns");
+        assert_eq!(rate(u64::MAX,Duration::from_secs(1)),u64::MAX,"no overflow near u64::MAX");
+        assert_eq!(rate(u64::MAX,Duration::from_secs(1_000_000_000)),u64::MAX/1_000_000_000);
+        assert_eq!(rate(u64::MAX,Duration::from_nanos(1)),u64::MAX,"clamped to u64::MAX");
+        assert_eq!(rate(u64::MAX,Duration::from_secs(u64::MAX)),1);
+    }
+    /// The measurement mines on the threads `pocol start` and the wallet mine with (neither sets --mine-threads).
+    #[test] fn the_measurement_uses_the_default_mining_threads(){
+        assert_eq!(MEASURE_THREADS,crate::node::Limits::default().mine_threads);
+    }
+    /// The scan counts exactly the nonces asked for, through the exhaustion event alone (no share, no solution).
+    #[test] fn a_scan_counts_exactly_its_nonces(){
+        for n in [1u64,5_000,1<<16]{
+            let (hashes,elapsed)=scan_rate(n,&||false).unwrap();
+            assert_eq!(hashes,n);assert!(elapsed>std::time::Duration::ZERO);
+        }
+        assert!(scan_rate(0,&||false).is_err());
+    }
+    /// A cancel stops a scan that would otherwise run for ever (2^64 nonces): the handle is dropped, which stops and
+    /// joins the thread, so the call returns, as an error, soon after the cancel.
+    #[test] fn a_cancelled_scan_stops_and_returns_an_error(){
+        let calls=std::cell::Cell::new(0u32);
+        let t=std::time::Instant::now();
+        let r=scan_rate(u64::MAX,&||{calls.set(calls.get()+1);calls.get()>3});
+        assert_eq!(r,Err("hash rate measurement cancelled".into()));
+        assert!(calls.get()>=4,"the cancel is checked while the scan runs");
+        assert!(t.elapsed()<std::time::Duration::from_secs(30));
+        assert_eq!(scan_rate(10,&||true),Err("hash rate measurement cancelled".into()),"cancelled before it starts");
+        assert!(measure(1,&||true).is_err());
+    }
+    /// A one-second measurement: at least one hash, a rate of at least 1, and the rate is its own scan's.
+    #[test] fn a_measurement_reports_its_scan(){
+        let m=measure(1,&||false).unwrap();
+        assert!(m.hashes>=1&&m.rate>=1,"{m:?}");
+        assert_eq!(m.rate,rate(m.hashes,m.elapsed));
+    }
     #[test]
     fn saturated_hash_count_does_not_disable_cancellation_checkpoints(){
         let mut hashes=u64::MAX-1;let mut stop_check=4095u16;

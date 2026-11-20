@@ -17,11 +17,12 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
 2. **Prepare the servers.** The three US servers start from a clean install (`deploy/standalone/install-linux.sh`
    refuses a host that already has a PoCol install). The owner's computer runs the fourth founding miner; the
    phone is a wallet.
-3. **Fresh keys.** Each founding miner generates its miner key on its own device with the independent-key flow
-   (`pocol-key`); only the public miner ID leaves the device. Founders 1-3 (the servers) are paid to owner-held
-   reward addresses (owner decision 2026-11-16): the owner makes three of them offline with `pocol-key generate` and
-   `pocol-key address` on a device that is never a server, and passes them to the ceremony as
-   `-ServerRewardAddresses`. Each offline key is backed up encrypted with `pocol-key export --key-file FILE
+3. **Fresh keys.** Each founding miner generates its miner key on its own device: on each server `install-linux.sh`
+   runs `pocol identity --home /var/lib/pocol-standalone` as the `pocol-standalone` user, and on the PC the ceremony
+   runs `pocol.exe identity` in the wallet's home `%LOCALAPPDATA%\PoCol`. Only the public miner ID leaves the device.
+   Founders 1-3 (the servers) are paid to owner-held reward addresses (owner decision 2026-11-16): the owner makes
+   three of them offline with `pocol-key generate` and `pocol-key address` on a device that is never a server, and
+   passes them to the ceremony as `-ServerRewardAddresses`. Each offline key is backed up encrypted with `pocol-key export --key-file FILE
    --out BACKUP` (passphrase read twice from stdin), and the backup checked without writing any file with
    `pocol-sign --chain-id ID --address --backup BACKUP`, which prints the same address; `pocol-sign --backup BACKUP`
    signs from it. Only the 20 PCOL bond is tied to each server. Founder 4 (the owner's PC) keeps its own
@@ -36,10 +37,45 @@ This runbook is completed once the genesis parameters are fixed. The steps, in o
    hash. While any placeholder remains, the builder refuses. `--test-placeholders` fills them with public test keys
    for a local test genesis only; that genesis runs on the local test chain ID 777990 (the profile's ID is recorded
    as `profileChainId`), is marked `testPlaceholders` and is never a launch genesis.
-5. **Invitation.** Pack the genesis files with the three seed addresses into the network invitation
-   (`pocol network`), and check its fingerprint on every founding device.
-6. **Closed rehearsal.** Run the network on the three US servers only, then wipe and repeat from step 4 for
-   the public launch if anything changed.
+   The hash rate is measured before the genesis, on each founding device with its own copy of the release binary,
+   since the rate depends on the CPU (the proof-of-work hash is one SHA-256 of 40 bytes):
+   `pocol hashrate --seconds 60` on each server, run from the verified Linux package extracted into a new folder in the
+   admin's home (check it with `sha256sum --check SHA256SUMS` there, and delete the folder afterwards:
+   `install-linux.sh` checks only `/opt/pocol-standalone`, its unit and its service user), and `.\pocol.exe hashrate --seconds 60` on the PC with
+   the wallet closed. Run it three times on each device and take the median. It measures the one miner thread that
+   `pocol start` and the wallet mine with (neither sets `--mine-threads`), and opens no home, key or network. The
+   ceremony's `-HashesPerSecond` is the sum of the four medians, since every founder hashes its own nonce range in
+   parallel; the PC's share of the sum is the hashrate fraction T7 compares with
+   ([REHEARSAL.md](../../development/public-network/REHEARSAL.md)). The value sets only the starting target (target_g
+   = calibration_target(H, T_blk)): ASERT is anchored at genesis and corrects a wrong value with a time constant of
+   about τ/(T_blk·ln 2) ≈ 87 blocks. An estimate from a simple model, not a test in this repository: with the value k
+   times the real rate, the first 100 blocks average about 8.7 s at k = 0.8 and 11.4 s at k = 1.25, stay inside T6's
+   5-20 s from about k = 0.5 to k = 4, and miss it at k = 8, whose first blocks take about 80 s, close to D_att. A
+   benchmark slightly overstates the network's rate (nobody hashes while a template is built), which gives a few slow
+   blocks at the start. For the mainnet ceremony the measured aggregate is the rehearsal's `networkHashrateEst`
+   (`pocol_finality`, averaged over 360 blocks).
+   The late-start check on the final CP (FRESH-NETWORK-CP.md §8, ceremony step 3) is
+   `prototypes/pocold/tests/launch_delay_asert.rs`. CI runs it at eight rates spanning the ceremony's admissible range
+   (1 to 2^53-1 H/s), not at every rate and not at the measured one. Its ignored `ceremony_filled_profile_record` runs
+   it on the filled profile (`<setup folder>\v3-rehearsal-profile.json` or `v3-profile.json`, public values only),
+   from a development checkout at the release commit, never on a founding device:
+   `POCOL_FILLED_PROFILE=<absolute path of the filled profile> cargo +1.99.1 test --release --locked --manifest-path
+   prototypes/pocold/Cargo.toml --test launch_delay_asert -- --ignored --nocapture` (cargo runs the test from
+   `prototypes/pocold`, so a relative path is not found). Keep its printed collapse
+   threshold and near-free burst with the ceremony record. `Initialize-PoColNetwork.ps1` fills the profile and runs
+   `init-testnet` in one run, for the mainnet as for the rehearsal, so on either network this run comes after the
+   genesis: it is a record, not a gate. Making it a gate needs a pause in the ceremony before `init-testnet`, which
+   is the owner's decision (proposal, not decided).
+5. **Invitation.** The ceremony packs the genesis files with the three seed addresses into the network invitation
+   (`pocol network`) and prints its file SHA-256. Each server checks its copy against that value before installing it.
+   That file SHA-256 (`Get-FileHash -Algorithm SHA256` on Windows, `sha256sum` on Linux) is the value every founding
+   device compares and the owner announces. `pocol inspect --network FILE` prints `networkFingerprint`, a different
+   value: the SHA-256 of the parsed invitation, which reformatting the JSON leaves unchanged. It is not the file's
+   SHA-256.
+6. **Closed rehearsal.** Run the ceremony with the rehearsal profile on the four founding devices, the three US
+   servers and the owner's PC (founder 4), as `Initialize-PoColNetwork.ps1` makes them: it refuses any other founder
+   set. Then repeat from step 2 for the public launch, with re-provisioned servers and fresh keys on every founding
+   device (`deploy/standalone/README.md`, "Rehearsal, then mainnet").
 7. **Pin the identity in the clients.** Switch every client from the identity the tree pins today to the new
    one with `set_network_identity.py` (below), in one reviewed PR, and release the clients: rebuild the native
    packages and the 0.5.0 extension from the switched tree, then assemble, sign and verify them

@@ -332,7 +332,8 @@ Upgrades after launch follow "Upgrades (D72)" above and VA-SPEC §2.3: the genes
 the owner's approval (FRESH-NETWORK-CP.md §8-§9). `deploy/standalone/Initialize-PoColNetwork.ps1 -Network
 Rehearsal|Mainnet` fills the committed profile's ceremony placeholders (the launch second, the measured aggregate hash
 rate, each founder's miner id, and the owner-held reward addresses of founders 1-3) and runs `pocold init-testnet` without `--test-placeholders`;
-then `prototypes/pocold/tests/launch_delay_asert.rs` is run on the final CP. A rehearsal or WAN soak is not permission
-to launch mainnet. Nothing from the retired network is carried over; later changes use the fork schedule. The launch
+then `prototypes/pocold/tests/launch_delay_asert.rs` is run on the final CP (in CI, at eight rates spanning the
+ceremony's admissible range 1 to 2^53-1 H/s; on the filled profile, its ignored `ceremony_filled_profile_record`, which
+runs only after `init-testnet` and so is a record, not a gate: `deploy/mainnet/README.md`, step 4). A rehearsal or WAN soak is not permission to launch mainnet. Nothing from the retired network is carried over; later changes use the fork schedule. The launch
 disclosures are drafted in `deploy/standalone/README.md` (owner decision pending: review of that disclosure wording).
 The allocation disclosure does not authorize moving or reallocating funds.

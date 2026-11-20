@@ -12,6 +12,9 @@
 # the servers are re-provisioned (install-linux.sh refuses an existing installation), the package is extracted into a
 # new directory, and this PC's rehearsal home (%LOCALAPPDATA%\PoCol) is moved aside after its key is backed up.
 #
+# -HashesPerSecond is measured before the run: `pocol hashrate --seconds 60` on each server (from the verified package in
+# a scratch folder) and `pocol.exe hashrate --seconds 60` on this PC, each the median of three runs, summed.
+#
 # -DryRun runs only the local steps, for a test or a review: no SSH, no server, no %LOCALAPPDATA%\PoCol, no wallet.
 # Its founders are four throwaway identities in the setup folder, and pocold init-testnet --test-placeholders fills
 # the launch second and moves the genesis to the local test chain id, so a dry run is always a TEST GENESIS.
@@ -23,7 +26,8 @@ param(
     # The owner-held reward addresses of founders 1-3, in -Servers order (pocol-key address output, lower-case 0x hex).
     # Required for a real run; a dry run without them uses three throwaway reward identities.
     [ValidateCount(3,3)][string[]]$ServerRewardAddresses,
-    # The founders' measured aggregate hash rate in H/s (R25d; the rehearsal's networkHashrateEst feeds the mainnet).
+    # The founders' measured aggregate hash rate in H/s (R25d): the sum of the four devices' `pocol hashrate` values,
+    # each measured on its own device before this run (README.md); for the mainnet, the rehearsal's networkHashrateEst.
     [Parameter(Mandatory=$true)][uint64]$HashesPerSecond,
     # The synchronized launch second (unix time), or a delay from the moment the genesis is created. Exactly one.
     [uint64]$GenesisTime = 0,
