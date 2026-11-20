@@ -594,7 +594,9 @@ impl<'a> Wallet<'a>{
             // FN-2b C4: all seats taken, the members removable at the next block, and whether
             // quote_register would register this identity by replacing one of them.
             "seatsFull":seats_full,"removableSeats":removable,"registerReplaces":replacing,
-            "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL","testCurrency":true,
+            "lifetime":n.status_json()["lifetime"],"activity":activity,"currency":"PCOL",
+            // Whether this chain's PCOL is a test currency: not on a public network chain (readiness::test_currency).
+            "testCurrency":crate::readiness::test_currency(n.chain.spec.chain_id()),
             // Why peers were refused (VA-SPEC §2.5, attack A2-6), so the wallet can tell a lagging node what to do.
             "incompatiblePeers":diag["incompatiblePeers"],"lastIncompatibleReason":diag["lastIncompatibleReason"]});
         if let Some(Value::Object(fields))=v3{for (k,v) in fields{status[k]=v;}}

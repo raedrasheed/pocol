@@ -86,7 +86,7 @@ if args.network:
     except ValueError as e: raise SystemExit(f'the invitation declares no valid GenesisSpec version ({e})')
     if spec!=2: raise SystemExit('the invitation is for a spec-1 network; a release is for a v3 (spec-2) network only')
     # release-info names the network PoCol Mainnet, so only the mainnet profile's chain ID may be stamped into it (the
-    # rehearsal is packaged without --network).
+    # rehearsal profile is a devnet option, never a release network: OWNER-DECISIONS-2026-11-20 D1).
     try: mainnet_chain=json.loads((mainnet/'v3-profile.json').read_text(encoding='utf-8'))['chainId']
     except (OSError,KeyError,TypeError,ValueError) as e: raise SystemExit(f'refusing to package: no mainnet profile chain ID ({e})')
     if chain!=mainnet_chain: raise SystemExit('the invitation is not for the network the mainnet profile names (deploy/mainnet/v3-profile.json chainId)')

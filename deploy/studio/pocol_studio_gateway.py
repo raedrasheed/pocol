@@ -277,7 +277,19 @@ def sanitize(method, value):
             'consensusIdentity', 'consensusRulesVersion', 'protocolVersionMin', 'maxForkVersion',
             # FN-5: a scheduled cap raise beside forkSchedule (pocol_getParams only; absent without one).
             'capRaise')
-    return {k: value[k] for k in keys if k in value}
+    result = {k: value[k] for k in keys if k in value}
+    if method == 'pocol_status': result.update(readiness_flags(value))
+    return result
+
+
+def readiness_flags(status):
+    """The launch approval, readiness and technical-readiness completeness of a pocol_status answer, booleans only
+    (pocold readiness.rs, OWNER-DECISIONS-2026-11-20 D4): each passes only as the boolean the node computed; anything
+    else, the blockers, the pending items and their details, is left out."""
+    flags = {k: status[k] for k in ('publicLaunchApproved', 'publicLaunchReady') if type(status.get(k)) is bool}
+    technical = status.get('technicalReadiness')
+    if isinstance(technical, dict) and type(technical.get('complete')) is bool: flags['technicalReadiness'] = {'complete': technical['complete']}
+    return flags
 
 
 def error(ident, code, message):

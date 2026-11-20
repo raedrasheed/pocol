@@ -12,8 +12,11 @@ and synchronization continue. No assistant or central signing/control service is
 needed after the one-time network setup.
 
 The network is displayed as **PoCol Mainnet** only after its chain ID and
-genesis are verified. The designation does not change its experimental admission
-conditions or `publicLaunchReady: false`; financial qualification and independent
+genesis are verified. The designation changes none of the values the node computes:
+its admission (scope `public-network`, never specification compliance, with its
+reported conditions and owner waivers), its launch approval and readiness
+(`publicLaunchApproved`, `publicLaunchReady`) and its technical readiness, which
+`pocol_status` reports with every reason; financial qualification and independent
 audit are not claimed. The wallet validates locally and signs on the device.
 Its primary color is #1aa9e4; it has Wallet, Activity and Settings screens (plus a
 Mining screen in the wallet-and-miner role), account transfers, receive/copy/share
@@ -75,19 +78,23 @@ u64 representation; zero disables scheduled expiry, not hardware arithmetic.
 This section creates the network: one genesis, its invitation and the server
 installations. Every device then joins with that same invitation.
 
-`Initialize-PoColNetwork.ps1` creates the fresh v3 network: first the **rehearsal**, then
-**PoCol Mainnet**, each in its own ceremony with fresh keys. It fills the committed network
-profile shipped beside it (`v3-rehearsal-profile.json` or `v3-profile.json`, both covered by
-`SHA256SUMS`; the values are decided in `development/decisions/FRESH-NETWORK-CP.md`) and
-admits its genesis with `pocold init-testnet`, without `--test-placeholders`. The script
-fills only the ceremony inputs: the launch second, the founders' measured hash rate and the
-four founders' public addresses. Every other value, including the chain id (rehearsal
-1656550731, mainnet 2656089850, CP §5) and `registrationPerBlock` (equal to `R_max`, 4), is
+`Initialize-PoColNetwork.ps1` creates **PoCol Mainnet**, a public network launched without a
+separate rehearsal (`development/decisions/OWNER-DECISIONS-2026-11-20.md` D1), from a fresh
+genesis with fresh keys (D3). `-Network Mainnet` is the default. It fills the committed network
+profile shipped beside it (`v3-profile.json`, covered by `SHA256SUMS`; the values are decided in
+`development/decisions/FRESH-NETWORK-CP.md`) and admits its genesis with `pocold init-testnet`,
+without `--test-placeholders`. The script fills only the ceremony inputs: the launch second, the
+founders' measured hash rate and the four founders' public addresses. Every other value,
+including the chain id (2656089850, CP §5) and `registrationPerBlock` (equal to `R_max`, 4), is
 the committed profile's, and the script refuses a profile whose chain id is not the one of
-`-Network`.
+`-Network`. The rehearsal profile (`v3-rehearsal-profile.json`, chain 1656550731) stays in the
+package only as a devnet option for a test (`-Network Rehearsal`); it is not a launch step.
 
 The four founders are the three servers (founders 1-3, in the order given) and this PC
-(founder 4). Each generates a fresh key on its own device; only public addresses are
+(founder 4). The founder servers are `108.165.128.89`, `108.165.128.90` and `108.165.128.91`
+(D3), in that order; they are also the invitation's seeds. Each has 4 GB of RAM, a risk the
+owner accepted (D2): a node that passes about 3.5 GB is OOM-killed and restarts, and block
+production stops if all three restart at once; 8 GB is the recommended size. Each generates a fresh key on its own device; only public addresses are
 collected. Each founder is a HELD member from genesis with a 20 PCOL bond in Escrow. Founders
 1-3 are paid to owner-held reward addresses (owner decision 2026-11-16): the 999,980 PCOL
 allocation and every mining reward of each server founder go to an address the owner holds
@@ -104,18 +111,18 @@ Before the run:
 - This PC needs a fresh wallet home: if `%LOCALAPPDATA%\PoCol` exists, back up its key
   (`pocol.exe export-key --out FILE`), close PoCol and move the folder aside (never delete
   it). The script refuses to start otherwise.
-- Measure the founders' aggregate hash rate (the rehearsal's `networkHashrateEst` in
-  `pocold status` feeds the mainnet run), and choose the launch second, or a delay.
+- Measure the founders' aggregate hash rate: run `pocol hashrate` on each of the four founder
+  devices (the three servers and this PC) and pass the sum of the four rates, in H/s, as
+  `-HashesPerSecond`. Choose the launch second, or a delay.
 
 Download the CI artifacts of the pinned release commit and check them against that CI run's `SHA256SUMS`
 (integrity only: the ceremony runs before the identity switch, so there is no signed release yet; the first one,
 checked as in *Verify the download* below, follows the switch). Then extract
 `PoCol-Mainnet-0.5.0-windows-x86_64.zip` into a new directory. Review `Initialize-PoColNetwork.ps1`,
-open PowerShell inside that directory, and run (the addresses are placeholders for the
-servers' public IPv4 addresses):
+open PowerShell inside that directory, and run (`RATE` is the measured sum above):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Rehearsal -Servers SERVER1,SERVER2,SERVER3 -ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.5.0-linux-x86_64.tar.gz"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "& .\Initialize-PoColNetwork.ps1 -Network Mainnet -Servers 108.165.128.89,108.165.128.90,108.165.128.91 -ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3 -HashesPerSecond RATE -LaunchDelaySeconds 900 -LinuxArchive .\PoCol-Mainnet-0.5.0-linux-x86_64.tar.gz"
 ```
 
 `OWNER_ADDR1..3` are placeholders for three distinct owner-held addresses, one per server in
@@ -129,7 +136,7 @@ read twice from stdin) and check it, without writing any file, with
 missing, repeated, mixed-case, zero or system address before it contacts any server, and an
 address equal to a founder's miner identity. Each reward account starts at nonce 1 (PAY-02), so
 its first offline-signed transaction needs `pocol-sign --nonce 1` (pocol-sign defaults to 0).
-The rehearsal takes the same parameter (throwaway or separate addresses are fine there).
+The Rehearsal devnet option takes the same parameter (use throwaway addresses there).
 
 `-GenesisTime UNIX_SECONDS` replaces `-LaunchDelaySeconds` for an announced launch second; the
 genesis is created at least 300 seconds before it. A founder that starts more than `D_att`
@@ -152,17 +159,26 @@ loopback-only. Existing state and identities are never overwritten. On a partial
 retain the setup folder and the SAME genesis; do not blindly rerun or reset. The remote
 deployment path has not been exercised by CI.
 
-The genesis is admitted as an experimental network (below), and the script prints
-`publicLaunchReady: false` with every launch blocker verbatim; it refuses a genesis that is
-not in experimental-devnet scope or that comes from a non-release build.
+The mainnet genesis is admitted as the public network (D5): the network profile on a network
+node in scope `public-network`, never specification compliance, with the conditions and the
+owner waivers (R13, R21, R26) it reports; the Rehearsal devnet option and a dry run are admitted
+experimental (a Simnet profile in scope `experimental-devnet`). The script prints the admission,
+the identity fields, `publicLaunchApproved`, `publicLaunchReady`, every launch blocker and every
+technical-readiness item verbatim, as `pocold init-testnet` computed them. It refuses an
+admission other than the one of the genesis's chain, a genesis that reports itself approved or
+ready (no release pins a genesis created now: its blockers include `network-not-release-pinned`
+and `launch-not-approved`), a public admission whose conditions and waivers are not exactly the
+ones this release expects (`readiness.rs` `PUBLIC_MAINNET`), and a genesis from a non-release
+build. The launch is approved, and a node booted on the network reports it, once the identity-pin
+release pins this genesis with its approval reference (`deploy/mainnet/set_network_identity.py`).
 
 After the run, on PoCol-Wallet: mining is off by default. Choose **Settings → Device role →
 Wallet and miner**, turn mining on at once and keep it on (founder 4 mines from genesis).
 
-**Rehearsal, then mainnet.** The mainnet ceremony runs on the same servers and PC with the
-mainnet profile, after the rehearsal: re-provision the three servers (`install-linux.sh`
-refuses an existing installation), extract the package into a new directory, and move this
-PC's rehearsal home aside as above. Every founder key is then fresh for the mainnet.
+**The Rehearsal devnet option.** It is a test, never a launch step, and its keys are never
+reused: if it ever ran on these servers or this PC, re-provision the three servers
+(`install-linux.sh` refuses an existing installation), extract the package into a new directory,
+and move this PC's wallet home aside as above before the mainnet ceremony.
 
 Transfer the generated **network.pocol.json** to the phone. After the signing and
 update checks in the release guide (`deploy/release/README.md`), install the correctly signed ARM64 APK,
@@ -171,7 +187,7 @@ connect. Windows imports the adjacent shared file automatically; Settings also
 supports explicit import while disconnected. All devices use the same invitation.
 Publish the invitation fingerprint through a trusted channel, and sign the invitation with the release key
 (`deploy/release`); a checksum is not publisher authentication, the release signature is. The websites take their identity and the explorer's seed list
-from this invitation, in the repository (W15 for the rehearsal, W16 for the mainnet):
+from this invitation, in the repository (W16):
 `python3 deploy/websites/tools/site_identity.py --to network.pocol.json --commit RELEASE_COMMIT --gateway-host explorer.pocol.net`.
 On the gateway server, the explorer gateway and the explorer site at `explorer.pocol.net` (its static files, `/api`
 reads, `/rpc`) are installed from that commit by `deploy/explorer/install_explorer_gateway.py`
@@ -461,8 +477,7 @@ What this protects, and what it does not:
   earlier backup. On a fresh server, run the script before the first backup; full-disk encryption covers the
   rest. Older plaintext files left by key restores (`identity.pocol-key.replaced-*`) are listed, not removed.
 
-Recovery with an encrypted server key (these commands are documented, not yet run on the servers; the
-rehearsal exercises them):
+Recovery with an encrypted server key (these commands are documented and not yet run on any server):
 - The credential is bound to this machine. A reinstalled host, a new host secret, a cleared or replaced TPM2,
   or a move to another server cannot decrypt it. With `tpm2` or `host+tpm2`, the script keeps
   `systemd-creds`' default TPM2 policy. systemd-creds(1) documents that default as binding to PCR 7, the

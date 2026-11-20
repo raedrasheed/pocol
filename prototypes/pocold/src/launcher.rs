@@ -1008,7 +1008,8 @@ impl Home {
             },
         };
         let mut node = node::Node::open(cfg, spec)?;
-        eprintln!("PoCol experimental test currency. Existing admission, memory and lifetime limits apply.");
+        // The booted admission's identity, approval and readiness, computed (readiness::start_line), never a label.
+        eprintln!("{}", crate::readiness::start_line(node.chain.spec.admission()));
         node.start_network()?;
         node.run_controlled(|n| stop(n));
         node.checkpoint_now()?;

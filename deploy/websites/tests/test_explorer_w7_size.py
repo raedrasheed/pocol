@@ -75,7 +75,9 @@ def members_page():
 STATUS = {'chainId': (1 << 53) - 1, 'genesisHash': word('ff'), 'head': {'height': U64, 'hash': word('ff')}, 'pool': 100000,
           'lifetime': {'continuous': True}, 'protocolVersion': 99, 'compatibilitySha256': word('ff'), 'forkSchedule': [[1, '0'], [2, str(U64)], [3, str(U64)]],
           'effectiveNonceMode': 1, 'nextBlockNonceMode': 1, 'consensusCompatibilitySha256': word('ff'), 'networkName': 'x' * 64,
-          'networkEnvironment': 'x' * 64, 'peerCount': 128, 'stats': {'reorgs': U64, 'mined': U64, 'imported': U64}}
+          'networkEnvironment': 'x' * 64, 'peerCount': 128, 'stats': {'reorgs': U64, 'mined': U64, 'imported': U64},
+          # The readiness booleans the gateway relays (OWNER-DECISIONS-2026-11-20 D4), at their longest.
+          'publicLaunchApproved': False, 'publicLaunchReady': False, 'technicalReadiness': {'complete': False}}
 
 class StubGateway:
     """Gateway.charge and Gateway.call as the relay uses them, answering each call from `answer(method, params)`."""

@@ -3,12 +3,18 @@
 accepts, instead of building a spec-1 config.
 
 These are text checks of the script against the profiles (deploy/mainnet), testnet.rs's Config, readiness.rs's
-blocker ids, install-linux.sh and FRESH-NETWORK-CP.md, so they run on any host. The script itself runs, with the real
-pocold, in test_initialize_network.ps1 (its -DryRun into a temporary package, then the refusals) on the Windows job of
+blocker ids and expected admissions, the profile code's public network chains, install-linux.sh and FRESH-NETWORK-CP.md,
+so they run on any host. RealRunExpectations also admits a ceremony-filled profile with this tree's release pocold
+(POCOLD_BIN_DIR, default prototypes/pocold/target/release, as test_launcher.py) and checks the script's real-run
+expectations against its summary, since a real run needs the servers. The script itself runs, with the real pocold, in
+test_initialize_network.ps1 (its -DryRun into a temporary package, then the refusals) on the Windows job of
 five-device-build.yml.
 """
 import json
+import os
 import re
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -19,6 +25,9 @@ MAINNET = ROOT / 'deploy/mainnet'
 TESTNET = (ROOT / 'prototypes/pocold/src/testnet.rs').read_text(encoding='utf-8')
 READINESS = (ROOT / 'prototypes/pocold/src/readiness.rs').read_text(encoding='utf-8')
 RECORD = (ROOT / 'development/decisions/FRESH-NETWORK-CP.md').read_text(encoding='utf-8')
+PROFILE_CODE = (ROOT / 'prototypes/lp4-execution/src/p1_profile.rs').read_text(encoding='utf-8')
+BIN = Path(os.environ.get('POCOLD_BIN_DIR', ROOT / 'prototypes/pocold/target/release'))
+EXE = '.exe' if os.name == 'nt' else ''
 
 
 def placeholders(value, path=''):
@@ -42,6 +51,29 @@ def ps_list(name):
     body = re.search(r'^\$' + name + r' = @\((.*?)\)$', SCRIPT, re.M | re.S)
     assert body, name
     return re.findall(r"'([^']*)'", body.group(1))
+
+
+def ps_chains(name):
+    """The chain ids of a `$Name = @([uint64]N, ...)` list in the script."""
+    body = re.search(r'^\$' + name + r' = @\((.*?)\)$', SCRIPT, re.M | re.S)
+    assert body, name
+    return [int(n) for n in re.findall(r'\[uint64\](\d+)', body.group(1))]
+
+
+def public_network_chains():
+    """PUBLIC_NETWORK_CHAINS of the profile code (R22)."""
+    lists = re.findall(r'^pub const PUBLIC_NETWORK_CHAINS: &\[u64\] = &\[([0-9, ]*)\];$', PROFILE_CODE, re.M)
+    assert len(lists) == 1, lists
+    return [int(n) for n in lists[0].replace(' ', '').split(',') if n]
+
+
+def public_mainnet_items():
+    """readiness.rs ExpectedAdmission::PUBLIC_MAINNET as technical-readiness ids: each condition, then each waiver."""
+    m = re.search(r'pub const PUBLIC_MAINNET:Self=Self\{scope:Scope::PublicNetwork,\s*conditions:&\[(.*?)\],\s*waivers:&\[(.*?)\],'
+                  r'profile_kind:ProfileKind::Network,node_kind:NodeKind::Node\};', READINESS, re.S)
+    assert m, 'PUBLIC_MAINNET'
+    return ([f'admission-condition-{c}' for c in re.findall(r'"([^"]+)"', m.group(1))]
+            + [f'admission-waiver-{w}' for w in re.findall(r'"([^"]+)"', m.group(2))])
 
 
 def networks():
@@ -82,7 +114,9 @@ class InitializeNetwork(unittest.TestCase):
     def test_the_networks_are_the_committed_profiles_with_the_cp_section_5_ids(self):
         table = networks()
         self.assertEqual(set(table), {'Rehearsal', 'Mainnet'})
-        self.assertIn("[ValidateSet('Rehearsal','Mainnet')][string]$Network", SCRIPT)
+        # OWNER-DECISIONS-2026-11-20 D1: Mainnet is the default; Rehearsal stays a devnet option.
+        self.assertIn("    [ValidateSet('Rehearsal','Mainnet')][string]$Network = 'Mainnet',", SCRIPT)
+        self.assertNotIn("Mandatory=$true)][ValidateSet('Rehearsal','Mainnet')]", SCRIPT)
         self.assertEqual(table['Rehearsal'][:2], ('v3-rehearsal-profile.json', 1656550731))
         self.assertEqual(table['Mainnet'], ('v3-profile.json', 2656089850, 'PoCol Mainnet'))
         for name, (profile, chain_id, _) in table.items():
@@ -205,18 +239,56 @@ class InitializeNetwork(unittest.TestCase):
 
     def test_the_readiness_summary_is_parsed_checked_and_printed(self):
         self.assertIn('$Admitted = $Summary | ConvertFrom-Json', SCRIPT)
-        self.assertIn("$Admitted.scope -cne 'experimental-devnet'", SCRIPT)
-        self.assertIn('$Admitted.publicLaunchReady', SCRIPT)
+        # OWNER-DECISIONS-2026-11-20 D5: the admission is checked against the genesis's chain, both ways.
+        self.assertIn('$IsPublic = $PublicNetworkChains -contains [uint64]$Admitted.chainId', SCRIPT)
+        self.assertIn("if ($Admitted.scope -cne 'public-network' -or $Admitted.profileKind -cne 'network' -or $Admitted.nodeKind -cne 'node') {", SCRIPT)
+        self.assertIn("} elseif ($Admitted.scope -cne 'experimental-devnet' -or $Admitted.profileKind -cne 'simnet' -or $Admitted.nodeKind -cne 'simnet') {", SCRIPT)
+        self.assertIn('if ($Admitted.specificationCompliant -isnot [bool] -or $Admitted.specificationCompliant) { throw', SCRIPT)
+        self.assertIn('if ($Admitted.publicLaunchApproved -isnot [bool] -or $Admitted.publicLaunchApproved -or $Admitted.publicLaunchReady -isnot [bool] -or $Admitted.publicLaunchReady) {', SCRIPT)
         self.assertIn('foreach ($Blocker in $Blockers) { Write-Host "  $($Blocker.id): $($Blocker.detail)" }', SCRIPT)
         self.assertIn('foreach ($Item in $Pending) { Write-Host "  $($Item.id): $($Item.detail)" }', SCRIPT)
+        self.assertIn('Write-Host "Public launch approved: $($Admitted.publicLaunchApproved). Public launch ready: $($Admitted.publicLaunchReady). Launch blockers, verbatim:"', SCRIPT)
         self.assertNotIn("Write-Host 'Public launch ready: false", SCRIPT, 'the computed values are printed, not a literal')
-        # OWNER-DECISIONS-2026-11-20 D4: the experimental admission's items are technical readiness, not launch blockers.
+        for literal in ('Experimental admission', 'ExperimentalDevnet scope', 'not public-launch-ready'):
+            self.assertNotIn(literal, SCRIPT, 'no literal admission or readiness claim (D6 D)')
+        # OWNER-DECISIONS-2026-11-20 D4: the admission's items are technical readiness, not launch blockers.
         self.assertIn('$Admitted.technicalReadiness.pending', SCRIPT)
-        required, refused = ps_list('RequiredPending'), ps_list('RefusedBlockers')
-        self.assertEqual(required, ['admission-scope', 'profile-kind'])
-        for blocker in required + refused:
+        required, refused = ps_list('RequiredBlockers'), ps_list('RefusedBlockers')
+        self.assertEqual(required, ['network-not-release-pinned', 'launch-not-approved'])
+        self.assertEqual(refused, ['consensus-unpinned', 'test-features', 'spec-version', 'v3-inactive', 'v3-launch-blocker'])
+        experimental, public = ps_list('ExperimentalPending'), ps_list('PublicPending')
+        self.assertEqual(experimental, ['admission-scope', 'profile-kind'])
+        self.assertEqual(public, ['admission-scope'])
+        for blocker in required + refused + experimental + public:
             self.assertIn(f'blocker("{blocker}"', READINESS, 'a blocker id readiness.rs reports')
+        # Exactly PUBLIC_MAINNET's conditions and waivers, in its order, compared as a list.
+        self.assertEqual(ps_list('PublicAdmissionItems'), public_mainnet_items())
+        self.assertIn("if (($Items -join ',') -cne ($PublicAdmissionItems -join ',')) {", SCRIPT)
+        self.assertIn("if ($PendingIds -ccontains 'profile-kind') { throw", SCRIPT)
         self.assertIn('### Launch disclosures (DRAFT: wording for owner review)', (HERE / 'README.md').read_text(encoding='utf-8'))
+
+    def test_the_public_network_chains_are_the_profile_codes_and_the_mainnets(self):
+        mainnet = json.loads((MAINNET / 'v3-profile.json').read_text(encoding='utf-8'))['chainId']
+        self.assertEqual(ps_chains('PublicNetworkChains'), public_network_chains())
+        self.assertEqual(public_network_chains(), [mainnet])
+        self.assertEqual(networks()['Mainnet'][1], mainnet)
+        self.assertNotIn(networks()['Rehearsal'][1], ps_chains('PublicNetworkChains'), 'the rehearsal is a devnet option')
+        self.assertNotIn(int(re.search(r'^\$TestChainId = \[uint64\](\d+)$', SCRIPT, re.M).group(1)), ps_chains('PublicNetworkChains'))
+
+    def test_the_runbook_is_the_mainnet_ceremony_on_the_three_founder_servers(self):
+        # OWNER-DECISIONS-2026-11-20 D1 and D3: the README's ceremony runs Mainnet on the three servers (also the seeds);
+        # Rehearsal is only a devnet option; the hash rate is measured on the four founder devices.
+        readme = (HERE / 'README.md').read_text(encoding='utf-8')
+        commands = re.findall(r'^powershell .*Initialize-PoColNetwork\.ps1 .*$', readme, re.M)
+        self.assertEqual(len(commands), 1, commands)
+        self.assertIn('-Network Mainnet -Servers 108.165.128.89,108.165.128.90,108.165.128.91 ', commands[0])
+        self.assertIn('-ServerRewardAddresses OWNER_ADDR1,OWNER_ADDR2,OWNER_ADDR3', commands[0])
+        self.assertNotIn('-Network Rehearsal -Servers', readme)
+        self.assertIn('`pocol hashrate` on each of the four founder', readme)
+        self.assertNotIn('networkHashrateEst', readme)
+        for gone in ('first the **rehearsal**', '**Rehearsal, then mainnet.**', 'experimental admission\nconditions',
+                     'admitted as an experimental network', 'not in experimental-devnet scope'):
+            self.assertNotIn(gone, readme)
 
     def test_the_scripts_are_ascii(self):
         # Windows PowerShell 5.1 reads a script without a byte-order mark in the ANSI code page.
@@ -268,6 +340,65 @@ class InitializeNetwork(unittest.TestCase):
         retired = {e['chainId'] for e in json.loads((MAINNET / 'retired-networks.json').read_text(encoding='utf-8'))['retired']}
         for gone in [str(c) for c in retired | {261597237}] + ['60,480', 'cutover', 'Probation seats']:
             self.assertNotIn(gone, readme)
+
+
+class RealRunExpectations(unittest.TestCase):
+    """A real run's checks (no test flag, the profile's own chain id) need the servers, so they run here against a real
+    pocold init-testnet of each committed profile filled the way the script fills it (throwaway addresses, a temp dir
+    only, never a launch genesis): the summary must pass exactly the checks the script makes."""
+
+    def admit(self, profile):
+        founders = [f'0x{i:040x}' for i in (0xa1, 0xa2, 0xa3, 0xa4)]
+        rewards = [f'0x{i:040x}' for i in (0xb1, 0xb2, 0xb3)] + founders[3:]
+        values = {'/genesisTime': '1900000000', '/hashRate/hashesPerSecond': '1000000',
+                  **{f'/founders/{i}/id': f'"{founders[i]}"' for i in range(4)},
+                  **{f'/founders/{i}/reward': f'"{rewards[i]}"' for i in range(4)}}
+        with tempfile.TemporaryDirectory(prefix='pocol-fn7-real-') as tmp:
+            config = Path(tmp) / profile
+            config.write_text(fill((MAINNET / profile).read_text(encoding='utf-8'), values), encoding='utf-8')
+            p = subprocess.run([str(BIN / ('pocold' + EXE)), 'init-testnet', '--config', str(config), '--out', str(Path(tmp) / 'genesis')],
+                               capture_output=True, text=True, encoding='utf-8', timeout=600)
+            self.assertEqual(p.returncode, 0, p.stderr)
+            return json.loads(p.stdout)
+
+    def check_common(self, summary, chain_id):
+        self.assertNotIn('testPlaceholders', summary)
+        self.assertEqual(summary['chainId'], chain_id)
+        self.assertIs(summary['specificationCompliant'], False)
+        self.assertIs(summary['publicLaunchApproved'], False)
+        self.assertIs(summary['publicLaunchReady'], False)
+        ids = [b['id'] for b in summary['launchBlockers']]
+        for required in ps_list('RequiredBlockers'):
+            self.assertIn(required, ids)
+        for refused in ps_list('RefusedBlockers'):
+            self.assertNotIn(refused, ids, 'a release build: the script refuses a genesis with this blocker')
+        self.assertIs(summary['technicalReadiness']['complete'], False)
+        return [b['id'] for b in summary['technicalReadiness']['pending']]
+
+    def test_the_mainnet_real_run_meets_the_public_network_expectation(self):
+        chain_id = networks()['Mainnet'][1]
+        self.assertIn(chain_id, ps_chains('PublicNetworkChains'))
+        summary = self.admit('v3-profile.json')
+        pending = self.check_common(summary, chain_id)
+        self.assertEqual((summary['scope'], summary['profileKind'], summary['nodeKind']), ('public-network', 'network', 'node'))
+        for item in ps_list('PublicPending'):
+            self.assertIn(item, pending)
+        self.assertNotIn('profile-kind', pending)
+        self.assertEqual([i for i in pending if re.match(r'admission-(condition|waiver)-', i)], ps_list('PublicAdmissionItems'))
+        # The identity fields the script prints: the facts', before any pin.
+        self.assertEqual((summary['networkEnvironment'], summary['networkScope']), ('mainnet', 'public-network'))
+        self.assertNotIn('networkName', summary)
+        self.assertIsNone(summary['launchApprovalReference'])
+
+    def test_the_rehearsal_devnet_option_meets_the_experimental_expectation(self):
+        chain_id = networks()['Rehearsal'][1]
+        self.assertNotIn(chain_id, ps_chains('PublicNetworkChains'))
+        summary = self.admit('v3-rehearsal-profile.json')
+        pending = self.check_common(summary, chain_id)
+        self.assertEqual((summary['scope'], summary['profileKind'], summary['nodeKind']), ('experimental-devnet', 'simnet', 'simnet'))
+        for item in ps_list('ExperimentalPending'):
+            self.assertIn(item, pending)
+        self.assertEqual((summary['networkEnvironment'], summary['networkScope']), ('devnet', 'experimental-devnet'))
 
 
 if __name__ == '__main__':

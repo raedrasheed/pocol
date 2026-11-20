@@ -58,11 +58,13 @@ function New-RewardAddresses {
 }
 
 try {
-    foreach ($Run in @(@('Rehearsal', $true), @('Mainnet', $true), @('Mainnet', $false))) {
-        $Network = $Run[0]; $GiveRewards = $Run[1]
+    # The last run gives no -Network: Mainnet is the default (OWNER-DECISIONS-2026-11-20 D1).
+    foreach ($Run in @(@('Rehearsal', $true, $true), @('Mainnet', $true, $true), @('Mainnet', $false, $true), @('Mainnet', $true, $false))) {
+        $Network = $Run[0]; $GiveRewards = $Run[1]; $Named = $Run[2]
         $ProfileName = $Profiles[$Network][0]; $ChainId = [uint64]$Profiles[$Network][1]
         $Dir = New-Package
         $Arguments = Base $Network
+        if (!$Named) { $Arguments.Remove('Network') }
         $Given = @()
         if ($GiveRewards) { $Given = New-RewardAddresses; $Arguments.ServerRewardAddresses = $Given }
         Invoke-DryRun $Dir $Arguments | Out-Host
@@ -72,10 +74,13 @@ try {
         Assert (!(Test-Path -LiteralPath (Join-Path $Dir 'network.pocol.json'))) "$Network dry run publishes no invitation beside the package"
         $Summary = [IO.File]::ReadAllText((Join-Path $Work 'init-testnet-summary.json')) | ConvertFrom-Json
         Assert ($Summary.testPlaceholders -eq $true -and [uint64]$Summary.chainId -eq 777990 -and [uint64]$Summary.profileChainId -eq $ChainId) "$Network dry run is a test genesis on the local test id, from the $ChainId profile"
+        # A dry run is a test genesis on the local test chain, so its admission is the experimental one (D5: only a
+        # public network chain gets public-network), whatever the profile.
         Assert ($Summary.scope -ceq 'experimental-devnet' -and $Summary.publicLaunchReady -eq $false) "$Network admission is experimental and not public-launch-ready"
+        Assert ($Summary.specificationCompliant -eq $false -and $Summary.profileKind -ceq 'simnet' -and $Summary.nodeKind -ceq 'simnet' -and $Summary.networkEnvironment -ceq 'test') "$Network dry run admission kinds and environment"
         $Ids = @($Summary.launchBlockers | ForEach-Object { $_.id })
         $PendingIds = @($Summary.technicalReadiness.pending | ForEach-Object { $_.id })
-        Assert ($Summary.publicLaunchApproved -eq $false -and ($Ids -ccontains 'launch-not-approved') -and !($Ids -ccontains 'consensus-unpinned')) "$Network launch blockers"
+        Assert ($Summary.publicLaunchApproved -eq $false -and ($Ids -ccontains 'launch-not-approved') -and ($Ids -ccontains 'network-not-release-pinned') -and !($Ids -ccontains 'consensus-unpinned') -and !($Ids -ccontains 'v3-launch-blocker')) "$Network launch blockers"
         Assert (($PendingIds -ccontains 'admission-scope') -and ($PendingIds -ccontains 'profile-kind')) "$Network technical readiness"
         $Source = [IO.File]::ReadAllText((Join-Path $Root "deploy\mainnet\$ProfileName")) | ConvertFrom-Json
         $Config = [IO.File]::ReadAllText((Join-Path $Work $ProfileName)) | ConvertFrom-Json

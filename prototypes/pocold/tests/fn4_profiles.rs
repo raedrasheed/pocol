@@ -247,6 +247,7 @@ fn a_ceremony_filled_mainnet_genesis_boots_as_the_public_network_with_every_cond
     assert!(o.status.success(),"{}",String::from_utf8_lossy(&o.stderr));
     let summary:serde_json::Value=serde_json::from_slice(&o.stdout).unwrap();
     assert_eq!((summary["scope"].as_str(),summary["profileKind"].as_str(),summary["nodeKind"].as_str()),(Some("public-network"),Some("network"),Some("node")));
+    assert_eq!(summary["specificationCompliant"],false,"the ceremony script checks it: never specification compliance");
     assert_eq!(summary["chainId"],MAINNET_CHAIN_ID);
     // OWNER-DECISIONS-2026-11-20 D4: the ceremony's genesis is not pinned by this release yet, so it is not approved:
     // exactly the pin and the approval are missing; its technical readiness lists the open gates and the admission's
@@ -301,6 +302,9 @@ fn a_ceremony_filled_mainnet_genesis_boots_as_the_public_network_with_every_cond
     // A booted node reports what init-testnet reported for the same build and genesis.
     let mut status=serde_json::json!({});pocold::readiness::annotate(&mut status,&pocold::readiness::of_admitted(a));
     for (k,v) in status.as_object().unwrap(){assert_eq!(&summary[k],v,"{k}")}
+    // `pocol start` prints the same computed values, and the mainnet chain's PCOL is not a test currency.
+    assert!(!pocold::readiness::test_currency(MAINNET_CHAIN_ID));
+    assert_eq!(pocold::readiness::start_line(a),format!("PoCol node booted: network, chain {MAINNET_CHAIN_ID}, environment mainnet, admission scope public-network (specification compliant: false); publicLaunchApproved false, publicLaunchReady false, technical readiness complete false ({} pending); currency PCOL. pocol_status lists every launch blocker and pending item. Admission, memory and lifetime limits apply.",want.len()));
 }
 
 /// OWNER-DECISIONS-2026-11-20 D6 B, end to end on a test-only pin: a ceremony-filled genesis on the mainnet chain (public

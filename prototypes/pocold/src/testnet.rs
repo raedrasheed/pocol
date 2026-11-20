@@ -698,7 +698,7 @@ fn build(config: &[u8], out: &Path, test: Option<&TestPlaceholders>) -> Result<(
         std::fs::write(out.join(name), contents).map_err(|e| format!("write {name}: {e}"))?;
     }
     let mut summary = serde_json::json!({"chainId":cfg.chain_id,"genesisHash":crate::types::hex(&profile.genesis_hash()),
-        "scope":admitted.scope().name(),"profileKind":format!("{:?}",admitted.profile().kind()).to_ascii_lowercase(),
+        "scope":admitted.scope().name(),"specificationCompliant":admitted.specification_compliant(),"profileKind":format!("{:?}",admitted.profile().kind()).to_ascii_lowercase(),
         "nodeKind":format!("{:?}",admitted.profile().node_kind()).to_ascii_lowercase()});
     if test_filled {
         summary["testPlaceholders"] = serde_json::json!(true);

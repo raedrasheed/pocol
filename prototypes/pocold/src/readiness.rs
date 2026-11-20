@@ -244,6 +244,19 @@ pub enum Subject<'a>{Build,Network(&'a Network),Unreadable(String)}
 pub fn network_environment(chain_id:u64)->&'static str{
     if PUBLIC_NETWORK_CHAINS.contains(&chain_id){"mainnet"}else if chain_id==crate::testnet::TEST_CHAIN_ID{"test"}else{"devnet"}
 }
+/// The wallet's `testCurrency`: whether the chain's PCOL is a test currency. It is not on a public network chain
+/// (`profile::PUBLIC_NETWORK_CHAINS`, the mainnet's), whatever its pin or approval; it is on every other chain (the
+/// rehearsal, the local test chain, a devnet). A label of the chain, never of launch approval or readiness.
+pub fn test_currency(chain_id:u64)->bool{!PUBLIC_NETWORK_CHAINS.contains(&chain_id)}
+/// The line `pocol start` prints once its node has booted: the network's identity fields and its approval and readiness
+/// as this build computes them for the admission the node booted with (`of_admitted`), and whether its currency is a
+/// test currency. Every value is computed; pocol_status carries the reasons.
+pub fn start_line(a:&Admitted)->String{
+    let r=of_admitted(a);let chain=a.profile().spec().chain_id;
+    format!("PoCol node booted: {}, chain {chain}, environment {}, admission scope {} (specification compliant: {}); publicLaunchApproved {}, publicLaunchReady {}, technical readiness complete {} ({} pending); currency PCOL{}. pocol_status lists every launch blocker and pending item. Admission, memory and lifetime limits apply.",
+        r.network_name.unwrap_or("network"),r.network_environment.unwrap_or("unknown"),r.network_scope.as_deref().unwrap_or("none"),
+        a.specification_compliant(),r.approved,r.ready(),r.technically_complete(),r.pending.len(),if test_currency(chain){" (test currency)"}else{""})
+}
 /// The public network's display name: the name the ceremony script, the packages and `network_display` give the network
 /// of deploy/mainnet/v3-profile.json.
 pub const PUBLIC_MAINNET_NAME:&str="PoCol Mainnet";
@@ -655,6 +668,21 @@ mod tests{
         assert_eq!(pending,admission_pending(&facts));
         assert_eq!((got.network_name,got.network_environment,got.network_scope.as_deref()),(None,Some("devnet"),Some("experimental-devnet")));
         assert!(n.v3_active);
+        // `pocol start`'s line is these computed values, and the devnet's PCOL is a test currency.
+        assert_eq!(start_line(&a),format!("PoCol node booted: network, chain 777942, environment devnet, admission scope experimental-devnet (specification compliant: false); publicLaunchApproved false, publicLaunchReady false, technical readiness complete false ({} pending); currency PCOL (test currency). pocol_status lists every launch blocker and pending item. Admission, memory and lifetime limits apply.",got.pending.len()));
+    }
+    /// The wallet's `testCurrency` is false exactly on the public network chains (the mainnet's, whatever its pin), and
+    /// true on the rehearsal chain, the local test chain, 777001 (an R22 network chain that is not a public one), every
+    /// retired network and a devnet.
+    #[test]
+    fn the_currency_is_a_test_currency_off_the_public_network_chains(){
+        assert_eq!(PUBLIC_NETWORK_CHAINS,[2656089850]);
+        for &chain in PUBLIC_NETWORK_CHAINS{assert!(!test_currency(chain),"{chain}")}
+        let retired=include_str!("../../../deploy/mainnet/retired-networks.json");
+        let retired:serde_json::Value=serde_json::from_str(retired).unwrap();
+        let mut others=vec![1656550731,crate::testnet::TEST_CHAIN_ID,777001,777942,1];
+        others.extend(retired["retired"].as_array().unwrap().iter().map(|e|e["chainId"].as_u64().unwrap()));
+        for chain in others{assert!(test_currency(chain),"{chain}")}
     }
     /// The entry forms set_network_identity.py writes into NETWORK_PROFILES compile and decode to the hash they name: on
     /// a public network chain the public network's admission with the approval reference, on any other chain the

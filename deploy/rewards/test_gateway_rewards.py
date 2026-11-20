@@ -148,6 +148,27 @@ class GatewayRewardTests(unittest.TestCase):
             self.assertNotIn('localPaths', result)
             self.assertNotIn('environment', result)
 
+    def test_status_relays_the_readiness_booleans_only(self):
+        # OWNER-DECISIONS-2026-11-20 D4: publicLaunchApproved, publicLaunchReady and technicalReadiness.complete pass as
+        # the booleans the node computed (left out otherwise); the blockers, the pending items, their details and the
+        # reference do not, and pocol_getParams relays none of them.
+        status = {'chainId': NET['chainId'], 'publicLaunchApproved': True, 'publicLaunchReady': False,
+                  'launchApprovalReference': 'OWNER-DECISIONS-2026-11-20 D1', 'launchBlockers': [{'id': 'admission-mismatch', 'detail': 'peer x'}],
+                  'technicalReadiness': {'complete': False, 'pending': [{'id': 'plan-gate-K1', 'detail': 'private'}]}}
+        result = gateway.sanitize('pocol_status', status)
+        self.assertEqual((result['publicLaunchApproved'], result['publicLaunchReady'], result['technicalReadiness']), (True, False, {'complete': False}))
+        for gone in ('launchApprovalReference', 'launchBlockers'):
+            self.assertNotIn(gone, result)
+        params = gateway.sanitize('pocol_getParams', status)
+        for gone in ('publicLaunchApproved', 'publicLaunchReady', 'technicalReadiness', 'launchBlockers'):
+            self.assertNotIn(gone, params)
+        for bad in ('true', 1, None, [True], {'complete': True}):
+            result = gateway.sanitize('pocol_status', {'chainId': NET['chainId'], 'publicLaunchApproved': bad, 'publicLaunchReady': bad, 'technicalReadiness': {'complete': bad}})
+            for gone in ('publicLaunchApproved', 'publicLaunchReady', 'technicalReadiness'):
+                self.assertNotIn(gone, result, bad)
+        result = gateway.sanitize('pocol_status', {'chainId': NET['chainId'], 'technicalReadiness': [True]})
+        self.assertNotIn('technicalReadiness', result)
+
     def test_a_scheduled_cap_raise_passes_the_params_sanitizer_and_is_absent_without_one(self):
         # FN-5: pocol_getParams `capRaise` beside forkSchedule, so wallets and the reward check see the activated schedule.
         raise_ = {'ACCT_CAP': 90000, 'SLOT_CAP': 90000, 'CODE_CAP': 4194304, 'SYS_SLOT_MAX': 70000, 'height': 200}
