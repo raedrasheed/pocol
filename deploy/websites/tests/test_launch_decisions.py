@@ -334,6 +334,45 @@ class LaunchTexts(unittest.TestCase):
             for what, rx in self.CLAIMS.items():
                 self.assertNotRegex(sample, rx, what)
 
+    def test_the_guide_cites_no_superseded_launch_text(self):
+        # "Repository links pin the source revision they cite": each repository source the guide renders is read at its
+        # pinned revision and anchor (git show; websites.yml keeps the history). Outside the decision records, the
+        # cited text has no superseded launch claim (CLAIMS); a decision record keeps its text, so the cited lines of one
+        # that does carry the owner's superseded note of 2026-11-20. The status page's README source is the "Current
+        # status and limits" section.
+        import subprocess
+        if subprocess.run(['git', '-C', str(ROOT), 'rev-parse', '--git-dir'], capture_output=True).returncode != 0:
+            self.skipTest('not a git checkout: the pinned revisions cannot be read')
+        guide = json.loads((MAIN / 'guide-content.js').read_text(encoding='utf-8')[len('window.POCOL_GUIDE = '):].rstrip().rstrip(';'))
+        checked = 0
+        for topic in guide['topics']:
+            for source in topic['sources']:
+                if 'url' in source:
+                    continue
+                ref = source.get('ref', guide['sha'])
+                shown = subprocess.run(['git', '-C', str(ROOT), 'show', f"{ref}:{source['path']}"], capture_output=True)
+                self.assertEqual(shown.returncode, 0, f"{topic['id']}: {source['path']} at {ref} is not in this checkout "
+                                                      f"(fetch the history): {shown.stderr.decode(errors='replace')}")
+                text = shown.stdout.decode('utf-8')
+                if source.get('anchor'):
+                    m = re.fullmatch(r'L(\d+)(?:-L(\d+))?', source['anchor'])
+                    lines = text.splitlines()
+                    lo, hi = int(m.group(1)), int(m.group(2) or m.group(1))
+                    self.assertLessEqual(hi, len(lines), (topic['id'], source['path'], source['anchor']))
+                    text = '\n'.join(lines[lo - 1:hi])
+                hits = [what for what, rx in self.CLAIMS.items() if rx.search(text)]
+                where = (topic['id'], source['path'], source.get('anchor'), ref[:7], hits)
+                if source['path'].startswith('development/decisions/'):
+                    if hits:
+                        self.assertIn('Superseded by owner decision 2026-11-20', text, where)
+                else:
+                    self.assertEqual(hits, [], where)
+                if topic['id'] == 'status' and source['path'] == 'README.md' and source['label']['en'] == 'Current status and limits':
+                    self.assertTrue(text.startswith('## Current status and limits\n'), where)
+                    self.assertIn('public-network', text, where)
+                checked += 1
+        self.assertGreater(checked, 30)
+
     def test_the_patterns_find_the_removed_texts(self):
         # Each pattern finds the text it was written for, so a silent pattern cannot pass.
         for what, sample in (
