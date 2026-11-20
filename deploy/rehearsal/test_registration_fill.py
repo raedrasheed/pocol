@@ -285,8 +285,8 @@ class FakeNode:
     """A one-node chain with the v3 registry's user-path rules that the harness meets: R_max and REG_OPS per block,
     Capacity at M_max, registerReplacing on a removable victim (Theta_inact), deregister, removeInactive only at a full
     set, and the refund sweep at dueHeight. Reverted transactions are included and pay their fee. Like pocold, it answers
-    eth_getTransactionByHash and receipts only for canonical blocks (never for the pool), and the nonce at 'pending'
-    counts the pool. reorg() replaces the head block with another at the same height. Like pocold's pool (node.rs
+    eth_getTransactionByHash and receipts only for canonical blocks (never for the pool), and the nonce and balance at 'pending'
+    count the pool. reorg() replaces the head block with another at the same height. Like pocold's pool (node.rs
     admit_tx, park, replace): a transaction `park` selects is held outside the pending layer for `park_blocks` blocks and
     answered with POOL_PARKED; a resent pooled one is answered with its hash, a resent parked one with POOL_PARKED; another
     one at a held nonce is an underpriced replacement (pocol-sign's tip is fixed); a max fee below the base fee is
@@ -318,6 +318,23 @@ class FakeNode:
 
     def pending_nonce(self, a):
         return self.acct(a)['nonce'] + sum(1 for t in self.pool if t['from'] == a)
+
+    @staticmethod
+    def gas_used(t):
+        sel = SEL.get(t['data'][2:10]) if t['to'] == REG else None
+        return 21000 if t['to'] != REG else 174_450 if sel and sel.startswith('register') else 60_000
+
+    def pending_balance(self, a):
+        """The balance at 'pending': read on the pool's pending layer over the head, as pocold's state_for (rpc.rs) reads
+        it, so a pooled transaction's value and fee are already spent by its sender and its value already held by its
+        recipient (a parked one, outside the pending layer, is not)."""
+        b = self.acct(a)['balance']
+        for t in self.pool:
+            if t['from'] == a:
+                b -= t['value'] + self.gas_used(t) * self.base
+            if t['to'] == a:
+                b += t['value']
+        return b
 
     def removal(self, reg, victim, height):
         r = reg['records'].get(victim)
@@ -459,7 +476,7 @@ class FakeNode:
             return {'hash': b['hash'], 'parentHash': b['parent'], 'number': hex(n), 'timestamp': hex(b['ts']), 'transactions': txs,
                     'pocol': {'attempt': 0, 'signed': True}}
         if method == 'eth_getBalance':
-            return hex(self.acct(p[0])['balance'])
+            return hex(self.pending_balance(p[0]) if p[1] == 'pending' else self.acct(p[0])['balance'])
         if method == 'eth_getTransactionCount':
             return hex(self.pending_nonce(p[0]) if p[1] == 'pending' else self.acct(p[0])['nonce'])
         if method == 'eth_getTransactionReceipt':
@@ -1555,6 +1572,214 @@ class Loop(unittest.TestCase):
         result = self.harness('m3').run_m3()
         self.assertNotIn('resumedAt', result)
         self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+
+    # ---- review round 6: a resumed fill's pooled funding, a saved M3 drill whose blocks are orphaned
+
+    def test_a_fill_stopped_with_its_funding_pooled_charges_it_once(self):
+        # Eight identities, funded four at a time; the operator holds exactly the plan's total. The fill stops while its
+        # first funding batch is still pooled: the operator's balance at 'pending' has already paid it (pocold reads
+        # 'pending' on the pool's layer), so the resumed plan must not charge the operator for it again.
+        self.cp['M_max'] = 64
+        dry = self.harness('fill', '--count', '8', '--fund-batch', '4', '--dry-run').run_fill()['plan']
+        self.node.accounts[self.op]['balance'] = dry['operatorTotalWei']
+        h = self.harness('fill', '--count', '8', '--fund-batch', '4')
+        real = self.node.mine
+
+        def interrupt(*a):
+            if any(t['from'] == self.op for t in self.node.pool):
+                h.stopping = True   # the batch is pooled, none of it included
+                return
+            real()
+        h.sleep = interrupt
+        h.run_fill()
+        self.assertEqual(sum(1 for t in self.node.pool if t['from'] == self.op), 4)
+        self.assertTrue(all(i['fundedWei'] == 0 for i in h.state['identities']), 'not included yet')
+        h2 = self.harness('fill', '--count', '8', '--fund-batch', '4')
+        report = h2.run_fill()
+        self.assertEqual(report['registered'], 8, report['failuresByReason'])
+        self.assertLess(report['plan']['operatorRemainingWei'], dry['operatorTotalWei'])
+        self.assertEqual(sum(1 for b in self.node.blocks.values() for t in b['txs'] if t['from'] == self.op), 8,
+                         'one transfer per identity: the pooled batch was not sent again')
+
+    def m3_stopped_at_refill(self):
+        """A fill to the full set, then an m3 stopped once its removeInactive check is saved (phase refill)."""
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+
+        def mine(*a):
+            real()
+            if (h.state.get('m3Run') or {}).get('phase') == 'refill':
+                h.stopping = True
+        h.sleep = mine
+        with self.assertRaises(rf.Stopped):
+            h.run_m3()
+        h.save()
+        return h
+
+    def tx_of(self, h, i, kind):
+        return next(a['tx'] for a in reversed(h.state['identities'][i]['attempts']) if a['kind'] == kind and a.get('tx'))
+
+    def test_m3_resumed_after_its_remove_inactive_was_orphaned_recomputes_the_check(self):
+        # The drill stopped after its removeInactive check (reverted below a full set). The removeInactive's block is
+        # orphaned while it is stopped; in the new block another registrant takes the free seat first, so the replayed
+        # removeInactive runs at a full set and succeeds. The resumed drill reports what the canonical receipt shows,
+        # never the reverted status and height of the orphaned block.
+        h = self.m3_stopped_at_refill()
+        saved = h.state['m3Run']['result']['checks']['removeInactiveBelowFullSet']
+        self.assertEqual((saved['status'], saved['pass']), (0, True))
+        rm = self.tx_of(h, h.state['m3Run']['remover'], 'removeInactive')
+        at = self.node.included[rm][0]
+        self.node.external = 1
+        self.node.reorg(depth=self.node.height - at + 1, keep=lambda t: True)
+        self.assertEqual(self.node.receipts[rm]['status'], '0x1', 'the canonical removeInactive succeeds at the full set')
+        result = self.harness('m3').run_m3()
+        c = result['checks']['removeInactiveBelowFullSet']
+        self.assertEqual((c['status'], c['block']), (1, self.node.included[rm][0]))
+        self.assertFalse(c['pass'])
+        self.assertEqual(c['blockHash'], self.node.blocks[at]['hash'])
+        self.assertFalse(result['pass'])
+        target = next(i for i in self.last.state['identities'] if i['address'] == c['target'])
+        self.assertEqual(target['outcome'], 'removed (m3)')
+        self.assertEqual(self.sent_kinds().count('removeInactive(address)'), 1, 'not sent again')
+
+    def test_m3_resumed_after_its_checks_blocks_were_orphaned_recomputes_them(self):
+        # Every block from check 1's on is orphaned while the drill is stopped, and each one's transactions are included
+        # again a few heights later: checks 1 and 2, the deregister and check 3 are recomputed at their canonical
+        # heights, and nothing is sent again.
+        h = self.m3_stopped_at_refill()
+        run = h.state['m3Run']
+        first = run['result']['checks']['twoReplacingSameBlock']['block']
+        groups = [[t['hash'] for t in self.node.blocks[n]['txs']] for n in range(first, self.node.height + 1)]
+        self.node.reorg(depth=len(groups))
+        pool = self.node.pool
+        for g in groups:
+            self.node.pool = [t for t in pool if t['hash'] in g]
+            self.node.mine()
+        self.node.pool = [t for t in pool if not any(t['hash'] in g for g in groups)]
+        at = lambda tx: self.node.included[tx][0]
+        ids = h.state['identities']
+        reps = [a['tx'] for i in ids for a in i['attempts'] if a['kind'] == 'registerReplacing' and a.get('victim') in run['victims']]
+        plain = next(i['i'] for i in ids if i['outcome'] == 'm3: register at a full set')
+        result = self.harness('m3').run_m3()
+        c = result['checks']
+        self.assertTrue(result['pass'], json.dumps(c, indent=1))
+        self.assertGreater(at(reps[0]), first)
+        self.assertEqual((c['twoReplacingSameBlock']['block'], c['twoReplacingSameBlock']['blocks']), (at(reps[0]), [at(reps[0])]))
+        self.assertEqual(c['registerAloneCapacity']['block'], at(self.tx_of(h, plain, 'register')))
+        self.assertEqual(c['removeInactiveBelowFullSet']['deregisterBlock'], at(self.tx_of(h, run['leaver'], 'deregister')))
+        self.assertEqual(c['removeInactiveBelowFullSet']['block'], at(self.tx_of(h, run['remover'], 'removeInactive')))
+        kinds = self.sent_kinds()
+        self.assertEqual((kinds.count('deregister()'), kinds.count('removeInactive(address)'),
+                          kinds.count('registerReplacing(address,address)')), (1, 1, 2), 'nothing sent twice')
+
+    def test_m3_a_step_undone_during_the_drill_writes_no_result(self):
+        # The removeInactive's block is orphaned during the drill (after its check is computed, before the result is
+        # written) and the replay succeeds at a full set: no result is written from the stale check; the drill stays
+        # saved, and the same command recomputes it from the canonical receipt.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+        done = []
+
+        def mine(*a):
+            real()
+            run = h.state.get('m3Run') or {}
+            if run.get('phase') == 'refill' and not done:
+                done.append(1)
+                rm = self.tx_of(h, run['remover'], 'removeInactive')
+                self.node.external = 1
+                self.node.reorg(depth=self.node.height - self.node.included[rm][0] + 1, keep=lambda t: True)
+        h.sleep = mine
+        with self.assertRaisesRegex(RuntimeError, 'reorganization undid removeInactiveBelowFullSet'):
+            h.run_m3()
+        self.no_m3_result(h)
+        self.assertIn('m3Run', h.state)
+        result = self.harness('m3').run_m3()
+        c = result['checks']['removeInactiveBelowFullSet']
+        self.assertEqual(c['status'], 1)
+        self.assertFalse(result['pass'])
+
+    # ---- review round 7: a reorganization that replays the drill's transactions out of its order invalidates it
+
+    def assert_m3_invalidated(self, h, out):
+        """The drill was invalidated: exit 1 with no m3 result, m3Run cleared, and what the canonical chain shows kept."""
+        with self.assertRaisesRegex(RuntimeError, 'out of its order'):
+            h.run_m3()
+        self.no_m3_result(h)
+        self.assertNotIn('m3Run', json.loads((h.dir / 'state.json').read_text()))
+        ids = {i['i']: i for i in h.state['identities']}
+        self.assertEqual(ids[out['leaver']]['outcome'], 'deregistered (m3)', 'the canonical deregister succeeded')
+        target = next(i for i in ids.values() if i['address'] == out['target'])
+        self.assertEqual(target['outcome'], 'registered', 'the canonical removeInactive reverted')
+
+    def test_m3_deregister_and_remove_inactive_replayed_into_one_block_invalidate_the_drill(self):
+        # The deregister's and the removeInactive's blocks are orphaned while the drill is stopped, and the node includes
+        # both again in one block (the deregister first, so the removeInactive reverts below the full set it left). The
+        # removal code at the block before reads the full set, so check 3 cannot be graded from the chain: the drill is
+        # invalidated (exit 1, no result), never published as the rule failing.
+        h = self.m3_stopped_at_refill()
+        run = dict(h.state['m3Run'])
+        dereg = self.tx_of(h, run['leaver'], 'deregister')
+        rm = self.tx_of(h, run['remover'], 'removeInactive')
+        self.node.reorg(depth=self.node.height - self.node.included[dereg][0] + 1, keep=lambda t: True)
+        self.assertEqual(self.node.included[dereg][0], self.node.included[rm][0])
+        self.assertEqual((self.node.receipts[dereg]['status'], self.node.receipts[rm]['status']), ('0x1', '0x0'))
+        self.assert_m3_invalidated(self.harness('m3'), run)
+        self.assertEqual(self.sent_kinds().count('removeInactive(address)'), 1, 'nothing sent at the invalidated drill')
+        # The next m3 starts a fresh drill at a full set once fill has taken the free seat.
+        self.harness('fill', '--count', '12').run_fill()
+        result = self.harness('m3').run_m3()
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+        self.assertNotIn('resumedAt', result)
+
+    def test_m3_drill_replayed_into_one_block_invalidates_it(self):
+        # Every block from check 1's on is orphaned while the drill is stopped and the node includes all of their
+        # transactions again in one block: check 2's register shares check 1's block (it reverts for the block's
+        # registration limit, not Capacity at a full set), so the drill is invalidated, never published as failing.
+        h = self.m3_stopped_at_refill()
+        run = dict(h.state['m3Run'])
+        first = run['result']['checks']['twoReplacingSameBlock']['block']
+        self.node.reorg(depth=self.node.height - first + 1, keep=lambda t: True)
+        self.assert_m3_invalidated(self.harness('m3'), run)
+
+    def test_m3_drill_replayed_into_one_block_during_the_run_invalidates_it(self):
+        # The same reorganization during the run (once check 3 is saved): the run writes no result, and the next m3
+        # invalidates the drill instead of recomputing a failed check.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+        out = {}
+
+        def mine(*a):
+            real()
+            run = h.state.get('m3Run') or {}
+            if run.get('phase') == 'refill' and not out:
+                out.update(run)
+                dereg = self.tx_of(h, run['leaver'], 'deregister')
+                self.node.reorg(depth=self.node.height - self.node.included[dereg][0] + 1, keep=lambda t: True)
+        h.sleep = mine
+        with self.assertRaisesRegex(RuntimeError, 'reorganization'):
+            h.run_m3()
+        self.no_m3_result(h)
+        self.assert_m3_invalidated(self.harness('m3'), out)
+
+    def test_m3_resumed_with_check_1_split_by_its_own_run_keeps_the_graded_fail(self):
+        # No reorganization: the node held the second registerReplacing for a block, so check 1's calls landed in two
+        # blocks and the run graded it as failing. Resumed after a stop, the drill keeps that result (it is not a
+        # reorganization's replay) and writes it.
+        held = []
+        self.node.park = lambda t: SEL.get(t['data'][2:10]) == 'registerReplacing(address,address)' and \
+            (held.append(t['hash']) or len(held) == 2)
+        self.node.park_blocks = 2
+        self.m3_stopped_at_refill()
+        self.node.park = None
+        result = self.harness('m3').run_m3()
+        c = result['checks']['twoReplacingSameBlock']
+        self.assertEqual(len(c['blocks']), 2, json.dumps(c))
+        self.assertFalse(c['pass'])
+        self.assertFalse(result['pass'])
+        self.assertIn('resumedAt', result)
 
     def test_m3_resumed_reregistration_needs_a_harness_victim(self):
         # A drill begun with --victims any whose first victim is another registrant's member, stopped after its

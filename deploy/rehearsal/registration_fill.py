@@ -1170,10 +1170,19 @@ class Harness:
         # What the operator still sends: an identity of an interrupted run that is not registered yet keeps what it was
         # funded with (fund() tops it up to its need, and sends nothing to one already funded), and each new identity
         # needs its whole funding, bond and transfer fee. On a fresh run this is the plan's total.
+        # An operator transfer the interrupted run left in flight and that the node's pending layer holds (its nonce below
+        # the operator's at 'pending') is already paid in the operator's balance at 'pending', which pocold reads on the
+        # pool's layer: its identity counts as funded by it, so that it is charged once. One the pending layer does not
+        # hold (parked, or not held) is not paid there, and is charged.
         todo = [i for i in self.fill_identities() if i['outcome'] is None]
+        pooled = {}
+        if not a.dry_run:
+            op_pending = self.chain.nonce(op_addr, 'pending')
+            pooled = {v['i']: v['have'] + v['value'] for v in self.inflight.values()
+                      if v['kind'] == 'fund' and v.get('nonce') is not None and v['nonce'] < op_pending}
         fund_need = lambda i: p['fundWei'] + i['bondWei']
         fee = TRANSFER_GAS * a.fee_cap_wei
-        short = [max(0, fund_need(i) - i['fundedWei']) for i in todo]
+        short = [max(0, fund_need(i) - max(i['fundedWei'], pooled.get(i['i'], 0))) for i in todo]
         p['operatorRemainingWei'] = sum(s + fee for s in short if s) + sum(
             p['fundWei'] + (p['bondWei'] if r == 'bonded' else 0) + fee for r in roles(p['roles'])[len(todo):])
         self.say('plan ' + json.dumps(p, sort_keys=True))
@@ -1510,6 +1519,157 @@ class Harness:
         """m3: the latest attempt of `ident` of this kind, from its `since`-th on, that a block included, or None."""
         return next((x for x in reversed(ident['attempts'][since:]) if x['kind'] == kind and 'block' in x), None)
 
+    def m3_hash(self, attempt):
+        """m3: the canonical hash of the block that included `attempt` (as settled), or None when it is not included."""
+        b = self.chain.block(attempt['block']) if attempt and attempt.get('block') is not None else None
+        return b['hash'] if b else None
+
+    def m3_replacing(self, reps, victims):
+        """M3 check 1 from what the chain shows, and the newcomers' outcomes: a newcomer is registered and its harness
+        victim replaced (settle) only when its attempt succeeded; failed only when it reverted or was given up; one still
+        in flight keeps no outcome (a later run settles it)."""
+        at = [next((x for x in reversed(r['attempts']) if x['kind'] == 'registerReplacing'), {}) for r in reps]
+        blocks = {x.get('block') for x in at}
+        after = {v: self.chain.record(v, hex(x['block'])) if x.get('block') else None for v, x in zip(victims, at)}
+        for ident, x in zip(reps, at):
+            if x.get('status') == 1:
+                ident['role'] = 'idle'
+            elif x.get('status') == 0:
+                ident['role'] = 'm3'
+                ident['outcome'] = f'failed: {x.get("reason") or "not included"}'
+        return {'pass': all(x.get('status') == 1 for x in at) and len(blocks) == 1 and None not in blocks and len(set(victims)) == 2
+                        and all(r and r['status'] == 'EXITED' for r in after.values()),
+                'block': at[0].get('block'), 'blocks': sorted(b for b in blocks if b is not None), 'victims': victims,
+                'statuses': [x.get('status') for x in at], 'victimRecords': after,
+                'reasons': [x.get('reason') for x in at if x.get('status') == 0], 'blockHashes': [self.m3_hash(x) for x in at]}
+
+    def m3_register_alone(self, plain, active_before, err=None):
+        """M3 check 2 from the included register at the full set."""
+        att = self.m3_attempt(plain, 'register') or next((x for x in reversed(plain['attempts']) if x['kind'] == 'register'), {})
+        if plain['outcome'] != 'registered':
+            plain['outcome'] = 'm3: register at a full set'
+        return {'pass': att.get('status') == 0 and (att.get('reason') or '').startswith('Capacity'), 'activeBefore': active_before,
+                'block': att.get('block'), 'status': att.get('status'), 'reason': att.get('reason') or err,
+                'blockHash': self.m3_hash(att)}
+
+    def m3_remove_inactive(self, run, remover, rm):
+        """M3 check 3 from the included removeInactive, and the target's outcome."""
+        target = run['target']
+        code_before = self.chain.removal(target, hex(rm['block'] - 1)) if rm.get('block') else None
+        remover['outcome'] = 'm3: removeInactive below a full set'
+        self.m3_target_outcome(target, rm)
+        return {'pass': run['activeAfterDeregister'] < self.cp['M_max'] and rm.get('status') == 0 and code_before == 2,
+                'deregisterBlock': run['deregisterBlock'], 'activeAfterDeregister': run['activeAfterDeregister'], 'target': target,
+                'block': rm.get('block'), 'status': rm.get('status'), 'removalCodeBefore': code_before, 'reason': rm.get('reason'),
+                'blockHash': self.m3_hash(rm)}
+
+    def m3_target_outcome(self, target, rm):
+        """The removeInactive target's outcome from the included removeInactive `rm`."""
+        for ident in self.state['identities']:
+            if ident['address'] == target:
+                if rm.get('status') == 1:
+                    ident['outcome'] = 'removed (m3)'
+                elif ident['outcome'] == 'removed (m3)':
+                    ident['outcome'] = 'registered'   # an earlier settlement from an orphaned block
+
+    def m3_disorder(self, run, undone=()):
+        """How the canonical chain breaks the order the drill sent its transactions in, or None. A drill sends each step
+        once the one before is included, so each lands in a later block than the one before: check 1's two
+        registerReplacing in one block, then check 2's register, the deregister, the removeInactive and the register
+        into the free seat. A reorganization can include them again in another order or together in one block (pocold
+        pools an orphaned block's transactions again, so they usually go into the next block together), and then a
+        receipt no longer tests its rule: a removeInactive in the deregister's block reads the removal code of the full
+        set before it, and a register in check 1's block reverts for the block's registration limit, not Capacity.
+        Only steps included so far are read (one not included yet has not been sent, or is decided by its phase); check
+        2's register that is not included breaks the order, and so does check 1 outside one block when a reorganization
+        undid it (`undone`, from m3_rewound: one the drill's own run saw outside one block stays its graded result).
+        Reads state.json only."""
+        ids = self.state['identities']
+        last, prev = None, None
+        if run.get('replacers'):
+            at = [self.m3_attempt(ids[i], 'registerReplacing') for i in run['replacers']]
+            blocks = {x['block'] for x in at if x is not None}
+            if 'twoReplacingSameBlock' in undone and (None in at or len(blocks) != 1):
+                return 'check 1\'s two registerReplacing are not included in one block'
+            if blocks:
+                last, prev = max(blocks), 'check 1\'s registerReplacing'
+        steps = [('check 2\'s register', run.get('plain'), 'register', 0, True),
+                 ('the deregister', run['leaver'], 'deregister', run['leaverSince'], False),
+                 ('the removeInactive', run['remover'], 'removeInactive', 0, False),
+                 ('the register into the free seat', run.get('filler'), 'register', 0, False)]
+        for what, i, kind, since, required in steps:
+            att = self.m3_attempt(ids[i], kind, since) if i is not None else None
+            if att is None:
+                if required and i is not None:
+                    return f'{what} is not included'
+                break
+            if last is not None and att['block'] <= last:
+                return f'{what} is included at {att["block"]}, not after {prev} at {last}'
+            last, prev = att['block'], what
+        return None
+
+    def m3_drop(self, run):
+        """Clears a saved drill (the next m3 starts a fresh one), with the leaver's and the removeInactive target's
+        outcomes as the canonical chain shows them."""
+        ids = self.state['identities']
+        leaver = ids[run['leaver']]
+        dereg = self.m3_attempt(leaver, 'deregister', run['leaverSince'])
+        if dereg is not None and dereg.get('status') == 1:
+            leaver['outcome'] = 'deregistered (m3)'
+        rm = self.m3_attempt(ids[run['remover']], 'removeInactive')
+        if rm is not None:
+            self.m3_target_outcome(run['target'], rm)
+        del self.state['m3Run']
+        self.save()
+
+    def m3_rewound(self, run, redo=True):
+        """The steps of a saved drill (m3Run) that a reorganization has undone since they were decided: each check, and
+        the deregister, keeps the hash of the block that included its transaction, and one whose transaction is now in
+        flight again or settled from another block (the canonical receipt may differ) is named. With `redo` (its
+        transactions settled: run_m3 waits for those in flight first), checks 1 and 2 are recomputed from the canonical
+        chain, and the drill goes back to the first later step that was undone (the deregister or the removeInactive),
+        whose phase reads its included transaction again and sends nothing that is included; check 4 is always
+        recomputed by the refill phase."""
+        ids = self.state['identities']
+        checks = run['result']['checks']
+        undone = []
+        if run.get('replacers'):
+            reps = [ids[i] for i in run['replacers']]
+            at = [next((x for x in reversed(r['attempts']) if x['kind'] == 'registerReplacing'), {}) for r in reps]
+            if [self.m3_hash(x) for x in at] != checks['twoReplacingSameBlock'].get('blockHashes'):
+                undone.append('twoReplacingSameBlock')
+                if redo:
+                    checks['twoReplacingSameBlock'] = self.m3_replacing(reps, run['victims'])
+        if run.get('plain') is not None:
+            plain = ids[run['plain']]
+            att = self.m3_attempt(plain, 'register')
+            if self.m3_hash(att) != checks['registerAloneCapacity'].get('blockHash'):
+                undone.append('registerAloneCapacity')
+                if redo:
+                    before = self.chain.lengths(hex(att['block'] - 1))['active'] if att else None
+                    checks['registerAloneCapacity'] = self.m3_register_alone(plain, before)
+        leaver = ids[run['leaver']]
+        phase = run['phase']
+        if phase in ('belowFull', 'refill') and \
+                self.m3_hash(self.m3_attempt(leaver, 'deregister', run['leaverSince'])) != run.get('deregisterBlockHash'):
+            undone.append('deregister')
+            phase = 'deregister'
+            if leaver['outcome'] == 'deregistered (m3)':
+                leaver['outcome'] = 'registered'   # set again by the deregister phase when it is included
+        if phase == 'refill' and \
+                self.m3_hash(self.m3_attempt(ids[run['remover']], 'removeInactive')) != checks['removeInactiveBelowFullSet'].get('blockHash'):
+            undone.append('removeInactiveBelowFullSet')
+            phase = 'belowFull'
+        filler = run.get('filler')
+        if 'registerBelowFullSet' in checks and filler is not None and \
+                self.m3_hash(self.m3_attempt(ids[filler], 'register')) != checks['registerBelowFullSet'].get('blockHash'):
+            undone.append('registerBelowFullSet')
+        if redo and phase != run['phase']:
+            run['phase'] = phase
+            for k in ('removeInactiveBelowFullSet', 'registerBelowFullSet'):
+                checks.pop(k, None)
+        return undone
+
     def run_m3(self):
         a = self.args
         if a.reregister_after_u and a.victims == 'any':
@@ -1527,10 +1687,23 @@ class Harness:
         # only a fresh drill needs a full set. One whose deregister was never included left the set as it was: the drill
         # starts afresh.
         run = self.state.get('m3Run')
-        if run and run['phase'] == 'deregister' and self.m3_attempt(ids[run['leaver']], 'deregister', run['leaverSince']) is None:
-            del self.state['m3Run']
+        # A step of it that a reorganization undid since it was decided (while it was stopped, or settled again above) is
+        # recomputed from the canonical chain, or its phase is run again.
+        undone = self.m3_rewound(run) if run else []
+        if undone:
+            self.say(f'M3 recomputes what a reorganization undid in its saved drill: {", ".join(undone)}')
             self.save()
+        if run and run['phase'] == 'deregister' and self.m3_attempt(ids[run['leaver']], 'deregister', run['leaverSince']) is None:
+            self.m3_drop(run)
             run = None
+        bad = self.m3_disorder(run, undone) if run else None
+        if bad:
+            # A reorganization replayed the drill's transactions out of its order: their receipts no longer test the
+            # rules, so no check is graded from them (a pass or a fail would both be unfounded).
+            self.m3_drop(run)
+            raise RuntimeError(f'a reorganization included the drill\'s transactions out of its order ({bad}); its checks are '
+                               'not graded, no m3 result is written, and the next m3 starts a fresh drill at a full set '
+                               '(run fill first if the set is below it)')
         if run is not None and a.reregister_after_u and run['victims'][0] not in {i['address'] for i in ids}:
             # The resumed drill's victims were chosen by its earlier run (--victims any): the same refusal as above.
             raise Refused(f'--reregister-after-u needs a harness victim; the resumed drill\'s first victim {run["victims"][0]} '
@@ -1564,26 +1737,11 @@ class Harness:
                 sent.append(tx)
             self.save()
             done = self.wait_included(sent, a.include_timeout)
-            at = [p['attempt'] for p in prepared]
-            blocks = {x.get('block') for x in at}
-            after = {v: self.chain.record(v, hex(x['block'])) if x.get('block') else None for v, x in zip(victims, at)}
-            # Outcomes from what the chain shows: a newcomer is registered and its harness victim replaced (settle) only
-            # when its attempt succeeded; failed only when it reverted or was given up; one still in flight keeps no
-            # outcome (a later run settles it).
-            for ident, x in zip(newcomers[:2], at):
-                if x.get('status') == 1:
-                    ident['role'] = 'idle'
-                elif x.get('status') == 0:
-                    ident['outcome'] = f'failed: {x.get("reason") or "not included"}'
+            check = self.m3_replacing(newcomers[:2], victims)
             self.save()
             if not done:
                 raise RuntimeError('a registerReplacing was not included within --include-timeout blocks (it stays recorded in flight)')
-            checks['twoReplacingSameBlock'] = {
-                'pass': all(x.get('status') == 1 for x in at) and len(blocks) == 1 and None not in blocks and len(set(victims)) == 2
-                        and all(r and r['status'] == 'EXITED' for r in after.values()),
-                'block': at[0].get('block'), 'blocks': sorted(b for b in blocks if b is not None), 'victims': victims,
-                'statuses': [x.get('status') for x in at], 'victimRecords': after,
-                'reasons': [x.get('reason') for x in at if x.get('status') == 0]}
+            checks['twoReplacingSameBlock'] = check
             self.say('M3 two registerReplacing: ' + json.dumps(checks['twoReplacingSameBlock'], sort_keys=True))
             # 2. register alone at the full set: Capacity.
             plain = newcomers[2]
@@ -1591,12 +1749,7 @@ class Harness:
             L = self.chain.lengths()
             tx, err = self.register(plain)
             self.included('register at the full set', tx, err)
-            att = plain['attempts'][-1]
-            checks['registerAloneCapacity'] = {'pass': att.get('status') == 0 and (att.get('reason') or '').startswith('Capacity'),
-                                               'activeBefore': L['active'], 'block': att.get('block'), 'status': att.get('status'),
-                                               'reason': att.get('reason') or err}
-            if plain['outcome'] != 'registered':
-                plain['outcome'] = 'm3: register at a full set'
+            checks['registerAloneCapacity'] = self.m3_register_alone(plain, L['active'], err)
             self.say('M3 register alone: ' + json.dumps(checks['registerAloneCapacity'], sort_keys=True))
             # 3. Below a full set: one harness member deregisters, then removeInactive on an idle member reverts. The
             # leaver is one whose record is ACTIVE at the head: state.json does not see another registrant's
@@ -1609,7 +1762,8 @@ class Harness:
             remover = self.fresh_funded(op_key, op_addr, 1, call_need)[0]
             # Saved before the deregister is sent: a run stopped from here on resumes below the full set it leaves.
             run = {'phase': 'deregister', 'result': result, 'victims': victims, 'leaver': leaver['i'],
-                   'leaverSince': len(leaver['attempts']), 'remover': remover['i'], 'target': target}
+                   'leaverSince': len(leaver['attempts']), 'remover': remover['i'], 'target': target,
+                   'replacers': [n['i'] for n in newcomers[:2]], 'plain': plain['i']}
             self.state['m3Run'] = run
             self.save()
             self.ensure_funds(op_key, op_addr, [leaver], call_need)
@@ -1626,12 +1780,11 @@ class Harness:
             dereg = self.m3_attempt(leaver, 'deregister', run['leaverSince']) or leaver['attempts'][-1]
             if dereg.get('status') != 1:
                 # The set is still full: a removeInactive now would remove a member, which says nothing about this rule.
-                del self.state['m3Run']
-                self.save()
+                self.m3_drop(run)
                 raise RuntimeError(f'the deregister of {leaver["address"]} reverted ({dereg.get("reason")}); removeInactive is not '
                                    'sent at a full set')
             leaver['outcome'] = 'deregistered (m3)'
-            run.update({'phase': 'belowFull', 'deregisterBlock': dereg['block'],
+            run.update({'phase': 'belowFull', 'deregisterBlock': dereg['block'], 'deregisterBlockHash': self.m3_hash(dereg),
                         'activeAfterDeregister': self.chain.lengths(hex(dereg['block']))['active']})
             self.save()
         if run['phase'] == 'belowFull':
@@ -1648,16 +1801,7 @@ class Harness:
                                            victim=target)
                 self.included('removeInactive', tx, err)
                 rm = remover['attempts'][-1]
-            code_before = self.chain.removal(target, hex(rm['block'] - 1)) if rm.get('block') else None
-            checks['removeInactiveBelowFullSet'] = {
-                'pass': run['activeAfterDeregister'] < self.cp['M_max'] and rm.get('status') == 0 and code_before == 2,
-                'deregisterBlock': run['deregisterBlock'], 'activeAfterDeregister': run['activeAfterDeregister'], 'target': target,
-                'block': rm.get('block'), 'status': rm.get('status'), 'removalCodeBefore': code_before, 'reason': rm.get('reason')}
-            remover['outcome'] = 'm3: removeInactive below a full set'
-            if rm.get('status') == 1:
-                for ident in ids:
-                    if ident['address'] == target:
-                        ident['outcome'] = 'removed (m3)'
+            checks['removeInactiveBelowFullSet'] = self.m3_remove_inactive(run, remover, rm)
             self.say('M3 removeInactive below a full set: ' + json.dumps(checks['removeInactiveBelowFullSet'], sort_keys=True))
             run['phase'] = 'refill'
             self.save()
@@ -1682,8 +1826,15 @@ class Harness:
             self.included('register into the free seat', tx, err)
             att = filler['attempts'][-1]
         checks['registerBelowFullSet'] = {'pass': att.get('status') == 1, 'block': att.get('block'), 'reason': att.get('reason') or err,
-                                          'activeAfter': self.chain.lengths()['active']}
+                                          'activeAfter': self.chain.lengths()['active'], 'blockHash': self.m3_hash(att)}
         self.say('M3 register into the free seat: ' + json.dumps(checks['registerBelowFullSet'], sort_keys=True))
+        # A reorganization during the drill may have undone a step decided earlier in it: no result is written from it,
+        # and the drill stays saved for the same command to recompute.
+        undone = self.m3_rewound(run, redo=False)
+        if undone:
+            self.save()
+            raise RuntimeError(f'a reorganization undid {", ".join(undone)} after it was decided; no m3 result is written, and '
+                               'the same command recomputes the saved drill (m3Run) from the canonical chain')
         # The set is full again: a run stopped from here on starts a fresh drill.
         del self.state['m3Run']
         self.save()

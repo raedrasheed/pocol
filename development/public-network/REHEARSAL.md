@@ -235,7 +235,10 @@ at most 0.63 PCOL of transfer fees (21,000 gas at the fee cap each); `fill --dry
 R_max and the operator total (fees included), and sends nothing. Before anything is sent the operator's balance is
 checked against what the plan still sends (`operatorRemainingWei`): the operator total on a fresh run; on a resumed
 one, an identity the interrupted run already funded and that is not registered yet is not funded again (nor charged
-its transfer fee), and one funded only in part needs the rest.
+its transfer fee), and one funded only in part needs the rest. A transfer the interrupted run left in flight that the
+node's pending layer holds counts as sent, since the operator's balance at `pending` (read on the pool's layer) has
+already paid it; one the pending layer does not hold (parked, or no longer held) is charged. `--dry-run` reads no pool
+and charges such a transfer.
 
 **Refusals.** Chain id 2656089850 (the mainnet) is refused unless `--allow-mainnet-chain` is given;
 `--expect-chain-id 1656550731` refuses any other chain. A harness directory belongs to the chain and genesis it was
@@ -339,13 +342,37 @@ example, the set is not full at the start of a fresh drill, or `--reregister-aft
 resumed drill whose first victim the earlier run chose under `--victims any`), and 1 when
 the path could not be completed (too few removable harness members within `--wait-blocks`, a refused or unsent call, a
 transaction not included within `--include-timeout` blocks, a deregister that reverts, so that no `removeInactive` is
-sent at a full set, an identity that could not be funded): the reason is on stderr, and no `m3` result is written. The
+sent at a full set, an identity that could not be funded, a reorganization that undid a step decided earlier in the
+drill or included the drill's transactions out of its order): the reason is on stderr, and no `m3` result is written. The
 same command resumes a drill that stopped or failed below the full set it leaves: from just before its deregister is
 sent until the free seat is taken again, the drill's progress and its earlier checks are kept in `state.json`
 (`m3Run`), and the next `m3` settles what was in flight and continues from the deregister, the `removeInactive` or the
 `register` into the free seat, without the full-set precondition and without sending again what was included (the
-result then lists `resumedAt`). If the deregister was never included, the next `m3` starts a fresh drill at the full
-set; if another registrant took the free seat before the `removeInactive` was sent, it sends none (it would remove a
+result then lists `resumedAt`). Checks 1 to 4, and the deregister, keep the hash of the block that included their
+transaction (`blockHash`, `blockHashes` for check 1, `deregisterBlockHash`); the `--reregister-after-u` check, made
+after the saved drill is cleared, keeps none. A step that a reorganization undid since
+it was decided (its transaction in flight again, or included in another block) is recomputed from the canonical
+receipt when the drill resumes: checks 1 and 2 in place, and the drill goes back to the deregister or the
+`removeInactive` it undid, which reads its included transaction again and sends nothing that is included. The
+recomputed check reports the canonical receipt, so it can fail where the saved one passed (for example a
+`removeInactive` replayed after another registrant took the free seat succeeds at the full set, and check 3 fails).
+The same is read once the free seat is taken again, before the saved drill is cleared: a step undone during the run
+writes no result (exit 1), the drill stays saved, and the same command recomputes it (a reorganization after that, for
+example while `--reregister-after-u` waits for U, is not read again).
+The drill sends each step once the one before is included, so each is in a later block than the one before: check 1's
+two `registerReplacing` in one block, then check 2's `register`, the deregister, the `removeInactive` and the `register`
+into the free seat. A reorganization can include them again in another order or together in one block (pocold puts an
+orphaned block's transactions back in its pool, so they usually go into the next block together), and then their
+receipts no longer test the rules: a `removeInactive` in the deregister's block reverts below the full set the
+deregister just left while the removal code read at the block before shows the full set, and a `register` in check 1's
+block reverts for the block's registration limit rather than Capacity. When the drill resumes and the canonical chain
+breaks that order (or check 2's `register` is no longer included, or check 1, undone by a reorganization, is no longer
+in one block), no check is graded: it exits 1 with no `m3` result, the saved drill is cleared with the leaver's and the
+`removeInactive` target's outcomes as the chain shows them, and the next `m3` starts a fresh drill at a full set (run
+`fill` first when the set is below it). A reorganization of this kind during the run is first read as a step undone
+(exit 1) and then by the next `m3`. Check 1 that the drill's own run saw outside one block, with no reorganization,
+stays its graded result.
+If the deregister was never included, the next `m3` starts a fresh drill at the full set; if another registrant took the free seat before the `removeInactive` was sent, it sends none (it would remove a
 member at a full set), exits 1, and the next `m3` starts a fresh drill; likewise if the seat was taken before the
 `register` into the free seat was sent, it sends none (it would revert Capacity at a full set, which is not this check
 failing), exits 1 with no `m3` result, and the next `m3` starts a fresh drill. Once the free seat is taken again, a stop (for
