@@ -44,6 +44,43 @@ def bounded_v3_hex():
     return b.hex()
 
 
+def _rlp_decode(b, i=0):
+    """One canonical RLP item of `b` at `i`: (bytes or list, next offset)."""
+    head = b[i]
+    if head < 0x80: return bytes([head]), i + 1
+    if head < 0xc0:
+        if head < 0xb8: n, start = head - 0x80, i + 1
+        else: ll = head - 0xb7; n, start = int.from_bytes(b[i + 1:i + 1 + ll], 'big'), i + 1 + ll
+        return bytes(b[start:start + n]), start + n
+    if head < 0xf8: n, start = head - 0xc0, i + 1
+    else: ll = head - 0xf7; n, start = int.from_bytes(b[i + 1:i + 1 + ll], 'big'), i + 1 + ll
+    items, j = [], start
+    while j < start + n:
+        item, j = _rlp_decode(b, j); items.append(item)
+    return items, j
+
+
+def _rlp_encode(value):
+    def head(n, short):
+        if n < 56: return bytes([short + n])
+        raw = n.to_bytes((n.bit_length() + 7) // 8, 'big'); return bytes([short + 55 + len(raw)]) + raw
+    if isinstance(value, list):
+        body = b''.join(_rlp_encode(v) for v in value); return head(len(body), 0xc0) + body
+    if len(value) == 1 and value[0] < 0x80: return value
+    return head(len(value), 0x80) + value
+
+
+def v3_hex_on_chain(chain):
+    """V3_HEX re-encoded with its chainId (top-level item 1) set to `chain`; everything else is unchanged."""
+    raw = bytes.fromhex(V3_HEX[2:]); top, end = _rlp_decode(raw)
+    assert end == len(raw) and _rlp_encode(top) == raw, 'the corpus spec re-encodes to its own bytes'
+    top[1] = chain.to_bytes((chain.bit_length() + 7) // 8, 'big')
+    return '0x' + _rlp_encode(top).hex()
+
+
+MAINNET_CHAIN = json.loads((Path(__file__).resolve().parents[1] / 'mainnet/v3-profile.json').read_text())['chainId']
+
+
 def inventory():
     return {'name': 'test', 'nodes': [{'name': f'n{i}', 'ip': f'127.0.0.{i+2}', 'p2pPort': 30300,
         'rpcPort': 8540+i, 'rpcHost': f'rpc{i}.example.test', 'minerAddress': '0x' + f'{i+1:040x}', 'seeds': []} for i in range(3)]}
@@ -301,6 +338,70 @@ class Operations(unittest.TestCase):
                     prepare.prepare(inventory(), network, self.root / 'no-bin', out, rehearsal=True)
                 build_info.assert_not_called()
             self.assertFalse(out.exists())
+
+    def test_the_public_network_chains_are_the_profile_codes(self):
+        # node_operator.py ships in each bundle without the repository: its copy of PUBLIC_NETWORK_CHAINS is the R22 list
+        # of the profile code, which is [the mainnet profile's chain] (OWNER-DECISIONS-2026-11-20 D5).
+        root = Path(__file__).resolve().parents[2]
+        for name in ('prototypes/lp4-execution/src/p1_profile.rs', 'prototypes/lp1-node/src/profile.rs'):
+            text = (root / name).read_text(encoding='utf-8')
+            decl = 'pub const PUBLIC_NETWORK_CHAINS: &[u64] = &['
+            self.assertEqual(text.count(decl), 1, name)
+            listed = text[text.index(decl) + len(decl):].split('];', 1)[0]
+            self.assertEqual(tuple(int(x) for x in listed.replace('_', '').split(',') if x.strip()), op.PUBLIC_NETWORK_CHAINS, name)
+        self.assertEqual(op.PUBLIC_NETWORK_CHAINS, (MAINNET_CHAIN,))
+
+    def test_a_public_network_bundle_verifies_only_on_a_public_network_chain(self):
+        # OWNER-DECISIONS-2026-11-20 D5: init-testnet admits PoCol Mainnet's chain in scope public-network; its bundle
+        # verifies (prepare.py, install.sh and the unit's ExecStartPre all run verify). The scope is chain gated as the
+        # node's R22 is: public-network on another chain, experimental-devnet on the public chain and 777001 are refused.
+        public = v3_hex_on_chain(MAINNET_CHAIN)
+        self.assertEqual(prepare.pocol_identity.decode_genesis_spec(bytes.fromhex(public[2:]))['chainId'], MAINNET_CHAIN)
+        bundle, _ = self.bundle('public', spec=public, declare={'chainId': MAINNET_CHAIN, 'admission': {'scope': 'public-network'}})
+        self.assertEqual(op.verify(bundle)[1]['name'], 'n1')
+        for name, spec, chain, scope in [('public-elsewhere', V3_HEX, V3_CHAIN, 'public-network'),
+                                         ('experimental-public', public, MAINNET_CHAIN, 'experimental-devnet'),
+                                         ('experimental-777001', v3_hex_on_chain(777001), 777001, 'experimental-devnet'),
+                                         ('network-777001', v3_hex_on_chain(777001), 777001, 'public-network'),
+                                         ('specification', public, MAINNET_CHAIN, 'specification'),
+                                         ('old-name', public, MAINNET_CHAIN, 'public-network-owner-waived')]:
+            with self.subTest(name), self.assertRaisesRegex(ValueError, 'Unsupported admission'):
+                op.verify(self.bundle(name, spec=spec, declare={'chainId': chain, 'admission': {'scope': scope}})[0])
+        self.assertTrue(op.supported_admission('experimental-devnet', V3_CHAIN))
+        for scope, chain in [('public-network', MAINNET_CHAIN + 1), ('experimental-devnet', True), ('public-network', str(MAINNET_CHAIN))]:
+            self.assertFalse(op.supported_admission(scope, chain), (scope, chain))
+
+    def test_prepare_packages_a_public_network_genesis(self):
+        # The seed and join package path (OPERATIONS.md step 5) carries PoCol Mainnet's chain: prepare writes and
+        # verifies a bundle per node, and refuses public-network on another chain before it reads the build.
+        def network(name, chain, scope):
+            path = self.root / name; path.mkdir()
+            (path / 'genesis.spec.hex').write_text(v3_hex_on_chain(chain) + '\n'); (path / 'alloc.json').write_text('{}')
+            op.write_json(path / 'devnet.json', {'chainId': chain, 'genesisHash': '0x' + 'a' * 64, 'genesisTime': 1, 'specVersion': 2,
+                                                 'v3': True, 'keyMode': 'independent-key-files', 'admission': {'scope': scope}})
+            return path
+        bin_dir = self.root / 'bin'; bin_dir.mkdir()
+        for name in op.BINARIES: (bin_dir / name).write_bytes(b'public fixture')
+        build = {'features': [], 'protocolVersion': 2, 'protocolVersionMin': 2, 'compatibilitySha256': 'b' * 64,
+                 'consensusRulesVersion': 2, 'consensusPinned': True, 'consensusSourcesSha256': 'c' * 64, 'sourceSha256': {},
+                 'publicLaunchApproved': False, 'publicLaunchReady': False}
+        with unittest.mock.patch.object(prepare.subprocess, 'check_output', return_value=json.dumps(build)):
+            release = prepare.prepare(inventory(), network('mainnet', MAINNET_CHAIN, 'public-network'), bin_dir, self.root / 'release', rehearsal=True)
+        self.assertEqual((release['chainId'], release['admission']), (MAINNET_CHAIN, {'scope': 'public-network'}))
+        for node in inventory()['nodes']:
+            self.assertEqual(op.verify(self.root / 'release' / node['name'])[1]['name'], node['name'])
+            unit = (self.root / 'release' / node['name'] / 'pocol-testnet.service').read_text()
+            self.assertIn(f"Description=PoCol Mainnet node ({node['name']})\n", unit)
+            self.assertNotIn('testnet (', unit)
+        # The unit names the network of its chain: the experimental test network on any other chain.
+        node = inventory()['nodes'][0]
+        self.assertIn('Description=PoCol experimental public testnet (n0)\n', prepare.service(node, V3_CHAIN))
+        self.assertIn('Description=PoCol Mainnet node (n0)\n', prepare.service(node, MAINNET_CHAIN))
+        with unittest.mock.patch.object(prepare.subprocess, 'check_output') as build_info:
+            with self.assertRaisesRegex(ValueError, 'init-testnet'):
+                prepare.prepare(inventory(), network('elsewhere', V3_CHAIN, 'public-network'), bin_dir, self.root / 'release-2', rehearsal=True)
+            build_info.assert_not_called()
+        self.assertFalse((self.root / 'release-2').exists())
 
     def test_duplicate_json_keys_are_refused(self):
         path = self.root / 'bad.json'; path.write_text('{"chainId":1,"chainId":2}')

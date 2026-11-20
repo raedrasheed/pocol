@@ -8,7 +8,7 @@ import sys
 import time
 import urllib.parse
 import urllib.request
-from node_operator import read_json, write_json
+from node_operator import read_json, supported_admission, write_json
 
 
 def rpc(url, method, params=None):
@@ -30,11 +30,6 @@ def rpc(url, method, params=None):
     return value['result']
 
 
-# The admission scopes an init-testnet genesis boots with (pocold boot_admission): experimental-devnet, or public-network
-# on a public network chain (OWNER-DECISIONS-2026-11-20 D5).
-ADMISSION_SCOPES = ('experimental-devnet', 'public-network')
-
-
 def readiness(after):
     """The launch approval and readiness the nodes computed (pocol_status, OWNER-DECISIONS-2026-11-20 D4), never a label
     of this tool: true only when every node reports true; a node that reports no boolean counts as false."""
@@ -54,10 +49,11 @@ def snapshot(release, urls, warnings=None):
             raise ValueError('Wire protocol range outside the release on ' + name)
         if s['compatibilitySha256'] != release['compatibilitySha256'] and warnings is not None:
             warnings.append(name + ' runs another build of the same consensus rules (compatibilitySha256 differs)')
-        # The admission scope the node booted with: one init-testnet admits (experimental-devnet, or public-network on a
-        # public network chain), and the one the release recorded when it names one.
+        # The admission scope the node booted with: the one init-testnet admits on this chain (node_operator
+        # supported_admission: public-network on a public network chain, experimental-devnet on another), and the one
+        # the release recorded when it names one.
         scope = s['admission']['scope']
-        if s['name'] != name or not s['stateStore'] or scope not in ADMISSION_SCOPES or scope != release.get('admission', {}).get('scope', scope):
+        if s['name'] != name or not s['stateStore'] or not supported_admission(scope, s['chainId']) or scope != release.get('admission', {}).get('scope', scope):
             raise ValueError('Unexpected node mode or name on ' + name)
         if s['compatiblePeers'] < 1: raise ValueError('No compatible peers on ' + name)
         # A continuous chain (H_END = 0) reports closingHeight null; a finite one reports its closing height.

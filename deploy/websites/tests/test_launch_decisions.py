@@ -278,6 +278,27 @@ class LaunchTexts(unittest.TestCase):
                                          f'{text[max(0, m.start() - 60):m.end() + 40]!r}' if m else '')
         self.assertGreater(seen, 40)
 
+    # The current operator and reference documents that describe PoCol Mainnet (the bundle README is copied into every
+    # seed and join bundle, deploy/public-testnet/prepare.py). Decision records, audit reports and results keep their
+    # text and are not listed.
+    DOCUMENTS = ['README.md', 'development/m1/reference/threat.md', 'development/public-network/PLAN.md',
+                 'deploy/public-testnet/README.md', 'deploy/mainnet/README.md', 'deploy/standalone/README.md']
+
+    def test_no_current_document_has_a_superseded_launch_claim(self):
+        for name in self.DOCUMENTS:
+            text = (ROOT / name).read_text(encoding='utf-8')
+            for what, rx in self.CLAIMS.items():
+                m = rx.search(text)
+                self.assertIsNone(m, f'{name} has {what}: {text[max(0, m.start() - 60):m.end() + 40]!r}' if m else '')
+        # The bundle README names the fields the node computes (readiness.rs json()) and where the open gates and the
+        # admission's conditions and waivers are reported, and calls PCOL a test currency only off the public chain.
+        bundle = ' '.join((ROOT / 'deploy' / 'public-testnet' / 'README.md').read_text(encoding='utf-8').split())
+        for name in ('`publicLaunchApproved`', '`launchApprovalReference`', '`publicLaunchReady`', '`launchBlockers`',
+                     '`technicalReadiness.pending`', '`public-network`', '`experimental-devnet`', '`testCurrency`'):
+            self.assertIn(name, bundle)
+        self.assertNotIn('request test coins', bundle)
+        self.assertIn("on PoCol Mainnet's chain it is not", bundle)
+
     def test_no_served_file_or_client_has_a_superseded_launch_claim(self):
         seen = 0
         for base in self.SERVED + self.CLIENTS:

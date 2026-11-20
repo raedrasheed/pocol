@@ -78,8 +78,9 @@ their own.
    Simnet build at 8b465b9), and no validity, root, reward, genesis decoding, wire or fork-choice rule; the
    consensus-source lock records it as one `neutral` line (ref `public-network-admission`).
 6. **D6: a full public launch, not a renamed test network (the owner's further instructions).**
-   - The launch is a full public launch of PoCol Mainnet, after the required technical and security tests. No
-     testnet, devnet, simnet or rehearsal is launched, and the mainnet is not a test network renamed.
+   - The launch is a full public launch of PoCol Mainnet, after passing the required technical and security tests
+     (E lists them; a test that cannot run is reported as not run, never as passed). No testnet, devnet, simnet or
+     rehearsal is launched, and the mainnet is not a test network renamed.
    - Every value is computed from the network's actual state and the decided launch policy, never fixed or forged.
    - A. The admission scope name is exactly `public-network`. The owner's waivers stay explicit as
      `admission-waiver-*` ids in `technicalReadiness`.
@@ -117,7 +118,12 @@ is not on this branch: it is on branch `claude/finding-ledger` (PR #107, commit 
 lists, for every item the node reports as pending for PoCol Mainnet, the text on this branch that documents it and the
 entries of that ledger (as of 64a642ff) that record it. Each item is covered by D1 by the owner's words; this record
 claims no more for it. The waivers of D5 are the engineering form of that acceptance: they are reported, never
-presented as passed, and no waiver removes a check that the node enforces.
+presented as passed. The R26 waiver skips only the predicates that read RpcGuard fields the node does not enforce. The
+R13 and R21 waivers remove terms the parameter gate enforces, for the network profile on a public network chain in
+scope public-network only: R13's continuous-kind term and R21's history-budget term (`retained-state bound <=
+HIST_TRIE_BUDGET`). The Specification and ExperimentalDevnet scopes still refuse a network profile on those terms.
+Every other term of R13 and R21 stays enforced: a finite schedule's checks, retained blocks >= min(K_hist, H_END) and
+the resource facts.
 
 | Pending item | What it is | Documented on this branch in | FINDINGS ids (PR #107) |
 | --- | --- | --- | --- |

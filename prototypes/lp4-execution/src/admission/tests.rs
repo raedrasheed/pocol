@@ -427,6 +427,20 @@ fn scope_slot<'a>(l:&'a mut RpcLimits,f:&str)->&'a mut u64{
         }
     }
 }
+/// The caps-test build and the public-network scope (OWNER-DECISIONS-2026-11-20 D5): the network profile on a network
+/// node on the public chain, which the normal build admits (`public_network_admits_...`), is refused with the terminal
+/// rule caps-test, at the genesis CP and with a cap raise.
+#[cfg(feature="caps-test")]
+#[test] fn the_caps_test_build_refuses_the_public_network_scope(){
+    let (n,t)=base();let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
+    for local in [sh(),NodeLocal{rpc:pocold_like(),..sh()}]{
+        let e=admit(&public(&n,&b,&local,&tt)).err().expect("refused");assert_eq!(e.rules,v(&["caps-test"]));
+        assert!(e.notes[0].contains("admits only a simnet profile on a simnet node"),"{e}");
+    }
+    let cp=n.profile.cp();let raise=crate::profile::CapRaise{code_cap:cp.CODE_CAP,slot_cap:cp.SLOT_CAP,acct_cap:1<<40,sys_slot_max:cp.SYS_SLOT_MAX};
+    let e=admit_with(&Request{forks:&[(1,0),(2,5),(3,10)],..public(&n,&b,&sh(),&tt)},Some(&raise)).err().expect("refused");
+    assert_eq!(e.rules,v(&["caps-test"]));
+}
 
 /// Phase 6a: GAS_ENVELOPE_V3 is self-contained: an entry for every SYSTEM call the v3 phases compose (no fallback to a
 /// spec-1 table, which phase 6a deleted with GAS_ENVELOPE and GAS_ENVELOPE_EARNIN), recordLate counted as the dearer
@@ -526,9 +540,14 @@ fn on_chain(n:&Devnet,chain:u64)->Vec<u8>{
 fn public<'a>(n:&'a Devnet,bytes:&'a [u8],local:&'a NodeLocal,t:&'a Timing)->Request<'a>{
     Request{spec_bytes:bytes,kind:ProfileKind::Network,node:NodeKind::Node,scope:Scope::PublicNetwork,timing:Some(t),..n.request(local,None)}
 }
+#[cfg(not(feature="caps-test"))]
 fn waiver_rules(a:&Admitted)->Vec<&'static str>{a.report().waivers.iter().map(|w|w.rule).collect()}
+#[cfg(not(feature="caps-test"))]
 fn condition_ids(a:&Admitted)->Vec<&'static str>{a.report().conditions.iter().map(|c|c.id).collect()}
 
+/// The caps-test build admits only a simnet profile on a simnet node (validation.md:2065), so it never admits this
+/// genesis; `the_caps_test_build_refuses_the_public_network_scope` checks that refusal in that build.
+#[cfg(not(feature="caps-test"))]
 #[test] fn public_network_admits_the_network_profile_on_a_public_chain_with_explicit_waivers(){
     assert_eq!(Scope::PublicNetwork.name(),"public-network");
     let (n,t)=base();let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
@@ -576,16 +595,21 @@ fn condition_ids(a:&Admitted)->Vec<&'static str>{a.report().conditions.iter().ma
         let e=admit(&public(&n,&b,&sh(),&tt)).err().expect("refused");assert_eq!(e.rules,v(&[r22]),"{chain:?}");
         if r22=="R22"{assert!(e.notes[0].contains("admits only the network profile on a network node on a public network chain"),"{e}");}
     }
-    // On the public chain: only the network profile on a network node.
+    // On the public chain: only the network profile on a network node. A caps-test build refuses every pair but a simnet
+    // profile on a simnet node first (rule caps-test); that pair reaches the scope and is refused as R22 in either build.
     let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
     for (kind,node) in [(ProfileKind::Simnet,NodeKind::Simnet),(ProfileKind::Network,NodeKind::Simnet),(ProfileKind::Synthetic,NodeKind::Simnet),(ProfileKind::Simnet,NodeKind::Node)]{
-        let e=admit(&Request{kind,node,..public(&n,&b,&sh(),&tt)}).err().expect("refused");assert_eq!(e.rules,v(&[r22]),"{kind:?} on {node:?}");
+        let rule=if (kind,node)==(ProfileKind::Simnet,NodeKind::Simnet){"R22"}else{r22};
+        let e=admit(&Request{kind,node,..public(&n,&b,&sh(),&tt)}).err().expect("refused");assert_eq!(e.rules,v(&[rule]),"{kind:?} on {node:?}");
     }
     // No ExperimentalDevnet boot of the public chain: a simnet request there fails R22 at the gate.
     let e=admit(&Request{spec_bytes:&b,..n.request(&sh(),Some(&tt))}).err().expect("refused");assert_eq!(e.rules,v(&["R22"]));
     // Specification scope still refuses the conditions on the public chain.
     if r22=="R22"{let e=admit(&Request{scope:Scope::Specification,..public(&n,&b,&sh(),&tt)}).err().expect("refused");assert!(e.rules.contains(&"R13".to_string())&&!e.missing.is_empty(),"{e}");}
 }
+/// The caps-test build admits only a simnet profile on a simnet node (validation.md:2065), so it never admits this
+/// genesis; `the_caps_test_build_refuses_the_public_network_scope` checks that refusal in that build.
+#[cfg(not(feature="caps-test"))]
 #[test] fn public_network_waives_r13_and_r21_only_at_clause_level(){
     let (_,t)=base();
     // A finite schedule that fails R13's schedule checks is never waived.
@@ -614,6 +638,9 @@ fn condition_ids(a:&Admitted)->Vec<&'static str>{a.report().conditions.iter().ma
 }
 /// FN-5 under PublicNetwork: the clause rules hold at both CPs. A raise that takes the retained state above
 /// HIST_TRIE_BUDGET only at the raised CP gets the R21 waiver with the raised bound; R13 is waived at both (continuous).
+/// The caps-test build admits only a simnet profile on a simnet node (validation.md:2065), so it never admits this
+/// genesis; `the_caps_test_build_refuses_the_public_network_scope` checks that refusal in that build.
+#[cfg(not(feature="caps-test"))]
 #[test] fn public_network_clause_rules_hold_at_the_raised_cp(){
     let (n,t)=base();let b=on_chain(&n,MAINNET_CHAIN);let tt=rebound(&t,&b);
     let cp=n.profile.cp();let raise=crate::profile::CapRaise{code_cap:cp.CODE_CAP,slot_cap:cp.SLOT_CAP,acct_cap:1<<40,sys_slot_max:cp.SYS_SLOT_MAX};

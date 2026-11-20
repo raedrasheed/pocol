@@ -1,10 +1,20 @@
-# Public testnet operations candidate
+# Seed and join bundle operations
 
-This package advances public-network preparation. Its open gates are reported by the
-software (`publicLaunchReady: false` with its `launchBlockers`): the experimental
-admission conditions, resource/proof gaps and real-host acceptance remain open. Test
-coins have no monetary value. No infrastructure, public endpoint or economic mainnet
-is created by these scripts. See `development/public-network/PLAN.md` in the source repository.
+These scripts package one admitted `init-testnet` genesis into per-node bundles for seed
+operators and joining nodes. The genesis is admitted as the node boots it (pocold
+`boot_admission`, OWNER-DECISIONS-2026-11-20 D5): on PoCol Mainnet's chain (a public
+network chain) in scope `public-network`, as the network profile on a network node, and
+on any other chain (a devnet or test chain) in scope `experimental-devnet`. Neither is
+specification compliance, and the tools refuse any other admission. The node computes
+its launch approval and readiness (D4, `pocol_status`): `publicLaunchApproved`,
+`launchApprovalReference`, `publicLaunchReady`, and `launchBlockers`, which holds only
+hard blockers (for example `network-not-release-pinned` and `launch-not-approved`
+before a release pins the genesis). The open gates of the launch ledger and the
+admission's scope, conditions and waivers are reported in `technicalReadiness.pending`;
+nothing there is claimed passed. On a devnet or test chain PCOL is a test currency
+with no monetary value (the wallet's `testCurrency`); on PoCol Mainnet's chain it is
+not. No infrastructure or public endpoint is created by these scripts. See
+`development/public-network/PLAN.md` in the source repository.
 
 Supported deployment target: dedicated Linux x86-64 hosts with systemd, Python 3.10+
 and the release binaries built on a compatible distribution. Use three separate
@@ -74,7 +84,8 @@ Before activation on actual hosts:
    `/etc/pocol-testnet/tls/{fullchain.pem,privkey.pem}`. Test the dedicated gateway
    config with `nginx -t -c /opt/pocol-testnet/nginx.conf` before enabling it.
 4. Review the source launch ledger's open gates, which the node reports in
-   `launchBlockers`, before Internet activation. The Nginx
+   `technicalReadiness.pending` (with the admission's conditions and waivers), and its
+   hard `launchBlockers` before Internet activation. The Nginx
    template limits per-IP and total HTTP requests/connections, but does not close
    the node's unresolved RpcGuard/precompile or consensus execution obligations.
    Run the hostile traffic, partition, recovery and soak acceptance on actual hosts.
@@ -90,7 +101,8 @@ use host/provider ingress protections as well.
 
 ## 3. Joining and funding
 
-Anyone can generate an independent key and request test coins from the operator.
+Anyone can generate an independent key and request PCOL from an operator (on a devnet
+or test chain, test coins with no monetary value).
 The initial distribution remains an operator-signed transfer: an unauthenticated
 automatic faucet is not included. A joining operator uses the same release source
 and published genesis with a one-node inventory and `prepare.py --join`; set one or

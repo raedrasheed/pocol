@@ -77,6 +77,28 @@ class AcceptedRisks(unittest.TestCase):
         self.assertIn('Each item is covered by D1 by the owner\'s words; this record claims no more for it.',
                       ' '.join(accepted_risks(text).split()))
 
+    def test_the_record_states_what_the_r13_and_r21_waivers_remove(self):
+        # The R13 and R21 waivers drop terms the gate enforces (gate.rs r13_continuous_kind and r21_history; admission.rs
+        # Scope::PublicNetwork removes R13 and R21 from the violations), so the record may not say that no waiver removes
+        # an enforced check, and it names the terms removed and the terms that stay enforced.
+        section = ' '.join(accepted_risks(RECORD.read_text(encoding='utf-8')).split())
+        self.assertNotIn('no waiver removes a check that the node enforces', section)
+        for text in ('The R26 waiver skips only the predicates that read RpcGuard fields the node does not enforce.',
+                     'The R13 and R21 waivers remove terms the parameter gate enforces',
+                     "R13's continuous-kind term and R21's history-budget term",
+                     'The Specification and ExperimentalDevnet scopes still refuse a network profile on those terms.',
+                     "Every other term of R13 and R21 stays enforced: a finite schedule's checks, retained blocks >= min(K_hist, H_END) and the resource facts."):
+            self.assertIn(text, section)
+
+    def test_d6_states_the_owners_condition_of_passing_the_tests(self):
+        # The owner's words: «بعد اجتياز الاختبارات الفنية والأمنية المطلوبة», after PASSING the required tests.
+        text = RECORD.read_text(encoding='utf-8')
+        self.assertIn('بعد اجتياز الاختبارات الفنية والأمنية المطلوبة', text)
+        d6 = ' '.join(text.split('6. **D6:', 1)[1].split('\n7. ', 1)[0].split())
+        self.assertIn('The launch is a full public launch of PoCol Mainnet, after passing the required technical and security tests', d6)
+        self.assertIn('a test that cannot run is reported as not run, never as passed', d6)
+
+
 class ApprovalReferences(unittest.TestCase):
     def test_every_approval_reference_names_a_decision_of_an_existing_record(self):
         refs = approval_references()

@@ -402,6 +402,9 @@ mod tests {
     /// (`Invitation::describe`: not approved, admission-not-booted, environment mainnet); in the miner role with mining
     /// enabled it mines blocks of that chain, and its PCOL is not a test currency. This is not an Android device or
     /// emulator run: none exists for this release (the APK is built, unsigned, by five-device-build.yml).
+    /// The caps-test build admits only a simnet profile on a simnet node (validation.md:2065), so it cannot boot this
+    /// genesis; `a_caps_test_engine_refuses_the_public_network_genesis` checks that refusal in that build.
+    #[cfg(not(feature = "caps-test"))]
     #[test]
     fn the_android_engine_mines_a_public_network_genesis_natively_on_the_host() {
         let dir = std::env::temp_dir().join(format!("pocol-mobile-mine-{}", std::process::id()));
@@ -409,17 +412,7 @@ mod tests {
         std::fs::create_dir_all(&dir).unwrap();
         let home_path = dir.join("home");
         let address = Home::open(&home_path).unwrap().address().unwrap();
-        let mut profile: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/v3-profile.json")).unwrap();
-        let chain = profile["chainId"].as_u64().unwrap();
-        assert!(pocol_lp4_execution::profile::PUBLIC_NETWORK_CHAINS.contains(&chain), "the mainnet profile's own chain");
-        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
-        profile["genesisTime"] = serde_json::json!(now);
-        profile["hashRate"]["hashesPerSecond"] = serde_json::json!(16);
-        for (i, f) in profile["founders"].as_array_mut().unwrap().iter_mut().enumerate() {
-            let (id, reward) = if i == 0 { (address.clone(), address.clone()) } else { let t = crate::testnet::test_founder(i); (format!("{:#x}", t.id), format!("{:#x}", t.reward)) };
-            f["id"] = serde_json::json!(id);
-            f["reward"] = serde_json::json!(reward);
-        }
+        let (profile, chain) = filled_mainnet_profile(&address);
         crate::testnet::prepare(profile.to_string().as_bytes(), &dir.join("net")).unwrap();
         let invitation = dir.join("network.pocol.json");
         launcher::pack(&dir.join("net"), vec!["127.0.0.1:9".parse().unwrap()], vec![], false, &invitation).unwrap();
@@ -462,6 +455,40 @@ mod tests {
         let stopped = engine.join().unwrap();
         STOP.store(false, Ordering::Relaxed);
         assert_eq!(stopped, serde_json::json!({"state":"stopped"}));
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+    /// A ceremony-filled copy of deploy/mainnet/v3-profile.json on its own chain, for a test in a temp dir only: founder 1
+    /// is `address`, the other founders are the public test identities, and the launch second and the hash rate are
+    /// throwaway test values, so it is never a launch genesis. Returns the profile and its chain.
+    fn filled_mainnet_profile(address: &str) -> (serde_json::Value, u64) {
+        let mut profile: serde_json::Value = serde_json::from_str(include_str!("../../../deploy/mainnet/v3-profile.json")).unwrap();
+        let chain = profile["chainId"].as_u64().unwrap();
+        assert!(pocol_lp4_execution::profile::PUBLIC_NETWORK_CHAINS.contains(&chain), "the mainnet profile's own chain");
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+        profile["genesisTime"] = serde_json::json!(now);
+        profile["hashRate"]["hashesPerSecond"] = serde_json::json!(16);
+        for (i, f) in profile["founders"].as_array_mut().unwrap().iter_mut().enumerate() {
+            let (id, reward) = if i == 0 { (address.to_owned(), address.to_owned()) } else { let t = crate::testnet::test_founder(i); (format!("{:#x}", t.id), format!("{:#x}", t.reward)) };
+            f["id"] = serde_json::json!(id);
+            f["reward"] = serde_json::json!(reward);
+        }
+        (profile, chain)
+    }
+    /// The caps-test build (validation.md:2065) admits only a simnet profile on a simnet node, so the engine's
+    /// network preparation refuses the public network genesis that the normal build mines
+    /// (`the_android_engine_mines_a_public_network_genesis_natively_on_the_host`), with the caps-test rule, and writes
+    /// no network.
+    #[cfg(feature = "caps-test")]
+    #[test]
+    fn a_caps_test_engine_refuses_the_public_network_genesis() {
+        let dir = std::env::temp_dir().join(format!("pocol-mobile-caps-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        let address = Home::open(&dir.join("home")).unwrap().address().unwrap();
+        let (profile, _) = filled_mainnet_profile(&address);
+        let e = crate::testnet::prepare(profile.to_string().as_bytes(), &dir.join("net")).unwrap_err();
+        assert!(e.contains("ParamGate rejected [caps-test]") && e.contains("admits only a simnet profile on a simnet node"), "{e}");
+        assert!(!dir.join("net").exists(), "no network directory is written");
         std::fs::remove_dir_all(&dir).unwrap();
     }
     #[test]
