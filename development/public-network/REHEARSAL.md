@@ -232,7 +232,10 @@ Each identity gets `--fund-wei` (default `--attempts` x 500,000 gas x `--fee-cap
 two attempts and 3 gwei), plus its bond if bonded, in batched ordinary transfers (`--fund-batch`, 128), each signed at
 most at `--fee-cap-wei` like every other transaction. 10,000 identities with 20 bonded need about 30 + 400 PCOL, plus
 at most 0.63 PCOL of transfer fees (21,000 gas at the fee cap each); `fill --dry-run` prints the plan, its blocks at
-R_max and the operator total (fees included, checked before anything is sent), and sends nothing.
+R_max and the operator total (fees included), and sends nothing. Before anything is sent the operator's balance is
+checked against what the plan still sends (`operatorRemainingWei`): the operator total on a fresh run; on a resumed
+one, an identity the interrupted run already funded and that is not registered yet is not funded again (nor charged
+its transfer fee), and one funded only in part needs the rest.
 
 **Refusals.** Chain id 2656089850 (the mainnet) is refused unless `--allow-mainnet-chain` is given;
 `--expect-chain-id 1656550731` refuses any other chain. A harness directory belongs to the chain and genesis it was
@@ -326,15 +329,27 @@ included in one block on two distinct victims, which are EXITED; `register` alon
 after one harness member deregisters (one whose registry record is ACTIVE at the head, since another registrant's
 `registerReplacing` may have exited a harness member), `removeInactive` on an idle member reverts, its removal code at
 the block before being 2 (the set is not full); a fresh `register` takes the free seat; and, with
-`--reregister-after-u`, a victim registers again once its record is refunded at dueHeight (U = 380 blocks, about 1 h).
+`--reregister-after-u`, a victim registers again once its record is refunded at dueHeight (U = 380 blocks, about 1 h;
+it signs with the victim's own key, so it needs harness victims and is refused with `--victims any`).
 Reasons are inferred because pocold's receipts carry no revert data and the registry's user paths revert BadPhase under
 `eth_call`. The exit status is 0 when every check passes and 2 when one does not; only included transactions decide a
 check, and the result is then in `state.json` (`m3`) and `report.json`. It is 130 when it was stopped (what it sent
 stays recorded in flight, with no outcome, and the next run settles it), 3 when it was refused before it started (for
-example, the set is not full), and 1 when the path could not be completed (too few removable harness members within
-`--wait-blocks`, a refused or unsent call, a transaction not included within `--include-timeout` blocks, a deregister
-that reverts, so that no `removeInactive` is sent at a full set, an identity that could not be funded): the reason is on
-stderr, and no `m3` result is written.
+example, the set is not full at the start of a fresh drill, or `--reregister-after-u` with `--victims any`, or with a
+resumed drill whose first victim the earlier run chose under `--victims any`), and 1 when
+the path could not be completed (too few removable harness members within `--wait-blocks`, a refused or unsent call, a
+transaction not included within `--include-timeout` blocks, a deregister that reverts, so that no `removeInactive` is
+sent at a full set, an identity that could not be funded): the reason is on stderr, and no `m3` result is written. The
+same command resumes a drill that stopped or failed below the full set it leaves: from just before its deregister is
+sent until the free seat is taken again, the drill's progress and its earlier checks are kept in `state.json`
+(`m3Run`), and the next `m3` settles what was in flight and continues from the deregister, the `removeInactive` or the
+`register` into the free seat, without the full-set precondition and without sending again what was included (the
+result then lists `resumedAt`). If the deregister was never included, the next `m3` starts a fresh drill at the full
+set; if another registrant took the free seat before the `removeInactive` was sent, it sends none (it would remove a
+member at a full set), exits 1, and the next `m3` starts a fresh drill; likewise if the seat was taken before the
+`register` into the free seat was sent, it sends none (it would revert Capacity at a full set, which is not this check
+failing), exits 1 with no `m3` result, and the next `m3` starts a fresh drill. Once the free seat is taken again, a stop (for
+example while `--reregister-after-u` waits for U) starts a fresh drill on the next run.
 
 **R-off.** Once the home PC has been offline past Θ_inact at the full set, `replace --victim PC_MINER_ID --watch-refund`
 registers a fresh identity into its seat and records the PC's record at its dueHeight. A registerReplacing not included

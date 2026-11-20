@@ -1441,6 +1441,172 @@ class Loop(unittest.TestCase):
         self.no_m3_result(h)
         self.assertNotIn('deregister()', self.sent_kinds())
 
+    # ---- review round 5: a resumed fill's funding, a resumed M3 below a full set, the re-registration victim
+
+    def test_a_resumed_fill_needs_only_the_funding_still_to_send(self):
+        # The operator holds exactly the plan's total; the fill stops after funding identities and sending their first
+        # registrations, before any is included. The resumed plan does not charge the operator again for the identities
+        # already funded (nor their transfers).
+        self.cp['M_max'] = 64
+        dry = self.harness('fill', '--count', '8', '--fund-batch', '4', '--dry-run').run_fill()['plan']
+        self.node.accounts[self.op]['balance'] = dry['operatorTotalWei']
+        h = self.harness('fill', '--count', '8', '--fund-batch', '4')
+        real = self.node.mine
+
+        def interrupt(*a):
+            if any(t['to'] == REG for t in self.node.pool):
+                h.stopping = True
+                return
+            real()
+        h.sleep = interrupt
+        h.run_fill()
+        funded = [i for i in h.state['identities'] if i['fundedWei'] >= dry['fundWei']]
+        self.assertTrue(funded and all(i['outcome'] is None for i in h.state['identities']), 'funded, none registered')
+        self.assertLess(self.node.accounts[self.op]['balance'], dry['operatorTotalWei'])
+        report = self.harness('fill', '--count', '8', '--fund-batch', '4').run_fill()
+        self.assertEqual(report['registered'], 8)
+        self.assertLess(report['plan']['operatorRemainingWei'], report['plan']['operatorTotalWei'])
+        self.assertEqual(sum(1 for b in self.node.blocks.values() for t in b['txs'] if t['from'] == self.op), 8,
+                         'one transfer per identity')
+
+    def test_m3_stopped_below_a_full_set_resumes_with_the_same_command(self):
+        for stop_at in ('deregister()', 'removeInactive(address)'):
+            with self.subTest(stopped_after=stop_at):
+                self.setUp()
+                self.harness('fill', '--count', '11').run_fill()
+                h = self.harness('m3')
+                real = self.node.mine
+
+                def mine(*a, h=h, stop_at=stop_at):
+                    real()
+                    if any(SEL.get(t['data'][2:10]) == stop_at for t in self.node.blocks[self.node.height]['txs'] if t['to'] == REG):
+                        h.stopping = True   # SIGINT once it is included: the set is below M_max
+                h.sleep = mine
+                with self.assertRaises(rf.Stopped):
+                    h.run_m3()
+                h.save()
+                self.assertLess(len(self.node.reg['active']), self.cp['M_max'])
+                self.no_m3_result(h)
+                result = self.harness('m3').run_m3()
+                c = result['checks']
+                self.assertTrue(result['pass'], json.dumps(c, indent=1))
+                self.assertEqual(set(c), {'twoReplacingSameBlock', 'registerAloneCapacity', 'removeInactiveBelowFullSet',
+                                          'registerBelowFullSet'})
+                self.assertEqual(len(result['resumedAt']), 1)
+                kinds = self.sent_kinds()
+                self.assertEqual((kinds.count('deregister()'), kinds.count('removeInactive(address)'),
+                                  kinds.count('registerReplacing(address,address)')), (1, 1, 2), 'nothing sent twice')
+                self.assertEqual(len(self.node.reg['active']), self.cp['M_max'])
+                self.assertNotIn('m3Run', self.last.state)
+
+    def test_m3_resumed_after_the_free_seat_was_taken_sends_no_remove_inactive(self):
+        # Stopped after its deregister; another registrant takes the free seat meanwhile. A removeInactive now would
+        # remove a member at a full set: the resumed run sends none and writes no result, and the next m3 is a fresh drill.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+
+        def mine(*a):
+            real()
+            if any(SEL.get(t['data'][2:10]) == 'deregister()' for t in self.node.blocks[self.node.height]['txs'] if t['to'] == REG):
+                h.stopping = True
+        h.sleep = mine
+        with self.assertRaises(rf.Stopped):
+            h.run_m3()
+        h.save()
+        self.node.external = 1
+        self.node.mine()
+        self.assertEqual(len(self.node.reg['active']), self.cp['M_max'])
+        with self.assertRaisesRegex(RuntimeError, 'full again before removeInactive'):
+            self.harness('m3').run_m3()
+        self.assertNotIn('removeInactive(address)', self.sent_kinds())
+        self.no_m3_result(self.last)
+        self.assertNotIn('m3Run', self.last.state)
+        result = self.harness('m3').run_m3()
+        self.assertNotIn('resumedAt', result)
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+
+    def test_m3_resumed_after_the_free_seat_was_taken_sends_no_refill(self):
+        # Stopped after its removeInactive check, before the filler's register; another registrant takes the free seat
+        # meanwhile. A register now would revert Capacity at a full set, which says nothing about this rule: the resumed
+        # run sends none and writes no result (no false failure), and the next m3 is a fresh drill.
+        self.harness('fill', '--count', '11').run_fill()
+        h = self.harness('m3')
+        real = self.node.mine
+
+        def mine(*a):
+            real()
+            if (h.state.get('m3Run') or {}).get('phase') == 'refill':
+                h.stopping = True
+        h.sleep = mine
+        with self.assertRaises(rf.Stopped):
+            h.run_m3()
+        h.save()
+        self.assertEqual(h.state['m3Run']['phase'], 'refill')
+        self.node.external = 1
+        self.node.mine()
+        self.assertEqual(len(self.node.reg['active']), self.cp['M_max'])
+        before = self.sent_kinds()
+        with self.assertRaisesRegex(RuntimeError, 'full again before the register into the free seat'):
+            self.harness('m3').run_m3()
+        self.assertEqual(self.sent_kinds(), before, 'nothing sent')
+        self.no_m3_result(self.last)
+        self.assertNotIn('m3Run', self.last.state)
+        result = self.harness('m3').run_m3()
+        self.assertNotIn('resumedAt', result)
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+
+    def test_m3_resumed_reregistration_needs_a_harness_victim(self):
+        # A drill begun with --victims any whose first victim is another registrant's member, stopped after its
+        # deregister, is resumed with --reregister-after-u (default --victims harness): the saved victim cannot sign, so
+        # the run is refused before anything is sent and the drill stays resumable.
+        self.harness('fill', '--count', '10').run_fill()
+        other = '0x' + 'cd' * 20
+        self.node.reg['records'][other] = self.node.record(4, 0)
+        self.node.reg['active'].insert(1, other)
+        for _ in range(4):
+            self.node.mine()
+        h = self.harness('m3', '--victims', 'any')
+        real = self.node.mine
+
+        def mine(*a):
+            real()
+            if any(SEL.get(t['data'][2:10]) == 'deregister()' for t in self.node.blocks[self.node.height]['txs'] if t['to'] == REG):
+                h.stopping = True
+        h.sleep = mine
+        with self.assertRaises(rf.Stopped):
+            h.run_m3()
+        h.save()
+        self.assertEqual(h.state['m3Run']['victims'][0], other)
+        before = self.sent_kinds()
+        with self.assertRaisesRegex(rf.Refused, '--reregister-after-u'):
+            self.harness('m3', '--reregister-after-u').run_m3()
+        self.assertEqual(self.sent_kinds(), before, 'nothing sent')
+        self.no_m3_result(self.last)
+        self.assertIn('m3Run', self.last.state)
+        result = self.harness('m3').run_m3()
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+        self.assertEqual(len(result['resumedAt']), 1)
+        self.assertNotIn('victimReregistersAfterU', result['checks'])
+
+    def test_m3_reregistration_needs_a_harness_victim(self):
+        # With --victims any, the first removable member can be another registrant's, whose key the harness does not
+        # hold: the re-registration check is refused before anything is sent.
+        self.harness('fill', '--count', '10').run_fill()
+        other = '0x' + 'cd' * 20
+        self.node.reg['records'][other] = self.node.record(4, 0)
+        self.node.reg['active'].insert(1, other)
+        for _ in range(4):
+            self.node.mine()
+        self.assertEqual(self.node.call('pocol_getRemovable')['removable'][0], other)
+        before = self.sent_kinds()
+        with self.assertRaisesRegex(rf.Refused, '--reregister-after-u'):
+            self.harness('m3', '--victims', 'any', '--reregister-after-u').run_m3()
+        self.assertEqual(self.sent_kinds(), before, 'nothing sent')
+        result = self.harness('m3', '--victims', 'any').run_m3()
+        self.assertTrue(result['pass'], json.dumps(result['checks'], indent=1))
+        self.assertIn(other, result['checks']['twoReplacingSameBlock']['victims'])
+
     def test_stop_miners_survives_a_miner_that_exits_meanwhile(self):
         proc = subprocess.Popen([sys.executable, '-c', 'pass'])
         proc.wait()   # exited and reaped: its pid is gone

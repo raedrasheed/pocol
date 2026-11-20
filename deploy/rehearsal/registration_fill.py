@@ -1167,12 +1167,20 @@ class Harness:
         p['registeredBefore'] = len(existing)
         if len(existing) > a.count:
             p['countExceededBy'] = len(existing) - a.count
+        # What the operator still sends: an identity of an interrupted run that is not registered yet keeps what it was
+        # funded with (fund() tops it up to its need, and sends nothing to one already funded), and each new identity
+        # needs its whole funding, bond and transfer fee. On a fresh run this is the plan's total.
+        todo = [i for i in self.fill_identities() if i['outcome'] is None]
+        fund_need = lambda i: p['fundWei'] + i['bondWei']
+        fee = TRANSFER_GAS * a.fee_cap_wei
+        short = [max(0, fund_need(i) - i['fundedWei']) for i in todo]
+        p['operatorRemainingWei'] = sum(s + fee for s in short if s) + sum(
+            p['fundWei'] + (p['bondWei'] if r == 'bonded' else 0) + fee for r in roles(p['roles'])[len(todo):])
         self.say('plan ' + json.dumps(p, sort_keys=True))
         if a.dry_run:
             return {'plan': p}
-        if self.chain.balance(op_addr) < p['operatorTotalWei']:
-            raise Refused(f'the operator {op_addr} holds less than the plan\'s {p["operatorTotalWei"]} wei')
-        todo = [i for i in self.fill_identities() if i['outcome'] is None]
+        if self.chain.balance(op_addr) < p['operatorRemainingWei']:
+            raise Refused(f'the operator {op_addr} holds less than the {p["operatorRemainingWei"]} wei the plan still sends')
         for k, role in enumerate(roles(p['roles'])[len(todo):]):
             if self.stopping:
                 break   # a stop while the keys are made (each identity made so far is recorded, and resumed)
@@ -1182,7 +1190,6 @@ class Harness:
         self.save()
         self.state['runs'].append({'command': 'fill', 'startHeight': self.head, 'plan': p})
         self.sample()
-        fund_need = lambda i: p['fundWei'] + i['bondWei']
         fill_ids = self.fill_identities()
         while not self.stopping:
             self.poll()
@@ -1499,8 +1506,15 @@ class Harness:
         if not self.wait_included([tx], self.args.include_timeout):
             raise RuntimeError(f'the {what} was not included within --include-timeout blocks (it stays recorded in flight)')
 
+    def m3_attempt(self, ident, kind, since=0):
+        """m3: the latest attempt of `ident` of this kind, from its `since`-th on, that a block included, or None."""
+        return next((x for x in reversed(ident['attempts'][since:]) if x['kind'] == kind and 'block' in x), None)
+
     def run_m3(self):
         a = self.args
+        if a.reregister_after_u and a.victims == 'any':
+            # The victim that registers again signs with its own key: another registrant's member cannot.
+            raise Refused('--reregister-after-u needs a harness victim; it is not combined with --victims any')
         self.poll()
         self.resume()   # what a stopped m3 (or fill) left in flight is settled first
         # and waited for: a registerReplacing an earlier run left held would otherwise race this run's own on the same
@@ -1508,113 +1522,174 @@ class Harness:
         earlier = list(self.inflight)
         if earlier and not self.wait_included(earlier, 2 * a.include_timeout + 2):
             raise RuntimeError('an earlier transaction is still in flight (it stays recorded; run again later)')
-        L = self.chain.lengths()
-        if L['active'] < self.cp['M_max']:
-            raise Refused(f'M3 runs at a full set: active {L["active"]} < M_max {self.cp["M_max"]} (run fill first)')
+        ids = self.state['identities']
+        # A drill stopped below a full set (m3Run, saved before its deregister is sent) is resumed where it stopped, and
+        # only a fresh drill needs a full set. One whose deregister was never included left the set as it was: the drill
+        # starts afresh.
+        run = self.state.get('m3Run')
+        if run and run['phase'] == 'deregister' and self.m3_attempt(ids[run['leaver']], 'deregister', run['leaverSince']) is None:
+            del self.state['m3Run']
+            self.save()
+            run = None
+        if run is not None and a.reregister_after_u and run['victims'][0] not in {i['address'] for i in ids}:
+            # The resumed drill's victims were chosen by its earlier run (--victims any): the same refusal as above.
+            raise Refused(f'--reregister-after-u needs a harness victim; the resumed drill\'s first victim {run["victims"][0]} '
+                          'is another registrant\'s member (run m3 without it)')
+        if run is None:
+            L = self.chain.lengths()
+            if L['active'] < self.cp['M_max']:
+                raise Refused(f'M3 runs at a full set: active {L["active"]} < M_max {self.cp["M_max"]} (run fill first)')
         op_key, op_addr = self.operator()
         need = fund_wei_of(a)
         call_need = REGISTRY_CALL_GAS * a.fee_cap_wei
-        result = {'startHeight': self.head, 'checks': {}}
-        checks = result['checks']
-        # 1. Two registrants in one block, each with registerReplacing on a distinct removable victim.
-        newcomers = self.fresh_funded(op_key, op_addr, 3, need)
-        victims = self.wait_removable(2)
-        self.step(1)
-        # Both are signed first, then sent back to back right after a new head, so they enter the same block.
-        prepared = []
-        for ident, victim in zip(newcomers[:2], victims):
-            p, err = self.prepare(*self.replacing_args(ident, victim))
-            if p is None:
-                raise RuntimeError(f'registerReplacing could not be signed: {err}')
-            prepared.append(p)
-        sent = []
-        for tx, err in self.submit_all(prepared):
-            if tx is None:
-                self.save()
-                raise RuntimeError(f'registerReplacing was refused: {err}')
-            sent.append(tx)
-        self.save()
-        done = self.wait_included(sent, a.include_timeout)
-        at = [p['attempt'] for p in prepared]
-        blocks = {x.get('block') for x in at}
-        after = {v: self.chain.record(v, hex(x['block'])) if x.get('block') else None for v, x in zip(victims, at)}
-        # Outcomes from what the chain shows: a newcomer is registered and its harness victim replaced (settle) only
-        # when its attempt succeeded; failed only when it reverted or was given up; one still in flight keeps no outcome
-        # (a later run settles it).
-        for ident, x in zip(newcomers[:2], at):
-            if x.get('status') == 1:
-                ident['role'] = 'idle'
-            elif x.get('status') == 0:
-                ident['outcome'] = f'failed: {x.get("reason") or "not included"}'
-        self.save()
-        if not done:
-            raise RuntimeError('a registerReplacing was not included within --include-timeout blocks (it stays recorded in flight)')
-        checks['twoReplacingSameBlock'] = {
-            'pass': all(x.get('status') == 1 for x in at) and len(blocks) == 1 and None not in blocks and len(set(victims)) == 2
-                    and all(r and r['status'] == 'EXITED' for r in after.values()),
-            'block': at[0].get('block'), 'blocks': sorted(b for b in blocks if b is not None), 'victims': victims,
-            'statuses': [x.get('status') for x in at], 'victimRecords': after,
-            'reasons': [x.get('reason') for x in at if x.get('status') == 0]}
-        self.say('M3 two registerReplacing: ' + json.dumps(checks['twoReplacingSameBlock'], sort_keys=True))
-        # 2. register alone at the full set: Capacity.
-        plain = newcomers[2]
-        self.step(1)
-        L = self.chain.lengths()
-        tx, err = self.register(plain)
-        self.included('register at the full set', tx, err)
-        att = plain['attempts'][-1]
-        checks['registerAloneCapacity'] = {'pass': att.get('status') == 0 and (att.get('reason') or '').startswith('Capacity'),
-                                           'activeBefore': L['active'], 'block': att.get('block'), 'status': att.get('status'),
-                                           'reason': att.get('reason') or err}
-        if plain['outcome'] != 'registered':
-            plain['outcome'] = 'm3: register at a full set'
-        self.say('M3 register alone: ' + json.dumps(checks['registerAloneCapacity'], sort_keys=True))
-        # 3. Below a full set: one harness member deregisters, then removeInactive on an idle member reverts. The leaver
-        # is one whose record is ACTIVE at the head: state.json does not see another registrant's registerReplacing
-        # (the wallet's, at a full set) exiting a harness member.
-        idle = [i for i in self.state['identities'] if i['role'] == 'idle' and i['outcome'] == 'registered' and i['address'] not in victims]
-        leaver = next((i for i in idle if (self.chain.record(i['address']) or {}).get('status') == 'ACTIVE'), None)
-        if leaver is None or len(idle) < 2:
-            raise RuntimeError('M3 needs two more registered idle harness members')
-        target = self.wait_removable(1, exclude=set(victims) | {leaver['address']})[0]
-        remover = self.fresh_funded(op_key, op_addr, 1, call_need)[0]
-        self.ensure_funds(op_key, op_addr, [leaver], call_need)
-        tx, err = self.registry_tx(leaver, 'deregister', calldata('deregister()'), REGISTRY_CALL_GAS)
-        self.included('deregister', tx, err)
-        dereg = leaver['attempts'][-1]
-        if dereg.get('status') != 1:
-            # The set is still full: a removeInactive now would remove a member, which says nothing about this rule.
+        if run is None:
+            result = {'startHeight': self.head, 'checks': {}}
+            checks = result['checks']
+            # 1. Two registrants in one block, each with registerReplacing on a distinct removable victim.
+            newcomers = self.fresh_funded(op_key, op_addr, 3, need)
+            victims = self.wait_removable(2)
+            self.step(1)
+            # Both are signed first, then sent back to back right after a new head, so they enter the same block.
+            prepared = []
+            for ident, victim in zip(newcomers[:2], victims):
+                p, err = self.prepare(*self.replacing_args(ident, victim))
+                if p is None:
+                    raise RuntimeError(f'registerReplacing could not be signed: {err}')
+                prepared.append(p)
+            sent = []
+            for tx, err in self.submit_all(prepared):
+                if tx is None:
+                    self.save()
+                    raise RuntimeError(f'registerReplacing was refused: {err}')
+                sent.append(tx)
             self.save()
-            raise RuntimeError(f'the deregister of {leaver["address"]} reverted ({dereg.get("reason")}); removeInactive is not '
-                               'sent at a full set')
-        leaver['outcome'] = 'deregistered (m3)'
-        L = self.chain.lengths()
-        tx, err = self.registry_tx(remover, 'removeInactive', calldata('removeInactive(address)', target), REGISTRY_CALL_GAS, victim=target)
-        self.included('removeInactive', tx, err)
-        rm = remover['attempts'][-1]
-        code_before = self.chain.removal(target, hex(rm['block'] - 1)) if rm.get('block') else None
-        checks['removeInactiveBelowFullSet'] = {
-            'pass': dereg.get('status') == 1 and L['active'] < self.cp['M_max'] and rm.get('status') == 0 and code_before == 2,
-            'deregisterBlock': dereg.get('block'), 'activeAfterDeregister': L['active'], 'target': target,
-            'block': rm.get('block'), 'status': rm.get('status'), 'removalCodeBefore': code_before, 'reason': rm.get('reason') or err}
-        remover['outcome'] = 'm3: removeInactive below a full set'
-        if rm.get('status') == 1:
-            for ident in self.state['identities']:
-                if ident['address'] == target:
-                    ident['outcome'] = 'removed (m3)'
-        self.say('M3 removeInactive below a full set: ' + json.dumps(checks['removeInactiveBelowFullSet'], sort_keys=True))
+            done = self.wait_included(sent, a.include_timeout)
+            at = [p['attempt'] for p in prepared]
+            blocks = {x.get('block') for x in at}
+            after = {v: self.chain.record(v, hex(x['block'])) if x.get('block') else None for v, x in zip(victims, at)}
+            # Outcomes from what the chain shows: a newcomer is registered and its harness victim replaced (settle) only
+            # when its attempt succeeded; failed only when it reverted or was given up; one still in flight keeps no
+            # outcome (a later run settles it).
+            for ident, x in zip(newcomers[:2], at):
+                if x.get('status') == 1:
+                    ident['role'] = 'idle'
+                elif x.get('status') == 0:
+                    ident['outcome'] = f'failed: {x.get("reason") or "not included"}'
+            self.save()
+            if not done:
+                raise RuntimeError('a registerReplacing was not included within --include-timeout blocks (it stays recorded in flight)')
+            checks['twoReplacingSameBlock'] = {
+                'pass': all(x.get('status') == 1 for x in at) and len(blocks) == 1 and None not in blocks and len(set(victims)) == 2
+                        and all(r and r['status'] == 'EXITED' for r in after.values()),
+                'block': at[0].get('block'), 'blocks': sorted(b for b in blocks if b is not None), 'victims': victims,
+                'statuses': [x.get('status') for x in at], 'victimRecords': after,
+                'reasons': [x.get('reason') for x in at if x.get('status') == 0]}
+            self.say('M3 two registerReplacing: ' + json.dumps(checks['twoReplacingSameBlock'], sort_keys=True))
+            # 2. register alone at the full set: Capacity.
+            plain = newcomers[2]
+            self.step(1)
+            L = self.chain.lengths()
+            tx, err = self.register(plain)
+            self.included('register at the full set', tx, err)
+            att = plain['attempts'][-1]
+            checks['registerAloneCapacity'] = {'pass': att.get('status') == 0 and (att.get('reason') or '').startswith('Capacity'),
+                                               'activeBefore': L['active'], 'block': att.get('block'), 'status': att.get('status'),
+                                               'reason': att.get('reason') or err}
+            if plain['outcome'] != 'registered':
+                plain['outcome'] = 'm3: register at a full set'
+            self.say('M3 register alone: ' + json.dumps(checks['registerAloneCapacity'], sort_keys=True))
+            # 3. Below a full set: one harness member deregisters, then removeInactive on an idle member reverts. The
+            # leaver is one whose record is ACTIVE at the head: state.json does not see another registrant's
+            # registerReplacing (the wallet's, at a full set) exiting a harness member.
+            idle = [i for i in ids if i['role'] == 'idle' and i['outcome'] == 'registered' and i['address'] not in victims]
+            leaver = next((i for i in idle if (self.chain.record(i['address']) or {}).get('status') == 'ACTIVE'), None)
+            if leaver is None or len(idle) < 2:
+                raise RuntimeError('M3 needs two more registered idle harness members')
+            target = self.wait_removable(1, exclude=set(victims) | {leaver['address']})[0]
+            remover = self.fresh_funded(op_key, op_addr, 1, call_need)[0]
+            # Saved before the deregister is sent: a run stopped from here on resumes below the full set it leaves.
+            run = {'phase': 'deregister', 'result': result, 'victims': victims, 'leaver': leaver['i'],
+                   'leaverSince': len(leaver['attempts']), 'remover': remover['i'], 'target': target}
+            self.state['m3Run'] = run
+            self.save()
+            self.ensure_funds(op_key, op_addr, [leaver], call_need)
+            tx, err = self.registry_tx(leaver, 'deregister', calldata('deregister()'), REGISTRY_CALL_GAS)
+            self.included('deregister', tx, err)
+        else:
+            run['result'].setdefault('resumedAt', []).append(self.head)
+            self.say(f'M3 resumes its drill below a full set (phase {run["phase"]}, started at {run["result"]["startHeight"]})')
+        result, victims, target = run['result'], run['victims'], run['target']
+        checks = result['checks']
+        leaver, remover = ids[run['leaver']], ids[run['remover']]
+        if run['phase'] == 'deregister':
+            # (the last attempt when none was included: one given up)
+            dereg = self.m3_attempt(leaver, 'deregister', run['leaverSince']) or leaver['attempts'][-1]
+            if dereg.get('status') != 1:
+                # The set is still full: a removeInactive now would remove a member, which says nothing about this rule.
+                del self.state['m3Run']
+                self.save()
+                raise RuntimeError(f'the deregister of {leaver["address"]} reverted ({dereg.get("reason")}); removeInactive is not '
+                                   'sent at a full set')
+            leaver['outcome'] = 'deregistered (m3)'
+            run.update({'phase': 'belowFull', 'deregisterBlock': dereg['block'],
+                        'activeAfterDeregister': self.chain.lengths(hex(dereg['block']))['active']})
+            self.save()
+        if run['phase'] == 'belowFull':
+            rm = self.m3_attempt(remover, 'removeInactive')
+            if rm is None:
+                if run['activeAfterDeregister'] < self.cp['M_max'] <= self.chain.lengths()['active']:
+                    # Another registrant took the free seat while the drill was stopped: removeInactive would remove a
+                    # member at a full set, which says nothing about this rule.
+                    del self.state['m3Run']
+                    self.save()
+                    raise RuntimeError('the set is full again before removeInactive was sent; removeInactive is not sent at a '
+                                       'full set (the next m3 starts a fresh drill)')
+                tx, err = self.registry_tx(remover, 'removeInactive', calldata('removeInactive(address)', target), REGISTRY_CALL_GAS,
+                                           victim=target)
+                self.included('removeInactive', tx, err)
+                rm = remover['attempts'][-1]
+            code_before = self.chain.removal(target, hex(rm['block'] - 1)) if rm.get('block') else None
+            checks['removeInactiveBelowFullSet'] = {
+                'pass': run['activeAfterDeregister'] < self.cp['M_max'] and rm.get('status') == 0 and code_before == 2,
+                'deregisterBlock': run['deregisterBlock'], 'activeAfterDeregister': run['activeAfterDeregister'], 'target': target,
+                'block': rm.get('block'), 'status': rm.get('status'), 'removalCodeBefore': code_before, 'reason': rm.get('reason')}
+            remover['outcome'] = 'm3: removeInactive below a full set'
+            if rm.get('status') == 1:
+                for ident in ids:
+                    if ident['address'] == target:
+                        ident['outcome'] = 'removed (m3)'
+            self.say('M3 removeInactive below a full set: ' + json.dumps(checks['removeInactiveBelowFullSet'], sort_keys=True))
+            run['phase'] = 'refill'
+            self.save()
         # 4. The free seat takes a plain register again (the set is full once more).
-        filler = self.fresh_funded(op_key, op_addr, 1, need)[0]
-        filler['role'] = 'idle'
-        tx, err = self.register(filler)
-        self.included('register into the free seat', tx, err)
-        att = filler['attempts'][-1]
+        filler = ids[run['filler']] if run.get('filler') is not None else None
+        att = self.m3_attempt(filler, 'register') if filler is not None else None
+        if att is None and self.chain.lengths()['active'] >= self.cp['M_max']:
+            # Another registrant took the free seat (while the drill was stopped, or since the removeInactive): a register
+            # now would revert Capacity at a full set, which says nothing about this rule.
+            del self.state['m3Run']
+            self.save()
+            raise RuntimeError('the set is full again before the register into the free seat was sent; it is not sent at a '
+                               'full set (the next m3 starts a fresh drill)')
+        if filler is None:
+            filler = self.fresh_funded(op_key, op_addr, 1, need)[0]
+            filler['role'] = 'idle'
+            run['filler'] = filler['i']
+            self.save()
+        err = None
+        if att is None:
+            tx, err = self.register(filler)
+            self.included('register into the free seat', tx, err)
+            att = filler['attempts'][-1]
         checks['registerBelowFullSet'] = {'pass': att.get('status') == 1, 'block': att.get('block'), 'reason': att.get('reason') or err,
                                           'activeAfter': self.chain.lengths()['active']}
         self.say('M3 register into the free seat: ' + json.dumps(checks['registerBelowFullSet'], sort_keys=True))
+        # The set is full again: a run stopped from here on starts a fresh drill.
+        del self.state['m3Run']
+        self.save()
         # 5. Optional: a victim registers again after U (its record refunded and erased at dueHeight).
         if a.reregister_after_u:
-            checks['victimReregistersAfterU'] = self.reregister(newcomers, victims[0], op_key, op_addr, need)
+            checks['victimReregistersAfterU'] = self.reregister(victims[0], op_key, op_addr, need)
         result['endHeight'] = self.head
         result['pass'] = all(c['pass'] for c in checks.values())
         self.state['m3'] = result
@@ -1622,8 +1697,10 @@ class Harness:
         self.write_report({'m3': result})
         return result
 
-    def reregister(self, newcomers, victim, op_key, op_addr, need):
-        ident = next(i for i in self.state['identities'] if i['address'] == victim)
+    def reregister(self, victim, op_key, op_addr, need):
+        ident = next((i for i in self.state['identities'] if i['address'] == victim), None)
+        if ident is None:   # (run_m3 refuses this before it sends anything)
+            raise RuntimeError(f'the victim {victim} is not a harness identity: its key cannot register it again')
         rec = self.chain.record(victim)
         due = rec['dueHeight'] if rec else self.head
         self.say(f'M3 waiting for the victim {victim} refund at dueHeight {due} (U = {self.cp["U"]} blocks)')
@@ -1891,7 +1968,8 @@ def parser():
                    'up to 2 x R_max pipelines when inclusion takes two blocks, and a collision reverts with RegOpsLimit and is retried)')
     f.add_argument('--dry-run', action='store_true', help='print the plan and send nothing')
     m = common(sub.add_parser('m3', help='the M3 capacity path at a full set'))
-    m.add_argument('--reregister-after-u', action='store_true', help='also wait U blocks and register one victim again')
+    m.add_argument('--reregister-after-u', action='store_true', help='also wait U blocks and register one harness victim again '
+                   '(its own key signs; refused with --victims any)')
     r = common(sub.add_parser('replace', help='register a fresh identity into --victim\'s seat (R-off)'))
     r.add_argument('--victim', required=True)
     r.add_argument('--watch-refund', action='store_true', help='wait until the victim\'s dueHeight and record its record then')
